@@ -15,11 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from os.path import join as pjoin
 import os
+import inspect
 import posixpath
 
-from pyarrow.util import implements
+from os.path import join as pjoin
+from six.moves.urllib.parse import urlparse
+
+import pyarrow as pa
+from pyarrow.util import implements, _stringify_path
 
 
 class FileSystem(object):
@@ -68,6 +72,7 @@ class FileSystem(object):
         -------
         usage : int
         """
+        path = _stringify_path(path)
         path_info = self.stat(path)
         if path_info['kind'] == 'file':
             return path_info['size']
@@ -199,10 +204,12 @@ class LocalFileSystem(FileSystem):
 
     @implements(FileSystem.ls)
     def ls(self, path):
+        path = _stringify_path(path)
         return sorted(pjoin(path, x) for x in os.listdir(path))
 
     @implements(FileSystem.mkdir)
     def mkdir(self, path, create_parents=True):
+        path = _stringify_path(path)
         if create_parents:
             os.makedirs(path)
         else:
@@ -210,10 +217,12 @@ class LocalFileSystem(FileSystem):
 
     @implements(FileSystem.isdir)
     def isdir(self, path):
+        path = _stringify_path(path)
         return os.path.isdir(path)
 
     @implements(FileSystem.isfile)
     def isfile(self, path):
+        path = _stringify_path(path)
         return os.path.isfile(path)
 
     @implements(FileSystem._isfilestore)
@@ -222,6 +231,7 @@ class LocalFileSystem(FileSystem):
 
     @implements(FileSystem.exists)
     def exists(self, path):
+        path = _stringify_path(path)
         return os.path.exists(path)
 
     @implements(FileSystem.open)
@@ -229,17 +239,19 @@ class LocalFileSystem(FileSystem):
         """
         Open file for reading or writing
         """
+        path = _stringify_path(path)
         return open(path, mode=mode)
 
     @property
     def pathsep(self):
         return os.path.sep
 
-    def walk(self, top_dir):
+    def walk(self, path):
         """
         Directory tree generator, see os.walk
         """
-        return os.walk(top_dir)
+        path = _stringify_path(path)
+        return os.walk(path)
 
 
 class DaskFileSystem(FileSystem):
@@ -268,14 +280,17 @@ class DaskFileSystem(FileSystem):
 
     @implements(FileSystem.delete)
     def delete(self, path, recursive=False):
+        path = _stringify_path(path)
         return self.fs.rm(path, recursive=recursive)
 
     @implements(FileSystem.exists)
     def exists(self, path):
+        path = _stringify_path(path)
         return self.fs.exists(path)
 
     @implements(FileSystem.mkdir)
     def mkdir(self, path, create_parents=True):
+        path = _stringify_path(path)
         if create_parents:
             return self.fs.mkdirs(path)
         else:
@@ -286,22 +301,26 @@ class DaskFileSystem(FileSystem):
         """
         Open file for reading or writing
         """
+        path = _stringify_path(path)
         return self.fs.open(path, mode=mode)
 
     def ls(self, path, detail=False):
+        path = _stringify_path(path)
         return self.fs.ls(path, detail=detail)
 
-    def walk(self, top_path):
+    def walk(self, path):
         """
         Directory tree generator, like os.walk
         """
-        return self.fs.walk(top_path)
+        path = _stringify_path(path)
+        return self.fs.walk(path)
 
 
 class S3FSWrapper(DaskFileSystem):
 
     @implements(FileSystem.isdir)
     def isdir(self, path):
+        path = _stringify_path(path)
         try:
             contents = self.fs.ls(path)
             if len(contents) == 1 and contents[0] == path:
@@ -313,6 +332,7 @@ class S3FSWrapper(DaskFileSystem):
 
     @implements(FileSystem.isfile)
     def isfile(self, path):
+        path = _stringify_path(path)
         try:
             contents = self.fs.ls(path)
             return len(contents) == 1 and contents[0] == path
@@ -326,7 +346,7 @@ class S3FSWrapper(DaskFileSystem):
         Generator version of what is in s3fs, which yields a flattened list of
         files
         """
-        path = path.replace('s3://', '')
+        path = _stringify_path(path).replace('s3://', '')
         directories = set()
         files = set()
 
@@ -350,3 +370,46 @@ class S3FSWrapper(DaskFileSystem):
         for directory in directories:
             for tup in self.walk(directory, refresh=refresh):
                 yield tup
+
+
+def _ensure_filesystem(fs):
+    fs_type = type(fs)
+
+    # If the arrow filesystem was subclassed, assume it supports the full
+    # interface and return it
+    if not issubclass(fs_type, FileSystem):
+        for mro in inspect.getmro(fs_type):
+            if mro.__name__ is 'S3FileSystem':
+                return S3FSWrapper(fs)
+            # In case its a simple LocalFileSystem (e.g. dask) use native arrow
+            # FS
+            elif mro.__name__ is 'LocalFileSystem':
+                return LocalFileSystem.get_instance()
+
+        raise IOError('Unrecognized filesystem: {0}'.format(fs_type))
+    else:
+        return fs
+
+
+def _get_fs_from_path(path):
+    """
+    return filesystem from path which could be an HDFS URI
+    """
+    # input can be hdfs URI such as hdfs://host:port/myfile.parquet
+    path = _stringify_path(path)
+    # if _has_pathlib and isinstance(path, pathlib.Path):
+    #     path = str(path)
+    parsed_uri = urlparse(path)
+    if parsed_uri.scheme == 'hdfs':
+        netloc_split = parsed_uri.netloc.split(':')
+        host = netloc_split[0]
+        if host == '':
+            host = 'default'
+        port = 0
+        if len(netloc_split) == 2 and netloc_split[1].isnumeric():
+            port = int(netloc_split[1])
+        fs = pa.hdfs.connect(host=host, port=port)
+    else:
+        fs = LocalFileSystem.get_instance()
+
+    return fs

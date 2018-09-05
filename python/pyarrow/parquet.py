@@ -18,28 +18,21 @@
 from collections import defaultdict
 from concurrent import futures
 import os
-import inspect
 import json
 import re
-import six
-from six.moves.urllib.parse import urlparse
-# pathlib might not be available in Python 2
-try:
-    import pathlib
-    _has_pathlib = True
-except ImportError:
-    _has_pathlib = False
 
 import numpy as np
 
-from pyarrow.filesystem import FileSystem, LocalFileSystem, S3FSWrapper
+import pyarrow as pa
+import pyarrow._parquet as _parquet
+import pyarrow.lib as lib
 from pyarrow._parquet import (ParquetReader, RowGroupStatistics,  # noqa
                               FileMetaData, RowGroupMetaData,
                               ColumnChunkMetaData,
                               ParquetSchema, ColumnSchema)
-import pyarrow._parquet as _parquet
-import pyarrow.lib as lib
-import pyarrow as pa
+from pyarrow.filesystem import (LocalFileSystem, _ensure_filesystem,
+                                _get_fs_from_path)
+from pyarrow.util import _is_path_like, _stringify_path
 
 
 # ----------------------------------------------------------------------
@@ -52,7 +45,7 @@ class ParquetFile(object):
 
     Parameters
     ----------
-    source : str, pyarrow.NativeFile, or file-like object
+    source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
         Readable source. For passing bytes or buffer-like file containing a
         Parquet file, use pyarorw.BufferReader
     metadata : ParquetFileMetadata, default None
@@ -296,7 +289,7 @@ schema : arrow Schema
         # to be closed
         self.file_handle = None
 
-        if is_path(where):
+        if _is_path_like(where):
             fs = _get_fs_from_path(where)
             sink = self.file_handle = fs.open(where, 'wb')
         else:
@@ -362,7 +355,7 @@ class ParquetDatasetPiece(object):
 
     Parameters
     ----------
-    path : str
+    path : str or pathlib.Path
         Path to file in the file system where this piece is located
     partition_keys : list of tuples
       [(column name, ordinal index)]
@@ -371,7 +364,7 @@ class ParquetDatasetPiece(object):
     """
 
     def __init__(self, path, row_group=None, partition_keys=None):
-        self.path = path
+        self.path = _stringify_path(path)
         self.row_group = row_group
         self.partition_keys = partition_keys or []
 
@@ -634,11 +627,6 @@ class ParquetPartitions(object):
                              filter[1])
 
 
-def is_path(x):
-    return (isinstance(x, six.string_types)
-            or (_has_pathlib and isinstance(x, pathlib.Path)))
-
-
 class ParquetManifest(object):
     """
 
@@ -647,7 +635,7 @@ class ParquetManifest(object):
                  partition_scheme='hive', metadata_nthreads=1):
         self.filesystem = filesystem or _get_fs_from_path(dirpath)
         self.pathsep = pathsep
-        self.dirpath = dirpath
+        self.dirpath = _stringify_path(dirpath)
         self.partition_scheme = partition_scheme
         self.partitions = ParquetPartitions()
         self.pieces = []
@@ -957,25 +945,6 @@ class ParquetDataset(object):
         self.pieces = [p for p in self.pieces if all_filters_accept(p)]
 
 
-def _ensure_filesystem(fs):
-    fs_type = type(fs)
-
-    # If the arrow filesystem was subclassed, assume it supports the full
-    # interface and return it
-    if not issubclass(fs_type, FileSystem):
-        for mro in inspect.getmro(fs_type):
-            if mro.__name__ is 'S3FileSystem':
-                return S3FSWrapper(fs)
-            # In case its a simple LocalFileSystem (e.g. dask) use native arrow
-            # FS
-            elif mro.__name__ is 'LocalFileSystem':
-                return LocalFileSystem.get_instance()
-
-        raise IOError('Unrecognized filesystem: {0}'.format(fs_type))
-    else:
-        return fs
-
-
 def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1):
     partitions = None
     common_metadata_path = None
@@ -985,7 +954,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1):
         # Dask passes a directory as a list of length 1
         path_or_paths = path_or_paths[0]
 
-    if is_path(path_or_paths) and fs.isdir(path_or_paths):
+    if _is_path_like(path_or_paths) and fs.isdir(path_or_paths):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
                                    pathsep=fs.pathsep,
                                    metadata_nthreads=metadata_nthreads)
@@ -1040,7 +1009,7 @@ Returns
 
 def read_table(source, columns=None, nthreads=1, metadata=None,
                use_pandas_metadata=False):
-    if is_path(source):
+    if _is_path_like(source):
         fs = _get_fs_from_path(source)
         return fs.read_parquet(source, columns=columns, metadata=metadata,
                                use_pandas_metadata=use_pandas_metadata)
@@ -1092,9 +1061,9 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
-        if is_path(where):
+        if _is_path_like(where):
             try:
-                os.remove(where)
+                os.remove(_stringify_path(where))
             except os.error:
                 pass
         raise
@@ -1258,26 +1227,3 @@ def read_schema(where):
     schema : pyarrow.Schema
     """
     return ParquetFile(where).schema.to_arrow_schema()
-
-
-def _get_fs_from_path(path):
-    """
-    return filesystem from path which could be an HDFS URI
-    """
-    # input can be hdfs URI such as hdfs://host:port/myfile.parquet
-    if _has_pathlib and isinstance(path, pathlib.Path):
-        path = str(path)
-    parsed_uri = urlparse(path)
-    if parsed_uri.scheme == 'hdfs':
-        netloc_split = parsed_uri.netloc.split(':')
-        host = netloc_split[0]
-        if host == '':
-            host = 'default'
-        port = 0
-        if len(netloc_split) == 2 and netloc_split[1].isnumeric():
-            port = int(netloc_split[1])
-        fs = pa.hdfs.connect(host=host, port=port)
-    else:
-        fs = LocalFileSystem.get_instance()
-
-    return fs

@@ -15,7 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pytest import skip, mark
+import pytest
+
+try:
+    import pathlib
+except ImportError:
+    import pathlib2 as pathlib  # py2 compat
 
 
 groups = [
@@ -84,7 +89,7 @@ def pytest_addoption(parser):
 
 def pytest_collection_modifyitems(config, items):
     if not config.getoption('--runslow'):
-        skip_slow = mark.skip(reason='need --runslow option to run')
+        skip_slow = pytest.mark.skip(reason='need --runslow option to run')
 
         for item in items:
             if 'slow' in item.keywords:
@@ -104,7 +109,7 @@ def pytest_runtest_setup(item):
         elif getattr(item.obj, group, None):
             if (item.config.getoption(disable_flag) or
                     not item.config.getoption(flag)):
-                skip('{0} NOT enabled'.format(flag))
+                pytest.skip('{0} NOT enabled'.format(flag))
 
     if only_set:
         skip_item = True
@@ -115,4 +120,15 @@ def pytest_runtest_setup(item):
                 skip_item = False
 
         if skip_item:
-            skip('Only running some groups with only flags')
+            pytest.skip('Only running some groups with only flags')
+
+
+@pytest.fixture
+def tempdir(tmpdir):
+    # convert pytest's LocalPath to pathlib.Path
+    return pathlib.Path(tmpdir.strpath)
+
+
+@pytest.fixture(scope='session')
+def datadir():
+    return pathlib.Path(__file__).parent / 'data'
