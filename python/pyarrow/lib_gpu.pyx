@@ -21,68 +21,165 @@ from pyarrow.includes.libarrow_gpu cimport *
 from pyarrow.lib import py_buffer, allocate_buffer
 
 cdef class CudaDeviceManager:
+    """ CUDA device manager.
+    """
 
     def __cinit__(self):
         check_status(CCudaDeviceManager.GetInstance(&self.manager))
 
     @property
     def num_devices(self):
+        """ Return the number of GPU devices.
+        """
         return self.manager.num_devices()
 
     def get_context(self, gpu_number = 0):
+        """Get the shared CUDA driver context for a particular device.
+
+        Parameters
+        ----------
+        gpu_number : int
+          Specify the gpu device for which the CUDA driver context is
+          requested.
+
+        Returns
+        -------
+        ctx : CudaContext
+          CUDA driver context.
+
+        """
         cdef shared_ptr[CCudaContext] ctx
         check_status(self.manager.GetContext(gpu_number, &ctx))
         return pyarrow_wrap_cudacontext(ctx)
 
-    def create_new_context(self, gpu_number): # for generic code use get_context
+    def create_new_context(self, gpu_number):
+        """ Create a new context for a given device number.
+
+        Use get_context for general code.
+        """
         cdef shared_ptr[CCudaContext] ctx
         check_status(self.manager.CreateNewContext(gpu_number, &ctx))
         return pyarrow_wrap_cudacontext(ctx)
 
     def allocate_host(self, nbytes):
+        """ Allocate host memory.
+
+        Parameters
+        ----------
+        nbytes : int
+          Specify the number of bytes to be allocated.
+
+        Returns
+        -------
+        hbuf : CudaHostBuffer
+          Buffer of allocated host memory.
+        """
         cdef shared_ptr[CCudaHostBuffer] buf
         check_status(self.manager.AllocateHost(nbytes, &buf))
         return pyarrow_wrap_cudahostbuffer(buf)
     
-    def free_host(self, cudahostbuf): # TODO: get data and nbytes from cudahostbuf
-        # check_status(self.manager.FreeHost(data, nbytes))
-        pass
-    
-cdef class CudaContext:
+    def free_host(self, hbuf):
+        """ Free host memory allocated via allocate_host.
+        
+        Parameters
+        ----------
+        hbuf : CudaHostBuffer
+          Specify host buffer to be deallocated.
+        """
+        check_status(self.manager.FreeHost(hbuf_.get().mutable_data(), hbuf.size))
 
+        
+cdef class CudaContext:
+    """ CUDA driver context
+    """
+    
     cdef void init(self, const shared_ptr[CCudaContext]& ctx):
         self.context = ctx
 
     def close(self):
+        """ Close context.
+        """
         check_status(self.context.get().Close())
+    
+    @property
+    def bytes_allocated(self):
+        """ Return the number of allocated bytes.
+        """
+        return self.context.get().bytes_allocated()
 
     def allocate(self, nbytes):
+        """ Allocate CUDA memory on GPU device for this context.
+        
+        Parameters
+        ----------
+        nbytes : int
+          Specify the number of bytes to be allocated.
+
+        Returns
+        -------
+        buf : CudaBuffer
+          Allocated buffer.
+        """
         cdef shared_ptr[CCudaBuffer] cudabuf
         check_status(self.context.get().Allocate(nbytes, &cudabuf))
         return pyarrow_wrap_cudabuffer(cudabuf)
 
     def open_ipc_buffer(self, ipc_handle):
+        """ Open existing CUDA IPC memory handle
+
+        Parameters
+        ----------
+        ipc_handle : CudaIpcMemHandle
+          Specify opaque pointer to CUipcMemHandle (driver API).
+
+        Returns
+        -------
+        buf : CudaBuffer
+          referencing device buffer
+        """
         handle = pyarrow_unwrap_cudaipcmemhandle(ipc_handle)
         cdef shared_ptr[CCudaBuffer] cudabuf
         check_status(self.context.get().OpenIpcBuffer(handle.get()[0], &cudabuf))
         return pyarrow_wrap_cudabuffer(cudabuf)
     
-    @property
-    def bytes_allocated(self):
-        return self.context.get().bytes_allocated() 
 
 cdef class CudaIpcMemHandle:
-
+    """A container for a CUDA IPC handle.
+    """
     cdef void init(self, const shared_ptr[CCudaIpcMemHandle]& h):
         self.handle = h
 
     @staticmethod
     def from_buffer(opaque_handle):
+        """Create CudaIpcMemHandle from opaque buffer (e.g. from another
+        process)
+
+        Parameters
+        ----------
+        opaque_handle : 
+          a CUipcMemHandle as a const void*
+
+        Results
+        -------
+        ipc_handle : CudaIpcMemHandle
+        """
         cdef shared_ptr[CCudaIpcMemHandle] handle
         #check_status(CCudaIpcMemHandle.FromBuffer(opaque_handle, &handle)) # TODO: const void* opaque_handle
         return pyarrow_wrap_cudaipcmemhandle(handle)
 
     def serialize(self, pool = None):
+        """Write CudaIpcMemHandle to a Buffer
+
+        Parameters
+        ----------
+        pool : {MemoryPool, None}
+          Specify a pool to allocate memory from
+
+        Returns
+        -------
+        buf : Buffer
+          The serialized buffer.
+        """
         pool_ = maybe_unbox_memory_pool(pool)
         cdef shared_ptr[CBuffer] buf
         check_status(self.handle.get().Serialize(pool_, &buf))
@@ -112,7 +209,8 @@ def as_cudabuffer(object obj):
 
 
 cdef class CudaBuffer(Buffer):
-
+    """ An Arrow buffer located on a GPU device
+    """
     cdef void init_cuda(self, const shared_ptr[CCudaBuffer]& buffer):
         self.cuda_buffer = buffer
         self.init(<shared_ptr[CBuffer]> buffer)
@@ -121,7 +219,19 @@ cdef class CudaBuffer(Buffer):
     #TODO: CCudaBuffer(const shared_ptr[CCudaBuffer]& parent, const int64_t offset, const int64_t size)
         
     @staticmethod
-    def from_buffer(buffer):
+    def from_buffer(buf):
+        """ Convert back generic buffer into CudaBuffer
+
+        Parameters
+        ----------
+        buf : Buffer
+          Specify buffer containing CudaBuffer
+
+        Returns
+        -------
+        dbuf : CudaBuffer
+          Resulting device buffer.
+        """
         buf = pyarrow_unwrap_buffer(buffer)
         cdef shared_ptr[CCudaBuffer] cbuf
         check_status(CCudaBuffer.FromBuffer(buf, &cbuf))
@@ -225,21 +335,41 @@ cdef class CudaBuffer(Buffer):
         return nbytes_
         
     def export_for_ipc(self):
+        """Expose this device buffer as IPC memory which can be used in other processes.
+
+        After calling this function, this device memory will not be
+        freed when the CudaBuffer is destructed.
+
+        Results
+        -------
+        ipc_handle : CudaIpcMemHandle
+          The exported IPC handle
+        """
         cdef shared_ptr[CCudaIpcMemHandle] handle
         check_status(self.cuda_buffer.get().ExportForIpc(&handle))
         return pyarrow_wrap_cudaipcmemhandle(handle)
     
     @property
     def context(self):
+        """Returns the CUDA driver context of this buffer.
+        """
         return pyarrow_wrap_cudacontext(self.cuda_buffer.get().context())
 
 cdef class CudaHostBuffer(Buffer):
+    """Device-accessible CPU memory created using cudaHostAlloc.
+    """
 
     cdef void init_host(self, const shared_ptr[CCudaHostBuffer]& buffer):
         self.init(<shared_ptr[CBuffer]> buffer)
     
 cdef class CudaBufferReader(NativeFile):
+    """File interface for zero-copy read from CUDA buffers.
 
+    Note: Read methods return pointers to device memory. This means
+    you must be careful using this interface with any Arrow code which
+    may expect to be able to do anything other than pointer arithmetic
+    on the returned buffers.
+    """
     def __cinit__(self, object obj):
         if isinstance(obj, CudaBuffer):
             self.buffer = obj
@@ -255,7 +385,8 @@ cdef class CudaBufferReader(NativeFile):
 
         
 cdef class CudaBufferWriter(NativeFile):
-
+    """File interface for writing to CUDA buffers, with optional buffering
+    """
     def __cinit__(self, CudaBuffer buffer):
         self.writer = new CCudaBufferWriter(buffer.cuda_buffer)
         self.wr_file.reset(self.writer)
@@ -270,24 +401,62 @@ cdef class CudaBufferWriter(NativeFile):
     #TODO: CStatus Tell(int64_t* position) const
 
     def set_buffer_size(self, buffer_size):
+        """Set CPU buffer size to limit calls to cudaMemcpy
+
+        Parameters
+        ----------
+        buffer_size : int
+          Specify the size of CPU buffer to allocate in bytes.
+        """
+        
         check_status(self.writer.SetBufferSize(buffer_size))
     
     @property
     def buffer_size(self):
+        """Returns size of host (CPU) buffer, 0 for unbuffered
+        """
         return self.writer.buffer_size() 
 
     @property
     def num_bytes_buffered(self):
+        """Returns number of bytes buffered on host
+        """
         return self.writer.num_bytes_buffered() 
 
 # Functions
 
 def allocate_cuda_host_buffer(const int64_t size):
+    """Allocate CUDA-accessible memory on CPU host
+
+    Parameters
+    ----------
+    size : int
+      Specify the number of bytes
+
+    Returns
+    -------
+    dbuf : CudaHostBuffer
+      the allocated device buffer
+    """
     cdef shared_ptr[CCudaHostBuffer] buffer
     check_status(AllocateCudaHostBuffer(size, &buffer))
     return pyarrow_wrap_cudahostbuffer(buffer)
 
 def cuda_serialize_record_batch(object batch, object ctx):
+    """ Write record batch message to GPU device memory
+
+    Parameters
+    ----------
+    batch : RecordBatch
+      Specify record batch to write
+    ctx : CudaContext
+      Specify context to allocate device memory from
+
+    Returns
+    -------
+    dbuf : CudaBuffer
+      device buffer which contains the record batch message
+    """
     cdef shared_ptr[CCudaBuffer] buffer
     cdef CRecordBatch* batch_ = pyarrow_unwrap_batch(batch).get()
     cdef CCudaContext* ctx_ = pyarrow_unwrap_cudacontext(ctx).get()
@@ -295,14 +464,45 @@ def cuda_serialize_record_batch(object batch, object ctx):
     return pyarrow_wrap_cudabuffer(buffer)
 
 def cuda_read_message(object source, pool = None):
+    """ Read Arrow IPC message located on GPU device
+
+    Parameters
+    ----------
+    source : {CudaBuffer, CudaBufferReader}
+      Specify device buffer or reader of device buffer.
+    pool : {MemoryPool, None}
+      Specify pool to allocate CPU memory for the metadata
+
+    Returns
+    -------
+    message : Message
+      the deserialized message, body still on device
+    """
     cdef:
         Message result = Message.__new__(Message)
     pool_ = maybe_unbox_memory_pool(pool)
-    reader = CudaBufferReader(source)
+    if not isinstance(source, CudaBufferReader):
+        reader = CudaBufferReader(source)
     check_status(CudaReadMessage(reader.reader, pool_, &result.message))
     return result
 
 def cuda_read_record_batch(object schema, object buffer, pool = None):
+    """ Handles metadata on CUDA device
+
+    Parameters
+    ----------
+    schema : Schema
+      Specify schema for the record batch
+    buffer : 
+      Specify device buffer containing the complete IPC message
+    pool : {MemoryPool, None}
+      Specify pool to use for allocating space for the metadata
+
+    Returns
+    -------
+    batch : RecordBatch
+      reconstructed record batch, with device pointers
+    """
     cdef shared_ptr[CSchema] schema_ = pyarrow_unwrap_schema(schema)
     cdef shared_ptr[CCudaBuffer] buffer_ = pyarrow_unwrap_cudabuffer(buffer)
     pool_ = maybe_unbox_memory_pool(pool)

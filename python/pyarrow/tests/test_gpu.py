@@ -145,7 +145,6 @@ def test_copy_to_host():
 @gpu_support
 def test_copy_from_host():
     size = 1024
-    size = 8
     arr, buf = make_random_buffer(size=size, target='host')
     lst = arr.tolist()
     dbuf = context.allocate(size)
