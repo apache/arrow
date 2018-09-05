@@ -121,7 +121,7 @@ public class TestBitVector {
             int actual = toVector.get(i);
             int expected = sourceVector.get(start + i);
             assertEquals("different data values not expected --> sourceVector index: " + (start + i) +
-              " toVector index: " + i, expected, actual);
+                " toVector index: " + i, expected, actual);
           }
         }
       }
@@ -164,7 +164,7 @@ public class TestBitVector {
             int actual = toVector.get(i);
             int expected = sourceVector.get(start + i);
             assertEquals("different data values not expected --> sourceVector index: " + (start + i) +
-              " toVector index: " + i, expected, actual);
+                " toVector index: " + i, expected, actual);
           }
         }
       }
@@ -215,7 +215,7 @@ public class TestBitVector {
             int actual = toVector.get(i);
             int expected = sourceVector.get(start + i);
             assertEquals("different data values not expected --> sourceVector index: " + (start + i) +
-              " toVector index: " + i, expected, actual);
+                " toVector index: " + i, expected, actual);
           }
         }
       }

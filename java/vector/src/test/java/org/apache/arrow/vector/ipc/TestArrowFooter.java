@@ -45,7 +45,7 @@ public class TestArrowFooter {
         new Field("a", FieldType.nullable(new ArrowType.Int(8, true)), Collections.<Field>emptyList())
     ));
     ArrowFooter footer =
-      new ArrowFooter(schema, Collections.<ArrowBlock>emptyList(), Collections.<ArrowBlock>emptyList());
+        new ArrowFooter(schema, Collections.<ArrowBlock>emptyList(), Collections.<ArrowBlock>emptyList());
     ArrowFooter newFooter = roundTrip(footer);
     assertEquals(footer, newFooter);
 

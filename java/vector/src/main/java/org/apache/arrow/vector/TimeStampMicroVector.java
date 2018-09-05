@@ -111,7 +111,7 @@ public class TimeStampMicroVector extends TimeStampVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-         /* value is truncated when converting microseconds to milliseconds in order to use DateTime type */
+      /* value is truncated when converting microseconds to milliseconds in order to use DateTime type */
       final long micros = valueBuffer.getLong(index * TYPE_WIDTH);
       final long millis = java.util.concurrent.TimeUnit.MICROSECONDS.toMillis(micros);
       final org.joda.time.LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis,

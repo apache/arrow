@@ -125,7 +125,7 @@ public class TestVectorReset {
       // NonNullableStructVector
       nonNullableStructVector.allocateNewSafe();
       IntVector structChild = nonNullableStructVector
-        .addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
+          .addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
       structChild.setNull(0);
       nonNullableStructVector.setValueCount(1);
       resetVectorAndVerify(nonNullableStructVector, nonNullableStructVector.getBuffers(false));

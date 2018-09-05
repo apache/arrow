@@ -143,8 +143,7 @@ public class BitVector extends BaseFixedWidthVector {
    * @param length     length of the split.
    * @param target     destination vector
    */
-  public void splitAndTransferTo(int startIndex, int length,
-                                 BaseFixedWidthVector target) {
+  public void splitAndTransferTo(int startIndex, int length, BaseFixedWidthVector target) {
     compareTypes(target, "splitAndTransferTo");
     target.clear();
     target.validityBuffer = splitAndTransferBuffer(startIndex, length, target,
@@ -155,9 +154,12 @@ public class BitVector extends BaseFixedWidthVector {
     target.setValueCount(length);
   }
 
-  private ArrowBuf splitAndTransferBuffer(int startIndex, int length,
-                                          BaseFixedWidthVector target,
-                                          ArrowBuf sourceBuffer, ArrowBuf destBuffer) {
+  private ArrowBuf splitAndTransferBuffer(
+      int startIndex,
+      int length,
+      BaseFixedWidthVector target,
+      ArrowBuf sourceBuffer,
+      ArrowBuf destBuffer) {
     assert startIndex + length <= valueCount;
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
@@ -166,19 +168,19 @@ public class BitVector extends BaseFixedWidthVector {
 
     if (length > 0) {
       if (offset == 0) {
-            /* slice */
+        /* slice */
         if (destBuffer != null) {
           destBuffer.release();
         }
         destBuffer = sourceBuffer.slice(firstByteSource, byteSizeTarget);
         destBuffer.retain(1);
       } else {
-            /* Copy data
-             * When the first bit starts from the middle of a byte (offset != 0),
-             * copy data from src BitVector.
-             * Each byte in the target is composed by a part in i-th byte,
-             * another part in (i+1)-th byte.
-             */
+        /* Copy data
+         * When the first bit starts from the middle of a byte (offset != 0),
+         * copy data from src BitVector.
+         * Each byte in the target is composed by a part in i-th byte,
+         * another part in (i+1)-th byte.
+         */
         destBuffer = allocator.buffer(byteSizeTarget);
         destBuffer.readerIndex(0);
         destBuffer.setZero(0, destBuffer.capacity());
@@ -190,15 +192,15 @@ public class BitVector extends BaseFixedWidthVector {
           destBuffer.setByte(i, (b1 + b2));
         }
 
-            /* Copying the last piece is done in the following manner:
-             * if the source vector has 1 or more bytes remaining, we copy
-             * the last piece as a byte formed by shifting data
-             * from the current byte and the next byte.
-             *
-             * if the source vector has no more bytes remaining
-             * (we are at the last byte), we copy the last piece as a byte
-             * by shifting data from the current byte.
-             */
+        /* Copying the last piece is done in the following manner:
+         * if the source vector has 1 or more bytes remaining, we copy
+         * the last piece as a byte formed by shifting data
+         * from the current byte and the next byte.
+         *
+         * if the source vector has no more bytes remaining
+         * (we are at the last byte), we copy the last piece as a byte
+         * by shifting data from the current byte.
+         */
         if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
           byte b1 = BitVectorHelper.getBitsFromCurrentByte(sourceBuffer,
                   firstByteSource + byteSizeTarget - 1, offset);
@@ -408,9 +410,8 @@ public class BitVector extends BaseFixedWidthVector {
    */
   public void setNull(int index) {
     handleSafe(index);
-      /* not really needed to set the bit to 0 as long as
-       * the buffer always starts from 0.
-       */
+    // not really needed to set the bit to 0 as long as
+    // the buffer always starts from 0.
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 

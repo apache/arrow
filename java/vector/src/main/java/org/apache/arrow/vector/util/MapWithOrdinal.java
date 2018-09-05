@@ -136,22 +136,22 @@ public class MapWithOrdinal<K, V> implements Map<K, V> {
     public Collection<V> values() {
       return Lists.newArrayList(Iterables.transform(secondary.entries(),
         new Function<IntObjectMap.PrimitiveEntry<V>, V>() {
-        @Override
-        public V apply(IntObjectMap.PrimitiveEntry<V> entry) {
-          return Preconditions.checkNotNull(entry).value();
-        }
-      }));
+          @Override
+          public V apply(IntObjectMap.PrimitiveEntry<V> entry) {
+            return Preconditions.checkNotNull(entry).value();
+          }
+        }));
     }
 
     @Override
     public Set<Entry<K, V>> entrySet() {
       return Sets.newHashSet(Iterables.transform(primary.entrySet(),
         new Function<Entry<K, Entry<Integer, V>>, Entry<K, V>>() {
-        @Override
-        public Entry<K, V> apply(Entry<K, Entry<Integer, V>> entry) {
-          return new AbstractMap.SimpleImmutableEntry<>(entry.getKey(), entry.getValue().getValue());
-        }
-      }));
+          @Override
+          public Entry<K, V> apply(Entry<K, Entry<Integer, V>> entry) {
+            return new AbstractMap.SimpleImmutableEntry<>(entry.getKey(), entry.getValue().getValue());
+          }
+        }));
     }
   };
 

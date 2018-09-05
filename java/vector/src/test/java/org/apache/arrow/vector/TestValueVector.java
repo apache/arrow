@@ -565,7 +565,7 @@ public class TestValueVector {
       /* reset the vector */
       vector.reset();
 
-       /* capacity shouldn't change after reset */
+      /* capacity shouldn't change after reset */
       assertEquals(initialCapacity * 2, vector.getValueCapacity());
 
       /* vector data should be zeroed out */
@@ -816,7 +816,7 @@ public class TestValueVector {
       vector.zeroVector();
 
       for (int i = 0; i < vector.getValueCapacity(); i+=2) {
-          vector.set(i, baseValue + i);
+        vector.set(i, baseValue + i);
       }
 
       for (int i = 0; i < vector.getValueCapacity(); i++) {
@@ -846,7 +846,7 @@ public class TestValueVector {
       /* reset the vector */
       vector.reset();
 
-       /* capacity shouldn't change after reset */
+      /* capacity shouldn't change after reset */
       assertEquals(valueCapacity * 4, vector.getValueCapacity());
 
       /* vector data should be zeroed out */

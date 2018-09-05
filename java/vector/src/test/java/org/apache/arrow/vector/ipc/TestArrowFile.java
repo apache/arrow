@@ -376,7 +376,7 @@ public class TestArrowFile extends BaseFileTest {
     List<Field> childFields = new ArrayList<Field>();
     childFields.add(new Field("varchar-child", new FieldType(true, ArrowType.Utf8.INSTANCE, null, metadata(1)), null));
     childFields.add(new Field("float-child",
-      new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), null, metadata(2)), null));
+        new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), null, metadata(2)), null));
     childFields.add(new Field("int-child", new FieldType(false, new ArrowType.Int(32, true), null, metadata(3)), null));
     childFields.add(new Field("list-child", new FieldType(true, ArrowType.List.INSTANCE, null, metadata(4)),
         ImmutableList.of(new Field("l1", FieldType.nullable(new ArrowType.Int(16, true)), null))));
@@ -580,7 +580,7 @@ public class TestArrowFile extends BaseFileTest {
            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       FixedSizeBinaryVector fixedSizeBinaryVector = parent.addOrGet("fixed-binary",
-        FieldType.nullable(new FixedSizeBinary(typeWidth)), FixedSizeBinaryVector.class);
+          FieldType.nullable(new FixedSizeBinary(typeWidth)), FixedSizeBinaryVector.class);
       parent.allocateNew();
       for (int i=0; i<numValues; i++) {
         fixedSizeBinaryVector.set(i, byteValues[i]);
@@ -632,9 +632,9 @@ public class TestArrowFile extends BaseFileTest {
            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       FixedSizeListVector tuples = parent.addOrGet("float-pairs",
-        FieldType.nullable(new FixedSizeList(2)), FixedSizeListVector.class);
+          FieldType.nullable(new FixedSizeList(2)), FixedSizeListVector.class);
       Float4Vector floats = (Float4Vector) tuples.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType()))
-        .getVector();
+          .getVector();
       IntVector ints = parent.addOrGet("ints", FieldType.nullable(new Int(32, true)), IntVector.class);
       parent.allocateNew();
 

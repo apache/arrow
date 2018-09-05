@@ -296,7 +296,7 @@ public class BaseFileTest {
     vector2.close();  // Done with this vector after encoding
 
     List<Field> fields = ImmutableList.of(encodedVector1A.getField(), encodedVector1B.getField(),
-      encodedVector2.getField());
+        encodedVector2.getField());
     List<FieldVector> vectors = ImmutableList.of(encodedVector1A, encodedVector1B, encodedVector2);
 
     return new VectorSchemaRoot(fields, vectors, encodedVector1A.getValueCount());
@@ -448,7 +448,7 @@ public class BaseFileTest {
     decimalVector3.setValueCount(count);
 
     List<Field> fields = ImmutableList.of(decimalVector1.getField(), decimalVector2.getField(),
-      decimalVector3.getField());
+        decimalVector3.getField());
     List<FieldVector> vectors = ImmutableList.<FieldVector>of(decimalVector1, decimalVector2, decimalVector3);
     return new VectorSchemaRoot(fields, vectors, count);
   }

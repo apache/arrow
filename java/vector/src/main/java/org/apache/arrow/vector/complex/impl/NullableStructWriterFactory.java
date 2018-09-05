@@ -23,9 +23,9 @@ import org.apache.arrow.vector.complex.StructVector;
 public class NullableStructWriterFactory {
   private final boolean caseSensitive;
   private static final NullableStructWriterFactory nullableStructWriterFactory =
-    new NullableStructWriterFactory(false);
+      new NullableStructWriterFactory(false);
   private static final NullableStructWriterFactory nullableCaseSensitiveWriterFactory =
-    new NullableStructWriterFactory(true);
+      new NullableStructWriterFactory(true);
 
   public NullableStructWriterFactory(boolean caseSensitive) {
     this.caseSensitive = caseSensitive;
