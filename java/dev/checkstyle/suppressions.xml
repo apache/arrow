@@ -34,6 +34,6 @@
 
   <!-- TODO: Temporarily suppress all but certain checks to fix in increments -->
   <suppress
-    checks="^(?!.*(ImportOrder|LineLength)).*"
+    checks="^(?!.*(ImportOrder|LineLength|Indentation)).*"
     files=".*" />
 </suppressions>

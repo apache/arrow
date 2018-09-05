@@ -107,8 +107,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   }
 
-  private static String createErrorMsg(final BufferAllocator allocator, final int rounded, final
-  int requested) {
+  private static String createErrorMsg(final BufferAllocator allocator, final int rounded, final int requested) {
     if (rounded != requested) {
       return String.format(
         "Unable to allocate buffer of size %d (rounded from %d) due to memory limit. Current " +

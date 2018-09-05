@@ -34,7 +34,7 @@ public class TestBaseAllocator {
 
   private final static int MAX_ALLOCATION = 8 * 1024;
 
-/*
+  /*
   // ---------------------------------------- DEBUG -----------------------------------
 
   @After
@@ -48,13 +48,13 @@ public class TestBaseAllocator {
     assertEquals(0, bufferCount);
   }
 
-//  @AfterClass
-//  public static void dumpBuffers() {
-//    UnsafeDirectLittleEndian.logBuffers(logger);
-//  }
+  //  @AfterClass
+  //  public static void dumpBuffers() {
+  //    UnsafeDirectLittleEndian.logBuffers(logger);
+  //  }
 
   // ---------------------------------------- DEBUG ------------------------------------
-*/
+  */
 
 
   @Test
@@ -88,13 +88,13 @@ public class TestBaseAllocator {
        * We expect there to be one unreleased underlying buffer because we're closing
        * without releasing it.
        */
-/*
+      /*
       // ------------------------------- DEBUG ---------------------------------
       final int bufferCount = UnsafeDirectLittleEndian.getBufferCount();
       UnsafeDirectLittleEndian.releaseBuffers();
       assertEquals(1, bufferCount);
       // ------------------------------- DEBUG ---------------------------------
-*/
+      */
     }
   }
 
@@ -149,9 +149,9 @@ public class TestBaseAllocator {
   public void testAllocator_shareOwnership() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("shareOwnership1", 0,
-        MAX_ALLOCATION);
+          MAX_ALLOCATION);
       final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("shareOwnership2", 0,
-        MAX_ALLOCATION);
+          MAX_ALLOCATION);
       final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 4);
       rootAllocator.verify();
 
@@ -170,7 +170,7 @@ public class TestBaseAllocator {
       rootAllocator.verify();
 
       final BufferAllocator childAllocator3 = rootAllocator.newChildAllocator("shareOwnership3", 0,
-        MAX_ALLOCATION);
+          MAX_ALLOCATION);
       final ArrowBuf arrowBuf3 = arrowBuf1.retain(childAllocator3);
       assertNotNull(arrowBuf3);
       assertNotEquals(arrowBuf3, arrowBuf1);
@@ -206,7 +206,7 @@ public class TestBaseAllocator {
     try {
       try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
         final BufferAllocator childAllocator = rootAllocator.newChildAllocator(
-          "createChildDontClose", 0, MAX_ALLOCATION);
+            "createChildDontClose", 0, MAX_ALLOCATION);
         final ArrowBuf arrowBuf = childAllocator.buffer(512);
         assertNotNull("allocation failed", arrowBuf);
       }
@@ -215,13 +215,13 @@ public class TestBaseAllocator {
        * We expect one underlying buffer because we closed a child allocator without
        * releasing the buffer allocated from it.
        */
-/*
+      /*
       // ------------------------------- DEBUG ---------------------------------
       final int bufferCount = UnsafeDirectLittleEndian.getBufferCount();
       UnsafeDirectLittleEndian.releaseBuffers();
       assertEquals(1, bufferCount);
       // ------------------------------- DEBUG ---------------------------------
-*/
+      */
     }
   }
 
@@ -342,7 +342,7 @@ public class TestBaseAllocator {
     }
   }
 
-    private static void allocateAndFree(final BufferAllocator allocator) {
+  private static void allocateAndFree(final BufferAllocator allocator) {
     final ArrowBuf arrowBuf = allocator.buffer(512);
     assertNotNull("allocation failed", arrowBuf);
     arrowBuf.release();
@@ -467,7 +467,7 @@ public class TestBaseAllocator {
 
   @Test
   public void testAllocator_sliceRanges() throws Exception {
-//    final AllocatorOwner allocatorOwner = new NamedOwner("sliceRanges");
+    // final AllocatorOwner allocatorOwner = new NamedOwner("sliceRanges");
     try (final RootAllocator rootAllocator =
              new RootAllocator(MAX_ALLOCATION)) {
       // Populate a buffer with byte values corresponding to their indices.
@@ -482,8 +482,8 @@ public class TestBaseAllocator {
       assertEquals(0, slice3.readerIndex());
       assertEquals(0, slice3.readableBytes());
       assertEquals(0, slice3.writerIndex());
-//      assertEquals(256, slice3.capacity());
-//      assertEquals(256, slice3.writableBytes());
+      // assertEquals(256, slice3.capacity());
+      // assertEquals(256, slice3.writableBytes());
 
       for (int i = 0; i < 256; ++i) {
         arrowBuf.writeByte(i);
@@ -511,22 +511,22 @@ public class TestBaseAllocator {
         assertEquals(i, slice2.readByte());
       }
 
-/*
+      /*
       for(int i = 256; i > 0; --i) {
         slice3.writeByte(i - 1);
       }
       for(int i = 0; i < 256; ++i) {
         assertEquals(255 - i, slice1.getByte(i));
       }
-*/
+      */
 
-      arrowBuf.release(); // all the derived buffers share this fate
+      arrowBuf.release();  // all the derived buffers share this fate
     }
   }
 
   @Test
   public void testAllocator_slicesOfSlices() throws Exception {
-//    final AllocatorOwner allocatorOwner = new NamedOwner("slicesOfSlices");
+    // final AllocatorOwner allocatorOwner = new NamedOwner("slicesOfSlices");
     try (final RootAllocator rootAllocator =
              new RootAllocator(MAX_ALLOCATION)) {
       // Populate a buffer with byte values corresponding to their indices.
@@ -563,10 +563,8 @@ public class TestBaseAllocator {
   @Test
   public void testAllocator_transferSliced() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferSliced1", 0,
-        MAX_ALLOCATION);
-      final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferSliced2", 0,
-        MAX_ALLOCATION);
+      final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferSliced1", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferSliced2", 0, MAX_ALLOCATION);
 
       final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
       final ArrowBuf arrowBuf2 = childAllocator2.buffer(MAX_ALLOCATION / 8);
@@ -597,10 +595,8 @@ public class TestBaseAllocator {
   @Test
   public void testAllocator_shareSliced() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferSliced", 0,
-        MAX_ALLOCATION);
-      final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferSliced", 0,
-        MAX_ALLOCATION);
+      final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferSliced", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferSliced", 0, MAX_ALLOCATION);
 
       final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
       final ArrowBuf arrowBuf2 = childAllocator2.buffer(MAX_ALLOCATION / 8);
@@ -631,12 +627,9 @@ public class TestBaseAllocator {
   @Test
   public void testAllocator_transferShared() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferShared1", 0,
-        MAX_ALLOCATION);
-      final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferShared2", 0,
-        MAX_ALLOCATION);
-      final BufferAllocator childAllocator3 = rootAllocator.newChildAllocator("transferShared3", 0,
-        MAX_ALLOCATION);
+      final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferShared1", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferShared2", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator3 = rootAllocator.newChildAllocator("transferShared3", 0, MAX_ALLOCATION);
 
       final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
 
@@ -664,8 +657,7 @@ public class TestBaseAllocator {
       childAllocator2.close();
       rootAllocator.verify();
 
-      final BufferAllocator childAllocator4 = rootAllocator.newChildAllocator("transferShared4", 0,
-        MAX_ALLOCATION);
+      final BufferAllocator childAllocator4 = rootAllocator.newChildAllocator("transferShared4", 0, MAX_ALLOCATION);
       TransferResult result2 = arrowBuf3.transferOwnership(childAllocator4);
       allocationFit = result.allocationFit;
       final ArrowBuf arrowBuf4 = result2.buffer;
