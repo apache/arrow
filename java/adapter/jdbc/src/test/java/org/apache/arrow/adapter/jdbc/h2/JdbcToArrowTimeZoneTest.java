@@ -100,11 +100,11 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
   @Test
   public void testJdbcToArroValues() throws SQLException, IOException {
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
+      Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
+      new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
+    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+      Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
   }
 
   /**
@@ -117,17 +117,20 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
       case EST_DATE:
       case GMT_DATE:
       case PST_DATE:
-        assertDateVectorValues((DateMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+        assertDateVectorValues((DateMilliVector) root.getVector(table.getVector()), table.getValues().length,
+          table.getLongValues());
         break;
       case EST_TIME:
       case GMT_TIME:
       case PST_TIME:
-        assertTimeVectorValues((TimeMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+        assertTimeVectorValues((TimeMilliVector) root.getVector(table.getVector()), table.getValues().length,
+          table.getLongValues());
         break;
       case EST_TIMESTAMP:
       case GMT_TIMESTAMP:
       case PST_TIMESTAMP:
-        assertTimeStampVectorValues((TimeStampVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+        assertTimeStampVectorValues((TimeStampVector) root.getVector(table.getVector()), table.getValues().length,
+          table.getLongValues());
         break;
     }
   }
