@@ -84,8 +84,10 @@ impl Buffer {
 
     /// Returns a slice of this buffer, starting from `offset`.
     pub fn slice(&self, offset: usize) -> Self {
-        assert!(self.offset + offset <= self.len(),
-                "the offset of the new Buffer cannot exceed the existing length");
+        assert!(
+            self.offset + offset <= self.len(),
+            "the offset of the new Buffer cannot exceed the existing length"
+        );
         Self {
             data: self.data.clone(),
             offset: self.offset + offset,

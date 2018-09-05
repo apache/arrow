@@ -67,8 +67,14 @@ where
 
     /// Get the internal byte-aligned memory buffer as a mutable slice
     pub fn slice_mut(&mut self, start: usize, end: usize) -> &mut [T] {
-        assert!(end <= self.capacity as usize, "the end of the slice must be within the capacity");
-        assert!(start <= end, "the start of the slice cannot exceed the end of the slice");
+        assert!(
+            end <= self.capacity as usize,
+            "the end of the slice must be within the capacity"
+        );
+        assert!(
+            start <= end,
+            "the start of the slice cannot exceed the end of the slice"
+        );
         unsafe {
             slice::from_raw_parts_mut(self.data.offset(start as isize), (end - start) as usize)
         }
@@ -96,7 +102,10 @@ where
 
     /// Set a value at a slot in the allocated memory without adjusting the length
     pub fn set(&mut self, i: usize, v: T) {
-        assert!(!self.data.is_null(), "cannot set value if data is uninitialized");
+        assert!(
+            !self.data.is_null(),
+            "cannot set value if data is uninitialized"
+        );
         assert!(i < self.capacity, "index exceeds capacity");
         unsafe {
             *self.data.offset(i as isize) = v;
