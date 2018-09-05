@@ -830,7 +830,8 @@ public class TestListVector {
   @Test
   public void testClearAndReuse() {
     try (final ListVector vector = ListVector.empty("list", allocator)) {
-      BigIntVector bigIntVector = (BigIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
+      BigIntVector bigIntVector =
+        (BigIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
       vector.setInitialCapacity(10);
       vector.allocateNew();
 

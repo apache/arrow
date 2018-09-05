@@ -134,7 +134,8 @@ public class MapWithOrdinal<K, V> implements Map<K, V> {
 
     @Override
     public Collection<V> values() {
-      return Lists.newArrayList(Iterables.transform(secondary.entries(), new Function<IntObjectMap.PrimitiveEntry<V>, V>() {
+      return Lists.newArrayList(Iterables.transform(secondary.entries(),
+        new Function<IntObjectMap.PrimitiveEntry<V>, V>() {
         @Override
         public V apply(IntObjectMap.PrimitiveEntry<V> entry) {
           return Preconditions.checkNotNull(entry).value();
@@ -144,7 +145,8 @@ public class MapWithOrdinal<K, V> implements Map<K, V> {
 
     @Override
     public Set<Entry<K, V>> entrySet() {
-      return Sets.newHashSet(Iterables.transform(primary.entrySet(), new Function<Entry<K, Entry<Integer, V>>, Entry<K, V>>() {
+      return Sets.newHashSet(Iterables.transform(primary.entrySet(),
+        new Function<Entry<K, Entry<Integer, V>>, Entry<K, V>>() {
         @Override
         public Entry<K, V> apply(Entry<K, Entry<Integer, V>> entry) {
           return new AbstractMap.SimpleImmutableEntry<>(entry.getKey(), entry.getValue().getValue());
@@ -220,9 +222,10 @@ public class MapWithOrdinal<K, V> implements Map<K, V> {
   }
 
   /**
-   * Removes the element corresponding to the key if exists extending the semantics of {@link java.util.Map#remove} with ordinal
-   * re-cycling. The ordinal corresponding to the given key may be re-assigned to another tuple. It is important that
-   * consumer checks the ordinal value via {@link org.apache.arrow.vector.util.MapWithOrdinal#getOrdinal(Object)} before attempting to look-up by ordinal.
+   * Removes the element corresponding to the key if exists extending the semantics of {@link java.util.Map#remove}
+   * with ordinal re-cycling. The ordinal corresponding to the given key may be re-assigned to another tuple. It is
+   * important that consumer checks the ordinal value via
+   * {@link org.apache.arrow.vector.util.MapWithOrdinal#getOrdinal(Object)} before attempting to look-up by ordinal.
    *
    * @see java.util.Map#remove
    */

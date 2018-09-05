@@ -25,6 +25,7 @@ import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
 import org.apache.arrow.vector.holders.TimeStampNanoTZHolder;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -44,8 +45,7 @@ public class TimeStampNanoTZVector extends TimeStampVector {
    * @param allocator allocator for memory management.
    */
   public TimeStampNanoTZVector(String name, BufferAllocator allocator, String timeZone) {
-    this(name, FieldType.nullable(new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(TimeUnit.NANOSECOND, timeZone)),
-            allocator);
+    this(name, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.NANOSECOND, timeZone)), allocator);
   }
 
   /**
@@ -57,7 +57,7 @@ public class TimeStampNanoTZVector extends TimeStampVector {
    */
   public TimeStampNanoTZVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
-    org.apache.arrow.vector.types.pojo.ArrowType.Timestamp arrowType = (org.apache.arrow.vector.types.pojo.ArrowType.Timestamp) fieldType.getType();
+    ArrowType.Timestamp arrowType = (ArrowType.Timestamp) fieldType.getType();
     timeZone = arrowType.getTimezone();
     reader = new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
   }
@@ -165,7 +165,9 @@ public class TimeStampNanoTZVector extends TimeStampVector {
    * @param index   position of element
    * @param holder  nullable data holder for value of element
    */
-  public void setSafe(int index, NullableTimeStampNanoTZHolder holder) throws IllegalArgumentException {
+  public void setSafe(
+      int index,
+      NullableTimeStampNanoTZHolder holder) throws IllegalArgumentException {
     handleSafe(index);
     set(index, holder);
   }

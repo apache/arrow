@@ -53,15 +53,21 @@ public class Validator {
   /**
    * Validate two Dictionary encodings and dictionaries with id's from the encodings
    */
-  public static void compareDictionaries(List<DictionaryEncoding> encodings1, List<DictionaryEncoding> encodings2, DictionaryProvider provider1, DictionaryProvider provider2) {
+  public static void compareDictionaries(
+      List<DictionaryEncoding> encodings1,
+      List<DictionaryEncoding> encodings2,
+      DictionaryProvider provider1,
+      DictionaryProvider provider2) {
 
     if (encodings1.size() != encodings2.size()) {
-      throw new IllegalArgumentException("Different dictionary encoding count:\n" + encodings1.size() + "\n" + encodings2.size());
+      throw new IllegalArgumentException("Different dictionary encoding count:\n" +
+        encodings1.size() + "\n" + encodings2.size());
     }
 
     for (int i = 0; i < encodings1.size(); i++) {
       if (!encodings1.get(i).equals(encodings2.get(i))) {
-        throw new IllegalArgumentException("Different dictionary encodings:\n" + encodings1.get(i) + "\n" + encodings2.get(i));
+        throw new IllegalArgumentException("Different dictionary encodings:\n" + encodings1.get(i) +
+          "\n" + encodings2.get(i));
       }
 
       long id = encodings1.get(i).getId();
@@ -69,7 +75,8 @@ public class Validator {
       Dictionary dict2 = provider2.lookup(id);
 
       if (dict1 == null || dict2 == null) {
-        throw new IllegalArgumentException("The DictionaryProvider did not contain the required dictionary with id: " + id + "\n" + dict1 + "\n" + dict2);
+        throw new IllegalArgumentException("The DictionaryProvider did not contain the required " +
+          "dictionary with id: " + id + "\n" + dict1 + "\n" + dict2);
       }
 
       try {
@@ -95,7 +102,8 @@ public class Validator {
     List<FieldVector> vectors1 = root1.getFieldVectors();
     List<FieldVector> vectors2 = root2.getFieldVectors();
     if (vectors1.size() != vectors2.size()) {
-      throw new IllegalArgumentException("Different column count:\n" + vectors1.toString() + "\n!=\n" + vectors2.toString());
+      throw new IllegalArgumentException("Different column count:\n" + vectors1.toString() +
+        "\n!=\n" + vectors2.toString());
     }
     for (int i = 0; i < vectors1.size(); i++) {
       compareFieldVectors(vectors1.get(i), vectors2.get(i));
@@ -112,11 +120,13 @@ public class Validator {
   public static void compareFieldVectors(FieldVector vector1, FieldVector vector2) {
     Field field1 = vector1.getField();
     if (!field1.equals(vector2.getField())) {
-      throw new IllegalArgumentException("Different Fields:\n" + field1 + "\n!=\n" + vector2.getField());
+      throw new IllegalArgumentException("Different Fields:\n" + field1 + "\n!=\n" +
+        vector2.getField());
     }
     int valueCount = vector1.getValueCount();
     if (valueCount != vector2.getValueCount()) {
-      throw new IllegalArgumentException("Different value count for field " + field1 + " : " + valueCount + " != " + vector2.getValueCount());
+      throw new IllegalArgumentException("Different value count for field " + field1 + " : " +
+        valueCount + " != " + vector2.getValueCount());
     }
     for (int j = 0; j < valueCount; j++) {
       Object obj1 = vector1.getObject(j);

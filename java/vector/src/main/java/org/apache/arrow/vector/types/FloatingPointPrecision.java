@@ -25,7 +25,8 @@ public enum FloatingPointPrecision {
   SINGLE(Precision.SINGLE),
   DOUBLE(Precision.DOUBLE);
 
-  private static final FloatingPointPrecision[] valuesByFlatbufId = new FloatingPointPrecision[FloatingPointPrecision.values().length];
+  private static final FloatingPointPrecision[] valuesByFlatbufId =
+    new FloatingPointPrecision[FloatingPointPrecision.values().length];
 
   static {
     for (FloatingPointPrecision v : FloatingPointPrecision.values()) {
