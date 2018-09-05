@@ -88,7 +88,6 @@ impl ArrowPrimitiveType for i64 {}
 impl ArrowPrimitiveType for f32 {}
 impl ArrowPrimitiveType for f64 {}
 
-
 /// Allows conversion from supported Arrow types to a byte slice.
 pub trait ToByteSlice {
     /// Converts this instance into a byte slice
@@ -214,7 +213,6 @@ impl DataType {
 }
 
 impl Field {
-
     /// Creates a new field
     pub fn new(name: &str, data_type: DataType, nullable: bool) -> Self {
         Field {
@@ -310,7 +308,6 @@ pub struct Schema {
 }
 
 impl Schema {
-
     /// Creates an empty `Schema`
     pub fn empty() -> Self {
         Self { columns: vec![] }
