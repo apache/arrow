@@ -222,12 +222,12 @@ impl Field {
         }
     }
 
-    /// Returns a immutable reference to the `Field`'s name
+    /// Returns an immutable reference to the `Field`'s name
     pub fn name(&self) -> &String {
         &self.name
     }
 
-    /// Returns a immutable reference to the `Field`'s  data-type
+    /// Returns an immutable reference to the `Field`'s  data-type
     pub fn data_type(&self) -> &DataType {
         &self.data_type
     }
