@@ -28,11 +28,18 @@ pub struct RecordBatch {
 impl RecordBatch {
     pub fn new(schema: Arc<Schema>, columns: Vec<ArrayRef>) -> Self {
         // assert that there are some columns
-        assert!(columns.len() > 0);
+        assert!(
+            columns.len() > 0,
+            "at least one column must be defined to create a record batch"
+        );
         // assert that all columns have the same row count
         let len = columns[0].data().len();
         for i in 1..columns.len() {
-            assert_eq!(len, columns[i].data().len());
+            assert_eq!(
+                len,
+                columns[i].data().len(),
+                "all columns in a record batch must have the same length"
+            );
         }
         RecordBatch { schema, columns }
     }
