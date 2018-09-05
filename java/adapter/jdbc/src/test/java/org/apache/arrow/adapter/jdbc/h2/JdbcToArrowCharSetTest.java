@@ -52,10 +52,10 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
   private static final String CLOB = "CLOB_FIELD15";
 
   private static final String[] testFiles = {
-          "h2/test1_charset_h2.yml",
-          "h2/test1_charset_ch_h2.yml",
-          "h2/test1_charset_jp_h2.yml",
-          "h2/test1_charset_kr_h2.yml"
+    "h2/test1_charset_h2.yml",
+    "h2/test1_charset_ch_h2.yml",
+    "h2/test1_charset_jp_h2.yml",
+    "h2/test1_charset_kr_h2.yml"
   };
 
   /**
@@ -107,15 +107,15 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
   @Test
   public void testJdbcToArroValues() throws SQLException, IOException {
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
-      Calendar.getInstance()));
+        Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-      new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
+        new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery())));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-      new RootAllocator(Integer.MAX_VALUE)));
+        new RootAllocator(Integer.MAX_VALUE)));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-      Calendar.getInstance()));
+        Calendar.getInstance()));
   }
 
   /**
@@ -125,12 +125,12 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    */
   public void testDataSets(VectorSchemaRoot root) {
     assertVarcharVectorValues((VarCharVector) root.getVector(CLOB), table.getRowCount(),
-            getCharArrayWithCharSet(table.getValues(), CLOB, StandardCharsets.UTF_8));
+        getCharArrayWithCharSet(table.getValues(), CLOB, StandardCharsets.UTF_8));
 
     assertVarcharVectorValues((VarCharVector) root.getVector(VARCHAR), table.getRowCount(),
-            getCharArrayWithCharSet(table.getValues(), VARCHAR, StandardCharsets.UTF_8));
+        getCharArrayWithCharSet(table.getValues(), VARCHAR, StandardCharsets.UTF_8));
 
     assertVarcharVectorValues((VarCharVector) root.getVector(CHAR), table.getRowCount(),
-            getCharArrayWithCharSet(table.getValues(), CHAR, StandardCharsets.UTF_8));
+        getCharArrayWithCharSet(table.getValues(), CHAR, StandardCharsets.UTF_8));
   }
 }

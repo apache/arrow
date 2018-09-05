@@ -125,15 +125,15 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
   @Test
   public void testJdbcToArroValues() throws SQLException, IOException {
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
-      Calendar.getInstance()));
+        Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-      new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
+        new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery())));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-      new RootAllocator(Integer.MAX_VALUE)));
+        new RootAllocator(Integer.MAX_VALUE)));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-      Calendar.getInstance()));
+        Calendar.getInstance()));
   }
 
   /**

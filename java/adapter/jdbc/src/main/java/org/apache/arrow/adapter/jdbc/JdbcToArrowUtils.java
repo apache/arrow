@@ -180,7 +180,7 @@ public class JdbcToArrowUtils {
           break;
         case Types.TIMESTAMP:
           fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND,
-            calendar.getTimeZone().getID())), null));
+              calendar.getTimeZone().getID())), null));
           break;
         case Types.BINARY:
         case Types.VARBINARY:
@@ -188,8 +188,8 @@ public class JdbcToArrowUtils {
           fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Binary()), null));
           break;
         case Types.ARRAY:
-// TODO Need to handle this type
-//        fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
+          // TODO Need to handle this type
+          // fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
           break;
         case Types.CLOB:
           fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Utf8()), null));
