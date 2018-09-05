@@ -92,7 +92,8 @@ cdef class CudaDeviceManager:
         if not buf._freed:
             check_status(self.manager.FreeHost(buf.host_buffer.get().mutable_data(), hbuf.size))
             buf._freed = True
-        
+
+
 cdef class CudaContext:
     """ CUDA driver context
     """
@@ -213,7 +214,14 @@ def as_cudabuffer(object obj):
 
 
 cdef class CudaBuffer(Buffer):
-    """ An Arrow buffer located on a GPU device
+    """An Arrow buffer with data located in a GPU device.
+
+    To create a CudaBuffer instance, use
+
+      <CudaContext instance>.allocate(<nbytes>)
+
+    The memory allocated in CudaBuffer instance is freed when the
+    instance is deleted.
     """
     cdef void init_cuda(self, const shared_ptr[CCudaBuffer]& buffer):
         self.cuda_buffer = buffer
@@ -359,8 +367,23 @@ cdef class CudaBuffer(Buffer):
         """
         return pyarrow_wrap_cudacontext(self.cuda_buffer.get().context())
 
+
 cdef class CudaHostBuffer(Buffer):
     """Device-accessible CPU memory created using cudaHostAlloc.
+
+    To create a CudaHostBuffer instance, use
+
+      <CudaDeviceManager instance>.allocate_host(<nbytes>)
+
+    To free memory allocated in CudaHostBuffer instance, use
+
+      <CudaDeviceManager instance>.free_host(<CudaHostBuffer instance>)
+
+    The memory is also automatically freed when CudaHostBuffer
+    instance is deleted.
+
+    Note: after freeing CudaHostBuffer memory, the instance should be
+    discarded as unusable.
     """
 
     cdef void init_host(self, const shared_ptr[CCudaHostBuffer]& buffer):
@@ -372,6 +395,10 @@ cdef class CudaHostBuffer(Buffer):
     def size(self):
         if self._freed: return 0
         return self.host_buffer.get().size()
+
+    def __dealloc__(self):
+        if not self._freed:
+            CudaDeviceManager().free_host(self)
         
 cdef class CudaBufferReader(NativeFile):
     """File interface for zero-copy read from CUDA buffers.

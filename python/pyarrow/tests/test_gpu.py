@@ -40,7 +40,6 @@ def test_manager_num_devices():
 @gpu_support
 def test_manage_allocate_free_host():
     size = 1024
-    size = 8
     buf = manager.allocate_host(size)
     arr = np.frombuffer(buf, dtype=np.uint8)
     arr[size//4:3*size//4] = 1
@@ -52,13 +51,23 @@ def test_manage_allocate_free_host():
     assert buf.size == 0
     arr3 = np.frombuffer(buf, dtype=np.uint8)
     assert arr3.tolist() == []
-    
+
 @gpu_support
-def test_context_allocate():
+def test_manage_allocate_autofree_host():
+    size = 1024
+    buf = manager.allocate_host(size)
+    del buf
+
+
+@gpu_support
+def test_context_allocate_del():
     bytes_allocated = context.bytes_allocated
     cudabuf = context.allocate(128)
     assert context.bytes_allocated == bytes_allocated + 128
+    del cudabuf
+    assert context.bytes_allocated == bytes_allocated
 
+    
 def make_random_buffer(size, target='host'):
     if target == 'host':
         assert size >= 0
