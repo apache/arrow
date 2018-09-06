@@ -65,6 +65,10 @@ Array_data <- function(array) {
     .Call(`_arrow_Array_data`, array)
 }
 
+rvector_to_Array <- function(x) {
+    .Call(`_arrow_rvector_to_Array`, x)
+}
+
 Field_initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field_initialize`, name, type, nullable)
 }

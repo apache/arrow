@@ -47,8 +47,8 @@ array_data <- function(...){
 `arrow::Array` <- R6Class("arrow::Array",
   inherit = `arrow::Object`,
   public = list(
-    initialize = function(data) {
-      self$set_pointer(Array_initialize(data))
+    initialize = function(x) {
+      self$set_pointer(rvector_to_Array(x))
     },
     IsNull = function(i) Array_IsNull(self, i),
     IsValid = function(i) Array_IsValid(self, i),
@@ -80,3 +80,10 @@ MakeArray <- function(data){
   assert_that(inherits(data, "arrow::ArrayData"))
   `arrow::Array`$new(data)
 }
+
+#' @export
+array <- function(...){
+  `arrow::Array`$new(vctrs::vec_c(...))
+}
+
+

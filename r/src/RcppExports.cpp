@@ -189,6 +189,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// rvector_to_Array
+std::shared_ptr<arrow::Array> rvector_to_Array(SEXP x);
+RcppExport SEXP _arrow_rvector_to_Array(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(rvector_to_Array(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Field_initialize
 std::shared_ptr<arrow::Field> Field_initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
 RcppExport SEXP _arrow_Field_initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
@@ -1490,6 +1501,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array_Equals", (DL_FUNC) &_arrow_Array_Equals, 2},
     {"_arrow_Array_ApproxEquals", (DL_FUNC) &_arrow_Array_ApproxEquals, 2},
     {"_arrow_Array_data", (DL_FUNC) &_arrow_Array_data, 1},
+    {"_arrow_rvector_to_Array", (DL_FUNC) &_arrow_rvector_to_Array, 1},
     {"_arrow_Field_initialize", (DL_FUNC) &_arrow_Field_initialize, 3},
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},
