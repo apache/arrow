@@ -19,6 +19,7 @@
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_gpu cimport *
 from pyarrow.lib import py_buffer, allocate_buffer
+cimport cpython as cp
 
 cdef class CudaDeviceManager:
     """ CUDA device manager.
@@ -146,7 +147,67 @@ cdef class CudaContext:
         cdef shared_ptr[CCudaBuffer] cudabuf
         check_status(self.context.get().OpenIpcBuffer(handle.get()[0], &cudabuf))
         return pyarrow_wrap_cudabuffer(cudabuf)
-    
+
+    def device_buffer(self, object obj = None, int64_t offset = 0, int64_t size = -1):
+        """Create device buffer from object data.
+
+        Parameters
+        ----------
+        obj : {CudaBuffer, Buffer, array-like, None}
+          Specify data for device buffer.
+        offset : int
+          Specify the offset of input buffer for device data
+          buffering. Default: 0.
+        size : int
+          Specify the size of device buffer in bytes. Default: all
+          (starting from input offset)
+
+        Returns
+        -------
+        cbuf : CudaBuffer
+          Device buffer containing object data.
+        """
+        if obj is None:
+            if size < 0:
+                raise ValueError('buffer size must be positive int')
+            return self.allocate(size)            
+        if pyarrow_is_cudabuffer(obj):
+            # TODO: check if obj.context == self or at least are of
+            # the same device.
+            if size < 0:
+                length = None
+            else:
+                length = size
+            return obj.slice(offset, length)
+
+        cdef shared_ptr[CBuffer] buf
+
+        if not pyarrow_is_buffer(obj): # assume obj is array-like
+            check_status(PyBuffer.FromPyObject(obj, &buf))
+            obj = pyarrow_wrap_buffer(buf)
+
+        bsize = obj.size
+        if offset < 0 or offset >= bsize:
+            raise ValueError('offset argument is out-of-range')            
+        if size < 0:
+            size = bsize - offset
+        elif offset + size > bsize:
+            raise ValueError('requested larger slice than available in device buffer')
+
+        if offset !=0 or size != bsize:
+            obj = obj.slice(offset, size)
+        
+        if pyarrow_is_cudahostbuffer(obj):
+            buf = <shared_ptr[CBuffer]>pyarrow_unwrap_cudahostbuffer(obj)
+        elif pyarrow_is_buffer(obj):
+            buf = pyarrow_unwrap_buffer(obj)
+        else:
+            raise TypeError('Expected Buffer or array-like but got %s' % (type(obj).__name__))
+
+        result = self.allocate(size)
+        result.copy_from_host(pyarrow_wrap_buffer(buf), position=0, nbytes=size)
+        return result
+
 
 cdef class CudaIpcMemHandle:
     """A container for a CUDA IPC handle.
@@ -191,38 +252,23 @@ cdef class CudaIpcMemHandle:
         return pyarrow_wrap_buffer(buf)
 
 
-def py_cudabuffer(object obj):
-    """Construct an Arrow GPU buffer from a Arrow Buffer or Python bytes
-    object.  Host data will be copied to device memory.
-    """
-    if pyarrow_is_cudabuffer(obj):
-        return obj # should it return a new CudaBuffer instance?
-    cdef shared_ptr[CBuffer] buf
-    if isinstance(obj, Buffer): # pyarrow_is_buffer is not reachable from here.
-        buf = pyarrow_unwrap_buffer(obj)
-    else:
-        check_status(PyBuffer.FromPyObject(obj, &buf))
-    cdef shared_ptr[CCudaBuffer] cbuf
-    check_status(CCudaBuffer.FromBuffer(buf, &cbuf))  # this is WRONG!  
-    return pyarrow_wrap_cudabuffer(cbuf)
-
-
-def as_cudabuffer(object obj):
-    if pyarrow_is_cudabuffer(obj):
-        return obj
-    return py_cudabuffer(obj)
-
-
 cdef class CudaBuffer(Buffer):
     """An Arrow buffer with data located in a GPU device.
 
     To create a CudaBuffer instance, use
 
-      <CudaContext instance>.allocate(<nbytes>)
+      <CudaContext instance>.device_buffer(obj=<object>, offset=<offset>, size=<nbytes>)
 
     The memory allocated in CudaBuffer instance is freed when the
     instance is deleted.
+
     """
+    
+    def __init__(self):
+        raise TypeError("Do not call CudaBuffer's constructor directly, use "
+                        "`<pyarrow.CudaContext instance>.device_buffer` method instead.")
+
+    
     cdef void init_cuda(self, const shared_ptr[CCudaBuffer]& buffer):
         self.cuda_buffer = buffer
         self.init(<shared_ptr[CBuffer]> buffer)
@@ -249,6 +295,9 @@ cdef class CudaBuffer(Buffer):
         check_status(CCudaBuffer.FromBuffer(buf_, &cbuf))
         return pyarrow_wrap_cudabuffer(cbuf)
 
+    cdef getitem(self, int64_t i):
+        return self.copy_to_host(position=i, nbytes=1)[0]
+    
     def copy_to_host(self, int64_t position=0, int64_t nbytes=-1, Buffer buf=None,
                      MemoryPool memory_pool=None, c_bool resizable=False):
         """Copy memory from GPU device to CPU host
@@ -367,6 +416,51 @@ cdef class CudaBuffer(Buffer):
         """
         return pyarrow_wrap_cudacontext(self.cuda_buffer.get().context())
 
+    def slice(self, offset = 0, length = None):
+        """Return slice of device buffer
+
+        Parameters
+        ----------
+        offset : int, default 0
+          Specify offset from the start of device buffer to slice
+        length : int, default None
+          Specify the length of slice (default is until end of device
+          buffer starting from offset)
+
+        Returns
+        -------
+        sliced : CudaBuffer
+          Zero-copy slice of device buffer.
+        """
+        if offset < 0 or offset >= self.size:
+            raise ValueError('offset argument is out-of-range')
+        cdef int64_t offset_ = offset
+        cdef int64_t size
+        if length is None:
+            size = self.size - offset_
+        elif offset + length <= self.size:
+            size = length
+        else:
+            raise ValueError('requested larger slice than available in device buffer')
+        parent = pyarrow_unwrap_cudabuffer(self)
+        return pyarrow_wrap_cudabuffer(
+            shared_ptr[CCudaBuffer](make_shared[CCudaBuffer](parent,
+                                                             offset_, size)))
+
+    def to_pybytes(self):
+        return self.copy_to_host().to_pybytes()
+
+    def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        # copy_to_host() is needed otherwise, the buffered device
+        # buffer would contain data pointers of the device
+        raise NotImplementedError('CudaBuffer.__getbuffer__')
+
+    def __getreadbuffer__(self, Py_ssize_t idx, void **p):
+        raise NotImplementedError('CudaBuffer.__getreadbuffer__')
+
+    def __getwritebuffer__(self, Py_ssize_t idx, void **p):
+        raise NotImplementedError('CudaBuffer.__getwritebuffer__')
+
 
 cdef class CudaHostBuffer(Buffer):
     """Device-accessible CPU memory created using cudaHostAlloc.
@@ -386,6 +480,13 @@ cdef class CudaHostBuffer(Buffer):
     discarded as unusable.
     """
 
+    def __cinit__(self):
+        self._freed = True
+    def __init__(self):
+        raise TypeError("Do not call CudaHostBuffer's constructor directly, use "
+                        "`<pyarrow.CudaManager instance>.allocate_host` method instead.")
+
+    
     cdef void init_host(self, const shared_ptr[CCudaHostBuffer]& buffer):
         self.host_buffer = buffer
         self.init(<shared_ptr[CBuffer]> buffer)
@@ -408,11 +509,8 @@ cdef class CudaBufferReader(NativeFile):
     may expect to be able to do anything other than pointer arithmetic
     on the returned buffers.
     """
-    def __cinit__(self, object obj):
-        if isinstance(obj, CudaBuffer):
-            self.buffer = obj
-        else:
-            self.buffer = py_cudabuffer(obj)
+    def __cinit__(self, CudaBuffer obj):
+        self.buffer = obj
         self.reader = new CCudaBufferReader(self.buffer.buffer)
         self.rd_file.reset(self.reader)
         self.is_readable = True
@@ -549,6 +647,9 @@ def cuda_read_record_batch(object schema, object buffer, pool = None):
     return pyarrow_wrap_batch(batch)
 
 # Public API
+
+cdef public api bint pyarrow_is_buffer(object buffer):
+    return isinstance(buffer, Buffer)
 
 cdef public api bint pyarrow_is_cudabuffer(object buffer):
     return isinstance(buffer, CudaBuffer)

@@ -15,6 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+TODO:
+
+CudaDeviceManager.create_new_context
+CudaContext.open_ipc_buffer
+CudaIpcMemHandle.from_buffer
+CudaIpcMemHandle.serialize
+CudaBuffer.from_buffer
+CudaBuffer.export_for_ipc
+CudaBuffer.context
+CudaBufferReader
+CudaBufferWriter
+allocate_cuda_host_buffer
+cuda_serialize_record_batch
+cuda_read_message
+cuda_read_record_batch
+"""
+
+
 import pytest
 import pyarrow as pa
 import numpy as np
@@ -58,7 +77,6 @@ def test_manage_allocate_autofree_host():
     buf = manager.allocate_host(size)
     del buf
 
-
 @gpu_support
 def test_context_allocate_del():
     bytes_allocated = context.bytes_allocated
@@ -87,6 +105,153 @@ def make_random_buffer(size, target='host'):
         dbuf.copy_from_host(buf, position=0, nbytes=size)
         return arr, dbuf
     raise ValueError('invalid target value')
+
+
+@gpu_support
+def test_context_device_buffer():
+    # Creating device buffer from host buffer;
+    size = 8
+    arr, buf = make_random_buffer(size)
+    cudabuf = context.device_buffer(buf)
+    assert cudabuf.size == size
+    arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+    assert arr.tolist() == arr2.tolist()
+
+    #arr3 = np.frombuffer(cudabuf, dtype=np.uint8) # crashes!!
+    #assert arr.tolist() == arr3.tolist()
+
+    # Creating device buffer from array:
+    cudabuf = context.device_buffer(arr)
+    assert cudabuf.size == size
+    arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+    assert arr.tolist() == arr2.tolist()
+
+    # Creating device buffer from bytes:
+    cudabuf = context.device_buffer(arr.tobytes())
+    assert cudabuf.size == size
+    arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+    assert arr.tolist() == arr2.tolist()
+    
+    # Creating device buffer from another device buffer:
+    cudabuf2 = context.device_buffer(cudabuf)
+    assert cudabuf2.size == size
+    arr2 = np.frombuffer(cudabuf2.copy_to_host(), dtype=np.uint8)
+    assert arr.tolist() == arr2.tolist()
+
+    # Creating a device buffer from a slice of host buffer
+    soffset = size//4
+    ssize = 2*size//4
+    cudabuf = context.device_buffer(buf, offset=soffset, size=ssize)
+    assert cudabuf.size == ssize
+    arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+    assert arr[soffset:soffset + ssize].tolist() == arr2.tolist()
+
+    cudabuf = context.device_buffer(buf.slice(offset=soffset, length=ssize))
+    assert cudabuf.size == ssize
+    arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+    assert arr[soffset:soffset + ssize].tolist() == arr2.tolist()
+
+    # Creating a device buffer from a slice of an array
+    cudabuf = context.device_buffer(arr, offset=soffset, size=ssize)
+    assert cudabuf.size == ssize
+    arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+    assert arr[soffset:soffset + ssize].tolist() == arr2.tolist()
+
+    cudabuf = context.device_buffer(arr[soffset:soffset+ssize])
+    assert cudabuf.size == ssize
+    arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+    assert arr[soffset:soffset + ssize].tolist() == arr2.tolist()
+
+    # Creating a device buffer from a slice of bytes
+    cudabuf = context.device_buffer(arr.tobytes(), offset=soffset, size=ssize)
+    assert cudabuf.size == ssize
+    arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+    assert arr[soffset:soffset + ssize].tolist() == arr2.tolist()
+
+    # Creating a device buffer from size
+    cudabuf = context.device_buffer(size=size)
+    assert cudabuf.size == size
+
+    # Creating device buffer from a slice of another device buffer:
+    cudabuf = context.device_buffer(arr)
+    cudabuf2 = context.device_buffer(cudabuf, offset=soffset, size=ssize)
+    assert cudabuf2.size == ssize
+    arr2 = np.frombuffer(cudabuf2.copy_to_host(), dtype=np.uint8)
+    assert arr[soffset:soffset+ssize].tolist() == arr2.tolist()
+
+    # Creating device buffer from CudaHostBuffer
+
+    buf = manager.allocate_host(size)
+    arr_ = np.frombuffer(buf, dtype=np.uint8)
+    arr_[:] = arr
+    cudabuf = context.device_buffer(buf)
+    assert cudabuf.size == size
+    arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+    assert arr.tolist() == arr2.tolist()
+
+    # Creating device buffer from CudaHostBuffer slice
+
+    cudabuf = context.device_buffer(buf, offset=soffset, size=ssize)
+    assert cudabuf.size == ssize
+    arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+    assert arr[soffset:soffset+ssize].tolist() == arr2.tolist()
+
+    cudabuf = context.device_buffer(buf.slice(offset=soffset, length=ssize))
+    assert cudabuf.size == ssize
+    arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+    assert arr[soffset:soffset+ssize].tolist() == arr2.tolist()
+
+@gpu_support
+def test_CudaBuffer():
+    size = 8
+    arr, buf = make_random_buffer(size)
+    assert arr.tobytes() == buf.to_pybytes()
+    cbuf = context.device_buffer(buf)
+    assert cbuf.size == size
+    assert arr.tobytes() == cbuf.to_pybytes()
+
+    for i in range(size):
+        assert cbuf[i] == arr[i]
+
+    for s in [
+            slice(None),
+            slice(size//4, size//2),
+    ]:
+        assert cbuf[s].to_pybytes() == arr[s].tobytes()
+
+    sbuf = cbuf.slice(size//4, size//2)
+    assert sbuf.parent == cbuf
+        
+    with pytest.raises(TypeError) as e_info:
+        pa.CudaBuffer()
+        assert str(e_info).startswith("Do not call CudaBuffer's constructor directly")
+
+@gpu_support
+def test_CudaHostBuffer():
+    size = 8
+    arr, buf = make_random_buffer(size)
+    assert arr.tobytes() == buf.to_pybytes()
+    hbuf = manager.allocate_host(size)
+    np.frombuffer(hbuf, dtype=np.uint8)[:] = arr
+    assert hbuf.size == size
+    assert arr.tobytes() == hbuf.to_pybytes()
+    for i in range(size):
+        assert hbuf[i] == arr[i]
+    for s in [
+            slice(None),
+            slice(size//4, size//2),
+    ]:
+        assert hbuf[s].to_pybytes() == arr[s].tobytes()
+
+    sbuf = hbuf.slice(size//4, size//2)
+    assert sbuf.parent == hbuf
+        
+    del hbuf
+
+    with pytest.raises(TypeError) as e_info:
+        pa.CudaHostBuffer()
+        assert str(e_info).startswith("Do not call CudaHostBuffer's constructor directly")
+
     
 @gpu_support
 def test_copy_from_to_host():
