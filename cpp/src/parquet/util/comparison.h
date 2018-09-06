@@ -19,10 +19,12 @@
 #define PARQUET_UTIL_COMPARISON_H
 
 #include <algorithm>
+#include <memory>
 
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -34,7 +36,7 @@ class PARQUET_EXPORT Comparator {
 
 // The default comparison is SIGNED
 template <typename DType>
-class PARQUET_EXPORT CompareDefault : public Comparator {
+class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault : public Comparator {
  public:
   typedef typename DType::c_type T;
   CompareDefault() {}
@@ -42,7 +44,7 @@ class PARQUET_EXPORT CompareDefault : public Comparator {
 };
 
 template <>
-class PARQUET_EXPORT CompareDefault<Int96Type> : public Comparator {
+class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault<Int96Type> : public Comparator {
  public:
   CompareDefault() {}
   virtual bool operator()(const Int96& a, const Int96& b) {
@@ -60,7 +62,7 @@ class PARQUET_EXPORT CompareDefault<Int96Type> : public Comparator {
 };
 
 template <>
-class PARQUET_EXPORT CompareDefault<ByteArrayType> : public Comparator {
+class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault<ByteArrayType> : public Comparator {
  public:
   CompareDefault() {}
   virtual bool operator()(const ByteArray& a, const ByteArray& b) {
@@ -71,7 +73,7 @@ class PARQUET_EXPORT CompareDefault<ByteArrayType> : public Comparator {
 };
 
 template <>
-class PARQUET_EXPORT CompareDefault<FLBAType> : public Comparator {
+class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault<FLBAType> : public Comparator {
  public:
   explicit CompareDefault(int length) : type_length_(length) {}
   virtual bool operator()(const FLBA& a, const FLBA& b) {
@@ -92,10 +94,32 @@ typedef CompareDefault<DoubleType> CompareDefaultDouble;
 typedef CompareDefault<ByteArrayType> CompareDefaultByteArray;
 typedef CompareDefault<FLBAType> CompareDefaultFLBA;
 
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
+// Define Unsigned Comparators
+class PARQUET_EXPORT CompareUnsignedInt32 : public CompareDefaultInt32 {
+ public:
+  bool operator()(const int32_t& a, const int32_t& b) override;
+};
+
+class PARQUET_EXPORT CompareUnsignedInt64 : public CompareDefaultInt64 {
+ public:
+  bool operator()(const int64_t& a, const int64_t& b) override;
+};
+
+class PARQUET_EXPORT CompareUnsignedInt96 : public CompareDefaultInt96 {
+ public:
+  bool operator()(const Int96& a, const Int96& b) override;
+};
+
+class PARQUET_EXPORT CompareUnsignedByteArray : public CompareDefaultByteArray {
+ public:
+  bool operator()(const ByteArray& a, const ByteArray& b) override;
+};
+
+class PARQUET_EXPORT CompareUnsignedFLBA : public CompareDefaultFLBA {
+ public:
+  explicit CompareUnsignedFLBA(int length);
+  bool operator()(const FLBA& a, const FLBA& b) override;
+};
 
 PARQUET_EXTERN_TEMPLATE CompareDefault<BooleanType>;
 PARQUET_EXTERN_TEMPLATE CompareDefault<Int32Type>;
@@ -105,61 +129,6 @@ PARQUET_EXTERN_TEMPLATE CompareDefault<FloatType>;
 PARQUET_EXTERN_TEMPLATE CompareDefault<DoubleType>;
 PARQUET_EXTERN_TEMPLATE CompareDefault<ByteArrayType>;
 PARQUET_EXTERN_TEMPLATE CompareDefault<FLBAType>;
-
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
-
-// Define Unsigned Comparators
-class PARQUET_EXPORT CompareUnsignedInt32 : public CompareDefaultInt32 {
- public:
-  bool operator()(const int32_t& a, const int32_t& b) override {
-    const uint32_t ua = a;
-    const uint32_t ub = b;
-    return (ua < ub);
-  }
-};
-
-class PARQUET_EXPORT CompareUnsignedInt64 : public CompareDefaultInt64 {
- public:
-  bool operator()(const int64_t& a, const int64_t& b) override {
-    const uint64_t ua = a;
-    const uint64_t ub = b;
-    return (ua < ub);
-  }
-};
-
-class PARQUET_EXPORT CompareUnsignedInt96 : public CompareDefaultInt96 {
- public:
-  bool operator()(const Int96& a, const Int96& b) override {
-    if (a.value[2] != b.value[2]) {
-      return (a.value[2] < b.value[2]);
-    } else if (a.value[1] != b.value[1]) {
-      return (a.value[1] < b.value[1]);
-    }
-    return (a.value[0] < b.value[0]);
-  }
-};
-
-class PARQUET_EXPORT CompareUnsignedByteArray : public CompareDefaultByteArray {
- public:
-  bool operator()(const ByteArray& a, const ByteArray& b) override {
-    const uint8_t* aptr = reinterpret_cast<const uint8_t*>(a.ptr);
-    const uint8_t* bptr = reinterpret_cast<const uint8_t*>(b.ptr);
-    return std::lexicographical_compare(aptr, aptr + a.len, bptr, bptr + b.len);
-  }
-};
-
-class PARQUET_EXPORT CompareUnsignedFLBA : public CompareDefaultFLBA {
- public:
-  explicit CompareUnsignedFLBA(int length) : CompareDefaultFLBA(length) {}
-  bool operator()(const FLBA& a, const FLBA& b) override {
-    const uint8_t* aptr = reinterpret_cast<const uint8_t*>(a.ptr);
-    const uint8_t* bptr = reinterpret_cast<const uint8_t*>(b.ptr);
-    return std::lexicographical_compare(aptr, aptr + type_length_, bptr,
-                                        bptr + type_length_);
-  }
-};
 
 }  // namespace parquet
 

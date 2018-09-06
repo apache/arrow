@@ -667,7 +667,7 @@ struct EncryptionWithFooterKey {
 struct EncryptionWithColumnKey {
   /** Column path in schema **/
   1: required list<string> path_in_schema
-  
+
   /** Retrieval metadata of the column-specific key **/
   2: optional binary column_key_metadata
 }
@@ -703,7 +703,7 @@ struct ColumnChunk {
 
   /** Size of ColumnChunk's ColumnIndex, in bytes **/
   7: optional i32 column_index_length
-  
+
   /** Crypto metadata of encrypted columns **/
   8: optional ColumnCryptoMetaData crypto_meta_data
 }
@@ -905,20 +905,19 @@ union EncryptionAlgorithm {
 
 struct FileCryptoMetaData {
   1: required EncryptionAlgorithm encryption_algorithm
-  
+
   /** Parquet footer can be encrypted, or left as plaintext **/
   2: required bool encrypted_footer
-    
-  /** Retrieval metadata of key used for encryption of footer, 
+
+  /** Retrieval metadata of key used for encryption of footer,
    *  and (possibly) columns **/
   3: optional binary footer_key_metadata
 
   /** Offset of Parquet footer (encrypted, or plaintext) **/
   4: required i64 footer_offset
-  
+
   /** If file IVs are comprised of a fixed part,
    *  and variable parts (random or counter), keep the fixed
    *  part here **/
   5: optional binary iv_prefix
 }
-

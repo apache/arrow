@@ -27,16 +27,16 @@
 #include <vector>
 
 #include "arrow/io/file.h"
+#include "arrow/util/logging.h"
 
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
-#include "parquet/parquet_types.h"
 #include "parquet/properties.h"
+#include "parquet/thrift.h"
 #include "parquet/types.h"
-#include "parquet/util/logging.h"
 #include "parquet/util/memory.h"
 
 using std::string;

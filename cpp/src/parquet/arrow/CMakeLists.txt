@@ -19,7 +19,9 @@ ADD_PARQUET_TEST(arrow-schema-test)
 ADD_PARQUET_TEST(arrow-reader-writer-test)
 
 if(PARQUET_BUILD_BENCHMARKS)
-  ADD_PARQUET_BENCHMARK(arrow-reader-writer-benchmark)
+  ADD_ARROW_BENCHMARK(arrow-reader-writer-benchmark)
+  ARROW_BENCHMARK_LINK_LIBRARIES(arrow-reader-writer-benchmark
+    ${PARQUET_BENCHMARK_LINK_LIBRARIES})
 endif()
 
 # Headers: top level

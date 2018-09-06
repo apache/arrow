@@ -17,33 +17,12 @@
 
 # Headers: util
 install(FILES
-  buffer-builder.h
   comparison.h
-  logging.h
   macros.h
   memory.h
   stopwatch.h
   visibility.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/util")
-
-if (PARQUET_BUILD_BENCHMARKS)
-  add_library(parquet_benchmark_main benchmark_main.cc)
-  if (APPLE)
-    target_link_libraries(parquet_benchmark_main
-      gbenchmark
-    )
-  elseif(WIN32)
-    target_link_libraries(parquet_benchmark_main
-      gbenchmark
-      shlwapi.lib # workaround for bug(?) in gbenchmark: unresolved external symbol __imp_SHGetValueA
-    )
-  else()
-    target_link_libraries(parquet_benchmark_main
-      gbenchmark
-      pthread
-    )
-  endif()
-endif()
 
 ADD_PARQUET_TEST(comparison-test)
 ADD_PARQUET_TEST(memory-test)

@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <memory>
 
 #include "parquet/exception.h"
 #include "parquet/schema.h"
@@ -71,5 +72,41 @@ template class PARQUET_TEMPLATE_EXPORT CompareDefault<FloatType>;
 template class PARQUET_TEMPLATE_EXPORT CompareDefault<DoubleType>;
 template class PARQUET_TEMPLATE_EXPORT CompareDefault<ByteArrayType>;
 template class PARQUET_TEMPLATE_EXPORT CompareDefault<FLBAType>;
+
+bool CompareUnsignedInt32::operator()(const int32_t& a, const int32_t& b) {
+  const uint32_t ua = a;
+  const uint32_t ub = b;
+  return (ua < ub);
+}
+
+bool CompareUnsignedInt64::operator()(const int64_t& a, const int64_t& b) {
+  const uint64_t ua = a;
+  const uint64_t ub = b;
+  return (ua < ub);
+}
+
+bool CompareUnsignedInt96::operator()(const Int96& a, const Int96& b) {
+  if (a.value[2] != b.value[2]) {
+    return (a.value[2] < b.value[2]);
+  } else if (a.value[1] != b.value[1]) {
+    return (a.value[1] < b.value[1]);
+  }
+  return (a.value[0] < b.value[0]);
+}
+
+bool CompareUnsignedByteArray::operator()(const ByteArray& a, const ByteArray& b) {
+  const uint8_t* aptr = reinterpret_cast<const uint8_t*>(a.ptr);
+  const uint8_t* bptr = reinterpret_cast<const uint8_t*>(b.ptr);
+  return std::lexicographical_compare(aptr, aptr + a.len, bptr, bptr + b.len);
+}
+
+CompareUnsignedFLBA::CompareUnsignedFLBA(int length) : CompareDefaultFLBA(length) {}
+
+bool CompareUnsignedFLBA::operator()(const FLBA& a, const FLBA& b) {
+  const uint8_t* aptr = reinterpret_cast<const uint8_t*>(a.ptr);
+  const uint8_t* bptr = reinterpret_cast<const uint8_t*>(b.ptr);
+  return std::lexicographical_compare(aptr, aptr + type_length_, bptr,
+                                      bptr + type_length_);
+}
 
 }  // namespace parquet

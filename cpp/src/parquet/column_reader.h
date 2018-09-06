@@ -25,6 +25,7 @@
 #include <iostream>
 #include <memory>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <arrow/buffer.h>
@@ -37,6 +38,7 @@
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
+#include "parquet/util/macros.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
@@ -209,13 +211,13 @@ static inline void DefinitionLevelsToBitmap(
 
 // API to read values from a single column. This is a main client facing API.
 template <typename DType>
-class PARQUET_EXPORT TypedColumnReader : public ColumnReader {
+class PARQUET_TEMPLATE_CLASS_EXPORT TypedColumnReader : public ColumnReader {
  public:
   typedef typename DType::c_type T;
 
   TypedColumnReader(const ColumnDescriptor* schema, std::unique_ptr<PageReader> pager,
                     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
-      : ColumnReader(schema, std::move(pager), pool), current_decoder_(nullptr) {}
+      : ColumnReader(schema, std::move(pager), pool), current_decoder_(NULLPTR) {}
 
   // Read a batch of repetition levels, definition levels, and values from the
   // column.
@@ -521,14 +523,14 @@ typedef TypedColumnReader<DoubleType> DoubleReader;
 typedef TypedColumnReader<ByteArrayType> ByteArrayReader;
 typedef TypedColumnReader<FLBAType> FixedLenByteArrayReader;
 
-extern template class PARQUET_EXPORT TypedColumnReader<BooleanType>;
-extern template class PARQUET_EXPORT TypedColumnReader<Int32Type>;
-extern template class PARQUET_EXPORT TypedColumnReader<Int64Type>;
-extern template class PARQUET_EXPORT TypedColumnReader<Int96Type>;
-extern template class PARQUET_EXPORT TypedColumnReader<FloatType>;
-extern template class PARQUET_EXPORT TypedColumnReader<DoubleType>;
-extern template class PARQUET_EXPORT TypedColumnReader<ByteArrayType>;
-extern template class PARQUET_EXPORT TypedColumnReader<FLBAType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<BooleanType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<Int32Type>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<Int64Type>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<Int96Type>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<FloatType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<DoubleType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<ByteArrayType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<FLBAType>;
 
 }  // namespace parquet
 

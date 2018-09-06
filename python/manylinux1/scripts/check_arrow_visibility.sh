@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-nm -D -C /arrow-dist/lib64/libarrow.so > nm_arrow.log
+nm -D -C /arrow-dist/lib/libarrow.so > nm_arrow.log
 grep ' T ' nm_arrow.log | grep -v arrow > visible_symbols.log
 
 if [[ `cat visible_symbols.log | wc -l` -eq 2 ]]

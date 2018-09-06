@@ -54,14 +54,13 @@ Finally, set gcc 4.9 as the active compiler using:
 Environment Setup and Build
 ---------------------------
 
-First, let's clone the Arrow and Parquet git repositories:
+First, let's clone the Arrow git repository:
 
 .. code-block:: shell
 
    mkdir repos
    cd repos
    git clone https://github.com/apache/arrow.git
-   git clone https://github.com/apache/parquet-cpp.git
 
 You should now see
 
@@ -70,7 +69,6 @@ You should now see
    $ ls -l
    total 8
    drwxrwxr-x 12 wesm wesm 4096 Apr 15 19:19 arrow/
-   drwxrwxr-x 12 wesm wesm 4096 Apr 15 19:19 parquet-cpp/
 
 Using Conda
 ~~~~~~~~~~~
@@ -94,7 +92,6 @@ about our build toolchain:
    export ARROW_BUILD_TYPE=release
 
    export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
-   export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
    export ARROW_HOME=$CONDA_PREFIX
    export PARQUET_HOME=$CONDA_PREFIX
 
@@ -135,7 +132,7 @@ folder as the repositories and a target installation folder:
    source ./pyarrow/bin/activate
    pip install six numpy pandas cython pytest
 
-   # This is the folder where we will install Arrow and Parquet to during
+   # This is the folder where we will install the Arrow libraries during
    # development
    mkdir dist
 
@@ -165,6 +162,7 @@ Now build and install the Arrow C++ libraries:
 
    cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
          -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+         -DARROW_PARQUET=on \
          -DARROW_PYTHON=on \
          -DARROW_PLASMA=on \
          -DARROW_BUILD_TESTS=OFF \
@@ -176,25 +174,6 @@ Now build and install the Arrow C++ libraries:
 If you don't want to build and install the Plasma in-memory object store,
 you can omit the ``-DARROW_PLASMA=on`` flag.
 
-Now, optionally build and install the Apache Parquet libraries in your
-toolchain:
-
-.. code-block:: shell
-
-   mkdir parquet-cpp/build
-   pushd parquet-cpp/build
-
-   cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-         -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
-         -DPARQUET_BUILD_BENCHMARKS=off \
-         -DPARQUET_BUILD_EXECUTABLES=off \
-         -DPARQUET_BUILD_TESTS=off \
-         ..
-
-   make -j4
-   make install
-   popd
-
 Now, build pyarrow:
 
 .. code-block:: shell
@@ -203,8 +182,7 @@ Now, build pyarrow:
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
           --with-parquet --with-plasma --inplace
 
-If you did not build parquet-cpp, you can omit ``--with-parquet`` and if
-you did not build with plasma, you can omit ``--with-plasma``.
+If you did not build with plasma, you can omit ``--with-plasma``.
 
 You should be able to run the unit tests with:
 
@@ -225,16 +203,15 @@ You should be able to run the unit tests with:
 
    ====== 1000 passed, 56 skipped, 6 xfailed, 19 warnings in 26.52 seconds =======
 
-To build a self-contained wheel (including Arrow C++ and Parquet C++), one
-can set ``--bundle-arrow-cpp``:
+To build a self-contained wheel (including the Arrow and Parquet C++
+libraries), one can set ``--bundle-arrow-cpp``:
 
 .. code-block:: shell
 
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
           --with-parquet --with-plasma --bundle-arrow-cpp bdist_wheel
 
-Again, if you did not build parquet-cpp, you should omit ``--with-parquet`` and
-if you did not build with plasma, you should omit ``--with-plasma``.
+Again, if you did not build with plasma, you should omit ``--with-plasma``.
 
 Building with optional ORC integration
 --------------------------------------
@@ -283,12 +260,11 @@ First, we bootstrap a conda environment similar to the `C++ build instructions
 <https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md>`_. This
 includes all the dependencies for Arrow and the Apache Parquet C++ libraries.
 
-First, starting from fresh clones of Apache Arrow and parquet-cpp:
+First, starting from fresh clones of Apache Arrow:
 
 .. code-block:: shell
 
    git clone https://github.com/apache/arrow.git
-   git clone https://github.com/apache/parquet-cpp.git
 
 .. code-block:: shell
 
@@ -311,24 +287,10 @@ Now, we build and install Arrow C++ libraries
          -DCMAKE_BUILD_TYPE=Release ^
          -DARROW_BUILD_TESTS=on ^
          -DARROW_CXXFLAGS="/WX /MP" ^
+         -DARROW_PARQUET=on ^
          -DARROW_PYTHON=on ..
    cmake --build . --target INSTALL --config Release
    cd ..\..
-
-Now, we build parquet-cpp and install the result in the same place:
-
-.. code-block:: shell
-
-   mkdir ..\parquet-cpp\build
-   pushd ..\parquet-cpp\build
-   set PARQUET_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
-   set PARQUET_HOME=C:\thirdparty
-   cmake -G "Visual Studio 14 2015 Win64" ^
-         -DCMAKE_INSTALL_PREFIX=%PARQUET_HOME% ^
-         -DCMAKE_BUILD_TYPE=Release ^
-         -DPARQUET_BUILD_TESTS=off ..
-   cmake --build . --target INSTALL --config Release
-   popd
 
 After that, we must put the install directory's bin path in our ``%PATH%``:
 
@@ -360,75 +322,3 @@ Getting ``python-test.exe`` to run is a bit tricky because your
    set PYTHONHOME=%CONDA_PREFIX%
 
 Now ``python-test.exe`` or simply ``ctest`` (to run all tests) should work.
-
-Nightly Builds of ``arrow-cpp``, ``parquet-cpp``, and ``pyarrow`` for Linux
----------------------------------------------------------------------------
-
-Nightly builds of Linux conda packages for ``arrow-cpp``, ``parquet-cpp``, and
-``pyarrow`` can be automated using an open source tool called `scourge
-<https://github.com/cpcloud/scourge>`_.
-
-``scourge`` is new, so please report any feature requests or bugs to the
-`scourge issue tracker <https://github.com/cpcloud/scourge/issues>`_.
-
-To get scourge you need to clone the source and install it in development mode.
-
-To setup your own nightly builds:
-
-#. Clone and install scourge
-#. Create a script that calls scourge
-#. Run that script as a cronjob once per day
-
-First, clone and install scourge (you also need to `install docker
-<https://docs.docker.com/engine/installation>`_):
-
-.. code:: sh
-
-   git clone https://github.com/cpcloud/scourge
-   cd scourge
-   python setup.py develop
-   which scourge
-
-Second, create a shell script that calls scourge:
-
-.. code:: sh
-
-   function build() {
-     # make sure we got a working directory
-     workingdir="${1}"
-     [ -z "${workingdir}" ] && echo "Must provide a working directory" && exit 1
-     scourge="/path/to/scourge"
-
-     # get the hash of master for building parquet
-     PARQUET_ARROW_VERSION="$("${scourge}" sha apache/arrow master)"
-
-     # setup the build for each package
-     "${scourge}" init arrow-cpp@master parquet-cpp@master pyarrow@master
-
-     # build the packages with some constraints (the -c arguments)
-     # -e sets environment variables on a per package basis
-     "${scourge}" build \
-       -e parquet-cpp:PARQUET_ARROW_VERSION="${PARQUET_ARROW_VERSION}" \
-       -c "python >=2.7,<3|>=3.5" \
-       -c "numpy >= 1.11" \
-       -c "r-base >=3.3.2"
-   }
-
-   workingdir="$(date +'%Y%m%d_%H_%M_%S')"
-   mkdir -p "${workingdir}"
-   build "${workingdir}" > "${workingdir}"/scourge.log 2>&1
-
-Third, run that script as a cronjob once per day:
-
-.. code:: sh
-
-   crontab -e
-
-then in the scratch file that's opened:
-
-.. code:: sh
-
-   @daily /path/to/the/above/script.sh
-
-The build artifacts (conda packages) will be located in
-``${workingdir}/artifacts/linux-64``.

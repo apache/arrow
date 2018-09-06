@@ -15,23 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_UTIL_WINDOWS_COMPATIBILITY
-#define PARQUET_UTIL_WINDOWS_COMPATIBILITY
+#pragma once
+
+#include "arrow/util/windows_compatibility.h"
 
 #ifdef _WIN32
 
-// Windows defines min and max macros that mess up std::min/max
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-
-#include <windows.h>
-#include <winsock2.h>
-
+// parquet.thrift's OPTIONAL RepetitionType conflicts with a #define from
+// above, so we undefine it
 #ifdef OPTIONAL
 #undef OPTIONAL
 #endif
 
-#endif  // _WIN32
-
-#endif  // PARQUET_UTIL_WINDOWS_COMPATIBILITY
+#endif

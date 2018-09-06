@@ -26,6 +26,7 @@
 #include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/comparison.h"
+#include "parquet/util/macros.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
@@ -82,7 +83,7 @@ class PARQUET_EXPORT EncodedStatistics {
 };
 
 template <typename DType>
-class PARQUET_EXPORT TypedRowGroupStatistics;
+class PARQUET_TEMPLATE_CLASS_EXPORT TypedRowGroupStatistics;
 
 class PARQUET_EXPORT RowGroupStatistics
     : public std::enable_shared_from_this<RowGroupStatistics> {
@@ -134,13 +135,13 @@ class PARQUET_EXPORT RowGroupStatistics
     this->num_values_ = 0;
   }
 
-  const ColumnDescriptor* descr_ = nullptr;
+  const ColumnDescriptor* descr_ = NULLPTR;
   int64_t num_values_ = 0;
   EncodedStatistics statistics_;
 };
 
 template <typename DType>
-class TypedRowGroupStatistics : public RowGroupStatistics {
+class PARQUET_TEMPLATE_CLASS_EXPORT TypedRowGroupStatistics : public RowGroupStatistics {
  public:
   using T = typename DType::c_type;
 
@@ -226,11 +227,6 @@ typedef TypedRowGroupStatistics<DoubleType> DoubleStatistics;
 typedef TypedRowGroupStatistics<ByteArrayType> ByteArrayStatistics;
 typedef TypedRowGroupStatistics<FLBAType> FLBAStatistics;
 
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
-
 PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<BooleanType>;
 PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<Int32Type>;
 PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<Int64Type>;
@@ -239,10 +235,6 @@ PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<FloatType>;
 PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<DoubleType>;
 PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<ByteArrayType>;
 PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<FLBAType>;
-
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
 
 }  // namespace parquet
 

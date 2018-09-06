@@ -114,7 +114,7 @@ class PARQUET_EXPORT Node {
         repetition_(repetition),
         logical_type_(logical_type),
         id_(id),
-        parent_(nullptr) {}
+        parent_(NULLPTR) {}
 
   virtual ~Node() {}
 
@@ -180,7 +180,7 @@ class PARQUET_EXPORT Node {
   void SetParent(const Node* p_parent);
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(Node);
+  PARQUET_DISALLOW_COPY_AND_ASSIGN(Node);
 };
 
 // Save our breath all over the place with these typedefs
@@ -333,7 +333,7 @@ class PARQUET_EXPORT ColumnDescriptor {
  public:
   ColumnDescriptor(const schema::NodePtr& node, int16_t max_definition_level,
                    int16_t max_repetition_level,
-                   const SchemaDescriptor* schema_descr = nullptr);
+                   const SchemaDescriptor* schema_descr = NULLPTR);
 
   bool Equals(const ColumnDescriptor& other) const;
 

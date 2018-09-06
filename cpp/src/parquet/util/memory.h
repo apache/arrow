@@ -30,44 +30,22 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
-#include "arrow/status.h"
-#include "arrow/util/compression.h"
 
 #include "parquet/exception.h"
 #include "parquet/types.h"
 #include "parquet/util/macros.h"
 #include "parquet/util/visibility.h"
 
+namespace arrow {
+
+class Codec;
+
+}  // namespace arrow
+
 namespace parquet {
 
-static inline std::unique_ptr<::arrow::Codec> GetCodecFromArrow(Compression::type codec) {
-  std::unique_ptr<::arrow::Codec> result;
-  switch (codec) {
-    case Compression::UNCOMPRESSED:
-      break;
-    case Compression::SNAPPY:
-      PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::SNAPPY, &result));
-      break;
-    case Compression::GZIP:
-      PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::GZIP, &result));
-      break;
-    case Compression::LZO:
-      PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::LZO, &result));
-      break;
-    case Compression::BROTLI:
-      PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::BROTLI, &result));
-      break;
-    case Compression::LZ4:
-      PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::LZ4, &result));
-      break;
-    case Compression::ZSTD:
-      PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::ZSTD, &result));
-      break;
-    default:
-      break;
-  }
-  return result;
-}
+PARQUET_EXPORT
+std::unique_ptr<::arrow::Codec> GetCodecFromArrow(Compression::type codec);
 
 static constexpr int64_t kInMemoryDefaultCapacity = 1024;
 
@@ -94,7 +72,7 @@ class PARQUET_EXPORT Vector {
   int64_t capacity_;
   T* data_;
 
-  DISALLOW_COPY_AND_ASSIGN(Vector);
+  PARQUET_DISALLOW_COPY_AND_ASSIGN(Vector);
 };
 
 /// A ChunkedAllocator maintains a list of memory chunks from which it
@@ -194,7 +172,7 @@ class PARQUET_EXPORT ChunkedAllocator {
 
     explicit ChunkInfo(int64_t size, uint8_t* buf);
 
-    ChunkInfo() : data(nullptr), size(0), allocated_bytes(0) {}
+    ChunkInfo() : data(NULLPTR), size(0), allocated_bytes(0) {}
   };
 
   /// chunk from which we served the last Allocate() call;
@@ -291,6 +269,12 @@ class PARQUET_EXPORT ArrowFileMethods : virtual public FileInterface {
   virtual ::arrow::io::FileInterface* file_interface() = 0;
 };
 
+// Suppress C4250 warning caused by diamond inheritance
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4250)
+#endif
+
 /// This interface depends on the threadsafety of the underlying Arrow file interface
 class PARQUET_EXPORT ArrowInputFile : public ArrowFileMethods, public RandomAccessSource {
  public:
@@ -338,6 +322,11 @@ class PARQUET_EXPORT ArrowOutputStream : public ArrowFileMethods, public OutputS
   std::shared_ptr<::arrow::io::OutputStream> file_;
 };
 
+// Pop C4250 pragma
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 class PARQUET_EXPORT InMemoryOutputStream : public OutputStream {
  public:
   explicit InMemoryOutputStream(
@@ -370,7 +359,7 @@ class PARQUET_EXPORT InMemoryOutputStream : public OutputStream {
   int64_t size_;
   int64_t capacity_;
 
-  DISALLOW_COPY_AND_ASSIGN(InMemoryOutputStream);
+  PARQUET_DISALLOW_COPY_AND_ASSIGN(InMemoryOutputStream);
 };
 
 // ----------------------------------------------------------------------
@@ -379,7 +368,7 @@ class PARQUET_EXPORT InMemoryOutputStream : public OutputStream {
 // Interface for the column reader to get the bytes. The interface is a stream
 // interface, meaning the bytes in order and once a byte is read, it does not
 // need to be read again.
-class InputStream {
+class PARQUET_EXPORT InputStream {
  public:
   // Returns the next 'num_to_peek' without advancing the current position.
   // *num_bytes will contain the number of bytes returned which can only be

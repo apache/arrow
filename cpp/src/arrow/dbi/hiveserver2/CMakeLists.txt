@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(arrow_hiveserver2)
+
 # Headers: top level
 install(FILES
   api.h
@@ -85,10 +87,16 @@ set_target_properties(arrow_hiveserver2_thrift
 
 ADD_ARROW_LIB(arrow_hiveserver2
   SOURCES ${ARROW_HIVESERVER2_SRCS}
+  OUTPUTS ARROW_HIVESERVER2_LIBRARIES
   DEPENDENCIES arrow_hiveserver2_thrift
   SHARED_LINK_FLAGS ""
   SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS}
 )
+
+foreach(LIB_TARGET ${ARROW_HIVESERVER2_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET}
+    PRIVATE ARROW_EXPORTING)
+endforeach()
 
 set_property(SOURCE ${ARROW_HIVESERVER2_SRCS}
   APPEND_STRING PROPERTY COMPILE_FLAGS
@@ -102,7 +110,7 @@ set(ARROW_HIVESERVER2_TEST_LINK_LIBS
 
 ADD_ARROW_TEST(hiveserver2-test
   STATIC_LINK_LIBS "${ARROW_HIVESERVER2_TEST_LINK_LIBS}"
-  LABELS "hiveserver2"
+  LABELS "arrow_hiveserver2"
 )
 
 set_property(TARGET hiveserver2-test

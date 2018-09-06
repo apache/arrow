@@ -19,8 +19,6 @@
 #
 # Usage:
 #   docker run --rm -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
-# or with Parquet support
-#   docker run --rm -v $PWD:/io parquet_arrow-base-x86_64 /io/build_arrow.sh
 
 # Build upon the scripts in https://github.com/matthew-brett/manylinux-builds
 # * Copyright (c) 2013-2016, Matt Terry and Matthew Brett (BSD 2-clause)
@@ -43,7 +41,8 @@ export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_BUNDLE_BOOST=1
 export PYARROW_BOOST_NAMESPACE=arrow_boost
-export PKG_CONFIG_PATH=/arrow-dist/lib64/pkgconfig
+export PKG_CONFIG_PATH=/arrow-dist/lib/pkgconfig
+
 export PYARROW_CMAKE_OPTIONS='-DTHRIFT_HOME=/usr -DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist'
 # Ensure the target directory exists
 mkdir -p /io/dist
@@ -69,7 +68,22 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     ARROW_BUILD_DIR=/arrow/cpp/build-PY${PYTHON}-${U_WIDTH}
     mkdir -p "${ARROW_BUILD_DIR}"
     pushd "${ARROW_BUILD_DIR}"
-    PATH="${CPYTHON_PATH}/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=ON -DARROW_JEMALLOC=ON -DARROW_RPATH_ORIGIN=ON -DARROW_PYTHON=ON -DPythonInterp_FIND_VERSION=${PYTHON} -DARROW_PLASMA=ON -DARROW_TENSORFLOW=ON -DARROW_ORC=ON -DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist -GNinja ..
+    PATH="${CPYTHON_PATH}/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/arrow-dist \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DARROW_BUILD_TESTS=OFF \
+        -DARROW_BUILD_SHARED=ON \
+        -DARROW_BOOST_USE_SHARED=ON \
+        -DARROW_JEMALLOC=ON \
+        -DARROW_RPATH_ORIGIN=ON \
+        -DARROW_PYTHON=ON \
+        -DPythonInterp_FIND_VERSION=${PYTHON} \
+        -DARROW_PLASMA=ON \
+        -DARROW_TENSORFLOW=ON \
+        -DARROW_ORC=ON \
+        -DBoost_NAMESPACE=arrow_boost \
+        -DBOOST_ROOT=/arrow_boost_dist \
+        -GNinja ..
     ninja install
     popd
 

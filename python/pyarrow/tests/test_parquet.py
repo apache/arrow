@@ -921,10 +921,10 @@ def test_multithreaded_read():
     _write_table(table, buf, compression='SNAPPY', version='2.0')
 
     buf.seek(0)
-    table1 = _read_table(buf, nthreads=4)
+    table1 = _read_table(buf, use_threads=True)
 
     buf.seek(0)
-    table2 = _read_table(buf, nthreads=1)
+    table2 = _read_table(buf, use_threads=False)
 
     assert table1.equals(table2)
 
@@ -1556,9 +1556,9 @@ def test_read_multiple_files(tempdir):
     # Write a _SUCCESS.crc file
     (dirpath / '_SUCCESS.crc').touch()
 
-    def read_multiple_files(paths, columns=None, nthreads=None, **kwargs):
+    def read_multiple_files(paths, columns=None, use_threads=True, **kwargs):
         dataset = pq.ParquetDataset(paths, **kwargs)
-        return dataset.read(columns=columns, nthreads=nthreads)
+        return dataset.read(columns=columns, use_threads=use_threads)
 
     result = read_multiple_files(paths)
     expected = pa.concat_tables(test_data)
@@ -1583,7 +1583,7 @@ def test_read_multiple_files(tempdir):
     assert result.equals(expected)
 
     # Read with multiple threads
-    pa.localfs.read_parquet(dirpath, nthreads=2)
+    pa.localfs.read_parquet(dirpath, use_threads=True)
 
     # Test failure modes with non-uniform metadata
     bad_apple = _test_dataframe(size, seed=i).iloc[:, :4]

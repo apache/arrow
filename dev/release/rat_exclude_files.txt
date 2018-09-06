@@ -1,5 +1,6 @@
 *.npmrc
 *.gitignore
+.gitmodules
 *_generated.h
 *_generated.js
 *_generated.ts
@@ -27,6 +28,7 @@ cpp/cmake_modules/SetupCxxFlags.cmake
 cpp/cmake_modules/SnappyCMakeLists.txt
 cpp/cmake_modules/SnappyConfig.h
 cpp/cmake_modules/CompilerInfo.cmake
+cpp/src/parquet/.parquetcppversion
 cpp/src/plasma/thirdparty/ae/ae.c
 cpp/src/plasma/thirdparty/ae/ae.h
 cpp/src/plasma/thirdparty/ae/ae_epoll.c

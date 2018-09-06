@@ -19,6 +19,8 @@
 import argparse
 import re
 import os
+import sys
+import traceback
 
 parser = argparse.ArgumentParser(
     description="Check for illegal headers for C++/CLI applications")
@@ -59,23 +61,29 @@ EXCLUSIONS = [
     'arrow/util/macros.h',
     'arrow/python/iterators.h',
     'arrow/util/parallel.h',
-    'arrow/io/hdfs-internal.h'
+    'arrow/io/hdfs-internal.h',
+    'parquet/arrow/test-util.h',
+    'parquet/encoding-internal.h',
+    'parquet/test-util.h'
 ]
 
+try:
+    for dirpath, _, filenames in os.walk(arguments.source_path):
+        for filename in filenames:
+            full_path = os.path.join(dirpath, filename)
 
-for dirpath, _, filenames in os.walk(arguments.source_path):
-    for filename in filenames:
-        full_path = os.path.join(dirpath, filename)
+            exclude = False
+            for exclusion in EXCLUSIONS:
+                if exclusion in full_path:
+                    exclude = True
+                    break
 
-        exclude = False
-        for exclusion in EXCLUSIONS:
-            if exclusion in full_path:
-                exclude = True
-                break
+            if exclude:
+                continue
 
-        if exclude:
-            continue
-
-        # Only run on header files
-        if filename.endswith('.h'):
-            lint_file(full_path)
+            # Only run on header files
+            if filename.endswith('.h'):
+                lint_file(full_path)
+except Exception:
+    traceback.print_exc()
+    sys.exit(1)

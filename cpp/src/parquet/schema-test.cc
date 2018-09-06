@@ -24,9 +24,9 @@
 #include <vector>
 
 #include "parquet/exception.h"
-#include "parquet/parquet_types.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"
+#include "parquet/thrift.h"
 #include "parquet/types.h"
 
 using std::string;
@@ -363,8 +363,8 @@ TEST_F(TestGroupNode, FieldIndex) {
   // Test a non field node
   auto non_field_alien = Int32("alien", Repetition::REQUIRED);   // other name
   auto non_field_familiar = Int32("one", Repetition::REPEATED);  // other node
-  ASSERT_TRUE(group.FieldIndex(*non_field_alien) < 0);
-  ASSERT_TRUE(group.FieldIndex(*non_field_familiar) < 0);
+  ASSERT_LT(group.FieldIndex(*non_field_alien), 0);
+  ASSERT_LT(group.FieldIndex(*non_field_familiar), 0);
 }
 
 TEST_F(TestGroupNode, FieldIndexDuplicateName) {
@@ -703,8 +703,8 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   // Test non-column nodes find
   NodePtr non_column_alien = Int32("alien", Repetition::REQUIRED);  // other path
   NodePtr non_column_familiar = Int32("a", Repetition::REPEATED);   // other node
-  ASSERT_TRUE(descr_.ColumnIndex(*non_column_alien) < 0);
-  ASSERT_TRUE(descr_.ColumnIndex(*non_column_familiar) < 0);
+  ASSERT_LT(descr_.ColumnIndex(*non_column_alien), 0);
+  ASSERT_LT(descr_.ColumnIndex(*non_column_familiar), 0);
 
   ASSERT_EQ(inta.get(), descr_.GetColumnRoot(0));
   ASSERT_EQ(bag.get(), descr_.GetColumnRoot(3));

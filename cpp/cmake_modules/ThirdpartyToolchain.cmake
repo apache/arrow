@@ -106,6 +106,18 @@ if (DEFINED ENV{ZSTD_HOME})
   set(ZSTD_HOME "$ENV{ZSTD_HOME}")
 endif()
 
+# ----------------------------------------------------------------------
+# Some EP's require other EP's
+
+if (ARROW_THRIFT OR ARROW_WITH_ZLIB)
+  set(ARROW_WITH_ZLIB ON)
+endif()
+
+if (ARROW_HIVESERVER2 OR ARROW_PARQUET)
+  set(ARROW_WITH_THRIFT ON)
+else()
+  set(ARROW_WITH_THRIFT OFF)
+endif()
 
 # ----------------------------------------------------------------------
 # Versions and URLs for toolchain builds, which also can be used to configure
@@ -295,8 +307,11 @@ if (ARROW_BOOST_VENDORED)
     "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(BOOST_STATIC_FILESYSTEM_LIBRARY
     "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(BOOST_STATIC_REGEX_LIBRARY
+    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(BOOST_SYSTEM_LIBRARY "${BOOST_STATIC_SYSTEM_LIBRARY}")
   set(BOOST_FILESYSTEM_LIBRARY "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
+  set(BOOST_REGEX_LIBRARY "${BOOST_STATIC_REGEX_LIBRARY}")
   if (ARROW_BOOST_HEADER_ONLY)
     set(BOOST_BUILD_PRODUCTS)
     set(BOOST_CONFIGURE_COMMAND "")
@@ -304,11 +319,12 @@ if (ARROW_BOOST_VENDORED)
   else()
     set(BOOST_BUILD_PRODUCTS
       ${BOOST_SYSTEM_LIBRARY}
-      ${BOOST_FILESYSTEM_LIBRARY})
+      ${BOOST_FILESYSTEM_LIBRARY}
+      ${BOOST_REGEX_LIBRARY})
     set(BOOST_CONFIGURE_COMMAND
       "./bootstrap.sh"
       "--prefix=${BOOST_PREFIX}"
-      "--with-libraries=filesystem,system")
+      "--with-libraries=filesystem,regex,system")
     if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
       set(BOOST_BUILD_VARIANT "debug")
     else()
@@ -348,16 +364,19 @@ else()
     if (ARROW_BOOST_HEADER_ONLY)
       find_package(Boost REQUIRED)
     else()
-      find_package(Boost COMPONENTS system filesystem REQUIRED)
+      find_package(Boost COMPONENTS regex system filesystem REQUIRED)
       if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
         set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
         set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+        set(BOOST_SHARED_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_DEBUG})
       else()
         set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
         set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+        set(BOOST_SHARED_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_RELEASE})
       endif()
       set(BOOST_SYSTEM_LIBRARY boost_system_shared)
       set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
+      set(BOOST_REGEX_LIBRARY boost_regex_shared)
     endif()
   else()
     # Find static boost headers and libs
@@ -366,16 +385,19 @@ else()
     if (ARROW_BOOST_HEADER_ONLY)
       find_package(Boost REQUIRED)
     else()
-      find_package(Boost COMPONENTS system filesystem REQUIRED)
+      find_package(Boost COMPONENTS regex system filesystem REQUIRED)
       if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
         set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
         set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+        set(BOOST_STATIC_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_DEBUG})
       else()
         set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
         set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+        set(BOOST_STATIC_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_RELEASE})
       endif()
       set(BOOST_SYSTEM_LIBRARY boost_system_static)
       set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+      set(BOOST_REGEX_LIBRARY boost_regex_static)
     endif()
   endif()
 endif()
@@ -391,6 +413,10 @@ if (NOT ARROW_BOOST_HEADER_ONLY)
   ADD_THIRDPARTY_LIB(boost_filesystem
       STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
       SHARED_LIB "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
+
+  ADD_THIRDPARTY_LIB(boost_regex
+      STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}"
+      SHARED_LIB "${BOOST_SHARED_REGEX_LIBRARY}")
 
   SET(ARROW_BOOST_LIBS boost_system boost_filesystem)
 endif()
@@ -1122,36 +1148,12 @@ endif()
 # ----------------------------------------------------------------------
 # Thrift
 
-if (ARROW_HIVESERVER2)
+if (ARROW_WITH_THRIFT)
 
 # find thrift headers and libs
 find_package(Thrift)
 
 if (NOT THRIFT_FOUND)
-  set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
-  set(ZLIB_HOME "${ZLIB_PREFIX}")
-  set(ZLIB_INCLUDE_DIR "${ZLIB_PREFIX}/include")
-  if (MSVC)
-    if (${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-      set(ZLIB_STATIC_LIB_NAME zlibstaticd.lib)
-    else()
-      set(ZLIB_STATIC_LIB_NAME zlibstatic.lib)
-    endif()
-  else()
-    set(ZLIB_STATIC_LIB_NAME libz.a)
-  endif()
-  set(ZLIB_STATIC_LIB "${ZLIB_PREFIX}/lib/${ZLIB_STATIC_LIB_NAME}")
-  set(ZLIB_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    -DCMAKE_INSTALL_PREFIX=${ZLIB_PREFIX}
-    -DCMAKE_C_FLAGS=${EP_C_FLAGS}
-    -DBUILD_SHARED_LIBS=OFF)
-  ExternalProject_Add(zlib_ep
-    URL "http://zlib.net/fossils/zlib-1.2.8.tar.gz"
-    BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
-    ${ZLIB_BUILD_BYPRODUCTS}
-    ${EP_LOG_OPTIONS}
-    CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
-
   set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep/src/thrift_ep-install")
   set(THRIFT_HOME "${THRIFT_PREFIX}")
   set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <utility>
 
 #include <arrow/buffer.h>
 #include <arrow/memory_pool.h>
@@ -29,7 +30,6 @@
 
 #include "parquet/column_page.h"
 #include "parquet/encoding-internal.h"
-#include "parquet/parquet_types.h"
 #include "parquet/properties.h"
 #include "parquet/thrift.h"
 

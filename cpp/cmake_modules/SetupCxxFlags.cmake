@@ -30,10 +30,6 @@ if (MSVC)
   # insecure, like std::getenv
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
-  # Use __declspec(dllexport) during library build, other users of the Arrow
-  # headers will see dllimport
-  add_definitions(-DARROW_EXPORTING)
-
   # ARROW-1931 See https://github.com/google/googletest/issues/1318
   #
   # This is added to CMAKE_CXX_FLAGS instead of CXX_COMMON_FLAGS since only the
@@ -106,7 +102,7 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
 -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
 -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
 -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
--Wno-disabled-macro-expansion")
+-Wno-disabled-macro-expansion -Wno-format-nonliteral -Wno-missing-noreturn")
 
     # Version numbers where warnings are introduced
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.3")

@@ -16,7 +16,9 @@
 // under the License.
 
 #include <limits>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/api.h"

@@ -178,9 +178,6 @@ inline std::ostream& operator<<(std::ostream& os, const DataType& type) {
   return os;
 }
 
-// TODO(wesm): Remove this from parquet-cpp
-using TypePtr = std::shared_ptr<DataType>;
-
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:
   using DataType::DataType;

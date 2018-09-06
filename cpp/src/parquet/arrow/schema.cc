@@ -29,9 +29,9 @@
 
 using arrow::Field;
 using arrow::Status;
-using arrow::TypePtr;
 
-using ArrowType = arrow::Type;
+using ArrowType = arrow::DataType;
+using ArrowTypeId = arrow::Type;
 
 using parquet::Repetition;
 using parquet::schema::GroupNode;
@@ -50,12 +50,12 @@ const auto TIMESTAMP_MS = ::arrow::timestamp(::arrow::TimeUnit::MILLI);
 const auto TIMESTAMP_US = ::arrow::timestamp(::arrow::TimeUnit::MICRO);
 const auto TIMESTAMP_NS = ::arrow::timestamp(::arrow::TimeUnit::NANO);
 
-TypePtr MakeDecimal128Type(const PrimitiveNode& node) {
+std::shared_ptr<ArrowType> MakeDecimal128Type(const PrimitiveNode& node) {
   const auto& metadata = node.decimal_metadata();
   return ::arrow::decimal(metadata.precision, metadata.scale);
 }
 
-static Status FromByteArray(const PrimitiveNode& node, TypePtr* out) {
+static Status FromByteArray(const PrimitiveNode& node, std::shared_ptr<ArrowType>* out) {
   switch (node.logical_type()) {
     case LogicalType::UTF8:
       *out = ::arrow::utf8();
@@ -71,7 +71,7 @@ static Status FromByteArray(const PrimitiveNode& node, TypePtr* out) {
   return Status::OK();
 }
 
-static Status FromFLBA(const PrimitiveNode& node, TypePtr* out) {
+static Status FromFLBA(const PrimitiveNode& node, std::shared_ptr<ArrowType>* out) {
   switch (node.logical_type()) {
     case LogicalType::NONE:
       *out = ::arrow::fixed_size_binary(node.type_length());
@@ -89,7 +89,7 @@ static Status FromFLBA(const PrimitiveNode& node, TypePtr* out) {
   return Status::OK();
 }
 
-static Status FromInt32(const PrimitiveNode& node, TypePtr* out) {
+static Status FromInt32(const PrimitiveNode& node, std::shared_ptr<ArrowType>* out) {
   switch (node.logical_type()) {
     case LogicalType::NONE:
       *out = ::arrow::int32();
@@ -130,7 +130,7 @@ static Status FromInt32(const PrimitiveNode& node, TypePtr* out) {
   return Status::OK();
 }
 
-static Status FromInt64(const PrimitiveNode& node, TypePtr* out) {
+static Status FromInt64(const PrimitiveNode& node, std::shared_ptr<ArrowType>* out) {
   switch (node.logical_type()) {
     case LogicalType::NONE:
       *out = ::arrow::int64();
@@ -162,7 +162,7 @@ static Status FromInt64(const PrimitiveNode& node, TypePtr* out) {
   return Status::OK();
 }
 
-Status FromPrimitive(const PrimitiveNode& primitive, TypePtr* out) {
+Status FromPrimitive(const PrimitiveNode& primitive, std::shared_ptr<ArrowType>* out) {
   if (primitive.logical_type() == LogicalType::NA) {
     *out = ::arrow::null();
     return Status::OK();
@@ -217,7 +217,7 @@ inline bool IsIncludedLeaf(const Node& node,
 
 Status StructFromGroup(const GroupNode& group,
                        const std::unordered_set<const Node*>* included_leaf_nodes,
-                       TypePtr* out) {
+                       std::shared_ptr<ArrowType>* out) {
   std::vector<std::shared_ptr<Field>> fields;
   std::shared_ptr<Field> field;
 
@@ -237,7 +237,7 @@ Status StructFromGroup(const GroupNode& group,
 
 Status NodeToList(const GroupNode& group,
                   const std::unordered_set<const Node*>* included_leaf_nodes,
-                  TypePtr* out) {
+                  std::shared_ptr<ArrowType>* out) {
   *out = nullptr;
   if (group.field_count() == 1) {
     // This attempts to resolve the preferred 3-level list encoding.
@@ -258,7 +258,7 @@ Status NodeToList(const GroupNode& group,
         }
       } else {
         // List of struct
-        std::shared_ptr<::arrow::DataType> inner_type;
+        std::shared_ptr<ArrowType> inner_type;
         RETURN_NOT_OK(StructFromGroup(list_group, included_leaf_nodes, &inner_type));
         if (inner_type != nullptr) {
           auto item_field = std::make_shared<Field>(list_node.name(), inner_type, false);
@@ -267,7 +267,7 @@ Status NodeToList(const GroupNode& group,
       }
     } else if (list_node.is_repeated()) {
       // repeated primitive node
-      std::shared_ptr<::arrow::DataType> inner_type;
+      std::shared_ptr<ArrowType> inner_type;
       if (IsIncludedLeaf(static_cast<const Node&>(list_node), included_leaf_nodes)) {
         RETURN_NOT_OK(
             FromPrimitive(static_cast<const PrimitiveNode&>(list_node), &inner_type));
@@ -292,14 +292,14 @@ Status NodeToField(const Node& node, std::shared_ptr<Field>* out) {
 Status NodeToFieldInternal(const Node& node,
                            const std::unordered_set<const Node*>* included_leaf_nodes,
                            std::shared_ptr<Field>* out) {
-  std::shared_ptr<::arrow::DataType> type = nullptr;
+  std::shared_ptr<ArrowType> type = nullptr;
   bool nullable = !node.is_required();
 
   *out = nullptr;
 
   if (node.is_repeated()) {
     // 1-level LIST encoding fields are required
-    std::shared_ptr<::arrow::DataType> inner_type;
+    std::shared_ptr<ArrowType> inner_type;
     if (node.is_group()) {
       RETURN_NOT_OK(StructFromGroup(static_cast<const GroupNode&>(node),
                                     included_leaf_nodes, &inner_type));
@@ -476,30 +476,30 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
   int scale = -1;
 
   switch (field->type()->id()) {
-    case ArrowType::NA:
+    case ArrowTypeId::NA:
       type = ParquetType::INT32;
       logical_type = LogicalType::NA;
       break;
-    case ArrowType::BOOL:
+    case ArrowTypeId::BOOL:
       type = ParquetType::BOOLEAN;
       break;
-    case ArrowType::UINT8:
+    case ArrowTypeId::UINT8:
       type = ParquetType::INT32;
       logical_type = LogicalType::UINT_8;
       break;
-    case ArrowType::INT8:
+    case ArrowTypeId::INT8:
       type = ParquetType::INT32;
       logical_type = LogicalType::INT_8;
       break;
-    case ArrowType::UINT16:
+    case ArrowTypeId::UINT16:
       type = ParquetType::INT32;
       logical_type = LogicalType::UINT_16;
       break;
-    case ArrowType::INT16:
+    case ArrowTypeId::INT16:
       type = ParquetType::INT32;
       logical_type = LogicalType::INT_16;
       break;
-    case ArrowType::UINT32:
+    case ArrowTypeId::UINT32:
       if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0) {
         type = ParquetType::INT64;
       } else {
@@ -507,36 +507,36 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
         logical_type = LogicalType::UINT_32;
       }
       break;
-    case ArrowType::INT32:
+    case ArrowTypeId::INT32:
       type = ParquetType::INT32;
       break;
-    case ArrowType::UINT64:
+    case ArrowTypeId::UINT64:
       type = ParquetType::INT64;
       logical_type = LogicalType::UINT_64;
       break;
-    case ArrowType::INT64:
+    case ArrowTypeId::INT64:
       type = ParquetType::INT64;
       break;
-    case ArrowType::FLOAT:
+    case ArrowTypeId::FLOAT:
       type = ParquetType::FLOAT;
       break;
-    case ArrowType::DOUBLE:
+    case ArrowTypeId::DOUBLE:
       type = ParquetType::DOUBLE;
       break;
-    case ArrowType::STRING:
+    case ArrowTypeId::STRING:
       type = ParquetType::BYTE_ARRAY;
       logical_type = LogicalType::UTF8;
       break;
-    case ArrowType::BINARY:
+    case ArrowTypeId::BINARY:
       type = ParquetType::BYTE_ARRAY;
       break;
-    case ArrowType::FIXED_SIZE_BINARY: {
+    case ArrowTypeId::FIXED_SIZE_BINARY: {
       type = ParquetType::FIXED_LEN_BYTE_ARRAY;
       const auto& fixed_size_binary_type =
           static_cast<const ::arrow::FixedSizeBinaryType&>(*field->type());
       length = fixed_size_binary_type.byte_width();
     } break;
-    case ArrowType::DECIMAL: {
+    case ArrowTypeId::DECIMAL: {
       type = ParquetType::FIXED_LEN_BYTE_ARRAY;
       logical_type = LogicalType::DECIMAL;
       const auto& decimal_type =
@@ -545,24 +545,24 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       scale = decimal_type.scale();
       length = DecimalSize(precision);
     } break;
-    case ArrowType::DATE32:
+    case ArrowTypeId::DATE32:
       type = ParquetType::INT32;
       logical_type = LogicalType::DATE;
       break;
-    case ArrowType::DATE64:
+    case ArrowTypeId::DATE64:
       type = ParquetType::INT32;
       logical_type = LogicalType::DATE;
       break;
-    case ArrowType::TIMESTAMP:
+    case ArrowTypeId::TIMESTAMP:
       RETURN_NOT_OK(
           GetTimestampMetadata(static_cast<::arrow::TimestampType&>(*field->type()),
                                arrow_properties, &type, &logical_type));
       break;
-    case ArrowType::TIME32:
+    case ArrowTypeId::TIME32:
       type = ParquetType::INT32;
       logical_type = LogicalType::TIME_MILLIS;
       break;
-    case ArrowType::TIME64: {
+    case ArrowTypeId::TIME64: {
       auto time_type = static_cast<::arrow::Time64Type*>(field->type().get());
       if (time_type->unit() == ::arrow::TimeUnit::NANO) {
         return Status::NotImplemented("Nanosecond time not supported in Parquet.");
@@ -570,17 +570,17 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       type = ParquetType::INT64;
       logical_type = LogicalType::TIME_MICROS;
     } break;
-    case ArrowType::STRUCT: {
+    case ArrowTypeId::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
       return StructToNode(struct_type, field->name(), field->nullable(), properties,
                           arrow_properties, out);
     }
-    case ArrowType::LIST: {
+    case ArrowTypeId::LIST: {
       auto list_type = std::static_pointer_cast<::arrow::ListType>(field->type());
       return ListToNode(list_type, field->name(), field->nullable(), properties,
                         arrow_properties, out);
     }
-    case ArrowType::DICTIONARY: {
+    case ArrowTypeId::DICTIONARY: {
       // Parquet has no Dictionary type, dictionary-encoded is handled on
       // the encoding, not the schema level.
       const ::arrow::DictionaryType& dict_type =

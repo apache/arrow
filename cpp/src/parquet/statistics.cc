@@ -161,8 +161,8 @@ void SetNaN<double>(double* value) {
 template <typename DType>
 void TypedRowGroupStatistics<DType>::Update(const T* values, int64_t num_not_null,
                                             int64_t num_null) {
-  DCHECK(num_not_null >= 0);
-  DCHECK(num_null >= 0);
+  DCHECK_GE(num_not_null, 0);
+  DCHECK_GE(num_null, 0);
 
   IncrementNullCount(num_null);
   IncrementNumValues(num_not_null);
@@ -200,8 +200,8 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
                                                   int64_t valid_bits_offset,
                                                   int64_t num_not_null,
                                                   int64_t num_null) {
-  DCHECK(num_not_null >= 0);
-  DCHECK(num_null >= 0);
+  DCHECK_GE(num_not_null, 0);
+  DCHECK_GE(num_null, 0);
 
   IncrementNullCount(num_null);
   IncrementNumValues(num_not_null);

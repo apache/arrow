@@ -32,8 +32,7 @@ from pyarrow._parquet import (ParquetReader, RowGroupStatistics,  # noqa
                               ParquetSchema, ColumnSchema)
 from pyarrow.filesystem import (LocalFileSystem, _ensure_filesystem,
                                 _get_fs_from_path)
-from pyarrow.util import _is_path_like, _stringify_path
-
+from pyarrow.util import _is_path_like, _stringify_path, _deprecate_nthreads
 
 # ----------------------------------------------------------------------
 # Reading a single Parquet file
@@ -89,8 +88,8 @@ class ParquetFile(object):
     def num_row_groups(self):
         return self.reader.num_row_groups
 
-    def read_row_group(self, i, columns=None, nthreads=1,
-                       use_pandas_metadata=False):
+    def read_row_group(self, i, columns=None, nthreads=None,
+                       use_threads=True, use_pandas_metadata=False):
         """
         Read a single row group from a Parquet file
 
@@ -100,9 +99,8 @@ class ParquetFile(object):
             If not None, only these columns will be read from the row group. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'
-        nthreads : int, default 1
-            Number of columns to read in parallel. If > 1, requires that the
-            underlying file source is threadsafe
+        use_threads : boolean, default True
+            Perform multi-threaded column reads
         use_pandas_metadata : boolean, default False
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded
@@ -112,12 +110,13 @@ class ParquetFile(object):
         pyarrow.table.Table
             Content of the row group as a table (of columns)
         """
+        use_threads = _deprecate_nthreads(use_threads, nthreads)
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
         return self.reader.read_row_group(i, column_indices=column_indices,
-                                          nthreads=nthreads)
+                                          use_threads=use_threads)
 
-    def read(self, columns=None, nthreads=1, use_pandas_metadata=False):
+    def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
         """
         Read a Table from Parquet format
 
@@ -127,9 +126,8 @@ class ParquetFile(object):
             If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'
-        nthreads : int, default 1
-            Number of columns to read in parallel. If > 1, requires that the
-            underlying file source is threadsafe
+        use_threads : boolean, default True
+            Perform multi-threaded column reads
         use_pandas_metadata : boolean, default False
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded
@@ -142,7 +140,7 @@ class ParquetFile(object):
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
         return self.reader.read_all(column_indices=column_indices,
-                                    nthreads=nthreads)
+                                    use_threads=use_threads)
 
     def scan_contents(self, columns=None, batch_size=65536):
         """
@@ -415,7 +413,7 @@ class ParquetDatasetPiece(object):
             reader = ParquetFile(reader)
         return reader
 
-    def read(self, columns=None, nthreads=1, partitions=None,
+    def read(self, columns=None, use_threads=True, partitions=None,
              open_file_func=None, file=None, use_pandas_metadata=False):
         """
         Read this piece as a pyarrow.Table
@@ -423,8 +421,8 @@ class ParquetDatasetPiece(object):
         Parameters
         ----------
         columns : list of column names, default None
-        nthreads : int, default 1
-            For multithreaded file reads
+        use_threads : boolean, default True
+            Perform multi-threaded column reads
         partitions : ParquetPartitions, default None
         open_file_func : function, default None
             A function that knows how to construct a ParquetFile object given
@@ -445,7 +443,7 @@ class ParquetDatasetPiece(object):
             reader = ParquetFile(self.path)
 
         options = dict(columns=columns,
-                       nthreads=nthreads,
+                       use_threads=use_threads,
                        use_pandas_metadata=use_pandas_metadata)
 
         if self.row_group is not None:
@@ -857,7 +855,7 @@ class ParquetDataset(object):
                                  .format(piece, file_schema,
                                          dataset_schema))
 
-    def read(self, columns=None, nthreads=1, use_pandas_metadata=False):
+    def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
         """
         Read multiple Parquet files as a single pyarrow.Table
 
@@ -865,9 +863,8 @@ class ParquetDataset(object):
         ----------
         columns : List[str]
             Names of columns to read from the file
-        nthreads : int, default 1
-            Number of columns to read in parallel. Requires that the underlying
-            file source is threadsafe
+        use_threads : boolean, default True
+            Perform multi-threaded column reads
         use_pandas_metadata : bool, default False
             Passed through to each dataset piece
 
@@ -880,7 +877,7 @@ class ParquetDataset(object):
 
         tables = []
         for piece in self.pieces:
-            table = piece.read(columns=columns, nthreads=nthreads,
+            table = piece.read(columns=columns, use_threads=use_threads,
                                partitions=self.partitions,
                                open_file_func=open_file,
                                use_pandas_metadata=use_pandas_metadata)
@@ -994,9 +991,8 @@ columns: list
     If not None, only these columns will be read from the file. A column
     name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
     'a.c', and 'a.d.e'
-nthreads : int, default 1
-    Number of columns to read in parallel. Requires that the underlying
-    file source is threadsafe
+use_threads : boolean, default True
+    Perform multi-threaded column reads
 metadata : FileMetaData
     If separately computed
 {1}
@@ -1007,15 +1003,17 @@ Returns
 """
 
 
-def read_table(source, columns=None, nthreads=1, metadata=None,
-               use_pandas_metadata=False):
+def read_table(source, columns=None, use_threads=True, metadata=None,
+               use_pandas_metadata=False, nthreads=None):
+    use_threads = _deprecate_nthreads(use_threads, nthreads)
     if _is_path_like(source):
         fs = _get_fs_from_path(source)
-        return fs.read_parquet(source, columns=columns, metadata=metadata,
+        return fs.read_parquet(source, columns=columns,
+                               use_threads=use_threads, metadata=metadata,
                                use_pandas_metadata=use_pandas_metadata)
 
     pf = ParquetFile(source, metadata=metadata)
-    return pf.read(columns=columns, nthreads=nthreads,
+    return pf.read(columns=columns, use_threads=use_threads,
                    use_pandas_metadata=use_pandas_metadata)
 
 
@@ -1028,8 +1026,10 @@ read_table.__doc__ = _read_table_docstring.format(
     Content of the file as a table (of columns)""")
 
 
-def read_pandas(source, columns=None, nthreads=1, metadata=None):
-    return read_table(source, columns=columns, nthreads=nthreads,
+def read_pandas(source, columns=None, use_threads=True,
+                nthreads=None, metadata=None):
+    return read_table(source, columns=columns,
+                      use_threads=use_threads,
                       metadata=metadata, use_pandas_metadata=True)
 
 

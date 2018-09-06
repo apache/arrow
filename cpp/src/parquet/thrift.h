@@ -18,6 +18,8 @@
 #ifndef PARQUET_THRIFT_UTIL_H
 #define PARQUET_THRIFT_UTIL_H
 
+#include "arrow/util/windows_compatibility.h"
+
 #include <cstdint>
 // Check if thrift version < 0.11.0
 // or if FORCE_BOOST_SMART_PTR is defined. Ref: https://thrift.apache.org/lib/cpp
@@ -38,10 +40,11 @@
 #include <thrift/transport/TBufferTransports.h>
 #include <sstream>
 
+#include "arrow/util/logging.h"
 #include "parquet/exception.h"
-#include "parquet/parquet_types.h"
-#include "parquet/util/logging.h"
 #include "parquet/util/memory.h"
+
+#include "parquet/parquet_types.h"
 
 namespace parquet {
 

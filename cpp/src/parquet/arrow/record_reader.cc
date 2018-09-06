@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 #include <sstream>
+#include <utility>
 
 #include <arrow/buffer.h>
 #include <arrow/memory_pool.h>
@@ -532,7 +533,7 @@ inline void TypedRecordReader<ByteArrayType>::ReadValuesDense(int64_t values_to_
   auto builder = static_cast<::arrow::BinaryBuilder*>(builder_.get());
   for (int64_t i = 0; i < num_decoded; i++) {
     PARQUET_THROW_NOT_OK(
-        builder->Append(values[i].ptr, static_cast<int64_t>(values[i].len)));
+        builder->Append(values[i].ptr, static_cast<int32_t>(values[i].len)));
   }
   ResetValues();
 }
@@ -568,7 +569,7 @@ inline void TypedRecordReader<ByteArrayType>::ReadValuesSpaced(int64_t values_to
   for (int64_t i = 0; i < num_decoded; i++) {
     if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
       PARQUET_THROW_NOT_OK(
-          builder->Append(values[i].ptr, static_cast<int64_t>(values[i].len)));
+          builder->Append(values[i].ptr, static_cast<int32_t>(values[i].len)));
     } else {
       PARQUET_THROW_NOT_OK(builder->AppendNull());
     }

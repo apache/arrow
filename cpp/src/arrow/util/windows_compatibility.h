@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IO_WINDOWS_COMPATIBILITY
-#define ARROW_IO_WINDOWS_COMPATIBILITY
+#pragma once
 
 #ifdef _WIN32
 
@@ -32,5 +31,3 @@
 // #include <util/syserr_reporting.hpp>
 
 #endif  // _WIN32
-
-#endif  // ARROW_IO_WINDOWS_COMPATIBILITY

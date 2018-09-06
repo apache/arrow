@@ -25,7 +25,6 @@
 #include "arrow/status.h"
 
 #include "parquet/util/macros.h"
-#include "parquet/util/visibility.h"
 
 // PARQUET-1085
 #if !defined(ARROW_UNUSED)
@@ -45,30 +44,44 @@
     ARROW_UNUSED(_s);            \
   } while (0)
 
-#define PARQUET_THROW_NOT_OK(s)                     \
-  do {                                              \
-    ::arrow::Status _s = (s);                       \
-    if (!_s.ok()) {                                 \
-      std::stringstream ss;                         \
-      ss << "Arrow error: " << _s.ToString();       \
-      ::parquet::ParquetException::Throw(ss.str()); \
-    }                                               \
+#define PARQUET_THROW_NOT_OK(s)                    \
+  do {                                             \
+    ::arrow::Status _s = (s);                      \
+    if (!_s.ok()) {                                \
+      std::stringstream ss;                        \
+      ss << "Arrow error: " << _s.ToString();      \
+      throw ::parquet::ParquetException(ss.str()); \
+    }                                              \
   } while (0)
 
 namespace parquet {
 
-class PARQUET_EXPORT ParquetException : public std::exception {
+class ParquetException : public std::exception {
  public:
-  PARQUET_NORETURN static void EofException(const std::string& msg = "");
-  PARQUET_NORETURN static void NYI(const std::string& msg);
-  PARQUET_NORETURN static void Throw(const std::string& msg);
+  PARQUET_NORETURN static void EofException(const std::string& msg = "") {
+    std::stringstream ss;
+    ss << "Unexpected end of stream";
+    if (!msg.empty()) {
+      ss << ": " << msg;
+    }
+    throw ParquetException(ss.str());
+  }
 
-  explicit ParquetException(const char* msg);
-  explicit ParquetException(const std::string& msg);
-  explicit ParquetException(const char* msg, exception& e);
+  PARQUET_NORETURN static void NYI(const std::string& msg = "") {
+    std::stringstream ss;
+    ss << "Not yet implemented: " << msg << ".";
+    throw ParquetException(ss.str());
+  }
 
-  virtual ~ParquetException() throw();
-  virtual const char* what() const throw();
+  explicit ParquetException(const char* msg) : msg_(msg) {}
+
+  explicit ParquetException(const std::string& msg) : msg_(msg) {}
+
+  explicit ParquetException(const char* msg, std::exception& e) : msg_(msg) {}
+
+  ~ParquetException() throw() override {}
+
+  const char* what() const throw() override { return msg_.c_str(); }
 
  private:
   std::string msg_;

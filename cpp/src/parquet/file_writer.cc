@@ -17,6 +17,7 @@
 
 #include "parquet/file_writer.h"
 
+#include <utility>
 #include <vector>
 
 #include "parquet/column_writer.h"

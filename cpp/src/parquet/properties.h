@@ -26,6 +26,7 @@
 #include "parquet/parquet_version.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
+#include "parquet/util/macros.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 

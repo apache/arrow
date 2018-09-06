@@ -63,6 +63,7 @@ build_arrow() {
         -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
         -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
         -DARROW_NO_DEPRECATED_API=ON \
+        -DARROW_PARQUET=ON \
         -DARROW_PYTHON=ON \
         -DARROW_PLASMA=ON \
         -DARROW_BOOST_USE_SHARED=off \
@@ -70,31 +71,5 @@ build_arrow() {
 
   ninja
   ninja install
-  popd
-}
-
-build_parquet() {
-  PARQUET_DIR=$BUILD_DIR/parquet
-  mkdir -p $PARQUET_DIR
-
-  git clone https://github.com/apache/parquet-cpp.git $PARQUET_DIR
-
-  pushd $PARQUET_DIR
-  mkdir build-dir
-  cd build-dir
-
-  cmake \
-      -GNinja \
-      -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-      -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
-      -DPARQUET_BOOST_USE_SHARED=off \
-      -DPARQUET_BUILD_BENCHMARKS=off \
-      -DPARQUET_BUILD_EXECUTABLES=off \
-      -DPARQUET_BUILD_TESTS=off \
-      ..
-
-  ninja
-  ninja install
-
   popd
 }

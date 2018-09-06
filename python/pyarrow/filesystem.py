@@ -148,7 +148,8 @@ class FileSystem(object):
         raise NotImplementedError
 
     def read_parquet(self, path, columns=None, metadata=None, schema=None,
-                     nthreads=1, use_pandas_metadata=False):
+                     use_threads=True, nthreads=None,
+                     use_pandas_metadata=False):
         """
         Read Parquet data from path in file system. Can read from a single file
         or a directory of files
@@ -164,9 +165,8 @@ class FileSystem(object):
         schema : pyarrow.parquet.Schema
             Known schema to validate files against. Alternative to metadata
             argument
-        nthreads : int, default 1
-            Number of columns to read in parallel. If > 1, requires that the
-            underlying file source is threadsafe
+        use_threads : boolean, default True
+            Perform multi-threaded column reads
         use_pandas_metadata : boolean, default False
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded
@@ -176,9 +176,11 @@ class FileSystem(object):
         table : pyarrow.Table
         """
         from pyarrow.parquet import ParquetDataset
+        from pyarrow.util import _deprecate_nthreads
+        use_threads = _deprecate_nthreads(use_threads, nthreads)
         dataset = ParquetDataset(path, schema=schema, metadata=metadata,
                                  filesystem=self)
-        return dataset.read(columns=columns, nthreads=nthreads,
+        return dataset.read(columns=columns, use_threads=use_threads,
                             use_pandas_metadata=use_pandas_metadata)
 
     def open(self, path, mode='rb'):

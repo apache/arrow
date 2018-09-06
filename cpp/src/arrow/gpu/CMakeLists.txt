@@ -41,12 +41,18 @@ set(ARROW_GPU_SHARED_LINK_LIBS
 
 ADD_ARROW_LIB(arrow_gpu
   SOURCES ${ARROW_GPU_SRCS}
+  OUTPUTS ARROW_GPU_LIBRARIES
   DEPENDENCIES metadata_fbs
   SHARED_LINK_FLAGS ""
   SHARED_LINK_LIBS arrow_shared ${ARROW_GPU_SHARED_LINK_LIBS}
   # Static arrow_gpu must also link against CUDA shared libs
   STATIC_LINK_LIBS ${ARROW_GPU_SHARED_LINK_LIBS}
 )
+
+foreach(LIB_TARGET ${ARROW_GPU_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET}
+    PRIVATE ARROW_EXPORTING)
+endforeach()
 
 # CUDA build version
 configure_file(cuda_version.h.in

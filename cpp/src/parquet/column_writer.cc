@@ -19,16 +19,17 @@
 
 #include <cstdint>
 #include <memory>
+#include <utility>
 
 #include "arrow/util/bit-util.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
 
 #include "parquet/encoding-internal.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift.h"
-#include "parquet/util/logging.h"
 #include "parquet/util/memory.h"
 
 namespace parquet {

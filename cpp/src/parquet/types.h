@@ -153,7 +153,7 @@ class ColumnOrder {
 // ----------------------------------------------------------------------
 
 struct ByteArray {
-  ByteArray() : len(0), ptr(nullptr) {}
+  ByteArray() : len(0), ptr(NULLPTR) {}
   ByteArray(uint32_t len, const uint8_t* ptr) : len(len), ptr(ptr) {}
   uint32_t len;
   const uint8_t* ptr;
@@ -168,7 +168,7 @@ inline bool operator!=(const ByteArray& left, const ByteArray& right) {
 }
 
 struct FixedLenByteArray {
-  FixedLenByteArray() : ptr(nullptr) {}
+  FixedLenByteArray() : ptr(NULLPTR) {}
   explicit FixedLenByteArray(const uint8_t* ptr) : ptr(ptr) {}
   const uint8_t* ptr;
 };
@@ -301,7 +301,7 @@ PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type,
                                            const std::string& val);
 
 /// \deprecated Since 1.5.0
-PARQUET_DEPRECATED("Use std::string instead of char* as input")
+ARROW_DEPRECATED("Use std::string instead of char* as input")
 PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type, const char* val);
 
 PARQUET_EXPORT int GetTypeByteSize(Type::type t);

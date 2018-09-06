@@ -22,9 +22,9 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include "parquet/exception.h"
-#include "parquet/parquet_types.h"
 #include "parquet/thrift.h"
 
 using parquet::format::SchemaElement;

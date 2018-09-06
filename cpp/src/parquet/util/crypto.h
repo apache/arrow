@@ -18,6 +18,8 @@
 #ifndef PARQUET_UTIL_CRYPTO_H
 #define PARQUET_UTIL_CRYPTO_H
 
+#include <memory>
+
 #include "parquet/properties.h"
 #include "parquet/types.h"
 

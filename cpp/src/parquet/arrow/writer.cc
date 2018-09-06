@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/api.h"
@@ -26,8 +27,8 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/visitor_inline.h"
 
+#include "arrow/util/logging.h"
 #include "parquet/arrow/schema.h"
-#include "parquet/util/logging.h"
 
 using arrow::Array;
 using arrow::BinaryArray;

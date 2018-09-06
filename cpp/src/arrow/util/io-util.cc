@@ -22,7 +22,7 @@
 
 #define _FILE_OFFSET_BITS 64
 
-#include "arrow/io/windows_compatibility.h"
+#include "arrow/util/windows_compatibility.h"
 
 #include <algorithm>
 #include <cerrno>

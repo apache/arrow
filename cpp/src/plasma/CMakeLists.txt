@@ -88,13 +88,17 @@ if (ARROW_GPU)
   add_definitions(-DPLASMA_GPU)
 endif()
 
-
-
 ADD_ARROW_LIB(plasma
   SOURCES ${PLASMA_SRCS}
+  OUTPUTS PLASMA_LIBRARIES
   DEPENDENCIES gen_plasma_fbs
   SHARED_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS}
   STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS})
+
+foreach(LIB_TARGET ${PLASMA_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET}
+    PRIVATE ARROW_EXPORTING)
+endforeach()
 
 # The optimization flag -O3 is suggested by dlmalloc.c, which is #included in
 # malloc.cc; we set it here regardless of whether we do a debug or release build.

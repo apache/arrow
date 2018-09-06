@@ -89,13 +89,18 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
   endif()
 endfunction()
 
+# \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
   set(options)
   set(one_value_args SHARED_LINK_FLAGS)
-  set(multi_value_args SOURCES STATIC_LINK_LIBS STATIC_PRIVATE_LINK_LIBS SHARED_LINK_LIBS SHARED_PRIVATE_LINK_LIBS EXTRA_INCLUDES DEPENDENCIES)
+  set(multi_value_args SOURCES OUTPUTS STATIC_LINK_LIBS STATIC_PRIVATE_LINK_LIBS SHARED_LINK_LIBS SHARED_PRIVATE_LINK_LIBS EXTRA_INCLUDES DEPENDENCIES)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
+  if (ARG_OUTPUTS)
+    set(${ARG_OUTPUTS})
   endif()
 
   if(MSVC)
@@ -117,6 +122,10 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(LIB_INCLUDES)
     set(EXTRA_DEPS)
 
+    if (ARG_OUTPUTS)
+      list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_objlib)
+    endif()
+
     if (ARG_EXTRA_INCLUDES)
       target_include_directories(${LIB_NAME}_objlib SYSTEM PUBLIC
         ${ARG_EXTRA_INCLUDES}
@@ -130,6 +139,10 @@ function(ADD_ARROW_LIB LIB_NAME)
     add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
     if (EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_shared ${EXTRA_DEPS})
+    endif()
+
+    if (ARG_OUTPUTS)
+      list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_shared)
     endif()
 
     if (LIB_INCLUDES)
@@ -195,6 +208,10 @@ function(ADD_ARROW_LIB LIB_NAME)
       add_dependencies(${LIB_NAME}_static ${EXTRA_DEPS})
     endif()
 
+    if (ARG_OUTPUTS)
+      list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_static)
+    endif()
+
     if (LIB_INCLUDES)
       target_include_directories(${LIB_NAME}_static SYSTEM PUBLIC
         ${ARG_EXTRA_INCLUDES}
@@ -203,7 +220,6 @@ function(ADD_ARROW_LIB LIB_NAME)
 
     if (MSVC)
       set(LIB_NAME_STATIC ${LIB_NAME}_static)
-      target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_STATIC)
     else()
       set(LIB_NAME_STATIC ${LIB_NAME})
     endif()
@@ -223,6 +239,10 @@ function(ADD_ARROW_LIB LIB_NAME)
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
   endif()
 
+  # Modify variable in calling scope
+  if (ARG_OUTPUTS)
+    set(${ARG_OUTPUTS} ${${ARG_OUTPUTS}} PARENT_SCOPE)
+  endif()
 endfunction()
 
 
@@ -305,10 +325,20 @@ endfunction()
 # ctest.
 #
 # Arguments after the test name will be passed to set_tests_properties().
+#
+# \arg PREFIX a string to append to the name of the test executable. For
+# example, if you have src/arrow/foo/bar-test.cc, then PREFIX "foo" will create
+# test executable foo-bar-test
+# \arg LABELS the unit test label or labels to assign the unit tests
+# to. By default, unit tests will go in the "unittest" group, but if we have
+# multiple unit tests in some subgroup, you can assign a test to multiple
+# groups using the syntax unittest;GROUP2;GROUP3. Custom targets for the group
+# names must exist
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options NO_VALGRIND)
   set(one_value_args)
-  set(multi_value_args STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES EXTRA_DEPENDENCIES LABELS)
+  set(multi_value_args STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES EXTRA_DEPENDENCIES
+    LABELS PREFIX)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -330,6 +360,16 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     return()
   endif()
   get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
+
+  if(ARG_PREFIX)
+    set(TEST_NAME "${ARG_PREFIX}-${TEST_NAME}")
+  endif()
+
+  if (ARG_LABELS)
+    set(ARG_LABELS "unittest;${ARG_LABELS}")
+  else()
+    set(ARG_LABELS unittest)
+  endif()
 
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME}.cc)
     # This test has a corresponding .cc file, set it up as an executable.
@@ -357,7 +397,9 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
       add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
     endif()
 
-    add_dependencies(unittest ${TEST_NAME})
+    foreach (TEST_LABEL ${ARG_LABELS})
+      add_dependencies(${TEST_LABEL} ${TEST_NAME})
+    endforeach()
   else()
     # No executable, just invoke the test (probably a script) directly.
     set(TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME})
@@ -380,13 +422,7 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
 
   set_property(TEST ${TEST_NAME}
     APPEND PROPERTY
-    LABELS "unittest")
-
-  if (ARG_LABELS)
-    set_property(TEST ${TEST_NAME}
-      APPEND PROPERTY
-      LABELS ${ARG_LABELS})
-  endif()
+    LABELS ${ARG_LABELS})
 endfunction()
 
 # A wrapper for add_dependencies() that is compatible with NO_TESTS.

@@ -44,8 +44,6 @@ export ARROW_CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
 export ARROW_C_GLIB_INSTALL_AUTOTOOLS=$TRAVIS_BUILD_DIR/c-glib-install-autotools
 export ARROW_C_GLIB_INSTALL_MESON=$TRAVIS_BUILD_DIR/c-glib-install-meson
 
-export ARROW_PYTHON_PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
-
 export CMAKE_EXPORT_COMPILE_COMMANDS=1
 
 export ARROW_BUILD_TYPE=${ARROW_BUILD_TYPE:=debug}
@@ -70,3 +68,5 @@ fi
 if [ $TRAVIS_OS_NAME == "osx" ]; then
   export GOPATH=$TRAVIS_BUILD_DIR/gopath
 fi
+
+export PARQUET_TEST_DATA=$TRAVIS_BUILD_DIR/cpp/submodules/parquet-testing/data

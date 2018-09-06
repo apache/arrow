@@ -18,6 +18,7 @@
 #ifndef PARQUET_COLUMN_WRITER_H
 #define PARQUET_COLUMN_WRITER_H
 
+#include <memory>
 #include <vector>
 
 #include "parquet/column_page.h"
@@ -27,6 +28,7 @@
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
+#include "parquet/util/macros.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
@@ -225,7 +227,7 @@ class PARQUET_EXPORT ColumnWriter {
 
 // API to write values to a single column. This is the main client facing API.
 template <typename DType>
-class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
+class PARQUET_TEMPLATE_CLASS_EXPORT TypedColumnWriter : public ColumnWriter {
  public:
   typedef typename DType::c_type T;
 
@@ -314,14 +316,14 @@ typedef TypedColumnWriter<DoubleType> DoubleWriter;
 typedef TypedColumnWriter<ByteArrayType> ByteArrayWriter;
 typedef TypedColumnWriter<FLBAType> FixedLenByteArrayWriter;
 
-extern template class PARQUET_EXPORT TypedColumnWriter<BooleanType>;
-extern template class PARQUET_EXPORT TypedColumnWriter<Int32Type>;
-extern template class PARQUET_EXPORT TypedColumnWriter<Int64Type>;
-extern template class PARQUET_EXPORT TypedColumnWriter<Int96Type>;
-extern template class PARQUET_EXPORT TypedColumnWriter<FloatType>;
-extern template class PARQUET_EXPORT TypedColumnWriter<DoubleType>;
-extern template class PARQUET_EXPORT TypedColumnWriter<ByteArrayType>;
-extern template class PARQUET_EXPORT TypedColumnWriter<FLBAType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<BooleanType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<Int32Type>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<Int64Type>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<Int96Type>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<FloatType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<DoubleType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<ByteArrayType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<FLBAType>;
 
 }  // namespace parquet
 

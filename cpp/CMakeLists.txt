@@ -275,6 +275,20 @@ Pass multiple labels by dividing with semicolons")
       "Build Arrow with statically linked CRT"
       OFF)
   endif()
+
+  # Parquet-related build options
+  option(ARROW_PARQUET
+    "Build the Parquet libraries"
+    OFF)
+
+  option(PARQUET_MINIMAL_DEPENDENCY
+    "Depend only on Thirdparty headers to build libparquet. \
+Always OFF if building binaries"
+    OFF)
+
+  set(PARQUET_ARROW_LINKAGE "shared" CACHE STRING
+    "How to link Arrow libraries with libparquet.so. static|shared (default shared)")
+
 endif()
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
@@ -584,6 +598,8 @@ endif(UNIX)
 ############################################################
 
 set(ARROW_LINK_LIBS)
+
+# Libraries to link statically with libarrow.so
 set(ARROW_STATIC_LINK_LIBS)
 
 if (ARROW_WITH_BROTLI)
@@ -643,11 +659,8 @@ set(ARROW_BENCHMARK_LINK_LIBS
   gtest
   ${ARROW_STATIC_LINK_LIBS})
 
-set(ARROW_LINK_LIBS
-  ${ARROW_STATIC_LINK_LIBS}
-  ${ARROW_LINK_LIBS})
-
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
+  ${ARROW_STATIC_LINK_LIBS}
   ${BOOST_SYSTEM_LIBRARY}
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
@@ -728,4 +741,8 @@ endif()
 
 if(ARROW_HIVESERVER2)
   add_subdirectory(src/arrow/dbi/hiveserver2)
+endif()
+
+if(ARROW_PARQUET)
+  add_subdirectory(src/parquet)
 endif()

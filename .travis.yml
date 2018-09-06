@@ -60,6 +60,7 @@ matrix:
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_CLANG_FORMAT=1
     - ARROW_TRAVIS_COVERAGE=1
+    - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - ARROW_TRAVIS_PYTHON_JVM=1
@@ -77,11 +78,11 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     # If either C++ or Python changed, we must install the C++ libraries
+    - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     # All test steps are required for accurate C++ coverage info
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
     # Build Arrow Java to test the pyarrow<->JVM in-process bridge
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
     # Only run Plasma tests with valgrind in one of the Python builds because
@@ -102,14 +103,15 @@ matrix:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_ORC=1
+    - ARROW_TRAVIS_PARQUET=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     before_script:
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
     # If either C++ or Python changed, we must install the C++ libraries
+    - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
   # [manylinux1] Python

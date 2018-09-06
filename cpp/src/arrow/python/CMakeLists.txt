@@ -22,6 +22,8 @@
 find_package(PythonLibsNew REQUIRED)
 find_package(NumPy REQUIRED)
 
+add_custom_target(arrow_python)
+
 set(ARROW_PYTHON_SRCS
   arrow_to_pandas.cc
   benchmark.cc
@@ -65,11 +67,21 @@ set(ARROW_PYTHON_INCLUDES
 
 ADD_ARROW_LIB(arrow_python
   SOURCES ${ARROW_PYTHON_SRCS}
+  OUTPUTS ARROW_PYTHON_LIBRARIES
   SHARED_LINK_FLAGS ""
   SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS}
   STATIC_LINK_LIBS "${PYTHON_OTHER_LIBS}"
   EXTRA_INCLUDES "${ARROW_PYTHON_INCLUDES}"
 )
+
+foreach(LIB_TARGET ${ARROW_PYTHON_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET}
+    PRIVATE ARROW_EXPORTING)
+endforeach()
+
+if (ARROW_BUILD_STATIC AND MSVC)
+  target_compile_definitions(arrow_python_static PUBLIC ARROW_STATIC)
+endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
   # Clang, be quiet. Python C API has lots of macros
@@ -143,6 +155,6 @@ if (ARROW_BUILD_TESTS)
     STATIC_LINK_LIBS "${ARROW_PYTHON_TEST_LINK_LIBS}"
     EXTRA_LINK_LIBS ${PYTHON_LIBRARIES}
     EXTRA_INCLUDES "${ARROW_PYTHON_INCLUDES}"
-    LABELS "python"
+    LABELS "arrow_python"
     NO_VALGRIND)
 endif()

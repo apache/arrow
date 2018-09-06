@@ -19,9 +19,9 @@
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
-#include "parquet/parquet_types.h"
 #include "parquet/test-specialization.h"
 #include "parquet/test-util.h"
+#include "parquet/thrift.h"
 #include "parquet/types.h"
 #include "parquet/util/comparison.h"
 #include "parquet/util/memory.h"

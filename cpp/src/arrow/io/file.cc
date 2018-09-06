@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/io/windows_compatibility.h"
+#include "arrow/util/windows_compatibility.h"
 
 // sys/mman.h not present in Visual Studio or Cygwin
 #ifdef _WIN32

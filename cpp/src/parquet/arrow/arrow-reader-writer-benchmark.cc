@@ -98,7 +98,7 @@ void SetBytesProcessed(::benchmark::State& state) {
 template <typename ParquetType>
 std::shared_ptr<::arrow::Table> TableFromVector(
     const std::vector<typename ParquetType::c_type>& vec, bool nullable) {
-  ::arrow::TypePtr type = std::make_shared<ArrowType<ParquetType>>();
+  std::shared_ptr<::arrow::DataType> type = std::make_shared<ArrowType<ParquetType>>();
   NumericBuilder<ArrowType<ParquetType>> builder;
   if (nullable) {
     std::vector<uint8_t> valid_bytes(BENCHMARK_SIZE, 0);

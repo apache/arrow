@@ -18,6 +18,7 @@
 #ifndef PARQUET_FILE_METADATA_H
 #define PARQUET_FILE_METADATA_H
 
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
@@ -28,6 +29,7 @@
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
+#include "parquet/util/macros.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
@@ -92,7 +94,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   // API convenience to get a MetaData accessor
   static std::unique_ptr<ColumnChunkMetaData> Make(
       const uint8_t* metadata, const ColumnDescriptor* descr,
-      const ApplicationVersion* writer_version = nullptr);
+      const ApplicationVersion* writer_version = NULLPTR);
 
   ~ColumnChunkMetaData();
 
@@ -118,7 +120,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 
  private:
   explicit ColumnChunkMetaData(const uint8_t* metadata, const ColumnDescriptor* descr,
-                               const ApplicationVersion* writer_version = nullptr);
+                               const ApplicationVersion* writer_version = NULLPTR);
   // PIMPL Idiom
   class ColumnChunkMetaDataImpl;
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
@@ -129,7 +131,7 @@ class PARQUET_EXPORT RowGroupMetaData {
   // API convenience to get a MetaData accessor
   static std::unique_ptr<RowGroupMetaData> Make(
       const uint8_t* metadata, const SchemaDescriptor* schema,
-      const ApplicationVersion* writer_version = nullptr);
+      const ApplicationVersion* writer_version = NULLPTR);
 
   ~RowGroupMetaData();
 
@@ -143,7 +145,7 @@ class PARQUET_EXPORT RowGroupMetaData {
 
  private:
   explicit RowGroupMetaData(const uint8_t* metadata, const SchemaDescriptor* schema,
-                            const ApplicationVersion* writer_version = nullptr);
+                            const ApplicationVersion* writer_version = NULLPTR);
   // PIMPL Idiom
   class RowGroupMetaDataImpl;
   std::unique_ptr<RowGroupMetaDataImpl> impl_;
@@ -254,7 +256,7 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   // API convenience to get a MetaData reader
   static std::unique_ptr<FileMetaDataBuilder> Make(
       const SchemaDescriptor* schema, const std::shared_ptr<WriterProperties>& props,
-      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = nullptr);
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR);
 
   ~FileMetaDataBuilder();
 
@@ -266,7 +268,7 @@ class PARQUET_EXPORT FileMetaDataBuilder {
  private:
   explicit FileMetaDataBuilder(
       const SchemaDescriptor* schema, const std::shared_ptr<WriterProperties>& props,
-      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = nullptr);
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR);
   // PIMPL Idiom
   class FileMetaDataBuilderImpl;
   std::unique_ptr<FileMetaDataBuilderImpl> impl_;

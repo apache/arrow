@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
 
   unique_ptr<hs2::ColumnarRowSet> execute_results;
   bool has_more_rows = true;
-  int total_retrieved = 0;
+  int64_t total_retrieved = 0;
   std::cout << "Contents of test:\n";
   while (has_more_rows) {
     status = execute_op->Fetch(&execute_results, &has_more_rows);
