@@ -81,11 +81,14 @@ MakeArray <- function(data){
   `arrow::Array`$new(data)
 }
 
+#' create an arrow::Array from an R vector
+#'
+#' @param \dots Vectors to coerce
+#'
 #' @export
 array <- function(...){
   `arrow::Array`$new(vctrs::vec_c(...))
 }
-
 
 `arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = `arrow::Object`,
   public = list(
@@ -98,6 +101,10 @@ array <- function(...){
   )
 )
 
+#' Create an arrow::RecordBatch from a data frame
+#'
+#' @param data a data frame
+#'
 #' @export
 record_batch <- function(.data){
   `arrow::RecordBatch`$new(.data)

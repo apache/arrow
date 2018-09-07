@@ -18,4 +18,4 @@
 PKG_CPPFLAGS=@cflags@
 PKG_CXXFLAGS=$(C_VISIBILITY)
 CXX_STD=CXX11
-PKG_LIBS=@libs@
+PKG_LIBS=@libs@  -Wl,-rpath,/usr/local/lib
