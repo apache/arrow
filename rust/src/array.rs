@@ -525,7 +525,6 @@ impl Array for StructArray {
     fn len(&self) -> i64 {
         self.boxed_fields[0].len()
     }
-
 }
 
 impl From<Vec<(Field, ArrayRef)>> for StructArray {
@@ -535,7 +534,11 @@ impl From<Vec<(Field, ArrayRef)>> for StructArray {
         // Check the length of the child arrays
         let length = field_values[0].len();
         for i in 1..field_values.len() {
-            assert_eq!(length, field_values[i].len(), "all child arrays of a StructArray must have the same length")
+            assert_eq!(
+                length,
+                field_values[i].len(),
+                "all child arrays of a StructArray must have the same length"
+            );
         }
 
         let data = ArrayData::builder(DataType::Struct(field_types))
