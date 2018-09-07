@@ -19,7 +19,9 @@ Imports:
     purrr,
     assertthat,
     glue,
-    R6
+    R6,
+    vctrs,
+    fs
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.0.1.9000
 Suggests:

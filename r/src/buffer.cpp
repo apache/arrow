@@ -16,6 +16,8 @@
 // under the License.
 
 #include "arrow_types.h"
+#include <arrow/io/file.h>
+#include <arrow/ipc/writer.h>
 
 using namespace Rcpp;
 using namespace arrow;
@@ -135,3 +137,22 @@ int Table_num_rows(const std::shared_ptr<arrow::Table>& x){
 std::shared_ptr<arrow::Schema> Table_schema(const std::shared_ptr<arrow::Table>& x){
   return x->schema();
 }
+
+// [[Rcpp::export]]
+int RecordBatch_to_file(const std::shared_ptr<arrow::RecordBatch>& batch, std::string path) {
+  std::shared_ptr<arrow::io::OutputStream> stream;
+  auto s = arrow::io::FileOutputStream::Open(path, &stream);
+
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
+  s = arrow::ipc::RecordBatchFileWriter::Open(stream.get(), batch->schema(), &file_writer);
+  s = file_writer->WriteRecordBatch(*batch, true);
+  s = file_writer->Close();
+  int64_t offset;
+  s = stream->Tell(&offset);
+  s = stream->Close();
+  return offset;
+}
+
+
+
+

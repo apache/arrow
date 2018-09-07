@@ -101,6 +101,10 @@ Table_schema <- function(x) {
     .Call(`_arrow_Table_schema`, x)
 }
 
+RecordBatch_to_file <- function(batch, path) {
+    .Call(`_arrow_RecordBatch_to_file`, batch, path)
+}
+
 Field_initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field_initialize`, name, type, nullable)
 }

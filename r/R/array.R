@@ -97,7 +97,8 @@ array <- function(...){
     },
     num_columns = function() RecordBatch_num_columns(self),
     num_rows = function() RecordBatch_num_rows(self),
-    schema = function() schema(.xp = RecordBatch_schema(self))
+    schema = function() schema(.xp = RecordBatch_schema(self)),
+    to_file = function(path) RecordBatch_to_file(self, fs::path_abs(path))
   )
 )
 
