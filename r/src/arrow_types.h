@@ -23,6 +23,8 @@
 #include <arrow/api.h>
 #include <arrow/type.h>
 
+#define R_ERROR_NOT_OK(s) do { if(!s.ok()) Rcpp::stop(s.ToString()); } while (0);
+
 template <typename T>
 class static_ptr {
 public:

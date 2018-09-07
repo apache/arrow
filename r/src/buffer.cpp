@@ -141,18 +141,16 @@ std::shared_ptr<arrow::Schema> Table_schema(const std::shared_ptr<arrow::Table>&
 // [[Rcpp::export]]
 int RecordBatch_to_file(const std::shared_ptr<arrow::RecordBatch>& batch, std::string path) {
   std::shared_ptr<arrow::io::OutputStream> stream;
-  auto s = arrow::io::FileOutputStream::Open(path, &stream);
-
   std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
-  s = arrow::ipc::RecordBatchFileWriter::Open(stream.get(), batch->schema(), &file_writer);
-  s = file_writer->WriteRecordBatch(*batch, true);
-  s = file_writer->Close();
+
+  R_ERROR_NOT_OK(arrow::io::FileOutputStream::Open(path, &stream));
+  R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileWriter::Open(stream.get(), batch->schema(), &file_writer));
+  R_ERROR_NOT_OK(file_writer->WriteRecordBatch(*batch, true));
+  R_ERROR_NOT_OK(file_writer->Close());
+
   int64_t offset;
-  s = stream->Tell(&offset);
-  s = stream->Close();
+  R_ERROR_NOT_OK(stream->Tell(&offset));
+  R_ERROR_NOT_OK(stream->Close());
   return offset;
 }
-
-
-
 
