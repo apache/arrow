@@ -29,10 +29,13 @@ function download_miniconda() {
   wget --no-verbose -O miniconda.sh $MINICONDA_URL
 }
 
+export MINICONDA=$HOME/miniconda
+export CONDA_PKGS_DIRS=$HOME/.conda_packages
 
-if (! which conda > /dev/null ); then
-
-  source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+# If miniconda is installed already, run the activation script
+if [ -d "$MINICONDA" ]; then
+  source $MINICONDA/etc/profile.d/conda.sh
+else
   mkdir -p $CONDA_PKGS_DIRS
 
   CONDA_RETRIES=5
@@ -53,7 +56,7 @@ if (! which conda > /dev/null ); then
   fi
 
   bash miniconda.sh -b -p $MINICONDA
-  export PATH="$MINICONDA/bin:$PATH"
+  source $MINICONDA/etc/profile.d/conda.sh
 
   conda update -y -q conda
   conda config --set auto_update_conda false

@@ -23,7 +23,7 @@ set -e
 # and contains both arrow and parquet-cpp
 
 # Activate conda environment
-source activate pyarrow-dev
+conda activate pyarrow-dev
 
 # Arrow build variables
 export ARROW_BUILD_TYPE=debug

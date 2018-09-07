@@ -37,7 +37,7 @@ PYTHON_VERSION=3.6
 CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 
 conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
-source activate $CONDA_ENV_DIR
+conda activate $CONDA_ENV_DIR
 
 pip install -q tensorflow
 pip install "dist/`ls dist/ | grep cp36`"

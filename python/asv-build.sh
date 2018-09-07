@@ -21,7 +21,7 @@ set -e
 
 # ASV doesn't activate its conda environment for us
 if [ -z "$ASV_ENV_DIR" ]; then exit 1; fi
-source activate $ASV_ENV_DIR
+conda activate $ASV_ENV_DIR
 echo "== Conda Prefix for benchmarks: " $CONDA_PREFIX " =="
 
 # Build Arrow C++ libraries

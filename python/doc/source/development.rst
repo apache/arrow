@@ -84,7 +84,7 @@ from conda-forge:
          python=3.6 numpy six setuptools cython pandas pytest \
          cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
          gflags brotli jemalloc lz4-c zstd -c conda-forge
-   source activate pyarrow-dev
+   conda activate pyarrow-dev
 
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
