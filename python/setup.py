@@ -99,7 +99,8 @@ class build_ext(_build_ext):
                      ('boost-namespace=', None,
                       'namespace of boost (default: boost)'),
                      ('with-arrow-gpu', None, 'build the Arrow GPU extension'),
-                     ('without-arrow-gpu', None, 'do not build the Arrow GPU extension'),
+                     ('without-arrow-gpu', None,
+                      'do not build the Arrow GPU extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
@@ -140,7 +141,6 @@ class build_ext(_build_ext):
             self.without_arrow_gpu = not self.with_arrow_gpu
         else:
             self.without_arrow_gpu = None
-        print( self.with_arrow_gpu, self.without_arrow_gpu )
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_static_parquet = strtobool(

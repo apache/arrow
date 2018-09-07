@@ -23,14 +23,14 @@ from pyarrow.includes.libarrow_gpu cimport *
 
 cdef class CudaDeviceManager:
     cdef:
-        CCudaDeviceManager* manager
+        CCudaDeviceManager * manager
 
 
 cdef class CudaContext:
     cdef:
         shared_ptr[CCudaContext] context
-        
-    cdef void init(self, const shared_ptr[CCudaContext]& ctx)
+
+    cdef void init(self, const shared_ptr[CCudaContext] & ctx)
 
 
 cdef class CudaIpcMemHandle:
@@ -38,13 +38,13 @@ cdef class CudaIpcMemHandle:
         shared_ptr[CCudaIpcMemHandle] handle
 
     cdef void init(self, shared_ptr[CCudaIpcMemHandle] h)
-    
+
 
 cdef class CudaBuffer(Buffer):
     cdef:
         shared_ptr[CCudaBuffer] cuda_buffer
 
-    cdef void init_cuda(self, const shared_ptr[CCudaBuffer]& buffer)
+    cdef void init_cuda(self, const shared_ptr[CCudaBuffer] & buffer)
 
 
 cdef class CudaHostBuffer(Buffer):
@@ -52,16 +52,16 @@ cdef class CudaHostBuffer(Buffer):
         shared_ptr[CCudaHostBuffer] host_buffer
         c_bool _freed
 
-    cdef void init_host(self, const shared_ptr[CCudaHostBuffer]& buffer)
+    cdef void init_host(self, const shared_ptr[CCudaHostBuffer] & buffer)
 
 
 cdef class CudaBufferReader(NativeFile):
     cdef:
-        CCudaBufferReader* reader
+        CCudaBufferReader * reader
         CudaBuffer buffer
 
 
 cdef class CudaBufferWriter(NativeFile):
     cdef:
-        CCudaBufferWriter* writer
+        CCudaBufferWriter * writer
         CudaBuffer buffer
