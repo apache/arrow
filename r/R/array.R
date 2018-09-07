@@ -93,7 +93,8 @@ array <- function(...){
       self$set_pointer(dataframe_to_RecordBatch(.data))
     },
     num_columns = function() RecordBatch_num_columns(self),
-    num_rows = function() RecordBatch_num_rows(self)
+    num_rows = function() RecordBatch_num_rows(self),
+    schema = function() schema(.xp = RecordBatch_schema(self))
   )
 )
 

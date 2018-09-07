@@ -106,3 +106,8 @@ int RecordBatch_num_columns(const std::shared_ptr<arrow::RecordBatch>& x){
 int RecordBatch_num_rows(const std::shared_ptr<arrow::RecordBatch>& x){
   return x->num_rows();
 }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Schema> RecordBatch_schema(const std::shared_ptr<arrow::RecordBatch>& x){
+  return x->schema();
+}

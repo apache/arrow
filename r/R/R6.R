@@ -522,8 +522,12 @@ field <- function(name, type) `arrow::Field`$new(name, type)
     print = function(...) {
       cat( glue( "{s}", s = Schema_ToString(self)))
     },
-    initialize = function(...){
-      self$set_pointer(schema_(.fields(list(...))))
+    initialize = function(..., .xp){
+      if(missing(.xp)){
+        self$set_pointer(schema_(.fields(list(...))))
+      } else {
+        self$set_pointer(.xp)
+      }
     }
   )
 )

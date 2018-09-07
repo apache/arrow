@@ -81,6 +81,10 @@ RecordBatch_num_rows <- function(x) {
     .Call(`_arrow_RecordBatch_num_rows`, x)
 }
 
+RecordBatch_schema <- function(x) {
+    .Call(`_arrow_RecordBatch_schema`, x)
+}
+
 Field_initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field_initialize`, name, type, nullable)
 }
