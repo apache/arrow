@@ -113,7 +113,8 @@ public class JsonFileWriter implements AutoCloseable {
     generator.writeArrayFieldStart("batches");
   }
 
-  private void writeDictionaryBatches(JsonGenerator generator, Set<Long> dictionaryIdsUsed, DictionaryProvider provider) throws IOException {
+  private void writeDictionaryBatches(JsonGenerator generator, Set<Long> dictionaryIdsUsed, DictionaryProvider provider)
+      throws IOException {
     generator.writeArrayFieldStart("dictionaries");
     for (Long id : dictionaryIdsUsed) {
       generator.writeStartObject();
@@ -157,7 +158,8 @@ public class JsonFileWriter implements AutoCloseable {
     List<BufferType> vectorTypes = TypeLayout.getTypeLayout(field.getType()).getBufferTypes();
     List<ArrowBuf> vectorBuffers = vector.getFieldBuffers();
     if (vectorTypes.size() != vectorBuffers.size()) {
-      throw new IllegalArgumentException("vector types and inner vector buffers are not the same size: " + vectorTypes.size() + " != " + vectorBuffers.size());
+      throw new IllegalArgumentException("vector types and inner vector buffers are not the same size: " +
+        vectorTypes.size() + " != " + vectorBuffers.size());
     }
     generator.writeStartObject();
     {
@@ -183,7 +185,8 @@ public class JsonFileWriter implements AutoCloseable {
       List<Field> fields = field.getChildren();
       List<FieldVector> children = vector.getChildrenFromFields();
       if (fields.size() != children.size()) {
-        throw new IllegalArgumentException("fields and children are not the same size: " + fields.size() + " != " + children.size());
+        throw new IllegalArgumentException("fields and children are not the same size: " + fields.size() + " != " +
+          children.size());
       }
       if (fields.size() > 0) {
         generator.writeArrayFieldStart("children");
@@ -198,9 +201,12 @@ public class JsonFileWriter implements AutoCloseable {
     generator.writeEndObject();
   }
 
-  private void writeValueToGenerator(BufferType bufferType, ArrowBuf buffer,
-                                     ArrowBuf offsetBuffer, FieldVector vector,
-                                     final int index) throws IOException {
+  private void writeValueToGenerator(
+      BufferType bufferType,
+      ArrowBuf buffer,
+      ArrowBuf offsetBuffer,
+      FieldVector vector,
+      final int index) throws IOException {
     if (bufferType.equals(TYPE)) {
       generator.writeNumber(buffer.getByte(index * TinyIntVector.TYPE_WIDTH));
     } else if (bufferType.equals(OFFSET)) {

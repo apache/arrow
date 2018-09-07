@@ -93,7 +93,8 @@ public abstract class AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException
    * @throws IOException
    */
-  public static Object[][] prepareTestData(String[] testFiles, Class clss) throws SQLException, ClassNotFoundException, IOException {
+  public static Object[][] prepareTestData(String[] testFiles, Class clss)
+      throws SQLException, ClassNotFoundException, IOException {
     Object[][] tableArr = new Object[testFiles.length][];
     int i = 0;
     for (String testFile : testFiles) {

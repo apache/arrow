@@ -84,7 +84,8 @@ public abstract class ArrowWriter implements AutoCloseable {
       Dictionary dictionary = provider.lookup(id);
       FieldVector vector = dictionary.getVector();
       int count = vector.getValueCount();
-      VectorSchemaRoot dictRoot = new VectorSchemaRoot(ImmutableList.of(vector.getField()), ImmutableList.of(vector), count);
+      VectorSchemaRoot dictRoot = new VectorSchemaRoot(ImmutableList.of(vector.getField()), ImmutableList.of(vector),
+          count);
       VectorUnloader unloader = new VectorUnloader(dictRoot);
       ArrowRecordBatch batch = unloader.getRecordBatch();
       this.dictionaries.add(new ArrowDictionaryBatch(id, batch));
@@ -107,14 +108,14 @@ public abstract class ArrowWriter implements AutoCloseable {
   protected ArrowBlock writeDictionaryBatch(ArrowDictionaryBatch batch) throws IOException {
     ArrowBlock block = MessageSerializer.serialize(out, batch);
     LOGGER.debug(String.format("DictionaryRecordBatch at %d, metadata: %d, body: %d",
-      block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
+        block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
     return block;
   }
 
   protected ArrowBlock writeRecordBatch(ArrowRecordBatch batch) throws IOException {
     ArrowBlock block = MessageSerializer.serialize(out, batch);
     LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d",
-      block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
+        block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
     return block;
   }
 

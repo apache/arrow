@@ -136,7 +136,8 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
       }
       return vector;
     }
-    final String message = "Arrow does not support schema change yet. Existing[%s] and desired[%s] vector types mismatch";
+    final String message = "Arrow does not support schema change yet. Existing[%s] and desired[%s] vector types " +
+        "mismatch";
     throw new IllegalStateException(String.format(message, existing.getClass().getSimpleName(), clazz.getSimpleName()));
   }
 
@@ -179,7 +180,8 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   protected ValueVector add(String childName, FieldType fieldType) {
     final ValueVector existing = getChild(childName);
     if (existing != null) {
-      throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ", existing.getClass().getSimpleName(), fieldType));
+      throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ",
+        existing.getClass().getSimpleName(), fieldType));
     }
     FieldVector vector = fieldType.createNewSingleVector(childName, allocator, callBack);
     putChild(childName, vector);

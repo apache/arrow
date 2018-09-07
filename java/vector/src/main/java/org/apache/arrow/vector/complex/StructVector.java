@@ -71,7 +71,8 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   public StructVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, checkNotNull(allocator), fieldType, callBack);
     this.validityBuffer = allocator.getEmpty();
-    this.validityAllocationSizeInBytes = BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
+    this.validityAllocationSizeInBytes =
+      BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
   }
 
   @Override

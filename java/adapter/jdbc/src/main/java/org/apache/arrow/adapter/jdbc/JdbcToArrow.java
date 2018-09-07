@@ -75,14 +75,17 @@ public class JdbcToArrow {
    * If you wish to use specific TimeZone or Locale for any Date, Time and Timestamp datasets, you may want use
    * overloaded API that taken Calendar object instance.
    *
-   * @param connection Database connection to be used. This method will not close the passed connection object. Since hte caller has passed
-   *                   the connection object it's the responsibility of the caller to close or return the connection to the pool.
+   * @param connection Database connection to be used. This method will not close the passed connection object. Since
+   *                   the caller has passed the connection object it's the responsibility of the caller to close or
+   *                   return the connection to the pool.
    * @param query      The DB Query to fetch the data.
    * @param allocator  Memory allocator
    * @return Arrow Data Objects {@link VectorSchemaRoot}
-   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as ResultSet and Statement objects.
+   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as
+   *                      ResultSet and Statement objects.
    */
-  public static VectorSchemaRoot sqlToArrow(Connection connection, String query, BaseAllocator allocator) throws SQLException, IOException {
+  public static VectorSchemaRoot sqlToArrow(Connection connection, String query, BaseAllocator allocator)
+      throws SQLException, IOException {
     Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
     Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
     Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
@@ -93,15 +96,21 @@ public class JdbcToArrow {
   /**
    * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
    *
-   * @param connection Database connection to be used. This method will not close the passed connection object. Since hte caller has passed
-   *                   the connection object it's the responsibility of the caller to close or return the connection to the pool.
+   * @param connection Database connection to be used. This method will not close the passed connection object. Since
+   *                   the caller has passed the connection object it's the responsibility of the caller to close or
+   *                   return the connection to the pool.
    * @param query      The DB Query to fetch the data.
    * @param allocator  Memory allocator
    * @param calendar   Calendar object to use to handle Date, Time and Timestamp datasets.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
-   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as ResultSet and Statement objects.
+   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as
+   *                      ResultSet and Statement objects.
    */
-  public static VectorSchemaRoot sqlToArrow(Connection connection, String query, BaseAllocator allocator, Calendar calendar) throws SQLException, IOException {
+  public static VectorSchemaRoot sqlToArrow(
+      Connection connection,
+      String query,
+      BaseAllocator allocator,
+      Calendar calendar) throws SQLException, IOException {
     Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
     Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
     Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
@@ -113,8 +122,8 @@ public class JdbcToArrow {
   }
 
   /**
-   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects. This method
-   * uses the default RootAllocator and Calendar object.
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects. This
+   * method uses the default RootAllocator and Calendar object.
    *
    * @param resultSet
    * @return Arrow Data Objects {@link VectorSchemaRoot}
@@ -134,7 +143,8 @@ public class JdbcToArrow {
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    * @throws SQLException
    */
-  public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator) throws SQLException, IOException {
+  public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator)
+      throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 
@@ -168,7 +178,8 @@ public class JdbcToArrow {
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    * @throws SQLException
    */
-  public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator, Calendar calendar) throws SQLException, IOException {
+  public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator, Calendar calendar)
+      throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
     Preconditions.checkNotNull(calendar, "Calendar object can not be null");

@@ -283,9 +283,8 @@ public class SmallIntVector extends BaseFixedWidthVector {
    */
   public void setNull(int index) {
     handleSafe(index);
-      /* not really needed to set the bit to 0 as long as
-       * the buffer always starts from 0.
-       */
+    // not really needed to set the bit to 0 as long as
+    // the buffer always starts from 0.
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 

@@ -71,8 +71,8 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 /**
- * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with various data types for H2 database
- * using single test data file
+ * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with various data types
+ * for H2 database using single test data file
  */
 @RunWith(Parameterized.class)
 public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
@@ -124,13 +124,16 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    */
   @Test
   public void testJdbcToArroValues() throws SQLException, IOException {
-    testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
+    testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance()));
+    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+        new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery())));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE)));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), Calendar.getInstance()));
+    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+        new RootAllocator(Integer.MAX_VALUE)));
+    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+        Calendar.getInstance()));
   }
 
   /**

@@ -136,7 +136,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
 
     if (token != END_ARRAY) {
-      throw new IllegalArgumentException("Invalid token: " + token + " expected end of array at " + parser.getTokenLocation());
+      throw new IllegalArgumentException("Invalid token: " + token + " expected end of array at " +
+        parser.getTokenLocation());
     }
   }
 

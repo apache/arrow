@@ -655,7 +655,8 @@ public class DateUtility {
       DateTimeParser optionalSec = DateTimeFormat.forPattern(".SSS").getParser();
       DateTimeParser optionalZone = DateTimeFormat.forPattern(" ZZZ").getParser();
 
-      dateTimeTZFormat = new DateTimeFormatterBuilder().append(dateFormatter).appendOptional(optionalTime).appendOptional(optionalSec).appendOptional(optionalZone).toFormatter();
+      dateTimeTZFormat = new DateTimeFormatterBuilder().append(dateFormatter).appendOptional(optionalTime)
+        .appendOptional(optionalSec).appendOptional(optionalZone).toFormatter();
     }
 
     return dateTimeTZFormat;

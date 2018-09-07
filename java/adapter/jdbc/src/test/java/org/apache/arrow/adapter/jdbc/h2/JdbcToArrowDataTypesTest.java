@@ -62,8 +62,8 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 /**
- * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with various data types for H2 database
- * using multiple test data files
+ * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with various data types
+ * for H2 database using multiple test data files
  */
 @RunWith(Parameterized.class)
 public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
@@ -87,23 +87,23 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
   private static final String VARCHAR = "varchar";
 
   private static final String[] testFiles = {
-          "h2/test1_bigint_h2.yml",
-          "h2/test1_binary_h2.yml",
-          "h2/test1_bit_h2.yml",
-          "h2/test1_blob_h2.yml",
-          "h2/test1_bool_h2.yml",
-          "h2/test1_char_h2.yml",
-          "h2/test1_clob_h2.yml",
-          "h2/test1_date_h2.yml",
-          "h2/test1_decimal_h2.yml",
-          "h2/test1_double_h2.yml",
-          "h2/test1_int_h2.yml",
-          "h2/test1_real_h2.yml",
-          "h2/test1_smallint_h2.yml",
-          "h2/test1_time_h2.yml",
-          "h2/test1_timestamp_h2.yml",
-          "h2/test1_tinyint_h2.yml",
-          "h2/test1_varchar_h2.yml"
+    "h2/test1_bigint_h2.yml",
+    "h2/test1_binary_h2.yml",
+    "h2/test1_bit_h2.yml",
+    "h2/test1_blob_h2.yml",
+    "h2/test1_bool_h2.yml",
+    "h2/test1_char_h2.yml",
+    "h2/test1_clob_h2.yml",
+    "h2/test1_date_h2.yml",
+    "h2/test1_decimal_h2.yml",
+    "h2/test1_double_h2.yml",
+    "h2/test1_int_h2.yml",
+    "h2/test1_real_h2.yml",
+    "h2/test1_smallint_h2.yml",
+    "h2/test1_time_h2.yml",
+    "h2/test1_timestamp_h2.yml",
+    "h2/test1_tinyint_h2.yml",
+    "h2/test1_varchar_h2.yml"
   };
 
   /**
@@ -133,12 +133,14 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
    */
   @Test
   public void testJdbcToArroValues() throws SQLException, IOException {
-    testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
+    testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance()));
+    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+        new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery())));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE)));
+    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+        new RootAllocator(Integer.MAX_VALUE)));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), Calendar.getInstance()));
   }
 
@@ -150,49 +152,63 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
   public void testDataSets(VectorSchemaRoot root) {
     switch (table.getType()) {
       case BIGINT:
-        assertBigIntVectorValues((BigIntVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+        assertBigIntVectorValues((BigIntVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getLongValues());
         break;
       case BINARY:
       case BLOB:
-        assertVarBinaryVectorValues((VarBinaryVector) root.getVector(table.getVector()), table.getValues().length, table.getBinaryValues());
+        assertVarBinaryVectorValues((VarBinaryVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getBinaryValues());
         break;
       case BIT:
-        assertBitVectorValues((BitVector) root.getVector(table.getVector()), table.getValues().length, table.getIntValues());
+        assertBitVectorValues((BitVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getIntValues());
         break;
       case BOOL:
-        assertBooleanVectorValues((BitVector) root.getVector(table.getVector()), table.getValues().length, table.getBoolValues());
+        assertBooleanVectorValues((BitVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getBoolValues());
         break;
       case CHAR:
       case VARCHAR:
       case CLOB:
-        assertVarcharVectorValues((VarCharVector) root.getVector(table.getVector()), table.getValues().length, table.getCharValues());
+        assertVarcharVectorValues((VarCharVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getCharValues());
         break;
       case DATE:
-        assertDateVectorValues((DateMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+        assertDateVectorValues((DateMilliVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getLongValues());
         break;
       case TIME:
-        assertTimeVectorValues((TimeMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+        assertTimeVectorValues((TimeMilliVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getLongValues());
         break;
       case TIMESTAMP:
-        assertTimeStampVectorValues((TimeStampVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+        assertTimeStampVectorValues((TimeStampVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getLongValues());
         break;
       case DECIMAL:
-        assertDecimalVectorValues((DecimalVector) root.getVector(table.getVector()), table.getValues().length, table.getBigDecimalValues());
+        assertDecimalVectorValues((DecimalVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getBigDecimalValues());
         break;
       case DOUBLE:
-        assertFloat8VectorValues((Float8Vector) root.getVector(table.getVector()), table.getValues().length, table.getDoubleValues());
+        assertFloat8VectorValues((Float8Vector) root.getVector(table.getVector()), table.getValues().length,
+            table.getDoubleValues());
         break;
       case INT:
-        assertIntVectorValues((IntVector) root.getVector(table.getVector()), table.getValues().length, table.getIntValues());
+        assertIntVectorValues((IntVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getIntValues());
         break;
       case SMALLINT:
-        assertSmallIntVectorValues((SmallIntVector) root.getVector(table.getVector()), table.getValues().length, table.getIntValues());
+        assertSmallIntVectorValues((SmallIntVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getIntValues());
         break;
       case TINYINT:
-        assertTinyIntVectorValues((TinyIntVector) root.getVector(table.getVector()), table.getValues().length, table.getIntValues());
+        assertTinyIntVectorValues((TinyIntVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getIntValues());
         break;
       case REAL:
-        assertFloat4VectorValues((Float4Vector) root.getVector(table.getVector()), table.getValues().length, table.getFloatValues());
+        assertFloat4VectorValues((Float4Vector) root.getVector(table.getVector()), table.getValues().length,
+            table.getFloatValues());
         break;
     }
   }

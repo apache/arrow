@@ -94,7 +94,13 @@ public class ByteFunctionHelpers {
    * @param rEnd   end offset in the buffer
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
-  public static final int compare(final ArrowBuf left, int lStart, int lEnd, final ArrowBuf right, int rStart, int rEnd) {
+  public static final int compare(
+      final ArrowBuf left,
+      int lStart,
+      int lEnd,
+      final ArrowBuf right,
+      int rStart,
+      int rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       left.checkBytes(lStart, lEnd);
       right.checkBytes(rStart, rEnd);
@@ -102,7 +108,13 @@ public class ByteFunctionHelpers {
     return memcmp(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
   }
 
-  private static final int memcmp(final long laddr, int lStart, int lEnd, final long raddr, int rStart, final int rEnd) {
+  private static final int memcmp(
+      final long laddr,
+      int lStart,
+      int lEnd,
+      final long raddr,
+      int rStart,
+      final int rEnd) {
     int lLen = lEnd - lStart;
     int rLen = rEnd - rStart;
     int n = Math.min(rLen, lLen);
@@ -149,7 +161,13 @@ public class ByteFunctionHelpers {
    * @param rEnd   end offset in the byte array
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
-  public static final int compare(final ArrowBuf left, int lStart, int lEnd, final byte[] right, int rStart, final int rEnd) {
+  public static final int compare(
+      final ArrowBuf left,
+      int lStart,
+      int lEnd,
+      final byte[] right,
+      int rStart,
+      final int rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       left.checkBytes(lStart, lEnd);
     }
@@ -157,7 +175,13 @@ public class ByteFunctionHelpers {
   }
 
 
-  private static final int memcmp(final long laddr, int lStart, int lEnd, final byte[] right, int rStart, final int rEnd) {
+  private static final int memcmp(
+      final long laddr,
+      int lStart,
+      int lEnd,
+      final byte[] right,
+      int rStart,
+      final int rEnd) {
     int lLen = lEnd - lStart;
     int rLen = rEnd - rStart;
     int n = Math.min(rLen, lLen);

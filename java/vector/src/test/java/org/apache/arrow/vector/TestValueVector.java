@@ -476,7 +476,8 @@ public class TestValueVector {
   public void testNullableFixedType1() {
 
     // Create a new value vector for 1024 integers.
-    try (final UInt4Vector vector = newVector(UInt4Vector.class, EMPTY_SCHEMA_PATH, new ArrowType.Int(32, false), allocator);) {
+    try (final UInt4Vector vector = newVector(UInt4Vector.class, EMPTY_SCHEMA_PATH, new ArrowType.Int(32, false),
+      allocator);) {
       boolean error = false;
       int initialCapacity = 1024;
 
@@ -564,7 +565,7 @@ public class TestValueVector {
       /* reset the vector */
       vector.reset();
 
-       /* capacity shouldn't change after reset */
+      /* capacity shouldn't change after reset */
       assertEquals(initialCapacity * 2, vector.getValueCapacity());
 
       /* vector data should be zeroed out */
@@ -815,7 +816,7 @@ public class TestValueVector {
       vector.zeroVector();
 
       for (int i = 0; i < vector.getValueCapacity(); i+=2) {
-          vector.set(i, baseValue + i);
+        vector.set(i, baseValue + i);
       }
 
       for (int i = 0; i < vector.getValueCapacity(); i++) {
@@ -845,7 +846,7 @@ public class TestValueVector {
       /* reset the vector */
       vector.reset();
 
-       /* capacity shouldn't change after reset */
+      /* capacity shouldn't change after reset */
       assertEquals(valueCapacity * 4, vector.getValueCapacity());
 
       /* vector data should be zeroed out */
@@ -1413,7 +1414,8 @@ public class TestValueVector {
   @Test
   public void testCopyFromWithNulls() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator))
+    {
 
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
@@ -1473,7 +1475,8 @@ public class TestValueVector {
   @Test
   public void testCopyFromWithNulls1() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator))
+    {
 
       vector.allocateNew();
       int capacity = vector.getValueCapacity();

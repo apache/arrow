@@ -39,9 +39,9 @@ import io.netty.buffer.ArrowBuf;
 
 /**
  * This FieldWriter implementation delegates all FieldWriter API calls to an inner FieldWriter. This inner field writer
- * can start as a specific type, and this class will promote the writer to a UnionWriter if a call is made that the specifically
- * typed writer cannot handle. A new UnionVector is created, wrapping the original vector, and replaces the original vector
- * in the parent vector, which can be either an AbstractStructVector or a ListVector.
+ * can start as a specific type, and this class will promote the writer to a UnionWriter if a call is made that the
+ * specifically typed writer cannot handle. A new UnionVector is created, wrapping the original vector, and replaces the
+ * original vector in the parent vector, which can be either an AbstractStructVector or a ListVector.
  */
 public class PromotableWriter extends AbstractPromotableFieldWriter {
 
@@ -66,7 +66,10 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this(v, parentContainer, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
-  public PromotableWriter(ValueVector v, AbstractStructVector parentContainer, NullableStructWriterFactory nullableStructWriterFactory) {
+  public PromotableWriter(
+      ValueVector v,
+      AbstractStructVector parentContainer,
+      NullableStructWriterFactory nullableStructWriterFactory) {
     this.parentContainer = parentContainer;
     this.listVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
@@ -77,7 +80,10 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this(v, listVector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
-  public PromotableWriter(ValueVector v, ListVector listVector, NullableStructWriterFactory nullableStructWriterFactory) {
+  public PromotableWriter(
+      ValueVector v,
+      ListVector listVector,
+      NullableStructWriterFactory nullableStructWriterFactory) {
     this.listVector = listVector;
     this.parentContainer = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;

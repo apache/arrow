@@ -71,7 +71,9 @@ public class TestSchema {
     ));
     roundTrip(schema);
     assertEquals(
-        "Schema<a: Int(8, true) not null, b: Struct<c: Int(16, true), d: Utf8>, e: List<Date(MILLISECOND)>, f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND, UTC), h: Timestamp(MICROSECOND, null), i: Interval(DAY_TIME)>",
+        "Schema<a: Int(8, true) not null, b: Struct<c: Int(16, true), d: Utf8>, e: List<Date(MILLISECOND)>, " +
+          "f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND, UTC), h: Timestamp(MICROSECOND, null), " +
+          "i: Interval(DAY_TIME)>",
         schema.toString());
   }
 
@@ -151,7 +153,9 @@ public class TestSchema {
     ));
     roundTrip(schema);
     assertEquals(
-        "Schema<a: Timestamp(SECOND, UTC), b: Timestamp(MILLISECOND, UTC), c: Timestamp(MICROSECOND, UTC), d: Timestamp(NANOSECOND, UTC), e: Timestamp(SECOND, null), f: Timestamp(MILLISECOND, null), g: Timestamp(MICROSECOND, null), h: Timestamp(NANOSECOND, null)>",
+        "Schema<a: Timestamp(SECOND, UTC), b: Timestamp(MILLISECOND, UTC), c: Timestamp(MICROSECOND, UTC), " +
+          "d: Timestamp(NANOSECOND, UTC), e: Timestamp(SECOND, null), f: Timestamp(MILLISECOND, null), " +
+          "g: Timestamp(MICROSECOND, null), h: Timestamp(NANOSECOND, null)>",
         schema.toString());
   }
 

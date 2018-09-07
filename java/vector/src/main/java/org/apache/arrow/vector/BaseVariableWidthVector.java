@@ -571,7 +571,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   @Override
   public int getCurrentSizeInBytes() {
-      /* TODO */
+    /* TODO */
     return 0;
   }
 
@@ -599,7 +599,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
     final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
     final int offsetBufferSize = (valueCount + 1) * OFFSET_WIDTH;
-      /* get the end offset for this valueCount */
+    /* get the end offset for this valueCount */
     final int dataBufferSize = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
     return validityBufferSize + offsetBufferSize + dataBufferSize;
   }

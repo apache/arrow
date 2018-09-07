@@ -60,8 +60,6 @@ import io.netty.buffer.UnsafeDirectLittleEndian;
  * contention of acquiring a lock on AllocationManager should be very low.
  */
 public class AllocationManager {
-  // private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger
-  // (AllocationManager.class);
 
   private static final AtomicLong MANAGER_ID_GENERATOR = new AtomicLong(0);
   private static final AtomicLong LEDGER_ID_GENERATOR = new AtomicLong(0);
@@ -210,10 +208,8 @@ public class AllocationManager {
     // correctly
     private final long lCreationTime = System.nanoTime();
     private final BaseAllocator allocator;
-    private final HistoricalLog historicalLog = BaseAllocator.DEBUG ? new HistoricalLog
-        (BaseAllocator.DEBUG_LOG_LENGTH,
-            "BufferLedger[%d]", 1)
-        : null;
+    private final HistoricalLog historicalLog =
+        BaseAllocator.DEBUG ? new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "BufferLedger[%d]", 1) : null;
     private volatile long lDestructionTime = 0;
 
     private BufferLedger(BaseAllocator allocator) {

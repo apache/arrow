@@ -71,8 +71,8 @@ public class TestCopyFrom {
   @Test /* NullableVarChar */
   public void testCopyFromWithNulls() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
-
+         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator))
+    {
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
       assertEquals(4095, capacity);
@@ -131,8 +131,8 @@ public class TestCopyFrom {
   @Test /* NullableVarChar */
   public void testCopyFromWithNulls1() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
-
+         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator))
+    {
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
       assertEquals(4095, capacity);

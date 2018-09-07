@@ -59,11 +59,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   /**
    * Initialize an allocator
    * @param parentAllocator   parent allocator. null if defining a root allocator
-   * @param listener          listener callback. Must be non-null -- use {@link AllocationListener#NOOP} if no listener
-   *                          desired
+   * @param listener          listener callback. Must be non-null -- use
+   *                          {@link AllocationListener#NOOP} if no listener desired
    * @param name              name of this allocator
    * @param initReservation   initial reservation. Cannot be modified after construction
-   * @param maxAllocation     limit. Allocations past the limit fail. Can be modified after construction
+   * @param maxAllocation     limit. Allocations past the limit fail. Can be modified after
+   *                          construction
    */
   protected BaseAllocator(
           final BaseAllocator parentAllocator,
@@ -106,17 +107,15 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   }
 
-  private static String createErrorMsg(final BufferAllocator allocator, final int rounded, final
-  int requested) {
+  private static String createErrorMsg(final BufferAllocator allocator, final int rounded, final int requested) {
     if (rounded != requested) {
       return String.format(
-          "Unable to allocate buffer of size %d (rounded from %d) due to memory limit. Current " +
-              "allocation: %d",
-          rounded, requested, allocator.getAllocatedMemory());
+        "Unable to allocate buffer of size %d (rounded from %d) due to memory limit. Current " +
+          "allocation: %d", rounded, requested, allocator.getAllocatedMemory());
     } else {
-      return String.format("Unable to allocate buffer of size %d due to memory limit. Current " +
-              "allocation: %d",
-          rounded, allocator.getAllocatedMemory());
+      return String.format(
+        "Unable to allocate buffer of size %d due to memory limit. Current " +
+           "allocation: %d", rounded, allocator.getAllocatedMemory());
     }
   }
 
@@ -286,9 +285,10 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       return buffer;
     } catch (OutOfMemoryError e) {
       /*
-       * OutOfDirectMemoryError is thrown by Netty when we exceed the direct memory limit defined by -XX:MaxDirectMemorySize.
-       * OutOfMemoryError with "Direct buffer memory" message is thrown by java.nio.Bits when we exceed the direct memory limit.
-       *   This should never be hit in practice as Netty is expected to throw an OutOfDirectMemoryError first.
+       * OutOfDirectMemoryError is thrown by Netty when we exceed the direct memory limit defined by
+       * -XX:MaxDirectMemorySize. OutOfMemoryError with "Direct buffer memory" message is thrown by
+       * java.nio.Bits when we exceed the direct memory limit. This should never be hit in practice
+       * as Netty is expected to throw an OutOfDirectMemoryError first.
        */
       if (e instanceof OutOfDirectMemoryError || "Direct buffer memory".equals(e.getMessage())) {
         throw new OutOfMemoryException(e);

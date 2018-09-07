@@ -141,8 +141,8 @@ public class ArrowRecordBatch implements ArrowMessage {
 
   @Override
   public String toString() {
-    return "ArrowRecordBatch [length=" + length + ", nodes=" + nodes + ", #buffers=" + buffers.size() + ", buffersLayout="
-        + buffersLayout + ", closed=" + closed + "]";
+    return "ArrowRecordBatch [length=" + length + ", nodes=" + nodes + ", #buffers=" + buffers.size() +
+      ", buffersLayout=" + buffersLayout + ", closed=" + closed + "]";
   }
 
   /**

@@ -79,7 +79,8 @@ public class TestArrowReaderWriter {
 
   @Test
   public void test() throws IOException {
-    Schema schema = new Schema(asList(new Field("testField", FieldType.nullable(new ArrowType.Int(8, true)), Collections.<Field>emptyList())));
+    Schema schema = new Schema(asList(new Field("testField", FieldType.nullable(new ArrowType.Int(8, true)),
+        Collections.<Field>emptyList())));
     ArrowType type = schema.getFields().get(0).getType();
     FieldVector vector = TestUtils.newVector(FieldVector.class, "testField", type, allocator);
     vector.initializeChildrenFromFields(schema.getFields().get(0).getChildren());

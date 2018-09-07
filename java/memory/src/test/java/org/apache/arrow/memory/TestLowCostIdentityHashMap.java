@@ -62,7 +62,7 @@ public class TestLowCostIdentityHashMap {
     assertNotNull(nextValue);
 
     assertTrue((hashMap.get("s1key") == nextValue || hashMap.get("s2key") == nextValue ||
-      hashMap.get("s5key") == nextValue));
+        hashMap.get("s5key") == nextValue));
 
     assertTrue(hashMap.containsValue(obj4));
     assertTrue(hashMap.containsValue(obj2));

@@ -278,6 +278,7 @@ public class NonNullableStructVector extends AbstractStructVector {
 
   @Override
   public boolean isNull(int index) { return false; }
+
   @Override
   public int getNullCount() { return 0; }
 
@@ -292,8 +293,8 @@ public class NonNullableStructVector extends AbstractStructVector {
   }
 
   public ValueVector getVectorById(int id) {
-  return getChildByOrdinal(id);
-}
+    return getChildByOrdinal(id);
+  }
 
   @Override
   public void setValueCount(int valueCount) {

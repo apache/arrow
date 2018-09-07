@@ -99,7 +99,8 @@ public class TestArrowFile extends BaseFileTest {
     int count = COUNT;
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeData(count, parent);
       write(parent.getChild("root"), file, stream);
@@ -155,7 +156,8 @@ public class TestArrowFile extends BaseFileTest {
     int count = COUNT;
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeComplexData(count, parent);
       write(parent.getChild("root"), file, stream);
@@ -196,7 +198,8 @@ public class TestArrowFile extends BaseFileTest {
     int[] counts = {10, 5};
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator);
          FileOutputStream fileOutputStream = new FileOutputStream(file)) {
       writeData(counts[0], parent);
@@ -211,7 +214,8 @@ public class TestArrowFile extends BaseFileTest {
         streamWriter.writeBatch();
 
         parent.allocateNew();
-        writeData(counts[1], parent); // if we write the same data we don't catch that the metadata is stored in the wrong order.
+        // if we write the same data we don't catch that the metadata is stored in the wrong order.
+        writeData(counts[1], parent);
         root.setRowCount(counts[1]);
 
         fileWriter.writeBatch();
@@ -371,7 +375,8 @@ public class TestArrowFile extends BaseFileTest {
 
     List<Field> childFields = new ArrayList<Field>();
     childFields.add(new Field("varchar-child", new FieldType(true, ArrowType.Utf8.INSTANCE, null, metadata(1)), null));
-    childFields.add(new Field("float-child", new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), null, metadata(2)), null));
+    childFields.add(new Field("float-child",
+        new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), null, metadata(2)), null));
     childFields.add(new Field("int-child", new FieldType(false, new ArrowType.Int(32, true), null, metadata(3)), null));
     childFields.add(new Field("list-child", new FieldType(true, ArrowType.List.INSTANCE, null, metadata(4)),
         ImmutableList.of(new Field("l1", FieldType.nullable(new ArrowType.Int(16, true)), null))));
@@ -383,7 +388,8 @@ public class TestArrowFile extends BaseFileTest {
     Assert.assertEquals(metadata, originalSchema.getCustomMetadata());
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector vector = (StructVector) field.createVector(originalVectorAllocator)) {
       vector.allocateNewSafe();
       vector.setValueCount(0);
@@ -448,7 +454,8 @@ public class TestArrowFile extends BaseFileTest {
     int numDictionaryBlocksWritten = 0;
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)) {
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)) {
 
       MapDictionaryProvider provider = new MapDictionaryProvider();
 
@@ -569,9 +576,11 @@ public class TestArrowFile extends BaseFileTest {
     }
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
-      FixedSizeBinaryVector fixedSizeBinaryVector = parent.addOrGet("fixed-binary", FieldType.nullable(new FixedSizeBinary(typeWidth)), FixedSizeBinaryVector.class);
+      FixedSizeBinaryVector fixedSizeBinaryVector = parent.addOrGet("fixed-binary",
+          FieldType.nullable(new FixedSizeBinary(typeWidth)), FixedSizeBinaryVector.class);
       parent.allocateNew();
       for (int i=0; i<numValues; i++) {
         fixedSizeBinaryVector.set(i, byteValues[i]);
@@ -619,10 +628,13 @@ public class TestArrowFile extends BaseFileTest {
     int count = COUNT;
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
-      FixedSizeListVector tuples = parent.addOrGet("float-pairs", FieldType.nullable(new FixedSizeList(2)), FixedSizeListVector.class);
-      Float4Vector floats = (Float4Vector) tuples.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
+      FixedSizeListVector tuples = parent.addOrGet("float-pairs",
+          FieldType.nullable(new FixedSizeList(2)), FixedSizeListVector.class);
+      Float4Vector floats = (Float4Vector) tuples.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType()))
+          .getVector();
       IntVector ints = parent.addOrGet("ints", FieldType.nullable(new Int(32, true)), IntVector.class);
       parent.allocateNew();
 
@@ -720,7 +732,8 @@ public class TestArrowFile extends BaseFileTest {
     try (IntVector vector = new IntVector("foo", allocator);) {
       Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
       try (FileOutputStream fileOutputStream = new FileOutputStream(file);
-           VectorSchemaRoot root = new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
+           VectorSchemaRoot root =
+             new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
            ArrowFileWriter writer = new ArrowFileWriter(root, null, fileOutputStream.getChannel());) {
         writeBatchData(writer, vector, root);
         numBlocksWritten = writer.getRecordBlocks().size();

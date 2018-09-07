@@ -188,8 +188,8 @@ public class DecimalUtility {
           value.scale() + " != " + vectorScale);
     }
     if (value.precision() > vectorPrecision) {
-      throw new UnsupportedOperationException("BigDecimal precision can not be greater than that in the Arrow vector: " +
-          value.precision() + " > " + vectorPrecision);
+      throw new UnsupportedOperationException("BigDecimal precision can not be greater than that in the Arrow " +
+        "vector: " + value.precision() + " > " + vectorPrecision);
     }
     return true;
   }

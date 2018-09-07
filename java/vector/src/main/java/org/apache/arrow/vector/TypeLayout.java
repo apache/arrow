@@ -158,7 +158,8 @@ public class TypeLayout {
       }
 
       private TypeLayout newVariableWidthTypeLayout() {
-        return newPrimitiveTypeLayout(BufferLayout.validityVector(), BufferLayout.offsetBuffer(), BufferLayout.byteVector());
+        return newPrimitiveTypeLayout(BufferLayout.validityVector(), BufferLayout.offsetBuffer(),
+          BufferLayout.byteVector());
       }
 
       private TypeLayout newPrimitiveTypeLayout(BufferLayout... vectors) {

@@ -43,7 +43,8 @@ public class TestJSONFile extends BaseFileTest {
     int count = COUNT;
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeData(count, parent);
       writeJSON(file, new VectorSchemaRoot(parent.getChild("root")), null);

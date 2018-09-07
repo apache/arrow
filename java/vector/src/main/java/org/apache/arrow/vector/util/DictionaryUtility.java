@@ -69,7 +69,8 @@ public class DictionaryUtility {
       dictionaryIdsUsed.add(id);
     }
 
-    return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()), updatedChildren);
+    return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()),
+      updatedChildren);
   }
 
   /**
@@ -108,6 +109,7 @@ public class DictionaryUtility {
       }
     }
 
-    return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()), updatedChildren);
+    return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()),
+      updatedChildren);
   }
 }

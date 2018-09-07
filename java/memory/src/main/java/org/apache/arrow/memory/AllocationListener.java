@@ -45,9 +45,9 @@ public interface AllocationListener {
   void onAllocation(long size);
 
   /**
-   * Called whenever an allocation failed, giving the caller a chance to create some space in the allocator
-   * (either by freeing some resource, or by changing the limit), and, if successful, allowing the allocator
-   * to retry the allocation.
+   * Called whenever an allocation failed, giving the caller a chance to create some space in the
+   * allocator (either by freeing some resource, or by changing the limit), and, if successful,
+   * allowing the allocator to retry the allocation.
    *
    * @param size     the buffer size that was being allocated
    * @param outcome  the outcome of the failed allocation. Carries information of what failed

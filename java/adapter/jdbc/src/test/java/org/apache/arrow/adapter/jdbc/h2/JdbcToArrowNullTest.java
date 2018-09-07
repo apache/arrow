@@ -49,7 +49,8 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 /**
- * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with null values for H2 database
+ * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with null values for
+ * H2 database
  */
 @RunWith(Parameterized.class)
 public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
@@ -58,8 +59,8 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
   private static final String SELECTED_NULL_COLUMN = "selected_null_column";
 
   private static final String[] testFiles = {
-          "h2/test1_all_datatypes_null_h2.yml",
-          "h2/test1_selected_datatypes_null_h2.yml"
+    "h2/test1_all_datatypes_null_h2.yml",
+    "h2/test1_selected_datatypes_null_h2.yml"
   };
 
   /**
@@ -89,12 +90,14 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
    */
   @Test
   public void testJdbcToArroValues() throws SQLException, IOException {
-    testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
+    testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance()));
+    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+        new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery())));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE)));
+    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+        new RootAllocator(Integer.MAX_VALUE)));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), Calendar.getInstance()));
   }
 

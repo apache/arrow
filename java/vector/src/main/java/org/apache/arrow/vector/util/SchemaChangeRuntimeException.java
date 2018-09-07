@@ -24,7 +24,11 @@ public class SchemaChangeRuntimeException extends RuntimeException {
     super();
   }
 
-  public SchemaChangeRuntimeException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+  public SchemaChangeRuntimeException(
+      String message,
+      Throwable cause,
+      boolean enableSuppression,
+      boolean writableStackTrace) {
     super(message, cause, enableSuppression, writableStackTrace);
   }
 
