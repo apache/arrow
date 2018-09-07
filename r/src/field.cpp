@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <Rcpp.h>
 #include "arrow_types.h"
 
 // [[Rcpp::plugins(cpp11)]]
