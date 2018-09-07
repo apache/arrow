@@ -58,14 +58,15 @@ TEST(PrintLogTest, LogTestWithoutInit) {
 
 TEST(PrintLogTest, LogTestWithInit) {
   // Test empty app name.
-  ArrowLog::StartArrowLog("", ARROW_DEBUG);
+  ArrowLog::StartArrowLog("", ArrowLogLevel::DEBUG);
   PrintLog();
   ArrowLog::ShutDownArrowLog();
 }
 
 // This test will output large amount of logs to stderr, should be disabled in travis.
 TEST(LogPerfTest, PerfTest) {
-  ArrowLog::StartArrowLog("/fake/path/to/appdire/LogPerfTest", ARROW_ERROR, "/tmp/");
+  ArrowLog::StartArrowLog("/fake/path/to/appdire/LogPerfTest", ArrowLogLevel::ERROR,
+                          "/tmp/");
   int rounds = 100000;
 
   int64_t start_time = current_time_ms();

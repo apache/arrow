@@ -18,49 +18,23 @@
 #ifndef ARROW_UTIL_LOGGING_H
 #define ARROW_UTIL_LOGGING_H
 
-#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <string>
 
-#include "arrow/util/macros.h"
-
-// Forward declaration for the log provider.
-#ifdef ARROW_USE_GLOG
-namespace google {
-class LogMessage;
-}  // namespace google
-typedef google::LogMessage LoggingProvider;
-#else
-namespace arrow {
-class CerrLog;
-}  // namespace arrow
-typedef arrow::CerrLog LoggingProvider;
-#endif
-
 namespace arrow {
 
-// Stubbed versions of macros defined in glog/logging.h, intended for
-// environments where glog headers aren't available.
-//
-// Add more as needed.
-
-// Log levels. LOG ignores them, so their values are arbitrary.
-
-#define ARROW_DEBUG (-1)
-#define ARROW_INFO 0
-#define ARROW_WARNING 1
-#define ARROW_ERROR 2
-#define ARROW_FATAL 3
+enum class ArrowLogLevel { DEBUG = -1, INFO = 0, WARNING = 1, ERROR = 2, FATAL = 3 };
 
 #define ARROW_LOG_INTERNAL(level) ::arrow::ArrowLog(__FILE__, __LINE__, level)
-#define ARROW_LOG(level) ARROW_LOG_INTERNAL(ARROW_##level)
+#define ARROW_LOG(level) ARROW_LOG_INTERNAL(arrow::ArrowLogLevel::level)
 #define ARROW_IGNORE_EXPR(expr) ((void)(expr))
 
-#define ARROW_CHECK(condition)                                                          \
-  (condition) ? ARROW_IGNORE_EXPR(0)                                                    \
-              : ::arrow::Voidify() & ::arrow::ArrowLog(__FILE__, __LINE__, ARROW_FATAL) \
-                                         << " Check failed: " #condition " "
+#define ARROW_CHECK(condition)                                                         \
+  (condition) ? ARROW_IGNORE_EXPR(0)                                                   \
+              : ::arrow::Voidify() &                                                   \
+                    ::arrow::ArrowLog(__FILE__, __LINE__, arrow::ArrowLogLevel::FATAL) \
+                        << " Check failed: " #condition " "
 
 // If 'to_call' returns a bad status, CHECK immediately with a logged message
 // of 'msg' followed by the status.
@@ -132,8 +106,6 @@ class ArrowLogBase {
   ArrowLogBase& operator<<(const T& t) {
     if (IsEnabled()) {
       Stream() << t;
-    } else {
-      ARROW_IGNORE_EXPR(t);
     }
     return *this;
   }
@@ -144,7 +116,7 @@ class ArrowLogBase {
 
 class ArrowLog : public ArrowLogBase {
  public:
-  ArrowLog(const char* file_name, int line_number, int severity);
+  ArrowLog(const char* file_name, int line_number, ArrowLogLevel severity);
 
   virtual ~ArrowLog();
 
@@ -153,27 +125,33 @@ class ArrowLog : public ArrowLogBase {
   /// \return True if logging is enabled and false otherwise.
   virtual bool IsEnabled() const;
 
-  // The init function of arrow log for a program which should be called only once.
-  // If logDir is empty, the log won't output to file.
+  /// The init function of arrow log for a program which should be called only once.
+  ///
+  /// \parem appName The app name which starts the log.
+  /// \param severity_threshold Logging threshold for the program.
+  /// \param logDir Logging output file name. If empty, the log won't output to file.
   static void StartArrowLog(const std::string& appName,
-                            int severity_threshold = ARROW_ERROR,
+                            ArrowLogLevel severity_threshold = ArrowLogLevel::INFO,
                             const std::string& logDir = "");
 
-  // The shutdown function of arrow log which should be used with StartArrowLog as a pair.
+  /// The shutdown function of arrow log, it should be used with StartArrowLog as a pair.
   static void ShutDownArrowLog();
 
-  // Install the failure signal handler to output call stack when crash.
-  // If glog is not installed, this function won't do anything.
+  /// Install the failure signal handler to output call stack when crash.
+  /// If glog is not installed, this function won't do anything.
   static void InstallFailureSignalHandler();
 
  private:
-  std::unique_ptr<LoggingProvider> logging_provider_;
+  // Hide the implementation of log provider by void *.
+  // Otherwise, lib user may define the same macro to use the correct header file.
+  void* logging_provider_;
   /// True if log messages should be logged and false if they should be ignored.
   bool is_enabled_;
-  static int severity_threshold_;
+
+  static ArrowLogLevel severity_threshold_;
   // In InitGoogleLogging, it simply keeps the pointer.
   // We need to make sure the app name passed to InitGoogleLogging exist.
-  static std::unique_ptr<char, std::default_delete<char[]>> app_name_;
+  static std::unique_ptr<char[]> app_name_;
 
  protected:
   virtual std::ostream& Stream();

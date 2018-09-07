@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdlib>
-#include <iostream>
-
 #include "arrow/util/logging.h"
 
 #ifndef _WIN32
 #include <execinfo.h>
 #endif
+#include <cstdlib>
+#include <iostream>
 
 #ifdef ARROW_USE_GLOG
 #include "glog/logging.h"
@@ -34,13 +33,13 @@ namespace arrow {
 // which is independent of any libs.
 class CerrLog {
  public:
-  explicit CerrLog(int severity) : severity_(severity), has_logged_(false) {}
+  explicit CerrLog(ArrowLogLevel severity) : severity_(severity), has_logged_(false) {}
 
   virtual ~CerrLog() {
     if (has_logged_) {
       std::cerr << std::endl;
     }
-    if (severity_ == ARROW_FATAL) {
+    if (severity_ == ArrowLogLevel::FATAL) {
       PrintBackTrace();
       std::abort();
     }
@@ -53,7 +52,7 @@ class CerrLog {
 
   template <class T>
   CerrLog& operator<<(const T& t) {
-    if (severity_ != ARROW_DEBUG) {
+    if (severity_ != ArrowLogLevel::DEBUG) {
       has_logged_ = true;
       std::cerr << t;
     }
@@ -61,7 +60,7 @@ class CerrLog {
   }
 
  protected:
-  const int severity_;
+  const ArrowLogLevel severity_;
   bool has_logged_;
 
   void PrintBackTrace() {
@@ -73,26 +72,32 @@ class CerrLog {
   }
 };
 
-int ArrowLog::severity_threshold_ = ARROW_INFO;
-std::unique_ptr<char, std::default_delete<char[]>> ArrowLog::app_name_;
+#ifdef ARROW_USE_GLOG
+typedef google::LogMessage LoggingProvider;
+#else
+typedef arrow::CerrLog LoggingProvider;
+#endif
+
+ArrowLogLevel ArrowLog::severity_threshold_ = ArrowLogLevel::INFO;
+std::unique_ptr<char[]> ArrowLog::app_name_;
 
 #ifdef ARROW_USE_GLOG
 
 // Glog's severity map.
-static int GetMappedSeverity(int severity) {
+static int GetMappedSeverity(ArrowLogLevel severity) {
   switch (severity) {
-    case ARROW_DEBUG:
+    case ArrowLogLevel::DEBUG:
       return google::GLOG_INFO;
-    case ARROW_INFO:
+    case ArrowLogLevel::INFO:
       return google::GLOG_INFO;
-    case ARROW_WARNING:
+    case ArrowLogLevel::WARNING:
       return google::GLOG_WARNING;
-    case ARROW_ERROR:
+    case ArrowLogLevel::ERROR:
       return google::GLOG_ERROR;
-    case ARROW_FATAL:
+    case ArrowLogLevel::FATAL:
       return google::GLOG_FATAL;
     default:
-      ARROW_LOG(FATAL) << "Unsupported logging level: " << severity;
+      ARROW_LOG(FATAL) << "Unsupported logging level: " << static_cast<int>(severity);
       // This return won't be hit but compiler needs it.
       return google::GLOG_FATAL;
   }
@@ -100,12 +105,13 @@ static int GetMappedSeverity(int severity) {
 
 #endif
 
-void ArrowLog::StartArrowLog(const std::string& app_name, int severity_threshold,
+void ArrowLog::StartArrowLog(const std::string& app_name,
+                             ArrowLogLevel severity_threshold,
                              const std::string& log_dir) {
-#ifdef ARROW_USE_GLOG
   severity_threshold_ = severity_threshold;
   app_name_.reset(new char[app_name.length() + 1]);
   snprintf(app_name_.get(), app_name.length() + 1, "%s", app_name.c_str());
+#ifdef ARROW_USE_GLOG
   int mapped_severity_threshold = GetMappedSeverity(severity_threshold_);
   google::InitGoogleLogging(app_name_.get());
   google::SetStderrLogging(mapped_severity_threshold);
@@ -143,32 +149,39 @@ void ArrowLog::InstallFailureSignalHandler() {
 #endif
 }
 
-ArrowLog::ArrowLog(const char* file_name, int line_number, int severity)
-    // glog does not have DEBUG level, we can handle it here.
-    : is_enabled_(severity >= severity_threshold_) {
+ArrowLog::ArrowLog(const char* file_name, int line_number, ArrowLogLevel severity)
+    // glog does not have DEBUG level, we can handle it using is_enabled_.
+    : logging_provider_(nullptr), is_enabled_(severity >= severity_threshold_) {
 #ifdef ARROW_USE_GLOG
   if (is_enabled_) {
-    logging_provider_.reset(
-        new google::LogMessage(file_name, line_number, GetMappedSeverity(severity)));
+    logging_provider_ =
+        new google::LogMessage(file_name, line_number, GetMappedSeverity(severity));
   }
 #else
-  logging_provider_.reset(new CerrLog(severity));
-  *logging_provider_ << file_name << ":" << line_number << ": ";
+  auto logging_provider = new CerrLog(severity);
+  *logging_provider << file_name << ":" << line_number << ": ";
+  logging_provider_ = logging_provider;
 #endif
 }
 
 std::ostream& ArrowLog::Stream() {
+  auto logging_provider = reinterpret_cast<LoggingProvider*>(logging_provider_);
 #ifdef ARROW_USE_GLOG
   // Before calling this function, user should check IsEnabled.
   // When IsEnabled == false, logging_provider_ will be empty.
-  return logging_provider_->stream();
+  return logging_provider->stream();
 #else
-  return logging_provider_->Stream();
+  return logging_provider->Stream();
 #endif
 }
 
 bool ArrowLog::IsEnabled() const { return is_enabled_; }
 
-ArrowLog::~ArrowLog() { logging_provider_.reset(); }
+ArrowLog::~ArrowLog() {
+  if (logging_provider_ != nullptr) {
+    delete reinterpret_cast<LoggingProvider*>(logging_provider_);
+    logging_provider_ = nullptr;
+  }
+}
 
 }  // namespace arrow
