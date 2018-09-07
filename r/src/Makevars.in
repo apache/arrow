@@ -19,7 +19,11 @@ PKG_CPPFLAGS=@cflags@
 PKG_CXXFLAGS=$(C_VISIBILITY)
 CXX_STD=CXX11
 <<<<<<< HEAD
+<<<<<<< HEAD
 PKG_LIBS=@libs@
 =======
 PKG_LIBS=@libs@ -Wl,-rpath,/usr/local/lib
 >>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
+=======
+PKG_LIBS=@libs@
+>>>>>>> skip using rpath linker option
