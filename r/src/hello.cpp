@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <Rcpp.h>
-#include "rrrow_types.h"
+#include "r_arrow_types.h"
 
 using namespace Rcpp ;
 using namespace arrow ;

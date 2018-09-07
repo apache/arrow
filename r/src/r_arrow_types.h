@@ -17,6 +17,6 @@
 
 #pragma once
 
+#define STRICT_R_HEADERS
 #include <Rcpp.h>
-#undef Free
 #include <arrow/api.h>
