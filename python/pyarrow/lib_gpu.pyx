@@ -213,11 +213,11 @@ cdef class CudaContext:
 cdef class CudaIpcMemHandle:
     """A container for a CUDA IPC handle.
     """
-    cdef void init(self, const shared_ptr[CCudaIpcMemHandle]& h):
+    cdef void init(self, shared_ptr[CCudaIpcMemHandle] h):
         self.handle = h
 
     @staticmethod
-    def from_buffer(opaque_handle):
+    def from_buffer(Buffer opaque_handle):
         """Create CudaIpcMemHandle from opaque buffer (e.g. from another
         process)
 
@@ -231,7 +231,8 @@ cdef class CudaIpcMemHandle:
         ipc_handle : CudaIpcMemHandle
         """
         cdef shared_ptr[CCudaIpcMemHandle] handle
-        #check_status(CCudaIpcMemHandle.FromBuffer(opaque_handle, &handle)) # TODO: const void* opaque_handle
+        buf_ = pyarrow_unwrap_buffer(opaque_handle)
+        check_status(CCudaIpcMemHandle.FromBuffer(buf_.get().data(), &handle))
         return pyarrow_wrap_cudaipcmemhandle(handle)
 
     def serialize(self, pool = None):
@@ -249,7 +250,8 @@ cdef class CudaIpcMemHandle:
         """
         pool_ = maybe_unbox_memory_pool(pool)
         cdef shared_ptr[CBuffer] buf
-        check_status(self.handle.get().Serialize(pool_, &buf))
+        cdef CCudaIpcMemHandle* h = self.handle.get()
+        check_status(h.Serialize(pool_, &buf))
         return pyarrow_wrap_buffer(buf)
 
 
@@ -744,17 +746,16 @@ cdef public api object pyarrow_wrap_cudacontext(const shared_ptr[CCudaContext]& 
 cdef public api bint pyarrow_is_cudaipcmemhandle(object handle):
     return isinstance(handle, CudaIpcMemHandle)
 
-cdef public api object pyarrow_wrap_cudaipcmemhandle(const shared_ptr[CCudaIpcMemHandle]& h):
+cdef public api object pyarrow_wrap_cudaipcmemhandle(shared_ptr[CCudaIpcMemHandle] h):
     cdef CudaIpcMemHandle result = CudaIpcMemHandle.__new__(CudaIpcMemHandle)
     result.init(h)
     return result
 
 cdef public api shared_ptr[CCudaIpcMemHandle] pyarrow_unwrap_cudaipcmemhandle(object handle):
     cdef CudaIpcMemHandle handle_
-    if pyarrow_is_cudaipcmemhandle(handle):
-        handle_ = <CudaIpcMemHandle>(handle)
-        return handle_.handle
-    return shared_ptr[CCudaIpcMemHandle]()
+    assert isinstance(handle, CudaIpcMemHandle)
+    handle_ = <CudaIpcMemHandle>(handle)
+    return handle_.handle
 
 cdef public api shared_ptr[CCudaContext] pyarrow_unwrap_cudacontext(object obj):
     cdef CudaContext ctx

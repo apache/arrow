@@ -37,7 +37,7 @@ cdef class CudaIpcMemHandle:
     cdef:
         shared_ptr[CCudaIpcMemHandle] handle
 
-    cdef void init(self, const shared_ptr[CCudaIpcMemHandle]& h)
+    cdef void init(self, shared_ptr[CCudaIpcMemHandle] h)
     
 
 cdef class CudaBuffer(Buffer):
