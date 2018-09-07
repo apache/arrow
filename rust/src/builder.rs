@@ -237,21 +237,21 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "the end of the slice must be within the capacity")]
     fn test_slice_start_out_of_bounds() {
         let mut b: Builder<u8> = Builder::with_capacity(2);
         b.slice_mut(3, 3); // should panic
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "the end of the slice must be within the capacity")]
     fn test_slice_end_out_of_bounds() {
         let mut b: Builder<u8> = Builder::with_capacity(2);
         b.slice_mut(0, 3); // should panic
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "the start of the slice cannot exceed the end of the slice")]
     fn test_slice_end_before_start() {
         let mut b: Builder<u8> = Builder::with_capacity(2);
         b.slice_mut(1, 0); // should panic
