@@ -16,8 +16,7 @@
 # under the License.
 
 """
-TODO:
-
+UNTESTED:
 CudaDeviceManager.create_new_context
 CudaContext.open_ipc_buffer
 CudaIpcMemHandle.from_buffer
@@ -25,9 +24,6 @@ CudaIpcMemHandle.serialize
 CudaBuffer.from_buffer
 CudaBuffer.export_for_ipc
 CudaBuffer.context
-CudaBufferReader
-CudaBufferWriter
-allocate_cuda_host_buffer
 cuda_serialize_record_batch
 cuda_read_message
 cuda_read_record_batch
@@ -71,6 +67,18 @@ def test_manage_allocate_free_host():
     arr3 = np.frombuffer(buf, dtype=np.uint8)
     assert arr3.tolist() == []
 
+    buf = pa.allocate_cuda_host_buffer(size)
+    arr = np.frombuffer(buf, dtype=np.uint8)
+    arr[size//4:3*size//4] = 1
+    arr_cp = arr.copy()
+    arr2 = np.frombuffer(buf, dtype=np.uint8)
+    assert arr2.tolist() == arr_cp.tolist()
+    assert buf.size == size
+    manager.free_host(buf)
+    assert buf.size == 0
+    arr3 = np.frombuffer(buf, dtype=np.uint8)
+    assert arr3.tolist() == []
+    
 @gpu_support
 def test_manage_allocate_autofree_host():
     size = 1024
@@ -377,8 +385,119 @@ def test_copy_from_host():
 
         
 @gpu_support
-def _test_buffer_bytes():
-    val = b'some data'
-    buf = pa.py_cudabuffer(val) # TODO: fix impl
-    assert isinstance(buf, pa.CudaBuffer)
+def test_CudaBufferWriter():
     
+    def allocate(size):
+        cbuf = context.allocate(size)
+        writer = pa.CudaBufferWriter(cbuf)
+        return cbuf, writer
+    
+    def test_writes(total_bytes, chunksize, buffer_size = 0):
+        cbuf, writer = allocate(total_size)
+        arr, buf = make_random_buffer(size=total_size, target='host')
+
+        if buffer_size > 0:
+            writer.set_buffer_size(buffer_size)
+
+        position = writer.tell()
+        assert position == 0
+        writer.write(buf.slice(length=chunksize))
+        assert writer.tell() == chunksize
+        writer.seek(0) 
+        position = writer.tell()
+        assert position == 0
+
+        while position < total_bytes:
+            bytes_to_write = min(chunksize, total_bytes - position)
+            writer.write(buf.slice(offset=position, length=bytes_to_write))
+            position += bytes_to_write
+
+        writer.flush()
+        assert cbuf.size == total_bytes
+        buf2 = cbuf.copy_to_host()
+        assert buf2.size == total_bytes
+        arr2 = np.frombuffer(buf2, dtype=np.uint8)
+        assert arr2.size == total_bytes
+        assert (arr2 == arr).all()
+        
+    total_size, chunk_size = 1<<16, 1000
+    test_writes(total_size, chunk_size)
+    test_writes(total_size, chunk_size, total_size // (1 << 4))
+
+    cbuf, writer = allocate(100)
+    writer.write(np.arange(100, dtype=np.uint8))
+    writer.writeat(50, np.arange(25, dtype=np.uint8))
+    writer.write(np.arange(25, dtype=np.uint8))
+    writer.flush()
+
+    arr = np.frombuffer(cbuf.copy_to_host(), np.uint8)
+    assert (arr[:50]==np.arange(50, dtype=np.uint8)).all()
+    assert (arr[50:75]==np.arange(25, dtype=np.uint8)).all()
+    assert (arr[75:]==np.arange(25, dtype=np.uint8)).all()
+
+
+@gpu_support
+def test_CudaBufferWriter_edge_cases():
+    # edge cases:
+    size = 1000
+    cbuf = context.allocate(size)
+    writer = pa.CudaBufferWriter(cbuf)
+    arr, buf = make_random_buffer(size=size, target='host')
+
+    assert writer.buffer_size == 0
+    writer.set_buffer_size(100)
+    assert writer.buffer_size == 100
+
+    writer.write(buf.slice(length=0))
+    assert writer.tell() == 0
+
+    writer.write(buf.slice(length=10))
+    writer.set_buffer_size(200)
+    assert writer.buffer_size == 200
+    assert writer.num_bytes_buffered == 0
+
+    writer.write(buf.slice(offset=10, length=300))
+    assert writer.num_bytes_buffered == 0
+
+    writer.write(buf.slice(offset=310, length=200))
+    assert writer.num_bytes_buffered == 0
+
+    writer.write(buf.slice(offset=510, length=390))
+    writer.write(buf.slice(offset=900, length=100))
+
+    writer.flush()
+    
+    buf2 = cbuf.copy_to_host()
+    assert buf2.size == size
+    arr2 = np.frombuffer(buf2, dtype=np.uint8)
+    assert arr2.size == size
+    assert (arr2 == arr).all()
+
+    
+    
+@gpu_support
+def test_CudaBufferReader():
+
+    size = 1000
+    arr, cbuf = make_random_buffer(size=size, target='device')
+
+    reader = pa.CudaBufferReader(cbuf)
+    reader.seek(950)
+    assert reader.tell() == 950
+
+    data = reader.read(100)
+    assert len(data) == 50
+    assert reader.tell() == 1000
+
+    reader.seek(925)
+    arr2 = np.zeros(100, dtype=np.uint8)
+    n = reader.readinto(arr2)
+    assert n == 75
+    assert reader.tell() == 1000
+    assert (arr2[:75] == arr[925:]).all()
+
+    reader.seek(0)
+    assert reader.tell() == 0
+    buf2 = reader.read_buffer()
+    arr2 = np.frombuffer(buf2.copy_to_host(), dtype=np.uint8)
+    assert (arr2 == arr).all()

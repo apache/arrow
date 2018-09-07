@@ -67,10 +67,10 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
         CCudaBufferWriter(const shared_ptr[CCudaBuffer]& buffer)
         CStatus Close()
         CStatus Flush()
-        CStatus Seek(int64_t position)
+        #CStatus Seek(int64_t position)
         CStatus Write(const void* data, int64_t nbytes)
         CStatus WriteAt(int64_t position, const void* data, int64_t nbytes)
-        CStatus Tell(int64_t* position) const
+        #CStatus Tell(int64_t* position) const
         CStatus SetBufferSize(const int64_t buffer_size)
         int64_t buffer_size()
         int64_t num_bytes_buffered() const

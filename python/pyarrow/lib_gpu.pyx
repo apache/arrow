@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
+import six
+from pyarrow.compat import tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_gpu cimport *
 from pyarrow.lib import py_buffer, allocate_buffer
@@ -484,7 +485,7 @@ cdef class CudaHostBuffer(Buffer):
         self._freed = True
     def __init__(self):
         raise TypeError("Do not call CudaHostBuffer's constructor directly, use "
-                        "`<pyarrow.CudaManager instance>.allocate_host` method instead.")
+                        "`allocate_cuda_host_buffer` function instead.")
 
     
     cdef void init_host(self, const shared_ptr[CCudaHostBuffer]& buffer):
@@ -516,27 +517,92 @@ cdef class CudaBufferReader(NativeFile):
         self.is_readable = True
         self.closed = False
 
-    #TODO: CStatus Read(int64_t nbytes, int64_t* bytes_read, void* buffer)
-    #TODO: CStatus Read(int64_t nbytes, shared_ptr[CBuffer]* out)
+    def read_buffer(self, nbytes=None):
+        """Read into new device buffer.
+
+        Parameters
+        ----------
+        nbytes : int, default None
+          Specify the number of bytes to read. Default: None (read all
+          remaining bytes).
+
+        Returns
+        -------
+        cbuf : CudaBuffer
+          New device buffer.
+        """
+        cdef:
+            int64_t c_nbytes
+            int64_t bytes_read = 0
+            shared_ptr[CCudaBuffer] output
+
+        if nbytes is None:
+            c_nbytes = self.size() - self.tell()
+        else:
+            c_nbytes = nbytes
+
+        with nogil:
+            check_status(self.reader.Read(c_nbytes, <shared_ptr[CBuffer]*> &output))
+
+        return pyarrow_wrap_cudabuffer(output)
 
         
 cdef class CudaBufferWriter(NativeFile):
-    """File interface for writing to CUDA buffers, with optional buffering
+    """File interface for writing to CUDA buffers, with optional buffering.
     """
     def __cinit__(self, CudaBuffer buffer):
-        self.writer = new CCudaBufferWriter(buffer.cuda_buffer)
+        self.buffer = buffer
+        self.writer = new CCudaBufferWriter(self.buffer.cuda_buffer)
         self.wr_file.reset(self.writer)
         self.is_writable = True
         self.closed = False
  
-    #TODO: CStatus Close()
-    #TODO: CStatus Flush()
-    #TODO: CStatus Seek(int64_t position)
-    #TODO: CStatus Write(const void* data, int64_t nbytes)
-    #TODO: CStatus WriteAt(int64_t position, const void* data, int64_t nbytes)
-    #TODO: CStatus Tell(int64_t* position) const
+    def writeat(self, int64_t position, object data):
+        """Write data to buffer starting from position.
 
-    def set_buffer_size(self, buffer_size):
+        Parameters
+        ----------
+        position : int
+          Specify device buffer position where the data will be
+          written.
+        data : array-like
+          Specify data, the data instance must implement buffer
+          protocol.
+        """
+        if isinstance(data, six.string_types):
+            data = tobytes(data)
+
+        cdef Buffer arrow_buffer = py_buffer(data)
+
+        cdef const uint8_t* buf = arrow_buffer.buffer.get().data()
+        cdef int64_t bufsize = len(arrow_buffer)
+        with nogil:
+            check_status(self.writer.WriteAt(position, buf, bufsize))
+        
+    def flush(self):
+        """ Flush the buffer stream """
+        with nogil:
+            check_status(self.writer.Flush())
+    
+    def seek(self, int64_t position, int whence=0):
+        # TODO: remove this method after NativeFile.seek supports
+        # writeable files.
+        cdef int64_t offset
+
+        with nogil:
+            if whence == 0:
+                offset = position
+            elif whence == 1:
+                check_status(self.writer.Tell(&offset))
+                offset = offset + position
+            else:
+                with gil:
+                    raise ValueError("Invalid value of whence: {0}"
+                                     .format(whence))
+            check_status(self.writer.Seek(offset))
+        return self.tell()
+    
+    def set_buffer_size(self, int64_t buffer_size):
         """Set CPU buffer size to limit calls to cudaMemcpy
 
         Parameters
@@ -544,8 +610,8 @@ cdef class CudaBufferWriter(NativeFile):
         buffer_size : int
           Specify the size of CPU buffer to allocate in bytes.
         """
-        
-        check_status(self.writer.SetBufferSize(buffer_size))
+        with nogil:
+            check_status(self.writer.SetBufferSize(buffer_size))
     
     @property
     def buffer_size(self):

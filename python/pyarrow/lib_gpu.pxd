@@ -64,3 +64,4 @@ cdef class CudaBufferReader(NativeFile):
 cdef class CudaBufferWriter(NativeFile):
     cdef:
         CCudaBufferWriter* writer
+        CudaBuffer buffer
