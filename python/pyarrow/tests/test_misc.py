@@ -26,6 +26,14 @@ def test_get_include():
     assert os.path.exists(os.path.join(include_dir, 'arrow', 'api.h'))
 
 
+@pytest.mark.skipif('sys.platform != "win32"')
+def test_get_library_dirs_win32():
+    library_dirs = pa.get_library_dirs()
+
+    library_lib = library_dirs[-1]
+    assert os.path.exists(os.path.join(library_lib, 'arrow.lib'))
+
+
 def test_cpu_count():
     n = pa.cpu_count()
     assert n > 0
