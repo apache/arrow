@@ -246,6 +246,16 @@ matrix:
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/go/arrow
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+  # R
+  - language: r
+    cache: packages
+    latex: false
+    before_install:
+    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
+    - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib
+    - export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib/pkgconfig
+    - pushd ${TRAVIS_BUILD_DIR}/r
 
 
 after_failure:
