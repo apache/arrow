@@ -7,7 +7,7 @@
 record_batch(.data)
 }
 \arguments{
-\item{data}{a data frame}
+\item{.data}{a data frame}
 }
 \description{
 Create an arrow::RecordBatch from a data frame

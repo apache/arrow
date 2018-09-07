@@ -103,7 +103,7 @@ array <- function(...){
 
 #' Create an arrow::RecordBatch from a data frame
 #'
-#' @param data a data frame
+#' @param .data a data frame
 #'
 #' @export
 record_batch <- function(.data){
