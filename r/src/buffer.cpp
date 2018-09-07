@@ -111,3 +111,27 @@ int RecordBatch_num_rows(const std::shared_ptr<arrow::RecordBatch>& x){
 std::shared_ptr<arrow::Schema> RecordBatch_schema(const std::shared_ptr<arrow::RecordBatch>& x){
   return x->schema();
 }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Table> dataframe_to_Table(DataFrame tbl){
+  auto rb = dataframe_to_RecordBatch(tbl);
+
+  std::shared_ptr<arrow::Table> out;
+  auto status = arrow::Table::FromRecordBatches({ std::move(rb) }, &out);
+  return out;
+}
+
+// [[Rcpp::export]]
+int Table_num_columns(const std::shared_ptr<arrow::Table>& x){
+  return x->num_columns();
+}
+
+// [[Rcpp::export]]
+int Table_num_rows(const std::shared_ptr<arrow::Table>& x){
+  return x->num_rows();
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Schema> Table_schema(const std::shared_ptr<arrow::Table>& x){
+  return x->schema();
+}

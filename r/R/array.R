@@ -109,3 +109,23 @@ array <- function(...){
 record_batch <- function(.data){
   `arrow::RecordBatch`$new(.data)
 }
+
+`arrow::Table` <- R6Class("arrow::Table", inherit = `arrow::Object`,
+  public = list(
+    initialize = function(.data){
+      self$set_pointer(dataframe_to_Table(.data))
+    },
+    num_columns = function() Table_num_columns(self),
+    num_rows = function() Table_num_rows(self),
+    schema = function() schema(.xp = Table_schema(self))
+  )
+)
+
+#' Create an arrow::Table from a data frame
+#'
+#' @param .data a data frame
+#'
+#' @export
+table <- function(.data){
+  `arrow::Table`$new(.data)
+}

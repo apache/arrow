@@ -244,6 +244,50 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// dataframe_to_Table
+std::shared_ptr<arrow::Table> dataframe_to_Table(DataFrame tbl);
+RcppExport SEXP _arrow_dataframe_to_Table(SEXP tblSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< DataFrame >::type tbl(tblSEXP);
+    rcpp_result_gen = Rcpp::wrap(dataframe_to_Table(tbl));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Table_num_columns
+int Table_num_columns(const std::shared_ptr<arrow::Table>& x);
+RcppExport SEXP _arrow_Table_num_columns(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table_num_columns(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Table_num_rows
+int Table_num_rows(const std::shared_ptr<arrow::Table>& x);
+RcppExport SEXP _arrow_Table_num_rows(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table_num_rows(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Table_schema
+std::shared_ptr<arrow::Schema> Table_schema(const std::shared_ptr<arrow::Table>& x);
+RcppExport SEXP _arrow_Table_schema(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table_schema(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Field_initialize
 std::shared_ptr<arrow::Field> Field_initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
 RcppExport SEXP _arrow_Field_initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
@@ -1550,6 +1594,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch_num_columns", (DL_FUNC) &_arrow_RecordBatch_num_columns, 1},
     {"_arrow_RecordBatch_num_rows", (DL_FUNC) &_arrow_RecordBatch_num_rows, 1},
     {"_arrow_RecordBatch_schema", (DL_FUNC) &_arrow_RecordBatch_schema, 1},
+    {"_arrow_dataframe_to_Table", (DL_FUNC) &_arrow_dataframe_to_Table, 1},
+    {"_arrow_Table_num_columns", (DL_FUNC) &_arrow_Table_num_columns, 1},
+    {"_arrow_Table_num_rows", (DL_FUNC) &_arrow_Table_num_rows, 1},
+    {"_arrow_Table_schema", (DL_FUNC) &_arrow_Table_schema, 1},
     {"_arrow_Field_initialize", (DL_FUNC) &_arrow_Field_initialize, 3},
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},

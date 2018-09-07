@@ -85,6 +85,22 @@ RecordBatch_schema <- function(x) {
     .Call(`_arrow_RecordBatch_schema`, x)
 }
 
+dataframe_to_Table <- function(tbl) {
+    .Call(`_arrow_dataframe_to_Table`, tbl)
+}
+
+Table_num_columns <- function(x) {
+    .Call(`_arrow_Table_num_columns`, x)
+}
+
+Table_num_rows <- function(x) {
+    .Call(`_arrow_Table_num_rows`, x)
+}
+
+Table_schema <- function(x) {
+    .Call(`_arrow_Table_schema`, x)
+}
+
 Field_initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field_initialize`, name, type, nullable)
 }
