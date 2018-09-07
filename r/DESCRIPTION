@@ -1,5 +1,6 @@
 Package: arrow
 <<<<<<< HEAD
+<<<<<<< HEAD
 Title: R Integration to 'Apache' 'Arrow'
 Version: 0.0.0.9000
 Authors@R: c(
@@ -9,12 +10,20 @@ Authors@R: c(
 Description: R Integration to 'Apache' 'Arrow'.
 =======
 Title: Bindings to 'Apache' 'Arrow'
+=======
+Title: R Integration to 'Apache' 'Arrow'
+>>>>>>> follow up from @wesm comments on #2489
 Version: 0.0.0.9000
 Authors@R: c(
-    person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre"))
+    person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")), 
+    person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
   )
+<<<<<<< HEAD
 Description: R bindings to Apache Arrow.
 >>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
+=======
+Description: R Integration to 'Apache' 'Arrow'.
+>>>>>>> follow up from @wesm comments on #2489
 Depends: R (>= 3.5)
 License: Apache License (>= 2.0)
 Encoding: UTF-8
