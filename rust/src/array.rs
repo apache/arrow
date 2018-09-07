@@ -520,15 +520,28 @@ impl Array for StructArray {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    /// Returns the length (i.e., number of elements) of this array
+    fn len(&self) -> i64 {
+        self.boxed_fields[0].len()
+    }
+
 }
 
 impl From<Vec<(Field, ArrayRef)>> for StructArray {
     fn from(v: Vec<(Field, ArrayRef)>) -> Self {
         let (field_types, field_values): (Vec<_>, Vec<_>) = v.into_iter().unzip();
+
+        // Check the length of the child arrays
+        let length = field_values[0].len();
+        for i in 1..field_values.len() {
+            assert_eq!(length, field_values[i].len(), "all fields of a StructArray must have the same length")
+        }
+
         let data = ArrayData::builder(DataType::Struct(field_types))
             .child_data(field_values.into_iter().map(|a| a.data()).collect())
             .build();
-        StructArray::from(data)
+        Self::from(data)
     }
 }
 
