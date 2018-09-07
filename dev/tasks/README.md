@@ -97,12 +97,12 @@ submission. The tasks are defined in `tasks.yml`
 8. Install the python dependencies for the script:
 
    ```bash
-   conda install -y jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg
+   conda install -y jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg toolz jira
    ```
 
    ```bash
    # pygit2 requires libgit2: http://www.pygit2.org/install.html
-   pip install jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg
+   pip install jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg toolz jira
    ```
 
 9. Try running it:
