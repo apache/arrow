@@ -1,0 +1,368 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+groups:
+  # these groups are just for convenience
+  # makes it easier to submit related tasks
+  conda:
+    - conda-linux-py27
+    - conda-linux-py35
+    - conda-linux-py36
+    - conda-osx-py27
+    - conda-osx-py35
+    - conda-osx-py36
+    - conda-win-py35
+    - conda-win-py36
+  wheel:
+    - wheel-linux-cp27m
+    - wheel-linux-cp27mu
+    - wheel-linux-cp35m
+    - wheel-linux-cp36m
+    - wheel-osx-cp27m
+    - wheel-osx-cp35m
+    - wheel-osx-cp36m
+    - wheel-win-cp35m
+    - wheel-win-cp36m
+  linux:
+    - debian-stretch
+    - ubuntu-trusty
+    - ubuntu-xenial
+    - ubuntu-bionic
+    - centos-6
+    - centos-7
+
+tasks:
+  # arbitrary_task_name:
+  #   platform: osx|linux|win
+  #   template: path of jinja2 templated yml
+  #   params: optional extra parameters
+  #   artifacts: list of regex patterns, each needs to match a single github
+  #              release asset, version variable is replaced in the pattern
+  #              e.g.:
+  #     - pyarrow-{version}-py36(h[a-z0-9]+)_0-linux-64.tar.bz2
+
+  ############################## Conda Linux ##################################
+
+  conda-linux-py27:
+    platform: linux
+    template: conda-recipes/travis.linux.yml
+    params:
+      variant_config_file: variants/linux_python2.7.yaml
+    artifacts:
+      - arrow-cpp-{version}-py27(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py27(h[a-z0-9]+)_0.tar.bz2
+
+  conda-linux-py35:
+    platform: linux
+    template: conda-recipes/travis.linux.yml
+    params:
+      variant_config_file: variants/linux_python3.5.yaml
+    artifacts:
+      - arrow-cpp-{version}-py35(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py35(h[a-z0-9]+)_0.tar.bz2
+
+  conda-linux-py36:
+    platform: linux
+    template: conda-recipes/travis.linux.yml
+    params:
+      variant_config_file: variants/linux_python3.6.yaml
+    artifacts:
+      - arrow-cpp-{version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py36(h[a-z0-9]+)_0.tar.bz2
+
+  ############################## Conda OSX ####################################
+
+  conda-osx-py27:
+    platform: osx
+    template: conda-recipes/travis.osx.yml
+    params:
+      variant_config_file: variants/osx_python2.7.yaml
+    artifacts:
+      - arrow-cpp-{version}-py27(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py27(h[a-z0-9]+)_0.tar.bz2
+
+  conda-osx-py35:
+    platform: osx
+    template: conda-recipes/travis.osx.yml
+    params:
+      variant_config_file: variants/osx_python3.5.yaml
+    artifacts:
+      - arrow-cpp-{version}-py35(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py35(h[a-z0-9]+)_0.tar.bz2
+
+  conda-osx-py36:
+    platform: osx
+    template: conda-recipes/travis.osx.yml
+    params:
+      variant_config_file: variants/osx_python3.6.yaml
+    artifacts:
+      - arrow-cpp-{version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py36(h[a-z0-9]+)_0.tar.bz2
+
+  ############################## Conda Windows ################################
+
+  conda-win-py35:
+    platform: win
+    template: conda-recipes/appveyor.yml
+    params:
+      variant_config_file: variants\win_c_compilervs2015cxx_compilervs2015python3.5.yaml
+    artifacts:
+      - arrow-cpp-{version}-py35_vc14(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py35(h[a-z0-9]+)_0.tar.bz2
+
+  conda-win-py36:
+    platform: win
+    template: conda-recipes/appveyor.yml
+    params:
+      variant_config_file: variants\win_c_compilervs2015cxx_compilervs2015python3.6.yaml
+    artifacts:
+      - arrow-cpp-{version}-py36_vc14(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py36(h[a-z0-9]+)_0.tar.bz2
+
+  ############################## Wheel Linux ##################################
+
+  wheel-linux-cp27m:
+    platform: linux
+    template: python-wheels/travis.linux.yml
+    params:
+      python_version: 2.7,16
+    artifacts:
+      - pyarrow-{version}-cp27-cp27m-manylinux1_x86_64.whl
+
+  wheel-linux-cp27mu:
+    platform: linux
+    template: python-wheels/travis.linux.yml
+    params:
+      python_version: 2.7,32
+    artifacts:
+      - pyarrow-{version}-cp27-cp27mu-manylinux1_x86_64.whl
+
+  wheel-linux-cp35m:
+    platform: linux
+    template: python-wheels/travis.linux.yml
+    params:
+      python_version: 3.5,16
+    artifacts:
+      - pyarrow-{version}-cp35-cp35m-manylinux1_x86_64.whl
+
+  wheel-linux-cp36m:
+    platform: linux
+    template: python-wheels/travis.linux.yml
+    params:
+      python_version: 3.6,16
+    artifacts:
+      - pyarrow-{version}-cp36-cp36m-manylinux1_x86_64.whl
+
+  ############################## Wheel OSX ####################################
+
+  wheel-osx-cp27m:
+    platform: osx
+    template: python-wheels/travis.osx.yml
+    params:
+      numpy_build_version: 1.10.4
+      numpy_test_version: 1.14.0
+      pandas_version: 0.23.3
+      python_version: 2.7
+    artifacts:
+      - pyarrow-{version}-cp27-cp27m-macosx_10_6_intel.whl
+
+  wheel-osx-cp35m:
+    platform: osx
+    template: python-wheels/travis.osx.yml
+    params:
+      numpy_build_version: 1.10.4
+      numpy_test_version: 1.14.0
+      pandas_version: 0.23.3
+      python_version: 3.5
+    artifacts:
+      - pyarrow-{version}-cp35-cp35m-macosx_10_6_intel.whl
+
+  wheel-osx-cp36m:
+    platform: osx
+    template: python-wheels/travis.osx.yml
+    params:
+      numpy_build_version: 1.11.3
+      numpy_test_version: 1.14.0
+      pandas_version: 0.23.3
+      python_version: 3.6
+    artifacts:
+      - pyarrow-{version}-cp36-cp36m-macosx_10_6_intel.whl
+
+  ############################## Wheel Windows ################################
+
+  wheel-win-cp35m:
+    platform: win
+    template: python-wheels/appveyor.yml
+    params:
+      numpy_version: 1.13
+      python_version: 3.5
+    artifacts:
+      - pyarrow-{version}-cp35-cp35m-win_amd64.whl
+
+  wheel-win-cp36m:
+    platform: win
+    template: python-wheels/appveyor.yml
+    params:
+      numpy_version: 1.13
+      python_version: 3.6
+    artifacts:
+      - pyarrow-{version}-cp36-cp36m-win_amd64.whl
+
+  ############################## Linux PKGS ####################################
+
+  debian-stretch:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=debian-stretch
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
+      - libarrow-dev_{version}-1_amd64.deb
+      - libarrow-glib-dev_{version}-1_amd64.deb
+      - libarrow-glib-doc_{version}-1_all.deb
+      - libarrow-glib0-dbgsym_{version}-1_amd64.deb
+      - libarrow-glib0_{version}-1_amd64.deb
+      - libarrow-gpu-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib0-dbgsym_{version}-1_amd64.deb
+      - libarrow-gpu-glib0_{version}-1_amd64.deb
+      - libarrow-gpu10-dbgsym_{version}-1_amd64.deb
+      - libarrow-gpu10_{version}-1_amd64.deb
+      - libarrow-python-dev_{version}-1_amd64.deb
+      - libarrow-python10-dbgsym_{version}-1_amd64.deb
+      - libarrow-python10_{version}-1_amd64.deb
+      - libarrow10-dbgsym_{version}-1_amd64.deb
+      - libarrow10_{version}-1_amd64.deb
+
+  ubuntu-trusty:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=ubuntu-trusty
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.gz
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow_{version}-1.debian.tar.gz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{version}-1_amd64.deb
+      - libarrow-dev_{version}-1_amd64.deb
+      - libarrow-glib-dev_{version}-1_amd64.deb
+      - libarrow-glib-doc_{version}-1_all.deb
+      - libarrow-glib0_{version}-1_amd64.deb
+      - libarrow10_{version}-1_amd64.deb
+
+  ubuntu-xenial:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=ubuntu-xenial
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
+      - libarrow-dev_{version}-1_amd64.deb
+      - libarrow-glib-dev_{version}-1_amd64.deb
+      - libarrow-glib-doc_{version}-1_all.deb
+      - libarrow-glib0_{version}-1_amd64.deb
+      - libarrow-gpu-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib0_{version}-1_amd64.deb
+      - libarrow-gpu10_{version}-1_amd64.deb
+      - libarrow-python-dev_{version}-1_amd64.deb
+      - libarrow-python10_{version}-1_amd64.deb
+      - libarrow10_{version}-1_amd64.deb
+
+  ubuntu-bionic:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=ubuntu-bionic
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
+      - libarrow-dev_{version}-1_amd64.deb
+      - libarrow-glib-dev_{version}-1_amd64.deb
+      - libarrow-glib-doc_{version}-1_all.deb
+      - libarrow-glib0_{version}-1_amd64.deb
+      - libarrow-gpu-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib0_{version}-1_amd64.deb
+      - libarrow-gpu10_{version}-1_amd64.deb
+      - libarrow-python-dev_{version}-1_amd64.deb
+      - libarrow-python10_{version}-1_amd64.deb
+      - libarrow10_{version}-1_amd64.deb
+
+  centos-6:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake yum:build CENTOS_VERSIONS=6
+      upload_extensions:
+        - .rpm
+    artifacts:
+      - arrow-{version}-1.el6.src.rpm
+      - arrow-debuginfo-{version}-1.el6.x86_64.rpm
+      - arrow-devel-{version}-1.el6.x86_64.rpm
+      - arrow-libs-{version}-1.el6.x86_64.rpm
+      - arrow-python-devel-{version}-1.el6.x86_64.rpm
+      - arrow-python-libs-{version}-1.el6.x86_64.rpm
+
+  centos-7:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake yum:build CENTOS_VERSIONS=7
+      upload_extensions:
+        - .rpm
+    artifacts:
+      - arrow-{version}-1.el7.src.rpm
+      - arrow-debuginfo-{version}-1.el7.x86_64.rpm
+      - arrow-devel-{version}-1.el7.x86_64.rpm
+      - arrow-glib-devel-{version}-1.el7.x86_64.rpm
+      - arrow-glib-doc-{version}-1.el7.x86_64.rpm
+      - arrow-glib-libs-{version}-1.el7.x86_64.rpm
+      - arrow-libs-{version}-1.el7.x86_64.rpm
+      - arrow-python-devel-{version}-1.el7.x86_64.rpm
+      - arrow-python-libs-{version}-1.el7.x86_64.rpm

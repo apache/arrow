@@ -17,15 +17,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import hashlib
 import os
 import re
 import sys
 import time
 import click
+import hashlib
 import gnupg
 import toolz
-import urllib
 import pygit2
 import github3
 import jira.client
@@ -44,6 +43,15 @@ CWD = Path(__file__).parent.absolute()
 
 NEW_FEATURE = 'New Features and Improvements'
 BUGFIX = 'Bug Fixes'
+
+
+def md(template, *args, **kwargs):
+    """Wraps string.format with naive markdown escaping"""
+    def escape(s):
+        for char in ('*', '#', '_', '~', '`', '>'):
+            s = s.replace(char, '\\' + char)
+        return s
+    return template.format(*map(escape, args), **toolz.valmap(escape, kwargs))
 
 
 class JiraChangelog:
@@ -70,10 +78,9 @@ class JiraChangelog:
         for typename, issues in sorted(issues_by_type.items()):
             issues.sort(key=lambda x: x.key)
 
-            out.write('## {0}\n\n'.format(typename))
+            out.write(md('## {}\n\n', typename))
             for issue in issues:
-                out.write('* {0} - {1}\n'.format(issue.key,
-                                                 issue.fields.summary))
+                out.write(md('* {} - {}\n', issue.key, issue.fields.summary))
             out.write('\n')
 
         return out.getvalue()
@@ -95,7 +102,7 @@ class JiraChangelog:
         }
 
         issues_by_category = toolz.groupby(
-            lambda i: self.categories[issue.fields.issuetype.name],
+            lambda issue: categories[issue.fields.issuetype.name],
             self.issues
         )
 
@@ -106,10 +113,10 @@ class JiraChangelog:
             issues = issues_by_category[category]
             issues.sort(key=lambda x: x.key)
 
-            out.write('## {0}\n\n'.format(title))
+            out.write(md('## {}\n\n', title))
             for issue in issues:
-                link = '[{0}]({1}/browse/{0})'.format(issue.key, self.server)
-                out.write('* {0} - {1}\n'.format(link, issue.fields.summary))
+                link = md('[{0}]({1}/browse/{0})', issue.key, self.server)
+                out.write(md('* {} - {}\n', link, issue.fields.summary))
             out.write('\n')
 
         return out.getvalue()
@@ -128,12 +135,8 @@ class JiraChangelog:
 
         # Newly generated changelog
         today = datetime.today().strftime('%d %B %Y')
-        out.write('# Apache Arrow {0} ({1})\n'.format(self.version, today))
-
-        new_changelog = new_changelog.replace('_', '\_')
+        out.write(md('\n\n# Apache Arrow {} ({})\n\n', self.version, today))
         out.write(new_changelog)
-
-        # Prior versions
         out.write('\n'.join(old_changelog[19:]))
 
         return out.getvalue().strip()
@@ -535,7 +538,8 @@ def changelog(ctx, changelog_path, arrow_version, is_website, jira_username,
 
     changelog = JiraChangelog(version, username=jira_username,
                               password=jira_password)
-    new_content = changelog.render(changelog_path.read_text())
+    new_content = changelog.render(changelog_path.read_text(),
+                                   website=is_website)
 
     if dry_run:
         click.echo(new_content)
