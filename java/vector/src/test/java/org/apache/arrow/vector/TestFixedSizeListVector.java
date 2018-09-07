@@ -79,7 +79,8 @@ public class TestFixedSizeListVector {
   @Test
   public void testFloatTypeNullable() {
     try (FixedSizeListVector vector = FixedSizeListVector.empty("list", 2, allocator)) {
-      Float4Vector nested = (Float4Vector) vector.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
+      Float4Vector nested = (Float4Vector) vector.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType()))
+          .getVector();
       vector.allocateNew();
 
       for (int i = 0; i < 10; i++) {
@@ -113,8 +114,10 @@ public class TestFixedSizeListVector {
   @Test
   public void testNestedInList() {
     try (ListVector vector = ListVector.empty("list", allocator)) {
-      FixedSizeListVector tuples = (FixedSizeListVector) vector.addOrGetVector(FieldType.nullable(new ArrowType.FixedSizeList(2))).getVector();
-      IntVector innerVector = (IntVector) tuples.addOrGetVector(FieldType.nullable(MinorType.INT.getType())).getVector();
+      FixedSizeListVector tuples = (FixedSizeListVector) vector.addOrGetVector(
+          FieldType.nullable(new ArrowType.FixedSizeList(2))).getVector();
+      IntVector innerVector = (IntVector) tuples.addOrGetVector(FieldType.nullable(MinorType.INT.getType()))
+          .getVector();
       vector.allocateNew();
 
       for (int i = 0; i < 10; i++) {
@@ -156,7 +159,8 @@ public class TestFixedSizeListVector {
   public void testTransferPair() {
     try (FixedSizeListVector from = new FixedSizeListVector("from", allocator, 2, null, null);
          FixedSizeListVector to = new FixedSizeListVector("to", allocator, 2, null, null)) {
-      Float4Vector nested = (Float4Vector) from.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
+      Float4Vector nested = (Float4Vector) from.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType()))
+          .getVector();
       from.allocateNew();
 
       for (int i = 0; i < 10; i++) {

@@ -62,11 +62,16 @@ public class VectorLoader {
     }
     root.setRowCount(recordBatch.getLength());
     if (nodes.hasNext() || buffers.hasNext()) {
-      throw new IllegalArgumentException("not all nodes and buffers were consumed. nodes: " + Iterators.toString(nodes) + " buffers: " + Iterators.toString(buffers));
+      throw new IllegalArgumentException("not all nodes and buffers were consumed. nodes: " +
+        Iterators.toString(nodes) + " buffers: " + Iterators.toString(buffers));
     }
   }
 
-  private void loadBuffers(FieldVector vector, Field field, Iterator<ArrowBuf> buffers, Iterator<ArrowFieldNode> nodes) {
+  private void loadBuffers(
+      FieldVector vector,
+      Field field,
+      Iterator<ArrowBuf> buffers,
+      Iterator<ArrowFieldNode> nodes) {
     checkArgument(nodes.hasNext(),
         "no more field nodes for for field " + field + " and vector " + vector);
     ArrowFieldNode fieldNode = nodes.next();
@@ -84,7 +89,8 @@ public class VectorLoader {
     List<Field> children = field.getChildren();
     if (children.size() > 0) {
       List<FieldVector> childrenFromFields = vector.getChildrenFromFields();
-      checkArgument(children.size() == childrenFromFields.size(), "should have as many children as in the schema: found " + childrenFromFields.size() + " expected " + children.size());
+      checkArgument(children.size() == childrenFromFields.size(), "should have as many children as in the schema: " +
+          "found " + childrenFromFields.size() + " expected " + children.size());
       for (int i = 0; i < childrenFromFields.size(); i++) {
         Field child = children.get(i);
         FieldVector fieldVector = childrenFromFields.get(i);

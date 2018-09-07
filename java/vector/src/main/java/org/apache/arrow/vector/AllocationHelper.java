@@ -22,13 +22,16 @@ import org.apache.arrow.vector.complex.RepeatedFixedWidthVectorLike;
 import org.apache.arrow.vector.complex.RepeatedVariableWidthVectorLike;
 
 public class AllocationHelper {
-//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AllocationHelper.class);
 
   public static void allocate(ValueVector v, int valueCount, int bytesPerValue) {
     allocate(v, valueCount, bytesPerValue, 5);
   }
 
-  public static void allocatePrecomputedChildCount(ValueVector v, int valueCount, int bytesPerValue, int childValCount) {
+  public static void allocatePrecomputedChildCount(
+      ValueVector v,
+      int valueCount,
+      int bytesPerValue,
+      int childValCount) {
     if (v instanceof FixedWidthVector) {
       ((FixedWidthVector) v).allocateNew(valueCount);
     } else if (v instanceof VariableWidthVector) {

@@ -515,7 +515,7 @@ public class TestListVector {
 
       assertEquals(2, resultSet.size());              /* 2 inner lists at index 0 */
       assertEquals(3, resultSet.get(0).size());       /* size of first inner list */
-      assertEquals(4, resultSet.get(1).size());      /* size of second inner list */
+      assertEquals(4, resultSet.get(1).size());       /* size of second inner list */
 
       list = resultSet.get(0);
       assertEquals(new Long(50), list.get(0));
@@ -528,13 +528,13 @@ public class TestListVector {
       assertEquals(new Long(150), list.get(2));
       assertEquals(new Long(175), list.get(3));
 
-       /* get listVector value at index 1 -- the value itself is a listvector */
+      /* get listVector value at index 1 -- the value itself is a listvector */
       result = listVector.getObject(1);
       resultSet = (ArrayList<ArrayList<Long>>) result;
 
       assertEquals(3, resultSet.size());              /* 3 inner lists at index 1 */
       assertEquals(1, resultSet.get(0).size());       /* size of first inner list */
-      assertEquals(2, resultSet.get(1).size());      /* size of second inner list */
+      assertEquals(2, resultSet.get(1).size());       /* size of second inner list */
       assertEquals(3, resultSet.get(2).size());       /* size of third inner list */
 
       list = resultSet.get(0);
@@ -649,7 +649,7 @@ public class TestListVector {
 
       assertEquals(2, resultSet.size());              /* 2 inner lists at index 0 */
       assertEquals(3, resultSet.get(0).size());       /* size of first inner list */
-      assertEquals(2, resultSet.get(1).size());      /* size of second inner list */
+      assertEquals(2, resultSet.get(1).size());       /* size of second inner list */
 
       list = resultSet.get(0);
       assertEquals(new Long(50), list.get(0));
@@ -660,13 +660,13 @@ public class TestListVector {
       assertEquals(new Long(75), list.get(0));
       assertEquals(new Long(125), list.get(1));
 
-       /* get listVector value at index 1 -- the value itself is a listvector */
+      /* get listVector value at index 1 -- the value itself is a listvector */
       result = listVector.getObject(1);
       resultSet = (ArrayList<ArrayList<Long>>) result;
 
       assertEquals(2, resultSet.size());              /* 3 inner lists at index 1 */
       assertEquals(2, resultSet.get(0).size());       /* size of first inner list */
-      assertEquals(3, resultSet.get(1).size());      /* size of second inner list */
+      assertEquals(3, resultSet.get(1).size());       /* size of second inner list */
 
       list = resultSet.get(0);
       assertEquals(new Long(15), list.get(0));
@@ -830,7 +830,8 @@ public class TestListVector {
   @Test
   public void testClearAndReuse() {
     try (final ListVector vector = ListVector.empty("list", allocator)) {
-      BigIntVector bigIntVector = (BigIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
+      BigIntVector bigIntVector =
+          (BigIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
       vector.setInitialCapacity(10);
       vector.allocateNew();
 

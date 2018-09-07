@@ -33,5 +33,7 @@
   <suppress checks="Javadoc.*" files=".*" />
 
   <!-- TODO: Temporarily suppress all but certain checks to fix in increments -->
-  <suppress checks="^(?!.*(ImportOrder)).*" files=".*" />
+  <suppress
+    checks="^(?!.*(ImportOrder|LineLength|Indentation)).*"
+    files=".*" />
 </suppressions>

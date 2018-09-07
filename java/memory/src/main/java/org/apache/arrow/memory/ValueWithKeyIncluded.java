@@ -22,5 +22,5 @@ package org.apache.arrow.memory;
  * key is part of the value
  */
 public interface ValueWithKeyIncluded<K> {
-    K getKey();
+  K getKey();
 }

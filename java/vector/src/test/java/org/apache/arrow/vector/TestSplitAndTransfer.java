@@ -32,55 +32,54 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TestSplitAndTransfer {
+  private BufferAllocator allocator;
 
-    private BufferAllocator allocator;
-
-    @Before
-    public void init() {
-        allocator = new RootAllocator(Long.MAX_VALUE);
-    }
-
-    @After
-    public void terminate() throws Exception {
-        allocator.close();
-    }
-
-    @Test /* VarCharVector */
-    public void test() throws Exception {
-        try(final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
-            varCharVector.allocateNew(10000, 1000);
-
-            final int valueCount = 500;
-            final String[] compareArray = new String[valueCount];
-
-            for (int i = 0; i < valueCount; i += 3) {
-                final String s = String.format("%010d", i);
-                varCharVector.set(i, s.getBytes());
-                compareArray[i] = s;
-            }
-            varCharVector.setValueCount(valueCount);
-
-            final TransferPair tp = varCharVector.getTransferPair(allocator);
-            final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
-            final int[][] startLengths = {{0, 201}, {201, 200}, {401, 99}};
-
-            for (final int[] startLength : startLengths) {
-                final int start = startLength[0];
-                final int length = startLength[1];
-                tp.splitAndTransfer(start, length);
-                newVarCharVector.setValueCount(length);
-                for (int i = 0; i < length; i++) {
-                    final boolean expectedSet = ((start + i) % 3) == 0;
-                    if (expectedSet) {
-                        final byte[] expectedValue = compareArray[start + i].getBytes();
-                        assertFalse(newVarCharVector.isNull(i));
-                        assertArrayEquals(expectedValue, newVarCharVector.get(i));
-                    } else {
-                        assertTrue(newVarCharVector.isNull(i));
-                    }
-                }
-                newVarCharVector.clear();
-            }
+  @Before
+  public void init() {
+    allocator = new RootAllocator(Long.MAX_VALUE);
+  }
+  
+  @After
+  public void terminate() throws Exception {
+    allocator.close();
+  }
+  
+  @Test /* VarCharVector */
+  public void test() throws Exception {
+    try(final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
+      varCharVector.allocateNew(10000, 1000);
+  
+      final int valueCount = 500;
+      final String[] compareArray = new String[valueCount];
+  
+      for (int i = 0; i < valueCount; i += 3) {
+        final String s = String.format("%010d", i);
+        varCharVector.set(i, s.getBytes());
+        compareArray[i] = s;
+      }
+      varCharVector.setValueCount(valueCount);
+  
+      final TransferPair tp = varCharVector.getTransferPair(allocator);
+      final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
+      final int[][] startLengths = {{0, 201}, {201, 200}, {401, 99}};
+  
+      for (final int[] startLength : startLengths) {
+        final int start = startLength[0];
+        final int length = startLength[1];
+        tp.splitAndTransfer(start, length);
+        newVarCharVector.setValueCount(length);
+        for (int i = 0; i < length; i++) {
+          final boolean expectedSet = ((start + i) % 3) == 0;
+          if (expectedSet) {
+            final byte[] expectedValue = compareArray[start + i].getBytes();
+            assertFalse(newVarCharVector.isNull(i));
+            assertArrayEquals(expectedValue, newVarCharVector.get(i));
+          } else {
+            assertTrue(newVarCharVector.isNull(i));
+          }
         }
+        newVarCharVector.clear();
+      }
     }
+  }
 }

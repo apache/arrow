@@ -94,7 +94,8 @@ public class MessageSerializer {
    * @return Number of bytes written
    * @throws IOException
    */
-  public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer) throws IOException {
+  public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer)
+      throws IOException {
 
     // ensure that message aligns to 8 byte padding - 4 bytes for size, then message body
     if ((messageLength + 4) % 8 != 0) {
@@ -169,8 +170,7 @@ public class MessageSerializer {
    * @return the serialized block metadata
    * @throws IOException if something went wrong
    */
-  public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch)
-      throws IOException {
+  public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch) throws IOException {
 
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
@@ -278,8 +278,8 @@ public class MessageSerializer {
    * @return the deserialized ArrowRecordBatch
    * @throws IOException if something went wrong
    */
-  public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, ArrowBlock block,
-                                                        BufferAllocator alloc) throws IOException {
+  public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, ArrowBlock block, BufferAllocator alloc)
+      throws IOException {
     // Metadata length contains integer prefix plus byte padding
     long totalLen = block.getMetadataLength() + block.getBodyLength();
 
@@ -313,8 +313,7 @@ public class MessageSerializer {
    * @return ArrowRecordBatch from metadata and in-memory body
    * @throws IOException
    */
-  public static ArrowRecordBatch deserializeRecordBatch(RecordBatch recordBatchFB,
-                                                        ArrowBuf body) throws IOException {
+  public static ArrowRecordBatch deserializeRecordBatch(RecordBatch recordBatchFB, ArrowBuf body) throws IOException {
     // Now read the body
     int nodesLength = recordBatchFB.nodesLength();
     List<ArrowFieldNode> nodes = new ArrayList<>();
@@ -391,7 +390,8 @@ public class MessageSerializer {
    * @return the deserialized ArrowDictionaryBatch
    * @throws IOException if something went wrong
    */
-  public static ArrowDictionaryBatch deserializeDictionaryBatch(Message message, ArrowBuf bodyBuffer) throws IOException {
+  public static ArrowDictionaryBatch deserializeDictionaryBatch(Message message, ArrowBuf bodyBuffer)
+      throws IOException {
     DictionaryBatch dictionaryBatchFB = (DictionaryBatch) message.header(new DictionaryBatch());
     ArrowRecordBatch recordBatch = deserializeRecordBatch(dictionaryBatchFB.data(), bodyBuffer);
     return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch);
@@ -406,7 +406,8 @@ public class MessageSerializer {
    * @return the deserialized ArrowDictionaryBatch
    * @throws IOException
    */
-  public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in, BufferAllocator allocator) throws IOException {
+  public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in, BufferAllocator allocator)
+      throws IOException {
     MessageMetadataResult result = readMessage(in);
     if (result == null) {
       throw new IOException("Unexpected end of input when reading a DictionaryBatch");
@@ -429,9 +430,10 @@ public class MessageSerializer {
    * @return the deserialized ArrowDictionaryBatch
    * @throws IOException if something went wrong
    */
-  public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in,
-                                                                ArrowBlock block,
-                                                                BufferAllocator alloc) throws IOException {
+  public static ArrowDictionaryBatch deserializeDictionaryBatch(
+      ReadChannel in,
+      ArrowBlock block,
+      BufferAllocator alloc) throws IOException {
     // Metadata length contains integer prefix plus byte padding
     long totalLen = block.getMetadataLength() + block.getBodyLength();
 
@@ -508,8 +510,11 @@ public class MessageSerializer {
    * @param bodyLength   body length field
    * @return the corresponding ByteBuffer
    */
-  public static ByteBuffer serializeMessage(FlatBufferBuilder builder, byte headerType,
-                                            int headerOffset, int bodyLength) {
+  public static ByteBuffer serializeMessage(
+      FlatBufferBuilder builder,
+      byte headerType,
+      int headerOffset,
+      int bodyLength) {
     Message.startMessage(builder);
     Message.addHeaderType(builder, headerType);
     Message.addHeader(builder, headerOffset);

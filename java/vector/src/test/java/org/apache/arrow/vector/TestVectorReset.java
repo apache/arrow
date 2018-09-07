@@ -94,8 +94,10 @@ public class TestVectorReset {
 
   @Test
   public void testListTypeReset() {
-    try (final ListVector variableList = new ListVector("VarList", allocator, FieldType.nullable(MinorType.INT.getType()), null);
-         final FixedSizeListVector fixedList = new FixedSizeListVector("FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null)
+    try (final ListVector variableList =
+           new ListVector("VarList", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+         final FixedSizeListVector fixedList =
+           new FixedSizeListVector("FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null)
     ) {
       // ListVector
       variableList.allocateNewSafe();
@@ -115,12 +117,15 @@ public class TestVectorReset {
 
   @Test
   public void testStructTypeReset() {
-    try (final NonNullableStructVector nonNullableStructVector = new NonNullableStructVector("Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
-         final StructVector structVector = new StructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
+    try (final NonNullableStructVector nonNullableStructVector =
+           new NonNullableStructVector("Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+         final StructVector structVector =
+           new StructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
     ) {
       // NonNullableStructVector
       nonNullableStructVector.allocateNewSafe();
-      IntVector structChild = nonNullableStructVector.addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
+      IntVector structChild = nonNullableStructVector
+          .addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
       structChild.setNull(0);
       nonNullableStructVector.setValueCount(1);
       resetVectorAndVerify(nonNullableStructVector, nonNullableStructVector.getBuffers(false));

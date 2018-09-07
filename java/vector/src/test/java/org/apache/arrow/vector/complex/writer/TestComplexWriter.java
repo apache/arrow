@@ -116,7 +116,8 @@ public class TestComplexWriter {
   }
 
   private NonNullableStructVector populateStructVector(CallBack callBack) {
-    NonNullableStructVector parent = new NonNullableStructVector("parent", allocator, new FieldType(false, Struct.INSTANCE, null, null), callBack);
+    NonNullableStructVector parent =
+        new NonNullableStructVector("parent", allocator, new FieldType(false, Struct.INSTANCE, null, null), callBack);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("int");

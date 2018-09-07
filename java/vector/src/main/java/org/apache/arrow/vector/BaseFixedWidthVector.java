@@ -275,7 +275,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
       throw new OversizedAllocationException("Requested amount of memory exceeds limit");
     }
 
-      /* we are doing a new allocation -- release the current buffers */
+    /* we are doing a new allocation -- release the current buffers */
     clear();
 
     try {
