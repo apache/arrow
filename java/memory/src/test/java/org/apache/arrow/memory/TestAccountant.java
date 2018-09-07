@@ -80,7 +80,7 @@ public class TestAccountant {
 
     final Accountant child = new Accountant(parent, 2, Long.MAX_VALUE);
     assertEquals(2, parent.getAllocatedMemory());
-
+    assertEquals(10, child.getHeadroom());
     {
       AllocationOutcome first = child.allocateBytes(1);
       assertEquals(AllocationOutcome.SUCCESS, first);
@@ -139,7 +139,7 @@ public class TestAccountant {
     child.releaseBytes(9);
 
     assertEquals(1, child.getAllocatedMemory());
-    assertEquals(8, child.getHeadroom());
+    assertEquals(9, child.getHeadroom());
 
     // back to reservation size
     assertEquals(2, parent.getAllocatedMemory());
@@ -164,7 +164,7 @@ public class TestAccountant {
     child.releaseBytes(11);
     assertEquals(child.getAllocatedMemory(), 0);
     assertEquals(parent.getAllocatedMemory(), 2);
-    assertEquals(8, child.getHeadroom());
+    assertEquals(10, child.getHeadroom());
     assertEquals(8, parent.getHeadroom());
 
     child.close();
