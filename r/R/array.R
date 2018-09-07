@@ -87,3 +87,17 @@ array <- function(...){
 }
 
 
+`arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = `arrow::Object`,
+  public = list(
+    initialize = function(.data){
+      self$set_pointer(dataframe_to_RecordBatch(.data))
+    },
+    num_columns = function() RecordBatch_num_columns(self),
+    num_rows = function() RecordBatch_num_rows(self)
+  )
+)
+
+#' @export
+record_batch <- function(.data){
+  `arrow::RecordBatch`$new(.data)
+}

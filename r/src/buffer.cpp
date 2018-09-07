@@ -80,5 +80,29 @@ std::shared_ptr<arrow::Array> rvector_to_Array(SEXP x){
   return nullptr;
 }
 
+// [[Rcpp::export]]
+std::shared_ptr<arrow::RecordBatch> dataframe_to_RecordBatch(DataFrame tbl){
+  CharacterVector names = tbl.names();
 
+  std::vector<std::shared_ptr<arrow::Field>> fields;
+  std::vector<std::shared_ptr<arrow::Array>> arrays;
 
+  int nc = tbl.size();
+  for(int i=0; i<tbl.size(); i++){
+    arrays.push_back(rvector_to_Array(tbl[i]));
+    fields.push_back(std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type()));
+  }
+  auto schema = std::make_shared<arrow::Schema>(std::move(fields));
+
+  return arrow::RecordBatch::Make(schema, tbl.nrow(), std::move(arrays));
+}
+
+// [[Rcpp::export]]
+int RecordBatch_num_columns(const std::shared_ptr<arrow::RecordBatch>& x){
+  return x->num_columns();
+}
+
+// [[Rcpp::export]]
+int RecordBatch_num_rows(const std::shared_ptr<arrow::RecordBatch>& x){
+  return x->num_rows();
+}

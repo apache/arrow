@@ -200,6 +200,39 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// dataframe_to_RecordBatch
+std::shared_ptr<arrow::RecordBatch> dataframe_to_RecordBatch(DataFrame tbl);
+RcppExport SEXP _arrow_dataframe_to_RecordBatch(SEXP tblSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< DataFrame >::type tbl(tblSEXP);
+    rcpp_result_gen = Rcpp::wrap(dataframe_to_RecordBatch(tbl));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatch_num_columns
+int RecordBatch_num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
+RcppExport SEXP _arrow_RecordBatch_num_columns(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch_num_columns(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatch_num_rows
+int RecordBatch_num_rows(const std::shared_ptr<arrow::RecordBatch>& x);
+RcppExport SEXP _arrow_RecordBatch_num_rows(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch_num_rows(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Field_initialize
 std::shared_ptr<arrow::Field> Field_initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
 RcppExport SEXP _arrow_Field_initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
@@ -1502,6 +1535,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array_ApproxEquals", (DL_FUNC) &_arrow_Array_ApproxEquals, 2},
     {"_arrow_Array_data", (DL_FUNC) &_arrow_Array_data, 1},
     {"_arrow_rvector_to_Array", (DL_FUNC) &_arrow_rvector_to_Array, 1},
+    {"_arrow_dataframe_to_RecordBatch", (DL_FUNC) &_arrow_dataframe_to_RecordBatch, 1},
+    {"_arrow_RecordBatch_num_columns", (DL_FUNC) &_arrow_RecordBatch_num_columns, 1},
+    {"_arrow_RecordBatch_num_rows", (DL_FUNC) &_arrow_RecordBatch_num_rows, 1},
     {"_arrow_Field_initialize", (DL_FUNC) &_arrow_Field_initialize, 3},
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},
