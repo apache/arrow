@@ -440,7 +440,7 @@ impl From<ArrayDataRef> for BinaryArray {
         let raw_value_offsets = data.buffers()[0].raw_data();
         assert!(
             memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
-            "memory not aligned"
+            "memory is not aligned"
         );
         let value_data = data.buffers()[1].raw_data();
         Self {
@@ -599,7 +599,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(
+        expected = "PrimitiveArray data should contain a single buffer only (values buffer)"
+    )]
     fn test_primitive_array_invalid_buffer_len() {
         let data = ArrayData::builder(DataType::Int32).len(5).build();
         PrimitiveArray::<i32>::from(data);
@@ -657,7 +659,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "ListArray data should contain a single buffer only (value offsets)")]
     fn test_list_array_invalid_buffer_len() {
         let value_data = ArrayData::builder(DataType::Int32)
             .len(7)
@@ -672,7 +674,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "ListArray should contain a single child array (values array)")]
     fn test_list_array_invalid_child_array_len() {
         let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
         let list_data_type = DataType::List(Box::new(DataType::Int32));
@@ -684,7 +686,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "offsets do not start at zero")]
     fn test_list_array_invalid_value_offset_start() {
         let value_data = ArrayData::builder(DataType::Int32)
             .len(7)
@@ -703,7 +705,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "inconsistent offsets buffer and values array")]
     fn test_list_array_invalid_value_offset_end() {
         let value_data = ArrayData::builder(DataType::Int32)
             .len(7)
@@ -769,7 +771,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "BinaryArray out of bounds access")]
     fn test_binary_array_get_value_index_out_of_bound() {
         let values: [u8; 12] = [
             b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',
@@ -808,7 +810,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "memory is not aligned")]
     fn test_primitive_array_alignment() {
         let ptr = memory::allocate_aligned(8).unwrap();
         let buf = Buffer::from_raw_parts(ptr, 8);
@@ -818,7 +820,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "memory is not aligned")]
     fn test_list_array_alignment() {
         let ptr = memory::allocate_aligned(8).unwrap();
         let buf = Buffer::from_raw_parts(ptr, 8);
@@ -838,7 +840,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "memory is not aligned")]
     fn test_binary_array_alignment() {
         let ptr = memory::allocate_aligned(8).unwrap();
         let buf = Buffer::from_raw_parts(ptr, 8);
