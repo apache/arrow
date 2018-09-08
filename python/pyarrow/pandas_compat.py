@@ -316,7 +316,8 @@ def _index_level_name(index, i, column_names):
         return '__index_level_{:d}__'.format(i)
 
 
-def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None):
+def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
+                        safe=True):
     if columns is None:
         columns = df.columns
     column_names = []
@@ -366,7 +367,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None):
 
     def convert_column(col, ty):
         try:
-            return pa.array(col, from_pandas=True, type=ty)
+            return pa.array(col, type=ty, from_pandas=True, safe=safe)
         except (pa.ArrowInvalid,
                 pa.ArrowNotImplementedError,
                 pa.ArrowTypeError) as e:
