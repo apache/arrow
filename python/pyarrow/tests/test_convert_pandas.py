@@ -530,7 +530,7 @@ class TestConvertPrimitiveTypes(object):
         # ARROW-2135
         df = pd.DataFrame({"a": [1.0, 2.0, pd.np.NaN]})
         schema = pa.schema([pa.field("a", pa.int16(), nullable=True)])
-        table = pa.Table.from_pandas(df, schema=schema)
+        table = pa.Table.from_pandas(df, schema=schema, safe=False)
         assert table[0].to_pylist() == [1, 2, None]
         tm.assert_frame_equal(df, table.to_pandas())
 
@@ -2055,6 +2055,24 @@ class TestConvertMisc(object):
         df = pd.DataFrame(data=[row], columns=['foo', 123])
         expected_df = pd.DataFrame(data=[row], columns=['foo', '123'])
         _check_pandas_roundtrip(df, expected=expected_df, preserve_index=True)
+
+    def test_safe_unsafe_casts(self):
+        # ARROW-2799
+        df = pd.DataFrame({
+            'A': list('abc'),
+            'B': np.linspace(0, 1, 3)
+        })
+
+        schema = pa.schema([
+            pa.field('A', pa.string()),
+            pa.field('B', pa.int32())
+        ])
+
+        with pytest.raises(ValueError):
+            pa.Table.from_pandas(df, schema=schema)
+
+        table = pa.Table.from_pandas(df, schema=schema, safe=False)
+        assert table.column('B').type == pa.int32()
 
 
 def _fully_loaded_dataframe_example():

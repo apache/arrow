@@ -38,7 +38,7 @@ struct ARROW_EXPORT CastOptions {
   CastOptions()
       : allow_int_overflow(false),
         allow_time_truncate(false),
-        allow_float_truncate(true) {}
+        allow_float_truncate(false) {}
 
   explicit CastOptions(bool safe)
       : allow_int_overflow(!safe),

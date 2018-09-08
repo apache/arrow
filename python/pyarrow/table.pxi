@@ -139,10 +139,8 @@ cdef class ChunkedArray:
 
         return result
 
-    def to_pandas(self,
-                  c_bool strings_to_categorical=False,
-                  c_bool zero_copy_only=False,
-                  c_bool integer_object_nulls=False):
+    def to_pandas(self, bint strings_to_categorical=False,
+                  bint zero_copy_only=False, bint integer_object_nulls=False):
         """
         Convert the arrow::ChunkedArray to an array object suitable for use
         in pandas
@@ -411,7 +409,7 @@ cdef class Column:
     def from_array(*args):
         return column(*args)
 
-    def cast(self, object target_type, safe=True):
+    def cast(self, object target_type, bint safe=True):
         """
         Cast column values to another data type
 
@@ -427,15 +425,10 @@ cdef class Column:
         casted : Column
         """
         cdef:
-            CCastOptions options
+            CCastOptions options = CCastOptions(safe)
+            DataType type = _ensure_type(target_type)
             shared_ptr[CArray] result
-            DataType type
             CDatum out
-
-        type = _ensure_type(target_type)
-
-        options.allow_int_overflow = not safe
-        options.allow_time_truncate = not safe
 
         with nogil:
             check_status(Cast(_context(), CDatum(self.column.data()),
@@ -489,10 +482,8 @@ cdef class Column:
 
         return [pyarrow_wrap_column(col) for col in flattened]
 
-    def to_pandas(self,
-                  c_bool strings_to_categorical=False,
-                  c_bool zero_copy_only=False,
-                  c_bool integer_object_nulls=False):
+    def to_pandas(self, bint strings_to_categorical=False,
+                  bint zero_copy_only=False, bint integer_object_nulls=False):
         """
         Convert the arrow::Column to a pandas.Series
 
@@ -863,7 +854,7 @@ cdef class RecordBatch:
             entries.append((name, column))
         return OrderedDict(entries)
 
-    def to_pandas(self, use_threads=True):
+    def to_pandas(self, bint use_threads=True):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
 
@@ -1089,7 +1080,7 @@ cdef class Table:
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
-                    nthreads=None, columns=None):
+                    nthreads=None, columns=None, bint safe=True):
         """
         Convert pandas.DataFrame to an Arrow Table.
 
@@ -1120,7 +1111,8 @@ cdef class Table:
             indicated number of threads
         columns : list, optional
            List of column to be converted. If None, use all columns.
-
+        safe : boolean, default True
+           Check for overflows or other unsafe conversions
 
         Returns
         -------
@@ -1143,7 +1135,8 @@ cdef class Table:
             schema=schema,
             preserve_index=preserve_index,
             nthreads=nthreads,
-            columns=columns
+            columns=columns,
+            safe=safe
         )
         return cls.from_arrays(arrays, names=names, metadata=metadata)
 
@@ -1291,9 +1284,9 @@ cdef class Table:
 
         return result
 
-    def to_pandas(self, strings_to_categorical=False,
-                  memory_pool=None, zero_copy_only=False, categories=None,
-                  integer_object_nulls=False, use_threads=True):
+    def to_pandas(self, bint strings_to_categorical=False,
+                  memory_pool=None, bint zero_copy_only=False, categories=None,
+                  bint integer_object_nulls=False, bint use_threads=True):
         """
         Convert the arrow::Table to a pandas DataFrame
 

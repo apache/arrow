@@ -903,8 +903,13 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CFunctionContext(CMemoryPool* pool)
 
     cdef cppclass CCastOptions" arrow::compute::CastOptions":
+        CCastOptions()
+        CCastOptions(c_bool safe)
+        CCastOptions Safe()
+        CCastOptions Unsafe()
         c_bool allow_int_overflow
         c_bool allow_time_truncate
+        c_bool allow_float_truncate
 
     enum DatumType" arrow::compute::Datum::type":
         DatumType_NONE" arrow::compute::Datum::NONE"

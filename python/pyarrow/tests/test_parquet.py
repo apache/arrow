@@ -643,7 +643,7 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
                                        distinct_count):
     df = pd.DataFrame({'data': data})
     schema = pa.schema([pa.field('data', type)])
-    table = pa.Table.from_pandas(df, schema=schema)
+    table = pa.Table.from_pandas(df, schema=schema, safe=False)
     fileh = make_sample_file(table)
 
     meta = fileh.metadata
@@ -1812,7 +1812,7 @@ def _test_write_to_dataset_with_partitions(base_path,
                                                 dtype='datetime64[D]')})
     cols = output_df.columns.tolist()
     partition_by = ['group1', 'group2']
-    output_table = pa.Table.from_pandas(output_df, schema=schema)
+    output_table = pa.Table.from_pandas(output_df, schema=schema, safe=False)
     pq.write_to_dataset(output_table, base_path, partition_by,
                         filesystem=filesystem)
 

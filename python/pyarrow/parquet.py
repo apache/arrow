@@ -24,12 +24,14 @@ import re
 import numpy as np
 
 import pyarrow as pa
-import pyarrow._parquet as _parquet
 import pyarrow.lib as lib
+import pyarrow._parquet as _parquet
+
 from pyarrow._parquet import (ParquetReader, RowGroupStatistics,  # noqa
                               FileMetaData, RowGroupMetaData,
                               ColumnChunkMetaData,
                               ParquetSchema, ColumnSchema)
+from pyarrow.compat import guid
 from pyarrow.filesystem import (LocalFileSystem, _ensure_filesystem,
                                 _get_fs_from_path)
 from pyarrow.util import _is_path_like, _stringify_path, _deprecate_nthreads
@@ -53,6 +55,7 @@ class ParquetFile(object):
         Will be used in reads for pandas schema metadata if not found in the
         main file's metadata, no other uses at the moment
     """
+
     def __init__(self, source, metadata=None, common_metadata=None):
         self.reader = ParquetReader()
         self.reader.open(source, metadata=metadata)
@@ -1124,11 +1127,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
         Parameter for instantiating Table; preserve pandas index or not.
     **kwargs : dict, kwargs for write_table function.
     """
-    from pyarrow import (
-        Table,
-        compat
-    )
-
     if filesystem is None:
         fs = _get_fs_from_path(root_path)
     else:
@@ -1142,7 +1140,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         data_df = df.drop(partition_cols, axis='columns')
         data_cols = df.columns.drop(partition_cols)
         if len(data_cols) == 0:
-            raise ValueError("No data left to save outside partition columns")
+            raise ValueError('No data left to save outside partition columns')
         subschema = table.schema
         # ARROW-2891: Ensure the output_schema is preserved when writing a
         # partitioned dataset
@@ -1152,21 +1150,22 @@ def write_to_dataset(table, root_path, partition_cols=None,
         for keys, subgroup in data_df.groupby(partition_keys):
             if not isinstance(keys, tuple):
                 keys = (keys,)
-            subdir = "/".join(
-                ["{colname}={value}".format(colname=name, value=val)
+            subdir = '/'.join(
+                ['{colname}={value}'.format(colname=name, value=val)
                  for name, val in zip(partition_cols, keys)])
-            subtable = Table.from_pandas(subgroup,
-                                         preserve_index=preserve_index,
-                                         schema=subschema)
-            prefix = "/".join([root_path, subdir])
+            subtable = pa.Table.from_pandas(subgroup,
+                                            preserve_index=preserve_index,
+                                            schema=subschema,
+                                            safe=False)
+            prefix = '/'.join([root_path, subdir])
             _mkdir_if_not_exists(fs, prefix)
-            outfile = compat.guid() + ".parquet"
-            full_path = "/".join([prefix, outfile])
+            outfile = guid() + '.parquet'
+            full_path = '/'.join([prefix, outfile])
             with fs.open(full_path, 'wb') as f:
                 write_table(subtable, f, **kwargs)
     else:
-        outfile = compat.guid() + ".parquet"
-        full_path = "/".join([root_path, outfile])
+        outfile = guid() + '.parquet'
+        full_path = '/'.join([root_path, outfile])
         with fs.open(full_path, 'wb') as f:
             write_table(table, f, **kwargs)
 

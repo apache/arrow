@@ -53,10 +53,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
     cdef:
         shared_ptr[CChunkedArray] chunked_out
         shared_ptr[CDataType] c_type
-        CCastOptions cast_options
-
-    cast_options.allow_int_overflow = not safe
-    cast_options.allow_time_truncate = not safe
+        CCastOptions cast_options = CCastOptions(safe)
 
     dtype = values.dtype
 
@@ -406,14 +403,9 @@ cdef class Array:
         casted : Array
         """
         cdef:
-            CCastOptions options
+            CCastOptions options = CCastOptions(safe)
+            DataType type = _ensure_type(target_type)
             shared_ptr[CArray] result
-            DataType type
-
-        type = _ensure_type(target_type)
-
-        options.allow_int_overflow = not safe
-        options.allow_time_truncate = not safe
 
         with nogil:
             check_status(Cast(_context(), self.ap[0], type.sp_type,
