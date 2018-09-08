@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <stdlib.h>
+#include <string>
 
 #ifndef GANDIVA_GENERATE_DATA_H
 #define GANDIVA_GENERATE_DATA_H
@@ -54,6 +55,34 @@ class Int64DataGenerator : public DataGenerator<int64_t> {
 
  protected:
   unsigned int seed_;
+};
+
+class FastUtf8DataGenerator : public DataGenerator<std::string> {
+ public:
+  FastUtf8DataGenerator(int max_len) : seed_(100), max_len_(max_len), cur_char_('a') {}
+
+  std::string GenerateData() {
+    std::string generated_str;
+
+    int slen = rand_r(&seed_) % max_len_;
+    for (int i = 0; i < slen; ++i) {
+      generated_str += generate_next_char();
+    }
+    return generated_str;
+  }
+
+ private:
+  char generate_next_char() {
+    ++cur_char_;
+    if (cur_char_ > 'z') {
+      cur_char_ = 'a';
+    }
+    return cur_char_;
+  }
+
+  unsigned int seed_;
+  unsigned int max_len_;
+  char cur_char_;
 };
 
 }  // namespace gandiva

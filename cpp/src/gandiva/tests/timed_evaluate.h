@@ -15,6 +15,7 @@
 #include <memory>
 #include <vector>
 #include "gandiva/arrow.h"
+#include "gandiva/filter.h"
 #include "gandiva/projector.h"
 #include "integ/generate_data.h"
 
@@ -37,8 +38,45 @@ std::vector<C_TYPE> GenerateData(int num_records, DataGenerator<C_TYPE> &data_ge
   return data;
 }
 
+class BaseEvaluator {
+ public:
+  virtual Status Evaluate(arrow::RecordBatch &batch, arrow::MemoryPool *pool) = 0;
+};
+
+class ProjectEvaluator : public BaseEvaluator {
+ public:
+  ProjectEvaluator(std::shared_ptr<Projector> projector) : projector_(projector) {}
+
+  Status Evaluate(arrow::RecordBatch &batch, arrow::MemoryPool *pool) override {
+    arrow::ArrayVector outputs;
+    return projector_->Evaluate(batch, pool, &outputs);
+  }
+
+ private:
+  std::shared_ptr<Projector> projector_;
+};
+
+class FilterEvaluator : public BaseEvaluator {
+ public:
+  FilterEvaluator(std::shared_ptr<Filter> filter) : filter_(filter) {}
+
+  Status Evaluate(arrow::RecordBatch &batch, arrow::MemoryPool *pool) override {
+    if (selection_ == nullptr || selection_->GetMaxSlots() < batch.num_rows()) {
+      auto status = SelectionVector::MakeInt16(batch.num_rows(), pool, &selection_);
+      if (!status.ok()) {
+        return status;
+      }
+    }
+    return filter_->Evaluate(batch, selection_);
+  }
+
+ private:
+  std::shared_ptr<Filter> filter_;
+  std::shared_ptr<SelectionVector> selection_;
+};
+
 template <typename TYPE, typename C_TYPE>
-Status TimedEvaluate(SchemaPtr schema, std::shared_ptr<Projector> projector,
+Status TimedEvaluate(SchemaPtr schema, BaseEvaluator &evaluator,
                      DataGenerator<C_TYPE> &data_generator, arrow::MemoryPool *pool,
                      int num_records, int batch_size, int64_t &num_millis) {
   int num_remaining = num_records;
@@ -69,9 +107,8 @@ Status TimedEvaluate(SchemaPtr schema, std::shared_ptr<Projector> projector,
     auto in_batch = arrow::RecordBatch::Make(schema, num_in_batch, columns);
 
     // evaluate
-    arrow::ArrayVector outputs;
     start = std::chrono::high_resolution_clock::now();
-    status = projector->Evaluate(*in_batch, pool, &outputs);
+    status = evaluator.Evaluate(*in_batch, pool);
     finish = std::chrono::high_resolution_clock::now();
     if (!status.ok()) {
       return status;

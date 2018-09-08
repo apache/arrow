@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "./epoch_time_point.h"
+
 extern "C" {
 
 #include <stdlib.h>
@@ -32,84 +34,70 @@ extern "C" {
 #define EXTRACT_MILLENNIUM(TYPE)                  \
   FORCE_INLINE                                    \
   int64 extractMillennium##_##TYPE(TYPE millis) { \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis);  \
-    struct tm tm;                                 \
-    gmtime_r(&tsec, &tm);                         \
-    return (1900 + tm.tm_year - 1) / 1000 + 1;    \
+    EpochTimePoint tp(millis);                    \
+    return (1900 + tp.TmYear() - 1) / 1000 + 1;   \
   }
 
 DATE_TYPES(EXTRACT_MILLENNIUM)
 
 // Extract century
-#define EXTRACT_CENTURY(TYPE)                    \
-  FORCE_INLINE                                   \
-  int64 extractCentury##_##TYPE(TYPE millis) {   \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    return (1900 + tm.tm_year - 1) / 100 + 1;    \
+#define EXTRACT_CENTURY(TYPE)                  \
+  FORCE_INLINE                                 \
+  int64 extractCentury##_##TYPE(TYPE millis) { \
+    EpochTimePoint tp(millis);                 \
+    return (1900 + tp.TmYear() - 1) / 100 + 1; \
   }
 
 DATE_TYPES(EXTRACT_CENTURY)
 
 // Extract  decade
-#define EXTRACT_DECADE(TYPE)                     \
-  FORCE_INLINE                                   \
-  int64 extractDecade##_##TYPE(TYPE millis) {    \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    return (1900 + tm.tm_year) / 10;             \
+#define EXTRACT_DECADE(TYPE)                  \
+  FORCE_INLINE                                \
+  int64 extractDecade##_##TYPE(TYPE millis) { \
+    EpochTimePoint tp(millis);                \
+    return (1900 + tp.TmYear()) / 10;         \
   }
 
 DATE_TYPES(EXTRACT_DECADE)
 
 // Extract  year.
-#define EXTRACT_YEAR(TYPE)                       \
-  FORCE_INLINE                                   \
-  int64 extractYear##_##TYPE(TYPE millis) {      \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    return 1900 + tm.tm_year;                    \
+#define EXTRACT_YEAR(TYPE)                  \
+  FORCE_INLINE                              \
+  int64 extractYear##_##TYPE(TYPE millis) { \
+    EpochTimePoint tp(millis);              \
+    return 1900 + tp.TmYear();              \
   }
 
 DATE_TYPES(EXTRACT_YEAR)
 
-#define EXTRACT_DOY(TYPE)                        \
-  FORCE_INLINE                                   \
-  int64 extractDoy##_##TYPE(TYPE millis) {       \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    return 1 + tm.tm_yday;                       \
+#define EXTRACT_DOY(TYPE)                  \
+  FORCE_INLINE                             \
+  int64 extractDoy##_##TYPE(TYPE millis) { \
+    EpochTimePoint tp(millis);             \
+    return 1 + tp.TmYday();                \
   }
 
 DATE_TYPES(EXTRACT_DOY)
 
-#define EXTRACT_QUARTER(TYPE)                    \
-  FORCE_INLINE                                   \
-  int64 extractQuarter##_##TYPE(TYPE millis) {   \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    return tm.tm_mon / 3 + 1;                    \
+#define EXTRACT_QUARTER(TYPE)                  \
+  FORCE_INLINE                                 \
+  int64 extractQuarter##_##TYPE(TYPE millis) { \
+    EpochTimePoint tp(millis);                 \
+    return tp.TmMon() / 3 + 1;                 \
   }
 
 DATE_TYPES(EXTRACT_QUARTER)
 
-#define EXTRACT_MONTH(TYPE)                      \
-  FORCE_INLINE                                   \
-  int64 extractMonth##_##TYPE(TYPE millis) {     \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    return 1 + tm.tm_mon;                        \
+#define EXTRACT_MONTH(TYPE)                  \
+  FORCE_INLINE                               \
+  int64 extractMonth##_##TYPE(TYPE millis) { \
+    EpochTimePoint tp(millis);               \
+    return 1 + tp.TmMon();                   \
   }
 
 DATE_TYPES(EXTRACT_MONTH)
 
-#define JAN1_WDAY(ptm) ((ptm->tm_wday - (ptm->tm_yday % 7) + 7) % 7)
+#define JAN1_WDAY(tp) ((tp.TmWday() - (tp.TmYday() % 7) + 7) % 7)
 
 bool IsLeapYear(int yy) {
   if ((yy % 4) != 0) {
@@ -128,19 +116,19 @@ bool IsLeapYear(int yy) {
 }
 
 // Day belongs to current year
-// Note that tm_yday is 0 for Jan 1 (subtract 1 from day in the below examples)
+// Note that TmYday is 0 for Jan 1 (subtract 1 from day in the below examples)
 //
-// If Jan 1 is Mon, (ptm->tm_yday) / 7 + 1 (Jan 1->WK1, Jan 8->WK2, etc)
-// If Jan 1 is Tues, (ptm->tm_yday + 1) / 7 + 1 (Jan 1->WK1, Jan 7->WK2, etc)
-// If Jan 1 is Wed, (ptm->tm_yday + 2) / 7 + 1
-// If Jan 1 is Thu, (ptm->tm_yday + 3) / 7 + 1
+// If Jan 1 is Mon, (TmYday) / 7 + 1 (Jan 1->WK1, Jan 8->WK2, etc)
+// If Jan 1 is Tues, (TmYday + 1) / 7 + 1 (Jan 1->WK1, Jan 7->WK2, etc)
+// If Jan 1 is Wed, (TmYday + 2) / 7 + 1
+// If Jan 1 is Thu, (TmYday + 3) / 7 + 1
 //
 // If Jan 1 is Fri, Sat or Sun, the first few days belong to the previous year
-// If Jan 1 is Fri, (ptm->tm_yday - 3) / 7 + 1 (Jan 4->WK1, Jan 11->WK2)
-// If Jan 1 is Sat, (ptm->tm_yday - 2) / 7 + 1 (Jan 3->WK1, Jan 10->WK2)
-// If Jan 1 is Sun, (ptm->tm_yday - 1) / 7 + 1 (Jan 2->WK1, Jan 9->WK2)
-int weekOfCurrentYear(struct tm *ptm) {
-  int jan1_wday = JAN1_WDAY(ptm);
+// If Jan 1 is Fri, (TmYday - 3) / 7 + 1 (Jan 4->WK1, Jan 11->WK2)
+// If Jan 1 is Sat, (TmYday - 2) / 7 + 1 (Jan 3->WK1, Jan 10->WK2)
+// If Jan 1 is Sun, (TmYday - 1) / 7 + 1 (Jan 2->WK1, Jan 9->WK2)
+int weekOfCurrentYear(const EpochTimePoint &tp) {
+  int jan1_wday = JAN1_WDAY(tp);
   switch (jan1_wday) {
     // Monday
     case 1:
@@ -150,17 +138,17 @@ int weekOfCurrentYear(struct tm *ptm) {
     case 3:
     // Thursday
     case 4: {
-      return (ptm->tm_yday + jan1_wday - 1) / 7 + 1;
+      return (tp.TmYday() + jan1_wday - 1) / 7 + 1;
     }
     // Friday
     case 5:
     // Saturday
     case 6: {
-      return (ptm->tm_yday - (8 - jan1_wday)) / 7 + 1;
+      return (tp.TmYday() - (8 - jan1_wday)) / 7 + 1;
     }
     // Sunday
     case 0: {
-      return (ptm->tm_yday - 1) / 7 + 1;
+      return (tp.TmYday() - 1) / 7 + 1;
     }
   }
 
@@ -172,8 +160,8 @@ int weekOfCurrentYear(struct tm *ptm) {
 // Jan 1-3
 // If Jan 1 is one of Mon, Tue, Wed, Thu - belongs to week of current year
 // If Jan 1 is Fri/Sat/Sun - belongs to previous year
-int getJanWeekOfYear(struct tm *ptm) {
-  int jan1_wday = JAN1_WDAY(ptm);
+int getJanWeekOfYear(const EpochTimePoint &tp) {
+  int jan1_wday = JAN1_WDAY(tp);
 
   if ((jan1_wday >= 1) && (jan1_wday <= 4)) {
     // Jan 1-3 with the week belonging to this year
@@ -198,7 +186,7 @@ int getJanWeekOfYear(struct tm *ptm) {
 
   if (jan1_wday == 0) {
     // Jan 1 is a Sun
-    if (ptm->tm_mday > 1) {
+    if (tp.TmMday() > 1) {
       // Jan 2 and 3 belong to current year
       return 1;
     }
@@ -212,7 +200,7 @@ int getJanWeekOfYear(struct tm *ptm) {
 
   // Jan 1 is a Sat
   // Jan 1-2 belong to previous year
-  if (ptm->tm_mday == 3) {
+  if (tp.TmMday() == 3) {
     // Jan 3, return 1
     return 1;
   }
@@ -220,7 +208,7 @@ int getJanWeekOfYear(struct tm *ptm) {
   // prev Jan 1 is leap year
   // prev Jan 1 is a Thu
   // return 53 (extra week)
-  if (IsLeapYear(1900 + ptm->tm_year - 1)) {
+  if (IsLeapYear(1900 + tp.TmYear() - 1)) {
     return 53;
   }
 
@@ -231,8 +219,8 @@ int getJanWeekOfYear(struct tm *ptm) {
 }
 
 // Dec 29-31
-int getDecWeekOfYear(struct tm *ptm) {
-  int next_jan1_wday = (ptm->tm_wday + (31 - ptm->tm_mday) + 1) % 7;
+int getDecWeekOfYear(const EpochTimePoint &tp) {
+  int next_jan1_wday = (tp.TmWday() + (31 - tp.TmMday()) + 1) % 7;
 
   if (next_jan1_wday == 4) {
     // next Jan 1 is a Thu
@@ -243,28 +231,28 @@ int getDecWeekOfYear(struct tm *ptm) {
   if (next_jan1_wday == 3) {
     // next Jan 1 is a Wed
     // Dec 31 and 30 belong to next year - return 1
-    if (ptm->tm_mday != 29) {
+    if (tp.TmMday() != 29) {
       return 1;
     }
 
     // Dec 29 belongs to current year
-    return weekOfCurrentYear(ptm);
+    return weekOfCurrentYear(tp);
   }
 
   if (next_jan1_wday == 2) {
     // next Jan 1 is a Tue
     // Dec 31 belongs to next year - return 1
-    if (ptm->tm_mday == 31) {
+    if (tp.TmMday() == 31) {
       return 1;
     }
 
     // Dec 29 and 30 belong to current year
-    return weekOfCurrentYear(ptm);
+    return weekOfCurrentYear(tp);
   }
 
   // next Jan 1 is a Fri/Sat/Sun. No day from this year belongs to that week
   // next Jan 1 is a Mon. No day from this year belongs to that week
-  return weekOfCurrentYear(ptm);
+  return weekOfCurrentYear(tp);
 }
 
 // Week of year is determined by ISO 8601 standard
@@ -287,82 +275,70 @@ int getDecWeekOfYear(struct tm *ptm) {
 // If day is Jan 1-3, see getJanWeekOfYear
 // If day is Dec 29-21, see getDecWeekOfYear
 //
-int64 weekOfYear(struct tm *ptm) {
-  if (ptm->tm_yday < 3) {
+int64 weekOfYear(const EpochTimePoint &tp) {
+  if (tp.TmYday() < 3) {
     // Jan 1-3
-    return getJanWeekOfYear(ptm);
+    return getJanWeekOfYear(tp);
   }
 
-  if ((ptm->tm_mon == 11) && (ptm->tm_mday >= 29)) {
+  if ((tp.TmMon() == 11) && (tp.TmMday() >= 29)) {
     // Dec 29-31
-    return getDecWeekOfYear(ptm);
+    return getDecWeekOfYear(tp);
   }
 
-  return weekOfCurrentYear(ptm);
+  return weekOfCurrentYear(tp);
 }
 
-#define EXTRACT_WEEK(TYPE)                       \
-  FORCE_INLINE                                   \
-  int64 extractWeek##_##TYPE(TYPE millis) {      \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    return weekOfYear(&tm);                      \
+#define EXTRACT_WEEK(TYPE)                  \
+  FORCE_INLINE                              \
+  int64 extractWeek##_##TYPE(TYPE millis) { \
+    EpochTimePoint tp(millis);              \
+    return weekOfYear(tp);                  \
   }
 
 DATE_TYPES(EXTRACT_WEEK)
 
-#define EXTRACT_DOW(TYPE)                        \
-  FORCE_INLINE                                   \
-  int64 extractDow##_##TYPE(TYPE millis) {       \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    return 1 + tm.tm_wday;                       \
+#define EXTRACT_DOW(TYPE)                  \
+  FORCE_INLINE                             \
+  int64 extractDow##_##TYPE(TYPE millis) { \
+    EpochTimePoint tp(millis);             \
+    return 1 + tp.TmWday();                \
   }
 
 DATE_TYPES(EXTRACT_DOW)
 
-#define EXTRACT_DAY(TYPE)                        \
-  FORCE_INLINE                                   \
-  int64 extractDay##_##TYPE(TYPE millis) {       \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    return tm.tm_mday;                           \
+#define EXTRACT_DAY(TYPE)                  \
+  FORCE_INLINE                             \
+  int64 extractDay##_##TYPE(TYPE millis) { \
+    EpochTimePoint tp(millis);             \
+    return tp.TmMday();                    \
   }
 
 DATE_TYPES(EXTRACT_DAY)
 
-#define EXTRACT_HOUR(TYPE)                       \
-  FORCE_INLINE                                   \
-  int64 extractHour##_##TYPE(TYPE millis) {      \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    return tm.tm_hour;                           \
+#define EXTRACT_HOUR(TYPE)                  \
+  FORCE_INLINE                              \
+  int64 extractHour##_##TYPE(TYPE millis) { \
+    EpochTimePoint tp(millis);              \
+    return tp.TmHour();                     \
   }
 
 DATE_TYPES(EXTRACT_HOUR)
 
-#define EXTRACT_MINUTE(TYPE)                     \
-  FORCE_INLINE                                   \
-  int64 extractMinute##_##TYPE(TYPE millis) {    \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    return tm.tm_min;                            \
+#define EXTRACT_MINUTE(TYPE)                  \
+  FORCE_INLINE                                \
+  int64 extractMinute##_##TYPE(TYPE millis) { \
+    EpochTimePoint tp(millis);                \
+    return tp.TmMin();                        \
   }
 
 DATE_TYPES(EXTRACT_MINUTE)
 
-#define EXTRACT_SECOND(TYPE)                     \
-  FORCE_INLINE                                   \
-  int64 extractSecond##_##TYPE(TYPE millis) {    \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    return tm.tm_sec;                            \
+#define EXTRACT_SECOND(TYPE)                  \
+  FORCE_INLINE                                \
+  int64 extractSecond##_##TYPE(TYPE millis) { \
+    EpochTimePoint tp(millis);                \
+    return tp.TmSec();                        \
   }
 
 DATE_TYPES(EXTRACT_SECOND)
@@ -405,54 +381,48 @@ EXTRACT_HOUR_TIME(time32)
     return ((millis / NMILLIS_IN_UNIT) * NMILLIS_IN_UNIT); \
   }
 
-#define DATE_TRUNC_WEEK(TYPE)                    \
-  FORCE_INLINE                                   \
-  TYPE date_trunc_Week_##TYPE(TYPE millis) {     \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
-    struct tm tm;                                \
-    gmtime_r(&tsec, &tm);                        \
-    tm.tm_sec = 0;                               \
-    tm.tm_min = 0;                               \
-    tm.tm_hour = 0;                              \
-    if (tm.tm_wday == 0) {                       \
-      /* Sunday */                               \
-      tm.tm_mday -= 6;                           \
-    } else {                                     \
-      /* All other days */                       \
-      tm.tm_mday -= (tm.tm_wday - 1);            \
-    }                                            \
-    return (TYPE)timegm(&tm) * MILLIS_IN_SEC;    \
+#define DATE_TRUNC_WEEK(TYPE)                                               \
+  FORCE_INLINE                                                              \
+  TYPE date_trunc_Week_##TYPE(TYPE millis) {                                \
+    EpochTimePoint tp(millis);                                              \
+    int ndays_to_trunc = 0;                                                 \
+    if (tp.TmWday() == 0) {                                                 \
+      /* Sunday */                                                          \
+      ndays_to_trunc = 6;                                                   \
+    } else {                                                                \
+      /* All other days */                                                  \
+      ndays_to_trunc = tp.TmWday() - 1;                                     \
+    }                                                                       \
+    return tp.AddDays(-ndays_to_trunc).ClearTimeOfDay().MillisSinceEpoch(); \
   }
 
-#define DATE_TRUNC_MONTH_UNITS(NAME, TYPE, NMONTHS_IN_UNIT)      \
-  FORCE_INLINE                                                   \
-  TYPE NAME##_##TYPE(TYPE millis) {                              \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis);                 \
-    struct tm tm;                                                \
-    gmtime_r(&tsec, &tm);                                        \
-    tm.tm_sec = 0;                                               \
-    tm.tm_min = 0;                                               \
-    tm.tm_hour = 0;                                              \
-    tm.tm_mday = 1;                                              \
-    tm.tm_mon = (tm.tm_mon / NMONTHS_IN_UNIT) * NMONTHS_IN_UNIT; \
-    return (TYPE)timegm(&tm) * MILLIS_IN_SEC;                    \
+#define DATE_TRUNC_MONTH_UNITS(NAME, TYPE, NMONTHS_IN_UNIT)              \
+  FORCE_INLINE                                                           \
+  TYPE NAME##_##TYPE(TYPE millis) {                                      \
+    EpochTimePoint tp(millis);                                           \
+    int ndays_to_trunc = tp.TmMday() - 1;                                \
+    int nmonths_to_trunc =                                               \
+        tp.TmMon() - ((tp.TmMon() / NMONTHS_IN_UNIT) * NMONTHS_IN_UNIT); \
+    return tp.AddDays(-ndays_to_trunc)                                   \
+        .AddMonths(-nmonths_to_trunc)                                    \
+        .ClearTimeOfDay()                                                \
+        .MillisSinceEpoch();                                             \
   }
 
 #define DATE_TRUNC_YEAR_UNITS(NAME, TYPE, NYEARS_IN_UNIT, OFF_BY)        \
   FORCE_INLINE                                                           \
   TYPE NAME##_##TYPE(TYPE millis) {                                      \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis);                         \
-    struct tm tm;                                                        \
-    gmtime_r(&tsec, &tm);                                                \
-    tm.tm_sec = 0;                                                       \
-    tm.tm_min = 0;                                                       \
-    tm.tm_hour = 0;                                                      \
-    tm.tm_mday = 1;                                                      \
-    tm.tm_mon = 0;                                                       \
-    int year = 1900 + tm.tm_year;                                        \
+    EpochTimePoint tp(millis);                                           \
+    int ndays_to_trunc = tp.TmMday() - 1;                                \
+    int nmonths_to_trunc = tp.TmMon();                                   \
+    int year = 1900 + tp.TmYear();                                       \
     year = ((year - OFF_BY) / NYEARS_IN_UNIT) * NYEARS_IN_UNIT + OFF_BY; \
-    tm.tm_year = year - 1900;                                            \
-    return (TYPE)timegm(&tm) * MILLIS_IN_SEC;                            \
+    int nyears_to_trunc = tp.TmYear() - (year - 1900);                   \
+    return tp.AddDays(-ndays_to_trunc)                                   \
+        .AddMonths(-nmonths_to_trunc)                                    \
+        .AddYears(-nyears_to_trunc)                                      \
+        .ClearTimeOfDay()                                                \
+        .MillisSinceEpoch();                                             \
   }
 
 #define DATE_TRUNC_FUNCTIONS(TYPE)                              \

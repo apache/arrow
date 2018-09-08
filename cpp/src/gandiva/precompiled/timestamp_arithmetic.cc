@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "./epoch_time_point.h"
+
 extern "C" {
 
 #include <time.h>
@@ -37,48 +39,44 @@ extern "C" {
 // Need to check if end_millis_in_day > start_millis_in_day
 // c1) If end_millis_in_day >= start_millis_in_day, return diff_in_months
 // c2) else return diff_in_months - 1
-#define TIMESTAMP_DIFF_MONTH_UNITS(TYPE, NAME, N_MONTHS)                                 \
-  FORCE_INLINE                                                                           \
-  int32 NAME##_##TYPE##_##TYPE(TYPE start_millis, TYPE end_millis) {                     \
-    int32 diff;                                                                          \
-    bool is_positive = (end_millis > start_millis);                                      \
-    if (!is_positive) {                                                                  \
-      /* if end_millis < start_millis, swap and multiply by -1 at the end */             \
-      TYPE tmp = start_millis;                                                           \
-      start_millis = end_millis;                                                         \
-      end_millis = tmp;                                                                  \
-    }                                                                                    \
-    time_t start_tsec = (time_t)MILLIS_TO_SEC(start_millis);                             \
-    struct tm start_tm;                                                                  \
-    gmtime_r(&start_tsec, &start_tm);                                                    \
-    time_t end_tsec = (time_t)MILLIS_TO_SEC(end_millis);                                 \
-    struct tm end_tm;                                                                    \
-    gmtime_r(&end_tsec, &end_tm);                                                        \
-    int32 months_diff;                                                                   \
-    months_diff =                                                                        \
-        12 * (end_tm.tm_year - start_tm.tm_year) + (end_tm.tm_mon - start_tm.tm_mon);    \
-    if (end_tm.tm_mday > start_tm.tm_mday) {                                             \
-      /* case a */                                                                       \
-      diff = MONTHS_TO_TIMEUNIT(months_diff, N_MONTHS);                                  \
-      return SIGN_ADJUST_DIFF(is_positive, diff);                                        \
-    }                                                                                    \
-    if (end_tm.tm_mday < start_tm.tm_mday) {                                             \
-      /* case b */                                                                       \
-      diff = MONTHS_TO_TIMEUNIT(months_diff - 1, N_MONTHS);                              \
-      return SIGN_ADJUST_DIFF(is_positive, diff);                                        \
-    }                                                                                    \
-    int32 end_day_millis =                                                               \
-        end_tm.tm_hour * MILLIS_IN_HOUR + end_tm.tm_min * MILLIS_IN_MIN + end_tm.tm_sec; \
-    int32 start_day_millis = start_tm.tm_hour * MILLIS_IN_HOUR +                         \
-                             start_tm.tm_min * MILLIS_IN_MIN + start_tm.tm_sec;          \
-    if (end_day_millis >= start_day_millis) {                                            \
-      /* case c1 */                                                                      \
-      diff = MONTHS_TO_TIMEUNIT(months_diff, N_MONTHS);                                  \
-      return SIGN_ADJUST_DIFF(is_positive, diff);                                        \
-    }                                                                                    \
-    /* case c2 */                                                                        \
-    diff = MONTHS_TO_TIMEUNIT(months_diff - 1, N_MONTHS);                                \
-    return SIGN_ADJUST_DIFF(is_positive, diff);                                          \
+#define TIMESTAMP_DIFF_MONTH_UNITS(TYPE, NAME, N_MONTHS)                          \
+  FORCE_INLINE                                                                    \
+  int32 NAME##_##TYPE##_##TYPE(TYPE start_millis, TYPE end_millis) {              \
+    int32 diff;                                                                   \
+    bool is_positive = (end_millis > start_millis);                               \
+    if (!is_positive) {                                                           \
+      /* if end_millis < start_millis, swap and multiply by -1 at the end */      \
+      TYPE tmp = start_millis;                                                    \
+      start_millis = end_millis;                                                  \
+      end_millis = tmp;                                                           \
+    }                                                                             \
+    EpochTimePoint start_tm(start_millis);                                        \
+    EpochTimePoint end_tm(end_millis);                                            \
+    int32 months_diff;                                                            \
+    months_diff = 12 * (end_tm.TmYear() - start_tm.TmYear()) +                    \
+                  (end_tm.TmMon() - start_tm.TmMon());                            \
+    if (end_tm.TmMday() > start_tm.TmMday()) {                                    \
+      /* case a */                                                                \
+      diff = MONTHS_TO_TIMEUNIT(months_diff, N_MONTHS);                           \
+      return SIGN_ADJUST_DIFF(is_positive, diff);                                 \
+    }                                                                             \
+    if (end_tm.TmMday() < start_tm.TmMday()) {                                    \
+      /* case b */                                                                \
+      diff = MONTHS_TO_TIMEUNIT(months_diff - 1, N_MONTHS);                       \
+      return SIGN_ADJUST_DIFF(is_positive, diff);                                 \
+    }                                                                             \
+    int32 end_day_millis = end_tm.TmHour() * MILLIS_IN_HOUR +                     \
+                           end_tm.TmMin() * MILLIS_IN_MIN + end_tm.TmSec();       \
+    int32 start_day_millis = start_tm.TmHour() * MILLIS_IN_HOUR +                 \
+                             start_tm.TmMin() * MILLIS_IN_MIN + start_tm.TmSec(); \
+    if (end_day_millis >= start_day_millis) {                                     \
+      /* case c1 */                                                               \
+      diff = MONTHS_TO_TIMEUNIT(months_diff, N_MONTHS);                           \
+      return SIGN_ADJUST_DIFF(is_positive, diff);                                 \
+    }                                                                             \
+    /* case c2 */                                                                 \
+    diff = MONTHS_TO_TIMEUNIT(months_diff - 1, N_MONTHS);                         \
+    return SIGN_ADJUST_DIFF(is_positive, diff);                                   \
   }
 
 #define TIMESTAMP_DIFF(TYPE)                                            \
@@ -100,19 +98,16 @@ TIMESTAMP_DIFF(timestamp)
   }
 
 // Documentation of mktime suggests that it handles
-// tm_mon being negative, and also tm_mon being >= 12 by
-// adjusting tm_year accordingly
+// TmMon() being negative, and also TmMon() being >= 12 by
+// adjusting TmYear() accordingly
 //
 // Using gmtime_r() and timegm() instead of localtime_r() and mktime()
 // since the input millis are since epoch
-#define ADD_INT32_TO_TIMESTAMP_MONTH_UNITS(TYPE, NAME, N_MONTHS) \
-  FORCE_INLINE                                                   \
-  TYPE NAME##_##TYPE##_int32(TYPE millis, int32 count) {         \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis);                 \
-    struct tm tm;                                                \
-    gmtime_r(&tsec, &tm);                                        \
-    tm.tm_mon += count * N_MONTHS;                               \
-    return (TYPE)timegm(&tm) * MILLIS_IN_SEC;                    \
+#define ADD_INT32_TO_TIMESTAMP_MONTH_UNITS(TYPE, NAME, N_MONTHS)      \
+  FORCE_INLINE                                                        \
+  TYPE NAME##_##TYPE##_int32(TYPE millis, int32 count) {              \
+    EpochTimePoint tp(millis);                                        \
+    return (TYPE)(tp.AddMonths(count * N_MONTHS).MillisSinceEpoch()); \
   }
 
 // TODO: Handle overflow while converting int64 to millis
@@ -122,14 +117,11 @@ TIMESTAMP_DIFF(timestamp)
     return millis + TO_MILLIS * (TYPE)count;                      \
   }
 
-#define ADD_INT64_TO_TIMESTAMP_MONTH_UNITS(TYPE, NAME, N_MONTHS) \
-  FORCE_INLINE                                                   \
-  TYPE NAME##_##TYPE##_int64(TYPE millis, int64 count) {         \
-    time_t tsec = (time_t)MILLIS_TO_SEC(millis);                 \
-    struct tm tm;                                                \
-    gmtime_r(&tsec, &tm);                                        \
-    tm.tm_mon += count * N_MONTHS;                               \
-    return (TYPE)timegm(&tm) * MILLIS_IN_SEC;                    \
+#define ADD_INT64_TO_TIMESTAMP_MONTH_UNITS(TYPE, NAME, N_MONTHS)      \
+  FORCE_INLINE                                                        \
+  TYPE NAME##_##TYPE##_int64(TYPE millis, int64 count) {              \
+    EpochTimePoint tp(millis);                                        \
+    return (TYPE)(tp.AddMonths(count * N_MONTHS).MillisSinceEpoch()); \
   }
 
 #define TIMESTAMP_ADD_INT32(TYPE)                                             \

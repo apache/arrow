@@ -25,6 +25,9 @@ namespace gandiva {
 using arrow::boolean;
 using arrow::int32;
 using arrow::int64;
+using arrow::utf8;
+
+float tolerance_ratio = 2.0;
 
 class TestBenchmarks : public ::testing::Test {
  public:
@@ -59,11 +62,14 @@ TEST_F(TestBenchmarks, TimedTestAdd3) {
 
   int64_t elapsed_millis;
   Int64DataGenerator data_generator;
-  status = TimedEvaluate<arrow::Int64Type, int64_t>(schema, projector, data_generator,
-                                                    pool_, 100 * MILLION, 16 * THOUSAND,
+  ProjectEvaluator evaluator(projector);
+
+  status = TimedEvaluate<arrow::Int64Type, int64_t>(schema, evaluator, data_generator,
+                                                    pool_, 1 * MILLION, 16 * THOUSAND,
                                                     elapsed_millis);
   ASSERT_TRUE(status.ok());
   std::cout << "Time taken for Add3 " << elapsed_millis << " ms\n";
+  EXPECT_LE(elapsed_millis, 2 * tolerance_ratio);
 }
 
 TEST_F(TestBenchmarks, TimedTestBigNested) {
@@ -103,11 +109,103 @@ TEST_F(TestBenchmarks, TimedTestBigNested) {
 
   int64_t elapsed_millis;
   BoundedInt32DataGenerator data_generator(250);
-  status = TimedEvaluate<arrow::Int32Type, int32_t>(schema, projector, data_generator,
-                                                    pool_, 100 * MILLION, 16 * THOUSAND,
+  ProjectEvaluator evaluator(projector);
+
+  status = TimedEvaluate<arrow::Int32Type, int32_t>(schema, evaluator, data_generator,
+                                                    pool_, 1 * MILLION, 16 * THOUSAND,
                                                     elapsed_millis);
   ASSERT_TRUE(status.ok());
   std::cout << "Time taken for BigNestedIf " << elapsed_millis << " ms\n";
+
+  EXPECT_LE(elapsed_millis, 12 * tolerance_ratio);
+}
+
+TEST_F(TestBenchmarks, TimedTestExtractYear) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::date64());
+  auto schema = arrow::schema({field0});
+
+  // output field
+  auto field_res = field("res", int64());
+
+  // Build expression
+  auto expr = TreeExprBuilder::MakeExpression("extractYear", {field0}, field_res);
+
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok());
+
+  int64_t elapsed_millis;
+  Int64DataGenerator data_generator;
+  ProjectEvaluator evaluator(projector);
+
+  status = TimedEvaluate<arrow::Date64Type, int64_t>(schema, evaluator, data_generator,
+                                                     pool_, 1 * MILLION, 16 * THOUSAND,
+                                                     elapsed_millis);
+  ASSERT_TRUE(status.ok());
+  std::cout << "Time taken for extractYear " << elapsed_millis << " ms\n";
+
+  EXPECT_LE(elapsed_millis, 11 * tolerance_ratio);
+}
+
+TEST_F(TestBenchmarks, TimedTestFilterAdd2) {
+  // schema for input fields
+  auto field0 = field("f0", int64());
+  auto field1 = field("f1", int64());
+  auto field2 = field("f2", int64());
+  auto schema = arrow::schema({field0, field1, field2});
+
+  // Build expression
+  auto sum = TreeExprBuilder::MakeFunction(
+      "add", {TreeExprBuilder::MakeField(field1), TreeExprBuilder::MakeField(field2)},
+      int64());
+  auto less_than = TreeExprBuilder::MakeFunction(
+      "less_than", {sum, TreeExprBuilder::MakeField(field2)}, boolean());
+  auto condition = TreeExprBuilder::MakeCondition(less_than);
+
+  std::shared_ptr<Filter> filter;
+  Status status = Filter::Make(schema, condition, &filter);
+  EXPECT_TRUE(status.ok());
+
+  int64_t elapsed_millis;
+  Int64DataGenerator data_generator;
+  FilterEvaluator evaluator(filter);
+
+  status = TimedEvaluate<arrow::Int64Type, int64_t>(
+      schema, evaluator, data_generator, pool_, MILLION, 16 * THOUSAND, elapsed_millis);
+  ASSERT_TRUE(status.ok());
+  std::cout << "Time taken for Filter with Add2 " << elapsed_millis << " ms\n";
+
+  EXPECT_LE(elapsed_millis, 2 * tolerance_ratio);
+}
+
+TEST_F(TestBenchmarks, TimedTestFilterLike) {
+  // schema for input fields
+  auto fielda = field("a", utf8());
+  auto schema = arrow::schema({fielda});
+
+  // build expression.
+  auto node_a = TreeExprBuilder::MakeField(fielda);
+  auto pattern_node = TreeExprBuilder::MakeStringLiteral("%yellow%");
+  auto like_yellow =
+      TreeExprBuilder::MakeFunction("like", {node_a, pattern_node}, arrow::boolean());
+  auto condition = TreeExprBuilder::MakeCondition(like_yellow);
+
+  std::shared_ptr<Filter> filter;
+  Status status = Filter::Make(schema, condition, &filter);
+  EXPECT_TRUE(status.ok());
+
+  int64_t elapsed_millis;
+  FastUtf8DataGenerator data_generator(32);
+  FilterEvaluator evaluator(filter);
+
+  status = TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
+      elapsed_millis);
+  ASSERT_TRUE(status.ok());
+  std::cout << "Time taken for Filter with like " << elapsed_millis << " ms\n";
+
+  EXPECT_LE(elapsed_millis, 20000 * tolerance_ratio);
 }
 
 }  // namespace gandiva

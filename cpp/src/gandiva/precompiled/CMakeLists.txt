@@ -49,6 +49,7 @@ add_custom_target(precompiled ALL DEPENDS ${GANDIVA_BC_OUTPUT_PATH})
 
 # testing
 add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
+add_precompiled_unit_test(epoch_time_point_test.cc)
 add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc)
 add_precompiled_unit_test(hash_test.cc hash.cc)
 add_precompiled_unit_test(sample_test.cc sample.cc)

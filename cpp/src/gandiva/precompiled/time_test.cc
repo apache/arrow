@@ -143,6 +143,13 @@ TEST(TestTime, TimeStampAdd) {
                                              (int64)2),
             StringToTimestamp("2002-05-01 10:20:34"));
 
+  EXPECT_EQ(
+      timestampaddQuarter_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), -5),
+      StringToTimestamp("1999-02-01 10:20:34"));
+  EXPECT_EQ(
+      timestampaddQuarter_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), -6),
+      StringToTimestamp("1998-11-01 10:20:34"));
+
   // date_add
   EXPECT_EQ(date_add_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), 7),
             StringToTimestamp("2000-05-08 00:00:00"));
