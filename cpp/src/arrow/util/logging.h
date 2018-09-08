@@ -24,17 +24,24 @@
 
 namespace arrow {
 
-enum class ArrowLogLevel { DEBUG = -1, INFO = 0, WARNING = 1, ERROR = 2, FATAL = 3 };
+enum class ArrowLogLevel : int {
+  ARROW_DEBUG = -1,
+  ARROW_INFO = 0,
+  ARROW_WARNING = 1,
+  ARROW_ERROR = 2,
+  ARROW_FATAL = 3
+};
 
 #define ARROW_LOG_INTERNAL(level) ::arrow::ArrowLog(__FILE__, __LINE__, level)
-#define ARROW_LOG(level) ARROW_LOG_INTERNAL(arrow::ArrowLogLevel::level)
+#define ARROW_LOG(level) ARROW_LOG_INTERNAL(::arrow::ArrowLogLevel::ARROW_##level)
 #define ARROW_IGNORE_EXPR(expr) ((void)(expr))
 
 #define ARROW_CHECK(condition)                                                         \
-  (condition) ? ARROW_IGNORE_EXPR(0)                                                   \
-              : ::arrow::Voidify() &                                                   \
-                    ::arrow::ArrowLog(__FILE__, __LINE__, arrow::ArrowLogLevel::FATAL) \
-                        << " Check failed: " #condition " "
+  (condition)                                                                          \
+      ? ARROW_IGNORE_EXPR(0)                                                           \
+      : ::arrow::Voidify() &                                                           \
+            ::arrow::ArrowLog(__FILE__, __LINE__, ::arrow::ArrowLogLevel::ARROW_FATAL) \
+                << " Check failed: " #condition " "
 
 // If 'to_call' returns a bad status, CHECK immediately with a logged message
 // of 'msg' followed by the status.
@@ -49,7 +56,7 @@ enum class ArrowLogLevel { DEBUG = -1, INFO = 0, WARNING = 1, ERROR = 2, FATAL =
 #define ARROW_CHECK_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status")
 
 #ifdef NDEBUG
-#define ARROW_DFATAL ARROW_WARNING
+#define ARROW_DFATAL arrow::ArrowLogLevel::ARROW_WARNING
 
 #define DCHECK(condition)       \
   ARROW_IGNORE_EXPR(condition); \
@@ -77,7 +84,7 @@ enum class ArrowLogLevel { DEBUG = -1, INFO = 0, WARNING = 1, ERROR = 2, FATAL =
   while (false) ::arrow::ArrowLogBase()
 
 #else
-#define ARROW_DFATAL ARROW_FATAL
+#define ARROW_DFATAL arrow::ArrowLogLevel::ARROW_FATAL
 
 #define DCHECK(condition) ARROW_CHECK(condition)
 #define DCHECK_OK(status) (ARROW_CHECK((status).ok()) << (status).message())
@@ -127,11 +134,11 @@ class ArrowLog : public ArrowLogBase {
 
   /// The init function of arrow log for a program which should be called only once.
   ///
-  /// \parem appName The app name which starts the log.
+  /// \param appName The app name which starts the log.
   /// \param severity_threshold Logging threshold for the program.
   /// \param logDir Logging output file name. If empty, the log won't output to file.
   static void StartArrowLog(const std::string& appName,
-                            ArrowLogLevel severity_threshold = ArrowLogLevel::INFO,
+                            ArrowLogLevel severity_threshold = ArrowLogLevel::ARROW_INFO,
                             const std::string& logDir = "");
 
   /// The shutdown function of arrow log, it should be used with StartArrowLog as a pair.

@@ -39,7 +39,7 @@ class CerrLog {
     if (has_logged_) {
       std::cerr << std::endl;
     }
-    if (severity_ == ArrowLogLevel::FATAL) {
+    if (severity_ == ArrowLogLevel::ARROW_FATAL) {
       PrintBackTrace();
       std::abort();
     }
@@ -52,7 +52,7 @@ class CerrLog {
 
   template <class T>
   CerrLog& operator<<(const T& t) {
-    if (severity_ != ArrowLogLevel::DEBUG) {
+    if (severity_ != ArrowLogLevel::ARROW_DEBUG) {
       has_logged_ = true;
       std::cerr << t;
     }
@@ -66,7 +66,7 @@ class CerrLog {
   void PrintBackTrace() {
 #if defined(_EXECINFO_H) || !defined(_WIN32)
     void* buffer[255];
-    const int calls = backtrace(buffer, sizeof(buffer) / sizeof(void*));
+    const int calls = backtrace(buffer, static_cast<int>(sizeof(buffer) / sizeof(void*)));
     backtrace_symbols_fd(buffer, calls, 1);
 #endif
   }
@@ -78,7 +78,7 @@ typedef google::LogMessage LoggingProvider;
 typedef arrow::CerrLog LoggingProvider;
 #endif
 
-ArrowLogLevel ArrowLog::severity_threshold_ = ArrowLogLevel::INFO;
+ArrowLogLevel ArrowLog::severity_threshold_ = ArrowLogLevel::ARROW_INFO;
 std::unique_ptr<char[]> ArrowLog::app_name_;
 
 #ifdef ARROW_USE_GLOG
@@ -86,15 +86,15 @@ std::unique_ptr<char[]> ArrowLog::app_name_;
 // Glog's severity map.
 static int GetMappedSeverity(ArrowLogLevel severity) {
   switch (severity) {
-    case ArrowLogLevel::DEBUG:
+    case ArrowLogLevel::ARROW_DEBUG:
       return google::GLOG_INFO;
-    case ArrowLogLevel::INFO:
+    case ArrowLogLevel::ARROW_INFO:
       return google::GLOG_INFO;
-    case ArrowLogLevel::WARNING:
+    case ArrowLogLevel::ARROW_WARNING:
       return google::GLOG_WARNING;
-    case ArrowLogLevel::ERROR:
+    case ArrowLogLevel::ARROW_ERROR:
       return google::GLOG_ERROR;
-    case ArrowLogLevel::FATAL:
+    case ArrowLogLevel::ARROW_FATAL:
       return google::GLOG_FATAL;
     default:
       ARROW_LOG(FATAL) << "Unsupported logging level: " << static_cast<int>(severity);
