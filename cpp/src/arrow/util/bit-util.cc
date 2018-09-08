@@ -108,47 +108,85 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
 }
 
 template <bool invert_bits>
+void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
+                    int64_t dest_offset, uint8_t* dest) {
+  int64_t byte_offset = offset / 8;
+  int64_t bit_offset = offset % 8;
+  int64_t dest_byte_offset = dest_offset / 8;
+  int64_t dest_bit_offset = dest_offset % 8;
+  int64_t num_bytes = BitUtil::BytesForBits(length);
+  // Shift dest by its byte offset
+  dest += dest_byte_offset;
+
+  if (dest_bit_offset > 0) {
+    for (int64_t i = 0; i < length; i++) {
+      if (BitUtil::GetBit(data, i + offset)) {
+        BitUtil::SetBit(dest, i + dest_bit_offset);
+      } else {
+        BitUtil::ClearBit(dest, i + dest_bit_offset);
+      }
+    }
+  } else {
+    // Take care of the trailing bits in the last byte
+    int64_t trailing_bits = num_bytes * 8 - length;
+    uint8_t trail = 0;
+    if (trailing_bits) {
+      trail = dest[num_bytes - 1];
+    }
+
+    if (bit_offset > 0) {
+      uint32_t carry_mask = BitUtil::kBitmask[bit_offset] - 1U;
+      uint32_t carry_shift = 8U - static_cast<uint32_t>(bit_offset);
+
+      uint32_t carry = 0U;
+      if (BitUtil::BytesForBits(length + bit_offset) > num_bytes) {
+        carry = (data[byte_offset + num_bytes] & carry_mask) << carry_shift;
+      }
+
+      int64_t i = num_bytes - 1;
+      while (i + 1 > 0) {
+        uint8_t cur_byte = data[byte_offset + i];
+        if (invert_bits) {
+          dest[i] = static_cast<uint8_t>(~((cur_byte >> bit_offset) | carry));
+        } else {
+          dest[i] = static_cast<uint8_t>((cur_byte >> bit_offset) | carry);
+        }
+        carry = (cur_byte & carry_mask) << carry_shift;
+        --i;
+      }
+    } else {
+      if (invert_bits) {
+        for (int64_t i = 0; i < num_bytes; i++) {
+          dest[i] = static_cast<uint8_t>(~(data[byte_offset + i]));
+        }
+      } else {
+        std::memcpy(dest, data + byte_offset, static_cast<size_t>(num_bytes));
+      }
+    }
+
+    for (int i = 0; i < trailing_bits; i++) {
+      if (BitUtil::GetBit(&trail, i + 8 - trailing_bits)) {
+        BitUtil::SetBit(dest, length + i);
+      } else {
+        BitUtil::ClearBit(dest, length + i);
+      }
+    }
+  }
+}
+
+template <bool invert_bits>
 Status TransferBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset,
                       int64_t length, std::shared_ptr<Buffer>* out) {
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(AllocateEmptyBitmap(pool, length, &buffer));
   uint8_t* dest = buffer->mutable_data();
 
-  int64_t byte_offset = offset / 8;
-  int64_t bit_offset = offset % 8;
+  TransferBitmap<invert_bits>(data, offset, length, 0, dest);
+
+  // As we have freshly allocated this bitmap, we should take care of zeroing the remaing
+  // bits.
   int64_t num_bytes = BitUtil::BytesForBits(length);
   int64_t bits_to_zero = num_bytes * 8 - length;
-
-  if (bit_offset > 0) {
-    uint32_t carry_mask = BitUtil::kBitmask[bit_offset] - 1U;
-    uint32_t carry_shift = 8U - static_cast<uint32_t>(bit_offset);
-
-    uint32_t carry = 0U;
-    if (BitUtil::BytesForBits(length + bit_offset) > num_bytes) {
-      carry = (data[byte_offset + num_bytes] & carry_mask) << carry_shift;
-    }
-
-    int64_t i = num_bytes - 1;
-    while (i + 1 > 0) {
-      uint8_t cur_byte = data[byte_offset + i];
-      if (invert_bits) {
-        dest[i] = static_cast<uint8_t>(~((cur_byte >> bit_offset) | carry));
-      } else {
-        dest[i] = static_cast<uint8_t>((cur_byte >> bit_offset) | carry);
-      }
-      carry = (cur_byte & carry_mask) << carry_shift;
-      --i;
-    }
-  } else {
-    if (invert_bits) {
-      for (int64_t i = 0; i < num_bytes; i++) {
-        dest[i] = static_cast<uint8_t>(~(data[byte_offset + i]));
-      }
-    } else {
-      std::memcpy(dest, data + byte_offset, static_cast<size_t>(num_bytes));
-    }
-  }
-
   for (int64_t i = length; i < length + bits_to_zero; ++i) {
     // Both branches may copy extra bits - unsetting to match specification.
     BitUtil::ClearBit(dest, i);
@@ -156,6 +194,11 @@ Status TransferBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset,
 
   *out = buffer;
   return Status::OK();
+}
+
+void CopyBitmap(const uint8_t* data, int64_t offset, int64_t length, int64_t dest_offset,
+                uint8_t* dest) {
+  TransferBitmap<false>(data, offset, length, dest_offset, dest);
 }
 
 Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
