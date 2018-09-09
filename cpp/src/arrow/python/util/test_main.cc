@@ -25,9 +25,12 @@ int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
 
   Py_Initialize();
-  arrow_init_numpy();
+  int ret = arrow_init_numpy();
+  if (ret != 0) {
+    return ret;
+  }
 
-  int ret = RUN_ALL_TESTS();
+  ret = RUN_ALL_TESTS();
 
   Py_Finalize();
 
