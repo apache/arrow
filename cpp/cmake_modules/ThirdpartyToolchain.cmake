@@ -1200,6 +1200,15 @@ if (NOT THRIFT_FOUND)
   endif()
   set(THRIFT_STATIC_LIB "${THRIFT_PREFIX}/lib/${THRIFT_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
+  if (ZLIB_SHARED_LIB)
+    set(THRIFT_CMAKE_ARGS "-DZLIB_LIBRARY=${ZLIB_SHARED_LIB}"
+                          ${THRIFT_CMAKE_ARGS})
+  else()
+    set(THRIFT_CMAKE_ARGS "-DZLIB_LIBRARY=${ZLIB_STATIC_LIB}"
+                          ${THRIFT_CMAKE_ARGS})
+  endif()
+  set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} zlib)
+
   if (MSVC)
     set(WINFLEXBISON_VERSION 2.4.9)
     set(WINFLEXBISON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/winflexbison_ep/src/winflexbison_ep-install")
@@ -1216,11 +1225,9 @@ if (NOT THRIFT_FOUND)
     set(THRIFT_CMAKE_ARGS "-DFLEX_EXECUTABLE=${WINFLEXBISON_PREFIX}/win_flex.exe"
                           "-DBISON_EXECUTABLE=${WINFLEXBISON_PREFIX}/win_bison.exe"
                           "-DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIR}"
-                          "-DZLIB_LIBRARY=${ZLIB_STATIC_LIB}"
                           "-DWITH_SHARED_LIB=OFF"
                           "-DWITH_PLUGIN=OFF"
                           ${THRIFT_CMAKE_ARGS})
-    set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} zlib_ep)
   elseif (APPLE)
     if (DEFINED BISON_EXECUTABLE)
       set(THRIFT_CMAKE_ARGS "-DBISON_EXECUTABLE=${BISON_EXECUTABLE}"
