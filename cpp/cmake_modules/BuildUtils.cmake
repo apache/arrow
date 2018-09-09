@@ -38,7 +38,7 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     SET(AUG_LIB_NAME "${LIB_NAME}_shared")
     add_library(${AUG_LIB_NAME} SHARED IMPORTED)
 
-    if(MSVC)
+    if(WIN32)
         # Mark the ”.lib” location as part of a Windows DLL
         set_target_properties(${AUG_LIB_NAME}
             PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
@@ -69,7 +69,7 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     SET(AUG_LIB_NAME "${LIB_NAME}_shared")
     add_library(${AUG_LIB_NAME} SHARED IMPORTED)
 
-    if(MSVC)
+    if(WIN32)
         # Mark the ”.lib” location as part of a Windows DLL
         set_target_properties(${LIB_NAME}
             PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
