@@ -294,10 +294,7 @@ class build_ext(_build_ext):
                 if sys.platform == 'win32':
                     # zlib uses zlib.dll for Windows
                     zlib_lib_name = 'zlib'
-                else:
-                    # zlib uses libz.so for non Windows
-                    zlib_lib_name = 'z'
-                move_shared_libs(build_prefix, build_lib, zlib_lib_name)
+                    move_shared_libs(build_prefix, build_lib, zlib_lib_name)
 
             print('Bundling includes: ' + pjoin(build_prefix, 'include'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):

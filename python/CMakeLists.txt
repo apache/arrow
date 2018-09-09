@@ -362,15 +362,18 @@ if (PYARROW_BUNDLE_ARROW_CPP)
     bundle_boost_lib(Boost_SYSTEM_LIBRARY)
   endif()
 
-  if (NOT "$ENV{ZLIB_HOME}" STREQUAL "")
-    set(ZLIB_HOME "$ENV{ZLIB_HOME}")
-  endif()
-  if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
-    set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  endif()
-  bundle_zlib("${ZLIB_HOME}")
-
   if (MSVC)
+    if (DEFINED ENV{ARROW_BUILD_TOOLCHAIN})
+      set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+    endif()
+    if (DEFINED ENV{ZLIB_HOME})
+      set(ZLIB_HOME "$ENV{ZLIB_HOME}")
+    endif()
+    # We can assume that manylinux1 and macosx have system zlib.
+    # See https://mail.python.org/mm3/archives/list/distutils-sig@python.org/thread/ZZG6GL3XTBLBJXSITYHEXMFKN43EREB7/
+    # for manylinux1.
+    bundle_zlib("${ZLIB_HOME}")
+
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
     bundle_arrow_implib(ARROW_PYTHON_SHARED_IMP_LIB)
   endif()
