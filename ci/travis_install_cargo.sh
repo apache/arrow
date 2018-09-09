@@ -19,21 +19,14 @@
 
 set -e
 
-RUST_DIR=${TRAVIS_BUILD_DIR}/rust
+# ensure that both toolchains are installed
+rustup install stable
+rustup install nightly
 
-pushd $RUST_DIR
+pip install 'travis-cargo<0.2' --user
 
-# show activated toolchain
-rustup show
+export PATH=$HOME/.local/bin:$PATH
+export CARGO_TARGET_DIR=$TRAVIS_BUILD_DIR/target
 
-# raises on any formatting errors
-rustup component add rustfmt-preview
-cargo fmt --all -- --check
-
-# raises on any warnings
-cargo rustc -- -D warnings
-
-cargo build
-cargo test
-
-popd
+cargo install cargo-travis || echo "Skipping cargo-travis installation as it already exists in cache"
+export PATH=$HOME/.cargo/bin:$PATH

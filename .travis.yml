@@ -212,7 +212,6 @@ matrix:
   # Rust
   - language: rust
     cache: cargo
-    rust: stable
     addons:
       apt:
         packages:
@@ -223,17 +222,15 @@ matrix:
           - cmake
     before_script:
     - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
-    - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
-    - export CARGO_TARGET_DIR=$TRAVIS_BUILD_DIR/target
-    - cargo install cargo-travis || echo "Skipping cargo-travis installation as it already exists in cache"
-    - export PATH=$HOME/.cargo/bin:$PATH
+    - $TRAVIS_BUILD_DIR/ci/travis_install_cargo.sh
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
+    - RUSTUP_TOOLCHAIN=stable $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
+    - RUSTUP_TOOLCHAIN=nightly $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh || true
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/rust
     # Run coverage for codecov.io
     - mkdir -p target/kcov
-    - RUST_BACKTRACE=1 cargo coverage --verbose
+    - RUST_BACKTRACE=1 RUSTUP_TOOLCHAIN=stable cargo coverage --verbose
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
   # Go
   - language: go

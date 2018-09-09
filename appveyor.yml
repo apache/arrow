@@ -60,8 +60,7 @@ environment:
       GENERATOR: Ninja
       CONFIGURATION: "Release"
       BUILD_SCRIPT: "CMake_Build_Script"
-    - JOB: "Rust_Stable"
-      RUST_VERSION: stable
+    - JOB: "Rust"
       TARGET: x86_64-pc-windows-msvc
       USE_CLCACHE: false
 
