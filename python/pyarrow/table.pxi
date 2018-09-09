@@ -16,7 +16,6 @@
 # under the License.
 
 import json
-import itertools
 
 from collections import OrderedDict
 
