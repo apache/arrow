@@ -547,23 +547,6 @@ def test_table_from_arrays_invalid_names():
         pa.Table.from_arrays(data, names=['a'])
 
 
-def test_table_from_lists_raises():
-    data = [
-        list(range(5)),
-        [-10, -5, 0, 5, 10]
-    ]
-
-    with pytest.raises(TypeError):
-        pa.Table.from_arrays(data, names=['a', 'b'])
-
-    schema = pa.schema([
-        pa.field('a', pa.uint16()),
-        pa.field('b', pa.int64())
-    ])
-    with pytest.raises(TypeError):
-        pa.Table.from_arrays(data, schema=schema)
-
-
 def test_table_pickle():
     data = [
         pa.chunked_array([[1, 2], [3, 4]], type=pa.uint32()),
@@ -749,3 +732,74 @@ def test_table_negative_indexing():
 
     with pytest.raises(IndexError):
         table[4]
+
+
+def test_table_cast_to_incompatible_schema():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+    ]
+    table = pa.Table.from_arrays(data, names=tuple('ab'))
+
+    target_schema1 = pa.schema([
+        pa.field('A', pa.int32()),
+        pa.field('b', pa.int16()),
+    ])
+    target_schema2 = pa.schema([
+        pa.field('a', pa.int32()),
+    ])
+    message = ("Target schema's field names are not matching the table's "
+               "field names:.*")
+    with pytest.raises(ValueError, match=message):
+        table.cast(target_schema1)
+    with pytest.raises(ValueError, match=message):
+        table.cast(target_schema2)
+
+
+def test_table_safe_casting():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array([1.0, 2.0, 3.0]),
+        pa.array(['ab', 'bc', 'cd']),
+    ]
+    table = pa.Table.from_arrays(data, names=tuple('abcd'))
+
+    expected_data = [
+        pa.array(range(5), type=pa.int32()),
+        pa.array([-10, -5, 0, 5, 10], type=pa.int16()),
+        pa.array([1.0, 2.0, 3.0], type=pa.int64()),
+        pa.array(['ab', 'bc', 'cd'], type=pa.string()),
+    ]
+    expected_table = pa.Table.from_arrays(expected_data, names=tuple('abcd'))
+
+    target_schema = pa.schema([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.int16()),
+        pa.field('c', pa.int64()),
+        pa.field('d', pa.string())
+    ])
+    casted_table = table.cast(target_schema)
+
+    assert casted_table.equals(expected_table)
+
+
+def test_table_unsafe_casting():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array([1.1, 2.2, 3.3]),
+        pa.array(['ab', 'bc', 'cd']),
+    ]
+    table = pa.Table.from_arrays(data, names=tuple('abcd'))
+
+    target_schema = pa.schema([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.int16()),
+        pa.field('c', pa.int64()),
+        pa.field('d', pa.string())
+    ])
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match='Floating point value truncated'):
+        table.cast(target_schema)

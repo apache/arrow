@@ -286,20 +286,21 @@ TEST_F(TestCast, ToIntDowncastUnsafe) {
 }
 
 TEST_F(TestCast, FloatingPointToInt) {
+  // which means allow_float_truncate == false
   auto options = CastOptions::Safe();
 
   vector<bool> is_valid = {true, false, true, true, true};
   vector<bool> all_valid = {true, true, true, true, true};
 
-  // float32 point to integer
-  vector<float> v1 = {1.5, 0, 0.5, -1.5, 5.5};
+  // float32 to int32 no truncation
+  vector<float> v1 = {1.0, 0, 0.0, -1.0, 5.0};
   vector<int32_t> e1 = {1, 0, 0, -1, 5};
   CheckCase<FloatType, float, Int32Type, int32_t>(float32(), v1, is_valid, int32(), e1,
                                                   options);
   CheckCase<FloatType, float, Int32Type, int32_t>(float32(), v1, all_valid, int32(), e1,
                                                   options);
 
-  // float64 point to integer
+  // float64 to int32 no truncation
   vector<double> v2 = {1.0, 0, 0.0, -1.0, 5.0};
   vector<int32_t> e2 = {1, 0, 0, -1, 5};
   CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v2, is_valid, int32(), e2,
@@ -307,15 +308,40 @@ TEST_F(TestCast, FloatingPointToInt) {
   CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v2, all_valid, int32(), e2,
                                                     options);
 
-  vector<double> v3 = {1.5, 0, 0.5, -1.5, 5.5};
-  vector<int32_t> e3 = {1, 0, 0, -1, 5};
-  CheckFails<DoubleType>(float64(), v3, is_valid, int32(), options);
-  CheckFails<DoubleType>(float64(), v3, all_valid, int32(), options);
+  // float64 to int64 no truncation
+  vector<double> v3 = {1.0, 0, 0.0, -1.0, 5.0};
+  vector<int64_t> e3 = {1, 0, 0, -1, 5};
+  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v3, is_valid, int64(), e3,
+                                                    options);
+  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v3, all_valid, int64(), e3,
+                                                    options);
+
+  // float64 to int32 truncate
+  vector<double> v4 = {1.5, 0, 0.5, -1.5, 5.5};
+  vector<int32_t> e4 = {1, 0, 0, -1, 5};
+
+  options.allow_float_truncate = false;
+  CheckFails<DoubleType>(float64(), v4, is_valid, int32(), options);
+  CheckFails<DoubleType>(float64(), v4, all_valid, int32(), options);
 
   options.allow_float_truncate = true;
-  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v3, is_valid, int32(), e3,
+  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v4, is_valid, int32(), e4,
                                                     options);
-  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v3, all_valid, int32(), e3,
+  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v4, all_valid, int32(), e4,
+                                                    options);
+
+  // float64 to int64 truncate
+  vector<double> v5 = {1.5, 0, 0.5, -1.5, 5.5};
+  vector<int64_t> e5 = {1, 0, 0, -1, 5};
+
+  options.allow_float_truncate = false;
+  CheckFails<DoubleType>(float64(), v5, is_valid, int64(), options);
+  CheckFails<DoubleType>(float64(), v5, all_valid, int64(), options);
+
+  options.allow_float_truncate = true;
+  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v5, is_valid, int64(), e5,
+                                                    options);
+  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v5, all_valid, int64(), e5,
                                                     options);
 }
 

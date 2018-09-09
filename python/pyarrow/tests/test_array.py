@@ -549,6 +549,38 @@ def test_cast_integers_unsafe():
         _check_cast_case(case, safe=False)
 
 
+def test_floating_point_truncate_safe():
+    safe_cases = [
+        (np.array([1.0, 2.0, 3.0], dtype='float32'), 'float32',
+         np.array([1, 2, 3], dtype='i4'), pa.int32()),
+        (np.array([1.0, 2.0, 3.0], dtype='float64'), 'float64',
+         np.array([1, 2, 3], dtype='i4'), pa.int32()),
+        (np.array([-10.0, 20.0, -30.0], dtype='float64'), 'float64',
+         np.array([-10, 20, -30], dtype='i4'), pa.int32()),
+    ]
+    for case in safe_cases:
+        _check_cast_case(case, safe=True)
+
+
+def test_floating_point_truncate_unsafe():
+    unsafe_cases = [
+        (np.array([1.1, 2.2, 3.3], dtype='float32'), 'float32',
+         np.array([1, 2, 3], dtype='i4'), pa.int32()),
+        (np.array([1.1, 2.2, 3.3], dtype='float64'), 'float64',
+         np.array([1, 2, 3], dtype='i4'), pa.int32()),
+        (np.array([-10.1, 20.2, -30.3], dtype='float64'), 'float64',
+         np.array([-10, 20, -30], dtype='i4'), pa.int32()),
+    ]
+    for case in unsafe_cases:
+        # test safe casting raises
+        with pytest.raises(pa.ArrowInvalid,
+                           match='Floating point value truncated'):
+            _check_cast_case(case, safe=True)
+
+        # test unsafe casting truncates
+        _check_cast_case(case, safe=False)
+
+
 def test_cast_timestamp_unit():
     # ARROW-1680
     val = datetime.datetime.now()
