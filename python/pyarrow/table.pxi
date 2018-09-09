@@ -1180,7 +1180,7 @@ cdef class Table:
         columns.reserve(K)
 
         for i in range(K):
-            if isinstance(arrays[i], (Array, list)):
+            if isinstance(arrays[i], Array):
                 columns.push_back(
                     make_shared[CColumn](
                         c_schema.get().field(i),
@@ -1203,7 +1203,7 @@ cdef class Table:
                     )
                 )
             else:
-                raise ValueError(type(arrays[i]))
+                raise TypeError(type(arrays[i]))
 
         return pyarrow_wrap_table(CTable.Make(c_schema, columns))
 
