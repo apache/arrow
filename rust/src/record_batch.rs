@@ -37,7 +37,7 @@ impl RecordBatch {
         for i in 1..columns.len() {
             assert_eq!(
                 len,
-                columns[i].data().len(),
+                columns[i].len(),
                 "all columns in a record batch must have the same length"
             );
         }
