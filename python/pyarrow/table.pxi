@@ -1079,6 +1079,20 @@ cdef class Table:
         return result
 
     def cast(self, Schema target_schema, bint safe=True):
+        """
+        Cast table values to another schema
+
+        Parameters
+        ----------
+        target_schema : Schema
+            Schema to cast to, the names and order of fields must match
+        safe : boolean, default True
+            Check for overflows or other unsafe conversions
+
+        Returns
+        -------
+        casted : Table
+        """
         cdef:
             Column column, casted
             Field field
