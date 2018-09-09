@@ -520,15 +520,31 @@ impl Array for StructArray {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    /// Returns the length (i.e., number of elements) of this array
+    fn len(&self) -> i64 {
+        self.boxed_fields[0].len()
+    }
 }
 
 impl From<Vec<(Field, ArrayRef)>> for StructArray {
     fn from(v: Vec<(Field, ArrayRef)>) -> Self {
         let (field_types, field_values): (Vec<_>, Vec<_>) = v.into_iter().unzip();
+
+        // Check the length of the child arrays
+        let length = field_values[0].len();
+        for i in 1..field_values.len() {
+            assert_eq!(
+                length,
+                field_values[i].len(),
+                "all child arrays of a StructArray must have the same length"
+            );
+        }
+
         let data = ArrayData::builder(DataType::Struct(field_types))
             .child_data(field_values.into_iter().map(|a| a.data()).collect())
             .build();
-        StructArray::from(data)
+        Self::from(data)
     }
 }
 
@@ -541,6 +557,7 @@ mod tests {
     use buffer::Buffer;
     use datatypes::{DataType, Field, ToByteSlice};
     use memory;
+    use std::sync::Arc;
 
     #[test]
     fn test_primitive_array_from_vec() {
@@ -787,7 +804,7 @@ mod tests {
     }
 
     #[test]
-    fn test_struct_array() {
+    fn test_struct_array_builder() {
         let boolean_data = ArrayData::builder(DataType::Boolean)
             .len(4)
             .add_buffer(Buffer::from([false, false, true, true].to_byte_slice()))
@@ -807,6 +824,45 @@ mod tests {
 
         assert_eq!(boolean_data, struct_array.column(0).data());
         assert_eq!(int_data, struct_array.column(1).data());
+    }
+
+    #[test]
+    fn test_struct_array_from() {
+        let boolean_data = ArrayData::builder(DataType::Boolean)
+            .len(4)
+            .add_buffer(Buffer::from([false, false, true, true].to_byte_slice()))
+            .build();
+        let int_data = ArrayData::builder(DataType::Int32)
+            .len(4)
+            .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
+            .build();
+        let struct_array = StructArray::from(vec![
+            (
+                Field::new("b", DataType::Boolean, false),
+                Arc::new(PrimitiveArray::from(vec![false, false, true, true])) as Arc<Array>,
+            ),
+            (
+                Field::new("c", DataType::Int32, false),
+                Arc::new(PrimitiveArray::from(vec![42, 28, 19, 31])),
+            ),
+        ]);
+        assert_eq!(boolean_data, struct_array.column(0).data());
+        assert_eq!(int_data, struct_array.column(1).data());
+    }
+
+    #[test]
+    #[should_panic(expected = "all child arrays of a StructArray must have the same length")]
+    fn test_invalid_struct_child_array_lengths() {
+        StructArray::from(vec![
+            (
+                Field::new("b", DataType::Float64, false),
+                Arc::new(PrimitiveArray::from(vec![1.1])) as Arc<Array>,
+            ),
+            (
+                Field::new("c", DataType::Float64, false),
+                Arc::new(PrimitiveArray::from(vec![2.2, 3.3])),
+            ),
+        ]);
     }
 
     #[test]
