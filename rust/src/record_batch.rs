@@ -97,11 +97,8 @@ mod tests {
 
         assert_eq!(5, record_batch.num_rows());
         assert_eq!(2, record_batch.num_columns());
-        assert_eq!(
-            &DataType::Int32,
-            record_batch.schema().column(0).data_type()
-        );
-        assert_eq!(&DataType::Utf8, record_batch.schema().column(1).data_type());
+        assert_eq!(&DataType::Int32, record_batch.schema().field(0).data_type());
+        assert_eq!(&DataType::Utf8, record_batch.schema().field(1).data_type());
         assert_eq!(5, record_batch.column(0).data().len());
         assert_eq!(5, record_batch.column(1).data().len());
     }
