@@ -164,7 +164,12 @@ cmake -G "%GENERATOR%" ^
       .. 2>output.txt
 
 set LIBRARY_FOUND_MSG=Added static library dependency
-for %%x in (snappy gflags zlib brotli_enc brotli_dec brotli_common lz4_static zstd_static) do (
+for %%x in (snappy gflags brotli_enc brotli_dec brotli_common lz4_static zstd_static) do (
+    echo Checking %%x library path
+    FINDSTR /C:"%LIBRARY_FOUND_MSG% %%x: %CONDA_PREFIX:\=/%" output.txt || exit /B
+)
+set LIBRARY_FOUND_MSG=Added shared library dependency
+for %%x in (zlib) do (
     echo Checking %%x library path
     FINDSTR /C:"%LIBRARY_FOUND_MSG% %%x: %CONDA_PREFIX:\=/%" output.txt || exit /B
 )
