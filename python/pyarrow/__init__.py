@@ -153,13 +153,11 @@ import pyarrow.types as types
 
 # GPU support
 #
-
 try:
     import pyarrow.lib_gpu as _lib_gpu
 except ImportError as _msg:
-    if str(_msg) in ["'No module named 'pyarrow.lib_gpu",
-                     "'No module named 'lib_gpu",
-    ]:
+    _msg = str(_msg)
+    if _msg.startswith('No module named') and 'lib_gpu' in _msg:
         has_gpu_support = False
     else: # do not silence ImportError in case of any bugs
         raise
