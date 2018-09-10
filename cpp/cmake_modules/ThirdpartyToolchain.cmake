@@ -40,6 +40,7 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(THRIFT_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZSTD_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(GLOG_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
 
   if (NOT DEFINED ENV{BOOST_ROOT})
     # Since we have to set this in the environment, we check whether
@@ -104,6 +105,10 @@ endif()
 
 if (DEFINED ENV{ZSTD_HOME})
   set(ZSTD_HOME "$ENV{ZSTD_HOME}")
+endif()
+
+if (DEFINED ENV{GLOG_HOME})
+  set(GLOG_HOME "$ENV{GLOG_HOME}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -236,6 +241,12 @@ if (DEFINED ENV{ARROW_ZSTD_URL})
   set(ZSTD_SOURCE_URL "$ENV{ARROW_ZSTD_URL}")
 else()
   set(ZSTD_SOURCE_URL "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_GLOG_URL})
+  set(GLOG_SOURCE_URL "$ENV{ARROW_GLOG_URL}")
+else()
+  set(GLOG_SOURCE_URL "https://github.com/google/glog/archive/v${GLOG_VERSION}.tar.gz")
 endif()
 
 # ----------------------------------------------------------------------
@@ -1261,42 +1272,51 @@ endif()
 
 endif()  # ARROW_HIVESERVER2
 
-if(ARROW_USE_GLOG)
-  message(STATUS "Starting to build glog")
-  set(GLOG_VERSION "0.3.5")
-  set(GLOG_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -fPIC")
-  if(APPLE)
-    # If we don't set this flag, the binary built with 10.13 cannot be used in 10.12.
-    set(GLOG_CMAKE_CXX_FLAGS "${GLOG_CMAKE_CXX_FLAGS} -mmacosx-version-min=10.12")
-  endif()
+if (ARROW_USE_GLOG)
+# ----------------------------------------------------------------------
+# GLOG
 
-  set(GLOG_URL "https://github.com/google/glog/archive/v${GLOG_VERSION}.tar.gz")
-  set(GLOG_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/glog_ep/src/glog_ep-install")
-  set(GLOG_HOME "${GLOG_PREFIX}")
-  set(GLOG_INCLUDE_DIR "${GLOG_PREFIX}/include")
-  set(GLOG_STATIC_LIB "${GLOG_PREFIX}/lib/libglog.a")
+  if("${GLOG_HOME}" STREQUAL "")
+    set(GLOG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/glog_ep-prefix/src/glog_ep")
+    set(GLOG_INCLUDE_DIR "${GLOG_BUILD_DIR}/include")
+    set(GLOG_STATIC_LIB "${GLOG_BUILD_DIR}/lib/libglog.a")
+    set(GLOG_CMAKE_CXX_FLAGS "${GLOG_CMAKE_CXX_FLAGS} -fPIC")
 
-  set(GLOG_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                        -DCMAKE_INSTALL_PREFIX=${GLOG_PREFIX}
+    if(APPLE)
+      # If we don't set this flag, the binary built with 10.13 cannot be used in 10.12.
+      set(GLOG_CMAKE_CXX_FLAGS "${GLOG_CMAKE_CXX_FLAGS} -mmacosx-version-min=10.12")
+    endif()
+
+    set(GLOG_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        -DCMAKE_INSTALL_PREFIX=${GLOG_BUILD_DIR}
                         -DBUILD_SHARED_LIBS=OFF
                         -DBUILD_TESTING=OFF
                         -DWITH_GFLAGS=OFF
                         -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GLOG_CMAKE_CXX_FLAGS}
                         -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}
                         -DCMAKE_CXX_FLAGS=${GLOG_CMAKE_CXX_FLAGS})
+    message(STATUS "Glog version: ${GLOG_VERSION}")
+    ExternalProject_Add(glog_ep
+      URL ${GLOG_SOURCE_URL}
+      #BUILD_IN_SOURCE 1
+      BUILD_BYPRODUCTS "${GLOG_STATIC_LIB}"
+      CMAKE_ARGS ${GLOG_CMAKE_ARGS}
+      ${EP_LOG_OPTIONS})
 
-  ExternalProject_Add(glog_ep
-    URL ${GLOG_URL}
-    ${EP_LOG_OPTIONS}
-    BUILD_IN_SOURCE 1
-    BUILD_BYPRODUCTS "${GLOG_STATIC_LIB}"
-    CMAKE_ARGS ${GLOG_CMAKE_ARGS})
+    set(GLOG_VENDORED 1)
+  else()
+    find_package(GLOG REQUIRED)
+    set(GLOG_VENDORED 0)
+  endif()
 
-  message(STATUS "GLog include dir: ${GLOG_INCLUDE_DIR}")
-  message(STATUS "GLog static library: ${GLOG_STATIC_LIB}")
+  message(STATUS "Glog include dir: ${GLOG_INCLUDE_DIR}")
+  message(STATUS "Glog static library: ${GLOG_STATIC_LIB}")
+
   include_directories(SYSTEM ${GLOG_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(glog
+  ADD_THIRDPARTY_LIB(glog_static
     STATIC_LIB ${GLOG_STATIC_LIB})
 
-  add_dependencies(glog glog_ep)
-endif()  # ARROW_USE_GLOG
+  if (GLOG_VENDORED)
+    add_dependencies(glog_static glog_ep)
+  endif()
+endif()

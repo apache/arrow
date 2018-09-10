@@ -158,7 +158,7 @@ class ArrowLog : public ArrowLogBase {
   static ArrowLogLevel severity_threshold_;
   // In InitGoogleLogging, it simply keeps the pointer.
   // We need to make sure the app name passed to InitGoogleLogging exist.
-  static std::unique_ptr<char[]> app_name_;
+  static std::unique_ptr<std::string> app_name_;
 
  protected:
   virtual std::ostream& Stream();

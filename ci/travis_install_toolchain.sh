@@ -39,5 +39,6 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
         snappy \
         thrift-cpp=0.11.0 \
         zlib \
+        glog \
         zstd
 fi

@@ -79,7 +79,7 @@ typedef arrow::CerrLog LoggingProvider;
 #endif
 
 ArrowLogLevel ArrowLog::severity_threshold_ = ArrowLogLevel::ARROW_INFO;
-std::unique_ptr<char[]> ArrowLog::app_name_;
+std::unique_ptr<std::string> ArrowLog::app_name_;
 
 #ifdef ARROW_USE_GLOG
 
@@ -109,11 +109,10 @@ void ArrowLog::StartArrowLog(const std::string& app_name,
                              ArrowLogLevel severity_threshold,
                              const std::string& log_dir) {
   severity_threshold_ = severity_threshold;
-  app_name_.reset(new char[app_name.length() + 1]);
-  snprintf(app_name_.get(), app_name.length() + 1, "%s", app_name.c_str());
+  app_name_.reset(new std::string(app_name));
 #ifdef ARROW_USE_GLOG
   int mapped_severity_threshold = GetMappedSeverity(severity_threshold_);
-  google::InitGoogleLogging(app_name_.get());
+  google::InitGoogleLogging(app_name_->c_str());
   google::SetStderrLogging(mapped_severity_threshold);
   // Enble log file if log_dir is not empty.
   if (!log_dir.empty()) {

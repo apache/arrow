@@ -257,7 +257,7 @@ Pass multiple labels by dividing with semicolons")
     OFF)
 
   option(ARROW_USE_GLOG
-    "Build the Plasma logging system using glog"
+    "Build libraries with glog support for pluggable logging"
     ON)
 
   if (MSVC)
@@ -652,9 +652,14 @@ if (ARROW_ORC)
 endif()
 
 if (ARROW_USE_GLOG)
-  SET(ARROW_STATIC_LINK_LIBS
-      glog
-      ${ARROW_STATIC_LINK_LIBS})
+  #SET(ARROW_SHARED_PRIVATE_LINK_LIBS
+  #    glog_static
+  #    ${ARROW_SHARED_PRIVATE_LINK_LIBS})
+  #SET(ARROW_SHARED_PRIVATE_LINK_LIBS
+  #    glog_static
+  #    ${ARROW_SHARED_PRIVATE_LINK_LIBS})
+  SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
+  #add_dependencies(arrow_dependencies glog_static)
   add_definitions(-DARROW_USE_GLOG)
 endif()
 
@@ -679,6 +684,9 @@ set(ARROW_STATIC_PRIVATE_LINK_LIBS
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
 
+if (ARROW_USE_GLOG)
+set(ARROW_STATIC_PRIVATE_LINK_LIBS glog_static ${ARROW_STATIC_PRIVATE_LINK_LIBS})
+endif()
 if (NOT MSVC)
   set(ARROW_LINK_LIBS
     ${ARROW_LINK_LIBS}

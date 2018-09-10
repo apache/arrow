@@ -67,7 +67,7 @@ TEST(PrintLogTest, LogTestWithInit) {
 TEST(LogPerfTest, PerfTest) {
   ArrowLog::StartArrowLog("/fake/path/to/appdire/LogPerfTest", ArrowLogLevel::ARROW_ERROR,
                           "/tmp/");
-  int rounds = 100000;
+  int rounds = 10000;
 
   int64_t start_time = current_time_ms();
   for (int i = 0; i < rounds; ++i) {
