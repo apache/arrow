@@ -794,7 +794,7 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(StringType, STRING)
         CONVERTLISTSLIKE_CASE(ListType, LIST)
         CONVERTLISTSLIKE_CASE(NullType, NA)
-        // TODO Time and Date?
+        // TODO(kszucs) Time and Date?
         default: {
           std::stringstream ss;
           ss << "Not implemented type for conversion from List to Pandas ObjectBlock: "
@@ -1694,12 +1694,43 @@ class ArrowDeserializer {
   }
 
   template <typename Type>
-  typename std::enable_if<std::is_base_of<DateType, Type>::value ||
-                              std::is_base_of<TimestampType, Type>::value,
-                          Status>::type
+  typename std::enable_if<std::is_base_of<TimestampType, Type>::value, Status>::type
   Visit(const Type& type) {
     if (options_.zero_copy_only) {
       return Status::Invalid("Copy Needed, but zero_copy_only was True");
+    }
+
+    constexpr int TYPE = Type::type_id;
+    using traits = internal::arrow_traits<TYPE>;
+    using c_type = typename Type::c_type;
+
+    typedef typename traits::T T;
+
+    RETURN_NOT_OK(AllocateOutput(traits::npy_type));
+    auto out_values = reinterpret_cast<T*>(PyArray_DATA(arr_));
+
+    constexpr T na_value = traits::na_value;
+    constexpr int64_t kShift = traits::npy_shift;
+
+    for (int c = 0; c < data_.num_chunks(); c++) {
+      const auto& arr = *data_.chunk(c);
+      const c_type* in_values = GetPrimitiveValues<c_type>(arr);
+
+      for (int64_t i = 0; i < arr.length(); ++i) {
+        *out_values++ = arr.IsNull(i) ? na_value : static_cast<T>(in_values[i]) / kShift;
+      }
+    }
+    return Status::OK();
+  }
+
+  template <typename Type>
+  typename std::enable_if<std::is_base_of<DateType, Type>::value, Status>::type Visit(
+      const Type& type) {
+    if (options_.zero_copy_only) {
+      return Status::Invalid("Copy Needed, but zero_copy_only was True");
+    }
+    if (options_.date_as_object) {
+      return VisitObjects(ConvertDates<Type>);
     }
 
     constexpr int TYPE = Type::type_id;
