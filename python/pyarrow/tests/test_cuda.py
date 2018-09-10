@@ -25,17 +25,18 @@ cuda_read_message
 import pytest
 import pyarrow as pa
 import numpy as np
-import sys
+import sysconfig
 
 cuda = pytest.importorskip("pyarrow.cuda")
 
-import sysconfig
+
 platform = sysconfig.get_platform()
 # TODO: enable ppc64 when Arrow C++ supports IPC in ppc64 systems:
-has_ipc_support = platform == 'linux-x86_64' #or 'ppc64' in platform
+has_ipc_support = platform == 'linux-x86_64'  # or 'ppc64' in platform
 
-cuda_ipc = pytest.mark.skipif(not has_ipc_support, \
-        reason='CUDA IPC not supported in platform `%s`' % (sys.platform))
+cuda_ipc = pytest.mark.skipif(
+    not has_ipc_support,
+    reason='CUDA IPC not supported in platform `%s`' % (platform))
 
 
 def setup_module(module):
@@ -110,7 +111,6 @@ def make_random_buffer(size, target='host', context=None):
         dbuf.copy_from_host(buf, position=0, nbytes=size)
         return arr, dbuf
     raise ValueError('invalid target value')
-
 
 
 def test_context_device_buffer():
@@ -214,7 +214,6 @@ def test_context_device_buffer():
     assert arr[soffset:soffset+ssize].tolist() == arr2.tolist()
 
 
-
 def test_CudaBuffer():
     size = 8
     arr, buf = make_random_buffer(size)
@@ -239,7 +238,6 @@ def test_CudaBuffer():
         cuda.CudaBuffer()
         assert str(e_info).startswith(
             "Do not call CudaBuffer's constructor directly")
-
 
 
 def test_CudaHostBuffer():
@@ -269,7 +267,6 @@ def test_CudaHostBuffer():
             "Do not call CudaHostBuffer's constructor directly")
 
 
-
 def test_copy_from_to_host():
     size = 1024
 
@@ -293,7 +290,6 @@ def test_copy_from_to_host():
     buf2 = device_buffer.copy_to_host(position=0, nbytes=size)
     arr2 = np.frombuffer(buf2, dtype=np.uint8)
     assert (arr == arr2).all()
-
 
 
 def test_copy_to_host():
@@ -343,7 +339,7 @@ def test_copy_to_host():
     assert (arr[6:6+12] == np.frombuffer(buf, dtype=np.uint8)[:12]).all()
 
     for (position, nbytes) in [
-            (0, size + 10), (10, size-5),
+            (0, size+10), (10, size-5),
             (0, size//2), (size//4, size//4+1)
     ]:
         with pytest.raises(ValueError) as e_info:
@@ -352,7 +348,6 @@ def test_copy_to_host():
                   .format(dbuf.size, buf.size, position, nbytes))
         assert str(e_info.value).startswith(
             'requested copy does not fit into host buffer')
-
 
 
 def test_copy_from_host():
@@ -400,7 +395,6 @@ def test_copy_from_host():
                   .format(dbuf.size, buf.size, position, nbytes))
         assert str(e_info.value).startswith(
             'requested more to copy than available in device buffer')
-
 
 
 def test_CudaBufferWriter():
@@ -454,7 +448,6 @@ def test_CudaBufferWriter():
     assert (arr[75:] == np.arange(25, dtype=np.uint8)).all()
 
 
-
 def test_CudaBufferWriter_edge_cases():
     # edge cases:
     size = 1000
@@ -492,7 +485,6 @@ def test_CudaBufferWriter_edge_cases():
     assert (arr2 == arr).all()
 
 
-
 def test_CudaBufferReader():
 
     size = 1000
@@ -527,7 +519,6 @@ def make_recordbatch(length):
     a1 = pa.array(np.random.randint(0, 255, size=length, dtype=np.int16))
     batch = pa.RecordBatch.from_arrays([a0, a1], schema)
     return batch
-
 
 
 def test_batch_serialize():

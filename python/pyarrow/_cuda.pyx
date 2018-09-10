@@ -27,7 +27,7 @@ cdef class CudaDeviceManager:
     """
 
     def __cinit__(self):
-        check_status(CCudaDeviceManager.GetInstance(& self.manager))
+        check_status(CCudaDeviceManager.GetInstance(&self.manager))
 
     @property
     def num_devices(self):
@@ -51,7 +51,7 @@ cdef class CudaDeviceManager:
 
         """
         cdef shared_ptr[CCudaContext] ctx
-        check_status(self.manager.GetContext(gpu_number, & ctx))
+        check_status(self.manager.GetContext(gpu_number, &ctx))
         return pyarrow_wrap_cudacontext(ctx)
 
     def create_new_context(self, gpu_number):
@@ -60,7 +60,7 @@ cdef class CudaDeviceManager:
         Use get_context for general code.
         """
         cdef shared_ptr[CCudaContext] ctx
-        check_status(self.manager.CreateNewContext(gpu_number, & ctx))
+        check_status(self.manager.CreateNewContext(gpu_number, &ctx))
         return pyarrow_wrap_cudacontext(ctx)
 
     def allocate_host(self, nbytes):
@@ -77,7 +77,7 @@ cdef class CudaDeviceManager:
           Buffer of allocated host memory.
         """
         cdef shared_ptr[CCudaHostBuffer] buf
-        check_status(self.manager.AllocateHost(nbytes, & buf))
+        check_status(self.manager.AllocateHost(nbytes, &buf))
         return pyarrow_wrap_cudahostbuffer(buf)
 
 
@@ -85,7 +85,7 @@ cdef class CudaContext:
     """ CUDA driver context
     """
 
-    cdef void init(self, const shared_ptr[CCudaContext] & ctx):
+    cdef void init(self, const shared_ptr[CCudaContext] &ctx):
         self.context = ctx
 
     def close(self):
@@ -113,7 +113,7 @@ cdef class CudaContext:
           Allocated buffer.
         """
         cdef shared_ptr[CCudaBuffer] cudabuf
-        check_status(self.context.get().Allocate(nbytes, & cudabuf))
+        check_status(self.context.get().Allocate(nbytes, &cudabuf))
         return pyarrow_wrap_cudabuffer(cudabuf)
 
     def open_ipc_buffer(self, ipc_handle):
@@ -132,7 +132,7 @@ cdef class CudaContext:
         handle = pyarrow_unwrap_cudaipcmemhandle(ipc_handle)
         cdef shared_ptr[CCudaBuffer] cudabuf
         check_status(self.context.get().OpenIpcBuffer(handle.get()[0],
-                                                      & cudabuf))
+                                                      &cudabuf))
         return pyarrow_wrap_cudabuffer(cudabuf)
 
     def device_buffer(self, object obj=None,
@@ -171,7 +171,7 @@ cdef class CudaContext:
         cdef shared_ptr[CBuffer] buf
 
         if not pyarrow_is_buffer(obj):  # assume obj is array-like
-            check_status(PyBuffer.FromPyObject(obj, & buf))
+            check_status(PyBuffer.FromPyObject(obj, &buf))
             obj = pyarrow_wrap_buffer(buf)
 
         bsize = obj.size
@@ -223,7 +223,7 @@ cdef class CudaIpcMemHandle:
         """
         cdef shared_ptr[CCudaIpcMemHandle] handle
         buf_ = pyarrow_unwrap_buffer(opaque_handle)
-        check_status(CCudaIpcMemHandle.FromBuffer(buf_.get().data(), & handle))
+        check_status(CCudaIpcMemHandle.FromBuffer(buf_.get().data(), &handle))
         return pyarrow_wrap_cudaipcmemhandle(handle)
 
     def serialize(self, pool=None):
@@ -241,8 +241,8 @@ cdef class CudaIpcMemHandle:
         """
         pool_ = maybe_unbox_memory_pool(pool)
         cdef shared_ptr[CBuffer] buf
-        cdef CCudaIpcMemHandle * h = self.handle.get()
-        check_status(h.Serialize(pool_, & buf))
+        cdef CCudaIpcMemHandle* h = self.handle.get()
+        check_status(h.Serialize(pool_, &buf))
         return pyarrow_wrap_buffer(buf)
 
 
@@ -264,7 +264,7 @@ cdef class CudaBuffer(Buffer):
                         "`<pyarrow.CudaContext instance>.device_buffer`"
                         " method instead.")
 
-    cdef void init_cuda(self, const shared_ptr[CCudaBuffer] & buffer):
+    cdef void init_cuda(self, const shared_ptr[CCudaBuffer] &buffer):
         self.cuda_buffer = buffer
         self.init(< shared_ptr[CBuffer] > buffer)
 
@@ -284,7 +284,7 @@ cdef class CudaBuffer(Buffer):
         """
         buf_ = pyarrow_unwrap_buffer(buf)
         cdef shared_ptr[CCudaBuffer] cbuf
-        check_status(CCudaBuffer.FromBuffer(buf_, & cbuf))
+        check_status(CCudaBuffer.FromBuffer(buf_, &cbuf))
         return pyarrow_wrap_cudabuffer(cbuf)
 
     cdef getitem(self, int64_t i):
@@ -408,7 +408,7 @@ cdef class CudaBuffer(Buffer):
 
         """
         cdef shared_ptr[CCudaIpcMemHandle] handle
-        check_status(self.cuda_buffer.get().ExportForIpc(& handle))
+        check_status(self.cuda_buffer.get().ExportForIpc(&handle))
         return pyarrow_wrap_cudaipcmemhandle(handle)
 
     @property
@@ -452,15 +452,15 @@ cdef class CudaBuffer(Buffer):
     def to_pybytes(self):
         return self.copy_to_host().to_pybytes()
 
-    def __getbuffer__(self, cp.Py_buffer * buffer, int flags):
+    def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
         # copy_to_host() is needed otherwise, the buffered device
         # buffer would contain data pointers of the device
         raise NotImplementedError('CudaBuffer.__getbuffer__')
 
-    def __getreadbuffer__(self, Py_ssize_t idx, void ** p):
+    def __getreadbuffer__(self, Py_ssize_t idx, void** p):
         raise NotImplementedError('CudaBuffer.__getreadbuffer__')
 
-    def __getwritebuffer__(self, Py_ssize_t idx, void ** p):
+    def __getwritebuffer__(self, Py_ssize_t idx, void** p):
         raise NotImplementedError('CudaBuffer.__getwritebuffer__')
 
 
@@ -486,7 +486,7 @@ cdef class CudaHostBuffer(Buffer):
         raise TypeError("Do not call CudaHostBuffer's constructor directly,"
                         " use `allocate_cuda_host_buffer` function instead.")
 
-    cdef void init_host(self, const shared_ptr[CCudaHostBuffer] & buffer):
+    cdef void init_host(self, const shared_ptr[CCudaHostBuffer] &buffer):
         self.host_buffer = buffer
         self.init(< shared_ptr[CBuffer] > buffer)
         self._freed = False
@@ -539,7 +539,7 @@ cdef class CudaBufferReader(NativeFile):
 
         with nogil:
             check_status(self.reader.Read(c_nbytes,
-                                          < shared_ptr[CBuffer] * > & output))
+                                          < shared_ptr[CBuffer]* > &output))
 
         return pyarrow_wrap_cudabuffer(output)
 
@@ -571,7 +571,7 @@ cdef class CudaBufferWriter(NativeFile):
 
         cdef Buffer arrow_buffer = py_buffer(data)
 
-        cdef const uint8_t * buf = arrow_buffer.buffer.get().data()
+        cdef const uint8_t* buf = arrow_buffer.buffer.get().data()
         cdef int64_t bufsize = len(arrow_buffer)
         with nogil:
             check_status(self.writer.WriteAt(position, buf, bufsize))
@@ -590,7 +590,7 @@ cdef class CudaBufferWriter(NativeFile):
             if whence == 0:
                 offset = position
             elif whence == 1:
-                check_status(self.writer.Tell(& offset))
+                check_status(self.writer.Tell(&offset))
                 offset = offset + position
             else:
                 with gil:
@@ -639,7 +639,7 @@ def allocate_cuda_host_buffer(const int64_t size):
       the allocated device buffer
     """
     cdef shared_ptr[CCudaHostBuffer] buffer
-    check_status(AllocateCudaHostBuffer(size, & buffer))
+    check_status(AllocateCudaHostBuffer(size, &buffer))
     return pyarrow_wrap_cudahostbuffer(buffer)
 
 
@@ -659,9 +659,9 @@ def cuda_serialize_record_batch(object batch, object ctx):
       device buffer which contains the record batch message
     """
     cdef shared_ptr[CCudaBuffer] buffer
-    cdef CRecordBatch * batch_ = pyarrow_unwrap_batch(batch).get()
-    cdef CCudaContext * ctx_ = pyarrow_unwrap_cudacontext(ctx).get()
-    check_status(CudaSerializeRecordBatch(batch_[0], ctx_, & buffer))
+    cdef CRecordBatch* batch_ = pyarrow_unwrap_batch(batch).get()
+    cdef CCudaContext* ctx_ = pyarrow_unwrap_cudacontext(ctx).get()
+    check_status(CudaSerializeRecordBatch(batch_[0], ctx_, &buffer))
     return pyarrow_wrap_cudabuffer(buffer)
 
 
@@ -685,7 +685,7 @@ def cuda_read_message(object source, pool=None):
     pool_ = maybe_unbox_memory_pool(pool)
     if not isinstance(source, CudaBufferReader):
         reader = CudaBufferReader(source)
-    check_status(CudaReadMessage(reader.reader, pool_, & result.message))
+    check_status(CudaReadMessage(reader.reader, pool_, &result.message))
     return result
 
 
@@ -710,7 +710,7 @@ def cuda_read_record_batch(object schema, object buffer, pool=None):
     cdef shared_ptr[CCudaBuffer] buffer_ = pyarrow_unwrap_cudabuffer(buffer)
     pool_ = maybe_unbox_memory_pool(pool)
     cdef shared_ptr[CRecordBatch] batch
-    check_status(CudaReadRecordBatch(schema_, buffer_, pool_, & batch))
+    check_status(CudaReadRecordBatch(schema_, buffer_, pool_, &batch))
     return pyarrow_wrap_batch(batch)
 
 # Public API
@@ -729,19 +729,19 @@ cdef public api bint pyarrow_is_cudacontext(object ctx):
     return isinstance(ctx, CudaContext)
 
 cdef public api object \
-        pyarrow_wrap_cudabuffer(const shared_ptr[CCudaBuffer] & buf):
+        pyarrow_wrap_cudabuffer(const shared_ptr[CCudaBuffer] &buf):
     cdef CudaBuffer result = CudaBuffer.__new__(CudaBuffer)
     result.init_cuda(buf)
     return result
 
 cdef public api object \
-        pyarrow_wrap_cudahostbuffer(const shared_ptr[CCudaHostBuffer] & buf):
+        pyarrow_wrap_cudahostbuffer(const shared_ptr[CCudaHostBuffer] &buf):
     cdef CudaHostBuffer result = CudaHostBuffer.__new__(CudaHostBuffer)
     result.init_host(buf)
     return result
 
 cdef public api object \
-        pyarrow_wrap_cudacontext(const shared_ptr[CCudaContext] & ctx):
+        pyarrow_wrap_cudacontext(const shared_ptr[CCudaContext] &ctx):
     cdef CudaContext result = CudaContext.__new__(CudaContext)
     result.init(ctx)
     return result
