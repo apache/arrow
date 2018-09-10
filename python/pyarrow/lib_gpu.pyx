@@ -27,7 +27,7 @@ cdef class CudaDeviceManager:
     """
 
     def __cinit__(self):
-        check_status(CCudaDeviceManager.GetInstance( & self.manager))
+        check_status(CCudaDeviceManager.GetInstance(& self.manager))
 
     @property
     def num_devices(self):
@@ -282,7 +282,7 @@ cdef class CudaBuffer(Buffer):
 
     cdef void init_cuda(self, const shared_ptr[CCudaBuffer] & buffer):
         self.cuda_buffer = buffer
-        self.init( < shared_ptr[CBuffer] > buffer)
+        self.init(< shared_ptr[CBuffer] > buffer)
 
     @staticmethod
     def from_buffer(buf):
@@ -424,7 +424,7 @@ cdef class CudaBuffer(Buffer):
 
         """
         cdef shared_ptr[CCudaIpcMemHandle] handle
-        check_status(self.cuda_buffer.get().ExportForIpc( & handle))
+        check_status(self.cuda_buffer.get().ExportForIpc(& handle))
         return pyarrow_wrap_cudaipcmemhandle(handle)
 
     @property
@@ -507,7 +507,7 @@ cdef class CudaHostBuffer(Buffer):
 
     cdef void init_host(self, const shared_ptr[CCudaHostBuffer] & buffer):
         self.host_buffer = buffer
-        self.init( < shared_ptr[CBuffer] > buffer)
+        self.init(< shared_ptr[CBuffer] > buffer)
         self._freed = False
 
     @property
@@ -613,7 +613,7 @@ cdef class CudaBufferWriter(NativeFile):
             if whence == 0:
                 offset = position
             elif whence == 1:
-                check_status(self.writer.Tell( & offset))
+                check_status(self.writer.Tell(& offset))
                 offset = offset + position
             else:
                 with gil:
