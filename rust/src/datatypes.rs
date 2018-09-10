@@ -302,13 +302,13 @@ impl fmt::Display for Field {
 /// layout.
 #[derive(Debug, Clone)]
 pub struct Schema {
-    columns: Vec<Field>,
+    fields: Vec<Field>,
 }
 
 impl Schema {
     /// Creates an empty `Schema`
     pub fn empty() -> Self {
-        Self { columns: vec![] }
+        Self { fields: vec![] }
     }
 
     /// Creates a new `Schema` from a sequence of `Field` values
@@ -323,25 +323,25 @@ impl Schema {
     ///
     /// let schema = Schema::new(vec![field_a, field_b]);
     /// ```
-    pub fn new(columns: Vec<Field>) -> Self {
-        Self { columns }
+    pub fn new(fields: Vec<Field>) -> Self {
+        Self { fields }
     }
 
     /// Returns an immutable reference of the vector of `Field` instances
-    pub fn columns(&self) -> &Vec<Field> {
-        &self.columns
+    pub fn fields(&self) -> &Vec<Field> {
+        &self.fields
     }
 
     /// Returns an immutable reference of a specific `Field` instance selected using an offset
-    /// within the internal `columns` vector
-    pub fn column(&self, i: usize) -> &Field {
-        &self.columns[i]
+    /// within the internal `fields` vector
+    pub fn field(&self, i: usize) -> &Field {
+        &self.fields[i]
     }
 
     /// Look up a column by name and return a immutable reference to the column along with
     /// it's index
     pub fn column_with_name(&self, name: &str) -> Option<(usize, &Field)> {
-        self.columns
+        self.fields
             .iter()
             .enumerate()
             .find(|&(_, c)| c.name == name)
@@ -352,7 +352,7 @@ impl fmt::Display for Schema {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(
             &self
-                .columns
+                .fields
                 .iter()
                 .map(|c| c.to_string())
                 .collect::<Vec<String>>()
@@ -477,12 +477,12 @@ mod tests {
         ]);
 
         // test schema accessors
-        assert_eq!(_person.columns().len(), 3);
+        assert_eq!(_person.fields().len(), 3);
 
         // test field accessors
-        assert_eq!(_person.columns()[0].name(), "first_name");
-        assert_eq!(_person.columns()[0].data_type(), &DataType::Utf8);
-        assert_eq!(_person.columns()[0].is_nullable(), false);
+        assert_eq!(_person.fields()[0].name(), "first_name");
+        assert_eq!(_person.fields()[0].data_type(), &DataType::Utf8);
+        assert_eq!(_person.fields()[0].is_nullable(), false);
     }
 
 }
