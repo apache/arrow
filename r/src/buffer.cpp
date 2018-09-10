@@ -147,9 +147,12 @@ List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch){
   int nc = batch->num_columns();
   int nr = batch->num_rows();
   List tbl(nc);
+  CharacterVector names(nc);
   for(int i=0; i<nc; i++) {
     tbl[i] = Array_to_R(batch->column(i));
+    names[i] = batch->column_name(i);
   }
+  tbl.attr("names") = names;
   tbl.attr("class") = CharacterVector::create("tbf_df", "tbl", "data.frame");
   tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
   return tbl;
