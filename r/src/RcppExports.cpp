@@ -377,16 +377,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// ping_arrow
-std::string ping_arrow();
-RcppExport SEXP _arrow_ping_arrow() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(ping_arrow());
-    return rcpp_result_gen;
-END_RCPP
-}
 // MemoryPool_default
 static_ptr<arrow::MemoryPool> MemoryPool_default();
 RcppExport SEXP _arrow_MemoryPool_default() {
@@ -846,6 +836,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Object_pointer_address
+std::string Object_pointer_address(SEXP obj);
+RcppExport SEXP _arrow_Object_pointer_address(SEXP objSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type obj(objSEXP);
+    rcpp_result_gen = Rcpp::wrap(Object_pointer_address(obj));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Status_ToString
 std::string Status_ToString(const std::shared_ptr<arrow::Status>& status);
 RcppExport SEXP _arrow_Status_ToString(SEXP statusSEXP) {
@@ -925,7 +926,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},
     {"_arrow_Field_nullable", (DL_FUNC) &_arrow_Field_nullable, 1},
-    {"_arrow_ping_arrow", (DL_FUNC) &_arrow_ping_arrow, 0},
     {"_arrow_MemoryPool_default", (DL_FUNC) &_arrow_MemoryPool_default, 0},
     {"_arrow_MemoryPool_bytes_allocated", (DL_FUNC) &_arrow_MemoryPool_bytes_allocated, 1},
     {"_arrow_MemoryPool_max_memory", (DL_FUNC) &_arrow_MemoryPool_max_memory, 1},
@@ -969,6 +969,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_DecimalType_scale", (DL_FUNC) &_arrow_DecimalType_scale, 1},
     {"_arrow_TimestampType_timezone", (DL_FUNC) &_arrow_TimestampType_timezone, 1},
     {"_arrow_TimestampType_unit", (DL_FUNC) &_arrow_TimestampType_unit, 1},
+    {"_arrow_Object_pointer_address", (DL_FUNC) &_arrow_Object_pointer_address, 1},
     {"_arrow_Status_ToString", (DL_FUNC) &_arrow_Status_ToString, 1},
     {"_arrow_Status_CodeAsString", (DL_FUNC) &_arrow_Status_CodeAsString, 1},
     {"_arrow_Status_code", (DL_FUNC) &_arrow_Status_code, 1},

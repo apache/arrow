@@ -30,6 +30,16 @@
     `.:xp:.` = NULL,
     set_pointer = function(xp){
       self$`.:xp:.` <- xp
+    },
+    print = function(...){
+      cat(crayon::silver(glue::glue("{cl} <{p}>", cl = class(self)[[1]], p = self$pointer_address())), "\n")
+      if(!is.null(self$ToString)){
+        cat(self$ToString(), "\n")
+      }
+      invisible(self)
+    },
+    pointer_address = function(){
+      Object_pointer_address(self$pointer())
     }
   )
 )
@@ -40,9 +50,6 @@
 
     ToString = function() {
       DataType_ToString(self)
-    },
-    print = function(...) {
-      cat( glue( "DataType({s})", s = DataType_ToString(self) ))
     },
     name = function() {
       DataType_name(self)
@@ -385,9 +392,6 @@ decimal <- function(precision, scale) `arrow::Decimal128Type`$new(Decimal128Type
     nullable = function() {
       Field_nullable(self)
     },
-    print = function(...) {
-      cat( glue( "Field<{s}>", s = Field_ToString(self)))
-    },
     Equals = function(other) {
       inherits(other, "arrow::Field") && Field_Equals(self, other)
     }
@@ -418,21 +422,11 @@ field <- function(name, type) {
 `arrow::NestedType` <- R6Class("arrow::NestedType", inherit = `arrow::DataType`)
 
 `arrow::StructType` <- R6Class("arrow::StructType",
-  inherit = `arrow::NestedType`,
-  public = list(
-    print = function(...) {
-      cat( glue( "StructType({s})", s = DataType_ToString(self)))
-    }
-  )
+  inherit = `arrow::NestedType`
 )
 
 `arrow::Schema` <- R6Class("arrow::Schema",
-  inherit = `arrow::Object`,
-  public = list(
-    print = function(...) {
-      cat( glue( "{s}", s = Schema_ToString(self)))
-    }
-  )
+  inherit = `arrow::Object`
 )
 
 #' @rdname DataType
@@ -450,12 +444,7 @@ schema <- function(...){
 #--------- list
 
 `arrow::ListType` <- R6Class("arrow::ListType",
-  inherit = `arrow::NestedType`,
-  public = list(
-    print = function(...) {
-      cat( glue( "ListType({s})", s = ListType_ToString(self)))
-    }
-  )
+  inherit = `arrow::NestedType`
 )
 
 #' @rdname DataType

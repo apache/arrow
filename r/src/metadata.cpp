@@ -206,3 +206,8 @@ std::string TimestampType_timezone(const std::shared_ptr<arrow::TimestampType>& 
 arrow::TimeUnit::type TimestampType_unit(const std::shared_ptr<arrow::TimestampType>& type) {
   return type->unit();
 }
+
+// [[Rcpp::export]]
+std::string Object_pointer_address(SEXP obj){
+  return tfm::format("%p", EXTPTR_PTR(obj));
+}

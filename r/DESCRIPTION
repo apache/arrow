@@ -22,7 +22,8 @@ Imports:
     R6,
     vctrs,
     fs,
-    tibble
+    tibble,
+    crayon
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.0.1.9000
 Suggests:

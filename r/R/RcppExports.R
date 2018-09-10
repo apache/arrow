@@ -133,10 +133,6 @@ Field_nullable <- function(type) {
     .Call(`_arrow_Field_nullable`, type)
 }
 
-ping_arrow <- function() {
-    .Call(`_arrow_ping_arrow`)
-}
-
 MemoryPool_default <- function() {
     .Call(`_arrow_MemoryPool_default`)
 }
@@ -307,6 +303,10 @@ TimestampType_timezone <- function(type) {
 
 TimestampType_unit <- function(type) {
     .Call(`_arrow_TimestampType_unit`, type)
+}
+
+Object_pointer_address <- function(obj) {
+    .Call(`_arrow_Object_pointer_address`, obj)
 }
 
 Status_ToString <- function(status) {
