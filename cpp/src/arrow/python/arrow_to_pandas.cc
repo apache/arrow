@@ -633,6 +633,37 @@ inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) 
 }
 
 template <typename TYPE>
+static Status ConvertDates(PandasOptions options, const ChunkedArray& data,
+                           PyObject** out_values) {
+  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
+
+  PyAcquireGIL lock;
+  OwnedRef date_ref;
+
+  PyDateTime_IMPORT;
+
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = checked_cast<const ArrayType&>(*data.chunk(c));
+    auto type = std::dynamic_pointer_cast<TYPE>(arr.type());
+    DCHECK(type);
+
+    const DateUnit unit = type->unit();
+
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsNull(i)) {
+        Py_INCREF(Py_None);
+        *out_values++ = Py_None;
+      } else {
+        RETURN_NOT_OK(PyDate_from_int(arr.Value(i), unit, out_values++));
+        RETURN_IF_PYERROR();
+      }
+    }
+  }
+
+  return Status::OK();
+}
+
+template <typename TYPE>
 static Status ConvertTimes(PandasOptions options, const ChunkedArray& data,
                            PyObject** out_values) {
   using ArrayType = typename TypeTraits<TYPE>::ArrayType;
@@ -733,6 +764,10 @@ class ObjectBlock : public PandasBlock {
       RETURN_NOT_OK(ConvertBinaryLike<StringType>(options_, data, out_buffer));
     } else if (type == Type::FIXED_SIZE_BINARY) {
       RETURN_NOT_OK(ConvertFixedSizeBinary(options_, data, out_buffer));
+    } else if (type == Type::DATE32) {
+      RETURN_NOT_OK(ConvertDates<Date32Type>(options_, data, out_buffer));
+    } else if (type == Type::DATE64) {
+      RETURN_NOT_OK(ConvertDates<Date64Type>(options_, data, out_buffer));
     } else if (type == Type::TIME32) {
       RETURN_NOT_OK(ConvertTimes<Time32Type>(options_, data, out_buffer));
     } else if (type == Type::TIME64) {
@@ -759,6 +794,7 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(StringType, STRING)
         CONVERTLISTSLIKE_CASE(ListType, LIST)
         CONVERTLISTSLIKE_CASE(NullType, NA)
+        // TODO Time and Date?
         default: {
           std::stringstream ss;
           ss << "Not implemented type for conversion from List to Pandas ObjectBlock: "
@@ -1322,10 +1358,8 @@ static Status GetPandasBlockType(const Column& col, const PandasOptions& options
       *output_type = PandasBlock::OBJECT;
       break;
     case Type::DATE32:
-      *output_type = PandasBlock::DATETIME;
-      break;
     case Type::DATE64:
-      *output_type = PandasBlock::DATETIME;
+      *output_type = options.date_as_object ? PandasBlock::OBJECT : PandasBlock::DATETIME;
       break;
     case Type::TIMESTAMP: {
       const auto& ts_type = checked_cast<const TimestampType&>(*col.type());

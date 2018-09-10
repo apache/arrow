@@ -906,6 +906,22 @@ class TestConvertDateTimeLikeTypes(object):
         with pytest.raises(pa.ArrowInvalid, match=expected_msg):
             pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
+    def test_date_as_object(self):
+        df = pd.DataFrame({
+            'date': [date(2000, 1, 1),
+                     None,
+                     date(1970, 1, 1),
+                     date(2040, 2, 26)]})
+
+        table = pa.Table.from_pandas(df, preserve_index=False)
+
+        df_datetime = table.to_pandas()
+        df_object = table.to_pandas(date_as_object=True)
+
+        tm.assert_frame_equal(df.astype('datetime64[ns]'), df_datetime,
+                              check_dtype=True)
+        tm.assert_frame_equal(df, df_object, check_dtype=True)
+
     def test_date_infer(self):
         df = pd.DataFrame({
             'date': [date(2000, 1, 1),
