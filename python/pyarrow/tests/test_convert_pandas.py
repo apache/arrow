@@ -928,29 +928,7 @@ class TestConvertDateTimeLikeTypes(object):
         assert result.dtype == expected.dtype
         npt.assert_array_equal(result, expected)
 
-    def test_array_date_as_object(self):
-        data = [date(2000, 1, 1),
-                None,
-                date(1970, 1, 1),
-                date(2040, 2, 26)]
-        expected = np.array(['2000-01-01',
-                             None,
-                             '1970-01-01',
-                             '2040-02-26'], dtype='datetime64')
-
-        arr = pa.array(data)
-        assert arr.equals(pa.array(expected))
-
-        result = arr.to_pandas()
-        assert result.dtype == expected.dtype
-        npt.assert_array_equal(arr.to_pandas(), expected)
-
-        result = arr.to_pandas(date_as_object=True)
-        expected = expected.astype(object)
-        assert result.dtype == expected.dtype
-        npt.assert_array_equal(result, expected)
-
-    def test_chunked_array_date_as_object(self):
+    def test_chunked_array_convert_date_as_object(self):
         data = [date(2000, 1, 1),
                 None,
                 date(1970, 1, 1),
@@ -970,7 +948,7 @@ class TestConvertDateTimeLikeTypes(object):
         assert result.dtype == expected.dtype
         npt.assert_array_equal(result, expected)
 
-    def test_column_date_as_object(self):
+    def test_column_convert_date_as_object(self):
         data = [date(2000, 1, 1),
                 None,
                 date(1970, 1, 1),
@@ -991,7 +969,7 @@ class TestConvertDateTimeLikeTypes(object):
         assert result.dtype == expected.dtype
         npt.assert_array_equal(result, expected)
 
-    def test_table_date_as_object(self):
+    def test_table_convert_date_as_object(self):
         df = pd.DataFrame({
             'date': [date(2000, 1, 1),
                      None,
