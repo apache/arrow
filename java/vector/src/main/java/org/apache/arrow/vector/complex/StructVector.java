@@ -18,14 +18,19 @@
 
 package org.apache.arrow.vector.complex;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.*;
+import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.NullableStructReaderImpl;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.holders.ComplexHolder;
@@ -38,8 +43,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
-
-import com.google.common.collect.ObjectArrays;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -274,8 +277,10 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      buffers = ObjectArrays.concat(new ArrowBuf[]{validityBuffer}, super.getBuffers(false),
-              ArrowBuf.class);
+      List<ArrowBuf> list = new ArrayList<>();
+      list.add(validityBuffer);
+      list.addAll(Arrays.asList(super.getBuffers(false)));
+      buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {

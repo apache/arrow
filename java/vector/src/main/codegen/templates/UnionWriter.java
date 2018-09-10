@@ -39,7 +39,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   UnionVector data;
   private StructWriter structWriter;
   private UnionListWriter listWriter;
-  private List<BaseWriter> writers = Lists.newArrayList();
+  private List<BaseWriter> writers = new java.util.ArrayList<>();
   private final NullableStructWriterFactory nullableStructWriterFactory;
 
   public UnionWriter(UnionVector vector) {

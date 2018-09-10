@@ -20,6 +20,7 @@ package org.apache.arrow.vector.util;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -29,8 +30,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-
-import com.google.common.base.Objects;
 
 /**
  * Utility class for validating arrow data structures
@@ -154,7 +153,7 @@ public class Validator {
       return Arrays.equals((byte[]) o1, (byte[]) o2);
     }
 
-    return Objects.equal(o1, o2);
+    return Objects.equals(o1, o2);
   }
 
   static boolean equalEnough(Float f1, Float f2) {

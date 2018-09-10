@@ -18,17 +18,16 @@
 
 package org.apache.arrow.vector;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.arrow.util.Preconditions.checkArgument;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
-
-import com.google.common.collect.Iterators;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -63,7 +62,7 @@ public class VectorLoader {
     root.setRowCount(recordBatch.getLength());
     if (nodes.hasNext() || buffers.hasNext()) {
       throw new IllegalArgumentException("not all nodes and buffers were consumed. nodes: " +
-        Iterators.toString(nodes) + " buffers: " + Iterators.toString(buffers));
+          Collections2.toList(nodes).toString() + " buffers: " + Collections2.toList(buffers).toString());
     }
   }
 

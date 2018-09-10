@@ -21,6 +21,7 @@ package org.apache.arrow.vector.ipc;
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,8 +40,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableList;
 
 /**
  * Abstract base class for implementing Arrow writers for IPC over a WriteChannel
@@ -84,7 +83,9 @@ public abstract class ArrowWriter implements AutoCloseable {
       Dictionary dictionary = provider.lookup(id);
       FieldVector vector = dictionary.getVector();
       int count = vector.getValueCount();
-      VectorSchemaRoot dictRoot = new VectorSchemaRoot(ImmutableList.of(vector.getField()), ImmutableList.of(vector),
+      VectorSchemaRoot dictRoot = new VectorSchemaRoot(
+          Collections.singletonList(vector.getField()),
+          Collections.singletonList(vector),
           count);
       VectorUnloader unloader = new VectorUnloader(dictRoot);
       ArrowRecordBatch batch = unloader.getRecordBatch();

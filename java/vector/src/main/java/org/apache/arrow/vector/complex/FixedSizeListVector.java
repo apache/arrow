@@ -21,12 +21,24 @@ package org.apache.arrow.vector.complex;
 import static java.util.Collections.singletonList;
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.vector.*;
+import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.AddOrGetResult;
+import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListReader;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -34,11 +46,11 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.apache.arrow.vector.util.*;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ObjectArrays;
+import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.JsonStringArrayList;
+import org.apache.arrow.vector.util.OversizedAllocationException;
+import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
+import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -85,7 +97,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
   @Override
   public Field getField() {
-    List<Field> children = ImmutableList.of(getDataVector().getField());
+    List<Field> children = Collections.singletonList(getDataVector().getField());
     return new Field(name, fieldType, children);
   }
 
@@ -287,8 +299,10 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      buffers = ObjectArrays.concat(new ArrowBuf[]{validityBuffer}, vector.getBuffers(false),
-              ArrowBuf.class);
+      List<ArrowBuf> list = new ArrayList<>();
+      list.add(validityBuffer);
+      list.addAll(Arrays.asList(vector.getBuffers(false)));
+      buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {

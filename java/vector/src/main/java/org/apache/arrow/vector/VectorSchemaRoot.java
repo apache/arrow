@@ -19,17 +19,17 @@
 package org.apache.arrow.vector;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-
-import com.google.common.collect.ImmutableList;
 
 /**
  * Holder for a set of vectors to be loaded/unloaded
@@ -44,8 +44,8 @@ public class VectorSchemaRoot implements AutoCloseable {
 
   public VectorSchemaRoot(Iterable<FieldVector> vectors) {
     this(
-        ImmutableList.copyOf(vectors).stream().map(t -> t.getField()).collect(Collectors.toList()),
-        ImmutableList.copyOf(vectors),
+        StreamSupport.stream(vectors.spliterator(), false).map(t -> t.getField()).collect(Collectors.toList()),
+        StreamSupport.stream(vectors.spliterator(), false).collect(Collectors.toList()),
         0
         );
   }
@@ -87,7 +87,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   public static VectorSchemaRoot of(FieldVector... vectors) {
-    return new VectorSchemaRoot(ImmutableList.copyOf(vectors));
+    return new VectorSchemaRoot(Arrays.stream(vectors).collect(Collectors.toList()));
   }
 
   /**
@@ -110,7 +110,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   public List<FieldVector> getFieldVectors() {
-    return ImmutableList.copyOf(fieldVectors);
+    return fieldVectors.stream().collect(Collectors.toList());
   }
 
   public FieldVector getVector(String name) {

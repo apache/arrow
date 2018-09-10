@@ -20,9 +20,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import java.util.stream.Collectors;
 
 /**
  * Utilities for AutoCloseable classes.
@@ -105,15 +103,17 @@ public final class AutoCloseables {
   }
 
   @SafeVarargs
-  public static void close(Iterable<? extends AutoCloseable>...closeables) throws Exception{
-    close(Iterables.concat(closeables));
+  public static void close(Iterable<? extends AutoCloseable>...closeables) throws Exception {
+    close(Arrays.asList(closeables).stream()
+        .flatMap((Iterable<? extends AutoCloseable> t) -> Collections2.toList(t).stream())
+        .collect(Collectors.toList()));
   }
 
   public static Iterable<AutoCloseable> iter(AutoCloseable... ac){
     if(ac.length == 0){
       return Collections.emptyList();
     }else{
-      final List<AutoCloseable> nonNullAc = Lists.newArrayList();
+      final List<AutoCloseable> nonNullAc = new ArrayList<>();
       for (AutoCloseable autoCloseable : ac) {
         if (autoCloseable != null) {
           nonNullAc.add(autoCloseable);

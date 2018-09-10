@@ -18,11 +18,15 @@
 
 package org.apache.arrow.vector.complex;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseValueVector;
@@ -37,9 +41,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ObjectArrays;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -240,8 +241,10 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      buffers = ObjectArrays.concat(new ArrowBuf[]{offsetBuffer}, vector.getBuffers(false),
-              ArrowBuf.class);
+      List<ArrowBuf> list = new ArrayList<>();
+      list.add(offsetBuffer);
+      list.addAll(Arrays.asList(vector.getBuffers(false)));
+      buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {

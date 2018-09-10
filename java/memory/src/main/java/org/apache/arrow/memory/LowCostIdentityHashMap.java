@@ -17,8 +17,8 @@
 
 package org.apache.arrow.memory;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.util.VisibleForTesting;
 
 /**
  * Highly specialized IdentityHashMap that implements only partial
