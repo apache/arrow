@@ -6,20 +6,6 @@
 
 using namespace Rcpp;
 
-// ArrayData_initialize
-std::shared_ptr<arrow::ArrayData> ArrayData_initialize(const std::shared_ptr<arrow::DataType>& type, int length, int null_count, int offset);
-RcppExport SEXP _arrow_ArrayData_initialize(SEXP typeSEXP, SEXP lengthSEXP, SEXP null_countSEXP, SEXP offsetSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
-    Rcpp::traits::input_parameter< int >::type length(lengthSEXP);
-    Rcpp::traits::input_parameter< int >::type null_count(null_countSEXP);
-    Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
-    rcpp_result_gen = Rcpp::wrap(ArrayData_initialize(type, length, null_count, offset));
-    return rcpp_result_gen;
-END_RCPP
-}
 // ArrayData_get_type
 std::shared_ptr<arrow::DataType> ArrayData_get_type(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData_get_type(SEXP xSEXP) {
@@ -861,7 +847,6 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_arrow_ArrayData_initialize", (DL_FUNC) &_arrow_ArrayData_initialize, 4},
     {"_arrow_ArrayData_get_type", (DL_FUNC) &_arrow_ArrayData_get_type, 1},
     {"_arrow_ArrayData_get_length", (DL_FUNC) &_arrow_ArrayData_get_length, 1},
     {"_arrow_ArrayData_get_null_count", (DL_FUNC) &_arrow_ArrayData_get_null_count, 1},

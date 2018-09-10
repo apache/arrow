@@ -21,11 +21,6 @@ using namespace Rcpp;
 // [[Rcpp::plugins(cpp11)]]
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::ArrayData> ArrayData_initialize(const std::shared_ptr<arrow::DataType>& type, int length, int null_count, int offset){
-  return arrow::ArrayData::Make( type, length, {nullptr, nullptr}, null_count, offset);
-}
-
-// [[Rcpp::export]]
 std::shared_ptr<arrow::DataType> ArrayData_get_type(const std::shared_ptr<arrow::ArrayData>& x){
   return x->type;
 }

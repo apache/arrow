@@ -27,10 +27,6 @@
   )
 )
 
-array_data <- function(type, length, null_count = -1, offset = 0){
-  `arrow::ArrayData`$new(ArrayData_initialize(type, length, null_count, offset))
-}
-
 `arrow::Array` <- R6Class("arrow::Array",
   inherit = `arrow::Object`,
   public = list(
