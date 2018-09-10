@@ -26,6 +26,7 @@ if (ARROW_HDFS AND NOT ARROW_BOOST_HEADER_ONLY)
 endif()
 
 ADD_ARROW_TEST(io-memory-test)
+ADD_ARROW_TEST(io-readahead-test)
 
 ADD_ARROW_BENCHMARK(io-file-benchmark)
 ADD_ARROW_BENCHMARK(io-memory-benchmark)
@@ -38,4 +39,5 @@ install(FILES
   hdfs.h
   interfaces.h
   memory.h
+  readahead.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/io")
