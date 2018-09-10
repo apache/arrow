@@ -485,7 +485,8 @@ cdef class Column:
         return [pyarrow_wrap_column(col) for col in flattened]
 
     def to_pandas(self, bint strings_to_categorical=False,
-                  bint zero_copy_only=False, bint integer_object_nulls=False):
+                  bint zero_copy_only=False, bint integer_object_nulls=False,
+                  bint date_as_object=False):
         """
         Convert the arrow::Column to a pandas.Series
 
@@ -496,6 +497,7 @@ cdef class Column:
         values = self.data.to_pandas(
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
+            date_as_object=date_as_object,
             integer_object_nulls=integer_object_nulls)
         result = pd.Series(values, name=self.name)
 
