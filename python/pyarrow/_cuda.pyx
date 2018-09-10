@@ -18,7 +18,7 @@
 import six
 from pyarrow.compat import tobytes
 from pyarrow.lib cimport *
-from pyarrow.includes.libarrow_gpu cimport *
+from pyarrow.includes.libarrow_cuda cimport *
 from pyarrow.lib import py_buffer, allocate_buffer
 cimport cpython as cp
 

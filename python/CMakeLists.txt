@@ -58,8 +58,8 @@ endif()
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
-  option(PYARROW_BUILD_ARROW_GPU
-    "Build the PyArrow GPU support"
+  option(PYARROW_BUILD_CUDA
+    "Build the PyArrow CUDA support"
     OFF)
   option(PYARROW_BUILD_PARQUET
     "Build the PyArrow Parquet integration"
@@ -360,7 +360,7 @@ set(LINK_LIBS
 
 if (ARROW_GPU_FOUND)
   set(LINK_LIBS ${LINK_LIBS} arrow_gpu_shared)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} lib_gpu)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
 endif()
 
 if (PYARROW_BUILD_PARQUET)

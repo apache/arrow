@@ -98,9 +98,7 @@ class build_ext(_build_ext):
                       'build type (debug or release), default release'),
                      ('boost-namespace=', None,
                       'namespace of boost (default: boost)'),
-                     ('with-arrow-gpu', None, 'build the Arrow GPU extension'),
-                     ('without-arrow-gpu', None,
-                      'do not build the Arrow GPU extension'),
+                     ('with-cuda', None, 'build the Cuda extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
@@ -135,12 +133,8 @@ class build_ext(_build_ext):
             if not hasattr(sys, 'gettotalrefcount'):
                 self.build_type = 'release'
 
-        self.with_arrow_gpu = strtobool(
-            os.environ.get('PYARROW_WITH_ARROW_GPU', '0'))
-        if 'PYARROW_WITH_ARROW_GPU' in os.environ:
-            self.without_arrow_gpu = not self.with_arrow_gpu
-        else:
-            self.without_arrow_gpu = None
+        self.with_cuda = strtobool(
+            os.environ.get('PYARROW_WITH_CUDA', '0'))
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_static_parquet = strtobool(
@@ -162,7 +156,7 @@ class build_ext(_build_ext):
 
     CYTHON_MODULE_NAMES = [
         'lib',
-        'lib_gpu',
+        '_cuda',
         '_parquet',
         '_orc',
         '_plasma']
@@ -199,12 +193,10 @@ class build_ext(_build_ext):
 
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
-            if self.without_arrow_gpu:
-                self.with_arrow_gpu = False
-            if self.with_arrow_gpu:
-                cmake_options.append('-DPYARROW_BUILD_ARROW_GPU=on')
+            if self.with_cuda:
+                cmake_options.append('-DPYARROW_BUILD_CUDA=on')
             else:
-                cmake_options.append('-DPYARROW_BUILD_ARROW_GPU=off')
+                cmake_options.append('-DPYARROW_BUILD_CUDA=off')
             if self.with_parquet:
                 cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
             if self.with_static_parquet:
@@ -293,7 +285,7 @@ class build_ext(_build_ext):
                 print(pjoin(build_lib, 'pyarrow'))
                 move_shared_libs(build_prefix, build_lib, "arrow")
                 move_shared_libs(build_prefix, build_lib, "arrow_python")
-                if self.with_arrow_gpu:
+                if self.with_cuda:
                     move_shared_libs(build_prefix, build_lib, "arrow_gpu")
                 if self.with_plasma:
                     move_shared_libs(build_prefix, build_lib, "plasma")
@@ -376,7 +368,7 @@ class build_ext(_build_ext):
             return True
         if name == '_orc' and not self.with_orc:
             return True
-        if name == 'lib_gpu' and not self.with_arrow_gpu:
+        if name == '_cuda' and not self.with_cuda:
             return True
         return False
 

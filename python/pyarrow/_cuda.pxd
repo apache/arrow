@@ -18,7 +18,7 @@
 from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_gpu cimport *
+from pyarrow.includes.libarrow_cuda cimport *
 
 
 cdef class CudaDeviceManager:
