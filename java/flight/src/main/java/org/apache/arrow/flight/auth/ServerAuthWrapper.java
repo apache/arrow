@@ -41,19 +41,20 @@ public class ServerAuthWrapper {
    * @param executors
    * @return
    */
-  public static StreamObserver<HandshakeRequest> wrapHandshake(ServerAuthHandler authHandler, StreamObserver<HandshakeResponse> responseObserver, ExecutorService executors) {
+  public static StreamObserver<HandshakeRequest> wrapHandshake(ServerAuthHandler authHandler,
+      StreamObserver<HandshakeResponse> responseObserver, ExecutorService executors) {
 
     // stream started.
     AuthObserver observer = new AuthObserver(responseObserver);
     final Runnable r = () -> {
       try {
-        if(authHandler.authenticate(observer.sender, observer.iter)) {
+        if (authHandler.authenticate(observer.sender, observer.iter)) {
           responseObserver.onCompleted();
           return;
         }
 
         responseObserver.onError(Status.PERMISSION_DENIED.asException());
-      } catch(Exception ex) {
+      } catch (Exception ex) {
         responseObserver.onError(ex);
       }
     };
@@ -77,7 +78,7 @@ public class ServerAuthWrapper {
     @Override
     public void onNext(HandshakeRequest value) {
       ByteString payload = value.getPayload();
-      if(payload != null) {
+      if (payload != null) {
         messages.add(payload.toByteArray());
       }
     }
@@ -86,7 +87,7 @@ public class ServerAuthWrapper {
 
       @Override
       public byte[] next() {
-        while(!completed || !messages.isEmpty()) {
+        while (!completed || !messages.isEmpty()) {
           byte[] bytes = messages.poll();
           if(bytes == null) {
             //busy wait.
@@ -105,7 +106,7 @@ public class ServerAuthWrapper {
 
     @Override
     public void onError(Throwable t) {
-      while(future == null) {/* busy wait */}
+      while (future == null) {/* busy wait */}
       future.cancel(true);
     }
 

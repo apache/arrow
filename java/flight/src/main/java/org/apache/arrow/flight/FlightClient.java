@@ -66,7 +66,8 @@ public class FlightClient implements AutoCloseable {
 
   /** Construct client for accessing RouteGuide server using the existing channel. */
   public FlightClient(BufferAllocator incomingAllocator, Location location) {
-    final ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress(location.getHost(), location.getPort()).maxTraceEvents(0).usePlaintext();
+    final ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress(location.getHost(),
+        location.getPort()).maxTraceEvents(0).usePlaintext();
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     channel = channelBuilder.build();
     blockingStub = FlightServiceGrpc.newBlockingStub(channel).withInterceptors(authInterceptor);
@@ -118,7 +119,8 @@ public class FlightClient implements AutoCloseable {
     Preconditions.checkNotNull(root);
 
     SetStreamObserver<PutResult> resultObserver = new SetStreamObserver<>();
-    ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>) asyncClientStreamingCall(channel.newCall(doPutDescriptor, asyncStub.getCallOptions()), resultObserver);
+    ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
+        asyncClientStreamingCall(channel.newCall(doPutDescriptor, asyncStub.getCallOptions()), resultObserver);
     // send the schema to start.
     ArrowMessage message = new ArrowMessage(descriptor.toProtocol(), root.getSchema());
     observer.onNext(message);
@@ -138,7 +140,8 @@ public class FlightClient implements AutoCloseable {
         (count) -> call.request(count));
 
     final StreamObserver<ArrowMessage> delegate = stream.asObserver();
-    ClientResponseObserver<Flight.Ticket, ArrowMessage> clientResponseObserver = new ClientResponseObserver<Flight.Ticket, ArrowMessage>() {
+    ClientResponseObserver<Flight.Ticket, ArrowMessage> clientResponseObserver =
+        new ClientResponseObserver<Flight.Ticket, ArrowMessage>() {
 
       @Override
       public void beforeStart(ClientCallStreamObserver<org.apache.arrow.flight.impl.Flight.Ticket> requestStream) {
@@ -195,7 +198,8 @@ public class FlightClient implements AutoCloseable {
     private final VectorUnloader unloader;
     private final ListenableFuture<PutResult> futureResult;
 
-    public PutObserver(VectorUnloader unloader, ClientCallStreamObserver<ArrowMessage> observer, ListenableFuture<PutResult> futureResult) {
+    public PutObserver(VectorUnloader unloader, ClientCallStreamObserver<ArrowMessage> observer,
+        ListenableFuture<PutResult> futureResult) {
       this.observer = observer;
       this.unloader = unloader;
       this.futureResult = futureResult;

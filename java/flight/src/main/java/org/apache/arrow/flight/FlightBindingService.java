@@ -32,9 +32,9 @@ import io.grpc.ServerMethodDefinition;
 import io.grpc.ServerServiceDefinition;
 import io.grpc.protobuf.ProtoUtils;
 import io.grpc.stub.ServerCalls;
-import io.grpc.stub.StreamObserver;
 import io.grpc.stub.ServerCalls.ClientStreamingMethod;
 import io.grpc.stub.ServerCalls.ServerStreamingMethod;
+import io.grpc.stub.StreamObserver;
 
 /**
  * Extends the basic flight service to override some methods for more efficient implementations.
@@ -49,7 +49,8 @@ class FlightBindingService implements BindableService {
   private final FlightService delegate;
   private final BufferAllocator allocator;
 
-  public FlightBindingService(BufferAllocator allocator, FlightProducer producer, ServerAuthHandler authHandler) {
+  public FlightBindingService(BufferAllocator allocator, FlightProducer producer,
+      ServerAuthHandler authHandler) {
     this.allocator = allocator;
     this.delegate = new FlightService(allocator, producer, authHandler);
   }

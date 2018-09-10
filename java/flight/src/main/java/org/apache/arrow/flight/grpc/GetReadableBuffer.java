@@ -54,17 +54,14 @@ public class GetReadableBuffer {
   }
 
   public static ReadableBuffer getReadableBuffer(InputStream is) {
-//    if(true) {
-//      return null;
-//    }
 
-    if(BUFFER_INPUT_STREAM == null || !is.getClass().equals(BUFFER_INPUT_STREAM)) {
+    if (BUFFER_INPUT_STREAM == null || !is.getClass().equals(BUFFER_INPUT_STREAM)) {
       return null;
     }
 
     try {
       return (ReadableBuffer) READABLE_BUFFER.get(is);
-    }catch (Exception ex) {
+    } catch (Exception ex) {
       throw Throwables.propagate(ex);
     }
   }

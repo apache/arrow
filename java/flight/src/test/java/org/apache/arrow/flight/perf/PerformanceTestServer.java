@@ -100,13 +100,13 @@ public class PerformanceTestServer implements AutoCloseable {
 
         int current = 0;
         long i = token.getStart();
-        while(i < token.getEnd()) {
-          if(listener.isCancelled()) {
+        while (i < token.getEnd()) {
+          if (listener.isCancelled()) {
             root.clear();
             return;
           }
 
-          if(TestPerf.VALIDATE) {
+          if (TestPerf.VALIDATE) {
             a.setSafe(current, i);
           }
 
@@ -115,11 +115,11 @@ public class PerformanceTestServer implements AutoCloseable {
           if (i % perf.getRecordsPerBatch() == 0) {
             root.setRowCount(current);
 
-            while(!listener.isReady()) {
+            while (!listener.isReady()) {
               //Thread.sleep(0, nanos);
             }
 
-            if(listener.isCancelled()) {
+            if (listener.isCancelled()) {
               root.clear();
               return;
             }
@@ -130,7 +130,7 @@ public class PerformanceTestServer implements AutoCloseable {
         }
 
         // send last partial batch.
-        if(current != 0) {
+        if (current != 0) {
           root.setRowCount(current);
           listener.putNext();
         }
@@ -170,11 +170,12 @@ public class PerformanceTestServer implements AutoCloseable {
         final Ticket ticket = new Ticket(token.toByteArray());
 
         List<FlightEndpoint> endpoints = new ArrayList<>();
-        for(int i =0; i < exec.getStreamCount(); i++) {
+        for (int i =0; i < exec.getStreamCount(); i++) {
           endpoints.add(new FlightEndpoint(ticket, getLocation()));
         }
 
-        return new FlightInfo(pojoSchema, descriptor, endpoints, -1, exec.getRecordsPerStream() * exec.getStreamCount());
+        return new FlightInfo(pojoSchema, descriptor, endpoints, -1,
+            exec.getRecordsPerStream() * exec.getStreamCount());
       } catch (InvalidProtocolBufferException e) {
         throw new RuntimeException(e);
       }

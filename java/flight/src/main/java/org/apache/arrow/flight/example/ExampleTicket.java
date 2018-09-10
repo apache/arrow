@@ -19,6 +19,7 @@ package org.apache.arrow.flight.example;
 
 import java.io.IOException;
 import java.util.List;
+
 import org.apache.arrow.flight.Ticket;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -41,7 +42,8 @@ public class ExampleTicket {
   private final String uuid;
 
   @JsonCreator
-  public ExampleTicket(@JsonProperty("path") List<String> path, @JsonProperty("ordinal") int ordinal, @JsonProperty("uuid") String uuid) {
+  public ExampleTicket(@JsonProperty("path") List<String> path, @JsonProperty("ordinal") int ordinal,
+      @JsonProperty("uuid") String uuid) {
     super();
     Preconditions.checkArgument(ordinal >= 0);
     this.path = path;

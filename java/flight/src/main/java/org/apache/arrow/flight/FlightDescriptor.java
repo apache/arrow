@@ -39,6 +39,7 @@ public class FlightDescriptor {
     this.path = path;
     this.cmd = cmd;
   }
+
   public static FlightDescriptor command(byte[] cmd) {
     return new FlightDescriptor(true, null, cmd);
   }
@@ -52,10 +53,10 @@ public class FlightDescriptor {
   }
 
   FlightDescriptor(Flight.FlightDescriptor descriptor){
-    if(descriptor.getType() == DescriptorType.CMD) {
+    if (descriptor.getType() == DescriptorType.CMD) {
       isCmd = true;
       cmd = descriptor.getCmd().toByteArray();
-    } else if(descriptor.getType() == DescriptorType.PATH) {
+    } else if (descriptor.getType() == DescriptorType.PATH) {
       isCmd = false;
       path = descriptor.getPathList();
     } else {
@@ -80,14 +81,15 @@ public class FlightDescriptor {
   Flight.FlightDescriptor toProtocol(){
     Flight.FlightDescriptor.Builder b = Flight.FlightDescriptor.newBuilder();
 
-    if(isCmd) {
+    if (isCmd) {
       return b.setType(DescriptorType.CMD).setCmd(ByteString.copyFrom(cmd)).build();
     }
     return b.setType(DescriptorType.PATH).addAllPath(path).build();
   }
+
   @Override
   public String toString() {
-    if(isCmd) {
+    if (isCmd) {
       return toHex(cmd);
     } else {
       return Joiner.on('.').join(path);
@@ -97,7 +99,7 @@ public class FlightDescriptor {
   private String toHex(byte[] bytes) {
     StringBuilder sb = new StringBuilder();
     for (byte b : bytes) {
-        sb.append(String.format("%02X ", b));
+      sb.append(String.format("%02X ", b));
     }
     return sb.toString();
   }

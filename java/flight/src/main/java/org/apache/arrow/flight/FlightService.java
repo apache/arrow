@@ -19,6 +19,7 @@ package org.apache.arrow.flight;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthWrapper;
@@ -38,6 +39,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
+
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 
@@ -105,9 +107,9 @@ class FlightService extends FlightServiceImplBase {
     public GetListener(StreamObserver<ArrowMessage> responseObserver) {
       super();
       this.responseObserver = (ServerCallStreamObserver<ArrowMessage>) responseObserver;
-      this.responseObserver.setOnCancelHandler(() -> {onCancel();});
+      this.responseObserver.setOnCancelHandler(() -> onCancel());
       this.responseObserver.disableAutoInboundFlowControl();
-   }
+    }
 
     private void onCancel() {
       logger.debug("Stream cancelled by client.");
@@ -171,7 +173,7 @@ class FlightService extends FlightServiceImplBase {
       FlightInfo info = producer.getFlightInfo(new FlightDescriptor(request));
       responseObserver.onNext(info.toProtocol());
       responseObserver.onCompleted();
-    } catch(Exception ex) {
+    } catch (Exception ex) {
       responseObserver.onError(ex);
     }
   }

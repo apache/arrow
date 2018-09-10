@@ -126,7 +126,8 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   /**
-   * Set the row count of all the vectors in this container. Also sets the value count for each root level contained FieldVector.
+   * Set the row count of all the vectors in this container. Also sets the value
+   * count for each root level contained FieldVector.
    * @param rowCount Number of records.
    */
   public void setRowCount(int rowCount) {

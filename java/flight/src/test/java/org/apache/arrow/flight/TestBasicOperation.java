@@ -45,7 +45,7 @@ public class TestBasicOperation {
   @Test
   public void getDescriptors() throws Exception {
     test(c -> {
-      for(FlightInfo i : c.listFlights(Criteria.ALL)) {
+      for (FlightInfo i : c.listFlights(Criteria.ALL)) {
         System.out.println(i.getDescriptor());
       }
     });
@@ -61,7 +61,7 @@ public class TestBasicOperation {
   @Test
   public void listActions() throws Exception {
     test(c -> {
-      for(ActionType at : c.listActions()){
+      for (ActionType at : c.listActions()) {
         System.out.println(at.getType());
       }
     });
@@ -87,7 +87,7 @@ public class TestBasicOperation {
 
       //batch 1
       root.allocateNew();
-      for(int i =0; i < size; i++) {
+      for (int i = 0; i < size; i++) {
         iv.set(i, i);
       }
       iv.setValueCount(size);
@@ -97,7 +97,7 @@ public class TestBasicOperation {
       // batch 2
 
       root.allocateNew();
-      for(int i =0; i < size; i++) {
+      for (int i = 0; i < size; i++) {
         iv.set(i, i + size);
       }
       iv.setValueCount(size);
@@ -120,7 +120,7 @@ public class TestBasicOperation {
       IntVector iv = (IntVector) root.getVector("c1");
       int value = 0;
       while(stream.next()) {
-        for(int i =0; i < root.getRowCount(); i++) {
+        for(int i = 0; i < root.getRowCount(); i++) {
           Assert.assertEquals(value, iv.get(i));
           value++;
         }
@@ -135,14 +135,16 @@ public class TestBasicOperation {
   }
 
   private void test(BiConsumer<FlightClient, BufferAllocator> consumer) throws Exception {
-    try(
+    try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
         FlightServer s = new FlightServer(a, 12233, producer, ServerAuthHandler.NO_OP);){
-        s.start();
+
+      s.start();
+
       try (
-        FlightClient c = new FlightClient(a, new Location("localhost", 12233));
-        ){
+          FlightClient c = new FlightClient(a, new Location("localhost", 12233));
+        ) {
         try (BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE)) {
           consumer.accept(c, testAllocator);
         }
@@ -151,7 +153,7 @@ public class TestBasicOperation {
   }
 
   /**
-   * An example FlightProducer for test purposes
+   * An example FlightProducer for test purposes.
    */
   public class Producer implements FlightProducer, AutoCloseable {
 
@@ -176,8 +178,8 @@ public class TestBasicOperation {
     @Override
     public Callable<PutResult> acceptPut(FlightStream flightStream) {
       return () -> {
-        try(VectorSchemaRoot root = flightStream.getRoot()){
-          while(flightStream.next()) {
+        try (VectorSchemaRoot root = flightStream.getRoot()){
+          while (flightStream.next()) {
 
           }
           return PutResult.getDefaultInstance();
@@ -195,7 +197,7 @@ public class TestBasicOperation {
 
       //batch 1
       root.allocateNew();
-      for(int i =0; i < size; i++) {
+      for (int i = 0; i < size; i++) {
         iv.set(i, i);
       }
       iv.setValueCount(size);
@@ -205,7 +207,7 @@ public class TestBasicOperation {
       // batch 2
 
       root.allocateNew();
-      for(int i =0; i < size; i++) {
+      for (int i = 0; i < size; i++) {
         iv.set(i, i + size);
       }
       iv.setValueCount(size);
@@ -232,11 +234,11 @@ public class TestBasicOperation {
 
     @Override
     public Result doAction(Action action) {
-      switch(action.getType()) {
-      case "hello":
-        return new Result("world".getBytes(Charsets.UTF_8));
-      default:
-        throw new UnsupportedOperationException();
+      switch (action.getType()) {
+        case "hello":
+          return new Result("world".getBytes(Charsets.UTF_8));
+        default:
+          throw new UnsupportedOperationException();
       }
     }
 

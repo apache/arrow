@@ -19,10 +19,10 @@ package org.apache.arrow.flight.auth;
 
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
+import io.grpc.ServerCall.Listener;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
-import io.grpc.ServerCall.Listener;
 
 public class ServerAuthInterceptor implements ServerInterceptor {
 
@@ -33,8 +33,10 @@ public class ServerAuthInterceptor implements ServerInterceptor {
   }
 
   @Override
-  public <ReqT, RespT> Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
-    if(!call.getMethodDescriptor().getFullMethodName().equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME) && !isValid(headers)) {
+  public <ReqT, RespT> Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers,
+      ServerCallHandler<ReqT, RespT> next) {
+    if (!call.getMethodDescriptor().getFullMethodName().equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)
+        && !isValid(headers)) {
       call.close(Status.PERMISSION_DENIED, new Metadata());
       // TODO: we should actually terminate here instead of causing an exception below.
     }

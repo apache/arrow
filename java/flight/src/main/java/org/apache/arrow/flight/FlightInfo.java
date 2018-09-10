@@ -34,7 +34,8 @@ public class FlightInfo {
   private final long bytes;
   private final long records;
 
-  public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes, long records) {
+  public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
+      long records) {
     super();
     this.schema = schema;
     this.descriptor = descriptor;
@@ -44,7 +45,8 @@ public class FlightInfo {
   }
 
   FlightInfo(FlightGetInfo flightGetInfo){
-    schema = flightGetInfo.getSchema().size() > 0 ? Schema.deserialize(flightGetInfo.getSchema().asReadOnlyByteBuffer()) : new Schema(ImmutableList.of());
+    schema = flightGetInfo.getSchema().size() > 0 ?
+        Schema.deserialize(flightGetInfo.getSchema().asReadOnlyByteBuffer()) : new Schema(ImmutableList.of());
     descriptor = new FlightDescriptor(flightGetInfo.getFlightDescriptor());
     endpoints = flightGetInfo.getEndpointList().stream().map(t -> new FlightEndpoint(t)).collect(Collectors.toList());
     bytes = flightGetInfo.getTotalBytes();

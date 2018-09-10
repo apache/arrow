@@ -91,9 +91,6 @@ public class AddWritableBuffer {
    */
   public static boolean add(ByteBuf buf, OutputStream stream) throws IOException {
     buf.readBytes(stream, buf.readableBytes());
-//    if(true) {
-//      return true;
-//    }
 
     if(bufChainOut == null) {
       return false;

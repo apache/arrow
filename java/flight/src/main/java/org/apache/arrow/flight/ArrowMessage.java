@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.List;
+
 import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.flatbuf.RecordBatch;
@@ -63,9 +64,12 @@ class ArrowMessage implements AutoCloseable {
 
   public static final boolean FAST_PATH = true;
 
-  private static final int DESCRIPTOR_TAG = (FlightData.FLIGHT_DESCRIPTOR_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
-  private static final int BODY_TAG = (FlightData.DATA_BODY_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
-  private static final int HEADER_TAG = (FlightData.DATA_HEADER_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
+  private static final int DESCRIPTOR_TAG =
+      (FlightData.FLIGHT_DESCRIPTOR_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
+  private static final int BODY_TAG =
+      (FlightData.DATA_BODY_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
+  private static final int HEADER_TAG =
+      (FlightData.DATA_HEADER_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
 
   private static Marshaller<FlightData> NO_BODY_MARSHALLER = ProtoUtils.marshaller(FlightData.getDefaultInstance());
 
@@ -78,14 +82,14 @@ class ArrowMessage implements AutoCloseable {
     ;
 
     public static HeaderType getHeader(byte b) {
-      switch(b) {
-      case 0: return NONE;
-      case 1: return SCHEMA;
-      case 2: return DICTIONARY_BATCH;
-      case 3: return RECORD_BATCH;
-      case 4: return TENSOR;
-      default:
-        throw new UnsupportedOperationException("unknown type: " + b);
+      switch (b) {
+        case 0: return NONE;
+        case 1: return SCHEMA;
+        case 2: return DICTIONARY_BATCH;
+        case 3: return RECORD_BATCH;
+        case 4: return TENSOR;
+        default:
+          throw new UnsupportedOperationException("unknown type: " + b);
       }
     }
 
@@ -107,7 +111,8 @@ class ArrowMessage implements AutoCloseable {
   public ArrowMessage(ArrowRecordBatch batch) {
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int batchOffset = batch.writeTo(builder);
-    ByteBuffer serializedMessage = MessageSerializer.serializeMessage(builder, MessageHeader.RecordBatch, batchOffset, batch.computeBodyLength());
+    ByteBuffer serializedMessage = MessageSerializer.serializeMessage(builder, MessageHeader.RecordBatch, batchOffset,
+        batch.computeBodyLength());
     serializedMessage = serializedMessage.slice();
     this.message = Message.getRootAsMessage(serializedMessage);
     this.bufs = ImmutableList.copyOf(batch.getBuffers());
@@ -160,45 +165,45 @@ class ArrowMessage implements AutoCloseable {
       FlightDescriptor descriptor = null;
       Message header = null;
       ArrowBuf body = null;
-      while(stream.available() > 0) {
+      while (stream.available() > 0) {
         int tag = readRawVarint32(stream);
-        switch(tag) {
+        switch (tag) {
 
-        case DESCRIPTOR_TAG: {
-          int size = readRawVarint32(stream);
-          byte[] bytes = new byte[size];
-          ByteStreams.readFully(stream, bytes);
-          descriptor = FlightDescriptor.parseFrom(bytes);
-          break;
-        }
-        case HEADER_TAG: {
-          int size = readRawVarint32(stream);
-          byte[] bytes = new byte[size];
-          ByteStreams.readFully(stream, bytes);
-          header = Message.getRootAsMessage(ByteBuffer.wrap(bytes));
-          break;
-        }
-        case BODY_TAG:
-          if(body != null) {
-            // only read last body.
-            body.release();
-            body = null;
+          case DESCRIPTOR_TAG: {
+            int size = readRawVarint32(stream);
+            byte[] bytes = new byte[size];
+            ByteStreams.readFully(stream, bytes);
+            descriptor = FlightDescriptor.parseFrom(bytes);
+            break;
           }
-          int size = readRawVarint32(stream);
-          body = allocator.buffer(size);
-          ReadableBuffer readableBuffer = FAST_PATH ? GetReadableBuffer.getReadableBuffer(stream) : null;
-          if(readableBuffer != null) {
-            readableBuffer.readBytes(body.nioBuffer(0, size));
-          } else {
-            byte[] heapBytes = new byte[size];
-            ByteStreams.readFully(stream, heapBytes);
-            body.writeBytes(heapBytes);
+          case HEADER_TAG: {
+            int size = readRawVarint32(stream);
+            byte[] bytes = new byte[size];
+            ByteStreams.readFully(stream, bytes);
+            header = Message.getRootAsMessage(ByteBuffer.wrap(bytes));
+            break;
           }
-          body.writerIndex(size);
-          break;
+          case BODY_TAG:
+            if(body != null) {
+              // only read last body.
+              body.release();
+              body = null;
+            }
+            int size = readRawVarint32(stream);
+            body = allocator.buffer(size);
+            ReadableBuffer readableBuffer = FAST_PATH ? GetReadableBuffer.getReadableBuffer(stream) : null;
+            if(readableBuffer != null) {
+              readableBuffer.readBytes(body.nioBuffer(0, size));
+            } else {
+              byte[] heapBytes = new byte[size];
+              ByteStreams.readFully(stream, heapBytes);
+              body.writeBytes(heapBytes);
+            }
+            body.writerIndex(size);
+            break;
 
-        default:
-          // ignore unknown fields.
+          default:
+            // ignore unknown fields.
         }
       }
 
@@ -224,12 +229,12 @@ class ArrowMessage implements AutoCloseable {
       final ByteString bytes = ByteString.copyFrom(message.getByteBuffer(), message.getByteBuffer().remaining());
 
 
-      if(getMessageType() == HeaderType.SCHEMA) {
+      if (getMessageType() == HeaderType.SCHEMA) {
 
         final FlightData.Builder builder = FlightData.newBuilder()
             .setDataHeader(bytes);
 
-        if(descriptor != null) {
+        if (descriptor != null) {
           builder.setFlightDescriptor(descriptor);
         }
 
@@ -247,7 +252,7 @@ class ArrowMessage implements AutoCloseable {
       cos.writeTag(FlightData.DATA_BODY_FIELD_NUMBER, WireFormat.WIRETYPE_LENGTH_DELIMITED);
 
       int size = 0;
-      for(ArrowBuf b : bufs) {
+      for (ArrowBuf b : bufs) {
         size += b.readableBytes();
       }
       // rawvarint is used for length definition.
@@ -256,10 +261,11 @@ class ArrowMessage implements AutoCloseable {
 
       ArrowBuf initialBuf = allocator.buffer(baos.size());
       initialBuf.writeBytes(baos.toByteArray());
-      final CompositeByteBuf bb = new CompositeByteBuf(allocator.getAsByteBufAllocator(), true, bufs.size() + 1, ImmutableList.<ByteBuf>builder().add(initialBuf).addAll(bufs).build());
+      final CompositeByteBuf bb = new CompositeByteBuf(allocator.getAsByteBufAllocator(), true, bufs.size() + 1,
+          ImmutableList.<ByteBuf>builder().add(initialBuf).addAll(bufs).build());
       final ByteBufInputStream is = new DrainableByteBufInputStream(bb);
       return is;
-    } catch(Exception ex) {
+    } catch (Exception ex) {
       throw new RuntimeException("Unexpected IO Exception", ex);
     }
 
@@ -277,7 +283,7 @@ class ArrowMessage implements AutoCloseable {
     @Override
     public int drainTo(OutputStream target) throws IOException {
       int size = buf.readableBytes();
-      if(FAST_PATH && AddWritableBuffer.add(buf, target)) {
+      if (FAST_PATH && AddWritableBuffer.add(buf, target)) {
         return size;
       }
 

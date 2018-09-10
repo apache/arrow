@@ -43,7 +43,8 @@ public class ClientAuthInterceptor implements ClientInterceptor {
   }
 
   @Override
-  public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT, RespT> methodDescriptor, CallOptions callOptions, Channel next) {
+  public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT, RespT> methodDescriptor,
+      CallOptions callOptions, Channel next) {
     ClientCall<ReqT, RespT> call = next.newCall(methodDescriptor, callOptions);
 
     // once we have an auth header, add that to the calls.
@@ -56,15 +57,15 @@ public class ClientAuthInterceptor implements ClientInterceptor {
 
   private final class HeaderAttachingClientCall<ReqT, RespT> extends SimpleForwardingClientCall<ReqT, RespT> {
 
-  private HeaderAttachingClientCall(ClientCall<ReqT, RespT> call) {
-    super(call);
-  }
+    private HeaderAttachingClientCall(ClientCall<ReqT, RespT> call) {
+      super(call);
+    }
 
-  @Override
-  public void start(Listener<RespT> responseListener, Metadata headers) {
-    headers.merge(headerWithAuth);
-    super.start(responseListener, headers);
+    @Override
+    public void start(Listener<RespT> responseListener, Metadata headers) {
+      headers.merge(headerWithAuth);
+      super.start(responseListener, headers);
+    }
   }
-}
 
 }

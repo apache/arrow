@@ -76,8 +76,8 @@ public final class AutoCloseables {
    * @param ac the closeables to close
    */
   public static void close(Iterable<? extends AutoCloseable> ac) throws Exception {
-    // this method can be called on a single object if it implements Iterable<AutoCloseable> like for example VectorContainer
-    // make sure we handle that properly
+    // this method can be called on a single object if it implements Iterable<AutoCloseable>
+    // like for example VectorContainer make sure we handle that properly
     if (ac == null) {
       return;
     } else if (ac instanceof AutoCloseable) {

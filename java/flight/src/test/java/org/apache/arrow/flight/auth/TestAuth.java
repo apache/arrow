@@ -19,6 +19,7 @@ package org.apache.arrow.flight.auth;
 
 import java.io.IOException;
 import java.util.Arrays;
+
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;

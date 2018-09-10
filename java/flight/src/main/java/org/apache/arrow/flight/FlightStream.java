@@ -91,35 +91,36 @@ public class FlightStream {
    */
   public boolean next() {
     try {
-    // make sure we have the root
-    root.get().clear();
+      // make sure we have the root
+      root.get().clear();
 
-    if(completed && queue.isEmpty()) {
-      return false;
-    }
-
-    pending--;
-    requestOutstanding();
-
-    Object data = queue.take();
-    if(DONE == data) {
-      queue.put(DONE);
-      completed = true;
-      return false;
-    } else if(DONE_EX == data) {
-      queue.put(DONE_EX);
-      if(ex instanceof Exception) {
-        throw (Exception) ex;
-      }else {
-        throw new Exception(ex);
+      if (completed && queue.isEmpty()) {
+        return false;
       }
-    } else {
-      ArrowMessage msg = ((ArrowMessage) data);
-      try(ArrowRecordBatch arb = msg.asRecordBatch()){
-        loader.load(arb);
+
+
+      pending--;
+      requestOutstanding();
+
+      Object data = queue.take();
+      if (DONE == data) {
+        queue.put(DONE);
+        completed = true;
+        return false;
+      } else if (DONE_EX == data) {
+        queue.put(DONE_EX);
+        if (ex instanceof Exception) {
+          throw (Exception) ex;
+        } else {
+          throw new Exception(ex);
+        }
+      } else {
+        ArrowMessage msg = ((ArrowMessage) data);
+        try (ArrowRecordBatch arb = msg.asRecordBatch()){
+          loader.load(arb);
+        }
+        return true;
       }
-      return true;
-    }
 
     } catch (Exception e) {
       throw Throwables.propagate(e);
@@ -134,8 +135,8 @@ public class FlightStream {
     }
   }
 
-  private void requestOutstanding() {
-    if(pending < pendingTarget) {
+  private synchronized void requestOutstanding() {
+    if (pending < pendingTarget) {
       requestor.request(pendingTarget - pending);
       pending = pendingTarget;
     }
@@ -150,24 +151,24 @@ public class FlightStream {
     @Override
     public void onNext(ArrowMessage msg) {
       requestOutstanding();
-      switch(msg.getMessageType()) {
-      case SCHEMA:
-        schema = msg.asSchema();
-        fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
-        loader = new VectorLoader(fulfilledRoot);
-        descriptor = msg.getDescriptor() != null ? new FlightDescriptor(msg.getDescriptor()) : null;
-        root.set(fulfilledRoot);
+      switch (msg.getMessageType()) {
+        case SCHEMA:
+          schema = msg.asSchema();
+          fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
+          loader = new VectorLoader(fulfilledRoot);
+          descriptor = msg.getDescriptor() != null ? new FlightDescriptor(msg.getDescriptor()) : null;
+          root.set(fulfilledRoot);
 
-        break;
-      case RECORD_BATCH:
-        queue.add(msg);
-        break;
-      case NONE:
-      case DICTIONARY_BATCH:
-      case TENSOR:
-      default:
-        queue.add(DONE_EX);
-        ex = new UnsupportedOperationException("Unable to handle message of type." + msg);
+          break;
+        case RECORD_BATCH:
+          queue.add(msg);
+          break;
+        case NONE:
+        case DICTIONARY_BATCH:
+        case TENSOR:
+        default:
+          queue.add(DONE_EX);
+          ex = new UnsupportedOperationException("Unable to handle message of type." + msg);
 
       }
 
@@ -186,10 +187,11 @@ public class FlightStream {
   }
 
   public void cancel(String message, Throwable exception) {
-    if(cancellable != null) {
+    if (cancellable != null) {
       cancellable.cancel(message, exception);
     } else {
-      throw new UnsupportedOperationException("Streams cannot be cancelled that are produced by client. Instead, server should reject incoming messages.");
+      throw new UnsupportedOperationException("Streams cannot be cancelled that are produced by client. "
+          + "Instead, server should reject incoming messages.");
     }
   }
 
@@ -200,6 +202,7 @@ public class FlightStream {
   public interface Cancellable {
     void cancel(String message, Throwable exception);
   }
+
   public interface Requestor {
     void request(int count);
   }

@@ -100,7 +100,12 @@ public class TestPerf {
 
         double seconds = r.nanos*1.0d/1000/1000/1000;
         System.out.println(String.format(
-            "Transferred %d records totaling %s bytes at %f mb/s. %f record/s. %f batch/s.", r.rows, r.bytes, (r.bytes*1.0d/1024/1024)/seconds, (r.rows*1.0d)/seconds, (r.batches*1.0d)/seconds
+            "Transferred %d records totaling %s bytes at %f mb/s. %f record/s. %f batch/s.",
+            r.rows,
+            r.bytes,
+            (r.bytes*1.0d/1024/1024)/seconds,
+            (r.rows*1.0d)/seconds,
+            (r.batches*1.0d)/seconds
             ));
       }
     }
