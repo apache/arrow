@@ -204,7 +204,7 @@ cdef class CudaContext:
 cdef class CudaIpcMemHandle:
     """A container for a CUDA IPC handle.
     """
-    cdef void init(self, shared_ptr[CCudaIpcMemHandle] h):
+    cdef void init(self, shared_ptr[CCudaIpcMemHandle] &h):
         self.handle = h
 
     @staticmethod
@@ -539,7 +539,10 @@ cdef class CudaBufferReader(NativeFile):
 
 
 cdef class CudaBufferWriter(NativeFile):
-    """File interface for writing to CUDA buffers, with optional buffering.
+    """File interface for writing to CUDA buffers.
+
+    By default writes are unbuffered. Use set_buffer_size to enable
+    buffering.
     """
     def __cinit__(self, CudaBuffer buffer):
         self.buffer = buffer
@@ -684,7 +687,10 @@ def cuda_read_message(object source, pool=None):
 
 
 def cuda_read_record_batch(object schema, object buffer, pool=None):
-    """ Handles metadata on CUDA device
+    """Construct RecordBatch referencing IPC message located on CUDA device.
+
+    While the metadata must be copied to host memory for
+    deserialization, the record batch data remains on the device.
 
     Parameters
     ----------
@@ -699,6 +705,7 @@ def cuda_read_record_batch(object schema, object buffer, pool=None):
     -------
     batch : RecordBatch
       reconstructed record batch, with device pointers
+
     """
     cdef shared_ptr[CSchema] schema_ = pyarrow_unwrap_schema(schema)
     cdef shared_ptr[CCudaBuffer] buffer_ = pyarrow_unwrap_cudabuffer(buffer)
@@ -744,7 +751,7 @@ cdef public api bint pyarrow_is_cudaipcmemhandle(object handle):
     return isinstance(handle, CudaIpcMemHandle)
 
 cdef public api object \
-        pyarrow_wrap_cudaipcmemhandle(shared_ptr[CCudaIpcMemHandle] h):
+        pyarrow_wrap_cudaipcmemhandle(shared_ptr[CCudaIpcMemHandle] &h):
     cdef CudaIpcMemHandle result = CudaIpcMemHandle.__new__(CudaIpcMemHandle)
     result.init(h)
     return result
