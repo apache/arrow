@@ -57,6 +57,7 @@ class LLVMGenerator {
  private:
   LLVMGenerator();
 
+  FRIEND_TEST(TestLLVMGenerator, VerifyPCFunctions);
   FRIEND_TEST(TestLLVMGenerator, TestAdd);
   FRIEND_TEST(TestLLVMGenerator, TestNullInternal);
 
@@ -164,8 +165,7 @@ class LLVMGenerator {
   /// Generate code to make a function call (to a pre-compiled IR function) which takes
   /// 'args' and has a return type 'ret_type'.
   llvm::Value *AddFunctionCall(const std::string &full_name, llvm::Type *ret_type,
-                               const std::vector<llvm::Value *> &args,
-                               bool has_holder = false);
+                               const std::vector<llvm::Value *> &args);
 
   /// Compute the result bitmap for the expression.
   ///

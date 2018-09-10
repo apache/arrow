@@ -15,6 +15,8 @@
 #ifndef GANDIVA_FUNCTION_HOLDER_H
 #define GANDIVA_FUNCTION_HOLDER_H
 
+#include <memory>
+
 namespace gandiva {
 
 /// Holder for a function that can be invoked from LLVM.

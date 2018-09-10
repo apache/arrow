@@ -42,13 +42,14 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
 
   llvm::Module *module = generator->module();
   for (auto &iter : registry_) {
-    if (iter.needs_holder()) {
-      // TODO : need a way to verify these too.
-      continue;
-    }
-
+    bool found = false;
     llvm::Function *fn = module->getFunction(iter.pc_name());
-    EXPECT_NE(fn, nullptr) << "function " << iter.pc_name()
+    if (fn == nullptr) {
+      found = generator->engine_->CheckFunctionFromLoadedLib(iter.pc_name());
+    } else {
+      found = true;
+    }
+    EXPECT_EQ(found, true) << "function " << iter.pc_name()
                            << " missing in precompiled module\n";
   }
 }

@@ -27,7 +27,7 @@ using arrow::int32;
 using arrow::int64;
 using arrow::utf8;
 
-float tolerance_ratio = 2.0;
+float tolerance_ratio = 4.0;
 
 class TestBenchmarks : public ::testing::Test {
  public:
@@ -205,7 +205,7 @@ TEST_F(TestBenchmarks, TimedTestFilterLike) {
   ASSERT_TRUE(status.ok());
   std::cout << "Time taken for Filter with like " << elapsed_millis << " ms\n";
 
-  EXPECT_LE(elapsed_millis, 20000 * tolerance_ratio);
+  EXPECT_LE(elapsed_millis, 600 * tolerance_ratio);
 }
 
 }  // namespace gandiva

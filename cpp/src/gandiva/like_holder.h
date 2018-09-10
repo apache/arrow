@@ -15,7 +15,7 @@
 #ifndef GANDIVA_LIKE_HOLDER_H
 #define GANDIVA_LIKE_HOLDER_H
 
-#include <regex>
+#include <re2/re2.h>
 #include "codegen/function_holder.h"
 #include "codegen/node.h"
 #include "gandiva/status.h"
@@ -36,13 +36,13 @@ class LikeHolder : public FunctionHolder {
   static Status Make(const std::string &sql_pattern, std::shared_ptr<LikeHolder> *holder);
 
   /// Return true if the data matches the pattern.
-  bool operator()(const std::string &data) { return std::regex_match(data, regex_); }
+  bool operator()(const std::string &data) { return RE2::FullMatch(data, regex_); }
 
  private:
   LikeHolder(const std::string &pattern) : pattern_(pattern), regex_(pattern) {}
 
   std::string pattern_;  // posix pattern string, to help debugging
-  std::regex regex_;     // compiled regex for the pattern
+  RE2 regex_;            // compiled regex for the pattern
 };
 
 #ifdef GDV_HELPERS

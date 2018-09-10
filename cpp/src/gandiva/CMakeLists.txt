@@ -103,7 +103,7 @@ target_include_directories(gandiva_helpers
     $<TARGET_PROPERTY:ARROW::ARROW_SHARED,INTERFACE_INCLUDE_DIRECTORIES>
 )
 
-target_link_libraries(gandiva_helpers PRIVATE Boost::boost)
+target_link_libraries(gandiva_helpers PRIVATE Boost::boost RE2::RE2_STATIC)
 if (NOT APPLE)
   target_link_libraries(gandiva_helpers LINK_PRIVATE -static-libstdc++ -static-libgcc)
 endif()

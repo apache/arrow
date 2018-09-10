@@ -45,11 +45,16 @@ Status LikeHolder::Make(const FunctionNode &node, std::shared_ptr<LikeHolder> *h
 
 Status LikeHolder::Make(const std::string &sql_pattern,
                         std::shared_ptr<LikeHolder> *holder) {
-  std::string posix_pattern;
-  auto status = RegexUtil::SqlLikePatternToPosix(sql_pattern, posix_pattern);
+  std::string pcre_pattern;
+  auto status = RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern);
   GANDIVA_RETURN_NOT_OK(status);
 
-  *holder = std::shared_ptr<LikeHolder>(new LikeHolder(posix_pattern));
+  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
+  if (!lholder->regex_.ok()) {
+    return Status::Invalid("building re2 regex failed for pattern " + pcre_pattern);
+  }
+
+  *holder = lholder;
   return Status::OK();
 }
 

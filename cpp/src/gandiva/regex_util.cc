@@ -20,20 +20,20 @@ namespace gandiva {
 namespace helpers {
 #endif
 
-const std::set<char> RegexUtil::posix_regex_specials_ = {
+const std::set<char> RegexUtil::pcre_regex_specials_ = {
     '[', ']', '(', ')', '|', '^', '-', '+', '*', '?', '{', '}', '$', '\\'};
 
-Status RegexUtil::SqlLikePatternToPosix(const std::string &sql_pattern, char escape_char,
-                                        std::string &posix_pattern) {
-  /// Characters that are considered special by posix regex. These needs to be
+Status RegexUtil::SqlLikePatternToPcre(const std::string &sql_pattern, char escape_char,
+                                       std::string &pcre_pattern) {
+  /// Characters that are considered special by pcre regex. These needs to be
   /// escaped with '\\'.
-  posix_pattern.clear();
+  pcre_pattern.clear();
   for (size_t idx = 0; idx < sql_pattern.size(); ++idx) {
     auto cur = sql_pattern.at(idx);
 
-    // Escape any char that is special for posix regex
-    if (posix_regex_specials_.find(cur) != posix_regex_specials_.end()) {
-      posix_pattern += "\\";
+    // Escape any char that is special for pcre regex
+    if (pcre_regex_specials_.find(cur) != pcre_regex_specials_.end()) {
+      pcre_pattern += "\\";
     }
 
     if (cur == escape_char) {
@@ -47,7 +47,7 @@ Status RegexUtil::SqlLikePatternToPosix(const std::string &sql_pattern, char esc
 
       cur = sql_pattern.at(idx);
       if (cur == '_' || cur == '%' || cur == escape_char) {
-        posix_pattern += cur;
+        pcre_pattern += cur;
       } else {
         std::stringstream msg;
         msg << "invalid escape sequence in pattern " << sql_pattern << " at offset "
@@ -55,11 +55,11 @@ Status RegexUtil::SqlLikePatternToPosix(const std::string &sql_pattern, char esc
         return Status::Invalid(msg.str());
       }
     } else if (cur == '_') {
-      posix_pattern += '.';
+      pcre_pattern += '.';
     } else if (cur == '%') {
-      posix_pattern += ".*";
+      pcre_pattern += ".*";
     } else {
-      posix_pattern += cur;
+      pcre_pattern += cur;
     }
   }
   return Status::OK();

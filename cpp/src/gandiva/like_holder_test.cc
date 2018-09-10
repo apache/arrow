@@ -30,7 +30,7 @@ TEST_F(TestLikeHolder, TestMatchAny) {
   auto status = LikeHolder::Make("ab%", &like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto like = *like_holder;
+  auto &like = *like_holder;
   EXPECT_TRUE(like("ab"));
   EXPECT_TRUE(like("abc"));
   EXPECT_TRUE(like("abcd"));
@@ -45,7 +45,7 @@ TEST_F(TestLikeHolder, TestMatchOne) {
   auto status = LikeHolder::Make("ab_", &like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto like = *like_holder;
+  auto &like = *like_holder;
   EXPECT_TRUE(like("abc"));
   EXPECT_TRUE(like("abd"));
 
@@ -54,20 +54,20 @@ TEST_F(TestLikeHolder, TestMatchOne) {
   EXPECT_FALSE(like("dabc"));
 }
 
-TEST_F(TestLikeHolder, TestPosixSpecial) {
+TEST_F(TestLikeHolder, TestPcreSpecial) {
   std::shared_ptr<LikeHolder> like_holder;
 
   auto status = LikeHolder::Make(".*ab_", &like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto like = *like_holder;
+  auto &like = *like_holder;
   EXPECT_TRUE(like(".*abc"));  // . and * aren't special in sql regex
   EXPECT_FALSE(like("xxabc"));
 }
 
 TEST_F(TestLikeHolder, TestRegexEscape) {
   std::string res;
-  auto status = RegexUtil::SqlLikePatternToPosix("#%hello#_abc_def##", '#', res);
+  auto status = RegexUtil::SqlLikePatternToPcre("#%hello#_abc_def##", '#', res);
   EXPECT_TRUE(status.ok()) << status.message();
 
   EXPECT_EQ(res, "%hello_abc.def#");

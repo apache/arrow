@@ -24,20 +24,20 @@ namespace gandiva {
 namespace helpers {
 #endif
 
-/// \brief Utility class for converting sql patterns to posix patterns.
+/// \brief Utility class for converting sql patterns to pcre patterns.
 class RegexUtil {
  public:
-  // Convert an sql pattern to an std::regex pattern
-  static Status SqlLikePatternToPosix(const std::string &like_pattern, char escape_char,
-                                      std::string &posix_pattern);
+  // Convert an sql pattern to a pcre pattern
+  static Status SqlLikePatternToPcre(const std::string &like_pattern, char escape_char,
+                                     std::string &pcre_pattern);
 
-  static Status SqlLikePatternToPosix(const std::string &like_pattern,
-                                      std::string &posix_pattern) {
-    return SqlLikePatternToPosix(like_pattern, 0 /*escape_char*/, posix_pattern);
+  static Status SqlLikePatternToPcre(const std::string &like_pattern,
+                                     std::string &pcre_pattern) {
+    return SqlLikePatternToPcre(like_pattern, 0 /*escape_char*/, pcre_pattern);
   }
 
  private:
-  static const std::set<char> posix_regex_specials_;
+  static const std::set<char> pcre_regex_specials_;
 };
 
 #ifdef GDV_HELPERS

@@ -13,11 +13,12 @@ Build Gandiva requires:
 * Arrow
 * Boost
 * Protobuf
+* re2
 
 On macOS, you can use [Homebrew][1]:
 
 ```shell
-brew install cmake llvm boost protobuf
+brew install cmake llvm boost protobuf re2
 ```
 
 To install arrow, follow the steps in the [arrow Readme][2].
