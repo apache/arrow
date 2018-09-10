@@ -19,12 +19,6 @@
 
 `arrow::ArrayData` <- R6Class("arrow::ArrayData",
   inherit = `arrow::Object`,
-
-  public = list(
-    initialize = function(type, length, null_count = -1, offset = 0) {
-      self$set_pointer(ArrayData_initialize(type, length, null_count, offset))
-    }
-  ),
   active = list(
     type = function() `arrow::DataType`$dispatch(ArrayData_get_type(self)),
     length = function() ArrayData_get_length(self),
@@ -33,17 +27,13 @@
   )
 )
 
-#' @export
-array_data <- function(...){
-  `arrow::ArrayData`$new(...)
+array_data <- function(type, length, null_count = -1, offset = 0){
+  `arrow::ArrayData`$new(ArrayData_initialize(type, length, null_count, offset))
 }
 
 `arrow::Array` <- R6Class("arrow::Array",
   inherit = `arrow::Object`,
   public = list(
-    initialize = function(x) {
-      self$set_pointer(rvector_to_Array(x))
-    },
     IsNull = function(i) Array_IsNull(self, i),
     IsValid = function(i) Array_IsValid(self, i),
     length = function() Array_length(self),
@@ -69,7 +59,7 @@ array_data <- function(...){
 #' @export
 MakeArray <- function(data){
   assert_that(inherits(data, "arrow::ArrayData"))
-  `arrow::Array`$new(data)
+  `arrow::Array`$new(Array_initialize(data))
 }
 
 #' create an arrow::Array from an R vector

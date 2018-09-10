@@ -20,9 +20,6 @@
 `arrow::MemoryPool` <- R6Class("arrow::MemoryPool",
   inherit = `arrow::Object`,
   public = list(
-    initialize = function(xp){
-      if(!missing(xp)) self$set_pointer(xp)
-    },
     # TODO: Allocate
     # TODO: Reallocate
     # TODO: Free

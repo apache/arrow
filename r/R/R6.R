@@ -24,19 +24,20 @@
 
 `arrow::Object` <- R6Class("arrow::Object",
   public = list(
-    `.:xp:.` = NULL,
+    initialize = function(xp) self$set_pointer(xp),
+
     pointer = function() self$`.:xp:.`,
+    `.:xp:.` = NULL,
     set_pointer = function(xp){
       self$`.:xp:.` <- xp
-    },
-    list = function() list_(self)
+    }
   )
 )
 
 `arrow::DataType` <- R6Class("arrow::DataType",
   inherit = `arrow::Object`,
   public = list(
-    initialize = function(xp) self$set_pointer(xp),
+
     ToString = function() {
       DataType_ToString(self)
     },
@@ -115,92 +116,53 @@
 
 "arrow::Int8"    <- R6Class("arrow::Int8",
   inherit = `arrow::FixedWidthType`,
-  public = list(
-    initialize = function() self$set_pointer(Int8_initialize())
-  )
 )
 
 "arrow::Int16"    <- R6Class("arrow::Int16",
-  inherit = `arrow::FixedWidthType`,
-  public = list(
-    initialize = function() self$set_pointer(Int16_initialize())
-  )
+  inherit = `arrow::FixedWidthType`
 )
 
 "arrow::Int32"    <- R6Class("arrow::Int32",
-  inherit = `arrow::FixedWidthType`,
-  public = list(
-    initialize = function() self$set_pointer(Int32_initialize())
-  )
+  inherit = `arrow::FixedWidthType`
 )
 
 "arrow::Int64"    <- R6Class("arrow::Int64",
-  inherit = `arrow::FixedWidthType`,
-  public = list(
-    initialize = function() self$set_pointer(Int64_initialize())
-  )
+  inherit = `arrow::FixedWidthType`
 )
 
 
 "arrow::UInt8"    <- R6Class("arrow::UInt8",
-  inherit = `arrow::FixedWidthType`,
-  public = list(
-    initialize = function() self$set_pointer(UInt8_initialize())
-  )
+  inherit = `arrow::FixedWidthType`
 )
 
 "arrow::UInt16"    <- R6Class("arrow::UInt16",
-  inherit = `arrow::FixedWidthType`,
-  public = list(
-    initialize = function() self$set_pointer(UInt16_initialize())
-  )
+  inherit = `arrow::FixedWidthType`
 )
 
 "arrow::UInt32"    <- R6Class("arrow::UInt32",
-  inherit = `arrow::FixedWidthType`,
-  public = list(
-    initialize = function() self$set_pointer(UInt32_initialize())
-  )
+  inherit = `arrow::FixedWidthType`
 )
 
 "arrow::UInt64"    <- R6Class("arrow::UInt64",
-  inherit = `arrow::FixedWidthType`,
-  public = list(
-    initialize = function() self$set_pointer(UInt64_initialize())
-  )
+  inherit = `arrow::FixedWidthType`
 )
 
 "arrow::Float16"    <- R6Class("arrow::Float16",
-  inherit = `arrow::FixedWidthType`,
-  public = list(
-    initialize = function() self$set_pointer(Float16_initialize())
-  )
+  inherit = `arrow::FixedWidthType`
 )
 "arrow::Float32"    <- R6Class("arrow::Float32",
-  inherit = `arrow::FixedWidthType`,
-  public = list(
-    initialize = function() self$set_pointer(Float32_initialize())
-  )
+  inherit = `arrow::FixedWidthType`
 )
 "arrow::Float64"    <- R6Class("arrow::Float64",
-  inherit = `arrow::FixedWidthType`,
-  public = list(
-    initialize = function() self$set_pointer(Float64_initialize())
-  )
+  inherit = `arrow::FixedWidthType`
 )
 
 "arrow::Boolean"    <- R6Class("arrow::Boolean",
-  inherit = `arrow::FixedWidthType`,
-  public = list(
-    initialize = function() self$set_pointer(Boolean_initialize())
-  )
+  inherit = `arrow::FixedWidthType`
 )
 
 "arrow::Utf8"    <- R6Class("arrow::Utf8",
-  inherit = `arrow::DataType`,
-  public = list(
-    initialize = function() self$set_pointer(Utf8_initialize())
-  )
+  inherit = `arrow::DataType`
 )
 
 `arrow::DateType` <- R6Class("arrow::DateType",
@@ -211,60 +173,33 @@
 )
 
 "arrow::Date32"    <- R6Class("arrow::Date32",
-  inherit = `arrow::DateType`,
-  public = list(
-    initialize = function() self$set_pointer(Date32_initialize())
-  )
+  inherit = `arrow::DateType`
 )
 "arrow::Date64"    <- R6Class("arrow::Date64",
-  inherit = `arrow::DateType`,
-  public = list(
-    initialize = function() self$set_pointer(Date64_initialize())
-  )
+  inherit = `arrow::DateType`
 )
 
-`arrow::TimeType` <- R6Class("arrow::TimeType",
+"arrow::TimeType" <- R6Class("arrow::TimeType",
   inherit = `arrow::FixedWidthType`,
   public = list(
     unit = function() TimeType_unit(self)
   )
 )
 "arrow::Time32"    <- R6Class("arrow::Time32",
-  inherit = `arrow::TimeType`,
-  public = list(
-    initialize = function(unit) self$set_pointer(Time32_initialize(unit))
-  )
+  inherit = `arrow::TimeType`
 )
 "arrow::Time64"    <- R6Class("arrow::Time64",
-  inherit = `arrow::TimeType`,
-  public = list(
-    initialize = function(unit) self$set_pointer(Time64_initialize(unit))
-  )
+  inherit = `arrow::TimeType`
 )
 
-`arrow::Null` <- R6Class("arrow::Null",
-  inherit = `arrow::DataType`,
-  public = list(
-    initialize = function() { self$set_pointer(Null_initialize()) }
-  )
+"arrow::Null" <- R6Class("arrow::Null",
+  inherit = `arrow::DataType`
 )
 
 `arrow::Timestamp` <- R6Class(
   "arrow::Timestamp",
   inherit = `arrow::FixedWidthType` ,
   public = list(
-    initialize = function(unit, timezone, xp){
-      if(!missing(xp)){
-        self$set_pointer(xp)
-      } else {
-        if (missing(timezone)) {
-          self$set_pointer(Timestamp_initialize1(unit))
-        } else {
-          self$set_pointer(Timestamp_initialize2(unit, timezone))
-        }
-      }
-    },
-
     timezone = function()  TimestampType_timezone(self),
     unit = function() TimestampType_unit(self)
   )
@@ -279,16 +214,7 @@
 )
 
 "arrow::Decimal128Type"    <- R6Class("arrow::Decimal128Type",
-  inherit = `arrow::DecimalType`,
-  public = list(
-    initialize = function(precision, scale, xp) {
-      if (!missing(xp)){
-        self$set_pointer(xp)
-      } else {
-        self$set_pointer(Decimal128Type_initialize(precision, scale))
-      }
-    }
-  )
+  inherit = `arrow::DecimalType`
 )
 
 #' Apache Arrow data types
@@ -303,63 +229,63 @@
 #'
 #' @rdname DataType
 #' @export
-int8 <- function() `arrow::Int8`$new()
+int8 <- function() `arrow::Int8`$new(Int8_initialize())
 
 #' @rdname DataType
 #' @export
-int16 <- function() `arrow::Int16`$new()
+int16 <- function() `arrow::Int16`$new(Int16_initialize())
 
 #' @rdname DataType
 #' @export
-int32 <- function() `arrow::Int32`$new()
+int32 <- function() `arrow::Int32`$new(Int32_initialize())
 
 #' @rdname DataType
 #' @export
-int64 <- function() `arrow::Int64`$new()
+int64 <- function() `arrow::Int64`$new(Int64_initialize())
 
 #' @rdname DataType
 #' @export
-uint8 <- function() `arrow::UInt8`$new()
+uint8 <- function() `arrow::UInt8`$new(UInt8_initialize())
 
 #' @rdname DataType
 #' @export
-uint16 <- function() `arrow::UInt16`$new()
+uint16 <- function() `arrow::UInt16`$new(UInt16_initialize())
 
 #' @rdname DataType
 #' @export
-uint32 <- function() `arrow::UInt32`$new()
+uint32 <- function() `arrow::UInt32`$new(UInt32_initialize())
 
 #' @rdname DataType
 #' @export
-uint64 <- function() `arrow::UInt64`$new()
+uint64 <- function() `arrow::UInt64`$new(UInt64_initialize())
 
 #' @rdname DataType
 #' @export
-float16 <- function() `arrow::Float16`$new()
+float16 <- function() `arrow::Float16`$new(Float16_initialize())
 
 #' @rdname DataType
 #' @export
-float32 <- function() `arrow::Float32`$new()
+float32 <- function() `arrow::Float32`$new(Float32_initialize())
 
 #' @rdname DataType
 #' @export
-float64 <- function() `arrow::Float64`$new()
+float64 <- function() `arrow::Float64`$new(Float64_initialize())
 
 #' @rdname DataType
 #' @export
-boolean <- function() `arrow::Boolean`$new()
+boolean <- function() `arrow::Boolean`$new(Boolean_initialize())
 
 #' @rdname DataType
 #' @export
-utf8 <- function() `arrow::Utf8`$new()
+utf8 <- function() `arrow::Utf8`$new(Utf8_initialize())
 
 #' @rdname DataType
 #' @export
-date32 <- function() `arrow::Date32`$new()
+date32 <- function() `arrow::Date32`$new(Date32_initialize())
 
 #' @rdname DataType
 #' @export
-date64 <- function() `arrow::Date64`$new()
+date64 <- function() `arrow::Date64`$new(Date64_initialize())
 
 #' @rdname DataType
 
@@ -410,47 +336,46 @@ date64 <- function() `arrow::Date64`$new()
 
 #' @export
 time32 <- function(unit) {
-  `arrow::Time32`$new(unit)
+  `arrow::Time32`$new(Time32_initialize(unit))
 }
 
 #' @rdname DataType
 #' @export
-time64 <- function(unit) `arrow::Time64`$new(unit)
+time64 <- function(unit) `arrow::Time64`$new(Time64_initialize(unit))
 
 #' @rdname DataType
+#' @export
+null <- function() `arrow::Null`$new(Null_initialize())
+
+#' @rdname DataType
+#' @export
+timestamp <- function(unit, timezone) {
+  if (missing(timezone)) {
+    `arrow::Timestamp`$new(Timestamp_initialize1(unit))
+  } else {
+    `arrow::Timestamp`$new(Timestamp_initialize2(unit, timezone))
+  }
+}
+
+#' @rdname DataType
+
+#' @export
+time64 <- function(unit) `arrow::Time64`$new(unit)
+
 #' @export
 null <- function() `arrow::Null`$new()
 
-#' @rdname DataType
-#' @export
-timestamp <- function(...) `arrow::Timestamp`$new(...)
-
-#' @rdname DataType
-
-#' @export
-time64 <- function(unit) `arrow::Time64`$new(unit)
-
-#' @export
-null <- function() `arrow::Null`$new()
-
 #' @export
 timestamp <- function(...) `arrow::Timestamp`$new(...)
 
 #' @export
-decimal <- function(precision, scale) `arrow::Decimal128Type`$new(precision, scale)
+decimal <- function(precision, scale) `arrow::Decimal128Type`$new(Decimal128Type_initialize(precision, scale))
 
 #------- field
 
 `arrow::Field` <- R6Class("arrow::Field",
   inherit = `arrow::Object`,
   public = list(
-    initialize = function(name, type, xp){
-      if(!missing(xp)) {
-        self$set_pointer(xp)
-      } else {
-        self$set_pointer(Field_initialize(name, type))
-      }
-    },
     ToString = function() {
       Field_ToString(self)
     },
@@ -479,7 +404,9 @@ decimal <- function(precision, scale) `arrow::Decimal128Type`$new(precision, sca
   ! lhs == rhs
 }
 
-field <- function(name, type) `arrow::Field`$new(name, type)
+field <- function(name, type) {
+  `arrow::Field`$new(Field_initialize(name, type))
+}
 
 #------- struct and schema
 
@@ -495,13 +422,6 @@ field <- function(name, type) `arrow::Field`$new(name, type)
   public = list(
     print = function(...) {
       cat( glue( "StructType({s})", s = DataType_ToString(self)))
-    },
-    initialize = function(..., xp){
-      if(!missing(xp)){
-        self$set_pointer(xp)
-      } else {
-        self$set_pointer(struct_(.fields(list(...))))
-      }
     }
   )
 )
@@ -511,24 +431,21 @@ field <- function(name, type) `arrow::Field`$new(name, type)
   public = list(
     print = function(...) {
       cat( glue( "{s}", s = Schema_ToString(self)))
-    },
-    initialize = function(..., .xp){
-      if(missing(.xp)){
-        self$set_pointer(schema_(.fields(list(...))))
-      } else {
-        self$set_pointer(.xp)
-      }
     }
   )
 )
 
 #' @rdname DataType
 #' @export
-struct <- function(...) `arrow::StructType`$new(...)
+struct <- function(...){
+  `arrow::StructType`$new(struct_(.fields(list(...))))
+}
 
 #' @rdname DataType
 #' @export
-schema <- function(...) `arrow::Schema`$new(...)
+schema <- function(...){
+  `arrow::Schema`$new(schema_(.fields(list(...))))
+}
 
 #--------- list
 
@@ -537,17 +454,10 @@ schema <- function(...) `arrow::Schema`$new(...)
   public = list(
     print = function(...) {
       cat( glue( "ListType({s})", s = ListType_ToString(self)))
-    },
-    initialize = function(x, xp){
-      if (!missing(xp)){
-        self$set_pointer(xp)
-      } else {
-        self$set_pointer(list__(x))
-      }
     }
   )
 )
 
 #' @rdname DataType
 #' @export
-list_of <- function(type) `arrow::ListType`$new(type)
+list_of <- function(type) `arrow::ListType`$new(list__(type))
