@@ -159,8 +159,6 @@ List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch){
   return tbl;
 }
 
-
-
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Table> dataframe_to_Table(DataFrame tbl){
   auto rb = dataframe_to_RecordBatch(tbl);

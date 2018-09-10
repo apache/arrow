@@ -78,6 +78,15 @@ array <- function(...){
   RecordBatch_to_dataframe(x)
 }
 
+#' @export
+write_arrow <- function(data, path){
+  record_batch(data)$to_file(path)
+}
+
+#' @export
+read_arrow <- function(path){
+  as_tibble(read_record_batch(path))
+}
 
 #' Create an arrow::RecordBatch from a data frame
 #'
