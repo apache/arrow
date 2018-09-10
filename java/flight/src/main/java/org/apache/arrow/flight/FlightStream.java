@@ -17,8 +17,10 @@
  */
 package org.apache.arrow.flight;
 
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -28,6 +30,8 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.SettableFuture;
 
 import io.grpc.stub.StreamObserver;
@@ -38,10 +42,15 @@ public class FlightStream {
   private final Object DONE = new Object();
   private final Object DONE_EX = new Object();
 
+
   private final BufferAllocator allocator;
+  private final Cancellable cancellable;
   private final LinkedBlockingQueue<Object> queue = new LinkedBlockingQueue<>();
   private final SettableFuture<VectorSchemaRoot> root = SettableFuture.create();
+  private final int pendingTarget;
+  private final Requestor requestor;
 
+  private volatile int pending = 1;
   private boolean completed = false;
   private volatile VectorSchemaRoot fulfilledRoot;
   private volatile VectorLoader loader;
@@ -49,8 +58,11 @@ public class FlightStream {
   private volatile FlightDescriptor descriptor;
   private volatile Schema schema;
 
-  public FlightStream(BufferAllocator allocator) {
+  public FlightStream(BufferAllocator allocator, int pendingTarget, Cancellable cancellable, Requestor requestor) {
     this.allocator = allocator;
+    this.pendingTarget = pendingTarget;
+    this.cancellable = cancellable;
+    this.requestor = requestor;
   }
 
   public Schema getSchema() {
@@ -62,7 +74,15 @@ public class FlightStream {
   }
 
   public void close() throws Exception {
-    AutoCloseables.close(fulfilledRoot);
+    if(!completed && cancellable != null) {
+      cancel("Stream closed before end.", null);
+    }
+    List<AutoCloseable> closeables = ImmutableList.copyOf(queue.toArray()).stream()
+        .filter(t -> AutoCloseable.class.isAssignableFrom(t.getClass()))
+        .map(t -> ((AutoCloseable) t))
+        .collect(Collectors.toList());
+
+    AutoCloseables.close(Iterables.concat(closeables, ImmutableList.of(root.get())));
   }
 
   /**
@@ -78,9 +98,13 @@ public class FlightStream {
       return false;
     }
 
+    pending--;
+    requestOutstanding();
+
     Object data = queue.take();
     if(DONE == data) {
       queue.put(DONE);
+      completed = true;
       return false;
     } else if(DONE_EX == data) {
       queue.put(DONE_EX);
@@ -90,7 +114,6 @@ public class FlightStream {
         throw new Exception(ex);
       }
     } else {
-      //loader.load(((ArrowMessage) data).asRecordBatch());
       ArrowMessage msg = ((ArrowMessage) data);
       try(ArrowRecordBatch arb = msg.asRecordBatch()){
         loader.load(arb);
@@ -111,43 +134,73 @@ public class FlightStream {
     }
   }
 
-  StreamObserver<ArrowMessage> asObserver(){
-    return new StreamObserver<ArrowMessage>() {
-
-      @Override
-      public void onNext(ArrowMessage msg) {
-        switch(msg.getMessageType()) {
-        case SCHEMA:
-          schema = msg.asSchema();
-          fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
-          loader = new VectorLoader(fulfilledRoot);
-          descriptor = msg.getDescriptor() != null ? new FlightDescriptor(msg.getDescriptor()) : null;
-          root.set(fulfilledRoot);
-          break;
-        case RECORD_BATCH:
-          queue.add(msg);
-          break;
-        case NONE:
-        case DICTIONARY_BATCH:
-        case TENSOR:
-        default:
-          queue.add(DONE_EX);
-          ex = new UnsupportedOperationException("Unable to handle message of type." + msg);
-
-        }
-      }
-
-      @Override
-      public void onError(Throwable t) {
-        ex = t;
-        queue.add(DONE_EX);
-      }
-
-      @Override
-      public void onCompleted() {
-        queue.add(DONE);
-      }};
-
+  private void requestOutstanding() {
+    if(pending < pendingTarget) {
+      requestor.request(pendingTarget - pending);
+      pending = pendingTarget;
+    }
   }
 
+  private class Observer implements StreamObserver<ArrowMessage> {
+
+    public Observer() {
+      super();
+    }
+
+    @Override
+    public void onNext(ArrowMessage msg) {
+      requestOutstanding();
+      switch(msg.getMessageType()) {
+      case SCHEMA:
+        schema = msg.asSchema();
+        fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
+        loader = new VectorLoader(fulfilledRoot);
+        descriptor = msg.getDescriptor() != null ? new FlightDescriptor(msg.getDescriptor()) : null;
+        root.set(fulfilledRoot);
+
+        break;
+      case RECORD_BATCH:
+        queue.add(msg);
+        break;
+      case NONE:
+      case DICTIONARY_BATCH:
+      case TENSOR:
+      default:
+        queue.add(DONE_EX);
+        ex = new UnsupportedOperationException("Unable to handle message of type." + msg);
+
+      }
+
+    }
+
+    @Override
+    public void onError(Throwable t) {
+      ex = t;
+      queue.add(DONE_EX);
+    }
+
+    @Override
+    public void onCompleted() {
+      queue.add(DONE);
+    }
+  }
+
+  public void cancel(String message, Throwable exception) {
+    if(cancellable != null) {
+      cancellable.cancel(message, exception);
+    } else {
+      throw new UnsupportedOperationException("Streams cannot be cancelled that are produced by client. Instead, server should reject incoming messages.");
+    }
+  }
+
+  StreamObserver<ArrowMessage> asObserver(){
+    return new Observer();
+  }
+
+  public interface Cancellable {
+    void cancel(String message, Throwable exception);
+  }
+  public interface Requestor {
+    void request(int count);
+  }
 }

@@ -21,6 +21,7 @@ import java.io.IOException;
 
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -41,7 +42,7 @@ public class ExampleFlightServer implements AutoCloseable {
     this.allocator = allocator.newChildAllocator("flight-server", 0, Long.MAX_VALUE);
     this.location = location;
     this.mem = new InMemoryStore(this.allocator, location);
-    this.flightServer = new FlightServer(allocator, location.getPort(), mem);
+    this.flightServer = new FlightServer(allocator, location.getPort(), mem, ServerAuthHandler.NO_OP);
   }
 
   public Location getLocation() {

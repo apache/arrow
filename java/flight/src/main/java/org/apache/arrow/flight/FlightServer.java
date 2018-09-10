@@ -18,21 +18,31 @@
 package org.apache.arrow.flight;
 import java.io.IOException;
 
+import org.apache.arrow.flight.auth.ServerAuthHandler;
+import org.apache.arrow.flight.auth.ServerAuthInterceptor;
 import org.apache.arrow.flight.impl.Flight.FlightGetInfo;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import io.grpc.ServerInterceptors;
 
 public class FlightServer implements AutoCloseable {
 
   private final Server server;
 
-  public FlightServer(BufferAllocator allocator, int port, FlightProducer producer) {
+  public FlightServer(
+      BufferAllocator allocator,
+      int port,
+      FlightProducer producer,
+      ServerAuthHandler authHandler) {
 
     this.server = ServerBuilder.forPort(port)
-        .addService(new FlightBindingService(allocator, producer))
+        .addService(
+            ServerInterceptors.intercept(
+                new FlightBindingService(allocator, producer, authHandler),
+                new ServerAuthInterceptor(authHandler)))
         .build();
   }
 

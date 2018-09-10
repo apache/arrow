@@ -53,6 +53,25 @@ public class TestPerf {
 
   public static final boolean VALIDATE = false;
 
+  public static FlightDescriptor getPerfFlightDescriptor(long recordCount, int recordsPerBatch) {
+    final Schema pojoSchema = new Schema(ImmutableList.of(
+        Field.nullable("a", MinorType.BIGINT.getType()),
+        Field.nullable("b", MinorType.BIGINT.getType()),
+        Field.nullable("c", MinorType.BIGINT.getType()),
+        Field.nullable("d", MinorType.BIGINT.getType())
+        ));
+
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    pojoSchema.getSchema(builder);
+
+    return FlightDescriptor.command(Perf.newBuilder()
+        .setRecordsPerStream(recordCount)
+        .setRecordsPerBatch(recordsPerBatch)
+        .setSchema(ByteString.copyFrom(pojoSchema.toByteArray()))
+        .setStreamCount(1)
+        .build()
+        .toByteArray());
+  }
   @Test
   public void throughput() throws Exception {
     for(int i =0 ; i < 10; i++) {
@@ -65,25 +84,7 @@ public class TestPerf {
 
         server.start();
 
-        final Schema pojoSchema = new Schema(ImmutableList.of(
-            Field.nullable("a", MinorType.BIGINT.getType()),
-            Field.nullable("b", MinorType.BIGINT.getType()),
-            Field.nullable("c", MinorType.BIGINT.getType()),
-            Field.nullable("d", MinorType.BIGINT.getType())
-            ));
-
-        FlatBufferBuilder builder = new FlatBufferBuilder();
-        pojoSchema.getSchema(builder);
-
-        final FlightDescriptor descriptor = FlightDescriptor.command(Perf.newBuilder()
-            .setRecordsPerStream(50_000_000l)
-            .setRecordsPerBatch(4095)
-            .setSchema(ByteString.copyFrom(pojoSchema.toByteArray()))
-            .setStreamCount(1)
-            .build()
-            .toByteArray());
-
-        final FlightInfo info = client.getInfo(descriptor);
+        final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000l, 4095));
         ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(4));
         List<ListenableFuture<Result>> results = info.getEndpoints()
             .stream()

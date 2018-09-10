@@ -20,33 +20,37 @@ package org.apache.arrow.flight;
 import java.util.concurrent.Callable;
 
 import org.apache.arrow.flight.impl.Flight.PutResult;
-import org.apache.arrow.vector.VectorSchemaRoot;
 
-/**
- * API to Implement an Arrow Flight server.
- */
-public interface FlightProducer {
+public class NoOpFlightProducer implements FlightProducer {
 
-  public void getStream(Ticket ticket, ServerStreamListener listener);
-  public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener);
-  public FlightInfo getFlightInfo(FlightDescriptor descriptor);
-  public Callable<PutResult> acceptPut(FlightStream flightStream);
-  public Result doAction(Action action);
-  public void listActions(StreamListener<ActionType> listener);
-
-  public interface ServerStreamListener {
-    boolean isCancelled();
-    boolean isReady();
-    void start(VectorSchemaRoot root);
-    void putNext();
-    void error(Throwable ex);
-    void completed();
+  @Override
+  public void getStream(Ticket ticket, ServerStreamListener listener) {
+    listener.error(new UnsupportedOperationException("NYI"));
   }
 
-  public interface StreamListener<T> {
-    void onNext(T val);
-    void onError(Throwable t);
-    void onCompleted();
+  @Override
+  public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
+    listener.onError(new UnsupportedOperationException("NYI"));
+  }
+
+  @Override
+  public FlightInfo getFlightInfo(FlightDescriptor descriptor) {
+    throw new UnsupportedOperationException("NYI");
+  }
+
+  @Override
+  public Callable<PutResult> acceptPut(FlightStream flightStream) {
+    throw new UnsupportedOperationException("NYI");
+  }
+
+  @Override
+  public Result doAction(Action action) {
+    throw new UnsupportedOperationException("NYI");
+  }
+
+  @Override
+  public void listActions(StreamListener<ActionType> listener) {
+    listener.onError(new UnsupportedOperationException("NYI"));
   }
 
 }

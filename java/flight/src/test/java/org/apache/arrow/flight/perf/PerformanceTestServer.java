@@ -35,6 +35,7 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.example.ExampleFlightServer;
 import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.flight.perf.impl.PerfOuterClass.Perf;
@@ -60,11 +61,11 @@ public class PerformanceTestServer implements AutoCloseable {
   private final BufferAllocator allocator;
   private final PerfProducer producer;
 
-  public PerformanceTestServer(BufferAllocator allocator, Location location) {
-    this.allocator = allocator.newChildAllocator("perf-server", 0, Long.MAX_VALUE);
+  public PerformanceTestServer(BufferAllocator incomingAllocator, Location location) {
+    this.allocator = incomingAllocator.newChildAllocator("perf-server", 0, Long.MAX_VALUE);
     this.location = location;
     this.producer = new PerfProducer();
-    this.flightServer = new FlightServer(allocator, location.getPort(), producer);
+    this.flightServer = new FlightServer(this.allocator, location.getPort(), producer, ServerAuthHandler.NO_OP);
   }
 
   public Location getLocation() {
@@ -98,12 +99,17 @@ public class PerformanceTestServer implements AutoCloseable {
         root.allocateNew();
 
         int current = 0;
-        int batches = 0;
         long i = token.getStart();
         while(i < token.getEnd()) {
+          if(listener.isCancelled()) {
+            root.clear();
+            return;
+          }
+
           if(TestPerf.VALIDATE) {
             a.setSafe(current, i);
           }
+
           i++;
           current++;
           if (i % perf.getRecordsPerBatch() == 0) {
@@ -112,8 +118,12 @@ public class PerformanceTestServer implements AutoCloseable {
             while(!listener.isReady()) {
               //Thread.sleep(0, nanos);
             }
+
+            if(listener.isCancelled()) {
+              root.clear();
+              return;
+            }
             listener.putNext();
-            batches++;
             current = 0;
             root.allocateNew();
           }
@@ -123,7 +133,6 @@ public class PerformanceTestServer implements AutoCloseable {
         if(current != 0) {
           root.setRowCount(current);
           listener.putNext();
-          batches++;
         }
         listener.completed();
       } catch (InvalidProtocolBufferException e) {

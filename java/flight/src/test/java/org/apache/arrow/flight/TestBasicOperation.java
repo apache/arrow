@@ -22,6 +22,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
+import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.FlightDescriptor.DescriptorType;
 import org.apache.arrow.flight.impl.Flight.FlightGetInfo;
@@ -137,7 +138,7 @@ public class TestBasicOperation {
     try(
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
-        FlightServer s = new FlightServer(a, 12233, producer);){
+        FlightServer s = new FlightServer(a, 12233, producer, ServerAuthHandler.NO_OP);){
         s.start();
       try (
         FlightClient c = new FlightClient(a, new Location("localhost", 12233));

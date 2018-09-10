@@ -31,6 +31,7 @@ import org.apache.arrow.flight.grpc.GetReadableBuffer;
 import org.apache.arrow.flight.impl.Flight.FlightData;
 import org.apache.arrow.flight.impl.Flight.FlightDescriptor;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -58,7 +59,7 @@ import io.netty.buffer.CompositeByteBuf;
 /**
  * The in-memory representation of FlightData used to manage a stream of Arrow messages.
  */
-class ArrowMessage {
+class ArrowMessage implements AutoCloseable {
 
   public static final boolean FAST_PATH = true;
 
@@ -315,5 +316,10 @@ class ArrowMessage {
       return ArrowMessage.frame(allocator, stream);
     }
 
+  }
+
+  @Override
+  public void close() throws Exception {
+    AutoCloseables.close(bufs);
   }
 }

@@ -23,6 +23,11 @@ import static io.grpc.stub.ClientCalls.asyncServerStreamingCall;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import org.apache.arrow.flight.auth.BasicClientAuthHandler;
+import org.apache.arrow.flight.auth.ClientAuthHandler;
+import org.apache.arrow.flight.auth.ClientAuthInterceptor;
+import org.apache.arrow.flight.auth.ClientAuthWrapper;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.Empty;
 import org.apache.arrow.flight.impl.Flight.PutResult;
@@ -33,33 +38,39 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+
+import io.grpc.ClientCall;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
 import io.grpc.stub.ClientCallStreamObserver;
+import io.grpc.stub.ClientResponseObserver;
 import io.grpc.stub.StreamObserver;
 
 public class FlightClient implements AutoCloseable {
+  private final static int PENDING_REQUESTS = 5;
   private final BufferAllocator allocator;
   private final ManagedChannel channel;
   private final FlightServiceBlockingStub blockingStub;
   private final FlightServiceStub asyncStub;
+  private final ClientAuthInterceptor authInterceptor = new ClientAuthInterceptor();
   private final MethodDescriptor<Flight.Ticket, ArrowMessage> doGetDescriptor;
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
 
   /** Construct client for accessing RouteGuide server using the existing channel. */
-  public FlightClient(BufferAllocator allocator, Location location) {
-    final ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress(location.getHost(), location.getPort()).usePlaintext();
-    this.allocator = allocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
+  public FlightClient(BufferAllocator incomingAllocator, Location location) {
+    final ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress(location.getHost(), location.getPort()).maxTraceEvents(0).usePlaintext();
+    this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     channel = channelBuilder.build();
-    blockingStub = FlightServiceGrpc.newBlockingStub(channel);
-    asyncStub = FlightServiceGrpc.newStub(channel);
+    blockingStub = FlightServiceGrpc.newBlockingStub(channel).withInterceptors(authInterceptor);
+    asyncStub = FlightServiceGrpc.newStub(channel).withInterceptors(authInterceptor);
     doGetDescriptor = FlightBindingService.getDoGetDescriptor(allocator);
     doPutDescriptor = FlightBindingService.getDoPutDescriptor(allocator);
   }
@@ -87,6 +98,15 @@ public class FlightClient implements AutoCloseable {
     return Iterators.transform(blockingStub.doAction(action.toProtocol()), t -> new Result(t));
   }
 
+  public void authenticateBasic(String username, String password) {
+    BasicClientAuthHandler basicClient = new BasicClientAuthHandler(username, password);
+    authenticate(basicClient);
+  }
+
+  public void authenticate(ClientAuthHandler handler) {
+    Preconditions.checkArgument(!authInterceptor.hasToken(), "Auth already completed.");
+    authInterceptor.setToken(ClientAuthWrapper.doClientAuth(handler, asyncStub));
+  }
   /**
    * Create or append a descriptor with another stream.
    * @param descriptor
@@ -110,8 +130,39 @@ public class FlightClient implements AutoCloseable {
   }
 
   public FlightStream getStream(Ticket ticket) {
-    FlightStream stream = new FlightStream(allocator);
-    asyncServerStreamingCall(channel.newCall(doGetDescriptor, asyncStub.getCallOptions()), ticket.toProtocol(), stream.asObserver());
+    ClientCall<Flight.Ticket, ArrowMessage> call = channel.newCall(doGetDescriptor, asyncStub.getCallOptions());
+    FlightStream stream = new FlightStream(
+        allocator,
+        PENDING_REQUESTS,
+        (String message, Throwable cause) -> call.cancel(message, cause),
+        (count) -> call.request(count));
+
+    final StreamObserver<ArrowMessage> delegate = stream.asObserver();
+    ClientResponseObserver<Flight.Ticket, ArrowMessage> clientResponseObserver = new ClientResponseObserver<Flight.Ticket, ArrowMessage>() {
+
+      @Override
+      public void beforeStart(ClientCallStreamObserver<org.apache.arrow.flight.impl.Flight.Ticket> requestStream) {
+        requestStream.disableAutoInboundFlowControl();
+      }
+
+      @Override
+      public void onNext(ArrowMessage value) {
+        delegate.onNext(value);
+      }
+
+      @Override
+      public void onError(Throwable t) {
+        delegate.onError(t);
+      }
+
+      @Override
+      public void onCompleted() {
+        delegate.onCompleted();
+      }
+
+    };
+
+    asyncServerStreamingCall(call, ticket.toProtocol(), clientResponseObserver);
     return stream;
   }
 
@@ -153,6 +204,9 @@ public class FlightClient implements AutoCloseable {
     @Override
     public void putNext() {
       ArrowRecordBatch batch = unloader.getRecordBatch();
+      while(!observer.isReady()) {
+        /* busy wait */
+      }
       observer.onNext(new ArrowMessage(batch));
     }
 

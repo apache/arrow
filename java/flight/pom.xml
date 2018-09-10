@@ -6,7 +6,8 @@
   under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES 
   OR CONDITIONS OF ANY KIND, either express or implied. See the License for 
   the specific language governing permissions and limitations under the License. -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
@@ -24,12 +25,12 @@
     <dep.protobuf.version>3.5.1</dep.protobuf.version>
     <forkCount>1</forkCount>
   </properties>
-  
+
   <dependencies>
     <dependency>
       <groupId>com.vlkan</groupId>
       <artifactId>flatbuffers</artifactId>
-    </dependency>  
+    </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-vector</artifactId>
@@ -39,12 +40,12 @@
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory</artifactId>
       <version>${project.version}</version>
-    </dependency>    
+    </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-format</artifactId>
       <version>${project.version}</version>
-    </dependency>    
+    </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-netty</artifactId>
@@ -56,13 +57,13 @@
       <artifactId>grpc-netty</artifactId>
       <version>${dep.grpc.version}</version>
       <scope>provided</scope>
-    </dependency>    
+    </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-core</artifactId>
       <version>${dep.grpc.version}</version>
       <scope>provided</scope>
-    </dependency>    
+    </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-protobuf</artifactId>
@@ -73,7 +74,7 @@
       <groupId>io.netty</groupId>
       <artifactId>netty-tcnative-boringssl-static</artifactId>
       <version>2.0.12.Final</version>
-    </dependency>    
+    </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-buffer</artifactId>
@@ -93,7 +94,7 @@
       <artifactId>protobuf-java</artifactId>
       <version>3.5.1</version>
     </dependency>
-  
+
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-core</artifactId>
@@ -120,12 +121,12 @@
       </extension>
     </extensions>
     <plugins>
-        <plugin>
-          <artifactId>maven-surefire-plugin</artifactId>
-          <configuration>
-            <enableAssertions>false</enableAssertions>
-          </configuration>
-        </plugin>    
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <enableAssertions>false</enableAssertions>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -151,13 +152,14 @@
                   <shadedPattern>arrow.flight.com.google.protobuf</shadedPattern>
                 </relocation>
               </relocations>
-             <transformers>
-                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+              <transformers>
+                <transformer
+                  implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
               </transformers>
             </configuration>
           </execution>
         </executions>
-      </plugin>    
+      </plugin>
       <plugin>
         <groupId>org.xolstice.maven.plugins</groupId>
         <artifactId>protobuf-maven-plugin</artifactId>
@@ -172,7 +174,7 @@
           <execution>
             <id>src</id>
             <configuration>
-              <protoSourceRoot>${basedir}/src/main/protobuf</protoSourceRoot>
+              <protoSourceRoot>${basedir}/../../format/</protoSourceRoot>
               <outputDirectory>${project.build.directory}/generated-sources/protobuf</outputDirectory>
             </configuration>
             <goals>
@@ -209,7 +211,25 @@
             <argument>org.apache.arrow.flight.example.ExampleFlightServer</argument>
           </arguments>
         </configuration>
-      </plugin>      
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>analyze</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>analyze-only</goal>
+            </goals>
+            <configuration>
+              <ignoredDependencies combine.self="append">
+                <ignoredDependency>io.netty:netty-tcnative-boringssl-static:*</ignoredDependency>
+              </ignoredDependencies>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 </project>
