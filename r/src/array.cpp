@@ -41,11 +41,6 @@ int ArrayData_get_offset(const std::shared_ptr<arrow::ArrayData>& x){
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Array> Array_initialize(const std::shared_ptr<arrow::ArrayData>& data_){
-  return MakeArray(data_);
-}
-
-// [[Rcpp::export]]
 bool Array_IsNull(const std::shared_ptr<arrow::Array>& x, int i){
   return x->IsNull(i);
 }

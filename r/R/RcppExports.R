@@ -17,10 +17,6 @@ ArrayData_get_offset <- function(x) {
     .Call(`_arrow_ArrayData_get_offset`, x)
 }
 
-Array_initialize <- function(data_) {
-    .Call(`_arrow_Array_initialize`, data_)
-}
-
 Array_IsNull <- function(x, i) {
     .Call(`_arrow_Array_IsNull`, x, i)
 }

@@ -50,17 +50,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Array_initialize
-std::shared_ptr<arrow::Array> Array_initialize(const std::shared_ptr<arrow::ArrayData>& data_);
-RcppExport SEXP _arrow_Array_initialize(SEXP data_SEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type data_(data_SEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_initialize(data_));
-    return rcpp_result_gen;
-END_RCPP
-}
 // Array_IsNull
 bool Array_IsNull(const std::shared_ptr<arrow::Array>& x, int i);
 RcppExport SEXP _arrow_Array_IsNull(SEXP xSEXP, SEXP iSEXP) {
@@ -851,7 +840,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ArrayData_get_length", (DL_FUNC) &_arrow_ArrayData_get_length, 1},
     {"_arrow_ArrayData_get_null_count", (DL_FUNC) &_arrow_ArrayData_get_null_count, 1},
     {"_arrow_ArrayData_get_offset", (DL_FUNC) &_arrow_ArrayData_get_offset, 1},
-    {"_arrow_Array_initialize", (DL_FUNC) &_arrow_Array_initialize, 1},
     {"_arrow_Array_IsNull", (DL_FUNC) &_arrow_Array_IsNull, 2},
     {"_arrow_Array_IsValid", (DL_FUNC) &_arrow_Array_IsValid, 2},
     {"_arrow_Array_length", (DL_FUNC) &_arrow_Array_length, 1},

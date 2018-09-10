@@ -20,7 +20,6 @@
 \alias{time64}
 \alias{null}
 \alias{timestamp}
-\alias{decimal}
 \alias{struct}
 \alias{schema}
 \alias{list_of}
@@ -62,9 +61,7 @@ time64(unit)
 
 null()
 
-timestamp(...)
-
-decimal(precision, scale)
+timestamp(unit, timezone)
 
 struct(...)
 
@@ -77,11 +74,11 @@ list_of(type)
 
 \item{...}{...}
 
+\item{type}{type}
+
 \item{precision}{precision}
 
 \item{scale}{scale}
-
-\item{type}{type}
 }
 \description{
 Apache Arrow data types

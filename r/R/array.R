@@ -52,12 +52,6 @@
 #' @export
 `!=.arrow::Array` <- function(x, y) !x$Equals(y)
 
-#' @export
-MakeArray <- function(data){
-  assert_that(inherits(data, "arrow::ArrayData"))
-  `arrow::Array`$new(Array_initialize(data))
-}
-
 #' create an arrow::Array from an R vector
 #'
 #' @param \dots Vectors to coerce
