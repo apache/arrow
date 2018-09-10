@@ -39,7 +39,9 @@
     type_id = function() Array_type_id(self),
     Equals = function(other) Array_Equals(self, other),
     ApproxEquals = function(othet) Array_ApproxEquals(self, other),
-    data = function() `arrow::ArrayData`$new(Array_data(self))
+    data = function() `arrow::ArrayData`$new(Array_data(self)),
+    as_vector = function() Array_as_vector(self),
+    ToString = function() Array_ToString(self)
   )
 )
 

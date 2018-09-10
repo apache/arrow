@@ -41,6 +41,10 @@ Array_type <- function(x) {
     .Call(`_arrow_Array_type`, x)
 }
 
+Array_ToString <- function(x) {
+    .Call(`_arrow_Array_ToString`, x)
+}
+
 Array_type_id <- function(x) {
     .Call(`_arrow_Array_type_id`, x)
 }
@@ -79,6 +83,10 @@ RecordBatch_schema <- function(x) {
 
 RecordBatch_column <- function(batch, i) {
     .Call(`_arrow_RecordBatch_column`, batch, i)
+}
+
+Array_as_vector <- function(array) {
+    .Call(`_arrow_Array_as_vector`, array)
 }
 
 RecordBatch_to_dataframe <- function(batch) {

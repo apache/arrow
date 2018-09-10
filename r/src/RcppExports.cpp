@@ -118,6 +118,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Array_ToString
+std::string Array_ToString(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array_ToString(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array_ToString(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Array_type_id
 arrow::Type::type Array_type_id(const std::shared_ptr<arrow::Array>& x);
 RcppExport SEXP _arrow_Array_type_id(SEXP xSEXP) {
@@ -228,6 +239,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
     Rcpp::traits::input_parameter< int >::type i(iSEXP);
     rcpp_result_gen = Rcpp::wrap(RecordBatch_column(batch, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array_as_vector
+SEXP Array_as_vector(const std::shared_ptr<arrow::Array>& array);
+RcppExport SEXP _arrow_Array_as_vector(SEXP arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(Array_as_vector(array));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -880,6 +902,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array_offset", (DL_FUNC) &_arrow_Array_offset, 1},
     {"_arrow_Array_null_count", (DL_FUNC) &_arrow_Array_null_count, 1},
     {"_arrow_Array_type", (DL_FUNC) &_arrow_Array_type, 1},
+    {"_arrow_Array_ToString", (DL_FUNC) &_arrow_Array_ToString, 1},
     {"_arrow_Array_type_id", (DL_FUNC) &_arrow_Array_type_id, 1},
     {"_arrow_Array_Equals", (DL_FUNC) &_arrow_Array_Equals, 2},
     {"_arrow_Array_ApproxEquals", (DL_FUNC) &_arrow_Array_ApproxEquals, 2},
@@ -890,6 +913,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch_num_rows", (DL_FUNC) &_arrow_RecordBatch_num_rows, 1},
     {"_arrow_RecordBatch_schema", (DL_FUNC) &_arrow_RecordBatch_schema, 1},
     {"_arrow_RecordBatch_column", (DL_FUNC) &_arrow_RecordBatch_column, 2},
+    {"_arrow_Array_as_vector", (DL_FUNC) &_arrow_Array_as_vector, 1},
     {"_arrow_RecordBatch_to_dataframe", (DL_FUNC) &_arrow_RecordBatch_to_dataframe, 1},
     {"_arrow_dataframe_to_Table", (DL_FUNC) &_arrow_dataframe_to_Table, 1},
     {"_arrow_Table_num_columns", (DL_FUNC) &_arrow_Table_num_columns, 1},

@@ -67,8 +67,12 @@ int Array_null_count(const std::shared_ptr<arrow::Array>& x){
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::DataType> Array_type(const std::shared_ptr<arrow::Array>& x){
-  // TODO: this is just an xp for now, the R6 DataType class should dispatch it to a real R6 object somehow
   return x->type();
+}
+
+// [[Rcpp::export]]
+std::string Array_ToString(const std::shared_ptr<arrow::Array>& x){
+  return x->ToString();
 }
 
 // [[Rcpp::export]]

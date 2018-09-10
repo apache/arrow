@@ -129,7 +129,8 @@ inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array ){
   return Rcpp::wrap(start, start + array->length());
 }
 
-SEXP Array_to_R(const std::shared_ptr<arrow::Array>& array){
+// [[Rcpp::export]]
+SEXP Array_as_vector(const std::shared_ptr<arrow::Array>& array){
   switch(array->type_id()){
   case Type::INT8: return simple_Array_to_Vector<RAWSXP>(array);
   case Type::INT32: return simple_Array_to_Vector<INTSXP>(array);
@@ -149,7 +150,7 @@ List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch){
   List tbl(nc);
   CharacterVector names(nc);
   for(int i=0; i<nc; i++) {
-    tbl[i] = Array_to_R(batch->column(i));
+    tbl[i] = Array_as_vector(batch->column(i));
     names[i] = batch->column_name(i);
   }
   tbl.attr("names") = names;
