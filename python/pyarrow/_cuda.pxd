@@ -21,19 +21,19 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_cuda cimport *
 
 
-cdef class CudaDeviceManager:
+cdef class DeviceManager:
     cdef:
         CCudaDeviceManager* manager
 
 
-cdef class CudaContext:
+cdef class Context:
     cdef:
         shared_ptr[CCudaContext] context
 
     cdef void init(self, const shared_ptr[CCudaContext] &ctx)
 
 
-cdef class CudaIpcMemHandle:
+cdef class IpcMemHandle:
     cdef:
         shared_ptr[CCudaIpcMemHandle] handle
 
@@ -47,20 +47,20 @@ cdef class CudaBuffer(Buffer):
     cdef void init_cuda(self, const shared_ptr[CCudaBuffer] &buffer)
 
 
-cdef class CudaHostBuffer(Buffer):
+cdef class HostBuffer(Buffer):
     cdef:
         shared_ptr[CCudaHostBuffer] host_buffer
 
     cdef void init_host(self, const shared_ptr[CCudaHostBuffer] &buffer)
 
 
-cdef class CudaBufferReader(NativeFile):
+cdef class BufferReader(NativeFile):
     cdef:
         CCudaBufferReader* reader
         CudaBuffer buffer
 
 
-cdef class CudaBufferWriter(NativeFile):
+cdef class BufferWriter(NativeFile):
     cdef:
         CCudaBufferWriter* writer
         CudaBuffer buffer

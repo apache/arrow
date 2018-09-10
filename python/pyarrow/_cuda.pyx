@@ -22,7 +22,7 @@ from pyarrow.includes.libarrow_cuda cimport *
 from pyarrow.lib import py_buffer, allocate_buffer
 cimport cpython as cp
 
-cdef class CudaDeviceManager:
+cdef class DeviceManager:
     """ CUDA device manager.
     """
 
@@ -46,7 +46,7 @@ cdef class CudaDeviceManager:
 
         Returns
         -------
-        ctx : CudaContext
+        ctx : Context
           CUDA driver context.
 
         """
@@ -73,7 +73,7 @@ cdef class CudaDeviceManager:
 
         Returns
         -------
-        hbuf : CudaHostBuffer
+        hbuf : HostBuffer
           Buffer of allocated host memory.
         """
         cdef shared_ptr[CCudaHostBuffer] buf
@@ -81,7 +81,7 @@ cdef class CudaDeviceManager:
         return pyarrow_wrap_cudahostbuffer(buf)
 
 
-cdef class CudaContext:
+cdef class Context:
     """ CUDA driver context
     """
 
@@ -121,7 +121,7 @@ cdef class CudaContext:
 
         Parameters
         ----------
-        ipc_handle : CudaIpcMemHandle
+        ipc_handle : IpcMemHandle
           Specify opaque pointer to CUipcMemHandle (driver API).
 
         Returns
@@ -201,7 +201,7 @@ cdef class CudaContext:
         return result
 
 
-cdef class CudaIpcMemHandle:
+cdef class IpcMemHandle:
     """A container for a CUDA IPC handle.
     """
     cdef void init(self, shared_ptr[CCudaIpcMemHandle] &h):
@@ -209,7 +209,7 @@ cdef class CudaIpcMemHandle:
 
     @staticmethod
     def from_buffer(Buffer opaque_handle):
-        """Create CudaIpcMemHandle from opaque buffer (e.g. from another
+        """Create IpcMemHandle from opaque buffer (e.g. from another
         process)
 
         Parameters
@@ -219,7 +219,7 @@ cdef class CudaIpcMemHandle:
 
         Results
         -------
-        ipc_handle : CudaIpcMemHandle
+        ipc_handle : IpcMemHandle
         """
         cdef shared_ptr[CCudaIpcMemHandle] handle
         buf_ = pyarrow_unwrap_buffer(opaque_handle)
@@ -227,7 +227,7 @@ cdef class CudaIpcMemHandle:
         return pyarrow_wrap_cudaipcmemhandle(handle)
 
     def serialize(self, pool=None):
-        """Write CudaIpcMemHandle to a Buffer
+        """Write IpcMemHandle to a Buffer
 
         Parameters
         ----------
@@ -251,8 +251,8 @@ cdef class CudaBuffer(Buffer):
 
     To create a CudaBuffer instance, use
 
-      <CudaContext instance>.device_buffer(obj=<object>, offset=<offset>,
-                                           size=<nbytes>)
+      <Context instance>.device_buffer(obj=<object>, offset=<offset>,
+                                       size=<nbytes>)
 
     The memory allocated in CudaBuffer instance is freed when the
     instance is deleted.
@@ -261,7 +261,7 @@ cdef class CudaBuffer(Buffer):
 
     def __init__(self):
         raise TypeError("Do not call CudaBuffer's constructor directly, use "
-                        "`<pyarrow.CudaContext instance>.device_buffer`"
+                        "`<pyarrow.Context instance>.device_buffer`"
                         " method instead.")
 
     cdef void init_cuda(self, const shared_ptr[CCudaBuffer] &buffer):
@@ -403,7 +403,7 @@ cdef class CudaBuffer(Buffer):
 
         Results
         -------
-        ipc_handle : CudaIpcMemHandle
+        ipc_handle : IpcMemHandle
           The exported IPC handle
 
         """
@@ -464,24 +464,24 @@ cdef class CudaBuffer(Buffer):
         raise NotImplementedError('CudaBuffer.__getwritebuffer__')
 
 
-cdef class CudaHostBuffer(Buffer):
+cdef class HostBuffer(Buffer):
     """Device-accessible CPU memory created using cudaHostAlloc.
 
-    To create a CudaHostBuffer instance, use
+    To create a HostBuffer instance, use
 
-      <CudaDeviceManager instance>.allocate_host(<nbytes>)
+      <DeviceManager instance>.allocate_host(<nbytes>)
 
-    The memory is automatically freed when CudaHostBuffer instance is
+    The memory is automatically freed when HostBuffer instance is
     deleted.
 
-    Note: after freeing CudaHostBuffer memory, the instance should be
+    Note: after freeing HostBuffer memory, the instance should be
     discarded as unusable.
 
     """
 
     def __init__(self):
-        raise TypeError("Do not call CudaHostBuffer's constructor directly,"
-                        " use `allocate_cuda_host_buffer` function instead.")
+        raise TypeError("Do not call HostBuffer's constructor directly,"
+                        " use `allocate_host_buffer` function instead.")
 
     cdef void init_host(self, const shared_ptr[CCudaHostBuffer] &buffer):
         self.host_buffer = buffer
@@ -492,7 +492,7 @@ cdef class CudaHostBuffer(Buffer):
         return self.host_buffer.get().size()
 
 
-cdef class CudaBufferReader(NativeFile):
+cdef class BufferReader(NativeFile):
     """File interface for zero-copy read from CUDA buffers.
 
     Note: Read methods return pointers to device memory. This means
@@ -538,7 +538,7 @@ cdef class CudaBufferReader(NativeFile):
         return pyarrow_wrap_cudabuffer(output)
 
 
-cdef class CudaBufferWriter(NativeFile):
+cdef class BufferWriter(NativeFile):
     """File interface for writing to CUDA buffers.
 
     By default writes are unbuffered. Use set_buffer_size to enable
@@ -622,7 +622,7 @@ cdef class CudaBufferWriter(NativeFile):
 # Functions
 
 
-def allocate_cuda_host_buffer(const int64_t size):
+def allocate_host_buffer(const int64_t size):
     """Allocate CUDA-accessible memory on CPU host
 
     Parameters
@@ -632,7 +632,7 @@ def allocate_cuda_host_buffer(const int64_t size):
 
     Returns
     -------
-    dbuf : CudaHostBuffer
+    dbuf : HostBuffer
       the allocated device buffer
     """
     cdef shared_ptr[CCudaHostBuffer] buffer
@@ -640,14 +640,14 @@ def allocate_cuda_host_buffer(const int64_t size):
     return pyarrow_wrap_cudahostbuffer(buffer)
 
 
-def cuda_serialize_record_batch(object batch, object ctx):
+def serialize_record_batch(object batch, object ctx):
     """ Write record batch message to GPU device memory
 
     Parameters
     ----------
     batch : RecordBatch
       Specify record batch to write
-    ctx : CudaContext
+    ctx : Context
       Specify context to allocate device memory from
 
     Returns
@@ -662,12 +662,12 @@ def cuda_serialize_record_batch(object batch, object ctx):
     return pyarrow_wrap_cudabuffer(buffer)
 
 
-def cuda_read_message(object source, pool=None):
+def read_message(object source, pool=None):
     """ Read Arrow IPC message located on GPU device
 
     Parameters
     ----------
-    source : {CudaBuffer, CudaBufferReader}
+    source : {CudaBuffer, cuda.BufferReader}
       Specify device buffer or reader of device buffer.
     pool : {MemoryPool, None}
       Specify pool to allocate CPU memory for the metadata
@@ -680,13 +680,13 @@ def cuda_read_message(object source, pool=None):
     cdef:
         Message result = Message.__new__(Message)
     pool_ = maybe_unbox_memory_pool(pool)
-    if not isinstance(source, CudaBufferReader):
-        reader = CudaBufferReader(source)
+    if not isinstance(source, BufferReader):
+        reader = BufferReader(source)
     check_status(CudaReadMessage(reader.reader, pool_, &result.message))
     return result
 
 
-def cuda_read_record_batch(object schema, object buffer, pool=None):
+def read_record_batch(object schema, object buffer, pool=None):
     """Construct RecordBatch referencing IPC message located on CUDA device.
 
     While the metadata must be copied to host memory for
@@ -714,6 +714,7 @@ def cuda_read_record_batch(object schema, object buffer, pool=None):
     check_status(CudaReadRecordBatch(schema_, buffer_, pool_, &batch))
     return pyarrow_wrap_batch(batch)
 
+
 # Public API
 
 
@@ -724,10 +725,10 @@ cdef public api bint pyarrow_is_cudabuffer(object buffer):
     return isinstance(buffer, CudaBuffer)
 
 cdef public api bint pyarrow_is_cudahostbuffer(object buffer):
-    return isinstance(buffer, CudaHostBuffer)
+    return isinstance(buffer, HostBuffer)
 
 cdef public api bint pyarrow_is_cudacontext(object ctx):
-    return isinstance(ctx, CudaContext)
+    return isinstance(ctx, Context)
 
 cdef public api object \
         pyarrow_wrap_cudabuffer(const shared_ptr[CCudaBuffer] &buf):
@@ -737,37 +738,37 @@ cdef public api object \
 
 cdef public api object \
         pyarrow_wrap_cudahostbuffer(const shared_ptr[CCudaHostBuffer] &buf):
-    cdef CudaHostBuffer result = CudaHostBuffer.__new__(CudaHostBuffer)
+    cdef HostBuffer result = HostBuffer.__new__(HostBuffer)
     result.init_host(buf)
     return result
 
 cdef public api object \
         pyarrow_wrap_cudacontext(const shared_ptr[CCudaContext] &ctx):
-    cdef CudaContext result = CudaContext.__new__(CudaContext)
+    cdef Context result = Context.__new__(Context)
     result.init(ctx)
     return result
 
 cdef public api bint pyarrow_is_cudaipcmemhandle(object handle):
-    return isinstance(handle, CudaIpcMemHandle)
+    return isinstance(handle, IpcMemHandle)
 
 cdef public api object \
         pyarrow_wrap_cudaipcmemhandle(shared_ptr[CCudaIpcMemHandle] &h):
-    cdef CudaIpcMemHandle result = CudaIpcMemHandle.__new__(CudaIpcMemHandle)
+    cdef IpcMemHandle result = IpcMemHandle.__new__(IpcMemHandle)
     result.init(h)
     return result
 
 cdef public api shared_ptr[CCudaIpcMemHandle] \
         pyarrow_unwrap_cudaipcmemhandle(object handle):
-    cdef CudaIpcMemHandle handle_
-    assert isinstance(handle, CudaIpcMemHandle)
-    handle_ = < CudaIpcMemHandle > (handle)
+    cdef IpcMemHandle handle_
+    assert isinstance(handle, IpcMemHandle)
+    handle_ = < IpcMemHandle > (handle)
     return handle_.handle
 
 cdef public api shared_ptr[CCudaContext] \
         pyarrow_unwrap_cudacontext(object obj):
-    cdef CudaContext ctx
+    cdef Context ctx
     if pyarrow_is_cudacontext(obj):
-        ctx = < CudaContext > (obj)
+        ctx = < Context > (obj)
         return ctx.context
     return shared_ptr[CCudaContext]()
 
@@ -780,8 +781,8 @@ cdef public api shared_ptr[CCudaBuffer] pyarrow_unwrap_cudabuffer(object obj):
 
 cdef public api shared_ptr[CCudaHostBuffer] \
         pyarrow_unwrap_cudahostbuffer(object obj):
-    cdef CudaHostBuffer buf
+    cdef HostBuffer buf
     if pyarrow_is_cudahostbuffer(obj):
-        buf = < CudaHostBuffer > (obj)
+        buf = < HostBuffer > (obj)
         return buf.host_buffer
     return shared_ptr[CCudaHostBuffer]()

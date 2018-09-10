@@ -18,7 +18,7 @@
 """
 UNTESTED:
 CudaDeviceManager.create_new_context
-cuda_read_message
+read_message
 """
 
 
@@ -40,7 +40,7 @@ cuda_ipc = pytest.mark.skipif(
 
 
 def setup_module(module):
-    module.manager = cuda.CudaDeviceManager()
+    module.manager = cuda.DeviceManager()
     module.global_context = module.manager.get_context()
 
 
@@ -65,7 +65,7 @@ def test_manage_allocate_free_host():
     assert arr2.tolist() == arr_cp.tolist()
     assert buf.size == size
 
-    buf = cuda.allocate_cuda_host_buffer(size)
+    buf = cuda.allocate_host_buffer(size)
     arr = np.frombuffer(buf, dtype=np.uint8)
     arr[size//4:3*size//4] = 1
     arr_cp = arr.copy()
@@ -190,7 +190,7 @@ def test_context_device_buffer():
     arr2 = np.frombuffer(cudabuf2.copy_to_host(), dtype=np.uint8)
     assert arr[soffset:soffset+ssize].tolist() == arr2.tolist()
 
-    # Creating device buffer from CudaHostBuffer
+    # Creating device buffer from HostBuffer
 
     buf = manager.allocate_host(size)
     arr_ = np.frombuffer(buf, dtype=np.uint8)
@@ -200,7 +200,7 @@ def test_context_device_buffer():
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
     assert arr.tolist() == arr2.tolist()
 
-    # Creating device buffer from CudaHostBuffer slice
+    # Creating device buffer from HostBuffer slice
 
     cudabuf = global_context.device_buffer(buf, offset=soffset, size=ssize)
     assert cudabuf.size == ssize
@@ -240,7 +240,7 @@ def test_CudaBuffer():
             "Do not call CudaBuffer's constructor directly")
 
 
-def test_CudaHostBuffer():
+def test_HostBuffer():
     size = 8
     arr, buf = make_random_buffer(size)
     assert arr.tobytes() == buf.to_pybytes()
@@ -262,9 +262,9 @@ def test_CudaHostBuffer():
     del hbuf
 
     with pytest.raises(TypeError) as e_info:
-        cuda.CudaHostBuffer()
+        cuda.HostBuffer()
         assert str(e_info).startswith(
-            "Do not call CudaHostBuffer's constructor directly")
+            "Do not call HostBuffer's constructor directly")
 
 
 def test_copy_from_to_host():
@@ -397,11 +397,11 @@ def test_copy_from_host():
             'requested more to copy than available in device buffer')
 
 
-def test_CudaBufferWriter():
+def test_BufferWriter():
 
     def allocate(size):
         cbuf = global_context.allocate(size)
-        writer = cuda.CudaBufferWriter(cbuf)
+        writer = cuda.BufferWriter(cbuf)
         return cbuf, writer
 
     def test_writes(total_bytes, chunksize, buffer_size=0):
@@ -448,11 +448,11 @@ def test_CudaBufferWriter():
     assert (arr[75:] == np.arange(25, dtype=np.uint8)).all()
 
 
-def test_CudaBufferWriter_edge_cases():
+def test_BufferWriter_edge_cases():
     # edge cases:
     size = 1000
     cbuf = global_context.allocate(size)
-    writer = cuda.CudaBufferWriter(cbuf)
+    writer = cuda.BufferWriter(cbuf)
     arr, buf = make_random_buffer(size=size, target='host')
 
     assert writer.buffer_size == 0
@@ -485,12 +485,12 @@ def test_CudaBufferWriter_edge_cases():
     assert (arr2 == arr).all()
 
 
-def test_CudaBufferReader():
+def test_BufferReader():
 
     size = 1000
     arr, cbuf = make_random_buffer(size=size, target='device')
 
-    reader = cuda.CudaBufferReader(cbuf)
+    reader = cuda.BufferReader(cbuf)
     reader.seek(950)
     assert reader.tell() == 950
 
@@ -524,8 +524,8 @@ def make_recordbatch(length):
 def test_batch_serialize():
     batch = make_recordbatch(10)
     hbuf = batch.serialize()
-    cbuf = cuda.cuda_serialize_record_batch(batch, global_context)
-    cuda.cuda_read_record_batch(batch.schema, cbuf)
+    cbuf = cuda.serialize_record_batch(batch, global_context)
+    cuda.read_record_batch(batch.schema, cbuf)
     buf = cbuf.copy_to_host()
     assert hbuf.equals(buf)
     batch2 = pa.read_record_batch(buf, batch.schema)
@@ -543,7 +543,7 @@ def test_IPC():
     arr, cbuf = make_random_buffer(size=size, target='device')
     ipc_handle = cbuf.export_for_ipc()
     b = ipc_handle.serialize()
-    ipc_handle2 = cuda.CudaIpcMemHandle.from_buffer(b)
+    ipc_handle2 = cuda.IpcMemHandle.from_buffer(b)
     # cuIpcOpenMemHandle fails here with code 201:
     ipc_buf = cbuf.context.open_ipc_buffer(ipc_handle2)
     assert ipc_buf.size == size
@@ -553,6 +553,6 @@ def test_IPC():
 
 
 if __name__ == '__main__':
-    manager = cuda.CudaDeviceManager()
+    manager = cuda.DeviceManager()
     global_context = manager.get_context()
     test_IPC()
