@@ -479,9 +479,6 @@ cdef class CudaHostBuffer(Buffer):
 
     """
 
-    def __cinit__(self):
-        self._freed = True
-
     def __init__(self):
         raise TypeError("Do not call CudaHostBuffer's constructor directly,"
                         " use `allocate_cuda_host_buffer` function instead.")
@@ -489,12 +486,9 @@ cdef class CudaHostBuffer(Buffer):
     cdef void init_host(self, const shared_ptr[CCudaHostBuffer] &buffer):
         self.host_buffer = buffer
         self.init(< shared_ptr[CBuffer] > buffer)
-        self._freed = False
 
     @property
     def size(self):
-        if self._freed:
-            return 0
         return self.host_buffer.get().size()
 
 
