@@ -97,6 +97,10 @@ RecordBatch_to_file <- function(batch, path) {
     .Call(`_arrow_RecordBatch_to_file`, batch, path)
 }
 
+read_record_batch_ <- function(path) {
+    .Call(`_arrow_read_record_batch_`, path)
+}
+
 Field_initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field_initialize`, name, type, nullable)
 }

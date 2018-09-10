@@ -275,6 +275,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// read_record_batch_
+std::shared_ptr<arrow::RecordBatch> read_record_batch_(std::string path);
+RcppExport SEXP _arrow_read_record_batch_(SEXP pathSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_record_batch_(path));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Field_initialize
 std::shared_ptr<arrow::Field> Field_initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
 RcppExport SEXP _arrow_Field_initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
@@ -860,6 +871,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table_num_rows", (DL_FUNC) &_arrow_Table_num_rows, 1},
     {"_arrow_Table_schema", (DL_FUNC) &_arrow_Table_schema, 1},
     {"_arrow_RecordBatch_to_file", (DL_FUNC) &_arrow_RecordBatch_to_file, 2},
+    {"_arrow_read_record_batch_", (DL_FUNC) &_arrow_read_record_batch_, 1},
     {"_arrow_Field_initialize", (DL_FUNC) &_arrow_Field_initialize, 3},
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},

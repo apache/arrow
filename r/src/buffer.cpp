@@ -18,6 +18,7 @@
 #include "arrow_types.h"
 #include <arrow/io/file.h>
 #include <arrow/ipc/writer.h>
+#include <arrow/ipc/reader.h>
 
 using namespace Rcpp;
 using namespace arrow;
@@ -154,3 +155,17 @@ int RecordBatch_to_file(const std::shared_ptr<arrow::RecordBatch>& batch, std::s
   return offset;
 }
 
+// [[Rcpp::export]]
+std::shared_ptr<arrow::RecordBatch> read_record_batch_(std::string path) {
+  std::shared_ptr<arrow::io::ReadableFile> stream;
+  std::shared_ptr<arrow::ipc::RecordBatchFileReader> rbf_reader;
+
+  R_ERROR_NOT_OK(arrow::io::ReadableFile::Open(path, &stream));
+  R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileReader::Open(stream, &rbf_reader));
+
+  std::shared_ptr<arrow::RecordBatch> batch;
+  R_ERROR_NOT_OK(rbf_reader->ReadRecordBatch(0, &batch));
+
+  R_ERROR_NOT_OK(stream->Close());
+  return batch;
+}

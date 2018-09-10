@@ -63,13 +63,10 @@ array <- function(...){
 
 `arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = `arrow::Object`,
   public = list(
-    initialize = function(.data){
-      self$set_pointer(dataframe_to_RecordBatch(.data))
-    },
     num_columns = function() RecordBatch_num_columns(self),
     num_rows = function() RecordBatch_num_rows(self),
-    schema = function() schema(.xp = RecordBatch_schema(self)),
-    to_file = function(path) RecordBatch_to_file(self, fs::path_abs(path))
+    schema = function() `arrow::Schema`$new(RecordBatch_schema(self)),
+    to_file = function(path) invisible(RecordBatch_to_file(self, fs::path_abs(path)))
   )
 )
 
@@ -79,17 +76,19 @@ array <- function(...){
 #'
 #' @export
 record_batch <- function(.data){
-  `arrow::RecordBatch`$new(.data)
+  `arrow::RecordBatch`$new(dataframe_to_RecordBatch(.data))
+}
+
+#' @export
+read_record_batch <- function(path){
+  `arrow::RecordBatch`$new(read_record_batch_(fs::path_abs(path)))
 }
 
 `arrow::Table` <- R6Class("arrow::Table", inherit = `arrow::Object`,
   public = list(
-    initialize = function(.data){
-      self$set_pointer(dataframe_to_Table(.data))
-    },
     num_columns = function() Table_num_columns(self),
     num_rows = function() Table_num_rows(self),
-    schema = function() schema(.xp = Table_schema(self))
+    schema = function() `arrow::Schema`$new(Table_schema(self))
   )
 )
 
@@ -99,5 +98,5 @@ record_batch <- function(.data){
 #'
 #' @export
 table <- function(.data){
-  `arrow::Table`$new(.data)
+  `arrow::Table`$new(dataframe_to_Table(.data))
 }
