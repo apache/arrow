@@ -27,26 +27,26 @@ import pyarrow as pa
 import numpy as np
 import sys
 
-gpu_support = pytest.mark.skipif(not pa.has_gpu_support,
-                                 reason='Arrow not built with GPU support')
+cuda = pytest.importorskip("pyarrow.cuda")
 
-gpu_ipc_support = pytest.mark.skipif(
-    not sys.platform.startswith(('linux', 'darwin')),
-    reason='Arrow GPU IPC not supported (by CUDA) in %s' % (sys.platform))
+import sysconfig
+platform = sysconfig.get_platform()
+# TODO: enable ppc64 when Arrow C++ supports IPC in ppc64 systems:
+has_ipc_support = platform == 'linux-x86_64' #or 'ppc64' in platform
+
+cuda_ipc = pytest.mark.skipif(not has_ipc_support, \
+        reason='CUDA IPC not supported in platform `%s`' % (sys.platform))
 
 
 def setup_module(module):
-    if pa.has_gpu_support:
-        module.manager = pa.CudaDeviceManager()
-        module.global_context = module.manager.get_context()
+    module.manager = cuda.CudaDeviceManager()
+    module.global_context = module.manager.get_context()
 
 
 def teardown_module(module):
-    if pa.has_gpu_support:
-        module.global_context.close()
+    module.global_context.close()
 
 
-@gpu_support
 def test_manager_num_devices():
     assert manager.num_devices > 0
 
@@ -54,7 +54,6 @@ def test_manager_num_devices():
     # manager.get_context(manager.num_devices+1)
 
 
-@gpu_support
 def test_manage_allocate_free_host():
     size = 1024
     buf = manager.allocate_host(size)
@@ -64,32 +63,22 @@ def test_manage_allocate_free_host():
     arr2 = np.frombuffer(buf, dtype=np.uint8)
     assert arr2.tolist() == arr_cp.tolist()
     assert buf.size == size
-    manager.free_host(buf)
-    assert buf.size == 0
-    arr3 = np.frombuffer(buf, dtype=np.uint8)
-    assert arr3.tolist() == []
 
-    buf = pa.allocate_cuda_host_buffer(size)
+    buf = cuda.allocate_cuda_host_buffer(size)
     arr = np.frombuffer(buf, dtype=np.uint8)
     arr[size//4:3*size//4] = 1
     arr_cp = arr.copy()
     arr2 = np.frombuffer(buf, dtype=np.uint8)
     assert arr2.tolist() == arr_cp.tolist()
     assert buf.size == size
-    manager.free_host(buf)
-    assert buf.size == 0
-    arr3 = np.frombuffer(buf, dtype=np.uint8)
-    assert arr3.tolist() == []
 
 
-@gpu_support
 def test_manage_allocate_autofree_host():
     size = 1024
     buf = manager.allocate_host(size)
     del buf
 
 
-@gpu_support
 def test_context_allocate_del():
     bytes_allocated = global_context.bytes_allocated
     cudabuf = global_context.allocate(128)
@@ -123,7 +112,7 @@ def make_random_buffer(size, target='host', context=None):
     raise ValueError('invalid target value')
 
 
-@gpu_support
+
 def test_context_device_buffer():
     # Creating device buffer from host buffer;
     size = 8
@@ -225,7 +214,7 @@ def test_context_device_buffer():
     assert arr[soffset:soffset+ssize].tolist() == arr2.tolist()
 
 
-@gpu_support
+
 def test_CudaBuffer():
     size = 8
     arr, buf = make_random_buffer(size)
@@ -247,12 +236,12 @@ def test_CudaBuffer():
     assert sbuf.parent == cbuf
 
     with pytest.raises(TypeError) as e_info:
-        pa.CudaBuffer()
+        cuda.CudaBuffer()
         assert str(e_info).startswith(
             "Do not call CudaBuffer's constructor directly")
 
 
-@gpu_support
+
 def test_CudaHostBuffer():
     size = 8
     arr, buf = make_random_buffer(size)
@@ -275,19 +264,19 @@ def test_CudaHostBuffer():
     del hbuf
 
     with pytest.raises(TypeError) as e_info:
-        pa.CudaHostBuffer()
+        cuda.CudaHostBuffer()
         assert str(e_info).startswith(
             "Do not call CudaHostBuffer's constructor directly")
 
 
-@gpu_support
+
 def test_copy_from_to_host():
     size = 1024
 
     # Create a buffer in host containing range(size)
     buf = pa.allocate_buffer(size, resizable=True)  # in host
     assert isinstance(buf, pa.Buffer)
-    assert not isinstance(buf, pa.CudaBuffer)
+    assert not isinstance(buf, cuda.CudaBuffer)
     arr = np.frombuffer(buf, dtype=np.uint8)
     assert arr.size == size
     arr[:] = range(size)
@@ -295,7 +284,7 @@ def test_copy_from_to_host():
     assert (arr == arr_).all()
 
     device_buffer = global_context.allocate(size)
-    assert isinstance(device_buffer, pa.CudaBuffer)
+    assert isinstance(device_buffer, cuda.CudaBuffer)
     assert isinstance(device_buffer, pa.Buffer)
     assert device_buffer.size == size
 
@@ -306,7 +295,7 @@ def test_copy_from_to_host():
     assert (arr == arr2).all()
 
 
-@gpu_support
+
 def test_copy_to_host():
     size = 1024
     arr, dbuf = make_random_buffer(size, target='device')
@@ -365,7 +354,7 @@ def test_copy_to_host():
             'requested copy does not fit into host buffer')
 
 
-@gpu_support
+
 def test_copy_from_host():
     size = 1024
     arr, buf = make_random_buffer(size=size, target='host')
@@ -413,12 +402,12 @@ def test_copy_from_host():
             'requested more to copy than available in device buffer')
 
 
-@gpu_support
+
 def test_CudaBufferWriter():
 
     def allocate(size):
         cbuf = global_context.allocate(size)
-        writer = pa.CudaBufferWriter(cbuf)
+        writer = cuda.CudaBufferWriter(cbuf)
         return cbuf, writer
 
     def test_writes(total_bytes, chunksize, buffer_size=0):
@@ -465,12 +454,12 @@ def test_CudaBufferWriter():
     assert (arr[75:] == np.arange(25, dtype=np.uint8)).all()
 
 
-@gpu_support
+
 def test_CudaBufferWriter_edge_cases():
     # edge cases:
     size = 1000
     cbuf = global_context.allocate(size)
-    writer = pa.CudaBufferWriter(cbuf)
+    writer = cuda.CudaBufferWriter(cbuf)
     arr, buf = make_random_buffer(size=size, target='host')
 
     assert writer.buffer_size == 0
@@ -503,13 +492,13 @@ def test_CudaBufferWriter_edge_cases():
     assert (arr2 == arr).all()
 
 
-@gpu_support
+
 def test_CudaBufferReader():
 
     size = 1000
     arr, cbuf = make_random_buffer(size=size, target='device')
 
-    reader = pa.CudaBufferReader(cbuf)
+    reader = cuda.CudaBufferReader(cbuf)
     reader.seek(950)
     assert reader.tell() == 950
 
@@ -540,12 +529,12 @@ def make_recordbatch(length):
     return batch
 
 
-@gpu_support
+
 def test_batch_serialize():
     batch = make_recordbatch(10)
     hbuf = batch.serialize()
-    cbuf = pa.cuda_serialize_record_batch(batch, global_context)
-    pa.cuda_read_record_batch(batch.schema, cbuf)
+    cbuf = cuda.cuda_serialize_record_batch(batch, global_context)
+    cuda.cuda_read_record_batch(batch.schema, cbuf)
     buf = cbuf.copy_to_host()
     assert hbuf.equals(buf)
     batch2 = pa.read_record_batch(buf, batch.schema)
@@ -556,14 +545,14 @@ def test_batch_serialize():
     assert batch.equals(batch2)
 
 
-@gpu_ipc_support
+@cuda_ipc
 @pytest.mark.skip(reason='open_ipc_buffer fails with unknown reason')
 def test_IPC():
     size = 1000
     arr, cbuf = make_random_buffer(size=size, target='device')
     ipc_handle = cbuf.export_for_ipc()
     b = ipc_handle.serialize()
-    ipc_handle2 = pa.CudaIpcMemHandle.from_buffer(b)
+    ipc_handle2 = cuda.CudaIpcMemHandle.from_buffer(b)
     # cuIpcOpenMemHandle fails here with code 201:
     ipc_buf = cbuf.context.open_ipc_buffer(ipc_handle2)
     assert ipc_buf.size == size
@@ -573,6 +562,6 @@ def test_IPC():
 
 
 if __name__ == '__main__':
-    manager = pa.CudaDeviceManager()
+    manager = cuda.CudaDeviceManager()
     global_context = manager.get_context()
     test_IPC()

@@ -80,22 +80,6 @@ cdef class CudaDeviceManager:
         check_status(self.manager.AllocateHost(nbytes, & buf))
         return pyarrow_wrap_cudahostbuffer(buf)
 
-    def free_host(self, hbuf):
-        """ Free host memory allocated via allocate_host.
-
-        Parameters
-        ----------
-        hbuf : CudaHostBuffer
-          Specify host buffer to be deallocated.
-        """
-        if not pyarrow_is_cudahostbuffer(hbuf):
-            raise TypeError('expected CudaHostBuffer instance')
-        cdef CudaHostBuffer buf = < CudaHostBuffer > (hbuf)
-        if not buf._freed:
-            check_status(self.manager.FreeHost(
-                buf.host_buffer.get().mutable_data(), hbuf.size))
-            buf._freed = True
-
 
 cdef class CudaContext:
     """ CUDA driver context
@@ -487,15 +471,12 @@ cdef class CudaHostBuffer(Buffer):
 
       <CudaDeviceManager instance>.allocate_host(<nbytes>)
 
-    To free memory allocated in CudaHostBuffer instance, use
-
-      <CudaDeviceManager instance>.free_host(<CudaHostBuffer instance>)
-
-    The memory is also automatically freed when CudaHostBuffer
-    instance is deleted.
+    The memory is automatically freed when CudaHostBuffer instance is
+    deleted.
 
     Note: after freeing CudaHostBuffer memory, the instance should be
     discarded as unusable.
+
     """
 
     def __cinit__(self):
@@ -515,10 +496,6 @@ cdef class CudaHostBuffer(Buffer):
         if self._freed:
             return 0
         return self.host_buffer.get().size()
-
-    def __dealloc__(self):
-        if not self._freed:
-            CudaDeviceManager().free_host(self)
 
 
 cdef class CudaBufferReader(NativeFile):

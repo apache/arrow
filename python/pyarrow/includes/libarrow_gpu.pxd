@@ -29,7 +29,7 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
                                  shared_ptr[CCudaContext] * ctx)
         CStatus AllocateHost(int64_t nbytes,
                              shared_ptr[CCudaHostBuffer] * buffer)
-        CStatus FreeHost(void * data, int64_t nbytes)
+        #CStatus FreeHost(void * data, int64_t nbytes)
         int num_devices() const
 
     cdef cppclass CCudaContext" arrow::gpu::CudaContext":
