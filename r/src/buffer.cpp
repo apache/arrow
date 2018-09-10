@@ -116,6 +116,48 @@ std::shared_ptr<arrow::Schema> RecordBatch_schema(const std::shared_ptr<arrow::R
 }
 
 // [[Rcpp::export]]
+std::shared_ptr<arrow::Array> RecordBatch_column(const std::shared_ptr<arrow::RecordBatch>& batch, int i){
+  return batch->column(i);
+}
+
+template <int RTYPE>
+inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array ){
+  // ignoring null buffer for now
+  using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
+  auto start = reinterpret_cast<const stored_type*>(array->data()->buffers[1]->data());
+
+  return Rcpp::wrap(start, start + array->length());
+}
+
+SEXP Array_to_R(const std::shared_ptr<arrow::Array>& array){
+  switch(array->type_id()){
+  case Type::INT8: return simple_Array_to_Vector<RAWSXP>(array);
+  case Type::INT32: return simple_Array_to_Vector<INTSXP>(array);
+  case Type::DOUBLE: return simple_Array_to_Vector<REALSXP>(array);
+  default:
+    break;
+  }
+
+  stop(tfm::format("cannot handle Array of type %d", array->type_id()));
+  return R_NilValue;
+}
+
+// [[Rcpp::export]]
+List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch){
+  int nc = batch->num_columns();
+  int nr = batch->num_rows();
+  List tbl(nc);
+  for(int i=0; i<nc; i++) {
+    tbl[i] = Array_to_R(batch->column(i));
+  }
+  tbl.attr("class") = CharacterVector::create("tbf_df", "tbl", "data.frame");
+  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
+  return tbl;
+}
+
+
+
+// [[Rcpp::export]]
 std::shared_ptr<arrow::Table> dataframe_to_Table(DataFrame tbl){
   auto rb = dataframe_to_RecordBatch(tbl);
 

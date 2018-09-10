@@ -77,6 +77,14 @@ RecordBatch_schema <- function(x) {
     .Call(`_arrow_RecordBatch_schema`, x)
 }
 
+RecordBatch_column <- function(batch, i) {
+    .Call(`_arrow_RecordBatch_column`, batch, i)
+}
+
+RecordBatch_to_dataframe <- function(batch) {
+    .Call(`_arrow_RecordBatch_to_dataframe`, batch)
+}
+
 dataframe_to_Table <- function(tbl) {
     .Call(`_arrow_dataframe_to_Table`, tbl)
 }

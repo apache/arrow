@@ -21,7 +21,8 @@ Imports:
     glue,
     R6,
     vctrs,
-    fs
+    fs,
+    tibble
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.0.1.9000
 Suggests:
@@ -32,5 +33,6 @@ Collate:
     'RcppExports.R'
     'array.R'
     'memory_pool.R'
+    'reexports-tibble.R'
     'status.R'
     'zzz.R'

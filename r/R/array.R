@@ -39,7 +39,7 @@
     type_id = function() Array_type_id(self),
     Equals = function(other) Array_Equals(self, other),
     ApproxEquals = function(othet) Array_ApproxEquals(self, other),
-    data = function() Array_data(self)
+    data = function() `arrow::ArrayData`$new(Array_data(self))
   )
 )
 
@@ -66,9 +66,16 @@ array <- function(...){
     num_columns = function() RecordBatch_num_columns(self),
     num_rows = function() RecordBatch_num_rows(self),
     schema = function() `arrow::Schema`$new(RecordBatch_schema(self)),
-    to_file = function(path) invisible(RecordBatch_to_file(self, fs::path_abs(path)))
+    to_file = function(path) invisible(RecordBatch_to_file(self, fs::path_abs(path))),
+    column = function(i) `arrow::Array`$new(RecordBatch_column(self, i))
   )
 )
+
+#' @export
+`as_tibble.arrow::RecordBatch` <- function(x, ...){
+  RecordBatch_to_dataframe(x)
+}
+
 
 #' Create an arrow::RecordBatch from a data frame
 #'
