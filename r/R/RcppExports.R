@@ -121,6 +121,10 @@ Field_nullable <- function(type) {
     .Call(`_arrow_Field_nullable`, type)
 }
 
+ping_arrow <- function() {
+    .Call(`_arrow_ping_arrow`)
+}
+
 MemoryPool_default <- function() {
     .Call(`_arrow_MemoryPool_default`)
 }
@@ -308,3 +312,4 @@ Status_code <- function(status) {
 Status_message <- function(status) {
     .Call(`_arrow_Status_message`, status)
 }
+
