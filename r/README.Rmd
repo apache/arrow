@@ -1,4 +1,4 @@
----
+git rm ---
 output: github_document
 ---
 

@@ -235,6 +235,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ping_arrow
+std::string ping_arrow();
+RcppExport SEXP _arrow_ping_arrow() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(ping_arrow());
+    return rcpp_result_gen;
+END_RCPP
+}
 // MemoryPool_default
 static_ptr<arrow::MemoryPool> MemoryPool_default();
 RcppExport SEXP _arrow_MemoryPool_default() {
@@ -760,6 +770,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},
     {"_arrow_Field_nullable", (DL_FUNC) &_arrow_Field_nullable, 1},
+    {"_arrow_ping_arrow", (DL_FUNC) &_arrow_ping_arrow, 0},
     {"_arrow_MemoryPool_default", (DL_FUNC) &_arrow_MemoryPool_default, 0},
     {"_arrow_MemoryPool_bytes_allocated", (DL_FUNC) &_arrow_MemoryPool_bytes_allocated, 1},
     {"_arrow_MemoryPool_max_memory", (DL_FUNC) &_arrow_MemoryPool_max_memory, 1},
