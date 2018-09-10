@@ -151,6 +151,29 @@ from pyarrow.serialization import (default_serialization_context,
 
 import pyarrow.types as types
 
+# GPU support
+#
+
+try:
+    import pyarrow.lib_gpu as _lib_gpu
+except ImportError as _msg:
+    if str(_msg) == "'No module named 'pyarrow.lib_gpu":
+        has_gpu_support = False
+    else: # do not silence ImportError in case of any bugs
+        raise
+else:
+    has_gpu_support = True
+
+if has_gpu_support:
+    from pyarrow.lib_gpu \
+        import (CudaDeviceManager, CudaContext, CudaIpcMemHandle,
+                CudaBuffer, CudaHostBuffer, CudaBufferReader, CudaBufferWriter,
+                allocate_cuda_host_buffer, cuda_serialize_record_batch,
+                cuda_read_message, cuda_read_record_batch,
+                )
+
+
+
 # Entry point for starting the plasma store
 
 def _plasma_store_entry_point():
@@ -205,7 +228,7 @@ def get_library_dirs():
     # are not shipped inside the pyarrow package (see also ARROW-2976).
     from subprocess import call, PIPE, Popen
     pkg_config_executable = _os.environ.get('PKG_CONFIG', None) or 'pkg-config'
-    for package in ["arrow", "plasma", "arrow_python"]:
+    for package in ["arrow", "arrow_gpu", "plasma", "arrow_python"]:
         cmd = '{0} --exists {1}'.format(pkg_config_executable, package).split()
         try:
             if call(cmd) == 0:

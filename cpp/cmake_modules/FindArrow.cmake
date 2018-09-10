@@ -79,6 +79,12 @@ find_library(ARROW_PYTHON_LIB_PATH NAMES arrow_python
   NO_DEFAULT_PATH)
 get_filename_component(ARROW_PYTHON_LIBS ${ARROW_PYTHON_LIB_PATH} DIRECTORY)
 
+find_library(ARROW_GPU_LIB_PATH NAMES arrow_gpu
+  PATHS
+  ${ARROW_SEARCH_LIB_PATH}
+  NO_DEFAULT_PATH)
+get_filename_component(ARROW_GPU_LIBS ${ARROW_GPU_LIB_PATH} DIRECTORY)
+
 if (MSVC)
   SET(CMAKE_FIND_LIBRARY_SUFFIXES ".lib" ".dll")
 
@@ -95,6 +101,13 @@ if (MSVC)
     PATH_SUFFIXES "bin" )
   get_filename_component(ARROW_SHARED_LIBS ${ARROW_SHARED_LIBRARIES} PATH )
   get_filename_component(ARROW_PYTHON_SHARED_LIBS ${ARROW_PYTHON_SHARED_LIBRARIES} PATH )
+
+  if (PYARROW_BUILD_ARROW_GPU)
+    find_library(ARROW_GPU_SHARED_LIBRARIES NAMES arrow_gpu
+      PATHS ${ARROW_HOME} NO_DEFAULT_PATH
+      PATH_SUFFIXES "bin" )
+    get_filename_component(ARROW_GPU_SHARED_LIBS ${ARROW_GPU_SHARED_LIBRARIES} PATH )
+  endif()
 endif ()
 
 if (ARROW_INCLUDE_DIR AND ARROW_LIBS)
@@ -117,10 +130,41 @@ if (ARROW_INCLUDE_DIR AND ARROW_LIBS)
   endif()
 endif()
 
+if (PYARROW_BUILD_ARROW_GPU AND ARROW_GPU_LIBS)
+  set(ARROW_GPU_FOUND TRUE)
+  set(ARROW_GPU_LIB_NAME arrow_gpu)
+  if (MSVC)
+    set(ARROW_GPU_STATIC_LIB ${ARROW_GPU_LIBS}/${ARROW_GPU_LIB_NAME}${ARROW_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX})
+    set(ARROW_GPU_SHARED_LIB ${ARROW_GPU_SHARED_LIBS}/${ARROW_GPU_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+    set(ARROW_GPU_SHARED_IMP_LIB ${ARROW_GPU_LIBS}/${ARROW_GPU_LIB_NAME}.lib)
+  else()
+    set(ARROW_GPU_STATIC_LIB ${ARROW_LIBS}/lib${ARROW_GPU_LIB_NAME}.a)
+    set(ARROW_GPU_SHARED_LIB ${ARROW_LIBS}/lib${ARROW_GPU_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+  endif()
+endif()
+
+
 if (ARROW_FOUND)
   if (NOT Arrow_FIND_QUIETLY)
     message(STATUS "Found the Arrow core library: ${ARROW_LIB_PATH}")
     message(STATUS "Found the Arrow Python library: ${ARROW_PYTHON_LIB_PATH}")
+    if (PYARROW_BUILD_ARROW_GPU)
+      if (ARROW_GPU_FOUND)
+	message(STATUS "Found the Arrow GPU library: ${ARROW_GPU_LIB_PATH}")
+      else()
+	set(ARROW_ERR_MSG "Could not find the Arrow GPU library. Looked for libs")
+	set(ARROW_ERR_MSG "${ARROW_ERR_MSG} in ${ARROW_SEARCH_LIB_PATH}")
+	if (Arrow_FIND_REQUIRED)
+	  message(FATAL_ERROR "${ARROW_ERR_MSG}")
+	else (Arrow_FIND_REQUIRED)
+	  message(STATUS "${ARROW_ERR_MSG}")
+	endif()
+	set(ARROW_GPU_FOUND FALSE)
+      endif()
+    else()
+      message(STATUS "Found but not using the Arrow GPU library: ${ARROW_GPU_LIB_PATH}")
+      set(ARROW_GPU_FOUND FALSE)
+    endif()
   endif ()
 else ()
   if (NOT Arrow_FIND_QUIETLY)
@@ -134,6 +178,7 @@ else ()
     endif (Arrow_FIND_REQUIRED)
   endif ()
   set(ARROW_FOUND FALSE)
+  set(ARROW_GPU_FOUND FALSE)
 endif ()
 
 if (MSVC)
@@ -145,6 +190,9 @@ if (MSVC)
     ARROW_PYTHON_STATIC_LIB
     ARROW_PYTHON_SHARED_LIB
     ARROW_PYTHON_SHARED_IMP_LIB
+    ARROW_GPU_STATIC_LIB
+    ARROW_GPU_SHARED_LIB
+    ARROW_GPU_SHARED_IMP_LIB
   )
 else()
   mark_as_advanced(
@@ -153,5 +201,7 @@ else()
     ARROW_SHARED_LIB
     ARROW_PYTHON_STATIC_LIB
     ARROW_PYTHON_SHARED_LIB
+    ARROW_GPU_STATIC_LIB
+    ARROW_GPU_SHARED_LIB
   )
 endif()
