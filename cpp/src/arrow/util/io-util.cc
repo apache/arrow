@@ -222,7 +222,7 @@ Status FileTell(int fd, int64_t* pos) {
 
 Status CreatePipe(int fd[2]) {
   int ret;
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   ret = _pipe(fd, 4096, _O_BINARY);
 #else
   ret = pipe(fd);
@@ -379,7 +379,7 @@ Status FileGetSize(int fd, int64_t* size) {
 //
 
 static inline int64_t pread_compat(int fd, void* buf, int64_t nbytes, int64_t pos) {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
   DWORD dwBytesRead = 0;
   OVERLAPPED overlapped = {0};
@@ -496,7 +496,7 @@ Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes) {
 Status FileTruncate(int fd, const int64_t size) {
   int ret, errno_actual;
 
-#ifdef _MSC_VER
+#ifdef _WIN32
   errno_actual = _chsize_s(fd, static_cast<size_t>(size));
   ret = errno_actual == 0 ? 0 : -1;
 #else
