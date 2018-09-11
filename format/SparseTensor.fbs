@@ -1,0 +1,52 @@
+include "Tensor.fbs"
+
+namespace org.apache.arrow.flatbuf;
+
+/// Coodinate format.
+table SparseTensorIndexCOO {
+  /// COO's index list are represented as a NxM matrix,
+  /// where N is the number of non-zero values,
+  /// and M is the number of dimensions of a sparse tensor.
+  /// indicesBuffer stores the location and size of this index matrix.
+  /// The type of index value is long, so the stride for the index matrix is unnecessary.
+  indicesBuffer: Buffer
+};
+
+/// Compressed Sparse Row format, that is matrix-specific.
+table SparseMatrixIndexCSR {
+  /// This array represents the range of the rows.
+  /// The ith row spans from indptr[i] to indptr[i+1] in the data.
+  /// The length of this array is 1 + (the number of rows).
+  indptr: [long]
+
+  /// indicesBuffer stores the location and size of the array that
+  /// contains the column indices of the corresponding non-zero values.
+  /// The type of index value is long.
+  indicesBuffer: Buffer
+};
+
+union SparseTensorIndex {
+  SparseTensorIndexCOO,
+  SparseMatrixIndexCSR
+};
+
+table SparseTensor {
+  /// The type of data contained in a value cell.
+  /// Currently only fixed-width value types are supported,
+  /// no strings or nested types.
+  type: Type;
+
+  /// The dimensions of the tensor, optionally named.
+  shape: [TensorDim];
+
+  /// The number of non-zero values in a sparse tensor.
+  length: long
+
+  /// Sparse tensor index
+  sparseIndex: SparseTensorIndex;
+
+  /// The location and size of the tensor's data
+  data: Buffer;
+}
+
+root_type SparseTensor;
