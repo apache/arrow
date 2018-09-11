@@ -160,7 +160,7 @@ foreach(LIB_TARGET ${ARROW_LIBRARIES})
     PRIVATE ARROW_EXPORTING)
 endforeach()
 
-if (ARROW_BUILD_STATIC AND MSVC)
+if (ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()
 
