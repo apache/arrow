@@ -118,6 +118,9 @@ NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
   DATE_FUNCTION(INNER)                    \
   INNER(boolean)
 
+FORCE_INLINE
+boolean not_boolean(boolean in) { return !in; }
+
 // is_distinct_from
 #define IS_DISTINCT_FROM(TYPE)                                                 \
   FORCE_INLINE                                                                 \

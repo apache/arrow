@@ -441,4 +441,7 @@ EXTRACT_HOUR_TIME(time32)
 DATE_TRUNC_FUNCTIONS(date64)
 DATE_TRUNC_FUNCTIONS(timestamp)
 
+FORCE_INLINE
+date64 castDATE_int64(int64 in) { return in; }
+
 }  // extern "C"

@@ -163,7 +163,7 @@ public class ExpressionRegistry {
       case GandivaType.DATE64_VALUE:
         return new ArrowType.Date(DateUnit.MILLISECOND);
       case GandivaType.TIMESTAMP_VALUE:
-        return new ArrowType.Timestamp(mapArrowTimeUnit(type.getTimeUnit()), "");
+        return new ArrowType.Timestamp(mapArrowTimeUnit(type.getTimeUnit()), null);
       case GandivaType.TIME32_VALUE:
         return new ArrowType.Time(mapArrowTimeUnit(type.getTimeUnit()),
                 BIT_WIDTH_32);

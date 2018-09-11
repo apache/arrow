@@ -173,6 +173,7 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
     NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
     NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
+    UNARY_SAFE_NULL_IF_NULL(not, boolean, boolean),
 
     // cast operations
     UNARY_SAFE_NULL_IF_NULL(castBIGINT, int32, int64),
@@ -181,6 +182,7 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int32, float64),
     UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int64, float64),
     UNARY_SAFE_NULL_IF_NULL(castFLOAT8, float32, float64),
+    UNARY_SAFE_NULL_IF_NULL(castDATE, int64, date64),
 
     // nullable never operations
     NUMERIC_BOOL_DATE_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnull),
