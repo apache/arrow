@@ -16,7 +16,7 @@
 # under the License.
 
 from pyarrow._cuda \
-    import (DeviceManager, Context, IpcMemHandle,
+    import (Context, IpcMemHandle,
             CudaBuffer, HostBuffer, BufferReader, BufferWriter,
             allocate_host_buffer, serialize_record_batch,
             read_message, read_record_batch,

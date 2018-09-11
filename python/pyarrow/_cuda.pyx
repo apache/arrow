@@ -22,76 +22,47 @@ from pyarrow.includes.libarrow_cuda cimport *
 from pyarrow.lib import py_buffer, allocate_buffer
 cimport cpython as cp
 
-cdef class DeviceManager:
-    """ CUDA device manager.
+
+cdef class Context:
+    """ CUDA driver context.
     """
 
-    def __cinit__(self):
-        check_status(CCudaDeviceManager.GetInstance(&self.manager))
-
-    @property
-    def num_devices(self):
-        """ Return the number of GPU devices.
-        """
-        return self.manager.num_devices()
-
-    def get_context(self, gpu_number=0):
-        """Get the shared CUDA driver context for a particular device.
+    def __cinit__(self, int device_number=0):
+        """Construct the shared CUDA driver context for a particular device.
 
         Parameters
         ----------
-        gpu_number : int
+        device_number : int
           Specify the gpu device for which the CUDA driver context is
           requested.
 
-        Returns
-        -------
-        ctx : Context
-          CUDA driver context.
-
         """
-        cdef shared_ptr[CCudaContext] ctx
-        check_status(self.manager.GetContext(gpu_number, &ctx))
-        return pyarrow_wrap_cudacontext(ctx)
+        cdef CCudaDeviceManager* manager
+        check_status(CCudaDeviceManager.GetInstance(&manager))
+        cdef int n = manager.num_devices()
+        if device_number >= n or device_number < 0:
+            self.context.reset()
+            raise ValueError('device_number argument must be '
+                             'non-negative less than %s' % (n))
+        check_status(manager.GetContext(device_number, &self.context))
+        self.device_number = device_number
 
-    def create_new_context(self, gpu_number):
-        """ Create a new context for a given device number.
-
-        Use get_context for general code.
+    @staticmethod
+    def get_num_devices():
+        """ Return the number of GPU devices.
         """
-        cdef shared_ptr[CCudaContext] ctx
-        check_status(self.manager.CreateNewContext(gpu_number, &ctx))
-        return pyarrow_wrap_cudacontext(ctx)
+        cdef CCudaDeviceManager* manager
+        check_status(CCudaDeviceManager.GetInstance(&manager))
+        return manager.num_devices()
 
-    def allocate_host(self, nbytes):
-        """ Allocate host memory.
-
-        Parameters
-        ----------
-        nbytes : int
-          Specify the number of bytes to be allocated.
-
-        Returns
-        -------
-        hbuf : HostBuffer
-          Buffer of allocated host memory.
+    @property
+    def device_number(self):
+        """ Return context device number.
         """
-        cdef shared_ptr[CCudaHostBuffer] buf
-        check_status(self.manager.AllocateHost(nbytes, &buf))
-        return pyarrow_wrap_cudahostbuffer(buf)
-
-
-cdef class Context:
-    """ CUDA driver context
-    """
+        return self.device_number
 
     cdef void init(self, const shared_ptr[CCudaContext] &ctx):
         self.context = ctx
-
-    def close(self):
-        """ Close context.
-        """
-        check_status(self.context.get().Close())
 
     @property
     def bytes_allocated(self):
@@ -160,8 +131,9 @@ cdef class Context:
                 raise ValueError('buffer size must be positive int')
             return self.allocate(size)
         if pyarrow_is_cudabuffer(obj):
-            # TODO: check if obj.context == self or at least are of
-            # the same device.
+            # Assume that obj is on the same device that context uses
+            # TODO?: If not, copy to context device via host buffer.
+            assert obj.context.device_number == self.device_number
             if size < 0:
                 length = None
             else:
@@ -469,7 +441,7 @@ cdef class HostBuffer(Buffer):
 
     To create a HostBuffer instance, use
 
-      <DeviceManager instance>.allocate_host(<nbytes>)
+      cuda.allocate_host_buffer(<nbytes>)
 
     The memory is automatically freed when HostBuffer instance is
     deleted.

@@ -21,14 +21,10 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_cuda cimport *
 
 
-cdef class DeviceManager:
-    cdef:
-        CCudaDeviceManager* manager
-
-
 cdef class Context:
     cdef:
         shared_ptr[CCudaContext] context
+        int device_number
 
     cdef void init(self, const shared_ptr[CCudaContext] &ctx)
 

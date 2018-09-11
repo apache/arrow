@@ -25,8 +25,8 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
         @staticmethod
         CStatus GetInstance(CCudaDeviceManager** manager)
         CStatus GetContext(int gpu_number, shared_ptr[CCudaContext]* ctx)
-        CStatus CreateNewContext(int gpu_number,
-                                 shared_ptr[CCudaContext]* ctx)
+        # CStatus CreateNewContext(int gpu_number,
+        #                          shared_ptr[CCudaContext]* ctx)
         CStatus AllocateHost(int64_t nbytes,
                              shared_ptr[CCudaHostBuffer]* buffer)
         # CStatus FreeHost(void* data, int64_t nbytes)
@@ -34,7 +34,7 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
 
     cdef cppclass CCudaContext" arrow::gpu::CudaContext":
         shared_ptr[CCudaContext]  shared_from_this()
-        CStatus Close()
+        # CStatus Close()
         CStatus Allocate(int64_t nbytes, shared_ptr[CCudaBuffer]* out)
         CStatus OpenIpcBuffer(const CCudaIpcMemHandle& ipc_handle,
                               shared_ptr[CCudaBuffer]* buffer)

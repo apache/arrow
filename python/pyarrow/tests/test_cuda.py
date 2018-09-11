@@ -29,7 +29,6 @@ import sysconfig
 
 cuda = pytest.importorskip("pyarrow.cuda")
 
-
 platform = sysconfig.get_platform()
 # TODO: enable ppc64 when Arrow C++ supports IPC in ppc64 systems:
 has_ipc_support = platform == 'linux-x86_64'  # or 'ppc64' in platform
@@ -40,30 +39,27 @@ cuda_ipc = pytest.mark.skipif(
 
 
 def setup_module(module):
-    module.manager = cuda.DeviceManager()
-    module.global_context = module.manager.get_context()
+    module.global_context = cuda.Context(0)
 
 
 def teardown_module(module):
-    module.global_context.close()
+    del module.global_context
 
 
-def test_manager_num_devices():
-    assert manager.num_devices > 0
+def test_Context():
 
-    # expected to fail, but fails only occasionally:
-    # manager.get_context(manager.num_devices+1)
+    assert cuda.Context.get_num_devices() > 0
+    assert global_context.device_number == 0
+
+    
+    with pytest.raises(ValueError) as e_info:
+        cuda.Context(cuda.Context.get_num_devices())
+        assert str(e_info).startswith(
+            "gpu_number argument must be non-negative less than")
 
 
 def test_manage_allocate_free_host():
     size = 1024
-    buf = manager.allocate_host(size)
-    arr = np.frombuffer(buf, dtype=np.uint8)
-    arr[size//4:3*size//4] = 1
-    arr_cp = arr.copy()
-    arr2 = np.frombuffer(buf, dtype=np.uint8)
-    assert arr2.tolist() == arr_cp.tolist()
-    assert buf.size == size
 
     buf = cuda.allocate_host_buffer(size)
     arr = np.frombuffer(buf, dtype=np.uint8)
@@ -72,12 +68,6 @@ def test_manage_allocate_free_host():
     arr2 = np.frombuffer(buf, dtype=np.uint8)
     assert arr2.tolist() == arr_cp.tolist()
     assert buf.size == size
-
-
-def test_manage_allocate_autofree_host():
-    size = 1024
-    buf = manager.allocate_host(size)
-    del buf
 
 
 def test_context_allocate_del():
@@ -192,7 +182,7 @@ def test_context_device_buffer():
 
     # Creating device buffer from HostBuffer
 
-    buf = manager.allocate_host(size)
+    buf = cuda.allocate_host_buffer(size)
     arr_ = np.frombuffer(buf, dtype=np.uint8)
     arr_[:] = arr
     cudabuf = global_context.device_buffer(buf)
@@ -244,7 +234,7 @@ def test_HostBuffer():
     size = 8
     arr, buf = make_random_buffer(size)
     assert arr.tobytes() == buf.to_pybytes()
-    hbuf = manager.allocate_host(size)
+    hbuf = cuda.allocate_host_buffer(size)
     np.frombuffer(hbuf, dtype=np.uint8)[:] = arr
     assert hbuf.size == size
     assert arr.tobytes() == hbuf.to_pybytes()
@@ -553,6 +543,5 @@ def test_IPC():
 
 
 if __name__ == '__main__':
-    manager = cuda.DeviceManager()
-    global_context = manager.get_context()
+    global_context = cuda.Context()
     test_IPC()
