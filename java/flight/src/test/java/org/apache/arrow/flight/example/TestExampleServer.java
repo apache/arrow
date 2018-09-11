@@ -49,7 +49,7 @@ public class TestExampleServer {
     allocator = new RootAllocator(Long.MAX_VALUE);
 
     Location l = new Location("localhost", 12233);
-    if(!Boolean.getBoolean("disableServer")) {
+    if (!Boolean.getBoolean("disableServer")) {
       System.out.println("Starting server.");
       server = new ExampleFlightServer(allocator, l);
       server.start();
@@ -77,7 +77,7 @@ public class TestExampleServer {
 
     //batch 1
     root.allocateNew();
-    for(int i =0; i < size; i++) {
+    for (int i = 0; i < size; i++) {
       iv.set(i, i);
     }
     iv.setValueCount(size);
@@ -87,7 +87,7 @@ public class TestExampleServer {
     // batch 2
 
     root.allocateNew();
-    for(int i =0; i < size; i++) {
+    for (int i = 0; i < size; i++) {
       iv.set(i, i + size);
     }
     iv.setValueCount(size);
@@ -101,6 +101,9 @@ public class TestExampleServer {
 
     FlightInfo info = client.getInfo(FlightDescriptor.path("hello"));
     FlightStream stream = client.getStream(info.getEndpoints().get(0).getTicket());
-    while(stream.next()) {}
+    VectorSchemaRoot newRoot = stream.getRoot();
+    while (stream.next()) {
+      newRoot.clear();
+    }
   }
 }
