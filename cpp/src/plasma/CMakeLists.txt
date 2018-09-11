@@ -88,6 +88,10 @@ if (ARROW_GPU)
   add_definitions(-DPLASMA_GPU)
 endif()
 
+if (ARROW_USE_GLOG)
+  SET(PLASMA_LINK_LIBS glog_static ${PLASMA_LINK_LIBS})
+endif()
+
 ADD_ARROW_LIB(plasma
   SOURCES ${PLASMA_SRCS}
   OUTPUTS PLASMA_LIBRARIES

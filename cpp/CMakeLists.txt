@@ -258,7 +258,7 @@ Pass multiple labels by dividing with semicolons")
 
   option(ARROW_USE_GLOG
     "Build libraries with glog support for pluggable logging"
-    OFF)
+    ON)
 
   if (MSVC)
     option(ARROW_USE_CLCACHE
@@ -652,15 +652,7 @@ if (ARROW_ORC)
 endif()
 
 if (ARROW_USE_GLOG)
-  #SET(ARROW_SHARED_PRIVATE_LINK_LIBS
-  #    glog_static
-  #    ${ARROW_SHARED_PRIVATE_LINK_LIBS})
-  #SET(ARROW_SHARED_PRIVATE_LINK_LIBS
-  #    glog_static
-  #    ${ARROW_SHARED_PRIVATE_LINK_LIBS})
   SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
-  #add_dependencies(arrow_dependencies glog_static)
-  add_definitions(-DARROW_USE_GLOG)
 endif()
 
 if (ARROW_STATIC_LINK_LIBS)
@@ -684,9 +676,6 @@ set(ARROW_STATIC_PRIVATE_LINK_LIBS
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
 
-if (ARROW_USE_GLOG)
-set(ARROW_STATIC_PRIVATE_LINK_LIBS glog_static ${ARROW_STATIC_PRIVATE_LINK_LIBS})
-endif()
 if (NOT MSVC)
   set(ARROW_LINK_LIBS
     ${ARROW_LINK_LIBS}
