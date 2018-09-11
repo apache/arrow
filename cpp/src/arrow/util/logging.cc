@@ -29,6 +29,9 @@
 
 namespace arrow {
 
+// This code is adapted from
+// https://github.com/ray-project/ray/blob/master/src/ray/util/logging.cc.
+
 // This is the default implementation of arrow log,
 // which is independent of any libs.
 class CerrLog {

@@ -97,6 +97,9 @@ enum class ArrowLogLevel : int {
 
 #endif  // NDEBUG
 
+// This code is adapted from
+// https://github.com/ray-project/ray/blob/master/src/ray/util/logging.h.
+
 // To make the logging lib plugable with other logging libs and make
 // the implementation unawared by the user, ArrowLog is only a declaration
 // which hide the implementation into logging.cc file.

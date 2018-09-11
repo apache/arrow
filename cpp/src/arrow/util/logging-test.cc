@@ -22,6 +22,9 @@
 #include "arrow/util/logging.h"
 #include "gtest/gtest.h"
 
+// This code is adapted from
+// https://github.com/ray-project/ray/blob/master/src/ray/util/logging_test.cc.
+
 namespace arrow {
 
 int64_t current_time_ms() {
