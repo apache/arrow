@@ -149,7 +149,10 @@ if(CMAKE_HOST_WIN32)
     set(PYTHON_LIBRARY
       "${PYTHON_PREFIX}/libs/Python${PYTHON_LIBRARY_SUFFIX}.lib")
   else()
-    set(PYTHON_LIBRARY "${PYTHON_PREFIX}/libs/libpython${PYTHON_LIBRARY_SUFFIX}.a")
+    find_library(PYTHON_LIBRARY
+        NAMES "python${PYTHON_LIBRARY_SUFFIX}"
+        PATHS "${PYTHON_PREFIX}" NO_DEFAULT_PATH
+        PATH_SUFFIXES "lib" "libs")
   endif()
 elseif(APPLE)
 
