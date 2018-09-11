@@ -33,7 +33,7 @@
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>18.0</dep.guava.version>
     <dep.netty.version>4.1.17.Final</dep.netty.version>
-    <dep.jackson.version>2.7.9</dep.jackson.version>
+    <dep.jackson.version>2.9.6</dep.jackson.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <fbs.version>1.2.0-3f79e055</fbs.version>
     <forkCount>2</forkCount>
