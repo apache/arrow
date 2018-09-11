@@ -45,8 +45,8 @@ namespace {
 // (as of May 2016 64 bytes)
 Status AllocateAligned(int64_t size, uint8_t** out) {
 // TODO(emkornfield) find something compatible with windows
-#ifdef _MSC_VER
-  // Special code path for MSVC
+#ifdef _WIN32
+  // Special code path for Windows
   *out =
       reinterpret_cast<uint8_t*>(_aligned_malloc(static_cast<size_t>(size), kAlignment));
   if (!*out) {
