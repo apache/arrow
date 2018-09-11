@@ -205,7 +205,7 @@ def get_library_dirs():
     # are not shipped inside the pyarrow package (see also ARROW-2976).
     from subprocess import call, PIPE, Popen
     pkg_config_executable = _os.environ.get('PKG_CONFIG', None) or 'pkg-config'
-    for package in ["arrow", "arrow_gpu", "plasma", "arrow_python"]:
+    for package in ["arrow", "plasma", "arrow_python"]:
         cmd = '{0} --exists {1}'.format(pkg_config_executable, package).split()
         try:
             if call(cmd) == 0:

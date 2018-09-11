@@ -37,6 +37,8 @@ cuda_ipc = pytest.mark.skipif(
     not has_ipc_support,
     reason='CUDA IPC not supported in platform `%s`' % (platform))
 
+global_context = None  # for flake8
+
 
 def setup_module(module):
     module.global_context = cuda.Context(0)
@@ -51,7 +53,6 @@ def test_Context():
     assert cuda.Context.get_num_devices() > 0
     assert global_context.device_number == 0
 
-    
     with pytest.raises(ValueError) as e_info:
         cuda.Context(cuda.Context.get_num_devices())
         assert str(e_info).startswith(
@@ -526,22 +527,25 @@ def test_batch_serialize():
     assert batch.equals(batch2)
 
 
+def other_process_for_test_IPC(handle_buffer, expected_arr):
+    other_context = pa.cuda.Context(0)
+    ipc_handle = pa.cuda.IpcMemHandle.from_buffer(handle_buffer)
+    ipc_buf = other_context.open_ipc_buffer(ipc_handle)
+    buf = ipc_buf.copy_to_host()
+    assert buf.size == expected_arr.size, repr((buf.size, expected_arr.size))
+    arr = np.frombuffer(buf, dtype=expected_arr.dtype)
+    assert (arr == expected_arr).all()
+
+
 @cuda_ipc
-@pytest.mark.skip(reason='open_ipc_buffer fails with unknown reason')
 def test_IPC():
+    from multiprocessing import Process, set_start_method
+    set_start_method('spawn')
     size = 1000
     arr, cbuf = make_random_buffer(size=size, target='device')
     ipc_handle = cbuf.export_for_ipc()
-    b = ipc_handle.serialize()
-    ipc_handle2 = cuda.IpcMemHandle.from_buffer(b)
-    # cuIpcOpenMemHandle fails here with code 201:
-    ipc_buf = cbuf.context.open_ipc_buffer(ipc_handle2)
-    assert ipc_buf.size == size
-    buf2 = ipc_buf.copy_to_host()
-    arr2 = np.frombuffer(buf2, dtype=arr.dtype)
-    assert (arr == arr2).all()
-
-
-if __name__ == '__main__':
-    global_context = cuda.Context()
-    test_IPC()
+    handle_buffer = ipc_handle.serialize()
+    p = Process(target=other_process_for_test_IPC, args=(handle_buffer, arr))
+    p.start()
+    p.join()
+    assert p.exitcode == 0
