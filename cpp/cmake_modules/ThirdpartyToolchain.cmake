@@ -783,7 +783,7 @@ if (ARROW_WITH_SNAPPY)
       endif()
     endif()
 
-    if (MSVC)
+    if (WIN32)
       set(SNAPPY_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                             "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
                             "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
