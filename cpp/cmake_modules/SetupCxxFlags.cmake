@@ -246,7 +246,7 @@ function(GET_GOLD_VERSION)
 endfunction()
 
 # Is the compiler hard-wired to use the gold linker?
-if (NOT MSVC AND NOT APPLE)
+if (NOT WIN32 AND NOT APPLE)
   GET_GOLD_VERSION()
   if (GOLD_VERSION)
     set(MUST_USE_GOLD 1)
