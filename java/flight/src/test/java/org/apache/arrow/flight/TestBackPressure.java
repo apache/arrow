@@ -53,13 +53,13 @@ public class TestBackPressure {
       server.start();
 
       FlightStream fs1 = client.getStream(client.getInfo(
-          TestPerf.getPerfFlightDescriptor(110l * BATCH_SIZE, BATCH_SIZE))
+          TestPerf.getPerfFlightDescriptor(110l * BATCH_SIZE, BATCH_SIZE, 1))
           .getEndpoints().get(0).getTicket());
       consume(fs1, 10);
 
       // stop consuming fs1 but make sure we can consume a large amount of fs2.
       FlightStream fs2 = client.getStream(client.getInfo(
-          TestPerf.getPerfFlightDescriptor(200l * BATCH_SIZE, BATCH_SIZE))
+          TestPerf.getPerfFlightDescriptor(200l * BATCH_SIZE, BATCH_SIZE, 1))
           .getEndpoints().get(0).getTicket());
       consume(fs2, 100);
 

@@ -53,7 +53,7 @@ public class TestPerf {
 
   public static final boolean VALIDATE = false;
 
-  public static FlightDescriptor getPerfFlightDescriptor(long recordCount, int recordsPerBatch) {
+  public static FlightDescriptor getPerfFlightDescriptor(long recordCount, int recordsPerBatch, int streamCount) {
     final Schema pojoSchema = new Schema(ImmutableList.of(
         Field.nullable("a", MinorType.BIGINT.getType()),
         Field.nullable("b", MinorType.BIGINT.getType()),
@@ -68,7 +68,7 @@ public class TestPerf {
         .setRecordsPerStream(recordCount)
         .setRecordsPerBatch(recordsPerBatch)
         .setSchema(ByteString.copyFrom(pojoSchema.toByteArray()))
-        .setStreamCount(1)
+        .setStreamCount(streamCount)
         .build()
         .toByteArray());
   }
@@ -84,7 +84,7 @@ public class TestPerf {
 
         server.start();
 
-        final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000l, 4095));
+        final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000l, 4095, 2));
         ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(4));
         List<ListenableFuture<Result>> results = info.getEndpoints()
             .stream()
