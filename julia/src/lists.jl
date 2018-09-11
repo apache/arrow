@@ -289,7 +289,7 @@ totalbytes(A::AbstractList) = valuesbytes(A) + minbitmaskbytes(A) + offsetsbytes
 
 # helper function for offsets
 _offsize(::Type{C}, x) where C = sizeof(x)
-_offsize(::Type{C}, x::AbstractString) where C = sizeof(C)*length(x)
+_offsize(::Type{C}, x::AbstractString) where {C} = sizeof(C)*ncodeunits(x)
 
 # TODO how to deal with sizeof of Arrow objects such as lists?
 # note that this works fine with missings because sizeof(missing) == 0
@@ -307,6 +307,9 @@ function offsets(::Type{K}, ::Type{C}, v::AbstractVector) where {K<:Integer,C}
     off
 end
 offsets(::Type{K}, v::AbstractVector{C}) where {K<:Integer,C} = offsets(K, C, v)
+function offsets(::Type{K}, v::AbstractVector{String}) where {K}
+    offsets(K, UInt8, v)
+end
 function offsets(v::AbstractVector{<:AbstractString})
     throw(ArgumentError("must specify encoding type for computing string offsets"))
 end
