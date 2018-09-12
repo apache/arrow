@@ -66,7 +66,7 @@ if (WIN32)
 
     # Support large object code
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /bigobj")
-  endif()
+  endif(MSVC)
 else()
   # Common flags set below with warning level
   set(CXX_COMMON_FLAGS "")
