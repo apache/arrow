@@ -46,11 +46,21 @@ int send_fd(int conn, int fd) {
   memcpy(CMSG_DATA(header), reinterpret_cast<void*>(&fd), sizeof(int));
 
   // Send file descriptor.
-  ssize_t r = sendmsg(conn, &msg, 0);
-  if (r >= 0) {
-    return 0;
-  } else {
-    return static_cast<int>(r);
+  while (true) {
+    ssize_t r = sendmsg(conn, &msg, 0);
+    if (r < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+        continue;
+      } else {
+        ARROW_LOG(INFO) << "Error in send_fd (errno = " << errno << ")";
+        return -1;
+      }
+    } else if (r == 0) {
+      ARROW_LOG(INFO) << "Encountered unexpected EOF";
+    } else {
+      ARROW_CHECK(r > 0);
+      break;
+    }
   }
 }
 
@@ -60,7 +70,19 @@ int recv_fd(int conn) {
   char buf[CMSG_SPACE(sizeof(int))];
   init_msg(&msg, &iov, buf, sizeof(buf));
 
-  if (recvmsg(conn, &msg, 0) == -1) return -1;
+  while (true) {
+    int error = recvmsg(conn, &msg, 0);
+    if (error == -1) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+        continue;
+      } else {
+        ARROW_LOG(INFO) << "Error in recv_fd (errno = " << errno << ")";
+        return -1;
+      }
+    } else {
+      break;
+    }
+  }
 
   int found_fd = -1;
   int oh_noes = 0;
