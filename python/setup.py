@@ -195,8 +195,6 @@ class build_ext(_build_ext):
                 cmake_options += ['-G', self.cmake_generator]
             if self.with_cuda:
                 cmake_options.append('-DPYARROW_BUILD_CUDA=on')
-            else:
-                cmake_options.append('-DPYARROW_BUILD_CUDA=off')
             if self.with_parquet:
                 cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
             if self.with_static_parquet:
