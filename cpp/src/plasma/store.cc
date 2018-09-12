@@ -180,14 +180,11 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
             reinterpret_cast<uint8_t*>(dlmemalign(kBlockSize, data_size + metadata_size));
       }
       if (pointer == nullptr || !eviction_policy_.AbleToAdd(data_size + metadata_size)) {
-        ARROW_LOG(WARNING) << "dlmemalign returned with nullptr.";
         // Tell the eviction policy how much space we need to create this object.
         std::vector<ObjectID> objects_to_evict;
         bool success =
             eviction_policy_.RequireSpace(data_size + metadata_size, &objects_to_evict);
         DeleteObjects(objects_to_evict);
-        ARROW_LOG(WARNING) << "Calling Delete Objects.";
-
         // Return an error to the client if not enough space could be freed to
         // create the object.
         if (!success) {
@@ -222,8 +219,6 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   entry->device_num = device_num;
   entry->create_time = std::time(nullptr);
   entry->construct_duration = -1;
-
-  ARROW_LOG(WARNING) << "Created the entry.";
 #ifdef PLASMA_GPU
   if (device_num != 0) {
     DCHECK_OK(gpu_handle->ExportForIpc(&entry->ipc_handle));
@@ -237,7 +232,6 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   result->data_size = data_size;
   result->metadata_size = metadata_size;
   result->device_num = device_num;
-  ARROW_LOG(WARNING) << "Put object to store_info_ and call ObjectCreated.";
   // Notify the eviction policy that this object was created. This must be done
   // immediately before the call to AddToClientObjectIds so that the
   // eviction policy does not have an opportunity to evict the object.
