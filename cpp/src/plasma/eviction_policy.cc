@@ -72,7 +72,8 @@ void EvictionPolicy::ObjectCreated(const ObjectID& object_id) {
   memory_used_ += size;
   ARROW_CHECK(memory_used_ <= store_info_->memory_capacity);
 }
-bool EvictionPolicy::IsCapableOf(int64_t need_size) {
+
+bool EvictionPolicy::AbleToAdd(int64_t need_size) {
   return memory_used_ + need_size <= store_info_->memory_capacity;
 }
 

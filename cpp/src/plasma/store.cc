@@ -179,7 +179,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
         pointer =
             reinterpret_cast<uint8_t*>(dlmemalign(kBlockSize, data_size + metadata_size));
       }
-      if (pointer == nullptr || !eviction_policy_.IsCapableOf(data_size + metadata_size)) {
+      if (pointer == nullptr || !eviction_policy_.AbleToAdd(data_size + metadata_size)) {
         ARROW_LOG(WARNING) << "dlmemalign returned with nullptr.";
         // Tell the eviction policy how much space we need to create this object.
         std::vector<ObjectID> objects_to_evict;

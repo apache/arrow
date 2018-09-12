@@ -124,7 +124,12 @@ class EvictionPolicy {
   ///
   /// @param object_id The ID of the object that is now being used.
   void RemoveObject(const ObjectID& object_id);
-  bool IsCapableOf(int64_t need_size);
+
+  /// To check whether we can add an object of a specific size.
+  ///
+  /// @param size The object size to check.
+  bool AbleToAdd(int64_t size);
+
  private:
   /// The amount of memory (in bytes) currently being used.
   int64_t memory_used_;

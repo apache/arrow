@@ -47,7 +47,7 @@ void AssertObjectBufferEqual(const ObjectBuffer& object_buffer,
   arrow::AssertBufferEqual(*object_buffer.data, data);
 }
 
-template<unsigned int M>
+template <unsigned int M>
 class TestPlasmaStoreBase : public ::testing::Test {
  public:
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
@@ -61,8 +61,8 @@ class TestPlasmaStoreBase : public ::testing::Test {
     std::string plasma_directory =
         test_executable.substr(0, test_executable.find_last_of("/"));
     std::ostringstream ostream;
-    ostream << plasma_directory << "/plasma_store_server -m " << M
-            << " -s " << store_socket_name_ + " 1> /dev/null 2> /dev/null &";
+    ostream << plasma_directory << "/plasma_store_server -m " << M << " -s "
+            << store_socket_name_ + " 1> /dev/null 2> /dev/null &";
     std::string plasma_command = ostream.str();
     system(plasma_command.c_str());
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
@@ -491,9 +491,9 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
   }
 }
 
-using SmallMemoryTestPlasmaStore = TestPlasmaStoreBase<1000>;
+using TestSmallMemoryPlasmaStore = TestPlasmaStoreBase<1000>;
 
-TEST_F(SmallMemoryTestPlasmaStore, SmallMemoryTest) {
+TEST_F(TestSmallMemoryPlasmaStore, SmallMemoryTest) {
   // Create many objects on the first client. Seal one third, abort one third,
   // and leave the last third unsealed.
   std::vector<ObjectID> object_ids;
