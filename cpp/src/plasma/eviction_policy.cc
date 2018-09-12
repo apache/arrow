@@ -72,6 +72,9 @@ void EvictionPolicy::ObjectCreated(const ObjectID& object_id) {
   memory_used_ += size;
   ARROW_CHECK(memory_used_ <= store_info_->memory_capacity);
 }
+bool EvictionPolicy::IsCapableOf(int64_t need_size) {
+  return memory_used_ + need_size <= store_info_->memory_capacity;
+}
 
 bool EvictionPolicy::RequireSpace(int64_t size, std::vector<ObjectID>* objects_to_evict) {
   // Check if there is enough space to create the object.
