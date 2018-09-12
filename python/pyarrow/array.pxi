@@ -31,6 +31,7 @@ cdef _sequence_to_array(object sequence, object mask, object size,
     options.from_pandas = from_pandas
 
     cdef shared_ptr[CChunkedArray] out
+
     with nogil:
         check_status(ConvertPySequence(sequence, mask, options, &out))
 
