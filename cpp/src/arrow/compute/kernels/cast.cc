@@ -194,20 +194,16 @@ struct is_integer_downcast<
 };
 
 template <typename O, typename I, typename Enable = void>
-struct is_float_downcast {
+struct is_float_truncate {
   static constexpr bool value = false;
 };
 
 template <typename O, typename I>
-struct is_float_downcast<
+struct is_float_truncate<
     O, I,
-    typename std::enable_if<std::is_base_of<Number, O>::value &&
+    typename std::enable_if<std::is_base_of<Integer, O>::value &&
                             std::is_base_of<FloatingPoint, I>::value>::type> {
-  using O_T = typename O::c_type;
-  using I_T = typename I::c_type;
-
-  // Smaller output size
-  static constexpr bool value = !std::is_same<O, I>::value && (sizeof(O_T) < sizeof(I_T));
+  static constexpr bool value = true;
 };
 
 template <typename O, typename I>
@@ -270,7 +266,7 @@ struct CastFunctor<O, I,
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I, typename std::enable_if<is_float_downcast<O, I>::value>::type> {
+struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
@@ -316,7 +312,7 @@ struct CastFunctor<O, I, typename std::enable_if<is_float_downcast<O, I>::value>
 template <typename O, typename I>
 struct CastFunctor<O, I,
                    typename std::enable_if<is_numeric_cast<O, I>::value &&
-                                           !is_float_downcast<O, I>::value &&
+                                           !is_float_truncate<O, I>::value &&
                                            !is_integer_downcast<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
