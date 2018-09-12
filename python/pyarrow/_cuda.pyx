@@ -61,7 +61,7 @@ cdef class Context:
         """
         return self.device_number
 
-    cdef void init(self, const shared_ptr[CCudaContext] &ctx):
+    cdef void init(self, const shared_ptr[CCudaContext]& ctx):
         self.context = ctx
 
     @property
@@ -106,13 +106,13 @@ cdef class Context:
                                                       &cudabuf))
         return pyarrow_wrap_cudabuffer(cudabuf)
 
-    def device_buffer(self, object obj=None,
+    def device_buffer(self, object data=None,
                       int64_t offset=0, int64_t size=-1):
-        """Create device buffer from object data.
+        """Create device buffer from data (when specified).
 
         Parameters
         ----------
-        obj : {CudaBuffer, Buffer, array-like, None}
+        data : {CudaBuffer, Buffer, array-like, None}
           Specify data for device buffer.
         offset : int
           Specify the offset of input buffer for device data
@@ -124,29 +124,29 @@ cdef class Context:
         Returns
         -------
         cbuf : CudaBuffer
-          Device buffer containing object data.
+          Device buffer containing data.
         """
-        if obj is None:
+        if data is None:
             if size < 0:
                 raise ValueError('buffer size must be positive int')
             return self.allocate(size)
-        if pyarrow_is_cudabuffer(obj):
-            # Assume that obj is on the same device that context uses
+        if pyarrow_is_cudabuffer(data):
+            # Assume that data is on the same device that context uses
             # TODO?: If not, copy to context device via host buffer.
-            assert obj.context.device_number == self.device_number
+            assert data.context.device_number == self.device_number
             if size < 0:
                 length = None
             else:
                 length = size
-            return obj.slice(offset, length)
+            return data.slice(offset, length)
 
         cdef shared_ptr[CBuffer] buf
 
-        if not pyarrow_is_buffer(obj):  # assume obj is array-like
-            check_status(PyBuffer.FromPyObject(obj, &buf))
-            obj = pyarrow_wrap_buffer(buf)
-
-        bsize = obj.size
+        if not pyarrow_is_buffer(data):  # assume data is array-like
+            #check_status(PyBuffer.FromPyObject(data, &buf))
+            #data = pyarrow_wrap_buffer(buf)
+            data = py_buffer(data)
+        bsize = data.size
         if offset < 0 or offset >= bsize:
             raise ValueError('offset argument is out-of-range')
         if size < 0:
@@ -156,15 +156,15 @@ cdef class Context:
                 'requested larger slice than available in device buffer')
 
         if offset != 0 or size != bsize:
-            obj = obj.slice(offset, size)
+            data = data.slice(offset, size)
 
-        if pyarrow_is_cudahostbuffer(obj):
-            buf = < shared_ptr[CBuffer] > pyarrow_unwrap_cudahostbuffer(obj)
-        elif pyarrow_is_buffer(obj):
-            buf = pyarrow_unwrap_buffer(obj)
+        if pyarrow_is_cudahostbuffer(data):
+            buf = <shared_ptr[CBuffer]> pyarrow_unwrap_cudahostbuffer(data)
+        elif pyarrow_is_buffer(data):
+            buf = pyarrow_unwrap_buffer(data)
         else:
             raise TypeError('Expected Buffer or array-like but got %s'
-                            % (type(obj).__name__))
+                            % (type(data).__name__))
 
         result = self.allocate(size)
         result.copy_from_host(pyarrow_wrap_buffer(buf),
@@ -176,7 +176,7 @@ cdef class Context:
 cdef class IpcMemHandle:
     """A container for a CUDA IPC handle.
     """
-    cdef void init(self, shared_ptr[CCudaIpcMemHandle] &h):
+    cdef void init(self, shared_ptr[CCudaIpcMemHandle]& h):
         self.handle = h
 
     @staticmethod
@@ -223,7 +223,7 @@ cdef class CudaBuffer(Buffer):
 
     To create a CudaBuffer instance, use
 
-      <Context instance>.device_buffer(obj=<object>, offset=<offset>,
+      <Context instance>.device_buffer(data=<object>, offset=<offset>,
                                        size=<nbytes>)
 
     The memory allocated in CudaBuffer instance is freed when the
@@ -236,9 +236,9 @@ cdef class CudaBuffer(Buffer):
                         "`<pyarrow.Context instance>.device_buffer`"
                         " method instead.")
 
-    cdef void init_cuda(self, const shared_ptr[CCudaBuffer] &buffer):
+    cdef void init_cuda(self, const shared_ptr[CCudaBuffer]& buffer):
         self.cuda_buffer = buffer
-        self.init(< shared_ptr[CBuffer] > buffer)
+        self.init(<shared_ptr[CBuffer]> buffer)
 
     @staticmethod
     def from_buffer(buf):
@@ -270,7 +270,7 @@ cdef class CudaBuffer(Buffer):
         Parameters
         ----------
         position : int
-          Specify the starting position of the copy in GPU
+          Specify the starting position of the source data in GPU
           device buffer. Default: 0.
         nbytes : int
           Specify the number of bytes to copy. Default: -1 (all from
@@ -291,6 +291,7 @@ cdef class CudaBuffer(Buffer):
         """
         if position < 0 or position > self.size:
             raise ValueError('position argument is out-of-range')
+        cdef int64_t nbytes_
         if buf is None:
             if nbytes < 0:
                 # copy all starting from position to new host buffer
@@ -315,8 +316,10 @@ cdef class CudaBuffer(Buffer):
                 # copy nbytes from position to given host buffer
                 nbytes_ = nbytes
         cdef shared_ptr[CBuffer] buf_ = pyarrow_unwrap_buffer(buf)
-        check_status(self.cuda_buffer.get()
-                     .CopyToHost(position, nbytes_, buf_.get().mutable_data()))
+        cdef int64_t position_ = position
+        with nogil:
+            check_status(self.cuda_buffer.get()
+                         .CopyToHost(position_, nbytes_, buf_.get().mutable_data()))
         return buf
 
     def copy_from_host(self, source, int64_t position=0, int64_t nbytes=-1):
@@ -343,6 +346,7 @@ cdef class CudaBuffer(Buffer):
         """
         if position < 0 or position > self.size:
             raise ValueError('position argument is out-of-range')
+        cdef int64_t nbytes_
         buf = source if isinstance(source, Buffer) else py_buffer(source)
 
         if nbytes < 0:
@@ -361,8 +365,10 @@ cdef class CudaBuffer(Buffer):
             nbytes_ = nbytes
 
         cdef shared_ptr[CBuffer] buf_ = pyarrow_unwrap_buffer(buf)
-        check_status(self.cuda_buffer.get().
-                     CopyFromHost(position, buf_.get().data(), nbytes_))
+        cdef int64_t position_ = position
+        with nogil:
+            check_status(self.cuda_buffer.get().
+                         CopyFromHost(position_, buf_.get().data(), nbytes_))
         return nbytes_
 
     def export_for_ipc(self):
@@ -417,11 +423,12 @@ cdef class CudaBuffer(Buffer):
             raise ValueError(
                 'requested larger slice than available in device buffer')
         parent = pyarrow_unwrap_cudabuffer(self)
-        return pyarrow_wrap_cudabuffer(
-            shared_ptr[CCudaBuffer](make_shared[CCudaBuffer](parent,
-                                                             offset_, size)))
+        return pyarrow_wrap_cudabuffer(make_shared[CCudaBuffer](parent,
+                                                                offset_, size))
 
     def to_pybytes(self):
+        """Return device buffer content as Python bytes.
+        """
         return self.copy_to_host().to_pybytes()
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
@@ -455,9 +462,9 @@ cdef class HostBuffer(Buffer):
         raise TypeError("Do not call HostBuffer's constructor directly,"
                         " use `allocate_host_buffer` function instead.")
 
-    cdef void init_host(self, const shared_ptr[CCudaHostBuffer] &buffer):
+    cdef void init_host(self, const shared_ptr[CCudaHostBuffer]& buffer):
         self.host_buffer = buffer
-        self.init(< shared_ptr[CBuffer] > buffer)
+        self.init(<shared_ptr[CBuffer]> buffer)
 
     @property
     def size(self):
@@ -480,7 +487,10 @@ cdef class BufferReader(NativeFile):
         self.closed = False
 
     def read_buffer(self, nbytes=None):
-        """Read into new device buffer.
+        """Return a slice view of the underlying device buffer.
+
+        The slice will start at the current reader position and will
+        have specified size in bytes.
 
         Parameters
         ----------
@@ -492,6 +502,7 @@ cdef class BufferReader(NativeFile):
         -------
         cbuf : CudaBuffer
           New device buffer.
+
         """
         cdef:
             int64_t c_nbytes
@@ -505,7 +516,7 @@ cdef class BufferReader(NativeFile):
 
         with nogil:
             check_status(self.reader.Read(c_nbytes,
-                                          < shared_ptr[CBuffer]* > &output))
+                                          <shared_ptr[CBuffer]*> &output))
 
         return pyarrow_wrap_cudabuffer(output)
 
@@ -568,7 +579,14 @@ cdef class BufferWriter(NativeFile):
             check_status(self.writer.Seek(offset))
         return self.tell()
 
-    def set_buffer_size(self, int64_t buffer_size):
+    @property
+    def buffer_size(self):
+        """Returns size of host (CPU) buffer, 0 for unbuffered
+        """
+        return self.writer.buffer_size()
+
+    @buffer_size.setter
+    def buffer_size(self, int64_t buffer_size):
         """Set CPU buffer size to limit calls to cudaMemcpy
 
         Parameters
@@ -578,12 +596,6 @@ cdef class BufferWriter(NativeFile):
         """
         with nogil:
             check_status(self.writer.SetBufferSize(buffer_size))
-
-    @property
-    def buffer_size(self):
-        """Returns size of host (CPU) buffer, 0 for unbuffered
-        """
-        return self.writer.buffer_size()
 
     @property
     def num_bytes_buffered(self):
@@ -630,7 +642,8 @@ def serialize_record_batch(object batch, object ctx):
     cdef shared_ptr[CCudaBuffer] buffer
     cdef CRecordBatch* batch_ = pyarrow_unwrap_batch(batch).get()
     cdef CCudaContext* ctx_ = pyarrow_unwrap_cudacontext(ctx).get()
-    check_status(CudaSerializeRecordBatch(batch_[0], ctx_, &buffer))
+    with nogil:
+        check_status(CudaSerializeRecordBatch(batch_[0], ctx_, &buffer))
     return pyarrow_wrap_cudabuffer(buffer)
 
 
@@ -661,8 +674,8 @@ def read_message(object source, pool=None):
 def read_record_batch(object schema, object buffer, pool=None):
     """Construct RecordBatch referencing IPC message located on CUDA device.
 
-    While the metadata must be copied to host memory for
-    deserialization, the record batch data remains on the device.
+    While the metadata is copied to host memory for deserialization,
+    the record batch data remains on the device.
 
     Parameters
     ----------
@@ -703,19 +716,19 @@ cdef public api bint pyarrow_is_cudacontext(object ctx):
     return isinstance(ctx, Context)
 
 cdef public api object \
-        pyarrow_wrap_cudabuffer(const shared_ptr[CCudaBuffer] &buf):
+        pyarrow_wrap_cudabuffer(const shared_ptr[CCudaBuffer]& buf):
     cdef CudaBuffer result = CudaBuffer.__new__(CudaBuffer)
     result.init_cuda(buf)
     return result
 
 cdef public api object \
-        pyarrow_wrap_cudahostbuffer(const shared_ptr[CCudaHostBuffer] &buf):
+        pyarrow_wrap_cudahostbuffer(const shared_ptr[CCudaHostBuffer]& buf):
     cdef HostBuffer result = HostBuffer.__new__(HostBuffer)
     result.init_host(buf)
     return result
 
 cdef public api object \
-        pyarrow_wrap_cudacontext(const shared_ptr[CCudaContext] &ctx):
+        pyarrow_wrap_cudacontext(const shared_ptr[CCudaContext]& ctx):
     cdef Context result = Context.__new__(Context)
     result.init(ctx)
     return result
@@ -724,7 +737,7 @@ cdef public api bint pyarrow_is_cudaipcmemhandle(object handle):
     return isinstance(handle, IpcMemHandle)
 
 cdef public api object \
-        pyarrow_wrap_cudaipcmemhandle(shared_ptr[CCudaIpcMemHandle] &h):
+        pyarrow_wrap_cudaipcmemhandle(shared_ptr[CCudaIpcMemHandle]& h):
     cdef IpcMemHandle result = IpcMemHandle.__new__(IpcMemHandle)
     result.init(h)
     return result
@@ -733,21 +746,21 @@ cdef public api shared_ptr[CCudaIpcMemHandle] \
         pyarrow_unwrap_cudaipcmemhandle(object handle):
     cdef IpcMemHandle handle_
     assert isinstance(handle, IpcMemHandle)
-    handle_ = < IpcMemHandle > (handle)
+    handle_ = <IpcMemHandle> (handle)
     return handle_.handle
 
 cdef public api shared_ptr[CCudaContext] \
         pyarrow_unwrap_cudacontext(object obj):
     cdef Context ctx
     if pyarrow_is_cudacontext(obj):
-        ctx = < Context > (obj)
+        ctx = <Context> (obj)
         return ctx.context
     return shared_ptr[CCudaContext]()
 
 cdef public api shared_ptr[CCudaBuffer] pyarrow_unwrap_cudabuffer(object obj):
     cdef CudaBuffer buf
     if pyarrow_is_cudabuffer(obj):
-        buf = < CudaBuffer > (obj)
+        buf = <CudaBuffer> (obj)
         return buf.cuda_buffer
     return shared_ptr[CCudaBuffer]()
 
@@ -755,6 +768,6 @@ cdef public api shared_ptr[CCudaHostBuffer] \
         pyarrow_unwrap_cudahostbuffer(object obj):
     cdef HostBuffer buf
     if pyarrow_is_cudahostbuffer(obj):
-        buf = < HostBuffer > (obj)
+        buf = <HostBuffer> (obj)
         return buf.host_buffer
     return shared_ptr[CCudaHostBuffer]()

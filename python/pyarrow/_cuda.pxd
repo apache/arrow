@@ -26,28 +26,28 @@ cdef class Context:
         shared_ptr[CCudaContext] context
         int device_number
 
-    cdef void init(self, const shared_ptr[CCudaContext] &ctx)
+    cdef void init(self, const shared_ptr[CCudaContext]& ctx)
 
 
 cdef class IpcMemHandle:
     cdef:
         shared_ptr[CCudaIpcMemHandle] handle
 
-    cdef void init(self, shared_ptr[CCudaIpcMemHandle] &h)
+    cdef void init(self, shared_ptr[CCudaIpcMemHandle]& h)
 
 
 cdef class CudaBuffer(Buffer):
     cdef:
         shared_ptr[CCudaBuffer] cuda_buffer
 
-    cdef void init_cuda(self, const shared_ptr[CCudaBuffer] &buffer)
+    cdef void init_cuda(self, const shared_ptr[CCudaBuffer]& buffer)
 
 
 cdef class HostBuffer(Buffer):
     cdef:
         shared_ptr[CCudaHostBuffer] host_buffer
 
-    cdef void init_host(self, const shared_ptr[CCudaHostBuffer] &buffer)
+    cdef void init_host(self, const shared_ptr[CCudaHostBuffer]& buffer)
 
 
 cdef class BufferReader(NativeFile):

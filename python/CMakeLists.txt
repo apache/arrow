@@ -351,18 +351,18 @@ if (PYARROW_BUILD_CUDA)
   else()
     if (PYARROW_BUNDLE_ARROW_CPP)
       bundle_arrow_lib(ARROW_CUDA_SHARED_LIB
-	ABI_VERSION ${ARROW_ABI_VERSION}
-	SO_VERSION ${ARROW_SO_VERSION})
+        ABI_VERSION ${ARROW_ABI_VERSION}
+        SO_VERSION ${ARROW_SO_VERSION})
       if (MSVC)
-	bundle_arrow_implib(ARROW_CUDA_SHARED_IMP_LIB)
+        bundle_arrow_implib(ARROW_CUDA_SHARED_IMP_LIB)
       endif()
     endif()
     if (MSVC)
       ADD_THIRDPARTY_LIB(arrow_gpu
-	SHARED_LIB ${ARROW_CUDA_SHARED_IMP_LIB})
+        SHARED_LIB ${ARROW_CUDA_SHARED_IMP_LIB})
     else()
       ADD_THIRDPARTY_LIB(arrow_gpu
-	SHARED_LIB ${ARROW_CUDA_SHARED_LIB})
+        SHARED_LIB ${ARROW_CUDA_SHARED_LIB})
     endif()
     set(LINK_LIBS ${LINK_LIBS} arrow_gpu_shared)
     set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)

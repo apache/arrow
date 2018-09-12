@@ -49,7 +49,6 @@ def teardown_module(module):
 
 
 def test_Context():
-
     assert cuda.Context.get_num_devices() > 0
     assert global_context.device_number == 0
 
@@ -67,7 +66,7 @@ def test_manage_allocate_free_host():
     arr[size//4:3*size//4] = 1
     arr_cp = arr.copy()
     arr2 = np.frombuffer(buf, dtype=np.uint8)
-    assert arr2.tolist() == arr_cp.tolist()
+    np.testing.assert_equal(arr2, arr_cp)
     assert buf.size == size
 
 
@@ -79,25 +78,23 @@ def test_context_allocate_del():
     assert global_context.bytes_allocated == bytes_allocated
 
 
-def make_random_buffer(size, target='host', context=None):
+def make_random_buffer(size, target='host'):
+    """Return a host or device buffer with random data.
+    """
     if target == 'host':
         assert size >= 0
-        buf = pa.allocate_buffer(size, resizable=True)
+        buf = pa.allocate_buffer(size)
         assert buf.size == size
         arr = np.frombuffer(buf, dtype=np.uint8)
         assert arr.size == size
         arr[:] = np.random.randint(low=0, high=255, size=size, dtype=np.uint8)
         assert arr.sum() > 0
         arr_ = np.frombuffer(buf, dtype=np.uint8)
-        assert (arr == arr_).all()
+        np.testing.assert_equal(arr, arr_)
         return arr, buf
-    if target == 'device':
+    elif target == 'device':
         arr, buf = make_random_buffer(size, target='host')
-        if context is None:
-            context_ = global_context
-        else:
-            context_ = context
-        dbuf = context_.allocate(size)
+        dbuf = global_context.allocate(size)
         assert dbuf.size == size
         dbuf.copy_from_host(buf, position=0, nbytes=size)
         return arr, dbuf
@@ -111,7 +108,7 @@ def test_context_device_buffer():
     cudabuf = global_context.device_buffer(buf)
     assert cudabuf.size == size
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
-    assert arr.tolist() == arr2.tolist()
+    np.testing.assert_equal(arr, arr2)
 
     # arr3 = np.frombuffer(cudabuf, dtype=np.uint8) # crashes!!
     # assert arr.tolist() == arr3.tolist()
@@ -120,19 +117,19 @@ def test_context_device_buffer():
     cudabuf = global_context.device_buffer(arr)
     assert cudabuf.size == size
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
-    assert arr.tolist() == arr2.tolist()
+    np.testing.assert_equal(arr, arr2)
 
     # Creating device buffer from bytes:
     cudabuf = global_context.device_buffer(arr.tobytes())
     assert cudabuf.size == size
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
-    assert arr.tolist() == arr2.tolist()
+    np.testing.assert_equal(arr, arr2)
 
     # Creating device buffer from another device buffer:
     cudabuf2 = global_context.device_buffer(cudabuf)
     assert cudabuf2.size == size
     arr2 = np.frombuffer(cudabuf2.copy_to_host(), dtype=np.uint8)
-    assert arr.tolist() == arr2.tolist()
+    np.testing.assert_equal(arr, arr2)
 
     # Creating a device buffer from a slice of host buffer
     soffset = size//4
@@ -141,24 +138,24 @@ def test_context_device_buffer():
                                            size=ssize)
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
-    assert arr[soffset:soffset + ssize].tolist() == arr2.tolist()
+    np.testing.assert_equal(arr[soffset:soffset + ssize], arr2)
 
     cudabuf = global_context.device_buffer(buf.slice(offset=soffset,
                                                      length=ssize))
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
-    assert arr[soffset:soffset + ssize].tolist() == arr2.tolist()
+    np.testing.assert_equal(arr[soffset:soffset + ssize], arr2)
 
     # Creating a device buffer from a slice of an array
     cudabuf = global_context.device_buffer(arr, offset=soffset, size=ssize)
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
-    assert arr[soffset:soffset + ssize].tolist() == arr2.tolist()
+    np.testing.assert_equal(arr[soffset:soffset + ssize], arr2)
 
     cudabuf = global_context.device_buffer(arr[soffset:soffset+ssize])
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
-    assert arr[soffset:soffset + ssize].tolist() == arr2.tolist()
+    np.testing.assert_equal(arr[soffset:soffset + ssize], arr2)
 
     # Creating a device buffer from a slice of bytes
     cudabuf = global_context.device_buffer(arr.tobytes(),
@@ -166,7 +163,7 @@ def test_context_device_buffer():
                                            size=ssize)
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
-    assert arr[soffset:soffset + ssize].tolist() == arr2.tolist()
+    np.testing.assert_equal(arr[soffset:soffset + ssize], arr2)
 
     # Creating a device buffer from size
     cudabuf = global_context.device_buffer(size=size)
@@ -179,7 +176,7 @@ def test_context_device_buffer():
                                             size=ssize)
     assert cudabuf2.size == ssize
     arr2 = np.frombuffer(cudabuf2.copy_to_host(), dtype=np.uint8)
-    assert arr[soffset:soffset+ssize].tolist() == arr2.tolist()
+    np.testing.assert_equal(arr[soffset:soffset+ssize], arr2)
 
     # Creating device buffer from HostBuffer
 
@@ -189,20 +186,20 @@ def test_context_device_buffer():
     cudabuf = global_context.device_buffer(buf)
     assert cudabuf.size == size
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
-    assert arr.tolist() == arr2.tolist()
+    np.testing.assert_equal(arr, arr2)
 
     # Creating device buffer from HostBuffer slice
 
     cudabuf = global_context.device_buffer(buf, offset=soffset, size=ssize)
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
-    assert arr[soffset:soffset+ssize].tolist() == arr2.tolist()
+    np.testing.assert_equal(arr[soffset:soffset+ssize], arr2)
 
     cudabuf = global_context.device_buffer(buf.slice(offset=soffset,
                                                      length=ssize))
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
-    assert arr[soffset:soffset+ssize].tolist() == arr2.tolist()
+    np.testing.assert_equal(arr[soffset:soffset+ssize], arr2)
 
 
 def test_CudaBuffer():
@@ -269,7 +266,7 @@ def test_copy_from_to_host():
     assert arr.size == size
     arr[:] = range(size)
     arr_ = np.frombuffer(buf, dtype=np.uint8)
-    assert (arr == arr_).all()
+    np.testing.assert_equal(arr, arr_)
 
     device_buffer = global_context.allocate(size)
     assert isinstance(device_buffer, cuda.CudaBuffer)
@@ -280,7 +277,7 @@ def test_copy_from_to_host():
 
     buf2 = device_buffer.copy_to_host(position=0, nbytes=size)
     arr2 = np.frombuffer(buf2, dtype=np.uint8)
-    assert (arr == arr2).all()
+    np.testing.assert_equal(arr, arr2)
 
 
 def test_copy_to_host():
@@ -288,14 +285,14 @@ def test_copy_to_host():
     arr, dbuf = make_random_buffer(size, target='device')
 
     buf = dbuf.copy_to_host()
-    assert (arr == np.frombuffer(buf, dtype=np.uint8)).all()
-
+    np.testing.assert_equal(arr, np.frombuffer(buf, dtype=np.uint8))
+    
     buf = dbuf.copy_to_host(position=size//4)
-    assert (arr[size//4:] == np.frombuffer(buf, dtype=np.uint8)).all()
+    np.testing.assert_equal(arr[size//4:], np.frombuffer(buf, dtype=np.uint8))
 
     buf = dbuf.copy_to_host(position=size//4, nbytes=size//8)
-    assert (arr[size//4:size//4+size//8] ==
-            np.frombuffer(buf, dtype=np.uint8)).all()
+    np.testing.assert_equal(arr[size//4:size//4+size//8],
+                            np.frombuffer(buf, dtype=np.uint8))
 
     buf = dbuf.copy_to_host(position=size//4, nbytes=0)
     assert buf.size == 0
@@ -318,16 +315,16 @@ def test_copy_to_host():
 
     buf = pa.allocate_buffer(size//4)
     dbuf.copy_to_host(buf=buf)
-    assert (arr[:size//4] == np.frombuffer(buf, dtype=np.uint8)).all()
+    np.testing.assert_equal(arr[:size//4], np.frombuffer(buf, dtype=np.uint8))
 
     dbuf.copy_to_host(buf=buf, position=12)
-    assert (arr[12:12+size//4] == np.frombuffer(buf, dtype=np.uint8)).all()
+    np.testing.assert_equal(arr[12:12+size//4], np.frombuffer(buf, dtype=np.uint8))
 
     dbuf.copy_to_host(buf=buf, nbytes=12)
-    assert (arr[:12] == np.frombuffer(buf, dtype=np.uint8)[:12]).all()
+    np.testing.assert_equal(arr[:12], np.frombuffer(buf, dtype=np.uint8)[:12])
 
     dbuf.copy_to_host(buf=buf, nbytes=12, position=6)
-    assert (arr[6:6+12] == np.frombuffer(buf, dtype=np.uint8)[:12]).all()
+    np.testing.assert_equal(arr[6:6+12], np.frombuffer(buf, dtype=np.uint8)[:12])
 
     for (position, nbytes) in [
             (0, size+10), (10, size-5),
@@ -389,18 +386,17 @@ def test_copy_from_host():
 
 
 def test_BufferWriter():
-
     def allocate(size):
         cbuf = global_context.allocate(size)
         writer = cuda.BufferWriter(cbuf)
         return cbuf, writer
 
-    def test_writes(total_bytes, chunksize, buffer_size=0):
+    def test_writes(total_size, chunksize, buffer_size=0):
         cbuf, writer = allocate(total_size)
         arr, buf = make_random_buffer(size=total_size, target='host')
 
         if buffer_size > 0:
-            writer.set_buffer_size(buffer_size)
+            writer.buffer_size = buffer_size
 
         position = writer.tell()
         assert position == 0
@@ -410,22 +406,21 @@ def test_BufferWriter():
         position = writer.tell()
         assert position == 0
 
-        while position < total_bytes:
-            bytes_to_write = min(chunksize, total_bytes - position)
+        while position < total_size:
+            bytes_to_write = min(chunksize, total_size - position)
             writer.write(buf.slice(offset=position, length=bytes_to_write))
             position += bytes_to_write
 
         writer.flush()
-        assert cbuf.size == total_bytes
+        assert cbuf.size == total_size
         buf2 = cbuf.copy_to_host()
-        assert buf2.size == total_bytes
+        assert buf2.size == total_size
         arr2 = np.frombuffer(buf2, dtype=np.uint8)
-        assert arr2.size == total_bytes
-        assert (arr2 == arr).all()
+        np.testing.assert_equal(arr, arr2)
 
     total_size, chunk_size = 1 << 16, 1000
     test_writes(total_size, chunk_size)
-    test_writes(total_size, chunk_size, total_size // (1 << 4))
+    test_writes(total_size, chunk_size, total_size // 16)
 
     cbuf, writer = allocate(100)
     writer.write(np.arange(100, dtype=np.uint8))
@@ -434,27 +429,27 @@ def test_BufferWriter():
     writer.flush()
 
     arr = np.frombuffer(cbuf.copy_to_host(), np.uint8)
-    assert (arr[:50] == np.arange(50, dtype=np.uint8)).all()
-    assert (arr[50:75] == np.arange(25, dtype=np.uint8)).all()
-    assert (arr[75:] == np.arange(25, dtype=np.uint8)).all()
+    np.testing.assert_equal(arr[:50], np.arange(50, dtype=np.uint8))
+    np.testing.assert_equal(arr[50:75], np.arange(25, dtype=np.uint8))
+    np.testing.assert_equal(arr[75:], np.arange(25, dtype=np.uint8))
 
 
 def test_BufferWriter_edge_cases():
-    # edge cases:
+    # edge cases, see cuda-test.cc for more information:
     size = 1000
     cbuf = global_context.allocate(size)
     writer = cuda.BufferWriter(cbuf)
     arr, buf = make_random_buffer(size=size, target='host')
 
     assert writer.buffer_size == 0
-    writer.set_buffer_size(100)
+    writer.buffer_size = 100
     assert writer.buffer_size == 100
 
     writer.write(buf.slice(length=0))
     assert writer.tell() == 0
 
     writer.write(buf.slice(length=10))
-    writer.set_buffer_size(200)
+    writer.buffer_size = 200
     assert writer.buffer_size == 200
     assert writer.num_bytes_buffered == 0
 
@@ -472,12 +467,10 @@ def test_BufferWriter_edge_cases():
     buf2 = cbuf.copy_to_host()
     assert buf2.size == size
     arr2 = np.frombuffer(buf2, dtype=np.uint8)
-    assert arr2.size == size
-    assert (arr2 == arr).all()
+    np.testing.assert_equal(arr, arr2)
 
 
 def test_BufferReader():
-
     size = 1000
     arr, cbuf = make_random_buffer(size=size, target='device')
 
@@ -494,13 +487,13 @@ def test_BufferReader():
     n = reader.readinto(arr2)
     assert n == 75
     assert reader.tell() == 1000
-    assert (arr2[:75] == arr[925:]).all()
+    np.testing.assert_equal(arr[925:], arr2[:75])
 
     reader.seek(0)
     assert reader.tell() == 0
     buf2 = reader.read_buffer()
     arr2 = np.frombuffer(buf2.copy_to_host(), dtype=np.uint8)
-    assert (arr2 == arr).all()
+    np.testing.assert_equal(arr, arr2)
 
 
 def make_recordbatch(length):
@@ -516,6 +509,7 @@ def test_batch_serialize():
     batch = make_recordbatch(10)
     hbuf = batch.serialize()
     cbuf = cuda.serialize_record_batch(batch, global_context)
+    # test that read_record_batch works properly:
     cuda.read_record_batch(batch.schema, cbuf)
     buf = cbuf.copy_to_host()
     assert hbuf.equals(buf)
@@ -534,18 +528,17 @@ def other_process_for_test_IPC(handle_buffer, expected_arr):
     buf = ipc_buf.copy_to_host()
     assert buf.size == expected_arr.size, repr((buf.size, expected_arr.size))
     arr = np.frombuffer(buf, dtype=expected_arr.dtype)
-    assert (arr == expected_arr).all()
-
+    np.testing.assert_equal(arr, expected_arr)
 
 @cuda_ipc
 def test_IPC():
-    from multiprocessing import Process, set_start_method
-    set_start_method('spawn')
+    import multiprocessing
+    ctx = multiprocessing.get_context('spawn')
     size = 1000
     arr, cbuf = make_random_buffer(size=size, target='device')
     ipc_handle = cbuf.export_for_ipc()
     handle_buffer = ipc_handle.serialize()
-    p = Process(target=other_process_for_test_IPC, args=(handle_buffer, arr))
+    p = ctx.Process(target=other_process_for_test_IPC, args=(handle_buffer, arr))
     p.start()
     p.join()
     assert p.exitcode == 0
