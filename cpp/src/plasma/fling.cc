@@ -16,6 +16,8 @@
 
 #include <string.h>
 
+#include "arrow/util/logging.h"
+
 void init_msg(struct msghdr* msg, struct iovec* iov, char* buf, size_t buf_len) {
   iov->iov_base = buf;
   iov->iov_len = 1;
@@ -53,13 +55,13 @@ int send_fd(int conn, int fd) {
         continue;
       } else {
         ARROW_LOG(INFO) << "Error in send_fd (errno = " << errno << ")";
-        return -1;
+        return static_cast<int>(r);
       }
     } else if (r == 0) {
       ARROW_LOG(INFO) << "Encountered unexpected EOF";
     } else {
       ARROW_CHECK(r > 0);
-      break;
+      return static_cast<int>(r);
     }
   }
 }
