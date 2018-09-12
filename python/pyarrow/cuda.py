@@ -15,9 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow._cuda \
-    import (Context, IpcMemHandle,
-            CudaBuffer, HostBuffer, BufferReader, BufferWriter,
-            allocate_host_buffer, serialize_record_batch,
-            read_message, read_record_batch,
-    )
+# flake8: noqa
+
+from pyarrow._cuda import (Context, IpcMemHandle, CudaBuffer,
+                           HostBuffer, BufferReader, BufferWriter,
+                           allocate_host_buffer,
+                           serialize_record_batch, read_message,
+                           read_record_batch)
