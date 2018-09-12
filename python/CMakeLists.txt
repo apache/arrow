@@ -17,6 +17,9 @@
 #
 # Includes code assembled from BSD/MIT/Apache-licensed code from some 3rd-party
 # projects, including Kudu, Impala, and libdynd. See python/LICENSE.txt
+#
+# TODO(ARROW-3209): rename arrow_gpu to arrow_cuda
+#
 
 cmake_minimum_required(VERSION 2.7)
 project(pyarrow)
@@ -278,12 +281,6 @@ if (PYARROW_BUNDLE_ARROW_CPP)
     ABI_VERSION ${ARROW_ABI_VERSION}
     SO_VERSION ${ARROW_SO_VERSION})
 
-  if (ARROW_GPU_FOUND)
-    bundle_arrow_lib(ARROW_GPU_SHARED_LIB
-      ABI_VERSION ${ARROW_ABI_VERSION}
-      SO_VERSION ${ARROW_SO_VERSION})
-  endif()
-  
   # boost
   if (PYARROW_BOOST_USE_SHARED AND PYARROW_BUNDLE_BOOST)
     set(Boost_USE_STATIC_LIBS OFF)
@@ -314,9 +311,6 @@ if (PYARROW_BUNDLE_ARROW_CPP)
   if (MSVC)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
     bundle_arrow_implib(ARROW_PYTHON_SHARED_IMP_LIB)
-    if (ARROW_GPU_FOUND)
-      bundle_arrow_implib(ARROW_GPU_SHARED_IMP_LIB)
-    endif()
   endif()
 endif()
 
@@ -325,19 +319,11 @@ if (MSVC)
     SHARED_LIB ${ARROW_SHARED_IMP_LIB})
   ADD_THIRDPARTY_LIB(arrow_python
     SHARED_LIB ${ARROW_PYTHON_SHARED_IMP_LIB})
-  if (ARROW_GPU_FOUND)
-    ADD_THIRDPARTY_LIB(arrow_gpu
-      SHARED_LIB ${ARROW_GPU_SHARED_IMP_LIB})
-  endif()
 else()
   ADD_THIRDPARTY_LIB(arrow
     SHARED_LIB ${ARROW_SHARED_LIB})
   ADD_THIRDPARTY_LIB(arrow_python
     SHARED_LIB ${ARROW_PYTHON_SHARED_LIB})
-  if (ARROW_GPU_FOUND)
-    ADD_THIRDPARTY_LIB(arrow_gpu
-      SHARED_LIB ${ARROW_GPU_SHARED_LIB})
-  endif()
 endif()
 
 ############################################################
@@ -357,10 +343,30 @@ set(LINK_LIBS
   arrow_python_shared
   )
 
-
-if (ARROW_GPU_FOUND)
-  set(LINK_LIBS ${LINK_LIBS} arrow_gpu_shared)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
+if (PYARROW_BUILD_CUDA)
+  ## Arrow CUDA
+  find_package(ArrowCuda)
+  if(NOT ARROW_CUDA_FOUND)
+    message(FATAL_ERROR "Unable to locate Arrow CUDA libraries")
+  else()
+    if (PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(ARROW_CUDA_SHARED_LIB
+	ABI_VERSION ${ARROW_ABI_VERSION}
+	SO_VERSION ${ARROW_SO_VERSION})
+      if (MSVC)
+	bundle_arrow_implib(ARROW_CUDA_SHARED_IMP_LIB)
+      endif()
+    endif()
+    if (MSVC)
+      ADD_THIRDPARTY_LIB(arrow_gpu
+	SHARED_LIB ${ARROW_CUDA_SHARED_IMP_LIB})
+    else()
+      ADD_THIRDPARTY_LIB(arrow_gpu
+	SHARED_LIB ${ARROW_CUDA_SHARED_LIB})
+    endif()
+    set(LINK_LIBS ${LINK_LIBS} arrow_gpu_shared)
+    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
+  endif()
 endif()
 
 if (PYARROW_BUILD_PARQUET)
