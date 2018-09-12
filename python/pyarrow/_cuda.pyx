@@ -19,7 +19,7 @@ import six
 from pyarrow.compat import tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_cuda cimport *
-from pyarrow.lib import py_buffer, allocate_buffer
+from pyarrow.lib import py_buffer, allocate_buffer, as_buffer
 cimport cpython as cp
 
 
@@ -70,8 +70,8 @@ cdef class Context:
         """
         return self.context.get().bytes_allocated()
 
-    def allocate(self, nbytes):
-        """ Allocate CUDA memory on GPU device for this context.
+    def new_buffer(self, nbytes):
+        """Return new device buffer.
 
         Parameters
         ----------
@@ -106,14 +106,13 @@ cdef class Context:
                                                       &cudabuf))
         return pyarrow_wrap_cudabuffer(cudabuf)
 
-    def device_buffer(self, object data=None,
-                      int64_t offset=0, int64_t size=-1):
-        """Create device buffer from data (when specified).
+    def buffer_from_data(self, object data, int64_t offset=0, int64_t size=-1):
+        """Create device buffer and initalize with data.
 
         Parameters
         ----------
-        data : {CudaBuffer, Buffer, array-like, None}
-          Specify data for device buffer.
+        data : {CudaBuffer, Buffer, array-like}
+          Specify data to be copied to device buffer.
         offset : int
           Specify the offset of input buffer for device data
           buffering. Default: 0.
@@ -124,28 +123,14 @@ cdef class Context:
         Returns
         -------
         cbuf : CudaBuffer
-          Device buffer containing data.
+          Device buffer with copied data.
         """
-        if data is None:
-            if size < 0:
-                raise ValueError('buffer size must be positive int')
-            return self.allocate(size)
         if pyarrow_is_cudabuffer(data):
-            # Assume that data is on the same device that context uses
-            # TODO?: If not, copy to context device via host buffer.
-            assert data.context.device_number == self.device_number
-            if size < 0:
-                length = None
-            else:
-                length = size
-            return data.slice(offset, length)
+            raise NotImplementedError('copying data from device to device')
 
         cdef shared_ptr[CBuffer] buf
+        data = as_buffer(data)
 
-        if not pyarrow_is_buffer(data):  # assume data is array-like
-            #check_status(PyBuffer.FromPyObject(data, &buf))
-            #data = pyarrow_wrap_buffer(buf)
-            data = py_buffer(data)
         bsize = data.size
         if offset < 0 or offset >= bsize:
             raise ValueError('offset argument is out-of-range')
@@ -159,14 +144,14 @@ cdef class Context:
             data = data.slice(offset, size)
 
         if pyarrow_is_cudahostbuffer(data):
-            buf = <shared_ptr[CBuffer]> pyarrow_unwrap_cudahostbuffer(data)
+            buf = <shared_ptr[CBuffer]>pyarrow_unwrap_cudahostbuffer(data)
         elif pyarrow_is_buffer(data):
             buf = pyarrow_unwrap_buffer(data)
         else:
-            raise TypeError('Expected Buffer or array-like but got %s'
+            raise TypeError("Expected Buffer or array-like but got '%s'"
                             % (type(data).__name__))
 
-        result = self.allocate(size)
+        result = self.new_buffer(size)
         result.copy_from_host(pyarrow_wrap_buffer(buf),
                               position=0,
                               nbytes=size)
@@ -319,25 +304,26 @@ cdef class CudaBuffer(Buffer):
         cdef int64_t position_ = position
         with nogil:
             check_status(self.cuda_buffer.get()
-                         .CopyToHost(position_, nbytes_, buf_.get().mutable_data()))
+                         .CopyToHost(position_, nbytes_,
+                                     buf_.get().mutable_data()))
         return buf
 
-    def copy_from_host(self, source, int64_t position=0, int64_t nbytes=-1):
-        """Copy memory from CPU host to GPU device.
+    def copy_from_host(self, data, int64_t position=0, int64_t nbytes=-1):
+        """Copy data from host to device.
 
         The device buffer must be pre-allocated.
 
         Parameters
         ----------
-        source : {Buffer, buffer-like}
-          Specify source of data in host. It can be buffer-like that
-          is valid argument to py_buffer
+        data : {Buffer, array-like}
+          Specify data in host. It can be array-like that is valid
+          argument to py_buffer
         position : int
-          Specify the starting position of the copy in GPU devive
-          buffer.  Default: 0.
+          Specify the starting position of the copy in devive buffer.
+          Default: 0.
         nbytes : int
           Specify the number of bytes to copy. Default: -1 (all from
-          source until device buffer starting from position is full)
+          source until device buffer, starting from position, is full)
 
         Returns
         -------
@@ -347,7 +333,7 @@ cdef class CudaBuffer(Buffer):
         if position < 0 or position > self.size:
             raise ValueError('position argument is out-of-range')
         cdef int64_t nbytes_
-        buf = source if isinstance(source, Buffer) else py_buffer(source)
+        buf = as_buffer(data)
 
         if nbytes < 0:
             # copy from host buffer to device buffer starting from
@@ -448,7 +434,7 @@ cdef class HostBuffer(Buffer):
 
     To create a HostBuffer instance, use
 
-      cuda.allocate_host_buffer(<nbytes>)
+      cuda.new_host_buffer(<nbytes>)
 
     The memory is automatically freed when HostBuffer instance is
     deleted.
@@ -460,7 +446,7 @@ cdef class HostBuffer(Buffer):
 
     def __init__(self):
         raise TypeError("Do not call HostBuffer's constructor directly,"
-                        " use `allocate_host_buffer` function instead.")
+                        " use `cuda.new_host_buffer` function instead.")
 
     cdef void init_host(self, const shared_ptr[CCudaHostBuffer]& buffer):
         self.host_buffer = buffer
@@ -546,11 +532,7 @@ cdef class BufferWriter(NativeFile):
           Specify data, the data instance must implement buffer
           protocol.
         """
-        if isinstance(data, six.string_types):
-            data = tobytes(data)
-
-        cdef Buffer arrow_buffer = py_buffer(data)
-
+        cdef Buffer arrow_buffer = as_buffer(data)
         cdef const uint8_t* buf = arrow_buffer.buffer.get().data()
         cdef int64_t bufsize = len(arrow_buffer)
         with nogil:
@@ -606,18 +588,18 @@ cdef class BufferWriter(NativeFile):
 # Functions
 
 
-def allocate_host_buffer(const int64_t size):
-    """Allocate CUDA-accessible memory on CPU host
+def new_host_buffer(const int64_t size):
+    """Return buffer with CUDA-accessible memory on CPU host
 
     Parameters
     ----------
     size : int
-      Specify the number of bytes
+      Specify the number of bytes to be allocated.
 
     Returns
     -------
     dbuf : HostBuffer
-      the allocated device buffer
+      Allocated host buffer
     """
     cdef shared_ptr[CCudaHostBuffer] buffer
     check_status(AllocateCudaHostBuffer(size, &buffer))
@@ -706,14 +688,11 @@ def read_record_batch(object schema, object buffer, pool=None):
 cdef public api bint pyarrow_is_buffer(object buffer):
     return isinstance(buffer, Buffer)
 
+# cudabuffer
+
 cdef public api bint pyarrow_is_cudabuffer(object buffer):
     return isinstance(buffer, CudaBuffer)
 
-cdef public api bint pyarrow_is_cudahostbuffer(object buffer):
-    return isinstance(buffer, HostBuffer)
-
-cdef public api bint pyarrow_is_cudacontext(object ctx):
-    return isinstance(ctx, Context)
 
 cdef public api object \
         pyarrow_wrap_cudabuffer(const shared_ptr[CCudaBuffer]& buf):
@@ -721,11 +700,38 @@ cdef public api object \
     result.init_cuda(buf)
     return result
 
+
+cdef public api shared_ptr[CCudaBuffer] pyarrow_unwrap_cudabuffer(object obj):
+    if pyarrow_is_cudabuffer(obj):
+        return (<CudaBuffer>obj).cuda_buffer
+    raise TypeError('expected CudaBuffer instance, got %s'
+                    % (type(obj).__name__))
+
+# cudahostbuffer
+
+cdef public api bint pyarrow_is_cudahostbuffer(object buffer):
+    return isinstance(buffer, HostBuffer)
+
+
 cdef public api object \
         pyarrow_wrap_cudahostbuffer(const shared_ptr[CCudaHostBuffer]& buf):
     cdef HostBuffer result = HostBuffer.__new__(HostBuffer)
     result.init_host(buf)
     return result
+
+
+cdef public api shared_ptr[CCudaHostBuffer] \
+        pyarrow_unwrap_cudahostbuffer(object obj):
+    if pyarrow_is_cudahostbuffer(obj):
+        return (<HostBuffer>obj).host_buffer
+    raise TypeError('expected HostBuffer instance, got %s'
+                    % (type(obj).__name__))
+
+# cudacontext
+
+cdef public api bint pyarrow_is_cudacontext(object ctx):
+    return isinstance(ctx, Context)
+
 
 cdef public api object \
         pyarrow_wrap_cudacontext(const shared_ptr[CCudaContext]& ctx):
@@ -733,8 +739,19 @@ cdef public api object \
     result.init(ctx)
     return result
 
+
+cdef public api shared_ptr[CCudaContext] \
+        pyarrow_unwrap_cudacontext(object obj):
+    if pyarrow_is_cudacontext(obj):
+        return (<Context>obj).context
+    raise TypeError('expected Context instance, got %s'
+                    % (type(obj).__name__))
+
+# cudaipcmemhandle
+
 cdef public api bint pyarrow_is_cudaipcmemhandle(object handle):
     return isinstance(handle, IpcMemHandle)
+
 
 cdef public api object \
         pyarrow_wrap_cudaipcmemhandle(shared_ptr[CCudaIpcMemHandle]& h):
@@ -742,32 +759,10 @@ cdef public api object \
     result.init(h)
     return result
 
+
 cdef public api shared_ptr[CCudaIpcMemHandle] \
-        pyarrow_unwrap_cudaipcmemhandle(object handle):
-    cdef IpcMemHandle handle_
-    assert isinstance(handle, IpcMemHandle)
-    handle_ = <IpcMemHandle> (handle)
-    return handle_.handle
-
-cdef public api shared_ptr[CCudaContext] \
-        pyarrow_unwrap_cudacontext(object obj):
-    cdef Context ctx
-    if pyarrow_is_cudacontext(obj):
-        ctx = <Context> (obj)
-        return ctx.context
-    return shared_ptr[CCudaContext]()
-
-cdef public api shared_ptr[CCudaBuffer] pyarrow_unwrap_cudabuffer(object obj):
-    cdef CudaBuffer buf
-    if pyarrow_is_cudabuffer(obj):
-        buf = <CudaBuffer> (obj)
-        return buf.cuda_buffer
-    return shared_ptr[CCudaBuffer]()
-
-cdef public api shared_ptr[CCudaHostBuffer] \
-        pyarrow_unwrap_cudahostbuffer(object obj):
-    cdef HostBuffer buf
-    if pyarrow_is_cudahostbuffer(obj):
-        buf = <HostBuffer> (obj)
-        return buf.host_buffer
-    return shared_ptr[CCudaHostBuffer]()
+        pyarrow_unwrap_cudaipcmemhandle(object obj):
+    if pyarrow_is_cudaipcmemhandle(obj):
+        return (<IpcMemHandle>obj).handle
+    raise TypeError('expected IpcMemHandle instance, got %s'
+                    % (type(obj).__name__))
