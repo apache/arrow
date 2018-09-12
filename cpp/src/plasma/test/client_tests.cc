@@ -47,7 +47,8 @@ void AssertObjectBufferEqual(const ObjectBuffer& object_buffer,
   arrow::AssertBufferEqual(*object_buffer.data, data);
 }
 
-class TestPlasmaStore : public ::testing::Test {
+template<unsigned int M>
+class TestPlasmaStoreBase : public ::testing::Test {
  public:
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
@@ -59,9 +60,10 @@ class TestPlasmaStore : public ::testing::Test {
 
     std::string plasma_directory =
         test_executable.substr(0, test_executable.find_last_of("/"));
-    std::string plasma_command = plasma_directory +
-                                 "/plasma_store_server -m 1000000000 -s " +
-                                 store_socket_name_ + " 1> /dev/null 2> /dev/null &";
+    std::ostringstream ostream;
+    ostream << plasma_directory << "/plasma_store_server -m " << M
+            << " -s " << store_socket_name_ + " 1> /dev/null 2> /dev/null &";
+    std::string plasma_command = ostream.str();
     system(plasma_command.c_str());
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
     ARROW_CHECK_OK(client2_.Connect(store_socket_name_, ""));
@@ -100,6 +102,8 @@ class TestPlasmaStore : public ::testing::Test {
   PlasmaClient client2_;
   std::string store_socket_name_;
 };
+
+using TestPlasmaStore = TestPlasmaStoreBase<1000000000>;
 
 TEST_F(TestPlasmaStore, NewSubscriberTest) {
   PlasmaClient local_client, local_client2;
@@ -484,6 +488,33 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
       ASSERT_FALSE(has_object);
     }
     i++;
+  }
+}
+
+using SmallMemoryTestPlasmaStore = TestPlasmaStoreBase<1000>;
+
+TEST_F(SmallMemoryTestPlasmaStore, SmallMemoryTest) {
+  // Create many objects on the first client. Seal one third, abort one third,
+  // and leave the last third unsealed.
+  std::vector<ObjectID> object_ids;
+  for (int i = 0; i < 10; i++) {
+    ObjectID object_id = random_object_id();
+    object_ids.push_back(object_id);
+
+    // Test for object non-existence on the first client.
+    bool has_object;
+    ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+    ASSERT_FALSE(has_object);
+
+    // Test for the object being in local Plasma store.
+    // First create and seal object on the first client.
+    int64_t data_size = 100;
+    uint8_t metadata[] = {5};
+    int64_t metadata_size = sizeof(metadata);
+    std::shared_ptr<Buffer> data;
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+    ARROW_CHECK_OK(client_.Seal(object_id));
+    ARROW_CHECK_OK(client_.Release(object_id));
   }
 }
 
