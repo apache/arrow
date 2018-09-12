@@ -861,6 +861,67 @@ def test_array_from_numpy_datetimeD():
     assert result.equals(expected)
 
 
+@pytest.mark.parametrize(('dtype', 'type'), [
+    ('datetime64[s]', pa.timestamp('s')),
+    ('datetime64[ms]', pa.timestamp('ms')),
+    ('datetime64[us]', pa.timestamp('us')),
+    ('datetime64[ns]', pa.timestamp('ns'))
+])
+def test_array_from_numpy_datetime(dtype, type):
+    data = [
+        None,
+        datetime.datetime(2017, 4, 4, 12, 11, 10),
+        datetime.datetime(2018, 1, 1, 0, 2, 0)
+    ]
+
+    # from numpy array
+    arr = pa.array(np.array(data, dtype=dtype))
+    expected = pa.array(data, type=type)
+    assert arr.equals(expected)
+
+    # from list of numpy scalars
+    arr = pa.array(list(np.array(data, dtype=dtype)))
+    assert arr.equals(expected)
+
+
+def test_array_from_different_numpy_datetime_units_raises():
+    data = [
+        None,
+        datetime.datetime(2017, 4, 4, 12, 11, 10),
+        datetime.datetime(2018, 1, 1, 0, 2, 0)
+    ]
+    s = np.array(data, dtype='datetime64[s]')
+    ms = np.array(data, dtype='datetime64[ms]')
+    data = list(s[:2]) + list(ms[2:])
+
+    with pytest.raises(pa.ArrowNotImplementedError):
+        pa.array(data)
+
+
+@pytest.mark.parametrize('unit', ['ns', 'us', 'ms', 's'])
+def test_array_from_list_of_timestamps(unit):
+    n = np.datetime64('NaT', unit)
+    x = np.datetime64('2017-01-01 01:01:01.111111111', unit)
+    y = np.datetime64('2018-11-22 12:24:48.111111111', unit)
+
+    a1 = pa.array([n, x, y])
+    a2 = pa.array([n, x, y], type=pa.timestamp(unit))
+
+    assert a1.type == a2.type
+    assert a1.type.unit == unit
+    assert a1[0] == a2[0]
+
+
+def test_array_from_timestamp_with_generic_unit():
+    n = np.datetime64('NaT')
+    x = np.datetime64('2017-01-01 01:01:01.111111111')
+    y = np.datetime64('2018-11-22 12:24:48.111111111')
+
+    with pytest.raises(pa.ArrowNotImplementedError,
+                       match='Unbound or generic datetime64 time unit'):
+        pa.array([n, x, y])
+
+
 def test_array_from_py_float32():
     data = [[1.2, 3.4], [9.0, 42.0]]
 
@@ -1068,14 +1129,3 @@ def test_nested_dictionary_array():
     dict_arr = pa.DictionaryArray.from_arrays([0, 1, 0], ['a', 'b'])
     dict_arr2 = pa.DictionaryArray.from_arrays([0, 1, 2, 1, 0], dict_arr)
     assert dict_arr2.to_pylist() == ['a', 'b', 'a', 'b', 'a']
-
-
-@pytest.mark.parametrize('unit', ['ns', 'us', 'ms', 's'])
-def test_timestamp_units_from_list(unit):
-    x = np.datetime64('2017-01-01 01:01:01.111111111', unit)
-    a1 = pa.array([x])
-    a2 = pa.array([x], type=pa.timestamp(unit))
-
-    assert a1.type == a2.type
-    assert a1.type.unit == unit
-    assert a1[0] == a2[0]

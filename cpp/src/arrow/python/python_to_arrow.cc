@@ -349,6 +349,8 @@ class TimestampConverter : public TypedConverter<TimestampType, TimestampConvert
       }
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       // numpy.datetime64
+      using traits = internal::npy_traits<NPY_DATETIME>;
+
       std::shared_ptr<DataType> type;
       RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &type));
       if (type->id() != Type::TIMESTAMP) {
@@ -364,6 +366,10 @@ class TimestampConverter : public TypedConverter<TimestampType, TimestampConvert
       }
 
       t = reinterpret_cast<PyDatetimeScalarObject*>(obj)->obval;
+      if (traits::isnull(t)) {
+        // checks numpy NaT sentinel after conversion
+        return typed_builder_->AppendNull();
+      }
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &t));
     }
@@ -575,7 +581,11 @@ Status ListConverter::AppendNdarrayTypedItem(PyArrayObject* arr) {
   using T = typename traits::value_type;
   using ValueBuilderType = typename TypeTraits<Type>::BuilderType;
 
-  const bool null_sentinels_possible = (from_pandas_ && traits::supports_nulls);
+  const bool null_sentinels_possible =
+      // Always treat Numpy's NaT as null
+      NUMPY_TYPE == NPY_DATETIME ||
+      // Observing pandas's null sentinels
+      (from_pandas_ && traits::supports_nulls);
 
   auto child_builder = checked_cast<ValueBuilderType*>(value_converter_->builder());
 

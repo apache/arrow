@@ -174,6 +174,8 @@ Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
         case NPY_FR_D:
           *out = date32();
           break;
+        case NPY_FR_GENERIC:
+          return Status::NotImplemented("Unbound or generic datetime64 time unit");
         default:
           return Status::NotImplemented("Unsupported datetime64 time unit");
       }
