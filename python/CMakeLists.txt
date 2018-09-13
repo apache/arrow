@@ -461,6 +461,10 @@ if (PYARROW_BUILD_PLASMA)
     message(FATAL_ERROR "Unable to locate Plasma libraries")
   endif()
 
+  find_library(PTHREAD_LIBRARY pthread)
+  #find_package(GLOG REQUIRED)
+  set(LINK_LIBS ${LINK_LIBS} ${PTHREAD_LIBRARY})
+
   include_directories(SYSTEM ${PLASMA_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(libplasma
     SHARED_LIB ${PLASMA_SHARED_LIB})
