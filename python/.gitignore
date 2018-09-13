@@ -43,3 +43,4 @@ manylinux1/arrow
 
 # plasma store
 pyarrow/plasma_store
+pyarrow/plasma_store_server

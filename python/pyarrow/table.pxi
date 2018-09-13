@@ -140,7 +140,8 @@ cdef class ChunkedArray:
         return result
 
     def to_pandas(self, bint strings_to_categorical=False,
-                  bint zero_copy_only=False, bint integer_object_nulls=False):
+                  bint zero_copy_only=False, bint integer_object_nulls=False,
+                  bint date_as_object=False):
         """
         Convert the arrow::ChunkedArray to an array object suitable for use
         in pandas
@@ -157,6 +158,7 @@ cdef class ChunkedArray:
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
             integer_object_nulls=integer_object_nulls,
+            date_as_object=date_as_object,
             use_threads=False)
 
         with nogil:
@@ -483,7 +485,8 @@ cdef class Column:
         return [pyarrow_wrap_column(col) for col in flattened]
 
     def to_pandas(self, bint strings_to_categorical=False,
-                  bint zero_copy_only=False, bint integer_object_nulls=False):
+                  bint zero_copy_only=False, bint integer_object_nulls=False,
+                  bint date_as_object=False):
         """
         Convert the arrow::Column to a pandas.Series
 
@@ -494,6 +497,7 @@ cdef class Column:
         values = self.data.to_pandas(
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
+            date_as_object=date_as_object,
             integer_object_nulls=integer_object_nulls)
         result = pd.Series(values, name=self.name)
 
@@ -1317,7 +1321,8 @@ cdef class Table:
 
     def to_pandas(self, bint strings_to_categorical=False,
                   memory_pool=None, bint zero_copy_only=False, categories=None,
-                  bint integer_object_nulls=False, bint use_threads=True):
+                  bint integer_object_nulls=False, bint date_as_object=False,
+                  bint use_threads=True):
         """
         Convert the arrow::Table to a pandas DataFrame
 
@@ -1334,6 +1339,8 @@ cdef class Table:
             List of columns that should be returned as pandas.Categorical
         integer_object_nulls : boolean, default False
             Cast integers with nulls to objects
+        date_as_object : boolean, default False
+            Cast dates to objects
         use_threads: boolean, default True
             Whether to parallelize the conversion using multiple threads
 
@@ -1348,6 +1355,7 @@ cdef class Table:
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
             integer_object_nulls=integer_object_nulls,
+            date_as_object=date_as_object,
             use_threads=use_threads)
 
         mgr = pdcompat.table_to_blockmanager(options, self, memory_pool,
