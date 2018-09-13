@@ -857,8 +857,10 @@ class PlasmaStoreRunner {
     loop_->Start();
   }
 
+  void Stop() { loop_->Stop(); }
+
   void Shutdown() {
-    loop_->Stop();
+    loop_->Shutdown();
     loop_ = nullptr;
     store_ = nullptr;
   }
@@ -873,10 +875,8 @@ static std::unique_ptr<PlasmaStoreRunner> g_runner = nullptr;
 void HandleSignal(int signal) {
   if (signal == SIGTERM) {
     if (g_runner != nullptr) {
-      g_runner->Shutdown();
+      g_runner->Stop();
     }
-    // Report "success" to valgrind.
-    exit(0);
   }
 }
 
@@ -981,4 +981,8 @@ int main(int argc, char* argv[]) {
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
   plasma::StartServer(socket_name, system_memory, plasma_directory, hugepages_enabled,
                       use_one_memory_mapped_file);
+  plasma::g_runner->Shutdown();
+  plasma::g_runner = nullptr;
+
+  return 0;
 }

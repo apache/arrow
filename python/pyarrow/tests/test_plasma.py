@@ -127,6 +127,11 @@ class TestPlasmaClient(object):
             # Check that the Plasma store is still alive.
             assert self.p.poll() is None
             # Ensure Valgrind and/or coverage have a clean exit
+            # Valgrind misses SIGTERM if it is delivered before the
+            # event loop is ready; this race condition is mitigated
+            # but not solved by time.sleep().
+            if USE_VALGRIND:
+                time.sleep(1.0)
             self.p.send_signal(signal.SIGTERM)
             if sys.version_info >= (3, 3):
                 self.p.wait(timeout=5)

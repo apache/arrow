@@ -88,6 +88,8 @@ class EventLoop {
   /// \brief Stop the event loop
   void Stop();
 
+  void Shutdown();
+
  private:
   static void FileEventCallback(aeEventLoop* loop, int fd, void* context, int events);
 
