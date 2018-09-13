@@ -34,6 +34,7 @@ import glob
 import os
 import sys
 
+import sphinx
 import sphinx_bootstrap_theme
 
 sys.path.extend([
@@ -63,8 +64,20 @@ extensions = [
 ]
 
 # Show members for classes in .. autosummary
-autodoc_default_options = ['members', 'undoc-members', 'show-inheritance',
-                           'inherited-members']
+if sphinx.version_info < (1, 8):
+    autodoc_default_flags = [
+        'members',
+        'undoc-members',
+        'show-inheritance',
+        'inherited-members'
+    ]
+else:
+    autodoc_default_options = {
+        'members': None,
+        'undoc-members': None,
+        'show-inheritance': None,
+        'inherited-members': None
+    }
 
 # ipython directive options
 ipython_mplbackend = ''
