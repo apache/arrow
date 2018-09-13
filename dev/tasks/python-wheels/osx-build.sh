@@ -93,38 +93,6 @@ function build_wheel {
       install_name_tool -change libarrow_boost_system.dylib @rpath/libarrow_boost_system.dylib libarrow_boost_filesystem.dylib
     popd
 
-    # FIXME(kszucs)
-    # We build a custom version of thrift instead of using the one that comes
-    # with brew as we also want it to use our namespaced version of Boost.
-    # TODO(PARQUET-1262): Use the external project facilities of parquet-cpp.
-    # export THRIFT_HOME=`pwd`/thift-dist
-    # export THRIFT_VERSION=0.11.0
-    # wget http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz
-    # tar xf thrift-${THRIFT_VERSION}.tar.gz
-    # pushd thrift-${THRIFT_VERSION}
-    # mkdir build-tmp
-    # pushd build-tmp
-    # cmake -DCMAKE_BUILD_TYPE=release \
-    #     "-DCMAKE_CXX_FLAGS=-fPIC" \
-    #     "-DCMAKE_C_FLAGS=-fPIC" \
-    #     "-DCMAKE_INSTALL_PREFIX=${THRIFT_HOME}" \
-    #     "-DCMAKE_INSTALL_RPATH=${THRIFT_HOME}/lib" \
-    #     "-DBUILD_SHARED_LIBS=OFF" \
-    #     "-DBUILD_TESTING=OFF" \
-    #     "-DWITH_QT4=OFF" \
-    #     "-DWITH_C_GLIB=OFF" \
-    #     "-DWITH_JAVA=OFF" \
-    #     "-DWITH_PYTHON=OFF" \
-    #     "-DWITH_CPP=ON" \
-    #     "-DWITH_STATIC_LIB=ON" \
-    #     "-DWITH_LIBEVENT=OFF" \
-    #     -DBoost_NAMESPACE=arrow_boost \
-    #     -DBOOST_ROOT="$arrow_boost_dist" \
-    #     ..
-    # make install -j5
-    # popd
-    # popd
-
     # Now we can start with the actual build of Arrow and Parquet.
     # We pin NumPy to an old version here as the NumPy version one builds
     # with is the oldest supported one. Thanks to NumPy's guarantees our Arrow
@@ -138,7 +106,6 @@ function build_wheel {
     pushd build
     cmake -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-          -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
           -DARROW_BUILD_TESTS=OFF \
           -DARROW_BUILD_SHARED=ON \
           -DARROW_BOOST_USE_SHARED=ON \
@@ -152,7 +119,7 @@ function build_wheel {
           -DBoost_NAMESPACE=arrow_boost \
           -DMAKE=make \
           ..
-    make -j5 VERBOSE=1
+    make -j5
     make install
     popd
     popd
