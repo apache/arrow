@@ -35,6 +35,15 @@ CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION cmake curl
 conda activate $CONDA_ENV_DIR
 
+# We should use zlib in the target Python directory to avoid loading
+# wrong libpython on macOS at run-time. If we use zlib in
+# $ARROW_BUILD_TOOLCHAIN and libpython3.6m.dylib exists in both
+# $ARROW_BUILD_TOOLCHAIN and $CONDA_ENV_DIR, python-test uses
+# libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN not $CONDA_ENV_DIR.
+# libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN doesn't have NumPy. So
+# python-test fails.
+export ZLIB_HOME=$CONDA_ENV_DIR
+
 python --version
 which python
 

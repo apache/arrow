@@ -39,6 +39,11 @@ cmake -G "%GENERATOR%" ^
 FINDSTR /M /C:"Could not find the Flatbuffers library" error.txt || exit /B
 set FLATBUFFERS_HOME=
 
+popd
+rmdir /S /Q %BUILD_DIR%
+mkdir %BUILD_DIR%
+pushd %BUILD_DIR%
+
 echo Test cmake script errors out on gflags missed
 set GFLAGS_HOME=WrongPath
 
@@ -50,6 +55,11 @@ cmake -G "%GENERATOR%" ^
 
 FINDSTR /M /C:"No static or shared library provided for gflags" error.txt || exit /B
 set GFLAGS_HOME=
+
+popd
+rmdir /S /Q %BUILD_DIR%
+mkdir %BUILD_DIR%
+pushd %BUILD_DIR%
 
 echo Test cmake script errors out on snappy missed
 set SNAPPY_HOME=WrongPath
@@ -63,6 +73,11 @@ cmake -G "%GENERATOR%" ^
 FINDSTR /M /C:"Could not find the Snappy library" error.txt || exit /B
 set SNAPPY_HOME=
 
+popd
+rmdir /S /Q %BUILD_DIR%
+mkdir %BUILD_DIR%
+pushd %BUILD_DIR%
+
 echo Test cmake script errors out on zlib missed
 set ZLIB_HOME=WrongPath
 
@@ -74,6 +89,11 @@ cmake -G "%GENERATOR%" ^
 
 FINDSTR /M /C:"Could not find the ZLIB library" error.txt || exit /B
 set ZLIB_HOME=
+
+popd
+rmdir /S /Q %BUILD_DIR%
+mkdir %BUILD_DIR%
+pushd %BUILD_DIR%
 
 echo Test cmake script errors out on brotli missed
 set BROTLI_HOME=WrongPath
@@ -87,6 +107,11 @@ cmake -G "%GENERATOR%" ^
 FINDSTR /M /C:"Could not find the Brotli library" error.txt || exit /B
 set BROTLI_HOME=
 
+popd
+rmdir /S /Q %BUILD_DIR%
+mkdir %BUILD_DIR%
+pushd %BUILD_DIR%
+
 echo Test cmake script errors out on lz4 missed
 set LZ4_HOME=WrongPath
 
@@ -98,6 +123,11 @@ cmake -G "%GENERATOR%" ^
 
 FINDSTR /M /C:"No static or shared library provided for lz4_static" error.txt || exit /B
 set LZ4_HOME=
+
+popd
+rmdir /S /Q %BUILD_DIR%
+mkdir %BUILD_DIR%
+pushd %BUILD_DIR%
 
 echo Test cmake script errors out on zstd missed
 set ZSTD_HOME=WrongPath
@@ -134,7 +164,12 @@ cmake -G "%GENERATOR%" ^
       .. 2>output.txt
 
 set LIBRARY_FOUND_MSG=Added static library dependency
-for %%x in (snappy gflags zlib brotli_enc brotli_dec brotli_common lz4_static zstd_static) do (
+for %%x in (snappy gflags brotli_enc brotli_dec brotli_common lz4_static zstd_static) do (
+    echo Checking %%x library path
+    FINDSTR /C:"%LIBRARY_FOUND_MSG% %%x: %CONDA_PREFIX:\=/%" output.txt || exit /B
+)
+set LIBRARY_FOUND_MSG=Added shared library dependency
+for %%x in (zlib) do (
     echo Checking %%x library path
     FINDSTR /C:"%LIBRARY_FOUND_MSG% %%x: %CONDA_PREFIX:\=/%" output.txt || exit /B
 )
