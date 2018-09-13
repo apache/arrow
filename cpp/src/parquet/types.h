@@ -468,6 +468,64 @@ struct Encryption {
   enum type { AES_GCM_V1 = 0, AES_GCM_CTR_V1 = 1 };
 };
 
+struct EncryptionAlgorithm {
+  Encryption::type algorithm;
+  std::string aad_metadata;
+};
+
+class PARQUET_EXPORT EncryptionProperties {
+ private:
+  static inline uint8_t* str2bytes(const std::string& str) {
+    if (str.empty()) return NULLPTR;
+
+    char* cbytes = const_cast<char*>(str.c_str());
+    return reinterpret_cast<uint8_t*>(cbytes);
+  }
+
+ public:
+  EncryptionProperties() = default;
+  EncryptionProperties(Encryption::type algorithm, const std::string& key,
+                       const std::string& aad = "")
+      : algorithm_(algorithm), key_(key), aad_(aad) {}
+
+  ~EncryptionProperties() { key_.replace(0, key_.length(), key_.length(), '\0'); }
+
+  int key_length() const { return static_cast<int>(key_.length()); }
+  uint8_t* key_bytes() const { return str2bytes(key_); }
+
+  void aad(const std::string& aad) { aad_ = aad; }
+  int aad_length() const { return static_cast<int>(aad_.length()); }
+  uint8_t* aad_bytes() const { return str2bytes(aad_); }
+
+  Encryption::type algorithm() const { return algorithm_; }
+
+  const std::string& key() const { return key_; }
+  const std::string& aad() const { return aad_; }
+
+  uint32_t CalculateCipherSize(uint32_t plain_len) const {
+    if (algorithm_ == Encryption::AES_GCM_V1) {
+      return plain_len + 28;
+    } else if (algorithm_ == Encryption::AES_GCM_CTR_V1) {
+      return plain_len + 16;
+    }
+    return plain_len;
+  }
+
+  uint32_t CalculatePlainSize(uint32_t cipher_len) const {
+    if (algorithm_ == Encryption::AES_GCM_V1) {
+      return cipher_len - 28;
+    } else if (algorithm_ == Encryption::AES_GCM_CTR_V1) {
+      return cipher_len - 16;
+    }
+    return cipher_len;
+  }
+
+ private:
+  Encryption::type algorithm_;  // encryption algorithm
+  std::string key_;             // encryption key, should have 16, 24, 32-byte length
+  std::string aad_;             // encryption additional authenticated data
+};
+
 // parquet::PageType
 struct PageType {
   enum type { DATA_PAGE, INDEX_PAGE, DICTIONARY_PAGE, DATA_PAGE_V2 };

@@ -44,6 +44,7 @@
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/statistics.h"
+#include "parquet/util/crypto.h"
 
 #include "parquet/parquet_types.h"  // IYWU pragma: export
 
@@ -79,6 +80,16 @@ static inline Encoding::type FromThrift(format::Encoding::type type) {
 
 static inline Compression::type FromThrift(format::CompressionCodec::type type) {
   return static_cast<Compression::type>(type);
+}
+
+static inline EncryptionAlgorithm FromThrift(format::EncryptionAlgorithm encryption) {
+  if (encryption.__isset.AES_GCM_V1) {
+    return EncryptionAlgorithm{Encryption::AES_GCM_V1,
+                               encryption.AES_GCM_V1.aad_metadata};
+  } else {
+    return EncryptionAlgorithm{Encryption::AES_GCM_CTR_V1,
+                               encryption.AES_GCM_CTR_V1.aad_metadata};
+  }
 }
 
 static inline format::Type::type ToThrift(Type::type type) {
@@ -131,6 +142,20 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   return statistics;
 }
 
+static inline format::EncryptionAlgorithm ToThrift(EncryptionAlgorithm encryption) {
+  format::EncryptionAlgorithm encryption_algorithm;
+  if (encryption.algorithm == Encryption::AES_GCM_V1) {
+    encryption_algorithm.__isset.AES_GCM_V1 = true;
+    encryption_algorithm.AES_GCM_V1 = format::AesGcmV1();
+    encryption_algorithm.AES_GCM_V1.aad_metadata = encryption.aad_metadata;
+  } else {
+    encryption_algorithm.__isset.AES_GCM_CTR_V1 = true;
+    encryption_algorithm.AES_GCM_CTR_V1 = format::AesGcmCtrV1();
+    encryption_algorithm.AES_GCM_CTR_V1.aad_metadata = encryption.aad_metadata;
+  }
+  return encryption_algorithm;
+}
+
 // ----------------------------------------------------------------------
 // Thrift struct serialization / deserialization utilities
 
@@ -140,22 +165,48 @@ using ThriftBuffer = apache::thrift::transport::TMemoryBuffer;
 // all the bytes needed to store the thrift message.  On return, len will be
 // set to the actual length of the header.
 template <class T>
-inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg) {
-  // Deserialize msg bytes into c++ thrift msg using memory transport.
-  shared_ptr<ThriftBuffer> tmem_transport(
-      new ThriftBuffer(const_cast<uint8_t*>(buf), *len));
-  apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
-  shared_ptr<apache::thrift::protocol::TProtocol> tproto =  //
-      tproto_factory.getProtocol(tmem_transport);
-  try {
-    deserialized_msg->read(tproto.get());
-  } catch (std::exception& e) {
-    std::stringstream ss;
-    ss << "Couldn't deserialize thrift: " << e.what() << "\n";
-    throw ParquetException(ss.str());
+inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg,
+                                 const EncryptionProperties* encryption = NULLPTR) {
+  if (encryption == NULLPTR) {
+    // Deserialize msg bytes into c++ thrift msg using memory transport.
+    shared_ptr<ThriftBuffer> tmem_transport(
+        new ThriftBuffer(const_cast<uint8_t*>(buf), *len));
+    apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
+    shared_ptr<apache::thrift::protocol::TProtocol> tproto =  //
+        tproto_factory.getProtocol(tmem_transport);
+    try {
+      deserialized_msg->read(tproto.get());
+    } catch (std::exception& e) {
+      std::stringstream ss;
+      ss << "Couldn't deserialize thrift: " << e.what() << "\n";
+      throw ParquetException(ss.str());
+    }
+    uint32_t bytes_left = tmem_transport->available_read();
+    *len = *len - bytes_left;
+  } else {
+    // first 4 bytes for length
+    uint8_t clenBytes[4];
+    memcpy(clenBytes, buf, 4);
+
+    uint32_t clen = *(reinterpret_cast<uint32_t*>(clenBytes));
+
+    // decrypt
+    std::vector<uint8_t> decrypted_buffer(encryption->CalculatePlainSize(clen));
+
+    uint32_t decrypted_buffer_len = parquet_encryption::Decrypt(
+        encryption->algorithm(), true, &buf[4], clen, encryption->key_bytes(),
+        encryption->key_length(), encryption->aad_bytes(), encryption->aad_length(),
+        decrypted_buffer.data());
+
+    if (decrypted_buffer_len <= 0) {
+      throw ParquetException("Couldn't decrypt buffer\n");
+    }
+
+    DeserializeThriftMsg(decrypted_buffer.data(), &decrypted_buffer_len,
+                         deserialized_msg);
+
+    *len = 4 + clen;
   }
-  uint32_t bytes_left = tmem_transport->available_read();
-  *len = *len - bytes_left;
 }
 
 /// Utility class to serialize thrift objects to a binary format.  This object
@@ -186,12 +237,26 @@ class ThriftSerializer {
   }
 
   template <class T>
-  int64_t Serialize(const T* obj, ArrowOutputStream* out) {
+  int64_t Serialize(const T* obj, ArrowOutputStream* out, const EncryptionProperties* encryption = NULLPTR) {
     uint8_t* out_buffer;
     uint32_t out_length;
     SerializeToBuffer(obj, &out_length, &out_buffer);
-    PARQUET_THROW_NOT_OK(out->Write(out_buffer, out_length));
-    return static_cast<int64_t>(out_length);
+
+    if (encryption == NULLPTR) {
+      PARQUET_THROW_NOT_OK(out->Write(out_buffer, out_length));
+      return static_cast<int64_t>(out_length);
+    } else {
+      std::vector<uint8_t> cipher_buffer(encryption->CalculateCipherSize(out_length));
+      int cipher_buffer_len = parquet_encryption::Encrypt(
+          encryption->algorithm(), true, out_buffer, out_length, encryption->key_bytes(),
+          encryption->key_length(), encryption->aad_bytes(), encryption->aad_length(),
+          cipher_buffer.data());
+
+      PARQUET_THROW_NOT_OK(out->Write(reinterpret_cast<uint8_t*>(&cipher_buffer_len), 4));
+      PARQUET_THROW_NOT_OK(out->Write(cipher_buffer.data(), cipher_buffer_len));
+
+      return static_cast<int64_t>(cipher_buffer_len + 4);
+    }
   }
 
  private:
