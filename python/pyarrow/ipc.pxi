@@ -19,9 +19,6 @@ cdef class Message:
     """
     Container for an Arrow IPC message with metadata and optional body
     """
-    cdef:
-        unique_ptr[CMessage] message
-
     def __cinit__(self):
         pass
 

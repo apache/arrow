@@ -29,6 +29,10 @@ cdef extern from "Python.h":
 
 cdef int check_status(const CStatus& status) nogil except -1
 
+cdef class Message:
+    cdef:
+        unique_ptr[CMessage] message
+
 
 cdef class MemoryPool:
     cdef:
