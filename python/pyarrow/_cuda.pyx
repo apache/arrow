@@ -111,7 +111,7 @@ cdef class Context:
 
         Parameters
         ----------
-        data : {CudaBuffer, Buffer, array-like}
+        data : {HostBuffer, Buffer, array-like}
           Specify data to be copied to device buffer.
         offset : int
           Specify the offset of input buffer for device data
@@ -128,10 +128,9 @@ cdef class Context:
         if pyarrow_is_cudabuffer(data):
             raise NotImplementedError('copying data from device to device')
 
-        cdef shared_ptr[CBuffer] buf
-        data = as_buffer(data)
+        buf = as_buffer(data)
 
-        bsize = data.size
+        bsize = buf.size
         if offset < 0 or offset >= bsize:
             raise ValueError('offset argument is out-of-range')
         if size < 0:
@@ -141,20 +140,10 @@ cdef class Context:
                 'requested larger slice than available in device buffer')
 
         if offset != 0 or size != bsize:
-            data = data.slice(offset, size)
-
-        if pyarrow_is_cudahostbuffer(data):
-            buf = <shared_ptr[CBuffer]>pyarrow_unwrap_cudahostbuffer(data)
-        elif pyarrow_is_buffer(data):
-            buf = pyarrow_unwrap_buffer(data)
-        else:
-            raise TypeError("Expected Buffer or array-like but got '%s'"
-                            % (type(data).__name__))
+            buf = buf.slice(offset, size)
 
         result = self.new_buffer(size)
-        result.copy_from_host(pyarrow_wrap_buffer(buf),
-                              position=0,
-                              nbytes=size)
+        result.copy_from_host(buf, position=0, nbytes=size)
         return result
 
 
@@ -437,13 +426,6 @@ cdef class HostBuffer(Buffer):
     To create a HostBuffer instance, use
 
       cuda.new_host_buffer(<nbytes>)
-
-    The memory is automatically freed when HostBuffer instance is
-    deleted.
-
-    Note: after freeing HostBuffer memory, the instance should be
-    discarded as unusable.
-
     """
 
     def __init__(self):
