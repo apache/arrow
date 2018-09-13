@@ -111,6 +111,52 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
 }
 
 // MetaData Accessor
+// ColumnCryptoMetaData
+class ColumnCryptoMetaData::ColumnCryptoMetaDataImpl {
+ public:
+  explicit ColumnCryptoMetaDataImpl(const format::ColumnCryptoMetaData* crypto_metadata)
+      : crypto_metadata_(crypto_metadata) {}
+
+  ~ColumnCryptoMetaDataImpl() {}
+
+  bool encrypted_with_footer_key() const {
+    return crypto_metadata_->__isset.ENCRYPTION_WITH_FOOTER_KEY;
+  }
+  bool encrypted_with_column_key() const {
+    return crypto_metadata_->__isset.ENCRYPTION_WITH_COLUMN_KEY;
+  }
+  const std::vector<std::string>& path_in_schema() const {
+    return crypto_metadata_->ENCRYPTION_WITH_COLUMN_KEY.path_in_schema;
+  }
+  const std::string& column_key_metadata() const {
+    return crypto_metadata_->ENCRYPTION_WITH_COLUMN_KEY.column_key_metadata;
+  }
+
+ private:
+  const format::ColumnCryptoMetaData* crypto_metadata_;
+};
+
+std::unique_ptr<ColumnCryptoMetaData> ColumnCryptoMetaData::Make(
+    const uint8_t* metadata) {
+  return std::unique_ptr<ColumnCryptoMetaData>(new ColumnCryptoMetaData(metadata));
+}
+
+ColumnCryptoMetaData::ColumnCryptoMetaData(const uint8_t* metadata)
+    : impl_(new ColumnCryptoMetaDataImpl(
+          reinterpret_cast<const format::ColumnCryptoMetaData*>(metadata))) {}
+
+ColumnCryptoMetaData::~ColumnCryptoMetaData() {}
+
+const std::vector<std::string>& ColumnCryptoMetaData::path_in_schema() const {
+  return impl_->path_in_schema();
+}
+bool ColumnCryptoMetaData::encrypted_with_footer_key() const {
+  return impl_->encrypted_with_footer_key();
+}
+const std::string& ColumnCryptoMetaData::column_key_metadata() const {
+  return impl_->column_key_metadata();
+}
+
 // ColumnChunk metadata
 class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
  public:
@@ -193,6 +239,15 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return column_->meta_data.total_uncompressed_size;
   }
 
+  inline std::unique_ptr<ColumnCryptoMetaData> crypto_meta_data() const {
+    if (column_->__isset.crypto_meta_data) {
+      return ColumnCryptoMetaData::Make(
+          reinterpret_cast<const uint8_t*>(&column_->crypto_meta_data));
+    } else {
+      return nullptr;
+    }
+  }
+
  private:
   mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
@@ -270,6 +325,10 @@ int64_t ColumnChunkMetaData::total_compressed_size() const {
   return impl_->total_compressed_size();
 }
 
+std::unique_ptr<ColumnCryptoMetaData> ColumnChunkMetaData::crypto_meta_data() const {
+  return impl_->crypto_meta_data();
+}
+
 // row-group metadata
 class RowGroupMetaData::RowGroupMetaDataImpl {
  public:
@@ -334,11 +393,12 @@ class FileMetaData::FileMetaDataImpl {
  public:
   FileMetaDataImpl() : metadata_len_(0) {}
 
-  explicit FileMetaDataImpl(const void* metadata, uint32_t* metadata_len)
+  explicit FileMetaDataImpl(const void* metadata, uint32_t* metadata_len,
+                            std::shared_ptr<EncryptionProperties> encryption = nullptr)
       : metadata_len_(0) {
     metadata_.reset(new format::FileMetaData);
     DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(metadata), metadata_len,
-                         metadata_.get());
+                         metadata_.get(), encryption.get());
     metadata_len_ = *metadata_len;
 
     if (metadata_->__isset.created_by) {
@@ -366,9 +426,9 @@ class FileMetaData::FileMetaDataImpl {
 
   const ApplicationVersion& writer_version() const { return writer_version_; }
 
-  void WriteTo(::arrow::io::OutputStream* dst) const {
+  void WriteTo(::arrow::io::OutputStream* dst, EncryptionProperties* encryption) const {
     ThriftSerializer serializer;
-    serializer.Serialize(metadata_.get(), dst);
+    serializer.Serialize(metadata_.get(), dst, encryption);
   }
 
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) {
@@ -453,14 +513,17 @@ class FileMetaData::FileMetaDataImpl {
 };
 
 std::shared_ptr<FileMetaData> FileMetaData::Make(const void* metadata,
-                                                 uint32_t* metadata_len) {
+                                                 uint32_t* metadata_len,
+                                                 std::shared_ptr<EncryptionProperties> encryption) {
   // This FileMetaData ctor is private, not compatible with std::make_shared
-  return std::shared_ptr<FileMetaData>(new FileMetaData(metadata, metadata_len));
+  return std::shared_ptr<FileMetaData>(
+      new FileMetaData(metadata, metadata_len, encryption));
 }
 
-FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len)
+FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len,
+                           std::shared_ptr<EncryptionProperties> encryption)
     : impl_{std::unique_ptr<FileMetaDataImpl>(
-          new FileMetaDataImpl(metadata, metadata_len))} {}
+          new FileMetaDataImpl(metadata, metadata_len, encryption))} {}
 
 FileMetaData::FileMetaData()
     : impl_{std::unique_ptr<FileMetaDataImpl>(new FileMetaDataImpl())} {}
@@ -512,9 +575,67 @@ void FileMetaData::AppendRowGroups(const FileMetaData& other) {
   impl_->AppendRowGroups(other.impl_);
 }
 
-void FileMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
-  return impl_->WriteTo(dst);
+void FileMetaData::WriteTo(::arrow::io::OutputStream* dst, EncryptionProperties* encryption) const {
+  return impl_->WriteTo(dst, encryption);
 }
+
+class FileCryptoMetaData::FileCryptoMetaDataImpl {
+ public:
+  FileCryptoMetaDataImpl() {}
+
+  explicit FileCryptoMetaDataImpl(const uint8_t* metadata, uint32_t* metadata_len) {
+    metadata_.reset(new format::FileCryptoMetaData);
+    DeserializeThriftMsg(metadata, metadata_len, metadata_.get());
+    metadata_len_ = *metadata_len;
+  }
+
+  ~FileCryptoMetaDataImpl() {}
+
+  EncryptionAlgorithm encryption_algorithm() {
+    return FromThrift(metadata_->encryption_algorithm);
+  }
+
+  bool encrypted_footer() { return metadata_->encrypted_footer; }
+
+  const std::string& footer_key_metadata() { return metadata_->footer_key_metadata; }
+
+  uint64_t footer_offset() { return metadata_->footer_offset; }
+
+  void WriteTo(::arrow::io::OutputStream* dst) const {
+    ThriftSerializer serializer;
+    serializer.Serialize(metadata_.get(), dst);
+  }
+
+ private:
+  friend FileMetaDataBuilder;
+  std::unique_ptr<format::FileCryptoMetaData> metadata_;
+  uint32_t metadata_len_;
+};
+
+EncryptionAlgorithm FileCryptoMetaData::encryption_algorithm() {
+  return impl_->encryption_algorithm();
+}
+bool FileCryptoMetaData::encrypted_footer() { return impl_->encrypted_footer(); }
+const std::string& FileCryptoMetaData::footer_key_metadata() {
+  return impl_->footer_key_metadata();
+}
+uint64_t FileCryptoMetaData::footer_offset() { return impl_->footer_offset(); }
+
+std::shared_ptr<FileCryptoMetaData> FileCryptoMetaData::Make(
+    const uint8_t* serialized_metadata, uint32_t* metadata_len) {
+  return std::shared_ptr<FileCryptoMetaData>(
+      new FileCryptoMetaData(serialized_metadata, metadata_len));
+}
+
+FileCryptoMetaData::FileCryptoMetaData(const uint8_t* serialized_metadata,
+                                       uint32_t* metadata_len)
+    : impl_(new FileCryptoMetaDataImpl(serialized_metadata, metadata_len)) {}
+
+FileCryptoMetaData::FileCryptoMetaData() : impl_(new FileCryptoMetaDataImpl()) {}
+
+FileCryptoMetaData::~FileCryptoMetaData() {}
+
+void FileCryptoMetaData::WriteTo(::arrow::io::OutputStream* dst) const { impl_->WriteTo(dst); }
 
 ApplicationVersion::ApplicationVersion(const std::string& application, int major,
                                        int minor, int patch)
@@ -646,7 +767,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
   // column metadata
   void SetStatistics(const EncodedStatistics& val) {
-    column_chunk_->meta_data.__set_statistics(ToThrift(val));
+    column_metadata_.__set_statistics(ToThrift(val));
   }
 
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
@@ -654,19 +775,20 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
               bool dictionary_fallback) {
     if (dictionary_page_offset > 0) {
-      column_chunk_->meta_data.__set_dictionary_page_offset(dictionary_page_offset);
+      column_metadata_.__set_dictionary_page_offset(dictionary_page_offset);
       column_chunk_->__set_file_offset(dictionary_page_offset + compressed_size);
     } else {
       column_chunk_->__set_file_offset(data_page_offset + compressed_size);
     }
-    column_chunk_->__isset.meta_data = true;
-    column_chunk_->meta_data.__set_num_values(num_values);
+
+    column_metadata_.__set_num_values(num_values);
     if (index_page_offset >= 0) {
-      column_chunk_->meta_data.__set_index_page_offset(index_page_offset);
+      column_metadata_.__set_index_page_offset(index_page_offset);
     }
-    column_chunk_->meta_data.__set_data_page_offset(data_page_offset);
-    column_chunk_->meta_data.__set_total_uncompressed_size(uncompressed_size);
-    column_chunk_->meta_data.__set_total_compressed_size(compressed_size);
+    column_metadata_.__set_data_page_offset(data_page_offset);
+    column_metadata_.__set_total_uncompressed_size(uncompressed_size);
+    column_metadata_.__set_total_compressed_size(compressed_size);
+
     std::vector<format::Encoding::type> thrift_encodings;
     if (has_dictionary) {
       thrift_encodings.push_back(ToThrift(properties_->dictionary_index_encoding()));
@@ -684,12 +806,62 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     if (dictionary_fallback) {
       thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
     }
-    column_chunk_->meta_data.__set_encodings(thrift_encodings);
+    column_metadata_.__set_encodings(thrift_encodings);
   }
 
   void WriteTo(::arrow::io::OutputStream* sink) {
     ThriftSerializer serializer;
-    serializer.Serialize(column_chunk_, sink);
+    const auto& encrypt_md = properties_->column_encryption_props(column_->path());
+
+    // column is unencrypted
+    if (!encrypt_md || !encrypt_md->encrypted()) {
+      column_chunk_->__isset.meta_data = true;
+      column_chunk_->__set_meta_data(column_metadata_);
+
+      serializer.Serialize(column_chunk_, sink);
+    } else {  // column is encrypted
+      column_chunk_->__isset.crypto_meta_data = true;
+
+      // encrypted with footer key
+      format::ColumnCryptoMetaData ccmd;
+      if (encrypt_md->encrypted_with_footer_key()) {
+        ccmd.__isset.ENCRYPTION_WITH_FOOTER_KEY = true;
+        ccmd.__set_ENCRYPTION_WITH_FOOTER_KEY(format::EncryptionWithFooterKey());
+      } else {  // encrypted with column key
+        format::EncryptionWithColumnKey eck;
+        eck.__set_column_key_metadata(encrypt_md->key_metadata());
+        eck.__set_path_in_schema(column_->path()->ToDotVector());
+        ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY = true;
+        ccmd.__set_ENCRYPTION_WITH_COLUMN_KEY(eck);
+      }
+      column_chunk_->__set_crypto_meta_data(ccmd);
+
+      auto footer_encryption = properties_->footer_encryption();
+
+      // non-uniform: footer is unencrypted, or column is encrypted with a column-specific
+      // key
+      if ((footer_encryption == nullptr && encrypt_md->encrypted()) ||
+          !encrypt_md->encrypted_with_footer_key()) {
+        // don't set meta_data
+        column_chunk_->__isset.meta_data = false;
+
+        // Thrift-serialize the ColumnMetaData structure,
+        // encrypt it with the column key, and write the result to the output stream
+        // (first length, then buffer)
+        auto encrypt_props = properties_->encryption(column_->path());
+        uint64_t metadata_start = sink->Tell();
+
+        serializer.Serialize(&column_metadata_, sink, encrypt_props.get());
+
+        // Set the ColumnMetaData offset at the “file_offset” field in the ColumnChunk.
+        column_chunk_->__set_file_offset(metadata_start);
+      } else {
+        column_chunk_->__isset.meta_data = true;
+        column_chunk_->__set_meta_data(column_metadata_);
+      }
+
+      serializer.Serialize(column_chunk_, sink);
+    }
   }
 
   const ColumnDescriptor* descr() const { return column_; }
@@ -697,14 +869,15 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
  private:
   void Init(format::ColumnChunk* column_chunk) {
     column_chunk_ = column_chunk;
-    column_chunk_->meta_data.__set_type(ToThrift(column_->physical_type()));
-    column_chunk_->meta_data.__set_path_in_schema(column_->path()->ToDotVector());
-    column_chunk_->meta_data.__set_codec(
-        ToThrift(properties_->compression(column_->path())));
+    column_metadata_ = column_chunk_->meta_data;
+    column_metadata_.__set_type(ToThrift(column_->physical_type()));
+    column_metadata_.__set_path_in_schema(column_->path()->ToDotVector());
+    column_metadata_.__set_codec(ToThrift(properties_->compression(column_->path())));
   }
 
   format::ColumnChunk* column_chunk_;
   std::unique_ptr<format::ColumnChunk> owned_column_chunk_;
+  format::ColumnMetaData column_metadata_;
   const std::shared_ptr<WriterProperties> properties_;
   const ColumnDescriptor* column_;
 };
@@ -797,20 +970,22 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
          << " columns are initialized";
       throw ParquetException(ss.str());
     }
-    int64_t total_byte_size = 0;
+    //    int64_t total_byte_size = 0;
 
-    for (int i = 0; i < schema_->num_columns(); i++) {
-      if (!(row_group_->columns[i].file_offset >= 0)) {
-        std::stringstream ss;
-        ss << "Column " << i << " is not complete.";
-        throw ParquetException(ss.str());
-      }
-      total_byte_size += row_group_->columns[i].meta_data.total_compressed_size;
-    }
-    DCHECK(total_bytes_written == total_byte_size)
-        << "Total bytes in this RowGroup does not match with compressed sizes of columns";
+    //    for (int i = 0; i < schema_->num_columns(); i++) {
+    //      if (!(row_group_->columns[i].file_offset >= 0)) {
+    //        std::stringstream ss;
+    //        ss << "Column " << i << " is not complete.";
+    //        throw ParquetException(ss.str());
+    //      }
+    //      total_byte_size += row_group_->columns[i].meta_data.total_compressed_size;
+    //    }
+    //    DCHECK(total_bytes_written == total_byte_size)
+    //        << "Total bytes in this RowGroup does not match with compressed sizes of
+    //        columns";
 
-    row_group_->__set_total_byte_size(total_byte_size);
+    //    row_group_->__set_total_byte_size(total_byte_size);
+    row_group_->__set_total_byte_size(total_bytes_written);
   }
 
   void set_num_rows(int64_t num_rows) { row_group_->num_rows = num_rows; }
@@ -871,6 +1046,9 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
       : properties_(props), schema_(schema), key_value_metadata_(key_value_metadata) {
     metadata_.reset(new format::FileMetaData());
+    if (props->footer_encryption() != nullptr) {
+      crypto_metadata_.reset(new format::FileCryptoMetaData());
+    }
   }
 
   RowGroupMetaDataBuilder* AppendRowGroup() {
@@ -936,8 +1114,39 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     return file_meta_data;
   }
 
+  std::unique_ptr<FileCryptoMetaData> BuildFileCryptoMetaData(uint64_t footerOffset) {
+    if (crypto_metadata_ == nullptr) {
+      return nullptr;
+    }
+
+    auto file_encryption = properties_->file_encryption();
+    auto footer_encryption = properties_->footer_encryption();
+
+    // build format::FileCryptoMetaData
+    EncryptionAlgorithm encryption_algorithm;
+    encryption_algorithm.algorithm = footer_encryption->algorithm();
+    encryption_algorithm.aad_metadata = file_encryption->aad_metadata();
+    crypto_metadata_->__set_encryption_algorithm(ToThrift(encryption_algorithm));
+    crypto_metadata_->__set_encrypted_footer(!footer_encryption->key().empty());
+
+    std::string footer_key_metadata = file_encryption->footer_key_metadata();
+    if (!footer_key_metadata.empty()) {
+      crypto_metadata_->__set_footer_key_metadata(footer_key_metadata);
+    }
+    crypto_metadata_->__set_footer_offset(footerOffset);
+
+    // TODO set iv_prefix???
+
+    // return as FileCryptoMetaData
+    std::unique_ptr<FileCryptoMetaData> file_crypto_meta_data =
+        std::unique_ptr<FileCryptoMetaData>(new FileCryptoMetaData());
+    file_crypto_meta_data->impl_->metadata_ = std::move(crypto_metadata_);
+    return file_crypto_meta_data;
+  }
+
  protected:
   std::unique_ptr<format::FileMetaData> metadata_;
+  std::unique_ptr<format::FileCryptoMetaData> crypto_metadata_;
 
  private:
   const std::shared_ptr<WriterProperties> properties_;
@@ -968,5 +1177,10 @@ RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup() {
 }
 
 std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish() { return impl_->Finish(); }
+
+std::unique_ptr<FileCryptoMetaData> FileMetaDataBuilder::GetCryptoMetaData(
+    uint64_t footerOffset) {
+  return impl_->BuildFileCryptoMetaData(footerOffset);
+}
 
 }  // namespace parquet

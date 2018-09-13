@@ -33,6 +33,7 @@ namespace parquet {
 
 // FIXME: copied from reader-internal.cc
 static constexpr uint8_t PARQUET_MAGIC[4] = {'P', 'A', 'R', '1'};
+static constexpr uint8_t PARQUET_EMAGIC[4] = {'P', 'A', 'R', 'E'};
 
 // ----------------------------------------------------------------------
 // RowGroupWriter public API
@@ -123,7 +124,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 
     const ColumnDescriptor* column_descr = col_meta->descr();
     std::unique_ptr<PageWriter> pager =
-        PageWriter::Open(sink_, properties_->compression(column_descr->path()), col_meta,
+        PageWriter::Open(sink_, properties_->compression(column_descr->path()),
+                         properties_->encryption(column_descr->path()), col_meta,  // TODO
                          properties_->memory_pool());
     column_writers_[0] = ColumnWriter::Make(col_meta, std::move(pager), properties_);
     return column_writers_[0].get();
@@ -221,7 +223,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       const ColumnDescriptor* column_descr = col_meta->descr();
       std::unique_ptr<PageWriter> pager =
           PageWriter::Open(sink_, properties_->compression(column_descr->path()),
-                           col_meta, properties_->memory_pool(), buffered_row_group_);
+                           properties_->encryption(column_descr->path()), col_meta,
+                           properties_->memory_pool(), buffered_row_group_);
       column_writers_.push_back(
           ColumnWriter::Make(col_meta, std::move(pager), properties_));
     }
@@ -262,7 +265,22 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
       // Write magic bytes and metadata
       file_metadata_ = metadata_->Finish();
-      WriteFileMetaData(*file_metadata_, sink_.get());
+
+      auto file_encryption = properties_->file_encryption();
+      if (file_encryption == nullptr) {
+        WriteFileMetaData(*file_metadata_, sink_.get());
+      } else {
+        uint64_t metadata_start = static_cast<uint64_t>(sink_->Tell());
+
+        std::shared_ptr<EncryptionProperties> footer_encryption =
+            file_encryption->GetFooterEncryptionProperties();
+        WriteFileMetaData(*file_metadata_, sink_.get(), footer_encryption.get());
+
+        auto crypto_metadata = metadata_->GetCryptoMetaData(metadata_start);
+        WriteFileCryptoMetaData(*crypto_metadata, sink_.get());
+      }
+
+      sink_->Close();
     }
   }
 
@@ -324,8 +342,12 @@ class FileSerializer : public ParquetFileWriter::Contents {
   std::unique_ptr<RowGroupWriter> row_group_writer_;
 
   void StartFile() {
-    // Parquet files always start with PAR1
-    PARQUET_THROW_NOT_OK(sink_->Write(PARQUET_MAGIC, 4));
+    if (properties_->file_encryption() == nullptr) {
+      // Parquet files always start with PAR1
+      PARQUET_THROW_NOT_OK(sink_->Write(PARQUET_MAGIC, 4));
+    } else {
+      PARQUET_THROW_NOT_OK(sink_->Write(PARQUET_EMAGIC, 4));
+    }
   }
 };
 
@@ -361,25 +383,52 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
               key_value_metadata);
 }
 
-void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
-  int64_t position = -1;
-  PARQUET_THROW_NOT_OK(sink->Tell(&position));
+void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink,
+                       EncryptionProperties* footer_encryption) {
+  if (footer_encryption == nullptr) {
+    // Write MetaData
+    int64_t position = -1;
+    PARQUET_THROW_NOT_OK(sink->Tell(&position));
+    uint32_t metadata_len = static_cast<uint32_t>(position);
 
-  // Write MetaData
-  uint32_t metadata_len = static_cast<uint32_t>(position);
+    file_metadata.WriteTo(sink);
 
-  file_metadata.WriteTo(sink);
-  PARQUET_THROW_NOT_OK(sink->Tell(&position));
-  metadata_len = static_cast<uint32_t>(position) - metadata_len;
+    PARQUET_THROW_NOT_OK(sink->Tell(&position));
+    metadata_len = static_cast<uint32_t>(position) - metadata_len;
 
-  // Write Footer
-  PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4));
-  PARQUET_THROW_NOT_OK(sink->Write(PARQUET_MAGIC, 4));
+    // Write Footer
+    PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4));
+    PARQUET_THROW_NOT_OK(sink->Write(PARQUET_MAGIC, 4));
+  } else {
+    // encrypt and write to sink
+    file_metadata.WriteTo(sink, footer_encryption);
+  }
 }
 
 void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink) {
   ParquetOutputWrapper wrapper(sink);
   return WriteFileMetaData(file_metadata, &wrapper);
+}
+
+void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
+                             ArrowOutputStream* sink) {
+  int64_t position = -1;
+  PARQUET_THROW_NOT_OK(sink->Tell(&position));
+  uint64_t crypto_offset = static_cast<uint64_t>(position);
+
+  // Get a FileCryptoMetaData
+  crypto_metadata.WriteTo(sink);
+  PARQUET_THROW_NOT_OK(sink->Tell(&position));
+  auto crypto_len = static_cast<uint32_t>(position) - crypto_offset;
+  PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&crypto_len), 4));
+
+  PARQUET_THROW_NOT_OK(sink->Write(PARQUET_EMAGIC, 4));
+}
+
+void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
+                             OutputStream* sink) {
+  ParquetOutputWrapper wrapper(sink);
+  return WriteFileCryptoMetaData(crypto_metadata, &wrapper);
 }
 
 void WriteMetaDataFile(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
