@@ -1282,6 +1282,10 @@ if (ARROW_USE_GLOG)
     set(GLOG_STATIC_LIB "${GLOG_BUILD_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glog${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GLOG_CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
     set(GLOG_CMAKE_C_FLAGS "${EP_C_FLAGS} -fPIC")
+    if (PTHREAD_LIBRARY)
+      set(GLOG_CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -pthread")
+      set(GLOG_CMAKE_C_FLAGS "${EP_C_FLAGS} -fPIC -pthread")
+    endif()
     message(STATUS "GLOG_CMAKE_CXX_FLAGS: ${GLOG_CMAKE_CXX_FLAGS}")
     message(STATUS "CMAKE_CXX_FLAGS in glog: ${GLOG_CMAKE_CXX_FLAGS}")
 
@@ -1295,9 +1299,9 @@ if (ARROW_USE_GLOG)
                         -DBUILD_SHARED_LIBS=OFF
                         -DBUILD_TESTING=OFF
                         -DWITH_GFLAGS=OFF
-                        -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${CMAKE_CXX_FLAGS}
-                        -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${CMAKE_C_FLAGS}
-                        -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS})
+                        -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GLOG_CMAKE_CXX_FLAGS}
+                        -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${GLOG_CMAKE_C_FLAGS}
+                        -DCMAKE_CXX_FLAGS=${GLOG_CMAKE_CXX_FLAGS})
     message(STATUS "Glog version: ${GLOG_VERSION}")
     ExternalProject_Add(glog_ep
       URL ${GLOG_SOURCE_URL}
