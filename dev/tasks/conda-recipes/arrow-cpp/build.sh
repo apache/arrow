@@ -38,6 +38,7 @@ cmake \
     -DARROW_JEMALLOC=ON \
     -DARROW_PLASMA=ON \
     -DARROW_PYTHON=ON \
+    -DARROW_PARQUET=ON \
     -DARROW_ORC=ON \
     ..
 
