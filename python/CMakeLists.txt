@@ -263,61 +263,30 @@ function(bundle_boost_lib library_path)
   endif()
 endfunction()
 
-function(bundle_zlib zlib_home)
+function(bundle_zlib)
+  # We can assume that manylinux1 and macosx have system zlib.
+  # See https://mail.python.org/mm3/archives/list/distutils-sig@python.org/thread/ZZG6GL3XTBLBJXSITYHEXMFKN43EREB7/
+  # for manylinux1.
   if (MSVC)
     # zlib uses zlib.dll for Windows
     set(ZLIB_SHARED_LIB_NAME zlib.dll)
-    if ("${zlib_home}" STREQUAL "")
+    if (DEFINED ENV{ARROW_BUILD_TOOLCHAIN})
+      set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+    endif()
+    if (DEFINED ENV{ZLIB_HOME})
+      set(ZLIB_HOME "$ENV{ZLIB_HOME}")
+    endif()
+    if ("${ZLIB_HOME}" STREQUAL "")
       find_library(ZLIB_SHARED_LIB NAMES ${ZLIB_SHARED_LIB_NAME})
     else()
       find_library(ZLIB_SHARED_LIB
 	NAMES ${ZLIB_SHARED_LIB_NAME}
-	PATHS ${zlib_home} NO_DEFAULT_PATH
+	PATHS ${ZLIB_HOME} NO_DEFAULT_PATH
 	PATH_SUFFIXES "bin")
     endif()
     if (ZLIB_SHARED_LIB)
       file(COPY
 	${ZLIB_SHARED_LIB}
-	DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
-    endif()
-  else()
-    # zlib uses libz.so for non Windows
-    set(ZLIB_SHARED_LIB_NAME_PREFIX ${CMAKE_SHARED_LIBRARY_PREFIX}z)
-    if ("${zlib_home}" STREQUAL "")
-      find_library(ZLIB_SHARED_LIB
-	NAMES ${ZLIB_SHARED_LIB_NAME_PREFIX}${CMAKE_SHARED_LIBRARY_SUFFIX})
-    else()
-      find_library(ZLIB_SHARED_LIB
-	NAMES ${ZLIB_SHARED_LIB_NAME_PREFIX}${CMAKE_SHARED_LIBRARY_SUFFIX}
-	PATHS ${zlib_home} NO_DEFAULT_PATH
-	PATH_SUFFIXES "lib")
-    endif()
-    if (ZLIB_SHARED_LIB)
-      file(COPY
-	${ZLIB_SHARED_LIB}
-	DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
-      get_filename_component(ZLIB_SHARED_LIB_REAL ${ZLIB_SHARED_LIB} REALPATH)
-      file(COPY
-	${ZLIB_SHARED_LIB_REAL}
-	DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
-    endif()
-    # zlib uses libz.so.1 or libz.1.dylib for non Windows
-    set(ZLIB_MAJOR_VERSION 1)
-    set(ZLIB_SHARED_LIB_VERSIONED_NAMES
-      ${ZLIB_SHARED_LIB_NAME_PREFIX}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ZLIB_MAJOR_VERSION}
-      ${ZLIB_SHARED_LIB_NAME_PREFIX}.${ZLIB_MAJOR_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX})
-    if ("${zlib_home}" STREQUAL "")
-      find_library(ZLIB_SHARED_LIB_VERSIONED
-	NAMES ${ZLIB_SHARED_LIB_VERSIONED_NAMES})
-    else()
-      find_library(ZLIB_SHARED_LIB_VERSIONED
-	NAMES ${ZLIB_SHARED_LIB_VERSIONED_NAMES}
-	PATHS ${zlib_home} NO_DEFAULT_PATH
-	PATH_SUFFIXES "lib")
-    endif()
-    if (ZLIB_SHARED_LIB_VERSIONED)
-      file(COPY
-	${ZLIB_SHARED_LIB_VERSIONED}
 	DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
     endif()
   endif()
@@ -362,18 +331,9 @@ if (PYARROW_BUNDLE_ARROW_CPP)
     bundle_boost_lib(Boost_SYSTEM_LIBRARY)
   endif()
 
-  if (MSVC)
-    if (DEFINED ENV{ARROW_BUILD_TOOLCHAIN})
-      set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-    endif()
-    if (DEFINED ENV{ZLIB_HOME})
-      set(ZLIB_HOME "$ENV{ZLIB_HOME}")
-    endif()
-    # We can assume that manylinux1 and macosx have system zlib.
-    # See https://mail.python.org/mm3/archives/list/distutils-sig@python.org/thread/ZZG6GL3XTBLBJXSITYHEXMFKN43EREB7/
-    # for manylinux1.
-    bundle_zlib("${ZLIB_HOME}")
+  bundle_zlib()
 
+  if (MSVC)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
     bundle_arrow_implib(ARROW_PYTHON_SHARED_IMP_LIB)
   endif()
