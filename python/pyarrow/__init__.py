@@ -224,8 +224,9 @@ def get_library_dirs():
         python_base_install = _os.path.dirname(_sys.executable)
         library_lib = _os.path.join(python_base_install, 'Library', 'lib')
 
-        library_dirs.append(package_cwd)
-
-        library_dirs.append(library_lib)
+        if _os.path.exists(_os.path.join(package_cwd, 'arrow.lib')):
+            library_dirs.append(package_cwd)
+        elif _os.path.exists(_os.path.join(library_lib, 'arrow.lib')):
+            library_dirs.append(library_lib)
 
     return library_dirs
