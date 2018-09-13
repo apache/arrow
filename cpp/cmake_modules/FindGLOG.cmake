@@ -36,12 +36,17 @@ endif()
 
 # Try the parameterized roots, if they exist
 if ( _glog_roots )
+    set (lib_dirs "lib")
+    if (EXISTS "${_glog_roots}/lib64")
+      set (lib_dirs "lib64" ${lib_dirs})
+    endif ()
+
     find_path( GLOG_INCLUDE_DIR NAMES glog/logging.h
         PATHS ${_glog_roots} NO_DEFAULT_PATH
         PATH_SUFFIXES "include" )
     find_library( GLOG_LIBRARIES NAMES glog
         PATHS ${_glog_roots} NO_DEFAULT_PATH
-        PATH_SUFFIXES "lib" )
+        PATH_SUFFIXES ${lib_dirs})
 else ()
     find_path( GLOG_INCLUDE_DIR NAMES glog/logging.h )
     find_library( GLOG_LIBRARIES NAMES glog )
