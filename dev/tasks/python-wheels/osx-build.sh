@@ -97,33 +97,33 @@ function build_wheel {
     # We build a custom version of thrift instead of using the one that comes
     # with brew as we also want it to use our namespaced version of Boost.
     # TODO(PARQUET-1262): Use the external project facilities of parquet-cpp.
-    export THRIFT_HOME=`pwd`/thift-dist
-    export THRIFT_VERSION=0.11.0
-    wget http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz
-    tar xf thrift-${THRIFT_VERSION}.tar.gz
-    pushd thrift-${THRIFT_VERSION}
-    mkdir build-tmp
-    pushd build-tmp
-    cmake -DCMAKE_BUILD_TYPE=release \
-        "-DCMAKE_CXX_FLAGS=-fPIC" \
-        "-DCMAKE_C_FLAGS=-fPIC" \
-        "-DCMAKE_INSTALL_PREFIX=${THRIFT_HOME}" \
-        "-DCMAKE_INSTALL_RPATH=${THRIFT_HOME}/lib" \
-        "-DBUILD_SHARED_LIBS=OFF" \
-        "-DBUILD_TESTING=OFF" \
-        "-DWITH_QT4=OFF" \
-        "-DWITH_C_GLIB=OFF" \
-        "-DWITH_JAVA=OFF" \
-        "-DWITH_PYTHON=OFF" \
-        "-DWITH_CPP=ON" \
-        "-DWITH_STATIC_LIB=ON" \
-        "-DWITH_LIBEVENT=OFF" \
-        -DBoost_NAMESPACE=arrow_boost \
-        -DBOOST_ROOT="$arrow_boost_dist" \
-        ..
-    make install -j5
-    popd
-    popd
+    # export THRIFT_HOME=`pwd`/thift-dist
+    # export THRIFT_VERSION=0.11.0
+    # wget http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz
+    # tar xf thrift-${THRIFT_VERSION}.tar.gz
+    # pushd thrift-${THRIFT_VERSION}
+    # mkdir build-tmp
+    # pushd build-tmp
+    # cmake -DCMAKE_BUILD_TYPE=release \
+    #     "-DCMAKE_CXX_FLAGS=-fPIC" \
+    #     "-DCMAKE_C_FLAGS=-fPIC" \
+    #     "-DCMAKE_INSTALL_PREFIX=${THRIFT_HOME}" \
+    #     "-DCMAKE_INSTALL_RPATH=${THRIFT_HOME}/lib" \
+    #     "-DBUILD_SHARED_LIBS=OFF" \
+    #     "-DBUILD_TESTING=OFF" \
+    #     "-DWITH_QT4=OFF" \
+    #     "-DWITH_C_GLIB=OFF" \
+    #     "-DWITH_JAVA=OFF" \
+    #     "-DWITH_PYTHON=OFF" \
+    #     "-DWITH_CPP=ON" \
+    #     "-DWITH_STATIC_LIB=ON" \
+    #     "-DWITH_LIBEVENT=OFF" \
+    #     -DBoost_NAMESPACE=arrow_boost \
+    #     -DBOOST_ROOT="$arrow_boost_dist" \
+    #     ..
+    # make install -j5
+    # popd
+    # popd
 
     # Now we can start with the actual build of Arrow and Parquet.
     # We pin NumPy to an old version here as the NumPy version one builds
