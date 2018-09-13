@@ -90,6 +90,9 @@ endif()
 
 if (ARROW_USE_GLOG)
   SET(PLASMA_LINK_LIBS glog_static ${PLASMA_LINK_LIBS})
+  if (PTHREAD_LIBRARY)
+    SET(PLASMA_LINK_LIBS ${PTHREAD_LIBRARY} ${PLASMA_LINK_LIBS})
+  endif()
 endif()
 
 ADD_ARROW_LIB(plasma
