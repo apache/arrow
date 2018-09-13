@@ -73,8 +73,8 @@ int recv_fd(int conn) {
   init_msg(&msg, &iov, buf, sizeof(buf));
 
   while (true) {
-    int error = recvmsg(conn, &msg, 0);
-    if (error == -1) {
+    ssize_t r = recvmsg(conn, &msg, 0);
+    if (r == -1) {
       if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
         continue;
       } else {
