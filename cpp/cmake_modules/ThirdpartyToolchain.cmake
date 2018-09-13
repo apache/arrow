@@ -1279,8 +1279,10 @@ if (ARROW_USE_GLOG)
   if("${GLOG_HOME}" STREQUAL "")
     set(GLOG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/glog_ep-prefix/src/glog_ep")
     set(GLOG_INCLUDE_DIR "${GLOG_BUILD_DIR}/include")
-    set(GLOG_STATIC_LIB "${GLOG_BUILD_DIR}/lib/libglog.a")
-    set(GLOG_CMAKE_CXX_FLAGS "${GLOG_CMAKE_CXX_FLAGS} -fPIC")
+    set(GLOG_STATIC_LIB "${GLOG_BUILD_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glog${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GLOG_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -fPIC")
+    set(GLOG_CMAKE_C_FLAGS "${EP_C_FLAGS} -fPIC")
+    message(STATUS "GLOG_CMAKE_CXX_FLAGS: ${GLOG_CMAKE_CXX_FLAGS}")
 
     if(APPLE)
       # If we don't set this flag, the binary built with 10.13 cannot be used in 10.12.
@@ -1293,7 +1295,7 @@ if (ARROW_USE_GLOG)
                         -DBUILD_TESTING=OFF
                         -DWITH_GFLAGS=OFF
                         -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GLOG_CMAKE_CXX_FLAGS}
-                        -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}
+                        -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${GLOG_CMAKE_C_FLAGS}
                         -DCMAKE_CXX_FLAGS=${GLOG_CMAKE_CXX_FLAGS})
     message(STATUS "Glog version: ${GLOG_VERSION}")
     ExternalProject_Add(glog_ep
