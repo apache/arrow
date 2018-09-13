@@ -263,6 +263,35 @@ function(bundle_boost_lib library_path)
   endif()
 endfunction()
 
+function(bundle_zlib)
+  # We can assume that manylinux1 and macosx have system zlib.
+  # See https://mail.python.org/mm3/archives/list/distutils-sig@python.org/thread/ZZG6GL3XTBLBJXSITYHEXMFKN43EREB7/
+  # for manylinux1.
+  if (MSVC)
+    # zlib uses zlib.dll for Windows
+    set(ZLIB_SHARED_LIB_NAME zlib.dll)
+    if (DEFINED ENV{ARROW_BUILD_TOOLCHAIN})
+      set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+    endif()
+    if (DEFINED ENV{ZLIB_HOME})
+      set(ZLIB_HOME "$ENV{ZLIB_HOME}")
+    endif()
+    if ("${ZLIB_HOME}" STREQUAL "")
+      find_library(ZLIB_SHARED_LIB NAMES ${ZLIB_SHARED_LIB_NAME})
+    else()
+      find_library(ZLIB_SHARED_LIB
+	NAMES ${ZLIB_SHARED_LIB_NAME}
+	PATHS ${ZLIB_HOME} NO_DEFAULT_PATH
+	PATH_SUFFIXES "bin")
+    endif()
+    if (ZLIB_SHARED_LIB)
+      file(COPY
+	${ZLIB_SHARED_LIB}
+	DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+    endif()
+  endif()
+endfunction()
+
 # Always bundle includes
 file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
 
@@ -301,6 +330,8 @@ if (PYARROW_BUNDLE_ARROW_CPP)
     bundle_boost_lib(Boost_FILESYSTEM_LIBRARY)
     bundle_boost_lib(Boost_SYSTEM_LIBRARY)
   endif()
+
+  bundle_zlib()
 
   if (MSVC)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)

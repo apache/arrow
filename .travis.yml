@@ -258,8 +258,20 @@ matrix:
 
 
 after_failure:
-- COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
-- if [[ -f "$COREFILE" ]]; then gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch; fi
+- |
+    if [ "$TRAVIS_OS_NAME" = "osx" ]; then
+      COREFILE=$(find /cores -maxdepth 1 -type f -name "core.*" | head -n 1)
+      if [[ -f "$COREFILE" ]]; then
+        lldb -c "$COREFILE" --batch --one-line "thread backtrace all -e true"
+      fi
+      ls -la ~/Library/Logs/DiagnosticReports/
+      cat ~/Library/Logs/DiagnosticReports/*.crash
+    else
+      COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
+      if [[ -f "$COREFILE" ]]; then
+        gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch
+      fi
+    fi
 
 env:
   global:

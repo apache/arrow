@@ -55,6 +55,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
 
 include(CMakeParseArguments)
 include(ExternalProject)
+include(FindPkgConfig)
 
 # This ensures that things like gnu++11 get passed correctly
 set(CMAKE_CXX_STANDARD 11)
@@ -264,8 +265,6 @@ Pass multiple labels by dividing with semicolons")
       "Brotli static lib suffix used on Windows with MSVC (default -static)")
     set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
-    set(ZLIB_MSVC_STATIC_LIB_SUFFIX "libstatic" CACHE STRING
-      "Zlib static lib suffix used on Windows with MSVC (default libstatic)")
     set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "Lz4 static lib suffix used on Windows with MSVC (default _static)")
     set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
@@ -619,6 +618,9 @@ if (ARROW_WITH_SNAPPY)
 endif()
 
 if (ARROW_WITH_ZLIB)
+  if (ZLIB_SHARED_LIB)
+    SET(ARROW_LINK_LIBS zlib ${ARROW_LINK_LIBS})
+  endif()
   SET(ARROW_STATIC_LINK_LIBS zlib ${ARROW_STATIC_LINK_LIBS})
 endif()
 

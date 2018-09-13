@@ -291,6 +291,10 @@ class build_ext(_build_ext):
                     move_shared_libs(
                         build_prefix, build_lib,
                         "{}_regex".format(self.boost_namespace))
+                if sys.platform == 'win32':
+                    # zlib uses zlib.dll for Windows
+                    zlib_lib_name = 'zlib'
+                    move_shared_libs(build_prefix, build_lib, zlib_lib_name)
 
             print('Bundling includes: ' + pjoin(build_prefix, 'include'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
