@@ -600,7 +600,8 @@ cdef class Array:
         return pyarrow_wrap_array(result)
 
     def to_pandas(self, bint strings_to_categorical=False,
-                  bint zero_copy_only=False, bint integer_object_nulls=False):
+                  bint zero_copy_only=False, bint integer_object_nulls=False,
+                  bint date_as_object=False):
         """
         Convert to a NumPy array object suitable for use in pandas.
 
@@ -613,6 +614,8 @@ cdef class Array:
             the underlying data
         integer_object_nulls : boolean, default False
             Cast integers with nulls to objects
+        date_as_object : boolean, default False
+            Cast dates to objects
 
         See also
         --------
@@ -628,6 +631,7 @@ cdef class Array:
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
             integer_object_nulls=integer_object_nulls,
+            date_as_object=date_as_object,
             use_threads=False)
         with nogil:
             check_status(ConvertArrayToPandas(options, self.sp_array,
