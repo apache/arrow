@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import six
 from pyarrow.compat import tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_cuda cimport *

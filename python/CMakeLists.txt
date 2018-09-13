@@ -336,12 +336,12 @@ endif()
 
 set(CYTHON_EXTENSIONS
   lib
-  )
+)
 
 set(LINK_LIBS
   arrow_shared
   arrow_python_shared
-  )
+)
 
 if (PYARROW_BUILD_CUDA)
   ## Arrow CUDA
