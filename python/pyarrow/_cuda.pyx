@@ -418,14 +418,16 @@ cdef class CudaBuffer(Buffer):
         return self.copy_to_host().to_pybytes()
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
-        # copy_to_host() is needed otherwise, the buffered device
-        # buffer would contain data pointers of the device
-        raise NotImplementedError('CudaBuffer.__getbuffer__')
+        # Device buffer contains data pointers on the device. Hence,
+        # cannot support buffer protocol PEP-3118 for CudaBuffer.
+        raise BufferError('buffer protocol for device buffer not supported')
 
     def __getreadbuffer__(self, Py_ssize_t idx, void** p):
+        # Python 2.x specific method
         raise NotImplementedError('CudaBuffer.__getreadbuffer__')
 
     def __getwritebuffer__(self, Py_ssize_t idx, void** p):
+        # Python 2.x specific method
         raise NotImplementedError('CudaBuffer.__getwritebuffer__')
 
 
