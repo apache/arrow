@@ -93,6 +93,7 @@ function build_wheel {
       install_name_tool -change libarrow_boost_system.dylib @rpath/libarrow_boost_system.dylib libarrow_boost_filesystem.dylib
     popd
 
+    # FIXME(kszucs)
     # We build a custom version of thrift instead of using the one that comes
     # with brew as we also want it to use our namespaced version of Boost.
     # TODO(PARQUET-1262): Use the external project facilities of parquet-cpp.
@@ -131,11 +132,13 @@ function build_wheel {
     export ARROW_HOME=`pwd`/arrow-dist
     export PARQUET_HOME=`pwd`/arrow-dist
     pip install "cython==0.27.3" "numpy==${NP_TEST_DEP}"
+
     pushd cpp
     mkdir build
     pushd build
     cmake -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+          -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
           -DARROW_BUILD_TESTS=OFF \
           -DARROW_BUILD_SHARED=ON \
           -DARROW_BOOST_USE_SHARED=ON \
@@ -143,27 +146,11 @@ function build_wheel {
           -DARROW_PLASMA=ON \
           -DARROW_RPATH_ORIGIN=ON \
           -DARROW_PYTHON=ON \
+          -DARROW_PARQUET=ON \
           -DARROW_ORC=ON \
           -DBOOST_ROOT="$arrow_boost_dist" \
           -DBoost_NAMESPACE=arrow_boost \
           -DMAKE=make \
-          ..
-    make -j5
-    make install
-    popd
-    popd
-
-    git clone https://github.com/apache/parquet-cpp.git
-    pushd parquet-cpp
-    mkdir build
-    pushd build
-    cmake -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
-          -DPARQUET_VERBOSE_THIRDPARTY_BUILD=ON \
-          -DPARQUET_BUILD_TESTS=OFF \
-          -DPARQUET_BOOST_USE_SHARED=ON \
-          -DBoost_NAMESPACE=arrow_boost \
-          -DBOOST_ROOT="$arrow_boost_dist" \
           ..
     make -j5 VERBOSE=1
     make install
