@@ -98,6 +98,7 @@ class build_ext(_build_ext):
                       'build type (debug or release), default release'),
                      ('boost-namespace=', None,
                       'namespace of boost (default: boost)'),
+                     ('with-cuda', None, 'build the Cuda extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
@@ -132,6 +133,8 @@ class build_ext(_build_ext):
             if not hasattr(sys, 'gettotalrefcount'):
                 self.build_type = 'release'
 
+        self.with_cuda = strtobool(
+            os.environ.get('PYARROW_WITH_CUDA', '0'))
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_static_parquet = strtobool(
@@ -153,6 +156,7 @@ class build_ext(_build_ext):
 
     CYTHON_MODULE_NAMES = [
         'lib',
+        '_cuda',
         '_parquet',
         '_orc',
         '_plasma']
@@ -189,6 +193,8 @@ class build_ext(_build_ext):
 
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
+            if self.with_cuda:
+                cmake_options.append('-DPYARROW_BUILD_CUDA=on')
             if self.with_parquet:
                 cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
             if self.with_static_parquet:
@@ -248,7 +254,7 @@ class build_ext(_build_ext):
                         '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
 
             # Generate the build files
-            print("-- Runnning cmake for pyarrow")
+            print("-- Running cmake for pyarrow")
             self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
             print("-- Finished cmake for pyarrow")
 
@@ -277,6 +283,8 @@ class build_ext(_build_ext):
                 print(pjoin(build_lib, 'pyarrow'))
                 move_shared_libs(build_prefix, build_lib, "arrow")
                 move_shared_libs(build_prefix, build_lib, "arrow_python")
+                if self.with_cuda:
+                    move_shared_libs(build_prefix, build_lib, "arrow_gpu")
                 if self.with_plasma:
                     move_shared_libs(build_prefix, build_lib, "plasma")
                 if self.with_parquet and not self.with_static_parquet:
@@ -361,6 +369,8 @@ class build_ext(_build_ext):
         if name == '_plasma' and not self.with_plasma:
             return True
         if name == '_orc' and not self.with_orc:
+            return True
+        if name == '_cuda' and not self.with_cuda:
             return True
         return False
 
