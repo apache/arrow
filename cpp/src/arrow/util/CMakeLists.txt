@@ -54,7 +54,7 @@ endif()
 
 ADD_ARROW_TEST(bit-util-test)
 ADD_ARROW_TEST(checked-cast-test)
-ADD_ARROW_TEST(compression-test EXTRA_LINK_LIBS zlib)
+ADD_ARROW_TEST(compression-test)
 ADD_ARROW_TEST(decimal-test)
 ADD_ARROW_TEST(key-value-metadata-test)
 ADD_ARROW_TEST(rle-encoding-test)
