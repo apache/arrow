@@ -42,7 +42,6 @@ popd
 set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
-set PARQUET_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 
 echo %ARROW_HOME%
 
@@ -57,29 +56,13 @@ cmake -G "%GENERATOR%" ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
+      -DARROW_PARQUET=ON ^
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
 
 @rem Needed so python-test.exe works
 set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%
 ctest -VV  || exit /B
-popd
-
-@rem Build parquet-cpp
-git clone https://github.com/apache/parquet-cpp.git || exit /B
-pushd parquet-cpp
-git checkout "%PARQUET_CPP_REF%"
-popd
-
-mkdir parquet-cpp\build
-pushd parquet-cpp\build
-
-cmake -G "%GENERATOR%" ^
-     -DCMAKE_INSTALL_PREFIX=%PARQUET_HOME% ^
-     -DCMAKE_BUILD_TYPE=Release ^
-     -DPARQUET_BOOST_USE_SHARED=OFF ^
-     -DPARQUET_BUILD_TESTS=OFF .. || exit /B
-cmake --build . --target INSTALL --config Release || exit /B
 popd
 
 @rem Build and import pyarrow
