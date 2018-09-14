@@ -64,20 +64,12 @@ extensions = [
 ]
 
 # Show members for classes in .. autosummary
-if sphinx.version_info < (1, 8):
-    autodoc_default_flags = [
-        'members',
-        'undoc-members',
-        'show-inheritance',
-        'inherited-members'
-    ]
-else:
-    autodoc_default_options = {
-        'members': None,
-        'undoc-members': None,
-        'show-inheritance': None,
-        'inherited-members': None
-    }
+autodoc_default_flags = [
+    'members',
+    'undoc-members',
+    'show-inheritance',
+    'inherited-members'
+]
 
 # ipython directive options
 ipython_mplbackend = ''
