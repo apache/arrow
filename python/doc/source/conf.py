@@ -63,8 +63,12 @@ extensions = [
 ]
 
 # Show members for classes in .. autosummary
-autodoc_default_flags = ['members', 'undoc-members', 'show-inheritance',
-                         'inherited-members']
+autodoc_default_flags = [
+    'members',
+    'undoc-members',
+    'show-inheritance',
+    'inherited-members'
+]
 
 # ipython directive options
 ipython_mplbackend = ''

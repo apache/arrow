@@ -64,7 +64,7 @@ if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; the
   conda install -y -q \
         ipython \
         numpydoc \
-        sphinx \
+        sphinx=1.7.9 \
         sphinx_bootstrap_theme
 fi
 
