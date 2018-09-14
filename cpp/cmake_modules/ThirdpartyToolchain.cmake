@@ -40,8 +40,7 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(THRIFT_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZSTD_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  # glog diabled as it is not compatible.
-  # set(GLOG_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(GLOG_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
 
   if (NOT DEFINED ENV{BOOST_ROOT})
     # Since we have to set this in the environment, we check whether
@@ -1292,7 +1291,7 @@ if (ARROW_USE_GLOG)
 
     if(APPLE)
       # If we don't set this flag, the binary built with 10.13 cannot be used in 10.12.
-      set(GLOG_CMAKE_CXX_FLAGS "${GLOG_CMAKE_CXX_FLAGS} -mmacosx-version-min=10.12")
+      set(GLOG_CMAKE_CXX_FLAGS "${GLOG_CMAKE_CXX_FLAGS} -mmacosx-version-min=10.9")
     endif()
 
     set(GLOG_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -1306,7 +1305,7 @@ if (ARROW_USE_GLOG)
     message(STATUS "Glog version: ${GLOG_VERSION}")
     ExternalProject_Add(glog_ep
       URL ${GLOG_SOURCE_URL}
-      #BUILD_IN_SOURCE 1
+      BUILD_IN_SOURCE 1
       BUILD_BYPRODUCTS "${GLOG_STATIC_LIB}"
       CMAKE_ARGS ${GLOG_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
