@@ -1,16 +1,19 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include <stdlib.h>
 #include <string>
@@ -23,6 +26,8 @@ namespace gandiva {
 template <typename C_TYPE>
 class DataGenerator {
  public:
+  virtual ~DataGenerator() = default;
+
   virtual C_TYPE GenerateData() = 0;
 };
 
@@ -59,7 +64,8 @@ class Int64DataGenerator : public DataGenerator<int64_t> {
 
 class FastUtf8DataGenerator : public DataGenerator<std::string> {
  public:
-  FastUtf8DataGenerator(int max_len) : seed_(100), max_len_(max_len), cur_char_('a') {}
+  explicit FastUtf8DataGenerator(int max_len)
+      : seed_(100), max_len_(max_len), cur_char_('a') {}
 
   std::string GenerateData() {
     std::string generated_str;

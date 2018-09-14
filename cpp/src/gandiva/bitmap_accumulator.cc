@@ -1,24 +1,27 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-#include "codegen/bitmap_accumulator.h"
+#include "gandiva/bitmap_accumulator.h"
 
 #include <vector>
 
 namespace gandiva {
 
-void BitMapAccumulator::ComputeResult(uint8_t *dst_bitmap) {
+void BitMapAccumulator::ComputeResult(uint8_t* dst_bitmap) {
   int num_records = eval_batch_.num_records();
 
   if (all_invalid_) {
@@ -30,13 +33,13 @@ void BitMapAccumulator::ComputeResult(uint8_t *dst_bitmap) {
 }
 
 /// Compute the intersection of multiple bitmaps.
-void BitMapAccumulator::IntersectBitMaps(uint8_t *dst_map,
-                                         const std::vector<uint8_t *> &src_maps,
+void BitMapAccumulator::IntersectBitMaps(uint8_t* dst_map,
+                                         const std::vector<uint8_t*>& src_maps,
                                          int num_records) {
-  uint64_t *dst_map64 = reinterpret_cast<uint64_t *>(dst_map);
+  uint64_t* dst_map64 = reinterpret_cast<uint64_t*>(dst_map);
   int num_words = (num_records + 63) / 64;  // aligned to 8-byte.
   int num_bytes = num_words * 8;
-  int nmaps = src_maps.size();
+  int nmaps = static_cast<int>(src_maps.size());
 
   switch (nmaps) {
     case 0: {
@@ -53,8 +56,8 @@ void BitMapAccumulator::IntersectBitMaps(uint8_t *dst_map,
 
     case 2: {
       // two src_maps bitmaps. do 64-bit ANDs
-      uint64_t *src_maps0_64 = reinterpret_cast<uint64_t *>(src_maps[0]);
-      uint64_t *src_maps1_64 = reinterpret_cast<uint64_t *>(src_maps[1]);
+      uint64_t* src_maps0_64 = reinterpret_cast<uint64_t*>(src_maps[0]);
+      uint64_t* src_maps1_64 = reinterpret_cast<uint64_t*>(src_maps[1]);
       for (int i = 0; i < num_words; ++i) {
         dst_map64[i] = src_maps0_64[i] & src_maps1_64[i];
       }
@@ -63,11 +66,11 @@ void BitMapAccumulator::IntersectBitMaps(uint8_t *dst_map,
 
     default: {
       /* > 2 src_maps bitmaps. do 64-bit ANDs */
-      uint64_t *src_maps0_64 = reinterpret_cast<uint64_t *>(src_maps[0]);
+      uint64_t* src_maps0_64 = reinterpret_cast<uint64_t*>(src_maps[0]);
       memcpy(dst_map64, src_maps0_64, num_bytes);
       for (int m = 1; m < nmaps; ++m) {
         for (int i = 0; i < num_words; ++i) {
-          uint64_t *src_mapsm_64 = reinterpret_cast<uint64_t *>(src_maps[m]);
+          uint64_t* src_mapsm_64 = reinterpret_cast<uint64_t*>(src_maps[m]);
           dst_map64[i] &= src_mapsm_64[i];
         }
       }

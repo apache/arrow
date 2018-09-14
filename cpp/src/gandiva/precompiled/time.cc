@@ -1,16 +1,19 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include "./epoch_time_point.h"
 
@@ -127,7 +130,7 @@ bool IsLeapYear(int yy) {
 // If Jan 1 is Fri, (TmYday - 3) / 7 + 1 (Jan 4->WK1, Jan 11->WK2)
 // If Jan 1 is Sat, (TmYday - 2) / 7 + 1 (Jan 3->WK1, Jan 10->WK2)
 // If Jan 1 is Sun, (TmYday - 1) / 7 + 1 (Jan 2->WK1, Jan 9->WK2)
-int weekOfCurrentYear(const EpochTimePoint &tp) {
+int weekOfCurrentYear(const EpochTimePoint& tp) {
   int jan1_wday = JAN1_WDAY(tp);
   switch (jan1_wday) {
     // Monday
@@ -160,7 +163,7 @@ int weekOfCurrentYear(const EpochTimePoint &tp) {
 // Jan 1-3
 // If Jan 1 is one of Mon, Tue, Wed, Thu - belongs to week of current year
 // If Jan 1 is Fri/Sat/Sun - belongs to previous year
-int getJanWeekOfYear(const EpochTimePoint &tp) {
+int getJanWeekOfYear(const EpochTimePoint& tp) {
   int jan1_wday = JAN1_WDAY(tp);
 
   if ((jan1_wday >= 1) && (jan1_wday <= 4)) {
@@ -219,7 +222,7 @@ int getJanWeekOfYear(const EpochTimePoint &tp) {
 }
 
 // Dec 29-31
-int getDecWeekOfYear(const EpochTimePoint &tp) {
+int getDecWeekOfYear(const EpochTimePoint& tp) {
   int next_jan1_wday = (tp.TmWday() + (31 - tp.TmMday()) + 1) % 7;
 
   if (next_jan1_wday == 4) {
@@ -275,7 +278,7 @@ int getDecWeekOfYear(const EpochTimePoint &tp) {
 // If day is Jan 1-3, see getJanWeekOfYear
 // If day is Dec 29-21, see getDecWeekOfYear
 //
-int64 weekOfYear(const EpochTimePoint &tp) {
+int64 weekOfYear(const EpochTimePoint& tp) {
   if (tp.TmYday() < 3) {
     // Jan 1-3
     return getJanWeekOfYear(tp);

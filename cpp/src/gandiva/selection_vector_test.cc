@@ -1,16 +1,19 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include "gandiva/selection_vector.h"
 
@@ -24,7 +27,7 @@ class TestSelectionVector : public ::testing::Test {
  protected:
   virtual void SetUp() { pool_ = arrow::default_memory_pool(); }
 
-  arrow::MemoryPool *pool_;
+  arrow::MemoryPool* pool_;
 };
 
 static inline uint32_t RoundUpNumi64(uint32_t value) { return (value + 63) >> 6; }
@@ -85,7 +88,7 @@ TEST_F(TestSelectionVector, TestInt16Set) {
 
   // TopArray() should return an array with 100,200
   auto array_raw = selection->ToArray();
-  const auto &array = dynamic_cast<const arrow::UInt16Array &>(*array_raw);
+  const auto& array = dynamic_cast<const arrow::UInt16Array&>(*array_raw);
   EXPECT_EQ(array.length(), 2) << array_raw->ToString();
   EXPECT_EQ(array.Value(0), 100) << array_raw->ToString();
   EXPECT_EQ(array.Value(1), 200) << array_raw->ToString();
@@ -157,7 +160,7 @@ TEST_F(TestSelectionVector, TestInt32Set) {
 
   // TopArray() should return an array with 100,200,100000
   auto array_raw = selection->ToArray();
-  const auto &array = dynamic_cast<const arrow::UInt32Array &>(*array_raw);
+  const auto& array = dynamic_cast<const arrow::UInt32Array&>(*array_raw);
   EXPECT_EQ(array.length(), 3) << array_raw->ToString();
   EXPECT_EQ(array.Value(0), 100) << array_raw->ToString();
   EXPECT_EQ(array.Value(1), 200) << array_raw->ToString();

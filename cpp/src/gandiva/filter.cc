@@ -1,16 +1,19 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include "gandiva/filter.h"
 
@@ -18,13 +21,13 @@
 #include <utility>
 #include <vector>
 
-#include "codegen/bitmap_accumulator.h"
-#include "codegen/cache.h"
-#include "codegen/expr_validator.h"
-#include "codegen/filter_cache_key.h"
-#include "codegen/llvm_generator.h"
-#include "codegen/selection_vector_impl.h"
+#include "gandiva/bitmap_accumulator.h"
+#include "gandiva/cache.h"
 #include "gandiva/condition.h"
+#include "gandiva/expr_validator.h"
+#include "gandiva/filter_cache_key.h"
+#include "gandiva/llvm_generator.h"
+#include "gandiva/selection_vector_impl.h"
 #include "gandiva/status.h"
 
 namespace gandiva {
@@ -37,7 +40,7 @@ Filter::Filter(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
 
 Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
                     std::shared_ptr<Configuration> configuration,
-                    std::shared_ptr<Filter> *filter) {
+                    std::shared_ptr<Filter>* filter) {
   GANDIVA_RETURN_FAILURE_IF_FALSE(schema != nullptr,
                                   Status::Invalid("schema cannot be null"));
   GANDIVA_RETURN_FAILURE_IF_FALSE(condition != nullptr,
@@ -71,7 +74,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   return Status::OK();
 }
 
-Status Filter::Evaluate(const arrow::RecordBatch &batch,
+Status Filter::Evaluate(const arrow::RecordBatch& batch,
                         std::shared_ptr<SelectionVector> out_selection) {
   if (!batch.schema()->Equals(*schema_)) {
     return Status::Invalid("Schema in RecordBatch must match the schema in Make()");
@@ -91,7 +94,7 @@ Status Filter::Evaluate(const arrow::RecordBatch &batch,
 
   // Allocate three local_bitmaps (one for output, one for validity, one to compute the
   // intersection).
-  LocalBitMapsHolder bitmaps(batch.num_rows(), 3 /*local_bitmaps*/);
+  LocalBitMapsHolder bitmaps(static_cast<int>(batch.num_rows()), 3 /*local_bitmaps*/);
   int bitmap_size = bitmaps.GetLocalBitMapSize();
 
   auto validity = std::make_shared<arrow::Buffer>(bitmaps.GetLocalBitMap(0), bitmap_size);
@@ -106,9 +109,11 @@ Status Filter::Evaluate(const arrow::RecordBatch &batch,
   // Compute the intersection of the value and validity.
   auto result = bitmaps.GetLocalBitMap(2);
   BitMapAccumulator::IntersectBitMaps(
-      result, {bitmaps.GetLocalBitMap(0), bitmaps.GetLocalBitMap((1))}, batch.num_rows());
+      result, {bitmaps.GetLocalBitMap(0), bitmaps.GetLocalBitMap((1))},
+      static_cast<int>(batch.num_rows()));
 
-  return out_selection->PopulateFromBitMap(result, bitmap_size, batch.num_rows() - 1);
+  return out_selection->PopulateFromBitMap(result, bitmap_size,
+                                           static_cast<int>(batch.num_rows()) - 1);
 }
 
 }  // namespace gandiva

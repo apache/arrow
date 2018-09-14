@@ -1,16 +1,19 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 // BitMap functions
 
@@ -25,14 +28,14 @@ extern "C" {
 #define POS_TO_BIT_INDEX(p) (p % 8)
 
 FORCE_INLINE
-bool bitMapGetBit(const unsigned char *bmap, int position) {
+bool bitMapGetBit(const unsigned char* bmap, int position) {
   int byteIdx = POS_TO_BYTE_INDEX(position);
   int bitIdx = POS_TO_BIT_INDEX(position);
   return ((bmap[byteIdx] & (1 << bitIdx)) > 0);
 }
 
 FORCE_INLINE
-void bitMapSetBit(unsigned char *bmap, int position, bool value) {
+void bitMapSetBit(unsigned char* bmap, int position, bool value) {
   int byteIdx = POS_TO_BYTE_INDEX(position);
   int bitIdx = POS_TO_BIT_INDEX(position);
   if (value) {
@@ -44,7 +47,7 @@ void bitMapSetBit(unsigned char *bmap, int position, bool value) {
 
 // Clear the bit if value = false. Does nothing if value = true.
 FORCE_INLINE
-void bitMapClearBitIfFalse(unsigned char *bmap, int position, bool value) {
+void bitMapClearBitIfFalse(unsigned char* bmap, int position, bool value) {
   if (!value) {
     int byteIdx = POS_TO_BYTE_INDEX(position);
     int bitIdx = POS_TO_BIT_INDEX(position);

@@ -1,22 +1,25 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include "gandiva/tree_expr_builder.h"
 
 #include <utility>
 
-#include "codegen/node.h"
+#include "gandiva/node.h"
 
 namespace gandiva {
 
@@ -37,11 +40,11 @@ MAKE_LITERAL(arrow::uint64(), uint64_t)
 MAKE_LITERAL(arrow::float32(), float)
 MAKE_LITERAL(arrow::float64(), double)
 
-NodePtr TreeExprBuilder::MakeStringLiteral(const std::string &value) {
+NodePtr TreeExprBuilder::MakeStringLiteral(const std::string& value) {
   return std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(value), false);
 }
 
-NodePtr TreeExprBuilder::MakeBinaryLiteral(const std::string &value) {
+NodePtr TreeExprBuilder::MakeBinaryLiteral(const std::string& value) {
   return std::make_shared<LiteralNode>(arrow::binary(), LiteralHolder(value), false);
 }
 
@@ -95,7 +98,7 @@ NodePtr TreeExprBuilder::MakeField(FieldPtr field) {
   return NodePtr(new FieldNode(field));
 }
 
-NodePtr TreeExprBuilder::MakeFunction(const std::string &name, const NodeVector &params,
+NodePtr TreeExprBuilder::MakeFunction(const std::string& name, const NodeVector& params,
                                       DataTypePtr result_type) {
   if (result_type == nullptr) {
     return nullptr;
@@ -112,11 +115,11 @@ NodePtr TreeExprBuilder::MakeIf(NodePtr condition, NodePtr then_node, NodePtr el
   return std::make_shared<IfNode>(condition, then_node, else_node, result_type);
 }
 
-NodePtr TreeExprBuilder::MakeAnd(const NodeVector &children) {
+NodePtr TreeExprBuilder::MakeAnd(const NodeVector& children) {
   return std::make_shared<BooleanNode>(BooleanNode::AND, children);
 }
 
-NodePtr TreeExprBuilder::MakeOr(const NodeVector &children) {
+NodePtr TreeExprBuilder::MakeOr(const NodeVector& children) {
   return std::make_shared<BooleanNode>(BooleanNode::OR, children);
 }
 
@@ -133,14 +136,14 @@ ExpressionPtr TreeExprBuilder::MakeExpression(NodePtr root_node, FieldPtr result
   return ExpressionPtr(new Expression(root_node, result_field));
 }
 
-ExpressionPtr TreeExprBuilder::MakeExpression(const std::string &function,
-                                              const FieldVector &in_fields,
+ExpressionPtr TreeExprBuilder::MakeExpression(const std::string& function,
+                                              const FieldVector& in_fields,
                                               FieldPtr out_field) {
   if (out_field == nullptr) {
     return nullptr;
   }
   std::vector<NodePtr> field_nodes;
-  for (auto &field : in_fields) {
+  for (auto& field : in_fields) {
     auto node = MakeField(field);
     field_nodes.push_back(node);
   }
@@ -159,10 +162,10 @@ ConditionPtr TreeExprBuilder::MakeCondition(NodePtr root_node) {
   return ConditionPtr(new Condition(root_node));
 }
 
-ConditionPtr TreeExprBuilder::MakeCondition(const std::string &function,
-                                            const FieldVector &in_fields) {
+ConditionPtr TreeExprBuilder::MakeCondition(const std::string& function,
+                                            const FieldVector& in_fields) {
   std::vector<NodePtr> field_nodes;
-  for (auto &field : in_fields) {
+  for (auto& field : in_fields) {
     auto node = MakeField(field);
     field_nodes.push_back(node);
   }

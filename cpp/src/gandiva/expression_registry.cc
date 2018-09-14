@@ -1,23 +1,26 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include "gandiva/expression_registry.h"
 
 #include "boost/iterator/transform_iterator.hpp"
 
-#include "codegen/function_registry.h"
-#include "codegen/llvm_types.h"
+#include "gandiva/function_registry.h"
+#include "gandiva/llvm_types.h"
 
 namespace gandiva {
 
@@ -38,7 +41,7 @@ ExpressionRegistry::function_signature_end() const {
 }
 
 bool ExpressionRegistry::FunctionSignatureIterator::operator!=(
-    const FunctionSignatureIterator &func_sign_it) {
+    const FunctionSignatureIterator& func_sign_it) {
   return func_sign_it.it_ != this->it_;
 }
 
@@ -59,14 +62,14 @@ DataTypeVector ExpressionRegistry::InitSupportedTypes() {
   llvm::LLVMContext llvm_context;
   LLVMTypes llvm_types(llvm_context);
   auto supported_arrow_types = llvm_types.GetSupportedArrowTypes();
-  for (auto &type_id : supported_arrow_types) {
+  for (auto& type_id : supported_arrow_types) {
     AddArrowTypesToVector(type_id, data_type_vector);
   }
   return data_type_vector;
 }
 
-void ExpressionRegistry::AddArrowTypesToVector(arrow::Type::type &type,
-                                               DataTypeVector &vector) {
+void ExpressionRegistry::AddArrowTypesToVector(arrow::Type::type& type,
+                                               DataTypeVector& vector) {
   switch (type) {
     case arrow::Type::type::BOOL:
       vector.push_back(arrow::boolean());

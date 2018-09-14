@@ -1,32 +1,35 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-#include "codegen/llvm_generator.h"
+#include "gandiva/llvm_generator.h"
 
 #include <memory>
 #include <vector>
 
 #include <gtest/gtest.h>
-#include "codegen/dex.h"
-#include "codegen/func_descriptor.h"
-#include "codegen/function_registry.h"
 #include "gandiva/configuration.h"
+#include "gandiva/dex.h"
 #include "gandiva/expression.h"
+#include "gandiva/func_descriptor.h"
+#include "gandiva/function_registry.h"
 
 namespace gandiva {
 
-typedef int64_t (*add_vector_func_t)(int64_t *elements, int nelements);
+typedef int64_t (*add_vector_func_t)(int64_t* elements, int nelements);
 
 class TestLLVMGenerator : public ::testing::Test {
  protected:
@@ -40,10 +43,10 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
       LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(), &generator);
   EXPECT_TRUE(status.ok()) << status.message();
 
-  llvm::Module *module = generator->module();
-  for (auto &iter : registry_) {
+  llvm::Module* module = generator->module();
+  for (auto& iter : registry_) {
     bool found = false;
-    llvm::Function *fn = module->getFunction(iter.pc_name());
+    llvm::Function* fn = module->getFunction(iter.pc_name());
     if (fn == nullptr) {
       found = generator->engine_->CheckFunctionFromLoadedLib(iter.pc_name());
     } else {
@@ -78,7 +81,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   auto func_desc = std::make_shared<FuncDescriptor>("add", params, arrow::int32());
   FunctionSignature signature(func_desc->name(), func_desc->params(),
                               func_desc->return_type());
-  const NativeFunction *native_func =
+  const NativeFunction* native_func =
       generator->function_registry_.LookupSignature(signature);
 
   std::vector<ValueValidityPairPtr> pairs{pair0, pair1};
@@ -88,7 +91,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   auto field_sum = std::make_shared<arrow::Field>("out", arrow::int32());
   auto desc_sum = annotator.CheckAndAddInputFieldDescriptor(field_sum);
 
-  llvm::Function *ir_func = nullptr;
+  llvm::Function* ir_func = nullptr;
 
   status = generator->CodeGenExprValue(func_dex, desc_sum, 0, &ir_func);
   ASSERT_TRUE(status.ok());
@@ -104,10 +107,10 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   uint32_t out[] = {0, 0, 0, 0};
   uint64_t out_bitmap = 0;
 
-  uint8_t *addrs[] = {
-      reinterpret_cast<uint8_t *>(a0),  reinterpret_cast<uint8_t *>(&in_bitmap),
-      reinterpret_cast<uint8_t *>(a1),  reinterpret_cast<uint8_t *>(&in_bitmap),
-      reinterpret_cast<uint8_t *>(out), reinterpret_cast<uint8_t *>(&out_bitmap),
+  uint8_t* addrs[] = {
+      reinterpret_cast<uint8_t*>(a0),  reinterpret_cast<uint8_t*>(&in_bitmap),
+      reinterpret_cast<uint8_t*>(a1),  reinterpret_cast<uint8_t*>(&in_bitmap),
+      reinterpret_cast<uint8_t*>(out), reinterpret_cast<uint8_t*>(&out_bitmap),
   };
   eval_func(addrs, nullptr, num_records);
 
@@ -137,7 +140,7 @@ TEST_F(TestLLVMGenerator, TestNullInternal) {
       std::make_shared<FuncDescriptor>("half_or_null", params, arrow::int32());
   FunctionSignature signature(func_desc->name(), func_desc->params(),
                               func_desc->return_type());
-  const NativeFunction *native_func =
+  const NativeFunction* native_func =
       generator->function_registry_.LookupSignature(signature);
 
   int local_bitmap_idx = annotator.AddLocalBitMap();
@@ -148,7 +151,7 @@ TEST_F(TestLLVMGenerator, TestNullInternal) {
   auto field_result = std::make_shared<arrow::Field>("out", arrow::int32());
   auto desc_result = annotator.CheckAndAddInputFieldDescriptor(field_result);
 
-  llvm::Function *ir_func;
+  llvm::Function* ir_func;
   status = generator->CodeGenExprValue(func_dex, desc_result, 0, &ir_func);
   ASSERT_TRUE(status.ok());
 
@@ -165,15 +168,15 @@ TEST_F(TestLLVMGenerator, TestNullInternal) {
 
   uint64_t local_bitmap = UINT64_MAX;
 
-  uint8_t *addrs[] = {
-      reinterpret_cast<uint8_t *>(a0),
-      reinterpret_cast<uint8_t *>(&in_bitmap),
-      reinterpret_cast<uint8_t *>(out),
-      reinterpret_cast<uint8_t *>(&out_bitmap),
+  uint8_t* addrs[] = {
+      reinterpret_cast<uint8_t*>(a0),
+      reinterpret_cast<uint8_t*>(&in_bitmap),
+      reinterpret_cast<uint8_t*>(out),
+      reinterpret_cast<uint8_t*>(&out_bitmap),
   };
 
-  uint8_t *local_bitmap_addrs[] = {
-      reinterpret_cast<uint8_t *>(&local_bitmap),
+  uint8_t* local_bitmap_addrs[] = {
+      reinterpret_cast<uint8_t*>(&local_bitmap),
   };
 
   eval_func(addrs, local_bitmap_addrs, num_records);
@@ -187,7 +190,7 @@ TEST_F(TestLLVMGenerator, TestNullInternal) {
   }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

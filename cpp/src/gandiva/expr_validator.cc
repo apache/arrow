@@ -1,30 +1,33 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include <sstream>
 #include <string>
 #include <vector>
 
-#include "codegen/expr_validator.h"
+#include "gandiva/expr_validator.h"
 
 namespace gandiva {
 
-Status ExprValidator::Validate(const ExpressionPtr &expr) {
+Status ExprValidator::Validate(const ExpressionPtr& expr) {
   if (expr == nullptr) {
     return Status::ExpressionValidationError("Expression cannot be null.");
   }
-  Node &root = *expr->root();
+  Node& root = *expr->root();
   Status status = root.Accept(*this);
   if (!status.ok()) {
     return status;
@@ -41,7 +44,7 @@ Status ExprValidator::Validate(const ExpressionPtr &expr) {
   return Status::OK();
 }
 
-Status ExprValidator::Visit(const FieldNode &node) {
+Status ExprValidator::Visit(const FieldNode& node) {
   auto llvm_type = types_.IRType(node.return_type()->id());
   if (llvm_type == nullptr) {
     std::stringstream ss;
@@ -70,24 +73,24 @@ Status ExprValidator::Visit(const FieldNode &node) {
   return Status::OK();
 }
 
-Status ExprValidator::Visit(const FunctionNode &node) {
+Status ExprValidator::Visit(const FunctionNode& node) {
   auto desc = node.descriptor();
   FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
-  const NativeFunction *native_function = registry_.LookupSignature(signature);
+  const NativeFunction* native_function = registry_.LookupSignature(signature);
   if (native_function == nullptr) {
     std::stringstream ss;
     ss << "Function " << signature.ToString() << " not supported yet. ";
     return Status::ExpressionValidationError(ss.str());
   }
 
-  for (auto &child : node.children()) {
+  for (auto& child : node.children()) {
     Status status = child->Accept(*this);
     GANDIVA_RETURN_NOT_OK(status);
   }
   return Status::OK();
 }
 
-Status ExprValidator::Visit(const IfNode &node) {
+Status ExprValidator::Visit(const IfNode& node) {
   Status status = node.condition()->Accept(*this);
   GANDIVA_RETURN_NOT_OK(status);
   status = node.then_node()->Accept(*this);
@@ -116,7 +119,7 @@ Status ExprValidator::Visit(const IfNode &node) {
   return Status::OK();
 }
 
-Status ExprValidator::Visit(const LiteralNode &node) {
+Status ExprValidator::Visit(const LiteralNode& node) {
   auto llvm_type = types_.IRType(node.return_type()->id());
   if (llvm_type == nullptr) {
     std::stringstream ss;
@@ -127,7 +130,7 @@ Status ExprValidator::Visit(const LiteralNode &node) {
   return Status::OK();
 }
 
-Status ExprValidator::Visit(const BooleanNode &node) {
+Status ExprValidator::Visit(const BooleanNode& node) {
   Status status;
 
   if (node.children().size() < 2) {
@@ -137,7 +140,7 @@ Status ExprValidator::Visit(const BooleanNode &node) {
     return Status::ExpressionValidationError(ss.str());
   }
 
-  for (auto &child : node.children()) {
+  for (auto& child : node.children()) {
     if (child->return_type() != arrow::boolean()) {
       std::stringstream ss;
       ss << "Boolean expression has a child with return type "

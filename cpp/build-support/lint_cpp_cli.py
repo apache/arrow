@@ -72,6 +72,9 @@ EXCLUSIONS = [
     'arrow/util/macros.h',
     'arrow/python/iterators.h',
     'arrow/util/parallel.h',
+    'gandiva/cache.h',
+    'gandiva/jni',
+    'gandiva/precompiled/date.h',
     'test',
     'internal'
 ]

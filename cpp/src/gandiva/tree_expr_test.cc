@@ -1,27 +1,30 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include "gandiva/tree_expr_builder.h"
 
 #include <gtest/gtest.h>
-#include "codegen/annotator.h"
-#include "codegen/dex.h"
-#include "codegen/expr_decomposer.h"
-#include "codegen/function_registry.h"
-#include "codegen/node.h"
+#include "gandiva/annotator.h"
+#include "gandiva/dex.h"
+#include "gandiva/expr_decomposer.h"
+#include "gandiva/function_registry.h"
 #include "gandiva/function_signature.h"
 #include "gandiva/gandiva_aliases.h"
+#include "gandiva/node.h"
 
 namespace gandiva {
 
@@ -94,7 +97,7 @@ TEST_F(TestExprTree, TestBinary) {
   auto null_if_null = std::dynamic_pointer_cast<NonNullableFuncDex>(value);
 
   FunctionSignature signature("add", {int32(), int32()}, int32());
-  const NativeFunction *fn = registry_.LookupSignature(signature);
+  const NativeFunction* fn = registry_.LookupSignature(signature);
   EXPECT_EQ(null_if_null->native_function(), fn);
 }
 
@@ -120,7 +123,7 @@ TEST_F(TestExprTree, TestUnary) {
   auto never_null = std::dynamic_pointer_cast<NullableNeverFuncDex>(value);
 
   FunctionSignature signature("isnumeric", {int32()}, boolean());
-  const NativeFunction *fn = registry_.LookupSignature(signature);
+  const NativeFunction* fn = registry_.LookupSignature(signature);
   EXPECT_EQ(never_null->native_function(), fn);
 }
 
@@ -149,11 +152,11 @@ TEST_F(TestExprTree, TestExpression) {
   auto null_if_null = std::dynamic_pointer_cast<NonNullableFuncDex>(value);
 
   FunctionSignature signature("add", {int32(), int32()}, int32());
-  const NativeFunction *fn = registry_.LookupSignature(signature);
+  const NativeFunction* fn = registry_.LookupSignature(signature);
   EXPECT_EQ(null_if_null->native_function(), fn);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

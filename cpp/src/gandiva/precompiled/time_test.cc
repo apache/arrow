@@ -1,25 +1,28 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include <time.h>
 
 #include <gtest/gtest.h>
-#include "precompiled/types.h"
+#include "gandiva/precompiled/types.h"
 
 namespace gandiva {
 
-timestamp StringToTimestamp(const char *buf) {
+timestamp StringToTimestamp(const char* buf) {
   struct tm tm;
   strptime(buf, "%Y-%m-%d %H:%M:%S", &tm);
   return timegm(&tm) * 1000;  // to millis
@@ -116,31 +119,30 @@ TEST(TestTime, TimeStampAdd) {
       timestampaddSecond_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), 30),
       StringToTimestamp("2000-05-01 10:21:04"));
 
-  EXPECT_EQ(timestampaddMinute_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"),
-                                               (int64)-30),
-            StringToTimestamp("2000-05-01 09:50:34"));
+  EXPECT_EQ(
+      timestampaddMinute_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"), -30),
+      StringToTimestamp("2000-05-01 09:50:34"));
 
   EXPECT_EQ(
       timestampaddHour_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), 20),
       StringToTimestamp("2000-05-02 06:20:34"));
 
-  EXPECT_EQ(timestampaddDay_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"),
-                                            (int64)-35),
-            StringToTimestamp("2000-03-27 10:20:34"));
+  EXPECT_EQ(
+      timestampaddDay_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"), -35),
+      StringToTimestamp("2000-03-27 10:20:34"));
 
   EXPECT_EQ(timestampaddWeek_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), 4),
             StringToTimestamp("2000-05-29 10:20:34"));
 
-  EXPECT_EQ(timestampaddMonth_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"),
-                                              (int64)10),
-            StringToTimestamp("2001-03-01 10:20:34"));
+  EXPECT_EQ(
+      timestampaddMonth_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"), 10),
+      StringToTimestamp("2001-03-01 10:20:34"));
 
   EXPECT_EQ(
       timestampaddQuarter_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), -2),
       StringToTimestamp("1999-11-01 10:20:34"));
 
-  EXPECT_EQ(timestampaddYear_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"),
-                                             (int64)2),
+  EXPECT_EQ(timestampaddYear_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"), 2),
             StringToTimestamp("2002-05-01 10:20:34"));
 
   EXPECT_EQ(
@@ -157,13 +159,13 @@ TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(add_int32_timestamp(4, StringToTimestamp("2000-05-01 00:00:00")),
             StringToTimestamp("2000-05-05 00:00:00"));
 
-  EXPECT_EQ(add_timestamp_int64(StringToTimestamp("2000-05-01 00:00:00"), (int64)7),
+  EXPECT_EQ(add_timestamp_int64(StringToTimestamp("2000-05-01 00:00:00"), 7),
             StringToTimestamp("2000-05-08 00:00:00"));
 
-  EXPECT_EQ(date_add_int64_timestamp((int64)4, StringToTimestamp("2000-05-01 00:00:00")),
+  EXPECT_EQ(date_add_int64_timestamp(4, StringToTimestamp("2000-05-01 00:00:00")),
             StringToTimestamp("2000-05-05 00:00:00"));
 
-  EXPECT_EQ(date_add_int64_timestamp((int64)4, StringToTimestamp("2000-02-27 00:00:00")),
+  EXPECT_EQ(date_add_int64_timestamp(4, StringToTimestamp("2000-02-27 00:00:00")),
             StringToTimestamp("2000-03-02 00:00:00"));
 
   // date_sub
@@ -173,16 +175,14 @@ TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(subtract_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), -7),
             StringToTimestamp("2000-05-08 00:00:00"));
 
-  EXPECT_EQ(
-      date_diff_timestamp_int64(StringToTimestamp("2000-05-01 00:00:00"), (int64)365),
-      StringToTimestamp("1999-05-02 00:00:00"));
+  EXPECT_EQ(date_diff_timestamp_int64(StringToTimestamp("2000-05-01 00:00:00"), 365),
+            StringToTimestamp("1999-05-02 00:00:00"));
 
-  EXPECT_EQ(date_diff_timestamp_int64(StringToTimestamp("2000-03-01 00:00:00"), (int64)1),
+  EXPECT_EQ(date_diff_timestamp_int64(StringToTimestamp("2000-03-01 00:00:00"), 1),
             StringToTimestamp("2000-02-29 00:00:00"));
 
-  EXPECT_EQ(
-      date_diff_timestamp_int64(StringToTimestamp("2000-02-29 00:00:00"), (int64)365),
-      StringToTimestamp("1999-03-01 00:00:00"));
+  EXPECT_EQ(date_diff_timestamp_int64(StringToTimestamp("2000-02-29 00:00:00"), 365),
+            StringToTimestamp("1999-03-01 00:00:00"));
 }
 
 // test cases from http://www.staff.science.uu.nl/~gent0113/calendar/isocalendar.htm

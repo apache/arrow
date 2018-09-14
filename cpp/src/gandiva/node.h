@@ -1,16 +1,19 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #ifndef GANDIVA_EXPR_NODE_H
 #define GANDIVA_EXPR_NODE_H
@@ -18,11 +21,11 @@
 #include <string>
 #include <vector>
 
-#include "codegen/func_descriptor.h"
-#include "codegen/literal_holder.h"
-#include "codegen/node_visitor.h"
 #include "gandiva/arrow.h"
+#include "gandiva/func_descriptor.h"
 #include "gandiva/gandiva_aliases.h"
+#include "gandiva/literal_holder.h"
+#include "gandiva/node_visitor.h"
 #include "gandiva/status.h"
 
 namespace gandiva {
@@ -35,10 +38,10 @@ class Node {
 
   virtual ~Node() = default;
 
-  const DataTypePtr &return_type() const { return return_type_; }
+  const DataTypePtr& return_type() const { return return_type_; }
 
   /// Derived classes should simply invoke the Visit api of the visitor.
-  virtual Status Accept(NodeVisitor &visitor) const = 0;
+  virtual Status Accept(NodeVisitor& visitor) const = 0;
 
   virtual std::string ToString() = 0;
 
@@ -49,12 +52,12 @@ class Node {
 /// \brief Node in the expression tree, representing a literal.
 class LiteralNode : public Node {
  public:
-  LiteralNode(DataTypePtr type, const LiteralHolder &holder, bool is_null)
+  LiteralNode(DataTypePtr type, const LiteralHolder& holder, bool is_null)
       : Node(type), holder_(holder), is_null_(is_null) {}
 
-  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
+  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
 
-  const LiteralHolder &holder() const { return holder_; }
+  const LiteralHolder& holder() const { return holder_; }
 
   bool is_null() const { return is_null_; }
 
@@ -79,9 +82,9 @@ class FieldNode : public Node {
  public:
   explicit FieldNode(FieldPtr field) : Node(field->type()), field_(field) {}
 
-  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
+  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
 
-  const FieldPtr &field() const { return field_; }
+  const FieldPtr& field() const { return field_; }
 
   std::string ToString() override { return field()->type()->name(); }
 
@@ -92,14 +95,14 @@ class FieldNode : public Node {
 /// \brief Node in the expression tree, representing a function.
 class FunctionNode : public Node {
  public:
-  FunctionNode(FuncDescriptorPtr descriptor, const NodeVector &children,
+  FunctionNode(FuncDescriptorPtr descriptor, const NodeVector& children,
                DataTypePtr retType)
       : Node(retType), descriptor_(descriptor), children_(children) {}
 
-  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
+  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
 
-  const FuncDescriptorPtr &descriptor() const { return descriptor_; }
-  const NodeVector &children() const { return children_; }
+  const FuncDescriptorPtr& descriptor() const { return descriptor_; }
+  const NodeVector& children() const { return children_; }
 
   std::string ToString() override {
     std::stringstream ss;
@@ -119,7 +122,7 @@ class FunctionNode : public Node {
 
   /// Make a function node with params types specified by 'children', and
   /// having return type ret_type.
-  static NodePtr MakeFunction(const std::string &name, const NodeVector &children,
+  static NodePtr MakeFunction(const std::string& name, const NodeVector& children,
                               DataTypePtr return_type);
 
  private:
@@ -127,11 +130,11 @@ class FunctionNode : public Node {
   NodeVector children_;
 };
 
-inline NodePtr FunctionNode::MakeFunction(const std::string &name,
-                                          const NodeVector &children,
+inline NodePtr FunctionNode::MakeFunction(const std::string& name,
+                                          const NodeVector& children,
                                           DataTypePtr return_type) {
   DataTypeVector param_types;
-  for (auto &child : children) {
+  for (auto& child : children) {
     param_types.push_back(child->return_type());
   }
 
@@ -148,11 +151,11 @@ class IfNode : public Node {
         then_node_(then_node),
         else_node_(else_node) {}
 
-  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
+  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
 
-  const NodePtr &condition() const { return condition_; }
-  const NodePtr &then_node() const { return then_node_; }
-  const NodePtr &else_node() const { return else_node_; }
+  const NodePtr& condition() const { return condition_; }
+  const NodePtr& then_node() const { return then_node_; }
+  const NodePtr& else_node() const { return else_node_; }
 
   std::string ToString() override {
     std::stringstream ss;
@@ -173,19 +176,19 @@ class BooleanNode : public Node {
  public:
   enum ExprType : char { AND, OR };
 
-  BooleanNode(ExprType expr_type, const NodeVector &children)
+  BooleanNode(ExprType expr_type, const NodeVector& children)
       : Node(arrow::boolean()), expr_type_(expr_type), children_(children) {}
 
-  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
+  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
 
   ExprType expr_type() const { return expr_type_; }
 
-  const NodeVector &children() const { return children_; }
+  const NodeVector& children() const { return children_; }
 
   std::string ToString() override {
     std::stringstream ss;
     bool first = true;
-    for (auto &child : children_) {
+    for (auto& child : children_) {
       if (!first) {
         if (expr_type() == BooleanNode::AND) {
           ss << " && ";

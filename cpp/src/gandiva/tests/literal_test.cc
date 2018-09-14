@@ -1,23 +1,26 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
 #include "gandiva/projector.h"
 #include "gandiva/status.h"
+#include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
-#include "integ/test_util.h"
 
 namespace gandiva {
 
@@ -93,15 +96,15 @@ TEST_F(TestLiteral, TestSimpleArithmetic) {
   auto array_a = MakeArrowArrayBool({true, true, false, true}, {true, true, true, false});
   auto array_b = MakeArrowArrayInt32({5, 15, -15, 17}, {true, true, true, false});
   auto array_c = MakeArrowArrayInt64({5, 15, -15, 17}, {true, true, true, false});
-  auto array_d = MakeArrowArrayFloat32({5.2, 15, -15.6, 17}, {true, true, true, false});
-  auto array_e = MakeArrowArrayFloat64({5.6, 15, -15.9, 17}, {true, true, true, false});
+  auto array_d = MakeArrowArrayFloat32({5.2f, 15, -15.6f, 17}, {true, true, true, false});
+  auto array_e = MakeArrowArrayFloat64({5.6f, 15, -15.9f, 17}, {true, true, true, false});
 
   // expected output
   auto exp_a = MakeArrowArrayBool({true, true, false, false}, {true, true, true, false});
   auto exp_b = MakeArrowArrayInt32({6, 16, -14, 0}, {true, true, true, false});
   auto exp_c = MakeArrowArrayInt64({6, 16, -14, 0}, {true, true, true, false});
-  auto exp_d = MakeArrowArrayFloat32({6.2, 16, -14.6, 0}, {true, true, true, false});
-  auto exp_e = MakeArrowArrayFloat64({6.6, 16, -14.9, 0}, {true, true, true, false});
+  auto exp_d = MakeArrowArrayFloat32({6.2f, 16, -14.6f, 0}, {true, true, true, false});
+  auto exp_e = MakeArrowArrayFloat64({6.6f, 16, -14.9f, 0}, {true, true, true, false});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records,

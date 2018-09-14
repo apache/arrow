@@ -1,16 +1,20 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 #include "jni/org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper.h"
 
 #include <memory>
@@ -22,7 +26,7 @@
 using gandiva::DataTypePtr;
 using gandiva::ExpressionRegistry;
 
-types::TimeUnit MapTimeUnit(arrow::TimeUnit::type &unit) {
+types::TimeUnit MapTimeUnit(arrow::TimeUnit::type& unit) {
   switch (unit) {
     case arrow::TimeUnit::MILLI:
       return types::TimeUnit::MILLISEC;
@@ -37,7 +41,7 @@ types::TimeUnit MapTimeUnit(arrow::TimeUnit::type &unit) {
   return types::TimeUnit::SEC;
 }
 
-void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType *gandiva_data_type) {
+void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType* gandiva_data_type) {
   switch (type->id()) {
     case arrow::Type::type::BOOL:
       gandiva_data_type->set_type(types::GandivaType::BOOL);
@@ -132,17 +136,17 @@ void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType *gandiva_data_type)
 }
 
 JNIEXPORT jbyteArray JNICALL
-Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSupportedDataTypes(
-    JNIEnv *env, jobject types_helper) {
+Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSupportedDataTypes(  // NOLINT
+    JNIEnv* env, jobject types_helper) {
   types::GandivaDataTypes gandiva_data_types;
   auto supported_types = ExpressionRegistry::supported_types();
-  for (auto const &type : supported_types) {
-    types::ExtGandivaType *gandiva_data_type = gandiva_data_types.add_datatype();
+  for (auto const& type : supported_types) {
+    types::ExtGandivaType* gandiva_data_type = gandiva_data_types.add_datatype();
     ArrowToProtobuf(type, gandiva_data_type);
   }
-  size_t size = gandiva_data_types.ByteSizeLong();
+  int size = static_cast<int>(gandiva_data_types.ByteSizeLong());
   std::unique_ptr<jbyte[]> buffer{new jbyte[size]};
-  gandiva_data_types.SerializeToArray((void *)buffer.get(), size);
+  gandiva_data_types.SerializeToArray(reinterpret_cast<void*>(buffer.get()), size);
   jbyteArray ret = env->NewByteArray(size);
   env->SetByteArrayRegion(ret, 0, size, buffer.get());
   return ret;
@@ -154,24 +158,24 @@ Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSu
  * Signature: ()[B
  */
 JNIEXPORT jbyteArray JNICALL
-Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSupportedFunctions(
-    JNIEnv *env, jobject types_helper) {
+Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSupportedFunctions(  // NOLINT
+    JNIEnv* env, jobject types_helper) {
   ExpressionRegistry expr_registry;
   types::GandivaFunctions gandiva_functions;
   for (auto function = expr_registry.function_signature_begin();
        function != expr_registry.function_signature_end(); function++) {
-    types::FunctionSignature *function_signature = gandiva_functions.add_function();
+    types::FunctionSignature* function_signature = gandiva_functions.add_function();
     function_signature->set_name((*function).base_name());
-    types::ExtGandivaType *return_type = function_signature->mutable_returntype();
+    types::ExtGandivaType* return_type = function_signature->mutable_returntype();
     ArrowToProtobuf((*function).ret_type(), return_type);
-    for (auto &param_type : (*function).param_types()) {
-      types::ExtGandivaType *proto_param_type = function_signature->add_paramtypes();
+    for (auto& param_type : (*function).param_types()) {
+      types::ExtGandivaType* proto_param_type = function_signature->add_paramtypes();
       ArrowToProtobuf(param_type, proto_param_type);
     }
   }
-  size_t size = gandiva_functions.ByteSizeLong();
+  int size = static_cast<int>(gandiva_functions.ByteSizeLong());
   std::unique_ptr<jbyte[]> buffer{new jbyte[size]};
-  gandiva_functions.SerializeToArray((void *)buffer.get(), size);
+  gandiva_functions.SerializeToArray(reinterpret_cast<void*>(buffer.get()), size);
   jbyteArray ret = env->NewByteArray(size);
   env->SetByteArrayRegion(ret, 0, size, buffer.get());
   return ret;

@@ -300,6 +300,11 @@ Always OFF if building binaries"
   set(PARQUET_ARROW_LINKAGE "shared" CACHE STRING
     "How to link Arrow libraries with libparquet.so. static|shared (default shared)")
 
+  # Gandiva related build options
+  option(ARROW_GANDIVA
+    "Build the Gandiva libraries"
+    OFF)
+
 endif()
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
@@ -539,6 +544,7 @@ if (UNIX)
             (item MATCHES "config.h") OR
             (item MATCHES "util/variant") OR
             (item MATCHES "zmalloc.h") OR
+            (item MATCHES "gandiva/precompiled/date.h") OR
             (item MATCHES "ae.h")))
       LIST(APPEND FILTERED_LINT_FILES ${item})
     ENDIF()
@@ -775,4 +781,8 @@ if(ARROW_PARQUET)
   add_subdirectory(src/parquet)
   add_subdirectory(tools/parquet)
   add_subdirectory(examples/parquet/low-level-api)
+endif()
+
+if(ARROW_GANDIVA)
+  add_subdirectory(src/gandiva)
 endif()

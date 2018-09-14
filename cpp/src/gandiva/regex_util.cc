@@ -1,18 +1,21 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-#include "codegen/regex_util.h"
+#include "gandiva/regex_util.h"
 
 namespace gandiva {
 
@@ -23,8 +26,8 @@ namespace helpers {
 const std::set<char> RegexUtil::pcre_regex_specials_ = {
     '[', ']', '(', ')', '|', '^', '-', '+', '*', '?', '{', '}', '$', '\\'};
 
-Status RegexUtil::SqlLikePatternToPcre(const std::string &sql_pattern, char escape_char,
-                                       std::string &pcre_pattern) {
+Status RegexUtil::SqlLikePatternToPcre(const std::string& sql_pattern, char escape_char,
+                                       std::string& pcre_pattern) {
   /// Characters that are considered special by pcre regex. These needs to be
   /// escaped with '\\'.
   pcre_pattern.clear();

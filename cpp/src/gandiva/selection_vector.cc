@@ -1,16 +1,19 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include "gandiva/selection_vector.h"
 
@@ -18,12 +21,12 @@
 #include <utility>
 #include <vector>
 
-#include "codegen/selection_vector_impl.h"
+#include "gandiva/selection_vector_impl.h"
 #include "gandiva/status.h"
 
 namespace gandiva {
 
-Status SelectionVector::PopulateFromBitMap(const uint8_t *bitmap, int bitmap_size,
+Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int bitmap_size,
                                            int max_bitmap_index) {
   if (bitmap_size % 8 != 0) {
     std::stringstream ss;
@@ -40,7 +43,7 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t *bitmap, int bitmap_siz
   // jump  8-bytes at a time, add the index corresponding to each valid bit to the
   // the selection vector.
   int selection_idx = 0;
-  const uint64_t *bitmap_64 = reinterpret_cast<const uint64_t *>(bitmap);
+  const uint64_t* bitmap_64 = reinterpret_cast<const uint64_t*>(bitmap);
   for (int bitmap_idx = 0; bitmap_idx < bitmap_size / 8; ++bitmap_idx) {
     uint64_t current_word = bitmap_64[bitmap_idx];
 
@@ -69,7 +72,7 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t *bitmap, int bitmap_siz
 }
 
 Status SelectionVector::MakeInt16(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
-                                  std::shared_ptr<SelectionVector> *selection_vector) {
+                                  std::shared_ptr<SelectionVector>* selection_vector) {
   auto status = SelectionVectorInt16::ValidateBuffer(max_slots, buffer);
   GANDIVA_RETURN_NOT_OK(status);
 
@@ -77,8 +80,8 @@ Status SelectionVector::MakeInt16(int max_slots, std::shared_ptr<arrow::Buffer> 
   return Status::OK();
 }
 
-Status SelectionVector::MakeInt16(int max_slots, arrow::MemoryPool *pool,
-                                  std::shared_ptr<SelectionVector> *selection_vector) {
+Status SelectionVector::MakeInt16(int max_slots, arrow::MemoryPool* pool,
+                                  std::shared_ptr<SelectionVector>* selection_vector) {
   std::shared_ptr<arrow::Buffer> buffer;
   auto status = SelectionVectorInt16::AllocateBuffer(max_slots, pool, &buffer);
   GANDIVA_RETURN_NOT_OK(status);
@@ -88,7 +91,7 @@ Status SelectionVector::MakeInt16(int max_slots, arrow::MemoryPool *pool,
 }
 
 Status SelectionVector::MakeInt32(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
-                                  std::shared_ptr<SelectionVector> *selection_vector) {
+                                  std::shared_ptr<SelectionVector>* selection_vector) {
   auto status = SelectionVectorInt32::ValidateBuffer(max_slots, buffer);
   GANDIVA_RETURN_NOT_OK(status);
 
@@ -96,8 +99,8 @@ Status SelectionVector::MakeInt32(int max_slots, std::shared_ptr<arrow::Buffer> 
   return Status::OK();
 }
 
-Status SelectionVector::MakeInt32(int max_slots, arrow::MemoryPool *pool,
-                                  std::shared_ptr<SelectionVector> *selection_vector) {
+Status SelectionVector::MakeInt32(int max_slots, arrow::MemoryPool* pool,
+                                  std::shared_ptr<SelectionVector>* selection_vector) {
   std::shared_ptr<arrow::Buffer> buffer;
   auto status = SelectionVectorInt32::AllocateBuffer(max_slots, pool, &buffer);
   GANDIVA_RETURN_NOT_OK(status);
@@ -108,7 +111,7 @@ Status SelectionVector::MakeInt32(int max_slots, arrow::MemoryPool *pool,
 
 template <typename C_TYPE, typename A_TYPE>
 Status SelectionVectorImpl<C_TYPE, A_TYPE>::AllocateBuffer(
-    int max_slots, arrow::MemoryPool *pool, std::shared_ptr<arrow::Buffer> *buffer) {
+    int max_slots, arrow::MemoryPool* pool, std::shared_ptr<arrow::Buffer>* buffer) {
   auto buffer_len = max_slots * sizeof(C_TYPE);
   auto astatus = arrow::AllocateBuffer(pool, buffer_len, buffer);
   GANDIVA_RETURN_ARROW_NOT_OK(astatus);

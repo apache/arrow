@@ -1,22 +1,25 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include "gandiva/projector.h"
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
+#include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
-#include "integ/test_util.h"
 
 namespace gandiva {
 
@@ -268,8 +271,8 @@ TEST_F(TestProjector, TestFloatLessThan) {
 
   // Create a row-batch with some sample data
   int num_records = 3;
-  auto array0 = MakeArrowArrayFloat32({1.0, 8.9, 3.0}, {true, true, false});
-  auto array1 = MakeArrowArrayFloat32({4.0, 3.4, 6.8}, {true, true, true});
+  auto array0 = MakeArrowArrayFloat32({1.0f, 8.9f, 3.0f}, {true, true, false});
+  auto array1 = MakeArrowArrayFloat32({4.0f, 3.4f, 6.8f}, {true, true, true});
   // expected output
   auto exp = MakeArrowArrayBool({true, false, false}, {true, true, false});
 
@@ -303,7 +306,7 @@ TEST_F(TestProjector, TestIsNotNull) {
 
   // Create a row-batch with some sample data
   int num_records = 3;
-  auto array0 = MakeArrowArrayFloat32({1.0, 8.9, 3.0}, {true, true, false});
+  auto array0 = MakeArrowArrayFloat32({1.0f, 8.9f, 3.0f}, {true, true, false});
   // expected output
   auto exp = MakeArrowArrayBool({true, true, false}, {true, true, true});
 

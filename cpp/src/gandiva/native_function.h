@@ -1,16 +1,19 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #ifndef GANDIVA_NATIVE_FUNCTION_H
 #define GANDIVA_NATIVE_FUNCTION_H
@@ -36,17 +39,17 @@ enum ResultNullableType {
 /// precompiled function.
 class NativeFunction {
  public:
-  const FunctionSignature &signature() const { return signature_; }
+  const FunctionSignature& signature() const { return signature_; }
   std::string pc_name() const { return pc_name_; }
   ResultNullableType result_nullable_type() const { return result_nullable_type_; }
   bool param_null_safe() const { return param_null_safe_; }
   bool needs_holder() const { return needs_holder_; }
 
  private:
-  NativeFunction(const std::string &base_name, const DataTypeVector &param_types,
+  NativeFunction(const std::string& base_name, const DataTypeVector& param_types,
                  DataTypePtr ret_type, bool param_null_safe,
-                 const ResultNullableType &result_nullable_type,
-                 const std::string &pc_name, bool needs_holder = false)
+                 const ResultNullableType& result_nullable_type,
+                 const std::string& pc_name, bool needs_holder = false)
       : signature_(base_name, param_types, ret_type),
         param_null_safe_(param_null_safe),
         needs_holder_(needs_holder),

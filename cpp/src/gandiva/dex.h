@@ -1,16 +1,19 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #ifndef GANDIVA_DEX_DEX_H
 #define GANDIVA_DEX_DEX_H
@@ -18,14 +21,14 @@
 #include <string>
 #include <vector>
 
-#include "codegen/dex_visitor.h"
-#include "codegen/field_descriptor.h"
-#include "codegen/func_descriptor.h"
-#include "codegen/function_holder.h"
-#include "codegen/literal_holder.h"
-#include "codegen/native_function.h"
-#include "codegen/value_validity_pair.h"
+#include "gandiva/dex_visitor.h"
+#include "gandiva/field_descriptor.h"
+#include "gandiva/func_descriptor.h"
+#include "gandiva/function_holder.h"
 #include "gandiva/gandiva_aliases.h"
+#include "gandiva/literal_holder.h"
+#include "gandiva/native_function.h"
+#include "gandiva/value_validity_pair.h"
 
 namespace gandiva {
 
@@ -33,7 +36,7 @@ namespace gandiva {
 class Dex {
  public:
   /// Derived classes should simply invoke the Visit api of the visitor.
-  virtual void Accept(DexVisitor &visitor) = 0;
+  virtual void Accept(DexVisitor& visitor) = 0;
   virtual ~Dex() = default;
 };
 
@@ -42,7 +45,7 @@ class VectorReadBaseDex : public Dex {
  public:
   explicit VectorReadBaseDex(FieldDescriptorPtr field_desc) : field_desc_(field_desc) {}
 
-  const std::string &FieldName() const { return field_desc_->Name(); }
+  const std::string& FieldName() const { return field_desc_->Name(); }
 
   DataTypePtr FieldType() const { return field_desc_->Type(); }
 
@@ -60,7 +63,7 @@ class VectorReadValidityDex : public VectorReadBaseDex {
 
   int ValidityIdx() const { return field_desc_->validity_idx(); }
 
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 };
 
 /// value component of a fixed-len ValueVector
@@ -71,7 +74,7 @@ class VectorReadFixedLenValueDex : public VectorReadBaseDex {
 
   int DataIdx() const { return field_desc_->data_idx(); }
 
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 };
 
 /// value component of a variable-len ValueVector
@@ -84,7 +87,7 @@ class VectorReadVarLenValueDex : public VectorReadBaseDex {
 
   int OffsetsIdx() const { return field_desc_->offsets_idx(); }
 
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 };
 
 /// validity based on a local bitmap.
@@ -95,7 +98,7 @@ class LocalBitMapValidityDex : public Dex {
 
   int local_bitmap_idx() const { return local_bitmap_idx_; }
 
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 
  private:
   int local_bitmap_idx_;
@@ -104,8 +107,8 @@ class LocalBitMapValidityDex : public Dex {
 /// base function expression
 class FuncDex : public Dex {
  public:
-  FuncDex(FuncDescriptorPtr func_descriptor, const NativeFunction *native_function,
-          FunctionHolderPtr function_holder, const ValueValidityPairVector &args)
+  FuncDex(FuncDescriptorPtr func_descriptor, const NativeFunction* native_function,
+          FunctionHolderPtr function_holder, const ValueValidityPairVector& args)
       : func_descriptor_(func_descriptor),
         native_function_(native_function),
         function_holder_(function_holder),
@@ -113,15 +116,15 @@ class FuncDex : public Dex {
 
   FuncDescriptorPtr func_descriptor() const { return func_descriptor_; }
 
-  const NativeFunction *native_function() const { return native_function_; }
+  const NativeFunction* native_function() const { return native_function_; }
 
   FunctionHolderPtr function_holder() const { return function_holder_; }
 
-  const ValueValidityPairVector &args() const { return args_; }
+  const ValueValidityPairVector& args() const { return args_; }
 
  private:
   FuncDescriptorPtr func_descriptor_;
-  const NativeFunction *native_function_;
+  const NativeFunction* native_function_;
   FunctionHolderPtr function_holder_;
   ValueValidityPairVector args_;
 };
@@ -131,12 +134,12 @@ class FuncDex : public Dex {
 class NonNullableFuncDex : public FuncDex {
  public:
   NonNullableFuncDex(FuncDescriptorPtr func_descriptor,
-                     const NativeFunction *native_function,
+                     const NativeFunction* native_function,
                      FunctionHolderPtr function_holder,
-                     const ValueValidityPairVector &args)
+                     const ValueValidityPairVector& args)
       : FuncDex(func_descriptor, native_function, function_holder, args) {}
 
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 };
 
 /// A function expression that deals with nullable inputs, but generates non-null
@@ -144,12 +147,12 @@ class NonNullableFuncDex : public FuncDex {
 class NullableNeverFuncDex : public FuncDex {
  public:
   NullableNeverFuncDex(FuncDescriptorPtr func_descriptor,
-                       const NativeFunction *native_function,
+                       const NativeFunction* native_function,
                        FunctionHolderPtr function_holder,
-                       const ValueValidityPairVector &args)
+                       const ValueValidityPairVector& args)
       : FuncDex(func_descriptor, native_function, function_holder, args) {}
 
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 };
 
 /// A function expression that deals with nullable inputs, and
@@ -157,13 +160,13 @@ class NullableNeverFuncDex : public FuncDex {
 class NullableInternalFuncDex : public FuncDex {
  public:
   NullableInternalFuncDex(FuncDescriptorPtr func_descriptor,
-                          const NativeFunction *native_function,
+                          const NativeFunction* native_function,
                           FunctionHolderPtr function_holder,
-                          const ValueValidityPairVector &args, int local_bitmap_idx)
+                          const ValueValidityPairVector& args, int local_bitmap_idx)
       : FuncDex(func_descriptor, native_function, function_holder, args),
         local_bitmap_idx_(local_bitmap_idx) {}
 
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 
   /// The validity of the function result is saved in this bitmap.
   int local_bitmap_idx() const { return local_bitmap_idx_; }
@@ -174,25 +177,25 @@ class NullableInternalFuncDex : public FuncDex {
 
 /// special validity type that always returns true.
 class TrueDex : public Dex {
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 };
 
 /// special validity type that always returns false.
 class FalseDex : public Dex {
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 };
 
 /// decomposed expression for a literal.
 class LiteralDex : public Dex {
  public:
-  LiteralDex(DataTypePtr type, const LiteralHolder &holder)
+  LiteralDex(DataTypePtr type, const LiteralHolder& holder)
       : type_(type), holder_(holder) {}
 
-  const DataTypePtr &type() const { return type_; }
+  const DataTypePtr& type() const { return type_; }
 
-  const LiteralHolder &holder() const { return holder_; }
+  const LiteralHolder& holder() const { return holder_; }
 
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 
  private:
   DataTypePtr type_;
@@ -212,11 +215,11 @@ class IfDex : public Dex {
         local_bitmap_idx_(local_bitmap_idx),
         is_terminal_else_(is_terminal_else) {}
 
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 
-  const ValueValidityPair &condition_vv() const { return *condition_vv_; }
-  const ValueValidityPair &then_vv() const { return *then_vv_; }
-  const ValueValidityPair &else_vv() const { return *else_vv_; }
+  const ValueValidityPair& condition_vv() const { return *condition_vv_; }
+  const ValueValidityPair& then_vv() const { return *then_vv_; }
+  const ValueValidityPair& else_vv() const { return *else_vv_; }
 
   /// The validity of the result is saved in this bitmap.
   int local_bitmap_idx() const { return local_bitmap_idx_; }
@@ -224,7 +227,7 @@ class IfDex : public Dex {
   /// is this a terminal else ? i.e no nested if-else underneath.
   bool is_terminal_else() const { return is_terminal_else_; }
 
-  const DataTypePtr &result_type() const { return result_type_; }
+  const DataTypePtr& result_type() const { return result_type_; }
 
  private:
   ValueValidityPairPtr condition_vv_;
@@ -238,10 +241,10 @@ class IfDex : public Dex {
 // decomposed boolean expression.
 class BooleanDex : public Dex {
  public:
-  BooleanDex(const ValueValidityPairVector &args, int local_bitmap_idx)
+  BooleanDex(const ValueValidityPairVector& args, int local_bitmap_idx)
       : args_(args), local_bitmap_idx_(local_bitmap_idx) {}
 
-  const ValueValidityPairVector &args() const { return args_; }
+  const ValueValidityPairVector& args() const { return args_; }
 
   /// The validity of the result is saved in this bitmap.
   int local_bitmap_idx() const { return local_bitmap_idx_; }
@@ -254,19 +257,19 @@ class BooleanDex : public Dex {
 /// Boolean-AND expression
 class BooleanAndDex : public BooleanDex {
  public:
-  BooleanAndDex(const ValueValidityPairVector &args, int local_bitmap_idx)
+  BooleanAndDex(const ValueValidityPairVector& args, int local_bitmap_idx)
       : BooleanDex(args, local_bitmap_idx) {}
 
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 };
 
 /// Boolean-OR expression
 class BooleanOrDex : public BooleanDex {
  public:
-  BooleanOrDex(const ValueValidityPairVector &args, int local_bitmap_idx)
+  BooleanOrDex(const ValueValidityPairVector& args, int local_bitmap_idx)
       : BooleanDex(args, local_bitmap_idx) {}
 
-  void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 };
 
 }  // namespace gandiva

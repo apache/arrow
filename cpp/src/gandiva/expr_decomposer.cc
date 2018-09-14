@@ -1,35 +1,38 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-#include "codegen/expr_decomposer.h"
+#include "gandiva/expr_decomposer.h"
 
 #include <memory>
 #include <stack>
 #include <string>
 #include <vector>
 
-#include "codegen/annotator.h"
-#include "codegen/dex.h"
-#include "codegen/function_holder_registry.h"
-#include "codegen/function_registry.h"
-#include "codegen/node.h"
+#include "gandiva/annotator.h"
+#include "gandiva/dex.h"
+#include "gandiva/function_holder_registry.h"
+#include "gandiva/function_registry.h"
 #include "gandiva/function_signature.h"
+#include "gandiva/node.h"
 
 namespace gandiva {
 
 // Decompose a field node - simply seperate out validity & value arrays.
-Status ExprDecomposer::Visit(const FieldNode &node) {
+Status ExprDecomposer::Visit(const FieldNode& node) {
   auto desc = annotator_.CheckAndAddInputFieldDescriptor(node.field());
 
   DexPtr validity_dex = std::make_shared<VectorReadValidityDex>(desc);
@@ -45,15 +48,15 @@ Status ExprDecomposer::Visit(const FieldNode &node) {
 
 // Decompose a field node - wherever possible, merge the validity vectors of the
 // child nodes.
-Status ExprDecomposer::Visit(const FunctionNode &node) {
+Status ExprDecomposer::Visit(const FunctionNode& node) {
   auto desc = node.descriptor();
   FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
-  const NativeFunction *native_function = registry_.LookupSignature(signature);
+  const NativeFunction* native_function = registry_.LookupSignature(signature);
   DCHECK(native_function) << "Missing Signature " << signature.ToString();
 
   // decompose the children.
   std::vector<ValueValidityPairPtr> args;
-  for (auto &child : node.children()) {
+  for (auto& child : node.children()) {
     auto status = child->Accept(*this);
     GANDIVA_RETURN_NOT_OK(status);
 
@@ -71,7 +74,7 @@ Status ExprDecomposer::Visit(const FunctionNode &node) {
     // These functions are decomposable, merge the validity bits of the children.
 
     std::vector<DexPtr> merged_validity;
-    for (auto &decomposed : args) {
+    for (auto& decomposed : args) {
       // Merge the validity_expressions of the children to build a combined validity
       // expression.
       merged_validity.insert(merged_validity.end(), decomposed->validity_exprs().begin(),
@@ -101,7 +104,7 @@ Status ExprDecomposer::Visit(const FunctionNode &node) {
 }
 
 // Decompose an IfNode
-Status ExprDecomposer::Visit(const IfNode &node) {
+Status ExprDecomposer::Visit(const IfNode& node) {
   // Add a local bitmap to track the output validity.
   auto status = node.condition()->Accept(*this);
   GANDIVA_RETURN_NOT_OK(status);
@@ -129,10 +132,10 @@ Status ExprDecomposer::Visit(const IfNode &node) {
 }
 
 // Decompose a BooleanNode
-Status ExprDecomposer::Visit(const BooleanNode &node) {
+Status ExprDecomposer::Visit(const BooleanNode& node) {
   // decompose the children.
   std::vector<ValueValidityPairPtr> args;
-  for (auto &child : node.children()) {
+  for (auto& child : node.children()) {
     auto status = child->Accept(*this);
     GANDIVA_RETURN_NOT_OK(status);
 
@@ -156,7 +159,7 @@ Status ExprDecomposer::Visit(const BooleanNode &node) {
   return Status::OK();
 }
 
-Status ExprDecomposer::Visit(const LiteralNode &node) {
+Status ExprDecomposer::Visit(const LiteralNode& node) {
   auto value_dex = std::make_shared<LiteralDex>(node.return_type(), node.holder());
   DexPtr validity_dex;
   if (node.is_null()) {
@@ -176,7 +179,7 @@ Status ExprDecomposer::Visit(const LiteralNode &node) {
 //    that has a match will do it).
 // Both of the above optimisations save CPU cycles during expression evaluation.
 
-int ExprDecomposer::PushThenEntry(const IfNode &node) {
+int ExprDecomposer::PushThenEntry(const IfNode& node) {
   int local_bitmap_idx;
 
   if (!if_entries_stack_.empty() && !if_entries_stack_.top()->is_then_) {
@@ -199,7 +202,7 @@ int ExprDecomposer::PushThenEntry(const IfNode &node) {
   return local_bitmap_idx;
 }
 
-void ExprDecomposer::PopThenEntry(const IfNode &node) {
+void ExprDecomposer::PopThenEntry(const IfNode& node) {
   DCHECK_EQ(if_entries_stack_.empty(), false) << "PopThenEntry: found empty stack";
 
   auto top = if_entries_stack_.top().get();
@@ -209,13 +212,13 @@ void ExprDecomposer::PopThenEntry(const IfNode &node) {
   if_entries_stack_.pop();
 }
 
-void ExprDecomposer::PushElseEntry(const IfNode &node, int local_bitmap_idx) {
+void ExprDecomposer::PushElseEntry(const IfNode& node, int local_bitmap_idx) {
   std::unique_ptr<IfStackEntry> entry(new IfStackEntry(
       node, false /*is_then*/, true /*is_terminal_else*/, local_bitmap_idx));
   if_entries_stack_.push(std::move(entry));
 }
 
-bool ExprDecomposer::PopElseEntry(const IfNode &node) {
+bool ExprDecomposer::PopElseEntry(const IfNode& node) {
   DCHECK_EQ(if_entries_stack_.empty(), false) << "PopElseEntry: found empty stack";
 
   auto top = if_entries_stack_.top().get();

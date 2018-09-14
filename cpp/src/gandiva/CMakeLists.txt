@@ -1,23 +1,48 @@
-# Copyright (C) 2017-2018 Dremio Corporation
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+#   http://www.apache.org/licenses/LICENSE-2.0
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# LLVM/Clang is required by multiple subdirs.
+cmake_minimum_required(VERSION 3.11)
 
 project(gandiva)
 
-# Find arrow
-find_package(ARROW)
+find_package(RE2 REQUIRED)
 
-find_package(Boost COMPONENTS system regex filesystem REQUIRED)
+include(GandivaBuildUtils)
+
+find_package(LLVM)
+
+# Set the path where the byte-code files will be installed.
+set(GANDIVA_BC_INSTALL_DIR
+  ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/gandiva)
+
+set(GANDIVA_BC_FILE_NAME irhelpers.bc)
+set(GANDIVA_BC_INSTALL_PATH ${GANDIVA_BC_INSTALL_DIR}/${GANDIVA_BC_FILE_NAME})
+set(GANDIVA_BC_OUTPUT_PATH ${CMAKE_BINARY_DIR}/${GANDIVA_BC_FILE_NAME})
+
+# Set the path where the so lib file will be installed.
+if (APPLE)
+  set(GANDIVA_HELPER_LIB_FILE_NAME libgandiva_helpers.dylib)
+else()
+  set(GANDIVA_HELPER_LIB_FILE_NAME libgandiva_helpers.so)
+endif(APPLE)
+
+set(GANDIVA_HELPER_LIB_INSTALL_PATH ${GANDIVA_BC_INSTALL_DIR}/${GANDIVA_HELPER_LIB_FILE_NAME})
+set(GANDIVA_HELPER_LIB_OUTPUT_PATH ${CMAKE_BINARY_DIR}/debug/${GANDIVA_HELPER_LIB_FILE_NAME})
 
 set(BC_FILE_PATH_CC "${CMAKE_CURRENT_BINARY_DIR}/bc_file_path.cc")
 configure_file(bc_file_path.cc.in ${BC_FILE_PATH_CC})
@@ -59,33 +84,20 @@ set_target_properties(gandiva_obj_lib PROPERTIES POSITION_INDEPENDENT_CODE 1)
 target_include_directories(gandiva_obj_lib
   PUBLIC
     $<INSTALL_INTERFACE:include>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
+
+target_include_directories(gandiva_obj_lib SYSTEM
   PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
-    $<TARGET_PROPERTY:ARROW::ARROW_SHARED,INTERFACE_INCLUDE_DIRECTORIES>
+    ${ARROW_INCLUDE_DIR}
     $<TARGET_PROPERTY:Boost::boost,INTERFACE_INCLUDE_DIRECTORIES>
     $<TARGET_PROPERTY:gtest_main,INCLUDE_DIRECTORIES>
 )
 
-build_gandiva_lib("shared")
+build_gandiva_lib("shared" arrow_shared)
 
-build_gandiva_lib("static")
-
-# install for gandiva
-include(GNUInstallDirs)
-
-# install libgandiva
-install(
-  TARGETS gandiva_shared gandiva_static
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-
-# install the header files.
-install(
-  DIRECTORY ${CMAKE_SOURCE_DIR}/include/gandiva
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+build_gandiva_lib("static" arrow_static)
 
 # Pre-compiled .so library for function helpers.
 add_library(gandiva_helpers SHARED
@@ -100,13 +112,40 @@ target_include_directories(gandiva_helpers
   PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
-    $<TARGET_PROPERTY:ARROW::ARROW_SHARED,INTERFACE_INCLUDE_DIRECTORIES>
+    ${ARROW_INCLUDE_DIR}
 )
 
-target_link_libraries(gandiva_helpers PRIVATE Boost::boost RE2::RE2_STATIC)
+target_link_libraries(gandiva_helpers PRIVATE Boost::boost ${RE2_STATIC_LIB})
 if (NOT APPLE)
   target_link_libraries(gandiva_helpers LINK_PRIVATE -static-libstdc++ -static-libgcc)
 endif()
+
+# install for gandiva
+include(GNUInstallDirs)
+
+# install libgandiva
+install(
+  TARGETS gandiva_shared gandiva_static gandiva_helpers
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+# install the header files.
+install(FILES
+  arrow.h
+  condition.h
+  configuration.h
+  expression.h
+  expression_registry.h
+  filter.h
+  function_signature.h
+  gandiva_aliases.h
+  logging.h
+  projector.h
+  selection_vector.h
+  status.h
+  tree_expr_builder.h
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
 #args: label test-file src-files
 add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)
@@ -123,3 +162,11 @@ add_gandiva_unit_test(expression_registry_test.cc llvm_types.cc expression_regis
 add_gandiva_unit_test(selection_vector_test.cc selection_vector.cc)
 add_gandiva_unit_test(lru_cache_test.cc)
 add_gandiva_unit_test(like_holder_test.cc like_holder.cc regex_util.cc)
+
+add_subdirectory(jni)
+add_subdirectory(precompiled)
+
+include(CTest)
+enable_testing()
+
+add_subdirectory(tests)

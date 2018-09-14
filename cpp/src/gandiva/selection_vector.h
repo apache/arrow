@@ -1,19 +1,24 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #ifndef GANDIVA_SELECTION_VECTOR__H
 #define GANDIVA_SELECTION_VECTOR__H
+
+#include <memory>
 
 #include "gandiva/arrow.h"
 #include "gandiva/logging.h"
@@ -54,7 +59,7 @@ class SelectionVector {
   /// \param[in] : bitmap_size size of the bitmap in bytes
   /// \param[in] : max_bitmap_index max valid index in bitmap (can be lesser than
   ///              capacity in the bitmap, due to alignment/padding).
-  Status PopulateFromBitMap(const uint8_t *bitmap, int bitmap_size, int max_bitmap_index);
+  Status PopulateFromBitMap(const uint8_t* bitmap, int bitmap_size, int max_bitmap_index);
 
   /// \brief make selection vector with int16 type records.
   ///
@@ -62,14 +67,14 @@ class SelectionVector {
   /// \param[in] : buffer buffer sized to accomodate max_slots
   /// \param[out]: selection_vector selection vector backed by 'buffer'
   static Status MakeInt16(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
-                          std::shared_ptr<SelectionVector> *selection_vector);
+                          std::shared_ptr<SelectionVector>* selection_vector);
 
   /// \param[in] : max_slots max number of slots
   /// \param[in] : pool memory pool to allocate buffer
   /// \param[out]: selection_vector selection vector backed by a buffer allocated from the
   ///              pool.
-  static Status MakeInt16(int max_slots, arrow::MemoryPool *pool,
-                          std::shared_ptr<SelectionVector> *selection_vector);
+  static Status MakeInt16(int max_slots, arrow::MemoryPool* pool,
+                          std::shared_ptr<SelectionVector>* selection_vector);
 
   /// \brief make selection vector with int32 type records.
   ///
@@ -77,7 +82,7 @@ class SelectionVector {
   /// \param[in] : buffer buffer sized to accomodate max_slots
   /// \param[out]: selection_vector selection vector backed by 'buffer'
   static Status MakeInt32(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
-                          std::shared_ptr<SelectionVector> *selection_vector);
+                          std::shared_ptr<SelectionVector>* selection_vector);
 
   /// \brief make selection vector with int32 type records.
   ///
@@ -85,8 +90,8 @@ class SelectionVector {
   /// \param[in] : pool memory pool to allocate buffer
   /// \param[out]: selection_vector selection vector backed by a buffer allocated from the
   ///              pool.
-  static Status MakeInt32(int max_slots, arrow::MemoryPool *pool,
-                          std::shared_ptr<SelectionVector> *selection_vector);
+  static Status MakeInt32(int max_slots, arrow::MemoryPool* pool,
+                          std::shared_ptr<SelectionVector>* selection_vector);
 };
 
 }  // namespace gandiva

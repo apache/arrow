@@ -1,24 +1,27 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include <gtest/gtest.h>
 #include <math.h>
 #include <time.h>
 #include "arrow/memory_pool.h"
 #include "gandiva/projector.h"
+#include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
-#include "integ/test_util.h"
 
 namespace gandiva {
 
@@ -45,7 +48,8 @@ int32_t MillisInDay(int32_t hh, int32_t mm, int32_t ss, int32_t millis) {
 
 int64_t MillisSince(time_t base_line, int32_t yy, int32_t mm, int32_t dd, int32_t hr,
                     int32_t min, int32_t sec, int32_t millis) {
-  struct tm given_ts = {0};
+  struct tm given_ts;
+  memset(&given_ts, 0, sizeof(struct tm));
   given_ts.tm_year = (yy - 1900);
   given_ts.tm_mon = (mm - 1);
   given_ts.tm_mday = dd;
@@ -126,7 +130,8 @@ TEST_F(TestProjector, TestDateTime) {
       schema, {date2year_expr, date2month_expr, ts2month_expr, ts2day_expr}, &projector);
   ASSERT_TRUE(status.ok());
 
-  struct tm y1970 = {0};
+  struct tm y1970;
+  memset(&y1970, 0, sizeof(struct tm));
   y1970.tm_year = 70;
   y1970.tm_mon = 0;
   y1970.tm_mday = 1;
@@ -262,7 +267,8 @@ TEST_F(TestProjector, TestTimestampDiff) {
   Status status = Projector::Make(schema, exprs, &projector);
   ASSERT_TRUE(status.ok());
 
-  struct tm y1970 = {0};
+  struct tm y1970;
+  memset(&y1970, 0, sizeof(struct tm));
   y1970.tm_year = 70;
   y1970.tm_mon = 0;
   y1970.tm_mday = 1;
@@ -286,7 +292,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
                                   // 2015-09-9T21:49:42.999 (23 hours behind)
                                   MillisSince(epoch, 2015, 9, 9, 21, 49, 42, 999)};
 
-  int num_records = f0_data.size();
+  int64_t num_records = f0_data.size();
   std::vector<bool> validity(num_records, true);
   auto array0 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
       arrow::timestamp(arrow::TimeUnit::MILLI), f0_data, validity);

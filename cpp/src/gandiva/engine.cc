@@ -1,18 +1,21 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-#include "codegen/engine.h"
+#include "gandiva/engine.h"
 
 #include <iostream>
 #include <sstream>
@@ -59,7 +62,7 @@ void Engine::InitOnce() {
 
 /// factory method to construct the engine.
 Status Engine::Make(std::shared_ptr<Configuration> config,
-                    std::unique_ptr<Engine> *engine) {
+                    std::unique_ptr<Engine>* engine) {
   std::unique_ptr<Engine> engine_obj(new Engine());
 
   std::call_once(init_once_flag, [&engine_obj] { engine_obj->InitOnce(); });
@@ -91,7 +94,7 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   return Status::OK();
 }
 
-Status Engine::LoadPreCompiledHelperLibs(const std::string &file_path) {
+Status Engine::LoadPreCompiledHelperLibs(const std::string& file_path) {
   int err = 0;
 
   mtx_.lock();
@@ -111,7 +114,7 @@ Status Engine::LoadPreCompiledHelperLibs(const std::string &file_path) {
 }
 
 // Handling for pre-compiled IR libraries.
-Status Engine::LoadPreCompiledIRFiles(const std::string &byte_code_file_path) {
+Status Engine::LoadPreCompiledIRFiles(const std::string& byte_code_file_path) {
   /// Read from file into memory buffer.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =
       llvm::MemoryBuffer::getFile(byte_code_file_path);
@@ -128,7 +131,7 @@ Status Engine::LoadPreCompiledIRFiles(const std::string &byte_code_file_path) {
       llvm::getOwningLazyBitcodeModule(move(buffer), *context());
   if (!module_or_error) {
     std::string error_string;
-    llvm::handleAllErrors(module_or_error.takeError(), [&](llvm::ErrorInfoBase &eib) {
+    llvm::handleAllErrors(module_or_error.takeError(), [&](llvm::ErrorInfoBase& eib) {
       error_string = eib.message();
     });
     return Status::CodeGenError(error_string);
@@ -168,7 +171,7 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
     used_functions.insert(functions_to_compile_.begin(), functions_to_compile_.end());
 
     pass_manager->add(
-        llvm::createInternalizePass([&used_functions](const llvm::GlobalValue &func) {
+        llvm::createInternalizePass([&used_functions](const llvm::GlobalValue& func) {
           return (used_functions.find(func.getName().str()) != used_functions.end());
         }));
     pass_manager->add(llvm::createGlobalDCEPass());
@@ -210,7 +213,7 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
   return Status::OK();
 }
 
-void *Engine::CompiledFunction(llvm::Function *irFunction) {
+void* Engine::CompiledFunction(llvm::Function* irFunction) {
   DCHECK(module_finalized_);
   return execution_engine_->getPointerToFunction(irFunction);
 }

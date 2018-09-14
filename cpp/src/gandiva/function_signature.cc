@@ -1,23 +1,27 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 #include <gandiva/function_signature.h>
 
 #include "boost/functional/hash.hpp"
 
 namespace gandiva {
 
-bool FunctionSignature::operator==(const FunctionSignature &other) const {
+bool FunctionSignature::operator==(const FunctionSignature& other) const {
   if (param_types_.size() != other.param_types_.size() ||
       !DataTypeEquals(ret_type_, other.ret_type_) || base_name_ != other.base_name_) {
     return false;
@@ -39,7 +43,7 @@ std::size_t FunctionSignature::Hash() const {
   boost::hash_combine(result, base_name_);
   boost::hash_combine(result, ret_type_->id());
   // not using hash_range since we only want to include the id from the data type
-  for (auto &param_type : param_types_) {
+  for (auto& param_type : param_types_) {
     boost::hash_combine(result, param_type->id());
   }
   return result;
