@@ -34,7 +34,6 @@ import glob
 import os
 import sys
 
-import sphinx
 import sphinx_bootstrap_theme
 
 sys.path.extend([
