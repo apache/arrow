@@ -637,18 +637,12 @@ if (ARROW_WITH_GRPC)
 endif()
 
 if (ARROW_ORC)
-  if (ARROW_PROTOBUF_USE_SHARED)
-    SET(ARROW_LINK_LIBS
-      protobuf
-      ${ARROW_LINK_LIBS})
-  else()
-    SET(ARROW_STATIC_LINK_LIBS
-      protobuf
-      ${ARROW_STATIC_LINK_LIBS})
-  endif()
   SET(ARROW_STATIC_LINK_LIBS
-    orc
-    ${ARROW_STATIC_LINK_LIBS})
+    ${ARROW_STATIC_LINK_LIBS}
+    orc)
+  set_target_properties(orc
+    PROPERTIES INTERFACE_LINK_LIBRARIES
+    protobuf)
 endif()
 
 if (ARROW_STATIC_LINK_LIBS)
