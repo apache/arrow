@@ -29,7 +29,7 @@
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
-#define RETURN_NOT_OK(s)                                                            \
+#define ARROW_RETURN_NOT_OK(s)                                                      \
   do {                                                                              \
     ::arrow::Status _s = (s);                                                       \
     if (ARROW_PREDICT_FALSE(!_s.ok())) {                                            \
@@ -41,7 +41,7 @@
 
 #else
 
-#define RETURN_NOT_OK(s)                 \
+#define ARROW_RETURN_NOT_OK(s)           \
   do {                                   \
     ::arrow::Status _s = (s);            \
     if (ARROW_PREDICT_FALSE(!_s.ok())) { \
@@ -60,11 +60,10 @@
     }                                \
   } while (false)
 
-// This is used by other codebases. The macros above
-// should probably have that prefix, but there is a
-// lot of code that already uses that macro and changing
-// it would be of no benefit.
-#define ARROW_RETURN_NOT_OK(s) RETURN_NOT_OK(s)
+// This is an internal-use macro and should not be used in public headers.
+#ifndef RETURN_NOT_OK
+#define RETURN_NOT_OK(s) ARROW_RETURN_NOT_OK(s)
+#endif
 
 namespace arrow {
 

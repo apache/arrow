@@ -345,9 +345,9 @@ class ARROW_EXPORT BufferBuilder {
     int64_t old_capacity = capacity_;
 
     if (buffer_ == NULLPTR) {
-      RETURN_NOT_OK(AllocateResizableBuffer(pool_, elements, &buffer_));
+      ARROW_RETURN_NOT_OK(AllocateResizableBuffer(pool_, elements, &buffer_));
     } else {
-      RETURN_NOT_OK(buffer_->Resize(elements, shrink_to_fit));
+      ARROW_RETURN_NOT_OK(buffer_->Resize(elements, shrink_to_fit));
     }
     capacity_ = buffer_->capacity();
     data_ = buffer_->mutable_data();
@@ -367,7 +367,7 @@ class ARROW_EXPORT BufferBuilder {
   Status Append(const void* data, int64_t length) {
     if (capacity_ < length + size_) {
       int64_t new_capacity = BitUtil::NextPower2(length + size_);
-      RETURN_NOT_OK(Resize(new_capacity));
+      ARROW_RETURN_NOT_OK(Resize(new_capacity));
     }
     UnsafeAppend(data, length);
     return Status::OK();
@@ -378,7 +378,7 @@ class ARROW_EXPORT BufferBuilder {
     constexpr auto nbytes = static_cast<int64_t>(NBYTES);
     if (capacity_ < nbytes + size_) {
       int64_t new_capacity = BitUtil::NextPower2(nbytes + size_);
-      RETURN_NOT_OK(Resize(new_capacity));
+      ARROW_RETURN_NOT_OK(Resize(new_capacity));
     }
 
     std::copy(data.cbegin(), data.cend(), data_ + size_);
@@ -390,7 +390,7 @@ class ARROW_EXPORT BufferBuilder {
   Status Advance(const int64_t length) {
     if (capacity_ < length + size_) {
       int64_t new_capacity = BitUtil::NextPower2(length + size_);
-      RETURN_NOT_OK(Resize(new_capacity));
+      ARROW_RETURN_NOT_OK(Resize(new_capacity));
     }
     memset(data_ + size_, 0, static_cast<size_t>(length));
     size_ += length;
@@ -404,7 +404,7 @@ class ARROW_EXPORT BufferBuilder {
   }
 
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
-    RETURN_NOT_OK(Resize(size_, shrink_to_fit));
+    ARROW_RETURN_NOT_OK(Resize(size_, shrink_to_fit));
     *out = buffer_;
     Reset();
     return Status::OK();

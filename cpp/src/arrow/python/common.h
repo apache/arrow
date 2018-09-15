@@ -50,9 +50,9 @@ inline Status CheckPyError(StatusCode code = StatusCode::UnknownError) {
 ARROW_EXPORT Status PassPyError();
 
 // TODO(wesm): We can just let errors pass through. To be explored later
-#define RETURN_IF_PYERROR() RETURN_NOT_OK(CheckPyError());
+#define RETURN_IF_PYERROR() ARROW_RETURN_NOT_OK(CheckPyError());
 
-#define PY_RETURN_IF_ERROR(CODE) RETURN_NOT_OK(CheckPyError(CODE));
+#define PY_RETURN_IF_ERROR(CODE) ARROW_RETURN_NOT_OK(CheckPyError(CODE));
 
 class ARROW_EXPORT PyAcquireGIL {
  public:
@@ -186,7 +186,7 @@ struct PyBytesView {
       *is_utf8 = true;
       return FromUnicode(obj);
     } else {
-      RETURN_NOT_OK(FromBinary(obj, "a string or bytes object"));
+      ARROW_RETURN_NOT_OK(FromBinary(obj, "a string or bytes object"));
       if (check_utf8) {
         // Check the bytes are utf8 utf-8
         OwnedRef decoded(PyUnicode_FromStringAndSize(bytes, size));
