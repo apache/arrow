@@ -821,6 +821,13 @@ cdef class Buffer:
             self.buffer.get().size())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        if self.buffer.get().is_mutable():
+            buffer.readonly = 0
+        else:
+            if flags & cp.PyBUF_WRITABLE:
+                raise BufferError("Writable buffer requested but Arrow "
+                                  "buffer was not mutable")
+            buffer.readonly = 1
         buffer.buf = <char *>self.buffer.get().data()
         buffer.format = 'b'
         buffer.internal = NULL
@@ -828,10 +835,6 @@ cdef class Buffer:
         buffer.len = self.size
         buffer.ndim = 1
         buffer.obj = self
-        if self.buffer.get().is_mutable():
-            buffer.readonly = 0
-        else:
-            buffer.readonly = 1
         buffer.shape = self.shape
         buffer.strides = self.strides
         buffer.suboffsets = NULL
