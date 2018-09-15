@@ -162,7 +162,7 @@ endif()
 if (DEFINED ENV{ARROW_FLATBUFFERS_URL})
   set(FLATBUFFERS_SOURCE_URL "$ENV{ARROW_FLATBUFFERS_URL}")
 else()
-  set(FLATBUFFERS_SOURCE_URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz")
+  set(FLATBUFFERS_SOURCE_URL "https://github.com/google/flatbuffers/archive/${FLATBUFFERS_VERSION}.tar.gz")
 endif()
 
 if (DEFINED ENV{ARROW_GBENCHMARK_URL})
