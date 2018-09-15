@@ -450,6 +450,17 @@ def test_buffer_hashing():
         hash(pa.py_buffer(b'123'))
 
 
+def test_buffer_protocol_respects_immutability():
+    # ARROW-3228; NumPy's frombuffer ctor determines whether a buffer-like
+    # object is mutable by first attempting to get a mutable buffer using
+    # PyObject_FromBuffer. If that fails, it assumes that the object is
+    # immutable
+    a = b'12345'
+    arrow_ref = pa.py_buffer(a)
+    numpy_ref = np.frombuffer(arrow_ref, dtype=np.uint8)
+    assert not numpy_ref.flags.writeable
+
+
 def test_foreign_buffer():
     obj = np.array([1, 2], dtype=np.int32)
     addr = obj.__array_interface__["data"][0]
