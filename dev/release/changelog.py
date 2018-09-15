@@ -69,8 +69,9 @@ def format_changelog_markdown(issues, out):
 
         out.write('## {0}\n\n'.format(issue_type))
         for issue in issue_group:
+            markdown_summary = _escape_for_markdown(issue.fields.summary)
             out.write('* {0} - {1}\n'.format(issue.key,
-                                             issue.fields.summary))
+                                             markdown_summary))
         out.write('\n')
 
 
