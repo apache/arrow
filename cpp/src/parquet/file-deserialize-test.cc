@@ -262,22 +262,19 @@ class TestParquetFileReader : public ::testing::Test {
 TEST_F(TestParquetFileReader, InvalidHeader) {
   const char* bad_header = "PAR2";
 
-  auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(bad_header),
-                                         strlen(bad_header));
+  auto buffer = Buffer::Wrap(bad_header, strlen(bad_header));
   ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 }
 
 TEST_F(TestParquetFileReader, InvalidFooter) {
   // File is smaller than FOOTER_SIZE
   const char* bad_file = "PAR1PAR";
-  auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(bad_file),
-                                         strlen(bad_file));
+  auto buffer = Buffer::Wrap(bad_file, strlen(bad_file));
   ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 
   // Magic number incorrect
   const char* bad_file2 = "PAR1PAR2";
-  buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(bad_file2),
-                                    strlen(bad_file2));
+  buffer = Buffer::Wrap(bad_file2, strlen(bad_file2));
   ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 }
 

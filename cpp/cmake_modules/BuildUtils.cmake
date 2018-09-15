@@ -368,7 +368,7 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
   endif()
 
   if (ARG_LABELS)
-    set(ARG_LABELS "unittest;${ARG_LABELS}")
+    set(ARG_LABELS "${ARG_LABELS}")
   else()
     set(ARG_LABELS unittest)
   endif()

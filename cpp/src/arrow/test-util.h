@@ -116,12 +116,6 @@ void random_real(int64_t n, uint32_t seed, T min_value, T max_value,
 }
 
 template <typename T>
-std::shared_ptr<Buffer> GetBufferFromVector(const std::vector<T>& values) {
-  return std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(values.data()),
-                                  values.size() * sizeof(T));
-}
-
-template <typename T>
 inline Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* pool,
                                    std::shared_ptr<Buffer>* result) {
   int64_t nbytes = static_cast<int>(values.size()) * sizeof(T);

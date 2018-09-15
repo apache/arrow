@@ -37,7 +37,7 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
   ADD_ARROW_TEST(${REL_TEST_NAME}
     STATIC_LINK_LIBS ${PARQUET_TEST_LINK_LIBS}
     PREFIX "parquet"
-    LABELS "parquet")
+    LABELS "unittest;parquet")
 endfunction()
 
 # ----------------------------------------------------------------------
