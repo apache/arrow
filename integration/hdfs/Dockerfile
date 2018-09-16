@@ -54,7 +54,7 @@ RUN export ARROW_HDFS=ON \
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HADOOP_HOME/lib/native/ \
     export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
 
-# build cpp without tests
+# build cpp with tests
 ENV ARROW_PYTHON=ON \
     ARROW_HDFS=ON \
     ARROW_BUILD_TESTS=ON
