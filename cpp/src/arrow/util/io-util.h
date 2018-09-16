@@ -146,8 +146,8 @@ struct PlatformFilename {
 Status FileNameFromString(const std::string& file_name, PlatformFilename* out);
 
 Status FileOpenReadable(const PlatformFilename& file_name, int* fd);
-Status FileOpenWriteable(const PlatformFilename& file_name, bool write_only,
-                         bool truncate, bool append, int* fd);
+Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool truncate,
+                        bool append, int* fd);
 
 Status FileRead(int fd, uint8_t* buffer, const int64_t nbytes, int64_t* bytes_read);
 Status FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes,

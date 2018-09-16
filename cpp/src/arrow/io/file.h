@@ -173,7 +173,7 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
 // supporting zero copy reads. The same class is used for both reading and
 // writing.
 //
-// If opening a file in a writeable mode, it is not truncated first as with
+// If opening a file in a writable mode, it is not truncated first as with
 // FileOutputStream
 class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
  public:
