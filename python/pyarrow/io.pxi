@@ -204,11 +204,16 @@ cdef class NativeFile:
         """
         Write byte from any object implementing buffer protocol (bytes,
         bytearray, ndarray, pyarrow.Buffer)
+
+        Parameters
+        ----------
+        data : bytes-like object or exporter of buffer protocol
+
+        Returns
+        -------
+        nbytes : number of bytes written
         """
         self._assert_writable()
-
-        if isinstance(data, six.string_types):
-            data = tobytes(data)
 
         cdef Buffer arrow_buffer = py_buffer(data)
 
@@ -216,6 +221,7 @@ cdef class NativeFile:
         cdef int64_t bufsize = len(arrow_buffer)
         with nogil:
             check_status(self.wr_file.get().Write(buf, bufsize))
+        return bufsize
 
     def read(self, nbytes=None):
         """
