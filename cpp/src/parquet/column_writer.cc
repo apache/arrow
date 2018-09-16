@@ -23,6 +23,7 @@
 
 #include "arrow/util/bit-util.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/cpu-info.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
 
@@ -31,6 +32,8 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift.h"
 #include "parquet/util/memory.h"
+
+using arrow::CpuInfo;
 
 namespace parquet {
 

@@ -26,6 +26,9 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class CpuInfo;
+
 namespace compute {
 
 #define RETURN_IF_ERROR(ctx)                  \
@@ -60,9 +63,12 @@ class ARROW_EXPORT FunctionContext {
   /// \brief Return the current status of the context
   const Status& status() const { return status_; }
 
+  CpuInfo* cpu_info() const { return cpu_info_; }
+
  private:
   Status status_;
   MemoryPool* pool_;
+  CpuInfo* cpu_info_;
 };
 
 }  // namespace compute

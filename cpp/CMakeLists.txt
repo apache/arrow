@@ -690,7 +690,9 @@ if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
 
-  if (CMAKE_COMPILER_IS_GNUCXX AND PTHREAD_LIBRARY)
+  if ((CMAKE_COMPILER_IS_GNUCXX OR
+        (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
+      AND PTHREAD_LIBRARY)
     set(ARROW_JEMALLOC_LINK_LIBS
       jemalloc_static
       # For glibc <2.17 we need to link to librt.
