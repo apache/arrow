@@ -19,11 +19,11 @@ FROM ubuntu:18.04
 
 RUN apt-get update && \
     apt-get install -y \
-      	gcc \
-  	    g++ \
-  		  git \
+        gcc \
+        g++ \
+        git \
         wget \
-    	  pkg-config \
+        pkg-config \
         ninja-build
 
 ENV CC=gcc \
