@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -14,51 +16,12 @@
 # limitations under the License.
 #
 
-version: '3'
-services:
+set -e
 
-  impala:
-    image: cpcloud86/impala:java8-1
-    ports:
-      - "21050"
-    hostname: impala
+pushd arrow/cpp/build
+  debug/io-hdfs-test
+popd
 
-  hiveserver2:
-    links:
-      - impala
-    build:
-      context: hiveserver2
-    volumes:
-      - ../..:/apache-arrow
-
-  spark_integration:
-    build:
-      context: spark_integration
-    volumes:
-      - ../..:/apache-arrow
-
-  dask_integration:
-    build:
-      context: dask_integration
-    volumes:
-      - ../..:/apache-arrow
-
-  gen_apidocs:
-    build:
-      context: gen_apidocs
-    volumes:
-     - ../..:/apache-arrow
-
-  iwyu:
-    build:
-      context: iwyu
-    volumes:
-     - ../..:/apache-arrow
-
-  run_site:
-    build:
-      context: run_site
-    ports:
-      - "4000:4000"
-    volumes:
-      - ../..:/apache-arrow
+pushd arrow/python
+  python -m pytest -vv -r sxX -s --only-parquet --only-hdfs pyarrow
+popd

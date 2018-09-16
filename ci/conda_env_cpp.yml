@@ -1,0 +1,15 @@
+boost-cpp
+brotli
+cmake
+flatbuffers
+gflags
+gtest
+jemalloc
+libprotobuf
+lz4-c
+python
+rapidjson
+snappy
+thrift-cpp
+zlib
+zstd

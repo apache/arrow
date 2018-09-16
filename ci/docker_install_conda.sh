@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -14,51 +16,13 @@
 # limitations under the License.
 #
 
-version: '3'
-services:
+# Exit on any error
+set -e
 
-  impala:
-    image: cpcloud86/impala:java8-1
-    ports:
-      - "21050"
-    hostname: impala
+wget --quiet https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+bash miniconda.sh -b -q -p ${CONDA_PREFIX:=/opt/conda}
+rm miniconda.sh
 
-  hiveserver2:
-    links:
-      - impala
-    build:
-      context: hiveserver2
-    volumes:
-      - ../..:/apache-arrow
-
-  spark_integration:
-    build:
-      context: spark_integration
-    volumes:
-      - ../..:/apache-arrow
-
-  dask_integration:
-    build:
-      context: dask_integration
-    volumes:
-      - ../..:/apache-arrow
-
-  gen_apidocs:
-    build:
-      context: gen_apidocs
-    volumes:
-     - ../..:/apache-arrow
-
-  iwyu:
-    build:
-      context: iwyu
-    volumes:
-     - ../..:/apache-arrow
-
-  run_site:
-    build:
-      context: run_site
-    ports:
-      - "4000:4000"
-    volumes:
-      - ../..:/apache-arrow
+ln -s ${CONDA_PREFIX}/etc/profile.d/conda.sh /etc/profile.d/conda.sh
+echo ". ${CONDA_PREFIX}/etc/profile.d/conda.sh" >> ~/.bashrc
+echo "conda activate base" >> ~/.bashrc

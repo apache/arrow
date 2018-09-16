@@ -70,7 +70,7 @@ class HdfsTestCases(object):
 
     @classmethod
     def tearDownClass(cls):
-        cls.hdfs.delete(cls.tmp_path, recursive=True)
+        # cls.hdfs.delete(cls.tmp_path, recursive=True)
         cls.hdfs.close()
 
     def test_unknown_driver(self):

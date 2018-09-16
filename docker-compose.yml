@@ -1,0 +1,104 @@
+# ide kell jonnie minden egyes nyelv dockerfile-janak a cumojanak
+# mindegyikre lehet buildelni egy imaget, pl.
+# - docker-compose build python -> arrow:python
+# - docker-compose build js -> arrow:js
+# - docker-compose build cpp -> arrow:cpp
+# ...
+# dev containerkent is szolgalhatnak
+
+# velhetoen a doc generalo es egyeb cuccoknak is itt lesz a helye
+# egyszerre lehet majd lokalisan reprodukalni a CI buildeket (legalabbis linuxra, esetleg windowsra is)
+
+
+# TEST kelleni fog majd egy nightly build, amiben mindegyik sub-dir docker image-t buildeni kell
+# es futtatni a teszteket
+
+# celszeruen mindegyik subdir dockerfile-ja a teljes installaciot tartalmazni fogja, es az elobbivel
+# lehet meggatolni, hogy mondjuk egy uj dependencia bevezetesevel valamelyik out-of sync keruljon
+
+
+# a dockerfilenak "build" szerepet kell ellatnia, tehat a compilolnia kell cumot
+# es az image-nek kulsoleg adott parancsokkal lehet melot vegzteteni, pl. test (e.g. ninja test)
+# a cpp image-nek velhetoen a ninjanak kellene az entrypointjanak lennie, vagy legallabbis a build directorynak a workdirnek
+
+# mindegyik image-nek a leheto legtobb feature-t kell tudnia buildelnie
+
+# env_file-t kulon erdemes lenne meg hasznalni
+
+version: '3'
+services:
+
+  ######################### Language Containers ###############################
+
+  go:
+    image: arrow:go
+    build:
+      context: .
+      dockerfile: go/Dockerfile
+
+  rust:
+    image: arrow:rust
+    build:
+      context: .
+      dockerfile: rust/Dockerfile
+
+  cpp:
+    image: arrow:cpp
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile
+
+  python:
+    image: arrow:python-${PYTHON_VERSION:-3.6}
+    build:
+      context: .
+      dockerfile: python/Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+
+  ######################### Integration Tests #################################
+
+  # impala:
+  #   image: cpcloud86/impala:java8-1
+  #   ports:
+  #     - "21050"
+  #   hostname: impala
+
+  hdfs-namenode:
+    image: gelog/hadoop
+    shm_size: 2G
+    ports:
+      - "9000:9000"
+      - "50070:50070"
+    command: hdfs namenode
+    hostname: hdfs-namenode
+
+  hdfs-datanode:
+    image: gelog/hadoop
+    command: hdfs datanode
+    ports:
+      # The host port is randomly assigned by Docker, to allow scaling
+      # to multiple DataNodes on the same host
+      - "50075"
+    links:
+      - hdfs-namenode:hdfs-namenode
+
+  hdfs-integration:
+    links:
+      - hdfs-namenode:hdfs-namenode
+      - hdfs-datanode:hdfs-datanode
+    environment:
+      - ARROW_HDFS_TEST_HOST=hdfs-namenode
+      - ARROW_HDFS_TEST_PORT=9000
+      - ARROW_HDFS_TEST_USER=root
+    build:
+      context: .
+      dockerfile: integration/hdfs/Dockerfile
+
+  # dask-integration:
+  #
+
+  ######################### Documentation #####################################
+
+  # - site
+  # - apidoc
