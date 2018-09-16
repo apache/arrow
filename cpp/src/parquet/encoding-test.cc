@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "arrow/util/bit-util.h"
-#include "arrow/util/cpu-info.h"
 
 #include "parquet/encoding-internal.h"
 #include "parquet/schema.h"
@@ -31,7 +30,6 @@
 #include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 
-using arrow::CpuInfo;
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 
