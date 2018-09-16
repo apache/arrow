@@ -49,7 +49,6 @@
 #include "plasma/common.h"
 #include "plasma/fling.h"
 #include "plasma/io.h"
-#include "plasma/malloc.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
@@ -249,10 +248,6 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   int store_conn_;
   /// File descriptor of the Unix domain socket that connects to the manager.
   int manager_conn_;
-  /// Table of dlmalloc buffer files that have been memory mapped so far. This
-  /// is a hash table mapping a file descriptor to a struct containing the
-  /// address of the corresponding memory-mapped file.
-  std::unordered_map<int, ClientMmapTableEntry> mmap_table_;
   /// A hash table of the object IDs that are currently being used by this
   /// client.
   std::unordered_map<ObjectID, std::unique_ptr<ObjectInUseEntry>> objects_in_use_;
@@ -274,6 +269,10 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   int64_t store_capacity_;
   /// A hash set to record the ids that users want to delete but still in use.
   std::unordered_set<ObjectID> deletion_cache_;
+  /// File descriptor of the memory mapped file that contains the data
+  int plasma_fd_;
+  /// Location the file containing the plasma data is mapped to
+  uint8_t* plasma_pointer_;
 
 #ifdef PLASMA_GPU
   /// Cuda Device Manager.
@@ -290,41 +289,6 @@ PlasmaClient::Impl::Impl() {
 }
 
 PlasmaClient::Impl::~Impl() {}
-
-// If the file descriptor fd has been mmapped in this client process before,
-// return the pointer that was returned by mmap, otherwise mmap it and store the
-// pointer in a hash table.
-uint8_t* PlasmaClient::Impl::LookupOrMmap(int fd, int store_fd_val, int64_t map_size) {
-  auto entry = mmap_table_.find(store_fd_val);
-  if (entry != mmap_table_.end()) {
-    close(fd);
-    return entry->second.pointer;
-  } else {
-    // We subtract kMmapRegionsGap from the length that was added
-    // in fake_mmap in malloc.h, to make map_size page-aligned again.
-    uint8_t* result = reinterpret_cast<uint8_t*>(mmap(
-        NULL, map_size - kMmapRegionsGap, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
-    // TODO(pcm): Don't fail here, instead return a Status.
-    if (result == MAP_FAILED) {
-      ARROW_LOG(FATAL) << "mmap failed";
-    }
-    close(fd);  // Closing this fd has an effect on performance.
-
-    ClientMmapTableEntry& entry = mmap_table_[store_fd_val];
-    entry.pointer = result;
-    entry.length = map_size;
-    entry.count = 0;
-    return result;
-  }
-}
-
-// Get a pointer to a file that we know has been memory mapped in this client
-// process before.
-uint8_t* PlasmaClient::Impl::LookupMmappedFile(int store_fd_val) {
-  auto entry = mmap_table_.find(store_fd_val);
-  ARROW_CHECK(entry != mmap_table_.end());
-  return entry->second.pointer;
-}
 
 bool PlasmaClient::Impl::IsInUse(const ObjectID& object_id) {
   const auto elem = objects_in_use_.find(object_id);
@@ -347,16 +311,9 @@ void PlasmaClient::Impl::IncrementObjectCount(const ObjectID& object_id,
     objects_in_use_[object_id]->is_sealed = is_sealed;
     object_entry = objects_in_use_[object_id].get();
     if (object->device_num == 0) {
-      // Increment the count of the number of objects in the memory-mapped file
-      // that are being used. The corresponding decrement should happen in
-      // PlasmaClient::Release.
-      auto entry = mmap_table_.find(object->store_fd);
-      ARROW_CHECK(entry != mmap_table_.end());
-      ARROW_CHECK(entry->second.count >= 0);
       // Update the in_use_object_bytes_.
       in_use_object_bytes_ +=
           (object_entry->object.data_size + object_entry->object.metadata_size);
-      entry->second.count += 1;
     }
   } else {
     object_entry = elem->second.get();
@@ -379,21 +336,17 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
   RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaCreateReply, &buffer));
   ObjectID id;
   PlasmaObject object;
-  int store_fd;
-  int64_t mmap_size;
   RETURN_NOT_OK(
-      ReadCreateReply(buffer.data(), buffer.size(), &id, &object, &store_fd, &mmap_size));
+      ReadCreateReply(buffer.data(), buffer.size(), &id, &object));
   // If the CreateReply included an error, then the store will not send a file
   // descriptor.
   if (device_num == 0) {
-    int fd = recv_fd(store_conn_);
-    ARROW_CHECK(fd >= 0) << "recv not successful";
     ARROW_CHECK(object.data_size == data_size);
     ARROW_CHECK(object.metadata_size == metadata_size);
     // The metadata should come right after the data.
     ARROW_CHECK(object.metadata_offset == object.data_offset + data_size);
     *data = std::make_shared<MutableBuffer>(
-        LookupOrMmap(fd, store_fd, mmap_size) + object.data_offset, data_size);
+        plasma_pointer_ + object.data_offset, data_size);
     // If plasma_create is being called from a transfer, then we will not copy the
     // metadata here. The metadata will be written along with the data streamed
     // from the transfer.
@@ -456,9 +409,8 @@ Status PlasmaClient::Impl::GetBuffers(
       std::shared_ptr<Buffer> physical_buf;
 
       if (object->device_num == 0) {
-        uint8_t* data = LookupMmappedFile(object->store_fd);
         physical_buf = std::make_shared<Buffer>(
-            data + object->data_offset, object->data_size + object->metadata_size);
+            plasma_pointer_ + object->data_offset, object->data_size + object->metadata_size);
       } else {
 #ifdef PLASMA_GPU
         physical_buf = gpu_object_map.find(object_ids[i])->second->ptr;
@@ -489,19 +441,8 @@ Status PlasmaClient::Impl::GetBuffers(
   std::vector<ObjectID> received_object_ids(num_objects);
   std::vector<PlasmaObject> object_data(num_objects);
   PlasmaObject* object;
-  std::vector<int> store_fds;
-  std::vector<int64_t> mmap_sizes;
   RETURN_NOT_OK(ReadGetReply(buffer.data(), buffer.size(), received_object_ids.data(),
-                             object_data.data(), num_objects, store_fds, mmap_sizes));
-
-  // We mmap all of the file descriptors here so that we can avoid look them up
-  // in the subsequent loop based on just the store file descriptor and without
-  // having to know the relevant file descriptor received from recv_fd.
-  for (size_t i = 0; i < store_fds.size(); i++) {
-    int fd = recv_fd(store_conn_);
-    ARROW_CHECK(fd >= 0);
-    LookupOrMmap(fd, store_fds[i], mmap_sizes[i]);
-  }
+                             object_data.data(), num_objects));
 
   for (int64_t i = 0; i < num_objects; ++i) {
     DCHECK(received_object_ids[i] == object_ids[i]);
@@ -519,9 +460,8 @@ Status PlasmaClient::Impl::GetBuffers(
     if (object->data_size != -1) {
       std::shared_ptr<Buffer> physical_buf;
       if (object->device_num == 0) {
-        uint8_t* data = LookupMmappedFile(object->store_fd);
         physical_buf = std::make_shared<Buffer>(
-            data + object->data_offset, object->data_size + object->metadata_size);
+            plasma_pointer_ + object->data_offset, object->data_size + object->metadata_size);
       } else {
 #ifdef PLASMA_GPU
         std::lock_guard<std::mutex> lock(gpu_mutex);
@@ -583,31 +523,11 @@ Status PlasmaClient::Impl::UnmapObject(const ObjectID& object_id) {
   ARROW_CHECK(object_entry != objects_in_use_.end());
   ARROW_CHECK(object_entry->second->count == 0);
 
-  // Decrement the count of the number of objects in this memory-mapped file
-  // that the client is using. The corresponding increment should have
-  // happened in plasma_get.
-  int fd = object_entry->second->object.store_fd;
-  auto entry = mmap_table_.find(fd);
-  ARROW_CHECK(entry != mmap_table_.end());
-  ARROW_CHECK(entry->second.count >= 1);
-  if (entry->second.count == 1) {
-    // If no other objects are being used, then unmap the file.
-    // We subtract kMmapRegionsGap from the length that was added
-    // in fake_mmap in malloc.h, to make the size page-aligned again.
-    int err = munmap(entry->second.pointer, entry->second.length - kMmapRegionsGap);
-    if (err == -1) {
-      return Status::IOError("Error during munmap");
-    }
-    // Remove the corresponding entry from the hash table.
-    mmap_table_.erase(fd);
-  } else {
-    // If there are other objects being used, decrement the reference count.
-    entry->second.count -= 1;
-  }
   // Update the in_use_object_bytes_.
   in_use_object_bytes_ -= (object_entry->second->object.data_size +
                            object_entry->second->object.metadata_size);
   DCHECK_GE(in_use_object_bytes_, 0);
+
   // Remove the entry from the hash table of objects currently in use.
   objects_in_use_.erase(object_id);
   return Status::OK();
@@ -940,7 +860,13 @@ Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
   RETURN_NOT_OK(SendConnectRequest(store_conn_));
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaConnectReply, &buffer));
-  RETURN_NOT_OK(ReadConnectReply(buffer.data(), buffer.size(), &store_capacity_));
+  std::string plasma_file_name;
+  int64_t plasma_file_size;
+  RETURN_NOT_OK(ReadConnectReply(buffer.data(), buffer.size(), &store_capacity_, &plasma_file_name, &plasma_file_size));
+  plasma_fd_ = open(plasma_file_name.c_str(), O_RDWR);
+  ARROW_CHECK(plasma_fd_ != -1) << "Failed to open plasma file, errno = " << strerror(errno);
+  plasma_pointer_ = reinterpret_cast<uint8_t*>(mmap(NULL, plasma_file_size, PROT_READ | PROT_WRITE, MAP_SHARED, plasma_fd_, 0));
+
   return Status::OK();
 }
 

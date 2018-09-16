@@ -123,9 +123,9 @@ Status ReadCreateRequest(uint8_t* data, size_t size, ObjectID* object_id,
 }
 
 Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
-                       PlasmaError error_code, int64_t mmap_size) {
+                       PlasmaError error_code) {
   flatbuffers::FlatBufferBuilder fbb;
-  PlasmaObjectSpec plasma_object(object->store_fd, object->data_offset, object->data_size,
+  PlasmaObjectSpec plasma_object(object->data_offset, object->data_size,
                                  object->metadata_offset, object->metadata_size,
                                  object->device_num);
   auto object_string = fbb.CreateString(object_id.binary());
@@ -142,8 +142,6 @@ Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
   crb.add_error(static_cast<PlasmaError>(error_code));
   crb.add_plasma_object(&plasma_object);
   crb.add_object_id(object_string);
-  crb.add_store_fd(object->store_fd);
-  crb.add_mmap_size(mmap_size);
   if (object->device_num != 0) {
 #ifdef PLASMA_GPU
     crb.add_ipc_handle(ipc_handle);
@@ -156,19 +154,15 @@ Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
 }
 
 Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
-                       PlasmaObject* object, int* store_fd, int64_t* mmap_size) {
+                       PlasmaObject* object) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaCreateReply>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
   *object_id = ObjectID::from_binary(message->object_id()->str());
-  object->store_fd = message->plasma_object()->segment_index();
   object->data_offset = message->plasma_object()->data_offset();
   object->data_size = message->plasma_object()->data_size();
   object->metadata_offset = message->plasma_object()->metadata_offset();
   object->metadata_size = message->plasma_object()->metadata_size();
-
-  *store_fd = message->store_fd();
-  *mmap_size = message->mmap_size();
 
   object->device_num = message->plasma_object()->device_num();
 #ifdef PLASMA_GPU
@@ -469,17 +463,19 @@ Status SendConnectRequest(int sock) {
 
 Status ReadConnectRequest(uint8_t* data) { return Status::OK(); }
 
-Status SendConnectReply(int sock, int64_t memory_capacity) {
+Status SendConnectReply(int sock, int64_t memory_capacity, const std::string& plasma_file_name, int64_t plasma_file_size) {
   flatbuffers::FlatBufferBuilder fbb;
-  auto message = fb::CreatePlasmaConnectReply(fbb, memory_capacity);
+  auto message = fb::CreatePlasmaConnectReply(fbb, memory_capacity, fbb.CreateString(plasma_file_name), plasma_file_size);
   return PlasmaSend(sock, MessageType::PlasmaConnectReply, &fbb, message);
 }
 
-Status ReadConnectReply(uint8_t* data, size_t size, int64_t* memory_capacity) {
+Status ReadConnectReply(uint8_t* data, size_t size, int64_t* memory_capacity, std::string* plasma_file_name, int64_t* plasma_file_size) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaConnectReply>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
   *memory_capacity = message->memory_capacity();
+  *plasma_file_name = message->plasma_file_name()->str();
+  *plasma_file_size = message->plasma_file_size();
   return Status::OK();
 }
 
@@ -538,15 +534,14 @@ Status ReadGetRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_
 
 Status SendGetReply(int sock, ObjectID object_ids[],
                     std::unordered_map<ObjectID, PlasmaObject>& plasma_objects,
-                    int64_t num_objects, const std::vector<int>& store_fds,
-                    const std::vector<int64_t>& mmap_sizes) {
+                    int64_t num_objects) {
   flatbuffers::FlatBufferBuilder fbb;
   std::vector<PlasmaObjectSpec> objects;
 
   std::vector<flatbuffers::Offset<fb::CudaHandle>> handles;
   for (int64_t i = 0; i < num_objects; ++i) {
     const PlasmaObject& object = plasma_objects[object_ids[i]];
-    objects.push_back(PlasmaObjectSpec(object.store_fd, object.data_offset,
+    objects.push_back(PlasmaObjectSpec(object.data_offset,
                                        object.data_size, object.metadata_offset,
                                        object.metadata_size, object.device_num));
 #ifdef PLASMA_GPU
@@ -560,14 +555,12 @@ Status SendGetReply(int sock, ObjectID object_ids[],
   }
   auto message = fb::CreatePlasmaGetReply(
       fbb, ToFlatbuffer(&fbb, object_ids, num_objects),
-      fbb.CreateVectorOfStructs(objects.data(), num_objects), fbb.CreateVector(store_fds),
-      fbb.CreateVector(mmap_sizes), fbb.CreateVector(handles));
+      fbb.CreateVectorOfStructs(objects.data(), num_objects), fbb.CreateVector(handles));
   return PlasmaSend(sock, MessageType::PlasmaGetReply, &fbb, message);
 }
 
 Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
-                    PlasmaObject plasma_objects[], int64_t num_objects,
-                    std::vector<int>& store_fds, std::vector<int64_t>& mmap_sizes) {
+                    PlasmaObject plasma_objects[], int64_t num_objects) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaGetReply>(data);
 #ifdef PLASMA_GPU
@@ -579,7 +572,6 @@ Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
   }
   for (uoffset_t i = 0; i < num_objects; ++i) {
     const PlasmaObjectSpec* object = message->plasma_objects()->Get(i);
-    plasma_objects[i].store_fd = object->segment_index();
     plasma_objects[i].data_offset = object->data_offset();
     plasma_objects[i].data_size = object->data_size();
     plasma_objects[i].metadata_offset = object->metadata_offset();
@@ -593,11 +585,6 @@ Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
       handle_pos++;
     }
 #endif
-  }
-  ARROW_CHECK(message->store_fds()->size() == message->mmap_sizes()->size());
-  for (uoffset_t i = 0; i < message->store_fds()->size(); i++) {
-    store_fds.push_back(message->store_fds()->Get(i));
-    mmap_sizes.push_back(message->mmap_sizes()->Get(i));
   }
   return Status::OK();
 }

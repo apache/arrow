@@ -37,6 +37,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/statvfs.h>
 #include <sys/types.h>
@@ -52,11 +53,12 @@
 #include <utility>
 #include <vector>
 
+#include <jemalloc/jemalloc.h>
+
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
 #include "plasma/fling.h"
 #include "plasma/io.h"
-#include "plasma/malloc.h"
 
 #ifdef PLASMA_GPU
 #include "arrow/gpu/cuda_api.h"
@@ -70,11 +72,18 @@ namespace fb = plasma::flatbuf;
 
 namespace plasma {
 
-extern "C" {
-void* dlmalloc(size_t bytes);
-void* dlmemalign(size_t alignment, size_t bytes);
-void dlfree(void* mem);
-size_t dlmalloc_set_footprint_limit(size_t bytes);
+int CreateTempFile(const std::string& plasma_directory, int64_t size, std::string* filename) {
+  std::string file_template = plasma_directory + "/plasmaXXXXXX";
+  std::vector<char> name(file_template.begin(), file_template.end());
+  name.push_back('\0');
+  int fd = mkstemp(name.data());
+  ARROW_CHECK(fd >= 0) << "failed to open file " << name.data() << ", errno = " << errno;
+  FILE* file = fdopen(fd, "a+");
+  ARROW_CHECK(file) << "fdopen failed for " << name.data() << ", errno = " << errno;
+  int r = ftruncate(fd, static_cast<off_t>(size));
+  ARROW_CHECK(r == 0) << "failed to ftruncate file " << name.data() << ", errno = " << errno;
+  *filename = std::string(name.data());
+  return fd;
 }
 
 struct GetRequest {
@@ -114,6 +123,10 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string dir
   store_info_.memory_capacity = system_memory;
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
+  store_info_.plasma_file_size = system_memory;
+  store_info_.plasma_fd = CreateTempFile(directory, system_memory, &store_info_.plasma_file_name);
+  store_info_.plasma_pointer = mmap(NULL, system_memory, PROT_READ | PROT_WRITE, MAP_SHARED, store_info_.plasma_fd, 0);
+  ARROW_CHECK(store_info_.plasma_pointer != MAP_FAILED) << "mmap failed with error: " << std::strerror(errno);
 #ifdef PLASMA_GPU
   DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
@@ -175,8 +188,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     // it is not guaranteed that the corresponding pointer in the client will be
     // 64-byte aligned, but in practice it often will be.
     if (device_num == 0) {
-      pointer =
-          reinterpret_cast<uint8_t*>(dlmemalign(kBlockSize, data_size + metadata_size));
+      pointer = reinterpret_cast<uint8_t*>(mallocx(std::max(data_size + metadata_size, kBlockSize), MALLOCX_ALIGN(kBlockSize)));
       if (pointer == nullptr) {
         // Tell the eviction policy how much space we need to create this object.
         std::vector<ObjectID> objects_to_evict;
@@ -198,20 +210,12 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
 #endif
     }
   }
-  int fd = -1;
-  int64_t map_size = 0;
-  ptrdiff_t offset = 0;
-  if (device_num == 0) {
-    GetMallocMapinfo(pointer, &fd, &map_size, &offset);
-    assert(fd != -1);
-  }
+  ptrdiff_t offset = pointer - reinterpret_cast<uint8_t*>(store_info_.plasma_pointer);
   auto entry = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
   entry->data_size = data_size;
   entry->metadata_size = metadata_size;
   entry->pointer = pointer;
   // TODO(pcm): Set the other fields.
-  entry->fd = fd;
-  entry->map_size = map_size;
   entry->offset = offset;
   entry->state = ObjectState::PLASMA_CREATED;
   entry->device_num = device_num;
@@ -224,7 +228,6 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   }
 #endif
   store_info_.objects[object_id] = std::move(entry);
-  result->store_fd = fd;
   result->data_offset = offset;
   result->metadata_offset = offset + data_size;
   result->data_size = data_size;
@@ -248,7 +251,6 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
     object->ipc_handle = entry->ipc_handle;
   }
 #endif
-  object->store_fd = entry->fd;
   object->data_offset = entry->offset;
   object->metadata_offset = entry->offset + entry->data_size;
   object->data_size = entry->data_size;
@@ -257,47 +259,11 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
 }
 
 void PlasmaStore::ReturnFromGet(GetRequest* get_req) {
-  // Figure out how many file descriptors we need to send.
-  std::unordered_set<int> fds_to_send;
-  std::vector<int> store_fds;
-  std::vector<int64_t> mmap_sizes;
-  for (const auto& object_id : get_req->object_ids) {
-    PlasmaObject& object = get_req->objects[object_id];
-    int fd = object.store_fd;
-    if (object.data_size != -1 && fds_to_send.count(fd) == 0 && fd != -1) {
-      fds_to_send.insert(fd);
-      store_fds.push_back(fd);
-      mmap_sizes.push_back(GetMmapSize(fd));
-    }
-  }
 
   // Send the get reply to the client.
   Status s = SendGetReply(get_req->client->fd, &get_req->object_ids[0], get_req->objects,
-                          get_req->object_ids.size(), store_fds, mmap_sizes);
+                          get_req->object_ids.size());
   WarnIfSigpipe(s.ok() ? 0 : -1, get_req->client->fd);
-  // If we successfully sent the get reply message to the client, then also send
-  // the file descriptors.
-  if (s.ok()) {
-    // Send all of the file descriptors for the present objects.
-    for (int store_fd : store_fds) {
-      int error_code = send_fd(get_req->client->fd, store_fd);
-      // If we failed to send the file descriptor, loop until we have sent it
-      // successfully. TODO(rkn): This is problematic for two reasons. First
-      // of all, sending the file descriptor should just succeed without any
-      // errors, but sometimes I see a "Message too long" error number.
-      // Second, looping like this allows a client to potentially block the
-      // plasma store event loop which should never happen.
-      while (error_code < 0) {
-        if (errno == EMSGSIZE) {
-          ARROW_LOG(WARNING) << "Failed to send file descriptor, retrying.";
-          error_code = send_fd(get_req->client->fd, store_fd);
-          continue;
-        }
-        WarnIfSigpipe(error_code, get_req->client->fd);
-        break;
-      }
-    }
-  }
 
   // Remove the get request from each of the relevant object_get_requests hash
   // tables if it is present there. It should only be present there if the get
@@ -743,16 +709,9 @@ Status PlasmaStore::ProcessMessage(Client* client) {
                                       &metadata_size, &device_num));
       PlasmaError error_code =
           CreateObject(object_id, data_size, metadata_size, device_num, client, &object);
-      int64_t mmap_size = 0;
-      if (error_code == PlasmaError::OK && device_num == 0) {
-        mmap_size = GetMmapSize(object.store_fd);
-      }
       HANDLE_SIGPIPE(
-          SendCreateReply(client->fd, object_id, &object, error_code, mmap_size),
+          SendCreateReply(client->fd, object_id, &object, error_code),
           client->fd);
-      if (error_code == PlasmaError::OK && device_num == 0) {
-        WarnIfSigpipe(send_fd(client->fd, object.store_fd), client->fd);
-      }
     } break;
     case fb::MessageType::PlasmaAbortRequest: {
       RETURN_NOT_OK(ReadAbortRequest(input, input_size, &object_id));
@@ -812,7 +771,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       SubscribeToUpdates(client);
       break;
     case fb::MessageType::PlasmaConnectRequest: {
-      HANDLE_SIGPIPE(SendConnectReply(client->fd, store_info_.memory_capacity),
+      HANDLE_SIGPIPE(SendConnectReply(client->fd, store_info_.memory_capacity, store_info_.plasma_file_name, store_info_.plasma_file_size),
                      client->fd);
     } break;
     case fb::MessageType::PlasmaDisconnectClient:
@@ -837,15 +796,6 @@ class PlasmaStoreRunner {
     store_.reset(
         new PlasmaStore(loop_.get(), system_memory, directory, hugepages_enabled));
     plasma_config = store_->GetPlasmaStoreInfo();
-
-    // If the store is configured to use a single memory-mapped file, then we
-    // achieve that by mallocing and freeing a single large amount of space.
-    // that maximum allowed size up front.
-    if (use_one_memory_mapped_file) {
-      void* pointer = plasma::dlmemalign(kBlockSize, system_memory);
-      ARROW_CHECK(pointer != nullptr);
-      plasma::dlfree(pointer);
-    }
 
     int socket = BindIpcSock(socket_name, true);
     // TODO(pcm): Check return value.
@@ -975,9 +925,6 @@ int main(int argc, char* argv[]) {
     SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
   }
 #endif
-  // Make it so dlmalloc fails if we try to request more memory than is
-  // available.
-  plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
   plasma::StartServer(socket_name, system_memory, plasma_directory, hugepages_enabled,
                       use_one_memory_mapped_file);

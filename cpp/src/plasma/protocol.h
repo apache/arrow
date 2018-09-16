@@ -52,10 +52,10 @@ Status ReadCreateRequest(uint8_t* data, size_t size, ObjectID* object_id,
                          int64_t* data_size, int64_t* metadata_size, int* device_num);
 
 Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
-                       PlasmaError error, int64_t mmap_size);
+                       PlasmaError error);
 
 Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
-                       PlasmaObject* object, int* store_fd, int64_t* mmap_size);
+                       PlasmaObject* object);
 
 Status SendAbortRequest(int sock, ObjectID object_id);
 
@@ -86,12 +86,10 @@ Status ReadGetRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_
 
 Status SendGetReply(int sock, ObjectID object_ids[],
                     std::unordered_map<ObjectID, PlasmaObject>& plasma_objects,
-                    int64_t num_objects, const std::vector<int>& store_fds,
-                    const std::vector<int64_t>& mmap_sizes);
+                    int64_t num_objects);
 
 Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
-                    PlasmaObject plasma_objects[], int64_t num_objects,
-                    std::vector<int>& store_fds, std::vector<int64_t>& mmap_sizes);
+                    PlasmaObject plasma_objects[], int64_t num_objects);
 
 /* Plasma Release message functions. */
 
@@ -157,9 +155,9 @@ Status SendConnectRequest(int sock);
 
 Status ReadConnectRequest(uint8_t* data, size_t size);
 
-Status SendConnectReply(int sock, int64_t memory_capacity);
+Status SendConnectReply(int sock, int64_t memory_capacity, const std::string& plasma_file_name, int64_t plasma_file_size);
 
-Status ReadConnectReply(uint8_t* data, size_t size, int64_t* memory_capacity);
+Status ReadConnectReply(uint8_t* data, size_t size, int64_t* memory_capacity, std::string* plasma_file_name, int64_t* plasma_file_size);
 
 /* Plasma Evict message functions (no reply so far). */
 

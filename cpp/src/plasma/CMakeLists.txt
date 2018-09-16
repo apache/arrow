@@ -75,7 +75,6 @@ set(PLASMA_SRCS
   events.cc
   fling.cc
   io.cc
-  malloc.cc
   plasma.cc
   protocol.cc
   thirdparty/ae/ae.c

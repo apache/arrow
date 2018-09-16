@@ -77,10 +77,6 @@ struct PlasmaObject {
   // IPC handle for Cuda.
   std::shared_ptr<CudaIpcMemHandle> ipc_handle;
 #endif
-  /// The file descriptor of the memory mapped file in the store. It is used as
-  /// a unique identifier of the file in the client to look up the corresponding
-  /// file descriptor on the client's side.
-  int store_fd;
   /// The offset in bytes in the memory mapped file of the data.
   ptrdiff_t data_offset;
   /// The offset in bytes in the memory mapped file of the metadata.
@@ -114,6 +110,14 @@ struct PlasmaStoreInfo {
   bool hugepages_enabled;
   /// A (platform-dependent) directory where to create the memory-backed file.
   std::string directory;
+  /// Name of the memory mapped file containing the objects.
+  std::string plasma_file_name;
+  // Size of the memory mapped file containing the objects.
+  int64_t plasma_file_size;
+  /// The file descriptor of the memory mapped file containing the objects
+  int plasma_fd;
+  /// Address that file is mapped to
+  void* plasma_pointer;
 };
 
 /// Get an entry from the object table and return NULL if the object_id

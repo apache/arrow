@@ -104,12 +104,8 @@ struct ObjectTableEntry {
 
   ~ObjectTableEntry();
 
-  /// Memory mapped file containing the object.
-  int fd;
   /// Device number.
   int device_num;
-  /// Size of the underlying map.
-  int64_t map_size;
   /// Offset from the base of the mmap.
   ptrdiff_t offset;
   /// Pointer to the object data. Needed to free the object.
