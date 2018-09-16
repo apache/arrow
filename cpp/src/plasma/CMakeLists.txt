@@ -22,6 +22,25 @@ project(plasma VERSION "${ARROW_BASE_VERSION}")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../python/cmake_modules")
 
+# Include jemalloc
+
+# TODO(pcm): Include xhochy's patch
+set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
+set(jemalloc_URL https://github.com/jemalloc/jemalloc/archive/5.1.0.tar.gz)
+set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREFIX}/include")
+set(JEMALLOC_SHARED_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc${CMAKE_SHARED_LIBRARY_SUFFIX}")
+set(JEMALLOC_STATIC_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+ExternalProject_Add(jemalloc
+    URL ${jemalloc_URL}
+    DOWNLOAD_DIR "${DOWNLOAD_LOCATION}"
+    CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_plasma_" "--with-private-namespace=je_plasma_private_" "--disable-tls"
+    ${EP_LOG_OPTIONS}
+    BUILD_IN_SOURCE 1
+    BUILD_COMMAND ${MAKE}
+    BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
+    INSTALL_COMMAND ${MAKE} -j1 install_bin install_include install_lib)
+
 find_package(PythonLibsNew REQUIRED)
 find_package(Threads)
 
@@ -30,7 +49,7 @@ set(PLASMA_SO_VERSION "${ARROW_SO_VERSION}")
 set(PLASMA_FULL_SO_VERSION "${ARROW_FULL_SO_VERSION}")
 
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS})
-include_directories("${FLATBUFFERS_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/" "${CMAKE_CURRENT_LIST_DIR}/thirdparty/" "${CMAKE_CURRENT_LIST_DIR}/../")
+include_directories("${FLATBUFFERS_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/" "${CMAKE_CURRENT_LIST_DIR}/thirdparty/" "${CMAKE_CURRENT_LIST_DIR}/../" ${JEMALLOC_INCLUDE_DIR})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_XOPEN_SOURCE=500 -D_POSIX_C_SOURCE=200809L")
 
@@ -80,7 +99,7 @@ set(PLASMA_SRCS
   thirdparty/ae/ae.c
   thirdparty/xxhash.cc)
 
-set(PLASMA_LINK_LIBS arrow_static)
+set(PLASMA_LINK_LIBS arrow_static ${JEMALLOC_STATIC_LIB})
 
 if (ARROW_GPU)
   set(PLASMA_LINK_LIBS ${PLASMA_LINK_LIBS} arrow_gpu_shared)
@@ -90,7 +109,7 @@ endif()
 ADD_ARROW_LIB(plasma
   SOURCES ${PLASMA_SRCS}
   OUTPUTS PLASMA_LIBRARIES
-  DEPENDENCIES gen_plasma_fbs
+  DEPENDENCIES gen_plasma_fbs jemalloc
   SHARED_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS}
   STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS})
 

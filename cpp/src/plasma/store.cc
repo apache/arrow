@@ -188,7 +188,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     // it is not guaranteed that the corresponding pointer in the client will be
     // 64-byte aligned, but in practice it often will be.
     if (device_num == 0) {
-      pointer = reinterpret_cast<uint8_t*>(mallocx(std::max(data_size + metadata_size, kBlockSize), MALLOCX_ALIGN(kBlockSize)));
+      pointer = reinterpret_cast<uint8_t*>(je_plasma_mallocx(std::max(data_size + metadata_size, kBlockSize), MALLOCX_ALIGN(kBlockSize)));
       if (pointer == nullptr) {
         // Tell the eviction policy how much space we need to create this object.
         std::vector<ObjectID> objects_to_evict;
