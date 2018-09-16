@@ -1,30 +1,3 @@
-# ide kell jonnie minden egyes nyelv dockerfile-janak a cumojanak
-# mindegyikre lehet buildelni egy imaget, pl.
-# - docker-compose build python -> arrow:python
-# - docker-compose build js -> arrow:js
-# - docker-compose build cpp -> arrow:cpp
-# ...
-# dev containerkent is szolgalhatnak
-
-# velhetoen a doc generalo es egyeb cuccoknak is itt lesz a helye
-# egyszerre lehet majd lokalisan reprodukalni a CI buildeket (legalabbis linuxra, esetleg windowsra is)
-
-
-# TEST kelleni fog majd egy nightly build, amiben mindegyik sub-dir docker image-t buildeni kell
-# es futtatni a teszteket
-
-# celszeruen mindegyik subdir dockerfile-ja a teljes installaciot tartalmazni fogja, es az elobbivel
-# lehet meggatolni, hogy mondjuk egy uj dependencia bevezetesevel valamelyik out-of sync keruljon
-
-
-# a dockerfilenak "build" szerepet kell ellatnia, tehat a compilolnia kell cumot
-# es az image-nek kulsoleg adott parancsokkal lehet melot vegzteteni, pl. test (e.g. ninja test)
-# a cpp image-nek velhetoen a ninjanak kellene az entrypointjanak lennie, vagy legallabbis a build directorynak a workdirnek
-
-# mindegyik image-nek a leheto legtobb feature-t kell tudnia buildelnie
-
-# env_file-t kulon erdemes lenne meg hasznalni
-
 version: '3'
 services:
 
@@ -95,10 +68,11 @@ services:
       context: .
       dockerfile: integration/hdfs/Dockerfile
 
-  # dask-integration:
-  #
+  # TODO(kszucs): dask-integration
+  # TODO(kszucs): hive-integration
+  # TODO(kszucs): spark-integration
 
   ######################### Documentation #####################################
 
-  # - site
-  # - apidoc
+  # TODO(kszucs): site
+  # TODO(kszucs): apidoc
