@@ -921,8 +921,6 @@ int main(int argc, char* argv[]) {
              "/dev/shm. If you are inside a Docker container, you may need to "
              "pass an argument with the flag '--shm-size' to 'docker run'.";
     }
-  } else {
-    SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
   }
 #endif
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;

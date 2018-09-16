@@ -252,15 +252,6 @@ POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------
 
-src/plasma/thirdparty/dlmalloc.c: CC0
-
-This is a version (aka dlmalloc) of malloc/free/realloc written by
-Doug Lea and released to the public domain, as explained at
-http://creativecommons.org/publicdomain/zero/1.0/ Send questions,
-comments, complaints, performance data, etc to dl@cs.oswego.edu
-
---------------------------------------------------------------------------------
-
 src/plasma/thirdparty/xxhash: BSD 2-Clause License
 
 xxHash - Fast Hash algorithm
