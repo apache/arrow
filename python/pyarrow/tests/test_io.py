@@ -826,7 +826,7 @@ def test_os_file_writer(tmpdir):
         f2.read(5)
 
 
-def test_native_file_reject_unicode():
+def test_native_file_write_reject_unicode():
     # ARROW-3227
     nf = pa.BufferOutputStream()
     with pytest.raises(TypeError):
