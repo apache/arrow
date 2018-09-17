@@ -99,7 +99,7 @@ set(PLASMA_SRCS
   thirdparty/ae/ae.c
   thirdparty/xxhash.cc)
 
-set(PLASMA_LINK_LIBS arrow_static ${JEMALLOC_STATIC_LIB})
+set(PLASMA_LINK_LIBS arrow_static)
 
 if (ARROW_GPU)
   set(PLASMA_LINK_LIBS ${PLASMA_LINK_LIBS} arrow_gpu_shared)
@@ -109,7 +109,7 @@ endif()
 ADD_ARROW_LIB(plasma
   SOURCES ${PLASMA_SRCS}
   OUTPUTS PLASMA_LIBRARIES
-  DEPENDENCIES gen_plasma_fbs jemalloc
+  DEPENDENCIES gen_plasma_fbs
   SHARED_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS}
   STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS})
 
@@ -147,7 +147,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "gcc")
 endif()
 
 add_executable(plasma_store_server store.cc)
-target_link_libraries(plasma_store_server plasma_static ${PLASMA_LINK_LIBS})
+target_link_libraries(plasma_store_server plasma_static ${PLASMA_LINK_LIBS} ${JEMALLOC_STATIC_LIB})
 
 if (ARROW_RPATH_ORIGIN)
   if (APPLE)

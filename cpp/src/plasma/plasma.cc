@@ -33,7 +33,6 @@ namespace plasma {
 ObjectTableEntry::ObjectTableEntry() : pointer(nullptr), ref_count(0) {}
 
 ObjectTableEntry::~ObjectTableEntry() {
-  je_plasma_free(pointer);
   pointer = nullptr;
 }
 

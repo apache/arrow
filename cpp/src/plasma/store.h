@@ -25,6 +25,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include <jemalloc/jemalloc.h>
+
 #include "plasma/common.h"
 #include "plasma/events.h"
 #include "plasma/eviction_policy.h"
@@ -216,6 +218,9 @@ class PlasmaStore {
 #ifdef PLASMA_GPU
   arrow::gpu::CudaDeviceManager* manager_;
 #endif
+
+  extent_hooks_t jemalloc_hooks_;
+  unsigned int arena_index_;
 };
 
 }  // namespace plasma

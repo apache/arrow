@@ -70,7 +70,9 @@ void EvictionPolicy::ObjectCreated(const ObjectID& object_id) {
   cache_.Add(object_id, entry->data_size + entry->metadata_size);
   int64_t size = entry->data_size + entry->metadata_size;
   memory_used_ += size;
-  ARROW_CHECK(memory_used_ <= store_info_->memory_capacity);
+  ARROW_CHECK(memory_used_ <= store_info_->memory_capacity)
+      << " memory_used_ = " << memory_used_
+      << ", store_info_->memory_capacity = " << store_info_->memory_capacity;
 }
 
 bool EvictionPolicy::RequireSpace(int64_t size, std::vector<ObjectID>* objects_to_evict) {

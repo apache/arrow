@@ -117,6 +117,21 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
 
 Client::Client(int fd) : fd(fd), notification_fd(-1) {}
 
+// TODO(pcm): Remove these!
+void *pre_alloc;
+void *pre_alloc_end;
+
+static void *
+AllocHook(extent_hooks_t *extent_hooks, void *new_addr, size_t size,
+		size_t alignment, bool *zero, bool *commit, unsigned arena_index) {
+  void *ret = pre_alloc;
+  if (ret >= pre_alloc_end) {
+    return NULL;
+  }
+  pre_alloc = (char *)pre_alloc + size;
+  return ret;
+}
+
 PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
                          bool hugepages_enabled)
     : loop_(loop), eviction_policy_(&store_info_) {
@@ -127,6 +142,13 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string dir
   store_info_.plasma_fd = CreateTempFile(directory, system_memory, &store_info_.plasma_file_name);
   store_info_.plasma_pointer = mmap(NULL, system_memory, PROT_READ | PROT_WRITE, MAP_SHARED, store_info_.plasma_fd, 0);
   ARROW_CHECK(store_info_.plasma_pointer != MAP_FAILED) << "mmap failed with error: " << std::strerror(errno);
+  pre_alloc = store_info_.plasma_pointer;
+  pre_alloc_end = (char *) store_info_.plasma_pointer + system_memory;
+  jemalloc_hooks_ = {AllocHook, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+  extent_hooks_t *new_hooks = &jemalloc_hooks_;
+  arena_index_ = -1;
+  size_t index_size = sizeof(arena_index_);
+  size_t error = je_plasma_mallctl("arenas.create", (void *)&arena_index_, &index_size, (void *)&new_hooks, sizeof(extent_hooks_t *));
 #ifdef PLASMA_GPU
   DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
@@ -188,7 +210,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     // it is not guaranteed that the corresponding pointer in the client will be
     // 64-byte aligned, but in practice it often will be.
     if (device_num == 0) {
-      pointer = reinterpret_cast<uint8_t*>(je_plasma_mallocx(std::max(data_size + metadata_size, kBlockSize), MALLOCX_ALIGN(kBlockSize)));
+      pointer = reinterpret_cast<uint8_t*>(je_plasma_mallocx(std::max(data_size + metadata_size, kBlockSize), MALLOCX_ALIGN(kBlockSize) | MALLOCX_ARENA(arena_index_) | MALLOCX_TCACHE_NONE));
       if (pointer == nullptr) {
         // Tell the eviction policy how much space we need to create this object.
         std::vector<ObjectID> objects_to_evict;
@@ -440,6 +462,7 @@ int PlasmaStore::AbortObject(const ObjectID& object_id, Client* client) {
     return 0;
   } else {
     // The client requesting the abort is the creator. Free the object.
+    je_plasma_free(entry->pointer);
     store_info_.objects.erase(object_id);
     return 1;
   }
@@ -471,6 +494,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
 
   eviction_policy_.RemoveObject(object_id);
 
+  je_plasma_free(entry->pointer);
   store_info_.objects.erase(object_id);
   // Inform all subscribers that the object has been deleted.
   fb::ObjectInfoT notification;
@@ -494,6 +518,7 @@ void PlasmaStore::DeleteObjects(const std::vector<ObjectID>& object_ids) {
         << "To delete an object it must have been sealed.";
     ARROW_CHECK(entry->ref_count == 0)
         << "To delete an object, there must be no clients currently using it.";
+    je_plasma_free(entry->pointer);
     store_info_.objects.erase(object_id);
     // Inform all subscribers that the object has been deleted.
     fb::ObjectInfoT notification;
