@@ -288,7 +288,7 @@ struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>
                                                input.length);
         for (int64_t i = 0; i < input.length; ++i) {
           auto out_value = static_cast<out_type>(*in_data);
-          if (ARROW_PREDICT_FALSE(out_value != *in_data)) {
+          if (ARROW_PREDICT_FALSE(static_cast<in_type>(out_value) != *in_data)) {
             ctx->SetStatus(Status::Invalid("Floating point value truncated"));
           }
           *out_data++ = out_value;
@@ -298,7 +298,7 @@ struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>
       } else {
         for (int64_t i = 0; i < input.length; ++i) {
           auto out_value = static_cast<out_type>(*in_data);
-          if (ARROW_PREDICT_FALSE(out_value != *in_data)) {
+          if (ARROW_PREDICT_FALSE(static_cast<in_type>(out_value) != *in_data)) {
             ctx->SetStatus(Status::Invalid("Floating point value truncated"));
           }
           *out_data++ = out_value;
