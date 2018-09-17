@@ -122,6 +122,9 @@ int32 mem_compare(const char* left, int32 left_len, const char* right, int32 rig
 
 int32 mod_int64_int32(int64 left, int32 right);
 
+int64 divide_int64_int64(int64 in1, boolean is_valid1, int64 in2, boolean is_valid2,
+                         bool *out_valid);
+
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H
