@@ -31,27 +31,30 @@ ENV CC=gcc \
     PATH=/opt/conda/bin:$PATH \
     CONDA_PREFIX=/opt/conda
 
-ADD ci /arrow/ci
-RUN arrow/ci/docker_install_conda.sh
-
+# install dependencies
 ARG PYTHON_VERSION=3.6
-RUN conda install -c conda-forge \
+ADD ci/docker_install_conda.sh \
+    ci/conda_env_cpp.yml \
+    ci/conda_env_python.yml \
+    /arrow/ci/
+RUN arrow/ci/docker_install_conda.sh && \
+    conda install -c conda-forge \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_python.yml \
         python=$PYTHON_VERSION && \
     conda clean --all
 
-RUN conda install -y -c conda-forge hdfs3 libhdfs3=2.2.31 && \
-    conda clean --all
-
 # build cpp without tests
-ENV ARROW_PYTHON=ON
+ENV ARROW_PYTHON=ON \
+    ARROW_BUILD_TESTS=OFF
+ADD ci/docker_build_cpp.sh /arrow/ci/
 ADD cpp /arrow/cpp
 ADD format /arrow/format
 ADD java/pom.xml /arrow/java/pom.xml
 RUN arrow/ci/docker_build_cpp.sh
 
 # build python
+ADD ci/docker_build_python.sh /arrow/ci/
 ADD python /arrow/python
 RUN arrow/ci/docker_build_python.sh
 

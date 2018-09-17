@@ -23,7 +23,7 @@ export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export ARROW_HOME=$CONDA_PREFIX
 export PARQUET_HOME=$CONDA_PREFIX
 
-# For newer GCC per https://arrow.apache.org/docs/python/development.html#known-issues
+# https://arrow.apache.org/docs/python/development.html#known-issues
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 
 mkdir -p arrow/cpp/build

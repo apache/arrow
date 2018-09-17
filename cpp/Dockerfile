@@ -31,13 +31,17 @@ ENV CC=gcc \
     PATH=/opt/conda/bin:$PATH \
     CONDA_PREFIX=/opt/conda
 
-ADD ci /arrow/ci
-RUN arrow/ci/docker_install_conda.sh
-RUN conda install -c conda-forge --file arrow/ci/conda_env_cpp.yml && \
+ADD ci/docker_install_conda.sh \
+    ci/conda_env_cpp.yml \
+    /arrow/ci/
+RUN arrow/ci/docker_install_conda.sh && \
+    conda install -c conda-forge \
+        --file arrow/ci/conda_env_cpp.yml && \
     conda clean --all
 
 # build cpp with tests
 ENV ARROW_BUILD_TESTS=ON
+ADD ci/docker_build_cpp.sh /arrow/ci/
 ADD cpp /arrow/cpp
 ADD format /arrow/format
 ADD java/pom.xml /arrow/java/pom.xml

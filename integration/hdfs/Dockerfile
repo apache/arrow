@@ -31,11 +31,14 @@ ENV CC=gcc \
     PATH=/opt/conda/bin:$PATH \
     CONDA_PREFIX=/opt/conda
 
-ADD ci /arrow/ci
-RUN arrow/ci/docker_install_conda.sh
-
+# install dependencies
 ARG PYTHON_VERSION=3.6
-RUN conda install -c conda-forge \
+ADD ci/docker_install_conda.sh \
+    ci/conda_env_cpp.yml \
+    ci/conda_env_python.yml \
+    /arrow/ci/
+RUN arrow/ci/docker_install_conda.sh && \
+    conda install -c conda-forge \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_python.yml \
         python=$PYTHON_VERSION && \
@@ -49,25 +52,23 @@ RUN conda install -c conda-forge \
 RUN conda install -y -c conda-forge hdfs3 libhdfs3=2.2.31 && \
     conda clean --all
 
-# HDFS specific environment variables
-RUN export ARROW_HDFS=ON \
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HADOOP_HOME/lib/native/ \
-    export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
-
 # build cpp with tests
-ENV ARROW_PYTHON=ON \
-    ARROW_HDFS=ON \
-    ARROW_BUILD_TESTS=ON
+ENV ARROW_HDFS=ON \
+    ARROW_PYTHON=ON \
+    ARROW_BUILD_TESTS=ON \
+    LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HADOOP_HOME}/lib/native"
+ADD ci/docker_build_cpp.sh /arrow/ci/
 ADD cpp /arrow/cpp
 ADD format /arrow/format
 ADD java/pom.xml /arrow/java/pom.xml
 RUN arrow/ci/docker_build_cpp.sh
 
 # build python
+ADD ci/docker_build_python.sh /arrow/ci/
 ADD python /arrow/python
 RUN arrow/ci/docker_build_python.sh
 
 # execute integration tests
-ENV LIBHDFS3_CONF=arrow/integration/hdfs/libhdfs3.xml
-ADD integration arrow/integration
+ENV LIBHDFS3_CONF=/arrow/integration/hdfs/libhdfs3.xml
+ADD integration /arrow/integration
 CMD arrow/integration/hdfs/runtest.sh

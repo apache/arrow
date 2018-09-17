@@ -19,6 +19,8 @@
 
 set -e
 
+export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
+
 pushd arrow/cpp/build
   debug/io-hdfs-test
 popd

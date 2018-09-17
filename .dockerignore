@@ -33,8 +33,6 @@ c_glib/*/.libs
 # cpp
 cpp/.idea
 cpp/build
-cpp/thirdparty
-cpp/build
 cpp/*-build
 cpp/Testing
 
