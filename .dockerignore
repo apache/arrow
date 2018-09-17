@@ -22,10 +22,21 @@
 
 # c_glib
 c_glib/build
+c_glib/autom4te.cache
+c_glib/m4
+c_glib/*/*.o
+c_glib/*/*.lo
+c_glib/*/*.la
+c_glib/*/.deps
+c_glib/*/.libs
 
 # cpp
 cpp/.idea
 cpp/build
+cpp/thirdparty
+cpp/build
+cpp/*-build
+cpp/Testing
 
 # python
 python/build
@@ -33,8 +44,7 @@ python/dist
 python/*.egg-info
 python/*.egg
 python/*.pyc
-python/docs/_build
-
+python/doc/_build
 __pycache__/
 */__pycache__/
 */*/__pycache__/
@@ -43,6 +53,14 @@ __pycache__/
 */*.py[cod]
 */*/*.py[cod]
 */*/*/*.py[cod]
+*.so
+*/*.so
+*/*/*.so
+*/*/*/*.so
+*.dylib
+*/*.dylib
+*/*/*.dylib
+*/*/*/*.dylib
 
 # JS
 js/.npm
