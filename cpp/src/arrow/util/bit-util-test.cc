@@ -545,7 +545,7 @@ TEST(BitUtilTests, TestCopyBitmapPreAllocated) {
         std::shared_ptr<Buffer> copy;
         ASSERT_OK(AllocateBuffer(other_buffer->size(), &copy));
         memcpy(copy->mutable_data(), other_buffer->data(), other_buffer->size());
-        CopyBitmap(src, offset, copy_length, dest_offset, copy->mutable_data());
+        CopyBitmap(src, offset, copy_length, copy->mutable_data(), dest_offset);
 
         for (int64_t i = 0; i < dest_offset; ++i) {
           ASSERT_EQ(BitUtil::GetBit(other, i), BitUtil::GetBit(copy->data(), i));
@@ -553,6 +553,49 @@ TEST(BitUtilTests, TestCopyBitmapPreAllocated) {
         for (int64_t i = 0; i < copy_length; ++i) {
           ASSERT_EQ(BitUtil::GetBit(src, i + offset),
                     BitUtil::GetBit(copy->data(), i + dest_offset));
+        }
+        for (int64_t i = dest_offset + copy_length; i < (other_buffer->size() * 8); ++i) {
+          ASSERT_EQ(BitUtil::GetBit(other, i), BitUtil::GetBit(copy->data(), i));
+        }
+      }
+    }
+  }
+}
+
+TEST(BitUtilTests, TestCopyAndInvertBitmapPreAllocated) {
+  const int kBufferSize = 1000;
+  std::vector<int64_t> lengths = {kBufferSize * 8 - 4, kBufferSize * 8};
+  std::vector<int64_t> offsets = {0, 12, 16, 32, 37, 63, 64, 128};
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_OK(AllocateBuffer(kBufferSize, &buffer));
+  memset(buffer->mutable_data(), 0, kBufferSize);
+  random_bytes(kBufferSize, 0, buffer->mutable_data());
+  const uint8_t* src = buffer->data();
+
+  std::shared_ptr<Buffer> other_buffer;
+  // Add 16 byte padding on both sides
+  ASSERT_OK(AllocateBuffer(kBufferSize + 32, &other_buffer));
+  memset(other_buffer->mutable_data(), 0, kBufferSize + 32);
+  random_bytes(kBufferSize + 32, 0, other_buffer->mutable_data());
+  const uint8_t* other = other_buffer->data();
+
+  for (int64_t num_bits : lengths) {
+    for (int64_t offset : offsets) {
+      for (int64_t dest_offset : offsets) {
+        const int64_t copy_length = num_bits - offset;
+
+        std::shared_ptr<Buffer> copy;
+        ASSERT_OK(AllocateBuffer(other_buffer->size(), &copy));
+        memcpy(copy->mutable_data(), other_buffer->data(), other_buffer->size());
+        InvertBitmap(src, offset, copy_length, copy->mutable_data(), dest_offset);
+
+        for (int64_t i = 0; i < dest_offset; ++i) {
+          ASSERT_EQ(BitUtil::GetBit(other, i), BitUtil::GetBit(copy->data(), i));
+        }
+        for (int64_t i = 0; i < copy_length; ++i) {
+          ASSERT_EQ(BitUtil::GetBit(src, i + offset),
+                    !BitUtil::GetBit(copy->data(), i + dest_offset));
         }
         for (int64_t i = dest_offset + copy_length; i < (other_buffer->size() * 8); ++i) {
           ASSERT_EQ(BitUtil::GetBit(other, i), BitUtil::GetBit(copy->data(), i));

@@ -119,13 +119,19 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
   dest += dest_byte_offset;
 
   if (dest_bit_offset > 0) {
+    internal::BitmapReader valid_reader(data, offset, length);
+    internal::BitmapWriter valid_writer(dest, dest_bit_offset, length);
+
     for (int64_t i = 0; i < length; i++) {
-      if (BitUtil::GetBit(data, i + offset)) {
-        BitUtil::SetBit(dest, i + dest_bit_offset);
+      if (invert_bits ^ valid_reader.IsSet()) {
+        valid_writer.Set();
       } else {
-        BitUtil::ClearBit(dest, i + dest_bit_offset);
+        valid_writer.Clear();
       }
+      valid_reader.Next();
+      valid_writer.Next();
     }
+    valid_writer.Finish();
   } else {
     // Take care of the trailing bits in the last byte
     int64_t trailing_bits = num_bytes * 8 - length;
@@ -135,10 +141,10 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
     }
 
     if (bit_offset > 0) {
-      uint32_t carry_mask = BitUtil::kBitmask[bit_offset] - 1U;
-      uint32_t carry_shift = 8U - static_cast<uint32_t>(bit_offset);
+      uint8_t carry_mask = BitUtil::kPrecedingBitmask[bit_offset];
+      uint8_t carry_shift = 8U - static_cast<uint8_t>(bit_offset);
 
-      uint32_t carry = 0U;
+      uint8_t carry = 0U;
       if (BitUtil::BytesForBits(length + bit_offset) > num_bytes) {
         carry = (data[byte_offset + num_bytes] & carry_mask) << carry_shift;
       }
@@ -196,9 +202,14 @@ Status TransferBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset,
   return Status::OK();
 }
 
-void CopyBitmap(const uint8_t* data, int64_t offset, int64_t length, int64_t dest_offset,
-                uint8_t* dest) {
+void CopyBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
+                int64_t dest_offset) {
   TransferBitmap<false>(data, offset, length, dest_offset, dest);
+}
+
+void InvertBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
+                  int64_t dest_offset) {
+  TransferBitmap<true>(data, offset, length, dest_offset, dest);
 }
 
 Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
