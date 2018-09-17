@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -123,6 +124,28 @@ class ARROW_EXPORT Buffer {
   /// using the default memory pool
   static Status FromString(const std::string& data, std::shared_ptr<Buffer>* out);
 
+  /// \brief Create buffer referencing typed memory with some length without
+  /// copying
+  /// \param[in] data the typed memory as C array
+  /// \param[in] length the number of values in the array
+  /// \return a new shared_ptr<Buffer>
+  template <typename T, typename SizeType = int64_t>
+  static std::shared_ptr<Buffer> Wrap(const T* data, SizeType length) {
+    return std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(data),
+                                    static_cast<int64_t>(sizeof(T) * length));
+  }
+
+  /// \brief Create buffer referencing std::vector with some length without
+  /// copying
+  /// \param[in] data the vector to be referenced. If this vector is changed,
+  /// the buffer may become invalid
+  /// \return a new shared_ptr<Buffer>
+  template <typename T>
+  static std::shared_ptr<Buffer> Wrap(const std::vector<T>& data) {
+    return std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(data.data()),
+                                    static_cast<int64_t>(sizeof(T) * data.size()));
+  }  // namespace arrow
+
   int64_t capacity() const { return capacity_; }
   const uint8_t* data() const { return data_; }
 
@@ -184,6 +207,16 @@ class ARROW_EXPORT MutableBuffer : public Buffer {
 
   MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_t offset,
                 const int64_t size);
+
+  /// \brief Create buffer referencing typed memory with some length
+  /// \param[in] data the typed memory as C array
+  /// \param[in] length the number of values in the array
+  /// \return a new shared_ptr<Buffer>
+  template <typename T, typename SizeType = int64_t>
+  static std::shared_ptr<Buffer> Wrap(T* data, SizeType length) {
+    return std::make_shared<MutableBuffer>(reinterpret_cast<uint8_t*>(data),
+                                           static_cast<int64_t>(sizeof(T) * length));
+  }
 
  protected:
   MutableBuffer() : Buffer(NULLPTR, 0) {}

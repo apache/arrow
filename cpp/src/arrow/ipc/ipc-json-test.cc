@@ -184,7 +184,7 @@ TEST(TestJsonArrayWriter, NestedTypes) {
 
   std::shared_ptr<Buffer> list_bitmap;
   ASSERT_OK(GetBitmapFromVector(list_is_valid, &list_bitmap));
-  std::shared_ptr<Buffer> offsets_buffer = GetBufferFromVector(offsets);
+  std::shared_ptr<Buffer> offsets_buffer = Buffer::Wrap(offsets);
 
   ListArray list_array(list(value_type), 5, offsets_buffer, values_array, list_bitmap, 1);
 
@@ -345,8 +345,7 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
 }
 )example";
 
-  auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(example),
-                                         strlen(example));
+  auto buffer = Buffer::Wrap(example, strlen(example));
 
   std::unique_ptr<JsonReader> reader;
   ASSERT_OK(JsonReader::Open(buffer, &reader));

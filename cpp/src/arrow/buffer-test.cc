@@ -132,6 +132,15 @@ TEST(TestBuffer, SliceBuffer) {
   ASSERT_EQ(2, buf.use_count());
 }
 
+TEST(TestMutableBuffer, Wrap) {
+  std::vector<int32_t> values = {1, 2, 3};
+
+  auto buf = MutableBuffer::Wrap(values.data(), values.size());
+  reinterpret_cast<int32_t*>(buf->mutable_data())[1] = 4;
+
+  ASSERT_EQ(4, values[1]);
+}
+
 TEST(TestBuffer, SliceMutableBuffer) {
   std::string data_str = "some data to slice";
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());

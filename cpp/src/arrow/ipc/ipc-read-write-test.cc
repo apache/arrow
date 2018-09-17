@@ -749,7 +749,7 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
   std::vector<int64_t> values;
   randint(size, 0, 100, &values);
 
-  auto data = GetBufferFromVector(values);
+  auto data = Buffer::Wrap(values);
 
   Tensor t0(int64(), data, shape, strides, dim_names);
   Tensor tzero(int64(), data, {}, {}, {});
@@ -770,7 +770,7 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
   std::vector<int64_t> values;
   randint(24, 0, 100, &values);
 
-  auto data = GetBufferFromVector(values);
+  auto data = Buffer::Wrap(values);
   Tensor tensor(int64(), data, {4, 3}, {48, 16});
 
   CheckTensorRoundTrip(tensor);
