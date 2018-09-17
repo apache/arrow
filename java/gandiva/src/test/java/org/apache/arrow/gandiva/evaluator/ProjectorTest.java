@@ -753,6 +753,67 @@ public class ProjectorTest extends BaseEvaluatorTest {
   }
 
   @Test
+  public void testGDV117() throws GandivaException, Exception {    /*
+   * when isnotnull(x) then x
+   * else y
+   */
+    Field x = Field.nullable("x", new ArrowType.Time(TimeUnit.MILLISECOND, 32));
+    TreeNode x_node = TreeBuilder.makeField(x);
+
+    Field y = Field.nullable("y", new ArrowType.Time(TimeUnit.MILLISECOND, 32));
+    TreeNode y_node = TreeBuilder.makeField(y);
+
+    // if isnotnull(x) then x else y
+    TreeNode condition = TreeBuilder.makeFunction("isnotnull",Lists.newArrayList(x_node) ,
+            boolType);
+    TreeNode if_coalesce = TreeBuilder.makeIf(
+            condition,
+            x_node,
+            y_node,
+            new ArrowType.Time(TimeUnit.MILLISECOND, 32));
+
+    ExpressionTree expr = TreeBuilder.makeExpression(if_coalesce, x);
+    Schema schema = new Schema(Lists.newArrayList(x, y));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    int numRows = 2;
+    byte[] validity = new byte[]{(byte) 1};
+    byte[] validity_y = new byte[]{(byte) 3};
+    int[] values_x = new int[]{5, 1};
+    int[] values_y = new int[]{10, 2};
+    int[] expected = new int[]{5, 2};
+
+    ArrowBuf validity_buf = buf(validity);
+    ArrowBuf data_x = intBuf(values_x);
+
+
+    ArrowBuf validity_buf_y = buf(validity_y);
+    ArrowBuf data_y = intBuf(values_y);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch = new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(fieldNode),
+            Lists.newArrayList(validity_buf, data_x, validity_buf_y, data_y));
+
+    IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
+    intVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(intVector);
+    eval.evaluate(batch, output);
+
+    // output should be 5 and 2
+    assertFalse(intVector.isNull(0));
+    assertEquals(expected[0], intVector.get(0));
+    assertEquals(expected[1], intVector.get(1));
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
+  @Test
   public void testIsNull() throws GandivaException, Exception {
     Field x = Field.nullable("x", float64);
 
@@ -1001,7 +1062,6 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseValueVectors(output);
   }
 
-  // This test is ignored until the cpp layer handles errors gracefully
   @Test
   public void testUnknownFunction() {
     Field c1 = Field.nullable("c1", int8);
