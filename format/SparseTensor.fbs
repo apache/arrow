@@ -55,10 +55,12 @@ table SparseTensorIndexCOO {
 
 /// Compressed Sparse Row format, that is matrix-specific.
 table SparseMatrixIndexCSR {
-  /// This array represents the range of the rows.
-  /// The ith row spans from indptr[i] to indptr[i+1] in the data.
-  /// The length of this array is 1 + (the number of rows).
-  indptr: [long];
+  /// indptrBuffer stores the location and size of indptr array that
+  /// represents the range of the rows.
+  /// The i-th row spans from indptr[i] to indptr[i+1] in the data.
+  /// The length of this array is 1 + (the number of rows), and the type
+  /// of index value is long.
+  indptrBuffer: Buffer;
 
   /// indicesBuffer stores the location and size of the array that
   /// contains the column indices of the corresponding non-zero values.
