@@ -724,6 +724,13 @@ struct RowGroup {
    * The sorting columns can be a subset of all the columns.
    */
   4: optional list<SortingColumn> sorting_columns
+
+  /** Byte offset from beginning of file to first page (data or dictionary)
+   * in this row group **/
+  5: optional i64 file_offset
+
+  /** Total byte size of all compressed column data in this row group **/
+  6: optional i64 total_compressed_size
 }
 
 /** Empty struct to signal the order defined by the physical or logical type */
