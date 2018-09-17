@@ -236,7 +236,7 @@ def fix_version_from_branch(branch, versions):
 
 # We can merge both ARROW and PARQUET patchesa
 SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
-PR_TITLE_REGEXEN = [(project, r'^(' + project + r'-[0-9]+)\b.*$')
+PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
                     for project in SUPPORTED_PROJECTS]
 
 
