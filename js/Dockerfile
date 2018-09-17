@@ -17,11 +17,16 @@
 
 FROM node
 
+# install dependencies
+ADD js/.npmrc js/package.json /arrow/js/
+WORKDIR /arrow/js
+RUN npm install -g npm@latest && \
+    npm install
+
+# build
 ADD LICENSE.txt /arrow/
 ADD NOTICE.txt /arrow/
 ADD js /arrow/js
-WORKDIR /arrow/js
-
-RUN npm install -g npm@latest && npm install
 RUN npm run lint && npm run build
+
 CMD npm run test

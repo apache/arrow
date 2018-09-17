@@ -70,5 +70,3 @@ RUN arrow/ci/docker_build_c_glib.sh
 
 WORKDIR arrow/c_glib
 CMD test/run-test.rb
-
-# dpkg-reconfigure -f noninteractive tzdata
