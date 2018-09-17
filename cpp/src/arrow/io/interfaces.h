@@ -170,7 +170,7 @@ class ARROW_EXPORT WritableFile : public OutputStream, public Seekable {
   WritableFile() = default;
 };
 
-// TOOD(wesm): remove this after 0.11
+// TODO(wesm): remove this after 0.11
 using WriteableFile = WritableFile;
 
 class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile, public WritableFile {
