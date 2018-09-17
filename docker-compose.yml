@@ -42,6 +42,12 @@ services:
       context: .
       dockerfile: rust/Dockerfile
 
+  c_glib:
+    image: arrow:c_glib
+    build:
+      context: .
+      dockerfile: c_glib/Dockerfile
+
   cpp:
     image: arrow:cpp
     build:

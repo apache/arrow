@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,60 +17,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-.git
+set -e
 
-# IDE
-.vscode
+export ARROW_HOME=$CONDA_PREFIX
+export ARROW_C_GLIB_HOME=$CONDA_PREFIX
 
-# c_glib
-c_glib/build
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_HOME/lib/pkgconfig
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_HOME/lib
 
-# cpp
-cpp/.idea
-cpp/build
+export CFLAGS="-DARROW_NO_DEPRECATED_API"
+export CXXFLAGS="-DARROW_NO_DEPRECATED_API"
 
-# python
-python/build
-python/dist
-python/*.egg-info
-python/*.egg
-python/*.pyc
-python/docs/_build
+pushd arrow/c_glib
+mkdir -p arrow/c_glib/build
 
-__pycache__/
-*/__pycache__/
-*/*/__pycache__/
-*/*/*/__pycache__/
-*.py[cod]
-*/*.py[cod]
-*/*/*.py[cod]
-*/*/*/*.py[cod]
+# Build with Meson
+meson build --prefix=$ARROW_C_GLIB_HOME -Dgtk_doc=true
 
-# JS
-js/.npm
-js/node_modules
-js/jspm_packages
+pushd build
+ninja
+ninja install
+popd
 
-js/yarn.lock
-js/package-lock.json
-
-js/logs
-js/*.log
-js/.esm-cache
-js/npm-debug.log*
-js/yarn-debug.log*
-js/yarn-error.log*
-
-js/.grunt
-js/bower_components
-js/.lock-wscript
-js/build/Release
-js/yarn.lock
-js/package-lock.json
-js/dist
-js/targets
-js/test/data
-js/test/__snapshots__
-
-# Rust
-rust/target
+popd
