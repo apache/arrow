@@ -198,8 +198,7 @@ TEST_F(TestCast, OverflowInNullSlot) {
   shared_ptr<Array> expected;
   ArrayFromVector<Int16Type, int16_t>(int16(), is_valid, e11, &expected);
 
-  auto buf = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(v11.data()),
-                                      static_cast<int64_t>(v11.size()));
+  auto buf = Buffer::Wrap(v11.data(), v11.size());
   Int32Array tmp11(5, buf, expected->null_bitmap(), -1);
 
   CheckPass(tmp11, *expected, int16(), options);
@@ -972,10 +971,8 @@ TEST_F(TestCast, DictToNonDictNoNulls) {
   // Explicitly construct with nullptr for the null_bitmap_data
   std::vector<int32_t> i1 = {1, 0, 1};
   std::vector<int32_t> i2 = {2, 1, 0, 1};
-  auto c1 = std::make_shared<NumericArray<Int32Type>>(
-      3, arrow::GetBufferFromVector<int32_t>(i1));
-  auto c2 = std::make_shared<NumericArray<Int32Type>>(
-      4, arrow::GetBufferFromVector<int32_t>(i2));
+  auto c1 = std::make_shared<NumericArray<Int32Type>>(3, Buffer::Wrap(i1));
+  auto c2 = std::make_shared<NumericArray<Int32Type>>(4, Buffer::Wrap(i2));
 
   ArrayVector dict_arrays = {std::make_shared<DictionaryArray>(dict_type, c1),
                              std::make_shared<DictionaryArray>(dict_type, c2)};

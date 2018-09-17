@@ -313,9 +313,7 @@ class TestPrimitiveBuilder : public TestBuilder {
 
   void Check(const std::unique_ptr<BuilderType>& builder, bool nullable) {
     int64_t size = builder->length();
-
-    auto ex_data = std::make_shared<Buffer>(reinterpret_cast<uint8_t*>(draws_.data()),
-                                            size * sizeof(T));
+    auto ex_data = Buffer::Wrap(draws_.data(), size);
 
     std::shared_ptr<Buffer> ex_null_bitmap;
     int64_t ex_null_count = 0;
@@ -1006,8 +1004,8 @@ class TestStringArray : public ::testing::Test {
 
   void MakeArray() {
     length_ = static_cast<int64_t>(offsets_.size()) - 1;
-    value_buf_ = GetBufferFromVector(chars_);
-    offsets_buf_ = GetBufferFromVector(offsets_);
+    value_buf_ = Buffer::Wrap(chars_);
+    offsets_buf_ = Buffer::Wrap(offsets_);
     ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
     null_count_ = CountNulls(valid_bytes_);
 
@@ -1071,7 +1069,7 @@ TEST_F(TestStringArray, TestGetString) {
 
 TEST_F(TestStringArray, TestEmptyStringComparison) {
   offsets_ = {0, 0, 0, 0, 0, 0};
-  offsets_buf_ = GetBufferFromVector(offsets_);
+  offsets_buf_ = Buffer::Wrap(offsets_);
   length_ = static_cast<int64_t>(offsets_.size() - 1);
 
   auto strings_a = std::make_shared<StringArray>(length_, offsets_buf_, nullptr,
@@ -1318,8 +1316,8 @@ class TestBinaryArray : public ::testing::Test {
 
   void MakeArray() {
     length_ = static_cast<int64_t>(offsets_.size() - 1);
-    value_buf_ = GetBufferFromVector(chars_);
-    offsets_buf_ = GetBufferFromVector(offsets_);
+    value_buf_ = Buffer::Wrap(chars_);
+    offsets_buf_ = Buffer::Wrap(offsets_);
 
     ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
     null_count_ = CountNulls(valid_bytes_);
