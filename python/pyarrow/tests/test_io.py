@@ -64,7 +64,7 @@ def test_python_file_write():
     s1 = b'enga\xc3\xb1ado'
     s2 = b'foobar'
 
-    f.write(s1.decode('utf8'))
+    f.write(s1)
     assert f.tell() == len(s1)
 
     f.write(s2)
@@ -745,7 +745,7 @@ def test_memory_map_writer(tmpdir):
     f = pa.memory_map(path, mode='r+b')
 
     f.seek(10)
-    f.write('peekaboo')
+    f.write(b'peekaboo')
     assert f.tell() == 18
 
     f.seek(10)
@@ -762,7 +762,7 @@ def test_memory_map_writer(tmpdir):
 
     # Does not truncate file
     f3 = pa.memory_map(path, mode='w')
-    f3.write('foo')
+    f3.write(b'foo')
 
     with pa.memory_map(path) as f4:
         assert f4.size() == SIZE
@@ -817,13 +817,20 @@ def test_os_file_writer(tmpdir):
 
     # Truncates file
     f2 = pa.OSFile(path, mode='w')
-    f2.write('foo')
+    f2.write(b'foo')
 
     with pa.OSFile(path) as f3:
         assert f3.size() == 3
 
     with pytest.raises(IOError):
         f2.read(5)
+
+
+def test_native_file_write_reject_unicode():
+    # ARROW-3227
+    nf = pa.BufferOutputStream()
+    with pytest.raises(TypeError):
+        nf.write(u'foo')
 
 
 def test_native_file_modes(tmpdir):
