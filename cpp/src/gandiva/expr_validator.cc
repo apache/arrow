@@ -102,17 +102,17 @@ Status ExprValidator::Visit(const IfNode& node) {
   auto then_node_ret_type = node.then_node()->return_type();
   auto else_node_ret_type = node.else_node()->return_type();
 
-  if (if_node_ret_type != then_node_ret_type) {
+  if (!if_node_ret_type->Equals(*then_node_ret_type)) {
     std::stringstream ss;
-    ss << "Return type of if " << *if_node_ret_type << " and then "
-       << then_node_ret_type->name() << " not matching.";
+    ss << "Return type of if " << *if_node_ret_type << " and then " << *then_node_ret_type
+       << " not matching.";
     return Status::ExpressionValidationError(ss.str());
   }
 
-  if (if_node_ret_type != else_node_ret_type) {
+  if (!if_node_ret_type->Equals(*else_node_ret_type)) {
     std::stringstream ss;
-    ss << "Return type of if " << *if_node_ret_type << " and else "
-       << else_node_ret_type->name() << " not matching.";
+    ss << "Return type of if " << *if_node_ret_type << " and else " << *else_node_ret_type
+       << " not matching.";
     return Status::ExpressionValidationError(ss.str());
   }
 
@@ -140,8 +140,8 @@ Status ExprValidator::Visit(const BooleanNode& node) {
     return Status::ExpressionValidationError(ss.str());
   }
 
-  for (auto& child : node.children()) {
-    if (child->return_type() != arrow::boolean()) {
+  for (auto &child : node.children()) {
+    if (!child->return_type()->Equals(arrow::boolean())) {
       std::stringstream ss;
       ss << "Boolean expression has a child with return type "
          << child->return_type()->name() << ", expected return type boolean";
