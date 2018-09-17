@@ -45,7 +45,7 @@ wget -c -O $_DST/gflags.tar.gz https://github.com/gflags/gflags/archive/v$GFLAGS
 
 wget -c -O $_DST/gbenchmark.tar.gz https://github.com/google/benchmark/archive/v$GBENCHMARK_VERSION.tar.gz
 
-wget -c -O $_DST/flatbuffers.tar.gz https://github.com/google/flatbuffers/archive/v$FLATBUFFERS_VERSION.tar.gz
+wget -c -O $_DST/flatbuffers.tar.gz https://github.com/google/flatbuffers/archive/$FLATBUFFERS_VERSION.tar.gz
 
 wget -c -O $_DST/rapidjson.tar.gz https://github.com/miloyip/rapidjson/archive/v$RAPIDJSON_VERSION.tar.gz
 
