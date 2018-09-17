@@ -162,16 +162,18 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   std::unique_ptr<RandomAccessFileImpl> impl_;
 };
 
-class ARROW_EXPORT WriteableFile : public OutputStream, public Seekable {
+class ARROW_EXPORT WritableFile : public OutputStream, public Seekable {
  public:
   virtual Status WriteAt(int64_t position, const void* data, int64_t nbytes) = 0;
 
  protected:
-  WriteableFile() = default;
+  WritableFile() = default;
 };
 
-class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile,
-                                            public WriteableFile {
+// TODO(wesm): remove this after 0.11
+using WriteableFile = WritableFile;
+
+class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile, public WritableFile {
  protected:
   ReadWriteFileInterface() { RandomAccessFile::set_mode(FileMode::READWRITE); }
 };

@@ -81,7 +81,7 @@ class ARROW_EXPORT MockOutputStream : public OutputStream {
 };
 
 /// \brief Enables random writes into a fixed-size mutable buffer
-class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
+class ARROW_EXPORT FixedSizeBufferWriter : public WritableFile {
  public:
   /// Input buffer must be mutable, will abort if not
   explicit FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer);

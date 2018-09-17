@@ -420,9 +420,9 @@ cdef class HadoopFileSystem:
             with nogil:
                 check_status(
                     self.client.get()
-                    .OpenWriteable(c_path, append, c_buffer_size,
-                                   c_replication, c_default_block_size,
-                                   &wr_handle))
+                    .OpenWritable(c_path, append, c_buffer_size,
+                                  c_replication, c_default_block_size,
+                                  &wr_handle))
 
             out.wr_file = <shared_ptr[OutputStream]> wr_handle
             out.is_writable = True

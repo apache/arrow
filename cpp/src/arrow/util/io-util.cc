@@ -154,8 +154,8 @@ Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
   return CheckFileOpResult(ret, errno_actual, file_name, "open local");
 }
 
-Status FileOpenWriteable(const PlatformFilename& file_name, bool write_only,
-                         bool truncate, bool append, int* fd) {
+Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool truncate,
+                        bool append, int* fd) {
   int ret, errno_actual;
 
 #if defined(_MSC_VER)

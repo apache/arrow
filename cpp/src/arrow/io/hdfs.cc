@@ -229,7 +229,7 @@ Status HdfsReadableFile::Tell(int64_t* position) const { return impl_->Tell(posi
 // ----------------------------------------------------------------------
 // File writing
 
-// Private implementation for writeable-only files
+// Private implementation for writable-only files
 class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
  public:
   HdfsOutputStreamImpl() {}
@@ -475,9 +475,9 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     return Status::OK();
   }
 
-  Status OpenWriteable(const std::string& path, bool append, int32_t buffer_size,
-                       int16_t replication, int64_t default_block_size,
-                       std::shared_ptr<HdfsOutputStream>* file) {
+  Status OpenWritable(const std::string& path, bool append, int32_t buffer_size,
+                      int16_t replication, int64_t default_block_size,
+                      std::shared_ptr<HdfsOutputStream>* file) {
     int flags = O_WRONLY;
     if (append) flags |= O_APPEND;
 
@@ -594,17 +594,17 @@ Status HadoopFileSystem::OpenReadable(const std::string& path,
   return OpenReadable(path, kDefaultHdfsBufferSize, file);
 }
 
-Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
-                                       int32_t buffer_size, int16_t replication,
-                                       int64_t default_block_size,
-                                       std::shared_ptr<HdfsOutputStream>* file) {
-  return impl_->OpenWriteable(path, append, buffer_size, replication, default_block_size,
-                              file);
+Status HadoopFileSystem::OpenWritable(const std::string& path, bool append,
+                                      int32_t buffer_size, int16_t replication,
+                                      int64_t default_block_size,
+                                      std::shared_ptr<HdfsOutputStream>* file) {
+  return impl_->OpenWritable(path, append, buffer_size, replication, default_block_size,
+                             file);
 }
 
-Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
-                                       std::shared_ptr<HdfsOutputStream>* file) {
-  return OpenWriteable(path, append, 0, 0, 0, file);
+Status HadoopFileSystem::OpenWritable(const std::string& path, bool append,
+                                      std::shared_ptr<HdfsOutputStream>* file) {
+  return OpenWritable(path, append, 0, 0, 0, file);
 }
 
 Status HadoopFileSystem::Chmod(const std::string& path, int mode) {
@@ -618,6 +618,20 @@ Status HadoopFileSystem::Chown(const std::string& path, const char* owner,
 
 Status HadoopFileSystem::Rename(const std::string& src, const std::string& dst) {
   return impl_->Rename(src, dst);
+}
+
+// Deprecated in 0.11
+
+Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
+                                       int32_t buffer_size, int16_t replication,
+                                       int64_t default_block_size,
+                                       std::shared_ptr<HdfsOutputStream>* file) {
+  return OpenWritable(path, append, buffer_size, replication, default_block_size, file);
+}
+
+Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
+                                       std::shared_ptr<HdfsOutputStream>* file) {
+  return OpenWritable(path, append, 0, 0, 0, file);
 }
 
 // ----------------------------------------------------------------------

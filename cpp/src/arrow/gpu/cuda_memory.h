@@ -154,7 +154,7 @@ class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
 
 /// \class CudaBufferWriter
 /// \brief File interface for writing to CUDA buffers, with optional buffering
-class ARROW_EXPORT CudaBufferWriter : public io::WriteableFile {
+class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
  public:
   explicit CudaBufferWriter(const std::shared_ptr<CudaBuffer>& buffer);
   ~CudaBufferWriter() override;

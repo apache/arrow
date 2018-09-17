@@ -601,10 +601,10 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass Seekable:
         CStatus Seek(int64_t position)
 
-    cdef cppclass Writeable:
+    cdef cppclass Writable:
         CStatus Write(const uint8_t* data, int64_t nbytes)
 
-    cdef cppclass OutputStream(FileInterface, Writeable):
+    cdef cppclass OutputStream(FileInterface, Writable):
         pass
 
     cdef cppclass InputStream(FileInterface, Readable):
@@ -619,12 +619,12 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
                        shared_ptr[CBuffer]* out)
         c_bool supports_zero_copy()
 
-    cdef cppclass WriteableFile(OutputStream, Seekable):
+    cdef cppclass WritableFile(OutputStream, Seekable):
         CStatus WriteAt(int64_t position, const uint8_t* data,
                         int64_t nbytes)
 
     cdef cppclass ReadWriteFileInterface(RandomAccessFile,
-                                         WriteableFile):
+                                         WritableFile):
         pass
 
     cdef cppclass FileSystem:
@@ -727,10 +727,10 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus OpenReadable(const c_string& path,
                              shared_ptr[HdfsReadableFile]* handle)
 
-        CStatus OpenWriteable(const c_string& path, c_bool append,
-                              int32_t buffer_size, int16_t replication,
-                              int64_t default_block_size,
-                              shared_ptr[HdfsOutputStream]* handle)
+        CStatus OpenWritable(const c_string& path, c_bool append,
+                             int32_t buffer_size, int16_t replication,
+                             int64_t default_block_size,
+                             shared_ptr[HdfsOutputStream]* handle)
 
     cdef cppclass CBufferReader \
             " arrow::io::BufferReader"(RandomAccessFile):
@@ -747,7 +747,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         int64_t GetExtentBytesWritten()
 
     cdef cppclass CFixedSizeBufferWriter \
-            " arrow::io::FixedSizeBufferWriter"(WriteableFile):
+            " arrow::io::FixedSizeBufferWriter"(WritableFile):
         CFixedSizeBufferWriter(const shared_ptr[CBuffer]& buffer)
 
         void set_memcopy_threads(int num_threads)

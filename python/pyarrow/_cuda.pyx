@@ -528,7 +528,7 @@ cdef class BufferWriter(NativeFile):
 
     def seek(self, int64_t position, int whence=0):
         # TODO: remove this method after NativeFile.seek supports
-        # writeable files.
+        # writable files.
         cdef int64_t offset
 
         with nogil:
