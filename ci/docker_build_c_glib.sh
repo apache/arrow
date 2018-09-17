@@ -19,24 +19,19 @@
 
 set -e
 
-export ARROW_HOME=$CONDA_PREFIX
 export ARROW_C_GLIB_HOME=$CONDA_PREFIX
 
-export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_HOME/lib/pkgconfig
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_HOME/lib
-
 export CFLAGS="-DARROW_NO_DEPRECATED_API"
-export CXXFLAGS="-DARROW_NO_DEPRECATED_API"
+export CXXFLAGS="-DARROW_NO_DEPRECATED_API -D_GLIBCXX_USE_CXX11_ABI=0"
 
 pushd arrow/c_glib
-mkdir -p arrow/c_glib/build
+  mkdir build
 
-# Build with Meson
-meson build --prefix=$ARROW_C_GLIB_HOME -Dgtk_doc=true
+  # Build with Meson
+  meson build --prefix=$ARROW_C_GLIB_HOME --libdir=lib
 
-pushd build
-ninja
-ninja install
-popd
-
+  pushd build
+    ninja
+    ninja install
+  popd
 popd

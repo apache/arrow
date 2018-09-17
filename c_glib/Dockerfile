@@ -17,40 +17,58 @@
 
 FROM ubuntu:18.04
 
-RUN apt-get update && \
-    apt-get install -y \
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get -q update && \
+    apt-get -q install --no-install-recommends -y \
         gcc \
         g++ \
         git \
         wget \
+        tzdata \
+        ruby-dev \
         pkg-config \
         ninja-build \
         autoconf-archive \
         gtk-doc-tools \
         libgirepository1.0-dev
-# TODO(kszucs): install ruby-dev
 
 ENV CC=gcc \
     CXX=g++ \
     PATH=/opt/conda/bin:$PATH \
     CONDA_PREFIX=/opt/conda
 
-ADD ci /arrow/ci
-RUN arrow/ci/docker_install_conda.sh
-RUN conda install -c conda-forge \
+# install dependencies
+ADD ci/docker_install_conda.sh \
+    ci/conda_env_cpp.yml \
+    /arrow/ci/
+ADD c_glib/Gemfile /arrow/c_glib/
+RUN arrow/ci/docker_install_conda.sh && \
+    conda install -c conda-forge \
         --file arrow/ci/conda_env_cpp.yml \
         meson=0.47.1 && \
-    conda clean --all
+    conda clean --all && \
+    gem install bundler && \
+    bundle install --gemfile arrow/c_glib/Gemfile
 
-# build cpp with tests
-ENV ARROW_BUILD_UTILITIES=OFF
+# build cpp
+ENV ARROW_BUILD_TESTS=OFF \
+    ARROW_BUILD_UTILITIES=OFF \
+    ARROW_INSTALL_NAME_RPATH=OFF
+ADD ci/docker_build_cpp.sh /arrow/ci/
 ADD cpp /arrow/cpp
 ADD format /arrow/format
 ADD java/pom.xml /arrow/java/pom.xml
 RUN arrow/ci/docker_build_cpp.sh
 
 # build c_glib
+ENV LD_LIBRARY_PATH="${CONDA_PREFIX}/lib" \
+    PKG_CONFIG_PATH="${CONDA_PREFIX}/lib/pkgconfig" \
+    GI_TYPELIB_PATH="${CONDA_PREFIX}/lib/girepository-1.0"
+ADD ci/docker_build_c_glib.sh /arrow/ci/
 ADD c_glib /arrow/c_glib
-# TODO(kszucs): RUN bundle install --gemfile arrow/c_glib/Gemfile
 RUN arrow/ci/docker_build_c_glib.sh
-# TODO(kszucs): run tests
+
+WORKDIR arrow/c_glib
+CMD test/run-test.rb
+
+# dpkg-reconfigure -f noninteractive tzdata
