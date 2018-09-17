@@ -19,7 +19,7 @@
 
 # Utility for creating well-formed pull request merges and pushing them to
 # Apache.
-#   usage: ./apache-pr-merge.py    (see config env vars below)
+#   usage: ./merge_arrow_py.py    (see config env vars below)
 #
 # This utility assumes you already have a local Arrow git clone and that you
 # have added remotes corresponding to both (i) the Github Apache Arrow mirror
@@ -234,17 +234,27 @@ def fix_version_from_branch(branch, versions):
         return [x for x in versions if x.name.startswith(branch_ver)][-1]
 
 
+# We can merge both ARROW and PARQUET patchesa
+SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
+PR_TITLE_REGEXEN = [(project, r'^(' + project + r'-[0-9]+)\b.*$')
+                    for project in SUPPORTED_PROJECTS]
+
+
 def extract_jira_id(title):
-    m = re.search(r'^(ARROW-[0-9]+)\b.*$', title)
-    if m:
-        return m.group(1)
-    else:
-        fail("PR title should be prefixed by a jira id "
-             "\"ARROW-XXX: ...\", found: \"%s\"" % title)
+    for project, regex in PR_TITLE_REGEXEN:
+        m = regex.search(title)
+        if m:
+            return project, m.group(1)
+
+    options = ' or '.join('{0}-XXX'.format(project)
+                          for project in SUPPORTED_PROJECTS)
+
+    fail("PR title should be prefixed by a jira id "
+         "{0}, but found {1}".format(options, title))
 
 
 def check_jira(title):
-    jira_id = extract_jira_id(title)
+    _, jira_id = extract_jira_id(title)
     try:
         ASF_JIRA.issue(jira_id)
     except Exception as e:
@@ -252,7 +262,7 @@ def check_jira(title):
 
 
 def resolve_jira(title, merge_branches, comment):
-    default_jira_id = extract_jira_id(title)
+    project, default_jira_id = extract_jira_id(title)
 
     jira_id = input("Enter a JIRA id [%s]: " % default_jira_id)
     if jira_id == "":
@@ -277,7 +287,7 @@ def resolve_jira(title, merge_branches, comment):
     print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
           % (cur_summary, cur_assignee, cur_status, JIRA_BASE, jira_id))
 
-    jira_fix_versions = _get_fix_version(merge_branches)
+    jira_fix_versions = _get_fix_version(project, merge_branches)
 
     resolve = [x for x in ASF_JIRA.transitions(jira_id)
                if x['name'] == "Resolve Issue"][0]
@@ -287,10 +297,10 @@ def resolve_jira(title, merge_branches, comment):
     print("Successfully resolved %s!" % (jira_id))
 
 
-def _get_fix_version(merge_branches):
+def _get_fix_version(project, merge_branches):
     # Only suggest versions starting with a number, like 0.x but not JS-0.x
     mainline_version_regex = re.compile('\d.*')
-    versions = [x for x in ASF_JIRA.project_versions("ARROW")
+    versions = [x for x in ASF_JIRA.project_versions(project)
                 if not x.raw['released'] and
                 mainline_version_regex.match(x.name)]
 
