@@ -44,6 +44,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
+#include <memory>
 #include <mutex>
 #include <string>
 
@@ -52,21 +53,11 @@
 using boost::algorithm::contains;
 using boost::algorithm::trim;
 using std::max;
-using std::string;
 
 namespace arrow {
 
-bool CpuInfo::initialized_ = false;
-int64_t CpuInfo::hardware_flags_ = 0;
-int64_t CpuInfo::original_hardware_flags_;
-int64_t CpuInfo::cache_sizes_[L3_CACHE + 1];
-int64_t CpuInfo::cycles_per_ms_;
-int CpuInfo::num_cores_ = 1;
-string CpuInfo::model_name_ = "unknown";  // NOLINT
-static std::mutex cpuinfo_mutex;
-
 static struct {
-  string name;
+  std::string name;
   int64_t flag;
 } flag_mappings[] = {
     {"ssse3", CpuInfo::SSSE3},
@@ -82,7 +73,7 @@ namespace {
 // values contains a list of space-seperated flags.  check to see if the flags we
 // care about are present.
 // Returns a bitmap of flags.
-int64_t ParseCPUFlags(const string& values) {
+int64_t ParseCPUFlags(const std::string& values) {
   int64_t flags = 0;
   for (int i = 0; i < num_flags; ++i) {
     if (contains(values, flag_mappings[i].name)) {
@@ -181,16 +172,24 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
 }
 #endif
 
-void CpuInfo::Init() {
-  std::lock_guard<std::mutex> cpuinfo_lock(cpuinfo_mutex);
+CpuInfo::CpuInfo() : hardware_flags_(0), num_cores_(1), model_name_("unknown") {}
 
-  if (initialized()) {
-    return;
+std::unique_ptr<CpuInfo> g_cpu_info;
+static std::mutex cpuinfo_mutex;
+
+CpuInfo* CpuInfo::GetInstance() {
+  std::lock_guard<std::mutex> lock(cpuinfo_mutex);
+  if (!g_cpu_info) {
+    g_cpu_info.reset(new CpuInfo);
+    g_cpu_info->Init();
   }
+  return g_cpu_info.get();
+}
 
-  string line;
-  string name;
-  string value;
+void CpuInfo::Init() {
+  std::string line;
+  std::string name;
+  std::string value;
 
   float max_mhz = 0;
   int num_cores = 0;
@@ -212,9 +211,9 @@ void CpuInfo::Init() {
   while (cpuinfo) {
     getline(cpuinfo, line);
     size_t colon = line.find(':');
-    if (colon != string::npos) {
+    if (colon != std::string::npos) {
       name = line.substr(0, colon - 1);
-      value = line.substr(colon + 1, string::npos);
+      value = line.substr(colon + 1, std::string::npos);
       trim(name);
       trim(value);
       if (name.compare("flags") == 0) {
@@ -270,18 +269,23 @@ void CpuInfo::Init() {
   } else {
     num_cores_ = 1;
   }
-
-  initialized_ = true;
 }
 
 void CpuInfo::VerifyCpuRequirements() {
-  if (!CpuInfo::IsSupported(CpuInfo::SSSE3)) {
+  if (!IsSupported(CpuInfo::SSSE3)) {
     DCHECK(false) << "CPU does not support the Supplemental SSE3 instruction set";
   }
 }
 
+bool CpuInfo::CanUseSSE4_2() const {
+#ifdef ARROW_USE_SSE
+  return IsSupported(CpuInfo::SSE4_2);
+#else
+  return false;
+#endif
+}
+
 void CpuInfo::EnableFeature(int64_t flag, bool enable) {
-  DCHECK(initialized_);
   if (!enable) {
     hardware_flags_ &= ~flag;
   } else {
@@ -291,30 +295,15 @@ void CpuInfo::EnableFeature(int64_t flag, bool enable) {
   }
 }
 
-int64_t CpuInfo::hardware_flags() {
-  DCHECK(initialized_);
-  return hardware_flags_;
-}
+int64_t CpuInfo::hardware_flags() { return hardware_flags_; }
 
-int64_t CpuInfo::CacheSize(CacheLevel level) {
-  DCHECK(initialized_);
-  return cache_sizes_[level];
-}
+int64_t CpuInfo::CacheSize(CacheLevel level) { return cache_sizes_[level]; }
 
-int64_t CpuInfo::cycles_per_ms() {
-  DCHECK(initialized_);
-  return cycles_per_ms_;
-}
+int64_t CpuInfo::cycles_per_ms() { return cycles_per_ms_; }
 
-int CpuInfo::num_cores() {
-  DCHECK(initialized_);
-  return num_cores_;
-}
+int CpuInfo::num_cores() { return num_cores_; }
 
-std::string CpuInfo::model_name() {
-  DCHECK(initialized_);
-  return model_name_;
-}
+std::string CpuInfo::model_name() { return model_name_; }
 
 void CpuInfo::SetDefaultCacheSize() {
 #ifndef _SC_LEVEL1_DCACHE_SIZE

@@ -33,11 +33,16 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/cpu-info.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/hash-util.h"
 #include "arrow/util/hash.h"
 #include "arrow/util/logging.h"
+
+#ifdef ARROW_USE_SSE
+#define SSE4_FLAG true
+#else
+#define SSE4_FLAG false
+#endif
 
 namespace arrow {
 
@@ -776,7 +781,7 @@ struct DictionaryHashHelper<T, enable_if_has_c_type<T>> {
 
   // Compute the hash of a scalar value
   static int64_t HashValue(const Scalar& value, int byte_width) {
-    return HashUtil::Hash(&value, sizeof(Scalar), 0);
+    return HashUtil::Hash<SSE4_FLAG>(&value, sizeof(Scalar), 0);
   }
 
   // Return whether the dictionary value at the given builder index is unequal to value
@@ -810,7 +815,7 @@ struct DictionaryHashHelper<T, enable_if_binary<T>> {
   }
 
   static int64_t HashValue(const Scalar& value, int byte_width) {
-    return HashUtil::Hash(value.ptr_, value.length_, 0);
+    return HashUtil::Hash<SSE4_FLAG>(value.ptr_, value.length_, 0);
   }
 
   static bool SlotDifferent(const Builder& builder, int64_t index, const Scalar& value) {
@@ -846,7 +851,7 @@ struct DictionaryHashHelper<T, enable_if_fixed_size_binary<T>> {
   }
 
   static int64_t HashValue(const Scalar& value, int byte_width) {
-    return HashUtil::Hash(value, byte_width, 0);
+    return HashUtil::Hash<SSE4_FLAG>(value, byte_width, 0);
   }
 
   static bool SlotDifferent(const Builder& builder, int64_t index, const uint8_t* value) {
@@ -879,19 +884,11 @@ DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
       dict_builder_(type, pool),
       overflow_dict_builder_(type, pool),
       values_builder_(pool),
-      byte_width_(-1) {
-  if (!::arrow::CpuInfo::initialized()) {
-    ::arrow::CpuInfo::Init();
-  }
-}
+      byte_width_(-1) {}
 
 DictionaryBuilder<NullType>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
                                                MemoryPool* pool)
-    : ArrayBuilder(type, pool), values_builder_(pool) {
-  if (!::arrow::CpuInfo::initialized()) {
-    ::arrow::CpuInfo::Init();
-  }
-}
+    : ArrayBuilder(type, pool), values_builder_(pool) {}
 
 template <>
 DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
@@ -901,11 +898,7 @@ DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
       dict_builder_(type, pool),
       overflow_dict_builder_(type, pool),
       values_builder_(pool),
-      byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()) {
-  if (!::arrow::CpuInfo::initialized()) {
-    ::arrow::CpuInfo::Init();
-  }
-}
+      byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()) {}
 
 template <typename T>
 void DictionaryBuilder<T>::Reset() {

@@ -690,7 +690,11 @@ if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
 
-  if (CMAKE_COMPILER_IS_GNUCXX AND PTHREAD_LIBRARY)
+  # If using gcc or clang on Linux, we need to link pthread for older Linuxes,
+  # including distros as new as Ubuntu 14.04
+  if ((CMAKE_COMPILER_IS_GNUCXX OR
+        (NOT APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
+      AND PTHREAD_LIBRARY)
     set(ARROW_JEMALLOC_LINK_LIBS
       jemalloc_static
       # For glibc <2.17 we need to link to librt.

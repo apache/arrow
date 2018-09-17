@@ -212,6 +212,10 @@ if (CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -maltivec")
 endif()
 
+if (ARROW_USE_SSE)
+  add_definitions(-DARROW_USE_SSE)
+endif()
+
 if (APPLE)
   # Depending on the default OSX_DEPLOYMENT_TARGET (< 10.9), libstdc++ may be
   # the default standard library which does not support C++11. libc++ is the

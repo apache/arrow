@@ -40,7 +40,6 @@
 namespace parquet {
 
 namespace BitUtil = ::arrow::BitUtil;
-using HashUtil = ::arrow::HashUtil;
 
 class ColumnDescriptor;
 
@@ -469,9 +468,7 @@ class DictEncoder : public Encoder<DType> {
         dict_encoded_size_(0),
         type_length_(desc->type_length()) {
     hash_slots_.Assign(hash_table_size_, HASH_SLOT_EMPTY);
-    if (!::arrow::CpuInfo::initialized()) {
-      ::arrow::CpuInfo::Init();
-    }
+    cpu_info_ = ::arrow::CpuInfo::GetInstance();
   }
 
   ~DictEncoder() override { DCHECK(buffered_indices_.empty()); }
@@ -516,7 +513,11 @@ class DictEncoder : public Encoder<DType> {
 
   /// Encode value. Note that this does not actually write any data, just
   /// buffers the value's index to be written later.
+  template <bool use_sse42>
   void Put(const T& value);
+
+  template <bool use_sse42>
+  int Hash(const T& value);
 
   std::shared_ptr<Buffer> FlushValues() override {
     std::shared_ptr<ResizableBuffer> buffer =
@@ -529,20 +530,38 @@ class DictEncoder : public Encoder<DType> {
   }
 
   void Put(const T* values, int num_values) override {
-    for (int i = 0; i < num_values; i++) {
-      Put(values[i]);
+    if (cpu_info_->CanUseSSE4_2()) {
+      for (int i = 0; i < num_values; i++) {
+        Put<true>(values[i]);
+      }
+    } else {
+      for (int i = 0; i < num_values; i++) {
+        Put<false>(values[i]);
+      }
     }
   }
+
+  template <bool use_sse42>
+  void DoubleTableSize();
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override {
     ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
                                                       num_values);
-    for (int32_t i = 0; i < num_values; i++) {
-      if (valid_bits_reader.IsSet()) {
-        Put(src[i]);
+    if (cpu_info_->CanUseSSE4_2()) {
+      for (int32_t i = 0; i < num_values; i++) {
+        if (valid_bits_reader.IsSet()) {
+          Put<true>(src[i]);
+        }
+        valid_bits_reader.Next();
       }
-      valid_bits_reader.Next();
+    } else {
+      for (int32_t i = 0; i < num_values; i++) {
+        if (valid_bits_reader.IsSet()) {
+          Put<false>(src[i]);
+        }
+        valid_bits_reader.Next();
+      }
     }
   }
 
@@ -560,6 +579,8 @@ class DictEncoder : public Encoder<DType> {
 
   // For ByteArray / FixedLenByteArray data. Not owned
   ChunkedAllocator* pool_;
+
+  ::arrow::CpuInfo* cpu_info_;
 
   /// Size of the table. Must be a power of 2.
   int hash_table_size_;
@@ -583,37 +604,36 @@ class DictEncoder : public Encoder<DType> {
   std::vector<T> uniques_;
 
   bool SlotDifferent(const T& v, hash_slot_t slot);
-  void DoubleTableSize();
 
   /// Size of each encoded dictionary value. -1 for variable-length types.
   int type_length_;
-
-  /// Hash function for mapping a value to a bucket.
-  inline int Hash(const T& value) const;
 
   /// Adds value to the hash table and updates dict_encoded_size_
   void AddDictKey(const T& value);
 };
 
 template <typename DType>
-inline int DictEncoder<DType>::Hash(const typename DType::c_type& value) const {
-  return HashUtil::Hash(&value, sizeof(value), 0);
+template <bool use_sse42>
+int DictEncoder<DType>::Hash(const typename DType::c_type& value) {
+  return ::arrow::HashUtil::Hash<use_sse42>(&value, sizeof(value), 0);
 }
 
 template <>
-inline int DictEncoder<ByteArrayType>::Hash(const ByteArray& value) const {
+template <bool use_sse42>
+int DictEncoder<ByteArrayType>::Hash(const ByteArray& value) {
   if (value.len > 0) {
     DCHECK_NE(nullptr, value.ptr) << "Value ptr cannot be NULL";
   }
-  return HashUtil::Hash(value.ptr, value.len, 0);
+  return ::arrow::HashUtil::Hash<use_sse42>(value.ptr, value.len, 0);
 }
 
 template <>
-inline int DictEncoder<FLBAType>::Hash(const FixedLenByteArray& value) const {
+template <bool use_sse42>
+int DictEncoder<FLBAType>::Hash(const FixedLenByteArray& value) {
   if (type_length_ > 0) {
     DCHECK_NE(nullptr, value.ptr) << "Value ptr cannot be NULL";
   }
-  return HashUtil::Hash(value.ptr, type_length_, 0);
+  return ::arrow::HashUtil::Hash<use_sse42>(value.ptr, type_length_, 0);
 }
 
 template <typename DType>
@@ -629,8 +649,9 @@ inline bool DictEncoder<FLBAType>::SlotDifferent(const FixedLenByteArray& v,
 }
 
 template <typename DType>
+template <bool use_sse42>
 inline void DictEncoder<DType>::Put(const typename DType::c_type& v) {
-  int j = Hash(v) & mod_bitmask_;
+  int j = Hash<use_sse42>(v) & mod_bitmask_;
   hash_slot_t index = hash_slots_[j];
 
   // Find an empty slot
@@ -649,7 +670,7 @@ inline void DictEncoder<DType>::Put(const typename DType::c_type& v) {
 
     if (ARROW_PREDICT_FALSE(static_cast<int>(uniques_.size()) >
                             hash_table_size_ * MAX_HASH_LOAD)) {
-      DoubleTableSize();
+      DoubleTableSize<use_sse42>();
     }
   }
 
@@ -657,6 +678,7 @@ inline void DictEncoder<DType>::Put(const typename DType::c_type& v) {
 }
 
 template <typename DType>
+template <bool use_sse42>
 inline void DictEncoder<DType>::DoubleTableSize() {
   int new_size = hash_table_size_ * 2;
   Vector<hash_slot_t> new_hash_slots(0, allocator_);
@@ -675,7 +697,7 @@ inline void DictEncoder<DType>::DoubleTableSize() {
     const typename DType::c_type& v = uniques_[index];
 
     // Find an empty slot in the new hash table
-    j = Hash(v) & (new_size - 1);
+    j = Hash<use_sse42>(v) & (new_size - 1);
     slot = new_hash_slots[j];
     while (HASH_SLOT_EMPTY != slot && SlotDifferent(v, slot)) {
       ++j;

@@ -34,10 +34,10 @@ namespace arrow {
 /// /sys/devices)
 class ARROW_EXPORT CpuInfo {
  public:
-  static const int64_t SSSE3 = (1 << 1);
-  static const int64_t SSE4_1 = (1 << 2);
-  static const int64_t SSE4_2 = (1 << 3);
-  static const int64_t POPCNT = (1 << 4);
+  static constexpr int64_t SSSE3 = (1 << 1);
+  static constexpr int64_t SSE4_1 = (1 << 2);
+  static constexpr int64_t SSE4_2 = (1 << 3);
+  static constexpr int64_t POPCNT = (1 << 4);
 
   /// Cache enums for L1 (data), L2 and L3
   enum CacheLevel {
@@ -46,48 +46,52 @@ class ARROW_EXPORT CpuInfo {
     L3_CACHE = 2,
   };
 
-  /// Initialize CpuInfo.
-  static void Init();
+  static CpuInfo* GetInstance();
 
   /// Determine if the CPU meets the minimum CPU requirements and if not, issue an error
   /// and terminate.
-  static void VerifyCpuRequirements();
+  void VerifyCpuRequirements();
 
   /// Returns all the flags for this cpu
-  static int64_t hardware_flags();
+  int64_t hardware_flags();
 
   /// Returns whether of not the cpu supports this flag
-  inline static bool IsSupported(int64_t flag) { return (hardware_flags_ & flag) != 0; }
+  bool IsSupported(int64_t flag) const { return (hardware_flags_ & flag) != 0; }
+
+  /// \brief The processor supports SSE4.2 and the Arrow libraries are built
+  /// with support for it
+  bool CanUseSSE4_2() const;
 
   /// Toggle a hardware feature on and off.  It is not valid to turn on a feature
   /// that the underlying hardware cannot support. This is useful for testing.
-  static void EnableFeature(int64_t flag, bool enable);
+  void EnableFeature(int64_t flag, bool enable);
 
   /// Returns the size of the cache in KB at this cache level
-  static int64_t CacheSize(CacheLevel level);
+  int64_t CacheSize(CacheLevel level);
 
   /// Returns the number of cpu cycles per millisecond
-  static int64_t cycles_per_ms();
+  int64_t cycles_per_ms();
 
   /// Returns the number of cores (including hyper-threaded) on this machine.
-  static int num_cores();
+  int num_cores();
 
   /// Returns the model name of the cpu (e.g. Intel i7-2600)
-  static std::string model_name();
-
-  static bool initialized() { return initialized_; }
+  std::string model_name();
 
  private:
-  /// Inits CPU cache size variables with default values
-  static void SetDefaultCacheSize();
+  CpuInfo();
 
-  static bool initialized_;
-  static int64_t hardware_flags_;
-  static int64_t original_hardware_flags_;
-  static int64_t cache_sizes_[L3_CACHE + 1];
-  static int64_t cycles_per_ms_;
-  static int num_cores_;
-  static std::string model_name_;  // NOLINT
+  void Init();
+
+  /// Inits CPU cache size variables with default values
+  void SetDefaultCacheSize();
+
+  int64_t hardware_flags_;
+  int64_t original_hardware_flags_;
+  int64_t cache_sizes_[L3_CACHE + 1];
+  int64_t cycles_per_ms_;
+  int num_cores_;
+  std::string model_name_;
 };
 
 }  // namespace arrow

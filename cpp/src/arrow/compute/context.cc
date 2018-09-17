@@ -25,11 +25,8 @@
 namespace arrow {
 namespace compute {
 
-FunctionContext::FunctionContext(MemoryPool* pool) : pool_(pool) {
-  if (!::arrow::CpuInfo::initialized()) {
-    ::arrow::CpuInfo::Init();
-  }
-}
+FunctionContext::FunctionContext(MemoryPool* pool)
+    : pool_(pool), cpu_info_(CpuInfo::GetInstance()) {}
 
 MemoryPool* FunctionContext::memory_pool() const { return pool_; }
 

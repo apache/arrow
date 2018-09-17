@@ -37,6 +37,9 @@
 namespace arrow {
 namespace compute {
 
+// TODO(wesm): Enable top-level dispatch to SSE4 hashing if it is enabled
+#define HASH_USE_SSE false
+
 namespace {
 
 enum class SIMDMode : char { NOSIMD, SSE4, AVX2 };
@@ -298,7 +301,7 @@ class HashTableKernel<
  protected:
   int64_t HashValue(const T& value) const {
     // TODO(wesm): Use faster hash function for C types
-    return HashUtil::Hash(&value, sizeof(T), 0);
+    return HashUtil::Hash<HASH_USE_SSE>(&value, sizeof(T), 0);
   }
 
   Status DoubleTableSize() {
@@ -489,7 +492,7 @@ class HashTableKernel<Type, Action, enable_if_binary<Type>> : public HashTable {
 
  protected:
   int64_t HashValue(const uint8_t* data, int32_t length) const {
-    return HashUtil::Hash(data, length, 0);
+    return HashUtil::Hash<HASH_USE_SSE>(data, length, 0);
   }
 
   Status DoubleTableSize() {
@@ -595,7 +598,7 @@ class HashTableKernel<Type, Action, enable_if_fixed_size_binary<Type>>
 
  protected:
   int64_t HashValue(const uint8_t* data) const {
-    return HashUtil::Hash(data, byte_width_, 0);
+    return HashUtil::Hash<HASH_USE_SSE>(data, byte_width_, 0);
   }
 
   Status DoubleTableSize() {
