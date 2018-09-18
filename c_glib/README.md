@@ -53,7 +53,7 @@ recommended that you use packages.
 Note that the packages are "unofficial". "Official" packages will be
 released in the future.
 
-If you find problems when installing please see [common build problems](https://github.com/apache/arrow/blob/master/c_glib/README.md#common-build-problems).
+We support two build systems, GNU Autotools and Meson. If you find problems when installing please see [common build problems](https://github.com/apache/arrow/blob/master/c_glib/README.md#common-build-problems).
 
 ### Package
 
@@ -73,9 +73,11 @@ GLib (replace the version number in the following commands with the one you use)
 You need to build and install Arrow C++ before you build and install
 Arrow GLib. See Arrow C++ document about how to install Arrow C++.
 
-You can build and install Arrow GLib after you install Arrow C++.
-
 If you use macOS with [Homebrew](https://brew.sh/), you must install required packages and set `PKG_CONFIG_PATH` before build Arrow GLib:
+
+If you use GNU Autotools, you can build and install Arrow GLib by the followings:
+
+macOS:
 
 ```console
 % cd c_glib
@@ -94,6 +96,27 @@ Others:
 % sudo make install
 ```
 
+If you use Meson, you can build and install Arrow GLib by the followings:
+
+macOS:
+
+```console
+% cd c_glib
+% brew bundle
+% PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH meson build --buildtype=release
+% ninja -C build
+% sudo ninja -C build install
+```
+
+Others:
+
+```console
+% cd c_glib
+% meson build --buildtype=release
+% ninja -C build
+% sudo ninja -C build install
+```
+
 ### How to build by developers
 
 You need to install Arrow C++ before you install Arrow GLib. See Arrow
@@ -106,13 +129,14 @@ to build Arrow GLib. You can install them by the followings:
 On Debian GNU/Linux or Ubuntu:
 
 ```console
-% sudo apt install -y -V gtk-doc-tools autoconf-archive libgirepository1.0-dev
+% sudo apt install -y -V gtk-doc-tools autoconf-archive libgirepository1.0-dev meson ninja-build
 ```
 
 On CentOS 7 or later:
 
 ```console
 % sudo yum install -y gtk-doc gobject-introspection-devel
+% sudo pip install -y meson ninja
 ```
 
 On macOS with [Homebrew](https://brew.sh/):
@@ -121,7 +145,7 @@ On macOS with [Homebrew](https://brew.sh/):
 % brew bundle
 ```
 
-Now, you can build Arrow GLib:
+If you use GNU Autotools, you can build and install Arrow GLib by the followings:
 
 ```console
 % cd c_glib
@@ -135,6 +159,21 @@ You need to set `PKG_CONFIG_PATH` to `configure` On macOS:
 
 ```console
 % ./configure PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH --enable-gtk-doc
+```
+
+If you use Meson, you can build and install Arrow GLib by the followings:
+
+```console
+% cd c_glib
+% meson build -Dgtk_doc=true
+% ninja -C build
+% sudo ninja -C build install
+```
+
+You need to set `PKG_CONFIG_PATH` on macOS:
+
+```console
+% PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH meson build -Dgtk_doc=true
 ```
 
 ## Usage
