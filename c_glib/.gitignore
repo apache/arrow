@@ -61,3 +61,4 @@ Makefile.in
 /example/read-batch
 /example/read-stream
 /gtk-doc.make
+/build/
