@@ -59,6 +59,9 @@ class ExprDecomposer : public NodeVisitor {
   Status Visit(const LiteralNode& node) override;
   Status Visit(const BooleanNode& node) override;
 
+  // Optimize a function node, if possible.
+  const FunctionNode TryOptimize(const FunctionNode &node);
+
   // stack of if nodes.
   class IfStackEntry {
    public:

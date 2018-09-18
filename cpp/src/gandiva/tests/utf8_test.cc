@@ -211,4 +211,55 @@ TEST_F(TestUtf8, TestLike) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestUtf8, TestBeginsEnds) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+
+  // output fields
+  auto res1 = field("res1", boolean());
+  auto res2 = field("res2", boolean());
+
+  // build expressions.
+  // like(literal("spark%"), a)
+  // like(literal("%spark"), a)
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto literal_begin = TreeExprBuilder::MakeStringLiteral("spark%");
+  auto is_like1 =
+      TreeExprBuilder::MakeFunction("like", {node_a, literal_begin}, boolean());
+  auto expr1 = TreeExprBuilder::MakeExpression(is_like1, res1);
+
+  auto literal_end = TreeExprBuilder::MakeStringLiteral("%spark");
+  auto is_like2 = TreeExprBuilder::MakeFunction("like", {node_a, literal_end}, boolean());
+  auto expr2 = TreeExprBuilder::MakeExpression(is_like2, res2);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr1, expr2}, &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_a =
+      MakeArrowArrayUtf8({"park", "sparkle", "bright spark and fire", "fiery spark"},
+                         {true, true, true, true});
+
+  // expected output
+  auto exp1 = MakeArrowArrayBool({false, true, false, false}, {true, true, true, true});
+  auto exp2 = MakeArrowArrayBool({false, false, false, true}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp1, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp2, outputs.at(1));
+}
+
 }  // namespace gandiva

@@ -37,4 +37,32 @@ TEST(TestStringOps, TestCompare) {
   EXPECT_GT(mem_compare(left, 7, right, 5), 0);
 }
 
+TEST(TestStringOps, TestBeginsEnds) {
+  // starts_with
+  EXPECT_TRUE(starts_with_utf8_utf8("hello sir", 9, "hello", 5));
+  EXPECT_TRUE(starts_with_utf8_utf8("hellos", 6, "hello", 5));
+  EXPECT_TRUE(starts_with_utf8_utf8("hello", 5, "hello", 5));
+  EXPECT_FALSE(starts_with_utf8_utf8("hell", 4, "hello", 5));
+  EXPECT_FALSE(starts_with_utf8_utf8("world hello", 11, "hello", 5));
+
+  // ends_with
+  EXPECT_TRUE(ends_with_utf8_utf8("hello sir", 9, "sir", 3));
+  EXPECT_TRUE(ends_with_utf8_utf8("ssir", 4, "sir", 3));
+  EXPECT_TRUE(ends_with_utf8_utf8("sir", 3, "sir", 3));
+  EXPECT_FALSE(ends_with_utf8_utf8("ir", 2, "sir", 3));
+  EXPECT_FALSE(ends_with_utf8_utf8("hello", 5, "sir", 3));
+
+  // starts_with_plus_one
+  EXPECT_TRUE(starts_with_plus_one_utf8_utf8("hello ", 6, "hello", 5));
+  EXPECT_FALSE(starts_with_plus_one_utf8_utf8("hello world", 11, "hello", 5));
+  EXPECT_FALSE(starts_with_plus_one_utf8_utf8("hello", 5, "hello", 5));
+  EXPECT_FALSE(starts_with_plus_one_utf8_utf8("hell", 4, "hello", 5));
+
+  // ends_with_plus_one
+  EXPECT_TRUE(ends_with_plus_one_utf8_utf8("gworld", 6, "world", 5));
+  EXPECT_FALSE(ends_with_plus_one_utf8_utf8("hello world", 11, "world", 5));
+  EXPECT_FALSE(ends_with_plus_one_utf8_utf8("world", 5, "world", 5));
+  EXPECT_FALSE(ends_with_plus_one_utf8_utf8("worl", 4, "world", 5));
+}
+
 }  // namespace gandiva

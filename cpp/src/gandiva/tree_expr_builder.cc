@@ -103,7 +103,7 @@ NodePtr TreeExprBuilder::MakeFunction(const std::string& name, const NodeVector&
   if (result_type == nullptr) {
     return nullptr;
   }
-  return FunctionNode::MakeFunction(name, params, result_type);
+  return std::make_shared<FunctionNode>(name, params, result_type);
 }
 
 NodePtr TreeExprBuilder::MakeIf(NodePtr condition, NodePtr then_node, NodePtr else_node,
@@ -147,7 +147,7 @@ ExpressionPtr TreeExprBuilder::MakeExpression(const std::string& function,
     auto node = MakeField(field);
     field_nodes.push_back(node);
   }
-  auto func_node = FunctionNode::MakeFunction(function, field_nodes, out_field->type());
+  auto func_node = MakeFunction(function, field_nodes, out_field->type());
   return MakeExpression(func_node, out_field);
 }
 
@@ -170,7 +170,7 @@ ConditionPtr TreeExprBuilder::MakeCondition(const std::string& function,
     field_nodes.push_back(node);
   }
 
-  auto func_node = FunctionNode::MakeFunction(function, field_nodes, arrow::boolean());
+  auto func_node = MakeFunction(function, field_nodes, arrow::boolean());
   return ConditionPtr(new Condition(func_node));
 }
 
