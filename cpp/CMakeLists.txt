@@ -640,9 +640,6 @@ if (ARROW_ORC)
   SET(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
     orc)
-  set_target_properties(orc
-    PROPERTIES INTERFACE_LINK_LIBRARIES
-    protobuf)
 endif()
 
 if (ARROW_STATIC_LINK_LIBS)
