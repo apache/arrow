@@ -41,6 +41,9 @@ class LikeHolder : public FunctionHolder {
 
   static Status Make(const std::string& sql_pattern, std::shared_ptr<LikeHolder>* holder);
 
+  // Try and optimise a function node with a "like" pattern.
+  static const FunctionNode TryOptimize(const FunctionNode &node);
+
   /// Return true if the data matches the pattern.
   bool operator()(const std::string& data) { return RE2::FullMatch(data, regex_); }
 
@@ -49,6 +52,13 @@ class LikeHolder : public FunctionHolder {
 
   std::string pattern_;  // posix pattern string, to help debugging
   RE2 regex_;            // compiled regex for the pattern
+
+  static RE2 starts_with_regex_;  // pre-compiled pattern for matching starts_with
+  static RE2 ends_with_regex_;    // pre-compiled pattern for matching ends_with
+  static RE2 starts_with_plus_one_regex_;  // pre-compiled pattern for matching
+                                           // starts_with_plus_one
+  static RE2
+      ends_with_plus_one_regex_;  // pre-compiled pattern for matching ends_with_plus_one
 };
 
 #ifdef GDV_HELPERS

@@ -355,6 +355,10 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
     VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
 
+    BINARY_RELATIONAL_SAFE_NULL_IF_NULL(starts_with, utf8),
+    BINARY_RELATIONAL_SAFE_NULL_IF_NULL(ends_with, utf8),
+    BINARY_RELATIONAL_SAFE_NULL_IF_NULL(starts_with_plus_one, utf8),
+    BINARY_RELATIONAL_SAFE_NULL_IF_NULL(ends_with_plus_one, utf8),
     NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), true /*null_safe*/,
                    RESULT_NULL_IF_NULL, "like_utf8_utf8", true /*needs_holder*/),
 

@@ -46,9 +46,21 @@ Status ExprDecomposer::Visit(const FieldNode& node) {
   return Status::OK();
 }
 
+// Try and optimize a function node, by substituting with cheaper alternatives.
+// eg. replacing 'like' with 'starts_with' can save function calls at evaluation
+// time.
+const FunctionNode ExprDecomposer::TryOptimize(const FunctionNode &node) {
+  if (node.descriptor()->name() == "like") {
+    return LikeHolder::TryOptimize(node);
+  } else {
+    return node;
+  }
+}
+
 // Decompose a field node - wherever possible, merge the validity vectors of the
 // child nodes.
-Status ExprDecomposer::Visit(const FunctionNode& node) {
+Status ExprDecomposer::Visit(const FunctionNode &in_node) {
+  auto node = TryOptimize(in_node);
   auto desc = node.descriptor();
   FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
   const NativeFunction* native_function = registry_.LookupSignature(signature);

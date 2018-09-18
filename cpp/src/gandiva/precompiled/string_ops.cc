@@ -50,8 +50,8 @@ int32 mem_compare(const char* left, int32 left_len, const char* right, int32 rig
 }
 
 // Expand inner macro for all varlen types.
-#define VAR_LEN_TYPES(INNER, NAME, OP) \
-  INNER(NAME, utf8, OP)                \
+#define VAR_LEN_OP_TYPES(INNER, NAME, OP) \
+  INNER(NAME, utf8, OP)                   \
   INNER(NAME, binary, OP)
 
 // Relational binary fns : left, right params are same, return is bool.
@@ -62,11 +62,41 @@ int32 mem_compare(const char* left, int32 left_len, const char* right, int32 rig
     return mem_compare(left, left_len, right, right_len) OP 0;                   \
   }
 
-VAR_LEN_TYPES(BINARY_RELATIONAL, equal, ==)
-VAR_LEN_TYPES(BINARY_RELATIONAL, not_equal, !=)
-VAR_LEN_TYPES(BINARY_RELATIONAL, less_than, <)
-VAR_LEN_TYPES(BINARY_RELATIONAL, less_than_or_equal_to, <=)
-VAR_LEN_TYPES(BINARY_RELATIONAL, greater_than, >)
-VAR_LEN_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
+VAR_LEN_OP_TYPES(BINARY_RELATIONAL, equal, ==)
+VAR_LEN_OP_TYPES(BINARY_RELATIONAL, not_equal, !=)
+VAR_LEN_OP_TYPES(BINARY_RELATIONAL, less_than, <)
+VAR_LEN_OP_TYPES(BINARY_RELATIONAL, less_than_or_equal_to, <=)
+VAR_LEN_OP_TYPES(BINARY_RELATIONAL, greater_than, >)
+VAR_LEN_OP_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
+
+// Expand inner macro for all varlen types.
+#define VAR_LEN_TYPES(INNER) \
+  INNER(utf8)                \
+  INNER(binary)
+
+FORCE_INLINE
+bool starts_with_utf8_utf8(const char *data, int32 data_len, const char *prefix,
+                           int32 prefix_len) {
+  return ((data_len >= prefix_len) && (memcmp(data, prefix, prefix_len) == 0));
+}
+
+FORCE_INLINE
+bool ends_with_utf8_utf8(const char *data, int32 data_len, const char *suffix,
+                         int32 suffix_len) {
+  return ((data_len >= suffix_len) &&
+          (memcmp(data + data_len - suffix_len, suffix, suffix_len) == 0));
+}
+
+FORCE_INLINE
+bool starts_with_plus_one_utf8_utf8(const char *data, int32 data_len, const char *prefix,
+                                    int32 prefix_len) {
+  return ((data_len == prefix_len + 1) && (memcmp(data, prefix, prefix_len) == 0));
+}
+
+FORCE_INLINE
+bool ends_with_plus_one_utf8_utf8(const char *data, int32 data_len, const char *suffix,
+                                  int32 suffix_len) {
+  return ((data_len == suffix_len + 1) && (memcmp(data + 1, suffix, suffix_len) == 0));
+}
 
 }  // extern "C"

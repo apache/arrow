@@ -38,12 +38,12 @@ class Node {
 
   virtual ~Node() = default;
 
-  const DataTypePtr& return_type() const { return return_type_; }
+  const DataTypePtr &return_type() const { return return_type_; }
 
   /// Derived classes should simply invoke the Visit api of the visitor.
-  virtual Status Accept(NodeVisitor& visitor) const = 0;
+  virtual Status Accept(NodeVisitor &visitor) const = 0;
 
-  virtual std::string ToString() = 0;
+  virtual std::string ToString() const = 0;
 
  protected:
   DataTypePtr return_type_;
@@ -52,23 +52,37 @@ class Node {
 /// \brief Node in the expression tree, representing a literal.
 class LiteralNode : public Node {
  public:
-  LiteralNode(DataTypePtr type, const LiteralHolder& holder, bool is_null)
+  LiteralNode(DataTypePtr type, const LiteralHolder &holder, bool is_null)
       : Node(type), holder_(holder), is_null_(is_null) {}
 
-  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
+  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
 
-  const LiteralHolder& holder() const { return holder_; }
+  const LiteralHolder &holder() const { return holder_; }
 
   bool is_null() const { return is_null_; }
 
-  std::string ToString() override {
+  std::string ToString() const override {
     std::stringstream ss;
-    ss << "(" << return_type()->ToString() << ") ";
+    ss << "(const " << return_type()->ToString() << ") ";
     if (is_null()) {
       ss << std::string("null");
       return ss.str();
     }
+
     ss << holder();
+    // The default formatter prints in decimal can cause a loss in precision. so,
+    // print in hex. Can't use hexfloat since gcc 4.9 doesn't support it.
+    if (return_type()->id() == arrow::Type::DOUBLE) {
+      double dvalue = boost::get<double>(holder_);
+      uint64_t bits;
+      memcpy(&bits, &dvalue, sizeof(bits));
+      ss << " raw(" << std::hex << bits << ")";
+    } else if (return_type()->id() == arrow::Type::FLOAT) {
+      float fvalue = boost::get<float>(holder_);
+      uint32_t bits;
+      memcpy(&bits, &fvalue, sizeof(bits));
+      ss << " raw(" << std::hex << bits << ")";
+    }
     return ss.str();
   }
 
@@ -82,11 +96,13 @@ class FieldNode : public Node {
  public:
   explicit FieldNode(FieldPtr field) : Node(field->type()), field_(field) {}
 
-  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
+  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
 
-  const FieldPtr& field() const { return field_; }
+  const FieldPtr &field() const { return field_; }
 
-  std::string ToString() override { return field()->type()->name(); }
+  std::string ToString() const override {
+    return "(" + field()->type()->name() + ") " + field()->name();
+  }
 
  private:
   FieldPtr field_;
@@ -95,16 +111,14 @@ class FieldNode : public Node {
 /// \brief Node in the expression tree, representing a function.
 class FunctionNode : public Node {
  public:
-  FunctionNode(FuncDescriptorPtr descriptor, const NodeVector& children,
-               DataTypePtr retType)
-      : Node(retType), descriptor_(descriptor), children_(children) {}
+  FunctionNode(const std::string &name, const NodeVector &children, DataTypePtr retType);
 
-  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
+  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
 
-  const FuncDescriptorPtr& descriptor() const { return descriptor_; }
-  const NodeVector& children() const { return children_; }
+  const FuncDescriptorPtr &descriptor() const { return descriptor_; }
+  const NodeVector &children() const { return children_; }
 
-  std::string ToString() override {
+  std::string ToString() const override {
     std::stringstream ss;
     ss << descriptor()->return_type()->name() << " " << descriptor()->name() << "(";
     bool skip_comma = true;
@@ -120,26 +134,20 @@ class FunctionNode : public Node {
     return ss.str();
   }
 
-  /// Make a function node with params types specified by 'children', and
-  /// having return type ret_type.
-  static NodePtr MakeFunction(const std::string& name, const NodeVector& children,
-                              DataTypePtr return_type);
-
  private:
   FuncDescriptorPtr descriptor_;
   NodeVector children_;
 };
 
-inline NodePtr FunctionNode::MakeFunction(const std::string& name,
-                                          const NodeVector& children,
-                                          DataTypePtr return_type) {
+inline FunctionNode::FunctionNode(const std::string &name, const NodeVector &children,
+                                  DataTypePtr return_type)
+    : Node(return_type), children_(children) {
   DataTypeVector param_types;
-  for (auto& child : children) {
+  for (auto &child : children) {
     param_types.push_back(child->return_type());
   }
 
-  auto func_desc = FuncDescriptorPtr(new FuncDescriptor(name, param_types, return_type));
-  return NodePtr(new FunctionNode(func_desc, children, return_type));
+  descriptor_ = FuncDescriptorPtr(new FuncDescriptor(name, param_types, return_type));
 }
 
 /// \brief Node in the expression tree, representing an if-else expression.
@@ -151,13 +159,13 @@ class IfNode : public Node {
         then_node_(then_node),
         else_node_(else_node) {}
 
-  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
+  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
 
-  const NodePtr& condition() const { return condition_; }
-  const NodePtr& then_node() const { return then_node_; }
-  const NodePtr& else_node() const { return else_node_; }
+  const NodePtr &condition() const { return condition_; }
+  const NodePtr &then_node() const { return then_node_; }
+  const NodePtr &else_node() const { return else_node_; }
 
-  std::string ToString() override {
+  std::string ToString() const override {
     std::stringstream ss;
     ss << "if (" << condition()->ToString() << ") { ";
     ss << then_node()->ToString() << " } else { ";
@@ -176,19 +184,19 @@ class BooleanNode : public Node {
  public:
   enum ExprType : char { AND, OR };
 
-  BooleanNode(ExprType expr_type, const NodeVector& children)
+  BooleanNode(ExprType expr_type, const NodeVector &children)
       : Node(arrow::boolean()), expr_type_(expr_type), children_(children) {}
 
-  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
+  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
 
   ExprType expr_type() const { return expr_type_; }
 
-  const NodeVector& children() const { return children_; }
+  const NodeVector &children() const { return children_; }
 
-  std::string ToString() override {
+  std::string ToString() const override {
     std::stringstream ss;
     bool first = true;
-    for (auto& child : children_) {
+    for (auto &child : children_) {
       if (!first) {
         if (expr_type() == BooleanNode::AND) {
           ss << " && ";

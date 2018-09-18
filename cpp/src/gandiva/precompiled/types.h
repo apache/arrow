@@ -125,6 +125,15 @@ int32 mod_int64_int32(int64 left, int32 right);
 int64 divide_int64_int64(int64 in1, boolean is_valid1, int64 in2, boolean is_valid2,
                          bool *out_valid);
 
+bool starts_with_utf8_utf8(const char *data, int32 data_len, const char *prefix,
+                           int32 prefix_len);
+bool ends_with_utf8_utf8(const char *data, int32 data_len, const char *suffix,
+                         int32 suffix_len);
+bool starts_with_plus_one_utf8_utf8(const char *data, int32 data_len, const char *prefix,
+                                    int32 prefix_len);
+bool ends_with_plus_one_utf8_utf8(const char *data, int32 data_len, const char *suffix,
+                                  int32 suffix_len);
+
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H
