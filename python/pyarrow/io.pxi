@@ -96,6 +96,9 @@ cdef class NativeFile:
         return False
 
     def fileno(self):
+        """
+        NOT IMPLEMENTED
+        """
         raise UnsupportedOperation()
 
     def close(self):
@@ -301,7 +304,7 @@ cdef class NativeFile:
         return bytes_read
 
     def readline(self, size=None):
-        """Read and return a line of bytes from the file.
+        """NOT IMPLEMENTED. Read and return a line of bytes from the file.
 
         If size is specified, read at most size bytes.
 
@@ -311,8 +314,7 @@ cdef class NativeFile:
         raise UnsupportedOperation()
 
     def readlines(self, hint=None):
-        """
-        Read lines of the file
+        """NOT IMPLEMENTED. Read lines of the file
 
         Parameters
         -----------
@@ -350,6 +352,9 @@ cdef class NativeFile:
         return pyarrow_wrap_buffer(output)
 
     def truncate(self):
+        """
+        NOT IMPLEMENTED
+        """
         raise UnsupportedOperation()
 
     def writelines(self, lines):
