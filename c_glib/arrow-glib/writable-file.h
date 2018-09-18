@@ -19,20 +19,21 @@
 
 #pragma once
 
-#include <arrow/io/interfaces.h>
+#include <arrow-glib/gobject-type.h>
 
-#include <arrow-glib/writeable-file.h>
+G_BEGIN_DECLS
 
-/**
- * GArrowWriteableFile:
- *
- * It wraps `arrow::io::WriteableFile`.
- */
-struct _GArrowWriteableFileInterface
-{
-  GTypeInterface parent_iface;
+#define GARROW_TYPE_WRITABLE_FILE (garrow_writable_file_get_type())
+G_DECLARE_INTERFACE(GArrowWritableFile,
+                    garrow_writable_file,
+                    GARROW,
+                    WRITABLE_FILE,
+                    GObject)
 
-  std::shared_ptr<arrow::io::WriteableFile> (*get_raw)(GArrowWriteableFile *file);
-};
+gboolean garrow_writable_file_write_at(GArrowWritableFile *writable_file,
+                                       gint64 position,
+                                       const guint8 *data,
+                                       gint64 n_bytes,
+                                       GError **error);
 
-std::shared_ptr<arrow::io::WriteableFile> garrow_writeable_file_get_raw(GArrowWriteableFile *writeable_file);
+G_END_DECLS

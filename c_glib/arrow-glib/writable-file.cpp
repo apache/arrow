@@ -24,30 +24,30 @@
 #include <arrow/api.h>
 
 #include <arrow-glib/error.hpp>
-#include <arrow-glib/writeable-file.hpp>
+#include <arrow-glib/writable-file.hpp>
 
 G_BEGIN_DECLS
 
 /**
- * SECTION: writeable-file
- * @title: GArrowWriteableFile
+ * SECTION: writable-file
+ * @title: GArrowWritableFile
  * @short_description: File output interface
  *
- * #GArrowWriteableFile is an interface for file output.
+ * #GArrowWritableFile is an interface for file output.
  */
 
-G_DEFINE_INTERFACE(GArrowWriteableFile,
-                   garrow_writeable_file,
+G_DEFINE_INTERFACE(GArrowWritableFile,
+                   garrow_writable_file,
                    G_TYPE_OBJECT)
 
 static void
-garrow_writeable_file_default_init (GArrowWriteableFileInterface *iface)
+garrow_writable_file_default_init(GArrowWritableFileInterface *iface)
 {
 }
 
 /**
- * garrow_writeable_file_write_at:
- * @writeable_file: A #GArrowWriteableFile.
+ * garrow_writable_file_write_at:
+ * @writable_file: A #GArrowWritableFile.
  * @position: The write start position.
  * @data: (array length=n_bytes): The data to be written.
  * @n_bytes: The number of bytes to be written.
@@ -56,24 +56,24 @@ garrow_writeable_file_default_init (GArrowWriteableFileInterface *iface)
  * Returns: %TRUE on success, %FALSE if there was an error.
  */
 gboolean
-garrow_writeable_file_write_at(GArrowWriteableFile *writeable_file,
-                                  gint64 position,
-                                  const guint8 *data,
-                                  gint64 n_bytes,
-                                  GError **error)
+garrow_writable_file_write_at(GArrowWritableFile *writable_file,
+                              gint64 position,
+                              const guint8 *data,
+                              gint64 n_bytes,
+                              GError **error)
 {
-  const auto arrow_writeable_file =
-    garrow_writeable_file_get_raw(writeable_file);
+  const auto arrow_writable_file =
+    garrow_writable_file_get_raw(writable_file);
 
-  auto status = arrow_writeable_file->WriteAt(position, data, n_bytes);
-  return garrow_error_check(error, status, "[io][writeable-file][write-at]");
+  auto status = arrow_writable_file->WriteAt(position, data, n_bytes);
+  return garrow_error_check(error, status, "[io][writable-file][write-at]");
 }
 
 G_END_DECLS
 
-std::shared_ptr<arrow::io::WriteableFile>
-garrow_writeable_file_get_raw(GArrowWriteableFile *writeable_file)
+std::shared_ptr<arrow::io::WritableFile>
+garrow_writable_file_get_raw(GArrowWritableFile *writable_file)
 {
-  auto *iface = GARROW_WRITEABLE_FILE_GET_IFACE(writeable_file);
-  return iface->get_raw(writeable_file);
+  auto *iface = GARROW_WRITABLE_FILE_GET_IFACE(writable_file);
+  return iface->get_raw(writable_file);
 }

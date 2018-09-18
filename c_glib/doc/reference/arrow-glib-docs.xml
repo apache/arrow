@@ -104,8 +104,8 @@
     </chapter>
     <chapter id="output">
       <title>Output</title>
-      <xi:include href="xml/writeable.xml"/>
-      <xi:include href="xml/writeable-file.xml"/>
+      <xi:include href="xml/writable.xml"/>
+      <xi:include href="xml/writable-file.xml"/>
       <xi:include href="xml/output-stream.xml"/>
     </chapter>
     <chapter id="input-output">

@@ -29,7 +29,7 @@
 #include <arrow-glib/file.hpp>
 #include <arrow-glib/output-stream.hpp>
 #include <arrow-glib/tensor.hpp>
-#include <arrow-glib/writeable.hpp>
+#include <arrow-glib/writable.hpp>
 
 #include <iostream>
 #include <sstream>
@@ -43,7 +43,7 @@ G_BEGIN_DECLS
  * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowOutputStream is an interface for stream output. Stream
- * output is file based and writeable
+ * output is file based and writable
  *
  * #GArrowFileOutputStream is a class for file output stream.
  *
@@ -77,17 +77,17 @@ garrow_output_stream_file_interface_init(GArrowFileInterface *iface)
 }
 
 static std::shared_ptr<arrow::io::Writable>
-garrow_output_stream_get_raw_writeable_interface(GArrowWriteable *writeable)
+garrow_output_stream_get_raw_writable_interface(GArrowWritable *writable)
 {
-  auto output_stream = GARROW_OUTPUT_STREAM(writeable);
+  auto output_stream = GARROW_OUTPUT_STREAM(writable);
   auto arrow_output_stream = garrow_output_stream_get_raw(output_stream);
   return arrow_output_stream;
 }
 
 static void
-garrow_output_stream_writeable_interface_init(GArrowWriteableInterface *iface)
+garrow_output_stream_writable_interface_init(GArrowWritableInterface *iface)
 {
-  iface->get_raw = garrow_output_stream_get_raw_writeable_interface;
+  iface->get_raw = garrow_output_stream_get_raw_writable_interface;
 }
 
 G_DEFINE_TYPE_WITH_CODE(GArrowOutputStream,
@@ -96,8 +96,8 @@ G_DEFINE_TYPE_WITH_CODE(GArrowOutputStream,
                         G_ADD_PRIVATE(GArrowOutputStream)
                         G_IMPLEMENT_INTERFACE(GARROW_TYPE_FILE,
                                               garrow_output_stream_file_interface_init)
-                        G_IMPLEMENT_INTERFACE(GARROW_TYPE_WRITEABLE,
-                                              garrow_output_stream_writeable_interface_init));
+                        G_IMPLEMENT_INTERFACE(GARROW_TYPE_WRITABLE,
+                                              garrow_output_stream_writable_interface_init));
 
 #define GARROW_OUTPUT_STREAM_GET_PRIVATE(obj)                   \
   (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
@@ -177,7 +177,7 @@ garrow_output_stream_class_init(GArrowOutputStreamClass *klass)
 
 /**
  * garrow_output_stream_write_tensor:
- * @stream: A #GArrowWriteable.
+ * @stream: A #GArrowWritable.
  * @tensor: A #GArrowTensor to be written.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
