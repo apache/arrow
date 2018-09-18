@@ -104,8 +104,8 @@ macOS:
 % cd c_glib
 % brew bundle
 % PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH meson build --buildtype=release
-% (cd build && ninja)
-% (cd build && sudo ninja install)
+% ninja -C build
+% sudo ninja -C build install
 ```
 
 Others:
@@ -113,8 +113,8 @@ Others:
 ```console
 % cd c_glib
 % meson build --buildtype=release
-% (cd build && ninja)
-% (cd build && sudo ninja install)
+% ninja -C build
+% sudo ninja -C build install
 ```
 
 ### How to build by developers
@@ -166,8 +166,8 @@ If you use Meson, you can build and install Arrow GLib by the followings:
 ```console
 % cd c_glib
 % meson build -Dgtk_doc=true
-% (cd build && ninja)
-% (cd build && sudo ninja install)
+% ninja -C build
+% sudo ninja -C build install
 ```
 
 You need to set `PKG_CONFIG_PATH` on macOS:
