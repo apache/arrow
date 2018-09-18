@@ -43,8 +43,8 @@
 #include <arrow-glib/input-stream.h>
 #include <arrow-glib/output-stream.h>
 #include <arrow-glib/readable.h>
-#include <arrow-glib/writeable.h>
-#include <arrow-glib/writeable-file.h>
+#include <arrow-glib/writable.h>
+#include <arrow-glib/writable-file.h>
 
 #include <arrow-glib/metadata-version.h>
 #include <arrow-glib/reader.h>

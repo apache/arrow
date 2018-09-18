@@ -24,31 +24,31 @@
 #include <arrow/api.h>
 
 #include <arrow-glib/error.hpp>
-#include <arrow-glib/writeable.hpp>
+#include <arrow-glib/writable.hpp>
 
 G_BEGIN_DECLS
 
 /**
- * SECTION: writeable
- * @title: GArrowWriteable
+ * SECTION: writable
+ * @title: GArrowWritable
  * @short_description: Output interface
  *
- * #GArrowWriteable is an interface for output. Output must be
- * writeable.
+ * #GArrowWritable is an interface for output. Output must be
+ * writable.
  */
 
-G_DEFINE_INTERFACE(GArrowWriteable,
-                   garrow_writeable,
+G_DEFINE_INTERFACE(GArrowWritable,
+                   garrow_writable,
                    G_TYPE_OBJECT)
 
 static void
-garrow_writeable_default_init (GArrowWriteableInterface *iface)
+garrow_writable_default_init(GArrowWritableInterface *iface)
 {
 }
 
 /**
- * garrow_writeable_write:
- * @writeable: A #GArrowWriteable.
+ * garrow_writable_write:
+ * @writable: A #GArrowWritable.
  * @data: (array length=n_bytes): The data to be written.
  * @n_bytes: The number of bytes to be written.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -56,20 +56,20 @@ garrow_writeable_default_init (GArrowWriteableInterface *iface)
  * Returns: %TRUE on success, %FALSE if there was an error.
  */
 gboolean
-garrow_writeable_write(GArrowWriteable *writeable,
-                          const guint8 *data,
-                          gint64 n_bytes,
-                          GError **error)
+garrow_writable_write(GArrowWritable *writable,
+                      const guint8 *data,
+                      gint64 n_bytes,
+                      GError **error)
 {
-  const auto arrow_writeable = garrow_writeable_get_raw(writeable);
+  const auto arrow_writable = garrow_writable_get_raw(writable);
 
-  auto status = arrow_writeable->Write(data, n_bytes);
-  return garrow_error_check(error, status, "[io][writeable][write]");
+  auto status = arrow_writable->Write(data, n_bytes);
+  return garrow_error_check(error, status, "[io][writable][write]");
 }
 
 /**
- * garrow_writeable_flush:
- * @writeable: A #GArrowWriteable.
+ * garrow_writable_flush:
+ * @writable: A #GArrowWritable.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * It ensures writing all data on memory to storage.
@@ -77,20 +77,20 @@ garrow_writeable_write(GArrowWriteable *writeable,
  * Returns: %TRUE on success, %FALSE if there was an error.
  */
 gboolean
-garrow_writeable_flush(GArrowWriteable *writeable,
-                          GError **error)
+garrow_writable_flush(GArrowWritable *writable,
+                      GError **error)
 {
-  const auto arrow_writeable = garrow_writeable_get_raw(writeable);
+  const auto arrow_writable = garrow_writable_get_raw(writable);
 
-  auto status = arrow_writeable->Flush();
-  return garrow_error_check(error, status, "[io][writeable][flush]");
+  auto status = arrow_writable->Flush();
+  return garrow_error_check(error, status, "[io][writable][flush]");
 }
 
 G_END_DECLS
 
 std::shared_ptr<arrow::io::Writable>
-garrow_writeable_get_raw(GArrowWriteable *writeable)
+garrow_writable_get_raw(GArrowWritable *writable)
 {
-  auto *iface = GARROW_WRITEABLE_GET_IFACE(writeable);
-  return iface->get_raw(writeable);
+  auto *iface = GARROW_WRITABLE_GET_IFACE(writable);
+  return iface->get_raw(writable);
 }
