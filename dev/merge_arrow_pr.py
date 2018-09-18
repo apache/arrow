@@ -55,31 +55,14 @@ print("PROJECT_NAME = " + PROJECT_NAME)
 PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME", "apache-github")
 # Remote name which points to Apache git
 PUSH_REMOTE_NAME = os.environ.get("PUSH_REMOTE_NAME", "apache")
-# ASF JIRA username
-JIRA_USERNAME = os.environ.get("JIRA_USERNAME")
-# ASF JIRA password
-JIRA_PASSWORD = os.environ.get("JIRA_PASSWORD")
 
 GITHUB_BASE = "https://github.com/apache/" + PROJECT_NAME + "/pull"
 GITHUB_API_BASE = "https://api.github.com/repos/apache/" + PROJECT_NAME
 JIRA_BASE = "https://issues.apache.org/jira/browse"
-JIRA_API_BASE = "https://issues.apache.org/jira"
 # Prefix added to temporary branches
 BRANCH_PREFIX = "PR_TOOL"
 
 os.chdir(ARROW_HOME)
-
-if not JIRA_USERNAME:
-    JIRA_USERNAME = input("Env JIRA_USERNAME not set, "
-                          "please enter your JIRA username:")
-
-if not JIRA_PASSWORD:
-    JIRA_PASSWORD = getpass.getpass("Env JIRA_PASSWORD not set, please enter "
-                                    "your JIRA password:")
-
-
-ASF_JIRA = jira.client.JIRA({'server': JIRA_API_BASE},
-                            basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
 
 
 def get_json(url):
@@ -134,7 +117,7 @@ def clean_up():
 
 
 # merge the requested PR and return the merge hash
-def merge_pr(pr_num, target_ref):
+def merge_pr(pr_num, target_ref, body):
     pr_branch_name = "%s_MERGE_PR_%s" % (BRANCH_PREFIX, pr_num)
     target_branch_name = "%s_MERGE_PR_%s_%s" % (BRANCH_PREFIX, pr_num,
                                                 target_ref.upper())
@@ -253,49 +236,6 @@ def extract_jira_id(title):
          "{0}, but found {1}".format(options, title))
 
 
-def check_jira(title):
-    _, jira_id = extract_jira_id(title)
-    try:
-        ASF_JIRA.issue(jira_id)
-    except Exception as e:
-        fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
-
-
-def resolve_jira(title, merge_branches, comment):
-    project, default_jira_id = extract_jira_id(title)
-
-    jira_id = input("Enter a JIRA id [%s]: " % default_jira_id)
-    if jira_id == "":
-        jira_id = default_jira_id
-
-    try:
-        issue = ASF_JIRA.issue(jira_id)
-    except Exception as e:
-        fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
-
-    cur_status = issue.fields.status.name
-    cur_summary = issue.fields.summary
-    cur_assignee = issue.fields.assignee
-    if cur_assignee is None:
-        cur_assignee = "NOT ASSIGNED!!!"
-    else:
-        cur_assignee = cur_assignee.displayName
-
-    if cur_status == "Resolved" or cur_status == "Closed":
-        fail("JIRA issue %s already has status '%s'" % (jira_id, cur_status))
-    print("=== JIRA %s ===" % jira_id)
-    print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
-          % (cur_summary, cur_assignee, cur_status, JIRA_BASE, jira_id))
-
-    jira_fix_versions = _get_fix_version(project, merge_branches)
-
-    resolve = [x for x in ASF_JIRA.transitions(jira_id)
-               if x['name'] == "Resolve Issue"][0]
-    ASF_JIRA.transition_issue(jira_id, resolve["id"], comment=comment,
-                              fixVersions=jira_fix_versions)
-
-    print("Successfully resolved %s!" % (jira_id))
-
 
 def _get_fix_version(project, merge_branches):
     # Only suggest versions starting with a number, like 0.x but not JS-0.x
@@ -335,56 +275,138 @@ def _get_fix_version(project, merge_branches):
     return [get_version_json(v) for v in fix_versions]
 
 
-branches = get_json("%s/branches" % GITHUB_API_BASE)
-branch_names = [x['name'] for x in branches if x['name'].startswith('branch-')]
+class ApacheJIRA(object):
+    JIRA_API_BASE = "https://issues.apache.org/jira"
 
-# Assumes branch names can be sorted lexicographically
-# Julien: I commented this out as we don't have any "branch-*" branch yet
-# latest_branch = sorted(branch_names, reverse=True)[0]
+    def __init__(self, username, password):
+        self.con = jira.client.JIRA({'server': self.JIRA_API_BASE},
+                                    basic_auth=(username, password))
 
-pr_num = input("Which pull request would you like to merge? (e.g. 34): ")
-pr = get_json("%s/pulls/%s" % (GITHUB_API_BASE, pr_num))
 
-url = pr["url"]
-title = pr["title"]
-check_jira(title)
-body = pr["body"]
-target_ref = pr["base"]["ref"]
-user_login = pr["user"]["login"]
-base_ref = pr["head"]["ref"]
-pr_repo_desc = "%s/%s" % (user_login, base_ref)
+def resolve_jira(pr, title, merge_branches, comment):
+    project, default_jira_id = extract_jira_id(title)
 
-if pr["merged"] is True:
-    print("Pull request %s has already been merged, "
-          "assuming you want to backport" % pr_num)
-    merge_commit_desc = run_cmd([
-        'git', 'log', '--merges', '--first-parent',
-        '--grep=pull request #%s' % pr_num, '--oneline']).split("\n")[0]
-    if merge_commit_desc == "":
-        fail("Couldn't find any merge commit for #%s, "
-             "you may need to update HEAD." % pr_num)
+    jira_id = input("Enter a JIRA id [%s]: " % default_jira_id)
+    if jira_id == "":
+        jira_id = default_jira_id
 
-    merge_hash = merge_commit_desc[:7]
-    message = merge_commit_desc[8:]
+    try:
+        issue = ASF_JIRA.issue(jira_id)
+    except Exception as e:
+        fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
 
-    print("Found: %s" % message)
-    sys.exit(0)
+    cur_status = issue.fields.status.name
+    cur_summary = issue.fields.summary
+    cur_assignee = issue.fields.assignee
+    if cur_assignee is None:
+        cur_assignee = "NOT ASSIGNED!!!"
+    else:
+        cur_assignee = cur_assignee.displayName
 
-if not bool(pr["mergeable"]):
-    msg = ("Pull request %s is not mergeable in its current form.\n"
-           % pr_num + "Continue? (experts only!)")
-    continue_maybe(msg)
+    if cur_status == "Resolved" or cur_status == "Closed":
+        fail("JIRA issue %s already has status '%s'" % (jira_id, cur_status))
+    print("=== JIRA %s ===" % jira_id)
+    print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
+          % (cur_summary, cur_assignee, cur_status, JIRA_BASE, jira_id))
 
-print("\n=== Pull Request #%s ===" % pr_num)
-print("title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
-      % (title, pr_repo_desc, target_ref, url))
-continue_maybe("Proceed with merging pull request #%s?" % pr_num)
+    jira_fix_versions = _get_fix_version(project, merge_branches)
 
-merged_refs = [target_ref]
+    resolve = [x for x in ASF_JIRA.transitions(jira_id)
+               if x['name'] == "Resolve Issue"][0]
+    ASF_JIRA.transition_issue(jira_id, resolve["id"], comment=comment,
+                              fixVersions=jira_fix_versions)
 
-merge_hash = merge_pr(pr_num, target_ref)
+    print("Successfully resolved %s!" % (jira_id))
 
-continue_maybe("Would you like to update the associated JIRA?")
-jira_comment = ("Issue resolved by pull request %s\n[%s/%s]"
-                % (pr_num, GITHUB_BASE, pr_num))
-resolve_jira(title, merged_refs, jira_comment)
+
+class JiraIssue(object):
+    pass
+
+
+class PullRequest(object):
+
+    def __init__(self, jira_con, number):
+        self.con = jira_con
+        self.number = number
+        self._pr_data = get_json("%s/pulls/%s" % (GITHUB_API_BASE, number))
+        self.url = self._pr_data["url"]
+        self.title = self._pr_data["title"]
+
+        self.body = self._pr_data["body"]
+        self.target_ref = self._pr_data["base"]["ref"]
+        self.user_login = self._pr_data["user"]["login"]
+        self.base_ref = self._pr_data["head"]["ref"]
+        self.pr_repo_desc = "%s/%s" % (self.user_login, self.base_ref)
+
+        self._check_jira()
+
+    def _check_jira(self):
+        _, jira_id = extract_jira_id(self.title)
+        try:
+            self.con.issue(jira_id)
+        except Exception as e:
+            fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
+
+
+def cli():
+    # ASF JIRA username
+    JIRA_USERNAME = os.environ.get("JIRA_USERNAME")
+
+    # ASF JIRA password
+    JIRA_PASSWORD = os.environ.get("JIRA_PASSWORD")
+
+    if not JIRA_USERNAME:
+        JIRA_USERNAME = input("Env JIRA_USERNAME not set, "
+                              "please enter your JIRA username:")
+
+    if not JIRA_PASSWORD:
+        JIRA_PASSWORD = getpass.getpass("Env JIRA_PASSWORD not set, "
+                                        "please enter "
+                                        "your JIRA password:")
+
+    branches = get_json("%s/branches" % GITHUB_API_BASE)
+    branch_names = [x['name'] for x in branches
+                    if x['name'].startswith('branch-')]
+
+    # Assumes branch names can be sorted lexicographically
+    # Julien: I commented this out as we don't have any "branch-*" branch yet
+    # latest_branch = sorted(branch_names, reverse=True)[0]
+
+    pr_num = input("Which pull request would you like to merge? (e.g. 34): ")
+
+    pr = PullRequest(pr_num)
+
+    if pr["merged"] is True:
+        print("Pull request %s has already been merged, "
+              "assuming you want to backport" % pr_num)
+        merge_commit_desc = run_cmd([
+            'git', 'log', '--merges', '--first-parent',
+            '--grep=pull request #%s' % pr_num, '--oneline']).split("\n")[0]
+        if merge_commit_desc == "":
+            fail("Couldn't find any merge commit for #%s, "
+                 "you may need to update HEAD." % pr_num)
+
+        merge_hash = merge_commit_desc[:7]
+        message = merge_commit_desc[8:]
+
+        print("Found: %s" % message)
+        sys.exit(0)
+
+    if not bool(pr["mergeable"]):
+        msg = ("Pull request %s is not mergeable in its current form.\n"
+               % pr_num + "Continue? (experts only!)")
+        continue_maybe(msg)
+
+    print("\n=== Pull Request #%s ===" % pr_num)
+    print("title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
+          % (title, pr_repo_desc, target_ref, url))
+    continue_maybe("Proceed with merging pull request #%s?" % pr_num)
+
+    merged_refs = [target_ref]
+
+    merge_hash = merge_pr(pr_num, target_ref, body)
+
+    continue_maybe("Would you like to update the associated JIRA?")
+    jira_comment = ("Issue resolved by pull request %s\n[%s/%s]"
+                    % (pr_num, GITHUB_BASE, pr_num))
+    resolve_jira(title, merged_refs, jira_comment)
