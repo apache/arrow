@@ -488,11 +488,6 @@ if (PYARROW_BUILD_ORC)
       _orc)
 endif()
 
-find_library(PTHREAD_LIBRARY pthread)
-if (ARROW_USE_GLOG AND PTHREAD_LIBRARY)
-  set(LINK_LIBS ${LINK_LIBS} ${PTHREAD_LIBRARY})
-endif()
-
 ############################################################
 # Setup and build Cython modules
 ############################################################

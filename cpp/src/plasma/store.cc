@@ -987,6 +987,5 @@ int main(int argc, char* argv[]) {
   plasma::g_runner = nullptr;
 
   arrow::ArrowLog::ShutDownArrowLog();
-
   return 0;
 }
