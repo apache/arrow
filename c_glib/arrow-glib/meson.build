@@ -43,8 +43,8 @@ sources += files(
   'input-stream.cpp',
   'output-stream.cpp',
   'readable.cpp',
-  'writeable.cpp',
-  'writeable-file.cpp',
+  'writable.cpp',
+  'writable-file.cpp',
 )
 
 sources += files(
@@ -94,8 +94,8 @@ c_headers += files(
   'input-stream.h',
   'output-stream.h',
   'readable.h',
-  'writeable.h',
-  'writeable-file.h',
+  'writable.h',
+  'writable-file.h',
 )
 
 c_headers += files(
@@ -142,8 +142,8 @@ cpp_headers += files(
   'input-stream.hpp',
   'output-stream.hpp',
   'readable.hpp',
-  'writeable.hpp',
-  'writeable-file.hpp',
+  'writable.hpp',
+  'writable-file.hpp',
 )
 
 cpp_headers += files(
