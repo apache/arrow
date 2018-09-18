@@ -17,7 +17,7 @@
 
 brew "autoconf-archive"
 brew "automake"
-brew "boost", args: ["1.66.0"]
+brew "boost"
 brew "ccache"
 brew "cmake"
 brew "git"
