@@ -75,7 +75,7 @@ Arrow GLib. See Arrow C++ document about how to install Arrow C++.
 
 If you use macOS with [Homebrew](https://brew.sh/), you must install required packages and set `PKG_CONFIG_PATH` before build Arrow GLib:
 
-If you use GNU Autotools, you can build and install Arrow GLib after by the followings:
+If you use GNU Autotools, you can build and install Arrow GLib by the followings:
 
 macOS:
 
@@ -96,7 +96,7 @@ Others:
 % sudo make install
 ```
 
-If you use Meson, you can build and install Arrow GLib after by the followings:
+If you use Meson, you can build and install Arrow GLib by the followings:
 
 macOS:
 
@@ -147,7 +147,7 @@ On macOS with [Homebrew](https://brew.sh/):
 % brew bundle
 ```
 
-If you use GNU Autotools, you can build and install Arrow GLib after by the followings:
+If you use GNU Autotools, you can build and install Arrow GLib by the followings:
 
 ```console
 % cd c_glib
@@ -163,7 +163,7 @@ You need to set `PKG_CONFIG_PATH` to `configure` On macOS:
 % ./configure PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH --enable-gtk-doc
 ```
 
-If you use Meson, you can build and install Arrow GLib after by the followings:
+If you use Meson, you can build and install Arrow GLib by the followings:
 
 ```console
 % cd c_glib
@@ -173,7 +173,7 @@ If you use Meson, you can build and install Arrow GLib after by the followings:
 % (cd build && sudo ninja install)
 ```
 
-You need to set `PKG_CONFIG_PATH` to `meson` On macOS:
+You need to set `PKG_CONFIG_PATH` on macOS:
 
 ```console
 % PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH meson build -Dgtk_doc=true
