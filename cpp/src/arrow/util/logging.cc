@@ -23,9 +23,9 @@
 #include <cstdlib>
 #include <iostream>
 
-//#ifdef ARROW_USE_GLOG
+#ifdef ARROW_USE_GLOG
 #include "glog/logging.h"
-//#endif
+#endif
 
 namespace arrow {
 
@@ -113,7 +113,6 @@ void ArrowLog::StartArrowLog(const std::string& app_name,
                              const std::string& log_dir) {
   severity_threshold_ = severity_threshold;
   app_name_.reset(new std::string(app_name.c_str()));
-  google::InitGoogleLogging(app_name_->c_str());
 #ifdef ARROW_USE_GLOG
   int mapped_severity_threshold = GetMappedSeverity(severity_threshold_);
   google::InitGoogleLogging(app_name_->c_str());
