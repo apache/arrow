@@ -33,6 +33,10 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     add_library(${AUG_LIB_NAME} STATIC IMPORTED)
     set_target_properties(${AUG_LIB_NAME}
       PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
+    if(ARG_DEPS)
+      set_target_properties(${AUG_LIB_NAME}
+        PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
+    endif()
     message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
 
     SET(AUG_LIB_NAME "${LIB_NAME}_shared")
@@ -48,7 +52,7 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     endif()
     if(ARG_DEPS)
       set_target_properties(${AUG_LIB_NAME}
-        PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
+        PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
     message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
   elseif(ARG_STATIC_LIB)
@@ -61,8 +65,10 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
       PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
     if(ARG_DEPS)
       set_target_properties(${AUG_LIB_NAME}
-        PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
+        PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
+    set_target_properties(${LIB_NAME}
+      PROPERTIES INTERFACE_LINK_LIBRARIES "${AUG_LIB_NAME}")
     message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
   elseif(ARG_SHARED_LIB)
     add_library(${LIB_NAME} SHARED IMPORTED)
@@ -84,8 +90,10 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
     if(ARG_DEPS)
       set_target_properties(${AUG_LIB_NAME}
-        PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
+        PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
+    set_target_properties(${LIB_NAME}
+      PROPERTIES INTERFACE_LINK_LIBRARIES "${AUG_LIB_NAME}")
   else()
     message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
   endif()

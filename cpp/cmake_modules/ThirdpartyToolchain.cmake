@@ -516,7 +516,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   if(MSVC)
     set_target_properties(gflags
       PROPERTIES
-      IMPORTED_LINK_INTERFACE_LIBRARIES "shlwapi.lib")
+      INTERFACE_LINK_LIBRARIES "shlwapi.lib")
   endif()
 
   if(GFLAGS_VENDORED)
@@ -1137,7 +1137,8 @@ if (ARROW_ORC)
 
   include_directories(SYSTEM ${ORC_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(orc
-    STATIC_LIB ${ORC_STATIC_LIB})
+    STATIC_LIB ${ORC_STATIC_LIB}
+    DEPS protobuf)
 
   if (ORC_VENDORED)
     add_dependencies(orc orc_ep)
