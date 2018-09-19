@@ -404,8 +404,8 @@ public class AllocationManager {
       if (BaseAllocator.DEBUG) {
         historicalLog.recordEvent(
             "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
-                "UnsafeDirectLittleEndian[identityHashCode == "
-                + "%d](%s)) => ledger hc == %d",
+                "UnsafeDirectLittleEndian[identityHashCode == " +
+                "%d](%s)) => ledger hc == %d",
             allocator.name, System.identityHashCode(buf), buf.toString(),
             System.identityHashCode(this));
 

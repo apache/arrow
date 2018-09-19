@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory;
 
 import static junit.framework.TestCase.assertNotNull;
@@ -92,15 +93,15 @@ public class TestLowCostIdentityHashMap {
 
     String [] keys = new String[200];
     for (int i = 0; i < 200; i++) {
-      keys[i] = "s"+i+"key";
+      keys[i] = "s" + i + "key";
     }
 
     for (int i = 0; i < 100; i++) {
       if (i % 5 == 0 && i != 0) {
-        StringWithKey obj = new StringWithKey(keys[i-5], "s" + i + "value");
+        StringWithKey obj = new StringWithKey(keys[i - 5], "s" + i + "value");
         StringWithKey retObj = hashMap.put(obj);
         assertNotNull(retObj);
-        StringWithKey obj1 = new StringWithKey(keys[i], "s" + 2*i + "value");
+        StringWithKey obj1 = new StringWithKey(keys[i], "s" + 2 * i + "value");
         StringWithKey retObj1 = hashMap.put(obj1);
         assertNull(retObj1);
       } else {
@@ -118,7 +119,7 @@ public class TestLowCostIdentityHashMap {
         continue;
       }
       if (i % 5 == 0) {
-        assertEquals("s" + (i+5) + "value", returnObj.getValue());
+        assertEquals("s" + (i + 5) + "value", returnObj.getValue());
       } else {
         assertEquals("s" + i + "value", returnObj.getValue());
       }
@@ -130,10 +131,10 @@ public class TestLowCostIdentityHashMap {
         assertNotNull(returnObj);
         assertTrue(!hashMap.containsKey(keys[i]));
       }
-      StringWithKey obj = new StringWithKey(keys[100+i], "s" + (100+i) + "value");
+      StringWithKey obj = new StringWithKey(keys[100 + i], "s" + (100 + i) + "value");
       StringWithKey retObj = hashMap.put(obj);
       assertNull(retObj);
-      assertTrue(hashMap.containsKey(keys[100+i]));
+      assertTrue(hashMap.containsKey(keys[100 + i]));
     }
     assertEquals(175, hashMap.size());
     for (int i = 0; i < 100; i++) {
