@@ -41,33 +41,33 @@ wget -c -O $_DST/boost.tar.gz https://dl.bintray.com/boostorg/release/$BOOST_VER
 
 wget -c -O $_DST/gtest.tar.gz https://github.com/google/googletest/archive/release-$GTEST_VERSION.tar.gz
 
-wget -c -O $_DST/gflags.tar.gz https://github.com/gflags/gflags/archive/v$GFLAGS_VERSION.tar.gz
+wget -c -O $_DST/gflags.tar.gz https://github.com/gflags/gflags/archive/$GFLAGS_VERSION.tar.gz
 
-wget -c -O $_DST/gbenchmark.tar.gz https://github.com/google/benchmark/archive/v$GBENCHMARK_VERSION.tar.gz
+wget -c -O $_DST/gbenchmark.tar.gz https://github.com/google/benchmark/archive/$GBENCHMARK_VERSION.tar.gz
 
 wget -c -O $_DST/flatbuffers.tar.gz https://github.com/google/flatbuffers/archive/$FLATBUFFERS_VERSION.tar.gz
 
-wget -c -O $_DST/rapidjson.tar.gz https://github.com/miloyip/rapidjson/archive/v$RAPIDJSON_VERSION.tar.gz
+wget -c -O $_DST/rapidjson.tar.gz https://github.com/miloyip/rapidjson/archive/$RAPIDJSON_VERSION.tar.gz
 
 wget -c -O $_DST/snappy.tar.gz https://github.com/google/snappy/releases/download/$SNAPPY_VERSION/snappy-$SNAPPY_VERSION.tar.gz
 
 wget -c -O $_DST/brotli.tar.gz https://github.com/google/brotli/archive/$BROTLI_VERSION.tar.gz
 
-wget -c -O $_DST/lz4.tar.gz https://github.com/lz4/lz4/archive/v$LZ4_VERSION.tar.gz
+wget -c -O $_DST/lz4.tar.gz https://github.com/lz4/lz4/archive/$LZ4_VERSION.tar.gz
 
 wget -c -O $_DST/zlib.tar.gz http://zlib.net/fossils/zlib-$ZLIB_VERSION.tar.gz
 
-wget -c -O $_DST/zstd.tar.gz https://github.com/facebook/zstd/archive/v$ZSTD_VERSION.tar.gz
+wget -c -O $_DST/zstd.tar.gz https://github.com/facebook/zstd/archive/$ZSTD_VERSION.tar.gz
 
-wget -c -O $_DST/protobuf.tar.gz https://github.com/google/protobuf/releases/download/v$PROTOBUF_VERSION/protobuf-$PROTOBUF_VERSION.tar.gz
+wget -c -O $_DST/protobuf.tar.gz https://github.com/google/protobuf/releases/download/$PROTOBUF_VERSION/protobuf-${PROTOBUF_VERSION:1}.tar.gz
 
-wget -c -O $_DST/grpc.tar.gz https://github.com/grpc/grpc/archive/v$GRPC_VERSION.tar.gz
+wget -c -O $_DST/grpc.tar.gz https://github.com/grpc/grpc/archive/$GRPC_VERSION.tar.gz
 
 wget -c -O $_DST/orc.tar.gz https://github.com/apache/orc/archive/rel/release-$ORC_VERSION.tar.gz
 
 wget -c -O $_DST/thrift.tar.gz http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz
 
-wget -c -O $_DST/glog.tar.gz https://github.com/google/glog/archive/v${GLOG_VERSION}.tar.gz
+wget -c -O $_DST/glog.tar.gz https://github.com/google/glog/archive/${GLOG_VERSION}.tar.gz
 
 echo "
 # Environment variables for offline Arrow build

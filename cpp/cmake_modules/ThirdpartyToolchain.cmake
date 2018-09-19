@@ -209,8 +209,8 @@ endif()
 if (DEFINED ENV{ARROW_PROTOBUF_URL})
   set(PROTOBUF_SOURCE_URL "$ENV{ARROW_PROTOBUF_URL}")
 else()
-  string(SUBSTRING ${PROTOBUF_VERSION} 1 -1 PROTOBUF_VERSION)  # strip the leading `v`
-  set(PROTOBUF_SOURCE_URL "https://github.com/google/protobuf/releases/download/${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz")
+  string(SUBSTRING ${PROTOBUF_VERSION} 1 -1 STRIPPED_PROTOBUF_VERSION)  # strip the leading `v`
+  set(PROTOBUF_SOURCE_URL "https://github.com/google/protobuf/releases/download/${PROTOBUF_VERSION}/protobuf-${STRIPPED_PROTOBUF_VERSION}.tar.gz")
 endif()
 
 set(RAPIDJSON_SOURCE_MD5 "badd12c511e081fec6c89c43a7027bce")
