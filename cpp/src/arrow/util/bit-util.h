@@ -584,15 +584,12 @@ void CopyBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* 
 
 /// Invert a bit range of an existing bitmap into an existing bitmap
 ///
-/// \param[in] pool memory pool to allocate memory from
 /// \param[in] bitmap source data
 /// \param[in] offset bit offset into the source data
 /// \param[in] length number of bits to copy
 /// \param[in] dest_offset bit offset into the destination
 /// \param[out] dest the destination buffer, must have at least space for (offset +
 /// length) bits
-///
-/// \return Status message
 ARROW_EXPORT
 void InvertBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* dest,
                   int64_t dest_offset);

@@ -107,7 +107,7 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   return count;
 }
 
-template <bool invert_bits>
+template <bool invert_bits, bool restore_trailing_bits>
 void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
                     int64_t dest_offset, uint8_t* dest) {
   int64_t byte_offset = offset / 8;
@@ -136,17 +136,18 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
     // Take care of the trailing bits in the last byte
     int64_t trailing_bits = num_bytes * 8 - length;
     uint8_t trail = 0;
-    if (trailing_bits) {
+    if (trailing_bits && restore_trailing_bits) {
       trail = dest[num_bytes - 1];
     }
 
     if (bit_offset > 0) {
       uint8_t carry_mask = BitUtil::kPrecedingBitmask[bit_offset];
-      uint8_t carry_shift = 8U - static_cast<uint8_t>(bit_offset);
+      uint8_t carry_shift = static_cast<uint8_t>(8U - static_cast<uint8_t>(bit_offset));
 
       uint8_t carry = 0U;
       if (BitUtil::BytesForBits(length + bit_offset) > num_bytes) {
-        carry = (data[byte_offset + num_bytes] & carry_mask) << carry_shift;
+        carry = static_cast<uint8_t>((data[byte_offset + num_bytes] & carry_mask)
+                                     << carry_shift);
       }
 
       int64_t i = num_bytes - 1;
@@ -157,7 +158,7 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
         } else {
           dest[i] = static_cast<uint8_t>((cur_byte >> bit_offset) | carry);
         }
-        carry = (cur_byte & carry_mask) << carry_shift;
+        carry = static_cast<uint8_t>((cur_byte & carry_mask) << carry_shift);
         --i;
       }
     } else {
@@ -170,11 +171,13 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
       }
     }
 
-    for (int i = 0; i < trailing_bits; i++) {
-      if (BitUtil::GetBit(&trail, i + 8 - trailing_bits)) {
-        BitUtil::SetBit(dest, length + i);
-      } else {
-        BitUtil::ClearBit(dest, length + i);
+    if (restore_trailing_bits) {
+      for (int i = 0; i < trailing_bits; i++) {
+        if (BitUtil::GetBit(&trail, i + 8 - trailing_bits)) {
+          BitUtil::SetBit(dest, length + i);
+        } else {
+          BitUtil::ClearBit(dest, length + i);
+        }
       }
     }
   }
@@ -187,7 +190,7 @@ Status TransferBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset,
   RETURN_NOT_OK(AllocateEmptyBitmap(pool, length, &buffer));
   uint8_t* dest = buffer->mutable_data();
 
-  TransferBitmap<invert_bits>(data, offset, length, 0, dest);
+  TransferBitmap<invert_bits, false>(data, offset, length, 0, dest);
 
   // As we have freshly allocated this bitmap, we should take care of zeroing the remaing
   // bits.
@@ -204,12 +207,12 @@ Status TransferBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset,
 
 void CopyBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
                 int64_t dest_offset) {
-  TransferBitmap<false>(data, offset, length, dest_offset, dest);
+  TransferBitmap<false, true>(data, offset, length, dest_offset, dest);
 }
 
 void InvertBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
                   int64_t dest_offset) {
-  TransferBitmap<true>(data, offset, length, dest_offset, dest);
+  TransferBitmap<true, true>(data, offset, length, dest_offset, dest);
 }
 
 Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
