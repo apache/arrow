@@ -38,7 +38,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   private final boolean unionEnabled;
   private final NullableStructWriterFactory nullableStructWriterFactory;
 
-  private enum Mode {INIT, STRUCT, LIST}
+  private enum Mode { INIT, STRUCT, LIST }
 
   public ComplexWriterImpl(
       String name,

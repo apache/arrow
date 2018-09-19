@@ -17,6 +17,7 @@
  */
 
 package org.apache.arrow.vector;
+
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -46,7 +47,7 @@ public class TestSplitAndTransfer {
   
   @Test /* VarCharVector */
   public void test() throws Exception {
-    try(final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
       varCharVector.allocateNew(10000, 1000);
   
       final int valueCount = 500;

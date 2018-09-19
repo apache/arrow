@@ -217,11 +217,11 @@ public class DecimalVector extends BaseFixedWidthVector {
     final int length = value.length;
     int startIndex = index * TYPE_WIDTH;
     if (length == TYPE_WIDTH) {
-      for (int i = TYPE_WIDTH - 1; i >= 3; i-=4) {
+      for (int i = TYPE_WIDTH - 1; i >= 3; i -= 4) {
         valueBuffer.setByte(startIndex, value[i]);
-        valueBuffer.setByte(startIndex + 1, value[i-1]);
-        valueBuffer.setByte(startIndex + 2, value[i-2]);
-        valueBuffer.setByte(startIndex + 3, value[i-3]);
+        valueBuffer.setByte(startIndex + 1, value[i - 1]);
+        valueBuffer.setByte(startIndex + 2, value[i - 2]);
+        valueBuffer.setByte(startIndex + 3, value[i - 3]);
         startIndex += 4;
       }
 

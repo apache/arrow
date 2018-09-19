@@ -129,7 +129,7 @@ public class TestFixedSizeBinaryVector {
 
   @After
   public void terminate() throws Exception {
-    for (int i=0; i<numValues; i++) {
+    for (int i = 0; i < numValues; i++) {
       bufs[i].close();
     }
     smallBuf.close();
