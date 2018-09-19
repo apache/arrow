@@ -124,8 +124,10 @@ void *pre_alloc_end;
 static void *
 AllocHook(extent_hooks_t *extent_hooks, void *new_addr, size_t size,
 		size_t alignment, bool *zero, bool *commit, unsigned arena_index) {
-  void *ret = pre_alloc;
-  if (ret >= pre_alloc_end) {
+  ARROW_LOG(INFO) << "hook: " << size;
+  char *ret = (char *) pre_alloc;
+  if (ret + size >= pre_alloc_end) {
+    ARROW_LOG(INFO) << "returned null";
     return NULL;
   }
   pre_alloc = (char *)pre_alloc + size;
@@ -149,6 +151,10 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string dir
   arena_index_ = -1;
   size_t index_size = sizeof(arena_index_);
   size_t error = je_plasma_mallctl("arenas.create", (void *)&arena_index_, &index_size, (void *)&new_hooks, sizeof(extent_hooks_t *));
+  ARROW_LOG(INFO) << "arena_index_ = " << arena_index_;
+
+  int err = je_plasma_mallctl("arena.16.retain_grow_limit", NULL, 0, &system_memory, sizeof(system_memory));
+  ARROW_CHECK(err == 0) << "mallctl return code = " << err;
 #ifdef PLASMA_GPU
   DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
@@ -212,11 +218,13 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     if (device_num == 0) {
       pointer = reinterpret_cast<uint8_t*>(je_plasma_mallocx(std::max(data_size + metadata_size, kBlockSize), MALLOCX_ALIGN(kBlockSize) | MALLOCX_ARENA(arena_index_) | MALLOCX_TCACHE_NONE));
       if (pointer == nullptr) {
+        ARROW_LOG(INFO) << "couldn't allocate object with size " << std::max(data_size + metadata_size, kBlockSize) << " from arena " << arena_index_;
         // Tell the eviction policy how much space we need to create this object.
         std::vector<ObjectID> objects_to_evict;
         bool success =
             eviction_policy_.RequireSpace(data_size + metadata_size, &objects_to_evict);
         DeleteObjects(objects_to_evict);
+        // je_plasma_malloc_stats_print(NULL, NULL, NULL);
         // Return an error to the client if not enough space could be freed to
         // create the object.
         if (!success) {
