@@ -74,11 +74,11 @@ fetch_archive() {
   local dist_name=$1
   download_rc_file ${dist_name}.tar.gz
   download_rc_file ${dist_name}.tar.gz.asc
-  download_rc_file ${dist_name}.tar.gz.sha1
   download_rc_file ${dist_name}.tar.gz.sha256
+  download_rc_file ${dist_name}.tar.gz.sha512
   gpg --verify ${dist_name}.tar.gz.asc ${dist_name}.tar.gz
-  shasum -a 1 -c ${dist_name}.tar.gz.sha1
   shasum -a 256 -c ${dist_name}.tar.gz.sha256
+  shasum -a 512 -c ${dist_name}.tar.gz.sha512
 }
 
 verify_binary_artifacts() {
@@ -106,8 +106,8 @@ verify_binary_artifacts() {
     # basename of the artifact
     pushd $(dirname $artifact)
     base_artifact=$(basename $artifact)
-    shasum -a 1 -c $base_artifact.sha1 || exit 1
     shasum -a 256 -c $base_artifact.sha256 || exit 1
+    shasum -a 512 -c $base_artifact.sha512 || exit 1
     popd
   done
 }
