@@ -1121,6 +1121,33 @@ def test_struct_array_flatten():
     assert ys.to_pylist() == [None, 2.5]
 
 
+def test_struct_array_field():
+    ty = pa.struct([pa.field('x', pa.int16()),
+                    pa.field('y', pa.float32())])
+    a = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
+
+    x = a.field(0)
+    y = a.field(1)
+    x_ = a.field(-2)
+    y_ = a.field(-1)
+
+    assert isinstance(x, pa.lib.Int16Array)
+    assert isinstance(y, pa.lib.FloatArray)
+
+    assert x.equals(pa.array([1, 3, 5], type=pa.int16()))
+    assert y.equals(pa.array([2.5, 4.5, 6.5], type=pa.float32()))
+    assert x.equals(x_)
+    assert y.equals(y_)
+
+    for invalid_index in [None, 'x']:
+        with pytest.raises(TypeError):
+            a.field(invalid_index)
+
+    for invalid_index in [3, -3]:
+        with pytest.raises(IndexError):
+            a.field(invalid_index)
+
+
 def test_nested_dictionary_array():
     dict_arr = pa.DictionaryArray.from_arrays([0, 1, 0], ['a', 'b'])
     list_arr = pa.ListArray.from_arrays([0, 2, 3], dict_arr)

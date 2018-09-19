@@ -1128,6 +1128,12 @@ cdef class DictionaryArray(Array):
 
 cdef class StructArray(Array):
 
+    def field(self, i):
+        cdef:
+            int index = <int> _normalize_index(i, self.ap.num_fields())
+            CStructArray* sarr = <CStructArray*> self.ap
+        return pyarrow_wrap_array(sarr.field(index))
+
     def flatten(self, MemoryPool memory_pool=None):
         """
         Flatten this StructArray, returning one individual array for each
