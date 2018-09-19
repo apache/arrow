@@ -31,6 +31,7 @@ arguments = parser.parse_args()
 
 _STRIP_COMMENT_REGEX = re.compile('(.+)?(?=//)')
 _NULLPTR_REGEX = re.compile(r'.*\bnullptr\b.*')
+_RETURN_NOT_OK_REGEX = re.compile(r'.*\sRETURN_NOT_OK.*')
 
 
 def _strip_comments(line):
@@ -43,14 +44,24 @@ def _strip_comments(line):
 
 def lint_file(path):
     fail_rules = [
-        (lambda x: '<mutex>' in x, 'Uses <mutex>'),
-        (lambda x: re.match(_NULLPTR_REGEX, x), 'Uses nullptr')
+        # rule, error message, rule-specific exclusions list
+        (lambda x: '<mutex>' in x, 'Uses <mutex>', []),
+        (lambda x: re.match(_NULLPTR_REGEX, x), 'Uses nullptr', []),
+        (lambda x: re.match(_RETURN_NOT_OK_REGEX, x),
+         'Use ARROW_RETURN_NOT_OK in header files',
+         ['arrow/status.h',
+          'test',
+          'arrow/util/hash.h',
+          'arrow/python/util'])
     ]
 
     with open(path) as f:
         for i, line in enumerate(f):
             stripped_line = _strip_comments(line)
-            for rule, why in fail_rules:
+            for rule, why, rule_exclusions in fail_rules:
+                if any([True for excl in rule_exclusions if excl in path]):
+                    continue
+
                 if rule(stripped_line):
                     raise Exception('File {0} failed C++/CLI lint check: {1}\n'
                                     'Line {2}: {3}'
