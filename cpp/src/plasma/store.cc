@@ -895,6 +895,8 @@ void StartServer(char* socket_name, int64_t system_memory, std::string plasma_di
 }  // namespace plasma
 
 int main(int argc, char* argv[]) {
+  arrow::ArrowLog::StartArrowLog(argv[0], arrow::ArrowLogLevel::ARROW_INFO);
+  arrow::ArrowLog::InstallFailureSignalHandler();
   char* socket_name = nullptr;
   // Directory where plasma memory mapped files are stored.
   std::string plasma_directory;
@@ -984,5 +986,6 @@ int main(int argc, char* argv[]) {
   plasma::g_runner->Shutdown();
   plasma::g_runner = nullptr;
 
+  arrow::ArrowLog::ShutDownArrowLog();
   return 0;
 }

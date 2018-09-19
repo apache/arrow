@@ -73,6 +73,8 @@
       # Statically linked C++ dependencies
       boost::*;
       google::*;
+      # glog
+      *MakeCheckOpValueString*;
       orc::*;
       snappy::*;
     };

@@ -18,34 +18,30 @@
 #ifndef ARROW_UTIL_LOGGING_H
 #define ARROW_UTIL_LOGGING_H
 
-#include <cstdlib>
 #include <iostream>
-
-#include "arrow/util/macros.h"
+#include <memory>
+#include <string>
 
 namespace arrow {
 
-// Stubbed versions of macros defined in glog/logging.h, intended for
-// environments where glog headers aren't available.
-//
-// Add more as needed.
+enum class ArrowLogLevel : int {
+  ARROW_DEBUG = -1,
+  ARROW_INFO = 0,
+  ARROW_WARNING = 1,
+  ARROW_ERROR = 2,
+  ARROW_FATAL = 3
+};
 
-// Log levels. LOG ignores them, so their values are arbitrary.
+#define ARROW_LOG_INTERNAL(level) ::arrow::ArrowLog(__FILE__, __LINE__, level)
+#define ARROW_LOG(level) ARROW_LOG_INTERNAL(::arrow::ArrowLogLevel::ARROW_##level)
+#define ARROW_IGNORE_EXPR(expr) ((void)(expr))
 
-#define ARROW_DEBUG (-1)
-#define ARROW_INFO 0
-#define ARROW_WARNING 1
-#define ARROW_ERROR 2
-#define ARROW_FATAL 3
-
-#define ARROW_LOG_INTERNAL(level) ::arrow::internal::CerrLog(level)
-#define ARROW_LOG(level) ARROW_LOG_INTERNAL(ARROW_##level)
-#define ARROW_IGNORE_EXPR(expr) ((void)(expr));
-
-#define ARROW_CHECK(condition)                           \
-  (condition) ? 0                                        \
-              : ::arrow::internal::FatalLog(ARROW_FATAL) \
-                    << __FILE__ << ":" << __LINE__ << " Check failed: " #condition " "
+#define ARROW_CHECK(condition)                                                         \
+  (condition)                                                                          \
+      ? ARROW_IGNORE_EXPR(0)                                                           \
+      : ::arrow::Voidify() &                                                           \
+            ::arrow::ArrowLog(__FILE__, __LINE__, ::arrow::ArrowLogLevel::ARROW_FATAL) \
+                << " Check failed: " #condition " "
 
 // If 'to_call' returns a bad status, CHECK immediately with a logged message
 // of 'msg' followed by the status.
@@ -60,35 +56,35 @@ namespace arrow {
 #define ARROW_CHECK_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status")
 
 #ifdef NDEBUG
-#define ARROW_DFATAL ARROW_WARNING
+#define ARROW_DFATAL arrow::ArrowLogLevel::ARROW_WARNING
 
-#define DCHECK(condition)      \
-  ARROW_IGNORE_EXPR(condition) \
-  while (false) ::arrow::internal::NullLog()
-#define DCHECK_OK(status)   \
-  ARROW_IGNORE_EXPR(status) \
-  while (false) ::arrow::internal::NullLog()
+#define DCHECK(condition)       \
+  ARROW_IGNORE_EXPR(condition); \
+  while (false) ::arrow::ArrowLogBase()
+#define DCHECK_OK(status)    \
+  ARROW_IGNORE_EXPR(status); \
+  while (false) ::arrow::ArrowLogBase()
 #define DCHECK_EQ(val1, val2) \
-  ARROW_IGNORE_EXPR(val1)     \
-  while (false) ::arrow::internal::NullLog()
+  ARROW_IGNORE_EXPR(val1);    \
+  while (false) ::arrow::ArrowLogBase()
 #define DCHECK_NE(val1, val2) \
-  ARROW_IGNORE_EXPR(val1)     \
-  while (false) ::arrow::internal::NullLog()
+  ARROW_IGNORE_EXPR(val1);    \
+  while (false) ::arrow::ArrowLogBase()
 #define DCHECK_LE(val1, val2) \
-  ARROW_IGNORE_EXPR(val1)     \
-  while (false) ::arrow::internal::NullLog()
+  ARROW_IGNORE_EXPR(val1);    \
+  while (false) ::arrow::ArrowLogBase()
 #define DCHECK_LT(val1, val2) \
-  ARROW_IGNORE_EXPR(val1)     \
-  while (false) ::arrow::internal::NullLog()
+  ARROW_IGNORE_EXPR(val1);    \
+  while (false) ::arrow::ArrowLogBase()
 #define DCHECK_GE(val1, val2) \
-  ARROW_IGNORE_EXPR(val1)     \
-  while (false) ::arrow::internal::NullLog()
+  ARROW_IGNORE_EXPR(val1);    \
+  while (false) ::arrow::ArrowLogBase()
 #define DCHECK_GT(val1, val2) \
-  ARROW_IGNORE_EXPR(val1)     \
-  while (false) ::arrow::internal::NullLog()
+  ARROW_IGNORE_EXPR(val1);    \
+  while (false) ::arrow::ArrowLogBase()
 
 #else
-#define ARROW_DFATAL ARROW_FATAL
+#define ARROW_DFATAL arrow::ArrowLogLevel::ARROW_FATAL
 
 #define DCHECK(condition) ARROW_CHECK(condition)
 #define DCHECK_OK(status) (ARROW_CHECK((status).ok()) << (status).message())
@@ -101,70 +97,85 @@ namespace arrow {
 
 #endif  // NDEBUG
 
-namespace internal {
+// This code is adapted from
+// https://github.com/ray-project/ray/blob/master/src/ray/util/logging.h.
 
-class NullLog {
+// To make the logging lib plugable with other logging libs and make
+// the implementation unawared by the user, ArrowLog is only a declaration
+// which hide the implementation into logging.cc file.
+// In logging.cc, we can choose different log libs using different macros.
+
+// This is also a null log which does not output anything.
+class ArrowLogBase {
  public:
-  template <class T>
-  NullLog& operator<<(const T& ARROW_ARG_UNUSED(t)) {
-    return *this;
-  }
-};
+  virtual ~ArrowLogBase() {}
 
-// Do not warn about destructor aborting
-#if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4722)
-#endif
+  virtual bool IsEnabled() const { return false; }
 
-class CerrLog {
- public:
-  CerrLog(int severity)  // NOLINT(runtime/explicit)
-      : severity_(severity), has_logged_(false) {}
-
-  virtual ~CerrLog() {
-    if (has_logged_) {
-      std::cerr << std::endl;
-    }
-    if (severity_ == ARROW_FATAL) {
-      std::abort();
-    }
-  }
-
-  template <class T>
-  CerrLog& operator<<(const T& t) {
-    if (severity_ != ARROW_DEBUG) {
-      has_logged_ = true;
-      std::cerr << t;
+  template <typename T>
+  ArrowLogBase& operator<<(const T& t) {
+    if (IsEnabled()) {
+      Stream() << t;
     }
     return *this;
   }
 
  protected:
-  const int severity_;
-  bool has_logged_;
+  virtual std::ostream& Stream() { return std::cerr; }
 };
 
-// Clang-tidy isn't smart enough to determine that DCHECK using CerrLog doesn't
-// return so we create a new class to give it a hint.
-class FatalLog : public CerrLog {
+class ArrowLog : public ArrowLogBase {
  public:
-  explicit FatalLog(int /* severity */)  // NOLINT
-      : CerrLog(ARROW_FATAL) {}          // NOLINT
+  ArrowLog(const char* file_name, int line_number, ArrowLogLevel severity);
 
-  ARROW_NORETURN ~FatalLog() {
-    if (has_logged_) {
-      std::cerr << std::endl;
-    }
-    std::abort();
-  }
+  virtual ~ArrowLog();
+
+  /// Return whether or not current logging instance is enabled.
+  ///
+  /// \return True if logging is enabled and false otherwise.
+  virtual bool IsEnabled() const;
+
+  /// The init function of arrow log for a program which should be called only once.
+  ///
+  /// \param appName The app name which starts the log.
+  /// \param severity_threshold Logging threshold for the program.
+  /// \param logDir Logging output file name. If empty, the log won't output to file.
+  static void StartArrowLog(const std::string& appName,
+                            ArrowLogLevel severity_threshold = ArrowLogLevel::ARROW_INFO,
+                            const std::string& logDir = "");
+
+  /// The shutdown function of arrow log, it should be used with StartArrowLog as a pair.
+  static void ShutDownArrowLog();
+
+  /// Install the failure signal handler to output call stack when crash.
+  /// If glog is not installed, this function won't do anything.
+  static void InstallFailureSignalHandler();
+
+ private:
+  // Hide the implementation of log provider by void *.
+  // Otherwise, lib user may define the same macro to use the correct header file.
+  void* logging_provider_;
+  /// True if log messages should be logged and false if they should be ignored.
+  bool is_enabled_;
+
+  static ArrowLogLevel severity_threshold_;
+  // In InitGoogleLogging, it simply keeps the pointer.
+  // We need to make sure the app name passed to InitGoogleLogging exist.
+  static std::unique_ptr<std::string> app_name_;
+
+ protected:
+  virtual std::ostream& Stream();
 };
 
-#if defined(_MSC_VER)
-#pragma warning(pop)
-#endif
-
-}  // namespace internal
+// This class make ARROW_CHECK compilation pass to change the << operator to void.
+// This class is copied from glog.
+class Voidify {
+ public:
+  Voidify() {}
+  // This has to be an operator with a precedence lower than << but
+  // higher than ?:
+  void operator&(ArrowLogBase&) {}
+};
 
 }  // namespace arrow
 

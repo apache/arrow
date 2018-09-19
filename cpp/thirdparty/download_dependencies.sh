@@ -45,7 +45,7 @@ wget -c -O $_DST/gflags.tar.gz https://github.com/gflags/gflags/archive/v$GFLAGS
 
 wget -c -O $_DST/gbenchmark.tar.gz https://github.com/google/benchmark/archive/v$GBENCHMARK_VERSION.tar.gz
 
-wget -c -O $_DST/flatbuffers.tar.gz https://github.com/google/flatbuffers/archive/v$FLATBUFFERS_VERSION.tar.gz
+wget -c -O $_DST/flatbuffers.tar.gz https://github.com/google/flatbuffers/archive/$FLATBUFFERS_VERSION.tar.gz
 
 wget -c -O $_DST/rapidjson.tar.gz https://github.com/miloyip/rapidjson/archive/v$RAPIDJSON_VERSION.tar.gz
 
@@ -67,6 +67,8 @@ wget -c -O $_DST/orc.tar.gz https://github.com/apache/orc/archive/rel/release-$O
 
 wget -c -O $_DST/thrift.tar.gz http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz
 
+wget -c -O $_DST/glog.tar.gz https://github.com/google/glog/archive/v${GLOG_VERSION}.tar.gz
+
 echo "
 # Environment variables for offline Arrow build
 export ARROW_BOOST_URL=$_DST/boost.tar.gz
@@ -84,4 +86,5 @@ export ARROW_PROTOBUF_URL=$_DST/protobuf.tar.gz
 export ARROW_GRPC_URL=$_DST/grpc.tar.gz
 export ARROW_ORC_URL=$_DST/orc.tar.gz
 export ARROW_THRIFT_URL=$_DST/thrift.tar.gz
+export ARROW_GLOG_URL=$_DST/glog.tar.gz
 "

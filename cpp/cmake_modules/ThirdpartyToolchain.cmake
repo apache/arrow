@@ -33,13 +33,14 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(JEMALLOC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(LZ4_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   # orc disabled as it's not in conda-forge (but in Anaconda with an incompatible ABI)
-#   set(ORC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  # set(ORC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(PROTOBUF_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(RAPIDJSON_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(SNAPPY_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(THRIFT_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZSTD_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(GLOG_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
 
   if (NOT DEFINED ENV{BOOST_ROOT})
     # Since we have to set this in the environment, we check whether
@@ -104,6 +105,10 @@ endif()
 
 if (DEFINED ENV{ZSTD_HOME})
   set(ZSTD_HOME "$ENV{ZSTD_HOME}")
+endif()
+
+if (DEFINED ENV{GLOG_HOME})
+  set(GLOG_HOME "$ENV{GLOG_HOME}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -236,6 +241,12 @@ if (DEFINED ENV{ARROW_ZSTD_URL})
   set(ZSTD_SOURCE_URL "$ENV{ARROW_ZSTD_URL}")
 else()
   set(ZSTD_SOURCE_URL "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_GLOG_URL})
+  set(GLOG_SOURCE_URL "$ENV{ARROW_GLOG_URL}")
+else()
+  set(GLOG_SOURCE_URL "https://github.com/google/glog/archive/v${GLOG_VERSION}.tar.gz")
 endif()
 
 # ----------------------------------------------------------------------
@@ -1261,3 +1272,59 @@ if (THRIFT_VENDORED)
 endif()
 
 endif()  # ARROW_HIVESERVER2
+
+if (ARROW_USE_GLOG)
+# ----------------------------------------------------------------------
+# GLOG
+
+  if("${GLOG_HOME}" STREQUAL "")
+    set(GLOG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/glog_ep-prefix/src/glog_ep")
+    set(GLOG_INCLUDE_DIR "${GLOG_BUILD_DIR}/include")
+    set(GLOG_STATIC_LIB "${GLOG_BUILD_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glog${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GLOG_CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+    set(GLOG_CMAKE_C_FLAGS "${EP_C_FLAGS} -fPIC")
+    if (PTHREAD_LIBRARY)
+      set(GLOG_CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -pthread")
+      set(GLOG_CMAKE_C_FLAGS "${EP_C_FLAGS} -fPIC -pthread")
+    endif()
+    message(STATUS "GLOG_CMAKE_CXX_FLAGS: ${GLOG_CMAKE_CXX_FLAGS}")
+    message(STATUS "CMAKE_CXX_FLAGS in glog: ${GLOG_CMAKE_CXX_FLAGS}")
+
+    if(APPLE)
+      # If we don't set this flag, the binary built with 10.13 cannot be used in 10.12.
+      set(GLOG_CMAKE_CXX_FLAGS "${GLOG_CMAKE_CXX_FLAGS} -mmacosx-version-min=10.9")
+    endif()
+
+    set(GLOG_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        -DCMAKE_INSTALL_PREFIX=${GLOG_BUILD_DIR}
+                        -DBUILD_SHARED_LIBS=OFF
+                        -DBUILD_TESTING=OFF
+                        -DWITH_GFLAGS=OFF
+                        -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GLOG_CMAKE_CXX_FLAGS}
+                        -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${GLOG_CMAKE_C_FLAGS}
+                        -DCMAKE_CXX_FLAGS=${GLOG_CMAKE_CXX_FLAGS})
+    message(STATUS "Glog version: ${GLOG_VERSION}")
+    ExternalProject_Add(glog_ep
+      URL ${GLOG_SOURCE_URL}
+      BUILD_IN_SOURCE 1
+      BUILD_BYPRODUCTS "${GLOG_STATIC_LIB}"
+      CMAKE_ARGS ${GLOG_CMAKE_ARGS}
+      ${EP_LOG_OPTIONS})
+
+    set(GLOG_VENDORED 1)
+  else()
+    find_package(GLOG REQUIRED)
+    set(GLOG_VENDORED 0)
+  endif()
+
+  message(STATUS "Glog include dir: ${GLOG_INCLUDE_DIR}")
+  message(STATUS "Glog static library: ${GLOG_STATIC_LIB}")
+
+  include_directories(SYSTEM ${GLOG_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(glog_static
+    STATIC_LIB ${GLOG_STATIC_LIB})
+
+  if (GLOG_VENDORED)
+    add_dependencies(glog_static glog_ep)
+  endif()
+endif()

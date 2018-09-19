@@ -56,6 +56,7 @@ conda create -y -q -p $CPP_TOOLCHAIN python=3.6 \
     curl \
     thrift-cpp \
     libhdfs3 \
+    glog \
     ninja
 
 if [ $BUILD_OS_NAME == "osx" ]; then

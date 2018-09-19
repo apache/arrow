@@ -57,6 +57,11 @@ int fake_munmap(void*, int64_t);
 #undef DEFAULT_GRANULARITY
 }
 
+// dlmalloc.c defined DEBUG which will conflict with ARROW_LOG(DEBUG).
+#ifdef DEBUG
+#undef DEBUG
+#endif
+
 struct mmap_record {
   int fd;
   int64_t size;
