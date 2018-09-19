@@ -35,10 +35,10 @@ public class PlasmaClientTest {
   private ObjectStoreLink pLink;
 
 
-  public PlasmaClientTest() throws Exception{
+  public PlasmaClientTest() throws Exception {
     try {
       String plasmaStorePath = System.getenv("PLASMA_STORE");
-      if(plasmaStorePath == null) {
+      if (plasmaStorePath == null) {
         throw new Exception("Please set plasma store path in env PLASMA_STORE");
       }
 
@@ -161,8 +161,9 @@ public class PlasmaClientTest {
   }
 
   public String getStoreAddress() {
-    return storeSuffix+storePort;
+    return storeSuffix + storePort;
   }
+
   public static void main(String[] args) throws Exception {
 
     PlasmaClientTest plasmaClientTest = new PlasmaClientTest();
