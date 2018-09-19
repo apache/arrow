@@ -29,7 +29,7 @@ if "%JOB%" == "Static_Crt_Build" (
         ..  || exit /B
 
   cmake --build . --config Debug || exit /B
-  ctest -VV  || exit /B
+  ctest --output-on-failure -j2 || exit /B
   popd
 
   mkdir cpp\build-release
@@ -43,7 +43,7 @@ if "%JOB%" == "Static_Crt_Build" (
         ..  || exit /B
 
   cmake --build . --config Release || exit /B
-  ctest -VV  || exit /B
+  ctest --output-on-failure -j2 || exit /B
   popd
 
   @rem Finish Static_Crt_Build build successfully
@@ -61,27 +61,27 @@ if "%JOB%" == "Build_Debug" (
         ..  || exit /B
 
   cmake --build . --config Debug || exit /B
-  ctest -VV  || exit /B
+  ctest --output-on-failure -j2 || exit /B
   popd
 
   @rem Finish Debug build successfully
   exit /B 0
 )
 
-conda create -n arrow -q -y -c conda-forge ^
+conda create -n arrow -q -y ^
       python=%PYTHON% ^
       six pytest setuptools numpy pandas cython ^
       thrift-cpp=0.11.0 boost-cpp
 
 call activate arrow
 
-@rem Use Boost from conda-forge
+@rem Use Boost from Anaconda
 set BOOST_ROOT=%CONDA_PREFIX%\Library
 set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
 
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
-  conda install -q -y -c conda-forge ^
+  conda install -q -y ^
       brotli ^
       cmake ^
       flatbuffers ^
@@ -121,7 +121,7 @@ cmake --build . --target install --config %CONFIGURATION%  || exit /B
 set OLD_PYTHONHOME=%PYTHONHOME%
 set PYTHONHOME=%CONDA_PREFIX%
 
-ctest -VV  || exit /B
+ctest --output-on-failure -j2 || exit /B
 
 set PYTHONHOME=%OLD_PYTHONHOME%
 popd
