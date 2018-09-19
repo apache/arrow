@@ -235,7 +235,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// The memory at the corresponding data slot is set to 0 to prevent uninitialized
   /// memory access
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
     memset(raw_data_ + length_, 0,
            static_cast<size_t>(TypeTraits<Type>::bytes_required(length)));
     UnsafeAppendToBitmap(valid_bytes, length);
@@ -243,7 +243,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   }
 
   Status AppendNull() {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     memset(raw_data_ + length_, 0, sizeof(value_type));
     UnsafeAppendToBitmap(false);
     return Status::OK();
@@ -292,7 +292,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   template <typename ValuesIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
 
     std::copy(values_begin, values_end, raw_data_ + length_);
 
@@ -314,7 +314,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
                   "Don't pass a NULLPTR directly as valid_begin, use the 2-argument "
                   "version instead");
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
 
     std::copy(values_begin, values_end, raw_data_ + length_);
 
@@ -333,7 +333,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   typename std::enable_if<std::is_pointer<ValidIter>::value, Status>::type AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
 
     std::copy(values_begin, values_end, raw_data_ + length_);
 
@@ -376,7 +376,7 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
 
   /// Append a single scalar and increase the size if necessary.
   Status Append(const value_type val) {
-    RETURN_NOT_OK(ArrayBuilder::Reserve(1));
+    ARROW_RETURN_NOT_OK(ArrayBuilder::Reserve(1));
     UnsafeAppend(val);
     return Status::OK();
   }
@@ -426,14 +426,14 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
     memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();
   }
 
   Status AppendNull() {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     memset(data_->mutable_data() + length_ * int_size_, 0, int_size_);
     UnsafeAppendToBitmap(false);
     return Status::OK();
@@ -501,12 +501,12 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 
   /// Scalar append
   Status Append(const uint64_t val) {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
 
     uint8_t new_int_size = internal::ExpandedUIntSize(val, int_size_);
     if (new_int_size != int_size_) {
-      RETURN_NOT_OK(ExpandIntSize(new_int_size));
+      ARROW_RETURN_NOT_OK(ExpandIntSize(new_int_size));
     }
 
     switch (int_size_) {
@@ -564,12 +564,12 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
 
   /// Scalar append
   Status Append(const int64_t val) {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
 
     uint8_t new_int_size = internal::ExpandedIntSize(val, int_size_);
     if (new_int_size != int_size_) {
-      RETURN_NOT_OK(ExpandIntSize(new_int_size));
+      ARROW_RETURN_NOT_OK(ExpandIntSize(new_int_size));
     }
 
     switch (int_size_) {
@@ -629,14 +629,14 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
 
     return Status::OK();
   }
 
   Status AppendNull() {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(false);
 
     return Status::OK();
@@ -644,7 +644,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   /// Scalar append
   Status Append(const bool val) {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
     if (val) {
       BitUtil::SetBit(raw_data_, length_);
@@ -708,7 +708,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   template <typename ValuesIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
     auto iter = values_begin;
     internal::GenerateBitsUnrolled(raw_data_, length_, length,
                                    [&iter]() -> bool { return *(iter++); });
@@ -731,7 +731,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
                   "Don't pass a NULLPTR directly as valid_begin, use the 2-argument "
                   "version instead");
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
 
     auto iter = values_begin;
     internal::GenerateBitsUnrolled(raw_data_, length_, length,
@@ -752,7 +752,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   typename std::enable_if<std::is_pointer<ValidIter>::value, Status>::type AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
 
     auto iter = values_begin;
     internal::GenerateBitsUnrolled(raw_data_, length_, length,
@@ -919,7 +919,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   Status Append(const uint8_t* value) {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(true);
     return byte_builder_.Append(value, byte_width_);
   }
@@ -929,7 +929,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   template <size_t NBYTES>
   Status Append(const std::array<uint8_t, NBYTES>& value) {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(true);
     return byte_builder_.Append(value);
   }
@@ -994,7 +994,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   /// end methods or advance methods of the child builders' independently to
   /// insert data.
   Status AppendValues(int64_t length, const uint8_t* valid_bytes) {
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();
   }
@@ -1002,7 +1002,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   /// Append an element to the Struct. All child-builders' Append method must
   /// be called independently to maintain data-structure consistency.
   Status Append(bool is_valid = true) {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(is_valid);
     return Status::OK();
   }
