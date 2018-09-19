@@ -1,5 +1,4 @@
-#!/usr/bin/env bash
-
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,28 +16,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+export GLOG_VERSION="0.3.5"
+export CFLAGS="-fPIC"
+export PREFIX="/usr"
+curl -sL "https://github.com/google/glog/archive/v${GLOG_VERSION}.tar.gz" -o glog-${GLOG_VERSION}.tar.gz
+tar xf glog-${GLOG_VERSION}.tar.gz
+pushd glog-${GLOG_VERSION}
 
-source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+      -DBUILD_SHARED_LIBS=OFF \
+      -DBUILD_TESTING=OFF \
+      -DWITH_GFLAGS=OFF \
+      -DCMAKE_CXX_FLAGS=${CFLAGS} \
 
-if [ ! -e $CPP_TOOLCHAIN ]; then
-    # Set up C++ toolchain from conda-forge packages for faster builds
-    conda create -y -q -p $CPP_TOOLCHAIN python=3.6 nomkl \
-        boost-cpp \
-        brotli \
-        ccache \
-        cmake \
-        curl \
-        flatbuffers \
-        lz4-c \
-        gflags \
-        gtest \
-        libprotobuf \
-        ninja \
-        rapidjson \
-        snappy \
-        thrift-cpp=0.11.0 \
-        zlib \
-        glog \
-        zstd
-fi
+make -j5
+make install
+popd
+rm -rf glog-${GLOG_VERSION}.tar.gz.tar.gz glog-${GLOG_VERSION}
+

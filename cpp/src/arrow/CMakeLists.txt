@@ -44,6 +44,7 @@ set(ARROW_SRCS
   util/io-util.cc
   util/key_value_metadata.cc
   util/thread-pool.cc
+  util/logging.cc
 )
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
