@@ -43,13 +43,25 @@ fi
 
 
 # Fail fast on style checks
+if [ "$ARROW_CI_DEV_AFFECTED" != "0" ]; then
+  # crossbow requires python3
+  sudo apt-get install -y -q python3-pip
+  sudo pip3 install -q flake8
+  python3 -m flake8 --count $ARROW_CROSSBOW_DIR
+fi
+
+if [ "$ARROW_CI_INTEGRATION_AFFECTED" != "0" ]; then
+  sudo pip install -q flake8
+  python -m flake8 --count $ARROW_INTEGRATION_DIR
+fi
 
 if [ "$ARROW_CI_PYTHON_AFFECTED" != "0" ]; then
   sudo pip install -q flake8
 
-  flake8 --count $ARROW_PYTHON_DIR
+  python -m flake8 --count $ARROW_PYTHON_DIR
 
   # Check Cython files with some checks turned off
-  flake8 --count --config=$ARROW_PYTHON_DIR/.flake8.cython \
-         $ARROW_PYTHON_DIR
+  python -m flake8 --count \
+                   --config=$ARROW_PYTHON_DIR/.flake8.cython \
+                   $ARROW_PYTHON_DIR
 fi

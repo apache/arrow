@@ -28,7 +28,7 @@ perr = functools.partial(print, file=sys.stderr)
 
 LANGUAGE_TOPICS = ['c_glib', 'cpp', 'go', 'java', 'js', 'python', 'ruby', 'rust']
 
-ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'site']
+ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'site', 'dev']
 
 
 def run_cmd(cmdline):
@@ -129,7 +129,7 @@ def get_affected_topics(affected_files):
         fn = parts[-1]
         if fn.startswith('README'):
             continue
-        if p in ('ci', 'dev', '.travis.yml'):
+        if p in ('ci', '.travis.yml'):
             # For these changes, test everything
             for k in ALL_TOPICS:
                 affected[k] = True
@@ -144,7 +144,8 @@ def get_affected_topics(affected_files):
         elif p in ('c_glib'):
             affected[p] = True
             affected['ruby'] = True
-        elif p in ('go', 'integration', 'python', 'ruby', 'rust', 'site'):
+        elif p in ('go', 'integration', 'python', 'ruby', 'rust', 'site',
+                   'dev'):
             affected[p] = True
 
     return affected
