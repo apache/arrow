@@ -26,13 +26,14 @@
 
 #include "parquet/hasher.h"
 #include "parquet/types.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
 /// Source:
 /// https://github.com/aappleby/smhasher/blob/master/src/MurmurHash3.cpp
 /// (Modified to adapt to coding conventions and to inherit the Hasher abstract class)
-class MurmurHash3 : public Hasher {
+class PARQUET_EXPORT MurmurHash3 : public Hasher {
  public:
   MurmurHash3() : seed_(DEFAULT_SEED) {}
   uint64_t Hash(int32_t value) const override;

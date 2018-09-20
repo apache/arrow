@@ -23,6 +23,7 @@
 
 #include "arrow/compute/kernel.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace compute {
@@ -49,18 +50,23 @@ static inline void CopyData(const ArrayData& input, ArrayData* output) {
 
 namespace detail {
 
+ARROW_EXPORT
 Status InvokeUnaryArrayKernel(FunctionContext* ctx, UnaryKernel* kernel,
                               const Datum& value, std::vector<Datum>* outputs);
 
+ARROW_EXPORT
 Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
                                const Datum& left, const Datum& right,
                                std::vector<Datum>* outputs);
+ARROW_EXPORT
 Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
                                const Datum& left, const Datum& right, Datum* output);
 
+ARROW_EXPORT
 Datum WrapArraysLike(const Datum& value,
                      const std::vector<std::shared_ptr<Array>>& arrays);
 
+ARROW_EXPORT
 Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums);
 
 }  // namespace detail

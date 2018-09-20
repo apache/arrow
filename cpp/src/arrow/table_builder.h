@@ -38,7 +38,7 @@ class Schema;
 /// \class RecordBatchBuilder
 /// \brief Helper class for creating record batches iteratively given a known
 /// schema
-class RecordBatchBuilder {
+class ARROW_EXPORT RecordBatchBuilder {
  public:
   /// \brief Create an initialize a RecordBatchBuilder
   /// \param[in] schema The schema for the record batch
@@ -93,6 +93,8 @@ class RecordBatchBuilder {
   std::shared_ptr<Schema> schema() const { return schema_; }
 
  private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatchBuilder);
+
   RecordBatchBuilder(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
                      int64_t initial_capacity);
 

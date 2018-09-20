@@ -26,11 +26,15 @@
 #include <vector>
 
 #include "parquet/schema.h"
-#include "parquet/thrift.h"
 #include "parquet/types.h"
 #include "parquet/util/macros.h"
 
 namespace parquet {
+
+namespace format {
+class SchemaElement;
+}
+
 namespace schema {
 
 // ----------------------------------------------------------------------

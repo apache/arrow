@@ -101,7 +101,7 @@ endfunction()
 
 # \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
-  set(options)
+  set(options BUILD_SHARED BUILD_STATIC)
   set(one_value_args SHARED_LINK_FLAGS)
   set(multi_value_args SOURCES OUTPUTS STATIC_LINK_LIBS STATIC_PRIVATE_LINK_LIBS SHARED_LINK_LIBS SHARED_PRIVATE_LINK_LIBS EXTRA_INCLUDES DEPENDENCIES)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
@@ -113,7 +113,21 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(${ARG_OUTPUTS})
   endif()
 
+  # Allow overriding ARROW_BUILD_SHARED and ARROW_BUILD_STATIC
+  if (ARG_BUILD_SHARED)
+    set(BUILD_SHARED ${ARG_BUILD_SHARED})
+  else ()
+    set(BUILD_SHARED ${ARROW_BUILD_SHARED})
+  endif()
+  if (ARG_BUILD_STATIC)
+    set(BUILD_STATIC ${ARG_BUILD_STATIC})
+  else ()
+    set(BUILD_STATIC ${ARROW_BUILD_STATIC})
+  endif()
+
   if(MSVC)
+    # MSVC needs to compile C++ separately for each library kind (shared and static)
+    # because of dllexport declarations
     set(LIB_DEPS ${ARG_SOURCES})
     set(EXTRA_DEPS ${ARG_DEPENDENCIES})
 
@@ -121,6 +135,8 @@ function(ADD_ARROW_LIB LIB_NAME)
       set(LIB_INCLUDES ${ARG_EXTRA_INCLUDES})
     endif()
   else()
+    # Otherwise, generate a single "objlib" from all C++ modules and link
+    # that "objlib" into each library kind, to avoid compiling twice
     add_library(${LIB_NAME}_objlib OBJECT
       ${ARG_SOURCES})
     # Necessary to make static linking into other shared libraries work properly
@@ -145,7 +161,7 @@ function(ADD_ARROW_LIB LIB_NAME)
 
   set(RUNTIME_INSTALL_DIR bin)
 
-  if (ARROW_BUILD_SHARED)
+  if (BUILD_SHARED)
     add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
     if (EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_shared ${EXTRA_DEPS})
@@ -212,7 +228,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
   endif()
 
-  if (ARROW_BUILD_STATIC)
+  if (BUILD_STATIC)
     add_library(${LIB_NAME}_static STATIC ${LIB_DEPS})
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_static ${EXTRA_DEPS})
@@ -366,7 +382,7 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     endif()
   endif()
 
-  if(NO_TESTS OR NOT ARROW_BUILD_STATIC)
+  if (NO_TESTS)
     return()
   endif()
   get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)

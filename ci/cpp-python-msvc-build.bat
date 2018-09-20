@@ -18,12 +18,18 @@
 @echo on
 
 if "%JOB%" == "Static_Crt_Build" (
+  @rem Since we link the CRT statically, we should also disable building
+  @rem the Arrow shared library to link the tests statically, otherwise
+  @rem the Arrow DLL and the tests end up using a different instance of
+  @rem the CRT, which wreaks havoc.
+
   mkdir cpp\build-debug
   pushd cpp\build-debug
 
   cmake -G "%GENERATOR%" ^
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
+        -DARROW_BUILD_SHARED=OFF ^
         -DCMAKE_BUILD_TYPE=Debug ^
         -DARROW_CXXFLAGS="/MP" ^
         ..  || exit /B
@@ -38,6 +44,7 @@ if "%JOB%" == "Static_Crt_Build" (
   cmake -G "%GENERATOR%" ^
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
+        -DARROW_BUILD_SHARED=OFF ^
         -DCMAKE_BUILD_TYPE=Release ^
         -DARROW_CXXFLAGS="/WX /MP" ^
         ..  || exit /B
@@ -50,6 +57,10 @@ if "%JOB%" == "Static_Crt_Build" (
   exit /B 0
 )
 
+@rem In the configurations below we disable building the Arrow static library
+@rem to save some time.  Unfortunately this will still build the Parquet static
+@rem library because of PARQUET-1420 (Thrift-generated symbols not exported in DLL).
+
 if "%JOB%" == "Build_Debug" (
   mkdir cpp\build-debug
   pushd cpp\build-debug
@@ -57,6 +68,7 @@ if "%JOB%" == "Build_Debug" (
   cmake -G "%GENERATOR%" ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+        -DARROW_BUILD_STATIC=OFF ^
         -DARROW_CXXFLAGS="/MP" ^
         ..  || exit /B
 
@@ -111,6 +123,7 @@ cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+      -DARROW_BUILD_STATIC=OFF ^
       -DARROW_CXXFLAGS="/WX /MP" ^
       -DARROW_PARQUET=ON ^
       -DARROW_PYTHON=ON ^
