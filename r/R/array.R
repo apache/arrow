@@ -91,12 +91,20 @@ read_record_batch <- function(path){
   `arrow::RecordBatch`$new(read_record_batch_(fs::path_abs(path)))
 }
 
+`arrow::Column` <- R6Class("arrow::Column", inherit = `arrow::Object`,
+  public = list(
+    length = function() Column__length(self),
+    null_count = function() Column__null_count(self)
+  )
+)
+
 `arrow::Table` <- R6Class("arrow::Table", inherit = `arrow::Object`,
   public = list(
     num_columns = function() Table_num_columns(self),
     num_rows = function() Table_num_rows(self),
     schema = function() `arrow::Schema`$new(Table_schema(self)),
-    to_file = function(path) invisible(Table_to_file(self, fs::path_abs(path)))
+    to_file = function(path) invisible(Table_to_file(self, fs::path_abs(path))),
+    column = function(i) `arrow::Column`$new(Table__column(self, i))
   )
 )
 

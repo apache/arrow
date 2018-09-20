@@ -31,7 +31,7 @@ class SimpleRBuffer : public arrow::Buffer {
 public:
 
   SimpleRBuffer(Vec vec) :
-    Buffer(reinterpret_cast<const uint8_t*>(vec.begin()), vec.size() * sizeof(typename Vec::stored_type) ),
+    Buffer(reinterpret_cast<const uint8_t*>(vec.begin()), vec.size() * sizeof(typename Vec::stored_type)),
     vec_(vec)
   {}
 
@@ -43,15 +43,35 @@ private:
 
 template <int RTYPE, typename Type>
 std::shared_ptr<arrow::Array> SimpleArray(SEXP x){
-  // a simple buffer that owns the memory of `x`
-  auto buffer = std::make_shared<SimpleRBuffer<RTYPE>>(x);
-  auto type = std::make_shared<Type>();
+
+  Rcpp::Vector<RTYPE> vec(x);
+  std::vector<std::shared_ptr<arrow::Buffer>> buffers {
+    nullptr,
+    std::make_shared<SimpleRBuffer<RTYPE>>(vec)
+  };
+
+  int null_count = 0;
+  if (RTYPE != RAWSXP) {
+    // TODO: maybe first count NA in a first pass so that we
+    //       can allocate only if needed
+    std::shared_ptr<arrow::Buffer> null_bitmap;
+    R_ERROR_NOT_OK(arrow::AllocateBuffer(vec.size(), &null_bitmap));
+
+    auto null_bitmap_data = null_bitmap->mutable_data();
+    for (int i=0; i < vec.size(); i++) {
+      if (Rcpp::Vector<RTYPE>::is_na(vec[i]) ) {
+        BitUtil::SetBit(null_bitmap_data, i);
+        null_count++;
+      }
+    }
+    buffers[0] = null_bitmap;
+  }
 
   auto data = ArrayData::Make(
-    type,
+    std::make_shared<Type>(),
     LENGTH(x),
-    {nullptr, buffer}, /* for now we just use a nullptr for the null bitmap buffer */
-    0, /*null_count */
+    std::move(buffers),
+    null_count,
     0 /*offset*/
   );
 
@@ -74,7 +94,7 @@ std::shared_ptr<arrow::Array> rvector_to_Array(SEXP x){
     // TODO: Dates, ...
     return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
   case RAWSXP:
-    return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
+    return arrow::r::SimpleArray<RAWSXP, arrow::Int8Type>(x);
   default:
     break;
   }
@@ -122,11 +142,24 @@ std::shared_ptr<arrow::Array> RecordBatch_column(const std::shared_ptr<arrow::Re
 
 template <int RTYPE>
 inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array ){
-  // ignoring null buffer for now
   using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
   auto start = reinterpret_cast<const stored_type*>(array->data()->buffers[1]->data());
 
-  return Rcpp::wrap(start, start + array->length());
+  size_t n = array->length();
+  Rcpp::Vector<RTYPE> vec(start, start + n);
+  if (array->null_count() && RTYPE != RAWSXP) {
+    // TODO: not sure what to do with RAWSXP since
+    //       R raw vector do not have a concept of missing data
+
+    auto bitmap_data = array->null_bitmap()->data();
+    for (size_t i=0; i < n; i++) {
+      if (BitUtil::GetBit(bitmap_data, i)) {
+        vec[i] = Rcpp::Vector<RTYPE>::get_na();
+      }
+    }
+  }
+
+  return vec;
 }
 
 // [[Rcpp::export]]
@@ -163,7 +196,6 @@ inline SEXP simple_ChunkedArray_to_Vector(const std::shared_ptr<arrow::ChunkedAr
   }
   return out;
 }
-
 
 SEXP ChunkedArray_as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
   switch(chunked_array->type()->id()){
@@ -300,4 +332,19 @@ List Table_to_dataframe(const std::shared_ptr<arrow::Table>& table){
   tbl.attr("class") = CharacterVector::create("tbf_df", "tbl", "data.frame");
   tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
   return tbl;
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table, int i) {
+  return table->column(i);
+}
+
+// [[Rcpp::export]]
+int Column__length(const std::shared_ptr<arrow::Column>& column) {
+  return column->length();
+}
+
+// [[Rcpp::export]]
+int Column__null_count(const std::shared_ptr<arrow::Column>& column) {
+  return column->null_count();
 }

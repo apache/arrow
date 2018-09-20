@@ -365,6 +365,40 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Table__column
+std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table, int i);
+RcppExport SEXP _arrow_Table__column(SEXP tableSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__column(table, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Column__length
+int Column__length(const std::shared_ptr<arrow::Column>& column);
+RcppExport SEXP _arrow_Column__length(SEXP columnSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Column>& >::type column(columnSEXP);
+    rcpp_result_gen = Rcpp::wrap(Column__length(column));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Column__null_count
+int Column__null_count(const std::shared_ptr<arrow::Column>& column);
+RcppExport SEXP _arrow_Column__null_count(SEXP columnSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Column>& >::type column(columnSEXP);
+    rcpp_result_gen = Rcpp::wrap(Column__null_count(column));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Field_initialize
 std::shared_ptr<arrow::Field> Field_initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
 RcppExport SEXP _arrow_Field_initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
@@ -959,6 +993,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table_to_file", (DL_FUNC) &_arrow_Table_to_file, 2},
     {"_arrow_read_table_", (DL_FUNC) &_arrow_read_table_, 1},
     {"_arrow_Table_to_dataframe", (DL_FUNC) &_arrow_Table_to_dataframe, 1},
+    {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
+    {"_arrow_Column__length", (DL_FUNC) &_arrow_Column__length, 1},
+    {"_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1},
     {"_arrow_Field_initialize", (DL_FUNC) &_arrow_Field_initialize, 3},
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},

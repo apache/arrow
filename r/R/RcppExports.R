@@ -129,6 +129,18 @@ Table_to_dataframe <- function(table) {
     .Call(`_arrow_Table_to_dataframe`, table)
 }
 
+Table__column <- function(table, i) {
+    .Call(`_arrow_Table__column`, table, i)
+}
+
+Column__length <- function(column) {
+    .Call(`_arrow_Column__length`, column)
+}
+
+Column__null_count <- function(column) {
+    .Call(`_arrow_Column__null_count`, column)
+}
+
 Field_initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field_initialize`, name, type, nullable)
 }
