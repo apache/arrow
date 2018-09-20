@@ -59,7 +59,6 @@ set CONFIGURATION=release
 pushd %ARROW_SOURCE%
 
 set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
-set PARQUET_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 
 set ARROW_HOME=%INSTALL_DIR%
 set PARQUET_HOME=%INSTALL_DIR%
@@ -78,6 +77,7 @@ cmake -G "%GENERATOR%" ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
+      -DARROW_PARQUET=ON ^
       ..  || exit /B
 cmake --build . --target INSTALL --config %CONFIGURATION%  || exit /B
 
@@ -85,19 +85,6 @@ cmake --build . --target INSTALL --config %CONFIGURATION%  || exit /B
 set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
 
 ctest -VV  || exit /B
-popd
-
-@rem Build parquet-cpp
-git clone https://github.com/apache/parquet-cpp.git || exit /B
-mkdir %ARROW_SOURCE%\parquet-cpp\build
-pushd %ARROW_SOURCE%\parquet-cpp\build
-
-cmake -G "%GENERATOR%" ^
-     -DCMAKE_INSTALL_PREFIX=%PARQUET_HOME% ^
-     -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
-x     -DPARQUET_BOOST_USE_SHARED=OFF ^
-     -DPARQUET_BUILD_TESTS=off .. || exit /B
-cmake --build . --target INSTALL --config %CONFIGURATION% || exit /B
 popd
 
 @rem Build and import pyarrow
