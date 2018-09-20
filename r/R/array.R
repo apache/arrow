@@ -78,16 +78,6 @@ array <- function(...){
   RecordBatch_to_dataframe(x)
 }
 
-#' @export
-write_arrow <- function(data, path){
-  record_batch(data)$to_file(path)
-}
-
-#' @export
-read_arrow <- function(path){
-  as_tibble(read_record_batch(path))
-}
-
 #' Create an arrow::RecordBatch from a data frame
 #'
 #' @param .data a data frame
@@ -106,7 +96,8 @@ read_record_batch <- function(path){
   public = list(
     num_columns = function() Table_num_columns(self),
     num_rows = function() Table_num_rows(self),
-    schema = function() `arrow::Schema`$new(Table_schema(self))
+    schema = function() `arrow::Schema`$new(Table_schema(self)),
+    to_file = function(path) invisible(Table_to_file(self, fs::path_abs(path)))
   )
 )
 
@@ -118,3 +109,25 @@ read_record_batch <- function(path){
 table <- function(.data){
   `arrow::Table`$new(dataframe_to_Table(.data))
 }
+
+#' @export
+write_arrow <- function(data, path){
+  table(data)$to_file(path)
+}
+
+#' @export
+read_table <- function(path){
+  `arrow::Table`$new(read_table_(fs::path_abs(path)))
+}
+
+#' @export
+`as_tibble.arrow::Table` <- function(x, ...){
+  Table_to_dataframe(x)
+}
+
+#' @export
+read_arrow <- function(path){
+  as_tibble(read_table(path))
+}
+
+

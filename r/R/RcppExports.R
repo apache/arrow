@@ -117,6 +117,18 @@ read_record_batch_ <- function(path) {
     .Call(`_arrow_read_record_batch_`, path)
 }
 
+Table_to_file <- function(table, path) {
+    .Call(`_arrow_Table_to_file`, table, path)
+}
+
+read_table_ <- function(path) {
+    .Call(`_arrow_read_table_`, path)
+}
+
+Table_to_dataframe <- function(table) {
+    .Call(`_arrow_Table_to_dataframe`, table)
+}
+
 Field_initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field_initialize`, name, type, nullable)
 }
