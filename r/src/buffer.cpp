@@ -233,7 +233,7 @@ List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch){
     names[i] = batch->column_name(i);
   }
   tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbf_df", "tbl", "data.frame");
+  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
   tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
   return tbl;
 }
@@ -341,7 +341,7 @@ List Table_to_dataframe(const std::shared_ptr<arrow::Table>& table){
     names[i] = column->name();
   }
   tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbf_df", "tbl", "data.frame");
+  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
   tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
   return tbl;
 }
@@ -359,4 +359,9 @@ int Column__length(const std::shared_ptr<arrow::Column>& column) {
 // [[Rcpp::export]]
 int Column__null_count(const std::shared_ptr<arrow::Column>& column) {
   return column->null_count();
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::DataType> Column__type(const std::shared_ptr<arrow::Column>& column) {
+  return column->type();
 }

@@ -141,6 +141,10 @@ Column__null_count <- function(column) {
     .Call(`_arrow_Column__null_count`, column)
 }
 
+Column__type <- function(column) {
+    .Call(`_arrow_Column__type`, column)
+}
+
 Field_initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field_initialize`, name, type, nullable)
 }

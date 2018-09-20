@@ -399,6 +399,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Column__type
+std::shared_ptr<arrow::DataType> Column__type(const std::shared_ptr<arrow::Column>& column);
+RcppExport SEXP _arrow_Column__type(SEXP columnSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Column>& >::type column(columnSEXP);
+    rcpp_result_gen = Rcpp::wrap(Column__type(column));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Field_initialize
 std::shared_ptr<arrow::Field> Field_initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
 RcppExport SEXP _arrow_Field_initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
@@ -996,6 +1007,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
     {"_arrow_Column__length", (DL_FUNC) &_arrow_Column__length, 1},
     {"_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1},
+    {"_arrow_Column__type", (DL_FUNC) &_arrow_Column__type, 1},
     {"_arrow_Field_initialize", (DL_FUNC) &_arrow_Field_initialize, 3},
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},

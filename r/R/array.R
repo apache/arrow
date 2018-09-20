@@ -94,7 +94,8 @@ read_record_batch <- function(path){
 `arrow::Column` <- R6Class("arrow::Column", inherit = `arrow::Object`,
   public = list(
     length = function() Column__length(self),
-    null_count = function() Column__null_count(self)
+    null_count = function() Column__null_count(self),
+    type = function() `arrow::DataType`$dispatch(Column__type(self))
   )
 )
 
