@@ -430,8 +430,9 @@ class Task:
 
     def render_files(self, **extra_params):
         path = CWD / self.template
+        params = toolz.merge(self.params, extra_params)
         template = Template(path.read_text(), undefined=StrictUndefined)
-        rendered = template.render(task=self, **self.params, **extra_params)
+        rendered = template.render(task=self, **params)
         return {self.filename: rendered}
 
     @property
@@ -605,7 +606,7 @@ def submit(ctx, task, group, job_prefix, config_path, arrow_version, dry_run):
         # replace version number and create task instance from configuration
         artifacts = task.pop('artifacts', None) or []  # because of yaml
         artifacts = [fn.format(version=target.version) for fn in artifacts]
-        tasks[name] = Task(**task, artifacts=artifacts)
+        tasks[name] = Task(artifacts=artifacts, **task)
 
     # create job instance, doesn't mutate git data yet
     job = Job(target=target, tasks=tasks)
