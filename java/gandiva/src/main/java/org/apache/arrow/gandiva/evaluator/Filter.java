@@ -103,8 +103,6 @@ public class Filter {
     if (this.closed) {
       throw new EvaluatorClosedException();
     }
-    //TODO: remove later, only for diagnostic.
-    logger.info("Evaluate called for module with id {}", moduleId);
     int numRows = recordBatch.getLength();
     if (selectionVector.getMaxRecords() < numRows) {
       logger.error("selectionVector has capacity for " + numRows
@@ -141,8 +139,6 @@ public class Filter {
    * Closes the LLVM module representing this filter.
    */
   public void close() throws GandivaException {
-    //TODO: remove later, only for diagnostic.
-    logger.info("Close called for module with id {}", moduleId);
     if (this.closed) {
       return;
     }
