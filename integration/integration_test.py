@@ -478,7 +478,8 @@ class FixedSizeBinaryType(PrimitiveType):
         return FixedSizeBinaryColumn
 
     def _get_type(self):
-        return OrderedDict([('name', 'fixedsizebinary'), ('byteWidth', self.byte_width)])
+        return OrderedDict([('name', 'fixedsizebinary'),
+                            ('byteWidth', self.byte_width)])
 
     def _get_type_layout(self):
         return OrderedDict([
@@ -777,7 +778,9 @@ def get_field(name, type_, nullable=True):
         return StringType(name, nullable=nullable)
     elif type_.startswith('fixedsizebinary_'):
         byte_width = int(type_.split('_')[1])
-        return FixedSizeBinaryType(name, byte_width=byte_width, nullable=nullable)
+        return FixedSizeBinaryType(name,
+                                   byte_width=byte_width,
+                                   nullable=nullable)
 
     dtype = np.dtype(type_)
 
@@ -928,8 +931,9 @@ class IntegrationRunner(object):
         self.debug = debug
 
     def run(self):
-        for producer, consumer in itertools.product(filter(lambda t: t.PRODUCER, self.testers),
-                                                    filter(lambda t: t.CONSUMER, self.testers)):
+        for producer, consumer in itertools.product(
+                filter(lambda t: t.PRODUCER, self.testers),
+                filter(lambda t: t.CONSUMER, self.testers)):
             self._compare_implementations(producer, consumer)
 
     def _compare_implementations(self, producer, consumer):
@@ -1091,6 +1095,7 @@ class CPPTester(Tester):
             print(cmd)
         os.system(cmd)
 
+
 class JSTester(Tester):
     PRODUCER = True
     CONSUMER = True
@@ -1103,7 +1108,8 @@ class JSTester(Tester):
 
     name = 'JS'
 
-    def _run(self, exe_cmd, arrow_path=None, json_path=None, command='VALIDATE'):
+    def _run(self, exe_cmd, arrow_path=None, json_path=None,
+             command='VALIDATE'):
         cmd = [exe_cmd]
 
         if arrow_path is not None:
@@ -1123,21 +1129,28 @@ class JSTester(Tester):
         return self._run(self.VALIDATE, arrow_path, json_path, 'VALIDATE')
 
     def json_to_file(self, json_path, arrow_path):
-        cmd = ['node', '--no-warnings', self.JSON_TO_ARROW, '-a', arrow_path, '-j', json_path]
+        cmd = ['node',
+               '--no-warnings', self.JSON_TO_ARROW,
+               '-a', arrow_path,
+               '-j', json_path]
         cmd = ' '.join(cmd)
         if self.debug:
             print(cmd)
         os.system(cmd)
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = ['cat', stream_path, '|', 'node', '--no-warnings', self.STREAM_TO_FILE, '>', file_path]
+        cmd = ['cat', stream_path, '|',
+               'node', '--no-warnings', self.STREAM_TO_FILE, '>',
+               file_path]
         cmd = ' '.join(cmd)
         if self.debug:
             print(cmd)
         os.system(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = ['cat', file_path, '|', 'node', '--no-warnings', self.FILE_TO_STREAM, '>', stream_path]
+        cmd = ['cat', file_path, '|',
+               'node', '--no-warnings', self.FILE_TO_STREAM, '>',
+               stream_path]
         cmd = ' '.join(cmd)
         if self.debug:
             print(cmd)
@@ -1150,7 +1163,9 @@ def get_static_json_files():
 
 
 def run_all_tests(debug=False):
-    testers = [CPPTester(debug=debug), JavaTester(debug=debug), JSTester(debug=debug)]
+    testers = [CPPTester(debug=debug),
+               JavaTester(debug=debug),
+               JSTester(debug=debug)]
     static_json_files = get_static_json_files()
     generated_json_files = get_generated_json_files()
     json_files = static_json_files + generated_json_files
