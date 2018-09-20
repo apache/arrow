@@ -209,6 +209,38 @@ inline SEXP simple_ChunkedArray_to_Vector(const std::shared_ptr<arrow::ChunkedAr
   return out;
 }
 
+
+// [[Rcpp::export]]
+int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
+  return chunked_array->length();
+}
+
+// [[Rcpp::export]]
+int ChunkedArray__null_count(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
+  return chunked_array->null_count();
+}
+
+// [[Rcpp::export]]
+int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
+  return chunked_array->num_chunks();
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Array> ChunkedArray__chunk(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i){
+  return chunked_array->chunk(i);
+}
+
+// [[Rcpp::export]]
+List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i){
+  return wrap(chunked_array->chunks());
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::DataType> ChunkedArray__type(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
+  return chunked_array->type();
+}
+
+// [[Rcpp::export]]
 SEXP ChunkedArray_as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
   switch(chunked_array->type()->id()){
     case Type::INT8: return simple_ChunkedArray_to_Vector<RAWSXP>(chunked_array);

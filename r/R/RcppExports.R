@@ -89,6 +89,34 @@ Array_as_vector <- function(array) {
     .Call(`_arrow_Array_as_vector`, array)
 }
 
+ChunkedArray__length <- function(chunked_array) {
+    .Call(`_arrow_ChunkedArray__length`, chunked_array)
+}
+
+ChunkedArray__null_count <- function(chunked_array) {
+    .Call(`_arrow_ChunkedArray__null_count`, chunked_array)
+}
+
+ChunkedArray__num_chunks <- function(chunked_array) {
+    .Call(`_arrow_ChunkedArray__num_chunks`, chunked_array)
+}
+
+ChunkedArray__chunk <- function(chunked_array, i) {
+    .Call(`_arrow_ChunkedArray__chunk`, chunked_array, i)
+}
+
+ChunkedArray__chunks <- function(chunked_array, i) {
+    .Call(`_arrow_ChunkedArray__chunks`, chunked_array, i)
+}
+
+ChunkedArray__type <- function(chunked_array) {
+    .Call(`_arrow_ChunkedArray__type`, chunked_array)
+}
+
+ChunkedArray_as_vector <- function(chunked_array) {
+    .Call(`_arrow_ChunkedArray_as_vector`, chunked_array)
+}
+
 RecordBatch_to_dataframe <- function(batch) {
     .Call(`_arrow_RecordBatch_to_dataframe`, batch)
 }

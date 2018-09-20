@@ -99,6 +99,17 @@ read_record_batch <- function(path){
   )
 )
 
+`arrow::ChunkedArray` <- R6Class("arrow::ChunkedArray", inherit = `arrow::Object`,
+  public = list(
+    length = function() ChunkedArray__length(self),
+    null_count = function() ChunkedArray__null_count(self),
+    num_chunks = function() ChunkedArray__num_chunks(self),
+    chunk = function(i) `arrow::Array`$new(ChunkedArray__chunk(self, i)),
+    chunks = function() purrr::map(ChunkedArray__chunks(self), `arrow::Array`$new),
+    type = function() `arrow::DataType`$dispatch(ChunkedArray__type(self))
+  )
+)
+
 `arrow::Table` <- R6Class("arrow::Table", inherit = `arrow::Object`,
   public = list(
     num_columns = function() Table_num_columns(self),

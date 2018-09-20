@@ -253,6 +253,85 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ChunkedArray__length
+int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+RcppExport SEXP _arrow_ChunkedArray__length(SEXP chunked_arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__length(chunked_array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ChunkedArray__null_count
+int ChunkedArray__null_count(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+RcppExport SEXP _arrow_ChunkedArray__null_count(SEXP chunked_arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__null_count(chunked_array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ChunkedArray__num_chunks
+int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+RcppExport SEXP _arrow_ChunkedArray__num_chunks(SEXP chunked_arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__num_chunks(chunked_array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ChunkedArray__chunk
+std::shared_ptr<arrow::Array> ChunkedArray__chunk(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i);
+RcppExport SEXP _arrow_ChunkedArray__chunk(SEXP chunked_arraySEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__chunk(chunked_array, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ChunkedArray__chunks
+List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i);
+RcppExport SEXP _arrow_ChunkedArray__chunks(SEXP chunked_arraySEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__chunks(chunked_array, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ChunkedArray__type
+std::shared_ptr<arrow::DataType> ChunkedArray__type(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+RcppExport SEXP _arrow_ChunkedArray__type(SEXP chunked_arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__type(chunked_array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ChunkedArray_as_vector
+SEXP ChunkedArray_as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+RcppExport SEXP _arrow_ChunkedArray_as_vector(SEXP chunked_arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray_as_vector(chunked_array));
+    return rcpp_result_gen;
+END_RCPP
+}
 // RecordBatch_to_dataframe
 List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch);
 RcppExport SEXP _arrow_RecordBatch_to_dataframe(SEXP batchSEXP) {
@@ -994,6 +1073,13 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch_schema", (DL_FUNC) &_arrow_RecordBatch_schema, 1},
     {"_arrow_RecordBatch_column", (DL_FUNC) &_arrow_RecordBatch_column, 2},
     {"_arrow_Array_as_vector", (DL_FUNC) &_arrow_Array_as_vector, 1},
+    {"_arrow_ChunkedArray__length", (DL_FUNC) &_arrow_ChunkedArray__length, 1},
+    {"_arrow_ChunkedArray__null_count", (DL_FUNC) &_arrow_ChunkedArray__null_count, 1},
+    {"_arrow_ChunkedArray__num_chunks", (DL_FUNC) &_arrow_ChunkedArray__num_chunks, 1},
+    {"_arrow_ChunkedArray__chunk", (DL_FUNC) &_arrow_ChunkedArray__chunk, 2},
+    {"_arrow_ChunkedArray__chunks", (DL_FUNC) &_arrow_ChunkedArray__chunks, 2},
+    {"_arrow_ChunkedArray__type", (DL_FUNC) &_arrow_ChunkedArray__type, 1},
+    {"_arrow_ChunkedArray_as_vector", (DL_FUNC) &_arrow_ChunkedArray_as_vector, 1},
     {"_arrow_RecordBatch_to_dataframe", (DL_FUNC) &_arrow_RecordBatch_to_dataframe, 1},
     {"_arrow_dataframe_to_Table", (DL_FUNC) &_arrow_dataframe_to_Table, 1},
     {"_arrow_Table_num_columns", (DL_FUNC) &_arrow_Table_num_columns, 1},
