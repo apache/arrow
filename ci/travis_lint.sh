@@ -45,10 +45,12 @@ fi
 # Fail fast on style checks
 
 if [ "$ARROW_CI_DEV_AFFECTED" != "0" ]; then
+  sudo pip install -q flake8
   flake8 --count $ARROW_CROSSBOW_DIR
 fi
 
 if [ "$ARROW_CI_INTEGRATION_AFFECTED" != "0" ]; then
+  sudo pip install -q flake8
   flake8 --count $ARROW_INTEGRATION_DIR
 fi
 
