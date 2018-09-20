@@ -299,14 +299,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // ChunkedArray__chunks
-List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i);
-RcppExport SEXP _arrow_ChunkedArray__chunks(SEXP chunked_arraySEXP, SEXP iSEXP) {
+List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+RcppExport SEXP _arrow_ChunkedArray__chunks(SEXP chunked_arraySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    rcpp_result_gen = Rcpp::wrap(ChunkedArray__chunks(chunked_array, i));
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__chunks(chunked_array));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -321,14 +320,14 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// ChunkedArray_as_vector
-SEXP ChunkedArray_as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
-RcppExport SEXP _arrow_ChunkedArray_as_vector(SEXP chunked_arraySEXP) {
+// ChunkedArray__as_vector
+SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_arraySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
-    rcpp_result_gen = Rcpp::wrap(ChunkedArray_as_vector(chunked_array));
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__as_vector(chunked_array));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -486,6 +485,17 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Column>& >::type column(columnSEXP);
     rcpp_result_gen = Rcpp::wrap(Column__type(column));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Column__data
+std::shared_ptr<arrow::ChunkedArray> Column__data(const std::shared_ptr<arrow::Column>& column);
+RcppExport SEXP _arrow_Column__data(SEXP columnSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Column>& >::type column(columnSEXP);
+    rcpp_result_gen = Rcpp::wrap(Column__data(column));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1077,9 +1087,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ChunkedArray__null_count", (DL_FUNC) &_arrow_ChunkedArray__null_count, 1},
     {"_arrow_ChunkedArray__num_chunks", (DL_FUNC) &_arrow_ChunkedArray__num_chunks, 1},
     {"_arrow_ChunkedArray__chunk", (DL_FUNC) &_arrow_ChunkedArray__chunk, 2},
-    {"_arrow_ChunkedArray__chunks", (DL_FUNC) &_arrow_ChunkedArray__chunks, 2},
+    {"_arrow_ChunkedArray__chunks", (DL_FUNC) &_arrow_ChunkedArray__chunks, 1},
     {"_arrow_ChunkedArray__type", (DL_FUNC) &_arrow_ChunkedArray__type, 1},
-    {"_arrow_ChunkedArray_as_vector", (DL_FUNC) &_arrow_ChunkedArray_as_vector, 1},
+    {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
     {"_arrow_RecordBatch_to_dataframe", (DL_FUNC) &_arrow_RecordBatch_to_dataframe, 1},
     {"_arrow_dataframe_to_Table", (DL_FUNC) &_arrow_dataframe_to_Table, 1},
     {"_arrow_Table_num_columns", (DL_FUNC) &_arrow_Table_num_columns, 1},
@@ -1094,6 +1104,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Column__length", (DL_FUNC) &_arrow_Column__length, 1},
     {"_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1},
     {"_arrow_Column__type", (DL_FUNC) &_arrow_Column__type, 1},
+    {"_arrow_Column__data", (DL_FUNC) &_arrow_Column__data, 1},
     {"_arrow_Field_initialize", (DL_FUNC) &_arrow_Field_initialize, 3},
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},

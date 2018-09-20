@@ -95,7 +95,8 @@ read_record_batch <- function(path){
   public = list(
     length = function() Column__length(self),
     null_count = function() Column__null_count(self),
-    type = function() `arrow::DataType`$dispatch(Column__type(self))
+    type = function() `arrow::DataType`$dispatch(Column__type(self)),
+    data = function() `arrow::ChunkedArray`$new(Column__data(self))
   )
 )
 
@@ -106,7 +107,8 @@ read_record_batch <- function(path){
     num_chunks = function() ChunkedArray__num_chunks(self),
     chunk = function(i) `arrow::Array`$new(ChunkedArray__chunk(self, i)),
     chunks = function() purrr::map(ChunkedArray__chunks(self), `arrow::Array`$new),
-    type = function() `arrow::DataType`$dispatch(ChunkedArray__type(self))
+    type = function() `arrow::DataType`$dispatch(ChunkedArray__type(self)),
+    as_vector = function() ChunkedArray__as_vector(self)
   )
 )
 

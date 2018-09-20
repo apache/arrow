@@ -105,16 +105,16 @@ ChunkedArray__chunk <- function(chunked_array, i) {
     .Call(`_arrow_ChunkedArray__chunk`, chunked_array, i)
 }
 
-ChunkedArray__chunks <- function(chunked_array, i) {
-    .Call(`_arrow_ChunkedArray__chunks`, chunked_array, i)
+ChunkedArray__chunks <- function(chunked_array) {
+    .Call(`_arrow_ChunkedArray__chunks`, chunked_array)
 }
 
 ChunkedArray__type <- function(chunked_array) {
     .Call(`_arrow_ChunkedArray__type`, chunked_array)
 }
 
-ChunkedArray_as_vector <- function(chunked_array) {
-    .Call(`_arrow_ChunkedArray_as_vector`, chunked_array)
+ChunkedArray__as_vector <- function(chunked_array) {
+    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
 }
 
 RecordBatch_to_dataframe <- function(batch) {
@@ -171,6 +171,10 @@ Column__null_count <- function(column) {
 
 Column__type <- function(column) {
     .Call(`_arrow_Column__type`, column)
+}
+
+Column__data <- function(column) {
+    .Call(`_arrow_Column__data`, column)
 }
 
 Field_initialize <- function(name, type, nullable = TRUE) {

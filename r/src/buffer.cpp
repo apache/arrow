@@ -231,7 +231,7 @@ std::shared_ptr<arrow::Array> ChunkedArray__chunk(const std::shared_ptr<arrow::C
 }
 
 // [[Rcpp::export]]
-List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i){
+List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
   return wrap(chunked_array->chunks());
 }
 
@@ -241,7 +241,7 @@ std::shared_ptr<arrow::DataType> ChunkedArray__type(const std::shared_ptr<arrow:
 }
 
 // [[Rcpp::export]]
-SEXP ChunkedArray_as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
+SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
   switch(chunked_array->type()->id()){
     case Type::INT8: return simple_ChunkedArray_to_Vector<RAWSXP>(chunked_array);
     case Type::INT32: return simple_ChunkedArray_to_Vector<INTSXP>(chunked_array);
@@ -369,7 +369,7 @@ List Table_to_dataframe(const std::shared_ptr<arrow::Table>& table){
   CharacterVector names(nc);
   for(int i=0; i<nc; i++) {
     auto column = table->column(i);
-    tbl[i] = ChunkedArray_as_vector(column->data());
+    tbl[i] = ChunkedArray__as_vector(column->data());
     names[i] = column->name();
   }
   tbl.attr("names") = names;
@@ -396,4 +396,9 @@ int Column__null_count(const std::shared_ptr<arrow::Column>& column) {
 // [[Rcpp::export]]
 std::shared_ptr<arrow::DataType> Column__type(const std::shared_ptr<arrow::Column>& column) {
   return column->type();
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::ChunkedArray> Column__data(const std::shared_ptr<arrow::Column>& column) {
+  return column->data();
 }
