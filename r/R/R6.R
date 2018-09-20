@@ -426,7 +426,10 @@ field <- function(name, type) {
 )
 
 `arrow::Schema` <- R6Class("arrow::Schema",
-  inherit = `arrow::Object`
+  inherit = `arrow::Object`,
+  public = list(
+    ToString = function() Schema_ToString(self)
+  )
 )
 
 #' @rdname DataType
