@@ -305,6 +305,29 @@ def test_column_flatten():
     assert y == pa.column('foo.y', pa.array([], type=pa.float32()))
 
 
+def test_column_getitem():
+    arr = pa.array([1, 2, 3, 4, 5, 6])
+    col = pa.column('ints', arr)
+
+    assert col[1].as_py() == 2
+    assert col[-1].as_py() == 6
+    assert col[-6].as_py() == 1
+    with pytest.raises(IndexError):
+        col[6]
+    with pytest.raises(IndexError):
+        col[-7]
+
+    data_slice = col[2:4]
+    assert data_slice.to_pylist() == [3, 4]
+
+    data_slice = col[4:-1]
+    assert data_slice.to_pylist() == [5]
+
+    data_slice = col[99:99]
+    assert data_slice.type == col.type
+    assert data_slice.to_pylist() == []
+
+
 def test_recordbatch_basics():
     data = [
         pa.array(range(5)),

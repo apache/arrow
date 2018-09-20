@@ -407,6 +407,9 @@ cdef class Column:
         else:
             raise TypeError('Invalid comparison')
 
+    def __getitem__(self, key):
+        return self.data[key]
+
     @staticmethod
     def from_array(*args):
         return column(*args)
