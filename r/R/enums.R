@@ -37,13 +37,15 @@ enum <- function(class, ...){
   )
 }
 
-
+#' @rdname DataType
 #' @export
 TimeUnit <- enum("arrow::TimeUnit::type", SECOND, MILLI, MICRO, NANO)
 
+#' @rdname DataType
 #' @export
 DateUnit <- enum("arrow::DateUnit", DAY, MILLI)
 
+#' @rdname DataType
 #' @export
 Type <- enum("arrow::Type::type",
   NA, BOOL, UINT8, INT8, UINT16, INT16, UINT32, INT32, UINT64, INT64,
@@ -51,6 +53,7 @@ Type <- enum("arrow::Type::type",
   INTERVAL, DECIMAL, LIST, STRUCT, UNION, DICTIONARY, MAP
 )
 
+#' @rdname DataType
 #' @export
 StatusCode <- enum("arrow::StatusCode",
   OK, OutOfMemory, KeyError, TypeError, Invalid, IOError,

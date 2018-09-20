@@ -229,6 +229,7 @@
 #' Apache Arrow data types
 #'
 #' @param unit time unit
+#' @param timezone time zone
 #' @param precision precision
 #' @param scale scale
 #' @param type type

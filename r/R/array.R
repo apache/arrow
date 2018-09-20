@@ -87,7 +87,6 @@ record_batch <- function(.data){
   `arrow::RecordBatch`$new(dataframe_to_RecordBatch(.data))
 }
 
-#' @export
 read_record_batch <- function(path){
   `arrow::RecordBatch`$new(read_record_batch_(fs::path_abs(path)))
 }
@@ -110,12 +109,16 @@ table <- function(.data){
   `arrow::Table`$new(dataframe_to_Table(.data))
 }
 
+#' Write a tibble in a binary arrow file
+#'
+#' @param data a [tibble::tibble]
+#' @param path file path
+#'
 #' @export
 write_arrow <- function(data, path){
   table(data)$to_file(path)
 }
 
-#' @export
 read_table <- function(path){
   `arrow::Table`$new(read_table_(fs::path_abs(path)))
 }
@@ -125,6 +128,12 @@ read_table <- function(path){
   Table_to_dataframe(x)
 }
 
+#' Read an tibble from an arrow::Table on disk
+#'
+#' @param path binary arrow file
+#'
+#' @return a [tibble::tibble]
+#'
 #' @export
 read_arrow <- function(path){
   as_tibble(read_table(path))

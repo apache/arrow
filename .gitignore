@@ -39,3 +39,5 @@ python/.eggs/
 .pytest_cache/
 pkgs
 .Rproj.user
+arrow.Rcheck/
+
