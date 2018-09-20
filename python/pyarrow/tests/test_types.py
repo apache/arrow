@@ -461,3 +461,13 @@ def test_field_add_remove_metadata():
     f5 = pa.field('foo', pa.int32(), True, metadata)
     f6 = f0.add_metadata(metadata)
     assert f5.equals(f6)
+
+
+def test_empty_table():
+    schema = pa.schema([
+        pa.field("oneField", pa.int64())
+    ])
+    table = schema.empty_table()
+    assert isinstance(table, pa.Table)
+    assert table.num_rows == 0
+    assert table.schema == schema

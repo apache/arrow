@@ -536,6 +536,25 @@ cdef class Schema:
         except TypeError:
             return NotImplemented
 
+    def empty_table(self):
+        """
+        Provide an empty table according to the schema.
+
+        Returns
+        -------
+        table: pyarrow.Table
+        """
+        arrays = []
+        names = []
+        for field in self:
+            arrays.append(array([], type=field.type))
+            names.append(field.name)
+        return Table.from_arrays(
+            arrays=arrays,
+            names=names,
+            metadata=self.metadata
+        )
+
     def equals(self, other, bint check_metadata=True):
         """
         Test if this schema is equal to the other
