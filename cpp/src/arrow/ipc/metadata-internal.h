@@ -106,7 +106,7 @@ Status WriteMessage(const Buffer& message, io::OutputStream* file,
 // Serialize arrow::Schema as a Flatbuffer
 //
 // \param[in] schema a Schema instance
-// \param[inout] dictionary_memo class for tracking dictionaries and assigning
+// \param[in,out] dictionary_memo class for tracking dictionaries and assigning
 // dictionary ids
 // \param[out] out the serialized arrow::Buffer
 // \return Status outcome

@@ -48,8 +48,8 @@ The code must pass `flake8` (available from pip or conda) or it will fail the
 build. Check for style errors before submitting your pull request with:
 
 ```
-flake8 pyarrow
-flake8 --config=.flake8.cython pyarrow
+flake8 .
+flake8 --config=.flake8.cython .
 ```
 
 ### Building from Source

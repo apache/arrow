@@ -578,6 +578,9 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     std::unique_ptr<Message> message;
     RETURN_NOT_OK(ReadMessage(block.offset, block.metadata_length, file_, &message));
 
+    // TODO(wesm): this breaks integration tests, see ARROW-3256
+    // DCHECK_EQ(message->body_length(), block.body_length);
+
     io::BufferReader reader(message->body());
     return ::arrow::ipc::ReadRecordBatch(*message->metadata(), schema_, &reader, batch);
   }
@@ -595,6 +598,9 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
 
       std::unique_ptr<Message> message;
       RETURN_NOT_OK(ReadMessage(block.offset, block.metadata_length, file_, &message));
+
+      // TODO(wesm): this breaks integration tests, see ARROW-3256
+      // DCHECK_EQ(message->body_length(), block.body_length);
 
       io::BufferReader reader(message->body());
 

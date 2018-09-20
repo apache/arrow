@@ -18,7 +18,14 @@
 #ifndef ARROW_TEST_UTIL_H_
 #define ARROW_TEST_UTIL_H_
 
+#ifndef _WIN32
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
+
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -27,6 +34,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -43,6 +51,11 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+
+static inline void sleep_for(double seconds) {
+  std::this_thread::sleep_for(
+      std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
+}
 
 #define STRINGIFY(x) #x
 
@@ -272,6 +285,17 @@ void rand_uniform_int(int64_t n, uint32_t seed, T min_value, T max_value, U* out
   std::generate(out, out + n, [&d, &gen] { return static_cast<U>(d(gen)); });
 }
 
+template <typename T, typename Enable = void>
+struct GenerateRandom {};
+
+template <typename T>
+struct GenerateRandom<T, typename std::enable_if<std::is_integral<T>::value>::type> {
+  static void Gen(int64_t length, uint32_t seed, void* out) {
+    rand_uniform_int(length, seed, std::numeric_limits<T>::min(),
+                     std::numeric_limits<T>::max(), reinterpret_cast<T*>(out));
+  }
+};
+
 static inline void random_ascii(int64_t n, uint32_t seed, uint8_t* out) {
   rand_uniform_int(n, seed, static_cast<int32_t>('A'), static_cast<int32_t>('z'), out);
 }
@@ -280,13 +304,13 @@ static inline int64_t CountNulls(const std::vector<uint8_t>& valid_bytes) {
   return static_cast<int64_t>(std::count(valid_bytes.cbegin(), valid_bytes.cend(), '\0'));
 }
 
-Status MakeRandomInt32Buffer(int64_t length, MemoryPool* pool,
-                             std::shared_ptr<ResizableBuffer>* out, uint32_t seed = 0) {
+template <typename T>
+Status MakeRandomBuffer(int64_t length, MemoryPool* pool,
+                        std::shared_ptr<ResizableBuffer>* out, uint32_t seed = 0) {
   DCHECK(pool);
   std::shared_ptr<ResizableBuffer> result;
-  RETURN_NOT_OK(AllocateResizableBuffer(pool, sizeof(int32_t) * length, &result));
-  rand_uniform_int(length, seed, 0, std::numeric_limits<int32_t>::max(),
-                   reinterpret_cast<int32_t*>(result->mutable_data()));
+  RETURN_NOT_OK(AllocateResizableBuffer(pool, sizeof(T) * length, &result));
+  GenerateRandom<T>::Gen(length, seed, result->mutable_data());
   *out = result;
   return Status::OK();
 }
@@ -342,6 +366,15 @@ void AssertBufferEqual(const Buffer& buffer, const std::string& expected) {
 void AssertBufferEqual(const Buffer& buffer, const Buffer& expected) {
   ASSERT_EQ(buffer.size(), expected.size()) << "Mismatching buffer size";
   ASSERT_TRUE(buffer.Equals(expected));
+}
+
+static inline void AssertSchemaEqual(const Schema& lhs, const Schema& rhs) {
+  if (!lhs.Equals(rhs)) {
+    std::stringstream ss;
+    ss << "left schema: " << lhs.ToString() << std::endl
+       << "right schema: " << rhs.ToString() << std::endl;
+    FAIL() << ss.str();
+  }
 }
 
 void PrintColumn(const Column& col, std::stringstream* ss) {
@@ -455,6 +488,53 @@ Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& 
       FAIL() << ss.str();                    \
     }                                        \
   } while (false)
+
+static inline void CompareBatch(const RecordBatch& left, const RecordBatch& right) {
+  if (!left.schema()->Equals(*right.schema())) {
+    FAIL() << "Left schema: " << left.schema()->ToString()
+           << "\nRight schema: " << right.schema()->ToString();
+  }
+  ASSERT_EQ(left.num_columns(), right.num_columns())
+      << left.schema()->ToString() << " result: " << right.schema()->ToString();
+  ASSERT_EQ(left.num_rows(), right.num_rows());
+  for (int i = 0; i < left.num_columns(); ++i) {
+    if (!left.column(i)->Equals(right.column(i))) {
+      std::stringstream ss;
+      ss << "Idx: " << i << " Name: " << left.column_name(i);
+      ss << std::endl << "Left: ";
+      ASSERT_OK(PrettyPrint(*left.column(i), 0, &ss));
+      ss << std::endl << "Right: ";
+      ASSERT_OK(PrettyPrint(*right.column(i), 0, &ss));
+      FAIL() << ss.str();
+    }
+  }
+}
+
+// ----------------------------------------------------------------------
+// A RecordBatchReader for serving a sequence of in-memory record batches
+
+class BatchIterator : public RecordBatchReader {
+ public:
+  BatchIterator(const std::shared_ptr<Schema>& schema,
+                const std::vector<std::shared_ptr<RecordBatch>>& batches)
+      : schema_(schema), batches_(batches), position_(0) {}
+
+  std::shared_ptr<Schema> schema() const override { return schema_; }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
+    if (position_ >= batches_.size()) {
+      *out = nullptr;
+    } else {
+      *out = batches_[position_++];
+    }
+    return Status::OK();
+  }
+
+ private:
+  std::shared_ptr<Schema> schema_;
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
+  size_t position_;
+};
 
 }  // namespace arrow
 

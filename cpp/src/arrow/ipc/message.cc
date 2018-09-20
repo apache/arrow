@@ -73,6 +73,8 @@ class Message::MessageImpl {
 
   const void* header() const { return message_->header(); }
 
+  int64_t body_length() const { return message_->bodyLength(); }
+
   std::shared_ptr<Buffer> body() const { return body_; }
 
   std::shared_ptr<Buffer> metadata() const { return metadata_; }
@@ -100,6 +102,8 @@ Status Message::Open(const std::shared_ptr<Buffer>& metadata,
 Message::~Message() {}
 
 std::shared_ptr<Buffer> Message::body() const { return impl_->body(); }
+
+int64_t Message::body_length() const { return impl_->body_length(); }
 
 std::shared_ptr<Buffer> Message::metadata() const { return impl_->metadata(); }
 

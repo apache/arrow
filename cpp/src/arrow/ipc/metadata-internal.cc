@@ -960,6 +960,8 @@ Status WriteMessage(const Buffer& message, io::OutputStream* file,
   int64_t start_offset;
   RETURN_NOT_OK(file->Tell(&start_offset));
 
+  // TODO(wesm): Should we depend on the position of the OutputStream? See
+  // ARROW-3212
   int32_t padded_message_length = static_cast<int32_t>(message.size()) + 4;
   const int32_t remainder =
       (padded_message_length + static_cast<int32_t>(start_offset)) % 8;
