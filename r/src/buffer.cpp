@@ -255,6 +255,25 @@ SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked
 }
 
 // [[Rcpp::export]]
+std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice1( const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset) {
+  return chunked_array->Slice(offset);
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice2( const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset, int length) {
+  return chunked_array->Slice(offset, length);
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Make(List chunks){
+  std::vector<std::shared_ptr<arrow::Array>> vec;
+  for ( SEXP chunk: chunks) {
+    vec.push_back(rvector_to_Array(chunk));
+  }
+  return std::make_shared<arrow::ChunkedArray>(std::move(vec));
+}
+
+// [[Rcpp::export]]
 List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch){
   int nc = batch->num_columns();
   int nr = batch->num_rows();

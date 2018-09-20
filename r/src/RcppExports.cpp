@@ -331,6 +331,42 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ChunkArray__Slice1
+std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice1(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset);
+RcppExport SEXP _arrow_ChunkArray__Slice1(SEXP chunked_arraySEXP, SEXP offsetSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkArray__Slice1(chunked_array, offset));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ChunkArray__Slice2
+std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice2(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset, int length);
+RcppExport SEXP _arrow_ChunkArray__Slice2(SEXP chunked_arraySEXP, SEXP offsetSEXP, SEXP lengthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
+    Rcpp::traits::input_parameter< int >::type length(lengthSEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkArray__Slice2(chunked_array, offset, length));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ChunkedArray__Make
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Make(List chunks);
+RcppExport SEXP _arrow_ChunkedArray__Make(SEXP chunksSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type chunks(chunksSEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__Make(chunks));
+    return rcpp_result_gen;
+END_RCPP
+}
 // RecordBatch_to_dataframe
 List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch);
 RcppExport SEXP _arrow_RecordBatch_to_dataframe(SEXP batchSEXP) {
@@ -1090,6 +1126,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ChunkedArray__chunks", (DL_FUNC) &_arrow_ChunkedArray__chunks, 1},
     {"_arrow_ChunkedArray__type", (DL_FUNC) &_arrow_ChunkedArray__type, 1},
     {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
+    {"_arrow_ChunkArray__Slice1", (DL_FUNC) &_arrow_ChunkArray__Slice1, 2},
+    {"_arrow_ChunkArray__Slice2", (DL_FUNC) &_arrow_ChunkArray__Slice2, 3},
+    {"_arrow_ChunkedArray__Make", (DL_FUNC) &_arrow_ChunkedArray__Make, 1},
     {"_arrow_RecordBatch_to_dataframe", (DL_FUNC) &_arrow_RecordBatch_to_dataframe, 1},
     {"_arrow_dataframe_to_Table", (DL_FUNC) &_arrow_dataframe_to_Table, 1},
     {"_arrow_Table_num_columns", (DL_FUNC) &_arrow_Table_num_columns, 1},

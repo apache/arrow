@@ -108,7 +108,14 @@ read_record_batch <- function(path){
     chunk = function(i) `arrow::Array`$new(ChunkedArray__chunk(self, i)),
     chunks = function() purrr::map(ChunkedArray__chunks(self), `arrow::Array`$new),
     type = function() `arrow::DataType`$dispatch(ChunkedArray__type(self)),
-    as_vector = function() ChunkedArray__as_vector(self)
+    as_vector = function() ChunkedArray__as_vector(self),
+    Slice = function(offset, length = NULL){
+      if (is.null(length)) {
+        `arrow::ChunkedArray`$new(ChunkArray__Slice1(self, offset))
+      } else {
+        `arrow::ChunkedArray`$new(ChunkArray__Slice2(self, offset, length))
+      }
+    }
   )
 )
 
@@ -161,4 +168,11 @@ read_arrow <- function(path){
   as_tibble(read_table(path))
 }
 
-
+#' create an arrow::Array from an R vector
+#'
+#' @param \dots Vectors to coerce
+#'
+#' @export
+chunked_array <- function(...){
+  `arrow::ChunkedArray`$new(ChunkedArray__Make(list(...)))
+}

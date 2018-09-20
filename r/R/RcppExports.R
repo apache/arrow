@@ -117,6 +117,18 @@ ChunkedArray__as_vector <- function(chunked_array) {
     .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
 }
 
+ChunkArray__Slice1 <- function(chunked_array, offset) {
+    .Call(`_arrow_ChunkArray__Slice1`, chunked_array, offset)
+}
+
+ChunkArray__Slice2 <- function(chunked_array, offset, length) {
+    .Call(`_arrow_ChunkArray__Slice2`, chunked_array, offset, length)
+}
+
+ChunkedArray__Make <- function(chunks) {
+    .Call(`_arrow_ChunkedArray__Make`, chunks)
+}
+
 RecordBatch_to_dataframe <- function(batch) {
     .Call(`_arrow_RecordBatch_to_dataframe`, batch)
 }
