@@ -158,6 +158,7 @@ test_and_install_cpp() {
 -DARROW_PLASMA=ON
 -DARROW_ORC=ON
 -DARROW_PYTHON=ON
+-DARROW_PARQUET=ON
 -DARROW_BOOST_USE_SHARED=ON
 -DCMAKE_BUILD_TYPE=release
 -DARROW_BUILD_BENCHMARKS=ON
@@ -171,27 +172,6 @@ test_and_install_cpp() {
   make install
 
   ctest -VV -L unittest
-  popd
-}
-
-# Build and install Parquet master so we can test the Python bindings
-
-install_parquet_cpp() {
-  git clone git@github.com:apache/parquet-cpp.git
-
-  mkdir parquet-cpp/build
-  pushd parquet-cpp/build
-
-  cmake -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
-        -DCMAKE_INSTALL_LIBDIR=$PARQUET_HOME/lib \
-        -DCMAKE_BUILD_TYPE=release \
-        -DPARQUET_BOOST_USE_SHARED=on \
-        -DPARQUET_BUILD_TESTS=off \
-        ..
-
-  make -j$NPROC
-  make install
-
   popd
 }
 
@@ -345,7 +325,6 @@ cd ${DIST_NAME}
 test_package_java
 setup_miniconda
 test_and_install_cpp
-install_parquet_cpp
 test_python
 test_glib
 test_ruby
