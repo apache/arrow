@@ -59,8 +59,8 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
   std::vector<std::future<void*>> futures;
 
   for (int i = 0; i < num_threads; i++) {
-    futures.push_back(pool->Submit(memcpy, dst + prefix + i * chunk_size,
-                                   left + i * chunk_size, chunk_size));
+    futures.emplace_back(pool->Submit(memcpy, dst + prefix + i * chunk_size,
+                                      left + i * chunk_size, chunk_size));
   }
   memcpy(dst, src, prefix);
   memcpy(dst + prefix + num_threads * chunk_size, right, suffix);

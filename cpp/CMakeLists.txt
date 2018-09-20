@@ -140,6 +140,10 @@ Pass multiple labels by dividing with semicolons")
     "Compile with extra error context (line numbers, code)"
     OFF)
 
+  option(ARROW_FLIGHT
+    "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)"
+    OFF)
+
   option(ARROW_IPC
     "Build the Arrow IPC extensions"
     ON)
@@ -239,10 +243,6 @@ Pass multiple labels by dividing with semicolons")
   option(ARROW_WITH_ZSTD
     "Build with zstd compression"
     ON)
-
-  option(ARROW_WITH_GRPC
-    "Build with GRPC"
-    OFF)
 
   option(ARROW_GENERATE_COVERAGE
     "Build with C++ code coverage enabled"
@@ -634,14 +634,6 @@ if (ARROW_WITH_ZSTD)
   SET(ARROW_STATIC_LINK_LIBS zstd_static ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-if (ARROW_WITH_GRPC)
-  SET(ARROW_STATIC_LINK_LIBS
-    grpc_grp
-    grpc_grpc
-    grpc_grpcpp
-    ${ARROW_STATIC_LINK_LIBS})
-endif()
-
 if (ARROW_ORC)
   SET(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
@@ -657,11 +649,13 @@ if (ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-set(ARROW_BENCHMARK_LINK_LIBS
-  arrow_static
-  arrow_benchmark_main
-  gtest
-  ${ARROW_STATIC_LINK_LIBS})
+if (ARROW_BUILD_BENCHMARKS)
+  set(ARROW_BENCHMARK_LINK_LIBS
+    arrow_static
+    arrow_benchmark_main
+    gtest
+    ${ARROW_STATIC_LINK_LIBS})
+endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
   ${ARROW_STATIC_LINK_LIBS}
@@ -683,8 +677,8 @@ endif()
 set(ARROW_MIN_TEST_LIBS
   arrow_static
   ${ARROW_STATIC_LINK_LIBS}
-  gtest
-  gtest_main)
+  gtest_main
+  gtest)
 
 if(NOT MSVC)
   set(ARROW_MIN_TEST_LIBS
@@ -742,6 +736,10 @@ if(NOT WIN32 AND ARROW_PLASMA)
 endif()
 
 add_subdirectory(src/arrow)
+
+if(ARROW_FLIGHT)
+  add_subdirectory(src/arrow/flight)
+endif()
 
 if(ARROW_PYTHON)
   add_subdirectory(src/arrow/python)

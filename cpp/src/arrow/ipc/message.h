@@ -125,6 +125,10 @@ class ARROW_EXPORT Message {
   /// \return buffer is null if no body
   std::shared_ptr<Buffer> body() const;
 
+  /// \brief The expected body length according to the metadata, for
+  /// verification purposes
+  int64_t body_length() const;
+
   /// \brief The Message type
   Type type() const;
 

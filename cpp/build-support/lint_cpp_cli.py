@@ -72,10 +72,8 @@ EXCLUSIONS = [
     'arrow/util/macros.h',
     'arrow/python/iterators.h',
     'arrow/util/parallel.h',
-    'arrow/io/hdfs-internal.h',
-    'parquet/arrow/test-util.h',
-    'parquet/encoding-internal.h',
-    'parquet/test-util.h'
+    'test',
+    'internal'
 ]
 
 try:

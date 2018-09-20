@@ -71,6 +71,10 @@ Status Buffer::FromString(const std::string& data, std::shared_ptr<Buffer>* out)
   return FromString(data, default_memory_pool(), out);
 }
 
+std::string Buffer::ToString() const {
+  return std::string(reinterpret_cast<const char*>(data_), static_cast<size_t>(size_));
+}
+
 void Buffer::CheckMutable() const { DCHECK(is_mutable()) << "buffer not mutable"; }
 
 /// A Buffer whose lifetime is tied to a particular MemoryPool

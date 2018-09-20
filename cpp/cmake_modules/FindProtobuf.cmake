@@ -94,6 +94,7 @@ else()
 endif()
 
 mark_as_advanced (
+  PROTOBUF_EXECUTABLE
   PROTOBUF_INCLUDE_DIR
   PROTOBUF_LIBS
   PROTOBUF_STATIC_LIB
