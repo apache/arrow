@@ -34,10 +34,10 @@ set(JEMALLOC_STATIC_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LI
 ExternalProject_Add(jemalloc
     URL ${jemalloc_URL}
     DOWNLOAD_DIR "${DOWNLOAD_LOCATION}"
-    CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_plasma_" "--with-private-namespace=je_plasma_private_" "--disable-tls" "--enable-retain"
+    CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_plasma_" "--with-private-namespace=je_plasma_private_" "--disable-tls"
     ${EP_LOG_OPTIONS}
     BUILD_IN_SOURCE 1
-    BUILD_COMMAND ${MAKE} CFLAGS="-DJEMALLOC_RETAIN=1"
+    BUILD_COMMAND ${MAKE}
     BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
     INSTALL_COMMAND ${MAKE} -j1 install_bin install_include install_lib)
 

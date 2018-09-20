@@ -152,9 +152,6 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string dir
   size_t index_size = sizeof(arena_index_);
   size_t error = je_plasma_mallctl("arenas.create", (void *)&arena_index_, &index_size, (void *)&new_hooks, sizeof(extent_hooks_t *));
   ARROW_LOG(INFO) << "arena_index_ = " << arena_index_;
-
-  int err = je_plasma_mallctl("arena.16.retain_grow_limit", NULL, 0, &system_memory, sizeof(system_memory));
-  ARROW_CHECK(err == 0) << "mallctl return code = " << err;
 #ifdef PLASMA_GPU
   DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
