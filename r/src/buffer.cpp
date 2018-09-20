@@ -62,9 +62,11 @@ std::shared_ptr<arrow::Array> SimpleArray(SEXP x){
       if (Rcpp::Vector<RTYPE>::is_na(vec[i]) ) {
         BitUtil::SetBit(null_bitmap_data, i);
         null_count++;
+      } else {
+        BitUtil::ClearBit(null_bitmap_data, i);
       }
     }
-    buffers[0] = null_bitmap;
+    buffers[0] = std::move(null_bitmap);
   }
 
   auto data = ArrayData::Make(
@@ -182,28 +184,38 @@ inline SEXP simple_ChunkedArray_to_Vector(const std::shared_ptr<arrow::ChunkedAr
   Rcpp::Vector<RTYPE> out = no_init(chunked_array->length());
   auto p = out.begin();
 
+  int k = 0;
   for (int i=0; i<chunked_array->num_chunks(); i++) {
     auto chunk = chunked_array->chunk(i);
+    auto n = chunk->length();
 
     // copy the data
-    p = std::copy_n(
-      reinterpret_cast<const stored_type*>(chunk->data()->buffers[1]->data()),
-      chunk->length(),
-      p
-    );
+    auto q = p;
+    p = std::copy_n(reinterpret_cast<const stored_type*>(chunk->data()->buffers[1]->data()), n, p);
 
     // set NA using the bitmap, TODO
+    auto bitmap_data = chunk->null_bitmap();
+    if (bitmap_data && RTYPE != RAWSXP) {
+      auto data = bitmap_data->data();
+      for (int j=0; j<n; j++){
+        if (BitUtil::GetBit(data, j)) {
+          q[k+j] = Rcpp::Vector<RTYPE>::get_na();
+        }
+      }
+    }
+
+    k += chunk->length();
   }
   return out;
 }
 
 SEXP ChunkedArray_as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
   switch(chunked_array->type()->id()){
-  case Type::INT8: return simple_ChunkedArray_to_Vector<RAWSXP>(chunked_array);
-  case Type::INT32: return simple_ChunkedArray_to_Vector<INTSXP>(chunked_array);
-  case Type::DOUBLE: return simple_ChunkedArray_to_Vector<REALSXP>(chunked_array);
-  default:
-    break;
+    case Type::INT8: return simple_ChunkedArray_to_Vector<RAWSXP>(chunked_array);
+    case Type::INT32: return simple_ChunkedArray_to_Vector<INTSXP>(chunked_array);
+    case Type::DOUBLE: return simple_ChunkedArray_to_Vector<REALSXP>(chunked_array);
+    default:
+      break;
   }
 
   stop(tfm::format("cannot handle Array of type %d", chunked_array->type()->id()));
@@ -231,7 +243,7 @@ std::shared_ptr<arrow::Table> dataframe_to_Table(DataFrame tbl){
   auto rb = dataframe_to_RecordBatch(tbl);
 
   std::shared_ptr<arrow::Table> out;
-  auto status = arrow::Table::FromRecordBatches({ std::move(rb) }, &out);
+  R_ERROR_NOT_OK(arrow::Table::FromRecordBatches({ std::move(rb) }, &out));
   return out;
 }
 
