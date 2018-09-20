@@ -42,6 +42,7 @@ requirements:
     - flatbuffers
     - rapidjson
     - zlib
+    - glog
     - snappy
     - brotli
     - zstd
