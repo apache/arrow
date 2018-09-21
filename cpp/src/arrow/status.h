@@ -163,9 +163,7 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::SerializationError, msg);
   }
 
-  static Status RError(const std::string& msg) {
-    return Status(StatusCode::RError, msg);
-  }
+  static Status RError(const std::string& msg) { return Status(StatusCode::RError, msg); }
 
   static Status PlasmaObjectExists(const std::string& msg) {
     return Status(StatusCode::PlasmaObjectExists, msg);
