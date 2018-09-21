@@ -143,3 +143,5 @@ inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_static_ptr_tag){
 
 }
 
+SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
+

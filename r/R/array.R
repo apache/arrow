@@ -40,7 +40,7 @@
     Equals = function(other) Array_Equals(self, other),
     ApproxEquals = function(othet) Array_ApproxEquals(self, other),
     data = function() `arrow::ArrayData`$new(Array_data(self)),
-    as_vector = function() Array_as_vector(self),
+    as_vector = function() Array__as_vector(self),
     ToString = function() Array_ToString(self),
     Slice = function(offset, length = NULL){
       if (is.null(length)) {
@@ -67,22 +67,22 @@
 #'
 #' @export
 array <- function(...){
-  `arrow::Array`$new(rvector_to_Array(vctrs::vec_c(...)))
+  `arrow::Array`$new(Array__from_vector(vctrs::vec_c(...)))
 }
 
 `arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = `arrow::Object`,
   public = list(
-    num_columns = function() RecordBatch_num_columns(self),
-    num_rows = function() RecordBatch_num_rows(self),
-    schema = function() `arrow::Schema`$new(RecordBatch_schema(self)),
-    to_file = function(path) invisible(RecordBatch_to_file(self, fs::path_abs(path))),
-    column = function(i) `arrow::Array`$new(RecordBatch_column(self, i))
+    num_columns = function() RecordBatch__num_columns(self),
+    num_rows = function() RecordBatch__num_rows(self),
+    schema = function() `arrow::Schema`$new(RecordBatch__schema(self)),
+    to_file = function(path) invisible(RecordBatch__to_file(self, fs::path_abs(path))),
+    column = function(i) `arrow::Array`$new(RecordBatch__column(self, i))
   )
 )
 
 #' @export
 `as_tibble.arrow::RecordBatch` <- function(x, ...){
-  RecordBatch_to_dataframe(x)
+  RecordBatch__to_dataframe(x)
 }
 
 #' Create an arrow::RecordBatch from a data frame

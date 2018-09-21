@@ -85,7 +85,7 @@ std::shared_ptr<arrow::Array> SimpleArray(SEXP x){
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Array> rvector_to_Array(SEXP x){
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x){
   switch(TYPEOF(x)){
   case INTSXP:
     if (Rf_isFactor(x)) {
@@ -114,32 +114,12 @@ std::shared_ptr<arrow::RecordBatch> dataframe_to_RecordBatch(DataFrame tbl){
 
   int nc = tbl.size();
   for(int i=0; i<tbl.size(); i++){
-    arrays.push_back(rvector_to_Array(tbl[i]));
+    arrays.push_back(Array__from_vector(tbl[i]));
     fields.push_back(std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type()));
   }
   auto schema = std::make_shared<arrow::Schema>(std::move(fields));
 
   return arrow::RecordBatch::Make(schema, tbl.nrow(), std::move(arrays));
-}
-
-// [[Rcpp::export]]
-int RecordBatch_num_columns(const std::shared_ptr<arrow::RecordBatch>& x){
-  return x->num_columns();
-}
-
-// [[Rcpp::export]]
-int RecordBatch_num_rows(const std::shared_ptr<arrow::RecordBatch>& x){
-  return x->num_rows();
-}
-
-// [[Rcpp::export]]
-std::shared_ptr<arrow::Schema> RecordBatch_schema(const std::shared_ptr<arrow::RecordBatch>& x){
-  return x->schema();
-}
-
-// [[Rcpp::export]]
-std::shared_ptr<arrow::Array> RecordBatch_column(const std::shared_ptr<arrow::RecordBatch>& batch, int i){
-  return batch->column(i);
 }
 
 template <int RTYPE>
@@ -165,7 +145,7 @@ inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array ){
 }
 
 // [[Rcpp::export]]
-SEXP Array_as_vector(const std::shared_ptr<arrow::Array>& array){
+SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array){
   switch(array->type_id()){
   case Type::INT8: return simple_Array_to_Vector<RAWSXP>(array);
   case Type::INT32: return simple_Array_to_Vector<INTSXP>(array);
@@ -282,25 +262,9 @@ std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice2( const std::shared_ptr<a
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Make(List chunks){
   std::vector<std::shared_ptr<arrow::Array>> vec;
   for ( SEXP chunk: chunks) {
-    vec.push_back(rvector_to_Array(chunk));
+    vec.push_back(Array__from_vector(chunk));
   }
   return std::make_shared<arrow::ChunkedArray>(std::move(vec));
-}
-
-// [[Rcpp::export]]
-List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch){
-  int nc = batch->num_columns();
-  int nr = batch->num_rows();
-  List tbl(nc);
-  CharacterVector names(nc);
-  for(int i=0; i<nc; i++) {
-    tbl[i] = Array_as_vector(batch->column(i));
-    names[i] = batch->column_name(i);
-  }
-  tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
-  return tbl;
 }
 
 // [[Rcpp::export]]
@@ -325,37 +289,6 @@ int Table_num_rows(const std::shared_ptr<arrow::Table>& x){
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Schema> Table_schema(const std::shared_ptr<arrow::Table>& x){
   return x->schema();
-}
-
-// [[Rcpp::export]]
-int RecordBatch_to_file(const std::shared_ptr<arrow::RecordBatch>& batch, std::string path) {
-  std::shared_ptr<arrow::io::OutputStream> stream;
-  std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
-
-  R_ERROR_NOT_OK(arrow::io::FileOutputStream::Open(path, &stream));
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileWriter::Open(stream.get(), batch->schema(), &file_writer));
-  R_ERROR_NOT_OK(file_writer->WriteRecordBatch(*batch, true));
-  R_ERROR_NOT_OK(file_writer->Close());
-
-  int64_t offset;
-  R_ERROR_NOT_OK(stream->Tell(&offset));
-  R_ERROR_NOT_OK(stream->Close());
-  return offset;
-}
-
-// [[Rcpp::export]]
-std::shared_ptr<arrow::RecordBatch> read_record_batch_(std::string path) {
-  std::shared_ptr<arrow::io::ReadableFile> stream;
-  std::shared_ptr<arrow::ipc::RecordBatchFileReader> rbf_reader;
-
-  R_ERROR_NOT_OK(arrow::io::ReadableFile::Open(path, &stream));
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileReader::Open(stream, &rbf_reader));
-
-  std::shared_ptr<arrow::RecordBatch> batch;
-  R_ERROR_NOT_OK(rbf_reader->ReadRecordBatch(0, &batch));
-
-  R_ERROR_NOT_OK(stream->Close());
-  return batch;
 }
 
 // [[Rcpp::export]]

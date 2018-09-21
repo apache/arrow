@@ -6,6 +6,85 @@
 
 using namespace Rcpp;
 
+// RecordBatch__num_columns
+int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
+RcppExport SEXP _arrow_RecordBatch__num_columns(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__num_columns(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatch__num_rows
+int RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x);
+RcppExport SEXP _arrow_RecordBatch__num_rows(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__num_rows(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatch__schema
+std::shared_ptr<arrow::Schema> RecordBatch__schema(const std::shared_ptr<arrow::RecordBatch>& x);
+RcppExport SEXP _arrow_RecordBatch__schema(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__schema(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatch__column
+std::shared_ptr<arrow::Array> RecordBatch__column(const std::shared_ptr<arrow::RecordBatch>& batch, int i);
+RcppExport SEXP _arrow_RecordBatch__column(SEXP batchSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__column(batch, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatch_to_dataframe
+List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch);
+RcppExport SEXP _arrow_RecordBatch_to_dataframe(SEXP batchSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch_to_dataframe(batch));
+    return rcpp_result_gen;
+END_RCPP
+}
+// read_record_batch_
+std::shared_ptr<arrow::RecordBatch> read_record_batch_(std::string path);
+RcppExport SEXP _arrow_read_record_batch_(SEXP pathSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_record_batch_(path));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatch_to_file
+int RecordBatch_to_file(const std::shared_ptr<arrow::RecordBatch>& batch, std::string path);
+RcppExport SEXP _arrow_RecordBatch_to_file(SEXP batchSEXP, SEXP pathSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
+    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch_to_file(batch, path));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ArrayData_get_type
 std::shared_ptr<arrow::DataType> ArrayData_get_type(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData_get_type(SEXP xSEXP) {
@@ -175,14 +254,14 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// rvector_to_Array
-std::shared_ptr<arrow::Array> rvector_to_Array(SEXP x);
-RcppExport SEXP _arrow_rvector_to_Array(SEXP xSEXP) {
+// Array__from_vector
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x);
+RcppExport SEXP _arrow_Array__from_vector(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(rvector_to_Array(x));
+    rcpp_result_gen = Rcpp::wrap(Array__from_vector(x));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -197,59 +276,14 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// RecordBatch_num_columns
-int RecordBatch_num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
-RcppExport SEXP _arrow_RecordBatch_num_columns(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch_num_columns(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RecordBatch_num_rows
-int RecordBatch_num_rows(const std::shared_ptr<arrow::RecordBatch>& x);
-RcppExport SEXP _arrow_RecordBatch_num_rows(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch_num_rows(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RecordBatch_schema
-std::shared_ptr<arrow::Schema> RecordBatch_schema(const std::shared_ptr<arrow::RecordBatch>& x);
-RcppExport SEXP _arrow_RecordBatch_schema(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch_schema(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RecordBatch_column
-std::shared_ptr<arrow::Array> RecordBatch_column(const std::shared_ptr<arrow::RecordBatch>& batch, int i);
-RcppExport SEXP _arrow_RecordBatch_column(SEXP batchSEXP, SEXP iSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch_column(batch, i));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array_as_vector
-SEXP Array_as_vector(const std::shared_ptr<arrow::Array>& array);
-RcppExport SEXP _arrow_Array_as_vector(SEXP arraySEXP) {
+// Array__as_vector
+SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
+RcppExport SEXP _arrow_Array__as_vector(SEXP arraySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_as_vector(array));
+    rcpp_result_gen = Rcpp::wrap(Array__as_vector(array));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -392,17 +426,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// RecordBatch_to_dataframe
-List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch);
-RcppExport SEXP _arrow_RecordBatch_to_dataframe(SEXP batchSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch_to_dataframe(batch));
-    return rcpp_result_gen;
-END_RCPP
-}
 // dataframe_to_Table
 std::shared_ptr<arrow::Table> dataframe_to_Table(DataFrame tbl);
 RcppExport SEXP _arrow_dataframe_to_Table(SEXP tblSEXP) {
@@ -444,29 +467,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Table_schema(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RecordBatch_to_file
-int RecordBatch_to_file(const std::shared_ptr<arrow::RecordBatch>& batch, std::string path);
-RcppExport SEXP _arrow_RecordBatch_to_file(SEXP batchSEXP, SEXP pathSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
-    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch_to_file(batch, path));
-    return rcpp_result_gen;
-END_RCPP
-}
-// read_record_batch_
-std::shared_ptr<arrow::RecordBatch> read_record_batch_(std::string path);
-RcppExport SEXP _arrow_read_record_batch_(SEXP pathSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
-    rcpp_result_gen = Rcpp::wrap(read_record_batch_(path));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1122,6 +1122,13 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
+    {"_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
+    {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
+    {"_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2},
+    {"_arrow_RecordBatch_to_dataframe", (DL_FUNC) &_arrow_RecordBatch_to_dataframe, 1},
+    {"_arrow_read_record_batch_", (DL_FUNC) &_arrow_read_record_batch_, 1},
+    {"_arrow_RecordBatch_to_file", (DL_FUNC) &_arrow_RecordBatch_to_file, 2},
     {"_arrow_ArrayData_get_type", (DL_FUNC) &_arrow_ArrayData_get_type, 1},
     {"_arrow_ArrayData_get_length", (DL_FUNC) &_arrow_ArrayData_get_length, 1},
     {"_arrow_ArrayData_get_null_count", (DL_FUNC) &_arrow_ArrayData_get_null_count, 1},
@@ -1137,13 +1144,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array_Equals", (DL_FUNC) &_arrow_Array_Equals, 2},
     {"_arrow_Array_ApproxEquals", (DL_FUNC) &_arrow_Array_ApproxEquals, 2},
     {"_arrow_Array_data", (DL_FUNC) &_arrow_Array_data, 1},
-    {"_arrow_rvector_to_Array", (DL_FUNC) &_arrow_rvector_to_Array, 1},
+    {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 1},
     {"_arrow_dataframe_to_RecordBatch", (DL_FUNC) &_arrow_dataframe_to_RecordBatch, 1},
-    {"_arrow_RecordBatch_num_columns", (DL_FUNC) &_arrow_RecordBatch_num_columns, 1},
-    {"_arrow_RecordBatch_num_rows", (DL_FUNC) &_arrow_RecordBatch_num_rows, 1},
-    {"_arrow_RecordBatch_schema", (DL_FUNC) &_arrow_RecordBatch_schema, 1},
-    {"_arrow_RecordBatch_column", (DL_FUNC) &_arrow_RecordBatch_column, 2},
-    {"_arrow_Array_as_vector", (DL_FUNC) &_arrow_Array_as_vector, 1},
+    {"_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1},
     {"_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2},
     {"_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3},
     {"_arrow_ChunkedArray__length", (DL_FUNC) &_arrow_ChunkedArray__length, 1},
@@ -1156,13 +1159,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ChunkArray__Slice1", (DL_FUNC) &_arrow_ChunkArray__Slice1, 2},
     {"_arrow_ChunkArray__Slice2", (DL_FUNC) &_arrow_ChunkArray__Slice2, 3},
     {"_arrow_ChunkedArray__Make", (DL_FUNC) &_arrow_ChunkedArray__Make, 1},
-    {"_arrow_RecordBatch_to_dataframe", (DL_FUNC) &_arrow_RecordBatch_to_dataframe, 1},
     {"_arrow_dataframe_to_Table", (DL_FUNC) &_arrow_dataframe_to_Table, 1},
     {"_arrow_Table_num_columns", (DL_FUNC) &_arrow_Table_num_columns, 1},
     {"_arrow_Table_num_rows", (DL_FUNC) &_arrow_Table_num_rows, 1},
     {"_arrow_Table_schema", (DL_FUNC) &_arrow_Table_schema, 1},
-    {"_arrow_RecordBatch_to_file", (DL_FUNC) &_arrow_RecordBatch_to_file, 2},
-    {"_arrow_read_record_batch_", (DL_FUNC) &_arrow_read_record_batch_, 1},
     {"_arrow_Table_to_file", (DL_FUNC) &_arrow_Table_to_file, 2},
     {"_arrow_read_table_", (DL_FUNC) &_arrow_read_table_, 1},
     {"_arrow_Table_to_dataframe", (DL_FUNC) &_arrow_Table_to_dataframe, 1},
