@@ -2069,11 +2069,12 @@ class TestConvertMisc(object):
             assert isinstance(converted, pa.NullArray)
             assert len(converted) == 3
             assert converted.null_count == 3
-            assert converted[0] is pa.NA
+            for item in converted:
+                assert item is pa.NA
 
         _check_series(pd.Series([None] * 3, dtype=object))
         _check_series(pd.Series([np.nan] * 3, dtype=object))
-        _check_series(pd.Series([np.sqrt(-1)] * 3, dtype=object))
+        _check_series(pd.Series([None, np.nan, None], dtype=object))
 
     def test_partial_schema(self):
         data = OrderedDict([

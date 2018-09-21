@@ -1523,6 +1523,11 @@ def _filter_partition(df, part_keys):
     to_drop = []
     for name, value in part_keys:
         to_drop.append(name)
+
+        # to avoid pandas warning
+        if isinstance(value, (datetime.date, datetime.datetime)):
+            value = pd.Timestamp(value)
+
         predicate &= df[name] == value
 
     return df[predicate].drop(to_drop, axis=1)
@@ -1970,9 +1975,8 @@ carat        cut  color  clarity  depth  table  price     x     y     z
  0.26  Very Good      H      SI1   61.9   55.0    337  4.07  4.11  2.53
  0.22       Fair      E      VS2   65.1   61.0    337  3.87  3.78  2.49
  0.23  Very Good      H      VS1   59.4   61.0    338  4.00  4.05  2.39"""
-    expected = pd.read_csv(
-        io.BytesIO(expected_string), sep=r'\s{2,}', index_col=None, header=0
-    )
+    expected = pd.read_csv(io.BytesIO(expected_string), sep=r'\s{2,}',
+                           index_col=None, header=0, engine='python')
     table = _read_table(datadir / 'v0.7.1.parquet')
     result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
@@ -1992,8 +1996,9 @@ carat        cut  color  clarity  depth  table  price     x     y     z
  0.22       Fair      E      VS2   65.1   61.0    337  3.87  3.78  2.49
  0.23  Very Good      H      VS1   59.4   61.0    338  4.00  4.05  2.39"""
     expected = pd.read_csv(
-        io.BytesIO(expected_string),
-        sep=r'\s{2,}', index_col=['cut', 'color', 'clarity'], header=0
+        io.BytesIO(expected_string), sep=r'\s{2,}',
+        index_col=['cut', 'color', 'clarity'],
+        header=0, engine='python'
     ).sort_index()
 
     table = _read_table(datadir / 'v0.7.1.all-named-index.parquet')
@@ -2016,7 +2021,8 @@ carat        cut  color  clarity  depth  table  price     x     y     z
  0.23  Very Good      H      VS1   59.4   61.0    338  4.00  4.05  2.39"""
     expected = pd.read_csv(
         io.BytesIO(expected_string),
-        sep=r'\s{2,}', index_col=['cut', 'color', 'clarity'], header=0
+        sep=r'\s{2,}', index_col=['cut', 'color', 'clarity'],
+        header=0, engine='python'
     ).sort_index()
     expected.index = expected.index.set_names(['cut', None, 'clarity'])
 
