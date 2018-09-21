@@ -1,0 +1,4 @@
+usr/include/parquet/
+usr/lib/*/libparquet.a
+usr/lib/*/libparquet.so
+usr/lib/*/pkgconfig/parquet.pc

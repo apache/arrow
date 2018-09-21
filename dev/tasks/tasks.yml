@@ -256,6 +256,9 @@ tasks:
       - libarrow-python11_{version}-1_amd64.deb
       - libarrow11-dbgsym_{version}-1_amd64.deb
       - libarrow11_{version}-1_amd64.deb
+      - libparquet-dev_{version}-1_amd64.deb
+      - libparquet11-dbgsym_{version}-1_amd64.deb
+      - libparquet11_{version}-1_amd64.deb
 
   ubuntu-trusty:
     platform: linux
@@ -277,6 +280,8 @@ tasks:
       - libarrow-glib-doc_{version}-1_all.deb
       - libarrow-glib11_{version}-1_amd64.deb
       - libarrow11_{version}-1_amd64.deb
+      - libparquet-dev_{version}-1_amd64.deb
+      - libparquet11_{version}-1_amd64.deb
 
   ubuntu-xenial:
     platform: linux
@@ -305,6 +310,8 @@ tasks:
       - libarrow-python-dev_{version}-1_amd64.deb
       - libarrow-python11_{version}-1_amd64.deb
       - libarrow11_{version}-1_amd64.deb
+      - libparquet-dev_{version}-1_amd64.deb
+      - libparquet11_{version}-1_amd64.deb
 
   ubuntu-bionic:
     platform: linux
@@ -333,6 +340,8 @@ tasks:
       - libarrow-python-dev_{version}-1_amd64.deb
       - libarrow-python11_{version}-1_amd64.deb
       - libarrow11_{version}-1_amd64.deb
+      - libparquet-dev_{version}-1_amd64.deb
+      - libparquet11_{version}-1_amd64.deb
 
   centos-6:
     platform: linux
@@ -366,3 +375,5 @@ tasks:
       - arrow-libs-{version}-1.el7.x86_64.rpm
       - arrow-python-devel-{version}-1.el7.x86_64.rpm
       - arrow-python-libs-{version}-1.el7.x86_64.rpm
+      - parquet-devel-{version}-1.el7.x86_64.rpm
+      - parquet-libs-{version}-1.el7.x86_64.rpm
