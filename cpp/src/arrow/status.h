@@ -79,6 +79,7 @@ enum class StatusCode : char {
   NotImplemented = 10,
   SerializationError = 11,
   PythonError = 12,
+  RError = 13,
   PlasmaObjectExists = 20,
   PlasmaObjectNonexistent = 21,
   PlasmaStoreFull = 22,
