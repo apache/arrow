@@ -110,7 +110,7 @@ class ARROW_EXPORT Status {
   Status& operator=(const Status& s);
 
   // Move the specified status.
-  Status(Status&& s) noexcept;
+  inline Status(Status&& s) noexcept;
   Status& operator=(Status&& s) noexcept;
 
   // AND the statuses.
