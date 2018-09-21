@@ -178,6 +178,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Array__RangeEquals
+bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self, const std::shared_ptr<arrow::Array>& other, int start_idx, int end_idx, int other_start_idx);
+RcppExport SEXP _arrow_Array__RangeEquals(SEXP selfSEXP, SEXP otherSEXP, SEXP start_idxSEXP, SEXP end_idxSEXP, SEXP other_start_idxSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type self(selfSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type other(otherSEXP);
+    Rcpp::traits::input_parameter< int >::type start_idx(start_idxSEXP);
+    Rcpp::traits::input_parameter< int >::type end_idx(end_idxSEXP);
+    Rcpp::traits::input_parameter< int >::type other_start_idx(other_start_idxSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ArrayData__get_type
 std::shared_ptr<arrow::DataType> ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData__get_type(SEXP xSEXP) {
@@ -1093,6 +1108,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array__Equals", (DL_FUNC) &_arrow_Array__Equals, 2},
     {"_arrow_Array__ApproxEquals", (DL_FUNC) &_arrow_Array__ApproxEquals, 2},
     {"_arrow_Array__data", (DL_FUNC) &_arrow_Array__data, 1},
+    {"_arrow_Array__RangeEquals", (DL_FUNC) &_arrow_Array__RangeEquals, 5},
     {"_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
     {"_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},
     {"_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1},

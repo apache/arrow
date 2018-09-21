@@ -203,3 +203,7 @@ std::shared_ptr<arrow::ArrayData> Array__data(const std::shared_ptr<arrow::Array
   return array->data();
 }
 
+// [[Rcpp::export]]
+bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self, const std::shared_ptr<arrow::Array>&other, int start_idx, int end_idx, int other_start_idx) {
+  return self->RangeEquals(*other, start_idx, end_idx, other_start_idx);
+}

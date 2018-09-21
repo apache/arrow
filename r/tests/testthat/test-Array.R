@@ -27,11 +27,13 @@ test_that("Array", {
   expect_equal(y$type(), int32())
   expect_equal(y$length(), 15L)
   expect_equal(y$as_vector(), c(1:10, 1:5))
+  expect_true(x$RangeEquals(y, 10, 24, 0))
 
   z <- x$Slice(10, 5)
   expect_equal(z$type(), int32())
   expect_equal(z$length(), 5L)
   expect_equal(z$as_vector(), c(1:5))
+  expect_true(x$RangeEquals(z, 10, 15, 0))
 
   x_dbl <- array(c(1,2,3), c(4,5,6))
   expect_equal(x_dbl$type(), float64())
@@ -48,4 +50,11 @@ test_that("Array", {
   expect_equal(z_dbl$type(), float64())
   expect_equal(z_dbl$length(), 2L)
   expect_equal(z_dbl$as_vector(), as.numeric(4:5))
+})
+
+test_that("Array supports NA", {
+  x_int <- array(1:10, NA)
+  x_dbl <- array(as.numeric(1:10), NA)
+  expect_true(x_int$IsNull(11))
+  expect_true(x_dbl$IsNull(11))
 })

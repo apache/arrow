@@ -61,6 +61,10 @@ Array__data <- function(array) {
     .Call(`_arrow_Array__data`, array)
 }
 
+Array__RangeEquals <- function(self, other, start_idx, end_idx, other_start_idx) {
+    .Call(`_arrow_Array__RangeEquals`, self, other, start_idx, end_idx, other_start_idx)
+}
+
 ArrayData__get_type <- function(x) {
     .Call(`_arrow_ArrayData__get_type`, x)
 }

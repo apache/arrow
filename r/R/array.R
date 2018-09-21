@@ -16,8 +16,6 @@
 # under the License.
 
 #' @include R6.R
-#' @include ArrayData.R
-#' @include Column.R
 
 `arrow::Array` <- R6Class("arrow::Array",
   inherit = `arrow::Object`,
@@ -40,6 +38,10 @@
       } else {
         `arrow::Array`$new(Array__Slice2(self, offset, length))
       }
+    },
+    RangeEquals = function(other, start_idx, end_idx, other_start_idx) {
+      assert_that(inherits(other, "arrow::Array"))
+      Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
     }
   )
 )
