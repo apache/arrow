@@ -52,9 +52,6 @@
 #' @export
 `==.arrow::Array` <- function(x, y) x$Equals(y)
 
-#' @export
-`!=.arrow::Array` <- function(x, y) !x$Equals(y)
-
 #' create an arrow::Array from an R vector
 #'
 #' @param \dots Vectors to coerce

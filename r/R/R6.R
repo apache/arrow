@@ -44,6 +44,11 @@
   )
 )
 
+#' @export
+`!=.arrow::Object` <- function(lhs, rhs){
+  !(lhs == rhs)
+}
+
 `arrow::DataType` <- R6Class("arrow::DataType",
   inherit = `arrow::Object`,
   public = list(
@@ -54,7 +59,8 @@
       DataType__name(self)
     },
     Equals = function(other) {
-      inherits(other, "arrow::DataType") && DataType__Equals(self, other)
+      assert_that(inherits(other, "arrow::DataType"))
+      DataType__Equals(self, other)
     },
     num_children = function() {
       DataType__num_children(self)
@@ -113,11 +119,6 @@
 #' @export
 `==.arrow::DataType` <- function(lhs, rhs){
   lhs$Equals(rhs)
-}
-
-#' @export
-`!=.arrow::DataType` <- function(lhs, rhs){
-  ! lhs == rhs
 }
 
 "arrow::Int8"    <- R6Class("arrow::Int8",

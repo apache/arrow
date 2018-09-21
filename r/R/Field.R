@@ -23,11 +23,6 @@
   lhs$Equals(rhs)
 }
 
-#' @export
-`!=.arrow::Field` <- function(lhs, rhs){
-  ! lhs == rhs
-}
-
 field <- function(name, type) {
   `arrow::Field`$new(Field__initialize(name, type))
 }

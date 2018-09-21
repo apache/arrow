@@ -54,7 +54,7 @@ test_that("Array", {
 
 test_that("Array supports NA", {
   x_int <- array(1:10, NA)
-  x_dbl <- array(as.numeric(1:10), NA)
+  x_dbl <- array(as.numeric(c(1:10, NA)))
   expect_true(x_int$IsNull(11))
   expect_true(x_dbl$IsNull(11))
 })

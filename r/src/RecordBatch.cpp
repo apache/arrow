@@ -106,3 +106,30 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl){
 
   return arrow::RecordBatch::Make(schema, tbl.nrow(), std::move(arrays));
 }
+
+// [[Rcpp::export]]
+bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self, const std::shared_ptr<arrow::RecordBatch>& other) {
+  return self->Equals(*other);
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
+  std::shared_ptr<arrow::RecordBatch> res;
+  R_ERROR_NOT_OK(batch->RemoveColumn(i, &res));
+  return res;
+}
+
+// [[Rcpp::export]]
+std::string RecordBatch__column_name(const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
+  return batch->column_name(i);
+}
+
+// [[Rcpp::export]]
+CharacterVector RecordBatch__names(const std::shared_ptr<arrow::RecordBatch>& batch) {
+  int n = batch->num_columns();
+  CharacterVector names(n);
+  for (int i=0; i<n; i++) {
+    names[i] = batch->column_name(i);
+  }
+  return names;
+}

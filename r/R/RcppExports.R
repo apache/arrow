@@ -361,6 +361,22 @@ RecordBatch__from_dataframe <- function(tbl) {
     .Call(`_arrow_RecordBatch__from_dataframe`, tbl)
 }
 
+RecordBatch__Equals <- function(self, other) {
+    .Call(`_arrow_RecordBatch__Equals`, self, other)
+}
+
+RecordBatch__RemoveColumn <- function(batch, i) {
+    .Call(`_arrow_RecordBatch__RemoveColumn`, batch, i)
+}
+
+RecordBatch__column_name <- function(batch, i) {
+    .Call(`_arrow_RecordBatch__column_name`, batch, i)
+}
+
+RecordBatch__names <- function(batch) {
+    .Call(`_arrow_RecordBatch__names`, batch)
+}
+
 Table__from_dataframe <- function(tbl) {
     .Call(`_arrow_Table__from_dataframe`, tbl)
 }

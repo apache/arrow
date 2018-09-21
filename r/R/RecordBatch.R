@@ -23,9 +23,28 @@
     num_rows = function() RecordBatch__num_rows(self),
     schema = function() `arrow::Schema`$new(RecordBatch__schema(self)),
     to_file = function(path) invisible(RecordBatch__to_file(self, fs::path_abs(path))),
-    column = function(i) `arrow::Array`$new(RecordBatch__column(self, i))
+    column = function(i) `arrow::Array`$new(RecordBatch__column(self, i)),
+    column_name = function(i) RecordBatch__column_name(self, i),
+    names = function() RecordBatch__names(self),
+    Equals = function(other) {
+      assert_that(inherits(other, "arrow::RecordBatch"))
+      RecordBatch__Equals(self, other)
+    },
+    RemoveColumn = function(i){
+      `arrow::RecordBatch`$new(RecordBatch__RemoveColumn(self, i))
+    }
   )
 )
+
+#' @export
+`names.arrow::RecordBatch` <- function(x) {
+  x$names()
+}
+
+#' @export
+`==.arrow::RecordBatch` <- function(x, y) {
+  x$Equals(y)
+}
 
 #' @export
 `as_tibble.arrow::RecordBatch` <- function(x, ...){
