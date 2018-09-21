@@ -32,6 +32,13 @@
     },
     RemoveColumn = function(i){
       `arrow::RecordBatch`$new(RecordBatch__RemoveColumn(self, i))
+    },
+    Slice = function(offset, length = NULL) {
+      if (is.null(length)) {
+        `arrow::RecordBatch`$new(RecordBatch__Slice1(self, offset))
+      } else {
+        `arrow::RecordBatch`$new(RecordBatch__Slice2(self, offset, length))
+      }
     }
   )
 )

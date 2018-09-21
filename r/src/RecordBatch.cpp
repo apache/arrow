@@ -133,3 +133,13 @@ CharacterVector RecordBatch__names(const std::shared_ptr<arrow::RecordBatch>& ba
   }
   return names;
 }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(std::shared_ptr<arrow::RecordBatch>& self, int offset) {
+  return self->Slice(offset);
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(std::shared_ptr<arrow::RecordBatch>& self, int offset, int length) {
+  return self->Slice(offset, length);
+}

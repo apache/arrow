@@ -1048,6 +1048,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// RecordBatch__Slice1
+std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(std::shared_ptr<arrow::RecordBatch>& self, int offset);
+RcppExport SEXP _arrow_RecordBatch__Slice1(SEXP selfSEXP, SEXP offsetSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::shared_ptr<arrow::RecordBatch>& >::type self(selfSEXP);
+    Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__Slice1(self, offset));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatch__Slice2
+std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(std::shared_ptr<arrow::RecordBatch>& self, int offset, int length);
+RcppExport SEXP _arrow_RecordBatch__Slice2(SEXP selfSEXP, SEXP offsetSEXP, SEXP lengthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::shared_ptr<arrow::RecordBatch>& >::type self(selfSEXP);
+    Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
+    Rcpp::traits::input_parameter< int >::type length(lengthSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__Slice2(self, offset, length));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Table__from_dataframe
 std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl);
 RcppExport SEXP _arrow_Table__from_dataframe(SEXP tblSEXP) {
@@ -1234,6 +1259,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2},
     {"_arrow_RecordBatch__column_name", (DL_FUNC) &_arrow_RecordBatch__column_name, 2},
     {"_arrow_RecordBatch__names", (DL_FUNC) &_arrow_RecordBatch__names, 1},
+    {"_arrow_RecordBatch__Slice1", (DL_FUNC) &_arrow_RecordBatch__Slice1, 2},
+    {"_arrow_RecordBatch__Slice2", (DL_FUNC) &_arrow_RecordBatch__Slice2, 3},
     {"_arrow_Table__from_dataframe", (DL_FUNC) &_arrow_Table__from_dataframe, 1},
     {"_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1},
     {"_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1},

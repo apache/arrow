@@ -377,6 +377,14 @@ RecordBatch__names <- function(batch) {
     .Call(`_arrow_RecordBatch__names`, batch)
 }
 
+RecordBatch__Slice1 <- function(self, offset) {
+    .Call(`_arrow_RecordBatch__Slice1`, self, offset)
+}
+
+RecordBatch__Slice2 <- function(self, offset, length) {
+    .Call(`_arrow_RecordBatch__Slice2`, self, offset, length)
+}
+
 Table__from_dataframe <- function(tbl) {
     .Call(`_arrow_Table__from_dataframe`, tbl)
 }

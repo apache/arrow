@@ -48,4 +48,12 @@ test_that("RecordBatch", {
     schema(dbl = float64())
   )
   expect_equal(batch2$column(0), batch$column(1))
+
+  batch3 <- batch$Slice(5)
+  expect_equal(batch3$num_rows(), 5)
+  expect_equal(batch3$column(0)$as_vector(), 6:10)
+
+  batch4 <- batch$Slice(5, 2)
+  expect_equal(batch4$num_rows(), 2)
+  expect_equal(batch4$column(0)$as_vector(), 6:7)
 })
