@@ -24,6 +24,8 @@ Imports:
     fs,
     tibble,
     crayon
+Remotes:
+    r-lib/vctrs
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.0.9000
 Suggests:
