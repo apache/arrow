@@ -177,7 +177,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
          */
         break;
       }
-      index = (index+1) % length;
+      index = (index + 1) % length;
     }
     return index;
   }

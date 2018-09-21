@@ -34,8 +34,7 @@ import io.netty.util.internal.StringUtil;
  */
 public class PooledByteBufAllocatorL {
 
-  private static final org.slf4j.Logger memoryLogger = org.slf4j.LoggerFactory.getLogger("arrow" +
-      ".allocator");
+  private static final org.slf4j.Logger memoryLogger = org.slf4j.LoggerFactory.getLogger("arrow.allocator");
 
   private static final int MEMORY_LOGGER_FREQUENCY_SECONDS = 60;
   public final UnsafeDirectLittleEndian empty;
@@ -136,8 +135,7 @@ public class PooledByteBufAllocatorL {
         f.setAccessible(true);
         this.directArenas = (PoolArena<ByteBuffer>[]) f.get(this);
       } catch (Exception e) {
-        throw new RuntimeException("Failure while initializing allocator.  Unable to retrieve " +
-            "direct arenas field.", e);
+        throw new RuntimeException("Failure while initializing allocator.  Unable to retrieve direct arenas field.", e);
       }
 
       this.chunkSize = directArenas[0].chunkSize;
@@ -212,8 +210,7 @@ public class PooledByteBufAllocatorL {
 
     private void validate(int initialCapacity, int maxCapacity) {
       if (initialCapacity < 0) {
-        throw new IllegalArgumentException("initialCapacity: " + initialCapacity + " (expectd: " +
-            "0+)");
+        throw new IllegalArgumentException("initialCapacity: " + initialCapacity + " (expected: 0+)");
       }
       if (initialCapacity > maxCapacity) {
         throw new IllegalArgumentException(String.format(

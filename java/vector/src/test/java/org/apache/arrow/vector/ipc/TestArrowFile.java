@@ -569,8 +569,8 @@ public class TestArrowFile extends BaseFileTest {
     final int numValues = 10;
     final int typeWidth = 11;
     byte[][] byteValues = new byte[numValues][typeWidth];
-    for (int i=0; i<numValues; i++) {
-      for (int j=0; j<typeWidth; j++) {
+    for (int i = 0; i < numValues; i++) {
+      for (int j = 0; j < typeWidth; j++) {
         byteValues[i][j] = ((byte) i);
       }
     }
@@ -582,7 +582,7 @@ public class TestArrowFile extends BaseFileTest {
       FixedSizeBinaryVector fixedSizeBinaryVector = parent.addOrGet("fixed-binary",
           FieldType.nullable(new FixedSizeBinary(typeWidth)), FixedSizeBinaryVector.class);
       parent.allocateNew();
-      for (int i=0; i<numValues; i++) {
+      for (int i = 0; i < numValues; i++) {
         fixedSizeBinaryVector.set(i, byteValues[i]);
       }
       parent.setValueCount(numValues);

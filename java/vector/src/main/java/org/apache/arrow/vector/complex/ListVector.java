@@ -149,7 +149,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     final int startOffset = offsetBuffer.getInt(0);
     final int endOffset = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
     final double totalListSize = endOffset - startOffset;
-    return totalListSize/valueCount;
+    return totalListSize / valueCount;
   }
 
   @Override

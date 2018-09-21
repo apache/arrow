@@ -347,8 +347,8 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     if (valueCount == 0) {
       return 0;
     }
-    return super.getBufferSizeFor(valueCount)
-            + BitVectorHelper.getValidityBufferSize(valueCount);
+    return super.getBufferSizeFor(valueCount) +
+            BitVectorHelper.getValidityBufferSize(valueCount);
   }
 
   @Override
