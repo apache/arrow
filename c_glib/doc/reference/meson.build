@@ -48,19 +48,19 @@ source_directories = [
   join_paths(meson.build_root(), 'arrow-glib'),
 ]
 dependencies = [
-  libarrow_glib_dependency,
+  arrow_glib,
 ]
-if arrow_gpu_dependency.found()
+if arrow_gpu.found()
   source_directories += [
     join_paths(meson.source_root(), 'arrow-gpu-glib'),
     join_paths(meson.build_root(), 'arrow-gpu-glib'),
   ]
   dependencies += [
-    libarrow_gpu_glib_dependency,
+    arrow_gpu_glib,
   ]
 endif
 ignore_headers = []
-if not arrow_orc_dependency.found()
+if not have_arrow_orc
   ignore_headers += [
     join_paths(meson.source_root(), 'arrow-glib', 'orc-file-reader.h'),
   ]

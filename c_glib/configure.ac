@@ -111,9 +111,9 @@ GTK_DOC_CHECK([1.18-2])
 
 AC_ARG_WITH(arrow-cpp-build-type,
   [AS_HELP_STRING([--with-arrow-cpp-build-type=TYPE],
-                  [-DCMAKE_BUILD_TYPE option value for Arrow C++ (default=Release)])],
+                  [-DCMAKE_BUILD_TYPE option value for Arrow C++ (default=release)])],
   [GARROW_ARROW_CPP_BUILD_TYPE="$withval"],
-  [GARROW_ARROW_CPP_BUILD_TYPE="Release"])
+  [GARROW_ARROW_CPP_BUILD_TYPE="release"])
 
 AC_ARG_WITH(arrow-cpp-build-dir,
   [AS_HELP_STRING([--with-arrow-cpp-build-dir=PATH],

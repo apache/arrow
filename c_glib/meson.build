@@ -47,13 +47,51 @@ data_dir = join_paths(prefix, get_option('datadir'))
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
 
-root_inc = include_directories('.')
+base_include_directories = [
+  include_directories('.')
+]
 
-arrow_orc_dependency = dependency('arrow-orc', required: false)
+arrow_cpp_build_dir = get_option('arrow_cpp_build_dir')
+arrow_cpp_build_type = get_option('arrow_cpp_build_type')
+if arrow_cpp_build_dir == ''
+  arrow_cpp_build_lib_dir = ''
+else
+  arrow_cpp_build_lib_dir = join_paths(arrow_cpp_build_dir,
+                                       arrow_cpp_build_type.to_lower())
+endif
+
+if arrow_cpp_build_lib_dir == ''
+  arrow = dependency('arrow')
+  have_arrow_orc = dependency('arrow-orc', required: false).found()
+  arrow_gpu = dependency('arrow-gpu', required: false)
+else
+  base_include_directories += [
+    include_directories(join_paths(arrow_cpp_build_dir, 'src')),
+    include_directories('../cpp/src'),
+  ]
+  cpp_compiler = meson.get_compiler('cpp')
+  arrow = cpp_compiler.find_library('arrow',
+                                    dirs: [arrow_cpp_build_lib_dir])
+  arrow_orc_code = '''
+#include <arrow/adapters/orc/adapter.h>
+
+int
+main(void)
+{
+  arrow::adapters::orc::ORCFileReader::Open(nullptr, nullptr, nullptr);
+  return 0;
+}
+  '''
+  have_arrow_orc = cpp_compiler.links(arrow_orc_code,
+                                      include_directories: base_include_directories,
+                                      dependencies: [arrow])
+  arrow_gpu = cpp_compiler.find_library('arrow_gpu',
+                                        dirs: [arrow_cpp_build_lib_dir],
+                                        required: false)
+endif
 
 subdir('arrow-glib')
-arrow_gpu_dependency = dependency('arrow-gpu', required: false)
-if arrow_gpu_dependency.found()
+if arrow_gpu.found()
   subdir('arrow-gpu-glib')
 endif
 subdir('example')

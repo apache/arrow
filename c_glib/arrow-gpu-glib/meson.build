@@ -36,23 +36,19 @@ install_headers(headers, subdir: 'arrow-gpu-glib')
 
 
 dependencies = [
-  arrow_gpu_dependency,
-  libarrow_glib_dependency,
+  arrow_gpu,
+  arrow_glib,
 ]
 libarrow_gpu_glib = library('arrow-gpu-glib',
                             sources: sources,
                             install: true,
                             dependencies: dependencies,
-                            include_directories: [
-                              root_inc,
-                            ],
+                            include_directories: base_include_directories,
                             soversion: so_version,
                             version: library_version)
-libarrow_gpu_glib_dependency = declare_dependency(link_with: libarrow_gpu_glib,
-                                                  include_directories: [
-                                                    root_inc,
-                                                  ],
-                                                  dependencies: dependencies)
+arrow_gpu_glib = declare_dependency(link_with: libarrow_gpu_glib,
+                                    include_directories: base_include_directories,
+                                    dependencies: dependencies)
 
 pkgconfig.generate(filebase: 'arrow-gpu-glib',
                    name: 'Apache Arrow GPU GLib',
@@ -62,7 +58,7 @@ pkgconfig.generate(filebase: 'arrow-gpu-glib',
                    libraries: [libarrow_gpu_glib])
 
 gnome.generate_gir(libarrow_gpu_glib,
-                   dependencies: arrow_glib_gir_dependency,
+                   dependencies: declare_dependency(sources: arrow_glib_gir),
                    sources: sources + c_headers,
                    namespace: 'ArrowGPU',
                    nsversion: api_version,
