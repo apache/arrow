@@ -18,79 +18,188 @@
 #include "arrow_types.h"
 
 using namespace Rcpp;
-// [[Rcpp::plugins(cpp11)]]
+using namespace arrow;
 
-// [[Rcpp::export]]
-std::shared_ptr<arrow::DataType> ArrayData_get_type(const std::shared_ptr<arrow::ArrayData>& x){
-  return x->type;
+namespace arrow{
+namespace r{
+
+template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE> >
+class SimpleRBuffer : public arrow::Buffer {
+public:
+
+  SimpleRBuffer(Vec vec) :
+    Buffer(reinterpret_cast<const uint8_t*>(vec.begin()), vec.size() * sizeof(typename Vec::stored_type)),
+    vec_(vec)
+  {}
+
+private:
+  // vec_ holds the memory
+  Vec vec_;
+};
+
+template <int RTYPE, typename Type>
+std::shared_ptr<arrow::Array> SimpleArray(SEXP x){
+
+  Rcpp::Vector<RTYPE> vec(x);
+  std::vector<std::shared_ptr<arrow::Buffer>> buffers {
+    nullptr,
+    std::make_shared<SimpleRBuffer<RTYPE>>(vec)
+  };
+
+  int null_count = 0;
+  if (RTYPE != RAWSXP) {
+    // TODO: maybe first count NA in a first pass so that we
+    //       can allocate only if needed
+    std::shared_ptr<arrow::Buffer> null_bitmap;
+    R_ERROR_NOT_OK(arrow::AllocateBuffer(vec.size(), &null_bitmap));
+
+    auto null_bitmap_data = null_bitmap->mutable_data();
+    for (int i=0; i < vec.size(); i++) {
+      if (Rcpp::Vector<RTYPE>::is_na(vec[i]) ) {
+        BitUtil::SetBit(null_bitmap_data, i);
+        null_count++;
+      } else {
+        BitUtil::ClearBit(null_bitmap_data, i);
+      }
+    }
+    buffers[0] = std::move(null_bitmap);
+  }
+
+  auto data = ArrayData::Make(
+    std::make_shared<Type>(),
+    LENGTH(x),
+    std::move(buffers),
+    null_count,
+    0 /*offset*/
+  );
+
+  // return the right Array class
+  return std::make_shared<arrow::NumericArray<Type>>(data);
+}
+
+}
 }
 
 // [[Rcpp::export]]
-int ArrayData_get_length(const std::shared_ptr<arrow::ArrayData>& x){
-  return x->length;
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x){
+  switch(TYPEOF(x)){
+    case INTSXP:
+      if (Rf_isFactor(x)) {
+        break;
+      }
+    return arrow::r::SimpleArray<INTSXP, arrow::Int32Type>(x);
+    case REALSXP:
+      // TODO: Dates, ...
+    return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
+    case RAWSXP:
+      return arrow::r::SimpleArray<RAWSXP, arrow::Int8Type>(x);
+    default:
+      break;
+  }
+
+  stop("not handled");
+  return nullptr;
+}
+
+
+template <int RTYPE>
+inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array ){
+  using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
+  auto start = reinterpret_cast<const stored_type*>(array->data()->buffers[1]->data() + array->offset() * sizeof(stored_type));
+
+  size_t n = array->length();
+  Rcpp::Vector<RTYPE> vec(start, start + n);
+  if (array->null_count() && RTYPE != RAWSXP) {
+    // TODO: not sure what to do with RAWSXP since
+    //       R raw vector do not have a concept of missing data
+
+    auto bitmap_data = array->null_bitmap()->data();
+    for (size_t i=0; i < n; i++) {
+      if (BitUtil::GetBit(bitmap_data, i)) {
+        vec[i] = Rcpp::Vector<RTYPE>::get_na();
+      }
+    }
+  }
+
+  return vec;
 }
 
 // [[Rcpp::export]]
-int ArrayData_get_null_count(const std::shared_ptr<arrow::ArrayData>& x){
-  return x->null_count;
+SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array){
+  switch(array->type_id()){
+  case Type::INT8: return simple_Array_to_Vector<RAWSXP>(array);
+  case Type::INT32: return simple_Array_to_Vector<INTSXP>(array);
+  case Type::DOUBLE: return simple_Array_to_Vector<REALSXP>(array);
+  default:
+    break;
+  }
+
+  stop(tfm::format("cannot handle Array of type %d", array->type_id()));
+  return R_NilValue;
 }
 
 // [[Rcpp::export]]
-int ArrayData_get_offset(const std::shared_ptr<arrow::ArrayData>& x){
-  return x->offset;
+std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, int offset) {
+  return array->Slice(offset);
 }
 
 // [[Rcpp::export]]
-bool Array_IsNull(const std::shared_ptr<arrow::Array>& x, int i){
+std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array, int offset, int length) {
+  return array->Slice(offset, length);
+}
+
+// [[Rcpp::export]]
+bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i){
   return x->IsNull(i);
 }
 
 // [[Rcpp::export]]
-bool Array_IsValid(const std::shared_ptr<arrow::Array>& x, int i){
+bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, int i){
   return x->IsValid(i);
 }
 
 // [[Rcpp::export]]
-int Array_length(const std::shared_ptr<arrow::Array>& x){
+int Array__length(const std::shared_ptr<arrow::Array>& x){
   return x->length();
 }
 
 // [[Rcpp::export]]
-int Array_offset(const std::shared_ptr<arrow::Array>& x){
+int Array__offset(const std::shared_ptr<arrow::Array>& x){
   return x->offset();
 }
 
 // [[Rcpp::export]]
-int Array_null_count(const std::shared_ptr<arrow::Array>& x){
+int Array__null_count(const std::shared_ptr<arrow::Array>& x){
   return x->null_count();
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::DataType> Array_type(const std::shared_ptr<arrow::Array>& x){
+std::shared_ptr<arrow::DataType> Array__type(const std::shared_ptr<arrow::Array>& x){
   return x->type();
 }
 
 // [[Rcpp::export]]
-std::string Array_ToString(const std::shared_ptr<arrow::Array>& x){
+std::string Array__ToString(const std::shared_ptr<arrow::Array>& x){
   return x->ToString();
 }
 
 // [[Rcpp::export]]
-arrow::Type::type Array_type_id(const std::shared_ptr<arrow::Array>& x){
+arrow::Type::type Array__type_id(const std::shared_ptr<arrow::Array>& x){
   return x->type_id();
 }
 
 // [[Rcpp::export]]
-bool Array_Equals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs){
+bool Array__Equals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs){
   return lhs->Equals(rhs);
 }
 
 // [[Rcpp::export]]
-bool Array_ApproxEquals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs){
+bool Array__ApproxEquals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs){
   return lhs->ApproxEquals(rhs);
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::ArrayData> Array_data(const std::shared_ptr<arrow::Array>& array){
+std::shared_ptr<arrow::ArrayData> Array__data(const std::shared_ptr<arrow::Array>& array){
   return array->data();
 }
+

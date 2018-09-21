@@ -17,17 +17,30 @@
 
 #' @include R6.R
 
-`arrow::MemoryPool` <- R6Class("arrow::MemoryPool",
-  inherit = `arrow::Object`,
+`arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = `arrow::Object`,
   public = list(
-    # TODO: Allocate
-    # TODO: Reallocate
-    # TODO: Free
-    bytes_allocated = function() MemoryPool__bytes_allocated(self),
-    max_memory = function() MemoryPool__max_memory(self)
+    num_columns = function() RecordBatch__num_columns(self),
+    num_rows = function() RecordBatch__num_rows(self),
+    schema = function() `arrow::Schema`$new(RecordBatch__schema(self)),
+    to_file = function(path) invisible(RecordBatch__to_file(self, fs::path_abs(path))),
+    column = function(i) `arrow::Array`$new(RecordBatch__column(self, i))
   )
 )
 
-default_memory_pool <- function() {
-  `arrow::MemoryPool`$new(MemoryPool__default())
+#' @export
+`as_tibble.arrow::RecordBatch` <- function(x, ...){
+  RecordBatch__to_dataframe(x)
+}
+
+#' Create an arrow::RecordBatch from a data frame
+#'
+#' @param .data a data frame
+#'
+#' @export
+record_batch <- function(.data){
+  `arrow::RecordBatch`$new(RecordBatch__from_dataframe(.data))
+}
+
+read_record_batch <- function(path){
+  `arrow::RecordBatch`$new(read_record_batch_(fs::path_abs(path)))
 }

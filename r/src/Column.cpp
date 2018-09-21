@@ -17,21 +17,22 @@
 
 #include "arrow_types.h"
 
-using namespace Rcpp;
+// [[Rcpp::export]]
+int Column__length(const std::shared_ptr<arrow::Column>& column) {
+  return column->length();
+}
 
 // [[Rcpp::export]]
-std::string Status_ToString(const std::shared_ptr<arrow::Status>& status){
-  return status->ToString();
+int Column__null_count(const std::shared_ptr<arrow::Column>& column) {
+  return column->null_count();
 }
+
 // [[Rcpp::export]]
-std::string Status_CodeAsString(const std::shared_ptr<arrow::Status>& status){
-  return status->CodeAsString();
+std::shared_ptr<arrow::DataType> Column__type(const std::shared_ptr<arrow::Column>& column) {
+  return column->type();
 }
+
 // [[Rcpp::export]]
-arrow::StatusCode Status_code(const std::shared_ptr<arrow::Status>& status){
-  return status->code();
-}
-// [[Rcpp::export]]
-std::string Status_message(const std::shared_ptr<arrow::Status>& status){
-  return status->message();
+std::shared_ptr<arrow::ChunkedArray> Column__data(const std::shared_ptr<arrow::Column>& column) {
+  return column->data();
 }

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("types")
+context("arrow::DataType")
 
 test_that("null type works as expected",{
   x <- null()

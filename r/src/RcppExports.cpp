@@ -6,254 +6,6 @@
 
 using namespace Rcpp;
 
-// RecordBatch__num_columns
-int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
-RcppExport SEXP _arrow_RecordBatch__num_columns(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch__num_columns(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RecordBatch__num_rows
-int RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x);
-RcppExport SEXP _arrow_RecordBatch__num_rows(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch__num_rows(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RecordBatch__schema
-std::shared_ptr<arrow::Schema> RecordBatch__schema(const std::shared_ptr<arrow::RecordBatch>& x);
-RcppExport SEXP _arrow_RecordBatch__schema(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch__schema(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RecordBatch__column
-std::shared_ptr<arrow::Array> RecordBatch__column(const std::shared_ptr<arrow::RecordBatch>& batch, int i);
-RcppExport SEXP _arrow_RecordBatch__column(SEXP batchSEXP, SEXP iSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch__column(batch, i));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RecordBatch_to_dataframe
-List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch);
-RcppExport SEXP _arrow_RecordBatch_to_dataframe(SEXP batchSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch_to_dataframe(batch));
-    return rcpp_result_gen;
-END_RCPP
-}
-// read_record_batch_
-std::shared_ptr<arrow::RecordBatch> read_record_batch_(std::string path);
-RcppExport SEXP _arrow_read_record_batch_(SEXP pathSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
-    rcpp_result_gen = Rcpp::wrap(read_record_batch_(path));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RecordBatch_to_file
-int RecordBatch_to_file(const std::shared_ptr<arrow::RecordBatch>& batch, std::string path);
-RcppExport SEXP _arrow_RecordBatch_to_file(SEXP batchSEXP, SEXP pathSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
-    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch_to_file(batch, path));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ArrayData_get_type
-std::shared_ptr<arrow::DataType> ArrayData_get_type(const std::shared_ptr<arrow::ArrayData>& x);
-RcppExport SEXP _arrow_ArrayData_get_type(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(ArrayData_get_type(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ArrayData_get_length
-int ArrayData_get_length(const std::shared_ptr<arrow::ArrayData>& x);
-RcppExport SEXP _arrow_ArrayData_get_length(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(ArrayData_get_length(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ArrayData_get_null_count
-int ArrayData_get_null_count(const std::shared_ptr<arrow::ArrayData>& x);
-RcppExport SEXP _arrow_ArrayData_get_null_count(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(ArrayData_get_null_count(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ArrayData_get_offset
-int ArrayData_get_offset(const std::shared_ptr<arrow::ArrayData>& x);
-RcppExport SEXP _arrow_ArrayData_get_offset(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(ArrayData_get_offset(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array_IsNull
-bool Array_IsNull(const std::shared_ptr<arrow::Array>& x, int i);
-RcppExport SEXP _arrow_Array_IsNull(SEXP xSEXP, SEXP iSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_IsNull(x, i));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array_IsValid
-bool Array_IsValid(const std::shared_ptr<arrow::Array>& x, int i);
-RcppExport SEXP _arrow_Array_IsValid(SEXP xSEXP, SEXP iSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_IsValid(x, i));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array_length
-int Array_length(const std::shared_ptr<arrow::Array>& x);
-RcppExport SEXP _arrow_Array_length(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_length(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array_offset
-int Array_offset(const std::shared_ptr<arrow::Array>& x);
-RcppExport SEXP _arrow_Array_offset(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_offset(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array_null_count
-int Array_null_count(const std::shared_ptr<arrow::Array>& x);
-RcppExport SEXP _arrow_Array_null_count(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_null_count(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array_type
-std::shared_ptr<arrow::DataType> Array_type(const std::shared_ptr<arrow::Array>& x);
-RcppExport SEXP _arrow_Array_type(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_type(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array_ToString
-std::string Array_ToString(const std::shared_ptr<arrow::Array>& x);
-RcppExport SEXP _arrow_Array_ToString(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_ToString(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array_type_id
-arrow::Type::type Array_type_id(const std::shared_ptr<arrow::Array>& x);
-RcppExport SEXP _arrow_Array_type_id(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_type_id(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array_Equals
-bool Array_Equals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
-RcppExport SEXP _arrow_Array_Equals(SEXP lhsSEXP, SEXP rhsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type lhs(lhsSEXP);
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type rhs(rhsSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_Equals(lhs, rhs));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array_ApproxEquals
-bool Array_ApproxEquals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
-RcppExport SEXP _arrow_Array_ApproxEquals(SEXP lhsSEXP, SEXP rhsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type lhs(lhsSEXP);
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type rhs(rhsSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_ApproxEquals(lhs, rhs));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array_data
-std::shared_ptr<arrow::ArrayData> Array_data(const std::shared_ptr<arrow::Array>& array);
-RcppExport SEXP _arrow_Array_data(SEXP arraySEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_data(array));
-    return rcpp_result_gen;
-END_RCPP
-}
 // Array__from_vector
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x);
 RcppExport SEXP _arrow_Array__from_vector(SEXP xSEXP) {
@@ -262,17 +14,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Array__from_vector(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// dataframe_to_RecordBatch
-std::shared_ptr<arrow::RecordBatch> dataframe_to_RecordBatch(DataFrame tbl);
-RcppExport SEXP _arrow_dataframe_to_RecordBatch(SEXP tblSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< DataFrame >::type tbl(tblSEXP);
-    rcpp_result_gen = Rcpp::wrap(dataframe_to_RecordBatch(tbl));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -309,6 +50,175 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
     Rcpp::traits::input_parameter< int >::type length(lengthSEXP);
     rcpp_result_gen = Rcpp::wrap(Array__Slice2(array, offset, length));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__IsNull
+bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i);
+RcppExport SEXP _arrow_Array__IsNull(SEXP xSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__IsNull(x, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__IsValid
+bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, int i);
+RcppExport SEXP _arrow_Array__IsValid(SEXP xSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__IsValid(x, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__length
+int Array__length(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array__length(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__length(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__offset
+int Array__offset(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array__offset(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__offset(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__null_count
+int Array__null_count(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array__null_count(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__null_count(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__type
+std::shared_ptr<arrow::DataType> Array__type(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array__type(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__type(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__ToString
+std::string Array__ToString(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array__ToString(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__ToString(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__type_id
+arrow::Type::type Array__type_id(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array__type_id(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__type_id(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__Equals
+bool Array__Equals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
+RcppExport SEXP _arrow_Array__Equals(SEXP lhsSEXP, SEXP rhsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type lhs(lhsSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type rhs(rhsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__Equals(lhs, rhs));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__ApproxEquals
+bool Array__ApproxEquals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
+RcppExport SEXP _arrow_Array__ApproxEquals(SEXP lhsSEXP, SEXP rhsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type lhs(lhsSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type rhs(rhsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__ApproxEquals(lhs, rhs));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__data
+std::shared_ptr<arrow::ArrayData> Array__data(const std::shared_ptr<arrow::Array>& array);
+RcppExport SEXP _arrow_Array__data(SEXP arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__data(array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ArrayData__get_type
+std::shared_ptr<arrow::DataType> ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x);
+RcppExport SEXP _arrow_ArrayData__get_type(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(ArrayData__get_type(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ArrayData__get_length
+int ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x);
+RcppExport SEXP _arrow_ArrayData__get_length(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(ArrayData__get_length(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ArrayData__get_null_count
+int ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x);
+RcppExport SEXP _arrow_ArrayData__get_null_count(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(ArrayData__get_null_count(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ArrayData__get_offset
+int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x);
+RcppExport SEXP _arrow_ArrayData__get_offset(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(ArrayData__get_offset(x));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -415,104 +325,14 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// ChunkedArray__Make
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Make(List chunks);
-RcppExport SEXP _arrow_ChunkedArray__Make(SEXP chunksSEXP) {
+// ChunkedArray__from_list
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks);
+RcppExport SEXP _arrow_ChunkedArray__from_list(SEXP chunksSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< List >::type chunks(chunksSEXP);
-    rcpp_result_gen = Rcpp::wrap(ChunkedArray__Make(chunks));
-    return rcpp_result_gen;
-END_RCPP
-}
-// dataframe_to_Table
-std::shared_ptr<arrow::Table> dataframe_to_Table(DataFrame tbl);
-RcppExport SEXP _arrow_dataframe_to_Table(SEXP tblSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< DataFrame >::type tbl(tblSEXP);
-    rcpp_result_gen = Rcpp::wrap(dataframe_to_Table(tbl));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Table_num_columns
-int Table_num_columns(const std::shared_ptr<arrow::Table>& x);
-RcppExport SEXP _arrow_Table_num_columns(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table_num_columns(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Table_num_rows
-int Table_num_rows(const std::shared_ptr<arrow::Table>& x);
-RcppExport SEXP _arrow_Table_num_rows(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table_num_rows(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Table_schema
-std::shared_ptr<arrow::Schema> Table_schema(const std::shared_ptr<arrow::Table>& x);
-RcppExport SEXP _arrow_Table_schema(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table_schema(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Table_to_file
-int Table_to_file(const std::shared_ptr<arrow::Table>& table, std::string path);
-RcppExport SEXP _arrow_Table_to_file(SEXP tableSEXP, SEXP pathSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
-    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table_to_file(table, path));
-    return rcpp_result_gen;
-END_RCPP
-}
-// read_table_
-std::shared_ptr<arrow::Table> read_table_(std::string path);
-RcppExport SEXP _arrow_read_table_(SEXP pathSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
-    rcpp_result_gen = Rcpp::wrap(read_table_(path));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Table_to_dataframe
-List Table_to_dataframe(const std::shared_ptr<arrow::Table>& table);
-RcppExport SEXP _arrow_Table_to_dataframe(SEXP tableSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table_to_dataframe(table));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Table__column
-std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table, int i);
-RcppExport SEXP _arrow_Table__column(SEXP tableSEXP, SEXP iSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table__column(table, i));
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__from_list(chunks));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -560,49 +380,487 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Field_initialize
-std::shared_ptr<arrow::Field> Field_initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
-RcppExport SEXP _arrow_Field_initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
+// Int8__initialize
+std::shared_ptr<arrow::DataType> Int8__initialize();
+RcppExport SEXP _arrow_Int8__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(Int8__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// Int16__initialize
+std::shared_ptr<arrow::DataType> Int16__initialize();
+RcppExport SEXP _arrow_Int16__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(Int16__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// Int32__initialize
+std::shared_ptr<arrow::DataType> Int32__initialize();
+RcppExport SEXP _arrow_Int32__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(Int32__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// Int64__initialize
+std::shared_ptr<arrow::DataType> Int64__initialize();
+RcppExport SEXP _arrow_Int64__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(Int64__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// UInt8__initialize
+std::shared_ptr<arrow::DataType> UInt8__initialize();
+RcppExport SEXP _arrow_UInt8__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(UInt8__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// UInt16__initialize
+std::shared_ptr<arrow::DataType> UInt16__initialize();
+RcppExport SEXP _arrow_UInt16__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(UInt16__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// UInt32__initialize
+std::shared_ptr<arrow::DataType> UInt32__initialize();
+RcppExport SEXP _arrow_UInt32__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(UInt32__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// UInt64__initialize
+std::shared_ptr<arrow::DataType> UInt64__initialize();
+RcppExport SEXP _arrow_UInt64__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(UInt64__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// Float16__initialize
+std::shared_ptr<arrow::DataType> Float16__initialize();
+RcppExport SEXP _arrow_Float16__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(Float16__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// Float32__initialize
+std::shared_ptr<arrow::DataType> Float32__initialize();
+RcppExport SEXP _arrow_Float32__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(Float32__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// Float64__initialize
+std::shared_ptr<arrow::DataType> Float64__initialize();
+RcppExport SEXP _arrow_Float64__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(Float64__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// Boolean__initialize
+std::shared_ptr<arrow::DataType> Boolean__initialize();
+RcppExport SEXP _arrow_Boolean__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(Boolean__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// Utf8__initialize
+std::shared_ptr<arrow::DataType> Utf8__initialize();
+RcppExport SEXP _arrow_Utf8__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(Utf8__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// Date32__initialize
+std::shared_ptr<arrow::DataType> Date32__initialize();
+RcppExport SEXP _arrow_Date32__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(Date32__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// Date64__initialize
+std::shared_ptr<arrow::DataType> Date64__initialize();
+RcppExport SEXP _arrow_Date64__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(Date64__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// Null__initialize
+std::shared_ptr<arrow::DataType> Null__initialize();
+RcppExport SEXP _arrow_Null__initialize() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(Null__initialize());
+    return rcpp_result_gen;
+END_RCPP
+}
+// Decimal128Type__initialize
+std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision, int32_t scale);
+RcppExport SEXP _arrow_Decimal128Type__initialize(SEXP precisionSEXP, SEXP scaleSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int32_t >::type precision(precisionSEXP);
+    Rcpp::traits::input_parameter< int32_t >::type scale(scaleSEXP);
+    rcpp_result_gen = Rcpp::wrap(Decimal128Type__initialize(precision, scale));
+    return rcpp_result_gen;
+END_RCPP
+}
+// FixedSizeBinary__initialize
+std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(int32_t byte_width);
+RcppExport SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_widthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int32_t >::type byte_width(byte_widthSEXP);
+    rcpp_result_gen = Rcpp::wrap(FixedSizeBinary__initialize(byte_width));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Timestamp__initialize1
+std::shared_ptr<arrow::DataType> Timestamp__initialize1(arrow::TimeUnit::type unit);
+RcppExport SEXP _arrow_Timestamp__initialize1(SEXP unitSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arrow::TimeUnit::type >::type unit(unitSEXP);
+    rcpp_result_gen = Rcpp::wrap(Timestamp__initialize1(unit));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Timestamp__initialize2
+std::shared_ptr<arrow::DataType> Timestamp__initialize2(arrow::TimeUnit::type unit, const std::string& timezone);
+RcppExport SEXP _arrow_Timestamp__initialize2(SEXP unitSEXP, SEXP timezoneSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arrow::TimeUnit::type >::type unit(unitSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type timezone(timezoneSEXP);
+    rcpp_result_gen = Rcpp::wrap(Timestamp__initialize2(unit, timezone));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Time32__initialize
+std::shared_ptr<arrow::DataType> Time32__initialize(arrow::TimeUnit::type unit);
+RcppExport SEXP _arrow_Time32__initialize(SEXP unitSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arrow::TimeUnit::type >::type unit(unitSEXP);
+    rcpp_result_gen = Rcpp::wrap(Time32__initialize(unit));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Time64__initialize
+std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit);
+RcppExport SEXP _arrow_Time64__initialize(SEXP unitSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arrow::TimeUnit::type >::type unit(unitSEXP);
+    rcpp_result_gen = Rcpp::wrap(Time64__initialize(unit));
+    return rcpp_result_gen;
+END_RCPP
+}
+// list__
+SEXP list__(SEXP x);
+RcppExport SEXP _arrow_list__(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(list__(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// struct_
+std::shared_ptr<arrow::DataType> struct_(List fields);
+RcppExport SEXP _arrow_struct_(SEXP fieldsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type fields(fieldsSEXP);
+    rcpp_result_gen = Rcpp::wrap(struct_(fields));
+    return rcpp_result_gen;
+END_RCPP
+}
+// DataType__ToString
+std::string DataType__ToString(const std::shared_ptr<arrow::DataType>& type);
+RcppExport SEXP _arrow_DataType__ToString(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DataType__ToString(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// DataType__name
+std::string DataType__name(const std::shared_ptr<arrow::DataType>& type);
+RcppExport SEXP _arrow_DataType__name(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DataType__name(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// DataType__Equals
+bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs);
+RcppExport SEXP _arrow_DataType__Equals(SEXP lhsSEXP, SEXP rhsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type lhs(lhsSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type rhs(rhsSEXP);
+    rcpp_result_gen = Rcpp::wrap(DataType__Equals(lhs, rhs));
+    return rcpp_result_gen;
+END_RCPP
+}
+// DataType__num_children
+int DataType__num_children(const std::shared_ptr<arrow::DataType>& type);
+RcppExport SEXP _arrow_DataType__num_children(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DataType__num_children(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// DataType__children_pointer
+List DataType__children_pointer(const std::shared_ptr<arrow::DataType>& type);
+RcppExport SEXP _arrow_DataType__children_pointer(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DataType__children_pointer(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// DataType__id
+arrow::Type::type DataType__id(const std::shared_ptr<arrow::DataType>& type);
+RcppExport SEXP _arrow_DataType__id(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DataType__id(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// schema_
+std::shared_ptr<arrow::Schema> schema_(List fields);
+RcppExport SEXP _arrow_schema_(SEXP fieldsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type fields(fieldsSEXP);
+    rcpp_result_gen = Rcpp::wrap(schema_(fields));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Schema__ToString
+std::string Schema__ToString(const std::shared_ptr<arrow::Schema>& s);
+RcppExport SEXP _arrow_Schema__ToString(SEXP sSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type s(sSEXP);
+    rcpp_result_gen = Rcpp::wrap(Schema__ToString(s));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ListType__ToString
+std::string ListType__ToString(const std::shared_ptr<arrow::ListType>& type);
+RcppExport SEXP _arrow_ListType__ToString(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ListType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(ListType__ToString(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// FixedWidthType__bit_width
+int FixedWidthType__bit_width(const std::shared_ptr<arrow::FixedWidthType>& type);
+RcppExport SEXP _arrow_FixedWidthType__bit_width(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::FixedWidthType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(FixedWidthType__bit_width(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// DateType__unit
+arrow::DateUnit DateType__unit(const std::shared_ptr<arrow::DateType>& type);
+RcppExport SEXP _arrow_DateType__unit(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DateType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DateType__unit(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// TimeType__unit
+arrow::TimeUnit::type TimeType__unit(const std::shared_ptr<arrow::TimeType>& type);
+RcppExport SEXP _arrow_TimeType__unit(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::TimeType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(TimeType__unit(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// DecimalType__precision
+int32_t DecimalType__precision(const std::shared_ptr<arrow::DecimalType>& type);
+RcppExport SEXP _arrow_DecimalType__precision(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DecimalType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DecimalType__precision(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// DecimalType__scale
+int32_t DecimalType__scale(const std::shared_ptr<arrow::DecimalType>& type);
+RcppExport SEXP _arrow_DecimalType__scale(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DecimalType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DecimalType__scale(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// TimestampType__timezone
+std::string TimestampType__timezone(const std::shared_ptr<arrow::TimestampType>& type);
+RcppExport SEXP _arrow_TimestampType__timezone(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::TimestampType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(TimestampType__timezone(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// TimestampType__unit
+arrow::TimeUnit::type TimestampType__unit(const std::shared_ptr<arrow::TimestampType>& type);
+RcppExport SEXP _arrow_TimestampType__unit(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::TimestampType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(TimestampType__unit(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Object__pointer_address
+std::string Object__pointer_address(SEXP obj);
+RcppExport SEXP _arrow_Object__pointer_address(SEXP objSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type obj(objSEXP);
+    rcpp_result_gen = Rcpp::wrap(Object__pointer_address(obj));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Field__initialize
+std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
+RcppExport SEXP _arrow_Field__initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type name(nameSEXP);
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
     Rcpp::traits::input_parameter< bool >::type nullable(nullableSEXP);
-    rcpp_result_gen = Rcpp::wrap(Field_initialize(name, type, nullable));
+    rcpp_result_gen = Rcpp::wrap(Field__initialize(name, type, nullable));
     return rcpp_result_gen;
 END_RCPP
 }
-// Field_ToString
-std::string Field_ToString(const std::shared_ptr<arrow::Field>& type);
-RcppExport SEXP _arrow_Field_ToString(SEXP typeSEXP) {
+// Field__ToString
+std::string Field__ToString(const std::shared_ptr<arrow::Field>& type);
+RcppExport SEXP _arrow_Field__ToString(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(Field_ToString(type));
+    rcpp_result_gen = Rcpp::wrap(Field__ToString(type));
     return rcpp_result_gen;
 END_RCPP
 }
-// Field_name
-std::string Field_name(std::shared_ptr<arrow::Field> type);
-RcppExport SEXP _arrow_Field_name(SEXP typeSEXP) {
+// Field__name
+std::string Field__name(std::shared_ptr<arrow::Field> type);
+RcppExport SEXP _arrow_Field__name(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< std::shared_ptr<arrow::Field> >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(Field_name(type));
+    rcpp_result_gen = Rcpp::wrap(Field__name(type));
     return rcpp_result_gen;
 END_RCPP
 }
-// Field_nullable
-bool Field_nullable(std::shared_ptr<arrow::Field> type);
-RcppExport SEXP _arrow_Field_nullable(SEXP typeSEXP) {
+// Field__nullable
+bool Field__nullable(std::shared_ptr<arrow::Field> type);
+RcppExport SEXP _arrow_Field__nullable(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< std::shared_ptr<arrow::Field> >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(Field_nullable(type));
+    rcpp_result_gen = Rcpp::wrap(Field__nullable(type));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -638,517 +896,207 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Int8_initialize
-std::shared_ptr<arrow::DataType> Int8_initialize();
-RcppExport SEXP _arrow_Int8_initialize() {
+// RecordBatch__num_columns
+int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
+RcppExport SEXP _arrow_RecordBatch__num_columns(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(Int8_initialize());
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__num_columns(x));
     return rcpp_result_gen;
 END_RCPP
 }
-// Int16_initialize
-std::shared_ptr<arrow::DataType> Int16_initialize();
-RcppExport SEXP _arrow_Int16_initialize() {
+// RecordBatch__num_rows
+int RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x);
+RcppExport SEXP _arrow_RecordBatch__num_rows(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(Int16_initialize());
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__num_rows(x));
     return rcpp_result_gen;
 END_RCPP
 }
-// Int32_initialize
-std::shared_ptr<arrow::DataType> Int32_initialize();
-RcppExport SEXP _arrow_Int32_initialize() {
+// RecordBatch__schema
+std::shared_ptr<arrow::Schema> RecordBatch__schema(const std::shared_ptr<arrow::RecordBatch>& x);
+RcppExport SEXP _arrow_RecordBatch__schema(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(Int32_initialize());
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__schema(x));
     return rcpp_result_gen;
 END_RCPP
 }
-// Int64_initialize
-std::shared_ptr<arrow::DataType> Int64_initialize();
-RcppExport SEXP _arrow_Int64_initialize() {
+// RecordBatch__column
+std::shared_ptr<arrow::Array> RecordBatch__column(const std::shared_ptr<arrow::RecordBatch>& batch, int i);
+RcppExport SEXP _arrow_RecordBatch__column(SEXP batchSEXP, SEXP iSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(Int64_initialize());
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__column(batch, i));
     return rcpp_result_gen;
 END_RCPP
 }
-// UInt8_initialize
-std::shared_ptr<arrow::DataType> UInt8_initialize();
-RcppExport SEXP _arrow_UInt8_initialize() {
+// RecordBatch_to_dataframe
+List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch);
+RcppExport SEXP _arrow_RecordBatch_to_dataframe(SEXP batchSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(UInt8_initialize());
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch_to_dataframe(batch));
     return rcpp_result_gen;
 END_RCPP
 }
-// UInt16_initialize
-std::shared_ptr<arrow::DataType> UInt16_initialize();
-RcppExport SEXP _arrow_UInt16_initialize() {
+// read_record_batch_
+std::shared_ptr<arrow::RecordBatch> read_record_batch_(std::string path);
+RcppExport SEXP _arrow_read_record_batch_(SEXP pathSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(UInt16_initialize());
+    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_record_batch_(path));
     return rcpp_result_gen;
 END_RCPP
 }
-// UInt32_initialize
-std::shared_ptr<arrow::DataType> UInt32_initialize();
-RcppExport SEXP _arrow_UInt32_initialize() {
+// RecordBatch_to_file
+int RecordBatch_to_file(const std::shared_ptr<arrow::RecordBatch>& batch, std::string path);
+RcppExport SEXP _arrow_RecordBatch_to_file(SEXP batchSEXP, SEXP pathSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(UInt32_initialize());
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
+    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch_to_file(batch, path));
     return rcpp_result_gen;
 END_RCPP
 }
-// UInt64_initialize
-std::shared_ptr<arrow::DataType> UInt64_initialize();
-RcppExport SEXP _arrow_UInt64_initialize() {
+// RecordBatch__from_dataframe
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl);
+RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tblSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(UInt64_initialize());
+    Rcpp::traits::input_parameter< DataFrame >::type tbl(tblSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__from_dataframe(tbl));
     return rcpp_result_gen;
 END_RCPP
 }
-// Float16_initialize
-std::shared_ptr<arrow::DataType> Float16_initialize();
-RcppExport SEXP _arrow_Float16_initialize() {
+// Table__from_dataframe
+std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl);
+RcppExport SEXP _arrow_Table__from_dataframe(SEXP tblSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(Float16_initialize());
+    Rcpp::traits::input_parameter< DataFrame >::type tbl(tblSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__from_dataframe(tbl));
     return rcpp_result_gen;
 END_RCPP
 }
-// Float32_initialize
-std::shared_ptr<arrow::DataType> Float32_initialize();
-RcppExport SEXP _arrow_Float32_initialize() {
+// Table__num_columns
+int Table__num_columns(const std::shared_ptr<arrow::Table>& x);
+RcppExport SEXP _arrow_Table__num_columns(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(Float32_initialize());
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__num_columns(x));
     return rcpp_result_gen;
 END_RCPP
 }
-// Float64_initialize
-std::shared_ptr<arrow::DataType> Float64_initialize();
-RcppExport SEXP _arrow_Float64_initialize() {
+// Table__num_rows
+int Table__num_rows(const std::shared_ptr<arrow::Table>& x);
+RcppExport SEXP _arrow_Table__num_rows(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(Float64_initialize());
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__num_rows(x));
     return rcpp_result_gen;
 END_RCPP
 }
-// Boolean_initialize
-std::shared_ptr<arrow::DataType> Boolean_initialize();
-RcppExport SEXP _arrow_Boolean_initialize() {
+// Table__schema
+std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>& x);
+RcppExport SEXP _arrow_Table__schema(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(Boolean_initialize());
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__schema(x));
     return rcpp_result_gen;
 END_RCPP
 }
-// Utf8_initialize
-std::shared_ptr<arrow::DataType> Utf8_initialize();
-RcppExport SEXP _arrow_Utf8_initialize() {
+// Table__to_file
+int Table__to_file(const std::shared_ptr<arrow::Table>& table, std::string path);
+RcppExport SEXP _arrow_Table__to_file(SEXP tableSEXP, SEXP pathSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(Utf8_initialize());
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
+    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__to_file(table, path));
     return rcpp_result_gen;
 END_RCPP
 }
-// Date32_initialize
-std::shared_ptr<arrow::DataType> Date32_initialize();
-RcppExport SEXP _arrow_Date32_initialize() {
+// read_table_
+std::shared_ptr<arrow::Table> read_table_(std::string path);
+RcppExport SEXP _arrow_read_table_(SEXP pathSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(Date32_initialize());
+    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_table_(path));
     return rcpp_result_gen;
 END_RCPP
 }
-// Date64_initialize
-std::shared_ptr<arrow::DataType> Date64_initialize();
-RcppExport SEXP _arrow_Date64_initialize() {
+// Table__to_dataframe
+List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table);
+RcppExport SEXP _arrow_Table__to_dataframe(SEXP tableSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(Date64_initialize());
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__to_dataframe(table));
     return rcpp_result_gen;
 END_RCPP
 }
-// Null_initialize
-std::shared_ptr<arrow::DataType> Null_initialize();
-RcppExport SEXP _arrow_Null_initialize() {
+// Table__column
+std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table, int i);
+RcppExport SEXP _arrow_Table__column(SEXP tableSEXP, SEXP iSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(Null_initialize());
-    return rcpp_result_gen;
-END_RCPP
-}
-// Decimal128Type_initialize
-std::shared_ptr<arrow::DataType> Decimal128Type_initialize(int32_t precision, int32_t scale);
-RcppExport SEXP _arrow_Decimal128Type_initialize(SEXP precisionSEXP, SEXP scaleSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< int32_t >::type precision(precisionSEXP);
-    Rcpp::traits::input_parameter< int32_t >::type scale(scaleSEXP);
-    rcpp_result_gen = Rcpp::wrap(Decimal128Type_initialize(precision, scale));
-    return rcpp_result_gen;
-END_RCPP
-}
-// FixedSizeBinary_initialize
-std::shared_ptr<arrow::DataType> FixedSizeBinary_initialize(int32_t byte_width);
-RcppExport SEXP _arrow_FixedSizeBinary_initialize(SEXP byte_widthSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< int32_t >::type byte_width(byte_widthSEXP);
-    rcpp_result_gen = Rcpp::wrap(FixedSizeBinary_initialize(byte_width));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Timestamp_initialize1
-std::shared_ptr<arrow::DataType> Timestamp_initialize1(arrow::TimeUnit::type unit);
-RcppExport SEXP _arrow_Timestamp_initialize1(SEXP unitSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arrow::TimeUnit::type >::type unit(unitSEXP);
-    rcpp_result_gen = Rcpp::wrap(Timestamp_initialize1(unit));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Timestamp_initialize2
-std::shared_ptr<arrow::DataType> Timestamp_initialize2(arrow::TimeUnit::type unit, const std::string& timezone);
-RcppExport SEXP _arrow_Timestamp_initialize2(SEXP unitSEXP, SEXP timezoneSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arrow::TimeUnit::type >::type unit(unitSEXP);
-    Rcpp::traits::input_parameter< const std::string& >::type timezone(timezoneSEXP);
-    rcpp_result_gen = Rcpp::wrap(Timestamp_initialize2(unit, timezone));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Time32_initialize
-std::shared_ptr<arrow::DataType> Time32_initialize(arrow::TimeUnit::type unit);
-RcppExport SEXP _arrow_Time32_initialize(SEXP unitSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arrow::TimeUnit::type >::type unit(unitSEXP);
-    rcpp_result_gen = Rcpp::wrap(Time32_initialize(unit));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Time64_initialize
-std::shared_ptr<arrow::DataType> Time64_initialize(arrow::TimeUnit::type unit);
-RcppExport SEXP _arrow_Time64_initialize(SEXP unitSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arrow::TimeUnit::type >::type unit(unitSEXP);
-    rcpp_result_gen = Rcpp::wrap(Time64_initialize(unit));
-    return rcpp_result_gen;
-END_RCPP
-}
-// list__
-SEXP list__(SEXP x);
-RcppExport SEXP _arrow_list__(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(list__(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// struct_
-std::shared_ptr<arrow::DataType> struct_(List fields);
-RcppExport SEXP _arrow_struct_(SEXP fieldsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type fields(fieldsSEXP);
-    rcpp_result_gen = Rcpp::wrap(struct_(fields));
-    return rcpp_result_gen;
-END_RCPP
-}
-// DataType_ToString
-std::string DataType_ToString(const std::shared_ptr<arrow::DataType>& type);
-RcppExport SEXP _arrow_DataType_ToString(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(DataType_ToString(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// DataType_name
-std::string DataType_name(const std::shared_ptr<arrow::DataType>& type);
-RcppExport SEXP _arrow_DataType_name(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(DataType_name(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// DataType_Equals
-bool DataType_Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs);
-RcppExport SEXP _arrow_DataType_Equals(SEXP lhsSEXP, SEXP rhsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type lhs(lhsSEXP);
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type rhs(rhsSEXP);
-    rcpp_result_gen = Rcpp::wrap(DataType_Equals(lhs, rhs));
-    return rcpp_result_gen;
-END_RCPP
-}
-// DataType_num_children
-int DataType_num_children(const std::shared_ptr<arrow::DataType>& type);
-RcppExport SEXP _arrow_DataType_num_children(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(DataType_num_children(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// DataType_children_pointer
-List DataType_children_pointer(const std::shared_ptr<arrow::DataType>& type);
-RcppExport SEXP _arrow_DataType_children_pointer(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(DataType_children_pointer(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// DataType_id
-arrow::Type::type DataType_id(const std::shared_ptr<arrow::DataType>& type);
-RcppExport SEXP _arrow_DataType_id(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(DataType_id(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// schema_
-std::shared_ptr<arrow::Schema> schema_(List fields);
-RcppExport SEXP _arrow_schema_(SEXP fieldsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type fields(fieldsSEXP);
-    rcpp_result_gen = Rcpp::wrap(schema_(fields));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Schema_ToString
-std::string Schema_ToString(const std::shared_ptr<arrow::Schema>& s);
-RcppExport SEXP _arrow_Schema_ToString(SEXP sSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type s(sSEXP);
-    rcpp_result_gen = Rcpp::wrap(Schema_ToString(s));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ListType_ToString
-std::string ListType_ToString(const std::shared_ptr<arrow::ListType>& type);
-RcppExport SEXP _arrow_ListType_ToString(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ListType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(ListType_ToString(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// FixedWidthType_bit_width
-int FixedWidthType_bit_width(const std::shared_ptr<arrow::FixedWidthType>& type);
-RcppExport SEXP _arrow_FixedWidthType_bit_width(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::FixedWidthType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(FixedWidthType_bit_width(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// DateType_unit
-arrow::DateUnit DateType_unit(const std::shared_ptr<arrow::DateType>& type);
-RcppExport SEXP _arrow_DateType_unit(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DateType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(DateType_unit(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// TimeType_unit
-arrow::TimeUnit::type TimeType_unit(const std::shared_ptr<arrow::TimeType>& type);
-RcppExport SEXP _arrow_TimeType_unit(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::TimeType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(TimeType_unit(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// DecimalType_precision
-int32_t DecimalType_precision(const std::shared_ptr<arrow::DecimalType>& type);
-RcppExport SEXP _arrow_DecimalType_precision(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DecimalType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(DecimalType_precision(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// DecimalType_scale
-int32_t DecimalType_scale(const std::shared_ptr<arrow::DecimalType>& type);
-RcppExport SEXP _arrow_DecimalType_scale(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DecimalType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(DecimalType_scale(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// TimestampType_timezone
-std::string TimestampType_timezone(const std::shared_ptr<arrow::TimestampType>& type);
-RcppExport SEXP _arrow_TimestampType_timezone(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::TimestampType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(TimestampType_timezone(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// TimestampType_unit
-arrow::TimeUnit::type TimestampType_unit(const std::shared_ptr<arrow::TimestampType>& type);
-RcppExport SEXP _arrow_TimestampType_unit(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::TimestampType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(TimestampType_unit(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Object_pointer_address
-std::string Object_pointer_address(SEXP obj);
-RcppExport SEXP _arrow_Object_pointer_address(SEXP objSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type obj(objSEXP);
-    rcpp_result_gen = Rcpp::wrap(Object_pointer_address(obj));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Status_ToString
-std::string Status_ToString(const std::shared_ptr<arrow::Status>& status);
-RcppExport SEXP _arrow_Status_ToString(SEXP statusSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Status>& >::type status(statusSEXP);
-    rcpp_result_gen = Rcpp::wrap(Status_ToString(status));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Status_CodeAsString
-std::string Status_CodeAsString(const std::shared_ptr<arrow::Status>& status);
-RcppExport SEXP _arrow_Status_CodeAsString(SEXP statusSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Status>& >::type status(statusSEXP);
-    rcpp_result_gen = Rcpp::wrap(Status_CodeAsString(status));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Status_code
-arrow::StatusCode Status_code(const std::shared_ptr<arrow::Status>& status);
-RcppExport SEXP _arrow_Status_code(SEXP statusSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Status>& >::type status(statusSEXP);
-    rcpp_result_gen = Rcpp::wrap(Status_code(status));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Status_message
-std::string Status_message(const std::shared_ptr<arrow::Status>& status);
-RcppExport SEXP _arrow_Status_message(SEXP statusSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Status>& >::type status(statusSEXP);
-    rcpp_result_gen = Rcpp::wrap(Status_message(status));
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__column(table, i));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
-    {"_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
-    {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
-    {"_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2},
-    {"_arrow_RecordBatch_to_dataframe", (DL_FUNC) &_arrow_RecordBatch_to_dataframe, 1},
-    {"_arrow_read_record_batch_", (DL_FUNC) &_arrow_read_record_batch_, 1},
-    {"_arrow_RecordBatch_to_file", (DL_FUNC) &_arrow_RecordBatch_to_file, 2},
-    {"_arrow_ArrayData_get_type", (DL_FUNC) &_arrow_ArrayData_get_type, 1},
-    {"_arrow_ArrayData_get_length", (DL_FUNC) &_arrow_ArrayData_get_length, 1},
-    {"_arrow_ArrayData_get_null_count", (DL_FUNC) &_arrow_ArrayData_get_null_count, 1},
-    {"_arrow_ArrayData_get_offset", (DL_FUNC) &_arrow_ArrayData_get_offset, 1},
-    {"_arrow_Array_IsNull", (DL_FUNC) &_arrow_Array_IsNull, 2},
-    {"_arrow_Array_IsValid", (DL_FUNC) &_arrow_Array_IsValid, 2},
-    {"_arrow_Array_length", (DL_FUNC) &_arrow_Array_length, 1},
-    {"_arrow_Array_offset", (DL_FUNC) &_arrow_Array_offset, 1},
-    {"_arrow_Array_null_count", (DL_FUNC) &_arrow_Array_null_count, 1},
-    {"_arrow_Array_type", (DL_FUNC) &_arrow_Array_type, 1},
-    {"_arrow_Array_ToString", (DL_FUNC) &_arrow_Array_ToString, 1},
-    {"_arrow_Array_type_id", (DL_FUNC) &_arrow_Array_type_id, 1},
-    {"_arrow_Array_Equals", (DL_FUNC) &_arrow_Array_Equals, 2},
-    {"_arrow_Array_ApproxEquals", (DL_FUNC) &_arrow_Array_ApproxEquals, 2},
-    {"_arrow_Array_data", (DL_FUNC) &_arrow_Array_data, 1},
     {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 1},
-    {"_arrow_dataframe_to_RecordBatch", (DL_FUNC) &_arrow_dataframe_to_RecordBatch, 1},
     {"_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1},
     {"_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2},
     {"_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3},
+    {"_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2},
+    {"_arrow_Array__IsValid", (DL_FUNC) &_arrow_Array__IsValid, 2},
+    {"_arrow_Array__length", (DL_FUNC) &_arrow_Array__length, 1},
+    {"_arrow_Array__offset", (DL_FUNC) &_arrow_Array__offset, 1},
+    {"_arrow_Array__null_count", (DL_FUNC) &_arrow_Array__null_count, 1},
+    {"_arrow_Array__type", (DL_FUNC) &_arrow_Array__type, 1},
+    {"_arrow_Array__ToString", (DL_FUNC) &_arrow_Array__ToString, 1},
+    {"_arrow_Array__type_id", (DL_FUNC) &_arrow_Array__type_id, 1},
+    {"_arrow_Array__Equals", (DL_FUNC) &_arrow_Array__Equals, 2},
+    {"_arrow_Array__ApproxEquals", (DL_FUNC) &_arrow_Array__ApproxEquals, 2},
+    {"_arrow_Array__data", (DL_FUNC) &_arrow_Array__data, 1},
+    {"_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
+    {"_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},
+    {"_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1},
+    {"_arrow_ArrayData__get_offset", (DL_FUNC) &_arrow_ArrayData__get_offset, 1},
     {"_arrow_ChunkedArray__length", (DL_FUNC) &_arrow_ChunkedArray__length, 1},
     {"_arrow_ChunkedArray__null_count", (DL_FUNC) &_arrow_ChunkedArray__null_count, 1},
     {"_arrow_ChunkedArray__num_chunks", (DL_FUNC) &_arrow_ChunkedArray__num_chunks, 1},
@@ -1158,71 +1106,75 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
     {"_arrow_ChunkArray__Slice1", (DL_FUNC) &_arrow_ChunkArray__Slice1, 2},
     {"_arrow_ChunkArray__Slice2", (DL_FUNC) &_arrow_ChunkArray__Slice2, 3},
-    {"_arrow_ChunkedArray__Make", (DL_FUNC) &_arrow_ChunkedArray__Make, 1},
-    {"_arrow_dataframe_to_Table", (DL_FUNC) &_arrow_dataframe_to_Table, 1},
-    {"_arrow_Table_num_columns", (DL_FUNC) &_arrow_Table_num_columns, 1},
-    {"_arrow_Table_num_rows", (DL_FUNC) &_arrow_Table_num_rows, 1},
-    {"_arrow_Table_schema", (DL_FUNC) &_arrow_Table_schema, 1},
-    {"_arrow_Table_to_file", (DL_FUNC) &_arrow_Table_to_file, 2},
-    {"_arrow_read_table_", (DL_FUNC) &_arrow_read_table_, 1},
-    {"_arrow_Table_to_dataframe", (DL_FUNC) &_arrow_Table_to_dataframe, 1},
-    {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
+    {"_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 1},
     {"_arrow_Column__length", (DL_FUNC) &_arrow_Column__length, 1},
     {"_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1},
     {"_arrow_Column__type", (DL_FUNC) &_arrow_Column__type, 1},
     {"_arrow_Column__data", (DL_FUNC) &_arrow_Column__data, 1},
-    {"_arrow_Field_initialize", (DL_FUNC) &_arrow_Field_initialize, 3},
-    {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
-    {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},
-    {"_arrow_Field_nullable", (DL_FUNC) &_arrow_Field_nullable, 1},
+    {"_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0},
+    {"_arrow_Int16__initialize", (DL_FUNC) &_arrow_Int16__initialize, 0},
+    {"_arrow_Int32__initialize", (DL_FUNC) &_arrow_Int32__initialize, 0},
+    {"_arrow_Int64__initialize", (DL_FUNC) &_arrow_Int64__initialize, 0},
+    {"_arrow_UInt8__initialize", (DL_FUNC) &_arrow_UInt8__initialize, 0},
+    {"_arrow_UInt16__initialize", (DL_FUNC) &_arrow_UInt16__initialize, 0},
+    {"_arrow_UInt32__initialize", (DL_FUNC) &_arrow_UInt32__initialize, 0},
+    {"_arrow_UInt64__initialize", (DL_FUNC) &_arrow_UInt64__initialize, 0},
+    {"_arrow_Float16__initialize", (DL_FUNC) &_arrow_Float16__initialize, 0},
+    {"_arrow_Float32__initialize", (DL_FUNC) &_arrow_Float32__initialize, 0},
+    {"_arrow_Float64__initialize", (DL_FUNC) &_arrow_Float64__initialize, 0},
+    {"_arrow_Boolean__initialize", (DL_FUNC) &_arrow_Boolean__initialize, 0},
+    {"_arrow_Utf8__initialize", (DL_FUNC) &_arrow_Utf8__initialize, 0},
+    {"_arrow_Date32__initialize", (DL_FUNC) &_arrow_Date32__initialize, 0},
+    {"_arrow_Date64__initialize", (DL_FUNC) &_arrow_Date64__initialize, 0},
+    {"_arrow_Null__initialize", (DL_FUNC) &_arrow_Null__initialize, 0},
+    {"_arrow_Decimal128Type__initialize", (DL_FUNC) &_arrow_Decimal128Type__initialize, 2},
+    {"_arrow_FixedSizeBinary__initialize", (DL_FUNC) &_arrow_FixedSizeBinary__initialize, 1},
+    {"_arrow_Timestamp__initialize1", (DL_FUNC) &_arrow_Timestamp__initialize1, 1},
+    {"_arrow_Timestamp__initialize2", (DL_FUNC) &_arrow_Timestamp__initialize2, 2},
+    {"_arrow_Time32__initialize", (DL_FUNC) &_arrow_Time32__initialize, 1},
+    {"_arrow_Time64__initialize", (DL_FUNC) &_arrow_Time64__initialize, 1},
+    {"_arrow_list__", (DL_FUNC) &_arrow_list__, 1},
+    {"_arrow_struct_", (DL_FUNC) &_arrow_struct_, 1},
+    {"_arrow_DataType__ToString", (DL_FUNC) &_arrow_DataType__ToString, 1},
+    {"_arrow_DataType__name", (DL_FUNC) &_arrow_DataType__name, 1},
+    {"_arrow_DataType__Equals", (DL_FUNC) &_arrow_DataType__Equals, 2},
+    {"_arrow_DataType__num_children", (DL_FUNC) &_arrow_DataType__num_children, 1},
+    {"_arrow_DataType__children_pointer", (DL_FUNC) &_arrow_DataType__children_pointer, 1},
+    {"_arrow_DataType__id", (DL_FUNC) &_arrow_DataType__id, 1},
+    {"_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1},
+    {"_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1},
+    {"_arrow_ListType__ToString", (DL_FUNC) &_arrow_ListType__ToString, 1},
+    {"_arrow_FixedWidthType__bit_width", (DL_FUNC) &_arrow_FixedWidthType__bit_width, 1},
+    {"_arrow_DateType__unit", (DL_FUNC) &_arrow_DateType__unit, 1},
+    {"_arrow_TimeType__unit", (DL_FUNC) &_arrow_TimeType__unit, 1},
+    {"_arrow_DecimalType__precision", (DL_FUNC) &_arrow_DecimalType__precision, 1},
+    {"_arrow_DecimalType__scale", (DL_FUNC) &_arrow_DecimalType__scale, 1},
+    {"_arrow_TimestampType__timezone", (DL_FUNC) &_arrow_TimestampType__timezone, 1},
+    {"_arrow_TimestampType__unit", (DL_FUNC) &_arrow_TimestampType__unit, 1},
+    {"_arrow_Object__pointer_address", (DL_FUNC) &_arrow_Object__pointer_address, 1},
+    {"_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3},
+    {"_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1},
+    {"_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1},
+    {"_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1},
     {"_arrow_MemoryPool_default", (DL_FUNC) &_arrow_MemoryPool_default, 0},
     {"_arrow_MemoryPool_bytes_allocated", (DL_FUNC) &_arrow_MemoryPool_bytes_allocated, 1},
     {"_arrow_MemoryPool_max_memory", (DL_FUNC) &_arrow_MemoryPool_max_memory, 1},
-    {"_arrow_Int8_initialize", (DL_FUNC) &_arrow_Int8_initialize, 0},
-    {"_arrow_Int16_initialize", (DL_FUNC) &_arrow_Int16_initialize, 0},
-    {"_arrow_Int32_initialize", (DL_FUNC) &_arrow_Int32_initialize, 0},
-    {"_arrow_Int64_initialize", (DL_FUNC) &_arrow_Int64_initialize, 0},
-    {"_arrow_UInt8_initialize", (DL_FUNC) &_arrow_UInt8_initialize, 0},
-    {"_arrow_UInt16_initialize", (DL_FUNC) &_arrow_UInt16_initialize, 0},
-    {"_arrow_UInt32_initialize", (DL_FUNC) &_arrow_UInt32_initialize, 0},
-    {"_arrow_UInt64_initialize", (DL_FUNC) &_arrow_UInt64_initialize, 0},
-    {"_arrow_Float16_initialize", (DL_FUNC) &_arrow_Float16_initialize, 0},
-    {"_arrow_Float32_initialize", (DL_FUNC) &_arrow_Float32_initialize, 0},
-    {"_arrow_Float64_initialize", (DL_FUNC) &_arrow_Float64_initialize, 0},
-    {"_arrow_Boolean_initialize", (DL_FUNC) &_arrow_Boolean_initialize, 0},
-    {"_arrow_Utf8_initialize", (DL_FUNC) &_arrow_Utf8_initialize, 0},
-    {"_arrow_Date32_initialize", (DL_FUNC) &_arrow_Date32_initialize, 0},
-    {"_arrow_Date64_initialize", (DL_FUNC) &_arrow_Date64_initialize, 0},
-    {"_arrow_Null_initialize", (DL_FUNC) &_arrow_Null_initialize, 0},
-    {"_arrow_Decimal128Type_initialize", (DL_FUNC) &_arrow_Decimal128Type_initialize, 2},
-    {"_arrow_FixedSizeBinary_initialize", (DL_FUNC) &_arrow_FixedSizeBinary_initialize, 1},
-    {"_arrow_Timestamp_initialize1", (DL_FUNC) &_arrow_Timestamp_initialize1, 1},
-    {"_arrow_Timestamp_initialize2", (DL_FUNC) &_arrow_Timestamp_initialize2, 2},
-    {"_arrow_Time32_initialize", (DL_FUNC) &_arrow_Time32_initialize, 1},
-    {"_arrow_Time64_initialize", (DL_FUNC) &_arrow_Time64_initialize, 1},
-    {"_arrow_list__", (DL_FUNC) &_arrow_list__, 1},
-    {"_arrow_struct_", (DL_FUNC) &_arrow_struct_, 1},
-    {"_arrow_DataType_ToString", (DL_FUNC) &_arrow_DataType_ToString, 1},
-    {"_arrow_DataType_name", (DL_FUNC) &_arrow_DataType_name, 1},
-    {"_arrow_DataType_Equals", (DL_FUNC) &_arrow_DataType_Equals, 2},
-    {"_arrow_DataType_num_children", (DL_FUNC) &_arrow_DataType_num_children, 1},
-    {"_arrow_DataType_children_pointer", (DL_FUNC) &_arrow_DataType_children_pointer, 1},
-    {"_arrow_DataType_id", (DL_FUNC) &_arrow_DataType_id, 1},
-    {"_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1},
-    {"_arrow_Schema_ToString", (DL_FUNC) &_arrow_Schema_ToString, 1},
-    {"_arrow_ListType_ToString", (DL_FUNC) &_arrow_ListType_ToString, 1},
-    {"_arrow_FixedWidthType_bit_width", (DL_FUNC) &_arrow_FixedWidthType_bit_width, 1},
-    {"_arrow_DateType_unit", (DL_FUNC) &_arrow_DateType_unit, 1},
-    {"_arrow_TimeType_unit", (DL_FUNC) &_arrow_TimeType_unit, 1},
-    {"_arrow_DecimalType_precision", (DL_FUNC) &_arrow_DecimalType_precision, 1},
-    {"_arrow_DecimalType_scale", (DL_FUNC) &_arrow_DecimalType_scale, 1},
-    {"_arrow_TimestampType_timezone", (DL_FUNC) &_arrow_TimestampType_timezone, 1},
-    {"_arrow_TimestampType_unit", (DL_FUNC) &_arrow_TimestampType_unit, 1},
-    {"_arrow_Object_pointer_address", (DL_FUNC) &_arrow_Object_pointer_address, 1},
-    {"_arrow_Status_ToString", (DL_FUNC) &_arrow_Status_ToString, 1},
-    {"_arrow_Status_CodeAsString", (DL_FUNC) &_arrow_Status_CodeAsString, 1},
-    {"_arrow_Status_code", (DL_FUNC) &_arrow_Status_code, 1},
-    {"_arrow_Status_message", (DL_FUNC) &_arrow_Status_message, 1},
+    {"_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
+    {"_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
+    {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
+    {"_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2},
+    {"_arrow_RecordBatch_to_dataframe", (DL_FUNC) &_arrow_RecordBatch_to_dataframe, 1},
+    {"_arrow_read_record_batch_", (DL_FUNC) &_arrow_read_record_batch_, 1},
+    {"_arrow_RecordBatch_to_file", (DL_FUNC) &_arrow_RecordBatch_to_file, 2},
+    {"_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1},
+    {"_arrow_Table__from_dataframe", (DL_FUNC) &_arrow_Table__from_dataframe, 1},
+    {"_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1},
+    {"_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1},
+    {"_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
+    {"_arrow_Table__to_file", (DL_FUNC) &_arrow_Table__to_file, 2},
+    {"_arrow_read_table_", (DL_FUNC) &_arrow_read_table_, 1},
+    {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 1},
+    {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
     {NULL, NULL, 0}
 };
 

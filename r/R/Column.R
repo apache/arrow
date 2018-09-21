@@ -17,17 +17,11 @@
 
 #' @include R6.R
 
-`arrow::MemoryPool` <- R6Class("arrow::MemoryPool",
-  inherit = `arrow::Object`,
+`arrow::Column` <- R6Class("arrow::Column", inherit = `arrow::Object`,
   public = list(
-    # TODO: Allocate
-    # TODO: Reallocate
-    # TODO: Free
-    bytes_allocated = function() MemoryPool__bytes_allocated(self),
-    max_memory = function() MemoryPool__max_memory(self)
+    length = function() Column__length(self),
+    null_count = function() Column__null_count(self),
+    type = function() `arrow::DataType`$dispatch(Column__type(self)),
+    data = function() `arrow::ChunkedArray`$new(Column__data(self))
   )
 )
-
-default_memory_pool <- function() {
-  `arrow::MemoryPool`$new(MemoryPool__default())
-}

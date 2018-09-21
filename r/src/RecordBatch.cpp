@@ -89,3 +89,20 @@ int RecordBatch_to_file(const std::shared_ptr<arrow::RecordBatch>& batch, std::s
   R_ERROR_NOT_OK(stream->Close());
   return offset;
 }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl){
+  CharacterVector names = tbl.names();
+
+  std::vector<std::shared_ptr<arrow::Field>> fields;
+  std::vector<std::shared_ptr<arrow::Array>> arrays;
+
+  int nc = tbl.size();
+  for(int i=0; i<tbl.size(); i++){
+    arrays.push_back(Array__from_vector(tbl[i]));
+    fields.push_back(std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type()));
+  }
+  auto schema = std::make_shared<arrow::Schema>(std::move(fields));
+
+  return arrow::RecordBatch::Make(schema, tbl.nrow(), std::move(arrays));
+}
