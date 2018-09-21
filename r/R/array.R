@@ -41,7 +41,14 @@
     ApproxEquals = function(othet) Array_ApproxEquals(self, other),
     data = function() `arrow::ArrayData`$new(Array_data(self)),
     as_vector = function() Array_as_vector(self),
-    ToString = function() Array_ToString(self)
+    ToString = function() Array_ToString(self),
+    Slice = function(offset, length = NULL){
+      if (is.null(length)) {
+        `arrow::Array`$new(Array__Slice1(self, offset))
+      } else {
+        `arrow::Array`$new(Array__Slice2(self, offset, length))
+      }
+    }
   )
 )
 
@@ -60,7 +67,7 @@
 #'
 #' @export
 array <- function(...){
-  `arrow::Array`$new(vctrs::vec_c(...))
+  `arrow::Array`$new(rvector_to_Array(vctrs::vec_c(...)))
 }
 
 `arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = `arrow::Object`,

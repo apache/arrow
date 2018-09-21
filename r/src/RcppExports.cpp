@@ -253,6 +253,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Array__Slice1
+std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, int offset);
+RcppExport SEXP _arrow_Array__Slice1(SEXP arraySEXP, SEXP offsetSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__Slice1(array, offset));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__Slice2
+std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array, int offset, int length);
+RcppExport SEXP _arrow_Array__Slice2(SEXP arraySEXP, SEXP offsetSEXP, SEXP lengthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
+    Rcpp::traits::input_parameter< int >::type length(lengthSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__Slice2(array, offset, length));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ChunkedArray__length
 int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 RcppExport SEXP _arrow_ChunkedArray__length(SEXP chunked_arraySEXP) {
@@ -1119,6 +1144,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch_schema", (DL_FUNC) &_arrow_RecordBatch_schema, 1},
     {"_arrow_RecordBatch_column", (DL_FUNC) &_arrow_RecordBatch_column, 2},
     {"_arrow_Array_as_vector", (DL_FUNC) &_arrow_Array_as_vector, 1},
+    {"_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2},
+    {"_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3},
     {"_arrow_ChunkedArray__length", (DL_FUNC) &_arrow_ChunkedArray__length, 1},
     {"_arrow_ChunkedArray__null_count", (DL_FUNC) &_arrow_ChunkedArray__null_count, 1},
     {"_arrow_ChunkedArray__num_chunks", (DL_FUNC) &_arrow_ChunkedArray__num_chunks, 1},

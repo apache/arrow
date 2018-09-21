@@ -89,6 +89,14 @@ Array_as_vector <- function(array) {
     .Call(`_arrow_Array_as_vector`, array)
 }
 
+Array__Slice1 <- function(array, offset) {
+    .Call(`_arrow_Array__Slice1`, array, offset)
+}
+
+Array__Slice2 <- function(array, offset, length) {
+    .Call(`_arrow_Array__Slice2`, array, offset, length)
+}
+
 ChunkedArray__length <- function(chunked_array) {
     .Call(`_arrow_ChunkedArray__length`, chunked_array)
 }

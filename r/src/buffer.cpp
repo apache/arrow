@@ -145,7 +145,7 @@ std::shared_ptr<arrow::Array> RecordBatch_column(const std::shared_ptr<arrow::Re
 template <int RTYPE>
 inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array ){
   using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
-  auto start = reinterpret_cast<const stored_type*>(array->data()->buffers[1]->data());
+  auto start = reinterpret_cast<const stored_type*>(array->data()->buffers[1]->data() + array->offset() * sizeof(stored_type));
 
   size_t n = array->length();
   Rcpp::Vector<RTYPE> vec(start, start + n);
@@ -178,6 +178,16 @@ SEXP Array_as_vector(const std::shared_ptr<arrow::Array>& array){
   return R_NilValue;
 }
 
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, int offset) {
+  return array->Slice(offset);
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array, int offset, int length) {
+  return array->Slice(offset, length);
+}
+
 template <int RTYPE>
 inline SEXP simple_ChunkedArray_to_Vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
   using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
@@ -191,7 +201,11 @@ inline SEXP simple_ChunkedArray_to_Vector(const std::shared_ptr<arrow::ChunkedAr
 
     // copy the data
     auto q = p;
-    p = std::copy_n(reinterpret_cast<const stored_type*>(chunk->data()->buffers[1]->data()), n, p);
+    p = std::copy_n(
+      reinterpret_cast<const stored_type*>(
+          chunk->data()->buffers[1]->data() + chunk->offset() * sizeof(stored_type)
+      ),
+      n, p);
 
     // set NA using the bitmap, TODO
     auto bitmap_data = chunk->null_bitmap();
