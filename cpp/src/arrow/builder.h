@@ -69,7 +69,7 @@ class ARROW_EXPORT ArrayBuilder {
         length_(0),
         capacity_(0) {}
 
-  virtual ~ArrayBuilder() = default;
+  virtual ~ArrayBuilder();
 
   /// For nested types. Since the objects are owned by this class instance, we
   /// skip shared pointers and just return a raw pointer

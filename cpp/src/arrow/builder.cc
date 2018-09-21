@@ -67,6 +67,8 @@ Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
 
 }  // namespace
 
+ArrayBuilder::~ArrayBuilder() {}
+
 Status ArrayBuilder::AppendToBitmap(bool is_valid) {
   if (length_ == capacity_) {
     // If the capacity was not already a multiple of 2, do so here
