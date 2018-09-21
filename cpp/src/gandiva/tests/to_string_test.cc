@@ -68,7 +68,8 @@ TEST_F(TestToString, TestAll) {
   auto if_node = TreeExprBuilder::MakeIf(cond_node, then_node, else_node, int64());
   auto if_expr = TreeExprBuilder::MakeExpression(if_node, f1);
   CHECK_EXPR_TO_STRING(
-      if_expr, "if (bool lesser_than(double, (float) 0)) { int64 } else { int64 }");
+      if_expr,
+      "if (bool lesser_than(double, (float) 0 raw(0))) { int64 } else { int64 }");
 
   auto f1_gt_100 =
       TreeExprBuilder::MakeFunction("greater_than", {f1_node, literal_node}, boolean());
