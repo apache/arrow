@@ -163,6 +163,10 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::SerializationError, msg);
   }
 
+  static Status RError(const std::string& msg) {
+    return Status(StatusCode::RError, msg);
+  }
+
   static Status PlasmaObjectExists(const std::string& msg) {
     return Status(StatusCode::PlasmaObjectExists, msg);
   }
@@ -194,6 +198,8 @@ class ARROW_EXPORT Status {
   bool IsNotImplemented() const { return code() == StatusCode::NotImplemented; }
   // An object could not be serialized or deserialized.
   bool IsSerializationError() const { return code() == StatusCode::SerializationError; }
+  // An error from R
+  bool IsRError() const { return code() == StatusCode::RError; }
   // An error is propagated from a nested Python function.
   bool IsPythonError() const { return code() == StatusCode::PythonError; }
   // An object with this object ID already exists in the plasma store.
