@@ -175,7 +175,7 @@ public class JsonFileWriter implements AutoCloseable {
         for (int i = 0; i < bufferValueCount; i++) {
           if (bufferType.equals(DATA) && (vector.getMinorType() == MinorType.VARCHAR ||
                   vector.getMinorType() == MinorType.VARBINARY)) {
-            writeValueToGenerator(bufferType, vectorBuffer, vectorBuffers.get(v-1), vector, i);
+            writeValueToGenerator(bufferType, vectorBuffer, vectorBuffers.get(v - 1), vector, i);
           } else {
             writeValueToGenerator(bufferType, vectorBuffer, null, vector, i);
           }

@@ -118,8 +118,8 @@ public class Integration {
     try {
       return Command.valueOf(commandName);
     } catch (IllegalArgumentException e) {
-      throw new IllegalArgumentException("Unknown command: " + commandName + " expected one of "
-          + Arrays.toString(Command.values()));
+      throw new IllegalArgumentException("Unknown command: " + commandName + " expected one of " +
+          Arrays.toString(Command.values()));
     }
   }
 
@@ -213,9 +213,9 @@ public class Integration {
           boolean hasMoreJSON = jsonRoot != null;
           boolean hasMoreArrow = iterator.hasNext();
           if (hasMoreJSON || hasMoreArrow) {
-            throw new IllegalArgumentException("Unexpected RecordBatches. Total: " + totalBatches
-                + " J:" + hasMoreJSON + " "
-                + "A:" + hasMoreArrow);
+            throw new IllegalArgumentException("Unexpected RecordBatches. Total: " + totalBatches +
+                " J:" + hasMoreJSON + " " +
+                "A:" + hasMoreArrow);
           }
         }
       }

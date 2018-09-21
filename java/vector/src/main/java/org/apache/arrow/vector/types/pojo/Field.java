@@ -137,8 +137,8 @@ public class Field {
    * @return original or mutated field
    */
   private static Field mutateOriginalNameIfNeeded(org.apache.arrow.flatbuf.Field field, Field originalChildField) {
-    if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList)
-        && originalChildField.getName().equals("[DEFAULT]")) {
+    if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList) &&
+        originalChildField.getName().equals("[DEFAULT]")) {
       return
         new Field(DATA_VECTOR_NAME,
           originalChildField.isNullable(),

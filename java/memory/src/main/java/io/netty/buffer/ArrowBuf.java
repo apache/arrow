@@ -267,8 +267,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
 
     if (decrement < 1) {
-      throw new IllegalStateException(String.format("release(%d) argument is not positive. Buffer" +
-              " Info: %s",
+      throw new IllegalStateException(String.format("release(%d) argument is not positive. Buffer Info: %s",
           decrement, toVerboseString()));
     }
 
@@ -307,8 +306,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
       return this;
     }
 
-    throw new UnsupportedOperationException("Buffers don't support resizing that increases the " +
-        "size.");
+    throw new UnsupportedOperationException("Buffers don't support resizing that increases the size.");
   }
 
   @Override
@@ -442,8 +440,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   public String toString() {
-    return String.format("ArrowBuf[%d], udle: [%d %d..%d]", id, udle.id, offset, offset +
-        capacity());
+    return String.format("ArrowBuf[%d], udle: [%d %d..%d]", id, udle.id, offset, offset + capacity());
   }
 
   @Override

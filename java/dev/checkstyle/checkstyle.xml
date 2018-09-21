@@ -213,7 +213,7 @@
         </module>
         <module name="MethodParamPad"/>
         <module name="OperatorWrap">
-            <property name="option" value="NL"/>
+            <property name="option" value="eol"/>
             <property name="tokens" value="BAND, BOR, BSR, BXOR, DIV, EQUAL, GE, GT, LAND, LE, LITERAL_INSTANCEOF, LOR, LT, MINUS, MOD, NOT_EQUAL, PLUS, QUESTION, SL, SR, STAR "/>
         </module>
         <module name="AnnotationLocation">

@@ -200,7 +200,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     final int startOffset = offsetBuffer.getInt(0);
     final int endOffset = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
     final double totalListSize = endOffset - startOffset;
-    return totalListSize/valueCount;
+    return totalListSize / valueCount;
   }
 
   /**

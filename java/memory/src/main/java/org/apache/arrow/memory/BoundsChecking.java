@@ -26,8 +26,8 @@ public class BoundsChecking {
   static {
     boolean isAssertEnabled = false;
     assert isAssertEnabled = true;
-    BOUNDS_CHECKING_ENABLED = isAssertEnabled
-        || !"true".equals(System.getProperty("drill.enable_unsafe_memory_access"));
+    BOUNDS_CHECKING_ENABLED = isAssertEnabled ||
+      !"true".equals(System.getProperty("drill.enable_unsafe_memory_access"));
   }
 
   private BoundsChecking() {

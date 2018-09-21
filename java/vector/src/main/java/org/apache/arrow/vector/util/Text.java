@@ -49,9 +49,9 @@ public class Text {
       new ThreadLocal<CharsetEncoder>() {
         @Override
         protected CharsetEncoder initialValue() {
-          return Charset.forName("UTF-8").newEncoder().
-              onMalformedInput(CodingErrorAction.REPORT).
-              onUnmappableCharacter(CodingErrorAction.REPORT);
+          return Charset.forName("UTF-8").newEncoder()
+              .onMalformedInput(CodingErrorAction.REPORT)
+              .onUnmappableCharacter(CodingErrorAction.REPORT);
         }
       };
 
@@ -59,9 +59,9 @@ public class Text {
       new ThreadLocal<CharsetDecoder>() {
         @Override
         protected CharsetDecoder initialValue() {
-          return Charset.forName("UTF-8").newDecoder().
-              onMalformedInput(CodingErrorAction.REPORT).
-              onUnmappableCharacter(CodingErrorAction.REPORT);
+          return Charset.forName("UTF-8").newDecoder()
+              .onMalformedInput(CodingErrorAction.REPORT)
+              .onUnmappableCharacter(CodingErrorAction.REPORT);
         }
       };
 
