@@ -77,6 +77,50 @@ TEST_F(TestProjector, TestProjectCache) {
   EXPECT_TRUE(cached_projector.get() != should_be_new_projector1.get());
 }
 
+TEST_F(TestProjector, TestProjectCacheDouble) {
+  auto schema = arrow::schema({});
+  auto res = field("result", arrow::float64());
+
+  double d0 = 1.23456788912345677E18;
+  double d1 = 1.23456789012345677E18;
+
+  auto literal0 = TreeExprBuilder::MakeLiteral(d0);
+  auto expr0 = TreeExprBuilder::MakeExpression(literal0, res);
+  std::shared_ptr<Projector> projector0;
+  auto status = Projector::Make(schema, {expr0}, &projector0);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto literal1 = TreeExprBuilder::MakeLiteral(d1);
+  auto expr1 = TreeExprBuilder::MakeExpression(literal1, res);
+  std::shared_ptr<Projector> projector1;
+  status = Projector::Make(schema, {expr1}, &projector1);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_TRUE(projector0.get() != projector1.get());
+}
+
+TEST_F(TestProjector, TestProjectCacheFloat) {
+  auto schema = arrow::schema({});
+  auto res = field("result", arrow::float32());
+
+  float f0 = 12345678891.000000;
+  float f1 = f0 - 1000;
+
+  auto literal0 = TreeExprBuilder::MakeLiteral(f0);
+  auto expr0 = TreeExprBuilder::MakeExpression(literal0, res);
+  std::shared_ptr<Projector> projector0;
+  auto status = Projector::Make(schema, {expr0}, &projector0);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto literal1 = TreeExprBuilder::MakeLiteral(f1);
+  auto expr1 = TreeExprBuilder::MakeExpression(literal1, res);
+  std::shared_ptr<Projector> projector1;
+  status = Projector::Make(schema, {expr1}, &projector1);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_TRUE(projector0.get() != projector1.get());
+}
+
 TEST_F(TestProjector, TestIntSumSub) {
   // schema for input fields
   auto field0 = field("f0", int32());
