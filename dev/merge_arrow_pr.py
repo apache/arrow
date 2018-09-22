@@ -56,9 +56,8 @@ def get_json(url):
 
 
 def fail(msg):
-    print(msg)
     clean_up()
-    sys.exit(-1)
+    raise Exception(msg)
 
 
 def run_cmd(cmd):
@@ -79,12 +78,6 @@ def run_cmd(cmd):
     if isinstance(output, six.binary_type):
         output = output.decode('utf-8')
     return output
-
-
-def continue_maybe(prompt):
-    result = input("\n%s (y/n): " % prompt)
-    if result.lower() != "y":
-        fail("Okay, exiting")
 
 
 original_head = run_cmd("git rev-parse HEAD")[:8]
@@ -140,17 +133,6 @@ def extract_jira_id(title):
          "{0}, but found {1}".format(options, title))
 
 
-class ApacheJIRA(object):
-
-
-    def __init__(self, username, password):
-        self.con = jira.client.JIRA({'server': self.JIRA_API_BASE},
-                                    basic_auth=(username, password))
-
-    def issue(self, issue_id):
-        return JiraIssue(self.con, issue_id)
-
-
 class JiraIssue(object):
 
     def __init__(self, jira_con, jira_id, project):
@@ -187,18 +169,8 @@ class JiraIssue(object):
                 if previous in default_fix_versions:
                     default_fix_versions = [x for x in default_fix_versions
                                             if x != v]
-        default_fix_versions = ",".join(default_fix_versions)
 
-        fix_versions = input("Enter comma-separated fix version(s) [%s]: "
-                             % default_fix_versions)
-        if fix_versions == "":
-            fix_versions = default_fix_versions
-        fix_versions = fix_versions.replace(" ", "").split(",")
-
-        def get_version_json(version_str):
-            return [x for x in versions if x.name == version_str][0].raw
-
-        return [get_version_json(v) for v in fix_versions]
+        return versions, default_fix_versions
 
     def resolve(self, fix_versions, comment):
         cur_status = self.issue.fields.status.name
@@ -227,13 +199,41 @@ class JiraIssue(object):
         print("Successfully resolved %s!" % (self.jira_id))
 
 
+class GitHubAPI(object):
+
+    def __init__(self, project_name):
+        self.github_api = ("https://api.github.com/repos/apache/{0}"
+                           .format(self.project_name))
+
+    def get_pr_data(self, number):
+        return get_json("%s/pulls/%s" % (self.github_api, number))
+
+
+class CommandInput(object):
+    """
+    Interface to input(...) to enable unit test mocks to be created
+    """
+
+    def prompt(self, prompt):
+        return input(prompt)
+
+    def getpass(self, prompt):
+        return getpass.getpass(prompt)
+
+    def continue_maybe(self, prompt):
+        result = input("\n%s (y/n): " % prompt)
+        if result.lower() != "y":
+            fail("Okay, exiting")
+
+
 class PullRequest(object):
 
-    def __init__(self, git_remote, jira_con, number):
-        self.git_remote
+    def __init__(self, cmd, github_api, git_remote, jira_con, number):
+        self.cmd = cmd
+        self.git_remote = git_remote
         self.con = jira_con
         self.number = number
-        self._pr_data = get_json("%s/pulls/%s" % (GITHUB_API_BASE, number))
+        self._pr_data = github_api.get_pr_data(number)
         self.url = self._pr_data["url"]
         self.title = self._pr_data["title"]
 
@@ -270,10 +270,10 @@ class PullRequest(object):
         target_branch_name = "%s_MERGE_PR_%s_%s" % (BRANCH_PREFIX,
                                                     self.number,
                                                     target_ref.upper())
-        run_cmd("git fetch %s pull/%s/head:%s" % (PR_REMOTE_NAME,
+        run_cmd("git fetch %s pull/%s/head:%s" % (self.git_remote,
                                                   self.number,
                                                   pr_branch_name))
-        run_cmd("git fetch %s %s:%s" % (PUSH_REMOTE_NAME, target_ref,
+        run_cmd("git fetch %s %s:%s" % (self.git_remote, target_ref,
                                         target_branch_name))
         run_cmd("git checkout %s" % target_branch_name)
 
@@ -283,10 +283,10 @@ class PullRequest(object):
         except Exception as e:
             msg = ("Error merging: %s\nWould you like to "
                    "manually fix-up this merge?" % e)
-            continue_maybe(msg)
+            self.cmd.continue_maybe(msg)
             msg = ("Okay, please fix any conflicts and 'git add' "
                    "conflicting files... Finished?")
-            continue_maybe(msg)
+            self.cmd.continue_maybe(msg)
             had_conflicts = True
 
         commit_authors = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
@@ -331,11 +331,11 @@ class PullRequest(object):
                  '--author="%s"' % primary_author] +
                 merge_message_flags)
 
-        continue_maybe("Merge complete (local ref %s). Push to %s?" % (
-            target_branch_name, PUSH_REMOTE_NAME))
+        self.cmd.continue_maybe("Merge complete (local ref %s). Push to %s?"
+                                % (target_branch_name, self.git_remote))
 
         try:
-            run_cmd('git push %s %s:%s' % (PUSH_REMOTE_NAME,
+            run_cmd('git push %s %s:%s' % (self.git_remote,
                                            target_branch_name,
                                            target_ref))
         except Exception as e:
@@ -357,32 +357,35 @@ def cli():
     print("ARROW_HOME = " + ARROW_HOME)
     print("PROJECT_NAME = " + PROJECT_NAME)
 
+    cmd = CommandInput()
+
     # ASF JIRA username
-    JIRA_USERNAME = os.environ.get("JIRA_USERNAME")
+    jira_username = os.environ.get("JIRA_USERNAME")
 
     # ASF JIRA password
-    JIRA_PASSWORD = os.environ.get("JIRA_PASSWORD")
+    jira_password = os.environ.get("JIRA_PASSWORD")
 
-    if not JIRA_USERNAME:
-        JIRA_USERNAME = input("Env JIRA_USERNAME not set, "
-                              "please enter your JIRA username:")
+    if not jira_username:
+        jira_username = cmd.prompt("Env JIRA_USERNAME not set, "
+                                   "please enter your JIRA username:")
 
-    if not JIRA_PASSWORD:
-        JIRA_PASSWORD = getpass.getpass("Env JIRA_PASSWORD not set, "
-                                        "please enter "
-                                        "your JIRA password:")
+    if not jira_password:
+        jira_password = cmd.getpass("Env JIRA_PASSWORD not set, "
+                                    "please enter "
+                                    "your JIRA password:")
 
     pr_num = input("Which pull request would you like to merge? (e.g. 34): ")
 
     # Remote name which points to the GitHub site
     git_remote = os.environ.get("PR_REMOTE_NAME", "apache")
 
-    GITHUB_BASE = "https://github.com/apache/" + PROJECT_NAME + "/pull"
-    GITHUB_API_BASE = "https://api.github.com/repos/apache/" + PROJECT_NAME
-
     os.chdir(ARROW_HOME)
 
-    pr = PullRequest(git_remote, jira_con, pr_num)
+    jira_con = jira.client.JIRA({'server': JIRA_API_BASE},
+                                basic_auth=(jira_username, jira_password))
+    github_api = GitHubAPI(PROJECT_NAME)
+
+    pr = PullRequest(cmd, github_api, git_remote, jira_con, pr_num)
 
     if pr.is_merged:
         print("Pull request %s has already been merged")
@@ -391,23 +394,44 @@ def cli():
     if not pr.is_mergeable:
         msg = ("Pull request %s is not mergeable in its current form.\n"
                % pr_num + "Continue? (experts only!)")
-        continue_maybe(msg)
+        cmd.continue_maybe(msg)
 
     pr.show()
 
-    continue_maybe("Proceed with merging pull request #%s?" % pr_num)
+    cmd.continue_maybe("Proceed with merging pull request #%s?" % pr_num)
 
     merged_refs = [pr.target_ref]
 
     # merged hash not used
     pr.merge()
 
-    continue_maybe("Would you like to update the associated JIRA?")
-    jira_comment = ("Issue resolved by pull request %s\n[%s/%s]"
-                    % (pr_num, GITHUB_BASE, pr_num))
+    cmd.continue_maybe("Would you like to update the associated JIRA?")
+    jira_comment = (
+        "Issue resolved by pull request %s\n[%s/%s]"
+        % (pr_num,
+           "https://github.com/apache/" + PROJECT_NAME + "/pull",
+           pr_num))
 
-    pr.jira_issue.resolve(merged_refs, jira_comment)
+    versions, default_fix_versions = pr.jira_issue.get_candidate_fix_versions()
+
+    default_fix_versions = ",".join(default_fix_versions)
+
+    issue_fix_versions = cmd.prompt("Enter comma-separated "
+                                    "fix version(s) [%s]: "
+                                    % default_fix_versions)
+    if issue_fix_versions == "":
+        issue_fix_versions = default_fix_versions
+    issue_fix_versions = issue_fix_versions.replace(" ", "").split(",")
+
+    def get_version_json(version_str):
+        return [x for x in versions if x.name == version_str][0].raw
+
+    fix_versions_json = [get_version_json(v) for v in issue_fix_versions]
+    pr.jira_issue.resolve(fix_versions_json, jira_comment)
 
 
 if __name__ == '__main__':
-    cli()
+    try:
+        cli()
+    except Exception as e:
+        print(e.args[0])
