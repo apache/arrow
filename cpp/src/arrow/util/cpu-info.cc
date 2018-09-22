@@ -32,9 +32,9 @@
 
 #ifdef _WIN32
 #include <intrin.h>
-#include <windows.h>
 #include <array>
 #include <bitset>
+#include "arrow/util/windows_compatibility.h"
 
 #endif
 

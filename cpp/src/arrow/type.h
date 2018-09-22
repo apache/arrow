@@ -403,19 +403,6 @@ class ARROW_EXPORT ListType : public NestedType {
   std::string name() const override { return "list"; }
 };
 
-namespace meta {
-
-/// Additional ListType class that can be instantiated with only compile-time arguments.
-template <typename T>
-class ARROW_EXPORT ListType : public ::arrow::ListType {
- public:
-  using ValueType = T;
-
-  ListType() : ::arrow::ListType(std::make_shared<T>()) {}
-};
-
-}  // namespace meta
-
 // BinaryType type is represents lists of 1-byte values.
 class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
  public:

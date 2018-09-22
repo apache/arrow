@@ -15,10 +15,11 @@
 
 #endif
 
+#include "arrow/util/windows_compatibility.h"
+
 #include <errno.h>
 #include <io.h>
 #include <sys/types.h>
-#include <windows.h>
 
 #define PROT_NONE 0
 #define PROT_READ 1

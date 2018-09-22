@@ -91,23 +91,6 @@ set(PARQUET_TEST_LINK_LIBS
   parquet_static
   thriftstatic)
 
-set(PARQUET_TEST_SHARED_LINK_LIBS
-  ${PARQUET_MIN_TEST_LIBS}
-  parquet_shared)
-
-#############################################################
-# Benchmark linking
-
-if (PARQUET_BUILD_STATIC)
-  set(PARQUET_BENCHMARK_LINK_LIBS
-    parquet_benchmark_main
-    parquet_static)
-else()
-  set(PARQUET_BENCHMARK_LINK_LIBS
-    parquet_benchmark_main
-    parquet_shared)
-endif()
-
 ############################################################
 # Generated Thrift sources
 
@@ -161,8 +144,8 @@ set(PARQUET_SRCS
   util/memory.cc
 )
 
-# # Ensure that thrift compilation is done before using its generated headers
-# # in parquet code.
+# Ensure that thrift compilation is done before using its generated headers
+# in parquet code.
 add_custom_target(parquet-thrift-deps ALL
   DEPENDS ${THRIFT_OUTPUT_FILES})
 set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} parquet-thrift-deps)
@@ -189,7 +172,16 @@ if(NOT APPLE AND NOT MSVC)
   set(SHARED_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/parquet/symbols.map")
 endif()
 
+# Because of PARQUET-1420 (Thrift-generated symbols not exported in DLL),
+# parquet tests must be linked against the static parquet lib.
+if (NO_TESTS)
+  set(PARQUET_LIB_OPTIONS)
+else ()
+  set(PARQUET_LIB_OPTIONS "BUILD_STATIC")
+endif()
+
 ADD_ARROW_LIB(parquet
+  ${PARQUET_LIB_OPTIONS}
   SOURCES ${PARQUET_SRCS}
   OUTPUTS PARQUET_LIBRARIES
   DEPENDENCIES ${PARQUET_DEPENDENCIES}
@@ -275,6 +267,9 @@ ADD_PARQUET_TEST(public-api-test)
 ADD_PARQUET_TEST(types-test)
 ADD_PARQUET_TEST(reader-test)
 ADD_PARQUET_TEST(schema-test)
+
+#############################################################
+# Benchmark linking
 
 set(PARQUET_BENCHMARK_LINK_LIBRARIES
   arrow_benchmark_main
