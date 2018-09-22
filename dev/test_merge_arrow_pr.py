@@ -39,7 +39,7 @@ SOURCE_VERSIONS = [FakeProjectVersion('JS-0.4.0', {'released': False}),
 TRANSITIONS = [{'name': 'Resolve Issue', 'id': 1}]
 
 jira_id = 'ARROW-1234'
-status = FakeStatus(jira_id)
+status = FakeStatus('In Progress')
 fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'))
 FAKE_ISSUE_1 = FakeIssue(fields)
 
@@ -148,4 +148,17 @@ def test_jira_resolve_non_mainline():
 
 
 def test_jira_already_resolved():
-    pass
+    status = FakeStatus('Resolved')
+    fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'))
+    issue = FakeIssue(fields)
+
+    jira = FakeJIRA(issue=issue,
+                    project_versions=SOURCE_VERSIONS,
+                    transitions=TRANSITIONS)
+
+    fix_versions = [SOURCE_VERSIONS[0].raw]
+    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
+
+    with pytest.raises(Exception,
+                       match="ARROW-1234 already has status 'Resolved'"):
+        issue.resolve(fix_versions, "")
