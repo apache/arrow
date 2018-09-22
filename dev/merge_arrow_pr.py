@@ -44,25 +44,10 @@ except ImportError:
           "Run 'sudo pip install jira-python' to install.")
     print("Exiting without trying to close the associated JIRA.")
 
-# Location of your Arrow git clone
-SEP = os.path.sep
-ARROW_HOME = os.path.abspath(__file__).rsplit(SEP, 2)[0]
-PROJECT_NAME = ARROW_HOME.rsplit(SEP, 1)[1]
-print("ARROW_HOME = " + ARROW_HOME)
-print("PROJECT_NAME = " + PROJECT_NAME)
 
-# Remote name which points to the Gihub site
-PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME", "apache-github")
-# Remote name which points to Apache git
-PUSH_REMOTE_NAME = os.environ.get("PUSH_REMOTE_NAME", "apache")
-
-GITHUB_BASE = "https://github.com/apache/" + PROJECT_NAME + "/pull"
-GITHUB_API_BASE = "https://api.github.com/repos/apache/" + PROJECT_NAME
-JIRA_BASE = "https://issues.apache.org/jira/browse"
 # Prefix added to temporary branches
 BRANCH_PREFIX = "PR_TOOL"
-
-os.chdir(ARROW_HOME)
+JIRA_API_BASE = "https://issues.apache.org/jira"
 
 
 def get_json(url):
@@ -111,91 +96,10 @@ def clean_up():
 
     branches = run_cmd("git branch").replace(" ", "").split("\n")
 
-    for branch in [x for x in branches if x.startswith(BRANCH_PREFIX)]:
+    for branch in [x for x in branches
+                   if x.startswith(BRANCH_PREFIX)]:
         print("Deleting local branch %s" % branch)
         run_cmd("git branch -D %s" % branch)
-
-
-# merge the requested PR and return the merge hash
-def merge_pr(pr_num, target_ref, body):
-    pr_branch_name = "%s_MERGE_PR_%s" % (BRANCH_PREFIX, pr_num)
-    target_branch_name = "%s_MERGE_PR_%s_%s" % (BRANCH_PREFIX, pr_num,
-                                                target_ref.upper())
-    run_cmd("git fetch %s pull/%s/head:%s" % (PR_REMOTE_NAME, pr_num,
-                                              pr_branch_name))
-    run_cmd("git fetch %s %s:%s" % (PUSH_REMOTE_NAME, target_ref,
-                                    target_branch_name))
-    run_cmd("git checkout %s" % target_branch_name)
-
-    had_conflicts = False
-    try:
-        run_cmd(['git', 'merge', pr_branch_name, '--squash'])
-    except Exception as e:
-        msg = ("Error merging: %s\nWould you like to "
-               "manually fix-up this merge?" % e)
-        continue_maybe(msg)
-        msg = ("Okay, please fix any conflicts and 'git add' "
-               "conflicting files... Finished?")
-        continue_maybe(msg)
-        had_conflicts = True
-
-    commit_authors = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
-                             '--pretty=format:%an <%ae>']).split("\n")
-    distinct_authors = sorted(set(commit_authors),
-                              key=lambda x: commit_authors.count(x),
-                              reverse=True)
-    primary_author = distinct_authors[0]
-    commits = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
-                      '--pretty=format:%h <%an> %s']).split("\n\n")
-
-    merge_message_flags = []
-
-    merge_message_flags += ["-m", title]
-    if body is not None:
-        merge_message_flags += ["-m", body]
-
-    authors = "\n".join(["Author: %s" % a for a in distinct_authors])
-
-    merge_message_flags += ["-m", authors]
-
-    if had_conflicts:
-        committer_name = run_cmd("git config --get user.name").strip()
-        committer_email = run_cmd("git config --get user.email").strip()
-        message = ("This patch had conflicts when merged, "
-                   "resolved by\nCommitter: %s <%s>" %
-                   (committer_name, committer_email))
-        merge_message_flags += ["-m", message]
-
-    # The string "Closes #%s" string is required for GitHub to correctly close
-    # the PR
-    merge_message_flags += [
-        "-m",
-        "Closes #%s from %s and squashes the following commits:"
-        % (pr_num, pr_repo_desc)]
-    for c in commits:
-        stripped_message = strip_ci_directives(c).strip()
-        merge_message_flags += ["-m", stripped_message]
-
-    run_cmd(['git', 'commit',
-             '--no-verify',  # do not run commit hooks
-             '--author="%s"' % primary_author] +
-            merge_message_flags)
-
-    continue_maybe("Merge complete (local ref %s). Push to %s?" % (
-        target_branch_name, PUSH_REMOTE_NAME))
-
-    try:
-        run_cmd('git push %s %s:%s' % (PUSH_REMOTE_NAME, target_branch_name,
-                                       target_ref))
-    except Exception as e:
-        clean_up()
-        fail("Exception while pushing: %s" % e)
-
-    merge_hash = run_cmd("git rev-parse %s" % target_branch_name)[:8]
-    clean_up()
-    print("Pull request #%s merged!" % pr_num)
-    print("Merge hash: %s" % merge_hash)
-    return merge_hash
 
 
 _REGEX_CI_DIRECTIVE = re.compile('\[[^\]]*\]')
@@ -236,96 +140,97 @@ def extract_jira_id(title):
          "{0}, but found {1}".format(options, title))
 
 
-
-def _get_fix_version(project, merge_branches):
-    # Only suggest versions starting with a number, like 0.x but not JS-0.x
-    mainline_version_regex = re.compile('\d.*')
-    versions = [x for x in ASF_JIRA.project_versions(project)
-                if not x.raw['released'] and
-                mainline_version_regex.match(x.name)]
-
-    versions = sorted(versions, key=lambda x: x.name, reverse=True)
-
-    default_fix_versions = [fix_version_from_branch(x, versions).name
-                            for x in merge_branches]
-
-    for v in default_fix_versions:
-        # Handles the case where we have forked a release branch but not yet
-        # made the release.  In this case, if the PR is committed to the master
-        # branch and the release branch, we only consider the release branch to
-        # be the fix version. E.g. it is not valid to have both 1.1.0 and 1.0.0
-        # as fix versions.
-        (major, minor, patch) = v.split(".")
-        if patch == "0":
-            previous = "%s.%s.%s" % (major, int(minor) - 1, 0)
-            if previous in default_fix_versions:
-                default_fix_versions = [x for x in default_fix_versions
-                                        if x != v]
-    default_fix_versions = ",".join(default_fix_versions)
-
-    fix_versions = input("Enter comma-separated fix version(s) [%s]: "
-                         % default_fix_versions)
-    if fix_versions == "":
-        fix_versions = default_fix_versions
-    fix_versions = fix_versions.replace(" ", "").split(",")
-
-    def get_version_json(version_str):
-        return [x for x in versions if x.name == version_str][0].raw
-
-    return [get_version_json(v) for v in fix_versions]
-
-
 class ApacheJIRA(object):
-    JIRA_API_BASE = "https://issues.apache.org/jira"
+
 
     def __init__(self, username, password):
         self.con = jira.client.JIRA({'server': self.JIRA_API_BASE},
                                     basic_auth=(username, password))
 
-
-def resolve_jira(pr, title, merge_branches, comment):
-    project, default_jira_id = extract_jira_id(title)
-
-    jira_id = input("Enter a JIRA id [%s]: " % default_jira_id)
-    if jira_id == "":
-        jira_id = default_jira_id
-
-    try:
-        issue = ASF_JIRA.issue(jira_id)
-    except Exception as e:
-        fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
-
-    cur_status = issue.fields.status.name
-    cur_summary = issue.fields.summary
-    cur_assignee = issue.fields.assignee
-    if cur_assignee is None:
-        cur_assignee = "NOT ASSIGNED!!!"
-    else:
-        cur_assignee = cur_assignee.displayName
-
-    if cur_status == "Resolved" or cur_status == "Closed":
-        fail("JIRA issue %s already has status '%s'" % (jira_id, cur_status))
-    print("=== JIRA %s ===" % jira_id)
-    print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
-          % (cur_summary, cur_assignee, cur_status, JIRA_BASE, jira_id))
-
-    jira_fix_versions = _get_fix_version(project, merge_branches)
-
-    resolve = [x for x in ASF_JIRA.transitions(jira_id)
-               if x['name'] == "Resolve Issue"][0]
-    ASF_JIRA.transition_issue(jira_id, resolve["id"], comment=comment,
-                              fixVersions=jira_fix_versions)
-
-    print("Successfully resolved %s!" % (jira_id))
+    def issue(self, issue_id):
+        return JiraIssue(self.con, issue_id)
 
 
 class JiraIssue(object):
-    pass
+
+    def __init__(self, jira_con, jira_id, project):
+        self.jira_con = jira_con
+        self.jira_id = jira_id
+        self.project = project
+
+        try:
+            self.issue = jira_con.issue(jira_id)
+        except Exception as e:
+            fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
+
+    def get_candidate_fix_versions(self, merge_branches=('master',)):
+        # Only suggest versions starting with a number, like 0.x but not JS-0.x
+        mainline_version_regex = re.compile('\d.*')
+        versions = [x for x in self.jira_con.project_versions(self.project)
+                    if not x.raw['released'] and
+                    mainline_version_regex.match(x.name)]
+
+        versions = sorted(versions, key=lambda x: x.name, reverse=True)
+
+        default_fix_versions = [fix_version_from_branch(x, versions).name
+                                for x in merge_branches]
+
+        for v in default_fix_versions:
+            # Handles the case where we have forked a release branch but not
+            # yet made the release.  In this case, if the PR is committed to
+            # the master branch and the release branch, we only consider the
+            # release branch to be the fix version. E.g. it is not valid to
+            # have both 1.1.0 and 1.0.0 as fix versions.
+            (major, minor, patch) = v.split(".")
+            if patch == "0":
+                previous = "%s.%s.%s" % (major, int(minor) - 1, 0)
+                if previous in default_fix_versions:
+                    default_fix_versions = [x for x in default_fix_versions
+                                            if x != v]
+        default_fix_versions = ",".join(default_fix_versions)
+
+        fix_versions = input("Enter comma-separated fix version(s) [%s]: "
+                             % default_fix_versions)
+        if fix_versions == "":
+            fix_versions = default_fix_versions
+        fix_versions = fix_versions.replace(" ", "").split(",")
+
+        def get_version_json(version_str):
+            return [x for x in versions if x.name == version_str][0].raw
+
+        return [get_version_json(v) for v in fix_versions]
+
+    def resolve(self, fix_versions, comment):
+        cur_status = self.issue.fields.status.name
+        cur_summary = self.issue.fields.summary
+        cur_assignee = self.issue.fields.assignee
+        if cur_assignee is None:
+            cur_assignee = "NOT ASSIGNED!!!"
+        else:
+            cur_assignee = cur_assignee.displayName
+
+        if cur_status == "Resolved" or cur_status == "Closed":
+            fail("JIRA issue %s already has status '%s'"
+                 % (self.jira_id, cur_status))
+        print("=== JIRA %s ===" % self.jira_id)
+        print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
+              % (cur_summary, cur_assignee, cur_status,
+                 '/'.join(JIRA_API_BASE, 'browse'),
+                 self.jira_id))
+
+        resolve = [x for x in self.jira_con.transitions(self.jira_id)
+                   if x['name'] == "Resolve Issue"][0]
+        self.jira_con.transition_issue(self.jira_id, resolve["id"],
+                                       comment=comment,
+                                       fixVersions=fix_versions)
+
+        print("Successfully resolved %s!" % (self.jira_id))
 
 
 class PullRequest(object):
 
-    def __init__(self, jira_con, number):
+    def __init__(self, git_remote, jira_con, number):
+        self.git_remote
         self.con = jira_con
         self.number = number
         self._pr_data = get_json("%s/pulls/%s" % (GITHUB_API_BASE, number))
@@ -336,19 +241,122 @@ class PullRequest(object):
         self.target_ref = self._pr_data["base"]["ref"]
         self.user_login = self._pr_data["user"]["login"]
         self.base_ref = self._pr_data["head"]["ref"]
-        self.pr_repo_desc = "%s/%s" % (self.user_login, self.base_ref)
+        self.description = "%s/%s" % (self.user_login, self.base_ref)
 
-        self._check_jira()
+        self.jira_issue = self._get_jira()
 
-    def _check_jira(self):
-        _, jira_id = extract_jira_id(self.title)
+    def show(self):
+        print("\n=== Pull Request #%s ===" % self.number)
+        print("title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
+              % (self.title, self.description, self.target_ref, self.url))
+
+    @property
+    def is_merged(self):
+        return bool(self._pr_data["merged"])
+
+    @property
+    def is_mergeable(self):
+        return bool(self._pr_data["mergeable"])
+
+    def _get_jira(self):
+        project, jira_id = extract_jira_id(self.title)
+        return JiraIssue(self.con, jira_id, project)
+
+    def merge(self, target_ref='master'):
+        """
+        merge the requested PR and return the merge hash
+        """
+        pr_branch_name = "%s_MERGE_PR_%s" % (BRANCH_PREFIX, self.number)
+        target_branch_name = "%s_MERGE_PR_%s_%s" % (BRANCH_PREFIX,
+                                                    self.number,
+                                                    target_ref.upper())
+        run_cmd("git fetch %s pull/%s/head:%s" % (PR_REMOTE_NAME,
+                                                  self.number,
+                                                  pr_branch_name))
+        run_cmd("git fetch %s %s:%s" % (PUSH_REMOTE_NAME, target_ref,
+                                        target_branch_name))
+        run_cmd("git checkout %s" % target_branch_name)
+
+        had_conflicts = False
         try:
-            self.con.issue(jira_id)
+            run_cmd(['git', 'merge', pr_branch_name, '--squash'])
         except Exception as e:
-            fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
+            msg = ("Error merging: %s\nWould you like to "
+                   "manually fix-up this merge?" % e)
+            continue_maybe(msg)
+            msg = ("Okay, please fix any conflicts and 'git add' "
+                   "conflicting files... Finished?")
+            continue_maybe(msg)
+            had_conflicts = True
+
+        commit_authors = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
+                                 '--pretty=format:%an <%ae>']).split("\n")
+        distinct_authors = sorted(set(commit_authors),
+                                  key=lambda x: commit_authors.count(x),
+                                  reverse=True)
+        primary_author = distinct_authors[0]
+        commits = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
+                          '--pretty=format:%h <%an> %s']).split("\n\n")
+
+        merge_message_flags = []
+
+        merge_message_flags += ["-m", self.title]
+        if self.body is not None:
+            merge_message_flags += ["-m", self.body]
+
+        authors = "\n".join(["Author: %s" % a for a in distinct_authors])
+
+        merge_message_flags += ["-m", authors]
+
+        if had_conflicts:
+            committer_name = run_cmd("git config --get user.name").strip()
+            committer_email = run_cmd("git config --get user.email").strip()
+            message = ("This patch had conflicts when merged, "
+                       "resolved by\nCommitter: %s <%s>" %
+                       (committer_name, committer_email))
+            merge_message_flags += ["-m", message]
+
+        # The string "Closes #%s" string is required for GitHub to correctly
+        # close the PR
+        merge_message_flags += [
+            "-m",
+            "Closes #%s from %s and squashes the following commits:"
+            % (self.number, self.description)]
+        for c in commits:
+            stripped_message = strip_ci_directives(c).strip()
+            merge_message_flags += ["-m", stripped_message]
+
+        run_cmd(['git', 'commit',
+                 '--no-verify',  # do not run commit hooks
+                 '--author="%s"' % primary_author] +
+                merge_message_flags)
+
+        continue_maybe("Merge complete (local ref %s). Push to %s?" % (
+            target_branch_name, PUSH_REMOTE_NAME))
+
+        try:
+            run_cmd('git push %s %s:%s' % (PUSH_REMOTE_NAME,
+                                           target_branch_name,
+                                           target_ref))
+        except Exception as e:
+            clean_up()
+            fail("Exception while pushing: %s" % e)
+
+        merge_hash = run_cmd("git rev-parse %s" % target_branch_name)[:8]
+        clean_up()
+        print("Pull request #%s merged!" % self.number)
+        print("Merge hash: %s" % merge_hash)
+        return merge_hash
 
 
 def cli():
+    # Location of your Arrow git clone
+    SEP = os.path.sep
+    ARROW_HOME = os.path.abspath(__file__).rsplit(SEP, 2)[0]
+    PROJECT_NAME = ARROW_HOME.rsplit(SEP, 1)[1]
+    print("ARROW_HOME = " + ARROW_HOME)
+    print("PROJECT_NAME = " + PROJECT_NAME)
+
     # ASF JIRA username
     JIRA_USERNAME = os.environ.get("JIRA_USERNAME")
 
@@ -364,49 +372,42 @@ def cli():
                                         "please enter "
                                         "your JIRA password:")
 
-    branches = get_json("%s/branches" % GITHUB_API_BASE)
-    branch_names = [x['name'] for x in branches
-                    if x['name'].startswith('branch-')]
-
-    # Assumes branch names can be sorted lexicographically
-    # Julien: I commented this out as we don't have any "branch-*" branch yet
-    # latest_branch = sorted(branch_names, reverse=True)[0]
-
     pr_num = input("Which pull request would you like to merge? (e.g. 34): ")
 
-    pr = PullRequest(pr_num)
+    # Remote name which points to the GitHub site
+    git_remote = os.environ.get("PR_REMOTE_NAME", "apache")
 
-    if pr["merged"] is True:
-        print("Pull request %s has already been merged, "
-              "assuming you want to backport" % pr_num)
-        merge_commit_desc = run_cmd([
-            'git', 'log', '--merges', '--first-parent',
-            '--grep=pull request #%s' % pr_num, '--oneline']).split("\n")[0]
-        if merge_commit_desc == "":
-            fail("Couldn't find any merge commit for #%s, "
-                 "you may need to update HEAD." % pr_num)
+    GITHUB_BASE = "https://github.com/apache/" + PROJECT_NAME + "/pull"
+    GITHUB_API_BASE = "https://api.github.com/repos/apache/" + PROJECT_NAME
 
-        merge_hash = merge_commit_desc[:7]
-        message = merge_commit_desc[8:]
+    os.chdir(ARROW_HOME)
 
-        print("Found: %s" % message)
+    pr = PullRequest(git_remote, jira_con, pr_num)
+
+    if pr.is_merged:
+        print("Pull request %s has already been merged")
         sys.exit(0)
 
-    if not bool(pr["mergeable"]):
+    if not pr.is_mergeable:
         msg = ("Pull request %s is not mergeable in its current form.\n"
                % pr_num + "Continue? (experts only!)")
         continue_maybe(msg)
 
-    print("\n=== Pull Request #%s ===" % pr_num)
-    print("title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
-          % (title, pr_repo_desc, target_ref, url))
+    pr.show()
+
     continue_maybe("Proceed with merging pull request #%s?" % pr_num)
 
-    merged_refs = [target_ref]
+    merged_refs = [pr.target_ref]
 
-    merge_hash = merge_pr(pr_num, target_ref, body)
+    # merged hash not used
+    pr.merge()
 
     continue_maybe("Would you like to update the associated JIRA?")
     jira_comment = ("Issue resolved by pull request %s\n[%s/%s]"
                     % (pr_num, GITHUB_BASE, pr_num))
-    resolve_jira(title, merged_refs, jira_comment)
+
+    pr.jira_issue.resolve(merged_refs, jira_comment)
+
+
+if __name__ == '__main__':
+    cli()
