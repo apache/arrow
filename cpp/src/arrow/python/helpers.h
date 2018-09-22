@@ -53,6 +53,7 @@ namespace internal {
 // \brief Import a Python module
 // \param[in] module_name The name of the module
 // \param[out] ref The OwnedRef containing the module PyObject*
+ARROW_EXPORT
 Status ImportModule(const std::string& module_name, OwnedRef* ref);
 
 // \brief Import an object from a Python module
@@ -60,6 +61,7 @@ Status ImportModule(const std::string& module_name, OwnedRef* ref);
 // \param[in] name The name of the object to import
 // \param[out] ref The OwnedRef containing the \c name attribute of the Python module \c
 // module
+ARROW_EXPORT
 Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRef* ref);
 
 // \brief Check whether obj is an integer, independent of Python versions.
@@ -72,9 +74,11 @@ inline bool IsPyInteger(PyObject* obj) {
 }
 
 // \brief Use pandas missing value semantics to check if a value is null
+ARROW_EXPORT
 bool PandasObjectIsNull(PyObject* obj);
 
 // \brief Check whether obj is a floating-point NaN
+ARROW_EXPORT
 bool PyFloat_IsNaN(PyObject* obj);
 
 inline bool IsPyBinary(PyObject* obj) {
@@ -89,15 +93,19 @@ template <typename Int>
 Status CIntFromPython(PyObject* obj, Int* out, const std::string& overflow_message = "");
 
 // \brief Convert a Python unicode string to a std::string
+ARROW_EXPORT
 Status PyUnicode_AsStdString(PyObject* obj, std::string* out);
 
 // \brief Convert a Python bytes object to a std::string
+ARROW_EXPORT
 std::string PyBytes_AsStdString(PyObject* obj);
 
 // \brief Call str() on the given object and return the result as a std::string
+ARROW_EXPORT
 Status PyObject_StdStringStr(PyObject* obj, std::string* out);
 
 // \brief Return the repr() of the given object (always succeeds)
+ARROW_EXPORT
 std::string PyObject_StdStringRepr(PyObject* obj);
 
 // \brief Cast the given size to int32_t, with error checking
@@ -113,9 +121,12 @@ inline Status CastSize(Py_ssize_t size, int32_t* out,
 
 // \brief Print the Python object's __str__ form along with the passed error
 // message
+ARROW_EXPORT
 Status InvalidValue(PyObject* obj, const std::string& why);
 
+ARROW_EXPORT
 Status IntegerScalarToDoubleSafe(PyObject* obj, double* result);
+ARROW_EXPORT
 Status IntegerScalarToFloat32Safe(PyObject* obj, float* result);
 
 }  // namespace internal

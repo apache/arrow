@@ -35,11 +35,13 @@ namespace stl {
 template <typename T>
 struct ConversionTraits {};
 
-#define ARROW_STL_CONVERSION(c_type, ArrowType_) \
-  template <>                                    \
-  struct ConversionTraits<c_type> {              \
-    using ArrowType = ArrowType_;                \
-    constexpr static bool nullable = false;      \
+#define ARROW_STL_CONVERSION(c_type, ArrowType_)    \
+  template <>                                       \
+  struct ConversionTraits<c_type> {                 \
+    static std::shared_ptr<DataType> arrow_type() { \
+      return std::make_shared<ArrowType_>();        \
+    }                                               \
+    constexpr static bool nullable = false;         \
   };
 
 ARROW_STL_CONVERSION(bool, BooleanType)
@@ -57,7 +59,9 @@ ARROW_STL_CONVERSION(std::string, StringType)
 
 template <typename value_c_type>
 struct ConversionTraits<std::vector<value_c_type>> {
-  using ArrowType = meta::ListType<typename ConversionTraits<value_c_type>::ArrowType>;
+  static std::shared_ptr<DataType> arrow_type() {
+    return list(ConversionTraits<value_c_type>::arrow_type());
+  }
   constexpr static bool nullable = false;
 };
 
@@ -68,7 +72,6 @@ struct ConversionTraits<std::vector<value_c_type>> {
 template <typename Tuple, std::size_t N = std::tuple_size<Tuple>::value>
 struct SchemaFromTuple {
   using Element = typename std::tuple_element<N - 1, Tuple>::type;
-  using ArrowType = typename ConversionTraits<Element>::ArrowType;
 
   // Implementations that take a vector-like object for the column names.
 
@@ -79,8 +82,8 @@ struct SchemaFromTuple {
       const std::vector<std::string>& names) {
     std::vector<std::shared_ptr<Field>> ret =
         SchemaFromTuple<Tuple, N - 1>::MakeSchemaRecursion(names);
-    ret.push_back(field(names[N - 1], std::make_shared<ArrowType>(),
-                        ConversionTraits<Element>::nullable));
+    std::shared_ptr<DataType> type = ConversionTraits<Element>::arrow_type();
+    ret.push_back(field(names[N - 1], type, ConversionTraits<Element>::nullable));
     return ret;
   }
 
@@ -108,8 +111,9 @@ struct SchemaFromTuple {
       const NamesTuple& names) {
     std::vector<std::shared_ptr<Field>> ret =
         SchemaFromTuple<Tuple, N - 1>::MakeSchemaRecursionT(names);
-    ret.push_back(field(std::get<N - 1>(names), std::make_shared<ArrowType>(),
-                        ConversionTraits<Element>::nullable));
+    std::shared_ptr<DataType> type = ConversionTraits<Element>::arrow_type();
+    ret.push_back(
+        field(std::get<N - 1>(names), type, ConversionTraits<Element>::nullable));
     return ret;
   }
 

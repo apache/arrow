@@ -146,7 +146,7 @@ if (ARROW_BUILD_TESTS)
 
   set(ARROW_PYTHON_MIN_TEST_LIBS
     arrow_python_test_main
-    arrow_python_static
+    arrow_python_shared
     arrow_shared)
 
   set(ARROW_PYTHON_TEST_LINK_LIBS ${ARROW_PYTHON_MIN_TEST_LIBS})

@@ -22,6 +22,8 @@
 #include <memory>
 #include <string>
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 enum class ArrowLogLevel : int {
@@ -106,7 +108,7 @@ enum class ArrowLogLevel : int {
 // In logging.cc, we can choose different log libs using different macros.
 
 // This is also a null log which does not output anything.
-class ArrowLogBase {
+class ARROW_EXPORT ArrowLogBase {
  public:
   virtual ~ArrowLogBase() {}
 
@@ -124,7 +126,7 @@ class ArrowLogBase {
   virtual std::ostream& Stream() { return std::cerr; }
 };
 
-class ArrowLog : public ArrowLogBase {
+class ARROW_EXPORT ArrowLog : public ArrowLogBase {
  public:
   ArrowLog(const char* file_name, int line_number, ArrowLogLevel severity);
 
@@ -169,7 +171,7 @@ class ArrowLog : public ArrowLogBase {
 
 // This class make ARROW_CHECK compilation pass to change the << operator to void.
 // This class is copied from glog.
-class Voidify {
+class ARROW_EXPORT Voidify {
  public:
   Voidify() {}
   // This has to be an operator with a precedence lower than << but

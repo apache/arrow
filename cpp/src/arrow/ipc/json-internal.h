@@ -95,21 +95,25 @@ namespace ipc {
 namespace internal {
 namespace json {
 
-Status WriteSchema(const Schema& schema, RjWriter* writer);
-Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer);
-Status WriteArray(const std::string& name, const Array& array, RjWriter* writer);
+ARROW_EXPORT Status WriteSchema(const Schema& schema, RjWriter* writer);
+ARROW_EXPORT Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer);
+ARROW_EXPORT Status WriteArray(const std::string& name, const Array& array,
+                               RjWriter* writer);
 
-Status ReadSchema(const rj::Value& json_obj, MemoryPool* pool,
-                  std::shared_ptr<Schema>* schema);
+ARROW_EXPORT Status ReadSchema(const rj::Value& json_obj, MemoryPool* pool,
+                               std::shared_ptr<Schema>* schema);
 
-Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>& schema,
-                       MemoryPool* pool, std::shared_ptr<RecordBatch>* batch);
+ARROW_EXPORT Status ReadRecordBatch(const rj::Value& json_obj,
+                                    const std::shared_ptr<Schema>& schema,
+                                    MemoryPool* pool,
+                                    std::shared_ptr<RecordBatch>* batch);
 
-Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,
-                 const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array);
+ARROW_EXPORT Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,
+                              const std::shared_ptr<DataType>& type,
+                              std::shared_ptr<Array>* array);
 
-Status ReadArray(MemoryPool* pool, const rj::Value& json_obj, const Schema& schema,
-                 std::shared_ptr<Array>* array);
+ARROW_EXPORT Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,
+                              const Schema& schema, std::shared_ptr<Array>* array);
 
 }  // namespace json
 }  // namespace internal

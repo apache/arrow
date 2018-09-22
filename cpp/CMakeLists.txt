@@ -295,7 +295,9 @@ Always OFF if building binaries"
 endif()
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
-  set(ARROW_BUILD_STATIC ON)
+  if (NOT MSVC AND NOT ARROW_BUILD_STATIC)
+    message(FATAL_ERROR "ARROW_BUILD_TESTS needs ARROW_BUILD_STATIC")
+  endif ()
   set(ARROW_WITH_BROTLI ON)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
@@ -674,11 +676,22 @@ if (NOT MSVC)
     ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_MIN_TEST_LIBS
-  arrow_static
-  ${ARROW_STATIC_LINK_LIBS}
-  gtest_main
-  gtest)
+if (ARROW_BUILD_STATIC)
+  set(ARROW_MIN_TEST_LIBS
+    arrow_static
+    ${ARROW_STATIC_LINK_LIBS}
+    gtest_main
+    gtest)
+else ()
+  set(ARROW_MIN_TEST_LIBS
+    arrow_shared
+    ${ARROW_LINK_LIBS}
+    ${BOOST_SYSTEM_LIBRARY}
+    ${BOOST_FILESYSTEM_LIBRARY}
+    ${BOOST_REGEX_LIBRARY}
+    gtest_main
+    gtest)
+endif()
 
 if(NOT MSVC)
   set(ARROW_MIN_TEST_LIBS
