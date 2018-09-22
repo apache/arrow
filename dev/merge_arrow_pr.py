@@ -37,12 +37,11 @@ import six
 
 try:
     import jira.client
-    JIRA_IMPORTED = True
 except ImportError:
-    JIRA_IMPORTED = False
     print("Could not find jira-python library. "
           "Run 'sudo pip install jira-python' to install.")
     print("Exiting without trying to close the associated JIRA.")
+    sys.exit(1)
 
 
 # Prefix added to temporary branches
@@ -170,7 +169,7 @@ class JiraIssue(object):
             cur_assignee = cur_assignee.displayName
 
         if cur_status == "Resolved" or cur_status == "Closed":
-            self.cli.fail("JIRA issue %s already has status '%s'"
+            self.cmd.fail("JIRA issue %s already has status '%s'"
                           % (self.jira_id, cur_status))
         print("=== JIRA %s ===" % self.jira_id)
         print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
@@ -429,10 +428,6 @@ def cli():
         return [x for x in versions if x.name == version_str][0].raw
 
     fix_versions_json = [get_version_json(v) for v in issue_fix_versions]
-
-    import pdb
-    pdb.set_trace()
-
     pr.jira_issue.resolve(fix_versions_json, jira_comment)
 
 
