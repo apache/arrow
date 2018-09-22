@@ -37,10 +37,17 @@ Arrow is a set of technologies that enable big data systems to process and trans
 
 Apache Arrow is the emerging standard for large in-memory columnar data ([Spark](https://spark.apache.org/), [Pandas](http://wesmckinney.com/blog/pandas-and-apache-arrow/), [Drill](https://drill.apache.org/), [Graphistry](https://www.graphistry.com), ...). By standardizing on a common binary interchange format, big data systems can reduce the costs and friction associated with cross-system communication.
 
-# Usage
+# Get Started
 
+Check out our [API documentation][7] to learn more about how to use Apache Arrow's JS implementation. You can also learn by example by checking out some of the following resources:
 
-## Get a table from an Arrow file on disk (in IPC format)
+* [Observable: Introduction to Apache Arrow][5]
+* [Observable: Manipulating flat arrays arrow-style][6]
+* [/js/test/unit](https://github.com/apache/arrow/tree/master/js/test/unit) - Unit tests for Table and Vector
+
+## Cookbook
+
+### Get a table from an Arrow file on disk (in IPC format)
 
 ```es6
 import { readFileSync } from 'fs';
@@ -61,7 +68,7 @@ null, null, null
 */
 ```
 
-## Create a Table when the Arrow file is split across buffers
+### Create a Table when the Arrow file is split across buffers
 
 ```es6
 import { readFileSync } from 'fs';
@@ -84,7 +91,7 @@ console.log(table.toString());
 */
 ```
 
-## Create a Table from JavaScript arrays
+### Create a Table from JavaScript arrays
 
 ```es6
 const fields = [{
@@ -109,7 +116,7 @@ const rainfall = arrow.Table.from({
       {name: "date",          count: LENGTH, VALIDITY: [], DATA: rainDates } ] }] })
 ```
 
-## Load data with `fetch`
+### Load data with `fetch`
 
 ```es6
 import { Table } from "apache-arrow";
@@ -122,7 +129,7 @@ fetch(require("simple.arrow")).then(response => {
 });
 ```
 
-## Columns look like JS Arrays
+### Columns look like JS Arrays
 
 ```es6
 import { readFileSync } from 'fs';
@@ -144,7 +151,7 @@ for (let i = -1, n = column.length; ++i < n;) {
 }
 ```
 
-## Usage with MapD Core
+### Usage with MapD Core
 
 ```es6
 import MapD from 'rxjs-mapd';
@@ -184,12 +191,6 @@ Index,   origin_city
     4,   San Antonio
 */
 ```
-
-# Tutorials and examples
-
-* [JavaScript Introduction to Arrow][5]
-* [Manipulating flat arrays arrow-style][6]
-* [/js/test/unit](https://github.com/apache/arrow/tree/master/js/test/unit) - Unit tests for Table and Vector
 
 # Getting involved
 
@@ -277,3 +278,4 @@ Full list of broader Apache Arrow [projects & organizations](https://github.com/
 [4]: https://github.com/apache/arrow
 [5]: https://beta.observablehq.com/@theneuralbit/introduction-to-apache-arrow
 [6]: https://beta.observablehq.com/@lmeyerov/manipulating-flat-arrays-arrow-style
+[7]: http://arrow.apache.org/docs/js/
