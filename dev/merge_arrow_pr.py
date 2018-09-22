@@ -55,11 +55,6 @@ def get_json(url):
     return req.json()
 
 
-def fail(msg):
-    clean_up()
-    raise Exception(msg)
-
-
 def run_cmd(cmd):
     if isinstance(cmd, six.string_types):
         cmd = cmd.split(' ')
@@ -120,30 +115,18 @@ PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
                     for project in SUPPORTED_PROJECTS]
 
 
-def extract_jira_id(title):
-    for project, regex in PR_TITLE_REGEXEN:
-        m = regex.search(title)
-        if m:
-            return project, m.group(1)
-
-    options = ' or '.join('{0}-XXX'.format(project)
-                          for project in SUPPORTED_PROJECTS)
-
-    fail("PR title should be prefixed by a jira id "
-         "{0}, but found {1}".format(options, title))
-
-
 class JiraIssue(object):
 
-    def __init__(self, jira_con, jira_id, project):
+    def __init__(self, jira_con, jira_id, project, cmd):
         self.jira_con = jira_con
         self.jira_id = jira_id
         self.project = project
+        self.cmd = cmd
 
         try:
             self.issue = jira_con.issue(jira_id)
         except Exception as e:
-            fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
+            self.cli.fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
 
     def get_candidate_fix_versions(self, merge_branches=('master',)):
         # Only suggest versions starting with a number, like 0.x but not JS-0.x
@@ -182,12 +165,12 @@ class JiraIssue(object):
             cur_assignee = cur_assignee.displayName
 
         if cur_status == "Resolved" or cur_status == "Closed":
-            fail("JIRA issue %s already has status '%s'"
-                 % (self.jira_id, cur_status))
+            self.cli.fail("JIRA issue %s already has status '%s'"
+                          % (self.jira_id, cur_status))
         print("=== JIRA %s ===" % self.jira_id)
         print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
               % (cur_summary, cur_assignee, cur_status,
-                 '/'.join(JIRA_API_BASE, 'browse'),
+                 '/'.join((JIRA_API_BASE, 'browse')),
                  self.jira_id))
 
         resolve = [x for x in self.jira_con.transitions(self.jira_id)
@@ -214,6 +197,10 @@ class CommandInput(object):
     Interface to input(...) to enable unit test mocks to be created
     """
 
+    def fail(self, msg):
+        clean_up()
+        raise Exception(msg)
+
     def prompt(self, prompt):
         return input(prompt)
 
@@ -223,7 +210,7 @@ class CommandInput(object):
     def continue_maybe(self, prompt):
         result = input("\n%s (y/n): " % prompt)
         if result.lower() != "y":
-            fail("Okay, exiting")
+            self.fail("Okay, exiting")
 
 
 class PullRequest(object):
@@ -259,7 +246,19 @@ class PullRequest(object):
         return bool(self._pr_data["mergeable"])
 
     def _get_jira(self):
-        project, jira_id = extract_jira_id(self.title)
+        jira_id = None
+        for project, regex in PR_TITLE_REGEXEN:
+            m = regex.search(self.title)
+            if m:
+                jira_id = m.group(1)
+                break
+
+        if jira_id is None:
+            options = ' or '.join('{0}-XXX'.format(project)
+                                  for project in SUPPORTED_PROJECTS)
+            self.cmd.fail("PR title should be prefixed by a jira id "
+                          "{0}, but found {1}".format(options, title))
+
         return JiraIssue(self.con, jira_id, project)
 
     def merge(self, target_ref='master'):
@@ -340,7 +339,7 @@ class PullRequest(object):
                                            target_ref))
         except Exception as e:
             clean_up()
-            fail("Exception while pushing: %s" % e)
+            self.cmd.fail("Exception while pushing: %s" % e)
 
         merge_hash = run_cmd("git rev-parse %s" % target_branch_name)[:8]
         clean_up()
@@ -399,8 +398,6 @@ def cli():
     pr.show()
 
     cmd.continue_maybe("Proceed with merging pull request #%s?" % pr_num)
-
-    merged_refs = [pr.target_ref]
 
     # merged hash not used
     pr.merge()
