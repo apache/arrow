@@ -40,6 +40,8 @@ class Schema;
 /// schema
 class ARROW_EXPORT RecordBatchBuilder {
  public:
+  ~RecordBatchBuilder();
+
   /// \brief Create an initialize a RecordBatchBuilder
   /// \param[in] schema The schema for the record batch
   /// \param[in] pool A MemoryPool to use for allocations
