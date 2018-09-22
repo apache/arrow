@@ -40,8 +40,6 @@ RecordBatchBuilder::RecordBatchBuilder(const std::shared_ptr<Schema>& schema,
                                        MemoryPool* pool, int64_t initial_capacity)
     : schema_(schema), initial_capacity_(initial_capacity), pool_(pool) {}
 
-RecordBatchBuilder::~RecordBatchBuilder() {}
-
 Status RecordBatchBuilder::Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
                                 std::unique_ptr<RecordBatchBuilder>* builder) {
   return Make(schema, pool, kMinBuilderCapacity, builder);

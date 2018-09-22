@@ -69,7 +69,7 @@ class ARROW_EXPORT ArrayBuilder {
         length_(0),
         capacity_(0) {}
 
-  virtual ~ArrayBuilder();
+  virtual ~ArrayBuilder() = default;
 
   /// For nested types. Since the objects are owned by this class instance, we
   /// skip shared pointers and just return a raw pointer
@@ -202,9 +202,6 @@ class ARROW_EXPORT ArrayBuilder {
 
   // Set the next length bits to not null (i.e. valid).
   void UnsafeSetNotNull(int64_t length);
-
- private:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
 };
 
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {
