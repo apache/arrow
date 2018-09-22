@@ -202,6 +202,9 @@ class ARROW_EXPORT ArrayBuilder {
 
   // Set the next length bits to not null (i.e. valid).
   void UnsafeSetNotNull(int64_t length);
+
+ private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
 };
 
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {

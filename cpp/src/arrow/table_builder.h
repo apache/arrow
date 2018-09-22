@@ -93,6 +93,8 @@ class ARROW_EXPORT RecordBatchBuilder {
   std::shared_ptr<Schema> schema() const { return schema_; }
 
  private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatchBuilder);
+
   RecordBatchBuilder(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
                      int64_t initial_capacity);
 
