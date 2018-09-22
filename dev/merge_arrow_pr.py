@@ -126,7 +126,7 @@ class JiraIssue(object):
         try:
             self.issue = jira_con.issue(jira_id)
         except Exception as e:
-            self.cli.fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
+            self.cmd.fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
 
     def get_candidate_fix_versions(self, merge_branches=('master',)):
         # Only suggest versions starting with a number, like 0.x but not JS-0.x
@@ -391,21 +391,21 @@ def cli():
 
     pr = PullRequest(cmd, github_api, git_remote, jira_con, pr_num)
 
-    if pr.is_merged:
-        print("Pull request %s has already been merged")
-        sys.exit(0)
+    # if pr.is_merged:
+    #     print("Pull request %s has already been merged")
+    #     sys.exit(0)
 
-    if not pr.is_mergeable:
-        msg = ("Pull request %s is not mergeable in its current form.\n"
-               % pr_num + "Continue? (experts only!)")
-        cmd.continue_maybe(msg)
+    # if not pr.is_mergeable:
+    #     msg = ("Pull request %s is not mergeable in its current form.\n"
+    #            % pr_num + "Continue? (experts only!)")
+    #     cmd.continue_maybe(msg)
 
     pr.show()
 
     cmd.continue_maybe("Proceed with merging pull request #%s?" % pr_num)
 
     # merged hash not used
-    pr.merge()
+    # pr.merge()
 
     cmd.continue_maybe("Would you like to update the associated JIRA?")
     jira_comment = (
@@ -429,6 +429,10 @@ def cli():
         return [x for x in versions if x.name == version_str][0].raw
 
     fix_versions_json = [get_version_json(v) for v in issue_fix_versions]
+
+    import pdb
+    pdb.set_trace()
+
     pr.jira_issue.resolve(fix_versions_json, jira_comment)
 
 
