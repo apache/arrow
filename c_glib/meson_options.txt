@@ -22,3 +22,12 @@ option('gtk_doc',
        value: false,
        description: 'Build document by GTK-Doc')
 
+option('arrow_cpp_build_type',
+       type: 'string',
+       value: 'release',
+       description: '-DCMAKE_BUILD_TYPE option value for Arrow C++')
+
+option('arrow_cpp_build_dir',
+       type: 'string',
+       value: '',
+       description: 'Use this option to build with not installed Arrow C++')
