@@ -19,7 +19,7 @@
 
 # Utility for creating well-formed pull request merges and pushing them to
 # Apache.
-#   usage: ./merge_arrow_py.py    (see config env vars below)
+#   usage: ./merge_arrow_pr.py    (see config env vars below)
 #
 # This utility assumes you already have a local Arrow git clone and that you
 # have added remotes corresponding to both (i) the Github Apache Arrow mirror
