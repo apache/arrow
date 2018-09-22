@@ -130,15 +130,20 @@ class JiraIssue(object):
 
     def get_candidate_fix_versions(self, merge_branches=('master',)):
         # Only suggest versions starting with a number, like 0.x but not JS-0.x
+        all_versions = self.jira_con.project_versions(self.project)
+        unreleased_versions = [x for x in all_versions
+                               if not x.raw['released']]
+
+        unreleased_versions = sorted(unreleased_versions,
+                                     key=lambda x: x.name, reverse=True)
+
         mainline_version_regex = re.compile('\d.*')
-        versions = [x for x in self.jira_con.project_versions(self.project)
-                    if not x.raw['released'] and
-                    mainline_version_regex.match(x.name)]
+        mainline_versions = [x for x in unreleased_versions
+                             if mainline_version_regex.match(x.name)]
 
-        versions = sorted(versions, key=lambda x: x.name, reverse=True)
-
-        default_fix_versions = [fix_version_from_branch(x, versions).name
-                                for x in merge_branches]
+        default_fix_versions = [
+            fix_version_from_branch(x, mainline_versions).name
+            for x in merge_branches]
 
         for v in default_fix_versions:
             # Handles the case where we have forked a release branch but not
@@ -153,7 +158,7 @@ class JiraIssue(object):
                     default_fix_versions = [x for x in default_fix_versions
                                             if x != v]
 
-        return versions, default_fix_versions
+        return unreleased_versions, default_fix_versions
 
     def resolve(self, fix_versions, comment):
         cur_status = self.issue.fields.status.name

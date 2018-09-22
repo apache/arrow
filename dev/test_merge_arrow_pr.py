@@ -92,7 +92,9 @@ def test_jira_fix_versions():
     issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
     all_versions, default_versions = issue.get_candidate_fix_versions()
 
-    expected = [SOURCE_VERSIONS[2], SOURCE_VERSIONS[1]]
+    expected = sorted([x for x in SOURCE_VERSIONS
+                       if not x.raw['released']],
+                      key=lambda x: x.name, reverse=True)
     assert all_versions == expected
     assert default_versions == ['0.11.0']
 
