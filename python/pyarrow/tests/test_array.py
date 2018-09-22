@@ -32,7 +32,6 @@ except ImportError:
 
 import pyarrow as pa
 from pyarrow.pandas_compat import get_logical_type
-import pyarrow.formatting as fmt
 
 
 def test_total_bytes_allocated():
@@ -53,7 +52,7 @@ def test_constructor_raises():
 
 def test_list_format():
     arr = pa.array([[1], None, [2, 3, None]])
-    result = fmt.array_format(arr)
+    result = arr.format()
     expected = """\
 [
   [
@@ -71,7 +70,7 @@ def test_list_format():
 
 def test_string_format():
     arr = pa.array([u'', None, u'foo'])
-    result = fmt.array_format(arr)
+    result = arr.format()
     expected = """\
 [
   "",
@@ -83,7 +82,7 @@ def test_string_format():
 
 def test_long_array_format():
     arr = pa.array(range(100))
-    result = fmt.array_format(arr, window=2)
+    result = arr.format(window=2)
     expected = """\
 [
   0,
