@@ -17,7 +17,10 @@
   under the License.
 -->
 
-# Arrow C++
+# Apache Arrow C++ codebase
+
+This directory contains the code and build system for the Arrow C++ libraries,
+as well as for the C++ libraries for Apache Parquet.
 
 ## System setup
 
@@ -78,6 +81,28 @@ environment variable (which requires the `locales` package or equivalent):
 ```
 export LC_ALL="en_US.UTF-8"
 ```
+
+## Building and Developing Parquet Libraries
+
+To build the C++ libraries for Apache Parquet, add the flag
+`-DARROW_PARQUET=ON` when invoking CMake. The Parquet libraries and unit tests
+can be built with the `parquet` make target:
+
+```shell
+make parquet
+```
+
+Running `ctest -L unittest` will run all built C++ unit tests, while `ctest -L
+parquet` will run only the Parquet unit tests. The unit tests depend on an
+environment variable `PARQUET_TEST_DATA` that depends on a git submodule to the
+repository https://github.com/apache/parquet-testing:
+
+```shell
+git submodule update --init
+export PARQUET_TEST_DATA=$ARROW_ROOT/cpp/submodules/parquet-testing/data
+```
+
+Here `$ARROW_ROOT` is the absolute path to the Arrow codebase.
 
 ### Statically linking to Arrow on Windows
 
