@@ -72,7 +72,7 @@ class FakeJIRA:
 
 class FakeCLI:
 
-    def __init__(self, responses):
+    def __init__(self, responses=()):
         self.responses = responses
         self.position = 0
 
@@ -89,8 +89,7 @@ def test_jira_fix_versions():
     jira = FakeJIRA(project_versions=SOURCE_VERSIONS,
                     transitions=TRANSITIONS)
 
-    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW',
-                                     FakeCLI())
+    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
     all_versions, default_versions = issue.get_candidate_fix_versions()
 
     expected = [SOURCE_VERSIONS[2], SOURCE_VERSIONS[1]]
@@ -105,7 +104,7 @@ def test_jira_invalid_issue():
             raise Exception("not found")
 
     with pytest.raises(Exception):
-        merge_arrow_pr.JiraIssue(Mock(), 'ARROW-1234', 'ARROW')
+        merge_arrow_pr.JiraIssue(Mock(), 'ARROW-1234', 'ARROW', FakeCLI())
 
 
 def test_jira_resolve():
@@ -116,7 +115,7 @@ def test_jira_resolve():
     my_comment = 'my comment'
     fix_versions = [SOURCE_VERSIONS[1].raw]
 
-    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW')
+    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
     issue.resolve(fix_versions, my_comment)
 
     assert jira.captured_transition == {
@@ -135,7 +134,7 @@ def test_jira_resolve_non_mainline():
     my_comment = 'my comment'
     fix_versions = [SOURCE_VERSIONS[0].raw]
 
-    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW')
+    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
     issue.resolve(fix_versions, my_comment)
 
     assert jira.captured_transition == {

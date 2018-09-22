@@ -257,9 +257,9 @@ class PullRequest(object):
             options = ' or '.join('{0}-XXX'.format(project)
                                   for project in SUPPORTED_PROJECTS)
             self.cmd.fail("PR title should be prefixed by a jira id "
-                          "{0}, but found {1}".format(options, title))
+                          "{0}, but found {1}".format(options, self.title))
 
-        return JiraIssue(self.con, jira_id, project)
+        return JiraIssue(self.con, jira_id, project, self.cmd)
 
     def merge(self, target_ref='master'):
         """
