@@ -191,7 +191,7 @@ class GitHubAPI(object):
 
     def __init__(self, project_name):
         self.github_api = ("https://api.github.com/repos/apache/{0}"
-                           .format(self.project_name))
+                           .format(project_name))
 
     def get_pr_data(self, number):
         return get_json("%s/pulls/%s" % (self.github_api, number))
