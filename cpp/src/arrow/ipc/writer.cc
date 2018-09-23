@@ -480,18 +480,26 @@ class DictionaryWriter : public RecordBatchSerializer {
   int64_t dictionary_id_;
 };
 
+namespace {
+
+Status CheckAligned(io::OutputStream* stream) {
+  int64_t current_position;
+  RETURN_NOT_OK(stream->Tell(&current_position));
+  if (!BitUtil::IsMultipleOf8(current_position)) {
+    return Status::Invalid("Stream is not aligned");
+  } else {
+    return Status::OK();
+  }
+}
+
+}
+
 Status WriteIpcPayload(const IpcPayload& payload, io::OutputStream* dst,
                        int32_t* metadata_length) {
-#ifndef NDEBUG
-  int64_t start_position, current_position;
-  RETURN_NOT_OK(dst->Tell(&start_position));
-#endif
-
   RETURN_NOT_OK(internal::WriteMessage(*payload.metadata, dst, metadata_length));
 
 #ifndef NDEBUG
-  RETURN_NOT_OK(dst->Tell(&current_position));
-  DCHECK(BitUtil::IsMultipleOf8(current_position));
+  RETURN_NOT_OK(CheckAligned(dst));
 #endif
 
   // Now write the buffers
@@ -516,8 +524,7 @@ Status WriteIpcPayload(const IpcPayload& payload, io::OutputStream* dst,
   }
 
 #ifndef NDEBUG
-  RETURN_NOT_OK(dst->Tell(&current_position));
-  DCHECK(BitUtil::IsMultipleOf8(current_position));
+  RETURN_NOT_OK(CheckAligned(dst));
 #endif
 
   return Status::OK();
@@ -530,18 +537,6 @@ Status GetRecordBatchPayload(const RecordBatch& batch, MemoryPool* pool,
 }
 
 }  // namespace internal
-
-// Adds padding bytes if necessary to ensure all memory blocks are written on
-// 64-byte boundaries.
-Status AlignStreamPosition(io::OutputStream* stream) {
-  int64_t position;
-  RETURN_NOT_OK(stream->Tell(&position));
-  int64_t remainder = PaddedLength(position) - position;
-  if (remainder > 0) {
-    return stream->Write(kPaddingBytes, remainder);
-  }
-  return Status::OK();
-}
 
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         io::OutputStream* dst, int32_t* metadata_length,
@@ -636,13 +631,9 @@ Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
 
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length) {
-  RETURN_NOT_OK(AlignStreamPosition(dst));
-
   if (tensor.is_contiguous()) {
     RETURN_NOT_OK(WriteTensorHeader(tensor, dst, metadata_length, body_length));
-    // It's important to align the stream position again so that the tensor data
-    // is aligned.
-    RETURN_NOT_OK(AlignStreamPosition(dst));
+    RETURN_NOT_OK(AlignStream(dst, 64));
     auto data = tensor.data();
     if (data && data->data()) {
       *body_length = data->size();
@@ -655,9 +646,7 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
     Tensor dummy(tensor.type(), tensor.data(), tensor.shape());
     const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
     RETURN_NOT_OK(WriteTensorHeader(dummy, dst, metadata_length, body_length));
-    // It's important to align the stream position again so that the tensor data
-    // is aligned.
-    RETURN_NOT_OK(AlignStreamPosition(dst));
+    RETURN_NOT_OK(AlignStream(dst, 64));
 
     const int elem_size = type.bit_width() / 8;
 

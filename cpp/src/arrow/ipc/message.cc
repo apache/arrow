@@ -235,8 +235,27 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
   return Message::ReadFrom(offset + metadata_length, metadata, file, message);
 }
 
-Status ReadMessage(io::InputStream* file, bool aligned,
-                   std::unique_ptr<Message>* message) {
+Status AlignStream(io::InputStream* stream, int64_t alignment) {
+  int64_t offset;
+  RETURN_NOT_OK(stream->Tell(&offset));
+  int64_t aligned_offset = PaddedLength(offset, alignment);
+  int64_t num_extra_bytes = aligned_offset - offset;
+  std::shared_ptr<Buffer> dummy_buffer;
+  return file->Read(num_extra_bytes, &dummy_buffer);
+}
+
+
+Status AlignStream(io::OutputStream* stream, int64_t alignment) {
+  int64_t position;
+  RETURN_NOT_OK(stream->Tell(&position));
+  int64_t remainder = PaddedLength(position, alignment) - position;
+  if (remainder > 0) {
+    return stream->Write(kPaddingBytes, remainder);
+  }
+  return Status::OK();
+}
+
+Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
   int32_t message_length = 0;
   int64_t bytes_read = 0;
   RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
@@ -262,22 +281,9 @@ Status ReadMessage(io::InputStream* file, bool aligned,
     return Status::Invalid(ss.str());
   }
 
-  // If requested, align the file before reading the message.
-  if (aligned) {
-    int64_t offset;
-    RETURN_NOT_OK(file->Tell(&offset));
-    int64_t aligned_offset = PaddedLength(offset);
-    int64_t num_extra_bytes = aligned_offset - offset;
-    std::shared_ptr<Buffer> dummy_buffer;
-    RETURN_NOT_OK(file->Read(num_extra_bytes, &dummy_buffer));
-  }
-
   return Message::ReadFrom(metadata, file, message);
 }
 
-Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
-  return ReadMessage(file, false /* aligned */, message);
-}
 // ----------------------------------------------------------------------
 // Implement InputStream message reader
 

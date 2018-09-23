@@ -953,20 +953,13 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
 // ----------------------------------------------------------------------
 // Implement message writing
 
-Status WriteMessage(const Buffer& message, io::OutputStream* file,
+Status WriteMessage(const Buffer& message, int64_t alignment, io::OutputStream* file,
                     int32_t* message_length) {
-  // Need to write 4 bytes (message size), the message, plus padding to
-  // end on an 8-byte offset
-  int64_t start_offset;
-  RETURN_NOT_OK(file->Tell(&start_offset));
-
-  // TODO(wesm): Should we depend on the position of the OutputStream? See
-  // ARROW-3212
+  // ARROW-3212: We do not make assumptions that the output stream is aligned
   int32_t padded_message_length = static_cast<int32_t>(message.size()) + 4;
-  const int32_t remainder =
-      (padded_message_length + static_cast<int32_t>(start_offset)) % 8;
+  const int32_t remainder = padded_message_length % alignment;
   if (remainder != 0) {
-    padded_message_length += 8 - remainder;
+    padded_message_length += alignment - remainder;
   }
 
   // The returned message size includes the length prefix, the flatbuffer,

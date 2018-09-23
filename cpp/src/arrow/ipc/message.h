@@ -140,9 +140,11 @@ class ARROW_EXPORT Message {
   /// \brief Write length-prefixed metadata and body to output stream
   ///
   /// \param[in] file output stream to write to
+  /// \param[in] body_alignment
   /// \param[out] output_length the number of bytes written
   /// \return Status
-  Status SerializeTo(io::OutputStream* file, int64_t* output_length) const;
+  Status SerializeTo(io::OutputStream* file, int64_t body_alignment,
+                     int64_t* output_length) const;
 
  private:
   // Hide serialization details from user API
@@ -192,19 +194,29 @@ ARROW_EXPORT
 Status ReadMessage(const int64_t offset, const int32_t metadata_length,
                    io::RandomAccessFile* file, std::unique_ptr<Message>* message);
 
+/// \brief Advance stream to an 8-byte offset if its position is not a multiple
+/// of 8 already
+/// \param[in] stream an input stream
+/// \param[in] alignment the byte multiple for the metadata prefix, usually 8
+/// or 64, to ensure the body starts on a multiple of that alignment
+/// \return Status
+ARROW_EXPORT
+Status AlignStream(io::InputStream* stream, int64_t alignment = 8);
+
+/// \brief Advance stream to an 8-byte offset if its position is not a multiple
+/// of 8 already
+/// \param[in] stream an output stream
+/// \param[in] alignment the byte multiple for the metadata prefix, usually 8
+/// or 64, to ensure the body starts on a multiple of that alignment
+/// \return Status
+ARROW_EXPORT
+Status AlignStream(io::OutputStream* stream, int64_t alignment = 8);
+
 /// \brief Read encapsulated RPC message (metadata and body) from InputStream
 ///
 /// Read length-prefixed message with as-yet unknown length. Returns null if
 /// there are not enough bytes available or the message length is 0 (e.g. EOS
 /// in a stream)
-ARROW_EXPORT
-Status ReadMessage(io::InputStream* stream, bool aligned,
-                   std::unique_ptr<Message>* message);
-
-/// \brief Read encapsulated RPC message (metadata and body) from InputStream.
-///
-/// This is a version of ReadMessage that does not have the aligned argument
-/// for backwards compatibility.
 ARROW_EXPORT
 Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message);
 

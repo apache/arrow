@@ -97,10 +97,19 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
                          std::vector<std::string>* dim_names);
 
 /// Write a serialized message metadata with a length-prefix and padding to an
-/// 8-byte offset
+/// 8-byte offset. Does not make assumptions about whether the stream is
+/// aligned already
 ///
 /// <message_size: int32><message: const void*><padding>
-Status WriteMessage(const Buffer& message, io::OutputStream* file,
+///
+/// \param[in] message a buffer containing the metadata to write
+/// \param[in] alignment the size multiple of the total message size including
+/// length prefix, metadata, and padding. Usually 8 or 64
+/// \param[in,ou] file the OutputStream to write to
+/// \param[out] message_length the total size of the payload written including
+/// padding
+/// \return Status
+Status WriteMessage(const Buffer& message, int64_t alignment, io::OutputStream* file,
                     int32_t* message_length);
 
 // Serialize arrow::Schema as a Flatbuffer
