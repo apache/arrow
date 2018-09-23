@@ -116,6 +116,8 @@ short description of your use case. See the following for some examples.
   Database Connectivity (ODBC) interface. It provides the ability to return
   Arrow Tables and RecordBatches in addition to the Python Database API
   Specification 2.0.
+* **[Falcon][25]:** An interactive data exploration tool with coordinated views.
+  Falcon uses Arrow to load data without having to parse text-based formats.
 
 [1]: https://www.apache.org/foundation/marks/
 [2]: https://www.apache.org/foundation/marks/faq/
@@ -141,3 +143,4 @@ short description of your use case. See the following for some examples.
 [22]: https://github.com/Paradigm4/stream
 [23]: https://github.com/jpmorganchase/perspective
 [24]: https://github.com/Paradigm4/accelerated_io_tools
+[25]: https://github.com/uwdata/falcon
