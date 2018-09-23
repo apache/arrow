@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "gandiva/arrow.h"
 #include "gandiva/projector.h"
@@ -64,6 +65,30 @@ class ProjectorCacheKey {
   bool operator!=(const ProjectorCacheKey& other) const { return !(*this == other); }
 
   SchemaPtr schema() const { return schema_; }
+
+  std::string ToString() const {
+    std::stringstream ss;
+    ss << "Schema [";
+
+    // remove newlines from schema
+    auto schema_str = schema_->ToString();
+    std::replace(schema_str.begin(), schema_str.end(), '\n', ',');
+    ss << schema_str << "] ";
+
+    ss << "Expressions: [";
+    bool first = true;
+    for (auto &expr : expressions_as_strings_) {
+      if (first) {
+        first = false;
+      } else {
+        ss << ", ";
+      }
+
+      ss << expr;
+    }
+    ss << "]";
+    return ss.str();
+  }
 
  private:
   const SchemaPtr schema_;

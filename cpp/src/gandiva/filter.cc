@@ -48,10 +48,11 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   GANDIVA_RETURN_FAILURE_IF_FALSE(configuration != nullptr,
                                   Status::Invalid("configuration cannot be null"));
   static Cache<FilterCacheKey, std::shared_ptr<Filter>> cache;
-  FilterCacheKey cacheKey(schema, configuration, *(condition.get()));
-  std::shared_ptr<Filter> cachedFilter = cache.GetModule(cacheKey);
+  FilterCacheKey cache_key(schema, configuration, *(condition.get()));
+  std::shared_ptr<Filter> cachedFilter = cache.GetModule(cache_key);
   if (cachedFilter != nullptr) {
     *filter = cachedFilter;
+    std::cout << "llvm filter module cache hit : " << cache_key.ToString() << std::endl;
     return Status::OK();
   }
   // Build LLVM generator, and generate code for the specified expression
@@ -70,7 +71,9 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
-  cache.PutModule(cacheKey, *filter);
+  cache.PutModule(cache_key, *filter);
+  std::cout << "llvm filter module cache insert : " << cache_key.ToString() << std::endl;
+
   return Status::OK();
 }
 
