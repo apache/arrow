@@ -63,6 +63,19 @@ class FilterCacheKey {
 
   SchemaPtr schema() const { return schema_; }
 
+  std::string ToString() const {
+    std::stringstream ss;
+    ss << "Schema [";
+
+    // remove newlines from schema
+    auto schema_str = schema_->ToString();
+    std::replace(schema_str.begin(), schema_str.end(), '\n', ',');
+    ss << schema_str << "] ";
+
+    ss << "Condition: [" << expression_as_string_ << "]";
+    return ss.str();
+  }
+
  private:
   const SchemaPtr schema_;
   const std::shared_ptr<Configuration> configuration_;
