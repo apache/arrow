@@ -23,7 +23,7 @@ const utf8Encoder = new TextEncoder('utf-8');
 
 const { packBools } = Arrow.util;
 const { BoolData, FlatData, FlatListData, DictionaryData } = Arrow.data;
-const { Vector, IntVector, FloatVector, BoolVector, Utf8Vector, DateVector, DictionaryVector } = Arrow.vector;
+const { IntVector, FloatVector, BoolVector, Utf8Vector, DateVector, DictionaryVector } = Arrow.vector;
 const {
     Dictionary, Utf8, Bool,
     Float16, Float32, Float64,
