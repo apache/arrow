@@ -31,6 +31,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -92,26 +93,47 @@ public class Filter {
   }
 
   /**
-   * Invoke this function to evaluate a set of expressions against a recordBatch.
+   * Invoke this function to evaluate a filter against a recordBatch.
    *
    * @param recordBatch Record batch including the data
    * @param selectionVector  Result of applying the filter on the data
    */
   public void evaluate(ArrowRecordBatch recordBatch, SelectionVector selectionVector)
       throws GandivaException {
+    evaluate(recordBatch.getLength(), recordBatch.getBuffers(), recordBatch.getBuffersLayout(),
+        selectionVector);
+  }
 
+  /**
+   * Invoke this function to evaluate filter against a set of arrow buffers.
+   * (this is an optimised version that skips taking references).
+   *
+   * @param numRows number of rows.
+   * @param buffers List of input arrow buffers
+   * @param selectionVector  Result of applying the filter on the data
+   */
+  public void evaluate(int numRows, List<ArrowBuf> buffers,
+                       SelectionVector selectionVector) throws GandivaException {
+    List<ArrowBuffer> buffersLayout = new ArrayList<>();
+    long offset = 0;
+    for (ArrowBuf arrowBuf : buffers) {
+      long size = arrowBuf.readableBytes();
+      buffersLayout.add(new ArrowBuffer(offset, size));
+      offset += size;
+    }
+    evaluate(numRows, buffers, buffersLayout, selectionVector);
+  }
+
+  private void evaluate(int numRows, List<ArrowBuf> buffers, List<ArrowBuffer> buffersLayout,
+                       SelectionVector selectionVector) throws GandivaException {
     if (this.closed) {
       throw new EvaluatorClosedException();
     }
-    int numRows = recordBatch.getLength();
     if (selectionVector.getMaxRecords() < numRows) {
-      logger.error("selectionVector has capacity for " + numRows
-          + " rows, minimum required " + recordBatch.getLength());
+      logger.error("selectionVector has capacity for " + selectionVector.getMaxRecords()
+          + " rows, minimum required " + numRows);
       throw new GandivaException("SelectionVector too small");
     }
-
-    List<ArrowBuf> buffers = recordBatch.getBuffers();
-    List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
 
     long[] bufAddrs = new long[buffers.size()];
     long[] bufSizes = new long[buffers.size()];
