@@ -250,7 +250,6 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
 }
 
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
-  int64_t offset;
   int64_t bytes_read;
   int32_t num_tensors;
   int32_t num_buffers;
@@ -264,7 +263,10 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
   RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
   RETURN_NOT_OK(reader->ReadNext(&out->batch));
 
+  /// Skip EOS marker
   RETURN_NOT_OK(src->Advance(4));
+
+  /// Align stream so tensor bodies are 64-byte aligned
   RETURN_NOT_OK(ipc::AlignStream(src, 64));
 
   for (int i = 0; i < num_tensors; ++i) {
@@ -273,6 +275,7 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
     out->tensors.push_back(tensor);
   }
 
+  int64_t offset = -1;
   RETURN_NOT_OK(src->Tell(&offset));
   for (int i = 0; i < num_buffers; ++i) {
     int64_t size;
