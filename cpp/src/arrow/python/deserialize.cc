@@ -264,17 +264,16 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
   RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
   RETURN_NOT_OK(reader->ReadNext(&out->batch));
 
-  RETURN_NOT_OK(src->Tell(&offset));
-  offset += 4;  // Skip the end-of-stream message
-  for (int i = 0; i < num_tensors; ++i) {
-    RETURN_NOT_OK(ipc::AlignStream(src, 64));
+  RETURN_NOT_OK(src->Advance(4));
+  RETURN_NOT_OK(ipc::AlignStream(src, 64));
 
+  for (int i = 0; i < num_tensors; ++i) {
     std::shared_ptr<Tensor> tensor;
     RETURN_NOT_OK(ipc::ReadTensor(src, &tensor));
     out->tensors.push_back(tensor);
-    RETURN_NOT_OK(src->Tell(&offset));
   }
 
+  RETURN_NOT_OK(src->Tell(&offset));
   for (int i = 0; i < num_buffers; ++i) {
     int64_t size;
     RETURN_NOT_OK(src->ReadAt(offset, sizeof(int64_t), &bytes_read,

@@ -114,6 +114,9 @@ class ARROW_EXPORT OutputStream : virtual public FileInterface, public Writable 
 };
 
 class ARROW_EXPORT InputStream : virtual public FileInterface, public Readable {
+ public:
+  Status Advance(int64_t nbytes);
+
  protected:
   InputStream() = default;
 };

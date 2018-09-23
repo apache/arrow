@@ -245,10 +245,7 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
 Status AlignStream(io::InputStream* stream, int64_t alignment) {
   int64_t position = -1;
   RETURN_NOT_OK(stream->Tell(&position));
-  int64_t aligned_position = PaddedLength(position, alignment);
-  int64_t num_extra_bytes = aligned_position - position;
-  std::shared_ptr<Buffer> dummy_buffer;
-  return stream->Read(num_extra_bytes, &dummy_buffer);
+  return stream->Advance(PaddedLength(position, alignment) - position);
 }
 
 Status AlignStream(io::OutputStream* stream, int64_t alignment) {
