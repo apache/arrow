@@ -51,6 +51,10 @@ Status BufferOutputStream::Create(int64_t initial_capacity, MemoryPool* pool,
   return Status::OK();
 }
 
+Status BufferOutputStream::Create(std::shared_ptr<BufferOutputStream>* out) {
+  return Create(1024, default_memory_pool(), out);
+}
+
 BufferOutputStream::~BufferOutputStream() {
   // This can fail, better to explicitly call close
   if (buffer_) {

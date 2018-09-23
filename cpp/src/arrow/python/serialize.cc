@@ -760,6 +760,9 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
       dst->Write(reinterpret_cast<const uint8_t*>(&num_buffers), sizeof(int32_t)));
   RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, dst));
 
+  // Align stream to 64-byte offset so tensor bodies are 64-byte aligned
+  RETURN_NOT_OK(ipc::AlignStream(dst, 64));
+
   int32_t metadata_length;
   int64_t body_length;
   for (const auto& tensor : this->tensors) {

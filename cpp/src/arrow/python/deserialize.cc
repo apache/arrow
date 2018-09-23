@@ -267,8 +267,10 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
   RETURN_NOT_OK(src->Tell(&offset));
   offset += 4;  // Skip the end-of-stream message
   for (int i = 0; i < num_tensors; ++i) {
+    RETURN_NOT_OK(ipc::AlignStream(src, 64));
+
     std::shared_ptr<Tensor> tensor;
-    RETURN_NOT_OK(ipc::ReadTensor(offset, src, &tensor));
+    RETURN_NOT_OK(ipc::ReadTensor(src, &tensor));
     out->tensors.push_back(tensor);
     RETURN_NOT_OK(src->Tell(&offset));
   }

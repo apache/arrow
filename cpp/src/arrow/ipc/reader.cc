@@ -720,8 +720,7 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, io::InputStream* f
                          out);
 }
 
-Status ReadTensor(int64_t offset, io::RandomAccessFile* file,
-                  std::shared_ptr<Tensor>* out) {
+Status ReadTensor(io::InputStream* file, std::shared_ptr<Tensor>* out) {
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
   return ReadTensor(*message, out);

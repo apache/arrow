@@ -105,7 +105,7 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
 /// \param[in] message a buffer containing the metadata to write
 /// \param[in] alignment the size multiple of the total message size including
 /// length prefix, metadata, and padding. Usually 8 or 64
-/// \param[in,ou] file the OutputStream to write to
+/// \param[in,out] file the OutputStream to write to
 /// \param[out] message_length the total size of the payload written including
 /// padding
 /// \return Status

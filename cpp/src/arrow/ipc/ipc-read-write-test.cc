@@ -86,6 +86,34 @@ TEST(TestMessage, Equals) {
   ASSERT_FALSE(msg5.Equals(msg1));
 }
 
+TEST(TestMessage, SerializeTo) {
+  std::string metadata = "abcde";
+  std::string body = "abcdef";
+
+  Message message(std::make_shared<Buffer>(metadata), std::make_shared<Buffer>(body));
+
+  int64_t output_length = 0;
+  int64_t position = 0;
+
+  std::shared_ptr<io::BufferOutputStream> stream;
+
+  {
+    ASSERT_OK(io::BufferOutputStream::Create(&stream));
+    ASSERT_OK(message.SerializeTo(stream.get(), 8, &output_length));
+    ASSERT_OK(stream->Tell(&position));
+    ASSERT_EQ(24, output_length);
+    ASSERT_EQ(24, position);
+  }
+
+  {
+    ASSERT_OK(io::BufferOutputStream::Create(&stream));
+    ASSERT_OK(message.SerializeTo(stream.get(), 64, &output_length));
+    ASSERT_OK(stream->Tell(&position));
+    ASSERT_EQ(128, output_length);
+    ASSERT_EQ(128, position);
+  }
+}
+
 const std::shared_ptr<DataType> INT32 = std::make_shared<Int32Type>();
 
 TEST_F(TestSchemaMetadata, PrimitiveFields) {
@@ -729,8 +757,10 @@ class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
 
     ASSERT_OK(WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
 
+    ASSERT_OK(mmap_->Seek(0));
+
     std::shared_ptr<Tensor> result;
-    ASSERT_OK(ReadTensor(0, mmap_.get(), &result));
+    ASSERT_OK(ReadTensor(mmap_.get(), &result));
 
     ASSERT_TRUE(tensor.Equals(*result));
   }

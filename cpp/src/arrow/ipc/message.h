@@ -140,10 +140,11 @@ class ARROW_EXPORT Message {
   /// \brief Write length-prefixed metadata and body to output stream
   ///
   /// \param[in] file output stream to write to
-  /// \param[in] body_alignment
+  /// \param[in] alignment byte alignment for metadata and body, usually 8
+  /// or 64
   /// \param[out] output_length the number of bytes written
   /// \return Status
-  Status SerializeTo(io::OutputStream* file, int64_t body_alignment,
+  Status SerializeTo(io::OutputStream* file, int64_t alignment,
                      int64_t* output_length) const;
 
  private:

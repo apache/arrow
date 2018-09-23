@@ -40,6 +40,17 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
  public:
   explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer);
 
+  /// \brief Create in-memory output stream with a default capacity of 1K using
+  /// the default memory pool
+  /// \param[out] out the created stream
+  static Status Create(std::shared_ptr<BufferOutputStream>* out);
+
+  /// \brief Create in-memory output stream with indicated capacity using a
+  /// memory pool
+  /// \param[in] initial_capacity the initial allocated internal capacity of
+  /// the OutputStream
+  /// \param[in,out] pool a MemoryPool to use for allocations
+  /// \param[out] out the created stream
   static Status Create(int64_t initial_capacity, MemoryPool* pool,
                        std::shared_ptr<BufferOutputStream>* out);
 

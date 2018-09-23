@@ -492,11 +492,11 @@ Status CheckAligned(io::OutputStream* stream) {
   }
 }
 
-}
+}  // namespace
 
 Status WriteIpcPayload(const IpcPayload& payload, io::OutputStream* dst,
                        int32_t* metadata_length) {
-  RETURN_NOT_OK(internal::WriteMessage(*payload.metadata, dst, metadata_length));
+  RETURN_NOT_OK(internal::WriteMessage(*payload.metadata, 8, dst, metadata_length));
 
 #ifndef NDEBUG
   RETURN_NOT_OK(CheckAligned(dst));
@@ -582,7 +582,7 @@ Status WriteTensorHeader(const Tensor& tensor, io::OutputStream* dst,
                          int32_t* metadata_length, int64_t* body_length) {
   std::shared_ptr<Buffer> metadata;
   RETURN_NOT_OK(internal::WriteTensorMessage(tensor, 0, &metadata));
-  return internal::WriteMessage(*metadata, dst, metadata_length);
+  return internal::WriteMessage(*metadata, 64, dst, metadata_length);
 }
 
 Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
@@ -633,7 +633,6 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
                    int64_t* body_length) {
   if (tensor.is_contiguous()) {
     RETURN_NOT_OK(WriteTensorHeader(tensor, dst, metadata_length, body_length));
-    RETURN_NOT_OK(AlignStream(dst, 64));
     auto data = tensor.data();
     if (data && data->data()) {
       *body_length = data->size();
@@ -646,8 +645,6 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
     Tensor dummy(tensor.type(), tensor.data(), tensor.shape());
     const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
     RETURN_NOT_OK(WriteTensorHeader(dummy, dst, metadata_length, body_length));
-    RETURN_NOT_OK(AlignStream(dst, 64));
-
     const int elem_size = type.bit_width() / 8;
 
     // TODO(wesm): Do we care enough about this temporary allocation to pass in
@@ -790,7 +787,7 @@ class SchemaWriter : public StreamBookKeeper {
     RETURN_NOT_OK(internal::WriteSchemaMessage(schema_, dictionary_memo_, &schema_fb));
 
     int32_t metadata_length = 0;
-    RETURN_NOT_OK(internal::WriteMessage(*schema_fb, sink_, &metadata_length));
+    RETURN_NOT_OK(internal::WriteMessage(*schema_fb, 8, sink_, &metadata_length));
     RETURN_NOT_OK(UpdatePositionCheckAligned());
     return Status::OK();
   }
