@@ -117,7 +117,9 @@ short description of your use case. See the following for some examples.
   Arrow Tables and RecordBatches in addition to the Python Database API
   Specification 2.0.
 * **[Falcon][25]:** An interactive data exploration tool with coordinated views.
-  Falcon uses Arrow to load data without having to parse text-based formats.
+  Falcon loads Arrow files using the Arrow JavaScript module. Since Arrow does
+  not need to be parsed (like text-based formats like CSV and JSON), startup cost
+  is significantly minimized.
 
 [1]: https://www.apache.org/foundation/marks/
 [2]: https://www.apache.org/foundation/marks/faq/
