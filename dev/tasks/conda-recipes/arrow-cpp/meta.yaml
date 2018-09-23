@@ -57,6 +57,7 @@ requirements:
     - {{ pin_compatible('numpy', lower_bound='1.10') }}   # [not (win and py>=36)]
     - {{ pin_compatible('numpy', lower_bound='1.12') }}   # [win and py>=36]
     - snappy  # [win and py>=35]
+    - zlib
 
 test:
   commands:
