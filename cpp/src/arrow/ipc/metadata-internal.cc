@@ -682,7 +682,7 @@ static Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
   return Status::OK();
 }
 
-static Status WriteFlatbufferBuilder(FBB& fbb, std::shared_ptr<Buffer>* out) {
+Status WriteFlatbufferBuilder(FBB& fbb, std::shared_ptr<Buffer>* out) {
   int32_t size = fbb.GetSize();
 
   std::shared_ptr<Buffer> result;
@@ -957,7 +957,7 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
 // ----------------------------------------------------------------------
 // Implement message writing
 
-Status WriteMessage(const Buffer& message, int64_t alignment, io::OutputStream* file,
+Status WriteMessage(const Buffer& message, int32_t alignment, io::OutputStream* file,
                     int32_t* message_length) {
   // ARROW-3212: We do not make assumptions that the output stream is aligned
   int32_t padded_message_length = static_cast<int32_t>(message.size()) + 4;

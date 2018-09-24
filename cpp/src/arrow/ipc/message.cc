@@ -179,7 +179,16 @@ Status Message::ReadFrom(const int64_t offset, const std::shared_ptr<Buffer>& me
   return Message::Open(metadata, body, out);
 }
 
-Status Message::SerializeTo(io::OutputStream* stream, int64_t alignment,
+Status WritePadding(io::OutputStream* stream, int64_t nbytes) {
+  while (nbytes > 0) {
+    const int64_t bytes_to_write = std::min<int64_t>(nbytes, kArrowAlignment);
+    RETURN_NOT_OK(stream->Write(kPaddingBytes, bytes_to_write));
+    nbytes -= bytes_to_write;
+  }
+  return Status::OK();
+}
+
+Status Message::SerializeTo(io::OutputStream* stream, int32_t alignment,
                             int64_t* output_length) const {
   int32_t metadata_length = 0;
   RETURN_NOT_OK(internal::WriteMessage(*metadata(), alignment, stream, &metadata_length));
@@ -191,14 +200,17 @@ Status Message::SerializeTo(io::OutputStream* stream, int64_t alignment,
     RETURN_NOT_OK(stream->Write(body_buffer->data(), body_buffer->size()));
     *output_length += body_buffer->size();
 
-    int64_t remainder =
-        PaddedLength(body_buffer->size(), alignment) - body_buffer->size();
-    if (remainder > 0) {
-      RETURN_NOT_OK(stream->Write(kPaddingBytes, remainder));
-      *output_length += remainder;
-    }
+    int64_t remainder = this->body_length() - body_buffer->size();
+    RETURN_NOT_OK(WritePadding(stream, remainder));
+    *output_length += remainder;
   }
   return Status::OK();
+}
+
+bool Message::Verify() const {
+  std::shared_ptr<Buffer> meta = this->metadata();
+  flatbuffers::Verifier verifier(meta->data(), meta->size(), 128);
+  return flatbuf::VerifyMessageBuffer(verifier);
 }
 
 std::string FormatMessageType(Message::Type type) {
@@ -242,13 +254,13 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
   return Message::ReadFrom(offset + metadata_length, metadata, file, message);
 }
 
-Status AlignStream(io::InputStream* stream, int64_t alignment) {
+Status AlignStream(io::InputStream* stream, int32_t alignment) {
   int64_t position = -1;
   RETURN_NOT_OK(stream->Tell(&position));
   return stream->Advance(PaddedLength(position, alignment) - position);
 }
 
-Status AlignStream(io::OutputStream* stream, int64_t alignment) {
+Status AlignStream(io::OutputStream* stream, int32_t alignment) {
   int64_t position = -1;
   RETURN_NOT_OK(stream->Tell(&position));
   int64_t remainder = PaddedLength(position, alignment) - position;
@@ -258,7 +270,7 @@ Status AlignStream(io::OutputStream* stream, int64_t alignment) {
   return Status::OK();
 }
 
-Status CheckAligned(io::FileInterface* stream, int64_t alignment) {
+Status CheckAligned(io::FileInterface* stream, int32_t alignment) {
   int64_t current_position;
   ARROW_RETURN_NOT_OK(stream->Tell(&current_position));
   if (current_position % alignment != 0) {

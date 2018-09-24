@@ -109,7 +109,7 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
 /// \param[out] message_length the total size of the payload written including
 /// padding
 /// \return Status
-Status WriteMessage(const Buffer& message, int64_t alignment, io::OutputStream* file,
+Status WriteMessage(const Buffer& message, int32_t alignment, io::OutputStream* file,
                     int32_t* message_length);
 
 // Serialize arrow::Schema as a Flatbuffer
@@ -138,6 +138,9 @@ Status WriteDictionaryMessage(const int64_t id, const int64_t length,
                               const int64_t body_length,
                               const std::vector<FieldMetadata>& nodes,
                               const std::vector<BufferMetadata>& buffers,
+                              std::shared_ptr<Buffer>* out);
+
+Status WriteFlatbufferBuilder(flatbuffers::FlatBufferBuilder& fbb,
                               std::shared_ptr<Buffer>* out);
 
 }  // namespace internal

@@ -144,7 +144,7 @@ class ARROW_EXPORT Buffer {
   static std::shared_ptr<Buffer> Wrap(const std::vector<T>& data) {
     return std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(data.data()),
                                     static_cast<int64_t>(sizeof(T) * data.size()));
-  }  // namespace arrow
+  }
 
   /// \brief Copy buffer contents into a new std::string
   /// \return std::string

@@ -28,6 +28,7 @@
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test-common.h"
+#include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/api.h"
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/test-common.h"
@@ -87,10 +88,20 @@ TEST(TestMessage, Equals) {
 }
 
 TEST(TestMessage, SerializeTo) {
-  std::string metadata = "abcde";
+  const int64_t body_length = 64;
+
+  flatbuffers::FlatBufferBuilder fbb;
+  fbb.Finish(flatbuf::CreateMessage(fbb, internal::kCurrentMetadataVersion,
+                                    flatbuf::MessageHeader_RecordBatch, 0 /* header */,
+                                    body_length));
+
+  std::shared_ptr<Buffer> metadata;
+  ASSERT_OK(internal::WriteFlatbufferBuilder(fbb, &metadata));
+
   std::string body = "abcdef";
 
-  Message message(std::make_shared<Buffer>(metadata), std::make_shared<Buffer>(body));
+  std::unique_ptr<Message> message;
+  ASSERT_OK(Message::Open(metadata, std::make_shared<Buffer>(body), &message));
 
   int64_t output_length = 0;
   int64_t position = 0;
@@ -99,19 +110,27 @@ TEST(TestMessage, SerializeTo) {
 
   {
     ASSERT_OK(io::BufferOutputStream::Create(&stream));
-    ASSERT_OK(message.SerializeTo(stream.get(), 8, &output_length));
+    ASSERT_OK(message->SerializeTo(stream.get(), 8, &output_length));
     ASSERT_OK(stream->Tell(&position));
-    ASSERT_EQ(24, output_length);
-    ASSERT_EQ(24, position);
+    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, 8) + body_length, output_length);
+    ASSERT_EQ(output_length, position);
   }
 
   {
     ASSERT_OK(io::BufferOutputStream::Create(&stream));
-    ASSERT_OK(message.SerializeTo(stream.get(), 64, &output_length));
+    ASSERT_OK(message->SerializeTo(stream.get(), 64, &output_length));
     ASSERT_OK(stream->Tell(&position));
-    ASSERT_EQ(128, output_length);
-    ASSERT_EQ(128, position);
+    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, 64) + body_length, output_length);
+    ASSERT_EQ(output_length, position);
   }
+}
+
+TEST(TestMessage, Verify) {
+  std::string metadata = "invalid";
+  std::string body = "abcdef";
+
+  Message message(std::make_shared<Buffer>(metadata), std::make_shared<Buffer>(body));
+  ASSERT_FALSE(message.Verify());
 }
 
 const std::shared_ptr<DataType> INT32 = std::make_shared<Int32Type>();

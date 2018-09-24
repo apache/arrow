@@ -115,6 +115,9 @@ class ARROW_EXPORT OutputStream : virtual public FileInterface, public Writable 
 
 class ARROW_EXPORT InputStream : virtual public FileInterface, public Readable {
  public:
+  /// \brief Advance or skip stream indicated number of bytes
+  /// \param[in] nbytes the number to move forward
+  /// \return Status
   Status Advance(int64_t nbytes);
 
  protected:

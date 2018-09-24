@@ -746,7 +746,7 @@ class StreamBookKeeper {
     return Status::OK();
   }
 
-  Status Align(int64_t alignment = kArrowIpcAlignment) {
+  Status Align(int32_t alignment = kArrowIpcAlignment) {
     // Adds padding bytes if necessary to ensure all memory blocks are written on
     // 8-byte (or other alignment) boundaries.
     int64_t remainder = PaddedLength(position_, alignment) - position_;
