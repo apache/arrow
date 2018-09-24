@@ -317,7 +317,7 @@ class TypeInferrer {
 
     if (obj == Py_None || internal::PyFloat_IsNaN(obj)) {
       ++none_count_;
-    } else if (PyBool_Check(obj)) {
+    } else if (internal::PyBoolScalar_Check(obj)) {
       ++bool_count_;
       *keep_going = make_unions_;
     } else if (internal::PyFloatScalar_Check(obj)) {
@@ -581,6 +581,21 @@ Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
   RETURN_NOT_OK(InferArrowType(obj, out_type));
 
   return Status::OK();
+}
+
+ARROW_EXPORT
+bool IsPyBool(PyObject* obj) {
+  return internal::PyBoolScalar_Check(obj);
+}
+
+ARROW_EXPORT
+bool IsPyInt(PyObject* obj) {
+  return internal::PyIntScalar_Check(obj);
+}
+
+ARROW_EXPORT
+bool IsPyFloat(PyObject* obj) {
+  return internal::PyFloatScalar_Check(obj);
 }
 
 }  // namespace py

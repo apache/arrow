@@ -149,7 +149,8 @@ class FileSystem(object):
 
     def read_parquet(self, path, columns=None, metadata=None, schema=None,
                      use_threads=True, nthreads=None,
-                     use_pandas_metadata=False):
+                     use_pandas_metadata=False, filters=None,
+                     exact_filter_evaluation=True):
         """
         Read Parquet data from path in file system. Can read from a single file
         or a directory of files
@@ -179,9 +180,10 @@ class FileSystem(object):
         from pyarrow.util import _deprecate_nthreads
         use_threads = _deprecate_nthreads(use_threads, nthreads)
         dataset = ParquetDataset(path, schema=schema, metadata=metadata,
-                                 filesystem=self)
+                                 filesystem=self, filters=filters)
         return dataset.read(columns=columns, use_threads=use_threads,
-                            use_pandas_metadata=use_pandas_metadata)
+                            use_pandas_metadata=use_pandas_metadata,
+                            exact_filter_evaluation=exact_filter_evaluation)
 
     def open(self, path, mode='rb'):
         """

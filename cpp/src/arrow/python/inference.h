@@ -40,6 +40,15 @@ class Status;
 
 namespace py {
 
+ARROW_EXPORT
+bool IsPyBool(PyObject* obj);
+
+ARROW_EXPORT
+bool IsPyInt(PyObject* obj);
+
+ARROW_EXPORT
+bool IsPyFloat(PyObject* obj);
+
 // These three functions take a sequence input, not arbitrary iterables
 ARROW_EXPORT
 arrow::Status InferArrowType(PyObject* obj, std::shared_ptr<arrow::DataType>* out_type);

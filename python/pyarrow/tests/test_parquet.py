@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from functools import partial
+
 import datetime
 import decimal
 import io
@@ -2146,3 +2148,135 @@ def test_parquet_writer_context_obj_with_exception(tempdir):
 
     expected = pd.concat(frames, ignore_index=True)
     tm.assert_frame_equal(result.to_pandas(), expected)
+
+
+@pytest.mark.parametrize(
+    "df",
+    [
+        pd.DataFrame({"string": ["abc", "affe", "banane", "buchstabe"]}),
+        pd.DataFrame({"integer": np.arange(4)}),
+        pd.DataFrame({"float": [-3.141591, 0.0, 3.141593, 3.141595]}),
+        pd.DataFrame(
+            {
+                "date": [
+                    datetime.date(2011, 1, 31),
+                    datetime.date(2011, 2, 3),
+                    datetime.date(2011, 2, 4),
+                    datetime.date(2011, 3, 10),
+                ]
+            }
+        ),
+    ],
+)
+@pytest.mark.parametrize('use_post_filter', [True, False])
+def test_filter_pushdown(df, use_post_filter, tmpdir):
+    """
+    Test predicate pushdown for several types and operations.
+
+    The DataFrame parameters all need to be of same length for this test to
+    work universally. Also the values in the DataFrames need to be sorted in
+    ascending order.
+    """
+    import pyarrow.parquet as pq
+
+    if not use_post_filter and pd.api.types.is_float_dtype(df.dtypes[0]):
+        pytest.skip("Floating point operations are too fuzzy to have exact filtering even on single row RowGroups")
+    if use_post_filter and isinstance(df.iloc[0, 0], datetime.date):
+        pytest.skip("Exact filtering on date is not supported")
+
+    if use_post_filter:
+        chunk_size = 2
+        read_func = pq.read_pandas
+    else:
+        # Don't use the post filter but write out Parquet files with a single
+        # row per RowGroup to test filters
+        chunk_size = 1
+        read_func = partial(pq.read_pandas, exact_filter_evaluation=False)
+
+    filename = tmpdir / "testfile.parquet"
+    table = pa.Table.from_pandas(df)
+    pq.write_table(table, filename, chunk_size=chunk_size)
+
+    # Test `<` and `>` operators
+    expected = df.iloc[[1, 2], :].copy()
+    filters = [
+        [(df.columns[0], "<", df.iloc[3, 0]), (df.columns[0], ">", df.iloc[0, 0])]
+    ]
+    result = read_func(filename, filters=filters).to_pandas(date_as_object=True)
+    tm.assert_frame_equal(result, expected)
+
+    # Test `=<` and `>=` operators
+    expected = df.iloc[[1, 2, 3], :].copy()
+    filters = [
+        [(df.columns[0], "<=", df.iloc[3, 0]), (df.columns[0], ">=", df.iloc[1, 0])]
+    ]
+    result = read_func(filename, filters=filters).to_pandas(date_as_object=True)
+    tm.assert_frame_equal(result, expected)
+
+    # Test `==` operator
+    expected = df.iloc[[1], :].copy()
+    filters = [[(df.columns[0], "==", df.iloc[1, 0])]]
+    result = read_func(filename, filters=filters).to_pandas(date_as_object=True)
+    tm.assert_frame_equal(result, expected)
+
+    # Test `in` operator
+    expected = df.iloc[[1], :].copy()
+    filters = [[(df.columns[0], "in", [df.iloc[1, 0]])]]
+    result = read_func(filename, filters=filters).to_pandas(date_as_object=True)
+    tm.assert_frame_equal(result, expected)
+
+    # Test `!=` operator
+    expected = df.iloc[[0, 2, 3], :].copy()
+    filters = [[(df.columns[0], "!=", df.iloc[1, 0])]]
+    result = read_func(filename, filters=filters).to_pandas(date_as_object=True)
+    tm.assert_frame_equal(result, expected)
+
+    # Test empty DataFrame
+    expected = df.iloc[[], :].copy()
+    filters = [[(df.columns[0], "<", df.iloc[0, 0])]]
+    result = read_func(filename, filters=filters).to_pandas(date_as_object=True)
+    tm.assert_frame_equal(result, expected)
+
+    # Test malformed predicates 1
+    filters = []
+    with pytest.raises(ValueError) as exc:
+        read_func(filename, filters=filters)
+    assert str(exc.value) == "Malformed filters"
+
+    # Test malformed predicates 2
+    filters = [[]]
+    with pytest.raises(ValueError) as exc:
+        read_func(filename, filters=filters)
+    assert str(exc.value) == "Malformed filters"
+
+    # Test malformed predicates 3
+    filters = [[(df.columns[0], "<", df.iloc[0, 0])], []]
+    with pytest.raises(ValueError) as exc:
+        read_func(filename, filters=filters)
+    assert str(exc.value) == "Malformed filters"
+
+
+def test_predicate_float_equal_big(tmpdir):
+    import pyarrow.parquet as pq
+
+    df = pd.DataFrame({"float": [3141590.0, 3141592.0, 3141594.0]})
+    pq.write_table(pa.Table.from_pandas(df), "testfile.parquet")
+
+    filters = [[("float", "==", 3141592.0)]]
+    result_df = pq.read_pandas("testfile.parquet", filters=filters).to_pandas()
+    expected_df = df.iloc[[1], :].copy()
+
+    tm.assert_frame_equal(result_df, expected_df)
+
+
+def test_predicate_float_equal_small(tmpdir):
+    import pyarrow.parquet as pq
+
+    df = pd.DataFrame({"float": [0.3141590, 0.3141592, 0.3141594]})
+    pq.write_table(pa.Table.from_pandas(df), tmpdir / "testfile.parquet")
+
+    filters = [[("float", "==", 0.3141592)]]
+    result_df = pq.read_pandas(tmpdir / "testfile.parquet", filters=filters).to_pandas()
+    expected_df = df.iloc[[1], :].copy()
+
+    tm.assert_frame_equal(result_df, expected_df)

@@ -17,11 +17,13 @@
 
 from collections import defaultdict
 from concurrent import futures
-import os
-import json
-import re
 
+import datetime
+import json
 import numpy as np
+import os
+import re
+import six
 
 import pyarrow as pa
 import pyarrow.lib as lib
@@ -35,6 +37,253 @@ from pyarrow.compat import guid
 from pyarrow.filesystem import (LocalFileSystem, _ensure_filesystem,
                                 _get_fs_from_path)
 from pyarrow.util import _is_path_like, _stringify_path, _deprecate_nthreads
+
+
+EPOCH_ORDINAL = datetime.date(1970, 1, 1).toordinal()
+
+
+def _timelike_to_arrow_encoding(value, pa_type):
+    # Date32 columns are encoded as days since 1970
+    if pa.types.is_date32(pa_type):
+        if isinstance(value, datetime.date):
+            return value.toordinal() - EPOCH_ORDINAL
+    elif pa.types.is_temporal(pa_type):
+        unit = pa_type.unit
+        if unit == "ns":
+            conversion_factor = 1
+        elif unit == "us":
+            conversion_factor = 10 ** 3
+        elif unit == "ms":
+            conversion_factor = 10 ** 6
+        elif unit == "s":
+            conversion_factor = 10 ** 9
+        else:
+            raise TypeError(
+                "Unkwnown timestamp resolution encoudtered `{}`".format(unit)
+            )
+        val = np.datetime64(value, 'ns').to_datetime64()
+        val = int(val.astype("int64") / conversion_factor)
+        return val
+    else:
+        return value
+
+
+def _normalize_value(value, pa_type):
+    if pa.types.is_string(pa_type):
+        if isinstance(value, six.binary_type):
+            return value.decode("utf-8")
+        elif isinstance(value, six.text_type):
+            return value
+    elif pa.types.is_binary(pa_type):
+        if isinstance(value, six.binary_type):
+            return value
+        elif isinstance(value, six.text_type):
+            return six.text_type(value).encode("utf-8")
+    elif (
+        pa.types.is_integer(pa_type)
+        and pa.types.is_integer_object(value)
+        or pa.types.is_floating(pa_type)
+        and pa.types.is_float_object(value)
+        or pa.types.is_boolean(pa_type)
+        and pa.types.is_boolean_object(value)
+        or pa.types.is_timestamp(pa_type)
+        and not isinstance(value, (six.binary_type, six.text_type))
+        and (
+            isinstance(value, (datetime.datetime, np.datetime64))
+        )
+    ):
+        return value
+    elif pa.types.is_date(pa_type):
+        if isinstance(value, six.string_types):
+            return datetime.datetime.strptime(value, "%Y-%m-%d").date()
+        elif isinstance(value, six.binary_type):
+            value = value.decode("utf-8")
+            return datetime.datetime.strptime(value, "%Y-%m-%d").date()
+        elif isinstance(value, datetime.date) and not isinstance(
+            value, datetime.datetime
+        ):
+            return value
+    raise TypeError(
+        "Unexpected type for predicate. Expected `{} ({})` but got `{} ({})`".format(
+            pa_type, pa_type.to_pandas_dtype(), value, type(value)
+        )
+    )
+
+
+def _highest_significant_position(num):
+    """
+    >>> _highest_significant_position(1.0)
+    1
+    >>> _highest_significant_position(9.0)
+    1
+    >>> _highest_significant_position(39.0)
+    2
+    >>> _highest_significant_position(0.1)
+    -1
+    >>> _highest_significant_position(0.9)
+    -1
+    >>> _highest_significant_position(0.000123)
+    -4
+    >>> _highest_significant_position(1234567.0)
+    7
+    >>> _highest_significant_position(-0.1)
+    -1
+    >>> _highest_significant_position(-100.0)
+    3
+    """
+    abs_num = np.absolute(num)
+    log_of_abs = np.log10(abs_num)
+    position = int(np.floor(log_of_abs))
+
+    # is position left of decimal point?
+    if abs_num >= 1.0:
+        position += 1
+
+    return position
+
+
+def _epsilon(num):
+    """
+    >>> _epsilon(123456)
+    1
+    >>> _epsilon(0.123456)
+    1e-06
+    >>> _epsilon(0.123)
+    1e-06
+    >>> _epsilon(0)
+    0
+    >>> _epsilon(-0.123456)
+    1e-06
+    >>> _epsilon(-123456)
+    1
+    """
+    SIGNIFICANT_DIGITS = 6
+
+    if num == 0:
+        return 0
+
+    epsilon_position = _highest_significant_position(num) - SIGNIFICANT_DIGITS
+
+    # is position right of decimal point?
+    if epsilon_position < 0:
+        epsilon_position += 1
+
+    return 10 ** epsilon_position
+
+
+def _predicate_accepts(predicate, row_meta, arrow_schema, parquet_reader):
+    """
+    Checks if a predicate evaluates on a column.
+
+    This method first casts the value of the predicate to the type used for this column
+    in the statistics and then applies the relevant operator. The operation applied here
+    is done in a fashion to check if the predicate would evaluate to True for any possible
+    row in the RowGroup. Thus e.g. for the `==` predicate, we check if the predicate value
+    is in the (min, max) range of the RowGroup.
+    """
+    col, op, val = predicate
+    col_idx = parquet_reader.column_name_idx(col)
+    pa_type = arrow_schema[col_idx].type
+    parquet_statistics = row_meta.column(col_idx).statistics
+    min_value = parquet_statistics.min
+    max_value = parquet_statistics.max
+    # Transform the predicate value to the respective type used in the statistics.
+
+    if pa.types.is_string(pa_type):
+        # String types are always UTF-8 encoded binary strings in parquet
+        min_value = min_value.decode("utf-8")
+        max_value = max_value.decode("utf-8")
+
+    # The statistics for floats only contain the 6 most significant digits.
+    # So a suitable epsilon has to be considered below min and above max.
+    if isinstance(val, float):
+        min_value -= _epsilon(min_value)
+        max_value += _epsilon(max_value)
+    if op == "==":
+        return (min_value <= val) and (val <= max_value)
+    elif op == "!=":
+        return not ((min_value >= val) and (val >= max_value))
+    elif op == "<=":
+        return min_value <= val
+    elif op == ">=":
+        return max_value >= val
+    elif op == "<":
+        return min_value < val
+    elif op == ">":
+        return max_value > val
+    elif op == "in":
+        return not ((max_value < val[0]) or (min_value > val[1]))
+    else:
+        raise NotImplementedError("op not supported")
+
+
+# TODO: replace with arrow-builtins
+def filter_df_from_predicates(df, predicates):
+    indexer = np.broadcast_to(False, len(df))
+    for conjunction in predicates:
+        inner_indexer = np.broadcast_to(True, len(df))
+        for column, op, value in conjunction:
+            # datetime is a subclass of date which is why we need this double check
+            if isinstance(value, datetime.date):
+                value = np.datetime64(value, 'ns')
+            elif isinstance(value, list) and isinstance(value[0], datetime.date):
+                value = [np.datetime64(value, 'ns') for val in value]
+            ser = df[column].values
+            if op == "==":
+                inner_indexer = (ser == value) & inner_indexer
+            elif op == "!=":
+                inner_indexer = (ser != value) & inner_indexer
+            elif op == "<=":
+                inner_indexer = (ser <= value) & inner_indexer
+            elif op == ">=":
+                inner_indexer = (ser >= value) & inner_indexer
+            elif op == "<":
+                inner_indexer = (ser < value) & inner_indexer
+            elif op == ">":
+                inner_indexer = (ser > value) & inner_indexer
+            elif op == "in":
+                inner_indexer = (np.isin(ser, value)) & inner_indexer
+            else:
+                raise NotImplementedError("op not supported")
+        indexer = inner_indexer | indexer
+    return df[indexer]
+
+
+def _check_contains_null(val):
+    if isinstance(val, six.binary_type):
+        for byte in val:
+            if isinstance(byte, six.binary_type):
+                compare_to = chr(0)
+            else:
+                compare_to = 0
+            if byte == compare_to:
+                return True
+    return False
+
+
+def check_filters(filters):
+    """
+    Check if filters are well-formed.
+    """
+    if filters is not None:
+        if len(filters) == 0 or any(len(f) == 0 for f in filters):
+            raise ValueError("Malformed filters")
+        if isinstance(filters[0][0], six.string_types):
+            # We have encountered the situation where we have one nesting level too few:
+            # We have [(,,), ..] instead of [[(,,), ..]]
+            filters = [filters]
+        for conjunction in filters:
+            for col, op, val in conjunction:
+                if (
+                    isinstance(val, list)
+                    and all(_check_contains_null(v) for v in val)
+                    or _check_contains_null(val)
+                ):
+                    raise NotImplementedError(
+                        "Null-terminated binary strings are not supported as filter values."
+                    )
+    return filters
+
 
 # ----------------------------------------------------------------------
 # Reading a single Parquet file
@@ -119,7 +368,72 @@ class ParquetFile(object):
         return self.reader.read_row_group(i, column_indices=column_indices,
                                           use_threads=use_threads)
 
-    def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
+    def _normalize_filters(self, filters, for_pushdown):
+        schema = self.schema.to_arrow_schema()
+
+        normalized_filters = []
+        for conjunction in filters:
+            new_conjunction = []
+            for literal in conjunction:
+                col, op, val = literal
+                col_idx = self.reader.column_name_idx(col)
+                pa_type = schema[col_idx].type
+                if op == "in":
+                    values = [_normalize_value(l, pa_type) for l in literal[2]]
+                    if for_pushdown:
+                        # In the case of predicate pushdown, we only compare ranges
+                        # and their overlap. Therefore we only need the min and max
+                        # values of the values.
+                        normalized_value = (
+                            _timelike_to_arrow_encoding(min(values), pa_type),
+                            _timelike_to_arrow_encoding(max(values), pa_type),
+                        )
+                    else:
+                        normalized_value = values
+                else:
+                    normalized_value = _normalize_value(literal[2], pa_type)
+                    if for_pushdown:
+                        normalized_value = _timelike_to_arrow_encoding(
+                            normalized_value, pa_type
+                        )
+                new_literal = (literal[0], literal[1], normalized_value)
+                new_conjunction.append(new_literal)
+            normalized_filters.append(new_conjunction)
+        return normalized_filters
+
+    def _read_row_groups_into_tables(self, columns, predicates_in):
+        """
+        For each RowGroup check if the predicate in DNF applies and then
+        read the respective RowGroup.
+        """
+        arrow_schema = self.schema.to_arrow_schema()
+
+        def all_predicates_accept(row):
+            # Check if the predicates evaluate on this RowGroup.
+            # As the predicate is in DNF, we only need a single of the
+            # inner lists to match. Once we have found a positive match,
+            # there is no need to check whether the remaining ones apply.
+            row_meta = self.metadata.row_group(row)
+            for predicate_list in predicates_in:
+                if all(
+                    _predicate_accepts(predicate, row_meta, arrow_schema, self.reader)
+                    for predicate in predicate_list
+                ):
+                    return True
+            return False
+
+        # Iterate over the RowGroups and evaluate the list of predicates on each
+        # one of them. Only access those that could contain a row where we could
+        # get an exact match of the predicate.
+        result = []
+        for row in range(self.num_row_groups):
+            if all_predicates_accept(row):
+                row_group = self.read_row_group(row, columns=columns)
+                result.append(row_group)
+        return result
+
+    def read(self, columns=None, use_threads=True, use_pandas_metadata=False,
+             filters=None, exact_filter_evaluation=True):
         """
         Read a Table from Parquet format
 
@@ -134,6 +448,23 @@ class ParquetFile(object):
         use_pandas_metadata : boolean, default False
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded
+        filters : list of list of tuple[str, str, Any]
+            Optional list of filters, like [[('x', '>', 0), ...], that are used
+            to filter the resulting DataFrame, possibly using predicate pushdown,
+            if supported by the file format.
+            This parameter is not compatible with filter_query.
+
+            Predicates are expressed in disjunctive normal form (DNF). This means
+            that the innermost tuple describe a single column predicate. These
+            inner predicate make are all combined with a conjunction (AND) into a
+            larger predicate. The most outer list then combines all filters
+            with a disjunction (OR). By this, we should be able to express all
+            kinds of filters that are possible using boolean logic.
+        exact_filter_evaluation : bool, default True
+            Evaluate the passed filters fully on the resulting table. Setting
+            this to false will only evaluate the filters on the RowGroup
+            level but the resulting table may still contain rows that don't
+            match the passed filters.
 
         Returns
         -------
@@ -142,8 +473,24 @@ class ParquetFile(object):
         """
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
-        return self.reader.read_all(column_indices=column_indices,
-                                    use_threads=use_threads)
+        if filters is not None:
+            filters = check_filters(filters)
+            filters_for_pushdown = self._normalize_filters(filters, True)
+            filters = self._normalize_filters(filters, False)
+            tables = self._read_row_groups_into_tables(columns, filters_for_pushdown)
+
+            if len(tables) == 0:
+                table = self.schema.to_arrow_schema().empty_table()
+            else:
+                table = pa.concat_tables(tables)
+
+            if exact_filter_evaluation:
+                table = pa.Table.from_pandas(filter_df_from_predicates(table.to_pandas(date_as_object=True), filters))
+            return table
+        else:
+            result = self.reader.read_all(column_indices=column_indices,
+                                          use_threads=use_threads)
+        return result
 
     def scan_contents(self, columns=None, batch_size=65536):
         """
@@ -417,7 +764,8 @@ class ParquetDatasetPiece(object):
         return reader
 
     def read(self, columns=None, use_threads=True, partitions=None,
-             open_file_func=None, file=None, use_pandas_metadata=False):
+             open_file_func=None, file=None, use_pandas_metadata=False,
+             filters=None, exact_filter_evaluation=True):
         """
         Read this piece as a pyarrow.Table
 
@@ -447,7 +795,9 @@ class ParquetDatasetPiece(object):
 
         options = dict(columns=columns,
                        use_threads=use_threads,
-                       use_pandas_metadata=use_pandas_metadata)
+                       use_pandas_metadata=use_pandas_metadata,
+                       filters=filters,
+                       exact_filter_evaluation=exact_filter_evaluation)
 
         if self.row_group is not None:
             table = reader.read_row_group(self.row_group, **options)
@@ -624,7 +974,7 @@ class ParquetPartitions(object):
         elif op == 'not in':
             return p_value not in f_value
         else:
-            raise ValueError("'%s' is not a valid operator in predicates.",
+            raise ValueError("'%s' is not a valid operator in filters.",
                              filter[1])
 
 
@@ -825,8 +1175,11 @@ class ParquetDataset(object):
         if validate_schema:
             self.validate_schemas()
 
-        if filters:
+        if filters is not None:
+            filters = check_filters(filters)
             self._filter(filters)
+        else:
+            self.piece_filters = None
 
     def validate_schemas(self):
         open_file = self._get_open_file_func()
@@ -858,7 +1211,8 @@ class ParquetDataset(object):
                                  .format(piece, file_schema,
                                          dataset_schema))
 
-    def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
+    def read(self, columns=None, use_threads=True, use_pandas_metadata=False,
+             exact_filter_evaluation=True):
         """
         Read multiple Parquet files as a single pyarrow.Table
 
@@ -878,12 +1232,16 @@ class ParquetDataset(object):
         """
         open_file = self._get_open_file_func()
 
+        # TODO: Evaluate filters
+
         tables = []
         for piece in self.pieces:
             table = piece.read(columns=columns, use_threads=use_threads,
                                partitions=self.partitions,
                                open_file_func=open_file,
-                               use_pandas_metadata=use_pandas_metadata)
+                               use_pandas_metadata=use_pandas_metadata,
+                               filters=self.piece_filters,
+                               exact_filter_evaluation=exact_filter_evaluation)
             tables.append(table)
 
         all_data = lib.concat_tables(tables)
@@ -933,16 +1291,24 @@ class ParquetDataset(object):
         return open_file
 
     def _filter(self, filters):
-        accepts_filter = self.partitions.filter_accepts_partition
+        # TODO: Handle case where filters apply partly to partitions and partly to pieces
+        # No-op if there are no partitions
+        if self.partitions:
+            accepts_filter = self.partitions.filter_accepts_partition
 
-        def one_filter_accepts(piece, filter):
-            return all(accepts_filter(part_key, filter, level)
-                       for level, part_key in enumerate(piece.partition_keys))
+            def one_filter_accepts(piece, filter):
+                return all(accepts_filter(part_key, filter, level)
+                           for level, part_key in enumerate(piece.partition_keys))
 
-        def all_filters_accept(piece):
-            return all(one_filter_accepts(piece, f) for f in filters)
+            def all_filters_accept(piece):
+                return any(all(one_filter_accepts(piece, f) for f in conjunction)
+                           for conjunction in filters)
 
-        self.pieces = [p for p in self.pieces if all_filters_accept(p)]
+            self.pieces = [p for p in self.pieces if all_filters_accept(p)]
+            # FIXME
+            self.piece_filters = None
+        else:
+            self.piece_filters = filters
 
 
 def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1):
@@ -1007,17 +1373,22 @@ Returns
 
 
 def read_table(source, columns=None, use_threads=True, metadata=None,
-               use_pandas_metadata=False, nthreads=None):
+               use_pandas_metadata=False, nthreads=None,
+               filters=None, exact_filter_evaluation=True):
     use_threads = _deprecate_nthreads(use_threads, nthreads)
     if _is_path_like(source):
         fs = _get_fs_from_path(source)
         return fs.read_parquet(source, columns=columns,
                                use_threads=use_threads, metadata=metadata,
-                               use_pandas_metadata=use_pandas_metadata)
+                               use_pandas_metadata=use_pandas_metadata,
+                               filters=filters,
+                               exact_filter_evaluation=exact_filter_evaluation)
 
     pf = ParquetFile(source, metadata=metadata)
     return pf.read(columns=columns, use_threads=use_threads,
-                   use_pandas_metadata=use_pandas_metadata)
+                   use_pandas_metadata=use_pandas_metadata,
+                   filters=filters,
+                   exact_filter_evaluation=exact_filter_evaluation)
 
 
 read_table.__doc__ = _read_table_docstring.format(
@@ -1030,10 +1401,13 @@ read_table.__doc__ = _read_table_docstring.format(
 
 
 def read_pandas(source, columns=None, use_threads=True,
-                nthreads=None, metadata=None):
+                nthreads=None, metadata=None,
+                filters=None, exact_filter_evaluation=True):
     return read_table(source, columns=columns,
                       use_threads=use_threads,
-                      metadata=metadata, use_pandas_metadata=True)
+                      metadata=metadata, use_pandas_metadata=True,
+                      filters=filters,
+                      exact_filter_evaluation=exact_filter_evaluation)
 
 
 read_pandas.__doc__ = _read_table_docstring.format(
