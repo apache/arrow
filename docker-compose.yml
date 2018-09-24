@@ -24,24 +24,6 @@ services:
 
   ######################### Language Containers ###############################
 
-  go:
-    image: arrow:go
-    build:
-      context: .
-      dockerfile: go/Dockerfile
-
-  js:
-    image: arrow:js
-    build:
-      context: .
-      dockerfile: js/Dockerfile
-
-  rust:
-    image: arrow:rust
-    build:
-      context: .
-      dockerfile: rust/Dockerfile
-
   c_glib:
     image: arrow:c_glib
     build:
@@ -54,6 +36,24 @@ services:
       context: .
       dockerfile: cpp/Dockerfile
 
+  go:
+    image: arrow:go
+    build:
+      context: .
+      dockerfile: go/Dockerfile
+
+  java:
+    image: arrow:java
+    build:
+      context: .
+      dockerfile: java/Dockerfile
+
+  js:
+    image: arrow:js
+    build:
+      context: .
+      dockerfile: js/Dockerfile
+
   python:
     image: arrow:python-${PYTHON_VERSION:-3.6}
     build:
@@ -61,6 +61,20 @@ services:
       dockerfile: python/Dockerfile
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+
+  #TODO(kszucs): R
+
+  cpp:
+    image: arrow:cpp
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile
+
+  rust:
+    image: arrow:rust
+    build:
+      context: .
+      dockerfile: rust/Dockerfile
 
   ######################### Integration Tests #################################
 
