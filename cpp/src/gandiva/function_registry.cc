@@ -45,28 +45,23 @@ using std::vector;
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type names. eg. add_int32_int32
-#define BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(NAME, TYPE)                \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, TYPE(), true, \
-                 RESULT_NULL_IF_NULL, STRINGIFY(NAME##_##TYPE##_##TYPE))
+#define BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(NAME, TYPE)                               \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, TYPE(), RESULT_NULL_IF_NULL, \
+                 STRINGIFY(NAME##_##TYPE##_##TYPE))
 
-// Binary functions that :
-// - have the same input type for both params
-// - output type is same as the input type
-// - NULL handling is of type NULL_INTERNAL
-//
-// The pre-compiled fn name includes the base name & input type names. eg.
-// divide_int64_int64
-#define BINARY_SYMMETRIC_NULL_INTERNAL(NAME, TYPE)                    \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, TYPE(), true, \
-                 RESULT_NULL_INTERNAL, STRINGIFY(NAME##_##TYPE##_##TYPE))
+// Divide fubnction
+#define DIVIDE(NAME, TYPE)                                                            \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, TYPE(), RESULT_NULL_INTERNAL, \
+                 STRINGIFY(NAME##_##TYPE##_##TYPE), false /* does not need holder */, \
+                 true /* can return error */)
 
 // Binary functions that :
 // - have different input types, or output type
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type names. eg. mod_int64_int32
-#define BINARY_GENERIC_SAFE_NULL_IF_NULL(NAME, IN_TYPE1, IN_TYPE2, OUT_TYPE)      \
-  NativeFunction(#NAME, DataTypeVector{IN_TYPE1(), IN_TYPE2()}, OUT_TYPE(), true, \
+#define BINARY_GENERIC_SAFE_NULL_IF_NULL(NAME, IN_TYPE1, IN_TYPE2, OUT_TYPE) \
+  NativeFunction(#NAME, DataTypeVector{IN_TYPE1(), IN_TYPE2()}, OUT_TYPE(),  \
                  RESULT_NULL_IF_NULL, STRINGIFY(NAME##_##IN_TYPE1##_##IN_TYPE2))
 
 // Binary functions that :
@@ -76,24 +71,24 @@ using std::vector;
 //
 // The pre-compiled fn name includes the base name & input type names.
 // eg. equal_int32_int32
-#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL(NAME, TYPE)                  \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, boolean(), true, \
-                 RESULT_NULL_IF_NULL, STRINGIFY(NAME##_##TYPE##_##TYPE))
+#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL(NAME, TYPE)                                 \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, boolean(), RESULT_NULL_IF_NULL, \
+                 STRINGIFY(NAME##_##TYPE##_##TYPE))
 
 // Unary functions that :
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type name. eg. castFloat_int32
-#define UNARY_SAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)             \
-  NativeFunction(#NAME, DataTypeVector{IN_TYPE()}, OUT_TYPE(), true, \
-                 RESULT_NULL_IF_NULL, STRINGIFY(NAME##_##IN_TYPE))
+#define UNARY_SAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                            \
+  NativeFunction(#NAME, DataTypeVector{IN_TYPE()}, OUT_TYPE(), RESULT_NULL_IF_NULL, \
+                 STRINGIFY(NAME##_##IN_TYPE))
 
 // Unary functions that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. eg. isnull_int32
-#define UNARY_SAFE_NULL_NEVER_BOOL(NAME, TYPE)                                      \
-  NativeFunction(#NAME, DataTypeVector{TYPE()}, boolean(), true, RESULT_NULL_NEVER, \
+#define UNARY_SAFE_NULL_NEVER_BOOL(NAME, TYPE)                                \
+  NativeFunction(#NAME, DataTypeVector{TYPE()}, boolean(), RESULT_NULL_NEVER, \
                  STRINGIFY(NAME##_##TYPE))
 
 // Binary functions that :
@@ -101,49 +96,49 @@ using std::vector;
 //
 // The pre-compiled fn name includes the base name & input type names,
 // eg. is_distinct_from_int32_int32
-#define BINARY_SAFE_NULL_NEVER_BOOL(NAME, TYPE)                          \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, boolean(), true, \
-                 RESULT_NULL_NEVER, STRINGIFY(NAME##_##TYPE##_##TYPE))
+#define BINARY_SAFE_NULL_NEVER_BOOL(NAME, TYPE)                                       \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, boolean(), RESULT_NULL_NEVER, \
+                 STRINGIFY(NAME##_##TYPE##_##TYPE))
 
 // Extract functions (used with data/time types) that :
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type name. eg. extractYear_date
-#define EXTRACT_SAFE_NULL_IF_NULL(NAME, TYPE)                                       \
-  NativeFunction(#NAME, DataTypeVector{TYPE()}, int64(), true, RESULT_NULL_IF_NULL, \
+#define EXTRACT_SAFE_NULL_IF_NULL(NAME, TYPE)                                 \
+  NativeFunction(#NAME, DataTypeVector{TYPE()}, int64(), RESULT_NULL_IF_NULL, \
                  STRINGIFY(NAME##_##TYPE))
 
 // Hash32 functions that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. hash32_int8
-#define HASH32_SAFE_NULL_NEVER(NAME, TYPE)                                        \
-  NativeFunction(#NAME, DataTypeVector{TYPE()}, int32(), true, RESULT_NULL_NEVER, \
+#define HASH32_SAFE_NULL_NEVER(NAME, TYPE)                                  \
+  NativeFunction(#NAME, DataTypeVector{TYPE()}, int32(), RESULT_NULL_NEVER, \
                  STRINGIFY(NAME##_##TYPE))
 
 // Hash32 functions that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. hash32_int8
-#define HASH64_SAFE_NULL_NEVER(NAME, TYPE)                                        \
-  NativeFunction(#NAME, DataTypeVector{TYPE()}, int64(), true, RESULT_NULL_NEVER, \
+#define HASH64_SAFE_NULL_NEVER(NAME, TYPE)                                  \
+  NativeFunction(#NAME, DataTypeVector{TYPE()}, int64(), RESULT_NULL_NEVER, \
                  STRINGIFY(NAME##_##TYPE))
 
 // Hash32 functions with seed that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. hash32WithSeed_int8
-#define HASH32_SEED_SAFE_NULL_NEVER(NAME, TYPE)                         \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), int32()}, int32(), true, \
-                 RESULT_NULL_NEVER, STRINGIFY(NAME##WithSeed_##TYPE))
+#define HASH32_SEED_SAFE_NULL_NEVER(NAME, TYPE)                                      \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), int32()}, int32(), RESULT_NULL_NEVER, \
+                 STRINGIFY(NAME##WithSeed_##TYPE))
 
 // Hash64 functions with seed that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. hash32WithSeed_int8
-#define HASH64_SEED_SAFE_NULL_NEVER(NAME, TYPE)                         \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), int64()}, int64(), true, \
-                 RESULT_NULL_NEVER, STRINGIFY(NAME##WithSeed_##TYPE))
+#define HASH64_SEED_SAFE_NULL_NEVER(NAME, TYPE)                                      \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), int64()}, int64(), RESULT_NULL_NEVER, \
+                 STRINGIFY(NAME##WithSeed_##TYPE))
 
 // Iterate the inner macro over all numeric types
 #define NUMERIC_TYPES(INNER, NAME)                                                       \
@@ -178,7 +173,7 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, add),
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, subtract),
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, multiply),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_NULL_INTERNAL, divide),
+    NUMERIC_TYPES(DIVIDE, divide),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int32, int32),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int64, int64),
     NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
@@ -359,12 +354,13 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     BINARY_RELATIONAL_SAFE_NULL_IF_NULL(ends_with, utf8),
     BINARY_RELATIONAL_SAFE_NULL_IF_NULL(starts_with_plus_one, utf8),
     BINARY_RELATIONAL_SAFE_NULL_IF_NULL(ends_with_plus_one, utf8),
-    NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), true /*null_safe*/,
-                   RESULT_NULL_IF_NULL, "like_utf8_utf8", true /*needs_holder*/),
+
+    NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), RESULT_NULL_IF_NULL,
+                   "like_utf8_utf8", true /*needs_holder*/),
 
     // Null internal (sample)
-    NativeFunction("half_or_null", DataTypeVector{int32()}, int32(), true /*null_safe*/,
-                   RESULT_NULL_INTERNAL, "half_or_null_int32"),
+    NativeFunction("half_or_null", DataTypeVector{int32()}, int32(), RESULT_NULL_INTERNAL,
+                   "half_or_null_int32"),
 };  // namespace gandiva
 
 FunctionRegistry::iterator FunctionRegistry::begin() const {

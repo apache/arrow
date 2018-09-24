@@ -34,8 +34,8 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
   set(BC_FILE ${CMAKE_CURRENT_BINARY_DIR}/${SRC_BASE}.bc)
   add_custom_command(
     OUTPUT ${BC_FILE}
-    COMMAND ${CLANG_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/src
-            -std=c++11 -emit-llvm -O2 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
+    COMMAND ${CLANG_EXECUTABLE}
+            -D GDV_HELPERS -std=c++11 -emit-llvm -O2 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
     DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()
@@ -57,4 +57,4 @@ add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc)
 add_precompiled_unit_test(hash_test.cc hash.cc)
 add_precompiled_unit_test(sample_test.cc sample.cc)
 add_precompiled_unit_test(string_ops_test.cc string_ops.cc)
-add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc)
+add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../codegen/execution_context.cc)

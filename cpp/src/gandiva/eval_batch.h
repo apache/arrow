@@ -25,6 +25,7 @@
 #include "gandiva/arrow.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/local_bitmaps_holder.h"
+#include "gandiva/execution_context.h"
 
 namespace gandiva {
 
@@ -38,6 +39,7 @@ class EvalBatch {
       buffers_array_.reset(new uint8_t*[num_buffers]);
     }
     local_bitmaps_holder_.reset(new LocalBitMapsHolder(num_records, num_local_bitmaps));
+    execution_context_.reset(new ExecutionContext());
   }
 
   int num_records() const { return num_records_; }
@@ -69,6 +71,8 @@ class EvalBatch {
     return local_bitmaps_holder_->GetLocalBitMapArray();
   }
 
+  ExecutionContext *GetExecutionContext() const { return execution_context_.get(); }
+
  private:
   /// number of records in the current batch.
   int num_records_;
@@ -82,6 +86,8 @@ class EvalBatch {
   std::unique_ptr<uint8_t*> buffers_array_;
 
   std::unique_ptr<LocalBitMapsHolder> local_bitmaps_holder_;
+
+  std::unique_ptr<ExecutionContext> execution_context_;
 };
 
 }  // namespace gandiva
