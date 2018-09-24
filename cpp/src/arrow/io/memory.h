@@ -59,7 +59,18 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   /// Close the stream and return the buffer
   Status Finish(std::shared_ptr<Buffer>* result);
 
+  /// \brief Initialize state of OutputStream with newly allocated memory and
+  /// set position to 0
+  /// \param[in] initial_capacity the starting allocated capacity
+  /// \param[in,out] pool the memory pool to use for allocations
+  /// \return Status
+  Status Reset(int64_t initial_capacity, MemoryPool* pool);
+
+  int64_t capacity() const { return capacity_; }
+
  private:
+  BufferOutputStream();
+
   // Ensures there is sufficient space available to write nbytes
   Status Reserve(int64_t nbytes);
 
