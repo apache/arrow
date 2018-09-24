@@ -194,7 +194,7 @@ Index,   origin_city
 
 # Getting involved
 
-See [develop.md](https://github.com/apache/arrow/blob/master/develop.md)
+See [DEVELOP.md](DEVELOP.md)
 
 Even if you do not plan to contribute to Apache Arrow itself or Arrow
 integrations in other projects, we'd be happy to have you involved:
