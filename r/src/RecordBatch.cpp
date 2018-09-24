@@ -44,7 +44,7 @@ std::shared_ptr<arrow::Array> RecordBatch__column(const std::shared_ptr<arrow::R
 }
 
 // [[Rcpp::export]]
-List RecordBatch_to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch){
+List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch){
   int nc = batch->num_columns();
   int nr = batch->num_rows();
   List tbl(nc);
