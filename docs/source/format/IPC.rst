@@ -252,6 +252,7 @@ well as the starting offsets of the sparse index and the sparse tensor body
     <metadata size: int32>
     <metadata>
     <sparse index>
+    <PADDING>
     <sparse tensor body>
 
 The contents of the sparse tensor index is depends on what kinds of sparse
