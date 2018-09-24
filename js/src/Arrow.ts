@@ -215,6 +215,8 @@ try {
         Arrow['readAsync'] = readAsync;
         Arrow['readStream'] = readStream;
         Arrow['fromReadableStream'] = fromReadableStream;
+        Arrow['readBuffersAsync'] = readBuffersAsync;
+        Arrow['readRecordBatchesAsync'] = readRecordBatchesAsync;
 
         Arrow['serializeFile'] = serializeFile;
         Arrow['serializeStream'] = serializeStream;
