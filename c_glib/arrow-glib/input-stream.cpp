@@ -186,14 +186,13 @@ garrow_input_stream_class_init(GArrowInputStreamClass *klass)
  * Returns: (transfer full) (nullable):
  *   #GArrowTensor on success, %NULL on error.
  *
- * Since: 0.4.0
+ * Since: 0.11.0
  */
 GArrowTensor *
 garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
                                 GError **error)
 {
-  auto arrow_input_stream =
-    garrow_input_stream_get_raw(input_stream);
+  auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
 
   std::shared_ptr<arrow::Tensor> arrow_tensor;
   auto status = arrow::ipc::ReadTensor(arrow_input_stream.get(),
@@ -284,6 +283,7 @@ garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
     return NULL;
   }
 }
+
 
 typedef struct GArrowBufferInputStreamPrivate_ {
   GArrowBuffer *buffer;
