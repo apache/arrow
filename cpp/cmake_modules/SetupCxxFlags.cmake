@@ -179,7 +179,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "msvc")
 endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "gcc" AND
-    "${COMPILER_VERSION}" VERSION_GREATER "7.0")
+    "${COMPILER_VERSION}" VERSION_GREATER "6.0")
   # Without this, gcc >= 7 warns related to changes in C++17
   set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
 endif()
