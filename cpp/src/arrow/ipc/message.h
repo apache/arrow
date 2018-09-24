@@ -34,6 +34,7 @@ class Buffer;
 
 namespace io {
 
+class FileInterface;
 class InputStream;
 class OutputStream;
 class RandomAccessFile;
@@ -212,6 +213,11 @@ Status AlignStream(io::InputStream* stream, int64_t alignment = 8);
 /// \return Status
 ARROW_EXPORT
 Status AlignStream(io::OutputStream* stream, int64_t alignment = 8);
+
+/// \brief Return error Status if file position is not a multiple of the
+/// indicated alignment
+ARROW_EXPORT
+Status CheckAligned(io::FileInterface* stream, int64_t alignment = 8);
 
 /// \brief Read encapsulated RPC message (metadata and body) from InputStream
 ///

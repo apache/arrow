@@ -258,6 +258,16 @@ Status AlignStream(io::OutputStream* stream, int64_t alignment) {
   return Status::OK();
 }
 
+Status CheckAligned(io::FileInterface* stream, int64_t alignment) {
+  int64_t current_position;
+  ARROW_RETURN_NOT_OK(stream->Tell(&current_position));
+  if (current_position % alignment != 0) {
+    return Status::Invalid("Stream is not aligned");
+  } else {
+    return Status::OK();
+  }
+}
+
 Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
   int32_t message_length = 0;
   int64_t bytes_read = 0;

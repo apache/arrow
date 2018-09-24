@@ -480,20 +480,6 @@ class DictionaryWriter : public RecordBatchSerializer {
   int64_t dictionary_id_;
 };
 
-namespace {
-
-Status CheckAligned(io::OutputStream* stream) {
-  int64_t current_position;
-  RETURN_NOT_OK(stream->Tell(&current_position));
-  if (!BitUtil::IsMultipleOf8(current_position)) {
-    return Status::Invalid("Stream is not aligned");
-  } else {
-    return Status::OK();
-  }
-}
-
-}  // namespace
-
 Status WriteIpcPayload(const IpcPayload& payload, io::OutputStream* dst,
                        int32_t* metadata_length) {
   RETURN_NOT_OK(internal::WriteMessage(*payload.metadata, 8, dst, metadata_length));
@@ -579,10 +565,10 @@ Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offs
 namespace {
 
 Status WriteTensorHeader(const Tensor& tensor, io::OutputStream* dst,
-                         int32_t* metadata_length, int64_t* body_length) {
+                         int32_t* metadata_length) {
   std::shared_ptr<Buffer> metadata;
   RETURN_NOT_OK(internal::WriteTensorMessage(tensor, 0, &metadata));
-  return internal::WriteMessage(*metadata, 64, dst, metadata_length);
+  return internal::WriteMessage(*metadata, kTensorAlignment, dst, metadata_length);
 }
 
 Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
@@ -631,21 +617,24 @@ Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
 
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length) {
+  const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
+  const int elem_size = type.bit_width() / 8;
+
+  *body_length = tensor.size() * elem_size;
+
+  // Tensor metadata accounts for padding
   if (tensor.is_contiguous()) {
-    RETURN_NOT_OK(WriteTensorHeader(tensor, dst, metadata_length, body_length));
+    RETURN_NOT_OK(WriteTensorHeader(tensor, dst, metadata_length));
     auto data = tensor.data();
     if (data && data->data()) {
-      *body_length = data->size();
-      return dst->Write(data->data(), *body_length);
+      RETURN_NOT_OK(dst->Write(data->data(), *body_length));
     } else {
       *body_length = 0;
-      return Status::OK();
     }
   } else {
-    Tensor dummy(tensor.type(), tensor.data(), tensor.shape());
-    const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
-    RETURN_NOT_OK(WriteTensorHeader(dummy, dst, metadata_length, body_length));
-    const int elem_size = type.bit_width() / 8;
+    // The tensor written is made contiguous
+    Tensor dummy(tensor.type(), nullptr, tensor.shape());
+    RETURN_NOT_OK(WriteTensorHeader(dummy, dst, metadata_length));
 
     // TODO(wesm): Do we care enough about this temporary allocation to pass in
     // a MemoryPool to this function?
@@ -653,9 +642,17 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
     RETURN_NOT_OK(
         AllocateBuffer(tensor.shape()[tensor.ndim() - 1] * elem_size, &scratch_space));
 
-    return WriteStridedTensorData(0, 0, elem_size, tensor, scratch_space->mutable_data(),
-                                  dst);
+    RETURN_NOT_OK(WriteStridedTensorData(0, 0, elem_size, tensor,
+                                         scratch_space->mutable_data(), dst));
   }
+
+  // Write padding bytes after body, if any, for alignment
+  const int64_t remainder = *body_length % kTensorAlignment;
+  if (remainder != 0) {
+    RETURN_NOT_OK(dst->Write(kPaddingBytes, kTensorAlignment - remainder));
+    *body_length += kTensorAlignment - remainder;
+  }
+  return Status::OK();
 }
 
 Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,

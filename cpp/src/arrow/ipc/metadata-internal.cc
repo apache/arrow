@@ -776,6 +776,9 @@ Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
 
   FBB fbb;
 
+  const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
+  const int elem_size = type.bit_width() / 8;
+
   flatbuf::Type fb_type_type;
   Offset fb_type;
   RETURN_NOT_OK(TensorTypeToFlatbuffer(fbb, *tensor.type(), &fb_type_type, &fb_type));
@@ -788,7 +791,8 @@ Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
 
   auto fb_shape = fbb.CreateVector(dims);
   auto fb_strides = fbb.CreateVector(tensor.strides());
-  int64_t body_length = tensor.data()->size();
+
+  int64_t body_length = PaddedLength(tensor.size() * elem_size, kTensorAlignment);
   flatbuf::Buffer buffer(buffer_start_offset, body_length);
 
   TensorOffset fb_tensor =

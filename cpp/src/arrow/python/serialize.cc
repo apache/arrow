@@ -32,6 +32,7 @@
 #include "arrow/builder.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/util.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -767,6 +768,9 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
   int64_t body_length;
   for (const auto& tensor : this->tensors) {
     RETURN_NOT_OK(ipc::WriteTensor(*tensor, dst, &metadata_length, &body_length));
+#ifndef NDEBUG
+    RETURN_NOT_OK(ipc::CheckAligned(dst, ipc::kTensorAlignment));
+#endif
   }
 
   for (const auto& buffer : this->buffers) {

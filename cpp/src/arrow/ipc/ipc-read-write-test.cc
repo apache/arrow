@@ -757,10 +757,20 @@ class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
 
     ASSERT_OK(WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
 
+    // Body padded
+    ASSERT_EQ(0, body_length % kTensorAlignment);
+
     ASSERT_OK(mmap_->Seek(0));
 
     std::shared_ptr<Tensor> result;
     ASSERT_OK(ReadTensor(mmap_.get(), &result));
+
+    // Tensor size equal to padded length
+    const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
+    const int elem_size = type.bit_width() / 8;
+
+    ASSERT_EQ(result->data()->size(),
+              PaddedLength(elem_size * tensor.size(), kTensorAlignment));
 
     ASSERT_TRUE(tensor.Equals(*result));
   }
@@ -782,14 +792,21 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
   auto data = Buffer::Wrap(values);
 
   Tensor t0(int64(), data, shape, strides, dim_names);
-  Tensor tzero(int64(), data, {}, {}, {});
+  Tensor t_no_dims(int64(), data, {}, {}, {});
+  Tensor t_zero_length_dim(int64(), data, {0}, {8}, {"foo"});
 
   CheckTensorRoundTrip(t0);
-  CheckTensorRoundTrip(tzero);
+  CheckTensorRoundTrip(t_no_dims);
+  CheckTensorRoundTrip(t_zero_length_dim);
 
   int64_t serialized_size;
   ASSERT_OK(GetTensorSize(t0, &serialized_size));
   ASSERT_TRUE(serialized_size > static_cast<int64_t>(size * sizeof(int64_t)));
+
+  // ARROW-2840: Check that padding/alignment minded
+  std::vector<int64_t> shape_2 = {1, 1};
+  std::vector<int64_t> strides_2 = {8, 8};
+  Tensor t0_not_multiple_64(int64(), data, shape_2, strides_2, dim_names);
 }
 
 TEST_F(TestTensorRoundTrip, NonContiguous) {

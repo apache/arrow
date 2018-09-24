@@ -30,6 +30,9 @@ namespace ipc {
 // Buffers are padded to 64-byte boundaries (for SIMD)
 static constexpr int kArrowAlignment = 64;
 
+// Tensors are padded to 64-byte boundaries
+static constexpr int kTensorAlignment = 64;
+
 // Align on 8-byte boundaries in IPC
 static constexpr int kArrowIpcAlignment = 8;
 

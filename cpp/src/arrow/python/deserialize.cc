@@ -32,6 +32,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/ipc/util.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
@@ -272,6 +273,11 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
   for (int i = 0; i < num_tensors; ++i) {
     std::shared_ptr<Tensor> tensor;
     RETURN_NOT_OK(ipc::ReadTensor(src, &tensor));
+
+#ifndef NDEBUG
+    RETURN_NOT_OK(ipc::CheckAligned(src, ipc::kTensorAlignment));
+#endif
+
     out->tensors.push_back(tensor);
   }
 
