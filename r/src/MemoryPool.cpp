@@ -20,16 +20,16 @@
 using namespace Rcpp;
 
 // [[Rcpp::export]]
-static_ptr<arrow::MemoryPool> MemoryPool_default(){
-  return arrow::default_memory_pool();
+std::shared_ptr<arrow::MemoryPool> MemoryPool_default(){
+  return std::shared_ptr<arrow::MemoryPool>(arrow::default_memory_pool(), NoDelete<arrow::MemoryPool>());
 }
 
 // [[Rcpp::export]]
-int MemoryPool_bytes_allocated(static_ptr<arrow::MemoryPool> pool){
+int MemoryPool_bytes_allocated(std::shared_ptr<arrow::MemoryPool> pool){
   return pool->bytes_allocated();
 }
 
 // [[Rcpp::export]]
-int MemoryPool_max_memory(static_ptr<arrow::MemoryPool> pool){
+int MemoryPool_max_memory(std::shared_ptr<arrow::MemoryPool> pool){
   return pool->max_memory();
 }
