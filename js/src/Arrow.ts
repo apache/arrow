@@ -30,6 +30,7 @@ import { Schema, Field, Type } from './type';
 import { Table, DataFrame, NextFunc, BindFunc, CountByResult } from './table';
 import { fromReadableStream } from './ipc/reader/node';
 import { read, readAsync, readStream } from './ipc/reader/arrow';
+import { readBuffersAsync, readRecordBatchesAsync } from './ipc/reader/arrow';
 import { serializeFile, serializeStream } from './ipc/writer/binary';
 
 export import View = vector_.View;
@@ -41,6 +42,7 @@ export import TypedArrayConstructor = type_.TypedArrayConstructor;
 
 export { fromReadableStream };
 export { read, readAsync, readStream };
+export { readBuffersAsync, readRecordBatchesAsync };
 export { serializeFile, serializeStream };
 export { Table, DataFrame, NextFunc, BindFunc, CountByResult };
 export { Field, Schema, RecordBatch, Vector, Type };
