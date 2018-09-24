@@ -141,7 +141,6 @@ Status WriteDictionaryMessage(const int64_t id, const int64_t length,
                               const std::vector<BufferMetadata>& buffers,
                               std::shared_ptr<Buffer>* out);
 
-
 static inline Status WriteFlatbufferBuilder(flatbuffers::FlatBufferBuilder& fbb,
                                             std::shared_ptr<Buffer>* out) {
   int32_t size = fbb.GetSize();
