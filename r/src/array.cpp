@@ -63,7 +63,9 @@ std::shared_ptr<arrow::Array> SimpleArray(SEXP x){
         bitmap_writer.Clear();
       }
     }
-    buffers[0] = std::move(null_bitmap);
+    if (null_count) {
+      buffers[0] = std::move(null_bitmap);
+    }
   }
 
   auto data = ArrayData::Make(
