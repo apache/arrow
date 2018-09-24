@@ -109,18 +109,24 @@ TEST(TestMessage, SerializeTo) {
   std::shared_ptr<io::BufferOutputStream> stream;
 
   {
-    ASSERT_OK(io::BufferOutputStream::Create(&stream));
-    ASSERT_OK(message->SerializeTo(stream.get(), 8, &output_length));
+    const int32_t alignment = 8;
+
+    ASSERT_OK(io::BufferOutputStream::Create(1 << 10, default_memory_pool(), &stream));
+    ASSERT_OK(message->SerializeTo(stream.get(), alignment, &output_length));
     ASSERT_OK(stream->Tell(&position));
-    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, 8) + body_length, output_length);
+    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, alignment) + body_length,
+              output_length);
     ASSERT_EQ(output_length, position);
   }
 
   {
-    ASSERT_OK(io::BufferOutputStream::Create(&stream));
-    ASSERT_OK(message->SerializeTo(stream.get(), 64, &output_length));
+    const int32_t alignment = 64;
+
+    ASSERT_OK(io::BufferOutputStream::Create(1 << 10, default_memory_pool(), &stream));
+    ASSERT_OK(message->SerializeTo(stream.get(), alignment, &output_length));
     ASSERT_OK(stream->Tell(&position));
-    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, 64) + body_length, output_length);
+    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, alignment) + body_length,
+              output_length);
     ASSERT_EQ(output_length, position);
   }
 }
@@ -780,8 +786,6 @@ class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
     ASSERT_OK(WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
 
     const int64_t expected_body_length = elem_size * tensor.size();
-
-    // Body padded
     ASSERT_EQ(expected_body_length, body_length);
 
     ASSERT_OK(mmap_->Seek(0));
@@ -790,7 +794,6 @@ class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
     ASSERT_OK(ReadTensor(mmap_.get(), &result));
 
     ASSERT_EQ(result->data()->size(), expected_body_length);
-
     ASSERT_TRUE(tensor.Equals(*result));
   }
 };
