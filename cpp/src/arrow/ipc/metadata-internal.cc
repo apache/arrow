@@ -682,18 +682,6 @@ static Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
   return Status::OK();
 }
 
-Status WriteFlatbufferBuilder(FBB& fbb, std::shared_ptr<Buffer>* out) {
-  int32_t size = fbb.GetSize();
-
-  std::shared_ptr<Buffer> result;
-  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), size, &result));
-
-  uint8_t* dst = result->mutable_data();
-  memcpy(dst, fbb.GetBufferPointer(), size);
-  *out = result;
-  return Status::OK();
-}
-
 static Status WriteFBMessage(FBB& fbb, flatbuf::MessageHeader header_type,
                              flatbuffers::Offset<void> header, int64_t body_length,
                              std::shared_ptr<Buffer>* out) {

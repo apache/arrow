@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/buffer.h"
 #include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
@@ -140,8 +141,19 @@ Status WriteDictionaryMessage(const int64_t id, const int64_t length,
                               const std::vector<BufferMetadata>& buffers,
                               std::shared_ptr<Buffer>* out);
 
-Status WriteFlatbufferBuilder(flatbuffers::FlatBufferBuilder& fbb,
-                              std::shared_ptr<Buffer>* out);
+
+static inline Status WriteFlatbufferBuilder(flatbuffers::FlatBufferBuilder& fbb,
+                                            std::shared_ptr<Buffer>* out) {
+  int32_t size = fbb.GetSize();
+
+  std::shared_ptr<Buffer> result;
+  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), size, &result));
+
+  uint8_t* dst = result->mutable_data();
+  memcpy(dst, fbb.GetBufferPointer(), size);
+  *out = result;
+  return Status::OK();
+}
 
 }  // namespace internal
 }  // namespace ipc
