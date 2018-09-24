@@ -580,6 +580,14 @@ def test_floating_point_truncate_unsafe():
         _check_cast_case(case, safe=False)
 
 
+def test_safe_cast_nan_to_int_raises():
+    arr = pa.array([np.nan, 1.])
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match='Floating point value truncated'):
+        arr.cast(pa.int64(), safe=True)
+
+
 def test_cast_timestamp_unit():
     # ARROW-1680
     val = datetime.datetime.now()
