@@ -780,7 +780,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MetadataVersion metadata_version()
         MessageType type()
 
-        CStatus SerializeTo(OutputStream* stream, int64_t alignment,
+        CStatus SerializeTo(OutputStream* stream, int32_t alignment,
                             int64_t* output_length)
 
     c_string FormatMessageType(MessageType type)

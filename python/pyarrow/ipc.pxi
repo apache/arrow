@@ -78,7 +78,7 @@ cdef class Message:
         cdef:
             BufferOutputStream stream = BufferOutputStream(memory_pool)
             int64_t output_length = 0
-            int64_t c_alignment = alignment
+            int32_t c_alignment = alignment
 
         with nogil:
             check_status(self.message.get()
