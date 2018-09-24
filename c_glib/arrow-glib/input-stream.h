@@ -38,7 +38,6 @@ struct _GArrowInputStreamClass
 };
 
 GArrowTensor *garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
-                                              gint64 position,
                                               GError **error);
 
 #define GARROW_TYPE_SEEKABLE_INPUT_STREAM       \

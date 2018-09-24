@@ -181,7 +181,6 @@ garrow_input_stream_class_init(GArrowInputStreamClass *klass)
 /**
  * garrow_input_stream_read_tensor:
  * @input_stream: A #GArrowInputStream.
- * @position: The read start position.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (transfer full) (nullable):
@@ -191,7 +190,6 @@ garrow_input_stream_class_init(GArrowInputStreamClass *klass)
  */
 GArrowTensor *
 garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
-                                gint64 position,
                                 GError **error)
 {
   auto arrow_input_stream =
