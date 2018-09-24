@@ -99,3 +99,8 @@ Once generated, the flatbuffers format code needs to be adjusted for our build s
     ```
 1. Add `/* tslint:disable:class-name */` to the top of `Schema.ts`
 1. Execute `npm run lint` to fix all the linting errors
+
+[1]: mailto:dev-subscribe@arrow.apache.org
+[2]: https://github.com/apache/arrow/tree/master/format
+[3]: https://issues.apache.org/jira/browse/ARROW
+[4]: https://github.com/apache/arrow
