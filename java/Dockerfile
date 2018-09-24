@@ -19,6 +19,7 @@ FROM maven
 
 ADD header /arrow/
 ADD format /arrow/format
+ADD integration/data /arrow/integration/data
 ADD java /arrow/java
 WORKDIR /arrow/java
 
