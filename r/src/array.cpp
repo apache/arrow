@@ -54,12 +54,13 @@ std::shared_ptr<arrow::Array> SimpleArray(SEXP x){
     R_ERROR_NOT_OK(arrow::AllocateBuffer(vec.size(), &null_bitmap));
 
     auto null_bitmap_data = null_bitmap->mutable_data();
-    for (int i=0; i < vec.size(); i++) {
+    arrow::internal::BitmapWriter bitmap_writer(null_bitmap_data, 0, vec.size());
+    for (int i=0; i < vec.size(); i++, bitmap_writer.Next()) {
       if (Rcpp::Vector<RTYPE>::is_na(vec[i]) ) {
-        BitUtil::SetBit(null_bitmap_data, i);
+        bitmap_writer.Set();
         null_count++;
       } else {
-        BitUtil::ClearBit(null_bitmap_data, i);
+        bitmap_writer.Clear();
       }
     }
     buffers[0] = std::move(null_bitmap);
