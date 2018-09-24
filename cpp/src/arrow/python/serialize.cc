@@ -768,9 +768,7 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
   int64_t body_length;
   for (const auto& tensor : this->tensors) {
     RETURN_NOT_OK(ipc::WriteTensor(*tensor, dst, &metadata_length, &body_length));
-#ifndef NDEBUG
-    RETURN_NOT_OK(ipc::CheckAligned(dst, ipc::kTensorAlignment));
-#endif
+    RETURN_NOT_OK(ipc::AlignStream(dst, 64));
   }
 
   for (const auto& buffer : this->buffers) {

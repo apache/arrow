@@ -780,7 +780,7 @@ Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
   auto fb_shape = fbb.CreateVector(dims);
   auto fb_strides = fbb.CreateVector(tensor.strides());
 
-  int64_t body_length = PaddedLength(tensor.size() * elem_size, kTensorAlignment);
+  int64_t body_length = tensor.size() * elem_size;
   flatbuf::Buffer buffer(buffer_start_offset, body_length);
 
   TensorOffset fb_tensor =

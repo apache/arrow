@@ -647,12 +647,6 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
                                          scratch_space->mutable_data(), dst));
   }
 
-  // Write padding bytes after body, if any, for alignment
-  const int64_t remainder = *body_length % kTensorAlignment;
-  if (remainder != 0) {
-    RETURN_NOT_OK(dst->Write(kPaddingBytes, kTensorAlignment - remainder));
-    *body_length += kTensorAlignment - remainder;
-  }
   return Status::OK();
 }
 

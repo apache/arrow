@@ -772,24 +772,24 @@ class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
     int32_t metadata_length;
     int64_t body_length;
 
+    const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
+    const int elem_size = type.bit_width() / 8;
+
     ASSERT_OK(mmap_->Seek(0));
 
     ASSERT_OK(WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
 
+    const int64_t expected_body_length = elem_size * tensor.size();
+
     // Body padded
-    ASSERT_EQ(0, body_length % kTensorAlignment);
+    ASSERT_EQ(expected_body_length, body_length);
 
     ASSERT_OK(mmap_->Seek(0));
 
     std::shared_ptr<Tensor> result;
     ASSERT_OK(ReadTensor(mmap_.get(), &result));
 
-    // Tensor size equal to padded length
-    const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
-    const int elem_size = type.bit_width() / 8;
-
-    ASSERT_EQ(result->data()->size(),
-              PaddedLength(elem_size * tensor.size(), kTensorAlignment));
+    ASSERT_EQ(result->data()->size(), expected_body_length);
 
     ASSERT_TRUE(tensor.Equals(*result));
   }

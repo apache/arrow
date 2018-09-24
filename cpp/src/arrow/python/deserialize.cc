@@ -268,16 +268,12 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
   RETURN_NOT_OK(src->Advance(4));
 
   /// Align stream so tensor bodies are 64-byte aligned
-  RETURN_NOT_OK(ipc::AlignStream(src, 64));
+  RETURN_NOT_OK(ipc::AlignStream(src, ipc::kTensorAlignment));
 
   for (int i = 0; i < num_tensors; ++i) {
     std::shared_ptr<Tensor> tensor;
     RETURN_NOT_OK(ipc::ReadTensor(src, &tensor));
-
-#ifndef NDEBUG
-    RETURN_NOT_OK(ipc::CheckAligned(src, ipc::kTensorAlignment));
-#endif
-
+    RETURN_NOT_OK(ipc::AlignStream(src, ipc::kTensorAlignment));
     out->tensors.push_back(tensor);
   }
 
