@@ -826,6 +826,7 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
   std::vector<int64_t> shape_2 = {1, 1};
   std::vector<int64_t> strides_2 = {8, 8};
   Tensor t0_not_multiple_64(int64(), data, shape_2, strides_2, dim_names);
+  CheckTensorRoundTrip(t0_not_multiple_64);
 }
 
 TEST_F(TestTensorRoundTrip, NonContiguous) {
