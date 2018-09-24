@@ -46,13 +46,6 @@ class IdToModuleMap {
 
   HOLDER Lookup(jlong module_id) {
     HOLDER result = nullptr;
-    try {
-      result = map_.at(module_id);
-    } catch (const std::out_of_range&) {
-    }
-    if (result != nullptr) {
-      return result;
-    }
     mtx_.lock();
     try {
       result = map_.at(module_id);

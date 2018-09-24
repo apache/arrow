@@ -15,8 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "../codegen/execution_context.h"
+
 extern "C" {
 
+#include "./context_helper.h"
 #include "./types.h"
 
 // Expand inner macro for all numeric types.
@@ -161,12 +164,14 @@ NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
 #define DIVIDE_NULL_INTERNAL(TYPE)                                                      \
   FORCE_INLINE                                                                          \
   TYPE divide_##TYPE##_##TYPE(TYPE in1, boolean is_valid1, TYPE in2, boolean is_valid2, \
-                              bool *out_valid) {                                        \
+                              int64 execution_context, bool* out_valid) {               \
     *out_valid = false;                                                                 \
     if (!is_valid1 || !is_valid2) {                                                     \
       return 0;                                                                         \
     }                                                                                   \
     if (in2 == 0) {                                                                     \
+      char const* err_msg = "divide by zero error";                                     \
+      set_error_msg(execution_context, err_msg);                                        \
       return 0;                                                                         \
     }                                                                                   \
     *out_valid = true;                                                                  \

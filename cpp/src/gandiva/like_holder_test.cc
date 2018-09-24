@@ -88,19 +88,19 @@ TEST_F(TestLikeHolder, TestOptimise) {
   // optimise for 'starts_with'
   auto fnode = LikeHolder::TryOptimize(BuildLike("xy 123z%"));
   EXPECT_EQ(fnode.descriptor()->name(), "starts_with");
-  EXPECT_EQ(fnode.ToString(), "bool starts_with(utf8, (string) xy 123z)");
+  EXPECT_EQ(fnode.ToString(), "bool starts_with((utf8) in, (const string) xy 123z)");
 
   // optimise for 'ends_with'
   fnode = LikeHolder::TryOptimize(BuildLike("%xyz"));
   EXPECT_EQ(fnode.descriptor()->name(), "ends_with");
-  EXPECT_EQ(fnode.ToString(), "bool ends_with(utf8, (string) xyz)");
+  EXPECT_EQ(fnode.ToString(), "bool ends_with((utf8) in, (const string) xyz)");
 
   // optimise for 'starts_with_plus_one
   fnode = LikeHolder::TryOptimize(BuildLike("xyz_"));
-  EXPECT_EQ(fnode.ToString(), "bool starts_with_plus_one(utf8, (string) xyz)");
+  EXPECT_EQ(fnode.ToString(), "bool starts_with_plus_one((utf8) in, (const string) xyz)");
 
   fnode = LikeHolder::TryOptimize(BuildLike("_xyz"));
-  EXPECT_EQ(fnode.ToString(), "bool ends_with_plus_one(utf8, (string) xyz)");
+  EXPECT_EQ(fnode.ToString(), "bool ends_with_plus_one((utf8) in, (const string) xyz)");
 
   // no optimisation for others.
   fnode = LikeHolder::TryOptimize(BuildLike("%xyz%"));

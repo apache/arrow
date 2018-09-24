@@ -44,12 +44,12 @@ TEST_F(TestToString, TestAll) {
   auto literal_node = TreeExprBuilder::MakeLiteral((uint64_t)100);
   auto literal_expr =
       TreeExprBuilder::MakeExpression(literal_node, arrow::field("r", int64()));
-  CHECK_EXPR_TO_STRING(literal_expr, "(uint64) 100");
+  CHECK_EXPR_TO_STRING(literal_expr, "(const uint64) 100");
 
   auto f0 = arrow::field("f0", float64());
   auto f0_node = TreeExprBuilder::MakeField(f0);
   auto f0_expr = TreeExprBuilder::MakeExpression(f0_node, f0);
-  CHECK_EXPR_TO_STRING(f0_expr, "double");
+  CHECK_EXPR_TO_STRING(f0_expr, "(double) f0");
 
   auto f1 = arrow::field("f1", int64());
   auto f2 = arrow::field("f2", int64());
@@ -57,7 +57,7 @@ TEST_F(TestToString, TestAll) {
   auto f2_node = TreeExprBuilder::MakeField(f2);
   auto add_node = TreeExprBuilder::MakeFunction("add", {f1_node, f2_node}, int64());
   auto add_expr = TreeExprBuilder::MakeExpression(add_node, f1);
-  CHECK_EXPR_TO_STRING(add_expr, "int64 add(int64, int64)");
+  CHECK_EXPR_TO_STRING(add_expr, "int64 add((int64) f1, (int64) f2)");
 
   auto cond_node = TreeExprBuilder::MakeFunction(
       "lesser_than", {f0_node, TreeExprBuilder::MakeLiteral(static_cast<float>(0))},
@@ -69,7 +69,7 @@ TEST_F(TestToString, TestAll) {
   auto if_expr = TreeExprBuilder::MakeExpression(if_node, f1);
   CHECK_EXPR_TO_STRING(
       if_expr,
-      "if (bool lesser_than(double, (float) 0 raw(0))) { int64 } else { int64 }");
+      "if (bool lesser_than((double) f0, (const float) 0 raw(0))) { (int64) f1 } else { (int64) f2 }");
 
   auto f1_gt_100 =
       TreeExprBuilder::MakeFunction("greater_than", {f1_node, literal_node}, boolean());
@@ -80,7 +80,7 @@ TEST_F(TestToString, TestAll) {
       TreeExprBuilder::MakeExpression(and_node, arrow::field("f0", boolean()));
   CHECK_EXPR_TO_STRING(
       and_expr,
-      "bool greater_than(int64, (uint64) 100) && bool equals(int64, (uint64) 100)");
+      "bool greater_than((int64) f1, (const uint64) 100) && bool equals((int64) f2, (const uint64) 100)");
 }
 
 }  // namespace gandiva

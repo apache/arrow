@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 #include "gandiva/precompiled/types.h"
+#include "../execution_context.h"
 
 namespace gandiva {
 
@@ -36,17 +37,18 @@ TEST(TestArithmeticOps, TestMod) { EXPECT_EQ(mod_int64_int32(10, 0), 10); }
 
 TEST(TestArithmeticOps, TestDivide) {
   boolean is_valid;
-  int64 out = divide_int64_int64(10, true, 0, true, &is_valid);
+  gandiva::helpers::ExecutionContext error_holder;
+  int64 out = divide_int64_int64(10, true, 0, true, (int64)&error_holder, &is_valid);
   EXPECT_EQ(out, 0);
   EXPECT_EQ(is_valid, false);
+  EXPECT_EQ(error_holder.has_error(), true);
+  EXPECT_EQ(error_holder.get_error(), "divide by zero error");
 
-  out = divide_int64_int64(10, true, 2, false, &is_valid);
-  EXPECT_EQ(out, 0);
-  EXPECT_EQ(is_valid, false);
-
-  out = divide_int64_int64(10, true, 2, true, &is_valid);
+  gandiva::helpers::ExecutionContext error_holder1;
+  out = divide_int64_int64(10, true, 2, true, (int64)&error_holder, &is_valid);
   EXPECT_EQ(out, 5);
   EXPECT_EQ(is_valid, true);
+  EXPECT_EQ(error_holder1.has_error(), false);
 }
 
 }  // namespace gandiva

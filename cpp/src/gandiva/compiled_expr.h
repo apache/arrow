@@ -23,7 +23,8 @@
 
 namespace gandiva {
 
-using EvalFunc = int (*)(uint8_t** buffers, uint8_t** local_bitmaps, int record_count);
+using EvalFunc = int (*)(uint8_t **buffers, uint8_t **local_bitmaps,
+                         int64_t execution_ctx_ptr, int record_count);
 
 /// \brief Tracks the compiled state for one expression.
 class CompiledExpr {
