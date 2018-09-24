@@ -21,39 +21,42 @@ using namespace Rcpp;
 using namespace arrow;
 
 template <int RTYPE>
-  inline SEXP simple_ChunkedArray_to_Vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
-    using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
-    Rcpp::Vector<RTYPE> out = no_init(chunked_array->length());
-    auto p = out.begin();
+inline SEXP simple_ChunkedArray_to_Vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
+  using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
+  Rcpp::Vector<RTYPE> out = no_init(chunked_array->length());
+  auto p = out.begin();
 
-    int k = 0;
-    for (int i=0; i<chunked_array->num_chunks(); i++) {
-      auto chunk = chunked_array->chunk(i);
-      auto n = chunk->length();
+  int k = 0;
+  for (int i=0; i<chunked_array->num_chunks(); i++) {
+    auto chunk = chunked_array->chunk(i);
+    auto n = chunk->length();
 
-      // copy the data
-      auto q = p;
-      p = std::copy_n(
-        reinterpret_cast<const stored_type*>(
-          chunk->data()->buffers[1]->data() + chunk->offset() * sizeof(stored_type)
-        ),
-        n, p);
+    // copy the data
+    auto q = p;
+    p = std::copy_n(
+      reinterpret_cast<const stored_type*>(
+        chunk->data()->buffers[1]->data() + chunk->offset() * sizeof(stored_type)
+      ),
+      n, p);
 
-      // set NA using the bitmap, TODO
-      auto bitmap_data = chunk->null_bitmap();
-      if (bitmap_data && RTYPE != RAWSXP) {
-        auto data = bitmap_data->data();
-        for (int j=0; j<n; j++){
-          if (BitUtil::GetBit(data, j)) {
-            q[k+j] = Rcpp::Vector<RTYPE>::get_na();
-          }
+    // set NA using the bitmap, TODO
+    auto bitmap_data = chunk->null_bitmap();
+    if (bitmap_data && RTYPE != RAWSXP) {
+      arrow::internal::BitmapReader bitmap_reader(
+          bitmap_data->data(), chunk->offset(), n
+      );
+
+      for (int j=0; j<n; j++, bitmap_reader.Next()){
+        if (bitmap_reader.IsSet()) {
+          q[k+j] = Rcpp::Vector<RTYPE>::get_na();
         }
       }
-
-      k += chunk->length();
     }
-    return out;
+
+    k += chunk->length();
   }
+  return out;
+}
 
 
 // [[Rcpp::export]]

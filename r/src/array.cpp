@@ -113,9 +113,11 @@ inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array ){
     // TODO: not sure what to do with RAWSXP since
     //       R raw vector do not have a concept of missing data
 
-    auto bitmap_data = array->null_bitmap()->data();
-    for (size_t i=0; i < n; i++) {
-      if (BitUtil::GetBit(bitmap_data, i)) {
+    arrow::internal::BitmapReader bitmap_reader(
+        array->null_bitmap()->data(), array->offset(), n
+    );
+    for (size_t i=0; i < n; i++, bitmap_reader.Next()) {
+      if (bitmap_reader.IsSet()) {
         vec[i] = Rcpp::Vector<RTYPE>::get_na();
       }
     }

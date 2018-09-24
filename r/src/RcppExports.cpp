@@ -6,6 +6,193 @@
 
 using namespace Rcpp;
 
+// Array__from_vector
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x);
+RcppExport SEXP _arrow_Array__from_vector(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__from_vector(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__as_vector
+SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
+RcppExport SEXP _arrow_Array__as_vector(SEXP arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__as_vector(array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__Slice1
+std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, int offset);
+RcppExport SEXP _arrow_Array__Slice1(SEXP arraySEXP, SEXP offsetSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__Slice1(array, offset));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__Slice2
+std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array, int offset, int length);
+RcppExport SEXP _arrow_Array__Slice2(SEXP arraySEXP, SEXP offsetSEXP, SEXP lengthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
+    Rcpp::traits::input_parameter< int >::type length(lengthSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__Slice2(array, offset, length));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__IsNull
+bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i);
+RcppExport SEXP _arrow_Array__IsNull(SEXP xSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__IsNull(x, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__IsValid
+bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, int i);
+RcppExport SEXP _arrow_Array__IsValid(SEXP xSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__IsValid(x, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__length
+int Array__length(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array__length(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__length(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__offset
+int Array__offset(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array__offset(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__offset(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__null_count
+int Array__null_count(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array__null_count(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__null_count(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__type
+std::shared_ptr<arrow::DataType> Array__type(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array__type(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__type(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__ToString
+std::string Array__ToString(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array__ToString(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__ToString(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__type_id
+arrow::Type::type Array__type_id(const std::shared_ptr<arrow::Array>& x);
+RcppExport SEXP _arrow_Array__type_id(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__type_id(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__Equals
+bool Array__Equals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
+RcppExport SEXP _arrow_Array__Equals(SEXP lhsSEXP, SEXP rhsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type lhs(lhsSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type rhs(rhsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__Equals(lhs, rhs));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__ApproxEquals
+bool Array__ApproxEquals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
+RcppExport SEXP _arrow_Array__ApproxEquals(SEXP lhsSEXP, SEXP rhsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type lhs(lhsSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type rhs(rhsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__ApproxEquals(lhs, rhs));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__data
+std::shared_ptr<arrow::ArrayData> Array__data(const std::shared_ptr<arrow::Array>& array);
+RcppExport SEXP _arrow_Array__data(SEXP arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__data(array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__RangeEquals
+bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self, const std::shared_ptr<arrow::Array>& other, int start_idx, int end_idx, int other_start_idx);
+RcppExport SEXP _arrow_Array__RangeEquals(SEXP selfSEXP, SEXP otherSEXP, SEXP start_idxSEXP, SEXP end_idxSEXP, SEXP other_start_idxSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type self(selfSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type other(otherSEXP);
+    Rcpp::traits::input_parameter< int >::type start_idx(start_idxSEXP);
+    Rcpp::traits::input_parameter< int >::type end_idx(end_idxSEXP);
+    Rcpp::traits::input_parameter< int >::type other_start_idx(other_start_idxSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ArrayData__get_type
 std::shared_ptr<arrow::DataType> ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData__get_type(SEXP xSEXP) {
@@ -646,6 +833,52 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Field__initialize
+std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
+RcppExport SEXP _arrow_Field__initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type name(nameSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< bool >::type nullable(nullableSEXP);
+    rcpp_result_gen = Rcpp::wrap(Field__initialize(name, type, nullable));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Field__ToString
+std::string Field__ToString(const std::shared_ptr<arrow::Field>& type);
+RcppExport SEXP _arrow_Field__ToString(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(Field__ToString(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Field__name
+std::string Field__name(std::shared_ptr<arrow::Field> type);
+RcppExport SEXP _arrow_Field__name(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::shared_ptr<arrow::Field> >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(Field__name(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Field__nullable
+bool Field__nullable(std::shared_ptr<arrow::Field> type);
+RcppExport SEXP _arrow_Field__nullable(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::shared_ptr<arrow::Field> >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(Field__nullable(type));
+    return rcpp_result_gen;
+END_RCPP
+}
 // MemoryPool_default
 std::shared_ptr<arrow::MemoryPool> MemoryPool_default();
 RcppExport SEXP _arrow_MemoryPool_default() {
@@ -930,241 +1163,24 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Array__from_vector
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x);
-RcppExport SEXP _arrow_Array__from_vector(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__from_vector(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__as_vector
-SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
-RcppExport SEXP _arrow_Array__as_vector(SEXP arraySEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__as_vector(array));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__Slice1
-std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, int offset);
-RcppExport SEXP _arrow_Array__Slice1(SEXP arraySEXP, SEXP offsetSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
-    Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__Slice1(array, offset));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__Slice2
-std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array, int offset, int length);
-RcppExport SEXP _arrow_Array__Slice2(SEXP arraySEXP, SEXP offsetSEXP, SEXP lengthSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
-    Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
-    Rcpp::traits::input_parameter< int >::type length(lengthSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__Slice2(array, offset, length));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__IsNull
-bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i);
-RcppExport SEXP _arrow_Array__IsNull(SEXP xSEXP, SEXP iSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__IsNull(x, i));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__IsValid
-bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, int i);
-RcppExport SEXP _arrow_Array__IsValid(SEXP xSEXP, SEXP iSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__IsValid(x, i));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__length
-int Array__length(const std::shared_ptr<arrow::Array>& x);
-RcppExport SEXP _arrow_Array__length(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__length(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__offset
-int Array__offset(const std::shared_ptr<arrow::Array>& x);
-RcppExport SEXP _arrow_Array__offset(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__offset(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__null_count
-int Array__null_count(const std::shared_ptr<arrow::Array>& x);
-RcppExport SEXP _arrow_Array__null_count(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__null_count(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__type
-std::shared_ptr<arrow::DataType> Array__type(const std::shared_ptr<arrow::Array>& x);
-RcppExport SEXP _arrow_Array__type(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__type(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__ToString
-std::string Array__ToString(const std::shared_ptr<arrow::Array>& x);
-RcppExport SEXP _arrow_Array__ToString(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__ToString(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__type_id
-arrow::Type::type Array__type_id(const std::shared_ptr<arrow::Array>& x);
-RcppExport SEXP _arrow_Array__type_id(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__type_id(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__Equals
-bool Array__Equals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
-RcppExport SEXP _arrow_Array__Equals(SEXP lhsSEXP, SEXP rhsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type lhs(lhsSEXP);
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type rhs(rhsSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__Equals(lhs, rhs));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__ApproxEquals
-bool Array__ApproxEquals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
-RcppExport SEXP _arrow_Array__ApproxEquals(SEXP lhsSEXP, SEXP rhsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type lhs(lhsSEXP);
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type rhs(rhsSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__ApproxEquals(lhs, rhs));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__data
-std::shared_ptr<arrow::ArrayData> Array__data(const std::shared_ptr<arrow::Array>& array);
-RcppExport SEXP _arrow_Array__data(SEXP arraySEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__data(array));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Array__RangeEquals
-bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self, const std::shared_ptr<arrow::Array>& other, int start_idx, int end_idx, int other_start_idx);
-RcppExport SEXP _arrow_Array__RangeEquals(SEXP selfSEXP, SEXP otherSEXP, SEXP start_idxSEXP, SEXP end_idxSEXP, SEXP other_start_idxSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type self(selfSEXP);
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type other(otherSEXP);
-    Rcpp::traits::input_parameter< int >::type start_idx(start_idxSEXP);
-    Rcpp::traits::input_parameter< int >::type end_idx(end_idxSEXP);
-    Rcpp::traits::input_parameter< int >::type other_start_idx(other_start_idxSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Field__initialize
-std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
-RcppExport SEXP _arrow_Field__initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::string& >::type name(nameSEXP);
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
-    Rcpp::traits::input_parameter< bool >::type nullable(nullableSEXP);
-    rcpp_result_gen = Rcpp::wrap(Field__initialize(name, type, nullable));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Field__ToString
-std::string Field__ToString(const std::shared_ptr<arrow::Field>& type);
-RcppExport SEXP _arrow_Field__ToString(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(Field__ToString(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Field__name
-std::string Field__name(std::shared_ptr<arrow::Field> type);
-RcppExport SEXP _arrow_Field__name(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::Field> >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(Field__name(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Field__nullable
-bool Field__nullable(std::shared_ptr<arrow::Field> type);
-RcppExport SEXP _arrow_Field__nullable(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::Field> >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(Field__nullable(type));
-    return rcpp_result_gen;
-END_RCPP
-}
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 1},
+    {"_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1},
+    {"_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2},
+    {"_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3},
+    {"_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2},
+    {"_arrow_Array__IsValid", (DL_FUNC) &_arrow_Array__IsValid, 2},
+    {"_arrow_Array__length", (DL_FUNC) &_arrow_Array__length, 1},
+    {"_arrow_Array__offset", (DL_FUNC) &_arrow_Array__offset, 1},
+    {"_arrow_Array__null_count", (DL_FUNC) &_arrow_Array__null_count, 1},
+    {"_arrow_Array__type", (DL_FUNC) &_arrow_Array__type, 1},
+    {"_arrow_Array__ToString", (DL_FUNC) &_arrow_Array__ToString, 1},
+    {"_arrow_Array__type_id", (DL_FUNC) &_arrow_Array__type_id, 1},
+    {"_arrow_Array__Equals", (DL_FUNC) &_arrow_Array__Equals, 2},
+    {"_arrow_Array__ApproxEquals", (DL_FUNC) &_arrow_Array__ApproxEquals, 2},
+    {"_arrow_Array__data", (DL_FUNC) &_arrow_Array__data, 1},
+    {"_arrow_Array__RangeEquals", (DL_FUNC) &_arrow_Array__RangeEquals, 5},
     {"_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
     {"_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},
     {"_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1},
@@ -1224,6 +1240,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_TimestampType__timezone", (DL_FUNC) &_arrow_TimestampType__timezone, 1},
     {"_arrow_TimestampType__unit", (DL_FUNC) &_arrow_TimestampType__unit, 1},
     {"_arrow_Object__pointer_address", (DL_FUNC) &_arrow_Object__pointer_address, 1},
+    {"_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3},
+    {"_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1},
+    {"_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1},
+    {"_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1},
     {"_arrow_MemoryPool_default", (DL_FUNC) &_arrow_MemoryPool_default, 0},
     {"_arrow_MemoryPool_bytes_allocated", (DL_FUNC) &_arrow_MemoryPool_bytes_allocated, 1},
     {"_arrow_MemoryPool_max_memory", (DL_FUNC) &_arrow_MemoryPool_max_memory, 1},
@@ -1249,26 +1269,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_read_table_", (DL_FUNC) &_arrow_read_table_, 1},
     {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 1},
     {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
-    {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 1},
-    {"_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1},
-    {"_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2},
-    {"_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3},
-    {"_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2},
-    {"_arrow_Array__IsValid", (DL_FUNC) &_arrow_Array__IsValid, 2},
-    {"_arrow_Array__length", (DL_FUNC) &_arrow_Array__length, 1},
-    {"_arrow_Array__offset", (DL_FUNC) &_arrow_Array__offset, 1},
-    {"_arrow_Array__null_count", (DL_FUNC) &_arrow_Array__null_count, 1},
-    {"_arrow_Array__type", (DL_FUNC) &_arrow_Array__type, 1},
-    {"_arrow_Array__ToString", (DL_FUNC) &_arrow_Array__ToString, 1},
-    {"_arrow_Array__type_id", (DL_FUNC) &_arrow_Array__type_id, 1},
-    {"_arrow_Array__Equals", (DL_FUNC) &_arrow_Array__Equals, 2},
-    {"_arrow_Array__ApproxEquals", (DL_FUNC) &_arrow_Array__ApproxEquals, 2},
-    {"_arrow_Array__data", (DL_FUNC) &_arrow_Array__data, 1},
-    {"_arrow_Array__RangeEquals", (DL_FUNC) &_arrow_Array__RangeEquals, 5},
-    {"_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3},
-    {"_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1},
-    {"_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1},
-    {"_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1},
     {NULL, NULL, 0}
 };
 
