@@ -200,6 +200,8 @@ Status Message::SerializeTo(io::OutputStream* stream, int32_t alignment,
     RETURN_NOT_OK(stream->Write(body_buffer->data(), body_buffer->size()));
     *output_length += body_buffer->size();
 
+    DCHECK_GE(this->body_length(), body_buffer->size());
+
     int64_t remainder = this->body_length() - body_buffer->size();
     RETURN_NOT_OK(WritePadding(stream, remainder));
     *output_length += remainder;
