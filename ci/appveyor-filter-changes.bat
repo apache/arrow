@@ -15,7 +15,7 @@
 @rem specific language governing permissions and limitations
 @rem under the License.
 
-if "%JOB%" == "Rust_Stable" (
+if "%JOB%" == "Rust" (
     if "%ARROW_CI_RUST_AFFECTED%" == "0" (
         echo ===
         echo === No Rust changes, exiting job
