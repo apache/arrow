@@ -15,31 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.flight.auth;
+package org.apache.arrow.flight;
 
-import io.grpc.MethodDescriptor;
-
-import org.apache.arrow.flight.FlightConstants;
-
-import io.grpc.Metadata.BinaryMarshaller;
-import io.grpc.Metadata.Key;
-
-public final class AuthConstants {
-
-  public final static String HANDSHAKE_DESCRIPTOR_NAME = MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, "Handshake");
-  public static final String TOKEN_NAME = "Auth-Token-bin";
-  public static final Key<byte[]> TOKEN_KEY = Key.of(TOKEN_NAME, new BinaryMarshaller<byte[]>() {
-
-    @Override
-    public byte[] toBytes(byte[] value) {
-      return value;
-    }
-
-    @Override
-    public byte[] parseBytes(byte[] serialized) {
-      return serialized;
-    }
-  });
-
-  private AuthConstants() {}
+public interface FlightConstants {
+  public static final String SERVICE = "arrow.flight.protocol.FlightService";
 }

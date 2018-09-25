@@ -41,9 +41,8 @@ import io.grpc.stub.StreamObserver;
  */
 class FlightBindingService implements BindableService {
 
-  private static final String SERVICE = "FlightService";
-  private static final String DO_GET = MethodDescriptor.generateFullMethodName(SERVICE, "DoGet");
-  private static final String DO_PUT = MethodDescriptor.generateFullMethodName(SERVICE, "DoPut");
+  private static final String DO_GET = MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, "DoGet");
+  private static final String DO_PUT = MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, "DoPut");
   private static final Set<String> OVERRIDE_METHODS = ImmutableSet.of(DO_GET, DO_PUT);
 
   private final FlightService delegate;
@@ -83,7 +82,7 @@ class FlightBindingService implements BindableService {
 
     final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor = getDoPutDescriptor(allocator);
 
-    ServerServiceDefinition.Builder serviceBuilder = ServerServiceDefinition.builder(SERVICE);
+    ServerServiceDefinition.Builder serviceBuilder = ServerServiceDefinition.builder(FlightConstants.SERVICE);
     serviceBuilder.addMethod(doGetDescriptor, ServerCalls.asyncServerStreamingCall(new DoGetMethod(delegate)));
     serviceBuilder.addMethod(doPutDescriptor, ServerCalls.asyncClientStreamingCall(new DoPutMethod(delegate)));
 
