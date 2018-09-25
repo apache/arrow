@@ -31,6 +31,8 @@ public class BitVectorHelper {
 
   /**
    * Get the index of byte corresponding to bit index in validity buffer
+   * @param absoluteBitIndex int
+   * @return byteIndex int
    */
   public static int byteIndex(int absoluteBitIndex) {
     return absoluteBitIndex >> 3;
@@ -38,6 +40,8 @@ public class BitVectorHelper {
 
   /**
    * Get the relative index of bit within the byte in validity buffer
+   * @param absoluteBitIndex int
+   * @return bitIndex int
    */
   public static int bitIndex(int absoluteBitIndex) {
     return absoluteBitIndex & 7;
@@ -46,8 +50,8 @@ public class BitVectorHelper {
   /**
    * Set the bit at provided index to 1.
    *
-   * @param validityBuffer
-   * @param index
+   * @param validityBuffer ArrowBuf
+   * @param index int
    */
   public static void setValidityBitToOne(ArrowBuf validityBuffer, int index) {
     final int byteIndex = byteIndex(index);
@@ -61,9 +65,9 @@ public class BitVectorHelper {
   /**
    * Set the bit at a given index to provided value (1 or 0)
    *
-   * @param validityBuffer
-   * @param index
-   * @param value
+   * @param validityBuffer ArrowBuf
+   * @param index int
+   * @param value int
    */
   public static void setValidityBit(ArrowBuf validityBuffer, int index, int value) {
     final int byteIndex = byteIndex(index);
@@ -82,11 +86,11 @@ public class BitVectorHelper {
    * Set the bit at a given index to provided value (1 or 0). Internally
    * takes care of allocating the buffer if the caller didn't do so.
    *
-   * @param validityBuffer
-   * @param allocator
-   * @param valueCount
-   * @param index
-   * @param value
+   * @param validityBuffer ArrowBuf
+   * @param allocator BufferAllocator
+   * @param valueCount int
+   * @param index int
+   * @param value int
    * @return ArrowBuf
    */
   public static ArrowBuf setValidityBit(ArrowBuf validityBuffer, BufferAllocator allocator,
@@ -105,8 +109,8 @@ public class BitVectorHelper {
   /**
    * Check if a bit at a given index is set or not.
    *
-   * @param buffer
-   * @param index
+   * @param buffer ArrowBuf
+   * @param index int
    * @return 1 if bit is set, 0 otherwise.
    */
   public static int get(final ArrowBuf buffer, int index) {
@@ -120,7 +124,7 @@ public class BitVectorHelper {
    * Compute the size of validity buffer required to manage a given number
    * of elements in a vector.
    *
-   * @param valueCount
+   * @param valueCount int
    * @return buffer size
    */
   public static int getValidityBufferSize(int valueCount) {
@@ -131,8 +135,8 @@ public class BitVectorHelper {
    * Given a validity buffer, find the number of bits that are not set.
    * This is used to compute the number of null elements in a nullable vector.
    *
-   * @param validityBuffer
-   * @param valueCount
+   * @param validityBuffer ArrowBuf
+   * @param valueCount int
    * @return number of bits not set.
    */
   public static int getNullCount(final ArrowBuf validityBuffer, final int valueCount) {
@@ -207,9 +211,9 @@ public class BitVectorHelper {
    * Set the byte of the given index in the data buffer by applying a bit mask to
    * the current byte at that index.
    *
-   * @param data
-   * @param byteIndex
-   * @param bitMask
+   * @param data ArrowBuf
+   * @param byteIndex int
+   * @param bitMask byte
    */
   static void setBitMaskedByte(ArrowBuf data, int byteIndex, byte bitMask) {
     byte currentByte = data.getByte(byteIndex);

@@ -106,6 +106,7 @@ public class TimeNanoVector extends BaseFixedWidthVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder NullableTimeNanoHolder
    */
   public void get(int index, NullableTimeNanoHolder holder) {
     if (isSet(index) == 0) {

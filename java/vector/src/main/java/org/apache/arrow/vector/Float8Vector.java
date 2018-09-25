@@ -106,6 +106,7 @@ public class Float8Vector extends BaseFixedWidthVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder  NullableFloat8Holder
    */
   public void get(int index, NullableFloat8Holder holder) {
     if (isSet(index) == 0) {

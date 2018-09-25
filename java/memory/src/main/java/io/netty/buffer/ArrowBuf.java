@@ -43,6 +43,9 @@ import com.google.common.base.Preconditions;
 
 import io.netty.util.internal.PlatformDependent;
 
+/**
+ *
+ */
 public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ArrowBuf.class);
@@ -62,6 +65,18 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
       new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "ArrowBuf[%d]", id) : null;
   private volatile int length;
 
+  /**
+   * Constructor
+   *
+   * @param refCnt AtomicInteger
+   * @param ledger BufferLedger
+   * @param byteBuf UnsafeDirectLittleEndian
+   * @param manager BufferManager
+   * @param alloc ArrowByteBufAllocator
+   * @param offset int
+   * @param length int
+   * @param isEmpty boolean
+   */
   public ArrowBuf(
       final AtomicInteger refCnt,
       final BufferLedger ledger,
@@ -88,6 +103,11 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   }
 
+  /**
+   * bufferState
+   * @param buf ByteBuf
+   * @return bufferState
+     */
   public static String bufferState(final ByteBuf buf) {
     final int cap = buf.capacity();
     final int mcap = buf.maxCapacity();
@@ -99,6 +119,11 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
         cap, mcap, ri, rb, wi, wb);
   }
 
+  /**
+   * reallocIfNeeded
+   * @param size int
+   * @return allocated buffer
+     */
   public ArrowBuf reallocIfNeeded(final int size) {
     Preconditions.checkArgument(size >= 0, "reallocation size must be non-negative");
 
@@ -114,6 +139,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
   }
 
+  /**
+   * refCnt
+   * @return int
+   */
   @Override
   public int refCnt() {
     if (isEmpty) {
@@ -123,10 +152,20 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
   }
 
+  /**
+   * addr
+   * @param index int
+   * @return long
+   */
   private long addr(int index) {
     return addr + index;
   }
 
+  /**
+   * checkIndexD
+   * @param index int
+   * @param fieldLength int
+   */
   private final void checkIndexD(int index, int fieldLength) {
     ensureAccessible();
     if (fieldLength < 0) {
@@ -157,12 +196,21 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
   }
 
+  /**
+   * chk
+   * @param index int
+   * @param width int
+   */
   private void chk(int index, int width) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       checkIndexD(index, width);
     }
   }
 
+  /**
+   * ensure
+   * @param width int
+   */
   private void ensure(int width) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       ensureWritable(width);
@@ -251,6 +299,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return new TransferResult(allocationFit, newBuf);
   }
 
+  /**
+   * release
+   * @return released or not
+   */
   @Override
   public boolean release() {
     return release(1);
@@ -258,6 +310,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   /**
    * Release the provided number of reference counts.
+   * @param decrement int
    */
   @Override
   public boolean release(int decrement) {
@@ -287,11 +340,20 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   }
 
+  /**
+   * capacity
+   * @return capacity
+   */
   @Override
   public int capacity() {
     return length;
   }
 
+  /**
+   * capacity
+   * @param newCapacity int
+   * @return arrowBuf
+   */
   @Override
   public synchronized ArrowBuf capacity(int newCapacity) {
 
@@ -309,11 +371,19 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     throw new UnsupportedOperationException("Buffers don't support resizing that increases the size.");
   }
 
+  /**
+   * alloc
+   * @return ArrowByteBufAllocator
+   */
   @Override
   public ArrowByteBufAllocator alloc() {
     return alloc;
   }
 
+  /**
+   * order
+   * @return ByteOrder
+   */
   @Override
   public ByteOrder order() {
     return ByteOrder.LITTLE_ENDIAN;
@@ -676,6 +746,9 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   /**
    * Sets the specified 64-bit long integer at the specified absolute {@code index}
    * in this buffer with Big Endian byte order.
+   * @param index int
+   * @param value long
+   * @return byteBuf
    */
   @Override
   public ByteBuf setLongLE(int index, long value) {
@@ -684,6 +757,12 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
+  /**
+   * setChar
+   * @param index int
+   * @param value int
+   * @return ArrowBuf
+   */
   @Override
   public ArrowBuf setChar(int index, int value) {
     chk(index, 2);
@@ -792,7 +871,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return getShort(index);
   }
 
-  /** @see  {@link #getShortLE(int)} */
+  /** see {@link #getShortLE(int)} */
   @Override
   protected short _getShortLE(int index) {
     return getShortLE(index);
@@ -803,19 +882,19 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return getInt(index);
   }
 
-  /** @see  {@link #getIntLE(int)} */
+  /** see  {@link #getIntLE(int)} */
   @Override
   protected int _getIntLE(int index) {
     return getIntLE(index);
   }
 
-  /** @see  {@link #getUnsignedMedium(int)} */
+  /** see  {@link #getUnsignedMedium(int)} */
   @Override
   protected int _getUnsignedMedium(int index) {
     return getUnsignedMedium(index);
   }
 
-  /** @see  {@link #getUnsignedMediumLE(int)} */
+  /** see  {@link #getUnsignedMediumLE(int)} */
   @Override
   protected int _getUnsignedMediumLE(int index) {
     return getUnsignedMediumLE(index);
@@ -826,7 +905,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return getLong(index);
   }
 
-  /** @see  {@link #getLongLE(int)} */
+  /** see  {@link #getLongLE(int)} */
   @Override
   protected long _getLongLE(int index) {
     return getLongLE(index);
@@ -842,7 +921,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     setShort(index, value);
   }
 
-  /** @see  {@link #setShortLE(int, int)} */
+  /** see  {@link #setShortLE(int, int)} */
   @Override
   protected void _setShortLE(int index, int value) {
     setShortLE(index, value);
@@ -853,7 +932,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     setMedium(index, value);
   }
 
-  /** @see  {@link #setMediumLE(int, int)} */
+  /** see  {@link #setMediumLE(int, int)} */
   @Override
   protected void _setMediumLE(int index, int value) {
     setMediumLE(index, value);
@@ -864,7 +943,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     setInt(index, value);
   }
 
-  /** @see  {@link #setIntLE(int, int)} */
+  /** see  {@link #setIntLE(int, int)} */
   @Override
   protected void _setIntLE(int index, int value) {
     setIntLE(index, value);
@@ -875,7 +954,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     setLong(index, value);
   }
 
-  /** @see  {@link #setLongLE(int, long)} */
+  /** see  {@link #setLongLE(int, long)} */
   @Override
   public void _setLongLE(int index, long value) {
     setLongLE(index, value);

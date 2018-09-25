@@ -252,6 +252,7 @@ public class BitVector extends BaseFixedWidthVector {
    * is null, holder.isSet will be zero.
    *
    * @param index position of element
+   * @param holder nullableBitHolder
    */
   public void get(int index, NullableBitHolder holder) {
     if (isSet(index) == 0) {

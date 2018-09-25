@@ -82,6 +82,7 @@ public class UInt1Vector extends BaseFixedWidthVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder NullableUInt1Holder
    */
   public void get(int index, NullableUInt1Holder holder) {
     if (isSet(index) == 0) {

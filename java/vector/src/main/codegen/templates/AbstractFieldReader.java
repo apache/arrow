@@ -32,6 +32,9 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 abstract class AbstractFieldReader extends AbstractBaseReader implements FieldReader{
 
+  /**
+   * Constructor
+   */
   AbstractFieldReader(){
     super();
   }
@@ -44,12 +47,20 @@ abstract class AbstractFieldReader extends AbstractBaseReader implements FieldRe
     return true;
   }
 
+  /**
+   * getField
+   * @return gets field
+   */
   @Override
   public Field getField() {
     fail("getField");
     return null;
   }
 
+  /**
+   * read element
+   * @return element
+   */
   <#list ["Object", "BigDecimal", "Integer", "Long", "Boolean",
           "Character", "LocalDateTime", "Period", "Double", "Float",
           "Text", "String", "Byte", "Short", "byte[]"] as friendlyType>
@@ -60,66 +71,126 @@ abstract class AbstractFieldReader extends AbstractBaseReader implements FieldRe
     return null;
   }
 
+  /**
+   * read element
+   * @return element
+   */
   public ${friendlyType} read${safeType}() {
     fail("read${safeType}()");
     return null;
   }
 
+  /**
+   * copyAsValue
+   * @param writer
+   */
   </#list>
   public void copyAsValue(StructWriter writer) {
     fail("CopyAsValue StructWriter");
   }
 
+  /**
+   * copyAsField
+   * @param name
+   * @param writer
+     */
   public void copyAsField(String name, StructWriter writer) {
     fail("CopyAsField StructWriter");
   }
 
+  /**
+   * copyAsField
+   * @param name
+   * @param writer
+     */
   public void copyAsField(String name, ListWriter writer) {
     fail("CopyAsFieldList");
   }
 
+  /**
+   * read
+   * @param holder
+   */
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign boxedType = (minor.boxedType!type.boxedType) />
   public void read(${name}Holder holder) {
     fail("${name}");
   }
 
+  /**
+   * read
+   * @param holder
+   */
   public void read(Nullable${name}Holder holder) {
     fail("${name}");
   }
 
+  /**
+  * read* @param arrayIndex
+  * @param holder
+  */
   public void read(int arrayIndex, ${name}Holder holder) {
     fail("Repeated${name}");
   }
 
+  /**
+   * read
+   * @param arrayIndex
+   * @param holder
+   */
   public void read(int arrayIndex, Nullable${name}Holder holder) {
     fail("Repeated${name}");
   }
 
+  /**
+   * copyAsValue
+   * @param writer
+   */
   public void copyAsValue(${name}Writer writer) {
     fail("CopyAsValue${name}");
   }
 
+  /**
+   * copyAsField
+   * @param name
+   * @param writer
+   */
   public void copyAsField(String name, ${name}Writer writer) {
     fail("CopyAsField${name}");
   }
 
+  /**
+   * reader
+   * @return FieldReader
+   */
   </#list></#list>
   public FieldReader reader(String name) {
     fail("reader(String name)");
     return null;
   }
 
+  /**
+   * reader
+   * @return FieldReader
+   */
   public FieldReader reader() {
     fail("reader()");
     return null;
   }
 
+  /**
+   * size
+   * @return size
+   */
   public int size() {
     fail("size()");
     return -1;
   }
 
+  /**
+   * fails trying to read a field's name
+   * @param name
+   */
   private void fail(String name) {
     throw new IllegalArgumentException(String.format("You tried to read a [%s] type when you are using a field reader of type [%s].", name, this.getClass().getSimpleName()));
   }

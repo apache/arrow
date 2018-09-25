@@ -43,6 +43,7 @@ public class TimeStampSecTZVector extends TimeStampVector {
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
+   * @param timeZone string for timezone
    */
   public TimeStampSecTZVector(String name, BufferAllocator allocator, String timeZone) {
     this(name, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.SECOND, timeZone)), allocator);
@@ -95,6 +96,7 @@ public class TimeStampSecTZVector extends TimeStampVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder NullableTimeStampSecTZHolder
    */
   public void get(int index, NullableTimeStampSecTZHolder holder) {
     if (isSet(index) == 0) {

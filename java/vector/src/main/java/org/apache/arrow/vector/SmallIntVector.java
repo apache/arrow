@@ -106,6 +106,7 @@ public class SmallIntVector extends BaseFixedWidthVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder NullableSmallIntHolder
    */
   public void get(int index, NullableSmallIntHolder holder) {
     if (isSet(index) == 0) {

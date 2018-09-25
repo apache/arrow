@@ -91,6 +91,7 @@ public class TimeStampMicroVector extends TimeStampVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder NullableTimeStampMicroHolder
    */
   public void get(int index, NullableTimeStampMicroHolder holder) {
     if (isSet(index) == 0) {

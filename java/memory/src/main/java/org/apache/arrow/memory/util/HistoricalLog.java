@@ -51,7 +51,7 @@ public class HistoricalLog {
   /**
    * Constructor. The format string will be formatted and have its arguments
    * substituted at the time this is called.
-   * <p>
+   *
    * <p>This form supports the specification of a limit that will limit the
    * number of historical entries kept (which keeps down the amount of memory
    * used). With the limit, the first entry made is always kept (under the

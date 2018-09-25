@@ -50,6 +50,8 @@ public class DecimalVector extends BaseFixedWidthVector {
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
+   * @param precision int
+   * @param scale int
    */
   public DecimalVector(String name, BufferAllocator allocator,
                                int precision, int scale) {
@@ -118,6 +120,7 @@ public class DecimalVector extends BaseFixedWidthVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder  nullabledateDecimalHolder
    */
   public void get(int index, NullableDecimalHolder holder) {
     if (isSet(index) == 0) {
@@ -173,6 +176,7 @@ public class DecimalVector extends BaseFixedWidthVector {
 
   /**
    * Return scale for the decimal value
+   * @return scale int
    */
   public int getScale() {
     return scale;
@@ -323,6 +327,8 @@ public class DecimalVector extends BaseFixedWidthVector {
    * Same as {@link #setBigEndian(int, byte[])} except that it handles the
    * case when index is greater than or equal to existing
    * value capacity {@link #getValueCapacity()}.
+   * @param index int
+   * @param value byte[]
    */
   public void setBigEndianSafe(int index, byte[] value) {
     handleSafe(index);

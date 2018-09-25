@@ -91,6 +91,7 @@ public class TimeStampNanoVector extends TimeStampVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder NullableTimeStampNanoHolder
    */
   public void get(int index, NullableTimeStampNanoHolder holder) {
     if (isSet(index) == 0) {

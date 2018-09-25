@@ -43,6 +43,7 @@ public class TimeStampNanoTZVector extends TimeStampVector {
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
+   * @param timeZone string for timezone
    */
   public TimeStampNanoTZVector(String name, BufferAllocator allocator, String timeZone) {
     this(name, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.NANOSECOND, timeZone)), allocator);
@@ -95,6 +96,7 @@ public class TimeStampNanoTZVector extends TimeStampVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder NullableTimeStampNanoTZHolder
    */
   public void get(int index, NullableTimeStampNanoTZHolder holder) {
     if (isSet(index) == 0) {

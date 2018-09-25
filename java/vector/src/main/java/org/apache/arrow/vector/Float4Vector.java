@@ -106,6 +106,7 @@ public class Float4Vector extends BaseFixedWidthVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder  NullableFloat4Holder
    */
   public void get(int index, NullableFloat4Holder holder) {
     if (isSet(index) == 0) {

@@ -91,6 +91,7 @@ public class TimeStampSecVector extends TimeStampVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder NullableTimeStampSecHolder
    */
   public void get(int index, NullableTimeStampSecHolder holder) {
     if (isSet(index) == 0) {

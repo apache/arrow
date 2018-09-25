@@ -105,6 +105,7 @@ public class IntervalYearVector extends BaseFixedWidthVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder  NullableIntervalYearHolder
    */
   public void get(int index, NullableIntervalYearHolder holder) {
     if (isSet(index) == 0) {

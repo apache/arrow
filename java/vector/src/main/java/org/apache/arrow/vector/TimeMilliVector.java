@@ -106,6 +106,7 @@ public class TimeMilliVector extends BaseFixedWidthVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder NullableTimeMilliHolder
    */
   public void get(int index, NullableTimeMilliHolder holder) {
     if (isSet(index) == 0) {

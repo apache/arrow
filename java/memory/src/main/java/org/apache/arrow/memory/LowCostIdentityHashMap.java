@@ -26,7 +26,7 @@ import com.google.common.base.Preconditions;
  * It incurs low initial cost (just two elements by default)
  * It assumes Value includes the Key - Implements @ValueWithKeyIncluded iface
  * that provides "getKey" method
- * @param <V>
+ * @param <V> value class
  */
 public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
 
