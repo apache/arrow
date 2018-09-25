@@ -256,11 +256,14 @@ ARROW_EXPORT
 Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
                         std::unique_ptr<Message>* out);
 
-/// \brief EXPERIMENTAL: Write arrow::Tensor as a contiguous message
+/// \brief Write arrow::Tensor as a contiguous message. The metadata and body
+/// are written assuming 64-byte alignment. It is the user's responsibility to
+/// ensure that the OutputStream has been aligned to a 64-byte multiple before
+/// writing the message.
 ///
 /// \param[in] tensor the Tensor to write
 /// \param[in] dst the OutputStream to write to
-/// \param[out] metadata_length the actual metadata length
+/// \param[out] metadata_length the actual metadata length, including padding
 /// \param[out] body_length the acutal message body length
 /// \return Status
 ///

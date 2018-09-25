@@ -32,6 +32,7 @@
 #include "arrow/builder.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/util.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -760,10 +761,14 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
       dst->Write(reinterpret_cast<const uint8_t*>(&num_buffers), sizeof(int32_t)));
   RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, dst));
 
+  // Align stream to 64-byte offset so tensor bodies are 64-byte aligned
+  RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kTensorAlignment));
+
   int32_t metadata_length;
   int64_t body_length;
   for (const auto& tensor : this->tensors) {
     RETURN_NOT_OK(ipc::WriteTensor(*tensor, dst, &metadata_length, &body_length));
+    RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kTensorAlignment));
   }
 
   for (const auto& buffer : this->buffers) {

@@ -37,6 +37,9 @@ struct _GArrowInputStreamClass
   GObjectClass parent_class;
 };
 
+GArrowTensor *garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
+                                              GError **error);
+
 #define GARROW_TYPE_SEEKABLE_INPUT_STREAM       \
   (garrow_seekable_input_stream_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowSeekableInputStream,
@@ -56,9 +59,6 @@ GArrowBuffer *garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *in
                                                    gint64 position,
                                                    gint64 n_bytes,
                                                    GError **error);
-GArrowTensor *garrow_seekable_input_stream_read_tensor(GArrowSeekableInputStream *input_stream,
-                                                       gint64 position,
-                                                       GError **error);
 
 
 #define GARROW_TYPE_BUFFER_INPUT_STREAM         \

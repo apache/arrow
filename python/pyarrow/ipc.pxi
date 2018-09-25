@@ -60,12 +60,14 @@ cdef class Message:
             result = self.message.get().Equals(deref(other.message.get()))
         return result
 
-    def serialize(self, memory_pool=None):
+    def serialize(self, alignment=8, memory_pool=None):
         """
         Write message as encapsulated IPC message
 
         Parameters
         ----------
+        alignment : int, default 8
+            Byte alignment for metadata and body
         memory_pool : MemoryPool, default None
             Uses default memory pool if not specified
 
@@ -76,10 +78,11 @@ cdef class Message:
         cdef:
             BufferOutputStream stream = BufferOutputStream(memory_pool)
             int64_t output_length = 0
+            int32_t c_alignment = alignment
 
         with nogil:
             check_status(self.message.get()
-                         .SerializeTo(stream.wr_file.get(),
+                         .SerializeTo(stream.wr_file.get(), c_alignment,
                                       &output_length))
         return stream.getvalue()
 
@@ -440,10 +443,10 @@ def write_tensor(Tensor tensor, NativeFile dest):
 
 
 def read_tensor(NativeFile source):
-    """
-    Read pyarrow.Tensor from pyarrow.NativeFile object from current
+    """Read pyarrow.Tensor from pyarrow.NativeFile object from current
     position. If the file source supports zero copy (e.g. a memory map), then
-    this operation does not allocate any memory
+    this operation does not allocate any memory. This function not assume that
+    the stream is aligned
 
     Parameters
     ----------
@@ -452,16 +455,14 @@ def read_tensor(NativeFile source):
     Returns
     -------
     tensor : Tensor
+
     """
     cdef:
         shared_ptr[CTensor] sp_tensor
 
     source._assert_readable()
-
-    cdef int64_t offset = source.tell()
     with nogil:
-        check_status(ReadTensor(offset, source.rd_file.get(), &sp_tensor))
-
+        check_status(ReadTensor(source.rd_file.get(), &sp_tensor))
     return pyarrow_wrap_tensor(sp_tensor)
 
 

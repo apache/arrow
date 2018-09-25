@@ -682,18 +682,6 @@ static Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
   return Status::OK();
 }
 
-static Status WriteFlatbufferBuilder(FBB& fbb, std::shared_ptr<Buffer>* out) {
-  int32_t size = fbb.GetSize();
-
-  std::shared_ptr<Buffer> result;
-  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), size, &result));
-
-  uint8_t* dst = result->mutable_data();
-  memcpy(dst, fbb.GetBufferPointer(), size);
-  *out = result;
-  return Status::OK();
-}
-
 static Status WriteFBMessage(FBB& fbb, flatbuf::MessageHeader header_type,
                              flatbuffers::Offset<void> header, int64_t body_length,
                              std::shared_ptr<Buffer>* out) {
@@ -776,6 +764,9 @@ Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
 
   FBB fbb;
 
+  const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
+  const int elem_size = type.bit_width() / 8;
+
   flatbuf::Type fb_type_type;
   Offset fb_type;
   RETURN_NOT_OK(TensorTypeToFlatbuffer(fbb, *tensor.type(), &fb_type_type, &fb_type));
@@ -788,7 +779,8 @@ Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
 
   auto fb_shape = fbb.CreateVector(dims);
   auto fb_strides = fbb.CreateVector(tensor.strides());
-  int64_t body_length = tensor.data()->size();
+
+  int64_t body_length = tensor.size() * elem_size;
   flatbuf::Buffer buffer(buffer_start_offset, body_length);
 
   TensorOffset fb_tensor =
@@ -953,20 +945,13 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
 // ----------------------------------------------------------------------
 // Implement message writing
 
-Status WriteMessage(const Buffer& message, io::OutputStream* file,
+Status WriteMessage(const Buffer& message, int32_t alignment, io::OutputStream* file,
                     int32_t* message_length) {
-  // Need to write 4 bytes (message size), the message, plus padding to
-  // end on an 8-byte offset
-  int64_t start_offset;
-  RETURN_NOT_OK(file->Tell(&start_offset));
-
-  // TODO(wesm): Should we depend on the position of the OutputStream? See
-  // ARROW-3212
+  // ARROW-3212: We do not make assumptions that the output stream is aligned
   int32_t padded_message_length = static_cast<int32_t>(message.size()) + 4;
-  const int32_t remainder =
-      (padded_message_length + static_cast<int32_t>(start_offset)) % 8;
+  const int32_t remainder = padded_message_length % alignment;
   if (remainder != 0) {
-    padded_message_length += 8 - remainder;
+    padded_message_length += alignment - remainder;
   }
 
   // The returned message size includes the length prefix, the flatbuffer,

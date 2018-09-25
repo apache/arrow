@@ -28,6 +28,7 @@
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test-common.h"
+#include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/api.h"
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/test-common.h"
@@ -84,6 +85,58 @@ TEST(TestMessage, Equals) {
   Message msg5(b2, b1);
   ASSERT_FALSE(msg1.Equals(msg5));
   ASSERT_FALSE(msg5.Equals(msg1));
+}
+
+TEST(TestMessage, SerializeTo) {
+  const int64_t body_length = 64;
+
+  flatbuffers::FlatBufferBuilder fbb;
+  fbb.Finish(flatbuf::CreateMessage(fbb, internal::kCurrentMetadataVersion,
+                                    flatbuf::MessageHeader_RecordBatch, 0 /* header */,
+                                    body_length));
+
+  std::shared_ptr<Buffer> metadata;
+  ASSERT_OK(internal::WriteFlatbufferBuilder(fbb, &metadata));
+
+  std::string body = "abcdef";
+
+  std::unique_ptr<Message> message;
+  ASSERT_OK(Message::Open(metadata, std::make_shared<Buffer>(body), &message));
+
+  int64_t output_length = 0;
+  int64_t position = 0;
+
+  std::shared_ptr<io::BufferOutputStream> stream;
+
+  {
+    const int32_t alignment = 8;
+
+    ASSERT_OK(io::BufferOutputStream::Create(1 << 10, default_memory_pool(), &stream));
+    ASSERT_OK(message->SerializeTo(stream.get(), alignment, &output_length));
+    ASSERT_OK(stream->Tell(&position));
+    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, alignment) + body_length,
+              output_length);
+    ASSERT_EQ(output_length, position);
+  }
+
+  {
+    const int32_t alignment = 64;
+
+    ASSERT_OK(io::BufferOutputStream::Create(1 << 10, default_memory_pool(), &stream));
+    ASSERT_OK(message->SerializeTo(stream.get(), alignment, &output_length));
+    ASSERT_OK(stream->Tell(&position));
+    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, alignment) + body_length,
+              output_length);
+    ASSERT_EQ(output_length, position);
+  }
+}
+
+TEST(TestMessage, Verify) {
+  std::string metadata = "invalid";
+  std::string body = "abcdef";
+
+  Message message(std::make_shared<Buffer>(metadata), std::make_shared<Buffer>(body));
+  ASSERT_FALSE(message.Verify());
 }
 
 const std::shared_ptr<DataType> INT32 = std::make_shared<Int32Type>();
@@ -725,13 +778,22 @@ class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
     int32_t metadata_length;
     int64_t body_length;
 
+    const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
+    const int elem_size = type.bit_width() / 8;
+
     ASSERT_OK(mmap_->Seek(0));
 
     ASSERT_OK(WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
 
-    std::shared_ptr<Tensor> result;
-    ASSERT_OK(ReadTensor(0, mmap_.get(), &result));
+    const int64_t expected_body_length = elem_size * tensor.size();
+    ASSERT_EQ(expected_body_length, body_length);
 
+    ASSERT_OK(mmap_->Seek(0));
+
+    std::shared_ptr<Tensor> result;
+    ASSERT_OK(ReadTensor(mmap_.get(), &result));
+
+    ASSERT_EQ(result->data()->size(), expected_body_length);
     ASSERT_TRUE(tensor.Equals(*result));
   }
 };
@@ -752,14 +814,22 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
   auto data = Buffer::Wrap(values);
 
   Tensor t0(int64(), data, shape, strides, dim_names);
-  Tensor tzero(int64(), data, {}, {}, {});
+  Tensor t_no_dims(int64(), data, {}, {}, {});
+  Tensor t_zero_length_dim(int64(), data, {0}, {8}, {"foo"});
 
   CheckTensorRoundTrip(t0);
-  CheckTensorRoundTrip(tzero);
+  CheckTensorRoundTrip(t_no_dims);
+  CheckTensorRoundTrip(t_zero_length_dim);
 
   int64_t serialized_size;
   ASSERT_OK(GetTensorSize(t0, &serialized_size));
   ASSERT_TRUE(serialized_size > static_cast<int64_t>(size * sizeof(int64_t)));
+
+  // ARROW-2840: Check that padding/alignment minded
+  std::vector<int64_t> shape_2 = {1, 1};
+  std::vector<int64_t> strides_2 = {8, 8};
+  Tensor t0_not_multiple_64(int64(), data, shape_2, strides_2, dim_names);
+  CheckTensorRoundTrip(t0_not_multiple_64);
 }
 
 TEST_F(TestTensorRoundTrip, NonContiguous) {

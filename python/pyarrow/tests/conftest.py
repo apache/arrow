@@ -63,6 +63,13 @@ except ImportError:
     pass
 
 
+try:
+    import tensorflow  # noqa
+    defaults['tensorflow'] = True
+except ImportError:
+    pass
+
+
 def pytest_configure(config):
     pass
 

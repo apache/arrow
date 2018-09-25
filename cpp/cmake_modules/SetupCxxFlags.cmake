@@ -178,7 +178,8 @@ if ("${COMPILER_FAMILY}" STREQUAL "msvc")
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4800")
 endif()
 
-if ("${COMPILER_FAMILY}" STREQUAL "gcc")
+if ("${COMPILER_FAMILY}" STREQUAL "gcc" AND
+    "${COMPILER_VERSION}" VERSION_GREATER "6.0")
   # Without this, gcc >= 7 warns related to changes in C++17
   set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
 endif()

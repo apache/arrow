@@ -780,7 +780,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MetadataVersion metadata_version()
         MessageType type()
 
-        CStatus SerializeTo(OutputStream* stream, int64_t* output_length)
+        CStatus SerializeTo(OutputStream* stream, int32_t alignment,
+                            int64_t* output_length)
 
     c_string FormatMessageType(MessageType type)
 
@@ -848,8 +849,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
                         int32_t* metadata_length,
                         int64_t* body_length)
 
-    CStatus ReadTensor(int64_t offset, RandomAccessFile* file,
-                       shared_ptr[CTensor]* out)
+    CStatus ReadTensor(InputStream* stream, shared_ptr[CTensor]* out)
 
     CStatus ReadRecordBatch(const CMessage& message,
                             const shared_ptr[CSchema]& schema,
@@ -867,6 +867,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     CStatus ReadRecordBatch(const shared_ptr[CSchema]& schema,
                             InputStream* stream,
                             shared_ptr[CRecordBatch]* out)
+
+    CStatus AlignStream(InputStream* stream, int64_t alignment)
+    CStatus AlignStream(OutputStream* stream, int64_t alignment)
 
     cdef cppclass CFeatherWriter" arrow::ipc::feather::TableWriter":
         @staticmethod

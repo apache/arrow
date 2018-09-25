@@ -640,6 +640,18 @@ def test_serialize_to_components_invalid_cases():
         pa.deserialize_components(components)
 
 
+def test_serialize_read_concatenated_records():
+    # ARROW-1996 -- see stream alignment work in ARROW-2840, ARROW-3212
+    f = pa.BufferOutputStream()
+    pa.serialize_to(12, f)
+    pa.serialize_to(23, f)
+    buf = f.getvalue()
+
+    f = pa.BufferReader(buf)
+    pa.read_serialized(f).deserialize()
+    pa.read_serialized(f).deserialize()
+
+
 @pytest.mark.skipif(os.name == 'nt', reason="deserialize_regex not pickleable")
 def test_deserialize_in_different_process():
     from multiprocessing import Process, Queue

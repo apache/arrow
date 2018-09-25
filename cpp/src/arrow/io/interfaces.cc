@@ -28,6 +28,11 @@ namespace io {
 
 FileInterface::~FileInterface() = default;
 
+Status InputStream::Advance(int64_t nbytes) {
+  std::shared_ptr<Buffer> temp;
+  return Read(nbytes, &temp);
+}
+
 struct RandomAccessFile::RandomAccessFileImpl {
   std::mutex lock_;
 };

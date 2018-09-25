@@ -146,7 +146,7 @@ class SerializationTraits<IpcPayload> {
       pb_stream.WriteRawMaybeAliased(buffer->data(), static_cast<int>(buffer->size()));
 
       // Write padding if not multiple of 8
-      const int remainder = buffer->size() % 8;
+      const int remainder = static_cast<int>(buffer->size() % 8);
       if (remainder) {
         pb_stream.WriteRawMaybeAliased(kPaddingBytes, 8 - remainder);
       }

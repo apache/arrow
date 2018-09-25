@@ -32,6 +32,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/ipc/util.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
@@ -250,7 +251,6 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
 }
 
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
-  int64_t offset;
   int64_t bytes_read;
   int32_t num_tensors;
   int32_t num_buffers;
@@ -264,15 +264,21 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
   RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
   RETURN_NOT_OK(reader->ReadNext(&out->batch));
 
-  RETURN_NOT_OK(src->Tell(&offset));
-  offset += 4;  // Skip the end-of-stream message
+  /// Skip EOS marker
+  RETURN_NOT_OK(src->Advance(4));
+
+  /// Align stream so tensor bodies are 64-byte aligned
+  RETURN_NOT_OK(ipc::AlignStream(src, ipc::kTensorAlignment));
+
   for (int i = 0; i < num_tensors; ++i) {
     std::shared_ptr<Tensor> tensor;
-    RETURN_NOT_OK(ipc::ReadTensor(offset, src, &tensor));
+    RETURN_NOT_OK(ipc::ReadTensor(src, &tensor));
+    RETURN_NOT_OK(ipc::AlignStream(src, ipc::kTensorAlignment));
     out->tensors.push_back(tensor);
-    RETURN_NOT_OK(src->Tell(&offset));
   }
 
+  int64_t offset = -1;
+  RETURN_NOT_OK(src->Tell(&offset));
   for (int i = 0; i < num_buffers; ++i) {
     int64_t size;
     RETURN_NOT_OK(src->ReadAt(offset, sizeof(int64_t), &bytes_read,

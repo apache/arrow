@@ -695,18 +695,13 @@ Status RecordBatchFileReader::ReadRecordBatch(int i,
   return impl_->ReadRecordBatch(i, batch);
 }
 
-static Status ReadContiguousPayload(io::InputStream* file, bool aligned,
+static Status ReadContiguousPayload(io::InputStream* file,
                                     std::unique_ptr<Message>* message) {
-  RETURN_NOT_OK(ReadMessage(file, aligned, message));
+  RETURN_NOT_OK(ReadMessage(file, message));
   if (*message == nullptr) {
     return Status::Invalid("Unable to read metadata at offset");
   }
   return Status::OK();
-}
-
-static Status ReadContiguousPayload(io::InputStream* file,
-                                    std::unique_ptr<Message>* message) {
-  return ReadContiguousPayload(file, false /* aligned */, message);
 }
 
 Status ReadSchema(io::InputStream* stream, std::shared_ptr<Schema>* out) {
@@ -725,14 +720,9 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, io::InputStream* f
                          out);
 }
 
-Status ReadTensor(int64_t offset, io::RandomAccessFile* file,
-                  std::shared_ptr<Tensor>* out) {
-  // Respect alignment of Tensor messages (see WriteTensor)
-  offset = PaddedLength(offset);
-  RETURN_NOT_OK(file->Seek(offset));
-
+Status ReadTensor(io::InputStream* file, std::shared_ptr<Tensor>* out) {
   std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadContiguousPayload(file, true /* aligned */, &message));
+  RETURN_NOT_OK(ReadContiguousPayload(file, &message));
   return ReadTensor(*message, out);
 }
 

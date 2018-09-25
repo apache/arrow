@@ -178,6 +178,32 @@ garrow_input_stream_class_init(GArrowInputStreamClass *klass)
 }
 
 
+/**
+ * garrow_input_stream_read_tensor:
+ * @input_stream: A #GArrowInputStream.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable):
+ *   #GArrowTensor on success, %NULL on error.
+ *
+ * Since: 0.11.0
+ */
+GArrowTensor *
+garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
+                                GError **error)
+{
+  auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
+
+  std::shared_ptr<arrow::Tensor> arrow_tensor;
+  auto status = arrow::ipc::ReadTensor(arrow_input_stream.get(),
+                                       &arrow_tensor);
+  if (garrow_error_check(error, status, "[input-stream][read-tensor]")) {
+    return garrow_tensor_new_raw(&arrow_tensor);
+  } else {
+    return NULL;
+  }
+}
+
 G_DEFINE_TYPE(GArrowSeekableInputStream,                \
               garrow_seekable_input_stream,             \
               GARROW_TYPE_INPUT_STREAM);
@@ -253,36 +279,6 @@ garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
                                                  &arrow_buffer);
   if (garrow_error_check(error, status, "[seekable-input-stream][read-at]")) {
     return garrow_buffer_new_raw(&arrow_buffer);
-  } else {
-    return NULL;
-  }
-}
-
-/**
- * garrow_seekable_input_stream_read_tensor:
- * @input_stream: A #GArrowSeekableInputStream.
- * @position: The read start position.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (transfer full) (nullable):
- *   #GArrowTensor on success, %NULL on error.
- *
- * Since: 0.4.0
- */
-GArrowTensor *
-garrow_seekable_input_stream_read_tensor(GArrowSeekableInputStream *input_stream,
-                                         gint64 position,
-                                         GError **error)
-{
-  auto arrow_random_access_file =
-    garrow_seekable_input_stream_get_raw(input_stream);
-
-  std::shared_ptr<arrow::Tensor> arrow_tensor;
-  auto status = arrow::ipc::ReadTensor(position,
-                                       arrow_random_access_file.get(),
-                                       &arrow_tensor);
-  if (garrow_error_check(error, status, "[seekable-input-stream][read-tensor]")) {
-    return garrow_tensor_new_raw(&arrow_tensor);
   } else {
     return NULL;
   }
