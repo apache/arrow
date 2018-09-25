@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This is a private header for string-to-number parsing utilitiers
+
 #ifndef ARROW_UTIL_PARSING_H
 #define ARROW_UTIL_PARSING_H
 
@@ -23,6 +25,8 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+
+#include <double-conversion/double-conversion.h>
 
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -79,7 +83,7 @@ class StringConverter<BooleanType> {
 
 // Ideas for faster float parsing:
 // - http://rapidjson.org/md_doc_internals.html#ParsingDouble
-// - https://github.com/google/double-conversion
+// - https://github.com/google/double-conversion [used here]
 // - https://github.com/achan001/dtoa-fast
 
 template <class ARROW_TYPE>
@@ -87,18 +91,49 @@ class StringToFloatConverterMixin {
  public:
   using value_type = typename ARROW_TYPE::c_type;
 
-  StringToFloatConverterMixin() { ibuf.imbue(std::locale::classic()); }
+  StringToFloatConverterMixin()
+      : main_converter_(flags_, main_junk_value_, main_junk_value_, "inf", "nan"),
+        fallback_converter_(flags_, fallback_junk_value_, fallback_junk_value_, "inf",
+                            "nan") {}
 
   bool operator()(const char* s, size_t length, value_type* out) {
-    ibuf.clear();
-    ibuf.str(std::string(s, length));
-    ibuf >> *out;
-    // XXX Should we reset errno on failure?
-    return !ibuf.fail() && ibuf.eof();
+    value_type v;
+    // double-conversion doesn't give us an error flag but signals parse
+    // errors with sentinel values.  Since a sentinel value can appear as
+    // legitimate input, we fallback on a second converter with a different
+    // sentinel to eliminate false errors.
+    TryConvert(main_converter_, s, length, &v);
+    if (ARROW_PREDICT_FALSE(v == static_cast<value_type>(main_junk_value_))) {
+      TryConvert(fallback_converter_, s, length, &v);
+      if (ARROW_PREDICT_FALSE(v == static_cast<value_type>(fallback_junk_value_))) {
+        return false;
+      }
+    }
+    *out = v;
+    return true;
   }
 
  protected:
-  std::istringstream ibuf;
+  static const int flags_ =
+      double_conversion::StringToDoubleConverter::ALLOW_CASE_INSENSIBILITY;
+  // Two unlikely values to signal a parsing error
+  static constexpr double main_junk_value_ = 0.7066424364107089;
+  static constexpr double fallback_junk_value_ = 0.40088499148279166;
+
+  double_conversion::StringToDoubleConverter main_converter_;
+  double_conversion::StringToDoubleConverter fallback_converter_;
+
+  inline void TryConvert(double_conversion::StringToDoubleConverter& converter,
+                         const char* s, size_t length, float* out) {
+    int processed_length;
+    *out = converter.StringToFloat(s, static_cast<int>(length), &processed_length);
+  }
+
+  inline void TryConvert(double_conversion::StringToDoubleConverter& converter,
+                         const char* s, size_t length, double* out) {
+    int processed_length;
+    *out = converter.StringToDouble(s, static_cast<int>(length), &processed_length);
+  }
 };
 
 template <>
