@@ -17,12 +17,11 @@
  */
 package org.apache.arrow.flight.auth;
 
-import io.grpc.MethodDescriptor;
-
 import org.apache.arrow.flight.FlightConstants;
 
 import io.grpc.Metadata.BinaryMarshaller;
 import io.grpc.Metadata.Key;
+import io.grpc.MethodDescriptor;
 
 public final class AuthConstants {
 
