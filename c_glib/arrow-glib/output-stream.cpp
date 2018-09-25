@@ -176,6 +176,27 @@ garrow_output_stream_class_init(GArrowOutputStreamClass *klass)
 }
 
 /**
+ * garrow_output_stream_align:
+ * @stream: A #GArrowWritable.
+ * @alignment: The byte multiple for the metadata prefix, usually 8
+ *   or 64, to ensure the body starts on a multiple of that alignment.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 0.11.0
+ */
+gboolean
+garrow_output_stream_align(GArrowOutputStream *stream,
+                           gint32 alignment,
+                           GError **error)
+{
+  auto arrow_stream = garrow_output_stream_get_raw(stream);
+  auto status = arrow::ipc::AlignStream(arrow_stream.get(), alignment);
+  return garrow_error_check(error, status, "[output-stream][align]");
+}
+
+/**
  * garrow_output_stream_write_tensor:
  * @stream: A #GArrowWritable.
  * @tensor: A #GArrowTensor to be written.
