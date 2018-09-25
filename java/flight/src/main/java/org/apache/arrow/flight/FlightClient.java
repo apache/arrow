@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import static io.grpc.stub.ClientCalls.asyncClientStreamingCall;
@@ -81,14 +82,14 @@ public class FlightClient implements AutoCloseable {
    * @param criteria
    * @return
    */
-  public Iterable<FlightInfo> listFlights(Criteria criteria){
+  public Iterable<FlightInfo> listFlights(Criteria criteria) {
     return ImmutableList.copyOf(blockingStub.listFlights(criteria.asCriteria()))
         .stream()
         .map(t -> new FlightInfo(t))
         .collect(Collectors.toList());
   }
 
-  public Iterable<ActionType> listActions(){
+  public Iterable<ActionType> listActions() {
     return ImmutableList.copyOf(blockingStub.listActions(Empty.getDefaultInstance()))
         .stream()
         .map(t -> new ActionType(t))
@@ -108,6 +109,7 @@ public class FlightClient implements AutoCloseable {
     Preconditions.checkArgument(!authInterceptor.hasToken(), "Auth already completed.");
     authInterceptor.setToken(ClientAuthWrapper.doClientAuth(handler, asyncStub));
   }
+
   /**
    * Create or append a descriptor with another stream.
    * @param descriptor
@@ -169,7 +171,7 @@ public class FlightClient implements AutoCloseable {
     return stream;
   }
 
-  private static class SetStreamObserver<T> implements StreamObserver<T>{
+  private static class SetStreamObserver<T> implements StreamObserver<T> {
     private final SettableFuture<T> result = SettableFuture.create();
     private volatile T resultLocal;
 
@@ -188,7 +190,7 @@ public class FlightClient implements AutoCloseable {
       result.set(Preconditions.checkNotNull(resultLocal));
     }
 
-    public ListenableFuture<T> getFuture(){
+    public ListenableFuture<T> getFuture() {
       return result;
     }
   }
@@ -208,7 +210,7 @@ public class FlightClient implements AutoCloseable {
     @Override
     public void putNext() {
       ArrowRecordBatch batch = unloader.getRecordBatch();
-      while(!observer.isReady()) {
+      while (!observer.isReady()) {
         /* busy wait */
       }
       observer.onNext(new ArrowMessage(batch));
@@ -225,20 +227,25 @@ public class FlightClient implements AutoCloseable {
     }
 
     @Override
-    public PutResult getResult(){
+    public PutResult getResult() {
       try {
         return futureResult.get();
-      }catch(Exception ex) {
+      } catch (Exception ex) {
         throw Throwables.propagate(ex);
       }
     }
   }
 
   public interface ClientStreamListener {
+
     public void putNext();
+
     public void error(Throwable ex);
+
     public void completed();
+
     public PutResult getResult();
+
   }
 
 

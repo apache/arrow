@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import java.util.concurrent.ExecutorService;
@@ -149,7 +150,7 @@ class FlightService extends FlightServiceImplBase {
 
   }
 
-  public StreamObserver<ArrowMessage> doPutCustom(final StreamObserver<PutResult> responseObserverSimple){
+  public StreamObserver<ArrowMessage> doPutCustom(final StreamObserver<PutResult> responseObserverSimple) {
     ServerCallStreamObserver<PutResult> responseObserver = (ServerCallStreamObserver<PutResult>) responseObserverSimple;
     responseObserver.disableAutoInboundFlowControl();
     responseObserver.request(1);
@@ -177,6 +178,5 @@ class FlightService extends FlightServiceImplBase {
       responseObserver.onError(ex);
     }
   }
-
 
 }

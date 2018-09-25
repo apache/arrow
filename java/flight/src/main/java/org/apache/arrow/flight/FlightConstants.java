@@ -15,8 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 public interface FlightConstants {
+
   public static final String SERVICE = "arrow.flight.protocol.FlightService";
+
 }

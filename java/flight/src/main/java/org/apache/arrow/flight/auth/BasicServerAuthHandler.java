@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.auth;
 
 import java.util.Iterator;
@@ -39,8 +40,11 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
   }
 
   public interface BasicAuthValidator {
+
     public byte[] getToken(String username, String password) throws Exception;
+
     public boolean isValid(byte[] token);
+
   }
 
   @Override

@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.example;
 
 import java.util.ArrayList;
@@ -58,7 +59,7 @@ public class FlightHolder implements AutoCloseable {
   public Stream.StreamCreator addStream(Schema schema) {
     Preconditions.checkArgument(schema.equals(schema), "Stream schema inconsitent with existing schema.");
     return new Stream.StreamCreator(schema, allocator, t -> {
-      synchronized(streams) {
+      synchronized (streams) {
         streams.add(t);
       }
     });
@@ -70,12 +71,12 @@ public class FlightHolder implements AutoCloseable {
 
     final List<FlightEndpoint> endpoints = new ArrayList<>();
     int i = 0;
-    for(Stream s : streams) {
+    for (Stream s : streams) {
       endpoints.add(
           new FlightEndpoint(
               new ExampleTicket(descriptor.getPath(), i, s.getUuid())
-                .toTicket()
-                , l));
+                .toTicket(),
+                l));
       i++;
     }
     return new FlightInfo(schema,  descriptor, endpoints, bytes, records);

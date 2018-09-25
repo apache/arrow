@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.grpc;
 
 import java.io.IOException;
@@ -82,6 +83,7 @@ public class AddWritableBuffer {
     bufChainOut = tmpBufChainOut;
 
   }
+
   /**
    * Add the provided ByteBuf to the output stream if it is possible.
    * @param buf The buffer to add.
@@ -92,16 +94,16 @@ public class AddWritableBuffer {
   public static boolean add(ByteBuf buf, OutputStream stream) throws IOException {
     buf.readBytes(stream, buf.readableBytes());
 
-    if(bufChainOut == null) {
+    if (bufChainOut == null) {
       return false;
     }
 
-    if(!stream.getClass().equals(bufChainOut)) {
+    if (!stream.getClass().equals(bufChainOut)) {
       return false;
     }
 
     try {
-      if(current.get(stream) != null) {
+      if (current.get(stream) != null) {
         return false;
       }
 

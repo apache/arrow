@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.util;
 
 import java.util.ArrayList;
@@ -47,7 +48,7 @@ public class Collections2 {
     return list.stream().collect(Collectors.toList());
   }
 
-  public static <V> List<V> asImmutableList(V...values){
+  public static <V> List<V> asImmutableList(V...values) {
     return Collections.unmodifiableList(Arrays.asList(values));
   }
 }

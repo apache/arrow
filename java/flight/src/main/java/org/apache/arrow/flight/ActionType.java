@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import org.apache.arrow.flight.impl.Flight;
@@ -38,7 +39,7 @@ public class ActionType {
     return type;
   }
 
-  Flight.ActionType toProtocol(){
+  Flight.ActionType toProtocol() {
     return Flight.ActionType.newBuilder()
         .setType(type)
         .setDescription(description)

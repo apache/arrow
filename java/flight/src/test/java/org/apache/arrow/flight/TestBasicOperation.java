@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import java.util.concurrent.Callable;
@@ -119,8 +120,8 @@ public class TestBasicOperation {
       VectorSchemaRoot root = stream.getRoot();
       IntVector iv = (IntVector) root.getVector("c1");
       int value = 0;
-      while(stream.next()) {
-        for(int i = 0; i < root.getRowCount(); i++) {
+      while (stream.next()) {
+        for (int i = 0; i < root.getRowCount(); i++) {
           Assert.assertEquals(value, iv.get(i));
           value++;
         }
@@ -138,7 +139,7 @@ public class TestBasicOperation {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
-        FlightServer s = new FlightServer(a, 12233, producer, ServerAuthHandler.NO_OP);){
+        FlightServer s = new FlightServer(a, 12233, producer, ServerAuthHandler.NO_OP);) {
 
       s.start();
 
@@ -178,7 +179,7 @@ public class TestBasicOperation {
     @Override
     public Callable<PutResult> acceptPut(FlightStream flightStream) {
       return () -> {
-        try (VectorSchemaRoot root = flightStream.getRoot()){
+        try (VectorSchemaRoot root = flightStream.getRoot()) {
           while (flightStream.next()) {
 
           }

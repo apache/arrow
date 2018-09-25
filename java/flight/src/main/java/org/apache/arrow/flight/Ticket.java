@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import java.util.Arrays;
@@ -38,7 +39,7 @@ public class Ticket {
     return bytes;
   }
 
-  Ticket(org.apache.arrow.flight.impl.Flight.Ticket ticket){
+  Ticket(org.apache.arrow.flight.impl.Flight.Ticket ticket) {
     this.bytes = ticket.getTicket().toByteArray();
   }
 

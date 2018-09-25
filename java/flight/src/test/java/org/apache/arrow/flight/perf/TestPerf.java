@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.perf;
 
 import java.util.List;
@@ -72,15 +73,16 @@ public class TestPerf {
         .build()
         .toByteArray());
   }
+
   @Test
   public void throughput() throws Exception {
-    for(int i =0 ; i < 10; i++) {
+    for (int i = 0; i < 10; i++) {
       final Location l = new Location("localhost", 12233);
-      try(
+      try (
           final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
           final PerformanceTestServer server = new PerformanceTestServer(a, l);
           final FlightClient client = new FlightClient(a, l);
-          ){
+          ) {
 
         server.start();
 
@@ -94,18 +96,18 @@ public class TestPerf {
 
         Futures.whenAllSucceed(results);
         Result r = new Result();
-        for(ListenableFuture<Result> f : results) {
+        for (ListenableFuture<Result> f : results) {
           r.add(f.get());
         }
 
-        double seconds = r.nanos*1.0d/1000/1000/1000;
+        double seconds = r.nanos * 1.0d / 1000 / 1000 / 1000;
         System.out.println(String.format(
             "Transferred %d records totaling %s bytes at %f mb/s. %f record/s. %f batch/s.",
             r.rows,
             r.bytes,
-            (r.bytes*1.0d/1024/1024)/seconds,
-            (r.rows*1.0d)/seconds,
-            (r.batches*1.0d)/seconds
+            (r.bytes * 1.0d / 1024 / 1024) / seconds,
+            (r.rows * 1.0d) / seconds,
+            (r.batches * 1.0d) / seconds
             ));
       }
     }
@@ -130,11 +132,11 @@ public class TestPerf {
       final VectorSchemaRoot root = stream.getRoot();
       try {
         BigIntVector a = (BigIntVector) root.getVector("a");
-        while(stream.next()) {
+        while (stream.next()) {
           int rows = root.getRowCount();
           long aSum = r.aSum;
-          for(int i =0; i < rows; i++) {
-            if(VALIDATE) {
+          for (int i = 0; i < rows; i++) {
+            if (VALIDATE) {
               aSum += a.get(i);
             }
           }

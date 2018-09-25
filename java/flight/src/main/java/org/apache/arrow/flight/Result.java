@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import org.apache.arrow.flight.impl.Flight;
@@ -37,7 +38,7 @@ public class Result {
     return body;
   }
 
-  Flight.Result toProtocol(){
+  Flight.Result toProtocol() {
     return Flight.Result.newBuilder()
         .setBody(ByteString.copyFrom(body))
         .build();

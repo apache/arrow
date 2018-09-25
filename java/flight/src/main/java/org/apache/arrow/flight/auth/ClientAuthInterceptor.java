@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.auth;
 
 import io.grpc.CallOptions;
@@ -48,7 +49,7 @@ public class ClientAuthInterceptor implements ClientInterceptor {
     ClientCall<ReqT, RespT> call = next.newCall(methodDescriptor, callOptions);
 
     // once we have an auth header, add that to the calls.
-    if(headerWithAuth != null) {
+    if (headerWithAuth != null) {
       call = new HeaderAttachingClientCall<>(call);
     }
 

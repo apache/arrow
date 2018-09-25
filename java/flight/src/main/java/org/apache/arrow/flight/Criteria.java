@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import org.apache.arrow.flight.impl.Flight;
@@ -31,13 +32,13 @@ public class Criteria {
     this.bytes = bytes;
   }
 
-  Criteria(Flight.Criteria criteria){
+  Criteria(Flight.Criteria criteria) {
     this.bytes = criteria.getExpression().toByteArray();
   }
 
-  Flight.Criteria asCriteria(){
+  Flight.Criteria asCriteria() {
     Flight.Criteria.Builder b = Flight.Criteria.newBuilder();
-    if(bytes != null) {
+    if (bytes != null) {
       b.setExpression(ByteString.copyFrom(bytes));
     }
 

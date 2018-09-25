@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.example;
 
 import java.util.concurrent.Callable;
@@ -63,7 +64,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
     ExampleTicket example = ExampleTicket.from(t);
     FlightDescriptor d = FlightDescriptor.path(example.getPath());
     FlightHolder h = holders.get(d);
-    if(h == null) {
+    if (h == null) {
       throw new IllegalStateException("Unknown ticket.");
     }
 
@@ -81,7 +82,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   @Override
   public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
     try {
-      for(FlightHolder h : holders.values()) {
+      for (FlightHolder h : holders.values()) {
         listener.onNext(h.getFlightInfo(location));
       }
       listener.onCompleted();
@@ -93,7 +94,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfo(FlightDescriptor descriptor) {
     FlightHolder h = holders.get(descriptor);
-    if(h == null) {
+    if (h == null) {
       throw new IllegalStateException("Unknown descriptor.");
     }
 
@@ -105,7 +106,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
     return () -> {
       StreamCreator creator = null;
       boolean success = false;
-      try(VectorSchemaRoot root = flightStream.getRoot()){
+      try (VectorSchemaRoot root = flightStream.getRoot()) {
         final FlightHolder h = holders.computeIfAbsent(
             flightStream.getDescriptor(),
             t -> new FlightHolder(allocator, t, flightStream.getSchema()));
@@ -113,14 +114,14 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
         creator = h.addStream(flightStream.getSchema());
 
         VectorUnloader unloader = new VectorUnloader(root);
-        while(flightStream.next()) {
+        while (flightStream.next()) {
           creator.add(unloader.getRecordBatch());
         }
         creator.complete();
         success = true;
         return PutResult.getDefaultInstance();
       } finally {
-        if(!success) {
+        if (!success) {
           creator.drop();
         }
       }

@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.auth;
 
 import java.io.IOException;
@@ -86,7 +87,7 @@ public class TestAuth {
 
       @Override
       public byte[] getToken(String username, String password) throws Exception {
-        if(USERNAME.equals(username) && PASSWORD.equals(password)) {
+        if (USERNAME.equals(username) && PASSWORD.equals(password)) {
           return VALID_TOKEN;
         } else {
           throw new IllegalArgumentException("invalid credentials");

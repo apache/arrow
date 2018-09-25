@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.auth;
 
 import io.grpc.Metadata;
@@ -35,8 +36,9 @@ public class ServerAuthInterceptor implements ServerInterceptor {
   @Override
   public <ReqT, RespT> Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers,
       ServerCallHandler<ReqT, RespT> next) {
-    if (!call.getMethodDescriptor().getFullMethodName().equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)
-        && !isValid(headers)) {
+    if (
+        !call.getMethodDescriptor().getFullMethodName().equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME) &&
+        !isValid(headers)) {
       call.close(Status.PERMISSION_DENIED, new Metadata());
       // TODO: we should actually terminate here instead of causing an exception below.
       return new NoopServerCallListener<>();

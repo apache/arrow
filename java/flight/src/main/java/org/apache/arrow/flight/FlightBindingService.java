@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import java.util.Set;
@@ -54,7 +55,7 @@ class FlightBindingService implements BindableService {
     this.delegate = new FlightService(allocator, producer, authHandler);
   }
 
-  public static MethodDescriptor<Flight.Ticket, ArrowMessage> getDoGetDescriptor(BufferAllocator allocator){
+  public static MethodDescriptor<Flight.Ticket, ArrowMessage> getDoGetDescriptor(BufferAllocator allocator) {
     return MethodDescriptor.<Flight.Ticket, ArrowMessage>newBuilder()
         .setType(io.grpc.MethodDescriptor.MethodType.SERVER_STREAMING)
         .setFullMethodName(DO_GET)
@@ -64,7 +65,7 @@ class FlightBindingService implements BindableService {
         .build();
   }
 
-  public static MethodDescriptor<ArrowMessage, Flight.PutResult> getDoPutDescriptor(BufferAllocator allocator){
+  public static MethodDescriptor<ArrowMessage, Flight.PutResult> getDoPutDescriptor(BufferAllocator allocator) {
     return MethodDescriptor.<ArrowMessage, Flight.PutResult>newBuilder()
         .setType(io.grpc.MethodDescriptor.MethodType.CLIENT_STREAMING)
         .setFullMethodName(DO_PUT)
@@ -88,7 +89,7 @@ class FlightBindingService implements BindableService {
 
     // copy over not-overridden methods.
     for (ServerMethodDefinition<?, ?> definition : baseDefinition.getMethods()) {
-      if(OVERRIDE_METHODS.contains(definition.getMethodDescriptor().getFullMethodName())){
+      if (OVERRIDE_METHODS.contains(definition.getMethodDescriptor().getFullMethodName())) {
         continue;
       }
 

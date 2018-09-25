@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import java.io.ByteArrayOutputStream;
@@ -94,6 +95,7 @@ class ArrowMessage implements AutoCloseable {
     }
 
   }
+
   private final FlightDescriptor descriptor;
   private final Message message;
   private final List<ArrowBuf> bufs;
@@ -155,7 +157,7 @@ class ArrowMessage implements AutoCloseable {
     return batch;
   }
 
-  public Iterable<ArrowBuf> getBufs(){
+  public Iterable<ArrowBuf> getBufs() {
     return Iterables.unmodifiableIterable(bufs);
   }
 
@@ -184,7 +186,7 @@ class ArrowMessage implements AutoCloseable {
             break;
           }
           case BODY_TAG:
-            if(body != null) {
+            if (body != null) {
               // only read last body.
               body.release();
               body = null;
@@ -192,7 +194,7 @@ class ArrowMessage implements AutoCloseable {
             int size = readRawVarint32(stream);
             body = allocator.buffer(size);
             ReadableBuffer readableBuffer = FAST_PATH ? GetReadableBuffer.getReadableBuffer(stream) : null;
-            if(readableBuffer != null) {
+            if (readableBuffer != null) {
               readableBuffer.readBytes(body.nioBuffer(0, size));
             } else {
               byte[] heapBytes = new byte[size];
@@ -300,7 +302,7 @@ class ArrowMessage implements AutoCloseable {
 
   }
 
-  public static Marshaller<ArrowMessage> createMarshaller(BufferAllocator allocator){
+  public static Marshaller<ArrowMessage> createMarshaller(BufferAllocator allocator) {
     return new ArrowMessageHolderMarshaller(allocator);
   }
 

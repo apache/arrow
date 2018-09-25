@@ -15,7 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
+
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
@@ -82,7 +84,9 @@ public class FlightServer implements AutoCloseable {
 
   public interface OutputFlight {
     void sendData(int count);
+
     void done();
+
     void fail(Throwable t);
   }
 

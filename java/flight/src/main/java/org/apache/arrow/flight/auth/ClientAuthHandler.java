@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.auth;
 
 import java.util.Iterator;
@@ -24,8 +25,11 @@ public interface ClientAuthHandler {
   public byte[] authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming);
 
   public interface ClientAuthSender {
+
     public void send(byte[] payload);
+
     public void onError(String message, Throwable cause);
+
   }
 
 }

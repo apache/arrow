@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import org.apache.arrow.flight.impl.Flight;
@@ -30,7 +31,7 @@ public class Location {
     this.port = port;
   }
 
-  Location(Flight.Location location){
+  Location(Flight.Location location) {
     this.host = location.getHost();
     this.port = location.getPort();
   }
@@ -43,7 +44,7 @@ public class Location {
     return port;
   }
 
-  Flight.Location toProtocol(){
+  Flight.Location toProtocol() {
     return Flight.Location.newBuilder().setHost(host).setPort(port).build();
   }
 

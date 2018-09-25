@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import java.util.function.Function;
@@ -33,7 +34,7 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
   private StreamObserver<TO> delegate;
   private Function<FROM, TO> mapFunction;
 
-  public static <FROM, TO> StreamListener<FROM> wrap(StreamObserver<TO> delegate, Function<FROM, TO> func){
+  public static <FROM, TO> StreamListener<FROM> wrap(StreamObserver<TO> delegate, Function<FROM, TO> func) {
     return new StreamPipe<>(delegate, func);
   }
 

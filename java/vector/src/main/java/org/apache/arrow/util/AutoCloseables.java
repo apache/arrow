@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.util;
 
 import java.util.ArrayList;
@@ -40,7 +41,7 @@ public final class AutoCloseables {
   }
 
   /**
-   * Closes all autoCloseables if not null and suppresses exceptions by adding them to t
+   * Closes all autoCloseables if not null and suppresses exceptions by adding them to t.
    * @param t the throwable to add suppressed exception to
    * @param autoCloseables the closeables to close
    */
@@ -49,7 +50,7 @@ public final class AutoCloseables {
   }
 
   /**
-   * Closes all autoCloseables if not null and suppresses exceptions by adding them to t
+   * Closes all autoCloseables if not null and suppresses exceptions by adding them to t.
    * @param t the throwable to add suppressed exception to
    * @param autoCloseables the closeables to close
    */
@@ -62,7 +63,7 @@ public final class AutoCloseables {
   }
 
   /**
-   * Closes all autoCloseables if not null and suppresses subsequent exceptions if more than one
+   * Closes all autoCloseables if not null and suppresses subsequent exceptions if more than one.
    * @param autoCloseables the closeables to close
    */
   public static void close(AutoCloseable... autoCloseables) throws Exception {
@@ -70,7 +71,7 @@ public final class AutoCloseables {
   }
 
   /**
-   * Closes all autoCloseables if not null and suppresses subsequent exceptions if more than one
+   * Closes all autoCloseables if not null and suppresses subsequent exceptions if more than one.
    * @param ac the closeables to close
    */
   public static void close(Iterable<? extends AutoCloseable> ac) throws Exception {
@@ -92,7 +93,7 @@ public final class AutoCloseables {
       } catch (Exception e) {
         if (topLevelException == null) {
           topLevelException = e;
-        } else if (e != topLevelException){
+        } else if (e != topLevelException) {
           topLevelException.addSuppressed(e);
         }
       }
@@ -109,10 +110,10 @@ public final class AutoCloseables {
         .collect(Collectors.toList()));
   }
 
-  public static Iterable<AutoCloseable> iter(AutoCloseable... ac){
-    if(ac.length == 0){
+  public static Iterable<AutoCloseable> iter(AutoCloseable... ac) {
+    if (ac.length == 0) {
       return Collections.emptyList();
-    }else{
+    } else {
       final List<AutoCloseable> nonNullAc = new ArrayList<>();
       for (AutoCloseable autoCloseable : ac) {
         if (autoCloseable != null) {
@@ -131,11 +132,11 @@ public final class AutoCloseables {
     private boolean commit = false;
     private List<AutoCloseable> closeables;
 
-    public RollbackCloseable(AutoCloseable... closeables){
+    public RollbackCloseable(AutoCloseable... closeables) {
       this.closeables = new ArrayList<>(Arrays.asList(closeables));
     }
 
-    public <T extends AutoCloseable> T add(T t){
+    public <T extends AutoCloseable> T add(T t) {
       closeables.add(t);
       return t;
     }
@@ -145,25 +146,25 @@ public final class AutoCloseables {
     }
 
     public void addAll(Iterable<? extends AutoCloseable> list) {
-      for(AutoCloseable ac : list) {
+      for (AutoCloseable ac : list) {
         closeables.add(ac);
       }
     }
 
-    public void commit(){
+    public void commit() {
       commit = true;
     }
 
     @Override
     public void close() throws Exception {
-      if(!commit){
+      if (!commit) {
         AutoCloseables.close(closeables);
       }
     }
 
   }
 
-  public static RollbackCloseable rollbackable(AutoCloseable... closeables){
+  public static RollbackCloseable rollbackable(AutoCloseable... closeables) {
     return new RollbackCloseable(closeables);
   }
 
@@ -176,13 +177,13 @@ public final class AutoCloseables {
    *
    * @param autoCloseable the AutoCloseable to close; may be null
    * @throws RuntimeException if an Exception occurs; the Exception is
-   *   wrapped by the RuntimeException
+   *         wrapped by the RuntimeException
    */
   public static void closeNoChecked(final AutoCloseable autoCloseable) {
     if (autoCloseable != null) {
       try {
         autoCloseable.close();
-      } catch(final Exception e) {
+      } catch (final Exception e) {
         throw new RuntimeException("Exception while closing: " + e.getMessage(), e);
       }
     }

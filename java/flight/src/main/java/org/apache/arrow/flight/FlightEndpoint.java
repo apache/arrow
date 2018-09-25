@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import java.util.List;
@@ -48,11 +49,11 @@ public class FlightEndpoint {
     return ticket;
   }
 
-  Flight.FlightEndpoint toProtocol(){
+  Flight.FlightEndpoint toProtocol() {
     Flight.FlightEndpoint.Builder b = Flight.FlightEndpoint.newBuilder()
         .setTicket(ticket.toProtocol());
 
-    for(Location l : locations) {
+    for (Location l : locations) {
       b.addLocation(Flight.Location.newBuilder()
           .setHost(l.getHost())
           .setPort(l.getPort())

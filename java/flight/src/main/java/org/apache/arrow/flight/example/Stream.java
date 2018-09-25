@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.example;
 
 import java.util.ArrayList;
@@ -49,6 +50,7 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
     this.batches = ImmutableList.copyOf(batches);
     this.recordCount = recordCount;
   }
+
   public Schema getSchema() {
     return schema;
   }
@@ -67,10 +69,10 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
   }
 
   public void sendTo(BufferAllocator allocator, ServerStreamListener listener) {
-    try(VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)){
+    try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       listener.start(root);
       final VectorLoader loader = new VectorLoader(root);
-      for(ArrowRecordBatch batch : batches) {
+      for (ArrowRecordBatch batch : batches) {
         loader.load(batch);
         listener.putNext();
       }
@@ -81,7 +83,7 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
   }
 
   public void verify(ExampleTicket ticket) {
-    if(!uuid.equals(ticket.getUuid())) {
+    if (!uuid.equals(ticket.getUuid())) {
       throw new IllegalStateException("Ticket doesn't match.");
     }
   }

@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import java.util.List;
@@ -74,7 +75,7 @@ public class FlightStream {
   }
 
   public void close() throws Exception {
-    if(!completed && cancellable != null) {
+    if (!completed && cancellable != null) {
       cancel("Stream closed before end.", null);
     }
     List<AutoCloseable> closeables = ImmutableList.copyOf(queue.toArray()).stream()
@@ -116,7 +117,7 @@ public class FlightStream {
         }
       } else {
         ArrowMessage msg = ((ArrowMessage) data);
-        try (ArrowRecordBatch arb = msg.asRecordBatch()){
+        try (ArrowRecordBatch arb = msg.asRecordBatch()) {
           loader.load(arb);
         }
         return true;
@@ -190,12 +191,12 @@ public class FlightStream {
     if (cancellable != null) {
       cancellable.cancel(message, exception);
     } else {
-      throw new UnsupportedOperationException("Streams cannot be cancelled that are produced by client. "
-          + "Instead, server should reject incoming messages.");
+      throw new UnsupportedOperationException("Streams cannot be cancelled that are produced by client. " +
+          "Instead, server should reject incoming messages.");
     }
   }
 
-  StreamObserver<ArrowMessage> asObserver(){
+  StreamObserver<ArrowMessage> asObserver() {
     return new Observer();
   }
 

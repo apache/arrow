@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.auth;
 
 import java.util.Iterator;
@@ -22,11 +23,15 @@ import java.util.Iterator;
 public interface ServerAuthHandler {
 
   public boolean isValid(byte[] token);
+
   public boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming);
 
   public interface ServerAuthSender {
+
     public void send(byte[] payload);
+
     public void onError(String message, Throwable cause);
+
   }
 
   ServerAuthHandler NO_OP = new ServerAuthHandler() {
@@ -39,5 +44,6 @@ public interface ServerAuthHandler {
     @Override
     public boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming) {
       return true;
-    }};
+    }
+  };
 }

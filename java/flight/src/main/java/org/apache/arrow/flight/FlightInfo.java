@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import java.util.List;
@@ -44,7 +45,7 @@ public class FlightInfo {
     this.records = records;
   }
 
-  FlightInfo(FlightGetInfo flightGetInfo){
+  FlightInfo(FlightGetInfo flightGetInfo) {
     schema = flightGetInfo.getSchema().size() > 0 ?
         Schema.deserialize(flightGetInfo.getSchema().asReadOnlyByteBuffer()) : new Schema(ImmutableList.of());
     descriptor = new FlightDescriptor(flightGetInfo.getFlightDescriptor());

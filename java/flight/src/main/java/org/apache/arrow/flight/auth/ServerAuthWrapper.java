@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.auth;
 
 import java.util.Iterator;
@@ -89,7 +90,7 @@ public class ServerAuthWrapper {
       public byte[] next() {
         while (!completed || !messages.isEmpty()) {
           byte[] bytes = messages.poll();
-          if(bytes == null) {
+          if (bytes == null) {
             //busy wait.
             continue;
           }

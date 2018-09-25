@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.auth;
 
 import java.util.Iterator;
@@ -38,7 +39,7 @@ public class ClientAuthWrapper {
    * @param stub The service stub.
    * @return The token if auth was successful.
    */
-  public static byte[] doClientAuth(ClientAuthHandler authHandler, FlightServiceStub stub){
+  public static byte[] doClientAuth(ClientAuthHandler authHandler, FlightServiceStub stub) {
 
     AuthObserver observer = new AuthObserver();
     observer.responseObserver = stub.handshake(observer);
@@ -62,7 +63,7 @@ public class ClientAuthWrapper {
     @Override
     public void onNext(HandshakeResponse value) {
       ByteString payload = value.getPayload();
-      if(payload != null) {
+      if (payload != null) {
         messages.add(payload.toByteArray());
       }
     }
@@ -71,9 +72,9 @@ public class ClientAuthWrapper {
 
       @Override
       public byte[] next() {
-        while(ex == null && (!completed || !messages.isEmpty())) {
+        while (ex == null && (!completed || !messages.isEmpty())) {
           byte[] bytes = messages.poll();
-          if(bytes == null) {
+          if (bytes == null) {
             // busy wait.
             continue;
           } else {
@@ -81,7 +82,7 @@ public class ClientAuthWrapper {
           }
         }
 
-        if(ex != null) {
+        if (ex != null) {
           throw Throwables.propagate(ex);
         }
 

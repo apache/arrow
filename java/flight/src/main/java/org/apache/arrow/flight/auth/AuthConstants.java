@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.auth;
 
 import org.apache.arrow.flight.FlightConstants;
@@ -25,7 +26,8 @@ import io.grpc.MethodDescriptor;
 
 public final class AuthConstants {
 
-  public final static String HANDSHAKE_DESCRIPTOR_NAME = MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, "Handshake");
+  public final static String HANDSHAKE_DESCRIPTOR_NAME = MethodDescriptor
+      .generateFullMethodName(FlightConstants.SERVICE, "Handshake");
   public static final String TOKEN_NAME = "Auth-Token-bin";
   public static final Key<byte[]> TOKEN_KEY = Key.of(TOKEN_NAME, new BinaryMarshaller<byte[]>() {
 

@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import java.util.concurrent.Callable;
@@ -28,25 +29,42 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 public interface FlightProducer {
 
   public void getStream(Ticket ticket, ServerStreamListener listener);
+
   public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener);
+
   public FlightInfo getFlightInfo(FlightDescriptor descriptor);
+
   public Callable<PutResult> acceptPut(FlightStream flightStream);
+
   public Result doAction(Action action);
+
   public void listActions(StreamListener<ActionType> listener);
 
   public interface ServerStreamListener {
+
     boolean isCancelled();
+
     boolean isReady();
+
     void start(VectorSchemaRoot root);
+
     void putNext();
+
     void error(Throwable ex);
+
     void completed();
+
   }
 
   public interface StreamListener<T> {
+
     void onNext(T val);
+
     void onError(Throwable t);
+
     void onCompleted();
+
   }
+
 
 }

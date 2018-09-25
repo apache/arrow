@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import java.util.List;
@@ -52,7 +53,7 @@ public class FlightDescriptor {
     return new FlightDescriptor(false, ImmutableList.copyOf(path), null);
   }
 
-  FlightDescriptor(Flight.FlightDescriptor descriptor){
+  FlightDescriptor(Flight.FlightDescriptor descriptor) {
     if (descriptor.getType() == DescriptorType.CMD) {
       isCmd = true;
       cmd = descriptor.getCmd().toByteArray();
@@ -68,7 +69,7 @@ public class FlightDescriptor {
     return isCmd;
   }
 
-  public List<String> getPath(){
+  public List<String> getPath() {
     Preconditions.checkArgument(!isCmd);
     return path;
   }
@@ -78,7 +79,7 @@ public class FlightDescriptor {
     return cmd;
   }
 
-  Flight.FlightDescriptor toProtocol(){
+  Flight.FlightDescriptor toProtocol() {
     Flight.FlightDescriptor.Builder b = Flight.FlightDescriptor.newBuilder();
 
     if (isCmd) {

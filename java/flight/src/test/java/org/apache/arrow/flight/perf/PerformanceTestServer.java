@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.perf;
 
 import java.io.IOException;
@@ -170,7 +171,7 @@ public class PerformanceTestServer implements AutoCloseable {
         final Ticket ticket = new Ticket(token.toByteArray());
 
         List<FlightEndpoint> endpoints = new ArrayList<>();
-        for (int i =0; i < exec.getStreamCount(); i++) {
+        for (int i = 0; i < exec.getStreamCount(); i++) {
           endpoints.add(new FlightEndpoint(ticket, getLocation()));
         }
 

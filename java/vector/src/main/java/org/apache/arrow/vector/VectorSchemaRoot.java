@@ -95,7 +95,7 @@ public class VectorSchemaRoot implements AutoCloseable {
    * defined initial allocation for each vector (and subsequent size learnings).
    */
   public void allocateNew() {
-    for(FieldVector v : fieldVectors) {
+    for (FieldVector v : fieldVectors) {
       v.allocateNew();
     }
   }
@@ -104,7 +104,7 @@ public class VectorSchemaRoot implements AutoCloseable {
    * Release all the memory for each vector held in this root. This DOES NOT remove vectors from the container.
    */
   public void clear() {
-    for(FieldVector v : fieldVectors) {
+    for (FieldVector v : fieldVectors) {
       v.clear();
     }
   }
@@ -132,7 +132,7 @@ public class VectorSchemaRoot implements AutoCloseable {
    */
   public void setRowCount(int rowCount) {
     this.rowCount = rowCount;
-    for(FieldVector v : getFieldVectors()) {
+    for (FieldVector v : getFieldVectors()) {
       v.setValueCount(rowCount);
     }
   }
@@ -141,7 +141,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   public void close() {
     try {
       AutoCloseables.close(fieldVectors);
-    }catch(RuntimeException ex) {
+    } catch (RuntimeException ex) {
       throw ex;
     } catch (Exception ex) {
       // should never happen since FieldVector.close() doesn't throw IOException

@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import org.apache.arrow.flight.impl.Flight;
@@ -46,7 +47,8 @@ public class Action {
   public byte[] getBody() {
     return body;
   }
-  Flight.Action toProtocol(){
+
+  Flight.Action toProtocol() {
     return Flight.Action.newBuilder()
         .setType(getType())
         .setBody(ByteString.copyFrom(getBody()))

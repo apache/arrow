@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -44,11 +45,11 @@ public class TestBackPressure {
   public void ensureIndependentSteams() throws Exception {
 
     final Location l = new Location("localhost", 12233);
-    try(
+    try (
         final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         final PerformanceTestServer server = new PerformanceTestServer(a, l);
         final FlightClient client = new FlightClient(a, l);
-        ){
+        ) {
 
       server.start();
 
@@ -86,7 +87,7 @@ public class TestBackPressure {
 
     final Location l = new Location("localhost", 12233);
     AtomicLong sleepTime = new AtomicLong(0);
-    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)){
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
 
       final FlightProducer producer = new NoOpFlightProducer() {
 
@@ -120,7 +121,7 @@ public class TestBackPressure {
       };
 
 
-      try(
+      try (
           BufferAllocator serverAllocator = allocator.newChildAllocator("server", 0, Long.MAX_VALUE);
           FlightServer server = new FlightServer(serverAllocator, l.getPort(), producer, ServerAuthHandler.NO_OP);
           BufferAllocator clientAllocator = allocator.newChildAllocator("client", 0, Long.MAX_VALUE);
