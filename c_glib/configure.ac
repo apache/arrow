@@ -134,6 +134,10 @@ if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
                     [arrow-gpu],
                     [HAVE_ARROW_GPU=yes],
                     [HAVE_ARROW_GPU=no])
+  PKG_CHECK_MODULES([PARQUET],
+                    [parquet],
+                    [HAVE_PARQUET=yes],
+                    [HAVE_PARQUET=no])
 else
   USE_ARROW_BUILD_DIR=yes
 
@@ -166,6 +170,17 @@ else
   fi
   AC_SUBST(ARROW_GPU_CFLAGS)
   AC_SUBST(ARROW_GPU_LIBS)
+
+  PARQUET_CFLAGS=""
+  if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/parquet/parquet.pc"; then
+    HAVE_PARQUET=yes
+    PARQUET_LIBS="-lparquet"
+  else
+    HAVE_PARQUET=no
+    PARQUET_LIBS=""
+  fi
+  AC_SUBST(PARQUET_CFLAGS)
+  AC_SUBST(PARQUET_LIBS)
 fi
 
 AM_CONDITIONAL([USE_ARROW_BUILD_DIR],
@@ -181,6 +196,11 @@ if test "$HAVE_ARROW_GPU" = "yes"; then
   AC_DEFINE(HAVE_ARROW_GPU, [1], [Define to 1 if Apache Arrow supports GPU.])
 fi
 
+AM_CONDITIONAL([HAVE_PARQUET], [test "$HAVE_PARQUET" = "yes"])
+if test "$HAVE_PARQUET" = "yes"; then
+  AC_DEFINE(HAVE_PARQUET, [1], [Define to 1 if Apache Parquet exists.])
+fi
+
 exampledir="\$(datadir)/arrow-glib/example"
 AC_SUBST(exampledir)
 
@@ -192,9 +212,13 @@ AC_CONFIG_FILES([
   arrow-glib/version.h
   arrow-gpu-glib/Makefile
   arrow-gpu-glib/arrow-gpu-glib.pc
+  parquet-glib/Makefile
+  parquet-glib/parquet-glib.pc
   doc/Makefile
-  doc/reference/Makefile
-  doc/reference/entities.xml
+  doc/arrow-glib/Makefile
+  doc/arrow-glib/entities.xml
+  doc/parquet-glib/Makefile
+  doc/parquet-glib/entities.xml
   example/Makefile
   example/lua/Makefile
   tool/Makefile
