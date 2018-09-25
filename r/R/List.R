@@ -15,29 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
+#' @include R6.R
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
+`arrow::ListType` <- R6Class("arrow::ListType",
+  inherit = `arrow::NestedType`
+)
 
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
-
+#' @rdname DataType
+#' @export
+list_of <- function(type) `arrow::ListType`$new(list__(type))

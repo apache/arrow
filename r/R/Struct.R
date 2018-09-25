@@ -15,29 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
+#' @include R6.R
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
+`arrow::StructType` <- R6Class("arrow::StructType",
+  inherit = `arrow::NestedType`
+)
 
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
-
+#' @rdname DataType
+#' @export
+struct <- function(...){
+  `arrow::StructType`$new(struct_(.fields(list(...))))
+}

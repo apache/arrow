@@ -15,29 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
+#' @include R6.R
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
+`arrow::MemoryPool` <- R6Class("arrow::MemoryPool",
+  inherit = `arrow::Object`,
+  public = list(
+    # TODO: Allocate
+    # TODO: Reallocate
+    # TODO: Free
+    bytes_allocated = function() MemoryPool__bytes_allocated(self),
+    max_memory = function() MemoryPool__max_memory(self)
+  )
+)
 
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
-
+default_memory_pool <- function() {
+  `arrow::MemoryPool`$new(MemoryPool__default())
+}
