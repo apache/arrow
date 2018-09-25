@@ -1,0 +1,4 @@
+{
+  global: extern "C++" { gandiva*; Java*; JNI*; };
+  local: *;
+};
