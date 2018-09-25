@@ -119,13 +119,16 @@ TEST(StringConversion, ToInt8) {
 
   AssertConversion(converter, "0", 0);
   AssertConversion(converter, "127", 127);
+  AssertConversion(converter, "0127", 127);
   AssertConversion(converter, "-128", -128);
+  AssertConversion(converter, "-00128", -128);
 
   // Non-representable values
   AssertConversionFails(converter, "128");
   AssertConversionFails(converter, "-129");
 
   AssertConversionFails(converter, "");
+  AssertConversionFails(converter, "-");
   AssertConversionFails(converter, "0.0");
   AssertConversionFails(converter, "e");
 }
@@ -134,13 +137,18 @@ TEST(StringConversion, ToUInt8) {
   StringConverter<UInt8Type> converter;
 
   AssertConversion(converter, "0", 0);
+  AssertConversion(converter, "26", 26);
   AssertConversion(converter, "255", 255);
+  AssertConversion(converter, "0255", 255);
 
   // Non-representable values
-  //   AssertConversionFails(converter, "-1");
+  AssertConversionFails(converter, "-1");
   AssertConversionFails(converter, "256");
+  AssertConversionFails(converter, "260");
+  AssertConversionFails(converter, "1234");
 
   AssertConversionFails(converter, "");
+  AssertConversionFails(converter, "-");
   AssertConversionFails(converter, "0.0");
   AssertConversionFails(converter, "e");
 }
@@ -150,13 +158,16 @@ TEST(StringConversion, ToInt16) {
 
   AssertConversion(converter, "0", 0);
   AssertConversion(converter, "32767", 32767);
+  AssertConversion(converter, "032767", 32767);
   AssertConversion(converter, "-32768", -32768);
+  AssertConversion(converter, "-0032768", -32768);
 
   // Non-representable values
   AssertConversionFails(converter, "32768");
   AssertConversionFails(converter, "-32769");
 
   AssertConversionFails(converter, "");
+  AssertConversionFails(converter, "-");
   AssertConversionFails(converter, "0.0");
   AssertConversionFails(converter, "e");
 }
@@ -165,13 +176,17 @@ TEST(StringConversion, ToUInt16) {
   StringConverter<UInt16Type> converter;
 
   AssertConversion(converter, "0", 0);
+  AssertConversion(converter, "6660", 6660);
   AssertConversion(converter, "65535", 65535);
+  AssertConversion(converter, "065535", 65535);
 
   // Non-representable values
-  //   AssertConversionFails(converter, "-1");
+  AssertConversionFails(converter, "-1");
   AssertConversionFails(converter, "65536");
+  AssertConversionFails(converter, "123456");
 
   AssertConversionFails(converter, "");
+  AssertConversionFails(converter, "-");
   AssertConversionFails(converter, "0.0");
   AssertConversionFails(converter, "e");
 }
@@ -181,13 +196,16 @@ TEST(StringConversion, ToInt32) {
 
   AssertConversion(converter, "0", 0);
   AssertConversion(converter, "2147483647", 2147483647);
+  AssertConversion(converter, "02147483647", 2147483647);
   AssertConversion(converter, "-2147483648", -2147483648LL);
+  AssertConversion(converter, "-002147483648", -2147483648LL);
 
   // Non-representable values
   AssertConversionFails(converter, "2147483648");
   AssertConversionFails(converter, "-2147483649");
 
   AssertConversionFails(converter, "");
+  AssertConversionFails(converter, "-");
   AssertConversionFails(converter, "0.0");
   AssertConversionFails(converter, "e");
 }
@@ -196,13 +214,17 @@ TEST(StringConversion, ToUInt32) {
   StringConverter<UInt32Type> converter;
 
   AssertConversion(converter, "0", 0);
+  AssertConversion(converter, "432198765", 432198765UL);
   AssertConversion(converter, "4294967295", 4294967295UL);
+  AssertConversion(converter, "04294967295", 4294967295UL);
 
   // Non-representable values
-  //   AssertConversionFails(converter, "-1");
+  AssertConversionFails(converter, "-1");
   AssertConversionFails(converter, "4294967296");
+  AssertConversionFails(converter, "12345678901");
 
   AssertConversionFails(converter, "");
+  AssertConversionFails(converter, "-");
   AssertConversionFails(converter, "0.0");
   AssertConversionFails(converter, "e");
 }
@@ -212,13 +234,16 @@ TEST(StringConversion, ToInt64) {
 
   AssertConversion(converter, "0", 0);
   AssertConversion(converter, "9223372036854775807", 9223372036854775807LL);
+  AssertConversion(converter, "09223372036854775807", 9223372036854775807LL);
   AssertConversion(converter, "-9223372036854775808", -9223372036854775807LL - 1);
+  AssertConversion(converter, "-009223372036854775808", -9223372036854775807LL - 1);
 
   // Non-representable values
   AssertConversionFails(converter, "9223372036854775808");
   AssertConversionFails(converter, "-9223372036854775809");
 
   AssertConversionFails(converter, "");
+  AssertConversionFails(converter, "-");
   AssertConversionFails(converter, "0.0");
   AssertConversionFails(converter, "e");
 }
@@ -230,10 +255,11 @@ TEST(StringConversion, ToUInt64) {
   AssertConversion(converter, "18446744073709551615", 18446744073709551615ULL);
 
   // Non-representable values
-  //   AssertConversionFails(converter, "-1");
+  AssertConversionFails(converter, "-1");
   AssertConversionFails(converter, "18446744073709551616");
 
   AssertConversionFails(converter, "");
+  AssertConversionFails(converter, "-");
   AssertConversionFails(converter, "0.0");
   AssertConversionFails(converter, "e");
 }
