@@ -20,14 +20,21 @@ namespace helpers {
 #endif
 
 void ExecutionContext::set_error_msg(const char *error_msg) {
-  if (error_msg_.empty()) {
-    error_msg_ = std::string(error_msg);
+  if (error_msg_.get() == nullptr) {
+    error_msg_.reset(new std::string(error_msg));
   }
 }
 
-std::string ExecutionContext::get_error() const { return error_msg_; }
+std::string ExecutionContext::get_error() const {
+  if (error_msg_.get() != nullptr) {
+    return *(error_msg_.get());
+  }
+  return std::string("");
+}
 
-bool ExecutionContext::has_error() const { return !error_msg_.empty(); }
+bool ExecutionContext::has_error() const {
+  return error_msg_.get() != nullptr && !(error_msg_.get()->empty());
+}
 
 #ifdef GDV_HELPERS
 }

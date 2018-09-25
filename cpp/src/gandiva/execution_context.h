@@ -15,6 +15,7 @@
 #ifndef ERROR_HOLDER_H
 #define ERROR_HOLDER_H
 
+#include <memory>
 #include <string>
 
 namespace gandiva {
@@ -31,7 +32,7 @@ class ExecutionContext {
   bool has_error() const;
 
  private:
-  std::string error_msg_;
+  std::unique_ptr<std::string> error_msg_;
 };
 #ifdef GDV_HELPERS
 }
