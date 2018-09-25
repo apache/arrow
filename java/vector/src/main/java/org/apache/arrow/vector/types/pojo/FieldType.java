@@ -18,17 +18,15 @@
 
 package org.apache.arrow.vector.types.pojo;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Collections2;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.CallBack;
-
-import com.google.common.collect.ImmutableMap;
 
 public class FieldType {
 
@@ -48,9 +46,9 @@ public class FieldType {
   public FieldType(boolean nullable, ArrowType type, DictionaryEncoding dictionary, Map<String, String> metadata) {
     super();
     this.nullable = nullable;
-    this.type = checkNotNull(type);
+    this.type = Preconditions.checkNotNull(type);
     this.dictionary = dictionary;
-    this.metadata = metadata == null ? ImmutableMap.<String, String>of() : ImmutableMap.copyOf(metadata);
+    this.metadata = metadata == null ? java.util.Collections.emptyMap() : Collections2.immutableMapCopy(metadata);
   }
 
   public boolean isNullable() {

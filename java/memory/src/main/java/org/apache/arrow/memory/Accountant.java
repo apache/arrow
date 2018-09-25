@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import com.google.common.base.Preconditions;
+import org.apache.arrow.util.Preconditions;
 
 /**
  * Provides a concurrent way to manage account for memory usage without locking. Used as basis

@@ -21,6 +21,7 @@ package org.apache.arrow.vector.dictionary;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,8 +31,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import com.google.common.collect.ImmutableList;
 
 public class DictionaryEncoder {
 
@@ -64,7 +63,7 @@ public class DictionaryEncoder {
     // use reflection to pull out the set method
     // TODO implement a common interface for int vectors
     Method setter = null;
-    for (Class<?> c : ImmutableList.of(int.class, long.class)) {
+    for (Class<?> c : Arrays.asList(int.class, long.class)) {
       try {
         setter = indices.getClass().getMethod("setSafe", int.class, c);
         break;

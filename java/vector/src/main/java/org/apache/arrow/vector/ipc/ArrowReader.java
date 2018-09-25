@@ -37,8 +37,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
 
-import com.google.common.collect.ImmutableList;
-
 /**
  * Abstract class to read Schema and ArrowRecordBatches.
  *
@@ -237,7 +235,9 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
       throw new IllegalArgumentException("Dictionary ID " + id + " not defined in schema");
     }
     FieldVector vector = dictionary.getVector();
-    VectorSchemaRoot root = new VectorSchemaRoot(ImmutableList.of(vector.getField()), ImmutableList.of(vector), 0);
+    VectorSchemaRoot root = new VectorSchemaRoot(
+        Collections.singletonList(vector.getField()),
+        Collections.singletonList(vector), 0);
     VectorLoader loader = new VectorLoader(root);
     try {
       loader.load(dictionaryBatch.getDictionary());

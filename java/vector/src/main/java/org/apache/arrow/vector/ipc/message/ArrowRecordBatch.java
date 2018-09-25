@@ -22,8 +22,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.RecordBatch;
+import org.apache.arrow.memory.BufferAllocator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,6 +82,22 @@ public class ArrowRecordBatch implements ArrowMessage {
     this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
   }
 
+  // clone constructor
+  private ArrowRecordBatch(boolean dummy, int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
+    this.length = length;
+    this.nodes = nodes;
+    this.buffers = buffers;
+    this.closed = false;
+    List<ArrowBuffer> arrowBuffers = new ArrayList<>();
+    long offset = 0;
+    for (ArrowBuf arrowBuf : buffers) {
+      long size = arrowBuf.readableBytes();
+      arrowBuffers.add(new ArrowBuffer(offset, size));
+      offset += size;
+    }
+    this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
+  }
+
   public int getLength() {
     return length;
   }
@@ -99,6 +117,22 @@ public class ArrowRecordBatch implements ArrowMessage {
       throw new IllegalStateException("already closed");
     }
     return buffers;
+  }
+
+  /**
+   * Create a new ArrowRecordBatch which has the same information as this batch but whose buffers
+   * are owned by that Allocator.
+   *
+   * This will also close this record batch and make it no longer useful.
+   *
+   * @return A cloned ArrowRecordBatch
+   */
+  public ArrowRecordBatch cloneWithTransfer(final BufferAllocator allocator) {
+    final List<ArrowBuf> newBufs = buffers.stream()
+        .map(t -> (t.transferOwnership(allocator).buffer).writerIndex(t.writerIndex()))
+        .collect(Collectors.toList());
+    close();
+    return new ArrowRecordBatch(false, length, nodes, newBufs);
   }
 
   /**

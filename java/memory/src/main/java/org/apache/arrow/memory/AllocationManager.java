@@ -29,8 +29,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
 import org.apache.arrow.memory.util.AutoCloseableLock;
 import org.apache.arrow.memory.util.HistoricalLog;
-
-import com.google.common.base.Preconditions;
+import org.apache.arrow.util.Preconditions;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.PooledByteBufAllocatorL;
@@ -199,7 +198,7 @@ public class AllocationManager {
   public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator> {
 
     private final IdentityHashMap<ArrowBuf, Object> buffers =
-        BaseAllocator.DEBUG ? new IdentityHashMap<ArrowBuf, Object>() : null;
+        BaseAllocator.DEBUG ? new IdentityHashMap<>() : null;
 
     private final long ledgerId = LEDGER_ID_GENERATOR.incrementAndGet(); // unique ID assigned to
     // each ledger

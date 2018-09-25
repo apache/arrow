@@ -19,20 +19,22 @@
 package org.apache.arrow.vector.types.pojo;
 
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.arrow.vector.types.pojo.Field.convertField;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.KeyValue;
+import org.apache.arrow.util.Collections2;
+import org.apache.arrow.util.Preconditions;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -42,9 +44,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 /**
@@ -72,7 +71,7 @@ public class Schema {
   private static final ObjectReader reader = mapper.readerFor(Schema.class);
 
   public static Schema fromJSON(String json) throws IOException {
-    return reader.readValue(checkNotNull(json));
+    return reader.readValue(Preconditions.checkNotNull(json));
   }
 
   public static Schema deserialize(ByteBuffer buffer) {
@@ -80,19 +79,17 @@ public class Schema {
   }
 
   public static Schema convertSchema(org.apache.arrow.flatbuf.Schema schema) {
-    ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+    List<Field> fields = new ArrayList<>();
     for (int i = 0; i < schema.fieldsLength(); i++) {
-      childrenBuilder.add(convertField(schema.fields(i)));
+      fields.add(convertField(schema.fields(i)));
     }
-    List<Field> fields = childrenBuilder.build();
-    ImmutableMap.Builder<String, String> metadataBuilder = ImmutableMap.builder();
+    Map<String, String> metadata = new HashMap<>();
     for (int i = 0; i < schema.customMetadataLength(); i++) {
       KeyValue kv = schema.customMetadata(i);
       String key = kv.key(), value = kv.value();
-      metadataBuilder.put(key == null ? "" : key, value == null ? "" : value);
+      metadata.put(key == null ? "" : key, value == null ? "" : value);
     }
-    Map<String, String> metadata = metadataBuilder.build();
-    return new Schema(fields, metadata);
+    return new Schema(Collections2.immutableListCopy(fields), Collections2.immutableMapCopy(metadata));
   }
 
   private final List<Field> fields;
@@ -109,8 +106,8 @@ public class Schema {
     for (Field field : fields) {
       fieldList.add(field);
     }
-    this.fields = Collections.unmodifiableList(fieldList);
-    this.metadata = metadata == null ? ImmutableMap.<String, String>of() : ImmutableMap.copyOf(metadata);
+    this.fields = Collections2.immutableListCopy(fieldList);
+    this.metadata = metadata == null ? java.util.Collections.emptyMap() : Collections2.immutableMapCopy(metadata);
   }
 
   public List<Field> getFields() {
@@ -163,6 +160,15 @@ public class Schema {
     return org.apache.arrow.flatbuf.Schema.endSchema(builder);
   }
 
+  public byte[] toByteArray() {
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    int schemaOffset = this.getSchema(builder);
+    builder.finish(schemaOffset);
+    ByteBuffer bb = builder.dataBuffer();
+    byte[] bytes = new byte[bb.remaining()];
+    bb.get(bytes);
+    return bytes;
+  }
 
   @Override
   public int hashCode() {
@@ -181,6 +187,6 @@ public class Schema {
   @Override
   public String toString() {
     String meta = metadata.isEmpty() ? "" : "(metadata: " + metadata.toString() + ")";
-    return "Schema<" + Joiner.on(", ").join(fields) + ">" + meta;
+    return "Schema<" + fields.stream().map(t -> t.toString()).collect(Collectors.joining(", ")) + ">" + meta;
   }
 }
