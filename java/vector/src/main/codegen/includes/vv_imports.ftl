@@ -9,20 +9,15 @@
   OF ANY KIND, either express or implied. See the License for the specific 
   language governing permissions and limitations under the License. -->
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-
-import com.google.common.collect.Lists;
-import com.google.common.collect.ObjectArrays;
-import com.google.common.base.Charsets;
-import com.google.common.collect.ObjectArrays;
+import static org.apache.arrow.util.Preconditions.checkArgument;
+import static org.apache.arrow.util.Preconditions.checkState;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
-import com.google.common.base.Preconditions;
 import io.netty.buffer.*;
 
 import org.apache.arrow.memory.*;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.*;
 import org.apache.arrow.vector.types.pojo.*;

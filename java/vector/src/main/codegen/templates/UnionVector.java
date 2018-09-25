@@ -24,7 +24,6 @@
 package org.apache.arrow.vector.complex;
 
 <#include "/@includes/vv_imports.ftl" />
-import com.google.common.collect.ImmutableList;
 import io.netty.buffer.ArrowBuf;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -460,11 +459,11 @@ public class UnionVector implements FieldVector {
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    ImmutableList.Builder<ArrowBuf> builder = ImmutableList.builder();
+    List<ArrowBuf> list = new java.util.ArrayList<>();
     setReaderAndWriterIndex();
     if (getBufferSize() != 0) {
-      builder.add(typeBuffer);
-      builder.add(internalStruct.getBuffers(clear));
+      list.add(typeBuffer);
+      list.addAll(java.util.Arrays.asList(internalStruct.getBuffers(clear)));
     }
     if (clear) {
       valueCount = 0;
@@ -472,13 +471,12 @@ public class UnionVector implements FieldVector {
       typeBuffer.release();
       typeBuffer = allocator.getEmpty();
     }
-    List<ArrowBuf> list = builder.build();
     return list.toArray(new ArrowBuf[list.size()]);
   }
 
   @Override
   public Iterator<ValueVector> iterator() {
-    List<ValueVector> vectors = Lists.newArrayList(internalStruct.iterator());
+    List<ValueVector> vectors = org.apache.arrow.util.Collections2.toList(internalStruct.iterator());
     return vectors.iterator();
   }
 

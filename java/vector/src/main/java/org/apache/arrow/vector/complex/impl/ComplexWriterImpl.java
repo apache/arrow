@@ -18,14 +18,13 @@
 
 package org.apache.arrow.vector.complex.impl;
 
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StateTool;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.types.pojo.Field;
-
-import com.google.common.base.Preconditions;
 
 public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWriter {
 

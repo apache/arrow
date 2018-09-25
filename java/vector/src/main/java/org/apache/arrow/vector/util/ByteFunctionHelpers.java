@@ -21,8 +21,6 @@ package org.apache.arrow.vector.util;
 
 import org.apache.arrow.memory.BoundsChecking;
 
-import com.google.common.primitives.UnsignedLongs;
-
 import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
@@ -125,7 +123,7 @@ public class ByteFunctionHelpers {
       long leftLong = PlatformDependent.getLong(lPos);
       long rightLong = PlatformDependent.getLong(rPos);
       if (leftLong != rightLong) {
-        return UnsignedLongs.compare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
+        return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
       }
       lPos += 8;
       rPos += 8;
@@ -172,6 +170,20 @@ public class ByteFunctionHelpers {
       left.checkBytes(lStart, lEnd);
     }
     return memcmp(left.memoryAddress(), lStart, lEnd, right, rStart, rEnd);
+  }
+
+
+  /**
+   * Compares the two specified {@code long} values, treating them as unsigned values between
+   * {@code 0} and {@code 2^64 - 1} inclusive.
+   *
+   * @param a the first unsigned {@code long} to compare
+   * @param b the second unsigned {@code long} to compare
+   * @return a negative value if {@code a} is less than {@code b}; a positive value if {@code a} is
+   *     greater than {@code b}; or zero if they are equal
+   */
+  public static int unsignedLongCompare(long a, long b) {
+    return Long.compare(a ^ Long.MIN_VALUE, b ^ Long.MIN_VALUE);
   }
 
 

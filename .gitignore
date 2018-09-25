@@ -24,6 +24,7 @@
 *.so.*
 *.dylib
 .build_cache_dir
+dependency-reduced-pom.xml
 MANIFEST
 
 # Generated Visual Studio files

@@ -18,6 +18,8 @@
 
 package org.apache.arrow.vector;
 
+import java.util.Arrays;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -32,8 +34,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import com.google.common.collect.Lists;
 
 public class TestFixedSizeListVector {
 
@@ -71,7 +71,7 @@ public class TestFixedSizeListVector {
         Assert.assertTrue(reader.next());
         Assert.assertEquals(i + 10, reader.reader().readInteger().intValue());
         Assert.assertFalse(reader.next());
-        Assert.assertEquals(Lists.newArrayList(i, i + 10), reader.readObject());
+        Assert.assertEquals(Arrays.asList(i, i + 10), reader.readObject());
       }
     }
   }
@@ -102,7 +102,7 @@ public class TestFixedSizeListVector {
           Assert.assertTrue(reader.next());
           Assert.assertEquals(i + 10.1f, reader.reader().readFloat(), 0.00001);
           Assert.assertFalse(reader.next());
-          Assert.assertEquals(Lists.newArrayList(i + 0.1f, i + 10.1f), reader.readObject());
+          Assert.assertEquals(Arrays.asList(i + 0.1f, i + 10.1f), reader.readObject());
         } else {
           Assert.assertFalse(reader.isSet());
           Assert.assertNull(reader.readObject());
@@ -193,7 +193,7 @@ public class TestFixedSizeListVector {
       Assert.assertTrue(reader.next());
       Assert.assertEquals(10.1f, reader.reader().readFloat(), 0.00001);
       Assert.assertFalse(reader.next());
-      Assert.assertEquals(Lists.newArrayList(0.1f, 10.1f), reader.readObject());
+      Assert.assertEquals(Arrays.asList(0.1f, 10.1f), reader.readObject());
 
       reader.setPosition(2);
       Assert.assertTrue(reader.isSet());
@@ -202,7 +202,7 @@ public class TestFixedSizeListVector {
       Assert.assertTrue(reader.next());
       Assert.assertEquals(12.1f, reader.reader().readFloat(), 0.00001);
       Assert.assertFalse(reader.next());
-      Assert.assertEquals(Lists.newArrayList(2.1f, 12.1f), reader.readObject());
+      Assert.assertEquals(Arrays.asList(2.1f, 12.1f), reader.readObject());
 
       reader.setPosition(3);
       Assert.assertTrue(reader.isSet());
@@ -211,7 +211,7 @@ public class TestFixedSizeListVector {
       Assert.assertTrue(reader.next());
       Assert.assertEquals(14.1f, reader.reader().readFloat(), 0.00001);
       Assert.assertFalse(reader.next());
-      Assert.assertEquals(Lists.newArrayList(4.1f, 14.1f), reader.readObject());
+      Assert.assertEquals(Arrays.asList(4.1f, 14.1f), reader.readObject());
 
       for (int i = 4; i < 10; i++) {
         reader.setPosition(i);

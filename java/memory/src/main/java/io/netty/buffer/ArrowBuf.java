@@ -38,8 +38,7 @@ import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.BufferManager;
 import org.apache.arrow.memory.util.HistoricalLog;
-
-import com.google.common.base.Preconditions;
+import org.apache.arrow.util.Preconditions;
 
 import io.netty.util.internal.PlatformDependent;
 
