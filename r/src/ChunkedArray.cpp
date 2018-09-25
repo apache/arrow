@@ -21,34 +21,33 @@ using namespace Rcpp;
 using namespace arrow;
 
 template <int RTYPE>
-inline SEXP simple_ChunkedArray_to_Vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
+inline SEXP simple_ChunkedArray_to_Vector(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
   Rcpp::Vector<RTYPE> out = no_init(chunked_array->length());
   auto p = out.begin();
 
   int k = 0;
-  for (int i=0; i<chunked_array->num_chunks(); i++) {
+  for (int i = 0; i < chunked_array->num_chunks(); i++) {
     auto chunk = chunked_array->chunk(i);
     auto n = chunk->length();
 
     // copy the data
     auto q = p;
     p = std::copy_n(
-      reinterpret_cast<const stored_type*>(
-        chunk->data()->buffers[1]->data() + chunk->offset() * sizeof(stored_type)
-      ),
-      n, p);
+        reinterpret_cast<const stored_type*>(chunk->data()->buffers[1]->data() +
+                                             chunk->offset() * sizeof(stored_type)),
+        n, p);
 
     // set NA using the bitmap
     auto bitmap_data = chunk->null_bitmap();
     if (bitmap_data && RTYPE != RAWSXP) {
-      arrow::internal::BitmapReader bitmap_reader(
-          bitmap_data->data(), chunk->offset(), n
-      );
+      arrow::internal::BitmapReader bitmap_reader(bitmap_data->data(), chunk->offset(),
+                                                  n);
 
-      for (int j=0; j<n; j++, bitmap_reader.Next()){
+      for (int j = 0; j < n; j++, bitmap_reader.Next()) {
         if (bitmap_reader.IsNotSet()) {
-          q[k+j] = Rcpp::Vector<RTYPE>::get_na();
+          q[k + j] = Rcpp::Vector<RTYPE>::get_na();
         }
       }
     }
@@ -58,43 +57,47 @@ inline SEXP simple_ChunkedArray_to_Vector(const std::shared_ptr<arrow::ChunkedAr
   return out;
 }
 
-
 // [[Rcpp::export]]
-int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
+int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return chunked_array->length();
 }
 
 // [[Rcpp::export]]
-int ChunkedArray__null_count(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
+int ChunkedArray__null_count(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return chunked_array->null_count();
 }
 
 // [[Rcpp::export]]
-int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
+int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return chunked_array->num_chunks();
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Array> ChunkedArray__chunk(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i){
+std::shared_ptr<arrow::Array> ChunkedArray__chunk(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i) {
   return chunked_array->chunk(i);
 }
 
 // [[Rcpp::export]]
-List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
+List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return wrap(chunked_array->chunks());
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::DataType> ChunkedArray__type(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
+std::shared_ptr<arrow::DataType> ChunkedArray__type(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return chunked_array->type();
 }
 
 // [[Rcpp::export]]
-SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array){
-  switch(chunked_array->type()->id()){
-    case Type::INT8: return simple_ChunkedArray_to_Vector<RAWSXP>(chunked_array);
-    case Type::INT32: return simple_ChunkedArray_to_Vector<INTSXP>(chunked_array);
-    case Type::DOUBLE: return simple_ChunkedArray_to_Vector<REALSXP>(chunked_array);
+SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  switch (chunked_array->type()->id()) {
+    case Type::INT8:
+      return simple_ChunkedArray_to_Vector<RAWSXP>(chunked_array);
+    case Type::INT32:
+      return simple_ChunkedArray_to_Vector<INTSXP>(chunked_array);
+    case Type::DOUBLE:
+      return simple_ChunkedArray_to_Vector<REALSXP>(chunked_array);
     default:
       break;
   }
@@ -104,19 +107,21 @@ SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice1( const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset) {
+std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice1(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset) {
   return chunked_array->Slice(offset);
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice2( const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset, int length) {
+std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice2(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset, int length) {
   return chunked_array->Slice(offset, length);
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks){
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks) {
   std::vector<std::shared_ptr<arrow::Array>> vec;
-  for ( SEXP chunk: chunks) {
+  for (SEXP chunk : chunks) {
     vec.push_back(Array__from_vector(chunk));
   }
   return std::make_shared<arrow::ChunkedArray>(std::move(vec));

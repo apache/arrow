@@ -68,7 +68,8 @@ std::shared_ptr<arrow::DataType> Date64__initialize() { return arrow::date64(); 
 std::shared_ptr<arrow::DataType> Null__initialize() { return arrow::null(); }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision, int32_t scale) {
+std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision,
+                                                            int32_t scale) {
   return arrow::decimal(precision, scale);
 }
 
@@ -83,7 +84,8 @@ std::shared_ptr<arrow::DataType> Timestamp__initialize1(arrow::TimeUnit::type un
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::DataType> Timestamp__initialize2(arrow::TimeUnit::type unit, const std::string& timezone) {
+std::shared_ptr<arrow::DataType> Timestamp__initialize2(arrow::TimeUnit::type unit,
+                                                        const std::string& timezone) {
   return arrow::timestamp(unit, timezone);
 }
 
@@ -112,10 +114,10 @@ SEXP list__(SEXP x) {
 }
 
 template <typename T>
-std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(List x){
+std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(List x) {
   int n = x.size();
   std::vector<std::shared_ptr<T>> vec;
-  for( SEXP element: x){
+  for (SEXP element : x) {
     vec.push_back(as<std::shared_ptr<T>>(element));
   }
   return vec;
@@ -137,7 +139,8 @@ std::string DataType__name(const std::shared_ptr<arrow::DataType>& type) {
 }
 
 // [[Rcpp::export]]
-bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs) {
+bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs,
+                      const std::shared_ptr<arrow::DataType>& rhs) {
   return lhs->Equals(*rhs);
 }
 
@@ -172,17 +175,17 @@ std::string ListType__ToString(const std::shared_ptr<arrow::ListType>& type) {
 }
 
 // [[Rcpp::export]]
-int FixedWidthType__bit_width(const std::shared_ptr<arrow::FixedWidthType>& type){
+int FixedWidthType__bit_width(const std::shared_ptr<arrow::FixedWidthType>& type) {
   return type->bit_width();
 }
 
 // [[Rcpp::export]]
-arrow::DateUnit DateType__unit(const std::shared_ptr<arrow::DateType>& type){
+arrow::DateUnit DateType__unit(const std::shared_ptr<arrow::DateType>& type) {
   return type->unit();
 }
 
 // [[Rcpp::export]]
-arrow::TimeUnit::type TimeType__unit(const std::shared_ptr<arrow::TimeType>& type){
+arrow::TimeUnit::type TimeType__unit(const std::shared_ptr<arrow::TimeType>& type) {
   return type->unit();
 }
 
@@ -202,11 +205,12 @@ std::string TimestampType__timezone(const std::shared_ptr<arrow::TimestampType>&
 }
 
 // [[Rcpp::export]]
-arrow::TimeUnit::type TimestampType__unit(const std::shared_ptr<arrow::TimestampType>& type) {
+arrow::TimeUnit::type TimestampType__unit(
+    const std::shared_ptr<arrow::TimestampType>& type) {
   return type->unit();
 }
 
 // [[Rcpp::export]]
-std::string Object__pointer_address(SEXP obj){
+std::string Object__pointer_address(SEXP obj) {
   return tfm::format("%p", EXTPTR_PTR(obj));
 }
