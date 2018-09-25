@@ -42,5 +42,5 @@
 #'
 #' @export
 chunked_array <- function(...){
-  `arrow::ChunkedArray`$new(ChunkedArray__from_list(list(...)))
+  `arrow::ChunkedArray`$new(ChunkedArray__from_list(rlang::list2(...)))
 }

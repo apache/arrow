@@ -54,3 +54,24 @@ test_that("ChunkedArray", {
   expect_equal(z_dbl$length(), 2L)
   expect_equal(z_dbl$as_vector(), as.numeric(3:4))
 })
+
+test_that("ChunkedArray handles !!! splicing", {
+  data <- list(1, 2, 3)
+  x <- chunked_array(!!!data)
+  expect_equal(x$type(), float64())
+  expect_equal(x$num_chunks(), 3L)
+})
+
+test_that("ChunkedArray handles NA", {
+  data <- list(1:10, c(NA, 2:10), c(1:3, NA, 5L))
+  x <- chunked_array(!!!data)
+  expect_equal(x$type(), int32())
+  expect_equal(x$num_chunks(), 3L)
+  expect_equal(x$length(), 25L)
+  expect_equal(x$as_vector(), c(1:10, c(NA, 2:10), c(1:3, NA, 5)))
+
+  chunks <- x$chunks()
+  expect_equal(Array__Mask(chunks[[1]]), !is.na(data[[1]]))
+  expect_equal(Array__Mask(chunks[[2]]), !is.na(data[[2]]))
+  expect_equal(Array__Mask(chunks[[3]]), !is.na(data[[3]]))
+})

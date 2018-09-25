@@ -55,6 +55,12 @@ test_that("Array", {
 test_that("Array supports NA", {
   x_int <- array(as.integer(c(1:10, NA)))
   x_dbl <- array(as.numeric(c(1:10, NA)))
-  expect_true(x_int$IsNull(10))
-  expect_true(x_dbl$IsNull(10))
+  expect_true(x_int$IsValid(0L))
+  expect_true(x_dbl$IsValid(0L))
+  expect_true(x_int$IsNull(10L))
+  expect_true(x_dbl$IsNull(10L))
+
+  # this is not part of Array api
+  expect_equal(Array__Mask(x_int), c(rep(TRUE, 10), FALSE))
+  expect_equal(Array__Mask(x_dbl), c(rep(TRUE, 10), FALSE))
 })

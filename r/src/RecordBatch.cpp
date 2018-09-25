@@ -75,7 +75,7 @@ std::shared_ptr<arrow::RecordBatch> read_record_batch_(std::string path) {
 }
 
 // [[Rcpp::export]]
-int RecordBatch_to_file(const std::shared_ptr<arrow::RecordBatch>& batch, std::string path) {
+int RecordBatch__to_file(const std::shared_ptr<arrow::RecordBatch>& batch, std::string path) {
   std::shared_ptr<arrow::io::OutputStream> stream;
   std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
 

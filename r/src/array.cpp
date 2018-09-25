@@ -39,7 +39,6 @@ private:
 
 template <int RTYPE, typename Type>
 std::shared_ptr<arrow::Array> SimpleArray(SEXP x){
-
   Rcpp::Vector<RTYPE> vec(x);
   std::vector<std::shared_ptr<arrow::Buffer>> buffers {
     nullptr,
@@ -48,22 +47,32 @@ std::shared_ptr<arrow::Array> SimpleArray(SEXP x){
 
   int null_count = 0;
   if (RTYPE != RAWSXP) {
-    // TODO: maybe first count NA in a first pass so that we
-    //       can allocate only if needed
     std::shared_ptr<arrow::Buffer> null_bitmap;
-    R_ERROR_NOT_OK(arrow::AllocateBuffer(vec.size(), &null_bitmap));
 
-    auto null_bitmap_data = null_bitmap->mutable_data();
-    arrow::internal::BitmapWriter bitmap_writer(null_bitmap_data, 0, vec.size());
-    for (int i=0; i < vec.size(); i++, bitmap_writer.Next()) {
-      if (Rcpp::Vector<RTYPE>::is_na(vec[i]) ) {
+    auto first_na = std::find_if(vec.begin(), vec.end(), Rcpp::Vector<RTYPE>::is_na);
+    if (first_na < vec.end()) {
+      R_ERROR_NOT_OK(arrow::AllocateBuffer(vec.size(), &null_bitmap));
+      auto null_bitmap_data = null_bitmap->mutable_data();
+      arrow::internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap_data, 0, vec.size());
+
+      // first loop to clear all the bits before the first NA
+      auto j = std::distance(vec.begin(), first_na);
+      int i = 0;
+      for( ; i < j; i++, bitmap_writer.Next()) {
         bitmap_writer.Set();
-        null_count++;
-      } else {
-        bitmap_writer.Clear();
       }
-    }
-    if (null_count) {
+
+      // then finish
+      for( ; i < vec.size(); i++, bitmap_writer.Next()) {
+        if (Rcpp::Vector<RTYPE>::is_na(vec[i]) ) {
+          bitmap_writer.Clear();
+          null_count++;
+        } else {
+          bitmap_writer.Set();
+        }
+      }
+
+      bitmap_writer.Finish();
       buffers[0] = std::move(null_bitmap);
     }
   }
@@ -120,7 +129,7 @@ inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array ){
         array->null_bitmap()->data(), array->offset(), n
     );
     for (size_t i=0; i < n; i++, bitmap_reader.Next()) {
-      if (bitmap_reader.IsSet()) {
+      if (bitmap_reader.IsNotSet()) {
         vec[i] = Rcpp::Vector<RTYPE>::get_na();
       }
     }
@@ -211,4 +220,19 @@ std::shared_ptr<arrow::ArrayData> Array__data(const std::shared_ptr<arrow::Array
 // [[Rcpp::export]]
 bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self, const std::shared_ptr<arrow::Array>&other, int start_idx, int end_idx, int other_start_idx) {
   return self->RangeEquals(*other, start_idx, end_idx, other_start_idx);
+}
+
+// [[Rcpp::export]]
+LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array) {
+  if (array->null_count() == 0) {
+    return LogicalVector(array->length(), true);
+  }
+
+  auto n = array->length();
+  LogicalVector res(no_init(n));
+  arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(), n);
+  for (size_t i=0; i < array->length(); i++, bitmap_reader.Next()) {
+    res[i] = bitmap_reader.IsSet();
+  }
+  return res;
 }

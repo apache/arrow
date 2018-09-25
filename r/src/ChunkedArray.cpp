@@ -39,7 +39,7 @@ inline SEXP simple_ChunkedArray_to_Vector(const std::shared_ptr<arrow::ChunkedAr
       ),
       n, p);
 
-    // set NA using the bitmap, TODO
+    // set NA using the bitmap
     auto bitmap_data = chunk->null_bitmap();
     if (bitmap_data && RTYPE != RAWSXP) {
       arrow::internal::BitmapReader bitmap_reader(
@@ -47,7 +47,7 @@ inline SEXP simple_ChunkedArray_to_Vector(const std::shared_ptr<arrow::ChunkedAr
       );
 
       for (int j=0; j<n; j++, bitmap_reader.Next()){
-        if (bitmap_reader.IsSet()) {
+        if (bitmap_reader.IsNotSet()) {
           q[k+j] = Rcpp::Vector<RTYPE>::get_na();
         }
       }
