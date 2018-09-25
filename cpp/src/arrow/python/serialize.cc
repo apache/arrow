@@ -762,13 +762,13 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
   RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, dst));
 
   // Align stream to 64-byte offset so tensor bodies are 64-byte aligned
-  RETURN_NOT_OK(ipc::AlignStream(dst, 64));
+  RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kTensorAlignment));
 
   int32_t metadata_length;
   int64_t body_length;
   for (const auto& tensor : this->tensors) {
     RETURN_NOT_OK(ipc::WriteTensor(*tensor, dst, &metadata_length, &body_length));
-    RETURN_NOT_OK(ipc::AlignStream(dst, 64));
+    RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kTensorAlignment));
   }
 
   for (const auto& buffer : this->buffers) {
