@@ -39,6 +39,7 @@ public class ServerAuthInterceptor implements ServerInterceptor {
         && !isValid(headers)) {
       call.close(Status.PERMISSION_DENIED, new Metadata());
       // TODO: we should actually terminate here instead of causing an exception below.
+      return new NoopServerCallListener<>();
     }
 
     return next.startCall(call, headers);
@@ -47,5 +48,8 @@ public class ServerAuthInterceptor implements ServerInterceptor {
   private final boolean isValid(Metadata headers) {
     byte[] token = headers.get(AuthConstants.TOKEN_KEY);
     return authHandler.isValid(token);
+  }
+
+  private static class NoopServerCallListener<T> extends ServerCall.Listener<T> {
   }
 }

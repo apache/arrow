@@ -124,7 +124,7 @@
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
-          <enableAssertions>true</enableAssertions>
+          <enableAssertions>false</enableAssertions>
         </configuration>
       </plugin>
       <plugin>
