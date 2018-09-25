@@ -15,29 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
+#' @include R6.R
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
-
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
-
+`arrow::ArrayData` <- R6Class("arrow::ArrayData",
+  inherit = `arrow::Object`,
+  active = list(
+    type = function() `arrow::DataType`$dispatch(ArrayData__get_type(self)),
+    length = function() ArrayData__get_length(self),
+    null_count = function() ArrayData__get_null_count(self),
+    offset = function() ArrayData__get_offset(self)
+  )
+)

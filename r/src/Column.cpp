@@ -15,8 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include "arrow_types.h"
 
-#define STRICT_R_HEADERS
-#include <Rcpp.h>
-#include <arrow/api.h>
+// [[Rcpp::export]]
+int Column__length(const std::shared_ptr<arrow::Column>& column) {
+  return column->length();
+}
+
+// [[Rcpp::export]]
+int Column__null_count(const std::shared_ptr<arrow::Column>& column) {
+  return column->null_count();
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::DataType> Column__type(const std::shared_ptr<arrow::Column>& column) {
+  return column->type();
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::ChunkedArray> Column__data(const std::shared_ptr<arrow::Column>& column) {
+  return column->data();
+}

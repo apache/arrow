@@ -15,29 +15,36 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
+#' @include R6.R
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
+`arrow::Field` <- R6Class("arrow::Field",
+  inherit = `arrow::Object`,
+  public = list(
+    ToString = function() {
+      Field__ToString(self)
+    },
+    name = function() {
+      Field__name(self)
+    },
+    nullable = function() {
+      Field__nullable(self)
+    },
+    Equals = function(other) {
+      inherits(other, "arrow::Field") && Field__Equals(self, other)
+    }
+  )
+)
 
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
+#' @export
+`==.arrow::Field` <- function(lhs, rhs){
+  lhs$Equals(rhs)
+}
 
+field <- function(name, type) {
+  `arrow::Field`$new(Field__initialize(name, type))
+}
+
+.fields <- function(.list){
+  assert_that( !is.null(nms <- names(.list)) )
+  map2(nms, .list, field)
+}

@@ -15,12 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "r_arrow_types.h"
+#include "arrow_types.h"
 
-using namespace Rcpp ;
-using namespace arrow ;
+// [[Rcpp::plugins(cpp11)]]
+
+using namespace Rcpp;
 
 // [[Rcpp::export]]
-std::string ping_arrow(){
-  return arrow::int32()->name();
+std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable = true) {
+  return arrow::field(name, type, nullable);
+}
+
+// [[Rcpp::export]]
+std::string Field__ToString(const std::shared_ptr<arrow::Field>& type) {
+  return type->ToString();
+}
+
+// [[Rcpp::export]]
+std::string Field__name(std::shared_ptr<arrow::Field> type) {
+  return type->name();
+}
+
+// [[Rcpp::export]]
+bool Field__nullable(std::shared_ptr<arrow::Field> type) {
+  return type->nullable();
 }

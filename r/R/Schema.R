@@ -15,29 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
+#' @include R6.R
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
+`arrow::Schema` <- R6Class("arrow::Schema",
+  inherit = `arrow::Object`,
+  public = list(
+    ToString = function() Schema__ToString(self)
+  )
+)
 
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
-
+#' @rdname DataType
+#' @export
+schema <- function(...){
+  `arrow::Schema`$new(schema_(.fields(list(...))))
+}

@@ -29,7 +29,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:BOOL=Off
 make install
 ```
 
-Then the R package: 
+Then the R package:
 
 ```r
 devtools::install_github("apache/arrow/r")
@@ -37,4 +37,18 @@ devtools::install_github("apache/arrow/r")
 
 ## Example
 
-(not yet)
+```{r}
+library(arrow, warn.conflicts = FALSE)
+library(tibble)
+library(reticulate)
+
+tf <- tempfile()
+
+# write arrow::Table to file
+(tib <- tibble(x = 1:10, y = rnorm(10)))
+arrow::write_arrow(tib, tf)
+
+# read it back with pyarrow
+pa <- import("pyarrow")
+as_tibble(pa$open_file(tf)$read_pandas())
+```

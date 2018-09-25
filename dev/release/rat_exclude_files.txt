@@ -127,3 +127,5 @@ r/.Rbuildignore
 r/arrow.Rproj
 r/README.md
 r/README.Rmd
+r/man/*.Rd
+.gitattributes

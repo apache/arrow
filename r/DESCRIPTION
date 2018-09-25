@@ -2,7 +2,7 @@ Package: arrow
 Title: R Integration to 'Apache' 'Arrow'
 Version: 0.0.0.9000
 Authors@R: c(
-    person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")), 
+    person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")),
     person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
   )
 Description: R Integration to 'Apache' 'Arrow'.
@@ -11,11 +11,39 @@ License: Apache License (>= 2.0)
 Encoding: UTF-8
 LazyData: true
 SystemRequirements: C++11
-LinkingTo: 
-    Rcpp
-Imports: 
-    Rcpp
+LinkingTo:
+    Rcpp (>= 0.12.18)
+Imports:
+    Rcpp (>= 0.12.18),
+    rlang,
+    purrr,
+    assertthat,
+    glue,
+    R6,
+    vctrs,
+    fs,
+    tibble,
+    crayon
+Remotes:
+    r-lib/vctrs
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 6.0.1.9000
-Suggests: 
+RoxygenNote: 6.1.0.9000
+Suggests:
     testthat
+Collate:
+    'enums.R'
+    'R6.R'
+    'ArrayData.R'
+    'ChunkedArray.R'
+    'Column.R'
+    'Field.R'
+    'List.R'
+    'RcppExports.R'
+    'RecordBatch.R'
+    'Schema.R'
+    'Struct.R'
+    'Table.R'
+    'array.R'
+    'memory_pool.R'
+    'reexports-tibble.R'
+    'zzz.R'

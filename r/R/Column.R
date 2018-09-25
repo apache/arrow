@@ -15,29 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
+#' @include R6.R
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
-
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
-
+`arrow::Column` <- R6Class("arrow::Column", inherit = `arrow::Object`,
+  public = list(
+    length = function() Column__length(self),
+    null_count = function() Column__null_count(self),
+    type = function() `arrow::DataType`$dispatch(Column__type(self)),
+    data = function() `arrow::ChunkedArray`$new(Column__data(self))
+  )
+)

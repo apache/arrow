@@ -14,9 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-context("test-arrow.R")
-
-test_that("can use arrow C++ library", {
-  expect_equal(arrow:::ping_arrow(), "int32")
-})
+---
+BasedOnStyle:  Google
+DerivePointerAlignment: false
+ColumnLimit: 90
