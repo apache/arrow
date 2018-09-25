@@ -68,6 +68,6 @@ fi
 
 if [ "$ARROW_CI_R_AFFECTED" != "0" ]; then
   pushd $ARROW_R_DIR
-  lint.sh
+  ./lint.sh
   popd
 fi
