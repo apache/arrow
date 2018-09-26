@@ -32,41 +32,9 @@ set(CMAKE_CXX_STANDARD 11)
 # We require a C++11 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# We want to link dynamically against Arrow and Parquet
-set(PARQUET_BUILD_SHARED ON)
-
-
 # First search the packages in the system. If they are not found, use CMake's
 # ExternalProject mechanism to build them locally.
 find_package(Arrow)
-if (NOT ARROW_FOUND)
-  # set compile output directory
-  if (NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug)
-  endif(NOT CMAKE_BUILD_TYPE)
-  string (TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
-  # If build in-source, create the latest symlink. If build out-of-source, which is
-  # preferred, simply output the binaries in the build folder
-  if (${CMAKE_SOURCE_DIR} STREQUAL "${CMAKE_CURRENT_BINARY_DIR}")
-    set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/build/${BUILD_SUBDIR_NAME}")
-    # Link build/latest to the current build directory, to avoid developers
-    # accidentally running the latest debug build when in fact they're building
-    # release builds.
-    FILE(MAKE_DIRECTORY ${BUILD_OUTPUT_ROOT_DIRECTORY})
-    if (NOT APPLE)
-      set(MORE_ARGS "-T")
-    endif()
-  EXECUTE_PROCESS(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
-    ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
-  else()
-    set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}")
-  endif()
-
-  include(ArrowExternalProject)
-  set(ARROW_VENDORED 1)
-else()
-  set(ARROW_VENDORED 0)
-endif()
 find_package(Parquet)
 
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR} ${PARQUET_INCLUDE_DIR})
