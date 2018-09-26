@@ -1392,11 +1392,10 @@ TEST(TestArrowReadWrite, CoerceTimestampsLosePrecision) {
                                     default_writer_properties(), coerce_millis));
 
   // OK to lose precision if we explicitly allow it
-  auto allow_truncation =
-      (ArrowWriterProperties::Builder()
-        .coerce_timestamps(TimeUnit::MILLI)
-        ->allow_truncated_timestamps()
-        ->build());
+  auto allow_truncation = (ArrowWriterProperties::Builder()
+                               .coerce_timestamps(TimeUnit::MILLI)
+                               ->allow_truncated_timestamps()
+                               ->build());
   ASSERT_OK_NO_THROW(WriteTable(*t3, ::arrow::default_memory_pool(), sink, 10,
                                 default_writer_properties(), allow_truncation));
   ASSERT_OK_NO_THROW(WriteTable(*t4, ::arrow::default_memory_pool(), sink, 10,

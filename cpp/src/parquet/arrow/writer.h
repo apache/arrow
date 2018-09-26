@@ -45,9 +45,9 @@ class PARQUET_EXPORT ArrowWriterProperties {
   class Builder {
    public:
     Builder()
-      : write_nanos_as_int96_(false),
-        coerce_timestamps_enabled_(false),
-        truncated_timestamps_allowed_(false) {}
+        : write_nanos_as_int96_(false),
+          coerce_timestamps_enabled_(false),
+          truncated_timestamps_allowed_(false) {}
     virtual ~Builder() {}
 
     Builder* disable_deprecated_int96_timestamps() {
@@ -77,11 +77,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
     }
 
     std::shared_ptr<ArrowWriterProperties> build() {
-      return std::shared_ptr<ArrowWriterProperties>(
-        new ArrowWriterProperties(
-          write_nanos_as_int96_,
-          coerce_timestamps_enabled_,
-          coerce_timestamps_unit_,
+      return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
+          write_nanos_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
           truncated_timestamps_allowed_));
     }
 

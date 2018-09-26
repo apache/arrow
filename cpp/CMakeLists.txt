@@ -73,7 +73,6 @@ endif()
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
-set(CLANG_FORMAT_VERSION "6.0")
 find_package(ClangTools)
 if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND)
   # Generate a Clang compile_commands.json "compilation database" file for use
