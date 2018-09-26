@@ -58,6 +58,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::ParallelFor;
 
 namespace py {
 
