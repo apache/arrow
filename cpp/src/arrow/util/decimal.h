@@ -138,7 +138,7 @@ class ARROW_EXPORT Decimal128 {
   Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const;
 
   /// \brief Convert to a signed integer
-  template <typename T, typename = EnableIfIsOneOf<T, int32_t, int64_t>>
+  template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
   Status ToInteger(T* out) const {
     constexpr auto min_value = std::numeric_limits<T>::min();
     constexpr auto max_value = std::numeric_limits<T>::max();
