@@ -22,4 +22,21 @@ class TestBufferInputStream < Test::Unit::TestCase
     read_buffer = buffer_input_stream.read(5)
     assert_equal("Hello", read_buffer.data.to_s)
   end
+
+  def test_advance
+    buffer = Arrow::Buffer.new("Hello World")
+    buffer_input_stream = Arrow::BufferInputStream.new(buffer)
+    buffer_input_stream.advance(6)
+    read_buffer = buffer_input_stream.read(5)
+    assert_equal("World", read_buffer.data.to_s)
+  end
+
+  def test_align
+    buffer = Arrow::Buffer.new("Hello World")
+    buffer_input_stream = Arrow::BufferInputStream.new(buffer)
+    buffer_input_stream.advance(3)
+    buffer_input_stream.align(8)
+    read_buffer = buffer_input_stream.read(3)
+    assert_equal("rld", read_buffer.data.to_s)
+  end
 end

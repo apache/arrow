@@ -37,6 +37,12 @@ struct _GArrowInputStreamClass
   GObjectClass parent_class;
 };
 
+gboolean garrow_input_stream_advance(GArrowInputStream *input_stream,
+                                     gint64 n_bytes,
+                                     GError **error);
+gboolean garrow_input_stream_align(GArrowInputStream *input_stream,
+                                   gint32 alignment,
+                                   GError **error);
 GArrowTensor *garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
                                               GError **error);
 

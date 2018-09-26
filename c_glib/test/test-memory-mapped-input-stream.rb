@@ -67,7 +67,6 @@ class TestMemoryMappedInputStream < Test::Unit::TestCase
     end
   end
 
-
   def test_mode
     tempfile = Tempfile.open("arrow-memory-mapped-input-stream")
     tempfile.write("Hello World")

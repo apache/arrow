@@ -177,6 +177,47 @@ garrow_input_stream_class_init(GArrowInputStreamClass *klass)
   g_object_class_install_property(gobject_class, PROP_INPUT_STREAM, spec);
 }
 
+/**
+ * garrow_input_stream_advance:
+ * @input_stream: A #GArrowInputStream.
+ * @n_bytes: The number of bytes to be advanced.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 0.11.0
+ */
+gboolean
+garrow_input_stream_advance(GArrowInputStream *input_stream,
+                            gint64 n_bytes,
+                            GError **error)
+{
+  auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
+  auto status = arrow_input_stream->Advance(n_bytes);
+  return garrow_error_check(error, status, "[input-stream][advance]");
+}
+
+/**
+ * garrow_input_stream_align:
+ * @input_stream: A #GArrowInputStream.
+ * @alignment: The byte multiple for the metadata prefix, usually 8
+ *   or 64, to ensure the body starts on a multiple of that alignment.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 0.11.0
+ */
+gboolean
+garrow_input_stream_align(GArrowInputStream *input_stream,
+                          gint32 alignment,
+                          GError **error)
+{
+  auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
+  auto status = arrow::ipc::AlignStream(arrow_input_stream.get(),
+                                        alignment);
+  return garrow_error_check(error, status, "[input-stream][align]");
+}
 
 /**
  * garrow_input_stream_read_tensor:
@@ -203,6 +244,7 @@ garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
     return NULL;
   }
 }
+
 
 G_DEFINE_TYPE(GArrowSeekableInputStream,                \
               garrow_seekable_input_stream,             \
