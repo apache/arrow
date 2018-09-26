@@ -34,7 +34,8 @@ class TestBufferInputStream < Test::Unit::TestCase
   def test_align
     buffer = Arrow::Buffer.new("Hello World")
     buffer_input_stream = Arrow::BufferInputStream.new(buffer)
-    buffer_input_stream.advance(8)
+    buffer_input_stream.advance(3)
+    buffer_input_stream.align(8)
     read_buffer = buffer_input_stream.read(3)
     assert_equal("rld", read_buffer.data.to_s)
   end
