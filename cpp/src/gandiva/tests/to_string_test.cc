@@ -67,9 +67,10 @@ TEST_F(TestToString, TestAll) {
 
   auto if_node = TreeExprBuilder::MakeIf(cond_node, then_node, else_node, int64());
   auto if_expr = TreeExprBuilder::MakeExpression(if_node, f1);
-  CHECK_EXPR_TO_STRING(
-      if_expr,
-      "if (bool lesser_than((double) f0, (const float) 0 raw(0))) { (int64) f1 } else { (int64) f2 }");
+
+  CHECK_EXPR_TO_STRING(if_expr,
+                       "if (bool lesser_than((double) f0, (const float) 0 raw(0))) { "
+                       "(int64) f1 } else { (int64) f2 }");
 
   auto f1_gt_100 =
       TreeExprBuilder::MakeFunction("greater_than", {f1_node, literal_node}, boolean());
@@ -78,9 +79,10 @@ TEST_F(TestToString, TestAll) {
   auto and_node = TreeExprBuilder::MakeAnd({f1_gt_100, f2_equals_100});
   auto and_expr =
       TreeExprBuilder::MakeExpression(and_node, arrow::field("f0", boolean()));
-  CHECK_EXPR_TO_STRING(
-      and_expr,
-      "bool greater_than((int64) f1, (const uint64) 100) && bool equals((int64) f2, (const uint64) 100)");
+
+  CHECK_EXPR_TO_STRING(and_expr,
+                       "bool greater_than((int64) f1, (const uint64) 100) && bool "
+                       "equals((int64) f2, (const uint64) 100)");
 }
 
 }  // namespace gandiva

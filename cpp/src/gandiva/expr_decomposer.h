@@ -52,6 +52,7 @@ class ExprDecomposer : public NodeVisitor {
   FRIEND_TEST(TestExprDecomposer, TestNested);
   FRIEND_TEST(TestExprDecomposer, TestInternalIf);
   FRIEND_TEST(TestExprDecomposer, TestParallelIf);
+  FRIEND_TEST(TestExprDecomposer, TestIfInCondition);
 
   Status Visit(const FieldNode& node) override;
   Status Visit(const FunctionNode& node) override;
@@ -62,21 +63,29 @@ class ExprDecomposer : public NodeVisitor {
   // Optimize a function node, if possible.
   const FunctionNode TryOptimize(const FunctionNode &node);
 
+  enum StackEntryType { kStackEntryCondition, kStackEntryThen, kStackEntryElse };
+
   // stack of if nodes.
   class IfStackEntry {
    public:
-    IfStackEntry(const IfNode& if_node, bool is_then, bool is_terminal_else,
-                 int local_bitmap_idx)
+    IfStackEntry(const IfNode &if_node, StackEntryType entry_type,
+                 bool is_terminal_else = false, int local_bitmap_idx = 0)
         : if_node_(if_node),
-          is_then_(is_then),
+          entry_type_(entry_type),
           is_terminal_else_(is_terminal_else),
           local_bitmap_idx_(local_bitmap_idx) {}
 
     const IfNode& if_node_;
-    bool is_then_;
+    StackEntryType entry_type_;
     bool is_terminal_else_;
     int local_bitmap_idx_;
   };
+
+  // pop 'condition entry' into stack.
+  void PushConditionEntry(const IfNode &node);
+
+  // pop 'condition entry' from stack.
+  void PopConditionEntry(const IfNode &node);
 
   // push 'then entry' to stack. returns either a new local bitmap or the parent's
   // bitmap (in case of nested if-else).
