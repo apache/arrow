@@ -16,16 +16,18 @@
 # under the License.
 
 if (PARQUET_BUILD_EXECUTABLES)
-  set(EXECUTABLE_TOOLS
+  set(PARQUET_TOOLS
     parquet-dump-schema
     parquet_reader
     parquet-scan)
 
-  foreach(TOOL ${EXECUTABLE_TOOLS})
+  foreach(TOOL ${PARQUET_TOOLS})
     add_executable(${TOOL} "${TOOL}.cc")
     target_link_libraries(${TOOL} parquet_static)
     # Avoid unsetting RPATH when installing
     set_target_properties(${TOOL} PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
     install(TARGETS ${TOOL} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   endforeach(TOOL)
+
+  add_dependencies(parquet ${PARQUET_TOOLS})
 endif()

@@ -7,6 +7,8 @@
 *.json
 *.snap
 .github/ISSUE_TEMPLATE.md
+cpp/examples/parquet/parquet-arrow/cmake_modules/FindArrow.cmake
+cpp/CHANGELOG_PARQUET.md
 cpp/src/arrow/io/mman.h
 cpp/src/arrow/util/random.h
 cpp/src/arrow/status.cc

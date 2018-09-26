@@ -26,7 +26,7 @@
 // some data.
 std::shared_ptr<arrow::Table> generate_table() {
   arrow::Int64Builder i64builder;
-  PARQUET_THROW_NOT_OK(i64builder.Append({1, 2, 3, 4, 5}));
+  PARQUET_THROW_NOT_OK(i64builder.AppendValues({1, 2, 3, 4, 5}));
   std::shared_ptr<arrow::Array> i64array;
   PARQUET_THROW_NOT_OK(i64builder.Finish(&i64array));
 

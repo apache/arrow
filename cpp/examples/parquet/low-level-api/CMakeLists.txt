@@ -15,11 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if (PARQUET_BUILD_EXECUTABLES)
-  add_executable(reader-writer reader-writer.cc)
-  add_executable(reader-writer2 reader-writer2.cc)
-  target_include_directories(reader-writer PRIVATE .)
-  target_include_directories(reader-writer2 PRIVATE .)
-  target_link_libraries(reader-writer parquet_static)
-  target_link_libraries(reader-writer2 parquet_static)
+if (PARQUET_BUILD_EXAMPLES)
+  add_executable(parquet-reader-writer reader-writer.cc)
+  add_executable(parquet-reader-writer2 reader-writer2.cc)
+  target_include_directories(parquet-reader-writer PRIVATE .)
+  target_include_directories(parquet-reader-writer2 PRIVATE .)
+  target_link_libraries(parquet-reader-writer parquet_static)
+  target_link_libraries(parquet-reader-writer2 parquet_static)
+
+  add_dependencies(parquet
+    parquet-reader-writer
+    parquet-reader-writer2)
 endif()
