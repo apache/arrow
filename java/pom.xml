@@ -36,7 +36,7 @@
     <dep.jackson.version>2.7.9</dep.jackson.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <fbs.version>1.9.0</fbs.version>
-    <flatc.version>1.2.0-3f79e055</flatc.version>
+    <flatc.version>1.9.0</flatc.version>
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
   </properties>

@@ -60,7 +60,7 @@
           <configuration>
             <artifactItems>
               <artifactItem>
-                <groupId>com.vlkan</groupId>
+                <groupId>com.github.icexelloss</groupId>
                 <artifactId>flatc-${os.detected.classifier}</artifactId>
                 <version>${flatc.version}</version>
                 <type>exe</type>
