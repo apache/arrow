@@ -33,11 +33,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PATH="$PATH:$(cpython_path $PYTHON ${U_WIDTH})"
 
     echo "=== (${PYTHON}, ${U_WIDTH}) Installing build dependencies ==="
-    if [ "${PYTHON}" = "3.7" ]; then
-        $PIP install "numpy==1.14.5"
-    else
-        $PIP install "numpy==1.10.4"
-    fi
+    $PIP install "numpy==1.14.5"
     $PIP install "cython==0.28.1"
     $PIP install "pandas==0.23.4"
     $PIP install "virtualenv==15.1.0"
