@@ -37,16 +37,14 @@ requirements:
     - setuptools
     - setuptools_scm
     - cython
-    - numpy 1.10.*   # [not (win and py>=36)]
-    - numpy 1.12.*   # [win and py>=36]
+    - numpy 1.14.*
     - six
     - arrow-cpp {{ ARROW_VERSION }}
 
   run:
     - python
     - setuptools
-    - {{ pin_compatible('numpy', lower_bound='1.10') }}   # [not (win and py>=36)]
-    - {{ pin_compatible('numpy', lower_bound='1.12') }}   # [win and py>=36]
+    - {{ pin_compatible('numpy', lower_bound='1.14') }}
     - pandas
     - six
     - futures  # [py27]

@@ -48,14 +48,12 @@ requirements:
     - zstd
     - lz4-c
     - python
-    - numpy 1.10.*   # [not (win and py>=36)]
-    - numpy 1.12.*   # [win and py>=36]
+    - numpy 1.14.*
 
   run:
     - boost-cpp
     - python
-    - {{ pin_compatible('numpy', lower_bound='1.10') }}   # [not (win and py>=36)]
-    - {{ pin_compatible('numpy', lower_bound='1.12') }}   # [win and py>=36]
+    - {{ pin_compatible('numpy', lower_bound='1.14') }}
     - snappy  # [win and py>=35]
     - zlib
 
