@@ -529,11 +529,7 @@ class BinaryDistribution(Distribution):
 
 
 install_requires = (
-    # Use the minimal possible NumPy version. 1.10 works for all supported
-    # Python versions except 3.7. For Python 3.7, NumPy 1.14 is the minimal
-    # working version.
-    'numpy >= 1.10; python_version < "3.7"',
-    'numpy >= 1.14; python_version >= "3.7"',
+    'numpy >= 1.14',
     'six >= 1.0.0',
     'futures; python_version < "3.2"'
 )
