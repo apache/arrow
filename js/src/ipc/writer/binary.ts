@@ -54,7 +54,7 @@ export function* serializeFile(table: Table) {
 
     // First yield the magic string (aligned)
     let buffer = new Uint8Array(align(magicLength, 8));
-    let metadataLength, byteLength = buffer.byteLength;
+    let metadataLength, bodyLength, byteLength = buffer.byteLength;
     buffer.set(MAGIC, 0);
     yield buffer;
 
@@ -66,15 +66,15 @@ export function* serializeFile(table: Table) {
     for (const [id, field] of table.schema.dictionaries) {
         const vec = table.getColumn(field.name) as DictionaryVector;
         if (vec && vec.dictionary) {
-            ({ metadataLength, buffer } = serializeDictionaryBatch(vec.dictionary, id));
-            dictionaryBatches.push(new FileBlock(metadataLength, buffer.byteLength, byteLength));
+            ({ metadataLength, bodyLength, buffer } = serializeDictionaryBatch(vec.dictionary, id));
+            dictionaryBatches.push(new FileBlock(metadataLength, bodyLength, byteLength));
             byteLength += buffer.byteLength;
             yield buffer;
         }
     }
     for (const recordBatch of table.batches) {
-        ({ metadataLength, buffer } = serializeRecordBatch(recordBatch));
-        recordBatches.push(new FileBlock(metadataLength, buffer.byteLength, byteLength));
+        ({ metadataLength, bodyLength, buffer } = serializeRecordBatch(recordBatch));
+        recordBatches.push(new FileBlock(metadataLength, bodyLength, byteLength));
         byteLength += buffer.byteLength;
         yield buffer;
     }
@@ -127,7 +127,7 @@ export function serializeMessage(message: Message, data?: Uint8Array) {
     (data && dataByteLength > 0) && messageBytes.set(data, metadataLength);
     // if (messageBytes.byteLength % 8 !== 0) { debugger; }
     // Return the metadata length because we need to write it into each FileBlock also
-    return { metadataLength, buffer: messageBytes };
+    return { metadataLength, bodyLength: message.bodyLength, buffer: messageBytes };
 }
 
 export function serializeFooter(footer: Footer) {
