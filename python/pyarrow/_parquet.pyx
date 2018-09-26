@@ -874,7 +874,8 @@ cdef class ParquetWriter:
             raise ValueError('Invalid value for coerce_timestamps: {0}'
                              .format(self.coerce_timestamps))
 
-    cdef void _set_allow_truncated_timestamps(self, ArrowWriterProperties.Builder* props):
+    cdef void _set_allow_truncated_timestamps(
+            self, ArrowWriterProperties.Builder* props):
         if self.allow_truncated_timestamps:
             props.allow_truncated_timestamps()
         else:
