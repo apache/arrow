@@ -249,13 +249,21 @@ matrix:
   - language: r
     cache: packages
     latex: false
-    before_script:
-    - if [ $ARROW_CI_R_AFFECTED != "1" ]; then exit; fi
     before_install:
+    # Have to copy-paste this here because of how R's build steps work
+    - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
+    - if [ $ARROW_CI_R_AFFECTED != "1" ]; then exit; fi
+    - |
+        if [ $TRAVIS_OS_NAME == "linux" ]; then
+          sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update -qq
+        fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib
     - export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib/pkgconfig
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - pushd ${TRAVIS_BUILD_DIR}/r
 
