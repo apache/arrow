@@ -39,6 +39,13 @@
 
 namespace arrow {
 
+using internal::BitmapAnd;
+using internal::BitmapOr;
+using internal::BitmapXor;
+using internal::CopyBitmap;
+using internal::CountSetBits;
+using internal::InvertBitmap;
+
 template <class BitmapWriter>
 void WriteVectorToWriter(BitmapWriter& writer, const std::vector<int> values) {
   for (const auto& value : values) {

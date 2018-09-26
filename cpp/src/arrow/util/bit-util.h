@@ -552,8 +552,6 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
   }
 }
 
-}  // namespace internal
-
 // ----------------------------------------------------------------------
 // Bitmap utilities
 
@@ -636,6 +634,7 @@ Status BitmapXor(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
                  const uint8_t* right, int64_t right_offset, int64_t length,
                  int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
 
+}  // namespace internal
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_BIT_UTIL_H

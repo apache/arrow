@@ -40,7 +40,10 @@
 
 namespace arrow {
 
+using internal::BitmapAnd;
 using internal::checked_cast;
+using internal::CopyBitmap;
+using internal::CountSetBits;
 
 std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
                                            int64_t length,

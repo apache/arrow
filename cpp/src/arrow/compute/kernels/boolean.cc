@@ -24,6 +24,14 @@
 #include <vector>
 
 namespace arrow {
+
+using internal::BitmapAnd;
+using internal::BitmapOr;
+using internal::BitmapXor;
+using internal::CopyBitmap;
+using internal::CountSetBits;
+using internal::InvertBitmap;
+
 namespace compute {
 
 class InvertKernel : public UnaryKernel {

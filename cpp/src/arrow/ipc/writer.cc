@@ -44,6 +44,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::CopyBitmap;
 
 namespace ipc {
 
