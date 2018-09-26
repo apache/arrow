@@ -366,7 +366,7 @@ class ArrowColumnWriter {
   Status WriteTimestamps(const Array& data, int64_t num_levels, const int16_t* def_levels,
                          const int16_t* rep_levels);
 
-  Status WriteTimestampsCoerce(const bool truncating_timestamps_allowed,
+  Status WriteTimestampsCoerce(const bool truncated_timestamps_allowed,
                                const Array& data, int64_t num_levels,
                                const int16_t* def_levels, const int16_t* rep_levels);
 
@@ -636,7 +636,7 @@ Status ArrowColumnWriter::WriteTimestamps(const Array& values, int64_t num_level
   }
 }
 
-Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncating_timestamps_allowed,
+Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_allowed,
                                                 const Array& array, int64_t num_levels,
                                                 const int16_t* def_levels,
                                                 const int16_t* rep_levels) {
@@ -655,7 +655,7 @@ Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncating_timestamps
 
   auto DivideBy = [&](const int64_t factor) {
     for (int64_t i = 0; i < array.length(); i++) {
-      if (!truncating_timestamps_allowed && !data.IsNull(i) &&
+      if (!truncated_timestamps_allowed && !data.IsNull(i) &&
           (values[i] % factor != 0)) {
         std::stringstream ss;
         ss << "Casting from " << type.ToString() << " to " << target_type->ToString()
