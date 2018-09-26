@@ -274,7 +274,7 @@ class ARROW_EXPORT CTypeImpl : public BASE {
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * CHAR_BIT); }
 
   Status Accept(TypeVisitor* visitor) const override {
-    return visitor->Visit(checked_cast<const DERIVED&>(*this));
+    return visitor->Visit(internal::checked_cast<const DERIVED&>(*this));
   }
 
   std::string ToString() const override { return this->name(); }

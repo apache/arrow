@@ -42,6 +42,9 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace ipc {
 
 using BatchVector = std::vector<std::shared_ptr<RecordBatch>>;

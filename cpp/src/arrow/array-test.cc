@@ -42,6 +42,8 @@ namespace arrow {
 using std::string;
 using std::vector;
 
+using internal::checked_cast;
+
 namespace {
 // used to prevent compiler optimizing away side-effect-less statements
 volatile int throw_away = 0;

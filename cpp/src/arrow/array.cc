@@ -40,6 +40,8 @@
 
 namespace arrow {
 
+using internal::checked_cast;
+
 std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
                                            int64_t length,
                                            std::vector<std::shared_ptr<Buffer>>&& buffers,

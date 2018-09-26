@@ -34,6 +34,8 @@ using std::vector;
 
 namespace arrow {
 
+using internal::checked_cast;
+
 TEST(TestField, Basics) {
   Field f0("f0", int32());
   Field f0_nn("f0", int32(), false);

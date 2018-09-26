@@ -35,6 +35,8 @@
 
 namespace arrow {
 
+using internal::checked_cast;
+
 // ----------------------------------------------------------------------
 // Public method implementations
 

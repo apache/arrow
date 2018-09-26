@@ -21,6 +21,7 @@
 #include <type_traits>
 
 namespace arrow {
+namespace internal {
 
 template <typename OutputType, typename InputType>
 inline OutputType checked_cast(InputType&& value) {
@@ -37,6 +38,7 @@ inline OutputType checked_cast(InputType&& value) {
 #endif
 }
 
+}  // namespace internal
 }  // namespace arrow
 
 #endif  // ARROW_CAST_H

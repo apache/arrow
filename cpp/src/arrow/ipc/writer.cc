@@ -42,6 +42,9 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace ipc {
 
 using internal::FileBlock;

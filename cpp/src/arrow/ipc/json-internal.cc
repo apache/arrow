@@ -40,6 +40,9 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace ipc {
 namespace internal {
 namespace json {

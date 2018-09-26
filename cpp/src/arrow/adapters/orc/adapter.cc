@@ -50,6 +50,9 @@
 namespace liborc = orc;
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace adapters {
 namespace orc {
 
