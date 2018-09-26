@@ -65,3 +65,9 @@ if [ "$ARROW_CI_PYTHON_AFFECTED" != "0" ]; then
                    --config=$ARROW_PYTHON_DIR/.flake8.cython \
                    $ARROW_PYTHON_DIR
 fi
+
+if [ "$ARROW_CI_R_AFFECTED" != "0" ]; then
+  pushd $ARROW_R_DIR
+  ./lint.sh
+  popd
+fi

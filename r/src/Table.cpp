@@ -15,35 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
 #include <arrow/io/file.h>
-#include <arrow/ipc/writer.h>
 #include <arrow/ipc/reader.h>
+#include <arrow/ipc/writer.h>
+#include "arrow_types.h"
 
 using namespace Rcpp;
 using namespace arrow;
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl){
+std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl) {
   auto rb = RecordBatch__from_dataframe(tbl);
 
   std::shared_ptr<arrow::Table> out;
-  R_ERROR_NOT_OK(arrow::Table::FromRecordBatches({ std::move(rb) }, &out));
+  R_ERROR_NOT_OK(arrow::Table::FromRecordBatches({std::move(rb)}, &out));
   return out;
 }
 
 // [[Rcpp::export]]
-int Table__num_columns(const std::shared_ptr<arrow::Table>& x){
+int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
   return x->num_columns();
 }
 
 // [[Rcpp::export]]
-int Table__num_rows(const std::shared_ptr<arrow::Table>& x){
-  return x->num_rows();
-}
+int Table__num_rows(const std::shared_ptr<arrow::Table>& x) { return x->num_rows(); }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>& x){
+std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>& x) {
   return x->schema();
 }
 
@@ -53,7 +51,8 @@ int Table__to_file(const std::shared_ptr<arrow::Table>& table, std::string path)
   std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
 
   R_ERROR_NOT_OK(arrow::io::FileOutputStream::Open(path, &stream));
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileWriter::Open(stream.get(), table->schema(), &file_writer));
+  R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileWriter::Open(stream.get(), table->schema(),
+                                                         &file_writer));
   R_ERROR_NOT_OK(file_writer->WriteTable(*table));
   R_ERROR_NOT_OK(file_writer->Close());
 
@@ -73,23 +72,23 @@ std::shared_ptr<arrow::Table> read_table_(std::string path) {
 
   int num_batches = rbf_reader->num_record_batches();
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches(num_batches);
-  for (int i=0; i<num_batches; i++) {
+  for (int i = 0; i < num_batches; i++) {
     R_ERROR_NOT_OK(rbf_reader->ReadRecordBatch(i, &batches[i]));
   }
 
   std::shared_ptr<arrow::Table> table;
-  R_ERROR_NOT_OK(arrow::Table::FromRecordBatches(std::move(batches), &table)) ;
+  R_ERROR_NOT_OK(arrow::Table::FromRecordBatches(std::move(batches), &table));
   R_ERROR_NOT_OK(stream->Close());
   return table;
 }
 
 // [[Rcpp::export]]
-List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table){
+List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table) {
   int nc = table->num_columns();
   int nr = table->num_rows();
   List tbl(nc);
   CharacterVector names(nc);
-  for(int i=0; i<nc; i++) {
+  for (int i = 0; i < nc; i++) {
     auto column = table->column(i);
     tbl[i] = ChunkedArray__as_vector(column->data());
     names[i] = column->name();
@@ -101,6 +100,7 @@ List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table){
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table, int i) {
+std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table,
+                                             int i) {
   return table->column(i);
 }

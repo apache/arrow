@@ -26,7 +26,8 @@ import subprocess
 
 perr = functools.partial(print, file=sys.stderr)
 
-LANGUAGE_TOPICS = ['c_glib', 'cpp', 'go', 'java', 'js', 'python', 'ruby', 'rust']
+LANGUAGE_TOPICS = ['c_glib', 'cpp', 'go', 'java', 'js', 'python',
+                   'r', 'ruby', 'rust']
 
 ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'site', 'dev']
 
@@ -66,7 +67,8 @@ def get_travis_head_commit():
 
 def get_travis_commit_range():
     cr = os.environ['TRAVIS_COMMIT_RANGE']
-    # See https://github.com/travis-ci/travis-ci/issues/4596#issuecomment-139811122
+    # See
+    # https://github.com/travis-ci/travis-ci/issues/4596#issuecomment-139811122
     return cr.replace('...', '..')
 
 
@@ -136,7 +138,7 @@ def get_affected_topics(affected_files):
             break
         elif p in ('cpp', 'format'):
             # Test C++ and bindings to the C++ library
-            for k in ('cpp', 'python', 'c_glib', 'ruby', 'integration'):
+            for k in ('cpp', 'python', 'c_glib', 'r', 'ruby', 'integration'):
                 affected[k] = True
         elif p in ('java', 'js'):
             affected[p] = True
@@ -144,8 +146,8 @@ def get_affected_topics(affected_files):
         elif p in ('c_glib'):
             affected[p] = True
             affected['ruby'] = True
-        elif p in ('go', 'integration', 'python', 'ruby', 'rust', 'site',
-                   'dev'):
+        elif p in ('go', 'integration', 'python', 'r', 'ruby', 'rust',
+                   'site', 'dev'):
             affected[p] = True
 
     return affected
@@ -174,8 +176,8 @@ def get_windows_shell_eval(env):
 
 def run_from_travis():
     if (os.environ['TRAVIS_REPO_SLUG'] == 'apache/arrow' and
-        os.environ['TRAVIS_BRANCH'] == 'master' and
-        os.environ['TRAVIS_EVENT_TYPE'] != 'pull_request'):
+            os.environ['TRAVIS_BRANCH'] == 'master' and
+            os.environ['TRAVIS_EVENT_TYPE'] != 'pull_request'):
         # Never skip anything on master builds in the official repository
         affected = dict.fromkeys(ALL_TOPICS, True)
     else:
@@ -219,14 +221,14 @@ if __name__ == "__main__":
     if os.environ.get('TRAVIS'):
         try:
             print(run_from_travis())
-        except:
+        except Exception:
             # Make sure the enclosing eval will return an error
             print("exit 1")
             raise
     elif os.environ.get('APPVEYOR'):
         try:
             print(run_from_appveyor())
-        except:
+        except Exception:
             print("exit 1")
             raise
     else:
