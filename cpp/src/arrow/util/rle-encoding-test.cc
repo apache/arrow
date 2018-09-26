@@ -33,6 +33,7 @@
 using std::vector;
 
 namespace arrow {
+namespace util {
 
 const int MAX_WIDTH = 32;
 
@@ -465,4 +466,5 @@ TEST(BitRle, Overflow) {
   }
 }
 
+}  // namespace util
 }  // namespace arrow

@@ -341,7 +341,7 @@ class DictionaryDecoder : public Decoder<Type> {
     uint8_t bit_width = *data;
     ++data;
     --len;
-    idx_decoder_ = ::arrow::RleDecoder(data, len, bit_width);
+    idx_decoder_ = ::arrow::util::RleDecoder(data, len, bit_width);
   }
 
   int Decode(T* buffer, int max_values) override {
@@ -376,7 +376,7 @@ class DictionaryDecoder : public Decoder<Type> {
   // pointers).
   std::shared_ptr<ResizableBuffer> byte_array_data_;
 
-  ::arrow::RleDecoder idx_decoder_;
+  ::arrow::util::RleDecoder idx_decoder_;
 };
 
 template <typename Type>
@@ -487,9 +487,9 @@ class DictEncoder : public Encoder<DType> {
     // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
     // but not reserving them would cause the encoder to fail.
     return 1 +
-           ::arrow::RleEncoder::MaxBufferSize(
+           ::arrow::util::RleEncoder::MaxBufferSize(
                bit_width(), static_cast<int>(buffered_indices_.size())) +
-           ::arrow::RleEncoder::MinBufferSize(bit_width());
+           ::arrow::util::RleEncoder::MinBufferSize(bit_width());
   }
 
   /// The minimum bit width required to encode the currently buffered indices.
@@ -791,7 +791,7 @@ inline int DictEncoder<DType>::WriteIndices(uint8_t* buffer, int buffer_len) {
   ++buffer;
   --buffer_len;
 
-  ::arrow::RleEncoder encoder(buffer, buffer_len, bit_width());
+  ::arrow::util::RleEncoder encoder(buffer, buffer_len, bit_width());
   for (int index : buffered_indices_) {
     if (!encoder.Put(index)) return -1;
   }

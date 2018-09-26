@@ -52,7 +52,8 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       num_bytes = *reinterpret_cast<const int32_t*>(data);
       const uint8_t* decoder_data = data + sizeof(int32_t);
       if (!rle_decoder_) {
-        rle_decoder_.reset(new ::arrow::RleDecoder(decoder_data, num_bytes, bit_width_));
+        rle_decoder_.reset(
+            new ::arrow::util::RleDecoder(decoder_data, num_bytes, bit_width_));
       } else {
         rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
       }
