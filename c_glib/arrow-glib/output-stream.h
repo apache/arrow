@@ -37,6 +37,9 @@ struct _GArrowOutputStreamClass
   GObjectClass parent_class;
 };
 
+gboolean garrow_output_stream_align(GArrowOutputStream *stream,
+                                    gint32 alignment,
+                                    GError **error);
 gint64 garrow_output_stream_write_tensor(GArrowOutputStream *stream,
                                          GArrowTensor *tensor,
                                          GError **error);
