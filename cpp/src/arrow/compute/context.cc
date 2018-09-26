@@ -26,7 +26,7 @@ namespace arrow {
 namespace compute {
 
 FunctionContext::FunctionContext(MemoryPool* pool)
-    : pool_(pool), cpu_info_(CpuInfo::GetInstance()) {}
+    : pool_(pool), cpu_info_(internal::CpuInfo::GetInstance()) {}
 
 MemoryPool* FunctionContext::memory_pool() const { return pool_; }
 

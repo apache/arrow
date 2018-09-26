@@ -468,7 +468,7 @@ class DictEncoder : public Encoder<DType> {
         dict_encoded_size_(0),
         type_length_(desc->type_length()) {
     hash_slots_.Assign(hash_table_size_, HASH_SLOT_EMPTY);
-    cpu_info_ = ::arrow::CpuInfo::GetInstance();
+    cpu_info_ = ::arrow::internal::CpuInfo::GetInstance();
   }
 
   ~DictEncoder() override { DCHECK(buffered_indices_.empty()); }
@@ -580,7 +580,7 @@ class DictEncoder : public Encoder<DType> {
   // For ByteArray / FixedLenByteArray data. Not owned
   ChunkedAllocator* pool_;
 
-  ::arrow::CpuInfo* cpu_info_;
+  ::arrow::internal::CpuInfo* cpu_info_;
 
   /// Size of the table. Must be a power of 2.
   int hash_table_size_;
