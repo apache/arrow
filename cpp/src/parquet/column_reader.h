@@ -44,7 +44,10 @@
 
 namespace arrow {
 
+namespace BitUtil {
 class BitReader;
+}  // namespace BitUtil
+
 class RleDecoder;
 
 }  // namespace arrow
@@ -77,7 +80,7 @@ class PARQUET_EXPORT LevelDecoder {
   int num_values_remaining_;
   Encoding::type encoding_;
   std::unique_ptr<::arrow::RleDecoder> rle_decoder_;
-  std::unique_ptr<::arrow::BitReader> bit_packed_decoder_;
+  std::unique_ptr<::arrow::BitUtil::BitReader> bit_packed_decoder_;
 };
 
 // Abstract page iterator interface. This way, we can feed column pages to the

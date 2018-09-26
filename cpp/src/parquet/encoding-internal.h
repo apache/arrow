@@ -143,7 +143,7 @@ class PlainDecoder<BooleanType> : public Decoder<BooleanType> {
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
-    bit_reader_ = ::arrow::BitReader(data, len);
+    bit_reader_ = BitUtil::BitReader(data, len);
   }
 
   // Two flavors of bool decoding
@@ -175,7 +175,7 @@ class PlainDecoder<BooleanType> : public Decoder<BooleanType> {
   }
 
  private:
-  ::arrow::BitReader bit_reader_;
+  BitUtil::BitReader bit_reader_;
 };
 
 // ----------------------------------------------------------------------
@@ -210,7 +210,7 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
         bits_available_(kInMemoryDefaultCapacity * 8),
         bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
         values_sink_(new InMemoryOutputStream(pool)) {
-    bit_writer_.reset(new ::arrow::BitWriter(bits_buffer_->mutable_data(),
+    bit_writer_.reset(new BitUtil::BitWriter(bits_buffer_->mutable_data(),
                                              static_cast<int>(bits_buffer_->size())));
   }
 
@@ -274,7 +274,7 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
 
  protected:
   int bits_available_;
-  std::unique_ptr<::arrow::BitWriter> bit_writer_;
+  std::unique_ptr<BitUtil::BitWriter> bit_writer_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   std::unique_ptr<InMemoryOutputStream> values_sink_;
 };
@@ -819,7 +819,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
-    decoder_ = ::arrow::BitReader(data, len);
+    decoder_ = BitUtil::BitReader(data, len);
     values_current_block_ = 0;
     values_current_mini_block_ = 0;
   }
@@ -885,7 +885,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
   }
 
   ::arrow::MemoryPool* pool_;
-  ::arrow::BitReader decoder_;
+  BitUtil::BitReader decoder_;
   int32_t values_current_block_;
   int32_t num_mini_blocks_;
   uint64_t values_per_mini_block_;

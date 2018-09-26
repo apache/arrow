@@ -34,7 +34,7 @@
 
 namespace parquet {
 
-using BitWriter = ::arrow::BitWriter;
+using BitWriter = ::arrow::BitUtil::BitWriter;
 using RleEncoder = ::arrow::RleEncoder;
 
 LevelEncoder::LevelEncoder() {}

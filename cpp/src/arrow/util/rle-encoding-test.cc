@@ -40,7 +40,7 @@ TEST(BitArray, TestBool) {
   const int len = 8;
   uint8_t buffer[len];
 
-  BitWriter writer(buffer, len);
+  BitUtil::BitWriter writer(buffer, len);
 
   // Write alternating 0's and 1's
   for (int i = 0; i < 8; ++i) {
@@ -73,7 +73,7 @@ TEST(BitArray, TestBool) {
   EXPECT_EQ((int)buffer[1], BOOST_BINARY(1 1 0 0 1 1 0 0));
 
   // Use the reader and validate
-  BitReader reader(buffer, len);
+  BitUtil::BitReader reader(buffer, len);
   for (int i = 0; i < 8; ++i) {
     bool val = false;
     bool result = reader.GetValue(1, &val);
@@ -106,7 +106,7 @@ void TestBitArrayValues(int bit_width, int num_vals) {
   const uint64_t mod = bit_width == 64 ? 1 : 1LL << bit_width;
 
   std::vector<uint8_t> buffer(len);
-  BitWriter writer(buffer.data(), len);
+  BitUtil::BitWriter writer(buffer.data(), len);
   for (int i = 0; i < num_vals; ++i) {
     bool result = writer.PutValue(i % mod, bit_width);
     EXPECT_TRUE(result);
@@ -114,7 +114,7 @@ void TestBitArrayValues(int bit_width, int num_vals) {
   writer.Flush();
   EXPECT_EQ(writer.bytes_written(), len);
 
-  BitReader reader(buffer.data(), len);
+  BitUtil::BitReader reader(buffer.data(), len);
   for (int i = 0; i < num_vals; ++i) {
     int64_t val = 0;
     bool result = reader.GetValue(bit_width, &val);
@@ -140,7 +140,7 @@ TEST(BitArray, TestMixed) {
   uint8_t buffer[len];
   bool parity = true;
 
-  BitWriter writer(buffer, len);
+  BitUtil::BitWriter writer(buffer, len);
   for (int i = 0; i < len; ++i) {
     bool result;
     if (i % 2 == 0) {
@@ -154,7 +154,7 @@ TEST(BitArray, TestMixed) {
   writer.Flush();
 
   parity = true;
-  BitReader reader(buffer, len);
+  BitUtil::BitReader reader(buffer, len);
   for (int i = 0; i < len; ++i) {
     bool result;
     if (i % 2 == 0) {

@@ -62,7 +62,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       num_bytes =
           static_cast<int32_t>(BitUtil::BytesForBits(num_buffered_values * bit_width_));
       if (!bit_packed_decoder_) {
-        bit_packed_decoder_.reset(new ::arrow::BitReader(data, num_bytes));
+        bit_packed_decoder_.reset(new ::arrow::BitUtil::BitReader(data, num_bytes));
       } else {
         bit_packed_decoder_->Reset(data, num_bytes);
       }
