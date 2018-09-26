@@ -17,8 +17,9 @@
 
 import '../jest-extensions';
 
-import { Table, RecordBatch } from '../Arrow';
+import Arrow from '../Arrow';
 import { getSingleRecordBatchTable } from './table-tests';
+const { Table, RecordBatch } = Arrow;
 
 describe('Table.serialize()', () => {
     test(`Serializes sliced RecordBatches`, () => {
