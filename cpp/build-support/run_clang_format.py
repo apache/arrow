@@ -54,7 +54,9 @@ if __name__ == "__main__":
         fullpaths = (os.path.join(directory, filename)
                      for filename in filenames)
         source_files = [x for x in fullpaths
-                        if x.endswith(".h") or x.endswith(".cc")]
+                        if x.endswith(".h") or
+                        x.endswith(".cc") or
+                        x.endswith(".cpp")]
         formatted_filenames.extend(
             # Filter out files that match the globs in the globs file
             [filename for filename in source_files

@@ -8,3 +8,4 @@
 *thirdparty/ae/*
 *xxhash.cc
 *xxhash.h
+*RcppExports.cpp*

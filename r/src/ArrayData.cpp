@@ -20,21 +20,22 @@
 using namespace Rcpp;
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::DataType> ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x){
+std::shared_ptr<arrow::DataType> ArrayData__get_type(
+    const std::shared_ptr<arrow::ArrayData>& x) {
   return x->type;
 }
 
 // [[Rcpp::export]]
-int ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x){
+int ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x) {
   return x->length;
 }
 
 // [[Rcpp::export]]
-int ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x){
+int ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x) {
   return x->null_count;
 }
 
 // [[Rcpp::export]]
-int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x){
+int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x) {
   return x->offset;
 }

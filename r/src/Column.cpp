@@ -28,11 +28,13 @@ int Column__null_count(const std::shared_ptr<arrow::Column>& column) {
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::DataType> Column__type(const std::shared_ptr<arrow::Column>& column) {
+std::shared_ptr<arrow::DataType> Column__type(
+    const std::shared_ptr<arrow::Column>& column) {
   return column->type();
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::ChunkedArray> Column__data(const std::shared_ptr<arrow::Column>& column) {
+std::shared_ptr<arrow::ChunkedArray> Column__data(
+    const std::shared_ptr<arrow::Column>& column) {
   return column->data();
 }

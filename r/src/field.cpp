@@ -22,7 +22,9 @@
 using namespace Rcpp;
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable = true) {
+std::shared_ptr<arrow::Field> Field__initialize(
+    const std::string& name, const std::shared_ptr<arrow::DataType>& type,
+    bool nullable = true) {
   return arrow::field(name, type, nullable);
 }
 
@@ -32,11 +34,7 @@ std::string Field__ToString(const std::shared_ptr<arrow::Field>& type) {
 }
 
 // [[Rcpp::export]]
-std::string Field__name(std::shared_ptr<arrow::Field> type) {
-  return type->name();
-}
+std::string Field__name(std::shared_ptr<arrow::Field> type) { return type->name(); }
 
 // [[Rcpp::export]]
-bool Field__nullable(std::shared_ptr<arrow::Field> type) {
-  return type->nullable();
-}
+bool Field__nullable(std::shared_ptr<arrow::Field> type) { return type->nullable(); }
