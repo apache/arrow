@@ -28,6 +28,7 @@
 using std::size_t;
 
 namespace arrow {
+namespace util {
 
 // ----------------------------------------------------------------------
 // ZSTD implementation
@@ -59,4 +60,5 @@ Status ZSTDCodec::Compress(int64_t input_len, const uint8_t* input,
   return Status::OK();
 }
 
+}  // namespace util
 }  // namespace arrow

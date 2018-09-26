@@ -25,6 +25,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace util {
 
 // Lz4 codec.
 class ARROW_EXPORT Lz4Codec : public Codec {
@@ -40,6 +41,7 @@ class ARROW_EXPORT Lz4Codec : public Codec {
   const char* name() const override { return "lz4"; }
 };
 
+}  // namespace util
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_COMPRESSION_LZ4_H

@@ -25,6 +25,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace util {
 
 // Brotli codec.
 class ARROW_EXPORT BrotliCodec : public Codec {
@@ -40,6 +41,7 @@ class ARROW_EXPORT BrotliCodec : public Codec {
   const char* name() const override { return "brotli"; }
 };
 
+}  // namespace util
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_COMPRESSION_BROTLI_H

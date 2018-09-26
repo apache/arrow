@@ -25,6 +25,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace util {
 
 // ZSTD codec.
 class ARROW_EXPORT ZSTDCodec : public Codec {
@@ -40,6 +41,7 @@ class ARROW_EXPORT ZSTDCodec : public Codec {
   const char* name() const override { return "zstd"; }
 };
 
+}  // namespace util
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_COMPRESSION_ZSTD_H

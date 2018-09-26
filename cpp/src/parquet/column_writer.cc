@@ -271,7 +271,7 @@ class SerializedPageWriter : public PageWriter {
   int64_t total_compressed_size_;
 
   // Compression codec to use.
-  std::unique_ptr<::arrow::Codec> compressor_;
+  std::unique_ptr<::arrow::util::Codec> compressor_;
 };
 
 // This implementation of the PageWriter writes to the final sink on Close .
