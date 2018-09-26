@@ -77,6 +77,31 @@ TEST_F(TestProjector, TestProjectCache) {
   EXPECT_TRUE(cached_projector.get() != should_be_new_projector1.get());
 }
 
+TEST_F(TestProjector, TestProjectCacheFieldNames) {
+  // schema for input fields
+  auto field0 = field("f0", int32());
+  auto field1 = field("f1", int32());
+  auto field2 = field("f2", int32());
+  auto schema = arrow::schema({field0, field1, field2});
+
+  // output fields
+  auto sum_01 = field("sum_01", int32());
+  auto sum_12 = field("sum_12", int32());
+
+  auto sum_expr_01 = TreeExprBuilder::MakeExpression("add", {field0, field1}, sum_01);
+  std::shared_ptr<Projector> projector_01;
+  Status status = Projector::Make(schema, {sum_expr_01}, &projector_01);
+  EXPECT_TRUE(status.ok());
+
+  auto sum_expr_12 = TreeExprBuilder::MakeExpression("add", {field1, field2}, sum_12);
+  std::shared_ptr<Projector> projector_12;
+  status = Projector::Make(schema, {sum_expr_12}, &projector_12);
+  EXPECT_TRUE(status.ok());
+
+  // add(f0, f1) != add(f1, f2)
+  EXPECT_TRUE(projector_01.get() != projector_12.get());
+}
+
 TEST_F(TestProjector, TestProjectCacheDouble) {
   auto schema = arrow::schema({});
   auto res = field("result", arrow::float64());

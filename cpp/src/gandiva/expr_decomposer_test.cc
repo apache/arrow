@@ -43,6 +43,9 @@ TEST_F(TestExprDecomposer, TestStackSimple) {
   // else _
   IfNode node_a(nullptr, nullptr, nullptr, int32());
 
+  decomposer.PushConditionEntry(node_a);
+  decomposer.PopConditionEntry(node_a);
+
   int idx_a = decomposer.PushThenEntry(node_a);
   EXPECT_EQ(idx_a, 0);
   decomposer.PopThenEntry(node_a);
@@ -64,6 +67,9 @@ TEST_F(TestExprDecomposer, TestNested) {
   IfNode node_a(nullptr, nullptr, nullptr, int32());
   IfNode node_b(nullptr, nullptr, nullptr, int32());
 
+  decomposer.PushConditionEntry(node_a);
+  decomposer.PopConditionEntry(node_a);
+
   int idx_a = decomposer.PushThenEntry(node_a);
   EXPECT_EQ(idx_a, 0);
   decomposer.PopThenEntry(node_a);
@@ -71,6 +77,9 @@ TEST_F(TestExprDecomposer, TestNested) {
   decomposer.PushElseEntry(node_a, idx_a);
 
   {  // start b
+    decomposer.PushConditionEntry(node_b);
+    decomposer.PopConditionEntry(node_b);
+
     int idx_b = decomposer.PushThenEntry(node_b);
     EXPECT_EQ(idx_b, 0);  // must reuse bitmap.
     decomposer.PopThenEntry(node_b);
@@ -97,10 +106,16 @@ TEST_F(TestExprDecomposer, TestInternalIf) {
   IfNode node_a(nullptr, nullptr, nullptr, int32());
   IfNode node_b(nullptr, nullptr, nullptr, int32());
 
+  decomposer.PushConditionEntry(node_a);
+  decomposer.PopConditionEntry(node_a);
+
   int idx_a = decomposer.PushThenEntry(node_a);
   EXPECT_EQ(idx_a, 0);
 
   {  // start b
+    decomposer.PushConditionEntry(node_b);
+    decomposer.PopConditionEntry(node_b);
+
     int idx_b = decomposer.PushThenEntry(node_b);
     EXPECT_EQ(idx_b, 1);  // must not reuse bitmap.
     decomposer.PopThenEntry(node_b);
@@ -130,6 +145,9 @@ TEST_F(TestExprDecomposer, TestParallelIf) {
   IfNode node_a(nullptr, nullptr, nullptr, int32());
   IfNode node_b(nullptr, nullptr, nullptr, int32());
 
+  decomposer.PushConditionEntry(node_a);
+  decomposer.PopConditionEntry(node_a);
+
   int idx_a = decomposer.PushThenEntry(node_a);
   EXPECT_EQ(idx_a, 0);
 
@@ -140,6 +158,9 @@ TEST_F(TestExprDecomposer, TestParallelIf) {
   EXPECT_EQ(is_terminal_a, true);  // there was no nested if.
 
   // start b
+  decomposer.PushConditionEntry(node_b);
+  decomposer.PopConditionEntry(node_b);
+
   int idx_b = decomposer.PushThenEntry(node_b);
   EXPECT_EQ(idx_b, 1);  // must not reuse bitmap.
   decomposer.PopThenEntry(node_b);
@@ -151,7 +172,78 @@ TEST_F(TestExprDecomposer, TestParallelIf) {
   EXPECT_EQ(decomposer.if_entries_stack_.empty(), true);
 }
 
-int main(int argc, char** argv) {
+TEST_F(TestExprDecomposer, TestIfInCondition) {
+  Annotator annotator;
+  ExprDecomposer decomposer(registry_, annotator);
+
+  // if (if _ else _)   : a
+  //   -
+  // else
+  //   if (if _ else _)  : b
+  //    -
+  //   else
+  //    -
+  IfNode node_a(nullptr, nullptr, nullptr, int32());
+  IfNode node_b(nullptr, nullptr, nullptr, int32());
+  IfNode cond_node_a(nullptr, nullptr, nullptr, int32());
+  IfNode cond_node_b(nullptr, nullptr, nullptr, int32());
+
+  // start a
+  decomposer.PushConditionEntry(node_a);
+  {
+    // start cond_node_a
+    decomposer.PushConditionEntry(cond_node_a);
+    decomposer.PopConditionEntry(cond_node_a);
+
+    int idx_cond_a = decomposer.PushThenEntry(cond_node_a);
+    EXPECT_EQ(idx_cond_a, 0);
+    decomposer.PopThenEntry(cond_node_a);
+
+    decomposer.PushElseEntry(cond_node_a, idx_cond_a);
+    bool is_terminal = decomposer.PopElseEntry(cond_node_a);
+    EXPECT_EQ(is_terminal, true);  // there was no nested if.
+  }
+  decomposer.PopConditionEntry(node_a);
+
+  int idx_a = decomposer.PushThenEntry(node_a);
+  EXPECT_EQ(idx_a, 1);  // no re-use
+  decomposer.PopThenEntry(node_a);
+
+  decomposer.PushElseEntry(node_a, idx_a);
+
+  {  // start b
+    decomposer.PushConditionEntry(node_b);
+    {
+      // start cond_node_b
+      decomposer.PushConditionEntry(cond_node_b);
+      decomposer.PopConditionEntry(cond_node_b);
+
+      int idx_cond_b = decomposer.PushThenEntry(cond_node_b);
+      EXPECT_EQ(idx_cond_b, 2);  // no re-use
+      decomposer.PopThenEntry(cond_node_b);
+
+      decomposer.PushElseEntry(cond_node_b, idx_cond_b);
+      bool is_terminal = decomposer.PopElseEntry(cond_node_b);
+      EXPECT_EQ(is_terminal, true);  // there was no nested if.
+    }
+    decomposer.PopConditionEntry(node_b);
+
+    int idx_b = decomposer.PushThenEntry(node_b);
+    EXPECT_EQ(idx_b, 1);  // must reuse bitmap.
+    decomposer.PopThenEntry(node_b);
+
+    decomposer.PushElseEntry(node_b, idx_b);
+    bool is_terminal = decomposer.PopElseEntry(node_b);
+    EXPECT_EQ(is_terminal, true);
+  }  // end b
+
+  bool is_terminal_a = decomposer.PopElseEntry(node_a);
+  EXPECT_EQ(is_terminal_a, false);  // there was a nested if.
+
+  EXPECT_EQ(decomposer.if_entries_stack_.empty(), true);
+}
+
+int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

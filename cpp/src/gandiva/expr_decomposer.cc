@@ -116,12 +116,14 @@ Status ExprDecomposer::Visit(const FunctionNode &in_node) {
 }
 
 // Decompose an IfNode
-Status ExprDecomposer::Visit(const IfNode& node) {
-  // Add a local bitmap to track the output validity.
+Status ExprDecomposer::Visit(const IfNode &node) {
+  PushConditionEntry(node);
   auto status = node.condition()->Accept(*this);
   GANDIVA_RETURN_NOT_OK(status);
   auto condition_vv = result();
+  PopConditionEntry(node);
 
+  // Add a local bitmap to track the output validity.
   int local_bitmap_idx = PushThenEntry(node);
   status = node.then_node()->Accept(*this);
   GANDIVA_RETURN_NOT_OK(status);
@@ -194,7 +196,8 @@ Status ExprDecomposer::Visit(const LiteralNode& node) {
 int ExprDecomposer::PushThenEntry(const IfNode& node) {
   int local_bitmap_idx;
 
-  if (!if_entries_stack_.empty() && !if_entries_stack_.top()->is_then_) {
+  if (!if_entries_stack_.empty() &&
+      if_entries_stack_.top()->entry_type_ == kStackEntryElse) {
     auto top = if_entries_stack_.top().get();
 
     // inside a nested else statement (i.e if-else-if). use the parent's bitmap.
@@ -209,7 +212,7 @@ int ExprDecomposer::PushThenEntry(const IfNode& node) {
 
   // push new entry to the stack.
   std::unique_ptr<IfStackEntry> entry(new IfStackEntry(
-      node, true /*is_then*/, false /*is_terminal_else*/, local_bitmap_idx));
+      node, kStackEntryThen, false /*is_terminal_else*/, local_bitmap_idx));
   if_entries_stack_.push(std::move(entry));
   return local_bitmap_idx;
 }
@@ -218,7 +221,8 @@ void ExprDecomposer::PopThenEntry(const IfNode& node) {
   DCHECK_EQ(if_entries_stack_.empty(), false) << "PopThenEntry: found empty stack";
 
   auto top = if_entries_stack_.top().get();
-  DCHECK_EQ(top->is_then_, true) << "PopThenEntry: found else, expected then";
+  DCHECK_EQ(top->entry_type_, kStackEntryThen)
+      << "PopThenEntry: found " << top->entry_type_ << " expected then";
   DCHECK_EQ(&top->if_node_, &node) << "PopThenEntry: found mismatched node";
 
   if_entries_stack_.pop();
@@ -226,7 +230,7 @@ void ExprDecomposer::PopThenEntry(const IfNode& node) {
 
 void ExprDecomposer::PushElseEntry(const IfNode& node, int local_bitmap_idx) {
   std::unique_ptr<IfStackEntry> entry(new IfStackEntry(
-      node, false /*is_then*/, true /*is_terminal_else*/, local_bitmap_idx));
+      node, kStackEntryElse, true /*is_terminal_else*/, local_bitmap_idx));
   if_entries_stack_.push(std::move(entry));
 }
 
@@ -234,12 +238,28 @@ bool ExprDecomposer::PopElseEntry(const IfNode& node) {
   DCHECK_EQ(if_entries_stack_.empty(), false) << "PopElseEntry: found empty stack";
 
   auto top = if_entries_stack_.top().get();
-  DCHECK_EQ(top->is_then_, false) << "PopElseEntry: found then, expected else";
-  DCHECK_EQ(&top->if_node_, &node) << "PopThenEntry: found mismatched node";
+  DCHECK_EQ(top->entry_type_, kStackEntryElse)
+      << "PopElseEntry: found " << top->entry_type_ << " expected else";
+  DCHECK_EQ(&top->if_node_, &node) << "PopElseEntry: found mismatched node";
   bool is_terminal_else = top->is_terminal_else_;
 
   if_entries_stack_.pop();
   return is_terminal_else;
+}
+
+void ExprDecomposer::PushConditionEntry(const IfNode &node) {
+  std::unique_ptr<IfStackEntry> entry(new IfStackEntry(node, kStackEntryCondition));
+  if_entries_stack_.push(std::move(entry));
+}
+
+void ExprDecomposer::PopConditionEntry(const IfNode &node) {
+  DCHECK_EQ(if_entries_stack_.empty(), false) << "PopConditionEntry: found empty stack";
+
+  auto top = if_entries_stack_.top().get();
+  DCHECK_EQ(top->entry_type_, kStackEntryCondition)
+      << "PopConditionEntry: found " << top->entry_type_ << " expected condition";
+  DCHECK_EQ(&top->if_node_, &node) << "PopConditionEntry: found mismatched node";
+  if_entries_stack_.pop();
 }
 
 }  // namespace gandiva
