@@ -769,7 +769,7 @@ def test_concat_tables_with_different_schema_metadata():
     assert not table1.schema.equals(table2.schema, check_metadata=True)
 
     table3 = pa.concat_tables([table1, table2])
-    assert table1.schema.equals(table3.schema, check_metadata=False)
+    assert table1.schema.equals(table3.schema, check_metadata=True)
     assert table2.schema.equals(table3.schema, check_metadata=False)
 
 
