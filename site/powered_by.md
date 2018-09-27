@@ -120,6 +120,11 @@ short description of your use case. See the following for some examples.
   Falcon loads Arrow files using the Arrow JavaScript module. Since Arrow does
   not need to be parsed (like text-based formats like CSV and JSON), startup cost
   is significantly minimized.
+* **[FASTDATA.io][26]**: Plasma Engine (unrelated to Arrow's Plasma In-Memory
+  Object Store) exploits the massive parallel processing power of GPUs for
+  stream and batch processing. It supports Arrow as input and output, uses
+  Arrow internally to maximize performance, and can be used with existing
+  Apache Spark™ APIs.
 
 [1]: https://www.apache.org/foundation/marks/
 [2]: https://www.apache.org/foundation/marks/faq/
@@ -146,3 +151,4 @@ short description of your use case. See the following for some examples.
 [23]: https://github.com/jpmorganchase/perspective
 [24]: https://github.com/Paradigm4/accelerated_io_tools
 [25]: https://github.com/uwdata/falcon
+[25]: https://fastdata.io/
