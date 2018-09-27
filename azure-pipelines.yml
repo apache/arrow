@@ -1,0 +1,106 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Add steps that publish test results, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/vsts/pipelines/apps/c-cpp/gcc
+
+# YAML schema is documented at
+# https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema?view=vsts
+
+variables:
+  # The system drive (C:) is slow so we download and install packages
+  # on the work drive (D:)
+  CONDA_ENVS_PATH: $(Agent.BuildDirectory)\conda-envs
+  CONDA_PKGS_DIRS: $(Agent.BuildDirectory)\conda-pkgs
+  CARGO_HOME: $(Agent.BuildDirectory)\cargo
+  RUSTUP_HOME: $(Agent.BuildDirectory)\rustup
+
+jobs:
+- job: Windows_Rust
+  displayName: Windows Rust
+  pool:
+    vmImage: 'vs2017-win2016'
+  variables:
+    TARGET: x86_64-pc-windows-msvc
+  steps:
+  - script: set
+    displayName: List environment variables
+  - powershell: |
+      $url = "https://win.rustup.rs/x86_64"
+      $outfile = "$($Env:AGENT_BUILDDIRECTORY)\rustup-init.exe"
+      Invoke-WebRequest -Uri $url -OutFile $outfile
+      & $outfile -y --default-host $Env:TARGET
+    displayName: Download and install Rustup
+  - script: |
+      set PATH=%CARGO_HOME%\bin;%PATH%
+      rustup show
+    displayName: Check Rustup installation
+  - script: |
+      set PATH=%CARGO_HOME%\bin;%PATH%
+      call ci\rust-build-main.bat
+    displayName: Rust build and tests
+
+- job: Windows_C
+  displayName: Windows C++ and Python (VS 2017, Release)
+  pool:
+    # Image description at:
+    # https://github.com/Microsoft/azure-pipelines-image-generation/blob/master/images/win/Vs2017-Server2016-Readme.md
+    vmImage: 'vs2017-win2016'
+  variables:
+    GENERATOR: Ninja
+    CONFIGURATION: Release
+    PYTHON: 3.7
+  steps:
+  - script: set
+    displayName: List environment variables
+  - script: |
+      echo on
+      set PATH=%CONDA%\Scripts;%PATH%
+      mkdir %CONDA_ENVS_PATH%
+      mkdir %CONDA_PKGS_DIRS%
+
+      conda config --set auto_update_conda false
+      conda info
+    displayName: Conda init & info
+  # Note: task "CondaEnvironment@1" doesn't set PATH correctly,
+  # so we create and activate environments manually
+  - script: |
+      echo on
+      set PATH=%CONDA%\Scripts;%PATH%
+      set CONDA_PACKAGES=--file=ci\conda_env_python.yml python=%PYTHON% numpy=1.14
+      @rem Minimal C++ build deps
+      set CONDA_PACKAGES=%CONDA_PACKAGES% ninja boost-cpp
+      @rem Toolchain packages
+      set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.yml
+      call conda create -n arrow -q -y %CONDA_PACKAGES% -c conda-forge || exit /B
+      call activate arrow
+
+      echo %PATH%
+      conda list
+
+    displayName: Install prerequisites
+  - script: |
+      echo on
+      set PATH=%CONDA%\Scripts;%PATH%
+      call activate arrow
+      call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
+      echo on
+      @rem Prevent CMake from picking up MinGW over MSVC
+      del /S /Q C:\Tools\mingw64\bin\*.exe
+      set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
+      call ci\cpp-msvc-build-main.bat
+    displayName: Build & test

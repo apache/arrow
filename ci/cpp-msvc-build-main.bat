@@ -19,19 +19,6 @@
 @rem (i.e. for usual configurations)
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
-set CMAKE_ARGS=-DARROW_VERBOSE_THIRDPARTY_BUILD=OFF
-
-if "%JOB%" == "Toolchain" (
-  @rem Toolchain gtest does not currently work with Visual Studio 2015
-  set CMAKE_ARGS=^
-      %CMAKE_ARGS% ^
-      -DARROW_WITH_BZ2=ON ^
-      -DARROW_DEPENDENCY_SOURCE=CONDA ^
-      -DGTest_SOURCE=BUNDLED
-) else (
-  @rem We're in a conda enviroment but don't want to use it for the dependencies
-  set CMAKE_ARGS=%CMAKE_ARGS% -DARROW_DEPENDENCY_SOURCE=AUTO
-)
 
 @rem Retrieve git submodules, configure env var for Parquet unit tests
 git submodule update --init || exit /B
@@ -51,21 +38,14 @@ set CMAKE_CXX_FLAGS_RELEASE=/Od /UNDEBUG
 mkdir cpp\build
 pushd cpp\build
 
-cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
-      -DCMAKE_VERBOSE_MAKEFILE=OFF ^
+cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_BUILD_STATIC=OFF ^
-      -DARROW_BUILD_TESTS=ON ^
-      -DARROW_BUILD_EXAMPLES=ON ^
-      -DARROW_BUILD_EXAMPLES=ON ^
-      -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
       -DARROW_CXXFLAGS="%ARROW_CXXFLAGS%" ^
       -DCMAKE_CXX_FLAGS_RELEASE="/MD %CMAKE_CXX_FLAGS_RELEASE%" ^
-      -DARROW_GANDIVA=%ARROW_BUILD_GANDIVA% ^
       -DARROW_PARQUET=ON ^
-      -DPARQUET_BUILD_EXECUTABLES=ON ^
       -DARROW_PYTHON=ON ^
       ..  || exit /B
 cmake --build . --target install --config %CONFIGURATION%  || exit /B
