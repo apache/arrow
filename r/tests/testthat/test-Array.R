@@ -64,3 +64,16 @@ test_that("Array supports NA", {
   expect_equal(Array__Mask(x_int), c(rep(TRUE, 10), FALSE))
   expect_equal(Array__Mask(x_dbl), c(rep(TRUE, 10), FALSE))
 })
+
+test_that("Array supports logical vectors (ARROW-3341)", {
+  # with NA
+  x <- sample(c(TRUE, FALSE, NA), 1000, replace = TRUE)
+  arr_lgl <- array(x)
+  expect_identical(x, arr_lgl$as_vector())
+
+  # without NA
+  x <- sample(c(TRUE, FALSE), 1000, replace = TRUE)
+  arr_lgl <- array(x)
+  expect_identical(x, arr_lgl$as_vector())
+})
+

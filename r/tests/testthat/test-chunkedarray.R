@@ -75,3 +75,28 @@ test_that("ChunkedArray handles NA", {
   expect_equal(Array__Mask(chunks[[2]]), !is.na(data[[2]]))
   expect_equal(Array__Mask(chunks[[3]]), !is.na(data[[3]]))
 })
+
+test_that("ChunkedArray supports logical vectors (ARROW-3341)", {
+  # with NA
+  data <- purrr::rerun(3, sample(c(TRUE, FALSE, NA), 100, replace = TRUE))
+  arr_lgl <- chunked_array(!!!data)
+  expect_equal(arr_lgl$length(), 300L)
+  expect_equal(arr_lgl$null_count(), sum(unlist(map(data, is.na))))
+
+  chunks <- arr_lgl$chunks()
+  expect_identical(data[[1]], chunks[[1]]$as_vector())
+  expect_identical(data[[2]], chunks[[2]]$as_vector())
+  expect_identical(data[[3]], chunks[[3]]$as_vector())
+
+  # without NA
+  data <- purrr::rerun(3, sample(c(TRUE, FALSE), 100, replace = TRUE))
+  arr_lgl <- chunked_array(!!!data)
+  expect_equal(arr_lgl$length(), 300L)
+  expect_equal(arr_lgl$null_count(), sum(unlist(map(data, is.na))))
+
+  chunks <- arr_lgl$chunks()
+  expect_identical(data[[1]], chunks[[1]]$as_vector())
+  expect_identical(data[[2]], chunks[[2]]$as_vector())
+  expect_identical(data[[3]], chunks[[3]]$as_vector())
+})
+

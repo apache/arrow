@@ -18,19 +18,22 @@
 context("arrow::RecordBatch")
 
 test_that("RecordBatch", {
-  tbl <- tibble::tibble(int = 1:10, dbl = as.numeric(1:10))
+  tbl <- tibble::tibble(
+    int = 1:10, dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE)
+  )
   batch <- record_batch(tbl)
 
   expect_true(batch == batch)
   expect_equal(
     batch$schema(),
-    schema(int = int32(), dbl = float64())
+    schema(int = int32(), dbl = float64(), lgl = boolean())
   )
-  expect_equal(batch$num_columns(), 2L)
+  expect_equal(batch$num_columns(), 3L)
   expect_equal(batch$num_rows(), 10L)
   expect_equal(batch$column_name(0), "int")
   expect_equal(batch$column_name(1), "dbl")
-  expect_equal(names(batch), c("int", "dbl"))
+  expect_equal(names(batch), c("int", "dbl", "lgl"))
 
   col_int <- batch$column(0)
   expect_true(inherits(col_int, 'arrow::Array'))
@@ -42,10 +45,15 @@ test_that("RecordBatch", {
   expect_equal(col_dbl$as_vector(), tbl$dbl)
   expect_equal(col_dbl$type(), float64())
 
+  col_lgl <- batch$column(2)
+  expect_true(inherits(col_dbl, 'arrow::Array'))
+  expect_equal(col_lgl$as_vector(), tbl$lgl)
+  expect_equal(col_lgl$type(), boolean())
+
   batch2 <- batch$RemoveColumn(0)
   expect_equal(
     batch2$schema(),
-    schema(dbl = float64())
+    schema(dbl = float64(), lgl = boolean())
   )
   expect_equal(batch2$column(0), batch$column(1))
 

@@ -36,11 +36,13 @@ class SimpleRBuffer : public arrow::Buffer {
   Vec vec_;
 };
 
-template <int RTYPE, typename Type>
+template <int RTYPE, typename Type, typename ArrayType>
 std::shared_ptr<arrow::Array> SimpleArray(SEXP x) {
   Rcpp::Vector<RTYPE> vec(x);
   std::vector<std::shared_ptr<arrow::Buffer>> buffers{
-      nullptr, std::make_shared<SimpleRBuffer<RTYPE>>(vec)};
+    nullptr,
+    std::make_shared<SimpleRBuffer<RTYPE>>(vec)
+  };
 
   int null_count = 0;
   if (RTYPE != RAWSXP) {
@@ -80,8 +82,70 @@ std::shared_ptr<arrow::Array> SimpleArray(SEXP x) {
   );
 
   // return the right Array class
-  return std::make_shared<arrow::NumericArray<Type>>(data);
+  return std::make_shared<ArrayType>(data);
 }
+
+std::shared_ptr<arrow::Array> MakeBooleanArray(Rcpp::Vector<LGLSXP, Rcpp::NoProtectStorage> vec) {
+  R_xlen_t n = vec.size();
+
+  // allocate a buffer for the data
+  std::shared_ptr<arrow::Buffer> data_bitmap;
+  R_ERROR_NOT_OK(arrow::AllocateBuffer(ceil(n/8), &data_bitmap));
+  auto data_bitmap_data = data_bitmap->mutable_data();
+  arrow::internal::FirstTimeBitmapWriter bitmap_writer(data_bitmap_data, 0, n);
+  R_xlen_t null_count = 0;
+
+  // loop until the first no null
+  R_xlen_t i = 0;
+  for(; i < n; i++, bitmap_writer.Next()) {
+    if (vec[i] == 0) {
+      bitmap_writer.Clear();
+    } else if (vec[i] == NA_LOGICAL) {
+      break;
+    } else {
+      bitmap_writer.Set();
+    }
+  }
+
+  std::shared_ptr<arrow::Buffer> null_bitmap(nullptr);
+  if (i < n) {
+    // there has been a null before the end, so we need
+    // to collect that information in a null bitmap
+    R_ERROR_NOT_OK(arrow::AllocateBuffer(ceil(n/8), &null_bitmap));
+    auto null_bitmap_data = null_bitmap->mutable_data();
+    arrow::internal::FirstTimeBitmapWriter null_bitmap_writer(null_bitmap_data, 0, n);
+
+    // catch up on the initial `i` bits
+    for (R_xlen_t j = 0; j < i; j++, null_bitmap_writer.Next()) {
+      null_bitmap_writer.Set();
+    }
+
+    // finish both bitmaps
+    for(; i < n; i++, bitmap_writer.Next(), null_bitmap_writer.Next()) {
+      if (vec[i] == 0) {
+        bitmap_writer.Clear();
+        null_bitmap_writer.Set();
+      } else if (vec[i] == NA_LOGICAL) {
+        null_bitmap_writer.Clear();
+        null_count++;
+      } else {
+        bitmap_writer.Set();
+        null_bitmap_writer.Set();
+      }
+    }
+    null_bitmap_writer.Finish();
+  }
+  bitmap_writer.Finish();
+
+  auto data = ArrayData::Make(
+    std::make_shared<BooleanType>(), n, {std::move(null_bitmap), std::move(data_bitmap) }, null_count, 0 /*offset*/
+  );
+
+  // return the right Array class
+  return std::make_shared<BooleanArray>(data);
+
+}
+
 
 }  // namespace r
 }  // namespace arrow
@@ -89,18 +153,20 @@ std::shared_ptr<arrow::Array> SimpleArray(SEXP x) {
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
   switch (TYPEOF(x)) {
-    case INTSXP:
-      if (Rf_isFactor(x)) {
-        break;
-      }
-      return arrow::r::SimpleArray<INTSXP, arrow::Int32Type>(x);
-    case REALSXP:
-      // TODO: Dates, ...
-      return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
-    case RAWSXP:
-      return arrow::r::SimpleArray<RAWSXP, arrow::Int8Type>(x);
-    default:
+  case LGLSXP:
+    return arrow::r::MakeBooleanArray(x);
+  case INTSXP:
+    if (Rf_isFactor(x)) {
       break;
+    }
+    return arrow::r::SimpleArray<INTSXP, arrow::Int32Type, arrow::NumericArray<arrow::Int32Type>>(x);
+  case REALSXP:
+    // TODO: Dates, ...
+    return arrow::r::SimpleArray<REALSXP, arrow::DoubleType, arrow::NumericArray<arrow::DoubleType>>(x);
+  case RAWSXP:
+    return arrow::r::SimpleArray<RAWSXP, arrow::Int8Type, arrow::NumericArray<arrow::Int8Type>>(x);
+  default:
+    break;
   }
 
   stop("not handled");
@@ -131,18 +197,43 @@ inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   return vec;
 }
 
+inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
+  size_t n = array->length();
+  LogicalVector vec(n);
+
+  // process the data
+  arrow::internal::BitmapReader data_reader(array->data()->buffers[1]->data(), array->offset(), n);
+  for (size_t i = 0; i < n; i++, data_reader.Next()) {
+    vec[i] = data_reader.IsSet();
+  }
+
+  // then the null bitmap if needed
+  if (array->null_count()) {
+    arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(), array->offset(), n);
+    for (size_t i = 0; i < n; i++, null_reader.Next()) {
+      if (null_reader.IsNotSet()) {
+        vec[i] = LogicalVector::get_na();
+      }
+    }
+  }
+
+  return vec;
+}
+
 // [[Rcpp::export]]
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
   switch (array->type_id()) {
-    case Type::INT8:
-      return simple_Array_to_Vector<RAWSXP>(array);
-    case Type::INT32:
-      return simple_Array_to_Vector<INTSXP>(array);
-    case Type::DOUBLE:
-      return simple_Array_to_Vector<REALSXP>(array);
-    default:
-      break;
-  }
+  case Type::BOOL:
+    return BooleanArray_to_Vector(array);
+  case Type::INT8:
+    return simple_Array_to_Vector<RAWSXP>(array);
+  case Type::INT32:
+    return simple_Array_to_Vector<INTSXP>(array);
+  case Type::DOUBLE:
+    return simple_Array_to_Vector<REALSXP>(array);
+  default:
+    break;
+}
 
   stop(tfm::format("cannot handle Array of type %d", array->type_id()));
   return R_NilValue;
