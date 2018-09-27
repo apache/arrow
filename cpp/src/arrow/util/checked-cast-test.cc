@@ -22,6 +22,7 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
+namespace internal {
 
 class Foo {
  public:
@@ -68,4 +69,5 @@ TEST(CheckedCast, TestInvalidSubclassCast) {
 #endif
 }
 
+}  // namespace internal
 }  // namespace arrow

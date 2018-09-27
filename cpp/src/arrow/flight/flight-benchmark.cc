@@ -43,9 +43,11 @@ DEFINE_int32(records_per_batch, 4096, "Total records per batch within stream");
 
 namespace perf = arrow::flight::perf;
 
-using ThreadPool = ::arrow::internal::ThreadPool;
-
 namespace arrow {
+
+using internal::StopWatch;
+using internal::ThreadPool;
+
 namespace flight {
 
 struct PerformanceStats {

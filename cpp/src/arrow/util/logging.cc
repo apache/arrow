@@ -28,6 +28,7 @@
 #endif
 
 namespace arrow {
+namespace util {
 
 // This code is adapted from
 // https://github.com/ray-project/ray/blob/master/src/ray/util/logging.cc.
@@ -78,7 +79,7 @@ class CerrLog {
 #ifdef ARROW_USE_GLOG
 typedef google::LogMessage LoggingProvider;
 #else
-typedef arrow::CerrLog LoggingProvider;
+typedef CerrLog LoggingProvider;
 #endif
 
 ArrowLogLevel ArrowLog::severity_threshold_ = ArrowLogLevel::ARROW_INFO;
@@ -186,4 +187,5 @@ ArrowLog::~ArrowLog() {
   }
 }
 
+}  // namespace util
 }  // namespace arrow

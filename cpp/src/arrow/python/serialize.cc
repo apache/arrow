@@ -50,6 +50,9 @@
 constexpr int32_t kMaxRecursionDepth = 100;
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace py {
 
 /// A Sequence is a heterogeneous collections of elements. It can contain

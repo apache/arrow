@@ -29,6 +29,7 @@ using std::string;
 using std::vector;
 
 namespace arrow {
+namespace util {
 
 template <Compression::type CODEC>
 void CheckCodecRoundtrip(const vector<uint8_t>& data) {
@@ -88,4 +89,5 @@ TEST(TestCompressors, ZSTD) { CheckCodec<Compression::ZSTD>(); }
 
 TEST(TestCompressors, Lz4) { CheckCodec<Compression::LZ4>(); }
 
+}  // namespace util
 }  // namespace arrow

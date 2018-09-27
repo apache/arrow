@@ -52,7 +52,8 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       num_bytes = *reinterpret_cast<const int32_t*>(data);
       const uint8_t* decoder_data = data + sizeof(int32_t);
       if (!rle_decoder_) {
-        rle_decoder_.reset(new ::arrow::RleDecoder(decoder_data, num_bytes, bit_width_));
+        rle_decoder_.reset(
+            new ::arrow::util::RleDecoder(decoder_data, num_bytes, bit_width_));
       } else {
         rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
       }
@@ -62,7 +63,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       num_bytes =
           static_cast<int32_t>(BitUtil::BytesForBits(num_buffered_values * bit_width_));
       if (!bit_packed_decoder_) {
-        bit_packed_decoder_.reset(new ::arrow::BitReader(data, num_bytes));
+        bit_packed_decoder_.reset(new ::arrow::BitUtil::BitReader(data, num_bytes));
       } else {
         bit_packed_decoder_->Reset(data, num_bytes);
       }
@@ -123,7 +124,7 @@ class SerializedPageReader : public PageReader {
   std::shared_ptr<Page> current_page_;
 
   // Compression codec to use.
-  std::unique_ptr<::arrow::Codec> decompressor_;
+  std::unique_ptr<::arrow::util::Codec> decompressor_;
   std::shared_ptr<ResizableBuffer> decompression_buffer_;
 
   // Maximum allowed page size

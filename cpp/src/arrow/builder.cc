@@ -47,6 +47,7 @@
 namespace arrow {
 
 using internal::AdaptiveIntBuilderBase;
+using internal::checked_cast;
 
 namespace {
 

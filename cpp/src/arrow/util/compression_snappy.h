@@ -25,6 +25,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace util {
 
 class ARROW_EXPORT SnappyCodec : public Codec {
  public:
@@ -39,6 +40,7 @@ class ARROW_EXPORT SnappyCodec : public Codec {
   const char* name() const override { return "snappy"; }
 };
 
+}  // namespace util
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_COMPRESSION_SNAPPY_H

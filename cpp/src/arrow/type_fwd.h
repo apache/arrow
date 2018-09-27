@@ -135,26 +135,42 @@ using IntervalArray = NumericArray<IntervalType>;
 
 // ----------------------------------------------------------------------
 // (parameter-free) Factory functions
+// Other factory functions are in type.h
 
+/// \brief Return a NullType instance
 std::shared_ptr<DataType> ARROW_EXPORT null();
+/// \brief Return a BooleanType instance
 std::shared_ptr<DataType> ARROW_EXPORT boolean();
+/// \brief Return a Int8Type instance
 std::shared_ptr<DataType> ARROW_EXPORT int8();
+/// \brief Return a Int16Type instance
 std::shared_ptr<DataType> ARROW_EXPORT int16();
+/// \brief Return a Int32Type instance
 std::shared_ptr<DataType> ARROW_EXPORT int32();
+/// \brief Return a Int64Type instance
 std::shared_ptr<DataType> ARROW_EXPORT int64();
+/// \brief Return a UInt8Type instance
 std::shared_ptr<DataType> ARROW_EXPORT uint8();
+/// \brief Return a UInt16Type instance
 std::shared_ptr<DataType> ARROW_EXPORT uint16();
+/// \brief Return a UInt32Type instance
 std::shared_ptr<DataType> ARROW_EXPORT uint32();
+/// \brief Return a UInt64Type instance
 std::shared_ptr<DataType> ARROW_EXPORT uint64();
+/// \brief Return a HalfFloatType instance
 std::shared_ptr<DataType> ARROW_EXPORT float16();
+/// \brief Return a FloatType instance
 std::shared_ptr<DataType> ARROW_EXPORT float32();
+/// \brief Return a DoubleType instance
 std::shared_ptr<DataType> ARROW_EXPORT float64();
+/// \brief Return a StringType instance
 std::shared_ptr<DataType> ARROW_EXPORT utf8();
+/// \brief Return a BinaryType instance
 std::shared_ptr<DataType> ARROW_EXPORT binary();
-
+/// \brief Return a Date32Type instance
 std::shared_ptr<DataType> ARROW_EXPORT date32();
+/// \brief Return a Date64Type instance
 std::shared_ptr<DataType> ARROW_EXPORT date64();
-std::shared_ptr<DataType> ARROW_EXPORT decimal_type(int precision, int scale);
 
 }  // namespace arrow
 

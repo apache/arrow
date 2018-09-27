@@ -46,6 +46,7 @@
 namespace arrow {
 
 namespace flatbuf = org::apache::arrow::flatbuf;
+using internal::checked_cast;
 
 namespace ipc {
 namespace internal {

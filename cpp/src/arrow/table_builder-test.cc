@@ -33,6 +33,8 @@
 
 namespace arrow {
 
+using internal::checked_cast;
+
 class TestRecordBatchBuilder : public TestBase {
  public:
 };

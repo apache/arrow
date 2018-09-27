@@ -26,6 +26,7 @@
 #include <iostream>
 
 namespace arrow {
+namespace internal {
 
 uint64_t CurrentTime() {
   timespec time;
@@ -46,4 +47,5 @@ class StopWatch {
   uint64_t start_;
 };
 
+}  // namespace internal
 }  // namespace arrow

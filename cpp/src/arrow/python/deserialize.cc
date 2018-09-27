@@ -45,6 +45,9 @@
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace py {
 
 Status CallDeserializeCallback(PyObject* context, PyObject* value,

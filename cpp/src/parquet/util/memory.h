@@ -37,15 +37,17 @@
 #include "parquet/util/visibility.h"
 
 namespace arrow {
+namespace util {
 
 class Codec;
 
+}  // namespace util
 }  // namespace arrow
 
 namespace parquet {
 
 PARQUET_EXPORT
-std::unique_ptr<::arrow::Codec> GetCodecFromArrow(Compression::type codec);
+std::unique_ptr<::arrow::util::Codec> GetCodecFromArrow(Compression::type codec);
 
 static constexpr int64_t kInMemoryDefaultCapacity = 1024;
 

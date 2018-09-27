@@ -71,6 +71,10 @@
 #endif  // ARROW_EXTRA_ERROR_CONTEXT
 
 namespace arrow {
+
+using internal::checked_cast;
+using internal::CopyBitmap;
+
 namespace compute {
 
 constexpr int64_t kMillisecondsInDay = 86400000;

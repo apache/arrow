@@ -143,7 +143,7 @@ class PlainDecoder<BooleanType> : public Decoder<BooleanType> {
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
-    bit_reader_ = ::arrow::BitReader(data, len);
+    bit_reader_ = BitUtil::BitReader(data, len);
   }
 
   // Two flavors of bool decoding
@@ -175,7 +175,7 @@ class PlainDecoder<BooleanType> : public Decoder<BooleanType> {
   }
 
  private:
-  ::arrow::BitReader bit_reader_;
+  BitUtil::BitReader bit_reader_;
 };
 
 // ----------------------------------------------------------------------
@@ -210,7 +210,7 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
         bits_available_(kInMemoryDefaultCapacity * 8),
         bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
         values_sink_(new InMemoryOutputStream(pool)) {
-    bit_writer_.reset(new ::arrow::BitWriter(bits_buffer_->mutable_data(),
+    bit_writer_.reset(new BitUtil::BitWriter(bits_buffer_->mutable_data(),
                                              static_cast<int>(bits_buffer_->size())));
   }
 
@@ -274,7 +274,7 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
 
  protected:
   int bits_available_;
-  std::unique_ptr<::arrow::BitWriter> bit_writer_;
+  std::unique_ptr<BitUtil::BitWriter> bit_writer_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   std::unique_ptr<InMemoryOutputStream> values_sink_;
 };
@@ -341,7 +341,7 @@ class DictionaryDecoder : public Decoder<Type> {
     uint8_t bit_width = *data;
     ++data;
     --len;
-    idx_decoder_ = ::arrow::RleDecoder(data, len, bit_width);
+    idx_decoder_ = ::arrow::util::RleDecoder(data, len, bit_width);
   }
 
   int Decode(T* buffer, int max_values) override {
@@ -376,7 +376,7 @@ class DictionaryDecoder : public Decoder<Type> {
   // pointers).
   std::shared_ptr<ResizableBuffer> byte_array_data_;
 
-  ::arrow::RleDecoder idx_decoder_;
+  ::arrow::util::RleDecoder idx_decoder_;
 };
 
 template <typename Type>
@@ -468,7 +468,7 @@ class DictEncoder : public Encoder<DType> {
         dict_encoded_size_(0),
         type_length_(desc->type_length()) {
     hash_slots_.Assign(hash_table_size_, HASH_SLOT_EMPTY);
-    cpu_info_ = ::arrow::CpuInfo::GetInstance();
+    cpu_info_ = ::arrow::internal::CpuInfo::GetInstance();
   }
 
   ~DictEncoder() override { DCHECK(buffered_indices_.empty()); }
@@ -487,9 +487,9 @@ class DictEncoder : public Encoder<DType> {
     // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
     // but not reserving them would cause the encoder to fail.
     return 1 +
-           ::arrow::RleEncoder::MaxBufferSize(
+           ::arrow::util::RleEncoder::MaxBufferSize(
                bit_width(), static_cast<int>(buffered_indices_.size())) +
-           ::arrow::RleEncoder::MinBufferSize(bit_width());
+           ::arrow::util::RleEncoder::MinBufferSize(bit_width());
   }
 
   /// The minimum bit width required to encode the currently buffered indices.
@@ -580,7 +580,7 @@ class DictEncoder : public Encoder<DType> {
   // For ByteArray / FixedLenByteArray data. Not owned
   ChunkedAllocator* pool_;
 
-  ::arrow::CpuInfo* cpu_info_;
+  ::arrow::internal::CpuInfo* cpu_info_;
 
   /// Size of the table. Must be a power of 2.
   int hash_table_size_;
@@ -791,7 +791,7 @@ inline int DictEncoder<DType>::WriteIndices(uint8_t* buffer, int buffer_len) {
   ++buffer;
   --buffer_len;
 
-  ::arrow::RleEncoder encoder(buffer, buffer_len, bit_width());
+  ::arrow::util::RleEncoder encoder(buffer, buffer_len, bit_width());
   for (int index : buffered_indices_) {
     if (!encoder.Put(index)) return -1;
   }
@@ -819,7 +819,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
-    decoder_ = ::arrow::BitReader(data, len);
+    decoder_ = BitUtil::BitReader(data, len);
     values_current_block_ = 0;
     values_current_mini_block_ = 0;
   }
@@ -885,7 +885,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
   }
 
   ::arrow::MemoryPool* pool_;
-  ::arrow::BitReader decoder_;
+  BitUtil::BitReader decoder_;
   int32_t values_current_block_;
   int32_t num_mini_blocks_;
   uint64_t values_per_mini_block_;

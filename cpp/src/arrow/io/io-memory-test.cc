@@ -32,6 +32,9 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace io {
 
 class TestBufferOutputStream : public ::testing::Test {

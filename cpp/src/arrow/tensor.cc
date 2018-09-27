@@ -32,6 +32,8 @@
 
 namespace arrow {
 
+using internal::checked_cast;
+
 static void ComputeRowMajorStrides(const FixedWidthType& type,
                                    const std::vector<int64_t>& shape,
                                    std::vector<int64_t>* strides) {

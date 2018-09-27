@@ -47,6 +47,9 @@
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace py {
 
 // ----------------------------------------------------------------------

@@ -28,6 +28,7 @@
 #include "arrow/util/macros.h"
 
 namespace arrow {
+namespace util {
 
 // ----------------------------------------------------------------------
 // Brotli implementation
@@ -61,4 +62,5 @@ Status BrotliCodec::Compress(int64_t input_len, const uint8_t* input,
   return Status::OK();
 }
 
+}  // namespace util
 }  // namespace arrow

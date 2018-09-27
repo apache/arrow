@@ -37,13 +37,21 @@
 
 namespace arrow {
 
-// Get the number of worker threads used by the process-global thread pool
-// for CPU-bound tasks.  This is an idealized number, the actual number
-// may lag a bit.
+/// \brief Get the capacity of the global thread pool
+///
+/// Return the number of worker threads in the thread pool to which
+/// Arrow dispatches various CPU-bound tasks.  This is an ideal number,
+/// not necessarily the exact number of threads at a given point in time.
+///
+/// You can change this number using SetCpuThreadPoolCapacity().
 ARROW_EXPORT int GetCpuThreadPoolCapacity();
 
-// Set the number of worker threads used by the process-global thread pool
-// for CPU-bound tasks.
+/// \brief Set the capacity of the global thread pool
+///
+/// Set the number of worker threads int the thread pool to which
+/// Arrow dispatches various CPU-bound tasks.
+///
+/// The current number is returned by GetCpuThreadPoolCapacity().
 ARROW_EXPORT Status SetCpuThreadPoolCapacity(int threads);
 
 namespace internal {

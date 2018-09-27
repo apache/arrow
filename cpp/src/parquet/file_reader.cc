@@ -41,12 +41,6 @@
 
 using std::string;
 
-namespace arrow {
-
-class Codec;
-
-}  // namespace arrow
-
 namespace parquet {
 
 // PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
