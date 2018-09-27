@@ -88,6 +88,9 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     ninja install
     popd
 
+    # Check that we don't expose any unwanted symbols
+    /io/scripts/check_arrow_visibility.sh
+
     # Clear output directory
     rm -rf dist/
     echo "=== (${PYTHON}) Building wheel ==="
