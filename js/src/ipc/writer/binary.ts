@@ -215,7 +215,7 @@ export class RecordBatchSerializer extends VectorVisitor {
                 // Set all to -1 to indicate that we haven't observed a first occurrence of a particular child yet
                 const childOffsets = new Int32Array(maxChildTypeId + 1).fill(-1);
                 const shiftedOffsets = new Int32Array(length);
-                const unshiftedOffsets = this.getZeroBasedValueOffsets(sliceOffset, length, valueOffsets);
+                const unshiftedOffsets = this.getZeroBasedValueOffsets(0, length, valueOffsets);
                 for (let typeId, shift, index = -1; ++index < length;) {
                     typeId = typeIds[index];
                     // ~(-1) used to be faster than x === -1, so maybe worth benchmarking the difference of these two impls for large dense unions:
@@ -257,9 +257,9 @@ export class RecordBatchSerializer extends VectorVisitor {
     }
     protected visitFlatVector<T extends FlatType>(vector: Vector<T>) {
         const { view, data } = vector;
-        const { offset, length, values } = data;
+        const { length, values } = data;
         const scaledLength = length * ((view as any).size || 1);
-        return this.addBuffer(values.subarray(offset, scaledLength));
+        return this.addBuffer(values.subarray(0, scaledLength));
     }
     protected visitFlatListVector<T extends FlatListType>(vector: Vector<T>) {
         const { data, length } = vector;
@@ -269,17 +269,17 @@ export class RecordBatchSerializer extends VectorVisitor {
         const byteLength = Math.min(lastOffset - firstOffset, values.byteLength - firstOffset);
         // Push in the order FlatList types read their buffers
         // valueOffsets buffer first
-        this.addBuffer(this.getZeroBasedValueOffsets(offset, length, valueOffsets));
+        this.addBuffer(this.getZeroBasedValueOffsets(0, length, valueOffsets));
         // sliced values buffer second
         this.addBuffer(values.subarray(firstOffset + offset, firstOffset + offset + byteLength));
         return this;
     }
     protected visitListVector<T extends SingleNestedType>(vector: Vector<T>) {
         const { data, length } = vector;
-        const { offset, valueOffsets } = <any> data;
+        const { valueOffsets } = <any> data;
         // If we have valueOffsets (ListVector), push that buffer first
         if (valueOffsets) {
-            this.addBuffer(this.getZeroBasedValueOffsets(offset, length, valueOffsets));
+            this.addBuffer(this.getZeroBasedValueOffsets(0, length, valueOffsets));
         }
         // Then insert the List's values child
         return this.visit((vector as any as ListVector<T>).getChildAt(0)!);

@@ -93,16 +93,21 @@ export class Table implements DataFrame {
     constructor(schema: Schema, batches: RecordBatch[]);
     constructor(schema: Schema, ...batches: RecordBatch[]);
     constructor(...args: any[]) {
-        let schema: Schema;
-        let batches: RecordBatch[];
+
+        let schema: Schema = null!;
+
         if (args[0] instanceof Schema) {
-            schema = args[0];
-            batches = Array.isArray(args[1][0]) ? args[1][0] : args[1];
-        } else if (args[0] instanceof RecordBatch) {
-            schema = (batches = args)[0].schema;
-        } else {
-            schema = (batches = args[0])[0].schema;
+            schema = args.shift();
         }
+
+        let batches = args.reduce(function flatten(xs: any[], x: any): any[] {
+            return Array.isArray(x) ? x.reduce(flatten, xs) : [...xs, x];
+        }, []).filter((x: any): x is RecordBatch => x instanceof RecordBatch);
+
+        if (!schema && !(schema = batches[0] && batches[0].schema)) {
+            throw new TypeError('Table must be initialized with a Schema or at least one RecordBatch with a Schema');
+        }
+
         this.schema = schema;
         this.batches = batches;
         this.batchesUnion = batches.length == 0 ?
