@@ -769,7 +769,8 @@ def test_coerce_timestamps(tempdir):
 
 def test_coerce_timestamps_truncated(tempdir):
     """
-    ARROW-2555: Test that we can truncate timestamps when coercing if explicitly allowed.
+    ARROW-2555: Test that we can truncate timestamps when coercing if
+    explicitly allowed.
     """
     dt_us = datetime.datetime(year=2017, month=1, day=1, hour=1, minute=1,
                               second=1, microsecond=1)
