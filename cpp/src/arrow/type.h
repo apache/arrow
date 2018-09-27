@@ -38,10 +38,8 @@ namespace arrow {
 
 /// \brief Main data type enumeration
 ///
-/// Data types in this library are all *logical*. They can be expressed as
-/// either a primitive physical type (bytes or bits of some fixed size), a
-/// nested type consisting of other data types, or another data type (e.g. a
-/// timestamp encoded as an int64)
+/// This enumeration provides a quick way to interrogate the category
+/// of a DataType instance.
 struct Type {
   enum type {
     /// A NULL type having no physical storage
@@ -134,6 +132,15 @@ struct Type {
   };
 };
 
+/// \brief Base class for all data types
+///
+/// Data types in this library are all *logical*. They can be expressed as
+/// either a primitive physical type (bytes or bits of some fixed size), a
+/// nested type consisting of other data types, or another data type (e.g. a
+/// timestamp encoded as an int64).
+///
+/// Simple datatypes may be entirely described by their Type id, but
+/// complex datatypes are usually parametric.
 class ARROW_EXPORT DataType {
  public:
   explicit DataType(Type::type id) : id_(id) {}
@@ -178,6 +185,7 @@ inline std::ostream& operator<<(std::ostream& os, const DataType& type) {
   return os;
 }
 
+/// \brief Base class for all fixed-width data types
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:
   using DataType::DataType;
@@ -185,22 +193,26 @@ class ARROW_EXPORT FixedWidthType : public DataType {
   virtual int bit_width() const = 0;
 };
 
+/// \brief Base class for all data types representing primitive values
 class ARROW_EXPORT PrimitiveCType : public FixedWidthType {
  public:
   using FixedWidthType::FixedWidthType;
 };
 
+/// \brief Base class for all numeric data types
 class ARROW_EXPORT Number : public PrimitiveCType {
  public:
   using PrimitiveCType::PrimitiveCType;
 };
 
+/// \brief Base class for all integral data types
 class ARROW_EXPORT Integer : public Number {
  public:
   using Number::Number;
   virtual bool is_signed() const = 0;
 };
 
+/// \brief Base class for all floating-point data types
 class ARROW_EXPORT FloatingPoint : public Number {
  public:
   using Number::Number;
@@ -208,8 +220,7 @@ class ARROW_EXPORT FloatingPoint : public Number {
   virtual Precision precision() const = 0;
 };
 
-/// \class ParametricType
-/// \brief A superclass for types having additional metadata
+/// \brief Base class for all parametric data types
 class ParametricType {};
 
 class ARROW_EXPORT NestedType : public DataType, public ParametricType {
@@ -219,8 +230,13 @@ class ARROW_EXPORT NestedType : public DataType, public ParametricType {
 
 class NoExtraMeta {};
 
-// A field is a piece of metadata that includes (for now) a name and a data
-// type
+/// \brief The combination of a field name and data type, with optional metadata
+///
+/// Fields are used to describe the individual constituents of a
+/// nested DataType or a Schema.
+///
+/// A field's metadata is represented by a KeyValueMetadata instance,
+/// which holds arbitrary key-value pairs.
 class ARROW_EXPORT Field {
  public:
   Field(const std::string& name, const std::shared_ptr<DataType>& type,
@@ -274,7 +290,7 @@ class ARROW_EXPORT CTypeImpl : public BASE {
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * CHAR_BIT); }
 
   Status Accept(TypeVisitor* visitor) const override {
-    return visitor->Visit(checked_cast<const DERIVED&>(*this));
+    return visitor->Visit(internal::checked_cast<const DERIVED&>(*this));
   }
 
   std::string ToString() const override { return this->name(); }
@@ -287,6 +303,7 @@ class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, Integer, TYPE_ID, C_TY
 
 }  // namespace detail
 
+/// Concrete type class for always-null data
 class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
  public:
   static constexpr Type::type type_id = Type::NA;
@@ -299,6 +316,7 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
   std::string name() const override { return "null"; }
 };
 
+/// Concrete type class for boolean data
 class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
  public:
   static constexpr Type::type type_id = Type::BOOL;
@@ -312,54 +330,63 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   std::string name() const override { return "bool"; }
 };
 
+/// Concrete type class for unsigned 8-bit integer data
 class ARROW_EXPORT UInt8Type
     : public detail::IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
  public:
   std::string name() const override { return "uint8"; }
 };
 
+/// Concrete type class for signed 8-bit integer data
 class ARROW_EXPORT Int8Type
     : public detail::IntegerTypeImpl<Int8Type, Type::INT8, int8_t> {
  public:
   std::string name() const override { return "int8"; }
 };
 
+/// Concrete type class for unsigned 16-bit integer data
 class ARROW_EXPORT UInt16Type
     : public detail::IntegerTypeImpl<UInt16Type, Type::UINT16, uint16_t> {
  public:
   std::string name() const override { return "uint16"; }
 };
 
+/// Concrete type class for signed 16-bit integer data
 class ARROW_EXPORT Int16Type
     : public detail::IntegerTypeImpl<Int16Type, Type::INT16, int16_t> {
  public:
   std::string name() const override { return "int16"; }
 };
 
+/// Concrete type class for unsigned 32-bit integer data
 class ARROW_EXPORT UInt32Type
     : public detail::IntegerTypeImpl<UInt32Type, Type::UINT32, uint32_t> {
  public:
   std::string name() const override { return "uint32"; }
 };
 
+/// Concrete type class for signed 32-bit integer data
 class ARROW_EXPORT Int32Type
     : public detail::IntegerTypeImpl<Int32Type, Type::INT32, int32_t> {
  public:
   std::string name() const override { return "int32"; }
 };
 
+/// Concrete type class for unsigned 64-bit integer data
 class ARROW_EXPORT UInt64Type
     : public detail::IntegerTypeImpl<UInt64Type, Type::UINT64, uint64_t> {
  public:
   std::string name() const override { return "uint64"; }
 };
 
+/// Concrete type class for signed 64-bit integer data
 class ARROW_EXPORT Int64Type
     : public detail::IntegerTypeImpl<Int64Type, Type::INT64, int64_t> {
  public:
   std::string name() const override { return "int64"; }
 };
 
+/// Concrete type class for 16-bit floating-point data
 class ARROW_EXPORT HalfFloatType
     : public detail::CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
  public:
@@ -367,6 +394,7 @@ class ARROW_EXPORT HalfFloatType
   std::string name() const override { return "halffloat"; }
 };
 
+/// Concrete type class for 32-bit floating-point data (C "float")
 class ARROW_EXPORT FloatType
     : public detail::CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
  public:
@@ -374,6 +402,7 @@ class ARROW_EXPORT FloatType
   std::string name() const override { return "float"; }
 };
 
+/// Concrete type class for 64-bit floating-point data (C "double")
 class ARROW_EXPORT DoubleType
     : public detail::CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
  public:
@@ -381,6 +410,11 @@ class ARROW_EXPORT DoubleType
   std::string name() const override { return "double"; }
 };
 
+/// \brief Concrete type class for list data
+///
+/// List data is nested data where each value is a variable number of
+/// child items.  Lists can be recursively nested, for example
+/// list(list(int32)).
 class ARROW_EXPORT ListType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::LIST;
@@ -403,7 +437,7 @@ class ARROW_EXPORT ListType : public NestedType {
   std::string name() const override { return "list"; }
 };
 
-// BinaryType type is represents lists of 1-byte values.
+/// \brief Concrete type class for variable-size binary data
 class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
  public:
   static constexpr Type::type type_id = Type::BINARY;
@@ -419,7 +453,7 @@ class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
   explicit BinaryType(Type::type logical_type) : DataType(logical_type) {}
 };
 
-// BinaryType type is represents lists of 1-byte values.
+/// \brief Concrete type class for fixed-size binary data
 class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public ParametricType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_BINARY;
@@ -440,7 +474,7 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
   int32_t byte_width_;
 };
 
-// UTF-8 encoded strings
+/// \brief Concrete type class for variable-size string data, utf8-encoded
 class ARROW_EXPORT StringType : public BinaryType {
  public:
   static constexpr Type::type type_id = Type::STRING;
@@ -452,6 +486,7 @@ class ARROW_EXPORT StringType : public BinaryType {
   std::string name() const override { return "utf8"; }
 };
 
+/// \brief Concrete type class for struct data
 class ARROW_EXPORT StructType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::STRUCT;
@@ -476,6 +511,7 @@ class ARROW_EXPORT StructType : public NestedType {
   mutable std::unordered_map<std::string, int> name_to_index_;
 };
 
+/// \brief Base type class for (fixed-size) decimal data
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
  public:
   explicit DecimalType(int32_t byte_width, int32_t precision, int32_t scale)
@@ -491,6 +527,7 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   int32_t scale_;
 };
 
+/// \brief Concrete type class for 128-bit decimal data
 class ARROW_EXPORT Decimal128Type : public DecimalType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL;
@@ -507,6 +544,7 @@ struct UnionMode {
   enum type { SPARSE, DENSE };
 };
 
+/// \brief Concrete type class for union data
 class ARROW_EXPORT UnionType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::UNION;
@@ -537,6 +575,7 @@ class ARROW_EXPORT UnionType : public NestedType {
 
 enum class DateUnit : char { DAY = 0, MILLI = 1 };
 
+/// \brief Base type class for date data
 class ARROW_EXPORT DateType : public FixedWidthType {
  public:
   DateUnit unit() const { return unit_; }
@@ -546,7 +585,7 @@ class ARROW_EXPORT DateType : public FixedWidthType {
   DateUnit unit_;
 };
 
-/// Date as int32_t days since UNIX epoch
+/// Concrete type class for 32-bit date data (as number of days since UNIX epoch)
 class ARROW_EXPORT Date32Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE32;
@@ -563,7 +602,7 @@ class ARROW_EXPORT Date32Type : public DateType {
   std::string name() const override { return "date32"; }
 };
 
-/// Date as int64_t milliseconds since UNIX epoch
+/// Concrete type class for 64-bit date data (as number of milliseconds since UNIX epoch)
 class ARROW_EXPORT Date64Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE64;
@@ -602,6 +641,7 @@ static inline std::ostream& operator<<(std::ostream& os, TimeUnit::type unit) {
   return os;
 }
 
+/// Base type class for time data
 class ARROW_EXPORT TimeType : public FixedWidthType, public ParametricType {
  public:
   TimeUnit::type unit() const { return unit_; }
@@ -693,6 +733,7 @@ class ARROW_EXPORT IntervalType : public FixedWidthType {
 // ----------------------------------------------------------------------
 // DictionaryType (for categorical or dictionary-encoded data)
 
+/// Concrete type class for dictionary data
 class ARROW_EXPORT DictionaryType : public FixedWidthType {
  public:
   static constexpr Type::type type_id = Type::DICTIONARY;
@@ -789,55 +830,58 @@ class ARROW_EXPORT Schema {
 };
 
 // ----------------------------------------------------------------------
-// Factory functions
+// Parametric factory functions
+// Other factory functions are in type_fwd.h
 
-/// \brief Make an instance of FixedSizeBinaryType
+/// \brief Create a FixedSizeBinaryType instance
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 
-/// \brief Make an instance of DecimalType
+/// \brief Create a Decimal128Type instance
 ARROW_EXPORT
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
 
-/// \brief Make an instance of ListType
+/// \brief Create a ListType instance from its child Field type
 ARROW_EXPORT
 std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
 
-/// \brief Make an instance of ListType
+/// \brief Create a ListType instance from its child DataType
 ARROW_EXPORT
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
 
-/// \brief Make an instance of TimestampType
+/// \brief Create a TimestampType instance from its unit
 ARROW_EXPORT
 std::shared_ptr<DataType> timestamp(TimeUnit::type unit);
 
-/// \brief Make an instance of TimestampType
+/// \brief Create a TimestampType instance from its unit and timezone
 ARROW_EXPORT
 std::shared_ptr<DataType> timestamp(TimeUnit::type unit, const std::string& timezone);
 
-/// \brief Create an instance of 32-bit time type
+/// \brief Create a 32-bit time type instance
+///
 /// Unit can be either SECOND or MILLI
 std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit::type unit);
 
-/// \brief Create an instance of 64-bit time type
+/// \brief Create a 64-bit time type instance
+///
 /// Unit can be either MICRO or NANO
 std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
 
-/// \brief Create an instance of Struct type
+/// \brief Create a StructType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 struct_(const std::vector<std::shared_ptr<Field>>& fields);
 
-/// \brief Create an instance of Union type
+/// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
        const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
 
-/// \brief Create and instance of Union type
+/// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
        UnionMode::type mode = UnionMode::SPARSE);
 
-/// \brief Create an instance of Dictionary type
+/// \brief Create a DictionaryType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 dictionary(const std::shared_ptr<DataType>& index_type,
            const std::shared_ptr<Array>& values, bool ordered = false);

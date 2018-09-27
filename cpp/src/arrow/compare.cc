@@ -35,6 +35,9 @@
 
 namespace arrow {
 
+using internal::BitmapEquals;
+using internal::checked_cast;
+
 // ----------------------------------------------------------------------
 // Public method implementations
 

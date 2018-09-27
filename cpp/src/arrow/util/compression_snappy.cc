@@ -28,6 +28,7 @@
 using std::size_t;
 
 namespace arrow {
+namespace util {
 
 // ----------------------------------------------------------------------
 // Snappy implementation
@@ -59,4 +60,5 @@ Status SnappyCodec::Compress(int64_t input_len, const uint8_t* input,
   return Status::OK();
 }
 
+}  // namespace util
 }  // namespace arrow

@@ -35,9 +35,7 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-
 namespace BitUtil {
-
 namespace {
 
 void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
@@ -65,6 +63,8 @@ Status BytesToBits(const std::vector<uint8_t>& bytes, MemoryPool* pool,
 }
 
 }  // namespace BitUtil
+
+namespace internal {
 
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   constexpr int64_t pop_len = sizeof(uint64_t) * 8;
@@ -333,4 +333,5 @@ Status BitmapXor(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
       pool, left, left_offset, right, right_offset, length, out_offset, out_buffer);
 }
 
+}  // namespace internal
 }  // namespace arrow

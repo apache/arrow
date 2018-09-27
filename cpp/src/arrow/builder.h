@@ -310,7 +310,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   template <typename ValuesIter, typename ValidIter>
   typename std::enable_if<!std::is_pointer<ValidIter>::value, Status>::type AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
-    static_assert(!is_null_pointer<ValidIter>::value,
+    static_assert(!internal::is_null_pointer<ValidIter>::value,
                   "Don't pass a NULLPTR directly as valid_begin, use the 2-argument "
                   "version instead");
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
@@ -727,7 +727,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   template <typename ValuesIter, typename ValidIter>
   typename std::enable_if<!std::is_pointer<ValidIter>::value, Status>::type AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
-    static_assert(!is_null_pointer<ValidIter>::value,
+    static_assert(!internal::is_null_pointer<ValidIter>::value,
                   "Don't pass a NULLPTR directly as valid_begin, use the 2-argument "
                   "version instead");
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));

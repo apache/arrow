@@ -56,6 +56,10 @@
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+using internal::ParallelFor;
+
 namespace py {
 
 using internal::kNanosecondsInDay;

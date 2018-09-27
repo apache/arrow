@@ -66,6 +66,9 @@ using arrow::gpu::CudaContext;
 using arrow::gpu::CudaDeviceManager;
 #endif
 
+using arrow::util::ArrowLog;
+using arrow::util::ArrowLogLevel;
+
 namespace fb = plasma::flatbuf;
 
 namespace plasma {
@@ -895,8 +898,8 @@ void StartServer(char* socket_name, int64_t system_memory, std::string plasma_di
 }  // namespace plasma
 
 int main(int argc, char* argv[]) {
-  arrow::ArrowLog::StartArrowLog(argv[0], arrow::ArrowLogLevel::ARROW_INFO);
-  arrow::ArrowLog::InstallFailureSignalHandler();
+  ArrowLog::StartArrowLog(argv[0], ArrowLogLevel::ARROW_INFO);
+  ArrowLog::InstallFailureSignalHandler();
   char* socket_name = nullptr;
   // Directory where plasma memory mapped files are stored.
   std::string plasma_directory;
@@ -986,6 +989,6 @@ int main(int argc, char* argv[]) {
   plasma::g_runner->Shutdown();
   plasma::g_runner = nullptr;
 
-  arrow::ArrowLog::ShutDownArrowLog();
+  ArrowLog::ShutDownArrowLog();
   return 0;
 }

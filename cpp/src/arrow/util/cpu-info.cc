@@ -55,6 +55,7 @@ using boost::algorithm::trim;
 using std::max;
 
 namespace arrow {
+namespace internal {
 
 static struct {
   std::string name;
@@ -319,4 +320,5 @@ void CpuInfo::SetDefaultCacheSize() {
 #endif
 }
 
+}  // namespace internal
 }  // namespace arrow

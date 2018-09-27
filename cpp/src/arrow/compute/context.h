@@ -27,7 +27,9 @@
 
 namespace arrow {
 
+namespace internal {
 class CpuInfo;
+}  // namespace internal
 
 namespace compute {
 
@@ -63,12 +65,12 @@ class ARROW_EXPORT FunctionContext {
   /// \brief Return the current status of the context
   const Status& status() const { return status_; }
 
-  CpuInfo* cpu_info() const { return cpu_info_; }
+  internal::CpuInfo* cpu_info() const { return cpu_info_; }
 
  private:
   Status status_;
   MemoryPool* pool_;
-  CpuInfo* cpu_info_;
+  internal::CpuInfo* cpu_info_;
 };
 
 }  // namespace compute

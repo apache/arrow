@@ -42,6 +42,10 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+using internal::CopyBitmap;
+
 namespace ipc {
 
 using internal::FileBlock;

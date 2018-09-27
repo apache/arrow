@@ -26,6 +26,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace util {
 
 // GZip codec.
 class ARROW_EXPORT GZipCodec : public Codec {
@@ -56,6 +57,7 @@ class ARROW_EXPORT GZipCodec : public Codec {
   std::unique_ptr<GZipCodecImpl> impl_;
 };
 
+}  // namespace util
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_COMPRESSION_ZLIB_H

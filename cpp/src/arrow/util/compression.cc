@@ -42,6 +42,7 @@
 #include "arrow/status.h"
 
 namespace arrow {
+namespace util {
 
 Codec::~Codec() {}
 
@@ -92,4 +93,5 @@ Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* resul
   return Status::OK();
 }
 
+}  // namespace util
 }  // namespace arrow

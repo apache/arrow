@@ -35,6 +35,9 @@
 #include "arrow/util/hash.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace compute {
 
 // TODO(wesm): Enable top-level dispatch to SSE4 hashing if it is enabled

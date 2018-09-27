@@ -26,6 +26,7 @@
 // https://github.com/ray-project/ray/blob/master/src/ray/util/logging_test.cc.
 
 namespace arrow {
+namespace util {
 
 int64_t current_time_ms() {
   std::chrono::milliseconds ms_since_epoch =
@@ -101,6 +102,7 @@ TEST(LogPerfTest, PerfTest) {
   ArrowLog::ShutDownArrowLog();
 }
 
+}  // namespace util
 }  // namespace arrow
 
 int main(int argc, char** argv) {

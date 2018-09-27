@@ -33,6 +33,9 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace io {
 namespace internal {
 

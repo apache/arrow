@@ -57,6 +57,10 @@
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+using internal::CopyBitmap;
+
 namespace py {
 
 using internal::NumPyTypeSize;

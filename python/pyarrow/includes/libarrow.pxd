@@ -1080,7 +1080,7 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
         CompressionType_ZSTD" arrow::Compression::ZSTD"
         CompressionType_LZ4" arrow::Compression::LZ4"
 
-    cdef cppclass CCodec" arrow::Codec":
+    cdef cppclass CCodec" arrow::util::Codec":
         @staticmethod
         CStatus Create(CompressionType codec, unique_ptr[CCodec]* out)
 

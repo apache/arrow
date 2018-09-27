@@ -35,6 +35,8 @@
 
 namespace arrow {
 
+using internal::checked_cast;
+
 class PrettyPrinter {
  public:
   PrettyPrinter(int indent, int indent_size, int window, std::ostream* sink)

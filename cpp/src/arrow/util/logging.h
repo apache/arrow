@@ -25,6 +25,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace util {
 
 enum class ArrowLogLevel : int {
   ARROW_DEBUG = -1,
@@ -34,16 +35,16 @@ enum class ArrowLogLevel : int {
   ARROW_FATAL = 3
 };
 
-#define ARROW_LOG_INTERNAL(level) ::arrow::ArrowLog(__FILE__, __LINE__, level)
-#define ARROW_LOG(level) ARROW_LOG_INTERNAL(::arrow::ArrowLogLevel::ARROW_##level)
+#define ARROW_LOG_INTERNAL(level) ::arrow::util::ArrowLog(__FILE__, __LINE__, level)
+#define ARROW_LOG(level) ARROW_LOG_INTERNAL(::arrow::util::ArrowLogLevel::ARROW_##level)
 #define ARROW_IGNORE_EXPR(expr) ((void)(expr))
 
 #define ARROW_CHECK(condition)                                                         \
-  (condition)                                                                          \
-      ? ARROW_IGNORE_EXPR(0)                                                           \
-      : ::arrow::Voidify() &                                                           \
-            ::arrow::ArrowLog(__FILE__, __LINE__, ::arrow::ArrowLogLevel::ARROW_FATAL) \
-                << " Check failed: " #condition " "
+  (condition) ? ARROW_IGNORE_EXPR(0)                                                   \
+              : ::arrow::util::Voidify() &                                             \
+                    ::arrow::util::ArrowLog(__FILE__, __LINE__,                        \
+                                            ::arrow::util::ArrowLogLevel::ARROW_FATAL) \
+                        << " Check failed: " #condition " "
 
 // If 'to_call' returns a bad status, CHECK immediately with a logged message
 // of 'msg' followed by the status.
@@ -58,35 +59,35 @@ enum class ArrowLogLevel : int {
 #define ARROW_CHECK_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status")
 
 #ifdef NDEBUG
-#define ARROW_DFATAL arrow::ArrowLogLevel::ARROW_WARNING
+#define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_WARNING
 
 #define DCHECK(condition)       \
   ARROW_IGNORE_EXPR(condition); \
-  while (false) ::arrow::ArrowLogBase()
+  while (false) ::arrow::util::ArrowLogBase()
 #define DCHECK_OK(status)    \
   ARROW_IGNORE_EXPR(status); \
-  while (false) ::arrow::ArrowLogBase()
+  while (false) ::arrow::util::ArrowLogBase()
 #define DCHECK_EQ(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::ArrowLogBase()
+  while (false) ::arrow::util::ArrowLogBase()
 #define DCHECK_NE(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::ArrowLogBase()
+  while (false) ::arrow::util::ArrowLogBase()
 #define DCHECK_LE(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::ArrowLogBase()
+  while (false) ::arrow::util::ArrowLogBase()
 #define DCHECK_LT(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::ArrowLogBase()
+  while (false) ::arrow::util::ArrowLogBase()
 #define DCHECK_GE(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::ArrowLogBase()
+  while (false) ::arrow::util::ArrowLogBase()
 #define DCHECK_GT(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::ArrowLogBase()
+  while (false) ::arrow::util::ArrowLogBase()
 
 #else
-#define ARROW_DFATAL arrow::ArrowLogLevel::ARROW_FATAL
+#define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
 
 #define DCHECK(condition) ARROW_CHECK(condition)
 #define DCHECK_OK(status) (ARROW_CHECK((status).ok()) << (status).message())
@@ -179,6 +180,7 @@ class ARROW_EXPORT Voidify {
   void operator&(ArrowLogBase&) {}
 };
 
+}  // namespace util
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_LOGGING_H

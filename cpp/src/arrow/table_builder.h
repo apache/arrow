@@ -66,7 +66,7 @@ class ARROW_EXPORT RecordBatchBuilder {
   /// \return pointer to template type
   template <typename T>
   T* GetFieldAs(int i) {
-    return checked_cast<T*>(raw_field_builders_[i]);
+    return internal::checked_cast<T*>(raw_field_builders_[i]);
   }
 
   /// \brief Finish current batch and optionally reset
