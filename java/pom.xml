@@ -35,8 +35,8 @@
     <dep.netty.version>4.1.22.Final</dep.netty.version>
     <dep.jackson.version>2.7.9</dep.jackson.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
-    <fbs.version>1.9.0</fbs.version>
-    <flatc.version>1.9.0</flatc.version>
+    <dep.fbs.version>1.9.0</dep.fbs.version>
+    <dep.flatc.version>1.9.0</dep.flatc.version>
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
   </properties>
@@ -483,7 +483,7 @@
       <dependency>
         <groupId>com.google.flatbuffers</groupId>
         <artifactId>flatbuffers-java</artifactId>
-        <version>${fbs.version}</version>
+        <version>${dep.fbs.version}</version>
       </dependency>
       <dependency>
         <groupId>com.google.guava</groupId>
