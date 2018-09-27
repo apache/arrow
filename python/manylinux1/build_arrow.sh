@@ -65,7 +65,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     fi
 
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
-    ARROW_BUILD_DIR=/arrow/cpp/build-PY${PYTHON}-${U_WIDTH}
+    ARROW_BUILD_DIR=/tmp/build-PY${PYTHON}-${U_WIDTH}
     mkdir -p "${ARROW_BUILD_DIR}"
     pushd "${ARROW_BUILD_DIR}"
     PATH="${CPYTHON_PATH}/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release \
@@ -77,15 +77,19 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
         -DARROW_JEMALLOC=ON \
         -DARROW_RPATH_ORIGIN=ON \
         -DARROW_PYTHON=ON \
+        -DARROW_PARQUET=ON \
         -DPythonInterp_FIND_VERSION=${PYTHON} \
         -DARROW_PLASMA=ON \
         -DARROW_TENSORFLOW=ON \
         -DARROW_ORC=ON \
         -DBoost_NAMESPACE=arrow_boost \
         -DBOOST_ROOT=/arrow_boost_dist \
-        -GNinja ..
+        -GNinja /arrow/cpp
     ninja install
     popd
+
+    # Check that we don't expose any unwanted symbols
+    /io/scripts/check_arrow_visibility.sh
 
     # Clear output directory
     rm -rf dist/
