@@ -1337,6 +1337,11 @@ if (THRIFT_VENDORED)
   add_dependencies(thriftstatic thrift_ep)
 endif()
 
+if (THRIFT_VERSION VERSION_LESS 0.11.0)
+  add_definitions(-DPARQUET_THRIFT_USE_BOOST)
+  message(STATUS "Using Boost in Thrift header")
+endif()
+
 endif()  # ARROW_HIVESERVER2
 
 # ----------------------------------------------------------------------
