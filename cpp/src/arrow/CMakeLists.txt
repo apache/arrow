@@ -30,6 +30,13 @@ set(ARROW_SRCS
   type.cc
   visitor.cc
 
+  csv/converter.cc
+  csv/chunker.cc
+  csv/column-builder.cc
+  csv/options.cc
+  csv/parser.cc
+  csv/reader.cc
+
   io/buffered.cc
   io/file.cc
   io/interfaces.cc
@@ -43,6 +50,7 @@ set(ARROW_SRCS
   util/hash.cc
   util/io-util.cc
   util/key_value_metadata.cc
+  util/task-group.cc
   util/thread-pool.cc
   util/logging.cc
 )
@@ -217,5 +225,6 @@ ADD_ARROW_TEST(tensor-test)
 ADD_ARROW_BENCHMARK(builder-benchmark)
 ADD_ARROW_BENCHMARK(column-benchmark)
 
+add_subdirectory(csv)
 add_subdirectory(io)
 add_subdirectory(util)
