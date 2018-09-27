@@ -499,6 +499,27 @@ def test_recordbatchlist_schema_equals():
         pa.Table.from_batches([batch1, batch2])
 
 
+def test_table_from_batches_and_schema():
+    schema = pa.schema([
+        pa.field('a', pa.int64()),
+        pa.field('b', pa.float64()),
+    ])
+    batch = pa.RecordBatch.from_arrays([pa.array([1]), pa.array([3.14])],
+                                       names=['a', 'b'])
+    table = pa.Table.from_batches([batch], schema)
+    assert table.schema.equals(schema)
+    assert table.column(0) == pa.column('a', pa.array([1]))
+    assert table.column(1) == pa.column('b', pa.array([3.14]))
+
+    incompatible_schema = pa.schema([pa.field('a', pa.int64())])
+    with pytest.raises(pa.ArrowInvalid):
+        pa.Table.from_batches([batch], incompatible_schema)
+
+    incompatible_batch = pa.RecordBatch.from_arrays([pa.array([1])], ['a'])
+    with pytest.raises(pa.ArrowInvalid):
+        pa.Table.from_batches([incompatible_batch], schema)
+
+
 def test_table_to_batches():
     df1 = pd.DataFrame({'a': list(range(10))})
     df2 = pd.DataFrame({'a': list(range(10, 30))})
