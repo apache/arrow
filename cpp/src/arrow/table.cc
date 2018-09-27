@@ -457,7 +457,7 @@ Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
   const int ncolumns = static_cast<int>(schema->num_fields());
 
   for (int i = 1; i < ntables; ++i) {
-    if (!tables[i]->schema()->Equals(*schema)) {
+    if (!tables[i]->schema()->Equals(*schema, false)) {
       std::stringstream ss;
       ss << "Schema at index " << static_cast<int>(i) << " was different: \n"
          << schema->ToString() << "\nvs\n"
