@@ -33,7 +33,7 @@ export abstract class NestedView<T extends NestedType> implements View<T> {
         this._children = children || new Array(this.numChildren);
     }
     public clone(data: Data<T>): this {
-        return new (<any> this.constructor)(data, this._children) as this;
+        return new (<any> this.constructor)(data, new Array(this.numChildren)) as this;
     }
     public isValid(): boolean {
         return true;

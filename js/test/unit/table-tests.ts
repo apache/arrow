@@ -321,7 +321,7 @@ function leftPad(str: string, fill: string, n: number) {
     return (new Array(n + 1).join(fill) + str).slice(-1 * n);
 }
 
-function getSingleRecordBatchTable() {
+export function getSingleRecordBatchTable() {
     return Table.from({
         'schema': {
             'fields': [
