@@ -29,7 +29,7 @@ See the [release notes][10] for more about what's new.
 ### Source release
 
 * **Source Release**: [{{site.data.versions['tarball_name']}}][6]
-* **Verification**: [sha256][13], [sha512][14], ([verification instructions][12])
+* **Verification**: [asc][13], [sha256][14], [sha512][15], ([verification instructions][12])
 * [Git tag {{site.data.versions['current'].git-tag}}][2]
 * [GPG keys for release signatures][11]
 
@@ -152,5 +152,6 @@ send it to the project instead of Apache Arrow project.
 [10]: {{site.data.versions['current'].release-notes}}
 [11]: http://www.apache.org/dist/arrow/KEYS
 [12]: https://www.apache.org/dyn/closer.cgi#verify
-[13]: {{site.data.versions['current'].sha256}}
-[14]: {{site.data.versions['current'].sha512}}
+[13]: {{site.data.versions['current'].asc}}
+[14]: {{site.data.versions['current'].sha256}}
+[15]: {{site.data.versions['current'].sha512}}
