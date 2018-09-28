@@ -636,7 +636,7 @@ def read_message(object source, pool=None):
     return result
 
 
-def read_record_batch(object schema, object buffer, pool=None):
+def read_record_batch(object buffer, object schema, pool=None):
     """Construct RecordBatch referencing IPC message located on CUDA device.
 
     While the metadata is copied to host memory for deserialization,
@@ -644,10 +644,10 @@ def read_record_batch(object schema, object buffer, pool=None):
 
     Parameters
     ----------
-    schema : Schema
-      Specify schema for the record batch
     buffer :
       Specify device buffer containing the complete IPC message
+    schema : Schema
+      Specify schema for the record batch
     pool : {MemoryPool, None}
       Specify pool to use for allocating space for the metadata
 
