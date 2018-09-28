@@ -27,4 +27,5 @@ current:
   mirrors-tar: 'https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.10.0/apache-arrow-0.10.0.tar.gz'
   java-artifacts: 'http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.10.0%22'
   asc: 'https://www.apache.org/dist/arrow/arrow-0.10.0/apache-arrow-0.10.0.tar.gz.asc'
+  sha256: 'https://www.apache.org/dist/arrow/arrow-0.10.0/apache-arrow-0.10.0.tar.gz.sha256'
   sha512: 'https://www.apache.org/dist/arrow/arrow-0.10.0/apache-arrow-0.10.0.tar.gz.sha512'

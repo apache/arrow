@@ -29,7 +29,7 @@ See the [release notes][10] for more about what's new.
 ### Source release
 
 * **Source Release**: [{{site.data.versions['tarball_name']}}][6]
-* **Verification**: [sha512][3], [asc][7] ([verification instructions][12])
+* **Verification**: [asc signature][13], [sha256 checksum][14], [sha512 checksum][15], ([verification instructions][12])
 * [Git tag {{site.data.versions['current'].git-tag}}][2]
 * [GPG keys for release signatures][11]
 
@@ -144,13 +144,14 @@ send it to the project instead of Apache Arrow project.
 
 [1]: {{site.data.versions['current'].mirrors}}
 [2]: {{site.data.versions['current'].github-tag-link}}
-[3]: {{site.data.versions['current'].sha512}}
 [4]: {{site.data.versions['current'].java-artifacts}}
 [5]: http://conda-forge.github.io
 [6]: {{site.data.versions['current'].mirrors-tar}}
-[7]: {{site.data.versions['current'].asc}}
 [8]: https://github.com/red-data-tools/parquet-glib
 [9]: https://github.com/red-data-tools/arrow-packages
 [10]: {{site.data.versions['current'].release-notes}}
 [11]: http://www.apache.org/dist/arrow/KEYS
 [12]: https://www.apache.org/dyn/closer.cgi#verify
+[13]: {{site.data.versions['current'].asc}}
+[14]: {{site.data.versions['current'].sha256}}
+[15]: {{site.data.versions['current'].sha512}}
