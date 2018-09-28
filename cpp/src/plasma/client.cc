@@ -422,14 +422,12 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
 
   // Increment the count of the number of instances of this object that this
   // client is using. A call to PlasmaClient::Release is required to decrement
-  // this
-  // count. Cache the reference to the object.
+  // this count. Cache the reference to the object.
   IncrementObjectCount(object_id, &object, false);
   // We increment the count a second time (and the corresponding decrement will
   // happen in a PlasmaClient::Release call in plasma_seal) so even if the
-  // buffer
-  // returned by PlasmaClient::Dreate goes out of scope, the object does not get
-  // released before the call to PlasmaClient::Seal happens.
+  // buffer returned by PlasmaClient::Create goes out of scope, the object does
+  // not get released before the call to PlasmaClient::Seal happens.
   IncrementObjectCount(object_id, &object, false);
   return Status::OK();
 }
@@ -645,14 +643,14 @@ Status PlasmaClient::Impl::PerformRelease(const ObjectID& object_id) {
 }
 
 Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
+  // If the client is already disconnected, ignore release requests.
+  if (store_conn_ < 0) {
+    return Status::OK();
+  }
   // If an object is in the deletion cache, handle it directly without waiting.
   auto iter = deletion_cache_.find(object_id);
   if (iter != deletion_cache_.end()) {
     RETURN_NOT_OK(PerformRelease(object_id));
-    return Status::OK();
-  }
-  // If the client is already disconnected, ignore release requests.
-  if (store_conn_ < 0) {
     return Status::OK();
   }
   // Add the new object to the release history.
@@ -661,8 +659,8 @@ Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
   // pending release calls, and there are at least some pending release calls in
   // the release_history list, then release some objects.
 
-  // TODO(wap) Evicition policy only works on host memory, and thus objects
-  //           on the GPU cannot be released currently.
+  // TODO(wap): Eviction policy only works on host memory, and thus objects on
+  // the GPU cannot be released currently.
   while ((in_use_object_bytes_ > std::min(kL3CacheSizeBytes, store_capacity_ / 100) ||
           release_history_.size() > config_.release_delay) &&
          release_history_.size() > 0) {
