@@ -35,5 +35,6 @@ cargo rustc -- -D warnings
 
 cargo build
 cargo test
+cargo run --example dynamic_types
 
 popd

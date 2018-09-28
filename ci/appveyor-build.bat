@@ -33,6 +33,7 @@ if "%JOB%" == "Rust" (
     cargo build --target %TARGET% --release
     cargo test --target %TARGET%
     cargo test --target %TARGET% --release
+    cargo run --example dynamic_types --target %TARGET% --release
 
     rustup default stable
 
