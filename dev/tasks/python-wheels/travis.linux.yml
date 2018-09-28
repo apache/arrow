@@ -41,13 +41,12 @@ script:
   - mkdir -p dist
 
   - pushd arrow/python/manylinux1
-  - git clone ../../ arrow
-  - docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
-  - docker run --shm-size=2g --rm
+  - docker run --shm-size=2g
       -e SETUPTOOLS_SCM_PRETEND_VERSION=$PYARROW_VERSION
       -e PYTHON_VERSIONS=$PYTHON_VERSION
-      -v $PWD:/io arrow-base-x86_64
-      /io/build_arrow.sh
+      -v $PWD:/io
+      -v $PWD/../../:/arrow
+      quay.io/xhochy/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh
   - popd
 
   - sudo mv arrow/python/manylinux1/dist/* dist/
