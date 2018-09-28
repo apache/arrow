@@ -100,3 +100,18 @@ test_that("ChunkedArray supports logical vectors (ARROW-3341)", {
   expect_identical(data[[3]], chunks[[3]]$as_vector())
 })
 
+test_that("ChunkedArray supports character vectors (ARROW-3339)", {
+  data <- list(
+    c("itsy", NA, "spider"),
+    c("Climbed", "up", "the", "water", "spout"),
+    c("Down", "came", "the", "rain"),
+    "And washed the spider out. "
+  )
+  arr_chr <- chunked_array(!!!data)
+  expect_equal(arr_chr$length(), length(unlist(data)))
+  expect_equal(arr_chr$null_count(), 1L)
+
+  chunks <- arr_chr$chunks()
+  expect_equal(data, purrr::map(chunks, ~.$as_vector()))
+})
+
