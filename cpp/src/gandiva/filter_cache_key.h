@@ -20,9 +20,9 @@
 
 #include <memory>
 #include <string>
+#include <thread>
 
 #include "boost/functional/hash.hpp"
-
 #include "gandiva/arrow.h"
 #include "gandiva/filter.h"
 
@@ -30,14 +30,16 @@ namespace gandiva {
 class FilterCacheKey {
  public:
   FilterCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
-                 Expression& expression)
-      : schema_(schema), configuration_(configuration) {
+                 Expression &expression)
+      : schema_(schema), configuration_(configuration), uniqifier_(0) {
     static const int kSeedValue = 4;
     size_t result = kSeedValue;
     expression_as_string_ = expression.ToString();
+    UpdateUniqifier(expression_as_string_);
     boost::hash_combine(result, expression_as_string_);
     boost::hash_combine(result, configuration);
     boost::hash_combine(result, schema_->ToString());
+    boost::hash_combine(result, uniqifier_);
     hash_code_ = result;
   }
 
@@ -54,6 +56,10 @@ class FilterCacheKey {
     }
 
     if (expression_as_string_ != other.expression_as_string_) {
+      return false;
+    }
+
+    if (uniqifier_ != other.uniqifier_) {
       return false;
     }
     return true;
@@ -77,10 +83,19 @@ class FilterCacheKey {
   }
 
  private:
+  void UpdateUniqifier(const std::string expr) {
+    // caching of expressions with re2 patterns causes lock contention. So, use
+    // multiple instances to reduce contention.
+    if (expr.find(" like(") != std::string::npos) {
+      uniqifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
+    }
+  }
+
   const SchemaPtr schema_;
   const std::shared_ptr<Configuration> configuration_;
   std::string expression_as_string_;
   size_t hash_code_;
+  uint32_t uniqifier_;
 };
 }  // namespace gandiva
 #endif  // GANDIVA_FILTER_CACHE_KEY_H

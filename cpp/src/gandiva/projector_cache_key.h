@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <thread>
 
 #include "gandiva/arrow.h"
 #include "gandiva/projector.h"
@@ -31,16 +32,18 @@ class ProjectorCacheKey {
  public:
   ProjectorCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
                     ExpressionVector expression_vector)
-      : schema_(schema), configuration_(configuration) {
+      : schema_(schema), configuration_(configuration), uniqifier_(0) {
     static const int kSeedValue = 4;
     size_t result = kSeedValue;
     for (auto& expr : expression_vector) {
       std::string expr_as_string = expr->ToString();
       expressions_as_strings_.push_back(expr_as_string);
       boost::hash_combine(result, expr_as_string);
+      UpdateUniqifier(expr_as_string);
     }
     boost::hash_combine(result, configuration);
     boost::hash_combine(result, schema_->ToString());
+    boost::hash_combine(result, uniqifier_);
     hash_code_ = result;
   }
 
@@ -57,6 +60,10 @@ class ProjectorCacheKey {
     }
 
     if (expressions_as_strings_ != other.expressions_as_strings_) {
+      return false;
+    }
+
+    if (uniqifier_ != other.uniqifier_) {
       return false;
     }
     return true;
@@ -91,10 +98,21 @@ class ProjectorCacheKey {
   }
 
  private:
+  void UpdateUniqifier(const std::string expr) {
+    if (uniqifier_ == 0) {
+      // caching of expressions with re2 patterns causes lock contention. So, use
+      // multiple instances to reduce contention.
+      if (expr.find(" like(") != std::string::npos) {
+        uniqifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
+      }
+    }
+  }
+
   const SchemaPtr schema_;
   const std::shared_ptr<Configuration> configuration_;
   std::vector<std::string> expressions_as_strings_;
   size_t hash_code_;
+  uint32_t uniqifier_;
 };
 }  // namespace gandiva
 #endif  // GANDIVA_PROJECTOR_CACHE_KEY_H
