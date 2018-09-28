@@ -25,13 +25,13 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(BROTLI_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(FLATBUFFERS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GFLAGS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(GLOG_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GRPC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   # Using gtest from the toolchain breaks AppVeyor builds
   if (NOT MSVC)
     set(GTEST_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   endif()
   set(JEMALLOC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  set(GRPC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(LZ4_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   # orc disabled as it's not in conda-forge (but in Anaconda with an incompatible ABI)
   # set(ORC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -41,7 +41,6 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(THRIFT_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZSTD_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  set(GLOG_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
 
   if (NOT DEFINED ENV{BOOST_ROOT})
     # Since we have to set this in the environment, we check whether
@@ -56,12 +55,20 @@ if (DEFINED ENV{BROTLI_HOME})
   set(BROTLI_HOME "$ENV{BROTLI_HOME}")
 endif()
 
+if (DEFINED ENV{DOUBLE_CONVERSION_HOME})
+  set(DOUBLE_CONVERSION_HOME "$ENV{DOUBLE_CONVERSION_HOME}")
+endif()
+
 if (DEFINED ENV{FLATBUFFERS_HOME})
   set(FLATBUFFERS_HOME "$ENV{FLATBUFFERS_HOME}")
 endif()
 
 if (DEFINED ENV{GFLAGS_HOME})
   set(GFLAGS_HOME "$ENV{GFLAGS_HOME}")
+endif()
+
+if (DEFINED ENV{GLOG_HOME})
+  set(GLOG_HOME "$ENV{GLOG_HOME}")
 endif()
 
 if (DEFINED ENV{GRPC_HOME})
@@ -106,10 +113,6 @@ endif()
 
 if (DEFINED ENV{ZSTD_HOME})
   set(ZSTD_HOME "$ENV{ZSTD_HOME}")
-endif()
-
-if (DEFINED ENV{GLOG_HOME})
-  set(GLOG_HOME "$ENV{GLOG_HOME}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -165,6 +168,12 @@ else()
   set(BROTLI_SOURCE_URL "https://github.com/google/brotli/archive/${BROTLI_VERSION}.tar.gz")
 endif()
 
+if (DEFINED ENV{DOUBLE_CONVERSION_SOURCE_URL})
+  set(DOUBLE_CONVERSION_SOURCE_URL "$ENV{DOUBLE_CONVERSION_SOURCE_URL}")
+else()
+  set(DOUBLE_CONVERSION_SOURCE_URL "https://github.com/google/double-conversion/archive/${DOUBLE_CONVERSION_VERSION}.tar.gz")
+endif()
+
 if (DEFINED ENV{ARROW_FLATBUFFERS_URL})
   set(FLATBUFFERS_SOURCE_URL "$ENV{ARROW_FLATBUFFERS_URL}")
 else()
@@ -181,6 +190,12 @@ if (DEFINED ENV{ARROW_GFLAGS_URL})
   set(GFLAGS_SOURCE_URL "$ENV{ARROW_GFLAGS_URL}")
 else()
   set(GFLAGS_SOURCE_URL "https://github.com/gflags/gflags/archive/${GFLAGS_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_GLOG_URL})
+  set(GLOG_SOURCE_URL "$ENV{ARROW_GLOG_URL}")
+else()
+  set(GLOG_SOURCE_URL "https://github.com/google/glog/archive/${GLOG_VERSION}.tar.gz")
 endif()
 
 if (DEFINED ENV{ARROW_GRPC_URL})
@@ -243,12 +258,6 @@ if (DEFINED ENV{ARROW_ZSTD_URL})
   set(ZSTD_SOURCE_URL "$ENV{ARROW_ZSTD_URL}")
 else()
   set(ZSTD_SOURCE_URL "https://github.com/facebook/zstd/archive/${ZSTD_VERSION}.tar.gz")
-endif()
-
-if (DEFINED ENV{ARROW_GLOG_URL})
-  set(GLOG_SOURCE_URL "$ENV{ARROW_GLOG_URL}")
-else()
-  set(GLOG_SOURCE_URL "https://github.com/google/glog/archive/${GLOG_VERSION}.tar.gz")
 endif()
 
 # ----------------------------------------------------------------------
@@ -435,6 +444,43 @@ if (NOT ARROW_BOOST_HEADER_ONLY)
 endif()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+
+# ----------------------------------------------------------------------
+# Google double-conversion
+
+if("${DOUBLE_CONVERSION_HOME}" STREQUAL "")
+  set(DOUBLE_CONVERSION_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/double-conversion_ep/src/double-conversion_ep")
+  set(DOUBLE_CONVERSION_HOME "${DOUBLE_CONVERSION_PREFIX}")
+  set(DOUBLE_CONVERSION_INCLUDE_DIR "${DOUBLE_CONVERSION_PREFIX}/include")
+  set(DOUBLE_CONVERSION_STATIC_LIB "${DOUBLE_CONVERSION_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}double-conversion${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+  set(DOUBLE_CONVERSION_CMAKE_ARGS
+        "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+        "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+        "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
+        "-DCMAKE_INSTALL_PREFIX=${DOUBLE_CONVERSION_PREFIX}")
+  ExternalProject_Add(double-conversion_ep
+    ${EP_LOG_OPTIONS}
+    INSTALL_DIR ${DOUBLE_CONVERSION_PREFIX}
+    URL ${DOUBLE_CONVERSION_SOURCE_URL}
+    CMAKE_ARGS ${DOUBLE_CONVERSION_CMAKE_ARGS}
+    BUILD_BYPRODUCTS "${DOUBLE_CONVERSION_STATIC_LIB}")
+  set(DOUBLE_CONVERSION_VENDORED 1)
+else()
+  find_package(double-conversion REQUIRED)
+  set(DOUBLE_CONVERSION_VENDORED 0)
+endif()
+
+include_directories(SYSTEM ${DOUBLE_CONVERSION_INCLUDE_DIR})
+ADD_THIRDPARTY_LIB(double-conversion
+  STATIC_LIB ${DOUBLE_CONVERSION_STATIC_LIB})
+
+if (DOUBLE_CONVERSION_VENDORED)
+  add_dependencies(arrow_dependencies double-conversion_ep)
+endif()
+
+# ----------------------------------------------------------------------
+# Google gtest & gflags
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_custom_target(unittest ctest -L unittest)

@@ -72,6 +72,7 @@
 
       # Statically linked C++ dependencies
       boost::*;
+      double_conversion::*;
       google::*;
       # glog
       *MakeCheckOpValueString*;
