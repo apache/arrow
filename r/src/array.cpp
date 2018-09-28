@@ -146,15 +146,16 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(LogicalVector_ vec) {
 std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   R_xlen_t n = vec.size();
 
-  std::shared_ptr<Buffer> null_buffer;
+  std::shared_ptr<Buffer> null_buffer(nullptr);
   std::shared_ptr<Buffer> offset_buffer;
-  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(int32_t), &offset_buffer));
+  R_ERROR_NOT_OK(AllocateBuffer((n + 1) * sizeof(int32_t), &offset_buffer));
 
   R_xlen_t i = 0;
   int current_offset = 0;
   int64_t null_count = 0;
   auto p_offset = reinterpret_cast<int32_t*>(offset_buffer->mutable_data());
-  for(; i < n; i++, ++p_offset) {
+  *p_offset=0;
+  for(++p_offset; i < n; i++, ++p_offset) {
     SEXP s = STRING_ELT(vec, i);
     if (s == NA_STRING) {
       // break as we are going to need a null_bitmap buffer
@@ -162,6 +163,7 @@ std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
     }
 
     *p_offset = current_offset += LENGTH(s);
+    Rprintf("current_offset = %d\n", current_offset);
   }
 
   if (i < n) {
@@ -187,23 +189,30 @@ std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
 
     }
   }
+  *p_offset = current_offset;
 
   // ----- data buffer
   std::shared_ptr<Buffer> value_buffer;
   R_ERROR_NOT_OK(AllocateBuffer(current_offset, &value_buffer));
   p_offset = reinterpret_cast<int32_t*>(offset_buffer->mutable_data());
-  auto p_value  = reinterpret_cast<int8_t*>(value_buffer->mutable_data());
+  auto p_data = reinterpret_cast<char*>(value_buffer->mutable_data());
 
-  for (R_xlen_t i = 0; i < n; i++, ++p_offset, ++p_value) {
+  for (R_xlen_t i = 0; i < n; i++) {
     SEXP s = STRING_ELT(vec, i);
     if (s != NA_STRING) {
       auto ni = LENGTH(s);
-      std::copy(CHAR(s), CHAR(s) + ni, p_value);
-      p_value += ni;
+      std::copy_n(CHAR(s), ni, p_data);
+      p_data += ni;
     }
   }
 
-  return std::make_shared<StringArray>(n, offset_buffer, value_buffer, null_buffer, null_count, 0);
+  auto data = ArrayData::Make(
+    arrow::utf8(), n,
+    {null_buffer, offset_buffer, value_buffer},
+    null_count, 0
+  );
+
+  return MakeArray(data);
 }
 
 
@@ -284,6 +293,46 @@ inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   return vec;
 }
 
+inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
+  auto n = array->length();
+  Rcpp::CharacterVector res(n);
+
+  const auto& buffers = array->data()->buffers;
+
+  auto p_offset = reinterpret_cast<const int32_t*>(buffers[1]->data());
+  auto p_data = reinterpret_cast<const char*>(buffers[2]->data());
+
+  if (array->null_count()) {
+    auto null_buffer = buffers[0];
+
+    arrow::internal::BitmapReader null_reader(null_buffer->data(),
+      array->offset(), n);
+
+    for (int i = 0; i < n; i++, null_reader.Next()) {
+      if (null_reader.IsNotSet()) {
+        auto diff = p_offset[i+1] - p_offset[i];
+        SET_STRING_ELT(res, i, Rf_mkCharLenCE(p_data, diff, CE_UTF8));
+        p_data += diff;
+      } else {
+        SET_STRING_ELT(res, i, NA_STRING);
+      }
+    }
+
+  } else {
+    // no need to check for NA
+    // TODO: altrep mark this as no na
+    for (int i = 0; i < n; i++) {
+      auto diff = p_offset[i+1] - p_offset[i];
+      SET_STRING_ELT(res, i, Rf_mkCharLenCE(p_data, diff, CE_UTF8));
+      p_data += diff;
+    }
+
+  }
+
+  return res;
+}
+
+
 // [[Rcpp::export]]
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
   switch (array->type_id()) {
@@ -295,6 +344,8 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
       return simple_Array_to_Vector<INTSXP>(array);
     case Type::DOUBLE:
       return simple_Array_to_Vector<REALSXP>(array);
+    case Type::STRING:
+      return StringArray_to_Vector(array);
     default:
       break;
   }
