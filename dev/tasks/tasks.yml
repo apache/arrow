@@ -208,7 +208,7 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.13
+      numpy_version: 1.14
       python_version: 3.5
     artifacts:
       - pyarrow-{version}-cp35-cp35m-win_amd64.whl
@@ -217,7 +217,7 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.13
+      numpy_version: 1.14
       python_version: 3.6
     artifacts:
       - pyarrow-{version}-cp36-cp36m-win_amd64.whl
