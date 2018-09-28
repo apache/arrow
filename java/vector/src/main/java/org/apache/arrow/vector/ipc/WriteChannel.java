@@ -73,7 +73,7 @@ public class WriteChannel implements AutoCloseable {
   public long write(ByteBuffer buffer) throws IOException {
     long length = buffer.remaining();
     LOGGER.debug("Writing buffer with size: " + length);
-    while(buffer.remaining() > 0) {
+    while(buffer.hasRemaining()) {
       out.write(buffer);
     }
     currentPosition += length;
