@@ -43,7 +43,7 @@ names, etc.) like "arrow-foo". These are permitted. Nominative use of trademarks
 in descriptions is also always allowed, as in "BigCoProduct is a widget for
 Apache Arrow".
 
-To add yourself to the list, please open a pull request adding your
+To add yourself to the list, please open a [pull request][27] adding your
 organization name, URL, a list of which Arrow components you are using, and a
 short description of your use case. See the following for some examples.
 
@@ -151,4 +151,5 @@ short description of your use case. See the following for some examples.
 [23]: https://github.com/jpmorganchase/perspective
 [24]: https://github.com/Paradigm4/accelerated_io_tools
 [25]: https://github.com/uwdata/falcon
-[25]: https://fastdata.io/
+[26]: https://fastdata.io/
+[27]: https://github.com/apache/arrow/edit/master/site/powered_by.md
