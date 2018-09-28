@@ -146,7 +146,7 @@ class DefaultMemoryPool : public MemoryPool {
     DCHECK(out);
     // Copy contents and release old memory chunk
     memcpy(out, *ptr, static_cast<size_t>(std::min(new_size, old_size)));
-#ifdef _MSC_VER
+#ifdef _WIN32
     _aligned_free(*ptr);
 #else
     std::free(*ptr);
@@ -161,7 +161,7 @@ class DefaultMemoryPool : public MemoryPool {
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
 
   void Free(uint8_t* buffer, int64_t size) override {
-#ifdef _MSC_VER
+#ifdef _WIN32
     _aligned_free(buffer);
 #elif defined(ARROW_JEMALLOC)
     dallocx(buffer, MALLOCX_ALIGN(kAlignment));
