@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::io;
+use std::io::Write;
 use std::mem;
 use std::sync::Arc;
 
@@ -105,6 +107,30 @@ impl Buffer {
     /// Returns an empty buffer.
     pub fn empty() -> Self {
         Self::from_raw_parts(::std::ptr::null(), 0)
+    }
+
+    pub fn with_capacity(capacity: i64) -> Self {
+        let buffer = memory::allocate_aligned(capacity).unwrap();
+        Self::from_raw_parts(buffer, capacity as usize)
+    }
+}
+
+impl Write for Buffer {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if buf.len() > self.len() {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Buffer not big enough",
+            ));
+        }
+        unsafe {
+            memory::memcpy(self.raw_data() as *mut u8, buf.as_ptr(), buf.len());
+            Ok(buf.len())
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 
