@@ -24,15 +24,15 @@
 
   <properties>
     <flatc.download.skip>false</flatc.download.skip>
-    <flatc.executable>${project.build.directory}/flatc-${os.detected.classifier}-${fbs.version}.exe</flatc.executable>
+    <flatc.executable>${project.build.directory}/flatc-${os.detected.classifier}-${dep.flatc.version}.exe</flatc.executable>
     <flatc.generated.files>${project.build.directory}/generated-sources/flatc</flatc.generated.files>
     <os-maven-plugin.version>1.5.0.Final</os-maven-plugin.version>
   </properties>
 
   <dependencies>
     <dependency>
-      <groupId>com.vlkan</groupId>
-      <artifactId>flatbuffers</artifactId>
+      <groupId>com.google.flatbuffers</groupId>
+      <artifactId>flatbuffers-java</artifactId>
     </dependency>
   </dependencies>
 
@@ -60,9 +60,9 @@
           <configuration>
             <artifactItems>
               <artifactItem>
-                <groupId>com.vlkan</groupId>
+                <groupId>com.github.icexelloss</groupId>
                 <artifactId>flatc-${os.detected.classifier}</artifactId>
-                <version>${fbs.version}</version>
+                <version>${dep.flatc.version}</version>
                 <type>exe</type>
                 <overWrite>true</overWrite>
                 <outputDirectory>${project.build.directory}</outputDirectory>
@@ -88,7 +88,7 @@
             <executable>chmod</executable>
             <arguments>
               <argument>+x</argument>
-              <argument>${project.build.directory}/flatc-${os.detected.classifier}-${fbs.version}.exe</argument>
+              <argument>${project.build.directory}/flatc-${os.detected.classifier}-${dep.flatc.version}.exe</argument>
             </arguments>
             <skip>${flatc.download.skip}</skip>
           </configuration>
