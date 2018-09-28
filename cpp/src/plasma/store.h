@@ -186,13 +186,11 @@ class PlasmaStore {
   /// Remove a GetRequest and clean up the relevant data structures.
   ///
   /// @param get_request The GetRequest to remove.
-  /// @return Void.
   void RemoveGetRequest(GetRequest* get_request);
 
   /// Remove all of the GetRequests for a given client.
   ///
-  /// @param get_request The client whose GetRequests should be removed.
-  /// @return Void.
+  /// @param client The client whose GetRequests should be removed.
   void RemoveGetRequestsForClient(Client* client);
 
   void ReturnFromGet(GetRequest* get_req);
