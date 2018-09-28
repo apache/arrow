@@ -49,8 +49,7 @@ std::shared_ptr<Array> SimpleArray(SEXP x) {
     auto first_na = std::find_if(vec.begin(), vec.end(), Rcpp::Vector<RTYPE>::is_na);
     if (first_na < vec.end()) {
       R_ERROR_NOT_OK(AllocateBuffer(vec.size(), &null_bitmap));
-      auto null_bitmap_data = null_bitmap->mutable_data();
-      arrow::internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap_data, 0,
+      arrow::internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0,
                                                            vec.size());
 
       // first loop to clear all the bits before the first NA
@@ -83,8 +82,7 @@ std::shared_ptr<Array> SimpleArray(SEXP x) {
   return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
 }
 
-std::shared_ptr<arrow::Array> MakeBooleanArray(
-    Rcpp::Vector<LGLSXP, Rcpp::NoProtectStorage> vec) {
+std::shared_ptr<arrow::Array> MakeBooleanArray(LogicalVector_ vec) {
   R_xlen_t n = vec.size();
 
   // allocate a buffer for the data
@@ -145,6 +143,70 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(
   return MakeArray(data);
 }
 
+std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
+  R_xlen_t n = vec.size();
+
+  std::shared_ptr<Buffer> null_buffer;
+  std::shared_ptr<Buffer> offset_buffer;
+  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(int32_t), &offset_buffer));
+
+  R_xlen_t i = 0;
+  int current_offset = 0;
+  int64_t null_count = 0;
+  auto p_offset = reinterpret_cast<int32_t*>(offset_buffer->mutable_data());
+  for(; i < n; i++, ++p_offset) {
+    SEXP s = STRING_ELT(vec, i);
+    if (s == NA_STRING) {
+      // break as we are going to need a null_bitmap buffer
+      break;
+    }
+
+    *p_offset = current_offset += LENGTH(s);
+  }
+
+  if (i < n) {
+    R_ERROR_NOT_OK(AllocateBuffer(ceil(n / 8), &null_buffer));
+    internal::FirstTimeBitmapWriter null_bitmap_writer(null_buffer->mutable_data(), 0, n);
+
+    // catch up
+    for (R_xlen_t j = 0; j < i; j++, null_bitmap_writer.Next()) {
+      null_bitmap_writer.Set();
+    }
+
+    // resume offset filling
+    for(; i < n; i++, ++p_offset, null_bitmap_writer.Next()) {
+      SEXP s = STRING_ELT(vec, i);
+      if (s == NA_STRING) {
+        null_bitmap_writer.Clear();
+        *p_offset = current_offset;
+        null_count++;
+      } else {
+        null_bitmap_writer.Set();
+        *p_offset = current_offset += LENGTH(s);
+      }
+
+    }
+  }
+
+  // ----- data buffer
+  std::shared_ptr<Buffer> value_buffer;
+  R_ERROR_NOT_OK(AllocateBuffer(current_offset, &value_buffer));
+  p_offset = reinterpret_cast<int32_t*>(offset_buffer->mutable_data());
+  auto p_value  = reinterpret_cast<int8_t*>(value_buffer->mutable_data());
+
+  for (R_xlen_t i = 0; i < n; i++, ++p_offset, ++p_value) {
+    SEXP s = STRING_ELT(vec, i);
+    if (s != NA_STRING) {
+      auto ni = LENGTH(s);
+      std::copy(CHAR(s), CHAR(s) + ni, p_value);
+      p_value += ni;
+    }
+  }
+
+  return std::make_shared<StringArray>(n, offset_buffer, value_buffer, null_buffer, null_count, 0);
+}
+
+
 }  // namespace r
 }  // namespace arrow
 
@@ -163,6 +225,8 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
       return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
     case RAWSXP:
       return arrow::r::SimpleArray<RAWSXP, arrow::Int8Type>(x);
+    case STRSXP:
+      return arrow::r::MakeStringArray(x);
     default:
       break;
   }
