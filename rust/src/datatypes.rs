@@ -21,7 +21,10 @@
 //! regarding data-types and memory layouts see
 //! [here](https://arrow.apache.org/docs/memory_layout.html).
 
+use buffer::Buffer;
+use byteorder::{NativeEndian, WriteBytesExt};
 use std::fmt;
+use std::io;
 use std::mem::size_of;
 use std::slice::from_raw_parts;
 
@@ -72,19 +75,52 @@ pub struct Field {
 ///
 /// This trait is a marker trait to indicate a primitive type, i.e. a type that occupies a fixed
 /// size in memory as indicated in bit or byte width.
-pub trait ArrowPrimitiveType: Send + Sync + Copy + PartialOrd + 'static {}
+pub trait ArrowPrimitiveType: Send + Sync + Copy + PartialOrd + 'static {
+    fn write_to_buffer(&self, buffer: &mut Buffer, position: i64) -> io::Result<()>;
+}
 
-impl ArrowPrimitiveType for bool {}
-impl ArrowPrimitiveType for u8 {}
-impl ArrowPrimitiveType for u16 {}
-impl ArrowPrimitiveType for u32 {}
-impl ArrowPrimitiveType for u64 {}
-impl ArrowPrimitiveType for i8 {}
-impl ArrowPrimitiveType for i16 {}
-impl ArrowPrimitiveType for i32 {}
-impl ArrowPrimitiveType for i64 {}
-impl ArrowPrimitiveType for f32 {}
-impl ArrowPrimitiveType for f64 {}
+macro_rules! add_primitive_array_impl {
+    ($($native_ty:ident: $write_method:ident,)*) => {
+        $(
+        impl ArrowPrimitiveType for $native_ty {
+            fn write_to_buffer(&self, buffer: &mut Buffer, position: i64) -> io::Result<()> {
+                let offset = position as usize * size_of::<Self>();
+                buffer.slice(offset).$write_method::<NativeEndian>(*self)
+            }
+}
+        )*
+    }}
+
+add_primitive_array_impl! {
+    i16: write_i16,
+    i32: write_i32,
+    i64: write_i64,
+    u16: write_u16,
+    u32: write_u32,
+    u64: write_u64,
+    f32: write_f32,
+    f64: write_f64,
+}
+
+impl ArrowPrimitiveType for bool {
+    fn write_to_buffer(&self, buffer: &mut Buffer, position: i64) -> io::Result<()> {
+        let raw_ptr = buffer.slice(position as usize).raw_data() as *mut bool;
+        unsafe { *raw_ptr = *self };
+        Ok(())
+    }
+}
+impl ArrowPrimitiveType for u8 {
+    fn write_to_buffer(&self, buffer: &mut Buffer, position: i64) -> io::Result<()> {
+        let offset = position as usize * size_of::<Self>();
+        buffer.slice(offset).write_u8(*self)
+    }
+}
+impl ArrowPrimitiveType for i8 {
+    fn write_to_buffer(&self, buffer: &mut Buffer, position: i64) -> io::Result<()> {
+        let offset = position as usize * size_of::<Self>();
+        buffer.slice(offset).write_i8(*self)
+    }
+}
 
 /// Allows conversion from supported Arrow types to a byte slice.
 pub trait ToByteSlice {
