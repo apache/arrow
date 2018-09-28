@@ -24,7 +24,7 @@ namespace arrow {
 namespace r {
 
 template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
-class SimpleRBuffer : public arrow::Buffer {
+class SimpleRBuffer : public Buffer {
  public:
   SimpleRBuffer(Vec vec)
       : Buffer(reinterpret_cast<const uint8_t*>(vec.begin()),
@@ -36,19 +36,19 @@ class SimpleRBuffer : public arrow::Buffer {
   Vec vec_;
 };
 
-template <int RTYPE, typename Type, typename ArrayType>
-std::shared_ptr<arrow::Array> SimpleArray(SEXP x) {
+template <int RTYPE, typename Type>
+std::shared_ptr<Array> SimpleArray(SEXP x) {
   Rcpp::Vector<RTYPE> vec(x);
-  std::vector<std::shared_ptr<arrow::Buffer>> buffers{
+  std::vector<std::shared_ptr<Buffer>> buffers{
       nullptr, std::make_shared<SimpleRBuffer<RTYPE>>(vec)};
 
   int null_count = 0;
   if (RTYPE != RAWSXP) {
-    std::shared_ptr<arrow::Buffer> null_bitmap;
+    std::shared_ptr<Buffer> null_bitmap;
 
     auto first_na = std::find_if(vec.begin(), vec.end(), Rcpp::Vector<RTYPE>::is_na);
     if (first_na < vec.end()) {
-      R_ERROR_NOT_OK(arrow::AllocateBuffer(vec.size(), &null_bitmap));
+      R_ERROR_NOT_OK(AllocateBuffer(vec.size(), &null_bitmap));
       auto null_bitmap_data = null_bitmap->mutable_data();
       arrow::internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap_data, 0,
                                                            vec.size());
@@ -80,7 +80,7 @@ std::shared_ptr<arrow::Array> SimpleArray(SEXP x) {
   );
 
   // return the right Array class
-  return std::make_shared<ArrayType>(data);
+  return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
 }
 
 std::shared_ptr<arrow::Array> MakeBooleanArray(
@@ -88,10 +88,10 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(
   R_xlen_t n = vec.size();
 
   // allocate a buffer for the data
-  std::shared_ptr<arrow::Buffer> data_bitmap;
-  R_ERROR_NOT_OK(arrow::AllocateBuffer(ceil(n / 8), &data_bitmap));
+  std::shared_ptr<Buffer> data_bitmap;
+  R_ERROR_NOT_OK(AllocateBuffer(ceil(n / 8), &data_bitmap));
   auto data_bitmap_data = data_bitmap->mutable_data();
-  arrow::internal::FirstTimeBitmapWriter bitmap_writer(data_bitmap_data, 0, n);
+  internal::FirstTimeBitmapWriter bitmap_writer(data_bitmap_data, 0, n);
   R_xlen_t null_count = 0;
 
   // loop until the first no null
@@ -112,7 +112,7 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(
     // to collect that information in a null bitmap
     R_ERROR_NOT_OK(arrow::AllocateBuffer(ceil(n / 8), &null_bitmap));
     auto null_bitmap_data = null_bitmap->mutable_data();
-    arrow::internal::FirstTimeBitmapWriter null_bitmap_writer(null_bitmap_data, 0, n);
+    internal::FirstTimeBitmapWriter null_bitmap_writer(null_bitmap_data, 0, n);
 
     // catch up on the initial `i` bits
     for (R_xlen_t j = 0; j < i; j++, null_bitmap_writer.Next()) {
@@ -136,13 +136,13 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(
   }
   bitmap_writer.Finish();
 
-  auto data = ArrayData::Make(std::make_shared<BooleanType>(), n,
-                              {std::move(null_bitmap), std::move(data_bitmap)},
-                              null_count, 0 /*offset*/
-  );
+  auto data =
+      ArrayData::Make(boolean(), n, {std::move(null_bitmap), std::move(data_bitmap)},
+                      null_count, 0 /*offset*/
+      );
 
   // return the right Array class
-  return std::make_shared<BooleanArray>(data);
+  return MakeArray(data);
 }
 
 }  // namespace r
@@ -157,15 +157,12 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
       if (Rf_isFactor(x)) {
         break;
       }
-      return arrow::r::SimpleArray<INTSXP, arrow::Int32Type,
-                                   arrow::NumericArray<arrow::Int32Type>>(x);
+      return arrow::r::SimpleArray<INTSXP, arrow::Int32Type>(x);
     case REALSXP:
       // TODO: Dates, ...
-      return arrow::r::SimpleArray<REALSXP, arrow::DoubleType,
-                                   arrow::NumericArray<arrow::DoubleType>>(x);
+      return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
     case RAWSXP:
-      return arrow::r::SimpleArray<RAWSXP, arrow::Int8Type,
-                                   arrow::NumericArray<arrow::Int8Type>>(x);
+      return arrow::r::SimpleArray<RAWSXP, arrow::Int8Type>(x);
     default:
       break;
   }
