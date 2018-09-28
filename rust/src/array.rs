@@ -18,6 +18,7 @@
 ///! Array types
 use std::any::Any;
 use std::convert::From;
+use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
 use std::sync::Arc;
@@ -137,6 +138,11 @@ macro_rules! def_primitive_array {
                     .offset(offset)
                     .build();
                 PrimitiveArray::from(array_data)
+            }
+
+            /// Returns a builder to construct a `PrimitiveArray` instance.
+            pub fn builder(capacity: i64) -> PrimitiveArrayBuilder<$native_ty> {
+                PrimitiveArrayBuilder::<$native_ty>::with_capacity(capacity)
             }
 
             /// Returns a `Buffer` holds all the values of this array.
@@ -282,6 +288,40 @@ def_primitive_array!(DataType::Int32, i32);
 def_primitive_array!(DataType::Int64, i64);
 def_primitive_array!(DataType::Float32, f32);
 def_primitive_array!(DataType::Float64, f64);
+
+pub struct PrimitiveArrayBuilder<T: ArrowPrimitiveType> {
+    values_buffer: Buffer,
+    len: i64,
+    capacity: i64,
+    _marker: PhantomData<T>,
+}
+
+impl<T: ArrowPrimitiveType> PrimitiveArrayBuilder<T> {
+    pub fn with_capacity(capacity: i64) -> Self {
+        let byte_capacity = capacity * mem::size_of::<T>() as i64;
+        let buffer = Buffer::with_capacity(byte_capacity);
+        Self {
+            values_buffer: buffer,
+            len: 0,
+            capacity,
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn capacity(&self) -> i64 {
+        self.capacity
+    }
+
+    pub fn push(&mut self, val: T) {
+        val.write_to_buffer(&mut self.values_buffer, self.len)
+            .expect("Builders capacity is not large enough.");
+        self.len += 1;
+    }
+
+    pub fn build(self) -> PrimitiveArray<i32> {
+        PrimitiveArray::<i32>::new(self.len, self.values_buffer, 0, 0)
+    }
+}
 
 /// A list array where each element is a variable-sized sequence of values with the same
 /// type.
@@ -613,6 +653,40 @@ mod tests {
         for i in 0..3 {
             assert_eq!((i + 2) as i32, pa.value(i));
         }
+    }
+
+    macro_rules! create_vec_builder_compare_tests {
+    ($($name:ident: $native_ty:ident, $value:expr,)*) => {
+        $(
+            #[test]
+            fn $name() {
+                let (val1, val2, val3) = $value;
+                let pa = PrimitiveArray::<$native_ty>::from(vec![val1, val2, val3]);
+                let mut builder = PrimitiveArray::<$native_ty>::builder(3);
+                builder.push(val1);
+                builder.push(val2);
+                builder.push(val3);
+
+                let ba = builder.build();
+                for (i, j) in pa.data().buffers()[0].data().iter().zip(ba.data().buffers()[0].data().iter()) {
+                    assert_eq!(i, j);
+                }
+            }
+        )*
+    }}
+
+    create_vec_builder_compare_tests! {
+        bool_vec_builder_compare: bool, (true, false, true),
+        i8_vec_builder_compare: i8, (-3, 4, 120),
+        i16_vec_builder_compare: i16, (-214, 50, 32),
+        i32_vec_builder_compare: i32, (-590, 34, 6432),
+        i64_vec_builder_compare: i64, (-2345, 3543, 9023),
+        u8_vec_builder_compare: u8, (0, 45, 255),
+        u16_vec_builder_compare: u16, (0, 30000, 65535),
+        u32_vec_builder_compare: u32, (590, 34, 6432),
+        u64_vec_builder_compare: u64, (2345, 3543, 9023),
+        f32_vec_builder_compare: f32, (34.56, 32.12, 89.0),
+        f64_vec_builder_compare: f64, (543.9809, 324.89, 34.89),
     }
 
     #[test]
