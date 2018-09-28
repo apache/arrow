@@ -118,6 +118,50 @@ export class Uint64 extends BaseInt64 {
         return this;
     }
 
+    static from(val: any, out_buffer = new Uint32Array(2)): Uint64 {
+        return Uint64.fromString(
+            typeof(val) === 'string' ? val : val.toString(),
+            out_buffer
+        );
+    }
+
+    static fromNumber(num: number, out_buffer = new Uint32Array(2)): Uint64 {
+        // Always parse numbers as strings - pulling out high and low bits
+        // directly seems to lose precision sometimes
+        // For example:
+        //     > -4613034156400212000 >>> 0
+        //     721782784
+        // The correct lower 32-bits are 721782752
+        return Uint64.fromString(num.toString(), out_buffer);
+    }
+
+    static fromString(str: string, out_buffer = new Uint32Array(2)): Uint64 {
+        const length = str.length;
+
+        let out = new Uint64(out_buffer);
+        for (let posn = 0; posn < length;) {
+            const group = kInt32DecimalDigits < length - posn ?
+                          kInt32DecimalDigits : length - posn;
+            const chunk = new Uint64(new Uint32Array([parseInt(str.substr(posn, group), 10), 0]));
+            const multiple = new Uint64(new Uint32Array([kPowersOfTen[group], 0]));
+
+            out.times(multiple);
+            out.plus(chunk);
+
+            posn += group;
+        }
+
+        return out;
+    }
+
+    static convertArray(values: (string|number)[]): Uint32Array {
+        const data = new Uint32Array(values.length * 2);
+        for (let i = -1, n = values.length; ++i < n;) {
+            Uint64.from(values[i], new Uint32Array(data.buffer, data.byteOffset + 2 * i * 4, 2));
+        }
+        return data;
+    }
+
     static multiply(left: Uint64, right: Uint64): Uint64 {
         let rtrn = new Uint64(new Uint32Array(left.buffer));
         return rtrn.times(right);
@@ -156,6 +200,23 @@ export class Int64 extends BaseInt64 {
             (this_high === other_high && this.buffer[0] < other.buffer[0]);
     }
 
+    static from(val: any, out_buffer = new Uint32Array(2)): Int64 {
+        return Int64.fromString(
+            typeof(val) === 'string' ? val : val.toString(),
+            out_buffer
+        );
+    }
+
+    static fromNumber(num: number, out_buffer = new Uint32Array(2)): Int64 {
+        // Always parse numbers as strings - pulling out high and low bits
+        // directly seems to lose precision sometimes
+        // For example:
+        //     > -4613034156400212000 >>> 0
+        //     721782784
+        // The correct lower 32-bits are 721782752
+        return Int64.fromString(num.toString(), out_buffer);
+    }
+
     static fromString(str: string, out_buffer = new Uint32Array(2)): Int64 {
         // TODO: Assert that out_buffer is 0 and length = 2
         const negate = str.startsWith('-');
@@ -173,8 +234,15 @@ export class Int64 extends BaseInt64 {
 
             posn += group;
         }
-
         return negate ? out.negate() : out;
+    }
+
+    static convertArray(values: (string|number)[]): Uint32Array {
+        const data = new Uint32Array(values.length * 2);
+        for (let i = -1, n = values.length; ++i < n;) {
+            Int64.from(values[i], new Uint32Array(data.buffer, data.byteOffset + 2 * i * 4, 2));
+        }
+        return data;
     }
 
     static multiply(left: Int64, right: Int64): Int64 {
@@ -297,6 +365,23 @@ export class Int128 {
         return rtrn.plus(right);
     }
 
+    static from(val: any, out_buffer = new Uint32Array(4)): Int128 {
+        return Int128.fromString(
+            typeof(val) === 'string' ? val : val.toString(),
+            out_buffer
+        );
+    }
+
+    static fromNumber(num: number, out_buffer = new Uint32Array(4)): Int128 {
+        // Always parse numbers as strings - pulling out high and low bits
+        // directly seems to lose precision sometimes
+        // For example:
+        //     > -4613034156400212000 >>> 0
+        //     721782784
+        // The correct lower 32-bits are 721782752
+        return Int128.fromString(num.toString(), out_buffer);
+    }
+
     static fromString(str: string, out_buffer = new Uint32Array(4)): Int128 {
         // TODO: Assert that out_buffer is 0 and length = 4
         const negate = str.startsWith('-');
@@ -316,5 +401,14 @@ export class Int128 {
         }
 
         return negate ? out.negate() : out;
+    }
+
+    static convertArray(values: (string|number)[]): Uint32Array {
+        // TODO: Distinguish between string and number at compile-time
+        const data = new Uint32Array(values.length * 4);
+        for (let i = -1, n = values.length; ++i < n;) {
+            Int128.from(values[i], new Uint32Array(data.buffer, data.byteOffset + 4 * 4 * i, 4));
+        }
+        return data;
     }
 }

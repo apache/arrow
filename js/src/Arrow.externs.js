@@ -195,6 +195,12 @@ Uint64.add = function() {};
 /** @type {?} */
 Uint64.multiply = function() {};
 /** @type {?} */
+Uint64.from = function() {};
+/** @type {?} */
+Uint64.fromNumber = function() {};
+/** @type {?} */
+Uint64.fromString = function() {};
+/** @type {?} */
 Uint64.prototype.times;
 /** @type {?} */
 Uint64.prototype.plus
@@ -204,6 +210,10 @@ var Int64 = function() {};
 Int64.add = function() {};
 /** @type {?} */
 Int64.multiply = function() {};
+/** @type {?} */
+Int64.from = function() {};
+/** @type {?} */
+Int64.fromNumber = function() {};
 /** @type {?} */
 Int64.fromString = function() {};
 /** @type {?} */
@@ -220,6 +230,10 @@ var Int128 = function() {};
 Int128.add = function() {};
 /** @type {?} */
 Int128.multiply = function() {};
+/** @type {?} */
+Int128.from = function() {};
+/** @type {?} */
+Int128.fromNumber = function() {};
 /** @type {?} */
 Int128.fromString = function() {};
 /** @type {?} */
@@ -538,6 +552,8 @@ var FloatVector = function() {};
 FloatVector.from = function() {};
 
 var DateVector = function() {};
+/** @type {?} */
+DateVector.from = function() {};
 /** @type {?} */
 DateVector.prototype.asEpochMilliseconds;
 var DecimalVector = function() {};
