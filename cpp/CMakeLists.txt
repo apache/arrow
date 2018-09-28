@@ -615,7 +615,7 @@ endif(UNIX)
 set(ARROW_LINK_LIBS)
 
 # Libraries to link statically with libarrow.so
-set(ARROW_STATIC_LINK_LIBS)
+set(ARROW_STATIC_LINK_LIBS double-conversion)
 
 if (ARROW_WITH_BROTLI)
   SET(ARROW_STATIC_LINK_LIBS
@@ -694,6 +694,7 @@ else ()
   set(ARROW_MIN_TEST_LIBS
     arrow_shared
     ${ARROW_LINK_LIBS}
+    double-conversion
     ${BOOST_SYSTEM_LIBRARY}
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_REGEX_LIBRARY}
