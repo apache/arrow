@@ -543,7 +543,7 @@ def test_batch_serialize():
     hbuf = batch.serialize()
     cbuf = cuda.serialize_record_batch(batch, global_context)
     # test that read_record_batch works properly:
-    cuda.read_record_batch(batch.schema, cbuf)
+    cuda.read_record_batch(cbuf, batch.schema)
     buf = cbuf.copy_to_host()
     assert hbuf.equals(buf)
     batch2 = pa.read_record_batch(buf, batch.schema)
