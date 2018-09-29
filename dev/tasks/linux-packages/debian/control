@@ -111,7 +111,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends}
-Description: Apache Parquet is a columner storage format
+Description: Apache Parquet is a columnar storage format
  .
  This package provides library files to process Apache Parquet format.
 
@@ -123,7 +123,7 @@ Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
   libparquet11 (= ${binary:Version})
-Description: Apache Parquet is a columner storage format
+Description: Apache Parquet is a columnar storage format
  .
  This package provides header files.
 
