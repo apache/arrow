@@ -141,6 +141,19 @@ TEST(TestMutableBuffer, Wrap) {
   ASSERT_EQ(4, values[1]);
 }
 
+TEST(TestSTLStringBuffer, STLStringBuffer) {
+  std::string expected = "input data";
+
+  std::shared_ptr<STLStringBuffer> buffer;
+  {
+    std::string data_str = "input data";
+    ASSERT_OK(AllocateSTLStringBuffer(data_str, &buffer));
+  }
+
+  ASSERT_EQ(0, memcmp(buffer->data(), expected.c_str(), expected.size()));
+  ASSERT_EQ(static_cast<int64_t>(expected.size()), buffer->size());
+}
+
 TEST(TestBuffer, SliceMutableBuffer) {
   std::string data_str = "some data to slice";
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
