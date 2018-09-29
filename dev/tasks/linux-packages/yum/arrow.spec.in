@@ -20,6 +20,7 @@
 %define _centos_ver %{?centos_ver:%{centos_ver}}%{!?centos_ver:7}
 
 %define use_python %{_centos_ver} >= 6
+%define use_parquet %{_centos_ver} >= 7
 %define use_glib %{_centos_ver} >= 7
 
 Name:		@PACKAGE@
@@ -40,6 +41,10 @@ BuildRequires:	jemalloc-devel
 %if %{use_python}
 BuildRequires:	python34-devel
 BuildRequires:	python34-numpy
+%endif
+%if %{use_parquet}
+BuildRequires:	bison
+BuildRequires:	flex
 %endif
 %if %{use_glib}
 BuildRequires:	autoconf-archive
@@ -68,6 +73,9 @@ cd cpp/build
   -DARROW_BOOST_VENDORED=ON \
 %endif
   -DARROW_ORC=ON \
+%if %{use_parquet}
+  -DARROW_PARQUET=ON \
+%endif
   -DARROW_BUILD_TESTS=OFF
 make %{?_smp_mflags}
 cd -
@@ -136,7 +144,7 @@ Libraries and header files for Apache Arrow C++.
 %package python-libs
 Summary:	Apache Arrow CPython extensions
 License:	Apache-2.0
-Requires:	arrow-libs = %{version}-%{release}
+Requires:	%{name}-libs = %{version}-%{release}
 Requires:	python34-numpy
 
 %description python-libs
@@ -150,7 +158,7 @@ This package contains the Apache Arrow CPython extensions.
 %package python-devel
 Summary:	Libraries and header files for Apache Arrow CPython extensions
 License:	Apache-2.0
-Requires:	arrow-devel = %{version}-%{release}
+Requires:	%{name}-devel = %{version}-%{release}
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	python34-devel
 
@@ -163,6 +171,42 @@ Libraries and header files for Apache Arrow CPython extensions.
 %{_libdir}/libarrow_python.a
 %{_libdir}/libarrow_python.so
 %{_libdir}/pkgconfig/arrow-python.pc
+%endif
+
+%if %{use_parquet}
+%package -n parquet-libs
+Summary:	Runtime libraries for Apache Parquet
+License:	Apache-2.0
+Requires:	boost-system
+Requires:	boost-filesystem
+Requires:	boost-program-options
+Requires:	boost-regex
+Requires:	%{name}-libs = %{version}-%{release}
+
+%description -n parquet-libs
+This package contains the libraries for Apache Parquet
+
+%files -n parquet-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libparquet.so.*
+
+%package -n parquet-devel
+Summary:	Libraries and header files for Apache Parquet
+License:	Apache-2.0
+Requires:	parquet-libs = %{version}-%{release}
+Requires:	zlib-devel
+
+%description -n parquet-devel
+Libraries and header files for Apache Parquet.
+
+%files -n parquet-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/parquet/
+%{_libdir}/libparquet.a
+%{_libdir}/libparquet.so
+%{_libdir}/pkgconfig/parquet*.pc
 %endif
 
 %if %{use_glib}

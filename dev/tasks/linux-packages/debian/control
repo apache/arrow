@@ -3,25 +3,27 @@ Section: devel
 Priority: optional
 Maintainer: Kouhei Sutou <kou@clear-code.com>
 Build-Depends:
+  autoconf-archive,
+  bison,
+  cmake,
   debhelper (>= 9.20160115),
   dh-autoreconf,
-  autoconf-archive,
-  pkg-config,
-  cmake,
+  flex,
   git,
-  libboost-system-dev,
+  gobject-introspection,
+  gtk-doc-tools,
   libboost-filesystem-dev,
   libboost-regex-dev,
+  libboost-system-dev,
+  libgirepository1.0-dev,
   libjemalloc-dev,
   libprotobuf-dev,
   libprotoc-dev,
+  nvidia-cuda-toolkit,
+  pkg-config,
   protobuf-compiler,
   python3-dev,
-  python3-numpy,
-  nvidia-cuda-toolkit,
-  libgirepository1.0-dev,
-  gtk-doc-tools,
-  gobject-introspection
+  python3-numpy
 Build-Depends-Indep: libglib2.0-doc
 Standards-Version: 3.9.6
 Homepage: https://arrow.apache.org/
@@ -100,6 +102,30 @@ Depends:
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides header files for GPU support.
+
+Package: libparquet11
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends}
+Description: Apache Parquet is a columnar storage format
+ .
+ This package provides library files to process Apache Parquet format.
+
+Package: libparquet-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-dev (= ${binary:Version}),
+  libparquet11 (= ${binary:Version})
+Description: Apache Parquet is a columnar storage format
+ .
+ This package provides header files.
 
 Package: libarrow-glib11
 Section: libs
