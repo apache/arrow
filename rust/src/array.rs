@@ -181,9 +181,11 @@ macro_rules! def_primitive_array {
                     let m = self.value(i as i64);
                     match n {
                         None => n = Some(m),
-                        Some(nn) => if cmp(m, nn) {
-                            n = Some(m)
-                        },
+                        Some(nn) => {
+                            if cmp(m, nn) {
+                                n = Some(m)
+                            }
+                        }
                     }
                 }
                 n
