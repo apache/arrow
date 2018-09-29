@@ -360,6 +360,9 @@ void PlasmaStore::UpdateObjectGetRequests(const ObjectID& object_id) {
   }
 
   auto& get_requests = it->second;
+
+  // After finishing the loop below, get_requests and it will have been
+  // invalidated by the removal of object_id from object_get_requests_.
   size_t index = 0;
   size_t num_requests = get_requests.size();
   for (size_t i = 0; i < num_requests; ++i) {
@@ -383,7 +386,6 @@ void PlasmaStore::UpdateObjectGetRequests(const ObjectID& object_id) {
     }
   }
 
-  DCHECK(index == get_requests.size());
   // Since no one should be waiting for this object anymore, the object ID
   // should have been removed from the map.
   ARROW_CHECK(object_get_requests_.count(object_id) == 0);
