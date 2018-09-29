@@ -20,6 +20,7 @@ brotli
 cmake
 flatbuffers
 gflags
+glog
 gtest
 jemalloc
 libprotobuf
