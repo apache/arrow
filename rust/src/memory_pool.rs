@@ -15,12 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use libc;
-use std::cmp;
-use std::mem;
-
-use super::error::Result;
-use super::memory::{allocate_aligned, free_aligned};
+use error::Result;
+use memory::{allocate_aligned, free_aligned, reallocate};
 
 /// Memory pool for allocating memory. It's also responsible for tracking memory usage.
 pub trait MemoryPool {
@@ -53,14 +49,7 @@ impl MemoryPool for LibcMemoryPool {
         new_size: usize,
         pointer: *const u8,
     ) -> Result<*const u8> {
-        unsafe {
-            let old_src = mem::transmute::<*const u8, *mut libc::c_void>(pointer);
-            let result = self.allocate(new_size)?;
-            let dst = mem::transmute::<*const u8, *mut libc::c_void>(result);
-            libc::memcpy(dst, old_src, cmp::min(old_size, new_size));
-            free_aligned(pointer);
-            Ok(result)
-        }
+        reallocate(old_size, new_size, pointer)
     }
 
     fn free(&self, ptr: *const u8) {

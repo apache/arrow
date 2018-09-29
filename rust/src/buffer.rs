@@ -15,10 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::cmp;
+use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
 use std::sync::Arc;
 
+use error::Result;
 use memory;
+use util::bit_util;
 
 /// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
 /// boundary. Buffer is immutable.
@@ -135,12 +139,134 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
 unsafe impl Sync for Buffer {}
 unsafe impl Send for Buffer {}
 
+/// Similar to `Buffer`, but is growable and can be mutated. A mutable buffer can be
+/// converted into a immutable buffer via the `freeze` method.
+#[derive(Debug)]
+pub struct MutableBuffer {
+    data: *mut u8,
+    len: usize,
+    capacity: usize,
+}
+
+impl MutableBuffer {
+    /// Allocate a new mutable buffer with initial capacity to be `capacity`.
+    pub fn new(capacity: usize) -> Self {
+        let new_capacity = bit_util::round_upto_multiple_of_64(capacity as i64);
+        let ptr = memory::allocate_aligned(new_capacity).unwrap();
+        Self {
+            data: ptr,
+            len: 0,
+            capacity: new_capacity as usize,
+        }
+    }
+
+    /// Adjust the capacity of this buffer to be at least `new_capacity`.
+    ///
+    /// If the `new_capacity` is less than the current capacity, nothing is done and `Ok`
+    /// will be returned. Otherwise, the new capacity value will be chosen between the
+    /// larger one of the incoming `new_capacity` (after rounding up to the nearest 64)
+    /// and the doubled value of the existing capacity.
+    pub fn resize(&mut self, new_capacity: usize) -> Result<()> {
+        if new_capacity <= self.capacity {
+            return Ok(());
+        }
+        let new_capacity = bit_util::round_upto_multiple_of_64(new_capacity as i64);
+        let new_capacity = cmp::max(new_capacity, self.capacity as i64 * 2);
+        let new_data = memory::reallocate(self.capacity, new_capacity as usize, self.data)?;
+        self.data = new_data as *mut u8;
+        self.capacity = new_capacity as usize;
+        Ok(())
+    }
+
+    /// Returns whether this buffer is empty or not.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Returns the length (the number of bytes written) in this buffer.
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Returns the total capacity in this buffer.
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// Clear all existing data from this buffer.
+    pub fn clear(&mut self) {
+        self.len = 0
+    }
+
+    /// Returns the data stored in this buffer as a slice.
+    pub fn data(&self) -> &[u8] {
+        unsafe { ::std::slice::from_raw_parts(self.raw_data(), self.len()) }
+    }
+
+    /// Returns a raw pointer for this buffer.
+    ///
+    /// Note that this should be used cautiously, and the returned pointer should not be
+    /// stored anywhere, to avoid dangling pointers.
+    pub fn raw_data(&self) -> *const u8 {
+        self.data
+    }
+
+    /// Freezes this buffer and return an immutable version of it.
+    pub fn freeze(self) -> Buffer {
+        let buffer_data = BufferData {
+            ptr: self.data,
+            len: self.len,
+        };
+        ::std::mem::forget(self);
+        Buffer {
+            data: Arc::new(buffer_data),
+            offset: 0,
+        }
+    }
+}
+
+impl Drop for MutableBuffer {
+    fn drop(&mut self) {
+        memory::free_aligned(self.data);
+    }
+}
+
+impl PartialEq for MutableBuffer {
+    fn eq(&self, other: &MutableBuffer) -> bool {
+        if self.len != other.len {
+            return false;
+        }
+        unsafe { memory::memcmp(self.data, other.data, self.len as usize) == 0 }
+    }
+}
+
+impl Write for MutableBuffer {
+    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+        let remaining_capacity = self.capacity - self.len;
+        if buf.len() > remaining_capacity {
+            return Err(IoError::new(ErrorKind::Other, "Buffer not big enough"));
+        }
+        unsafe {
+            memory::memcpy(self.data.offset(self.len as isize), buf.as_ptr(), buf.len());
+            self.len += buf.len();
+            Ok(buf.len())
+        }
+    }
+
+    fn flush(&mut self) -> IoResult<()> {
+        Ok(())
+    }
+}
+
+unsafe impl Sync for MutableBuffer {}
+unsafe impl Send for MutableBuffer {}
+
 #[cfg(test)]
 mod tests {
     use std::ptr::null_mut;
     use std::thread;
 
-    use super::Buffer;
+    use super::*;
 
     #[test]
     fn test_buffer_data_equality() {
@@ -219,6 +345,68 @@ mod tests {
     fn test_slice_offset_out_of_bound() {
         let buf = Buffer::from(&[2, 4, 6, 8, 10]);
         buf.slice(6);
+    }
+
+    #[test]
+    fn test_mutable_new() {
+        let buf = MutableBuffer::new(63);
+        assert_eq!(64, buf.capacity());
+        assert_eq!(0, buf.len());
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    fn test_mutable_write() {
+        let mut buf = MutableBuffer::new(100);
+        buf.write("hello".as_bytes()).expect("Ok");
+        assert_eq!(5, buf.len());
+        assert_eq!("hello".as_bytes(), buf.data());
+
+        buf.write(" world".as_bytes()).expect("Ok");
+        assert_eq!(11, buf.len());
+        assert_eq!("hello world".as_bytes(), buf.data());
+
+        buf.clear();
+        assert_eq!(0, buf.len());
+        buf.write("hello arrow".as_bytes()).expect("Ok");
+        assert_eq!(11, buf.len());
+        assert_eq!("hello arrow".as_bytes(), buf.data());
+    }
+
+    #[test]
+    #[should_panic(expected = "Buffer not big enough")]
+    fn test_mutable_write_overflow() {
+        let mut buf = MutableBuffer::new(1);
+        assert_eq!(64, buf.capacity());
+        for _ in 0..10 {
+            buf.write(&[0, 0, 0, 0, 0, 0, 0, 0]).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_mutable_resize() {
+        let mut buf = MutableBuffer::new(1);
+        assert_eq!(64, buf.capacity());
+
+        // resizing to a smaller value should have no effect.
+        buf.resize(10).expect("resize should be OK");
+        assert_eq!(64, buf.capacity());
+
+        buf.resize(100).expect("resize should be OK");
+        assert_eq!(128, buf.capacity());
+    }
+
+    #[test]
+    fn test_mutable_freeze() {
+        let mut buf = MutableBuffer::new(1);
+        buf.write("aaaa bbbb cccc dddd".as_bytes())
+            .expect("write should be OK");
+        assert_eq!(19, buf.len());
+        assert_eq!("aaaa bbbb cccc dddd".as_bytes(), buf.data());
+
+        let immutable_buf = buf.freeze();
+        assert_eq!(19, immutable_buf.len());
+        assert_eq!("aaaa bbbb cccc dddd".as_bytes(), immutable_buf.data());
     }
 
     #[test]
