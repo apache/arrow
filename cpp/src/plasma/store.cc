@@ -353,7 +353,13 @@ void PlasmaStore::ReturnFromGet(GetRequest* get_req) {
 }
 
 void PlasmaStore::UpdateObjectGetRequests(const ObjectID& object_id) {
-  auto& get_requests = object_get_requests_[object_id];
+  auto it = object_get_requests_.find(object_id);
+  // If there are no get requests involving this object, then return.
+  if (it == object_get_requests_.end()) {
+    return;
+  }
+
+  auto& get_requests = it->second;
   size_t index = 0;
   size_t num_requests = get_requests.size();
   for (size_t i = 0; i < num_requests; ++i) {
@@ -378,9 +384,9 @@ void PlasmaStore::UpdateObjectGetRequests(const ObjectID& object_id) {
   }
 
   DCHECK(index == get_requests.size());
-  // Remove the array of get requests for this object, since no one should be
-  // waiting for this object anymore.
-  object_get_requests_.erase(object_id);
+  // Since no one should be waiting for this object anymore, the object ID
+  // should have been removed from the map.
+  ARROW_CHECK(object_get_requests_.count(object_id) == 0);
 }
 
 void PlasmaStore::ProcessGetRequest(Client* client,
