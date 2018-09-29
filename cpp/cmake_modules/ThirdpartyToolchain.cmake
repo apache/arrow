@@ -1329,12 +1329,16 @@ include_directories(SYSTEM ${THRIFT_INCLUDE_DIR} ${THRIFT_INCLUDE_DIR}/thrift)
 message(STATUS "Thrift include dir: ${THRIFT_INCLUDE_DIR}")
 message(STATUS "Thrift static library: ${THRIFT_STATIC_LIB}")
 message(STATUS "Thrift compiler: ${THRIFT_COMPILER}")
-message(STATUS "Thrift version: ${THRIFT_VERSION}")
 add_library(thriftstatic STATIC IMPORTED)
 set_target_properties(thriftstatic PROPERTIES IMPORTED_LOCATION ${THRIFT_STATIC_LIB})
 
 if (THRIFT_VENDORED)
   add_dependencies(thriftstatic thrift_ep)
+endif()
+
+if (THRIFT_VERSION VERSION_LESS "0.11.0")
+  add_definitions(-DPARQUET_THRIFT_USE_BOOST)
+  message(STATUS "Using Boost in Thrift header")
 endif()
 
 endif()  # ARROW_HIVESERVER2
