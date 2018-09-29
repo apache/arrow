@@ -65,9 +65,6 @@ js/.npm
 js/node_modules
 js/jspm_packages
 
-js/yarn.lock
-js/package-lock.json
-
 js/logs
 js/*.log
 js/.esm-cache
@@ -79,8 +76,6 @@ js/.grunt
 js/bower_components
 js/.lock-wscript
 js/build/Release
-js/yarn.lock
-js/package-lock.json
 js/dist
 js/targets
 js/test/data
