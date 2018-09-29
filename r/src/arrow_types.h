@@ -100,6 +100,11 @@ inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag) {
 
 }  // namespace Rcpp
 
+namespace Rcpp {
+using LogicalVector_ = Rcpp::Vector<LGLSXP, Rcpp::NoProtectStorage>;
+using StringVector_ = Rcpp::Vector<STRSXP, Rcpp::NoProtectStorage>;
+}  // namespace Rcpp
+
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x);
