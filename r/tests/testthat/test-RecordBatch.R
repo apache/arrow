@@ -20,20 +20,23 @@ context("arrow::RecordBatch")
 test_that("RecordBatch", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE)
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10]
   )
   batch <- record_batch(tbl)
 
   expect_true(batch == batch)
   expect_equal(
     batch$schema(),
-    schema(int = int32(), dbl = float64(), lgl = boolean())
+    schema(int = int32(), dbl = float64(), lgl = boolean(), chr = utf8())
   )
-  expect_equal(batch$num_columns(), 3L)
+  expect_equal(batch$num_columns(), 4L)
   expect_equal(batch$num_rows(), 10L)
   expect_equal(batch$column_name(0), "int")
   expect_equal(batch$column_name(1), "dbl")
-  expect_equal(names(batch), c("int", "dbl", "lgl"))
+  expect_equal(batch$column_name(2), "lgl")
+  expect_equal(batch$column_name(3), "chr")
+  expect_equal(names(batch), c("int", "dbl", "lgl", "chr"))
 
   col_int <- batch$column(0)
   expect_true(inherits(col_int, 'arrow::Array'))
@@ -50,18 +53,22 @@ test_that("RecordBatch", {
   expect_equal(col_lgl$as_vector(), tbl$lgl)
   expect_equal(col_lgl$type(), boolean())
 
+  col_chr <- batch$column(3)
+  expect_true(inherits(col_chr, 'arrow::Array'))
+  expect_equal(col_chr$as_vector(), tbl$chr)
+  expect_equal(col_chr$type(), utf8())
+
   batch2 <- batch$RemoveColumn(0)
   expect_equal(
     batch2$schema(),
-    schema(dbl = float64(), lgl = boolean())
+    schema(dbl = float64(), lgl = boolean(), chr = utf8())
   )
   expect_equal(batch2$column(0), batch$column(1))
+  expect_identical(as_tibble(batch2), tbl[,-1])
 
   batch3 <- batch$Slice(5)
-  expect_equal(batch3$num_rows(), 5)
-  expect_equal(batch3$column(0)$as_vector(), 6:10)
+  expect_identical(as_tibble(batch3), tbl[6:10,])
 
   batch4 <- batch$Slice(5, 2)
-  expect_equal(batch4$num_rows(), 2)
-  expect_equal(batch4$column(0)$as_vector(), 6:7)
+  expect_identical(as_tibble(batch4), tbl[6:7,])
 })

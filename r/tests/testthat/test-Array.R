@@ -77,3 +77,22 @@ test_that("Array supports logical vectors (ARROW-3341)", {
   expect_identical(x, arr_lgl$as_vector())
 })
 
+test_that("Array supports character vectors (ARROW-3339)", {
+  # with NA
+  x <- c("itsy", NA, "spider")
+  arr_chr <- array(x)
+  expect_equal(arr_chr$length(), 3L)
+  expect_identical(arr_chr$as_vector(), x)
+  expect_true(arr_chr$IsValid(0))
+  expect_true(arr_chr$IsNull(1))
+  expect_true(arr_chr$IsValid(2))
+
+  sl <- arr_chr$Slice(1)
+  expect_equal(sl$as_vector(), x[2:3])
+
+  # without NA
+  x <- c("itsy", "bitsy", "spider")
+  arr_chr <- array(x)
+  expect_equal(arr_chr$length(), 3L)
+  expect_identical(arr_chr$as_vector(), x)
+})
