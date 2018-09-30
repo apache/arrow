@@ -32,9 +32,9 @@ services:
 
   cpp:
     image: arrow:cpp
+    shm_size: 2G
     build:
       context: .
-      shm_size: '2gb'
       dockerfile: cpp/Dockerfile
 
   go:
@@ -57,9 +57,9 @@ services:
 
   python:
     image: arrow:python-${PYTHON_VERSION:-3.6}
+    shm_size: 2G
     build:
       context: .
-      shm_size: '2gb'
       dockerfile: python/Dockerfile
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
