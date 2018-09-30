@@ -583,5 +583,14 @@ Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
   return Status::OK();
 }
 
+ARROW_EXPORT
+bool IsPyBool(PyObject* obj) { return internal::PyBoolScalar_Check(obj); }
+
+ARROW_EXPORT
+bool IsPyInt(PyObject* obj) { return internal::PyIntScalar_Check(obj); }
+
+ARROW_EXPORT
+bool IsPyFloat(PyObject* obj) { return internal::PyFloatScalar_Check(obj); }
+
 }  // namespace py
 }  // namespace arrow

@@ -16,8 +16,9 @@
 # under the License.
 
 from collections import OrderedDict
-import pickle
 
+import numpy as np
+import pickle
 import pytest
 
 import pyarrow as pa
@@ -471,3 +472,24 @@ def test_empty_table():
     assert isinstance(table, pa.Table)
     assert table.num_rows == 0
     assert table.schema == schema
+
+
+def test_is_integer_value():
+    assert pa.types.is_integer_value(1)
+    assert pa.types.is_integer_value(np.int64(1))
+    assert not pa.types.is_integer_value('1')
+
+
+def test_is_float_value():
+    assert not pa.types.is_float_value(1)
+    assert pa.types.is_float_value(1.)
+    assert pa.types.is_float_value(np.float64(1))
+    assert not pa.types.is_float_value('1.0')
+
+
+def test_is_boolean_value():
+    assert not pa.types.is_boolean_value(1)
+    assert pa.types.is_boolean_value(True)
+    assert pa.types.is_boolean_value(False)
+    assert pa.types.is_boolean_value(np.bool_(True))
+    assert pa.types.is_boolean_value(np.bool_(False))
