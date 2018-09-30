@@ -17,43 +17,11 @@
 version: '3'
 services:
 
-  hdfs-namenode:
-    image: gelog/hadoop
-    shm_size: 2G
-    ports:
-      - "9000:9000"
-      - "50070:50070"
-    command: hdfs namenode
-    hostname: hdfs-namenode
-
-  hdfs-datanode:
-    image: gelog/hadoop
-    command: hdfs datanode
-    ports:
-      # The host port is randomly assigned by Docker, to allow scaling
-      # to multiple DataNodes on the same host
-      - "50075"
-    links:
-      - hdfs-namenode:hdfs-namenode
-
   impala:
     image: cpcloud86/impala:java8-1
     ports:
       - "21050"
     hostname: impala
-
-  hdfs_integration:
-    links:
-      - hdfs-namenode:hdfs-namenode
-      - hdfs-datanode:hdfs-datanode
-    environment:
-      - ARROW_HDFS_TEST_HOST=hdfs-namenode
-      - ARROW_HDFS_TEST_PORT=9000
-      - ARROW_HDFS_TEST_USER=root
-    build:
-      context: hdfs_integration
-    volumes:
-     - ../..:/apache-arrow
 
   hiveserver2:
     links:

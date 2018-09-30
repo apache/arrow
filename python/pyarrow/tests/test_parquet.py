@@ -1442,14 +1442,15 @@ def _test_read_common_metadata_files(fs, base_path):
         'values': np.random.randn(N)
     }, columns=['index', 'values'])
 
-    data_path = base_path / 'data.parquet'
+    base_path = str(base_path)
+    data_path = os.path.join(base_path, 'data.parquet')
 
     table = pa.Table.from_pandas(df)
 
     with fs.open(data_path, 'wb') as f:
         _write_table(table, f)
 
-    metadata_path = base_path / '_common_metadata'
+    metadata_path = os.path.join(base_path, '_common_metadata')
     with fs.open(metadata_path, 'wb') as f:
         pq.write_metadata(table.schema, f)
 

@@ -343,12 +343,6 @@ if (NOT ARROW_FUZZING)
   set(NO_FUZZING 1)
 endif()
 
-if(ARROW_HDFS)
-  set(ARROW_BOOST_HEADER_ONLY 0)
-else()
-  set(ARROW_BOOST_HEADER_ONLY 1)
-endif()
-
 if (ARROW_TENSORFLOW)
   # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
