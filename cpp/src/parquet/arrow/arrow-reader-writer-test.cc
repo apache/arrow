@@ -2316,11 +2316,11 @@ TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
   ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
 }
 
-class TestArrowReaderAdHocSpark
+class TestArrowReaderAdHocSparkAndHvr
     : public ::testing::TestWithParam<
           std::tuple<std::string, std::shared_ptr<::DataType>>> {};
 
-TEST_P(TestArrowReaderAdHocSpark, ReadDecimals) {
+TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
   std::string path(test::get_data_dir());
 
   std::string filename;
@@ -2364,12 +2364,13 @@ TEST_P(TestArrowReaderAdHocSpark, ReadDecimals) {
 }
 
 INSTANTIATE_TEST_CASE_P(
-    ReadDecimals, TestArrowReaderAdHocSpark,
+    ReadDecimals, TestArrowReaderAdHocSparkAndHvr,
     ::testing::Values(
         std::make_tuple("int32_decimal.parquet", ::arrow::decimal(4, 2)),
         std::make_tuple("int64_decimal.parquet", ::arrow::decimal(10, 2)),
         std::make_tuple("fixed_length_decimal.parquet", ::arrow::decimal(25, 2)),
-        std::make_tuple("fixed_length_decimal_legacy.parquet", ::arrow::decimal(13, 2))));
+        std::make_tuple("fixed_length_decimal_legacy.parquet", ::arrow::decimal(13, 2)),
+        std::make_tuple("byte_array_decimal.parquet", ::arrow::decimal(4, 2))));
 
 }  // namespace arrow
 
