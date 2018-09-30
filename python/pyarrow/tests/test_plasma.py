@@ -774,8 +774,42 @@ class TestPlasmaClient(object):
         self.plasma_client.put(1, object_id=object_id)
 
         # Check that the store is still alive. This will raise an exception if
-        # the client is dead.
+        # the store is dead.
         self.plasma_client.contains(random_object_id())
+
+    def test_client_getting_multiple_objects(self):
+        import pyarrow.plasma as plasma
+
+        object_ids = [random_object_id() for _ in range(10)]
+
+        def client_get_multiple(plasma_store_name):
+            client = plasma.connect(self.plasma_store_name, "", 0)
+            # Try to get an object ID that doesn't exist. This should block.
+            client.get(object_ids)
+
+        p = multiprocessing.Process(target=client_get_multiple,
+                                    args=(self.plasma_store_name, ))
+        p.start()
+        # Make sure the process is running.
+        time.sleep(0.2)
+        assert p.is_alive()
+
+        # Create the objects one by one.
+        for object_id in object_ids:
+            self.plasma_client.put(1, object_id=object_id)
+
+        # Check that the store is still alive. This will raise an exception if
+        # the store is dead.
+        self.plasma_client.contains(random_object_id())
+
+        # Make sure that the blocked client finishes.
+        start_time = time.time()
+        while True:
+            if time.time() - start_time > 5:
+                raise Exception("Timing out while waiting for blocked client "
+                                "to finish.")
+            if not p.is_alive():
+                break
 
 
 @pytest.mark.plasma
