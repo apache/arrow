@@ -1221,6 +1221,64 @@ struct TransferFunctor<::arrow::Decimal128Type, FLBAType> {
   }
 };
 
+/// \brief Convert an arrow::BinaryArray to an arrow::Decimal128Array
+/// We do this by:
+/// 1. Creating an arrow::BinaryArray from the RecordReader's builder
+/// 2. Allocating a buffer for the arrow::Decimal128Array
+/// 3. Converting the big-endian bytes in each BinaryArray entry to two integers
+///    representing the high and low bits of each decimal value.
+template <>
+struct TransferFunctor<::arrow::Decimal128Type, ByteArrayType> {
+  Status operator()(RecordReader* reader, MemoryPool* pool,
+                    const std::shared_ptr<::arrow::DataType>& type,
+                    std::shared_ptr<Array>* out) {
+    DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
+
+    // Finish the built data into a temporary array
+    std::shared_ptr<Array> array;
+    RETURN_NOT_OK(reader->builder()->Finish(&array));
+    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*array);
+
+    const int64_t length = binary_array.length();
+
+    const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
+    const int64_t type_length = decimal_type.byte_width();
+
+    std::shared_ptr<Buffer> data;
+    RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * type_length, &data));
+
+    // raw bytes that we can write to
+    uint8_t* out_ptr = data->mutable_data();
+
+    const int64_t null_count = binary_array.null_count();
+
+    // convert each BinaryArray value to valid decimal bytes
+    for (int64_t i = 0; i < length; i++, out_ptr += type_length) {
+      int32_t record_len = 0;
+      const uint8_t* record_loc = binary_array.GetValue(i, &record_len);
+
+      if ((record_len < 0) || (record_len > type_length)) {
+        return Status::Invalid("Invalid BYTE_ARRAY size");
+      }
+
+      auto out_ptr_view = reinterpret_cast<uint64_t*>(out_ptr);
+      out_ptr_view[0] = 0;
+      out_ptr_view[1] = 0;
+
+      // only convert rows that are not null if there are nulls, or
+      // all rows, if there are not
+      if (((null_count > 0) && !binary_array.IsNull(i)) || (null_count <= 0)) {
+        RawBytesToDecimalBytes(record_loc, record_len, out_ptr);
+      }
+    }
+
+    *out = std::make_shared<::arrow::Decimal128Array>(
+        type, length, data, binary_array.null_bitmap(), null_count);
+
+    return Status::OK();
+  }
+};
+
 /// \brief Convert an Int32 or Int64 array into a Decimal128Array
 /// The parquet spec allows systems to write decimals in int32, int64 if the values are
 /// small enough to fit in less 4 bytes or less than 8 bytes, respectively.
@@ -1353,12 +1411,16 @@ Status PrimitiveImpl::NextBatch(int64_t records_to_read, std::shared_ptr<Array>*
         case ::parquet::Type::INT64: {
           TRANSFER_DATA(::arrow::Decimal128Type, Int64Type);
         } break;
+        case ::parquet::Type::BYTE_ARRAY: {
+          TRANSFER_DATA(::arrow::Decimal128Type, ByteArrayType);
+        } break;
         case ::parquet::Type::FIXED_LEN_BYTE_ARRAY: {
           TRANSFER_DATA(::arrow::Decimal128Type, FLBAType);
         } break;
         default:
           return Status::Invalid(
-              "Physical type for decimal must be int32, int64, or fixed length binary");
+              "Physical type for decimal must be int32, int64, byte array, or fixed "
+              "length binary");
       }
     } break;
     case ::arrow::Type::TIMESTAMP: {
