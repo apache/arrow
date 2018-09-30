@@ -66,6 +66,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
 
     # pin wheel, because auditwheel is not compatible with wheel=0.32
     # pin after installing tensorflow, because it updates to wheel=0.32
+    # TODO(kszucs): remove after auditwheel properly supports wheel>0.31
     $PIP install "wheel==${WHEEL_VERSION:-0.31.1}"
 
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
