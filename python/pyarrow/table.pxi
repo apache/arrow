@@ -146,6 +146,18 @@ cdef class ChunkedArray:
         Convert the arrow::ChunkedArray to an array object suitable for use
         in pandas
 
+        Parameters
+        ----------
+        strings_to_categorical : boolean, default False
+            Encode string (UTF8) and binary types to pandas.Categorical
+        zero_copy_only : boolean, default False
+            Raise an ArrowException if this function call would require copying
+            the underlying data
+        integer_object_nulls : boolean, default False
+            Cast integers with nulls to objects
+        date_as_object : boolean, default False
+            Cast dates to objects
+
         See also
         --------
         Column.to_pandas
@@ -492,6 +504,18 @@ cdef class Column:
                   bint date_as_object=False):
         """
         Convert the arrow::Column to a pandas.Series
+
+        Parameters
+        ----------
+        strings_to_categorical : boolean, default False
+            Encode string (UTF8) and binary types to pandas.Categorical
+        zero_copy_only : boolean, default False
+            Raise an ArrowException if this function call would require copying
+            the underlying data
+        integer_object_nulls : boolean, default False
+            Cast integers with nulls to objects
+        date_as_object : boolean, default False
+            Cast dates to objects
 
         Returns
         -------
@@ -861,20 +885,42 @@ cdef class RecordBatch:
             entries.append((name, column))
         return OrderedDict(entries)
 
-    def to_pandas(self, bint use_threads=True):
+    def to_pandas(self, MemoryPool memory_pool=None, categories=None,
+                  bint strings_to_categorical=False, bint zero_copy_only=False,
+                  bint integer_object_nulls=False, bint date_as_object=False,
+                  bint use_threads=True):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
 
         Parameters
         ----------
-        use_threads : boolean, default True
-            Use multiple threads for conversion
+        memory_pool: MemoryPool, optional
+            Specific memory pool to use to allocate casted columns
+        categories: list, default empty
+            List of columns that should be returned as pandas.Categorical
+        strings_to_categorical : boolean, default False
+            Encode string (UTF8) and binary types to pandas.Categorical
+        zero_copy_only : boolean, default False
+            Raise an ArrowException if this function call would require copying
+            the underlying data
+        integer_object_nulls : boolean, default False
+            Cast integers with nulls to objects
+        date_as_object : boolean, default False
+            Cast dates to objects
+        use_threads: boolean, default True
+            Whether to parallelize the conversion using multiple threads
 
         Returns
         -------
         pandas.DataFrame
         """
-        return Table.from_batches([self]).to_pandas(use_threads=use_threads)
+        return Table.from_batches([self]).to_pandas(
+            memory_pool=memory_pool, categories=categories,
+            strings_to_categorical=strings_to_categorical,
+            zero_copy_only=zero_copy_only,
+            integer_object_nulls=integer_object_nulls,
+            date_as_object=date_as_object, use_threads=use_threads
+        )
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
@@ -1322,8 +1368,8 @@ cdef class Table:
 
         return result
 
-    def to_pandas(self, bint strings_to_categorical=False,
-                  memory_pool=None, bint zero_copy_only=False, categories=None,
+    def to_pandas(self, MemoryPool memory_pool=None, categories=None,
+                  bint strings_to_categorical=False, bint zero_copy_only=False,
                   bint integer_object_nulls=False, bint date_as_object=False,
                   bint use_threads=True):
         """
@@ -1331,15 +1377,15 @@ cdef class Table:
 
         Parameters
         ----------
-        strings_to_categorical : boolean, default False
-            Encode string (UTF8) and binary types to pandas.Categorical
         memory_pool: MemoryPool, optional
             Specific memory pool to use to allocate casted columns
+        categories: list, default empty
+            List of columns that should be returned as pandas.Categorical
+        strings_to_categorical : boolean, default False
+            Encode string (UTF8) and binary types to pandas.Categorical
         zero_copy_only : boolean, default False
             Raise an ArrowException if this function call would require copying
             the underlying data
-        categories: list, default empty
-            List of columns that should be returned as pandas.Categorical
         integer_object_nulls : boolean, default False
             Cast integers with nulls to objects
         date_as_object : boolean, default False
