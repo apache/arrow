@@ -73,10 +73,11 @@ Status Buffer::FromString(const std::string& data, std::shared_ptr<Buffer>* out)
 
 class StlStringBuffer : public Buffer {
  public:
-  explicit StlStringBuffer(std::string&& data)
-      : Buffer(reinterpret_cast<const uint8_t*>(data.c_str()),
-               static_cast<int64_t>(data.size())),
-        input_(std::move(data)) {}
+  explicit StlStringBuffer(std::string&& data) : Buffer(nullptr, 0), input_(data) {
+    data_ = reinterpret_cast<const uint8_t*>(input_.c_str());
+    size_ = static_cast<int64_t>(input_.size());
+    capacity_ = size_;
+  }
 
  private:
   std::string input_;
