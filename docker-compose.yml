@@ -1,0 +1,121 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+version: '3.5'
+services:
+
+  # we can further improve the caching mechanism for go rust and js via
+  # early adding the dependencies explicitly (cargo.toml etc) to prevent
+  # reinstalling the dependencies on each modification
+
+  ######################### Language Containers ###############################
+
+  c_glib:
+    image: arrow:c_glib
+    build:
+      context: .
+      dockerfile: c_glib/Dockerfile
+
+  cpp:
+    image: arrow:cpp
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile
+
+  go:
+    image: arrow:go
+    build:
+      context: .
+      dockerfile: go/Dockerfile
+
+  java:
+    image: arrow:java
+    build:
+      context: .
+      dockerfile: java/Dockerfile
+
+  js:
+    image: arrow:js
+    build:
+      context: .
+      dockerfile: js/Dockerfile
+
+  python:
+    image: arrow:python-${PYTHON_VERSION:-3.6}
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: python/Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+
+  #TODO(kszucs): R
+
+  rust:
+    image: arrow:rust
+    build:
+      context: .
+      dockerfile: rust/Dockerfile
+
+  ######################### Integration Tests #################################
+
+  # impala:
+  #   image: cpcloud86/impala:java8-1
+  #   ports:
+  #     - "21050"
+  #   hostname: impala
+
+  hdfs-namenode:
+    image: gelog/hadoop
+    shm_size: 2G
+    ports:
+      - "9000:9000"
+      - "50070:50070"
+    command: hdfs namenode
+    hostname: hdfs-namenode
+
+  hdfs-datanode:
+    image: gelog/hadoop
+    command: hdfs datanode
+    ports:
+      # The host port is randomly assigned by Docker, to allow scaling
+      # to multiple DataNodes on the same host
+      - "50075"
+    links:
+      - hdfs-namenode:hdfs-namenode
+
+  hdfs-integration:
+    links:
+      - hdfs-namenode:hdfs-namenode
+      - hdfs-datanode:hdfs-datanode
+    environment:
+      - ARROW_HDFS_TEST_HOST=hdfs-namenode
+      - ARROW_HDFS_TEST_PORT=9000
+      - ARROW_HDFS_TEST_USER=root
+    build:
+      context: .
+      dockerfile: integration/hdfs/Dockerfile
+
+  # TODO(kszucs): dask-integration
+  # TODO(kszucs): hive-integration
+  # TODO(kszucs): spark-integration
+
+  ######################### Documentation #####################################
+
+  # TODO(kszucs): site
+  # TODO(kszucs): apidoc
