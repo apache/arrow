@@ -386,9 +386,14 @@ void PlasmaStore::UpdateObjectGetRequests(const ObjectID& object_id) {
     }
   }
 
-  // Since no one should be waiting for this object anymore, the object ID
-  // should have been removed from the map.
-  ARROW_CHECK(object_get_requests_.count(object_id) == 0);
+  // No get requests should be waiting for this object anymore. The object ID
+  // may have been removed from the object_get_requests_ by ReturnFromGet, but
+  // if the get request has not returned yet, then remove the object ID from the
+  // map here.
+  it = object_get_requests_.find(object_id);
+  if (it != object_get_requests_.end()) {
+    object_get_requests_.erase(object_id);
+  }
 }
 
 void PlasmaStore::ProcessGetRequest(Client* client,
