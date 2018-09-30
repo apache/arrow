@@ -259,6 +259,50 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
   object->device_num = entry->device_num;
 }
 
+void PlasmaStore::RemoveGetRequest(GetRequest* get_request) {
+  // Remove the get request from each of the relevant object_get_requests hash
+  // tables if it is present there. It should only be present there if the get
+  // request timed out or if it was issued by a client that has disconnected.
+  for (ObjectID& object_id : get_request->object_ids) {
+    auto object_request_iter = object_get_requests_.find(object_id);
+    if (object_request_iter != object_get_requests_.end()) {
+      auto& get_requests = object_request_iter->second;
+      // Erase get_req from the vector.
+      auto it = std::find(get_requests.begin(), get_requests.end(), get_request);
+      if (it != get_requests.end()) {
+        get_requests.erase(it);
+        // If the vector is empty, remove the object ID from the map.
+        if (get_requests.empty()) {
+          object_get_requests_.erase(object_request_iter);
+        }
+      }
+    }
+  }
+  // Remove the get request.
+  if (get_request->timer != -1) {
+    ARROW_CHECK(loop_->RemoveTimer(get_request->timer) == AE_OK);
+  }
+  delete get_request;
+}
+
+void PlasmaStore::RemoveGetRequestsForClient(Client* client) {
+  std::unordered_set<GetRequest*> get_requests_to_remove;
+  for (auto const& pair : object_get_requests_) {
+    for (GetRequest* get_request : pair.second) {
+      if (get_request->client == client) {
+        get_requests_to_remove.insert(get_request);
+      }
+    }
+  }
+
+  // It shouldn't be possible for a given client to be in the middle of multiple get
+  // requests.
+  ARROW_CHECK(get_requests_to_remove.size() <= 1);
+  for (GetRequest* get_request : get_requests_to_remove) {
+    RemoveGetRequest(get_request);
+  }
+}
+
 void PlasmaStore::ReturnFromGet(GetRequest* get_req) {
   // Figure out how many file descriptors we need to send.
   std::unordered_set<int> fds_to_send;
@@ -305,26 +349,20 @@ void PlasmaStore::ReturnFromGet(GetRequest* get_req) {
   // Remove the get request from each of the relevant object_get_requests hash
   // tables if it is present there. It should only be present there if the get
   // request timed out.
-  for (ObjectID& object_id : get_req->object_ids) {
-    auto object_request_iter = object_get_requests_.find(object_id);
-    if (object_request_iter != object_get_requests_.end()) {
-      auto& get_requests = object_request_iter->second;
-      // Erase get_req from the vector.
-      auto it = std::find(get_requests.begin(), get_requests.end(), get_req);
-      if (it != get_requests.end()) {
-        get_requests.erase(it);
-      }
-    }
-  }
-  // Remove the get request.
-  if (get_req->timer != -1) {
-    ARROW_CHECK(loop_->RemoveTimer(get_req->timer) == AE_OK);
-  }
-  delete get_req;
+  RemoveGetRequest(get_req);
 }
 
 void PlasmaStore::UpdateObjectGetRequests(const ObjectID& object_id) {
-  auto& get_requests = object_get_requests_[object_id];
+  auto it = object_get_requests_.find(object_id);
+  // If there are no get requests involving this object, then return.
+  if (it == object_get_requests_.end()) {
+    return;
+  }
+
+  auto& get_requests = it->second;
+
+  // After finishing the loop below, get_requests and it will have been
+  // invalidated by the removal of object_id from object_get_requests_.
   size_t index = 0;
   size_t num_requests = get_requests.size();
   for (size_t i = 0; i < num_requests; ++i) {
@@ -348,10 +386,9 @@ void PlasmaStore::UpdateObjectGetRequests(const ObjectID& object_id) {
     }
   }
 
-  DCHECK(index == get_requests.size());
-  // Remove the array of get requests for this object, since no one should be
-  // waiting for this object anymore.
-  object_get_requests_.erase(object_id);
+  // Since no one should be waiting for this object anymore, the object ID
+  // should have been removed from the map.
+  ARROW_CHECK(object_get_requests_.count(object_id) == 0);
 }
 
 void PlasmaStore::ProcessGetRequest(Client* client,
@@ -583,6 +620,9 @@ void PlasmaStore::DisconnectClient(int client_fd) {
       AbortObject(it->first, client);
     }
   }
+
+  /// Remove all of the client's GetRequests.
+  RemoveGetRequestsForClient(client);
 
   for (const auto& entry : sealed_objects) {
     RemoveFromClientObjectIds(entry.first, entry.second, client);
