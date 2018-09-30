@@ -1,3 +1,10 @@
+div.highlight {
+  padding: 0.5rem;
+  margin: 1rem;
+}
+pre.highlight {
+  margin: 0;
+}
 .highlight table td { padding: 5px; }
 .highlight table pre { margin: 0; }
 .highlight .cm {

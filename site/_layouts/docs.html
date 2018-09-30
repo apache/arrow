@@ -1,14 +1,17 @@
 {% include top.html %}
 
 <body class="wrap">
-  <div class="container">
+  <header>
     {% include header.html %}
+  </header>
 
-    {{ content }}
-
-    <hr></hr>
+  <div class="container p-lg-4">
+    <main role="main">
+      {{ content }}
+    </main>
 
     {% include footer.html %}
   </div>
 </body>
 </html>
+

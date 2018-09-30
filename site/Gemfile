@@ -16,10 +16,10 @@
 
 source "https://rubygems.org"
 ruby RUBY_VERSION
-gem "jekyll", "3.4.3"
-gem 'jekyll-bootstrap-sass'
-gem 'github-pages'
+gem "jekyll", "3.8.4"
+gem 'bootstrap', '~> 4.1.3'
 group :jekyll_plugins do
+   gem "jekyll-assets"
    gem "jekyll-feed", "~> 0.6"
    gem "jekyll-jupyter-notebook"
 end

@@ -49,10 +49,7 @@ sass:
 # The base path where the website is deployed
 baseurl:
 
-gems:
+plugins:
+  - jekyll-assets
   - jekyll-feed
-  - jekyll-bootstrap-sass
   - jekyll-jupyter-notebook
-
-bootstrap:
-  assets: true
