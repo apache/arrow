@@ -124,6 +124,12 @@ class ARROW_EXPORT Buffer {
   /// using the default memory pool
   static Status FromString(const std::string& data, std::shared_ptr<Buffer>* out);
 
+  /// \brief Construct an immutable buffer that takes ownership of the contents
+  /// of an std::string
+  /// \param[in] data an rvalue-reference of a string
+  /// \return a new Buffer instance
+  static std::shared_ptr<Buffer> FromString(std::string&& data);
+
   /// \brief Create buffer referencing typed memory with some length without
   /// copying
   /// \param[in] data the typed memory as C array
@@ -259,20 +265,6 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
   ResizableBuffer(uint8_t* data, int64_t size) : MutableBuffer(data, size) {}
 };
 
-/// \class STLStringBuffer
-/// \brief A Buffer which owns the memory pointed to by a std::string
-class ARROW_EXPORT STLStringBuffer : public Buffer {
-public:
-  STLStringBuffer(std::string& data)
-  : Buffer(reinterpret_cast<const uint8_t*>(std::move(data.c_str())),
-          static_cast<int64_t>(data.size())) {
-    is_mutable_ = false;
-  }
-
-protected:
-  STLStringBuffer() : Buffer(NULLPTR, 0) {}
-};
-
 /// \brief Allocate a fixed size mutable buffer from a memory pool, zero its padding.
 ///
 /// \param[in] pool a memory pool
@@ -370,15 +362,6 @@ Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
 /// \return Status message
 ARROW_EXPORT
 Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out);
-
-/// \brief Allocate a Buffer which owns the memory held by a std::string
-///
-/// \param[in] data input data std::string
-/// \param[out] out the allocated buffer
-///
-/// \return Status message
-ARROW_EXPORT
-Status AllocateSTLStringBuffer(std::string& data, std::shared_ptr<STLStringBuffer>* out);
 
 // ----------------------------------------------------------------------
 // Buffer builder classes

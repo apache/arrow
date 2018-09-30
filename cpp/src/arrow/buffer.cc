@@ -71,6 +71,21 @@ Status Buffer::FromString(const std::string& data, std::shared_ptr<Buffer>* out)
   return FromString(data, default_memory_pool(), out);
 }
 
+class StlStringBuffer : public Buffer {
+ public:
+  explicit StlStringBuffer(std::string&& data)
+      : Buffer(reinterpret_cast<const uint8_t*>(data.c_str()),
+               static_cast<int64_t>(data.size())),
+        input_(std::move(data)) {}
+
+ private:
+  std::string input_;
+};
+
+std::shared_ptr<Buffer> Buffer::FromString(std::string&& data) {
+  return std::make_shared<StlStringBuffer>(std::move(data));
+}
+
 std::string Buffer::ToString() const {
   return std::string(reinterpret_cast<const char*>(data_), static_cast<size_t>(size_));
 }
@@ -201,13 +216,6 @@ Status AllocateResizableBuffer(const int64_t size,
 Status AllocateResizableBuffer(const int64_t size,
                                std::unique_ptr<ResizableBuffer>* out) {
   return AllocateResizableBuffer(default_memory_pool(), size, out);
-}
-
-Status AllocateSTLStringBuffer(std::string& data,
-                               std::shared_ptr<STLStringBuffer>* out) {
-  *out = std::make_shared<STLStringBuffer>(data);
-
-  return Status::OK();
 }
 
 Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
