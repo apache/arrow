@@ -64,6 +64,11 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
       fi
     fi
 
+    # pin wheel, because auditwheel is not compatible with wheel=0.32
+    # pin after installing tensorflow, because it updates to wheel=0.32
+    # TODO(kszucs): remove after auditwheel properly supports wheel>0.31
+    $PIP install "wheel==${WHEEL_VERSION:-0.31.1}"
+
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
     ARROW_BUILD_DIR=/tmp/build-PY${PYTHON}-${U_WIDTH}
     mkdir -p "${ARROW_BUILD_DIR}"
