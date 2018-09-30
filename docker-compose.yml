@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-version: '3'
+version: '3.5'
 services:
 
   # we can further improve the caching mechanism for go rust and js via
@@ -34,6 +34,7 @@ services:
     image: arrow:cpp
     build:
       context: .
+      shm_size: '2gb'
       dockerfile: cpp/Dockerfile
 
   go:
@@ -58,17 +59,12 @@ services:
     image: arrow:python-${PYTHON_VERSION:-3.6}
     build:
       context: .
+      shm_size: '2gb'
       dockerfile: python/Dockerfile
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
 
   #TODO(kszucs): R
-
-  cpp:
-    image: arrow:cpp
-    build:
-      context: .
-      dockerfile: cpp/Dockerfile
 
   rust:
     image: arrow:rust
