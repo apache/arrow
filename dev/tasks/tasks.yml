@@ -139,6 +139,7 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
+      wheel_version: 0.31.1
       python_version: 2.7,16
     artifacts:
       - pyarrow-{version}-cp27-cp27m-manylinux1_x86_64.whl
@@ -147,6 +148,7 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
+      wheel_version: 0.31.1
       python_version: 2.7,32
     artifacts:
       - pyarrow-{version}-cp27-cp27mu-manylinux1_x86_64.whl
@@ -155,6 +157,7 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
+      wheel_version: 0.31.1
       python_version: 3.5,16
     artifacts:
       - pyarrow-{version}-cp35-cp35m-manylinux1_x86_64.whl
@@ -163,6 +166,7 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
+      wheel_version: 0.31.1
       python_version: 3.6,16
     artifacts:
       - pyarrow-{version}-cp36-cp36m-manylinux1_x86_64.whl
@@ -173,10 +177,10 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_build_version: 1.10.4
-      numpy_test_version: 1.14.0
+      numpy_version: 1.14
       pandas_version: 0.23.0
       python_version: 2.7
+      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp27-cp27m-macosx_10_6_intel.whl
 
@@ -184,10 +188,10 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_build_version: 1.10.4
-      numpy_test_version: 1.14.0
+      numpy_version: 1.14
       pandas_version: 0.23.0
       python_version: 3.5
+      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp35-cp35m-macosx_10_6_intel.whl
 
@@ -195,10 +199,10 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_build_version: 1.11.3
-      numpy_test_version: 1.14.0
+      numpy_version: 1.14
       pandas_version: 0.23.0
       python_version: 3.6
+      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp36-cp36m-macosx_10_6_intel.whl
 
