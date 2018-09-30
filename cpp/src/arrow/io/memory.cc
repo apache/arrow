@@ -37,10 +37,7 @@ namespace io {
 static constexpr int64_t kBufferMinimumSize = 256;
 
 BufferOutputStream::BufferOutputStream()
-    : is_open_(false),
-      capacity_(0),
-      position_(0),
-      mutable_data_(nullptr) {}
+    : is_open_(false), capacity_(0), position_(0), mutable_data_(nullptr) {}
 
 BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer)
     : buffer_(buffer),
