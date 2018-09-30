@@ -20,6 +20,7 @@ from __future__ import division
 from __future__ import print_function
 
 import math
+import multiprocessing
 import os
 import pytest
 import random
@@ -117,10 +118,10 @@ class TestPlasmaClient(object):
             plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
             use_valgrind=USE_VALGRIND,
             use_one_memory_mapped_file=use_one_memory_mapped_file)
-        plasma_store_name, self.p = self.plasma_store_ctx.__enter__()
+        self.plasma_store_name, self.p = self.plasma_store_ctx.__enter__()
         # Connect to Plasma.
-        self.plasma_client = plasma.connect(plasma_store_name, "", 64)
-        self.plasma_client2 = plasma.connect(plasma_store_name, "", 0)
+        self.plasma_client = plasma.connect(self.plasma_store_name, "", 64)
+        self.plasma_client2 = plasma.connect(self.plasma_store_name, "", 0)
 
     def teardown_method(self, test_method):
         try:
@@ -746,6 +747,35 @@ class TestPlasmaClient(object):
         with pytest.raises(pa.lib.PlasmaStoreFull):
             create_object(self.plasma_client2, DEFAULT_PLASMA_STORE_MEMORY + 1,
                           0)
+
+    def test_client_death_during_get(self):
+        import pyarrow.plasma as plasma
+
+        object_id = random_object_id()
+
+        def client_blocked_in_get(plasma_store_name):
+            client = plasma.connect(self.plasma_store_name, "", 0)
+            # Try to get an object ID that doesn't exist. This should block.
+            client.get([object_id])
+
+        p = multiprocessing.Process(target=client_blocked_in_get,
+                                    args=(self.plasma_store_name, ))
+        p.start()
+        # Make sure the process is running.
+        time.sleep(0.2)
+        assert p.is_alive()
+
+        # Kill the client process.
+        p.terminate()
+        # Wait a little for the store to process the disconnect event.
+        time.sleep(0.1)
+
+        # Create the object.
+        self.plasma_client.put(1, object_id=object_id)
+
+        # Check that the store is still alive. This will raise an exception if
+        # the client is dead.
+        self.plasma_client.contains(random_object_id())
 
 
 @pytest.mark.plasma
