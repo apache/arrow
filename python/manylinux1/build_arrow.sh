@@ -58,7 +58,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PATH="$PATH:${CPYTHON_PATH}"
 
     # pin wheel, because auditwheel is not compatible with wheel=0.32
-    $PIP install wheel=${WHEEL_VERSION:-0.31.1}
+    $PIP install "wheel==${WHEEL_VERSION:-0.31.1}"
 
     # TensorFlow is not supported for Python 2.7 with unicode width 16 or with Python 3.7
     if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]; then
