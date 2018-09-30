@@ -375,8 +375,6 @@ cdef class Field:
         Parameters
         ----------
         other : pyarrow.Field
-        check_metadata : boolean, default True
-            Key/value metadata must be equal too
 
         Returns
         -------
