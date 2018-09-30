@@ -474,22 +474,22 @@ def test_empty_table():
     assert table.schema == schema
 
 
-def test_is_integer_object():
-    assert pa.types.is_integer_object(1)
-    assert pa.types.is_integer_object(np.int64(1))
-    assert not pa.types.is_integer_object('1')
+def test_is_integer_value():
+    assert pa.types.is_integer_value(1)
+    assert pa.types.is_integer_value(np.int64(1))
+    assert not pa.types.is_integer_value('1')
 
 
-def test_is_float_object():
-    assert not pa.types.is_float_object(1)
-    assert pa.types.is_float_object(1.)
-    assert pa.types.is_float_object(np.float64(1))
-    assert not pa.types.is_float_object('1.0')
+def test_is_float_value():
+    assert not pa.types.is_float_value(1)
+    assert pa.types.is_float_value(1.)
+    assert pa.types.is_float_value(np.float64(1))
+    assert not pa.types.is_float_value('1.0')
 
 
-def test_is_boolean_object():
-    assert not pa.types.is_boolean_object(1)
-    assert pa.types.is_boolean_object(True)
-    assert pa.types.is_boolean_object(False)
-    assert pa.types.is_boolean_object(np.bool_(True))
-    assert pa.types.is_boolean_object(np.bool_(False))
+def test_is_boolean_value():
+    assert not pa.types.is_boolean_value(1)
+    assert pa.types.is_boolean_value(True)
+    assert pa.types.is_boolean_value(False)
+    assert pa.types.is_boolean_value(np.bool_(True))
+    assert pa.types.is_boolean_value(np.bool_(False))
