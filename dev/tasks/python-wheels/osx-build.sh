@@ -99,6 +99,9 @@ function build_wheel {
     # build will also work with newer NumPy versions.
     export ARROW_HOME=`pwd`/arrow-dist
     export PARQUET_HOME=`pwd`/arrow-dist
+    if [ -n "$BUILD_DEPENDS" ]; then
+        pip install $(pip_opts) $BUILD_DEPENDS
+    fi
 
     pushd cpp
     mkdir build
