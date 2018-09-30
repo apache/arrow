@@ -57,15 +57,16 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PIP="${CPYTHON_PATH}/bin/pip"
     PATH="$PATH:${CPYTHON_PATH}"
 
-    # pin wheel, because auditwheel is not compatible with wheel=0.32
-    $PIP install "wheel==${WHEEL_VERSION:-0.31.1}"
-
     # TensorFlow is not supported for Python 2.7 with unicode width 16 or with Python 3.7
     if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]; then
       if [ $PYTHON != "3.7" ]; then
         $PIP install --ignore-installed --upgrade tensorflow
       fi
     fi
+
+    # pin wheel, because auditwheel is not compatible with wheel=0.32
+    # pin after installing tensorflow, because it updates to wheel=0.32
+    $PIP install "wheel==${WHEEL_VERSION:-0.31.1}"
 
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
     ARROW_BUILD_DIR=/tmp/build-PY${PYTHON}-${U_WIDTH}
