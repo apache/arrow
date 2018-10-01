@@ -325,4 +325,63 @@ TEST_F(TestProjector, TestTimestampDiff) {
   }
 }
 
+TEST_F(TestProjector, TestMonthsBetween) {
+  auto f0 = field("f0", arrow::date64());
+  auto f1 = field("f1", arrow::date64());
+  auto schema = arrow::schema({f0, f1});
+
+  // output fields
+  auto output = field("out", arrow::float64());
+
+  auto months_between_expr =
+      TreeExprBuilder::MakeExpression("months_between", {f0, f1}, output);
+
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {months_between_expr}, &projector);
+  std::cout << status.message();
+  ASSERT_TRUE(status.ok());
+
+  struct tm y1970 = {0};
+  y1970.tm_year = 70;
+  y1970.tm_mon = 0;
+  y1970.tm_mday = 1;
+  y1970.tm_hour = 0;
+  y1970.tm_min = 0;
+  y1970.tm_sec = 0;
+  time_t epoch = mktime(&y1970);
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto validity = {true, true, true, true};
+  std::vector<int64_t> f0_data = {MillisSince(epoch, 1995, 3, 2, 0, 0, 0, 0),
+                                  MillisSince(epoch, 1995, 2, 2, 0, 0, 0, 0),
+                                  MillisSince(epoch, 1995, 3, 31, 0, 0, 0, 0),
+                                  MillisSince(epoch, 1996, 3, 31, 0, 0, 0, 0)};
+
+  auto array0 =
+      MakeArrowTypeArray<arrow::Date64Type, int64_t>(date64(), f0_data, validity);
+
+  std::vector<int64_t> f1_data = {MillisSince(epoch, 1995, 2, 2, 0, 0, 0, 0),
+                                  MillisSince(epoch, 1995, 3, 2, 0, 0, 0, 0),
+                                  MillisSince(epoch, 1995, 2, 28, 0, 0, 0, 0),
+                                  MillisSince(epoch, 1996, 2, 29, 0, 0, 0, 0)};
+
+  auto array1 =
+      MakeArrowTypeArray<arrow::Date64Type, int64_t>(date64(), f1_data, validity);
+
+  // expected output
+  auto exp_output = MakeArrowArrayFloat64({1.0, -1.0, 1.0, 1.0}, validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
+}
+
 }  // namespace gandiva

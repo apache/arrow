@@ -27,6 +27,9 @@ extern "C" {
 
 #define MINS_IN_HOUR 60
 #define SECONDS_IN_MINUTE 60
+#define SECONDS_IN_HOUR (SECONDS_IN_MINUTE) * (MINS_IN_HOUR)
+
+#define HOURS_IN_DAY 24
 
 // Expand inner macro for all date types.
 #define DATE_TYPES(INNER) \
@@ -446,5 +449,58 @@ DATE_TRUNC_FUNCTIONS(timestamp)
 
 FORCE_INLINE
 date64 castDATE_int64(int64 in) { return in; }
+
+static int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+bool IsLastDayOfMonth(const EpochTimePoint &tp) {
+  if (tp.TmMon() != 1) {
+    // not February. Dont worry about leap year
+    return (tp.TmMday() == days_in_month[tp.TmMon()]);
+  }
+
+  // this is February, check if the day is 28 or 29
+  if (tp.TmMday() < 28) {
+    return false;
+  }
+
+  if (tp.TmMday() == 29) {
+    // Feb 29th
+    return true;
+  }
+
+  // check if year is non-leap year
+  return !IsLeapYear(tp.TmYear());
+}
+
+// MONTHS_BETWEEN returns number of months between dates date1 and date2.
+// If date1 is later than date2, then the result is positive.
+// If date1 is earlier than date2, then the result is negative.
+// If date1 and date2 are either the same days of the month or both last days of months,
+// then the result is always an integer. Otherwise Oracle Database calculates the
+// fractional portion of the result based on a 31-day month and considers the difference
+// in time components date1 and date2
+#define MONTHS_BETWEEN(TYPE)                                                        \
+  FORCE_INLINE                                                                      \
+  double months_between##_##TYPE##_##TYPE(uint64_t endEpoch, uint64_t startEpoch) { \
+    EpochTimePoint endTime(endEpoch);                                               \
+    EpochTimePoint startTime(startEpoch);                                           \
+    int endYear = endTime.TmYear();                                                 \
+    int endMonth = endTime.TmMon();                                                 \
+    int startYear = startTime.TmYear();                                             \
+    int startMonth = startTime.TmMon();                                             \
+    int monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth);          \
+    if ((endTime.TmMday() == startTime.TmMday()) ||                                 \
+        (IsLastDayOfMonth(endTime) && IsLastDayOfMonth(startTime))) {               \
+      return (double)monthsDiff;                                                    \
+    }                                                                               \
+    double diffDays = (double)(endTime.TmMday() - startTime.TmMday()) / (double)31; \
+    double diffHours =                                                              \
+        (double)(endTime.TmHour() - startTime.TmHour()) +                           \
+        (double)(endTime.TmMin() - startTime.TmMin()) / (double)MINS_IN_HOUR +      \
+        (double)(endTime.TmSec() - startTime.TmSec()) / (double)SECONDS_IN_HOUR;    \
+    return (double)monthsDiff + diffDays + diffHours / (double)(HOURS_IN_DAY * 31); \
+  }
+
+DATE_TYPES(MONTHS_BETWEEN)
 
 }  // extern "C"
