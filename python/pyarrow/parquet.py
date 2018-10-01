@@ -17,11 +17,12 @@
 
 from collections import defaultdict
 from concurrent import futures
-import os
-import json
-import re
 
+import json
 import numpy as np
+import os
+import re
+import six
 
 import pyarrow as pa
 import pyarrow.lib as lib
@@ -35,6 +36,46 @@ from pyarrow.compat import guid
 from pyarrow.filesystem import (LocalFileSystem, _ensure_filesystem,
                                 _get_fs_from_path)
 from pyarrow.util import _is_path_like, _stringify_path, _deprecate_nthreads
+
+
+def _check_contains_null(val):
+    if isinstance(val, six.binary_type):
+        for byte in val:
+            if isinstance(byte, six.binary_type):
+                compare_to = chr(0)
+            else:
+                compare_to = 0
+            if byte == compare_to:
+                return True
+    elif isinstance(val, six.text_type):
+        return u'\x00' in val
+    return False
+
+
+def _check_filters(filters):
+    """
+    Check if filters are well-formed.
+    """
+    if filters is not None:
+        if len(filters) == 0 or any(len(f) == 0 for f in filters):
+            raise ValueError("Malformed filters")
+        if isinstance(filters[0][0], six.string_types):
+            # We have encountered the situation where we have one nesting level
+            # too few:
+            #   We have [(,,), ..] instead of [[(,,), ..]]
+            filters = [filters]
+        for conjunction in filters:
+            for col, op, val in conjunction:
+                if (
+                    isinstance(val, list)
+                    and all(_check_contains_null(v) for v in val)
+                    or _check_contains_null(val)
+                ):
+                    raise NotImplementedError(
+                        "Null-terminated binary strings are not supported as"
+                        " filter values."
+                    )
+    return filters
 
 # ----------------------------------------------------------------------
 # Reading a single Parquet file
@@ -779,10 +820,21 @@ class ParquetDataset(object):
         Divide files into pieces for each row group in the file
     validate_schema : boolean, default True
         Check that individual file schemas are all the same / compatible
-    filters : List[Tuple] or None (default)
-        List of filters to apply, like ``[('x', '=', 0), ...]``. This
+    filters : List[Tuple] or List[List[Tuple]] or None (default)
+        List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
         implements partition-level (hive) filtering only, i.e., to prevent the
         loading of some files of the dataset.
+
+        Predicates are expressed in disjunctive normal form (DNF). This means
+        that the innermost tuple describe a single column predicate. These
+        inner predicate make are all combined with a conjunction (AND) into a
+        larger predicate. The most outer list then combines all filters
+        with a disjunction (OR). By this, we should be able to express all
+        kinds of filters that are possible using boolean logic.
+
+        This function also supports passing in as List[Tuple]. These predicates
+        are evaluated as a conjunction. To express OR in predictates, one must
+        use the (preferred) List[List[Tuple]] notation.
     metadata_nthreads: int, default 1
         How many threads to allow the thread pool which is used to read the
         dataset metadata. Increasing this is helpful to read partitioned
@@ -829,7 +881,8 @@ class ParquetDataset(object):
         if validate_schema:
             self.validate_schemas()
 
-        if filters:
+        if filters is not None:
+            filters = _check_filters(filters)
             self._filter(filters)
 
     def validate_schemas(self):
@@ -944,7 +997,8 @@ class ParquetDataset(object):
                        for level, part_key in enumerate(piece.partition_keys))
 
         def all_filters_accept(piece):
-            return all(one_filter_accepts(piece, f) for f in filters)
+            return any(all(one_filter_accepts(piece, f) for f in conjunction)
+                       for conjunction in filters)
 
         self.pieces = [p for p in self.pieces if all_filters_accept(p)]
 
