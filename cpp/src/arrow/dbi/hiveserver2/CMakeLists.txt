@@ -93,6 +93,8 @@ ADD_ARROW_LIB(arrow_hiveserver2
   SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS}
 )
 
+add_dependencies(arrow_hiveserver2 ${ARROW_HIVESERVER2_LIBRARIES})
+
 foreach(LIB_TARGET ${ARROW_HIVESERVER2_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
     PRIVATE ARROW_EXPORTING)
@@ -108,11 +110,12 @@ set(ARROW_HIVESERVER2_TEST_LINK_LIBS
   arrow_hiveserver2_thrift
   thriftstatic)
 
-ADD_ARROW_TEST(hiveserver2-test
-  STATIC_LINK_LIBS "${ARROW_HIVESERVER2_TEST_LINK_LIBS}"
-  LABELS "arrow_hiveserver2"
-)
-
-set_property(TARGET hiveserver2-test
-  APPEND_STRING PROPERTY COMPILE_FLAGS
-  " -Wno-shadow-field")
+if (ARROW_BUILD_TESTS)
+  ADD_ARROW_TEST(hiveserver2-test
+    STATIC_LINK_LIBS "${ARROW_HIVESERVER2_TEST_LINK_LIBS}"
+    LABELS "arrow_hiveserver2"
+  )
+  set_property(TARGET hiveserver2-test
+    APPEND_STRING PROPERTY COMPILE_FLAGS
+    " -Wno-shadow-field")
+endif(ARROW_BUILD_TESTS)
