@@ -111,6 +111,25 @@ services:
       context: .
       dockerfile: integration/hdfs/Dockerfile
 
+  lint:
+    image: arrow:lint
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: dev/lint/Dockerfile
+    volumes:
+      - .:/arrow:delegated
+
+  clang-format:
+    image: arrow:lint
+    shm_size: 2G
+    command: '/run_clang_format.sh'
+    build:
+      context: .
+      dockerfile: dev/lint/Dockerfile
+    volumes:
+      - .:/arrow:delegated
+
   # TODO(kszucs): dask-integration
   # TODO(kszucs): hive-integration
   # TODO(kszucs): spark-integration
