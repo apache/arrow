@@ -160,7 +160,7 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
                 mask=mask, ordered=values.ordered,
-                from_pandas=from_pandas, safe=safe,
+                from_pandas=True, safe=safe,
                 memory_pool=memory_pool)
         else:
             import pyarrow.pandas_compat as pdcompat
@@ -811,7 +811,7 @@ cdef wrap_array_output(PyObject* output):
     if isinstance(obj, dict):
         return Categorical(obj['indices'],
                            categories=obj['dictionary'],
-                           fastpath=True)
+                           ordered=obj['ordered'], fastpath=True)
     else:
         return obj
 
