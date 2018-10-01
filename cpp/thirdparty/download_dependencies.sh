@@ -29,7 +29,7 @@ if [ "$#" -ne 1 ]; then
   exit
 fi
 
-_DST=$1
+_DST=`realpath $1`
 
 # To change toolchain versions, edit versions.txt
 source $SOURCE_DIR/versions.txt
@@ -59,7 +59,7 @@ wget -c -O $_DST/zlib.tar.gz http://zlib.net/fossils/zlib-$ZLIB_VERSION.tar.gz
 
 wget -c -O $_DST/zstd.tar.gz https://github.com/facebook/zstd/archive/$ZSTD_VERSION.tar.gz
 
-wget -c -O $_DST/protobuf.tar.gz https://github.com/google/protobuf/releases/download/$PROTOBUF_VERSION/protobuf-${PROTOBUF_VERSION:1}.tar.gz
+wget -c -O $_DST/protobuf.tar.gz https://github.com/google/protobuf/releases/download/$PROTOBUF_VERSION/protobuf-all-${PROTOBUF_VERSION:1}.tar.gz
 
 wget -c -O $_DST/grpc.tar.gz https://github.com/grpc/grpc/archive/$GRPC_VERSION.tar.gz
 
@@ -68,6 +68,8 @@ wget -c -O $_DST/orc.tar.gz https://github.com/apache/orc/archive/rel/release-$O
 wget -c -O $_DST/thrift.tar.gz http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz
 
 wget -c -O $_DST/glog.tar.gz https://github.com/google/glog/archive/${GLOG_VERSION}.tar.gz
+
+wget -c -O $_DST/double-conversion.tar.gz  https://github.com/google/double-conversion/archive/${DOUBLE_CONVERSION_VERSION}.tar.gz
 
 echo "
 # Environment variables for offline Arrow build
@@ -87,4 +89,5 @@ export ARROW_GRPC_URL=$_DST/grpc.tar.gz
 export ARROW_ORC_URL=$_DST/orc.tar.gz
 export ARROW_THRIFT_URL=$_DST/thrift.tar.gz
 export ARROW_GLOG_URL=$_DST/glog.tar.gz
+export ARROW_DOUBLE_CONVERSION_URL=$_DST/double-conversion.tar.gz
 "
