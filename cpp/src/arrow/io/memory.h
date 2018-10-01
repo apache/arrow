@@ -24,6 +24,7 @@
 #include <memory>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/memory_pool.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -56,10 +57,23 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   Status Tell(int64_t* position) const override;
   Status Write(const void* data, int64_t nbytes) override;
 
+  using OutputStream::Write;
+
   /// Close the stream and return the buffer
   Status Finish(std::shared_ptr<Buffer>* result);
 
+  /// \brief Initialize state of OutputStream with newly allocated memory and
+  /// set position to 0
+  /// \param[in] initial_capacity the starting allocated capacity
+  /// \param[in,out] pool the memory pool to use for allocations
+  /// \return Status
+  Status Reset(int64_t initial_capacity = 1024, MemoryPool* pool = default_memory_pool());
+
+  int64_t capacity() const { return capacity_; }
+
  private:
+  BufferOutputStream();
+
   // Ensures there is sufficient space available to write nbytes
   Status Reserve(int64_t nbytes);
 

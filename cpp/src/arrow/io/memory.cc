@@ -36,6 +36,9 @@ namespace io {
 
 static constexpr int64_t kBufferMinimumSize = 256;
 
+BufferOutputStream::BufferOutputStream()
+    : is_open_(false), capacity_(0), position_(0), mutable_data_(nullptr) {}
+
 BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer)
     : buffer_(buffer),
       is_open_(true),
@@ -45,9 +48,17 @@ BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& b
 
 Status BufferOutputStream::Create(int64_t initial_capacity, MemoryPool* pool,
                                   std::shared_ptr<BufferOutputStream>* out) {
-  std::shared_ptr<ResizableBuffer> buffer;
-  RETURN_NOT_OK(AllocateResizableBuffer(pool, initial_capacity, &buffer));
-  *out = std::make_shared<BufferOutputStream>(buffer);
+  // ctor is private, so cannot use make_shared
+  *out = std::shared_ptr<BufferOutputStream>(new BufferOutputStream);
+  return (*out)->Reset(initial_capacity, pool);
+}
+
+Status BufferOutputStream::Reset(int64_t initial_capacity, MemoryPool* pool) {
+  RETURN_NOT_OK(AllocateResizableBuffer(pool, initial_capacity, &buffer_));
+  is_open_ = true;
+  capacity_ = initial_capacity;
+  position_ = 0;
+  mutable_data_ = buffer_->mutable_data();
   return Status::OK();
 }
 
