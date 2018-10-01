@@ -509,9 +509,8 @@ void set_error_for_date(int32 length, const char *input, const char *msg,
                         int64_t execution_context) {
   int size = length + strlen(msg) + 1;
   char *error = (char *)malloc(size);
-  strcpy(error, msg);
-  strcat(error, input);
-  set_error_msg(execution_context, error);
+  snprintf(error, size, "%s%s", msg, input);
+  context_set_error_msg(execution_context, error);
   free(error);
 }
 

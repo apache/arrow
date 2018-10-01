@@ -49,11 +49,19 @@ using std::vector;
   NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, TYPE(), RESULT_NULL_IF_NULL, \
                  STRINGIFY(NAME##_##TYPE##_##TYPE))
 
-// Divide fubnction
-#define DIVIDE(NAME, TYPE)                                                            \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, TYPE(), RESULT_NULL_INTERNAL, \
-                 STRINGIFY(NAME##_##TYPE##_##TYPE), false /* does not need holder */, \
-                 true /* can return error */)
+// Binary functions that :
+// - have the same input type for both params
+// - NULL handling is of type NULL_IINTERNAL
+// - can return error.
+//
+// The pre-compiled fn name includes the base name & input type names. eg. add_int32_int32
+#define BINARY_UNSAFE_NULL_INTERNAL(NAME, IN_TYPE, OUT_TYPE)                    \
+  NativeFunction(#NAME, DataTypeVector{IN_TYPE(), IN_TYPE()}, OUT_TYPE(),       \
+                 RESULT_NULL_INTERNAL, STRINGIFY(NAME##_##IN_TYPE##_##IN_TYPE), \
+                 false /* does not need holder */, true /* can return error */)
+
+// Divide function
+#define DIVIDE(NAME, TYPE) BINARY_UNSAFE_NULL_INTERNAL(NAME, TYPE, TYPE)
 
 // Binary functions that :
 // - have different input types, or output type
@@ -90,6 +98,15 @@ using std::vector;
 #define UNARY_SAFE_NULL_NEVER_BOOL(NAME, TYPE)                                \
   NativeFunction(#NAME, DataTypeVector{TYPE()}, boolean(), RESULT_NULL_NEVER, \
                  STRINGIFY(NAME##_##TYPE))
+
+// Unary functions that :
+// - NULL handling is of type NULL_INTERNAL
+//
+// The pre-compiled fn name includes the base name & input type name. eg. castFloat_int32
+#define UNARY_UNSAFE_NULL_INTERNAL(NAME, IN_TYPE, OUT_TYPE)                          \
+  NativeFunction(#NAME, DataTypeVector{IN_TYPE()}, OUT_TYPE(), RESULT_NULL_INTERNAL, \
+                 STRINGIFY(NAME##_##IN_TYPE), false /* does not need holder */,      \
+                 true /* can return error */)
 
 // Binary functions that :
 // - NULL handling is of type NULL_NEVER
@@ -192,6 +209,44 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int64, float64),
     UNARY_SAFE_NULL_IF_NULL(castFLOAT8, float32, float64),
     UNARY_SAFE_NULL_IF_NULL(castDATE, int64, date64),
+
+    // extended math ops
+    UNARY_SAFE_NULL_IF_NULL(cbrt, int32, float64),
+    UNARY_SAFE_NULL_IF_NULL(cbrt, int64, float64),
+    UNARY_SAFE_NULL_IF_NULL(cbrt, uint32, float64),
+    UNARY_SAFE_NULL_IF_NULL(cbrt, uint64, float64),
+    UNARY_SAFE_NULL_IF_NULL(cbrt, float32, float64),
+    UNARY_SAFE_NULL_IF_NULL(cbrt, float64, float64),
+
+    UNARY_SAFE_NULL_IF_NULL(exp, int32, float64),
+    UNARY_SAFE_NULL_IF_NULL(exp, int64, float64),
+    UNARY_SAFE_NULL_IF_NULL(exp, uint32, float64),
+    UNARY_SAFE_NULL_IF_NULL(exp, uint64, float64),
+    UNARY_SAFE_NULL_IF_NULL(exp, float32, float64),
+    UNARY_SAFE_NULL_IF_NULL(exp, float64, float64),
+
+    UNARY_SAFE_NULL_IF_NULL(log, int32, float64),
+    UNARY_SAFE_NULL_IF_NULL(log, int64, float64),
+    UNARY_SAFE_NULL_IF_NULL(log, uint32, float64),
+    UNARY_SAFE_NULL_IF_NULL(log, uint64, float64),
+    UNARY_SAFE_NULL_IF_NULL(log, float32, float64),
+    UNARY_SAFE_NULL_IF_NULL(log, float64, float64),
+
+    UNARY_SAFE_NULL_IF_NULL(log10, int32, float64),
+    UNARY_SAFE_NULL_IF_NULL(log10, int64, float64),
+    UNARY_SAFE_NULL_IF_NULL(log10, uint32, float64),
+    UNARY_SAFE_NULL_IF_NULL(log10, uint64, float64),
+    UNARY_SAFE_NULL_IF_NULL(log10, float32, float64),
+    UNARY_SAFE_NULL_IF_NULL(log10, float64, float64),
+
+    BINARY_UNSAFE_NULL_INTERNAL(log, int32, float64),
+    BINARY_UNSAFE_NULL_INTERNAL(log, int64, float64),
+    BINARY_UNSAFE_NULL_INTERNAL(log, uint32, float64),
+    BINARY_UNSAFE_NULL_INTERNAL(log, uint64, float64),
+    BINARY_UNSAFE_NULL_INTERNAL(log, float32, float64),
+    BINARY_UNSAFE_NULL_INTERNAL(log, float64, float64),
+
+    BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(power, float64),
 
     // nullable never operations
     NUMERIC_BOOL_DATE_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnull),
@@ -346,6 +401,10 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     UNARY_SAFE_NULL_IF_NULL(octet_length, binary, int32),
     UNARY_SAFE_NULL_IF_NULL(bit_length, utf8, int32),
     UNARY_SAFE_NULL_IF_NULL(bit_length, binary, int32),
+    UNARY_UNSAFE_NULL_INTERNAL(char_length, utf8, int32),
+    UNARY_UNSAFE_NULL_INTERNAL(length, utf8, int32),
+    UNARY_UNSAFE_NULL_INTERNAL(lengthUtf8, binary, int32),
+
     VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
     VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
     VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
@@ -355,8 +414,6 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
 
     BINARY_RELATIONAL_SAFE_NULL_IF_NULL(starts_with, utf8),
     BINARY_RELATIONAL_SAFE_NULL_IF_NULL(ends_with, utf8),
-    BINARY_RELATIONAL_SAFE_NULL_IF_NULL(starts_with_plus_one, utf8),
-    BINARY_RELATIONAL_SAFE_NULL_IF_NULL(ends_with_plus_one, utf8),
 
     NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), RESULT_NULL_IF_NULL,
                    "like_utf8_utf8", true /*needs_holder*/),

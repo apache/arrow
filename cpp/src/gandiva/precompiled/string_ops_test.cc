@@ -16,8 +16,8 @@
 // under the License.
 
 #include <gtest/gtest.h>
+#include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
-
 namespace gandiva {
 
 TEST(TestStringOps, TestCompare) {
@@ -51,18 +51,31 @@ TEST(TestStringOps, TestBeginsEnds) {
   EXPECT_TRUE(ends_with_utf8_utf8("sir", 3, "sir", 3));
   EXPECT_FALSE(ends_with_utf8_utf8("ir", 2, "sir", 3));
   EXPECT_FALSE(ends_with_utf8_utf8("hello", 5, "sir", 3));
+}
 
-  // starts_with_plus_one
-  EXPECT_TRUE(starts_with_plus_one_utf8_utf8("hello ", 6, "hello", 5));
-  EXPECT_FALSE(starts_with_plus_one_utf8_utf8("hello world", 11, "hello", 5));
-  EXPECT_FALSE(starts_with_plus_one_utf8_utf8("hello", 5, "hello", 5));
-  EXPECT_FALSE(starts_with_plus_one_utf8_utf8("hell", 4, "hello", 5));
+TEST(TestStringOps, TestCharLength) {
+  bool valid;
 
-  // ends_with_plus_one
-  EXPECT_TRUE(ends_with_plus_one_utf8_utf8("gworld", 6, "world", 5));
-  EXPECT_FALSE(ends_with_plus_one_utf8_utf8("hello world", 11, "world", 5));
-  EXPECT_FALSE(ends_with_plus_one_utf8_utf8("world", 5, "world", 5));
-  EXPECT_FALSE(ends_with_plus_one_utf8_utf8("worl", 4, "world", 5));
+  EXPECT_EQ(utf8_length("hello sir", 9, true, 0, &valid), 9);
+  EXPECT_TRUE(valid);
+
+  std::string a("âpple");
+  EXPECT_EQ(utf8_length(a.data(), a.length(), true, 0, &valid), 5);
+  EXPECT_TRUE(valid);
+
+  std::string b("मदन");
+  EXPECT_EQ(utf8_length(b.data(), b.length(), true, 0, &valid), 3);
+  EXPECT_TRUE(valid);
+
+  // invalid utf8
+  gandiva::helpers::ExecutionContext ctx;
+  std::string c("\xf8\x28");
+  EXPECT_EQ(utf8_length(c.data(), c.length(), true, (int64)&ctx, &valid), 0);
+  EXPECT_TRUE(ctx.get_error().find(
+                  "unexpected byte \\f8 encountered while decoding utf8 string") !=
+              std::string::npos)
+      << ctx.get_error();
+  EXPECT_FALSE(valid);
 }
 
 }  // namespace gandiva

@@ -320,6 +320,83 @@ TEST_F(TestProjector, TestAllIntTypes) {
   TestArithmeticOpsForType<arrow::Int64Type, int64_t>(pool_);
 }
 
+TEST_F(TestProjector, TestExtendedMath) {
+  // schema for input fields
+  auto field0 = arrow::field("f0", arrow::float64());
+  auto field1 = arrow::field("f1", arrow::float64());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_cbrt = arrow::field("cbrt", arrow::float64());
+  auto field_exp = arrow::field("exp", arrow::float64());
+  auto field_log = arrow::field("log", arrow::float64());
+  auto field_log10 = arrow::field("log10", arrow::float64());
+  auto field_logb = arrow::field("logb", arrow::float64());
+  auto field_power = arrow::field("power", arrow::float64());
+
+  // Build expression
+  auto cbrt_expr = TreeExprBuilder::MakeExpression("cbrt", {field0}, field_cbrt);
+  auto exp_expr = TreeExprBuilder::MakeExpression("exp", {field0}, field_exp);
+  auto log_expr = TreeExprBuilder::MakeExpression("log", {field0}, field_log);
+  auto log10_expr = TreeExprBuilder::MakeExpression("log10", {field0}, field_log10);
+  auto logb_expr = TreeExprBuilder::MakeExpression("log", {field0, field1}, field_logb);
+  auto power_expr =
+      TreeExprBuilder::MakeExpression("power", {field0, field1}, field_power);
+
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(
+      schema, {cbrt_expr, exp_expr, log_expr, log10_expr, logb_expr, power_expr},
+      &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  std::vector<double> input0 = {16, 10, -14, 8.3};
+  std::vector<double> input1 = {2, 3, 5, 7};
+  std::vector<bool> validity = {true, true, true, true};
+
+  auto array0 = MakeArrowArray<arrow::DoubleType, double>(input0, validity);
+  auto array1 = MakeArrowArray<arrow::DoubleType, double>(input1, validity);
+
+  // expected output
+  std::vector<double> cbrt_vals;
+  std::vector<double> exp_vals;
+  std::vector<double> log_vals;
+  std::vector<double> log10_vals;
+  std::vector<double> logb_vals;
+  std::vector<double> power_vals;
+  for (int i = 0; i < num_records; i++) {
+    cbrt_vals.push_back(cbrtl(input0[i]));
+    exp_vals.push_back(expl(input0[i]));
+    log_vals.push_back(logl(input0[i]));
+    log10_vals.push_back(log10l(input0[i]));
+    logb_vals.push_back(logl(input1[i]) / logl(input0[i]));
+    power_vals.push_back(powl(input0[i], input1[i]));
+  }
+  auto expected_cbrt = MakeArrowArray<arrow::DoubleType, double>(cbrt_vals, validity);
+  auto expected_exp = MakeArrowArray<arrow::DoubleType, double>(exp_vals, validity);
+  auto expected_log = MakeArrowArray<arrow::DoubleType, double>(log_vals, validity);
+  auto expected_log10 = MakeArrowArray<arrow::DoubleType, double>(log10_vals, validity);
+  auto expected_logb = MakeArrowArray<arrow::DoubleType, double>(logb_vals, validity);
+  auto expected_power = MakeArrowArray<arrow::DoubleType, double>(power_vals, validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(expected_cbrt, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(expected_exp, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(expected_log, outputs.at(2));
+  EXPECT_ARROW_ARRAY_EQUALS(expected_log10, outputs.at(3));
+  EXPECT_ARROW_ARRAY_EQUALS(expected_logb, outputs.at(4));
+  EXPECT_ARROW_ARRAY_EQUALS(expected_power, outputs.at(5));
+}
+
 TEST_F(TestProjector, TestFloatLessThan) {
   // schema for input fields
   auto field0 = field("f0", float32());
