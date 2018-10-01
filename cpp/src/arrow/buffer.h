@@ -124,6 +124,12 @@ class ARROW_EXPORT Buffer {
   /// using the default memory pool
   static Status FromString(const std::string& data, std::shared_ptr<Buffer>* out);
 
+  /// \brief Construct an immutable buffer that takes ownership of the contents
+  /// of an std::string
+  /// \param[in] data an rvalue-reference of a string
+  /// \return a new Buffer instance
+  static std::shared_ptr<Buffer> FromString(std::string&& data);
+
   /// \brief Create buffer referencing typed memory with some length without
   /// copying
   /// \param[in] data the typed memory as C array
