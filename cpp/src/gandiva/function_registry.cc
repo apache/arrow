@@ -361,6 +361,12 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), RESULT_NULL_IF_NULL,
                    "like_utf8_utf8", true /*needs_holder*/),
 
+    NativeFunction("to_date", DataTypeVector{utf8(), utf8(), int32()}, date64(),
+                   RESULT_NULL_INTERNAL, "to_date_utf8_utf8_int32", true, true),
+
+    NativeFunction("castDATE", DataTypeVector{utf8()}, date64(), RESULT_NULL_INTERNAL,
+                   "castDATE_utf8", false /*needs_holder*/, true /*needs context*/),
+
     // Null internal (sample)
     NativeFunction("half_or_null", DataTypeVector{int32()}, int32(), RESULT_NULL_INTERNAL,
                    "half_or_null_int32"),

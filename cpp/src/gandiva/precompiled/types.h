@@ -135,6 +135,11 @@ bool starts_with_plus_one_utf8_utf8(const char *data, int32 data_len, const char
 bool ends_with_plus_one_utf8_utf8(const char *data, int32 data_len, const char *suffix,
                                   int32 suffix_len);
 
+date64 castDATE_utf8(const char *input, int32 length, boolean is_valid1,
+                     int64_t execution_context, boolean *out_valid);
+
+void set_error_msg(int64_t context_ptr, char const *err_msg);
+
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H

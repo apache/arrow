@@ -1,4 +1,4 @@
 {
-  global: extern "C++" { gandiva*; like*;};
+  global: extern "C++" { gandiva*; like*;to_date*};
   local: *;
 };
