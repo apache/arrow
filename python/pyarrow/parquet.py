@@ -246,6 +246,10 @@ use_deprecated_int96_timestamps : boolean, default None
 coerce_timestamps : string, default None
     Cast timestamps a particular resolution.
     Valid values: {None, 'ms', 'us'}
+allow_truncated_timestamps : boolean, default False
+    Allow loss of data when coercing timestamps to a particular
+    resolution. E.g. if microsecond or nanosecond data is lost when coercing to
+    'ms', do not raise an exception
 compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
     Valid values: {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD'}
@@ -1049,6 +1053,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_dictionary=True, compression='snappy',
                 use_deprecated_int96_timestamps=None,
                 coerce_timestamps=None,
+                allow_truncated_timestamps=False,
                 flavor=None, **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -1059,6 +1064,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 flavor=flavor,
                 use_dictionary=use_dictionary,
                 coerce_timestamps=coerce_timestamps,
+                allow_truncated_timestamps=allow_truncated_timestamps,
                 compression=compression,
                 use_deprecated_int96_timestamps=use_int96,
                 **kwargs) as writer:
