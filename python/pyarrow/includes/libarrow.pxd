@@ -899,6 +899,41 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         c_string GetColumnName(int i)
 
 
+cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
+
+    cdef cppclass CCSVParseOptions" arrow::csv::ParseOptions":
+        unsigned char delimiter
+        c_bool quoting
+        unsigned char quote_char
+        c_bool double_quote
+        c_bool escaping
+        unsigned char escape_char
+        int32_t header_rows
+
+        @staticmethod
+        CCSVParseOptions Defaults()
+
+    cdef cppclass CCSVConvertOptions" arrow::csv::ConvertOptions":
+        @staticmethod
+        CCSVConvertOptions Defaults()
+
+    cdef cppclass CCSVReadOptions" arrow::csv::ReadOptions":
+        c_bool use_threads
+        int32_t block_size
+        int32_t num_rows
+
+        @staticmethod
+        CCSVReadOptions Defaults()
+
+    cdef cppclass CCSVReader" arrow::csv::TableReader":
+        @staticmethod
+        CStatus Make(CMemoryPool*, shared_ptr[InputStream],
+                     CCSVReadOptions, CCSVParseOptions, CCSVConvertOptions,
+                     shared_ptr[CCSVReader]* out)
+
+        CStatus Read(shared_ptr[CTable]* out)
+
+
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CFunctionContext" arrow::compute::FunctionContext":

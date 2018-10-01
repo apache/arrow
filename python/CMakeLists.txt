@@ -366,7 +366,7 @@ if (UNIX)
 endif()
 
 set(CYTHON_EXTENSIONS
-  lib
+  lib _csv
 )
 
 set(LINK_LIBS
