@@ -19,7 +19,7 @@
 # ----------------------------------------------------------------------
 # Thirdparty versions, environment variables, source URLs
 
-set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
+set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 
 if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(BROTLI_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
