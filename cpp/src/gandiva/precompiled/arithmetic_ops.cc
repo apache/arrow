@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "../execution_context.h"
-
 extern "C" {
 
 #include "./types.h"
@@ -170,7 +168,7 @@ NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
     }                                                                                   \
     if (in2 == 0) {                                                                     \
       char const* err_msg = "divide by zero error";                                     \
-      set_error_msg(execution_context, err_msg);                                        \
+      context_set_error_msg(execution_context, err_msg);                                \
       return 0;                                                                         \
     }                                                                                   \
     *out_valid = true;                                                                  \

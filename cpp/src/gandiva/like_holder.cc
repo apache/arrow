@@ -29,8 +29,6 @@ namespace helpers {
 
 RE2 LikeHolder::starts_with_regex_(R"((\w|\s)*\.\*)");
 RE2 LikeHolder::ends_with_regex_(R"(\.\*(\w|\s)*)");
-RE2 LikeHolder::starts_with_plus_one_regex_(R"((\w|\s)*\.)");
-RE2 LikeHolder::ends_with_plus_one_regex_(R"(\.(\w|\s)*)");
 
 // Short-circuit pattern matches for the two common sub cases :
 // - starts_with and ends_with.
@@ -52,18 +50,6 @@ const FunctionNode LikeHolder::TryOptimize(const FunctionNode &node) {
       auto suffix_node =
           std::make_shared<LiteralNode>(literal_type, LiteralHolder(suffix), false);
       return FunctionNode("ends_with", {node.children().at(0), suffix_node},
-                          node.return_type());
-    } else if (RE2::FullMatch(pattern, starts_with_plus_one_regex_)) {
-      auto prefix = pattern.substr(0, pattern.length() - 1);  // trim .
-      auto prefix_node =
-          std::make_shared<LiteralNode>(literal_type, LiteralHolder(prefix), false);
-      return FunctionNode("starts_with_plus_one", {node.children().at(0), prefix_node},
-                          node.return_type());
-    } else if (RE2::FullMatch(pattern, ends_with_plus_one_regex_)) {
-      auto suffix = pattern.substr(1);  // skip .
-      auto suffix_node =
-          std::make_shared<LiteralNode>(literal_type, LiteralHolder(suffix), false);
-      return FunctionNode("ends_with_plus_one", {node.children().at(0), suffix_node},
                           node.return_type());
     }
   }

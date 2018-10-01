@@ -19,6 +19,8 @@
 
 extern "C" {
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "./types.h"
 
@@ -88,15 +90,62 @@ bool ends_with_utf8_utf8(const char *data, int32 data_len, const char *suffix,
 }
 
 FORCE_INLINE
-bool starts_with_plus_one_utf8_utf8(const char *data, int32 data_len, const char *prefix,
-                                    int32 prefix_len) {
-  return ((data_len == prefix_len + 1) && (memcmp(data, prefix, prefix_len) == 0));
+int32 utf8_char_length(char c) {
+  if (c >= 0) {  // 1-byte char
+    return 1;
+  } else if ((c & 0xE0) == 0xC0) {  // 2-byte char
+    return 2;
+  } else if ((c & 0xF0) == 0xE0) {  // 3-byte char
+    return 3;
+  } else if ((c & 0xF8) == 0xF0) {  // 4-byte char
+    return 4;
+  }
+  // invalid char
+  return 0;
 }
 
 FORCE_INLINE
-bool ends_with_plus_one_utf8_utf8(const char *data, int32 data_len, const char *suffix,
-                                  int32 suffix_len) {
-  return ((data_len == suffix_len + 1) && (memcmp(data + 1, suffix, suffix_len) == 0));
+void set_error_for_invalid_utf(int64_t execution_context, char val) {
+  char const *fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
+  int size = strlen(fmt) + 64;
+  char *error = (char *)malloc(size);
+  snprintf(error, size, fmt, (unsigned char)val);
+  context_set_error_msg(execution_context, error);
+  free(error);
 }
+
+// Count the number of utf8 characters
+FORCE_INLINE
+int32 utf8_length(const char *data, int32 data_len, boolean is_valid, int64 context,
+                  boolean *out_valid) {
+  *out_valid = false;
+  if (!is_valid) {
+    return 0;
+  }
+
+  int char_len = 0;
+  int count = 0;
+  for (int i = 0; i < data_len; i += char_len) {
+    char_len = utf8_char_length(data[i]);
+    if (char_len == 0) {
+      set_error_for_invalid_utf(context, data[i]);
+      return 0;
+    }
+    ++count;
+  }
+  *out_valid = true;
+  return count;
+}
+
+#define UTF8_LENGTH_NULL_INTERNAL(NAME, TYPE)                                 \
+  FORCE_INLINE                                                                \
+  int32 NAME##_##TYPE(TYPE in, int32 in_len, boolean is_valid, int64 context, \
+                      boolean *out_valid) {                                   \
+    return utf8_length(in, in_len, is_valid, context, out_valid);             \
+  }
+
+UTF8_LENGTH_NULL_INTERNAL(char_length, utf8)
+UTF8_LENGTH_NULL_INTERNAL(length, utf8)
+UTF8_LENGTH_NULL_INTERNAL(lengthUtf8, binary)
 
 }  // extern "C"

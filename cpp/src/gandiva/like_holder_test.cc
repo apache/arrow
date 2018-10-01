@@ -95,14 +95,13 @@ TEST_F(TestLikeHolder, TestOptimise) {
   EXPECT_EQ(fnode.descriptor()->name(), "ends_with");
   EXPECT_EQ(fnode.ToString(), "bool ends_with((utf8) in, (const string) xyz)");
 
-  // optimise for 'starts_with_plus_one
+  // no optimisation for others.
   fnode = LikeHolder::TryOptimize(BuildLike("xyz_"));
-  EXPECT_EQ(fnode.ToString(), "bool starts_with_plus_one((utf8) in, (const string) xyz)");
+  EXPECT_EQ(fnode.descriptor()->name(), "like");
 
   fnode = LikeHolder::TryOptimize(BuildLike("_xyz"));
-  EXPECT_EQ(fnode.ToString(), "bool ends_with_plus_one((utf8) in, (const string) xyz)");
+  EXPECT_EQ(fnode.descriptor()->name(), "like");
 
-  // no optimisation for others.
   fnode = LikeHolder::TryOptimize(BuildLike("%xyz%"));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
 

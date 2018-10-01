@@ -46,10 +46,12 @@ TEST_F(TestUtf8, TestSimple) {
   // output fields
   auto res_1 = field("res1", int32());
   auto res_2 = field("res2", boolean());
+  auto res_3 = field("res3", int32());
 
   // build expressions.
   // octet_length(a)
   // octet_length(a) == bit_length(a) / 8
+  // length(a)
   auto expr_a = TreeExprBuilder::MakeExpression("octet_length", {field_a}, res_1);
 
   auto node_a = TreeExprBuilder::MakeField(field_a);
@@ -60,20 +62,23 @@ TEST_F(TestUtf8, TestSimple) {
   auto is_equal =
       TreeExprBuilder::MakeFunction("equal", {octet_length, div_8}, boolean());
   auto expr_b = TreeExprBuilder::MakeExpression(is_equal, res_2);
+  auto expr_c = TreeExprBuilder::MakeExpression("length", {field_a}, res_3);
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr_a, expr_b}, &projector);
+  Status status = Projector::Make(schema, {expr_a, expr_b, expr_c}, &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
-  int num_records = 4;
-  auto array_a =
-      MakeArrowArrayUtf8({"foo", "hello", "bye", "hi"}, {true, true, false, true});
+  int num_records = 5;
+  auto array_a = MakeArrowArrayUtf8({"foo", "hello", "bye", "hi", "मदन"},
+                                    {true, true, false, true, true});
 
   // expected output
-  auto exp_1 = MakeArrowArrayInt32({3, 5, 0, 2}, {true, true, false, true});
-  auto exp_2 = MakeArrowArrayBool({true, true, false, true}, {true, true, false, true});
+  auto exp_1 = MakeArrowArrayInt32({3, 5, 0, 2, 9}, {true, true, false, true, true});
+  auto exp_2 = MakeArrowArrayBool({true, true, false, true, true},
+                                  {true, true, false, true, true});
+  auto exp_3 = MakeArrowArrayInt32({3, 5, 0, 2, 3}, {true, true, false, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
@@ -86,6 +91,7 @@ TEST_F(TestUtf8, TestSimple) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_1, outputs.at(0));
   EXPECT_ARROW_ARRAY_EQUALS(exp_2, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_3, outputs.at(2));
 }
 
 TEST_F(TestUtf8, TestLiteral) {
