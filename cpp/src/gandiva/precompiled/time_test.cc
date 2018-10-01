@@ -497,4 +497,34 @@ TEST(TestTime, TestExtractWeek) {
   }
 }
 
+TEST(TestTime, TestMonthsBetween) {
+  std::vector<std::string> testStrings = {
+      "1995-03-02 00:00:00", "1995-02-02 00:00:00", "1.0",
+      "1995-02-02 00:00:00", "1995-03-02 00:00:00", "-1.0",
+      "1995-03-31 00:00:00", "1995-02-28 00:00:00", "1.0",
+      "1996-03-31 00:00:00", "1996-02-28 00:00:00", "1.09677418",
+      "1996-03-31 00:00:00", "1996-02-29 00:00:00", "1.0",
+      "1996-05-31 00:00:00", "1996-04-30 00:00:00", "1.0",
+      "1996-05-31 00:00:00", "1996-03-31 00:00:00", "2.0",
+      "1996-05-31 00:00:00", "1996-03-30 00:00:00", "2.03225806",
+      "1996-03-15 00:00:00", "1996-02-14 00:00:00", "1.03225806",
+      "1995-02-02 00:00:00", "1995-01-01 00:00:00", "1.03225806",
+      "1995-02-02 10:00:00", "1995-01-01 11:00:00", "1.03091397"};
+
+  for (uint32_t i = 0; i < testStrings.size();) {
+    timestamp endTs = StringToTimestamp(testStrings[i++].c_str());
+    timestamp startTs = StringToTimestamp(testStrings[i++].c_str());
+
+    double expectedResult = atof(testStrings[i++].c_str());
+    double actualResult = months_between_timestamp_timestamp(endTs, startTs);
+
+    double diff = actualResult - expectedResult;
+    if (diff < 0) {
+      diff = expectedResult - actualResult;
+    }
+
+    EXPECT_TRUE(diff < 0.001);
+  }
+}
+
 }  // namespace gandiva

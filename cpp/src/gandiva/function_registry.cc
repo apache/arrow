@@ -218,6 +218,9 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractSecond),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractEpoch),
 
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, date64, date64, float64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, timestamp, timestamp, float64),
+
     // date_trunc operations on date/timestamp
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Millennium),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Century),
