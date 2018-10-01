@@ -1,0 +1,121 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#ifndef ARROW_SPARSE_TENSOR_H
+#define ARROW_SPARSE_TENSOR_H
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "arrow/tensor.h"
+
+namespace arrow {
+
+// ----------------------------------------------------------------------
+// SparseIndex class
+
+class ARROW_EXPORT SparseIndex {
+ public:
+  explicit SparseIndex(int64_t length) : length_(length) {}
+  int64_t length() const { return length_; }
+
+ protected:
+  int64_t length_;
+};
+
+// ----------------------------------------------------------------------
+// SparseCOOIndex class
+
+class ARROW_EXPORT SparseCOOIndex : public SparseIndex {
+ public:
+  using CoordsTensor = NumericTensor<Int64Type>;
+
+  virtual ~SparseCOOIndex() = default;
+
+  // Constructor with a column-major NumericTensor
+  explicit SparseCOOIndex(const std::shared_ptr<CoordsTensor>& coords);
+
+  const std::shared_ptr<CoordsTensor>& indices() const { return coords_; }
+
+ protected:
+  std::shared_ptr<CoordsTensor> coords_;
+};
+
+// ----------------------------------------------------------------------
+// SparseTensor class
+
+template <typename SparseIndexType>
+class ARROW_EXPORT SparseTensor {
+ public:
+  virtual ~SparseTensor() = default;
+
+  // Constructor with all attributes
+  SparseTensor(const std::shared_ptr<SparseIndexType>& sparse_index,
+               const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
+               const std::vector<int64_t>& shape,
+               const std::vector<std::string>& dim_names);
+
+  // Constructor with a dense tensor
+  SparseTensor(const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
+               const std::vector<std::string>& dim_names = {});
+
+  // Constructor with a dense numeric tensor
+  template <typename TYPE>
+  explicit SparseTensor(const NumericTensor<TYPE>& tensor);
+
+  // Constructor with a dense tensor
+  explicit SparseTensor(const Tensor& tensor);
+
+  std::shared_ptr<DataType> type() const { return type_; }
+  std::shared_ptr<Buffer> data() const { return data_; }
+
+  const uint8_t* raw_data() const { return data_->data(); }
+  uint8_t* raw_mutable_data() const { return data_->mutable_data(); }
+
+  const std::vector<int64_t>& shape() const { return shape_; }
+  const std::shared_ptr<SparseIndexType>& sparse_index() const { return sparse_index_; }
+
+  int ndim() const { return static_cast<int>(shape_.size()); }
+
+  const std::string& dim_name(int i) const;
+
+  /// Total number of non-zero cells in the sparse tensor
+  int64_t length() const { return sparse_index_ ? sparse_index_->length() : 0; }
+
+  /// Total number of value cells in the sparse tensor
+  int64_t size() const;
+
+  /// Return true if the underlying data buffer is mutable
+  bool is_mutable() const { return data_->is_mutable(); }
+
+ protected:
+  std::shared_ptr<DataType> type_;
+  std::shared_ptr<Buffer> data_;
+  std::vector<int64_t> shape_;
+  std::shared_ptr<SparseIndexType> sparse_index_;
+
+  /// These names are optional
+  std::vector<std::string> dim_names_;
+
+ private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(SparseTensor);
+};
+
+}  // namespace arrow
+
+#endif  // ARROW_SPARSE_TENSOR_H
