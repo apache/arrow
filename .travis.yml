@@ -179,6 +179,7 @@ matrix:
     os: linux
     env:
     - ARROW_TRAVIS_ORC=1
+    - ARROW_TRAVIS_PARQUET=1
     - BUILD_TORCH_EXAMPLE=no
     - CC="gcc-4.9"
     - CXX="g++-4.9"

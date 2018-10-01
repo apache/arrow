@@ -42,6 +42,11 @@ begin
 rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
+begin
+  Parquet = GI.load("Parquet")
+rescue GObjectIntrospection::RepositoryError::TypelibNotFound
+end
+
 require "rbconfig"
 require "tempfile"
 require_relative "helper/buildable"
