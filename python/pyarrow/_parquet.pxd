@@ -323,5 +323,7 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
             Builder* disable_deprecated_int96_timestamps()
             Builder* enable_deprecated_int96_timestamps()
             Builder* coerce_timestamps(TimeUnit unit)
+            Builder* allow_truncated_timestamps()
+            Builder* disallow_truncated_timestamps()
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()

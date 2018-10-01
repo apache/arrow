@@ -44,7 +44,10 @@ class PARQUET_EXPORT ArrowWriterProperties {
  public:
   class Builder {
    public:
-    Builder() : write_nanos_as_int96_(false), coerce_timestamps_enabled_(false) {}
+    Builder()
+        : write_nanos_as_int96_(false),
+          coerce_timestamps_enabled_(false),
+          truncated_timestamps_allowed_(false) {}
     virtual ~Builder() {}
 
     Builder* disable_deprecated_int96_timestamps() {
@@ -63,9 +66,20 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
+    Builder* allow_truncated_timestamps() {
+      truncated_timestamps_allowed_ = true;
+      return this;
+    }
+
+    Builder* disallow_truncated_timestamps() {
+      truncated_timestamps_allowed_ = false;
+      return this;
+    }
+
     std::shared_ptr<ArrowWriterProperties> build() {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
-          write_nanos_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_));
+          write_nanos_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
+          truncated_timestamps_allowed_));
     }
 
    private:
@@ -73,6 +87,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
 
     bool coerce_timestamps_enabled_;
     ::arrow::TimeUnit::type coerce_timestamps_unit_;
+    bool truncated_timestamps_allowed_;
   };
 
   bool support_deprecated_int96_timestamps() const { return write_nanos_as_int96_; }
@@ -82,17 +97,22 @@ class PARQUET_EXPORT ArrowWriterProperties {
     return coerce_timestamps_unit_;
   }
 
+  bool truncated_timestamps_allowed() const { return truncated_timestamps_allowed_; }
+
  private:
   explicit ArrowWriterProperties(bool write_nanos_as_int96,
                                  bool coerce_timestamps_enabled,
-                                 ::arrow::TimeUnit::type coerce_timestamps_unit)
+                                 ::arrow::TimeUnit::type coerce_timestamps_unit,
+                                 bool truncated_timestamps_allowed)
       : write_nanos_as_int96_(write_nanos_as_int96),
         coerce_timestamps_enabled_(coerce_timestamps_enabled),
-        coerce_timestamps_unit_(coerce_timestamps_unit) {}
+        coerce_timestamps_unit_(coerce_timestamps_unit),
+        truncated_timestamps_allowed_(truncated_timestamps_allowed) {}
 
   const bool write_nanos_as_int96_;
   const bool coerce_timestamps_enabled_;
   const ::arrow::TimeUnit::type coerce_timestamps_unit_;
+  const bool truncated_timestamps_allowed_;
 };
 
 std::shared_ptr<ArrowWriterProperties> PARQUET_EXPORT default_arrow_writer_properties();

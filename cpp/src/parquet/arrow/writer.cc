@@ -366,8 +366,9 @@ class ArrowColumnWriter {
   Status WriteTimestamps(const Array& data, int64_t num_levels, const int16_t* def_levels,
                          const int16_t* rep_levels);
 
-  Status WriteTimestampsCoerce(const Array& data, int64_t num_levels,
-                               const int16_t* def_levels, const int16_t* rep_levels);
+  Status WriteTimestampsCoerce(const bool truncated_timestamps_allowed, const Array& data,
+                               int64_t num_levels, const int16_t* def_levels,
+                               const int16_t* rep_levels);
 
   template <typename ParquetType, typename ArrowType>
   Status WriteNonNullableBatch(const ArrowType& type, int64_t num_values,
@@ -626,7 +627,8 @@ Status ArrowColumnWriter::WriteTimestamps(const Array& values, int64_t num_level
     // Casting is required. This covers several cases
     // * Nanoseconds -> cast to microseconds
     // * coerce_timestamps_enabled_, cast all timestamps to requested unit
-    return WriteTimestampsCoerce(values, num_levels, def_levels, rep_levels);
+    return WriteTimestampsCoerce(ctx_->properties->truncated_timestamps_allowed(), values,
+                                 num_levels, def_levels, rep_levels);
   } else {
     // No casting of timestamps is required, take the fast path
     return TypedWriteBatch<Int64Type, ::arrow::TimestampType>(values, num_levels,
@@ -634,7 +636,8 @@ Status ArrowColumnWriter::WriteTimestamps(const Array& values, int64_t num_level
   }
 }
 
-Status ArrowColumnWriter::WriteTimestampsCoerce(const Array& array, int64_t num_levels,
+Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_allowed,
+                                                const Array& array, int64_t num_levels,
                                                 const int16_t* def_levels,
                                                 const int16_t* rep_levels) {
   int64_t* buffer;
@@ -652,7 +655,7 @@ Status ArrowColumnWriter::WriteTimestampsCoerce(const Array& array, int64_t num_
 
   auto DivideBy = [&](const int64_t factor) {
     for (int64_t i = 0; i < array.length(); i++) {
-      if (!data.IsNull(i) && (values[i] % factor != 0)) {
+      if (!truncated_timestamps_allowed && !data.IsNull(i) && (values[i] % factor != 0)) {
         std::stringstream ss;
         ss << "Casting from " << type.ToString() << " to " << target_type->ToString()
            << " would lose data: " << values[i];
