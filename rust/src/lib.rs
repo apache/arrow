@@ -31,6 +31,5 @@ pub mod builder;
 pub mod datatypes;
 pub mod error;
 pub mod memory;
-pub mod memory_pool;
 pub mod record_batch;
 pub mod util;
