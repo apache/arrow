@@ -347,6 +347,10 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
   }
 }
 
+void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected) {
+  AssertChunkedEqual(ChunkedArray(expected, actual.type()), actual);
+}
+
 void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expected) {
   ASSERT_EQ(buffer.size(), expected.size()) << "Mismatching buffer size";
   const uint8_t* buffer_data = buffer.data();
@@ -410,11 +414,18 @@ void AssertTablesEqual(const Table& expected, const Table& actual,
   }
 }
 
-template <typename TYPE, typename C_TYPE>
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
 void ArrayFromVector(const std::shared_ptr<DataType>& type,
                      const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
                      std::shared_ptr<Array>* out) {
-  typename TypeTraits<TYPE>::BuilderType builder(type, default_memory_pool());
+  DCHECK_EQ(TYPE::type_id, type->id())
+      << "template parameter and concrete DataType instance don't agree";
+
+  std::unique_ptr<ArrayBuilder> builder_ptr;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder_ptr));
+  // Get the concrete builder class to access its Append() specializations
+  auto& builder = dynamic_cast<typename TypeTraits<TYPE>::BuilderType&>(*builder_ptr);
+
   for (size_t i = 0; i < values.size(); ++i) {
     if (is_valid[i]) {
       ASSERT_OK(builder.Append(values[i]));
@@ -425,20 +436,28 @@ void ArrayFromVector(const std::shared_ptr<DataType>& type,
   ASSERT_OK(builder.Finish(out));
 }
 
-template <typename TYPE, typename C_TYPE>
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
 void ArrayFromVector(const std::shared_ptr<DataType>& type,
                      const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
-  typename TypeTraits<TYPE>::BuilderType builder(type, default_memory_pool());
+  DCHECK_EQ(TYPE::type_id, type->id())
+      << "template parameter and concrete DataType instance don't agree";
+
+  std::unique_ptr<ArrayBuilder> builder_ptr;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder_ptr));
+  // Get the concrete builder class to access its Append() specializations
+  auto& builder = dynamic_cast<typename TypeTraits<TYPE>::BuilderType&>(*builder_ptr);
+
   for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_OK(builder.Append(values[i]));
   }
   ASSERT_OK(builder.Finish(out));
 }
 
-template <typename TYPE, typename C_TYPE>
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
 void ArrayFromVector(const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
                      std::shared_ptr<Array>* out) {
   typename TypeTraits<TYPE>::BuilderType builder;
+  DCHECK_EQ(is_valid.size(), values.size());
   for (size_t i = 0; i < values.size(); ++i) {
     if (is_valid[i]) {
       ASSERT_OK(builder.Append(values[i]));
@@ -449,13 +468,39 @@ void ArrayFromVector(const std::vector<bool>& is_valid, const std::vector<C_TYPE
   ASSERT_OK(builder.Finish(out));
 }
 
-template <typename TYPE, typename C_TYPE>
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
 void ArrayFromVector(const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
   typename TypeTraits<TYPE>::BuilderType builder;
   for (auto& value : values) {
     ASSERT_OK(builder.Append(value));
   }
   ASSERT_OK(builder.Finish(out));
+}
+
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+void ChunkedArrayFromVector(const std::vector<std::vector<bool>>& is_valid,
+                            const std::vector<std::vector<C_TYPE>>& values,
+                            std::shared_ptr<ChunkedArray>* out) {
+  ArrayVector chunks;
+  DCHECK_EQ(is_valid.size(), values.size());
+  for (size_t i = 0; i < values.size(); ++i) {
+    std::shared_ptr<Array> array;
+    ArrayFromVector<TYPE, C_TYPE>(is_valid[i], values[i], &array);
+    chunks.push_back(array);
+  }
+  *out = std::make_shared<ChunkedArray>(chunks);
+}
+
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+void ChunkedArrayFromVector(const std::vector<std::vector<C_TYPE>>& values,
+                            std::shared_ptr<ChunkedArray>* out) {
+  ArrayVector chunks;
+  for (size_t i = 0; i < values.size(); ++i) {
+    std::shared_ptr<Array> array;
+    ArrayFromVector<TYPE, C_TYPE>(values[i], &array);
+    chunks.push_back(array);
+  }
+  *out = std::make_shared<ChunkedArray>(chunks);
 }
 
 template <class T, class Builder>
