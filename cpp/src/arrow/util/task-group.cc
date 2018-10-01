@@ -69,7 +69,7 @@ class ThreadedTaskGroup : public TaskGroup {
  public:
   explicit ThreadedTaskGroup(ThreadPool* thread_pool) : thread_pool_(thread_pool) {}
 
-  ~ThreadedTaskGroup() {
+  ~ThreadedTaskGroup() override {
     // Make sure all pending tasks are finished, so that dangling references
     // to this don't persist.
     ARROW_UNUSED(Finish());
