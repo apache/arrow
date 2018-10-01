@@ -1983,26 +1983,41 @@ class TestConvertMisc(object):
         v1 = ['foo', None, 'bar', 'qux', np.nan]
         v2 = [4, 5, 6, 7, 8]
         v3 = [b'foo', None, b'bar', b'qux', np.nan]
-        df = pd.DataFrame({'cat_strings': pd.Categorical(v1 * repeats),
-                           'cat_ints': pd.Categorical(v2 * repeats),
-                           'cat_binary': pd.Categorical(v3 * repeats),
-                           'cat_strings_ordered': pd.Categorical(
-                               v1 * repeats, categories=['bar', 'qux', 'foo'],
-                               ordered=True),
-                           'ints': v2 * repeats,
-                           'ints2': v2 * repeats,
-                           'strings': v1 * repeats,
-                           'strings2': v1 * repeats,
-                           'strings3': v3 * repeats})
+
+        arrays = {
+            'cat_strings': pd.Categorical(v1 * repeats),
+            'cat_strings_with_na': pd.Categorical(v1 * repeats,
+                                                  categories=['foo', 'bar']),
+            'cat_ints': pd.Categorical(v2 * repeats),
+            'cat_binary': pd.Categorical(v3 * repeats),
+            'cat_strings_ordered': pd.Categorical(
+                v1 * repeats, categories=['bar', 'qux', 'foo'],
+                ordered=True),
+            'ints': v2 * repeats,
+            'ints2': v2 * repeats,
+            'strings': v1 * repeats,
+            'strings2': v1 * repeats,
+            'strings3': v3 * repeats}
+        df = pd.DataFrame(arrays)
         _check_pandas_roundtrip(df)
 
+        for k in arrays:
+            _check_array_roundtrip(arrays[k])
+
+    def test_category_implicit_from_pandas(self):
+        # ARROW-3374
+        def _check(v):
+            arr = pa.array(v)
+            result = arr.to_pandas()
+            tm.assert_series_equal(pd.Series(result), pd.Series(v))
+
         arrays = [
-            pd.Categorical(v1 * repeats),
-            pd.Categorical(v2 * repeats),
-            pd.Categorical(v3 * repeats)
+            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b']),
+            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b'],
+                           ordered=True)
         ]
-        for values in arrays:
-            _check_array_roundtrip(values)
+        for arr in arrays:
+            _check(arr)
 
     def test_empty_category(self):
         # ARROW-2443
