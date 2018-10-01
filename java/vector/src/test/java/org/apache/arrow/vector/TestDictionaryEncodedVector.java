@@ -87,23 +87,24 @@ public class TestDictionaryEncodedVector {
                 Collections.<Field>emptyList())
     ));
 
-    // I expected this to work but it doesn't
-    // VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-    // TinyIntVector vector = (TinyIntVector) root.getVector("enum1");
+    // This doesn't not work without the patch
+    // root.getVector("enum1") returns a VarCharVector instead of a TinyIntVector
+    VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+    TinyIntVector vector = (TinyIntVector) root.getVector("enum1");
+    vector.allocateNew();
 
     // This is the encoded vector
-    TinyIntVector vector = new TinyIntVector("enum1", allocator);
-    vector.allocateNew();
+    // TinyIntVector vector = new TinyIntVector("enum1", allocator);
+    // vector.allocateNew();
     vector.set(0, 1);
     vector.set(1, 0);
     vector.set(2, 1);
     vector.setValueCount(3);
-    VectorSchemaRoot root = new VectorSchemaRoot(schema, asList(vector), 3);
-
+    root.setRowCount(3);
 
     // Test round trip
-    // ByteArrayOutputStream out = new ByteArrayOutputStream();
-    FileOutputStream out = new FileOutputStream("/tmp/dictionary_encoded.arrow");
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    // FileOutputStream out = new FileOutputStream("/tmp/dictionary_encoded.arrow");
     ArrowStreamWriter writer = new ArrowStreamWriter(root, dictionaryProvider, newChannel(out));
 
     writer.start();
@@ -113,13 +114,13 @@ public class TestDictionaryEncodedVector {
     dictVector.close();
     root.close();
 
-    // byte[] data = out.toByteArray();
+    byte[] data = out.toByteArray();
     out.close();
 
     // Read
-    //ByteArrayInputStream in = new ByteArrayInputStream(data);
+    ByteArrayInputStream in = new ByteArrayInputStream(data);
 
-    FileInputStream in = new FileInputStream("/tmp/dictionary_encoded.arrow");
+    // FileInputStream in = new FileInputStream("/tmp/dictionary_encoded.arrow");
     ArrowStreamReader reader = new ArrowStreamReader(in, allocator);
     root = reader.getVectorSchemaRoot();
     reader.loadNextBatch();
