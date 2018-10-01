@@ -1898,6 +1898,11 @@ class ArrowDeserializer {
     PyDict_SetItemString(result_, "dictionary", block->dictionary());
     RETURN_IF_PYERROR();
 
+    PyObject* py_ordered = type.ordered() ? Py_True : Py_False;
+    Py_INCREF(py_ordered);
+    PyDict_SetItemString(result_, "ordered", py_ordered);
+    RETURN_IF_PYERROR();
+
     return Status::OK();
   }
 
