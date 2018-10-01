@@ -25,7 +25,9 @@
 namespace gandiva {
 
 using arrow::boolean;
+using arrow::date64;
 using arrow::int32;
+using arrow::int64;
 using arrow::utf8;
 
 class TestUtf8 : public ::testing::Test {
@@ -260,6 +262,157 @@ TEST_F(TestUtf8, TestBeginsEnds) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp1, outputs.at(0));
   EXPECT_ARROW_ARRAY_EQUALS(exp2, outputs.at(1));
+}
+
+TEST_F(TestUtf8, TestCastDate) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+
+  // output fields
+  auto res_1 = field("res1", int64());
+
+  // build expressions.
+  // extractYear(castDATE(a))
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto cast_function = TreeExprBuilder::MakeFunction("castDATE", {node_a}, date64());
+  auto extract_year =
+      TreeExprBuilder::MakeFunction("extractYear", {cast_function}, int64());
+  auto expr = TreeExprBuilder::MakeExpression(extract_year, res_1);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_a = MakeArrowArrayUtf8({"1967-12-1", "67-12-01", "incorrect", "67-45-11"},
+                                    {true, true, false, true});
+
+  // expected output
+  auto exp_1 = MakeArrowArrayInt64({1967, 2067, 0, 0}, {true, true, false, false});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_EQ(status.code(), StatusCode::ExecutionError);
+  std::string expected_error = "Not a valid date value ";
+  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+
+  auto array_a_2 = MakeArrowArrayUtf8({"1967-12-1", "67-12-01", "67-1-1", "91-1-1"},
+                                      {true, true, true, true});
+  auto exp_2 = MakeArrowArrayInt64({1967, 2067, 2067, 1991}, {true, true, true, true});
+  auto in_batch_2 = arrow::RecordBatch::Make(schema, num_records, {array_a_2});
+  arrow::ArrayVector outputs2;
+  status = projector->Evaluate(*in_batch_2, pool_, &outputs2);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_2, outputs2.at(0));
+}
+
+TEST_F(TestUtf8, TestToDateNoError) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+
+  // output fields
+  auto res_1 = field("res1", int64());
+
+  // build expressions.
+  // extractYear(castDATE(a))
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto node_b = TreeExprBuilder::MakeStringLiteral("YYYY-MM-DD");
+  auto node_c = TreeExprBuilder::MakeLiteral(1);
+
+  auto cast_function =
+      TreeExprBuilder::MakeFunction("to_date", {node_a, node_b, node_c}, date64());
+  auto extract_year =
+      TreeExprBuilder::MakeFunction("extractYear", {cast_function}, int64());
+  auto expr = TreeExprBuilder::MakeExpression(extract_year, res_1);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_a = MakeArrowArrayUtf8({"1967-12-1", "67-12-01", "incorrect", "67-45-11"},
+                                    {true, true, false, true});
+
+  // expected output
+  auto exp_1 = MakeArrowArrayInt64({1967, 67, 0, 0}, {true, true, false, false});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+  EXPECT_ARROW_ARRAY_EQUALS(exp_1, outputs.at(0));
+
+  // Create a row-batch with some sample data
+  auto array_a_2 = MakeArrowArrayUtf8(
+      {"1967-12-1", "1967-12-01", "1967-11-11", "1991-11-11"}, {true, true, true, true});
+  auto exp_2 = MakeArrowArrayInt64({1967, 1967, 1967, 1991}, {true, true, true, true});
+  auto in_batch_2 = arrow::RecordBatch::Make(schema, num_records, {array_a_2});
+  arrow::ArrayVector outputs2;
+  status = projector->Evaluate(*in_batch_2, pool_, &outputs2);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_2, outputs2.at(0));
+}
+
+TEST_F(TestUtf8, TestToDateError) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+
+  // output fields
+  auto res_1 = field("res1", int64());
+
+  // build expressions.
+  // extractYear(castDATE(a))
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto node_b = TreeExprBuilder::MakeStringLiteral("YYYY-MM-DD");
+  auto node_c = TreeExprBuilder::MakeLiteral(0);
+
+  auto cast_function =
+      TreeExprBuilder::MakeFunction("to_date", {node_a, node_b, node_c}, date64());
+  auto extract_year =
+      TreeExprBuilder::MakeFunction("extractYear", {cast_function}, int64());
+  auto expr = TreeExprBuilder::MakeExpression(extract_year, res_1);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_a = MakeArrowArrayUtf8({"1967-12-1", "67-12-01", "incorrect", "67-45-11"},
+                                    {true, true, false, true});
+
+  // expected output
+  auto exp_1 = MakeArrowArrayInt64({1967, 67, 0, 0}, {true, true, false, false});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_EQ(status.code(), StatusCode::ExecutionError);
+  std::string expected_error = "Error parsing value 67-45-11 for given format";
+  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos)
+      << status.message();
 }
 
 }  // namespace gandiva

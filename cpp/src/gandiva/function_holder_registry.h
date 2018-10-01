@@ -25,6 +25,7 @@
 #include "gandiva/function_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/node.h"
+#include "gandiva/to_date_holder.h"
 #include "gandiva/status.h"
 
 namespace gandiva {
@@ -59,6 +60,7 @@ class FunctionHolderRegistry {
   static map_type& makers() {
     static map_type maker_map = {
         {"like", LAMBDA_MAKER(LikeHolder)},
+        {"to_date", LAMBDA_MAKER(ToDateHolder)},
     };
     return maker_map;
   }

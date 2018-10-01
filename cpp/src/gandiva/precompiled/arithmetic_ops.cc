@@ -19,7 +19,6 @@
 
 extern "C" {
 
-#include "./context_helper.h"
 #include "./types.h"
 
 // Expand inner macro for all numeric types.

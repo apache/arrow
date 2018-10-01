@@ -20,6 +20,7 @@
 extern "C" {
 
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "./time_constants.h"
@@ -503,4 +504,67 @@ bool IsLastDayOfMonth(const EpochTimePoint &tp) {
 
 DATE_TYPES(MONTHS_BETWEEN)
 
+FORCE_INLINE
+void set_error_for_date(int32 length, const char *input, const char *msg,
+                        int64_t execution_context) {
+  int size = length + strlen(msg) + 1;
+  char *error = (char *)malloc(size);
+  strcpy(error, msg);
+  strcat(error, input);
+  set_error_msg(execution_context, error);
+  free(error);
+}
+
+date64 castDATE_utf8(const char *input, int32 length, boolean is_valid1,
+                     int64_t execution_context, boolean *out_valid) {
+  *out_valid = false;
+  if (!is_valid1) {
+    return 0;
+  }
+  // format : 0 is year, 1 is month and 2 is day.
+  int dateFields[3];
+  int dateIndex = 0, index = 0, value = 0;
+  while (dateIndex < 3 && index < length) {
+    if (!isdigit(input[index])) {
+      dateFields[dateIndex++] = value;
+      value = 0;
+    } else {
+      value = (value * 10) + (input[index] - '0');
+    }
+    index++;
+  }
+
+  if (dateIndex < 3) {
+    // If we reached the end of input, we would have not encountered a separator
+    // store the last value
+    dateFields[dateIndex++] = value;
+  }
+  const char *msg = "Not a valid date value ";
+  if (dateIndex != 3) {
+    set_error_for_date(length, input, msg, execution_context);
+    return 0;
+  }
+
+  /* Handle two digit years
+   * If range of two digits is between 70 - 99 then year = 1970 - 1999
+   * Else if two digits is between 00 - 69 = 2000 - 2069
+   */
+  if (dateFields[0] < 100) {
+    if (dateFields[0] < 70) {
+      dateFields[0] += 2000;
+    } else {
+      dateFields[0] += 1900;
+    }
+  }
+  date::year_month_day day =
+      date::year(dateFields[0]) / date::month(dateFields[1]) / date::day(dateFields[2]);
+  if (!day.ok()) {
+    set_error_for_date(length, input, msg, execution_context);
+    return 0;
+  }
+  *out_valid = true;
+  return std::chrono::time_point_cast<std::chrono::milliseconds>(date::sys_days(day))
+      .time_since_epoch()
+      .count();
+}
 }  // extern "C"

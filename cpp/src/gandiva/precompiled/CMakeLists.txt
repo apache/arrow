@@ -20,6 +20,7 @@ project(gandiva)
 set(PRECOMPILED_SRCS
     arithmetic_ops.cc
     bitmap.cc
+    context_helper.cc
     hash.cc
     print.cc
     sample.cc
@@ -53,8 +54,8 @@ add_custom_target(precompiled ALL DEPENDS ${GANDIVA_BC_OUTPUT_PATH})
 # testing
 add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
 add_precompiled_unit_test(epoch_time_point_test.cc)
-add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc)
+add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc context_helper.cc ../execution_context.cc)
 add_precompiled_unit_test(hash_test.cc hash.cc)
 add_precompiled_unit_test(sample_test.cc sample.cc)
 add_precompiled_unit_test(string_ops_test.cc string_ops.cc)
-add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../execution_context.cc)
+add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc context_helper.cc ../execution_context.cc)
