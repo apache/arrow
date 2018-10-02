@@ -48,7 +48,7 @@ override_dh_auto_build:
 	  --sourcedirectory=cpp			\
 	  --builddirectory=cpp_build
 	env							\
-	  LD_LIBRARY_PATH=$(CURDIR)/cpp_build/$(BUILD_TYPE)	\
+	  LD_LIBRARY_PATH=$(CURDIR)/cpp_build/$(BUILD_TYPE):$(CURDIR)/c_glib_build/arrow-glib/.libs \
 	    dh_auto_build					\
 	      --sourcedirectory=c_glib				\
 	      --builddirectory=c_glib_build
