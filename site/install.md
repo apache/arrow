@@ -28,7 +28,7 @@ See the [release notes][10] for more about what's new.
 
 ### Source release
 
-* **Source Release**: [{{site.data.versions['tarball_name']}}][6]
+* **Source Release**: [{{site.data.versions['current'].tarball_name}}][6]
 * **Verification**: [asc signature][13], [sha256 checksum][14], [sha512 checksum][15], ([verification instructions][12])
 * [Git tag {{site.data.versions['current'].git-tag}}][2]
 * [GPG keys for release signatures][11]
