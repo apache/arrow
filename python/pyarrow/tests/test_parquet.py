@@ -1153,6 +1153,8 @@ def test_equivalency(tempdir):
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
+    # Old filters syntax:
+    #  integer == 1 AND string != b AND boolean == True
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
         filters=[('integer', '=', 1), ('string', '!=', 'b'),
@@ -1164,6 +1166,44 @@ def test_equivalency(tempdir):
     assert 0 not in result_df['integer'].values
     assert 'b' not in result_df['string'].values
     assert False not in result_df['boolean'].values
+
+    # filters in disjunctive normal form:
+    #  (integer == 1 AND string != b AND boolean == True) OR
+    #  (integer == 2 AND boolean == False)
+    # TODO(ARROW-3388): boolean columns are reconstructed as string
+    filters = [
+        [
+            ('integer', '=', 1),
+            ('string', '!=', 'b'),
+            ('boolean', '==', 'True')
+        ],
+        [('integer', '=', 0), ('boolean', '==', 'False')]
+    ]
+    dataset = pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+    table = dataset.read()
+    result_df = table.to_pandas().reset_index(drop=True)
+
+    # Check that all rows in the DF fulfill the filter
+    # Pandas 0.23.x has problems with indexing constant memoryviews in
+    # categoricals. Thus we need to make an explicity copy here with np.array.
+    df_filter_1 = (np.array(result_df['integer']) == 1) \
+        & (np.array(result_df['string']) != 'b') \
+        & (np.array(result_df['boolean']) == 'True')
+    df_filter_2 = (np.array(result_df['integer']) == 0) \
+        & (np.array(result_df['boolean']) == 'False')
+    assert df_filter_1.sum() > 0
+    assert df_filter_2.sum() > 0
+    assert result_df.shape[0] == (df_filter_1.sum() + df_filter_2.sum())
+
+    # Check for \0 in predicate values. Until they are correctly implemented
+    # in ARROW-3391, they would otherwise lead to weird results with the
+    # current code.
+    with pytest.raises(NotImplementedError):
+        filters = [[('string', '==', b'1\0a')]]
+        pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+    with pytest.raises(NotImplementedError):
+        filters = [[('string', '==', u'1\0a')]]
+        pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
 
 
 def test_cutoff_exclusive_integer(tempdir):
