@@ -39,14 +39,12 @@ cdef class ReadOptions:
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, use_threads=None, block_size=None, num_rows=None):
+    def __init__(self, use_threads=None, block_size=None):
         self.options = CCSVReadOptions.Defaults()
         if use_threads is not None:
             self.use_threads = use_threads
         if block_size is not None:
             self.block_size = block_size
-        if num_rows is not None:
-            self.num_rows = num_rows
 
     @property
     def use_threads(self):
@@ -64,14 +62,6 @@ cdef class ReadOptions:
     def block_size(self, value):
         self.options.block_size = value
 
-    @property
-    def num_rows(self):
-        return self.options.num_rows
-
-    @num_rows.setter
-    def num_rows(self, value):
-        self.options.num_rows = value
-
 
 cdef class ParseOptions:
     cdef:
@@ -80,7 +70,7 @@ cdef class ParseOptions:
     __slots__ = ()
 
     def __init__(self, delimiter=None, quote_char=None, double_quote=None,
-                 escape_char=None, header_rows=None):
+                 escape_char=None, header_rows=None, newlines_in_values=None):
         self.options = CCSVParseOptions.Defaults()
         if delimiter is not None:
             self.delimiter = delimiter
@@ -92,6 +82,8 @@ cdef class ParseOptions:
             self.escape_char = escape_char
         if header_rows is not None:
             self.header_rows = header_rows
+        if newlines_in_values is not None:
+            self.newlines_in_values = newlines_in_values
 
     @property
     def delimiter(self):
@@ -146,6 +138,14 @@ cdef class ParseOptions:
     @header_rows.setter
     def header_rows(self, value):
         self.options.header_rows = value
+
+    @property
+    def newlines_in_values(self):
+        return self.options.newlines_in_values
+
+    @newlines_in_values.setter
+    def newlines_in_values(self, value):
+        self.options.newlines_in_values = value
 
 
 cdef _get_reader(input_file, shared_ptr[InputStream]* out):

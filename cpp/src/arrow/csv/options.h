@@ -40,6 +40,8 @@ struct ARROW_EXPORT ParseOptions {
   bool escaping = false;
   // Escaping character (if `escaping` is true)
   char escape_char = '\\';
+  // Whether values are allowed to contain CR (0x0d) and LF (0x0a) characters
+  bool newlines_in_values = false;
 
   // XXX Should this be in ReadOptions?
   // Number of header rows to skip
@@ -57,10 +59,9 @@ struct ARROW_EXPORT ReadOptions {
 
   // Whether to use the global CPU thread pool
   bool use_threads = true;
-  // Block size we request from the IO layer
+  // Block size we request from the IO layer; also determines the size of
+  // chunks when use_threads is true
   int32_t block_size = 1 << 20;  // 1 MB
-  // Max num rows per array chunk
-  int32_t num_rows = 100000;
 
   static ReadOptions Defaults();
 };

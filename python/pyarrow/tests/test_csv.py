@@ -65,14 +65,9 @@ def test_read_options():
     opts.use_threads = False
     assert opts.use_threads is False
 
-    assert opts.num_rows > 0
-    opts.num_rows = 456789
-    assert opts.num_rows == 456789
-
-    opts = cls(block_size=1234, use_threads=False, num_rows=42)
+    opts = cls(block_size=1234, use_threads=False)
     assert opts.block_size == 1234
     assert opts.use_threads is False
-    assert opts.num_rows == 42
 
 
 def test_parse_options():
@@ -83,6 +78,7 @@ def test_parse_options():
     assert opts.double_quote is True
     assert opts.escape_char is False
     assert opts.header_rows == 1
+    assert opts.newlines_in_values is False
 
     opts.delimiter = 'x'
     assert opts.delimiter == 'x'
@@ -100,16 +96,20 @@ def test_parse_options():
     assert opts.escape_char is False
     assert opts.quote_char is False
 
+    opts.newlines_in_values = True
+    assert opts.newlines_in_values is True
+
     opts.header_rows = 2
     assert opts.header_rows == 2
 
     opts = cls(delimiter=';', quote_char='%', double_quote=False,
-               escape_char='\\', header_rows=2)
+               escape_char='\\', header_rows=2, newlines_in_values=True)
     assert opts.delimiter == ';'
     assert opts.quote_char == '%'
     assert opts.double_quote is False
     assert opts.escape_char == '\\'
     assert opts.header_rows == 2
+    assert opts.newlines_in_values is True
 
 
 class BaseTestCSVRead:
