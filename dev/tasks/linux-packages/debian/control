@@ -113,7 +113,7 @@ Depends:
   ${shlibs:Depends}
 Description: Apache Parquet is a columnar storage format
  .
- This package provides library files to process Apache Parquet format.
+ This package provides C++ library files to process Apache Parquet format.
 
 Package: libparquet-dev
 Section: libdevel
@@ -125,7 +125,7 @@ Depends:
   libparquet11 (= ${binary:Version})
 Description: Apache Parquet is a columnar storage format
  .
- This package provides header files.
+ This package provides C++ header files.
 
 Package: libarrow-glib11
 Section: libs
@@ -216,3 +216,54 @@ Depends:
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides header files for GPU support.
+
+Package: libparquet-glib11
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow-glib11 (= ${binary:Version}),
+  libparquet11 (= ${binary:Version})
+Description: Apache Parquet is a columnar storage format
+ .
+ This package provides GLib based library files.
+
+Package: gir1.2-parquet-1.0
+Section: introspection
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${gir:Depends},
+  ${misc:Depends}
+Description: Apache Parquet is a columnar storage format
+ .
+ This package provides GObject Introspection typelib files.
+
+Package: libparquet-glib-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-glib-dev (= ${binary:Version}),
+  libparquet-dev (= ${binary:Version}),
+  libparquet-glib11 (= ${binary:Version}),
+  gir1.2-parquet-1.0 (= ${binary:Version})
+Suggests: libparquet-glib-doc
+Description: Apache Parquet is a columnar storage format
+ .
+ This package provides GLib based header files.
+
+Package: libparquet-glib-doc
+Section: doc
+Architecture: all
+Multi-Arch: foreign
+Depends:
+  ${misc:Depends}
+Recommends: libglib2.0-doc
+Description: Apache Parquet is a columnar storage format
+ .
+ This package provides documentations.

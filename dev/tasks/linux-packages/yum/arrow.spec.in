@@ -89,7 +89,7 @@ cd c_glib
   --enable-gtk-doc
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
 sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
-LD_LIBRARY_PATH=$PWD/arrow-glib/.libs/:$PWD/../cpp/build/$build_type \
+LD_LIBRARY_PATH=$PWD/arrow-glib/.libs/:$PWD/parquet-glib/.libs/:$PWD/../cpp/build/$build_type \
   make %{?_smp_mflags}
 cd -
 %endif
@@ -175,7 +175,7 @@ Libraries and header files for Apache Arrow CPython extensions.
 
 %if %{use_parquet}
 %package -n parquet-libs
-Summary:	Runtime libraries for Apache Parquet
+Summary:	Runtime libraries for Apache Parquet C++
 License:	Apache-2.0
 Requires:	boost-system
 Requires:	boost-filesystem
@@ -192,7 +192,7 @@ This package contains the libraries for Apache Parquet
 %{_libdir}/libparquet.so.*
 
 %package -n parquet-devel
-Summary:	Libraries and header files for Apache Parquet
+Summary:	Libraries and header files for Apache Parquet C++
 License:	Apache-2.0
 Requires:	parquet-libs = %{version}-%{release}
 Requires:	zlib-devel
@@ -213,7 +213,7 @@ Libraries and header files for Apache Parquet.
 %package glib-libs
 Summary:	Runtime libraries for Apache Arrow GLib
 License:	Apache-2.0
-Requires:	arrow-libs = %{version}-%{release}
+Requires:	%{name}-libs = %{version}-%{release}
 Requires:	glib2
 
 %description glib-libs
@@ -223,13 +223,12 @@ This package contains the libraries for Apache Arrow GLib.
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow-glib.so.*
-%{_datadir}/gir-1.0/*.gir
+%{_datadir}/gir-1.0/Arrow-1.0.gir
 
 %package glib-devel
 Summary:	Libraries and header files for Apache Arrow GLib
 License:	Apache-2.0
-Requires:	arrow-devel = %{version}-%{release}
-Requires:	%{name}-libs = %{version}-%{release}
+Requires:	%{name}-devel = %{version}-%{release}
 Requires:	glib2-devel
 Requires:	gobject-introspection-devel
 
@@ -244,14 +243,12 @@ Libraries and header files for Apache Arrow GLib.
 %{_libdir}/libarrow-glib.so
 %{_libdir}/pkgconfig/arrow-glib.pc
 %{_libdir}/pkgconfig/arrow-orc-glib.pc
-%{_libdir}/girepository-1.0/*.typelib
+%{_libdir}/girepository-1.0/Arrow-1.0.typelib
 %{_datadir}/arrow-glib/example/
 
 %package glib-doc
 Summary:	Documentation for Apache Arrow GLib
 License:	Apache-2.0
-Requires:	arrow-devel = %{version}-%{release}
-Requires:	%{name}-libs = %{version}-%{release}
 
 %description glib-doc
 Documentation for Apache Arrow GLib.
@@ -261,6 +258,53 @@ Documentation for Apache Arrow GLib.
 %doc README.md LICENSE.txt NOTICE.txt
 %{_docdir}/arrow-glib/
 %{_datadir}/gtk-doc/html/arrow-glib/
+%endif
+
+%if %{use_parquet} && %{use_glib}
+%package -n parquet-glib-libs
+Summary:	Runtime libraries for Apache Parquet GLib
+License:	Apache-2.0
+Requires:	parquet-libs = %{version}-%{release}
+Requires:	%{name}-glib-libs = %{version}-%{release}
+
+%description -n parquet-glib-libs
+This package contains the libraries for Apache Parquet GLib.
+
+%files -n parquet-glib-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libparquet-glib.so.*
+%{_datadir}/gir-1.0/Parquet-1.0.gir
+
+%package -n parquet-glib-devel
+Summary:	Libraries and header files for Apache Parquet GLib
+License:	Apache-2.0
+Requires:	parquet-devel = %{version}-%{release}
+Requires:	%{name}-glib-devel = %{version}-%{release}
+
+%description -n parquet-glib-devel
+Libraries and header files for Apache Parquet GLib.
+
+%files -n parquet-glib-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/parquet-glib/
+%{_libdir}/libparquet-glib.a
+%{_libdir}/libparquet-glib.so
+%{_libdir}/pkgconfig/parquet-glib.pc
+%{_libdir}/girepository-1.0/Parquet-1.0.typelib
+
+%package -n parquet-glib-doc
+Summary:	Documentation for Apache Parquet GLib
+License:	Apache-2.0
+
+%description -n parquet-glib-doc
+Documentation for Apache Parquet GLib.
+
+%files -n parquet-glib-doc
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_datadir}/gtk-doc/html/parquet-glib/
 %endif
 
 %changelog
