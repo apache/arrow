@@ -38,11 +38,7 @@ FORCE_INLINE
 void bitMapSetBit(unsigned char* bmap, int position, bool value) {
   int byteIdx = POS_TO_BYTE_INDEX(position);
   int bitIdx = POS_TO_BIT_INDEX(position);
-  if (value) {
-    bmap[byteIdx] |= (1 << bitIdx);
-  } else {
-    bmap[byteIdx] &= ~(1 << bitIdx);
-  }
+  bmap[byteIdx] ^= (-value ^ bmap[byteIdx]) & (1UL << bitIdx);
 }
 
 // Clear the bit if value = false. Does nothing if value = true.
