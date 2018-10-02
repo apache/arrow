@@ -30,51 +30,58 @@
 namespace arrow {
 namespace csv {
 
-void AssertChunkSize(Chunker& chunker, const std::string& str, uint32_t chunk_size,
-                     uint32_t num_rows) {
+void AssertChunkSize(Chunker& chunker, const std::string& str, uint32_t chunk_size) {
   uint32_t actual_chunk_size;
   ASSERT_OK(
       chunker.Process(str.data(), static_cast<uint32_t>(str.size()), &actual_chunk_size));
   ASSERT_EQ(actual_chunk_size, chunk_size);
-  ASSERT_EQ(chunker.num_rows(), num_rows);
 }
 
 template <typename IntContainer>
 void AssertChunking(Chunker& chunker, const std::string& str,
                     const IntContainer& lengths) {
   uint32_t expected_chunk_size;
-  uint32_t num_rows =
-      static_cast<uint32_t>(std::distance(lengths.begin(), lengths.end()));
 
   // First chunkize whole CSV block
   expected_chunk_size =
       static_cast<uint32_t>(std::accumulate(lengths.begin(), lengths.end(), 0ULL));
-  AssertChunkSize(chunker, str, expected_chunk_size, num_rows);
+  AssertChunkSize(chunker, str, expected_chunk_size);
 
   // Then chunkize incomplete substrings of the block
   expected_chunk_size = 0;
-  num_rows = 0;
   for (const auto length : lengths) {
     AssertChunkSize(chunker, str.substr(0, expected_chunk_size + length - 1),
-                    expected_chunk_size, num_rows);
+                    expected_chunk_size);
 
-    ++num_rows;
     expected_chunk_size += static_cast<uint32_t>(length);
-    AssertChunkSize(chunker, str.substr(0, expected_chunk_size), expected_chunk_size,
-                    num_rows);
+    AssertChunkSize(chunker, str.substr(0, expected_chunk_size), expected_chunk_size);
   }
 }
 
-TEST(Chunker, Basics) {
+class BaseChunkerTest : public ::testing::TestWithParam<bool> {
+ protected:
+  void SetUp() override {
+    options_ = ParseOptions::Defaults();
+    options_.newlines_in_values = GetParam();
+  }
+
+  ParseOptions options_;
+};
+
+INSTANTIATE_TEST_CASE_P(ChunkerTest, BaseChunkerTest, ::testing::Values(true));
+
+INSTANTIATE_TEST_CASE_P(NoNewlineChunkerTest, BaseChunkerTest, ::testing::Values(false));
+
+TEST_P(BaseChunkerTest, Basics) {
   auto csv = MakeCSVData({"ab,c,\n", "def,,gh\n", ",ij,kl\n"});
   auto lengths = {6, 8, 7};
-  Chunker chunker(ParseOptions::Defaults());
+  Chunker chunker(options_);
 
   AssertChunking(chunker, csv, lengths);
 }
 
-TEST(Chunker, Empty) {
-  Chunker chunker(ParseOptions::Defaults());
+TEST_P(BaseChunkerTest, Empty) {
+  Chunker chunker(options_);
   {
     auto csv = MakeCSVData({"\n"});
     auto lengths = {1};
@@ -97,75 +104,65 @@ TEST(Chunker, Empty) {
   }
 }
 
-TEST(Chunker, Newlines) {
-  Chunker chunker(ParseOptions::Defaults());
+TEST_P(BaseChunkerTest, Newlines) {
+  Chunker chunker(options_);
   {
     auto csv = MakeCSVData({"a\n", "b\r", "c,d\r\n"});
-    AssertChunkSize(chunker, csv, static_cast<uint32_t>(csv.size()), 3);
+    AssertChunkSize(chunker, csv, static_cast<uint32_t>(csv.size()));
     // Trailing \n after \r is optional
     AssertChunkSize(chunker, csv.substr(0, csv.size() - 1),
-                    static_cast<uint32_t>(csv.size() - 1), 3);
+                    static_cast<uint32_t>(csv.size() - 1));
   }
 }
 
-TEST(Chunker, MaxNumRows) {
-  Chunker chunker(ParseOptions::Defaults(), 3 /* max_num_rows */);
-  auto csv = MakeCSVData({"ab\n", "c\n", "def\n", "g\n"});
-  auto lengths = {3, 2, 4};
-  AssertChunking(chunker, csv, lengths);
-}
-
-TEST(Chunker, QuotingSimple) {
+TEST_P(BaseChunkerTest, QuotingSimple) {
   auto csv = MakeCSVData({"1,\",3,\",5\n"});
   {
-    Chunker chunker(ParseOptions::Defaults());
+    Chunker chunker(options_);
     auto lengths = {csv.size()};
     AssertChunking(chunker, csv, lengths);
   }
   {
-    auto options = ParseOptions::Defaults();
-    options.quoting = false;
-    Chunker chunker(options);
+    options_.quoting = false;
+    Chunker chunker(options_);
     auto lengths = {csv.size()};
     AssertChunking(chunker, csv, lengths);
   }
 }
 
-TEST(Chunker, QuotingNewline) {
+TEST_P(BaseChunkerTest, QuotingNewline) {
   auto csv = MakeCSVData({"a,\"c \n d\",e\n"});
-  {
-    Chunker chunker(ParseOptions::Defaults());
+  if (options_.newlines_in_values) {
+    Chunker chunker(options_);
     auto lengths = {12};
     AssertChunking(chunker, csv, lengths);
   }
   {
-    auto options = ParseOptions::Defaults();
-    options.quoting = false;
-    Chunker chunker(options);
+    options_.quoting = false;
+    Chunker chunker(options_);
     auto lengths = {6, 6};
     AssertChunking(chunker, csv, lengths);
   }
 }
 
-TEST(Chunker, QuotingUnbalanced) {
+TEST_P(BaseChunkerTest, QuotingUnbalanced) {
   // Quote introduces a quoted field that doesn't end
   auto csv = MakeCSVData({"a,b\n", "1,\",3,,5\n", "c,d\n"});
-  {
-    Chunker chunker(ParseOptions::Defaults());
+  if (options_.newlines_in_values) {
+    Chunker chunker(options_);
     auto lengths = {4};
     AssertChunking(chunker, csv, lengths);
   }
   {
-    auto options = ParseOptions::Defaults();
-    options.quoting = false;
-    Chunker chunker(options);
+    options_.quoting = false;
+    Chunker chunker(options_);
     auto lengths = {4, 9, 4};
     AssertChunking(chunker, csv, lengths);
   }
 }
 
-TEST(Chunker, QuotingEmpty) {
-  Chunker chunker(ParseOptions::Defaults());
+TEST_P(BaseChunkerTest, QuotingEmpty) {
+  Chunker chunker(options_);
   {
     auto csv = MakeCSVData({"\"\"\n", "a\n"});
     auto lengths = {3, 2};
@@ -183,9 +180,9 @@ TEST(Chunker, QuotingEmpty) {
   }
 }
 
-TEST(Chunker, QuotingDouble) {
+TEST_P(BaseChunkerTest, QuotingDouble) {
   {
-    Chunker chunker(ParseOptions::Defaults());
+    Chunker chunker(options_);
     // 4 quotes is a quoted quote
     auto csv = MakeCSVData({"\"\"\"\"\n", "a\n"});
     auto lengths = {5, 2};
@@ -193,34 +190,34 @@ TEST(Chunker, QuotingDouble) {
   }
 }
 
-TEST(Chunker, QuotesSpecial) {
+TEST_P(BaseChunkerTest, QuotesSpecial) {
   // Some non-trivial cases
   {
-    Chunker chunker(ParseOptions::Defaults());
+    Chunker chunker(options_);
     auto csv = MakeCSVData({"a,b\"c,d\n", "e\n"});
     auto lengths = {8, 2};
     AssertChunking(chunker, csv, lengths);
   }
   {
-    Chunker chunker(ParseOptions::Defaults());
+    Chunker chunker(options_);
     auto csv = MakeCSVData({"a,\"b\" \"c\",d\n", "e\n"});
     auto lengths = {12, 2};
     AssertChunking(chunker, csv, lengths);
   }
 }
 
-TEST(Chunker, Escaping) {
-  auto options = ParseOptions::Defaults();
-  options.escaping = true;
+TEST_P(BaseChunkerTest, Escaping) {
   {
     auto csv = MakeCSVData({"a\\b,c\n", "d\n"});
     auto lengths = {6, 2};
     {
-      Chunker chunker(ParseOptions::Defaults());
+      options_.escaping = false;
+      Chunker chunker(options_);
       AssertChunking(chunker, csv, lengths);
     }
     {
-      Chunker chunker(options);
+      options_.escaping = true;
+      Chunker chunker(options_);
       AssertChunking(chunker, csv, lengths);
     }
   }
@@ -228,25 +225,30 @@ TEST(Chunker, Escaping) {
     auto csv = MakeCSVData({"a\\,b,c\n", "d\n"});
     auto lengths = {7, 2};
     {
-      Chunker chunker(ParseOptions::Defaults());
+      options_.escaping = false;
+      Chunker chunker(options_);
       AssertChunking(chunker, csv, lengths);
     }
     {
-      Chunker chunker(options);
+      options_.escaping = true;
+      Chunker chunker(options_);
       AssertChunking(chunker, csv, lengths);
     }
   }
-  {
-    // Escaped newline
+}
+
+TEST_P(BaseChunkerTest, EscapingNewline) {
+  if (options_.newlines_in_values) {
     auto csv = MakeCSVData({"a\\\nb\n", "c\n"});
     {
       auto lengths = {3, 2, 2};
-      Chunker chunker(ParseOptions::Defaults());
+      Chunker chunker(options_);
       AssertChunking(chunker, csv, lengths);
     }
+    options_.escaping = true;
     {
       auto lengths = {5, 2};
-      Chunker chunker(options);
+      Chunker chunker(options_);
       AssertChunking(chunker, csv, lengths);
     }
   }

@@ -16,6 +16,8 @@
 // under the License.
 
 #include <cstring>
+#include <limits>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -235,8 +237,8 @@ class SerialTableReader : public BaseTableReader {
     }
     RETURN_NOT_OK(ProcessHeader());
 
-    auto parser =
-        std::make_shared<BlockParser>(parse_options_, num_cols_, read_options_.num_rows);
+    static constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
+    auto parser = std::make_shared<BlockParser>(parse_options_, num_cols_, max_num_rows);
     while (!eof_) {
       // Consume current block
       uint32_t parsed_size = 0;
@@ -300,7 +302,8 @@ class ThreadedTableReader : public BaseTableReader {
 
   Status Read(std::shared_ptr<Table>* out) {
     task_group_ = internal::TaskGroup::MakeThreaded(thread_pool_);
-    Chunker chunker(parse_options_, static_cast<int32_t>(read_options_.num_rows));
+    static constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
+    Chunker chunker(parse_options_);
 
     // Get first block and process header serially
     RETURN_NOT_OK(ReadNextBlock());
@@ -314,8 +317,7 @@ class ThreadedTableReader : public BaseTableReader {
       uint32_t chunk_size = 0;
       RETURN_NOT_OK(chunker.Process(reinterpret_cast<const char*>(cur_data_),
                                     static_cast<uint32_t>(cur_size_), &chunk_size));
-      int32_t chunk_rows = chunker.num_rows();
-      if (chunk_rows > 0) {
+      if (chunk_size > 0) {
         // Got a chunk of rows
         const uint8_t* chunk_data = cur_data_;
         std::shared_ptr<Buffer> chunk_buffer = cur_block_;
@@ -324,12 +326,16 @@ class ThreadedTableReader : public BaseTableReader {
         // "mutable" allows to modify captured by-copy chunk_buffer
         task_group_->Append([=]() mutable -> Status {
           auto parser =
-              std::make_shared<BlockParser>(parse_options_, num_cols_, chunk_rows);
+              std::make_shared<BlockParser>(parse_options_, num_cols_, max_num_rows);
           uint32_t parsed_size = 0;
           RETURN_NOT_OK(parser->Parse(reinterpret_cast<const char*>(chunk_data),
                                       chunk_size, &parsed_size));
-          if (parsed_size != chunk_size || chunk_rows != parser->num_rows()) {
-            return Status::Invalid("Chunker and parser disagree on block size");
+          if (parsed_size != chunk_size) {
+            DCHECK_EQ(parsed_size, chunk_size);
+            std::stringstream ss;
+            ss << "Chunker and parser disagree on block size: " << chunk_size << " vs "
+               << parsed_size;
+            return Status::Invalid(ss.str());
           }
           RETURN_NOT_OK(ProcessData(parser, chunk_index));
           // Keep chunk buffer alive within closure and release it at the end
@@ -354,8 +360,8 @@ class ThreadedTableReader : public BaseTableReader {
       for (auto& builder : column_builders_) {
         builder->SetTaskGroup(task_group_);
       }
-      auto parser = std::make_shared<BlockParser>(parse_options_, num_cols_,
-                                                  read_options_.num_rows);
+      auto parser =
+          std::make_shared<BlockParser>(parse_options_, num_cols_, max_num_rows);
       uint32_t parsed_size = 0;
       RETURN_NOT_OK(parser->ParseFinal(reinterpret_cast<const char*>(cur_data_),
                                        static_cast<uint32_t>(cur_size_), &parsed_size));

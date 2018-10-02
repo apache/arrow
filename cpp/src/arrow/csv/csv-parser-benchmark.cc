@@ -47,15 +47,14 @@ static std::string BuildEscapedData(int32_t num_rows = 10000) {
 }
 
 static void BenchmarkCSVChunking(benchmark::State& state,  // NOLINT non-const reference
-                                 const std::string& csv, int32_t num_rows,
-                                 ParseOptions options) {
-  Chunker chunker(options, num_rows + 1);
+                                 const std::string& csv, ParseOptions options) {
+  Chunker chunker(options);
 
   while (state.KeepRunning()) {
     uint32_t chunk_size;
     ABORT_NOT_OK(
         chunker.Process(csv.data(), static_cast<uint32_t>(csv.size()), &chunk_size));
-    if (chunk_size != csv.size() || chunker.num_rows() != num_rows) {
+    if (chunk_size != csv.size()) {
       std::cerr << "Parsing incomplete\n";
       std::abort();
     }
@@ -70,8 +69,9 @@ static void BM_ChunkCSVQuotedBlock(
   auto options = ParseOptions::Defaults();
   options.quoting = true;
   options.escaping = false;
+  options.newlines_in_values = true;
 
-  BenchmarkCSVChunking(state, csv, num_rows, options);
+  BenchmarkCSVChunking(state, csv, options);
 }
 
 static void BM_ChunkCSVEscapedBlock(
@@ -81,8 +81,21 @@ static void BM_ChunkCSVEscapedBlock(
   auto options = ParseOptions::Defaults();
   options.quoting = false;
   options.escaping = true;
+  options.newlines_in_values = true;
 
-  BenchmarkCSVChunking(state, csv, num_rows, options);
+  BenchmarkCSVChunking(state, csv, options);
+}
+
+static void BM_ChunkCSVNoNewlinesBlock(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const int32_t num_rows = 5000;
+  auto csv = BuildEscapedData(num_rows);
+  auto options = ParseOptions::Defaults();
+  options.quoting = true;
+  options.escaping = false;
+  options.newlines_in_values = false;
+
+  BenchmarkCSVChunking(state, csv, options);
 }
 
 static void BenchmarkCSVParsing(benchmark::State& state,  // NOLINT non-const reference
@@ -140,6 +153,7 @@ static void BM_ParseCSVEscapedBlock(
 
 BENCHMARK(BM_ChunkCSVQuotedBlock)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_ChunkCSVEscapedBlock)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_ChunkCSVNoNewlinesBlock)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_ParseCSVQuotedBlock)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_ParseCSVEscapedBlock)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 
