@@ -48,6 +48,238 @@ static constexpr int GZIP_CODEC = 16;
 // Determine if this is libz or gzip from header.
 static constexpr int DETECT_CODEC = 32;
 
+// ----------------------------------------------------------------------
+// gzip decompressor implementation
+
+class GZipDecompressor : public Decompressor {
+ public:
+  GZipDecompressor() : initialized_(false) {}
+
+  ~GZipDecompressor() override {
+    if (initialized_) {
+      inflateEnd(&stream_);
+    }
+  }
+
+  Status Init(GZipCodec::Format format) {
+    DCHECK(!initialized_);
+    memset(&stream_, 0, sizeof(stream_));
+    finished_ = false;
+
+    int ret;
+    // Initialize to run specified format
+    int window_bits = WINDOW_BITS;
+    if (format == GZipCodec::DEFLATE) {
+      window_bits = -window_bits;
+    } else if (format == GZipCodec::GZIP) {
+      window_bits += GZIP_CODEC;
+    }
+    if ((ret = inflateInit2(&stream_, window_bits)) != Z_OK) {
+      return ZlibError("zlib inflateInit failed: ");
+    } else {
+      initialized_ = true;
+      return Status::OK();
+    }
+  }
+
+  Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
+                    uint8_t* output, int64_t* bytes_read, int64_t* bytes_written,
+                    bool* need_more_output) override {
+    stream_.next_in = const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input));
+    stream_.avail_in = static_cast<uInt>(input_len);
+    stream_.next_out = reinterpret_cast<Bytef*>(output);
+    stream_.avail_out = static_cast<uInt>(output_len);
+    int ret;
+
+    ret = inflate(&stream_, Z_SYNC_FLUSH);
+    if (ret == Z_DATA_ERROR || ret == Z_STREAM_ERROR || ret == Z_MEM_ERROR) {
+      return ZlibError("zlib inflate failed: ");
+    }
+    if (ret == Z_NEED_DICT) {
+      return ZlibError("zlib inflate failed (need preset dictionary): ");
+    }
+    if (ret == Z_BUF_ERROR) {
+      // No progress was possible
+      *bytes_read = 0;
+      *bytes_written = 0;
+      *need_more_output = true;
+    } else {
+      // Some progress has been made
+      *bytes_read = input_len - stream_.avail_in;
+      *bytes_written = output_len - stream_.avail_out;
+      *need_more_output = false;
+    }
+    finished_ = (ret == Z_STREAM_END);
+    return Status::OK();
+  }
+
+  bool IsFinished() override { return finished_; }
+
+ protected:
+  Status ZlibError(const char* prefix_msg) {
+    std::stringstream ss;
+    ss << prefix_msg;
+    if (stream_.msg && *stream_.msg) {
+      ss << stream_.msg;
+    } else {
+      ss << "(unknown error)";
+    }
+    return Status::IOError(ss.str());
+  }
+
+  z_stream stream_;
+  bool initialized_;
+  bool finished_;
+};
+
+// ----------------------------------------------------------------------
+// gzip compressor implementation
+
+class GZipCompressor : public Compressor {
+ public:
+  GZipCompressor() : initialized_(false) {}
+
+  ~GZipCompressor() override {
+    if (initialized_) {
+      deflateEnd(&stream_);
+    }
+  }
+
+  Status Init(GZipCodec::Format format) {
+    DCHECK(!initialized_);
+    memset(&stream_, 0, sizeof(stream_));
+
+    int ret;
+    // Initialize to run specified format
+    int window_bits = WINDOW_BITS;
+    if (format == GZipCodec::DEFLATE) {
+      window_bits = -window_bits;
+    } else if (format == GZipCodec::GZIP) {
+      window_bits += GZIP_CODEC;
+    }
+    if ((ret = deflateInit2(&stream_, Z_DEFAULT_COMPRESSION, Z_DEFLATED, window_bits, 9,
+                            Z_DEFAULT_STRATEGY)) != Z_OK) {
+      return ZlibError("zlib deflateInit failed: ");
+    } else {
+      initialized_ = true;
+      return Status::OK();
+    }
+  }
+
+  Status Compress(int64_t input_len, const uint8_t* input, int64_t output_len,
+                  uint8_t* output, int64_t* bytes_read, int64_t* bytes_written) override;
+
+  Status Flush(int64_t output_len, uint8_t* output, int64_t* bytes_written,
+               bool* should_retry) override;
+
+  Status End(int64_t output_len, uint8_t* output, int64_t* bytes_written,
+             bool* should_retry) override;
+
+ protected:
+  Status ZlibError(const char* prefix_msg) {
+    std::stringstream ss;
+    ss << prefix_msg;
+    if (stream_.msg && *stream_.msg) {
+      ss << stream_.msg;
+    } else {
+      ss << "(unknown error)";
+    }
+    return Status::IOError(ss.str());
+  }
+
+  z_stream stream_;
+  bool initialized_;
+};
+
+Status GZipCompressor::Compress(int64_t input_len, const uint8_t* input,
+                                int64_t output_len, uint8_t* output, int64_t* bytes_read,
+                                int64_t* bytes_written) {
+  DCHECK(initialized_) << "Called on non-initialized stream";
+
+  stream_.next_in = const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input));
+  stream_.avail_in = static_cast<uInt>(input_len);
+  stream_.next_out = reinterpret_cast<Bytef*>(output);
+  stream_.avail_out = static_cast<uInt>(output_len);
+
+  int64_t ret = 0;
+  ret = deflate(&stream_, Z_NO_FLUSH);
+  if (ret == Z_STREAM_ERROR) {
+    return ZlibError("zlib compress failed: ");
+  }
+  if (ret == Z_OK) {
+    // Some progress has been made
+    *bytes_read = input_len - stream_.avail_in;
+    *bytes_written = output_len - stream_.avail_out;
+  } else {
+    // No progress was possible
+    DCHECK_EQ(ret, Z_BUF_ERROR);
+    *bytes_read = 0;
+    *bytes_written = 0;
+  }
+  return Status::OK();
+}
+
+Status GZipCompressor::Flush(int64_t output_len, uint8_t* output, int64_t* bytes_written,
+                             bool* should_retry) {
+  DCHECK(initialized_) << "Called on non-initialized stream";
+
+  stream_.avail_in = 0;
+  stream_.next_out = reinterpret_cast<Bytef*>(output);
+  stream_.avail_out = static_cast<uInt>(output_len);
+
+  int64_t ret = 0;
+  ret = deflate(&stream_, Z_SYNC_FLUSH);
+  if (ret == Z_STREAM_ERROR) {
+    return ZlibError("zlib flush failed: ");
+  }
+  if (ret == Z_OK) {
+    *bytes_written = output_len - stream_.avail_out;
+  } else {
+    DCHECK_EQ(ret, Z_BUF_ERROR);
+    *bytes_written = 0;
+  }
+  // "If deflate returns with avail_out == 0, this function must be called
+  //  again with the same value of the flush parameter and more output space
+  //  (updated avail_out), until the flush is complete (deflate returns
+  //  with non-zero avail_out)."
+  *should_retry = (*bytes_written == 0);
+  return Status::OK();
+}
+
+Status GZipCompressor::End(int64_t output_len, uint8_t* output, int64_t* bytes_written,
+                           bool* should_retry) {
+  DCHECK(initialized_) << "Called on non-initialized stream";
+
+  stream_.avail_in = 0;
+  stream_.next_out = reinterpret_cast<Bytef*>(output);
+  stream_.avail_out = static_cast<uInt>(output_len);
+
+  int64_t ret = 0;
+  ret = deflate(&stream_, Z_FINISH);
+  if (ret == Z_STREAM_ERROR) {
+    return ZlibError("zlib flush failed: ");
+  }
+  *bytes_written = output_len - stream_.avail_out;
+  if (ret == Z_STREAM_END) {
+    // Flush complete, we can now end the stream
+    *should_retry = false;
+    initialized_ = false;
+    ret = deflateEnd(&stream_);
+    if (ret == Z_OK) {
+      return Status::OK();
+    } else {
+      return ZlibError("zlib end failed: ");
+    }
+  } else {
+    // Not everything could be flushed,
+    *should_retry = true;
+    return Status::OK();
+  }
+}
+
+// ----------------------------------------------------------------------
+// gzip codec implementation
+
 class GZipCodec::GZipCodecImpl {
  public:
   explicit GZipCodecImpl(GZipCodec::Format format)
@@ -58,6 +290,20 @@ class GZipCodec::GZipCodecImpl {
   ~GZipCodecImpl() {
     EndCompressor();
     EndDecompressor();
+  }
+
+  Status MakeCompressor(std::shared_ptr<Compressor>* out) {
+    auto ptr = std::make_shared<GZipCompressor>();
+    RETURN_NOT_OK(ptr->Init(format_));
+    *out = ptr;
+    return Status::OK();
+  }
+
+  Status MakeDecompressor(std::shared_ptr<Decompressor>* out) {
+    auto ptr = std::make_shared<GZipDecompressor>();
+    RETURN_NOT_OK(ptr->Init(format_));
+    *out = ptr;
+    return Status::OK();
   }
 
   Status InitCompressor() {
@@ -247,6 +493,14 @@ Status GZipCodec::Compress(int64_t input_length, const uint8_t* input,
                            int64_t output_buffer_len, uint8_t* output,
                            int64_t* output_length) {
   return impl_->Compress(input_length, input, output_buffer_len, output, output_length);
+}
+
+Status GZipCodec::MakeCompressor(std::shared_ptr<Compressor>* out) {
+  return impl_->MakeCompressor(out);
+}
+
+Status GZipCodec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
+  return impl_->MakeDecompressor(out);
 }
 
 const char* GZipCodec::name() const { return "gzip"; }
