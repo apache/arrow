@@ -46,6 +46,7 @@ dev/release/rat_exclude_files.txt
 dev/tasks/linux-packages/debian.ubuntu-trusty/compat
 dev/tasks/linux-packages/debian.ubuntu-trusty/control
 dev/tasks/linux-packages/debian.ubuntu-trusty/gir1.2-arrow-1.0.install
+dev/tasks/linux-packages/debian.ubuntu-trusty/gir1.2-parquet-1.0.install
 dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow-dev.install
 dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow-glib-dev.install
 dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow-glib-doc.doc-base
@@ -55,6 +56,11 @@ dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow-glib11.install
 dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow-python11.install
 dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow11.install
 dev/tasks/linux-packages/debian.ubuntu-trusty/libparquet-dev.install
+dev/tasks/linux-packages/debian.ubuntu-trusty/libparquet-glib-dev.install
+dev/tasks/linux-packages/debian.ubuntu-trusty/libparquet-glib-doc.doc-base
+dev/tasks/linux-packages/debian.ubuntu-trusty/libparquet-glib-doc.install
+dev/tasks/linux-packages/debian.ubuntu-trusty/libparquet-glib-doc.links
+dev/tasks/linux-packages/debian.ubuntu-trusty/libparquet-glib11.install
 dev/tasks/linux-packages/debian.ubuntu-trusty/libparquet11.install
 dev/tasks/linux-packages/debian.ubuntu-trusty/patches/series
 dev/tasks/linux-packages/debian.ubuntu-trusty/rules
@@ -64,6 +70,7 @@ dev/tasks/linux-packages/debian/compat
 dev/tasks/linux-packages/debian/control
 dev/tasks/linux-packages/debian/gir1.2-arrow-1.0.install
 dev/tasks/linux-packages/debian/gir1.2-arrow-gpu-1.0.install
+dev/tasks/linux-packages/debian/gir1.2-parquet-1.0.install
 dev/tasks/linux-packages/debian/libarrow-dev.install
 dev/tasks/linux-packages/debian/libarrow-glib-dev.install
 dev/tasks/linux-packages/debian/libarrow-glib-doc.doc-base
@@ -78,6 +85,11 @@ dev/tasks/linux-packages/debian/libarrow-python-dev.install
 dev/tasks/linux-packages/debian/libarrow-python11.install
 dev/tasks/linux-packages/debian/libarrow11.install
 dev/tasks/linux-packages/debian/libparquet-dev.install
+dev/tasks/linux-packages/debian/libparquet-glib-dev.install
+dev/tasks/linux-packages/debian/libparquet-glib-doc.doc-base
+dev/tasks/linux-packages/debian/libparquet-glib-doc.install
+dev/tasks/linux-packages/debian/libparquet-glib-doc.links
+dev/tasks/linux-packages/debian/libparquet-glib11.install
 dev/tasks/linux-packages/debian/libparquet11.install
 dev/tasks/linux-packages/debian/patches/series
 dev/tasks/linux-packages/debian/rules

@@ -54,6 +54,7 @@ source_directories = [
 ]
 dependencies = [
   parquet_glib,
+  arrow_glib,
 ]
 ignore_headers = []
 gnome.gtkdoc(project_name,

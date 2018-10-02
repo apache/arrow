@@ -1,7 +1,7 @@
 Document: arrow-glib
-Title: arrow-glib Reference Manual
-Author: Kouhei Sutou
-Abstract: Apache Arrow is a data processing library for analysis.
+Title: Apache Arrow GLib Reference Manual
+Author: The Apache Software Foundation
+Abstract: Apache Arrow GLib is a data processing library for analysis that uses GLib.
 Section: Programming
 
 Format: HTML

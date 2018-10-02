@@ -49,8 +49,8 @@ AM_CFLAGS =					\
 	$(PARQUET_CFLAGS)
 
 GTKDOC_LIBS =						\
-	$(top_builddir)/arrow-glib/libarrow-glib.la	\
-	$(top_builddir)/parquet-glib/libparquet-glib.la
+	$(top_builddir)/parquet-glib/libparquet-glib.la	\
+	$(top_builddir)/arrow-glib/libarrow-glib.la
 
 include $(top_srcdir)/gtk-doc.make
 
