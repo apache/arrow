@@ -28,8 +28,6 @@
 namespace arrow {
 namespace csv {
 
-constexpr int32_t kMaxChunkerNumRows = 100000;
-
 /// \class Chunker
 /// \brief A reusable block-based chunker for CSV data
 ///
@@ -42,15 +40,13 @@ constexpr int32_t kMaxChunkerNumRows = 100000;
 /// with LF (0x0a), the chunker will consider the leading newline as an empty line.
 class ARROW_EXPORT Chunker {
  public:
-  explicit Chunker(ParseOptions options, int32_t max_num_rows = kMaxChunkerNumRows);
+  explicit Chunker(ParseOptions options);
 
   /// \brief Carve up a chunk in a block of data
   ///
-  /// Process a block of CSV data, reading up to max_num_rows rows.
+  /// Process a block of CSV data, reading up to size bytes.
   /// The number of bytes in the chunk is returned in out_size.
   Status Process(const char* data, uint32_t size, uint32_t* out_size);
-
-  int32_t num_rows() const { return num_rows_; }
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Chunker);
@@ -65,10 +61,6 @@ class ARROW_EXPORT Chunker {
   inline const char* ReadLine(const char* data, const char* data_end);
 
   ParseOptions options_;
-  // The number of rows chunked from the block
-  int32_t num_rows_;
-  // The maximum number of rows to chunk from this block
-  int32_t max_num_rows_;
 };
 
 }  // namespace csv

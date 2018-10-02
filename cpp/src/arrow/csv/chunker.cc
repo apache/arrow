@@ -25,8 +25,28 @@
 namespace arrow {
 namespace csv {
 
-Chunker::Chunker(ParseOptions options, int32_t max_num_rows)
-    : options_(options), max_num_rows_(max_num_rows) {}
+namespace {
+
+// Find the last newline character in the given data block.
+// nullptr is returned if not found (like memchr()).
+const char* FindNewlineReverse(const char* data, uint32_t size) {
+  if (size == 0) {
+    return nullptr;
+  }
+  const char* s = data + size - 1;
+  while (size > 0) {
+    if (*s == '\r' || *s == '\n') {
+      return s;
+    }
+    --s;
+    --size;
+  }
+  return nullptr;
+}
+
+}  // namespace
+
+Chunker::Chunker(ParseOptions options) : options_(options) {}
 
 // NOTE: cvsmonkey (https://github.com/dw/csvmonkey) has optimization ideas
 
@@ -104,10 +124,6 @@ FieldEnd:
   goto FieldStart;
 
 LineEnd:
-  // At the end of line, possibly in the middle of the newline separator
-  //   if (ARROW_PREDICT_TRUE(data < data_end) && data[-1] == '\r' && *data == '\n') {
-  //     data++;
-  //   }
   return data;
 
 AbortLine:
@@ -120,24 +136,37 @@ Status Chunker::ProcessSpecialized(const char* start, uint32_t size, uint32_t* o
   DCHECK_EQ(quoting, options_.quoting);
   DCHECK_EQ(escaping, options_.escaping);
 
-  num_rows_ = 0;
   const char* data = start;
   const char* data_end = start + size;
 
-  while (data < data_end && num_rows_ < max_num_rows_) {
+  while (data < data_end) {
     const char* line_end = ReadLine<quoting, escaping>(data, data_end);
     if (line_end == nullptr) {
       // Cannot read any further
       break;
     }
     data = line_end;
-    ++num_rows_;
   }
   *out_size = static_cast<uint32_t>(data - start);
   return Status::OK();
 }
 
 Status Chunker::Process(const char* start, uint32_t size, uint32_t* out_size) {
+  if (!options_.newlines_in_values) {
+    // In newlines are not accepted in CSV values, we can simply search for
+    // the last newline character.
+    // For common block sizes and CSV row sizes, this avoids reading
+    // most of the data block, making the chunker extremely fast compared
+    // to the rest of the CSV reading pipeline.
+    const char* nl = FindNewlineReverse(start, size);
+    if (nl == nullptr) {
+      *out_size = 0;
+    } else {
+      *out_size = static_cast<uint32_t>(nl - start + 1);
+    }
+    return Status::OK();
+  }
+
   if (options_.quoting) {
     if (options_.escaping) {
       return ProcessSpecialized<true, true>(start, size, out_size);
