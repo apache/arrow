@@ -115,8 +115,8 @@ ${SOURCE_DIR}/run-rat.sh ${tarball}
 
 # sign the archive
 gpg --armor --output ${tarball}.asc --detach-sig ${tarball}
-shasum -a 1 $tarball > ${tarball}.sha1
 shasum -a 256 $tarball > ${tarball}.sha256
+shasum -a 512 $tarball > ${tarball}.sha512
 
 # check out the arrow RC folder
 svn co --depth=empty https://dist.apache.org/repos/dist/dev/arrow tmp
