@@ -177,6 +177,9 @@ test_and_install_cpp() {
   make -j$NPROC
   make install
 
+  git clone https://github.com/apache/parquet-testing.git
+  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
+
   ctest -VV -L unittest
   popd
 }
