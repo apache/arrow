@@ -104,6 +104,7 @@ go/*.s
 js/.npmignore
 js/closure-compiler-scripts/*
 python/cmake_modules
+python/cmake_modules/*
 python/doc/requirements.txt
 python/MANIFEST.in
 python/pyarrow/includes/__init__.pxd
@@ -125,10 +126,13 @@ c_glib/config/install-sh
 c_glib/config/config.guess
 c_glib/config/depcomp
 c_glib/config/ltmain.sh
-c_glib/doc/reference/arrow-glib.types
-c_glib/doc/reference/arrow-glib-sections.txt
-c_glib/doc/reference/arrow-glib-overrides.txt
-c_glib/doc/reference/gtk-doc.make
+c_glib/doc/arrow-glib/arrow-glib.types
+c_glib/doc/arrow-glib/arrow-glib-sections.txt
+c_glib/doc/arrow-glib/arrow-glib-overrides.txt
+c_glib/doc/parquet-glib/parquet-glib.types
+c_glib/doc/parquet-glib/parquet-glib-sections.txt
+c_glib/doc/parquet-glib/parquet-glib-overrides.txt
+c_glib/gtk-doc.make
 *.html
 *.sgml
 *.css
