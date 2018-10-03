@@ -35,6 +35,14 @@ public interface AllocationListener {
     public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
       return false;
     }
+
+    @Override
+    public void onChildAdded(BufferAllocator childAllocator) {
+    }
+
+    @Override
+    public void onChildRemoved(BufferAllocator childAllocator) {
+    }
   };
 
   /**
@@ -55,4 +63,15 @@ public interface AllocationListener {
    */
   boolean onFailedAllocation(long size, AllocationOutcome outcome);
 
+  /**
+   * Called immediately after a child allocator was added to this allocator
+   * @param childAllocator The child allocator that was just added
+   */
+  void onChildAdded(BufferAllocator childAllocator);
+
+  /**
+   * Called immediately after a child allocator was removed from this allocator
+   * @param childAllocator The child allocator that was just removed
+   */
+  void onChildRemoved(BufferAllocator childAllocator);
 }
