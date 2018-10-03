@@ -113,13 +113,13 @@ def _check_array_roundtrip(values, expected=None, mask=None,
     else:
         assert arr.null_count == (mask | values_nulls).sum()
 
-    if mask is None:
-        tm.assert_series_equal(pd.Series(result), pd.Series(values),
-                               check_names=False)
-    else:
-        expected = pd.Series(np.ma.masked_array(values, mask=mask))
-        tm.assert_series_equal(pd.Series(result), expected,
-                               check_names=False)
+    if expected is None:
+        if mask is None:
+            expected = pd.Series(values)
+        else:
+            expected = pd.Series(np.ma.masked_array(values, mask=mask))
+
+    tm.assert_series_equal(pd.Series(result), expected, check_names=False)
 
 
 def _check_array_from_pandas_roundtrip(np_array, type=None):
@@ -559,6 +559,11 @@ class TestConvertPrimitiveTypes(object):
         assert table[0].to_pylist() == [1, 2, None]
         tm.assert_frame_equal(df, table.to_pandas())
 
+    def test_float_nulls_to_boolean(self):
+        s = pd.Series([0.0, 1.0, 2.0, None, -3.0])
+        expected = pd.Series([False, True, True, None, True])
+        _check_array_roundtrip(s, expected=expected, type=pa.bool_())
+
     def test_integer_no_nulls(self):
         data = OrderedDict()
         fields = []
@@ -671,6 +676,26 @@ class TestConvertPrimitiveTypes(object):
         result = table.to_pandas()
 
         tm.assert_frame_equal(result, ex_frame)
+
+    def test_boolean_to_int(self):
+        # test from dtype=bool
+        s = pd.Series([True, True, False, True, True] * 2)
+        expected = pd.Series([1, 1, 0, 1, 1] * 2)
+        _check_array_roundtrip(s, expected=expected, type=pa.int64())
+
+    def test_boolean_objects_to_int(self):
+        # test from dtype=object
+        s = pd.Series([True, True, False, True, True] * 2, dtype=object)
+        expected = pd.Series([1, 1, 0, 1, 1] * 2)
+        expected_msg = 'Expected integer, got bool'
+        with pytest.raises(pa.ArrowTypeError, match=expected_msg):
+            _check_array_roundtrip(s, expected=expected, type=pa.int64())
+
+    def test_boolean_nulls_to_float(self):
+        # test from dtype=object
+        s = pd.Series([True, True, False, None, True] * 2)
+        expected = pd.Series([1.0, 1.0, 0.0, None, 1.0] * 2)
+        _check_array_roundtrip(s, expected=expected, type=pa.float64())
 
     def test_float_object_nulls(self):
         arr = np.array([None, 1.5, np.float64(3.5)] * 5, dtype=object)
