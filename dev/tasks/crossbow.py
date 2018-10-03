@@ -599,13 +599,19 @@ def submit(ctx, task, group, job_prefix, config_path, arrow_version, dry_run):
     if arrow_version:
         target.version = arrow_version
 
+    no_rc_version = re.sub(r'-rc\d+\Z', '', target.version)
+    params = {
+        'version': target.version,
+        'no_rc_version': no_rc_version,
+    }
+
     # task and group variables are lists, containing multiple values
     tasks = {}
     task_configs = load_tasks_from_config(config_path, task, group)
     for name, task in task_configs.items():
         # replace version number and create task instance from configuration
         artifacts = task.pop('artifacts', None) or []  # because of yaml
-        artifacts = [fn.format(version=target.version) for fn in artifacts]
+        artifacts = [fn.format(**params) for fn in artifacts]
         tasks[name] = Task(artifacts=artifacts, **task)
 
     # create job instance, doesn't mutate git data yet
