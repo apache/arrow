@@ -20,8 +20,8 @@
 #ifndef ARROW_IO_BUFFERED_H
 #define ARROW_IO_BUFFERED_H
 
+#include <cstdint>
 #include <memory>
-#include <string>
 
 #include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"

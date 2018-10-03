@@ -21,21 +21,24 @@
 #define ARROW_IPC_METADATA_INTERNAL_H
 
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <flatbuffers/flatbuffers.h>
 
 #include "arrow/buffer.h"
 #include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 
 namespace arrow {
 
-class Buffer;
 class DataType;
 class Schema;
-class Status;
 class Tensor;
 
 namespace flatbuf = org::apache::arrow::flatbuf;

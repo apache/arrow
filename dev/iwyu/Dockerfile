@@ -17,7 +17,10 @@
 
 FROM arrow_integration_xenial_base
 
-ADD . /apache-arrow
-WORKDIR /apache-arrow
+ADD dev/docker_common/install_clang_tools_xenial.sh /
+RUN /install_clang_tools_xenial.sh
 
-CMD arrow/dev/iwyu/run_iwyu.sh
+ADD dev/iwyu/run_iwyu.sh /run_iwyu.sh
+
+WORKDIR /tmp
+CMD /run_iwyu.sh

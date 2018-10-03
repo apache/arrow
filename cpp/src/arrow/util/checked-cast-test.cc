@@ -16,6 +16,7 @@
 // under the License.
 
 #include <type_traits>
+#include <typeinfo>
 
 #include <gtest/gtest.h>
 

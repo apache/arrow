@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <tuple>
@@ -24,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/test-util.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 

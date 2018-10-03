@@ -31,7 +31,6 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
-#include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"

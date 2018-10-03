@@ -18,7 +18,7 @@
 #ifndef PYARROW_NUMPY_INTEROP_H
 #define PYARROW_NUMPY_INTEROP_H
 
-#include "arrow/python/platform.h"
+#include "arrow/python/platform.h"  // IWYU pragma: expand
 
 #include <numpy/numpyconfig.h>
 

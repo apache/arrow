@@ -16,27 +16,26 @@
 // under the License.
 
 #include <cstdint>
-#include <cstdlib>
+#include <cstdio>
+#include <functional>
 #include <locale>
 #include <memory>
-#include <numeric>
-#include <sstream>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/builder.h"
-#include "arrow/compare.h"
-#include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
-#include "arrow/pretty_print.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"

@@ -15,27 +15,40 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/csv/reader.h"
+
+#include <cstdint>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "arrow/buffer.h"
 #include "arrow/csv/chunker.h"
 #include "arrow/csv/column-builder.h"
+#include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
-#include "arrow/csv/reader.h"
-#include "arrow/io/interfaces.h"
 #include "arrow/io/readahead.h"
-#include "arrow/memory_pool.h"
-#include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
+#include "arrow/type.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/task-group.h"
 #include "arrow/util/thread-pool.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class MemoryPool;
+
+namespace io {
+
+class InputStream;
+
+}  // namespace io
+
 namespace csv {
 
 using internal::GetCpuThreadPool;

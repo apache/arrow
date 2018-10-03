@@ -23,10 +23,15 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
+#include <rapidjson/document.h>
+
 #include "arrow/array.h"
-#include "arrow/builder.h"
+#include "arrow/buffer.h"
+#include "arrow/builder.h"  // IWYU pragma: keep
 #include "arrow/ipc/dictionary.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -40,6 +45,8 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+class MemoryPool;
 
 using internal::checked_cast;
 

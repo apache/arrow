@@ -21,8 +21,10 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/type_fwd.h"
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

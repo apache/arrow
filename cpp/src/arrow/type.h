@@ -23,16 +23,17 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/key_value_metadata.h"
+#include "arrow/util/key_value_metadata.h"  // IWYU pragma: export
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-#include "arrow/visitor.h"
+#include "arrow/visitor.h"  // IWYU pragma: export
 
 namespace arrow {
 

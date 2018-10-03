@@ -25,7 +25,6 @@
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
 #include "arrow/tensor.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"

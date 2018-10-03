@@ -24,6 +24,7 @@
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace internal {

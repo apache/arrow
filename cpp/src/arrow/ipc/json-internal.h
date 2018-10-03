@@ -26,10 +26,11 @@
 #include <sstream>
 #include <string>
 
-#include "rapidjson/document.h"
+#include "rapidjson/document.h"  // IWYU pragma: export
 #include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
+#include "rapidjson/writer.h"  // IWYU pragma: export
 
+#include "arrow/status.h"    // IWYU pragma: export
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 

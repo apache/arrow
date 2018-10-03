@@ -18,14 +18,14 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/ipc/json.h"

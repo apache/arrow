@@ -18,10 +18,12 @@
 #ifndef ARROW_ARRAY_H
 #define ARROW_ARRAY_H
 
-#include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <iosfwd>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -33,9 +35,11 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-#include "arrow/visitor.h"
 
 namespace arrow {
+
+class Array;
+class ArrayVisitor;
 
 using BufferVector = std::vector<std::shared_ptr<Buffer>>;
 
@@ -47,9 +51,6 @@ constexpr int64_t kUnknownNullCount = -1;
 
 class MemoryPool;
 class Status;
-
-template <typename T>
-struct Decimal;
 
 // ----------------------------------------------------------------------
 // Generic array data container

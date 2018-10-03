@@ -16,18 +16,21 @@
 // under the License.
 
 #include "arrow/io/readahead.h"
-#include "arrow/buffer.h"
-#include "arrow/status.h"
-#include "arrow/util/logging.h"
 
 #include <condition_variable>
 #include <cstring>
 #include <deque>
 #include <memory>
 #include <mutex>
-#include <string>
 #include <thread>
 #include <utility>
+
+#include "arrow/buffer.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace io {
