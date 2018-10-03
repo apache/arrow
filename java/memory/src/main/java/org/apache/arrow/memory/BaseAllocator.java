@@ -236,7 +236,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         }
       }
     }
-    listener.onChildRemoved(childAllocator);
+    listener.onChildRemoved(this, childAllocator);
   }
 
   @Override
@@ -352,7 +352,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
             childAllocator.name);
       }
     }
-    this.listener.onChildAdded(childAllocator);
+    this.listener.onChildAdded(this, childAllocator);
 
     return childAllocator;
   }

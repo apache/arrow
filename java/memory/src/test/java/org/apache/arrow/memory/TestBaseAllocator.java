@@ -261,12 +261,12 @@ public class TestBaseAllocator {
     }
 
     @Override
-    public void onChildAdded(BufferAllocator childAllocator) {
+    public void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
       ++numChildren;
     }
 
     @Override
-    public void onChildRemoved(BufferAllocator childAllocator) {
+    public void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
       --numChildren;
     }
 

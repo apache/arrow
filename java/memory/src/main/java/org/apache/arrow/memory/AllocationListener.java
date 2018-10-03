@@ -37,11 +37,11 @@ public interface AllocationListener {
     }
 
     @Override
-    public void onChildAdded(BufferAllocator childAllocator) {
+    public void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
     }
 
     @Override
-    public void onChildRemoved(BufferAllocator childAllocator) {
+    public void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
     }
   };
 
@@ -64,14 +64,16 @@ public interface AllocationListener {
   boolean onFailedAllocation(long size, AllocationOutcome outcome);
 
   /**
-   * Called immediately after a child allocator was added to this allocator
-   * @param childAllocator The child allocator that was just added
+   * Called immediately after a child allocator was added to the parent allocator
+   * @param parentAllocator The parent allocator to which a child was added
+   * @param childAllocator  The child allocator that was just added
    */
-  void onChildAdded(BufferAllocator childAllocator);
+  void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator);
 
   /**
-   * Called immediately after a child allocator was removed from this allocator
+   * Called immediately after a child allocator was removed from the parent allocator
+   * @param parentAllocator The parent allocator from which a child was removed
    * @param childAllocator The child allocator that was just removed
    */
-  void onChildRemoved(BufferAllocator childAllocator);
+  void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator);
 }
