@@ -230,6 +230,12 @@ else()
   set(PROTOBUF_SOURCE_URL "https://github.com/protocolbuffers/protobuf/releases/download/${PROTOBUF_VERSION}/protobuf-all-${STRIPPED_PROTOBUF_VERSION}.tar.gz")
 endif()
 
+if (DEFINED ENV{ARROW_RE2_URL})
+  set(RE2_SOURCE_URL "$ENV{ARROW_RE2_URL}")
+else()
+  set(RE2_SOURCE_URL "https://github.com/google/re2/archive/${RE2_VERSION}.tar.gz")
+endif()
+
 set(RAPIDJSON_SOURCE_MD5 "badd12c511e081fec6c89c43a7027bce")
 if (DEFINED ENV{ARROW_RAPIDJSON_URL})
   set(RAPIDJSON_SOURCE_URL "$ENV{ARROW_RAPIDJSON_URL}")
@@ -1057,11 +1063,47 @@ if (ARROW_WITH_ZSTD)
   endif()
 endif()
 
+# ----------------------------------------------------------------------
+# RE2 (required for Gandiva)
+if (ARROW_GANDIVA)
+  # re2
+  if ("${RE2_HOME}" STREQUAL "")
+    set (RE2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/re2_ep-install")
+    set (RE2_HOME "${RE2_PREFIX}")
+    set (RE2_INCLUDE_DIR "${RE2_PREFIX}/include")
+    set (RE2_STATIC_LIB "${RE2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}re2${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+    set(RE2_CMAKE_ARGS
+          "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+          "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+          "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
+          "-DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}")
+    ExternalProject_Add(re2_ep
+      ${EP_LOG_OPTIONS}
+      INSTALL_DIR ${RE2_PREFIX}
+      URL ${RE2_SOURCE_URL}
+      CMAKE_ARGS ${RE2_CMAKE_ARGS}
+      BUILD_BYPRODUCTS "${RE2_STATIC_LIB}")
+    set (RE2_VENDORED 1)
+  else ()
+    find_package (RE2 REQUIRED)
+    set (RE2_VENDORED 0)
+  endif ()
+
+  include_directories (SYSTEM ${RE2_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(re2
+    STATIC_LIB ${RE2_STATIC_LIB})
+
+  if (RE2_VENDORED)
+    add_dependencies (arrow_dependencies re2_ep)
+  endif ()
+endif ()
+
 
 # ----------------------------------------------------------------------
-# Protocol Buffers (required for ORC and Flight libraries)
+# Protocol Buffers (required for ORC and Flight and Gandiva libraries)
 
-if (ARROW_ORC OR ARROW_FLIGHT)
+if (ARROW_ORC OR ARROW_FLIGHT OR ARROW_GANDIVA)
   # protobuf
   if ("${PROTOBUF_HOME}" STREQUAL "")
     set (PROTOBUF_PREFIX "${THIRDPARTY_DIR}/protobuf_ep-install")

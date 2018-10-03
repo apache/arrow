@@ -71,7 +71,10 @@ set(SRC_FILES annotator.cc
       ${SHARED_HELPER_FILES}
       ${BC_FILE_PATH_CC})
 
+# TODO(wesm): Replace this with ADD_ARROW_LIB which deals with objlib/no-objlib
+# (not supported on Windows), dependencies, etc.
 add_library(gandiva_obj_lib OBJECT ${SRC_FILES})
+add_dependencies(gandiva_obj_lib arrow_dependencies)
 
 # set PIC so that object library can be included in shared libs.
 set_target_properties(gandiva_obj_lib PROPERTIES POSITION_INDEPENDENT_CODE 1)
@@ -103,6 +106,8 @@ build_gandiva_lib("static" arrow_static)
 add_library(gandiva_helpers SHARED
   ${SHARED_HELPER_FILES}
   function_holder_stubs.cc)
+
+add_dependencies(gandiva_helpers arrow_dependencies)
 
 target_compile_definitions(gandiva_helpers
   PRIVATE -DGDV_HELPERS
