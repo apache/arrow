@@ -141,7 +141,7 @@ setup_miniconda() {
   bash miniconda.sh -b -p $MINICONDA
   rm -f miniconda.sh
 
-  export PATH=$MINICONDA/bin:$PATH
+  . $MINICONDA/etc/profile.d/conda.sh
 
   conda create -n arrow-test -y -q python=3.6 \
         nomkl \
