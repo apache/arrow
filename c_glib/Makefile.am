@@ -26,6 +26,7 @@ SUBDIRS =					\
 	tool
 
 EXTRA_DIST =					\
+	Gemfile					\
 	README.md				\
 	autogen.sh				\
 	meson.build				\
