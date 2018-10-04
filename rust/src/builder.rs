@@ -19,13 +19,12 @@
 //! buffer in an `ArrayData` object.
 
 use std::io::Write;
-
 use std::marker::PhantomData;
 use std::mem;
 
-use error::{Result, ArrowError};
 use super::buffer::*;
 use super::datatypes::*;
+use error::{ArrowError, Result};
 
 /// Buffer builder with zero-copy build method
 pub struct BufferBuilder<T>
@@ -34,21 +33,20 @@ where
 {
     buffer: MutableBuffer,
     len: i64,
-    _marker: PhantomData<T>
+    _marker: PhantomData<T>,
 }
 
 impl<T> BufferBuilder<T>
 where
     T: ArrowPrimitiveType,
 {
-
     /// Creates a builder with a fixed initial capacity
     pub fn new(capacity: i64) -> Self {
         let buffer = MutableBuffer::new(capacity as usize * mem::size_of::<T>());
         Self {
             buffer,
             len: 0,
-            _marker: PhantomData
+            _marker: PhantomData,
         }
     }
 
@@ -69,7 +67,7 @@ where
     }
 
     /// Push a slice of type T, growing the internal buffer as needed
-    pub fn push_slice(&mut self, slice: &[T]) -> Result<()>{
+    pub fn push_slice(&mut self, slice: &[T]) -> Result<()> {
         let array_slots = slice.len() as i64;
         self.reserve(array_slots)?;
         self.write_bytes(slice.to_byte_slice(), array_slots)
@@ -79,7 +77,7 @@ where
     pub fn reserve(&mut self, n: i64) -> Result<()> {
         let new_capacity = self.len + n;
         if new_capacity > self.capacity() {
-            return self.grow(new_capacity)
+            return self.grow(new_capacity);
         }
         Ok(())
     }
@@ -102,14 +100,15 @@ where
         let write_result = self.buffer.write(bytes);
         // `io::Result` has many options one of which we use, so pattern matching is overkill here
         if write_result.is_err() {
-            Err(ArrowError::MemoryError("Could not write to Buffer, not big enough".to_string()))
+            Err(ArrowError::MemoryError(
+                "Could not write to Buffer, not big enough".to_string(),
+            ))
         } else {
             self.len += len_added;
             Ok(())
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
