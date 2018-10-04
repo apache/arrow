@@ -308,6 +308,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Thu Oct 04 2018 Kouhei Sutou <kou@clear-code.com> - 0.11.0-1
+- New upstream release.
+
 * Thu Aug 02 2018 Phillip Cloud <cpcloud@gmail.com> - 0.10.0-1
 - New upstream release.
 
