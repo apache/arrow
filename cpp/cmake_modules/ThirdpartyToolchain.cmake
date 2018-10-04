@@ -15,6 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# ----------------------------------------------------------------------
+# Toolchain linkage options
+
+set(ARROW_RE2_LINKAGE "static" CACHE STRING
+  "How to link the re2 library. static|shared (default shared)")
 
 # ----------------------------------------------------------------------
 # Thirdparty versions, environment variables, source URLs
@@ -37,7 +42,7 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   # set(ORC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(PROTOBUF_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(RAPIDJSON_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  #set(RE2_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(RE2_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(SNAPPY_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(THRIFT_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -98,6 +103,10 @@ endif()
 
 if (DEFINED ENV{RAPIDJSON_HOME})
   set(RAPIDJSON_HOME "$ENV{RAPIDJSON_HOME}")
+endif()
+
+if (DEFINED ENV{RE2_HOME})
+  set(RE2_HOME "$ENV{RAPIDJSON_HOME}")
 endif()
 
 if (DEFINED ENV{SNAPPY_HOME})
@@ -1091,8 +1100,14 @@ if (ARROW_GANDIVA)
   endif ()
 
   include_directories (SYSTEM ${RE2_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(re2
-    STATIC_LIB ${RE2_STATIC_LIB})
+
+  if (ARROW_RE2_LINKAGE STREQUAL "shared")
+    ADD_THIRDPARTY_LIB(re2
+      STATIC_LIB ${RE2_SHARED_LIB})
+  else()
+    ADD_THIRDPARTY_LIB(re2
+      STATIC_LIB ${RE2_STATIC_LIB})
+  endif()
 
   if (RE2_VENDORED)
     add_dependencies (arrow_dependencies re2_ep)

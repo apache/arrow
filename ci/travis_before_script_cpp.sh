@@ -89,7 +89,10 @@ if [ $ARROW_TRAVIS_PARQUET == "1" ]; then
 fi
 
 if [ $ARROW_TRAVIS_GANDIVA == "1" ]; then
-  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA=ON"
+  # TODO(wesm): Revert to static linkage once toolchain issues resolved
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS \
+-DARROW_RE2_LINKAGE='shared' \
+-DARROW_GANDIVA=ON"
 fi
 
 if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then

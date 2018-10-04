@@ -39,7 +39,7 @@ function(build_gandiva_lib TYPE ARROW)
       Boost::system
       Boost::filesystem
       LLVM::LLVM_INTERFACE
-      ${RE2_STATIC_LIB})
+      re2)
 
   if (${TYPE} MATCHES "static" AND NOT APPLE)
     target_link_libraries(gandiva_${TYPE}
