@@ -35,7 +35,7 @@
 #include "arrow/io/hdfs.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 namespace io {

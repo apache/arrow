@@ -21,8 +21,8 @@
 #include <string>
 
 #include "arrow/status.h"
-#include "arrow/test-util.h"
 #include "arrow/util/parsing.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 

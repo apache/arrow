@@ -28,7 +28,7 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/test-util.h"
+#include "arrow/util/testing.h"
 
 #include "plasma/client.h"
 #include "plasma/common.h"

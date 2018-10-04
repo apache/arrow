@@ -29,8 +29,8 @@
 #include "arrow/io/readahead.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 

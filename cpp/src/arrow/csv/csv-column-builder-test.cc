@@ -24,7 +24,7 @@
 #include "arrow/csv/column-builder.h"
 #include "arrow/csv/test-common.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/util/testing.h"
 #include "arrow/util/thread-pool.h"
 
 namespace arrow {

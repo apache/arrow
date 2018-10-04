@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "arrow/csv/parser.h"
-#include "arrow/test-util.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 namespace csv {

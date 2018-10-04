@@ -27,9 +27,9 @@
 #include <vector>
 
 #include "arrow/status.h"
-#include "arrow/test-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/task-group.h"
+#include "arrow/util/testing.h"
 #include "arrow/util/thread-pool.h"
 
 namespace arrow {

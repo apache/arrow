@@ -32,10 +32,10 @@
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/test-common.h"
-#include "arrow/test-util.h"
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/cpu-info.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 

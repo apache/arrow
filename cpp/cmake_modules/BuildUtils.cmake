@@ -360,11 +360,12 @@ endfunction()
 # multiple unit tests in some subgroup, you can assign a test to multiple
 # groups using the syntax unittest;GROUP2;GROUP3. Custom targets for the group
 # names must exist
+# \arg SOURCES one or more source files to use for building test executable
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options NO_VALGRIND)
   set(one_value_args)
-  set(multi_value_args STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES EXTRA_DEPENDENCIES
-    LABELS PREFIX)
+  set(multi_value_args SOURCES STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES
+    EXTRA_DEPENDENCIES LABELS PREFIX)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -397,39 +398,43 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     set(ARG_LABELS unittest)
   endif()
 
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME}.cc)
-    # This test has a corresponding .cc file, set it up as an executable.
-    set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
-    add_executable(${TEST_NAME} "${REL_TEST_NAME}.cc")
+  # This test has a corresponding .cc file, set it up as an executable.
+  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
 
-    if (ARG_STATIC_LINK_LIBS)
-      # Customize link libraries
-      target_link_libraries(${TEST_NAME} ${ARG_STATIC_LINK_LIBS})
-    else()
-      target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
-    endif()
-
-    if (ARG_EXTRA_LINK_LIBS)
-      target_link_libraries(${TEST_NAME} ${ARG_EXTRA_LINK_LIBS})
-    endif()
-
-    if (ARG_EXTRA_INCLUDES)
-      target_include_directories(${TEST_NAME} SYSTEM PUBLIC
-        ${ARG_EXTRA_INCLUDES}
-        )
-    endif()
-
-    if (ARG_EXTRA_DEPENDENCIES)
-      add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
-    endif()
-
-    foreach (TEST_LABEL ${ARG_LABELS})
-      add_dependencies(${TEST_LABEL} ${TEST_NAME})
-    endforeach()
+  if (ARG_SOURCES)
+    set(SOURCE_FILES ${ARG_SOURCES})
+  elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME}.cc)
+    set(SOURCE_FILES "${REL_TEST_NAME}.cc")
   else()
-    # No executable, just invoke the test (probably a script) directly.
-    set(TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME})
+    message(FATAL_ERROR "No source file available for building test")
   endif()
+
+  add_executable(${TEST_NAME} ${SOURCE_FILES})
+
+  if (ARG_STATIC_LINK_LIBS)
+    # Customize link libraries
+    target_link_libraries(${TEST_NAME} ${ARG_STATIC_LINK_LIBS})
+  else()
+    target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
+  endif()
+
+  if (ARG_EXTRA_LINK_LIBS)
+    target_link_libraries(${TEST_NAME} ${ARG_EXTRA_LINK_LIBS})
+  endif()
+
+  if (ARG_EXTRA_INCLUDES)
+    target_include_directories(${TEST_NAME} SYSTEM PUBLIC
+      ${ARG_EXTRA_INCLUDES}
+      )
+  endif()
+
+  if (ARG_EXTRA_DEPENDENCIES)
+    add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
+  endif()
+
+  foreach (TEST_LABEL ${ARG_LABELS})
+    add_dependencies(${TEST_LABEL} ${TEST_NAME})
+  endforeach()
 
   if (ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)
     SET_PROPERTY(TARGET ${TEST_NAME}

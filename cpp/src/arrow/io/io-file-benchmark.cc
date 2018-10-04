@@ -18,8 +18,8 @@
 #include "arrow/api.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
-#include "arrow/test-util.h"
 #include "arrow/util/io-util.h"
+#include "arrow/util/testing.h"
 
 #include "benchmark/benchmark.h"
 

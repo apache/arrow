@@ -32,7 +32,7 @@
 
 #include "arrow/flight/perf.pb.h"
 #include "arrow/flight/server.h"
-#include "arrow/flight/test-util.h"
+#include "arrow/flight/util/testing.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");
 

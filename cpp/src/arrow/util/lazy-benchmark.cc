@@ -21,8 +21,8 @@
 
 #include <benchmark/benchmark.h>
 
-#include "arrow/test-util.h"
 #include "arrow/util/lazy.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 

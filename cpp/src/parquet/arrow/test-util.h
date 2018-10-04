@@ -22,9 +22,9 @@
 #include <vector>
 
 #include "arrow/api.h"
-#include "arrow/test-util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/testing.h"
 
 #include "parquet/arrow/record_reader.h"
 

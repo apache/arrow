@@ -27,13 +27,13 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
 #include "arrow/record_batch.h"
-#include "arrow/test-util.h"
 #include "arrow/util/stopwatch.h"
+#include "arrow/util/testing.h"
 #include "arrow/util/thread-pool.h"
 
 #include "arrow/flight/api.h"
 #include "arrow/flight/perf.pb.h"
-#include "arrow/flight/test-util.h"
+#include "arrow/flight/util/testing.h"
 
 DEFINE_int32(num_servers, 1, "Number of performance servers to run");
 DEFINE_int32(num_streams, 4, "Number of streams for each server");

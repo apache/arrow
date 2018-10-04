@@ -22,8 +22,8 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/test-util.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/testing.h"
 
 using std::string;
 using std::vector;

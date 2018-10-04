@@ -26,7 +26,7 @@
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/util/testing.h"
 
 using std::string;
 

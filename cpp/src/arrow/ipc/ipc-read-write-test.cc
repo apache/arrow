@@ -37,9 +37,9 @@
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
-#include "arrow/test-util.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 

@@ -24,7 +24,7 @@
 #include "arrow/api.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
-#include "arrow/test-util.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 

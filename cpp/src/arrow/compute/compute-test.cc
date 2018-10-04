@@ -34,9 +34,9 @@
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/test-common.h"
-#include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/testing.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"

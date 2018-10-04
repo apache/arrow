@@ -19,7 +19,7 @@
 #include <memory>
 #include <utility>
 #include <vector>
-#include "arrow/test-util.h"
+#include "arrow/util/testing.h"
 #include "gandiva/arrow.h"
 
 #ifndef GANDIVA_TEST_UTIL_H
@@ -30,7 +30,7 @@ namespace gandiva {
 // Helper function to create an arrow-array of type ARROWTYPE
 // from primitive vectors of data & validity.
 //
-// arrow/test-util.h has good utility classes for this purpose.
+// arrow/util/testing.h has good utility classes for this purpose.
 // Using those
 template <typename TYPE, typename C_TYPE>
 static ArrayPtr MakeArrowArray(std::vector<C_TYPE> values, std::vector<bool> validity) {

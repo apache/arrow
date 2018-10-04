@@ -42,9 +42,9 @@
 #include "parquet/util/test-common.h"
 
 #include "arrow/api.h"
-#include "arrow/test-util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/testing.h"
 
 using arrow::Array;
 using arrow::ArrayVisitor;

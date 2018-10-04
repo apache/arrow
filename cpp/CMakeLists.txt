@@ -661,6 +661,7 @@ endif()
 
 if (ARROW_BUILD_BENCHMARKS)
   set(ARROW_BENCHMARK_LINK_LIBS
+    arrow_testing_aux
     arrow_static
     arrow_benchmark_main
     gtest
@@ -709,6 +710,13 @@ if(NOT MSVC)
 endif()
 
 set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
+
+if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  add_library(arrow_testing_aux STATIC src/arrow/util/testing.cc)
+  add_dependencies(arrow_testing_aux gtest)
+  set(ARROW_TEST_LINK_LIBS arrow_testing_aux
+    ${ARROW_TEST_LINK_LIBS})
+endif()
 
 if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)

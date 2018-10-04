@@ -30,8 +30,8 @@
 #include "arrow/ipc/test-common.h"
 #include "arrow/pretty_print.h"
 #include "arrow/table.h"
-#include "arrow/test-util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 

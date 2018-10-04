@@ -87,6 +87,7 @@ endif()
 
 set(PARQUET_TEST_LINK_LIBS
   ${PARQUET_MIN_TEST_LIBS}
+  arrow_testing_aux
   ${PARQUET_ARROW_LINK_LIBS}
   parquet_static
   thriftstatic)

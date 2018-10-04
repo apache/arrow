@@ -32,9 +32,9 @@
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 namespace ipc {

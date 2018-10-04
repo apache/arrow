@@ -30,12 +30,12 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/test-common.h"
-#include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/lazy.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 

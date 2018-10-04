@@ -45,6 +45,7 @@ install(FILES
   parallel.h
   rle-encoding.h
   sse-util.h
+  stl_allocator.h
   stl.h
   stopwatch.h
   string.h
@@ -54,10 +55,6 @@ install(FILES
   visibility.h
   windows_compatibility.h
   DESTINATION include/arrow/util)
-
-#######################################
-# arrow_test_main
-#######################################
 
 if (ARROW_BUILD_BENCHMARKS)
   add_library(arrow_benchmark_main benchmark_main.cc)
@@ -81,18 +78,29 @@ if (ARROW_BUILD_BENCHMARKS)
   add_dependencies(arrow_benchmark_main gtest)
 endif()
 
-ADD_ARROW_TEST(bit-util-test)
-ADD_ARROW_TEST(checked-cast-test)
+set(UTIL_TEST_SRCS
+  bit-util-test.cc
+  checked-cast-test.cc
+  decimal-test.cc
+  key-value-metadata-test.cc
+  lazy-test.cc
+  logging-test.cc
+  rle-encoding-test.cc
+  stl_allocator-test.cc
+  stl-util-test.cc)
+
+ADD_ARROW_TEST(util-test
+  SOURCES ${UTIL_TEST_SRCS}
+  PREFIX "arrow"
+  LABELS "unittest")
+
+ADD_ARROW_TEST(thread-test
+  SOURCES thread-pool-test.cc task-group-test.cc
+  PREFIX "arrow"
+  LABELS "unittest")
+
 ADD_ARROW_TEST(compression-test)
-ADD_ARROW_TEST(decimal-test)
-ADD_ARROW_TEST(key-value-metadata-test)
-ADD_ARROW_TEST(rle-encoding-test)
 ADD_ARROW_TEST(parsing-util-test)
-ADD_ARROW_TEST(stl-util-test)
-ADD_ARROW_TEST(thread-pool-test)
-ADD_ARROW_TEST(task-group-test)
-ADD_ARROW_TEST(lazy-test)
-ADD_ARROW_TEST(logging-test)
 
 ADD_ARROW_BENCHMARK(bit-util-benchmark)
 ADD_ARROW_BENCHMARK(decimal-benchmark)

@@ -26,8 +26,8 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/test-common.h"
-#include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/util/testing.h"
 
 using std::shared_ptr;
 using std::vector;

@@ -27,7 +27,7 @@
 
 #include "arrow/ipc/test-common.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/util/testing.h"
 
 #include "arrow/flight/api.h"
 #include "arrow/flight/internal.h"

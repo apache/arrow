@@ -25,7 +25,7 @@
 #include "arrow/csv/chunker.h"
 #include "arrow/csv/test-common.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 namespace csv {

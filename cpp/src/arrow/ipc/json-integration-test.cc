@@ -36,8 +36,8 @@
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/util/testing.h"
 
 DEFINE_string(arrow, "", "Arrow file name");
 DEFINE_string(json, "", "JSON file name");

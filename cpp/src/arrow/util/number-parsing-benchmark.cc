@@ -22,8 +22,8 @@
 #include <type_traits>
 #include <vector>
 
-#include "arrow/test-util.h"
 #include "arrow/util/parsing.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 namespace internal {

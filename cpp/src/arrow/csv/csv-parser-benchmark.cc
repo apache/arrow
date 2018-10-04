@@ -23,7 +23,7 @@
 #include "arrow/csv/chunker.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
-#include "arrow/test-util.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 namespace csv {

@@ -21,8 +21,8 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/allocator.h"
 #include "arrow/memory_pool.h"
+#include "arrow/util/stl_allocator.h"
 
 namespace arrow {
 

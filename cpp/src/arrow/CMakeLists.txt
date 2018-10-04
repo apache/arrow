@@ -175,7 +175,6 @@ endif()
 
 # Headers: top level
 install(FILES
-  allocator.h
   api.h
   array.h
   buffer.h
@@ -192,7 +191,7 @@ install(FILES
   type.h
   type_fwd.h
   type_traits.h
-  test-util.h
+  util/testing.h
   visitor.h
   visitor_inline.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow")
@@ -209,7 +208,6 @@ install(
 # Unit tests
 #######################################
 
-ADD_ARROW_TEST(allocator-test)
 ADD_ARROW_TEST(array-test)
 ADD_ARROW_TEST(buffer-test)
 ADD_ARROW_TEST(memory_pool-test)

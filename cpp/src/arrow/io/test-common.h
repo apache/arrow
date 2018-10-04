@@ -41,7 +41,7 @@
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
-#include "arrow/test-util.h"
+#include "arrow/util/testing.h"
 
 namespace arrow {
 namespace io {
