@@ -61,6 +61,8 @@ TEST(stl_allocator, FreeLargeMemory) {
 TEST(stl_allocator, MaxMemory) {
   auto pool = default_memory_pool();
 
+  const int64_t prior_max_memory = pool->max_memory();
+
   stl_allocator<uint8_t> alloc(pool);
   uint8_t* data = alloc.allocate(1000);
   uint8_t* data2 = alloc.allocate(1000);
@@ -68,7 +70,7 @@ TEST(stl_allocator, MaxMemory) {
   alloc.deallocate(data, 1000);
   alloc.deallocate(data2, 1000);
 
-  ASSERT_EQ(2000, pool->max_memory());
+  ASSERT_EQ(prior_max_memory + 2000, pool->max_memory());
 }
 
 #endif  // ARROW_VALGRIND

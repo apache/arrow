@@ -44,20 +44,20 @@ namespace parquet {
 
 static constexpr int FLBA_LENGTH = 12;
 
-bool operator==(const FixedLenByteArray& a, const FixedLenByteArray& b) {
+inline bool operator==(const FixedLenByteArray& a, const FixedLenByteArray& b) {
   return 0 == memcmp(a.ptr, b.ptr, FLBA_LENGTH);
 }
 
 namespace test {
 
 template <typename T>
-static void InitValues(int num_values, vector<T>& values, vector<uint8_t>& buffer) {
+inline void InitValues(int num_values, vector<T>& values, vector<uint8_t>& buffer) {
   random_numbers(num_values, 0, std::numeric_limits<T>::min(),
                  std::numeric_limits<T>::max(), values.data());
 }
 
 template <typename T>
-static void InitDictValues(int num_values, int num_dicts, vector<T>& values,
+inline void InitDictValues(int num_values, int num_dicts, vector<T>& values,
                            vector<uint8_t>& buffer) {
   int repeat_factor = num_values / num_dicts;
   InitValues<T>(num_dicts, values, buffer);
@@ -189,9 +189,9 @@ class DataPageBuilder {
 };
 
 template <>
-void DataPageBuilder<BooleanType>::AppendValues(const ColumnDescriptor* d,
-                                                const vector<bool>& values,
-                                                Encoding::type encoding) {
+inline void DataPageBuilder<BooleanType>::AppendValues(const ColumnDescriptor* d,
+                                                       const vector<bool>& values,
+                                                       Encoding::type encoding) {
   if (encoding != Encoding::PLAIN) {
     ParquetException::NYI("only plain encoding currently implemented");
   }
@@ -206,7 +206,7 @@ void DataPageBuilder<BooleanType>::AppendValues(const ColumnDescriptor* d,
 }
 
 template <typename Type>
-static shared_ptr<DataPage> MakeDataPage(
+inline shared_ptr<DataPage> MakeDataPage(
     const ColumnDescriptor* d, const vector<typename Type::c_type>& values, int num_vals,
     Encoding::type encoding, const uint8_t* indices, int indices_size,
     const vector<int16_t>& def_levels, int16_t max_def_level,
@@ -278,25 +278,26 @@ class DictionaryPageBuilder {
 };
 
 template <>
-DictionaryPageBuilder<BooleanType>::DictionaryPageBuilder(const ColumnDescriptor* d) {
+inline DictionaryPageBuilder<BooleanType>::DictionaryPageBuilder(
+    const ColumnDescriptor* d) {
   ParquetException::NYI("only plain encoding currently implemented for boolean");
 }
 
 template <>
-shared_ptr<Buffer> DictionaryPageBuilder<BooleanType>::WriteDict() {
+inline shared_ptr<Buffer> DictionaryPageBuilder<BooleanType>::WriteDict() {
   ParquetException::NYI("only plain encoding currently implemented for boolean");
   return nullptr;
 }
 
 template <>
-shared_ptr<Buffer> DictionaryPageBuilder<BooleanType>::AppendValues(
+inline shared_ptr<Buffer> DictionaryPageBuilder<BooleanType>::AppendValues(
     const vector<TC>& values) {
   ParquetException::NYI("only plain encoding currently implemented for boolean");
   return nullptr;
 }
 
 template <typename Type>
-static shared_ptr<DictionaryPage> MakeDictPage(
+inline shared_ptr<DictionaryPage> MakeDictPage(
     const ColumnDescriptor* d, const vector<typename Type::c_type>& values,
     const vector<int>& values_per_page, Encoding::type encoding,
     vector<shared_ptr<Buffer>>& rle_indices) {
@@ -319,7 +320,7 @@ static shared_ptr<DictionaryPage> MakeDictPage(
 
 // Given def/rep levels and values create multiple dict pages
 template <typename Type>
-static void PaginateDict(const ColumnDescriptor* d,
+inline void PaginateDict(const ColumnDescriptor* d,
                          const vector<typename Type::c_type>& values,
                          const vector<int16_t>& def_levels, int16_t max_def_level,
                          const vector<int16_t>& rep_levels, int16_t max_rep_level,
@@ -355,7 +356,7 @@ static void PaginateDict(const ColumnDescriptor* d,
 
 // Given def/rep levels and values create multiple plain pages
 template <typename Type>
-static void PaginatePlain(const ColumnDescriptor* d,
+inline void PaginatePlain(const ColumnDescriptor* d,
                           const vector<typename Type::c_type>& values,
                           const vector<int16_t>& def_levels, int16_t max_def_level,
                           const vector<int16_t>& rep_levels, int16_t max_rep_level,
@@ -389,7 +390,7 @@ static void PaginatePlain(const ColumnDescriptor* d,
 
 // Generates pages from randomly generated data
 template <typename Type>
-static int MakePages(const ColumnDescriptor* d, int num_pages, int levels_per_page,
+inline int MakePages(const ColumnDescriptor* d, int num_pages, int levels_per_page,
                      vector<int16_t>& def_levels, vector<int16_t>& rep_levels,
                      vector<typename Type::c_type>& values, vector<uint8_t>& buffer,
                      vector<shared_ptr<Page>>& pages,
@@ -441,7 +442,6 @@ static int MakePages(const ColumnDescriptor* d, int num_pages, int levels_per_pa
 }
 
 }  // namespace test
-
 }  // namespace parquet
 
 #endif  // PARQUET_COLUMN_TEST_UTIL_H

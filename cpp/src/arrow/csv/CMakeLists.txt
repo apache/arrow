@@ -15,10 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ADD_ARROW_TEST(csv-chunker-test)
-ADD_ARROW_TEST(csv-column-builder-test)
-ADD_ARROW_TEST(csv-converter-test)
-ADD_ARROW_TEST(csv-parser-test)
+add_custom_target(arrow_csv)
+
+ADD_ARROW_TEST(arrow-csv-test
+  SOURCES csv-chunker-test.cc
+  csv-column-builder-test.cc
+  csv-converter-test.cc
+  csv-parser-test.cc
+  LABELS "unittest;arrow_csv")
 
 ADD_ARROW_BENCHMARK(csv-converter-benchmark)
 ADD_ARROW_BENCHMARK(csv-parser-benchmark)

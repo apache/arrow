@@ -29,7 +29,7 @@
 namespace arrow {
 namespace csv {
 
-std::string MakeCSVData(std::vector<std::string> lines) {
+static inline std::string MakeCSVData(std::vector<std::string> lines) {
   std::stringstream ss;
   for (const auto& line : lines) {
     ss << line;
@@ -38,7 +38,8 @@ std::string MakeCSVData(std::vector<std::string> lines) {
 }
 
 // Make a BlockParser from a vector of lines representing a CSV file
-void MakeCSVParser(std::vector<std::string> lines, std::shared_ptr<BlockParser>* out) {
+static inline void MakeCSVParser(std::vector<std::string> lines,
+                                 std::shared_ptr<BlockParser>* out) {
   auto csv = MakeCSVData(lines);
   auto parser = std::make_shared<BlockParser>(ParseOptions::Defaults());
   uint32_t out_size;
@@ -48,7 +49,8 @@ void MakeCSVParser(std::vector<std::string> lines, std::shared_ptr<BlockParser>*
 }
 
 // Make a BlockParser from a vector of strings representing a single CSV column
-void MakeColumnParser(std::vector<std::string> items, std::shared_ptr<BlockParser>* out) {
+static inline void MakeColumnParser(std::vector<std::string> items,
+                                    std::shared_ptr<BlockParser>* out) {
   std::vector<std::string> lines;
   for (const auto& item : items) {
     lines.push_back(item + '\n');

@@ -207,16 +207,20 @@ install(
 # Unit tests
 #######################################
 
-ADD_ARROW_TEST(array-test)
-ADD_ARROW_TEST(buffer-test)
-ADD_ARROW_TEST(memory_pool-test)
-ADD_ARROW_TEST(pretty_print-test)
-ADD_ARROW_TEST(public-api-test)
-ADD_ARROW_TEST(status-test)
-ADD_ARROW_TEST(stl-test)
-ADD_ARROW_TEST(type-test)
-ADD_ARROW_TEST(table-test)
-ADD_ARROW_TEST(table_builder-test)
+ADD_ARROW_TEST(arrow-columnar-test
+  SOURCES array-test.cc
+  pretty_print-test.cc
+  stl-test.cc
+  type-test.cc
+  table-test.cc
+  table_builder-test.cc)
+
+ADD_ARROW_TEST(arrow-platform-test
+  SOURCES buffer-test.cc
+  memory_pool-test.cc
+  public-api-test.cc
+  status-test)
+
 ADD_ARROW_TEST(tensor-test)
 
 ADD_ARROW_BENCHMARK(builder-benchmark)

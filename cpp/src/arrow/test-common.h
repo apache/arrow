@@ -62,7 +62,8 @@ class TestBase : public ::testing::Test {
 };
 
 template <typename ArrayType>
-std::shared_ptr<Array> TestBase::MakeRandomArray(int64_t length, int64_t null_count) {
+inline std::shared_ptr<Array> TestBase::MakeRandomArray(int64_t length,
+                                                        int64_t null_count) {
   const int64_t data_nbytes = length * sizeof(typename ArrayType::value_type);
   std::shared_ptr<Buffer> data;
   EXPECT_OK(AllocateBuffer(pool_, data_nbytes, &data));
@@ -75,13 +76,13 @@ std::shared_ptr<Array> TestBase::MakeRandomArray(int64_t length, int64_t null_co
 }
 
 template <>
-std::shared_ptr<Array> TestBase::MakeRandomArray<NullArray>(int64_t length,
-                                                            int64_t null_count) {
+inline std::shared_ptr<Array> TestBase::MakeRandomArray<NullArray>(int64_t length,
+                                                                   int64_t null_count) {
   return std::make_shared<NullArray>(length);
 }
 
 template <>
-std::shared_ptr<Array> TestBase::MakeRandomArray<FixedSizeBinaryArray>(
+inline std::shared_ptr<Array> TestBase::MakeRandomArray<FixedSizeBinaryArray>(
     int64_t length, int64_t null_count) {
   const int byte_width = 10;
   std::shared_ptr<Buffer> null_bitmap = MakeRandomNullBitmap(length, null_count);
@@ -94,8 +95,8 @@ std::shared_ptr<Array> TestBase::MakeRandomArray<FixedSizeBinaryArray>(
 }
 
 template <>
-std::shared_ptr<Array> TestBase::MakeRandomArray<BinaryArray>(int64_t length,
-                                                              int64_t null_count) {
+inline std::shared_ptr<Array> TestBase::MakeRandomArray<BinaryArray>(int64_t length,
+                                                                     int64_t null_count) {
   std::vector<uint8_t> valid_bytes(length, 1);
   for (int64_t i = 0; i < null_count; i++) {
     valid_bytes[i * 2] = 0;

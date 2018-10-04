@@ -28,13 +28,14 @@ add_custom_target(parquet)
 function(ADD_PARQUET_TEST REL_TEST_NAME)
   set(options NO_VALGRIND)
   set(one_value_args)
-  set(multi_value_args EXTRA_DEPENDENCIES LABELS)
+  set(multi_value_args SOURCES EXTRA_DEPENDENCIES LABELS)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
   ADD_ARROW_TEST(${REL_TEST_NAME}
+    SOURCES ${ARG_SOURCES}
     STATIC_LINK_LIBS ${PARQUET_TEST_LINK_LIBS}
     PREFIX "parquet"
     LABELS "unittest;parquet")
@@ -255,19 +256,25 @@ install(FILES
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
 ADD_PARQUET_TEST(bloom_filter-test)
-ADD_PARQUET_TEST(column_reader-test)
-ADD_PARQUET_TEST(column_scanner-test)
-ADD_PARQUET_TEST(column_writer-test)
-ADD_PARQUET_TEST(file-deserialize-test)
-ADD_PARQUET_TEST(file-serialize-test)
-ADD_PARQUET_TEST(properties-test)
-ADD_PARQUET_TEST(statistics-test)
-ADD_PARQUET_TEST(encoding-test)
-ADD_PARQUET_TEST(metadata-test)
-ADD_PARQUET_TEST(public-api-test)
-ADD_PARQUET_TEST(types-test)
-ADD_PARQUET_TEST(reader-test)
-ADD_PARQUET_TEST(schema-test)
+
+ADD_PARQUET_TEST(column-test
+  SOURCES column_reader-test.cc
+  column_scanner-test.cc
+  column_writer-test.cc)
+ADD_PARQUET_TEST(internals-test
+  SOURCES properties-test.cc
+  statistics-test.cc
+  encoding-test.cc
+  metadata-test.cc
+  public-api-test.cc
+  types-test.cc
+  schema-test.cc
+  util/comparison-test.cc
+  util/memory-test.cc)
+ADD_PARQUET_TEST(file-test
+  SOURCES file-deserialize-test.cc
+  file-serialize-test.cc
+  reader-test.cc)
 
 #############################################################
 # Benchmark linking

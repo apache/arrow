@@ -22,6 +22,3 @@ install(FILES
   memory.h
   visibility.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/util")
-
-ADD_PARQUET_TEST(comparison-test)
-ADD_PARQUET_TEST(memory-test)

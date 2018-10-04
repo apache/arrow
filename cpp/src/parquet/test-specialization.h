@@ -122,10 +122,10 @@ class PrimitiveTypedTest : public ::testing::Test {
 };
 
 template <typename TestType>
-void PrimitiveTypedTest<TestType>::SyncValuesOut() {}
+inline void PrimitiveTypedTest<TestType>::SyncValuesOut() {}
 
 template <>
-void PrimitiveTypedTest<BooleanType>::SyncValuesOut() {
+inline void PrimitiveTypedTest<BooleanType>::SyncValuesOut() {
   std::vector<uint8_t>::const_iterator source_iterator = bool_buffer_out_.begin();
   std::vector<T>::iterator destination_iterator = values_out_.begin();
   while (source_iterator != bool_buffer_out_.end()) {
@@ -134,14 +134,14 @@ void PrimitiveTypedTest<BooleanType>::SyncValuesOut() {
 }
 
 template <typename TestType>
-void PrimitiveTypedTest<TestType>::SetupValuesOut(int64_t num_values) {
+inline void PrimitiveTypedTest<TestType>::SetupValuesOut(int64_t num_values) {
   values_out_.clear();
   values_out_.resize(num_values);
   values_out_ptr_ = values_out_.data();
 }
 
 template <>
-void PrimitiveTypedTest<BooleanType>::SetupValuesOut(int64_t num_values) {
+inline void PrimitiveTypedTest<BooleanType>::SetupValuesOut(int64_t num_values) {
   values_out_.clear();
   values_out_.resize(num_values);
 
@@ -154,7 +154,7 @@ void PrimitiveTypedTest<BooleanType>::SetupValuesOut(int64_t num_values) {
 }
 
 template <typename TestType>
-void PrimitiveTypedTest<TestType>::GenerateData(int64_t num_values) {
+inline void PrimitiveTypedTest<TestType>::GenerateData(int64_t num_values) {
   def_levels_.resize(num_values);
   values_.resize(num_values);
 
@@ -165,7 +165,7 @@ void PrimitiveTypedTest<TestType>::GenerateData(int64_t num_values) {
 }
 
 template <>
-void PrimitiveTypedTest<BooleanType>::GenerateData(int64_t num_values) {
+inline void PrimitiveTypedTest<BooleanType>::GenerateData(int64_t num_values) {
   def_levels_.resize(num_values);
   values_.resize(num_values);
 

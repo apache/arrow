@@ -15,8 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ADD_PARQUET_TEST(arrow-schema-test)
-ADD_PARQUET_TEST(arrow-reader-writer-test)
+ADD_PARQUET_TEST(arrow-test
+  SOURCES arrow-schema-test.cc
+  arrow-reader-writer-test.cc)
 
 if(PARQUET_BUILD_BENCHMARKS)
   ADD_ARROW_BENCHMARK(arrow-reader-writer-benchmark)
