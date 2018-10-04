@@ -712,7 +712,11 @@ endif()
 set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
 if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  # TODO(wesm): ARROW-3254, maybe find a better place to put shared auxiliary
+  # testing tools that depend on gtest
   add_library(arrow_testing_aux STATIC src/arrow/util/testing.cc)
+  target_compile_definitions(arrow_testing_aux
+    PRIVATE ARROW_EXPORTING)
   add_dependencies(arrow_testing_aux gtest)
   set(ARROW_TEST_LINK_LIBS arrow_testing_aux
     ${ARROW_TEST_LINK_LIBS})
