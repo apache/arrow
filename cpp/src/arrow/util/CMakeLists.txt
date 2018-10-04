@@ -49,6 +49,7 @@ install(FILES
   stl.h
   stopwatch.h
   string.h
+  testing.h
   thread-pool.h
   type_traits.h
   variant.h

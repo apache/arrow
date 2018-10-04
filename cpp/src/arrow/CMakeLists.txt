@@ -191,7 +191,6 @@ install(FILES
   type.h
   type_fwd.h
   type_traits.h
-  util/testing.h
   visitor.h
   visitor_inline.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow")
