@@ -96,7 +96,7 @@
         LIST = `arrow::ListType`$new(self$pointer()),
         STRUCT = `arrow::StructType`$new(self$pointer()),
         UNION = stop("Type UNION not implemented yet"),
-        DICTIONARY = stop("Type DICTIONARY not implemented yet"),
+        DICTIONARY = `arrow::DictionaryType`$new(self$pointer()),
         MAP = stop("Type MAP not implemented yet")
       )
     }
@@ -224,6 +224,17 @@
   inherit = `arrow::DecimalType`
 )
 
+`arrow::DictionaryType` <- R6Class("arrow::DictionaryType",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    index_type = function() `arrow::DataType`$dispatch(DictionaryType__index_type(self)),
+    name = function() DictionaryType__name(self),
+    dictionary = function() `arrow::Array`$new(DictionaryType__dictionary(self)),
+    ordered = function() DictionaryType__ordered(self)
+  )
+
+)
+
 #' Apache Arrow data types
 #'
 #' Apache Arrow data types
@@ -322,5 +333,11 @@ timestamp <- function(unit, timezone) {
 #' @rdname DataType
 #' @export
 decimal <- function(precision, scale) `arrow::Decimal128Type`$new(Decimal128Type__initialize(precision, scale))
+
+#' @rdname
+#' @export
+dictionary <- function(type, values, ordered = FALSE) {
+  `arrow::DictionaryType`$new(DictionaryType__initialize(type, values, ordered))
+}
 
 `arrow::NestedType` <- R6Class("arrow::NestedType", inherit = `arrow::DataType`)
