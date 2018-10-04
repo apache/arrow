@@ -31,7 +31,6 @@
 
 namespace arrow {
 
-class KeyValueMetadata;
 class MemoryPool;
 class Status;
 

@@ -27,11 +27,12 @@
 #include <string>
 
 #include "rapidjson/document.h"  // IWYU pragma: export
-#include "rapidjson/stringbuffer.h"
+#include "rapidjson/encodings.h"  // IWYU pragma: export
+#include "rapidjson/stringbuffer.h" // IWYU pragma: export
 #include "rapidjson/writer.h"  // IWYU pragma: export
 
 #include "arrow/status.h"    // IWYU pragma: export
-#include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/type_fwd.h"  // IWYU pragma: keep
 #include "arrow/util/visibility.h"
 
 namespace rj = rapidjson;

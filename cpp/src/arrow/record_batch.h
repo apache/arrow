@@ -31,7 +31,6 @@ namespace arrow {
 
 class Array;
 struct ArrayData;
-class KeyValueMetadata;
 class Status;
 
 /// \class RecordBatch

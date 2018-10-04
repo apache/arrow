@@ -15,13 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstddef>
-#include <cstdint>
 #include <memory>
 #include <sstream>
 #include <string>
-#include <utility>
-#include <vector>
 
 #include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
@@ -29,14 +25,12 @@
 #include "arrow/array.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/feather-internal.h"
-#include "arrow/ipc/feather.h"
 #include "arrow/ipc/feather_generated.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"

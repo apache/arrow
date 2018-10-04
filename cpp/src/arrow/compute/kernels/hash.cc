@@ -46,6 +46,8 @@
 
 namespace arrow {
 
+class MemoryPool;
+
 using internal::checked_cast;
 
 namespace compute {

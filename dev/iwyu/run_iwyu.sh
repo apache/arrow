@@ -63,9 +63,10 @@ export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 cmake -GNinja \
       -DARROW_PARQUET=ON \
       -DARROW_PYTHON=ON \
+      -DCMAKE_CXX_FLAGS='-D_GLIBCXX_USE_CXX11_ABI=0' \
       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
 
 # Make so that vendored bits are built
-ninja
+# ninja
 
 $IWYU_SH all

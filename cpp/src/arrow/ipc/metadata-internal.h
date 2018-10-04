@@ -50,6 +50,9 @@ class OutputStream;
 }  // namespace io
 
 namespace ipc {
+
+class DictionaryMemo;
+
 namespace internal {
 
 static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =

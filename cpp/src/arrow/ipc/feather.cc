@@ -22,8 +22,6 @@
 #include <memory>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
-#include <utility>
-#include <vector>
 
 #include "flatbuffers/flatbuffers.h"
 
@@ -40,7 +38,6 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor.h"
 
 namespace arrow {
 

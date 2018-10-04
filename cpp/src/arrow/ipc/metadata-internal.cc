@@ -18,31 +18,25 @@
 #include "arrow/ipc/metadata-internal.h"
 
 #include <cstdint>
-#include <cstring>
 #include <memory>
 #include <sstream>
-#include <utility>
 
 #include <flatbuffers/flatbuffers.h>
 
-#include "arrow/buffer.h"
+#include "arrow/array.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/File_generated.h"  // IWYU pragma: keep
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/Tensor_generated.h"  // IWYU pragma: keep
-#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
-
-class Array;
 
 namespace flatbuf = org::apache::arrow::flatbuf;
 using internal::checked_cast;

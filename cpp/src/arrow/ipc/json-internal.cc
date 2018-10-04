@@ -27,8 +27,6 @@
 #include <utility>
 #include <vector>
 
-#include <rapidjson/document.h>
-
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"  // IWYU pragma: keep

@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <condition_variable>
-#include <cstddef>
 #include <deque>
 #include <mutex>
 #include <string>

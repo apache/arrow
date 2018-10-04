@@ -29,7 +29,6 @@
   { include: ["<bits/stdint-intn.h>", private, "<cstdint>", public ] },
   { include: ["<bits/stdint-uintn.h>", private, "<cstdint>", public ] },
   { include: ["<bits/shared_ptr.h>", private, "<memory>", public ] },
-  { include: ["<errno.h>", private, "<cerrno>", public ] },
   { symbol: ["bool", private, "<cstdint>", public ] },
   { symbol: ["false", private, "<cstdint>", public ] },
   { symbol: ["true", private, "<cstdint>", public ] },

@@ -17,9 +17,6 @@
 
 FROM arrow_integration_xenial_base
 
-ADD dev/docker_common/install_clang_tools_xenial.sh /
-RUN /install_clang_tools_xenial.sh
-
 ADD dev/iwyu/run_iwyu.sh /run_iwyu.sh
 
 WORKDIR /tmp

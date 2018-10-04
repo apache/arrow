@@ -30,8 +30,6 @@
 #include <unistd.h>  // IWYU pragma: keep
 #endif
 
-#include <string.h>
-
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>

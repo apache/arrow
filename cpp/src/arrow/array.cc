@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstring>
 #include <limits>
 #include <sstream>
 #include <utility>
@@ -35,7 +34,6 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/visitor.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {

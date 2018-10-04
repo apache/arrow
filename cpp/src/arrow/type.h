@@ -28,12 +28,12 @@
 #include <vector>
 
 #include "arrow/status.h"
-#include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/type_fwd.h"  // IWYU pragma: keep
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"  // IWYU pragma: export
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-#include "arrow/visitor.h"  // IWYU pragma: export
+#include "arrow/visitor.h"  // IWYU pragma: keep
 
 namespace arrow {
 
