@@ -19,6 +19,7 @@
 function(build_gandiva_lib TYPE ARROW)
   string(TOUPPER ${TYPE} TYPE_UPPER_CASE)
   add_library(gandiva_${TYPE} ${TYPE_UPPER_CASE} $<TARGET_OBJECTS:gandiva_obj_lib>)
+  add_dependencies(gandiva_${TYPE} arrow_dependencies)
 
   target_include_directories(gandiva_${TYPE}
     PUBLIC
@@ -60,9 +61,9 @@ function(build_gandiva_lib TYPE ARROW)
 endfunction(build_gandiva_lib TYPE)
 
 set(GANDIVA_TEST_LINK_LIBS
-  ${GTEST_STATIC_LIB}
-  ${GTEST_MAIN_STATIC_LIB}
-  ${RE2_STATIC_LIB})
+  gtest
+  gtest_main
+  re2)
 
 if (PTHREAD_LIBRARY)
   set(GANDIVA_TEST_LINK_LIBS
@@ -81,6 +82,9 @@ function(add_gandiva_unit_test REL_TEST_NAME)
     add_dependencies(${TEST_NAME} LLVM::LLVM_INTERFACE)
     target_link_libraries(${TEST_NAME} PRIVATE LLVM::LLVM_INTERFACE)
   endif()
+
+  # Require toolchain to be built
+  add_dependencies(${TEST_NAME} arrow_dependencies)
 
   target_include_directories(${TEST_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/include
