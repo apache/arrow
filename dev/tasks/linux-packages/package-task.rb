@@ -22,7 +22,7 @@ require "time"
 class PackageTask
   include Rake::DSL
 
-  def initialize(package, version, release_time)
+  def initialize(package, version, release_time, options={})
     @package = package
     @version = version
     @release_time = release_time
@@ -33,12 +33,19 @@ class PackageTask
 
     @rpm_package = @package
     case @version
-    when /-((?:dev|rc)\d+)\z/
+    when /-((dev|rc)\d+)\z/
       base_version = $PREMATCH
       sub_version = $1
-      @deb_upstream_version = "#{base_version}~#{sub_version}"
-      @rpm_version = base_version
-      @rpm_release = "0.#{sub_version}"
+      type = $2
+      if type == "rc" and options[:rc_build_type] == :release
+        @deb_upstream_version = base_version
+        @rpm_version = base_version
+        @rpm_release = "1"
+      else
+        @deb_upstream_version = "#{base_version}~#{sub_version}"
+        @rpm_version = base_version
+        @rpm_release = "0.#{sub_version}"
+      end
     else
       @deb_upstream_version = @version
       @rpm_version = @version

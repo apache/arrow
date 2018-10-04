@@ -239,35 +239,35 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
-      - apache-arrow_{version}-1.debian.tar.xz
-      - apache-arrow_{version}-1.dsc
-      - apache-arrow_{version}.orig.tar.gz
-      - gir1.2-arrow-1.0_{version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
-      - gir1.2-parquet-1.0_{version}-1_amd64.deb
-      - libarrow-dev_{version}-1_amd64.deb
-      - libarrow-glib-dev_{version}-1_amd64.deb
-      - libarrow-glib-doc_{version}-1_all.deb
-      - libarrow-glib11-dbgsym_{version}-1_amd64.deb
-      - libarrow-glib11_{version}-1_amd64.deb
-      - libarrow-gpu-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib11-dbgsym_{version}-1_amd64.deb
-      - libarrow-gpu-glib11_{version}-1_amd64.deb
-      - libarrow-gpu11-dbgsym_{version}-1_amd64.deb
-      - libarrow-gpu11_{version}-1_amd64.deb
-      - libarrow-python-dev_{version}-1_amd64.deb
-      - libarrow-python11-dbgsym_{version}-1_amd64.deb
-      - libarrow-python11_{version}-1_amd64.deb
-      - libarrow11-dbgsym_{version}-1_amd64.deb
-      - libarrow11_{version}-1_amd64.deb
-      - libparquet-dev_{version}-1_amd64.deb
-      - libparquet-glib-dev_{version}-1_amd64.deb
-      - libparquet-glib-doc_{version}-1_all.deb
-      - libparquet-glib11-dbgsym_{version}-1_amd64.deb
-      - libparquet-glib11_{version}-1_amd64.deb
-      - libparquet11-dbgsym_{version}-1_amd64.deb
-      - libparquet11_{version}-1_amd64.deb
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - libarrow-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-doc_{no_rc_version}-1_all.deb
+      - libarrow-glib11-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-glib11_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib11-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib11_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu11-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu11_{no_rc_version}-1_amd64.deb
+      - libarrow-python-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-python11-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-python11_{no_rc_version}-1_amd64.deb
+      - libarrow11-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow11_{no_rc_version}-1_amd64.deb
+      - libparquet-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-doc_{no_rc_version}-1_all.deb
+      - libparquet-glib11-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet-glib11_{no_rc_version}-1_amd64.deb
+      - libparquet11-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet11_{no_rc_version}-1_amd64.deb
 
   ubuntu-trusty:
     platform: linux
@@ -280,21 +280,21 @@ tasks:
         - .debian.tar.gz
         - .orig.tar.gz
     artifacts:
-      - apache-arrow_{version}-1.debian.tar.gz
-      - apache-arrow_{version}-1.dsc
-      - apache-arrow_{version}.orig.tar.gz
-      - gir1.2-arrow-1.0_{version}-1_amd64.deb
-      - gir1.2-parquet-1.0_{version}-1_amd64.deb
-      - libarrow-dev_{version}-1_amd64.deb
-      - libarrow-glib-dev_{version}-1_amd64.deb
-      - libarrow-glib-doc_{version}-1_all.deb
-      - libarrow-glib11_{version}-1_amd64.deb
-      - libarrow11_{version}-1_amd64.deb
-      - libparquet-dev_{version}-1_amd64.deb
-      - libparquet-glib-dev_{version}-1_amd64.deb
-      - libparquet-glib-doc_{version}-1_all.deb
-      - libparquet-glib11_{version}-1_amd64.deb
-      - libparquet11_{version}-1_amd64.deb
+      - apache-arrow_{no_rc_version}-1.debian.tar.gz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - libarrow-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-doc_{no_rc_version}-1_all.deb
+      - libarrow-glib11_{no_rc_version}-1_amd64.deb
+      - libarrow11_{no_rc_version}-1_amd64.deb
+      - libparquet-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-doc_{no_rc_version}-1_all.deb
+      - libparquet-glib11_{no_rc_version}-1_amd64.deb
+      - libparquet11_{no_rc_version}-1_amd64.deb
 
   ubuntu-xenial:
     platform: linux
@@ -307,28 +307,28 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
-      - apache-arrow_{version}-1.debian.tar.xz
-      - apache-arrow_{version}-1.dsc
-      - apache-arrow_{version}.orig.tar.gz
-      - gir1.2-arrow-1.0_{version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
-      - gir1.2-parquet-1.0_{version}-1_amd64.deb
-      - libarrow-dev_{version}-1_amd64.deb
-      - libarrow-glib-dev_{version}-1_amd64.deb
-      - libarrow-glib-doc_{version}-1_all.deb
-      - libarrow-glib11_{version}-1_amd64.deb
-      - libarrow-gpu-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib11_{version}-1_amd64.deb
-      - libarrow-gpu11_{version}-1_amd64.deb
-      - libarrow-python-dev_{version}-1_amd64.deb
-      - libarrow-python11_{version}-1_amd64.deb
-      - libarrow11_{version}-1_amd64.deb
-      - libparquet-dev_{version}-1_amd64.deb
-      - libparquet-glib-dev_{version}-1_amd64.deb
-      - libparquet-glib-doc_{version}-1_all.deb
-      - libparquet-glib11_{version}-1_amd64.deb
-      - libparquet11_{version}-1_amd64.deb
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - libarrow-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-doc_{no_rc_version}-1_all.deb
+      - libarrow-glib11_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib11_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu11_{no_rc_version}-1_amd64.deb
+      - libarrow-python-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-python11_{no_rc_version}-1_amd64.deb
+      - libarrow11_{no_rc_version}-1_amd64.deb
+      - libparquet-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-doc_{no_rc_version}-1_all.deb
+      - libparquet-glib11_{no_rc_version}-1_amd64.deb
+      - libparquet11_{no_rc_version}-1_amd64.deb
 
   ubuntu-bionic:
     platform: linux
@@ -341,28 +341,28 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
-      - apache-arrow_{version}-1.debian.tar.xz
-      - apache-arrow_{version}-1.dsc
-      - apache-arrow_{version}.orig.tar.gz
-      - gir1.2-arrow-1.0_{version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
-      - gir1.2-parquet-1.0_{version}-1_amd64.deb
-      - libarrow-dev_{version}-1_amd64.deb
-      - libarrow-glib-dev_{version}-1_amd64.deb
-      - libarrow-glib-doc_{version}-1_all.deb
-      - libarrow-glib11_{version}-1_amd64.deb
-      - libarrow-gpu-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib11_{version}-1_amd64.deb
-      - libarrow-gpu11_{version}-1_amd64.deb
-      - libarrow-python-dev_{version}-1_amd64.deb
-      - libarrow-python11_{version}-1_amd64.deb
-      - libarrow11_{version}-1_amd64.deb
-      - libparquet-dev_{version}-1_amd64.deb
-      - libparquet-glib-dev_{version}-1_amd64.deb
-      - libparquet-glib-doc_{version}-1_all.deb
-      - libparquet-glib11_{version}-1_amd64.deb
-      - libparquet11_{version}-1_amd64.deb
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - libarrow-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-doc_{no_rc_version}-1_all.deb
+      - libarrow-glib11_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib11_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu11_{no_rc_version}-1_amd64.deb
+      - libarrow-python-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-python11_{no_rc_version}-1_amd64.deb
+      - libarrow11_{no_rc_version}-1_amd64.deb
+      - libparquet-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-doc_{no_rc_version}-1_all.deb
+      - libparquet-glib11_{no_rc_version}-1_amd64.deb
+      - libparquet11_{no_rc_version}-1_amd64.deb
 
   centos-6:
     platform: linux
@@ -372,12 +372,12 @@ tasks:
       upload_extensions:
         - .rpm
     artifacts:
-      - arrow-{version}-1.el6.src.rpm
-      - arrow-debuginfo-{version}-1.el6.x86_64.rpm
-      - arrow-devel-{version}-1.el6.x86_64.rpm
-      - arrow-libs-{version}-1.el6.x86_64.rpm
-      - arrow-python-devel-{version}-1.el6.x86_64.rpm
-      - arrow-python-libs-{version}-1.el6.x86_64.rpm
+      - arrow-{no_rc_version}-1.el6.src.rpm
+      - arrow-debuginfo-{no_rc_version}-1.el6.x86_64.rpm
+      - arrow-devel-{no_rc_version}-1.el6.x86_64.rpm
+      - arrow-libs-{no_rc_version}-1.el6.x86_64.rpm
+      - arrow-python-devel-{no_rc_version}-1.el6.x86_64.rpm
+      - arrow-python-libs-{no_rc_version}-1.el6.x86_64.rpm
 
   centos-7:
     platform: linux
@@ -387,17 +387,17 @@ tasks:
       upload_extensions:
         - .rpm
     artifacts:
-      - arrow-{version}-1.el7.src.rpm
-      - arrow-debuginfo-{version}-1.el7.x86_64.rpm
-      - arrow-devel-{version}-1.el7.x86_64.rpm
-      - arrow-glib-devel-{version}-1.el7.x86_64.rpm
-      - arrow-glib-doc-{version}-1.el7.x86_64.rpm
-      - arrow-glib-libs-{version}-1.el7.x86_64.rpm
-      - arrow-libs-{version}-1.el7.x86_64.rpm
-      - arrow-python-devel-{version}-1.el7.x86_64.rpm
-      - arrow-python-libs-{version}-1.el7.x86_64.rpm
-      - parquet-devel-{version}-1.el7.x86_64.rpm
-      - parquet-glib-devel-{version}-1.el7.x86_64.rpm
-      - parquet-glib-doc-{version}-1.el7.x86_64.rpm
-      - parquet-glib-libs-{version}-1.el7.x86_64.rpm
-      - parquet-libs-{version}-1.el7.x86_64.rpm
+      - arrow-{no_rc_version}-1.el7.src.rpm
+      - arrow-debuginfo-{no_rc_version}-1.el7.x86_64.rpm
+      - arrow-devel-{no_rc_version}-1.el7.x86_64.rpm
+      - arrow-glib-devel-{no_rc_version}-1.el7.x86_64.rpm
+      - arrow-glib-doc-{no_rc_version}-1.el7.x86_64.rpm
+      - arrow-glib-libs-{no_rc_version}-1.el7.x86_64.rpm
+      - arrow-libs-{no_rc_version}-1.el7.x86_64.rpm
+      - arrow-python-devel-{no_rc_version}-1.el7.x86_64.rpm
+      - arrow-python-libs-{no_rc_version}-1.el7.x86_64.rpm
+      - parquet-devel-{no_rc_version}-1.el7.x86_64.rpm
+      - parquet-glib-devel-{no_rc_version}-1.el7.x86_64.rpm
+      - parquet-glib-doc-{no_rc_version}-1.el7.x86_64.rpm
+      - parquet-glib-libs-{no_rc_version}-1.el7.x86_64.rpm
+      - parquet-libs-{no_rc_version}-1.el7.x86_64.rpm
