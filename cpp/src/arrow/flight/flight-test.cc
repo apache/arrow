@@ -45,7 +45,7 @@
 
 #include "arrow/flight/Flight.pb.h"
 #include "arrow/flight/internal.h"
-#include "arrow/flight/util/testing.h"
+#include "arrow/flight/test-util.h"
 
 namespace pb = arrow::flight::protocol;
 

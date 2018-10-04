@@ -33,7 +33,7 @@
 
 #include "arrow/flight/api.h"
 #include "arrow/flight/perf.pb.h"
-#include "arrow/flight/util/testing.h"
+#include "arrow/flight/test-util.h"
 
 DEFINE_int32(num_servers, 1, "Number of performance servers to run");
 DEFINE_int32(num_streams, 4, "Number of streams for each server");
