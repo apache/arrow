@@ -62,7 +62,7 @@ public class TestSplitAndTransfer {
   
       final TransferPair tp = varCharVector.getTransferPair(allocator);
       final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
-      final int[][] startLengths = {{0, 201}, {201, 200}, {401, 99}};
+      final int[][] startLengths = {{0, 201}, {201, 0}, {201, 200}, {401, 99}};
   
       for (final int[] startLength : startLengths) {
         final int start = startLength[0];
