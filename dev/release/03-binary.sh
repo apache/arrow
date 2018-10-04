@@ -66,7 +66,7 @@ cp -rf "$artifact_dir"/* tmp/binaries/
 for dir in "$artifact_dir"/*; do
   svn add tmp/binaries/$(basename $dir)
 done
-svn ci -m 'Apache Arrow ${version} RC${rc} binaries' tmp/
+svn ci -m "Apache Arrow ${version} RC${rc} binaries" tmp/
 
 # clean up
 rm -rf tmp
