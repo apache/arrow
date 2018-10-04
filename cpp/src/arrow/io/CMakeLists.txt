@@ -18,15 +18,17 @@
 # ----------------------------------------------------------------------
 # arrow_io : Arrow IO interfaces
 
-ADD_ARROW_TEST(io-buffered-test)
-ADD_ARROW_TEST(io-file-test)
-
 if (ARROW_HDFS AND NOT ARROW_BOOST_HEADER_ONLY)
-  ADD_ARROW_TEST(io-hdfs-test NO_VALGRIND)
+  ADD_ARROW_TEST(arrow-hdfs-test
+    NO_VALGRIND
+    SOURCES io-hdfs-test.cc)
 endif()
 
-ADD_ARROW_TEST(io-memory-test)
-ADD_ARROW_TEST(io-readahead-test)
+ADD_ARROW_TEST(arrow-io-test
+  SOURCES io-buffered-test.cc
+  io-file-test.cc
+  io-memory-test.cc
+  io-readahead-test.cc)
 
 ADD_ARROW_BENCHMARK(io-file-benchmark)
 ADD_ARROW_BENCHMARK(io-memory-benchmark)

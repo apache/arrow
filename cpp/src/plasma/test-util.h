@@ -26,7 +26,7 @@
 
 namespace plasma {
 
-ObjectID random_object_id() {
+static inline ObjectID random_object_id() {
   static uint32_t random_seed = 0;
   std::mt19937 gen(random_seed++);
   std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
