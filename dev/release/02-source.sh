@@ -132,7 +132,7 @@ cp -rf "$artifact_dir"/* tmp/${tagrc}/binaries/
 
 # commit to svn
 svn add tmp/${tagrc}
-svn ci -m 'Apache Arrow ${version} RC${rc}' tmp/${tagrc}
+svn ci -m "Apache Arrow ${version} RC${rc}" tmp/${tagrc}
 
 # clean up
 rm -rf tmp
