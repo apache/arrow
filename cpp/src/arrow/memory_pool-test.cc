@@ -63,14 +63,16 @@ TEST(DefaultMemoryPoolDeathTest, MaxMemory) {
   uint8_t* data1;
   uint8_t* data2;
 
-  ASSERT_OK(pool->Allocate(100, &data1));
+  auto prior_max_memory = pool->max_memory();
+
+  ASSERT_OK(pool->Allocate(prior_max_memory + 100, &data1));
   ASSERT_OK(pool->Allocate(50, &data2));
   pool->Free(data2, 50);
   ASSERT_OK(pool->Allocate(100, &data2));
-  pool->Free(data1, 100);
+  pool->Free(data1, prior_max_memory + 100);
   pool->Free(data2, 100);
 
-  ASSERT_EQ(200, pool->max_memory());
+  ASSERT_EQ(prior_max_memory + 200, pool->max_memory());
 }
 
 #endif  // ARROW_VALGRIND
@@ -80,16 +82,18 @@ TEST(LoggingMemoryPool, Logging) {
 
   LoggingMemoryPool lp(pool);
 
+  auto prior_max_memory = pool->max_memory();
+
   uint8_t* data;
   ASSERT_OK(pool->Allocate(100, &data));
 
   uint8_t* data2;
-  ASSERT_OK(pool->Allocate(100, &data2));
+  ASSERT_OK(pool->Allocate(prior_max_memory + 100, &data2));
 
   pool->Free(data, 100);
-  pool->Free(data2, 100);
+  pool->Free(data2, prior_max_memory + 100);
 
-  ASSERT_EQ(200, pool->max_memory());
+  ASSERT_EQ(prior_max_memory + 200, pool->max_memory());
 }
 
 TEST(ProxyMemoryPool, Logging) {

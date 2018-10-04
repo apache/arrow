@@ -64,10 +64,10 @@ TEST(stl_allocator, MaxMemory) {
   const int64_t prior_max_memory = pool->max_memory();
 
   stl_allocator<uint8_t> alloc(pool);
-  uint8_t* data = alloc.allocate(1000);
+  uint8_t* data = alloc.allocate(prior_max_memory + 1000);
   uint8_t* data2 = alloc.allocate(1000);
 
-  alloc.deallocate(data, 1000);
+  alloc.deallocate(data, prior_max_memory + 1000);
   alloc.deallocate(data2, 1000);
 
   ASSERT_EQ(prior_max_memory + 2000, pool->max_memory());
