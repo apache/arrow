@@ -22,7 +22,10 @@ require_relative "package-task"
 class ApacheArrowPackageTask < PackageTask
   def initialize
     release_time = detect_release_time
-    super("apache-arrow", detect_version(release_time), release_time)
+    super("apache-arrow",
+          detect_version(release_time),
+          release_time,
+          :rc_build_type => :release)
     @rpm_package = "arrow"
   end
 
