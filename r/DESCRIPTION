@@ -44,6 +44,7 @@ Collate:
     'Struct.R'
     'Table.R'
     'array.R'
+    'dictionary.R'
     'memory_pool.R'
     'reexports-tibble.R'
     'zzz.R'
