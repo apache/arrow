@@ -74,25 +74,6 @@ class LLVMGenerator {
   /// Visitor to generate the code for a decomposed expression.
   class Visitor : public DexVisitor {
    public:
-<<<<<<< HEAD
-    Visitor(LLVMGenerator* generator, llvm::Function* function,
-            llvm::BasicBlock* entry_block, llvm::Value* arg_addrs,
-            llvm::Value* arg_local_bitmaps, llvm::Value* loop_var);
-
-    void Visit(const VectorReadValidityDex& dex) override;
-    void Visit(const VectorReadFixedLenValueDex& dex) override;
-    void Visit(const VectorReadVarLenValueDex& dex) override;
-    void Visit(const LocalBitMapValidityDex& dex) override;
-    void Visit(const TrueDex& dex) override;
-    void Visit(const FalseDex& dex) override;
-    void Visit(const LiteralDex& dex) override;
-    void Visit(const NonNullableFuncDex& dex) override;
-    void Visit(const NullableNeverFuncDex& dex) override;
-    void Visit(const NullableInternalFuncDex& dex) override;
-    void Visit(const IfDex& dex) override;
-    void Visit(const BooleanAndDex& dex) override;
-    void Visit(const BooleanOrDex& dex) override;
-=======
     Visitor(LLVMGenerator *generator, llvm::Function *function,
             llvm::BasicBlock *entry_block, llvm::Value *arg_addrs,
             llvm::Value *arg_local_bitmaps, llvm::Value *arg_context_ptr,
@@ -111,7 +92,6 @@ class LLVMGenerator {
     void Visit(const IfDex &dex) override;
     void Visit(const BooleanAndDex &dex) override;
     void Visit(const BooleanOrDex &dex) override;
->>>>>>> f50cf372... [Gandiva]Error handling support. 
 
     LValuePtr result() { return result_; }
 
@@ -129,15 +109,9 @@ class LLVMGenerator {
     LValuePtr BuildValueAndValidity(const ValueValidityPair& pair);
 
     // Generate code to build the params.
-<<<<<<< HEAD
-    std::vector<llvm::Value*> BuildParams(FunctionHolder* holder,
-                                          const ValueValidityPairVector& args,
-                                          bool with_validity);
-=======
     std::vector<llvm::Value *> BuildParams(FunctionHolder *holder,
                                            const ValueValidityPairVector &args,
                                            bool with_validity, bool with_context);
->>>>>>> f50cf372... [Gandiva]Error handling support. 
 
     // Switch to the entry_block and get reference of the validity/value/offsets buffer
     llvm::Value* GetBufferReference(int idx, BufferType buffer_type, FieldPtr field);
@@ -150,20 +124,12 @@ class LLVMGenerator {
 
     LLVMGenerator* generator_;
     LValuePtr result_;
-<<<<<<< HEAD
-    llvm::Function* function_;
-    llvm::BasicBlock* entry_block_;
-    llvm::Value* arg_addrs_;
-    llvm::Value* arg_local_bitmaps_;
-    llvm::Value* loop_var_;
-=======
     llvm::Function *function_;
     llvm::BasicBlock *entry_block_;
     llvm::Value *arg_addrs_;
     llvm::Value *arg_local_bitmaps_;
     llvm::Value *arg_context_ptr_;
     llvm::Value *loop_var_;
->>>>>>> f50cf372... [Gandiva]Error handling support. 
   };
 
   // Generate the code for one expression, with the output of the expression going to

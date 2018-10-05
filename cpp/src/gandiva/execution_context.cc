@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "codegen/execution_context.h"
+#include "gandiva/execution_context.h"
 
 namespace gandiva {
 #ifdef GDV_HELPERS
