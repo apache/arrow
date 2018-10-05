@@ -210,6 +210,20 @@ std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   return MakeArray(data);
 }
 
+std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor) {
+  auto dict_values = MakeStringArray(Rf_getAttrib(factor, R_LevelsSymbol));
+  auto dict_type = dictionary(int32(), dict_values, Rf_inherits(factor, "ordered"));
+
+  auto n = Rf_length(factor);
+  IntegerVector r_indices(n);
+  for (R_xlen_t i = 0; i < n; i++) {
+    r_indices[i] = factor[i] == NA_INTEGER ? NA_INTEGER : (factor[i] - 1);
+  }
+  auto indices = SimpleArray<INTSXP, arrow::Int32Type>(r_indices);
+
+  return std::make_shared<DictionaryArray>(dict_type, indices);
+}
+
 }  // namespace r
 }  // namespace arrow
 
@@ -220,7 +234,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
       return arrow::r::MakeBooleanArray(x);
     case INTSXP:
       if (Rf_isFactor(x)) {
-        break;
+        return arrow::r::MakeFactorArray(x);
       }
       return arrow::r::SimpleArray<INTSXP, arrow::Int32Type>(x);
     case REALSXP:

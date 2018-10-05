@@ -101,6 +101,7 @@ inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag) {
 }  // namespace Rcpp
 
 namespace Rcpp {
+using IntegerVector_ = Rcpp::Vector<INTSXP, Rcpp::NoProtectStorage>;
 using LogicalVector_ = Rcpp::Vector<LGLSXP, Rcpp::NoProtectStorage>;
 using StringVector_ = Rcpp::Vector<STRSXP, Rcpp::NoProtectStorage>;
 }  // namespace Rcpp
