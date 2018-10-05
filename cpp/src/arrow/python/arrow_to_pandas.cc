@@ -109,6 +109,10 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::DOUBLE:
     case Type::BINARY:
     case Type::STRING:
+    case Type::DATE32:
+    case Type::DATE64:
+    case Type::TIME32:
+    case Type::TIME64:
     case Type::TIMESTAMP:
     case Type::NA:  // empty list
       // The above types are all supported.
@@ -791,6 +795,10 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(Int32Type, INT32)
         CONVERTLISTSLIKE_CASE(UInt64Type, UINT64)
         CONVERTLISTSLIKE_CASE(Int64Type, INT64)
+        CONVERTLISTSLIKE_CASE(Date32Type, DATE32)
+        CONVERTLISTSLIKE_CASE(Date64Type, DATE64)
+        CONVERTLISTSLIKE_CASE(Time32Type, TIME32)
+        CONVERTLISTSLIKE_CASE(Time64Type, TIME64)
         CONVERTLISTSLIKE_CASE(TimestampType, TIMESTAMP)
         CONVERTLISTSLIKE_CASE(FloatType, FLOAT)
         CONVERTLISTSLIKE_CASE(DoubleType, DOUBLE)
@@ -798,7 +806,6 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(StringType, STRING)
         CONVERTLISTSLIKE_CASE(ListType, LIST)
         CONVERTLISTSLIKE_CASE(NullType, NA)
-        // TODO(kszucs) Time and Date?
         default: {
           std::stringstream ss;
           ss << "Not implemented type for conversion from List to Pandas ObjectBlock: "
@@ -1869,6 +1876,10 @@ class ArrowDeserializer {
       CONVERTVALUES_LISTSLIKE_CASE(Int32Type, INT32)
       CONVERTVALUES_LISTSLIKE_CASE(UInt64Type, UINT64)
       CONVERTVALUES_LISTSLIKE_CASE(Int64Type, INT64)
+      CONVERTVALUES_LISTSLIKE_CASE(Date32Type, DATE32)
+      CONVERTVALUES_LISTSLIKE_CASE(Date64Type, DATE64)
+      CONVERTVALUES_LISTSLIKE_CASE(Time32Type, TIME32)
+      CONVERTVALUES_LISTSLIKE_CASE(Time64Type, TIME64)
       CONVERTVALUES_LISTSLIKE_CASE(TimestampType, TIMESTAMP)
       CONVERTVALUES_LISTSLIKE_CASE(FloatType, FLOAT)
       CONVERTVALUES_LISTSLIKE_CASE(DoubleType, DOUBLE)

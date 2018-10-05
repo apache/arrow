@@ -17,6 +17,7 @@
 # under the License.
 
 from collections import OrderedDict
+from datetime import date, time, datetime
 
 import numpy as np
 import pandas as pd
@@ -126,6 +127,49 @@ def dataframe_with_lists(include_index=False):
         [u"1", u"2", u"3"],
         [],
     ]
+
+    date_data = [
+        [],
+        [date(2018, 1, 1), date(2032, 12, 30)],
+        [date(2000, 6, 7)],
+        None,
+        [date(1969, 6, 9), date(1972, 7, 3)]
+    ]
+    time_data = [
+        [time(23, 11, 11), time(1, 2, 3), time(23, 59, 59)],
+        [],
+        [time(22, 5, 59)],
+        None,
+        [time(0, 0, 0), time(18, 0, 2), time(12, 7, 3)]
+    ]
+    # datetime_data = [
+    #     [datetime(2015, 1, 5, 12, 0, 0), datetime(2020, 8, 22, 10, 5, 0)],
+    #     [datetime(2024, 5, 5, 5, 49, 1), datetime(2015, 12, 24, 22, 10, 17)],
+    #     [datetime(1996, 4, 30, 2, 38, 11)],
+    #     None,
+    #     [datetime(1987, 1, 27, 8, 21, 59)]
+    # ]
+
+    temporal_pairs = [
+        (pa.date32(), date_data),
+        (pa.date64(), date_data),
+        (pa.time32('s'), time_data),
+        (pa.time32('ms'), time_data),
+        (pa.time64('us'), time_data),
+        (pa.time64('ns'), time_data),
+        # TODO(kszucs): returns as pd.Datetime, datetime_as_object?
+        # (pa.timestamp('s'), datetime_data),
+        # (pa.timestamp('ms'), datetime_data),
+        # (pa.timestamp('us'), datetime_data),
+        # (pa.timestamp('ns'), datetime_data)
+    ]
+
+    for value_type, data in temporal_pairs:
+        field_name = '{}_list'.format(value_type)
+        field_type = pa.list_(value_type)
+        field = pa.field(field_name, field_type)
+        fields.append(field)
+        arrays[field_name] = data
 
     if include_index:
         fields.append(pa.field('__index_level_0__', pa.int64()))
