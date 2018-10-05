@@ -19,7 +19,7 @@
 # Toolchain linkage options
 
 set(ARROW_RE2_LINKAGE "static" CACHE STRING
-  "How to link the re2 library. static|shared (default shared)")
+  "How to link the re2 library. static|shared (default static)")
 
 # ----------------------------------------------------------------------
 # Thirdparty versions, environment variables, source URLs
@@ -42,7 +42,8 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   # set(ORC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(PROTOBUF_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(RAPIDJSON_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  set(RE2_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  # conda-forge doesn't have a static re2.
+  #set(RE2_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(SNAPPY_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(THRIFT_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
