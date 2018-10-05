@@ -67,7 +67,7 @@ def format_changelog_markdown(issues, out):
     for issue_type, issue_group in sorted(issues_by_type.items()):
         issue_group.sort(key=lambda x: x.key)
 
-        out.write('## {0}\n\n'.format(issue_type))
+        out.write('## {0}\n\n'.format(_escape_for_markdown(issue_type)))
         for issue in issue_group:
             markdown_summary = _escape_for_markdown(issue.fields.summary)
             out.write('* {0} - {1}\n'.format(issue.key,
@@ -146,8 +146,7 @@ def append_changelog(version, changelog_path):
     print('# Apache Arrow {0} ({1})'.format(version, today),
           end='', file=result)
     print('\n', file=result)
-    print(_escape_for_markdown(new_changelog),
-          end='', file=result)
+    print(new_changelog, end='', file=result)
 
     # Prior versions
     print(''.join(old_changelog[19:]), file=result)
