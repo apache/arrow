@@ -57,7 +57,9 @@ extern "C" {
 // Symmetric binary fns : left, right params and return type are same.
 #define BINARY_SYMMETRIC(NAME, TYPE, OP) \
   FORCE_INLINE                           \
-  TYPE NAME##_##TYPE##_##TYPE(TYPE left, TYPE right) { return left OP right; }
+  TYPE NAME##_##TYPE##_##TYPE(TYPE left, TYPE right) { \
+    return static_cast<TYPE>(left OP right); \
+  }
 
 NUMERIC_TYPES(BINARY_SYMMETRIC, add, +)
 NUMERIC_TYPES(BINARY_SYMMETRIC, subtract, -)

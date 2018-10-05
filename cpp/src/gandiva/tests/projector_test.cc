@@ -209,10 +209,10 @@ static void TestArithmeticOpsForType(arrow::MemoryPool* pool) {
   std::vector<bool> eq;
   std::vector<bool> lt;
   for (int i = 0; i < num_records; i++) {
-    sum.push_back(input0[i] + input1[i]);
-    sub.push_back(input0[i] - input1[i]);
-    mul.push_back(input0[i] * input1[i]);
-    div.push_back(input0[i] / input1[i]);
+    sum.push_back(static_cast<C_TYPE>(input0[i] + input1[i]));
+    sub.push_back(static_cast<C_TYPE>(input0[i] - input1[i]));
+    mul.push_back(static_cast<C_TYPE>(input0[i] * input1[i]));
+    div.push_back(static_cast<C_TYPE>(input0[i] / input1[i]));
     eq.push_back(input0[i] == input1[i]);
     lt.push_back(input0[i] < input1[i]);
   }
