@@ -442,3 +442,15 @@ LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array) {
   }
   return res;
 }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Array> DictionaryArray__indices(
+    const std::shared_ptr<arrow::DictionaryArray>& array) {
+  return array->indices();
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Array> DictionaryArray__dictionary(
+    const std::shared_ptr<arrow::DictionaryArray>& array) {
+  return array->dictionary();
+}

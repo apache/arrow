@@ -337,6 +337,10 @@ decimal <- function(precision, scale) `arrow::Decimal128Type`$new(Decimal128Type
 #' @rdname
 #' @export
 dictionary <- function(type, values, ordered = FALSE) {
+  assert_that(
+    inherits(type, "arrow::DataType"),
+    inherits(values, "arrow::Array")
+  )
   `arrow::DictionaryType`$new(DictionaryType__initialize(type, values, ordered))
 }
 

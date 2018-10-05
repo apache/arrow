@@ -96,3 +96,21 @@ test_that("Array supports character vectors (ARROW-3339)", {
   expect_equal(arr_chr$length(), 3L)
   expect_identical(arr_chr$as_vector(), x)
 })
+
+test_that("Array supports factors (ARROW-3355)", {
+  # without NA
+  f <- factor(c("itsy", "bitsy", "spider", "spider"))
+  arr_fac <- array(f)
+  expect_equal(arr_fac$length(), 4L)
+  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
+  #expect_identical(arr_chr$as_vector(), x)
+  expect_true(arr_fac$IsValid(0))
+  expect_true(arr_fac$IsValid(1))
+  expect_true(arr_fac$IsValid(2))
+  expect_true(arr_fac$IsValid(3))
+
+  sl <- arr_fac$Slice(1)
+  expect_equal(sl$length(), 3L)
+  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
+  # expect_equal(sl$as_vector(), x[2:3])
+})
