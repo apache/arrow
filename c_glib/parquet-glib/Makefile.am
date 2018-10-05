@@ -49,7 +49,7 @@ libparquet_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
 	$(ARROW_LIBS)				\
 	$(PARQUET_LIBS)				\
-	$(GARROW_LIBS)
+	../arrow-glib/libarrow-glib.la
 
 libparquet_glib_la_headers =			\
 	arrow-file-reader.h			\
