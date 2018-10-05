@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "../codegen/execution_context.h"
+#include "../execution_context.h"
 
 extern "C" {
 
