@@ -337,6 +337,25 @@ inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   return res;
 }
 
+SEXP DictionaryArray_to_Vector(arrow::DictionaryArray* dict_array) {
+  auto dict = dict_array->dictionary();
+  auto indices = dict_array->indices();
+
+  if (dict->type_id() != Type::STRING || indices->type_id() != Type::INT32) {
+    stop("Cannot convert Dictionary Array of type `%s`", dict_array->type()->ToString());
+  }
+
+  IntegerVector f = simple_Array_to_Vector<INTSXP>(indices);
+  f = f + 1;
+  f.attr("levels") = StringArray_to_Vector(dict);
+  if (dict_array->dict_type()->ordered()) {
+    f.attr("class") = CharacterVector::create("ordered", "factor");
+  } else {
+    f.attr("class") = "factor";
+  }
+  return f;
+}
+
 // [[Rcpp::export]]
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
   switch (array->type_id()) {
@@ -350,6 +369,8 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
       return simple_Array_to_Vector<REALSXP>(array);
     case Type::STRING:
       return StringArray_to_Vector(array);
+    case Type::DICTIONARY:
+      return DictionaryArray_to_Vector(static_cast<arrow::DictionaryArray*>(array.get()));
     default:
       break;
   }

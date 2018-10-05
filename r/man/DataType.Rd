@@ -27,6 +27,7 @@
 \alias{null}
 \alias{timestamp}
 \alias{decimal}
+\alias{dictionary}
 \alias{list_of}
 \alias{schema}
 \alias{struct}
@@ -80,6 +81,8 @@ null()
 timestamp(unit, timezone)
 
 decimal(precision, scale)
+
+dictionary(type, values, ordered = FALSE)
 
 list_of(type)
 

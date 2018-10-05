@@ -334,7 +334,7 @@ timestamp <- function(unit, timezone) {
 #' @export
 decimal <- function(precision, scale) `arrow::Decimal128Type`$new(Decimal128Type__initialize(precision, scale))
 
-#' @rdname
+#' @rdname DataType
 #' @export
 dictionary <- function(type, values, ordered = FALSE) {
   assert_that(

@@ -97,13 +97,13 @@ test_that("Array supports character vectors (ARROW-3339)", {
   expect_identical(arr_chr$as_vector(), x)
 })
 
-test_that("Array supports factors (ARROW-3355)", {
+test_that("Array supports unordered factors (ARROW-3355)", {
   # without NA
   f <- factor(c("itsy", "bitsy", "spider", "spider"))
   arr_fac <- array(f)
   expect_equal(arr_fac$length(), 4L)
   expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
-  #expect_identical(arr_chr$as_vector(), x)
+  expect_identical(arr_fac$as_vector(), f)
   expect_true(arr_fac$IsValid(0))
   expect_true(arr_fac$IsValid(1))
   expect_true(arr_fac$IsValid(2))
@@ -112,5 +112,57 @@ test_that("Array supports factors (ARROW-3355)", {
   sl <- arr_fac$Slice(1)
   expect_equal(sl$length(), 3L)
   expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
-  # expect_equal(sl$as_vector(), x[2:3])
+  expect_equal(sl$as_vector(), f[2:4])
+
+  # with NA
+  f <- factor(c("itsy", "bitsy", NA, "spider", "spider"))
+  arr_fac <- array(f)
+  expect_equal(arr_fac$length(), 5L)
+  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
+  expect_identical(arr_fac$as_vector(), f)
+  expect_true(arr_fac$IsValid(0))
+  expect_true(arr_fac$IsValid(1))
+  expect_true(arr_fac$IsNull(2))
+  expect_true(arr_fac$IsValid(3))
+  expect_true(arr_fac$IsValid(4))
+
+  sl <- arr_fac$Slice(1)
+  expect_equal(sl$length(), 4L)
+  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
+  expect_equal(sl$as_vector(), f[2:5])
+})
+
+test_that("Array supports ordered factors (ARROW-3355)", {
+  # without NA
+  f <- ordered(c("itsy", "bitsy", "spider", "spider"))
+  arr_fac <- array(f)
+  expect_equal(arr_fac$length(), 4L)
+  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f)), TRUE))
+  expect_identical(arr_fac$as_vector(), f)
+  expect_true(arr_fac$IsValid(0))
+  expect_true(arr_fac$IsValid(1))
+  expect_true(arr_fac$IsValid(2))
+  expect_true(arr_fac$IsValid(3))
+
+  sl <- arr_fac$Slice(1)
+  expect_equal(sl$length(), 3L)
+  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
+  expect_equal(sl$as_vector(), f[2:4])
+
+  # with NA
+  f <- ordered(c("itsy", "bitsy", NA, "spider", "spider"))
+  arr_fac <- array(f)
+  expect_equal(arr_fac$length(), 5L)
+  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f)), TRUE))
+  expect_identical(arr_fac$as_vector(), f)
+  expect_true(arr_fac$IsValid(0))
+  expect_true(arr_fac$IsValid(1))
+  expect_true(arr_fac$IsNull(2))
+  expect_true(arr_fac$IsValid(3))
+  expect_true(arr_fac$IsValid(4))
+
+  sl <- arr_fac$Slice(1)
+  expect_equal(sl$length(), 4L)
+  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
+  expect_equal(sl$as_vector(), f[2:5])
 })
