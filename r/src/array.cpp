@@ -49,7 +49,7 @@ std::shared_ptr<Array> SimpleArray(SEXP x) {
 
     auto first_na = std::find_if(vec.begin(), vec.end(), Rcpp::Vector<RTYPE>::is_na);
     if (first_na < vec.end()) {
-      R_ERROR_NOT_OK(AllocateBuffer(ceil((double)n / 8), &null_bitmap));
+      R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
       internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
 
       // first loop to clear all the bits before the first NA
@@ -87,7 +87,7 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(LogicalVector_ vec) {
 
   // allocate a buffer for the data
   std::shared_ptr<Buffer> data_bitmap;
-  R_ERROR_NOT_OK(AllocateBuffer(ceil((double)n / 8), &data_bitmap));
+  R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &data_bitmap));
   auto data_bitmap_data = data_bitmap->mutable_data();
   internal::FirstTimeBitmapWriter bitmap_writer(data_bitmap_data, 0, n);
   R_xlen_t null_count = 0;
@@ -108,7 +108,7 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(LogicalVector_ vec) {
   if (i < n) {
     // there has been a null before the end, so we need
     // to collect that information in a null bitmap
-    R_ERROR_NOT_OK(AllocateBuffer(ceil((double)n / 8), &null_bitmap));
+    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
     auto null_bitmap_data = null_bitmap->mutable_data();
     internal::FirstTimeBitmapWriter null_bitmap_writer(null_bitmap_data, 0, n);
 
@@ -166,7 +166,7 @@ std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   }
 
   if (i < n) {
-    R_ERROR_NOT_OK(AllocateBuffer(ceil((double)n / 8), &null_buffer));
+    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
     internal::FirstTimeBitmapWriter null_bitmap_writer(null_buffer->mutable_data(), 0, n);
 
     // catch up
