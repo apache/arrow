@@ -84,3 +84,33 @@ test_that("RecordBatch", {
   batch4 <- batch$Slice(5, 2)
   expect_identical(as_tibble(batch4), tbl[6:7,])
 })
+
+test_that("RecordBatch with 0 rows are supported", {
+  tbl <- tibble::tibble(
+    int = integer(),
+    dbl = numeric(),
+    lgl = logical(),
+    chr = character(),
+    fct = factor(character(), levels = c("a", "b"))
+  )
+
+  batch <- record_batch(tbl)
+  expect_equal(batch$num_columns(), 5L)
+  expect_equal(batch$num_rows(), 0L)
+  expect_equal(
+    batch$schema(),
+    schema(
+      int = int32(),
+      dbl = float64(),
+      lgl = boolean(),
+      chr = utf8(),
+      fct = dictionary(int32(), array(c("a", "b")))
+    )
+  )
+
+  tf <- tempfile(); on.exit(unlink(tf))
+  batch$to_file(tf)
+
+  res <- read_record_batch(tf)
+  expect_equal(res, batch)
+})

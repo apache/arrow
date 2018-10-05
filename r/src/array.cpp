@@ -305,9 +305,21 @@ inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   auto n = array->length();
   Rcpp::CharacterVector res(n);
 
+  // special cases
+  if (n == 0) return res;
+
+  // only NA
+  if (array->null_count() == n) {
+    for (R_xlen_t i = 0; i < n; i++) res[i] = NA_STRING;
+    return res;
+  }
+
   const auto& buffers = array->data()->buffers;
 
   auto p_offset = reinterpret_cast<const int32_t*>(buffers[1]->data()) + array->offset();
+  if (!buffers[2]) {
+    stop("invalid data");
+  }
   auto p_data = reinterpret_cast<const char*>(buffers[2]->data()) + *p_offset;
 
   if (array->null_count()) {

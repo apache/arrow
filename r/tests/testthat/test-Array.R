@@ -97,6 +97,42 @@ test_that("Array supports character vectors (ARROW-3339)", {
   expect_identical(arr_chr$as_vector(), x)
 })
 
+test_that("empty arrays are supported", {
+  x <- character()
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- integer()
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- numeric()
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- factor(character())
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- logical()
+  expect_equal(array(x)$as_vector(), x)
+})
+
+test_that("array with all nulls are supported", {
+  nas <- c(NA, NA)
+
+  x <- as.logical(nas)
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- as.integer(nas)
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- as.numeric(nas)
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- as.character(nas)
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- as.factor(nas)
+  expect_equal(array(x)$as_vector(), x)
+})
+
 test_that("Array supports unordered factors (ARROW-3355)", {
   # without NA
   f <- factor(c("itsy", "bitsy", "spider", "spider"))
@@ -116,7 +152,8 @@ test_that("Array supports unordered factors (ARROW-3355)", {
 
   # with NA
   f <- factor(c("itsy", "bitsy", NA, "spider", "spider"))
-  arr_fac <- array(f)
+  # TODO: rm the suppressWarnings when https://github.com/r-lib/vctrs/issues/109
+  arr_fac <- suppressWarnings(array(f))
   expect_equal(arr_fac$length(), 5L)
   expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
   expect_identical(arr_fac$as_vector(), f)
@@ -151,7 +188,8 @@ test_that("Array supports ordered factors (ARROW-3355)", {
 
   # with NA
   f <- ordered(c("itsy", "bitsy", NA, "spider", "spider"))
-  arr_fac <- array(f)
+  # TODO: rm the suppressWarnings when https://github.com/r-lib/vctrs/issues/109
+  arr_fac <- suppressWarnings(array(f))
   expect_equal(arr_fac$length(), 5L)
   expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f)), TRUE))
   expect_identical(arr_fac$as_vector(), f)
