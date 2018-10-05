@@ -33,9 +33,9 @@ set ARROW_SOURCE=%_VERIFICATION_DIR%\apache-arrow-%1
 set INSTALL_DIR=%_VERIFICATION_DIR%\install
 
 @rem Requires GNU Wget for Windows
-wget -O %_TARBALL% %_DIST_URL%/apache-arrow-%1-rc%2/%_TARBALL%
+wget --no-check-certificate -O %_TARBALL% %_DIST_URL%/apache-arrow-%1-rc%2/%_TARBALL% || exit /B
 
-tar xvf %_TARBALL% -C %_VERIFICATION_DIR_UNIX%
+tar xf %_TARBALL% -C %_VERIFICATION_DIR_UNIX%
 
 set PYTHON=3.6
 
@@ -43,7 +43,7 @@ set PYTHON=3.6
 @rem script execution
 call conda create -p %_VERIFICATION_CONDA_ENV% -f -q -y python=%PYTHON% || exit /B
 
-call activate %_VERIFICATION_CONDA_ENV%
+call activate %_VERIFICATION_CONDA_ENV% || exit /B
 
 call conda install -y ^
       six pytest setuptools numpy pandas cython ^
@@ -51,7 +51,7 @@ call conda install -y ^
       cmake ^
       git ^
       boost-cpp ^
-      snappy zlib brotli gflags lz4-c zstd -c conda-forge
+      snappy zlib brotli gflags lz4-c zstd -c conda-forge || exit /B
 
 set GENERATOR=Visual Studio 14 2015 Win64
 set CONFIGURATION=release
@@ -73,13 +73,17 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tool
 
 cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-      -DARROW_BOOST_USE_SHARED=OFF ^
+      -DARROW_BOOST_USE_SHARED=ON ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
       ..  || exit /B
 cmake --build . --target INSTALL --config %CONFIGURATION%  || exit /B
+
+@rem Get testing datasets for Parquet unit tests
+git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
+set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\parquet-testing\data
 
 @rem Needed so python-test.exe works
 set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
