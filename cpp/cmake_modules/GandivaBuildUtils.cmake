@@ -102,6 +102,8 @@ function(add_precompiled_unit_test REL_TEST_NAME)
   get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
 
   add_executable(${TEST_NAME} ${REL_TEST_NAME} ${ARGN})
+  # Require toolchain to be built
+  add_dependencies(${TEST_NAME} arrow_dependencies)
   target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(${TEST_NAME} PRIVATE ${GANDIVA_TEST_LINK_LIBS})
   target_compile_definitions(${TEST_NAME} PRIVATE GANDIVA_UNIT_TEST=1)
