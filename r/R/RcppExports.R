@@ -473,6 +473,10 @@ Field__nullable <- function(type) {
     .Call(`_arrow_Field__nullable`, type)
 }
 
+io___Readable__Read <- function(x, nbytes) {
+    .Call(`_arrow_io___Readable__Read`, x, nbytes)
+}
+
 io___Seekable__Seek <- function(x, position) {
     invisible(.Call(`_arrow_io___Seekable__Seek`, x, position))
 }

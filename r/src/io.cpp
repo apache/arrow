@@ -19,6 +19,15 @@
 
 using namespace Rcpp;
 
+// ------ arrow::io::Readable
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Buffer> io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes) {
+  std::shared_ptr<arrow::Buffer> buf;
+  R_ERROR_NOT_OK(x->Read(nbytes, &buf));
+  return buf;
+}
+
 // ------ arrow::io::Seekable
 
 // [[Rcpp::export]]

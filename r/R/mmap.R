@@ -31,7 +31,8 @@
     Close = function() io___MemoryMappedFile__Close(self),
     Tell = function() io___MemoryMappedFile__Tell(self),
     Seek = function(position) io___Seekable__Seek(self, position),
-    Resize = function(size) io___MemoryMappedFile__Resize(self, size)
+    Resize = function(size) io___MemoryMappedFile__Resize(self, size),
+    Read = function(nbytes) `arrow::Buffer`$new(io___Readable__Read(self, nbytes))
   )
 )
 

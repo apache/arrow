@@ -1315,6 +1315,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// io___Readable__Read
+std::shared_ptr<arrow::Buffer> io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes);
+RcppExport SEXP _arrow_io___Readable__Read(SEXP xSEXP, SEXP nbytesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::Readable>& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int64_t >::type nbytes(nbytesSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___Readable__Read(x, nbytes));
+    return rcpp_result_gen;
+END_RCPP
+}
 // io___Seekable__Seek
 void io___Seekable__Seek(const std::shared_ptr<arrow::io::Seekable>& x, int64_t position);
 RcppExport SEXP _arrow_io___Seekable__Seek(SEXP xSEXP, SEXP positionSEXP) {
@@ -1524,6 +1536,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1},
     {"_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1},
     {"_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1},
+    {"_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2},
     {"_arrow_io___Seekable__Seek", (DL_FUNC) &_arrow_io___Seekable__Seek, 2},
     {"_arrow_io___RandomAccessFile__GetSize", (DL_FUNC) &_arrow_io___RandomAccessFile__GetSize, 1},
     {"_arrow_io___RandomAccessFile__supports_zero_copy", (DL_FUNC) &_arrow_io___RandomAccessFile__supports_zero_copy, 1},
