@@ -48,7 +48,7 @@ Collate:
     'array.R'
     'dictionary.R'
     'buffer.R'
+    'io.R'
     'memory_pool.R'
-    'mmap.R'
     'reexports-tibble.R'
     'zzz.R'

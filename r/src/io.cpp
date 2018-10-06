@@ -87,3 +87,31 @@ void io___MemoryMappedFile__Seek(const std::shared_ptr<arrow::io::MemoryMappedFi
                                  int64_t position) {
   R_ERROR_NOT_OK(x->Seek(position));
 }
+
+// ------ arrow::io::ReadableFile
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::io::ReadableFile> io___ReadableFile__Open(
+    const std::string& path) {
+  std::shared_ptr<arrow::io::ReadableFile> out;
+  R_ERROR_NOT_OK(arrow::io::ReadableFile::Open(path, &out));
+  return out;
+}
+
+// [[Rcpp::export]]
+void io___ReadableFile__Close(const std::shared_ptr<arrow::io::ReadableFile>& x) {
+  R_ERROR_NOT_OK(x->Close());
+}
+
+// [[Rcpp::export]]
+int64_t io___ReadableFile__Tell(const std::shared_ptr<arrow::io::ReadableFile>& x) {
+  int64_t out;
+  R_ERROR_NOT_OK(x->Tell(&out));
+  return out;
+}
+
+// [[Rcpp::export]]
+void io___ReadableFile__Seek(const std::shared_ptr<arrow::io::ReadableFile>& x,
+                             int64_t position) {
+  R_ERROR_NOT_OK(x->Seek(position));
+}

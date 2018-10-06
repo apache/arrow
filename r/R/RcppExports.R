@@ -507,3 +507,18 @@ io___MemoryMappedFile__Resize <- function(x, size) {
 io___MemoryMappedFile__Seek <- function(x, position) {
     invisible(.Call(`_arrow_io___MemoryMappedFile__Seek`, x, position))
 }
+io___ReadableFile__Open <- function(path) {
+    .Call(`_arrow_io___ReadableFile__Open`, path)
+}
+
+io___ReadableFile__Close <- function(x) {
+    invisible(.Call(`_arrow_io___ReadableFile__Close`, x))
+}
+
+io___ReadableFile__Tell <- function(x) {
+    .Call(`_arrow_io___ReadableFile__Tell`, x)
+}
+
+io___ReadableFile__Seek <- function(x, position) {
+    invisible(.Call(`_arrow_io___ReadableFile__Seek`, x, position))
+}

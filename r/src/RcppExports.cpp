@@ -1416,6 +1416,49 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// io___ReadableFile__Open
+std::shared_ptr<arrow::io::ReadableFile> io___ReadableFile__Open(const std::string& path);
+RcppExport SEXP _arrow_io___ReadableFile__Open(SEXP pathSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type path(pathSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___ReadableFile__Open(path));
+    return rcpp_result_gen;
+END_RCPP
+}
+// io___ReadableFile__Close
+void io___ReadableFile__Close(const std::shared_ptr<arrow::io::ReadableFile>& x);
+RcppExport SEXP _arrow_io___ReadableFile__Close(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::ReadableFile>& >::type x(xSEXP);
+    io___ReadableFile__Close(x);
+    return R_NilValue;
+END_RCPP
+}
+// io___ReadableFile__Tell
+int64_t io___ReadableFile__Tell(const std::shared_ptr<arrow::io::ReadableFile>& x);
+RcppExport SEXP _arrow_io___ReadableFile__Tell(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::ReadableFile>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___ReadableFile__Tell(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// io___ReadableFile__Seek
+void io___ReadableFile__Seek(const std::shared_ptr<arrow::io::ReadableFile>& x, int64_t position);
+RcppExport SEXP _arrow_io___ReadableFile__Seek(SEXP xSEXP, SEXP positionSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::ReadableFile>& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int64_t >::type position(positionSEXP);
+    io___ReadableFile__Seek(x, position);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
@@ -1545,6 +1588,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_io___MemoryMappedFile__Tell", (DL_FUNC) &_arrow_io___MemoryMappedFile__Tell, 1},
     {"_arrow_io___MemoryMappedFile__Resize", (DL_FUNC) &_arrow_io___MemoryMappedFile__Resize, 2},
     {"_arrow_io___MemoryMappedFile__Seek", (DL_FUNC) &_arrow_io___MemoryMappedFile__Seek, 2},
+    {"_arrow_io___ReadableFile__Open", (DL_FUNC) &_arrow_io___ReadableFile__Open, 1},
+    {"_arrow_io___ReadableFile__Close", (DL_FUNC) &_arrow_io___ReadableFile__Close, 1},
+    {"_arrow_io___ReadableFile__Tell", (DL_FUNC) &_arrow_io___ReadableFile__Tell, 1},
+    {"_arrow_io___ReadableFile__Seek", (DL_FUNC) &_arrow_io___ReadableFile__Seek, 2},
     {NULL, NULL, 0}
 };
 
