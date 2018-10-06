@@ -81,7 +81,7 @@ def dataframe_with_arrays(include_index=False):
     return df, schema
 
 
-def dataframe_with_lists(include_index=False):
+def dataframe_with_lists(include_index=False, parquet_compatible=False):
     """
     Dataframe with list columns of every possible primtive type.
 
@@ -142,27 +142,17 @@ def dataframe_with_lists(include_index=False):
         None,
         [time(0, 0, 0), time(18, 0, 2), time(12, 7, 3)]
     ]
-    # datetime_data = [
-    #     [datetime(2015, 1, 5, 12, 0, 0), datetime(2020, 8, 22, 10, 5, 0)],
-    #     [datetime(2024, 5, 5, 5, 49, 1), datetime(2015, 12, 24, 22, 10, 17)],
-    #     [datetime(1996, 4, 30, 2, 38, 11)],
-    #     None,
-    #     [datetime(1987, 1, 27, 8, 21, 59)]
-    # ]
 
     temporal_pairs = [
         (pa.date32(), date_data),
         (pa.date64(), date_data),
         (pa.time32('s'), time_data),
         (pa.time32('ms'), time_data),
-        (pa.time64('us'), time_data),
-        (pa.time64('ns'), time_data),
-        # TODO(kszucs): returns as pd.Datetime, datetime_as_object?
-        # (pa.timestamp('s'), datetime_data),
-        # (pa.timestamp('ms'), datetime_data),
-        # (pa.timestamp('us'), datetime_data),
-        # (pa.timestamp('ns'), datetime_data)
+        (pa.time64('us'), time_data)
     ]
+    if not parquet_compatible:
+        # parquet doesn't support nanosecond resolution
+        temporal_pairs.append((pa.time64('ns'), time_data))
 
     for value_type, data in temporal_pairs:
         field_name = '{}_list'.format(value_type)
@@ -173,6 +163,7 @@ def dataframe_with_lists(include_index=False):
 
     if include_index:
         fields.append(pa.field('__index_level_0__', pa.int64()))
+
     df = pd.DataFrame(arrays)
     schema = pa.schema(fields)
 

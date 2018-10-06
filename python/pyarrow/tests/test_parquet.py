@@ -797,7 +797,7 @@ def test_coerce_timestamps_truncated(tempdir):
 
 
 def test_column_of_lists(tempdir):
-    df, schema = dataframe_with_lists()
+    df, schema = dataframe_with_lists(parquet_compatible=True)
 
     filename = tempdir / 'pandas_rountrip.parquet'
     arrow_table = pa.Table.from_pandas(df, schema=schema)
