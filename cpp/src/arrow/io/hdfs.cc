@@ -17,6 +17,7 @@
 
 #include <hdfs.h>
 
+#include <errno.h>
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>

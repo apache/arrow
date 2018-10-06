@@ -16,7 +16,7 @@
 // under the License.
 
 #ifndef _WIN32
-#include <fcntl.h>
+#include <fcntl.h>  // IWYU pragma: keep
 #include <unistd.h>
 #endif
 

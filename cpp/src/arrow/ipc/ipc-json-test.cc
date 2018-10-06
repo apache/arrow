@@ -32,7 +32,6 @@
 #include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
-#include "arrow/status.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

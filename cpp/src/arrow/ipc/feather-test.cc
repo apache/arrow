@@ -19,7 +19,6 @@
 #include <sstream>
 #include <string>
 
-#include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"

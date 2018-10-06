@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include <sstream>
+#include <utility>
 
 #include <flatbuffers/flatbuffers.h>
 

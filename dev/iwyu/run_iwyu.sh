@@ -67,6 +67,6 @@ cmake -GNinja \
       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
 
 # Make so that vendored bits are built
-# ninja
+ninja arrow_shared
 
 $IWYU_SH all

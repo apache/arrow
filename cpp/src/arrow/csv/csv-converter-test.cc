@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -27,9 +28,12 @@
 #include "arrow/csv/test-common.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"
+#include "arrow/type.h"
 
 namespace arrow {
 namespace csv {
+
+class BlockParser;
 
 // All recognized (non-empty) null values
 std::vector<std::string> AllNulls() {

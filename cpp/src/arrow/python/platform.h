@@ -22,7 +22,7 @@
 #define ARROW_PYTHON_PLATFORM_H
 
 #include <iostream>
-#include <Python.h> // IWYU pragma: expand
+#include <Python.h> // IWYU pragma: export
 #include <datetime.h>
 
 // Work around C2528 error

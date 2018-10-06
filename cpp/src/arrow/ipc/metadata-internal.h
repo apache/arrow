@@ -30,7 +30,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/ipc/Schema_generated.h"
-#include "arrow/ipc/dictionary.h"
+#include "arrow/ipc/dictionary.h"  // IYWU pragma: keep
 #include "arrow/ipc/message.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"

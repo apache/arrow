@@ -22,10 +22,14 @@
 
 #include "arrow/compute/kernel.h"
 #include "arrow/status.h"
-#include "arrow/type_fwd.h"  // IYWU pragma: keep
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Array;
+class DataType;
+struct ArrayData;
+
 namespace compute {
 
 class FunctionContext;

@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <type_traits>
@@ -35,7 +36,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/parsing.h"
+#include "arrow/util/parsing.h"  // IWYU pragma: keep
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"

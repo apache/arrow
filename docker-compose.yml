@@ -120,6 +120,7 @@ services:
     volumes:
       - .:/arrow:delegated
 
+  # Depends on xenial base image, see dev/README.md
   iwyu:
     image: arrow:iwyu
     build:

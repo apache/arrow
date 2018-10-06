@@ -19,22 +19,24 @@
 #define PARQUET_RECORD_READER_H
 
 #include <cstdint>
-#include <cstring>
-#include <iostream>
 #include <memory>
-#include <unordered_map>
-#include <vector>
 
-#include <arrow/buffer.h>
-#include <arrow/builder.h>
-#include <arrow/memory_pool.h>
-#include <arrow/util/bit-util.h>
+#include "arrow/memory_pool.h"
 
-#include "parquet/column_reader.h"
-#include "parquet/schema.h"
 #include "parquet/util/macros.h"
+#include "parquet/util/memory.h"
+
+namespace arrow {
+
+class ArrayBuilder;
+
+}  // namespace arrow
 
 namespace parquet {
+
+class ColumnDescriptor;
+class PageReader;
+
 namespace internal {
 
 /// \brief Stateful column reader that delimits semantic records for both flat
