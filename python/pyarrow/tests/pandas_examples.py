@@ -90,6 +90,8 @@ def dataframe_with_lists(include_index=False, parquet_compatible=False):
     df: pandas.DataFrame
     schema: pyarrow.Schema
         Arrow schema definition that is in line with the constructed df.
+    parquet_compatible: bool
+        Exclude types not supported by parquet
     """
     arrays = OrderedDict()
     fields = []
@@ -151,8 +153,9 @@ def dataframe_with_lists(include_index=False, parquet_compatible=False):
         (pa.time64('us'), time_data)
     ]
     if not parquet_compatible:
-        # parquet doesn't support nanosecond resolution
-        temporal_pairs.append((pa.time64('ns'), time_data))
+        temporal_pairs += [
+            (pa.time64('ns'), time_data),
+        ]
 
     for value_type, data in temporal_pairs:
         field_name = '{}_list'.format(value_type)
