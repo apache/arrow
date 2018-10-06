@@ -44,8 +44,8 @@ TEST(TestHash, TestHash32) {
   EXPECT_EQ(hash32(u16, 0), zero_hash);
   EXPECT_EQ(hash32(s32, 0), zero_hash);
   EXPECT_EQ(hash32(u32, 0), zero_hash);
-  EXPECT_EQ(hash32(s64, 0), zero_hash);
-  EXPECT_EQ(hash32(u64, 0), zero_hash);
+  EXPECT_EQ(hash32(static_cast<double>(s64), 0), zero_hash);
+  EXPECT_EQ(hash32(static_cast<double>(u64), 0), zero_hash);
   EXPECT_EQ(hash32(f32, 0), zero_hash);
   EXPECT_EQ(hash32(f64, 0), zero_hash);
 
@@ -82,8 +82,8 @@ TEST(TestHash, TestHash64) {
   EXPECT_EQ(hash64(u16, 0), zero_hash);
   EXPECT_EQ(hash64(s32, 0), zero_hash);
   EXPECT_EQ(hash64(u32, 0), zero_hash);
-  EXPECT_EQ(hash64(s64, 0), zero_hash);
-  EXPECT_EQ(hash64(u64, 0), zero_hash);
+  EXPECT_EQ(hash64(static_cast<double>(s64), 0), zero_hash);
+  EXPECT_EQ(hash64(static_cast<double>(u64), 0), zero_hash);
   EXPECT_EQ(hash64(f32, 0), zero_hash);
   EXPECT_EQ(hash64(f64, 0), zero_hash);
 

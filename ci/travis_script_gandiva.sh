@@ -17,18 +17,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-sudo apt-get install -y -q \
-    gdb binutils ccache libboost-dev libboost-filesystem-dev \
-    libboost-system-dev libboost-regex-dev libjemalloc-dev
+set -e
 
-if [ "$CXX" == "g++-4.9" ]; then
-    sudo apt-get install -y -q g++-4.9
-fi
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
-    sudo apt-get install -y -q valgrind
-fi
+pushd $CPP_BUILD_DIR
 
-if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
-    sudo apt-get install -y -q lcov
-fi
+PATH=$ARROW_BUILD_TYPE:$PATH ctest -j2 --output-on-failure -L unittest
+
+# not running in parallel, since some of them are benchmarks
+PATH=$ARROW_BUILD_TYPE:$PATH ctest -VV -L integ
+
+popd
+
+# TODO : Capture C++ coverage info

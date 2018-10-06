@@ -40,5 +40,6 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
         thrift-cpp=0.11.0 \
         zlib \
         glog \
-        zstd
+        zstd \
+        re2
 fi

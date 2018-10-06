@@ -17,6 +17,8 @@
 
 // BitMap functions
 
+#include "arrow/util/bit-util.h"
+
 extern "C" {
 
 #include "./types.h"
@@ -28,26 +30,20 @@ extern "C" {
 #define POS_TO_BIT_INDEX(p) (p % 8)
 
 FORCE_INLINE
-bool bitMapGetBit(const unsigned char* bmap, int position) {
-  int byteIdx = POS_TO_BYTE_INDEX(position);
-  int bitIdx = POS_TO_BIT_INDEX(position);
-  return ((bmap[byteIdx] & (1 << bitIdx)) > 0);
+bool bitMapGetBit(const uint8_t* bmap, int position) {
+  return arrow::BitUtil::GetBit(bmap, position);
 }
 
 FORCE_INLINE
-void bitMapSetBit(unsigned char* bmap, int position, bool value) {
-  int byteIdx = POS_TO_BYTE_INDEX(position);
-  int bitIdx = POS_TO_BIT_INDEX(position);
-  bmap[byteIdx] ^= (-value ^ bmap[byteIdx]) & (1UL << bitIdx);
+void bitMapSetBit(uint8_t* bmap, int position, bool value) {
+  arrow::BitUtil::SetBitTo(bmap, position, value);
 }
 
 // Clear the bit if value = false. Does nothing if value = true.
 FORCE_INLINE
-void bitMapClearBitIfFalse(unsigned char* bmap, int position, bool value) {
+void bitMapClearBitIfFalse(uint8_t* bmap, int position, bool value) {
   if (!value) {
-    int byteIdx = POS_TO_BYTE_INDEX(position);
-    int bitIdx = POS_TO_BIT_INDEX(position);
-    bmap[byteIdx] &= ~(1 << bitIdx);
+    arrow::BitUtil::ClearBit(bmap, position);
   }
 }
 
