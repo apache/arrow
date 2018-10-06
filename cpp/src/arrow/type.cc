@@ -19,6 +19,7 @@
 
 #include <climits>
 #include <cstddef>
+#include <sstream> // IWYU pragma: keep
 #include <string>
 #include <utility>
 #include <vector>
