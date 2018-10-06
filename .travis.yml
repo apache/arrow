@@ -33,6 +33,7 @@ git:
 
 before_install:
   # Common pre-install steps for all builds
+  - eval "${MATRIX_EVAL}"
   - ulimit -c unlimited -S
   - |
       if [ $TRAVIS_OS_NAME == "linux" ]; then
@@ -103,8 +104,7 @@ matrix:
     - ARROW_TRAVIS_CLANG_FORMAT=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - ARROW_TRAVIS_GANDIVA=1
-    - CC="gcc-4.9"
-    - CXX="g++-4.9"
+    - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
     before_script:
     # Run if something changed in CPP.
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
