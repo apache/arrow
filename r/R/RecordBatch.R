@@ -68,6 +68,24 @@ record_batch <- function(.data){
   `arrow::RecordBatch`$new(RecordBatch__from_dataframe(.data))
 }
 
-read_record_batch <- function(path){
-  `arrow::RecordBatch`$new(read_record_batch_(fs::path_abs(path)))
+#' @export
+read_record_batch <- function(stream){
+  UseMethod("read_record_batch")
 }
+
+#' @export
+read_record_batch.character <- function(stream){
+  read_record_batch(fs::path_abs(stream))
+}
+
+#' @export
+read_record_batch.fs_path <- function(stream){
+  stream <- file_open(stream); on.exit(stream$Close())
+  read_record_batch(stream)
+}
+
+#' @export
+`read_record_batch.arrow::io::RandomAccessFile` <- function(stream){
+  `arrow::RecordBatch`$new(read_record_batch_(stream))
+}
+

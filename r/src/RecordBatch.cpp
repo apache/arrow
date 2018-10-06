@@ -63,17 +63,14 @@ List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch)
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::RecordBatch> read_record_batch_(std::string path) {
-  std::shared_ptr<arrow::io::ReadableFile> stream;
+std::shared_ptr<arrow::RecordBatch> read_record_batch_(
+    const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
   std::shared_ptr<arrow::ipc::RecordBatchFileReader> rbf_reader;
-
-  R_ERROR_NOT_OK(arrow::io::ReadableFile::Open(path, &stream));
   R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileReader::Open(stream, &rbf_reader));
 
   std::shared_ptr<arrow::RecordBatch> batch;
   R_ERROR_NOT_OK(rbf_reader->ReadRecordBatch(0, &batch));
 
-  R_ERROR_NOT_OK(stream->Close());
   return batch;
 }
 

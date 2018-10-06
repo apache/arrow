@@ -19,7 +19,9 @@
 #' @include enums.R
 #' @include buffer.R
 
-`arrow::io::RandomAccessFile` <- R6Class("arrow::io::RandomAccessFile", inherit = `arrow::Object`,
+`arrow::io::InputStream` <- R6Class("arrow::io::InputStream", inherit = `arrow::Object`)
+
+`arrow::io::RandomAccessFile` <- R6Class("arrow::io::RandomAccessFile", inherit = `arrow::io::InputStream`,
   public = list(
     GetSize = function() io___RandomAccessFile__GetSize(self),
     supports_zero_copy = function() io___RandomAccessFile__supports_zero_copy(self)
