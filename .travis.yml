@@ -115,7 +115,7 @@ matrix:
     - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva.sh
   # [OS X] C++ & Python w/ XCode 6.4
   - compiler: clang
     language: cpp
