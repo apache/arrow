@@ -2,14 +2,19 @@
 % Please edit documentation in R/mmap.R
 \name{mmap_create}
 \alias{mmap_create}
+\alias{mmap_open}
 \title{Create a new read/write memory mapped file of a given size}
 \usage{
 mmap_create(path, size)
+
+mmap_open(path, mode = c("read", "write", "readwrite"))
 }
 \arguments{
 \item{path}{file path}
 
 \item{size}{size in bytes}
+
+\item{mode}{file mode (read/write/readwrite)}
 }
 \description{
 Create a new read/write memory mapped file of a given size

@@ -1281,6 +1281,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// io___MemoryMappedFile__Open
+std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Open(const std::string& path, arrow::io::FileMode::type mode);
+RcppExport SEXP _arrow_io___MemoryMappedFile__Open(SEXP pathSEXP, SEXP modeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type path(pathSEXP);
+    Rcpp::traits::input_parameter< arrow::io::FileMode::type >::type mode(modeSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___MemoryMappedFile__Open(path, mode));
+    return rcpp_result_gen;
+END_RCPP
+}
 // io___MemoryMappedFile__Close
 void io___MemoryMappedFile__Close(const std::shared_ptr<arrow::io::MemoryMappedFile>& x);
 RcppExport SEXP _arrow_io___MemoryMappedFile__Close(SEXP xSEXP) {
@@ -1451,6 +1463,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1},
     {"_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1},
     {"_arrow_io___MemoryMappedFile__Create", (DL_FUNC) &_arrow_io___MemoryMappedFile__Create, 2},
+    {"_arrow_io___MemoryMappedFile__Open", (DL_FUNC) &_arrow_io___MemoryMappedFile__Open, 2},
     {"_arrow_io___MemoryMappedFile__Close", (DL_FUNC) &_arrow_io___MemoryMappedFile__Close, 1},
     {"_arrow_io___MemoryMappedFile__Tell", (DL_FUNC) &_arrow_io___MemoryMappedFile__Tell, 1},
     {"_arrow_io___MemoryMappedFile__Seek", (DL_FUNC) &_arrow_io___MemoryMappedFile__Seek, 2},

@@ -32,7 +32,17 @@
 #'
 #' @param path file path
 #' @param size size in bytes
+#' @param mode file mode (read/write/readwrite)
+#'
+#' @rdname mmap
 #' @export
 mmap_create <- `arrow::io::MemoryMappedFile`$create <- function(path, size) {
   `arrow::io::MemoryMappedFile`$new(io___MemoryMappedFile__Create(fs::path_abs(path), size))
+}
+
+#' @rdname mmap
+#' @export
+mmap_open <- `arrow::io::MemoryMappedFile`$open <- function(path, mode = c("read", "write", "readwrite")) {
+  mode <- match(mode, c("read", "write", "readwrite")) - 1L
+  `arrow::io::MemoryMappedFile`$new(io___MemoryMappedFile__Open(fs::path_abs(path), mode))
 }

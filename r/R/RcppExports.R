@@ -457,6 +457,10 @@ io___MemoryMappedFile__Create <- function(path, size) {
     .Call(`_arrow_io___MemoryMappedFile__Create`, path, size)
 }
 
+io___MemoryMappedFile__Open <- function(path, mode) {
+    .Call(`_arrow_io___MemoryMappedFile__Open`, path, mode)
+}
+
 io___MemoryMappedFile__Close <- function(x) {
     invisible(.Call(`_arrow_io___MemoryMappedFile__Close`, x))
 }

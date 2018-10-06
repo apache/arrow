@@ -63,6 +63,7 @@ RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
 RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
+RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
 
 namespace Rcpp {
 namespace traits {

@@ -27,6 +27,13 @@ std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Create(const
 }
 
 // [[Rcpp::export]]
+std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Open(const std::string& path, arrow::io::FileMode::type mode) {
+  std::shared_ptr<arrow::io::MemoryMappedFile> out;
+  R_ERROR_NOT_OK(arrow::io::MemoryMappedFile::Open(path, mode, &out));
+  return out;
+}
+
+// [[Rcpp::export]]
 void io___MemoryMappedFile__Close(const std::shared_ptr<arrow::io::MemoryMappedFile>& x) {
   R_ERROR_NOT_OK(x->Close());
 }
