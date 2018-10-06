@@ -305,10 +305,6 @@ static inline int64_t PyDateTime_to_ns(PyDateTime_DateTime* pydatetime) {
   return PyDateTime_to_us(pydatetime) * 1000;
 }
 
-static inline int32_t PyDateTime_to_days(PyDateTime_Date* pydate) {
-  return static_cast<int32_t>(PyDate_to_ms(pydate) / 86400000LL);
-}
-
 }  // namespace py
 }  // namespace arrow
 
