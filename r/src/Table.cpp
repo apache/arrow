@@ -63,7 +63,8 @@ int Table__to_file(const std::shared_ptr<arrow::Table>& table, std::string path)
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Table> read_table_(const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
+std::shared_ptr<arrow::Table> read_table_(
+    const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
   std::shared_ptr<arrow::ipc::RecordBatchFileReader> rbf_reader;
   R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileReader::Open(stream, &rbf_reader));
 
