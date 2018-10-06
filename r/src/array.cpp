@@ -27,8 +27,8 @@ template <int RTYPE, typename Type>
 std::shared_ptr<Array> SimpleArray(SEXP x) {
   Rcpp::Vector<RTYPE> vec(x);
   auto n = vec.size();
-  std::vector<std::shared_ptr<Buffer>> buffers{
-      nullptr, std::make_shared<RBuffer<RTYPE>>(vec)};
+  std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
+                                               std::make_shared<RBuffer<RTYPE>>(vec)};
 
   int null_count = 0;
   if (RTYPE != RAWSXP) {

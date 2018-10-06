@@ -21,8 +21,8 @@
 
 #undef Free
 #include <arrow/api.h>
-#include <arrow/type.h>
 #include <arrow/io/file.h>
+#include <arrow/type.h>
 
 #define R_ERROR_NOT_OK(s)                  \
   do {                                     \
@@ -135,13 +135,13 @@ inline const T* GetValuesSafely(const std::shared_ptr<ArrayData>& data, int i,
 
 template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
 class RBuffer : public Buffer {
-public:
+ public:
   RBuffer(Vec vec)
-    : Buffer(reinterpret_cast<const uint8_t*>(vec.begin()),
-      vec.size() * sizeof(typename Vec::stored_type)),
-      vec_(vec) {}
+      : Buffer(reinterpret_cast<const uint8_t*>(vec.begin()),
+               vec.size() * sizeof(typename Vec::stored_type)),
+        vec_(vec) {}
 
-private:
+ private:
   // vec_ holds the memory
   Vec vec_;
 };

@@ -30,7 +30,7 @@
   public = list(
     Close = function() io___MemoryMappedFile__Close(self),
     Tell = function() io___MemoryMappedFile__Tell(self),
-    Seek = function(position) io___Seekable__Seek(self, position),
+    Seek = function(position) io___MemoryMappedFile__Seek(self, position),
     Resize = function(size) io___MemoryMappedFile__Resize(self, size),
     Read = function(nbytes) `arrow::Buffer`$new(io___Readable__Read(self, nbytes))
   )
@@ -51,6 +51,6 @@ mmap_create <- `arrow::io::MemoryMappedFile`$create <- function(path, size) {
 #' @rdname mmap
 #' @export
 mmap_open <- `arrow::io::MemoryMappedFile`$open <- function(path, mode = c("read", "write", "readwrite")) {
-  mode <- match(mode, c("read", "write", "readwrite")) - 1L
+  mode <- match(match.arg(mode), c("read", "write", "readwrite")) - 1L
   `arrow::io::MemoryMappedFile`$new(io___MemoryMappedFile__Open(fs::path_abs(path), mode))
 }

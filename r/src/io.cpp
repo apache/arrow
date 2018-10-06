@@ -22,44 +22,42 @@ using namespace Rcpp;
 // ------ arrow::io::Readable
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Buffer> io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes) {
+std::shared_ptr<arrow::Buffer> io___Readable__Read(
+    const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes) {
   std::shared_ptr<arrow::Buffer> buf;
   R_ERROR_NOT_OK(x->Read(nbytes, &buf));
   return buf;
 }
 
-// ------ arrow::io::Seekable
-
-// [[Rcpp::export]]
-void io___Seekable__Seek(const std::shared_ptr<arrow::io::Seekable>& x, int64_t position) {
-  R_ERROR_NOT_OK(x->Seek(position));
-}
-
 // ------ arrow::io::RandomAccessFile
 
 // [[Rcpp::export]]
-int64_t io___RandomAccessFile__GetSize(const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
+int64_t io___RandomAccessFile__GetSize(
+    const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
   int64_t out;
   R_ERROR_NOT_OK(x->GetSize(&out));
   return out;
 }
 
 // [[Rcpp::export]]
-bool io___RandomAccessFile__supports_zero_copy(const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
+bool io___RandomAccessFile__supports_zero_copy(
+    const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
   return x->supports_zero_copy();
 }
 
 // ------ arrow::io::MemoryMappedFile
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Create(const std::string& path, int64_t size) {
+std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Create(
+    const std::string& path, int64_t size) {
   std::shared_ptr<arrow::io::MemoryMappedFile> out;
   R_ERROR_NOT_OK(arrow::io::MemoryMappedFile::Create(path, size, &out));
   return out;
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Open(const std::string& path, arrow::io::FileMode::type mode) {
+std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Open(
+    const std::string& path, arrow::io::FileMode::type mode) {
   std::shared_ptr<arrow::io::MemoryMappedFile> out;
   R_ERROR_NOT_OK(arrow::io::MemoryMappedFile::Open(path, mode, &out));
   return out;
@@ -71,14 +69,21 @@ void io___MemoryMappedFile__Close(const std::shared_ptr<arrow::io::MemoryMappedF
 }
 
 // [[Rcpp::export]]
-int64_t io___MemoryMappedFile__Tell(const std::shared_ptr<arrow::io::MemoryMappedFile>& x) {
+int64_t io___MemoryMappedFile__Tell(
+    const std::shared_ptr<arrow::io::MemoryMappedFile>& x) {
   int64_t out;
   R_ERROR_NOT_OK(x->Tell(&out));
   return out;
 }
 
 // [[Rcpp::export]]
-void io___MemoryMappedFile__Resize(const std::shared_ptr<arrow::io::MemoryMappedFile>& x, int64_t size) {
+void io___MemoryMappedFile__Resize(const std::shared_ptr<arrow::io::MemoryMappedFile>& x,
+                                   int64_t size) {
   R_ERROR_NOT_OK(x->Resize(size));
 }
 
+// [[Rcpp::export]]
+void io___MemoryMappedFile__Seek(const std::shared_ptr<arrow::io::MemoryMappedFile>& x,
+                                 int64_t position) {
+  R_ERROR_NOT_OK(x->Seek(position));
+}

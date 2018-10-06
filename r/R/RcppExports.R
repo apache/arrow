@@ -477,10 +477,6 @@ io___Readable__Read <- function(x, nbytes) {
     .Call(`_arrow_io___Readable__Read`, x, nbytes)
 }
 
-io___Seekable__Seek <- function(x, position) {
-    invisible(.Call(`_arrow_io___Seekable__Seek`, x, position))
-}
-
 io___RandomAccessFile__GetSize <- function(x) {
     .Call(`_arrow_io___RandomAccessFile__GetSize`, x)
 }
@@ -507,4 +503,7 @@ io___MemoryMappedFile__Tell <- function(x) {
 
 io___MemoryMappedFile__Resize <- function(x, size) {
     invisible(.Call(`_arrow_io___MemoryMappedFile__Resize`, x, size))
+}
+io___MemoryMappedFile__Seek <- function(x, position) {
+    invisible(.Call(`_arrow_io___MemoryMappedFile__Seek`, x, position))
 }
