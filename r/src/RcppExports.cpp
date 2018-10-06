@@ -1215,6 +1215,57 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DictionaryArray>& >::type array(arraySEXP);
     rcpp_result_gen = Rcpp::wrap(DictionaryArray__dictionary(array));
+// Buffer__is_mutable
+bool Buffer__is_mutable(const std::shared_ptr<arrow::Buffer>& buffer);
+RcppExport SEXP _arrow_Buffer__is_mutable(SEXP bufferSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Buffer>& >::type buffer(bufferSEXP);
+    rcpp_result_gen = Rcpp::wrap(Buffer__is_mutable(buffer));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Buffer__ZeroPadding
+void Buffer__ZeroPadding(const std::shared_ptr<arrow::Buffer>& buffer);
+RcppExport SEXP _arrow_Buffer__ZeroPadding(SEXP bufferSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Buffer>& >::type buffer(bufferSEXP);
+    Buffer__ZeroPadding(buffer);
+    return R_NilValue;
+END_RCPP
+}
+// Buffer__capacity
+int64_t Buffer__capacity(const std::shared_ptr<arrow::Buffer>& buffer);
+RcppExport SEXP _arrow_Buffer__capacity(SEXP bufferSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Buffer>& >::type buffer(bufferSEXP);
+    rcpp_result_gen = Rcpp::wrap(Buffer__capacity(buffer));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Buffer__size
+int64_t Buffer__size(const std::shared_ptr<arrow::Buffer>& buffer);
+RcppExport SEXP _arrow_Buffer__size(SEXP bufferSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Buffer>& >::type buffer(bufferSEXP);
+    rcpp_result_gen = Rcpp::wrap(Buffer__size(buffer));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Buffer__parent
+std::shared_ptr<arrow::Buffer> Buffer__parent(const std::shared_ptr<arrow::Buffer>& buffer);
+RcppExport SEXP _arrow_Buffer__parent(SEXP bufferSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Buffer>& >::type buffer(bufferSEXP);
+    rcpp_result_gen = Rcpp::wrap(Buffer__parent(buffer));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1464,6 +1515,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array__Mask", (DL_FUNC) &_arrow_Array__Mask, 1},
     {"_arrow_DictionaryArray__indices", (DL_FUNC) &_arrow_DictionaryArray__indices, 1},
     {"_arrow_DictionaryArray__dictionary", (DL_FUNC) &_arrow_DictionaryArray__dictionary, 1},
+    {"_arrow_Buffer__is_mutable", (DL_FUNC) &_arrow_Buffer__is_mutable, 1},
+    {"_arrow_Buffer__ZeroPadding", (DL_FUNC) &_arrow_Buffer__ZeroPadding, 1},
+    {"_arrow_Buffer__capacity", (DL_FUNC) &_arrow_Buffer__capacity, 1},
+    {"_arrow_Buffer__size", (DL_FUNC) &_arrow_Buffer__size, 1},
+    {"_arrow_Buffer__parent", (DL_FUNC) &_arrow_Buffer__parent, 1},
     {"_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3},
     {"_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1},
     {"_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1},

@@ -47,6 +47,7 @@ Collate:
     'Table.R'
     'array.R'
     'dictionary.R'
+    'buffer.R'
     'memory_pool.R'
     'mmap.R'
     'reexports-tibble.R'

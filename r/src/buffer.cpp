@@ -17,3 +17,27 @@
 
 #include "arrow_types.h"
 
+// [[Rcpp::export]]
+bool Buffer__is_mutable(const std::shared_ptr<arrow::Buffer>& buffer) {
+  return buffer->is_mutable();
+}
+
+// [[Rcpp::export]]
+void Buffer__ZeroPadding(const std::shared_ptr<arrow::Buffer>& buffer) {
+  buffer->ZeroPadding();
+}
+
+// [[Rcpp::export]]
+int64_t Buffer__capacity(const std::shared_ptr<arrow::Buffer>& buffer) {
+  return buffer->capacity();
+}
+
+// [[Rcpp::export]]
+int64_t Buffer__size(const std::shared_ptr<arrow::Buffer>& buffer) {
+  return buffer->size();
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Buffer> Buffer__parent(const std::shared_ptr<arrow::Buffer>& buffer) {
+  return buffer->parent();
+}

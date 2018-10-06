@@ -437,6 +437,26 @@ DictionaryArray__dictionary <- function(array) {
     .Call(`_arrow_DictionaryArray__dictionary`, array)
 }
 
+Buffer__is_mutable <- function(buffer) {
+    .Call(`_arrow_Buffer__is_mutable`, buffer)
+}
+
+Buffer__ZeroPadding <- function(buffer) {
+    invisible(.Call(`_arrow_Buffer__ZeroPadding`, buffer))
+}
+
+Buffer__capacity <- function(buffer) {
+    .Call(`_arrow_Buffer__capacity`, buffer)
+}
+
+Buffer__size <- function(buffer) {
+    .Call(`_arrow_Buffer__size`, buffer)
+}
+
+Buffer__parent <- function(buffer) {
+    .Call(`_arrow_Buffer__parent`, buffer)
+}
+
 Field__initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field__initialize`, name, type, nullable)
 }

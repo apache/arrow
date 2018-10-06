@@ -17,6 +17,7 @@
 
 #' @include R6.R
 #' @include enums.R
+#' @include buffer.R
 
 `arrow::io::RandomAccessFile` <- R6Class("arrow::io::RandomAccessFile", inherit = `arrow::Object`,
   public = list(
