@@ -505,8 +505,8 @@ Table__to_file <- function(table, path) {
     .Call(`_arrow_Table__to_file`, table, path)
 }
 
-read_table_ <- function(path) {
-    .Call(`_arrow_read_table_`, path)
+read_table_ <- function(stream) {
+    .Call(`_arrow_read_table_`, stream)
 }
 
 Table__to_dataframe <- function(table) {

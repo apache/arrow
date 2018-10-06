@@ -1410,13 +1410,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // read_table_
-std::shared_ptr<arrow::Table> read_table_(std::string path);
-RcppExport SEXP _arrow_read_table_(SEXP pathSEXP) {
+std::shared_ptr<arrow::Table> read_table_(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
+RcppExport SEXP _arrow_read_table_(SEXP streamSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
-    rcpp_result_gen = Rcpp::wrap(read_table_(path));
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::RandomAccessFile>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_table_(stream));
     return rcpp_result_gen;
 END_RCPP
 }
