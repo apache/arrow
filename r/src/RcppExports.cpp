@@ -1196,7 +1196,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-<<<<<<< HEAD
 // DictionaryArray__indices
 std::shared_ptr<arrow::Array> DictionaryArray__indices(const std::shared_ptr<arrow::DictionaryArray>& array);
 RcppExport SEXP _arrow_DictionaryArray__indices(SEXP arraySEXP) {
@@ -1219,8 +1218,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-=======
->>>>>>> :baby: support for arrow::io::MemoryMappedFile
 // Field__initialize
 std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
 RcppExport SEXP _arrow_Field__initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
@@ -1267,8 +1264,39 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-<<<<<<< HEAD
-=======
+// io___Seekable__Seek
+void io___Seekable__Seek(const std::shared_ptr<arrow::io::Seekable>& x, int64_t position);
+RcppExport SEXP _arrow_io___Seekable__Seek(SEXP xSEXP, SEXP positionSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::Seekable>& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int64_t >::type position(positionSEXP);
+    io___Seekable__Seek(x, position);
+    return R_NilValue;
+END_RCPP
+}
+// io___RandomAccessFile__GetSize
+int64_t io___RandomAccessFile__GetSize(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
+RcppExport SEXP _arrow_io___RandomAccessFile__GetSize(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::RandomAccessFile>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___RandomAccessFile__GetSize(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// io___RandomAccessFile__supports_zero_copy
+bool io___RandomAccessFile__supports_zero_copy(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
+RcppExport SEXP _arrow_io___RandomAccessFile__supports_zero_copy(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::RandomAccessFile>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___RandomAccessFile__supports_zero_copy(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 // io___MemoryMappedFile__Create
 std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Create(const std::string& path, int64_t size);
 RcppExport SEXP _arrow_io___MemoryMappedFile__Create(SEXP pathSEXP, SEXP sizeSEXP) {
@@ -1314,37 +1342,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// io___MemoryMappedFile__Seek
-void io___MemoryMappedFile__Seek(const std::shared_ptr<arrow::io::MemoryMappedFile>& x, int64_t position);
-RcppExport SEXP _arrow_io___MemoryMappedFile__Seek(SEXP xSEXP, SEXP positionSEXP) {
+// io___MemoryMappedFile__Resize
+void io___MemoryMappedFile__Resize(const std::shared_ptr<arrow::io::MemoryMappedFile>& x, int64_t size);
+RcppExport SEXP _arrow_io___MemoryMappedFile__Resize(SEXP xSEXP, SEXP sizeSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::MemoryMappedFile>& >::type x(xSEXP);
-    Rcpp::traits::input_parameter< int64_t >::type position(positionSEXP);
-    io___MemoryMappedFile__Seek(x, position);
+    Rcpp::traits::input_parameter< int64_t >::type size(sizeSEXP);
+    io___MemoryMappedFile__Resize(x, size);
     return R_NilValue;
-END_RCPP
-}
-// io___MemoryMappedFile__supports_zero_copy
-bool io___MemoryMappedFile__supports_zero_copy(const std::shared_ptr<arrow::io::MemoryMappedFile>& x);
-RcppExport SEXP _arrow_io___MemoryMappedFile__supports_zero_copy(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::MemoryMappedFile>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(io___MemoryMappedFile__supports_zero_copy(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// io___MemoryMappedFile__GetSize
-int64_t io___MemoryMappedFile__GetSize(const std::shared_ptr<arrow::io::MemoryMappedFile>& x);
-RcppExport SEXP _arrow_io___MemoryMappedFile__GetSize(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::MemoryMappedFile>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(io___MemoryMappedFile__GetSize(x));
-    return rcpp_result_gen;
 END_RCPP
 }
 
@@ -1462,13 +1468,14 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1},
     {"_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1},
     {"_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1},
+    {"_arrow_io___Seekable__Seek", (DL_FUNC) &_arrow_io___Seekable__Seek, 2},
+    {"_arrow_io___RandomAccessFile__GetSize", (DL_FUNC) &_arrow_io___RandomAccessFile__GetSize, 1},
+    {"_arrow_io___RandomAccessFile__supports_zero_copy", (DL_FUNC) &_arrow_io___RandomAccessFile__supports_zero_copy, 1},
     {"_arrow_io___MemoryMappedFile__Create", (DL_FUNC) &_arrow_io___MemoryMappedFile__Create, 2},
     {"_arrow_io___MemoryMappedFile__Open", (DL_FUNC) &_arrow_io___MemoryMappedFile__Open, 2},
     {"_arrow_io___MemoryMappedFile__Close", (DL_FUNC) &_arrow_io___MemoryMappedFile__Close, 1},
     {"_arrow_io___MemoryMappedFile__Tell", (DL_FUNC) &_arrow_io___MemoryMappedFile__Tell, 1},
-    {"_arrow_io___MemoryMappedFile__Seek", (DL_FUNC) &_arrow_io___MemoryMappedFile__Seek, 2},
-    {"_arrow_io___MemoryMappedFile__supports_zero_copy", (DL_FUNC) &_arrow_io___MemoryMappedFile__supports_zero_copy, 1},
-    {"_arrow_io___MemoryMappedFile__GetSize", (DL_FUNC) &_arrow_io___MemoryMappedFile__GetSize, 1},
+    {"_arrow_io___MemoryMappedFile__Resize", (DL_FUNC) &_arrow_io___MemoryMappedFile__Resize, 2},
     {NULL, NULL, 0}
 };
 

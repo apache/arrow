@@ -453,6 +453,18 @@ Field__nullable <- function(type) {
     .Call(`_arrow_Field__nullable`, type)
 }
 
+io___Seekable__Seek <- function(x, position) {
+    invisible(.Call(`_arrow_io___Seekable__Seek`, x, position))
+}
+
+io___RandomAccessFile__GetSize <- function(x) {
+    .Call(`_arrow_io___RandomAccessFile__GetSize`, x)
+}
+
+io___RandomAccessFile__supports_zero_copy <- function(x) {
+    .Call(`_arrow_io___RandomAccessFile__supports_zero_copy`, x)
+}
+
 io___MemoryMappedFile__Create <- function(path, size) {
     .Call(`_arrow_io___MemoryMappedFile__Create`, path, size)
 }
@@ -469,14 +481,6 @@ io___MemoryMappedFile__Tell <- function(x) {
     .Call(`_arrow_io___MemoryMappedFile__Tell`, x)
 }
 
-io___MemoryMappedFile__Seek <- function(x, position) {
-    invisible(.Call(`_arrow_io___MemoryMappedFile__Seek`, x, position))
-}
-
-io___MemoryMappedFile__supports_zero_copy <- function(x) {
-    .Call(`_arrow_io___MemoryMappedFile__supports_zero_copy`, x)
-}
-
-io___MemoryMappedFile__GetSize <- function(x) {
-    .Call(`_arrow_io___MemoryMappedFile__GetSize`, x)
+io___MemoryMappedFile__Resize <- function(x, size) {
+    invisible(.Call(`_arrow_io___MemoryMappedFile__Resize`, x, size))
 }

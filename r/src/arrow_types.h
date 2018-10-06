@@ -133,5 +133,18 @@ inline const T* GetValuesSafely(const std::shared_ptr<ArrayData>& data, int i,
   return reinterpret_cast<const T*>(buffer->data()) + offset;
 }
 
+template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
+class RBuffer : public Buffer {
+public:
+  RBuffer(Vec vec)
+    : Buffer(reinterpret_cast<const uint8_t*>(vec.begin()),
+      vec.size() * sizeof(typename Vec::stored_type)),
+      vec_(vec) {}
+
+private:
+  // vec_ holds the memory
+  Vec vec_;
+};
+
 }  // namespace r
 }  // namespace arrow

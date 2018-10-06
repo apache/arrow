@@ -18,13 +18,19 @@
 #' @include R6.R
 #' @include enums.R
 
-`arrow::io::MemoryMappedFile` <- R6Class("arrow::io::MemoryMappedFile", inherit = `arrow::Object`,
+`arrow::io::RandomAccessFile` <- R6Class("arrow::io::RandomAccessFile", inherit = `arrow::Object`,
+  public = list(
+    GetSize = function() io___RandomAccessFile__GetSize(self),
+    supports_zero_copy = function() io___RandomAccessFile__supports_zero_copy(self)
+  )
+)
+
+`arrow::io::MemoryMappedFile` <- R6Class("arrow::io::MemoryMappedFile", inherit = `arrow::io::RandomAccessFile`,
   public = list(
     Close = function() io___MemoryMappedFile__Close(self),
     Tell = function() io___MemoryMappedFile__Tell(self),
-    Seek = function(position) io___MemoryMappedFile__Seek(self, position),
-    supports_zero_copy = function() io___MemoryMappedFile__supports_zero_copy(self),
-    GetSize = function() io___MemoryMappedFile__GetSize(self)
+    Seek = function(position) io___Seekable__Seek(self, position),
+    Resize = function(size) io___MemoryMappedFile__Resize(self, size)
   )
 )
 
