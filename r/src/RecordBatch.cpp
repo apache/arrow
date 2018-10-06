@@ -16,6 +16,7 @@
 // under the License.
 
 #include <arrow/io/file.h>
+#include <arrow/io/memory.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include "arrow_types.h"
@@ -92,6 +93,27 @@ int RecordBatch__to_file(const std::shared_ptr<arrow::RecordBatch>& batch,
   R_ERROR_NOT_OK(stream->Tell(&offset));
   R_ERROR_NOT_OK(stream->Close());
   return offset;
+}
+
+// [[Rcpp::export]]
+RawVector RecordBatch__to_raw(const std::shared_ptr<arrow::RecordBatch>& batch) {
+  MemoryPool* pool = default_memory_pool();
+
+  std::shared_ptr<ResizableBuffer> buffer;
+  R_ERROR_NOT_OK(AllocateResizableBuffer(pool, 0, &buffer));
+
+  std::unique_ptr<io::BufferOutputStream> sink;
+  sink.reset(new io::BufferOutputStream(buffer));
+
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> writer;
+  R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamWriter::Open(sink.get(), batch->schema(), &writer));
+
+  R_ERROR_NOT_OK(writer->WriteRecordBatch(*batch));
+  R_ERROR_NOT_OK(writer->Close());
+
+  RawVector res(buffer->size());
+  std::copy(buffer->data(), buffer->data() + buffer->size(), res.begin()) ;
+  return res;
 }
 
 // [[Rcpp::export]]

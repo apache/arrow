@@ -297,6 +297,10 @@ RecordBatch__to_file <- function(batch, path) {
     .Call(`_arrow_RecordBatch__to_file`, batch, path)
 }
 
+RecordBatch__to_raw <- function(batch) {
+    .Call(`_arrow_RecordBatch__to_raw`, batch)
+}
+
 RecordBatch__from_dataframe <- function(tbl) {
     .Call(`_arrow_RecordBatch__from_dataframe`, tbl)
 }
