@@ -17,7 +17,7 @@
 # under the License.
 
 from collections import OrderedDict
-from datetime import date, time, datetime
+from datetime import date, time
 
 import numpy as np
 import pandas as pd
