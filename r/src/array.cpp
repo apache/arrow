@@ -236,9 +236,14 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
       if (Rf_isFactor(x)) {
         return arrow::r::MakeFactorArray(x);
       }
+      if (Rf_inherits(x, "Date")) {
+        return arrow::r::SimpleArray<INTSXP, arrow::Date32Type>(x);
+      }
       return arrow::r::SimpleArray<INTSXP, arrow::Int32Type>(x);
     case REALSXP:
-      // TODO: Dates, ...
+      if (Rf_inherits(x, "Date")) {
+        return arrow::r::SimpleArray<INTSXP, arrow::Date32Type>(x);
+      }
       return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
     case RAWSXP:
       return arrow::r::SimpleArray<RAWSXP, arrow::Int8Type>(x);
@@ -368,6 +373,12 @@ SEXP DictionaryArray_to_Vector(arrow::DictionaryArray* dict_array) {
   return f;
 }
 
+SEXP Date32Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
+  IntegerVector out(simple_Array_to_Vector<INTSXP>(array));
+  out.attr("class") = "Date";
+  return out;
+}
+
 // [[Rcpp::export]]
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
   switch (array->type_id()) {
@@ -383,6 +394,8 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
       return StringArray_to_Vector(array);
     case Type::DICTIONARY:
       return DictionaryArray_to_Vector(static_cast<arrow::DictionaryArray*>(array.get()));
+    case Type::DATE32:
+      return Date32Array_to_Vector(array);
     default:
       break;
   }

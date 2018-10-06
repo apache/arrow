@@ -204,3 +204,27 @@ test_that("Array supports ordered factors (ARROW-3355)", {
   expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
   expect_equal(sl$as_vector(), f[2:5])
 })
+
+test_that("array supports Date (ARROW-3340)", {
+  d <- Sys.Date() + 1:10
+  a <- array(d)
+  expect_equal(a$type(), date32())
+  expect_equal(a$length(), 10L)
+  expect_equal(a$as_vector(), d)
+
+  d[5] <- NA
+  a <- array(d)
+  expect_equal(a$type(), date32())
+  expect_equal(a$length(), 10L)
+  expect_equal(a$as_vector(), d)
+  expect_true(a$IsNull(4))
+
+  d2 <- d + .5
+  a <- array(d2)
+  expect_equal(a$type(), date32())
+  expect_equal(a$length(), 10L)
+  expect_equal(a$as_vector(), d)
+  expect_true(a$IsNull(4))
+})
+
+
