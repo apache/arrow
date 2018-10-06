@@ -30,7 +30,7 @@ using arrow::int32;
 using arrow::int64;
 using arrow::utf8;
 
-// TODO ravindra: the base numbers are from a mac. they need to be caliberated
+// TODO : the base numbers are from a mac. they need to be caliberated
 // for the hardware used by travis.
 float tolerance_ratio = 6.0;
 
