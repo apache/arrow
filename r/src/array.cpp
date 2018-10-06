@@ -244,6 +244,9 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
       if (Rf_inherits(x, "Date")) {
         return arrow::r::SimpleArray<INTSXP, arrow::Date32Type>(x);
       }
+      if (Rf_inherits(x, "POSIXct")) {
+        return arrow::r::SimpleArray<REALSXP, arrow::Date64Type>(x);
+      }
       return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
     case RAWSXP:
       return arrow::r::SimpleArray<RAWSXP, arrow::Int8Type>(x);
@@ -379,6 +382,12 @@ SEXP Date32Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   return out;
 }
 
+SEXP Date64Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
+  NumericVector out(simple_Array_to_Vector<REALSXP>(array));
+  out.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
+  return out;
+}
+
 // [[Rcpp::export]]
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
   switch (array->type_id()) {
@@ -396,11 +405,13 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
       return DictionaryArray_to_Vector(static_cast<arrow::DictionaryArray*>(array.get()));
     case Type::DATE32:
       return Date32Array_to_Vector(array);
+    case Type::DATE64:
+      return Date64Array_to_Vector(array);
     default:
       break;
   }
 
-  stop(tfm::format("cannot handle Array of type %d", array->type_id()));
+  stop(tfm::format("cannot handle Array of type %s", array->type()->name()));
   return R_NilValue;
 }
 

@@ -227,4 +227,18 @@ test_that("array supports Date (ARROW-3340)", {
   expect_true(a$IsNull(4))
 })
 
+test_that("array supports POSIXct (ARROW-3340)", {
+  times <- Sys.time() + 1:10
+  a <- array(times)
+  expect_equal(a$type(), date64())
+  expect_equal(a$length(), 10L)
+  expect_equal(a$as_vector(), times)
+
+  times[5] <- NA
+  a <- array(times)
+  expect_equal(a$type(), date32())
+  expect_equal(a$length(), 10L)
+  expect_equal(a$as_vector(), times)
+  expect_true(a$IsNull(4))
+})
 
