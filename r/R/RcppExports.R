@@ -453,3 +453,26 @@ Field__nullable <- function(type) {
     .Call(`_arrow_Field__nullable`, type)
 }
 
+io___MemoryMappedFile__Create <- function(path, size) {
+    .Call(`_arrow_io___MemoryMappedFile__Create`, path, size)
+}
+
+io___MemoryMappedFile__Close <- function(x) {
+    invisible(.Call(`_arrow_io___MemoryMappedFile__Close`, x))
+}
+
+io___MemoryMappedFile__Tell <- function(x) {
+    .Call(`_arrow_io___MemoryMappedFile__Tell`, x)
+}
+
+io___MemoryMappedFile__Seek <- function(x, position) {
+    invisible(.Call(`_arrow_io___MemoryMappedFile__Seek`, x, position))
+}
+
+io___MemoryMappedFile__supports_zero_copy <- function(x) {
+    .Call(`_arrow_io___MemoryMappedFile__supports_zero_copy`, x)
+}
+
+io___MemoryMappedFile__GetSize <- function(x) {
+    .Call(`_arrow_io___MemoryMappedFile__GetSize`, x)
+}

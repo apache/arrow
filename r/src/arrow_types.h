@@ -22,6 +22,7 @@
 #undef Free
 #include <arrow/api.h>
 #include <arrow/type.h>
+#include <arrow/io/file.h>
 
 #define R_ERROR_NOT_OK(s)                  \
   do {                                     \

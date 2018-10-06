@@ -48,5 +48,6 @@ Collate:
     'array.R'
     'dictionary.R'
     'memory_pool.R'
+    'mmap.R'
     'reexports-tibble.R'
     'zzz.R'
