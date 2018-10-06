@@ -38,7 +38,7 @@ void TestBitMapAccumulator::FillBitMap(uint8_t* bmap, int nrecords) {
 
   for (int i = 0; i < nbytes; ++i) {
     rand_r(&cur);
-    bmap[i] = cur % UINT8_MAX;
+    bmap[i] = static_cast<uint8_t>(cur % UINT8_MAX);
   }
 }
 
@@ -49,7 +49,7 @@ void TestBitMapAccumulator::ByteWiseIntersectBitMaps(uint8_t* dst,
   for (int i = 0; i < nbytes; ++i) {
     dst[i] = 0xff;
     for (uint32_t j = 0; j < srcs.size(); ++j) {
-      dst[i] &= srcs[j][i];
+      dst[i] = dst[i] & srcs[j][i];
     }
   }
 }

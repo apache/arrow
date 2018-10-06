@@ -325,6 +325,15 @@ static inline void ClearBit(uint8_t* bits, int64_t i) {
 
 static inline void SetBit(uint8_t* bits, int64_t i) { bits[i / 8] |= kBitmask[i % 8]; }
 
+static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
+  // https://graphics.stanford.edu/~seander/bithacks.html
+  // "Conditionally set or clear bits without branching"
+  // NOTE: this seems to confuse Valgrind as it reads from potentially
+  // uninitialized memory
+  bits[i / 8] ^= static_cast<uint8_t>(-static_cast<uint8_t>(bit_is_set) ^ bits[i / 8]) &
+                 kBitmask[i % 8];
+}
+
 /// \brief Convert vector of bytes to bitmap buffer
 ARROW_EXPORT
 Status BytesToBits(const std::vector<uint8_t>&, MemoryPool*, std::shared_ptr<Buffer>*);
