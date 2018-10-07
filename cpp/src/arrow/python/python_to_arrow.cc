@@ -291,7 +291,7 @@ class Date32Converter : public TypedConverter<Date32Type, Date32Converter> {
     int32_t t;
     if (PyDate_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      t = static_cast<int32_t>(PyDate_to_s(pydate));
+      t = static_cast<int32_t>(PyDate_to_days(pydate));
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date32"));
     }
@@ -313,16 +313,61 @@ class Date64Converter : public TypedConverter<Date64Type, Date64Converter> {
   }
 };
 
-class TimeConverter : public TypedConverter<Time64Type, TimeConverter> {
+class Time32Converter : public TypedConverter<Time32Type, Time32Converter> {
  public:
+  explicit Time32Converter(TimeUnit::type unit) : unit_(unit) {}
+
   Status AppendItem(PyObject* obj) {
+    // TODO(kszucs): option for strict conversion?
+    int32_t t;
     if (PyTime_Check(obj)) {
       // datetime.time stores microsecond resolution
-      return typed_builder_->Append(PyTime_to_us(obj));
+      switch (unit_) {
+        case TimeUnit::SECOND:
+          t = static_cast<int32_t>(PyTime_to_s(obj));
+          break;
+        case TimeUnit::MILLI:
+          t = static_cast<int32_t>(PyTime_to_ms(obj));
+          break;
+        default:
+          return Status::UnknownError("Invalid time unit");
+      }
+      return typed_builder_->Append(t);
+    } else {
+      return internal::InvalidValue(obj, "converting to time32");
+    }
+  }
+
+ private:
+  TimeUnit::type unit_;
+};
+
+class Time64Converter : public TypedConverter<Time64Type, Time64Converter> {
+ public:
+  explicit Time64Converter(TimeUnit::type unit) : unit_(unit) {}
+
+  Status AppendItem(PyObject* obj) {
+    int64_t t;
+    if (PyTime_Check(obj)) {
+      // datetime.time stores microsecond resolution
+      switch (unit_) {
+        case TimeUnit::MICRO:
+          t = PyTime_to_us(obj);
+          break;
+        case TimeUnit::NANO:
+          t = PyTime_to_ns(obj);
+          break;
+        default:
+          return Status::UnknownError("Invalid time unit");
+      }
+      return typed_builder_->Append(t);
     } else {
       return internal::InvalidValue(obj, "converting to time64");
     }
   }
+
+ private:
+  TimeUnit::type unit_;
 };
 
 class TimestampConverter : public TypedConverter<TimestampType, TimestampConverter> {
@@ -647,6 +692,7 @@ Status ListConverter::AppendNdarrayItem(PyObject* obj) {
     LIST_FAST_CASE(INT64, NPY_INT64, Int64Type)
     LIST_SLOW_CASE(DATE32)
     LIST_SLOW_CASE(DATE64)
+    LIST_SLOW_CASE(TIME32)
     LIST_SLOW_CASE(TIME64)
     LIST_FAST_CASE(TIMESTAMP, NPY_DATETIME, TimestampType)
     LIST_FAST_CASE(HALF_FLOAT, NPY_FLOAT16, HalfFloatType)
@@ -826,11 +872,14 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
     NUMERIC_CONVERTER(UINT16, UInt16Type);
     NUMERIC_CONVERTER(UINT32, UInt32Type);
     NUMERIC_CONVERTER(UINT64, UInt64Type);
-    SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
-    SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
     NUMERIC_CONVERTER(HALF_FLOAT, HalfFloatType);
     NUMERIC_CONVERTER(FLOAT, FloatType);
     NUMERIC_CONVERTER(DOUBLE, DoubleType);
+    SIMPLE_CONVERTER_CASE(DECIMAL, DecimalConverter);
+    SIMPLE_CONVERTER_CASE(BINARY, BytesConverter);
+    SIMPLE_CONVERTER_CASE(FIXED_SIZE_BINARY, FixedWidthBytesConverter);
+    SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
+    SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
     case Type::STRING:
       if (strict_conversions) {
         *out = std::unique_ptr<SeqConverter>(new StringConverter<true>());
@@ -838,18 +887,21 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
         *out = std::unique_ptr<SeqConverter>(new StringConverter<false>());
       }
       break;
-      SIMPLE_CONVERTER_CASE(BINARY, BytesConverter);
-      SIMPLE_CONVERTER_CASE(FIXED_SIZE_BINARY, FixedWidthBytesConverter);
+    case Type::TIME32: {
+      *out = std::unique_ptr<SeqConverter>(
+          new Time32Converter(checked_cast<const Time32Type&>(*type).unit()));
+      break;
+    }
+    case Type::TIME64: {
+      *out = std::unique_ptr<SeqConverter>(
+          new Time64Converter(checked_cast<const Time64Type&>(*type).unit()));
+      break;
+    }
     case Type::TIMESTAMP: {
       *out = std::unique_ptr<SeqConverter>(
           new TimestampConverter(checked_cast<const TimestampType&>(*type).unit()));
       break;
     }
-    case Type::TIME32: {
-      return Status::NotImplemented("No sequence converter for time32 available");
-    }
-      SIMPLE_CONVERTER_CASE(TIME64, TimeConverter);
-      SIMPLE_CONVERTER_CASE(DECIMAL, DecimalConverter);
     case Type::LIST:
       *out = std::unique_ptr<SeqConverter>(
           new ListConverter(from_pandas, strict_conversions));

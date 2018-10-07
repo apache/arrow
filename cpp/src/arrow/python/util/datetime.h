@@ -163,6 +163,18 @@ static inline int64_t PyTime_to_us(PyObject* pytime) {
           PyDateTime_TIME_GET_MICROSECOND(pytime));
 }
 
+static inline int64_t PyTime_to_s(PyObject* pytime) {
+  return PyTime_to_us(pytime) / 1000000;
+}
+
+static inline int64_t PyTime_to_ms(PyObject* pytime) {
+  return PyTime_to_us(pytime) / 1000;
+}
+
+static inline int64_t PyTime_to_ns(PyObject* pytime) {
+  return PyTime_to_us(pytime) * 1000;
+}
+
 // Splitting time quantities, for example splitting total seconds into
 // minutes and remaining seconds. After we run
 // int64_t remaining = split_time(total, quotient, &next)
@@ -256,7 +268,7 @@ static inline Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit,
   return Status::OK();
 }
 
-static inline int64_t PyDate_to_s(PyDateTime_Date* pydate) {
+static inline int64_t PyDate_to_days(PyDateTime_Date* pydate) {
   return get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
                             PyDateTime_GET_DAY(pydate));
 }
@@ -291,10 +303,6 @@ static inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
 
 static inline int64_t PyDateTime_to_ns(PyDateTime_DateTime* pydatetime) {
   return PyDateTime_to_us(pydatetime) * 1000;
-}
-
-static inline int32_t PyDate_to_days(PyDateTime_Date* pydate) {
-  return static_cast<int32_t>(PyDate_to_ms(pydate) / 86400000LL);
 }
 
 }  // namespace py
