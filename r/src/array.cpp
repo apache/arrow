@@ -214,14 +214,55 @@ std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor) {
   auto dict_values = MakeStringArray(Rf_getAttrib(factor, R_LevelsSymbol));
   auto dict_type = dictionary(int32(), dict_values, Rf_inherits(factor, "ordered"));
 
-  auto n = Rf_length(factor);
-  IntegerVector r_indices(n);
-  for (R_xlen_t i = 0; i < n; i++) {
-    r_indices[i] = factor[i] == NA_INTEGER ? NA_INTEGER : (factor[i] - 1);
-  }
-  auto indices = SimpleArray<INTSXP, arrow::Int32Type>(r_indices);
+  auto n = factor.size();
 
-  return std::make_shared<DictionaryArray>(dict_type, indices);
+  std::shared_ptr<Buffer> indices_buffer;
+  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(int32_t), &indices_buffer));
+
+  std::vector<std::shared_ptr<Buffer>> buffers{nullptr, indices_buffer};
+
+  int64_t null_count = 0;
+  R_xlen_t i = 0;
+  auto p_factor = factor.begin();
+  auto p_indices = reinterpret_cast<int*>(indices_buffer->mutable_data());
+  for (; i < n; i++, ++p_indices, ++p_factor) {
+    if (*p_factor == NA_INTEGER) break;
+    *p_indices = *p_factor - 1;
+  }
+
+  if (i < n) {
+    // there are NA's so we need a null buffer
+    std::shared_ptr<Buffer> null_buffer;
+    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
+    internal::FirstTimeBitmapWriter null_bitmap_writer(null_buffer->mutable_data(), 0, n);
+
+    // catch up
+    for (R_xlen_t j = 0; j < i; j++, null_bitmap_writer.Next()) {
+      null_bitmap_writer.Set();
+    }
+
+    // resume offset filling
+    for (; i < n; i++, ++p_indices, ++p_factor, null_bitmap_writer.Next()) {
+      if (*p_factor == NA_INTEGER) {
+        null_bitmap_writer.Clear();
+        null_count++;
+      } else {
+        null_bitmap_writer.Set();
+        *p_indices = *p_factor - 1;
+      }
+    }
+
+    null_bitmap_writer.Finish();
+    buffers[0] = std::move(null_buffer);
+  }
+
+  auto array_indices_data = ArrayData::Make(std::make_shared<Int32Type>(), n,
+                                            std::move(buffers), null_count, 0);
+  auto array_indices = MakeArray(array_indices_data);
+
+  std::shared_ptr<Array> out;
+  R_ERROR_NOT_OK(DictionaryArray::FromArrays(dict_type, array_indices, &out));
+  return out;
 }
 
 }  // namespace r
