@@ -27,7 +27,7 @@ import pandas as pd
 import pandas.util.testing as tm
 
 import pyarrow as pa
-from pyarrow.compat import guid, u, BytesIO, unichar
+from pyarrow.compat import guid, u, BytesIO, unichar, PY2
 from pyarrow.tests import util
 from pyarrow.filesystem import LocalFileSystem
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
@@ -797,14 +797,23 @@ def test_coerce_timestamps_truncated(tempdir):
 
 
 def test_column_of_lists(tempdir):
-    df, schema = dataframe_with_lists()
+    df, schema = dataframe_with_lists(parquet_compatible=True)
 
     filename = tempdir / 'pandas_rountrip.parquet'
     arrow_table = pa.Table.from_pandas(df, schema=schema)
-    _write_table(arrow_table, filename, version='2.0',
-                 coerce_timestamps='ms')
+    _write_table(arrow_table, filename, version='2.0')
     table_read = _read_table(filename)
     df_read = table_read.to_pandas()
+
+    if PY2:
+        # assert_frame_equal fails when comparing datetime.date and
+        # np.datetime64, even with check_datetimelike_compat=True so
+        # convert the values to np.datetime64 instead
+        for col in ['date32[day]_list', 'date64[ms]_list']:
+            df[col] = df[col].apply(
+                lambda x: list(map(np.datetime64, x)) if x else x
+            )
+
     tm.assert_frame_equal(df, df_read)
 
 
