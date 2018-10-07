@@ -138,7 +138,7 @@ test_that("Array supports unordered factors (ARROW-3355)", {
   f <- factor(c("itsy", "bitsy", "spider", "spider"))
   arr_fac <- array(f)
   expect_equal(arr_fac$length(), 4L)
-  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
+  expect_equal(arr_fac$type()$index_type(), int8())
   expect_identical(arr_fac$as_vector(), f)
   expect_true(arr_fac$IsValid(0))
   expect_true(arr_fac$IsValid(1))
@@ -147,7 +147,7 @@ test_that("Array supports unordered factors (ARROW-3355)", {
 
   sl <- arr_fac$Slice(1)
   expect_equal(sl$length(), 3L)
-  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
+  expect_equal(arr_fac$type()$index_type(), int8())
   expect_equal(sl$as_vector(), f[2:4])
 
   # with NA
@@ -155,7 +155,7 @@ test_that("Array supports unordered factors (ARROW-3355)", {
   # TODO: rm the suppressWarnings when https://github.com/r-lib/vctrs/issues/109
   arr_fac <- suppressWarnings(array(f))
   expect_equal(arr_fac$length(), 5L)
-  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
+  expect_equal(arr_fac$type()$index_type(), int8())
   expect_identical(arr_fac$as_vector(), f)
   expect_true(arr_fac$IsValid(0))
   expect_true(arr_fac$IsValid(1))
@@ -165,7 +165,7 @@ test_that("Array supports unordered factors (ARROW-3355)", {
 
   sl <- arr_fac$Slice(1)
   expect_equal(sl$length(), 4L)
-  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
+  expect_equal(arr_fac$type()$index_type(), int8())
   expect_equal(sl$as_vector(), f[2:5])
 })
 
@@ -174,7 +174,7 @@ test_that("Array supports ordered factors (ARROW-3355)", {
   f <- ordered(c("itsy", "bitsy", "spider", "spider"))
   arr_fac <- array(f)
   expect_equal(arr_fac$length(), 4L)
-  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f)), TRUE))
+  expect_equal(arr_fac$type()$index_type(), int8())
   expect_identical(arr_fac$as_vector(), f)
   expect_true(arr_fac$IsValid(0))
   expect_true(arr_fac$IsValid(1))
@@ -183,7 +183,7 @@ test_that("Array supports ordered factors (ARROW-3355)", {
 
   sl <- arr_fac$Slice(1)
   expect_equal(sl$length(), 3L)
-  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
+  expect_equal(arr_fac$type()$index_type(), int8())
   expect_equal(sl$as_vector(), f[2:4])
 
   # with NA
@@ -191,7 +191,7 @@ test_that("Array supports ordered factors (ARROW-3355)", {
   # TODO: rm the suppressWarnings when https://github.com/r-lib/vctrs/issues/109
   arr_fac <- suppressWarnings(array(f))
   expect_equal(arr_fac$length(), 5L)
-  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f)), TRUE))
+  expect_equal(arr_fac$type()$index_type(), int8())
   expect_identical(arr_fac$as_vector(), f)
   expect_true(arr_fac$IsValid(0))
   expect_true(arr_fac$IsValid(1))
@@ -201,7 +201,7 @@ test_that("Array supports ordered factors (ARROW-3355)", {
 
   sl <- arr_fac$Slice(1)
   expect_equal(sl$length(), 4L)
-  expect_equal(arr_fac$type(), dictionary(int32(), array(levels(f))))
+  expect_equal(arr_fac$type()$index_type(), int8())
   expect_equal(sl$as_vector(), f[2:5])
 })
 

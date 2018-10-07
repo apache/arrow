@@ -210,21 +210,24 @@ std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   return MakeArray(data);
 }
 
-std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor) {
+template <typename Type>
+std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor) {
+  using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
   auto dict_values = MakeStringArray(Rf_getAttrib(factor, R_LevelsSymbol));
-  auto dict_type = dictionary(int32(), dict_values, Rf_inherits(factor, "ordered"));
+  auto dict_type =
+      dictionary(std::make_shared<Type>(), dict_values, Rf_inherits(factor, "ordered"));
 
   auto n = factor.size();
 
   std::shared_ptr<Buffer> indices_buffer;
-  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(int32_t), &indices_buffer));
+  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(value_type), &indices_buffer));
 
   std::vector<std::shared_ptr<Buffer>> buffers{nullptr, indices_buffer};
 
   int64_t null_count = 0;
   R_xlen_t i = 0;
   auto p_factor = factor.begin();
-  auto p_indices = reinterpret_cast<int*>(indices_buffer->mutable_data());
+  auto p_indices = reinterpret_cast<value_type*>(indices_buffer->mutable_data());
   for (; i < n; i++, ++p_indices, ++p_factor) {
     if (*p_factor == NA_INTEGER) break;
     *p_indices = *p_factor - 1;
@@ -256,13 +259,25 @@ std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor) {
     buffers[0] = std::move(null_buffer);
   }
 
-  auto array_indices_data = ArrayData::Make(std::make_shared<Int32Type>(), n,
-                                            std::move(buffers), null_count, 0);
+  auto array_indices_data =
+      ArrayData::Make(std::make_shared<Type>(), n, std::move(buffers), null_count, 0);
   auto array_indices = MakeArray(array_indices_data);
 
   std::shared_ptr<Array> out;
   R_ERROR_NOT_OK(DictionaryArray::FromArrays(dict_type, array_indices, &out));
   return out;
+}
+
+std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor) {
+  SEXP levels = factor.attr("levels");
+  int n = Rf_length(levels);
+  if (n < 128) {
+    return MakeFactorArrayImpl<arrow::Int8Type>(factor);
+  } else if (n < 32768) {
+    return MakeFactorArrayImpl<arrow::Int16Type>(factor);
+  } else {
+    return MakeFactorArrayImpl<arrow::Int32Type>(factor);
+  }
 }
 
 template <typename T>
@@ -391,52 +406,6 @@ inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   return vec;
 }
 
-inline SEXP DictionaryArrayInt32Indices_to_Vector(
-    const std::shared_ptr<arrow::Array>& array) {
-  auto p_array = reinterpret_cast<const int*>(array->data()->buffers[1]->data() +
-                                              array->offset() * sizeof(int));
-
-  size_t n = array->length();
-  IntegerVector vec(no_init(n));
-  if (array->null_count()) {
-    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                                array->offset(), n);
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_array) {
-      vec[i] = bitmap_reader.IsNotSet() ? NA_INTEGER : (*p_array + 1);
-    }
-  } else {
-    std::transform(p_array, p_array + n, vec.begin(),
-                   [](int value) { return value + 1; });
-  }
-
-  return vec;
-}
-
-inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  size_t n = array->length();
-  LogicalVector vec(n);
-
-  // process the data
-  arrow::internal::BitmapReader data_reader(array->data()->buffers[1]->data(),
-                                            array->offset(), n);
-  for (size_t i = 0; i < n; i++, data_reader.Next()) {
-    vec[i] = data_reader.IsSet();
-  }
-
-  // then the null bitmap if needed
-  if (array->null_count()) {
-    arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
-                                              array->offset(), n);
-    for (size_t i = 0; i < n; i++, null_reader.Next()) {
-      if (null_reader.IsNotSet()) {
-        vec[i] = LogicalVector::get_na();
-      }
-    }
-  }
-
-  return vec;
-}
-
 inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   auto n = array->length();
   Rcpp::CharacterVector res(n);
@@ -485,23 +454,105 @@ inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   return res;
 }
 
+inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
+  size_t n = array->length();
+  LogicalVector vec(n);
+
+  // process the data
+  arrow::internal::BitmapReader data_reader(array->data()->buffers[1]->data(),
+                                            array->offset(), n);
+  for (size_t i = 0; i < n; i++, data_reader.Next()) {
+    vec[i] = data_reader.IsSet();
+  }
+
+  // then the null bitmap if needed
+  if (array->null_count()) {
+    arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
+                                              array->offset(), n);
+    for (size_t i = 0; i < n; i++, null_reader.Next()) {
+      if (null_reader.IsNotSet()) {
+        vec[i] = LogicalVector::get_na();
+      }
+    }
+  }
+
+  return vec;
+}
+
+template <typename Type>
+inline SEXP DictionaryArrayInt32Indices_to_Vector(
+    const std::shared_ptr<arrow::Array>& array, const std::shared_ptr<arrow::Array>& dict,
+    bool ordered) {
+  using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
+
+  size_t n = array->length();
+  IntegerVector vec(no_init(n));
+  vec.attr("levels") = StringArray_to_Vector(dict);
+  if (ordered) {
+    vec.attr("class") = CharacterVector::create("ordered", "factor");
+  } else {
+    vec.attr("class") = "factor";
+  }
+
+  if (n == 0) {
+    return vec;
+  }
+
+  auto null_count = array->null_count();
+  if (n == null_count) {
+    std::fill(vec.begin(), vec.end(), NA_INTEGER);
+    return vec;
+  }
+
+  std::shared_ptr<arrow::Buffer> values_buffer(array->data()->buffers[1]);
+  if (!values_buffer) stop("invalid data");
+
+  auto p_array =
+      reinterpret_cast<const value_type*>(values_buffer->data()) + array->offset();
+
+  if (array->null_count()) {
+    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                                array->offset(), n);
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_array) {
+      vec[i] = bitmap_reader.IsNotSet() ? NA_INTEGER : (static_cast<int>(*p_array) + 1);
+    }
+  } else {
+    std::transform(p_array, p_array + n, vec.begin(),
+                   [](const value_type value) { return static_cast<int>(value) + 1; });
+  }
+  return vec;
+}
+
 SEXP DictionaryArray_to_Vector(arrow::DictionaryArray* dict_array) {
   auto dict = dict_array->dictionary();
   auto indices = dict_array->indices();
 
-  if (dict->type_id() != Type::STRING || indices->type_id() != Type::INT32) {
+  if (dict->type_id() != Type::STRING) {
     stop("Cannot convert Dictionary Array of type `%s` to R",
          dict_array->type()->ToString());
   }
-
-  IntegerVector f = DictionaryArrayInt32Indices_to_Vector(indices);
-  f.attr("levels") = StringArray_to_Vector(dict);
-  if (dict_array->dict_type()->ordered()) {
-    f.attr("class") = CharacterVector::create("ordered", "factor");
-  } else {
-    f.attr("class") = "factor";
+  bool ordered = dict_array->dict_type()->ordered();
+  switch (indices->type_id()) {
+    case Type::UINT8:
+      return DictionaryArrayInt32Indices_to_Vector<arrow::UInt8Type>(indices, dict,
+                                                                     ordered);
+    case Type::INT8:
+      return DictionaryArrayInt32Indices_to_Vector<arrow::Int8Type>(indices, dict,
+                                                                    ordered);
+    case Type::UINT16:
+      return DictionaryArrayInt32Indices_to_Vector<arrow::UInt16Type>(indices, dict,
+                                                                      ordered);
+    case Type::INT16:
+      return DictionaryArrayInt32Indices_to_Vector<arrow::Int16Type>(indices, dict,
+                                                                     ordered);
+    case Type::INT32:
+      return DictionaryArrayInt32Indices_to_Vector<arrow::Int32Type>(indices, dict,
+                                                                     ordered);
+    default:
+      stop("Cannot convert Dictionary Array of type `%s` to R",
+           dict_array->type()->ToString());
   }
-  return f;
+  return R_NilValue;
 }
 
 SEXP Date32Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
