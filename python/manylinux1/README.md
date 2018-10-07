@@ -39,7 +39,6 @@ ls -l dist/
 ```
 
 ### Updating the build environment
-
 The base docker image is less often updated. In the case we want to update
 a dependency to a new version, we also need to adjust it. You can rebuild
 this image using

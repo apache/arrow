@@ -44,7 +44,7 @@
 #include "parquet/exception.h"
 #include "parquet/util/memory.h"
 
-#include "parquet/parquet_types.h"
+#include "parquet/parquet_types.h"  // IYWU pragma: export
 
 namespace parquet {
 

@@ -18,10 +18,9 @@
 #ifndef ARROW_IO_READAHEAD_H
 #define ARROW_IO_READAHEAD_H
 
+#include <cstdint>
 #include <memory>
-#include <string>
 
-#include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -31,6 +30,9 @@ class ResizableBuffer;
 class Status;
 
 namespace io {
+
+class InputStream;
+
 namespace internal {
 
 struct ARROW_EXPORT ReadaheadBuffer {

@@ -19,18 +19,24 @@
 
 #include "arrow/compare.h"
 
+#include <climits>
+#include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <memory>
+#include <string>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {

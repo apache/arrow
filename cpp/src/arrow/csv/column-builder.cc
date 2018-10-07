@@ -15,15 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <mutex>
 #include <utility>
+#include <vector>
 
+#include "arrow/array.h"
 #include "arrow/csv/column-builder.h"
+#include "arrow/csv/converter.h"
+#include "arrow/csv/options.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
+#include "arrow/type.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/macros.h"
+#include "arrow/util/task-group.h"
 
 namespace arrow {
 namespace csv {
+
+class BlockParser;
 
 using internal::TaskGroup;
 

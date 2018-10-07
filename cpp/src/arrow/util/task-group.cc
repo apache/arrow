@@ -16,10 +16,13 @@
 // under the License.
 
 #include "arrow/util/task-group.h"
+
+#include <condition_variable>
+#include <cstdint>
+#include <mutex>
+
 #include "arrow/util/logging.h"
 #include "arrow/util/thread-pool.h"
-
-#include <mutex>
 
 namespace arrow {
 namespace internal {

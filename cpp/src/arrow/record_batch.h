@@ -23,14 +23,14 @@
 #include <string>
 #include <vector>
 
-#include "arrow/array.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class KeyValueMetadata;
+class Array;
+struct ArrayData;
 class Status;
 
 /// \class RecordBatch

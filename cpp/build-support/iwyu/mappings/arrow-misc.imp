@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 [
+  { include: ["<ext/new_allocator.h>", private, "<cstddef>", public ] },
   { include: ["<ext/alloc_traits.h>", private, "<memory>", public ] },
   { include: ["<ext/alloc_traits.h>", private, "<condition_variable>", public ] },
   { include: ["<ext/alloc_traits.h>", private, "<deque>", public ] },
@@ -29,6 +30,7 @@
   { include: ["<bits/stdint-intn.h>", private, "<cstdint>", public ] },
   { include: ["<bits/stdint-uintn.h>", private, "<cstdint>", public ] },
   { include: ["<bits/shared_ptr.h>", private, "<memory>", public ] },
+  { include: ["<initializer_list>", public, "<vector>", public ] },
   { symbol: ["bool", private, "<cstdint>", public ] },
   { symbol: ["false", private, "<cstdint>", public ] },
   { symbol: ["true", private, "<cstdint>", public ] },
@@ -40,6 +42,9 @@
   { symbol: ["uint16_t", private, "<cstdint>", public ] },
   { symbol: ["uint32_t", private, "<cstdint>", public ] },
   { symbol: ["uint64_t", private, "<cstdint>", public ] },
+  { symbol: ["size_t", private, "<cstddef>", public ] },
+  { symbol: ["variant", private, "\"arrow/compute/kernel.h\"", public ] },
+  { symbol: ["Array", private, "\"arrow/type_fwd.h\"", public ] },
   { symbol: ["make_shared", private, "<memory>", public ] },
   { symbol: ["shared_ptr", private, "<memory>", public ] },
   { symbol: ["_Node_const_iterator", private, "<flatbuffers/flatbuffers.h>", public ] },

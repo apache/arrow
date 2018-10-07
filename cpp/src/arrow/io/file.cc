@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/windows_compatibility.h"
+#include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 // sys/mman.h not present in Visual Studio or Cygwin
 #ifdef _WIN32
@@ -27,17 +27,17 @@
 #undef Free
 #else
 #include <sys/mman.h>
-#include <unistd.h>
+#include <unistd.h>  // IWYU pragma: keep
 #endif
-
-#include <string.h>
 
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <mutex>
 #include <sstream>
+#include <string>
 
 // ----------------------------------------------------------------------
 // Other Arrow includes
@@ -549,7 +549,7 @@ Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes
   std::lock_guard<std::mutex> resize_guard(memory_map_->resize_lock());
   nbytes = std::max<int64_t>(0, std::min(nbytes, memory_map_->size() - position));
   if (nbytes > 0) {
-    std::memcpy(out, memory_map_->data() + position, static_cast<size_t>(nbytes));
+    memcpy(out, memory_map_->data() + position, static_cast<size_t>(nbytes));
   }
   *bytes_read = nbytes;
   return Status::OK();

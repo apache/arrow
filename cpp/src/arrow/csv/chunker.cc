@@ -16,11 +16,11 @@
 // under the License.
 
 #include "arrow/csv/chunker.h"
+
+#include <cstdint>
+
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-
-#include <sstream>
-#include <string>
 
 namespace arrow {
 namespace csv {

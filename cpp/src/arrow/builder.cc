@@ -17,9 +17,9 @@
 
 #include "arrow/builder.h"
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <limits>
 #include <numeric>
 #include <sstream>
 #include <utility>
@@ -27,7 +27,6 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/compare.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

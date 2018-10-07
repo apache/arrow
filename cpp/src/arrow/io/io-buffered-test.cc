@@ -15,10 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifndef _WIN32
+#include <fcntl.h>  // IWYU pragma: keep
+#include <unistd.h>
+#endif
+
+#include <algorithm>
+#include <cstdint>
+#include <cstdio>
+#include <functional>
+#include <iterator>
 #include <memory>
 #include <random>
 #include <string>
+#include <utility>
 #include <valarray>
+#include <vector>
 
 #include <gtest/gtest.h>
 

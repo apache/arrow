@@ -16,28 +16,32 @@
 // under the License.
 
 #include <cstdint>
-#include <cstdio>
-#include <cstring>
+#include <limits>
 #include <memory>
+#include <ostream>
 #include <string>
-#include <vector>
 
-#include "gtest/gtest.h"
+#include <flatbuffers/flatbuffers.h>
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/builder.h"
+#include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test-common.h"
-#include "arrow/ipc/Message_generated.h"
-#include "arrow/ipc/api.h"
+#include "arrow/ipc/Message_generated.h"  // IWYU pragma: keep
+#include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata-internal.h"
+#include "arrow/ipc/reader.h"
 #include "arrow/ipc/test-common.h"
-#include "arrow/ipc/util.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
-#include "arrow/pretty_print.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/test-util.h"
+#include "arrow/type.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 

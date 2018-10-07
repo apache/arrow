@@ -22,18 +22,28 @@
 #define RAPIDJSON_HAS_CXX11_RVALUE_REFS 1
 #define RAPIDJSON_HAS_CXX11_RANGE_FOR 1
 
+#define RAPIDJSON_NAMESPACE arrow::rapidjson
+#define RAPIDJSON_NAMESPACE_BEGIN \
+  namespace arrow {               \
+  namespace rapidjson {
+#define RAPIDJSON_NAMESPACE_END \
+  }                             \
+  }
+
 #include <memory>
 #include <sstream>
 #include <string>
 
-#include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
+#include "rapidjson/document.h"      // IWYU pragma: export
+#include "rapidjson/encodings.h"     // IWYU pragma: export
+#include "rapidjson/stringbuffer.h"  // IWYU pragma: export
+#include "rapidjson/writer.h"        // IWYU pragma: export
 
-#include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/status.h"    // IWYU pragma: export
+#include "arrow/type_fwd.h"  // IWYU pragma: keep
 #include "arrow/util/visibility.h"
 
-namespace rj = rapidjson;
+namespace rj = arrow::rapidjson;
 using RjWriter = rj::Writer<rj::StringBuffer>;
 using RjArray = rj::Value::ConstArray;
 using RjObject = rj::Value::ConstObject;

@@ -15,24 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
-#include <cstdlib>
+#include <cstring>
+#include <iterator>
+#include <limits>
 #include <memory>
 #include <numeric>
+#include <ostream>
+#include <string>
+#include <type_traits>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/lazy.h"

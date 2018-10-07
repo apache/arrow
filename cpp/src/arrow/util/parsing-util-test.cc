@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-
 #include <locale>
+#include <stdexcept>
 #include <string>
 
-#include "arrow/status.h"
-#include "arrow/test-util.h"
+#include <gtest/gtest.h>
+
+#include "arrow/type.h"
 #include "arrow/util/parsing.h"
 
 namespace arrow {

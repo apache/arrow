@@ -21,7 +21,6 @@
 #define ARROW_IPC_WRITER_H
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <vector>
 
@@ -30,9 +29,7 @@
 
 namespace arrow {
 
-class Array;
 class Buffer;
-class Field;
 class MemoryPool;
 class RecordBatch;
 class Schema;

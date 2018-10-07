@@ -19,21 +19,29 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <sstream>
+#include <unordered_map>
 #include <utility>
 
-#include <arrow/buffer.h>
-#include <arrow/memory_pool.h>
-#include <arrow/status.h>
-#include <arrow/util/bit-util.h>
-#include <arrow/util/rle-encoding.h>
+#include "arrow/buffer.h"
+#include "arrow/builder.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/bit-util.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/rle-encoding.h"
 
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/encoding-internal.h"
+#include "parquet/encoding.h"
 #include "parquet/exception.h"
 #include "parquet/properties.h"
+#include "parquet/schema.h"
+#include "parquet/types.h"
 
 using arrow::MemoryPool;
 
