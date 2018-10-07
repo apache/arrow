@@ -265,6 +265,69 @@ std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor) {
   return out;
 }
 
+template <typename T>
+int64_t time_cast(T value);
+
+template <>
+inline int64_t time_cast<int>(int value) {
+  return static_cast<int64_t>(value) * 1000;
+}
+
+template <>
+inline int64_t time_cast<double>(double value) {
+  return static_cast<int64_t>(value * 1000);
+}
+
+template <int RTYPE>
+std::shared_ptr<Array> Date64Array_From_POSIXct(SEXP x) {
+  using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
+  Rcpp::Vector<RTYPE> vec(x);
+  auto p_vec = vec.begin();
+  auto n = vec.size();
+
+  std::shared_ptr<Buffer> values_buffer;
+  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(int64_t), &values_buffer));
+  auto p_values = reinterpret_cast<int64_t*>(values_buffer->mutable_data());
+
+  std::vector<std::shared_ptr<Buffer>> buffers{nullptr, values_buffer};
+
+  int null_count = 0;
+  R_xlen_t i = 0;
+  for (; i < n; i++, ++p_vec, ++p_values) {
+    if (Rcpp::Vector<RTYPE>::is_na(*p_vec)) break;
+    *p_values = time_cast(*p_vec);
+  }
+  if (i < n) {
+    std::shared_ptr<Buffer> null_buffer;
+    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
+    internal::FirstTimeBitmapWriter bitmap_writer(null_buffer->mutable_data(), 0, n);
+
+    // catch up
+    for (R_xlen_t j = 0; j < i; j++, bitmap_writer.Next()) {
+      bitmap_writer.Set();
+    }
+
+    // finish
+    for (; i < n; i++, ++p_vec, ++p_values, bitmap_writer.Next()) {
+      if (Rcpp::Vector<RTYPE>::is_na(*p_vec)) {
+        bitmap_writer.Clear();
+        null_count++;
+      } else {
+        bitmap_writer.Set();
+        *p_values = time_cast(*p_vec);
+      }
+    }
+
+    bitmap_writer.Finish();
+    buffers[0] = std::move(null_buffer);
+  }
+
+  auto data = ArrayData::Make(std::make_shared<Date64Type>(), n, std::move(buffers),
+                              null_count, 0);
+
+  return std::make_shared<Date64Array>(data);
+}
+
 }  // namespace r
 }  // namespace arrow
 
@@ -280,13 +343,16 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
       if (Rf_inherits(x, "Date")) {
         return arrow::r::SimpleArray<INTSXP, arrow::Date32Type>(x);
       }
+      if (Rf_inherits(x, "POSIXct")) {
+        return arrow::r::Date64Array_From_POSIXct<INTSXP>(x);
+      }
       return arrow::r::SimpleArray<INTSXP, arrow::Int32Type>(x);
     case REALSXP:
       if (Rf_inherits(x, "Date")) {
         return arrow::r::SimpleArray<INTSXP, arrow::Date32Type>(x);
       }
       if (Rf_inherits(x, "POSIXct")) {
-        return arrow::r::SimpleArray<REALSXP, arrow::Date64Type>(x);
+        return arrow::r::Date64Array_From_POSIXct<REALSXP>(x);
       }
       return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
     case RAWSXP:
@@ -325,26 +391,26 @@ inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   return vec;
 }
 
-inline SEXP DictionaryArrayInt32Indices_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  auto p_array = reinterpret_cast<const int*>(
-    array->data()->buffers[1]->data() + array->offset() * sizeof(int));
+inline SEXP DictionaryArrayInt32Indices_to_Vector(
+    const std::shared_ptr<arrow::Array>& array) {
+  auto p_array = reinterpret_cast<const int*>(array->data()->buffers[1]->data() +
+                                              array->offset() * sizeof(int));
 
   size_t n = array->length();
   IntegerVector vec(no_init(n));
   if (array->null_count()) {
     arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-      array->offset(), n);
+                                                array->offset(), n);
     for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_array) {
       vec[i] = bitmap_reader.IsNotSet() ? NA_INTEGER : (*p_array + 1);
     }
   } else {
-    std::transform(p_array, p_array + n, vec.begin(), [](int value){ return value + 1;});
+    std::transform(p_array, p_array + n, vec.begin(),
+                   [](int value) { return value + 1; });
   }
 
   return vec;
 }
-
-
 
 inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   size_t n = array->length();
@@ -424,7 +490,8 @@ SEXP DictionaryArray_to_Vector(arrow::DictionaryArray* dict_array) {
   auto indices = dict_array->indices();
 
   if (dict->type_id() != Type::STRING || indices->type_id() != Type::INT32) {
-    stop("Cannot convert Dictionary Array of type `%s` to R", dict_array->type()->ToString());
+    stop("Cannot convert Dictionary Array of type `%s` to R",
+         dict_array->type()->ToString());
   }
 
   IntegerVector f = DictionaryArrayInt32Indices_to_Vector(indices);
@@ -443,10 +510,38 @@ SEXP Date32Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   return out;
 }
 
-SEXP Date64Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  NumericVector out(simple_Array_to_Vector<REALSXP>(array));
-  out.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
-  return out;
+SEXP Date64Array_to_Vector(const std::shared_ptr<arrow::Array> array) {
+  auto n = array->length();
+  NumericVector vec(n);
+  vec.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
+  if (n == 0) {
+    return vec;
+  }
+  auto null_count = array->null_count();
+  if (null_count == n) {
+    std::fill(vec.begin(), vec.end(), NA_REAL);
+    return vec;
+  }
+  std::shared_ptr<arrow::Buffer> values_buffer(array->data()->buffers[1]);
+  if (!values_buffer) {
+    stop("invalid data");
+  }
+  auto p_values =
+      reinterpret_cast<const int64_t*>(values_buffer->data()) + array->offset();
+  auto p_vec = vec.begin();
+
+  if (null_count) {
+    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                                array->offset(), n);
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_vec, ++p_values) {
+      *p_vec = bitmap_reader.IsSet() ? static_cast<double>(*p_values / 1000) : NA_REAL;
+    }
+  } else {
+    std::transform(p_values, p_values + n, vec.begin(),
+                   [](int64_t value) { return static_cast<double>(value / 1000); });
+  }
+
+  return vec;
 }
 
 // [[Rcpp::export]]
