@@ -325,6 +325,27 @@ inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   return vec;
 }
 
+inline SEXP DictionaryArrayInt32Indices_to_Vector(const std::shared_ptr<arrow::Array>& array) {
+  auto p_array = reinterpret_cast<const int*>(
+    array->data()->buffers[1]->data() + array->offset() * sizeof(int));
+
+  size_t n = array->length();
+  IntegerVector vec(no_init(n));
+  if (array->null_count()) {
+    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+      array->offset(), n);
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_array) {
+      vec[i] = bitmap_reader.IsNotSet() ? NA_INTEGER : (*p_array + 1);
+    }
+  } else {
+    std::transform(p_array, p_array + n, vec.begin(), [](int value){ return value + 1;});
+  }
+
+  return vec;
+}
+
+
+
 inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   size_t n = array->length();
   LogicalVector vec(n);
@@ -403,11 +424,10 @@ SEXP DictionaryArray_to_Vector(arrow::DictionaryArray* dict_array) {
   auto indices = dict_array->indices();
 
   if (dict->type_id() != Type::STRING || indices->type_id() != Type::INT32) {
-    stop("Cannot convert Dictionary Array of type `%s`", dict_array->type()->ToString());
+    stop("Cannot convert Dictionary Array of type `%s` to R", dict_array->type()->ToString());
   }
 
-  IntegerVector f = simple_Array_to_Vector<INTSXP>(indices);
-  f = f + 1;
+  IntegerVector f = DictionaryArrayInt32Indices_to_Vector(indices);
   f.attr("levels") = StringArray_to_Vector(dict);
   if (dict_array->dict_type()->ordered()) {
     f.attr("class") = CharacterVector::create("ordered", "factor");
