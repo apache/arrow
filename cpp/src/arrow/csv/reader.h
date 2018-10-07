@@ -20,7 +20,7 @@
 
 #include <memory>
 
-#include "arrow/csv/options.h"
+#include "arrow/csv/options.h"  // IWYU pragma: keep
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 

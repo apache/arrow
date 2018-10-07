@@ -18,9 +18,9 @@
 #ifndef PYARROW_NUMPY_INTEROP_H
 #define PYARROW_NUMPY_INTEROP_H
 
-#include "arrow/python/platform.h"
+#include "arrow/python/platform.h"  // IWYU pragma: export
 
-#include <numpy/numpyconfig.h>
+#include <numpy/numpyconfig.h>  // IWYU pragma: export
 
 // Don't use the deprecated Numpy functions
 #ifdef NPY_1_7_API_VERSION
@@ -39,9 +39,9 @@
 #define NO_IMPORT_ARRAY
 #endif
 
-#include <numpy/arrayobject.h>
-#include <numpy/arrayscalars.h>
-#include <numpy/ufuncobject.h>
+#include <numpy/arrayobject.h>   // IWYU pragma: export
+#include <numpy/arrayscalars.h>  // IWYU pragma: export
+#include <numpy/ufuncobject.h>   // IWYU pragma: export
 
 // A bit subtle. Numpy has 5 canonical integer types:
 // (or, rather, type pairs: signed and unsigned)

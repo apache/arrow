@@ -18,24 +18,31 @@
 #ifndef PARQUET_ARROW_READER_H
 #define PARQUET_ARROW_READER_H
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
-#include "parquet/api/reader.h"
-#include "parquet/api/schema.h"
+#include "parquet/util/visibility.h"
 
 #include "arrow/io/interfaces.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
 class Array;
 class MemoryPool;
 class RecordBatchReader;
+class Schema;
 class Status;
 class Table;
+
 }  // namespace arrow
 
 namespace parquet {
+
+class FileMetaData;
+class ParquetFileReader;
+class ReaderProperties;
 
 namespace arrow {
 

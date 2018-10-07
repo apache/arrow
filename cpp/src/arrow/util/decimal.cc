@@ -16,17 +16,21 @@
 // under the License.
 
 #include <algorithm>
-#include <cctype>
+#include <array>
 #include <climits>
-#include <cmath>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <iomanip>
 #include <limits>
 #include <sstream>
+#include <string>
 
+#include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 

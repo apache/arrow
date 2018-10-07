@@ -50,6 +50,9 @@ DEFINE_bool(verbose, true, "Verbose output");
 namespace fs = boost::filesystem;
 
 namespace arrow {
+
+class Buffer;
+
 namespace ipc {
 
 bool file_exists(const char* path) {

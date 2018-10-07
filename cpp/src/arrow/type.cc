@@ -18,7 +18,8 @@
 #include "arrow/type.h"
 
 #include <climits>
-#include <sstream>
+#include <cstddef>
+#include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <utility>
 #include <vector>

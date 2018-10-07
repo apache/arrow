@@ -17,24 +17,36 @@
 
 #include "arrow/compute/kernels/hash.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
 #include <exception>
-#include <limits>
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/util-internal.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash-util.h"
 #include "arrow/util/hash.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
+
+class MemoryPool;
 
 using internal::checked_cast;
 

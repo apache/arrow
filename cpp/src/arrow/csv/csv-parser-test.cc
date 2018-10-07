@@ -15,11 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-
+#include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include <gtest/gtest.h>
+
+#include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
 #include "arrow/csv/test-common.h"
 #include "arrow/status.h"

@@ -18,14 +18,15 @@
 #include "arrow/compute/kernels/util-internal.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/util/logging.h"
 
-#include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 
 namespace arrow {

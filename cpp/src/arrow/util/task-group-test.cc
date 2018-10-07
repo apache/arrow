@@ -15,20 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef _WIN32
-#include <sys/wait.h>
-#include <unistd.h>
-#endif
-
 #include <atomic>
 #include <chrono>
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <random>
+#include <thread>
 #include <vector>
+
+#include <gtest/gtest.h>
 
 #include "arrow/status.h"
 #include "arrow/test-util.h"
-#include "arrow/util/macros.h"
 #include "arrow/util/task-group.h"
 #include "arrow/util/thread-pool.h"
 

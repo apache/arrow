@@ -22,15 +22,17 @@
 
 #define _FILE_OFFSET_BITS 64
 
-#include "arrow/util/windows_compatibility.h"
+#include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 #include <algorithm>
 #include <cerrno>
+#include <cstdint>
+#include <cstring>
 #include <sstream>
+#include <string>
 
 #include <fcntl.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>  // IWYU pragma: keep
 
@@ -90,6 +92,7 @@
 
 #endif
 
+#include "arrow/status.h"
 #include "arrow/util/io-util.h"
 
 namespace arrow {

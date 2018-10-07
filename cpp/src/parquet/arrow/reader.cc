@@ -18,26 +18,30 @@
 #include "parquet/arrow/reader.h"
 
 #include <algorithm>
-#include <atomic>
-#include <chrono>
-#include <mutex>
-#include <queue>
+#include <climits>
+#include <cstring>
+#include <future>
+#include <ostream>
 #include <string>
-#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "arrow/api.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread-pool.h"
 
 #include "parquet/arrow/record_reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/column_reader.h"
+#include "parquet/exception.h"
+#include "parquet/file_reader.h"
+#include "parquet/metadata.h"
+#include "parquet/properties.h"
 #include "parquet/schema.h"
+#include "parquet/types.h"
+#include "parquet/util/memory.h"
 #include "parquet/util/schema-util.h"
 
 using arrow::Array;

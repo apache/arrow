@@ -173,9 +173,12 @@ else()
   endif()
 endif()
 
-# Disable annoying "performance warning" about int-to-bool conversion
 if ("${COMPILER_FAMILY}" STREQUAL "msvc")
+  # Disable annoying "performance warning" about int-to-bool conversion
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4800")
+
+  # Disable unchecked iterator warnings, equivalent to /D_SCL_SECURE_NO_WARNINGS
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4996")
 endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "gcc" AND

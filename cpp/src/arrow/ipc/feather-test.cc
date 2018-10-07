@@ -15,25 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
 #include <memory>
-#include <random>
 #include <sstream>
 #include <string>
-#include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
+#include "arrow/array.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/feather-internal.h"
-#include "arrow/ipc/feather.h"
+#include "arrow/ipc/feather_generated.h"
 #include "arrow/ipc/test-common.h"
+#include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
-#include "arrow/table.h"
+#include "arrow/record_batch.h"
+#include "arrow/status.h"
 #include "arrow/test-util.h"
+#include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+class Buffer;
 
 using internal::checked_cast;
 

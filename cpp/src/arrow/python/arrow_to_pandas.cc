@@ -17,11 +17,10 @@
 
 // Functions for pandas conversion via NumPy
 
-#include "arrow/python/numpy_interop.h"
+#include "arrow/python/numpy_interop.h"  // IWYU pragma: expand
 
 #include "arrow/python/arrow_to_pandas.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -31,13 +30,12 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/type_fwd.h"
+#include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parallel.h"
@@ -56,6 +54,8 @@
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {
+
+class MemoryPool;
 
 using internal::checked_cast;
 using internal::ParallelFor;

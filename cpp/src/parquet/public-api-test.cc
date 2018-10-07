@@ -17,10 +17,10 @@
 
 #include <gtest/gtest.h>
 
-#include "parquet/api/io.h"
-#include "parquet/api/reader.h"
-#include "parquet/api/schema.h"
-#include "parquet/api/writer.h"
+#include "parquet/api/io.h"      // IWYU pragma: keep
+#include "parquet/api/reader.h"  // IWYU pragma: keep
+#include "parquet/api/schema.h"  // IWYU pragma: keep
+#include "parquet/api/writer.h"  // IWYU pragma: keep
 
 TEST(TestPublicAPI, DoesNotIncludeThrift) {
 #ifdef _THRIFT_THRIFT_H_

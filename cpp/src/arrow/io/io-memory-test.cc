@@ -26,7 +26,6 @@
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"
 #include "arrow/util/checked_cast.h"
