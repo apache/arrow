@@ -17,6 +17,8 @@
 
 #include "arrow/util/hash.h"
 
+#include <algorithm>
+
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 

@@ -31,7 +31,7 @@
 
 namespace arrow {
 
-class KeyValueMetadata;
+class MemoryPool;
 class Status;
 
 /// \class ChunkedArray

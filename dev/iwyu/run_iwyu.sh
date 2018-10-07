@@ -18,8 +18,8 @@
 
 # Set up environment and working directory
 CLANG_VERSION=6.0
-IWYU_BUILD_DIR=`pwd`/arrow/cpp/docker-iwyu
-IWYU_SH=`pwd`/arrow/cpp/build-support/iwyu/iwyu.sh
+IWYU_BUILD_DIR=/arrow/cpp/docker-iwyu
+IWYU_SH=/arrow/cpp/build-support/iwyu/iwyu.sh
 IWYU_URL=https://github.com/include-what-you-use/include-what-you-use/archive/clang_$CLANG_VERSION.tar.gz
 
 rm -rf $IWYU_BUILD_DIR
@@ -49,6 +49,8 @@ pushd iwyu-build
 # iwyu needs this
 apt-get install -y zlib1g-dev
 
+source activate pyarrow-dev
+
 cmake -G "Unix Makefiles" -DIWYU_LLVM_ROOT_PATH=/usr/lib/llvm-$CLANG_VERSION $IWYU_SRC
 make -j4
 popd
@@ -56,11 +58,15 @@ popd
 # Add iwyu and iwyu_tool.py to path
 export PATH=$IWYU_BUILD_DIR/iwyu-build:$PATH
 
-conda activate pyarrow-dev
+export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 
-cmake -GNinja -DARROW_PYTHON=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+cmake -GNinja \
+      -DARROW_PARQUET=ON \
+      -DARROW_PYTHON=ON \
+      -DCMAKE_CXX_FLAGS='-D_GLIBCXX_USE_CXX11_ABI=0' \
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
 
 # Make so that vendored bits are built
-ninja
+ninja arrow_shared
 
 $IWYU_SH all

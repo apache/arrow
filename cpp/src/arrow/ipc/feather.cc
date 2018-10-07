@@ -33,10 +33,10 @@
 #include "arrow/ipc/feather-internal.h"
 #include "arrow/ipc/feather_generated.h"
 #include "arrow/ipc/util.h"  // IWYU pragma: keep
-#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
+#include "arrow/table.h"  // IWYU pragma: keep
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"

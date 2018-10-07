@@ -21,13 +21,13 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
-#include <sstream>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/util.h"
@@ -40,6 +40,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/visitor.h"
 
 namespace arrow {
 

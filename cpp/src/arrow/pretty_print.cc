@@ -15,10 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstddef>
+#include <cstdint>
+#include <iostream>
 #include <memory>
-#include <ostream>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/array.h"
@@ -29,7 +32,6 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 #include "arrow/visitor_inline.h"
 

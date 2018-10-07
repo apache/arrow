@@ -23,7 +23,6 @@
 #include <limits>
 #include <memory>
 #include <sstream>
-#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -31,14 +30,13 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
-#include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/parsing.h"
+#include "arrow/util/parsing.h"  // IWYU pragma: keep
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"

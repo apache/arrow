@@ -20,20 +20,19 @@
 
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <vector>
 
+#include "arrow/builder.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class ArrayBuilder;
 class MemoryPool;
 class RecordBatch;
-class Schema;
 
 /// \class RecordBatchBuilder
 /// \brief Helper class for creating record batches iteratively given a known

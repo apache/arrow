@@ -19,10 +19,12 @@
 #define ARROW_CSV_PARSER_H
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "arrow/csv/options.h"
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

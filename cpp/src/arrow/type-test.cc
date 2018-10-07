@@ -24,10 +24,8 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/key_value_metadata.h"
 
 using std::shared_ptr;
 using std::vector;

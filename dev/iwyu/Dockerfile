@@ -17,7 +17,7 @@
 
 FROM arrow_integration_xenial_base
 
-ADD . /apache-arrow
-WORKDIR /apache-arrow
+ADD dev/iwyu/run_iwyu.sh /run_iwyu.sh
 
-CMD arrow/dev/iwyu/run_iwyu.sh
+WORKDIR /tmp
+CMD /run_iwyu.sh

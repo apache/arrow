@@ -15,16 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-
-#include <algorithm>
+#include <cstdint>
 #include <numeric>
 #include <string>
-#include <vector>
+
+#include <gtest/gtest.h>
 
 #include "arrow/csv/chunker.h"
+#include "arrow/csv/options.h"
 #include "arrow/csv/test-common.h"
-#include "arrow/status.h"
 #include "arrow/test-util.h"
 
 namespace arrow {

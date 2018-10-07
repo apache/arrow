@@ -17,16 +17,11 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
-#include <exception>
 #include <memory>
-#include <string>
-#include <vector>
 
-#include "parquet/column_reader.h"
+#include "parquet/column_page.h"
 #include "parquet/exception.h"
 #include "parquet/file_reader.h"
 #include "parquet/thrift.h"
@@ -34,6 +29,8 @@
 #include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 
+#include "arrow/io/memory.h"
+#include "arrow/status.h"
 #include "arrow/util/compression.h"
 
 namespace parquet {

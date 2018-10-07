@@ -17,8 +17,13 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <sstream>
+#include <string>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"

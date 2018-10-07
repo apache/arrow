@@ -15,19 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-
+#include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
+#include <gtest/gtest.h>
+
 #include "arrow/array.h"
 #include "arrow/csv/converter.h"
+#include "arrow/csv/options.h"
 #include "arrow/csv/test-common.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"
+#include "arrow/type.h"
 
 namespace arrow {
 namespace csv {
+
+class BlockParser;
 
 // All recognized (non-empty) null values
 std::vector<std::string> AllNulls() {

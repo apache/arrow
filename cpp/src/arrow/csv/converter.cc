@@ -16,15 +16,18 @@
 // under the License.
 
 #include "arrow/csv/converter.h"
-#include "arrow/builder.h"
-#include "arrow/status.h"
-#include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/parsing.h"
 
 #include <cstring>
 #include <sstream>
 #include <string>
+
+#include "arrow/builder.h"
+#include "arrow/csv/parser.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/parsing.h"  // IWYU pragma: keep
 
 namespace arrow {
 namespace csv {

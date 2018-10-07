@@ -15,16 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
-#include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/table_builder.h"
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"
@@ -32,6 +33,8 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+class Array;
 
 using internal::checked_cast;
 

@@ -16,8 +16,6 @@
 // under the License.
 
 #include "arrow/util/thread-pool.h"
-#include "arrow/util/io-util.h"
-#include "arrow/util/logging.h"
 
 #include <algorithm>
 #include <condition_variable>
@@ -25,6 +23,10 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
+
+#include "arrow/util/io-util.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace internal {

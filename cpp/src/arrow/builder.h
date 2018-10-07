@@ -18,13 +18,15 @@
 #ifndef ARROW_BUILDER_H
 #define ARROW_BUILDER_H
 
-#include <algorithm>
+#include <algorithm>  // IWYU pragma: keep
 #include <array>
 #include <cstdint>
-#include <functional>
+#include <cstring>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -35,21 +37,17 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/hash.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Array;
+struct ArrayData;
 class Decimal128;
 
 constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
 constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1;
-
-namespace internal {
-
-struct ArrayData;
-
-}  // namespace internal
 
 constexpr int64_t kMinBuilderCapacity = 1 << 5;
 
