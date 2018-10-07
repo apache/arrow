@@ -307,8 +307,7 @@ class Date64Converter : public TypedConverter<Date64Type, Date64Converter> {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
       t = PyDate_to_ms(pydate);
     } else {
-      RETURN_NOT_OK(
-          internal::CIntFromPython(obj, &t, "Integer too large for date64"));
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date64"));
     }
     return typed_builder_->Append(t);
   }
