@@ -288,29 +288,29 @@ class NumericConverter
 class Date32Converter : public TypedConverter<Date32Type, Date32Converter> {
  public:
   Status AppendItem(PyObject* obj) {
-    int32_t days;
+    int32_t t;
     if (PyDate_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      days = static_cast<int32_t>(PyDate_to_days(pydate));
+      t = static_cast<int32_t>(PyDate_to_days(pydate));
     } else {
-      RETURN_NOT_OK(internal::CIntFromPython(obj, &days, "Integer too large for date32"));
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date32"));
     }
-    return typed_builder_->Append(days);
+    return typed_builder_->Append(t);
   }
 };
 
 class Date64Converter : public TypedConverter<Date64Type, Date64Converter> {
  public:
   Status AppendItem(PyObject* obj) {
-    int64_t milliseconds;
+    int64_t t;
     if (PyDate_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      milliseconds = PyDate_to_ms(pydate);
+      t = PyDate_to_ms(pydate);
     } else {
       RETURN_NOT_OK(
-          internal::CIntFromPython(obj, &milliseconds, "Integer too large for date64"));
+          internal::CIntFromPython(obj, &t, "Integer too large for date64"));
     }
-    return typed_builder_->Append(milliseconds);
+    return typed_builder_->Append(t);
   }
 };
 
@@ -320,15 +320,15 @@ class Time32Converter : public TypedConverter<Time32Type, Time32Converter> {
 
   Status AppendItem(PyObject* obj) {
     // TODO(kszucs): option for strict conversion?
+    int32_t t;
     if (PyTime_Check(obj)) {
       // datetime.time stores microsecond resolution
-      Time32Type::c_type t;
       switch (unit_) {
         case TimeUnit::SECOND:
-          t = PyTime_to_s(obj);
+          t = static_cast<int32_t>(PyTime_to_s(obj));
           break;
         case TimeUnit::MILLI:
-          t = PyTime_to_ms(obj);
+          t = static_cast<int32_t>(PyTime_to_ms(obj));
           break;
         default:
           return Status::UnknownError("Invalid time unit");
@@ -348,9 +348,9 @@ class Time64Converter : public TypedConverter<Time64Type, Time64Converter> {
   explicit Time64Converter(TimeUnit::type unit) : unit_(unit) {}
 
   Status AppendItem(PyObject* obj) {
+    int64_t t;
     if (PyTime_Check(obj)) {
       // datetime.time stores microsecond resolution
-      Time64Type::c_type t;
       switch (unit_) {
         case TimeUnit::MICRO:
           t = PyTime_to_us(obj);
