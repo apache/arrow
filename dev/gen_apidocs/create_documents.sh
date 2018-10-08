@@ -48,7 +48,6 @@ popd
 
 # Make Python documentation (Depends on C++ )
 # Build Arrow C++
-conda activate pyarrow-dev
 export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export LD_LIBRARY_PATH=$(pwd)/apidocs-dist/lib:${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH}
