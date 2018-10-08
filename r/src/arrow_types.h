@@ -37,7 +37,6 @@ namespace Rcpp {
 namespace traits {
 
 struct wrap_type_shared_ptr_tag {};
-struct wrap_type_static_ptr_tag {};
 
 template <typename T>
 struct wrap_type_traits<std::shared_ptr<T>> {
@@ -52,9 +51,6 @@ namespace internal {
 
 template <typename T>
 inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag);
-
-template <typename T>
-inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_static_ptr_tag);
 
 }  // namespace internal
 
@@ -101,11 +97,39 @@ inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag) {
 }  // namespace Rcpp
 
 namespace Rcpp {
+using IntegerVector_ = Rcpp::Vector<INTSXP, Rcpp::NoProtectStorage>;
 using LogicalVector_ = Rcpp::Vector<LGLSXP, Rcpp::NoProtectStorage>;
 using StringVector_ = Rcpp::Vector<STRSXP, Rcpp::NoProtectStorage>;
+using CharacterVector_ = StringVector_;
+
+template <int RTYPE>
+inline typename Rcpp::Vector<RTYPE>::stored_type default_value() {
+  return Rcpp::Vector<RTYPE>::get_na();
+}
+template <>
+inline Rbyte default_value<RAWSXP>() {
+  return 0;
+}
+
 }  // namespace Rcpp
 
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x);
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
+
+namespace arrow {
+namespace r {
+
+template <typename T>
+inline const T* GetValuesSafely(const std::shared_ptr<ArrayData>& data, int i,
+                                int64_t offset) {
+  auto buffer = data->buffers[i];
+  if (!buffer) {
+    Rcpp::stop(tfm::format("invalid data in buffer %d", i));
+  };
+  return reinterpret_cast<const T*>(buffer->data()) + offset;
+}
+
+}  // namespace r
+}  // namespace arrow
