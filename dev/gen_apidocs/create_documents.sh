@@ -61,6 +61,7 @@ cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DARROW_PYTHON=on \
       -DARROW_PLASMA=on \
+      -DARROW_PARQUET=on \
       -DARROW_BUILD_TESTS=OFF \
       -GNinja \
       ..
@@ -84,19 +85,6 @@ make -j4 GTK_DOC_V_XREF=": "
 mkdir -p ../../site/asf-site/docs/c_glib
 rsync -r doc/reference/html/ ../../site/asf-site/docs/c_glib
 popd
-popd
-
-# Build Parquet C++
-mkdir -p parquet-cpp/build_apidocs
-pushd parquet-cpp/build_apidocs
-cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-      -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
-      -DPARQUET_BUILD_BENCHMARKS=off \
-      -DPARQUET_BUILD_EXECUTABLES=off \
-      -DPARQUET_BUILD_TESTS=off \
-      -GNinja \
-      ..
-ninja install
 popd
 
 # Now Python documentation can be built
