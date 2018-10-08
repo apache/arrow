@@ -23,7 +23,8 @@
 cdef class MemoryPool:
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
+        raise TypeError("Do not call {}'s constructor directly, "
+                        "use pyarrow.*_memory_pool instead."
                         .format(self.__class__.__name__))
 
     cdef void init(self, CMemoryPool* pool):
@@ -60,12 +61,9 @@ cdef class LoggingMemoryPool(MemoryPool):
         unique_ptr[CLoggingMemoryPool] logging_pool
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
+        raise TypeError("Do not call {}'s constructor directly, "
+                        "use pyarrow.logging_memory_pool instead."
                         .format(self.__class__.__name__))
-
-    def __cinit__(self, MemoryPool pool):
-        self.logging_pool.reset(new CLoggingMemoryPool(pool.pool))
-        self.init(self.logging_pool.get())
 
 
 cdef class ProxyMemoryPool(MemoryPool):
@@ -77,8 +75,8 @@ cdef class ProxyMemoryPool(MemoryPool):
         unique_ptr[CProxyMemoryPool] proxy_pool
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly. "
-                        "Use pyarrow.proxy_memory_pool instead."
+        raise TypeError("Do not call {}'s constructor directly, "
+                        "use pyarrow.proxy_memory_pool instead."
                         .format(self.__class__.__name__))
 
 
@@ -105,7 +103,11 @@ def logging_memory_pool(MemoryPool parent):
     Create and return a MemoryPool instance that redirects to the
     *parent*, but also dumps allocation logs on stderr.
     """
-    return LoggingMemoryPool.__new__(LoggingMemoryPool, parent)
+    cdef LoggingMemoryPool out = LoggingMemoryPool.__new__(
+        LoggingMemoryPool, parent)
+    out.logging_pool.reset(new CLoggingMemoryPool(parent.pool))
+    out.init(out.logging_pool.get())
+    return out
 
 
 def set_memory_pool(MemoryPool pool):

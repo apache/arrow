@@ -17,8 +17,6 @@
 
 import contextlib
 
-import pytest
-
 import pyarrow as pa
 
 
@@ -51,17 +49,6 @@ def check_allocated_bytes(pool):
         assert pool.max_memory() >= max_mem_before
     assert pool.bytes_allocated() == allocated_before
     assert pool.max_memory() == new_max_memory
-
-
-def test_cannot_use_constructors():
-    with pytest.raises(TypeError):
-        pa.MemoryPool()
-
-    with pytest.raises(TypeError):
-        pa.ProxyMemoryPool()
-
-    with pytest.raises(TypeError):
-        pa.LoggingMemoryPool()
 
 
 def test_default_allocated_bytes():
