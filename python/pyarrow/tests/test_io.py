@@ -257,18 +257,6 @@ def test_python_file_closing():
 
 
 # ----------------------------------------------------------------------
-# MemoryPool
-
-
-def test_memory_pool_cannot_use_ctor():
-    with pytest.raises(TypeError):
-        pa.MemoryPool()
-
-    with pytest.raises(TypeError):
-        pa.ProxyMemoryPool()
-
-
-# ----------------------------------------------------------------------
 # Buffers
 
 
