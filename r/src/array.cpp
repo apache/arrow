@@ -36,6 +36,8 @@ class SimpleRBuffer : public Buffer {
   Vec vec_;
 };
 
+// ---------------------------- R vector -> Array
+
 template <int RTYPE, typename Type>
 std::shared_ptr<Array> SimpleArray(SEXP x) {
   Rcpp::Vector<RTYPE> vec(x);
@@ -382,14 +384,28 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
   return nullptr;
 }
 
+// ---------------------------- Array -> R vector
+
+namespace arrow {
+namespace r {
+
 template <int RTYPE>
 inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
-  auto start = reinterpret_cast<const stored_type*>(
-      array->data()->buffers[1]->data() + array->offset() * sizeof(stored_type));
+  using value_type = typename Rcpp::Vector<RTYPE>::stored_type;
+  auto n = array->length();
+  auto null_count = array->null_count();
 
-  size_t n = array->length();
-  Rcpp::Vector<RTYPE> vec(start, start + n);
+  // special cases
+  if (n == 0) return Rcpp::Vector<RTYPE>(0);
+  if (n == null_count) {
+    return Rcpp::Vector<RTYPE>(n, default_value<RTYPE>());
+  }
+
+  // first copy all the data
+  auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+  Rcpp::Vector<RTYPE> vec(p_values, p_values + n);
+
+  // then set the sentinel NA
   if (array->null_count() && RTYPE != RAWSXP) {
     // TODO: not sure what to do with RAWSXP since
     //       R raw vector do not have a concept of missing data
@@ -408,26 +424,23 @@ inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
 
 inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   auto n = array->length();
-  Rcpp::CharacterVector res(n);
+  auto null_count = array->null_count();
 
   // special cases
-  if (n == 0) return res;
+  if (n == 0) return Rcpp::CharacterVector_(0);
 
   // only NA
-  if (array->null_count() == n) {
-    for (R_xlen_t i = 0; i < n; i++) res[i] = NA_STRING;
-    return res;
+  if (null_count == n) {
+    return StringVector_(n, NA_STRING);
   }
 
+  Rcpp::CharacterVector res(no_init(n));
   const auto& buffers = array->data()->buffers;
 
-  auto p_offset = reinterpret_cast<const int32_t*>(buffers[1]->data()) + array->offset();
-  if (!buffers[2]) {
-    stop("invalid data");
-  }
-  auto p_data = reinterpret_cast<const char*>(buffers[2]->data()) + *p_offset;
+  auto p_offset = GetValuesSafely<int32_t>(array->data(), 1, array->offset());
+  auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
 
-  if (array->null_count()) {
+  if (null_count) {
     // need to watch for nulls
     arrow::internal::BitmapReader null_reader(array->null_bitmap_data(), array->offset(),
                                               n);
@@ -455,12 +468,21 @@ inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
 }
 
 inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  size_t n = array->length();
-  LogicalVector vec(n);
+  auto n = array->length();
+  auto null_count = array->null_count();
+
+  if (n == 0) {
+    return LogicalVector(0);
+  }
+  if (n == null_count) {
+    return LogicalVector(n, NA_LOGICAL);
+  }
+
+  LogicalVector vec = no_init(n);
 
   // process the data
-  arrow::internal::BitmapReader data_reader(array->data()->buffers[1]->data(),
-                                            array->offset(), n);
+  auto p_data = GetValuesSafely<uint8_t>(array->data(), 1, 0);
+  arrow::internal::BitmapReader data_reader(p_data, array->offset(), n);
   for (size_t i = 0; i < n; i++, data_reader.Next()) {
     vec[i] = data_reader.IsSet();
   }
@@ -504,11 +526,7 @@ inline SEXP DictionaryArrayInt32Indices_to_Vector(
     return vec;
   }
 
-  std::shared_ptr<arrow::Buffer> values_buffer(array->data()->buffers[1]);
-  if (!values_buffer) stop("invalid data");
-
-  auto p_array =
-      reinterpret_cast<const value_type*>(values_buffer->data()) + array->offset();
+  auto p_array = GetValuesSafely<value_type>(array->data(), 1, array->offset());
 
   if (array->null_count()) {
     arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
@@ -573,12 +591,7 @@ SEXP Date64Array_to_Vector(const std::shared_ptr<arrow::Array> array) {
     std::fill(vec.begin(), vec.end(), NA_REAL);
     return vec;
   }
-  std::shared_ptr<arrow::Buffer> values_buffer(array->data()->buffers[1]);
-  if (!values_buffer) {
-    stop("invalid data");
-  }
-  auto p_values =
-      reinterpret_cast<const int64_t*>(values_buffer->data()) + array->offset();
+  auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
   auto p_vec = vec.begin();
 
   if (null_count) {
@@ -595,8 +608,13 @@ SEXP Date64Array_to_Vector(const std::shared_ptr<arrow::Array> array) {
   return vec;
 }
 
+}  // namespace r
+}  // namespace arrow
+
 // [[Rcpp::export]]
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
+  using namespace arrow::r;
+
   switch (array->type_id()) {
     case Type::BOOL:
       return BooleanArray_to_Vector(array);
