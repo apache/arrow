@@ -48,7 +48,7 @@ public class FilterTest extends BaseEvaluatorTest {
 
   private int[] selectionVectorToArray(SelectionVector vector) {
     int[] actual = new int[vector.getRecordCount()];
-    for (int i = 0; i < vector.getRecordCount(); ++i ) {
+    for (int i = 0; i < vector.getRecordCount(); ++i) {
       actual[i] = vector.getIndex(i);
     }
     return actual;
@@ -66,10 +66,10 @@ public class FilterTest extends BaseEvaluatorTest {
     Filter filter = Filter.make(schema, condition);
 
     int numRows = 16;
-    byte[] validity = new byte[]{(byte) 255, 0};
+    byte[] validity = new byte[] {(byte) 255, 0};
     // second half is "undefined"
-    int[] values_a = new int[]{1, 2, 3, 4, 5, 6, 7, 8,  9, 10, 11, 12, 13, 14, 15, 16};
-    int[] values_b = new int[]{2, 1, 4, 3, 6, 5, 8, 7, 10,  9, 12, 11, 14, 13, 14, 15};
+    int[] values_a = new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int[] values_b = new int[] {2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 14, 15};
     int[] expected = {0, 2, 4, 6};
 
     verifyTestCase(filter, numRows, validity, values_a, values_b, expected);
@@ -88,15 +88,15 @@ public class FilterTest extends BaseEvaluatorTest {
 
     int numRows = 32;
 
-    byte [] validity= new byte[numRows/8];
+    byte[] validity = new byte[numRows / 8];
 
-    IntStream.range(0,numRows/8).forEach(i -> validity[i] = (byte)255);
+    IntStream.range(0, numRows / 8).forEach(i -> validity[i] = (byte) 255);
 
     int[] values_a = new int[numRows];
     IntStream.range(0, numRows).forEach(i -> values_a[i] = i);
 
     int[] values_b = new int[numRows];
-    IntStream.range(0, numRows).forEach(i -> values_b[i] = i+1);
+    IntStream.range(0, numRows).forEach(i -> values_b[i] = i + 1);
 
     int[] expected = new int[numRows];
     IntStream.range(0, numRows).forEach(i -> expected[i] = i);
@@ -117,15 +117,15 @@ public class FilterTest extends BaseEvaluatorTest {
 
     int numRows = 1000;
 
-    byte [] validity= new byte[numRows/8];
+    byte[] validity = new byte[numRows / 8];
 
-    IntStream.range(0,numRows/8).forEach(i -> validity[i] = (byte)255);
+    IntStream.range(0, numRows / 8).forEach(i -> validity[i] = (byte) 255);
 
     int[] values_a = new int[numRows];
     IntStream.range(0, numRows).forEach(i -> values_a[i] = i);
 
     int[] values_b = new int[numRows];
-    IntStream.range(0, numRows).forEach(i -> values_b[i] = i+1);
+    IntStream.range(0, numRows).forEach(i -> values_b[i] = i + 1);
 
     values_a[0] = 5;
     values_b[0] = 0;
@@ -147,22 +147,24 @@ public class FilterTest extends BaseEvaluatorTest {
     Filter filter = Filter.make(schema, condition);
 
     int numRows = 16;
-    byte[] validity = new byte[]{(byte) 255, 0};
+    byte[] validity = new byte[] {(byte) 255, 0};
     // second half is "undefined"
-    int[] values_a = new int[]{1, 2, 3, 4, 5, 6, 7, 8,  9, 10, 11, 12, 13, 14, 15, 16};
-    int[] values_b = new int[]{2, 1, 4, 3, 6, 5, 8, 7, 10,  9, 12, 11, 14, 13, 14, 15};
+    int[] values_a = new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int[] values_b = new int[] {2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 14, 15};
     int[] expected = {0, 2, 4, 6};
 
     verifyTestCase(filter, numRows, validity, values_a, values_b, expected);
   }
 
-  private void verifyTestCase(Filter filter, int numRows, byte[] validity,
-                              int[] values_a, int[] values_b, int[] expected) throws GandivaException {
+  private void verifyTestCase(
+      Filter filter, int numRows, byte[] validity, int[] values_a, int[] values_b, int[] expected)
+      throws GandivaException {
     ArrowBuf validitya = buf(validity);
     ArrowBuf valuesa = intBuf(values_a);
     ArrowBuf validityb = buf(validity);
     ArrowBuf valuesb = intBuf(values_b);
-    ArrowRecordBatch batch = new ArrowRecordBatch(
+    ArrowRecordBatch batch =
+        new ArrowRecordBatch(
             numRows,
             Lists.newArrayList(new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows, 0)),
             Lists.newArrayList(validitya, valuesa, validityb, valuesb));

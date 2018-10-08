@@ -18,12 +18,12 @@
 
 package org.apache.arrow.gandiva.expression;
 
-import com.google.protobuf.ByteString;
+import java.nio.charset.Charset;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 
-import java.nio.charset.Charset;
+import com.google.protobuf.ByteString;
 
 /**
  * Used to represent expression tree nodes representing utf8 constants.

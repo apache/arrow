@@ -34,9 +34,8 @@ public class ArrowTypeHelper {
   static final int WIDTH_32 = 32;
   static final int WIDTH_64 = 64;
 
-  private static void initArrowTypeInt(ArrowType.Int intType,
-                                       GandivaTypes.ExtGandivaType.Builder builder)
-          throws GandivaException {
+  private static void initArrowTypeInt(
+      ArrowType.Int intType, GandivaTypes.ExtGandivaType.Builder builder) throws GandivaException {
     int width = intType.getBitWidth();
 
     if (intType.getIsSigned()) {
@@ -87,9 +86,9 @@ public class ArrowTypeHelper {
     }
   }
 
-  private static void initArrowTypeFloat(ArrowType.FloatingPoint floatType,
-                                         GandivaTypes.ExtGandivaType.Builder builder)
-          throws GandivaException {
+  private static void initArrowTypeFloat(
+      ArrowType.FloatingPoint floatType, GandivaTypes.ExtGandivaType.Builder builder)
+      throws GandivaException {
     switch (floatType.getPrecision()) {
       case HALF: {
         builder.setType(GandivaTypes.GandivaType.HALF_FLOAT);
@@ -197,11 +196,12 @@ public class ArrowTypeHelper {
 
   /**
    * Converts an arrow type into a protobuf.
+   *
    * @param arrowType Arrow type to be converted
    * @return Protobuf representing the arrow type
    */
   public static GandivaTypes.ExtGandivaType arrowTypeToProtobuf(ArrowType arrowType)
-          throws GandivaException {
+      throws GandivaException {
     GandivaTypes.ExtGandivaType.Builder builder = GandivaTypes.ExtGandivaType.newBuilder();
 
     byte typeId = arrowType.getTypeID().getFlatbufID();

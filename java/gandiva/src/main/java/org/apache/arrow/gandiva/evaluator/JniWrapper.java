@@ -20,13 +20,13 @@ package org.apache.arrow.gandiva.evaluator;
 
 import static java.util.UUID.randomUUID;
 
-import org.apache.arrow.gandiva.exceptions.GandivaException;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+
+import org.apache.arrow.gandiva.exceptions.GandivaException;
 
 /**
  * This class is implemented in JNI. This provides the Java interface
@@ -101,12 +101,12 @@ class JniWrapper {
     final String randomizeFileName = libraryToLoad + randomUUID();
     final File temp = new File(tmpDir, randomizeFileName);
     if (temp.exists() && !temp.delete()) {
-      throw new GandivaException("File: " + temp.getAbsolutePath()
-              + " already exists and cannot be removed.");
+      throw new GandivaException("File: " + temp.getAbsolutePath() +
+          " already exists and cannot be removed.");
     }
     if (!temp.createNewFile()) {
-      throw new GandivaException("File: " + temp.getAbsolutePath()
-              + " could not be created.");
+      throw new GandivaException("File: " + temp.getAbsolutePath() +
+          " could not be created.");
     }
     temp.deleteOnExit();
     return temp;

@@ -13,36 +13,34 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+    <parent>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-java-root</artifactId>
+      <version>0.12.0-SNAPSHOT</version>
+    </parent>
 
     <groupId>org.apache.arrow.gandiva</groupId>
-    <artifactId>gandiva-java</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <artifactId>arrow-gandiva</artifactId>
     <packaging>jar</packaging>
-    <name>Gandiva Java Project</name>
+    <name>Arrow Gandiva</name>
     <properties>
-        <arrow.version>0.9.0</arrow.version>
-        <protobuf.version>2.5.0</protobuf.version>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
+        <protobuf.version>2.5.0</protobuf.version>
         <dep.guava.version>18.0</dep.guava.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-        <gandiva.cpp.build.dir>../cpp/debug</gandiva.cpp.build.dir>
+        <gandiva.cpp.build.dir>../../cpp/debug</gandiva.cpp.build.dir>
     </properties>
     <dependencies>
         <dependency>
             <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-format</artifactId>
-            <version>${arrow.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory</artifactId>
-            <version>${arrow.version}</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
-            <version>${arrow.version}</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>
@@ -59,6 +57,16 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>23.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+            <version>2.10</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
     <profiles>
@@ -157,51 +165,6 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>2.17</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>com.puppycrawl.tools</groupId>
-                        <artifactId>checkstyle</artifactId>
-                        <version>6.19</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>com.google.guava</groupId>
-                        <artifactId>guava</artifactId>
-                        <version>${dep.guava.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>jcl-over-slf4j</artifactId>
-                        <version>1.7.5</version>
-                    </dependency>
-                </dependencies>
-                <executions>
-                    <execution>
-                        <id>validate</id>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
-                    <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
-                    <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
-                    <encoding>UTF-8</encoding>
-                    <consoleOutput>true</consoleOutput>
-                    <failsOnError>${checkstyle.failOnViolation}</failsOnError>
-                    <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
-                    <violationSeverity>warning</violationSeverity>
-                    <format>xml</format>
-                    <format>html</format>
-                    <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
-                    <linkXRef>false</linkXRef>
-                </configuration>
             </plugin>
         </plugins>
     </build>
