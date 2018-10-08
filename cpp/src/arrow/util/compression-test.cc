@@ -43,7 +43,7 @@ vector<uint8_t> MakeRandomData(int data_size) {
 vector<uint8_t> MakeCompressibleData(int data_size) {
   std::string base_data =
       "Apache Arrow is a cross-language development platform for in-memory data";
-  int nrepeats = std::ceil(1.0 * data_size / base_data.size());
+  int nrepeats = static_cast<int>(1 + data_size / base_data.size());
 
   vector<uint8_t> data(base_data.size() * nrepeats);
   for (int i = 0; i < nrepeats; ++i) {
