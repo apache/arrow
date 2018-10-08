@@ -485,16 +485,14 @@ if("${DOUBLE_CONVERSION_HOME}" STREQUAL "")
   set(DOUBLE_CONVERSION_VENDORED 1)
 else()
   find_package(double-conversion REQUIRED)
-  set(DOUBLE_CONVERSION_TARGET double-conversion::double-conversion)
   set(DOUBLE_CONVERSION_VENDORED 0)
 endif()
 
 include_directories(SYSTEM ${DOUBLE_CONVERSION_INCLUDE_DIR})
 
 if (DOUBLE_CONVERSION_VENDORED)
-  ADD_THIRDPARTY_LIB(double-conversion
+  ADD_THIRDPARTY_LIB(double-conversion::double-conversion
     STATIC_LIB ${DOUBLE_CONVERSION_STATIC_LIB})
-  set(DOUBLE_CONVERSION_TARGET double-conversion)
   add_dependencies(arrow_dependencies double-conversion_ep)
 endif()
 
