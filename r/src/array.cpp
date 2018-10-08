@@ -36,6 +36,8 @@ class SimpleRBuffer : public Buffer {
   Vec vec_;
 };
 
+// ---------------------------- R vector -> Array
+
 template <int RTYPE, typename Type>
 std::shared_ptr<Array> SimpleArray(SEXP x) {
   Rcpp::Vector<RTYPE> vec(x);
@@ -49,7 +51,7 @@ std::shared_ptr<Array> SimpleArray(SEXP x) {
 
     auto first_na = std::find_if(vec.begin(), vec.end(), Rcpp::Vector<RTYPE>::is_na);
     if (first_na < vec.end()) {
-      R_ERROR_NOT_OK(AllocateBuffer(ceil((double)n / 8), &null_bitmap));
+      R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
       internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
 
       // first loop to clear all the bits before the first NA
@@ -87,7 +89,7 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(LogicalVector_ vec) {
 
   // allocate a buffer for the data
   std::shared_ptr<Buffer> data_bitmap;
-  R_ERROR_NOT_OK(AllocateBuffer(ceil((double)n / 8), &data_bitmap));
+  R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &data_bitmap));
   auto data_bitmap_data = data_bitmap->mutable_data();
   internal::FirstTimeBitmapWriter bitmap_writer(data_bitmap_data, 0, n);
   R_xlen_t null_count = 0;
@@ -108,7 +110,7 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(LogicalVector_ vec) {
   if (i < n) {
     // there has been a null before the end, so we need
     // to collect that information in a null bitmap
-    R_ERROR_NOT_OK(AllocateBuffer(ceil((double)n / 8), &null_bitmap));
+    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
     auto null_bitmap_data = null_bitmap->mutable_data();
     internal::FirstTimeBitmapWriter null_bitmap_writer(null_bitmap_data, 0, n);
 
@@ -166,7 +168,7 @@ std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   }
 
   if (i < n) {
-    R_ERROR_NOT_OK(AllocateBuffer(ceil((double)n / 8), &null_buffer));
+    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
     internal::FirstTimeBitmapWriter null_bitmap_writer(null_buffer->mutable_data(), 0, n);
 
     // catch up
@@ -210,6 +212,139 @@ std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   return MakeArray(data);
 }
 
+template <typename Type>
+std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor) {
+  using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
+  auto dict_values = MakeStringArray(Rf_getAttrib(factor, R_LevelsSymbol));
+  auto dict_type =
+      dictionary(std::make_shared<Type>(), dict_values, Rf_inherits(factor, "ordered"));
+
+  auto n = factor.size();
+
+  std::shared_ptr<Buffer> indices_buffer;
+  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(value_type), &indices_buffer));
+
+  std::vector<std::shared_ptr<Buffer>> buffers{nullptr, indices_buffer};
+
+  int64_t null_count = 0;
+  R_xlen_t i = 0;
+  auto p_factor = factor.begin();
+  auto p_indices = reinterpret_cast<value_type*>(indices_buffer->mutable_data());
+  for (; i < n; i++, ++p_indices, ++p_factor) {
+    if (*p_factor == NA_INTEGER) break;
+    *p_indices = *p_factor - 1;
+  }
+
+  if (i < n) {
+    // there are NA's so we need a null buffer
+    std::shared_ptr<Buffer> null_buffer;
+    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
+    internal::FirstTimeBitmapWriter null_bitmap_writer(null_buffer->mutable_data(), 0, n);
+
+    // catch up
+    for (R_xlen_t j = 0; j < i; j++, null_bitmap_writer.Next()) {
+      null_bitmap_writer.Set();
+    }
+
+    // resume offset filling
+    for (; i < n; i++, ++p_indices, ++p_factor, null_bitmap_writer.Next()) {
+      if (*p_factor == NA_INTEGER) {
+        null_bitmap_writer.Clear();
+        null_count++;
+      } else {
+        null_bitmap_writer.Set();
+        *p_indices = *p_factor - 1;
+      }
+    }
+
+    null_bitmap_writer.Finish();
+    buffers[0] = std::move(null_buffer);
+  }
+
+  auto array_indices_data =
+      ArrayData::Make(std::make_shared<Type>(), n, std::move(buffers), null_count, 0);
+  auto array_indices = MakeArray(array_indices_data);
+
+  std::shared_ptr<Array> out;
+  R_ERROR_NOT_OK(DictionaryArray::FromArrays(dict_type, array_indices, &out));
+  return out;
+}
+
+std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor) {
+  SEXP levels = factor.attr("levels");
+  int n = Rf_length(levels);
+  if (n < 128) {
+    return MakeFactorArrayImpl<arrow::Int8Type>(factor);
+  } else if (n < 32768) {
+    return MakeFactorArrayImpl<arrow::Int16Type>(factor);
+  } else {
+    return MakeFactorArrayImpl<arrow::Int32Type>(factor);
+  }
+}
+
+template <typename T>
+int64_t time_cast(T value);
+
+template <>
+inline int64_t time_cast<int>(int value) {
+  return static_cast<int64_t>(value) * 1000;
+}
+
+template <>
+inline int64_t time_cast<double>(double value) {
+  return static_cast<int64_t>(value * 1000);
+}
+
+template <int RTYPE>
+std::shared_ptr<Array> Date64Array_From_POSIXct(SEXP x) {
+  using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
+  Rcpp::Vector<RTYPE> vec(x);
+  auto p_vec = vec.begin();
+  auto n = vec.size();
+
+  std::shared_ptr<Buffer> values_buffer;
+  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(int64_t), &values_buffer));
+  auto p_values = reinterpret_cast<int64_t*>(values_buffer->mutable_data());
+
+  std::vector<std::shared_ptr<Buffer>> buffers{nullptr, values_buffer};
+
+  int null_count = 0;
+  R_xlen_t i = 0;
+  for (; i < n; i++, ++p_vec, ++p_values) {
+    if (Rcpp::Vector<RTYPE>::is_na(*p_vec)) break;
+    *p_values = time_cast(*p_vec);
+  }
+  if (i < n) {
+    std::shared_ptr<Buffer> null_buffer;
+    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
+    internal::FirstTimeBitmapWriter bitmap_writer(null_buffer->mutable_data(), 0, n);
+
+    // catch up
+    for (R_xlen_t j = 0; j < i; j++, bitmap_writer.Next()) {
+      bitmap_writer.Set();
+    }
+
+    // finish
+    for (; i < n; i++, ++p_vec, ++p_values, bitmap_writer.Next()) {
+      if (Rcpp::Vector<RTYPE>::is_na(*p_vec)) {
+        bitmap_writer.Clear();
+        null_count++;
+      } else {
+        bitmap_writer.Set();
+        *p_values = time_cast(*p_vec);
+      }
+    }
+
+    bitmap_writer.Finish();
+    buffers[0] = std::move(null_buffer);
+  }
+
+  auto data = ArrayData::Make(std::make_shared<Date64Type>(), n, std::move(buffers),
+                              null_count, 0);
+
+  return std::make_shared<Date64Array>(data);
+}
+
 }  // namespace r
 }  // namespace arrow
 
@@ -220,11 +355,22 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
       return arrow::r::MakeBooleanArray(x);
     case INTSXP:
       if (Rf_isFactor(x)) {
-        break;
+        return arrow::r::MakeFactorArray(x);
+      }
+      if (Rf_inherits(x, "Date")) {
+        return arrow::r::SimpleArray<INTSXP, arrow::Date32Type>(x);
+      }
+      if (Rf_inherits(x, "POSIXct")) {
+        return arrow::r::Date64Array_From_POSIXct<INTSXP>(x);
       }
       return arrow::r::SimpleArray<INTSXP, arrow::Int32Type>(x);
     case REALSXP:
-      // TODO: Dates, ...
+      if (Rf_inherits(x, "Date")) {
+        return arrow::r::SimpleArray<INTSXP, arrow::Date32Type>(x);
+      }
+      if (Rf_inherits(x, "POSIXct")) {
+        return arrow::r::Date64Array_From_POSIXct<REALSXP>(x);
+      }
       return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
     case RAWSXP:
       return arrow::r::SimpleArray<RAWSXP, arrow::Int8Type>(x);
@@ -238,14 +384,28 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
   return nullptr;
 }
 
+// ---------------------------- Array -> R vector
+
+namespace arrow {
+namespace r {
+
 template <int RTYPE>
 inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
-  auto start = reinterpret_cast<const stored_type*>(
-      array->data()->buffers[1]->data() + array->offset() * sizeof(stored_type));
+  using value_type = typename Rcpp::Vector<RTYPE>::stored_type;
+  auto n = array->length();
+  auto null_count = array->null_count();
 
-  size_t n = array->length();
-  Rcpp::Vector<RTYPE> vec(start, start + n);
+  // special cases
+  if (n == 0) return Rcpp::Vector<RTYPE>(0);
+  if (n == null_count) {
+    return Rcpp::Vector<RTYPE>(n, default_value<RTYPE>());
+  }
+
+  // first copy all the data
+  auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+  Rcpp::Vector<RTYPE> vec(p_values, p_values + n);
+
+  // then set the sentinel NA
   if (array->null_count() && RTYPE != RAWSXP) {
     // TODO: not sure what to do with RAWSXP since
     //       R raw vector do not have a concept of missing data
@@ -262,41 +422,25 @@ inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   return vec;
 }
 
-inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  size_t n = array->length();
-  LogicalVector vec(n);
-
-  // process the data
-  arrow::internal::BitmapReader data_reader(array->data()->buffers[1]->data(),
-                                            array->offset(), n);
-  for (size_t i = 0; i < n; i++, data_reader.Next()) {
-    vec[i] = data_reader.IsSet();
-  }
-
-  // then the null bitmap if needed
-  if (array->null_count()) {
-    arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
-                                              array->offset(), n);
-    for (size_t i = 0; i < n; i++, null_reader.Next()) {
-      if (null_reader.IsNotSet()) {
-        vec[i] = LogicalVector::get_na();
-      }
-    }
-  }
-
-  return vec;
-}
-
 inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   auto n = array->length();
-  Rcpp::CharacterVector res(n);
+  auto null_count = array->null_count();
 
+  // special cases
+  if (n == 0) return Rcpp::CharacterVector_(0);
+
+  // only NA
+  if (null_count == n) {
+    return StringVector_(n, NA_STRING);
+  }
+
+  Rcpp::CharacterVector res(no_init(n));
   const auto& buffers = array->data()->buffers;
 
-  auto p_offset = reinterpret_cast<const int32_t*>(buffers[1]->data()) + array->offset();
-  auto p_data = reinterpret_cast<const char*>(buffers[2]->data()) + *p_offset;
+  auto p_offset = GetValuesSafely<int32_t>(array->data(), 1, array->offset());
+  auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
 
-  if (array->null_count()) {
+  if (null_count) {
     // need to watch for nulls
     arrow::internal::BitmapReader null_reader(array->null_bitmap_data(), array->offset(),
                                               n);
@@ -323,8 +467,154 @@ inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   return res;
 }
 
+inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
+  auto n = array->length();
+  auto null_count = array->null_count();
+
+  if (n == 0) {
+    return LogicalVector(0);
+  }
+  if (n == null_count) {
+    return LogicalVector(n, NA_LOGICAL);
+  }
+
+  LogicalVector vec = no_init(n);
+
+  // process the data
+  auto p_data = GetValuesSafely<uint8_t>(array->data(), 1, 0);
+  arrow::internal::BitmapReader data_reader(p_data, array->offset(), n);
+  for (size_t i = 0; i < n; i++, data_reader.Next()) {
+    vec[i] = data_reader.IsSet();
+  }
+
+  // then the null bitmap if needed
+  if (array->null_count()) {
+    arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
+                                              array->offset(), n);
+    for (size_t i = 0; i < n; i++, null_reader.Next()) {
+      if (null_reader.IsNotSet()) {
+        vec[i] = LogicalVector::get_na();
+      }
+    }
+  }
+
+  return vec;
+}
+
+template <typename Type>
+inline SEXP DictionaryArrayInt32Indices_to_Vector(
+    const std::shared_ptr<arrow::Array>& array, const std::shared_ptr<arrow::Array>& dict,
+    bool ordered) {
+  using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
+
+  size_t n = array->length();
+  IntegerVector vec(no_init(n));
+  vec.attr("levels") = StringArray_to_Vector(dict);
+  if (ordered) {
+    vec.attr("class") = CharacterVector::create("ordered", "factor");
+  } else {
+    vec.attr("class") = "factor";
+  }
+
+  if (n == 0) {
+    return vec;
+  }
+
+  auto null_count = array->null_count();
+  if (n == null_count) {
+    std::fill(vec.begin(), vec.end(), NA_INTEGER);
+    return vec;
+  }
+
+  auto p_array = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+
+  if (array->null_count()) {
+    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                                array->offset(), n);
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_array) {
+      vec[i] = bitmap_reader.IsNotSet() ? NA_INTEGER : (static_cast<int>(*p_array) + 1);
+    }
+  } else {
+    std::transform(p_array, p_array + n, vec.begin(),
+                   [](const value_type value) { return static_cast<int>(value) + 1; });
+  }
+  return vec;
+}
+
+SEXP DictionaryArray_to_Vector(arrow::DictionaryArray* dict_array) {
+  auto dict = dict_array->dictionary();
+  auto indices = dict_array->indices();
+
+  if (dict->type_id() != Type::STRING) {
+    stop("Cannot convert Dictionary Array of type `%s` to R",
+         dict_array->type()->ToString());
+  }
+  bool ordered = dict_array->dict_type()->ordered();
+  switch (indices->type_id()) {
+    case Type::UINT8:
+      return DictionaryArrayInt32Indices_to_Vector<arrow::UInt8Type>(indices, dict,
+                                                                     ordered);
+    case Type::INT8:
+      return DictionaryArrayInt32Indices_to_Vector<arrow::Int8Type>(indices, dict,
+                                                                    ordered);
+    case Type::UINT16:
+      return DictionaryArrayInt32Indices_to_Vector<arrow::UInt16Type>(indices, dict,
+                                                                      ordered);
+    case Type::INT16:
+      return DictionaryArrayInt32Indices_to_Vector<arrow::Int16Type>(indices, dict,
+                                                                     ordered);
+    case Type::INT32:
+      return DictionaryArrayInt32Indices_to_Vector<arrow::Int32Type>(indices, dict,
+                                                                     ordered);
+    default:
+      stop("Cannot convert Dictionary Array of type `%s` to R",
+           dict_array->type()->ToString());
+  }
+  return R_NilValue;
+}
+
+SEXP Date32Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
+  IntegerVector out(simple_Array_to_Vector<INTSXP>(array));
+  out.attr("class") = "Date";
+  return out;
+}
+
+SEXP Date64Array_to_Vector(const std::shared_ptr<arrow::Array> array) {
+  auto n = array->length();
+  NumericVector vec(n);
+  vec.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
+  if (n == 0) {
+    return vec;
+  }
+  auto null_count = array->null_count();
+  if (null_count == n) {
+    std::fill(vec.begin(), vec.end(), NA_REAL);
+    return vec;
+  }
+  auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
+  auto p_vec = vec.begin();
+
+  if (null_count) {
+    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                                array->offset(), n);
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_vec, ++p_values) {
+      *p_vec = bitmap_reader.IsSet() ? static_cast<double>(*p_values / 1000) : NA_REAL;
+    }
+  } else {
+    std::transform(p_values, p_values + n, vec.begin(),
+                   [](int64_t value) { return static_cast<double>(value / 1000); });
+  }
+
+  return vec;
+}
+
+}  // namespace r
+}  // namespace arrow
+
 // [[Rcpp::export]]
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
+  using namespace arrow::r;
+
   switch (array->type_id()) {
     case Type::BOOL:
       return BooleanArray_to_Vector(array);
@@ -336,11 +626,17 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
       return simple_Array_to_Vector<REALSXP>(array);
     case Type::STRING:
       return StringArray_to_Vector(array);
+    case Type::DICTIONARY:
+      return DictionaryArray_to_Vector(static_cast<arrow::DictionaryArray*>(array.get()));
+    case Type::DATE32:
+      return Date32Array_to_Vector(array);
+    case Type::DATE64:
+      return Date64Array_to_Vector(array);
     default:
       break;
   }
 
-  stop(tfm::format("cannot handle Array of type %d", array->type_id()));
+  stop(tfm::format("cannot handle Array of type %s", array->type()->name()));
   return R_NilValue;
 }
 
@@ -427,4 +723,16 @@ LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array) {
     res[i] = bitmap_reader.IsSet();
   }
   return res;
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Array> DictionaryArray__indices(
+    const std::shared_ptr<arrow::DictionaryArray>& array) {
+  return array->indices();
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Array> DictionaryArray__dictionary(
+    const std::shared_ptr<arrow::DictionaryArray>& array) {
+  return array->dictionary();
 }

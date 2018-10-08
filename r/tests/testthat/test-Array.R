@@ -96,3 +96,149 @@ test_that("Array supports character vectors (ARROW-3339)", {
   expect_equal(arr_chr$length(), 3L)
   expect_identical(arr_chr$as_vector(), x)
 })
+
+test_that("empty arrays are supported", {
+  x <- character()
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- integer()
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- numeric()
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- factor(character())
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- logical()
+  expect_equal(array(x)$as_vector(), x)
+})
+
+test_that("array with all nulls are supported", {
+  nas <- c(NA, NA)
+
+  x <- as.logical(nas)
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- as.integer(nas)
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- as.numeric(nas)
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- as.character(nas)
+  expect_equal(array(x)$as_vector(), x)
+
+  x <- as.factor(nas)
+  expect_equal(array(x)$as_vector(), x)
+})
+
+test_that("Array supports unordered factors (ARROW-3355)", {
+  # without NA
+  f <- factor(c("itsy", "bitsy", "spider", "spider"))
+  arr_fac <- array(f)
+  expect_equal(arr_fac$length(), 4L)
+  expect_equal(arr_fac$type()$index_type(), int8())
+  expect_identical(arr_fac$as_vector(), f)
+  expect_true(arr_fac$IsValid(0))
+  expect_true(arr_fac$IsValid(1))
+  expect_true(arr_fac$IsValid(2))
+  expect_true(arr_fac$IsValid(3))
+
+  sl <- arr_fac$Slice(1)
+  expect_equal(sl$length(), 3L)
+  expect_equal(arr_fac$type()$index_type(), int8())
+  expect_equal(sl$as_vector(), f[2:4])
+
+  # with NA
+  f <- factor(c("itsy", "bitsy", NA, "spider", "spider"))
+  # TODO: rm the suppressWarnings when https://github.com/r-lib/vctrs/issues/109
+  arr_fac <- suppressWarnings(array(f))
+  expect_equal(arr_fac$length(), 5L)
+  expect_equal(arr_fac$type()$index_type(), int8())
+  expect_identical(arr_fac$as_vector(), f)
+  expect_true(arr_fac$IsValid(0))
+  expect_true(arr_fac$IsValid(1))
+  expect_true(arr_fac$IsNull(2))
+  expect_true(arr_fac$IsValid(3))
+  expect_true(arr_fac$IsValid(4))
+
+  sl <- arr_fac$Slice(1)
+  expect_equal(sl$length(), 4L)
+  expect_equal(arr_fac$type()$index_type(), int8())
+  expect_equal(sl$as_vector(), f[2:5])
+})
+
+test_that("Array supports ordered factors (ARROW-3355)", {
+  # without NA
+  f <- ordered(c("itsy", "bitsy", "spider", "spider"))
+  arr_fac <- array(f)
+  expect_equal(arr_fac$length(), 4L)
+  expect_equal(arr_fac$type()$index_type(), int8())
+  expect_identical(arr_fac$as_vector(), f)
+  expect_true(arr_fac$IsValid(0))
+  expect_true(arr_fac$IsValid(1))
+  expect_true(arr_fac$IsValid(2))
+  expect_true(arr_fac$IsValid(3))
+
+  sl <- arr_fac$Slice(1)
+  expect_equal(sl$length(), 3L)
+  expect_equal(arr_fac$type()$index_type(), int8())
+  expect_equal(sl$as_vector(), f[2:4])
+
+  # with NA
+  f <- ordered(c("itsy", "bitsy", NA, "spider", "spider"))
+  # TODO: rm the suppressWarnings when https://github.com/r-lib/vctrs/issues/109
+  arr_fac <- suppressWarnings(array(f))
+  expect_equal(arr_fac$length(), 5L)
+  expect_equal(arr_fac$type()$index_type(), int8())
+  expect_identical(arr_fac$as_vector(), f)
+  expect_true(arr_fac$IsValid(0))
+  expect_true(arr_fac$IsValid(1))
+  expect_true(arr_fac$IsNull(2))
+  expect_true(arr_fac$IsValid(3))
+  expect_true(arr_fac$IsValid(4))
+
+  sl <- arr_fac$Slice(1)
+  expect_equal(sl$length(), 4L)
+  expect_equal(arr_fac$type()$index_type(), int8())
+  expect_equal(sl$as_vector(), f[2:5])
+})
+
+test_that("array supports Date (ARROW-3340)", {
+  d <- Sys.Date() + 1:10
+  a <- array(d)
+  expect_equal(a$type(), date32())
+  expect_equal(a$length(), 10L)
+  expect_equal(a$as_vector(), d)
+
+  d[5] <- NA
+  a <- array(d)
+  expect_equal(a$type(), date32())
+  expect_equal(a$length(), 10L)
+  expect_equal(a$as_vector(), d)
+  expect_true(a$IsNull(4))
+
+  d2 <- d + .5
+  a <- array(d2)
+  expect_equal(a$type(), date32())
+  expect_equal(a$length(), 10L)
+  expect_equal(a$as_vector(), d)
+  expect_true(a$IsNull(4))
+})
+
+test_that("array supports POSIXct (ARROW-3340)", {
+  times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
+  a <- array(times)
+  expect_equal(a$type(), date64())
+  expect_equal(a$length(), 10L)
+  expect_equal(as.numeric(a$as_vector()), as.numeric(times))
+
+  times[5] <- NA
+  a <- array(times)
+  expect_equal(a$type(), date32())
+  expect_equal(a$length(), 10L)
+  expect_equal(as.numeric(a$as_vector()), as.numeric(times))
+  expect_true(a$IsNull(4))
+})
+

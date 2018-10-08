@@ -12,24 +12,26 @@ Encoding: UTF-8
 LazyData: true
 SystemRequirements: C++11
 LinkingTo:
-    Rcpp (>= 0.12.18)
+    Rcpp (>= 0.12.18.2)
 Imports:
-    Rcpp (>= 0.12.18),
+    Rcpp (>= 0.12.18.2),
     rlang,
     purrr,
     assertthat,
     glue,
     R6,
-    vctrs,
+    vctrs (>= 0.0.0.9000),
     fs,
     tibble,
     crayon
 Remotes:
-    r-lib/vctrs
+    r-lib/vctrs, 
+    RcppCore/Rcpp
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.0.9000
 Suggests:
-    testthat
+    testthat, 
+    lubridate
 Collate:
     'enums.R'
     'R6.R'
@@ -44,6 +46,7 @@ Collate:
     'Struct.R'
     'Table.R'
     'array.R'
+    'dictionary.R'
     'memory_pool.R'
     'reexports-tibble.R'
     'zzz.R'

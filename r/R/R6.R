@@ -96,7 +96,7 @@
         LIST = `arrow::ListType`$new(self$pointer()),
         STRUCT = `arrow::StructType`$new(self$pointer()),
         UNION = stop("Type UNION not implemented yet"),
-        DICTIONARY = stop("Type DICTIONARY not implemented yet"),
+        DICTIONARY = `arrow::DictionaryType`$new(self$pointer()),
         MAP = stop("Type MAP not implemented yet")
       )
     }

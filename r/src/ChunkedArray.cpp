@@ -23,7 +23,7 @@ using namespace arrow;
 template <int RTYPE>
 inline SEXP simple_ChunkedArray_to_Vector(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
+  using value_type = typename Rcpp::Vector<RTYPE>::stored_type;
   Rcpp::Vector<RTYPE> out = no_init(chunked_array->length());
   auto p = out.begin();
 
@@ -34,10 +34,9 @@ inline SEXP simple_ChunkedArray_to_Vector(
 
     // copy the data
     auto q = p;
-    p = std::copy_n(
-        reinterpret_cast<const stored_type*>(chunk->data()->buffers[1]->data() +
-                                             chunk->offset() * sizeof(stored_type)),
-        n, p);
+    auto p_chunk =
+        arrow::r::GetValuesSafely<value_type>(chunk->data(), 1, chunk->offset());
+    p = std::copy_n(p_chunk, n, p);
 
     // set NA using the bitmap
     auto bitmap_data = chunk->null_bitmap();

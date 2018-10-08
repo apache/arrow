@@ -312,3 +312,15 @@ test_that("struct type works as expected", {
     list(field("x", int32()), field("y", boolean()))
   )
 })
+
+test_that("DictionaryType works as expected (ARROW-3355)", {
+  d <- dictionary(int32(), array(c("foo", "bar", "baz")))
+  expect_equal(d, d)
+  expect_true(d == d)
+  expect_false(d == int32())
+  expect_equal(d$id(), Type$DICTIONARY)
+  expect_equal(d$bit_width(), 32L)
+  expect_equal(d$ToString(), "dictionary<values=string, indices=int32, ordered=0>")
+  expect_equal(d$index_type(), int32())
+  expect_equal(d$dictionary(), array(c("foo", "bar", "baz")))
+})
