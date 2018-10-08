@@ -56,7 +56,6 @@ RUN arrow/ci/docker_install_conda.sh && \
         maven && \
     conda clean --all -y
 
-ADD . /apache-arrow
-WORKDIR /apache-arrow
+ADD . /arrow
 
-CMD dev/gen_apidocs/create_documents.sh
+CMD arrow/dev/gen_apidocs/create_documents.sh

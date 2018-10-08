@@ -19,7 +19,6 @@
 set -ex
 
 # Set up environment and output directory for C++ libraries
-cd /apache-arrow
 
 mkdir -p apidocs-dist
 export ARROW_BUILD_TYPE=release
