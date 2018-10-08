@@ -31,6 +31,9 @@ using std::size_t;
 namespace arrow {
 namespace util {
 
+// XXX level = 1 probably doesn't compress very much
+constexpr int kZSTDDefaultCompressionLevel = 1;
+
 // ----------------------------------------------------------------------
 // ZSTD decompressor implementation
 
@@ -98,7 +101,7 @@ class ZSTDCompressor : public Compressor {
   ~ZSTDCompressor() override { ZSTD_freeCStream(stream_); }
 
   Status Init() {
-    size_t ret = ZSTD_initCStream(stream_, 1 /* compressionLevel */);
+    size_t ret = ZSTD_initCStream(stream_, kZSTDDefaultCompressionLevel);
     if (ZSTD_isError(ret)) {
       return ZSTDError(ret, "zstd init failed: ");
     } else {
@@ -220,10 +223,9 @@ int64_t ZSTDCodec::MaxCompressedLen(int64_t input_len,
 Status ZSTDCodec::Compress(int64_t input_len, const uint8_t* input,
                            int64_t output_buffer_len, uint8_t* output_buffer,
                            int64_t* output_length) {
-  // XXX level = 1 probably doesn't compress very much
   *output_length =
       ZSTD_compress(output_buffer, static_cast<size_t>(output_buffer_len), input,
-                    static_cast<size_t>(input_len), 1 /* compressionLevel */);
+                    static_cast<size_t>(input_len), kZSTDDefaultCompressionLevel);
   if (ZSTD_isError(*output_length)) {
     return Status::IOError("ZSTD compression failure.");
   }

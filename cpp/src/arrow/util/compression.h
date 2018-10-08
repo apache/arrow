@@ -119,7 +119,7 @@ class ARROW_EXPORT Codec {
 
   virtual int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) = 0;
 
-  // XXX Should be able to choose compression level?
+  // XXX Should be able to choose compression level, or presets? ("fast", etc.)
 
   /// \brief Create a streaming compressor instance
   virtual Status MakeCompressor(std::shared_ptr<Compressor>* out) = 0;

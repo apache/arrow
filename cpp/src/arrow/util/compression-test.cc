@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <random>
 #include <string>
@@ -31,6 +33,25 @@ using std::vector;
 
 namespace arrow {
 namespace util {
+
+vector<uint8_t> MakeRandomData(int data_size) {
+  vector<uint8_t> data(data_size);
+  random_bytes(data_size, 1234, data.data());
+  return data;
+}
+
+vector<uint8_t> MakeCompressibleData(int data_size) {
+  std::string base_data =
+      "Apache Arrow is a cross-language development platform for in-memory data";
+  int nrepeats = std::ceil(1.0 * data_size / base_data.size());
+
+  vector<uint8_t> data(base_data.size() * nrepeats);
+  for (int i = 0; i < nrepeats; ++i) {
+    std::memcpy(data.data() + i * base_data.size(), base_data.data(), base_data.size());
+  }
+  data.resize(data_size);
+  return data;
+}
 
 // Check roundtrip of one-shot compression and decompression functions.
 
@@ -295,8 +316,10 @@ class CodecTest : public ::testing::TestWithParam<Compression::type> {
 TEST_P(CodecTest, CodecRoundtrip) {
   int sizes[] = {0, 10000, 100000};
   for (int data_size : sizes) {
-    vector<uint8_t> data(data_size);
-    random_bytes(data_size, 1234, data.data());
+    vector<uint8_t> data = MakeRandomData(data_size);
+    CheckCodecRoundtrip(GetCompression(), data);
+
+    data = MakeCompressibleData(data_size);
     CheckCodecRoundtrip(GetCompression(), data);
   }
 }
@@ -314,10 +337,12 @@ TEST_P(CodecTest, StreamingCompressor) {
 
   int sizes[] = {0, 10, 100000};
   for (int data_size : sizes) {
-    vector<uint8_t> data(data_size);
-    random_bytes(data_size, 1234, data.data());
-
     auto codec = MakeCodec();
+
+    vector<uint8_t> data = MakeRandomData(data_size);
+    CheckStreamingCompressor(codec.get(), data);
+
+    data = MakeCompressibleData(data_size);
     CheckStreamingCompressor(codec.get(), data);
   }
 }
@@ -335,10 +360,12 @@ TEST_P(CodecTest, StreamingDecompressor) {
 
   int sizes[] = {0, 10, 100000};
   for (int data_size : sizes) {
-    vector<uint8_t> data(data_size);
-    random_bytes(data_size, 1234, data.data());
-
     auto codec = MakeCodec();
+
+    vector<uint8_t> data = MakeRandomData(data_size);
+    CheckStreamingDecompressor(codec.get(), data);
+
+    data = MakeCompressibleData(data_size);
     CheckStreamingDecompressor(codec.get(), data);
   }
 }
@@ -351,10 +378,12 @@ TEST_P(CodecTest, StreamingRoundtrip) {
 
   int sizes[] = {0, 10, 100000};
   for (int data_size : sizes) {
-    vector<uint8_t> data(data_size);
-    random_bytes(data_size, 1234, data.data());
-
     auto codec = MakeCodec();
+
+    vector<uint8_t> data = MakeRandomData(data_size);
+    CheckStreamingRoundtrip(codec.get(), data);
+
+    data = MakeCompressibleData(data_size);
     CheckStreamingRoundtrip(codec.get(), data);
   }
 }

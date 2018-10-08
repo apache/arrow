@@ -32,6 +32,10 @@
 namespace arrow {
 namespace util {
 
+// Brotli compression quality is max (11) by default, which is slow.
+// We use 8 as a default as it is the best trade-off for Parquet workload.
+constexpr int kBrotliDefaultCompressionLevel = 8;
+
 // ----------------------------------------------------------------------
 // Brotli decompressor implementation
 
@@ -103,8 +107,8 @@ class BrotliCompressor : public Compressor {
     if (state_ == nullptr) {
       return BrotliError("Brotli init failed");
     }
-    // Brotli compression quality is max (11) by default, which is slow
-    if (!BrotliEncoderSetParameter(state_, BROTLI_PARAM_QUALITY, 8)) {
+    if (!BrotliEncoderSetParameter(state_, BROTLI_PARAM_QUALITY,
+                                   kBrotliDefaultCompressionLevel)) {
       return BrotliError("Brotli set compression level failed");
     }
     return Status::OK();
@@ -213,10 +217,9 @@ Status BrotliCodec::Compress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer,
                              int64_t* output_length) {
   std::size_t output_len = output_buffer_len;
-  // TODO: Make quality configurable. We use 8 as a default as it is the best
-  //       trade-off for Parquet workload
-  if (BrotliEncoderCompress(8, BROTLI_DEFAULT_WINDOW, BROTLI_DEFAULT_MODE, input_len,
-                            input, &output_len, output_buffer) == BROTLI_FALSE) {
+  if (BrotliEncoderCompress(kBrotliDefaultCompressionLevel, BROTLI_DEFAULT_WINDOW,
+                            BROTLI_DEFAULT_MODE, input_len, input, &output_len,
+                            output_buffer) == BROTLI_FALSE) {
     return Status::IOError("Brotli compression failure.");
   }
   *output_length = output_len;

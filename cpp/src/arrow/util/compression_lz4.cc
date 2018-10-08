@@ -135,6 +135,22 @@ class LZ4Compressor : public Compressor {
   bool first_time_;
 };
 
+#define BEGIN_COMPRESS(dst, dstCapacity)                       \
+  if (first_time_) {                                           \
+    if (dstCapacity < LZ4F_HEADER_SIZE_MAX) {                  \
+      /* Output too small to write LZ4F header */              \
+      return Status::OK();                                     \
+    }                                                          \
+    ret = LZ4F_compressBegin(ctx_, dst, dstCapacity, &prefs_); \
+    if (LZ4F_isError(ret)) {                                   \
+      return LZ4Error(ret, "LZ4 compress begin failed: ");     \
+    }                                                          \
+    first_time_ = false;                                       \
+    dst += ret;                                                \
+    dstCapacity -= ret;                                        \
+    *bytes_written += static_cast<int64_t>(ret);               \
+  }
+
 Status LZ4Compressor::Compress(int64_t input_len, const uint8_t* input,
                                int64_t output_len, uint8_t* output, int64_t* bytes_read,
                                int64_t* bytes_written) {
@@ -147,20 +163,7 @@ Status LZ4Compressor::Compress(int64_t input_len, const uint8_t* input,
   *bytes_read = 0;
   *bytes_written = 0;
 
-  if (first_time_) {
-    if (dstCapacity < LZ4F_HEADER_SIZE_MAX) {
-      // Output too small to write LZ4F header
-      return Status::OK();
-    }
-    ret = LZ4F_compressBegin(ctx_, dst, dstCapacity, &prefs_);
-    if (LZ4F_isError(ret)) {
-      return LZ4Error(ret, "LZ4 compress begin failed: ");
-    }
-    first_time_ = false;
-    dst += ret;
-    dstCapacity -= ret;
-    *bytes_written += static_cast<int64_t>(ret);
-  }
+  BEGIN_COMPRESS(dst, dstCapacity);
 
   if (dstCapacity < LZ4F_compressBound(srcSize, &prefs_)) {
     // Output too small to compress into
@@ -185,20 +188,7 @@ Status LZ4Compressor::Flush(int64_t output_len, uint8_t* output, int64_t* bytes_
   *bytes_written = 0;
   *should_retry = true;
 
-  if (first_time_) {
-    if (dstCapacity < LZ4F_HEADER_SIZE_MAX) {
-      // Output too small to write LZ4F header
-      return Status::OK();
-    }
-    ret = LZ4F_compressBegin(ctx_, dst, dstCapacity, &prefs_);
-    if (LZ4F_isError(ret)) {
-      return LZ4Error(ret, "LZ4 compress begin failed: ");
-    }
-    first_time_ = false;
-    dst += ret;
-    dstCapacity -= ret;
-    *bytes_written += static_cast<int64_t>(ret);
-  }
+  BEGIN_COMPRESS(dst, dstCapacity);
 
   if (dstCapacity < LZ4F_compressBound(0, &prefs_)) {
     // Output too small to flush into
@@ -224,20 +214,7 @@ Status LZ4Compressor::End(int64_t output_len, uint8_t* output, int64_t* bytes_wr
   *bytes_written = 0;
   *should_retry = true;
 
-  if (first_time_) {
-    if (dstCapacity < LZ4F_HEADER_SIZE_MAX) {
-      // Output too small to write LZ4F header
-      return Status::OK();
-    }
-    ret = LZ4F_compressBegin(ctx_, dst, dstCapacity, &prefs_);
-    if (LZ4F_isError(ret)) {
-      return LZ4Error(ret, "LZ4 compress begin failed: ");
-    }
-    first_time_ = false;
-    dst += ret;
-    dstCapacity -= ret;
-    *bytes_written += static_cast<int64_t>(ret);
-  }
+  BEGIN_COMPRESS(dst, dstCapacity);
 
   if (dstCapacity < LZ4F_compressBound(0, &prefs_)) {
     // Output too small to end frame into
@@ -253,6 +230,8 @@ Status LZ4Compressor::End(int64_t output_len, uint8_t* output, int64_t* bytes_wr
   DCHECK_LE(*bytes_written, output_len);
   return Status::OK();
 }
+
+#undef BEGIN_COMPRESS
 
 // ----------------------------------------------------------------------
 // Lz4 codec implementation
