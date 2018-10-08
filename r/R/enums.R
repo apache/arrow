@@ -64,5 +64,5 @@ StatusCode <- enum("arrow::StatusCode",
 #' @rdname DataType
 #' @export
 FileMode <- enum("arrow::io::FileMode",
-  READ, WRITE, READWRITE
+  READ = 0L, WRITE = 1L, READWRITE = 2L
 )
