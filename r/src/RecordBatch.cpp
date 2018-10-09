@@ -20,6 +20,7 @@
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include "arrow_types.h"
+#include "RawVectorOutputStream.h"
 
 using namespace Rcpp;
 using namespace arrow;
@@ -96,23 +97,31 @@ int RecordBatch__to_file(const std::shared_ptr<arrow::RecordBatch>& batch,
 }
 
 // [[Rcpp::export]]
-RawVector RecordBatch__to_raw(const std::shared_ptr<arrow::RecordBatch>& batch) {
-  MemoryPool* pool = default_memory_pool();
+RawVector RecordBatch__to_stream(const std::shared_ptr<arrow::RecordBatch>& batch) {
+  std::unique_ptr<io::MockOutputStream> mockSink;
+  mockSink.reset(new io::MockOutputStream());
 
-  std::shared_ptr<ResizableBuffer> buffer;
-  R_ERROR_NOT_OK(AllocateResizableBuffer(pool, 0, &buffer));
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> mockWriter;
+  R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamWriter::Open(mockSink.get(),
+                                                           batch->schema(),
+                                                           &mockWriter));
 
-  std::unique_ptr<io::BufferOutputStream> sink;
-  sink.reset(new io::BufferOutputStream(buffer));
+  R_ERROR_NOT_OK(mockWriter->WriteRecordBatch(*batch));
+  R_ERROR_NOT_OK(mockWriter->Close());
+
+  RawVector res(mockSink->GetExtentBytesWritten());
+
+  std::unique_ptr<RawVectorOutputStream> sink;
+  sink.reset(new RawVectorOutputStream(res));
 
   std::shared_ptr<arrow::ipc::RecordBatchWriter> writer;
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamWriter::Open(sink.get(), batch->schema(), &writer));
+  R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamWriter::Open(sink.get(),
+                                                           batch->schema(),
+                                                           &writer));
 
   R_ERROR_NOT_OK(writer->WriteRecordBatch(*batch));
   R_ERROR_NOT_OK(writer->Close());
 
-  RawVector res(buffer->size());
-  std::copy(buffer->data(), buffer->data() + buffer->size(), res.begin()) ;
   return res;
 }
 
