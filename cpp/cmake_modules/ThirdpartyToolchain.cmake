@@ -331,6 +331,8 @@ if (WIN32)
 else()
   find_library(PTHREAD_LIBRARY pthread)
   message(STATUS "Found pthread: ${PTHREAD_LIBRARY}")
+  add_library(pthreadshared SHARED IMPORTED)
+  set_target_properties(pthreadshared PROPERTIES IMPORTED_LOCATION ${PTHREAD_LIBRARY})
 endif()
 
 # ----------------------------------------------------------------------

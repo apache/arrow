@@ -755,10 +755,10 @@ endif(ARROW_JEMALLOC)
 if (PTHREAD_LIBRARY)
   set(ARROW_LINK_LIBS
     ${ARROW_LINK_LIBS}
-    ${PTHREAD_LIBRARY})
+    pthreadshared)
   set(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
-    ${PTHREAD_LIBRARY})
+    pthreadshared)
 endif()
 
 ############################################################
