@@ -229,15 +229,15 @@ gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
                                       GError **error)
 {
   auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
-  std::shared_ptr<arrow::Schema> arrow_schema;
 
   std::vector<int> indices(parquet_arrow_file_reader->parquet_reader()->metadata()->num_columns());
   for (size_t i = 0; i < indices.size(); ++i) {
     indices[i] = static_cast<int>(i);
   }
 
+  std::shared_ptr<arrow::Schema> arrow_schema;
   auto status = parquet_arrow_file_reader->GetSchema(indices, &arrow_schema);
-  if (garrow_error_check(error, status, "[arrow][file-reader][get-schema]")) {
+  if (garrow_error_check(error, status, "[parquet][arrow][file-reader][get-schema]")) {
     return garrow_schema_new_raw(&arrow_schema);
   } else {
     return NULL;
@@ -264,7 +264,7 @@ gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
   auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
   std::shared_ptr<arrow::Array> arrow_array;
   auto status = parquet_arrow_file_reader->ReadColumn(column_index, &arrow_array);
-  if (garrow_error_check(error, status, "[arrow][file-reader][read-column]")) {
+  if (garrow_error_check(error, status, "[parquet][arrow][file-reader][read-column]")) {
     auto array = garrow_array_new_raw(&arrow_array);
     auto field = garrow_schema_get_field(schema, column_index);
     auto column = garrow_column_new_array(field, array);
