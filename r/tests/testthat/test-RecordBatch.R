@@ -114,3 +114,16 @@ test_that("RecordBatch with 0 rows are supported", {
   res <- read_record_batch(tf)
   expect_equal(res, batch)
 })
+
+test_that("RecordBatch can output stream", {
+  tbl <- tibble::tibble(
+    int = 1:10, dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10]
+  )
+
+  record <- record_batch(tbl)
+  stream <- record$to_stream()
+
+  expect_gt(length(stream), 0)
+})
