@@ -150,6 +150,14 @@ install(FILES
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
+# pkg-config support
+configure_file(gandiva.pc.in
+  "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
+  @ONLY)
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+
 #args: label test-file src-files
 add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)
 add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc configuration.cc ${BC_FILE_PATH_CC})
