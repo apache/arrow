@@ -78,7 +78,8 @@ fi
 # fi
 
 if [ $TRAVIS_OS_NAME != "osx" ]; then
-  conda install -y -c conda-forge tensorflow
+  # Pin protobuf version to work around ARROW-3466
+  conda install -y -c conda-forge tensorflow protobuf=3.6.0
   PYARROW_PYTEST_FLAGS="$PYARROW_PYTEST_FLAGS --tensorflow"
 fi
 
