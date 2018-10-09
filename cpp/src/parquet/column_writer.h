@@ -76,7 +76,7 @@ class PARQUET_EXPORT LevelEncoder {
   std::unique_ptr<::arrow::BitUtil::BitWriter> bit_packed_encoder_;
 };
 
-class PageWriter {
+class PARQUET_EXPORT PageWriter {
  public:
   virtual ~PageWriter() {}
 

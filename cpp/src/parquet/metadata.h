@@ -37,7 +37,7 @@ namespace parquet {
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
 
-class ApplicationVersion {
+class PARQUET_EXPORT ApplicationVersion {
  public:
   // Known Versions with Issues
   static const ApplicationVersion& PARQUET_251_FIXED_VERSION();
@@ -195,6 +195,9 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
  public:
   // API convenience to get a MetaData reader
   static std::unique_ptr<ColumnChunkMetaDataBuilder> Make(
+      const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column);
+
+  static std::unique_ptr<ColumnChunkMetaDataBuilder> Make(
       const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column,
       uint8_t* contents);
 
@@ -213,10 +216,15 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
               bool dictionary_fallback);
 
+  // The metadata contents, suitable for passing to ColumnChunkMetaData::Make
+  const uint8_t* contents() const;
+
   // For writing metadata at end of column chunk
   void WriteTo(OutputStream* sink);
 
  private:
+  explicit ColumnChunkMetaDataBuilder(const std::shared_ptr<WriterProperties>& props,
+                                      const ColumnDescriptor* column);
   explicit ColumnChunkMetaDataBuilder(const std::shared_ptr<WriterProperties>& props,
                                       const ColumnDescriptor* column, uint8_t* contents);
   // PIMPL Idiom

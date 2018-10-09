@@ -26,7 +26,7 @@ endif()
 add_custom_target(parquet)
 
 function(ADD_PARQUET_TEST REL_TEST_NAME)
-  set(options NO_VALGRIND)
+  set(options USE_STATIC_LINKING)
   set(one_value_args)
   set(multi_value_args EXTRA_DEPENDENCIES LABELS)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
@@ -34,10 +34,20 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  ADD_ARROW_TEST(${REL_TEST_NAME}
-    STATIC_LINK_LIBS ${PARQUET_TEST_LINK_LIBS}
-    PREFIX "parquet"
-    LABELS "unittest;parquet")
+  # By default we prefer shared linking with libparquet, as it's faster
+  # and uses less disk space, but in some cases we need to force static
+  # linking (see rationale below).
+  if (ARG_USE_STATIC_LINKING)
+    ADD_ARROW_TEST(${REL_TEST_NAME}
+      STATIC_LINK_LIBS ${PARQUET_STATIC_TEST_LINK_LIBS}
+      PREFIX "parquet"
+      LABELS "unittest;parquet")
+  else()
+    ADD_ARROW_TEST(${REL_TEST_NAME}
+      STATIC_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS}
+      PREFIX "parquet"
+      LABELS "unittest;parquet")
+  endif()
 endfunction()
 
 # ----------------------------------------------------------------------
@@ -85,7 +95,13 @@ elseif(NOT MSVC)
     ${CMAKE_DL_LIBS})
 endif()
 
-set(PARQUET_TEST_LINK_LIBS
+set(PARQUET_SHARED_TEST_LINK_LIBS
+  ${PARQUET_MIN_TEST_LIBS}
+  ${PARQUET_ARROW_LINK_LIBS}
+  parquet_shared
+  thriftstatic)
+
+set(PARQUET_STATIC_TEST_LINK_LIBS
   ${PARQUET_MIN_TEST_LIBS}
   ${PARQUET_ARROW_LINK_LIBS}
   parquet_static
@@ -257,7 +273,6 @@ ADD_PARQUET_TEST(bloom_filter-test)
 ADD_PARQUET_TEST(column_reader-test)
 ADD_PARQUET_TEST(column_scanner-test)
 ADD_PARQUET_TEST(column_writer-test)
-ADD_PARQUET_TEST(file-deserialize-test)
 ADD_PARQUET_TEST(file-serialize-test)
 ADD_PARQUET_TEST(properties-test)
 ADD_PARQUET_TEST(statistics-test)
@@ -266,7 +281,11 @@ ADD_PARQUET_TEST(metadata-test)
 ADD_PARQUET_TEST(public-api-test)
 ADD_PARQUET_TEST(types-test)
 ADD_PARQUET_TEST(reader-test)
-ADD_PARQUET_TEST(schema-test)
+
+# Those tests need to use static linking as they access thrift-generated
+# symbols which are not exported by parquet.dll on Windows (PARQUET-1420).
+ADD_PARQUET_TEST(file-deserialize-test USE_STATIC_LINKING)
+ADD_PARQUET_TEST(schema-test USE_STATIC_LINKING)
 
 #############################################################
 # Benchmark linking
