@@ -19,8 +19,8 @@
 #include <arrow/io/memory.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
-#include "arrow_types.h"
 #include "RawVectorOutputStream.h"
+#include "arrow_types.h"
 
 using namespace Rcpp;
 using namespace arrow;
@@ -102,9 +102,8 @@ RawVector RecordBatch__to_stream(const std::shared_ptr<arrow::RecordBatch>& batc
   mockSink.reset(new io::MockOutputStream());
 
   std::shared_ptr<arrow::ipc::RecordBatchWriter> mockWriter;
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamWriter::Open(mockSink.get(),
-                                                           batch->schema(),
-                                                           &mockWriter));
+  R_ERROR_NOT_OK(
+    arrow::ipc::RecordBatchStreamWriter::Open(mockSink.get(), batch->schema(), &mockWriter));
 
   R_ERROR_NOT_OK(mockWriter->WriteRecordBatch(*batch));
   R_ERROR_NOT_OK(mockWriter->Close());

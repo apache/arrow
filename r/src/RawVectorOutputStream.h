@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <Rcpp.h>
 #include <arrow/io/interfaces.h>
 #include <arrow/status.h>
-#include <Rcpp.h>
 
 class RawVectorOutputStream : public arrow::io::OutputStream {
  public:
-  RawVectorOutputStream(Rcpp::RawVector& buffer) : extent_bytes_written_(0), buffer_(buffer) {}
+  RawVectorOutputStream(Rcpp::RawVector& buffer)
+      : extent_bytes_written_(0), buffer_(buffer) {}
 
   // Implement the OutputStream interface
   arrow::Status Close() override;

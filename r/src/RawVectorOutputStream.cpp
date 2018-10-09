@@ -15,15 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <Rcpp.h>
 #include "RawVectorOutputStream.h"
+#include <Rcpp.h>
 
 using namespace arrow;
 using namespace Rcpp;
 
-Status RawVectorOutputStream::Close() {
-  return Status::OK();
-}
+Status RawVectorOutputStream::Close() { return Status::OK(); }
 
 Status RawVectorOutputStream::Tell(int64_t* position) const {
   *position = extent_bytes_written_;
@@ -35,7 +33,10 @@ Status RawVectorOutputStream::Write(const void* data, int64_t nbytes) {
     return Status::CapacityError("Not enough memory allocated for fixed size buffer.");
   }
 
-  std::copy(reinterpret_cast<const uint8_t*>(data), reinterpret_cast<const uint8_t*>(data) + nbytes, buffer_.begin() + extent_bytes_written_);
+  std::copy(reinterpret_cast<const uint8_t*>(data),
+            reinterpret_cast<const uint8_t*>(data) + nbytes,
+            buffer_.begin() + extent_bytes_written_);
+
   extent_bytes_written_ += nbytes;
 
   return Status::OK();
