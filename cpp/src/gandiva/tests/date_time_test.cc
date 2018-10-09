@@ -341,7 +341,8 @@ TEST_F(TestProjector, TestMonthsBetween) {
   std::cout << status.message();
   ASSERT_TRUE(status.ok());
 
-  struct tm y1970 = {0};
+  struct tm y1970;
+  memset(&y1970, 0, sizeof(struct tm));
   y1970.tm_year = 70;
   y1970.tm_mon = 0;
   y1970.tm_mday = 1;

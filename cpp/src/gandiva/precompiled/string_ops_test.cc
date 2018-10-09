@@ -60,17 +60,21 @@ TEST(TestStringOps, TestCharLength) {
   EXPECT_TRUE(valid);
 
   std::string a("âpple");
-  EXPECT_EQ(utf8_length(a.data(), a.length(), true, 0, &valid), 5);
+  EXPECT_EQ(utf8_length(a.data(), static_cast<int>(a.length()), true, 0, &valid), 5);
   EXPECT_TRUE(valid);
 
   std::string b("मदन");
-  EXPECT_EQ(utf8_length(b.data(), b.length(), true, 0, &valid), 3);
+  EXPECT_EQ(static_cast<int>(
+                utf8_length(b.data(), static_cast<int>(b.length()), true, 0, &valid)),
+            3);
   EXPECT_TRUE(valid);
 
   // invalid utf8
   gandiva::helpers::ExecutionContext ctx;
   std::string c("\xf8\x28");
-  EXPECT_EQ(utf8_length(c.data(), c.length(), true, (int64)&ctx, &valid), 0);
+  EXPECT_EQ(utf8_length(c.data(), static_cast<int>(c.length()), true,
+                        reinterpret_cast<int64>(&ctx), &valid),
+            0);
   EXPECT_TRUE(ctx.get_error().find(
                   "unexpected byte \\f8 encountered while decoding utf8 string") !=
               std::string::npos)

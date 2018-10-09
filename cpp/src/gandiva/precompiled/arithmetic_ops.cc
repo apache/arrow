@@ -172,7 +172,7 @@ NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
       return 0;                                                                         \
     }                                                                                   \
     *out_valid = true;                                                                  \
-    return in1 / in2;                                                                   \
+    return static_cast<TYPE>(in1 / in2);                                                \
   }
 
 NUMERIC_FUNCTION(DIVIDE_NULL_INTERNAL)

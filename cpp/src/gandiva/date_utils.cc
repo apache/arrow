@@ -1,16 +1,19 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include <algorithm>
 #include <memory>
@@ -39,19 +42,17 @@ std::vector<std::string> DateUtils::GetMatches(std::string pattern, bool exactMa
   return matches;
 }
 
-std::vector<std::string> DateUtils::GetPotentialMatches(std::string pattern) {
+std::vector<std::string> DateUtils::GetPotentialMatches(const std::string& pattern) {
   return GetMatches(pattern, false);
 }
 
-std::vector<std::string> DateUtils::GetExactMatches(std::string pattern) {
+std::vector<std::string> DateUtils::GetExactMatches(const std::string& pattern) {
   return GetMatches(pattern, true);
 }
 
 /**
- * Validates and converts {@param format} to the strptime equivalent
+ * Validates and converts format to the strptime equivalent
  *
- * @param format date format
- * @return date format converted to strptime format
  */
 Status DateUtils::ToInternalFormat(const std::string& format,
                                    std::shared_ptr<std::string>* internal_format) {
@@ -107,7 +108,7 @@ Status DateUtils::ToInternalFormat(const std::string& format,
 
     // check how many matches we have for our buffer
     std::vector<std::string> potentialList = GetPotentialMatches(buffer.str());
-    int potentialCount = potentialList.size();
+    int64_t potentialCount = potentialList.size();
 
     if (potentialCount >= 1) {
       // one potential and the length match
@@ -125,7 +126,6 @@ Status DateUtils::ToInternalFormat(const std::string& format,
           std::string lookAheadPattern = (buffer.str() + format.at(i + 1));
           std::transform(lookAheadPattern.begin(), lookAheadPattern.end(),
                          lookAheadPattern.begin(), ::tolower);
-          ;
           bool lookAheadMatched = false;
 
           // we can query potentialList to see if it has anything that matches the
@@ -151,7 +151,6 @@ Status DateUtils::ToInternalFormat(const std::string& format,
             if (matched) {
               std::string match = buffer.str();
               std::transform(match.begin(), match.end(), match.begin(), ::tolower);
-              ;
               builder << sql_date_format_to_boost_map_[match];
               buffer.str("");
               continue;
@@ -175,7 +174,7 @@ Status DateUtils::ToInternalFormat(const std::string& format,
       builder << sql_date_format_to_boost_map_[exactMatches[0]];
     } else {
       // we didn't successfully parse the entire string
-      int pos = format.length() - buffer.str().length();
+      int64_t pos = format.length() - buffer.str().length();
       std::stringstream err_msg;
       err_msg << "Invalid date format string '" << format << "' at position " << pos;
       return Status::Invalid(err_msg.str());

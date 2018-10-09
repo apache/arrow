@@ -23,9 +23,9 @@
 #include "arrow/util/logging.h"
 
 #include "gandiva/arrow.h"
+#include "gandiva/execution_context.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/local_bitmaps_holder.h"
-#include "gandiva/execution_context.h"
 
 namespace gandiva {
 
@@ -71,7 +71,7 @@ class EvalBatch {
     return local_bitmaps_holder_->GetLocalBitMapArray();
   }
 
-  ExecutionContext *GetExecutionContext() const { return execution_context_.get(); }
+  ExecutionContext* GetExecutionContext() const { return execution_context_.get(); }
 
  private:
   /// number of records in the current batch.

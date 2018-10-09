@@ -32,11 +32,11 @@ RE2 LikeHolder::ends_with_regex_(R"(\.\*(\w|\s)*)");
 
 // Short-circuit pattern matches for the two common sub cases :
 // - starts_with and ends_with.
-const FunctionNode LikeHolder::TryOptimize(const FunctionNode &node) {
+const FunctionNode LikeHolder::TryOptimize(const FunctionNode& node) {
   std::shared_ptr<LikeHolder> holder;
   auto status = Make(node, &holder);
   if (status.ok()) {
-    std::string &pattern = holder->pattern_;
+    std::string& pattern = holder->pattern_;
     auto literal_type = node.children().at(1)->return_type();
 
     if (RE2::FullMatch(pattern, starts_with_regex_)) {
@@ -58,7 +58,7 @@ const FunctionNode LikeHolder::TryOptimize(const FunctionNode &node) {
   return node;
 }
 
-Status LikeHolder::Make(const FunctionNode &node, std::shared_ptr<LikeHolder> *holder) {
+Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* holder) {
   if (node.children().size() != 2) {
     return Status::Invalid("'like' function requires two parameters");
   }

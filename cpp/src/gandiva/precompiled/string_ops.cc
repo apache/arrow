@@ -77,13 +77,13 @@ VAR_LEN_OP_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
   INNER(binary)
 
 FORCE_INLINE
-bool starts_with_utf8_utf8(const char *data, int32 data_len, const char *prefix,
+bool starts_with_utf8_utf8(const char* data, int32 data_len, const char* prefix,
                            int32 prefix_len) {
   return ((data_len >= prefix_len) && (memcmp(data, prefix, prefix_len) == 0));
 }
 
 FORCE_INLINE
-bool ends_with_utf8_utf8(const char *data, int32 data_len, const char *suffix,
+bool ends_with_utf8_utf8(const char* data, int32 data_len, const char* suffix,
                          int32 suffix_len) {
   return ((data_len >= suffix_len) &&
           (memcmp(data + data_len - suffix_len, suffix, suffix_len) == 0));
@@ -106,9 +106,9 @@ int32 utf8_char_length(char c) {
 
 FORCE_INLINE
 void set_error_for_invalid_utf(int64_t execution_context, char val) {
-  char const *fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
-  int size = strlen(fmt) + 64;
-  char *error = (char *)malloc(size);
+  char const* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
+  int size = static_cast<int>(strlen(fmt)) + 64;
+  char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, fmt, (unsigned char)val);
   context_set_error_msg(execution_context, error);
   free(error);
@@ -116,8 +116,8 @@ void set_error_for_invalid_utf(int64_t execution_context, char val) {
 
 // Count the number of utf8 characters
 FORCE_INLINE
-int32 utf8_length(const char *data, int32 data_len, boolean is_valid, int64 context,
-                  boolean *out_valid) {
+int32 utf8_length(const char* data, int32 data_len, boolean is_valid, int64 context,
+                  boolean* out_valid) {
   *out_valid = false;
   if (!is_valid) {
     return 0;
@@ -140,7 +140,7 @@ int32 utf8_length(const char *data, int32 data_len, boolean is_valid, int64 cont
 #define UTF8_LENGTH_NULL_INTERNAL(NAME, TYPE)                                 \
   FORCE_INLINE                                                                \
   int32 NAME##_##TYPE(TYPE in, int32 in_len, boolean is_valid, int64 context, \
-                      boolean *out_valid) {                                   \
+                      boolean* out_valid) {                                   \
     return utf8_length(in, in_len, is_valid, context, out_valid);             \
   }
 

@@ -112,7 +112,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
       reinterpret_cast<uint8_t*>(a1),  reinterpret_cast<uint8_t*>(&in_bitmap),
       reinterpret_cast<uint8_t*>(out), reinterpret_cast<uint8_t*>(&out_bitmap),
   };
-  eval_func(addrs, nullptr, 0, num_records);
+  eval_func(addrs, nullptr, 0 /* dummy context ptr */, num_records);
 
   uint32_t expected[] = {6, 8, 10, 12};
   for (int i = 0; i < num_records; i++) {
@@ -179,7 +179,7 @@ TEST_F(TestLLVMGenerator, TestNullInternal) {
       reinterpret_cast<uint8_t*>(&local_bitmap),
   };
 
-  eval_func(addrs, local_bitmap_addrs, 0, num_records);
+  eval_func(addrs, local_bitmap_addrs, 0 /* dummy context ptr */, num_records);
 
   uint32_t expected_value[] = {0, 1, 0, 2};
   bool expected_validity[] = {false, true, false, true};

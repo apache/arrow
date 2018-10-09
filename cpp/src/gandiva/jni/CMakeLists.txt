@@ -75,7 +75,7 @@ target_include_directories(gandiva_jni
 # filter out everything that is not needed for the jni bridge
 # statically linked stdc++ has conflicts with stdc++ loaded by other libraries.
 if (NOT APPLE)
-set_target_properties(gandiva_jni PROPERTIES LINK_FLAGS "-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/jni/symbols.map")
+set_target_properties(gandiva_jni PROPERTIES LINK_FLAGS "-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/gandiva/jni/symbols.map")
 endif()
 
 # PROTOBUF is a private dependency i.e users of gandiva also will not have a dependency on protobuf.

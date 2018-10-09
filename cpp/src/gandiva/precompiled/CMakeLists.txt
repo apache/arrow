@@ -38,6 +38,7 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
     OUTPUT ${BC_FILE}
     COMMAND ${CLANG_EXECUTABLE}
             -D GDV_HELPERS -std=c++11 -emit-llvm -O2 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
+            -I${CMAKE_SOURCE_DIR}/src
     DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()

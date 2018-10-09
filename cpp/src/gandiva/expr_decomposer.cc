@@ -49,7 +49,7 @@ Status ExprDecomposer::Visit(const FieldNode& node) {
 // Try and optimize a function node, by substituting with cheaper alternatives.
 // eg. replacing 'like' with 'starts_with' can save function calls at evaluation
 // time.
-const FunctionNode ExprDecomposer::TryOptimize(const FunctionNode &node) {
+const FunctionNode ExprDecomposer::TryOptimize(const FunctionNode& node) {
   if (node.descriptor()->name() == "like") {
     return LikeHolder::TryOptimize(node);
   } else {
@@ -59,7 +59,7 @@ const FunctionNode ExprDecomposer::TryOptimize(const FunctionNode &node) {
 
 // Decompose a field node - wherever possible, merge the validity vectors of the
 // child nodes.
-Status ExprDecomposer::Visit(const FunctionNode &in_node) {
+Status ExprDecomposer::Visit(const FunctionNode& in_node) {
   auto node = TryOptimize(in_node);
   auto desc = node.descriptor();
   FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
@@ -116,7 +116,7 @@ Status ExprDecomposer::Visit(const FunctionNode &in_node) {
 }
 
 // Decompose an IfNode
-Status ExprDecomposer::Visit(const IfNode &node) {
+Status ExprDecomposer::Visit(const IfNode& node) {
   PushConditionEntry(node);
   auto status = node.condition()->Accept(*this);
   GANDIVA_RETURN_NOT_OK(status);
@@ -247,12 +247,12 @@ bool ExprDecomposer::PopElseEntry(const IfNode& node) {
   return is_terminal_else;
 }
 
-void ExprDecomposer::PushConditionEntry(const IfNode &node) {
+void ExprDecomposer::PushConditionEntry(const IfNode& node) {
   std::unique_ptr<IfStackEntry> entry(new IfStackEntry(node, kStackEntryCondition));
   if_entries_stack_.push(std::move(entry));
 }
 
-void ExprDecomposer::PopConditionEntry(const IfNode &node) {
+void ExprDecomposer::PopConditionEntry(const IfNode& node) {
   DCHECK_EQ(if_entries_stack_.empty(), false) << "PopConditionEntry: found empty stack";
 
   auto top = if_entries_stack_.top().get();

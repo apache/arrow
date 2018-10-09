@@ -18,11 +18,11 @@
 #ifndef GANDIVA_PROJECTOR_CACHE_KEY_H
 #define GANDIVA_PROJECTOR_CACHE_KEY_H
 
+#include <algorithm>
 #include <memory>
 #include <string>
-#include <vector>
-#include <algorithm>
 #include <thread>
+#include <vector>
 
 #include "gandiva/arrow.h"
 #include "gandiva/projector.h"
@@ -75,16 +75,13 @@ class ProjectorCacheKey {
 
   std::string ToString() const {
     std::stringstream ss;
-    ss << "Schema [";
-
-    // remove newlines from schema
-    auto schema_str = schema_->ToString();
-    std::replace(schema_str.begin(), schema_str.end(), '\n', ',');
-    ss << schema_str << "] ";
+    // indent, window, indent_size, null_rep and skip new lines.
+    arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
+    PrettyPrint(*schema_.get(), options, &ss);
 
     ss << "Expressions: [";
     bool first = true;
-    for (auto &expr : expressions_as_strings_) {
+    for (auto& expr : expressions_as_strings_) {
       if (first) {
         first = false;
       } else {
@@ -98,7 +95,7 @@ class ProjectorCacheKey {
   }
 
  private:
-  void UpdateUniqifier(const std::string expr) {
+  void UpdateUniqifier(const std::string& expr) {
     if (uniqifier_ == 0) {
       // caching of expressions with re2 patterns causes lock contention. So, use
       // multiple instances to reduce contention.

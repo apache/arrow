@@ -30,7 +30,7 @@ namespace gandiva {
 class FilterCacheKey {
  public:
   FilterCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
-                 Expression &expression)
+                 Expression& expression)
       : schema_(schema), configuration_(configuration), uniqifier_(0) {
     static const int kSeedValue = 4;
     size_t result = kSeedValue;
@@ -71,19 +71,16 @@ class FilterCacheKey {
 
   std::string ToString() const {
     std::stringstream ss;
-    ss << "Schema [";
-
-    // remove newlines from schema
-    auto schema_str = schema_->ToString();
-    std::replace(schema_str.begin(), schema_str.end(), '\n', ',');
-    ss << schema_str << "] ";
+    // indent, window, indent_size, null_rep and skip new lines.
+    arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
+    PrettyPrint(*schema_.get(), options, &ss);
 
     ss << "Condition: [" << expression_as_string_ << "]";
     return ss.str();
   }
 
  private:
-  void UpdateUniqifier(const std::string expr) {
+  void UpdateUniqifier(const std::string& expr) {
     // caching of expressions with re2 patterns causes lock contention. So, use
     // multiple instances to reduce contention.
     if (expr.find(" like(") != std::string::npos) {

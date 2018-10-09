@@ -46,9 +46,9 @@ class NativeFunction {
   bool needs_context() const { return needs_context_; }
 
  private:
-  NativeFunction(const std::string &base_name, const DataTypeVector &param_types,
-                 DataTypePtr ret_type, const ResultNullableType &result_nullable_type,
-                 const std::string &pc_name, bool needs_holder = false,
+  NativeFunction(const std::string& base_name, const DataTypeVector& param_types,
+                 DataTypePtr ret_type, const ResultNullableType& result_nullable_type,
+                 const std::string& pc_name, bool needs_holder = false,
                  bool needs_context = false)
       : signature_(base_name, param_types, ret_type),
         needs_holder_(needs_holder),
