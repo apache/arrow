@@ -98,13 +98,7 @@ int RecordBatch__to_file(const std::shared_ptr<arrow::RecordBatch>& batch,
 // [[Rcpp::export]]
 RawVector RecordBatch__to_stream(const std::shared_ptr<arrow::RecordBatch>& batch) {
   io::MockOutputStream mockSink;
-
-  std::shared_ptr<arrow::ipc::RecordBatchWriter> mockWriter;
-  R_ERROR_NOT_OK(
-      arrow::ipc::RecordBatchStreamWriter::Open(&mockSink, batch->schema(), &mockWriter));
-
-  R_ERROR_NOT_OK(mockWriter->WriteRecordBatch(*batch));
-  R_ERROR_NOT_OK(mockWriter->Close());
+  R_ERROR_NOT_OK(arrow::ipc::WriteRecordBatchStream({batch}, &mockSink));
 
   RawVector res(mockSink.GetExtentBytesWritten());
 
@@ -114,12 +108,7 @@ RawVector RecordBatch__to_stream(const std::shared_ptr<arrow::RecordBatch>& batc
   std::unique_ptr<arrow::io::FixedSizeBufferWriter> sink;
   sink.reset(new arrow::io::FixedSizeBufferWriter(rawBuffer));
 
-  std::shared_ptr<arrow::ipc::RecordBatchWriter> writer;
-  R_ERROR_NOT_OK(
-      arrow::ipc::RecordBatchStreamWriter::Open(sink.get(), batch->schema(), &writer));
-
-  R_ERROR_NOT_OK(writer->WriteRecordBatch(*batch));
-  R_ERROR_NOT_OK(writer->Close());
+  R_ERROR_NOT_OK(arrow::ipc::WriteRecordBatchStream({batch}, sink.get()));
 
   return res;
 }
