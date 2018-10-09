@@ -257,9 +257,9 @@ gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
  */
 GArrowColumn *
 gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
-                                      GArrowSchema* schema,
-                                      gint column_index,
-                                      GError **error)
+                                       GArrowSchema* schema,
+                                       gint column_index,
+                                       GError **error)
 {
   auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
   std::shared_ptr<arrow::Array> arrow_array;
