@@ -44,7 +44,16 @@ class CudaContext::CudaContextImpl {
 
   Status Init(const CudaDevice& device) {
     device_ = device;
+    own_context_ = true;
     CU_RETURN_NOT_OK(cuCtxCreate(&context_, 0, device_.handle));
+    is_open_ = true;
+    return Status::OK();
+  }
+
+  Status InitShared(const CudaDevice& device, CUcontext ctx) {
+    device_ = device;
+    own_context_ = false;
+    context_ = ctx;
     is_open_ = true;
     return Status::OK();
   }
@@ -110,6 +119,8 @@ class CudaContext::CudaContextImpl {
 
   const CudaDevice device() const { return device_; }
 
+  const void* context_handle() const { return (void*)context_; }
+
  private:
   CudaDevice device_;
   CUcontext context_;
@@ -165,6 +176,12 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
     return (*out)->impl_->Init(devices_[device_number]);
   }
 
+  Status CreateSharedContext(int device_number, CUcontext ctx, std::shared_ptr<CudaContext>* out) {
+    // TODO: check if context exists already, if so, return it.
+    *out = std::shared_ptr<CudaContext>(new CudaContext());
+    return (*out)->impl_->InitShared(devices_[device_number], ctx);
+  }
+
   Status GetContext(int device_number, std::shared_ptr<CudaContext>* out) {
     auto it = contexts_.find(device_number);
     if (it == contexts_.end()) {
@@ -210,6 +227,12 @@ Status CudaDeviceManager::GetContext(int device_number,
 Status CudaDeviceManager::CreateNewContext(int device_number,
                                            std::shared_ptr<CudaContext>* out) {
   return impl_->CreateNewContext(device_number, out);
+}
+
+Status CudaDeviceManager::CreateSharedContext(int device_number,
+					      void* ctx,
+					      std::shared_ptr<CudaContext>* out) {
+  return impl_->CreateSharedContext(device_number, (CUcontext)ctx, out);
 }
 
 Status CudaDeviceManager::AllocateHost(int64_t nbytes,
@@ -275,6 +298,8 @@ Status CudaContext::OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
 }
 
 int64_t CudaContext::bytes_allocated() const { return impl_->bytes_allocated(); }
+
+const void* CudaContext::handle() const { return impl_->context_handle(); }
 
 }  // namespace gpu
 }  // namespace arrow
