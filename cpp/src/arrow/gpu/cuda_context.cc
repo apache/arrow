@@ -119,7 +119,7 @@ class CudaContext::CudaContextImpl {
 
   const CudaDevice device() const { return device_; }
 
-  const void* context_handle() const { return (void*)context_; }
+  const void* context_handle() const { return reinterpret_cast<void*>context_; }
 
  private:
   CudaDevice device_;
@@ -176,7 +176,8 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
     return (*out)->impl_->Init(devices_[device_number]);
   }
 
-  Status CreateSharedContext(int device_number, CUcontext ctx, std::shared_ptr<CudaContext>* out) {
+  Status CreateSharedContext(int device_number, CUcontext ctx,
+			     std::shared_ptr<CudaContext>* out) {
     // TODO: check if context exists already, if so, return it.
     *out = std::shared_ptr<CudaContext>(new CudaContext());
     return (*out)->impl_->InitShared(devices_[device_number], ctx);

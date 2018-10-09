@@ -48,7 +48,8 @@ class ARROW_EXPORT CudaDeviceManager {
   /// \param[in] device_number
   /// \param[in] handle CUDA context handler created by another library
   /// \param[out] out shared context
-  Status CreateSharedContext(int device_number, void* handle, std::shared_ptr<CudaContext>* out);
+  Status CreateSharedContext(int device_number, void* handle,
+			     std::shared_ptr<CudaContext>* out);
 
   Status AllocateHost(int64_t nbytes, std::shared_ptr<CudaHostBuffer>* buffer);
 
