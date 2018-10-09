@@ -214,6 +214,64 @@ gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader,
 }
 
 /**
+ * gparquet_arrow_file_reader_get_schema:
+ * @reader: A #GParquetArrowFileReader.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): A read #GArrowSchema.
+ *
+ * Since: 1.0.0
+ */
+GArrowSchema *
+gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
+                                      GError **error)
+{
+  auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
+  std::shared_ptr<arrow::Schema> arrow_schema;
+
+  std::vector<int> indices(parquet_arrow_file_reader->parquet_reader()->metadata()->num_columns());
+  for (size_t i = 0; i < indices.size(); ++i) {
+    indices[i] = static_cast<int>(i);
+  }
+
+  auto status = parquet_arrow_file_reader->GetSchema(indices, &arrow_schema);
+  if (garrow_error_check(error, status, "[arrow][file-reader][get-schema]")) {
+    return garrow_schema_new_raw(&arrow_schema);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * gparquet_arrow_file_reader_read_column:
+ * @reader: A #GParquetArrowFileReader.
+ * @schema: A #GArrowSchema.
+ * @col_index: Index integer of the column to be read.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): A read #GArrowColumn.
+ *
+ * Since: 1.0.0
+ */
+GArrowColumn *
+gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
+                                      GArrowSchema* schema,
+                                      gint col_index,
+                                      GError **error)
+{
+  auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
+  std::shared_ptr<arrow::Array> arrow_array;
+  auto status = parquet_arrow_file_reader->ReadColumn(col_index, &arrow_array);
+  if (garrow_error_check(error, status, "[arrow][file-reader][read-column]")) {
+    auto garrow_array = garrow_array_new_raw(&arrow_array);
+    auto field = garrow_schema_get_field(schema, col_index);
+    return garrow_column_new_array(field, garrow_array);
+  } else {
+    return NULL;
+  }
+}
+
+/**
  * gparquet_arrow_file_reader_get_n_row_groups:
  * @reader: A #GParquetArrowFileReader.
  *
