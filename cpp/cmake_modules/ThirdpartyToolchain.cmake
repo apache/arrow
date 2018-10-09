@@ -489,10 +489,10 @@ else()
 endif()
 
 include_directories(SYSTEM ${DOUBLE_CONVERSION_INCLUDE_DIR})
-ADD_THIRDPARTY_LIB(double-conversion
-  STATIC_LIB ${DOUBLE_CONVERSION_STATIC_LIB})
 
 if (DOUBLE_CONVERSION_VENDORED)
+  ADD_THIRDPARTY_LIB(double-conversion::double-conversion
+    STATIC_LIB ${DOUBLE_CONVERSION_STATIC_LIB})
   add_dependencies(arrow_dependencies double-conversion_ep)
 endif()
 
