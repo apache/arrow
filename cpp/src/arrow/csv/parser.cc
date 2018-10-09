@@ -16,11 +16,12 @@
 // under the License.
 
 #include "arrow/csv/parser.h"
+
+#include <cstdio>
+#include <sstream>
+
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-
-#include <sstream>
-#include <string>
 
 namespace arrow {
 namespace csv {

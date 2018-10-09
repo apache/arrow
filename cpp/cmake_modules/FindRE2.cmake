@@ -22,6 +22,7 @@
 # This module defines
 #  RE2_INCLUDE_DIR, directory containing headers
 #  RE2_STATIC_LIB, path to libre2.a
+#  RE2_SHARED_LIB, path to libre2.so
 #  RE2_FOUND, whether re2 has been found
 
 if( NOT "${RE2_HOME}" STREQUAL "")
@@ -51,9 +52,22 @@ find_library(RE2_STATIC_LIB NAMES libre2${CMAKE_STATIC_LIBRARY_SUFFIX}
   DOC   "Google's re2 regex static library"
 )
 
+find_library(RE2_SHARED_LIB NAMES libre2${CMAKE_SHARED_LIBRARY_SUFFIX}
+  PATHS ${_re2_path}
+        NO_DEFAULT_PATH
+  PATH_SUFFIXES ${lib_dirs}
+  DOC   "Google's re2 regex static library"
+)
+
 message(STATUS ${RE2_INCLUDE_DIR})
 
-if (NOT RE2_INCLUDE_DIR OR NOT RE2_STATIC_LIB)
+if (ARROW_RE2_LINKAGE STREQUAL "static" AND (NOT RE2_STATIC_LIB))
+  set(RE2_LIB_NOT_FOUND TRUE)
+elseif(ARROW_RE2_LINKAGE STREQUAL "shared" AND (NOT RE2_SHARED_LIB))
+  set(RE2_LIB_NOT_FOUND TRUE)
+endif()
+
+if (NOT RE2_INCLUDE_DIR OR RE2_LIB_NOT_FOUND)
   set(RE2_FOUND FALSE)
   if (_re2_path)
     set (RE2_ERR_MSG "Could not find re2. Looked in ${_re2_path}.")
@@ -68,11 +82,13 @@ if (NOT RE2_INCLUDE_DIR OR NOT RE2_STATIC_LIB)
   endif ()
 else()
     set(RE2_FOUND TRUE)
-    message(STATUS "Found the RE2 headers : ${RE2_INCLUDE_DIR}")
-    message(STATUS "Found the RE2 static library : ${RE2_STATIC_LIB}")
+    message(STATUS "RE2 headers : ${RE2_INCLUDE_DIR}")
+    message(STATUS "RE2 static library : ${RE2_STATIC_LIB}")
+    message(STATUS "RE2 shared library : ${RE2_SHARED_LIB}")
 endif()
 
 mark_as_advanced(
   RE2_INCLUDE_DIR
+  RE2_SHARED_LIB
   RE2_STATIC_LIB
 )

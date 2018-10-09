@@ -30,7 +30,6 @@
 namespace arrow {
 
 class Buffer;
-class MemoryPool;
 class ResizableBuffer;
 class Status;
 

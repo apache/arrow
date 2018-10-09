@@ -365,7 +365,7 @@ FunctionRegistry::SignatureMap FunctionRegistry::pc_registry_map_ = InitPCMap();
 FunctionRegistry::SignatureMap FunctionRegistry::InitPCMap() {
   SignatureMap map;
 
-  int num_entries = sizeof(pc_registry_) / sizeof(NativeFunction);
+  int num_entries = static_cast<int>(sizeof(pc_registry_) / sizeof(NativeFunction));
   printf("Registry has %d pre-compiled functions\n", num_entries);
 
   for (int i = 0; i < num_entries; i++) {

@@ -214,3 +214,32 @@ arrow::TimeUnit::type TimestampType__unit(
 std::string Object__pointer_address(SEXP obj) {
   return tfm::format("%p", EXTPTR_PTR(obj));
 }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::DataType> DictionaryType__initialize(
+    const std::shared_ptr<arrow::DataType>& type,
+    const std::shared_ptr<arrow::Array>& array, bool ordered) {
+  return arrow::dictionary(type, array, ordered);
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::DataType> DictionaryType__index_type(
+    const std::shared_ptr<arrow::DictionaryType>& type) {
+  return type->index_type();
+}
+
+// [[Rcpp::export]]
+std::string DictionaryType__name(const std::shared_ptr<arrow::DictionaryType>& type) {
+  return type->name();
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Array> DictionaryType__dictionary(
+    const std::shared_ptr<arrow::DictionaryType>& type) {
+  return type->dictionary();
+}
+
+// [[Rcpp::export]]
+bool DictionaryType__ordered(const std::shared_ptr<arrow::DictionaryType>& type) {
+  return type->ordered();
+}

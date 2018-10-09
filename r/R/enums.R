@@ -16,48 +16,47 @@
 # under the License.
 
 #' @export
-`$.arrow-enum` <- function(x, y){
-  structure(unclass(x)[[y]], class = class(x))
-}
-
-#' @export
 `print.arrow-enum` <- function(x, ...){
   NextMethod()
 }
 
 #' @importFrom rlang seq2 quo_name set_names
 #' @importFrom purrr map_chr
-enum <- function(class, ...){
-  names <- purrr::map_chr(rlang::quos(...), rlang::quo_name)
-  names[is.na(names)] <- "NA"
-
+enum <- function(class, ..., .list = list(...)){
   structure(
-    rlang::set_names(rlang::seq2(0L, length(names)-1), names),
+    .list,
     class = c(class, "arrow-enum")
   )
 }
 
 #' @rdname DataType
 #' @export
-TimeUnit <- enum("arrow::TimeUnit::type", SECOND, MILLI, MICRO, NANO)
+TimeUnit <- enum("arrow::TimeUnit::type",
+  SECOND = 0L, MILLI = 1L, MICRO = 2L, NANO = 3L
+)
 
 #' @rdname DataType
 #' @export
-DateUnit <- enum("arrow::DateUnit", DAY, MILLI)
+DateUnit <- enum("arrow::DateUnit", DAY = 0L, MILLI = 1L)
 
 #' @rdname DataType
 #' @export
 Type <- enum("arrow::Type::type",
-  NA, BOOL, UINT8, INT8, UINT16, INT16, UINT32, INT32, UINT64, INT64,
-  HALF_FLOAT, FLOAT, DOUBLE, STRING, BINARY, DATE32, DATE64, TIMESTAMP,
-  INTERVAL, DECIMAL, LIST, STRUCT, UNION, DICTIONARY, MAP
+  "NA" = 0L, BOOL = 1L, UINT8 = 2L, INT8 = 3L, UINT16 = 4L, INT16 = 5L,
+  UINT32 = 6L, INT32 = 7L, UINT64 = 8L, INT64 = 9L,
+  HALF_FLOAT = 10L, FLOAT = 11L, DOUBLE = 12L, STRING = 13L,
+  BINARY = 14L, FIXED_SIZE_BINARY = 15L, DATE32 = 16L, DATE64 = 17L, TIMESTAMP = 18L,
+  TIME32 = 19L, TIME64 = 20L, INTERVAL = 21L, DECIMAL = 22L, LIST = 23L, STRUCT = 24L,
+  UNION = 25L, DICTIONARY = 26L, MAP = 27L
 )
 
 #' @rdname DataType
 #' @export
 StatusCode <- enum("arrow::StatusCode",
-  OK, OutOfMemory, KeyError, TypeError, Invalid, IOError,
-  CapacityError, UnknownError, NotImplemented, SerializationError,
-  PythonError, PlasmaObjectExists, PlasmaObjectNonexistent, PlasmaStoreFull,
-  PlasmaObjectAlreadySealed
+  OK = 0L, OutOfMemory = 1L, KeyError = 2L, TypeError = 3L,
+  Invalid = 4L, IOError = 5L, CapacityError = 6L,
+  UnknownError = 9L, NotImplemented = 10L, SerializationError = 11L,
+  PythonError = 12L, RError = 13L,
+  PlasmaObjectExists = 20L, PlasmaObjectNonexistent = 21L,
+  PlasmaStoreFull = 22L, PlasmaObjectAlreadySealed = 23L
 )

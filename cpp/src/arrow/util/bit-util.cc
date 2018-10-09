@@ -24,17 +24,21 @@
 #endif
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+class MemoryPool;
+
 namespace BitUtil {
 namespace {
 

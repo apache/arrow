@@ -30,7 +30,9 @@ using arrow::int32;
 using arrow::int64;
 using arrow::utf8;
 
-float tolerance_ratio = 4.0;
+// TODO : the base numbers are from a mac. they need to be caliberated
+// for the hardware used by travis.
+float tolerance_ratio = 6.0;
 
 class TestBenchmarks : public ::testing::Test {
  public:

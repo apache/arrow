@@ -120,6 +120,15 @@ services:
     volumes:
       - .:/arrow:delegated
 
+  # Depends on xenial base image, see dev/README.md
+  iwyu:
+    image: arrow:iwyu
+    build:
+      context: .
+      dockerfile: dev/iwyu/Dockerfile
+    volumes:
+      - .:/arrow:delegated
+
   clang-format:
     image: arrow:lint
     shm_size: 2G

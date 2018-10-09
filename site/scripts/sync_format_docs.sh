@@ -20,4 +20,5 @@
 
 set -ex
 
+rm -rf _docs/format
 cp -r $(dirname "$BASH_SOURCE")/../../format _docs/format

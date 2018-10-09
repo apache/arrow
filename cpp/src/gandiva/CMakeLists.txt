@@ -20,8 +20,6 @@ cmake_minimum_required(VERSION 3.11)
 
 project(gandiva)
 
-find_package(RE2 REQUIRED)
-
 include(GandivaBuildUtils)
 
 find_package(LLVM)
@@ -120,7 +118,7 @@ target_include_directories(gandiva_helpers
     ${ARROW_INCLUDE_DIR}
 )
 
-target_link_libraries(gandiva_helpers PRIVATE Boost::boost ${RE2_STATIC_LIB})
+target_link_libraries(gandiva_helpers PRIVATE Boost::boost re2)
 if (NOT APPLE)
   target_link_libraries(gandiva_helpers LINK_PRIVATE -static-libstdc++ -static-libgcc)
 endif()
@@ -151,6 +149,14 @@ install(FILES
   tree_expr_builder.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+
+# pkg-config support
+configure_file(gandiva.pc.in
+  "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
+  @ONLY)
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
 #args: label test-file src-files
 add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)

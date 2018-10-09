@@ -18,20 +18,23 @@
 #ifndef ARROW_CSV_CONVERTER_H
 #define ARROW_CSV_CONVERTER_H
 
+#include <cstdint>
 #include <memory>
 
 #include "arrow/csv/options.h"
-#include "arrow/csv/parser.h"
-#include "arrow/memory_pool.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Array;
 class DataType;
+class MemoryPool;
 class Status;
 
 namespace csv {
+
+class BlockParser;
 
 class ARROW_EXPORT Converter {
  public:

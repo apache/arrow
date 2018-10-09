@@ -22,18 +22,20 @@
 #include <unistd.h>
 #endif
 
-#include <exception>
+#include <cstdlib>
 #include <functional>
 #include <future>
 #include <iostream>
 #include <list>
 #include <memory>
+#include <string>
+#include <thread>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 

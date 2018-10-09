@@ -18,14 +18,17 @@
 #ifndef ARROW_COMPUTE_CONTEXT_H
 #define ARROW_COMPUTE_CONTEXT_H
 
+#include <cstdint>
 #include <memory>
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Buffer;
 
 namespace internal {
 class CpuInfo;

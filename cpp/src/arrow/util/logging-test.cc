@@ -16,11 +16,12 @@
 // under the License.
 
 #include <chrono>
-#include <cstdlib>
+#include <cstdint>
 #include <iostream>
 
+#include <gtest/gtest.h>
+
 #include "arrow/util/logging.h"
-#include "gtest/gtest.h"
 
 // This code is adapted from
 // https://github.com/ray-project/ray/blob/master/src/ray/util/logging_test.cc.

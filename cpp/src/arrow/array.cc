@@ -19,9 +19,7 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstring>
 #include <limits>
-#include <set>
 #include <sstream>
 #include <utility>
 
@@ -29,6 +27,7 @@
 #include "arrow/compare.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
+#include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"

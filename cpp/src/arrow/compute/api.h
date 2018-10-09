@@ -18,10 +18,10 @@
 #ifndef ARROW_COMPUTE_API_H
 #define ARROW_COMPUTE_API_H
 
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernel.h"
+#include "arrow/compute/context.h"  // IWYU pragma: export
+#include "arrow/compute/kernel.h"   // IWYU pragma: export
 
-#include "arrow/compute/kernels/cast.h"
-#include "arrow/compute/kernels/hash.h"
+#include "arrow/compute/kernels/cast.h"  // IWYU pragma: export
+#include "arrow/compute/kernels/hash.h"  // IWYU pragma: export
 
 #endif  // ARROW_COMPUTE_API_H

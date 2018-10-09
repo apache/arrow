@@ -25,7 +25,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/variant.h"
+#include "arrow/util/variant.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 
 namespace arrow {

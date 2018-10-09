@@ -46,6 +46,14 @@
   )
 )
 
+`arrow::Array`$dispatch <- function(xp){
+  a <- `arrow::Array`$new(xp)
+  if(a$type_id() == Type$DICTIONARY){
+    a <- `arrow::DictionaryArray`$new(xp)
+  }
+  a
+}
+
 #' @export
 `length.arrow::Array` <- function(x) x$length()
 
@@ -58,5 +66,13 @@
 #'
 #' @export
 array <- function(...){
-  `arrow::Array`$new(Array__from_vector(vctrs::vec_c(...)))
+  `arrow::Array`$dispatch(Array__from_vector(vctrs::vec_c(...)))
 }
+
+`arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `arrow::Array`,
+  public = list(
+    indices = function() `arrow::Array`$dispatch(DictionaryArray__indices(self)),
+    dictionary = function() `arrow::Array`$dispatch(DictionaryArray__dictionary(self))
+  )
+)
+

@@ -18,14 +18,16 @@
 #ifndef PARQUET_ARROW_SCHEMA_H
 #define PARQUET_ARROW_SCHEMA_H
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
 #include "arrow/api.h"
 
-#include "parquet/api/schema.h"
-#include "parquet/api/writer.h"
 #include "parquet/arrow/writer.h"
+#include "parquet/metadata.h"
+#include "parquet/schema.h"
+#include "parquet/util/visibility.h"
 
 namespace arrow {
 
@@ -35,7 +37,11 @@ class Status;
 
 namespace parquet {
 
+class WriterProperties;
+
 namespace arrow {
+
+class ArrowWriterProperties;
 
 PARQUET_EXPORT
 ::arrow::Status NodeToField(const schema::Node& node,

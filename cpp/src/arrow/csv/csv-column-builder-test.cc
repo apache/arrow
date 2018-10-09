@@ -15,20 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-
+#include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/array.h"
+#include <gtest/gtest.h>
+
 #include "arrow/csv/column-builder.h"
+#include "arrow/csv/options.h"
 #include "arrow/csv/test-common.h"
-#include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/test-util.h"
+#include "arrow/type.h"
+#include "arrow/util/task-group.h"
 #include "arrow/util/thread-pool.h"
 
 namespace arrow {
 namespace csv {
+
+class BlockParser;
 
 using internal::GetCpuThreadPool;
 using internal::TaskGroup;

@@ -17,17 +17,23 @@
 
 #include <hdfs.h>
 
+#include <errno.h>
 #include <algorithm>
 #include <cerrno>
-#include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/io/hdfs-internal.h"
 #include "arrow/io/hdfs.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"

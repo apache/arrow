@@ -21,22 +21,28 @@ test_that("RecordBatch", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10]
+    chr = letters[1:10],
+    fct = factor(letters[1:10])
   )
   batch <- record_batch(tbl)
 
   expect_true(batch == batch)
   expect_equal(
     batch$schema(),
-    schema(int = int32(), dbl = float64(), lgl = boolean(), chr = utf8())
+    schema(
+      int = int32(), dbl = float64(),
+      lgl = boolean(), chr = utf8(),
+      fct = dictionary(int32(), array(letters[1:10]))
+    )
   )
-  expect_equal(batch$num_columns(), 4L)
+  expect_equal(batch$num_columns(), 5L)
   expect_equal(batch$num_rows(), 10L)
   expect_equal(batch$column_name(0), "int")
   expect_equal(batch$column_name(1), "dbl")
   expect_equal(batch$column_name(2), "lgl")
   expect_equal(batch$column_name(3), "chr")
-  expect_equal(names(batch), c("int", "dbl", "lgl", "chr"))
+  expect_equal(batch$column_name(4), "fct")
+  expect_equal(names(batch), c("int", "dbl", "lgl", "chr", "fct"))
 
   col_int <- batch$column(0)
   expect_true(inherits(col_int, 'arrow::Array'))
@@ -58,10 +64,16 @@ test_that("RecordBatch", {
   expect_equal(col_chr$as_vector(), tbl$chr)
   expect_equal(col_chr$type(), utf8())
 
+  col_fct <- batch$column(4)
+  expect_true(inherits(col_fct, 'arrow::Array'))
+  expect_equal(col_fct$as_vector(), tbl$fct)
+  expect_equal(col_fct$type(), dictionary(int32(), array(letters[1:10])))
+
+
   batch2 <- batch$RemoveColumn(0)
   expect_equal(
     batch2$schema(),
-    schema(dbl = float64(), lgl = boolean(), chr = utf8())
+    schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int32(), array(letters[1:10])))
   )
   expect_equal(batch2$column(0), batch$column(1))
   expect_identical(as_tibble(batch2), tbl[,-1])
@@ -71,4 +83,34 @@ test_that("RecordBatch", {
 
   batch4 <- batch$Slice(5, 2)
   expect_identical(as_tibble(batch4), tbl[6:7,])
+})
+
+test_that("RecordBatch with 0 rows are supported", {
+  tbl <- tibble::tibble(
+    int = integer(),
+    dbl = numeric(),
+    lgl = logical(),
+    chr = character(),
+    fct = factor(character(), levels = c("a", "b"))
+  )
+
+  batch <- record_batch(tbl)
+  expect_equal(batch$num_columns(), 5L)
+  expect_equal(batch$num_rows(), 0L)
+  expect_equal(
+    batch$schema(),
+    schema(
+      int = int32(),
+      dbl = float64(),
+      lgl = boolean(),
+      chr = utf8(),
+      fct = dictionary(int32(), array(c("a", "b")))
+    )
+  )
+
+  tf <- tempfile(); on.exit(unlink(tf))
+  batch$to_file(tf)
+
+  res <- read_record_batch(tf)
+  expect_equal(res, batch)
 })
