@@ -40,6 +40,8 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int bitmap_siz
     return Status::Invalid(ss.str());
   }
 
+  int max_slots = GetMaxSlots();
+
   // jump  8-bytes at a time, add the index corresponding to each valid bit to the
   // the selection vector.
   int selection_idx = 0;
@@ -57,7 +59,7 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int bitmap_siz
         break;
       }
 
-      if (selection_idx >= GetMaxSlots()) {
+      if (selection_idx >= max_slots) {
         return Status::Invalid("selection vector has no remaining slots");
       }
       SetIndex(selection_idx, pos_in_bitmap);

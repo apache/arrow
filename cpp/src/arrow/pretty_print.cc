@@ -41,8 +41,13 @@ using internal::checked_cast;
 
 class PrettyPrinter {
  public:
-  PrettyPrinter(int indent, int indent_size, int window, std::ostream* sink)
-      : indent_(indent), indent_size_(indent_size), window_(window), sink_(sink) {}
+  PrettyPrinter(int indent, int indent_size, int window, bool skip_new_lines,
+                std::ostream* sink)
+      : indent_(indent),
+        indent_size_(indent_size),
+        window_(window),
+        skip_new_lines_(skip_new_lines),
+        sink_(sink) {}
 
   void Write(const char* data);
   void Write(const std::string& data);
@@ -59,6 +64,7 @@ class PrettyPrinter {
   int indent_;
   int indent_size_;
   int window_;
+  bool skip_new_lines_;
   std::ostream* sink_;
 };
 
@@ -93,6 +99,9 @@ void PrettyPrinter::WriteIndented(const std::string& data) {
 }
 
 void PrettyPrinter::Newline() {
+  if (skip_new_lines_) {
+    return;
+  }
   (*sink_) << "\n";
   Indent();
 }
@@ -106,8 +115,8 @@ void PrettyPrinter::Indent() {
 class ArrayPrinter : public PrettyPrinter {
  public:
   ArrayPrinter(const Array& array, int indent, int indent_size, int window,
-               const std::string& null_rep, std::ostream* sink)
-      : PrettyPrinter(indent, indent_size, window, sink),
+               const std::string& null_rep, bool skip_new_lines, std::ostream* sink)
+      : PrettyPrinter(indent, indent_size, window, skip_new_lines, sink),
         array_(array),
         null_rep_(null_rep) {}
 
@@ -340,14 +349,14 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
 }
 
 Status PrettyPrint(const Array& arr, int indent, std::ostream* sink) {
-  ArrayPrinter printer(arr, indent, 2, 10, "null", sink);
+  ArrayPrinter printer(arr, indent, 2, 10, "null", false, sink);
   return printer.Print();
 }
 
 Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
                    std::ostream* sink) {
   ArrayPrinter printer(arr, options.indent, options.indent_size, options.window,
-                       options.null_rep, sink);
+                       options.null_rep, options.skip_new_lines, sink);
   return printer.Print();
 }
 
@@ -385,7 +394,8 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
       skip_comma = true;
     } else {
       ArrayPrinter printer(*chunked_arr.chunk(i), indent + options.indent_size,
-                           options.indent_size, window, options.null_rep, sink);
+                           options.indent_size, window, options.null_rep,
+                           options.skip_new_lines, sink);
       RETURN_NOT_OK(printer.Print());
     }
   }
@@ -425,8 +435,9 @@ Status DebugPrint(const Array& arr, int indent) {
 class SchemaPrinter : public PrettyPrinter {
  public:
   SchemaPrinter(const Schema& schema, int indent, int indent_size, int window,
-                std::ostream* sink)
-      : PrettyPrinter(indent, indent_size, window, sink), schema_(schema) {}
+                bool skip_new_lines, std::ostream* sink)
+      : PrettyPrinter(indent, indent_size, window, skip_new_lines, sink),
+        schema_(schema) {}
 
   Status PrintType(const DataType& type);
   Status PrintField(const Field& field);
@@ -480,7 +491,7 @@ Status SchemaPrinter::PrintField(const Field& field) {
 Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
                    std::ostream* sink) {
   SchemaPrinter printer(schema, options.indent, options.indent_size, options.window,
-                        sink);
+                        options.skip_new_lines, sink);
   return printer.Print();
 }
 

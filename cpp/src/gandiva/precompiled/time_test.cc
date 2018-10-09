@@ -18,6 +18,8 @@
 #include <time.h>
 
 #include <gtest/gtest.h>
+#include "../execution_context.h"
+#include "gandiva/precompiled/date.h"
 #include "gandiva/precompiled/types.h"
 
 namespace gandiva {
@@ -26,6 +28,61 @@ timestamp StringToTimestamp(const char* buf) {
   struct tm tm;
   strptime(buf, "%Y-%m-%d %H:%M:%S", &tm);
   return timegm(&tm) * 1000;  // to millis
+}
+
+TEST(TestTime, TestCastDate) {
+  const char* date = "1967-12-1";
+  helpers::ExecutionContext context;
+  bool valid;
+  int64_t cast_to_date = castDATE_utf8(date, 9, true, (int64_t)&context, &valid);
+  EXPECT_EQ(cast_to_date, -65836800000);
+  EXPECT_EQ(valid, true);
+
+  const char* date1 = "1972-12-1";
+  cast_to_date = castDATE_utf8(date1, 9, true, (int64_t)&context, &valid);
+  EXPECT_EQ(cast_to_date, 92016000000);
+  EXPECT_EQ(valid, true);
+
+  const char* date2 = "1972222222";
+  cast_to_date = castDATE_utf8(date2, 10, true, (int64_t)&context, &valid);
+  EXPECT_EQ(cast_to_date, 0);
+  EXPECT_EQ(context.get_error(), "Not a valid date value 1972222222");
+  EXPECT_EQ(valid, false);
+
+  const char* date3 = "blahblah";
+  cast_to_date = castDATE_utf8(date3, 8, true, (int64_t)&context, &valid);
+  EXPECT_EQ(cast_to_date, 0);
+  EXPECT_EQ(valid, false);
+
+  const char* date4 = "1967-12-1bb";
+  cast_to_date = castDATE_utf8(date4, 11, true, (int64_t)&context, &valid);
+  EXPECT_EQ(cast_to_date, -65836800000);
+  EXPECT_EQ(valid, true);
+
+  const char* date5 = "67-12-1";
+  cast_to_date = castDATE_utf8(date5, 7, true, (int64_t)&context, &valid);
+  EXPECT_EQ(cast_to_date, 3089923200000);
+  EXPECT_EQ(valid, true);
+
+  const char* date6 = "67-1-1";
+  cast_to_date = castDATE_utf8(date6, 7, true, (int64_t)&context, &valid);
+  EXPECT_EQ(cast_to_date, 3061065600000);
+  EXPECT_EQ(valid, true);
+
+  const char* date7 = "71-1-1";
+  cast_to_date = castDATE_utf8(date7, 7, true, (int64_t)&context, &valid);
+  EXPECT_EQ(cast_to_date, 31536000000);
+  EXPECT_EQ(valid, true);
+
+  const char* date8 = "71-45-1";
+  cast_to_date = castDATE_utf8(date8, 7, true, (int64_t)&context, &valid);
+  EXPECT_EQ(cast_to_date, 0);
+  EXPECT_EQ(valid, false);
+
+  const char* date9 = "71-12-XX";
+  cast_to_date = castDATE_utf8(date9, 8, true, (int64_t)&context, &valid);
+  EXPECT_EQ(cast_to_date, 0);
+  EXPECT_EQ(valid, false);
 }
 
 TEST(TestTime, TestExtractTime) {
@@ -494,6 +551,36 @@ TEST(TestTime, TestExtractWeek) {
     timestamp ts = StringToTimestamp(data.at(i).c_str());
     int64 exp = atol(data.at(i + 1).c_str());
     EXPECT_EQ(extractWeek_timestamp(ts), exp);
+  }
+}
+
+TEST(TestTime, TestMonthsBetween) {
+  std::vector<std::string> testStrings = {
+      "1995-03-02 00:00:00", "1995-02-02 00:00:00", "1.0",
+      "1995-02-02 00:00:00", "1995-03-02 00:00:00", "-1.0",
+      "1995-03-31 00:00:00", "1995-02-28 00:00:00", "1.0",
+      "1996-03-31 00:00:00", "1996-02-28 00:00:00", "1.09677418",
+      "1996-03-31 00:00:00", "1996-02-29 00:00:00", "1.0",
+      "1996-05-31 00:00:00", "1996-04-30 00:00:00", "1.0",
+      "1996-05-31 00:00:00", "1996-03-31 00:00:00", "2.0",
+      "1996-05-31 00:00:00", "1996-03-30 00:00:00", "2.03225806",
+      "1996-03-15 00:00:00", "1996-02-14 00:00:00", "1.03225806",
+      "1995-02-02 00:00:00", "1995-01-01 00:00:00", "1.03225806",
+      "1995-02-02 10:00:00", "1995-01-01 11:00:00", "1.03091397"};
+
+  for (uint32_t i = 0; i < testStrings.size();) {
+    timestamp endTs = StringToTimestamp(testStrings[i++].c_str());
+    timestamp startTs = StringToTimestamp(testStrings[i++].c_str());
+
+    double expectedResult = atof(testStrings[i++].c_str());
+    double actualResult = months_between_timestamp_timestamp(endTs, startTs);
+
+    double diff = actualResult - expectedResult;
+    if (diff < 0) {
+      diff = expectedResult - actualResult;
+    }
+
+    EXPECT_TRUE(diff < 0.001);
   }
 }
 

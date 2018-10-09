@@ -59,8 +59,11 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   std::shared_ptr<Projector> cached_projector = cache.GetModule(cache_key);
   if (cached_projector != nullptr) {
     *projector = cached_projector;
+    std::cout << "llvm projector module cache hit : " << cache_key.ToString()
+              << std::endl;
     return Status::OK();
   }
+
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;
   Status status = LLVMGenerator::Make(configuration, &llvm_gen);
@@ -88,6 +91,9 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   *projector = std::shared_ptr<Projector>(
       new Projector(std::move(llvm_gen), schema, output_fields, configuration));
   cache.PutModule(cache_key, *projector);
+  std::cout << "llvm projector module cache insert : " << cache_key.ToString()
+            << std::endl;
+
   return Status::OK();
 }
 

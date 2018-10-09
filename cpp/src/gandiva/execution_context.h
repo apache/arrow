@@ -15,37 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_MODULE_CACHE_H
-#define GANDIVA_MODULE_CACHE_H
+#ifndef ERROR_HOLDER_H
+#define ERROR_HOLDER_H
 
-#include <mutex>
-
-#include "gandiva/lru_cache.h"
+#include <memory>
+#include <string>
 
 namespace gandiva {
-
-template <class KeyType, typename ValueType>
-class Cache {
+#ifdef GDV_HELPERS
+namespace helpers {
+#endif
+/// Error holder for errors during llvm module execution
+class ExecutionContext {
  public:
-  explicit Cache(size_t capacity = CACHE_SIZE) : cache_(capacity) {}
-  ValueType GetModule(KeyType cache_key) {
-    boost::optional<ValueType> result;
-    mtx_.lock();
-    result = cache_.get(cache_key);
-    mtx_.unlock();
-    return result != boost::none ? result.value() : nullptr;
-  }
+  std::string get_error() const;
 
-  void PutModule(KeyType cache_key, ValueType module) {
-    mtx_.lock();
-    cache_.insert(cache_key, module);
-    mtx_.unlock();
-  }
+  void set_error_msg(const char* error_msg);
+
+  bool has_error() const;
 
  private:
-  LruCache<KeyType, ValueType> cache_;
-  static const int CACHE_SIZE = 250;
-  std::mutex mtx_;
+  std::unique_ptr<std::string> error_msg_;
 };
+#ifdef GDV_HELPERS
+}  // namespace helpers
+#endif
 }  // namespace gandiva
-#endif  // GANDIVA_MODULE_CACHE_H
+#endif  // ERROR_HOLDER_H

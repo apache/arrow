@@ -46,6 +46,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 import static org.junit.Assert.assertEquals;
@@ -245,6 +246,124 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseRecordBatch(batch);
     releaseValueVectors(output);
     eval.close();
+  }
+
+  @Test
+  public void testEvaluateDivZero() throws GandivaException, Exception {
+    Field a = Field.nullable("a", int32);
+    Field b = Field.nullable("b", int32);
+    List<Field> args = Lists.newArrayList(a, b);
+
+    Field retType = Field.nullable("c", int32);
+    ExpressionTree root = TreeBuilder.makeExpression("divide", args, retType);
+
+    List<ExpressionTree> exprs = Lists.newArrayList(root);
+
+    Schema schema = new Schema(args);
+    Projector eval = Projector.make(schema, exprs);
+
+    int numRows = 2;
+    byte[] validity = new byte[]{(byte) 255};
+    // second half is "undefined"
+    int[] values_a = new int[]{2, 2};
+    int[] values_b = new int[]{1, 0};
+
+    ArrowBuf validitya = buf(validity);
+    ArrowBuf valuesa = intBuf(values_a);
+    ArrowBuf validityb = buf(validity);
+    ArrowBuf valuesb = intBuf(values_b);
+    ArrowRecordBatch batch = new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows, 0)),
+            Lists.newArrayList(validitya, valuesa, validityb, valuesb));
+
+    IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
+    intVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(intVector);
+    boolean exceptionThrown = false;
+    try {
+      eval.evaluate(batch, output);
+    } catch (GandivaException e) {
+      Assert.assertTrue(e.getMessage().contains("divide by zero"));
+      exceptionThrown = true;
+    }
+    Assert.assertTrue(exceptionThrown);
+
+    // free buffers
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
+  @Test
+  public void testDivZeroParallel() throws GandivaException, InterruptedException {
+    Field a = Field.nullable("a", int32);
+    Field b = Field.nullable("b", int32);
+    Field c = Field.nullable("c", int32);
+    List<Field> cols = Lists.newArrayList(a, b);
+    Schema s = new Schema(cols);
+
+    List<Field> args = Lists.newArrayList(a, b);
+
+
+    ExpressionTree expr = TreeBuilder.makeExpression("divide", args, c);
+    List<ExpressionTree> exprs = Lists.newArrayList(expr);
+
+    ExecutorService executors = Executors.newFixedThreadPool(16);
+
+    AtomicInteger errorCount = new AtomicInteger(0);
+    AtomicInteger errorCountExp = new AtomicInteger(0);
+    // pre-build the projector so that same projector is used for all executions.
+    Projector.make(s, exprs);
+
+    IntStream.range(0, 1000).forEach(i -> {
+      executors.submit(() -> {
+        try {
+          Projector evaluator = Projector.make(s, exprs);
+          int numRows = 2;
+          byte[] validity = new byte[]{(byte) 255};
+          int[] values_a = new int[]{2, 2};
+          int[] values_b;
+          if (i%2 == 0) {
+            errorCountExp.incrementAndGet();
+            values_b = new int[]{1, 0};
+          } else {
+            values_b = new int[]{1, 1};
+          }
+
+          ArrowBuf validitya = buf(validity);
+          ArrowBuf valuesa = intBuf(values_a);
+          ArrowBuf validityb = buf(validity);
+          ArrowBuf valuesb = intBuf(values_b);
+          ArrowRecordBatch batch = new ArrowRecordBatch(
+                  numRows,
+                  Lists.newArrayList(new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows,
+                          0)),
+                  Lists.newArrayList(validitya, valuesa, validityb, valuesb));
+
+          IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
+          intVector.allocateNew(numRows);
+
+          List<ValueVector> output = new ArrayList<ValueVector>();
+          output.add(intVector);
+          try {
+            evaluator.evaluate(batch, output);
+          } catch (GandivaException e) {
+            errorCount.incrementAndGet();
+          }
+          // free buffers
+          releaseRecordBatch(batch);
+          releaseValueVectors(output);
+          evaluator.close();
+        } catch (GandivaException e) {
+        }
+      });
+    });
+    executors.shutdown();
+    executors.awaitTermination(100, java.util.concurrent.TimeUnit.SECONDS);
+    Assert.assertEquals(errorCountExp.intValue(), errorCount.intValue());
   }
 
   @Test
@@ -753,6 +872,67 @@ public class ProjectorTest extends BaseEvaluatorTest {
   }
 
   @Test
+  public void testTimeEquals() throws GandivaException, Exception {    /*
+   * when isnotnull(x) then x
+   * else y
+   */
+    Field x = Field.nullable("x", new ArrowType.Time(TimeUnit.MILLISECOND, 32));
+    TreeNode x_node = TreeBuilder.makeField(x);
+
+    Field y = Field.nullable("y", new ArrowType.Time(TimeUnit.MILLISECOND, 32));
+    TreeNode y_node = TreeBuilder.makeField(y);
+
+    // if isnotnull(x) then x else y
+    TreeNode condition = TreeBuilder.makeFunction("isnotnull",Lists.newArrayList(x_node) ,
+            boolType);
+    TreeNode if_coalesce = TreeBuilder.makeIf(
+            condition,
+            x_node,
+            y_node,
+            new ArrowType.Time(TimeUnit.MILLISECOND, 32));
+
+    ExpressionTree expr = TreeBuilder.makeExpression(if_coalesce, x);
+    Schema schema = new Schema(Lists.newArrayList(x, y));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    int numRows = 2;
+    byte[] validity = new byte[]{(byte) 1};
+    byte[] validity_y = new byte[]{(byte) 3};
+    int[] values_x = new int[]{5, 1};
+    int[] values_y = new int[]{10, 2};
+    int[] expected = new int[]{5, 2};
+
+    ArrowBuf validity_buf = buf(validity);
+    ArrowBuf data_x = intBuf(values_x);
+
+
+    ArrowBuf validity_buf_y = buf(validity_y);
+    ArrowBuf data_y = intBuf(values_y);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch = new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(fieldNode),
+            Lists.newArrayList(validity_buf, data_x, validity_buf_y, data_y));
+
+    IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
+    intVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(intVector);
+    eval.evaluate(batch, output);
+
+    // output should be 5 and 2
+    assertFalse(intVector.isNull(0));
+    assertEquals(expected[0], intVector.get(0));
+    assertEquals(expected[1], intVector.get(1));
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
+  @Test
   public void testIsNull() throws GandivaException, Exception {
     Field x = Field.nullable("x", float64);
 
@@ -1001,7 +1181,6 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseValueVectors(output);
   }
 
-  // This test is ignored until the cpp layer handles errors gracefully
   @Test
   public void testUnknownFunction() {
     Field c1 = Field.nullable("c1", int8);

@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_LIKE_HOLDER_H
-#define GANDIVA_LIKE_HOLDER_H
+#ifndef TO_DATE_HOLDER_H
+#define TO_DATE_HOLDER_H
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 
-#include <re2/re2.h>
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/status.h"
@@ -32,35 +32,33 @@ namespace gandiva {
 namespace helpers {
 #endif
 
-/// Function Holder for SQL 'like'
-class LikeHolder : public FunctionHolder {
+/// Function Holder for SQL 'to_date'
+class ToDateHolder : public FunctionHolder {
  public:
-  ~LikeHolder() override = default;
+  ~ToDateHolder() override = default;
 
-  static Status Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* holder);
+  static Status Make(const FunctionNode& node, std::shared_ptr<ToDateHolder>* holder);
 
-  static Status Make(const std::string& sql_pattern, std::shared_ptr<LikeHolder>* holder);
-
-  // Try and optimise a function node with a "like" pattern.
-  static const FunctionNode TryOptimize(const FunctionNode& node);
+  static Status Make(const std::string& sql_pattern, int32_t suppress_errors,
+                     std::shared_ptr<ToDateHolder>* holder);
 
   /// Return true if the data matches the pattern.
-  bool operator()(const std::string& data) { return RE2::FullMatch(data, regex_); }
+  int64_t operator()(const std::string& data, bool in_valid, int64_t execution_context,
+                     bool* out_valid);
 
  private:
-  explicit LikeHolder(const std::string& pattern) : pattern_(pattern), regex_(pattern) {}
+  ToDateHolder(const std::string& pattern, int32_t suppress_errors)
+      : pattern_(pattern), suppress_errors_(suppress_errors) {}
 
-  std::string pattern_;  // posix pattern string, to help debugging
-  RE2 regex_;            // compiled regex for the pattern
+  void return_error(int64_t execution_context, const std::string& data);
 
-  static RE2 starts_with_regex_;  // pre-compiled pattern for matching starts_with
-  static RE2 ends_with_regex_;    // pre-compiled pattern for matching ends_with
+  std::string pattern_;  // date format string
+
+  int32_t suppress_errors_;  // should throw exception on runtime errors
 };
 
 #ifdef GDV_HELPERS
 }  // namespace helpers
 #endif
-
 }  // namespace gandiva
-
-#endif  // GANDIVA_LIKE_HOLDER_H
+#endif  // TO_DATE_HOLDER_H

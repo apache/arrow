@@ -77,6 +77,75 @@ TEST_F(TestProjector, TestProjectCache) {
   EXPECT_TRUE(cached_projector.get() != should_be_new_projector1.get());
 }
 
+TEST_F(TestProjector, TestProjectCacheFieldNames) {
+  // schema for input fields
+  auto field0 = field("f0", int32());
+  auto field1 = field("f1", int32());
+  auto field2 = field("f2", int32());
+  auto schema = arrow::schema({field0, field1, field2});
+
+  // output fields
+  auto sum_01 = field("sum_01", int32());
+  auto sum_12 = field("sum_12", int32());
+
+  auto sum_expr_01 = TreeExprBuilder::MakeExpression("add", {field0, field1}, sum_01);
+  std::shared_ptr<Projector> projector_01;
+  Status status = Projector::Make(schema, {sum_expr_01}, &projector_01);
+  EXPECT_TRUE(status.ok());
+
+  auto sum_expr_12 = TreeExprBuilder::MakeExpression("add", {field1, field2}, sum_12);
+  std::shared_ptr<Projector> projector_12;
+  status = Projector::Make(schema, {sum_expr_12}, &projector_12);
+  EXPECT_TRUE(status.ok());
+
+  // add(f0, f1) != add(f1, f2)
+  EXPECT_TRUE(projector_01.get() != projector_12.get());
+}
+
+TEST_F(TestProjector, TestProjectCacheDouble) {
+  auto schema = arrow::schema({});
+  auto res = field("result", arrow::float64());
+
+  double d0 = 1.23456788912345677E18;
+  double d1 = 1.23456789012345677E18;
+
+  auto literal0 = TreeExprBuilder::MakeLiteral(d0);
+  auto expr0 = TreeExprBuilder::MakeExpression(literal0, res);
+  std::shared_ptr<Projector> projector0;
+  auto status = Projector::Make(schema, {expr0}, &projector0);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto literal1 = TreeExprBuilder::MakeLiteral(d1);
+  auto expr1 = TreeExprBuilder::MakeExpression(literal1, res);
+  std::shared_ptr<Projector> projector1;
+  status = Projector::Make(schema, {expr1}, &projector1);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_TRUE(projector0.get() != projector1.get());
+}
+
+TEST_F(TestProjector, TestProjectCacheFloat) {
+  auto schema = arrow::schema({});
+  auto res = field("result", arrow::float32());
+
+  float f0 = static_cast<float>(12345678891.000000);
+  float f1 = f0 - 1000;
+
+  auto literal0 = TreeExprBuilder::MakeLiteral(f0);
+  auto expr0 = TreeExprBuilder::MakeExpression(literal0, res);
+  std::shared_ptr<Projector> projector0;
+  auto status = Projector::Make(schema, {expr0}, &projector0);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto literal1 = TreeExprBuilder::MakeLiteral(f1);
+  auto expr1 = TreeExprBuilder::MakeExpression(literal1, res);
+  std::shared_ptr<Projector> projector1;
+  status = Projector::Make(schema, {expr1}, &projector1);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_TRUE(projector0.get() != projector1.get());
+}
+
 TEST_F(TestProjector, TestIntSumSub) {
   // schema for input fields
   auto field0 = field("f0", int32());
@@ -249,6 +318,83 @@ TEST_F(TestProjector, TestAllIntTypes) {
   TestArithmeticOpsForType<arrow::Int16Type, int16_t>(pool_);
   TestArithmeticOpsForType<arrow::Int32Type, int32_t>(pool_);
   TestArithmeticOpsForType<arrow::Int64Type, int64_t>(pool_);
+}
+
+TEST_F(TestProjector, TestExtendedMath) {
+  // schema for input fields
+  auto field0 = arrow::field("f0", arrow::float64());
+  auto field1 = arrow::field("f1", arrow::float64());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_cbrt = arrow::field("cbrt", arrow::float64());
+  auto field_exp = arrow::field("exp", arrow::float64());
+  auto field_log = arrow::field("log", arrow::float64());
+  auto field_log10 = arrow::field("log10", arrow::float64());
+  auto field_logb = arrow::field("logb", arrow::float64());
+  auto field_power = arrow::field("power", arrow::float64());
+
+  // Build expression
+  auto cbrt_expr = TreeExprBuilder::MakeExpression("cbrt", {field0}, field_cbrt);
+  auto exp_expr = TreeExprBuilder::MakeExpression("exp", {field0}, field_exp);
+  auto log_expr = TreeExprBuilder::MakeExpression("log", {field0}, field_log);
+  auto log10_expr = TreeExprBuilder::MakeExpression("log10", {field0}, field_log10);
+  auto logb_expr = TreeExprBuilder::MakeExpression("log", {field0, field1}, field_logb);
+  auto power_expr =
+      TreeExprBuilder::MakeExpression("power", {field0, field1}, field_power);
+
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(
+      schema, {cbrt_expr, exp_expr, log_expr, log10_expr, logb_expr, power_expr},
+      &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  std::vector<double> input0 = {16, 10, -14, 8.3};
+  std::vector<double> input1 = {2, 3, 5, 7};
+  std::vector<bool> validity = {true, true, true, true};
+
+  auto array0 = MakeArrowArray<arrow::DoubleType, double>(input0, validity);
+  auto array1 = MakeArrowArray<arrow::DoubleType, double>(input1, validity);
+
+  // expected output
+  std::vector<double> cbrt_vals;
+  std::vector<double> exp_vals;
+  std::vector<double> log_vals;
+  std::vector<double> log10_vals;
+  std::vector<double> logb_vals;
+  std::vector<double> power_vals;
+  for (int i = 0; i < num_records; i++) {
+    cbrt_vals.push_back(static_cast<double>(cbrtl(input0[i])));
+    exp_vals.push_back(static_cast<double>(expl(input0[i])));
+    log_vals.push_back(static_cast<double>(logl(input0[i])));
+    log10_vals.push_back(static_cast<double>(log10l(input0[i])));
+    logb_vals.push_back(static_cast<double>(logl(input1[i]) / logl(input0[i])));
+    power_vals.push_back(static_cast<double>(powl(input0[i], input1[i])));
+  }
+  auto expected_cbrt = MakeArrowArray<arrow::DoubleType, double>(cbrt_vals, validity);
+  auto expected_exp = MakeArrowArray<arrow::DoubleType, double>(exp_vals, validity);
+  auto expected_log = MakeArrowArray<arrow::DoubleType, double>(log_vals, validity);
+  auto expected_log10 = MakeArrowArray<arrow::DoubleType, double>(log10_vals, validity);
+  auto expected_logb = MakeArrowArray<arrow::DoubleType, double>(logb_vals, validity);
+  auto expected_power = MakeArrowArray<arrow::DoubleType, double>(power_vals, validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(expected_cbrt, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(expected_exp, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(expected_log, outputs.at(2));
+  EXPECT_ARROW_ARRAY_EQUALS(expected_log10, outputs.at(3));
+  EXPECT_ARROW_ARRAY_EQUALS(expected_logb, outputs.at(4));
+  EXPECT_ARROW_ARRAY_EQUALS(expected_power, outputs.at(5));
 }
 
 TEST_F(TestProjector, TestFloatLessThan) {
@@ -520,6 +666,90 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
       arrow::ArrayData::Make(float32(), num_records, {bad_bitmap_buf, data_buf});
   status = projector->Evaluate(*in_batch, {bad_array_data3});
   EXPECT_EQ(status.code(), StatusCode::Invalid);
+}
+
+TEST_F(TestProjector, TestDivideZero) {
+  // schema for input fields
+  auto field0 = field("f0", int32());
+  auto field1 = field("f2", int32());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_div = field("divide", int32());
+
+  // Build expression
+  auto div_expr = TreeExprBuilder::MakeExpression("divide", {field0, field1}, field_div);
+
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {div_expr}, &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto array0 = MakeArrowArrayInt32({2, 3, 4, 5, 6}, {true, true, true, true, true});
+  auto array1 = MakeArrowArrayInt32({1, 2, 2, 0, 0}, {true, true, false, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_EQ(status.code(), StatusCode::ExecutionError);
+  std::string expected_error = "divide by zero error";
+  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+
+  // Testing for second batch that has no error should succeed.
+  num_records = 5;
+  array0 = MakeArrowArrayInt32({2, 3, 4, 5, 6}, {true, true, true, true, true});
+  array1 = MakeArrowArrayInt32({1, 2, 2, 1, 1}, {true, true, false, true, true});
+
+  // prepare input record batch
+  in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+  // expected output
+  auto exp = MakeArrowArrayInt32({2, 1, 2, 5, 6}, {true, true, false, true, true});
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestModZero) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::int64());
+  auto field1 = field("f2", int32());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_div = field("mod", int32());
+
+  // Build expression
+  auto mod_expr = TreeExprBuilder::MakeExpression("mod", {field0, field1}, field_div);
+
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {mod_expr}, &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt64({2, 3, 4, 5}, {true, true, true, true});
+  auto array1 = MakeArrowArrayInt32({1, 2, 2, 0}, {true, true, false, true});
+  // expected output
+  auto exp_mod = MakeArrowArrayInt32({0, 1, 0, 5}, {true, true, false, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mod, outputs.at(0));
 }
 
 }  // namespace gandiva

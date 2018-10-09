@@ -15,37 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_MODULE_CACHE_H
-#define GANDIVA_MODULE_CACHE_H
+#ifndef GANDIVA_CONTEXT_HELPER_H
+#define GANDIVA_CONTEXT_HELPER_H
 
-#include <mutex>
+#include "gandiva/execution_context.h"
+#include "gandiva/precompiled/types.h"
 
-#include "gandiva/lru_cache.h"
-
-namespace gandiva {
-
-template <class KeyType, typename ValueType>
-class Cache {
- public:
-  explicit Cache(size_t capacity = CACHE_SIZE) : cache_(capacity) {}
-  ValueType GetModule(KeyType cache_key) {
-    boost::optional<ValueType> result;
-    mtx_.lock();
-    result = cache_.get(cache_key);
-    mtx_.unlock();
-    return result != boost::none ? result.value() : nullptr;
-  }
-
-  void PutModule(KeyType cache_key, ValueType module) {
-    mtx_.lock();
-    cache_.insert(cache_key, module);
-    mtx_.unlock();
-  }
-
- private:
-  LruCache<KeyType, ValueType> cache_;
-  static const int CACHE_SIZE = 250;
-  std::mutex mtx_;
-};
-}  // namespace gandiva
-#endif  // GANDIVA_MODULE_CACHE_H
+void context_set_error_msg(int64_t context_ptr, char const* err_msg) {
+  gandiva::helpers::ExecutionContext* execution_context_ptr =
+      reinterpret_cast<gandiva::helpers::ExecutionContext*>(context_ptr);
+  (execution_context_ptr)->set_error_msg(err_msg);
+}
+#endif

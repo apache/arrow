@@ -20,6 +20,8 @@ project(gandiva)
 set(PRECOMPILED_SRCS
     arithmetic_ops.cc
     bitmap.cc
+    context_helper.cc
+    extended_math_ops.cc
     hash.cc
     print.cc
     sample.cc
@@ -34,8 +36,9 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
   set(BC_FILE ${CMAKE_CURRENT_BINARY_DIR}/${SRC_BASE}.bc)
   add_custom_command(
     OUTPUT ${BC_FILE}
-    COMMAND ${CLANG_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/src
-            -std=c++11 -emit-llvm -O2 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
+    COMMAND ${CLANG_EXECUTABLE}
+            -D GDV_HELPERS -std=c++11 -emit-llvm -O2 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
+            -I${CMAKE_SOURCE_DIR}/src
     DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()
@@ -53,8 +56,9 @@ add_custom_target(precompiled ALL DEPENDS ${GANDIVA_BC_OUTPUT_PATH})
 # testing
 add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
 add_precompiled_unit_test(epoch_time_point_test.cc)
-add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc)
+add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc context_helper.cc ../execution_context.cc)
 add_precompiled_unit_test(hash_test.cc hash.cc)
 add_precompiled_unit_test(sample_test.cc sample.cc)
-add_precompiled_unit_test(string_ops_test.cc string_ops.cc)
-add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc)
+add_precompiled_unit_test(string_ops_test.cc string_ops.cc context_helper.cc ../execution_context.cc)
+add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc context_helper.cc ../execution_context.cc)
+add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc context_helper.cc ../execution_context.cc)

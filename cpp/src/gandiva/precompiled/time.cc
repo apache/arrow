@@ -20,6 +20,7 @@
 extern "C" {
 
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "./time_constants.h"
@@ -27,6 +28,9 @@ extern "C" {
 
 #define MINS_IN_HOUR 60
 #define SECONDS_IN_MINUTE 60
+#define SECONDS_IN_HOUR (SECONDS_IN_MINUTE) * (MINS_IN_HOUR)
+
+#define HOURS_IN_DAY 24
 
 // Expand inner macro for all date types.
 #define DATE_TYPES(INNER) \
@@ -447,4 +451,122 @@ DATE_TRUNC_FUNCTIONS(timestamp)
 FORCE_INLINE
 date64 castDATE_int64(int64 in) { return in; }
 
+static int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+bool IsLastDayOfMonth(const EpochTimePoint& tp) {
+  if (tp.TmMon() != 1) {
+    // not February. Dont worry about leap year
+    return (tp.TmMday() == days_in_month[tp.TmMon()]);
+  }
+
+  // this is February, check if the day is 28 or 29
+  if (tp.TmMday() < 28) {
+    return false;
+  }
+
+  if (tp.TmMday() == 29) {
+    // Feb 29th
+    return true;
+  }
+
+  // check if year is non-leap year
+  return !IsLeapYear(tp.TmYear());
+}
+
+// MONTHS_BETWEEN returns number of months between dates date1 and date2.
+// If date1 is later than date2, then the result is positive.
+// If date1 is earlier than date2, then the result is negative.
+// If date1 and date2 are either the same days of the month or both last days of months,
+// then the result is always an integer. Otherwise Oracle Database calculates the
+// fractional portion of the result based on a 31-day month and considers the difference
+// in time components date1 and date2
+#define MONTHS_BETWEEN(TYPE)                                                        \
+  FORCE_INLINE                                                                      \
+  double months_between##_##TYPE##_##TYPE(uint64_t endEpoch, uint64_t startEpoch) { \
+    EpochTimePoint endTime(endEpoch);                                               \
+    EpochTimePoint startTime(startEpoch);                                           \
+    int endYear = endTime.TmYear();                                                 \
+    int endMonth = endTime.TmMon();                                                 \
+    int startYear = startTime.TmYear();                                             \
+    int startMonth = startTime.TmMon();                                             \
+    int monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth);          \
+    if ((endTime.TmMday() == startTime.TmMday()) ||                                 \
+        (IsLastDayOfMonth(endTime) && IsLastDayOfMonth(startTime))) {               \
+      return static_cast<double>(monthsDiff);                                       \
+    }                                                                               \
+    double diffDays = static_cast<double>(endTime.TmMday() - startTime.TmMday()) /  \
+                      static_cast<double>(31);                                      \
+    double diffHours = static_cast<double>(endTime.TmHour() - startTime.TmHour()) + \
+                       static_cast<double>(endTime.TmMin() - startTime.TmMin()) /   \
+                           static_cast<double>(MINS_IN_HOUR) +                      \
+                       static_cast<double>(endTime.TmSec() - startTime.TmSec()) /   \
+                           static_cast<double>(SECONDS_IN_HOUR);                    \
+    return static_cast<double>(monthsDiff) + diffDays +                             \
+           diffHours / static_cast<double>(HOURS_IN_DAY * 31);                      \
+  }
+
+DATE_TYPES(MONTHS_BETWEEN)
+
+FORCE_INLINE
+void set_error_for_date(int32 length, const char* input, const char* msg,
+                        int64_t execution_context) {
+  int size = length + static_cast<int>(strlen(msg)) + 1;
+  char* error = reinterpret_cast<char*>(malloc(size));
+  snprintf(error, size, "%s%s", msg, input);
+  context_set_error_msg(execution_context, error);
+  free(error);
+}
+
+date64 castDATE_utf8(const char* input, int32 length, boolean is_valid1,
+                     int64_t execution_context, boolean* out_valid) {
+  *out_valid = false;
+  if (!is_valid1) {
+    return 0;
+  }
+  // format : 0 is year, 1 is month and 2 is day.
+  int dateFields[3];
+  int dateIndex = 0, index = 0, value = 0;
+  while (dateIndex < 3 && index < length) {
+    if (!isdigit(input[index])) {
+      dateFields[dateIndex++] = value;
+      value = 0;
+    } else {
+      value = (value * 10) + (input[index] - '0');
+    }
+    index++;
+  }
+
+  if (dateIndex < 3) {
+    // If we reached the end of input, we would have not encountered a separator
+    // store the last value
+    dateFields[dateIndex++] = value;
+  }
+  const char* msg = "Not a valid date value ";
+  if (dateIndex != 3) {
+    set_error_for_date(length, input, msg, execution_context);
+    return 0;
+  }
+
+  /* Handle two digit years
+   * If range of two digits is between 70 - 99 then year = 1970 - 1999
+   * Else if two digits is between 00 - 69 = 2000 - 2069
+   */
+  if (dateFields[0] < 100) {
+    if (dateFields[0] < 70) {
+      dateFields[0] += 2000;
+    } else {
+      dateFields[0] += 1900;
+    }
+  }
+  date::year_month_day day =
+      date::year(dateFields[0]) / date::month(dateFields[1]) / date::day(dateFields[2]);
+  if (!day.ok()) {
+    set_error_for_date(length, input, msg, execution_context);
+    return 0;
+  }
+  *out_valid = true;
+  return std::chrono::time_point_cast<std::chrono::milliseconds>(date::sys_days(day))
+      .time_since_epoch()
+      .count();
+}
 }  // extern "C"

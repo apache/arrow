@@ -256,6 +256,70 @@ TEST_F(TestIfExpr, TestNestedInIf) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestIfExpr, TestNestedInCondition) {
+  // schema for input fields
+  auto fielda = field("a", int32());
+  auto fieldb = field("b", int32());
+  auto schema = arrow::schema({fielda, fieldb});
+
+  // output fields
+  auto field_result = field("res", int32());
+
+  // build expression.
+  // if (if (a > b) then true else if (a < b) false else null)
+  //   1
+  // else if !(if (a > b) then true else if (a < b) false else null)
+  //   2
+  // else
+  //   3
+  auto node_a = TreeExprBuilder::MakeField(fielda);
+  auto node_b = TreeExprBuilder::MakeField(fieldb);
+  auto literal_1 = TreeExprBuilder::MakeLiteral(1);
+  auto literal_2 = TreeExprBuilder::MakeLiteral(2);
+  auto literal_3 = TreeExprBuilder::MakeLiteral(3);
+  auto literal_true = TreeExprBuilder::MakeLiteral(true);
+  auto literal_false = TreeExprBuilder::MakeLiteral(false);
+  auto literal_null = TreeExprBuilder::MakeNull(boolean());
+
+  auto a_gt_b =
+      TreeExprBuilder::MakeFunction("greater_than", {node_a, node_b}, boolean());
+  auto a_lt_b = TreeExprBuilder::MakeFunction("less_than", {node_a, node_b}, boolean());
+  auto cond_else =
+      TreeExprBuilder::MakeIf(a_lt_b, literal_false, literal_null, boolean());
+  auto cond_if = TreeExprBuilder::MakeIf(a_gt_b, literal_true, cond_else, boolean());
+  auto not_cond_if = TreeExprBuilder::MakeFunction("not", {cond_if}, boolean());
+
+  auto outer_else = TreeExprBuilder::MakeIf(not_cond_if, literal_2, literal_3, int32());
+  auto outer_if = TreeExprBuilder::MakeIf(cond_if, literal_1, outer_else, int32());
+  auto expr = TreeExprBuilder::MakeExpression(outer_if, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 6;
+  auto array_a =
+      MakeArrowArrayInt32({21, 15, 5, 22, 15, 5}, {true, true, true, true, true, true});
+  auto array_b = MakeArrowArrayInt32({20, 18, 19, 20, 18, 19},
+                                     {true, true, true, false, false, false});
+  // expected output
+  auto exp =
+      MakeArrowArrayInt32({1, 2, 2, 3, 3, 3}, {true, true, true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a, array_b});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
 TEST_F(TestIfExpr, TestBigNested) {
   // schema for input fields
   auto fielda = field("a", int32());

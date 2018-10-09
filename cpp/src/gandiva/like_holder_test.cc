@@ -25,7 +25,15 @@
 
 namespace gandiva {
 
-class TestLikeHolder : public ::testing::Test {};
+class TestLikeHolder : public ::testing::Test {
+ public:
+  FunctionNode BuildLike(std::string pattern) {
+    auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
+    auto pattern_node =
+        std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
+    return FunctionNode("like", {field, pattern_node}, arrow::boolean());
+  }
+};
 
 TEST_F(TestLikeHolder, TestMatchAny) {
   std::shared_ptr<LikeHolder> like_holder;
@@ -74,6 +82,37 @@ TEST_F(TestLikeHolder, TestRegexEscape) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   EXPECT_EQ(res, "%hello_abc.def#");
+}
+
+TEST_F(TestLikeHolder, TestOptimise) {
+  // optimise for 'starts_with'
+  auto fnode = LikeHolder::TryOptimize(BuildLike("xy 123z%"));
+  EXPECT_EQ(fnode.descriptor()->name(), "starts_with");
+  EXPECT_EQ(fnode.ToString(), "bool starts_with((utf8) in, (const string) xy 123z)");
+
+  // optimise for 'ends_with'
+  fnode = LikeHolder::TryOptimize(BuildLike("%xyz"));
+  EXPECT_EQ(fnode.descriptor()->name(), "ends_with");
+  EXPECT_EQ(fnode.ToString(), "bool ends_with((utf8) in, (const string) xyz)");
+
+  // no optimisation for others.
+  fnode = LikeHolder::TryOptimize(BuildLike("xyz_"));
+  EXPECT_EQ(fnode.descriptor()->name(), "like");
+
+  fnode = LikeHolder::TryOptimize(BuildLike("_xyz"));
+  EXPECT_EQ(fnode.descriptor()->name(), "like");
+
+  fnode = LikeHolder::TryOptimize(BuildLike("%xyz%"));
+  EXPECT_EQ(fnode.descriptor()->name(), "like");
+
+  fnode = LikeHolder::TryOptimize(BuildLike("_xyz_"));
+  EXPECT_EQ(fnode.descriptor()->name(), "like");
+
+  fnode = LikeHolder::TryOptimize(BuildLike("%xyz_"));
+  EXPECT_EQ(fnode.descriptor()->name(), "like");
+
+  fnode = LikeHolder::TryOptimize(BuildLike("x_yz%"));
+  EXPECT_EQ(fnode.descriptor()->name(), "like");
 }
 
 int main(int argc, char** argv) {
