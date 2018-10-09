@@ -43,7 +43,7 @@ class TestParquetArrow < Test::Unit::TestCase
 
     reader = Parquet::ArrowFileReader.new(tempfile.path)
     reader.use_threads = true
-    assert_equal(chunk_size, reader.n_row_groups)
+    assert_equal(values.length / chunk_size, reader.n_row_groups)
     table = reader.read_table
     table_data = table.n_columns.times.collect do |i|
       column = table.get_column(i)
@@ -60,5 +60,36 @@ class TestParquetArrow < Test::Unit::TestCase
       [column.name, data]
     end
     assert_equal([["enabled", values]], table_data)
+  end
+
+  def test_get_schema_and_column
+    tempfile = Tempfile.open(["data", ".parquet"])
+
+    field1 = Arrow::Field.new("column_a", Arrow::StringDataType.new)
+    field2 = Arrow::Field.new("column_b", Arrow::Int32DataType.new)
+
+    schema = Arrow::Schema.new([field1, field2])
+    writer = Parquet::ArrowFileWriter.new(schema, tempfile.path)
+    begin
+      columns = [
+        Arrow::Column.new(field1, build_string_array(["foo", "bar"])),
+        Arrow::Column.new(field2, build_int32_array([123, 456]))
+      ]
+      table = Arrow::Table.new(schema, columns)
+      writer.write_table(table, 2)
+    ensure
+      writer.close
+    end
+
+    reader = Parquet::ArrowFileReader.new(tempfile.path)
+    assert_equal(2, reader.schema.n_fields)
+
+    col_a = reader.read_column(reader.schema, 0)
+    assert_equal("column_a", col_a.name)
+    assert_equal(2, col_a.length)
+
+    col_b = reader.read_column(reader.schema, 1)
+    assert_equal("column_b", col_b.name)
+
   end
 end

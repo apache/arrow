@@ -46,12 +46,12 @@ gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader,
                                       GError **error);
 
 GArrowSchema *gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
-                                                   GError **error);
+                                                    GError **error);
 
 GArrowColumn *gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
-                                                   GArrowSchema* schema,
-                                                   gint col_index,
-                                                   GError **error);
+                                                     GArrowSchema* schema,
+                                                     gint col_index,
+                                                     GError **error);
 
 gint
 gparquet_arrow_file_reader_get_n_row_groups(GParquetArrowFileReader *reader);

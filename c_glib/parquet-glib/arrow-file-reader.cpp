@@ -25,6 +25,8 @@
 
 #include <parquet-glib/arrow-file-reader.hpp>
 
+#include <parquet/file_reader.h>
+
 G_BEGIN_DECLS
 
 /**
@@ -220,7 +222,7 @@ gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader,
  *
  * Returns: (transfer full) (nullable): A read #GArrowSchema.
  *
- * Since: 1.0.0
+ * Since: 0.12.0
  */
 GArrowSchema *
 gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
@@ -246,26 +248,29 @@ gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
  * gparquet_arrow_file_reader_read_column:
  * @reader: A #GParquetArrowFileReader.
  * @schema: A #GArrowSchema.
- * @col_index: Index integer of the column to be read.
+ * @column_index: Index integer of the column to be read.
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
  *
  * Returns: (transfer full) (nullable): A read #GArrowColumn.
  *
- * Since: 1.0.0
+ * Since: 0.12.0
  */
 GArrowColumn *
 gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
                                       GArrowSchema* schema,
-                                      gint col_index,
+                                      gint column_index,
                                       GError **error)
 {
   auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
   std::shared_ptr<arrow::Array> arrow_array;
-  auto status = parquet_arrow_file_reader->ReadColumn(col_index, &arrow_array);
+  auto status = parquet_arrow_file_reader->ReadColumn(column_index, &arrow_array);
   if (garrow_error_check(error, status, "[arrow][file-reader][read-column]")) {
-    auto garrow_array = garrow_array_new_raw(&arrow_array);
-    auto field = garrow_schema_get_field(schema, col_index);
-    return garrow_column_new_array(field, garrow_array);
+    auto array = garrow_array_new_raw(&arrow_array);
+    auto field = garrow_schema_get_field(schema, column_index);
+    auto column = garrow_column_new_array(field, array);
+    g_object_unref(array);
+    g_object_unref(field);
+    return column;
   } else {
     return NULL;
   }
