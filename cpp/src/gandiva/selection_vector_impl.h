@@ -42,7 +42,9 @@ class SelectionVectorImpl : public SelectionVector {
 
   uint GetIndex(int index) const override { return raw_data_[index]; }
 
-  void SetIndex(int index, uint value) override { raw_data_[index] = value; }
+  void SetIndex(int index, uint value) override {
+    raw_data_[index] = static_cast<C_TYPE>(value);
+  }
 
   ArrayPtr ToArray() const override;
 

@@ -128,7 +128,7 @@ TEST_F(TestProjector, TestProjectCacheFloat) {
   auto schema = arrow::schema({});
   auto res = field("result", arrow::float32());
 
-  float f0 = 12345678891.000000;
+  float f0 = static_cast<float>(12345678891.000000);
   float f1 = f0 - 1000;
 
   auto literal0 = TreeExprBuilder::MakeLiteral(f0);
@@ -366,12 +366,12 @@ TEST_F(TestProjector, TestExtendedMath) {
   std::vector<double> logb_vals;
   std::vector<double> power_vals;
   for (int i = 0; i < num_records; i++) {
-    cbrt_vals.push_back(cbrtl(input0[i]));
-    exp_vals.push_back(expl(input0[i]));
-    log_vals.push_back(logl(input0[i]));
-    log10_vals.push_back(log10l(input0[i]));
-    logb_vals.push_back(logl(input1[i]) / logl(input0[i]));
-    power_vals.push_back(powl(input0[i], input1[i]));
+    cbrt_vals.push_back(static_cast<double>(cbrtl(input0[i])));
+    exp_vals.push_back(static_cast<double>(expl(input0[i])));
+    log_vals.push_back(static_cast<double>(logl(input0[i])));
+    log10_vals.push_back(static_cast<double>(log10l(input0[i])));
+    logb_vals.push_back(static_cast<double>(logl(input1[i]) / logl(input0[i])));
+    power_vals.push_back(static_cast<double>(powl(input0[i], input1[i])));
   }
   auto expected_cbrt = MakeArrowArray<arrow::DoubleType, double>(cbrt_vals, validity);
   auto expected_exp = MakeArrowArray<arrow::DoubleType, double>(exp_vals, validity);

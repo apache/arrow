@@ -453,7 +453,7 @@ date64 castDATE_int64(int64 in) { return in; }
 
 static int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-bool IsLastDayOfMonth(const EpochTimePoint &tp) {
+bool IsLastDayOfMonth(const EpochTimePoint& tp) {
   if (tp.TmMon() != 1) {
     // not February. Dont worry about leap year
     return (tp.TmMday() == days_in_month[tp.TmMon()]);
@@ -492,30 +492,33 @@ bool IsLastDayOfMonth(const EpochTimePoint &tp) {
     int monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth);          \
     if ((endTime.TmMday() == startTime.TmMday()) ||                                 \
         (IsLastDayOfMonth(endTime) && IsLastDayOfMonth(startTime))) {               \
-      return (double)monthsDiff;                                                    \
+      return static_cast<double>(monthsDiff);                                       \
     }                                                                               \
-    double diffDays = (double)(endTime.TmMday() - startTime.TmMday()) / (double)31; \
-    double diffHours =                                                              \
-        (double)(endTime.TmHour() - startTime.TmHour()) +                           \
-        (double)(endTime.TmMin() - startTime.TmMin()) / (double)MINS_IN_HOUR +      \
-        (double)(endTime.TmSec() - startTime.TmSec()) / (double)SECONDS_IN_HOUR;    \
-    return (double)monthsDiff + diffDays + diffHours / (double)(HOURS_IN_DAY * 31); \
+    double diffDays = static_cast<double>(endTime.TmMday() - startTime.TmMday()) /  \
+                      static_cast<double>(31);                                      \
+    double diffHours = static_cast<double>(endTime.TmHour() - startTime.TmHour()) + \
+                       static_cast<double>(endTime.TmMin() - startTime.TmMin()) /   \
+                           static_cast<double>(MINS_IN_HOUR) +                      \
+                       static_cast<double>(endTime.TmSec() - startTime.TmSec()) /   \
+                           static_cast<double>(SECONDS_IN_HOUR);                    \
+    return static_cast<double>(monthsDiff) + diffDays +                             \
+           diffHours / static_cast<double>(HOURS_IN_DAY * 31);                      \
   }
 
 DATE_TYPES(MONTHS_BETWEEN)
 
 FORCE_INLINE
-void set_error_for_date(int32 length, const char *input, const char *msg,
+void set_error_for_date(int32 length, const char* input, const char* msg,
                         int64_t execution_context) {
-  int size = length + strlen(msg) + 1;
-  char *error = (char *)malloc(size);
+  int size = length + static_cast<int>(strlen(msg)) + 1;
+  char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, "%s%s", msg, input);
   context_set_error_msg(execution_context, error);
   free(error);
 }
 
-date64 castDATE_utf8(const char *input, int32 length, boolean is_valid1,
-                     int64_t execution_context, boolean *out_valid) {
+date64 castDATE_utf8(const char* input, int32 length, boolean is_valid1,
+                     int64_t execution_context, boolean* out_valid) {
   *out_valid = false;
   if (!is_valid1) {
     return 0;
@@ -538,7 +541,7 @@ date64 castDATE_utf8(const char *input, int32 length, boolean is_valid1,
     // store the last value
     dateFields[dateIndex++] = value;
   }
-  const char *msg = "Not a valid date value ";
+  const char* msg = "Not a valid date value ";
   if (dateIndex != 3) {
     set_error_for_date(length, input, msg, execution_context);
     return 0;

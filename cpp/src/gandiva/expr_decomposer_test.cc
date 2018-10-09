@@ -243,7 +243,7 @@ TEST_F(TestExprDecomposer, TestIfInCondition) {
   EXPECT_EQ(decomposer.if_entries_stack_.empty(), true);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

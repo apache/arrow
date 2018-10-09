@@ -140,7 +140,7 @@ Status ExprValidator::Visit(const BooleanNode& node) {
     return Status::ExpressionValidationError(ss.str());
   }
 
-  for (auto &child : node.children()) {
+  for (auto& child : node.children()) {
     if (!child->return_type()->Equals(arrow::boolean())) {
       std::stringstream ss;
       ss << "Boolean expression has a child with return type "

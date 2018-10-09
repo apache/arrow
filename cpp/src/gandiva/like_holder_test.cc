@@ -115,7 +115,7 @@ TEST_F(TestLikeHolder, TestOptimise) {
   EXPECT_EQ(fnode.descriptor()->name(), "like");
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

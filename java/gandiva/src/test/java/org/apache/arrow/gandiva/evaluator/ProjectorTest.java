@@ -872,7 +872,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
   }
 
   @Test
-  public void testGDV117() throws GandivaException, Exception {    /*
+  public void testTimeEquals() throws GandivaException, Exception {    /*
    * when isnotnull(x) then x
    * else y
    */

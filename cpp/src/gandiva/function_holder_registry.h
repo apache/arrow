@@ -25,8 +25,8 @@
 #include "gandiva/function_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/node.h"
-#include "gandiva/to_date_holder.h"
 #include "gandiva/status.h"
+#include "gandiva/to_date_holder.h"
 
 namespace gandiva {
 
