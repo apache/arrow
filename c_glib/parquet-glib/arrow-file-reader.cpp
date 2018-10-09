@@ -257,7 +257,7 @@ gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
  */
 GArrowColumn *
 gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
-                                       GArrowSchema* schema,
+                                       GArrowSchema *schema,
                                        gint column_index,
                                        GError **error)
 {
