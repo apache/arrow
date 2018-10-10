@@ -125,16 +125,19 @@ List read_record_batch_stream_(SEXP stream) {
   std::shared_ptr<RecordBatchReader> batch_reader;
   R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamReader::Open(&buffer_reader, &batch_reader));
 
+  List batches;
+
   std::shared_ptr<RecordBatch> chunk;
   while (true) {
     R_ERROR_NOT_OK(batch_reader->ReadNext(&chunk));
     if (chunk == nullptr) {
       break;
     }
+
+    batches.push_back(RecordBatch__to_dataframe(chunk));
   }
 
-  List tbl(0);
-  return tbl;
+  return batches;
 }
 
 // [[Rcpp::export]]
