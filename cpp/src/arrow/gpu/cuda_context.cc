@@ -177,7 +177,7 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
   }
 
   Status CreateSharedContext(int device_number, CUcontext ctx,
-			     std::shared_ptr<CudaContext>* out) {
+                             std::shared_ptr<CudaContext>* out) {
     // TODO: check if context exists already, if so, return it.
     *out = std::shared_ptr<CudaContext>(new CudaContext());
     return (*out)->impl_->InitShared(devices_[device_number], ctx);
@@ -230,9 +230,8 @@ Status CudaDeviceManager::CreateNewContext(int device_number,
   return impl_->CreateNewContext(device_number, out);
 }
 
-Status CudaDeviceManager::CreateSharedContext(int device_number,
-					      void* ctx,
-					      std::shared_ptr<CudaContext>* out) {
+Status CudaDeviceManager::CreateSharedContext(int device_number, void* ctx,
+                                              std::shared_ptr<CudaContext>* out) {
   return impl_->CreateSharedContext(device_number, (CUcontext)ctx, out);
 }
 
@@ -265,7 +264,7 @@ Status CudaContext::Allocate(int64_t nbytes, std::shared_ptr<CudaBuffer>* out) {
 }
 
 Status CudaContext::View(uint8_t* data, int64_t nbytes,
-			 std::shared_ptr<CudaBuffer>* out) {
+                         std::shared_ptr<CudaBuffer>* out) {
   *out = std::make_shared<CudaBuffer>(data, nbytes, this->shared_from_this(), false);
   return Status::OK();
 }
