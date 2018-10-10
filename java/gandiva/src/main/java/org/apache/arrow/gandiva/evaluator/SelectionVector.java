@@ -18,8 +18,9 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * A selection vector contains the indexes of "selected" records in a row batch. It is backed by an
@@ -57,9 +58,9 @@ public abstract class SelectionVector {
    */
   final void setRecordCount(int recordCount) {
     if (recordCount * getRecordSize() > buffer.capacity()) {
-      throw new IllegalArgumentException("recordCount " + recordCount
-        + " of size " + getRecordSize()
-        + " exceeds buffer capacity " + buffer.capacity());
+      throw new IllegalArgumentException("recordCount " + recordCount +
+          " of size " + getRecordSize() +
+          " exceeds buffer capacity " + buffer.capacity());
     }
 
     this.recordCount = recordCount;

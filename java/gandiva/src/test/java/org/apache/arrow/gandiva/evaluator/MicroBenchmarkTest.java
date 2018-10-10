@@ -18,7 +18,7 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
-import com.google.common.collect.Lists;
+import java.util.List;
 
 import org.apache.arrow.gandiva.expression.Condition;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
@@ -29,9 +29,10 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.List;
+import com.google.common.collect.Lists;
 
 public class MicroBenchmarkTest extends BaseEvaluatorTest {
+
   private double toleranceRatio = 4.0;
 
   @Test
@@ -41,18 +42,22 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
     Field N3x = Field.nullable("N3x", int32);
 
     // x + N2x + N3x
-    TreeNode add1 = TreeBuilder.makeFunction("add", Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeField(N2x)), int32);
-    TreeNode add = TreeBuilder.makeFunction("add", Lists.newArrayList(add1, TreeBuilder.makeField(N3x)), int32);
+    TreeNode add1 =
+        TreeBuilder.makeFunction(
+            "add", Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeField(N2x)), int32);
+    TreeNode add =
+        TreeBuilder.makeFunction(
+            "add", Lists.newArrayList(add1, TreeBuilder.makeField(N3x)), int32);
     ExpressionTree expr = TreeBuilder.makeExpression(add, x);
 
     List<Field> cols = Lists.newArrayList(x, N2x, N3x);
     Schema schema = new Schema(cols);
 
     long timeTaken = timedProject(new Int32DataAndVectorGenerator(allocator),
-            schema,
-            Lists.newArrayList(expr),
-            1 * MILLION, 16 * THOUSAND,
-            4);
+        schema,
+        Lists.newArrayList(expr),
+        1 * MILLION, 16 * THOUSAND,
+        4);
     System.out.println("Time taken for projecting 1m records of add3 is " + timeTaken + "ms");
     Assert.assertTrue(timeTaken <= 10 * toleranceRatio);
   }
@@ -91,13 +96,16 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
     int compareWith = 200;
     while (compareWith >= 10) {
       // cond (x < compareWith)
-      TreeNode condNode = TreeBuilder.makeFunction("less_than",
+      TreeNode condNode =
+          TreeBuilder.makeFunction(
+              "less_than",
               Lists.newArrayList(x_node, TreeBuilder.makeLiteral(compareWith)),
               boolType);
-      topNode = TreeBuilder.makeIf(
-              condNode,                             // cond (x < compareWith)
+      topNode =
+          TreeBuilder.makeIf(
+              condNode, // cond (x < compareWith)
               TreeBuilder.makeLiteral(returnValue), // then returnValue
-              topNode,                              // else topNode
+              topNode, // else topNode
               int32);
       compareWith -= 10;
       returnValue--;
@@ -107,10 +115,10 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
     Schema schema = new Schema(Lists.newArrayList(x));
 
     long timeTaken = timedProject(new BoundedInt32DataAndVectorGenerator(allocator, 250),
-            schema,
-            Lists.newArrayList(expr),
-            1 * MILLION, 16 * THOUSAND,
-            4);
+        schema,
+        Lists.newArrayList(expr),
+        1 * MILLION, 16 * THOUSAND,
+        4);
     System.out.println("Time taken for projecting 10m records of nestedIf is " + timeTaken + "ms");
     Assert.assertTrue(timeTaken <= 15 * toleranceRatio);
   }
@@ -122,20 +130,21 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
     Field N3x = Field.nullable("N3x", int32);
 
     // x + N2x < N3x
-    TreeNode add = TreeBuilder.makeFunction("add", Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeField(N2x)), int32);
-    TreeNode less_than = TreeBuilder.makeFunction("less_than", Lists.newArrayList(add, TreeBuilder.makeField(N3x)), boolType);
+    TreeNode add = TreeBuilder.makeFunction("add",
+        Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeField(N2x)), int32);
+    TreeNode less_than = TreeBuilder
+        .makeFunction("less_than", Lists.newArrayList(add, TreeBuilder.makeField(N3x)), boolType);
     Condition condition = TreeBuilder.makeCondition(less_than);
 
     List<Field> cols = Lists.newArrayList(x, N2x, N3x);
     Schema schema = new Schema(cols);
 
     long timeTaken = timedFilter(new Int32DataAndVectorGenerator(allocator),
-      schema,
-      condition,
-      1 * MILLION, 16 * THOUSAND,
-      4);
+        schema,
+        condition,
+        1 * MILLION, 16 * THOUSAND,
+        4);
     System.out.println("Time taken for filtering 10m records of a+b<c is " + timeTaken + "ms");
     Assert.assertTrue(timeTaken <= 12 * toleranceRatio);
   }
-
 }

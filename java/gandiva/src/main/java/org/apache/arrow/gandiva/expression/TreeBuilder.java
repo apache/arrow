@@ -18,11 +18,11 @@
 
 package org.apache.arrow.gandiva.expression;
 
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.Field;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 
 public class TreeBuilder {
   /**

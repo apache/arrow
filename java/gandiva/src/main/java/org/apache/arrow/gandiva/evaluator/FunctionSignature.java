@@ -18,12 +18,12 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
+import java.util.List;
 
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
-import java.util.List;
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 
 /**
  * POJO to define a function signature.
@@ -70,9 +70,9 @@ public class FunctionSignature {
       return false;
     }
     final FunctionSignature other = (FunctionSignature) signature;
-    return Objects.equal(this.name, other.name)
-            && Objects.equal(this.returnType, other.returnType)
-            && Objects.equal(this.paramTypes, other.paramTypes);
+    return Objects.equal(this.name, other.name) &&
+        Objects.equal(this.returnType, other.returnType) &&
+        Objects.equal(this.paramTypes, other.paramTypes);
   }
 
   @Override

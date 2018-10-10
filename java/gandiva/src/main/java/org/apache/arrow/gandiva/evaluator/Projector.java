@@ -18,7 +18,9 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
-import io.netty.buffer.ArrowBuf;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.arrow.gandiva.exceptions.EvaluatorClosedException;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.exceptions.UnsupportedTypeException;
@@ -31,8 +33,7 @@ import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import java.util.ArrayList;
-import java.util.List;
+import io.netty.buffer.ArrowBuf;
 
 /**
  * This class provides a mechanism to evaluate a set of expressions against a RecordBatch.

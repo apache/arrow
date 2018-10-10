@@ -18,8 +18,9 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
+
+import io.netty.buffer.ArrowBuf;
 
 /*
  * Selection vector with records of arrow type INT32.
