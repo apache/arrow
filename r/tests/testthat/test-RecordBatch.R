@@ -128,6 +128,11 @@ test_that("RecordBatch can output stream", {
 })
 
 test_that("read_record_batch handles ReadableFile and MemoryMappedFile (ARROW-3450)", {
+  tbl <- tibble::tibble(
+    int = 1:10, dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10]
+  )
   batch <- record_batch(tbl)
   tf <- tempfile(); on.exit(unlink(tf))
   batch$to_file(tf)
