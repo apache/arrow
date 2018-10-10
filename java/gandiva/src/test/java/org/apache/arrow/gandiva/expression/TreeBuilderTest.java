@@ -18,18 +18,18 @@
 
 package org.apache.arrow.gandiva.expression;
 
+import static org.junit.Assert.*;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.junit.Test;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.ArrayList;
-
-import static org.junit.Assert.*;
 
 public class TreeBuilderTest {
 
@@ -73,19 +73,23 @@ public class TreeBuilderTest {
   public void testMakeNull() throws GandivaException {
     TreeNode n = TreeBuilder.makeNull(new ArrowType.Bool());
     GandivaTypes.TreeNode node = n.toProtobuf();
-    assertEquals(GandivaTypes.GandivaType.BOOL_VALUE, node.getNullNode().getType().getType().getNumber());
+    assertEquals(
+        GandivaTypes.GandivaType.BOOL_VALUE, node.getNullNode().getType().getType().getNumber());
 
     n = TreeBuilder.makeNull(new ArrowType.Int(32, true));
     node = n.toProtobuf();
-    assertEquals(GandivaTypes.GandivaType.INT32_VALUE, node.getNullNode().getType().getType().getNumber());
+    assertEquals(
+        GandivaTypes.GandivaType.INT32_VALUE, node.getNullNode().getType().getType().getNumber());
 
     n = TreeBuilder.makeNull(new ArrowType.Int(64, false));
     node = n.toProtobuf();
-    assertEquals(GandivaTypes.GandivaType.UINT64_VALUE, node.getNullNode().getType().getType().getNumber());
+    assertEquals(
+        GandivaTypes.GandivaType.UINT64_VALUE, node.getNullNode().getType().getType().getNumber());
 
     n = TreeBuilder.makeNull(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE));
     node = n.toProtobuf();
-    assertEquals(GandivaTypes.GandivaType.FLOAT_VALUE, node.getNullNode().getType().getType().getNumber());
+    assertEquals(
+        GandivaTypes.GandivaType.FLOAT_VALUE, node.getNullNode().getType().getType().getNumber());
   }
 
   @Test
@@ -94,7 +98,9 @@ public class TreeBuilderTest {
     GandivaTypes.TreeNode node = n.toProtobuf();
 
     assertEquals("a", node.getFieldNode().getField().getName());
-    assertEquals(GandivaTypes.GandivaType.INT32_VALUE, node.getFieldNode().getField().getType().getType().getNumber());
+    assertEquals(
+        GandivaTypes.GandivaType.INT32_VALUE,
+        node.getFieldNode().getField().getType().getType().getNumber());
   }
 
   @Test
@@ -112,7 +118,9 @@ public class TreeBuilderTest {
     assertEquals("add", node.getFnNode().getFunctionName());
     assertEquals("a", node.getFnNode().getInArgsList().get(0).getFieldNode().getField().getName());
     assertEquals("b", node.getFnNode().getInArgsList().get(1).getFieldNode().getField().getName());
-    assertEquals(GandivaTypes.GandivaType.UINT64_VALUE, node.getFnNode().getReturnType().getType().getNumber());
+    assertEquals(
+        GandivaTypes.GandivaType.UINT64_VALUE,
+        node.getFnNode().getReturnType().getType().getNumber());
   }
 
   @Test
@@ -135,7 +143,9 @@ public class TreeBuilderTest {
     assertEquals("greater_than", node.getIfNode().getCond().getFnNode().getFunctionName());
     assertEquals(a.getName(), node.getIfNode().getThenNode().getFieldNode().getField().getName());
     assertEquals(b.getName(), node.getIfNode().getElseNode().getFieldNode().getField().getName());
-    assertEquals(GandivaTypes.GandivaType.BOOL_VALUE, node.getIfNode().getReturnType().getType().getNumber());
+    assertEquals(
+        GandivaTypes.GandivaType.BOOL_VALUE,
+        node.getIfNode().getReturnType().getType().getNumber());
   }
 
   @Test
@@ -191,9 +201,11 @@ public class TreeBuilderTest {
     GandivaTypes.ExpressionRoot root = expr.toProtobuf();
 
     assertTrue(root.getRoot().hasIfNode());
-    assertEquals("greater_than", root.getRoot().getIfNode().getCond().getFnNode().getFunctionName());
+    assertEquals(
+        "greater_than", root.getRoot().getIfNode().getCond().getFnNode().getFunctionName());
     assertEquals("c", root.getResultType().getName());
-    assertEquals(GandivaTypes.GandivaType.BOOL_VALUE, root.getResultType().getType().getType().getNumber());
+    assertEquals(
+        GandivaTypes.GandivaType.BOOL_VALUE, root.getResultType().getType().getType().getNumber());
   }
 
   @Test
@@ -215,7 +227,9 @@ public class TreeBuilderTest {
     assertEquals("add", node.getFnNode().getFunctionName());
     assertEquals("a", node.getFnNode().getInArgsList().get(0).getFieldNode().getField().getName());
     assertEquals("b", node.getFnNode().getInArgsList().get(1).getFieldNode().getField().getName());
-    assertEquals(GandivaTypes.GandivaType.UINT64_VALUE, node.getFnNode().getReturnType().getType().getNumber());
+    assertEquals(
+        GandivaTypes.GandivaType.UINT64_VALUE,
+        node.getFnNode().getReturnType().getType().getNumber());
   }
 
   @Test
@@ -227,14 +241,18 @@ public class TreeBuilderTest {
     args.add(b);
 
     TreeNode andNode = TreeBuilder.makeAnd(args);
-    ExpressionTree expr = TreeBuilder.makeExpression(andNode, Field.nullable("c", new ArrowType.Bool()));
+    ExpressionTree expr =
+        TreeBuilder.makeExpression(andNode, Field.nullable("c", new ArrowType.Bool()));
     GandivaTypes.ExpressionRoot root = expr.toProtobuf();
 
     assertTrue(root.getRoot().hasAndNode());
-    assertEquals("a", root.getRoot().getAndNode().getArgsList().get(0).getFieldNode().getField().getName());
-    assertEquals("b", root.getRoot().getAndNode().getArgsList().get(1).getFieldNode().getField().getName());
+    assertEquals(
+        "a", root.getRoot().getAndNode().getArgsList().get(0).getFieldNode().getField().getName());
+    assertEquals(
+        "b", root.getRoot().getAndNode().getArgsList().get(1).getFieldNode().getField().getName());
     assertEquals("c", root.getResultType().getName());
-    assertEquals(GandivaTypes.GandivaType.BOOL_VALUE, root.getResultType().getType().getType().getNumber());
+    assertEquals(
+        GandivaTypes.GandivaType.BOOL_VALUE, root.getResultType().getType().getType().getNumber());
   }
 
   @Test
@@ -246,14 +264,18 @@ public class TreeBuilderTest {
     args.add(b);
 
     TreeNode orNode = TreeBuilder.makeOr(args);
-    ExpressionTree expr = TreeBuilder.makeExpression(orNode, Field.nullable("c", new ArrowType.Bool()));
+    ExpressionTree expr =
+        TreeBuilder.makeExpression(orNode, Field.nullable("c", new ArrowType.Bool()));
     GandivaTypes.ExpressionRoot root = expr.toProtobuf();
 
     assertTrue(root.getRoot().hasOrNode());
-    assertEquals("a", root.getRoot().getOrNode().getArgsList().get(0).getFieldNode().getField().getName());
-    assertEquals("b", root.getRoot().getOrNode().getArgsList().get(1).getFieldNode().getField().getName());
+    assertEquals(
+        "a", root.getRoot().getOrNode().getArgsList().get(0).getFieldNode().getField().getName());
+    assertEquals(
+        "b", root.getRoot().getOrNode().getArgsList().get(1).getFieldNode().getField().getName());
     assertEquals("c", root.getResultType().getName());
-    assertEquals(GandivaTypes.GandivaType.BOOL_VALUE, root.getResultType().getType().getType().getNumber());
+    assertEquals(
+        GandivaTypes.GandivaType.BOOL_VALUE, root.getResultType().getType().getType().getNumber());
   }
 
   @Test
@@ -273,8 +295,26 @@ public class TreeBuilderTest {
     GandivaTypes.Condition conditionProto = condition.toProtobuf();
     assertTrue(conditionProto.getRoot().hasFnNode());
     assertEquals("greater_than", conditionProto.getRoot().getFnNode().getFunctionName());
-    assertEquals("a", conditionProto.getRoot().getFnNode().getInArgsList().get(0).getFieldNode().getField().getName());
-    assertEquals("b", conditionProto.getRoot().getFnNode().getInArgsList().get(1).getFieldNode().getField().getName());
+    assertEquals(
+        "a",
+        conditionProto
+            .getRoot()
+            .getFnNode()
+            .getInArgsList()
+            .get(0)
+            .getFieldNode()
+            .getField()
+            .getName());
+    assertEquals(
+        "b",
+        conditionProto
+            .getRoot()
+            .getFnNode()
+            .getInArgsList()
+            .get(1)
+            .getFieldNode()
+            .getField()
+            .getName());
   }
 
   @Test
@@ -287,8 +327,25 @@ public class TreeBuilderTest {
     GandivaTypes.Condition conditionProto = condition.toProtobuf();
     assertTrue(conditionProto.getRoot().hasFnNode());
     assertEquals("greater_than", conditionProto.getRoot().getFnNode().getFunctionName());
-    assertEquals("a", conditionProto.getRoot().getFnNode().getInArgsList().get(0).getFieldNode().getField().getName());
-    assertEquals("b", conditionProto.getRoot().getFnNode().getInArgsList().get(1).getFieldNode().getField().getName());
+    assertEquals(
+        "a",
+        conditionProto
+            .getRoot()
+            .getFnNode()
+            .getInArgsList()
+            .get(0)
+            .getFieldNode()
+            .getField()
+            .getName());
+    assertEquals(
+        "b",
+        conditionProto
+            .getRoot()
+            .getFnNode()
+            .getInArgsList()
+            .get(1)
+            .getFieldNode()
+            .getField()
+            .getName());
   }
 }
-

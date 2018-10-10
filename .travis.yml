@@ -93,21 +93,21 @@ matrix:
     - export PLASMA_VALGRIND=1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
-  # Gandiva C++ w/ gcc 4.9
+  # Gandiva C++ w/ gcc 4.9 and Java
   - compiler: gcc
     language: cpp
     os: linux
     jdk: openjdk8
     env:
+    - ARROW_TRAVIS_GANDIVA=1
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_VALGRIND=1
     - ARROW_TRAVIS_CLANG_FORMAT=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - ARROW_TRAVIS_GANDIVA=1
     - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
     before_script:
-    # Run if something changed in CPP.
-    - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
+    # Run if something changed in CPP or Java.
+    - if [ $ARROW_CI_CPP_AFFECTED != "1" && $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
@@ -115,7 +115,8 @@ matrix:
     - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
   # [OS X] C++ & Python w/ XCode 6.4
   - compiler: clang
     language: cpp

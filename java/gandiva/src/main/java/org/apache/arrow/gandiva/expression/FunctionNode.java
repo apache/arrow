@@ -18,11 +18,11 @@
 
 package org.apache.arrow.gandiva.expression;
 
+import java.util.List;
+
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-
-import java.util.List;
 
 class FunctionNode implements TreeNode {
   private final String function;

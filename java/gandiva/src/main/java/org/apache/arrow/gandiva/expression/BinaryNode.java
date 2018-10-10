@@ -18,10 +18,10 @@
 
 package org.apache.arrow.gandiva.expression;
 
-import com.google.protobuf.ByteString;
-
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
+
+import com.google.protobuf.ByteString;
 
 /**
  * Used to represent expression tree nodes representing binary constants.

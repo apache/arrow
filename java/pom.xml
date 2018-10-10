@@ -643,6 +643,21 @@
 	<additionalparam>-Xdoclint:none</additionalparam>
       </properties>
     </profile>
+
+    <profile>
+      <!-- gandiva java depends on gandiva cpp, and gandiva cpp isn't enabled by default yet -->
+      <id>gandiva</id>
+      <modules>
+        <module>format</module>
+        <module>memory</module>
+        <module>vector</module>
+        <module>tools</module>
+        <module>adapter/jdbc</module>
+        <module>plasma</module>
+        <module>flight</module>
+        <module>gandiva</module>
+      </modules>
+    </profile>
   </profiles>
 
 </project>
