@@ -32,11 +32,14 @@ groups:
     - wheel-linux-cp27mu
     - wheel-linux-cp35m
     - wheel-linux-cp36m
+    - wheel-linux-cp37m
     - wheel-osx-cp27m
     - wheel-osx-cp35m
     - wheel-osx-cp36m
+    - wheel-osx-cp37m
     - wheel-win-cp35m
     - wheel-win-cp36m
+    - wheel-win-cp37m
   linux:
     - debian-stretch
     - ubuntu-trusty
@@ -171,13 +174,22 @@ tasks:
     artifacts:
       - pyarrow-{version}-cp36-cp36m-manylinux1_x86_64.whl
 
+  wheel-linux-cp37m:
+    platform: linux
+    template: python-wheels/travis.linux.yml
+    params:
+      wheel_version: 0.31.1
+      python_version: 3.7,16
+    artifacts:
+      - pyarrow-{version}-cp37-cp37m-manylinux1_x86_64.whl
+
   ############################## Wheel OSX ####################################
 
   wheel-osx-cp27m:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14
+      numpy_version: 1.14.5
       pandas_version: 0.23.0
       python_version: 2.7
       wheel_version: 0.31.1
@@ -188,7 +200,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14
+      numpy_version: 1.14.5
       pandas_version: 0.23.0
       python_version: 3.5
       wheel_version: 0.31.1
@@ -199,12 +211,23 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14
+      numpy_version: 1.14.5
       pandas_version: 0.23.0
       python_version: 3.6
       wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp36-cp36m-macosx_10_6_intel.whl
+
+  wheel-osx-cp37m:
+    platform: osx
+    template: python-wheels/travis.osx.yml
+    params:
+      numpy_version: 1.14.5
+      pandas_version: 0.23.0
+      python_version: 3.7
+      wheel_version: 0.31.1
+    artifacts:
+      - pyarrow-{version}-cp37-cp37m-macosx_10_6_intel.whl
 
   ############################## Wheel Windows ################################
 
@@ -212,7 +235,7 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.14
+      numpy_version: 1.14.5
       python_version: 3.5
     artifacts:
       - pyarrow-{version}-cp35-cp35m-win_amd64.whl
@@ -221,10 +244,19 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.14
+      numpy_version: 1.14.5
       python_version: 3.6
     artifacts:
       - pyarrow-{version}-cp36-cp36m-win_amd64.whl
+
+  wheel-win-cp37m:
+    platform: win
+    template: python-wheels/appveyor.yml
+    params:
+      numpy_version: 1.14.5
+      python_version: 3.7
+    artifacts:
+      - pyarrow-{version}-cp37-cp37m-win_amd64.whl
 
   ############################## Linux PKGS ####################################
 
