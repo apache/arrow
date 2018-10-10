@@ -123,7 +123,8 @@ List read_record_batch_stream_(SEXP stream) {
   io::BufferReader buffer_reader(buffer);
 
   std::shared_ptr<RecordBatchReader> batch_reader;
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamReader::Open(&buffer_reader, &batch_reader));
+  R_ERROR_NOT_OK(
+      arrow::ipc::RecordBatchStreamReader::Open(&buffer_reader, &batch_reader));
 
   List batches;
 
