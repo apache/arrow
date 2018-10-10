@@ -184,4 +184,23 @@ mod tests {
         let buffer = b.finish();
         assert_eq!(8, buffer.len());
     }
+
+    #[test]
+    fn test_write_bytes() {
+        let mut b = BufferBuilder::<bool>::new(4);
+        let bytes = [false, true, false, true].to_byte_slice();
+        b.write_bytes(bytes, 4).unwrap();
+        assert_eq!(4, b.len());
+        assert_eq!(64, b.capacity());
+        let buffer = b.finish();
+        assert_eq!(4, buffer.len());
+    }
+
+    #[test]
+    #[should_panic(expected = "Could not write to Buffer, not big enough")]
+    fn test_write_too_many_bytes() {
+        let mut b = BufferBuilder::<bool>::new(0);
+        let bytes = [false, true, false, true].to_byte_slice();
+        b.write_bytes(bytes, 4).unwrap();
+    }
 }
