@@ -60,6 +60,7 @@ where
         let byte_capacity = self.buffer.capacity();
         (byte_capacity / mem::size_of::<T>()) as i64
     }
+
     /// Push a value into the builder, growing the internal buffer as needed
     pub fn push(&mut self, v: T) -> Result<()> {
         self.reserve(1)?;
