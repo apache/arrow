@@ -45,9 +45,10 @@ services:
 
   gen_apidocs:
     build:
-      context: gen_apidocs
+      context: ..
+      dockerfile: dev/gen_apidocs/Dockerfile
     volumes:
-     - ../..:/apache-arrow
+     - ..:/arrow
 
   iwyu:
     build:

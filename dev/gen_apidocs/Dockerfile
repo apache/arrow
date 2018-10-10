@@ -21,42 +21,43 @@ FROM ubuntu:18.04
 # Otherwise this will install openjdk 8 and openjdk 11 at once.
 RUN apt-get update && \
     apt-get install -y openjdk-8-jdk-headless && \
-	apt-get install -y \
-		gcc-8 \
-		g++-8 \
-		vim \
-		git \
-		wget \
-		make \
-		ninja-build \
-        rsync \
-        maven \
-        pkg-config \
-        gobject-introspection \
-        libgirepository1.0-dev \
-        gtk-doc-tools \
-        libtool \
-        autoconf-archive \
-        npm
+    apt-get install -y \
+          gcc-8 \
+          g++-8 \
+          git \
+          wget \
+          make \
+          ninja-build \
+          rsync \
+          maven \
+          pkg-config \
+          gobject-introspection \
+          libgirepository1.0-dev \
+          gtk-doc-tools \
+          libtool \
+          autoconf-archive \
+          npm
 
+ENV CC=gcc-8 \
+    CXX=g++-8 \
+    PATH=/opt/conda/bin:$PATH \
+    CONDA_PREFIX=/opt/conda
 
-ENV CC=gcc-8
-ENV CXX=g++-8
-
-ADD . /apache-arrow
-WORKDIR /apache-arrow
-
-RUN arrow/dev/docker_common/install_pyarrow_conda_toolchain.sh 3.6
-ENV PATH="/opt/conda/bin:${PATH}"
-
-# Python dependencies
-# Create Conda environment
-RUN /home/ubuntu/miniconda/bin/conda create -y -q -n pyarrow-dev \
+ADD ci/docker_install_conda.sh \
+    ci/conda_env_cpp.yml \
+    ci/conda_env_python.yml \
+    /arrow/ci/
+RUN arrow/ci/docker_install_conda.sh && \
+    conda install -c conda-forge \
+        --file arrow/ci/conda_env_cpp.yml \
+        --file arrow/ci/conda_env_python.yml \
         numpydoc \
         sphinx \
         sphinx_bootstrap_theme \
         doxygen \
-        maven \
-        -c conda-forge
+        maven && \
+    conda clean --all -y
+
+ADD . /arrow
 
 CMD arrow/dev/gen_apidocs/create_documents.sh
