@@ -68,15 +68,28 @@ record_batch <- function(.data){
   `arrow::RecordBatch`$new(RecordBatch__from_dataframe(.data))
 }
 
-read_record_batch <- function(path){
-  `arrow::RecordBatch`$new(read_record_batch_(fs::path_abs(path)))
-}
-
-#' Reads a stream of arrow::RecordBatch from a raw() vector
+#' Read Record Batch File
+#'
+#' Reads an \code{arrow::RecordBatch} from a file using
+#' \code{arrow::RecordBatchFileReader}.
 #'
 #' @param stream a \code{raw()} containing a stream of record batches.
 #'
 #' @export
-read_stream <- function(stream){
+read_record_batch <- function(path){
+  `arrow::RecordBatch`$new(read_record_batch_(fs::path_abs(path)))
+}
+
+#' Read Record Batch Stream
+#'
+#' Reads a stream of \code{arrow::RecordBatch} from a \code{raw()} vector
+#' using \code{arrow::RecordBatchStreamReader} and returns a data frame
+#' for each record batch.
+#'
+#' @param stream a \code{raw()} containing a stream of record batches.
+#'
+#' @export
+read_record_batch_stream <- function(stream) {
   read_record_batch_stream_(stream)
 }
+
