@@ -78,7 +78,7 @@ fi
 mkdir -p build_apidocs
 pushd build_apidocs
 ../configure \
-    --prefix=${AROW_HOME} \
+    --prefix=${ARROW_HOME} \
     --enable-gtk-doc
 make -j4 GTK_DOC_V_XREF=": "
 mkdir -p ../../site/asf-site/docs/c_glib
