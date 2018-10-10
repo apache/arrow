@@ -62,6 +62,9 @@
     je_arrow_*;
     # ORC destructors
     _ZThn8_N3orc*;
+    # Protobuf symbols that aren't hidden by the C++ section below
+    # (destructors, vtables, other stuff)
+    *N6google8protobuf*;
 
     extern "C++" {
       # devtoolset or -static-libstdc++ - the Red Hat devtoolset statically
