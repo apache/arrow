@@ -139,7 +139,8 @@ Array lengths are represented in the Arrow metadata as a 64-bit signed
 integer. An implementation of Arrow is considered valid even if it only
 supports lengths up to the maximum 32-bit signed integer, though. If using
 Arrow in a multi-language environment, we recommend limiting lengths to
-2<sup>31</sup> - 1 elements or less.
+2<sup>31</sup> - 1 elements or less. Larger data sets can be represented using
+multiple array chunks.
 
 ## Null count
 
