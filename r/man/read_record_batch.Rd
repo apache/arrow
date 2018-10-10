@@ -7,7 +7,7 @@
 read_record_batch(path)
 }
 \arguments{
-\item{stream}{a \code{raw()} containing a stream of record batches.}
+\item{path}{File path containing a record batch.}
 }
 \description{
 Reads an \code{arrow::RecordBatch} from a file using

@@ -73,7 +73,7 @@ record_batch <- function(.data){
 #' Reads an \code{arrow::RecordBatch} from a file using
 #' \code{arrow::RecordBatchFileReader}.
 #'
-#' @param stream a \code{raw()} containing a stream of record batches.
+#' @param path File path containing a record batch.
 #'
 #' @export
 read_record_batch <- function(path){
