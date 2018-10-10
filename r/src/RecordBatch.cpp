@@ -114,6 +114,30 @@ RawVector RecordBatch__to_stream(const std::shared_ptr<arrow::RecordBatch>& batc
 }
 
 // [[Rcpp::export]]
+List read_record_batch_stream_(SEXP stream) {
+  RawVector vec(stream);
+
+  std::shared_ptr<arrow::Buffer> buffer;
+  buffer.reset(new arrow::Buffer(vec.begin(), vec.size()));
+
+  io::BufferReader buffer_reader(buffer);
+
+  std::shared_ptr<RecordBatchReader> batch_reader;
+  R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamReader::Open(&buffer_reader, &batch_reader));
+
+  std::shared_ptr<RecordBatch> chunk;
+  while (true) {
+    R_ERROR_NOT_OK(batch_reader->ReadNext(&chunk));
+    if (chunk == nullptr) {
+      break;
+    }
+  }
+
+  List tbl(0);
+  return tbl;
+}
+
+// [[Rcpp::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl) {
   CharacterVector names = tbl.names();
 
