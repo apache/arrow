@@ -301,6 +301,10 @@ RecordBatch__to_stream <- function(batch) {
     .Call(`_arrow_RecordBatch__to_stream`, batch)
 }
 
+read_record_batch_stream_ <- function(stream) {
+    .Call(`_arrow_read_record_batch_stream_`, stream)
+}
+
 RecordBatch__from_dataframe <- function(tbl) {
     .Call(`_arrow_RecordBatch__from_dataframe`, tbl)
 }

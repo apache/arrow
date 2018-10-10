@@ -825,6 +825,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// read_record_batch_stream_
+List read_record_batch_stream_(SEXP stream);
+RcppExport SEXP _arrow_read_record_batch_stream_(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_record_batch_stream_(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
 // RecordBatch__from_dataframe
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl);
 RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tblSEXP) {
@@ -1341,6 +1352,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_read_record_batch_", (DL_FUNC) &_arrow_read_record_batch_, 1},
     {"_arrow_RecordBatch__to_file", (DL_FUNC) &_arrow_RecordBatch__to_file, 2},
     {"_arrow_RecordBatch__to_stream", (DL_FUNC) &_arrow_RecordBatch__to_stream, 1},
+    {"_arrow_read_record_batch_stream_", (DL_FUNC) &_arrow_read_record_batch_stream_, 1},
     {"_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1},
     {"_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 2},
     {"_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2},
