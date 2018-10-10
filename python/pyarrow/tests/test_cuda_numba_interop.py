@@ -63,12 +63,10 @@ def test_numba_memalloc():
     np.testing.assert_equal(darr.copy_to_host()[:5], 99)
     np.testing.assert_equal(darr.copy_to_host()[5:], 88)
 
-    # TODO: access the memory via CudaBuffer
-    address = mem.device_pointer.value
-    size = mem.size
-    print('address,size=', address, size)
-
-    mem.free()
+    # wrap numba allocated memory with CudaBuffer
+    cbuf = cuda.CudaBuffer.from_numba(mem)
+    arr2 = np.frombuffer(cbuf.copy_to_host(), dtype=arr.dtype)
+    np.testing.assert_equal(arr2, darr.copy_to_host())
 
 
 def test_pyarrow_memalloc():

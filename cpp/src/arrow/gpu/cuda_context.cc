@@ -119,7 +119,7 @@ class CudaContext::CudaContextImpl {
 
   const CudaDevice device() const { return device_; }
 
-  const void* context_handle() const { return reinterpret_cast<void*>context_; }
+  const void* context_handle() const { return reinterpret_cast<void*>(context_); }
 
  private:
   CudaDevice device_;
@@ -261,6 +261,12 @@ Status CudaContext::Allocate(int64_t nbytes, std::shared_ptr<CudaBuffer>* out) {
   uint8_t* data = nullptr;
   RETURN_NOT_OK(impl_->Allocate(nbytes, &data));
   *out = std::make_shared<CudaBuffer>(data, nbytes, this->shared_from_this(), true);
+  return Status::OK();
+}
+
+Status CudaContext::View(uint8_t* data, int64_t nbytes,
+			 std::shared_ptr<CudaBuffer>* out) {
+  *out = std::make_shared<CudaBuffer>(data, nbytes, this->shared_from_this(), false);
   return Status::OK();
 }
 

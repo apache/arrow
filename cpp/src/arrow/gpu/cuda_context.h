@@ -83,6 +83,13 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// \return Status
   Status Allocate(int64_t nbytes, std::shared_ptr<CudaBuffer>* out);
 
+  /// \brief Create a view of CUDA memory on GPU device of this context
+  /// \param[in] data the starting device address
+  /// \param[in] nbytes number of bytes
+  /// \param[out] out the view buffer
+  /// \return Status
+  Status View(uint8_t* data, int64_t nbytes, std::shared_ptr<CudaBuffer>* out);
+
   /// \brief Open existing CUDA IPC memory handle
   /// \param[in] ipc_handle opaque pointer to CUipcMemHandle (driver API)
   /// \param[out] buffer a CudaBuffer referencing

@@ -142,6 +142,34 @@ cdef class Context:
         check_status(self.context.get().Allocate(nbytes, &cudabuf))
         return pyarrow_wrap_cudabuffer(cudabuf)
 
+    def foreign_buffer(self, address, size):
+        """Create device buffer from device address and size as a view.
+
+        The caller is responsible for allocating and freeing the
+        memory as well as ensureing that the memory belongs to the
+        CUDA context that this Context instance holds.
+
+        Parameters
+        ----------
+        address : intptr_t
+          Specify the starting address of the buffer.
+        size : int
+          Specify the size of device buffer in bytes.
+
+        Returns
+        -------
+        cbuf : CudaBuffer
+          Device buffer as a view of device memory.
+        """
+        cdef:
+            intptr_t c_addr = address
+            int64_t c_size = size
+            shared_ptr[CCudaBuffer] cudabuf
+        check_status(self.context.get().View(<uint8_t*>c_addr,
+                                             c_size,
+                                             &cudabuf))
+        return pyarrow_wrap_cudabuffer(cudabuf)
+
     def open_ipc_buffer(self, ipc_handle):
         """ Open existing CUDA IPC memory handle
 
@@ -287,6 +315,22 @@ cdef class CudaBuffer(Buffer):
         cdef shared_ptr[CCudaBuffer] cbuf
         check_status(CCudaBuffer.FromBuffer(buf_, &cbuf))
         return pyarrow_wrap_cudabuffer(cbuf)
+
+    @staticmethod
+    def from_numba(mem):
+        """Create a CudaBuffer view from numba MemoryPointer instance.
+
+        Parameters
+        ----------
+        mem :  numba.cuda.cudadrv.driver.MemoryPointer
+
+        Returns
+        -------
+        cbuf : CudaBuffer
+          Device buffer as a view of numba MemoryPointer.
+        """
+        ctx = Context.from_numba(mem.context)
+        return ctx.foreign_buffer(mem.device_pointer.value, mem.size)
 
     def to_numba(self):
         """Return numba memory pointer of CudaBuffer instance.

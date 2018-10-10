@@ -203,7 +203,7 @@ def test_context_device_buffer():
     np.testing.assert_equal(arr[soffset:soffset+ssize], arr2)
 
     cudabuf = global_context.buffer_from_data(
-         buf.slice(offset=soffset, length=ssize))
+        buf.slice(offset=soffset, length=ssize))
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr[soffset:soffset+ssize], arr2)
