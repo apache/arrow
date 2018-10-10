@@ -126,4 +126,8 @@ test_that("RecordBatch can output stream", {
   stream <- record$to_stream()
 
   expect_gt(length(stream), 0)
+
+  chunks <- read_record_batch_stream(stream)
+
+  expect_equal(tbl, chunks[[1]])
 })
