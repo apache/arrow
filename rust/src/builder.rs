@@ -83,7 +83,8 @@ where
         Ok(())
     }
 
-    /// Grow the buffer to the new capacity of size n (where n is the number of elements of type T)
+    /// Grow the internal buffer to `new_capacity`, where `new_capacity` is the capacity in
+    /// elements of type T
     fn grow(&mut self, new_capacity: i64) -> Result<()> {
         let byte_capacity = mem::size_of::<T>() * new_capacity as usize;
         self.buffer.resize(byte_capacity)
