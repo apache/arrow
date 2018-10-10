@@ -162,7 +162,7 @@ Pass multiple labels by dividing with semicolons")
 
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
-    OFF)
+    ON)
 
   option(ARROW_HDFS
     "Build the Arrow HDFS bridge"
