@@ -378,8 +378,6 @@ garrow_column_new_raw(std::shared_ptr<arrow::Column> *arrow_column)
 std::shared_ptr<arrow::Column>
 garrow_column_get_raw(GArrowColumn *column)
 {
-  GArrowColumnPrivate *priv;
-
-  priv = GARROW_COLUMN_GET_PRIVATE(column);
+  auto priv = GARROW_COLUMN_GET_PRIVATE(column);
   return priv->column;
 }
