@@ -68,6 +68,42 @@ record_batch <- function(.data){
   `arrow::RecordBatch`$new(RecordBatch__from_dataframe(.data))
 }
 
-read_record_batch <- function(path){
-  `arrow::RecordBatch`$new(read_record_batch_(fs::path_abs(path)))
+#' Read a single record batch from a stream
+#'
+#' @param stream input stream
+#'
+#' @details `stream` can be a `arrow::io::RandomAccessFile` stream as created by [file_open()] or [mmap_open()] or a path.
+#'
+#' @export
+read_record_batch <- function(stream){
+  UseMethod("read_record_batch")
 }
+
+#' @export
+read_record_batch.character <- function(stream){
+  assert_that(length(stream) == 1L)
+  read_record_batch(fs::path_abs(stream))
+}
+
+#' @export
+read_record_batch.fs_path <- function(stream){
+  stream <- file_open(stream); on.exit(stream$Close())
+  read_record_batch(stream)
+}
+
+#' @export
+`read_record_batch.arrow::io::RandomAccessFile` <- function(stream){
+  `arrow::RecordBatch`$new(read_record_batch_RandomAccessFile(stream))
+}
+
+#' @export
+`read_record_batch.arrow::io::BufferReader` <- function(stream){
+  `arrow::RecordBatch`$new(read_record_batch_BufferReader(stream))
+}
+
+#' @export
+read_record_batch.raw <- function(stream){
+  stream <- buffer_reader(stream); on.exit(stream$Close())
+  read_record_batch(stream)
+}
+
