@@ -17,7 +17,7 @@
 
 context("arrow::Table")
 
-test_that("read_table handles ReadableFile and MemoryMappedFile (ARROW-3450)", {
+test_that("read_table handles various input streams (ARROW-3450)", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
@@ -26,6 +26,9 @@ test_that("read_table handles ReadableFile and MemoryMappedFile (ARROW-3450)", {
   tab <- arrow::table(tbl)
   tf <- tempfile(); on.exit(unlink(tf))
   tab$to_file(tf)
+
+  bytes <- tab$to_stream()
+  buf_reader <- buffer_reader(bytes)
 
   tab1 <- read_table(tf)
   tab2 <- read_table(fs::path_abs(tf))
@@ -36,8 +39,13 @@ test_that("read_table handles ReadableFile and MemoryMappedFile (ARROW-3450)", {
   mmap_file <- mmap_open(tf); on.exit(mmap_file$Close())
   tab4 <- read_table(mmap_file)
 
+  tab5 <- read_table(bytes)
+  tab6 <- read_table(buf_reader)
+
   expect_equal(tab, tab1)
   expect_equal(tab, tab2)
   expect_equal(tab, tab3)
   expect_equal(tab, tab4)
+  expect_equal(tab, tab5)
+  expect_equal(tab, tab6)
 })

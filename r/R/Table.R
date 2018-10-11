@@ -23,6 +23,7 @@
     num_rows = function() Table__num_rows(self),
     schema = function() `arrow::Schema`$new(Table__schema(self)),
     to_file = function(path) invisible(Table__to_file(self, fs::path_abs(path))),
+    to_stream = function() Table__to_stream(self),
     column = function(i) `arrow::Column`$new(Table__column(self, i))
   )
 )
@@ -69,7 +70,18 @@ read_table.fs_path <- function(stream) {
 
 #' @export
 `read_table.arrow::io::RandomAccessFile` <- function(stream) {
-  `arrow::Table`$new(read_table_(stream))
+  `arrow::Table`$new(read_table_RandomAccessFile(stream))
+}
+
+#' @export
+`read_table.arrow::io::BufferReader` <- function(stream) {
+  `arrow::Table`$new(read_table_BufferReader(stream))
+}
+
+#' @export
+`read_table.raw` <- function(stream) {
+  stream <- buffer_reader(stream); on.exit(stream$Close())
+  read_table(stream)
 }
 
 #' @export

@@ -509,8 +509,16 @@ Table__to_file <- function(table, path) {
     .Call(`_arrow_Table__to_file`, table, path)
 }
 
-read_table_ <- function(stream) {
-    .Call(`_arrow_read_table_`, stream)
+Table__to_stream <- function(table) {
+    .Call(`_arrow_Table__to_stream`, table)
+}
+
+read_table_RandomAccessFile <- function(stream) {
+    .Call(`_arrow_read_table_RandomAccessFile`, stream)
+}
+
+read_table_BufferReader <- function(stream) {
+    .Call(`_arrow_read_table_BufferReader`, stream)
 }
 
 Table__to_dataframe <- function(table) {

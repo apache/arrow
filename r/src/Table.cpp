@@ -63,7 +63,29 @@ int Table__to_file(const std::shared_ptr<arrow::Table>& table, std::string path)
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Table> read_table_(
+RawVector Table__to_stream(const std::shared_ptr<arrow::Table>& table) {
+  arrow::io::MockOutputStream mock_sink;
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> writer;
+  R_ERROR_NOT_OK(
+      arrow::ipc::RecordBatchStreamWriter::Open(&mock_sink, table->schema(), &writer));
+  R_ERROR_NOT_OK(writer->WriteTable(*table));
+  R_ERROR_NOT_OK(writer->Close());
+  auto n = mock_sink.GetExtentBytesWritten();
+
+  RawVector res(no_init(n));
+  auto raw_buffer = std::make_shared<arrow::MutableBuffer>(res.begin(), res.size());
+  arrow::io::FixedSizeBufferWriter sink(raw_buffer);
+
+  R_ERROR_NOT_OK(
+      arrow::ipc::RecordBatchStreamWriter::Open(&sink, table->schema(), &writer));
+  R_ERROR_NOT_OK(writer->WriteTable(*table));
+  R_ERROR_NOT_OK(writer->Close());
+
+  return res;
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Table> read_table_RandomAccessFile(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
   std::shared_ptr<arrow::ipc::RecordBatchFileReader> rbf_reader;
   R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileReader::Open(stream, &rbf_reader));
@@ -72,6 +94,26 @@ std::shared_ptr<arrow::Table> read_table_(
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches(num_batches);
   for (int i = 0; i < num_batches; i++) {
     R_ERROR_NOT_OK(rbf_reader->ReadRecordBatch(i, &batches[i]));
+  }
+
+  std::shared_ptr<arrow::Table> table;
+  R_ERROR_NOT_OK(arrow::Table::FromRecordBatches(std::move(batches), &table));
+
+  return table;
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Table> read_table_BufferReader(
+    const std::shared_ptr<arrow::io::BufferReader>& stream) {
+  std::shared_ptr<arrow::ipc::RecordBatchReader> rb_reader;
+  R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamReader::Open(stream, &rb_reader));
+  std::shared_ptr<arrow::RecordBatch> batch;
+
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+  while (true) {
+    R_ERROR_NOT_OK(rb_reader->ReadNext(&batch));
+    if (!batch) break;
+    batches.push_back(batch);
   }
 
   std::shared_ptr<arrow::Table> table;

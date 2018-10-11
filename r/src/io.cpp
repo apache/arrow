@@ -32,8 +32,7 @@ std::shared_ptr<arrow::Buffer> io___Readable__Read(
 // ------ arrow::io::InputStream
 
 // [[Rcpp::export]]
-void io___InputStream__Close(
-    const std::shared_ptr<arrow::io::InputStream>& x) {
+void io___InputStream__Close(const std::shared_ptr<arrow::io::InputStream>& x) {
   R_ERROR_NOT_OK(x->Close());
 }
 
@@ -55,17 +54,17 @@ bool io___RandomAccessFile__supports_zero_copy(
 
 // [[Rcpp::export]]
 void io___RandomAccessFile__Seek(const std::shared_ptr<arrow::io::RandomAccessFile>& x,
-  int64_t position) {
+                                 int64_t position) {
   R_ERROR_NOT_OK(x->Seek(position));
 }
 
 // [[Rcpp::export]]
-int64_t io___RandomAccessFile__Tell(const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
+int64_t io___RandomAccessFile__Tell(
+    const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
   int64_t out;
   R_ERROR_NOT_OK(x->Tell(&out));
   return out;
 }
-
 
 // ------ arrow::io::MemoryMappedFile
 

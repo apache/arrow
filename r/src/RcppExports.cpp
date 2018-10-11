@@ -1418,14 +1418,36 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// read_table_
-std::shared_ptr<arrow::Table> read_table_(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
-RcppExport SEXP _arrow_read_table_(SEXP streamSEXP) {
+// Table__to_stream
+RawVector Table__to_stream(const std::shared_ptr<arrow::Table>& table);
+RcppExport SEXP _arrow_Table__to_stream(SEXP tableSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__to_stream(table));
+    return rcpp_result_gen;
+END_RCPP
+}
+// read_table_RandomAccessFile
+std::shared_ptr<arrow::Table> read_table_RandomAccessFile(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
+RcppExport SEXP _arrow_read_table_RandomAccessFile(SEXP streamSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::RandomAccessFile>& >::type stream(streamSEXP);
-    rcpp_result_gen = Rcpp::wrap(read_table_(stream));
+    rcpp_result_gen = Rcpp::wrap(read_table_RandomAccessFile(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
+// read_table_BufferReader
+std::shared_ptr<arrow::Table> read_table_BufferReader(const std::shared_ptr<arrow::io::BufferReader>& stream);
+RcppExport SEXP _arrow_read_table_BufferReader(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::BufferReader>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_table_BufferReader(stream));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1581,7 +1603,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1},
     {"_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
     {"_arrow_Table__to_file", (DL_FUNC) &_arrow_Table__to_file, 2},
-    {"_arrow_read_table_", (DL_FUNC) &_arrow_read_table_, 1},
+    {"_arrow_Table__to_stream", (DL_FUNC) &_arrow_Table__to_stream, 1},
+    {"_arrow_read_table_RandomAccessFile", (DL_FUNC) &_arrow_read_table_RandomAccessFile, 1},
+    {"_arrow_read_table_BufferReader", (DL_FUNC) &_arrow_read_table_BufferReader, 1},
     {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 1},
     {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
     {NULL, NULL, 0}
