@@ -50,7 +50,7 @@ GArrowSchema *gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *rea
 
 GArrowColumn *gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
                                                      GArrowSchema *schema,
-                                                     gint col_index,
+                                                     gint column_index,
                                                      GError **error);
 
 gint
