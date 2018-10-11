@@ -22,23 +22,24 @@
 #include <string>
 
 namespace gandiva {
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
-/// Error holder for errors during llvm module execution
+
+/// Execution context during llvm evaluation
 class ExecutionContext {
  public:
-  std::string get_error() const;
+  std::string get_error() const { return error_msg_; }
 
-  void set_error_msg(const char* error_msg);
+  void set_error_msg(const char* error_msg) {
+    // Remember the first error only.
+    if (error_msg_.empty()) {
+      error_msg_ = std::string(error_msg);
+    }
+  }
 
-  bool has_error() const;
+  bool has_error() const { return !error_msg_.empty(); }
 
  private:
-  std::unique_ptr<std::string> error_msg_;
+  std::string error_msg_;
 };
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
+
 }  // namespace gandiva
 #endif  // ERROR_HOLDER_H

@@ -416,10 +416,10 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     BINARY_RELATIONAL_SAFE_NULL_IF_NULL(ends_with, utf8),
 
     NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), RESULT_NULL_IF_NULL,
-                   "like_utf8_utf8", true /*needs_holder*/),
+                   "gdv_fn_like_utf8_utf8", true /*needs_holder*/),
 
     NativeFunction("to_date", DataTypeVector{utf8(), utf8(), int32()}, date64(),
-                   RESULT_NULL_INTERNAL, "to_date_utf8_utf8_int32", true, true),
+                   RESULT_NULL_INTERNAL, "gdv_fn_to_date_utf8_utf8_int32", true, true),
 
     NativeFunction("castDATE", DataTypeVector{utf8()}, date64(), RESULT_NULL_INTERNAL,
                    "castDATE_utf8", false /*needs_holder*/, true /*needs context*/),

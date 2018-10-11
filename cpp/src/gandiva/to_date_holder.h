@@ -28,10 +28,6 @@
 
 namespace gandiva {
 
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
-
 /// Function Holder for SQL 'to_date'
 class ToDateHolder : public FunctionHolder {
  public:
@@ -57,8 +53,5 @@ class ToDateHolder : public FunctionHolder {
   int32_t suppress_errors_;  // should throw exception on runtime errors
 };
 
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 }  // namespace gandiva
 #endif  // TO_DATE_HOLDER_H

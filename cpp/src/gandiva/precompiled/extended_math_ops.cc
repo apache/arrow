@@ -68,7 +68,7 @@ void set_error_for_logbase(int64_t execution_context, double base) {
   int size = static_cast<int>(strlen(prefix)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, "%s %f", prefix, base);
-  context_set_error_msg(execution_context, error);
+  gdv_fn_context_set_error_msg(execution_context, error);
   free(static_cast<char*>(error));
 }
 

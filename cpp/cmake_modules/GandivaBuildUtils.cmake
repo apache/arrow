@@ -107,7 +107,6 @@ function(add_precompiled_unit_test REL_TEST_NAME)
   target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(${TEST_NAME} PRIVATE ${GANDIVA_TEST_LINK_LIBS})
   target_compile_definitions(${TEST_NAME} PRIVATE GANDIVA_UNIT_TEST=1)
-  target_compile_definitions(${TEST_NAME} PRIVATE -DGDV_HELPERS)
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
   set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva,unittest ${TEST_NAME})
 endfunction(add_precompiled_unit_test REL_TEST_NAME)
@@ -118,7 +117,10 @@ function(add_gandiva_integ_test REL_TEST_NAME GANDIVA_LIB)
 
   add_executable(${TEST_NAME}_${GANDIVA_LIB} ${REL_TEST_NAME} ${ARGN})
   target_include_directories(${TEST_NAME}_${GANDIVA_LIB} PRIVATE ${CMAKE_SOURCE_DIR})
-  target_link_libraries(${TEST_NAME}_${GANDIVA_LIB} PRIVATE ${GANDIVA_LIB} ${GANDIVA_TEST_LINK_LIBS})
+  target_link_libraries(${TEST_NAME}_${GANDIVA_LIB} PRIVATE
+    ${GANDIVA_LIB}
+    ${GANDIVA_TEST_LINK_LIBS}
+  )
 
   add_test(NAME ${TEST_NAME}_${GANDIVA_LIB} COMMAND ${TEST_NAME}_${GANDIVA_LIB})
   set_property(TEST ${TEST_NAME}_${GANDIVA_LIB} PROPERTY LABELS gandiva,integ ${TEST_NAME}_${GANDIVA_LIB})

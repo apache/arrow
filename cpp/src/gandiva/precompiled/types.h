@@ -18,6 +18,7 @@
 #ifndef PRECOMPILED_TYPES_H
 #define PRECOMPILED_TYPES_H
 
+#include <gandiva/gdv_function_stubs.h>
 #include <cstdint>
 
 // Use the same names as in arrow data types. Makes it easy to write pre-processor macros.
@@ -50,7 +51,6 @@ extern "C" {
 bool bitMapGetBit(const unsigned char* bmap, int64_t position);
 void bitMapSetBit(unsigned char* bmap, int64_t position, bool value);
 void bitMapClearBitIfFalse(unsigned char* bmap, int64_t position, bool value);
-void context_set_error_msg(int64_t context_ptr, const char* err_msg);
 
 int64 extractMillennium_timestamp(timestamp millis);
 int64 extractCentury_timestamp(timestamp millis);

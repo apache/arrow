@@ -66,7 +66,7 @@ TEST(TestExtendedMathOps, TestPower) {
 
 TEST(TestArithmeticOps, TestLogWithBase) {
   boolean is_valid;
-  gandiva::helpers::ExecutionContext error_holder;
+  gandiva::ExecutionContext error_holder;
   float64 out = log_int32_int32(1, true, 10, true, reinterpret_cast<int64>(&error_holder),
                                 &is_valid);
   EXPECT_EQ(out, 0);
@@ -75,7 +75,7 @@ TEST(TestArithmeticOps, TestLogWithBase) {
   EXPECT_TRUE(error_holder.get_error().find("divide by zero error") != std::string::npos)
       << error_holder.get_error();
 
-  gandiva::helpers::ExecutionContext error_holder1;
+  gandiva::ExecutionContext error_holder1;
   out = log_int32_int32(2, true, 64, true, reinterpret_cast<int64>(&error_holder),
                         &is_valid);
   EXPECT_EQ(out, 6);

@@ -16,31 +16,13 @@
 // under the License.
 
 #include "gandiva/execution_context.h"
+#include "gandiva/gdv_function_stubs.h"
 
-namespace gandiva {
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
+extern "C" {
 
-void ExecutionContext::set_error_msg(const char* error_msg) {
-  if (error_msg_.get() == nullptr) {
-    error_msg_.reset(new std::string(error_msg));
-  }
+void gdv_fn_context_set_error_msg(int64_t context_ptr, char const* err_msg) {
+  gandiva::ExecutionContext* execution_context_ptr =
+      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  (execution_context_ptr)->set_error_msg(err_msg);
 }
-
-std::string ExecutionContext::get_error() const {
-  if (error_msg_.get() != nullptr) {
-    return *(error_msg_.get());
-  }
-  return std::string("");
 }
-
-bool ExecutionContext::has_error() const {
-  return error_msg_.get() != nullptr && !(error_msg_.get()->empty());
-}
-
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
-
-}  // namespace gandiva
