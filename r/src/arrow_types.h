@@ -21,6 +21,8 @@
 
 #undef Free
 #include <arrow/api.h>
+#include <arrow/io/file.h>
+#include <arrow/io/memory.h>
 #include <arrow/type.h>
 
 #define R_ERROR_NOT_OK(s)                  \
@@ -62,6 +64,7 @@ RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
 RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
+RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
 
 namespace Rcpp {
 namespace traits {
@@ -130,6 +133,19 @@ inline const T* GetValuesSafely(const std::shared_ptr<ArrayData>& data, int i,
   };
   return reinterpret_cast<const T*>(buffer->data()) + offset;
 }
+
+template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
+class RBuffer : public Buffer {
+ public:
+  RBuffer(Vec vec)
+      : Buffer(reinterpret_cast<const uint8_t*>(vec.begin()),
+               vec.size() * sizeof(typename Vec::stored_type)),
+        vec_(vec) {}
+
+ private:
+  // vec_ holds the memory
+  Vec vec_;
+};
 
 }  // namespace r
 }  // namespace arrow

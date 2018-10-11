@@ -60,3 +60,9 @@ StatusCode <- enum("arrow::StatusCode",
   PlasmaObjectExists = 20L, PlasmaObjectNonexistent = 21L,
   PlasmaStoreFull = 22L, PlasmaObjectAlreadySealed = 23L
 )
+
+#' @rdname DataType
+#' @export
+FileMode <- enum("arrow::io::FileMode",
+  READ = 0L, WRITE = 1L, READWRITE = 2L
+)

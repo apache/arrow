@@ -4,10 +4,10 @@
 \alias{read_arrow}
 \title{Read an tibble from an arrow::Table on disk}
 \usage{
-read_arrow(path)
+read_arrow(stream)
 }
 \arguments{
-\item{path}{binary arrow file}
+\item{stream}{input stream}
 }
 \value{
 a \link[tibble:tibble]{tibble::tibble}

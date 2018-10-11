@@ -7,6 +7,7 @@
 \alias{DateUnit}
 \alias{Type}
 \alias{StatusCode}
+\alias{FileMode}
 \alias{int8}
 \alias{int16}
 \alias{int32}
@@ -40,6 +41,8 @@ DateUnit
 Type
 
 StatusCode
+
+FileMode
 
 int8()
 
