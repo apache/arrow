@@ -25,12 +25,24 @@ install:
  - java 7 or later
  - maven 3.3 or later
 
-## Building running tests
+## Building and running tests
 
 ```
 cd java
 mvn install
 ```
+
+## Building and running tests for gandiva (optional)
+
+[Gandiva cpp][2] must be built before this step.
+
+```
+cd java
+mvn install -P gandiva -pl gandiva -am
+```
+
+This library is still in Alpha stages, and subject to API changes without
+deprecation warnings.
 
 ## Test Logging Configuration
 
@@ -51,3 +63,4 @@ mvn -Dlogback.configurationFile=file:`pwd`/dev/logback.xml
 See [Logback Configuration][1] for more details.
 
 [1]: https://logback.qos.ch/manual/configuration.html
+[2]: https://github.com/apache/arrow/blob/master/cpp/README.md
