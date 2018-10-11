@@ -23,14 +23,13 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 PLASMA_JAVA_DIR=${TRAVIS_BUILD_DIR}/java/plasma
 
-export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 
 pushd $PLASMA_JAVA_DIR
 
 mvn clean install
-export PLASMA_STORE=${ARROW_CPP_INSTALL}/bin/plasma_store_server
 
-ls -l ${ARROW_CPP_INSTALL}/lib/
+export LD_LIBRARY_PATH=${ARROW_CPP_INSTALL}/lib:$LD_LIBRARY_PATH
+export PLASMA_STORE=${ARROW_CPP_INSTALL}/bin/plasma_store_server
 
 ldd $PLASMA_STORE
 

@@ -80,7 +80,6 @@ install(
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
 set(ARROW_GPU_TEST_LINK_LIBS
-  # ARROW-2561: Must link statically against arrow and arrow_gpu to avoid double free
   arrow_gpu_shared
   ${ARROW_TEST_LINK_LIBS})
 
