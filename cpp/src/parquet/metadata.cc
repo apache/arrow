@@ -580,16 +580,25 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
 class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
  public:
   explicit ColumnChunkMetaDataBuilderImpl(const std::shared_ptr<WriterProperties>& props,
-                                          const ColumnDescriptor* column,
-                                          uint8_t* contents)
-      : properties_(props), column_(column) {
-    column_chunk_ = reinterpret_cast<format::ColumnChunk*>(contents);
-    column_chunk_->meta_data.__set_type(ToThrift(column->physical_type()));
-    column_chunk_->meta_data.__set_path_in_schema(column->path()->ToDotVector());
-    column_chunk_->meta_data.__set_codec(
-        ToThrift(properties_->compression(column->path())));
+                                          const ColumnDescriptor* column)
+      : owned_column_chunk_(new format::ColumnChunk),
+        properties_(props),
+        column_(column) {
+    Init(owned_column_chunk_.get());
   }
+
+  explicit ColumnChunkMetaDataBuilderImpl(const std::shared_ptr<WriterProperties>& props,
+                                          const ColumnDescriptor* column,
+                                          format::ColumnChunk* column_chunk)
+      : properties_(props), column_(column) {
+    Init(column_chunk);
+  }
+
   ~ColumnChunkMetaDataBuilderImpl() {}
+
+  const uint8_t* contents() const {
+    return reinterpret_cast<const uint8_t*>(column_chunk_);
+  }
 
   // column chunk
   void set_file_path(const std::string& val) { column_chunk_->__set_file_path(val); }
@@ -662,7 +671,16 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   const ColumnDescriptor* descr() const { return column_; }
 
  private:
+  void Init(format::ColumnChunk* column_chunk) {
+    column_chunk_ = column_chunk;
+    column_chunk_->meta_data.__set_type(ToThrift(column_->physical_type()));
+    column_chunk_->meta_data.__set_path_in_schema(column_->path()->ToDotVector());
+    column_chunk_->meta_data.__set_codec(
+        ToThrift(properties_->compression(column_->path())));
+  }
+
   format::ColumnChunk* column_chunk_;
+  std::unique_ptr<format::ColumnChunk> owned_column_chunk_;
   const std::shared_ptr<WriterProperties> properties_;
   const ColumnDescriptor* column_;
 };
@@ -674,13 +692,27 @@ std::unique_ptr<ColumnChunkMetaDataBuilder> ColumnChunkMetaDataBuilder::Make(
       new ColumnChunkMetaDataBuilder(props, column, contents));
 }
 
+std::unique_ptr<ColumnChunkMetaDataBuilder> ColumnChunkMetaDataBuilder::Make(
+    const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column) {
+  return std::unique_ptr<ColumnChunkMetaDataBuilder>(
+      new ColumnChunkMetaDataBuilder(props, column));
+}
+
+ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilder(
+    const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column)
+    : impl_{std::unique_ptr<ColumnChunkMetaDataBuilderImpl>(
+          new ColumnChunkMetaDataBuilderImpl(props, column))} {}
+
 ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilder(
     const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column,
     uint8_t* contents)
     : impl_{std::unique_ptr<ColumnChunkMetaDataBuilderImpl>(
-          new ColumnChunkMetaDataBuilderImpl(props, column, contents))} {}
+          new ColumnChunkMetaDataBuilderImpl(
+              props, column, reinterpret_cast<format::ColumnChunk*>(contents)))} {}
 
 ColumnChunkMetaDataBuilder::~ColumnChunkMetaDataBuilder() {}
+
+const uint8_t* ColumnChunkMetaDataBuilder::contents() const { return impl_->contents(); }
 
 void ColumnChunkMetaDataBuilder::set_file_path(const std::string& path) {
   impl_->set_file_path(path);

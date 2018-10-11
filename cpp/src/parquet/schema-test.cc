@@ -42,11 +42,11 @@ namespace schema {
 
 static inline SchemaElement NewPrimitive(const std::string& name,
                                          FieldRepetitionType::type repetition,
-                                         format::Type::type type, int id = 0) {
+                                         Type::type type, int id = 0) {
   SchemaElement result;
   result.__set_name(name);
   result.__set_repetition_type(repetition);
-  result.__set_type(type);
+  result.__set_type(static_cast<format::Type::type>(type));
 
   return result;
 }
@@ -138,8 +138,7 @@ TEST_F(TestPrimitiveNode, Attrs) {
 }
 
 TEST_F(TestPrimitiveNode, FromParquet) {
-  SchemaElement elt =
-      NewPrimitive(name_, FieldRepetitionType::OPTIONAL, format::Type::INT32, 0);
+  SchemaElement elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::INT32, 0);
   ASSERT_NO_FATAL_FAILURE(Convert(&elt));
   ASSERT_EQ(name_, prim_node_->name());
   ASSERT_EQ(id_, prim_node_->id());
@@ -148,7 +147,7 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   ASSERT_EQ(LogicalType::NONE, prim_node_->logical_type());
 
   // Test a logical type
-  elt = NewPrimitive(name_, FieldRepetitionType::REQUIRED, format::Type::BYTE_ARRAY, 0);
+  elt = NewPrimitive(name_, FieldRepetitionType::REQUIRED, Type::BYTE_ARRAY, 0);
   elt.__set_converted_type(ConvertedType::UTF8);
 
   ASSERT_NO_FATAL_FAILURE(Convert(&elt));
@@ -157,8 +156,7 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   ASSERT_EQ(LogicalType::UTF8, prim_node_->logical_type());
 
   // FIXED_LEN_BYTE_ARRAY
-  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL,
-                     format::Type::FIXED_LEN_BYTE_ARRAY, 0);
+  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY, 0);
   elt.__set_type_length(16);
 
   ASSERT_NO_FATAL_FAILURE(Convert(&elt));
@@ -169,8 +167,7 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   ASSERT_EQ(16, prim_node_->type_length());
 
   // ConvertedType::Decimal
-  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL,
-                     format::Type::FIXED_LEN_BYTE_ARRAY, 0);
+  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY, 0);
   elt.__set_converted_type(ConvertedType::DECIMAL);
   elt.__set_type_length(6);
   elt.__set_scale(2);
@@ -419,8 +416,7 @@ TEST_F(TestSchemaConverter, NestedExample) {
   elements.push_back(NewGroup(name_, FieldRepetitionType::REPEATED, 2, 0));
 
   // A primitive one
-  elements.push_back(
-      NewPrimitive("a", FieldRepetitionType::REQUIRED, format::Type::INT32, 1));
+  elements.push_back(NewPrimitive("a", FieldRepetitionType::REQUIRED, Type::INT32, 1));
 
   // A group
   elements.push_back(NewGroup("bag", FieldRepetitionType::OPTIONAL, 1, 2));
@@ -429,8 +425,7 @@ TEST_F(TestSchemaConverter, NestedExample) {
   elt = NewGroup("b", FieldRepetitionType::REPEATED, 1, 3);
   elt.__set_converted_type(ConvertedType::LIST);
   elements.push_back(elt);
-  elements.push_back(
-      NewPrimitive("item", FieldRepetitionType::OPTIONAL, format::Type::INT64, 4));
+  elements.push_back(NewPrimitive("item", FieldRepetitionType::OPTIONAL, Type::INT64, 4));
 
   ASSERT_NO_FATAL_FAILURE(Convert(&elements[0], static_cast<int>(elements.size())));
 
@@ -461,7 +456,7 @@ TEST_F(TestSchemaConverter, InvalidRoot) {
 
   SchemaElement elements[2];
   elements[0] =
-      NewPrimitive("not-a-group", FieldRepetitionType::REQUIRED, format::Type::INT32, 0);
+      NewPrimitive("not-a-group", FieldRepetitionType::REQUIRED, Type::INT32, 0);
   ASSERT_THROW(Convert(elements, 2), ParquetException);
 
   // While the Parquet spec indicates that the root group should have REPEATED
@@ -469,7 +464,7 @@ TEST_F(TestSchemaConverter, InvalidRoot) {
   // groups as the first element. These tests check that this is okay as a
   // practicality matter.
   elements[0] = NewGroup("not-repeated", FieldRepetitionType::REQUIRED, 1, 0);
-  elements[1] = NewPrimitive("a", FieldRepetitionType::REQUIRED, format::Type::INT32, 1);
+  elements[1] = NewPrimitive("a", FieldRepetitionType::REQUIRED, Type::INT32, 1);
   ASSERT_NO_FATAL_FAILURE(Convert(elements, 2));
 
   elements[0] = NewGroup("not-repeated", FieldRepetitionType::OPTIONAL, 1, 0);
@@ -525,8 +520,7 @@ TEST_F(TestSchemaFlatten, NestedExample) {
   elements.push_back(NewGroup(name_, FieldRepetitionType::REPEATED, 2, 0));
 
   // A primitive one
-  elements.push_back(
-      NewPrimitive("a", FieldRepetitionType::REQUIRED, format::Type::INT32, 1));
+  elements.push_back(NewPrimitive("a", FieldRepetitionType::REQUIRED, Type::INT32, 1));
 
   // A group
   elements.push_back(NewGroup("bag", FieldRepetitionType::OPTIONAL, 1, 2));
@@ -535,8 +529,7 @@ TEST_F(TestSchemaFlatten, NestedExample) {
   elt = NewGroup("b", FieldRepetitionType::REPEATED, 1, 3);
   elt.__set_converted_type(ConvertedType::LIST);
   elements.push_back(elt);
-  elements.push_back(
-      NewPrimitive("item", FieldRepetitionType::OPTIONAL, format::Type::INT64, 4));
+  elements.push_back(NewPrimitive("item", FieldRepetitionType::OPTIONAL, Type::INT64, 4));
 
   // Construct the schema
   NodeVector fields;

@@ -308,9 +308,6 @@ Always OFF if building binaries"
 endif()
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
-  if (NOT MSVC AND NOT ARROW_BUILD_STATIC)
-    message(FATAL_ERROR "ARROW_BUILD_TESTS needs ARROW_BUILD_STATIC")
-  endif ()
   set(ARROW_WITH_BROTLI ON)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
@@ -406,20 +403,7 @@ include(san-config)
 
 # Code coverage
 if ("${ARROW_GENERATE_COVERAGE}")
-  if("${CMAKE_CXX_COMPILER}" MATCHES ".*clang.*")
-    # There appears to be some bugs in clang 3.3 which cause code coverage
-    # to have link errors, not locating the llvm_gcda_* symbols.
-    # This should be fixed in llvm 3.4 with http://llvm.org/viewvc/llvm-project?view=revision&revision=184666
-    message(SEND_ERROR "Cannot currently generate coverage with clang")
-  endif()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -DCOVERAGE_BUILD")
-
-  # For coverage to work properly, we need to use static linkage. Otherwise,
-  # __gcov_flush() doesn't properly flush coverage from every module.
-  # See http://stackoverflow.com/questions/28164543/using-gcov-flush-within-a-library-doesnt-force-the-other-modules-to-yield-gc
-  if(NOT ARROW_BUILD_STATIC)
-    message(SEND_ERROR "Coverage requires the static lib to be built")
-  endif()
 endif()
 
 # CMAKE_CXX_FLAGS now fully assembled
@@ -714,17 +698,12 @@ if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
 
-  # If using gcc or clang on Linux, we need to link pthread for older Linuxes,
-  # including distros as new as Ubuntu 14.04
-  if ((CMAKE_COMPILER_IS_GNUCXX OR
-        (NOT APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
-      AND PTHREAD_LIBRARY)
+  if (NOT WIN32 AND NOT APPLE)
     set(ARROW_JEMALLOC_LINK_LIBS
       jemalloc_static
       # For glibc <2.17 we need to link to librt.
       # As we compile with --as-needed by default, the linker will omit this
       # dependency if not required.
-      ${PTHREAD_LIBRARY}
       rt
       )
   else()
@@ -738,9 +717,9 @@ if (ARROW_JEMALLOC)
   set(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
     ${ARROW_JEMALLOC_LINK_LIBS})
-elseif (PTHREAD_LIBRARY)
-  # We need to separate this as otherwise CMake would mess with the library
-  # linking order.
+endif(ARROW_JEMALLOC)
+
+if (PTHREAD_LIBRARY)
   set(ARROW_LINK_LIBS
     ${ARROW_LINK_LIBS}
     ${PTHREAD_LIBRARY})

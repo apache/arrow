@@ -81,7 +81,7 @@ set(PLASMA_SRCS
   thirdparty/ae/ae.c
   thirdparty/xxhash.cc)
 
-set(PLASMA_LINK_LIBS arrow_static)
+set(PLASMA_LINK_LIBS arrow_shared)
 
 if (ARROW_GPU)
   set(PLASMA_LINK_LIBS ${PLASMA_LINK_LIBS} arrow_gpu_shared)
@@ -129,7 +129,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "gcc")
 endif()
 
 add_executable(plasma_store_server store.cc)
-target_link_libraries(plasma_store_server plasma_static ${PLASMA_LINK_LIBS})
+target_link_libraries(plasma_store_server plasma_shared ${PLASMA_LINK_LIBS})
 
 if (ARROW_RPATH_ORIGIN)
   if (APPLE)
@@ -192,9 +192,9 @@ if(ARROW_PLASMA_JAVA_CLIENT)
     ${PLASMA_LIBRARY_EXT_java_SRC})
 
   if(APPLE)
-    target_link_libraries(plasma_java plasma_static ${PLASMA_LINK_LIBS} "-undefined dynamic_lookup" -Wl,-force_load,${FLATBUFFERS_STATIC_LIB} ${FLATBUFFERS_STATIC_LIB} ${PTHREAD_LIBRARY})
+    target_link_libraries(plasma_java plasma_shared ${PLASMA_LINK_LIBS} "-undefined dynamic_lookup" -Wl,-force_load,${FLATBUFFERS_STATIC_LIB} ${FLATBUFFERS_STATIC_LIB} ${PTHREAD_LIBRARY})
   else(APPLE)
-    target_link_libraries(plasma_java plasma_static ${PLASMA_LINK_LIBS} -Wl,--whole-archive ${FLATBUFFERS_STATIC_LIB} -Wl,--no-whole-archive ${FLATBUFFERS_STATIC_LIB} ${PTHREAD_LIBRARY})
+    target_link_libraries(plasma_java plasma_shared ${PLASMA_LINK_LIBS} -Wl,--whole-archive ${FLATBUFFERS_STATIC_LIB} -Wl,--no-whole-archive ${FLATBUFFERS_STATIC_LIB} ${PTHREAD_LIBRARY})
   endif(APPLE)
 endif()
 #######################################
@@ -202,7 +202,7 @@ endif()
 #######################################
 
 ADD_ARROW_TEST(test/serialization_tests
-  EXTRA_LINK_LIBS plasma_static ${PLASMA_LINK_LIBS})
+  EXTRA_LINK_LIBS plasma_shared ${PLASMA_LINK_LIBS})
 ADD_ARROW_TEST(test/client_tests
-  EXTRA_LINK_LIBS plasma_static ${PLASMA_LINK_LIBS}
+  EXTRA_LINK_LIBS plasma_shared ${PLASMA_LINK_LIBS}
   EXTRA_DEPENDENCIES plasma_store_server)
