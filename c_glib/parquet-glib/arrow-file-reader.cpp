@@ -264,13 +264,14 @@ gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
   auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
   std::shared_ptr<arrow::Array> arrow_array;
   auto status = parquet_arrow_file_reader->ReadColumn(column_index, &arrow_array);
-  if (garrow_error_check(error, status, "[parquet][arrow][file-reader][read-column]")) {
-    auto array = garrow_array_new_raw(&arrow_array);
-    auto field = garrow_schema_get_field(schema, column_index);
-    auto column = garrow_column_new_array(field, array);
-    g_object_unref(array);
-    g_object_unref(field);
-    return column;
+  if (garrow_error_check(error,
+                         status,
+                         "[parquet][arrow][file-reader][read-column]")) {
+    auto arrow_schema = garrow_schema_get_raw(schema);
+    auto arrow_field = arrow_schema->field(column_index);
+    auto arrow_column =
+      std::make_shared<arrow::Column>(arrow_field, arrow_array);
+    return garrow_column_new_raw(&arrow_column);
   } else {
     return NULL;
   }
