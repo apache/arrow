@@ -62,34 +62,53 @@ class TestParquetArrow < Test::Unit::TestCase
     assert_equal([["enabled", values]], table_data)
   end
 
-  def test_get_schema_and_column
+  def test_schema
     tempfile = Tempfile.open(["data", ".parquet"])
 
-    field1 = Arrow::Field.new("column_a", Arrow::StringDataType.new)
-    field2 = Arrow::Field.new("column_b", Arrow::Int32DataType.new)
-
-    schema = Arrow::Schema.new([field1, field2])
-    writer = Parquet::ArrowFileWriter.new(schema, tempfile.path)
-    begin
-      columns = [
-        Arrow::Column.new(field1, build_string_array(["foo", "bar"])),
-        Arrow::Column.new(field2, build_int32_array([123, 456]))
-      ]
-      table = Arrow::Table.new(schema, columns)
-      writer.write_table(table, 2)
-    ensure
-      writer.close
-    end
+    table = build_table("a" => build_string_array(["foo", "bar"]),
+                        "b" => build_int32_array([123, 456]))
+    writer = Parquet::ArrowFileWriter.new(table.schema, tempfile.path)
+    writer.write_table(table, 2)
+    writer.close
 
     reader = Parquet::ArrowFileReader.new(tempfile.path)
-    assert_equal(2, reader.schema.n_fields)
+    assert_equal(<<-SCHEMA.chomp, reader.schema.to_s)
+a: string
+b: int32
+    SCHEMA
+  end
 
-    col_a = reader.read_column(reader.schema, 0)
-    assert_equal("column_a", col_a.name)
-    assert_equal(2, col_a.length)
+  def test_read_column
+    tempfile = Tempfile.open(["data", ".parquet"])
 
-    col_b = reader.read_column(reader.schema, 1)
-    assert_equal("column_b", col_b.name)
+    string_array = build_string_array(["foo", "bar"])
+    int32_array = build_int32_array([123, 456])
+    table = build_table("a" => string_array,
+                        "b" => int32_array)
+    writer = Parquet::ArrowFileWriter.new(table.schema, tempfile.path)
+    writer.write_table(table, 2)
+    writer.close
 
+    reader = Parquet::ArrowFileReader.new(tempfile.path)
+
+    column_a = reader.read_column(0)
+    assert_equal([
+                   "a: string",
+                   Arrow::ChunkedArray.new([string_array]).to_s,
+                 ],
+                 [
+                   column_a.field.to_s,
+                   column_a.data.to_s,
+                 ])
+
+    column_b = reader.read_column(1)
+    assert_equal([
+                   "b: int32",
+                   Arrow::ChunkedArray.new([int32_array]).to_s,
+                 ],
+                 [
+                   column_b.field.to_s,
+                   column_b.data.to_s,
+                 ])
   end
 end

@@ -247,7 +247,6 @@ gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
 /**
  * gparquet_arrow_file_reader_read_column:
  * @reader: A #GParquetArrowFileReader.
- * @schema: A #GArrowSchema.
  * @column_index: Index integer of the column to be read.
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
  *
@@ -257,24 +256,31 @@ gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
  */
 GArrowColumn *
 gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
-                                       GArrowSchema *schema,
                                        gint column_index,
                                        GError **error)
 {
   auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
-  std::shared_ptr<arrow::Array> arrow_array;
-  auto status = parquet_arrow_file_reader->ReadColumn(column_index, &arrow_array);
-  if (garrow_error_check(error,
-                         status,
-                         "[parquet][arrow][file-reader][read-column]")) {
-    auto arrow_schema = garrow_schema_get_raw(schema);
-    auto arrow_field = arrow_schema->field(column_index);
-    auto arrow_column =
-      std::make_shared<arrow::Column>(arrow_field, arrow_array);
-    return garrow_column_new_raw(&arrow_column);
-  } else {
+
+  std::vector<int> indices = {column_index};
+  std::shared_ptr<arrow::Schema> arrow_schema;
+  auto status = parquet_arrow_file_reader->GetSchema(indices, &arrow_schema);
+  if (!garrow_error_check(error,
+                          status,
+                          "[parquet][arrow][file-reader][read-column][get-schema]")) {
     return NULL;
   }
+
+  std::shared_ptr<arrow::Array> arrow_array;
+  status = parquet_arrow_file_reader->ReadColumn(column_index, &arrow_array);
+  if (!garrow_error_check(error,
+                          status,
+                          "[parquet][arrow][file-reader][read-column]")) {
+    return NULL;
+  }
+
+  auto arrow_field = arrow_schema->field(0);
+  auto arrow_column = std::make_shared<arrow::Column>(arrow_field, arrow_array);
+  return garrow_column_new_raw(&arrow_column);
 }
 
 /**
