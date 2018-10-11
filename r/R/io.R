@@ -47,6 +47,15 @@
   )
 )
 
+`arrow::io::BufferReader` <- R6Class("arrow::io::BufferReader", inherit = `arrow::io::RandomAccessFile`,
+  public = list(
+    Close = function() io___BufferReader__Close(self),
+    Tell = function() io___BufferReader__Tell(self),
+    Seek = function(position) io___BufferReader__Seek(self, position),
+    Read = function(nbytes) `arrow::Buffer`$new(io___Readable__Read(self, nbytes))
+  )
+)
+
 #' Create a new read/write memory mapped file of a given size
 #'
 #' @param path file path
@@ -71,3 +80,23 @@ mmap_open <- `arrow::io::MemoryMappedFile`$open <- function(path, mode = c("read
 file_open <- `arrow::io::ReadableFile`$open <- function(path) {
   `arrow::io::ReadableFile`$new(io___ReadableFile__Open(fs::path_abs(path)))
 }
+
+#' Create a `arrow::BufferReader`
+#'
+#' @param x R object to treat as a buffer or a buffer created by [buffer()]
+#'
+#' @export
+buffer_reader <- function(x) {
+  UseMethod("buffer_reader")
+}
+
+#' @export
+`buffer_reader.arrow::Buffer` <- function(x) {
+  `arrow::io::BufferReader`$new(io___BufferReader__initialize(x))
+}
+
+#' @export
+buffer_reader.default <- function(x) {
+  buffer_reader(buffer(x))
+}
+

@@ -115,3 +115,29 @@ void io___ReadableFile__Seek(const std::shared_ptr<arrow::io::ReadableFile>& x,
                              int64_t position) {
   R_ERROR_NOT_OK(x->Seek(position));
 }
+
+// ------ arrow::io::BufferReader
+
+// [[Rcpp::export]]
+void io___BufferReader__Close(const std::shared_ptr<arrow::io::BufferReader>& x) {
+  R_ERROR_NOT_OK(x->Close());
+}
+
+// [[Rcpp::export]]
+int64_t io___BufferReader__Tell(const std::shared_ptr<arrow::io::BufferReader>& x) {
+  int64_t out;
+  R_ERROR_NOT_OK(x->Tell(&out));
+  return out;
+}
+
+// [[Rcpp::export]]
+void io___BufferReader__Seek(const std::shared_ptr<arrow::io::BufferReader>& x,
+                             int64_t position) {
+  R_ERROR_NOT_OK(x->Seek(position));
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::io::BufferReader> io___BufferReader__initialize(
+    const std::shared_ptr<arrow::Buffer>& buffer) {
+  return std::make_shared<arrow::io::BufferReader>(buffer);
+}
