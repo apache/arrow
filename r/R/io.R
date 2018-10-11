@@ -27,9 +27,19 @@
 
 `arrow::io::InputStream` <- R6Class("arrow::io::InputStream", inherit = `arrow::io::Readable`,
   public = list(
-    Close = function() io___InputStream__Close(self)
+    Close = function() io___FileInterface__Close(self)
   )
 )
+
+`arrow::io::Writable` <- R6Class("arrow::io::Writable", inherit = `arrow::Object`)
+
+`arrow::io::OutputStream` <- R6Class("arrow::io::OutputStream", inherit = `arrow::io::Writable`,
+  public = list(
+    Close = function() io___FileInterface__Close(self)
+  )
+)
+
+`arrow::io::FileOutputStream` <- R6Class("arrow::io::FileOutputStream", inherit = `arrow::io::OutputStream`)
 
 `arrow::io::RandomAccessFile` <- R6Class("arrow::io::RandomAccessFile", inherit = `arrow::io::InputStream`,
   public = list(
@@ -48,6 +58,7 @@
 
 `arrow::io::ReadableFile` <- R6Class("arrow::io::ReadableFile", inherit = `arrow::io::RandomAccessFile`)
 `arrow::io::BufferReader` <- R6Class("arrow::io::BufferReader", inherit = `arrow::io::RandomAccessFile`)
+
 
 #' Create a new read/write memory mapped file of a given size
 #'
@@ -72,6 +83,11 @@ mmap_open <- `arrow::io::MemoryMappedFile`$open <- function(path, mode = c("read
 #' @export
 file_open <- `arrow::io::ReadableFile`$open <- function(path) {
   `arrow::io::ReadableFile`$new(io___ReadableFile__Open(fs::path_abs(path)))
+}
+
+#' @export
+file_output_stream <- function(path) {
+  `arrow::io::FileOutputStream`$new(io___FileOutputStream__Open(path))
 }
 
 #' Create a `arrow::BufferReader`

@@ -123,6 +123,11 @@ RawVector RecordBatch__to_stream(const std::shared_ptr<arrow::RecordBatch>& batc
 }
 
 // [[Rcpp::export]]
+void RecordBatch__stream(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::io::OutputStream>& stream){
+  R_ERROR_NOT_OK(arrow::ipc::WriteRecordBatchStream({batch}, stream.get()));
+}
+
+// [[Rcpp::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl) {
   CharacterVector names = tbl.names();
 

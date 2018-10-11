@@ -16,6 +16,7 @@
 # under the License.
 
 #' @include R6.R
+#' @include stream.R
 
 `arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = `arrow::Object`,
   public = list(
@@ -106,4 +107,3 @@ read_record_batch.raw <- function(stream){
   stream <- buffer_reader(stream); on.exit(stream$Close())
   read_record_batch(stream)
 }
-

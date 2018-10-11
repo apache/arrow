@@ -24,6 +24,7 @@
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/type.h>
+#include <arrow/ipc/writer.h>
 
 #define R_ERROR_NOT_OK(s)                  \
   do {                                     \

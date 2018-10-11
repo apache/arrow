@@ -29,10 +29,10 @@ std::shared_ptr<arrow::Buffer> io___Readable__Read(
   return buf;
 }
 
-// ------ arrow::io::InputStream
+// ------ arrow::io::FileInterface
 
 // [[Rcpp::export]]
-void io___InputStream__Close(const std::shared_ptr<arrow::io::InputStream>& x) {
+void io___FileInterface__Close(const std::shared_ptr<arrow::io::FileInterface>& x) {
   R_ERROR_NOT_OK(x->Close());
 }
 
@@ -106,4 +106,13 @@ std::shared_ptr<arrow::io::ReadableFile> io___ReadableFile__Open(
 std::shared_ptr<arrow::io::BufferReader> io___BufferReader__initialize(
     const std::shared_ptr<arrow::Buffer>& buffer) {
   return std::make_shared<arrow::io::BufferReader>(buffer);
+}
+
+// ------ arrow::io::FileOutputStream
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(const std::string& path) {
+  std::shared_ptr<arrow::io::FileOutputStream> stream;
+  R_ERROR_NOT_OK(arrow::io::FileOutputStream::Open(path, &stream));
+  return stream;
 }
