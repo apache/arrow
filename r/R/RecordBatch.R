@@ -93,10 +93,17 @@ read_record_batch.fs_path <- function(stream){
 
 #' @export
 `read_record_batch.arrow::io::RandomAccessFile` <- function(stream){
-  `arrow::RecordBatch`$new(read_record_batch_(stream))
+  `arrow::RecordBatch`$new(read_record_batch_RandomAccessFile(stream))
 }
 
 #' @export
-read_record_batch.raw <- function(stream) {
-
+`read_record_batch.arrow::io::BufferReader` <- function(stream){
+  `arrow::RecordBatch`$new(read_record_batch_BufferReader(stream))
 }
+
+#' @export
+read_record_batch.raw <- function(stream){
+  stream <- buffer_reader(stream); on.exit(stream$Close())
+  read_record_batch(stream)
+}
+

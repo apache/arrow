@@ -21,10 +21,9 @@
 `arrow::Buffer` <- R6Class("arrow::Buffer", inherit = `arrow::Object`,
   public = list(
     is_mutable = function() Buffer__is_mutable(self),
-    ZeroPassing = function() Buffer__ZeroPadding(self),
+    ZeroPadding = function() Buffer__ZeroPadding(self),
     size = function() Buffer__size(self),
-    capcity = function() Buffer__capacity(self),
-    parent = function() `arrow::Buffer`$new(Buffer__parent(self))
+    capacity = function() Buffer__capacity(self)
   )
 )
 

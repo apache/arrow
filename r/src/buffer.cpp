@@ -38,12 +38,6 @@ int64_t Buffer__size(const std::shared_ptr<arrow::Buffer>& buffer) {
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Buffer> Buffer__parent(
-    const std::shared_ptr<arrow::Buffer>& buffer) {
-  return buffer->parent();
-}
-
-// [[Rcpp::export]]
 std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x) {
   switch (TYPEOF(x)) {
     case RAWSXP:
