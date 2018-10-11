@@ -42,3 +42,15 @@ std::shared_ptr<arrow::Buffer> Buffer__parent(
     const std::shared_ptr<arrow::Buffer>& buffer) {
   return buffer->parent();
 }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x) {
+  switch(TYPEOF(x)){
+  case RAWSXP: return std::make_shared<arrow::r::RBuffer<RAWSXP>>(x);
+  case REALSXP: return std::make_shared<arrow::r::RBuffer<REALSXP>>(x);
+  case INTSXP: return std::make_shared<arrow::r::RBuffer<INTSXP>>(x);
+  default:
+    Rcpp::stop(tfm::format("R object of type %s not supported", Rf_type2char(TYPEOF(x))));
+  }
+  return nullptr;
+}

@@ -113,6 +113,10 @@ Buffer__parent <- function(buffer) {
     .Call(`_arrow_Buffer__parent`, buffer)
 }
 
+r___RBuffer__initialize <- function(x) {
+    .Call(`_arrow_r___RBuffer__initialize`, x)
+}
+
 ChunkedArray__length <- function(chunked_array) {
     .Call(`_arrow_ChunkedArray__length`, chunked_array)
 }

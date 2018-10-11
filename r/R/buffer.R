@@ -27,3 +27,34 @@
     parent = function() `arrow::Buffer`$new(Buffer__parent(self))
   )
 )
+
+#' Create a buffer from an R object
+#'
+#' @param x R object
+#' @return an instance of `arrow::Buffer` that borrows memory from `x`
+#'
+#' @export
+buffer <- function(x){
+  UseMethod("buffer")
+}
+
+#' @export
+buffer.default <- function(x) {
+  stop("cannot convert to Buffer")
+}
+
+
+#' @export
+buffer.raw <- function(x) {
+  `arrow::Buffer`$new(r___RBuffer__initialize(x))
+}
+
+#' @export
+buffer.numeric <- function(x) {
+  `arrow::Buffer`$new(r___RBuffer__initialize(x))
+}
+
+#' @export
+buffer.integer <- function(x) {
+  `arrow::Buffer`$new(r___RBuffer__initialize(x))
+}

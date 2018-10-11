@@ -324,6 +324,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// r___RBuffer__initialize
+std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x);
+RcppExport SEXP _arrow_r___RBuffer__initialize(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(r___RBuffer__initialize(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ChunkedArray__length
 int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 RcppExport SEXP _arrow_ChunkedArray__length(SEXP chunked_arraySEXP) {
@@ -1492,6 +1503,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Buffer__capacity", (DL_FUNC) &_arrow_Buffer__capacity, 1},
     {"_arrow_Buffer__size", (DL_FUNC) &_arrow_Buffer__size, 1},
     {"_arrow_Buffer__parent", (DL_FUNC) &_arrow_Buffer__parent, 1},
+    {"_arrow_r___RBuffer__initialize", (DL_FUNC) &_arrow_r___RBuffer__initialize, 1},
     {"_arrow_ChunkedArray__length", (DL_FUNC) &_arrow_ChunkedArray__length, 1},
     {"_arrow_ChunkedArray__null_count", (DL_FUNC) &_arrow_ChunkedArray__null_count, 1},
     {"_arrow_ChunkedArray__num_chunks", (DL_FUNC) &_arrow_ChunkedArray__num_chunks, 1},

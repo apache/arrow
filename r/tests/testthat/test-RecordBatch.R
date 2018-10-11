@@ -136,6 +136,7 @@ test_that("read_record_batch handles ReadableFile and MemoryMappedFile (ARROW-34
   batch <- record_batch(tbl)
   tf <- tempfile(); on.exit(unlink(tf))
   batch$to_file(tf)
+  bytes <- batch$to_stream()
 
   batch1 <- read_record_batch(tf)
   batch2 <- read_record_batch(fs::path_abs(tf))
@@ -146,8 +147,12 @@ test_that("read_record_batch handles ReadableFile and MemoryMappedFile (ARROW-34
   mmap_file <- mmap_open(tf); on.exit(mmap_file$Close())
   batch4 <- read_record_batch(mmap_file)
 
+  # batch5 <- read_record_batch(bytes)
+
   expect_equal(batch, batch1)
   expect_equal(batch, batch2)
   expect_equal(batch, batch3)
   expect_equal(batch, batch4)
+  # expect_equal(batch, batch5)
+
 })

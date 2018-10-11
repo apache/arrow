@@ -96,3 +96,7 @@ read_record_batch.fs_path <- function(stream){
   `arrow::RecordBatch`$new(read_record_batch_(stream))
 }
 
+#' @export
+read_record_batch.raw <- function(stream) {
+
+}
