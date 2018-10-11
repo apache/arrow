@@ -23,6 +23,8 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 PLASMA_JAVA_DIR=${TRAVIS_BUILD_DIR}/java/plasma
 
+export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
+
 pushd $PLASMA_JAVA_DIR
 
 mvn clean install
