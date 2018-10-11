@@ -22,8 +22,8 @@
 #include "gandiva/precompiled/types.h"
 
 void context_set_error_msg(int64_t context_ptr, char const* err_msg) {
-  gandiva::helpers::ExecutionContext* execution_context_ptr =
-      reinterpret_cast<gandiva::helpers::ExecutionContext*>(context_ptr);
+  gandiva::ExecutionContext* execution_context_ptr =
+      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   (execution_context_ptr)->set_error_msg(err_msg);
 }
 #endif

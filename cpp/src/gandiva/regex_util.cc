@@ -19,10 +19,6 @@
 
 namespace gandiva {
 
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
-
 const std::set<char> RegexUtil::pcre_regex_specials_ = {
     '[', ']', '(', ')', '|', '^', '-', '+', '*', '?', '{', '}', '$', '\\'};
 
@@ -67,9 +63,5 @@ Status RegexUtil::SqlLikePatternToPcre(const std::string& sql_pattern, char esca
   }
   return Status::OK();
 }
-
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 
 }  // namespace gandiva

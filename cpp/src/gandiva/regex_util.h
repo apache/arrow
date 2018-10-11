@@ -25,10 +25,6 @@
 
 namespace gandiva {
 
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
-
 /// \brief Utility class for converting sql patterns to pcre patterns.
 class RegexUtil {
  public:
@@ -44,10 +40,6 @@ class RegexUtil {
  private:
   static const std::set<char> pcre_regex_specials_;
 };
-
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 
 }  // namespace gandiva
 

@@ -122,6 +122,7 @@ function(add_gandiva_integ_test REL_TEST_NAME GANDIVA_LIB)
 
   add_test(NAME ${TEST_NAME}_${GANDIVA_LIB} COMMAND ${TEST_NAME}_${GANDIVA_LIB})
   set_property(TEST ${TEST_NAME}_${GANDIVA_LIB} PROPERTY LABELS gandiva,integ ${TEST_NAME}_${GANDIVA_LIB})
+  set_target_properties(${TEST_NAME}_${GANDIVA_LIB} PROPERTIES LINK_FLAGS "-rdynamic")
 endfunction(add_gandiva_integ_test REL_TEST_NAME)
 
 function(prevent_in_source_builds)

@@ -22,9 +22,6 @@
 #include <string>
 
 namespace gandiva {
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
 /// Error holder for errors during llvm module execution
 class ExecutionContext {
  public:
@@ -37,8 +34,5 @@ class ExecutionContext {
  private:
   std::unique_ptr<std::string> error_msg_;
 };
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 }  // namespace gandiva
 #endif  // ERROR_HOLDER_H

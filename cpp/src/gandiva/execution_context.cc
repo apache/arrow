@@ -18,9 +18,6 @@
 #include "gandiva/execution_context.h"
 
 namespace gandiva {
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
 
 void ExecutionContext::set_error_msg(const char* error_msg) {
   if (error_msg_.get() == nullptr) {
@@ -38,9 +35,5 @@ std::string ExecutionContext::get_error() const {
 bool ExecutionContext::has_error() const {
   return error_msg_.get() != nullptr && !(error_msg_.get()->empty());
 }
-
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 
 }  // namespace gandiva

@@ -81,9 +81,6 @@ class Engine {
 
   llvm::ExecutionEngine& execution_engine() { return *execution_engine_.get(); }
 
-  /// load pre-compiled so libraries and merge them into the main module.
-  Status LoadPreCompiledHelperLibs(const std::string& helper_lib_file_path);
-
   /// load pre-compiled IR modules and merge them into the main module.
   Status LoadPreCompiledIRFiles(const std::string& byte_code_file_path);
 

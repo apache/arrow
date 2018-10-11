@@ -70,7 +70,7 @@ TEST(TestStringOps, TestCharLength) {
   EXPECT_TRUE(valid);
 
   // invalid utf8
-  gandiva::helpers::ExecutionContext ctx;
+  gandiva::ExecutionContext ctx;
   std::string c("\xf8\x28");
   EXPECT_EQ(utf8_length(c.data(), static_cast<int>(c.length()), true,
                         reinterpret_cast<int64>(&ctx), &valid),

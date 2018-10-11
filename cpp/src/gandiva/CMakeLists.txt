@@ -32,43 +32,31 @@ set(GANDIVA_BC_FILE_NAME irhelpers.bc)
 set(GANDIVA_BC_INSTALL_PATH ${GANDIVA_BC_INSTALL_DIR}/${GANDIVA_BC_FILE_NAME})
 set(GANDIVA_BC_OUTPUT_PATH ${CMAKE_BINARY_DIR}/${GANDIVA_BC_FILE_NAME})
 
-# Set the path where the so lib file will be installed.
-if (APPLE)
-  set(GANDIVA_HELPER_LIB_FILE_NAME libgandiva_helpers.dylib)
-else()
-  set(GANDIVA_HELPER_LIB_FILE_NAME libgandiva_helpers.so)
-endif(APPLE)
-
-set(GANDIVA_HELPER_LIB_INSTALL_PATH ${GANDIVA_BC_INSTALL_DIR}/${GANDIVA_HELPER_LIB_FILE_NAME})
-set(GANDIVA_HELPER_LIB_OUTPUT_PATH ${CMAKE_BINARY_DIR}/debug/${GANDIVA_HELPER_LIB_FILE_NAME})
-
 set(BC_FILE_PATH_CC "${CMAKE_CURRENT_BINARY_DIR}/bc_file_path.cc")
 configure_file(bc_file_path.cc.in ${BC_FILE_PATH_CC})
-
-# helper files that are shared between libgandiva and libgandiva_helpers
-set(SHARED_HELPER_FILES
-      like_holder.cc
-      regex_util.cc
-      execution_context.cc
-      to_date_holder.cc
-      date_utils.cc)
 
 set(SRC_FILES annotator.cc
       bitmap_accumulator.cc
       configuration.cc
       engine.cc
+      date_utils.cc
+      execution_context.cc
       expr_decomposer.cc
       expr_validator.cc
       expression.cc
       expression_registry.cc
       filter.cc
+      function_holder_stubs.cc
       function_registry.cc
       function_signature.cc
       llvm_generator.cc
       llvm_types.cc
+      like_holder.cc
       projector.cc
+      regex_util.cc
       selection_vector.cc
       tree_expr_builder.cc
+      to_date_holder.cc
       ${SHARED_HELPER_FILES}
       ${BC_FILE_PATH_CC})
 
@@ -103,39 +91,12 @@ build_gandiva_lib("shared" arrow_shared)
 
 build_gandiva_lib("static" arrow_static)
 
-# Pre-compiled .so library for function helpers.
-add_library(gandiva_helpers SHARED
-  ${SHARED_HELPER_FILES}
-  function_holder_stubs.cc)
-
-add_dependencies(gandiva_helpers arrow_dependencies)
-
-target_compile_definitions(gandiva_helpers
-  PRIVATE -DGDV_HELPERS
-)
-
-target_include_directories(gandiva_helpers
-  PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/src
-    ${ARROW_INCLUDE_DIR}
-)
-
-target_link_libraries(gandiva_helpers PRIVATE Boost::boost re2)
-
-# hide all symbols that are not needed.
-if (NOT APPLE)
-  # apple linker does not support version scripts, not needed since we package from travis.
-  set_target_properties(gandiva_helpers PROPERTIES LINK_FLAGS "-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/gandiva/symbols-helpers.map")
-  target_link_libraries(gandiva_helpers LINK_PRIVATE -static-libstdc++ -static-libgcc)
-endif()
-
 # install for gandiva
 include(GNUInstallDirs)
 
 # install libgandiva
 install(
-  TARGETS gandiva_shared gandiva_static gandiva_helpers
+  TARGETS gandiva_shared gandiva_static
   DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 

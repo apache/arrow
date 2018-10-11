@@ -23,10 +23,6 @@
 
 namespace gandiva {
 
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
-
 std::vector<std::string> DateUtils::GetMatches(std::string pattern, bool exactMatch) {
   // we are case insensitive
   std::transform(pattern.begin(), pattern.end(), pattern.begin(), ::tolower);
@@ -237,9 +233,5 @@ DateUtils::date_format_converter DateUtils::InitMap() {
 
   return map;
 }
-
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 
 }  // namespace gandiva

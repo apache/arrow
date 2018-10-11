@@ -363,10 +363,6 @@ void LLVMGenerator::CheckAndAddPrototype(const std::string& full_name,
     return;
   }
 
-  // must be a function in the helper library.
-  DCHECK_EQ(engine_->CheckFunctionFromLoadedLib(full_name), true)
-      << "missing cpp function in library " + full_name;
-
   // Create fn prototype for evaluation
   std::vector<llvm::Type*> arg_types;
   for (auto& value : args) {

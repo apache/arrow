@@ -32,7 +32,7 @@ timestamp StringToTimestamp(const char* buf) {
 
 TEST(TestTime, TestCastDate) {
   const char* date = "1967-12-1";
-  helpers::ExecutionContext context;
+  ExecutionContext context;
   bool valid;
   int64_t cast_to_date = castDATE_utf8(date, 9, true, (int64_t)&context, &valid);
   EXPECT_EQ(cast_to_date, -65836800000);
