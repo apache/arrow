@@ -408,6 +408,73 @@ cdef class PlasmaClient:
                 result.append(None)
         return result
 
+    def put_raw_bytes(self, object value, ObjectID object_id=None,
+                      int memcopy_threads=6):
+        """
+        Store Python bytes value into the object store.
+
+        Parameters
+        ----------
+        value : Python bytes
+            A Python bytes object to store.
+        object_id : ObjectID, default None
+            If this is provided, the specified object ID will be used to refer
+            to the object.
+        memcopy_threads : int, default 6
+            The number of threads to use to write the serialized object into
+            the object store for large objects.
+
+        Returns
+        -------
+        The object ID associated to the Python bytes object.
+        """
+        cdef ObjectID target_id = (object_id if object_id
+                                   else ObjectID.from_random())
+        if not isinstance(value, bytes):
+            raise ValueError("Input value of put_raw_bytes should be bytes")
+        buffer = self.create(target_id, len(value))
+        stream = pyarrow.FixedSizeBufferWriter(buffer)
+        stream.set_memcopy_threads(memcopy_threads)
+        stream.write(value)
+        self.seal(target_id)
+        return target_id
+
+    def get_raw_bytes(self, object_ids, int timeout_ms=-1):
+        """
+        Get one or more Python bytes values from the object store.
+
+        Parameters
+        ----------
+        object_ids : list or ObjectID
+            Object ID or list of object IDs associated to the values we get
+            from the store.
+        timeout_ms : int, default -1
+            The number of milliseconds that the get call should block before
+            timing out and returning. Pass -1 if the call should block and 0
+            if the call should return immediately.
+
+        Returns
+        -------
+        list of bytes or bytes object
+            Python bytes value or list of Python bytes values for the data
+            associated with the object_ids and ObjectNotAvailable if the
+            object was not available.
+        """
+        cdef c_vector[CObjectBuffer] object_buffers
+        if isinstance(object_ids, collections.Sequence):
+            results = []
+            self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
+            for i in range(object_buffers.size()):
+                if object_buffers[i].data.get() != nullptr:
+                    size = object_buffers[i].data.get().size()
+                    results.append(bytes(
+                        object_buffers[i].data.get().data()[:size]))
+                else:
+                    results.append(None)
+            return results
+        else:
+            return self.get_raw_bytes([object_ids], timeout_ms)[0]
+
     def put(self, object value, ObjectID object_id=None, int memcopy_threads=6,
             serialization_context=None):
         """
