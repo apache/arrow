@@ -737,7 +737,7 @@ if (ARROW_JEMALLOC)
     CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" "--disable-tls"
     ${EP_LOG_OPTIONS}
     BUILD_IN_SOURCE 1
-    BUILD_COMMAND ${MAKE}
+    BUILD_COMMAND ${MAKE} -j
     BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
     INSTALL_COMMAND ${MAKE} -j1 install)
 
