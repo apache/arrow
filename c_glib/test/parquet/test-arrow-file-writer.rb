@@ -15,35 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestParquetArrow < Test::Unit::TestCase
+class TestParquetArrowFileWriter < Test::Unit::TestCase
   include Helper::Buildable
 
   def setup
     omit("Parquet is required") unless defined?(::Parquet)
+    @file = Tempfile.open(["data", ".parquet"])
   end
 
-  def test_read_write
-    tempfile = Tempfile.open(["data", ".parquet"])
-
-    values = [true, nil, false, true]
+  def test_write
+    enabled_values = [true, nil, false, true]
+    table = build_table("enabled" => build_boolean_array(enabled_values))
     chunk_size = 2
 
-    field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
-    schema = Arrow::Schema.new([field])
-    writer = Parquet::ArrowFileWriter.new(schema, tempfile.path)
-    begin
-      columns = [
-        Arrow::Column.new(field, build_boolean_array(values)),
-      ]
-      table = Arrow::Table.new(schema, columns)
-      writer.write_table(table, chunk_size)
-    ensure
-      writer.close
-    end
+    writer = Parquet::ArrowFileWriter.new(table.schema, @file.path)
+    writer.write_table(table, chunk_size)
+    writer.close
 
-    reader = Parquet::ArrowFileReader.new(tempfile.path)
+    reader = Parquet::ArrowFileReader.new(@file.path)
     reader.use_threads = true
-    assert_equal(chunk_size, reader.n_row_groups)
+    assert_equal(enabled_values.length / chunk_size, reader.n_row_groups)
+    table = reader.read_table
     table = reader.read_table
     table_data = table.n_columns.times.collect do |i|
       column = table.get_column(i)
@@ -59,6 +51,6 @@ class TestParquetArrow < Test::Unit::TestCase
       end
       [column.name, data]
     end
-    assert_equal([["enabled", values]], table_data)
+    assert_equal([["enabled", enabled_values]], table_data)
   end
 end

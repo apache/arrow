@@ -23,6 +23,7 @@
     num_rows = function() Table__num_rows(self),
     schema = function() `arrow::Schema`$new(Table__schema(self)),
     to_file = function(path) invisible(Table__to_file(self, fs::path_abs(path))),
+    to_stream = function() Table__to_stream(self),
     column = function(i) `arrow::Column`$new(Table__column(self, i))
   )
 )
@@ -46,8 +47,41 @@ write_arrow <- function(data, path){
   table(data)$to_file(path)
 }
 
-read_table <- function(path){
-  `arrow::Table`$new(read_table_(fs::path_abs(path)))
+#' Read an arrow::Table from a stream
+#'
+#' @param stream stream. Either a stream created by [file_open()] or [mmap_open()] or a file path.
+#'
+#' @export
+read_table <- function(stream){
+  UseMethod("read_table")
+}
+
+#' @export
+read_table.character <- function(stream){
+  assert_that(length(stream) == 1L)
+  read_table(fs::path_abs(stream))
+}
+
+#' @export
+read_table.fs_path <- function(stream) {
+  stream <- file_open(stream); on.exit(stream$Close())
+  read_table(stream)
+}
+
+#' @export
+`read_table.arrow::io::RandomAccessFile` <- function(stream) {
+  `arrow::Table`$new(read_table_RandomAccessFile(stream))
+}
+
+#' @export
+`read_table.arrow::io::BufferReader` <- function(stream) {
+  `arrow::Table`$new(read_table_BufferReader(stream))
+}
+
+#' @export
+`read_table.raw` <- function(stream) {
+  stream <- buffer_reader(stream); on.exit(stream$Close())
+  read_table(stream)
 }
 
 #' @export
@@ -57,11 +91,11 @@ read_table <- function(path){
 
 #' Read an tibble from an arrow::Table on disk
 #'
-#' @param path binary arrow file
+#' @param stream input stream
 #'
 #' @return a [tibble::tibble]
 #'
 #' @export
-read_arrow <- function(path){
-  as_tibble(read_table(path))
+read_arrow <- function(stream){
+  as_tibble(read_table(stream))
 }

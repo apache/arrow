@@ -71,4 +71,5 @@ expect.extend({
             ].join('\n')
         };
     }
+}
 });

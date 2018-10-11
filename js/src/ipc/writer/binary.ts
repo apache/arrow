@@ -263,7 +263,7 @@ export class RecordBatchSerializer extends VectorVisitor {
     }
     protected visitFlatListVector<T extends FlatListType>(vector: Vector<T>) {
         const { data, length } = vector;
-        const { offset, values, valueOffsets } = data;
+        const { values, valueOffsets } = data;
         const firstOffset = valueOffsets[0];
         const lastOffset = valueOffsets[length];
         const byteLength = Math.min(lastOffset - firstOffset, values.byteLength - firstOffset);
@@ -271,7 +271,7 @@ export class RecordBatchSerializer extends VectorVisitor {
         // valueOffsets buffer first
         this.addBuffer(this.getZeroBasedValueOffsets(0, length, valueOffsets));
         // sliced values buffer second
-        this.addBuffer(values.subarray(firstOffset + offset, firstOffset + offset + byteLength));
+        this.addBuffer(values.subarray(firstOffset, firstOffset + byteLength));
         return this;
     }
     protected visitListVector<T extends SingleNestedType>(vector: Vector<T>) {

@@ -2,14 +2,16 @@
 % Please edit documentation in R/RecordBatch.R
 \name{read_record_batch}
 \alias{read_record_batch}
-\title{Read Record Batch File}
+\title{Read a single record batch from a stream}
 \usage{
-read_record_batch(path)
+read_record_batch(stream)
 }
 \arguments{
-\item{path}{File path containing a record batch.}
+\item{stream}{input stream}
 }
 \description{
-Reads an \code{arrow::RecordBatch} from a file using
-\code{arrow::RecordBatchFileReader}.
+Read a single record batch from a stream
+}
+\details{
+\code{stream} can be a \code{arrow::io::RandomAccessFile} stream as created by \code{\link[=file_open]{file_open()}} or \code{\link[=mmap_open]{mmap_open()}} or a path.
 }

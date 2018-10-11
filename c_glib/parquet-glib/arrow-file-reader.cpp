@@ -25,6 +25,8 @@
 
 #include <parquet-glib/arrow-file-reader.hpp>
 
+#include <parquet/file_reader.h>
+
 G_BEGIN_DECLS
 
 /**
@@ -211,6 +213,114 @@ gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader,
   } else {
     return NULL;
   }
+}
+
+/**
+ * gparquet_arrow_file_reader_get_schema:
+ * @reader: A #GParquetArrowFileReader.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): A got #GArrowSchema.
+ *
+ * Since: 0.12.0
+ */
+GArrowSchema *
+gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
+                                      GError **error)
+{
+  auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
+
+  const auto n_columns =
+    parquet_arrow_file_reader->parquet_reader()->metadata()->num_columns();
+  std::vector<int> indices(n_columns);
+  for (int i = 0; i < n_columns; ++i) {
+    indices[i] = i;
+  }
+
+  std::shared_ptr<arrow::Schema> arrow_schema;
+  auto status = parquet_arrow_file_reader->GetSchema(indices, &arrow_schema);
+  if (garrow_error_check(error,
+                         status,
+                         "[parquet][arrow][file-reader][get-schema]")) {
+    return garrow_schema_new_raw(&arrow_schema);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * gparquet_arrow_file_reader_select_schema:
+ * @reader: A #GParquetArrowFileReader.
+ * @column_indexes: (array length=n_column_indexes):
+ *   The array of column indexes to be selected
+ * @n_column_indexes: The length of `column_indexes`.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): A selected #GArrowSchema.
+ *
+ * Since: 0.12.0
+ */
+GArrowSchema *
+gparquet_arrow_file_reader_select_schema(GParquetArrowFileReader *reader,
+                                         gint *column_indexes,
+                                         gsize n_column_indexes,
+                                         GError **error)
+{
+  auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
+
+  std::vector<int> indices(n_column_indexes);
+  for (gsize i = 0; i < n_column_indexes; ++i) {
+    indices[i] = column_indexes[i];
+  }
+
+  std::shared_ptr<arrow::Schema> arrow_schema;
+  auto status = parquet_arrow_file_reader->GetSchema(indices, &arrow_schema);
+  if (garrow_error_check(error,
+                         status,
+                         "[parquet][arrow][file-reader][select-schema]")) {
+    return garrow_schema_new_raw(&arrow_schema);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * gparquet_arrow_file_reader_read_column:
+ * @reader: A #GParquetArrowFileReader.
+ * @column_index: Index integer of the column to be read.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): A read #GArrowColumn.
+ *
+ * Since: 0.12.0
+ */
+GArrowColumn *
+gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
+                                       gint column_index,
+                                       GError **error)
+{
+  auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
+
+  std::vector<int> indices = {column_index};
+  std::shared_ptr<arrow::Schema> arrow_schema;
+  auto status = parquet_arrow_file_reader->GetSchema(indices, &arrow_schema);
+  if (!garrow_error_check(error,
+                          status,
+                          "[parquet][arrow][file-reader][read-column][get-schema]")) {
+    return NULL;
+  }
+
+  std::shared_ptr<arrow::Array> arrow_array;
+  status = parquet_arrow_file_reader->ReadColumn(column_index, &arrow_array);
+  if (!garrow_error_check(error,
+                          status,
+                          "[parquet][arrow][file-reader][read-column]")) {
+    return NULL;
+  }
+
+  auto arrow_field = arrow_schema->field(0);
+  auto arrow_column = std::make_shared<arrow::Column>(arrow_field, arrow_array);
+  return garrow_column_new_raw(&arrow_column);
 }
 
 /**

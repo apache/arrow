@@ -121,7 +121,6 @@ test_that("RecordBatch can output stream", {
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )
-
   record <- record_batch(tbl)
   stream <- record$to_stream()
 
@@ -130,4 +129,36 @@ test_that("RecordBatch can output stream", {
   chunks <- read_record_batch_stream(stream)
 
   expect_equal(tbl, chunks[[1]])
+})
+
+test_that("read_record_batch handles ReadableFile and MemoryMappedFile (ARROW-3450)", {
+  tbl <- tibble::tibble(
+    int = 1:10, dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10]
+  )
+  batch <- record_batch(tbl)
+  tf <- tempfile(); on.exit(unlink(tf))
+  batch$to_file(tf)
+
+  bytes <- batch$to_stream()
+  buf_reader <- buffer_reader(bytes)
+
+  batch1 <- read_record_batch(tf)
+  batch2 <- read_record_batch(fs::path_abs(tf))
+
+  readable_file <- file_open(tf); on.exit(readable_file$Close())
+  batch3 <- read_record_batch(readable_file)
+
+  mmap_file <- mmap_open(tf); on.exit(mmap_file$Close())
+  batch4 <- read_record_batch(mmap_file)
+
+  batch5 <- read_record_batch(bytes)
+  batch6 <- read_record_batch(buf_reader)
+
+  expect_equal(batch, batch1)
+  expect_equal(batch, batch2)
+  expect_equal(batch, batch3)
+  expect_equal(batch, batch4)
+  expect_equal(batch, batch5)
 })

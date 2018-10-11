@@ -23,27 +23,12 @@ using namespace arrow;
 namespace arrow {
 namespace r {
 
-template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
-class SimpleRBuffer : public Buffer {
- public:
-  SimpleRBuffer(Vec vec)
-      : Buffer(reinterpret_cast<const uint8_t*>(vec.begin()),
-               vec.size() * sizeof(typename Vec::stored_type)),
-        vec_(vec) {}
-
- private:
-  // vec_ holds the memory
-  Vec vec_;
-};
-
-// ---------------------------- R vector -> Array
-
 template <int RTYPE, typename Type>
 std::shared_ptr<Array> SimpleArray(SEXP x) {
   Rcpp::Vector<RTYPE> vec(x);
   auto n = vec.size();
-  std::vector<std::shared_ptr<Buffer>> buffers{
-      nullptr, std::make_shared<SimpleRBuffer<RTYPE>>(vec)};
+  std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
+                                               std::make_shared<RBuffer<RTYPE>>(vec)};
 
   int null_count = 0;
   if (RTYPE != RAWSXP) {

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import '../jest-extensions';
+
 import Arrow, { vector, RecordBatch } from '../Arrow';
 
 const { predicate, Table } = Arrow;
@@ -65,6 +67,16 @@ const test_data = [
         ]
     },
 ];
+
+function compareTables(t1: Table, t2, Table) {
+    expect(t1.length).toEqual(t2.length);
+    expect(t1.numCols).toEqual(t2.numCols);
+    for (let i = -1, n = t1.numCols; ++i < n;) {
+        const v1 = t1.getColumnAt(i);
+        const v2 = t2.getColumnAt(i);
+        (expect([v1, `left`, t1.schema.fields[i].name]) as any).toEqualVector([v2, `right`, t2.schema.fields[i].name]);
+    }
+}
 
 describe(`Table`, () => {
     test(`can create an empty table`, () => {
@@ -294,6 +306,9 @@ describe(`Table`, () => {
                 test(`always-true count() returns length`, () => {
                     expect(table.filter(col('dictionary').eq(col('dictionary'))).count()).toEqual(table.length);
                 });
+            });
+            describe(`serialize and de-serialize is a no-op`, () => {
+                compareTables(Table.from(table.serialize()), table);
             });
         });
     }
