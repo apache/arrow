@@ -57,6 +57,7 @@ public class PlasmaClientTest {
     ProcessBuilder builder;
     List<String> newCmd = Arrays.stream(cmd).filter(s -> s.length() > 0).collect(Collectors.toList());
     builder = new ProcessBuilder(newCmd);
+    builder.inheritIO();
     Process p = null;
     try {
       p = builder.start();
