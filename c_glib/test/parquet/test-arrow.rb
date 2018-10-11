@@ -78,6 +78,28 @@ b: int32
     SCHEMA
   end
 
+  def test_select_schema
+    tempfile = Tempfile.open(["data", ".parquet"])
+
+    table = build_table("a" => build_string_array(["foo", "bar"]),
+                        "b" => build_int32_array([123, 456]))
+    writer = Parquet::ArrowFileWriter.new(table.schema, tempfile.path)
+    writer.write_table(table, 2)
+    writer.close
+
+    reader = Parquet::ArrowFileReader.new(tempfile.path)
+    assert_equal(<<-SCHEMA.chomp, reader.select_schema([0]).to_s)
+a: string
+    SCHEMA
+    assert_equal(<<-SCHEMA.chomp, reader.select_schema([1]).to_s)
+b: int32
+    SCHEMA
+    assert_equal(<<-SCHEMA.chomp, reader.select_schema([0, 1]).to_s)
+a: string
+b: int32
+    SCHEMA
+  end
+
   def test_read_column
     tempfile = Tempfile.open(["data", ".parquet"])
 
