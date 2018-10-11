@@ -373,12 +373,24 @@ io___Readable__Read <- function(x, nbytes) {
     .Call(`_arrow_io___Readable__Read`, x, nbytes)
 }
 
+io___InputStream__Close <- function(x) {
+    invisible(.Call(`_arrow_io___InputStream__Close`, x))
+}
+
 io___RandomAccessFile__GetSize <- function(x) {
     .Call(`_arrow_io___RandomAccessFile__GetSize`, x)
 }
 
 io___RandomAccessFile__supports_zero_copy <- function(x) {
     .Call(`_arrow_io___RandomAccessFile__supports_zero_copy`, x)
+}
+
+io___RandomAccessFile__Seek <- function(x, position) {
+    invisible(.Call(`_arrow_io___RandomAccessFile__Seek`, x, position))
+}
+
+io___RandomAccessFile__Tell <- function(x) {
+    .Call(`_arrow_io___RandomAccessFile__Tell`, x)
 }
 
 io___MemoryMappedFile__Create <- function(path, size) {
@@ -389,48 +401,12 @@ io___MemoryMappedFile__Open <- function(path, mode) {
     .Call(`_arrow_io___MemoryMappedFile__Open`, path, mode)
 }
 
-io___MemoryMappedFile__Close <- function(x) {
-    invisible(.Call(`_arrow_io___MemoryMappedFile__Close`, x))
-}
-
-io___MemoryMappedFile__Tell <- function(x) {
-    .Call(`_arrow_io___MemoryMappedFile__Tell`, x)
-}
-
 io___MemoryMappedFile__Resize <- function(x, size) {
     invisible(.Call(`_arrow_io___MemoryMappedFile__Resize`, x, size))
 }
 
-io___MemoryMappedFile__Seek <- function(x, position) {
-    invisible(.Call(`_arrow_io___MemoryMappedFile__Seek`, x, position))
-}
-
 io___ReadableFile__Open <- function(path) {
     .Call(`_arrow_io___ReadableFile__Open`, path)
-}
-
-io___ReadableFile__Close <- function(x) {
-    invisible(.Call(`_arrow_io___ReadableFile__Close`, x))
-}
-
-io___ReadableFile__Tell <- function(x) {
-    .Call(`_arrow_io___ReadableFile__Tell`, x)
-}
-
-io___ReadableFile__Seek <- function(x, position) {
-    invisible(.Call(`_arrow_io___ReadableFile__Seek`, x, position))
-}
-
-io___BufferReader__Close <- function(x) {
-    invisible(.Call(`_arrow_io___BufferReader__Close`, x))
-}
-
-io___BufferReader__Tell <- function(x) {
-    .Call(`_arrow_io___BufferReader__Tell`, x)
-}
-
-io___BufferReader__Seek <- function(x, position) {
-    invisible(.Call(`_arrow_io___BufferReader__Seek`, x, position))
 }
 
 io___BufferReader__initialize <- function(buffer) {

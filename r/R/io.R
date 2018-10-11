@@ -19,42 +19,35 @@
 #' @include enums.R
 #' @include buffer.R
 
-`arrow::io::InputStream` <- R6Class("arrow::io::InputStream", inherit = `arrow::Object`)
+`arrow::io::Readable` <- R6Class("arrow::io::Readable", inherit = `arrow::Object`,
+  public = list(
+    Read = function(nbytes) `arrow::Buffer`$new(io___Readable__Read(self, nbytes))
+  )
+)
+
+`arrow::io::InputStream` <- R6Class("arrow::io::InputStream", inherit = `arrow::io::Readable`,
+  public = list(
+    Close = function() io___InputStream__Close(self)
+  )
+)
 
 `arrow::io::RandomAccessFile` <- R6Class("arrow::io::RandomAccessFile", inherit = `arrow::io::InputStream`,
   public = list(
     GetSize = function() io___RandomAccessFile__GetSize(self),
-    supports_zero_copy = function() io___RandomAccessFile__supports_zero_copy(self)
+    supports_zero_copy = function() io___RandomAccessFile__supports_zero_copy(self),
+    Seek = function(position) io___RandomAccessFile__Seek(self, position),
+    Tell = function() io___RandomAccessFile__Tell(self)
   )
 )
 
 `arrow::io::MemoryMappedFile` <- R6Class("arrow::io::MemoryMappedFile", inherit = `arrow::io::RandomAccessFile`,
   public = list(
-    Close = function() io___MemoryMappedFile__Close(self),
-    Tell = function() io___MemoryMappedFile__Tell(self),
-    Seek = function(position) io___MemoryMappedFile__Seek(self, position),
-    Resize = function(size) io___MemoryMappedFile__Resize(self, size),
-    Read = function(nbytes) `arrow::Buffer`$new(io___Readable__Read(self, nbytes))
+    Resize = function(size) io___MemoryMappedFile__Resize(self, size)
   )
 )
 
-`arrow::io::ReadableFile` <- R6Class("arrow::io::ReadableFile", inherit = `arrow::io::RandomAccessFile`,
-  public = list(
-    Close = function() io___ReadableFile__Close(self),
-    Tell = function() io___ReadableFile__Tell(self),
-    Seek = function(position) io___ReadableFile__Seek(self, position),
-    Read = function(nbytes) `arrow::Buffer`$new(io___Readable__Read(self, nbytes))
-  )
-)
-
-`arrow::io::BufferReader` <- R6Class("arrow::io::BufferReader", inherit = `arrow::io::RandomAccessFile`,
-  public = list(
-    Close = function() io___BufferReader__Close(self),
-    Tell = function() io___BufferReader__Tell(self),
-    Seek = function(position) io___BufferReader__Seek(self, position),
-    Read = function(nbytes) `arrow::Buffer`$new(io___Readable__Read(self, nbytes))
-  )
-)
+`arrow::io::ReadableFile` <- R6Class("arrow::io::ReadableFile", inherit = `arrow::io::RandomAccessFile`)
+`arrow::io::BufferReader` <- R6Class("arrow::io::BufferReader", inherit = `arrow::io::RandomAccessFile`)
 
 #' Create a new read/write memory mapped file of a given size
 #'

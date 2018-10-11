@@ -29,6 +29,14 @@ std::shared_ptr<arrow::Buffer> io___Readable__Read(
   return buf;
 }
 
+// ------ arrow::io::InputStream
+
+// [[Rcpp::export]]
+void io___InputStream__Close(
+    const std::shared_ptr<arrow::io::InputStream>& x) {
+  R_ERROR_NOT_OK(x->Close());
+}
+
 // ------ arrow::io::RandomAccessFile
 
 // [[Rcpp::export]]
@@ -44,6 +52,20 @@ bool io___RandomAccessFile__supports_zero_copy(
     const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
   return x->supports_zero_copy();
 }
+
+// [[Rcpp::export]]
+void io___RandomAccessFile__Seek(const std::shared_ptr<arrow::io::RandomAccessFile>& x,
+  int64_t position) {
+  R_ERROR_NOT_OK(x->Seek(position));
+}
+
+// [[Rcpp::export]]
+int64_t io___RandomAccessFile__Tell(const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
+  int64_t out;
+  R_ERROR_NOT_OK(x->Tell(&out));
+  return out;
+}
+
 
 // ------ arrow::io::MemoryMappedFile
 
@@ -64,28 +86,9 @@ std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Open(
 }
 
 // [[Rcpp::export]]
-void io___MemoryMappedFile__Close(const std::shared_ptr<arrow::io::MemoryMappedFile>& x) {
-  R_ERROR_NOT_OK(x->Close());
-}
-
-// [[Rcpp::export]]
-int64_t io___MemoryMappedFile__Tell(
-    const std::shared_ptr<arrow::io::MemoryMappedFile>& x) {
-  int64_t out;
-  R_ERROR_NOT_OK(x->Tell(&out));
-  return out;
-}
-
-// [[Rcpp::export]]
 void io___MemoryMappedFile__Resize(const std::shared_ptr<arrow::io::MemoryMappedFile>& x,
                                    int64_t size) {
   R_ERROR_NOT_OK(x->Resize(size));
-}
-
-// [[Rcpp::export]]
-void io___MemoryMappedFile__Seek(const std::shared_ptr<arrow::io::MemoryMappedFile>& x,
-                                 int64_t position) {
-  R_ERROR_NOT_OK(x->Seek(position));
 }
 
 // ------ arrow::io::ReadableFile
@@ -98,43 +101,7 @@ std::shared_ptr<arrow::io::ReadableFile> io___ReadableFile__Open(
   return out;
 }
 
-// [[Rcpp::export]]
-void io___ReadableFile__Close(const std::shared_ptr<arrow::io::ReadableFile>& x) {
-  R_ERROR_NOT_OK(x->Close());
-}
-
-// [[Rcpp::export]]
-int64_t io___ReadableFile__Tell(const std::shared_ptr<arrow::io::ReadableFile>& x) {
-  int64_t out;
-  R_ERROR_NOT_OK(x->Tell(&out));
-  return out;
-}
-
-// [[Rcpp::export]]
-void io___ReadableFile__Seek(const std::shared_ptr<arrow::io::ReadableFile>& x,
-                             int64_t position) {
-  R_ERROR_NOT_OK(x->Seek(position));
-}
-
 // ------ arrow::io::BufferReader
-
-// [[Rcpp::export]]
-void io___BufferReader__Close(const std::shared_ptr<arrow::io::BufferReader>& x) {
-  R_ERROR_NOT_OK(x->Close());
-}
-
-// [[Rcpp::export]]
-int64_t io___BufferReader__Tell(const std::shared_ptr<arrow::io::BufferReader>& x) {
-  int64_t out;
-  R_ERROR_NOT_OK(x->Tell(&out));
-  return out;
-}
-
-// [[Rcpp::export]]
-void io___BufferReader__Seek(const std::shared_ptr<arrow::io::BufferReader>& x,
-                             int64_t position) {
-  R_ERROR_NOT_OK(x->Seek(position));
-}
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::io::BufferReader> io___BufferReader__initialize(
