@@ -76,7 +76,8 @@ if (NOT APPLE)
 set_target_properties(gandiva_jni PROPERTIES LINK_FLAGS "-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/gandiva/jni/symbols.map")
 endif()
 
-# PROTOBUF is a private dependency i.e users of gandiva also will not have a dependency on protobuf.
+# PROTOBUF is a private dependency i.e users of gandiva also will not have a 
+# dependency on protobuf.
 target_link_libraries(gandiva_jni
   PRIVATE
     ${PROTOBUF_STATIC_LIB}
