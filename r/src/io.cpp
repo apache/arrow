@@ -124,3 +124,15 @@ std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(const s
   R_ERROR_NOT_OK(arrow::io::FileOutputStream::Open(path, &stream));
   return stream;
 }
+
+// ------ arrow::io::MockOutputStream
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::io::MockOutputStream> io___MockOutputStream__initialize(){
+  return std::make_shared<arrow::io::MockOutputStream>();
+}
+
+// [[Rcpp::export]]
+int64_t io___MockOutputStream__GetExtentBytesWritten(const std::shared_ptr<arrow::io::MockOutputStream>& stream) {
+  return stream->GetExtentBytesWritten();
+}

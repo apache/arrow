@@ -41,6 +41,12 @@
 
 `arrow::io::FileOutputStream` <- R6Class("arrow::io::FileOutputStream", inherit = `arrow::io::OutputStream`)
 
+`arrow::io::MockOutputStream` <- R6Class("arrow::io::MockOutputStream", inherit = `arrow::io::OutputStream`,
+  public = list(
+    GetExtentBytesWritten = function() io___MockOutputStream__GetExtentBytesWritten(self)
+  )
+)
+
 `arrow::io::RandomAccessFile` <- R6Class("arrow::io::RandomAccessFile", inherit = `arrow::io::InputStream`,
   public = list(
     GetSize = function() io___RandomAccessFile__GetSize(self),
@@ -88,6 +94,11 @@ file_open <- `arrow::io::ReadableFile`$open <- function(path) {
 #' @export
 file_output_stream <- function(path) {
   `arrow::io::FileOutputStream`$new(io___FileOutputStream__Open(path))
+}
+
+#' @export
+mock_output_stream <- function() {
+  `arrow::io::MockOutputStream`$new(io___MockOutputStream__initialize())
 }
 
 #' Create a `arrow::BufferReader`
