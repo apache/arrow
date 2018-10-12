@@ -41,7 +41,9 @@
       } else {
         `arrow::RecordBatch`$new(RecordBatch__Slice2(self, offset, length))
       }
-    }
+    },
+
+    stream = function(output_stream) stream(self, output_stream)
   )
 )
 

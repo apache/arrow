@@ -70,3 +70,16 @@ record_batch_file_writer <- function(stream, schema) {
   stream(x, file_stream, ...)
 }
 
+#' @export
+`stream.arrow::RecordBatch.raw` <- function(x, stream, ...) {
+  # how many bytes do we need
+  mock <- mock_output_stream()
+  stream(x, mock)
+  n <- mock$GetExtentBytesWritten()
+
+  bytes <- raw(n)
+  buffer_writer <- fixed_size_buffer_writer(bytes)
+  stream(x, buffer_writer)
+
+  bytes
+}

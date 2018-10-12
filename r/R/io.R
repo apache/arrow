@@ -47,6 +47,8 @@
   )
 )
 
+`arrow::io::FixedSizeBufferWriter` <- R6Class("arrow::io::FixedSizeBufferWriter", inherit = `arrow::io::OutputStream`)
+
 `arrow::io::RandomAccessFile` <- R6Class("arrow::io::RandomAccessFile", inherit = `arrow::io::InputStream`,
   public = list(
     GetSize = function() io___RandomAccessFile__GetSize(self),
@@ -71,6 +73,7 @@
 #' @param path file path
 #' @param size size in bytes
 #' @param mode file mode (read/write/readwrite)
+#' @parem buffer an `arrow::Buffer`, typically created by [buffer()]
 #'
 #' @rdname io
 #' @export
@@ -91,14 +94,33 @@ file_open <- `arrow::io::ReadableFile`$open <- function(path) {
   `arrow::io::ReadableFile`$new(io___ReadableFile__Open(fs::path_abs(path)))
 }
 
+#' @rdname io
 #' @export
 file_output_stream <- function(path) {
   `arrow::io::FileOutputStream`$new(io___FileOutputStream__Open(path))
 }
 
+#' @rdname io
 #' @export
 mock_output_stream <- function() {
   `arrow::io::MockOutputStream`$new(io___MockOutputStream__initialize())
+}
+
+#' @rdname io
+#' @export
+fixed_size_buffer_writer <- function(buffer){
+  UseMethod("fixed_size_buffer_writer")
+}
+
+#' @export
+fixed_size_buffer_writer.default <- function(buffer){
+  fixed_size_buffer_writer(buffer(buffer))
+}
+
+#' @export
+`fixed_size_buffer_writer.arrow::Buffer` <- function(buffer){
+  assert_that(buffer$is_mutable())
+  `arrow::io::FixedSizeBufferWriter`$new(io___FixedSizeBufferWriter__initialize(buffer))
 }
 
 #' Create a `arrow::BufferReader`

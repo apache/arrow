@@ -136,3 +136,10 @@ std::shared_ptr<arrow::io::MockOutputStream> io___MockOutputStream__initialize()
 int64_t io___MockOutputStream__GetExtentBytesWritten(const std::shared_ptr<arrow::io::MockOutputStream>& stream) {
   return stream->GetExtentBytesWritten();
 }
+
+// ------ arrow::io::FixedSizeBufferWriter
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::io::FixedSizeBufferWriter> io___FixedSizeBufferWriter__initialize(const std::shared_ptr<arrow::Buffer>& buffer) {
+  return std::make_shared<arrow::io::FixedSizeBufferWriter>(buffer);
+}

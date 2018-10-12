@@ -4,6 +4,9 @@
 \alias{mmap_create}
 \alias{mmap_open}
 \alias{file_open}
+\alias{file_output_stream}
+\alias{mock_output_stream}
+\alias{fixed_size_buffer_writer}
 \title{Create a new read/write memory mapped file of a given size}
 \usage{
 mmap_create(path, size)
@@ -11,6 +14,12 @@ mmap_create(path, size)
 mmap_open(path, mode = c("read", "write", "readwrite"))
 
 file_open(path)
+
+file_output_stream(path)
+
+mock_output_stream()
+
+fixed_size_buffer_writer(buffer)
 }
 \arguments{
 \item{path}{file path}

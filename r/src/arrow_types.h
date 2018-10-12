@@ -141,7 +141,10 @@ class RBuffer : public Buffer {
   RBuffer(Vec vec)
       : Buffer(reinterpret_cast<const uint8_t*>(vec.begin()),
                vec.size() * sizeof(typename Vec::stored_type)),
-        vec_(vec) {}
+        vec_(vec)
+  {
+    is_mutable_ = true;
+  }
 
  private:
   // vec_ holds the memory
