@@ -20,8 +20,6 @@
   NextMethod()
 }
 
-#' @importFrom rlang seq2 quo_name set_names
-#' @importFrom purrr map_chr
 enum <- function(class, ..., .list = list(...)){
   structure(
     .list,

@@ -108,7 +108,7 @@ test_that("RecordBatch with 0 rows are supported", {
     )
   )
 
-  tf <- tempfile(); on.exit(unlink(tf))
+  tf <- local_tempfile()
   batch$to_file(tf)
 
   res <- read_record_batch(tf)
@@ -134,7 +134,7 @@ test_that("read_record_batch handles ReadableFile and MemoryMappedFile (ARROW-34
     chr = letters[1:10]
   )
   batch <- record_batch(tbl)
-  tf <- tempfile(); on.exit(unlink(tf))
+  tf <- local_tempfile()
   batch$to_file(tf)
 
   bytes <- batch$to_stream()
@@ -143,10 +143,10 @@ test_that("read_record_batch handles ReadableFile and MemoryMappedFile (ARROW-34
   batch1 <- read_record_batch(tf)
   batch2 <- read_record_batch(fs::path_abs(tf))
 
-  readable_file <- file_open(tf); on.exit(readable_file$Close())
+  readable_file <- close_on_exit(file_open(tf))
   batch3 <- read_record_batch(readable_file)
 
-  mmap_file <- mmap_open(tf); on.exit(mmap_file$Close())
+  mmap_file <- close_on_exit(mmap_open(tf))
   batch4 <- read_record_batch(mmap_file)
 
   batch5 <- read_record_batch(bytes)

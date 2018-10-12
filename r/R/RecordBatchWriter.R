@@ -53,9 +53,7 @@ record_batch_file_writer <- function(stream, schema) {
 
 #' @export
 `stream.arrow::RecordBatch.arrow::io::OutputStream` <- function(x, stream, allow_64bit = TRUE, ...) {
-  file_writer <- record_batch_file_writer(stream, x$schema())
-  on.exit(file_writer$Close())
-
+  file_writer <- close_on_exit(record_batch_file_writer(stream, x$schema()))
   file_writer$WriteRecordBatch(x, allow_64bit)
 }
 
@@ -68,10 +66,7 @@ record_batch_file_writer <- function(stream, schema) {
 #' @export
 `stream.arrow::RecordBatch.fs_path` <- function(x, stream, ...) {
   assert_that(length(stream) == 1L)
-
-  file_stream <- file_output_stream(stream)
-  on.exit(file_stream$Close())
-
+  file_stream <- close_on_exit(file_output_stream(stream))
   stream(x, file_stream, ...)
 }
 

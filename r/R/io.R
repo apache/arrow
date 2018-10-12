@@ -27,7 +27,7 @@
 
 `arrow::io::InputStream` <- R6Class("arrow::io::InputStream", inherit = `arrow::io::Readable`,
   public = list(
-    Close = function() io___FileInterface__Close(self)
+    Close = function() io___InputStream__Close(self)
   )
 )
 
@@ -35,7 +35,7 @@
 
 `arrow::io::OutputStream` <- R6Class("arrow::io::OutputStream", inherit = `arrow::io::Writable`,
   public = list(
-    Close = function() io___FileInterface__Close(self)
+    Close = function() io___OutputStream__Close(self)
   )
 )
 

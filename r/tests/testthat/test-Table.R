@@ -24,7 +24,7 @@ test_that("read_table handles various input streams (ARROW-3450)", {
     chr = letters[1:10]
   )
   tab <- arrow::table(tbl)
-  tf <- tempfile(); on.exit(unlink(tf))
+  tf <- local_tempfile()
   tab$to_file(tf)
 
   bytes <- tab$to_stream()
@@ -33,10 +33,10 @@ test_that("read_table handles various input streams (ARROW-3450)", {
   tab1 <- read_table(tf)
   tab2 <- read_table(fs::path_abs(tf))
 
-  readable_file <- file_open(tf); on.exit(readable_file$Close())
+  readable_file <- close_on_exit(file_open(tf))
   tab3 <- read_table(readable_file)
 
-  mmap_file <- mmap_open(tf); on.exit(mmap_file$Close())
+  mmap_file <- close_on_exit(mmap_open(tf))
   tab4 <- read_table(mmap_file)
 
   tab5 <- read_table(bytes)

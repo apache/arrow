@@ -64,7 +64,7 @@ read_table.character <- function(stream){
 
 #' @export
 read_table.fs_path <- function(stream) {
-  stream <- file_open(stream); on.exit(stream$Close())
+  stream <- close_on_exit(file_open(stream))
   read_table(stream)
 }
 
@@ -80,7 +80,7 @@ read_table.fs_path <- function(stream) {
 
 #' @export
 `read_table.raw` <- function(stream) {
-  stream <- buffer_reader(stream); on.exit(stream$Close())
+  stream <- close_on_exit(buffer_reader(stream))
   read_table(stream)
 }
 

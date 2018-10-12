@@ -29,12 +29,20 @@ std::shared_ptr<arrow::Buffer> io___Readable__Read(
   return buf;
 }
 
-// ------ arrow::io::FileInterface
+// ------ arrow::io::InputStream
 
 // [[Rcpp::export]]
-void io___FileInterface__Close(const std::shared_ptr<arrow::io::FileInterface>& x) {
+void io___InputStream__Close(const std::shared_ptr<arrow::io::InputStream>& x) {
   R_ERROR_NOT_OK(x->Close());
 }
+
+// ------ arrow::io::OutputStream
+
+// [[Rcpp::export]]
+void io___OutputStream__Close(const std::shared_ptr<arrow::io::OutputStream>& x) {
+  R_ERROR_NOT_OK(x->Close());
+}
+
 
 // ------ arrow::io::RandomAccessFile
 
