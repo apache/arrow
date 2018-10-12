@@ -19,6 +19,7 @@
 #'
 #' @param x an arrow object
 #' @param stream an output stream
+#' @param ... Additional parameters
 #'
 #' @export
 stream <- function(x, stream, ...){
