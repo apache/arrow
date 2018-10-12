@@ -26,6 +26,7 @@
 
 #include "arrow/compare.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
@@ -120,5 +121,59 @@ bool Tensor::is_column_major() const {
 Type::type Tensor::type_id() const { return type_->id(); }
 
 bool Tensor::Equals(const Tensor& other) const { return TensorEquals(*this, other); }
+
+// ----------------------------------------------------------------------
+// NumericTensor
+
+template <typename TYPE>
+NumericTensor<TYPE>::NumericTensor(const std::shared_ptr<Buffer>& data,
+                                   const std::vector<int64_t>& shape)
+    : NumericTensor(data, shape, {}, {}) {}
+
+template <typename TYPE>
+NumericTensor<TYPE>::NumericTensor(const std::shared_ptr<Buffer>& data,
+                                   const std::vector<int64_t>& shape,
+                                   const std::vector<int64_t>& strides)
+    : NumericTensor(data, shape, strides, {}) {}
+
+template <typename TYPE>
+NumericTensor<TYPE>::NumericTensor(const std::shared_ptr<Buffer>& data,
+                                   const std::vector<int64_t>& shape,
+                                   const std::vector<int64_t>& strides,
+                                   const std::vector<std::string>& dim_names)
+    : Tensor(TypeTraits<TYPE>::type_singleton(), data, shape, strides, dim_names) {}
+
+template <typename TYPE>
+int64_t NumericTensor<TYPE>::CalculateValueOffset(
+    const std::vector<int64_t>& index) const {
+  int64_t offset = 0;
+  if (strides_.size() > 0) {
+    for (size_t i = 0; i < index.size(); ++i) {
+      offset += index[i] * strides_[i];
+    }
+  } else {
+    for (size_t i = 0; i < index.size(); ++i) {
+      offset = index[i] + offset * shape_[i];
+    }
+    offset *= static_cast<int64_t>(sizeof(value_type));
+  }
+
+  return offset;
+}
+
+// ----------------------------------------------------------------------
+// Instantiate templates
+
+template class ARROW_TEMPLATE_EXPORT NumericTensor<UInt8Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<UInt16Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<UInt32Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<UInt64Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<Int8Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<Int16Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<Int32Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<Int64Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<HalfFloatType>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<FloatType>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<DoubleType>;
 
 }  // namespace arrow
