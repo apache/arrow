@@ -64,14 +64,14 @@ ADD ci/docker_build_cpp.sh /arrow/ci/
 ADD cpp /arrow/cpp
 ADD format /arrow/format
 ADD java/pom.xml /arrow/java/pom.xml
-# RUN arrow/ci/docker_build_cpp.sh
-#
-# # build python
-# ADD ci/docker_build_python.sh /arrow/ci/
-# ADD python /arrow/python
-# RUN arrow/ci/docker_build_python.sh
-#
-# # execute integration tests
-# ENV LIBHDFS3_CONF=/arrow/integration/hdfs/libhdfs3.xml
-# ADD integration /arrow/integration
-# CMD arrow/integration/hdfs/runtest.sh
+RUN arrow/ci/docker_build_cpp.sh
+
+# build python
+ADD ci/docker_build_python.sh /arrow/ci/
+ADD python /arrow/python
+RUN arrow/ci/docker_build_python.sh
+
+# execute integration tests
+ENV LIBHDFS3_CONF=/arrow/integration/hdfs/libhdfs3.xml
+ADD integration /arrow/integration
+CMD arrow/integration/hdfs/runtest.sh
