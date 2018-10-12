@@ -127,7 +127,9 @@ def _maybe_set_hadoop_classpath():
     if 'hadoop' in os.environ.get('CLASSPATH', ''):
         return
 
-    if 'HADOOP_HOME' in os.environ:
+    if 'HADOOP_BIN' in os.environ:
+        hadoop_bin = os.environ['HADOOP_BIN']
+    elif 'HADOOP_HOME' in os.environ:
         hadoop_bin = '{0}/bin/hadoop'.format(os.environ['HADOOP_HOME'])
     else:
         hadoop_bin = 'hadoop'
