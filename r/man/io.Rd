@@ -27,6 +27,8 @@ fixed_size_buffer_writer(buffer)
 \item{size}{size in bytes}
 
 \item{mode}{file mode (read/write/readwrite)}
+
+\item{buffer}{an \code{arrow::Buffer}, typically created by \code{\link[=buffer]{buffer()}}}
 }
 \description{
 Create a new read/write memory mapped file of a given size

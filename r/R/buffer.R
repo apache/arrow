@@ -27,6 +27,8 @@
   )
 )
 
+`arrow::MutableBuffer` <- R6Class("arrow::Buffer", inherit = `arrow::Buffer`)
+
 #' Create a buffer from an R object
 #'
 #' @param x R object

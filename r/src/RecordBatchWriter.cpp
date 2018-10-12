@@ -26,6 +26,13 @@ std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open
 }
 
 // [[Rcpp::export]]
+std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Schema>& schema) {
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> stream_writer;
+  R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamWriter::Open(stream.get(), schema, &stream_writer));
+  return stream_writer;
+}
+
+// [[Rcpp::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer, const std::shared_ptr<arrow::RecordBatch>& batch, bool allow_64bit) {
   R_ERROR_NOT_OK(batch_writer->WriteRecordBatch(*batch, allow_64bit));
 }

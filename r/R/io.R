@@ -73,7 +73,7 @@
 #' @param path file path
 #' @param size size in bytes
 #' @param mode file mode (read/write/readwrite)
-#' @parem buffer an `arrow::Buffer`, typically created by [buffer()]
+#' @param buffer an `arrow::Buffer`, typically created by [buffer()]
 #'
 #' @rdname io
 #' @export
