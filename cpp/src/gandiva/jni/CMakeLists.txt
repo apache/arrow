@@ -66,9 +66,8 @@ target_include_directories(gandiva_jni
     ${JNI_INCLUDE_DIRS}
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_SOURCE_DIR}/src
+    -rdynamic
 )
-
-set_target_properties(gandiva_jni PROPERTIES LINK_FLAGS "-rdynamic")
 
 # filter out everything that is not needed for the jni bridge
 # statically linked stdc++ has conflicts with stdc++ loaded by other libraries.
