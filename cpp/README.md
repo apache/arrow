@@ -227,13 +227,18 @@ still in Alpha stages, and subject to API changes without deprecation warnings.
 
 ### Building and developing Gandiva (optional)
 
-In addition to the arrow dependancies, gandiva requires :
+The Gandiva library supports compiling and evaluating expressions on arrow
+data. It uses LLVM for doing just-in-time compilation of the expressions.
+
+In addition to the arrow dependencies, gandiva requires :
 * On linux, gcc 4.9 or higher C++11-enabled compiler.
 * LLVM
 
 On Ubuntu/Debian you can install these requirements with:
 
 ```shell
+sudo apt-add-repository -y "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-6.0 main"
+sudo apt-get update -qq
 sudo apt-get install llvm-6.0-dev
 ```
 
@@ -249,8 +254,7 @@ The optional `gandiva` libraries and tests can be built by passing
 ```shell
 cmake .. -DARROW_GANDIVA=on
 make
-ctest -L unitest
-ctest -L integ
+ctest -L gandiva
 ```
 
 This library is still in Alpha stages, and subject to API changes without

@@ -17,8 +17,6 @@
 
 project(gandiva_jni)
 
-set(Protobuf_USE_STATIC_LIBS "ON")
-
 # Find JNI
 find_package(JNI REQUIRED)
 
