@@ -34,11 +34,12 @@ mvn install
 
 ## Building and running tests for gandiva (optional)
 
-[Gandiva cpp][2] must be built before this step.
+[Gandiva cpp][2] must be built before this step. The cpp build directory must
+be provided as the value for argument gandiva.cpp.build.dir. eg.
 
 ```
 cd java
-mvn install -P gandiva -pl gandiva -am
+mvn install -P gandiva -pl gandiva -am -Dgandiva.cpp.build.dir=../../debug
 ```
 
 This library is still in Alpha stages, and subject to API changes without
