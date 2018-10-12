@@ -2,15 +2,15 @@
 % Please edit documentation in R/RecordBatchWriter.R
 \name{record_batch_stream_writer}
 \alias{record_batch_stream_writer}
-\title{Create a record batch writer that writes to the given stream}
+\title{Create a record batch stream writer}
 \usage{
 record_batch_stream_writer(stream, schema)
 }
 \arguments{
-\item{stream}{an stream}
+\item{stream}{a stream}
 
-\item{schema}{a Schema}
+\item{schema}{a schema}
 }
 \description{
-Create a record batch writer that writes to the given stream
+Create a record batch stream writer
 }

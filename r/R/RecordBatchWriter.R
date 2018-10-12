@@ -38,73 +38,69 @@
 #'
 #' @export
 record_batch_file_writer <- function(stream, schema) {
-  UseMethod("record_batch_file_writer")
-}
-
-#' @export
-`record_batch_file_writer.arrow::io::OutputStream` <- function(stream, schema) {
-  assert_that(inherits(schema, "arrow::Schema"))
+  assert_that(
+    inherits(stream, "arrow::io::OutputStream"),
+    inherits(schema, "arrow::Schema")
+  )
   `arrow::ipc::RecordBatchFileWriter`$new(ipc___RecordBatchFileWriter__Open(stream, schema))
 }
 
-#' Create a record batch writer that writes to the given stream
+#' Create a record batch stream writer
 #'
-#' @param stream an stream
-#' @param schema a Schema
+#' @param stream a stream
+#' @param schema a schema
 #'
 #' @export
 record_batch_stream_writer <- function(stream, schema) {
-  UseMethod("record_batch_stream_writer")
-}
-
-#' @method record_batch_stream_writer "arrow::io::OutputStream"
-#' @export
-`record_batch_stream_writer.arrow::io::OutputStream` <- function(stream, schema) {
-  assert_that(inherits(schema, "arrow::Schema"))
+  assert_that(
+    inherits(stream, "arrow::io::OutputStream"),
+    inherits(schema, "arrow::Schema")
+  )
   `arrow::ipc::RecordBatchStreamWriter`$new(ipc___RecordBatchStreamWriter__Open(stream, schema))
 }
 
 #-------- stream RecordBatch
 
-#' @method "stream" "arrow::RecordBatch"
-#' @rdname stream
+#' Stream a record batch
+#'
+#' @inheritParams stream
 #' @export
-`stream.arrow::RecordBatch` <- function(x, stream, ...){
-  UseMethod("stream.arrow::RecordBatch", stream)
+stream_RecordBatch <- function(x, stream, ...){
+  UseMethod("stream_RecordBatch", stream)
 }
 
-#' @method "stream.arrow::RecordBatch" "arrow::io::OutputStream"
 #' @export
-`stream.arrow::RecordBatch.arrow::io::OutputStream` <- function(x, stream, ...) {
+`stream.arrow::RecordBatch` <- function(x, stream, ...){
+  stream_RecordBatch(x, stream, ...)
+}
+
+#' @export
+`stream_RecordBatch.arrow::io::OutputStream` <- function(x, stream, ...) {
   stream_writer <- close_on_exit(record_batch_stream_writer(stream, x$schema()))
   stream(x, stream_writer)
 }
 
-#' @method "stream.arrow::RecordBatch" "arrow::ipc::RecordBatchWriter"
 #' @export
-`stream.arrow::RecordBatch.arrow::ipc::RecordBatchWriter` <- function(x, stream, allow_64bit = TRUE, ...){
+`stream_RecordBatch.arrow::ipc::RecordBatchWriter` <- function(x, stream, allow_64bit = TRUE, ...){
   stream$WriteRecordBatch(x, allow_64bit)
 }
 
-#' @method "stream.arrow::RecordBatch" character
 #' @export
-`stream.arrow::RecordBatch.character` <- function(x, stream, ...) {
+`stream_RecordBatch.character` <- function(x, stream, ...) {
   assert_that(length(stream) == 1L)
   stream(x, fs::path_abs(stream), ...)
 }
 
-#' @method "stream.arrow::RecordBatch" "fs_path"
 #' @export
-`stream.arrow::RecordBatch.fs_path` <- function(x, stream, ...) {
+`stream_RecordBatch.fs_path` <- function(x, stream, ...) {
   assert_that(length(stream) == 1L)
   file_stream <- close_on_exit(file_output_stream(stream))
   file_writer <- close_on_exit(record_batch_file_writer(file_stream, x$schema()))
   stream(x, file_writer, ...)
 }
 
-#' @method "stream.arrow::RecordBatch" "raw"
 #' @export
-`stream.arrow::RecordBatch.raw` <- function(x, stream, ...) {
+`stream_RecordBatch.raw` <- function(x, stream, ...) {
   # how many bytes do we need
   mock <- mock_output_stream()
   stream(x, mock)
@@ -120,45 +116,47 @@ record_batch_stream_writer <- function(stream, schema) {
 
 #-------- stream Table
 
-#' @method "stream" "arrow::Table"
-#' @rdname stream
+#' stream an arrow::Table
+#'
+#' @inheritParams stream
+#'
 #' @export
-`stream.arrow::Table` <- function(x, stream, ...) {
-  UseMethod("stream.arrow::Table", stream)
+stream_Table <- function(x, stream, ...) {
+  UseMethod("stream_Table", stream)
 }
 
-#' @method "stream.arrow::Table" "arrow::io::OutputStream"
 #' @export
-`stream.arrow::Table.arrow::io::OutputStream` <- function(x, stream, ...) {
+`stream.arrow::Table` <- function(x, stream, ...) {
+  stream_Table(x, stream, ...)
+}
+
+#' @export
+`stream_Table.arrow::io::OutputStream` <- function(x, stream, ...) {
   stream_writer <- close_on_exit(record_batch_stream_writer(stream, x$schema()))
   stream(x, stream_writer)
 }
 
-#' @method "stream.arrow::Table" "arrow::ipc::RecordBatchWriter"
 #' @export
-`stream.arrow::Table.arrow::ipc::RecordBatchWriter` <- function(x, stream, ...){
+`stream_Table.arrow::ipc::RecordBatchWriter` <- function(x, stream, ...){
   stream$WriteTable(x)
 }
 
-#' @method "stream.arrow::Table" "character"
 #' @export
-`stream.arrow::Table.character` <- function(x, stream, ...) {
+`stream_Table.character` <- function(x, stream, ...) {
   assert_that(length(stream) == 1L)
   stream(x, fs::path_abs(stream), ...)
 }
 
-#' @method "stream.arrow::Table" "fs_path"
 #' @export
-`stream.arrow::Table.fs_path` <- function(x, stream, ...) {
+`stream_Table.fs_path` <- function(x, stream, ...) {
   assert_that(length(stream) == 1L)
   file_stream <- close_on_exit(file_output_stream(stream))
   file_writer <- close_on_exit(record_batch_file_writer(file_stream, x$schema()))
   stream(x, file_writer, ...)
 }
 
-#' @method "stream.arrow::Table" "raw"
 #' @export
-`stream.arrow::Table.raw` <- function(x, stream, ...) {
+`stream_Table.raw` <- function(x, stream, ...) {
   # how many bytes do we need
   mock <- mock_output_stream()
   stream(x, mock)

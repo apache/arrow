@@ -23,5 +23,5 @@
 #'
 #' @export
 stream <- function(x, stream, ...){
-  UseMethod("stream", x)
+  UseMethod("stream")
 }
