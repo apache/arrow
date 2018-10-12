@@ -63,11 +63,10 @@ class Engine {
   /// Get the compiled function corresponding to the irfunction.
   void* CompiledFunction(llvm::Function* irFunction);
 
-  /// check if function from dlsym exists in address space. Returns true on success.
-  bool CheckFunctionFromLoadedLib(const std::string& name) {
-    auto ptr =
-        execution_engine_->getPointerToNamedFunction(name, false /*AbortOnFailure*/);
-    return ptr != NULLPTR;
+  // Add a global mapping for the specified function. Useful for accessing functions
+  // in gandliva cpp library from LLVM.
+  void AddGlobalMapping(llvm::Function* fn, void* address) {
+    execution_engine_->addGlobalMapping(fn, address);
   }
 
  private:

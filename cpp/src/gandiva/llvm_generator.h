@@ -167,10 +167,6 @@ class LLVMGenerator {
   void ClearPackedBitValueIfFalse(llvm::Value* bitmap, llvm::Value* position,
                                   llvm::Value* value);
 
-  /// For non-IR functions, add prototype to the module on first encounter.
-  void CheckAndAddPrototype(const std::string& full_name, llvm::Type* ret_type,
-                            const std::vector<llvm::Value*>& args);
-
   /// Generate code to make a function call (to a pre-compiled IR function) which takes
   /// 'args' and has a return type 'ret_type'.
   llvm::Value* AddFunctionCall(const std::string& full_name, llvm::Type* ret_type,
@@ -183,6 +179,13 @@ class LLVMGenerator {
   /// \param[in] : eval_batch (includes input/output buffer addresses)
   void ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
                              const EvalBatch& eval_batch);
+
+  // Create and add a mapping for the cpp function to make it accessible from LLVM.
+  void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
+                               const std::vector<llvm::Type*>& args, void* func);
+
+  // Create and add mappings for cpp functions that can be accessed from LLVM.
+  void AddGlobalMappings();
 
   /// Replace the %T in the trace msg with the correct type corresponding to 'type'
   /// eg. %d for int32, %ld for int64, ..

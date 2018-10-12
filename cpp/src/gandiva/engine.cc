@@ -57,6 +57,8 @@ void Engine::InitOnce() {
   llvm::InitializeNativeTargetAsmParser();
   llvm::InitializeNativeTargetDisassembler();
 
+  llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
+
   init_once_done_ = true;
 }
 

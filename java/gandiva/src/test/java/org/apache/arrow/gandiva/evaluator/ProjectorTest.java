@@ -516,7 +516,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
   @Test
   public void testRegex() throws GandivaException {
     /*
-     * like "map%"
+     * like "%map%"
      */
 
     Field x = Field.nullable("x", new ArrowType.Utf8());
@@ -524,7 +524,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     TreeNode cond =
         TreeBuilder.makeFunction(
             "like",
-            Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeStringLiteral("map%")),
+            Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeStringLiteral("%map%")),
             boolType);
     ExpressionTree expr = TreeBuilder.makeExpression(cond, Field.nullable("res", boolType));
     Schema schema = new Schema(Lists.newArrayList(x));
@@ -533,7 +533,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     int numRows = 5;
     byte[] validity = new byte[]{(byte) 255, 0};
     String[] valuesX = new String[]{"mapD", "maps", "google maps", "map", "MapR"};
-    boolean[] expected = new boolean[]{true, true, false, true, false};
+    boolean[] expected = new boolean[]{true, true, true, true, false};
 
     ArrowBuf validityX = buf(validity);
     List<ArrowBuf> dataBufsX = stringBufs(valuesX);

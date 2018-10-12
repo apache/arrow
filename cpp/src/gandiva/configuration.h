@@ -55,8 +55,7 @@ class Configuration {
 /// to override specific values and build a custom instance
 class ConfigurationBuilder {
  public:
-  ConfigurationBuilder()
-      : byte_code_file_path_(kByteCodeFilePath) {}
+  ConfigurationBuilder() : byte_code_file_path_(kByteCodeFilePath) {}
 
   ConfigurationBuilder& set_byte_code_file_path(const std::string& byte_code_file_path) {
     byte_code_file_path_ = byte_code_file_path;
@@ -64,8 +63,7 @@ class ConfigurationBuilder {
   }
 
   std::shared_ptr<Configuration> build() {
-    std::shared_ptr<Configuration> configuration(
-        new Configuration(byte_code_file_path_));
+    std::shared_ptr<Configuration> configuration(new Configuration(byte_code_file_path_));
     return configuration;
   }
 
@@ -77,8 +75,7 @@ class ConfigurationBuilder {
   std::string byte_code_file_path_;
 
   static std::shared_ptr<Configuration> InitDefaultConfig() {
-    std::shared_ptr<Configuration> configuration(
-        new Configuration(kByteCodeFilePath));
+    std::shared_ptr<Configuration> configuration(new Configuration(kByteCodeFilePath));
     return configuration;
   }
 

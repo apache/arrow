@@ -28,6 +28,7 @@
 #include "gandiva/expr_decomposer.h"
 #include "gandiva/expression.h"
 #include "gandiva/function_registry.h"
+#include "gandiva/gdv_function_stubs.h"
 #include "gandiva/lvalue.h"
 
 namespace gandiva {
@@ -46,6 +47,8 @@ Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
   Status status = Engine::Make(config, &(llvmgen_obj->engine_));
   GANDIVA_RETURN_NOT_OK(status);
   llvmgen_obj->types_.reset(new LLVMTypes(*(llvmgen_obj->engine_)->context()));
+  llvmgen_obj->AddGlobalMappings();
+
   *llvm_generator = std::move(llvmgen_obj);
   return Status::OK();
 }
@@ -354,33 +357,10 @@ void LLVMGenerator::ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
   accumulator.ComputeResult(dst_bitmap);
 }
 
-void LLVMGenerator::CheckAndAddPrototype(const std::string& full_name,
-                                         llvm::Type* ret_type,
-                                         const std::vector<llvm::Value*>& args) {
-  auto fn = module()->getFunction(full_name);
-  if (fn != nullptr) {
-    // prototype already added to module.
-    return;
-  }
-
-  // Create fn prototype for evaluation
-  std::vector<llvm::Type*> arg_types;
-  for (auto& value : args) {
-    arg_types.push_back(value->getType());
-  }
-  llvm::FunctionType* prototype =
-      llvm::FunctionType::get(ret_type, arg_types, false /*isVarArg*/);
-
-  fn = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, full_name,
-                              module());
-  DCHECK_NE(fn, nullptr) << " cpp function " << full_name << " does not exist";
-}
-
 llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
                                             llvm::Type* ret_type,
                                             const std::vector<llvm::Value*>& args) {
   // find the llvm function.
-  CheckAndAddPrototype(full_name, ret_type, args);
   llvm::Function* fn = module()->getFunction(full_name);
   DCHECK_NE(fn, nullptr) << "missing function " << full_name;
 
@@ -876,8 +856,7 @@ std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
 
   // if the function has holder, add the holder pointer first.
   if (holder != nullptr) {
-    llvm::Constant* ptr_int_cast = types->i64_constant((int64_t)holder);
-    auto ptr = llvm::ConstantExpr::getIntToPtr(ptr_int_cast, types->i8_ptr_type());
+    auto ptr = types->i64_constant((int64_t)holder);
     params.push_back(ptr);
   }
 
@@ -970,6 +949,40 @@ void LLVMGenerator::Visitor::ClearLocalBitMapIfNotValid(int local_bitmap_idx,
                                                         llvm::Value* is_valid) {
   llvm::Value* slot_ref = GetLocalBitMapReference(local_bitmap_idx);
   generator_->ClearPackedBitValueIfFalse(slot_ref, loop_var_, is_valid);
+}
+
+void LLVMGenerator::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
+                                            const std::vector<llvm::Type*>& args,
+                                            void* func) {
+  auto prototype = llvm::FunctionType::get(ret_type, args, false /*isVarArg*/);
+  auto fn = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name,
+                                   module());
+  engine_->AddGlobalMapping(fn, func);
+}
+
+void LLVMGenerator::AddGlobalMappings() {
+  std::vector<llvm::Type*> args;
+
+  // gdv_fn_like_utf8_utf8
+  args = {types_->i64_type(), types_->i8_ptr_type(), types_->i32_type(),
+          types_->i8_ptr_type(), types_->i32_type()};
+  AddGlobalMappingForFunc("gdv_fn_like_utf8_utf8", types_->i1_type(), args,
+                          reinterpret_cast<void*>(gdv_fn_like_utf8_utf8));
+
+  // gdv_fn_to_date_utf8_utf8_int32
+  args = {types_->i64_type(),
+          types_->i8_ptr_type(),
+          types_->i32_type(),
+          types_->i1_type(),
+          types_->i8_ptr_type(),
+          types_->i32_type(),
+          types_->i1_type(),
+          types_->i32_type(),
+          types_->i1_type(),
+          types_->i64_type(),
+          types_->ptr_type(types_->i8_type())};
+  AddGlobalMappingForFunc("gdv_fn_to_date_utf8_utf8_int32", types_->i64_type(), args,
+                          reinterpret_cast<void*>(gdv_fn_to_date_utf8_utf8_int32));
 }
 
 // Hooks for tracing/printfs.

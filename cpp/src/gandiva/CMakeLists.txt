@@ -46,9 +46,9 @@ set(SRC_FILES annotator.cc
       expression.cc
       expression_registry.cc
       filter.cc
-      function_holder_stubs.cc
       function_registry.cc
       function_signature.cc
+      gdv_function_stubs.cc
       llvm_generator.cc
       llvm_types.cc
       like_holder.cc
@@ -132,7 +132,7 @@ add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc configuration.
 add_gandiva_unit_test(function_signature_test.cc function_signature.cc)
 add_gandiva_unit_test(function_registry_test.cc function_registry.cc function_signature.cc)
 add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)
-add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc regex_util.cc engine.cc llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc bitmap_accumulator.cc configuration.cc  function_signature.cc like_holder.cc to_date_holder.cc date_utils.cc regex_util.cc execution_context.cc ${BC_FILE_PATH_CC})
+add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc regex_util.cc engine.cc llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc bitmap_accumulator.cc configuration.cc  function_signature.cc like_holder.cc to_date_holder.cc date_utils.cc regex_util.cc execution_context.cc gdv_function_stubs.cc ${BC_FILE_PATH_CC})
 add_gandiva_unit_test(annotator_test.cc annotator.cc function_signature.cc)
 add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc execution_context.cc)
 add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc execution_context.cc)
