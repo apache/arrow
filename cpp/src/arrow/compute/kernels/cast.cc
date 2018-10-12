@@ -330,6 +330,30 @@ struct CastFunctor<O, I,
 };
 
 // ----------------------------------------------------------------------
+// From Double to Int64
+//
+// This is a partial cast to support pandas and work around its limitations
+// of storing nullable integer columns as 64-bit floating point numbers.
+template <>
+struct CastFunctor<Int64Type, DoubleType> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    const auto* in_data = GetValues<double>(input, 1);
+    auto out_data = GetMutableValues<int64_t>(output, 1);
+    for (int64_t i = 0; i < input.length; ++i) {
+      const auto value = static_cast<double>(*in_data++);
+      constexpr int64_t kDoubleMax = 1LL << std::numeric_limits<double>::digits;
+      constexpr int64_t kDoubleMin = -(1LL << std::numeric_limits<double>::digits);
+      if (options.Safe && (value > kDoubleMax || value < kDoubleMin)) {
+        // TODO: error out, but how?
+      } else {
+        *out_data++ = value;
+      }
+    }
+  }
+};
+
+// ----------------------------------------------------------------------
 // From one timestamp to another
 
 template <typename in_type, typename out_type>

@@ -225,7 +225,7 @@ class build_ext(_build_ext):
                 cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
                 # ARROW-1090: work around CMake rough edges
                 if 'ARROW_HOME' in os.environ and sys.platform != 'win32':
-                    pkg_config = pjoin(os.environ['ARROW_HOME'], 'lib',
+                    pkg_config = pjoin(os.environ['ARROW_HOME'], 'lib64',
                                        'pkgconfig')
                     os.environ['PKG_CONFIG_PATH'] = pkg_config
                     del os.environ['ARROW_HOME']
