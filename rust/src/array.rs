@@ -679,35 +679,35 @@ mod tests {
     fn test_primitive_array_from_vec() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
         let buf2 = buf.clone();
-        let pa = PrimitiveArray::<i32>::new(5, buf, 0, 0);
-        let slice = unsafe { ::std::slice::from_raw_parts(pa.raw_values(), 5) };
-        assert_eq!(buf2, pa.values());
+        let arr = PrimitiveArray::<i32>::new(5, buf, 0, 0);
+        let slice = unsafe { ::std::slice::from_raw_parts(arr.raw_values(), 5) };
+        assert_eq!(buf2, arr.values());
         assert_eq!(&[0, 1, 2, 3, 4], slice);
-        assert_eq!(5, pa.len());
-        assert_eq!(0, pa.offset());
-        assert_eq!(0, pa.null_count());
+        assert_eq!(5, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
         for i in 0..5 {
-            assert!(!pa.is_null(i));
-            assert!(pa.is_valid(i));
-            assert_eq!(i as i32, pa.value(i));
+            assert!(!arr.is_null(i));
+            assert!(arr.is_valid(i));
+            assert_eq!(i as i32, arr.value(i));
         }
     }
 
     #[test]
     fn test_primitive_array_from_vec_option() {
         // Test building a primitive array with null values
-        let pa = PrimitiveArray::<i32>::from(vec![Some(0), None, Some(2), None, Some(4)]);
-        assert_eq!(5, pa.len());
-        assert_eq!(0, pa.offset());
-        assert_eq!(2, pa.null_count());
+        let arr = PrimitiveArray::<i32>::from(vec![Some(0), None, Some(2), None, Some(4)]);
+        assert_eq!(5, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(2, arr.null_count());
         for i in 0..5 {
             if i % 2 == 0 {
-                assert!(!pa.is_null(i));
-                assert!(pa.is_valid(i));
-                assert_eq!(i as i32, pa.value(i));
+                assert!(!arr.is_null(i));
+                assert!(arr.is_valid(i));
+                assert_eq!(i as i32, arr.value(i));
             } else {
-                assert!(pa.is_null(i));
-                assert!(!pa.is_valid(i));
+                assert!(arr.is_null(i));
+                assert!(!arr.is_valid(i));
             }
         }
     }
@@ -722,12 +722,12 @@ mod tests {
             .offset(2)
             .add_buffer(buf)
             .build();
-        let pa = PrimitiveArray::<i32>::from(data);
-        assert_eq!(buf2, pa.values());
-        assert_eq!(5, pa.len());
-        assert_eq!(0, pa.null_count());
+        let arr = PrimitiveArray::<i32>::from(data);
+        assert_eq!(buf2, arr.values());
+        assert_eq!(5, arr.len());
+        assert_eq!(0, arr.null_count());
         for i in 0..3 {
-            assert_eq!((i + 2) as i32, pa.value(i));
+            assert_eq!((i + 2) as i32, arr.value(i));
         }
     }
 
@@ -745,56 +745,56 @@ mod tests {
         // 00000010 01001000
         let buf = Buffer::from([72_u8, 2_u8]);
         let buf2 = buf.clone();
-        let pa = BooleanArray::new(10, buf, 0, 0);
-        assert_eq!(buf2, pa.values());
-        assert_eq!(10, pa.len());
-        assert_eq!(0, pa.offset());
-        assert_eq!(0, pa.null_count());
+        let arr = BooleanArray::new(10, buf, 0, 0);
+        assert_eq!(buf2, arr.values());
+        assert_eq!(10, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
         for i in 0..10 {
-            assert!(!pa.is_null(i));
-            assert!(pa.is_valid(i));
-            assert_eq!(i == 3 || i == 6 || i == 9, pa.value(i), "failed at {}", i)
+            assert!(!arr.is_null(i));
+            assert!(arr.is_valid(i));
+            assert_eq!(i == 3 || i == 6 || i == 9, arr.value(i), "failed at {}", i)
         }
     }
 
     #[test]
     fn test_boolean_array_from_vec() {
         let buf = Buffer::from([10_u8]);
-        let pa = BooleanArray::from(vec![false, true, false, true]);
-        assert_eq!(buf, pa.values());
-        assert_eq!(4, pa.len());
-        assert_eq!(0, pa.offset());
-        assert_eq!(0, pa.null_count());
+        let arr = BooleanArray::from(vec![false, true, false, true]);
+        assert_eq!(buf, arr.values());
+        assert_eq!(4, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
         for i in 0..4 {
-            assert!(!pa.is_null(i));
-            assert!(pa.is_valid(i));
-            assert_eq!(i == 1 || i == 3, pa.value(i), "failed at {}", i)
+            assert!(!arr.is_null(i));
+            assert!(arr.is_valid(i));
+            assert_eq!(i == 1 || i == 3, arr.value(i), "failed at {}", i)
         }
     }
 
     #[test]
     fn test_boolean_array_from_vec_option() {
         let buf = Buffer::from([10_u8]);
-        let pa = BooleanArray::from(vec![Some(false), Some(true), None, Some(true)]);
-        assert_eq!(buf, pa.values());
-        assert_eq!(4, pa.len());
-        assert_eq!(0, pa.offset());
-        assert_eq!(1, pa.null_count());
+        let arr = BooleanArray::from(vec![Some(false), Some(true), None, Some(true)]);
+        assert_eq!(buf, arr.values());
+        assert_eq!(4, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(1, arr.null_count());
         for i in 0..4 {
             if i == 2 {
-                assert!(pa.is_null(i));
-                assert!(!pa.is_valid(i));
+                assert!(arr.is_null(i));
+                assert!(!arr.is_valid(i));
             } else {
-                assert!(!pa.is_null(i));
-                assert!(pa.is_valid(i));
-                assert_eq!(i == 1 || i == 3, pa.value(i), "failed at {}", i)
+                assert!(!arr.is_null(i));
+                assert!(arr.is_valid(i));
+                assert_eq!(i == 1 || i == 3, arr.value(i), "failed at {}", i)
             }
         }
     }
 
     #[test]
     fn test_boolean_array_builder() {
-        // Test building an boolean array with ArrayData builder and offset
+        // Test building a boolean array with ArrayData builder and offset
         // 000011011
         let buf = Buffer::from([27_u8]);
         let buf2 = buf.clone();
@@ -803,13 +803,13 @@ mod tests {
             .offset(2)
             .add_buffer(buf)
             .build();
-        let pa = BooleanArray::from(data);
-        assert_eq!(buf2, pa.values());
-        assert_eq!(5, pa.len());
-        assert_eq!(2, pa.offset());
-        assert_eq!(0, pa.null_count());
+        let arr = BooleanArray::from(data);
+        assert_eq!(buf2, arr.values());
+        assert_eq!(5, arr.len());
+        assert_eq!(2, arr.offset());
+        assert_eq!(0, arr.null_count());
         for i in 0..3 {
-            assert_eq!(i != 0, pa.value(i), "failed at {}", i);
+            assert_eq!(i != 0, arr.value(i), "failed at {}", i);
         }
     }
 
