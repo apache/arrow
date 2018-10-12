@@ -473,18 +473,6 @@ read_record_batch_BufferReader <- function(stream) {
     .Call(`_arrow_read_record_batch_BufferReader`, stream)
 }
 
-RecordBatch__to_file <- function(batch, path) {
-    .Call(`_arrow_RecordBatch__to_file`, batch, path)
-}
-
-RecordBatch__to_stream <- function(batch) {
-    .Call(`_arrow_RecordBatch__to_stream`, batch)
-}
-
-RecordBatch__stream <- function(batch, stream) {
-    invisible(.Call(`_arrow_RecordBatch__stream`, batch, stream))
-}
-
 RecordBatch__from_dataframe <- function(tbl) {
     .Call(`_arrow_RecordBatch__from_dataframe`, tbl)
 }
@@ -547,14 +535,6 @@ Table__num_rows <- function(x) {
 
 Table__schema <- function(x) {
     .Call(`_arrow_Table__schema`, x)
-}
-
-Table__to_file <- function(table, path) {
-    .Call(`_arrow_Table__to_file`, table, path)
-}
-
-Table__to_stream <- function(table) {
-    .Call(`_arrow_Table__to_stream`, table)
 }
 
 read_table_RandomAccessFile <- function(stream) {

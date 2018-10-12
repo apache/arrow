@@ -1309,40 +1309,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// RecordBatch__to_file
-int RecordBatch__to_file(const std::shared_ptr<arrow::RecordBatch>& batch, std::string path);
-RcppExport SEXP _arrow_RecordBatch__to_file(SEXP batchSEXP, SEXP pathSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
-    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch__to_file(batch, path));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RecordBatch__to_stream
-RawVector RecordBatch__to_stream(const std::shared_ptr<arrow::RecordBatch>& batch);
-RcppExport SEXP _arrow_RecordBatch__to_stream(SEXP batchSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch__to_stream(batch));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RecordBatch__stream
-void RecordBatch__stream(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::io::OutputStream>& stream);
-RcppExport SEXP _arrow_RecordBatch__stream(SEXP batchSEXP, SEXP streamSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::OutputStream>& >::type stream(streamSEXP);
-    RecordBatch__stream(batch, stream);
-    return R_NilValue;
-END_RCPP
-}
 // RecordBatch__from_dataframe
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl);
 RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tblSEXP) {
@@ -1527,29 +1493,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Table__to_file
-int Table__to_file(const std::shared_ptr<arrow::Table>& table, std::string path);
-RcppExport SEXP _arrow_Table__to_file(SEXP tableSEXP, SEXP pathSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
-    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table__to_file(table, path));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Table__to_stream
-RawVector Table__to_stream(const std::shared_ptr<arrow::Table>& table);
-RcppExport SEXP _arrow_Table__to_stream(SEXP tableSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table__to_stream(table));
-    return rcpp_result_gen;
-END_RCPP
-}
 // read_table_RandomAccessFile
 std::shared_ptr<arrow::Table> read_table_RandomAccessFile(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
 RcppExport SEXP _arrow_read_table_RandomAccessFile(SEXP streamSEXP) {
@@ -1715,9 +1658,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 1},
     {"_arrow_read_record_batch_RandomAccessFile", (DL_FUNC) &_arrow_read_record_batch_RandomAccessFile, 1},
     {"_arrow_read_record_batch_BufferReader", (DL_FUNC) &_arrow_read_record_batch_BufferReader, 1},
-    {"_arrow_RecordBatch__to_file", (DL_FUNC) &_arrow_RecordBatch__to_file, 2},
-    {"_arrow_RecordBatch__to_stream", (DL_FUNC) &_arrow_RecordBatch__to_stream, 1},
-    {"_arrow_RecordBatch__stream", (DL_FUNC) &_arrow_RecordBatch__stream, 2},
     {"_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1},
     {"_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 2},
     {"_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2},
@@ -1734,8 +1674,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1},
     {"_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1},
     {"_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
-    {"_arrow_Table__to_file", (DL_FUNC) &_arrow_Table__to_file, 2},
-    {"_arrow_Table__to_stream", (DL_FUNC) &_arrow_Table__to_stream, 1},
     {"_arrow_read_table_RandomAccessFile", (DL_FUNC) &_arrow_read_table_RandomAccessFile, 1},
     {"_arrow_read_table_BufferReader", (DL_FUNC) &_arrow_read_table_BufferReader, 1},
     {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 1},

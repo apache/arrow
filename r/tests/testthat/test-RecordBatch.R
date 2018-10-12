@@ -109,22 +109,9 @@ test_that("RecordBatch with 0 rows are supported", {
   )
 
   tf <- local_tempfile()
-  batch$to_file(tf)
-
+  stream(batch, tf)
   res <- read_record_batch(tf)
   expect_equal(res, batch)
-})
-
-test_that("RecordBatch can output stream", {
-  tbl <- tibble::tibble(
-    int = 1:10, dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10]
-  )
-  record <- record_batch(tbl)
-  stream <- record$to_stream()
-
-  expect_gt(length(stream), 0)
 })
 
 test_that("read_record_batch handles ReadableFile and MemoryMappedFile (ARROW-3450)", {
@@ -135,9 +122,9 @@ test_that("read_record_batch handles ReadableFile and MemoryMappedFile (ARROW-34
   )
   batch <- record_batch(tbl)
   tf <- local_tempfile()
-  batch$to_file(tf)
+  stream(batch, tf)
 
-  bytes <- batch$to_stream()
+  bytes <- stream(batch, raw())
   buf_reader <- buffer_reader(bytes)
 
   batch1 <- read_record_batch(tf)

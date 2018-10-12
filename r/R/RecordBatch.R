@@ -23,8 +23,6 @@
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
     schema = function() `arrow::Schema`$new(RecordBatch__schema(self)),
-    to_file = function(path) invisible(RecordBatch__to_file(self, fs::path_abs(path))),
-    to_stream = function() RecordBatch__to_stream(self),
     column = function(i) `arrow::Array`$new(RecordBatch__column(self, i)),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
@@ -43,7 +41,7 @@
       }
     },
 
-    stream = function(output_stream) stream(self, output_stream)
+    stream = function(output_stream, ...) stream(self, output_stream, ...)
   )
 )
 

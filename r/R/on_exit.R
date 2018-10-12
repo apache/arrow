@@ -16,13 +16,13 @@
 # under the License.
 
 #' @importFrom withr defer_parent
-close_on_exit <- function(x){
-  defer_parent(x$Close())
+close_on_exit <- function(x, ...){
+  defer_parent(x$Close(), ...)
   x
 }
 
 local_tempfile <- function(...){
-  tf <- tempfile(...)
-  defer_parent(unlink(tf))
+  tf <- tempfile()
+  defer_parent(unlink(tf), ...)
   tf
 }

@@ -43,7 +43,6 @@ void io___OutputStream__Close(const std::shared_ptr<arrow::io::OutputStream>& x)
   R_ERROR_NOT_OK(x->Close());
 }
 
-
 // ------ arrow::io::RandomAccessFile
 
 // [[Rcpp::export]]
@@ -119,7 +118,8 @@ std::shared_ptr<arrow::io::BufferReader> io___BufferReader__initialize(
 // ------ arrow::io::FileOutputStream
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(const std::string& path) {
+std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(
+    const std::string& path) {
   std::shared_ptr<arrow::io::FileOutputStream> stream;
   R_ERROR_NOT_OK(arrow::io::FileOutputStream::Open(path, &stream));
   return stream;
@@ -128,18 +128,20 @@ std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(const s
 // ------ arrow::io::MockOutputStream
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::io::MockOutputStream> io___MockOutputStream__initialize(){
+std::shared_ptr<arrow::io::MockOutputStream> io___MockOutputStream__initialize() {
   return std::make_shared<arrow::io::MockOutputStream>();
 }
 
 // [[Rcpp::export]]
-int64_t io___MockOutputStream__GetExtentBytesWritten(const std::shared_ptr<arrow::io::MockOutputStream>& stream) {
+int64_t io___MockOutputStream__GetExtentBytesWritten(
+    const std::shared_ptr<arrow::io::MockOutputStream>& stream) {
   return stream->GetExtentBytesWritten();
 }
 
 // ------ arrow::io::FixedSizeBufferWriter
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::io::FixedSizeBufferWriter> io___FixedSizeBufferWriter__initialize(const std::shared_ptr<arrow::Buffer>& buffer) {
+std::shared_ptr<arrow::io::FixedSizeBufferWriter> io___FixedSizeBufferWriter__initialize(
+    const std::shared_ptr<arrow::Buffer>& buffer) {
   return std::make_shared<arrow::io::FixedSizeBufferWriter>(buffer);
 }

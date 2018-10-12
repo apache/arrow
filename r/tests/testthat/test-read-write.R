@@ -85,7 +85,7 @@ test_that("arrow::table round trip", {
     expect_equal(chunked_array_raw$chunk(i-1L), chunks_raw[[i]])
   }
   tf <- local_tempfile()
-  write_arrow(tbl, path = tf)
+  stream(tbl, tf)
 
   res <- read_arrow(tf)
   expect_identical(tbl, res)
@@ -115,7 +115,7 @@ test_that("arrow::table round trip handles NA in integer and numeric", {
   expect_equal(tab$column(2)$type(), int8())
 
   tf <- local_tempfile()
-  write_arrow(tbl, path = tf)
+  stream(tbl, tf)
 
   res <- read_arrow(tf)
   expect_identical(tbl, res)

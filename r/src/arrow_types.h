@@ -23,8 +23,8 @@
 #include <arrow/api.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
-#include <arrow/type.h>
 #include <arrow/ipc/writer.h>
+#include <arrow/type.h>
 
 #define R_ERROR_NOT_OK(s)                  \
   do {                                     \
@@ -141,9 +141,8 @@ class RBuffer : public MutableBuffer {
  public:
   RBuffer(Vec vec)
       : MutableBuffer(reinterpret_cast<uint8_t*>(vec.begin()),
-               vec.size() * sizeof(typename Vec::stored_type)),
-        vec_(vec)
-  {}
+                      vec.size() * sizeof(typename Vec::stored_type)),
+        vec_(vec) {}
 
  private:
   // vec_ holds the memory

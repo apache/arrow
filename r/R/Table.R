@@ -22,9 +22,9 @@
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
     schema = function() `arrow::Schema`$new(Table__schema(self)),
-    to_file = function(path) invisible(Table__to_file(self, fs::path_abs(path))),
-    to_stream = function() Table__to_stream(self),
-    column = function(i) `arrow::Column`$new(Table__column(self, i))
+    column = function(i) `arrow::Column`$new(Table__column(self, i)),
+
+    stream = function(output_stream, ...) stream(self, output_stream, ...)
   )
 )
 
@@ -37,14 +37,9 @@ table <- function(.data){
   `arrow::Table`$new(Table__from_dataframe(.data))
 }
 
-#' Write a tibble in a binary arrow file
-#'
-#' @param data a [tibble::tibble]
-#' @param path file path
-#'
 #' @export
-write_arrow <- function(data, path){
-  table(data)$to_file(path)
+stream.data.frame <- function(x, stream, ...) {
+  stream(table(x), stream, ...)
 }
 
 #' Read an arrow::Table from a stream

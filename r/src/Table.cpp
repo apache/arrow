@@ -46,45 +46,6 @@ std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>
 }
 
 // [[Rcpp::export]]
-int Table__to_file(const std::shared_ptr<arrow::Table>& table, std::string path) {
-  std::shared_ptr<arrow::io::OutputStream> stream;
-  std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
-
-  R_ERROR_NOT_OK(arrow::io::FileOutputStream::Open(path, &stream));
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileWriter::Open(stream.get(), table->schema(),
-                                                         &file_writer));
-  R_ERROR_NOT_OK(file_writer->WriteTable(*table));
-  R_ERROR_NOT_OK(file_writer->Close());
-
-  int64_t offset;
-  R_ERROR_NOT_OK(stream->Tell(&offset));
-  R_ERROR_NOT_OK(stream->Close());
-  return offset;
-}
-
-// [[Rcpp::export]]
-RawVector Table__to_stream(const std::shared_ptr<arrow::Table>& table) {
-  arrow::io::MockOutputStream mock_sink;
-  std::shared_ptr<arrow::ipc::RecordBatchWriter> writer;
-  R_ERROR_NOT_OK(
-      arrow::ipc::RecordBatchStreamWriter::Open(&mock_sink, table->schema(), &writer));
-  R_ERROR_NOT_OK(writer->WriteTable(*table));
-  R_ERROR_NOT_OK(writer->Close());
-  auto n = mock_sink.GetExtentBytesWritten();
-
-  RawVector res(no_init(n));
-  auto raw_buffer = std::make_shared<arrow::MutableBuffer>(res.begin(), res.size());
-  arrow::io::FixedSizeBufferWriter sink(raw_buffer);
-
-  R_ERROR_NOT_OK(
-      arrow::ipc::RecordBatchStreamWriter::Open(&sink, table->schema(), &writer));
-  R_ERROR_NOT_OK(writer->WriteTable(*table));
-  R_ERROR_NOT_OK(writer->Close());
-
-  return res;
-}
-
-// [[Rcpp::export]]
 std::shared_ptr<arrow::Table> read_table_RandomAccessFile(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
   std::shared_ptr<arrow::ipc::RecordBatchFileReader> rbf_reader;

@@ -52,7 +52,7 @@ record_batch_file_writer <- function(stream, schema) {
 #' @param stream an OutputStream
 #'
 #' @export
-record_batch_stream_writer <- function(stream) {
+record_batch_stream_writer <- function(stream, schema) {
   UseMethod("record_batch_stream_writer")
 }
 
@@ -90,7 +90,8 @@ record_batch_stream_writer <- function(stream) {
 `stream.arrow::RecordBatch.fs_path` <- function(x, stream, ...) {
   assert_that(length(stream) == 1L)
   file_stream <- close_on_exit(file_output_stream(stream))
-  stream(x, file_stream, ...)
+  file_writer <- close_on_exit(record_batch_file_writer(file_stream, x$schema()))
+  stream(x, file_writer, ...)
 }
 
 #' @export
@@ -136,7 +137,8 @@ record_batch_stream_writer <- function(stream) {
 `stream.arrow::Table.fs_path` <- function(x, stream, ...) {
   assert_that(length(stream) == 1L)
   file_stream <- close_on_exit(file_output_stream(stream))
-  stream(x, file_stream, ...)
+  file_writer <- close_on_exit(record_batch_file_writer(file_stream, x$schema()))
+  stream(x, file_writer, ...)
 }
 
 #' @export

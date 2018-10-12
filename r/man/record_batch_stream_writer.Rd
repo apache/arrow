@@ -4,7 +4,7 @@
 \alias{record_batch_stream_writer}
 \title{Create a record batch writer that writes to the given stream}
 \usage{
-record_batch_stream_writer(stream)
+record_batch_stream_writer(stream, schema)
 }
 \arguments{
 \item{stream}{an OutputStream}

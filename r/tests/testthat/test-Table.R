@@ -25,9 +25,9 @@ test_that("read_table handles various input streams (ARROW-3450)", {
   )
   tab <- arrow::table(tbl)
   tf <- local_tempfile()
-  tab$to_file(tf)
+  stream(tab, tf)
 
-  bytes <- tab$to_stream()
+  bytes <- stream(tab, raw())
   buf_reader <- buffer_reader(bytes)
 
   tab1 <- read_table(tf)
