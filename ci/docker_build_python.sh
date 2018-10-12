@@ -27,12 +27,13 @@ export PYARROW_CXXFLAGS=$CXXFLAGS
 export PYARROW_CMAKE_GENERATOR=Ninja
 
 # Build pyarrow
-pushd arrow/python
+pushd /arrow/python
 
 python setup.py build_ext \
-    --build-type=${ARROW_BUILD_TYPE:-debug} \
+    --build-temp=/build/python \
+    --build-type=${PYARROW_BUILD_TYPE:-debug} \
     --with-parquet \
     --with-plasma \
-    --inplace
+    install
 
 popd

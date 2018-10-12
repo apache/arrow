@@ -16,7 +16,6 @@
 # under the License.
 
 cython
-ipython
 nomkl
 numpy
 pandas

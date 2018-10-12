@@ -15,48 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:18.04
+FROM arrow:cpp
 
-RUN apt-get update && \
-    apt-get install -y \
-        gcc \
-        g++ \
-        git \
-        wget \
-        pkg-config \
-        ninja-build
-
-ENV CC=gcc \
-    CXX=g++ \
-    PATH=/opt/conda/bin:$PATH \
-    CONDA_PREFIX=/opt/conda
-
-# install dependencies
+# install python specific packages
 ARG PYTHON_VERSION=3.6
-ADD ci/docker_install_conda.sh \
-    ci/conda_env_cpp.yml \
-    ci/conda_env_python.yml \
-    /arrow/ci/
-RUN arrow/ci/docker_install_conda.sh && \
-    conda install -c conda-forge \
-        --file arrow/ci/conda_env_cpp.yml \
-        --file arrow/ci/conda_env_python.yml \
+ADD ci/conda_env_python.yml /arrow/ci/
+RUN conda install -c conda-forge \
+        --file arrow/ci/conda_env_python.yml && \
         python=$PYTHON_VERSION && \
     conda clean --all
 
-# build cpp without tests
-ENV ARROW_PYTHON=ON \
-    ARROW_BUILD_TESTS=OFF
-ADD ci/docker_build_cpp.sh /arrow/ci/
-ADD cpp /arrow/cpp
-ADD format /arrow/format
-ADD java/pom.xml /arrow/java/pom.xml
-RUN arrow/ci/docker_build_cpp.sh
+ENV CC=gcc \
+    CXX=g++ \
+    ARROW_PYTHON=ON
 
-# build python
-ADD ci/docker_build_python.sh /arrow/ci/
-ADD python /arrow/python
-RUN arrow/ci/docker_build_python.sh
-
-WORKDIR arrow/python
-CMD pytest -v pyarrow
+# build and test
+CMD arrow/ci/docker_build_cpp.sh && \
+    arrow/ci/docker_build_python.sh && \
+    pytest -v --pyargs pyarrow

@@ -15,34 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:18.04
+FROM arrow:python-3.6
 
-RUN apt-get update && \
-    apt-get install -y \
-        gcc \
-        g++ \
-        git \
-        wget \
-        pkg-config \
-        ninja-build \
-        clang-format \
-        clang-tidy
+RUN apt-get install -y -q \
+      libclang-dev \
+      clang \
+      clang-format \
+      clang-tidy \
+      iwyu
 
-ENV CC=gcc \
-    CXX=g++ \
-    PATH=/opt/conda/bin:$PATH \
-    CONDA_PREFIX=/opt/conda
-
-ADD ci/docker_install_conda.sh \
-    ci/conda_env_cpp.yml \
-    /arrow/ci/
-RUN arrow/ci/docker_install_conda.sh && \
-    conda install -c conda-forge \
-        --file arrow/ci/conda_env_cpp.yml flake8 && \
+RUN conda install -c conda-forge flake8 && \
     conda clean --all -y
 
-ADD dev/lint/run_checks.sh /run_checks.sh
-ADD dev/lint/run_clang_format.sh /run_clang_format.sh
-
-WORKDIR /tmp
-CMD /run_checks.sh
+# https://bugs.launchpad.net/ubuntu/+source/iwyu/+bug/1769334
+RUN ln -sv /usr/lib/clang/6.0 /usr/lib/clang/5.0.1
