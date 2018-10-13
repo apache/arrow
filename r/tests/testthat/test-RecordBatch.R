@@ -109,7 +109,7 @@ test_that("RecordBatch with 0 rows are supported", {
   )
 
   tf <- local_tempfile()
-  stream(batch, tf)
+  write_record_batch(batch, tf)
   res <- read_record_batch(tf)
   expect_equal(res, batch)
 })
@@ -122,9 +122,9 @@ test_that("read_record_batch handles ReadableFile and MemoryMappedFile (ARROW-34
   )
   batch <- record_batch(tbl)
   tf <- local_tempfile()
-  stream(batch, tf)
+  write_record_batch(batch, tf)
 
-  bytes <- stream(batch, raw())
+  bytes <- write_record_batch(batch, raw())
   buf_reader <- buffer_reader(bytes)
 
   batch1 <- read_record_batch(tf)

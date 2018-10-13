@@ -16,7 +16,6 @@
 # under the License.
 
 #' @include R6.R
-#' @include stream.R
 
 `arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = `arrow::Object`,
   public = list(
@@ -41,7 +40,7 @@
       }
     },
 
-    stream = function(output_stream, ...) stream(self, output_stream, ...)
+    serialize = function(output_stream, ...) write_record_batch(self, output_stream, ...)
   )
 )
 

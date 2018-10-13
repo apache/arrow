@@ -24,7 +24,7 @@
     schema = function() `arrow::Schema`$new(Table__schema(self)),
     column = function(i) `arrow::Column`$new(Table__column(self, i)),
 
-    stream = function(output_stream, ...) stream(self, output_stream, ...)
+    serialize = function(output_stream, ...) write_table(self, output_stream, ...)
   )
 )
 
@@ -35,11 +35,6 @@
 #' @export
 table <- function(.data){
   `arrow::Table`$new(Table__from_dataframe(.data))
-}
-
-#' @export
-stream.data.frame <- function(x, stream, ...) {
-  stream(table(x), stream, ...)
 }
 
 #' Read an arrow::Table from a stream

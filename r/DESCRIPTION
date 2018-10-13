@@ -44,7 +44,6 @@ Collate:
     'Field.R'
     'List.R'
     'RcppExports.R'
-    'stream.R'
     'RecordBatch.R'
     'RecordBatchWriter.R'
     'Schema.R'
