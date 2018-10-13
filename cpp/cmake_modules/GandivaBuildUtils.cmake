@@ -94,7 +94,7 @@ function(add_gandiva_unit_test REL_TEST_NAME)
     PRIVATE arrow_shared ${GANDIVA_TEST_LINK_LIBS} Boost::boost
   )
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-  set_property(TEST ${TEST_NAME} PROPERTY LABELS unittest ${TEST_NAME})
+  set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva,unittest ${TEST_NAME})
 endfunction(add_gandiva_unit_test REL_TEST_NAME)
 
 # Add a unittest executable for a precompiled file (used to generate IR)
@@ -109,7 +109,7 @@ function(add_precompiled_unit_test REL_TEST_NAME)
   target_compile_definitions(${TEST_NAME} PRIVATE GANDIVA_UNIT_TEST=1)
   target_compile_definitions(${TEST_NAME} PRIVATE -DGDV_HELPERS)
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-  set_property(TEST ${TEST_NAME} PROPERTY LABELS unittest ${TEST_NAME})
+  set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva,unittest ${TEST_NAME})
 endfunction(add_precompiled_unit_test REL_TEST_NAME)
 
 # Add an integ executable, with its dependencies.
@@ -121,7 +121,7 @@ function(add_gandiva_integ_test REL_TEST_NAME GANDIVA_LIB)
   target_link_libraries(${TEST_NAME}_${GANDIVA_LIB} PRIVATE ${GANDIVA_LIB} ${GANDIVA_TEST_LINK_LIBS})
 
   add_test(NAME ${TEST_NAME}_${GANDIVA_LIB} COMMAND ${TEST_NAME}_${GANDIVA_LIB})
-  set_property(TEST ${TEST_NAME}_${GANDIVA_LIB} PROPERTY LABELS integ ${TEST_NAME}_${GANDIVA_LIB})
+  set_property(TEST ${TEST_NAME}_${GANDIVA_LIB} PROPERTY LABELS gandiva,integ ${TEST_NAME}_${GANDIVA_LIB})
 endfunction(add_gandiva_integ_test REL_TEST_NAME)
 
 function(prevent_in_source_builds)
