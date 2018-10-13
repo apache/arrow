@@ -20,9 +20,9 @@
 # Exit on any error
 set -e
 
-wget --quiet https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-bash miniconda.sh -b -q -p ${CONDA_PREFIX:=/opt/conda}
-rm miniconda.sh
+wget --quiet https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+bash /tmp/miniconda.sh -b -q -p ${CONDA_PREFIX:=/opt/conda}
+rm /tmp/miniconda.sh
 
 ln -s ${CONDA_PREFIX}/etc/profile.d/conda.sh /etc/profile.d/conda.sh
 echo ". ${CONDA_PREFIX}/etc/profile.d/conda.sh" >> ~/.bashrc

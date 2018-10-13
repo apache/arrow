@@ -17,6 +17,7 @@
 # under the License.
 
 set -e
+set -o xtrace
 
 # Arrow specific environment variables
 export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
@@ -26,8 +27,8 @@ export PARQUET_HOME=$CONDA_PREFIX
 # https://arrow.apache.org/docs/python/development.html#known-issues
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 
-mkdir -p arrow/cpp/build
-pushd arrow/cpp/build
+mkdir -p /build/cpp
+pushd /build/cpp
 
 cmake -GNinja \
       -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-debug} \
@@ -42,7 +43,7 @@ cmake -GNinja \
       -DARROW_INSTALL_NAME_RPATH=${ARROW_INSTALL_NAME_RPATH:-ON} \
       -DARROW_EXTRA_ERROR_CONTEXT=ON \
       -DCMAKE_CXX_FLAGS=$CXXFLAGS \
-      ..
+      /arrow/cpp
 ninja
 ninja install
 

@@ -17,9 +17,12 @@
 
 FROM golang
 
-ADD go /arrow/go
+ADD go/arrow/Gopkg.lock \
+    go/arrow/Gopkg.toml \
+    /arrow/go/arrow/
 WORKDIR /arrow/go/arrow
 
-RUN go get -d -t -v ./... && \
-    go install -v ./...
-CMD go test
+RUN go get -d -t -v ./...
+
+CMD go install -v ./... && \
+    for d in $(go list ./... | grep -v vendor); do go test $d; done

@@ -16,9 +16,11 @@
 # under the License.
 
 .git
+docker_cache
 
 # IDE
 .vscode
+*/.vscode
 
 # c_glib
 c_glib/build
@@ -34,7 +36,12 @@ c_glib/*/.libs
 cpp/.idea
 cpp/build
 cpp/*-build
+cpp/*_build
 cpp/Testing
+cpp/thirdparty
+!cpp/thirdparty/jemalloc
+!cpp/thirdparty/versions.txt
+!cpp/thirdparty/hadoop/include
 
 # python
 python/build
