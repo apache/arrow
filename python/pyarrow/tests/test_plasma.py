@@ -304,7 +304,7 @@ class TestPlasmaClient(object):
             object_id = random_object_id()
             [result] = self.plasma_client.get_raw_bytes(
                 [object_id], timeout_ms=0)
-            assert result == None
+            assert result is None
 
     def test_put_and_get_serialization_context(self):
 
