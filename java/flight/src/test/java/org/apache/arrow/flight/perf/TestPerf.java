@@ -50,6 +50,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.flatbuffers.FlatBufferBuilder;
 import com.google.protobuf.ByteString;
 
+@org.junit.Ignore
 public class TestPerf {
 
   public static final boolean VALIDATE = false;
