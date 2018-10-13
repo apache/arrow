@@ -38,6 +38,7 @@ import org.junit.Test;
 /**
  * Ensure that example server supports get and put.
  */
+@org.junit.Ignore
 public class TestExampleServer {
 
   private BufferAllocator allocator;
