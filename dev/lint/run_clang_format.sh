@@ -18,8 +18,8 @@
 
 set -ex
 
-mkdir build_cpp
-pushd build_cpp
-cmake -GNinja /arrow/cpp
-ninja format
+mkdir -p /build/lint
+pushd /build/lint
+  cmake -GNinja /arrow/cpp
+  ninja format
 popd

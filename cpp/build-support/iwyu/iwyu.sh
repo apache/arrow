@@ -33,12 +33,12 @@ IWYU_ARGS="--mapping_file=$IWYU_MAPPINGS_PATH/boost-all.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/gflags.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/glog.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/gtest.imp \
-     --mapping_file=$IWYU_MAPPINGS_PATH/arrow-misc.imp"
+    --mapping_file=$IWYU_MAPPINGS_PATH/arrow-misc.imp"
 
 set -e
 
 if [ "$1" == "all" ]; then
-    python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p . \
+    python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p ${IWYU_COMPILATION_DATABASE_PATH:-.} \
         -- $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk
 else
   # Build the list of updated files which are of IWYU interest.
@@ -56,7 +56,7 @@ else
     IWYU_FILE_LIST="$IWYU_FILE_LIST $ROOT/$p"
   done
 
-  python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p . $IWYU_FILE_LIST  -- \
+  python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p ${IWYU_COMPILATION_DATABASE_PATH:-.} $IWYU_FILE_LIST  -- \
        $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk | \
        tee $IWYU_LOG
 fi

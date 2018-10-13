@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -15,9 +16,21 @@
 # limitations under the License.
 #
 
-FROM arrow_integration_xenial_base
+export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 
-ADD dev/iwyu/run_iwyu.sh /run_iwyu.sh
+mkdir -p /build/lint
+pushd /build/lint
 
-WORKDIR /tmp
-CMD /run_iwyu.sh
+cmake -GNinja \
+      -DARROW_PARQUET=ON \
+      -DARROW_PYTHON=ON \
+      -DCMAKE_CXX_FLAGS='-D_GLIBCXX_USE_CXX11_ABI=0' \
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+      /arrow/cpp
+# Make so that vendored bits are built
+ninja arrow_shared
+
+popd
+
+export IWYU_COMPILATION_DATABASE_PATH=/build/lint
+/arrow/cpp/build-support/iwyu/iwyu.sh all

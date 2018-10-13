@@ -17,20 +17,23 @@
 
 FROM ubuntu:18.04
 
-RUN apt-get update && \
-    apt-get install -y \
-        gcc \
-        g++ \
-        git \
-        wget \
-        pkg-config \
-        ninja-build
+# install build essentials
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+      autoconf \
+      automake \
+      ca-certificates \
+      ccache \
+      g++ \
+      gcc \
+      git \
+      ninja-build \
+      pkg-config \
+      wget
 
-ENV CC=gcc \
-    CXX=g++ \
-    PATH=/opt/conda/bin:$PATH \
+# install conda and required packages
+ENV PATH=/opt/conda/bin:$PATH \
     CONDA_PREFIX=/opt/conda
-
 ADD ci/docker_install_conda.sh \
     ci/conda_env_cpp.yml \
     /arrow/ci/
@@ -39,15 +42,10 @@ RUN arrow/ci/docker_install_conda.sh && \
         --file arrow/ci/conda_env_cpp.yml && \
     conda clean --all
 
-# build cpp with tests
-ENV ARROW_BUILD_TESTS=ON
-ADD ci/docker_build_cpp.sh /arrow/ci/
-ADD cpp /arrow/cpp
-ADD format /arrow/format
-ADD java/pom.xml /arrow/java/pom.xml
-RUN arrow/ci/docker_build_cpp.sh
+ENV CC=gcc \
+    CXX=g++ \
+    ARROW_BUILD_TESTS=ON
 
-# execute the tests
-WORKDIR arrow/cpp/build
-ENV PARQUET_TEST_DATA=/arrow/cpp/submodules/parquet-testing/data
-CMD ninja test
+# build, install and test
+CMD arrow/ci/docker_build_cpp.sh && \
+    ninja -C /build/cpp test

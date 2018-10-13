@@ -18,14 +18,14 @@
 
 set -ex
 
-mkdir build_cpp
-pushd build_cpp
-cmake -GNinja /arrow/cpp
-ninja check-format
-ninja lint
+mkdir -p /build/lint
+pushd /build/lint
+  cmake -GNinja /arrow/cpp
+  ninja check-format
+  ninja lint
 popd
 
 pushd /arrow/python
-flake8 --count pyarrow
-flake8 --count --config=.flake8.cython pyarrow
+  flake8 --count pyarrow
+  flake8 --count --config=.flake8.cython pyarrow
 popd

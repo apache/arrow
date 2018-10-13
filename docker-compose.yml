@@ -15,33 +15,54 @@
 # specific language governing permissions and limitations
 # under the License.
 
-version: '3.5'
-services:
+# Development containers for Arrow
 
-  # we can further improve the caching mechanism for go rust and js via
-  # early adding the dependencies explicitly (cargo.toml etc) to prevent
-  # reinstalling the dependencies on each modification
+version: '3.5'
+
+x-volumes:
+  &volumes
+  - .:/arrow:delegated
+  - ${ARROW_DOCKER_CACHE_DIR:-./docker_cache}:/build:delegated
+
+services:
 
   ######################### Language Containers ###############################
 
+  #TODO(kszucs): R
+
   c_glib:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build c_glib
+    #   docker-compose run c_glib
     image: arrow:c_glib
     build:
       context: .
       dockerfile: c_glib/Dockerfile
+    volumes: *volumes
 
   cpp:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose run cpp
     image: arrow:cpp
     shm_size: 2G
     build:
       context: .
       dockerfile: cpp/Dockerfile
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *volumes
 
   go:
+    # Usage:
+    #   docker-compose build go
+    #   docker-compose run go
     image: arrow:go
     build:
       context: .
       dockerfile: go/Dockerfile
+    volumes: *volumes
 
   java:
     image: arrow:java
@@ -56,6 +77,11 @@ services:
       dockerfile: js/Dockerfile
 
   python:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose run python
     image: arrow:python-${PYTHON_VERSION:-3.6}
     shm_size: 2G
     build:
@@ -63,14 +89,52 @@ services:
       dockerfile: python/Dockerfile
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
-
-  #TODO(kszucs): R
+    volumes: *volumes
 
   rust:
+    # Usage:
+    #   docker-compose build rust
+    #   docker-compose run rust
     image: arrow:rust
     build:
       context: .
       dockerfile: rust/Dockerfile
+    volumes: *volumes
+
+  ######################### Tools and Linters #################################
+
+  # TODO(kszucs): site
+  # TODO(kszucs): apidoc
+
+  lint:
+    # Usage:
+    #   docker-compose build lint
+    #   docker-compose run lint
+    image: arrow:lint
+    build:
+      context: .
+      dockerfile: dev/lint/Dockerfile
+    command: arrow/dev/lint/run_linters.sh
+    volumes: *volumes
+
+  iwyu:
+    # Usage:
+    #   docker-compose build lint
+    #   docker-compose run iwyu
+    image: arrow:lint
+    environment:
+      CC: clang
+      CXX: clang++
+    command: arrow/dev/lint/run_iwyu.sh
+    volumes: *volumes
+
+  clang-format:
+    # Usage:
+    #   docker-compose build lint
+    #   docker-compose run clang-format
+    image: arrow:lint
+    command: arrow/dev/lint/run_clang_format.sh
+    volumes: *volumes
 
   ######################### Integration Tests #################################
 
@@ -100,6 +164,12 @@ services:
       - hdfs-namenode:hdfs-namenode
 
   hdfs-integration:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build hdfs-integration
+    #   docker-compose run hdfs-integration
     links:
       - hdfs-namenode:hdfs-namenode
       - hdfs-datanode:hdfs-datanode
@@ -111,39 +181,6 @@ services:
       context: .
       dockerfile: integration/hdfs/Dockerfile
 
-  lint:
-    image: arrow:lint
-    shm_size: 2G
-    build:
-      context: .
-      dockerfile: dev/lint/Dockerfile
-    volumes:
-      - .:/arrow:delegated
-
-  # Depends on xenial base image, see dev/README.md
-  iwyu:
-    image: arrow:iwyu
-    build:
-      context: .
-      dockerfile: dev/iwyu/Dockerfile
-    volumes:
-      - .:/arrow:delegated
-
-  clang-format:
-    image: arrow:lint
-    shm_size: 2G
-    command: '/run_clang_format.sh'
-    build:
-      context: .
-      dockerfile: dev/lint/Dockerfile
-    volumes:
-      - .:/arrow:delegated
-
   # TODO(kszucs): dask-integration
   # TODO(kszucs): hive-integration
   # TODO(kszucs): spark-integration
-
-  ######################### Documentation #####################################
-
-  # TODO(kszucs): site
-  # TODO(kszucs): apidoc

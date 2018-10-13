@@ -24,14 +24,15 @@ export ARROW_C_GLIB_HOME=$CONDA_PREFIX
 export CFLAGS="-DARROW_NO_DEPRECATED_API"
 export CXXFLAGS="-DARROW_NO_DEPRECATED_API -D_GLIBCXX_USE_CXX11_ABI=0"
 
-pushd arrow/c_glib
-  mkdir build
+mkdir -p /build/c_glib
 
-  # Build with Meson
-  meson build --prefix=$ARROW_C_GLIB_HOME --libdir=lib
+# Build with Meson
+meson --prefix=$ARROW_C_GLIB_HOME \
+      --libdir=lib \
+      /build/c_glib \
+      /arrow/c_glib
 
-  pushd build
-    ninja
-    ninja install
-  popd
+pushd /build/c_glib
+  ninja
+  ninja install
 popd
