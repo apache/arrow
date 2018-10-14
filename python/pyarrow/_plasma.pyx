@@ -415,8 +415,8 @@ cdef class PlasmaClient:
 
         Parameters
         ----------
-        value : Python bytes
-            A Python bytes object to store.
+        value : Python object that implements the buffer protocol
+            A Python object to store to the plasma store.
         object_id : ObjectID, default None
             If this is provided, the specified object ID will be used to refer
             to the object.
@@ -430,12 +430,11 @@ cdef class PlasmaClient:
         """
         cdef ObjectID target_id = (object_id if object_id
                                    else ObjectID.from_random())
-        if not isinstance(value, bytes):
-            raise ValueError("Input value of put_raw_bytes should be bytes")
-        buffer = self.create(target_id, len(value))
-        stream = pyarrow.FixedSizeBufferWriter(buffer)
+        cdef Buffer arrow_buffer = py_buffer(value)
+        write_buffer = self.create(target_id, len(value))
+        stream = pyarrow.FixedSizeBufferWriter(write_buffer)
         stream.set_memcopy_threads(memcopy_threads)
-        stream.write(value)
+        stream.write(arrow_buffer)
         self.seal(target_id)
         return target_id
 
@@ -467,8 +466,7 @@ cdef class PlasmaClient:
             for i in range(object_buffers.size()):
                 if object_buffers[i].data.get() != nullptr:
                     size = object_buffers[i].data.get().size()
-                    results.append(bytes(
-                        object_buffers[i].data.get().data()[:size]))
+                    results.append(object_buffers[i].data.get().data()[:size])
                 else:
                     results.append(None)
             return results
