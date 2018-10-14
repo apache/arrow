@@ -1,0 +1,37 @@
+sudo: required
+
+services:
+  - docker
+
+cache:
+  directories:
+    - $HOME/arrow_docker_cache
+
+env:
+  global:
+    - DOCKER_COMPOSE_VERSION=1.22.0
+    - ARROW_DOCKER_CACHE_DIR=$HOME/arrow_docker_cache
+{%- if environment is defined %}
+  {%- for key, value in environment.items() %}
+    - {{ key }}={{ value }}
+  {%- endfor %}
+{%- endif %}
+
+before_install:
+  - sudo rm /usr/local/bin/docker-compose
+  - curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
+  - chmod +x docker-compose
+  - sudo mv docker-compose /usr/local/bin
+  - docker -v
+  - docker-compose -v
+
+before_script:
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - cd arrow
+  - git checkout {{ arrow.head }}
+  - git submodule update --init --recursive
+
+script:
+{%- for command in commands %}
+  - {{ command }}
+{%- endfor %}
