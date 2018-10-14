@@ -215,6 +215,7 @@ def test_schema():
     assert sch.field_by_name('foo').name == 'foo'
     assert sch.field_by_name('foo').type == fields[0].type
 
+
     assert repr(sch) == """\
 foo: int32
 bar: string

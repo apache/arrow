@@ -231,6 +231,19 @@ def test_struct_type():
 
     assert len(ty) == ty.num_children == 3
     assert list(ty) == fields
+    assert ty[0].name == 'a'
+    assert ty[2].type == pa.int32()
+    with pytest.raises(IndexError):
+        assert ty[3]
+
+    assert ty.field_by_name('a') == ty[1]
+    assert ty.field_by_name('b') == ty[2]
+    assert ty['a'] == ty[1]
+    assert ty['b'] == ty[2]
+    with pytest.raises(KeyError):
+        ty.field_by_name('c')
+    with pytest.raises(KeyError):
+        ty['c']
 
     for a, b in zip(ty, fields):
         a == b

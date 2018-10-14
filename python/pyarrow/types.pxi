@@ -103,6 +103,10 @@ cdef class DataType:
         self.type = type.get()
         self.pep3118_format = _datatype_to_pep3118(self.type)
 
+    cdef Field child(self, int i):
+        cdef int index = <int> _normalize_index(i, self.type.num_children())
+        return pyarrow_wrap_field(self.type.child(index))
+
     @property
     def id(self):
         return self.type.id()
@@ -207,6 +211,7 @@ cdef class StructType(DataType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
+        self.struct_type = <const CStructType*> type.get()
 
     def __len__(self):
         return self.type.num_children()
@@ -216,8 +221,10 @@ cdef class StructType(DataType):
             yield self[i]
 
     def __getitem__(self, i):
-        cdef int index = <int> _normalize_index(i, self.num_children)
-        return pyarrow_wrap_field(self.type.child(index))
+        if isinstance(i, six.string_types):
+            return self.field_by_name(i)
+        else:
+            return self.child(i)
 
     def __reduce__(self):
         return struct, (list(self),)
@@ -226,6 +233,22 @@ cdef class StructType(DataType):
     def num_children(self):
         return self.type.num_children()
 
+    def field_by_name(self, str name):
+        """
+        Access a field by its name rather than the column index.
+
+        Parameters
+        ----------
+        name: str
+
+        Returns
+        -------
+        field: pyarrow.Field
+        """
+        cdef int index = self.struct_type.GetChildIndex(tobytes(name))
+        if index < 0:
+            raise KeyError(name)
+        return self.child(index)
 
 cdef class UnionType(DataType):
 
@@ -254,8 +277,7 @@ cdef class UnionType(DataType):
             yield self[i]
 
     def __getitem__(self, i):
-        cdef int index = <int> _normalize_index(i, self.num_children)
-        return pyarrow_wrap_field(self.type.child(index))
+        return self.child(i)
 
     def __reduce__(self):
         return union, (list(self), self.mode)

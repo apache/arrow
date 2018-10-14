@@ -51,11 +51,17 @@ cdef class DataType:
         bytes pep3118_format
 
     cdef void init(self, const shared_ptr[CDataType]& type)
+    cdef Field child(self, int i)
 
 
 cdef class ListType(DataType):
     cdef:
         const CListType* list_type
+
+
+cdef class StructType(DataType):
+    cdef:
+        const CStructType* struct_type
 
 
 cdef class DictionaryType(DataType):
