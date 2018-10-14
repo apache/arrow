@@ -450,6 +450,9 @@ class ARROW_EXPORT ListArray : public Array {
   /// \brief Return array object containing the list's values
   std::shared_ptr<Array> values() const;
 
+  /// \brief Unnests the Array by one level
+  std::shared_ptr<Array> Flatten() const { return values(); }
+
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[1]; }
 

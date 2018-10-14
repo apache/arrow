@@ -391,6 +391,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int32_t value_offset(int i)
         int32_t value_length(int i)
         shared_ptr[CArray] values()
+        shared_ptr[CArray] Flatten()
         shared_ptr[CDataType] value_type()
 
     cdef cppclass CUnionArray" arrow::UnionArray"(CArray):

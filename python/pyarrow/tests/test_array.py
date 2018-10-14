@@ -1090,6 +1090,57 @@ def test_invalid_tensor_construction():
         pa.Tensor()
 
 
+def test_list_array_flatten():
+    typ2 = pa.list_(
+        pa.list_(
+            pa.int64()
+        )
+    )
+    arr2 = pa.array([
+        None,
+        [
+            [1, None, 2],
+            None,
+            [3, 4]
+        ],
+        [],
+        [
+            [],
+            [5, 6],
+            None
+        ],
+        [
+            [7, 8]
+        ]
+    ])
+    assert arr2.type.equals(typ2)
+
+    typ1 = pa.list_(pa.int64())
+    arr1 = pa.array([
+        [1, None, 2],
+        None,
+        [3, 4],
+        [],
+        [5, 6],
+        None,
+        [7, 8]
+    ])
+    assert arr1.type.equals(typ1)
+
+    typ0 = pa.int64()
+    arr0 = pa.array([
+        1, None, 2,
+        3, 4,
+        5, 6,
+        7, 8
+    ])
+    assert arr0.type.equals(typ0)
+
+    assert arr2.flatten().equals(arr1)
+    assert arr1.flatten().equals(arr0)
+    assert arr2.flatten().flatten().equals(arr0)
+
+
 def test_struct_array_flatten():
     ty = pa.struct([pa.field('x', pa.int16()),
                     pa.field('y', pa.float32())])
