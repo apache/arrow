@@ -26,7 +26,7 @@ cdef class Context:
     """ CUDA driver context.
     """
 
-    def __cinit__(self, int device_number=0, uintptr_t handle=0):
+    def __cinit__(self, int device_number=0, int handle=0):
         """Construct the shared CUDA driver context for a particular device.
 
         Parameters
@@ -34,7 +34,7 @@ cdef class Context:
         device_number : int
           Specify the gpu device for which the CUDA driver context is
           requested.
-        handle : void_p
+        handle : int
           Specify handle for a shared context that has been created by
           another library.
         """
@@ -70,12 +70,15 @@ cdef class Context:
         """
         if context is None:
             import numba.cuda
-            context = numba.cuda.cudadrv.devices.get_context()
+            context = numba.cuda.current_context()
         return Context(device_number=context.device.id,
                        handle=context.handle.value)
 
     def to_numba(self):
         """Convert Context to numba CUDA context.
+
+        Warning:
+          Note that using numba.cuda context manager is more robust.
 
         Returns
         -------
@@ -89,7 +92,7 @@ cdef class Context:
         context = numba.cuda.cudadrv.driver.Context(device, handle)
 
         class DummyPendingDeallocs(object):
-            # Context is management by pyarrow
+            # Context is managed by pyarrow
             def add_item(self, *args, **kwargs):
                 pass
 
@@ -151,7 +154,7 @@ cdef class Context:
 
         Parameters
         ----------
-        address : intptr_t
+        address : int
           Specify the starting address of the buffer.
         size : int
           Specify the size of device buffer in bytes.
