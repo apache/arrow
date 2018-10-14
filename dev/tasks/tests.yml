@@ -133,7 +133,10 @@ tasks:
     platform: linux
     template: docker-tests/travis.linux.yml
     params:
+      environment:
+        PYTHON_VERSION: 3.6
       commands:
+        - docker-compose build python
         - docker-compose build lint
         - docker-compose run lint
 
@@ -141,7 +144,10 @@ tasks:
     platform: linux
     template: docker-tests/travis.linux.yml
     params:
+      environment:
+        PYTHON_VERSION: 3.6
       commands:
+        - docker-compose build python
         - docker-compose build lint
         - docker-compose run iwyu
 
@@ -149,7 +155,10 @@ tasks:
     platform: linux
     template: docker-tests/travis.linux.yml
     params:
+      environment:
+        PYTHON_VERSION: 3.6
       commands:
+        - docker-compose build python
         - docker-compose build lint
         - docker-compose run clang-format
 
