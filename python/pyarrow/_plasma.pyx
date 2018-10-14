@@ -408,15 +408,15 @@ cdef class PlasmaClient:
                 result.append(None)
         return result
 
-    def put_raw_bytes(self, object value, ObjectID object_id=None,
-                      int memcopy_threads=6):
+    def put_buffer(self, object value, ObjectID object_id=None,
+                   int memcopy_threads=6):
         """
-        Store Python bytes value into the object store.
+        Store Python buffer into the object store.
 
         Parameters
         ----------
         value : Python object that implements the buffer protocol
-            A Python object to store to the plasma store.
+            A Python buffer object to store.
         object_id : ObjectID, default None
             If this is provided, the specified object ID will be used to refer
             to the object.
@@ -426,11 +426,11 @@ cdef class PlasmaClient:
 
         Returns
         -------
-        The object ID associated to the Python bytes object.
+        The object ID associated to the Python buffer object.
         """
         cdef ObjectID target_id = (object_id if object_id
                                    else ObjectID.from_random())
-        cdef Buffer arrow_buffer = py_buffer(value)
+        cdef Buffer arrow_buffer = pyarrow.py_buffer(value)
         write_buffer = self.create(target_id, len(value))
         stream = pyarrow.FixedSizeBufferWriter(write_buffer)
         stream.set_memcopy_threads(memcopy_threads)
@@ -438,9 +438,9 @@ cdef class PlasmaClient:
         self.seal(target_id)
         return target_id
 
-    def get_raw_bytes(self, object_ids, int timeout_ms=-1):
+    def get_buffer(self, object_ids, int timeout_ms=-1):
         """
-        Get one or more Python bytes values from the object store.
+        Get one or more Python buffers from the object store.
 
         Parameters
         ----------
@@ -454,8 +454,8 @@ cdef class PlasmaClient:
 
         Returns
         -------
-        list of bytes or bytes object
-            Python bytes value or list of Python bytes values for the data
+        list of buffer objects or a buffer object
+            Python buffer or list of Python buffer for the data
             associated with the object_ids and ObjectNotAvailable if the
             object was not available.
         """
@@ -471,7 +471,7 @@ cdef class PlasmaClient:
                     results.append(None)
             return results
         else:
-            return self.get_raw_bytes([object_ids], timeout_ms)[0]
+            return self.get_buffer([object_ids], timeout_ms)[0]
 
     def put(self, object value, ObjectID object_id=None, int memcopy_threads=6,
             serialization_context=None):
