@@ -1146,6 +1146,28 @@ cdef class StructArray(Array):
             CStructArray* sarr = <CStructArray*> self.ap
         return pyarrow_wrap_array(sarr.field(ix))
 
+    def field_by_name(self, str name):
+        """
+        Retrieves the child array belonging to field by its name
+
+        Parameters
+        ----------
+        name : string
+            Name of the field
+
+        Returns
+        -------
+        result : Array
+        """
+        cdef:
+            CStructArray* sarr = <CStructArray*> self.ap
+            shared_ptr[CArray] field_arr = sarr.GetFieldByName(tobytes(name))
+
+        if field_arr == nullptr:
+            raise KeyError(name)
+        else:
+            return pyarrow_wrap_array(field_arr)
+
     def flatten(self, MemoryPool memory_pool=None):
         """
         Flatten this StructArray, returning one individual array for each

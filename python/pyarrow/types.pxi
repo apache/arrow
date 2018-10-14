@@ -245,10 +245,14 @@ cdef class StructType(DataType):
         -------
         field: pyarrow.Field
         """
-        cdef int index = self.struct_type.GetChildIndex(tobytes(name))
-        if index < 0:
+        cdef shared_ptr[CField] field
+
+        field = self.struct_type.GetChildByName(tobytes(name))
+        if field == nullptr:
             raise KeyError(name)
-        return self.child(index)
+        else:
+            return pyarrow_wrap_field(field)
+
 
 cdef class UnionType(DataType):
 
