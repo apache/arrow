@@ -188,9 +188,12 @@ services:
     #   docker-compose build python
     #   docker-compose build pandas-master
     #   docker-compose run pandas-master
+    image: arrow:pandas-master
     build:
       context: .
       dockerfile: integration/pandas/Dockerfile
+    shm_size: 2G
+    volumes: *volumes
 
 
   # TODO(kszucs): dask-integration
