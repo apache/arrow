@@ -43,7 +43,7 @@ tasks:
   #              e.g.:
   #     - pyarrow-{version}-py36(h[a-z0-9]+)_0-linux-64.tar.bz2
 
-  ############################## Docker tests ################################
+  ############################## Language containers #########################
 
   docker-rust:
     platform: linux
@@ -78,6 +78,22 @@ tasks:
         - docker-compose build go
         - docker-compose run go
 
+  docker-js:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      commands:
+        - docker-compose build js
+        - docker-compose run js
+
+  docker-java:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      commands:
+        - docker-compose build java
+        - docker-compose run java
+
   docker-python-2.7:
     platform: linux
     template: docker-tests/travis.linux.yml
@@ -110,3 +126,39 @@ tasks:
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose run python
+
+  ############################## Linter tests #################################
+
+  docker-lint:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      commands:
+        - docker-compose build lint
+        - docker-compose run lint
+
+  docker-iwyu:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      commands:
+        - docker-compose build lint
+        - docker-compose run iwyu
+
+  docker-clang-format:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      commands:
+        - docker-compose build lint
+        - docker-compose run clang-format
+
+  ############################## Integration tests ############################
+
+  docker-hdfs-integration:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      commands:
+        - docker-compose build hdfs-integration
+        - docker-compose run hdfs-integration
