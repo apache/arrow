@@ -18,15 +18,16 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.SmallIntReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.holders.SmallIntHolder;
 import org.apache.arrow.vector.holders.NullableSmallIntHolder;
+import org.apache.arrow.vector.holders.SmallIntHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * SmallIntVector implements a fixed width (2 bytes) vector of
@@ -282,9 +283,8 @@ public class SmallIntVector extends BaseFixedWidthVector {
    */
   public void setNull(int index) {
     handleSafe(index);
-      /* not really needed to set the bit to 0 as long as
-       * the buffer always starts from 0.
-       */
+    // not really needed to set the bit to 0 as long as
+    // the buffer always starts from 0.
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 

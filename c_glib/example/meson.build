@@ -18,8 +18,8 @@
 # under the License.
 
 executable('build', 'build.c',
-	   dependencies: [libarrow_glib_dependency])
+	   dependencies: [arrow_glib])
 executable('read-batch', 'read-batch.c',
-	   dependencies: [libarrow_glib_dependency])
+	   dependencies: [arrow_glib])
 executable('read-stream', 'read-stream.c',
-	   dependencies: [libarrow_glib_dependency])
+	   dependencies: [arrow_glib])

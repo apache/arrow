@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/api.h"
-#include "arrow/io/api.h"
-#include "arrow/ipc/api.h"
+#include "arrow/api.h"      // IWYU pragma: keep
+#include "arrow/io/api.h"   // IWYU pragma: keep
+#include "arrow/ipc/api.h"  // IWYU pragma: keep
 
 #ifdef DCHECK
 #error "DCHECK should not be visible from Arrow public headers."

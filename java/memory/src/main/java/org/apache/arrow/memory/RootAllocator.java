@@ -18,7 +18,7 @@
 
 package org.apache.arrow.memory;
 
-import com.google.common.annotations.VisibleForTesting;
+import org.apache.arrow.util.VisibleForTesting;
 
 /**
  * The root allocator for using direct memory inside a Drillbit. Supports creating a

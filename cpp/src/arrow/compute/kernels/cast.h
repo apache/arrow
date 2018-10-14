@@ -23,22 +23,35 @@
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
-#include "arrow/compute/kernel.h"
-
 namespace arrow {
 
 class Array;
-class ChunkedArray;
-class Column;
 class DataType;
 
 namespace compute {
 
+struct Datum;
+class FunctionContext;
+class UnaryKernel;
+
 struct ARROW_EXPORT CastOptions {
-  CastOptions() : allow_int_overflow(false), allow_time_truncate(false) {}
+  CastOptions()
+      : allow_int_overflow(false),
+        allow_time_truncate(false),
+        allow_float_truncate(false) {}
+
+  explicit CastOptions(bool safe)
+      : allow_int_overflow(!safe),
+        allow_time_truncate(!safe),
+        allow_float_truncate(!safe) {}
+
+  static CastOptions Safe() { return CastOptions(true); }
+
+  static CastOptions Unsafe() { return CastOptions(false); }
 
   bool allow_int_overflow;
   bool allow_time_truncate;
+  bool allow_float_truncate;
 };
 
 /// \since 0.7.0

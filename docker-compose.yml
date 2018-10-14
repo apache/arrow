@@ -1,0 +1,186 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Development containers for Arrow
+
+version: '3.5'
+
+x-volumes:
+  &volumes
+  - .:/arrow:delegated
+  - ${ARROW_DOCKER_CACHE_DIR:-./docker_cache}:/build:delegated
+
+services:
+
+  ######################### Language Containers ###############################
+
+  #TODO(kszucs): R
+
+  c_glib:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build c_glib
+    #   docker-compose run c_glib
+    image: arrow:c_glib
+    build:
+      context: .
+      dockerfile: c_glib/Dockerfile
+    volumes: *volumes
+
+  cpp:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose run cpp
+    image: arrow:cpp
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *volumes
+
+  go:
+    # Usage:
+    #   docker-compose build go
+    #   docker-compose run go
+    image: arrow:go
+    build:
+      context: .
+      dockerfile: go/Dockerfile
+    volumes: *volumes
+
+  java:
+    image: arrow:java
+    build:
+      context: .
+      dockerfile: java/Dockerfile
+
+  js:
+    image: arrow:js
+    build:
+      context: .
+      dockerfile: js/Dockerfile
+
+  python:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose run python
+    image: arrow:python-${PYTHON_VERSION:-3.6}
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: python/Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+    volumes: *volumes
+
+  rust:
+    # Usage:
+    #   docker-compose build rust
+    #   docker-compose run rust
+    image: arrow:rust
+    build:
+      context: .
+      dockerfile: rust/Dockerfile
+    volumes: *volumes
+
+  ######################### Tools and Linters #################################
+
+  # TODO(kszucs): site
+  # TODO(kszucs): apidoc
+
+  lint:
+    # Usage:
+    #   docker-compose build lint
+    #   docker-compose run lint
+    image: arrow:lint
+    build:
+      context: .
+      dockerfile: dev/lint/Dockerfile
+    command: arrow/dev/lint/run_linters.sh
+    volumes: *volumes
+
+  iwyu:
+    # Usage:
+    #   docker-compose build lint
+    #   docker-compose run iwyu
+    image: arrow:lint
+    environment:
+      CC: clang
+      CXX: clang++
+    command: arrow/dev/lint/run_iwyu.sh
+    volumes: *volumes
+
+  clang-format:
+    # Usage:
+    #   docker-compose build lint
+    #   docker-compose run clang-format
+    image: arrow:lint
+    command: arrow/dev/lint/run_clang_format.sh
+    volumes: *volumes
+
+  ######################### Integration Tests #################################
+
+  # impala:
+  #   image: cpcloud86/impala:java8-1
+  #   ports:
+  #     - "21050"
+  #   hostname: impala
+
+  hdfs-namenode:
+    image: gelog/hadoop
+    shm_size: 2G
+    ports:
+      - "9000:9000"
+      - "50070:50070"
+    command: hdfs namenode
+    hostname: hdfs-namenode
+
+  hdfs-datanode:
+    image: gelog/hadoop
+    command: hdfs datanode
+    ports:
+      # The host port is randomly assigned by Docker, to allow scaling
+      # to multiple DataNodes on the same host
+      - "50075"
+    links:
+      - hdfs-namenode:hdfs-namenode
+
+  hdfs-integration:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build hdfs-integration
+    #   docker-compose run hdfs-integration
+    links:
+      - hdfs-namenode:hdfs-namenode
+      - hdfs-datanode:hdfs-datanode
+    environment:
+      - ARROW_HDFS_TEST_HOST=hdfs-namenode
+      - ARROW_HDFS_TEST_PORT=9000
+      - ARROW_HDFS_TEST_USER=root
+    build:
+      context: .
+      dockerfile: integration/hdfs/Dockerfile
+
+  # TODO(kszucs): dask-integration
+  # TODO(kszucs): hive-integration
+  # TODO(kszucs): spark-integration

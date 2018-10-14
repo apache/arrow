@@ -18,21 +18,20 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/ipc/json.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
-#include "arrow/status.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -184,7 +183,7 @@ TEST(TestJsonArrayWriter, NestedTypes) {
 
   std::shared_ptr<Buffer> list_bitmap;
   ASSERT_OK(GetBitmapFromVector(list_is_valid, &list_bitmap));
-  std::shared_ptr<Buffer> offsets_buffer = GetBufferFromVector(offsets);
+  std::shared_ptr<Buffer> offsets_buffer = Buffer::Wrap(offsets);
 
   ListArray list_array(list(value_type), 5, offsets_buffer, values_array, list_bitmap, 1);
 
@@ -345,8 +344,7 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
 }
 )example";
 
-  auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(example),
-                                         strlen(example));
+  auto buffer = Buffer::Wrap(example, strlen(example));
 
   std::unique_ptr<JsonReader> reader;
   ASSERT_OK(JsonReader::Open(buffer, &reader));

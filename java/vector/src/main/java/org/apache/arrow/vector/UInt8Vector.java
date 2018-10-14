@@ -21,8 +21,8 @@ package org.apache.arrow.vector;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.UInt8ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.holders.UInt8Holder;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
+import org.apache.arrow.vector.holders.UInt8Holder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -216,9 +216,8 @@ public class UInt8Vector extends BaseFixedWidthVector {
    */
   public void setNull(int index) {
     handleSafe(index);
-      /* not really needed to set the bit to 0 as long as
-       * the buffer always starts from 0.
-       */
+    // not really needed to set the bit to 0 as long as
+    // the buffer always starts from 0.
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 

@@ -63,6 +63,15 @@ describe(`Uint64`, () => {
         let b = new Uint64(new Uint32Array([568, 32]));
         expect(a.lessThan(b)).toBeTruthy();
     });
+    test(`fromString parses string`, () => {
+        expect(Uint64.fromString('6789123456789')).toEqual(new Int64(new Uint32Array([0xb74abf15, 0x62c])));
+    });
+    test(`fromString parses big (full unsigned 64-bit) string`, () => {
+        expect(Uint64.fromString('18364758544493064720')).toEqual(new Uint64(new Uint32Array([0x76543210, 0xfedcba98])));
+    });
+    test(`fromNumber converts 53-ish bit number`, () => {
+        expect(Uint64.fromNumber(8086463330923024)).toEqual(new Uint64(new Uint32Array([0x76543210, 0x001cba98])));
+    });
 });
 
 describe(`Int64`, () => {
@@ -150,6 +159,10 @@ describe(`Int64`, () => {
     test(`fromString parses negative string`, () => {
         expect(Int64.fromString('-6789123456789')).toEqual(new Int64(new Uint32Array([0x48b540eb, 0xfffff9d3])));
     });
+    test(`fromNumber converts 53-ish bit number`, () => {
+        expect(Int64.fromNumber(8086463330923024)).toEqual(new Int64(new Uint32Array([0x76543210, 0x001cba98])));
+        expect(Int64.fromNumber(-8086463330923024)).toEqual(new Int64(new Uint32Array([0x89abcdf0, 0xffe34567])));
+    });
 });
 
 describe(`Int128`, () => {
@@ -220,5 +233,9 @@ describe(`Int128`, () => {
                                                 0x3bb66faf,
                                                 0x0ffdccec,
                                                 0xf6b64f09])));
+    });
+    test(`fromNumber converts 53-ish bit number`, () => {
+        expect(Int128.fromNumber(8086463330923024)).toEqual(new Int128(new Uint32Array([0x76543210, 0x001cba98, 0, 0])));
+        expect(Int128.fromNumber(-8086463330923024)).toEqual(new Int128(new Uint32Array([0x89abcdf0, 0xffe34567, 0xffffffff, 0xffffffff])));
     });
 });

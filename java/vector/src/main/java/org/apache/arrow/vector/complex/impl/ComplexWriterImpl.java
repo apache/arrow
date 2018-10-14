@@ -18,17 +18,15 @@
 
 package org.apache.arrow.vector.complex.impl;
 
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
-import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.StateTool;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.types.pojo.Field;
 
-import com.google.common.base.Preconditions;
-
 public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWriter {
-//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ComplexWriterImpl.class);
 
   private NullableStructWriter structRoot;
   private UnionListWriter listRoot;
@@ -39,16 +37,19 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   private final boolean unionEnabled;
   private final NullableStructWriterFactory nullableStructWriterFactory;
 
-  private enum Mode {INIT, STRUCT, LIST}
+  private enum Mode { INIT, STRUCT, LIST }
 
-  ;
-
-  public ComplexWriterImpl(String name, NonNullableStructVector container, boolean unionEnabled, boolean caseSensitive) {
+  public ComplexWriterImpl(
+      String name,
+      NonNullableStructVector container,
+      boolean unionEnabled,
+      boolean caseSensitive) {
     this.name = name;
     this.container = container;
     this.unionEnabled = unionEnabled;
-    nullableStructWriterFactory = caseSensitive ? NullableStructWriterFactory.getNullableCaseSensitiveStructWriterFactoryInstance() :
-        NullableStructWriterFactory.getNullableStructWriterFactoryInstance();
+    nullableStructWriterFactory = caseSensitive ?
+      NullableStructWriterFactory.getNullableCaseSensitiveStructWriterFactoryInstance() :
+      NullableStructWriterFactory.getNullableStructWriterFactoryInstance();
   }
 
   public ComplexWriterImpl(String name, NonNullableStructVector container, boolean unionEnabled) {

@@ -22,17 +22,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.MapWithOrdinal;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -136,7 +134,8 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
       }
       return vector;
     }
-    final String message = "Arrow does not support schema change yet. Existing[%s] and desired[%s] vector types mismatch";
+    final String message = "Arrow does not support schema change yet. Existing[%s] and desired[%s] vector types " +
+        "mismatch";
     throw new IllegalStateException(String.format(message, existing.getClass().getSimpleName(), clazz.getSimpleName()));
   }
 
@@ -179,7 +178,8 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   protected ValueVector add(String childName, FieldType fieldType) {
     final ValueVector existing = getChild(childName);
     if (existing != null) {
-      throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ", existing.getClass().getSimpleName(), fieldType));
+      throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ",
+        existing.getClass().getSimpleName(), fieldType));
     }
     FieldVector vector = fieldType.createNewSingleVector(childName, allocator, callBack);
     putChild(childName, vector);
@@ -231,11 +231,9 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   protected List<String> getChildFieldNames() {
-    ImmutableList.Builder<String> builder = ImmutableList.builder();
-    for (ValueVector child : getChildren()) {
-      builder.add(child.getField().getName());
-    }
-    return builder.build();
+    return getChildren().stream()
+        .map(child -> child.getField().getName())
+        .collect(Collectors.toList());
   }
 
   /**
@@ -255,7 +253,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
    * @return a list of scalar child vectors recursing the entire vector hierarchy.
    */
   public List<ValueVector> getPrimitiveVectors() {
-    final List<ValueVector> primitiveVectors = Lists.newArrayList();
+    final List<ValueVector> primitiveVectors = new ArrayList<>();
     for (final ValueVector v : vectors.values()) {
       if (v instanceof AbstractStructVector) {
         AbstractStructVector structVector = (AbstractStructVector) v;
@@ -283,7 +281,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    final List<ArrowBuf> buffers = Lists.newArrayList();
+    final List<ArrowBuf> buffers = new ArrayList<>();
 
     for (final ValueVector vector : vectors.values()) {
       for (final ArrowBuf buf : vector.getBuffers(false)) {

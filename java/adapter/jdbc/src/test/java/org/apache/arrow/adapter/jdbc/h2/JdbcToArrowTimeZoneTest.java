@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertDateVectorValues;
@@ -60,15 +61,15 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
   private static final String PST_TIMESTAMP = "pst_timestamp";
 
   private static final String[] testFiles = {
-          "h2/test1_est_date_h2.yml",
-          "h2/test1_est_time_h2.yml",
-          "h2/test1_est_timestamp_h2.yml",
-          "h2/test1_gmt_date_h2.yml",
-          "h2/test1_gmt_time_h2.yml",
-          "h2/test1_gmt_timestamp_h2.yml",
-          "h2/test1_pst_date_h2.yml",
-          "h2/test1_pst_time_h2.yml",
-          "h2/test1_pst_timestamp_h2.yml"
+    "h2/test1_est_date_h2.yml",
+    "h2/test1_est_time_h2.yml",
+    "h2/test1_est_timestamp_h2.yml",
+    "h2/test1_gmt_date_h2.yml",
+    "h2/test1_gmt_time_h2.yml",
+    "h2/test1_gmt_timestamp_h2.yml",
+    "h2/test1_pst_date_h2.yml",
+    "h2/test1_pst_time_h2.yml",
+    "h2/test1_pst_timestamp_h2.yml"
   };
 
   /**
@@ -100,11 +101,11 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
   @Test
   public void testJdbcToArroValues() throws SQLException, IOException {
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
+        Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
+        new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
+    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+        Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
   }
 
   /**
@@ -117,17 +118,20 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
       case EST_DATE:
       case GMT_DATE:
       case PST_DATE:
-        assertDateVectorValues((DateMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+        assertDateVectorValues((DateMilliVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getLongValues());
         break;
       case EST_TIME:
       case GMT_TIME:
       case PST_TIME:
-        assertTimeVectorValues((TimeMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+        assertTimeVectorValues((TimeMilliVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getLongValues());
         break;
       case EST_TIMESTAMP:
       case GMT_TIMESTAMP:
       case PST_TIMESTAMP:
-        assertTimeStampVectorValues((TimeStampVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+        assertTimeStampVectorValues((TimeStampVector) root.getVector(table.getVector()), table.getValues().length,
+            table.getLongValues());
         break;
     }
   }

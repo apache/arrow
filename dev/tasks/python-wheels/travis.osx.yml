@@ -25,17 +25,17 @@ env:
   global:
     - PLAT=x86_64
     - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
-    - PYARROW_VERSION={{ arrow.version }}
     - MACOSX_DEPLOYMENT_TARGET="10.9"
-    - MB_PYTHON_VERSION={{ python_version }}
-    - NP_BUILD_DEP="{{ numpy_build_version }}"
-    - NP_TEST_DEP="{{ numpy_test_version }}"
-    - PANDAS_DEP="{{ pandas_version }}"
+    - PYARROW_VERSION={{ arrow.version }}
     - PYARROW_BUILD_VERBOSE=1
+    - MB_PYTHON_VERSION={{ python_version }}
+    - BUILD_DEPENDS="wheel=={{ wheel_version }} numpy=={{ numpy_version }} cython==0.27.3 six"
+    - TEST_DEPENDS="numpy=={{ numpy_version }} pandas=={{ pandas_version }} six"
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild # TODO pin it
+  - git -C multibuild checkout 4e7a9396e9a50731bb83fc0d16bb98fb0c4032d7
+
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
 
@@ -52,13 +52,10 @@ before_install:
   - before_install
 
 install:
-  - BUILD_DEPENDS="numpy==$NP_BUILD_DEP six cython"
-  - TEST_DEPENDS="numpy==$NP_TEST_DEP six pandas==$PANDAS_DEP"
-
   - mkdir -p dist
 
   # multibuild's default clean_code function
-  - clean_code arrow $BUILD_REF
+  - clean_code arrow {{ arrow.head }}
 
   # the following functions are defined in osx-build.sh
   - build_wheel arrow

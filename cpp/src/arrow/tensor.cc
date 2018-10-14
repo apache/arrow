@@ -25,12 +25,13 @@
 #include <vector>
 
 #include "arrow/compare.h"
-#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::checked_cast;
 
 static void ComputeRowMajorStrides(const FixedWidthType& type,
                                    const std::vector<int64_t>& shape,

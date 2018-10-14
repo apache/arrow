@@ -25,7 +25,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/variant.h"
+#include "arrow/util/variant.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -103,6 +103,10 @@ struct ARROW_EXPORT Datum {
     return util::get<std::shared_ptr<ArrayData>>(this->value);
   }
 
+  std::shared_ptr<Array> make_array() const {
+    return MakeArray(util::get<std::shared_ptr<ArrayData>>(this->value));
+  }
+
   std::shared_ptr<ChunkedArray> chunked_array() const {
     return util::get<std::shared_ptr<ChunkedArray>>(this->value);
   }
@@ -133,6 +137,14 @@ struct ARROW_EXPORT Datum {
 class ARROW_EXPORT UnaryKernel : public OpKernel {
  public:
   virtual Status Call(FunctionContext* ctx, const Datum& input, Datum* out) = 0;
+};
+
+/// \class BinaryKernel
+/// \brief An array-valued function of a two input arguments
+class ARROW_EXPORT BinaryKernel : public OpKernel {
+ public:
+  virtual Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+                      Datum* out) = 0;
 };
 
 }  // namespace compute

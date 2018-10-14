@@ -16,21 +16,21 @@
 // under the License.
 
 #include <cstdint>
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <sstream>
+#include <string>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
+#include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 
 namespace arrow {

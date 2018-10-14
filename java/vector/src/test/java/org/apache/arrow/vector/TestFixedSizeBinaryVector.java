@@ -18,7 +18,8 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
+import static org.junit.Assert.*;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
 import org.apache.arrow.vector.holders.NullableFixedSizeBinaryHolder;
@@ -26,7 +27,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import io.netty.buffer.ArrowBuf;
 
 public class TestFixedSizeBinaryVector {
   private static final int numValues = 123;
@@ -128,7 +129,7 @@ public class TestFixedSizeBinaryVector {
 
   @After
   public void terminate() throws Exception {
-    for (int i=0; i<numValues; i++) {
+    for (int i = 0; i < numValues; i++) {
       bufs[i].close();
     }
     smallBuf.close();

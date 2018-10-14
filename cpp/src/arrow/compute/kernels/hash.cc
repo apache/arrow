@@ -17,25 +17,43 @@
 
 #include "arrow/compute/kernels/hash.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
 #include <exception>
-#include <limits>
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/util-internal.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash-util.h"
 #include "arrow/util/hash.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
+
+class MemoryPool;
+
+using internal::checked_cast;
+
 namespace compute {
+
+// TODO(wesm): Enable top-level dispatch to SSE4 hashing if it is enabled
+#define HASH_USE_SSE false
 
 namespace {
 
@@ -298,7 +316,7 @@ class HashTableKernel<
  protected:
   int64_t HashValue(const T& value) const {
     // TODO(wesm): Use faster hash function for C types
-    return HashUtil::Hash(&value, sizeof(T), 0);
+    return HashUtil::Hash<HASH_USE_SSE>(&value, sizeof(T), 0);
   }
 
   Status DoubleTableSize() {
@@ -489,7 +507,7 @@ class HashTableKernel<Type, Action, enable_if_binary<Type>> : public HashTable {
 
  protected:
   int64_t HashValue(const uint8_t* data, int32_t length) const {
-    return HashUtil::Hash(data, length, 0);
+    return HashUtil::Hash<HASH_USE_SSE>(data, length, 0);
   }
 
   Status DoubleTableSize() {
@@ -595,7 +613,7 @@ class HashTableKernel<Type, Action, enable_if_fixed_size_binary<Type>>
 
  protected:
   int64_t HashValue(const uint8_t* data) const {
-    return HashUtil::Hash(data, byte_width_, 0);
+    return HashUtil::Hash<HASH_USE_SSE>(data, byte_width_, 0);
   }
 
   Status DoubleTableSize() {

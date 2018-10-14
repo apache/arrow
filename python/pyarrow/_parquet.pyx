@@ -674,16 +674,17 @@ cdef class ParquetReader:
     def num_row_groups(self):
         return self.reader.get().num_row_groups()
 
-    def set_num_threads(self, int nthreads):
-        self.reader.get().set_num_threads(nthreads)
+    def set_use_threads(self, bint use_threads):
+        self.reader.get().set_use_threads(use_threads)
 
-    def read_row_group(self, int i, column_indices=None, nthreads=None):
+    def read_row_group(self, int i, column_indices=None,
+                       bint use_threads=True):
         cdef:
             shared_ptr[CTable] ctable
             vector[int] c_column_indices
 
-        if nthreads:
-            self.set_num_threads(nthreads)
+        if use_threads:
+            self.set_use_threads(use_threads)
 
         if column_indices is not None:
             for index in column_indices:
@@ -699,13 +700,13 @@ cdef class ParquetReader:
                              .ReadRowGroup(i, &ctable))
         return pyarrow_wrap_table(ctable)
 
-    def read_all(self, column_indices=None, nthreads=None):
+    def read_all(self, column_indices=None, bint use_threads=True):
         cdef:
             shared_ptr[CTable] ctable
             vector[int] c_column_indices
 
-        if nthreads:
-            self.set_num_threads(nthreads)
+        if use_threads:
+            self.set_use_threads(use_threads)
 
         if column_indices is not None:
             for index in column_indices:
@@ -803,6 +804,7 @@ cdef class ParquetWriter:
         object use_dictionary
         object use_deprecated_int96_timestamps
         object coerce_timestamps
+        object allow_truncated_timestamps
         object compression
         object version
         int row_group_size
@@ -811,7 +813,8 @@ cdef class ParquetWriter:
                   compression=None, version=None,
                   MemoryPool memory_pool=None,
                   use_deprecated_int96_timestamps=False,
-                  coerce_timestamps=None):
+                  coerce_timestamps=None,
+                  allow_truncated_timestamps=False):
         cdef:
             shared_ptr[WriterProperties] properties
             c_string c_where
@@ -834,6 +837,7 @@ cdef class ParquetWriter:
         self.version = version
         self.use_deprecated_int96_timestamps = use_deprecated_int96_timestamps
         self.coerce_timestamps = coerce_timestamps
+        self.allow_truncated_timestamps = allow_truncated_timestamps
 
         cdef WriterProperties.Builder properties_builder
         self._set_version(&properties_builder)
@@ -844,6 +848,7 @@ cdef class ParquetWriter:
         cdef ArrowWriterProperties.Builder arrow_properties_builder
         self._set_int96_support(&arrow_properties_builder)
         self._set_coerce_timestamps(&arrow_properties_builder)
+        self._set_allow_truncated_timestamps(&arrow_properties_builder)
         arrow_properties = arrow_properties_builder.build()
 
         pool = maybe_unbox_memory_pool(memory_pool)
@@ -868,6 +873,13 @@ cdef class ParquetWriter:
         elif self.coerce_timestamps is not None:
             raise ValueError('Invalid value for coerce_timestamps: {0}'
                              .format(self.coerce_timestamps))
+
+    cdef void _set_allow_truncated_timestamps(
+            self, ArrowWriterProperties.Builder* props):
+        if self.allow_truncated_timestamps:
+            props.allow_truncated_timestamps()
+        else:
+            props.disallow_truncated_timestamps()
 
     cdef void _set_version(self, WriterProperties.Builder* props):
         if self.version is not None:

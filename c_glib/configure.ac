@@ -70,10 +70,19 @@ esac
 AC_MSG_RESULT([$os_macos])
 AM_CONDITIONAL(OS_MACOS, test "$os_macos" = "yes")
 
+LT_INIT
+LT_CURRENT=${GARROW_VERSION_MINOR}
+LT_REVISION=${GARROW_VERSION_MICRO}
+LT_AGE=0
+LT_VERSION_INFO="\$(LT_CURRENT):\$(LT_REVISION):\$(LT_AGE)"
+AC_SUBST(LT_CURRENT)
+AC_SUBST(LT_REVISION)
+AC_SUBST(LT_AGE)
+AC_SUBST(LT_VERSION_INFO)
+
 AC_PROG_CC
 AC_PROG_CXX
 AX_CXX_COMPILE_STDCXX_11([ext], [mandatory])
-LT_INIT
 
 GARROW_CFLAGS="-Wall"
 GARROW_CXXFLAGS="-Wall"
@@ -102,9 +111,9 @@ GTK_DOC_CHECK([1.18-2])
 
 AC_ARG_WITH(arrow-cpp-build-type,
   [AS_HELP_STRING([--with-arrow-cpp-build-type=TYPE],
-                  [-DCMAKE_BUILD_TYPE option value for Arrow C++ (default=Release)])],
+                  [-DCMAKE_BUILD_TYPE option value for Arrow C++ (default=release)])],
   [GARROW_ARROW_CPP_BUILD_TYPE="$withval"],
-  [GARROW_ARROW_CPP_BUILD_TYPE="Release"])
+  [GARROW_ARROW_CPP_BUILD_TYPE="release"])
 
 AC_ARG_WITH(arrow-cpp-build-dir,
   [AS_HELP_STRING([--with-arrow-cpp-build-dir=PATH],
@@ -125,6 +134,10 @@ if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
                     [arrow-gpu],
                     [HAVE_ARROW_GPU=yes],
                     [HAVE_ARROW_GPU=no])
+  PKG_CHECK_MODULES([PARQUET],
+                    [parquet],
+                    [HAVE_PARQUET=yes],
+                    [HAVE_PARQUET=no])
 else
   USE_ARROW_BUILD_DIR=yes
 
@@ -157,6 +170,17 @@ else
   fi
   AC_SUBST(ARROW_GPU_CFLAGS)
   AC_SUBST(ARROW_GPU_LIBS)
+
+  PARQUET_CFLAGS=""
+  if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/parquet/parquet.pc"; then
+    HAVE_PARQUET=yes
+    PARQUET_LIBS="-lparquet"
+  else
+    HAVE_PARQUET=no
+    PARQUET_LIBS=""
+  fi
+  AC_SUBST(PARQUET_CFLAGS)
+  AC_SUBST(PARQUET_LIBS)
 fi
 
 AM_CONDITIONAL([USE_ARROW_BUILD_DIR],
@@ -172,6 +196,11 @@ if test "$HAVE_ARROW_GPU" = "yes"; then
   AC_DEFINE(HAVE_ARROW_GPU, [1], [Define to 1 if Apache Arrow supports GPU.])
 fi
 
+AM_CONDITIONAL([HAVE_PARQUET], [test "$HAVE_PARQUET" = "yes"])
+if test "$HAVE_PARQUET" = "yes"; then
+  AC_DEFINE(HAVE_PARQUET, [1], [Define to 1 if Apache Parquet exists.])
+fi
+
 exampledir="\$(datadir)/arrow-glib/example"
 AC_SUBST(exampledir)
 
@@ -183,9 +212,13 @@ AC_CONFIG_FILES([
   arrow-glib/version.h
   arrow-gpu-glib/Makefile
   arrow-gpu-glib/arrow-gpu-glib.pc
+  parquet-glib/Makefile
+  parquet-glib/parquet-glib.pc
   doc/Makefile
-  doc/reference/Makefile
-  doc/reference/entities.xml
+  doc/arrow-glib/Makefile
+  doc/arrow-glib/entities.xml
+  doc/parquet-glib/Makefile
+  doc/parquet-glib/entities.xml
   example/Makefile
   example/lua/Makefile
   tool/Makefile

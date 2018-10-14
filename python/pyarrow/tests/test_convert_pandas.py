@@ -57,7 +57,7 @@ def _alltypes_example(size=100):
     })
 
 
-def _check_pandas_roundtrip(df, expected=None, use_threads=False,
+def _check_pandas_roundtrip(df, expected=None, use_threads=True,
                             expected_schema=None,
                             check_dtype=True, schema=None,
                             preserve_index=False,
@@ -530,7 +530,7 @@ class TestConvertPrimitiveTypes(object):
         # ARROW-2135
         df = pd.DataFrame({"a": [1.0, 2.0, pd.np.NaN]})
         schema = pa.schema([pa.field("a", pa.int16(), nullable=True)])
-        table = pa.Table.from_pandas(df, schema=schema)
+        table = pa.Table.from_pandas(df, schema=schema, safe=False)
         assert table[0].to_pylist() == [1, 2, None]
         tm.assert_frame_equal(df, table.to_pandas())
 
@@ -905,6 +905,85 @@ class TestConvertDateTimeLikeTypes(object):
         expected_msg = 'Timestamp value had non-zero intraday milliseconds'
         with pytest.raises(pa.ArrowInvalid, match=expected_msg):
             pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
+
+    def test_array_date_as_object(self):
+        data = [date(2000, 1, 1),
+                None,
+                date(1970, 1, 1),
+                date(2040, 2, 26)]
+        expected = np.array(['2000-01-01',
+                             None,
+                             '1970-01-01',
+                             '2040-02-26'], dtype='datetime64')
+
+        arr = pa.array(data)
+        assert arr.equals(pa.array(expected))
+
+        result = arr.to_pandas()
+        assert result.dtype == expected.dtype
+        npt.assert_array_equal(arr.to_pandas(), expected)
+
+        result = arr.to_pandas(date_as_object=True)
+        expected = expected.astype(object)
+        assert result.dtype == expected.dtype
+        npt.assert_array_equal(result, expected)
+
+    def test_chunked_array_convert_date_as_object(self):
+        data = [date(2000, 1, 1),
+                None,
+                date(1970, 1, 1),
+                date(2040, 2, 26)]
+        expected = np.array(['2000-01-01',
+                             None,
+                             '1970-01-01',
+                             '2040-02-26'], dtype='datetime64')
+        carr = pa.chunked_array([data])
+
+        result = carr.to_pandas()
+        assert result.dtype == expected.dtype
+        npt.assert_array_equal(carr.to_pandas(), expected)
+
+        result = carr.to_pandas(date_as_object=True)
+        expected = expected.astype(object)
+        assert result.dtype == expected.dtype
+        npt.assert_array_equal(result, expected)
+
+    def test_column_convert_date_as_object(self):
+        data = [date(2000, 1, 1),
+                None,
+                date(1970, 1, 1),
+                date(2040, 2, 26)]
+        expected = np.array(['2000-01-01',
+                             None,
+                             '1970-01-01',
+                             '2040-02-26'], dtype='datetime64')
+
+        arr = pa.array(data)
+        column = pa.column('date', arr)
+
+        result = column.to_pandas()
+        npt.assert_array_equal(column.to_pandas(), expected)
+
+        result = column.to_pandas(date_as_object=True)
+        expected = expected.astype(object)
+        assert result.dtype == expected.dtype
+        npt.assert_array_equal(result, expected)
+
+    def test_table_convert_date_as_object(self):
+        df = pd.DataFrame({
+            'date': [date(2000, 1, 1),
+                     None,
+                     date(1970, 1, 1),
+                     date(2040, 2, 26)]})
+
+        table = pa.Table.from_pandas(df, preserve_index=False)
+
+        df_datetime = table.to_pandas()
+        df_object = table.to_pandas(date_as_object=True)
+
+        tm.assert_frame_equal(df.astype('datetime64[ns]'), df_datetime,
+                              check_dtype=True)
+        tm.assert_frame_equal(df, df_object, check_dtype=True)
 
     def test_date_infer(self):
         df = pd.DataFrame({
@@ -1836,6 +1915,12 @@ class TestZeroCopyConversion(object):
 
 
 # This function must be at the top-level for Python 2.7's multiprocessing
+def _non_threaded_conversion():
+    df = _alltypes_example()
+    _check_pandas_roundtrip(df, use_threads=False)
+    _check_pandas_roundtrip(df, use_threads=False, as_batch=True)
+
+
 def _threaded_conversion():
     df = _alltypes_example()
     _check_pandas_roundtrip(df, use_threads=True)
@@ -1881,8 +1966,8 @@ class TestConvertMisc(object):
             arr = np.array([], dtype=dtype)
             _check_array_roundtrip(arr, type=pa_type)
 
-    def test_threaded_conversion(self):
-        _threaded_conversion()
+    def test_non_threaded_conversion(self):
+        _non_threaded_conversion()
 
     def test_threaded_conversion_multiprocess(self):
         # Parallel conversion should work from child processes too (ARROW-2963)
@@ -1898,26 +1983,41 @@ class TestConvertMisc(object):
         v1 = ['foo', None, 'bar', 'qux', np.nan]
         v2 = [4, 5, 6, 7, 8]
         v3 = [b'foo', None, b'bar', b'qux', np.nan]
-        df = pd.DataFrame({'cat_strings': pd.Categorical(v1 * repeats),
-                           'cat_ints': pd.Categorical(v2 * repeats),
-                           'cat_binary': pd.Categorical(v3 * repeats),
-                           'cat_strings_ordered': pd.Categorical(
-                               v1 * repeats, categories=['bar', 'qux', 'foo'],
-                               ordered=True),
-                           'ints': v2 * repeats,
-                           'ints2': v2 * repeats,
-                           'strings': v1 * repeats,
-                           'strings2': v1 * repeats,
-                           'strings3': v3 * repeats})
+
+        arrays = {
+            'cat_strings': pd.Categorical(v1 * repeats),
+            'cat_strings_with_na': pd.Categorical(v1 * repeats,
+                                                  categories=['foo', 'bar']),
+            'cat_ints': pd.Categorical(v2 * repeats),
+            'cat_binary': pd.Categorical(v3 * repeats),
+            'cat_strings_ordered': pd.Categorical(
+                v1 * repeats, categories=['bar', 'qux', 'foo'],
+                ordered=True),
+            'ints': v2 * repeats,
+            'ints2': v2 * repeats,
+            'strings': v1 * repeats,
+            'strings2': v1 * repeats,
+            'strings3': v3 * repeats}
+        df = pd.DataFrame(arrays)
         _check_pandas_roundtrip(df)
 
+        for k in arrays:
+            _check_array_roundtrip(arrays[k])
+
+    def test_category_implicit_from_pandas(self):
+        # ARROW-3374
+        def _check(v):
+            arr = pa.array(v)
+            result = arr.to_pandas()
+            tm.assert_series_equal(pd.Series(result), pd.Series(v))
+
         arrays = [
-            pd.Categorical(v1 * repeats),
-            pd.Categorical(v2 * repeats),
-            pd.Categorical(v3 * repeats)
+            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b']),
+            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b'],
+                           ordered=True)
         ]
-        for values in arrays:
-            _check_array_roundtrip(values)
+        for arr in arrays:
+            _check(arr)
 
     def test_empty_category(self):
         # ARROW-2443
@@ -1984,11 +2084,12 @@ class TestConvertMisc(object):
             assert isinstance(converted, pa.NullArray)
             assert len(converted) == 3
             assert converted.null_count == 3
-            assert converted[0] is pa.NA
+            for item in converted:
+                assert item is pa.NA
 
         _check_series(pd.Series([None] * 3, dtype=object))
         _check_series(pd.Series([np.nan] * 3, dtype=object))
-        _check_series(pd.Series([np.sqrt(-1)] * 3, dtype=object))
+        _check_series(pd.Series([None, np.nan, None], dtype=object))
 
     def test_partial_schema(self):
         data = OrderedDict([
@@ -2049,6 +2150,24 @@ class TestConvertMisc(object):
         df = pd.DataFrame(data=[row], columns=['foo', 123])
         expected_df = pd.DataFrame(data=[row], columns=['foo', '123'])
         _check_pandas_roundtrip(df, expected=expected_df, preserve_index=True)
+
+    def test_safe_unsafe_casts(self):
+        # ARROW-2799
+        df = pd.DataFrame({
+            'A': list('abc'),
+            'B': np.linspace(0, 1, 3)
+        })
+
+        schema = pa.schema([
+            pa.field('A', pa.string()),
+            pa.field('B', pa.int32())
+        ])
+
+        with pytest.raises(ValueError):
+            pa.Table.from_pandas(df, schema=schema)
+
+        table = pa.Table.from_pandas(df, schema=schema, safe=False)
+        assert table.column('B').type == pa.int32()
 
 
 def _fully_loaded_dataframe_example():

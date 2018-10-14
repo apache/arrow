@@ -28,8 +28,10 @@
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
+namespace util {
 
 // ----------------------------------------------------------------------
 // gzip implementation
@@ -249,4 +251,5 @@ Status GZipCodec::Compress(int64_t input_length, const uint8_t* input,
 
 const char* GZipCodec::name() const { return "gzip"; }
 
+}  // namespace util
 }  // namespace arrow

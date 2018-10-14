@@ -52,6 +52,7 @@ Major components of the project include:
  - [Plasma Object Store](https://github.com/apache/arrow/tree/master/cpp/src/plasma): a
    shared-memory blob store, part of the C++ codebase
  - [Python libraries](https://github.com/apache/arrow/tree/master/python)
+ - [R libraries](https://github.com/apache/arrow/tree/master/r)
  - [Ruby libraries](https://github.com/apache/arrow/tree/master/ruby)
  - [Rust libraries](https://github.com/apache/arrow/tree/master/rust)
 

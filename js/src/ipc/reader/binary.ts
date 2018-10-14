@@ -39,7 +39,7 @@ import {
 
 import ByteBuffer = flatbuffers.ByteBuffer;
 
-type MessageReader = (bb: ByteBuffer) => IterableIterator<RecordBatchMetadata | DictionaryBatch>;
+type MessageReader = (bb: ByteBuffer) => IterableIterator<Message>;
 
 export function* readBuffers<T extends Uint8Array | Buffer | string>(sources: Iterable<T> | Uint8Array | Buffer | string) {
     let schema: Schema | null = null;
@@ -56,8 +56,8 @@ export function* readBuffers<T extends Uint8Array | Buffer | string>(sources: It
                     schema, message,
                     loader: new BinaryDataLoader(
                         bb,
-                        arrayIterator(message.nodes),
-                        arrayIterator(message.buffers),
+                        arrayIterator((message as any).nodes || []),
+                        arrayIterator((message as any).buffers || []),
                         dictionaries
                     )
                 };
@@ -78,8 +78,8 @@ export async function* readBuffersAsync<T extends Uint8Array | Buffer | string>(
                     schema, message,
                     loader: new BinaryDataLoader(
                         bb,
-                        arrayIterator(message.nodes),
-                        arrayIterator(message.buffers),
+                        arrayIterator((message as any).nodes || []),
+                        arrayIterator((message as any).buffers || []),
                         dictionaries
                     )
                 };
@@ -148,7 +148,7 @@ function* readStreamMessages(bb: ByteBuffer) {
         } else if (Message.isDictionaryBatch(message)) {
             yield message;
         } else {
-            continue;
+            yield message;
         }
         // position the buffer after the body to read the next message
         bb.setPosition(bb.position() + message.bodyLength);

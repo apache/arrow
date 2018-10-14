@@ -19,8 +19,6 @@
 # arrow::ipc
 
 from libc.stdlib cimport malloc, free
-from pyarrow.compat import builtin_pickle, frombytes, tobytes, encode_file_path
-from io import BufferedIOBase, UnsupportedOperation
 
 import re
 import six
@@ -28,6 +26,10 @@ import sys
 import threading
 import time
 import warnings
+from io import BufferedIOBase, UnsupportedOperation
+
+from pyarrow.util import _stringify_path
+from pyarrow.compat import builtin_pickle, frombytes, tobytes, encode_file_path
 
 
 # 64K
@@ -38,18 +40,6 @@ DEFAULT_BUFFER_SIZE = 2 ** 16
 cdef extern from "Python.h":
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
-
-
-def _stringify_path(path):
-    """
-    Convert *path* to a string or unicode path if possible.
-    """
-    if isinstance(path, six.string_types):
-        return path
-    try:
-        return path.__fspath__()
-    except AttributeError:
-        raise TypeError("not a path-like object")
 
 
 cdef class NativeFile:
@@ -106,6 +96,9 @@ cdef class NativeFile:
         return False
 
     def fileno(self):
+        """
+        NOT IMPLEMENTED
+        """
         raise UnsupportedOperation()
 
     def close(self):
@@ -214,11 +207,16 @@ cdef class NativeFile:
         """
         Write byte from any object implementing buffer protocol (bytes,
         bytearray, ndarray, pyarrow.Buffer)
+
+        Parameters
+        ----------
+        data : bytes-like object or exporter of buffer protocol
+
+        Returns
+        -------
+        nbytes : number of bytes written
         """
         self._assert_writable()
-
-        if isinstance(data, six.string_types):
-            data = tobytes(data)
 
         cdef Buffer arrow_buffer = py_buffer(data)
 
@@ -226,6 +224,7 @@ cdef class NativeFile:
         cdef int64_t bufsize = len(arrow_buffer)
         with nogil:
             check_status(self.wr_file.get().Write(buf, bufsize))
+        return bufsize
 
     def read(self, nbytes=None):
         """
@@ -305,7 +304,7 @@ cdef class NativeFile:
         return bytes_read
 
     def readline(self, size=None):
-        """Read and return a line of bytes from the file.
+        """NOT IMPLEMENTED. Read and return a line of bytes from the file.
 
         If size is specified, read at most size bytes.
 
@@ -315,8 +314,7 @@ cdef class NativeFile:
         raise UnsupportedOperation()
 
     def readlines(self, hint=None):
-        """
-        Read lines of the file
+        """NOT IMPLEMENTED. Read lines of the file
 
         Parameters
         -----------
@@ -354,6 +352,9 @@ cdef class NativeFile:
         return pyarrow_wrap_buffer(output)
 
     def truncate(self):
+        """
+        NOT IMPLEMENTED
+        """
         raise UnsupportedOperation()
 
     def writelines(self, lines):
@@ -831,6 +832,13 @@ cdef class Buffer:
             self.buffer.get().size())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        if self.buffer.get().is_mutable():
+            buffer.readonly = 0
+        else:
+            if flags & cp.PyBUF_WRITABLE:
+                raise BufferError("Writable buffer requested but Arrow "
+                                  "buffer was not mutable")
+            buffer.readonly = 1
         buffer.buf = <char *>self.buffer.get().data()
         buffer.format = 'b'
         buffer.internal = NULL
@@ -838,10 +846,6 @@ cdef class Buffer:
         buffer.len = self.size
         buffer.ndim = 1
         buffer.obj = self
-        if self.buffer.get().is_mutable():
-            buffer.readonly = 0
-        else:
-            buffer.readonly = 1
         buffer.shape = self.shape
         buffer.strides = self.strides
         buffer.suboffsets = NULL
@@ -941,15 +945,6 @@ cdef class BufferOutputStream(NativeFile):
             <shared_ptr[CResizableBuffer]> self.buffer))
         self.is_writable = True
         self.closed = False
-
-    def get_result(self):
-        """
-        Deprecated as of 0.10.0. Alias for getvalue()
-        """
-        warnings.warn("BufferOutputStream.get_result() has been renamed "
-                      "to getvalue(), will be removed in 0.11.0",
-                      FutureWarning)
-        return self.getvalue()
 
     def getvalue(self):
         """

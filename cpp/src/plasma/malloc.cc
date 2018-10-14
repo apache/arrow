@@ -57,6 +57,11 @@ int fake_munmap(void*, int64_t);
 #undef DEFAULT_GRANULARITY
 }
 
+// dlmalloc.c defined DEBUG which will conflict with ARROW_LOG(DEBUG).
+#ifdef DEBUG
+#undef DEBUG
+#endif
+
 struct mmap_record {
   int fd;
   int64_t size;
@@ -121,6 +126,13 @@ int create_buffer(int64_t size) {
       ARROW_LOG(FATAL) << "failed to ftruncate file " << &file_name[0];
       return -1;
     }
+  }
+  int ret = dup(fd);
+  if (ret < 0) {
+    ARROW_LOG(FATAL) << "failed to dup the descriptor";
+  } else {
+    fclose(file);
+    fd = ret;
   }
 #endif
   return fd;

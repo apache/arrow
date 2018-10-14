@@ -18,20 +18,13 @@
 
 package org.apache.arrow.vector.complex;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
-import javax.annotation.Nullable;
-
-import com.google.common.collect.Ordering;
-import com.google.common.primitives.Ints;
-
-import io.netty.buffer.ArrowBuf;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.*;
@@ -45,6 +38,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
 
 public class NonNullableStructVector extends AbstractStructVector {
 
@@ -248,17 +243,10 @@ public class NonNullableStructVector extends AbstractStructVector {
       return 0;
     }
 
-    final Ordering<ValueVector> natural = new Ordering<ValueVector>() {
-      @Override
-      public int compare(@Nullable ValueVector left, @Nullable ValueVector right) {
-        return Ints.compare(
-            checkNotNull(left).getValueCapacity(),
-            checkNotNull(right).getValueCapacity()
-        );
-      }
-    };
-
-    return natural.min(getChildren()).getValueCapacity();
+    return getChildren().stream()
+        .mapToInt(child -> child.getValueCapacity())
+        .min()
+        .getAsInt();
   }
 
   @Override
@@ -278,6 +266,7 @@ public class NonNullableStructVector extends AbstractStructVector {
 
   @Override
   public boolean isNull(int index) { return false; }
+
   @Override
   public int getNullCount() { return 0; }
 
@@ -292,8 +281,8 @@ public class NonNullableStructVector extends AbstractStructVector {
   }
 
   public ValueVector getVectorById(int id) {
-  return getChildByOrdinal(id);
-}
+    return getChildByOrdinal(id);
+  }
 
   @Override
   public void setValueCount(int valueCount) {

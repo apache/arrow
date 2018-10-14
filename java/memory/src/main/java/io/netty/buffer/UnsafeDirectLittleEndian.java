@@ -18,13 +18,13 @@
 
 package io.netty.buffer;
 
-import io.netty.util.internal.PlatformDependent;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicLong;
+
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * The underlying class we use for little-endian access to memory. Is used underneath ArrowBufs
@@ -76,7 +76,7 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
 
   @Override
   public long getLong(int index) {
-//        wrapped.checkIndex(index, 8);
+    // wrapped.checkIndex(index, 8);
     long v = PlatformDependent.getLong(addr(index));
     return v;
   }

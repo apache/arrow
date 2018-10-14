@@ -18,13 +18,11 @@
 
 package org.apache.arrow.vector.util;
 
-import io.netty.buffer.ArrowBuf;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
+import io.netty.buffer.ArrowBuf;
 
 public class DecimalUtility {
 
@@ -190,8 +188,8 @@ public class DecimalUtility {
           value.scale() + " != " + vectorScale);
     }
     if (value.precision() > vectorPrecision) {
-      throw new UnsupportedOperationException("BigDecimal precision can not be greater than that in the Arrow vector: " +
-          value.precision() + " > " + vectorPrecision);
+      throw new UnsupportedOperationException("BigDecimal precision can not be greater than that in the Arrow " +
+        "vector: " + value.precision() + " > " + vectorPrecision);
     }
     return true;
   }

@@ -18,9 +18,8 @@
 
 package org.apache.arrow.vector.complex;
 
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.UInt4Vector;
-
-import com.google.common.base.Preconditions;
 
 /**
  * A helper class that is used to track and populate empty values in repeated value vectors.

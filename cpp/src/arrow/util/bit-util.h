@@ -246,26 +246,26 @@ static inline void ByteSwap(void* dst, const void* src, int len) {
 
 // Convert to little/big endian format from the machine's native endian format.
 #if ARROW_LITTLE_ENDIAN
-template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                                 int16_t, uint16_t>>
+template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
+                                                           uint32_t, int16_t, uint16_t>>
 static inline T ToBigEndian(T value) {
   return ByteSwap(value);
 }
 
-template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                                 int16_t, uint16_t>>
+template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
+                                                           uint32_t, int16_t, uint16_t>>
 static inline T ToLittleEndian(T value) {
   return value;
 }
 #else
-template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                                 int16_t, uint16_t>>
+template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
+                                                           uint32_t, int16_t, uint16_t>>
 static inline T ToBigEndian(T value) {
   return value;
 }
 
-template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                                 int16_t, uint16_t>>
+template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
+                                                           uint32_t, int16_t, uint16_t>>
 static inline T ToLittleEndian(T value) {
   return ByteSwap(value);
 }
@@ -273,26 +273,26 @@ static inline T ToLittleEndian(T value) {
 
 // Convert from big/little endian format to the machine's native endian format.
 #if ARROW_LITTLE_ENDIAN
-template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                                 int16_t, uint16_t>>
+template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
+                                                           uint32_t, int16_t, uint16_t>>
 static inline T FromBigEndian(T value) {
   return ByteSwap(value);
 }
 
-template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                                 int16_t, uint16_t>>
+template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
+                                                           uint32_t, int16_t, uint16_t>>
 static inline T FromLittleEndian(T value) {
   return value;
 }
 #else
-template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                                 int16_t, uint16_t>>
+template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
+                                                           uint32_t, int16_t, uint16_t>>
 static inline T FromBigEndian(T value) {
   return value;
 }
 
-template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                                 int16_t, uint16_t>>
+template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
+                                                           uint32_t, int16_t, uint16_t>>
 static inline T FromLittleEndian(T value) {
   return ByteSwap(value);
 }
@@ -324,6 +324,15 @@ static inline void ClearBit(uint8_t* bits, int64_t i) {
 }
 
 static inline void SetBit(uint8_t* bits, int64_t i) { bits[i / 8] |= kBitmask[i % 8]; }
+
+static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
+  // https://graphics.stanford.edu/~seander/bithacks.html
+  // "Conditionally set or clear bits without branching"
+  // NOTE: this seems to confuse Valgrind as it reads from potentially
+  // uninitialized memory
+  bits[i / 8] ^= static_cast<uint8_t>(-static_cast<uint8_t>(bit_is_set) ^ bits[i / 8]) &
+                 kBitmask[i % 8];
+}
 
 /// \brief Convert vector of bytes to bitmap buffer
 ARROW_EXPORT
@@ -552,8 +561,6 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
   }
 }
 
-}  // namespace internal
-
 // ----------------------------------------------------------------------
 // Bitmap utilities
 
@@ -569,6 +576,43 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
 ARROW_EXPORT
 Status CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset, int64_t length,
                   std::shared_ptr<Buffer>* out);
+
+/// Copy a bit range of an existing bitmap into an existing bitmap
+///
+/// \param[in] bitmap source data
+/// \param[in] offset bit offset into the source data
+/// \param[in] length number of bits to copy
+/// \param[in] dest_offset bit offset into the destination
+/// \param[out] dest the destination buffer, must have at least space for (offset +
+/// length) bits
+ARROW_EXPORT
+void CopyBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* dest,
+                int64_t dest_offset);
+
+/// Invert a bit range of an existing bitmap into an existing bitmap
+///
+/// \param[in] bitmap source data
+/// \param[in] offset bit offset into the source data
+/// \param[in] length number of bits to copy
+/// \param[in] dest_offset bit offset into the destination
+/// \param[out] dest the destination buffer, must have at least space for (offset +
+/// length) bits
+ARROW_EXPORT
+void InvertBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* dest,
+                  int64_t dest_offset);
+
+/// Invert a bit range of an existing bitmap
+///
+/// \param[in] pool memory pool to allocate memory from
+/// \param[in] bitmap source data
+/// \param[in] offset bit offset into the source data
+/// \param[in] length number of bits to copy
+/// \param[out] out the resulting copy
+///
+/// \return Status message
+ARROW_EXPORT
+Status InvertBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset,
+                    int64_t length, std::shared_ptr<Buffer>* out);
 
 /// Compute the number of 1's in the given data array
 ///
@@ -589,6 +633,17 @@ Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
                  const uint8_t* right, int64_t right_offset, int64_t length,
                  int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
 
+ARROW_EXPORT
+Status BitmapOr(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+                const uint8_t* right, int64_t right_offset, int64_t length,
+                int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
+
+ARROW_EXPORT
+Status BitmapXor(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+                 const uint8_t* right, int64_t right_offset, int64_t length,
+                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
+
+}  // namespace internal
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_BIT_UTIL_H

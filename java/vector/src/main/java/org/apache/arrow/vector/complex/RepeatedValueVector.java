@@ -25,9 +25,9 @@ import org.apache.arrow.vector.ValueVector;
 /**
  * An abstraction representing repeated value vectors.
  *
- * A repeated vector contains values that may either be flat or nested. A value consists of zero or more cells(inner values).
- * Current design maintains data and offsets vectors. Each cell is stored in the data vector. Repeated vector
- * uses the offset vector to determine the sequence of cells pertaining to an individual value.
+ * A repeated vector contains values that may either be flat or nested. A value consists of zero or more
+ * cells(inner values). Current design maintains data and offsets vectors. Each cell is stored in the data vector.
+ * Repeated vector uses the offset vector to determine the sequence of cells pertaining to an individual value.
  */
 public interface RepeatedValueVector extends ValueVector, DensityAwareVector {
 

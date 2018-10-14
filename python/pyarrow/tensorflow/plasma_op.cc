@@ -60,7 +60,8 @@ static tf::mutex d2h_stream_mu;
 // parallelization.
 
 int64_t get_byte_width(const arrow::DataType& dtype) {
-  return arrow::checked_cast<const arrow::FixedWidthType&>(dtype).bit_width() / CHAR_BIT;
+  return arrow::internal::checked_cast<const arrow::FixedWidthType&>(dtype)
+      .bit_width() / CHAR_BIT;
 }
 
 // Put:  tf.Tensor -> plasma.

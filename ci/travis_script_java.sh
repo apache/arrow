@@ -20,7 +20,6 @@
 set -e
 
 JAVA_DIR=${TRAVIS_BUILD_DIR}/java
-
 pushd $JAVA_DIR
 
 export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"

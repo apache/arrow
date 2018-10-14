@@ -17,12 +17,27 @@
 
 @echo on
 
-if "%JOB%" == "Rust_Stable" (
-    cd rust
+if "%JOB%" == "Rust" (
+    pushd rust
+
+    rustup default stable
+    rustup show
     cargo build --target %TARGET% || exit /B
     cargo build --target %TARGET% --release || exit /B
     cargo test --target %TARGET% || exit /B
     cargo test --target %TARGET% --release || exit /B
+
+    rustup default nightly
+    rustup show
+    cargo build --target %TARGET%
+    cargo build --target %TARGET% --release
+    cargo test --target %TARGET%
+    cargo test --target %TARGET% --release
+    cargo run --example dynamic_types --target %TARGET% --release
+
+    rustup default stable
+
+    popd
 ) else (
     git config core.symlinks true
     git reset --hard

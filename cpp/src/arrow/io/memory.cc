@@ -36,6 +36,9 @@ namespace io {
 
 static constexpr int64_t kBufferMinimumSize = 256;
 
+BufferOutputStream::BufferOutputStream()
+    : is_open_(false), capacity_(0), position_(0), mutable_data_(nullptr) {}
+
 BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer)
     : buffer_(buffer),
       is_open_(true),
@@ -45,9 +48,17 @@ BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& b
 
 Status BufferOutputStream::Create(int64_t initial_capacity, MemoryPool* pool,
                                   std::shared_ptr<BufferOutputStream>* out) {
-  std::shared_ptr<ResizableBuffer> buffer;
-  RETURN_NOT_OK(AllocateResizableBuffer(pool, initial_capacity, &buffer));
-  *out = std::make_shared<BufferOutputStream>(buffer);
+  // ctor is private, so cannot use make_shared
+  *out = std::shared_ptr<BufferOutputStream>(new BufferOutputStream);
+  return (*out)->Reset(initial_capacity, pool);
+}
+
+Status BufferOutputStream::Reset(int64_t initial_capacity, MemoryPool* pool) {
+  RETURN_NOT_OK(AllocateResizableBuffer(pool, initial_capacity, &buffer_));
+  is_open_ = true;
+  capacity_ = initial_capacity;
+  position_ = 0;
+  mutable_data_ = buffer_->mutable_data();
   return Status::OK();
 }
 
@@ -151,8 +162,8 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
   }
 
   Status Seek(int64_t position) {
-    if (position < 0 || position >= size_) {
-      return Status::IOError("position out of bounds");
+    if (position < 0 || position > size_) {
+      return Status::IOError("Seek out of bounds");
     }
     position_ = position;
     return Status::OK();
@@ -164,6 +175,9 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
   }
 
   Status Write(const void* data, int64_t nbytes) {
+    if (position_ + nbytes > size_) {
+      return Status::IOError("Write out of bounds");
+    }
     if (nbytes > memcopy_threshold_ && memcopy_num_threads_ > 1) {
       internal::parallel_memcopy(mutable_data_ + position_,
                                  reinterpret_cast<const uint8_t*>(data), nbytes,
@@ -302,8 +316,8 @@ Status BufferReader::GetSize(int64_t* size) {
 }
 
 Status BufferReader::Seek(int64_t position) {
-  if (position < 0 || position >= size_) {
-    return Status::IOError("position out of bounds");
+  if (position < 0 || position > size_) {
+    return Status::IOError("Seek out of bounds");
   }
 
   position_ = position;

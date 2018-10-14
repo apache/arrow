@@ -81,20 +81,24 @@ set(PLASMA_SRCS
   thirdparty/ae/ae.c
   thirdparty/xxhash.cc)
 
-set(PLASMA_LINK_LIBS arrow_static)
+set(PLASMA_LINK_LIBS arrow_shared)
 
 if (ARROW_GPU)
   set(PLASMA_LINK_LIBS ${PLASMA_LINK_LIBS} arrow_gpu_shared)
   add_definitions(-DPLASMA_GPU)
 endif()
 
-
-
 ADD_ARROW_LIB(plasma
   SOURCES ${PLASMA_SRCS}
+  OUTPUTS PLASMA_LIBRARIES
   DEPENDENCIES gen_plasma_fbs
   SHARED_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS}
   STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS})
+
+foreach(LIB_TARGET ${PLASMA_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET}
+    PRIVATE ARROW_EXPORTING)
+endforeach()
 
 # The optimization flag -O3 is suggested by dlmalloc.c, which is #included in
 # malloc.cc; we set it here regardless of whether we do a debug or release build.
@@ -124,8 +128,8 @@ if ("${COMPILER_FAMILY}" STREQUAL "gcc")
     " -Wno-conversion")
 endif()
 
-add_executable(plasma_store store.cc)
-target_link_libraries(plasma_store plasma_static ${PLASMA_LINK_LIBS})
+add_executable(plasma_store_server store.cc)
+target_link_libraries(plasma_store_server plasma_shared ${PLASMA_LINK_LIBS})
 
 if (ARROW_RPATH_ORIGIN)
   if (APPLE)
@@ -133,7 +137,7 @@ if (ARROW_RPATH_ORIGIN)
   else()
     set(_lib_install_rpath "\$ORIGIN")
   endif()
-  set_target_properties(plasma_store PROPERTIES
+  set_target_properties(plasma_store_server PROPERTIES
       INSTALL_RPATH ${_lib_install_rpath})
 endif()
 
@@ -143,11 +147,12 @@ install(FILES
   compat.h
   client.h
   events.h
+  test-util.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
 
 # Plasma store
-set_target_properties(plasma_store PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-install(TARGETS plasma_store DESTINATION ${CMAKE_INSTALL_BINDIR})
+set_target_properties(plasma_store_server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+install(TARGETS plasma_store_server DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # pkg-config support
 configure_file(plasma.pc.in
@@ -187,9 +192,9 @@ if(ARROW_PLASMA_JAVA_CLIENT)
     ${PLASMA_LIBRARY_EXT_java_SRC})
 
   if(APPLE)
-    target_link_libraries(plasma_java plasma_static ${PLASMA_LINK_LIBS} "-undefined dynamic_lookup" -Wl,-force_load,${FLATBUFFERS_STATIC_LIB} ${FLATBUFFERS_STATIC_LIB} ${PTHREAD_LIBRARY})
+    target_link_libraries(plasma_java plasma_shared ${PLASMA_LINK_LIBS} "-undefined dynamic_lookup" -Wl,-force_load,${FLATBUFFERS_STATIC_LIB} ${FLATBUFFERS_STATIC_LIB} ${PTHREAD_LIBRARY})
   else(APPLE)
-    target_link_libraries(plasma_java plasma_static ${PLASMA_LINK_LIBS} -Wl,--whole-archive ${FLATBUFFERS_STATIC_LIB} -Wl,--no-whole-archive ${FLATBUFFERS_STATIC_LIB} ${PTHREAD_LIBRARY})
+    target_link_libraries(plasma_java plasma_shared ${PLASMA_LINK_LIBS} -Wl,--whole-archive ${FLATBUFFERS_STATIC_LIB} -Wl,--no-whole-archive ${FLATBUFFERS_STATIC_LIB} ${PTHREAD_LIBRARY})
   endif(APPLE)
 endif()
 #######################################
@@ -197,7 +202,7 @@ endif()
 #######################################
 
 ADD_ARROW_TEST(test/serialization_tests
-  EXTRA_LINK_LIBS plasma_static ${PLASMA_LINK_LIBS})
+  EXTRA_LINK_LIBS plasma_shared ${PLASMA_LINK_LIBS})
 ADD_ARROW_TEST(test/client_tests
-  EXTRA_LINK_LIBS plasma_static ${PLASMA_LINK_LIBS}
-  EXTRA_DEPENDENCIES plasma_store)
+  EXTRA_LINK_LIBS plasma_shared ${PLASMA_LINK_LIBS}
+  EXTRA_DEPENDENCIES plasma_store_server)

@@ -29,6 +29,10 @@ export async function* fromReadableStream(stream: NodeJS.ReadableStream) {
 
     for await (let chunk of (stream as any as AsyncIterable<Uint8Array | Buffer | string>)) {
 
+        if (chunk == null) {
+            continue;
+        }
+
         const grown = new Uint8Array(bytes.byteLength + chunk.length);
 
         if (typeof chunk !== 'string') {
@@ -54,7 +58,7 @@ export async function* fromReadableStream(stream: NodeJS.ReadableStream) {
             messageLength = new DataView(bytes.buffer).getInt32(0, true);
         }
 
-        while (messageLength < bytes.byteLength) {
+        while (messageLength > 0 && messageLength <= bytes.byteLength) {
             if (!message) {
                 (bb = new ByteBuffer(bytes)).setPosition(4);
                 if (message = _Message.getRootAsMessage(bb)) {

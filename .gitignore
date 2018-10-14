@@ -24,6 +24,7 @@
 *.so.*
 *.dylib
 .build_cache_dir
+dependency-reduced-pom.xml
 MANIFEST
 
 # Generated Visual Studio files
@@ -38,3 +39,6 @@ python/.eggs/
 .idea/
 .pytest_cache/
 pkgs
+.Rproj.user
+arrow.Rcheck/
+docker_cache

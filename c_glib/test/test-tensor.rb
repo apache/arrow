@@ -120,7 +120,6 @@ class TestTensor < Test::Unit::TestCase
     output = Arrow::BufferOutputStream.new(buffer)
     output.write_tensor(@tensor)
     input = Arrow::BufferInputStream.new(buffer)
-    assert_equal(@tensor,
-                 input.read_tensor(0))
+    assert_equal(@tensor, input.read_tensor)
   end
 end

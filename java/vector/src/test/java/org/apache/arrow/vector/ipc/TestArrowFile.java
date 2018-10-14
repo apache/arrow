@@ -31,11 +31,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -99,7 +96,8 @@ public class TestArrowFile extends BaseFileTest {
     int count = COUNT;
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeData(count, parent);
       write(parent.getChild("root"), file, stream);
@@ -155,7 +153,8 @@ public class TestArrowFile extends BaseFileTest {
     int count = COUNT;
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeComplexData(count, parent);
       write(parent.getChild("root"), file, stream);
@@ -196,7 +195,8 @@ public class TestArrowFile extends BaseFileTest {
     int[] counts = {10, 5};
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator);
          FileOutputStream fileOutputStream = new FileOutputStream(file)) {
       writeData(counts[0], parent);
@@ -211,7 +211,8 @@ public class TestArrowFile extends BaseFileTest {
         streamWriter.writeBatch();
 
         parent.allocateNew();
-        writeData(counts[1], parent); // if we write the same data we don't catch that the metadata is stored in the wrong order.
+        // if we write the same data we don't catch that the metadata is stored in the wrong order.
+        writeData(counts[1], parent);
         root.setRowCount(counts[1]);
 
         fileWriter.writeBatch();
@@ -369,26 +370,28 @@ public class TestArrowFile extends BaseFileTest {
     File file = new File("target/mytest_metadata.arrow");
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
-    List<Field> childFields = new ArrayList<Field>();
+    List<Field> childFields = new ArrayList<>();
     childFields.add(new Field("varchar-child", new FieldType(true, ArrowType.Utf8.INSTANCE, null, metadata(1)), null));
-    childFields.add(new Field("float-child", new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), null, metadata(2)), null));
+    childFields.add(new Field("float-child",
+        new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), null, metadata(2)), null));
     childFields.add(new Field("int-child", new FieldType(false, new ArrowType.Int(32, true), null, metadata(3)), null));
     childFields.add(new Field("list-child", new FieldType(true, ArrowType.List.INSTANCE, null, metadata(4)),
-        ImmutableList.of(new Field("l1", FieldType.nullable(new ArrowType.Int(16, true)), null))));
+        Collections2.asImmutableList(new Field("l1", FieldType.nullable(new ArrowType.Int(16, true)), null))));
     Field field = new Field("meta", new FieldType(true, ArrowType.Struct.INSTANCE, null, metadata(0)), childFields);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("s1", "v1");
     metadata.put("s2", "v2");
-    Schema originalSchema = new Schema(ImmutableList.of(field), metadata);
+    Schema originalSchema = new Schema(Collections2.asImmutableList(field), metadata);
     Assert.assertEquals(metadata, originalSchema.getCustomMetadata());
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector vector = (StructVector) field.createVector(originalVectorAllocator)) {
       vector.allocateNewSafe();
       vector.setValueCount(0);
 
-      List<FieldVector> vectors = ImmutableList.<FieldVector>of(vector);
+      List<FieldVector> vectors = Collections2.asImmutableList(vector);
       VectorSchemaRoot root = new VectorSchemaRoot(originalSchema, vectors, 0);
 
       try (FileOutputStream fileOutputStream = new FileOutputStream(file);
@@ -438,7 +441,10 @@ public class TestArrowFile extends BaseFileTest {
   }
 
   private Map<String, String> metadata(int i) {
-    return ImmutableMap.of("k_" + i, "v_" + i, "k2_" + i, "v2_" + i);
+    Map<String, String> map = new HashMap<>();
+    map.put("k_" + i, "v_" + i);
+    map.put("k2_" + i, "v2_" + i);
+    return Collections.unmodifiableMap(map);
   }
 
   @Test
@@ -448,7 +454,8 @@ public class TestArrowFile extends BaseFileTest {
     int numDictionaryBlocksWritten = 0;
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)) {
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)) {
 
       MapDictionaryProvider provider = new MapDictionaryProvider();
 
@@ -562,18 +569,20 @@ public class TestArrowFile extends BaseFileTest {
     final int numValues = 10;
     final int typeWidth = 11;
     byte[][] byteValues = new byte[numValues][typeWidth];
-    for (int i=0; i<numValues; i++) {
-      for (int j=0; j<typeWidth; j++) {
+    for (int i = 0; i < numValues; i++) {
+      for (int j = 0; j < typeWidth; j++) {
         byteValues[i][j] = ((byte) i);
       }
     }
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
-      FixedSizeBinaryVector fixedSizeBinaryVector = parent.addOrGet("fixed-binary", FieldType.nullable(new FixedSizeBinary(typeWidth)), FixedSizeBinaryVector.class);
+      FixedSizeBinaryVector fixedSizeBinaryVector = parent.addOrGet("fixed-binary",
+          FieldType.nullable(new FixedSizeBinary(typeWidth)), FixedSizeBinaryVector.class);
       parent.allocateNew();
-      for (int i=0; i<numValues; i++) {
+      for (int i = 0; i < numValues; i++) {
         fixedSizeBinaryVector.set(i, byteValues[i]);
       }
       parent.setValueCount(numValues);
@@ -619,10 +628,13 @@ public class TestArrowFile extends BaseFileTest {
     int count = COUNT;
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
-      FixedSizeListVector tuples = parent.addOrGet("float-pairs", FieldType.nullable(new FixedSizeList(2)), FixedSizeListVector.class);
-      Float4Vector floats = (Float4Vector) tuples.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
+      FixedSizeListVector tuples = parent.addOrGet("float-pairs",
+          FieldType.nullable(new FixedSizeList(2)), FixedSizeListVector.class);
+      Float4Vector floats = (Float4Vector) tuples.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType()))
+          .getVector();
       IntVector ints = parent.addOrGet("ints", FieldType.nullable(new Int(32, true)), IntVector.class);
       parent.allocateNew();
 
@@ -649,7 +661,8 @@ public class TestArrowFile extends BaseFileTest {
         arrowReader.loadRecordBatch(rbBlock);
         Assert.assertEquals(count, root.getRowCount());
         for (int i = 0; i < 10; i++) {
-          Assert.assertEquals(Lists.newArrayList(i + 0.1f, i + 10.1f), root.getVector("float-pairs").getObject(i));
+          Assert.assertEquals(Collections2.asImmutableList(i + 0.1f, i + 10.1f), root.getVector("float-pairs")
+              .getObject(i));
           Assert.assertEquals(i, root.getVector("ints").getObject(i));
         }
       }
@@ -665,7 +678,8 @@ public class TestArrowFile extends BaseFileTest {
       arrowReader.loadNextBatch();
       Assert.assertEquals(count, root.getRowCount());
       for (int i = 0; i < 10; i++) {
-        Assert.assertEquals(Lists.newArrayList(i + 0.1f, i + 10.1f), root.getVector("float-pairs").getObject(i));
+        Assert.assertEquals(Collections2.asImmutableList(i + 0.1f, i + 10.1f), root.getVector("float-pairs")
+            .getObject(i));
         Assert.assertEquals(i, root.getVector("ints").getObject(i));
       }
     }
@@ -720,7 +734,8 @@ public class TestArrowFile extends BaseFileTest {
     try (IntVector vector = new IntVector("foo", allocator);) {
       Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
       try (FileOutputStream fileOutputStream = new FileOutputStream(file);
-           VectorSchemaRoot root = new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
+           VectorSchemaRoot root =
+             new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
            ArrowFileWriter writer = new ArrowFileWriter(root, null, fileOutputStream.getChannel());) {
         writeBatchData(writer, vector, root);
         numBlocksWritten = writer.getRecordBlocks().size();

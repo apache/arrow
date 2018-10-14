@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This is a private header for string-to-number parsing utilitiers
+
 #ifndef ARROW_UTIL_PARSING_H
 #define ARROW_UTIL_PARSING_H
 
@@ -22,6 +24,9 @@
 #include <locale>
 #include <sstream>
 #include <string>
+#include <type_traits>
+
+#include <double-conversion/double-conversion.h>
 
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -76,23 +81,59 @@ class StringConverter<BooleanType> {
   }
 };
 
+// Ideas for faster float parsing:
+// - http://rapidjson.org/md_doc_internals.html#ParsingDouble
+// - https://github.com/google/double-conversion [used here]
+// - https://github.com/achan001/dtoa-fast
+
 template <class ARROW_TYPE>
 class StringToFloatConverterMixin {
  public:
   using value_type = typename ARROW_TYPE::c_type;
 
-  StringToFloatConverterMixin() { ibuf.imbue(std::locale::classic()); }
+  StringToFloatConverterMixin()
+      : main_converter_(flags_, main_junk_value_, main_junk_value_, "inf", "nan"),
+        fallback_converter_(flags_, fallback_junk_value_, fallback_junk_value_, "inf",
+                            "nan") {}
 
   bool operator()(const char* s, size_t length, value_type* out) {
-    ibuf.clear();
-    ibuf.str(std::string(s, length));
-    ibuf >> *out;
-    // XXX Should we reset errno on failure?
-    return !ibuf.fail() && ibuf.eof();
+    value_type v;
+    // double-conversion doesn't give us an error flag but signals parse
+    // errors with sentinel values.  Since a sentinel value can appear as
+    // legitimate input, we fallback on a second converter with a different
+    // sentinel to eliminate false errors.
+    TryConvert(main_converter_, s, length, &v);
+    if (ARROW_PREDICT_FALSE(v == static_cast<value_type>(main_junk_value_))) {
+      TryConvert(fallback_converter_, s, length, &v);
+      if (ARROW_PREDICT_FALSE(v == static_cast<value_type>(fallback_junk_value_))) {
+        return false;
+      }
+    }
+    *out = v;
+    return true;
   }
 
  protected:
-  std::istringstream ibuf;
+  static const int flags_ =
+      double_conversion::StringToDoubleConverter::ALLOW_CASE_INSENSIBILITY;
+  // Two unlikely values to signal a parsing error
+  static constexpr double main_junk_value_ = 0.7066424364107089;
+  static constexpr double fallback_junk_value_ = 0.40088499148279166;
+
+  double_conversion::StringToDoubleConverter main_converter_;
+  double_conversion::StringToDoubleConverter fallback_converter_;
+
+  inline void TryConvert(double_conversion::StringToDoubleConverter& converter,
+                         const char* s, size_t length, float* out) {
+    int processed_length;
+    *out = converter.StringToFloat(s, static_cast<int>(length), &processed_length);
+  }
+
+  inline void TryConvert(double_conversion::StringToDoubleConverter& converter,
+                         const char* s, size_t length, double* out) {
+    int processed_length;
+    *out = converter.StringToDouble(s, static_cast<int>(length), &processed_length);
+  }
 };
 
 template <>
@@ -103,80 +144,212 @@ class StringConverter<DoubleType> : public StringToFloatConverterMixin<DoubleTyp
 
 // NOTE: HalfFloatType would require a half<->float conversion library
 
+namespace detail {
+
+#define PARSE_UNSIGNED_ITERATION(C_TYPE)              \
+  if (length > 0) {                                   \
+    uint8_t digit = static_cast<uint8_t>(*s++ - '0'); \
+    result = static_cast<C_TYPE>(result * 10U);       \
+    length--;                                         \
+    if (ARROW_PREDICT_FALSE(digit > 9U)) {            \
+      /* Non-digit */                                 \
+      return false;                                   \
+    }                                                 \
+    result = static_cast<C_TYPE>(result + digit);     \
+  }
+
+#define PARSE_UNSIGNED_ITERATION_LAST(C_TYPE)                                     \
+  if (length > 0) {                                                               \
+    if (ARROW_PREDICT_FALSE(result > std::numeric_limits<C_TYPE>::max() / 10U)) { \
+      /* Overflow */                                                              \
+      return false;                                                               \
+    }                                                                             \
+    uint8_t digit = static_cast<uint8_t>(*s++ - '0');                             \
+    result = static_cast<C_TYPE>(result * 10U);                                   \
+    C_TYPE new_result = static_cast<C_TYPE>(result + digit);                      \
+    if (ARROW_PREDICT_FALSE(--length > 0)) {                                      \
+      /* Too many digits */                                                       \
+      return false;                                                               \
+    }                                                                             \
+    if (ARROW_PREDICT_FALSE(digit > 9U)) {                                        \
+      /* Non-digit */                                                             \
+      return false;                                                               \
+    }                                                                             \
+    if (ARROW_PREDICT_FALSE(new_result < result)) {                               \
+      /* Overflow */                                                              \
+      return false;                                                               \
+    }                                                                             \
+    result = new_result;                                                          \
+  }
+
+inline bool ParseUnsigned(const char* s, size_t length, uint8_t* out) {
+  uint8_t result = 0;
+
+  PARSE_UNSIGNED_ITERATION(uint8_t);
+  PARSE_UNSIGNED_ITERATION(uint8_t);
+  PARSE_UNSIGNED_ITERATION_LAST(uint8_t);
+  *out = result;
+  return true;
+}
+
+inline bool ParseUnsigned(const char* s, size_t length, uint16_t* out) {
+  uint16_t result = 0;
+
+  PARSE_UNSIGNED_ITERATION(uint16_t);
+  PARSE_UNSIGNED_ITERATION(uint16_t);
+  PARSE_UNSIGNED_ITERATION(uint16_t);
+  PARSE_UNSIGNED_ITERATION(uint16_t);
+  PARSE_UNSIGNED_ITERATION_LAST(uint16_t);
+  *out = result;
+  return true;
+}
+
+inline bool ParseUnsigned(const char* s, size_t length, uint32_t* out) {
+  uint32_t result = 0;
+
+  PARSE_UNSIGNED_ITERATION(uint32_t);
+  PARSE_UNSIGNED_ITERATION(uint32_t);
+  PARSE_UNSIGNED_ITERATION(uint32_t);
+  PARSE_UNSIGNED_ITERATION(uint32_t);
+  PARSE_UNSIGNED_ITERATION(uint32_t);
+
+  PARSE_UNSIGNED_ITERATION(uint32_t);
+  PARSE_UNSIGNED_ITERATION(uint32_t);
+  PARSE_UNSIGNED_ITERATION(uint32_t);
+  PARSE_UNSIGNED_ITERATION(uint32_t);
+
+  PARSE_UNSIGNED_ITERATION_LAST(uint32_t);
+  *out = result;
+  return true;
+}
+
+inline bool ParseUnsigned(const char* s, size_t length, uint64_t* out) {
+  uint64_t result = 0;
+
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+  PARSE_UNSIGNED_ITERATION(uint64_t);
+
+  PARSE_UNSIGNED_ITERATION_LAST(uint64_t);
+  *out = result;
+  return true;
+}
+
+#undef PARSE_UNSIGNED_ITERATION
+#undef PARSE_UNSIGNED_ITERATION_LAST
+
+}  // namespace detail
+
 template <class ARROW_TYPE>
-class StringConverter<ARROW_TYPE, enable_if_signed_integer<ARROW_TYPE>> {
+class StringToUnsignedIntConverterMixin {
  public:
   using value_type = typename ARROW_TYPE::c_type;
 
-  StringConverter() { ibuf.imbue(std::locale::classic()); }
-
   bool operator()(const char* s, size_t length, value_type* out) {
-    static constexpr bool need_long_long = sizeof(value_type) > sizeof(long);  // NOLINT
-    static constexpr value_type min_value = std::numeric_limits<value_type>::min();
-    static constexpr value_type max_value = std::numeric_limits<value_type>::max();
-
-    ibuf.clear();
-    ibuf.str(std::string(s, length));
-    if (need_long_long) {
-      long long res;  // NOLINT
-      ibuf >> res;
-      *out = static_cast<value_type>(res);  // may downcast
-      if (res < min_value || res > max_value) {
-        return false;
-      }
-    } else {
-      long res;  // NOLINT
-      ibuf >> res;
-      *out = static_cast<value_type>(res);  // may downcast
-      if (res < min_value || res > max_value) {
-        return false;
-      }
+    if (ARROW_PREDICT_FALSE(length == 0)) {
+      return false;
     }
-    // XXX Should we reset errno on failure?
-    return !ibuf.fail() && ibuf.eof();
+    // Skip leading zeros
+    while (length > 0 && *s == '0') {
+      length--;
+      s++;
+    }
+    return detail::ParseUnsigned(s, length, out);
   }
+};
 
- protected:
-  std::istringstream ibuf;
+template <>
+class StringConverter<UInt8Type> : public StringToUnsignedIntConverterMixin<UInt8Type> {};
+
+template <>
+class StringConverter<UInt16Type> : public StringToUnsignedIntConverterMixin<UInt16Type> {
+};
+
+template <>
+class StringConverter<UInt32Type> : public StringToUnsignedIntConverterMixin<UInt32Type> {
+};
+
+template <>
+class StringConverter<UInt64Type> : public StringToUnsignedIntConverterMixin<UInt64Type> {
 };
 
 template <class ARROW_TYPE>
-class StringConverter<ARROW_TYPE, enable_if_unsigned_integer<ARROW_TYPE>> {
+class StringToSignedIntConverterMixin {
  public:
   using value_type = typename ARROW_TYPE::c_type;
-
-  StringConverter() { ibuf.imbue(std::locale::classic()); }
+  using unsigned_type = typename std::make_unsigned<value_type>::type;
 
   bool operator()(const char* s, size_t length, value_type* out) {
-    static constexpr bool need_long_long =
-        sizeof(value_type) > sizeof(unsigned long);  // NOLINT
-    static constexpr value_type max_value = std::numeric_limits<value_type>::max();
+    static constexpr unsigned_type max_positive =
+        static_cast<unsigned_type>(std::numeric_limits<value_type>::max());
+    // Assuming two's complement
+    static constexpr unsigned_type max_negative = max_positive + 1;
+    bool negative = false;
+    unsigned_type unsigned_value = 0;
 
-    ibuf.clear();
-    ibuf.str(std::string(s, length));
-    // XXX The following unfortunately allows negative input values
-    if (need_long_long) {
-      unsigned long long res;  // NOLINT
-      ibuf >> res;
-      *out = static_cast<value_type>(res);  // may downcast
-      if (res > max_value) {
-        return false;
-      }
-    } else {
-      unsigned long res;  // NOLINT
-      ibuf >> res;
-      *out = static_cast<value_type>(res);  // may downcast
-      if (res > max_value) {
+    if (ARROW_PREDICT_FALSE(length == 0)) {
+      return false;
+    }
+    if (*s == '-') {
+      negative = true;
+      s++;
+      if (--length == 0) {
         return false;
       }
     }
-    // XXX Should we reset errno on failure?
-    return !ibuf.fail() && ibuf.eof();
+    // Skip leading zeros
+    while (length > 0 && *s == '0') {
+      length--;
+      s++;
+    }
+    if (!ARROW_PREDICT_TRUE(detail::ParseUnsigned(s, length, &unsigned_value))) {
+      return false;
+    }
+    if (negative) {
+      if (ARROW_PREDICT_FALSE(unsigned_value > max_negative)) {
+        return false;
+      }
+      *out = static_cast<value_type>(-static_cast<value_type>(unsigned_value));
+    } else {
+      if (ARROW_PREDICT_FALSE(unsigned_value > max_positive)) {
+        return false;
+      }
+      *out = static_cast<value_type>(unsigned_value);
+    }
+    return true;
   }
-
- protected:
-  std::istringstream ibuf;
 };
+
+template <>
+class StringConverter<Int8Type> : public StringToSignedIntConverterMixin<Int8Type> {};
+
+template <>
+class StringConverter<Int16Type> : public StringToSignedIntConverterMixin<Int16Type> {};
+
+template <>
+class StringConverter<Int32Type> : public StringToSignedIntConverterMixin<Int32Type> {};
+
+template <>
+class StringConverter<Int64Type> : public StringToSignedIntConverterMixin<Int64Type> {};
 
 }  // namespace internal
 }  // namespace arrow

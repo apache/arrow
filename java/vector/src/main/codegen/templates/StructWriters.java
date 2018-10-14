@@ -32,13 +32,12 @@ package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
 import java.util.Map;
+import java.util.HashMap;
 
 import org.apache.arrow.vector.holders.RepeatedStructHolder;
 import org.apache.arrow.vector.AllocationHelper;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
-
-import com.google.common.collect.Maps;
 
 /*
  * This class is generated using FreeMarker and the ${.template_name} template.
@@ -48,7 +47,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
 
   protected final ${containerClass} container;
   private int initialCapacity;
-  private final Map<String, FieldWriter> fields = Maps.newHashMap();
+  private final Map<String, FieldWriter> fields = new HashMap<>();
   public ${mode}StructWriter(${containerClass} container) {
     <#if mode == "Single">
     if (container instanceof StructVector) {

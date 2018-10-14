@@ -18,17 +18,19 @@
 
 package org.apache.arrow.vector.complex;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-import com.google.common.collect.ObjectArrays;
-
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.*;
+import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.NullableStructReaderImpl;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.holders.ComplexHolder;
@@ -36,11 +38,13 @@ import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
-import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
 
 public class StructVector extends NonNullableStructVector implements FieldVector {
 
@@ -70,7 +74,8 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   public StructVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, checkNotNull(allocator), fieldType, callBack);
     this.validityBuffer = allocator.getEmpty();
-    this.validityAllocationSizeInBytes = BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
+    this.validityAllocationSizeInBytes =
+      BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
   }
 
   @Override
@@ -272,8 +277,10 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      buffers = ObjectArrays.concat(new ArrowBuf[]{validityBuffer}, super.getBuffers(false),
-              ArrowBuf.class);
+      List<ArrowBuf> list = new ArrayList<>();
+      list.add(validityBuffer);
+      list.addAll(Arrays.asList(super.getBuffers(false)));
+      buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {
@@ -345,8 +352,8 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     if (valueCount == 0) {
       return 0;
     }
-    return super.getBufferSizeFor(valueCount)
-            + BitVectorHelper.getValidityBufferSize(valueCount);
+    return super.getBufferSizeFor(valueCount) +
+            BitVectorHelper.getValidityBufferSize(valueCount);
   }
 
   @Override

@@ -33,12 +33,16 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     add_library(${AUG_LIB_NAME} STATIC IMPORTED)
     set_target_properties(${AUG_LIB_NAME}
       PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
+    if(ARG_DEPS)
+      set_target_properties(${AUG_LIB_NAME}
+        PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
+    endif()
     message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
 
     SET(AUG_LIB_NAME "${LIB_NAME}_shared")
     add_library(${AUG_LIB_NAME} SHARED IMPORTED)
 
-    if(MSVC)
+    if(WIN32)
         # Mark the ”.lib” location as part of a Windows DLL
         set_target_properties(${AUG_LIB_NAME}
             PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
@@ -48,7 +52,7 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     endif()
     if(ARG_DEPS)
       set_target_properties(${AUG_LIB_NAME}
-        PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
+        PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
     message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
   elseif(ARG_STATIC_LIB)
@@ -61,44 +65,69 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
       PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
     if(ARG_DEPS)
       set_target_properties(${AUG_LIB_NAME}
-        PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
+        PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
+    set_target_properties(${LIB_NAME}
+      PROPERTIES INTERFACE_LINK_LIBRARIES "${AUG_LIB_NAME}")
     message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
   elseif(ARG_SHARED_LIB)
     add_library(${LIB_NAME} SHARED IMPORTED)
-    set_target_properties(${LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
     SET(AUG_LIB_NAME "${LIB_NAME}_shared")
     add_library(${AUG_LIB_NAME} SHARED IMPORTED)
 
-    if(MSVC)
+    if(WIN32)
         # Mark the ”.lib” location as part of a Windows DLL
+        set_target_properties(${LIB_NAME}
+            PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
         set_target_properties(${AUG_LIB_NAME}
             PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
     else()
+        set_target_properties(${LIB_NAME}
+            PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
         set_target_properties(${AUG_LIB_NAME}
             PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
     endif()
     message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
     if(ARG_DEPS)
       set_target_properties(${AUG_LIB_NAME}
-        PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
+        PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
+    set_target_properties(${LIB_NAME}
+      PROPERTIES INTERFACE_LINK_LIBRARIES "${AUG_LIB_NAME}")
   else()
     message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
   endif()
 endfunction()
 
+# \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
-  set(options)
+  set(options BUILD_SHARED BUILD_STATIC)
   set(one_value_args SHARED_LINK_FLAGS)
-  set(multi_value_args SOURCES STATIC_LINK_LIBS STATIC_PRIVATE_LINK_LIBS SHARED_LINK_LIBS SHARED_PRIVATE_LINK_LIBS EXTRA_INCLUDES DEPENDENCIES)
+  set(multi_value_args SOURCES OUTPUTS STATIC_LINK_LIBS STATIC_PRIVATE_LINK_LIBS SHARED_LINK_LIBS SHARED_PRIVATE_LINK_LIBS EXTRA_INCLUDES DEPENDENCIES)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
+  if (ARG_OUTPUTS)
+    set(${ARG_OUTPUTS})
+  endif()
+
+  # Allow overriding ARROW_BUILD_SHARED and ARROW_BUILD_STATIC
+  if (ARG_BUILD_SHARED)
+    set(BUILD_SHARED ${ARG_BUILD_SHARED})
+  else ()
+    set(BUILD_SHARED ${ARROW_BUILD_SHARED})
+  endif()
+  if (ARG_BUILD_STATIC)
+    set(BUILD_STATIC ${ARG_BUILD_STATIC})
+  else ()
+    set(BUILD_STATIC ${ARROW_BUILD_STATIC})
+  endif()
+
   if(MSVC)
+    # MSVC needs to compile C++ separately for each library kind (shared and static)
+    # because of dllexport declarations
     set(LIB_DEPS ${ARG_SOURCES})
     set(EXTRA_DEPS ${ARG_DEPENDENCIES})
 
@@ -106,6 +135,8 @@ function(ADD_ARROW_LIB LIB_NAME)
       set(LIB_INCLUDES ${ARG_EXTRA_INCLUDES})
     endif()
   else()
+    # Otherwise, generate a single "objlib" from all C++ modules and link
+    # that "objlib" into each library kind, to avoid compiling twice
     add_library(${LIB_NAME}_objlib OBJECT
       ${ARG_SOURCES})
     # Necessary to make static linking into other shared libraries work properly
@@ -117,6 +148,10 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(LIB_INCLUDES)
     set(EXTRA_DEPS)
 
+    if (ARG_OUTPUTS)
+      list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_objlib)
+    endif()
+
     if (ARG_EXTRA_INCLUDES)
       target_include_directories(${LIB_NAME}_objlib SYSTEM PUBLIC
         ${ARG_EXTRA_INCLUDES}
@@ -126,10 +161,14 @@ function(ADD_ARROW_LIB LIB_NAME)
 
   set(RUNTIME_INSTALL_DIR bin)
 
-  if (ARROW_BUILD_SHARED)
+  if (BUILD_SHARED)
     add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
     if (EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_shared ${EXTRA_DEPS})
+    endif()
+
+    if (ARG_OUTPUTS)
+      list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_shared)
     endif()
 
     if (LIB_INCLUDES)
@@ -189,10 +228,14 @@ function(ADD_ARROW_LIB LIB_NAME)
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
   endif()
 
-  if (ARROW_BUILD_STATIC)
+  if (BUILD_STATIC)
     add_library(${LIB_NAME}_static STATIC ${LIB_DEPS})
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_static ${EXTRA_DEPS})
+    endif()
+
+    if (ARG_OUTPUTS)
+      list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_static)
     endif()
 
     if (LIB_INCLUDES)
@@ -203,7 +246,6 @@ function(ADD_ARROW_LIB LIB_NAME)
 
     if (MSVC)
       set(LIB_NAME_STATIC ${LIB_NAME}_static)
-      target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_STATIC)
     else()
       set(LIB_NAME_STATIC ${LIB_NAME})
     endif()
@@ -223,6 +265,10 @@ function(ADD_ARROW_LIB LIB_NAME)
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
   endif()
 
+  # Modify variable in calling scope
+  if (ARG_OUTPUTS)
+    set(${ARG_OUTPUTS} ${${ARG_OUTPUTS}} PARENT_SCOPE)
+  endif()
 endfunction()
 
 
@@ -305,10 +351,20 @@ endfunction()
 # ctest.
 #
 # Arguments after the test name will be passed to set_tests_properties().
+#
+# \arg PREFIX a string to append to the name of the test executable. For
+# example, if you have src/arrow/foo/bar-test.cc, then PREFIX "foo" will create
+# test executable foo-bar-test
+# \arg LABELS the unit test label or labels to assign the unit tests
+# to. By default, unit tests will go in the "unittest" group, but if we have
+# multiple unit tests in some subgroup, you can assign a test to multiple
+# groups using the syntax unittest;GROUP2;GROUP3. Custom targets for the group
+# names must exist
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options NO_VALGRIND)
   set(one_value_args)
-  set(multi_value_args STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES EXTRA_DEPENDENCIES LABELS)
+  set(multi_value_args STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES EXTRA_DEPENDENCIES
+    LABELS PREFIX)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -326,10 +382,20 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     endif()
   endif()
 
-  if(NO_TESTS OR NOT ARROW_BUILD_STATIC)
+  if (NO_TESTS)
     return()
   endif()
   get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
+
+  if(ARG_PREFIX)
+    set(TEST_NAME "${ARG_PREFIX}-${TEST_NAME}")
+  endif()
+
+  if (ARG_LABELS)
+    set(ARG_LABELS "${ARG_LABELS}")
+  else()
+    set(ARG_LABELS unittest)
+  endif()
 
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME}.cc)
     # This test has a corresponding .cc file, set it up as an executable.
@@ -357,7 +423,9 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
       add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
     endif()
 
-    add_dependencies(unittest ${TEST_NAME})
+    foreach (TEST_LABEL ${ARG_LABELS})
+      add_dependencies(${TEST_LABEL} ${TEST_NAME})
+    endforeach()
   else()
     # No executable, just invoke the test (probably a script) directly.
     set(TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME})
@@ -380,13 +448,7 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
 
   set_property(TEST ${TEST_NAME}
     APPEND PROPERTY
-    LABELS "unittest")
-
-  if (ARG_LABELS)
-    set_property(TEST ${TEST_NAME}
-      APPEND PROPERTY
-      LABELS ${ARG_LABELS})
-  endif()
+    LABELS ${ARG_LABELS})
 endfunction()
 
 # A wrapper for add_dependencies() that is compatible with NO_TESTS.

@@ -1,0 +1,32 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+ADD_PARQUET_TEST(arrow-schema-test)
+ADD_PARQUET_TEST(arrow-reader-writer-test)
+
+if(PARQUET_BUILD_BENCHMARKS)
+  ADD_ARROW_BENCHMARK(arrow-reader-writer-benchmark)
+  ARROW_BENCHMARK_LINK_LIBRARIES(arrow-reader-writer-benchmark
+    ${PARQUET_BENCHMARK_LINK_LIBRARIES})
+endif()
+
+# Headers: top level
+install(FILES
+  reader.h
+  schema.h
+  writer.h
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/arrow")

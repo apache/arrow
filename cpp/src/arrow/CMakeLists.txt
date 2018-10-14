@@ -30,10 +30,18 @@ set(ARROW_SRCS
   type.cc
   visitor.cc
 
+  csv/converter.cc
+  csv/chunker.cc
+  csv/column-builder.cc
+  csv/options.cc
+  csv/parser.cc
+  csv/reader.cc
+
   io/buffered.cc
   io/file.cc
   io/interfaces.cc
   io/memory.cc
+  io/readahead.cc
 
   util/bit-util.cc
   util/compression.cc
@@ -42,7 +50,9 @@ set(ARROW_SRCS
   util/hash.cc
   util/io-util.cc
   util/key_value_metadata.cc
+  util/task-group.cc
   util/thread-pool.cc
+  util/logging.cc
 )
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -56,6 +66,7 @@ if (ARROW_COMPUTE)
   add_subdirectory(compute)
   set(ARROW_SRCS ${ARROW_SRCS}
     compute/context.cc
+    compute/kernels/boolean.cc
     compute/kernels/cast.cc
     compute/kernels/hash.cc
     compute/kernels/util-internal.cc
@@ -144,6 +155,7 @@ set(ARROW_ALL_SRCS
 
 ADD_ARROW_LIB(arrow
   SOURCES ${ARROW_ALL_SRCS}
+  OUTPUTS ARROW_LIBRARIES
   DEPENDENCIES arrow_dependencies
   SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
   SHARED_LINK_LIBS ${ARROW_LINK_LIBS}
@@ -151,6 +163,15 @@ ADD_ARROW_LIB(arrow
   STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS}
   STATIC_PRIVATE_LINK_LIBS ${ARROW_STATIC_PRIVATE_LINK_LIBS}
 )
+
+foreach(LIB_TARGET ${ARROW_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET}
+    PRIVATE ARROW_EXPORTING)
+endforeach()
+
+if (ARROW_BUILD_STATIC AND WIN32)
+  target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
+endif()
 
 # Headers: top level
 install(FILES
@@ -204,5 +225,6 @@ ADD_ARROW_TEST(tensor-test)
 ADD_ARROW_BENCHMARK(builder-benchmark)
 ADD_ARROW_BENCHMARK(column-benchmark)
 
+add_subdirectory(csv)
 add_subdirectory(io)
 add_subdirectory(util)

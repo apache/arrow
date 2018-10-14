@@ -80,7 +80,8 @@ cd ${extract_dir}/cpp/build
 cmake .. \
   -DCMAKE_INSTALL_PREFIX=${cpp_install_dir} \
   -DCMAKE_INSTALL_LIBDIR=${cpp_install_dir}/lib \
-  -DARROW_BUILD_TESTS=no
+  -DARROW_BUILD_TESTS=no \
+  -DARROW_PARQUET=yes
 make -j8
 make install
 cd -
@@ -114,8 +115,8 @@ ${SOURCE_DIR}/run-rat.sh ${tarball}
 
 # sign the archive
 gpg --armor --output ${tarball}.asc --detach-sig ${tarball}
-shasum -a 1 $tarball > ${tarball}.sha1
 shasum -a 256 $tarball > ${tarball}.sha256
+shasum -a 512 $tarball > ${tarball}.sha512
 
 # check out the arrow RC folder
 svn co --depth=empty https://dist.apache.org/repos/dist/dev/arrow tmp
@@ -131,7 +132,7 @@ cp -rf "$artifact_dir"/* tmp/${tagrc}/binaries/
 
 # commit to svn
 svn add tmp/${tagrc}
-svn ci -m 'Apache Arrow ${version} RC${rc}' tmp/${tagrc}
+svn ci -m "Apache Arrow ${version} RC${rc}" tmp/${tagrc}
 
 # clean up
 rm -rf tmp

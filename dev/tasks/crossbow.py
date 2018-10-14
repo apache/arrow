@@ -17,25 +17,129 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import hashlib
 import os
 import re
 import sys
 import time
 import click
+import hashlib
+import gnupg
+import toolz
 import pygit2
 import github3
-import gnupg
+import jira.client
 
 from io import StringIO
 from pathlib import Path
 from textwrap import dedent
+from datetime import datetime
 from jinja2 import Template, StrictUndefined
 from setuptools_scm import get_version
 from ruamel.yaml import YAML
 
 
 CWD = Path(__file__).parent.absolute()
+
+
+NEW_FEATURE = 'New Features and Improvements'
+BUGFIX = 'Bug Fixes'
+
+
+def md(template, *args, **kwargs):
+    """Wraps string.format with naive markdown escaping"""
+    def escape(s):
+        for char in ('*', '#', '_', '~', '`', '>'):
+            s = s.replace(char, '\\' + char)
+        return s
+    return template.format(*map(escape, args), **toolz.valmap(escape, kwargs))
+
+
+class JiraChangelog:
+
+    def __init__(self, version, username, password,
+                 server='https://issues.apache.org/jira'):
+        self.server = server
+        # clean version to the first numbers
+        self.version = '.'.join(version.split('.')[:3])
+        query = ("project=ARROW "
+                 "AND fixVersion='{0}' "
+                 "AND status = Resolved "
+                 "AND resolution in (Fixed, Done) "
+                 "ORDER BY issuetype DESC").format(self.version)
+        self.client = jira.client.JIRA({'server': server},
+                                       basic_auth=(username, password))
+        self.issues = self.client.search_issues(query, maxResults=9999)
+
+    def format_markdown(self):
+        out = StringIO()
+
+        issues_by_type = toolz.groupby(lambda i: i.fields.issuetype.name,
+                                       self.issues)
+        for typename, issues in sorted(issues_by_type.items()):
+            issues.sort(key=lambda x: x.key)
+
+            out.write(md('## {}\n\n', typename))
+            for issue in issues:
+                out.write(md('* {} - {}\n', issue.key, issue.fields.summary))
+            out.write('\n')
+
+        return out.getvalue()
+
+    def format_website(self):
+        # jira category => website category mapping
+        categories = {
+            'New Feature': 'feature',
+            'Improvement': 'feature',
+            'Wish': 'feature',
+            'Task': 'feature',
+            'Test': 'bug',
+            'Bug': 'bug',
+            'Sub-task': 'feature'
+        }
+        titles = {
+            'feature': 'New Features and Improvements',
+            'bugfix': 'Bug Fixes'
+        }
+
+        issues_by_category = toolz.groupby(
+            lambda issue: categories[issue.fields.issuetype.name],
+            self.issues
+        )
+
+        out = StringIO()
+
+        for category in ('feature', 'bug'):
+            title = titles[category]
+            issues = issues_by_category[category]
+            issues.sort(key=lambda x: x.key)
+
+            out.write(md('## {}\n\n', title))
+            for issue in issues:
+                link = md('[{0}]({1}/browse/{0})', issue.key, self.server)
+                out.write(md('* {} - {}\n', link, issue.fields.summary))
+            out.write('\n')
+
+        return out.getvalue()
+
+    def render(self, old_changelog, website=False):
+        old_changelog = old_changelog.splitlines()
+        if website:
+            new_changelog = self.format_website()
+        else:
+            new_changelog = self.format_markdown()
+
+        out = StringIO()
+
+        # Apache license header
+        out.write('\n'.join(old_changelog[:18]))
+
+        # Newly generated changelog
+        today = datetime.today().strftime('%d %B %Y')
+        out.write(md('\n\n# Apache Arrow {} ({})\n\n', self.version, today))
+        out.write(new_changelog)
+        out.write('\n'.join(old_changelog[19:]))
+
+        return out.getvalue().strip()
 
 
 class GitRemoteCallbacks(pygit2.RemoteCallbacks):
@@ -326,8 +430,9 @@ class Task:
 
     def render_files(self, **extra_params):
         path = CWD / self.template
+        params = toolz.merge(self.params, extra_params)
         template = Template(path.read_text(), undefined=StrictUndefined)
-        rendered = template.render(task=self, **self.params, **extra_params)
+        rendered = template.render(task=self, **params)
         return {self.filename: rendered}
 
     @property
@@ -414,21 +519,55 @@ def crossbow(ctx, github_token, arrow_path, queue_path):
     ctx.obj['queue'] = Queue(Path(queue_path), github_token=github_token)
 
 
+@crossbow.command()
+@click.option('--changelog-path', '-c', type=click.Path(exists=True),
+              default=DEFAULT_ARROW_PATH / 'CHANGELOG.md',
+              help='Path of changelog to update')
+@click.option('--arrow-version', '-v', default=None,
+              help='Set target version explicitly')
+@click.option('--is-website', '-w', default=False)
+@click.option('--jira-username', '-u', default=None, help='JIRA username')
+@click.option('--jira-password', '-P', default=None, help='JIRA password')
+@click.option('--dry-run/--write', default=False,
+              help='Just display the new changelog, don\'t write it')
+@click.pass_context
+def changelog(ctx, changelog_path, arrow_version, is_website, jira_username,
+              jira_password, dry_run):
+    changelog_path = Path(changelog_path)
+    target = Target.from_repo(ctx.obj['arrow'])
+    version = arrow_version or target.version
+
+    changelog = JiraChangelog(version, username=jira_username,
+                              password=jira_password)
+    new_content = changelog.render(changelog_path.read_text(),
+                                   website=is_website)
+
+    if dry_run:
+        click.echo(new_content)
+    else:
+        changelog_path.write_text(new_content)
+        click.echo('New changelog successfully generated, see git diff for the'
+                   'changes')
+
+
 def load_tasks_from_config(config_path, task_names, group_names):
     with Path(config_path).open() as fp:
         config = yaml.load(fp)
 
-    valid_groups = set(config['groups'].keys())
+    groups = config['groups']
+    tasks = config['tasks']
+
+    valid_groups = set(groups.keys())
+    valid_tasks = set(tasks.keys())
+
     requested_groups = set(group_names)
     invalid_groups = requested_groups - valid_groups
     if invalid_groups:
         raise click.ClickException('Invalid group(s) {!r}. Must be one of {!r}'
                                    .format(invalid_groups, valid_groups))
 
-    valid_tasks = set(config['tasks'].keys())
-    requested_tasks = set(
-        sum([config['groups'][g] for g in group_names], list(task_names))
-    )
+    requested_tasks = [list(groups[name]) for name in group_names]
+    requested_tasks = set(sum(requested_tasks, list(task_names)))
     invalid_tasks = requested_tasks - valid_tasks
     if invalid_tasks:
         raise click.ClickException('Invalid task(s) {!r}. Must be one of {!r}'
@@ -460,14 +599,20 @@ def submit(ctx, task, group, job_prefix, config_path, arrow_version, dry_run):
     if arrow_version:
         target.version = arrow_version
 
+    no_rc_version = re.sub(r'-rc\d+\Z', '', target.version)
+    params = {
+        'version': target.version,
+        'no_rc_version': no_rc_version,
+    }
+
     # task and group variables are lists, containing multiple values
     tasks = {}
     task_configs = load_tasks_from_config(config_path, task, group)
     for name, task in task_configs.items():
         # replace version number and create task instance from configuration
         artifacts = task.pop('artifacts', None) or []  # because of yaml
-        artifacts = [fn.format(version=target.version) for fn in artifacts]
-        tasks[name] = Task(**task, artifacts=artifacts)
+        artifacts = [fn.format(**params) for fn in artifacts]
+        tasks[name] = Task(artifacts=artifacts, **task)
 
     # create job instance, doesn't mutate git data yet
     job = Job(target=target, tasks=tasks)
@@ -562,7 +707,7 @@ def hashbytes(bytes, algoname):
               type=click.Path(file_okay=False, dir_okay=True),
               help='Directory to download the build artifacts')
 @click.option('-a', '--algorithm',
-              default=['sha1', 'sha256'],
+              default=['sha256', 'sha512'],
               show_default=True,
               type=click.Choice(sorted(hashlib.algorithms_guaranteed)),
               multiple=True,

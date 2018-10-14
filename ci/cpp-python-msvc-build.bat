@@ -18,18 +18,24 @@
 @echo on
 
 if "%JOB%" == "Static_Crt_Build" (
+  @rem Since we link the CRT statically, we should also disable building
+  @rem the Arrow shared library to link the tests statically, otherwise
+  @rem the Arrow DLL and the tests end up using a different instance of
+  @rem the CRT, which wreaks havoc.
+
   mkdir cpp\build-debug
   pushd cpp\build-debug
 
   cmake -G "%GENERATOR%" ^
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
+        -DARROW_BUILD_SHARED=OFF ^
         -DCMAKE_BUILD_TYPE=Debug ^
         -DARROW_CXXFLAGS="/MP" ^
         ..  || exit /B
 
   cmake --build . --config Debug || exit /B
-  ctest -VV  || exit /B
+  ctest --output-on-failure -j2 || exit /B
   popd
 
   mkdir cpp\build-release
@@ -38,17 +44,22 @@ if "%JOB%" == "Static_Crt_Build" (
   cmake -G "%GENERATOR%" ^
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
+        -DARROW_BUILD_SHARED=OFF ^
         -DCMAKE_BUILD_TYPE=Release ^
         -DARROW_CXXFLAGS="/WX /MP" ^
         ..  || exit /B
 
   cmake --build . --config Release || exit /B
-  ctest -VV  || exit /B
+  ctest --output-on-failure -j2 || exit /B
   popd
 
   @rem Finish Static_Crt_Build build successfully
   exit /B 0
 )
+
+@rem In the configurations below we disable building the Arrow static library
+@rem to save some time.  Unfortunately this will still build the Parquet static
+@rem library because of PARQUET-1420 (Thrift-generated symbols not exported in DLL).
 
 if "%JOB%" == "Build_Debug" (
   mkdir cpp\build-debug
@@ -57,35 +68,51 @@ if "%JOB%" == "Build_Debug" (
   cmake -G "%GENERATOR%" ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+        -DARROW_BUILD_STATIC=OFF ^
         -DARROW_CXXFLAGS="/MP" ^
         ..  || exit /B
 
   cmake --build . --config Debug || exit /B
-  ctest -VV  || exit /B
+  ctest --output-on-failure -j2 || exit /B
   popd
 
   @rem Finish Debug build successfully
   exit /B 0
 )
 
-conda create -n arrow -q -y python=%PYTHON% ^
+conda create -n arrow -q -y ^
+      python=%PYTHON% ^
       six pytest setuptools numpy pandas cython ^
-      thrift-cpp=0.11.0
+      thrift-cpp=0.11.0 boost-cpp
 
 call activate arrow
 
+@rem Use Boost from Anaconda
+set BOOST_ROOT=%CONDA_PREFIX%\Library
+set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
+
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
-  conda install -q -y -c conda-forge ^
-      flatbuffers rapidjson ^
+  conda install -q -y ^
+      brotli ^
       cmake ^
+      flatbuffers ^
+      gflags ^
+      gtest ^
       git ^
-      boost-cpp ^
-      snappy zlib brotli gflags lz4-c zstd
+      lz4-c ^
+      rapidjson ^
+      snappy ^
+      zlib ^
+      zstd
   set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 )
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
+
+@rem Retrieve git submodules, configure env var for Parquet unit tests
+git submodule update --init
+set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 
 @rem Build and test Arrow C++ libraries
 
@@ -96,7 +123,9 @@ cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+      -DARROW_BUILD_STATIC=OFF ^
       -DARROW_CXXFLAGS="/WX /MP" ^
+      -DARROW_PARQUET=ON ^
       -DARROW_PYTHON=ON ^
       ..  || exit /B
 cmake --build . --target install --config %CONFIGURATION%  || exit /B
@@ -105,31 +134,12 @@ cmake --build . --target install --config %CONFIGURATION%  || exit /B
 set OLD_PYTHONHOME=%PYTHONHOME%
 set PYTHONHOME=%CONDA_PREFIX%
 
-ctest -VV  || exit /B
+ctest --output-on-failure -j2 || exit /B
 
 set PYTHONHOME=%OLD_PYTHONHOME%
 popd
 
-@rem Build parquet-cpp
-
-git clone https://github.com/apache/parquet-cpp.git || exit /B
-mkdir parquet-cpp\build
-pushd parquet-cpp\build
-
-set PARQUET_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
-set PARQUET_HOME=%CONDA_PREFIX%\Library
-cmake -G "%GENERATOR%" ^
-     -DCMAKE_INSTALL_PREFIX=%PARQUET_HOME% ^
-     -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
-     -DPARQUET_BOOST_USE_SHARED=OFF ^
-     -DPARQUET_BUILD_TESTS=OFF ^
-     .. || exit /B
-cmake --build . --target install --config %CONFIGURATION% || exit /B
-popd
-
 @rem Build and install pyarrow
-@rem parquet-cpp has some additional runtime dependencies that we need to figure out
-@rem see PARQUET-1018
 
 pushd python
 
@@ -141,6 +151,9 @@ set PYARROW_BUNDLE_ARROW_CPP=ON
 set PYARROW_BUNDLE_BOOST=OFF
 set PYARROW_WITH_STATIC_BOOST=ON
 set PYARROW_WITH_PARQUET=ON
+
+@rem ARROW-3075; pkgconfig is broken for Parquet for now
+set PARQUET_HOME=%CONDA_PREFIX%\Library
 
 python setup.py build_ext ^
     install -q --single-version-externally-managed --record=record.text ^

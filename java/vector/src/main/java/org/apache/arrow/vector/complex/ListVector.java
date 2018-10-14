@@ -18,25 +18,23 @@
 
 package org.apache.arrow.vector.complex;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Collections.singletonList;
+import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ObjectArrays;
-
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.AddOrGetResult;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
-import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
@@ -52,6 +50,8 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
 
 public class ListVector extends BaseRepeatedValueVector implements FieldVector, PromotableVector {
 
@@ -148,7 +148,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     final int startOffset = offsetBuffer.getInt(0);
     final int endOffset = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
     final double totalListSize = endOffset - startOffset;
-    return totalListSize/valueCount;
+    return totalListSize / valueCount;
   }
 
   @Override
@@ -547,7 +547,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   @Override
   public Field getField() {
-    return new Field(name, fieldType, ImmutableList.of(getDataVector().getField()));
+    return new Field(name, fieldType, Collections.singletonList(getDataVector().getField()));
   }
 
   @Override
@@ -587,9 +587,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      buffers = ObjectArrays.concat(new ArrowBuf[]{offsetBuffer},
-              ObjectArrays.concat(new ArrowBuf[]{validityBuffer},
-                      vector.getBuffers(false), ArrowBuf.class), ArrowBuf.class);
+      List<ArrowBuf> list = new ArrayList<>();
+      list.add(offsetBuffer);
+      list.add(validityBuffer);
+      list.addAll(Arrays.asList(vector.getBuffers(false)));
+      buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {

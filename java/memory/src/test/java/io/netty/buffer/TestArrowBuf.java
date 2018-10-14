@@ -18,14 +18,15 @@
 
 package io.netty.buffer;
 
+import static org.junit.Assert.*;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
-import static org.junit.Assert.*;
 
 public class TestArrowBuf {
 

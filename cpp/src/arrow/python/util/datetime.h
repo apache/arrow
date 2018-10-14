@@ -163,6 +163,18 @@ static inline int64_t PyTime_to_us(PyObject* pytime) {
           PyDateTime_TIME_GET_MICROSECOND(pytime));
 }
 
+static inline int64_t PyTime_to_s(PyObject* pytime) {
+  return PyTime_to_us(pytime) / 1000000;
+}
+
+static inline int64_t PyTime_to_ms(PyObject* pytime) {
+  return PyTime_to_us(pytime) / 1000;
+}
+
+static inline int64_t PyTime_to_ns(PyObject* pytime) {
+  return PyTime_to_us(pytime) * 1000;
+}
+
 // Splitting time quantities, for example splitting total seconds into
 // minutes and remaining seconds. After we run
 // int64_t remaining = split_time(total, quotient, &next)
@@ -211,12 +223,33 @@ static inline Status PyTime_convert_int(int64_t val, const TimeUnit::type unit,
   return Status::OK();
 }
 
+static inline Status PyDate_convert_int(int64_t val, const DateUnit unit, int64_t* year,
+                                        int64_t* month, int64_t* day) {
+  switch (unit) {
+    case DateUnit::MILLI:
+      val /= 86400000LL;
+    case DateUnit::DAY:
+      get_date_from_days(val, year, month, day);
+    default:
+      break;
+  }
+  return Status::OK();
+}
+
 static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
                                      PyObject** out) {
   int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
   RETURN_NOT_OK(PyTime_convert_int(val, unit, &hour, &minute, &second, &microsecond));
   *out = PyTime_FromTime(static_cast<int32_t>(hour), static_cast<int32_t>(minute),
                          static_cast<int32_t>(second), static_cast<int32_t>(microsecond));
+  return Status::OK();
+}
+
+static inline Status PyDate_from_int(int64_t val, const DateUnit unit, PyObject** out) {
+  int64_t year = 0, month = 0, day = 0;
+  RETURN_NOT_OK(PyDate_convert_int(val, unit, &year, &month, &day));
+  *out = PyDate_FromDate(static_cast<int32_t>(year), static_cast<int32_t>(month),
+                         static_cast<int32_t>(day));
   return Status::OK();
 }
 
@@ -235,7 +268,7 @@ static inline Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit,
   return Status::OK();
 }
 
-static inline int64_t PyDate_to_s(PyDateTime_Date* pydate) {
+static inline int64_t PyDate_to_days(PyDateTime_Date* pydate) {
   return get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
                             PyDateTime_GET_DAY(pydate));
 }
@@ -270,10 +303,6 @@ static inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
 
 static inline int64_t PyDateTime_to_ns(PyDateTime_DateTime* pydatetime) {
   return PyDateTime_to_us(pydatetime) * 1000;
-}
-
-static inline int32_t PyDate_to_days(PyDateTime_Date* pydate) {
-  return static_cast<int32_t>(PyDate_to_ms(pydate) / 86400000LL);
 }
 
 }  // namespace py

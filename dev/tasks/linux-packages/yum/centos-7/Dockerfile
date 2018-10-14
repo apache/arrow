@@ -26,8 +26,10 @@ RUN \
   yum groupinstall -y ${quiet} "Development Tools" && \
   yum install -y ${quiet} \
     autoconf-archive \
+    bison \
     boost-devel \
     cmake3 \
+    flex \
     git \
     gobject-introspection-devel \
     gtk-doc \

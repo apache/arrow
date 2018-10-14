@@ -64,7 +64,7 @@ def test_python_file_write():
     s1 = b'enga\xc3\xb1ado'
     s2 = b'foobar'
 
-    f.write(s1.decode('utf8'))
+    f.write(s1)
     assert f.tell() == len(s1)
 
     f.write(s2)
@@ -167,6 +167,9 @@ def test_bytes_reader():
     f.seek(0)
     assert f.tell() == 0
 
+    f.seek(0, 2)
+    assert f.tell() == len(data)
+
     f.seek(5)
     assert f.tell() == 5
 
@@ -251,18 +254,6 @@ def test_python_file_closing():
     pf = pa.PythonFile(bio)
     pf.close()
     assert bio.closed
-
-
-# ----------------------------------------------------------------------
-# MemoryPool
-
-
-def test_memory_pool_cannot_use_ctor():
-    with pytest.raises(TypeError):
-        pa.MemoryPool()
-
-    with pytest.raises(TypeError):
-        pa.ProxyMemoryPool()
 
 
 # ----------------------------------------------------------------------
@@ -445,6 +436,17 @@ def test_buffer_hashing():
     # Buffers are unhashable
     with pytest.raises(TypeError, match="unhashable"):
         hash(pa.py_buffer(b'123'))
+
+
+def test_buffer_protocol_respects_immutability():
+    # ARROW-3228; NumPy's frombuffer ctor determines whether a buffer-like
+    # object is mutable by first attempting to get a mutable buffer using
+    # PyObject_FromBuffer. If that fails, it assumes that the object is
+    # immutable
+    a = b'12345'
+    arrow_ref = pa.py_buffer(a)
+    numpy_ref = np.frombuffer(arrow_ref, dtype=np.uint8)
+    assert not numpy_ref.flags.writeable
 
 
 def test_foreign_buffer():
@@ -731,7 +733,7 @@ def test_memory_map_writer(tmpdir):
     f = pa.memory_map(path, mode='r+b')
 
     f.seek(10)
-    f.write('peekaboo')
+    f.write(b'peekaboo')
     assert f.tell() == 18
 
     f.seek(10)
@@ -748,7 +750,7 @@ def test_memory_map_writer(tmpdir):
 
     # Does not truncate file
     f3 = pa.memory_map(path, mode='w')
-    f3.write('foo')
+    f3.write(b'foo')
 
     with pa.memory_map(path) as f4:
         assert f4.size() == SIZE
@@ -803,13 +805,20 @@ def test_os_file_writer(tmpdir):
 
     # Truncates file
     f2 = pa.OSFile(path, mode='w')
-    f2.write('foo')
+    f2.write(b'foo')
 
     with pa.OSFile(path) as f3:
         assert f3.size() == 3
 
     with pytest.raises(IOError):
         f2.read(5)
+
+
+def test_native_file_write_reject_unicode():
+    # ARROW-3227
+    nf = pa.BufferOutputStream()
+    with pytest.raises(TypeError):
+        nf.write(u'foo')
 
 
 def test_native_file_modes(tmpdir):

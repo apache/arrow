@@ -28,9 +28,6 @@ env:
   global:
     - PLAT=x86_64
     - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
-    - PYTHON_VERSION={{ python_version }}
-    - PYARROW_VERSION={{ arrow.version }}
 
 before_script:
   - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
@@ -41,13 +38,13 @@ script:
   - mkdir -p dist
 
   - pushd arrow/python/manylinux1
-  - git clone ../../ arrow
-  - docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
-  - docker run --shm-size=2g --rm
-      -e SETUPTOOLS_SCM_PRETEND_VERSION=$PYARROW_VERSION
-      -e PYTHON_VERSIONS=$PYTHON_VERSION
-      -v $PWD:/io arrow-base-x86_64
-      /io/build_arrow.sh
+  - docker run --shm-size=2g
+      -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.version }}
+      -e PYTHON_VERSIONS={{ python_version }}
+      -e WHEEL_VERSION={{ wheel_version }}
+      -v $PWD:/io
+      -v $PWD/../../:/arrow
+      quay.io/xhochy/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh
   - popd
 
   - sudo mv arrow/python/manylinux1/dist/* dist/

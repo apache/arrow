@@ -18,7 +18,6 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.IntervalDayReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -28,6 +27,8 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.Period;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * IntervalDayVector implements a fixed width vector (8 bytes) of
@@ -169,12 +170,12 @@ public class IntervalDayVector extends BaseFixedWidthVector {
 
     final String dayString = (Math.abs(days) == 1) ? " day " : " days ";
 
-    return (new StringBuilder().
-            append(days).append(dayString).
-            append(hours).append(":").
-            append(minutes).append(":").
-            append(seconds).append(".").
-            append(millis));
+    return (new StringBuilder()
+            .append(days).append(dayString)
+            .append(hours).append(":")
+            .append(minutes).append(":")
+            .append(seconds).append(".")
+            .append(millis));
   }
 
   /**
@@ -324,9 +325,8 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    */
   public void setNull(int index) {
     handleSafe(index);
-      /* not really needed to set the bit to 0 as long as
-       * the buffer always starts from 0.
-       */
+    // not really needed to set the bit to 0 as long as
+    // the buffer always starts from 0.
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 

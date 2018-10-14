@@ -18,22 +18,22 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
-
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * BaseFixedWidthVector provides an abstract interface for
@@ -275,7 +275,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
       throw new OversizedAllocationException("Requested amount of memory exceeds limit");
     }
 
-      /* we are doing a new allocation -- release the current buffers */
+    /* we are doing a new allocation -- release the current buffers */
     clear();
 
     try {

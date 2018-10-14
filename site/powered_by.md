@@ -43,7 +43,7 @@ names, etc.) like "arrow-foo". These are permitted. Nominative use of trademarks
 in descriptions is also always allowed, as in "BigCoProduct is a widget for
 Apache Arrow".
 
-To add yourself to the list, please open a pull request adding your
+To add yourself to the list, please open a [pull request][27] adding your
 organization name, URL, a list of which Arrow components you are using, and a
 short description of your use case. See the following for some examples.
 
@@ -92,6 +92,11 @@ short description of your use case. See the following for some examples.
   supports reading and writing Parquet files using pyarrow. Several pandas
   core developers are also contributors to Apache Arrow.
 * **[Perspective][23]:** Perspective is a streaming data visualization engine in JavaScript for building real-time & user-configurable analytics entirely in the browser.
+* **[Petastorm][28]:** Petastorm enables single machine or distributed training 
+  and evaluation of deep learning models directly from datasets in Apache 
+  Parquet format. Petastorm supports popular Python-based machine learning
+  (ML) frameworks such as Tensorflow, Pytorch, and PySpark. It can also be 
+  used from pure Python code.
 * **[Quilt Data][13]:** Quilt is a data package manager, designed to make
   managing data as easy as managing code. It supports Parquet format via
   pyarrow for data access.
@@ -116,6 +121,15 @@ short description of your use case. See the following for some examples.
   Database Connectivity (ODBC) interface. It provides the ability to return
   Arrow Tables and RecordBatches in addition to the Python Database API
   Specification 2.0.
+* **[Falcon][25]:** An interactive data exploration tool with coordinated views.
+  Falcon loads Arrow files using the Arrow JavaScript module. Since Arrow does
+  not need to be parsed (like text-based formats like CSV and JSON), startup cost
+  is significantly minimized.
+* **[FASTDATA.io][26]**: Plasma Engine (unrelated to Arrow's Plasma In-Memory
+  Object Store) exploits the massive parallel processing power of GPUs for
+  stream and batch processing. It supports Arrow as input and output, uses
+  Arrow internally to maximize performance, and can be used with existing
+  Apache Spark™ APIs.
 
 [1]: https://www.apache.org/foundation/marks/
 [2]: https://www.apache.org/foundation/marks/faq/
@@ -141,3 +155,7 @@ short description of your use case. See the following for some examples.
 [22]: https://github.com/Paradigm4/stream
 [23]: https://github.com/jpmorganchase/perspective
 [24]: https://github.com/Paradigm4/accelerated_io_tools
+[25]: https://github.com/uwdata/falcon
+[26]: https://fastdata.io/
+[27]: https://github.com/apache/arrow/edit/master/site/powered_by.md
+[28]: https://github.com/uber/petastorm

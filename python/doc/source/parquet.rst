@@ -47,10 +47,10 @@ support bundled:
 
    import pyarrow.parquet as pq
 
-If you are building ``pyarrow`` from source, you must also build `parquet-cpp
-<http://github.com/apache/parquet-cpp>`_ and enable the Parquet extensions when
-building ``pyarrow``. See the :ref:`Development <development>` page for more
-details.
+If you are building ``pyarrow`` from source, you must use
+``-DARROW_PARQUET=ON`` when compiling the C++ libraries and enable the Parquet
+extensions when building ``pyarrow``. See the :ref:`Development <development>`
+page for more details.
 
 Reading and Writing Single Files
 --------------------------------
@@ -190,6 +190,30 @@ Alternatively python ``with`` syntax can also be use:
    !rm example2.parquet
    !rm example3.parquet
 
+Data Type Handling
+------------------
+
+Storing timestamps
+~~~~~~~~~~~~~~~~~~
+
+Some Parquet readers may only support timestamps stored in millisecond
+(``'ms'``) or microsecond (``'us'``) resolution. Since pandas uses nanoseconds
+to represent timestamps, this can occasionally be a nuisance. We provide the
+``coerce_timestamps`` option to allow you to select the desired resolution:
+
+.. code-block:: python
+
+   pq.write_table(table, where, coerce_timestamps='ms')
+
+If a cast to a lower resolution value may result in a loss of data, by default
+an exception will be raised. This can be suppressed by passing
+``allow_truncated_timestamps=True``:
+
+.. code-block:: python
+
+   pq.write_table(table, where, coerce_timestamps='ms',
+                  allow_truncated_timestamps=True)
+
 Compression, Encoding, and File Compatibility
 ---------------------------------------------
 
@@ -256,29 +280,35 @@ A dataset partitioned by year and month may look like on disk:
 Writing to Partitioned Datasets
 ------------------------------------------------
 
-You can write a partitioned dataset for any ``pyarrow`` file system that is a file-store (e.g. local, HDFS, S3). The
-default behaviour when no filesystem is added is to use the local filesystem.
+You can write a partitioned dataset for any ``pyarrow`` file system that is a
+file-store (e.g. local, HDFS, S3). The default behaviour when no filesystem is
+added is to use the local filesystem.
 
 .. code-block:: python
 
    # Local dataset write
-   pq.write_to_dataset(table, root_path='dataset_name', partition_cols=['one', 'two'])
+   pq.write_to_dataset(table, root_path='dataset_name',
+                       partition_cols=['one', 'two'])
 
-The root path in this case specifies the parent directory to which data will be saved. The partition columns are the
-column names by which to partition the dataset. Columns are partitioned in the order they are given. The partition
+The root path in this case specifies the parent directory to which data will be
+saved. The partition columns are the column names by which to partition the
+dataset. Columns are partitioned in the order they are given. The partition
 splits are determined by the unique values in the partition columns.
 
-To use another filesystem you only need to add the filesystem parameter, the individual table writes are wrapped
-using ``with`` statements so the ``pq.write_to_dataset`` function does not need to be.
+To use another filesystem you only need to add the filesystem parameter, the
+individual table writes are wrapped using ``with`` statements so the
+``pq.write_to_dataset`` function does not need to be.
 
 .. code-block:: python
 
    # Remote file-system example
    fs = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path)
-   pq.write_to_dataset(table, root_path='dataset_name', partition_cols=['one', 'two'], filesystem=fs)
+   pq.write_to_dataset(table, root_path='dataset_name',
+                       partition_cols=['one', 'two'], filesystem=fs)
 
-Compatibility Note: if using ``pq.write_to_dataset`` to create a table that will then be used by HIVE then partition
-column values must be compatible with the allowed character set of the HIVE version you are running.
+Compatibility Note: if using ``pq.write_to_dataset`` to create a table that
+will then be used by HIVE then partition column values must be compatible with
+the allowed character set of the HIVE version you are running.
 
 Reading from Partitioned Datasets
 ------------------------------------------------
@@ -292,17 +322,20 @@ such as those produced by Hive:
    dataset = pq.ParquetDataset('dataset_name/')
    table = dataset.read()
 
-You can also use the convenience function ``read_table`` exposed by ``pyarrow.parquet``
-that avoids the need for an additional Dataset object creation step.
+You can also use the convenience function ``read_table`` exposed by
+``pyarrow.parquet`` that avoids the need for an additional Dataset object
+creation step.
 
 .. code-block:: python
 
    table = pq.read_table('dataset_name')
 
-Note: the partition columns in the original table will have their types converted to Arrow dictionary types
-(pandas categorical) on load. Ordering of partition columns is not preserved through the save/load process. If reading
-from a remote filesystem into a pandas dataframe you may need to run ``sort_index`` to maintain row ordering
-(as long as the ``preserve_index`` option was enabled on write).
+Note: the partition columns in the original table will have their types
+converted to Arrow dictionary types (pandas categorical) on load. Ordering of
+partition columns is not preserved through the save/load process. If reading
+from a remote filesystem into a pandas dataframe you may need to run
+``sort_index`` to maintain row ordering (as long as the ``preserve_index``
+option was enabled on write).
 
 Using with Spark
 ----------------
@@ -362,6 +395,8 @@ Dependencies:
 
 Notes:
 
-* The ``account_key`` can be found under ``Settings -> Access keys`` in the Microsoft Azure portal for a given container
-* The code above works for a container with private access, Lease State = Available, Lease Status = Unlocked
+* The ``account_key`` can be found under ``Settings -> Access keys`` in the
+  Microsoft Azure portal for a given container
+* The code above works for a container with private access, Lease State =
+  Available, Lease Status = Unlocked
 * The parquet file was Blob Type = Block blob

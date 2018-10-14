@@ -156,9 +156,11 @@ public class IntervalYearVector extends BaseFixedWidthVector {
     final String yearString = (Math.abs(years) == 1) ? " year " : " years ";
     final String monthString = (Math.abs(months) == 1) ? " month " : " months ";
 
-    return (new StringBuilder().
-            append(years).append(yearString).
-            append(months).append(monthString));
+    return (new StringBuilder()
+      .append(years)
+      .append(yearString)
+      .append(months)
+      .append(monthString));
   }
 
   /**
@@ -286,9 +288,8 @@ public class IntervalYearVector extends BaseFixedWidthVector {
    */
   public void setNull(int index) {
     handleSafe(index);
-      /* not really needed to set the bit to 0 as long as
-       * the buffer always starts from 0.
-       */
+    // not really needed to set the bit to 0 as long as
+    // the buffer always starts from 0.
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 

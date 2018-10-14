@@ -51,10 +51,11 @@ message(STATUS "Arrow version: "
   "(full: '${ARROW_VERSION}')")
 
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
 
 include(CMakeParseArguments)
 include(ExternalProject)
+include(FindPkgConfig)
 
 # This ensures that things like gnu++11 get passed correctly
 set(CMAKE_CXX_STANDARD 11)
@@ -139,6 +140,10 @@ Pass multiple labels by dividing with semicolons")
     "Compile with extra error context (line numbers, code)"
     OFF)
 
+  option(ARROW_FLIGHT
+    "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)"
+    OFF)
+
   option(ARROW_IPC
     "Build the Arrow IPC extensions"
     ON)
@@ -157,7 +162,7 @@ Pass multiple labels by dividing with semicolons")
 
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
-    OFF)
+    ON)
 
   option(ARROW_HDFS
     "Build the Arrow HDFS bridge"
@@ -203,6 +208,10 @@ Pass multiple labels by dividing with semicolons")
     "Build Arrow libraries with install_name set to @rpath"
     ON)
 
+  option(ARROW_HIVESERVER2
+    "Build the HiveServer2 client and Arrow adapter"
+    OFF)
+
   option(ARROW_PLASMA
     "Build the plasma object store along with Arrow"
     OFF)
@@ -235,10 +244,6 @@ Pass multiple labels by dividing with semicolons")
     "Build with zstd compression"
     ON)
 
-  option(ARROW_WITH_GRPC
-    "Build with GRPC"
-    OFF)
-
   option(ARROW_GENERATE_COVERAGE
     "Build with C++ code coverage enabled"
     OFF)
@@ -251,6 +256,10 @@ Pass multiple labels by dividing with semicolons")
     "If off, 'quiet' flags will be passed to linting tools"
     OFF)
 
+  option(ARROW_USE_GLOG
+    "Build libraries with glog support for pluggable logging"
+    ON)
+
   if (MSVC)
     option(ARROW_USE_CLCACHE
       "Use clcache if available"
@@ -260,8 +269,6 @@ Pass multiple labels by dividing with semicolons")
       "Brotli static lib suffix used on Windows with MSVC (default -static)")
     set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
-    set(ZLIB_MSVC_STATIC_LIB_SUFFIX "libstatic" CACHE STRING
-      "Zlib static lib suffix used on Windows with MSVC (default libstatic)")
     set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "Lz4 static lib suffix used on Windows with MSVC (default _static)")
     set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
@@ -271,10 +278,36 @@ Pass multiple labels by dividing with semicolons")
       "Build Arrow with statically linked CRT"
       OFF)
   endif()
+
+  # Parquet-related build options
+  option(ARROW_PARQUET
+    "Build the Parquet libraries"
+    OFF)
+
+  option(PARQUET_MINIMAL_DEPENDENCY
+    "Depend only on Thirdparty headers to build libparquet. \
+Always OFF if building binaries"
+    OFF)
+
+  option(PARQUET_BUILD_EXECUTABLES
+    "Build the Parquet executable CLI tools"
+    OFF)
+
+  option(PARQUET_BUILD_EXAMPLES
+    "Build the Parquet examples"
+    OFF)
+
+  set(PARQUET_ARROW_LINKAGE "shared" CACHE STRING
+    "How to link Arrow libraries with libparquet.so. static|shared (default shared)")
+
+  # Gandiva related build options
+  option(ARROW_GANDIVA
+    "Build the Gandiva libraries"
+    OFF)
+
 endif()
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
-  set(ARROW_BUILD_STATIC ON)
   set(ARROW_WITH_BROTLI ON)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
@@ -285,6 +318,8 @@ endif()
 if (MSVC)
   # ORC doesn't build on windows
   set(ARROW_ORC OFF)
+  # Plasma using glog is not fully tested on windows.
+  set(ARROW_USE_GLOG OFF)
 endif()
 
 if(ARROW_ORC)
@@ -303,12 +338,6 @@ endif()
 
 if (NOT ARROW_FUZZING)
   set(NO_FUZZING 1)
-endif()
-
-if(ARROW_HDFS)
-  set(ARROW_BOOST_HEADER_ONLY 0)
-else()
-  set(ARROW_BOOST_HEADER_ONLY 1)
 endif()
 
 if (ARROW_TENSORFLOW)
@@ -374,20 +403,7 @@ include(san-config)
 
 # Code coverage
 if ("${ARROW_GENERATE_COVERAGE}")
-  if("${CMAKE_CXX_COMPILER}" MATCHES ".*clang.*")
-    # There appears to be some bugs in clang 3.3 which cause code coverage
-    # to have link errors, not locating the llvm_gcda_* symbols.
-    # This should be fixed in llvm 3.4 with http://llvm.org/viewvc/llvm-project?view=revision&revision=184666
-    message(SEND_ERROR "Cannot currently generate coverage with clang")
-  endif()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -DCOVERAGE_BUILD")
-
-  # For coverage to work properly, we need to use static linkage. Otherwise,
-  # __gcov_flush() doesn't properly flush coverage from every module.
-  # See http://stackoverflow.com/questions/28164543/using-gcov-flush-within-a-library-doesnt-force-the-other-modules-to-yield-gc
-  if(NOT ARROW_BUILD_STATIC)
-    message(SEND_ERROR "Coverage requires the static lib to be built")
-  endif()
 endif()
 
 # CMAKE_CXX_FLAGS now fully assembled
@@ -506,6 +522,7 @@ if (UNIX)
             (item MATCHES "config.h") OR
             (item MATCHES "util/variant") OR
             (item MATCHES "zmalloc.h") OR
+            (item MATCHES "gandiva/precompiled/date.h") OR
             (item MATCHES "ae.h")))
       LIST(APPEND FILTERED_LINT_FILES ${item})
     ENDIF()
@@ -580,7 +597,9 @@ endif(UNIX)
 ############################################################
 
 set(ARROW_LINK_LIBS)
-set(ARROW_STATIC_LINK_LIBS)
+
+# Libraries to link statically with libarrow.so
+set(ARROW_STATIC_LINK_LIBS double-conversion::double-conversion)
 
 if (ARROW_WITH_BROTLI)
   SET(ARROW_STATIC_LINK_LIBS
@@ -599,6 +618,9 @@ if (ARROW_WITH_SNAPPY)
 endif()
 
 if (ARROW_WITH_ZLIB)
+  if (ZLIB_SHARED_LIB)
+    SET(ARROW_LINK_LIBS zlib ${ARROW_LINK_LIBS})
+  endif()
   SET(ARROW_STATIC_LINK_LIBS zlib ${ARROW_STATIC_LINK_LIBS})
 endif()
 
@@ -606,44 +628,31 @@ if (ARROW_WITH_ZSTD)
   SET(ARROW_STATIC_LINK_LIBS zstd_static ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-if (ARROW_WITH_GRPC)
+if (ARROW_ORC)
   SET(ARROW_STATIC_LINK_LIBS
-    grpc_grp
-    grpc_grpc
-    grpc_grpcpp
-    ${ARROW_STATIC_LINK_LIBS})
+    ${ARROW_STATIC_LINK_LIBS}
+    orc)
 endif()
 
-if (ARROW_ORC)
-  if (ARROW_PROTOBUF_USE_SHARED)
-    SET(ARROW_LINK_LIBS
-      protobuf
-      ${ARROW_LINK_LIBS})
-  else()
-    SET(ARROW_STATIC_LINK_LIBS
-      protobuf
-      ${ARROW_STATIC_LINK_LIBS})
-  endif()
-  SET(ARROW_STATIC_LINK_LIBS
-    orc
-    ${ARROW_STATIC_LINK_LIBS})
+if (ARROW_USE_GLOG)
+  #add_definitions(-DARROW_USE_GLOG)
+  SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-set(ARROW_BENCHMARK_LINK_LIBS
-  arrow_static
-  arrow_benchmark_main
-  gtest
-  ${ARROW_STATIC_LINK_LIBS})
-
-set(ARROW_LINK_LIBS
-  ${ARROW_STATIC_LINK_LIBS}
-  ${ARROW_LINK_LIBS})
+if (ARROW_BUILD_BENCHMARKS)
+  set(ARROW_BENCHMARK_LINK_LIBS
+    arrow_static
+    arrow_benchmark_main
+    gtest
+    ${ARROW_STATIC_LINK_LIBS})
+endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
+  ${ARROW_STATIC_LINK_LIBS}
   ${BOOST_SYSTEM_LIBRARY}
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
@@ -659,11 +668,23 @@ if (NOT MSVC)
     ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_MIN_TEST_LIBS
-  arrow_static
-  ${ARROW_STATIC_LINK_LIBS}
-  gtest
-  gtest_main)
+if (ARROW_BUILD_STATIC)
+  set(ARROW_MIN_TEST_LIBS
+    arrow_static
+    ${ARROW_STATIC_LINK_LIBS}
+    gtest_main
+    gtest)
+else ()
+  set(ARROW_MIN_TEST_LIBS
+    arrow_shared
+    ${ARROW_LINK_LIBS}
+    double-conversion::double-conversion
+    ${BOOST_SYSTEM_LIBRARY}
+    ${BOOST_FILESYSTEM_LIBRARY}
+    ${BOOST_REGEX_LIBRARY}
+    gtest_main
+    gtest)
+endif()
 
 if(NOT MSVC)
   set(ARROW_MIN_TEST_LIBS
@@ -677,13 +698,12 @@ if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
 
-  if (CMAKE_COMPILER_IS_GNUCXX AND PTHREAD_LIBRARY)
+  if (NOT WIN32 AND NOT APPLE)
     set(ARROW_JEMALLOC_LINK_LIBS
       jemalloc_static
       # For glibc <2.17 we need to link to librt.
       # As we compile with --as-needed by default, the linker will omit this
       # dependency if not required.
-      ${PTHREAD_LIBRARY}
       rt
       )
   else()
@@ -697,9 +717,9 @@ if (ARROW_JEMALLOC)
   set(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
     ${ARROW_JEMALLOC_LINK_LIBS})
-elseif (PTHREAD_LIBRARY)
-  # We need to separate this as otherwise CMake would mess with the library
-  # linking order.
+endif(ARROW_JEMALLOC)
+
+if (PTHREAD_LIBRARY)
   set(ARROW_LINK_LIBS
     ${ARROW_LINK_LIBS}
     ${PTHREAD_LIBRARY})
@@ -718,6 +738,24 @@ endif()
 
 add_subdirectory(src/arrow)
 
+if(ARROW_FLIGHT)
+  add_subdirectory(src/arrow/flight)
+endif()
+
 if(ARROW_PYTHON)
   add_subdirectory(src/arrow/python)
+endif()
+
+if(ARROW_HIVESERVER2)
+  add_subdirectory(src/arrow/dbi/hiveserver2)
+endif()
+
+if(ARROW_PARQUET)
+  add_subdirectory(src/parquet)
+  add_subdirectory(tools/parquet)
+  add_subdirectory(examples/parquet/low-level-api)
+endif()
+
+if(ARROW_GANDIVA)
+  add_subdirectory(src/gandiva)
 endif()

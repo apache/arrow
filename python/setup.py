@@ -98,6 +98,7 @@ class build_ext(_build_ext):
                       'build type (debug or release), default release'),
                      ('boost-namespace=', None,
                       'namespace of boost (default: boost)'),
+                     ('with-cuda', None, 'build the Cuda extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
@@ -132,6 +133,8 @@ class build_ext(_build_ext):
             if not hasattr(sys, 'gettotalrefcount'):
                 self.build_type = 'release'
 
+        self.with_cuda = strtobool(
+            os.environ.get('PYARROW_WITH_CUDA', '0'))
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_static_parquet = strtobool(
@@ -153,6 +156,8 @@ class build_ext(_build_ext):
 
     CYTHON_MODULE_NAMES = [
         'lib',
+        '_csv',
+        '_cuda',
         '_parquet',
         '_orc',
         '_plasma']
@@ -189,6 +194,8 @@ class build_ext(_build_ext):
 
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
+            if self.with_cuda:
+                cmake_options.append('-DPYARROW_BUILD_CUDA=on')
             if self.with_parquet:
                 cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
             if self.with_static_parquet:
@@ -248,7 +255,7 @@ class build_ext(_build_ext):
                         '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
 
             # Generate the build files
-            print("-- Runnning cmake for pyarrow")
+            print("-- Running cmake for pyarrow")
             self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
             print("-- Finished cmake for pyarrow")
 
@@ -277,6 +284,8 @@ class build_ext(_build_ext):
                 print(pjoin(build_lib, 'pyarrow'))
                 move_shared_libs(build_prefix, build_lib, "arrow")
                 move_shared_libs(build_prefix, build_lib, "arrow_python")
+                if self.with_cuda:
+                    move_shared_libs(build_prefix, build_lib, "arrow_gpu")
                 if self.with_plasma:
                     move_shared_libs(build_prefix, build_lib, "plasma")
                 if self.with_parquet and not self.with_static_parquet:
@@ -291,6 +300,10 @@ class build_ext(_build_ext):
                     move_shared_libs(
                         build_prefix, build_lib,
                         "{}_regex".format(self.boost_namespace))
+                if sys.platform == 'win32':
+                    # zlib uses zlib.dll for Windows
+                    zlib_lib_name = 'zlib'
+                    move_shared_libs(build_prefix, build_lib, zlib_lib_name)
 
             print('Bundling includes: ' + pjoin(build_prefix, 'include'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
@@ -345,10 +358,10 @@ class build_ext(_build_ext):
 
             if self.with_plasma:
                 # Move the plasma store
-                source = os.path.join(self.build_type, "plasma_store")
+                source = os.path.join(self.build_type, "plasma_store_server")
                 target = os.path.join(build_lib,
                                       self._get_build_dir(),
-                                      "plasma_store")
+                                      "plasma_store_server")
                 shutil.move(source, target)
 
     def _failure_permitted(self, name):
@@ -357,6 +370,8 @@ class build_ext(_build_ext):
         if name == '_plasma' and not self.with_plasma:
             return True
         if name == '_orc' and not self.with_orc:
+            return True
+        if name == '_cuda' and not self.with_cuda:
             return True
         return False
 
@@ -515,9 +530,9 @@ class BinaryDistribution(Distribution):
 
 
 install_requires = (
-    'numpy >= 1.10',
+    'numpy >= 1.14',
     'six >= 1.0.0',
-    'futures;python_version<"3.2"'
+    'futures; python_version < "3.2"'
 )
 
 
@@ -553,7 +568,7 @@ setup(
                      },
     setup_requires=['setuptools_scm', 'cython >= 0.27'] + setup_requires,
     install_requires=install_requires,
-    tests_require=['pytest', 'pandas'],
+    tests_require=['pytest', 'pandas', 'pathlib2; python_version < "3.4"'],
     description="Python library for Apache Arrow",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -561,8 +576,9 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6'
-        ],
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+    ],
     license='Apache License, Version 2.0',
     maintainer="Apache Arrow Developers",
     maintainer_email="dev@arrow.apache.org",

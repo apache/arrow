@@ -8,3 +8,5 @@
 *thirdparty/ae/*
 *xxhash.cc
 *xxhash.h
+*RcppExports.cpp*
+*gandiva/precompiled/date.h

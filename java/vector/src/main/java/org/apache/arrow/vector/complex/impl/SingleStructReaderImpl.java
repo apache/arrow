@@ -20,6 +20,7 @@
 package org.apache.arrow.vector.complex.impl;
 
 
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.arrow.vector.ValueVector;
@@ -29,13 +30,11 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 
-import com.google.common.collect.Maps;
-
 @SuppressWarnings("unused")
 public class SingleStructReaderImpl extends AbstractFieldReader {
 
   private final NonNullableStructVector vector;
-  private final Map<String, FieldReader> fields = Maps.newHashMap();
+  private final Map<String, FieldReader> fields = new HashMap<>();
 
   public SingleStructReaderImpl(NonNullableStructVector vector) {
     this.vector = vector;

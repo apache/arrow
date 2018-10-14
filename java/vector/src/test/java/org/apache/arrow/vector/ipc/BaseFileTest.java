@@ -18,6 +18,10 @@
 
 package org.apache.arrow.vector.ipc;
 
+import static org.apache.arrow.vector.TestUtils.newVarCharVector;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -25,12 +29,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.VarBinaryVector;
@@ -70,10 +74,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
-
-import static org.apache.arrow.vector.TestUtils.newVarCharVector;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 /**
  * Helps testing the file formats
@@ -235,7 +235,9 @@ public class BaseFileTest {
     }
   }
 
-  protected VectorSchemaRoot writeFlatDictionaryData(BufferAllocator bufferAllocator, DictionaryProvider.MapDictionaryProvider provider) {
+  protected VectorSchemaRoot writeFlatDictionaryData(
+      BufferAllocator bufferAllocator,
+      DictionaryProvider.MapDictionaryProvider provider) {
 
     // Define dictionaries and add to provider
     VarCharVector dictionary1Vector = newVarCharVector("D1", bufferAllocator);
@@ -292,8 +294,9 @@ public class BaseFileTest {
     FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector2, dictionary2);
     vector2.close();  // Done with this vector after encoding
 
-    List<Field> fields = ImmutableList.of(encodedVector1A.getField(), encodedVector1B.getField(), encodedVector2.getField());
-    List<FieldVector> vectors = ImmutableList.of(encodedVector1A, encodedVector1B, encodedVector2);
+    List<Field> fields = Arrays.asList(encodedVector1A.getField(), encodedVector1B.getField(),
+        encodedVector2.getField());
+    List<FieldVector> vectors = Collections2.asImmutableList(encodedVector1A, encodedVector1B, encodedVector2);
 
     return new VectorSchemaRoot(fields, vectors, encodedVector1A.getValueCount());
   }
@@ -362,7 +365,9 @@ public class BaseFileTest {
     Assert.assertEquals(new Text("large"), dictionaryVector.getObject(2));
   }
 
-  protected VectorSchemaRoot writeNestedDictionaryData(BufferAllocator bufferAllocator, DictionaryProvider.MapDictionaryProvider provider) {
+  protected VectorSchemaRoot writeNestedDictionaryData(
+      BufferAllocator bufferAllocator,
+      DictionaryProvider.MapDictionaryProvider provider) {
 
     // Define the dictionary and add to the provider
     VarCharVector dictionaryVector = newVarCharVector("D2", bufferAllocator);
@@ -392,8 +397,8 @@ public class BaseFileTest {
     listWriter.endList();
     listWriter.setValueCount(3);
 
-    List<Field> fields = ImmutableList.of(listVector.getField());
-    List<FieldVector> vectors = ImmutableList.<FieldVector>of(listVector);
+    List<Field> fields = Collections2.asImmutableList(listVector.getField());
+    List<FieldVector> vectors = Collections2.asImmutableList(listVector);
     return new VectorSchemaRoot(fields, vectors, 3);
   }
 
@@ -441,8 +446,9 @@ public class BaseFileTest {
     decimalVector2.setValueCount(count);
     decimalVector3.setValueCount(count);
 
-    List<Field> fields = ImmutableList.of(decimalVector1.getField(), decimalVector2.getField(), decimalVector3.getField());
-    List<FieldVector> vectors = ImmutableList.<FieldVector>of(decimalVector1, decimalVector2, decimalVector3);
+    List<Field> fields = Collections2.asImmutableList(decimalVector1.getField(), decimalVector2.getField(),
+        decimalVector3.getField());
+    List<FieldVector> vectors = Collections2.asImmutableList(decimalVector1, decimalVector2, decimalVector3);
     return new VectorSchemaRoot(fields, vectors, count);
   }
 

@@ -40,7 +40,6 @@ class HashUtil {
   /// The resulting hashes are correlated.
   /// TODO: update this to also use SSE4_crc32_u64 and SSE4_crc32_u16 where appropriate.
   static uint32_t CrcHash(const void* data, int32_t bytes, uint32_t hash) {
-    DCHECK(CpuInfo::IsSupported(CpuInfo::SSE4_2));
     uint32_t words = static_cast<uint32_t>(bytes / sizeof(uint32_t));
     bytes = static_cast<int32_t>(bytes % sizeof(uint32_t));
 
@@ -64,7 +63,6 @@ class HashUtil {
 
   /// CrcHash() specialized for 1-byte data
   static inline uint32_t CrcHash1(const void* v, uint32_t hash) {
-    DCHECK(CpuInfo::IsSupported(CpuInfo::SSE4_2));
     const uint8_t* s = reinterpret_cast<const uint8_t*>(v);
     hash = SSE4_crc32_u8(hash, *s);
     hash = (hash << 16) | (hash >> 16);
@@ -73,7 +71,6 @@ class HashUtil {
 
   /// CrcHash() specialized for 2-byte data
   static inline uint32_t CrcHash2(const void* v, uint32_t hash) {
-    DCHECK(CpuInfo::IsSupported(CpuInfo::SSE4_2));
     const uint16_t* s = reinterpret_cast<const uint16_t*>(v);
     hash = SSE4_crc32_u16(hash, *s);
     hash = (hash << 16) | (hash >> 16);
@@ -82,7 +79,6 @@ class HashUtil {
 
   /// CrcHash() specialized for 4-byte data
   static inline uint32_t CrcHash4(const void* v, uint32_t hash) {
-    DCHECK(CpuInfo::IsSupported(CpuInfo::SSE4_2));
     const uint32_t* p = reinterpret_cast<const uint32_t*>(v);
     hash = SSE4_crc32_u32(hash, *p);
     hash = (hash << 16) | (hash >> 16);
@@ -91,7 +87,6 @@ class HashUtil {
 
   /// CrcHash() specialized for 8-byte data
   static inline uint32_t CrcHash8(const void* v, uint32_t hash) {
-    DCHECK(CpuInfo::IsSupported(CpuInfo::SSE4_2));
     const uint64_t* p = reinterpret_cast<const uint64_t*>(v);
     hash = SSE4_crc32_u64(hash, *p);
     hash = (hash << 16) | (hash >> 16);
@@ -100,7 +95,6 @@ class HashUtil {
 
   /// CrcHash() specialized for 12-byte data
   static inline uint32_t CrcHash12(const void* v, uint32_t hash) {
-    DCHECK(CpuInfo::IsSupported(CpuInfo::SSE4_2));
     const uint64_t* p = reinterpret_cast<const uint64_t*>(v);
     hash = SSE4_crc32_u64(hash, *p);
     ++p;
@@ -111,7 +105,6 @@ class HashUtil {
 
   /// CrcHash() specialized for 16-byte data
   static inline uint32_t CrcHash16(const void* v, uint32_t hash) {
-    DCHECK(CpuInfo::IsSupported(CpuInfo::SSE4_2));
     const uint64_t* p = reinterpret_cast<const uint64_t*>(v);
     hash = SSE4_crc32_u64(hash, *p);
     ++p;
@@ -204,21 +197,9 @@ class HashUtil {
     return static_cast<uint32_t>((hash_u64 >> 32) ^ (hash_u64 & 0xFFFFFFFF));
   }
 
-  /// Computes the hash value for data.  Will call either CrcHash or MurmurHash
-  /// depending on hardware capabilities.
-  /// Seed values for different steps of the query execution should use different seeds
-  /// to prevent accidental key collisions. (See IMPALA-219 for more details).
-  static uint32_t Hash(const void* data, int32_t bytes, uint32_t seed) {
-#ifdef ARROW_USE_SSE
-    if (LIKELY(CpuInfo::IsSupported(CpuInfo::SSE4_2))) {
-      return CrcHash(data, bytes, seed);
-    } else {
-      return MurmurHash2_64(data, bytes, seed);
-    }
-#else
-    return static_cast<uint32_t>(MurmurHash2_64(data, bytes, seed));
-#endif
-  }
+  // With sse4.2
+  template <bool use_sse42 = true>
+  static inline int Hash(const void* data, int32_t bytes, uint32_t seed);
 
   /// The magic number (used in hash_combine()) 0x9e3779b9 = 2^32 / (golden ratio).
   static const uint32_t HASH_COMBINE_SEED = 0x9e3779b9;
@@ -252,6 +233,18 @@ class HashUtil {
     return hash1 | (hash2 << 32);
   }
 };
+
+// With sse4.2
+template <>
+inline int HashUtil::Hash<true>(const void* data, int32_t bytes, uint32_t seed) {
+  return static_cast<int>(HashUtil::CrcHash(data, bytes, seed));
+}
+
+// Non-sse4 hash
+template <>
+inline int HashUtil::Hash<false>(const void* data, int32_t bytes, uint32_t seed) {
+  return static_cast<int>(HashUtil::MurmurHash2_64(data, bytes, seed));
+}
 
 }  // namespace arrow
 

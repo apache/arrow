@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import collections
 import re
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
@@ -374,8 +375,6 @@ cdef class Field:
         Parameters
         ----------
         other : pyarrow.Field
-        check_metadata : boolean, default True
-            Key/value metadata must be equal too
 
         Returns
         -------
@@ -498,12 +497,30 @@ cdef class Schema:
 
     @property
     def names(self):
+        """
+        The schema's field names.
+
+        Returns
+        -------
+        list of str
+        """
         cdef int i
         result = []
         for i in range(self.schema.num_fields()):
             name = frombytes(self.schema.field(i).get().name())
             result.append(name)
         return result
+
+    @property
+    def types(self):
+        """
+        The schema's field types.
+
+        Returns
+        -------
+        list of DataType
+        """
+        return [field.type for field in self]
 
     @property
     def metadata(self):
@@ -516,6 +533,25 @@ cdef class Schema:
             return self.equals(other)
         except TypeError:
             return NotImplemented
+
+    def empty_table(self):
+        """
+        Provide an empty table according to the schema.
+
+        Returns
+        -------
+        table: pyarrow.Table
+        """
+        arrays = []
+        names = []
+        for field in self:
+            arrays.append(array([], type=field.type))
+            names.append(field.name)
+        return Table.from_arrays(
+            arrays=arrays,
+            names=names,
+            metadata=self.metadata
+        )
 
     def equals(self, other, bint check_metadata=True):
         """
@@ -1221,7 +1257,7 @@ def struct(fields):
 
     Parameters
     ----------
-    fields : sequence of Field values
+    fields : iterable of Fields or tuples, or mapping of strings to DataTypes
 
     Examples
     --------
@@ -1229,8 +1265,14 @@ def struct(fields):
 
         import pyarrow as pa
         fields = [
+            ('f1', pa.int32()),
+            ('f2', pa.string()),
+        ]
+        struct_type = pa.struct(fields)
+
+        fields = [
             pa.field('f1', pa.int32()),
-            pa.field('f2', pa.string())
+            pa.field('f2', pa.string(), nullable=false),
         ]
         struct_type = pa.struct(fields)
 
@@ -1239,12 +1281,19 @@ def struct(fields):
     type : DataType
     """
     cdef:
-        Field field
+        Field py_field
         vector[shared_ptr[CField]] c_fields
         cdef shared_ptr[CDataType] struct_type
 
-    for field in fields:
-        c_fields.push_back(field.sp_field)
+    if isinstance(fields, collections.Mapping):
+        fields = fields.items()
+
+    for item in fields:
+        if isinstance(item, tuple):
+            py_field = field(*item)
+        else:
+            py_field = item
+        c_fields.push_back(py_field.sp_field)
 
     struct_type.reset(new CStructType(c_fields))
     return pyarrow_wrap_data_type(struct_type)
@@ -1368,9 +1417,20 @@ def schema(fields, dict metadata=None):
 
     Parameters
     ----------
-    field : list or iterable
+    field : iterable of Fields or tuples, or mapping of strings to DataTypes
     metadata : dict, default None
         Keys and values must be coercible to bytes
+
+    Examples
+    --------
+    ::
+
+        import pyarrow as pa
+        fields = [
+            ('some_int', pa.int32()),
+            ('some_string', pa.string()),
+        ]
+        schema = pa.schema(fields)
 
     Returns
     -------
@@ -1380,11 +1440,18 @@ def schema(fields, dict metadata=None):
         shared_ptr[CKeyValueMetadata] c_meta
         shared_ptr[CSchema] c_schema
         Schema result
-        Field field
+        Field py_field
         vector[shared_ptr[CField]] c_fields
 
-    for i, field in enumerate(fields):
-        c_fields.push_back(field.sp_field)
+    if isinstance(fields, collections.Mapping):
+        fields = fields.items()
+
+    for item in fields:
+        if isinstance(item, tuple):
+            py_field = field(*item)
+        else:
+            py_field = item
+        c_fields.push_back(py_field.sp_field)
 
     if metadata is not None:
         convert_metadata(metadata, &c_meta)
@@ -1405,3 +1472,15 @@ def from_numpy_dtype(object dtype):
         check_status(NumPyDtypeToArrow(dtype, &c_type))
 
     return pyarrow_wrap_data_type(c_type)
+
+
+def is_boolean_value(object obj):
+    return IsPyBool(obj)
+
+
+def is_integer_value(object obj):
+    return IsPyInt(obj)
+
+
+def is_float_value(object obj):
+    return IsPyFloat(obj)

@@ -305,6 +305,29 @@ def test_column_flatten():
     assert y == pa.column('foo.y', pa.array([], type=pa.float32()))
 
 
+def test_column_getitem():
+    arr = pa.array([1, 2, 3, 4, 5, 6])
+    col = pa.column('ints', arr)
+
+    assert col[1].as_py() == 2
+    assert col[-1].as_py() == 6
+    assert col[-6].as_py() == 1
+    with pytest.raises(IndexError):
+        col[6]
+    with pytest.raises(IndexError):
+        col[-7]
+
+    data_slice = col[2:4]
+    assert data_slice.to_pylist() == [3, 4]
+
+    data_slice = col[4:-1]
+    assert data_slice.to_pylist() == [5]
+
+    data_slice = col[99:99]
+    assert data_slice.type == col.type
+    assert data_slice.to_pylist() == []
+
+
 def test_recordbatch_basics():
     data = [
         pa.array(range(5)),
@@ -476,6 +499,27 @@ def test_recordbatchlist_schema_equals():
         pa.Table.from_batches([batch1, batch2])
 
 
+def test_table_from_batches_and_schema():
+    schema = pa.schema([
+        pa.field('a', pa.int64()),
+        pa.field('b', pa.float64()),
+    ])
+    batch = pa.RecordBatch.from_arrays([pa.array([1]), pa.array([3.14])],
+                                       names=['a', 'b'])
+    table = pa.Table.from_batches([batch], schema)
+    assert table.schema.equals(schema)
+    assert table.column(0) == pa.column('a', pa.array([1]))
+    assert table.column(1) == pa.column('b', pa.array([3.14]))
+
+    incompatible_schema = pa.schema([pa.field('a', pa.int64())])
+    with pytest.raises(pa.ArrowInvalid):
+        pa.Table.from_batches([batch], incompatible_schema)
+
+    incompatible_batch = pa.RecordBatch.from_arrays([pa.array([1])], ['a'])
+    with pytest.raises(pa.ArrowInvalid):
+        pa.Table.from_batches([incompatible_batch], schema)
+
+
 def test_table_to_batches():
     df1 = pd.DataFrame({'a': list(range(10))})
     df2 = pd.DataFrame({'a': list(range(10, 30))})
@@ -545,6 +589,23 @@ def test_table_from_arrays_invalid_names():
 
     with pytest.raises(ValueError):
         pa.Table.from_arrays(data, names=['a'])
+
+
+def test_table_from_lists_raises():
+    data = [
+        list(range(5)),
+        [-10, -5, 0, 5, 10]
+    ]
+
+    with pytest.raises(TypeError):
+        pa.Table.from_arrays(data, names=['a', 'b'])
+
+    schema = pa.schema([
+        pa.field('a', pa.uint16()),
+        pa.field('b', pa.int64())
+    ])
+    with pytest.raises(TypeError):
+        pa.Table.from_arrays(data, schema=schema)
 
 
 def test_table_pickle():
@@ -713,6 +774,26 @@ def test_concat_tables():
     assert result.equals(expected)
 
 
+def test_concat_tables_with_different_schema_metadata():
+    schema = pa.schema([
+        pa.field('a', pa.string()),
+        pa.field('b', pa.string()),
+    ])
+
+    values = list('abcdefgh')
+    df1 = pd.DataFrame({'a': values, 'b': values})
+    df2 = pd.DataFrame({'a': [np.nan] * 8, 'b': values})
+
+    table1 = pa.Table.from_pandas(df1, schema=schema, preserve_index=False)
+    table2 = pa.Table.from_pandas(df2, schema=schema, preserve_index=False)
+    assert table1.schema.equals(table2.schema, check_metadata=False)
+    assert not table1.schema.equals(table2.schema, check_metadata=True)
+
+    table3 = pa.concat_tables([table1, table2])
+    assert table1.schema.equals(table3.schema, check_metadata=True)
+    assert table2.schema.equals(table3.schema, check_metadata=False)
+
+
 def test_table_negative_indexing():
     data = [
         pa.array(range(5)),
@@ -732,3 +813,85 @@ def test_table_negative_indexing():
 
     with pytest.raises(IndexError):
         table[4]
+
+
+def test_table_cast_to_incompatible_schema():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+    ]
+    table = pa.Table.from_arrays(data, names=tuple('ab'))
+
+    target_schema1 = pa.schema([
+        pa.field('A', pa.int32()),
+        pa.field('b', pa.int16()),
+    ])
+    target_schema2 = pa.schema([
+        pa.field('a', pa.int32()),
+    ])
+    message = ("Target schema's field names are not matching the table's "
+               "field names:.*")
+    with pytest.raises(ValueError, match=message):
+        table.cast(target_schema1)
+    with pytest.raises(ValueError, match=message):
+        table.cast(target_schema2)
+
+
+def test_table_safe_casting():
+    data = [
+        pa.array(range(5), type=pa.int64()),
+        pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
+        pa.array([1.0, 2.0, 3.0], type=pa.float64()),
+        pa.array(['ab', 'bc', 'cd'], type=pa.string())
+    ]
+    table = pa.Table.from_arrays(data, names=tuple('abcd'))
+
+    expected_data = [
+        pa.array(range(5), type=pa.int32()),
+        pa.array([-10, -5, 0, 5, 10], type=pa.int16()),
+        pa.array([1, 2, 3], type=pa.int64()),
+        pa.array(['ab', 'bc', 'cd'], type=pa.string())
+    ]
+    expected_table = pa.Table.from_arrays(expected_data, names=tuple('abcd'))
+
+    target_schema = pa.schema([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.int16()),
+        pa.field('c', pa.int64()),
+        pa.field('d', pa.string())
+    ])
+    casted_table = table.cast(target_schema)
+
+    assert casted_table.equals(expected_table)
+
+
+def test_table_unsafe_casting():
+    data = [
+        pa.array(range(5), type=pa.int64()),
+        pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
+        pa.array([1.1, 2.2, 3.3], type=pa.float64()),
+        pa.array(['ab', 'bc', 'cd'], type=pa.string())
+    ]
+    table = pa.Table.from_arrays(data, names=tuple('abcd'))
+
+    expected_data = [
+        pa.array(range(5), type=pa.int32()),
+        pa.array([-10, -5, 0, 5, 10], type=pa.int16()),
+        pa.array([1, 2, 3], type=pa.int64()),
+        pa.array(['ab', 'bc', 'cd'], type=pa.string())
+    ]
+    expected_table = pa.Table.from_arrays(expected_data, names=tuple('abcd'))
+
+    target_schema = pa.schema([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.int16()),
+        pa.field('c', pa.int64()),
+        pa.field('d', pa.string())
+    ])
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match='Floating point value truncated'):
+        table.cast(target_schema)
+
+    casted_table = table.cast(target_schema, safe=False)
+    assert casted_table.equals(expected_table)

@@ -17,37 +17,19 @@
 version: '3'
 services:
 
-  hdfs-namenode:
-    image: gelog/hadoop
-    shm_size: 2G
+  impala:
+    image: cpcloud86/impala:java8-1
     ports:
-      - "9000:9000"
-      - "50070:50070"
-    command: hdfs namenode
-    hostname: hdfs-namenode
+      - "21050"
+    hostname: impala
 
-  hdfs-datanode:
-    image: gelog/hadoop
-    command: hdfs datanode
-    ports:
-      # The host port is randomly assigned by Docker, to allow scaling
-      # to multiple DataNodes on the same host
-      - "50075"
+  hiveserver2:
     links:
-      - hdfs-namenode:hdfs-namenode
-
-  hdfs_integration:
-    links:
-      - hdfs-namenode:hdfs-namenode
-      - hdfs-datanode:hdfs-datanode
-    environment:
-      - ARROW_HDFS_TEST_HOST=hdfs-namenode
-      - ARROW_HDFS_TEST_PORT=9000
-      - ARROW_HDFS_TEST_USER=root
+      - impala
     build:
-      context: hdfs_integration
+      context: hiveserver2
     volumes:
-     - ../..:/apache-arrow
+      - ../..:/apache-arrow
 
   spark_integration:
     build:
@@ -63,9 +45,10 @@ services:
 
   gen_apidocs:
     build:
-      context: gen_apidocs
+      context: ..
+      dockerfile: dev/gen_apidocs/Dockerfile
     volumes:
-     - ../..:/apache-arrow
+     - ..:/arrow
 
   iwyu:
     build:

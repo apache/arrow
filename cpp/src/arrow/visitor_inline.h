@@ -30,7 +30,7 @@ namespace arrow {
 
 #define TYPE_VISIT_INLINE(TYPE_CLASS) \
   case TYPE_CLASS::type_id:           \
-    return visitor->Visit(checked_cast<const TYPE_CLASS&>(type));
+    return visitor->Visit(internal::checked_cast<const TYPE_CLASS&>(type));
 
 template <typename VISITOR>
 inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
@@ -69,10 +69,11 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
 
 #undef TYPE_VISIT_INLINE
 
-#define ARRAY_VISIT_INLINE(TYPE_CLASS) \
-  case TYPE_CLASS::type_id:            \
-    return visitor->Visit(             \
-        checked_cast<const typename TypeTraits<TYPE_CLASS>::ArrayType&>(array));
+#define ARRAY_VISIT_INLINE(TYPE_CLASS)                                             \
+  case TYPE_CLASS::type_id:                                                        \
+    return visitor->Visit(                                                         \
+        internal::checked_cast<const typename TypeTraits<TYPE_CLASS>::ArrayType&>( \
+            array));
 
 template <typename VISITOR>
 inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {

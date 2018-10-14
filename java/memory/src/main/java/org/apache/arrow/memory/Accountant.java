@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import com.google.common.base.Preconditions;
+import org.apache.arrow.util.Preconditions;
 
 /**
  * Provides a concurrent way to manage account for memory usage without locking. Used as basis
@@ -31,8 +31,6 @@ import com.google.common.base.Preconditions;
  */
 @ThreadSafe
 class Accountant implements AutoCloseable {
-  // private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Accountant
-  // .class);
 
   /**
    * The parent allocator
@@ -79,8 +77,8 @@ class Accountant implements AutoCloseable {
       final AllocationOutcome outcome = parent.allocateBytes(reservation);
       if (!outcome.isOk()) {
         throw new OutOfMemoryException(String.format(
-            "Failure trying to allocate initial reservation for Allocator. "
-                + "Attempted to allocate %d bytes and received an outcome of %s.", reservation,
+            "Failure trying to allocate initial reservation for Allocator. " +
+                "Attempted to allocate %d bytes and received an outcome of %s.", reservation,
             outcome.name()));
       }
     }
@@ -155,8 +153,7 @@ class Accountant implements AutoCloseable {
    * @param forceAllocation    Whether we should force the allocation.
    * @return The outcome of the allocation.
    */
-  private AllocationOutcome allocate(final long size, final boolean incomingUpdatePeak, final
-  boolean forceAllocation) {
+  private AllocationOutcome allocate(final long size, final boolean incomingUpdatePeak, final boolean forceAllocation) {
     final long newLocal = locallyHeldMemory.addAndGet(size);
     final long beyondReservation = newLocal - reservation;
     final boolean beyondLimit = newLocal > allocationLimit.get();
@@ -255,7 +252,9 @@ class Accountant implements AutoCloseable {
       return localHeadroom;
     }
 
-    return Math.min(localHeadroom, parent.getHeadroom());
+    // Amount of reserved memory left on top of what parent has
+    long reservedHeadroom = Math.max(0, reservation - locallyHeldMemory.get());
+    return Math.min(localHeadroom, parent.getHeadroom() + reservedHeadroom);
   }
 
 }

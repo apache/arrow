@@ -24,12 +24,12 @@
 #include <memory>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/memory_pool.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Buffer;
-class MemoryPool;
 class ResizableBuffer;
 class Status;
 
@@ -40,6 +40,12 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
  public:
   explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer);
 
+  /// \brief Create in-memory output stream with indicated capacity using a
+  /// memory pool
+  /// \param[in] initial_capacity the initial allocated internal capacity of
+  /// the OutputStream
+  /// \param[in,out] pool a MemoryPool to use for allocations
+  /// \param[out] out the created stream
   static Status Create(int64_t initial_capacity, MemoryPool* pool,
                        std::shared_ptr<BufferOutputStream>* out);
 
@@ -50,10 +56,23 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   Status Tell(int64_t* position) const override;
   Status Write(const void* data, int64_t nbytes) override;
 
+  using OutputStream::Write;
+
   /// Close the stream and return the buffer
   Status Finish(std::shared_ptr<Buffer>* result);
 
+  /// \brief Initialize state of OutputStream with newly allocated memory and
+  /// set position to 0
+  /// \param[in] initial_capacity the starting allocated capacity
+  /// \param[in,out] pool the memory pool to use for allocations
+  /// \return Status
+  Status Reset(int64_t initial_capacity = 1024, MemoryPool* pool = default_memory_pool());
+
+  int64_t capacity() const { return capacity_; }
+
  private:
+  BufferOutputStream();
+
   // Ensures there is sufficient space available to write nbytes
   Status Reserve(int64_t nbytes);
 
@@ -81,7 +100,7 @@ class ARROW_EXPORT MockOutputStream : public OutputStream {
 };
 
 /// \brief Enables random writes into a fixed-size mutable buffer
-class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
+class ARROW_EXPORT FixedSizeBufferWriter : public WritableFile {
  public:
   /// Input buffer must be mutable, will abort if not
   explicit FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer);

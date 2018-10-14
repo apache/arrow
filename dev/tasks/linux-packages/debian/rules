@@ -28,6 +28,7 @@ override_dh_auto_configure:
 	  -DARROW_PYTHON=ON \
 	  -DARROW_BOOST_USE_SHARED=ON \
 	  -DARROW_ORC=ON \
+	  -DARROW_PARQUET=ON \
 	  -DPROTOBUF_HOME=/usr \
 	  -DARROW_PROTOBUF_USE_SHARED=ON \
 	  -DPythonInterp_FIND_VERSION=ON \

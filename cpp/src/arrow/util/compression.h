@@ -30,6 +30,8 @@ struct Compression {
   enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZO };
 };
 
+namespace util {
+
 class ARROW_EXPORT Codec {
  public:
   virtual ~Codec();
@@ -48,6 +50,7 @@ class ARROW_EXPORT Codec {
   virtual const char* name() const = 0;
 };
 
+}  // namespace util
 }  // namespace arrow
 
 #endif

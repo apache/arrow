@@ -29,8 +29,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
 import org.apache.arrow.memory.util.AutoCloseableLock;
 import org.apache.arrow.memory.util.HistoricalLog;
-
-import com.google.common.base.Preconditions;
+import org.apache.arrow.util.Preconditions;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.PooledByteBufAllocatorL;
@@ -60,8 +59,6 @@ import io.netty.buffer.UnsafeDirectLittleEndian;
  * contention of acquiring a lock on AllocationManager should be very low.
  */
 public class AllocationManager {
-  // private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger
-  // (AllocationManager.class);
 
   private static final AtomicLong MANAGER_ID_GENERATOR = new AtomicLong(0);
   private static final AtomicLong LEDGER_ID_GENERATOR = new AtomicLong(0);
@@ -201,7 +198,7 @@ public class AllocationManager {
   public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator> {
 
     private final IdentityHashMap<ArrowBuf, Object> buffers =
-        BaseAllocator.DEBUG ? new IdentityHashMap<ArrowBuf, Object>() : null;
+        BaseAllocator.DEBUG ? new IdentityHashMap<>() : null;
 
     private final long ledgerId = LEDGER_ID_GENERATOR.incrementAndGet(); // unique ID assigned to
     // each ledger
@@ -210,10 +207,8 @@ public class AllocationManager {
     // correctly
     private final long lCreationTime = System.nanoTime();
     private final BaseAllocator allocator;
-    private final HistoricalLog historicalLog = BaseAllocator.DEBUG ? new HistoricalLog
-        (BaseAllocator.DEBUG_LOG_LENGTH,
-            "BufferLedger[%d]", 1)
-        : null;
+    private final HistoricalLog historicalLog =
+        BaseAllocator.DEBUG ? new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "BufferLedger[%d]", 1) : null;
     private volatile long lDestructionTime = 0;
 
     private BufferLedger(BaseAllocator allocator) {
@@ -408,8 +403,8 @@ public class AllocationManager {
       if (BaseAllocator.DEBUG) {
         historicalLog.recordEvent(
             "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
-                "UnsafeDirectLittleEndian[identityHashCode == "
-                + "%d](%s)) => ledger hc == %d",
+                "UnsafeDirectLittleEndian[identityHashCode == " +
+                "%d](%s)) => ledger hc == %d",
             allocator.name, System.identityHashCode(buf), buf.toString(),
             System.identityHashCode(this));
 

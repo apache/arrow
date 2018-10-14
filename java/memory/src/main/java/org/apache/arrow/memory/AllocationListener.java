@@ -35,6 +35,14 @@ public interface AllocationListener {
     public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
       return false;
     }
+
+    @Override
+    public void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
+    }
+
+    @Override
+    public void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
+    }
   };
 
   /**
@@ -45,9 +53,9 @@ public interface AllocationListener {
   void onAllocation(long size);
 
   /**
-   * Called whenever an allocation failed, giving the caller a chance to create some space in the allocator
-   * (either by freeing some resource, or by changing the limit), and, if successful, allowing the allocator
-   * to retry the allocation.
+   * Called whenever an allocation failed, giving the caller a chance to create some space in the
+   * allocator (either by freeing some resource, or by changing the limit), and, if successful,
+   * allowing the allocator to retry the allocation.
    *
    * @param size     the buffer size that was being allocated
    * @param outcome  the outcome of the failed allocation. Carries information of what failed
@@ -55,4 +63,17 @@ public interface AllocationListener {
    */
   boolean onFailedAllocation(long size, AllocationOutcome outcome);
 
+  /**
+   * Called immediately after a child allocator was added to the parent allocator
+   * @param parentAllocator The parent allocator to which a child was added
+   * @param childAllocator  The child allocator that was just added
+   */
+  void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator);
+
+  /**
+   * Called immediately after a child allocator was removed from the parent allocator
+   * @param parentAllocator The parent allocator from which a child was removed
+   * @param childAllocator The child allocator that was just removed
+   */
+  void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator);
 }

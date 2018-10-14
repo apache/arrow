@@ -26,8 +26,6 @@ conda config --set show_channel_urls True
 @rem Help with SSL timeouts to S3
 conda config --set remote_connect_timeout_secs 12
 
-conda config --add channels https://repo.continuum.io/pkgs/free
-conda config --add channels conda-forge
 conda info -a
 
 if "%GENERATOR%"=="Ninja" set need_vcvarsall=1
@@ -41,11 +39,14 @@ if defined need_vcvarsall (
     )
 )
 
-if "%GENERATOR%"=="Ninja" conda install -y -q -c conda-forge ninja
+if "%GENERATOR%"=="Ninja" conda install -y -q ninja
 
 if "%USE_CLCACHE%" == "true" (
     @rem Use clcache for faster builds
     pip install -q git+https://github.com/frerich/clcache.git
+    @rem Limit cache size to 250 MB
+    clcache -M 250000000
+    clcache -c
     clcache -s
     set CLCACHE_SERVER=1
     set CLCACHE_HARDLINK=1

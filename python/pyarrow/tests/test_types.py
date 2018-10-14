@@ -15,8 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pickle
+from collections import OrderedDict
 
+import numpy as np
+import pickle
 import pytest
 
 import pyarrow as pa
@@ -233,6 +235,23 @@ def test_struct_type():
     for a, b in zip(ty, fields):
         a == b
 
+    # Construct from list of tuples
+    ty = pa.struct([('a', pa.int64()),
+                    ('a', pa.int32()),
+                    ('b', pa.int32())])
+    assert list(ty) == fields
+    for a, b in zip(ty, fields):
+        a == b
+
+    # Construct from mapping
+    fields = [pa.field('a', pa.int64()),
+              pa.field('b', pa.int32())]
+    ty = pa.struct(OrderedDict([('a', pa.int64()),
+                                ('b', pa.int32())]))
+    assert list(ty) == fields
+    for a, b in zip(ty, fields):
+        a == b
+
 
 def test_union_type():
     def check_fields(ty, fields):
@@ -443,3 +462,34 @@ def test_field_add_remove_metadata():
     f5 = pa.field('foo', pa.int32(), True, metadata)
     f6 = f0.add_metadata(metadata)
     assert f5.equals(f6)
+
+
+def test_empty_table():
+    schema = pa.schema([
+        pa.field("oneField", pa.int64())
+    ])
+    table = schema.empty_table()
+    assert isinstance(table, pa.Table)
+    assert table.num_rows == 0
+    assert table.schema == schema
+
+
+def test_is_integer_value():
+    assert pa.types.is_integer_value(1)
+    assert pa.types.is_integer_value(np.int64(1))
+    assert not pa.types.is_integer_value('1')
+
+
+def test_is_float_value():
+    assert not pa.types.is_float_value(1)
+    assert pa.types.is_float_value(1.)
+    assert pa.types.is_float_value(np.float64(1))
+    assert not pa.types.is_float_value('1.0')
+
+
+def test_is_boolean_value():
+    assert not pa.types.is_boolean_value(1)
+    assert pa.types.is_boolean_value(True)
+    assert pa.types.is_boolean_value(False)
+    assert pa.types.is_boolean_value(np.bool_(True))
+    assert pa.types.is_boolean_value(np.bool_(False))

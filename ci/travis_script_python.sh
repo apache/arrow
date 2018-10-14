@@ -23,8 +23,8 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
 export ARROW_HOME=$ARROW_CPP_INSTALL
-export PARQUET_HOME=$ARROW_PYTHON_PARQUET_HOME
-export LD_LIBRARY_PATH=$ARROW_HOME/lib:$PARQUET_HOME/lib:$LD_LIBRARY_PATH
+export PARQUET_HOME=$ARROW_CPP_INSTALL
+export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 export PYARROW_CXXFLAGS="-Werror"
 
 PYARROW_PYTEST_FLAGS=" -r sxX --durations=15 --parquet"
@@ -33,7 +33,16 @@ PYTHON_VERSION=$1
 CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 
 conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION cmake curl
-source activate $CONDA_ENV_DIR
+conda activate $CONDA_ENV_DIR
+
+# We should use zlib in the target Python directory to avoid loading
+# wrong libpython on macOS at run-time. If we use zlib in
+# $ARROW_BUILD_TOOLCHAIN and libpython3.6m.dylib exists in both
+# $ARROW_BUILD_TOOLCHAIN and $CONDA_ENV_DIR, python-test uses
+# libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN not $CONDA_ENV_DIR.
+# libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN doesn't have NumPy. So
+# python-test fails.
+export ZLIB_HOME=$CONDA_ENV_DIR
 
 python --version
 which python
@@ -51,11 +60,11 @@ conda install -y -q pip \
       cython
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
-  # Build documentation depedencies
+  # Install documentation dependencies
   conda install -y -q \
         ipython \
         numpydoc \
-        sphinx \
+        sphinx=1.7.9 \
         sphinx_bootstrap_theme
 fi
 
@@ -186,7 +195,7 @@ if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" 
   # (see https://github.com/airspeed-velocity/asv/issues/449)
   source deactivate
   conda create -y -q -n pyarrow_asv python=$PYTHON_VERSION
-  source activate pyarrow_asv
+  conda activate pyarrow_asv
   pip install -q git+https://github.com/pitrou/asv.git@customize_commands
 
   export PYARROW_WITH_PARQUET=1

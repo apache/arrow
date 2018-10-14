@@ -18,13 +18,13 @@
 
 package org.apache.arrow.vector.ipc;
 
-import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.dictionary.DictionaryProvider;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
+
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 
 /**
  * Writer for the Arrow stream format to send ArrowRecordBatches over a WriteChannel

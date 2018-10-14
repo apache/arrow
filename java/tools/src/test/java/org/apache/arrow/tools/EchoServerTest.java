@@ -186,8 +186,8 @@ public class EchoServerTest {
       List<FieldVector> vectors = ImmutableList.of((FieldVector) writeVector);
       VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 6);
 
-      DictionaryProvider writeProvider = new MapDictionaryProvider(new Dictionary
-          (writeDictionaryVector, writeEncoding));
+      DictionaryProvider writeProvider = new MapDictionaryProvider(
+          new Dictionary(writeDictionaryVector, writeEncoding));
 
       try (Socket socket = new Socket("localhost", serverPort);
            ArrowStreamWriter writer = new ArrowStreamWriter(root, writeProvider, socket
@@ -262,8 +262,8 @@ public class EchoServerTest {
       List<FieldVector> vectors = ImmutableList.of((FieldVector) writeVector);
       VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 3);
 
-      DictionaryProvider writeProvider = new MapDictionaryProvider(new Dictionary
-          (writeDictionaryVector, writeEncoding));
+      DictionaryProvider writeProvider = new MapDictionaryProvider(
+          new Dictionary(writeDictionaryVector, writeEncoding));
 
       try (Socket socket = new Socket("localhost", serverPort);
            ArrowStreamWriter writer = new ArrowStreamWriter(root, writeProvider, socket

@@ -23,8 +23,8 @@
 
 #include <hdfs.h>
 
-#include "arrow/io/windows_compatibility.h"  // IWYU pragma: keep
 #include "arrow/util/visibility.h"
+#include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 using std::size_t;
 

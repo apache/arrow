@@ -18,8 +18,6 @@
 #include "plasma/common.h"
 
 #include <limits>
-#include <mutex>
-#include <random>
 
 #include "plasma/plasma_generated.h"
 
@@ -28,22 +26,6 @@ namespace fb = plasma::flatbuf;
 namespace plasma {
 
 using arrow::Status;
-
-UniqueID UniqueID::from_random() {
-  UniqueID id;
-  uint8_t* data = id.mutable_data();
-  // NOTE(pcm): The right way to do this is to have one std::mt19937 per
-  // thread (using the thread_local keyword), but that's not supported on
-  // older versions of macOS (see https://stackoverflow.com/a/29929949)
-  static std::mutex mutex;
-  std::lock_guard<std::mutex> lock(mutex);
-  static std::mt19937 generator;
-  std::uniform_int_distribution<uint32_t> dist(0, std::numeric_limits<uint8_t>::max());
-  for (int i = 0; i < kUniqueIDSize; i++) {
-    data[i] = static_cast<uint8_t>(dist(generator));
-  }
-  return id;
-}
 
 UniqueID UniqueID::from_binary(const std::string& binary) {
   UniqueID id;

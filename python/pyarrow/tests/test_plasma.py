@@ -19,11 +19,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import math
+import multiprocessing
 import os
 import pytest
 import random
 import signal
+import subprocess
 import sys
+import time
 
 import numpy as np
 import pyarrow as pa
@@ -114,16 +118,21 @@ class TestPlasmaClient(object):
             plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
             use_valgrind=USE_VALGRIND,
             use_one_memory_mapped_file=use_one_memory_mapped_file)
-        plasma_store_name, self.p = self.plasma_store_ctx.__enter__()
+        self.plasma_store_name, self.p = self.plasma_store_ctx.__enter__()
         # Connect to Plasma.
-        self.plasma_client = plasma.connect(plasma_store_name, "", 64)
-        self.plasma_client2 = plasma.connect(plasma_store_name, "", 0)
+        self.plasma_client = plasma.connect(self.plasma_store_name, "", 64)
+        self.plasma_client2 = plasma.connect(self.plasma_store_name, "", 0)
 
     def teardown_method(self, test_method):
         try:
             # Check that the Plasma store is still alive.
             assert self.p.poll() is None
             # Ensure Valgrind and/or coverage have a clean exit
+            # Valgrind misses SIGTERM if it is delivered before the
+            # event loop is ready; this race condition is mitigated
+            # but not solved by time.sleep().
+            if USE_VALGRIND:
+                time.sleep(1.0)
             self.p.send_signal(signal.SIGTERM)
             if sys.version_info >= (3, 3):
                 self.p.wait(timeout=5)
@@ -278,7 +287,7 @@ class TestPlasmaClient(object):
             result = self.plasma_client.get(object_id)
             assert result == value
 
-            object_id = pa.plasma.ObjectID.from_random()
+            object_id = random_object_id()
             [result] = self.plasma_client.get([object_id], timeout_ms=0)
             assert result == pa.plasma.ObjectNotAvailable
 
@@ -739,6 +748,69 @@ class TestPlasmaClient(object):
             create_object(self.plasma_client2, DEFAULT_PLASMA_STORE_MEMORY + 1,
                           0)
 
+    def test_client_death_during_get(self):
+        import pyarrow.plasma as plasma
+
+        object_id = random_object_id()
+
+        def client_blocked_in_get(plasma_store_name):
+            client = plasma.connect(self.plasma_store_name, "", 0)
+            # Try to get an object ID that doesn't exist. This should block.
+            client.get([object_id])
+
+        p = multiprocessing.Process(target=client_blocked_in_get,
+                                    args=(self.plasma_store_name, ))
+        p.start()
+        # Make sure the process is running.
+        time.sleep(0.2)
+        assert p.is_alive()
+
+        # Kill the client process.
+        p.terminate()
+        # Wait a little for the store to process the disconnect event.
+        time.sleep(0.1)
+
+        # Create the object.
+        self.plasma_client.put(1, object_id=object_id)
+
+        # Check that the store is still alive. This will raise an exception if
+        # the store is dead.
+        self.plasma_client.contains(random_object_id())
+
+    def test_client_getting_multiple_objects(self):
+        import pyarrow.plasma as plasma
+
+        object_ids = [random_object_id() for _ in range(10)]
+
+        def client_get_multiple(plasma_store_name):
+            client = plasma.connect(self.plasma_store_name, "", 0)
+            # Try to get an object ID that doesn't exist. This should block.
+            client.get(object_ids)
+
+        p = multiprocessing.Process(target=client_get_multiple,
+                                    args=(self.plasma_store_name, ))
+        p.start()
+        # Make sure the process is running.
+        time.sleep(0.2)
+        assert p.is_alive()
+
+        # Create the objects one by one.
+        for object_id in object_ids:
+            self.plasma_client.put(1, object_id=object_id)
+
+        # Check that the store is still alive. This will raise an exception if
+        # the store is dead.
+        self.plasma_client.contains(random_object_id())
+
+        # Make sure that the blocked client finishes.
+        start_time = time.time()
+        while True:
+            if time.time() - start_time > 5:
+                raise Exception("Timing out while waiting for blocked client "
+                                "to finish.")
+            if not p.is_alive():
+                break
+
 
 @pytest.mark.plasma
 def test_object_id_size():
@@ -790,3 +862,59 @@ def test_plasma_client_sharing():
         del plasma_client
         assert (buf == np.zeros(3)).all()
         del buf  # This segfaulted pre ARROW-2448.
+
+
+@pytest.mark.plasma
+def test_plasma_list():
+    import pyarrow.plasma as plasma
+
+    with plasma.start_plasma_store(
+            plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY) \
+            as (plasma_store_name, p):
+        plasma_client = plasma.connect(plasma_store_name, "", 0)
+
+        # Test sizes
+        u, _, _ = create_object(plasma_client, 11, metadata_size=7, seal=False)
+        l1 = plasma_client.list()
+        assert l1[u]["data_size"] == 11
+        assert l1[u]["metadata_size"] == 7
+
+        # Test ref_count
+        v = plasma_client.put(np.zeros(3))
+        l2 = plasma_client.list()
+        # Ref count has already been released
+        assert l2[v]["ref_count"] == 0
+        a = plasma_client.get(v)
+        l3 = plasma_client.list()
+        assert l3[v]["ref_count"] == 1
+        del a
+
+        # Test state
+        w, _, _ = create_object(plasma_client, 3, metadata_size=0, seal=False)
+        l4 = plasma_client.list()
+        assert l4[w]["state"] == "created"
+        plasma_client.seal(w)
+        l5 = plasma_client.list()
+        assert l5[w]["state"] == "sealed"
+
+        # Test timestamps
+        t1 = time.time()
+        x, _, _ = create_object(plasma_client, 3, metadata_size=0, seal=False)
+        t2 = time.time()
+        l6 = plasma_client.list()
+        assert math.floor(t1) <= l6[x]["create_time"] <= math.ceil(t2)
+        time.sleep(2.0)
+        t3 = time.time()
+        plasma_client.seal(x)
+        t4 = time.time()
+        l7 = plasma_client.list()
+        assert math.floor(t3 - t2) <= l7[x]["construct_duration"]
+        assert l7[x]["construct_duration"] <= math.ceil(t4 - t1)
+
+
+@pytest.mark.plasma
+def test_object_id_randomness():
+    cmd = "from pyarrow import plasma; print(plasma.ObjectID.from_random())"
+    first_object_id = subprocess.check_output(["python", "-c", cmd])
+    second_object_id = subprocess.check_output(["python", "-c", cmd])
+    assert first_object_id != second_object_id

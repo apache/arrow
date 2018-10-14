@@ -165,6 +165,10 @@ inline bool PyIntScalar_Check(PyObject* obj) {
   return PyLong_Check(obj) || PyArray_IsScalar(obj, Integer);
 }
 
+inline bool PyBoolScalar_Check(PyObject* obj) {
+  return PyBool_Check(obj) || PyArray_IsScalar(obj, Bool);
+}
+
 }  // namespace internal
 
 }  // namespace py

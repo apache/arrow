@@ -18,9 +18,27 @@
 
 package org.apache.arrow.adapter.jdbc;
 
+import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
+import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
-import com.google.common.base.Preconditions;
-import io.netty.buffer.ArrowBuf;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.sql.Blob;
+import java.sql.Clob;
+import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.List;
+
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -58,28 +76,9 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DecimalUtility;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.math.BigDecimal;
+import com.google.common.base.Preconditions;
 
-import java.nio.charset.StandardCharsets;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Date;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.List;
-
-import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
-import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
-
+import io.netty.buffer.ArrowBuf;
 
 /**
  * Class that does most of the work to convert JDBC ResultSet data into Arrow columnar format Vector objects.
@@ -180,7 +179,8 @@ public class JdbcToArrowUtils {
           fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Time(TimeUnit.MILLISECOND, 32)), null));
           break;
         case Types.TIMESTAMP:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, calendar.getTimeZone().getID())), null));
+          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND,
+              calendar.getTimeZone().getID())), null));
           break;
         case Types.BINARY:
         case Types.VARBINARY:
@@ -188,8 +188,8 @@ public class JdbcToArrowUtils {
           fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Binary()), null));
           break;
         case Types.ARRAY:
-// TODO Need to handle this type
-//        fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
+          // TODO Need to handle this type
+          // fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
           break;
         case Types.CLOB:
           fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Utf8()), null));
@@ -227,7 +227,8 @@ public class JdbcToArrowUtils {
    * @param root Arrow {@link VectorSchemaRoot} object to populate
    * @throws SQLException
    */
-  public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root, Calendar calendar) throws SQLException, IOException {
+  public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root, Calendar calendar)
+      throws SQLException, IOException {
 
     Preconditions.checkNotNull(rs, "JDBC ResultSet object can't be null");
     Preconditions.checkNotNull(root, "JDBC ResultSet object can't be null");
@@ -450,7 +451,11 @@ public class JdbcToArrowUtils {
     timeMilliVector.setValueCount(rowCount + 1);
   }
 
-  private static void updateVector(TimeStampVector timeStampVector, Timestamp timestamp, boolean isNonNull, int rowCount) {
+  private static void updateVector(
+      TimeStampVector timeStampVector,
+      Timestamp timestamp,
+      boolean isNonNull,
+      int rowCount) {
     //TODO: Need to handle precision such as milli, micro, nano
     timeStampVector.setValueCount(rowCount + 1);
     if (timestamp != null) {
@@ -460,7 +465,11 @@ public class JdbcToArrowUtils {
     }
   }
 
-  private static void updateVector(VarBinaryVector varBinaryVector, InputStream is, boolean isNonNull, int rowCount) throws IOException {
+  private static void updateVector(
+      VarBinaryVector varBinaryVector,
+      InputStream is,
+      boolean isNonNull,
+      int rowCount) throws IOException {
     varBinaryVector.setValueCount(rowCount + 1);
     if (isNonNull && is != null) {
       VarBinaryHolder holder = new VarBinaryHolder();
@@ -485,7 +494,11 @@ public class JdbcToArrowUtils {
     }
   }
 
-  private static void updateVector(VarCharVector varcharVector, Clob clob, boolean isNonNull, int rowCount) throws SQLException, IOException {
+  private static void updateVector(
+      VarCharVector varcharVector,
+      Clob clob,
+      boolean isNonNull,
+      int rowCount) throws SQLException, IOException {
     varcharVector.setValueCount(rowCount + 1);
     if (isNonNull && clob != null) {
       VarCharHolder holder = new VarCharHolder();
@@ -511,7 +524,8 @@ public class JdbcToArrowUtils {
     }
   }
 
-  private static void updateVector(VarBinaryVector varBinaryVector, Blob blob, boolean isNonNull, int rowCount) throws SQLException, IOException {
+  private static void updateVector(VarBinaryVector varBinaryVector, Blob blob, boolean isNonNull, int rowCount)
+      throws SQLException, IOException {
     updateVector(varBinaryVector, blob != null ? blob.getBinaryStream() : null, isNonNull, rowCount);
   }
 

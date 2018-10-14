@@ -18,7 +18,7 @@
 
 package org.apache.arrow.vector;
 
-import com.google.common.base.Preconditions;
+import org.apache.arrow.util.Preconditions;
 
 public class BufferLayout {
 

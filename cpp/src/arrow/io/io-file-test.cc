@@ -15,8 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifndef _WIN32
+#include <fcntl.h>  // IWYU pragma: keep
+#include <unistd.h>
+#endif
+
 #include <atomic>
-#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -73,13 +77,13 @@ class TestFileOutputStream : public FileTestFixture {
     internal::PlatformFilename file_name;
     ASSERT_OK(internal::FileNameFromString(path_, &file_name));
     int fd_file, fd_stream;
-    ASSERT_OK(internal::FileOpenWriteable(file_name, true /* write_only */,
-                                          false /* truncate */, false /* append */,
-                                          &fd_file));
+    ASSERT_OK(internal::FileOpenWritable(file_name, true /* write_only */,
+                                         false /* truncate */, false /* append */,
+                                         &fd_file));
     ASSERT_OK(FileOutputStream::Open(fd_file, &file_));
-    ASSERT_OK(internal::FileOpenWriteable(file_name, true /* write_only */,
-                                          false /* truncate */, false /* append */,
-                                          &fd_stream));
+    ASSERT_OK(internal::FileOpenWritable(file_name, true /* write_only */,
+                                         false /* truncate */, false /* append */,
+                                         &fd_stream));
     ASSERT_OK(FileOutputStream::Open(fd_stream, &stream_));
   }
 
@@ -169,8 +173,8 @@ TEST_F(TestFileOutputStream, FromFileDescriptor) {
   // Re-open at end of file
   internal::PlatformFilename file_name;
   ASSERT_OK(internal::FileNameFromString(path_, &file_name));
-  ASSERT_OK(internal::FileOpenWriteable(file_name, true /* write_only */,
-                                        false /* truncate */, false /* append */, &fd));
+  ASSERT_OK(internal::FileOpenWritable(file_name, true /* write_only */,
+                                       false /* truncate */, false /* append */, &fd));
   ASSERT_OK(internal::FileSeek(fd, 0, SEEK_END));
   ASSERT_OK(FileOutputStream::Open(fd, &stream_));
 

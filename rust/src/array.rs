@@ -181,9 +181,11 @@ macro_rules! def_primitive_array {
                     let m = self.value(i as i64);
                     match n {
                         None => n = Some(m),
-                        Some(nn) => if cmp(m, nn) {
-                            n = Some(m)
-                        },
+                        Some(nn) => {
+                            if cmp(m, nn) {
+                                n = Some(m)
+                            }
+                        }
                     }
                 }
                 n
@@ -240,9 +242,16 @@ macro_rules! def_primitive_array {
 /// Constructs a `PrimitiveArray` from an array data reference.
 impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
     fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(data.buffers().len(), 1);
+        assert_eq!(
+            data.buffers().len(),
+            1,
+            "PrimitiveArray data should contain a single buffer only (values buffer)"
+        );
         let raw_values = data.buffers()[0].raw_data();
-        assert!(memory::is_aligned::<u8>(raw_values, mem::align_of::<T>()));
+        assert!(
+            memory::is_aligned::<u8>(raw_values, mem::align_of::<T>()),
+            "memory is not aligned"
+        );
         Self {
             data,
             raw_values: RawPtrBox::new(raw_values as *const T),
@@ -321,20 +330,29 @@ impl ListArray {
 /// Constructs a `ListArray` from an array data reference.
 impl From<ArrayDataRef> for ListArray {
     fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(data.buffers().len(), 1);
-        assert_eq!(data.child_data().len(), 1);
+        assert_eq!(
+            data.buffers().len(),
+            1,
+            "ListArray data should contain a single buffer only (value offsets)"
+        );
+        assert_eq!(
+            data.child_data().len(),
+            1,
+            "ListArray should contain a single child array (values array)"
+        );
         let values = make_array(data.child_data()[0].clone());
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(memory::is_aligned(
-            raw_value_offsets,
-            mem::align_of::<i32>()
-        ));
+        assert!(
+            memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
+            "memory is not aligned"
+        );
         let value_offsets = raw_value_offsets as *const i32;
         unsafe {
-            assert_eq!(*value_offsets.offset(0), 0);
+            assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
             assert_eq!(
                 *value_offsets.offset(data.len() as isize),
-                values.data().len() as i32
+                values.data().len() as i32,
+                "inconsistent offsets buffer and values array"
             );
         }
         Self {
@@ -369,7 +387,10 @@ pub struct BinaryArray {
 impl BinaryArray {
     /// Returns the element at index `i` as a byte slice.
     pub fn get_value(&self, i: i64) -> &[u8] {
-        assert!(i >= 0 && i < self.data.len());
+        assert!(
+            i >= 0 && i < self.data.len(),
+            "BinaryArray out of bounds access"
+        );
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
@@ -413,12 +434,16 @@ impl BinaryArray {
 
 impl From<ArrayDataRef> for BinaryArray {
     fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(data.buffers().len(), 2);
+        assert_eq!(
+            data.buffers().len(),
+            2,
+            "BinaryArray data should contain 2 buffers only (offsets and values)"
+        );
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(memory::is_aligned(
-            raw_value_offsets,
-            mem::align_of::<i32>()
-        ));
+        assert!(
+            memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
+            "memory is not aligned"
+        );
         let value_data = data.buffers()[1].raw_data();
         Self {
             data: data.clone(),
@@ -497,15 +522,31 @@ impl Array for StructArray {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    /// Returns the length (i.e., number of elements) of this array
+    fn len(&self) -> i64 {
+        self.boxed_fields[0].len()
+    }
 }
 
 impl From<Vec<(Field, ArrayRef)>> for StructArray {
     fn from(v: Vec<(Field, ArrayRef)>) -> Self {
         let (field_types, field_values): (Vec<_>, Vec<_>) = v.into_iter().unzip();
+
+        // Check the length of the child arrays
+        let length = field_values[0].len();
+        for i in 1..field_values.len() {
+            assert_eq!(
+                length,
+                field_values[i].len(),
+                "all child arrays of a StructArray must have the same length"
+            );
+        }
+
         let data = ArrayData::builder(DataType::Struct(field_types))
             .child_data(field_values.into_iter().map(|a| a.data()).collect())
             .build();
-        StructArray::from(data)
+        Self::from(data)
     }
 }
 
@@ -518,6 +559,7 @@ mod tests {
     use buffer::Buffer;
     use datatypes::{DataType, Field, ToByteSlice};
     use memory;
+    use std::sync::Arc;
 
     #[test]
     fn test_primitive_array_from_vec() {
@@ -576,7 +618,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(
+        expected = "PrimitiveArray data should contain a single buffer only (values buffer)"
+    )]
     fn test_primitive_array_invalid_buffer_len() {
         let data = ArrayData::builder(DataType::Int32).len(5).build();
         PrimitiveArray::<i32>::from(data);
@@ -634,7 +678,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "ListArray data should contain a single buffer only (value offsets)")]
     fn test_list_array_invalid_buffer_len() {
         let value_data = ArrayData::builder(DataType::Int32)
             .len(7)
@@ -649,7 +693,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "ListArray should contain a single child array (values array)")]
     fn test_list_array_invalid_child_array_len() {
         let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
         let list_data_type = DataType::List(Box::new(DataType::Int32));
@@ -661,7 +705,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "offsets do not start at zero")]
     fn test_list_array_invalid_value_offset_start() {
         let value_data = ArrayData::builder(DataType::Int32)
             .len(7)
@@ -680,7 +724,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "inconsistent offsets buffer and values array")]
     fn test_list_array_invalid_value_offset_end() {
         let value_data = ArrayData::builder(DataType::Int32)
             .len(7)
@@ -746,7 +790,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "BinaryArray out of bounds access")]
     fn test_binary_array_get_value_index_out_of_bound() {
         let values: [u8; 12] = [
             b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',
@@ -762,7 +806,7 @@ mod tests {
     }
 
     #[test]
-    fn test_struct_array() {
+    fn test_struct_array_builder() {
         let boolean_data = ArrayData::builder(DataType::Boolean)
             .len(4)
             .add_buffer(Buffer::from([false, false, true, true].to_byte_slice()))
@@ -785,7 +829,46 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    fn test_struct_array_from() {
+        let boolean_data = ArrayData::builder(DataType::Boolean)
+            .len(4)
+            .add_buffer(Buffer::from([false, false, true, true].to_byte_slice()))
+            .build();
+        let int_data = ArrayData::builder(DataType::Int32)
+            .len(4)
+            .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
+            .build();
+        let struct_array = StructArray::from(vec![
+            (
+                Field::new("b", DataType::Boolean, false),
+                Arc::new(PrimitiveArray::from(vec![false, false, true, true])) as Arc<Array>,
+            ),
+            (
+                Field::new("c", DataType::Int32, false),
+                Arc::new(PrimitiveArray::from(vec![42, 28, 19, 31])),
+            ),
+        ]);
+        assert_eq!(boolean_data, struct_array.column(0).data());
+        assert_eq!(int_data, struct_array.column(1).data());
+    }
+
+    #[test]
+    #[should_panic(expected = "all child arrays of a StructArray must have the same length")]
+    fn test_invalid_struct_child_array_lengths() {
+        StructArray::from(vec![
+            (
+                Field::new("b", DataType::Float64, false),
+                Arc::new(PrimitiveArray::from(vec![1.1])) as Arc<Array>,
+            ),
+            (
+                Field::new("c", DataType::Float64, false),
+                Arc::new(PrimitiveArray::from(vec![2.2, 3.3])),
+            ),
+        ]);
+    }
+
+    #[test]
+    #[should_panic(expected = "memory is not aligned")]
     fn test_primitive_array_alignment() {
         let ptr = memory::allocate_aligned(8).unwrap();
         let buf = Buffer::from_raw_parts(ptr, 8);
@@ -795,7 +878,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "memory is not aligned")]
     fn test_list_array_alignment() {
         let ptr = memory::allocate_aligned(8).unwrap();
         let buf = Buffer::from_raw_parts(ptr, 8);
@@ -815,7 +898,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "")]
+    #[should_panic(expected = "memory is not aligned")]
     fn test_binary_array_alignment() {
         let ptr = memory::allocate_aligned(8).unwrap();
         let buf = Buffer::from_raw_parts(ptr, 8);

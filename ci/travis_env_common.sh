@@ -20,7 +20,6 @@
 # hide nodejs experimental-feature warnings
 export NODE_NO_WARNINGS=1
 export MINICONDA=$HOME/miniconda
-export PATH="$MINICONDA/bin:$PATH"
 export CONDA_PKGS_DIRS=$HOME/.conda_packages
 
 export ARROW_CPP_DIR=$TRAVIS_BUILD_DIR/cpp
@@ -29,8 +28,10 @@ export ARROW_C_GLIB_DIR=$TRAVIS_BUILD_DIR/c_glib
 export ARROW_JAVA_DIR=${TRAVIS_BUILD_DIR}/java
 export ARROW_JS_DIR=${TRAVIS_BUILD_DIR}/js
 export ARROW_INTEGRATION_DIR=$TRAVIS_BUILD_DIR/integration
+export ARROW_CROSSBOW_DIR=$TRAVIS_BUILD_DIR/dev/tasks
 export ARROW_RUBY_DIR=$TRAVIS_BUILD_DIR/ruby
 export ARROW_RUST_DIR=${TRAVIS_BUILD_DIR}/rust
+export ARROW_R_DIR=${TRAVIS_BUILD_DIR}/r
 
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     export ARROW_CPP_COVERAGE_FILE=${TRAVIS_BUILD_DIR}/coverage.info
@@ -43,8 +44,6 @@ export ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install
 export ARROW_CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
 export ARROW_C_GLIB_INSTALL_AUTOTOOLS=$TRAVIS_BUILD_DIR/c-glib-install-autotools
 export ARROW_C_GLIB_INSTALL_MESON=$TRAVIS_BUILD_DIR/c-glib-install-meson
-
-export ARROW_PYTHON_PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
 
 export CMAKE_EXPORT_COMPILE_COMMANDS=1
 
@@ -70,3 +69,5 @@ fi
 if [ $TRAVIS_OS_NAME == "osx" ]; then
   export GOPATH=$TRAVIS_BUILD_DIR/gopath
 fi
+
+export PARQUET_TEST_DATA=$TRAVIS_BUILD_DIR/cpp/submodules/parquet-testing/data

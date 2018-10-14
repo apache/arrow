@@ -23,13 +23,15 @@ const utf8Encoder = new TextEncoder('utf-8');
 
 const { packBools } = Arrow.util;
 const { BoolData, FlatData, FlatListData, DictionaryData } = Arrow.data;
-const { Vector, IntVector, FloatVector, BoolVector, Utf8Vector, DictionaryVector } = Arrow.vector;
+const { Vector, IntVector, FloatVector, BoolVector, Utf8Vector, DateVector, DictionaryVector } = Arrow.vector;
 const {
     Dictionary, Utf8, Bool,
     Float16, Float32, Float64,
     Int8, Int16, Int32, Int64,
     Uint8, Uint16, Uint32, Uint64,
 } = Arrow.type;
+
+const { DateUnit } = Arrow.enum_;
 
 const FixedSizeVectors = {
     Int64Vector: [IntVector, Int64] as [typeof IntVector, typeof Int64],
@@ -314,6 +316,34 @@ describe(`Utf8Vector`, () => {
     basicVectorTests(vector, values, ['abc', '123']);
     describe(`sliced`, () => {
         basicVectorTests(vector.slice(1,3), values.slice(1,3), ['foo', 'abc']);
+    });
+});
+
+describe(`DateVector`, () => {
+    const extras = [
+        new Date(2000, 0, 1),
+        new Date(1991, 5, 28, 12, 11, 10)
+    ];
+    describe(`unit = MILLISECOND`, () => {
+        const values = [
+            new Date(1989, 5, 22, 1, 2, 3),
+            new Date(1988, 3, 25, 4, 5, 6),
+            new Date(1987, 2, 24, 7, 8, 9),
+            new Date(2018, 4, 12, 17, 30, 0)
+        ];
+        const vector = DateVector.from(values);
+        basicVectorTests(vector, values, extras);
+    });
+    describe(`unit = DAY`, () => {
+        // Use UTC to ensure that dates are always at midnight
+        const values = [
+            new Date(Date.UTC(1989, 5, 22)),
+            new Date(Date.UTC(1988, 3, 25)),
+            new Date(Date.UTC(1987, 2, 24)),
+            new Date(Date.UTC(2018, 4, 12))
+        ];
+        const vector = DateVector.from(values, DateUnit.DAY);
+        basicVectorTests(vector, values, extras);
     });
 });
 

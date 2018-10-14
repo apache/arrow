@@ -22,18 +22,28 @@
 #define RAPIDJSON_HAS_CXX11_RVALUE_REFS 1
 #define RAPIDJSON_HAS_CXX11_RANGE_FOR 1
 
+#define RAPIDJSON_NAMESPACE arrow::rapidjson
+#define RAPIDJSON_NAMESPACE_BEGIN \
+  namespace arrow {               \
+  namespace rapidjson {
+#define RAPIDJSON_NAMESPACE_END \
+  }                             \
+  }
+
 #include <memory>
 #include <sstream>
 #include <string>
 
-#include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
+#include "rapidjson/document.h"      // IWYU pragma: export
+#include "rapidjson/encodings.h"     // IWYU pragma: export
+#include "rapidjson/stringbuffer.h"  // IWYU pragma: export
+#include "rapidjson/writer.h"        // IWYU pragma: export
 
-#include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/status.h"    // IWYU pragma: export
+#include "arrow/type_fwd.h"  // IWYU pragma: keep
 #include "arrow/util/visibility.h"
 
-namespace rj = rapidjson;
+namespace rj = arrow::rapidjson;
 using RjWriter = rj::Writer<rj::StringBuffer>;
 using RjArray = rj::Value::ConstArray;
 using RjObject = rj::Value::ConstObject;
@@ -95,21 +105,25 @@ namespace ipc {
 namespace internal {
 namespace json {
 
-Status WriteSchema(const Schema& schema, RjWriter* writer);
-Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer);
-Status WriteArray(const std::string& name, const Array& array, RjWriter* writer);
+ARROW_EXPORT Status WriteSchema(const Schema& schema, RjWriter* writer);
+ARROW_EXPORT Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer);
+ARROW_EXPORT Status WriteArray(const std::string& name, const Array& array,
+                               RjWriter* writer);
 
-Status ReadSchema(const rj::Value& json_obj, MemoryPool* pool,
-                  std::shared_ptr<Schema>* schema);
+ARROW_EXPORT Status ReadSchema(const rj::Value& json_obj, MemoryPool* pool,
+                               std::shared_ptr<Schema>* schema);
 
-Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>& schema,
-                       MemoryPool* pool, std::shared_ptr<RecordBatch>* batch);
+ARROW_EXPORT Status ReadRecordBatch(const rj::Value& json_obj,
+                                    const std::shared_ptr<Schema>& schema,
+                                    MemoryPool* pool,
+                                    std::shared_ptr<RecordBatch>* batch);
 
-Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,
-                 const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array);
+ARROW_EXPORT Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,
+                              const std::shared_ptr<DataType>& type,
+                              std::shared_ptr<Array>* array);
 
-Status ReadArray(MemoryPool* pool, const rj::Value& json_obj, const Schema& schema,
-                 std::shared_ptr<Array>* array);
+ARROW_EXPORT Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,
+                              const Schema& schema, std::shared_ptr<Array>* array);
 
 }  // namespace json
 }  // namespace internal

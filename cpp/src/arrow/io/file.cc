@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/io/windows_compatibility.h"
+#include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 // sys/mman.h not present in Visual Studio or Cygwin
 #ifdef _WIN32
@@ -27,17 +27,17 @@
 #undef Free
 #else
 #include <sys/mman.h>
-#include <unistd.h>
+#include <unistd.h>  // IWYU pragma: keep
 #endif
-
-#include <string.h>
 
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <mutex>
 #include <sstream>
+#include <string>
 
 // ----------------------------------------------------------------------
 // Other Arrow includes
@@ -62,12 +62,12 @@ class OSFile {
 
   // Note: only one of the Open* methods below may be called on a given instance
 
-  Status OpenWriteable(const std::string& path, bool truncate, bool append,
-                       bool write_only) {
+  Status OpenWritable(const std::string& path, bool truncate, bool append,
+                      bool write_only) {
     RETURN_NOT_OK(SetFileName(path));
 
     RETURN_NOT_OK(
-        internal::FileOpenWriteable(file_name_, write_only, truncate, append, &fd_));
+        internal::FileOpenWritable(file_name_, write_only, truncate, append, &fd_));
     is_open_ = true;
     mode_ = write_only ? FileMode::WRITE : FileMode::READWRITE;
 
@@ -79,9 +79,9 @@ class OSFile {
     return Status::OK();
   }
 
-  // This is different from OpenWriteable(string, ...) in that it doesn't
+  // This is different from OpenWritable(string, ...) in that it doesn't
   // truncate nor mandate a seekable file
-  Status OpenWriteable(int fd) {
+  Status OpenWritable(int fd) {
     if (!internal::FileGetSize(fd, &size_).ok()) {
       // Non-seekable file
       size_ = -1;
@@ -290,9 +290,9 @@ class FileOutputStream::FileOutputStreamImpl : public OSFile {
  public:
   Status Open(const std::string& path, bool append) {
     const bool truncate = !append;
-    return OpenWriteable(path, truncate, append, true /* write_only */);
+    return OpenWritable(path, truncate, append, true /* write_only */);
   }
-  Status Open(int fd) { return OpenWriteable(fd); }
+  Status Open(int fd) { return OpenWritable(fd); }
 };
 
 FileOutputStream::FileOutputStream() { impl_.reset(new FileOutputStreamImpl()); }
@@ -371,7 +371,7 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
       constexpr bool append = false;
       constexpr bool truncate = false;
       constexpr bool write_only = false;
-      RETURN_NOT_OK(file_->OpenWriteable(path, truncate, append, write_only));
+      RETURN_NOT_OK(file_->OpenWritable(path, truncate, append, write_only));
 
       is_mutable_ = true;
     } else {
@@ -549,7 +549,7 @@ Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes
   std::lock_guard<std::mutex> resize_guard(memory_map_->resize_lock());
   nbytes = std::max<int64_t>(0, std::min(nbytes, memory_map_->size() - position));
   if (nbytes > 0) {
-    std::memcpy(out, memory_map_->data() + position, static_cast<size_t>(nbytes));
+    memcpy(out, memory_map_->data() + position, static_cast<size_t>(nbytes));
   }
   *bytes_read = nbytes;
   return Status::OK();

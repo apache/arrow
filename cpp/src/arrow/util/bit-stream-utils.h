@@ -30,6 +30,7 @@
 #include "arrow/util/macros.h"
 
 namespace arrow {
+namespace BitUtil {
 
 /// Utility class to write bit/byte streams.  This class can write data to either be
 /// bit packed or byte aligned (and a single stream that has a mix of both).
@@ -403,6 +404,7 @@ inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
   return true;
 }
 
+}  // namespace BitUtil
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_BIT_STREAM_UTILS_H

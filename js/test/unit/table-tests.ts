@@ -15,11 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import '../jest-extensions';
+
 import Arrow, { vector, RecordBatch } from '../Arrow';
 
 const { predicate, Table } = Arrow;
 
-const { col, lit, custom } = predicate;
+const { col, lit, custom, and, or, And, Or } = predicate;
 
 const F32 = 0, I32 = 1, DICT = 2;
 const test_data = [
@@ -65,6 +67,16 @@ const test_data = [
         ]
     },
 ];
+
+function compareTables(t1: Table, t2, Table) {
+    expect(t1.length).toEqual(t2.length);
+    expect(t1.numCols).toEqual(t2.numCols);
+    for (let i = -1, n = t1.numCols; ++i < n;) {
+        const v1 = t1.getColumnAt(i);
+        const v2 = t2.getColumnAt(i);
+        (expect([v1, `left`, t1.schema.fields[i].name]) as any).toEqualVector([v2, `right`, t2.schema.fields[i].name]);
+    }
+}
 
 describe(`Table`, () => {
     test(`can create an empty table`, () => {
@@ -295,15 +307,36 @@ describe(`Table`, () => {
                     expect(table.filter(col('dictionary').eq(col('dictionary'))).count()).toEqual(table.length);
                 });
             });
+            describe(`serialize and de-serialize is a no-op`, () => {
+                compareTables(Table.from(table.serialize()), table);
+            });
         });
     }
+});
+
+describe(`Predicate`, () => {
+    const p1 = col('a').gt(100);
+    const p2 = col('a').lt(1000);
+    const p3 = col('b').eq('foo');
+    const p4 = col('c').eq('bar');
+    const expected = [p1, p2, p3, p4]
+    test(`and flattens children`, () => {
+        expect(and(p1, p2, p3, p4).children).toEqual(expected);
+        expect(and(p1.and(p2), new And(p3, p4)).children).toEqual(expected);
+        expect(and(p1.and(p2, p3, p4)).children).toEqual(expected);
+    });
+    test(`or flattens children`, () => {
+        expect(or(p1, p2, p3, p4).children).toEqual(expected);
+        expect(or(p1.or(p2), new Or(p3, p4)).children).toEqual(expected);
+        expect(or(p1.or(p2, p3, p4)).children).toEqual(expected);
+    });
 });
 
 function leftPad(str: string, fill: string, n: number) {
     return (new Array(n + 1).join(fill) + str).slice(-1 * n);
 }
 
-function getSingleRecordBatchTable() {
+export function getSingleRecordBatchTable() {
     return Table.from({
         'schema': {
             'fields': [

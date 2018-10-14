@@ -1,0 +1,8 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^README\.Rmd$
+src/.clang-format
+LICENSE.md
+^data-raw$
+lint.sh
+

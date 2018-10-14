@@ -25,6 +25,7 @@
 #include "arrow/util/macros.h"
 
 namespace arrow {
+namespace util {
 
 // ----------------------------------------------------------------------
 // Lz4 implementation
@@ -57,4 +58,5 @@ Status Lz4Codec::Compress(int64_t input_len, const uint8_t* input,
   return Status::OK();
 }
 
+}  // namespace util
 }  // namespace arrow

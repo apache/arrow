@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import '../jest-extensions';
+
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -22,10 +24,15 @@ import Arrow from '../Arrow';
 import { zip } from 'ix/iterable/zip';
 import { toArray } from 'ix/iterable/toarray';
 
+import { AsyncIterableX } from 'ix/asynciterable/asynciterablex';
+import { zip as zipAsync } from 'ix/asynciterable/zip';
+import { toArray as toArrayAsync } from 'ix/asynciterable/toarray';
+
 /* tslint:disable */
 const { parse: bignumJSONParse } = require('json-bignum');
 
 const { Table, read } = Arrow;
+const { fromReadableStream, readBuffersAsync, readRecordBatchesAsync } = Arrow;
 
 if (!process.env.JSON_PATHS || !process.env.ARROW_PATHS) {
     throw new Error('Integration tests need paths to both json and arrow files');
@@ -54,62 +61,6 @@ const jsonAndArrowPaths = toArray(zip(
 ))
 .filter(([p1, p2]) => p1 !== undefined && p2 !== undefined) as [string, string][];
 
-expect.extend({
-    toEqualVector([v1, format1, columnName]: [any, string, string], [v2, format2]: [any, string]) {
-
-        const format = (x: any, y: any, msg= ' ') => `${
-            this.utils.printExpected(x)}${
-                msg}${
-            this.utils.printReceived(y)
-        }`;
-
-        let getFailures = new Array<string>();
-        let propsFailures = new Array<string>();
-        let iteratorFailures = new Array<string>();
-        let allFailures = [
-            { title: 'get', failures: getFailures },
-            { title: 'props', failures: propsFailures },
-            { title: 'iterator', failures: iteratorFailures }
-        ];
-
-        let props = [
-            // 'name', 'nullable', 'metadata',
-            'type', 'length', 'nullCount'
-        ];
-
-        for (let i = -1, n = props.length; ++i < n;) {
-            const prop = props[i];
-            if (`${v1[prop]}` !== `${v2[prop]}`) {
-                propsFailures.push(`${prop}: ${format(v1[prop], v2[prop], ' !== ')}`);
-            }
-        }
-
-        for (let i = -1, n = v1.length; ++i < n;) {
-            let x1 = v1.get(i), x2 = v2.get(i);
-            if (this.utils.stringify(x1) !== this.utils.stringify(x2)) {
-                getFailures.push(`${i}: ${format(x1, x2, ' !== ')}`);
-            }
-        }
-
-        let i = -1;
-        for (let [x1, x2] of zip(v1, v2)) {
-            ++i;
-            if (this.utils.stringify(x1) !== this.utils.stringify(x2)) {
-                iteratorFailures.push(`${i}: ${format(x1, x2, ' !== ')}`);
-            }
-        }
-
-        return {
-            pass: allFailures.every(({ failures }) => failures.length === 0),
-            message: () => [
-                `${columnName}: (${format(format1, format2, ' !== ')})\n`,
-                ...allFailures.map(({ failures, title }) =>
-                    !failures.length ? `` : [`${title}:`, ...failures].join(`\n`))
-            ].join('\n')
-        };
-    }
-});
-
 describe(`Integration`, () => {
     for (const [jsonFilePath, arrowFilePath] of jsonAndArrowPaths) {
         let { name, dir } = path.parse(arrowFilePath);
@@ -125,6 +76,7 @@ describe(`Integration`, () => {
             testTableToBuffersIntegration('binary', 'stream')(json, arrowBuffer);
         });
     }
+    testReadingMultipleTablesFromTheSameStream();
 });
 
 function testReaderIntegration(jsonData: any, arrowBuffer: Uint8Array) {
@@ -181,5 +133,81 @@ function testTableToBuffersIntegration(srcFormat: 'json' | 'binary', arrowFormat
                     .toEqualVector([v2, refFormat]);
             }
         });
+    }
+}
+
+function testReadingMultipleTablesFromTheSameStream() {
+
+    test('Can read multiple tables from the same stream with a special stream reader', async () => {
+
+        async function* allTablesReadableStream() {
+            for (const [, arrowPath] of jsonAndArrowPaths) {
+                for await (const buffer of fs.createReadStream(arrowPath)) {
+                    yield buffer as Uint8Array;
+                }
+            }
+        }
+
+        const pathsAsync = AsyncIterableX.from(jsonAndArrowPaths);
+        const batchesAsync = readBatches(allTablesReadableStream());
+        const pathsAndBatches = zipAsync(pathsAsync, batchesAsync);
+
+        for await (const [[jsonFilePath, arrowFilePath], batches] of pathsAndBatches) {
+
+            const streamTable = new Table(await toArrayAsync(batches));
+            const binaryTable = Table.from(getOrReadFileBuffer(arrowFilePath) as Uint8Array);
+            const jsonTable = Table.from(bignumJSONParse(getOrReadFileBuffer(jsonFilePath, 'utf8')));
+
+            expect(streamTable.length).toEqual(jsonTable.length);
+            expect(streamTable.length).toEqual(binaryTable.length);
+            expect(streamTable.numCols).toEqual(jsonTable.numCols);
+            expect(streamTable.numCols).toEqual(binaryTable.numCols);
+            for (let i = -1, n = streamTable.numCols; ++i < n;) {
+                const v1 = streamTable.getColumnAt(i);
+                const v2 = jsonTable.getColumnAt(i);
+                const v3 = binaryTable.getColumnAt(i);
+                const name = streamTable.schema.fields[i].name;
+                (expect([v1, `stream`, name]) as any).toEqualVector([v2, `json`]);
+                (expect([v1, `stream`, name]) as any).toEqualVector([v3, `binary`]);
+            }
+        }
+    });
+
+    async function* readBatches(stream: AsyncIterable<Uint8Array>) {
+
+        let message: any, done = false, broke = false;
+        let source = buffers(fromReadableStream(stream as any));
+    
+        do {
+            yield readRecordBatchesAsync(messages({
+                next(x: any) { return source.next(x); },
+                throw(x: any) { return source.throw!(x); },
+                [Symbol.asyncIterator]() { return this; },
+            }));
+        } while (!done || (message = null));
+    
+        source.return && (await source.return());
+    
+        async function* messages(source: AsyncIterableIterator<Uint8Array>) {
+            for await (message of readBuffersAsync(source)) {
+                if (broke = message.message.headerType === 1) {
+                    break;
+                }
+                yield message;
+                message = null;
+            }
+            done = done || !broke;
+            broke = false;
+        }
+    
+        async function* buffers(source: AsyncIterableIterator<Uint8Array>) {
+            while (!done) {
+                message && (yield message.loader.bytes);
+                const next = await source.next();
+                if (!(done = next.done)) {
+                    yield next.value;
+                }
+            }
+        }
     }
 }

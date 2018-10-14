@@ -19,7 +19,7 @@
 # Set up environment and working directory
 cd /apache-arrow
 
-source activate pyarrow-dev
+conda activate pyarrow-dev
 
 # install pytables from defaults for now
 conda install -y pytables

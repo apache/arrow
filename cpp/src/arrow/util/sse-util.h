@@ -123,7 +123,7 @@ static inline uint32_t SSE4_crc32_u32(uint32_t crc, uint32_t v) {
 static inline uint32_t SSE4_crc32_u64(uint32_t crc, uint64_t v) {
   uint64_t result = crc;
   __asm__("crc32q %1, %0" : "+r"(result) : "rm"(v));
-  return result;
+  return static_cast<uint32_t>(result);
 }
 
 static inline int64_t POPCNT_popcnt_u64(uint64_t a) {

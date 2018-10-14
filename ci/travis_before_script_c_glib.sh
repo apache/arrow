@@ -22,7 +22,12 @@ set -ex
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
-pip install meson
+
+conda create -n meson -y -q python=3.6
+conda activate meson
+
+# ARROW-3186: meson 0.47.2 issues
+pip install meson==0.47.1
 
 if [ $TRAVIS_OS_NAME = "osx" ]; then
   export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/libffi/lib/pkgconfig

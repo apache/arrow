@@ -15,24 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
-#include <cstdlib>
+#include <cstring>
+#include <iterator>
+#include <limits>
 #include <memory>
 #include <numeric>
+#include <ostream>
+#include <string>
+#include <type_traits>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/lazy.h"
@@ -41,6 +50,8 @@ namespace arrow {
 
 using std::string;
 using std::vector;
+
+using internal::checked_cast;
 
 namespace {
 // used to prevent compiler optimizing away side-effect-less statements
@@ -313,9 +324,7 @@ class TestPrimitiveBuilder : public TestBuilder {
 
   void Check(const std::unique_ptr<BuilderType>& builder, bool nullable) {
     int64_t size = builder->length();
-
-    auto ex_data = std::make_shared<Buffer>(reinterpret_cast<uint8_t*>(draws_.data()),
-                                            size * sizeof(T));
+    auto ex_data = Buffer::Wrap(draws_.data(), size);
 
     std::shared_ptr<Buffer> ex_null_bitmap;
     int64_t ex_null_count = 0;
@@ -1006,8 +1015,8 @@ class TestStringArray : public ::testing::Test {
 
   void MakeArray() {
     length_ = static_cast<int64_t>(offsets_.size()) - 1;
-    value_buf_ = GetBufferFromVector(chars_);
-    offsets_buf_ = GetBufferFromVector(offsets_);
+    value_buf_ = Buffer::Wrap(chars_);
+    offsets_buf_ = Buffer::Wrap(offsets_);
     ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
     null_count_ = CountNulls(valid_bytes_);
 
@@ -1071,7 +1080,7 @@ TEST_F(TestStringArray, TestGetString) {
 
 TEST_F(TestStringArray, TestEmptyStringComparison) {
   offsets_ = {0, 0, 0, 0, 0, 0};
-  offsets_buf_ = GetBufferFromVector(offsets_);
+  offsets_buf_ = Buffer::Wrap(offsets_);
   length_ = static_cast<int64_t>(offsets_.size() - 1);
 
   auto strings_a = std::make_shared<StringArray>(length_, offsets_buf_, nullptr,
@@ -1318,8 +1327,8 @@ class TestBinaryArray : public ::testing::Test {
 
   void MakeArray() {
     length_ = static_cast<int64_t>(offsets_.size() - 1);
-    value_buf_ = GetBufferFromVector(chars_);
-    offsets_buf_ = GetBufferFromVector(offsets_);
+    value_buf_ = Buffer::Wrap(chars_);
+    offsets_buf_ = Buffer::Wrap(offsets_);
 
     ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
     null_count_ = CountNulls(valid_bytes_);

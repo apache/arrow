@@ -17,7 +17,7 @@
 FROM quay.io/pypa/manylinux1_x86_64:latest
 
 # Install dependencies
-RUN yum install -y flex zlib-devel wget && yum clean all
+RUN yum install -y ccache flex zlib-devel wget && yum clean all
 
 ADD scripts/build_openssl.sh /
 RUN /build_openssl.sh
@@ -66,6 +66,10 @@ RUN /build_ccache.sh
 ADD scripts/build_protobuf.sh /
 RUN /build_protobuf.sh
 ENV PROTOBUF_HOME /usr
+
+ADD scripts/build_glog.sh /
+RUN /build_glog.sh
+ENV GLOG_HOME /usr
 
 WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963

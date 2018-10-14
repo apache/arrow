@@ -32,7 +32,6 @@ except ImportError:
 
 import pyarrow as pa
 from pyarrow.pandas_compat import get_logical_type
-import pyarrow.formatting as fmt
 
 
 def test_total_bytes_allocated():
@@ -53,7 +52,7 @@ def test_constructor_raises():
 
 def test_list_format():
     arr = pa.array([[1], None, [2, 3, None]])
-    result = fmt.array_format(arr)
+    result = arr.format()
     expected = """\
 [
   [
@@ -71,7 +70,7 @@ def test_list_format():
 
 def test_string_format():
     arr = pa.array([u'', None, u'foo'])
-    result = fmt.array_format(arr)
+    result = arr.format()
     expected = """\
 [
   "",
@@ -83,7 +82,7 @@ def test_string_format():
 
 def test_long_array_format():
     arr = pa.array(range(100))
-    result = fmt.array_format(arr, window=2)
+    result = arr.format(window=2)
     expected = """\
 [
   0,
@@ -479,12 +478,17 @@ def test_string_from_buffers():
 
 def _check_cast_case(case, safe=True):
     in_data, in_type, out_data, out_type = case
-
-    in_arr = pa.array(in_data, type=in_type)
-
-    casted = in_arr.cast(out_type, safe=safe)
     expected = pa.array(out_data, type=out_type)
+
+    # check casting an already created array
+    in_arr = pa.array(in_data, type=in_type)
+    casted = in_arr.cast(out_type, safe=safe)
     assert casted.equals(expected)
+
+    # constructing an array with out type which optionally involves casting
+    # for more see ARROW-1949
+    in_arr = pa.array(in_data, type=out_type, safe=safe)
+    assert in_arr.equals(expected)
 
 
 def test_cast_integers_safe():
@@ -544,6 +548,46 @@ def test_cast_integers_unsafe():
         _check_cast_case(case, safe=False)
 
 
+def test_floating_point_truncate_safe():
+    safe_cases = [
+        (np.array([1.0, 2.0, 3.0], dtype='float32'), 'float32',
+         np.array([1, 2, 3], dtype='i4'), pa.int32()),
+        (np.array([1.0, 2.0, 3.0], dtype='float64'), 'float64',
+         np.array([1, 2, 3], dtype='i4'), pa.int32()),
+        (np.array([-10.0, 20.0, -30.0], dtype='float64'), 'float64',
+         np.array([-10, 20, -30], dtype='i4'), pa.int32()),
+    ]
+    for case in safe_cases:
+        _check_cast_case(case, safe=True)
+
+
+def test_floating_point_truncate_unsafe():
+    unsafe_cases = [
+        (np.array([1.1, 2.2, 3.3], dtype='float32'), 'float32',
+         np.array([1, 2, 3], dtype='i4'), pa.int32()),
+        (np.array([1.1, 2.2, 3.3], dtype='float64'), 'float64',
+         np.array([1, 2, 3], dtype='i4'), pa.int32()),
+        (np.array([-10.1, 20.2, -30.3], dtype='float64'), 'float64',
+         np.array([-10, 20, -30], dtype='i4'), pa.int32()),
+    ]
+    for case in unsafe_cases:
+        # test safe casting raises
+        with pytest.raises(pa.ArrowInvalid,
+                           match='Floating point value truncated'):
+            _check_cast_case(case, safe=True)
+
+        # test unsafe casting truncates
+        _check_cast_case(case, safe=False)
+
+
+def test_safe_cast_nan_to_int_raises():
+    arr = pa.array([np.nan, 1.])
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match='Floating point value truncated'):
+        arr.cast(pa.int64(), safe=True)
+
+
 def test_cast_timestamp_unit():
     # ARROW-1680
     val = datetime.datetime.now()
@@ -571,6 +615,22 @@ def test_cast_timestamp_unit():
         arr.cast(target)
 
     result = arr.cast(target, safe=False)
+    assert result.equals(expected)
+
+    # ARROW-1949
+    series = pd.Series([pd.Timestamp(1), pd.Timestamp(10), pd.Timestamp(1000)])
+    expected = pa.array([0, 0, 1], type=pa.timestamp('us'))
+
+    with pytest.raises(ValueError):
+        pa.array(series, type=pa.timestamp('us'))
+
+    with pytest.raises(ValueError):
+        pa.Array.from_pandas(series, type=pa.timestamp('us'))
+
+    result = pa.Array.from_pandas(series, type=pa.timestamp('us'), safe=False)
+    assert result.equals(expected)
+
+    result = pa.array(series, type=pa.timestamp('us'), safe=False)
     assert result.equals(expected)
 
 
@@ -808,6 +868,67 @@ def test_array_from_numpy_datetimeD():
     assert result.equals(expected)
 
 
+@pytest.mark.parametrize(('dtype', 'type'), [
+    ('datetime64[s]', pa.timestamp('s')),
+    ('datetime64[ms]', pa.timestamp('ms')),
+    ('datetime64[us]', pa.timestamp('us')),
+    ('datetime64[ns]', pa.timestamp('ns'))
+])
+def test_array_from_numpy_datetime(dtype, type):
+    data = [
+        None,
+        datetime.datetime(2017, 4, 4, 12, 11, 10),
+        datetime.datetime(2018, 1, 1, 0, 2, 0)
+    ]
+
+    # from numpy array
+    arr = pa.array(np.array(data, dtype=dtype))
+    expected = pa.array(data, type=type)
+    assert arr.equals(expected)
+
+    # from list of numpy scalars
+    arr = pa.array(list(np.array(data, dtype=dtype)))
+    assert arr.equals(expected)
+
+
+def test_array_from_different_numpy_datetime_units_raises():
+    data = [
+        None,
+        datetime.datetime(2017, 4, 4, 12, 11, 10),
+        datetime.datetime(2018, 1, 1, 0, 2, 0)
+    ]
+    s = np.array(data, dtype='datetime64[s]')
+    ms = np.array(data, dtype='datetime64[ms]')
+    data = list(s[:2]) + list(ms[2:])
+
+    with pytest.raises(pa.ArrowNotImplementedError):
+        pa.array(data)
+
+
+@pytest.mark.parametrize('unit', ['ns', 'us', 'ms', 's'])
+def test_array_from_list_of_timestamps(unit):
+    n = np.datetime64('NaT', unit)
+    x = np.datetime64('2017-01-01 01:01:01.111111111', unit)
+    y = np.datetime64('2018-11-22 12:24:48.111111111', unit)
+
+    a1 = pa.array([n, x, y])
+    a2 = pa.array([n, x, y], type=pa.timestamp(unit))
+
+    assert a1.type == a2.type
+    assert a1.type.unit == unit
+    assert a1[0] == a2[0]
+
+
+def test_array_from_timestamp_with_generic_unit():
+    n = np.datetime64('NaT')
+    x = np.datetime64('2017-01-01 01:01:01.111111111')
+    y = np.datetime64('2018-11-22 12:24:48.111111111')
+
+    with pytest.raises(pa.ArrowNotImplementedError,
+                       match='Unbound or generic datetime64 time unit'):
+        pa.array([n, x, y])
+
+
 def test_array_from_py_float32():
     data = [[1.2, 3.4], [9.0, 42.0]]
 
@@ -1007,6 +1128,33 @@ def test_struct_array_flatten():
     assert ys.to_pylist() == [None, 2.5]
 
 
+def test_struct_array_field():
+    ty = pa.struct([pa.field('x', pa.int16()),
+                    pa.field('y', pa.float32())])
+    a = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
+
+    x = a.field(0)
+    y = a.field(1)
+    x_ = a.field(-2)
+    y_ = a.field(-1)
+
+    assert isinstance(x, pa.lib.Int16Array)
+    assert isinstance(y, pa.lib.FloatArray)
+
+    assert x.equals(pa.array([1, 3, 5], type=pa.int16()))
+    assert y.equals(pa.array([2.5, 4.5, 6.5], type=pa.float32()))
+    assert x.equals(x_)
+    assert y.equals(y_)
+
+    for invalid_index in [None, 'x']:
+        with pytest.raises(TypeError):
+            a.field(invalid_index)
+
+    for invalid_index in [3, -3]:
+        with pytest.raises(IndexError):
+            a.field(invalid_index)
+
+
 def test_nested_dictionary_array():
     dict_arr = pa.DictionaryArray.from_arrays([0, 1, 0], ['a', 'b'])
     list_arr = pa.ListArray.from_arrays([0, 2, 3], dict_arr)
@@ -1015,14 +1163,3 @@ def test_nested_dictionary_array():
     dict_arr = pa.DictionaryArray.from_arrays([0, 1, 0], ['a', 'b'])
     dict_arr2 = pa.DictionaryArray.from_arrays([0, 1, 2, 1, 0], dict_arr)
     assert dict_arr2.to_pylist() == ['a', 'b', 'a', 'b', 'a']
-
-
-@pytest.mark.parametrize('unit', ['ns', 'us', 'ms', 's'])
-def test_timestamp_units_from_list(unit):
-    x = np.datetime64('2017-01-01 01:01:01.111111111', unit)
-    a1 = pa.array([x])
-    a2 = pa.array([x], type=pa.timestamp(unit))
-
-    assert a1.type == a2.type
-    assert a1.type.unit == unit
-    assert a1[0] == a2[0]

@@ -18,12 +18,14 @@
 
 package org.apache.arrow.vector;
 
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
-import io.netty.buffer.ArrowBuf;
-
-import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -31,10 +33,7 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import io.netty.buffer.ArrowBuf;
 
 public abstract class BaseVariableWidthVector extends BaseValueVector
         implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
@@ -201,7 +200,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     final int startOffset = offsetBuffer.getInt(0);
     final int endOffset = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
     final double totalListSize = endOffset - startOffset;
-    return totalListSize/valueCount;
+    return totalListSize / valueCount;
   }
 
   /**
@@ -572,7 +571,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   @Override
   public int getCurrentSizeInBytes() {
-      /* TODO */
+    /* TODO */
     return 0;
   }
 
@@ -600,7 +599,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
     final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
     final int offsetBufferSize = (valueCount + 1) * OFFSET_WIDTH;
-      /* get the end offset for this valueCount */
+    /* get the end offset for this valueCount */
     final int dataBufferSize = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
     return validityBufferSize + offsetBufferSize + dataBufferSize;
   }

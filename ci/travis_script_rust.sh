@@ -23,13 +23,18 @@ RUST_DIR=${TRAVIS_BUILD_DIR}/rust
 
 pushd $RUST_DIR
 
+# show activated toolchain
+rustup show
+
 # raises on any formatting errors
 rustup component add rustfmt-preview
 cargo fmt --all -- --check
+
 # raises on any warnings
 cargo rustc -- -D warnings
 
 cargo build
 cargo test
+cargo run --example dynamic_types
 
 popd

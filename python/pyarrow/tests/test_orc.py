@@ -15,33 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import datetime
-import decimal
-import gzip
-import os
-
-from pandas.util.testing import assert_frame_equal
-import pandas as pd
 import pytest
+import decimal
+import datetime
 
+import pandas as pd
 import pyarrow as pa
 
+from pandas.util.testing import assert_frame_equal
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not orc'
 pytestmark = pytest.mark.orc
 
 
-here = os.path.abspath(os.path.dirname(__file__))
-orc_data_dir = os.path.join(here, 'data', 'orc')
-
-
-def path_for_orc_example(name):
-    return os.path.join(orc_data_dir, '%s.orc' % name)
-
-
-def path_for_json_example(name):
-    return os.path.join(orc_data_dir, '%s.jsn.gz' % name)
+@pytest.fixture(scope='module')
+def datadir(datadir):
+    return datadir / 'orc'
 
 
 def fix_example_values(actual_cols, expected_cols):
@@ -93,6 +83,7 @@ def check_example_file(orc_path, expected_df, need_fix=False):
     # Exercise ORCFile.read()
     table = orc_file.read()
     assert isinstance(table, pa.Table)
+    table._validate()
 
     # This workaround needed because of ARROW-3080
     orc_df = pd.DataFrame(table.to_pydict())
@@ -119,42 +110,55 @@ def check_example_file(orc_path, expected_df, need_fix=False):
     assert json_pos == orc_file.nrows
 
 
-def check_example_using_json(example_name):
+@pytest.mark.parametrize('filename', [
+    'TestOrcFile.test1.orc',
+    'TestOrcFile.testDate1900.orc',
+    'decimal.orc'
+])
+def test_example_using_json(filename, datadir):
     """
     Check a ORC file example against the equivalent JSON file, as given
     in the Apache ORC repository (the JSON file has one JSON object per
     line, corresponding to one row in the ORC file).
     """
     # Read JSON file
-    json_path = path_for_json_example(example_name)
-    if json_path.endswith('.gz'):
-        f = gzip.open(json_path, 'r')
-    else:
-        f = open(json_path, 'r')
-
-    table = pd.read_json(f, lines=True)
-
-    check_example_file(path_for_orc_example(example_name), table,
-                       need_fix=True)
+    path = datadir / filename
+    table = pd.read_json(str(path.with_suffix('.jsn.gz')), lines=True)
+    check_example_file(path, table, need_fix=True)
 
 
-@pytest.mark.xfail(strict=True, reason="ARROW-3049")
-def test_orcfile_empty():
-    check_example_using_json('TestOrcFile.emptyFile')
+def test_orcfile_empty(datadir):
+    from pyarrow import orc
 
+    table = orc.ORCFile(datadir / 'TestOrcFile.emptyFile.orc').read()
+    assert table.num_rows == 0
 
-def test_orcfile_test1_json():
-    # Exercise the JSON test path
-    check_example_using_json('TestOrcFile.test1')
-
-
-def test_orcfile_test1_pickle():
-    check_example_using_json('TestOrcFile.test1')
-
-
-def test_orcfile_dates():
-    check_example_using_json('TestOrcFile.testDate1900')
-
-
-def test_orcfile_decimals():
-    check_example_using_json('decimal')
+    expected_schema = pa.schema([
+        ('boolean1', pa.bool_()),
+        ('byte1', pa.int8()),
+        ('short1', pa.int16()),
+        ('int1', pa.int32()),
+        ('long1', pa.int64()),
+        ('float1', pa.float32()),
+        ('double1', pa.float64()),
+        ('bytes1', pa.binary()),
+        ('string1', pa.string()),
+        ('middle', pa.struct([
+            ('list', pa.list_(pa.struct([
+                ('int1', pa.int32()),
+                ('string1', pa.string()),
+                ]))),
+            ])),
+        ('list', pa.list_(pa.struct([
+            ('int1', pa.int32()),
+            ('string1', pa.string()),
+            ]))),
+        ('map', pa.list_(pa.struct([
+            ('key', pa.string()),
+            ('value', pa.struct([
+                ('int1', pa.int32()),
+                ('string1', pa.string()),
+                ])),
+            ]))),
+        ])
+    assert table.schema == expected_schema

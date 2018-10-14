@@ -20,19 +20,19 @@
 #ifndef ARROW_API_H
 #define ARROW_API_H
 
-#include "arrow/array.h"
-#include "arrow/buffer.h"
-#include "arrow/builder.h"
-#include "arrow/compare.h"
-#include "arrow/memory_pool.h"
-#include "arrow/pretty_print.h"
-#include "arrow/record_batch.h"
-#include "arrow/status.h"
-#include "arrow/table.h"
-#include "arrow/table_builder.h"
-#include "arrow/tensor.h"
-#include "arrow/type.h"
-#include "arrow/visitor.h"
+#include "arrow/array.h"          // IYWU pragma: export
+#include "arrow/buffer.h"         // IYWU pragma: export
+#include "arrow/builder.h"        // IYWU pragma: export
+#include "arrow/compare.h"        // IYWU pragma: export
+#include "arrow/memory_pool.h"    // IYWU pragma: export
+#include "arrow/pretty_print.h"   // IYWU pragma: export
+#include "arrow/record_batch.h"   // IYWU pragma: export
+#include "arrow/status.h"         // IYWU pragma: export
+#include "arrow/table.h"          // IYWU pragma: export
+#include "arrow/table_builder.h"  // IYWU pragma: export
+#include "arrow/tensor.h"         // IYWU pragma: export
+#include "arrow/type.h"           // IYWU pragma: export
+#include "arrow/visitor.h"        // IYWU pragma: export
 
 /// \brief Top-level namespace for Apache Arrow C++ API
 namespace arrow {}

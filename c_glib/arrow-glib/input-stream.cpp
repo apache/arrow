@@ -177,6 +177,74 @@ garrow_input_stream_class_init(GArrowInputStreamClass *klass)
   g_object_class_install_property(gobject_class, PROP_INPUT_STREAM, spec);
 }
 
+/**
+ * garrow_input_stream_advance:
+ * @input_stream: A #GArrowInputStream.
+ * @n_bytes: The number of bytes to be advanced.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 0.11.0
+ */
+gboolean
+garrow_input_stream_advance(GArrowInputStream *input_stream,
+                            gint64 n_bytes,
+                            GError **error)
+{
+  auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
+  auto status = arrow_input_stream->Advance(n_bytes);
+  return garrow_error_check(error, status, "[input-stream][advance]");
+}
+
+/**
+ * garrow_input_stream_align:
+ * @input_stream: A #GArrowInputStream.
+ * @alignment: The byte multiple for the metadata prefix, usually 8
+ *   or 64, to ensure the body starts on a multiple of that alignment.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 0.11.0
+ */
+gboolean
+garrow_input_stream_align(GArrowInputStream *input_stream,
+                          gint32 alignment,
+                          GError **error)
+{
+  auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
+  auto status = arrow::ipc::AlignStream(arrow_input_stream.get(),
+                                        alignment);
+  return garrow_error_check(error, status, "[input-stream][align]");
+}
+
+/**
+ * garrow_input_stream_read_tensor:
+ * @input_stream: A #GArrowInputStream.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable):
+ *   #GArrowTensor on success, %NULL on error.
+ *
+ * Since: 0.11.0
+ */
+GArrowTensor *
+garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
+                                GError **error)
+{
+  auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
+
+  std::shared_ptr<arrow::Tensor> arrow_tensor;
+  auto status = arrow::ipc::ReadTensor(arrow_input_stream.get(),
+                                       &arrow_tensor);
+  if (garrow_error_check(error, status, "[input-stream][read-tensor]")) {
+    return garrow_tensor_new_raw(&arrow_tensor);
+  } else {
+    return NULL;
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowSeekableInputStream,                \
               garrow_seekable_input_stream,             \
@@ -253,36 +321,6 @@ garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
                                                  &arrow_buffer);
   if (garrow_error_check(error, status, "[seekable-input-stream][read-at]")) {
     return garrow_buffer_new_raw(&arrow_buffer);
-  } else {
-    return NULL;
-  }
-}
-
-/**
- * garrow_seekable_input_stream_read_tensor:
- * @input_stream: A #GArrowSeekableInputStream.
- * @position: The read start position.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (transfer full) (nullable):
- *   #GArrowTensor on success, %NULL on error.
- *
- * Since: 0.4.0
- */
-GArrowTensor *
-garrow_seekable_input_stream_read_tensor(GArrowSeekableInputStream *input_stream,
-                                         gint64 position,
-                                         GError **error)
-{
-  auto arrow_random_access_file =
-    garrow_seekable_input_stream_get_raw(input_stream);
-
-  std::shared_ptr<arrow::Tensor> arrow_tensor;
-  auto status = arrow::ipc::ReadTensor(position,
-                                       arrow_random_access_file.get(),
-                                       &arrow_tensor);
-  if (garrow_error_check(error, status, "[seekable-input-stream][read-tensor]")) {
-    return garrow_tensor_new_raw(&arrow_tensor);
   } else {
     return NULL;
   }

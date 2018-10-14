@@ -24,19 +24,22 @@
 #endif
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
+#include <functional>
+#include <memory>
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 
-namespace BitUtil {
+class MemoryPool;
 
+namespace BitUtil {
 namespace {
 
 void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
@@ -64,6 +67,8 @@ Status BytesToBits(const std::vector<uint8_t>& bytes, MemoryPool* pool,
 }
 
 }  // namespace BitUtil
+
+namespace internal {
 
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   constexpr int64_t pop_len = sizeof(uint64_t) * 8;
@@ -106,37 +111,95 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   return count;
 }
 
-Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
-                  std::shared_ptr<Buffer>* out) {
+template <bool invert_bits, bool restore_trailing_bits>
+void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
+                    int64_t dest_offset, uint8_t* dest) {
+  int64_t byte_offset = offset / 8;
+  int64_t bit_offset = offset % 8;
+  int64_t dest_byte_offset = dest_offset / 8;
+  int64_t dest_bit_offset = dest_offset % 8;
+  int64_t num_bytes = BitUtil::BytesForBits(length);
+  // Shift dest by its byte offset
+  dest += dest_byte_offset;
+
+  if (dest_bit_offset > 0) {
+    internal::BitmapReader valid_reader(data, offset, length);
+    internal::BitmapWriter valid_writer(dest, dest_bit_offset, length);
+
+    for (int64_t i = 0; i < length; i++) {
+      if (invert_bits ^ valid_reader.IsSet()) {
+        valid_writer.Set();
+      } else {
+        valid_writer.Clear();
+      }
+      valid_reader.Next();
+      valid_writer.Next();
+    }
+    valid_writer.Finish();
+  } else {
+    // Take care of the trailing bits in the last byte
+    int64_t trailing_bits = num_bytes * 8 - length;
+    uint8_t trail = 0;
+    if (trailing_bits && restore_trailing_bits) {
+      trail = dest[num_bytes - 1];
+    }
+
+    if (bit_offset > 0) {
+      uint8_t carry_mask = BitUtil::kPrecedingBitmask[bit_offset];
+      uint8_t carry_shift = static_cast<uint8_t>(8U - static_cast<uint8_t>(bit_offset));
+
+      uint8_t carry = 0U;
+      if (BitUtil::BytesForBits(length + bit_offset) > num_bytes) {
+        carry = static_cast<uint8_t>((data[byte_offset + num_bytes] & carry_mask)
+                                     << carry_shift);
+      }
+
+      int64_t i = num_bytes - 1;
+      while (i + 1 > 0) {
+        uint8_t cur_byte = data[byte_offset + i];
+        if (invert_bits) {
+          dest[i] = static_cast<uint8_t>(~((cur_byte >> bit_offset) | carry));
+        } else {
+          dest[i] = static_cast<uint8_t>((cur_byte >> bit_offset) | carry);
+        }
+        carry = static_cast<uint8_t>((cur_byte & carry_mask) << carry_shift);
+        --i;
+      }
+    } else {
+      if (invert_bits) {
+        for (int64_t i = 0; i < num_bytes; i++) {
+          dest[i] = static_cast<uint8_t>(~(data[byte_offset + i]));
+        }
+      } else {
+        std::memcpy(dest, data + byte_offset, static_cast<size_t>(num_bytes));
+      }
+    }
+
+    if (restore_trailing_bits) {
+      for (int i = 0; i < trailing_bits; i++) {
+        if (BitUtil::GetBit(&trail, i + 8 - trailing_bits)) {
+          BitUtil::SetBit(dest, length + i);
+        } else {
+          BitUtil::ClearBit(dest, length + i);
+        }
+      }
+    }
+  }
+}
+
+template <bool invert_bits>
+Status TransferBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset,
+                      int64_t length, std::shared_ptr<Buffer>* out) {
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(AllocateEmptyBitmap(pool, length, &buffer));
   uint8_t* dest = buffer->mutable_data();
 
-  int64_t byte_offset = offset / 8;
-  int64_t bit_offset = offset % 8;
+  TransferBitmap<invert_bits, false>(data, offset, length, 0, dest);
+
+  // As we have freshly allocated this bitmap, we should take care of zeroing the remaing
+  // bits.
   int64_t num_bytes = BitUtil::BytesForBits(length);
   int64_t bits_to_zero = num_bytes * 8 - length;
-
-  if (bit_offset > 0) {
-    uint32_t carry_mask = BitUtil::kBitmask[bit_offset] - 1U;
-    uint32_t carry_shift = 8U - static_cast<uint32_t>(bit_offset);
-
-    uint32_t carry = 0U;
-    if (BitUtil::BytesForBits(length + bit_offset) > num_bytes) {
-      carry = (data[byte_offset + num_bytes] & carry_mask) << carry_shift;
-    }
-
-    int64_t i = num_bytes - 1;
-    while (i + 1 > 0) {
-      uint8_t cur_byte = data[byte_offset + i];
-      dest[i] = static_cast<uint8_t>((cur_byte >> bit_offset) | carry);
-      carry = (cur_byte & carry_mask) << carry_shift;
-      --i;
-    }
-  } else {
-    std::memcpy(dest, data + byte_offset, static_cast<size_t>(num_bytes));
-  }
-
   for (int64_t i = length; i < length + bits_to_zero; ++i) {
     // Both branches may copy extra bits - unsetting to match specification.
     BitUtil::ClearBit(dest, i);
@@ -144,6 +207,26 @@ Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t
 
   *out = buffer;
   return Status::OK();
+}
+
+void CopyBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
+                int64_t dest_offset) {
+  TransferBitmap<false, true>(data, offset, length, dest_offset, dest);
+}
+
+void InvertBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
+                  int64_t dest_offset) {
+  TransferBitmap<true, true>(data, offset, length, dest_offset, dest);
+}
+
+Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
+                  std::shared_ptr<Buffer>* out) {
+  return TransferBitmap<false>(pool, data, offset, length, out);
+}
+
+Status InvertBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
+                    std::shared_ptr<Buffer>* out) {
+  return TransferBitmap<true>(pool, data, offset, length, out);
 }
 
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
@@ -176,9 +259,11 @@ bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right
 
 namespace {
 
-void AlignedBitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
-                      int64_t right_offset, uint8_t* out, int64_t out_offset,
-                      int64_t length) {
+template <typename Op>
+void AlignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                     int64_t right_offset, uint8_t* out, int64_t out_offset,
+                     int64_t length) {
+  Op op;
   DCHECK_EQ(left_offset % 8, right_offset % 8);
   DCHECK_EQ(left_offset % 8, out_offset % 8);
 
@@ -187,18 +272,20 @@ void AlignedBitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* r
   right += right_offset / 8;
   out += out_offset / 8;
   for (int64_t i = 0; i < nbytes; ++i) {
-    out[i] = left[i] & right[i];
+    out[i] = op(left[i], right[i]);
   }
 }
 
-void UnalignedBitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
-                        int64_t right_offset, uint8_t* out, int64_t out_offset,
-                        int64_t length) {
+template <typename Op>
+void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                       int64_t right_offset, uint8_t* out, int64_t out_offset,
+                       int64_t length) {
+  Op op;
   auto left_reader = internal::BitmapReader(left, left_offset, length);
   auto right_reader = internal::BitmapReader(right, right_offset, length);
   auto writer = internal::BitmapWriter(out, out_offset, length);
   for (int64_t i = 0; i < length; ++i) {
-    if (left_reader.IsSet() && right_reader.IsSet()) {
+    if (op(left_reader.IsSet(), right_reader.IsSet())) {
       writer.Set();
     }
     left_reader.Next();
@@ -208,24 +295,47 @@ void UnalignedBitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t*
   writer.Finish();
 }
 
+template <typename BitOp, typename LogicalOp>
+Status BitmapOp(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+                const uint8_t* right, int64_t right_offset, int64_t length,
+                int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
+  if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
+    // Fast case: can use bytewise AND
+    const int64_t phys_bits = length + out_offset;
+    RETURN_NOT_OK(AllocateEmptyBitmap(pool, phys_bits, out_buffer));
+    AlignedBitmapOp<BitOp>(left, left_offset, right, right_offset,
+                           (*out_buffer)->mutable_data(), out_offset, length);
+  } else {
+    // Unaligned
+    RETURN_NOT_OK(AllocateEmptyBitmap(pool, length + out_offset, out_buffer));
+    UnalignedBitmapOp<LogicalOp>(left, left_offset, right, right_offset,
+                                 (*out_buffer)->mutable_data(), out_offset, length);
+  }
+  return Status::OK();
+}
+
 }  // namespace
 
 Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
                  const uint8_t* right, int64_t right_offset, int64_t length,
                  int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
-  if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
-    // Fast case: can use bytewise AND
-    const int64_t phys_bits = length + out_offset;
-    RETURN_NOT_OK(AllocateEmptyBitmap(pool, phys_bits, out_buffer));
-    AlignedBitmapAnd(left, left_offset, right, right_offset,
-                     (*out_buffer)->mutable_data(), out_offset, length);
-  } else {
-    // Unaligned
-    RETURN_NOT_OK(AllocateEmptyBitmap(pool, length + out_offset, out_buffer));
-    UnalignedBitmapAnd(left, left_offset, right, right_offset,
-                       (*out_buffer)->mutable_data(), out_offset, length);
-  }
-  return Status::OK();
+  return BitmapOp<std::bit_and<uint8_t>, std::logical_and<bool>>(
+      pool, left, left_offset, right, right_offset, length, out_offset, out_buffer);
 }
 
+Status BitmapOr(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+                const uint8_t* right, int64_t right_offset, int64_t length,
+                int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
+  return BitmapOp<std::bit_or<uint8_t>, std::logical_or<bool>>(
+      pool, left, left_offset, right, right_offset, length, out_offset, out_buffer);
+}
+
+Status BitmapXor(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+                 const uint8_t* right, int64_t right_offset, int64_t length,
+                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
+  return BitmapOp<std::bit_xor<uint8_t>, std::bit_xor<bool>>(
+      pool, left, left_offset, right, right_offset, length, out_offset, out_buffer);
+}
+
+}  // namespace internal
 }  // namespace arrow

@@ -23,27 +23,38 @@ import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.arrow.vector.BufferLayout.BufferType.*;
+import static org.apache.arrow.vector.BufferLayout.BufferType.DATA;
+import static org.apache.arrow.vector.BufferLayout.BufferType.OFFSET;
+import static org.apache.arrow.vector.BufferLayout.BufferType.TYPE;
+import static org.apache.arrow.vector.BufferLayout.BufferType.VALIDITY;
 
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.*;
+import java.util.Objects;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.*;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.BufferLayout.BufferType;
+import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.TypeLayout;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
-import org.apache.arrow.vector.BufferLayout.BufferType;
-import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -56,7 +67,8 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
-import com.google.common.base.Objects;
+
+import io.netty.buffer.ArrowBuf;
 
 public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   private final JsonParser parser;
@@ -124,8 +136,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       // Read the dictionary record batch
       nextFieldIs("data");
       FieldVector vector = dict.getVector();
-      List<Field> fields = ImmutableList.of(vector.getField());
-      List<FieldVector> vectors = ImmutableList.of(vector);
+      List<Field> fields = Collections.singletonList(vector.getField());
+      List<FieldVector> vectors = Collections.singletonList(vector);
       VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, vector.getValueCount());
       read(root);
 
@@ -135,7 +147,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
 
     if (token != END_ARRAY) {
-      throw new IllegalArgumentException("Invalid token: " + token + " expected end of array at " + parser.getTokenLocation());
+      throw new IllegalArgumentException("Invalid token: " + token + " expected end of array at " +
+        parser.getTokenLocation());
     }
   }
 
@@ -332,7 +345,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader FIXEDSIZEBINARY = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        ArrayList<byte[]> values = Lists.newArrayList();
+        ArrayList<byte[]> values = new ArrayList<>();
         for (int i = 0; i < count; i++) {
           parser.nextToken();
           final byte[] value = decodeHexSafe(parser.readValueAs(String.class));
@@ -352,7 +365,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader VARCHAR = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        ArrayList<byte[]> values = Lists.newArrayList();
+        ArrayList<byte[]> values = new ArrayList<>();
         int bufferSize = 0;
         for (int i = 0; i < count; i++) {
           parser.nextToken();
@@ -375,7 +388,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader VARBINARY = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        ArrayList<byte[]> values = Lists.newArrayList();
+        ArrayList<byte[]> values = new ArrayList<>();
         int bufferSize = 0;
         for (int i = 0; i < count; i++) {
           parser.nextToken();
@@ -517,7 +530,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     {
       // If currently reading dictionaries, field name is not important so don't check
       String name = readNextField("name", String.class);
-      if (started && !Objects.equal(field.getName(), name)) {
+      if (started && !Objects.equals(field.getName(), name)) {
         throw new IllegalArgumentException("Expected field " + field.getName() + " but got " + name);
       }
 

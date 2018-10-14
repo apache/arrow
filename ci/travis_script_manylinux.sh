@@ -21,9 +21,7 @@
 set -ex
 
 pushd python/manylinux1
-git clone ../../ arrow
-docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
-docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3 -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
+docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3 -v $PWD:/io -v $PWD/../../:/arrow quay.io/xhochy/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh
 
 # Testing for https://issues.apache.org/jira/browse/ARROW-2657
 # These tests cannot be run inside of the docker container, since TensorFlow
@@ -37,7 +35,7 @@ PYTHON_VERSION=3.6
 CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 
 conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
-source activate $CONDA_ENV_DIR
+conda activate $CONDA_ENV_DIR
 
 pip install -q tensorflow
 pip install "dist/`ls dist/ | grep cp36`"

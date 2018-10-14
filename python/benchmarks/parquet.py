@@ -21,7 +21,10 @@ import shutil
 import tempfile
 
 import pyarrow as pa
-import pyarrow.parquet as pq
+try:
+    import pyarrow.parquet as pq
+except ImportError:
+    pq = None
 
 
 class ParquetManifestCreation(object):
@@ -34,6 +37,9 @@ class ParquetManifestCreation(object):
     params = [(10, 100, 1000), (1, 8)]
 
     def setup(self, num_partitions, num_threads):
+        if pq is None:
+            raise NotImplementedError
+
         self.tmpdir = tempfile.mkdtemp('benchmark_parquet')
         num1 = [random.choice(range(0, num_partitions))
                 for _ in range(self.size)]

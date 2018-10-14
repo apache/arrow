@@ -18,6 +18,11 @@
 
 package org.apache.arrow.adapter.jdbc;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
 
@@ -35,11 +40,6 @@ import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertArrayEquals;
 
 /**
  * This is a Helper class which has functionalities to read and assert the values from the given FieldVector object
@@ -171,8 +171,8 @@ public class JdbcToArrowTestHelper {
     int len = s.length();
     byte[] data = new byte[len / 2];
     for (int i = 0; i < len; i += 2) {
-      data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-              + Character.digit(s.charAt(i + 1), 16));
+      data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4) +
+              Character.digit(s.charAt(i + 1), 16));
     }
     return data;
   }

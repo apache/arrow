@@ -16,6 +16,7 @@
 // under the License.
 
 use libc;
+use std::cmp;
 use std::mem;
 
 use super::error::{ArrowError, Result};
@@ -65,6 +66,17 @@ pub fn free_aligned(p: *const u8) {
 pub fn free_aligned(p: *const u8) {
     unsafe {
         libc::free(mem::transmute::<*const u8, *mut libc::c_void>(p));
+    }
+}
+
+pub fn reallocate(old_size: usize, new_size: usize, pointer: *const u8) -> Result<*const u8> {
+    unsafe {
+        let old_src = mem::transmute::<*const u8, *mut libc::c_void>(pointer);
+        let result = allocate_aligned(new_size as i64)?;
+        let dst = mem::transmute::<*const u8, *mut libc::c_void>(result);
+        libc::memcpy(dst, old_src, cmp::min(old_size, new_size));
+        free_aligned(pointer);
+        Ok(result)
     }
 }
 
