@@ -136,6 +136,7 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose build cpp
         - docker-compose build python
         - docker-compose build lint
         - docker-compose run lint
@@ -147,6 +148,7 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose build cpp
         - docker-compose build python
         - docker-compose build lint
         - docker-compose run iwyu
@@ -158,6 +160,7 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose build cpp
         - docker-compose build python
         - docker-compose build lint
         - docker-compose run clang-format
