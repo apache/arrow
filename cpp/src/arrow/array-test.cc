@@ -3059,7 +3059,6 @@ TEST_F(TestListArray, TestFlattenBasic) {
   ASSERT_TRUE(flattened->Equals(expected));
 }
 
-
 // ----------------------------------------------------------------------
 // DictionaryArray tests
 
