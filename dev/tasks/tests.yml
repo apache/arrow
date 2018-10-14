@@ -26,12 +26,12 @@ groups:
     - docker-python-2.7
     - docker-python-3.6
     - docker-python-3.7
-    # - docker-java
-    # - docker-js
-    # - docker-lint
-    # - docker-iwyu
-    # - docker-clang-format
-    # - docker-hdfs-integration
+    - docker-java
+    - docker-js
+    - docker-lint
+    - docker-iwyu
+    - docker-clang-format
+    - docker-hdfs-integration
 
 tasks:
   # arbitrary_task_name:
