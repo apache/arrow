@@ -119,7 +119,8 @@ static void BM_StreamingCompression(
 
   while (state.KeepRunning()) {
     int64_t compressed_size = StreamingCompress(codec.get(), data);
-    state.counters["ratio"] = static_cast<double>(data.size()) / compressed_size;
+    state.counters["ratio"] =
+        static_cast<double>(data.size()) / static_cast<double>(compressed_size);
   }
   state.SetBytesProcessed(state.iterations() * data.size());
 }
@@ -140,7 +141,8 @@ static void BM_StreamingDecompression(
 
   std::vector<uint8_t> compressed_data;
   ARROW_UNUSED(StreamingCompress(codec.get(), data, &compressed_data));
-  state.counters["ratio"] = static_cast<double>(data.size()) / compressed_data.size();
+  state.counters["ratio"] =
+      static_cast<double>(data.size()) / static_cast<double>(compressed_data.size());
 
   while (state.KeepRunning()) {
     std::shared_ptr<Decompressor> decompressor;
