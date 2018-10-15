@@ -47,11 +47,11 @@ std::vector<uint8_t> MakeCompressibleData(int data_size) {
   // Then randomly mutate some bytes so as to make things harder
   std::mt19937 engine(42);
   std::exponential_distribution<> offsets(0.05);
-  std::uniform_int_distribution<> xors(0, 255);
+  std::uniform_int_distribution<> values(0, 255);
 
   int64_t pos = 0;
   while (pos < data_size) {
-    data[pos] ^= static_cast<uint8_t>(xors(engine));
+    data[pos] = static_cast<uint8_t>(values(engine));
     pos += static_cast<int64_t>(offsets(engine));
   }
 
@@ -119,7 +119,7 @@ static void BM_StreamingCompression(
 
   while (state.KeepRunning()) {
     int64_t compressed_size = StreamingCompress(codec.get(), data);
-    state.counters["ratio"] = 1.0 * data.size() / compressed_size;
+    state.counters["ratio"] = static_cast<double>(data.size()) / compressed_size;
   }
   state.SetBytesProcessed(state.iterations() * data.size());
 }
@@ -140,7 +140,7 @@ static void BM_StreamingDecompression(
 
   std::vector<uint8_t> compressed_data;
   ARROW_UNUSED(StreamingCompress(codec.get(), data, &compressed_data));
-  state.counters["ratio"] = 1.0 * data.size() / compressed_data.size();
+  state.counters["ratio"] = static_cast<double>(data.size()) / compressed_data.size();
 
   while (state.KeepRunning()) {
     std::shared_ptr<Decompressor> decompressor;
