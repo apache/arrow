@@ -291,6 +291,21 @@ class TestPlasmaClient(object):
             [result] = self.plasma_client.get([object_id], timeout_ms=0)
             assert result == pa.plasma.ObjectNotAvailable
 
+    def test_put_and_get_buffer_without_serialization(self):
+        temp_id = random_object_id()
+        for value in [b"This is a bytes obj", temp_id.binary(), 10 * b"\x00"]:
+            object_id = self.plasma_client.put_buffer(value)
+            [result] = self.plasma_client.get_buffer([object_id])
+            assert result == value
+
+            result = self.plasma_client.get_buffer(object_id)
+            assert result == value
+
+            object_id = random_object_id()
+            [result] = self.plasma_client.get_buffer(
+                [object_id], timeout_ms=0)
+            assert result is None
+
     def test_put_and_get_serialization_context(self):
 
         class CustomType(object):
