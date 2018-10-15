@@ -33,6 +33,14 @@ namespace util {
 // ----------------------------------------------------------------------
 // Snappy implementation
 
+Status SnappyCodec::MakeCompressor(std::shared_ptr<Compressor>* out) {
+  return Status::NotImplemented("Streaming compression unsupported with Snappy");
+}
+
+Status SnappyCodec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
+  return Status::NotImplemented("Streaming decompression unsupported with Snappy");
+}
+
 Status SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
                                int64_t ARROW_ARG_UNUSED(output_len),
                                uint8_t* output_buffer) {

@@ -19,19 +19,184 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <sstream>
 
 #include <brotli/decode.h>
 #include <brotli/encode.h>
 #include <brotli/types.h>
 
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
 namespace util {
 
+// Brotli compression quality is max (11) by default, which is slow.
+// We use 8 as a default as it is the best trade-off for Parquet workload.
+constexpr int kBrotliDefaultCompressionLevel = 8;
+
 // ----------------------------------------------------------------------
-// Brotli implementation
+// Brotli decompressor implementation
+
+class BrotliDecompressor : public Decompressor {
+ public:
+  BrotliDecompressor() {}
+
+  ~BrotliDecompressor() override {
+    if (state_ != nullptr) {
+      BrotliDecoderDestroyInstance(state_);
+    }
+  }
+
+  Status Init() {
+    state_ = BrotliDecoderCreateInstance(nullptr, nullptr, nullptr);
+    if (state_ == nullptr) {
+      return BrotliError("Brotli init failed");
+    }
+    return Status::OK();
+  }
+
+  Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
+                    uint8_t* output, int64_t* bytes_read, int64_t* bytes_written,
+                    bool* need_more_output) override {
+    auto avail_in = static_cast<size_t>(input_len);
+    auto avail_out = static_cast<size_t>(output_len);
+    BrotliDecoderResult ret;
+
+    ret = BrotliDecoderDecompressStream(state_, &avail_in, &input, &avail_out, &output,
+                                        nullptr /* total_out */);
+    if (ret == BROTLI_DECODER_RESULT_ERROR) {
+      return BrotliError(BrotliDecoderGetErrorCode(state_), "Brotli decompress failed: ");
+    }
+    *need_more_output = (ret == BROTLI_DECODER_RESULT_NEEDS_MORE_OUTPUT);
+    *bytes_read = static_cast<int64_t>(input_len - avail_in);
+    *bytes_written = static_cast<int64_t>(output_len - avail_out);
+    return Status::OK();
+  }
+
+  bool IsFinished() override { return BrotliDecoderIsFinished(state_); }
+
+ protected:
+  Status BrotliError(const char* msg) { return Status::IOError(msg); }
+
+  Status BrotliError(BrotliDecoderErrorCode code, const char* prefix_msg) {
+    std::stringstream ss;
+    ss << prefix_msg << BrotliDecoderErrorString(code);
+    return Status::IOError(ss.str());
+  }
+
+  BrotliDecoderState* state_ = nullptr;
+};
+
+// ----------------------------------------------------------------------
+// Brotli compressor implementation
+
+class BrotliCompressor : public Compressor {
+ public:
+  BrotliCompressor() {}
+
+  ~BrotliCompressor() override {
+    if (state_ != nullptr) {
+      BrotliEncoderDestroyInstance(state_);
+    }
+  }
+
+  Status Init() {
+    state_ = BrotliEncoderCreateInstance(nullptr, nullptr, nullptr);
+    if (state_ == nullptr) {
+      return BrotliError("Brotli init failed");
+    }
+    if (!BrotliEncoderSetParameter(state_, BROTLI_PARAM_QUALITY,
+                                   kBrotliDefaultCompressionLevel)) {
+      return BrotliError("Brotli set compression level failed");
+    }
+    return Status::OK();
+  }
+
+  Status Compress(int64_t input_len, const uint8_t* input, int64_t output_len,
+                  uint8_t* output, int64_t* bytes_read, int64_t* bytes_written) override;
+
+  Status Flush(int64_t output_len, uint8_t* output, int64_t* bytes_written,
+               bool* should_retry) override;
+
+  Status End(int64_t output_len, uint8_t* output, int64_t* bytes_written,
+             bool* should_retry) override;
+
+ protected:
+  Status BrotliError(const char* msg) { return Status::IOError(msg); }
+
+  BrotliEncoderState* state_ = nullptr;
+};
+
+Status BrotliCompressor::Compress(int64_t input_len, const uint8_t* input,
+                                  int64_t output_len, uint8_t* output,
+                                  int64_t* bytes_read, int64_t* bytes_written) {
+  auto avail_in = static_cast<size_t>(input_len);
+  auto avail_out = static_cast<size_t>(output_len);
+  BROTLI_BOOL ret;
+
+  ret = BrotliEncoderCompressStream(state_, BROTLI_OPERATION_PROCESS, &avail_in, &input,
+                                    &avail_out, &output, nullptr /* total_out */);
+  if (!ret) {
+    return BrotliError("Brotli compress failed");
+  }
+  *bytes_read = static_cast<int64_t>(input_len - avail_in);
+  *bytes_written = static_cast<int64_t>(output_len - avail_out);
+  return Status::OK();
+}
+
+Status BrotliCompressor::Flush(int64_t output_len, uint8_t* output,
+                               int64_t* bytes_written, bool* should_retry) {
+  size_t avail_in = 0;
+  const uint8_t* next_in = nullptr;
+  auto avail_out = static_cast<size_t>(output_len);
+  BROTLI_BOOL ret;
+
+  ret = BrotliEncoderCompressStream(state_, BROTLI_OPERATION_FLUSH, &avail_in, &next_in,
+                                    &avail_out, &output, nullptr /* total_out */);
+  if (!ret) {
+    return BrotliError("Brotli flush failed");
+  }
+  *bytes_written = static_cast<int64_t>(output_len - avail_out);
+  *should_retry = !!BrotliEncoderHasMoreOutput(state_);
+  return Status::OK();
+}
+
+Status BrotliCompressor::End(int64_t output_len, uint8_t* output, int64_t* bytes_written,
+                             bool* should_retry) {
+  size_t avail_in = 0;
+  const uint8_t* next_in = nullptr;
+  auto avail_out = static_cast<size_t>(output_len);
+  BROTLI_BOOL ret;
+
+  ret = BrotliEncoderCompressStream(state_, BROTLI_OPERATION_FINISH, &avail_in, &next_in,
+                                    &avail_out, &output, nullptr /* total_out */);
+  if (!ret) {
+    return BrotliError("Brotli end failed");
+  }
+  *bytes_written = static_cast<int64_t>(output_len - avail_out);
+  *should_retry = !!BrotliEncoderHasMoreOutput(state_);
+  DCHECK_EQ(*should_retry, !BrotliEncoderIsFinished(state_));
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+// Brotli codec implementation
+
+Status BrotliCodec::MakeCompressor(std::shared_ptr<Compressor>* out) {
+  auto ptr = std::make_shared<BrotliCompressor>();
+  RETURN_NOT_OK(ptr->Init());
+  *out = ptr;
+  return Status::OK();
+}
+
+Status BrotliCodec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
+  auto ptr = std::make_shared<BrotliDecompressor>();
+  RETURN_NOT_OK(ptr->Init());
+  *out = ptr;
+  return Status::OK();
+}
 
 Status BrotliCodec::Decompress(int64_t input_len, const uint8_t* input,
                                int64_t output_len, uint8_t* output_buffer) {
@@ -52,10 +217,9 @@ Status BrotliCodec::Compress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer,
                              int64_t* output_length) {
   std::size_t output_len = output_buffer_len;
-  // TODO: Make quality configurable. We use 8 as a default as it is the best
-  //       trade-off for Parquet workload
-  if (BrotliEncoderCompress(8, BROTLI_DEFAULT_WINDOW, BROTLI_DEFAULT_MODE, input_len,
-                            input, &output_len, output_buffer) == BROTLI_FALSE) {
+  if (BrotliEncoderCompress(kBrotliDefaultCompressionLevel, BROTLI_DEFAULT_WINDOW,
+                            BROTLI_DEFAULT_MODE, input_len, input, &output_len,
+                            output_buffer) == BROTLI_FALSE) {
     return Status::IOError("Brotli compression failure.");
   }
   *output_length = output_len;
