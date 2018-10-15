@@ -26,7 +26,7 @@ cdef class Context:
     """ CUDA driver context.
     """
 
-    def __cinit__(self, int device_number=0, int handle=0):
+    def __cinit__(self, int device_number=0, uintptr_t handle=0):
         """Construct the shared CUDA driver context for a particular device.
 
         Parameters
