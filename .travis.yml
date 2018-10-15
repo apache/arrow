@@ -68,8 +68,6 @@ matrix:
     - ARROW_TRAVIS_JAVA_BUILD_ONLY=1
     # ARROW-2999 Benchmarks are disabled in Travis CI for the time being
     # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
-    - CC="clang-6.0"
-    - CXX="clang++-6.0"
     before_script:
     # Always run RAT checks, in case another build in matrix breaks RAT
     - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh
@@ -78,6 +76,10 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
+    # The "compiler: gcc" property will set the CC/CXX variables even if they
+    # are overridden in the "env" section
+    - export CC="clang-6.0"
+    - export CXX="clang++-6.0"
     # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
