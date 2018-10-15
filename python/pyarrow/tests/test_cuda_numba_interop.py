@@ -118,15 +118,15 @@ def test_numba_context(dtype):
         assert arr2[0] == 99
 
 
-@nb_cuda.jit
-def increment_by_one(an_array):
-    pos = nb_cuda.grid(1)
-    if pos < an_array.size:
-        an_array[pos] += 1
-
-
 @pytest.mark.parametrize("dtype", dtypes, ids=dtypes)
 def test_pyarrow_jit(dtype):
+
+    @nb_cuda.jit
+    def increment_by_one(an_array):
+        pos = nb_cuda.grid(1)
+        if pos < an_array.size:
+            an_array[pos] += 1
+
     # applying numba.cuda kernel to memory hold by CudaBuffer
     size = 10
     arr, cbuf = make_random_buffer(size, target='device', dtype=dtype, ctx=ctx)
