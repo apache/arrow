@@ -44,6 +44,10 @@
 namespace arrow {
 namespace util {
 
+Compressor::~Compressor() {}
+
+Decompressor::~Decompressor() {}
+
 Codec::~Codec() {}
 
 Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* result) {
