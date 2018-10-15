@@ -43,6 +43,9 @@ LD_LIBRARY_PATH), and relies on some environment variables.
 * ``HADOOP_HOME``: the root of your installed Hadoop distribution. Often has
   `lib/native/libhdfs.so`.
 
+* ``HADOOP_BIN`` (optional): explicit location of ``hadoop`` executable if it is
+  installed somewhere other than ``$HADOOP_HOME/bin/hadoop``.
+
 * ``JAVA_HOME``: the location of your Java SDK installation.
 
 * ``ARROW_LIBHDFS_DIR`` (optional): explicit location of ``libhdfs.so`` if it is
@@ -52,10 +55,11 @@ LD_LIBRARY_PATH), and relies on some environment variables.
 
 .. code-block:: shell
 
-    export CLASSPATH=`$HADOOP_HOME/bin/hdfs classpath --glob`
+    export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
 
 If ``CLASSPATH`` is not set, then it will be set automatically if the
-``hadoop`` executable is in your system path, or if ``HADOOP_HOME`` is set.
+``hadoop`` executable is in your system path, or if either ``HADOOP_BIN`` or
+``HADOOP_HOME``is set.
 
 You can also use libhdfs3, a thirdparty C++ library for HDFS from Pivotal Labs:
 
