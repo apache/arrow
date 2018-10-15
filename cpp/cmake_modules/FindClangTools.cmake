@@ -28,12 +28,21 @@
 #  CLANG_TIDY_BIN, The  path to the clang tidy binary
 #  CLANG_TIDY_FOUND, Whether clang tidy was found
 #  CLANG_FORMAT_BIN, The path to the clang format binary
-#  CLANG_TIDY_FOUND, Whether clang format was found
+#  CLANG_FORMAT_FOUND, Whether clang format was found
 
 if (DEFINED ENV{HOMEBREW_PREFIX})
   set(HOMEBREW_PREFIX "$ENV{HOMEBREW_PREFIX}")
 else()
-  set(HOMEBREW_PREFIX "/usr/local")
+  find_program(BREW_BIN brew)
+  if ((NOT ("${BREW_BIN}" STREQUAL "BREW_BIN-NOTFOUND")) AND APPLE)
+    execute_process(
+      COMMAND ${BREW_BIN} --prefix
+      OUTPUT_VARIABLE HOMEBREW_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+  else()
+    set(HOMEBREW_PREFIX "/usr/local")
+  endif()
 endif()
 
 find_program(CLANG_TIDY_BIN
