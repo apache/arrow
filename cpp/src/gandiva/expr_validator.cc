@@ -89,6 +89,12 @@ Status ExprValidator::Visit(const IfNode& node) {
   auto then_node_ret_type = node.then_node()->return_type();
   auto else_node_ret_type = node.else_node()->return_type();
 
+  // condition must be of boolean type.
+  ARROW_RETURN_IF(
+      !node.condition()->return_type()->Equals(arrow::boolean()),
+      Status::ExpressionValidationError("condition must be of boolean type, found type ",
+                                        node.condition()->return_type()->ToString()));
+
   // Then-branch return type must match.
   ARROW_RETURN_IF(!if_node_ret_type->Equals(*then_node_ret_type),
                   Status::ExpressionValidationError(

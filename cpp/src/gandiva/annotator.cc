@@ -31,30 +31,35 @@ FieldDescriptorPtr Annotator::CheckAndAddInputFieldDescriptor(FieldPtr field) {
     return found->second;
   }
 
-  auto desc = MakeDesc(field);
+  auto desc = MakeDesc(field, false /*is_output*/);
   in_name_to_desc_[field->name()] = desc;
   return desc;
 }
 
 FieldDescriptorPtr Annotator::AddOutputFieldDescriptor(FieldPtr field) {
-  auto desc = MakeDesc(field);
+  auto desc = MakeDesc(field, true /*is_output*/);
   out_descs_.push_back(desc);
   return desc;
 }
 
-FieldDescriptorPtr Annotator::MakeDesc(FieldPtr field) {
+FieldDescriptorPtr Annotator::MakeDesc(FieldPtr field, bool is_output) {
   int data_idx = buffer_count_++;
   int validity_idx = buffer_count_++;
   int offsets_idx = FieldDescriptor::kInvalidIdx;
   if (arrow::is_binary_like(field->type()->id())) {
     offsets_idx = buffer_count_++;
   }
-  return std::make_shared<FieldDescriptor>(field, data_idx, validity_idx, offsets_idx);
+  int data_buffer_ptr_idx = FieldDescriptor::kInvalidIdx;
+  if (is_output) {
+    data_buffer_ptr_idx = buffer_count_++;
+  }
+  return std::make_shared<FieldDescriptor>(field, data_idx, validity_idx, offsets_idx,
+                                           data_buffer_ptr_idx);
 }
 
 void Annotator::PrepareBuffersForField(const FieldDescriptor& desc,
                                        const arrow::ArrayData& array_data,
-                                       EvalBatch* eval_batch) {
+                                       EvalBatch* eval_batch, bool is_output) {
   int buffer_idx = 0;
 
   // The validity buffer is optional. Use nullptr if it does not have one.
@@ -74,7 +79,12 @@ void Annotator::PrepareBuffersForField(const FieldDescriptor& desc,
 
   uint8_t* data_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
   eval_batch->SetBuffer(desc.data_idx(), data_buf);
-  ++buffer_idx;
+  if (is_output) {
+    // pass in the Buffer object for output data buffers. Can be used for resizing.
+    uint8_t* data_buf_ptr =
+        reinterpret_cast<uint8_t*>(array_data.buffers[buffer_idx].get());
+    eval_batch->SetBuffer(desc.data_buffer_ptr_idx(), data_buf_ptr);
+  }
 }
 
 EvalBatchPtr Annotator::PrepareEvalBatch(const arrow::RecordBatch& record_batch,
@@ -92,14 +102,14 @@ EvalBatchPtr Annotator::PrepareEvalBatch(const arrow::RecordBatch& record_batch,
     }
 
     PrepareBuffersForField(*(found->second), *(record_batch.column(i))->data(),
-                           eval_batch.get());
+                           eval_batch.get(), false /*is_output*/);
   }
 
   // Fill in the entries for the output fields.
   int idx = 0;
   for (auto& arraydata : out_vector) {
     const FieldDescriptorPtr& desc = out_descs_.at(idx);
-    PrepareBuffersForField(*desc, *arraydata, eval_batch.get());
+    PrepareBuffersForField(*desc, *arraydata, eval_batch.get(), true /*is_output*/);
     ++idx;
   }
   return eval_batch;

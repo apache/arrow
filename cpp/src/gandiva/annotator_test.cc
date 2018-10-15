@@ -73,6 +73,7 @@ TEST_F(TestAnnotator, TestAdd) {
   EXPECT_EQ(desc_sum->field(), field_sum);
   EXPECT_EQ(desc_sum->data_idx(), 4);
   EXPECT_EQ(desc_sum->validity_idx(), 5);
+  EXPECT_EQ(desc_sum->data_buffer_ptr_idx(), 6);
 
   // prepare record batch
   int num_records = 100;
@@ -85,7 +86,7 @@ TEST_F(TestAnnotator, TestAdd) {
 
   auto arrow_sum = MakeInt32Array(num_records);
   EvalBatchPtr batch = annotator.PrepareEvalBatch(*record_batch, {arrow_sum->data()});
-  EXPECT_EQ(batch->GetNumBuffers(), 6);
+  EXPECT_EQ(batch->GetNumBuffers(), 7);
 
   auto buffers = batch->GetBufferArray();
   EXPECT_EQ(buffers[desc_a->validity_idx()], arrow_v0->data()->buffers.at(0)->data());
@@ -94,6 +95,8 @@ TEST_F(TestAnnotator, TestAdd) {
   EXPECT_EQ(buffers[desc_b->data_idx()], arrow_v1->data()->buffers.at(1)->data());
   EXPECT_EQ(buffers[desc_sum->validity_idx()], arrow_sum->data()->buffers.at(0)->data());
   EXPECT_EQ(buffers[desc_sum->data_idx()], arrow_sum->data()->buffers.at(1)->data());
+  EXPECT_EQ(buffers[desc_sum->data_buffer_ptr_idx()],
+            reinterpret_cast<uint8_t*>(arrow_sum->data()->buffers.at(1).get()));
 
   auto bitmaps = batch->GetLocalBitMapArray();
   EXPECT_EQ(bitmaps, nullptr);

@@ -168,28 +168,50 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
   return Status::OK();
 }
 
-// TODO : handle variable-len vectors
+// TODO : handle complex vectors (list/map/..)
 Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
                                  arrow::MemoryPool* pool, ArrayDataPtr* array_data) {
-  const auto* fw_type = dynamic_cast<const arrow::FixedWidthType*>(type.get());
-  ARROW_RETURN_IF(fw_type == nullptr,
-                  Status::Invalid("Unsupported output data type ", type));
+  arrow::Status astatus;
+  std::vector<std::shared_ptr<arrow::Buffer>> buffers;
 
-  std::shared_ptr<arrow::Buffer> null_bitmap;
-  int64_t bitmap_bytes = arrow::BitUtil::BytesForBits(num_records);
-  ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, bitmap_bytes, &null_bitmap));
+  // The output vector always has a null bitmap.
+  std::shared_ptr<arrow::Buffer> bitmap_buffer;
+  int64_t size = arrow::BitUtil::BytesForBits(num_records);
+  ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, size, &bitmap_buffer));
+  buffers.push_back(bitmap_buffer);
 
-  std::shared_ptr<arrow::Buffer> data;
-  int64_t data_len = arrow::BitUtil::BytesForBits(num_records * fw_type->bit_width());
-  ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, data_len, &data));
+  // String/Binary vectors have an offsets array.
+  auto type_id = type->id();
+  if (arrow::is_binary_like(type_id)) {
+    std::shared_ptr<arrow::Buffer> offsets_buffer;
+    auto offsets_len = arrow::BitUtil::BytesForBits((num_records + 1) * 32);
+
+    ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, offsets_len, &offsets_buffer));
+    buffers.push_back(offsets_buffer);
+  }
+
+  // The output vector always has a data array.
+  int64_t data_len;
+  std::shared_ptr<arrow::ResizableBuffer> data_buffer;
+  if (arrow::is_primitive(type_id) || type_id == arrow::Type::DECIMAL) {
+    const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
+    data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
+  } else if (arrow::is_binary_like(type_id)) {
+    // we don't know the expected size for varlen output vectors.
+    data_len = 0;
+  } else {
+    return Status::Invalid("Unsupported output data type " + type->ToString());
+  }
+  ARROW_RETURN_NOT_OK(arrow::AllocateResizableBuffer(pool, data_len, &data_buffer));
 
   // This is not strictly required but valgrind gets confused and detects this
   // as uninitialized memory access. See arrow::util::SetBitTo().
   if (type->id() == arrow::Type::BOOL) {
-    memset(data->mutable_data(), 0, data_len);
+    memset(data_buffer->mutable_data(), 0, data_len);
   }
+  buffers.push_back(data_buffer);
 
-  *array_data = arrow::ArrayData::Make(type, num_records, {null_bitmap, data});
+  *array_data = arrow::ArrayData::Make(type, num_records, buffers);
   return Status::OK();
 }
 
@@ -213,13 +235,32 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
   ARROW_RETURN_IF(bitmap_len < min_bitmap_len,
                   Status::Invalid("Bitmap buffer too small for ", field.name()));
 
-  // verify size of data buffer.
-  // TODO : handle variable-len vectors
-  const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*field.type());
-  int64_t min_data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
-  int64_t data_len = array_data.buffers[1]->capacity();
-  ARROW_RETURN_IF(data_len < min_data_len,
-                  Status::Invalid("Data buffer too small for ", field.name()));
+  auto type_id = field.type()->id();
+  if (arrow::is_binary_like(type_id)) {
+    // validate size of offsets buffer.
+    int64_t min_offsets_len = arrow::BitUtil::BytesForBits((num_records + 1) * 32);
+    int64_t offsets_len = array_data.buffers[1]->capacity();
+    ARROW_RETURN_IF(
+        offsets_len < min_offsets_len,
+        Status::Invalid("offsets buffer too small for ", field.name(),
+                        " minimum required ", min_offsets_len, " actual ", offsets_len));
+
+    // check that it's resizable.
+    auto resizable = dynamic_cast<arrow::ResizableBuffer*>(array_data.buffers[2].get());
+    ARROW_RETURN_IF(
+        resizable == nullptr,
+        Status::Invalid("data buffer for varlen output vectors must be resizable"));
+  } else if (arrow::is_primitive(type_id) || type_id == arrow::Type::DECIMAL) {
+    // verify size of data buffer.
+    const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*field.type());
+    int64_t min_data_len =
+        arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
+    int64_t data_len = array_data.buffers[1]->capacity();
+    ARROW_RETURN_IF(data_len < min_data_len,
+                    Status::Invalid("Data buffer too small for ", field.name()));
+  } else {
+    return Status::Invalid("Unsupported output data type " + field.type()->ToString());
+  }
 
   return Status::OK();
 }

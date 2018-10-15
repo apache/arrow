@@ -29,6 +29,7 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
 import org.apache.arrow.vector.FixedWidthVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VariableWidthVector;
 import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -235,16 +236,22 @@ public class Projector {
       bufSizes[idx++] = bufLayout.getSize();
     }
 
-    long[] outAddrs = new long[2 * outColumns.size()];
-    long[] outSizes = new long[2 * outColumns.size()];
+    long[] outAddrs = new long[3 * outColumns.size()];
+    long[] outSizes = new long[3 * outColumns.size()];
     idx = 0;
     for (ValueVector valueVector : outColumns) {
-      if (!(valueVector instanceof FixedWidthVector)) {
-        throw new UnsupportedTypeException("Unsupported value vector type");
+      boolean isFixedWith = valueVector instanceof FixedWidthVector;
+      boolean isVarWidth = valueVector instanceof VariableWidthVector;
+      if (!isFixedWith && !isVarWidth) {
+        throw new UnsupportedTypeException("Unsupported value vector type " + valueVector.getField().getFieldType());
       }
 
       outAddrs[idx] = valueVector.getValidityBuffer().memoryAddress();
       outSizes[idx++] = valueVector.getValidityBuffer().capacity();
+      if (isVarWidth) {
+        outAddrs[idx] = valueVector.getOffsetBuffer().memoryAddress();
+        outSizes[idx++] = valueVector.getOffsetBuffer().capacity();
+      }
       outAddrs[idx] = valueVector.getDataBuffer().memoryAddress();
       outSizes[idx++] = valueVector.getDataBuffer().capacity();
 

@@ -54,12 +54,13 @@ class GANDIVA_EXPORT Annotator {
 
  private:
   /// Annotate a field and return the descriptor.
-  FieldDescriptorPtr MakeDesc(FieldPtr field);
+  FieldDescriptorPtr MakeDesc(FieldPtr field, bool is_output);
 
   /// Populate eval_batch by extracting the raw buffers from the arrow array, whose
   /// contents are represent by the annotated descriptor 'desc'.
   void PrepareBuffersForField(const FieldDescriptor& desc,
-                              const arrow::ArrayData& array_data, EvalBatch* eval_batch);
+                              const arrow::ArrayData& array_data, EvalBatch* eval_batch,
+                              bool is_output);
 
   /// The list of input/output buffers (includes bitmap buffers, value buffers and
   /// offset buffers).
