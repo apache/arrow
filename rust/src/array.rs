@@ -307,10 +307,10 @@ impl BooleanArray {
     }
 
     /// Returns the boolean value at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
     pub fn value(&self, i: i64) -> bool {
-        bit_util::get_bit_raw(self.raw_values.get(), i + self.offset())
+        let offset = i + self.offset();
+        assert!(offset < self.data.buffers()[0].len() as i64);
+        bit_util::get_bit_raw(self.raw_values.get(), offset)
     }
 }
 

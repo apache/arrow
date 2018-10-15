@@ -44,19 +44,22 @@ fn round_upto_power_of_2(num: i64, factor: i64) -> i64 {
 /// Returns whether bit at position `i` in `data` is set or not
 #[inline]
 pub fn get_bit(data: &[u8], i: i64) -> bool {
-    (data[(i / 8) as usize] & BIT_MASK[(i % 8) as usize]) != 0
+    (data[(i >> 3) as usize] & BIT_MASK[(i & 7) as usize]) != 0
 }
 
-/// Returns whether bit at position `i` in `data` is set or not
+/// Returns whether bit at position `i` in `data` is set or not.
+///
+/// Note this doesn't do any bound checking, for performance reason. The caller is
+/// responsible to guarantee that `i` is within bounds.
 #[inline]
 pub fn get_bit_raw(data: *const u8, i: i64) -> bool {
-    unsafe { (*data.offset((i / 8) as isize) & BIT_MASK[(i % 8) as usize]) != 0 }
+    unsafe { (*data.offset((i >> 3) as isize) & BIT_MASK[(i & 7) as usize]) != 0 }
 }
 
 /// Sets bit at position `i` for `data`
 #[inline]
 pub fn set_bit(data: &mut [u8], i: i64) {
-    data[(i / 8) as usize] |= BIT_MASK[(i % 8) as usize]
+    data[(i >> 3) as usize] |= BIT_MASK[(i & 7) as usize]
 }
 
 /// Returns the number of 1-bits in `data`
@@ -74,8 +77,8 @@ pub fn count_set_bits(data: &[u8]) -> i64 {
 pub fn count_set_bits_offset(data: &[u8], offset: i64) -> i64 {
     debug_assert!(offset <= (data.len() * 8) as i64);
 
-    let start_byte_pos = (offset / 8) as usize;
-    let start_bit_pos = offset % 8;
+    let start_byte_pos = (offset >> 3) as usize;
+    let start_bit_pos = offset & 7;
 
     if start_bit_pos == 0 {
         count_set_bits(&data[start_byte_pos..])
