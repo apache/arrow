@@ -45,7 +45,7 @@ endforeach()
 # link all of the bitcode files into a single bitcode file.
 add_custom_command(
   OUTPUT ${GANDIVA_BC_OUTPUT_PATH}
-  COMMAND ${LINK_EXECUTABLE}
+  COMMAND ${LLVM_LINK_EXECUTABLE}
           -o ${GANDIVA_BC_OUTPUT_PATH}
           ${BC_FILES}
   DEPENDS ${BC_FILES})
