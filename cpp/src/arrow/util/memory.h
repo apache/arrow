@@ -47,7 +47,7 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
 
   // Now we divide these blocks between available threads. The remainder is
   // handled separately.
-  int64_t chunk_size = (right - left) / num_threads;
+  size_t chunk_size = (right - left) / num_threads;
   int64_t prefix = left - src;
   int64_t suffix = src + nbytes - right;
   // Now the data layout is | prefix | k * num_threads * block_size | suffix |.
