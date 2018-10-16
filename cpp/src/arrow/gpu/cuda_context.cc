@@ -76,8 +76,7 @@ class CudaContext::CudaContextImpl {
     CU_RETURN_NOT_OK(cuMemAlloc(&data, static_cast<size_t>(nbytes)));
     bytes_allocated_ += nbytes;
     *out = reinterpret_cast<uint8_t*>(data);
-    if (prev_context_ != NULL)
-      CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
+    if (prev_context_ != NULL) CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
     return Status::OK();
   }
 
@@ -86,8 +85,7 @@ class CudaContext::CudaContextImpl {
     CU_RETURN_NOT_OK(cuCtxSetCurrent(context_));
     CU_RETURN_NOT_OK(cuMemcpyHtoD(reinterpret_cast<CUdeviceptr>(dst), src,
                                   static_cast<size_t>(nbytes)));
-    if (prev_context_ != NULL)
-      CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
+    if (prev_context_ != NULL) CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
     return Status::OK();
   }
 
@@ -96,8 +94,7 @@ class CudaContext::CudaContextImpl {
     CU_RETURN_NOT_OK(cuCtxSetCurrent(context_));
     CU_RETURN_NOT_OK(cuMemcpyDtoH(dst, reinterpret_cast<const CUdeviceptr>(src),
                                   static_cast<size_t>(nbytes)));
-    if (prev_context_ != NULL)
-      CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
+    if (prev_context_ != NULL) CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
     return Status::OK();
   }
 
@@ -113,8 +110,7 @@ class CudaContext::CudaContextImpl {
     CUipcMemHandle cu_handle;
     CU_RETURN_NOT_OK(cuIpcGetMemHandle(&cu_handle, reinterpret_cast<CUdeviceptr>(data)));
     *handle = std::shared_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(&cu_handle));
-    if (prev_context_ != NULL)
-      CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
+    if (prev_context_ != NULL) CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
     return Status::OK();
   }
 
@@ -127,8 +123,7 @@ class CudaContext::CudaContextImpl {
     CU_RETURN_NOT_OK(
         cuIpcOpenMemHandle(&data, *handle, CU_IPC_MEM_LAZY_ENABLE_PEER_ACCESS));
     *out = reinterpret_cast<uint8_t*>(data);
-    if (prev_context_ != NULL)
-      CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
+    if (prev_context_ != NULL) CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
     return Status::OK();
   }
 
