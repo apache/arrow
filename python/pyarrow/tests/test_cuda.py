@@ -40,6 +40,7 @@ global_context = None  # for flake8
 
 
 def setup_module(module):
+    cuda.Context.use_numba_context(True)
     module.global_context = cuda.Context(0)
 
 

@@ -31,17 +31,12 @@ nb_ctx = None
 
 
 def setup_module(module):
-    # It turns out that for numba-pyarrow.cuda interop one should
-    # create CUDA context using numba context manager.
+    # pyarrow.cuda numba.cuda interoperability requires using
+    # numba.cuda context manager
+    cuda.Context.use_numba_context(True)
 
-    if 0:
-        # At some point tests will fail
-        module.ctx = cuda.Context()
-        module.nb_ctx = ctx.to_numba()
-    else:
-        # This seems to work always:
-        module.nb_ctx = nb_cuda.current_context()
-        module.ctx = cuda.Context.from_numba(nb_ctx)
+    module.ctx = cuda.Context()
+    module.nb_ctx = ctx.to_numba()
 
 
 def teardown_module(module):
@@ -51,6 +46,13 @@ def teardown_module(module):
 
 def test_context():
     assert ctx.handle == nb_ctx.handle.value
+    assert ctx.handle == ctx.to_numba().handle.value
+    ctx2 = cuda.Context.from_numba(nb_ctx)
+    assert ctx.handle == ctx2.handle
+
+    size = 10
+    buf = ctx.new_buffer(size)
+    assert ctx.handle == buf.context.handle
 
 
 def make_random_buffer(size, target='host', dtype='uint8', ctx=None):

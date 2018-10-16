@@ -178,7 +178,6 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
 
   Status CreateSharedContext(int device_number, CUcontext ctx,
                              std::shared_ptr<CudaContext>* out) {
-    // TODO: check if context exists already, if so, return it.
     *out = std::shared_ptr<CudaContext>(new CudaContext());
     return (*out)->impl_->InitShared(devices_[device_number], ctx);
   }
@@ -190,6 +189,26 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
       RETURN_NOT_OK(CreateNewContext(device_number, &new_context));
       contexts_[device_number] = *out = new_context;
     } else {
+      *out = it->second;
+    }
+    return Status::OK();
+  }
+
+  Status GetSharedContext(int device_number, CUcontext ctx,
+                          std::shared_ptr<CudaContext>* out) {
+    auto it = contexts_.find(device_number);
+    if (it == contexts_.end()) {
+      std::shared_ptr<CudaContext> new_context;
+      RETURN_NOT_OK(CreateSharedContext(device_number, ctx, &new_context));
+      contexts_[device_number] = *out = new_context;
+    } else {
+      if ((CUcontext)it->second.get()->handle() != ctx) {
+	std::stringstream ss;
+	ss << "mismatch of context handle values: " \
+	   << "found context with handle " << (size_t)it->second.get()->handle() \
+	   << " but requested one with handle " << (size_t)ctx;
+	return Status::Invalid(ss.str());
+      }
       *out = it->second;
     }
     return Status::OK();
@@ -223,6 +242,11 @@ Status CudaDeviceManager::GetInstance(CudaDeviceManager** manager) {
 Status CudaDeviceManager::GetContext(int device_number,
                                      std::shared_ptr<CudaContext>* out) {
   return impl_->GetContext(device_number, out);
+}
+
+Status CudaDeviceManager::GetSharedContext(int device_number, void* ctx,
+                                           std::shared_ptr<CudaContext>* out) {
+  return impl_->GetSharedContext(device_number, (CUcontext)ctx, out);
 }
 
 Status CudaDeviceManager::CreateNewContext(int device_number,
