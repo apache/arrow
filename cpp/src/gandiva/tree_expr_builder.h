@@ -89,22 +89,22 @@ class TreeExprBuilder {
 
   /// \brief creates an in expression
   static NodePtr MakeInExpressionInt(NodePtr function,
-                                     std::unordered_set<int32_t> constants);
+                                     std::unordered_set<int32_t>& constants);
   static NodePtr MakeInExpressionLong(NodePtr function,
-                                      std::unordered_set<int64_t> constants);
+                                      std::unordered_set<int64_t>& constants);
   static NodePtr MakeInExpressionString(NodePtr function,
-                                        std::unordered_set<std::string> constants);
+                                        std::unordered_set<std::string>& constants);
   static NodePtr MakeInExpressionBinary(NodePtr function,
-                                        std::unordered_set<std::string> constants);
+                                        std::unordered_set<std::string>& constants);
   /// \brief Date as millis since epoch.
   static NodePtr MakeInExpressionDate(NodePtr function,
-                                      std::unordered_set<int64_t> constants);
+                                      std::unordered_set<int64_t>& constants);
   /// \brief Time as millis of day
   static NodePtr MakeInExpressionTime(NodePtr function,
-                                      std::unordered_set<int32_t> constants);
+                                      std::unordered_set<int32_t>& constants);
   /// \brief Timestamp as millis since epoch.
   static NodePtr MakeInExpressionTimeStamp(NodePtr function,
-                                           std::unordered_set<int64_t> constants);
+                                           std::unordered_set<int64_t>& constants);
 };
 
 }  // namespace gandiva

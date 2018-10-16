@@ -177,14 +177,14 @@ ConditionPtr TreeExprBuilder::MakeCondition(const std::string& function,
   return ConditionPtr(new Condition(func_node));
 }
 
-#define MAKE_IN(NAME, ctype)                                                             \
-  NodePtr TreeExprBuilder::MakeInExpression##NAME(NodePtr function,                      \
-                                                  std::unordered_set<ctype> constants) { \
-    VariantSet constant_values;                                                          \
-    for (const ctype& constant : constants) {                                            \
-      constant_values.insert(Variant(constant));                                         \
-    }                                                                                    \
-    return std::make_shared<InExpressionNode>(function, constant_values);                \
+#define MAKE_IN(NAME, ctype)                                              \
+  NodePtr TreeExprBuilder::MakeInExpression##NAME(                        \
+      NodePtr function, std::unordered_set<ctype>& constants) {           \
+    VariantSet constant_values;                                           \
+    for (const ctype& constant : constants) {                             \
+      constant_values.insert(Variant(constant));                          \
+    }                                                                     \
+    return std::make_shared<InExpressionNode>(function, constant_values); \
   }
 
 MAKE_IN(Int, int32_t);
