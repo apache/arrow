@@ -22,6 +22,7 @@
 #include <memory>
 
 #include <gandiva/expression.h>
+#include <gandiva/tree_expr_builder.h>
 
 #include <gandiva-glib/expression.h>
 

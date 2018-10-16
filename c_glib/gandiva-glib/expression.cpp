@@ -24,7 +24,6 @@
 #include <arrow-glib/field.hpp>
 
 #include <gandiva-glib/expression.hpp>
-#include <gandiva-glib/node.hpp>
 
 G_BEGIN_DECLS
 
@@ -111,21 +110,31 @@ ggandiva_expression_class_init(GGandivaExpressionClass *klass)
 
 /**
  * ggandiva_expression_new:
- * @node: A #GGandivaNode.
- * @field: A #GArrowField.
+ * @function: The simple function expression.
+ * @input_fields: (element-type GArrowField): The input fields.
+ * @output_field: A #GArrowField.
  *
- * Returns: A newly created #GGandivaExpression.
+ * Returns: (transfer full): An expression tree with a root node,
+ *   and a result field.
  *
  * Since: 0.12.0
  */
 GGandivaExpression *
-ggandiva_expression_new(GGandivaNode *node,
-                        GArrowField *field)
+ggandiva_expression_new(gchar *function,
+                        GList *input_fields,
+                        GArrowField *output_field)
 {
-  auto gandiva_node = ggandiva_node_get_raw(node);
-  auto arrow_field = garrow_field_get_raw(field);
+  std::vector<std::shared_ptr<arrow::Field>> arrow_input_fields;
+  for (GList *node = input_fields; node; node = g_list_next(node)) {
+    auto field = GARROW_FIELD(node->data);
+    auto arrow_input_field = garrow_field_get_raw(field);
+    arrow_input_fields.push_back(arrow_input_field);
+  }
+  auto arrow_output_field = garrow_field_get_raw(output_field);
   auto gandiva_expression =
-    std::make_shared<gandiva::Expression>(gandiva_node, arrow_field);
+    gandiva::TreeExprBuilder::MakeExpression(function,
+                                             arrow_input_fields,
+                                             arrow_output_field);
   return ggandiva_expression_new_raw(&gandiva_expression);
 }
 
