@@ -238,7 +238,8 @@ class InExpressionNode : public Node {
       if (add_comma) {
         ss << ", ";
       }
-      ss << boost::lexical_cast<std::string>(constant);
+      // add type in the front to differentiate
+      ss << "(" << constant.which() << ")" << boost::lexical_cast<std::string>(constant);
       add_comma = true;
     }
     ss << ")";

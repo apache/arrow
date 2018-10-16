@@ -854,7 +854,7 @@ void LLVMGenerator::Visitor::Visit(const InExprDex& dex) {
       params.push_back(result_ref.length());
     }
 
-    // push the valiidity of eval expr result
+    // push the validity of eval expr result
     llvm::Value* validity_expr = BuildCombinedValidity(pair->validity_exprs());
     params.push_back(validity_expr);
   }
