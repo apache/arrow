@@ -438,13 +438,15 @@ class GZipCodec::GZipCodecImpl {
   }
 
   int64_t MaxCompressedLen(int64_t input_length, const uint8_t* ARROW_ARG_UNUSED(input)) {
-    // Most be in compression mode
+    // Must be in compression mode
     if (!compressor_initialized_) {
       Status s = InitCompressor();
       DCHECK(s.ok());
     }
-    // TODO(wesm): deal with zlib < 1.2.3 (see Impala codebase)
-    return deflateBound(&stream_, static_cast<uLong>(input_length));
+    int64_t max_len = deflateBound(&stream_, static_cast<uLong>(input_length));
+    // ARROW-3514: return a more pessimistic estimate to account for bugs
+    // in old zlib versions.
+    return max_len + 12;
   }
 
   Status Compress(int64_t input_length, const uint8_t* input, int64_t output_buffer_len,
@@ -460,7 +462,7 @@ class GZipCodec::GZipCodecImpl {
     int64_t ret = 0;
     if ((ret = deflate(&stream_, Z_FINISH)) != Z_STREAM_END) {
       if (ret == Z_OK) {
-        // will return Z_OK (and stream.msg NOT set) if stream.avail_out is too
+        // Will return Z_OK (and stream.msg NOT set) if stream.avail_out is too
         // small
         return Status::IOError("zlib deflate failed, output buffer too small");
       }

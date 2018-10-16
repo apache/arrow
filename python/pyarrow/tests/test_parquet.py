@@ -2225,3 +2225,16 @@ def test_parquet_writer_context_obj_with_exception(tempdir):
 
     expected = pd.concat(frames, ignore_index=True)
     tm.assert_frame_equal(result.to_pandas(), expected)
+
+
+def test_zlib_compression_bug():
+    # ARROW-3514: "zlib deflate failed, output buffer too small"
+    import pyarrow.parquet as pq
+
+    table = pa.Table.from_arrays([pa.array(['abc', 'def'])], ['some_col'])
+    f = io.BytesIO()
+    pq.write_table(table, f, compression='gzip')
+
+    f.seek(0)
+    roundtrip = pq.read_table(f)
+    tm.assert_frame_equal(roundtrip.to_pandas(), table.to_pandas())
