@@ -1137,8 +1137,8 @@ def test_struct_array_field():
     y0 = a.field(1)
     x1 = a.field(-2)
     y1 = a.field(-1)
-    x2 = a.field_by_name('x')
-    y2 = a.field_by_name('y')
+    x2 = a.field('x')
+    y2 = a.field('y')
 
     assert isinstance(x0, pa.lib.Int16Array)
     assert isinstance(y1, pa.lib.FloatArray)
@@ -1149,7 +1149,7 @@ def test_struct_array_field():
     assert y0.equals(y1)
     assert y0.equals(y2)
 
-    for invalid_index in [None, 'x']:
+    for invalid_index in [None, pa.int16()]:
         with pytest.raises(TypeError):
             a.field(invalid_index)
 
@@ -1157,13 +1157,9 @@ def test_struct_array_field():
         with pytest.raises(IndexError):
             a.field(invalid_index)
 
-    for invalid_name in [1, -2]:
-        with pytest.raises(TypeError):
-            a.field_by_name(invalid_name)
-
     for invalid_name in ['z', '']:
         with pytest.raises(KeyError):
-            a.field_by_name(invalid_name)
+            a.field(invalid_name)
 
 
 def test_nested_dictionary_array():
