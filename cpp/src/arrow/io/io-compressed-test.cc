@@ -35,6 +35,16 @@ namespace io {
 
 using ::arrow::util::Codec;
 
+#ifdef ARROW_VALGRIND
+// Avoid slowing down tests too much with Valgrind
+static constexpr int64_t RANDOM_DATA_SIZE = 80 * 1024;
+static constexpr int64_t COMPRESSIBLE_DATA_SIZE = 200 * 1024;
+#else
+// The data should be large enough to exercise internal buffers
+static constexpr int64_t RANDOM_DATA_SIZE = 3 * 1024 * 1024;
+static constexpr int64_t COMPRESSIBLE_DATA_SIZE = 8 * 1024 * 1024;
+#endif
+
 std::vector<uint8_t> MakeRandomData(int data_size) {
   std::vector<uint8_t> data(data_size);
   random_bytes(data_size, 1234, data.data());
@@ -129,16 +139,14 @@ class CompressedInputStreamTest : public ::testing::TestWithParam<Compression::t
 
 TEST_P(CompressedInputStreamTest, CompressibleData) {
   auto codec = MakeCodec();
-  // The data must be large enough to exercise internal buffers
-  auto data = MakeCompressibleData(8 * 1024 * 1024);
+  auto data = MakeCompressibleData(COMPRESSIBLE_DATA_SIZE);
 
   CheckCompressedInputStream(codec.get(), data);
 }
 
 TEST_P(CompressedInputStreamTest, RandomData) {
   auto codec = MakeCodec();
-  // The data must be large enough to exercise internal buffers
-  auto data = MakeRandomData(3 * 1024 * 1024);
+  auto data = MakeRandomData(RANDOM_DATA_SIZE);
 
   CheckCompressedInputStream(codec.get(), data);
 }
@@ -170,14 +178,14 @@ class CompressedOutputStreamTest : public ::testing::TestWithParam<Compression::
 
 TEST_P(CompressedOutputStreamTest, CompressibleData) {
   auto codec = MakeCodec();
-  auto data = MakeCompressibleData(8 * 1024 * 1024);
+  auto data = MakeCompressibleData(COMPRESSIBLE_DATA_SIZE);
 
   CheckCompressedOutputStream(codec.get(), data);
 }
 
 TEST_P(CompressedOutputStreamTest, RandomData) {
   auto codec = MakeCodec();
-  auto data = MakeRandomData(3 * 1024 * 1024);
+  auto data = MakeRandomData(RANDOM_DATA_SIZE);
 
   CheckCompressedOutputStream(codec.get(), data);
 }
