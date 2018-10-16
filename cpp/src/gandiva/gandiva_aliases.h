@@ -19,7 +19,12 @@
 #define GANDIVA_ALIASES_H
 
 #include <memory>
+#include <string>
+#include <unordered_set>
 #include <vector>
+
+#include <boost/functional/hash.hpp>
+#include <boost/variant.hpp>
 
 namespace gandiva {
 
@@ -57,6 +62,9 @@ using EvalBatchPtr = std::shared_ptr<EvalBatch>;
 class FunctionSignature;
 using FuncSignaturePtr = std::shared_ptr<FunctionSignature>;
 using FuncSignatureVector = std::vector<FuncSignaturePtr>;
+
+using Variant = boost::variant<int32_t, int64_t, std::string>;
+using VariantSet = std::unordered_set<Variant, boost::hash<Variant>>;
 
 }  // namespace gandiva
 

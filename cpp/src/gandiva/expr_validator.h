@@ -59,6 +59,7 @@ class ExprValidator : public NodeVisitor {
   Status Visit(const IfNode& node) override;
   Status Visit(const LiteralNode& node) override;
   Status Visit(const BooleanNode& node) override;
+  Status Visit(const InExpressionNode& node) override;
 
   FunctionRegistry registry_;
 

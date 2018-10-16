@@ -18,6 +18,7 @@
 #ifndef GANDIVA_DEX_DEX_H
 #define GANDIVA_DEX_DEX_H
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -26,6 +27,7 @@
 #include "gandiva/func_descriptor.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/gandiva_aliases.h"
+#include "gandiva/in_holder.h"
 #include "gandiva/literal_holder.h"
 #include "gandiva/native_function.h"
 #include "gandiva/value_validity_pair.h"
@@ -270,6 +272,41 @@ class BooleanOrDex : public BooleanDex {
       : BooleanDex(args, local_bitmap_idx) {}
 
   void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
+};
+
+// decomposed in expression.
+class InExprDex : public Dex {
+ public:
+  InExprDex(const ValueValidityPairVector& args, const VariantSet& constants)
+      : args_(args) {
+    in_holder_.reset(new InHolder(constants));
+    switch (constants.begin()->which()) {
+      case 0:
+        runtime_function_ = "in_expr_lookup_int32";
+        break;
+      case 1:
+        runtime_function_ = "in_expr_lookup_int64";
+        break;
+      case 2:
+        runtime_function_ = "in_expr_lookup_utf8";
+        break;
+      default:
+        DCHECK(0);
+    }
+  }
+
+  const ValueValidityPairVector& args() const { return args_; }
+
+  const std::shared_ptr<InHolder>& in_holder() const { return in_holder_; }
+
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
+
+  const std::string& runtime_function() const { return runtime_function_; }
+
+ private:
+  ValueValidityPairVector args_;
+  std::shared_ptr<InHolder> in_holder_;
+  std::string runtime_function_;
 };
 
 }  // namespace gandiva

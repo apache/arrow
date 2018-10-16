@@ -92,6 +92,7 @@ class LLVMGenerator {
     void Visit(const IfDex& dex) override;
     void Visit(const BooleanAndDex& dex) override;
     void Visit(const BooleanOrDex& dex) override;
+    void Visit(const InExprDex& dex) override;
 
     LValuePtr result() { return result_; }
 

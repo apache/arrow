@@ -19,7 +19,10 @@
 #define GANDIVA_EXPR_NODE_H
 
 #include <string>
+#include <unordered_set>
 #include <vector>
+
+#include <boost/lexical_cast.hpp>
 
 #include "gandiva/arrow.h"
 #include "gandiva/func_descriptor.h"
@@ -122,7 +125,7 @@ class FunctionNode : public Node {
     std::stringstream ss;
     ss << descriptor()->return_type()->name() << " " << descriptor()->name() << "(";
     bool skip_comma = true;
-    for (auto child : children()) {
+    for (auto& child : children()) {
       if (skip_comma) {
         ss << child->ToString();
         skip_comma = false;
@@ -213,6 +216,38 @@ class BooleanNode : public Node {
  private:
   ExprType expr_type_;
   NodeVector children_;
+};
+
+/// \brief Node in expression tree, representing an in expression.
+class InExpressionNode : public Node {
+ public:
+  InExpressionNode(NodePtr eval_expr, const VariantSet& constants)
+      : Node(arrow::boolean()), eval_expr_(eval_expr), constants_(constants) {}
+
+  const NodePtr& eval_expr() const { return eval_expr_; }
+
+  const VariantSet& constants() const { return constants_; }
+
+  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << eval_expr_->ToString() << " IN (";
+    bool add_comma = false;
+    for (auto& constant : constants_) {
+      if (add_comma) {
+        ss << ", ";
+      }
+      ss << boost::lexical_cast<std::string>(constant);
+      add_comma = true;
+    }
+    ss << ")";
+    return ss.str();
+  }
+
+ private:
+  NodePtr eval_expr_;
+  VariantSet constants_;
 };
 
 }  // namespace gandiva

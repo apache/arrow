@@ -15,34 +15,46 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_NODE_VISITOR_H
-#define GANDIVA_NODE_VISITOR_H
+#ifndef GANDIVA_IN_HOLDER_H
+#define GANDIVA_IN_HOLDER_H
 
-#include "gandiva/logging.h"
-#include "gandiva/status.h"
+#include <string>
+#include <unordered_set>
+
+#include "gandiva/arrow.h"
+#include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {
 
-class FieldNode;
-class FunctionNode;
-class IfNode;
-class LiteralNode;
-class BooleanNode;
-class InExpressionNode;
+#ifdef GDV_HELPERS
+namespace helpers {
+#endif
 
-/// \brief Visitor for nodes in the expression tree.
-class NodeVisitor {
+/// Function Holder for IN Expressions
+class InHolder {
  public:
-  virtual ~NodeVisitor() = default;
+  explicit InHolder(const VariantSet& constants) : constants_(constants) {}
 
-  virtual Status Visit(const FieldNode& node) = 0;
-  virtual Status Visit(const FunctionNode& node) = 0;
-  virtual Status Visit(const IfNode& node) = 0;
-  virtual Status Visit(const LiteralNode& node) = 0;
-  virtual Status Visit(const BooleanNode& node) = 0;
-  virtual Status Visit(const InExpressionNode& node) = 0;
+  bool HasValue(int32_t value) const {
+    return constants_.find(Variant(value)) != constants_.end();
+  }
+
+  bool HasValue(int64_t value) const {
+    return constants_.find(Variant(value)) != constants_.end();
+  }
+
+  bool HasValue(std::string value) const {
+    return constants_.find(Variant(value)) != constants_.end();
+  }
+
+ private:
+  VariantSet constants_;
 };
+
+#ifdef GDV_HELPERS
+}  // namespace helpers
+#endif
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_NODE_VISITOR_H
+#endif  // GANDIVA_IN_HOLDER_H

@@ -20,6 +20,7 @@
 #include <memory>
 #include <stack>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "gandiva/annotator.h"
@@ -27,6 +28,7 @@
 #include "gandiva/function_holder_registry.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/function_signature.h"
+#include "gandiva/in_holder.h"
 #include "gandiva/node.h"
 
 namespace gandiva {
@@ -170,6 +172,19 @@ Status ExprDecomposer::Visit(const BooleanNode& node) {
       break;
   }
   result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
+  return Status::OK();
+}
+
+Status ExprDecomposer::Visit(const InExpressionNode& node) {
+  // decompose the children.
+  std::vector<ValueValidityPairPtr> args;
+  auto status = node.eval_expr()->Accept(*this);
+  GANDIVA_RETURN_NOT_OK(status);
+  args.push_back(result());
+
+  // In always outpus valid results, so no validity dex
+  auto value_dex = std::make_shared<InExprDex>(args, node.constants());
+  result_ = std::make_shared<ValueValidityPair>(value_dex);
   return Status::OK();
 }
 

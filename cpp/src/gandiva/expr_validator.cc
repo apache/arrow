@@ -154,4 +154,44 @@ Status ExprValidator::Visit(const BooleanNode& node) {
   return Status::OK();
 }
 
+/*
+ * Validate the following
+ *
+ * 1. Non empty list of constants to search in.
+ * 2. Expression returns of the same type as the constants.
+ */
+Status ExprValidator::Visit(const InExpressionNode& node) {
+  Status status;
+
+  if (node.constants().size() == 0) {
+    std::stringstream ss;
+    ss << "IN Expression needs a non-empty constant list to match.";
+    return Status::ExpressionValidationError(ss.str());
+  }
+
+  int firstConstantType = node.constants().begin()->which();
+  DataTypePtr constant_type;
+  switch (firstConstantType) {
+    case 0:
+      constant_type = arrow::int32();
+      break;
+    case 1:
+      constant_type = arrow::int64();
+      break;
+    case 2:
+      constant_type = arrow::utf8();
+      break;
+    default:
+      DCHECK(0);
+  }
+  if (!node.eval_expr()->return_type()->Equals(constant_type)) {
+    std::stringstream ss;
+    ss << "Evaluation expression for IN clause returns "
+       << node.eval_expr()->return_type() << " constants are of type " << constant_type;
+    return Status::ExpressionValidationError(ss.str());
+  }
+
+  return Status::OK();
+}
+
 }  // namespace gandiva

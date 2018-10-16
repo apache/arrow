@@ -19,6 +19,7 @@
 
 #include <utility>
 
+#include "gandiva/gandiva_aliases.h"
 #include "gandiva/node.h"
 
 namespace gandiva {
@@ -175,5 +176,23 @@ ConditionPtr TreeExprBuilder::MakeCondition(const std::string& function,
   auto func_node = MakeFunction(function, field_nodes, arrow::boolean());
   return ConditionPtr(new Condition(func_node));
 }
+
+#define MAKE_IN(NAME, ctype)                                                             \
+  NodePtr TreeExprBuilder::MakeInExpression##NAME(NodePtr function,                      \
+                                                  std::unordered_set<ctype> constants) { \
+    VariantSet constant_values;                                                          \
+    for (const ctype& constant : constants) {                                            \
+      constant_values.insert(Variant(constant));                                         \
+    }                                                                                    \
+    return std::make_shared<InExpressionNode>(function, constant_values);                \
+  }
+
+MAKE_IN(Int, int32_t);
+MAKE_IN(Long, int64_t);
+MAKE_IN(Date, int64_t);
+MAKE_IN(TimeStamp, int64_t);
+MAKE_IN(Time, int32_t);
+MAKE_IN(String, std::string);
+MAKE_IN(Binary, std::string);
 
 }  // namespace gandiva

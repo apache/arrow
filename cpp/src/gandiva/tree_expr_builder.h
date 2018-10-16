@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "gandiva/condition.h"
@@ -85,6 +86,25 @@ class TreeExprBuilder {
   /// \brief convenience function for simple function conditions.
   static ConditionPtr MakeCondition(const std::string& function,
                                     const FieldVector& in_fields);
+
+  /// \brief creates an in expression
+  static NodePtr MakeInExpressionInt(NodePtr function,
+                                     std::unordered_set<int32_t> constants);
+  static NodePtr MakeInExpressionLong(NodePtr function,
+                                      std::unordered_set<int64_t> constants);
+  static NodePtr MakeInExpressionString(NodePtr function,
+                                        std::unordered_set<std::string> constants);
+  static NodePtr MakeInExpressionBinary(NodePtr function,
+                                        std::unordered_set<std::string> constants);
+  /// \brief Date as millis since epoch.
+  static NodePtr MakeInExpressionDate(NodePtr function,
+                                      std::unordered_set<int64_t> constants);
+  /// \brief Time as millis of day
+  static NodePtr MakeInExpressionTime(NodePtr function,
+                                      std::unordered_set<int32_t> constants);
+  /// \brief Timestamp as millis since epoch.
+  static NodePtr MakeInExpressionTimeStamp(NodePtr function,
+                                           std::unordered_set<int64_t> constants);
 };
 
 }  // namespace gandiva
