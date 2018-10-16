@@ -47,6 +47,15 @@
   )
 )
 
+`arrow::io::BufferOutputStream` <- R6Class("arrow::io::BufferOutputStream", inherit = `arrow::io::OutputStream`,
+  public = list(
+    capacity = function() io___BufferOutputStream__capacity(self),
+    Finish = function() `arrow::Buffer`$new(io___BufferOutputStream__Finish(self)),
+    Write = function(bytes) io___BufferOutputStream__Write(self, bytes),
+    Tell = function() io___BufferOutputStream__Tell(self)
+  )
+)
+
 `arrow::io::FixedSizeBufferWriter` <- R6Class("arrow::io::FixedSizeBufferWriter", inherit = `arrow::io::OutputStream`)
 
 `arrow::io::RandomAccessFile` <- R6Class("arrow::io::RandomAccessFile", inherit = `arrow::io::InputStream`,
@@ -74,6 +83,7 @@
 #' @param size size in bytes
 #' @param mode file mode (read/write/readwrite)
 #' @param buffer an `arrow::Buffer`, typically created by [buffer()]
+#' @param initial_capacity initial capacity for the buffer output stream
 #'
 #' @rdname io
 #' @export
@@ -104,6 +114,12 @@ file_output_stream <- function(path) {
 #' @export
 mock_output_stream <- function() {
   `arrow::io::MockOutputStream`$new(io___MockOutputStream__initialize())
+}
+
+#' @rdname io
+#' @export
+buffer_output_stream <- function(initial_capacity = 0L) {
+  `arrow::io::BufferOutputStream`$new(io___BufferOutputStream__Create(initial_capacity))
 }
 
 #' @rdname io

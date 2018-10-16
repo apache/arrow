@@ -1167,6 +1167,61 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// io___BufferOutputStream__Create
+std::shared_ptr<arrow::io::BufferOutputStream> io___BufferOutputStream__Create(int64_t initial_capacity);
+RcppExport SEXP _arrow_io___BufferOutputStream__Create(SEXP initial_capacitySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int64_t >::type initial_capacity(initial_capacitySEXP);
+    rcpp_result_gen = Rcpp::wrap(io___BufferOutputStream__Create(initial_capacity));
+    return rcpp_result_gen;
+END_RCPP
+}
+// io___BufferOutputStream__capacity
+int64_t io___BufferOutputStream__capacity(const std::shared_ptr<arrow::io::BufferOutputStream>& stream);
+RcppExport SEXP _arrow_io___BufferOutputStream__capacity(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::BufferOutputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___BufferOutputStream__capacity(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
+// io___BufferOutputStream__Finish
+std::shared_ptr<arrow::Buffer> io___BufferOutputStream__Finish(const std::shared_ptr<arrow::io::BufferOutputStream>& stream);
+RcppExport SEXP _arrow_io___BufferOutputStream__Finish(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::BufferOutputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___BufferOutputStream__Finish(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
+// io___BufferOutputStream__Tell
+int64_t io___BufferOutputStream__Tell(const std::shared_ptr<arrow::io::BufferOutputStream>& stream);
+RcppExport SEXP _arrow_io___BufferOutputStream__Tell(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::BufferOutputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___BufferOutputStream__Tell(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
+// io___BufferOutputStream__Write
+void io___BufferOutputStream__Write(const std::shared_ptr<arrow::io::BufferOutputStream>& stream, RawVector_ bytes);
+RcppExport SEXP _arrow_io___BufferOutputStream__Write(SEXP streamSEXP, SEXP bytesSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::BufferOutputStream>& >::type stream(streamSEXP);
+    Rcpp::traits::input_parameter< RawVector_ >::type bytes(bytesSEXP);
+    io___BufferOutputStream__Write(stream, bytes);
+    return R_NilValue;
+END_RCPP
+}
 // io___MockOutputStream__initialize
 std::shared_ptr<arrow::io::MockOutputStream> io___MockOutputStream__initialize();
 RcppExport SEXP _arrow_io___MockOutputStream__initialize() {
@@ -1645,6 +1700,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_io___ReadableFile__Open", (DL_FUNC) &_arrow_io___ReadableFile__Open, 1},
     {"_arrow_io___BufferReader__initialize", (DL_FUNC) &_arrow_io___BufferReader__initialize, 1},
     {"_arrow_io___FileOutputStream__Open", (DL_FUNC) &_arrow_io___FileOutputStream__Open, 1},
+    {"_arrow_io___BufferOutputStream__Create", (DL_FUNC) &_arrow_io___BufferOutputStream__Create, 1},
+    {"_arrow_io___BufferOutputStream__capacity", (DL_FUNC) &_arrow_io___BufferOutputStream__capacity, 1},
+    {"_arrow_io___BufferOutputStream__Finish", (DL_FUNC) &_arrow_io___BufferOutputStream__Finish, 1},
+    {"_arrow_io___BufferOutputStream__Tell", (DL_FUNC) &_arrow_io___BufferOutputStream__Tell, 1},
+    {"_arrow_io___BufferOutputStream__Write", (DL_FUNC) &_arrow_io___BufferOutputStream__Write, 2},
     {"_arrow_io___MockOutputStream__initialize", (DL_FUNC) &_arrow_io___MockOutputStream__initialize, 0},
     {"_arrow_io___MockOutputStream__GetExtentBytesWritten", (DL_FUNC) &_arrow_io___MockOutputStream__GetExtentBytesWritten, 1},
     {"_arrow_io___FixedSizeBufferWriter__initialize", (DL_FUNC) &_arrow_io___FixedSizeBufferWriter__initialize, 1},

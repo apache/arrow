@@ -6,6 +6,7 @@
 \alias{file_open}
 \alias{file_output_stream}
 \alias{mock_output_stream}
+\alias{buffer_output_stream}
 \alias{fixed_size_buffer_writer}
 \title{Create a new read/write memory mapped file of a given size}
 \usage{
@@ -19,6 +20,8 @@ file_output_stream(path)
 
 mock_output_stream()
 
+buffer_output_stream(initial_capacity = 0L)
+
 fixed_size_buffer_writer(buffer)
 }
 \arguments{
@@ -27,6 +30,8 @@ fixed_size_buffer_writer(buffer)
 \item{size}{size in bytes}
 
 \item{mode}{file mode (read/write/readwrite)}
+
+\item{initial_capacity}{initial capacity for the buffer output stream}
 
 \item{buffer}{an \code{arrow::Buffer}, typically created by \code{\link[=buffer]{buffer()}}}
 }

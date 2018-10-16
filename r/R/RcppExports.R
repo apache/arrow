@@ -421,6 +421,26 @@ io___FileOutputStream__Open <- function(path) {
     .Call(`_arrow_io___FileOutputStream__Open`, path)
 }
 
+io___BufferOutputStream__Create <- function(initial_capacity) {
+    .Call(`_arrow_io___BufferOutputStream__Create`, initial_capacity)
+}
+
+io___BufferOutputStream__capacity <- function(stream) {
+    .Call(`_arrow_io___BufferOutputStream__capacity`, stream)
+}
+
+io___BufferOutputStream__Finish <- function(stream) {
+    .Call(`_arrow_io___BufferOutputStream__Finish`, stream)
+}
+
+io___BufferOutputStream__Tell <- function(stream) {
+    .Call(`_arrow_io___BufferOutputStream__Tell`, stream)
+}
+
+io___BufferOutputStream__Write <- function(stream, bytes) {
+    invisible(.Call(`_arrow_io___BufferOutputStream__Write`, stream, bytes))
+}
+
 io___MockOutputStream__initialize <- function() {
     .Call(`_arrow_io___MockOutputStream__initialize`)
 }
