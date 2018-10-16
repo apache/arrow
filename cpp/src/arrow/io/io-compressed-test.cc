@@ -37,8 +37,8 @@ using ::arrow::util::Codec;
 
 #ifdef ARROW_VALGRIND
 // Avoid slowing down tests too much with Valgrind
-static constexpr int64_t RANDOM_DATA_SIZE = 80 * 1024;
-static constexpr int64_t COMPRESSIBLE_DATA_SIZE = 200 * 1024;
+static constexpr int64_t RANDOM_DATA_SIZE = 50 * 1024;
+static constexpr int64_t COMPRESSIBLE_DATA_SIZE = 120 * 1024;
 #else
 // The data should be large enough to exercise internal buffers
 static constexpr int64_t RANDOM_DATA_SIZE = 3 * 1024 * 1024;
@@ -99,7 +99,8 @@ void CheckCompressedInputStream(Codec* codec, const std::vector<uint8_t>& data) 
   ASSERT_EQ(decompressed, data);
 }
 
-void CheckCompressedOutputStream(Codec* codec, const std::vector<uint8_t>& data) {
+void CheckCompressedOutputStream(Codec* codec, const std::vector<uint8_t>& data,
+                                 bool do_flush) {
   // Create compressed output stream
   std::shared_ptr<BufferOutputStream> buffer_writer;
   ASSERT_OK(BufferOutputStream::Create(1024, default_memory_pool(), &buffer_writer));
@@ -114,6 +115,9 @@ void CheckCompressedOutputStream(Codec* codec, const std::vector<uint8_t>& data)
     ASSERT_OK(stream->Write(input, nbytes));
     input += nbytes;
     input_len -= nbytes;
+    if (do_flush) {
+      ASSERT_OK(stream->Flush());
+    }
   }
   ASSERT_OK(stream->Close());
 
@@ -180,14 +184,16 @@ TEST_P(CompressedOutputStreamTest, CompressibleData) {
   auto codec = MakeCodec();
   auto data = MakeCompressibleData(COMPRESSIBLE_DATA_SIZE);
 
-  CheckCompressedOutputStream(codec.get(), data);
+  CheckCompressedOutputStream(codec.get(), data, false /* do_flush */);
+  CheckCompressedOutputStream(codec.get(), data, true /* do_flush */);
 }
 
 TEST_P(CompressedOutputStreamTest, RandomData) {
   auto codec = MakeCodec();
   auto data = MakeRandomData(RANDOM_DATA_SIZE);
 
-  CheckCompressedOutputStream(codec.get(), data);
+  CheckCompressedOutputStream(codec.get(), data, false /* do_flush */);
+  CheckCompressedOutputStream(codec.get(), data, true /* do_flush */);
 }
 
 INSTANTIATE_TEST_CASE_P(TestGZipOutputStream, CompressedOutputStreamTest,
