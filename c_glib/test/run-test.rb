@@ -47,6 +47,11 @@ begin
 rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
+begin
+  Gandiva = GI.load("Gandiva")
+rescue GObjectIntrospection::RepositoryError::TypelibNotFound
+end
+
 require "rbconfig"
 require "tempfile"
 require_relative "helper/buildable"
