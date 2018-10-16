@@ -10,12 +10,23 @@ R integration with Apache Arrow.
 First install a release build of the C++ bindings to arrow.
 
 ``` shell
+# Get source
 git clone https://github.com/apache/arrow.git
-cd arrow/cpp && mkdir release && cd release
+cd arrow
+
+# Create install dir
+mkdir -p cpp/release
+cd cpp/release
 
 # It is important to statically link to boost libraries
 cmake .. -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:BOOL=Off
 make install
+```
+
+The R package depends on `vctrs`, which as of this writing is not available on CRAN. Install it [from Github](https://github.com/r-lib/vctrs):
+
+``` r
+devtools::install_github("r-lib/vctrs")
 ```
 
 Then the R package:
