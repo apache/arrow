@@ -70,6 +70,16 @@ end
 end
 
 
+@testset "indexing_Primitive_empty" begin
+    for i ∈ 1:N_OUTER
+        dtype = rand(PRIMITIVE_ELTYPES)
+        p = Primitive(dtype[])
+        @test isempty(p)
+        @test_throws BoundsError p[1]
+    end
+end
+
+
 @testset "indexing_NullablePrimitive_buffer" begin
     for i ∈ 1:N_OUTER
         len, dtype, bmask, lpad, b, v = rand_nullableprimitive_buffer()
@@ -141,6 +151,16 @@ end
 end
 
 
+@testset "indexing_NullablePrimitive_empty" begin
+    for i ∈ 1:N_OUTER
+        dtype = rand(PRIMITIVE_ELTYPES)
+        p = NullablePrimitive(dtype[])
+        @test isempty(p)
+        @test_throws BoundsError p[1]
+    end
+end
+
+
 @testset "indexing_List_buffer" begin
     len  = 5
     offstype = rand(OFFSET_ELTYPES)
@@ -179,6 +199,14 @@ end
             @test l[idx] == v[idx]
         end
         @test l[:] == v
+    end
+end
+
+
+@testset "indexing_List_empty" begin
+    for i ∈ 1:N_OUTER
+        l = List(fill("", i))
+        @test l[rand(1:i)] == ""
     end
 end
 
@@ -230,6 +258,14 @@ end
             @test l[idx] ≅ v[idx]
         end
         @test l[:] ≅ v
+    end
+end
+
+
+@testset "indexing_NullableList_empty" begin
+    for i ∈ 1:N_OUTER
+        l = NullableList(fill("", i))
+        @test l[rand(1:i)] == ""
     end
 end
 

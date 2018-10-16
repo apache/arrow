@@ -164,6 +164,7 @@ end
 
 # this is only for values buffers
 function check_buffer_bounds(::Type{U}, A::AbstractVector, i::Integer, len::Integer) where U
+    len == 0 && (return nothing)  # if the array being created is empty these bounds don't matter
     checkbounds(A, i)
     checkbounds(A, i+len*sizeof(U)-1)
 end
