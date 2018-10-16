@@ -11,7 +11,7 @@ dictionary(type, values, ordered = FALSE)
 
 \item{values}{values array, typically an arrow array of strings}
 
-\item{ordered}{Is this an ordred dictionary}
+\item{ordered}{Is this an ordered dictionary}
 }
 \description{
 dictionary type factory

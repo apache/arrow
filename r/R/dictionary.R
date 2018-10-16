@@ -32,7 +32,7 @@
 #'
 #' @param type indices type, e.g. [int32()]
 #' @param values values array, typically an arrow array of strings
-#' @param ordered Is this an ordred dictionary
+#' @param ordered Is this an ordered dictionary
 #'
 #' @export
 dictionary <- function(type, values, ordered = FALSE) {
