@@ -213,6 +213,18 @@ cdef class StructType(DataType):
         DataType.init(self, type)
         self.struct_type = <const CStructType*> type.get()
 
+    cdef Field child_by_name(self, name):
+        """
+        Access a child field by its name rather than the column index.
+        """
+        cdef shared_ptr[CField] field
+
+        field = self.struct_type.GetChildByName(tobytes(name))
+        if field == nullptr:
+            raise KeyError(name)
+
+        return pyarrow_wrap_field(field)
+
     def __len__(self):
         return self.type.num_children()
 
@@ -222,9 +234,11 @@ cdef class StructType(DataType):
 
     def __getitem__(self, i):
         if isinstance(i, six.string_types):
-            return self.field_by_name(i)
-        else:
+            return self.child_by_name(i)
+        elif isinstance(i, six.integer_types):
             return self.child(i)
+        else:
+            raise TypeError('Expected integer or string index')
 
     def __reduce__(self):
         return struct, (list(self),)
@@ -232,26 +246,6 @@ cdef class StructType(DataType):
     @property
     def num_children(self):
         return self.type.num_children()
-
-    def field_by_name(self, str name):
-        """
-        Access a field by its name rather than the column index.
-
-        Parameters
-        ----------
-        name: str
-
-        Returns
-        -------
-        field: pyarrow.Field
-        """
-        cdef shared_ptr[CField] field
-
-        field = self.struct_type.GetChildByName(tobytes(name))
-        if field == nullptr:
-            raise KeyError(name)
-        else:
-            return pyarrow_wrap_field(field)
 
 
 cdef class UnionType(DataType):
