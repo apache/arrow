@@ -42,7 +42,7 @@ RUN apt install -y \
     apt install -y \
         libgit2-dev \
         libssl-dev && \
-    # Install vctrs from CRAN
+    # Install vctrs from Github
     Rscript -e "install.packages('devtools', repos = 'http://cran.rstudio.com')" && \
     Rscript -e "devtools::install_github('r-lib/vctrs')" && \
     # R is not good at picking up dependencies and installing them automatically
