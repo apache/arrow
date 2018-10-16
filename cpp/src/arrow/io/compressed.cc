@@ -261,9 +261,6 @@ class CompressedInputStream::Impl {
       RETURN_NOT_OK(decompressor_->Decompress(input_len, input, output_len, output,
                                               &bytes_read, &bytes_written,
                                               &need_more_output));
-      //       fprintf(stderr, "... Decompress(input_len = %zd, output_len = %zd): %zd
-      //       bytes read, %zd bytes written\n",
-      //               input_len, output_len, bytes_read, bytes_written);
       compressed_pos_ += bytes_read;
       if (bytes_written > 0 || !need_more_output || input_len == 0) {
         RETURN_NOT_OK(decompressed_->Resize(bytes_written));
@@ -281,13 +278,10 @@ class CompressedInputStream::Impl {
 
     *bytes_read = 0;
     auto out_data = reinterpret_cast<uint8_t*>(out);
-    //     fprintf(stderr, "Read(%zd)...\n", nbytes);
 
     while (nbytes > 0) {
       int64_t avail = decompressed_ ? (decompressed_->size() - decompressed_pos_) : 0;
       if (avail > 0) {
-        //         fprintf(stderr, "... Read(%zd): %zd decompressed bytes available\n",
-        //         nbytes, avail);
         // Pending decompressed data is available, use it
         avail = std::min(avail, nbytes);
         memcpy(out_data, decompressed_->data() + decompressed_pos_, avail);
@@ -301,7 +295,6 @@ class CompressedInputStream::Impl {
         }
         if (nbytes == 0) {
           // We're done
-          //           fprintf(stderr, "... Read(%zd): done\n", nbytes);
           break;
         }
       }
@@ -309,27 +302,20 @@ class CompressedInputStream::Impl {
       // At this point, no more decompressed data remains,
       // so we need to decompress more
       if (decompressor_->IsFinished()) {
-        //         fprintf(stderr, "... Read(%zd): decompressor finished\n", nbytes);
         break;
       }
       // First try to read data from the decompressor
       if (compressed_) {
         RETURN_NOT_OK(DecompressData());
-        //         fprintf(stderr, "... Read(%zd): decompressed %zd bytes\n", nbytes,
-        //         decompressed_->size());
       }
       if (!decompressed_ || decompressed_->size() == 0) {
         // Got nothing, need to read more compressed data
         RETURN_NOT_OK(EnsureCompressedData());
-        //         fprintf(stderr, "... Read(%zd): got %zd compressed bytes\n", nbytes,
-        //         compressed_->size() - compressed_pos_);
         if (compressed_pos_ == compressed_->size()) {
           // Compressed stream unexpectedly exhausted
           return Status::IOError("Truncated compressed stream");
         }
         RETURN_NOT_OK(DecompressData());
-        //         fprintf(stderr, "... Read(%zd): decompressed %zd bytes\n", nbytes,
-        //         decompressed_->size());
       }
     }
     return Status::OK();
