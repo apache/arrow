@@ -64,28 +64,31 @@ std::vector<uint8_t> MakeCompressibleData(int data_size) {
   return data;
 }
 
-void CheckCompressedInputStream(Codec* codec, const std::vector<uint8_t>& data) {
-  // Create compressed data
+std::shared_ptr<Buffer> CompressDataOneShot(Codec* codec,
+                                            const std::vector<uint8_t>& data) {
   int64_t max_compressed_len, compressed_len;
   max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
   std::shared_ptr<ResizableBuffer> compressed;
-  ASSERT_OK(AllocateResizableBuffer(max_compressed_len, &compressed));
-  ASSERT_OK(codec->Compress(data.size(), data.data(), max_compressed_len,
-                            compressed->mutable_data(), &compressed_len));
-  ASSERT_OK(compressed->Resize(compressed_len));
+  ABORT_NOT_OK(AllocateResizableBuffer(max_compressed_len, &compressed));
+  ABORT_NOT_OK(codec->Compress(data.size(), data.data(), max_compressed_len,
+                               compressed->mutable_data(), &compressed_len));
+  ABORT_NOT_OK(compressed->Resize(compressed_len));
+  return compressed;
+}
 
+Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed,
+                                std::vector<uint8_t>* out) {
   // Create compressed input stream
   auto buffer_reader = std::make_shared<BufferReader>(compressed);
   std::shared_ptr<CompressedInputStream> stream;
-  ASSERT_OK(CompressedInputStream::Make(codec, buffer_reader, &stream));
+  RETURN_NOT_OK(CompressedInputStream::Make(codec, buffer_reader, &stream));
 
   std::vector<uint8_t> decompressed;
   int64_t decompressed_size = 0;
   const int64_t chunk_size = 1111;
   while (true) {
     std::shared_ptr<Buffer> buf;
-    ASSERT_OK(stream->Read(chunk_size, &buf));
-    ASSERT_LE(buf->size(), chunk_size);
+    RETURN_NOT_OK(stream->Read(chunk_size, &buf));
     if (buf->size() == 0) {
       // EOF
       break;
@@ -94,8 +97,18 @@ void CheckCompressedInputStream(Codec* codec, const std::vector<uint8_t>& data) 
     memcpy(decompressed.data() + decompressed_size, buf->data(), buf->size());
     decompressed_size += buf->size();
   }
+  *out = std::move(decompressed);
+  return Status::OK();
+}
 
-  ASSERT_EQ(decompressed_size, data.size());
+void CheckCompressedInputStream(Codec* codec, const std::vector<uint8_t>& data) {
+  // Create compressed data
+  auto compressed = CompressDataOneShot(codec, data);
+
+  std::vector<uint8_t> decompressed;
+  ASSERT_OK(RunCompressedInputStream(codec, compressed, &decompressed));
+
+  ASSERT_EQ(decompressed.size(), data.size());
   ASSERT_EQ(decompressed, data);
 }
 
@@ -153,6 +166,27 @@ TEST_P(CompressedInputStreamTest, RandomData) {
   auto data = MakeRandomData(RANDOM_DATA_SIZE);
 
   CheckCompressedInputStream(codec.get(), data);
+}
+
+TEST_P(CompressedInputStreamTest, TruncatedData) {
+  auto codec = MakeCodec();
+  auto data = MakeRandomData(10000);
+  auto compressed = CompressDataOneShot(codec.get(), data);
+  auto truncated = SliceBuffer(compressed, 0, compressed->size() - 3);
+
+  std::vector<uint8_t> decompressed;
+  ASSERT_RAISES(IOError, RunCompressedInputStream(codec.get(), truncated, &decompressed));
+}
+
+TEST_P(CompressedInputStreamTest, InvalidData) {
+  auto codec = MakeCodec();
+  auto compressed_data = MakeRandomData(10000);
+
+  auto buffer_reader = std::make_shared<BufferReader>(Buffer::Wrap(compressed_data));
+  std::shared_ptr<CompressedInputStream> stream;
+  ASSERT_OK(CompressedInputStream::Make(codec.get(), buffer_reader, &stream));
+  std::shared_ptr<Buffer> out_buf;
+  ASSERT_RAISES(IOError, stream->Read(1024, &out_buf));
 }
 
 // NOTE: Snappy doesn't support streaming decompression
