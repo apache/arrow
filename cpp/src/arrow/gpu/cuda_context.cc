@@ -203,11 +203,11 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
       contexts_[device_number] = *out = new_context;
     } else {
       if ((CUcontext)it->second.get()->handle() != ctx) {
-	std::stringstream ss;
-	ss << "mismatch of context handle values: " \
-	   << "found context with handle " << (size_t)it->second.get()->handle() \
-	   << " but requested one with handle " << (size_t)ctx;
-	return Status::Invalid(ss.str());
+        std::stringstream ss;
+        ss << "mismatch of context handle values: "
+           << "found context with handle " << (size_t)it->second.get()->handle()
+           << " but requested one with handle " << (size_t)ctx;
+        return Status::Invalid(ss.str());
       }
       *out = it->second;
     }
