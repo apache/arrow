@@ -20,19 +20,16 @@
 sources = files(
   'expression.cpp',
   'projector.cpp',
-  'tree-expression-builder.cpp'
 )
 
 c_headers = files(
   'expression.h',
   'projector.h',
-  'tree-expression-builder.h'
 )
 
 cpp_headers = files(
   'expression.hpp',
   'projector.hpp',
-  'tree-expression-builder.hpp'
 )
 
 headers = c_headers + cpp_headers
