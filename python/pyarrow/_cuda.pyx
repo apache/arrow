@@ -45,14 +45,6 @@ cdef class Context:
             self.context.reset()
             raise ValueError('device_number argument must be '
                              'non-negative less than %s' % (n))
-        if handle == 0 and self._use_numba_context[0]:
-            try:
-                import numba.cuda
-            except ImportError:
-                pass
-            else:
-                ctx = numba.cuda.api.devices.get_context(device_number)
-                handle = ctx.handle.value
         if handle == 0:
             check_status(manager.GetContext(device_number, &self.context))
         else:
@@ -60,23 +52,6 @@ cdef class Context:
                                                   <void*>handle,
                                                   &self.context))
         self.device_number = device_number
-
-    _use_numba_context = [False]
-
-    @classmethod
-    def use_numba_context(cls, enable=True):
-        """Use numba context manager.
-
-        pyarrow.cuda and numba.cuda interoperability requires using
-        numba.cuda context manager.
-
-        Parameters
-        ----------
-        enable : bool
-          Enable or disable using numba context manager
-
-        """
-        cls._use_numba_context[0] = enable
 
     @staticmethod
     def from_numba(context=None):

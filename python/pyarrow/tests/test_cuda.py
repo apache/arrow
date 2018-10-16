@@ -40,7 +40,6 @@ global_context = None  # for flake8
 
 
 def setup_module(module):
-    cuda.Context.use_numba_context(True)
     module.global_context = cuda.Context(0)
 
 
@@ -63,7 +62,6 @@ def test_Context():
 
 def test_manage_allocate_free_host():
     size = 1024
-
     buf = cuda.new_host_buffer(size)
     arr = np.frombuffer(buf, dtype=np.uint8)
     arr[size//4:3*size//4] = 1
