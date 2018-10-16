@@ -18,6 +18,8 @@
 require_relative "../../red-arrow/version"
 require_relative "../version"
 
-require "arrow-gpu"
+require "parquet"
+
+require "tempfile"
 
 require "test-unit"

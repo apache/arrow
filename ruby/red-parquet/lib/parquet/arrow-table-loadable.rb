@@ -15,9 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "../../red-arrow/version"
-require_relative "../version"
+module Parquet
+  module ArrowTableLoadable
+    private
+    def load_as_parquet(path)
+      reader = Parquet::ArrowFileReader.new(path)
+      reader.use_threads = (@options[:use_threads] != false)
+      reader.read_table
+    end
+  end
+end
 
-require "arrow-gpu"
-
-require "test-unit"
+module Arrow
+  class TableLoader
+    include Parquet::ArrowTableLoadable
+  end
+end

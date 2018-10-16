@@ -1,3 +1,5 @@
+# -*- ruby -*-
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,9 +17,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "../../red-arrow/version"
-require_relative "../version"
+require "pkg-config"
+require "native-package-installer"
 
-require "arrow-gpu"
+case RUBY_PLATFORM
+when /mingw|mswin/
+  task :default => "nothing"
+else
+  task :default => "dependency:check"
+end
 
-require "test-unit"
+task :nothing do
+end
+
+namespace :dependency do
+  desc "Check dependency"
+  task :check do
+    unless PKGConfig.check_version?("parquet-glib")
+      unless NativePackageInstaller.install(:debian => "libparquet-glib-dev",
+                                            :redhat => "parquet-glib-devel")
+        exit(false)
+      end
+    end
+  end
+end
