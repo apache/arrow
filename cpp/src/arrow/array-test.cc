@@ -3029,36 +3029,6 @@ TEST_F(TestListArray, TestZeroLength) {
   ASSERT_OK(ValidateArray(*result_));
 }
 
-TEST_F(TestListArray, TestFlattenBasic) {
-  // create listarray
-  vector<int32_t> values = {10, 11, 22, 33, 44, 55, 66};
-  vector<int> lengths = {3, 0, 4};
-  vector<uint8_t> is_valid = {1, 0, 1};
-
-  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
-  ASSERT_OK(builder_->Reserve(lengths.size()));
-  ASSERT_OK(vb->Reserve(values.size()));
-
-  int pos = 0;
-  for (size_t i = 0; i < lengths.size(); ++i) {
-    ASSERT_OK(builder_->Append(is_valid[i] > 0));
-    for (int j = 0; j < lengths[i]; ++j) {
-      ASSERT_OK(vb->Append(values[pos++]));
-    }
-  }
-  Done();
-
-  // create expected flattened array
-  std::shared_ptr<Array> expected;
-  Int32Builder builder(pool_);
-  ASSERT_OK(builder.AppendValues({10, 11, 22, 33, 44, 55, 66}));
-  ASSERT_OK(builder.Finish(&expected));
-
-  // checks
-  auto flattened = result_->Flatten();
-  ASSERT_TRUE(flattened->Equals(expected));
-}
-
 // ----------------------------------------------------------------------
 // DictionaryArray tests
 

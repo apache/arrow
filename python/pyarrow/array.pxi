@@ -946,7 +946,7 @@ cdef class ListArray(Array):
         result : Array
         """
         cdef CListArray* arr = <CListArray*> self.ap
-        return pyarrow_wrap_array(arr.Flatten())
+        return pyarrow_wrap_array(arr.values())
 
 
 cdef class UnionArray(Array):
