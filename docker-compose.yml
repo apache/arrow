@@ -28,8 +28,6 @@ services:
 
   ######################### Language Containers ###############################
 
-  #TODO(kszucs): R
-
   c_glib:
     # Usage:
     #   docker-compose build cpp
