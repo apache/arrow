@@ -45,6 +45,7 @@ Collate:
     'List.R'
     'RcppExports.R'
     'RecordBatch.R'
+    'RecordBatchReader.R'
     'RecordBatchWriter.R'
     'Schema.R'
     'Struct.R'

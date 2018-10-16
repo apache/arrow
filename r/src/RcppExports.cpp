@@ -1342,28 +1342,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// read_record_batch_RandomAccessFile
-std::shared_ptr<arrow::RecordBatch> read_record_batch_RandomAccessFile(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
-RcppExport SEXP _arrow_read_record_batch_RandomAccessFile(SEXP streamSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::RandomAccessFile>& >::type stream(streamSEXP);
-    rcpp_result_gen = Rcpp::wrap(read_record_batch_RandomAccessFile(stream));
-    return rcpp_result_gen;
-END_RCPP
-}
-// read_record_batch_BufferReader
-std::shared_ptr<arrow::RecordBatch> read_record_batch_BufferReader(const std::shared_ptr<arrow::io::BufferReader>& stream);
-RcppExport SEXP _arrow_read_record_batch_BufferReader(SEXP streamSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::BufferReader>& >::type stream(streamSEXP);
-    rcpp_result_gen = Rcpp::wrap(read_record_batch_BufferReader(stream));
-    return rcpp_result_gen;
-END_RCPP
-}
 // RecordBatch__from_dataframe
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl);
 RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tblSEXP) {
@@ -1444,6 +1422,84 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
     Rcpp::traits::input_parameter< int >::type length(lengthSEXP);
     rcpp_result_gen = Rcpp::wrap(RecordBatch__Slice2(self, offset, length));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatchReader__schema
+std::shared_ptr<arrow::Schema> RecordBatchReader__schema(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+RcppExport SEXP _arrow_RecordBatchReader__schema(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatchReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatchReader__schema(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatchReader__ReadNext
+std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+RcppExport SEXP _arrow_RecordBatchReader__ReadNext(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatchReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatchReader__ReadNext(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___RecordBatchStreamReader__Open
+std::shared_ptr<arrow::RecordBatchReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
+RcppExport SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::InputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___RecordBatchStreamReader__Open(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___RecordBatchFileReader__schema
+std::shared_ptr<arrow::Schema> ipc___RecordBatchFileReader__schema(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
+RcppExport SEXP _arrow_ipc___RecordBatchFileReader__schema(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___RecordBatchFileReader__schema(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___RecordBatchFileReader__num_record_batches
+int ipc___RecordBatchFileReader__num_record_batches(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
+RcppExport SEXP _arrow_ipc___RecordBatchFileReader__num_record_batches(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___RecordBatchFileReader__num_record_batches(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___RecordBatchFileReader__ReadRecordBatch
+std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader, int i);
+RcppExport SEXP _arrow_ipc___RecordBatchFileReader__ReadRecordBatch(SEXP readerSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& >::type reader(readerSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___RecordBatchFileReader__ReadRecordBatch(reader, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___RecordBatchFileReader__Open
+std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc___RecordBatchFileReader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& file);
+RcppExport SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP fileSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::RandomAccessFile>& >::type file(fileSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___RecordBatchFileReader__Open(file));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1716,8 +1772,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
     {"_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2},
     {"_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 1},
-    {"_arrow_read_record_batch_RandomAccessFile", (DL_FUNC) &_arrow_read_record_batch_RandomAccessFile, 1},
-    {"_arrow_read_record_batch_BufferReader", (DL_FUNC) &_arrow_read_record_batch_BufferReader, 1},
     {"_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1},
     {"_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 2},
     {"_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2},
@@ -1725,6 +1779,13 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch__names", (DL_FUNC) &_arrow_RecordBatch__names, 1},
     {"_arrow_RecordBatch__Slice1", (DL_FUNC) &_arrow_RecordBatch__Slice1, 2},
     {"_arrow_RecordBatch__Slice2", (DL_FUNC) &_arrow_RecordBatch__Slice2, 3},
+    {"_arrow_RecordBatchReader__schema", (DL_FUNC) &_arrow_RecordBatchReader__schema, 1},
+    {"_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1},
+    {"_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__Open, 1},
+    {"_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__schema, 1},
+    {"_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1},
+    {"_arrow_ipc___RecordBatchFileReader__ReadRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__ReadRecordBatch, 2},
+    {"_arrow_ipc___RecordBatchFileReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__Open, 1},
     {"_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 2},
     {"_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 2},
     {"_arrow_ipc___RecordBatchWriter__WriteRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteRecordBatch, 3},

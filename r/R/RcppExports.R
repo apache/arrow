@@ -485,14 +485,6 @@ RecordBatch__to_dataframe <- function(batch) {
     .Call(`_arrow_RecordBatch__to_dataframe`, batch)
 }
 
-read_record_batch_RandomAccessFile <- function(stream) {
-    .Call(`_arrow_read_record_batch_RandomAccessFile`, stream)
-}
-
-read_record_batch_BufferReader <- function(stream) {
-    .Call(`_arrow_read_record_batch_BufferReader`, stream)
-}
-
 RecordBatch__from_dataframe <- function(tbl) {
     .Call(`_arrow_RecordBatch__from_dataframe`, tbl)
 }
@@ -519,6 +511,34 @@ RecordBatch__Slice1 <- function(self, offset) {
 
 RecordBatch__Slice2 <- function(self, offset, length) {
     .Call(`_arrow_RecordBatch__Slice2`, self, offset, length)
+}
+
+RecordBatchReader__schema <- function(reader) {
+    .Call(`_arrow_RecordBatchReader__schema`, reader)
+}
+
+RecordBatchReader__ReadNext <- function(reader) {
+    .Call(`_arrow_RecordBatchReader__ReadNext`, reader)
+}
+
+ipc___RecordBatchStreamReader__Open <- function(stream) {
+    .Call(`_arrow_ipc___RecordBatchStreamReader__Open`, stream)
+}
+
+ipc___RecordBatchFileReader__schema <- function(reader) {
+    .Call(`_arrow_ipc___RecordBatchFileReader__schema`, reader)
+}
+
+ipc___RecordBatchFileReader__num_record_batches <- function(reader) {
+    .Call(`_arrow_ipc___RecordBatchFileReader__num_record_batches`, reader)
+}
+
+ipc___RecordBatchFileReader__ReadRecordBatch <- function(reader, i) {
+    .Call(`_arrow_ipc___RecordBatchFileReader__ReadRecordBatch`, reader, i)
+}
+
+ipc___RecordBatchFileReader__Open <- function(file) {
+    .Call(`_arrow_ipc___RecordBatchFileReader__Open`, file)
 }
 
 ipc___RecordBatchFileWriter__Open <- function(stream, schema) {

@@ -63,30 +63,6 @@ List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch)
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::RecordBatch> read_record_batch_RandomAccessFile(
-    const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
-  std::shared_ptr<arrow::ipc::RecordBatchFileReader> rbf_reader;
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileReader::Open(stream, &rbf_reader));
-
-  std::shared_ptr<arrow::RecordBatch> batch;
-  R_ERROR_NOT_OK(rbf_reader->ReadRecordBatch(0, &batch));
-
-  return batch;
-}
-
-// [[Rcpp::export]]
-std::shared_ptr<arrow::RecordBatch> read_record_batch_BufferReader(
-    const std::shared_ptr<arrow::io::BufferReader>& stream) {
-  std::shared_ptr<arrow::ipc::RecordBatchReader> rbf_reader;
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamReader::Open(stream, &rbf_reader));
-
-  std::shared_ptr<arrow::RecordBatch> batch;
-  R_ERROR_NOT_OK(rbf_reader->ReadNext(&batch));
-
-  return batch;
-}
-
-// [[Rcpp::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl) {
   CharacterVector names = tbl.names();
 

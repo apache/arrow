@@ -282,7 +282,6 @@ inline int64_t time_cast<double>(double value) {
 
 template <int RTYPE>
 std::shared_ptr<Array> Date64Array_From_POSIXct(SEXP x) {
-  using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
   Rcpp::Vector<RTYPE> vec(x);
   auto p_vec = vec.begin();
   auto n = vec.size();
@@ -420,8 +419,6 @@ inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   }
 
   Rcpp::CharacterVector res(no_init(n));
-  const auto& buffers = array->data()->buffers;
-
   auto p_offset = GetValuesSafely<int32_t>(array->data(), 1, array->offset());
   auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
 

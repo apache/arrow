@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/ipc/writer.h>
 #include "arrow_types.h"
 
 // [[Rcpp::export]]

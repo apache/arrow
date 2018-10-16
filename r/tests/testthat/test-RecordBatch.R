@@ -114,7 +114,7 @@ test_that("RecordBatch with 0 rows are supported", {
   expect_equal(res, batch)
 })
 
-test_that("read_record_batch handles ReadableFile and MemoryMappedFile (ARROW-3450)", {
+test_that("read_record_batch handles various streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
@@ -139,9 +139,18 @@ test_that("read_record_batch handles ReadableFile and MemoryMappedFile (ARROW-34
   batch5 <- read_record_batch(bytes)
   batch6 <- read_record_batch(buf_reader)
 
+  stream_reader <- record_batch_stream_reader(bytes)
+  batch7 <- read_record_batch(stream_reader)
+
+  file_reader <- record_batch_file_reader(tf)
+  batch8 <- read_record_batch(file_reader)
+
   expect_equal(batch, batch1)
   expect_equal(batch, batch2)
   expect_equal(batch, batch3)
   expect_equal(batch, batch4)
   expect_equal(batch, batch5)
+  expect_equal(batch, batch6)
+  expect_equal(batch, batch7)
+  expect_equal(batch, batch8)
 })
