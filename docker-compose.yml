@@ -101,6 +101,16 @@ services:
       dockerfile: rust/Dockerfile
     volumes: *volumes
 
+  r:
+    # Usage:
+    #   docker-compose build r
+    #   docker-compose run r
+    image: arrow:r
+    build:
+      context: .
+      dockerfile: r/Dockerfile
+    volumes: *volumes
+
   ######################### Tools and Linters #################################
 
   # TODO(kszucs): site
