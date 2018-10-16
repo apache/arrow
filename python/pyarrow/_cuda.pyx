@@ -45,7 +45,7 @@ cdef class Context:
             self.context.reset()
             raise ValueError('device_number argument must be '
                              'non-negative less than %s' % (n))
-        if handle == 0 and self._use_numba_context:
+        if handle == 0 and self._use_numba_context[0]:
             try:
                 import numba.cuda
             except ImportError:
