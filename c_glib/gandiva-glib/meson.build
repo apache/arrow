@@ -18,14 +18,17 @@
 # under the License.
 
 sources = files(
+  'expression.cpp',
   'tree-expression-builder.cpp'
 )
 
 c_headers = files(
+  'expression.h',
   'tree-expression-builder.h'
 )
 
 cpp_headers = files(
+  'expression.hpp',
   'tree-expression-builder.hpp'
 )
 
