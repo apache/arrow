@@ -37,43 +37,6 @@ table <- function(.data){
   `arrow::Table`$new(Table__from_dataframe(.data))
 }
 
-#' Read an arrow::Table from a stream
-#'
-#' @param stream stream. Either a stream created by [file_open()] or [mmap_open()] or a file path.
-#'
-#' @export
-read_table <- function(stream){
-  UseMethod("read_table")
-}
-
-#' @export
-read_table.character <- function(stream){
-  assert_that(length(stream) == 1L)
-  read_table(fs::path_abs(stream))
-}
-
-#' @export
-read_table.fs_path <- function(stream) {
-  stream <- close_on_exit(file_open(stream))
-  read_table(stream)
-}
-
-#' @export
-`read_table.arrow::io::RandomAccessFile` <- function(stream) {
-  `arrow::Table`$new(read_table_RandomAccessFile(stream))
-}
-
-#' @export
-`read_table.arrow::io::BufferReader` <- function(stream) {
-  `arrow::Table`$new(read_table_BufferReader(stream))
-}
-
-#' @export
-`read_table.raw` <- function(stream) {
-  stream <- close_on_exit(buffer_reader(stream))
-  read_table(stream)
-}
-
 #' @export
 `as_tibble.arrow::Table` <- function(x, ...){
   Table__to_dataframe(x)

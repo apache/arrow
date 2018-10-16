@@ -920,6 +920,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Object__is_null
+bool Object__is_null(const std::shared_ptr<void>& obj);
+RcppExport SEXP _arrow_Object__is_null(SEXP objSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<void>& >::type obj(objSEXP);
+    rcpp_result_gen = Rcpp::wrap(Object__is_null(obj));
+    return rcpp_result_gen;
+END_RCPP
+}
 // DictionaryType__initialize
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& type, const std::shared_ptr<arrow::Array>& array, bool ordered);
 RcppExport SEXP _arrow_DictionaryType__initialize(SEXP typeSEXP, SEXP arraySEXP, SEXP orderedSEXP) {
@@ -1503,6 +1514,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Table__from_RecordBatchFileReader
+std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
+RcppExport SEXP _arrow_Table__from_RecordBatchFileReader(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__from_RecordBatchFileReader(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Table__from_RecordBatchStreamReader
+std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
+RcppExport SEXP _arrow_Table__from_RecordBatchStreamReader(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__from_RecordBatchStreamReader(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ipc___RecordBatchFileWriter__Open
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Schema>& schema);
 RcppExport SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP streamSEXP, SEXP schemaSEXP) {
@@ -1601,28 +1634,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Table__schema(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// read_table_RandomAccessFile
-std::shared_ptr<arrow::Table> read_table_RandomAccessFile(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
-RcppExport SEXP _arrow_read_table_RandomAccessFile(SEXP streamSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::RandomAccessFile>& >::type stream(streamSEXP);
-    rcpp_result_gen = Rcpp::wrap(read_table_RandomAccessFile(stream));
-    return rcpp_result_gen;
-END_RCPP
-}
-// read_table_BufferReader
-std::shared_ptr<arrow::Table> read_table_BufferReader(const std::shared_ptr<arrow::io::BufferReader>& stream);
-RcppExport SEXP _arrow_read_table_BufferReader(SEXP streamSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::BufferReader>& >::type stream(streamSEXP);
-    rcpp_result_gen = Rcpp::wrap(read_table_BufferReader(stream));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1734,6 +1745,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_TimestampType__timezone", (DL_FUNC) &_arrow_TimestampType__timezone, 1},
     {"_arrow_TimestampType__unit", (DL_FUNC) &_arrow_TimestampType__unit, 1},
     {"_arrow_Object__pointer_address", (DL_FUNC) &_arrow_Object__pointer_address, 1},
+    {"_arrow_Object__is_null", (DL_FUNC) &_arrow_Object__is_null, 1},
     {"_arrow_DictionaryType__initialize", (DL_FUNC) &_arrow_DictionaryType__initialize, 3},
     {"_arrow_DictionaryType__index_type", (DL_FUNC) &_arrow_DictionaryType__index_type, 1},
     {"_arrow_DictionaryType__name", (DL_FUNC) &_arrow_DictionaryType__name, 1},
@@ -1786,6 +1798,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1},
     {"_arrow_ipc___RecordBatchFileReader__ReadRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__ReadRecordBatch, 2},
     {"_arrow_ipc___RecordBatchFileReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__Open, 1},
+    {"_arrow_Table__from_RecordBatchFileReader", (DL_FUNC) &_arrow_Table__from_RecordBatchFileReader, 1},
+    {"_arrow_Table__from_RecordBatchStreamReader", (DL_FUNC) &_arrow_Table__from_RecordBatchStreamReader, 1},
     {"_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 2},
     {"_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 2},
     {"_arrow_ipc___RecordBatchWriter__WriteRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteRecordBatch, 3},
@@ -1795,8 +1809,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1},
     {"_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1},
     {"_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
-    {"_arrow_read_table_RandomAccessFile", (DL_FUNC) &_arrow_read_table_RandomAccessFile, 1},
-    {"_arrow_read_table_BufferReader", (DL_FUNC) &_arrow_read_table_BufferReader, 1},
     {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 1},
     {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
     {NULL, NULL, 0}

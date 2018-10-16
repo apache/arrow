@@ -333,6 +333,10 @@ Object__pointer_address <- function(obj) {
     .Call(`_arrow_Object__pointer_address`, obj)
 }
 
+Object__is_null <- function(obj) {
+    .Call(`_arrow_Object__is_null`, obj)
+}
+
 DictionaryType__initialize <- function(type, array, ordered) {
     .Call(`_arrow_DictionaryType__initialize`, type, array, ordered)
 }
@@ -541,6 +545,14 @@ ipc___RecordBatchFileReader__Open <- function(file) {
     .Call(`_arrow_ipc___RecordBatchFileReader__Open`, file)
 }
 
+Table__from_RecordBatchFileReader <- function(reader) {
+    .Call(`_arrow_Table__from_RecordBatchFileReader`, reader)
+}
+
+Table__from_RecordBatchStreamReader <- function(reader) {
+    .Call(`_arrow_Table__from_RecordBatchStreamReader`, reader)
+}
+
 ipc___RecordBatchFileWriter__Open <- function(stream, schema) {
     .Call(`_arrow_ipc___RecordBatchFileWriter__Open`, stream, schema)
 }
@@ -575,14 +587,6 @@ Table__num_rows <- function(x) {
 
 Table__schema <- function(x) {
     .Call(`_arrow_Table__schema`, x)
-}
-
-read_table_RandomAccessFile <- function(stream) {
-    .Call(`_arrow_read_table_RandomAccessFile`, stream)
-}
-
-read_table_BufferReader <- function(stream) {
-    .Call(`_arrow_read_table_BufferReader`, stream)
 }
 
 Table__to_dataframe <- function(table) {

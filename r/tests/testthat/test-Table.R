@@ -17,7 +17,7 @@
 
 context("arrow::Table")
 
-test_that("read_table handles various input streams (ARROW-3450)", {
+test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
@@ -42,10 +42,18 @@ test_that("read_table handles various input streams (ARROW-3450)", {
   tab5 <- read_table(bytes)
   tab6 <- read_table(buf_reader)
 
+  stream_reader <- record_batch_stream_reader(bytes)
+  tab7 <- read_table(stream_reader)
+
+  file_reader <- record_batch_file_reader(tf)
+  tab8 <- read_table(file_reader)
+
   expect_equal(tab, tab1)
   expect_equal(tab, tab2)
   expect_equal(tab, tab3)
   expect_equal(tab, tab4)
   expect_equal(tab, tab5)
   expect_equal(tab, tab6)
+  expect_equal(tab, tab7)
+  expect_equal(tab, tab8)
 })

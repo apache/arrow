@@ -20,7 +20,9 @@
 `arrow::RecordBatchReader` <- R6Class("arrow::RecordBatchReader", inherit = `arrow::Object`,
   public = list(
     schema = function() `arrow::Schema`$new(RecordBatchReader__schema(self)),
-    ReadNext = function() `arrow::RecordBatch`$new(RecordBatchReader__ReadNext(self))
+    ReadNext = function() {
+      `arrow::RecordBatch`$new(RecordBatchReader__ReadNext(self))
+    }
   )
 )
 
@@ -79,6 +81,7 @@ record_batch_file_reader <- function(file) {
   record_batch_file_reader(file_open(file))
 }
 
+#-------- read_record_batch
 
 #' Read a single record batch from a stream
 #'
@@ -130,5 +133,56 @@ read_record_batch.raw <- function(stream, ...){
 #' @export
 `read_record_batch.arrow::ipc::RecordBatchFileReader` <- function(stream, i = 0, ...) {
   stream$ReadRecordBatch(i)
+}
+
+#--------- read_table
+
+#' Read an arrow::Table from a stream
+#'
+#' @param stream stream. Either a stream created by [file_open()] or [mmap_open()] or a file path.
+#'
+#' @export
+read_table <- function(stream){
+  UseMethod("read_table")
+}
+
+#' @export
+read_table.character <- function(stream){
+  assert_that(length(stream) == 1L)
+  read_table(fs::path_abs(stream))
+}
+
+#' @export
+read_table.fs_path <- function(stream) {
+  stream <- close_on_exit(file_open(stream))
+  read_table(stream)
+}
+
+#' @export
+`read_table.arrow::io::RandomAccessFile` <- function(stream) {
+  reader <- record_batch_file_reader(stream)
+  read_table(reader)
+}
+
+#' @export
+`read_table.arrow::ipc::RecordBatchFileReader` <- function(stream) {
+  `arrow::Table`$new(Table__from_RecordBatchFileReader(stream))
+}
+
+#' @export
+`read_table.arrow::ipc::RecordBatchStreamReader` <- function(stream) {
+  `arrow::Table`$new(Table__from_RecordBatchStreamReader(stream))
+}
+
+#' @export
+`read_table.arrow::io::BufferReader` <- function(stream) {
+  reader <- record_batch_stream_reader(stream)
+  read_table(reader)
+}
+
+#' @export
+`read_table.raw` <- function(stream) {
+  stream <- close_on_exit(buffer_reader(stream))
+  read_table(stream)
 }
 
