@@ -1145,17 +1145,28 @@ cdef class StructArray(Array):
 
         Parameters
         ----------
-        index : int
-            Index / position of the field
+        index : Union[int, str]
+            Index / position or name of the field
 
         Returns
         -------
         result : Array
         """
         cdef:
-            int ix = <int> _normalize_index(index, self.ap.num_fields())
-            CStructArray* sarr = <CStructArray*> self.ap
-        return pyarrow_wrap_array(sarr.field(ix))
+            CStructArray* arr = <CStructArray*> self.ap
+            shared_ptr[CArray] child
+
+        if isinstance(index, six.string_types):
+            child = arr.GetFieldByName(tobytes(index))
+            if child == nullptr:
+                raise KeyError(index)
+        elif isinstance(index, six.integer_types):
+            child = arr.field(
+                <int>_normalize_index(index, self.ap.num_fields()))
+        else:
+            raise TypeError('Expected integer or string index')
+
+        return pyarrow_wrap_array(child)
 
     def flatten(self, MemoryPool memory_pool=None):
         """

@@ -3239,6 +3239,10 @@ void ValidateBasicStructArray(const StructArray* result,
   auto char_arr = std::dynamic_pointer_cast<Int8Array>(list_char_arr->values());
   auto int32_arr = std::dynamic_pointer_cast<Int32Array>(result->field(1));
 
+  ASSERT_EQ(nullptr, result->GetFieldByName("non-existing"));
+  ASSERT_TRUE(list_char_arr->Equals(result->GetFieldByName("list")));
+  ASSERT_TRUE(int32_arr->Equals(result->GetFieldByName("int")));
+
   ASSERT_EQ(0, result->null_count());
   ASSERT_EQ(1, list_char_arr->null_count());
   ASSERT_EQ(0, int32_arr->null_count());
