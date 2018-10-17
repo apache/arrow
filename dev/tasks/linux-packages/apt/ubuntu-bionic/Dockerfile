@@ -39,7 +39,6 @@ RUN \
     libboost-system-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
-    libjemalloc-dev \
     libprotobuf-dev \
     libprotoc-dev \
     lsb-release \

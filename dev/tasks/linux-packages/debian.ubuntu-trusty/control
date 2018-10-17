@@ -15,7 +15,6 @@ Build-Depends:
   libboost-regex-dev,
   libboost-system-dev,
   libgirepository1.0-dev,
-  libjemalloc-dev,
   pkg-config
 Build-Depends-Indep: libglib2.0-doc
 Standards-Version: 3.9.6
