@@ -37,17 +37,26 @@ script:
   - git -C arrow checkout {{ arrow.head }}
   - mkdir -p dist
 
+  # build wheel
   - pushd arrow/python/manylinux1
   - docker run --shm-size=2g
       -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.version }}
-      -e PYTHON_VERSIONS={{ python_version }}
+      -e PYTHON_VERSIONS="{{ python_version }},{{ unicode_width }}"
       -e WHEEL_VERSION={{ wheel_version }}
       -v $PWD:/io
       -v $PWD/../../:/arrow
       quay.io/xhochy/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh
   - popd
 
+  # test on debian image
+  - docker run -it
+      -v arrow:/arrow
+      -v arrow/python/manylinux1/dist:/dist
+      python:{{ python_version }}-slim
+      arrow/dev/tasks/python-wheels/linux-test.sh
+
   - sudo mv arrow/python/manylinux1/dist/* dist/
+
 
 deploy:
   provider: releases
