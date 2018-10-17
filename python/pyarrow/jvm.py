@@ -230,6 +230,29 @@ def field(jvm_field):
     return pa.field(name, typ, nullable, metadata)
 
 
+def schema(jvm_schema):
+    """
+    Construct a Schema from a org.apache.arrow.vector.types.pojo.Schema
+    instance.
+
+    Parameters
+    ----------
+    jvm_schema: org.apache.arrow.vector.types.pojo.Schema
+
+    Returns
+    -------
+    pyarrow.Schema
+    """
+    fields = jvm_schema.getFields()
+    fields = [field(f) for f in fields]
+    metadata = jvm_schema.getCustomMetadata()
+    if metadata.isEmpty():
+        meta = None
+    else:
+        meta = {k: metadata[k] for k in metadata.keySet()}
+    return pa.schema(fields, meta)
+
+
 def array(jvm_array):
     """
     Construct an (Python) Array from its JVM equivalent.
