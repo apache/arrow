@@ -138,6 +138,23 @@ ggandiva_expression_new(gchar *function,
   return ggandiva_expression_new_raw(&gandiva_expression);
 }
 
+/**
+ * ggandiva_expression_to_string:
+ * @expression: A #GGandivaExpression.
+ *
+ * Returns: The string representation of the node in the expression tree.
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 0.12.0
+ */
+gchar *
+ggandiva_expression_to_string(GGandivaExpression *expression)
+{
+  auto gandiva_expression = ggandiva_expression_get_raw(expression);
+  auto string = gandiva_expression->ToString();
+  return g_strndup(string.data(), string.size());
+}
+
 G_END_DECLS
 
 GGandivaExpression *

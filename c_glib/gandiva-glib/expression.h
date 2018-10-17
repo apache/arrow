@@ -38,5 +38,6 @@ struct _GGandivaExpressionClass
 GGandivaExpression *ggandiva_expression_new(gchar *function,
                                             GList *input_fields,
                                             GArrowField *output_field);
+gchar *ggandiva_expression_to_string(GGandivaExpression *expression);
 
 G_END_DECLS
