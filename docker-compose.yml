@@ -101,6 +101,7 @@ services:
 
   r:
     # Usage:
+    #   docker-compose build cpp
     #   docker-compose build r
     #   docker-compose run r
     image: arrow:r
