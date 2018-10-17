@@ -937,6 +937,17 @@ cdef class ListArray(Array):
                                                cpool, &out))
         return pyarrow_wrap_array(out)
 
+    def flatten(self):
+        """
+        Unnest this ListArray by one level
+
+        Returns
+        -------
+        result : Array
+        """
+        cdef CListArray* arr = <CListArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
+
 
 cdef class UnionArray(Array):
 
