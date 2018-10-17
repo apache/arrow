@@ -17,6 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+project_name = 'gandiva-glib'
+
 sources = files(
   'error.cpp',
   'expression.cpp',
@@ -41,13 +43,13 @@ enums = gnome.mkenums('enums',
                       symbol_prefix: 'ggandiva',
                       c_template: 'gandiva-enums.c.template',
                       h_template: 'gandiva-enums.h.template',
-                      install_dir: join_paths(include_dir, meson.project_name()),
+                      install_dir: join_paths(include_dir, project_name),
                       install_header: true)
 enums_source = enums[0]
 enums_header = enums[1]
 
 headers = c_headers + cpp_headers
-install_headers(headers, subdir: meson.project_name())
+install_headers(headers, subdir: project_name)
 
 dependencies = [
   arrow,
@@ -66,7 +68,7 @@ gandiva_glib = declare_dependency(link_with: libgandiva_glib,
                                   dependencies: dependencies,
                                   sources: enums_header)
 
-pkgconfig.generate(filebase: meson.project_name(),
+pkgconfig.generate(filebase: project_name,
                    name: 'Apache Gandiva GLib',
                    description: 'C API for Apache Gandiva based on GLib',
                    version: version,
