@@ -65,7 +65,7 @@ if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; the
         ipython \
         numpydoc \
         sphinx=1.7.9 \
-        sphinx_bootstrap_theme
+        sphinx_rtd_theme
 fi
 
 # ARROW-2093: PyTorch increases the size of our conda dependency stack
