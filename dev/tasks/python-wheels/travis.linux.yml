@@ -57,7 +57,6 @@ script:
 
   - sudo mv arrow/python/manylinux1/dist/* dist/
 
-
 deploy:
   provider: releases
   api_key: $CROSSBOW_GITHUB_TOKEN
