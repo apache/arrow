@@ -47,6 +47,7 @@ class ContextSaver {
   ~ContextSaver() {
     if (context_ != NULL) cuCtxSetCurrent(context_);
   }
+
  private:
   CUcontext context_;
 };
