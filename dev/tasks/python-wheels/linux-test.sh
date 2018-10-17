@@ -18,7 +18,7 @@
 # under the License.
 
 # Install built wheel
-pip install /dist/*.whl
+pip install /arrow/python/manylinux1/dist/*.whl
 
 # Runs tests on installed distribution from an empty directory
 python --version
