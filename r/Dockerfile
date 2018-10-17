@@ -17,9 +17,6 @@
 
 FROM arrow:cpp
 
-# get the stuff
-ADD r /arrow/r
-
 # Configure
 ENV CC=gcc \
     CXX=g++
@@ -56,8 +53,12 @@ RUN apt install -y \
         'testthat'), \
         repos = 'http://cran.rstudio.com')"
 
+# Tell R where it can find the source code for arrow
+ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/build/cpp/src/arrow
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/build/r/src
+
 # build, install, test R package
-CMD arrow/ci/docker_build_cpp.sh && \
+CMD /arrow/ci/docker_build_cpp.sh && \
     cd /arrow/r && \
     R CMD build . && \
     R CMD INSTALL $(ls | grep arrow_*.tar.gz) && \
