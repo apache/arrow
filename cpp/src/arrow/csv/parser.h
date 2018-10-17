@@ -73,7 +73,8 @@ class ARROW_EXPORT BlockParser {
 
   /// \brief Visit parsed values in a column
   ///
-  /// The signature of the visitor is (const uint8_t* data, uint32_t size, bool quoted)
+  /// The signature of the visitor is
+  /// Status(const uint8_t* data, uint32_t size, bool quoted)
   template <typename Visitor>
   Status VisitColumn(int32_t col_index, Visitor&& visit) const {
 #ifdef CSV_PARSER_USE_BITFIELD

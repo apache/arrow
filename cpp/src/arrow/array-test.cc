@@ -1494,6 +1494,44 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   }
 }
 
+TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
+  vector<string> strings = {"", "bb", "a", "", "ccc"};
+  vector<uint8_t> is_null = {0, 0, 0, 1, 0};
+
+  int N = static_cast<int>(strings.size());
+  int reps = 10;
+
+  ASSERT_OK(builder_->Reserve(5));
+  ASSERT_OK(builder_->ReserveData(6));
+
+  for (int j = 0; j < reps; ++j) {
+    for (int i = 0; i < N; ++i) {
+      if (is_null[i]) {
+        ASSERT_OK(builder_->AppendNull());
+      } else {
+        builder_->UnsafeAppend(strings[i]);
+      }
+    }
+  }
+  Done();
+  ASSERT_OK(ValidateArray(*result_));
+  ASSERT_EQ(reps * N, result_->length());
+  ASSERT_EQ(reps, result_->null_count());
+  ASSERT_EQ(reps * 6, result_->value_data()->size());
+
+  int32_t length;
+  for (int i = 0; i < N * reps; ++i) {
+    if (is_null[i % N]) {
+      ASSERT_TRUE(result_->IsNull(i));
+    } else {
+      ASSERT_FALSE(result_->IsNull(i));
+      const uint8_t* vals = result_->GetValue(i, &length);
+      ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
+      ASSERT_EQ(0, std::memcmp(vals, strings[i % N].data(), length));
+    }
+  }
+}
+
 TEST_F(TestBinaryBuilder, TestCapacityReserve) {
   vector<string> strings = {"aaaaa", "bbbbbbbbbb", "ccccccccccccccc", "dddddddddd"};
   int N = static_cast<int>(strings.size());

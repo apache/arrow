@@ -208,7 +208,8 @@ Status VarSizeBinaryConverter<T>::Convert(const BlockParser& parser, int32_t col
   // TODO handle nulls
 
   auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-    return builder.Append(data, size);
+    builder.UnsafeAppend(data, size);
+    return Status::OK();
   };
   RETURN_NOT_OK(builder.Resize(parser.num_rows()));
   RETURN_NOT_OK(builder.ReserveData(parser.num_bytes()));
@@ -282,7 +283,8 @@ Status NumericConverter<T>::Convert(const BlockParser& parser, int32_t col_index
             !converter(reinterpret_cast<const char*>(data), size, &value))) {
       return GenericConversionError(type_, data, size);
     }
-    return builder.Append(value);
+    builder.UnsafeAppend(value);
+    return Status::OK();
   };
   RETURN_NOT_OK(builder.Resize(parser.num_rows()));
   RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
