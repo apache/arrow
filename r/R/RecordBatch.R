@@ -107,3 +107,15 @@ read_record_batch.raw <- function(stream){
   read_record_batch(stream)
 }
 
+#' Read Record Batch Stream
+#'
+#' Reads a stream of \code{arrow::RecordBatch} from a \code{raw()} vector
+#' using \code{arrow::RecordBatchStreamReader} and returns a data frame
+#' for each record batch.
+#'
+#' @param stream a \code{raw()} containing a stream of record batches.
+#'
+#' @export
+read_record_batch_stream <- function(stream) {
+  read_record_batch_stream_(stream)
+}
