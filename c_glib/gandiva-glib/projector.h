@@ -36,8 +36,10 @@ struct _GGandivaProjectorClass
 };
 
 GGandivaProjector *ggandiva_projector_new(GArrowSchema *schema,
-                                          GList *expressions);
+                                          GList *expressions,
+                                          GError **error);
 GList *ggandiva_projector_evaluate(GGandivaProjector *projector,
-                                   GArrowRecordBatch *record_batch);
+                                   GArrowRecordBatch *record_batch,
+                                   GError **error);
 
 G_END_DECLS

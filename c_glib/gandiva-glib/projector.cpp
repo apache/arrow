@@ -25,6 +25,7 @@
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 
+#include <gandiva-glib/error.hpp>
 #include <gandiva-glib/expression.hpp>
 #include <gandiva-glib/projector.hpp>
 
@@ -115,15 +116,17 @@ ggandiva_projector_class_init(GGandivaProjectorClass *klass)
  * ggandiva_projector_new:
  * @schema: A #GArrowSchema.
  * @expressions: (element-type GGandivaExpression): The built expressions.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: A newly created #GGandivaProjector on success,
+ * Returns: (nullable): A newly created #GGandivaProjector on success,
  *   %NULL on error.
  *
  * Since: 0.12.0
  */
 GGandivaProjector *
 ggandiva_projector_new(GArrowSchema *schema,
-                       GList *expressions)
+                       GList *expressions,
+                       GError **error)
 {
   auto arrow_schema = garrow_schema_get_raw(schema);
   std::vector<std::shared_ptr<gandiva::Expression>> gandiva_expressions;
@@ -137,22 +140,28 @@ ggandiva_projector_new(GArrowSchema *schema,
     gandiva_projector->Make(arrow_schema,
                             gandiva_expressions,
                             &gandiva_projector);
-  return ggandiva_projector_new_raw(&gandiva_projector);
+  if (ggandiva_error_check(error, status, "[projector][new]")) {
+    return ggandiva_projector_new_raw(&gandiva_projector);
+  } else {
+    return NULL;
+  }
 }
 
 /**
  * ggandiva_projector_evaluate:
  * @projector: A #GGandivaProjector.
  * @record_batch: A #GArrowRecordBatch.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (element-type GArrowArray) (transfer full):
+ * Returns: (nullable) (element-type GArrowArray) (transfer full):
  *   The #GArrowArray as the result evaluated on success, %NULL on error.
  *
  * Since: 0.12.0
  */
 GList *
 ggandiva_projector_evaluate(GGandivaProjector *projector,
-                            GArrowRecordBatch *record_batch)
+                            GArrowRecordBatch *record_batch,
+                            GError **error)
 {
   auto gandiva_projector = ggandiva_projector_get_raw(projector);
   auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
@@ -162,13 +171,17 @@ ggandiva_projector_evaluate(GGandivaProjector *projector,
     gandiva_projector->Evaluate(*arrow_record_batch,
                                 memory_pool,
                                 &arrow_arrays);
-  GList *arrays = NULL;
-  for (auto arrow_array : arrow_arrays) {
-    auto array = garrow_array_new_raw(&arrow_array);
-    arrays = g_list_prepend(arrays, array);
-  }
+  if (ggandiva_error_check(error, status, "[projector][evaluate]")) {
+    GList *arrays = NULL;
+    for (auto arrow_array : arrow_arrays) {
+      auto array = garrow_array_new_raw(&arrow_array);
+      arrays = g_list_prepend(arrays, array);
+    }
 
-  return g_list_reverse(arrays);
+    return g_list_reverse(arrays);
+  } else {
+    return NULL;
+  }
 }
 
 G_END_DECLS
