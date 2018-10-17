@@ -44,13 +44,22 @@ fn round_upto_power_of_2(num: i64, factor: i64) -> i64 {
 /// Returns whether bit at position `i` in `data` is set or not
 #[inline]
 pub fn get_bit(data: &[u8], i: i64) -> bool {
-    (data[(i / 8) as usize] & BIT_MASK[(i % 8) as usize]) != 0
+    (data[(i >> 3) as usize] & BIT_MASK[(i & 7) as usize]) != 0
+}
+
+/// Returns whether bit at position `i` in `data` is set or not.
+///
+/// Note this doesn't do any bound checking, for performance reason. The caller is
+/// responsible to guarantee that `i` is within bounds.
+#[inline]
+pub unsafe fn get_bit_raw(data: *const u8, i: i64) -> bool {
+    (*data.offset((i >> 3) as isize) & BIT_MASK[(i & 7) as usize]) != 0
 }
 
 /// Sets bit at position `i` for `data`
 #[inline]
 pub fn set_bit(data: &mut [u8], i: i64) {
-    data[(i / 8) as usize] |= BIT_MASK[(i % 8) as usize]
+    data[(i >> 3) as usize] |= BIT_MASK[(i & 7) as usize]
 }
 
 /// Returns the number of 1-bits in `data`
@@ -68,8 +77,8 @@ pub fn count_set_bits(data: &[u8]) -> i64 {
 pub fn count_set_bits_offset(data: &[u8], offset: i64) -> i64 {
     debug_assert!(offset <= (data.len() * 8) as i64);
 
-    let start_byte_pos = (offset / 8) as usize;
-    let start_bit_pos = offset % 8;
+    let start_byte_pos = (offset >> 3) as usize;
+    let start_bit_pos = offset & 7;
 
     if start_bit_pos == 0 {
         count_set_bits(&data[start_byte_pos..])
@@ -83,6 +92,16 @@ pub fn count_set_bits_offset(data: &[u8], offset: i64) -> i64 {
         }
         result
     }
+}
+
+/// Returns the ceil of `value`/`divisor`
+#[inline]
+pub fn ceil(value: i64, divisor: i64) -> i64 {
+    let mut result = value / divisor;
+    if value % divisor != 0 {
+        result += 1
+    };
+    result
 }
 
 #[cfg(test)]
@@ -127,6 +146,28 @@ mod tests {
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 13));
         assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 14));
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 15));
+    }
+
+    #[test]
+    fn test_get_bit_raw() {
+        const NUM_BYTE: usize = 10;
+        let mut buf = vec![0; NUM_BYTE];
+        let mut expected = vec![];
+        let mut rng = thread_rng();
+        for i in 0..8 * NUM_BYTE {
+            let b = rng.gen_bool(0.5);
+            expected.push(b);
+            if b {
+                set_bit(&mut buf[..], i as i64)
+            }
+        }
+
+        let raw_ptr = buf.as_ptr();
+        for (i, b) in expected.iter().enumerate() {
+            unsafe {
+                assert_eq!(*b, get_bit_raw(raw_ptr, i as i64));
+            }
+        }
     }
 
     #[test]
@@ -178,4 +219,18 @@ mod tests {
         assert_eq!(0, count_set_bits_offset(&[0b11111111, 0b11111111], 16));
     }
 
+    #[test]
+    fn test_ceil() {
+        assert_eq!(ceil(0, 1), 0);
+        assert_eq!(ceil(1, 1), 1);
+        assert_eq!(ceil(1, 2), 1);
+        assert_eq!(ceil(1, 8), 1);
+        assert_eq!(ceil(7, 8), 1);
+        assert_eq!(ceil(8, 8), 1);
+        assert_eq!(ceil(9, 8), 2);
+        assert_eq!(ceil(9, 9), 1);
+        assert_eq!(ceil(10000000000, 10), 1000000000);
+        assert_eq!(ceil(10, 10000000000), 1);
+        assert_eq!(ceil(10000000000, 1000000000), 10);
+    }
 }

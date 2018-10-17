@@ -18,8 +18,8 @@
 ///! Array types
 use std::any::Any;
 use std::convert::From;
+use std::io::Write;
 use std::mem;
-use std::ptr;
 use std::sync::Arc;
 
 use array_data::*;
@@ -208,30 +208,28 @@ macro_rules! def_primitive_array {
                 const TY_SIZE: usize = mem::size_of::<$native_ty>();
                 const NULL: [u8; TY_SIZE] = [0; TY_SIZE];
 
-                let data_len = data.len() as i64;
-                let size = bit_util::round_upto_multiple_of_64(data_len) as usize;
-                let mut null_buffer = Vec::with_capacity(size);
-                unsafe {
-                    ptr::write_bytes(null_buffer.as_mut_ptr(), 0, size);
-                    null_buffer.set_len(size);
-                }
-                let mut value_buffer: Vec<u8> = Vec::with_capacity(size * TY_SIZE);
+                let data_len = data.len();
+                let mut null_buf = MutableBuffer::new(data_len).with_bitset(data_len, false);
+                let mut val_buf = MutableBuffer::new(data_len * TY_SIZE);
 
-                let mut i = 0;
-                for n in data {
-                    if let Some(v) = n {
-                        bit_util::set_bit(&mut null_buffer[..], i);
-                        value_buffer.extend_from_slice(&v.to_byte_slice());
-                    } else {
-                        value_buffer.extend_from_slice(&NULL);
+                {
+                    let null_slice = null_buf.data_mut();
+                    for (i, v) in data.iter().enumerate() {
+                        if let Some(n) = v {
+                            bit_util::set_bit(null_slice, i as i64);
+                            // unwrap() in the following should be safe here since we've
+                            // made sure enough space is allocated for the values.
+                            val_buf.write(&n.to_byte_slice()).unwrap();
+                        } else {
+                            val_buf.write(&NULL).unwrap();
+                        }
                     }
-                    i += 1;
                 }
 
                 let array_data = ArrayData::builder($data_ty)
-                    .len(data_len)
-                    .add_buffer(Buffer::from(Buffer::from(value_buffer)))
-                    .null_bit_buffer(Buffer::from(null_buffer))
+                    .len(data_len as i64)
+                    .add_buffer(val_buf.freeze())
+                    .null_bit_buffer(null_buf.freeze())
                     .build();
                 PrimitiveArray::from(array_data)
             }
@@ -273,7 +271,6 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
     }
 }
 
-def_primitive_array!(DataType::Boolean, bool);
 def_primitive_array!(DataType::UInt8, u8);
 def_primitive_array!(DataType::UInt16, u16);
 def_primitive_array!(DataType::UInt32, u32);
@@ -284,6 +281,123 @@ def_primitive_array!(DataType::Int32, i32);
 def_primitive_array!(DataType::Int64, i64);
 def_primitive_array!(DataType::Float32, f32);
 def_primitive_array!(DataType::Float64, f64);
+
+/// Array whose elements are of boolean types.
+pub struct BooleanArray {
+    data: ArrayDataRef,
+    raw_values: RawPtrBox<u8>,
+}
+
+impl BooleanArray {
+    pub fn new(length: i64, values: Buffer, null_count: i64, offset: i64) -> Self {
+        let array_data = ArrayData::builder(DataType::Boolean)
+            .len(length)
+            .add_buffer(values)
+            .null_count(null_count)
+            .offset(offset)
+            .build();
+        BooleanArray::from(array_data)
+    }
+
+    /// Returns a `Buffer` holds all the values of this array.
+    ///
+    /// Note this doesn't take account into the offset of this array.
+    pub fn values(&self) -> Buffer {
+        self.data.buffers()[0].clone()
+    }
+
+    /// Returns the boolean value at index `i`.
+    pub fn value(&self, i: i64) -> bool {
+        let offset = i + self.offset();
+        assert!(offset < self.data.len() as i64);
+        unsafe { bit_util::get_bit_raw(self.raw_values.get(), offset) }
+    }
+}
+
+/// Constructs a boolean array from a vector. Should only be used for testing.
+impl From<Vec<bool>> for BooleanArray {
+    fn from(data: Vec<bool>) -> Self {
+        let num_byte = bit_util::ceil(data.len() as i64, 8) as usize;
+        let mut mut_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
+        {
+            let mut_slice = mut_buf.data_mut();
+            for (i, b) in data.iter().enumerate() {
+                if *b {
+                    bit_util::set_bit(mut_slice, i as i64);
+                }
+            }
+        }
+        let array_data = ArrayData::builder(DataType::Boolean)
+            .len(data.len() as i64)
+            .add_buffer(mut_buf.freeze())
+            .build();
+        BooleanArray::from(array_data)
+    }
+}
+
+impl From<Vec<Option<bool>>> for BooleanArray {
+    fn from(data: Vec<Option<bool>>) -> Self {
+        let data_len = data.len() as i64;
+        let num_byte = bit_util::ceil(data_len, 8) as usize;
+        let mut null_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
+        let mut val_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
+
+        {
+            let null_slice = null_buf.data_mut();
+            let val_slice = val_buf.data_mut();
+
+            for (i, v) in data.iter().enumerate() {
+                if let Some(b) = v {
+                    bit_util::set_bit(null_slice, i as i64);
+                    if *b {
+                        bit_util::set_bit(val_slice, i as i64);
+                    }
+                }
+            }
+        }
+
+        let array_data = ArrayData::builder(DataType::Boolean)
+            .len(data_len)
+            .add_buffer(val_buf.freeze())
+            .null_bit_buffer(null_buf.freeze())
+            .build();
+        BooleanArray::from(array_data)
+    }
+}
+
+/// Constructs a `BooleanArray` from an array data reference.
+impl From<ArrayDataRef> for BooleanArray {
+    fn from(data: ArrayDataRef) -> Self {
+        assert_eq!(
+            data.buffers().len(),
+            1,
+            "BooleanArray data should contain a single buffer only (values buffer)"
+        );
+        let raw_values = data.buffers()[0].raw_data();
+        assert!(
+            memory::is_aligned::<u8>(raw_values, mem::align_of::<u8>()),
+            "memory is not aligned"
+        );
+        Self {
+            data,
+            raw_values: RawPtrBox::new(raw_values),
+        }
+    }
+}
+
+impl Array for BooleanArray {
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    fn data(&self) -> ArrayDataRef {
+        self.data.clone()
+    }
+
+    fn data_ref(&self) -> &ArrayDataRef {
+        &self.data
+    }
+}
 
 /// A list array where each element is a variable-sized sequence of values with the same
 /// type.
@@ -554,7 +668,7 @@ impl From<Vec<(Field, ArrayRef)>> for StructArray {
 mod tests {
     use std::thread;
 
-    use super::{Array, BinaryArray, ListArray, PrimitiveArray, StructArray};
+    use super::*;
     use array_data::ArrayData;
     use buffer::Buffer;
     use datatypes::{DataType, Field, ToByteSlice};
@@ -565,35 +679,35 @@ mod tests {
     fn test_primitive_array_from_vec() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
         let buf2 = buf.clone();
-        let pa = PrimitiveArray::<i32>::new(5, buf, 0, 0);
-        let slice = unsafe { ::std::slice::from_raw_parts(pa.raw_values(), 5) };
-        assert_eq!(buf2, pa.values());
+        let arr = PrimitiveArray::<i32>::new(5, buf, 0, 0);
+        let slice = unsafe { ::std::slice::from_raw_parts(arr.raw_values(), 5) };
+        assert_eq!(buf2, arr.values());
         assert_eq!(&[0, 1, 2, 3, 4], slice);
-        assert_eq!(5, pa.len());
-        assert_eq!(0, pa.offset());
-        assert_eq!(0, pa.null_count());
+        assert_eq!(5, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
         for i in 0..5 {
-            assert!(!pa.is_null(i));
-            assert!(pa.is_valid(i));
-            assert_eq!(i as i32, pa.value(i));
+            assert!(!arr.is_null(i));
+            assert!(arr.is_valid(i));
+            assert_eq!(i as i32, arr.value(i));
         }
     }
 
     #[test]
     fn test_primitive_array_from_vec_option() {
         // Test building a primitive array with null values
-        let pa = PrimitiveArray::<i32>::from(vec![Some(0), None, Some(2), None, Some(4)]);
-        assert_eq!(5, pa.len());
-        assert_eq!(0, pa.offset());
-        assert_eq!(2, pa.null_count());
+        let arr = PrimitiveArray::<i32>::from(vec![Some(0), None, Some(2), None, Some(4)]);
+        assert_eq!(5, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(2, arr.null_count());
         for i in 0..5 {
             if i % 2 == 0 {
-                assert!(!pa.is_null(i));
-                assert!(pa.is_valid(i));
-                assert_eq!(i as i32, pa.value(i));
+                assert!(!arr.is_null(i));
+                assert!(arr.is_valid(i));
+                assert_eq!(i as i32, arr.value(i));
             } else {
-                assert!(pa.is_null(i));
-                assert!(!pa.is_valid(i));
+                assert!(arr.is_null(i));
+                assert!(!arr.is_valid(i));
             }
         }
     }
@@ -608,12 +722,12 @@ mod tests {
             .offset(2)
             .add_buffer(buf)
             .build();
-        let pa = PrimitiveArray::<i32>::from(data);
-        assert_eq!(buf2, pa.values());
-        assert_eq!(5, pa.len());
-        assert_eq!(0, pa.null_count());
+        let arr = PrimitiveArray::<i32>::from(data);
+        assert_eq!(buf2, arr.values());
+        assert_eq!(5, arr.len());
+        assert_eq!(0, arr.null_count());
         for i in 0..3 {
-            assert_eq!((i + 2) as i32, pa.value(i));
+            assert_eq!((i + 2) as i32, arr.value(i));
         }
     }
 
@@ -624,6 +738,88 @@ mod tests {
     fn test_primitive_array_invalid_buffer_len() {
         let data = ArrayData::builder(DataType::Int32).len(5).build();
         PrimitiveArray::<i32>::from(data);
+    }
+
+    #[test]
+    fn test_boolean_array_new() {
+        // 00000010 01001000
+        let buf = Buffer::from([72_u8, 2_u8]);
+        let buf2 = buf.clone();
+        let arr = BooleanArray::new(10, buf, 0, 0);
+        assert_eq!(buf2, arr.values());
+        assert_eq!(10, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        for i in 0..10 {
+            assert!(!arr.is_null(i));
+            assert!(arr.is_valid(i));
+            assert_eq!(i == 3 || i == 6 || i == 9, arr.value(i), "failed at {}", i)
+        }
+    }
+
+    #[test]
+    fn test_boolean_array_from_vec() {
+        let buf = Buffer::from([10_u8]);
+        let arr = BooleanArray::from(vec![false, true, false, true]);
+        assert_eq!(buf, arr.values());
+        assert_eq!(4, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        for i in 0..4 {
+            assert!(!arr.is_null(i));
+            assert!(arr.is_valid(i));
+            assert_eq!(i == 1 || i == 3, arr.value(i), "failed at {}", i)
+        }
+    }
+
+    #[test]
+    fn test_boolean_array_from_vec_option() {
+        let buf = Buffer::from([10_u8]);
+        let arr = BooleanArray::from(vec![Some(false), Some(true), None, Some(true)]);
+        assert_eq!(buf, arr.values());
+        assert_eq!(4, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(1, arr.null_count());
+        for i in 0..4 {
+            if i == 2 {
+                assert!(arr.is_null(i));
+                assert!(!arr.is_valid(i));
+            } else {
+                assert!(!arr.is_null(i));
+                assert!(arr.is_valid(i));
+                assert_eq!(i == 1 || i == 3, arr.value(i), "failed at {}", i)
+            }
+        }
+    }
+
+    #[test]
+    fn test_boolean_array_builder() {
+        // Test building a boolean array with ArrayData builder and offset
+        // 000011011
+        let buf = Buffer::from([27_u8]);
+        let buf2 = buf.clone();
+        let data = ArrayData::builder(DataType::Boolean)
+            .len(5)
+            .offset(2)
+            .add_buffer(buf)
+            .build();
+        let arr = BooleanArray::from(data);
+        assert_eq!(buf2, arr.values());
+        assert_eq!(5, arr.len());
+        assert_eq!(2, arr.offset());
+        assert_eq!(0, arr.null_count());
+        for i in 0..3 {
+            assert_eq!(i != 0, arr.value(i), "failed at {}", i);
+        }
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "BooleanArray data should contain a single buffer only (values buffer)"
+    )]
+    fn test_boolean_array_invalid_buffer_len() {
+        let data = ArrayData::builder(DataType::Boolean).len(5).build();
+        BooleanArray::from(data);
     }
 
     #[test]
@@ -832,7 +1028,7 @@ mod tests {
     fn test_struct_array_from() {
         let boolean_data = ArrayData::builder(DataType::Boolean)
             .len(4)
-            .add_buffer(Buffer::from([false, false, true, true].to_byte_slice()))
+            .add_buffer(Buffer::from([12_u8]))
             .build();
         let int_data = ArrayData::builder(DataType::Int32)
             .len(4)
@@ -841,7 +1037,7 @@ mod tests {
         let struct_array = StructArray::from(vec![
             (
                 Field::new("b", DataType::Boolean, false),
-                Arc::new(PrimitiveArray::from(vec![false, false, true, true])) as Arc<Array>,
+                Arc::new(BooleanArray::from(vec![false, false, true, true])) as Arc<Array>,
             ),
             (
                 Field::new("c", DataType::Int32, false),

@@ -40,7 +40,7 @@ struct BufferData {
     /// The raw pointer into the buffer bytes
     ptr: *const u8,
 
-    /// The length of the buffer
+    /// The length (num of bytes) of the buffer
     len: usize,
 }
 
@@ -160,6 +160,22 @@ impl MutableBuffer {
         }
     }
 
+    /// Set the bits in the range of `[0, end)` to 0 (if `val` is false), or 1 (if `val`
+    /// is true). Also extend the length of this buffer to be `end`.
+    ///
+    /// This is useful when one wants to clear (or set) the bits and then manipulate
+    /// the buffer directly (e.g., modifying the buffer by holding a mutable reference
+    /// from `data_mut()`).
+    pub fn with_bitset(mut self, end: usize, val: bool) -> Self {
+        assert!(end < self.capacity);
+        let v = if val { 1 } else { 0 };
+        unsafe {
+            ::std::ptr::write_bytes(self.data, v, end);
+            self.len = end;
+        }
+        self
+    }
+
     /// Adjust the capacity of this buffer to be at least `new_capacity`.
     ///
     /// If the `new_capacity` is less than the current capacity, nothing is done and `Ok`
@@ -201,6 +217,11 @@ impl MutableBuffer {
     /// Returns the data stored in this buffer as a slice.
     pub fn data(&self) -> &[u8] {
         unsafe { ::std::slice::from_raw_parts(self.raw_data(), self.len()) }
+    }
+
+    /// Returns the data stored in this buffer as a mutable slice.
+    pub fn data_mut(&mut self) -> &mut [u8] {
+        unsafe { ::std::slice::from_raw_parts_mut(self.raw_data() as *mut u8, self.len()) }
     }
 
     /// Returns a raw pointer for this buffer.
