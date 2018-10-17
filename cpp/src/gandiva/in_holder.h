@@ -33,22 +33,22 @@ namespace helpers {
 /// Function Holder for IN Expressions
 class InHolder {
  public:
-  explicit InHolder(const VariantSet& constants) : constants_(constants) {}
+  explicit InHolder(const VariantSet& values) : values(values) {}
 
   bool HasValue(int32_t value) const {
-    return constants_.find(Variant(value)) != constants_.end();
+    return values.find(Variant(value)) != values.end();
   }
 
   bool HasValue(int64_t value) const {
-    return constants_.find(Variant(value)) != constants_.end();
+    return values.find(Variant(value)) != values.end();
   }
 
   bool HasValue(std::string value) const {
-    return constants_.find(Variant(value)) != constants_.end();
+    return values.find(Variant(value)) != values.end();
   }
 
  private:
-  VariantSet constants_;
+  VariantSet values;
 };
 
 #ifdef GDV_HELPERS

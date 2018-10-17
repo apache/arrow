@@ -88,23 +88,23 @@ class TreeExprBuilder {
                                     const FieldVector& in_fields);
 
   /// \brief creates an in expression
-  static NodePtr MakeInExpressionInt(NodePtr function,
-                                     std::unordered_set<int32_t>& constants);
-  static NodePtr MakeInExpressionLong(NodePtr function,
-                                      std::unordered_set<int64_t>& constants);
-  static NodePtr MakeInExpressionString(NodePtr function,
-                                        std::unordered_set<std::string>& constants);
-  static NodePtr MakeInExpressionBinary(NodePtr function,
-                                        std::unordered_set<std::string>& constants);
+  static NodePtr MakeInExpressionInt(NodePtr node,
+                                     const std::unordered_set<int32_t>& values);
+  static NodePtr MakeInExpressionLong(NodePtr node,
+                                      const std::unordered_set<int64_t>& values);
+  static NodePtr MakeInExpressionString(NodePtr node,
+                                        const std::unordered_set<std::string>& values);
+  static NodePtr MakeInExpressionBinary(NodePtr node,
+                                        const std::unordered_set<std::string>& values);
   /// \brief Date as millis since epoch.
-  static NodePtr MakeInExpressionDate(NodePtr function,
-                                      std::unordered_set<int64_t>& constants);
+  static NodePtr MakeInExpressionDate(NodePtr node,
+                                      const std::unordered_set<int64_t>& values);
   /// \brief Time as millis of day
-  static NodePtr MakeInExpressionTime(NodePtr function,
-                                      std::unordered_set<int32_t>& constants);
+  static NodePtr MakeInExpressionTime(NodePtr node,
+                                      const std::unordered_set<int32_t>& values);
   /// \brief Timestamp as millis since epoch.
-  static NodePtr MakeInExpressionTimeStamp(NodePtr function,
-                                           std::unordered_set<int64_t>& constants);
+  static NodePtr MakeInExpressionTimeStamp(NodePtr node,
+                                           const std::unordered_set<int64_t>& values);
 };
 
 }  // namespace gandiva

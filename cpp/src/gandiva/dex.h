@@ -281,13 +281,13 @@ class InExprDex : public Dex {
       : args_(args) {
     in_holder_.reset(new InHolder(constants));
     switch (constants.begin()->which()) {
-      case 0:
+      case VariantType::INT32:
         runtime_function_ = "in_expr_lookup_int32";
         break;
-      case 1:
+      case VariantType::INT64:
         runtime_function_ = "in_expr_lookup_int64";
         break;
-      case 2:
+      case VariantType::STRING:
         runtime_function_ = "in_expr_lookup_utf8";
         break;
       default:

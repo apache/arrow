@@ -183,7 +183,7 @@ Status ExprDecomposer::Visit(const InExpressionNode& node) {
   args.push_back(result());
 
   // In always outpus valid results, so no validity dex
-  auto value_dex = std::make_shared<InExprDex>(args, node.constants());
+  auto value_dex = std::make_shared<InExprDex>(args, node.values());
   result_ = std::make_shared<ValueValidityPair>(value_dex);
   return Status::OK();
 }

@@ -221,12 +221,12 @@ class BooleanNode : public Node {
 /// \brief Node in expression tree, representing an in expression.
 class InExpressionNode : public Node {
  public:
-  InExpressionNode(NodePtr eval_expr, const VariantSet& constants)
-      : Node(arrow::boolean()), eval_expr_(eval_expr), constants_(constants) {}
+  InExpressionNode(NodePtr eval_expr, const VariantSet& values)
+      : Node(arrow::boolean()), eval_expr_(eval_expr), values_(values) {}
 
   const NodePtr& eval_expr() const { return eval_expr_; }
 
-  const VariantSet& constants() const { return constants_; }
+  const VariantSet& values() const { return values_; }
 
   Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
 
@@ -234,12 +234,12 @@ class InExpressionNode : public Node {
     std::stringstream ss;
     ss << eval_expr_->ToString() << " IN (";
     bool add_comma = false;
-    for (auto& constant : constants_) {
+    for (auto& value : values_) {
       if (add_comma) {
         ss << ", ";
       }
       // add type in the front to differentiate
-      ss << "(" << constant.which() << ")" << boost::lexical_cast<std::string>(constant);
+      ss << "(" << value.which() << ")" << boost::lexical_cast<std::string>(value);
       add_comma = true;
     }
     ss << ")";
@@ -248,7 +248,7 @@ class InExpressionNode : public Node {
 
  private:
   NodePtr eval_expr_;
-  VariantSet constants_;
+  VariantSet values_;
 };
 
 }  // namespace gandiva

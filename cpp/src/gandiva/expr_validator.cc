@@ -163,31 +163,31 @@ Status ExprValidator::Visit(const BooleanNode& node) {
 Status ExprValidator::Visit(const InExpressionNode& node) {
   Status status;
 
-  if (node.constants().size() == 0) {
+  if (node.values().size() == 0) {
     std::stringstream ss;
     ss << "IN Expression needs a non-empty constant list to match.";
     return Status::ExpressionValidationError(ss.str());
   }
 
-  int firstConstantType = node.constants().begin()->which();
-  DataTypePtr constant_type;
-  switch (firstConstantType) {
-    case 0:
-      constant_type = arrow::int32();
+  int first_value = node.values().begin()->which();
+  DataTypePtr value_type;
+  switch (first_value) {
+    case VariantType::INT32:
+      value_type = arrow::int32();
       break;
-    case 1:
-      constant_type = arrow::int64();
+    case VariantType::INT64:
+      value_type = arrow::int64();
       break;
-    case 2:
-      constant_type = arrow::utf8();
+    case VariantType::STRING:
+      value_type = arrow::utf8();
       break;
     default:
       DCHECK(0);
   }
-  if (!node.eval_expr()->return_type()->Equals(constant_type)) {
+  if (!node.eval_expr()->return_type()->Equals(value_type)) {
     std::stringstream ss;
     ss << "Evaluation expression for IN clause returns "
-       << node.eval_expr()->return_type() << " constants are of type " << constant_type;
+       << node.eval_expr()->return_type() << " constants are of type " << value_type;
     return Status::ExpressionValidationError(ss.str());
   }
 

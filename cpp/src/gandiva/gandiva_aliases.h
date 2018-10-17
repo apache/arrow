@@ -66,6 +66,8 @@ using FuncSignatureVector = std::vector<FuncSignaturePtr>;
 using Variant = boost::variant<int32_t, int64_t, std::string>;
 using VariantSet = std::unordered_set<Variant, boost::hash<Variant>>;
 
+enum VariantType { INT32 = 0, INT64 = 1, STRING = 2 };
+
 }  // namespace gandiva
 
 #endif  // GANDIVA_ALIASES_H
