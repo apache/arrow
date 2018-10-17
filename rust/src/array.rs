@@ -309,8 +309,8 @@ impl BooleanArray {
     /// Returns the boolean value at index `i`.
     pub fn value(&self, i: i64) -> bool {
         let offset = i + self.offset();
-        assert!(offset < self.data.buffers()[0].len() as i64);
-        bit_util::get_bit_raw(self.raw_values.get(), offset)
+        assert!(offset < self.data.len() as i64);
+        unsafe { bit_util::get_bit_raw(self.raw_values.get(), offset) }
     }
 }
 

@@ -52,8 +52,8 @@ pub fn get_bit(data: &[u8], i: i64) -> bool {
 /// Note this doesn't do any bound checking, for performance reason. The caller is
 /// responsible to guarantee that `i` is within bounds.
 #[inline]
-pub fn get_bit_raw(data: *const u8, i: i64) -> bool {
-    unsafe { (*data.offset((i >> 3) as isize) & BIT_MASK[(i & 7) as usize]) != 0 }
+pub unsafe fn get_bit_raw(data: *const u8, i: i64) -> bool {
+    (*data.offset((i >> 3) as isize) & BIT_MASK[(i & 7) as usize]) != 0
 }
 
 /// Sets bit at position `i` for `data`
@@ -164,7 +164,9 @@ mod tests {
 
         let raw_ptr = buf.as_ptr();
         for (i, b) in expected.iter().enumerate() {
-            assert_eq!(*b, get_bit_raw(raw_ptr, i as i64));
+            unsafe {
+                assert_eq!(*b, get_bit_raw(raw_ptr, i as i64));
+            }
         }
     }
 
