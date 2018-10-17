@@ -18,19 +18,33 @@
 # under the License.
 
 sources = files(
+  'error.cpp',
   'expression.cpp',
   'projector.cpp',
 )
 
 c_headers = files(
+  'error.h',
   'expression.h',
   'projector.h',
 )
 
 cpp_headers = files(
+  'error.hpp',
   'expression.hpp',
   'projector.hpp',
 )
+
+enums = gnome.mkenums('enums',
+                      sources: c_headers,
+                      identifier_prefix: 'GGandiva',
+                      symbol_prefix: 'ggandiva',
+                      c_template: 'gandiva-enums.c.template',
+                      h_template: 'gandiva-enums.h.template',
+                      install_dir: join_paths(include_dir, meson.project_name()),
+                      install_header: true)
+enums_source = enums[0]
+enums_header = enums[1]
 
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: meson.project_name())
@@ -41,7 +55,7 @@ dependencies = [
   arrow_glib,
 ]
 libgandiva_glib = library('gandiva-glib',
-                          sources: sources,
+                          sources: sources + enums,
                           install: true,
                           dependencies: dependencies,
                           include_directories: base_include_directories,
@@ -49,7 +63,8 @@ libgandiva_glib = library('gandiva-glib',
                           version: library_version)
 gandiva_glib = declare_dependency(link_with: libgandiva_glib,
                                   include_directories: base_include_directories,
-                                  dependencies: dependencies)
+                                  dependencies: dependencies,
+                                  sources: enums_header)
 
 pkgconfig.generate(filebase: meson.project_name(),
                    name: 'Apache Gandiva GLib',
@@ -60,7 +75,7 @@ pkgconfig.generate(filebase: meson.project_name(),
 
 gnome.generate_gir(libgandiva_glib,
                    dependencies: declare_dependency(sources: arrow_glib_gir),
-                   sources: sources + c_headers,
+                   sources: sources + c_headers + enums,
                    namespace: 'Gandiva',
                    nsversion: api_version,
                    identifier_prefix: 'GGandiva',
