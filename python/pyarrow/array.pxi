@@ -1150,7 +1150,8 @@ cdef class StructArray(Array):
             if child == nullptr:
                 raise KeyError(index)
         elif isinstance(index, six.integer_types):
-            child = arr.field(_normalize_index(index, self.ap.num_fields()))
+            child = arr.field(
+                <int>_normalize_index(index, self.ap.num_fields()))
         else:
             raise TypeError('Expected integer or string index')
 
