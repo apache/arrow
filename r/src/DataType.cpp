@@ -115,7 +115,6 @@ SEXP list__(SEXP x) {
 
 template <typename T>
 std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(List x) {
-  int n = x.size();
   std::vector<std::shared_ptr<T>> vec;
   for (SEXP element : x) {
     vec.push_back(as<std::shared_ptr<T>>(element));
