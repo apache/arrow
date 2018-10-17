@@ -18,6 +18,10 @@
 class TestProjector < Test::Unit::TestCase
   include Helper::Buildable
 
+  def setup
+    omit("Gandiva is required") unless defined?(::Gandiva)
+  end
+
   def test_evaluate
     field1 = Arrow::Field.new("field1", Arrow::Int32DataType.new)
     field2 = Arrow::Field.new("field2", Arrow::Int32DataType.new)
