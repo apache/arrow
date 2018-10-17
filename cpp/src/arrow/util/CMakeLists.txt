@@ -95,6 +95,7 @@ ADD_ARROW_TEST(lazy-test)
 ADD_ARROW_TEST(logging-test)
 
 ADD_ARROW_BENCHMARK(bit-util-benchmark)
+ADD_ARROW_BENCHMARK(compression-benchmark)
 ADD_ARROW_BENCHMARK(decimal-benchmark)
 ADD_ARROW_BENCHMARK(lazy-benchmark)
 ADD_ARROW_BENCHMARK(number-parsing-benchmark)
