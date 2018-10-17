@@ -31,6 +31,7 @@ context_choice_ids = ['pyarrow.cuda', 'numba.cuda']
 
 
 def setup_module(module):
+    np.random.seed(1234)
     ctx1 = cuda.Context()
     nb_ctx1 = ctx1.to_numba()
     nb_ctx2 = nb_cuda.current_context()
@@ -50,7 +51,6 @@ def test_context(c):
     assert ctx.handle == ctx.to_numba().handle.value
     ctx2 = cuda.Context.from_numba(nb_ctx)
     assert ctx.handle == ctx2.handle
-
     size = 10
     buf = ctx.new_buffer(size)
     assert ctx.handle == buf.context.handle
@@ -64,8 +64,8 @@ def make_random_buffer(size, target='host', dtype='uint8', ctx=None):
         assert size >= 0
         buf = pa.allocate_buffer(size*dtype.itemsize)
         arr = np.frombuffer(buf, dtype=dtype)
-        arr[:] = np.random.randint(low=0, high=255, size=size*dtype.itemsize,
-                                   dtype=np.uint8).view(dtype=dtype)
+        arr[:] = np.random.randint(low=0, high=255, size=size,
+                                   dtype=np.uint8)
         return arr, buf
     elif target == 'device':
         arr, buf = make_random_buffer(size, target='host', dtype=dtype)
@@ -150,6 +150,5 @@ def test_pyarrow_jit(c, dtype):
     mem = cbuf.to_numba()
     darr = DeviceNDArray(arr.shape, arr.strides, arr.dtype, gpu_data=mem)
     increment_by_one[blockspergrid, threadsperblock](darr)
-    np.testing.assert_equal(np.frombuffer(cbuf.copy_to_host(),
-                                          dtype=arr.dtype),
-                            arr + 1)
+    arr1 = np.frombuffer(cbuf.copy_to_host(), dtype=arr.dtype)
+    np.testing.assert_equal(arr1, arr + 1)

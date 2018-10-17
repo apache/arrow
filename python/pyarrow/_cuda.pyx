@@ -146,7 +146,7 @@ cdef class Context:
         """Create device buffer from device address and size as a view.
 
         The caller is responsible for allocating and freeing the
-        memory as well as ensureing that the memory belongs to the
+        memory as well as ensuring that the memory belongs to the
         CUDA context that this Context instance holds.
 
         Parameters

@@ -38,6 +38,19 @@ struct CudaDevice {
   int64_t total_memory;
 };
 
+class ContextSaver {
+ public:
+  explicit ContextSaver(CUcontext new_context) : context_(NULL) {
+    cuCtxGetCurrent(&context_);
+    cuCtxSetCurrent(new_context);
+  }
+  ~ContextSaver() {
+    if (context_ != NULL) cuCtxSetCurrent(context_);
+  }
+ private:
+  CUcontext context_;
+};
+
 class CudaContext::CudaContextImpl {
  public:
   CudaContextImpl() : bytes_allocated_(0) {}
@@ -69,32 +82,25 @@ class CudaContext::CudaContextImpl {
   int64_t bytes_allocated() const { return bytes_allocated_.load(); }
 
   Status Allocate(int64_t nbytes, uint8_t** out) {
-    CU_RETURN_NOT_OK(cuCtxGetCurrent(&prev_context_));
-    CU_RETURN_NOT_OK(cuCtxSetCurrent(context_));
-
+    ContextSaver set_temporary(context_);
     CUdeviceptr data;
     CU_RETURN_NOT_OK(cuMemAlloc(&data, static_cast<size_t>(nbytes)));
     bytes_allocated_ += nbytes;
     *out = reinterpret_cast<uint8_t*>(data);
-    if (prev_context_ != NULL) CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
     return Status::OK();
   }
 
   Status CopyHostToDevice(void* dst, const void* src, int64_t nbytes) {
-    CU_RETURN_NOT_OK(cuCtxGetCurrent(&prev_context_));
-    CU_RETURN_NOT_OK(cuCtxSetCurrent(context_));
+    ContextSaver set_temporary(context_);
     CU_RETURN_NOT_OK(cuMemcpyHtoD(reinterpret_cast<CUdeviceptr>(dst), src,
                                   static_cast<size_t>(nbytes)));
-    if (prev_context_ != NULL) CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
     return Status::OK();
   }
 
   Status CopyDeviceToHost(void* dst, const void* src, int64_t nbytes) {
-    CU_RETURN_NOT_OK(cuCtxGetCurrent(&prev_context_));
-    CU_RETURN_NOT_OK(cuCtxSetCurrent(context_));
+    ContextSaver set_temporary(context_);
     CU_RETURN_NOT_OK(cuMemcpyDtoH(dst, reinterpret_cast<const CUdeviceptr>(src),
                                   static_cast<size_t>(nbytes)));
-    if (prev_context_ != NULL) CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
     return Status::OK();
   }
 
@@ -105,25 +111,21 @@ class CudaContext::CudaContextImpl {
   }
 
   Status ExportIpcBuffer(void* data, std::shared_ptr<CudaIpcMemHandle>* handle) {
-    CU_RETURN_NOT_OK(cuCtxGetCurrent(&prev_context_));
-    CU_RETURN_NOT_OK(cuCtxSetCurrent(context_));
+    ContextSaver set_temporary(context_);
     CUipcMemHandle cu_handle;
     CU_RETURN_NOT_OK(cuIpcGetMemHandle(&cu_handle, reinterpret_cast<CUdeviceptr>(data)));
     *handle = std::shared_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(&cu_handle));
-    if (prev_context_ != NULL) CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
     return Status::OK();
   }
 
   Status OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle, uint8_t** out) {
-    CU_RETURN_NOT_OK(cuCtxGetCurrent(&prev_context_));
-    CU_RETURN_NOT_OK(cuCtxSetCurrent(context_));
+    ContextSaver set_temporary(context_);
     auto handle = reinterpret_cast<const CUipcMemHandle*>(ipc_handle.handle());
 
     CUdeviceptr data;
     CU_RETURN_NOT_OK(
         cuIpcOpenMemHandle(&data, *handle, CU_IPC_MEM_LAZY_ENABLE_PEER_ACCESS));
     *out = reinterpret_cast<uint8_t*>(data);
-    if (prev_context_ != NULL) CU_RETURN_NOT_OK(cuCtxSetCurrent(prev_context_));
     return Status::OK();
   }
 
@@ -134,7 +136,6 @@ class CudaContext::CudaContextImpl {
  private:
   CudaDevice device_;
   CUcontext context_;
-  CUcontext prev_context_;
   bool is_open_;
 
   // So that we can utilize a CUcontext that was created outside this library
@@ -213,7 +214,7 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
       RETURN_NOT_OK(CreateSharedContext(device_number, ctx, &new_context));
       contexts_[device_number] = *out = new_context;
     } else {
-      if ((CUcontext)it->second.get()->handle() != ctx) {
+      if (it->second.get()->handle() != static_cast<void*>(ctx)) {
         std::shared_ptr<CudaContext> new_context;
         RETURN_NOT_OK(CreateSharedContext(device_number, ctx, &new_context));
         *out = new_context;
