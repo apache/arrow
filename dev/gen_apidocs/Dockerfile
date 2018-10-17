@@ -53,7 +53,7 @@ RUN arrow/ci/docker_install_conda.sh && \
         --file arrow/ci/conda_env_python.yml \
         numpydoc \
         sphinx \
-        sphinx_bootstrap_theme \
+        sphinx_rtd_theme \
         doxygen \
         maven && \
     conda clean --all -y
