@@ -122,10 +122,14 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     data: ArrayDataRef,
     /// Pointer to the value array. The lifetime of this must be <= to the value buffer
     /// stored in `data`, so it's safe to store.
+    /// Also note that boolean arrays are bit-packed, so although the underlying pointer is of type
+    /// bool it should be cast back to u8 before being used.
+    /// i.e. `self.raw_values.get() as *const u8`
     raw_values: RawPtrBox<T>,
 }
 
 /// Macro to define primitive arrays for different data types and native types.
+/// Boolean arrays are bit-packed and so are not defined by this macro
 macro_rules! def_primitive_array {
     ($data_ty:path, $native_ty:ident) => {
         impl PrimitiveArray<$native_ty> {
@@ -234,27 +238,27 @@ macro_rules! def_primitive_array {
                 PrimitiveArray::from(array_data)
             }
         }
-    };
-}
 
-/// Constructs a `PrimitiveArray` from an array data reference.
-impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
-    fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(
-            data.buffers().len(),
-            1,
-            "PrimitiveArray data should contain a single buffer only (values buffer)"
-        );
-        let raw_values = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned::<u8>(raw_values, mem::align_of::<T>()),
-            "memory is not aligned"
-        );
-        Self {
-            data,
-            raw_values: RawPtrBox::new(raw_values as *const T),
+        /// Constructs a `PrimitiveArray` from an array data reference.
+        impl From<ArrayDataRef> for PrimitiveArray<$native_ty> {
+            fn from(data: ArrayDataRef) -> Self {
+                assert_eq!(
+                    data.buffers().len(),
+                    1,
+                    "PrimitiveArray data should contain a single buffer only (values buffer)"
+                );
+                let raw_values = data.buffers()[0].raw_data();
+                assert!(
+                    memory::is_aligned::<u8>(raw_values, mem::align_of::<$native_ty>()),
+                    "memory is not aligned"
+                );
+                Self {
+                    data,
+                    raw_values: RawPtrBox::new(raw_values as *const $native_ty),
+                }
+            }
         }
-    }
+    };
 }
 
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
@@ -282,13 +286,8 @@ def_primitive_array!(DataType::Int64, i64);
 def_primitive_array!(DataType::Float32, f32);
 def_primitive_array!(DataType::Float64, f64);
 
-/// Array whose elements are of boolean types.
-pub struct BooleanArray {
-    data: ArrayDataRef,
-    raw_values: RawPtrBox<u8>,
-}
-
-impl BooleanArray {
+/// Specific implementation for Boolean arrays due to bit-packing
+impl PrimitiveArray<bool> {
     pub fn new(length: i64, values: Buffer, null_count: i64, offset: i64) -> Self {
         let array_data = ArrayData::builder(DataType::Boolean)
             .len(length)
@@ -296,7 +295,7 @@ impl BooleanArray {
             .null_count(null_count)
             .offset(offset)
             .build();
-        BooleanArray::from(array_data)
+        PrimitiveArray::from(array_data)
     }
 
     /// Returns a `Buffer` holds all the values of this array.
@@ -307,15 +306,15 @@ impl BooleanArray {
     }
 
     /// Returns the boolean value at index `i`.
+    ///
+    /// Note this doesn't do any bound checking, for performance reason.
     pub fn value(&self, i: i64) -> bool {
-        let offset = i + self.offset();
-        assert!(offset < self.data.len() as i64);
-        unsafe { bit_util::get_bit_raw(self.raw_values.get(), offset) }
+        unsafe { bit_util::get_bit_raw(self.raw_values.get() as *const u8, i + self.offset()) }
     }
 }
 
 /// Constructs a boolean array from a vector. Should only be used for testing.
-impl From<Vec<bool>> for BooleanArray {
+impl From<Vec<bool>> for PrimitiveArray<bool> {
     fn from(data: Vec<bool>) -> Self {
         let num_byte = bit_util::ceil(data.len() as i64, 8) as usize;
         let mut mut_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
@@ -331,11 +330,11 @@ impl From<Vec<bool>> for BooleanArray {
             .len(data.len() as i64)
             .add_buffer(mut_buf.freeze())
             .build();
-        BooleanArray::from(array_data)
+        PrimitiveArray::from(array_data)
     }
 }
 
-impl From<Vec<Option<bool>>> for BooleanArray {
+impl From<Vec<Option<bool>>> for PrimitiveArray<bool> {
     fn from(data: Vec<Option<bool>>) -> Self {
         let data_len = data.len() as i64;
         let num_byte = bit_util::ceil(data_len, 8) as usize;
@@ -361,17 +360,17 @@ impl From<Vec<Option<bool>>> for BooleanArray {
             .add_buffer(val_buf.freeze())
             .null_bit_buffer(null_buf.freeze())
             .build();
-        BooleanArray::from(array_data)
+        PrimitiveArray::from(array_data)
     }
 }
 
-/// Constructs a `BooleanArray` from an array data reference.
-impl From<ArrayDataRef> for BooleanArray {
+/// Constructs a `PrimitiveArray<bool>` from an array data reference.
+impl From<ArrayDataRef> for PrimitiveArray<bool> {
     fn from(data: ArrayDataRef) -> Self {
         assert_eq!(
             data.buffers().len(),
             1,
-            "BooleanArray data should contain a single buffer only (values buffer)"
+            "PrimitiveArray data should contain a single buffer only (values buffer)"
         );
         let raw_values = data.buffers()[0].raw_data();
         assert!(
@@ -380,24 +379,12 @@ impl From<ArrayDataRef> for BooleanArray {
         );
         Self {
             data,
-            raw_values: RawPtrBox::new(raw_values),
+            raw_values: RawPtrBox::new(raw_values as *const bool),
         }
     }
 }
 
-impl Array for BooleanArray {
-    fn as_any(&self) -> &Any {
-        self
-    }
-
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
-        &self.data
-    }
-}
+pub type BooleanArray = PrimitiveArray<bool>;
 
 /// A list array where each element is a variable-sized sequence of values with the same
 /// type.
@@ -745,7 +732,7 @@ mod tests {
         // 00000010 01001000
         let buf = Buffer::from([72_u8, 2_u8]);
         let buf2 = buf.clone();
-        let arr = BooleanArray::new(10, buf, 0, 0);
+        let arr = PrimitiveArray::<bool>::new(10, buf, 0, 0);
         assert_eq!(buf2, arr.values());
         assert_eq!(10, arr.len());
         assert_eq!(0, arr.offset());
@@ -760,7 +747,7 @@ mod tests {
     #[test]
     fn test_boolean_array_from_vec() {
         let buf = Buffer::from([10_u8]);
-        let arr = BooleanArray::from(vec![false, true, false, true]);
+        let arr = PrimitiveArray::<bool>::from(vec![false, true, false, true]);
         assert_eq!(buf, arr.values());
         assert_eq!(4, arr.len());
         assert_eq!(0, arr.offset());
@@ -775,7 +762,7 @@ mod tests {
     #[test]
     fn test_boolean_array_from_vec_option() {
         let buf = Buffer::from([10_u8]);
-        let arr = BooleanArray::from(vec![Some(false), Some(true), None, Some(true)]);
+        let arr = PrimitiveArray::<bool>::from(vec![Some(false), Some(true), None, Some(true)]);
         assert_eq!(buf, arr.values());
         assert_eq!(4, arr.len());
         assert_eq!(0, arr.offset());
@@ -803,7 +790,7 @@ mod tests {
             .offset(2)
             .add_buffer(buf)
             .build();
-        let arr = BooleanArray::from(data);
+        let arr = PrimitiveArray::<bool>::from(data);
         assert_eq!(buf2, arr.values());
         assert_eq!(5, arr.len());
         assert_eq!(2, arr.offset());
@@ -815,11 +802,11 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "BooleanArray data should contain a single buffer only (values buffer)"
+        expected = "PrimitiveArray data should contain a single buffer only (values buffer)"
     )]
     fn test_boolean_array_invalid_buffer_len() {
         let data = ArrayData::builder(DataType::Boolean).len(5).build();
-        BooleanArray::from(data);
+        PrimitiveArray::<bool>::from(data);
     }
 
     #[test]
@@ -1037,7 +1024,7 @@ mod tests {
         let struct_array = StructArray::from(vec![
             (
                 Field::new("b", DataType::Boolean, false),
-                Arc::new(BooleanArray::from(vec![false, false, true, true])) as Arc<Array>,
+                Arc::new(PrimitiveArray::from(vec![false, false, true, true])) as Arc<Array>,
             ),
             (
                 Field::new("c", DataType::Int32, false),
