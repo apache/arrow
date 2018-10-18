@@ -120,7 +120,7 @@ ggandiva_expression_class_init(GGandivaExpressionClass *klass)
  * Since: 0.12.0
  */
 GGandivaExpression *
-ggandiva_expression_new(gchar *function,
+ggandiva_expression_new(const gchar *function,
                         GList *input_fields,
                         GArrowField *output_field)
 {

@@ -35,7 +35,7 @@ struct _GGandivaExpressionClass
   GObjectClass parent_class;
 };
 
-GGandivaExpression *ggandiva_expression_new(gchar *function,
+GGandivaExpression *ggandiva_expression_new(const gchar *function,
                                             GList *input_fields,
                                             GArrowField *output_field);
 gchar *ggandiva_expression_to_string(GGandivaExpression *expression);
