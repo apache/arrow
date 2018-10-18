@@ -23,6 +23,9 @@ using namespace arrow;
 namespace arrow {
 namespace r {
 
+// the integer64 sentinel
+static const int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
+
 template <int RTYPE, typename Type>
 std::shared_ptr<Array> SimpleArray(SEXP x) {
   Rcpp::Vector<RTYPE> vec(x);
@@ -329,6 +332,47 @@ std::shared_ptr<Array> Date64Array_From_POSIXct(SEXP x) {
   return std::make_shared<Date64Array>(data);
 }
 
+std::shared_ptr<arrow::Array> Int64Array(SEXP x) {
+  auto p_vec_start = reinterpret_cast<int64_t*>(REAL(x));
+  auto n = Rf_xlength(x);
+  int64_t null_count = 0;
+
+  std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
+                                               std::make_shared<RBuffer<REALSXP>>(x)};
+
+  auto p_vec = std::find(p_vec_start, p_vec_start + n, NA_INT64);
+  auto first_na = p_vec - p_vec_start;
+  if (first_na < n) {
+    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &buffers[0]));
+    internal::FirstTimeBitmapWriter bitmap_writer(buffers[0]->mutable_data(), 0, n);
+
+    // first loop to clear all the bits before the first NA
+    int i = 0;
+    for (; i < first_na; i++, bitmap_writer.Next()) {
+      bitmap_writer.Set();
+    }
+
+    // then finish
+    for (; i < n; i++, bitmap_writer.Next(), ++p_vec) {
+      if (*p_vec == NA_INT64) {
+        bitmap_writer.Clear();
+        null_count++;
+      } else {
+        bitmap_writer.Set();
+      }
+    }
+
+    bitmap_writer.Finish();
+  }
+
+  auto data = ArrayData::Make(
+      std::make_shared<Int64Type>(), n, std::move(buffers), null_count, 0 /*offset*/
+  );
+
+  // return the right Array class
+  return std::make_shared<typename TypeTraits<Int64Type>::ArrayType>(data);
+}
+
 }  // namespace r
 }  // namespace arrow
 
@@ -354,6 +398,9 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
       }
       if (Rf_inherits(x, "POSIXct")) {
         return arrow::r::Date64Array_From_POSIXct<REALSXP>(x);
+      }
+      if (Rf_inherits(x, "integer64")) {
+        return arrow::r::Int64Array(x);
       }
       return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
     case RAWSXP:
@@ -624,9 +671,6 @@ SEXP promotion_Array_to_Vector(const std::shared_ptr<Array>& array) {
 }
 
 SEXP Int64Array(const std::shared_ptr<Array>& array) {
-  // the integer64 sentinel
-  static int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
-
   auto n = array->length();
   NumericVector vec(n);
   vec.attr("class") = "integer64";

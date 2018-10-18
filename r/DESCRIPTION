@@ -27,14 +27,15 @@ Imports:
     crayon,
     withr
 Remotes:
-    r-lib/vctrs, 
+    romainfrancois/vctrs@bit64, 
     RcppCore/Rcpp, 
-    romainfrancois/withr@bug-79/defer
+    r-lib/withr
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.0.9000
 Suggests:
     testthat, 
-    lubridate
+    lubridate, 
+    bit64
 Collate:
     'enums.R'
     'R6.R'
