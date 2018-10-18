@@ -85,9 +85,9 @@ short description of your use case. See the following for some examples.
   support for structured data. Uses the Arrow IPC format and targets the Arrow
   memory layout in its analytic functions. This work is part of the [GPU Open
   Analytics Initiative][11]
-* **[MapD][10]:** in-memory columnar SQL engine designed to run on GPUs. MapD
-  supports Arrow for data ingest and data interchange via CUDA IPC
-  handles. This work is part of the [GPU Open Analytics Initiative][11]
+* **[OmniSci][10] (formerly MapD):** In-memory columnar SQL engine designed to run
+  on both GPUs and CPUs. OmniSci supports Arrow for data ingest and data interchange
+  via CUDA IPC handles. This work is part of the [GPU Open Analytics Initiative][11]
 * **[pandas][12]:** data analysis toolkit for Python programmers. pandas
   supports reading and writing Parquet files using pyarrow. Several pandas
   core developers are also contributors to Apache Arrow.
@@ -140,7 +140,7 @@ short description of your use case. See the following for some examples.
 [7]: https://spark.apache.org/
 [8]: https://github.com/locationtech/geomesa
 [9]: https://www.dremio.com/
-[10]: https://github.com/mapd/mapd-core
+[10]: https://github.com/omnisci/mapd-core
 [11]: https://gpuopenanalytics.com/
 [12]: https://pandas.pydata.org
 [13]: https://quiltdata.com/
