@@ -16,11 +16,6 @@
 // under the License.
 
 #include "arrow/io/compressed.h"
-#include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
-#include "arrow/status.h"
-#include "arrow/util/compression.h"
-#include "arrow/util/logging.h"
 
 #include <algorithm>
 #include <cstring>
@@ -28,6 +23,12 @@
 #include <mutex>
 #include <string>
 #include <utility>
+
+#include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "arrow/util/compression.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -42,14 +43,14 @@ namespace io {
 
 class CompressedOutputStream::Impl {
  public:
-  Impl(MemoryPool* pool, Codec* codec, std::shared_ptr<OutputStream> raw)
+  Impl(MemoryPool* pool, Codec* codec, const std::shared_ptr<OutputStream>& raw)
       : pool_(pool), raw_(raw), codec_(codec), is_open_(true) {}
 
   ~Impl() { DCHECK(Close().ok()); }
 
   Status Init() {
     RETURN_NOT_OK(codec_->MakeCompressor(&compressor_));
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, CHUNK_SIZE, &compressed_));
+    RETURN_NOT_OK(AllocateResizableBuffer(pool_, kChunkSize, &compressed_));
     compressed_pos_ = 0;
     return Status::OK();
   }
@@ -170,7 +171,7 @@ class CompressedOutputStream::Impl {
 
  private:
   // Write 64 KB compressed data at a time
-  static const int64_t CHUNK_SIZE = 64 * 1024;
+  static const int64_t kChunkSize = 64 * 1024;
 
   MemoryPool* pool_;
   std::shared_ptr<OutputStream> raw_;
@@ -183,13 +184,14 @@ class CompressedOutputStream::Impl {
   mutable std::mutex lock_;
 };
 
-Status CompressedOutputStream::Make(util::Codec* codec, std::shared_ptr<OutputStream> raw,
+Status CompressedOutputStream::Make(util::Codec* codec,
+                                    const std::shared_ptr<OutputStream>& raw,
                                     std::shared_ptr<CompressedOutputStream>* out) {
   return Make(default_memory_pool(), codec, raw, out);
 }
 
 Status CompressedOutputStream::Make(MemoryPool* pool, util::Codec* codec,
-                                    std::shared_ptr<OutputStream> raw,
+                                    const std::shared_ptr<OutputStream>& raw,
                                     std::shared_ptr<CompressedOutputStream>* out) {
   std::shared_ptr<CompressedOutputStream> res(new CompressedOutputStream);
   res->impl_ = std::unique_ptr<Impl>(new Impl(pool, codec, std::move(raw)));
@@ -217,7 +219,7 @@ Status CompressedOutputStream::Flush() { return impl_->Flush(); }
 
 class CompressedInputStream::Impl {
  public:
-  Impl(MemoryPool* pool, Codec* codec, std::shared_ptr<InputStream> raw)
+  Impl(MemoryPool* pool, Codec* codec, const std::shared_ptr<InputStream>& raw)
       : pool_(pool), raw_(raw), codec_(codec), is_open_(true) {}
 
   Status Init() {
@@ -246,14 +248,14 @@ class CompressedInputStream::Impl {
     int64_t compressed_avail = compressed_ ? compressed_->size() - compressed_pos_ : 0;
     if (compressed_avail == 0) {
       // No compressed data available, read a full chunk
-      RETURN_NOT_OK(raw_->Read(CHUNK_SIZE, &compressed_));
+      RETURN_NOT_OK(raw_->Read(kChunkSize, &compressed_));
       compressed_pos_ = 0;
     }
     return Status::OK();
   }
 
   Status DecompressData() {
-    int64_t decompress_size = DECOMPRESS_SIZE;
+    int64_t decompress_size = kDecompressSize;
 
     while (true) {
       RETURN_NOT_OK(AllocateResizableBuffer(pool_, decompress_size, &decompressed_));
@@ -343,9 +345,9 @@ class CompressedInputStream::Impl {
 
  private:
   // Read 64 KB compressed data at a time
-  static const int64_t CHUNK_SIZE = 64 * 1024;
+  static const int64_t kChunkSize = 64 * 1024;
   // Decompress 1 MB at a time
-  static const int64_t DECOMPRESS_SIZE = 1024 * 1024;
+  static const int64_t kDecompressSize = 1024 * 1024;
 
   MemoryPool* pool_;
   std::shared_ptr<InputStream> raw_;
@@ -360,13 +362,13 @@ class CompressedInputStream::Impl {
   mutable std::mutex lock_;
 };
 
-Status CompressedInputStream::Make(Codec* codec, std::shared_ptr<InputStream> raw,
+Status CompressedInputStream::Make(Codec* codec, const std::shared_ptr<InputStream>& raw,
                                    std::shared_ptr<CompressedInputStream>* out) {
   return Make(default_memory_pool(), codec, raw, out);
 }
 
 Status CompressedInputStream::Make(MemoryPool* pool, Codec* codec,
-                                   std::shared_ptr<InputStream> raw,
+                                   const std::shared_ptr<InputStream>& raw,
                                    std::shared_ptr<CompressedInputStream>* out) {
   std::shared_ptr<CompressedInputStream> res(new CompressedInputStream);
   res->impl_ = std::unique_ptr<Impl>(new Impl(pool, codec, std::move(raw)));
