@@ -220,7 +220,7 @@ macro_rules! def_primitive_array {
                     let null_slice = null_buf.data_mut();
                     for (i, v) in data.iter().enumerate() {
                         if let Some(n) = v {
-                            bit_util::set_bit(null_slice, i as i64);
+                            bit_util::set_bit(null_slice, i);
                             // unwrap() in the following should be safe here since we've
                             // made sure enough space is allocated for the values.
                             val_buf.write(&n.to_byte_slice()).unwrap();
@@ -306,10 +306,10 @@ impl PrimitiveArray<bool> {
     }
 
     /// Returns the boolean value at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
     pub fn value(&self, i: i64) -> bool {
-        unsafe { bit_util::get_bit_raw(self.raw_values.get() as *const u8, i + self.offset()) }
+        let offset = i + self.offset();
+        assert!(offset < self.data.len());
+        unsafe { bit_util::get_bit_raw(self.raw_values.get() as *const u8, offset as usize) }
     }
 }
 
@@ -322,7 +322,7 @@ impl From<Vec<bool>> for PrimitiveArray<bool> {
             let mut_slice = mut_buf.data_mut();
             for (i, b) in data.iter().enumerate() {
                 if *b {
-                    bit_util::set_bit(mut_slice, i as i64);
+                    bit_util::set_bit(mut_slice, i);
                 }
             }
         }
@@ -347,9 +347,9 @@ impl From<Vec<Option<bool>>> for PrimitiveArray<bool> {
 
             for (i, v) in data.iter().enumerate() {
                 if let Some(b) = v {
-                    bit_util::set_bit(null_slice, i as i64);
+                    bit_util::set_bit(null_slice, i);
                     if *b {
-                        bit_util::set_bit(val_slice, i as i64);
+                        bit_util::set_bit(val_slice, i);
                     }
                 }
             }
