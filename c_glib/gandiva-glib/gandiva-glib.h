@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <gandiva-glib/gandiva-enums.h>
 #include <gandiva-glib/error.h>
 #include <gandiva-glib/expression.h>
+#include <gandiva-glib/gandiva-enums.h>
 #include <gandiva-glib/projector.h>
