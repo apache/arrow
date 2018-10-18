@@ -215,6 +215,9 @@ std::string Object__pointer_address(SEXP obj) {
 }
 
 // [[Rcpp::export]]
+bool Object__is_null(const std::shared_ptr<void>& obj) { return obj.get() == nullptr; }
+
+// [[Rcpp::export]]
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(
     const std::shared_ptr<arrow::DataType>& type,
     const std::shared_ptr<arrow::Array>& array, bool ordered) {

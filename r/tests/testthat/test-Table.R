@@ -17,30 +17,36 @@
 
 context("arrow::Table")
 
-test_that("read_table handles various input streams (ARROW-3450)", {
+test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )
   tab <- arrow::table(tbl)
-  tf <- tempfile(); on.exit(unlink(tf))
-  tab$to_file(tf)
+  tf <- local_tempfile()
+  write_table(tab, tf)
 
-  bytes <- tab$to_stream()
+  bytes <- write_table(tab, raw())
   buf_reader <- buffer_reader(bytes)
 
   tab1 <- read_table(tf)
   tab2 <- read_table(fs::path_abs(tf))
 
-  readable_file <- file_open(tf); on.exit(readable_file$Close())
+  readable_file <- close_on_exit(file_open(tf))
   tab3 <- read_table(readable_file)
 
-  mmap_file <- mmap_open(tf); on.exit(mmap_file$Close())
+  mmap_file <- close_on_exit(mmap_open(tf))
   tab4 <- read_table(mmap_file)
 
   tab5 <- read_table(bytes)
   tab6 <- read_table(buf_reader)
+
+  stream_reader <- record_batch_stream_reader(bytes)
+  tab7 <- read_table(stream_reader)
+
+  file_reader <- record_batch_file_reader(tf)
+  tab8 <- read_table(file_reader)
 
   expect_equal(tab, tab1)
   expect_equal(tab, tab2)
@@ -48,4 +54,6 @@ test_that("read_table handles various input streams (ARROW-3450)", {
   expect_equal(tab, tab4)
   expect_equal(tab, tab5)
   expect_equal(tab, tab6)
+  expect_equal(tab, tab7)
+  expect_equal(tab, tab8)
 })

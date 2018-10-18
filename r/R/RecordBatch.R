@@ -22,8 +22,6 @@
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
     schema = function() `arrow::Schema`$new(RecordBatch__schema(self)),
-    to_file = function(path) invisible(RecordBatch__to_file(self, fs::path_abs(path))),
-    to_stream = function() RecordBatch__to_stream(self),
     column = function(i) `arrow::Array`$new(RecordBatch__column(self, i)),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
@@ -40,7 +38,9 @@
       } else {
         `arrow::RecordBatch`$new(RecordBatch__Slice2(self, offset, length))
       }
-    }
+    },
+
+    serialize = function(output_stream, ...) write_record_batch(self, output_stream, ...)
   )
 )
 
@@ -67,43 +67,3 @@
 record_batch <- function(.data){
   `arrow::RecordBatch`$new(RecordBatch__from_dataframe(.data))
 }
-
-#' Read a single record batch from a stream
-#'
-#' @param stream input stream
-#'
-#' @details `stream` can be a `arrow::io::RandomAccessFile` stream as created by [file_open()] or [mmap_open()] or a path.
-#'
-#' @export
-read_record_batch <- function(stream){
-  UseMethod("read_record_batch")
-}
-
-#' @export
-read_record_batch.character <- function(stream){
-  assert_that(length(stream) == 1L)
-  read_record_batch(fs::path_abs(stream))
-}
-
-#' @export
-read_record_batch.fs_path <- function(stream){
-  stream <- file_open(stream); on.exit(stream$Close())
-  read_record_batch(stream)
-}
-
-#' @export
-`read_record_batch.arrow::io::RandomAccessFile` <- function(stream){
-  `arrow::RecordBatch`$new(read_record_batch_RandomAccessFile(stream))
-}
-
-#' @export
-`read_record_batch.arrow::io::BufferReader` <- function(stream){
-  `arrow::RecordBatch`$new(read_record_batch_BufferReader(stream))
-}
-
-#' @export
-read_record_batch.raw <- function(stream){
-  stream <- buffer_reader(stream); on.exit(stream$Close())
-  read_record_batch(stream)
-}
-

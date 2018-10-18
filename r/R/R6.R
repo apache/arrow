@@ -40,6 +40,10 @@
     },
     pointer_address = function(){
       Object__pointer_address(self$pointer())
+    },
+
+    is_null = function(){
+      Object__is_null(self)
     }
   )
 )

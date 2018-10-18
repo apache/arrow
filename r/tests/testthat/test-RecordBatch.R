@@ -108,53 +108,49 @@ test_that("RecordBatch with 0 rows are supported", {
     )
   )
 
-  tf <- tempfile(); on.exit(unlink(tf))
-  batch$to_file(tf)
-
+  tf <- local_tempfile()
+  write_record_batch(batch, tf)
   res <- read_record_batch(tf)
   expect_equal(res, batch)
 })
 
-test_that("RecordBatch can output stream", {
-  tbl <- tibble::tibble(
-    int = 1:10, dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10]
-  )
-  record <- record_batch(tbl)
-  stream <- record$to_stream()
-
-  expect_gt(length(stream), 0)
-})
-
-test_that("read_record_batch handles ReadableFile and MemoryMappedFile (ARROW-3450)", {
+test_that("read_record_batch handles various streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )
   batch <- record_batch(tbl)
-  tf <- tempfile(); on.exit(unlink(tf))
-  batch$to_file(tf)
+  tf <- local_tempfile()
+  write_record_batch(batch, tf)
 
-  bytes <- batch$to_stream()
+  bytes <- write_record_batch(batch, raw())
   buf_reader <- buffer_reader(bytes)
 
   batch1 <- read_record_batch(tf)
   batch2 <- read_record_batch(fs::path_abs(tf))
 
-  readable_file <- file_open(tf); on.exit(readable_file$Close())
+  readable_file <- close_on_exit(file_open(tf))
   batch3 <- read_record_batch(readable_file)
 
-  mmap_file <- mmap_open(tf); on.exit(mmap_file$Close())
+  mmap_file <- close_on_exit(mmap_open(tf))
   batch4 <- read_record_batch(mmap_file)
 
   batch5 <- read_record_batch(bytes)
   batch6 <- read_record_batch(buf_reader)
+
+  stream_reader <- record_batch_stream_reader(bytes)
+  batch7 <- read_record_batch(stream_reader)
+
+  file_reader <- record_batch_file_reader(tf)
+  batch8 <- read_record_batch(file_reader)
 
   expect_equal(batch, batch1)
   expect_equal(batch, batch2)
   expect_equal(batch, batch3)
   expect_equal(batch, batch4)
   expect_equal(batch, batch5)
+  expect_equal(batch, batch6)
+  expect_equal(batch, batch7)
+  expect_equal(batch, batch8)
 })

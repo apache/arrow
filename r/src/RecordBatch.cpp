@@ -63,66 +63,6 @@ List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch)
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::RecordBatch> read_record_batch_RandomAccessFile(
-    const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
-  std::shared_ptr<arrow::ipc::RecordBatchFileReader> rbf_reader;
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileReader::Open(stream, &rbf_reader));
-
-  std::shared_ptr<arrow::RecordBatch> batch;
-  R_ERROR_NOT_OK(rbf_reader->ReadRecordBatch(0, &batch));
-
-  return batch;
-}
-
-// [[Rcpp::export]]
-std::shared_ptr<arrow::RecordBatch> read_record_batch_BufferReader(
-    const std::shared_ptr<arrow::io::BufferReader>& stream) {
-  std::shared_ptr<arrow::ipc::RecordBatchReader> rbf_reader;
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamReader::Open(stream, &rbf_reader));
-
-  std::shared_ptr<arrow::RecordBatch> batch;
-  R_ERROR_NOT_OK(rbf_reader->ReadNext(&batch));
-
-  return batch;
-}
-
-// [[Rcpp::export]]
-int RecordBatch__to_file(const std::shared_ptr<arrow::RecordBatch>& batch,
-                         std::string path) {
-  std::shared_ptr<arrow::io::OutputStream> stream;
-  std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
-
-  R_ERROR_NOT_OK(arrow::io::FileOutputStream::Open(path, &stream));
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileWriter::Open(stream.get(), batch->schema(),
-                                                         &file_writer));
-  R_ERROR_NOT_OK(file_writer->WriteRecordBatch(*batch, true));
-  R_ERROR_NOT_OK(file_writer->Close());
-
-  int64_t offset;
-  R_ERROR_NOT_OK(stream->Tell(&offset));
-  R_ERROR_NOT_OK(stream->Close());
-  return offset;
-}
-
-int64_t RecordBatch_size(const std::shared_ptr<arrow::RecordBatch>& batch) {
-  io::MockOutputStream mock_sink;
-  R_ERROR_NOT_OK(arrow::ipc::WriteRecordBatchStream({batch}, &mock_sink));
-  return mock_sink.GetExtentBytesWritten();
-}
-
-// [[Rcpp::export]]
-RawVector RecordBatch__to_stream(const std::shared_ptr<arrow::RecordBatch>& batch) {
-  auto n = RecordBatch_size(batch);
-
-  RawVector res(n);
-  auto raw_buffer = std::make_shared<arrow::MutableBuffer>(res.begin(), res.size());
-  arrow::io::FixedSizeBufferWriter sink(raw_buffer);
-  R_ERROR_NOT_OK(arrow::ipc::WriteRecordBatchStream({batch}, &sink));
-
-  return res;
-}
-
-// [[Rcpp::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl) {
   CharacterVector names = tbl.names();
 

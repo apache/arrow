@@ -333,6 +333,10 @@ Object__pointer_address <- function(obj) {
     .Call(`_arrow_Object__pointer_address`, obj)
 }
 
+Object__is_null <- function(obj) {
+    .Call(`_arrow_Object__is_null`, obj)
+}
+
 DictionaryType__initialize <- function(type, array, ordered) {
     .Call(`_arrow_DictionaryType__initialize`, type, array, ordered)
 }
@@ -377,6 +381,10 @@ io___InputStream__Close <- function(x) {
     invisible(.Call(`_arrow_io___InputStream__Close`, x))
 }
 
+io___OutputStream__Close <- function(x) {
+    invisible(.Call(`_arrow_io___OutputStream__Close`, x))
+}
+
 io___RandomAccessFile__GetSize <- function(x) {
     .Call(`_arrow_io___RandomAccessFile__GetSize`, x)
 }
@@ -413,6 +421,42 @@ io___BufferReader__initialize <- function(buffer) {
     .Call(`_arrow_io___BufferReader__initialize`, buffer)
 }
 
+io___FileOutputStream__Open <- function(path) {
+    .Call(`_arrow_io___FileOutputStream__Open`, path)
+}
+
+io___BufferOutputStream__Create <- function(initial_capacity) {
+    .Call(`_arrow_io___BufferOutputStream__Create`, initial_capacity)
+}
+
+io___BufferOutputStream__capacity <- function(stream) {
+    .Call(`_arrow_io___BufferOutputStream__capacity`, stream)
+}
+
+io___BufferOutputStream__Finish <- function(stream) {
+    .Call(`_arrow_io___BufferOutputStream__Finish`, stream)
+}
+
+io___BufferOutputStream__Tell <- function(stream) {
+    .Call(`_arrow_io___BufferOutputStream__Tell`, stream)
+}
+
+io___BufferOutputStream__Write <- function(stream, bytes) {
+    invisible(.Call(`_arrow_io___BufferOutputStream__Write`, stream, bytes))
+}
+
+io___MockOutputStream__initialize <- function() {
+    .Call(`_arrow_io___MockOutputStream__initialize`)
+}
+
+io___MockOutputStream__GetExtentBytesWritten <- function(stream) {
+    .Call(`_arrow_io___MockOutputStream__GetExtentBytesWritten`, stream)
+}
+
+io___FixedSizeBufferWriter__initialize <- function(buffer) {
+    .Call(`_arrow_io___FixedSizeBufferWriter__initialize`, buffer)
+}
+
 MemoryPool__default <- function() {
     .Call(`_arrow_MemoryPool__default`)
 }
@@ -445,22 +489,6 @@ RecordBatch__to_dataframe <- function(batch) {
     .Call(`_arrow_RecordBatch__to_dataframe`, batch)
 }
 
-read_record_batch_RandomAccessFile <- function(stream) {
-    .Call(`_arrow_read_record_batch_RandomAccessFile`, stream)
-}
-
-read_record_batch_BufferReader <- function(stream) {
-    .Call(`_arrow_read_record_batch_BufferReader`, stream)
-}
-
-RecordBatch__to_file <- function(batch, path) {
-    .Call(`_arrow_RecordBatch__to_file`, batch, path)
-}
-
-RecordBatch__to_stream <- function(batch) {
-    .Call(`_arrow_RecordBatch__to_stream`, batch)
-}
-
 RecordBatch__from_dataframe <- function(tbl) {
     .Call(`_arrow_RecordBatch__from_dataframe`, tbl)
 }
@@ -489,6 +517,62 @@ RecordBatch__Slice2 <- function(self, offset, length) {
     .Call(`_arrow_RecordBatch__Slice2`, self, offset, length)
 }
 
+RecordBatchReader__schema <- function(reader) {
+    .Call(`_arrow_RecordBatchReader__schema`, reader)
+}
+
+RecordBatchReader__ReadNext <- function(reader) {
+    .Call(`_arrow_RecordBatchReader__ReadNext`, reader)
+}
+
+ipc___RecordBatchStreamReader__Open <- function(stream) {
+    .Call(`_arrow_ipc___RecordBatchStreamReader__Open`, stream)
+}
+
+ipc___RecordBatchFileReader__schema <- function(reader) {
+    .Call(`_arrow_ipc___RecordBatchFileReader__schema`, reader)
+}
+
+ipc___RecordBatchFileReader__num_record_batches <- function(reader) {
+    .Call(`_arrow_ipc___RecordBatchFileReader__num_record_batches`, reader)
+}
+
+ipc___RecordBatchFileReader__ReadRecordBatch <- function(reader, i) {
+    .Call(`_arrow_ipc___RecordBatchFileReader__ReadRecordBatch`, reader, i)
+}
+
+ipc___RecordBatchFileReader__Open <- function(file) {
+    .Call(`_arrow_ipc___RecordBatchFileReader__Open`, file)
+}
+
+Table__from_RecordBatchFileReader <- function(reader) {
+    .Call(`_arrow_Table__from_RecordBatchFileReader`, reader)
+}
+
+Table__from_RecordBatchStreamReader <- function(reader) {
+    .Call(`_arrow_Table__from_RecordBatchStreamReader`, reader)
+}
+
+ipc___RecordBatchFileWriter__Open <- function(stream, schema) {
+    .Call(`_arrow_ipc___RecordBatchFileWriter__Open`, stream, schema)
+}
+
+ipc___RecordBatchStreamWriter__Open <- function(stream, schema) {
+    .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema)
+}
+
+ipc___RecordBatchWriter__WriteRecordBatch <- function(batch_writer, batch, allow_64bit) {
+    invisible(.Call(`_arrow_ipc___RecordBatchWriter__WriteRecordBatch`, batch_writer, batch, allow_64bit))
+}
+
+ipc___RecordBatchWriter__WriteTable <- function(batch_writer, table) {
+    invisible(.Call(`_arrow_ipc___RecordBatchWriter__WriteTable`, batch_writer, table))
+}
+
+ipc___RecordBatchWriter__Close <- function(batch_writer) {
+    invisible(.Call(`_arrow_ipc___RecordBatchWriter__Close`, batch_writer))
+}
+
 Table__from_dataframe <- function(tbl) {
     .Call(`_arrow_Table__from_dataframe`, tbl)
 }
@@ -503,22 +587,6 @@ Table__num_rows <- function(x) {
 
 Table__schema <- function(x) {
     .Call(`_arrow_Table__schema`, x)
-}
-
-Table__to_file <- function(table, path) {
-    .Call(`_arrow_Table__to_file`, table, path)
-}
-
-Table__to_stream <- function(table) {
-    .Call(`_arrow_Table__to_stream`, table)
-}
-
-read_table_RandomAccessFile <- function(stream) {
-    .Call(`_arrow_read_table_RandomAccessFile`, stream)
-}
-
-read_table_BufferReader <- function(stream) {
-    .Call(`_arrow_read_table_BufferReader`, stream)
 }
 
 Table__to_dataframe <- function(table) {

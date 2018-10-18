@@ -24,10 +24,12 @@ Imports:
     vctrs (>= 0.0.0.9000),
     fs,
     tibble,
-    crayon
+    crayon,
+    withr
 Remotes:
     r-lib/vctrs, 
-    RcppCore/Rcpp
+    RcppCore/Rcpp, 
+    romainfrancois/withr@bug-79/defer
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.0.9000
 Suggests:
@@ -43,6 +45,8 @@ Collate:
     'List.R'
     'RcppExports.R'
     'RecordBatch.R'
+    'RecordBatchReader.R'
+    'RecordBatchWriter.R'
     'Schema.R'
     'Struct.R'
     'Table.R'
@@ -51,5 +55,6 @@ Collate:
     'dictionary.R'
     'io.R'
     'memory_pool.R'
+    'on_exit.R'
     'reexports-tibble.R'
     'zzz.R'
