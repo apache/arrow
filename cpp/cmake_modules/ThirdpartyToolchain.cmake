@@ -309,6 +309,15 @@ if ("${MAKE}" STREQUAL "")
     endif()
 endif()
 
+# Using make -j in sub-make is fragile
+# see discussion https://github.com/apache/arrow/pull/2779
+if (${CMAKE_GENERATOR} MATCHES "Makefiles")
+    set(MAKE_BUILD_ARGS "")
+else()
+    # limit the maximum number of jobs for ninja
+    set(MAKE_BUILD_ARGS "-j4")
+endif()
+
 # ----------------------------------------------------------------------
 # Find pthreads
 
@@ -736,9 +745,9 @@ if (ARROW_JEMALLOC)
     CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" "--disable-tls"
     ${EP_LOG_OPTIONS}
     BUILD_IN_SOURCE 1
-    BUILD_COMMAND ${MAKE} -j
+    BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS}
     BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
-    INSTALL_COMMAND ${MAKE} -j1 install)
+    INSTALL_COMMAND ${MAKE} install)
 
   # Don't use the include directory directly so that we can point to a path
   # that is unique to our codebase.
