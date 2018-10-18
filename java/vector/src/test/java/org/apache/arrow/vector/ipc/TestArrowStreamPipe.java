@@ -146,7 +146,7 @@ public class TestArrowStreamPipe {
   // Starts up a producer and consumer thread to read/write batches.
   @Test
   public void pipeTest() throws IOException, InterruptedException {
-    int NUM_BATCHES = 10;
+    final int NUM_BATCHES = 10;
     Pipe pipe = Pipe.open();
     WriterThread writer = new WriterThread(NUM_BATCHES, pipe.sink());
     ReaderThread reader = new ReaderThread(pipe.source());

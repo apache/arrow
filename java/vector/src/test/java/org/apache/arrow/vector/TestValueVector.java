@@ -882,9 +882,9 @@ public class TestValueVector {
       vector.set(2, STR3);
       vector.setSafe(3, STR3, 1, STR3.length - 1);
       vector.setSafe(4, STR3, 2, STR3.length - 2);
-      ByteBuffer STR3ByteBuffer = ByteBuffer.wrap(STR3);
-      vector.setSafe(5, STR3ByteBuffer, 1, STR3.length - 1);
-      vector.setSafe(6, STR3ByteBuffer, 2, STR3.length - 2);
+      ByteBuffer str3ByteBuffer = ByteBuffer.wrap(STR3);
+      vector.setSafe(5, str3ByteBuffer, 1, STR3.length - 1);
+      vector.setSafe(6, str3ByteBuffer, 2, STR3.length - 2);
 
       // Set with convenience function
       Text txt = new Text("foo");
@@ -926,9 +926,9 @@ public class TestValueVector {
       vector.set(2, STR3);
       vector.setSafe(3, STR3, 1, STR3.length - 1);
       vector.setSafe(4, STR3, 2, STR3.length - 2);
-      ByteBuffer STR3ByteBuffer = ByteBuffer.wrap(STR3);
-      vector.setSafe(5, STR3ByteBuffer, 1, STR3.length - 1);
-      vector.setSafe(6, STR3ByteBuffer, 2, STR3.length - 2);
+      ByteBuffer str3ByteBuffer = ByteBuffer.wrap(STR3);
+      vector.setSafe(5, str3ByteBuffer, 1, STR3.length - 1);
+      vector.setSafe(6, str3ByteBuffer, 2, STR3.length - 2);
 
       // Check the sample strings.
       assertArrayEquals(STR1, vector.get(0));
