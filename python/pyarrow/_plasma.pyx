@@ -110,6 +110,9 @@ cdef extern from "plasma/client.h" nogil:
                        const uint8_t* metadata, int64_t metadata_size,
                        const shared_ptr[CBuffer]* data)
 
+        CStatus CreateAndSeal(const CUniqueID& object_id, const c_string& data,
+                              const c_string& metadata)
+
         CStatus Get(const c_vector[CUniqueID] object_ids, int64_t timeout_ms,
                     c_vector[CObjectBuffer]* object_buffers)
 
@@ -343,6 +346,35 @@ cdef class PlasmaClient:
         return self._make_mutable_plasma_buffer(object_id,
                                                 data.get().mutable_data(),
                                                 data_size)
+
+    def create_and_seal(self, ObjectID object_id, c_string data,
+                        c_string metadata=b""):
+        """
+        Store a new object in the PlasmaStore for a particular object ID.
+
+        Parameters
+        ----------
+        object_id : ObjectID
+            The object ID used to identify an object.
+        data : bytes
+            The object to store.
+        metadata : bytes
+            An optional string of bytes encoding whatever metadata the user
+            wishes to encode.
+
+        Raises
+        ------
+        PlasmaObjectExists
+            This exception is raised if the object could not be created because
+            there already is an object with the same ID in the plasma store.
+
+        PlasmaStoreFull: This exception is raised if the object could
+                not be created because the plasma store is unable to evict
+                enough objects to create room for it.
+        """
+        with nogil:
+            check_status(self.client.get().CreateAndSeal(object_id.data, data,
+                                                         metadata))
 
     def get_buffers(self, object_ids, timeout_ms=-1):
         """
