@@ -134,6 +134,10 @@ if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
                     [arrow-gpu],
                     [HAVE_ARROW_GPU=yes],
                     [HAVE_ARROW_GPU=no])
+  PKG_CHECK_MODULES([GANDIVA],
+                    [gandiva],
+                    [HAVE_GANDIVA=yes],
+                    [HAVE_GANDIVA=no])
   PKG_CHECK_MODULES([PARQUET],
                     [parquet],
                     [HAVE_PARQUET=yes],
@@ -171,6 +175,17 @@ else
   AC_SUBST(ARROW_GPU_CFLAGS)
   AC_SUBST(ARROW_GPU_LIBS)
 
+  GANDIVA_CFLAGS=""
+  if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/gandiva/gandiva.pc"; then
+    HAVE_GANDIVA=yes
+    GANDIVA_LIBS="-lgandiva"
+  else
+    HAVE_GANDIVA=no
+    GANDIVA_LIBS=""
+  fi
+  AC_SUBST(GANDIVA_CFLAGS)
+  AC_SUBST(GANDIVA_LIBS)
+
   PARQUET_CFLAGS=""
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/parquet/parquet.pc"; then
     HAVE_PARQUET=yes
@@ -201,6 +216,11 @@ if test "$HAVE_PARQUET" = "yes"; then
   AC_DEFINE(HAVE_PARQUET, [1], [Define to 1 if Apache Parquet exists.])
 fi
 
+AM_CONDITIONAL([HAVE_GANDIVA], [test "$HAVE_GANDIVA" = "yes"])
+if test "$HAVE_GANDIVA" = "yes"; then
+  AC_DEFINE(HAVE_GANDIVA, [1], [Define to 1 if Gandiva exists.])
+fi
+
 exampledir="\$(datadir)/arrow-glib/example"
 AC_SUBST(exampledir)
 
@@ -212,11 +232,15 @@ AC_CONFIG_FILES([
   arrow-glib/version.h
   arrow-gpu-glib/Makefile
   arrow-gpu-glib/arrow-gpu-glib.pc
+  gandiva-glib/Makefile
+  gandiva-glib/gandiva-glib.pc
   parquet-glib/Makefile
   parquet-glib/parquet-glib.pc
   doc/Makefile
   doc/arrow-glib/Makefile
   doc/arrow-glib/entities.xml
+  doc/gandiva-glib/Makefile
+  doc/gandiva-glib/entities.xml
   doc/parquet-glib/Makefile
   doc/parquet-glib/entities.xml
   example/Makefile
