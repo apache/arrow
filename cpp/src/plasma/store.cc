@@ -808,6 +808,8 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       unsigned char digest[kDigestSize];
       RETURN_NOT_OK(ReadCreateAndSealRequest(input, input_size, &object_id, &data,
                                              &metadata, &digest[0]));
+      // CreateAndSeal currently only supports device_num = 0, which corresponds
+      // to the host.
       int device_num = 0;
       PlasmaError error_code = CreateObject(object_id, data.size(), metadata.size(),
                                             device_num, client, &object);

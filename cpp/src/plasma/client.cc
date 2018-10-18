@@ -446,6 +446,8 @@ Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
 
   // Compute the object hash.
   static unsigned char digest[kDigestSize];
+  // CreateAndSeal currently only supports device_num = 0, which corresponds to
+  // the host.
   int device_num = 0;
   uint64_t hash = ComputeObjectHash(
       reinterpret_cast<const uint8_t*>(data.data()), data.size(),
