@@ -23,6 +23,8 @@
 #include <arrow/api.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
+#include <arrow/ipc/reader.h>
+#include <arrow/ipc/writer.h>
 #include <arrow/type.h>
 
 #define R_ERROR_NOT_OK(s)                  \
@@ -104,6 +106,7 @@ using IntegerVector_ = Rcpp::Vector<INTSXP, Rcpp::NoProtectStorage>;
 using LogicalVector_ = Rcpp::Vector<LGLSXP, Rcpp::NoProtectStorage>;
 using StringVector_ = Rcpp::Vector<STRSXP, Rcpp::NoProtectStorage>;
 using CharacterVector_ = StringVector_;
+using RawVector_ = Rcpp::Vector<RAWSXP, Rcpp::NoProtectStorage>;
 
 template <int RTYPE>
 inline typename Rcpp::Vector<RTYPE>::stored_type default_value() {
@@ -135,11 +138,11 @@ inline const T* GetValuesSafely(const std::shared_ptr<ArrayData>& data, int i,
 }
 
 template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
-class RBuffer : public Buffer {
+class RBuffer : public MutableBuffer {
  public:
   RBuffer(Vec vec)
-      : Buffer(reinterpret_cast<const uint8_t*>(vec.begin()),
-               vec.size() * sizeof(typename Vec::stored_type)),
+      : MutableBuffer(reinterpret_cast<uint8_t*>(vec.begin()),
+                      vec.size() * sizeof(typename Vec::stored_type)),
         vec_(vec) {}
 
  private:
