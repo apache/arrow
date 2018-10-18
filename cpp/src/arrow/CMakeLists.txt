@@ -38,6 +38,7 @@ set(ARROW_SRCS
   csv/reader.cc
 
   io/buffered.cc
+  io/compressed.cc
   io/file.cc
   io/interfaces.cc
   io/memory.cc

@@ -19,6 +19,7 @@
 # arrow_io : Arrow IO interfaces
 
 ADD_ARROW_TEST(io-buffered-test)
+ADD_ARROW_TEST(io-compressed-test)
 ADD_ARROW_TEST(io-file-test)
 
 if (ARROW_HDFS AND NOT ARROW_BOOST_HEADER_ONLY)
@@ -35,6 +36,7 @@ ADD_ARROW_BENCHMARK(io-memory-benchmark)
 install(FILES
   api.h
   buffered.h
+  compressed.h
   file.h
   hdfs.h
   interfaces.h
