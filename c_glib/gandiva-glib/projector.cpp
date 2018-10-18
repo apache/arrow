@@ -153,7 +153,7 @@ ggandiva_projector_new(GArrowSchema *schema,
  * @record_batch: A #GArrowRecordBatch.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable) (element-type GArrowArray) (transfer full):
+ * Returns: (element-type GArrowArray) (nullable) (transfer full):
  *   The #GArrowArray as the result evaluated on success, %NULL on error.
  *
  * Since: 0.12.0
@@ -177,7 +177,6 @@ ggandiva_projector_evaluate(GGandivaProjector *projector,
       auto array = garrow_array_new_raw(&arrow_array);
       arrays = g_list_prepend(arrays, array);
     }
-
     return g_list_reverse(arrays);
   } else {
     return NULL;

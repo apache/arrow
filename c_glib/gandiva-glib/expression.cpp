@@ -110,11 +110,11 @@ ggandiva_expression_class_init(GGandivaExpressionClass *klass)
 
 /**
  * ggandiva_expression_new:
- * @function: The simple function expression.
+ * @function: The function name in the expression.
  * @input_fields: (element-type GArrowField): The input fields.
- * @output_field: A #GArrowField.
+ * @output_field: A #GArrowField to be output.
  *
- * Returns: (transfer full): An expression tree with a root node,
+ * Returns: (transfer full): The expression tree with a root node,
  *   and a result field.
  *
  * Since: 0.12.0
