@@ -48,13 +48,13 @@ script:
       quay.io/xhochy/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh
   - popd
 
-  # test on debian image
-  - docker run -it
-      --shm-size 2G
-      --volume $(pwd)/arrow:/arrow
-      python:{{ python_version }}-slim
+  # test on multiple distributions
+  {%- for image in test_docker_images %}
+  - docker run -it --shm-size 2G --volume $(pwd)/arrow:/arrow {{ image }}
       /arrow/dev/tasks/python-wheels/linux-test.sh
+  {%- endfor %}
 
+  # prepare for deployment
   - sudo mv arrow/python/manylinux1/dist/* dist/
 
 deploy:

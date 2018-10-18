@@ -145,6 +145,8 @@ tasks:
       wheel_version: 0.31.1
       python_version: 2.7
       unicode_width: 16
+      test_docker_images:
+        - mbaltrusitis/centos-python:2.7  # centos ucs2
     artifacts:
       - pyarrow-{version}-cp27-cp27m-manylinux1_x86_64.whl
 
@@ -155,6 +157,9 @@ tasks:
       wheel_version: 0.31.1
       python_version: 2.7
       unicode_width: 32
+      test_docker_images:
+        - python:2.7-slim  # debian ucs4
+        - centos/python-27-centos7  # centos ucs4
     artifacts:
       - pyarrow-{version}-cp27-cp27mu-manylinux1_x86_64.whl
 
@@ -165,6 +170,9 @@ tasks:
       wheel_version: 0.31.1
       python_version: 3.5
       unicode_width: 16
+      test_docker_images:
+        - python:3.5-slim
+        - centos/python-35-centos7
     artifacts:
       - pyarrow-{version}-cp35-cp35m-manylinux1_x86_64.whl
 
@@ -175,6 +183,9 @@ tasks:
       wheel_version: 0.31.1
       python_version: 3.6
       unicode_width: 16
+      test_docker_images:
+        - python:3.6-slim
+        - centos/python-36-centos7
     artifacts:
       - pyarrow-{version}-cp36-cp36m-manylinux1_x86_64.whl
 
@@ -185,6 +196,8 @@ tasks:
       wheel_version: 0.31.1
       python_version: 3.7
       unicode_width: 16
+      test_docker_images:
+        - python:3.7-slim
     artifacts:
       - pyarrow-{version}-cp37-cp37m-manylinux1_x86_64.whl
 
