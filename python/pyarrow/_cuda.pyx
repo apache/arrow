@@ -693,13 +693,15 @@ cdef class BufferWriter(NativeFile):
 # Functions
 
 
-def new_host_buffer(const int64_t size):
+def new_host_buffer(const int64_t size, int device=0):
     """Return buffer with CUDA-accessible memory on CPU host
 
     Parameters
     ----------
     size : int
       Specify the number of bytes to be allocated.
+    device : int
+      Specify GPU device number.
 
     Returns
     -------
@@ -707,7 +709,7 @@ def new_host_buffer(const int64_t size):
       Allocated host buffer
     """
     cdef shared_ptr[CCudaHostBuffer] buffer
-    check_status(AllocateCudaHostBuffer(size, &buffer))
+    check_status(AllocateCudaHostBuffer(device, size, &buffer))
     return pyarrow_wrap_cudahostbuffer(buffer)
 
 

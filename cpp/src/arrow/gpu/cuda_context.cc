@@ -40,11 +40,6 @@ struct CudaDevice {
 
 class ContextSaver {
  public:
-  explicit ContextSaver(CudaDevice device) {
-    CUcontext current;
-    cuDevicePrimaryCtxRetain(&current, device.handle);
-    cuCtxPushCurrent(current);
-  }
   explicit ContextSaver(CUcontext new_context) { cuCtxPushCurrent(new_context); }
   ~ContextSaver() {
     CUcontext unused;
@@ -118,7 +113,7 @@ class CudaContext::CudaContextImpl {
   }
 
   Status ExportIpcBuffer(void* data, std::shared_ptr<CudaIpcMemHandle>* handle) {
-    ContextSaver set_temporary(device_);
+    ContextSaver set_temporary(context_);
     CUipcMemHandle cu_handle;
     CU_RETURN_NOT_OK(cuIpcGetMemHandle(&cu_handle, reinterpret_cast<CUdeviceptr>(data)));
     *handle = std::shared_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(&cu_handle));
@@ -164,8 +159,10 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
     return Status::OK();
   }
 
-  Status AllocateHost(int64_t nbytes, uint8_t** out) {
-    ContextSaver set_temporary(devices_[0]);
+  Status AllocateHost(int device_number, int64_t nbytes, uint8_t** out) {
+    std::shared_ptr<CudaContext> ctx;
+    RETURN_NOT_OK(GetContext(device_number, &ctx));
+    ContextSaver set_temporary((CUcontext)(ctx.get()->handle()));
     CU_RETURN_NOT_OK(cuMemHostAlloc(reinterpret_cast<void**>(out),
                                     static_cast<size_t>(nbytes),
                                     CU_MEMHOSTALLOC_PORTABLE));
@@ -276,10 +273,10 @@ Status CudaDeviceManager::CreateSharedContext(int device_number, void* ctx,
   return impl_->CreateSharedContext(device_number, (CUcontext)ctx, out);
 }
 
-Status CudaDeviceManager::AllocateHost(int64_t nbytes,
+Status CudaDeviceManager::AllocateHost(int device_number, int64_t nbytes,
                                        std::shared_ptr<CudaHostBuffer>* out) {
   uint8_t* data = nullptr;
-  RETURN_NOT_OK(impl_->AllocateHost(nbytes, &data));
+  RETURN_NOT_OK(impl_->AllocateHost(device_number, nbytes, &data));
   *out = std::make_shared<CudaHostBuffer>(data, nbytes);
   return Status::OK();
 }
@@ -333,7 +330,7 @@ Status CudaContext::Free(void* device_ptr, int64_t nbytes) {
 
 Status CudaContext::OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
                                   std::shared_ptr<CudaBuffer>* out) {
-  ContextSaver set_temporary((CUcontext)impl_->context_handle());
+  ContextSaver set_temporary((CUcontext)(handle()));
   uint8_t* data = nullptr;
   RETURN_NOT_OK(impl_->OpenIpcBuffer(ipc_handle, &data));
 

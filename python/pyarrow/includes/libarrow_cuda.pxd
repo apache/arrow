@@ -33,7 +33,7 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
         # CStatus CreateSharedContext(int gpu_number,
         #                             void* handle,
         #                             shared_ptr[CCudaContext]* ctx)
-        CStatus AllocateHost(int64_t nbytes,
+        CStatus AllocateHost(int device_number, int64_t nbytes,
                              shared_ptr[CCudaHostBuffer]* buffer)
         # CStatus FreeHost(void* data, int64_t nbytes)
         int num_devices() const
@@ -97,7 +97,7 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
         int64_t buffer_size()
         int64_t num_bytes_buffered() const
 
-    CStatus AllocateCudaHostBuffer(const int64_t size,
+    CStatus AllocateCudaHostBuffer(int device_number, const int64_t size,
                                    shared_ptr[CCudaHostBuffer]* out)
 
     # Cuda prefix is added to avoid picking up arrow::gpu functions

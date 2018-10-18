@@ -64,7 +64,12 @@ class ARROW_EXPORT CudaDeviceManager {
   Status CreateSharedContext(int device_number, void* handle,
                              std::shared_ptr<CudaContext>* out);
 
-  Status AllocateHost(int64_t nbytes, std::shared_ptr<CudaHostBuffer>* buffer);
+  /// \brief Allocate host memory with fast access to given GPU device
+  /// \param[in] device_number
+  /// \param[in] nbytes number of bytes
+  /// \param[out] out the allocated buffer
+  Status AllocateHost(int device_number, int64_t nbytes,
+                      std::shared_ptr<CudaHostBuffer>* buffer);
 
   Status FreeHost(void* data, int64_t nbytes);
 
