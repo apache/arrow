@@ -324,9 +324,7 @@ Status CudaContext::CopyDeviceToHost(void* dst, const void* src, int64_t nbytes)
   return impl_->CopyDeviceToHost(dst, src, nbytes);
 }
 
-Status CudaContext::Synchronize(void) {
-  return impl_->Synchronize();
-}
+Status CudaContext::Synchronize(void) { return impl_->Synchronize(); }
 
 Status CudaContext::Close() { return impl_->Close(); }
 
