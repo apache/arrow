@@ -43,8 +43,8 @@ fn round_upto_power_of_2(num: i64, factor: i64) -> i64 {
 
 /// Returns whether bit at position `i` in `data` is set or not
 #[inline]
-pub fn get_bit(data: &[u8], i: i64) -> bool {
-    (data[(i >> 3) as usize] & BIT_MASK[(i & 7) as usize]) != 0
+pub fn get_bit(data: &[u8], i: usize) -> bool {
+    (data[i >> 3] & BIT_MASK[i & 7]) != 0
 }
 
 /// Returns whether bit at position `i` in `data` is set or not.
@@ -52,14 +52,14 @@ pub fn get_bit(data: &[u8], i: i64) -> bool {
 /// Note this doesn't do any bound checking, for performance reason. The caller is
 /// responsible to guarantee that `i` is within bounds.
 #[inline]
-pub unsafe fn get_bit_raw(data: *const u8, i: i64) -> bool {
-    (*data.offset((i >> 3) as isize) & BIT_MASK[(i & 7) as usize]) != 0
+pub unsafe fn get_bit_raw(data: *const u8, i: usize) -> bool {
+    (*data.offset((i >> 3) as isize) & BIT_MASK[i & 7]) != 0
 }
 
 /// Sets bit at position `i` for `data`
 #[inline]
-pub fn set_bit(data: &mut [u8], i: i64) {
-    data[(i >> 3) as usize] |= BIT_MASK[(i & 7) as usize]
+pub fn set_bit(data: &mut [u8], i: usize) {
+    data[i >> 3] |= BIT_MASK[i & 7]
 }
 
 /// Returns the number of 1-bits in `data`
@@ -74,8 +74,8 @@ pub fn count_set_bits(data: &[u8]) -> i64 {
 
 /// Returns the number of 1-bits in `data`, starting from `offset`.
 #[inline]
-pub fn count_set_bits_offset(data: &[u8], offset: i64) -> i64 {
-    debug_assert!(offset <= (data.len() * 8) as i64);
+pub fn count_set_bits_offset(data: &[u8], offset: usize) -> i64 {
+    debug_assert!(offset <= (data.len() << 3));
 
     let start_byte_pos = (offset >> 3) as usize;
     let start_bit_pos = offset & 7;
@@ -86,7 +86,7 @@ pub fn count_set_bits_offset(data: &[u8], offset: i64) -> i64 {
         let mut result = 0;
         result += count_set_bits(&data[start_byte_pos + 1..]);
         for i in start_bit_pos..8 {
-            if get_bit(&data[start_byte_pos..start_byte_pos + 1], i as i64) {
+            if get_bit(&data[start_byte_pos..start_byte_pos + 1], i as usize) {
                 result += 1;
             }
         }
@@ -158,14 +158,14 @@ mod tests {
             let b = rng.gen_bool(0.5);
             expected.push(b);
             if b {
-                set_bit(&mut buf[..], i as i64)
+                set_bit(&mut buf[..], i)
             }
         }
 
         let raw_ptr = buf.as_ptr();
         for (i, b) in expected.iter().enumerate() {
             unsafe {
-                assert_eq!(*b, get_bit_raw(raw_ptr, i as i64));
+                assert_eq!(*b, get_bit_raw(raw_ptr, i));
             }
         }
     }
@@ -192,10 +192,10 @@ mod tests {
         for _ in 0..NUM_SETS {
             let offset = rng.gen_range(0, 8 * NUM_BYTES);
             v.insert(offset);
-            set_bit(&mut buffer[..], offset as i64);
+            set_bit(&mut buffer[..], offset);
         }
         for i in 0..NUM_BYTES * 8 {
-            assert_eq!(v.contains(&i), get_bit(&buffer[..], i as i64));
+            assert_eq!(v.contains(&i), get_bit(&buffer[..], i));
         }
     }
 

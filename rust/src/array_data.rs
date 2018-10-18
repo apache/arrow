@@ -68,7 +68,7 @@ impl ArrayData {
     ) -> Self {
         if null_count < 0 {
             null_count = if let Some(ref buf) = null_bit_buffer {
-                len - bit_util::count_set_bits_offset(buf.data(), offset)
+                len - bit_util::count_set_bits_offset(buf.data(), offset as usize)
             } else {
                 0
             };
