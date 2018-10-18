@@ -28,6 +28,7 @@ sources = files(
 c_headers = files(
   'error.h',
   'expression.h',
+  'gandiva-glib.h',
   'projector.h',
 )
 
