@@ -107,9 +107,9 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// \param[out] out the view buffer
   /// \return Status
   ///
-  /// The caller is responsible for allocating and freeing the memory
-  /// as well as ensuring that the memory belongs to the CUDA context
-  /// that this CudaContext instance holds.
+  /// \note The caller is responsible for allocating and freeing the
+  /// memory as well as ensuring that the memory belongs to the CUDA
+  /// context that this CudaContext instance holds.
   Status View(uint8_t* data, int64_t nbytes, std::shared_ptr<CudaBuffer>* out);
 
   /// \brief Open existing CUDA IPC memory handle
@@ -118,6 +118,11 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// \return Status
   Status OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
                        std::shared_ptr<CudaBuffer>* buffer);
+
+  /// \brief Close memory mapped with IPC buffer
+  /// \param[in] buffer a CudaBuffer referencing
+  /// \return Status
+  Status CloseIpcBuffer(CudaBuffer* buf);
 
   /// \brief Block until the all device tasks are completed.
   Status Synchronize(void);

@@ -28,7 +28,6 @@
 
 #include "arrow/gpu/cuda_common.h"
 #include "arrow/gpu/cuda_memory.h"
-
 namespace arrow {
 namespace gpu {
 
@@ -341,6 +340,13 @@ Status CudaContext::OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
 
   *out = std::make_shared<CudaBuffer>(data, allocation_size, this->shared_from_this(),
                                       true, true);
+  return Status::OK();
+}
+
+Status CudaContext::CloseIpcBuffer(CudaBuffer* buf) {
+  ContextSaver set_temporary((CUcontext)(handle()));
+  CU_RETURN_NOT_OK(
+      cuIpcCloseMemHandle(reinterpret_cast<CUdeviceptr>(buf->mutable_data())));
   return Status::OK();
 }
 

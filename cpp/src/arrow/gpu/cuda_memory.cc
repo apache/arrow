@@ -85,7 +85,7 @@ CudaBuffer::~CudaBuffer() { DCHECK(Close().ok()); }
 Status CudaBuffer::Close() {
   if (own_data_) {
     if (is_ipc_) {
-      CU_RETURN_NOT_OK(cuIpcCloseMemHandle(reinterpret_cast<CUdeviceptr>(mutable_data_)));
+      return context_->CloseIpcBuffer(this);
     } else {
       return context_->Free(mutable_data_, size_);
     }
