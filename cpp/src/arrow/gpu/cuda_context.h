@@ -132,6 +132,9 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// \brief Expose CUDA context handle to other libraries
   const void* handle() const;
 
+  /// \brief Return device number
+  int device_number() const;
+
  private:
   CudaContext();
 

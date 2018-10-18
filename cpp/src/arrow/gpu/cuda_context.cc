@@ -354,5 +354,7 @@ int64_t CudaContext::bytes_allocated() const { return impl_->bytes_allocated(); 
 
 const void* CudaContext::handle() const { return impl_->context_handle(); }
 
+int CudaContext::device_number() const { return impl_->device().device_num; }
+
 }  // namespace gpu
 }  // namespace arrow

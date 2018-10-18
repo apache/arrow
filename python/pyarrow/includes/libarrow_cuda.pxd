@@ -50,6 +50,7 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
         CStatus Synchronize()
         int64_t bytes_allocated() const
         const void* handle() const
+        int device_number() const
 
     cdef cppclass CCudaIpcMemHandle" arrow::gpu::CudaIpcMemHandle":
         @staticmethod
