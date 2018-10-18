@@ -663,6 +663,16 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
         int file_descriptor()
 
+    cdef cppclass CompressedInputStream(InputStream):
+        @staticmethod
+        CStatus Make(CMemoryPool* pool, CCodec* codec,
+                     shared_ptr[InputStream] raw,
+                     shared_ptr[CompressedInputStream]* out)
+
+        @staticmethod
+        CStatus Make(CCodec* codec, shared_ptr[InputStream] raw,
+                     shared_ptr[CompressedInputStream]* out)
+
     # ----------------------------------------------------------------------
     # HDFS
 
