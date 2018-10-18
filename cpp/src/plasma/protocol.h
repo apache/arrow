@@ -19,8 +19,8 @@
 #define PLASMA_PROTOCOL_H
 
 #include <memory>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/status.h"

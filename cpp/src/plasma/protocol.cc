@@ -208,8 +208,7 @@ Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
 
 Status SendCreateAndSealReply(int sock, PlasmaError error) {
   flatbuffers::FlatBufferBuilder fbb;
-  auto message = fb::CreatePlasmaCreateAndSealReply(
-      fbb, static_cast<PlasmaError>(error));
+  auto message = fb::CreatePlasmaCreateAndSealReply(fbb, static_cast<PlasmaError>(error));
   return PlasmaSend(sock, MessageType::PlasmaCreateAndSealReply, &fbb, message);
 }
 

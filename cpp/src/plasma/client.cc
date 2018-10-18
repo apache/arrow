@@ -439,17 +439,17 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
   return Status::OK();
 }
 
-Status PlasmaClient::Impl::CreateAndSeal(
-    const ObjectID& object_id, const std::string& data, const std::string& metadata) {
+Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
+                                         const std::string& data,
+                                         const std::string& metadata) {
   ARROW_LOG(DEBUG) << "called CreateAndSeal on conn " << store_conn_;
 
   // Compute the object hash.
   static unsigned char digest[kDigestSize];
   int device_num = 0;
-  uint64_t hash = ComputeObjectHash(reinterpret_cast<const uint8_t*>(data.data()),
-                                    data.size(),
-                                    reinterpret_cast<const uint8_t*>(metadata.data()),
-                                    metadata.size(), device_num);
+  uint64_t hash = ComputeObjectHash(
+      reinterpret_cast<const uint8_t*>(data.data()), data.size(),
+      reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
   memcpy(&digest[0], &hash, sizeof(hash));
 
   RETURN_NOT_OK(SendCreateAndSealRequest(store_conn_, object_id, data, metadata, digest));
@@ -801,14 +801,13 @@ uint64_t PlasmaClient::Impl::ComputeObjectHash(const uint8_t* data, int64_t data
   }
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
   if (data_size >= kBytesInMB) {
-    ComputeObjectHashParallel(
-        &hash_state, reinterpret_cast<const unsigned char*>(data), data_size);
+    ComputeObjectHashParallel(&hash_state, reinterpret_cast<const unsigned char*>(data),
+                              data_size);
   } else {
-    XXH64_update(&hash_state,
-                 reinterpret_cast<const unsigned char*>(data), data_size);
+    XXH64_update(&hash_state, reinterpret_cast<const unsigned char*>(data), data_size);
   }
-  XXH64_update(&hash_state,
-               reinterpret_cast<const unsigned char*>(metadata), metadata_size);
+  XXH64_update(&hash_state, reinterpret_cast<const unsigned char*>(metadata),
+               metadata_size);
   return XXH64_digest(&hash_state);
 }
 
