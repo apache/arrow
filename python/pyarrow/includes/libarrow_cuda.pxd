@@ -47,6 +47,7 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
                      shared_ptr[CCudaBuffer]* out)
         CStatus OpenIpcBuffer(const CCudaIpcMemHandle& ipc_handle,
                               shared_ptr[CCudaBuffer]* buffer)
+        CStatus Synchronize()
         int64_t bytes_allocated() const
         const void* handle() const
 

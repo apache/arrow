@@ -114,6 +114,9 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   Status OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
                        std::shared_ptr<CudaBuffer>* buffer);
 
+  /// \brief Block until the all device tasks are completed.
+  Status Synchronize(void);
+
   int64_t bytes_allocated() const;
 
   /// \brief Expose CUDA context handle to other libraries

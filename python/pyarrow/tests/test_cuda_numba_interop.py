@@ -126,6 +126,7 @@ def test_numba_context(c, dtype):
         darr = DeviceNDArray(arr.shape, arr.strides, arr.dtype, gpu_data=mem)
         np.testing.assert_equal(darr.copy_to_host(), arr)
         darr[0] = 99
+        cbuf.context.synchronize()
         arr2 = np.frombuffer(cbuf.copy_to_host(), dtype=dtype)
         assert arr2[0] == 99
 
@@ -150,5 +151,6 @@ def test_pyarrow_jit(c, dtype):
     mem = cbuf.to_numba()
     darr = DeviceNDArray(arr.shape, arr.strides, arr.dtype, gpu_data=mem)
     increment_by_one[blockspergrid, threadsperblock](darr)
+    cbuf.context.synchronize()
     arr1 = np.frombuffer(cbuf.copy_to_host(), dtype=arr.dtype)
     np.testing.assert_equal(arr1, arr + 1)

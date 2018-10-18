@@ -119,6 +119,12 @@ cdef class Context:
     cdef void init(self, const shared_ptr[CCudaContext]& ctx):
         self.context = ctx
 
+    def synchronize(self):
+        """Blocks until the device has completed all preceding requested
+        tasks.
+        """
+        check_status(self.context.get().Synchronize())
+
     @property
     def bytes_allocated(self):
         """ Return the number of allocated bytes.
@@ -348,6 +354,13 @@ cdef class CudaBuffer(Buffer):
                      Buffer buf=None,
                      MemoryPool memory_pool=None, c_bool resizable=False):
         """Copy memory from GPU device to CPU host
+
+        Caller is responsible for ensuring that all tasks affecting
+        the memory are finished. Use
+
+          `<CudaBuffer instance>.context.synchronize()`
+
+        when needed.
 
         Parameters
         ----------
