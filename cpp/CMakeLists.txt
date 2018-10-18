@@ -109,11 +109,11 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     OFF)
 
   option(ARROW_BUILD_STATIC
-    "Build the libarrow static libraries"
+    "Build the libarrow and libparquet static libraries"
     ON)
 
   option(ARROW_BUILD_SHARED
-    "Build the libarrow shared libraries"
+    "Build the libarrow and libparquet shared libraries"
     ON)
 
   option(ARROW_TEST_MEMCHECK
@@ -298,11 +298,11 @@ Always OFF if building binaries"
     OFF)
 
   option(PARQUET_BUILD_EXECUTABLES
-    "Build the Parquet executable CLI tools"
+    "Build the Parquet executable CLI tools. Depend on the Parquet and Arrow static libraries."
     OFF)
 
   option(PARQUET_BUILD_EXAMPLES
-    "Build the Parquet examples"
+    "Build the Parquet examples. Depend on the Parquet and Arrow static libraries."
     OFF)
 
   set(PARQUET_ARROW_LINKAGE "shared" CACHE STRING
@@ -412,6 +412,11 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_WITH_ZSTD ON)
 endif()
 
+if(PARQUET_BUILD_EXAMPLES OR PARQUET_BUILD_EXECUTABLES)
+  set(ARROW_PARQUET ON)
+  set(ARROW_BUILD_STATIC ON)
+endif()
+
 if (MSVC)
   # ORC doesn't build on windows
   set(ARROW_ORC OFF)
@@ -427,6 +432,8 @@ endif()
 
 if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
+else()
+  set(ARROW_BUILD_SHARED ON)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
