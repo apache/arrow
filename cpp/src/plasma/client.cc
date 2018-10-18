@@ -177,9 +177,6 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
              std::vector<ObjectBuffer>* object_buffers);
 
-  Status Get(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
-             ObjectBuffer* object_buffers);
-
   Status Release(const ObjectID& object_id);
 
   Status Contains(const ObjectID& object_id, bool* has_object);
@@ -445,11 +442,16 @@ Status PlasmaClient::Impl::GetBuffers(
       // This object is not currently in use by this client, so we need to send
       // a request to the store.
       all_present = false;
-    } else {
-      // NOTE: If the object is still unsealed, we will deadlock, since we must
-      // have been the one who created it.
-      ARROW_CHECK(object_entry->second->is_sealed)
+    } else if (!object_entry->second->is_sealed) {
+      // This client created the object but hasn't sealed it. If we call Get
+      // with no timeout, we will deadlock, because this client won't be able to
+      // call Seal.
+      ARROW_CHECK(timeout_ms != -1)
           << "Plasma client called get on an unsealed object that it created";
+      ARROW_LOG(WARNING)
+          << "Attempting to get an object that this client created but hasn't sealed.";
+      all_present = false;
+    } else {
       PlasmaObject* object = &object_entry->second->object;
       std::shared_ptr<Buffer> physical_buf;
 
@@ -567,13 +569,6 @@ Status PlasmaClient::Impl::Get(const std::vector<ObjectID>& object_ids,
   const size_t num_objects = object_ids.size();
   *out = std::vector<ObjectBuffer>(num_objects);
   return GetBuffers(&object_ids[0], num_objects, timeout_ms, wrap_buffer, &(*out)[0]);
-}
-
-Status PlasmaClient::Impl::Get(const ObjectID* object_ids, int64_t num_objects,
-                               int64_t timeout_ms, ObjectBuffer* out) {
-  const auto wrap_buffer = [](const ObjectID& object_id,
-                              const std::shared_ptr<Buffer>& buffer) { return buffer; };
-  return GetBuffers(object_ids, num_objects, timeout_ms, wrap_buffer, out);
 }
 
 Status PlasmaClient::Impl::UnmapObject(const ObjectID& object_id) {
@@ -1049,11 +1044,6 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
 Status PlasmaClient::Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
                          std::vector<ObjectBuffer>* object_buffers) {
   return impl_->Get(object_ids, timeout_ms, object_buffers);
-}
-
-Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
-                         int64_t timeout_ms, ObjectBuffer* object_buffers) {
-  return impl_->Get(object_ids, num_objects, timeout_ms, object_buffers);
 }
 
 Status PlasmaClient::Release(const ObjectID& object_id) {
