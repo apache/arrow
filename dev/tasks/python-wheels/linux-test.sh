@@ -30,5 +30,5 @@ python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
 
 # Run pyarrow tests
-pip install pytest pytest-faulthandler pandas
+pip install pytest pandas
 pytest --pyargs pyarrow
