@@ -87,3 +87,4 @@ call activate wheel-test
 
 pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow
 python -c "import pyarrow; import pyarrow.parquet"
+pytest --pyargs pyarrow
