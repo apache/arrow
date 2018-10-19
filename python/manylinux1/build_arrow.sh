@@ -60,7 +60,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     # TensorFlow is not supported for Python 2.7 with unicode width 16 or with Python 3.7
     if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]; then
       if [ $PYTHON != "3.7" ]; then
-        $PIP install --ignore-installed --upgrade tensorflow
+        $PIP install tensorflow==1.11.0
       fi
     fi
 
@@ -109,9 +109,6 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
 
     echo "=== (${PYTHON}) Test the existence of optional modules ==="
     $PIP install -r requirements.txt
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.orc"
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"
 
     echo "=== (${PYTHON}) Tag the wheel with manylinux1 ==="
     mkdir -p repaired_wheels/
@@ -120,6 +117,10 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     echo "=== (${PYTHON}) Testing manylinux1 wheel ==="
     source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
     pip install repaired_wheels/*.whl
+
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.orc"
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"
 
     # The TensorFlow test will be skipped here, since TensorFlow is not
     # manylinux1 compatible; however, the wheels will support TensorFlow on
