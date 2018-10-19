@@ -25,7 +25,6 @@ source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 export ARROW_HOME=$ARROW_CPP_INSTALL
 export PARQUET_HOME=$ARROW_CPP_INSTALL
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
-export PYARROW_CXXFLAGS="-Werror"
 
 PYARROW_PYTEST_FLAGS=" -r sxX --durations=15 --parquet"
 
