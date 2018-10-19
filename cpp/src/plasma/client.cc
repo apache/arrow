@@ -475,11 +475,16 @@ Status PlasmaClient::Impl::GetBuffers(
       // This object is not currently in use by this client, so we need to send
       // a request to the store.
       all_present = false;
-    } else {
-      // NOTE: If the object is still unsealed, we will deadlock, since we must
-      // have been the one who created it.
-      ARROW_CHECK(object_entry->second->is_sealed)
+    } else if (!object_entry->second->is_sealed) {
+      // This client created the object but hasn't sealed it. If we call Get
+      // with no timeout, we will deadlock, because this client won't be able to
+      // call Seal.
+      ARROW_CHECK(timeout_ms != -1)
           << "Plasma client called get on an unsealed object that it created";
+      ARROW_LOG(WARNING)
+          << "Attempting to get an object that this client created but hasn't sealed.";
+      all_present = false;
+    } else {
       PlasmaObject* object = &object_entry->second->object;
       std::shared_ptr<Buffer> physical_buf;
 

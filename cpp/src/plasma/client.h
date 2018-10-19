@@ -110,16 +110,16 @@ class ARROW_EXPORT PlasmaClient {
   /// objects have all been created and sealed in the Plasma Store or the
   /// timeout expires.
   ///
+  /// If an object was not retrieved, the corresponding metadata and data
+  /// fields in the ObjectBuffer structure will evaluate to false.
+  /// Objects are automatically released by the client when their buffers
+  /// get out of scope.
+  ///
   /// \param object_ids The IDs of the objects to get.
   /// \param timeout_ms The amount of time in milliseconds to wait before this
   ///        request times out. If this value is -1, then no timeout is set.
   /// \param[out] object_buffers The object results.
   /// \return The return status.
-  ///
-  /// If an object was not retrieved, the corresponding metadata and data
-  /// fields in the ObjectBuffer structure will evaluate to false.
-  /// Objects are automatically released by the client when their buffers
-  /// get out of scope.
   Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
              std::vector<ObjectBuffer>* object_buffers);
 

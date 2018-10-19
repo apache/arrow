@@ -280,6 +280,16 @@ class TestPlasmaClient(object):
                 else:
                     assert results[i] is None
 
+        # Test trying to get an object that was created by the same client but
+        # not sealed.
+        object_id = random_object_id()
+        self.plasma_client.create(object_id, 10, b"metadata")
+        assert self.plasma_client.get_buffer(object_id, timeout_ms=0) is None
+        assert self.plasma_client.get_buffer(object_id, timeout_ms=1) is None
+        self.plasma_client.seal(object_id)
+        assert (self.plasma_client.get_buffer(object_id, timeout_ms=0) is
+                not None)
+
     def test_buffer_lifetime(self):
         # ARROW-2195
         arr = pa.array([1, 12, 23, 3, 34], pa.int32())
