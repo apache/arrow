@@ -49,7 +49,7 @@ install:
 build: off
 
 test_script:
-  - git clone --recurse -b {{ arrow.branch }} {{ arrow.remote }} arrow || exit /B
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow || exit /B
   - git -C arrow checkout {{ arrow.head }} || exit /B
 
   - pushd arrow\dev\tasks\conda-recipes
