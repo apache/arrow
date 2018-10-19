@@ -22,8 +22,8 @@ use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
 
-use super::buffer::*;
-use super::datatypes::*;
+use buffer::{Buffer, MutableBuffer};
+use datatypes::{ArrowPrimitiveType, ToByteSlice};
 use error::{ArrowError, Result};
 use util::bit_util;
 
