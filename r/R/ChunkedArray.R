@@ -22,15 +22,15 @@
     length = function() ChunkedArray__length(self),
     null_count = function() ChunkedArray__null_count(self),
     num_chunks = function() ChunkedArray__num_chunks(self),
-    chunk = function(i) `arrow::Array`$new(ChunkedArray__chunk(self, i)),
-    chunks = function() purrr::map(ChunkedArray__chunks(self), `arrow::Array`$new),
+    chunk = function(i) construct(`arrow::Array`, ChunkedArray__chunk(self, i)),
+    chunks = function() purrr::map(ChunkedArray__chunks(self), construct, class = `arrow::Array`),
     type = function() `arrow::DataType`$dispatch(ChunkedArray__type(self)),
     as_vector = function() ChunkedArray__as_vector(self),
     Slice = function(offset, length = NULL){
       if (is.null(length)) {
-        `arrow::ChunkedArray`$new(ChunkArray__Slice1(self, offset))
+        construct(`arrow::ChunkedArray`, ChunkArray__Slice1(self, offset))
       } else {
-        `arrow::ChunkedArray`$new(ChunkArray__Slice2(self, offset, length))
+        construct(`arrow::ChunkedArray`, ChunkArray__Slice2(self, offset, length))
       }
     }
   )
@@ -42,5 +42,5 @@
 #'
 #' @export
 chunked_array <- function(...){
-  `arrow::ChunkedArray`$new(ChunkedArray__from_list(rlang::list2(...)))
+  construct(`arrow::ChunkedArray`, ChunkedArray__from_list(rlang::list2(...)))
 }

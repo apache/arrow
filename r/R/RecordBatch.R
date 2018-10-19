@@ -21,8 +21,8 @@
   public = list(
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
-    schema = function() `arrow::Schema`$new(RecordBatch__schema(self)),
-    column = function(i) `arrow::Array`$new(RecordBatch__column(self, i)),
+    schema = function() construct(`arrow::Schema`, RecordBatch__schema(self)),
+    column = function(i) construct(`arrow::Array`, RecordBatch__column(self, i)),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
     Equals = function(other) {
@@ -30,13 +30,13 @@
       RecordBatch__Equals(self, other)
     },
     RemoveColumn = function(i){
-      `arrow::RecordBatch`$new(RecordBatch__RemoveColumn(self, i))
+      construct(`arrow::RecordBatch`, RecordBatch__RemoveColumn(self, i))
     },
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
-        `arrow::RecordBatch`$new(RecordBatch__Slice1(self, offset))
+        construct(`arrow::RecordBatch`, RecordBatch__Slice1(self, offset))
       } else {
-        `arrow::RecordBatch`$new(RecordBatch__Slice2(self, offset, length))
+        construct(`arrow::RecordBatch`, RecordBatch__Slice2(self, offset, length))
       }
     },
 
@@ -65,5 +65,5 @@
 #'
 #' @export
 record_batch <- function(.data){
-  `arrow::RecordBatch`$new(RecordBatch__from_dataframe(.data))
+  construct(`arrow::RecordBatch`, RecordBatch__from_dataframe(.data))
 }

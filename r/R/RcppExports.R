@@ -73,6 +73,10 @@ Column__data <- function(column) {
     .Call(`_arrow_Column__data`, column)
 }
 
+xptr_is_null <- function(xp) {
+    .Call(`_arrow_xptr_is_null`, xp)
+}
+
 Int8__initialize <- function() {
     .Call(`_arrow_Int8__initialize`)
 }
@@ -235,10 +239,6 @@ TimestampType__unit <- function(type) {
 
 Object__pointer_address <- function(obj) {
     .Call(`_arrow_Object__pointer_address`, obj)
-}
-
-Object__is_null <- function(obj) {
-    .Call(`_arrow_Object__is_null`, obj)
 }
 
 DictionaryType__initialize <- function(type, array, ordered) {

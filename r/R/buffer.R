@@ -47,15 +47,15 @@ buffer.default <- function(x) {
 
 #' @export
 buffer.raw <- function(x) {
-  `arrow::Buffer`$new(r___RBuffer__initialize(x))
+  construct(`arrow::Buffer`, r___RBuffer__initialize(x))
 }
 
 #' @export
 buffer.numeric <- function(x) {
-  `arrow::Buffer`$new(r___RBuffer__initialize(x))
+  construct(`arrow::Buffer`, r___RBuffer__initialize(x))
 }
 
 #' @export
 buffer.integer <- function(x) {
-  `arrow::Buffer`$new(r___RBuffer__initialize(x))
+  construct(`arrow::Buffer`, r___RBuffer__initialize(x))
 }

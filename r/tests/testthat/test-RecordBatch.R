@@ -141,9 +141,11 @@ test_that("read_record_batch handles various streams (ARROW-3450, ARROW-3505)", 
 
   stream_reader <- record_batch_stream_reader(bytes)
   batch7 <- read_record_batch(stream_reader)
+  expect_null(read_record_batch(stream_reader))
 
   file_reader <- record_batch_file_reader(tf)
   batch8 <- read_record_batch(file_reader)
+  expect_error(read_record_batch(file_reader, i = 2))
 
   expect_equal(batch, batch1)
   expect_equal(batch, batch2)
