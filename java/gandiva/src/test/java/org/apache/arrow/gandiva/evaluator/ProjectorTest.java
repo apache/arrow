@@ -224,13 +224,13 @@ public class ProjectorTest extends BaseEvaluatorTest {
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
     // second half is "undefined"
-    int[] values_a = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-    int[] values_b = new int[]{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+    int[] aValues = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int[] bValues = new int[]{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
 
     ArrowBuf validitya = buf(validity);
-    ArrowBuf valuesa = intBuf(values_a);
+    ArrowBuf valuesa = intBuf(aValues);
     ArrowBuf validityb = buf(validity);
-    ArrowBuf valuesb = intBuf(values_b);
+    ArrowBuf valuesb = intBuf(bValues);
     ArrowRecordBatch batch =
         new ArrowRecordBatch(
             numRows,
@@ -275,13 +275,13 @@ public class ProjectorTest extends BaseEvaluatorTest {
     int numRows = 2;
     byte[] validity = new byte[]{(byte) 255};
     // second half is "undefined"
-    int[] values_a = new int[]{2, 2};
-    int[] values_b = new int[]{1, 0};
+    int[] aValues = new int[]{2, 2};
+    int[] bValues = new int[]{1, 0};
 
     ArrowBuf validitya = buf(validity);
-    ArrowBuf valuesa = intBuf(values_a);
+    ArrowBuf valuesa = intBuf(aValues);
     ArrowBuf validityb = buf(validity);
-    ArrowBuf valuesb = intBuf(values_b);
+    ArrowBuf valuesb = intBuf(bValues);
     ArrowRecordBatch batch = new ArrowRecordBatch(
         numRows,
         Lists.newArrayList(new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows, 0)),
@@ -333,19 +333,19 @@ public class ProjectorTest extends BaseEvaluatorTest {
           Projector evaluator = Projector.make(s, exprs);
           int numRows = 2;
           byte[] validity = new byte[]{(byte) 255};
-          int[] values_a = new int[]{2, 2};
-          int[] values_b;
+          int[] aValues = new int[]{2, 2};
+          int[] bValues;
           if (i % 2 == 0) {
             errorCountExp.incrementAndGet();
-            values_b = new int[]{1, 0};
+            bValues = new int[]{1, 0};
           } else {
-            values_b = new int[]{1, 1};
+            bValues = new int[]{1, 1};
           }
 
           ArrowBuf validitya = buf(validity);
-          ArrowBuf valuesa = intBuf(values_a);
+          ArrowBuf valuesa = intBuf(aValues);
           ArrowBuf validityb = buf(validity);
-          ArrowBuf valuesb = intBuf(values_b);
+          ArrowBuf valuesb = intBuf(bValues);
           ArrowRecordBatch batch = new ArrowRecordBatch(
               numRows,
               Lists.newArrayList(new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows,
@@ -378,21 +378,21 @@ public class ProjectorTest extends BaseEvaluatorTest {
   @Test
   public void testAdd3() throws GandivaException, Exception {
     Field x = Field.nullable("x", int32);
-    Field N2x = Field.nullable("N2x", int32);
-    Field N3x = Field.nullable("N3x", int32);
+    Field n2x = Field.nullable("n2x", int32);
+    Field n3x = Field.nullable("n3x", int32);
 
     List<TreeNode> args = new ArrayList<TreeNode>();
 
-    // x + N2x + N3x
+    // x + n2x + n3x
     TreeNode add1 =
         TreeBuilder.makeFunction(
-            "add", Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeField(N2x)), int32);
+            "add", Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeField(n2x)), int32);
     TreeNode add =
         TreeBuilder.makeFunction(
-            "add", Lists.newArrayList(add1, TreeBuilder.makeField(N3x)), int32);
+            "add", Lists.newArrayList(add1, TreeBuilder.makeField(n3x)), int32);
     ExpressionTree expr = TreeBuilder.makeExpression(add, x);
 
-    List<Field> cols = Lists.newArrayList(x, N2x, N3x);
+    List<Field> cols = Lists.newArrayList(x, n2x, n3x);
     Schema schema = new Schema(cols);
 
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
@@ -400,25 +400,25 @@ public class ProjectorTest extends BaseEvaluatorTest {
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
     // second half is "undefined"
-    int[] values_x = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-    int[] values_N2x = new int[]{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
-    int[] values_N3x = new int[]{1, 2, 3, 4, 4, 3, 2, 1, 5, 6, 7, 8, 8, 7, 6, 5};
+    int[] xValues = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int[] n2xValues = new int[]{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+    int[] n3xValues = new int[]{1, 2, 3, 4, 4, 3, 2, 1, 5, 6, 7, 8, 8, 7, 6, 5};
 
     int[] expected = new int[]{18, 19, 20, 21, 21, 20, 19, 18, 18, 19, 20, 21, 21, 20, 19, 18};
 
-    ArrowBuf validity_x = buf(validity);
-    ArrowBuf data_x = intBuf(values_x);
-    ArrowBuf validity_N2x = buf(validity);
-    ArrowBuf data_N2x = intBuf(values_N2x);
-    ArrowBuf validity_N3x = buf(validity);
-    ArrowBuf data_N3x = intBuf(values_N3x);
+    ArrowBuf xValidity = buf(validity);
+    ArrowBuf xData = intBuf(xValues);
+    ArrowBuf n2xValidity = buf(validity);
+    ArrowBuf n2xData = intBuf(n2xValues);
+    ArrowBuf n3xValidity = buf(validity);
+    ArrowBuf n3xData = intBuf(n3xValues);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 8);
     ArrowRecordBatch batch =
         new ArrowRecordBatch(
             numRows,
             Lists.newArrayList(fieldNode, fieldNode, fieldNode),
-            Lists.newArrayList(validity_x, data_x, validity_N2x, data_N2x, validity_N3x, data_N3x));
+            Lists.newArrayList(xValidity, xData, n2xValidity, n2xData, n3xValidity, n3xData));
 
     IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
     intVector.allocateNew(numRows);
@@ -624,9 +624,9 @@ public class ProjectorTest extends BaseEvaluatorTest {
   }
 
   private TreeNode ifLongLessThanElse(
-      TreeNode arg, long value, long then_value, TreeNode elseNode, ArrowType type) {
+      TreeNode arg, long value, long thenValue, TreeNode elseNode, ArrowType type) {
     return TreeBuilder.makeIf(
-        makeLongLessThanCond(arg, value), TreeBuilder.makeLiteral(then_value), elseNode, type);
+        makeLongLessThanCond(arg, value), TreeBuilder.makeLiteral(thenValue), elseNode, type);
   }
 
   @Test
@@ -645,28 +645,28 @@ public class ProjectorTest extends BaseEvaluatorTest {
      * else 10
      */
     Field x = Field.nullable("x", int64);
-    TreeNode x_node = TreeBuilder.makeField(x);
+    TreeNode xNode = TreeBuilder.makeField(x);
 
     // if (x < 100) then 9 else 10
-    TreeNode ifLess100 = ifLongLessThanElse(x_node, 100L, 9L, TreeBuilder.makeLiteral(10L), int64);
+    TreeNode ifLess100 = ifLongLessThanElse(xNode, 100L, 9L, TreeBuilder.makeLiteral(10L), int64);
     // if (x < 90) then 8 else ifLess100
-    TreeNode ifLess90 = ifLongLessThanElse(x_node, 90L, 8L, ifLess100, int64);
+    TreeNode ifLess90 = ifLongLessThanElse(xNode, 90L, 8L, ifLess100, int64);
     // if (x < 80) then 7 else ifLess90
-    TreeNode ifLess80 = ifLongLessThanElse(x_node, 80L, 7L, ifLess90, int64);
+    TreeNode ifLess80 = ifLongLessThanElse(xNode, 80L, 7L, ifLess90, int64);
     // if (x < 70) then 6 else ifLess80
-    TreeNode ifLess70 = ifLongLessThanElse(x_node, 70L, 6L, ifLess80, int64);
+    TreeNode ifLess70 = ifLongLessThanElse(xNode, 70L, 6L, ifLess80, int64);
     // if (x < 60) then 5 else ifLess70
-    TreeNode ifLess60 = ifLongLessThanElse(x_node, 60L, 5L, ifLess70, int64);
+    TreeNode ifLess60 = ifLongLessThanElse(xNode, 60L, 5L, ifLess70, int64);
     // if (x < 50) then 4 else ifLess60
-    TreeNode ifLess50 = ifLongLessThanElse(x_node, 50L, 4L, ifLess60, int64);
+    TreeNode ifLess50 = ifLongLessThanElse(xNode, 50L, 4L, ifLess60, int64);
     // if (x < 40) then 3 else ifLess50
-    TreeNode ifLess40 = ifLongLessThanElse(x_node, 40L, 3L, ifLess50, int64);
+    TreeNode ifLess40 = ifLongLessThanElse(xNode, 40L, 3L, ifLess50, int64);
     // if (x < 30) then 2 else ifLess40
-    TreeNode ifLess30 = ifLongLessThanElse(x_node, 30L, 2L, ifLess40, int64);
+    TreeNode ifLess30 = ifLongLessThanElse(xNode, 30L, 2L, ifLess40, int64);
     // if (x < 20) then 1 else ifLess30
-    TreeNode ifLess20 = ifLongLessThanElse(x_node, 20L, 1L, ifLess30, int64);
+    TreeNode ifLess20 = ifLongLessThanElse(xNode, 20L, 1L, ifLess30, int64);
     // if (x < 10) then 0 else ifLess20
-    TreeNode ifLess10 = ifLongLessThanElse(x_node, 10L, 0L, ifLess20, int64);
+    TreeNode ifLess10 = ifLongLessThanElse(xNode, 10L, 0L, ifLess20, int64);
 
     ExpressionTree expr = TreeBuilder.makeExpression(ifLess10, x);
     Schema schema = new Schema(Lists.newArrayList(x));
@@ -674,16 +674,16 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, (byte) 255};
-    long[] values_x = new long[]{9, 15, 21, 32, 43, 54, 65, 76, 87, 98, 109, 200, -10, 60, 77, 80};
+    long[] xValues = new long[]{9, 15, 21, 32, 43, 54, 65, 76, 87, 98, 109, 200, -10, 60, 77, 80};
     long[] expected = new long[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 0, 6, 7, 8};
 
-    ArrowBuf validity_buf = buf(validity);
-    ArrowBuf data_x = longBuf(values_x);
+    ArrowBuf bufValidity = buf(validity);
+    ArrowBuf xData = longBuf(xValues);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
         new ArrowRecordBatch(
-            numRows, Lists.newArrayList(fieldNode), Lists.newArrayList(validity_buf, data_x));
+            numRows, Lists.newArrayList(fieldNode), Lists.newArrayList(bufValidity, xData));
 
     BigIntVector bigIntVector = new BigIntVector(EMPTY_SCHEMA_PATH, allocator);
     bigIntVector.allocateNew(numRows);
@@ -710,9 +710,9 @@ public class ProjectorTest extends BaseEvaluatorTest {
     ArrowType int64 = new ArrowType.Int(64, true);
 
     Field x = Field.nullable("x", int64);
-    TreeNode x_node = TreeBuilder.makeField(x);
-    TreeNode gt10 = makeLongGreaterThanCond(x_node, 10);
-    TreeNode lt20 = makeLongLessThanCond(x_node, 20);
+    TreeNode xNode = TreeBuilder.makeField(x);
+    TreeNode gt10 = makeLongGreaterThanCond(xNode, 10);
+    TreeNode lt20 = makeLongLessThanCond(xNode, 20);
     TreeNode and = TreeBuilder.makeAnd(Lists.newArrayList(gt10, lt20));
 
     Field res = Field.nullable("res", boolType);
@@ -723,16 +723,16 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     int numRows = 4;
     byte[] validity = new byte[]{(byte) 255};
-    long[] values_x = new long[]{9, 15, 17, 25};
+    long[] xValues = new long[]{9, 15, 17, 25};
     boolean[] expected = new boolean[]{false, true, true, false};
 
-    ArrowBuf validity_buf = buf(validity);
-    ArrowBuf data_x = longBuf(values_x);
+    ArrowBuf bufValidity = buf(validity);
+    ArrowBuf xData = longBuf(xValues);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
         new ArrowRecordBatch(
-            numRows, Lists.newArrayList(fieldNode), Lists.newArrayList(validity_buf, data_x));
+            numRows, Lists.newArrayList(fieldNode), Lists.newArrayList(bufValidity, xData));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);
@@ -759,9 +759,9 @@ public class ProjectorTest extends BaseEvaluatorTest {
     ArrowType int64 = new ArrowType.Int(64, true);
 
     Field x = Field.nullable("x", int64);
-    TreeNode x_node = TreeBuilder.makeField(x);
-    TreeNode gt10 = makeLongGreaterThanCond(x_node, 10);
-    TreeNode lt5 = makeLongLessThanCond(x_node, 5);
+    TreeNode xNode = TreeBuilder.makeField(x);
+    TreeNode gt10 = makeLongGreaterThanCond(xNode, 10);
+    TreeNode lt5 = makeLongLessThanCond(xNode, 5);
     TreeNode or = TreeBuilder.makeOr(Lists.newArrayList(gt10, lt5));
 
     Field res = Field.nullable("res", boolType);
@@ -772,16 +772,16 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     int numRows = 4;
     byte[] validity = new byte[]{(byte) 255};
-    long[] values_x = new long[]{4, 9, 15, 17};
+    long[] xValues = new long[]{4, 9, 15, 17};
     boolean[] expected = new boolean[]{true, false, true, true};
 
-    ArrowBuf validity_buf = buf(validity);
-    ArrowBuf data_x = longBuf(values_x);
+    ArrowBuf bufValidity = buf(validity);
+    ArrowBuf xData = longBuf(xValues);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
         new ArrowRecordBatch(
-            numRows, Lists.newArrayList(fieldNode), Lists.newArrayList(validity_buf, data_x));
+            numRows, Lists.newArrayList(fieldNode), Lists.newArrayList(bufValidity, xData));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);
@@ -809,10 +809,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
     ArrowType int64 = new ArrowType.Int(64, true);
 
     Field x = Field.nullable("x", int64);
-    TreeNode x_node = TreeBuilder.makeField(x);
+    TreeNode xNode = TreeBuilder.makeField(x);
 
     // if (x < 10) then 1 else null
-    TreeNode ifLess10 = ifLongLessThanElse(x_node, 10L, 1L, TreeBuilder.makeNull(int64), int64);
+    TreeNode ifLess10 = ifLongLessThanElse(xNode, 10L, 1L, TreeBuilder.makeNull(int64), int64);
 
     ExpressionTree expr = TreeBuilder.makeExpression(ifLess10, x);
     Schema schema = new Schema(Lists.newArrayList(x));
@@ -820,16 +820,16 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     int numRows = 2;
     byte[] validity = new byte[]{(byte) 255};
-    long[] values_x = new long[]{5, 32};
+    long[] xValues = new long[]{5, 32};
     long[] expected = new long[]{1, 0};
 
-    ArrowBuf validity_buf = buf(validity);
-    ArrowBuf data_x = longBuf(values_x);
+    ArrowBuf bufValidity = buf(validity);
+    ArrowBuf xData = longBuf(xValues);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
         new ArrowRecordBatch(
-            numRows, Lists.newArrayList(fieldNode), Lists.newArrayList(validity_buf, data_x));
+            numRows, Lists.newArrayList(fieldNode), Lists.newArrayList(bufValidity, xData));
 
     BigIntVector bigIntVector = new BigIntVector(EMPTY_SCHEMA_PATH, allocator);
     bigIntVector.allocateNew(numRows);
@@ -856,23 +856,23 @@ public class ProjectorTest extends BaseEvaluatorTest {
     ArrowType time64 = new ArrowType.Time(TimeUnit.MICROSECOND, 64);
 
     Field x = Field.nullable("x", time64);
-    TreeNode x_node = TreeBuilder.makeNull(time64);
+    TreeNode xNode = TreeBuilder.makeNull(time64);
 
-    ExpressionTree expr = TreeBuilder.makeExpression(x_node, x);
+    ExpressionTree expr = TreeBuilder.makeExpression(xNode, x);
     Schema schema = new Schema(Lists.newArrayList(x));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 2;
     byte[] validity = new byte[]{(byte) 255};
-    int[] values_x = new int[]{5, 32};
+    int[] xValues = new int[]{5, 32};
 
-    ArrowBuf validity_buf = buf(validity);
-    ArrowBuf data_x = intBuf(values_x);
+    ArrowBuf bufValidity = buf(validity);
+    ArrowBuf xData = intBuf(xValues);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
         new ArrowRecordBatch(
-            numRows, Lists.newArrayList(fieldNode), Lists.newArrayList(validity_buf, data_x));
+            numRows, Lists.newArrayList(fieldNode), Lists.newArrayList(bufValidity, xData));
 
     BigIntVector bigIntVector = new BigIntVector(EMPTY_SCHEMA_PATH, allocator);
     bigIntVector.allocateNew(numRows);
@@ -895,42 +895,42 @@ public class ProjectorTest extends BaseEvaluatorTest {
    * else y
    */
     Field x = Field.nullable("x", new ArrowType.Time(TimeUnit.MILLISECOND, 32));
-    TreeNode x_node = TreeBuilder.makeField(x);
+    TreeNode xNode = TreeBuilder.makeField(x);
 
     Field y = Field.nullable("y", new ArrowType.Time(TimeUnit.MILLISECOND, 32));
-    TreeNode y_node = TreeBuilder.makeField(y);
+    TreeNode yNode = TreeBuilder.makeField(y);
 
     // if isnotnull(x) then x else y
-    TreeNode condition = TreeBuilder.makeFunction("isnotnull", Lists.newArrayList(x_node),
+    TreeNode condition = TreeBuilder.makeFunction("isnotnull", Lists.newArrayList(xNode),
         boolType);
-    TreeNode if_coalesce = TreeBuilder.makeIf(
+    TreeNode ifCoalesce = TreeBuilder.makeIf(
         condition,
-        x_node,
-        y_node,
+        xNode,
+        yNode,
         new ArrowType.Time(TimeUnit.MILLISECOND, 32));
 
-    ExpressionTree expr = TreeBuilder.makeExpression(if_coalesce, x);
+    ExpressionTree expr = TreeBuilder.makeExpression(ifCoalesce, x);
     Schema schema = new Schema(Lists.newArrayList(x, y));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 2;
     byte[] validity = new byte[]{(byte) 1};
-    byte[] validity_y = new byte[]{(byte) 3};
-    int[] values_x = new int[]{5, 1};
-    int[] values_y = new int[]{10, 2};
+    byte[] yValidity = new byte[]{(byte) 3};
+    int[] xValues = new int[]{5, 1};
+    int[] yValues = new int[]{10, 2};
     int[] expected = new int[]{5, 2};
 
-    ArrowBuf validity_buf = buf(validity);
-    ArrowBuf data_x = intBuf(values_x);
+    ArrowBuf bufValidity = buf(validity);
+    ArrowBuf xData = intBuf(xValues);
 
-    ArrowBuf validity_buf_y = buf(validity_y);
-    ArrowBuf data_y = intBuf(values_y);
+    ArrowBuf yBufValidity = buf(yValidity);
+    ArrowBuf yData = intBuf(yValues);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch = new ArrowRecordBatch(
         numRows,
         Lists.newArrayList(fieldNode),
-        Lists.newArrayList(validity_buf, data_x, validity_buf_y, data_y));
+        Lists.newArrayList(bufValidity, xData, yBufValidity, yData));
 
     IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
     intVector.allocateNew(numRows);
@@ -953,26 +953,26 @@ public class ProjectorTest extends BaseEvaluatorTest {
   public void testIsNull() throws GandivaException, Exception {
     Field x = Field.nullable("x", float64);
 
-    TreeNode x_node = TreeBuilder.makeField(x);
-    TreeNode isNull = TreeBuilder.makeFunction("isnull", Lists.newArrayList(x_node), boolType);
+    TreeNode xNode = TreeBuilder.makeField(x);
+    TreeNode isNull = TreeBuilder.makeFunction("isnull", Lists.newArrayList(xNode), boolType);
     ExpressionTree expr = TreeBuilder.makeExpression(isNull, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(x));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
-    double[] values_x =
+    double[] xValues =
         new double[]{
             1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0
         };
 
-    ArrowBuf validity_buf = buf(validity);
-    ArrowBuf data_x = doubleBuf(values_x);
+    ArrowBuf bufValidity = buf(validity);
+    ArrowBuf xData = doubleBuf(xValues);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
         new ArrowRecordBatch(
-            numRows, Lists.newArrayList(fieldNode), Lists.newArrayList(validity_buf, data_x));
+            numRows, Lists.newArrayList(fieldNode), Lists.newArrayList(bufValidity, xData));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);
@@ -998,30 +998,30 @@ public class ProjectorTest extends BaseEvaluatorTest {
     Field c1 = Field.nullable("c1", int32);
     Field c2 = Field.nullable("c2", int32);
 
-    TreeNode c1_Node = TreeBuilder.makeField(c1);
-    TreeNode c2_Node = TreeBuilder.makeField(c2);
+    TreeNode c1Node = TreeBuilder.makeField(c1);
+    TreeNode c2Node = TreeBuilder.makeField(c2);
     TreeNode equals =
-        TreeBuilder.makeFunction("equal", Lists.newArrayList(c1_Node, c2_Node), boolType);
+        TreeBuilder.makeFunction("equal", Lists.newArrayList(c1Node, c2Node), boolType);
     ExpressionTree expr = TreeBuilder.makeExpression(equals, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1, c2));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
-    int[] values_c1 = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-    int[] values_c2 = new int[]{1, 2, 3, 4, 8, 7, 6, 5, 16, 15, 14, 13, 12, 11, 10, 9};
+    int[] c1Values = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int[] c2Values = new int[]{1, 2, 3, 4, 8, 7, 6, 5, 16, 15, 14, 13, 12, 11, 10, 9};
 
-    ArrowBuf validity_c1 = buf(validity);
-    ArrowBuf data_c1 = intBuf(values_c1);
-    ArrowBuf validity_c2 = buf(validity);
-    ArrowBuf data_c2 = intBuf(values_c2);
+    ArrowBuf c1Validity = buf(validity);
+    ArrowBuf c1Data = intBuf(c1Values);
+    ArrowBuf c2Validity = buf(validity);
+    ArrowBuf c2Data = intBuf(c2Values);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
         new ArrowRecordBatch(
             numRows,
             Lists.newArrayList(fieldNode, fieldNode),
-            Lists.newArrayList(validity_c1, data_c1, validity_c2, data_c2));
+            Lists.newArrayList(c1Validity, c1Data, c2Validity, c2Data));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);
@@ -1062,18 +1062,18 @@ public class ProjectorTest extends BaseEvaluatorTest {
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
     // second half is "undefined"
-    int[] values_a = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-    int[] values_b = new int[]{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+    int[] aValues = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int[] bValues = new int[]{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
 
-    ArrowBuf validity_a = buf(validity);
-    ArrowBuf data_a = intBuf(values_a);
-    ArrowBuf validity_b = buf(validity);
-    ArrowBuf data_b = intBuf(values_b);
+    ArrowBuf aValidity = buf(validity);
+    ArrowBuf aData = intBuf(aValues);
+    ArrowBuf bValidity = buf(validity);
+    ArrowBuf bData = intBuf(bValues);
     ArrowRecordBatch batch =
         new ArrowRecordBatch(
             numRows,
             Lists.newArrayList(new ArrowFieldNode(numRows, 8), new ArrowFieldNode(numRows, 8)),
-            Lists.newArrayList(validity_a, data_a, validity_b, data_b));
+            Lists.newArrayList(aValidity, aData, bValidity, bData));
 
     IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
 
@@ -1167,17 +1167,17 @@ public class ProjectorTest extends BaseEvaluatorTest {
             expYearFromDate, expMonthFromDate, expDayFromDate, expHourFromDate, expMinFromDate
         };
 
-    ArrowBuf validity_buf = buf(validity);
-    ArrowBuf data_millis = stringToMillis(values);
-    ArrowBuf validity_buf2 = buf(validity);
-    ArrowBuf data_millis2 = stringToMillis(values);
+    ArrowBuf bufValidity = buf(validity);
+    ArrowBuf millisData = stringToMillis(values);
+    ArrowBuf buf2Validity = buf(validity);
+    ArrowBuf millis2Data = stringToMillis(values);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
         new ArrowRecordBatch(
             numRows,
             Lists.newArrayList(fieldNode, fieldNode),
-            Lists.newArrayList(validity_buf, data_millis, validity_buf2, data_millis2));
+            Lists.newArrayList(bufValidity, millisData, buf2Validity, millis2Data));
 
     List<ValueVector> output = new ArrayList<ValueVector>();
     for (int i = 0; i < exprs.size(); i++) {
@@ -1207,11 +1207,11 @@ public class ProjectorTest extends BaseEvaluatorTest {
     Field c1 = Field.nullable("c1", int8);
     Field c2 = Field.nullable("c2", int8);
 
-    TreeNode c1_Node = TreeBuilder.makeField(c1);
-    TreeNode c2_Node = TreeBuilder.makeField(c2);
+    TreeNode c1Node = TreeBuilder.makeField(c1);
+    TreeNode c2Node = TreeBuilder.makeField(c2);
 
     TreeNode unknown =
-        TreeBuilder.makeFunction("xxx_yyy", Lists.newArrayList(c1_Node, c2_Node), int8);
+        TreeBuilder.makeFunction("xxx_yyy", Lists.newArrayList(c1Node, c2Node), int8);
     ExpressionTree expr = TreeBuilder.makeExpression(unknown, Field.nullable("result", int8));
     Schema schema = new Schema(Lists.newArrayList(c1, c2));
     boolean caughtException = false;
