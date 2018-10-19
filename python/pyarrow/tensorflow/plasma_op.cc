@@ -280,8 +280,10 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
       // NOTE(zongheng): this is a blocking call.  We might want to (1) make
       // Plasma asynchronous, (2) launch a thread / event here ourselves, or
       // something like that...
-      ARROW_CHECK_OK(client_.Get(&object_id, /*num_objects=*/1,
-                                 /*timeout_ms=*/-1, &object_buffer));
+      std::vector<plasma::ObjectBuffer> object_buffers;
+      ARROW_CHECK_OK(client_.Get({object_id}, /*timeout_ms=*/-1, &object_buffers));
+      ARROW_CHECK(object_buffers.size() == 1);
+      object_buffer = object_buffers[0];
     }
 
     std::shared_ptr<arrow::Tensor> tensor;
