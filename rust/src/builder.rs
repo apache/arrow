@@ -22,15 +22,15 @@ use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
 
-use util::bit_util;
 use super::buffer::*;
 use super::datatypes::*;
 use error::{ArrowError, Result};
+use util::bit_util;
 
 /// Buffer builder with zero-copy build method
 pub struct BufferBuilder<T>
-    where
-        T: ArrowPrimitiveType,
+where
+    T: ArrowPrimitiveType,
 {
     buffer: MutableBuffer,
     len: i64,
@@ -152,9 +152,12 @@ impl BufferBuilder<bool> {
     pub fn push(&mut self, v: bool) -> Result<()> {
         self.reserve(1)?;
         if v {
-            let buffer_len = self.buffer.len();
-            if self.len > buffer_len as i64 * 8 {
-                self.buffer.set_len(buffer_len + 1);
+            // Check needed here to increase the buffers `len` to ensure that `set_bit` is safe
+            // Zeroing out other bits also makes testing easier
+            if self.len > self.buffer.len() as i64 * 8 {
+                // safe to `unwrap` here as `write` performs a `capacity` check which is
+                // already done by `reserve`
+                self.buffer.write(&[0]).unwrap();
             }
             bit_util::set_bit(self.buffer.data_mut(), (self.len) as usize);
         }
@@ -279,6 +282,13 @@ mod tests {
         assert_eq!(512, b.capacity());
         let buffer = b.finish();
         assert_eq!(1, buffer.len());
+
+        let mut b = BufferBuilder::<bool>::new(4);
+        b.push_slice(&[false, true, false, true]).unwrap();
+        assert_eq!(4, b.len());
+        assert_eq!(512, b.capacity());
+        let buffer = b.finish();
+        assert_eq!(1, buffer.len());
     }
 
     #[test]
@@ -301,10 +311,10 @@ mod tests {
     }
 
     #[test]
-    fn test_boolean_builder() {
+    fn test_boolean_builder_increases_buffer_len() {
         // 00000010 01001000
         let buf = Buffer::from([72_u8, 2_u8]);
-        let mut builder = BufferBuilder::<bool>::new(16);
+        let mut builder = BufferBuilder::<bool>::new(8);
 
         for i in 0..10 {
             if i == 3 || i == 6 || i == 9 {
