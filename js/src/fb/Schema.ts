@@ -196,7 +196,7 @@ export namespace org.apache.arrow.flatbuf {
      * @param {flatbuffers.Builder} builder
      */
     static startNull(builder: flatbuffers.Builder) {
-      builder.startObject(0);
+      return builder.startObject(0);
     }
 
     /**
