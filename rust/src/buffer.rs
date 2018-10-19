@@ -204,6 +204,10 @@ impl MutableBuffer {
         self.len
     }
 
+    pub fn set_len(&mut self, new_len: usize) {
+        self.len = new_len;
+    }
+
     /// Returns the total capacity in this buffer.
     pub fn capacity(&self) -> usize {
         self.capacity

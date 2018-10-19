@@ -152,10 +152,10 @@ impl BufferBuilder<bool> {
     pub fn push(&mut self, v: bool) -> Result<()> {
         self.reserve(1)?;
         if v {
-//            let buffer_len = self.buffer.len();
-//            if self.len > buffer_len as i64 * 8 {
-//                self.buffer.set_len(buffer_len + 1);
-//            }
+            let buffer_len = self.buffer.len();
+            if self.len > buffer_len as i64 * 8 {
+                self.buffer.set_len(buffer_len + 1);
+            }
             bit_util::set_bit(self.buffer.data_mut(), (self.len) as usize);
         }
         self.len += 1;
