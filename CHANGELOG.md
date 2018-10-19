@@ -17,6 +17,22 @@
   under the License.
 -->
 
+# Apache Arrow 0.11.1 (19 October 2018)
+
+## Bug
+
+\* ARROW-3514 - [Python] zlib deflate exception when writing Parquet file
+
+## Improvement
+
+\* ARROW-3353 - [Packaging] Build python 3.7 wheels
+\* ARROW-3534 - [Python] Update zlib library in manylinux1 image
+\* ARROW-3546 - [Python] Provide testing setup to verify wheel binaries work in one or more common Linux distributions
+
+## Task
+
+\* ARROW-3565 - [Python] Pin tensorflow to 1.11.0 in manylinux1 container
+
 # Apache Arrow 0.11.0 (04 October 2018)
 
 ## Bug
@@ -2615,4 +2631,5 @@
 
 * ARROW-260 - TestValueVector.testFixedVectorReallocation and testVariableVectorReallocation are flaky
 * ARROW-83 - Add basic test infrastructure for DecimalType
+
 
