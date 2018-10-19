@@ -61,7 +61,7 @@ install:
     source run_conda_forge_build_setup
 
 script:
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git clone --recurse -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
   - pushd arrow/dev/tasks/conda-recipes
   - conda build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow

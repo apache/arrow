@@ -56,6 +56,14 @@ test:
     - pyarrow.parquet
     - pyarrow.plasma  # [unix]
 
+  source_files:
+    - cpp/submodules/parquet-testing
+    - python/pyarrow/**/tests
+  requires:
+    - pytest
+  commands:
+    - pytest python/pyarrow
+
 about:
   home: http://github.com/apache/arrow
   license: Apache 2.0
