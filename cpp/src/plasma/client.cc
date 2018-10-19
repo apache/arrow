@@ -1056,7 +1056,7 @@ Status PlasmaClient::Get(const std::vector<ObjectID>& object_ids, int64_t timeou
   return impl_->Get(object_ids, timeout_ms, object_buffers);
 }
 
-Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,	
+Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
                          int64_t timeout_ms, ObjectBuffer* object_buffers) {
   return impl_->Get(object_ids, num_objects, timeout_ms, object_buffers);
 }
