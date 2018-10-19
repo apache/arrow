@@ -180,6 +180,45 @@ Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
   return PlasmaErrorStatus(message->error());
 }
 
+Status SendCreateAndSealRequest(int sock, const ObjectID& object_id,
+                                const std::string& data, const std::string& metadata,
+                                unsigned char* digest) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto digest_string = fbb.CreateString(reinterpret_cast<char*>(digest), kDigestSize);
+  auto message = fb::CreatePlasmaCreateAndSealRequest(
+      fbb, fbb.CreateString(object_id.binary()), fbb.CreateString(data),
+      fbb.CreateString(metadata), digest_string);
+  return PlasmaSend(sock, MessageType::PlasmaCreateAndSealRequest, &fbb, message);
+}
+
+Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
+                                std::string* object_data, std::string* metadata,
+                                unsigned char* digest) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<fb::PlasmaCreateAndSealRequest>(data);
+  DCHECK(VerifyFlatbuffer(message, data, size));
+
+  *object_id = ObjectID::from_binary(message->object_id()->str());
+  *object_data = message->data()->str();
+  *metadata = message->metadata()->str();
+  ARROW_CHECK(message->digest()->size() == kDigestSize);
+  memcpy(digest, message->digest()->data(), kDigestSize);
+  return Status::OK();
+}
+
+Status SendCreateAndSealReply(int sock, PlasmaError error) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message = fb::CreatePlasmaCreateAndSealReply(fbb, static_cast<PlasmaError>(error));
+  return PlasmaSend(sock, MessageType::PlasmaCreateAndSealReply, &fbb, message);
+}
+
+Status ReadCreateAndSealReply(uint8_t* data, size_t size) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<fb::PlasmaCreateAndSealReply>(data);
+  DCHECK(VerifyFlatbuffer(message, data, size));
+  return PlasmaErrorStatus(message->error());
+}
+
 Status SendAbortRequest(int sock, ObjectID object_id) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = fb::CreatePlasmaAbortRequest(fbb, fbb.CreateString(object_id.binary()));

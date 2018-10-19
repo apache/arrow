@@ -19,6 +19,7 @@
 #define PLASMA_PROTOCOL_H
 
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -56,6 +57,18 @@ Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
 
 Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
                        PlasmaObject* object, int* store_fd, int64_t* mmap_size);
+
+Status SendCreateAndSealRequest(int sock, const ObjectID& object_id,
+                                const std::string& data, const std::string& metadata,
+                                unsigned char* digest);
+
+Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
+                                std::string* object_data, std::string* metadata,
+                                unsigned char* digest);
+
+Status SendCreateAndSealReply(int sock, PlasmaError error);
+
+Status ReadCreateAndSealReply(uint8_t* data, size_t size);
 
 Status SendAbortRequest(int sock, ObjectID object_id);
 

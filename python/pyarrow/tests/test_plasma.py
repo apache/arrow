@@ -210,6 +210,38 @@ class TestPlasmaClient(object):
             else:
                 assert False
 
+    def test_create_and_seal(self):
+
+        # Create a bunch of objects.
+        object_ids = []
+        for i in range(1000):
+            object_id = random_object_id()
+            object_ids.append(object_id)
+            self.plasma_client.create_and_seal(object_id, i * b'a', i * b'b')
+
+        for i in range(1000):
+            assert self.plasma_client.get_buffer(object_ids[i]) == i * b'a'
+            assert (self.plasma_client.get_metadata(
+                        [object_ids[i]])[0].to_pybytes()
+                    == i * b'b')
+
+        # Make sure that creating the same object twice raises an exception.
+        object_id = random_object_id()
+        self.plasma_client.create_and_seal(object_id, b'a', b'b')
+        with pytest.raises(pa.PlasmaObjectExists):
+            self.plasma_client.create_and_seal(object_id, b'a', b'b')
+
+        # Make sure that these objects can be evicted.
+        big_object = DEFAULT_PLASMA_STORE_MEMORY // 10 * b'a'
+        object_ids = []
+        for _ in range(20):
+            object_id = random_object_id()
+            object_ids.append(object_id)
+            self.plasma_client.create_and_seal(random_object_id(), big_object,
+                                               big_object)
+        for i in range(10):
+            assert not self.plasma_client.contains(object_ids[i])
+
     def test_get(self):
         num_object_ids = 60
         # Test timing out of get with various timeouts.

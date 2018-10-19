@@ -174,6 +174,9 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
                 int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
 
+  Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
+                       const std::string& metadata);
+
   Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
              std::vector<ObjectBuffer>* object_buffers);
 
@@ -244,6 +247,10 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
                                  int64_t nbytes);
 
   uint64_t ComputeObjectHash(const ObjectBuffer& obj_buffer);
+
+  uint64_t ComputeObjectHash(const uint8_t* data, int64_t data_size,
+                             const uint8_t* metadata, int64_t metadata_size,
+                             int device_num);
 
   /// File descriptor of the Unix domain socket that connects to the store.
   int store_conn_;
@@ -429,6 +436,29 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
   // buffer returned by PlasmaClient::Create goes out of scope, the object does
   // not get released before the call to PlasmaClient::Seal happens.
   IncrementObjectCount(object_id, &object, false);
+  return Status::OK();
+}
+
+Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
+                                         const std::string& data,
+                                         const std::string& metadata) {
+  ARROW_LOG(DEBUG) << "called CreateAndSeal on conn " << store_conn_;
+
+  // Compute the object hash.
+  static unsigned char digest[kDigestSize];
+  // CreateAndSeal currently only supports device_num = 0, which corresponds to
+  // the host.
+  int device_num = 0;
+  uint64_t hash = ComputeObjectHash(
+      reinterpret_cast<const uint8_t*>(data.data()), data.size(),
+      reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
+  memcpy(&digest[0], &hash, sizeof(hash));
+
+  RETURN_NOT_OK(SendCreateAndSealRequest(store_conn_, object_id, data, metadata, digest));
+  std::vector<uint8_t> buffer;
+  RETURN_NOT_OK(
+      PlasmaReceive(store_conn_, MessageType::PlasmaCreateAndSealReply, &buffer));
+  RETURN_NOT_OK(ReadCreateAndSealReply(buffer.data(), buffer.size()));
   return Status::OK();
 }
 
@@ -756,26 +786,30 @@ bool PlasmaClient::Impl::ComputeObjectHashParallel(XXH64_state_t* hash_state,
 }
 
 uint64_t PlasmaClient::Impl::ComputeObjectHash(const ObjectBuffer& obj_buffer) {
-  DCHECK(obj_buffer.metadata);
-  DCHECK(obj_buffer.data);
+  return ComputeObjectHash(obj_buffer.data->data(), obj_buffer.data->size(),
+                           obj_buffer.metadata->data(), obj_buffer.metadata->size(),
+                           obj_buffer.device_num);
+}
+
+uint64_t PlasmaClient::Impl::ComputeObjectHash(const uint8_t* data, int64_t data_size,
+                                               const uint8_t* metadata,
+                                               int64_t metadata_size, int device_num) {
+  DCHECK(metadata);
+  DCHECK(data);
   XXH64_state_t hash_state;
-  if (obj_buffer.device_num != 0) {
+  if (device_num != 0) {
     // TODO(wap): Create cuda program to hash data on gpu.
     return 0;
   }
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
-  if (obj_buffer.data->size() >= kBytesInMB) {
-    ComputeObjectHashParallel(
-        &hash_state, reinterpret_cast<const unsigned char*>(obj_buffer.data->data()),
-        obj_buffer.data->size());
+  if (data_size >= kBytesInMB) {
+    ComputeObjectHashParallel(&hash_state, reinterpret_cast<const unsigned char*>(data),
+                              data_size);
   } else {
-    XXH64_update(&hash_state,
-                 reinterpret_cast<const unsigned char*>(obj_buffer.data->data()),
-                 obj_buffer.data->size());
+    XXH64_update(&hash_state, reinterpret_cast<const unsigned char*>(data), data_size);
   }
-  XXH64_update(&hash_state,
-               reinterpret_cast<const unsigned char*>(obj_buffer.metadata->data()),
-               obj_buffer.metadata->size());
+  XXH64_update(&hash_state, reinterpret_cast<const unsigned char*>(metadata),
+               metadata_size);
   return XXH64_digest(&hash_state);
 }
 
@@ -1044,6 +1078,11 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
                             const uint8_t* metadata, int64_t metadata_size,
                             std::shared_ptr<Buffer>* data, int device_num) {
   return impl_->Create(object_id, data_size, metadata, metadata_size, data, device_num);
+}
+
+Status PlasmaClient::CreateAndSeal(const ObjectID& object_id, const std::string& data,
+                                   const std::string& metadata) {
+  return impl_->CreateAndSeal(object_id, data, metadata);
 }
 
 Status PlasmaClient::Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
