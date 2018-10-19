@@ -22,6 +22,7 @@ use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
 
+use util::bit_util;
 use super::buffer::*;
 use super::datatypes::*;
 use error::{ArrowError, Result};
@@ -127,7 +128,8 @@ impl_buffer_builder!(f64);
 impl BufferBuilder<bool> {
     /// Creates a builder with a fixed initial capacity
     pub fn new(capacity: i64) -> Self {
-        let buffer = MutableBuffer::new(capacity as usize * mem::size_of::<bool>());
+        let byte_capacity = bit_util::ceil(capacity, 8) as usize;
+        let buffer = MutableBuffer::new(byte_capacity).with_bitset(byte_capacity, false);
         Self {
             buffer,
             len: 0,
@@ -142,21 +144,31 @@ impl BufferBuilder<bool> {
 
     /// Returns the current capacity of the builder (number of elements)
     pub fn capacity(&self) -> i64 {
-        let byte_capacity = self.buffer.capacity();
-        (byte_capacity / mem::size_of::<bool>()) as i64
+        let byte_capacity = self.buffer.capacity() as i64;
+        byte_capacity * 8
     }
 
     /// Push a value into the builder, growing the internal buffer as needed
-    pub fn push(&mut self, v: bool) -> Result < () > {
-    self.reserve(1) ?;
-    self.write_bytes(v.to_byte_slice(), 1)
+    pub fn push(&mut self, v: bool) -> Result<()> {
+        self.reserve(1)?;
+        if v {
+//            let buffer_len = self.buffer.len();
+//            if self.len > buffer_len as i64 * 8 {
+//                self.buffer.set_len(buffer_len + 1);
+//            }
+            bit_util::set_bit(self.buffer.data_mut(), (self.len) as usize);
+        }
+        self.len += 1;
+        Ok(())
     }
 
     /// Push a slice of type T, growing the internal buffer as needed
-    pub fn push_slice(&mut self, slice: &[bool]) -> Result < ()> {
-    let array_slots = slice.len() as i64;
-    self.reserve(array_slots) ?;
-    self.write_bytes(slice.to_byte_slice(), array_slots)
+    pub fn push_slice(&mut self, slice: &[bool]) -> Result<()> {
+        let array_slots = slice.len();
+        for i in 0..array_slots {
+            self.push(slice[i])?;
+        }
+        Ok(())
     }
 
     /// Reserve memory for n elements of type T
@@ -171,29 +183,13 @@ impl BufferBuilder<bool> {
     /// Grow the internal buffer to `new_capacity`, where `new_capacity` is the capacity in
     /// elements of type T
     fn grow(&mut self, new_capacity: i64) -> Result<()> {
-        let byte_capacity = mem::size_of::<bool> () * new_capacity as usize;
+        let byte_capacity = bit_util::ceil(new_capacity, 8) as usize;
         self.buffer.resize(byte_capacity)
     }
 
     /// Build an immutable `Buffer` from the existing internal `MutableBuffer`'s memory
     pub fn finish(self) -> Buffer {
         self.buffer.freeze()
-    }
-
-    /// Writes a byte slice to the underlying buffer and updates the `len`, i.e. the number array
-    /// elements in the builder.  Also, converts the `io::Result` required by the `Write` trait
-    /// to the Arrow `Result` type.
-    fn write_bytes(&mut self, bytes: &[u8], len_added: i64) -> Result<()> {
-        let write_result = self.buffer.write(bytes);
-// `io::Result` has many options one of which we use, so pattern matching is overkill here
-        if write_result.is_err() {
-            Err(ArrowError::MemoryError(
-                "Could not write to Buffer, not big enough".to_string(),
-            ))
-        } else {
-            self.len += len_added;
-            Ok(())
-        }
     }
 }
 
@@ -275,38 +271,51 @@ mod tests {
     #[test]
     fn test_write_bytes() {
         let mut b = BufferBuilder::<bool>::new(4);
-        let bytes = [false, true, false, true].to_byte_slice();
+        b.push(false).unwrap();
+        b.push(true).unwrap();
+        b.push(false).unwrap();
+        b.push(true).unwrap();
+        assert_eq!(4, b.len());
+        assert_eq!(512, b.capacity());
+        let buffer = b.finish();
+        assert_eq!(1, buffer.len());
+    }
+
+    #[test]
+    fn test_write_bytes_i32() {
+        let mut b = BufferBuilder::<i32>::new(4);
+        let bytes = [8, 16, 32, 64].to_byte_slice();
         b.write_bytes(bytes, 4).unwrap();
         assert_eq!(4, b.len());
-        assert_eq!(64, b.capacity());
+        assert_eq!(16, b.capacity());
         let buffer = b.finish();
-        assert_eq!(4, buffer.len());
+        assert_eq!(16, buffer.len());
     }
 
     #[test]
     #[should_panic(expected = "Could not write to Buffer, not big enough")]
     fn test_write_too_many_bytes() {
-        let mut b = BufferBuilder::<bool>::new(0);
-        let bytes = [false, true, false, true].to_byte_slice();
+        let mut b = BufferBuilder::<i32>::new(0);
+        let bytes = [8, 16, 32, 64].to_byte_slice();
         b.write_bytes(bytes, 4).unwrap();
     }
 
-//    #[test]
-//    fn test_boolean_builder() {
-//        // 00000010 01001000
-//        let buf = Buffer::from([72_u8, 2_u8]);
-//
-//        let mut builder = BufferBuilder::<bool>::new(10);
-//        for i in 0..10 {
-//            if i == 3 || i == 6 || i == 9 {
-//                builder.push(true).unwrap();
-//            } else {
-//                builder.push(false).unwrap();
-//            }
-//        }
-//        let buf2 = builder.finish();
-//
-//        assert_eq!(buf.len(), buf2.len());
-//        assert_eq!(buf.data(), buf2.data());
-//    }
+    #[test]
+    fn test_boolean_builder() {
+        // 00000010 01001000
+        let buf = Buffer::from([72_u8, 2_u8]);
+        let mut builder = BufferBuilder::<bool>::new(16);
+
+        for i in 0..10 {
+            if i == 3 || i == 6 || i == 9 {
+                builder.push(true).unwrap();
+            } else {
+                builder.push(false).unwrap();
+            }
+        }
+        let buf2 = builder.finish();
+
+        assert_eq!(buf.len(), buf2.len());
+        assert_eq!(buf.data(), buf2.data());
+    }
 }
