@@ -28,8 +28,8 @@ use error::{ArrowError, Result};
 
 /// Buffer builder with zero-copy build method
 pub struct BufferBuilder<T>
-where
-    T: ArrowPrimitiveType,
+    where
+        T: ArrowPrimitiveType,
 {
     buffer: MutableBuffer,
     len: i64,
@@ -37,7 +37,7 @@ where
 }
 
 macro_rules! impl_buffer_builder {
-    ($data_ty:path, $native_ty:ident) => {
+    ($native_ty:ident) => {
         impl BufferBuilder<$native_ty> {
             /// Creates a builder with a fixed initial capacity
             pub fn new(capacity: i64) -> Self {
@@ -113,17 +113,89 @@ macro_rules! impl_buffer_builder {
     };
 }
 
-impl_buffer_builder!(DataType::Boolean, bool);
-impl_buffer_builder!(DataType::UInt8, u8);
-impl_buffer_builder!(DataType::UInt16, u16);
-impl_buffer_builder!(DataType::UInt32, u32);
-impl_buffer_builder!(DataType::UInt64, u64);
-impl_buffer_builder!(DataType::Int8, i8);
-impl_buffer_builder!(DataType::Int16, i16);
-impl_buffer_builder!(DataType::Int32, i32);
-impl_buffer_builder!(DataType::Int64, i64);
-impl_buffer_builder!(DataType::Float32, f32);
-impl_buffer_builder!(DataType::Float64, f64);
+impl_buffer_builder!(u8);
+impl_buffer_builder!(u16);
+impl_buffer_builder!(u32);
+impl_buffer_builder!(u64);
+impl_buffer_builder!(i8);
+impl_buffer_builder!(i16);
+impl_buffer_builder!(i32);
+impl_buffer_builder!(i64);
+impl_buffer_builder!(f32);
+impl_buffer_builder!(f64);
+
+impl BufferBuilder<bool> {
+    /// Creates a builder with a fixed initial capacity
+    pub fn new(capacity: i64) -> Self {
+        let buffer = MutableBuffer::new(capacity as usize * mem::size_of::<bool>());
+        Self {
+            buffer,
+            len: 0,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Returns the number of array elements (slots) in the builder
+    pub fn len(&self) -> i64 {
+        self.len
+    }
+
+    /// Returns the current capacity of the builder (number of elements)
+    pub fn capacity(&self) -> i64 {
+        let byte_capacity = self.buffer.capacity();
+        (byte_capacity / mem::size_of::<bool>()) as i64
+    }
+
+    /// Push a value into the builder, growing the internal buffer as needed
+    pub fn push(&mut self, v: bool) -> Result < () > {
+    self.reserve(1) ?;
+    self.write_bytes(v.to_byte_slice(), 1)
+    }
+
+    /// Push a slice of type T, growing the internal buffer as needed
+    pub fn push_slice(&mut self, slice: &[bool]) -> Result < ()> {
+    let array_slots = slice.len() as i64;
+    self.reserve(array_slots) ?;
+    self.write_bytes(slice.to_byte_slice(), array_slots)
+    }
+
+    /// Reserve memory for n elements of type T
+    pub fn reserve(&mut self, n: i64) -> Result<()> {
+        let new_capacity = self.len + n;
+        if new_capacity > self.capacity() {
+            return self.grow(new_capacity);
+        }
+        Ok(())
+    }
+
+    /// Grow the internal buffer to `new_capacity`, where `new_capacity` is the capacity in
+    /// elements of type T
+    fn grow(&mut self, new_capacity: i64) -> Result<()> {
+        let byte_capacity = mem::size_of::<bool> () * new_capacity as usize;
+        self.buffer.resize(byte_capacity)
+    }
+
+    /// Build an immutable `Buffer` from the existing internal `MutableBuffer`'s memory
+    pub fn finish(self) -> Buffer {
+        self.buffer.freeze()
+    }
+
+    /// Writes a byte slice to the underlying buffer and updates the `len`, i.e. the number array
+    /// elements in the builder.  Also, converts the `io::Result` required by the `Write` trait
+    /// to the Arrow `Result` type.
+    fn write_bytes(&mut self, bytes: &[u8], len_added: i64) -> Result<()> {
+        let write_result = self.buffer.write(bytes);
+// `io::Result` has many options one of which we use, so pattern matching is overkill here
+        if write_result.is_err() {
+            Err(ArrowError::MemoryError(
+                "Could not write to Buffer, not big enough".to_string(),
+            ))
+        } else {
+            self.len += len_added;
+            Ok(())
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
