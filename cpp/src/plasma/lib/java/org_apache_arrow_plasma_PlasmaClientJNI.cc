@@ -161,14 +161,14 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_get(
 
   jsize num_oids = env->GetArrayLength(object_ids);
   std::vector<plasma::ObjectID> oids(num_oids);
-  std::vector<plasma::ObjectBuffer> obufs;
+  std::vector<plasma::ObjectBuffer> obufs(num_oids);
   for (int i = 0; i < num_oids; ++i) {
     jbyteArray_to_object_id(
         env, reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(object_ids, i)),
         &oids[i]);
   }
   // TODO: may be blocked. consider to add the thread support
-  ARROW_CHECK_OK(client->Get(oids, timeout_ms, &obufs));
+  ARROW_CHECK_OK(client->Get(oids.data(), num_oids, timeout_ms, obufs.data()));
 
   jclass clsByteBuffer = env->FindClass("java/nio/ByteBuffer");
   jclass clsByteBufferArray = env->FindClass("[Ljava/nio/ByteBuffer;");

@@ -177,6 +177,9 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
              std::vector<ObjectBuffer>* object_buffers);
 
+  Status Get(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
+             ObjectBuffer* object_buffers);
+
   Status Release(const ObjectID& object_id);
 
   Status Contains(const ObjectID& object_id, bool* has_object);
@@ -569,6 +572,13 @@ Status PlasmaClient::Impl::Get(const std::vector<ObjectID>& object_ids,
   const size_t num_objects = object_ids.size();
   *out = std::vector<ObjectBuffer>(num_objects);
   return GetBuffers(&object_ids[0], num_objects, timeout_ms, wrap_buffer, &(*out)[0]);
+}
+
+Status PlasmaClient::Impl::Get(const ObjectID* object_ids, int64_t num_objects,
+                               int64_t timeout_ms, ObjectBuffer* out) {
+  const auto wrap_buffer = [](const ObjectID& object_id,
+                              const std::shared_ptr<Buffer>& buffer) { return buffer; };
+  return GetBuffers(object_ids, num_objects, timeout_ms, wrap_buffer, out);
 }
 
 Status PlasmaClient::Impl::UnmapObject(const ObjectID& object_id) {
@@ -1044,6 +1054,11 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
 Status PlasmaClient::Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
                          std::vector<ObjectBuffer>* object_buffers) {
   return impl_->Get(object_ids, timeout_ms, object_buffers);
+}
+
+Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,	
+                         int64_t timeout_ms, ObjectBuffer* object_buffers) {
+  return impl_->Get(object_ids, num_objects, timeout_ms, object_buffers);
 }
 
 Status PlasmaClient::Release(const ObjectID& object_id) {

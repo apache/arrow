@@ -299,6 +299,32 @@ TEST_F(TestPlasmaStore, GetTest) {
   EXPECT_FALSE(client_.IsInUse(object_id));
 }
 
+TEST_F(TestPlasmaStore, LegacyGetTest) {
+  // Test for old non-releasing Get() variant
+  ObjectID object_id = random_object_id();
+  {
+    ObjectBuffer object_buffer;
+     // Test for object non-existence.
+    ARROW_CHECK_OK(client_.Get(&object_id, 1, 0, &object_buffer));
+    ASSERT_FALSE(object_buffer.metadata);
+    ASSERT_FALSE(object_buffer.data);
+    EXPECT_FALSE(client_.IsInUse(object_id));
+     // First create object.
+    std::vector<uint8_t> data = {3, 5, 6, 7, 9};
+    CreateObject(client_, object_id, {42}, data);
+    ARROW_CHECK_OK(client_.FlushReleaseHistory());
+    EXPECT_FALSE(client_.IsInUse(object_id));
+     ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+    AssertObjectBufferEqual(object_buffer, {42}, {3, 5, 6, 7, 9});
+  }
+  // Object needs releasing manually
+  ARROW_CHECK_OK(client_.FlushReleaseHistory());
+  EXPECT_TRUE(client_.IsInUse(object_id));
+  ARROW_CHECK_OK(client_.Release(object_id));
+  ARROW_CHECK_OK(client_.FlushReleaseHistory());
+  EXPECT_FALSE(client_.IsInUse(object_id));
+}
+
 TEST_F(TestPlasmaStore, MultipleGetTest) {
   ObjectID object_id1 = random_object_id();
   ObjectID object_id2 = random_object_id();
