@@ -130,6 +130,8 @@ if ("${COMPILER_FAMILY}" STREQUAL "gcc")
     " -Wno-conversion")
 endif()
 
+# We use static libraries for the plasma_store_server executable so that it can
+# be copied around and used in different locations.
 add_executable(plasma_store_server store.cc)
 target_link_libraries(plasma_store_server plasma_static ${PLASMA_STATIC_LINK_LIBS})
 
