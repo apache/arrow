@@ -72,7 +72,7 @@
     "del": "3.0.0",
     "glob": "7.1.3",
     "google-closure-compiler": "20181008.0.0",
-    "gulp": "github:gulpjs/gulp#6d71a658c61edb3090221579d8f97dbe086ba2ed",
+    "gulp": "next",
     "gulp-json-transform": "0.4.5",
     "gulp-rename": "1.4.0",
     "gulp-sourcemaps": "2.6.4",
