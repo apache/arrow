@@ -78,6 +78,6 @@ endif()
 # dependency on protobuf.
 target_link_libraries(gandiva_jni
   PRIVATE
-    ${PROTOBUF_STATIC_LIB}
+    protobuf
     gandiva_static
 )
