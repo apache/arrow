@@ -1055,6 +1055,39 @@ cdef get_reader(object source, c_bool use_memory_map,
                         .format(type(source)))
 
 
+cdef get_input_stream(object source, c_bool use_memory_map,
+                      shared_ptr[InputStream]* out):
+    """
+    Like get_reader(), but can automatically decompress, and returns
+    an InputStream.
+    """
+    cdef:
+        NativeFile nf
+        shared_ptr[RandomAccessFile] random_access_file
+        shared_ptr[InputStream] input_stream
+        shared_ptr[CompressedInputStream] compressed_stream
+        CompressionType compression_type = CompressionType_UNCOMPRESSED
+        unique_ptr[CCodec] codec
+
+    try:
+        source_path = _stringify_path(source)
+    except TypeError:
+        pass
+    else:
+        compression_type = _get_compression_type_by_filename(source_path)
+
+    get_reader(source, use_memory_map, &random_access_file)
+    input_stream = <shared_ptr[InputStream]> random_access_file
+
+    if compression_type != CompressionType_UNCOMPRESSED:
+        check_status(CCodec.Create(compression_type, &codec))
+        check_status(CompressedInputStream.Make(codec.get(), input_stream,
+                                                &compressed_stream))
+        input_stream = <shared_ptr[InputStream]> compressed_stream
+
+    out[0] = input_stream
+
+
 cdef get_writer(object source, shared_ptr[OutputStream]* writer):
     cdef NativeFile nf
 
@@ -1097,6 +1130,17 @@ cdef CompressionType _get_compression_type(object name):
     else:
         raise ValueError("Unrecognized compression type: {0}"
                          .format(str(name)))
+
+
+cdef CompressionType _get_compression_type_by_filename(str filename):
+    if filename.endswith('.gz'):
+        return CompressionType_GZIP
+    elif filename.endswith('.lz4'):
+        return CompressionType_LZ4
+    elif filename.endswith('.zst'):
+        return CompressionType_ZSTD
+    else:
+        return CompressionType_UNCOMPRESSED
 
 
 def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):

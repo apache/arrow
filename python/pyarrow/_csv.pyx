@@ -22,7 +22,7 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, MemoryPool, maybe_unbox_memory_pool,
-                          pyarrow_wrap_table, get_reader)
+                          pyarrow_wrap_table, get_input_stream)
 
 
 cdef unsigned char _single_char(s) except 0:
@@ -149,10 +149,8 @@ cdef class ParseOptions:
 
 
 cdef _get_reader(input_file, shared_ptr[InputStream]* out):
-    cdef shared_ptr[RandomAccessFile] result
     use_memory_map = False
-    get_reader(input_file, use_memory_map, &result)
-    out[0] = <shared_ptr[InputStream]> result
+    get_input_stream(input_file, use_memory_map, out)
 
 
 cdef _get_read_options(ReadOptions read_options, CCSVReadOptions* out):
