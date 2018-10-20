@@ -34,6 +34,6 @@
 
   <!-- TODO: Temporarily suppress all but certain checks to fix in increments -->
   <suppress
-    checks="^(?!.*(ImportOrder|LineLength|Indentation|OperatorWrapCheck|SeparatorWrapCheck|NewlineAtEndOfFileCheck|WhitespaceAroundCheck|EmptyLineSeparatorCheck)).*"
+    checks="^(?!.*(ImportOrder|LineLength|Indentation|OperatorWrapCheck|SeparatorWrapCheck|NewlineAtEndOfFileCheck|WhitespaceAroundCheck|EmptyLineSeparatorCheck|LocalVariableNameCheck|CatchParameterNameCheck|ParameterNameCheck|MemberNameCheck|ClassTypeParameterName|MethodTypeParameterName|InterfaceTypeParameterName)).*"
     files=".*" />
 </suppressions>

@@ -38,19 +38,19 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
   @Test
   public void testAdd3() throws Exception {
     Field x = Field.nullable("x", int32);
-    Field N2x = Field.nullable("N2x", int32);
-    Field N3x = Field.nullable("N3x", int32);
+    Field n2x = Field.nullable("n2x", int32);
+    Field n3x = Field.nullable("n3x", int32);
 
-    // x + N2x + N3x
+    // x + n2x + n3x
     TreeNode add1 =
         TreeBuilder.makeFunction(
-            "add", Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeField(N2x)), int32);
+            "add", Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeField(n2x)), int32);
     TreeNode add =
         TreeBuilder.makeFunction(
-            "add", Lists.newArrayList(add1, TreeBuilder.makeField(N3x)), int32);
+            "add", Lists.newArrayList(add1, TreeBuilder.makeField(n3x)), int32);
     ExpressionTree expr = TreeBuilder.makeExpression(add, x);
 
-    List<Field> cols = Lists.newArrayList(x, N2x, N3x);
+    List<Field> cols = Lists.newArrayList(x, n2x, n3x);
     Schema schema = new Schema(cols);
 
     long timeTaken = timedProject(new Int32DataAndVectorGenerator(allocator),
@@ -88,7 +88,7 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
      * else 20
      */
     Field x = Field.nullable("x", int32);
-    TreeNode x_node = TreeBuilder.makeField(x);
+    TreeNode xNode = TreeBuilder.makeField(x);
 
     // if (x < 100) then 9 else 10
     int returnValue = 20;
@@ -99,7 +99,7 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
       TreeNode condNode =
           TreeBuilder.makeFunction(
               "less_than",
-              Lists.newArrayList(x_node, TreeBuilder.makeLiteral(compareWith)),
+              Lists.newArrayList(xNode, TreeBuilder.makeLiteral(compareWith)),
               boolType);
       topNode =
           TreeBuilder.makeIf(
@@ -126,17 +126,17 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
   @Test
   public void testFilterAdd2() throws Exception {
     Field x = Field.nullable("x", int32);
-    Field N2x = Field.nullable("N2x", int32);
-    Field N3x = Field.nullable("N3x", int32);
+    Field n2x = Field.nullable("n2x", int32);
+    Field n3x = Field.nullable("n3x", int32);
 
-    // x + N2x < N3x
+    // x + n2x < n3x
     TreeNode add = TreeBuilder.makeFunction("add",
-        Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeField(N2x)), int32);
-    TreeNode less_than = TreeBuilder
-        .makeFunction("less_than", Lists.newArrayList(add, TreeBuilder.makeField(N3x)), boolType);
-    Condition condition = TreeBuilder.makeCondition(less_than);
+        Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeField(n2x)), int32);
+    TreeNode lessThan = TreeBuilder
+        .makeFunction("less_than", Lists.newArrayList(add, TreeBuilder.makeField(n3x)), boolType);
+    Condition condition = TreeBuilder.makeCondition(lessThan);
 
-    List<Field> cols = Lists.newArrayList(x, N2x, N3x);
+    List<Field> cols = Lists.newArrayList(x, n2x, n3x);
     Schema schema = new Schema(cols);
 
     long timeTaken = timedFilter(new Int32DataAndVectorGenerator(allocator),

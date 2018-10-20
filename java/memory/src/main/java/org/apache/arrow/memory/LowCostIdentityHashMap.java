@@ -47,7 +47,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   private static final int DEFAULT_MIN_SIZE = 1;
 
   /* Default load factor of 0.75; */
-  private static final int loadFactor = 7500;
+  private static final int LOAD_FACTOR = 7500;
 
   /**
    * Creates an Map with default expected maximum size.
@@ -80,7 +80,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   }
 
   private int computeElementArraySize() {
-    int arraySize = (int) (((long) threshold * 10000) / loadFactor);
+    int arraySize = (int) (((long) threshold * 10000) / LOAD_FACTOR);
     // ensure arraySize is positive, the above cast from long to int type
     // leads to overflow and negative arraySize if threshold is too big
     return arraySize < 0 ? -arraySize : arraySize;
@@ -197,17 +197,16 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    */
   public V put(V value) {
     Preconditions.checkNotNull(value);
-    K _key = value.getKey();
-    Preconditions.checkNotNull(_key);
-    V _value = value;
+    K key = value.getKey();
+    Preconditions.checkNotNull(key);
 
-    int index = findIndex(_key, elementData);
+    int index = findIndex(key, elementData);
 
     // if the key doesn't exist in the table
-    if (elementData[index] == null || ((V)elementData[index]).getKey() != _key) {
+    if (elementData[index] == null || ((V)elementData[index]).getKey() != key) {
       if (++size > threshold) {
         rehash();
-        index = findIndex(_key, elementData);
+        index = findIndex(key, elementData);
       }
 
       // insert the key and assign the value to null initially
@@ -216,7 +215,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
 
     // insert value to where it needs to go, return the old value
     Object result = elementData[index];
-    elementData[index] = _value;
+    elementData[index] = value;
 
     return (V) result;
   }
@@ -241,7 +240,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   }
 
   private void computeMaxSize() {
-    threshold = (int) ((long) (elementData.length) * loadFactor / 10000);
+    threshold = (int) ((long) (elementData.length) * LOAD_FACTOR / 10000);
   }
 
   /**

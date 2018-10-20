@@ -25,27 +25,27 @@ import java.nio.ByteBuffer;
  */
 public class PlasmaClientJNI {
 
-  native public static long connect(String store_socket_name, String manager_socket_name, int release_delay);
+  native public static long connect(String storeSocketName, String managerSocketName, int releaseDelay);
 
   native public static void disconnect(long conn);
 
-  native public static ByteBuffer create(long conn, byte[] object_id, int size, byte[] metadata);
+  native public static ByteBuffer create(long conn, byte[] objectId, int size, byte[] metadata);
 
-  native public static byte[] hash(long conn, byte[] object_id);
+  native public static byte[] hash(long conn, byte[] objectId);
 
-  native public static void seal(long conn, byte[] object_id);
+  native public static void seal(long conn, byte[] objectId);
 
-  native public static void release(long conn, byte[] object_id);
+  native public static void release(long conn, byte[] objectId);
 
-  native public static ByteBuffer[][] get(long conn, byte[][] object_ids, int timeout_ms);
+  native public static ByteBuffer[][] get(long conn, byte[][] objectIds, int timeoutMs);
 
-  native public static boolean contains(long conn, byte[] object_id);
+  native public static boolean contains(long conn, byte[] objectId);
 
-  native public static void fetch(long conn, byte[][] object_ids);
+  native public static void fetch(long conn, byte[][] objectIds);
 
-  native public static byte[][] wait(long conn, byte[][] object_ids, int timeout_ms,
-      int num_returns);
+  native public static byte[][] wait(long conn, byte[][] objectIds, int timeoutMs,
+      int numReturns);
 
-  native public static long evict(long conn, long num_bytes);
+  native public static long evict(long conn, long numBytes);
 
 }

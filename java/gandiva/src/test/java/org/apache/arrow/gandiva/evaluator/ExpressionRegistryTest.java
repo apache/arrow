@@ -32,15 +32,15 @@ public class ExpressionRegistryTest {
   @Test
   public void testTypes() throws GandivaException {
     Set<ArrowType> types = ExpressionRegistry.getInstance().getSupportedTypes();
-    ArrowType.Int UINT8 = new ArrowType.Int(8, false);
-    Assert.assertTrue(types.contains(UINT8));
+    ArrowType.Int uint8 = new ArrowType.Int(8, false);
+    Assert.assertTrue(types.contains(uint8));
   }
 
   @Test
   public void testFunctions() throws GandivaException {
-    ArrowType.Int UINT8 = new ArrowType.Int(8, false);
+    ArrowType.Int uint8 = new ArrowType.Int(8, false);
     FunctionSignature signature =
-        new FunctionSignature("add", UINT8, Lists.newArrayList(UINT8, UINT8));
+        new FunctionSignature("add", uint8, Lists.newArrayList(uint8, uint8));
     Set<FunctionSignature> functions = ExpressionRegistry.getInstance().getSupportedFunctions();
     Assert.assertTrue(functions.contains(signature));
   }
