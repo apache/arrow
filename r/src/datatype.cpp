@@ -20,6 +20,11 @@
 using namespace Rcpp;
 
 // [[Rcpp::export]]
+bool xptr_is_null(SEXP xp) {
+  return reinterpret_cast<std::shared_ptr<void>*>(EXTPTR_PTR(xp))->get() == nullptr;
+}
+
+// [[Rcpp::export]]
 std::shared_ptr<arrow::DataType> Int8__initialize() { return arrow::int8(); }
 
 // [[Rcpp::export]]
@@ -213,9 +218,6 @@ arrow::TimeUnit::type TimestampType__unit(
 std::string Object__pointer_address(SEXP obj) {
   return tfm::format("%p", EXTPTR_PTR(obj));
 }
-
-// [[Rcpp::export]]
-bool Object__is_null(const std::shared_ptr<void>& obj) { return obj.get() == nullptr; }
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(

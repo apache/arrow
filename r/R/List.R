@@ -23,4 +23,4 @@
 
 #' @rdname DataType
 #' @export
-list_of <- function(type) `arrow::ListType`$new(list__(type))
+list_of <- function(type) construct(`arrow::ListType`, list__(type))

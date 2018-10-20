@@ -482,6 +482,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// xptr_is_null
+bool xptr_is_null(SEXP xp);
+RcppExport SEXP _arrow_xptr_is_null(SEXP xpSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type xp(xpSEXP);
+    rcpp_result_gen = Rcpp::wrap(xptr_is_null(xp));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Int8__initialize
 std::shared_ptr<arrow::DataType> Int8__initialize();
 RcppExport SEXP _arrow_Int8__initialize() {
@@ -917,17 +928,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type obj(objSEXP);
     rcpp_result_gen = Rcpp::wrap(Object__pointer_address(obj));
-    return rcpp_result_gen;
-END_RCPP
-}
-// Object__is_null
-bool Object__is_null(const std::shared_ptr<void>& obj);
-RcppExport SEXP _arrow_Object__is_null(SEXP objSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<void>& >::type obj(objSEXP);
-    rcpp_result_gen = Rcpp::wrap(Object__is_null(obj));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1704,6 +1704,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1},
     {"_arrow_Column__type", (DL_FUNC) &_arrow_Column__type, 1},
     {"_arrow_Column__data", (DL_FUNC) &_arrow_Column__data, 1},
+    {"_arrow_xptr_is_null", (DL_FUNC) &_arrow_xptr_is_null, 1},
     {"_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0},
     {"_arrow_Int16__initialize", (DL_FUNC) &_arrow_Int16__initialize, 0},
     {"_arrow_Int32__initialize", (DL_FUNC) &_arrow_Int32__initialize, 0},
@@ -1745,7 +1746,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_TimestampType__timezone", (DL_FUNC) &_arrow_TimestampType__timezone, 1},
     {"_arrow_TimestampType__unit", (DL_FUNC) &_arrow_TimestampType__unit, 1},
     {"_arrow_Object__pointer_address", (DL_FUNC) &_arrow_Object__pointer_address, 1},
-    {"_arrow_Object__is_null", (DL_FUNC) &_arrow_Object__is_null, 1},
     {"_arrow_DictionaryType__initialize", (DL_FUNC) &_arrow_DictionaryType__initialize, 3},
     {"_arrow_DictionaryType__index_type", (DL_FUNC) &_arrow_DictionaryType__index_type, 1},
     {"_arrow_DictionaryType__name", (DL_FUNC) &_arrow_DictionaryType__name, 1},

@@ -41,7 +41,7 @@ record_batch_file_writer <- function(stream, schema) {
     inherits(stream, "arrow::io::OutputStream"),
     inherits(schema, "arrow::Schema")
   )
-  `arrow::ipc::RecordBatchFileWriter`$new(ipc___RecordBatchFileWriter__Open(stream, schema))
+  construct(`arrow::ipc::RecordBatchFileWriter`, ipc___RecordBatchFileWriter__Open(stream, schema))
 }
 
 #' Create a record batch stream writer
@@ -55,7 +55,7 @@ record_batch_stream_writer <- function(stream, schema) {
     inherits(stream, "arrow::io::OutputStream"),
     inherits(schema, "arrow::Schema")
   )
-  `arrow::ipc::RecordBatchStreamWriter`$new(ipc___RecordBatchStreamWriter__Open(stream, schema))
+  construct(`arrow::ipc::RecordBatchStreamWriter`, ipc___RecordBatchStreamWriter__Open(stream, schema))
 }
 
 #-------- write_record_batch

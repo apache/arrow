@@ -40,13 +40,13 @@
     },
     pointer_address = function(){
       Object__pointer_address(self$pointer())
-    },
-
-    is_null = function(){
-      Object__is_null(self)
     }
   )
 )
+
+construct <- function(class, xp) {
+  if (!xptr_is_null(xp)) class$new(xp)
+}
 
 #' @export
 `!=.arrow::Object` <- function(lhs, rhs){
@@ -70,7 +70,7 @@
       DataType__num_children(self)
     },
     children = function() {
-      map(DataType__children_pointer(self), ~`arrow::Field`$new(xp=.x))
+      map(DataType__children_pointer(self), construct, class= `arrow::Field`)
     },
     id = function(){
       DataType__id(self)
@@ -94,13 +94,13 @@
         BINARY = stop("Type BINARY not implemented yet"),
         DATE32 = date32(),
         DATE64 = date64(),
-        TIMESTAMP = `arrow::Timestamp`$new(self$pointer()),
+        TIMESTAMP = construct(`arrow::Timestamp`,self$pointer()),
         INTERVAL = stop("Type INTERVAL not implemented yet"),
-        DECIMAL = `arrow::Decimal128Type`$new(self$pointer()),
-        LIST = `arrow::ListType`$new(self$pointer()),
-        STRUCT = `arrow::StructType`$new(self$pointer()),
+        DECIMAL = construct(`arrow::Decimal128Type`, self$pointer()),
+        LIST = construct(`arrow::ListType`, self$pointer()),
+        STRUCT = construct(`arrow::StructType`, self$pointer()),
         UNION = stop("Type UNION not implemented yet"),
-        DICTIONARY = `arrow::DictionaryType`$new(self$pointer()),
+        DICTIONARY = construct(`arrow::DictionaryType`, self$pointer()),
         MAP = stop("Type MAP not implemented yet")
       )
     }
@@ -108,7 +108,7 @@
 )
 
 `arrow::DataType`$dispatch <- function(xp){
-  `arrow::DataType`$new(xp)$..dispatch()
+  construct(`arrow::DataType`, xp)$..dispatch()
 }
 
 #----- metadata
@@ -241,90 +241,88 @@
 #'
 #' @rdname DataType
 #' @export
-int8 <- function() `arrow::Int8`$new(Int8__initialize())
+int8 <- function() construct(`arrow::Int8`, Int8__initialize())
 
 #' @rdname DataType
 #' @export
-int16 <- function() `arrow::Int16`$new(Int16__initialize())
+int16 <- function() construct(`arrow::Int16`, Int16__initialize())
 
 #' @rdname DataType
 #' @export
-int32 <- function() `arrow::Int32`$new(Int32__initialize())
+int32 <- function() construct(`arrow::Int32`, Int32__initialize())
 
 #' @rdname DataType
 #' @export
-int64 <- function() `arrow::Int64`$new(Int64__initialize())
+int64 <- function() construct(`arrow::Int64`, Int64__initialize())
 
 #' @rdname DataType
 #' @export
-uint8 <- function() `arrow::UInt8`$new(UInt8__initialize())
+uint8 <- function() construct(`arrow::UInt8`, UInt8__initialize())
 
 #' @rdname DataType
 #' @export
-uint16 <- function() `arrow::UInt16`$new(UInt16__initialize())
+uint16 <- function() construct(`arrow::UInt16`, UInt16__initialize())
 
 #' @rdname DataType
 #' @export
-uint32 <- function() `arrow::UInt32`$new(UInt32__initialize())
+uint32 <- function() construct(`arrow::UInt32`, UInt32__initialize())
 
 #' @rdname DataType
 #' @export
-uint64 <- function() `arrow::UInt64`$new(UInt64__initialize())
+uint64 <- function() construct(`arrow::UInt64`, UInt64__initialize())
 
 #' @rdname DataType
 #' @export
-float16 <- function() `arrow::Float16`$new(Float16__initialize())
+float16 <- function() construct(`arrow::Float16`,  Float16__initialize())
 
 #' @rdname DataType
 #' @export
-float32 <- function() `arrow::Float32`$new(Float32__initialize())
+float32 <- function() construct(`arrow::Float32`, Float32__initialize())
 
 #' @rdname DataType
 #' @export
-float64 <- function() `arrow::Float64`$new(Float64__initialize())
+float64 <- function() construct(`arrow::Float64`, Float64__initialize())
 
 #' @rdname DataType
 #' @export
-boolean <- function() `arrow::Boolean`$new(Boolean__initialize())
+boolean <- function() construct(`arrow::Boolean`, Boolean__initialize())
 
 #' @rdname DataType
 #' @export
-utf8 <- function() `arrow::Utf8`$new(Utf8__initialize())
+utf8 <- function() construct(`arrow::Utf8`, Utf8__initialize())
 
 #' @rdname DataType
 #' @export
-date32 <- function() `arrow::Date32`$new(Date32__initialize())
+date32 <- function() construct(`arrow::Date32`, Date32__initialize())
 
 #' @rdname DataType
 #' @export
-date64 <- function() `arrow::Date64`$new(Date64__initialize())
+date64 <- function() construct(`arrow::Date64`, Date64__initialize())
 
 #' @rdname DataType
 #' @export
-time32 <- function(unit) {
-  `arrow::Time32`$new(Time32__initialize(unit))
-}
+time32 <- function(unit) construct(`arrow::Time32`, Time32__initialize(unit))
 
 #' @rdname DataType
 #' @export
-time64 <- function(unit) `arrow::Time64`$new(Time64__initialize(unit))
+time64 <- function(unit) construct(`arrow::Time64`, Time64__initialize(unit))
 
 #' @rdname DataType
 #' @export
-null <- function() `arrow::Null`$new(Null__initialize())
+null <- function() construct(`arrow::Null`, Null__initialize())
 
 #' @rdname DataType
 #' @export
 timestamp <- function(unit, timezone) {
   if (missing(timezone)) {
-    `arrow::Timestamp`$new(Timestamp__initialize1(unit))
+    construct(`arrow::Timestamp`, Timestamp__initialize1(unit))
   } else {
-    `arrow::Timestamp`$new(Timestamp__initialize2(unit, timezone))
+    construct(`arrow::Timestamp`, Timestamp__initialize2(unit, timezone))
   }
 }
 
 #' @rdname DataType
 #' @export
-decimal <- function(precision, scale) `arrow::Decimal128Type`$new(Decimal128Type__initialize(precision, scale))
+decimal <- function(precision, scale) construct(`arrow::Decimal128Type`, Decimal128Type__initialize(precision, scale))
 
 `arrow::NestedType` <- R6Class("arrow::NestedType", inherit = `arrow::DataType`)

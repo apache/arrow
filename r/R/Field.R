@@ -41,7 +41,7 @@
 }
 
 field <- function(name, type) {
-  `arrow::Field`$new(Field__initialize(name, type))
+  construct(`arrow::Field`, Field__initialize(name, type))
 }
 
 .fields <- function(.list){

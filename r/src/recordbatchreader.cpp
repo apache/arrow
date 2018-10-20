@@ -59,7 +59,9 @@ int ipc___RecordBatchFileReader__num_record_batches(
 std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader, int i) {
   std::shared_ptr<arrow::RecordBatch> batch;
-  R_ERROR_NOT_OK(reader->ReadRecordBatch(i, &batch));
+  if (i >= 0 && i < reader->num_record_batches()) {
+    R_ERROR_NOT_OK(reader->ReadRecordBatch(i, &batch));
+  }
   return batch;
 }
 

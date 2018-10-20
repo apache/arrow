@@ -27,5 +27,5 @@
 #' @rdname DataType
 #' @export
 schema <- function(...){
-  `arrow::Schema`$new(schema_(.fields(list(...))))
+  construct(`arrow::Schema`, schema_(.fields(list(...))))
 }

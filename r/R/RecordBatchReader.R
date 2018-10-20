@@ -19,9 +19,9 @@
 
 `arrow::RecordBatchReader` <- R6Class("arrow::RecordBatchReader", inherit = `arrow::Object`,
   public = list(
-    schema = function() `arrow::Schema`$new(RecordBatchReader__schema(self)),
+    schema = function() construct(`arrow::Schema`, RecordBatchReader__schema(self)),
     ReadNext = function() {
-      `arrow::RecordBatch`$new(RecordBatchReader__ReadNext(self))
+      construct(`arrow::RecordBatch`, RecordBatchReader__ReadNext(self))
     }
   )
 )
@@ -30,9 +30,9 @@
 
 `arrow::ipc::RecordBatchFileReader` <- R6Class("arrow::ipc::RecordBatchFileReader", inherit = `arrow::Object`,
   public = list(
-    schema = function() `arrow::Schema`$new(ipc___RecordBatchFileReader__schema(self)),
+    schema = function() construct(`arrow::Schema`, ipc___RecordBatchFileReader__schema(self)),
     num_record_batches = function() ipc___RecordBatchFileReader__num_record_batches(self),
-    ReadRecordBatch = function(i) `arrow::RecordBatch`$new(ipc___RecordBatchFileReader__ReadRecordBatch(self, i))
+    ReadRecordBatch = function(i) construct(`arrow::RecordBatch`, ipc___RecordBatchFileReader__ReadRecordBatch(self, i))
   )
 )
 
@@ -47,7 +47,7 @@ record_batch_stream_reader <- function(stream){
 
 #' @export
 `record_batch_stream_reader.arrow::io::InputStream` <- function(stream) {
-  `arrow::ipc::RecordBatchStreamReader`$new(ipc___RecordBatchStreamReader__Open(stream))
+  construct(`arrow::ipc::RecordBatchStreamReader`, ipc___RecordBatchStreamReader__Open(stream))
 }
 
 #' @export
@@ -67,7 +67,7 @@ record_batch_file_reader <- function(file) {
 
 #' @export
 `record_batch_file_reader.arrow::io::RandomAccessFile` <- function(file) {
-  `arrow::ipc::RecordBatchFileReader`$new(ipc___RecordBatchFileReader__Open(file))
+  construct(`arrow::ipc::RecordBatchFileReader`, ipc___RecordBatchFileReader__Open(file))
 }
 
 #' @export
@@ -166,12 +166,12 @@ read_table.fs_path <- function(stream) {
 
 #' @export
 `read_table.arrow::ipc::RecordBatchFileReader` <- function(stream) {
-  `arrow::Table`$new(Table__from_RecordBatchFileReader(stream))
+  construct(`arrow::Table`, Table__from_RecordBatchFileReader(stream))
 }
 
 #' @export
 `read_table.arrow::ipc::RecordBatchStreamReader` <- function(stream) {
-  `arrow::Table`$new(Table__from_RecordBatchStreamReader(stream))
+  construct(`arrow::Table`, Table__from_RecordBatchStreamReader(stream))
 }
 
 #' @export
