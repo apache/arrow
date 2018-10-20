@@ -61,7 +61,7 @@ libgandiva_glib_la_generated_headers =		\
 	gandiva-enums.h
 
 libgandiva_glib_la_generated_sources =		\
-	gandiva-enums.c					\
+	gandiva-enums.c				\
 	$(libgandiva_glib_la_generated_headers)
 
 libgandiva_glib_la_sources =			\
@@ -72,8 +72,8 @@ libgandiva_glib_la_sources =			\
 	$(libgandiva_glib_la_generated_sources)
 
 libgandiva_glib_la_cpp_headers =		\
-	error.hpp			\
-	expression.hpp			\
+	error.hpp				\
+	expression.hpp				\
 	projector.hpp
 
 libgandiva_glib_la_SOURCES =			\
@@ -87,11 +87,11 @@ BUILT_SOURCES =					\
 	stamp-gandiva-enums.h
 
 DISTCLEANFILES +=				\
-	stamp-gandiva-enums.c				\
+	stamp-gandiva-enums.c			\
 	stamp-gandiva-enums.h
 
 EXTRA_DIST +=					\
-	gandiva-enums.c.template			\
+	gandiva-enums.c.template		\
 	gandiva-enums.h.template
 
 gandiva-enums.h: stamp-gandiva-enums.h
@@ -120,8 +120,8 @@ stamp-gandiva-enums.c: $(libgandiva_glib_la_headers) gandiva-enums.c.template
 
 gandiva_glib_includedir = $(includedir)/gandiva-glib
 gandiva_glib_include_HEADERS =			\
-	$(libgandiva_glib_la_headers)			\
-	$(libgandiva_glib_la_cpp_headers)		\
+	$(libgandiva_glib_la_headers)		\
+	$(libgandiva_glib_la_cpp_headers)	\
 	$(libgandiva_glib_la_generated_headers)
 
 pkgconfigdir = $(libdir)/pkgconfig
