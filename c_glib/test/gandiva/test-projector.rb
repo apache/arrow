@@ -26,21 +26,20 @@ class TestProjector < Test::Unit::TestCase
     field1 = Arrow::Field.new("field1", Arrow::Int32DataType.new)
     field2 = Arrow::Field.new("field2", Arrow::Int32DataType.new)
     schema = Arrow::Schema.new([field1, field2])
-    field_sum = Arrow::Field.new("add", Arrow::Int32DataType.new)
-    field_subtract = Arrow::Field.new("subtract", Arrow::Int32DataType.new)
-    sum_expression = Gandiva::Expression.new("add", [field1, field2], field_sum)
-    subtract_expression = Gandiva::Expression.new("subtract", [field1, field2], field_subtract)
-    projector = Gandiva::Projector.new(schema, [sum_expression, subtract_expression])
-    input_columns = [
+    add_result = Arrow::Field.new("add_result", Arrow::Int32DataType.new)
+    subtract_result = Arrow::Field.new("subtract_result", Arrow::Int32DataType.new)
+    add_expression = Gandiva::Expression.new("add", [field1, field2], add_result)
+    subtract_expression = Gandiva::Expression.new("subtract", [field1, field2], subtract_result)
+    projector = Gandiva::Projector.new(schema, [add_expression, subtract_expression])
+    input_arrays = [
       build_int32_array([1, 2, 3, 4]),
       build_int32_array([11, 13, 15, 17]),
     ]
-    output_columns = [
-      build_int32_array([12, 15, 18, 21]),
-      build_int32_array([-10, -11, -12, -13]),
-    ]
-    record_batch = Arrow::RecordBatch.new(schema, 4, input_columns)
+    record_batch = Arrow::RecordBatch.new(schema, 4, input_arrays)
     outputs = projector.evaluate(record_batch)
-    assert_equal(output_columns, outputs)
+    assert_equal([
+                   [12, 15, 18, 21], [-10, -11, -12, -13]
+                 ],
+                 outputs.collect(&:values))
   end
 end

@@ -21,10 +21,10 @@ class TestExpression < Test::Unit::TestCase
   end
 
   def test_to_s
-    field1 = Arrow::Field.new("field1", Arrow::Int32DataType.new)
-    field2 = Arrow::Field.new("field2", Arrow::Int32DataType.new)
-    field_sum = Arrow::Field.new("add", Arrow::Int32DataType.new)
-    expression = Gandiva::Expression.new("add", [field1, field2], field_sum)
-    assert_equal("int32 add((int32) field1, (int32) field2)", expression.to_s)
+    augend = Arrow::Field.new("augend", Arrow::Int32DataType.new)
+    addend = Arrow::Field.new("addend", Arrow::Int32DataType.new)
+    sum = Arrow::Field.new("sum", Arrow::Int32DataType.new)
+    expression = Gandiva::Expression.new("add", [augend, addend], sum)
+    assert_equal("int32 add((int32) augend, (int32) addend)", expression.to_s)
   end
 end
