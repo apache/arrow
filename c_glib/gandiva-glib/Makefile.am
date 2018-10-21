@@ -74,6 +74,7 @@ libgandiva_glib_la_sources =			\
 libgandiva_glib_la_cpp_headers =		\
 	error.hpp				\
 	expression.hpp				\
+	gandiva-glib.hpp			\
 	projector.hpp
 
 libgandiva_glib_la_SOURCES =			\

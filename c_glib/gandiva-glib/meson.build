@@ -35,6 +35,7 @@ c_headers = files(
 cpp_headers = files(
   'error.hpp',
   'expression.hpp',
+  'gandiva-glib.hpp',
   'projector.hpp',
 )
 
