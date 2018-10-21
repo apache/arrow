@@ -20,8 +20,8 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: Gandiva GLib
-Description: C API for Gandiva based on GLib
+Name: Apache Arrow Gandiva GLib
+Description: C API for Apache Arrow Gandiva based on GLib
 Version: @VERSION@
 Libs: -L${libdir} -lgandiva-glib
 Cflags: -I${includedir}
