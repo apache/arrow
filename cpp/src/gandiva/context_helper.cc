@@ -15,15 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_CONTEXT_HELPER_H
-#define GANDIVA_CONTEXT_HELPER_H
-
 #include "gandiva/execution_context.h"
-#include "gandiva/precompiled/types.h"
+#include "gandiva/gdv_function_stubs.h"
 
-void context_set_error_msg(int64_t context_ptr, char const* err_msg) {
+extern "C" {
+
+void gdv_fn_context_set_error_msg(int64_t context_ptr, char const* err_msg) {
   gandiva::ExecutionContext* execution_context_ptr =
       reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   (execution_context_ptr)->set_error_msg(err_msg);
 }
-#endif
+}

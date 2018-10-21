@@ -110,7 +110,7 @@ void set_error_for_invalid_utf(int64_t execution_context, char val) {
   int size = static_cast<int>(strlen(fmt)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, fmt, (unsigned char)val);
-  context_set_error_msg(execution_context, error);
+  gdv_fn_context_set_error_msg(execution_context, error);
   free(error);
 }
 

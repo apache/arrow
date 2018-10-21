@@ -983,6 +983,11 @@ void LLVMGenerator::AddGlobalMappings() {
           types_->ptr_type(types_->i8_type())};
   AddGlobalMappingForFunc("gdv_fn_to_date_utf8_utf8_int32", types_->i64_type(), args,
                           reinterpret_cast<void*>(gdv_fn_to_date_utf8_utf8_int32));
+
+  // gdv_fn_context_set_error_msg
+  args = {types_->i64_type(), types_->i8_ptr_type()};
+  AddGlobalMappingForFunc("gdv_fn_context_set_error_msg", types_->void_type(), args,
+                          reinterpret_cast<void*>(gdv_fn_context_set_error_msg));
 }
 
 // Hooks for tracing/printfs.

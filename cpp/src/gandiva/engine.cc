@@ -137,26 +137,26 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
   }
 
   // Setup an optimiser pipeline
+  std::unique_ptr<llvm::legacy::PassManager> pass_manager(
+      new llvm::legacy::PassManager());
+
+  // First round : get rid of all functions that don't need to be compiled.
+  // This helps in reducing the overall compilation time.
+  // (Adapted from Apache Impala)
+  //
+  // Done by marking all the unused functions as internal, and then, running
+  // a pass for dead code elimination.
+  std::unordered_set<std::string> used_functions;
+  used_functions.insert(functions_to_compile_.begin(), functions_to_compile_.end());
+
+  pass_manager->add(
+      llvm::createInternalizePass([&used_functions](const llvm::GlobalValue& func) {
+        return (used_functions.find(func.getName().str()) != used_functions.end());
+      }));
+  pass_manager->add(llvm::createGlobalDCEPass());
+  pass_manager->run(*module_);
+
   if (optimise_ir) {
-    std::unique_ptr<llvm::legacy::PassManager> pass_manager(
-        new llvm::legacy::PassManager());
-
-    // First round : get rid of all functions that don't need to be compiled.
-    // This helps in reducing the overall compilation time.
-    // (Adapted from Apache Impala)
-    //
-    // Done by marking all the unused functions as internal, and then, running
-    // a pass for dead code elimination.
-    std::unordered_set<std::string> used_functions;
-    used_functions.insert(functions_to_compile_.begin(), functions_to_compile_.end());
-
-    pass_manager->add(
-        llvm::createInternalizePass([&used_functions](const llvm::GlobalValue& func) {
-          return (used_functions.find(func.getName().str()) != used_functions.end());
-        }));
-    pass_manager->add(llvm::createGlobalDCEPass());
-    pass_manager->run(*module_);
-
     // Second round : misc passes to allow for inlining, vectorization, ..
     pass_manager.reset(new llvm::legacy::PassManager());
     llvm::TargetIRAnalysis target_analysis =

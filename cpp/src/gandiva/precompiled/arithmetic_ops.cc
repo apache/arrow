@@ -168,7 +168,7 @@ NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
     }                                                                                   \
     if (in2 == 0) {                                                                     \
       char const* err_msg = "divide by zero error";                                     \
-      context_set_error_msg(execution_context, err_msg);                                \
+      gdv_fn_context_set_error_msg(execution_context, err_msg);                         \
       return 0;                                                                         \
     }                                                                                   \
     *out_valid = true;                                                                  \

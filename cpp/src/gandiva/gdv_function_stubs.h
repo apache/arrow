@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/llvm_types.h"
+#include <cstdint>
 
 #ifndef GDV_FUNCTION_STUBS_H
 #define GDV_FUNCTION_STUBS_H
@@ -32,6 +32,8 @@ int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t ptr, const char* data, int data_l
                                        int pattern_len, bool in2_validity,
                                        int32_t suppress_errors, bool in3_validity,
                                        int64_t execution_context, bool* out_valid);
+
+void gdv_fn_context_set_error_msg(int64_t context_ptr, const char* err_msg);
 }
 
 #endif  // GDV_FUNCTION_STUBS_H
