@@ -31,6 +31,7 @@
 #include "arrow/util/macros.h"
 
 #include "gandiva/configuration.h"
+#include "gandiva/llvm_types.h"
 #include "gandiva/logging.h"
 #include "gandiva/status.h"
 
@@ -63,11 +64,7 @@ class Engine {
   /// Get the compiled function corresponding to the irfunction.
   void* CompiledFunction(llvm::Function* irFunction);
 
-  // Add a global mapping for the specified function. Useful for accessing functions
-  // in gandliva cpp library from LLVM.
-  void AddGlobalMapping(llvm::Function* fn, void* address) {
-    execution_engine_->addGlobalMapping(fn, address);
-  }
+  LLVMTypes& types() { return *types_; }
 
  private:
   /// private constructor to ensure engine is created
@@ -83,11 +80,19 @@ class Engine {
   /// load pre-compiled IR modules and merge them into the main module.
   Status LoadPreCompiledIRFiles(const std::string& byte_code_file_path);
 
+  // Create and add a mapping for the cpp function to make it accessible from LLVM.
+  void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
+                               const std::vector<llvm::Type*>& args, void* func);
+
+  // Create and add mappings for cpp functions that can be accessed from LLVM.
+  void AddGlobalMappings();
+
   /// dump the IR code to stdout with the prefix string.
   void DumpIR(std::string prefix);
 
   std::unique_ptr<llvm::LLVMContext> context_;
   std::unique_ptr<llvm::ExecutionEngine> execution_engine_;
+  std::unique_ptr<LLVMTypes> types_;
   std::unique_ptr<llvm::IRBuilder<>> ir_builder_;
   llvm::Module* module_;  // This is owned by the execution_engine_, so doesn't need to be
                           // explicitly deleted.

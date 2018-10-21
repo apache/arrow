@@ -58,7 +58,7 @@ class LLVMGenerator {
   Status Execute(const arrow::RecordBatch& record_batch,
                  const ArrayDataVector& output_vector);
 
-  LLVMTypes& types() { return *types_; }
+  LLVMTypes& types() { return engine_->types(); }
   llvm::Module* module() { return engine_->module(); }
 
  private:
@@ -180,13 +180,6 @@ class LLVMGenerator {
   void ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
                              const EvalBatch& eval_batch);
 
-  // Create and add a mapping for the cpp function to make it accessible from LLVM.
-  void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
-                               const std::vector<llvm::Type*>& args, void* func);
-
-  // Create and add mappings for cpp functions that can be accessed from LLVM.
-  void AddGlobalMappings();
-
   /// Replace the %T in the trace msg with the correct type corresponding to 'type'
   /// eg. %d for int32, %ld for int64, ..
   std::string ReplaceFormatInTrace(const std::string& msg, llvm::Value* value,
@@ -197,7 +190,6 @@ class LLVMGenerator {
 
   std::unique_ptr<Engine> engine_;
   std::vector<std::unique_ptr<CompiledExpr>> compiled_exprs_;
-  std::unique_ptr<LLVMTypes> types_;
   FunctionRegistry function_registry_;
   Annotator annotator_;
 

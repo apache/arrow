@@ -128,7 +128,8 @@ install(
 
 #args: label test-file src-files
 add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)
-add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc configuration.cc ${BC_FILE_PATH_CC})
+add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc configuration.cc
+    gdv_function_stubs.cc context_helper.cc to_date_holder.cc date_utils.cc ${BC_FILE_PATH_CC})
 add_gandiva_unit_test(function_signature_test.cc function_signature.cc)
 add_gandiva_unit_test(function_registry_test.cc function_registry.cc function_signature.cc)
 add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)

@@ -39,6 +39,7 @@
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Vectorize.h>
+#include "gandiva/gdv_function_stubs.h"
 
 namespace gandiva {
 
@@ -70,6 +71,7 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   std::call_once(init_once_flag, [&engine_obj] { engine_obj->InitOnce(); });
   engine_obj->context_.reset(new llvm::LLVMContext());
   engine_obj->ir_builder_.reset(new llvm::IRBuilder<>(*(engine_obj->context())));
+  engine_obj->types_.reset(new LLVMTypes(*(engine_obj->context())));
 
   // Create the execution engine
   std::unique_ptr<llvm::Module> cg_module(
@@ -85,6 +87,9 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
     engine_obj->module_ = NULL;
     return Status::CodeGenError(engine_obj->llvm_error_);
   }
+
+  // Add mappings for functions that can be accessed from LLVM/IR module.
+  engine_obj->AddGlobalMappings();
 
   auto status = engine_obj->LoadPreCompiledIRFiles(config->byte_code_file_path());
   GANDIVA_RETURN_NOT_OK(status);
@@ -196,6 +201,45 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
 void* Engine::CompiledFunction(llvm::Function* irFunction) {
   DCHECK(module_finalized_);
   return execution_engine_->getPointerToFunction(irFunction);
+}
+
+void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
+                                     const std::vector<llvm::Type*>& args,
+                                     void* function_ptr) {
+  auto prototype = llvm::FunctionType::get(ret_type, args, false /*isVarArg*/);
+  auto fn = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name,
+                                   module());
+  execution_engine_->addGlobalMapping(fn, function_ptr);
+}
+
+void Engine::AddGlobalMappings() {
+  std::vector<llvm::Type*> args;
+
+  // gdv_fn_like_utf8_utf8
+  args = {types().i64_type(), types().i8_ptr_type(), types().i32_type(),
+          types().i8_ptr_type(), types().i32_type()};
+  AddGlobalMappingForFunc("gdv_fn_like_utf8_utf8", types().i1_type(), args,
+                          reinterpret_cast<void*>(gdv_fn_like_utf8_utf8));
+
+  // gdv_fn_to_date_utf8_utf8_int32
+  args = {types().i64_type(),
+          types().i8_ptr_type(),
+          types().i32_type(),
+          types().i1_type(),
+          types().i8_ptr_type(),
+          types().i32_type(),
+          types().i1_type(),
+          types().i32_type(),
+          types().i1_type(),
+          types().i64_type(),
+          types().ptr_type(types().i8_type())};
+  AddGlobalMappingForFunc("gdv_fn_to_date_utf8_utf8_int32", types().i64_type(), args,
+                          reinterpret_cast<void*>(gdv_fn_to_date_utf8_utf8_int32));
+
+  // gdv_fn_context_set_error_msg
+  args = {types().i64_type(), types().i8_ptr_type()};
+  AddGlobalMappingForFunc("gdv_fn_context_set_error_msg", types().void_type(), args,
+                          reinterpret_cast<void*>(gdv_fn_context_set_error_msg));
 }
 
 void Engine::DumpIR(std::string prefix) {
