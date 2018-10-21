@@ -26,7 +26,7 @@
 G_BEGIN_DECLS
 
 /**
- * SECTION: plasma client
+ * SECTION: plasma-client
  * @title: PlasmaClient classes
  * @include: plasma-glib/plasma-glib.h
  *
