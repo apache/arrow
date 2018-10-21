@@ -18,6 +18,7 @@
 #ifndef GANDIVA_FUNCTION_HOLDER_REGISTRY_H
 #define GANDIVA_FUNCTION_HOLDER_REGISTRY_H
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
