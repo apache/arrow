@@ -167,8 +167,8 @@ impl MutableBuffer {
     /// the buffer directly (e.g., modifying the buffer by holding a mutable reference
     /// from `data_mut()`).
     pub fn with_bitset(mut self, end: usize, val: bool) -> Self {
-        assert!(end < self.capacity);
-        let v = if val { 1 } else { 0 };
+        assert!(end <= self.capacity);
+        let v = if val { 255 } else { 0 };
         unsafe {
             ::std::ptr::write_bytes(self.data, v, end);
             self.len = end;
@@ -286,6 +286,7 @@ unsafe impl Send for MutableBuffer {}
 mod tests {
     use std::ptr::null_mut;
     use std::thread;
+    use util::bit_util;
 
     use super::*;
 
@@ -366,6 +367,17 @@ mod tests {
     fn test_slice_offset_out_of_bound() {
         let buf = Buffer::from(&[2, 4, 6, 8, 10]);
         buf.slice(6);
+    }
+
+    #[test]
+    fn test_with_bitset() {
+        let mut_buf = MutableBuffer::new(64).with_bitset(64, false);
+        let buf = mut_buf.freeze();
+        assert_eq!(0, bit_util::count_set_bits(buf.data()));
+
+        let mut_buf = MutableBuffer::new(64).with_bitset(64, true);
+        let buf = mut_buf.freeze();
+        assert_eq!(512, bit_util::count_set_bits(buf.data()));
     }
 
     #[test]
