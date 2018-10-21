@@ -16,7 +16,6 @@ Build-Depends:
   libboost-regex-dev,
   libboost-system-dev,
   libgirepository1.0-dev,
-  libjemalloc-dev,
   libprotobuf-dev,
   libprotoc-dev,
   nvidia-cuda-toolkit,

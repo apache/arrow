@@ -37,7 +37,6 @@ BuildRequires:	gcc-c++
 BuildRequires:	cmake3
 BuildRequires:	boost-devel
 BuildRequires:	git
-BuildRequires:	jemalloc-devel
 %if %{use_python}
 BuildRequires:	python34-devel
 BuildRequires:	python34-numpy
@@ -112,7 +111,6 @@ License:	Apache-2.0
 Requires:	boost-system
 Requires:	boost-filesystem
 Requires:	boost-regex
-Requires:	jemalloc
 
 %description libs
 This package contains the libraries for Apache Arrow C++.

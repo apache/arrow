@@ -16,6 +16,5 @@
 # under the License.
 
 brew "ccache"
-brew "jemalloc"
 brew "boost"
 brew "thrift"
