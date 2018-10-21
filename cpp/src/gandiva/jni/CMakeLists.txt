@@ -66,7 +66,6 @@ target_include_directories(gandiva_jni
     ${JNI_INCLUDE_DIRS}
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_SOURCE_DIR}/src
-    -rdynamic
 )
 
 # filter out everything that is not needed for the jni bridge

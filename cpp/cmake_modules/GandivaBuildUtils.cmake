@@ -91,7 +91,7 @@ function(add_gandiva_unit_test REL_TEST_NAME)
     ${CMAKE_SOURCE_DIR}/src
   )
   target_link_libraries(${TEST_NAME}
-    PRIVATE arrow_shared ${GANDIVA_TEST_LINK_LIBS} Boost::boost -rdynamic
+    PRIVATE arrow_shared ${GANDIVA_TEST_LINK_LIBS} Boost::boost
   )
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
   set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva,unittest ${TEST_NAME})
@@ -120,12 +120,10 @@ function(add_gandiva_integ_test REL_TEST_NAME GANDIVA_LIB)
   target_link_libraries(${TEST_NAME}_${GANDIVA_LIB} PRIVATE
     ${GANDIVA_LIB}
     ${GANDIVA_TEST_LINK_LIBS}
-    -rdynamic
   )
 
   add_test(NAME ${TEST_NAME}_${GANDIVA_LIB} COMMAND ${TEST_NAME}_${GANDIVA_LIB})
   set_property(TEST ${TEST_NAME}_${GANDIVA_LIB} PROPERTY LABELS gandiva,integ ${TEST_NAME}_${GANDIVA_LIB})
-  set_target_properties(${TEST_NAME}_${GANDIVA_LIB} PROPERTIES LINK_FLAGS "-rdynamic")
 endfunction(add_gandiva_integ_test REL_TEST_NAME)
 
 function(prevent_in_source_builds)
