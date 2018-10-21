@@ -71,8 +71,8 @@ gandiva_glib = declare_dependency(link_with: libgandiva_glib,
                                   sources: enums_header)
 
 pkgconfig.generate(filebase: project_name,
-                   name: 'Apache Gandiva GLib',
-                   description: 'C API for Apache Gandiva based on GLib',
+                   name: 'Apache Arrow Gandiva GLib',
+                   description: 'C API for Apache Arrow Gandiva based on GLib',
                    version: version,
                    requires: ['gandiva', 'arrow-glib'],
                    libraries: [libgandiva_glib])
