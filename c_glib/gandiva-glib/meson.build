@@ -85,10 +85,10 @@ gnome.generate_gir(libgandiva_glib,
                    symbol_prefix: 'ggandiva',
                    export_packages: 'gandiva-glib',
                    includes: [
-                    'Arrow-1.0'
+                     'Arrow-1.0'
                    ],
                    install: true,
                    extra_args: [
-                    '--warn-all',
-                    '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+                     '--warn-all',
+                     '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                    ])
