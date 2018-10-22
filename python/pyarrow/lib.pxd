@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# cython: language_level = 3
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow cimport CStatus

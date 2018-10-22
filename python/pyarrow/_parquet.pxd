@@ -16,6 +16,7 @@
 # under the License.
 
 # distutils: language = c++
+# cython: language_level = 3
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,

@@ -18,6 +18,7 @@
 # cython: profile=False
 # distutils: language = c++
 # cython: embedsignature = True
+# cython: language_level = 3
 
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
@@ -282,8 +283,8 @@ cdef class PlasmaClient:
     def __cinit__(self):
         self.client.reset(new CPlasmaClient())
         self.notification_fd = -1
-        self.store_socket_name = ""
-        self.manager_socket_name = ""
+        self.store_socket_name = b""
+        self.manager_socket_name = b""
 
     cdef _get_object_buffers(self, object_ids, int64_t timeout_ms,
                              c_vector[CObjectBuffer]* result):
