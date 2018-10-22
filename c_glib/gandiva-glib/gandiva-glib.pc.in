@@ -25,4 +25,4 @@ Description: C API for Apache Arrow Gandiva based on GLib
 Version: @VERSION@
 Libs: -L${libdir} -lgandiva-glib
 Cflags: -I${includedir}
-Requires: arrow-glib gandiva
+Requires: gandiva arrow-glib
