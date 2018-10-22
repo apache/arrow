@@ -62,6 +62,17 @@ pub fn set_bit(data: &mut [u8], i: usize) {
     data[i >> 3] |= BIT_MASK[i & 7]
 }
 
+/// Sets bit at position `i` for `data`
+///
+/// Note this doesn't do any bound checking, for performance reason. The caller is
+/// responsible to guarantee that `i` is within bounds.
+#[inline]
+pub fn set_bit_raw(data: *mut u8, i: usize) {
+    unsafe {
+        *data.offset((i >> 3) as isize) |= BIT_MASK[i & 7]
+    }
+}
+
 /// Returns the number of 1-bits in `data`
 #[inline]
 pub fn count_set_bits(data: &[u8]) -> i64 {

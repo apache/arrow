@@ -87,7 +87,8 @@ macro_rules! impl_buffer_builder {
             /// elements of type T
             fn grow(&mut self, new_capacity: i64) -> Result<()> {
                 let byte_capacity = mem::size_of::<$native_ty>() * new_capacity as usize;
-                self.buffer.resize(byte_capacity)
+                self.buffer.resize(byte_capacity)?;
+                Ok(())
             }
 
             /// Build an immutable `Buffer` from the existing internal `MutableBuffer`'s memory
@@ -128,8 +129,10 @@ impl_buffer_builder!(f64);
 impl BufferBuilder<bool> {
     /// Creates a builder with a fixed initial capacity
     pub fn new(capacity: i64) -> Self {
-        let byte_capacity = bit_util::ceil(capacity, 8) as usize;
-        let buffer = MutableBuffer::new(byte_capacity).with_bitset(byte_capacity, false);
+        let byte_capacity = bit_util::ceil(capacity, 8);
+        let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity) as usize;
+        let mut buffer = MutableBuffer::new(actual_capacity);
+        buffer.ensure_null_bits(0, actual_capacity);
         Self {
             buffer,
             len: 0,
@@ -152,14 +155,9 @@ impl BufferBuilder<bool> {
     pub fn push(&mut self, v: bool) -> Result<()> {
         self.reserve(1)?;
         if v {
-            // Check needed here to increase the buffers `len` to ensure that `set_bit` is safe
-            // Zeroing out other bits also makes testing easier
-            if self.len > self.buffer.len() as i64 * 8 {
-                // safe to `unwrap` here as `write` performs a `capacity` check which is
-                // already done by `reserve`
-                self.buffer.write(&[0]).unwrap();
-            }
-            bit_util::set_bit(self.buffer.data_mut(), (self.len) as usize);
+            // For performance the `len` of the buffer is not updated on each push but
+            // is updated in the `freeze` method instead
+            bit_util::set_bit_raw(self.buffer.raw_data() as *mut u8, (self.len) as usize);
         }
         self.len += 1;
         Ok(())
@@ -186,13 +184,18 @@ impl BufferBuilder<bool> {
     /// Grow the internal buffer to `new_capacity`, where `new_capacity` is the capacity in
     /// elements of type T
     fn grow(&mut self, new_capacity: i64) -> Result<()> {
-        let byte_capacity = bit_util::ceil(new_capacity, 8) as usize;
-        self.buffer.resize(byte_capacity)
+        let new_byte_capacity = bit_util::ceil(new_capacity, 8) as usize;
+        let existing_capacity = self.buffer.capacity();
+        let capacity_added = self.buffer.resize(new_byte_capacity)?;
+        self.buffer.ensure_null_bits(existing_capacity, capacity_added);
+        Ok(())
     }
 
     /// Build an immutable `Buffer` from the existing internal `MutableBuffer`'s memory
     pub fn finish(self) -> Buffer {
-        self.buffer.freeze()
+        // `push` does not update the buffer's `len` to it is done before `freeze` is called
+        let new_buffer_len = bit_util::ceil(self.len, 8);
+        self.buffer.set_len(new_buffer_len as usize).freeze()
     }
 }
 
