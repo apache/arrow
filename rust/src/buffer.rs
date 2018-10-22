@@ -199,7 +199,7 @@ impl MutableBuffer {
     /// If the `new_capacity` is less than the current capacity, nothing is done and `Ok`
     /// will be returned. Otherwise, the new capacity value will be chosen between the
     /// larger one of the incoming `new_capacity` (after rounding up to the nearest 64)
-    /// and the doubled value of the existing capacity.
+    /// and the doubled value of the existing capacity, the capacity added is returned.
     pub fn resize(&mut self, new_capacity: usize) -> Result<usize> {
         if new_capacity <= self.capacity {
             return Ok(0);
@@ -251,14 +251,7 @@ impl MutableBuffer {
         self.data
     }
 
-    /// Returns a raw pointer for this buffer.
-    ///
-    /// Note that this should be used cautiously, and the returned pointer should not be
-    /// stored anywhere, to avoid dangling pointers.
-//    pub fn raw_data(&self) -> *const u8 {
-
-
-        /// Freezes this buffer and return an immutable version of it.
+    /// Freezes this buffer and return an immutable version of it.
     pub fn freeze(self) -> Buffer {
         let buffer_data = BufferData {
             ptr: self.data,
