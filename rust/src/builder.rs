@@ -157,7 +157,9 @@ impl BufferBuilder<bool> {
         if v {
             // For performance the `len` of the buffer is not updated on each push but
             // is updated in the `freeze` method instead
-            bit_util::set_bit_raw(self.buffer.raw_data() as *mut u8, (self.len) as usize);
+            unsafe {
+                bit_util::set_bit_raw(self.buffer.raw_data() as *mut u8, (self.len) as usize);
+            }
         }
         self.len += 1;
         Ok(())
