@@ -32,3 +32,9 @@ fi
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     sudo apt-get install -y -q lcov
 fi
+
+if [ "$ARROW_TRAVIS_GANDIVA" == "1" -a "$ARROW_USE_TOOLCHAIN" != "1" ]; then
+    sudo add-apt-repository -y ppa:dluxen/cmake-backports
+    sudo apt-get update -q
+    sudo apt-get install -y -q cmake3
+fi
