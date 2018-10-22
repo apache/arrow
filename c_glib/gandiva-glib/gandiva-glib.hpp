@@ -23,5 +23,4 @@
 
 #include <gandiva-glib/error.hpp>
 #include <gandiva-glib/expression.hpp>
-#include <gandiva-glib/gandiva-enums.hpp>
 #include <gandiva-glib/projector.hpp>
