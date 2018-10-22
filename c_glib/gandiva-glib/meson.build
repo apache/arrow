@@ -54,7 +54,6 @@ headers = c_headers + cpp_headers
 install_headers(headers, subdir: project_name)
 
 dependencies = [
-  arrow,
   gandiva,
   arrow_glib,
 ]
