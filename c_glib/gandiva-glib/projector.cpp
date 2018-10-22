@@ -130,7 +130,7 @@ ggandiva_projector_new(GArrowSchema *schema,
 {
   auto arrow_schema = garrow_schema_get_raw(schema);
   std::vector<std::shared_ptr<gandiva::Expression>> gandiva_expressions;
-  for (GList *node = expressions; node; node = g_list_next(node)) {
+  for (auto node = expressions; node; node = g_list_next(node)) {
     auto expression = GGANDIVA_EXPRESSION(node->data);
     auto gandiva_expression = ggandiva_expression_get_raw(expression);
     gandiva_expressions.push_back(gandiva_expression);
