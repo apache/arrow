@@ -38,7 +38,8 @@ class TestProjector < Test::Unit::TestCase
     record_batch = Arrow::RecordBatch.new(schema, 4, input_arrays)
     outputs = projector.evaluate(record_batch)
     assert_equal([
-                   [12, 15, 18, 21], [-10, -11, -12, -13]
+                   [12, 15, 18, 21],
+                   [-10, -11, -12, -13],
                  ],
                  outputs.collect(&:values))
   end
