@@ -178,7 +178,10 @@ impl MutableBuffer {
 
     /// Manually sets the `len` of this buffer
     pub fn set_len(mut self, new_len: usize) -> Self {
-        assert!(new_len <= self.capacity, "Unable to set len outside capacity");
+        assert!(
+            new_len <= self.capacity,
+            "Unable to set len outside capacity"
+        );
         self.len = new_len;
         self
     }

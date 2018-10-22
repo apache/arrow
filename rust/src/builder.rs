@@ -189,7 +189,8 @@ impl BufferBuilder<bool> {
         let new_byte_capacity = bit_util::ceil(new_capacity, 8) as usize;
         let existing_capacity = self.buffer.capacity();
         let capacity_added = self.buffer.resize(new_byte_capacity)?;
-        self.buffer.ensure_null_bits(existing_capacity, capacity_added);
+        self.buffer
+            .ensure_null_bits(existing_capacity, capacity_added);
         Ok(())
     }
 

@@ -68,7 +68,7 @@ pub fn set_bit(data: &mut [u8], i: usize) {
 /// responsible to guarantee that `i` is within bounds.
 #[inline]
 pub unsafe fn set_bit_raw(data: *mut u8, i: usize) {
-        *data.offset((i >> 3) as isize) |= BIT_MASK[i & 7]
+    *data.offset((i >> 3) as isize) |= BIT_MASK[i & 7]
 }
 
 /// Returns the number of 1-bits in `data`
