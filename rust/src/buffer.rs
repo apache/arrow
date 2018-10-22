@@ -407,6 +407,19 @@ mod tests {
     }
 
     #[test]
+    fn test_ensure_null_bits() {
+        let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
+        mut_buf.ensure_null_bits(0, 64);
+        let buf = mut_buf.freeze();
+        assert_eq!(0, bit_util::count_set_bits(buf.data()));
+
+        let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
+        mut_buf.ensure_null_bits(32, 32);
+        let buf = mut_buf.freeze();
+        assert_eq!(256, bit_util::count_set_bits(buf.data()));
+    }
+
+    #[test]
     fn test_mutable_new() {
         let buf = MutableBuffer::new(63);
         assert_eq!(64, buf.capacity());
