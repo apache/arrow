@@ -26,6 +26,7 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
     conda create -y -q -p $CPP_TOOLCHAIN python=3.6 nomkl \
         boost-cpp \
         brotli \
+        bzip2 \
         ccache \
         cmake \
         curl \

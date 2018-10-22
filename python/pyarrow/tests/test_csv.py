@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import bz2
 import gzip
 import io
 import itertools
@@ -275,7 +276,11 @@ class BaseTestCompressedCSVRead:
         csv, expected = make_random_csv(num_cols=2, num_rows=100)
         csv_path = os.path.join(self.tmpdir, self.csv_filename)
         self.write_file(csv_path, csv)
-        table = read_csv(csv_path)
+        try:
+            table = read_csv(csv_path)
+        except pa.ArrowNotImplementedError as e:
+            pytest.skip(str(e))
+            return
         table._validate()
         assert table.schema == expected.schema
         assert table.equals(expected)
@@ -287,4 +292,12 @@ class TestGZipCSVRead(BaseTestCompressedCSVRead, unittest.TestCase):
 
     def write_file(self, path, contents):
         with gzip.open(path, 'wb', 3) as f:
+            f.write(contents)
+
+
+class TestBZ2CSVRead(BaseTestCompressedCSVRead, unittest.TestCase):
+    csv_filename = "compressed.csv.bz2"
+
+    def write_file(self, path, contents):
+        with bz2.BZ2File(path, 'w') as f:
             f.write(contents)

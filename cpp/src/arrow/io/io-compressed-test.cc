@@ -191,6 +191,8 @@ TEST_P(CompressedInputStreamTest, InvalidData) {
 
 // NOTE: Snappy doesn't support streaming decompression
 
+// NOTE: BZ2 doesn't support one-shot compression
+
 // NOTE: LZ4 streaming decompression uses the LZ4 framing format,
 // which must be tested against a streaming compressor
 
