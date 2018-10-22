@@ -15,8 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/execution_context.h"
+// This file is also used in the pre-compiled unit tests, which do include
+// llvm/engine/..
+#ifndef GANDIVA_UNIT_TEST
+#include "gandiva/exported_funcs.h"
 #include "gandiva/gdv_function_stubs.h"
+
+#include "gandiva/engine.h"
+
+namespace gandiva {
+
+void ExportedContextFunctions::AddMappings(Engine& engine) const {
+  std::vector<llvm::Type*> args;
+  auto types = engine.types();
+
+  // gdv_fn_context_set_error_msg
+  args = {types.i64_type(),      // int64_t context_ptr
+          types.i8_ptr_type()};  // char const* err_msg
+
+  engine.AddGlobalMappingForFunc("gdv_fn_context_set_error_msg", types.void_type(), args,
+                                 reinterpret_cast<void*>(gdv_fn_context_set_error_msg));
+}
+
+}  // namespace gandiva
+#endif  // !GANDIVA_UNIT_TEST
+
+#include "gandiva/execution_context.h"
 
 extern "C" {
 

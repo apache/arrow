@@ -15,24 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GDV_FUNCTION_STUBS_H
-#define GDV_FUNCTION_STUBS_H
+#ifndef GANDIVA_EXPORTED_FUNCS_H
+#define GANDIVA_EXPORTED_FUNCS_H
 
-#include <cstdint>
+#include <gandiva/exported_funcs_registry.h>
+#include <vector>
 
-/// Stub functions that can be accessed from LLVM.
-extern "C" {
+namespace gandiva {
 
-bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
-                           const char* pattern, int pattern_len);
+class Engine;
 
-int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t ptr, const char* data, int data_len,
-                                       bool in1_validity, const char* pattern,
-                                       int pattern_len, bool in2_validity,
-                                       int32_t suppress_errors, bool in3_validity,
-                                       int64_t execution_context, bool* out_valid);
+// Base-class type for exporting functions that can be accessed from LLVM/IR.
+class ExportedFuncsBase {
+ public:
+  virtual void AddMappings(Engine& engine) const = 0;
+};
 
-void gdv_fn_context_set_error_msg(int64_t context_ptr, const char* err_msg);
-}
+// Class for exporting Stub functions
+class ExportedStubFunctions : public ExportedFuncsBase {
+  void AddMappings(Engine& engine) const override;
+};
+REGISTER_EXPORTED_FUNCS(ExportedStubFunctions);
 
-#endif  // GDV_FUNCTION_STUBS_H
+// Class for exporting Context functions
+class ExportedContextFunctions : public ExportedFuncsBase {
+  void AddMappings(Engine& engine) const override;
+};
+REGISTER_EXPORTED_FUNCS(ExportedContextFunctions);
+
+}  // namespace gandiva
+
+#endif  // GANDIVA_EXPORTED_FUNCS_H

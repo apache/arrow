@@ -66,6 +66,10 @@ class Engine {
 
   LLVMTypes& types() { return *types_; }
 
+  // Create and add a mapping for the cpp function to make it accessible from LLVM.
+  void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
+                               const std::vector<llvm::Type*>& args, void* func);
+
  private:
   /// private constructor to ensure engine is created
   /// only through the factory.
@@ -79,10 +83,6 @@ class Engine {
 
   /// load pre-compiled IR modules and merge them into the main module.
   Status LoadPreCompiledIRFiles(const std::string& byte_code_file_path);
-
-  // Create and add a mapping for the cpp function to make it accessible from LLVM.
-  void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
-                               const std::vector<llvm::Type*>& args, void* func);
 
   // Create and add mappings for cpp functions that can be accessed from LLVM.
   void AddGlobalMappings();

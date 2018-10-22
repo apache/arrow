@@ -39,7 +39,7 @@
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Vectorize.h>
-#include "gandiva/gdv_function_stubs.h"
+#include "gandiva/exported_funcs_registry.h"
 
 namespace gandiva {
 
@@ -212,35 +212,7 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
   execution_engine_->addGlobalMapping(fn, function_ptr);
 }
 
-void Engine::AddGlobalMappings() {
-  std::vector<llvm::Type*> args;
-
-  // gdv_fn_like_utf8_utf8
-  args = {types().i64_type(), types().i8_ptr_type(), types().i32_type(),
-          types().i8_ptr_type(), types().i32_type()};
-  AddGlobalMappingForFunc("gdv_fn_like_utf8_utf8", types().i1_type(), args,
-                          reinterpret_cast<void*>(gdv_fn_like_utf8_utf8));
-
-  // gdv_fn_to_date_utf8_utf8_int32
-  args = {types().i64_type(),
-          types().i8_ptr_type(),
-          types().i32_type(),
-          types().i1_type(),
-          types().i8_ptr_type(),
-          types().i32_type(),
-          types().i1_type(),
-          types().i32_type(),
-          types().i1_type(),
-          types().i64_type(),
-          types().ptr_type(types().i8_type())};
-  AddGlobalMappingForFunc("gdv_fn_to_date_utf8_utf8_int32", types().i64_type(), args,
-                          reinterpret_cast<void*>(gdv_fn_to_date_utf8_utf8_int32));
-
-  // gdv_fn_context_set_error_msg
-  args = {types().i64_type(), types().i8_ptr_type()};
-  AddGlobalMappingForFunc("gdv_fn_context_set_error_msg", types().void_type(), args,
-                          reinterpret_cast<void*>(gdv_fn_context_set_error_msg));
-}
+void Engine::AddGlobalMappings() { ExportedFuncsRegistry::AddMappings(*this); }
 
 void Engine::DumpIR(std::string prefix) {
   std::string str;
