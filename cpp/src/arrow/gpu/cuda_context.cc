@@ -130,7 +130,7 @@ class CudaContext::CudaContextImpl {
 
   const CudaDevice device() const { return device_; }
 
-  const void* context_handle() const { return reinterpret_cast<void*>(context_); }
+  void* context_handle() const { return reinterpret_cast<void*>(context_); }
 
  private:
   CudaDevice device_;
@@ -269,7 +269,7 @@ Status CudaDeviceManager::CreateNewContext(int device_number,
 
 Status CudaDeviceManager::CreateSharedContext(int device_number, void* ctx,
                                               std::shared_ptr<CudaContext>* out) {
-  return impl_->CreateSharedContext(device_number, (CUcontext)ctx, out);
+  return impl_->CreateSharedContext(device_number, reinterpret_cast<CUcontext>(ctx), out);
 }
 
 Status CudaDeviceManager::AllocateHost(int device_number, int64_t nbytes,
@@ -329,7 +329,7 @@ Status CudaContext::Free(void* device_ptr, int64_t nbytes) {
 
 Status CudaContext::OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
                                   std::shared_ptr<CudaBuffer>* out) {
-  ContextSaver set_temporary((CUcontext)(handle()));
+  ContextSaver set_temporary(reinterpret_cast<CUcontext>(handle()));
   uint8_t* data = nullptr;
   RETURN_NOT_OK(impl_->OpenIpcBuffer(ipc_handle, &data));
 
@@ -344,7 +344,7 @@ Status CudaContext::OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
 }
 
 Status CudaContext::CloseIpcBuffer(CudaBuffer* buf) {
-  ContextSaver set_temporary((CUcontext)(handle()));
+  ContextSaver set_temporary(reinterpret_cast<CUcontext>(handle()));
   CU_RETURN_NOT_OK(
       cuIpcCloseMemHandle(reinterpret_cast<CUdeviceptr>(buf->mutable_data())));
   return Status::OK();
@@ -352,7 +352,7 @@ Status CudaContext::CloseIpcBuffer(CudaBuffer* buf) {
 
 int64_t CudaContext::bytes_allocated() const { return impl_->bytes_allocated(); }
 
-const void* CudaContext::handle() const { return impl_->context_handle(); }
+void* CudaContext::handle() const { return impl_->context_handle(); }
 
 int CudaContext::device_number() const { return impl_->device().device_num; }
 

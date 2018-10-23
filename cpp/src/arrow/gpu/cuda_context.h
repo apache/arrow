@@ -130,7 +130,7 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   int64_t bytes_allocated() const;
 
   /// \brief Expose CUDA context handle to other libraries
-  const void* handle() const;
+  void* handle() const;
 
   /// \brief Return device number
   int device_number() const;
