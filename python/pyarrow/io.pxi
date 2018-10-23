@@ -1132,7 +1132,7 @@ cdef CompressionType _get_compression_type(object name):
                          .format(str(name)))
 
 
-cdef CompressionType _get_compression_type_by_filename(str filename):
+cdef CompressionType _get_compression_type_by_filename(filename):
     if filename.endswith('.gz'):
         return CompressionType_GZIP
     elif filename.endswith('.lz4'):

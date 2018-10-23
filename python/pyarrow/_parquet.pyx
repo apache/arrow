@@ -589,7 +589,7 @@ cdef int check_compression_name(name) except -1:
     return 0
 
 
-cdef ParquetCompression compression_from_name(str name):
+cdef ParquetCompression compression_from_name(name):
     name = name.upper()
     if name == 'SNAPPY':
         return ParquetCompression_SNAPPY

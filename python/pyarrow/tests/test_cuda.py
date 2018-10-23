@@ -20,11 +20,14 @@ UNTESTED:
 read_message
 """
 
+import sys
+import sysconfig
 
 import pytest
+
 import pyarrow as pa
 import numpy as np
-import sysconfig
+
 
 cuda = pytest.importorskip("pyarrow.cuda")
 
@@ -114,12 +117,7 @@ def test_context_device_buffer():
 
     # CudaBuffer does not support buffer protocol
     with pytest.raises(BufferError):
-        try:
-            np.frombuffer(cudabuf, dtype=np.uint8)
-        except Exception as e_info:
-            assert str(e_info).startswith(
-                "buffer protocol for device buffer not supported")
-            raise
+        memoryview(cudabuf)
 
     # Creating device buffer from array:
     cudabuf = global_context.buffer_from_data(arr)
@@ -565,6 +563,7 @@ def other_process_for_test_IPC(handle_buffer, expected_arr):
 
 
 @cuda_ipc
+@pytest.mark.skipif(sys.version_info[0] == 2, reason="test needs Python 3")
 def test_IPC():
     import multiprocessing
     ctx = multiprocessing.get_context('spawn')
