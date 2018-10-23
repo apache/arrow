@@ -121,7 +121,7 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-undefined-func-template")
     endif()
 
-    if ("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+    if ("${COMPILER_VERSION}" VERSION_GREATER "3.9")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-zero-as-null-pointer-constant")
     endif()
 

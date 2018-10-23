@@ -33,32 +33,38 @@ extern "C" {
   INNER(float64, OUT_TYPE)
 
 // Cubic root
-#define CBRT(IN_TYPE, OUT_TYPE)                                     \
-  FORCE_INLINE                                                      \
-  OUT_TYPE cbrt_##IN_TYPE(IN_TYPE in) {                             \
-    return static_cast<float64>((cbrtl(static_cast<float64>(in)))); \
+#define CBRT(IN_TYPE, OUT_TYPE)                                    \
+  FORCE_INLINE                                                     \
+  OUT_TYPE cbrt_##IN_TYPE(IN_TYPE in) {                            \
+    return static_cast<float64>((cbrt(static_cast<float64>(in)))); \
   }
 
 ENUMERIC_TYPES_UNARY(CBRT, float64)
 
 // Exponent
-#define EXP(IN_TYPE, OUT_TYPE) \
-  FORCE_INLINE                 \
-  OUT_TYPE exp_##IN_TYPE(IN_TYPE in) { return static_cast<float64>(expl(in)); }
+#define EXP(IN_TYPE, OUT_TYPE)                                  \
+  FORCE_INLINE                                                  \
+  OUT_TYPE exp_##IN_TYPE(IN_TYPE in) {                          \
+    return static_cast<float64>(exp(static_cast<float64>(in))); \
+  }
 
 ENUMERIC_TYPES_UNARY(EXP, float64)
 
 // log
-#define LOG(IN_TYPE, OUT_TYPE) \
-  FORCE_INLINE                 \
-  OUT_TYPE log_##IN_TYPE(IN_TYPE in) { return static_cast<float64>(logl(in)); }
+#define LOG(IN_TYPE, OUT_TYPE)                                  \
+  FORCE_INLINE                                                  \
+  OUT_TYPE log_##IN_TYPE(IN_TYPE in) {                          \
+    return static_cast<float64>(log(static_cast<float64>(in))); \
+  }
 
 ENUMERIC_TYPES_UNARY(LOG, float64)
 
 // log base 10
-#define LOG10(IN_TYPE, OUT_TYPE) \
-  FORCE_INLINE                   \
-  OUT_TYPE log10_##IN_TYPE(IN_TYPE in) { return static_cast<float64>(log10l(in)); }
+#define LOG10(IN_TYPE, OUT_TYPE)                                  \
+  FORCE_INLINE                                                    \
+  OUT_TYPE log10_##IN_TYPE(IN_TYPE in) {                          \
+    return static_cast<float64>(log10(static_cast<float64>(in))); \
+  }
 
 ENUMERIC_TYPES_UNARY(LOG10, float64)
 
@@ -73,22 +79,23 @@ void set_error_for_logbase(int64_t execution_context, double base) {
 }
 
 // log with base
-#define LOG_WITH_BASE(IN_TYPE1, IN_TYPE2, OUT_TYPE)                            \
-  FORCE_INLINE                                                                 \
-  OUT_TYPE log_##IN_TYPE1##_##IN_TYPE2(IN_TYPE1 base, boolean is_base_valid,   \
-                                       IN_TYPE2 value, boolean is_value_valid, \
-                                       int64 context, boolean* out_valid) {    \
-    *out_valid = false;                                                        \
-    if (!is_base_valid || !is_value_valid) {                                   \
-      return 0;                                                                \
-    }                                                                          \
-    OUT_TYPE log_of_base = static_cast<float64>(logl(base));                   \
-    if (log_of_base == 0) {                                                    \
-      set_error_for_logbase(context, static_cast<double>(base));               \
-      return 0;                                                                \
-    }                                                                          \
-    *out_valid = true;                                                         \
-    return static_cast<float64>(logl(value) / logl(base));                     \
+#define LOG_WITH_BASE(IN_TYPE1, IN_TYPE2, OUT_TYPE)                               \
+  FORCE_INLINE                                                                    \
+  OUT_TYPE log_##IN_TYPE1##_##IN_TYPE2(IN_TYPE1 base, boolean is_base_valid,      \
+                                       IN_TYPE2 value, boolean is_value_valid,    \
+                                       int64 context, boolean* out_valid) {       \
+    *out_valid = false;                                                           \
+    if (!is_base_valid || !is_value_valid) {                                      \
+      return 0;                                                                   \
+    }                                                                             \
+    OUT_TYPE log_of_base = static_cast<float64>(log(static_cast<float64>(base))); \
+    if (log_of_base == 0) {                                                       \
+      set_error_for_logbase(context, static_cast<float64>(base));                 \
+      return 0;                                                                   \
+    }                                                                             \
+    *out_valid = true;                                                            \
+    return static_cast<float64>(log(static_cast<float64>(value)) /                \
+                                log(static_cast<float64>(base)));                 \
   }
 
 LOG_WITH_BASE(int32, int32, float64)
@@ -102,7 +109,8 @@ LOG_WITH_BASE(float64, float64, float64)
 #define POWER(IN_TYPE1, IN_TYPE2, OUT_TYPE)                            \
   FORCE_INLINE                                                         \
   OUT_TYPE power_##IN_TYPE1##_##IN_TYPE2(IN_TYPE1 in1, IN_TYPE2 in2) { \
-    return static_cast<float64>(powl(in1, in2));                       \
+    return static_cast<float64>(                                       \
+        pow(static_cast<float64>(in1), static_cast<float64>(in2)));    \
   }
 
 POWER(float64, float64, float64)

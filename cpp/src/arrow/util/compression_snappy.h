@@ -38,7 +38,7 @@ class ARROW_EXPORT SnappyCodec : public Codec {
 
   int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
 
-  Status MakeCompressor(std::shared_ptr<Compressor>* out);
+  Status MakeCompressor(std::shared_ptr<Compressor>* out) override;
 
   Status MakeDecompressor(std::shared_ptr<Decompressor>* out) override;
 
