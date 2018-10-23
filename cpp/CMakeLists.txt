@@ -305,6 +305,10 @@ Always OFF if building binaries"
     "Build the Gandiva libraries"
     OFF)
 
+  option(ARROW_GANDIVA_JAVA
+    "Build the Gandiva JNI wrappers"
+    ON)
+
 endif()
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)

@@ -149,7 +149,9 @@ add_gandiva_unit_test(selection_vector_test.cc selection_vector.cc)
 add_gandiva_unit_test(lru_cache_test.cc)
 add_gandiva_unit_test(to_date_holder_test.cc to_date_holder.cc date_utils.cc)
 
-add_subdirectory(jni)
+if (ARROW_GANDIVA_JAVA)
+  add_subdirectory(jni)
+endif()
 add_subdirectory(precompiled)
 
 include(CTest)
