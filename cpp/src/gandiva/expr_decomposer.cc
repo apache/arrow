@@ -175,18 +175,22 @@ Status ExprDecomposer::Visit(const BooleanNode& node) {
   return Status::OK();
 }
 
-Status ExprDecomposer::Visit(const InExpressionNode& node) {
-  // decompose the children.
-  std::vector<ValueValidityPairPtr> args;
-  auto status = node.eval_expr()->Accept(*this);
-  GANDIVA_RETURN_NOT_OK(status);
-  args.push_back(result());
+#define MAKE_VISIT_IN(ctype)                                                  \
+  Status ExprDecomposer::Visit(const InExpressionNode<ctype>& node) {         \
+    /* decompose the children. */                                             \
+    std::vector<ValueValidityPairPtr> args;                                   \
+    auto status = node.eval_expr()->Accept(*this);                            \
+    GANDIVA_RETURN_NOT_OK(status);                                            \
+    args.push_back(result());                                                 \
+    /* In always outpus valid results, so no validity dex */                  \
+    auto value_dex = std::make_shared<InExprDex<ctype>>(args, node.values()); \
+    result_ = std::make_shared<ValueValidityPair>(value_dex);                 \
+    return Status::OK();                                                      \
+  }
 
-  // In always outpus valid results, so no validity dex
-  auto value_dex = std::make_shared<InExprDex>(args, node.values());
-  result_ = std::make_shared<ValueValidityPair>(value_dex);
-  return Status::OK();
-}
+MAKE_VISIT_IN(int32_t);
+MAKE_VISIT_IN(int64_t);
+MAKE_VISIT_IN(std::string);
 
 Status ExprDecomposer::Visit(const LiteralNode& node) {
   auto value_dex = std::make_shared<LiteralDex>(node.return_type(), node.holder());

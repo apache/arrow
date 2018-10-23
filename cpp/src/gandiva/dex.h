@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "gandiva/dex_visitor.h"
@@ -275,38 +276,70 @@ class BooleanOrDex : public BooleanDex {
 };
 
 // decomposed in expression.
-class InExprDex : public Dex {
+template <typename Type>
+class InExprDex;
+
+template <typename Type>
+class InExprDexBase : public Dex {
  public:
-  InExprDex(const ValueValidityPairVector& args, const VariantSet& constants)
-      : args_(args) {
-    in_holder_.reset(new InHolder(constants));
-    switch (constants.begin()->which()) {
-      case VariantType::INT32:
-        runtime_function_ = "in_expr_lookup_int32";
-        break;
-      case VariantType::INT64:
-        runtime_function_ = "in_expr_lookup_int64";
-        break;
-      case VariantType::STRING:
-        runtime_function_ = "in_expr_lookup_utf8";
-        break;
-      default:
-        DCHECK(0);
-    }
-  }
+  explicit InExprDexBase(const ValueValidityPairVector& args) : args_(args) {}
 
   const ValueValidityPairVector& args() const { return args_; }
-
-  const std::shared_ptr<InHolder>& in_holder() const { return in_holder_; }
 
   void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 
   const std::string& runtime_function() const { return runtime_function_; }
 
- private:
+ protected:
   ValueValidityPairVector args_;
-  std::shared_ptr<InHolder> in_holder_;
   std::string runtime_function_;
+};
+
+template <>
+class InExprDex<int32_t> : public InExprDexBase<int32_t> {
+ public:
+  InExprDex(const ValueValidityPairVector& args,
+            const std::unordered_set<int32_t>& values)
+      : InExprDexBase(args) {
+    in_holder_.reset(new InHolder<int32_t>(values));
+    runtime_function_ = "in_expr_lookup_int32";
+  }
+
+  const std::shared_ptr<InHolder<int32_t>>& in_holder() const { return in_holder_; }
+
+ private:
+  std::shared_ptr<InHolder<int32_t>> in_holder_;
+};
+
+template <>
+class InExprDex<int64_t> : public InExprDexBase<int64_t> {
+ public:
+  InExprDex(const ValueValidityPairVector& args, const std::unordered_set<int64_t> values)
+      : InExprDexBase(args) {
+    in_holder_.reset(new InHolder<int64_t>(values));
+    runtime_function_ = "in_expr_lookup_int64";
+  }
+
+  const std::shared_ptr<InHolder<int64_t>>& in_holder() const { return in_holder_; }
+
+ private:
+  std::shared_ptr<InHolder<int64_t>> in_holder_;
+};
+
+template <>
+class InExprDex<std::string> : public InExprDexBase<std::string> {
+ public:
+  InExprDex(const ValueValidityPairVector& args,
+            const std::unordered_set<std::string> values)
+      : InExprDexBase(args) {
+    in_holder_.reset(new InHolder<std::string>(values));
+    runtime_function_ = "in_expr_lookup_utf8";
+  }
+
+  const std::shared_ptr<InHolder<std::string>>& in_holder() const { return in_holder_; }
+
+ private:
+  std::shared_ptr<InHolder<std::string>> in_holder_;
 };
 
 }  // namespace gandiva

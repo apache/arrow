@@ -91,8 +91,6 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   *projector = std::shared_ptr<Projector>(
       new Projector(std::move(llvm_gen), schema, output_fields, configuration));
   cache.PutModule(cache_key, *projector);
-  std::cout << "llvm projector module cache insert : " << cache_key.ToString()
-            << std::endl;
 
   return Status::OK();
 }

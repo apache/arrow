@@ -219,14 +219,15 @@ class BooleanNode : public Node {
 };
 
 /// \brief Node in expression tree, representing an in expression.
+template <typename Type>
 class InExpressionNode : public Node {
  public:
-  InExpressionNode(NodePtr eval_expr, const VariantSet& values)
+  InExpressionNode(NodePtr eval_expr, const std::unordered_set<Type>& values)
       : Node(arrow::boolean()), eval_expr_(eval_expr), values_(values) {}
 
   const NodePtr& eval_expr() const { return eval_expr_; }
 
-  const VariantSet& values() const { return values_; }
+  const std::unordered_set<Type>& values() const { return values_; }
 
   Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
 
@@ -239,7 +240,7 @@ class InExpressionNode : public Node {
         ss << ", ";
       }
       // add type in the front to differentiate
-      ss << "(" << value.which() << ")" << boost::lexical_cast<std::string>(value);
+      ss << value;
       add_comma = true;
     }
     ss << ")";
@@ -248,7 +249,7 @@ class InExpressionNode : public Node {
 
  private:
   NodePtr eval_expr_;
-  VariantSet values_;
+  std::unordered_set<Type> values_;
 };
 
 }  // namespace gandiva

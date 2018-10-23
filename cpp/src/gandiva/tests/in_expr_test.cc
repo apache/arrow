@@ -46,9 +46,7 @@ TEST_F(TestIn, TestInSimple) {
   auto node_f1 = TreeExprBuilder::MakeField(field1);
   auto sum_func =
       TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::int32());
-  std::unordered_set<int32_t> in_constants;
-  in_constants.insert(6);
-  in_constants.insert(11);
+  std::unordered_set<int32_t> in_constants({6, 11});
   auto in_expr = TreeExprBuilder::MakeInExpressionInt(sum_func, in_constants);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
@@ -85,9 +83,7 @@ TEST_F(TestIn, TestInString) {
 
   // Build f0 in ("test" ,"me")
   auto node_f0 = TreeExprBuilder::MakeField(field0);
-  std::unordered_set<std::string> in_constants;
-  in_constants.insert("test");
-  in_constants.insert("me");
+  std::unordered_set<std::string> in_constants({"test", "me"});
   auto in_expr = TreeExprBuilder::MakeInExpressionString(node_f0, in_constants);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
@@ -124,9 +120,7 @@ TEST_F(TestIn, TestInStringValidationError) {
 
   // Build f0 in ("test" ,"me")
   auto node_f0 = TreeExprBuilder::MakeField(field0);
-  std::unordered_set<std::string> in_constants;
-  in_constants.insert("test");
-  in_constants.insert("me");
+  std::unordered_set<std::string> in_constants({"test", "me"});
   auto in_expr = TreeExprBuilder::MakeInExpressionString(node_f0, in_constants);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 

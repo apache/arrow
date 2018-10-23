@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#include <stdlib.h>
 
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
@@ -211,6 +212,44 @@ TEST_F(TestBenchmarks, TimedTestFilterLike) {
   std::cout << "Time taken for Filter with like " << elapsed_millis << " ms\n";
 
   EXPECT_LE(elapsed_millis, 600 * tolerance_ratio);
+}
+
+TEST_F(TestBenchmarks, TimedTestInExpr) {
+  // schema for input fields
+  auto fielda = field("a", utf8());
+  auto schema = arrow::schema({fielda});
+
+  // output fields
+  auto field_result = field("res", boolean());
+
+  // build expression.
+  // booleanOr(a = 2, a = 3, a = 4...,a = 16)
+  auto node_a = TreeExprBuilder::MakeField(fielda);
+
+  std::unordered_set<std::string> values;
+  FastUtf8DataGenerator data_generator1(250);
+  for (int i = 1; i <= 75; i++) {
+    values.insert(data_generator1.GenerateData());
+  }
+  auto boolean_or = TreeExprBuilder::MakeInExpressionString(node_a, values);
+  auto expr = TreeExprBuilder::MakeExpression(boolean_or, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok());
+
+  int64_t elapsed_millis;
+  FastUtf8DataGenerator data_generator(250);
+  ProjectEvaluator evaluator(projector);
+
+  status = TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
+      elapsed_millis);
+  ASSERT_TRUE(status.ok());
+
+  std::cout << "Time taken for BooleanIn " << elapsed_millis << " ms\n";
+  EXPECT_LE(elapsed_millis, 400 * tolerance_ratio);
 }
 
 }  // namespace gandiva

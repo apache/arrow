@@ -18,6 +18,7 @@
 #ifndef GANDIVA_IN_HOLDER_H
 #define GANDIVA_IN_HOLDER_H
 
+#include <iostream>
 #include <string>
 #include <unordered_set>
 
@@ -31,24 +32,20 @@ namespace helpers {
 #endif
 
 /// Function Holder for IN Expressions
+template <typename Type>
 class InHolder {
  public:
-  explicit InHolder(const VariantSet& values) : values(values) {}
-
-  bool HasValue(int32_t value) const {
-    return values.find(Variant(value)) != values.end();
+  explicit InHolder(const std::unordered_set<Type>& values) {
+    values_.max_load_factor(0.25f);
+    for (auto& value : values) {
+      values_.insert(value);
+    }
   }
 
-  bool HasValue(int64_t value) const {
-    return values.find(Variant(value)) != values.end();
-  }
-
-  bool HasValue(std::string value) const {
-    return values.find(Variant(value)) != values.end();
-  }
+  bool HasValue(Type value) const { return values_.count(value) == 1; }
 
  private:
-  VariantSet values;
+  std::unordered_set<Type> values_;
 };
 
 #ifdef GDV_HELPERS

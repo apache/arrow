@@ -46,7 +46,11 @@ class BoundedInt32DataGenerator : public Int32DataGenerator {
   explicit BoundedInt32DataGenerator(uint32_t upperBound)
       : Int32DataGenerator(), upperBound_(upperBound) {}
 
-  int32_t GenerateData() { return (rand_r(&seed_) % upperBound_); }
+  int32_t GenerateData() {
+    int32_t value = (rand_r(&seed_) % upperBound_);
+    // std::cout << value << std::endl;
+    return value;
+  }
 
  protected:
   uint32_t upperBound_;
