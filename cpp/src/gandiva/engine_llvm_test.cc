@@ -30,7 +30,7 @@ class TestEngine : public ::testing::Test {
 };
 
 llvm::Function* TestEngine::BuildVecAdd(Engine* engine, LLVMTypes* types) {
-  llvm::IRBuilder<>& builder = engine->ir_builder();
+  llvm::IRBuilder<>* builder = engine->ir_builder();
   llvm::LLVMContext* context = engine->context();
 
   // Create fn prototype :
@@ -62,39 +62,39 @@ llvm::Function* TestEngine::BuildVecAdd(Engine* engine, LLVMTypes* types) {
   llvm::BasicBlock* loop_exit = llvm::BasicBlock::Create(*context, "exit", fn);
 
   // Loop entry
-  builder.SetInsertPoint(loop_entry);
-  builder.CreateBr(loop_body);
+  builder->SetInsertPoint(loop_entry);
+  builder->CreateBr(loop_body);
 
   // Loop body
-  builder.SetInsertPoint(loop_body);
+  builder->SetInsertPoint(loop_body);
 
-  llvm::PHINode* loop_var = builder.CreatePHI(types->i32_type(), 2, "loop_var");
-  llvm::PHINode* sum = builder.CreatePHI(types->i64_type(), 2, "sum");
+  llvm::PHINode* loop_var = builder->CreatePHI(types->i32_type(), 2, "loop_var");
+  llvm::PHINode* sum = builder->CreatePHI(types->i64_type(), 2, "sum");
 
   loop_var->addIncoming(types->i32_constant(0), loop_entry);
   sum->addIncoming(types->i64_constant(0), loop_entry);
 
   // setup loop PHI
   llvm::Value* loop_update =
-      builder.CreateAdd(loop_var, types->i32_constant(1), "loop_var+1");
+      builder->CreateAdd(loop_var, types->i32_constant(1), "loop_var+1");
   loop_var->addIncoming(loop_update, loop_body);
 
   // get the current value
-  llvm::Value* offset = builder.CreateGEP(arg_elements, loop_var, "offset");
-  llvm::Value* current_value = builder.CreateLoad(offset, "value");
+  llvm::Value* offset = builder->CreateGEP(arg_elements, loop_var, "offset");
+  llvm::Value* current_value = builder->CreateLoad(offset, "value");
 
   // setup sum PHI
-  llvm::Value* sum_update = builder.CreateAdd(sum, current_value, "sum+ith");
+  llvm::Value* sum_update = builder->CreateAdd(sum, current_value, "sum+ith");
   sum->addIncoming(sum_update, loop_body);
 
   // check loop_var
   llvm::Value* loop_var_check =
-      builder.CreateICmpSLT(loop_update, arg_nelements, "loop_var < nrec");
-  builder.CreateCondBr(loop_var_check, loop_body, loop_exit);
+      builder->CreateICmpSLT(loop_update, arg_nelements, "loop_var < nrec");
+  builder->CreateCondBr(loop_var_check, loop_body, loop_exit);
 
   // Loop exit
-  builder.SetInsertPoint(loop_exit);
-  builder.CreateRet(sum_update);
+  builder->SetInsertPoint(loop_exit);
+  builder->CreateRet(sum_update);
   return fn;
 }
 

@@ -21,7 +21,7 @@
 
 namespace gandiva {
 
-void ExportedFuncsRegistry::AddMappings(Engine& engine) {
+void ExportedFuncsRegistry::AddMappings(Engine* engine) {
   for (auto entry : registered()) {
     entry->AddMappings(engine);
   }

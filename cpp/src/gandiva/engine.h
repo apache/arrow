@@ -41,8 +41,8 @@ namespace gandiva {
 class Engine {
  public:
   llvm::LLVMContext* context() { return context_.get(); }
-  llvm::IRBuilder<>& ir_builder() { return *ir_builder_.get(); }
-
+  llvm::IRBuilder<>* ir_builder() { return ir_builder_.get(); }
+  LLVMTypes* types() { return types_.get(); }
   llvm::Module* module() { return module_; }
 
   /// factory method to create and initialize the engine object.
@@ -63,8 +63,6 @@ class Engine {
 
   /// Get the compiled function corresponding to the irfunction.
   void* CompiledFunction(llvm::Function* irFunction);
-
-  LLVMTypes& types() { return *types_; }
 
   // Create and add a mapping for the cpp function to make it accessible from LLVM.
   void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,

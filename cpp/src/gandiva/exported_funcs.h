@@ -30,18 +30,18 @@ class ExportedFuncsBase {
  public:
   virtual ~ExportedFuncsBase() = default;
 
-  virtual void AddMappings(Engine& engine) const = 0;
+  virtual void AddMappings(Engine* engine) const = 0;
 };
 
 // Class for exporting Stub functions
 class ExportedStubFunctions : public ExportedFuncsBase {
-  void AddMappings(Engine& engine) const override;
+  void AddMappings(Engine* engine) const override;
 };
 REGISTER_EXPORTED_FUNCS(ExportedStubFunctions);
 
 // Class for exporting Context functions
 class ExportedContextFunctions : public ExportedFuncsBase {
-  void AddMappings(Engine& engine) const override;
+  void AddMappings(Engine* engine) const override;
 };
 REGISTER_EXPORTED_FUNCS(ExportedContextFunctions);
 
