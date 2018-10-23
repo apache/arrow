@@ -38,7 +38,4 @@ if [ "$ARROW_TRAVIS_GANDIVA" == "1" -a "$ARROW_USE_TOOLCHAIN" != "1" ]; then
     sudo apt-get update -q
     sudo apt-get install -y -q cmake3
     sudo rm -rf /usr/local/cmake-*
-    if [ -z "$ARROW_TRAVIS_USE_VENDORED_BOOST" ]; then
-        ARROW_TRAVIS_USE_VENDORED_BOOST=1
-    fi
 fi
