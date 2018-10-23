@@ -34,17 +34,14 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
  */
 class JniWrapper {
   private static final String LIBRARY_NAME = "gandiva_jni";
-  private static final String HELPER_LIBRARY_NAME = "gandiva_helpers";
   private static final String IRHELPERS_BC = "irhelpers.bc";
 
   private static volatile JniWrapper INSTANCE;
 
   private final String byteCodeFilePath;
-  private final String helperLibraryFilePath;
 
-  private JniWrapper(String byteCodeFilePath, String helperLibraryFilePath) {
+  private JniWrapper(String byteCodeFilePath) {
     this.byteCodeFilePath = byteCodeFilePath;
-    this.helperLibraryFilePath = helperLibraryFilePath;
   }
 
   static JniWrapper getInstance() throws GandivaException {
@@ -63,10 +60,7 @@ class JniWrapper {
       String tempDir = System.getProperty("java.io.tmpdir");
       loadGandivaLibraryFromJar(tempDir);
       File byteCodeFile = moveFileFromJarToTemp(tempDir, IRHELPERS_BC);
-
-      final String libraryToLoad = System.mapLibraryName(HELPER_LIBRARY_NAME);
-      final File helperLibraryFile = moveFileFromJarToTemp(tempDir, libraryToLoad);
-      return new JniWrapper(byteCodeFile.getAbsolutePath(), helperLibraryFile.getAbsolutePath());
+      return new JniWrapper(byteCodeFile.getAbsolutePath());
     } catch (IOException ioException) {
       throw new GandivaException("unable to create native instance", ioException);
     }
@@ -117,13 +111,6 @@ class JniWrapper {
    */
   public String getByteCodeFilePath() {
     return byteCodeFilePath;
-  }
-
-  /**
-   * Returns the helper library file path extracted from jar.
-   */
-  public String getHelperLibraryFilePath() {
-    return helperLibraryFilePath;
   }
 
   /**

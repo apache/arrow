@@ -15,31 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ERROR_HOLDER_H
-#define ERROR_HOLDER_H
+#ifndef GANDIVA_EXPORTED_FUNCS_H
+#define GANDIVA_EXPORTED_FUNCS_H
 
-#include <memory>
-#include <string>
+#include <gandiva/exported_funcs_registry.h>
+#include <vector>
 
 namespace gandiva {
 
-/// Execution context during llvm evaluation
-class ExecutionContext {
+class Engine;
+
+// Base-class type for exporting functions that can be accessed from LLVM/IR.
+class ExportedFuncsBase {
  public:
-  std::string get_error() const { return error_msg_; }
-
-  void set_error_msg(const char* error_msg) {
-    // Remember the first error only.
-    if (error_msg_.empty()) {
-      error_msg_ = std::string(error_msg);
-    }
-  }
-
-  bool has_error() const { return !error_msg_.empty(); }
-
- private:
-  std::string error_msg_;
+  virtual void AddMappings(Engine& engine) const = 0;
 };
 
+// Class for exporting Stub functions
+class ExportedStubFunctions : public ExportedFuncsBase {
+  void AddMappings(Engine& engine) const override;
+};
+REGISTER_EXPORTED_FUNCS(ExportedStubFunctions);
+
+// Class for exporting Context functions
+class ExportedContextFunctions : public ExportedFuncsBase {
+  void AddMappings(Engine& engine) const override;
+};
+REGISTER_EXPORTED_FUNCS(ExportedContextFunctions);
+
 }  // namespace gandiva
-#endif  // ERROR_HOLDER_H
+
+#endif  // GANDIVA_EXPORTED_FUNCS_H

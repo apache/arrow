@@ -15,32 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/execution_context.h"
+#include "gandiva/exported_funcs_registry.h"
+
+#include "gandiva/exported_funcs.h"
 
 namespace gandiva {
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
 
-void ExecutionContext::set_error_msg(const char* error_msg) {
-  if (error_msg_.get() == nullptr) {
-    error_msg_.reset(new std::string(error_msg));
+void ExportedFuncsRegistry::AddMappings(Engine& engine) {
+  for (auto entry : registered()) {
+    entry->AddMappings(engine);
   }
 }
-
-std::string ExecutionContext::get_error() const {
-  if (error_msg_.get() != nullptr) {
-    return *(error_msg_.get());
-  }
-  return std::string("");
-}
-
-bool ExecutionContext::has_error() const {
-  return error_msg_.get() != nullptr && !(error_msg_.get()->empty());
-}
-
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 
 }  // namespace gandiva

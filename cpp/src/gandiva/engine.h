@@ -31,6 +31,7 @@
 #include "arrow/util/macros.h"
 
 #include "gandiva/configuration.h"
+#include "gandiva/llvm_types.h"
 #include "gandiva/logging.h"
 #include "gandiva/status.h"
 
@@ -63,12 +64,11 @@ class Engine {
   /// Get the compiled function corresponding to the irfunction.
   void* CompiledFunction(llvm::Function* irFunction);
 
-  /// check if function from dlsym exists in address space. Returns true on success.
-  bool CheckFunctionFromLoadedLib(const std::string& name) {
-    auto ptr =
-        execution_engine_->getPointerToNamedFunction(name, false /*AbortOnFailure*/);
-    return ptr != NULLPTR;
-  }
+  LLVMTypes& types() { return *types_; }
+
+  // Create and add a mapping for the cpp function to make it accessible from LLVM.
+  void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
+                               const std::vector<llvm::Type*>& args, void* func);
 
  private:
   /// private constructor to ensure engine is created
@@ -81,17 +81,21 @@ class Engine {
 
   llvm::ExecutionEngine& execution_engine() { return *execution_engine_.get(); }
 
-  /// load pre-compiled so libraries and merge them into the main module.
-  Status LoadPreCompiledHelperLibs(const std::string& helper_lib_file_path);
-
   /// load pre-compiled IR modules and merge them into the main module.
   Status LoadPreCompiledIRFiles(const std::string& byte_code_file_path);
+
+  // Create and add mappings for cpp functions that can be accessed from LLVM.
+  void AddGlobalMappings();
+
+  // Remove unused functions to reduce compile time.
+  Status RemoveUnusedFunctions();
 
   /// dump the IR code to stdout with the prefix string.
   void DumpIR(std::string prefix);
 
   std::unique_ptr<llvm::LLVMContext> context_;
   std::unique_ptr<llvm::ExecutionEngine> execution_engine_;
+  std::unique_ptr<LLVMTypes> types_;
   std::unique_ptr<llvm::IRBuilder<>> ir_builder_;
   llvm::Module* module_;  // This is owned by the execution_engine_, so doesn't need to be
                           // explicitly deleted.

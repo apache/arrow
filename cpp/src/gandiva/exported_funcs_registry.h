@@ -15,38 +15,41 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef TO_DATE_HELPER_H
-#define TO_DATE_HELPER_H
+#ifndef GANDIVA_EXPORTED_FUNCS_REGISTRY_H
+#define GANDIVA_EXPORTED_FUNCS_REGISTRY_H
 
-#include <memory>
-#include <string>
-#include <unordered_map>
 #include <vector>
 
-#include "gandiva/status.h"
+#include <gandiva/engine.h>
 
 namespace gandiva {
 
-/// \brief Utility class for converting sql date patterns to internal date patterns.
-class DateUtils {
+class ExportedFuncsBase;
+
+/// Registry for classes that export functions which can be accessed by
+/// LLVM/IR code.
+class ExportedFuncsRegistry {
  public:
-  static Status ToInternalFormat(const std::string& format,
-                                 std::shared_ptr<std::string>* internal_format);
+  using list_type = std::vector<ExportedFuncsBase*>;
+
+  // Add functions from all the registered classes to the engine.
+  static void AddMappings(Engine& engine);
+
+  static bool Register(ExportedFuncsBase* entry) {
+    registered().push_back(entry);
+    return true;
+  }
 
  private:
-  using date_format_converter = std::unordered_map<std::string, std::string>;
-
-  static date_format_converter sql_date_format_to_boost_map_;
-
-  static date_format_converter InitMap();
-
-  static std::vector<std::string> GetMatches(std::string pattern, bool exactMatch);
-
-  static std::vector<std::string> GetPotentialMatches(const std::string& pattern);
-
-  static std::vector<std::string> GetExactMatches(const std::string& pattern);
+  static list_type& registered() {
+    static list_type registered_list;
+    return registered_list;
+  }
 };
+
+#define REGISTER_EXPORTED_FUNCS(classname) \
+  static bool _registered_##classname = ExportedFuncsRegistry::Register(new classname)
 
 }  // namespace gandiva
 
-#endif  // TO_DATE_HELPER_H
+#endif  // GANDIVA_EXPORTED_FUNCS_REGISTRY_H
