@@ -37,7 +37,7 @@ if [ "$ARROW_TRAVIS_GANDIVA" == "1" -a "$ARROW_USE_TOOLCHAIN" != "1" ]; then
     sudo add-apt-repository -y ppa:dluxen/cmake-backports
     sudo apt-get update -q
     sudo apt-get install -y -q cmake3
-    sudo apt-get remove -y -q cmake
+    sudo rm -rf /usr/local/cmake-*
     which cmake
     cmake --version
 fi
