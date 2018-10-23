@@ -17,6 +17,8 @@
 
 from cpython.ref cimport PyObject
 
+import six
+
 from pyarrow.compat import pickle
 
 
@@ -28,7 +30,7 @@ def is_named_tuple(cls):
     f = getattr(cls, "_fields", None)
     if not isinstance(f, tuple):
         return False
-    return all(type(n) == str for n in f)
+    return all(isinstance(n, six.string_types) for n in f)
 
 
 class SerializationCallbackError(ArrowSerializationError):
