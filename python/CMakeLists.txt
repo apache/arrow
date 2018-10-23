@@ -488,6 +488,21 @@ if (PYARROW_BUILD_ORC)
       _orc)
 endif()
 
+## Gandiva
+if (PYARROW_BUILD_GANDIVA)
+  find_package(Gandiva)
+
+  if(NOT GANDIVA_FOUND)
+    message(FATAL_ERROR "Unable to locate Gandiva libraries")
+  endif()
+
+  message("XXX" ${GANDIVA_INCLUDE_DIR})
+  include_directories(SYSTEM ${GANDIVA_INCLUDE_DIR})
+  
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
+endif()
+
+
 ############################################################
 # Setup and build Cython modules
 ############################################################
