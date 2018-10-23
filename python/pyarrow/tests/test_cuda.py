@@ -447,6 +447,7 @@ def test_BufferWriter():
         assert cbuf.size == total_size
         cbuf.context.synchronize()
         buf2 = cbuf.copy_to_host()
+        cbuf.context.synchronize()
         assert buf2.size == total_size
         arr2 = np.frombuffer(buf2, dtype=np.uint8)
         np.testing.assert_equal(arr, arr2)

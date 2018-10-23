@@ -185,46 +185,15 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
     return Status::OK();
   }
 
-  Status CreateNewContext(int device_number, std::shared_ptr<CudaContext>* out) {
+  Status GetContext(int device_number, std::shared_ptr<CudaContext>* out) {
     *out = std::shared_ptr<CudaContext>(new CudaContext());
     return (*out)->impl_->Init(devices_[device_number]);
   }
 
-  Status CreateSharedContext(int device_number, CUcontext ctx,
-                             std::shared_ptr<CudaContext>* out) {
-    *out = std::shared_ptr<CudaContext>(new CudaContext());
-    return (*out)->impl_->InitShared(devices_[device_number], ctx);
-  }
-
-  Status GetContext(int device_number, std::shared_ptr<CudaContext>* out) {
-    auto it = contexts_.find(device_number);
-    if (it == contexts_.end()) {
-      std::shared_ptr<CudaContext> new_context;
-      RETURN_NOT_OK(CreateNewContext(device_number, &new_context));
-      contexts_[device_number] = *out = new_context;
-    } else {
-      *out = it->second;
-    }
-    return Status::OK();
-  }
-
   Status GetSharedContext(int device_number, CUcontext ctx,
                           std::shared_ptr<CudaContext>* out) {
-    auto it = contexts_.find(device_number);
-    if (it == contexts_.end()) {
-      std::shared_ptr<CudaContext> new_context;
-      RETURN_NOT_OK(CreateSharedContext(device_number, ctx, &new_context));
-      contexts_[device_number] = *out = new_context;
-    } else {
-      if (it->second.get()->handle() != static_cast<void*>(ctx)) {
-        std::shared_ptr<CudaContext> new_context;
-        RETURN_NOT_OK(CreateSharedContext(device_number, ctx, &new_context));
-        *out = new_context;
-      } else {
-        *out = it->second;
-      }
-    }
-    return Status::OK();
+    *out = std::shared_ptr<CudaContext>(new CudaContext());
+    return (*out)->impl_->InitShared(devices_[device_number], ctx);
   }
 
   int num_devices() const { return num_devices_; }
@@ -232,9 +201,6 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
  private:
   int num_devices_;
   std::vector<CudaDevice> devices_;
-
-  // device_number -> CudaContext
-  std::unordered_map<int, std::shared_ptr<CudaContext>> contexts_;
 
   int64_t host_bytes_allocated_;
 };
@@ -260,16 +226,6 @@ Status CudaDeviceManager::GetContext(int device_number,
 Status CudaDeviceManager::GetSharedContext(int device_number, void* ctx,
                                            std::shared_ptr<CudaContext>* out) {
   return impl_->GetSharedContext(device_number, (CUcontext)ctx, out);
-}
-
-Status CudaDeviceManager::CreateNewContext(int device_number,
-                                           std::shared_ptr<CudaContext>* out) {
-  return impl_->CreateNewContext(device_number, out);
-}
-
-Status CudaDeviceManager::CreateSharedContext(int device_number, void* ctx,
-                                              std::shared_ptr<CudaContext>* out) {
-  return impl_->CreateSharedContext(device_number, reinterpret_cast<CUcontext>(ctx), out);
 }
 
 Status CudaDeviceManager::AllocateHost(int device_number, int64_t nbytes,

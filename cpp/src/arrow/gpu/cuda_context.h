@@ -48,22 +48,6 @@ class ARROW_EXPORT CudaDeviceManager {
   Status GetSharedContext(int device_number, void* handle,
                           std::shared_ptr<CudaContext>* out);
 
-  /// \brief Create a new context for a given device number
-  /// \param[in] device_number
-  /// \param[out] out new context
-  ///
-  /// In general code will use GetContext
-  Status CreateNewContext(int gpu_number, std::shared_ptr<CudaContext>* ctx);
-
-  /// \brief Create shared context for a given device number
-  /// \param[in] device_number
-  /// \param[in] handle CUDA context handler created by another library
-  /// \param[out] out shared context
-  ///
-  /// In general code will use GetSharedContext
-  Status CreateSharedContext(int device_number, void* handle,
-                             std::shared_ptr<CudaContext>* out);
-
   /// \brief Allocate host memory with fast access to given GPU device
   /// \param[in] device_number
   /// \param[in] nbytes number of bytes
