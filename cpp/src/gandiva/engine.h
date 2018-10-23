@@ -87,6 +87,9 @@ class Engine {
   // Create and add mappings for cpp functions that can be accessed from LLVM.
   void AddGlobalMappings();
 
+  // Remove unused functions to reduce compile time.
+  Status RemoveUnusedFunctions();
+
   /// dump the IR code to stdout with the prefix string.
   void DumpIR(std::string prefix);
 

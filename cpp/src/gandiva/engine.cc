@@ -135,22 +135,18 @@ Status Engine::LoadPreCompiledIRFiles(const std::string& byte_code_file_path) {
   return Status::OK();
 }
 
-// Optimise and compile the module.
-Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
-  if (dump_ir) {
-    DumpIR("Before optimise");
-  }
-
+// Get rid of all functions that don't need to be compiled.
+// This helps in reducing the overall compilation time. This pass is trivial,
+// and is always done since the number of functions in gandiva is very high.
+// (Adapted from Apache Impala)
+//
+// Done by marking all the unused functions as internal, and then, running
+// a pass for dead code elimination.
+Status Engine::RemoveUnusedFunctions() {
   // Setup an optimiser pipeline
   std::unique_ptr<llvm::legacy::PassManager> pass_manager(
       new llvm::legacy::PassManager());
 
-  // First round : get rid of all functions that don't need to be compiled.
-  // This helps in reducing the overall compilation time.
-  // (Adapted from Apache Impala)
-  //
-  // Done by marking all the unused functions as internal, and then, running
-  // a pass for dead code elimination.
   std::unordered_set<std::string> used_functions;
   used_functions.insert(functions_to_compile_.begin(), functions_to_compile_.end());
 
@@ -160,10 +156,23 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
       }));
   pass_manager->add(llvm::createGlobalDCEPass());
   pass_manager->run(*module_);
+  return Status::OK();
+}
+
+// Optimise and compile the module.
+Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
+  auto status = RemoveUnusedFunctions();
+  GANDIVA_RETURN_NOT_OK(status);
+
+  if (dump_ir) {
+    DumpIR("Before optimise");
+  }
 
   if (optimise_ir) {
-    // Second round : misc passes to allow for inlining, vectorization, ..
-    pass_manager.reset(new llvm::legacy::PassManager());
+    // misc passes to allow for inlining, vectorization, ..
+    std::unique_ptr<llvm::legacy::PassManager> pass_manager(
+        new llvm::legacy::PassManager());
+
     llvm::TargetIRAnalysis target_analysis =
         execution_engine_->getTargetMachine()->getTargetIRAnalysis();
     pass_manager->add(llvm::createTargetTransformInfoWrapperPass(target_analysis));
