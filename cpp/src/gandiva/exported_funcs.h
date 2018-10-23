@@ -28,6 +28,8 @@ class Engine;
 // Base-class type for exporting functions that can be accessed from LLVM/IR.
 class ExportedFuncsBase {
  public:
+  virtual ~ExportedFuncsBase() = default;
+
   virtual void AddMappings(Engine& engine) const = 0;
 };
 
