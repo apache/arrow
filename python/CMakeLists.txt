@@ -496,8 +496,11 @@ if (PYARROW_BUILD_GANDIVA)
     message(FATAL_ERROR "Unable to locate Gandiva libraries")
   endif()
 
-  message("XXX" ${GANDIVA_INCLUDE_DIR})
   include_directories(SYSTEM ${GANDIVA_INCLUDE_DIR})
+
+  set(LINK_LIBS
+    ${LINK_LIBS}
+    ${GANDIVA_SHARED_LIB})
   
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
 endif()
