@@ -78,8 +78,8 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     # The "compiler: gcc" property will set the CC/CXX variables even if they
     # are overridden in the "env" section
-    - export CC="clang-6.0"
-    - export CXX="clang++-6.0"
+    - export CC="gcc"
+    - export CXX="g++"
     # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
