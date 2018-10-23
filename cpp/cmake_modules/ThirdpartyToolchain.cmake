@@ -42,8 +42,7 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   # set(ORC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(PROTOBUF_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(RAPIDJSON_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  # ARROW-3494: conda-forge re2 does not work yet
-  # set(RE2_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(RE2_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(SNAPPY_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(THRIFT_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -308,6 +307,15 @@ if ("${MAKE}" STREQUAL "")
     if (NOT MSVC)
         find_program(MAKE make)
     endif()
+endif()
+
+# Using make -j in sub-make is fragile
+# see discussion https://github.com/apache/arrow/pull/2779
+if (${CMAKE_GENERATOR} MATCHES "Makefiles")
+    set(MAKE_BUILD_ARGS "")
+else()
+    # limit the maximum number of jobs for ninja
+    set(MAKE_BUILD_ARGS "-j4")
 endif()
 
 # ----------------------------------------------------------------------
@@ -737,9 +745,9 @@ if (ARROW_JEMALLOC)
     CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" "--disable-tls"
     ${EP_LOG_OPTIONS}
     BUILD_IN_SOURCE 1
-    BUILD_COMMAND ${MAKE} -j
+    BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS}
     BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
-    INSTALL_COMMAND ${MAKE} -j1 install)
+    INSTALL_COMMAND ${MAKE} install)
 
   # Don't use the include directory directly so that we can point to a path
   # that is unique to our codebase.

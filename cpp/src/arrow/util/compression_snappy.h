@@ -19,6 +19,7 @@
 #define ARROW_UTIL_COMPRESSION_SNAPPY_H
 
 #include <cstdint>
+#include <memory>
 
 #include "arrow/status.h"
 #include "arrow/util/compression.h"
@@ -36,6 +37,10 @@ class ARROW_EXPORT SnappyCodec : public Codec {
                   uint8_t* output_buffer, int64_t* output_length) override;
 
   int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
+
+  Status MakeCompressor(std::shared_ptr<Compressor>* out);
+
+  Status MakeDecompressor(std::shared_ptr<Decompressor>* out) override;
 
   const char* name() const override { return "snappy"; }
 };

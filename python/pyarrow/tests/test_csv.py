@@ -15,9 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import gzip
 import io
 import itertools
+import os
+import shutil
 import string
+import tempfile
 import unittest
 
 import pytest
@@ -257,3 +261,30 @@ class TestParallelCSVRead(BaseTestCSVRead, unittest.TestCase):
         table = read_csv(*args, **kwargs)
         table._validate()
         return table
+
+
+class BaseTestCompressedCSVRead:
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp(prefix='arrow-csv-test-')
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def test_random_csv(self):
+        csv, expected = make_random_csv(num_cols=2, num_rows=100)
+        csv_path = os.path.join(self.tmpdir, self.csv_filename)
+        self.write_file(csv_path, csv)
+        table = read_csv(csv_path)
+        table._validate()
+        assert table.schema == expected.schema
+        assert table.equals(expected)
+        assert table.to_pydict() == expected.to_pydict()
+
+
+class TestGZipCSVRead(BaseTestCompressedCSVRead, unittest.TestCase):
+    csv_filename = "compressed.csv.gz"
+
+    def write_file(self, path, contents):
+        with gzip.open(path, 'wb', 3) as f:
+            f.write(contents)

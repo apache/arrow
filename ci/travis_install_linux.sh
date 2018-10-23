@@ -19,7 +19,7 @@
 
 sudo apt-get install -y -q \
     gdb binutils ccache libboost-dev libboost-filesystem-dev \
-    libboost-system-dev libboost-regex-dev libjemalloc-dev
+    libboost-system-dev libboost-regex-dev
 
 if [ "$CXX" == "g++-4.9" ]; then
     sudo apt-get install -y -q g++-4.9

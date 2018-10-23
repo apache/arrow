@@ -242,3 +242,17 @@ test_that("array supports POSIXct (ARROW-3340)", {
   expect_true(a$IsNull(4))
 })
 
+test_that("array supports integer64", {
+  x <- bit64::as.integer64(1:10)
+  a <- array(x)
+  expect_equal(a$type(), int64())
+  expect_equal(a$length(), 10L)
+  expect_equal(a$as_vector(), x)
+
+  x[4] <- NA
+  a <- array(x)
+  expect_equal(a$type(), int64())
+  expect_equal(a$length(), 10L)
+  expect_equal(a$as_vector(), x)
+  expect_true(a$IsNull(3L))
+})

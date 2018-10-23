@@ -29,5 +29,5 @@
 )
 
 default_memory_pool <- function() {
-  `arrow::MemoryPool`$new(MemoryPool__default())
+  construct(`arrow::MemoryPool`, MemoryPool__default())
 }

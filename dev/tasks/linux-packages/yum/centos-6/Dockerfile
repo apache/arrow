@@ -51,7 +51,6 @@ RUN \
     git \
     gobject-introspection-devel \
     gtk-doc \
-    jemalloc-devel \
     pkg-config \
     python34 \
     python34-devel \

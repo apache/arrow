@@ -118,7 +118,7 @@ cdef class MessageReader:
         cdef MessageReader result = MessageReader.__new__(MessageReader)
         cdef shared_ptr[InputStream] in_stream
         cdef unique_ptr[CMessageReader] reader
-        get_input_stream(source, &in_stream)
+        _get_input_stream(source, &in_stream)
         with nogil:
             reader = CMessageReader.Open(in_stream)
             result.reader.reset(reader.release())
@@ -227,7 +227,7 @@ cdef class _RecordBatchWriter:
         self.closed = True
 
 
-cdef get_input_stream(object source, shared_ptr[InputStream]* out):
+cdef _get_input_stream(object source, shared_ptr[InputStream]* out):
     cdef:
         shared_ptr[RandomAccessFile] file_handle
 
@@ -253,7 +253,7 @@ cdef class _RecordBatchReader:
         pass
 
     def _open(self, source):
-        get_input_stream(source, &self.in_stream)
+        _get_input_stream(source, &self.in_stream)
         with nogil:
             check_status(CRecordBatchStreamReader.Open(
                 self.in_stream.get(), &self.reader))

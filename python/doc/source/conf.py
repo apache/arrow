@@ -34,8 +34,6 @@ import glob
 import os
 import sys
 
-import sphinx_bootstrap_theme
-
 sys.path.extend([
     os.path.join(os.path.dirname(__file__),
                  '..', '../..')
@@ -96,7 +94,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'pyarrow'
-copyright = u'2016-2017 Apache Software Foundation'
+copyright = u'2016-2018 Apache Software Foundation'
 author = u'Apache Software Foundation'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -166,7 +164,7 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'bootstrap'
+html_theme = 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -177,7 +175,7 @@ html_theme_options = {
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
-html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
+# html_theme_path = []
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.

@@ -57,7 +57,6 @@ RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -
       gtest \
       re2 \
       brotli \
-      jemalloc \
       lz4-c \
       zstd \
       setuptools \

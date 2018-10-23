@@ -95,20 +95,31 @@ class ARROW_EXPORT PlasmaClient {
   Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
                 int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
 
+  /// Create and seal an object in the object store. This is an optimization
+  /// which allows small objects to be created quickly with fewer messages to
+  /// the store.
+  ///
+  /// \param object_id The ID of the object to create.
+  /// \param data The data for the object to create.
+  /// \param metadata The metadata for the object to create.
+  /// \return The return status.
+  Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
+                       const std::string& metadata);
+
   /// Get some objects from the Plasma Store. This function will block until the
   /// objects have all been created and sealed in the Plasma Store or the
   /// timeout expires.
+  ///
+  /// If an object was not retrieved, the corresponding metadata and data
+  /// fields in the ObjectBuffer structure will evaluate to false.
+  /// Objects are automatically released by the client when their buffers
+  /// get out of scope.
   ///
   /// \param object_ids The IDs of the objects to get.
   /// \param timeout_ms The amount of time in milliseconds to wait before this
   ///        request times out. If this value is -1, then no timeout is set.
   /// \param[out] object_buffers The object results.
   /// \return The return status.
-  ///
-  /// If an object was not retrieved, the corresponding metadata and data
-  /// fields in the ObjectBuffer structure will evaluate to false.
-  /// Objects are automatically released by the client when their buffers
-  /// get out of scope.
   Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
              std::vector<ObjectBuffer>* object_buffers);
 

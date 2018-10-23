@@ -27,10 +27,6 @@
 
 namespace gandiva {
 
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
-
 /// \brief Utility class for converting sql date patterns to internal date patterns.
 class DateUtils {
  public:
@@ -50,10 +46,6 @@ class DateUtils {
 
   static std::vector<std::string> GetExactMatches(const std::string& pattern);
 };
-
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 
 }  // namespace gandiva
 

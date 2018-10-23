@@ -802,6 +802,35 @@ Status PlasmaStore::ProcessMessage(Client* client) {
         WarnIfSigpipe(send_fd(client->fd, object.store_fd), client->fd);
       }
     } break;
+    case fb::MessageType::PlasmaCreateAndSealRequest: {
+      std::string data;
+      std::string metadata;
+      unsigned char digest[kDigestSize];
+      RETURN_NOT_OK(ReadCreateAndSealRequest(input, input_size, &object_id, &data,
+                                             &metadata, &digest[0]));
+      // CreateAndSeal currently only supports device_num = 0, which corresponds
+      // to the host.
+      int device_num = 0;
+      PlasmaError error_code = CreateObject(object_id, data.size(), metadata.size(),
+                                            device_num, client, &object);
+      // Reply to the client.
+      HANDLE_SIGPIPE(SendCreateAndSealReply(client->fd, error_code), client->fd);
+
+      // If the object was successfully created, fill out the object data and seal it.
+      if (error_code == PlasmaError::OK) {
+        auto entry = GetObjectTableEntry(&store_info_, object_id);
+        ARROW_CHECK(entry != nullptr);
+        // Write the inlined data and metadata into the allocated object.
+        std::memcpy(entry->pointer, data.data(), data.size());
+        std::memcpy(entry->pointer + data.size(), metadata.data(), metadata.size());
+        SealObject(object_id, &digest[0]);
+        // Remove the client from the object's array of clients because the
+        // object is not being used by any client. The client was added to the
+        // object's array of clients in CreateObject. This is analogous to the
+        // Release call that happens in the client's Seal method.
+        ARROW_CHECK(RemoveFromClientObjectIds(object_id, entry, client) == 1);
+      }
+    } break;
     case fb::MessageType::PlasmaAbortRequest: {
       RETURN_NOT_OK(ReadAbortRequest(input, input_size, &object_id));
       ARROW_CHECK(AbortObject(object_id, client) == 1) << "To abort an object, the only "

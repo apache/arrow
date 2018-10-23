@@ -20,6 +20,11 @@
 using namespace Rcpp;
 
 // [[Rcpp::export]]
+bool xptr_is_null(SEXP xp) {
+  return reinterpret_cast<std::shared_ptr<void>*>(EXTPTR_PTR(xp))->get() == nullptr;
+}
+
+// [[Rcpp::export]]
 std::shared_ptr<arrow::DataType> Int8__initialize() { return arrow::int8(); }
 
 // [[Rcpp::export]]
@@ -115,7 +120,6 @@ SEXP list__(SEXP x) {
 
 template <typename T>
 std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(List x) {
-  int n = x.size();
   std::vector<std::shared_ptr<T>> vec;
   for (SEXP element : x) {
     vec.push_back(as<std::shared_ptr<T>>(element));

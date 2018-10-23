@@ -21,6 +21,7 @@ import os
 import pyarrow as pa
 import pyarrow.jvm as pa_jvm
 import pytest
+import six
 import sys
 import xml.etree.ElementTree as ET
 
@@ -66,6 +67,20 @@ def _jvm_field(jvm_spec):
     om = jpype.JClass('com.fasterxml.jackson.databind.ObjectMapper')()
     pojo_Field = jpype.JClass('org.apache.arrow.vector.types.pojo.Field')
     return om.readValue(jvm_spec, pojo_Field)
+
+
+def _jvm_schema(jvm_spec, metadata=None):
+    field = _jvm_field(jvm_spec)
+    schema_cls = jpype.JClass('org.apache.arrow.vector.types.pojo.Schema')
+    fields = jpype.JClass('java.util.ArrayList')()
+    fields.add(field)
+    if metadata:
+        dct = jpype.JClass('java.util.HashMap')()
+        for k, v in six.iteritems(metadata):
+            dct.put(k, v)
+        return schema_cls(fields, dct)
+    else:
+        return schema_cls(fields)
 
 
 # In the following, we use the JSON serialization of the Field objects in Java.
@@ -137,7 +152,17 @@ def test_jvm_types(root_allocator, typ, jvm_spec, nullable):
     }
     jvm_field = _jvm_field(json.dumps(spec))
     result = pa_jvm.field(jvm_field)
-    assert result == pa.field('field_name', typ, nullable=nullable)
+    expected_field = pa.field('field_name', typ, nullable=nullable)
+    assert result == expected_field
+
+    jvm_schema = _jvm_schema(json.dumps(spec))
+    result = pa_jvm.schema(jvm_schema)
+    assert result == pa.schema([expected_field])
+
+    # Schema with custom metadata
+    jvm_schema = _jvm_schema(json.dumps(spec), {'meta': 'data'})
+    result = pa_jvm.schema(jvm_schema)
+    assert result == pa.schema([expected_field], {'meta': 'data'})
 
 
 # These test parameters mostly use an integer range as an input as this is

@@ -26,7 +26,6 @@
 namespace gandiva {
 
 extern const char kByteCodeFilePath[];
-extern const char kHelperLibFilePath[];
 
 class ConfigurationBuilder;
 /// \brief runtime config for gandiva
@@ -38,20 +37,16 @@ class Configuration {
   friend class ConfigurationBuilder;
 
   const std::string& byte_code_file_path() const { return byte_code_file_path_; }
-  const std::string& helper_lib_file_path() const { return helper_lib_file_path_; }
 
   std::size_t Hash() const;
   bool operator==(const Configuration& other) const;
   bool operator!=(const Configuration& other) const;
 
  private:
-  explicit Configuration(const std::string& byte_code_file_path,
-                         const std::string& helper_lib_file_path)
-      : byte_code_file_path_(byte_code_file_path),
-        helper_lib_file_path_(helper_lib_file_path) {}
+  explicit Configuration(const std::string& byte_code_file_path)
+      : byte_code_file_path_(byte_code_file_path) {}
 
   const std::string byte_code_file_path_;
-  const std::string helper_lib_file_path_;
 };
 
 /// \brief configuration builder for gandiva
@@ -60,24 +55,15 @@ class Configuration {
 /// to override specific values and build a custom instance
 class ConfigurationBuilder {
  public:
-  ConfigurationBuilder()
-      : byte_code_file_path_(kByteCodeFilePath),
-        helper_lib_file_path_(kHelperLibFilePath) {}
+  ConfigurationBuilder() : byte_code_file_path_(kByteCodeFilePath) {}
 
   ConfigurationBuilder& set_byte_code_file_path(const std::string& byte_code_file_path) {
     byte_code_file_path_ = byte_code_file_path;
     return *this;
   }
 
-  ConfigurationBuilder& set_helper_lib_file_path(
-      const std::string& helper_lib_file_path) {
-    helper_lib_file_path_ = helper_lib_file_path;
-    return *this;
-  }
-
   std::shared_ptr<Configuration> build() {
-    std::shared_ptr<Configuration> configuration(
-        new Configuration(byte_code_file_path_, helper_lib_file_path_));
+    std::shared_ptr<Configuration> configuration(new Configuration(byte_code_file_path_));
     return configuration;
   }
 
@@ -87,11 +73,9 @@ class ConfigurationBuilder {
 
  private:
   std::string byte_code_file_path_;
-  std::string helper_lib_file_path_;
 
   static std::shared_ptr<Configuration> InitDefaultConfig() {
-    std::shared_ptr<Configuration> configuration(
-        new Configuration(kByteCodeFilePath, kHelperLibFilePath));
+    std::shared_ptr<Configuration> configuration(new Configuration(kByteCodeFilePath));
     return configuration;
   }
 

@@ -39,6 +39,7 @@
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Vectorize.h>
+#include "gandiva/exported_funcs_registry.h"
 
 namespace gandiva {
 
@@ -57,6 +58,8 @@ void Engine::InitOnce() {
   llvm::InitializeNativeTargetAsmParser();
   llvm::InitializeNativeTargetDisassembler();
 
+  llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
+
   init_once_done_ = true;
 }
 
@@ -68,6 +71,7 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   std::call_once(init_once_flag, [&engine_obj] { engine_obj->InitOnce(); });
   engine_obj->context_.reset(new llvm::LLVMContext());
   engine_obj->ir_builder_.reset(new llvm::IRBuilder<>(*(engine_obj->context())));
+  engine_obj->types_.reset(new LLVMTypes(*(engine_obj->context())));
 
   // Create the execution engine
   std::unique_ptr<llvm::Module> cg_module(
@@ -84,33 +88,14 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
     return Status::CodeGenError(engine_obj->llvm_error_);
   }
 
-  auto status = engine_obj->LoadPreCompiledHelperLibs(config->helper_lib_file_path());
-  GANDIVA_RETURN_NOT_OK(status);
+  // Add mappings for functions that can be accessed from LLVM/IR module.
+  engine_obj->AddGlobalMappings();
 
-  status = engine_obj->LoadPreCompiledIRFiles(config->byte_code_file_path());
+  auto status = engine_obj->LoadPreCompiledIRFiles(config->byte_code_file_path());
   GANDIVA_RETURN_NOT_OK(status);
 
   *engine = std::move(engine_obj);
   return Status::OK();
-}
-
-Status Engine::LoadPreCompiledHelperLibs(const std::string& file_path) {
-  int err = 0;
-
-  mtx_.lock();
-  // Load each so lib only once.
-  if (loaded_libs_.find(file_path) == loaded_libs_.end()) {
-    err = llvm::sys::DynamicLibrary::LoadLibraryPermanently(file_path.c_str());
-    if (!err) {
-      loaded_libs_.insert(file_path);
-    }
-  }
-  mtx_.unlock();
-
-  return (err == 0)
-             ? Status::OK()
-             : Status::CodeGenError("loading precompiled native file " + file_path +
-                                    " failed with error " + std::to_string(err));
 }
 
 // Handling for pre-compiled IR libraries.
@@ -150,35 +135,44 @@ Status Engine::LoadPreCompiledIRFiles(const std::string& byte_code_file_path) {
   return Status::OK();
 }
 
+// Get rid of all functions that don't need to be compiled.
+// This helps in reducing the overall compilation time. This pass is trivial,
+// and is always done since the number of functions in gandiva is very high.
+// (Adapted from Apache Impala)
+//
+// Done by marking all the unused functions as internal, and then, running
+// a pass for dead code elimination.
+Status Engine::RemoveUnusedFunctions() {
+  // Setup an optimiser pipeline
+  std::unique_ptr<llvm::legacy::PassManager> pass_manager(
+      new llvm::legacy::PassManager());
+
+  std::unordered_set<std::string> used_functions;
+  used_functions.insert(functions_to_compile_.begin(), functions_to_compile_.end());
+
+  pass_manager->add(
+      llvm::createInternalizePass([&used_functions](const llvm::GlobalValue& func) {
+        return (used_functions.find(func.getName().str()) != used_functions.end());
+      }));
+  pass_manager->add(llvm::createGlobalDCEPass());
+  pass_manager->run(*module_);
+  return Status::OK();
+}
+
 // Optimise and compile the module.
 Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
+  auto status = RemoveUnusedFunctions();
+  GANDIVA_RETURN_NOT_OK(status);
+
   if (dump_ir) {
     DumpIR("Before optimise");
   }
 
-  // Setup an optimiser pipeline
   if (optimise_ir) {
+    // misc passes to allow for inlining, vectorization, ..
     std::unique_ptr<llvm::legacy::PassManager> pass_manager(
         new llvm::legacy::PassManager());
 
-    // First round : get rid of all functions that don't need to be compiled.
-    // This helps in reducing the overall compilation time.
-    // (Adapted from Apache Impala)
-    //
-    // Done by marking all the unused functions as internal, and then, running
-    // a pass for dead code elimination.
-    std::unordered_set<std::string> used_functions;
-    used_functions.insert(functions_to_compile_.begin(), functions_to_compile_.end());
-
-    pass_manager->add(
-        llvm::createInternalizePass([&used_functions](const llvm::GlobalValue& func) {
-          return (used_functions.find(func.getName().str()) != used_functions.end());
-        }));
-    pass_manager->add(llvm::createGlobalDCEPass());
-    pass_manager->run(*module_);
-
-    // Second round : misc passes to allow for inlining, vectorization, ..
-    pass_manager.reset(new llvm::legacy::PassManager());
     llvm::TargetIRAnalysis target_analysis =
         execution_engine_->getTargetMachine()->getTargetIRAnalysis();
     pass_manager->add(llvm::createTargetTransformInfoWrapperPass(target_analysis));
@@ -217,6 +211,17 @@ void* Engine::CompiledFunction(llvm::Function* irFunction) {
   DCHECK(module_finalized_);
   return execution_engine_->getPointerToFunction(irFunction);
 }
+
+void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
+                                     const std::vector<llvm::Type*>& args,
+                                     void* function_ptr) {
+  auto prototype = llvm::FunctionType::get(ret_type, args, false /*isVarArg*/);
+  auto fn = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name,
+                                   module());
+  execution_engine_->addGlobalMapping(fn, function_ptr);
+}
+
+void Engine::AddGlobalMappings() { ExportedFuncsRegistry::AddMappings(*this); }
 
 void Engine::DumpIR(std::string prefix) {
   std::string str;

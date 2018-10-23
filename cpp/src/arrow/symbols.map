@@ -49,6 +49,7 @@
     _tr_*;
     # lz4
     LZ4_*;
+    LZ4F_*;
     # zstandard
     ZSTD_*;
     ZSTDv*;

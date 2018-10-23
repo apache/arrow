@@ -68,11 +68,11 @@ public class FilterTest extends BaseEvaluatorTest {
     int numRows = 16;
     byte[] validity = new byte[] {(byte) 255, 0};
     // second half is "undefined"
-    int[] values_a = new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-    int[] values_b = new int[] {2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 14, 15};
+    int[] aValues = new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int[] bValues = new int[] {2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 14, 15};
     int[] expected = {0, 2, 4, 6};
 
-    verifyTestCase(filter, numRows, validity, values_a, values_b, expected);
+    verifyTestCase(filter, numRows, validity, aValues, bValues, expected);
   }
 
   @Test
@@ -92,16 +92,16 @@ public class FilterTest extends BaseEvaluatorTest {
 
     IntStream.range(0, numRows / 8).forEach(i -> validity[i] = (byte) 255);
 
-    int[] values_a = new int[numRows];
-    IntStream.range(0, numRows).forEach(i -> values_a[i] = i);
+    int[] aValues = new int[numRows];
+    IntStream.range(0, numRows).forEach(i -> aValues[i] = i);
 
-    int[] values_b = new int[numRows];
-    IntStream.range(0, numRows).forEach(i -> values_b[i] = i + 1);
+    int[] bValues = new int[numRows];
+    IntStream.range(0, numRows).forEach(i -> bValues[i] = i + 1);
 
     int[] expected = new int[numRows];
     IntStream.range(0, numRows).forEach(i -> expected[i] = i);
 
-    verifyTestCase(filter, numRows, validity, values_a, values_b, expected);
+    verifyTestCase(filter, numRows, validity, aValues, bValues, expected);
   }
 
   @Test
@@ -121,18 +121,18 @@ public class FilterTest extends BaseEvaluatorTest {
 
     IntStream.range(0, numRows / 8).forEach(i -> validity[i] = (byte) 255);
 
-    int[] values_a = new int[numRows];
-    IntStream.range(0, numRows).forEach(i -> values_a[i] = i);
+    int[] aValues = new int[numRows];
+    IntStream.range(0, numRows).forEach(i -> aValues[i] = i);
 
-    int[] values_b = new int[numRows];
-    IntStream.range(0, numRows).forEach(i -> values_b[i] = i + 1);
+    int[] bValues = new int[numRows];
+    IntStream.range(0, numRows).forEach(i -> bValues[i] = i + 1);
 
-    values_a[0] = 5;
-    values_b[0] = 0;
+    aValues[0] = 5;
+    bValues[0] = 0;
 
     int[] expected = {0};
 
-    verifyTestCase(filter, numRows, validity, values_a, values_b, expected);
+    verifyTestCase(filter, numRows, validity, aValues, bValues, expected);
   }
 
   @Test
@@ -149,20 +149,20 @@ public class FilterTest extends BaseEvaluatorTest {
     int numRows = 16;
     byte[] validity = new byte[] {(byte) 255, 0};
     // second half is "undefined"
-    int[] values_a = new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-    int[] values_b = new int[] {2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 14, 15};
+    int[] aValues = new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int[] bValues = new int[] {2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 14, 15};
     int[] expected = {0, 2, 4, 6};
 
-    verifyTestCase(filter, numRows, validity, values_a, values_b, expected);
+    verifyTestCase(filter, numRows, validity, aValues, bValues, expected);
   }
 
   private void verifyTestCase(
-      Filter filter, int numRows, byte[] validity, int[] values_a, int[] values_b, int[] expected)
+      Filter filter, int numRows, byte[] validity, int[] aValues, int[] bValues, int[] expected)
       throws GandivaException {
     ArrowBuf validitya = buf(validity);
-    ArrowBuf valuesa = intBuf(values_a);
+    ArrowBuf valuesa = intBuf(aValues);
     ArrowBuf validityb = buf(validity);
-    ArrowBuf valuesb = intBuf(values_b);
+    ArrowBuf valuesb = intBuf(bValues);
     ArrowRecordBatch batch =
         new ArrowRecordBatch(
             numRows,

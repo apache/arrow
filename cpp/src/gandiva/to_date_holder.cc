@@ -26,10 +26,6 @@
 
 namespace gandiva {
 
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
-
 Status ToDateHolder::Make(const FunctionNode& node,
                           std::shared_ptr<ToDateHolder>* holder) {
   if (node.children().size() != 3) {
@@ -111,8 +107,5 @@ void ToDateHolder::return_error(int64_t execution_context, const std::string& da
   std::string err_msg = "Error parsing value " + data + " for given format.";
   (execution_context_ptr)->set_error_msg(err_msg.c_str());
 }
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 
 }  // namespace gandiva

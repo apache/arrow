@@ -82,9 +82,11 @@ set(PLASMA_SRCS
   thirdparty/xxhash.cc)
 
 set(PLASMA_LINK_LIBS arrow_shared)
+set(PLASMA_STATIC_LINK_LIBS arrow_static)
 
 if (ARROW_GPU)
   set(PLASMA_LINK_LIBS ${PLASMA_LINK_LIBS} arrow_gpu_shared)
+  set(PLASMA_STATIC_LINK_LIBS ${PLASMA_STATIC_LINK_LIBS} arrow_gpu_static)
   add_definitions(-DPLASMA_GPU)
 endif()
 
@@ -93,7 +95,7 @@ ADD_ARROW_LIB(plasma
   OUTPUTS PLASMA_LIBRARIES
   DEPENDENCIES gen_plasma_fbs
   SHARED_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS}
-  STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS})
+  STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_STATIC_LINK_LIBS})
 
 foreach(LIB_TARGET ${PLASMA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
@@ -128,8 +130,10 @@ if ("${COMPILER_FAMILY}" STREQUAL "gcc")
     " -Wno-conversion")
 endif()
 
+# We use static libraries for the plasma_store_server executable so that it can
+# be copied around and used in different locations.
 add_executable(plasma_store_server store.cc)
-target_link_libraries(plasma_store_server plasma_shared ${PLASMA_LINK_LIBS})
+target_link_libraries(plasma_store_server plasma_static ${PLASMA_STATIC_LINK_LIBS})
 
 if (ARROW_RPATH_ORIGIN)
   if (APPLE)

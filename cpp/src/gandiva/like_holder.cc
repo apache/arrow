@@ -23,10 +23,6 @@
 
 namespace gandiva {
 
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
-
 RE2 LikeHolder::starts_with_regex_(R"((\w|\s)*\.\*)");
 RE2 LikeHolder::ends_with_regex_(R"(\.\*(\w|\s)*)");
 
@@ -91,9 +87,5 @@ Status LikeHolder::Make(const std::string& sql_pattern,
   *holder = lholder;
   return Status::OK();
 }
-
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 
 }  // namespace gandiva

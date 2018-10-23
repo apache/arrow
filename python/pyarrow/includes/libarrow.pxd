@@ -429,6 +429,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                      int64_t offset=0)
 
         shared_ptr[CArray] field(int pos)
+        shared_ptr[CArray] GetFieldByName(const c_string& name) const
 
         CStatus Flatten(CMemoryPool* pool, vector[shared_ptr[CArray]]* out)
 
@@ -661,6 +662,16 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus Resize(int64_t size)
 
         int file_descriptor()
+
+    cdef cppclass CompressedInputStream(InputStream):
+        @staticmethod
+        CStatus Make(CMemoryPool* pool, CCodec* codec,
+                     shared_ptr[InputStream] raw,
+                     shared_ptr[CompressedInputStream]* out)
+
+        @staticmethod
+        CStatus Make(CCodec* codec, shared_ptr[InputStream] raw,
+                     shared_ptr[CompressedInputStream]* out)
 
     # ----------------------------------------------------------------------
     # HDFS

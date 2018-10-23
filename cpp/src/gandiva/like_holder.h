@@ -28,10 +28,6 @@
 
 namespace gandiva {
 
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
-
 /// Function Holder for SQL 'like'
 class LikeHolder : public FunctionHolder {
  public:
@@ -56,10 +52,6 @@ class LikeHolder : public FunctionHolder {
   static RE2 starts_with_regex_;  // pre-compiled pattern for matching starts_with
   static RE2 ends_with_regex_;    // pre-compiled pattern for matching ends_with
 };
-
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 
 }  // namespace gandiva
 

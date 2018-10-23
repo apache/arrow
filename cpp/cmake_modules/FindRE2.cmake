@@ -59,20 +59,28 @@ find_library(RE2_SHARED_LIB NAMES libre2${CMAKE_SHARED_LIBRARY_SUFFIX}
   DOC   "Google's re2 regex static library"
 )
 
-message(STATUS ${RE2_INCLUDE_DIR})
-
 if (ARROW_RE2_LINKAGE STREQUAL "static" AND (NOT RE2_STATIC_LIB))
   set(RE2_LIB_NOT_FOUND TRUE)
+  set(RE2_MISSING "static lib")
 elseif(ARROW_RE2_LINKAGE STREQUAL "shared" AND (NOT RE2_SHARED_LIB))
   set(RE2_LIB_NOT_FOUND TRUE)
+  set(RE2_MISSING "shared lib")
 endif()
 
 if (NOT RE2_INCLUDE_DIR OR RE2_LIB_NOT_FOUND)
+  if (NOT RE2_INCLUDE_DIR)
+    if (RE2_MISSING)
+      set(RE2_MISSING "${RE2_MISSING}, headers")
+    else ()
+      set(RE2_MISSING "headers")
+    endif ()
+  endif ()
+
   set(RE2_FOUND FALSE)
   if (_re2_path)
-    set (RE2_ERR_MSG "Could not find re2. Looked in ${_re2_path}.")
+    set (RE2_ERR_MSG "Could not find re2 (missing ${RE2_MISSING}). Looked in ${_re2_path}.")
   else ()
-    set (RE2_ERR_MSG "Could not find re2 in system search paths.")
+    set (RE2_ERR_MSG "Could not find re2 (missing ${RE2_MISSING}). Looked in system search paths.")
   endif()
 
   if (RE2_FIND_REQUIRED)

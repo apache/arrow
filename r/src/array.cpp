@@ -23,6 +23,9 @@ using namespace arrow;
 namespace arrow {
 namespace r {
 
+// the integer64 sentinel
+static const int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
+
 template <int RTYPE, typename Type>
 std::shared_ptr<Array> SimpleArray(SEXP x) {
   Rcpp::Vector<RTYPE> vec(x);
@@ -282,7 +285,6 @@ inline int64_t time_cast<double>(double value) {
 
 template <int RTYPE>
 std::shared_ptr<Array> Date64Array_From_POSIXct(SEXP x) {
-  using stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
   Rcpp::Vector<RTYPE> vec(x);
   auto p_vec = vec.begin();
   auto n = vec.size();
@@ -330,6 +332,47 @@ std::shared_ptr<Array> Date64Array_From_POSIXct(SEXP x) {
   return std::make_shared<Date64Array>(data);
 }
 
+std::shared_ptr<arrow::Array> Int64Array(SEXP x) {
+  auto p_vec_start = reinterpret_cast<int64_t*>(REAL(x));
+  auto n = Rf_xlength(x);
+  int64_t null_count = 0;
+
+  std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
+                                               std::make_shared<RBuffer<REALSXP>>(x)};
+
+  auto p_vec = std::find(p_vec_start, p_vec_start + n, NA_INT64);
+  auto first_na = p_vec - p_vec_start;
+  if (first_na < n) {
+    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &buffers[0]));
+    internal::FirstTimeBitmapWriter bitmap_writer(buffers[0]->mutable_data(), 0, n);
+
+    // first loop to clear all the bits before the first NA
+    int i = 0;
+    for (; i < first_na; i++, bitmap_writer.Next()) {
+      bitmap_writer.Set();
+    }
+
+    // then finish
+    for (; i < n; i++, bitmap_writer.Next(), ++p_vec) {
+      if (*p_vec == NA_INT64) {
+        bitmap_writer.Clear();
+        null_count++;
+      } else {
+        bitmap_writer.Set();
+      }
+    }
+
+    bitmap_writer.Finish();
+  }
+
+  auto data = ArrayData::Make(
+      std::make_shared<Int64Type>(), n, std::move(buffers), null_count, 0 /*offset*/
+  );
+
+  // return the right Array class
+  return std::make_shared<typename TypeTraits<Int64Type>::ArrayType>(data);
+}
+
 }  // namespace r
 }  // namespace arrow
 
@@ -355,6 +398,9 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
       }
       if (Rf_inherits(x, "POSIXct")) {
         return arrow::r::Date64Array_From_POSIXct<REALSXP>(x);
+      }
+      if (Rf_inherits(x, "integer64")) {
+        return arrow::r::Int64Array(x);
       }
       return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
     case RAWSXP:
@@ -420,8 +466,6 @@ inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   }
 
   Rcpp::CharacterVector res(no_init(n));
-  const auto& buffers = array->data()->buffers;
-
   auto p_offset = GetValuesSafely<int32_t>(array->data(), 1, array->offset());
   auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
 
@@ -593,6 +637,67 @@ SEXP Date64Array_to_Vector(const std::shared_ptr<arrow::Array> array) {
   return vec;
 }
 
+template <int RTYPE, typename Type>
+SEXP promotion_Array_to_Vector(const std::shared_ptr<Array>& array) {
+  using r_stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
+  using value_type = typename TypeTraits<Type>::ArrayType::value_type;
+
+  auto n = array->length();
+  Rcpp::Vector<RTYPE> vec(no_init(n));
+  if (n == 0) {
+    return vec;
+  }
+  auto null_count = array->null_count();
+  if (null_count == n) {
+    std::fill(vec.begin(), vec.end(), NA_REAL);
+    return vec;
+  }
+
+  auto start = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+
+  if (null_count) {
+    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                         n);
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
+      vec[i] = bitmap_reader.IsNotSet() ? Rcpp::Vector<RTYPE>::get_na()
+                                        : static_cast<r_stored_type>(start[i]);
+    }
+  } else {
+    std::transform(start, start + n, vec.begin(),
+                   [](value_type x) { return static_cast<r_stored_type>(x); });
+  }
+
+  return vec;
+}
+
+SEXP Int64Array(const std::shared_ptr<Array>& array) {
+  auto n = array->length();
+  NumericVector vec(n);
+  vec.attr("class") = "integer64";
+  if (n == 0) {
+    return vec;
+  }
+  auto null_count = array->null_count();
+  if (null_count == n) {
+    std::fill(vec.begin(), vec.end(), NA_REAL);
+    return vec;
+  }
+  auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
+  auto p_vec = reinterpret_cast<int64_t*>(vec.begin());
+
+  if (array->null_count()) {
+    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                         n);
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
+      p_vec[i] = bitmap_reader.IsNotSet() ? NA_INT64 : p_values[i];
+    }
+  } else {
+    std::copy_n(p_values, n, p_vec);
+  }
+
+  return vec;
+}
+
 }  // namespace r
 }  // namespace arrow
 
@@ -601,22 +706,49 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
   using namespace arrow::r;
 
   switch (array->type_id()) {
-    case Type::BOOL:
-      return BooleanArray_to_Vector(array);
+    // direct support
     case Type::INT8:
       return simple_Array_to_Vector<RAWSXP>(array);
     case Type::INT32:
       return simple_Array_to_Vector<INTSXP>(array);
     case Type::DOUBLE:
       return simple_Array_to_Vector<REALSXP>(array);
+
+    // need to handle 1-bit case
+    case Type::BOOL:
+      return BooleanArray_to_Vector(array);
+
+    // handle memory dense strings
     case Type::STRING:
       return StringArray_to_Vector(array);
     case Type::DICTIONARY:
       return DictionaryArray_to_Vector(static_cast<arrow::DictionaryArray*>(array.get()));
+
     case Type::DATE32:
       return Date32Array_to_Vector(array);
     case Type::DATE64:
       return Date64Array_to_Vector(array);
+
+    // promotions to integer vector
+    case Type::UINT8:
+      return arrow::r::promotion_Array_to_Vector<INTSXP, arrow::UInt8Type>(array);
+    case Type::INT16:
+      return arrow::r::promotion_Array_to_Vector<INTSXP, arrow::Int16Type>(array);
+    case Type::UINT16:
+      return arrow::r::promotion_Array_to_Vector<INTSXP, arrow::UInt16Type>(array);
+
+    // promotions to numeric vector
+    case Type::UINT32:
+      return arrow::r::promotion_Array_to_Vector<REALSXP, arrow::UInt32Type>(array);
+    case Type::HALF_FLOAT:
+      return arrow::r::promotion_Array_to_Vector<REALSXP, arrow::UInt32Type>(array);
+    case Type::FLOAT:
+      return arrow::r::promotion_Array_to_Vector<REALSXP, arrow::UInt32Type>(array);
+
+    // lossy promotions to numeric vector
+    case Type::INT64:
+      return arrow::r::Int64Array(array);
+
     default:
       break;
   }

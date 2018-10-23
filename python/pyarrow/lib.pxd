@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# cython: language_level = 3
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow cimport CStatus
@@ -51,11 +53,19 @@ cdef class DataType:
         bytes pep3118_format
 
     cdef void init(self, const shared_ptr[CDataType]& type)
+    cdef Field child(self, int i)
 
 
 cdef class ListType(DataType):
     cdef:
         const CListType* list_type
+
+
+cdef class StructType(DataType):
+    cdef:
+        const CStructType* struct_type
+
+    cdef Field child_by_name(self, name)
 
 
 cdef class DictionaryType(DataType):
@@ -361,6 +371,8 @@ cdef class NativeFile:
     cdef read_handle(self, shared_ptr[RandomAccessFile]* file)
     cdef write_handle(self, shared_ptr[OutputStream]* file)
 
+cdef get_input_stream(object source, c_bool use_memory_map,
+                      shared_ptr[InputStream]* reader)
 cdef get_reader(object source, c_bool use_memory_map,
                 shared_ptr[RandomAccessFile]* reader)
 cdef get_writer(object source, shared_ptr[OutputStream]* writer)

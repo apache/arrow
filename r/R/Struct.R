@@ -24,5 +24,5 @@
 #' @rdname DataType
 #' @export
 struct <- function(...){
-  `arrow::StructType`$new(struct_(.fields(list(...))))
+  construct(`arrow::StructType`, struct_(.fields(list(...))))
 }

@@ -18,32 +18,13 @@
 @echo on
 
 if "%JOB%" == "Rust" (
-    pushd rust
-
-    rustup default stable
-    rustup show
-    cargo build --target %TARGET% || exit /B
-    cargo build --target %TARGET% --release || exit /B
-    cargo test --target %TARGET% || exit /B
-    cargo test --target %TARGET% --release || exit /B
-
-    rustup default nightly
-    rustup show
-    cargo build --target %TARGET%
-    cargo build --target %TARGET% --release
-    cargo test --target %TARGET%
-    cargo test --target %TARGET% --release
-    cargo run --example dynamic_types --target %TARGET% --release
-
-    rustup default stable
-
-    popd
+    call ci\rust-build-main.bat
 ) else (
     git config core.symlinks true
     git reset --hard
     if "%JOB%"=="Cmake_Script_Tests" (
-        call ci\test-cmake-build-script.bat
+        call ci\appveyor-cpp-test-cmake-script.bat
     ) else (
-        call ci\cpp-python-msvc-build.bat
+        call ci\appveyor-cpp-build.bat
     )
 )

@@ -22,7 +22,6 @@ flatbuffers
 gflags
 glog
 gtest
-jemalloc
 libprotobuf
 lz4-c
 python

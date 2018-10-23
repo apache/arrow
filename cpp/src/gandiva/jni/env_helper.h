@@ -25,6 +25,5 @@ extern jclass configuration_builder_class_;
 
 // method references
 extern jmethodID byte_code_accessor_method_id_;
-extern jmethodID helper_library_accessor_method_id_;
 
 #endif  // ENV_HELPER_H

@@ -48,7 +48,7 @@ arr <- array(1:3, 5:80)
 arr
 arr$as_vector()
 
-#------- read_arrow / write_arrow
+#------- read_arrow / stream
 tbl <- tibble(x=1:10, y=rnorm(10))
 write_arrow(tbl, "/tmp/test.arrow")
 readr::write_rds(tbl, "/tmp/test.rds")
@@ -60,7 +60,7 @@ fs::file_info(c("/tmp/test.arrow", "/tmp/test.rds"))
 (batch <- record_batch(tbl))
 batch$num_columns()
 batch$num_rows()
-batch$to_file("/tmp/test")
+write_arrow(batch, "/tmp/test")
 readBin("/tmp/test", what = raw(), n = 1000)
 batch$schema()
 all.equal(tbl, data)
@@ -79,7 +79,7 @@ tab$schema()
 tab$num_columns()
 tab$num_rows()
 
-# read_arrow, write_arrow
+# read_arrow, stream
 tbl <- tibble(x = rnorm(20), y = seq_len(20))
 write_arrow(tbl, tf)
 

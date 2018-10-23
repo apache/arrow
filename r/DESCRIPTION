@@ -24,15 +24,18 @@ Imports:
     vctrs (>= 0.0.0.9000),
     fs,
     tibble,
-    crayon
+    crayon,
+    withr
 Remotes:
-    r-lib/vctrs, 
-    RcppCore/Rcpp
+    romainfrancois/vctrs@bit64, 
+    RcppCore/Rcpp, 
+    r-lib/withr
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.0.9000
 Suggests:
     testthat, 
-    lubridate
+    lubridate, 
+    bit64
 Collate:
     'enums.R'
     'R6.R'
@@ -43,6 +46,8 @@ Collate:
     'List.R'
     'RcppExports.R'
     'RecordBatch.R'
+    'RecordBatchReader.R'
+    'RecordBatchWriter.R'
     'Schema.R'
     'Struct.R'
     'Table.R'
@@ -51,5 +56,6 @@ Collate:
     'dictionary.R'
     'io.R'
     'memory_pool.R'
+    'on_exit.R'
     'reexports-tibble.R'
     'zzz.R'
