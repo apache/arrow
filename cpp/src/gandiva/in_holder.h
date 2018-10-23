@@ -27,10 +27,6 @@
 
 namespace gandiva {
 
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
-
 /// Function Holder for IN Expressions
 template <typename Type>
 class InHolder {
@@ -47,10 +43,6 @@ class InHolder {
  private:
   std::unordered_set<Type> values_;
 };
-
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 
 }  // namespace gandiva
 

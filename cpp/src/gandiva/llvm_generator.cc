@@ -835,15 +835,14 @@ void LLVMGenerator::Visitor::Visit(const BooleanOrDex& dex) {
 #define MAKE_VISIT_IN(ctype)                                                           \
   void LLVMGenerator::Visitor::Visit(const InExprDexBase<ctype>& dex) {                \
     ADD_VISITOR_TRACE("visit In Expression");                                          \
-    LLVMTypes* types = generator_->types_.get();                                       \
+    LLVMTypes& types = generator_->types();                                            \
     std::vector<llvm::Value*> params;                                                  \
                                                                                        \
     const InExprDex<ctype>& dex_instance = dynamic_cast<const InExprDex<ctype>&>(dex); \
     /* add the holder at the beginning */                                              \
     llvm::Constant* ptr_int_cast =                                                     \
-        types->i64_constant((int64_t)(dex_instance.in_holder().get()));                \
-    auto ptr = llvm::ConstantExpr::getIntToPtr(ptr_int_cast, types->i8_ptr_type());    \
-    params.push_back(ptr);                                                             \
+        types.i64_constant((int64_t)(dex_instance.in_holder().get()));                 \
+    params.push_back(ptr_int_cast);                                                    \
                                                                                        \
     /* eval expr result */                                                             \
     for (auto& pair : dex.args()) {                                                    \
@@ -862,7 +861,7 @@ void LLVMGenerator::Visitor::Visit(const BooleanOrDex& dex) {
       params.push_back(validity_expr);                                                 \
     }                                                                                  \
                                                                                        \
-    llvm::Type* ret_type = types->IRType(arrow::Type::type::BOOL);                     \
+    llvm::Type* ret_type = types.IRType(arrow::Type::type::BOOL);                      \
                                                                                        \
     llvm::Value* value =                                                               \
         generator_->AddFunctionCall(dex.runtime_function(), ret_type, params);         \

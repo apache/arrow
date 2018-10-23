@@ -302,7 +302,7 @@ class InExprDex<int32_t> : public InExprDexBase<int32_t> {
             const std::unordered_set<int32_t>& values)
       : InExprDexBase(args) {
     in_holder_.reset(new InHolder<int32_t>(values));
-    runtime_function_ = "in_expr_lookup_int32";
+    runtime_function_ = "gdv_fn_in_expr_lookup_int32";
   }
 
   const std::shared_ptr<InHolder<int32_t>>& in_holder() const { return in_holder_; }
@@ -317,7 +317,7 @@ class InExprDex<int64_t> : public InExprDexBase<int64_t> {
   InExprDex(const ValueValidityPairVector& args, const std::unordered_set<int64_t> values)
       : InExprDexBase(args) {
     in_holder_.reset(new InHolder<int64_t>(values));
-    runtime_function_ = "in_expr_lookup_int64";
+    runtime_function_ = "gdv_fn_in_expr_lookup_int64";
   }
 
   const std::shared_ptr<InHolder<int64_t>>& in_holder() const { return in_holder_; }
@@ -333,7 +333,7 @@ class InExprDex<std::string> : public InExprDexBase<std::string> {
             const std::unordered_set<std::string> values)
       : InExprDexBase(args) {
     in_holder_.reset(new InHolder<std::string>(values));
-    runtime_function_ = "in_expr_lookup_utf8";
+    runtime_function_ = "gdv_fn_in_expr_lookup_utf8";
   }
 
   const std::shared_ptr<InHolder<std::string>>& in_holder() const { return in_holder_; }

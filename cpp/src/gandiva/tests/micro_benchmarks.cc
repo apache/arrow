@@ -24,6 +24,7 @@
 #include "gandiva/tests/timed_evaluate.h"
 #include "gandiva/tree_expr_builder.h"
 
+
 namespace gandiva {
 
 using arrow::boolean;
@@ -214,6 +215,49 @@ TEST_F(TestBenchmarks, TimedTestFilterLike) {
   EXPECT_LE(elapsed_millis, 600 * tolerance_ratio);
 }
 
+// following two tests are for benchmark optimization of
+// in expr. will be used in follow-up PRs to optimize in expr.
+
+TEST_F(TestBenchmarks, TimedTestMultiOr) {
+  // schema for input fields
+  auto fielda = field("a", utf8());
+  auto schema = arrow::schema({fielda});
+
+  // output fields
+  auto field_result = field("res", boolean());
+
+  // build expression.
+  // booleanOr(a = string1, a = string2, ..)
+  auto node_a = TreeExprBuilder::MakeField(fielda);
+
+  NodeVector boolean_functions;
+  FastUtf8DataGenerator data_generator1(250);
+  for (int thresh = 1; thresh <= 32; thresh++) {
+    auto literal = TreeExprBuilder::MakeStringLiteral(data_generator1.GenerateData());
+    auto condition =
+        TreeExprBuilder::MakeFunction("equal", {node_a, literal}, boolean());
+    boolean_functions.push_back(condition);
+  }
+
+  auto boolean_or = TreeExprBuilder::MakeOr(boolean_functions);
+  auto expr = TreeExprBuilder::MakeExpression(boolean_or, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok());
+
+  int64_t elapsed_millis;
+  FastUtf8DataGenerator data_generator(250);
+  ProjectEvaluator evaluator(projector);
+  status = TimedEvaluate<arrow::StringType, std::string>(schema, evaluator, data_generator,
+                                                    pool_, 1 * MILLION, 16 * THOUSAND,
+                                                    elapsed_millis);
+  ASSERT_TRUE(status.ok());
+  std::cout << "Time taken for BooleanOr " << elapsed_millis << " ms\n";
+
+}
+
 TEST_F(TestBenchmarks, TimedTestInExpr) {
   // schema for input fields
   auto fielda = field("a", utf8());
@@ -223,12 +267,13 @@ TEST_F(TestBenchmarks, TimedTestInExpr) {
   auto field_result = field("res", boolean());
 
   // build expression.
-  // booleanOr(a = 2, a = 3, a = 4...,a = 16)
+  // a in (string1, string2, ..)
   auto node_a = TreeExprBuilder::MakeField(fielda);
+
 
   std::unordered_set<std::string> values;
   FastUtf8DataGenerator data_generator1(250);
-  for (int i = 1; i <= 75; i++) {
+  for (int i = 1; i <= 32; i++) {
     values.insert(data_generator1.GenerateData());
   }
   auto boolean_or = TreeExprBuilder::MakeInExpressionString(node_a, values);
@@ -243,13 +288,13 @@ TEST_F(TestBenchmarks, TimedTestInExpr) {
   FastUtf8DataGenerator data_generator(250);
   ProjectEvaluator evaluator(projector);
 
-  status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
-      elapsed_millis);
-  ASSERT_TRUE(status.ok());
+  status = TimedEvaluate<arrow::StringType, std::string>(schema, evaluator, data_generator,
+                                                    pool_, 1 * MILLION, 16 * THOUSAND,
+                                                    elapsed_millis);
 
+  ASSERT_TRUE(status.ok());
   std::cout << "Time taken for BooleanIn " << elapsed_millis << " ms\n";
-  EXPECT_LE(elapsed_millis, 400 * tolerance_ratio);
+
 }
 
 }  // namespace gandiva
