@@ -29,7 +29,6 @@ include(FindPkgConfig)
 if ("$ENV{ARROW_HOME}" STREQUAL "")
   pkg_check_modules(GANDIVA gandiva)
   if (GANDIVA_FOUND)
-    pkg_get_variable(GANDIVA_EXECUTABLE gandiva executable)
     pkg_get_variable(GANDIVA_SO_VERSION gandiva so_version)
     set(GANDIVA_ABI_VERSION ${GANDIVA_SO_VERSION})
     message(STATUS "Gandiva SO and ABI version: ${GANDIVA_SO_VERSION}")
@@ -42,8 +41,6 @@ if ("$ENV{ARROW_HOME}" STREQUAL "")
 else()
   set(GANDIVA_HOME "$ENV{ARROW_HOME}")
 
-  set(GANDIVA_EXECUTABLE ${GANDIVA_HOME}/bin/gandiva_store)
-
   set(GANDIVA_SEARCH_HEADER_PATHS
     ${GANDIVA_HOME}/include
     )
@@ -52,7 +49,7 @@ else()
     ${GANDIVA_HOME}/lib
     )
 
-  find_path(GANDIVA_INCLUDE_DIR gandiva/client.h PATHS
+  find_path(GANDIVA_INCLUDE_DIR gandiva/expression_registry.h PATHS
     ${GANDIVA_SEARCH_HEADER_PATHS}
     # make sure we don't accidentally pick up a different version
     NO_DEFAULT_PATH
@@ -77,7 +74,6 @@ endif()
 if (GANDIVA_FOUND)
   if (NOT Gandiva_FIND_QUIETLY)
     message(STATUS "Found the Gandiva core library: ${GANDIVA_LIB_PATH}")
-    message(STATUS "Found Gandiva executable: ${GANDIVA_EXECUTABLE}")
   endif ()
 else ()
   if (NOT Gandiva_FIND_QUIETLY)
