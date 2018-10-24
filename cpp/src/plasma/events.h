@@ -32,13 +32,14 @@ namespace plasma {
 /// Constant specifying that the timer is done and it will be removed.
 constexpr int kEventLoopTimerDone = -1;  // AE_NOMORE
 
+/// A successful status.
+constexpr int kEventLoopOk = 0;  // AE_OK
+
 /// Read event on the file descriptor.
 constexpr int kEventLoopRead = 1;  // AE_READABLE
 
 /// Write event on the file descriptor.
 constexpr int kEventLoopWrite = 2;  // AE_WRITABLE
-
-constexpr int kEventLoopOk = 0;  // AE_OK
 
 typedef long long TimerID;  // NOLINT
 

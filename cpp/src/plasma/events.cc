@@ -29,9 +29,9 @@ namespace plasma {
 
 // Verify that the constants defined in events.h are defined correctly.
 static_assert(kEventLoopTimerDone == AE_NOMORE, "constant defined incorrectly");
+static_assert(kEventLoopOk == AE_OK, "constant defined incorrectly");
 static_assert(kEventLoopRead == AE_READABLE, "constant defined incorrectly");
 static_assert(kEventLoopWrite == AE_WRITABLE, "constant defined incorrectly");
-static_assert(kEventLoopOk == AE_OK, "constant defined incorrectly");
 
 void EventLoop::FileEventCallback(aeEventLoop* loop, int fd, void* context, int events) {
   FileCallback* callback = reinterpret_cast<FileCallback*>(context);
