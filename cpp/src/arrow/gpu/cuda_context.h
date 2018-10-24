@@ -36,15 +36,24 @@ class ARROW_EXPORT CudaDeviceManager {
  public:
   static Status GetInstance(CudaDeviceManager** manager);
 
-  /// \brief Get the shared CUDA driver context for a particular device
+  /// \brief Get the CUDA driver context for a particular device
+  /// \param[in] device_number
+  /// \param[out] out cached context
   Status GetContext(int gpu_number, std::shared_ptr<CudaContext>* ctx);
 
-  /// \brief Create a new context for a given device number
-  ///
-  /// In general code will use GetContext
-  Status CreateNewContext(int gpu_number, std::shared_ptr<CudaContext>* ctx);
+  /// \brief Get the shared CUDA driver context for a particular device
+  /// \param[in] device_number
+  /// \param[in] handle CUDA context handler created by another library
+  /// \param[out] out shared context
+  Status GetSharedContext(int device_number, void* handle,
+                          std::shared_ptr<CudaContext>* out);
 
-  Status AllocateHost(int64_t nbytes, std::shared_ptr<CudaHostBuffer>* buffer);
+  /// \brief Allocate host memory with fast access to given GPU device
+  /// \param[in] device_number
+  /// \param[in] nbytes number of bytes
+  /// \param[out] out the allocated buffer
+  Status AllocateHost(int device_number, int64_t nbytes,
+                      std::shared_ptr<CudaHostBuffer>* buffer);
 
   Status FreeHost(void* data, int64_t nbytes);
 
@@ -76,6 +85,17 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// \return Status
   Status Allocate(int64_t nbytes, std::shared_ptr<CudaBuffer>* out);
 
+  /// \brief Create a view of CUDA memory on GPU device of this context
+  /// \param[in] data the starting device address
+  /// \param[in] nbytes number of bytes
+  /// \param[out] out the view buffer
+  /// \return Status
+  ///
+  /// \note The caller is responsible for allocating and freeing the
+  /// memory as well as ensuring that the memory belongs to the CUDA
+  /// context that this CudaContext instance holds.
+  Status View(uint8_t* data, int64_t nbytes, std::shared_ptr<CudaBuffer>* out);
+
   /// \brief Open existing CUDA IPC memory handle
   /// \param[in] ipc_handle opaque pointer to CUipcMemHandle (driver API)
   /// \param[out] buffer a CudaBuffer referencing
@@ -83,7 +103,21 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   Status OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
                        std::shared_ptr<CudaBuffer>* buffer);
 
+  /// \brief Close memory mapped with IPC buffer
+  /// \param[in] buffer a CudaBuffer referencing
+  /// \return Status
+  Status CloseIpcBuffer(CudaBuffer* buf);
+
+  /// \brief Block until the all device tasks are completed.
+  Status Synchronize(void);
+
   int64_t bytes_allocated() const;
+
+  /// \brief Expose CUDA context handle to other libraries
+  void* handle() const;
+
+  /// \brief Return device number
+  int device_number() const;
 
  private:
   CudaContext();

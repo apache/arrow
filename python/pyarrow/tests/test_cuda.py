@@ -65,7 +65,6 @@ def test_Context():
 
 def test_manage_allocate_free_host():
     size = 1024
-
     buf = cuda.new_host_buffer(size)
     arr = np.frombuffer(buf, dtype=np.uint8)
     arr[size//4:3*size//4] = 1
@@ -201,7 +200,7 @@ def test_context_device_buffer():
     np.testing.assert_equal(arr[soffset:soffset+ssize], arr2)
 
     cudabuf = global_context.buffer_from_data(
-         buf.slice(offset=soffset, length=ssize))
+        buf.slice(offset=soffset, length=ssize))
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr[soffset:soffset+ssize], arr2)
@@ -444,7 +443,9 @@ def test_BufferWriter():
 
         writer.flush()
         assert cbuf.size == total_size
+        cbuf.context.synchronize()
         buf2 = cbuf.copy_to_host()
+        cbuf.context.synchronize()
         assert buf2.size == total_size
         arr2 = np.frombuffer(buf2, dtype=np.uint8)
         np.testing.assert_equal(arr, arr2)
@@ -556,6 +557,7 @@ def other_process_for_test_IPC(handle_buffer, expected_arr):
     other_context = pa.cuda.Context(0)
     ipc_handle = pa.cuda.IpcMemHandle.from_buffer(handle_buffer)
     ipc_buf = other_context.open_ipc_buffer(ipc_handle)
+    ipc_buf.context.synchronize()
     buf = ipc_buf.copy_to_host()
     assert buf.size == expected_arr.size, repr((buf.size, expected_arr.size))
     arr = np.frombuffer(buf, dtype=expected_arr.dtype)

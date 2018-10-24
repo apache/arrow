@@ -26,7 +26,7 @@ cdef class Context:
     """ CUDA driver context.
     """
 
-    def __cinit__(self, int device_number=0):
+    def __cinit__(self, int device_number=0, uintptr_t handle=0):
         """Construct the shared CUDA driver context for a particular device.
 
         Parameters
@@ -34,7 +34,9 @@ cdef class Context:
         device_number : int
           Specify the gpu device for which the CUDA driver context is
           requested.
-
+        handle : int
+          Specify handle for a shared context that has been created by
+          another library.
         """
         cdef CCudaDeviceManager* manager
         check_status(CCudaDeviceManager.GetInstance(&manager))
@@ -43,8 +45,56 @@ cdef class Context:
             self.context.reset()
             raise ValueError('device_number argument must be '
                              'non-negative less than %s' % (n))
-        check_status(manager.GetContext(device_number, &self.context))
+        if handle == 0:
+            check_status(manager.GetContext(device_number, &self.context))
+        else:
+            check_status(manager.GetSharedContext(device_number,
+                                                  <void*>handle,
+                                                  &self.context))
         self.device_number = device_number
+
+    @staticmethod
+    def from_numba(context=None):
+        """Create Context instance from a numba CUDA context.
+
+        Parameters
+        ----------
+        context : {numba.cuda.cudadrv.driver.Context, None}
+          Specify numba CUDA context instance. When None, use the
+          current numba context.
+
+        Returns
+        -------
+        shared_context : pyarrow.cuda.Context
+          Context instance.
+        """
+        if context is None:
+            import numba.cuda
+            context = numba.cuda.current_context()
+        return Context(device_number=context.device.id,
+                       handle=context.handle.value)
+
+    def to_numba(self):
+        """Convert Context to numba CUDA context.
+
+        Returns
+        -------
+        context : numba.cuda.cudadrv.driver.Context
+          Numba CUDA context instance.
+        """
+        import ctypes
+        import numba.cuda
+        device = numba.cuda.gpus[self.device_number]
+        handle = ctypes.c_void_p(self.handle)
+        context = numba.cuda.cudadrv.driver.Context(device, handle)
+
+        class DummyPendingDeallocs(object):
+            # Context is managed by pyarrow
+            def add_item(self, *args, **kwargs):
+                pass
+
+        context.deallocations = DummyPendingDeallocs()
+        return context
 
     @staticmethod
     def get_num_devices():
@@ -60,8 +110,20 @@ cdef class Context:
         """
         return self.device_number
 
+    @property
+    def handle(self):
+        """ Return pointer to context handle.
+        """
+        return <uintptr_t>self.context.get().handle()
+
     cdef void init(self, const shared_ptr[CCudaContext]& ctx):
         self.context = ctx
+
+    def synchronize(self):
+        """Blocks until the device has completed all preceding requested
+        tasks.
+        """
+        check_status(self.context.get().Synchronize())
 
     @property
     def bytes_allocated(self):
@@ -84,6 +146,34 @@ cdef class Context:
         """
         cdef shared_ptr[CCudaBuffer] cudabuf
         check_status(self.context.get().Allocate(nbytes, &cudabuf))
+        return pyarrow_wrap_cudabuffer(cudabuf)
+
+    def foreign_buffer(self, address, size):
+        """Create device buffer from device address and size as a view.
+
+        The caller is responsible for allocating and freeing the
+        memory as well as ensuring that the memory belongs to the
+        CUDA context that this Context instance holds.
+
+        Parameters
+        ----------
+        address : int
+          Specify the starting address of the buffer.
+        size : int
+          Specify the size of device buffer in bytes.
+
+        Returns
+        -------
+        cbuf : CudaBuffer
+          Device buffer as a view of device memory.
+        """
+        cdef:
+            intptr_t c_addr = address
+            int64_t c_size = size
+            shared_ptr[CCudaBuffer] cudabuf
+        check_status(self.context.get().View(<uint8_t*>c_addr,
+                                             c_size,
+                                             &cudabuf))
         return pyarrow_wrap_cudabuffer(cudabuf)
 
     def open_ipc_buffer(self, ipc_handle):
@@ -232,6 +322,31 @@ cdef class CudaBuffer(Buffer):
         check_status(CCudaBuffer.FromBuffer(buf_, &cbuf))
         return pyarrow_wrap_cudabuffer(cbuf)
 
+    @staticmethod
+    def from_numba(mem):
+        """Create a CudaBuffer view from numba MemoryPointer instance.
+
+        Parameters
+        ----------
+        mem :  numba.cuda.cudadrv.driver.MemoryPointer
+
+        Returns
+        -------
+        cbuf : CudaBuffer
+          Device buffer as a view of numba MemoryPointer.
+        """
+        ctx = Context.from_numba(mem.context)
+        return ctx.foreign_buffer(mem.device_pointer.value, mem.size)
+
+    def to_numba(self):
+        """Return numba memory pointer of CudaBuffer instance.
+        """
+        import ctypes
+        from numba.cuda.cudadrv.driver import MemoryPointer
+        return MemoryPointer(self.context.to_numba(),
+                             pointer=ctypes.c_void_p(self.address),
+                             size=self.size)
+
     cdef getitem(self, int64_t i):
         return self.copy_to_host(position=i, nbytes=1)[0]
 
@@ -239,6 +354,13 @@ cdef class CudaBuffer(Buffer):
                      Buffer buf=None,
                      MemoryPool memory_pool=None, c_bool resizable=False):
         """Copy memory from GPU device to CPU host
+
+        Caller is responsible for ensuring that all tasks affecting
+        the memory are finished. Use
+
+          `<CudaBuffer instance>.context.synchronize()`
+
+        when needed.
 
         Parameters
         ----------
@@ -571,13 +693,15 @@ cdef class BufferWriter(NativeFile):
 # Functions
 
 
-def new_host_buffer(const int64_t size):
+def new_host_buffer(const int64_t size, int device=0):
     """Return buffer with CUDA-accessible memory on CPU host
 
     Parameters
     ----------
     size : int
       Specify the number of bytes to be allocated.
+    device : int
+      Specify GPU device number.
 
     Returns
     -------
@@ -585,7 +709,7 @@ def new_host_buffer(const int64_t size):
       Allocated host buffer
     """
     cdef shared_ptr[CCudaHostBuffer] buffer
-    check_status(AllocateCudaHostBuffer(size, &buffer))
+    check_status(AllocateCudaHostBuffer(device, size, &buffer))
     return pyarrow_wrap_cudahostbuffer(buffer)
 
 
