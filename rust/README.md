@@ -76,7 +76,7 @@ Checkout the tag for the version to be releases. For example:
 git checkout apache-arrow-0.11.0
 ```
 
-If the Cargo.toml in this tag already contains `versio = "0.11.0"` (as it should) then the crate can be published with the following command:
+If the Cargo.toml in this tag already contains `version = "0.11.0"` (as it should) then the crate can be published with the following command:
 
 ```bash
 cargo publish
