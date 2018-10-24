@@ -700,7 +700,7 @@ SEXP Int64Array(const std::shared_ptr<Array>& array) {
 
 SEXP DecimalArray(const std::shared_ptr<Array>& array) {
   auto n = array->length();
-  NumericVector vec(n);
+  NumericVector vec(no_init(n));
 
   if (n == 0) return vec;
 

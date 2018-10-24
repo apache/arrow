@@ -181,7 +181,7 @@ int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s) {
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s,
                                              int i) {
-  if (i >= s->num_fields()) {
+  if (i >= s->num_fields() || i < 0) {
     Rcpp::stop("Invalid field index for schema.");
   }
 
