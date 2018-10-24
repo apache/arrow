@@ -29,7 +29,7 @@ import org.junit.Test;
 
 public class TestArrowBuf {
 
-  private final static int MAX_ALLOCATION = 8 * 1024;
+  private static final int MAX_ALLOCATION = 8 * 1024;
   private static RootAllocator allocator;
   
   @BeforeClass
