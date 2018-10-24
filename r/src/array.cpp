@@ -798,8 +798,16 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
       return arrow::r::promotion_Array_to_Vector<REALSXP, arrow::UInt32Type>(array);
 
     // lossy promotions to numeric vector
-    case Type::INT64:
-      return arrow::r::IntFromInt64Array(array);
+    case Type::INT64: {
+      Function get_option("getOption");
+      SEXP option = get_option("arrow.int64");
+      if (!Rf_isNull(option) && std::string("integer") == CHAR(STRING_ELT(option, 0))) {
+        return arrow::r::IntFromInt64Array(array);
+      }
+      else {
+        return arrow::r::Int64Array(array);
+      }
+    }
 
     default:
       break;
