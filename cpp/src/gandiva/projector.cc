@@ -59,8 +59,6 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   std::shared_ptr<Projector> cached_projector = cache.GetModule(cache_key);
   if (cached_projector != nullptr) {
     *projector = cached_projector;
-    std::cout << "llvm projector module cache hit : " << cache_key.ToString()
-              << std::endl;
     return Status::OK();
   }
 
