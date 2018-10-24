@@ -498,9 +498,15 @@ if (PYARROW_BUILD_GANDIVA)
 
   include_directories(SYSTEM ${GANDIVA_INCLUDE_DIR})
 
+  if (PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(GANDIVA_SHARED_LIB
+      ABI_VERSION ${ARROW_ABI_VERSION}
+      SO_VERSION ${ARROW_SO_VERSION})
+  endif()
+
   set(LINK_LIBS
     ${LINK_LIBS}
-    ${GANDIVA_SHARED_LIB})
+    gandiva_shared)
   
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
 endif()

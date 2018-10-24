@@ -38,6 +38,7 @@ export PYARROW_BUILD_TYPE='release'
 export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
+export PYARROW_WITH_GANDIVA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_BUNDLE_BOOST=1
 export PYARROW_BOOST_NAMESPACE=arrow_boost
@@ -87,6 +88,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
         -DARROW_PLASMA=ON \
         -DARROW_TENSORFLOW=ON \
         -DARROW_ORC=ON \
+	-DARROW_GANDIVA=ON \
         -DBoost_NAMESPACE=arrow_boost \
         -DBOOST_ROOT=/arrow_boost_dist \
         -GNinja /arrow/cpp
