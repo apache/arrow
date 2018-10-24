@@ -71,11 +71,17 @@ macro_rules! impl_tensor {
                        shape: Option<Vec<i64>>,
                        strides: Option<Vec<i64>>,
                        names: Option<Vec<&'a str>>) -> Self {
-                if shape.is_none() {
-                    assert_eq!(buffer.len(), mem::size_of::<$native_ty>(), "UPDATE");
-                    assert_eq!(None, strides);
-                    assert_eq!(None, names);
-                }
+                match &shape {
+                    None => {
+                        assert_eq!(buffer.len(), mem::size_of::<$native_ty>(), "underlying buffer should only contain a single tensor element");
+                        assert_eq!(None, strides);
+                        assert_eq!(None, names);
+                    },
+                    Some(ref s) => {
+                        strides.iter().map(|i| assert_eq!(s.len(), i.len(), "shape and stride dimensions differ")).next();
+                        names.iter().map(|i| assert_eq!(s.len(), i.len(), "the number of dimension names provided is not the same as the number of dimensions")).next();
+                    }
+                };
                 Self {
                     data_type: $data_ty,
                     buffer,
@@ -246,6 +252,7 @@ mod tests {
         let tensor = Tensor::<i32>::new(buf, Some(vec![2, 8]), None, None);
         assert_eq!(16, tensor.size());
         assert_eq!(Some(vec![2_i64, 8]).as_ref(), tensor.shape());
+        assert_eq!(None, tensor.strides());
         assert_eq!(2, tensor.ndim());
         assert_eq!(None, tensor.names());
     }
@@ -260,6 +267,7 @@ mod tests {
         let tensor = Tensor::<i32>::new_row_major(buf, Some(vec![2, 8]), None);
         assert_eq!(16, tensor.size());
         assert_eq!(Some(vec![2_i64, 8]).as_ref(), tensor.shape());
+        assert_eq!(Some(vec![32_i64, 4]).as_ref(), tensor.strides());
         assert_eq!(None, tensor.names());
         assert_eq!(2, tensor.ndim());
         assert_eq!(true, tensor.is_row_major());
@@ -277,6 +285,7 @@ mod tests {
         let tensor = Tensor::<i32>::new_column_major(buf, Some(vec![2, 8]), None);
         assert_eq!(16, tensor.size());
         assert_eq!(Some(vec![2_i64, 8]).as_ref(), tensor.shape());
+        assert_eq!(Some(vec![4_i64, 8]).as_ref(), tensor.strides());
         assert_eq!(None, tensor.names());
         assert_eq!(2, tensor.ndim());
         assert_eq!(false, tensor.is_row_major());
@@ -295,12 +304,35 @@ mod tests {
         let tensor = Tensor::<i64>::new_column_major(buf, Some(vec![2, 4]), Some(names));
         assert_eq!(8, tensor.size());
         assert_eq!(Some(vec![2_i64, 4]).as_ref(), tensor.shape());
+        assert_eq!(Some(vec![8_i64, 16]).as_ref(), tensor.strides());
         assert_eq!("Dim 1", tensor.dim_name(0).unwrap());
         assert_eq!("Dim 2", tensor.dim_name(1).unwrap());
         assert_eq!(2, tensor.ndim());
         assert_eq!(false, tensor.is_row_major());
         assert_eq!(true, tensor.is_column_major());
         assert_eq!(true, tensor.is_contiguous());
+    }
+
+    #[test]
+    #[should_panic(expected = "shape and stride dimensions differ")]
+    fn test_inconsistent_strides() {
+        let mut builder = BufferBuilder::<i32>::new(16);
+        for i in 0..16 {
+            builder.push(i).unwrap();
+        }
+        let buf = builder.finish();
+        Tensor::<i32>::new(buf, Some(vec![2, 8]), Some(vec![2, 8, 1]), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "the number of dimension names provided is not the same as the number of dimensions")]
+    fn test_inconsistent_names() {
+        let mut builder = BufferBuilder::<i32>::new(16);
+        for i in 0..16 {
+            builder.push(i).unwrap();
+        }
+        let buf = builder.finish();
+        Tensor::<i32>::new(buf, Some(vec![2, 8]), Some(vec![4, 8]), Some(vec!["1", "2", "3"]));
     }
 }
 
