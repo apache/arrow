@@ -711,17 +711,19 @@ SEXP DecimalArray(const std::shared_ptr<Array>& array) {
   }
 
   auto p_vec = reinterpret_cast<double*>(vec.begin());
-  const auto& decimals_arr = internal::checked_cast<const arrow::Decimal128Array&>(*array);
+  const auto& decimals_arr =
+      internal::checked_cast<const arrow::Decimal128Array&>(*array);
 
   if (array->null_count()) {
     internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
                                          n);
 
     for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
-      p_vec[i] = bitmap_reader.IsNotSet() ? NA_REAL : std::stod(decimals_arr.FormatValue(i).c_str());
+      p_vec[i] = bitmap_reader.IsNotSet()
+                     ? NA_REAL
+                     : std::stod(decimals_arr.FormatValue(i).c_str());
     }
-  }
-  else {
+  } else {
     for (size_t i = 0; i < n; i++) {
       p_vec[i] = std::stod(decimals_arr.FormatValue(i).c_str());
     }
