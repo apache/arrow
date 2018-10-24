@@ -62,7 +62,7 @@ class ExprValidator : public NodeVisitor {
   Status Visit(const InExpressionNode<int32_t>& node) override;
   Status Visit(const InExpressionNode<int64_t>& node) override;
   Status Visit(const InExpressionNode<std::string>& node) override;
-  Status ValidateInExpression(int32_t number_of_values, DataTypePtr in_expr_return_type,
+  Status ValidateInExpression(size_t number_of_values, DataTypePtr in_expr_return_type,
                               DataTypePtr type_of_values);
 
   FunctionRegistry registry_;

@@ -175,10 +175,10 @@ Status ExprValidator::Visit(const InExpressionNode<std::string>& node) {
                               arrow::utf8());
 }
 
-Status ExprValidator::ValidateInExpression(int32_t number_of_values,
+Status ExprValidator::ValidateInExpression(size_t number_of_values,
                                            DataTypePtr in_expr_return_type,
                                            DataTypePtr type_of_values) {
-  if (number_of_values == 0) {
+  if (static_cast<int32_t>(number_of_values) == 0) {
     std::stringstream ss;
     ss << "IN Expression needs a non-empty constant list to match.";
     return Status::ExpressionValidationError(ss.str());
