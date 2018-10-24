@@ -53,6 +53,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
 
   // Implement the OutputStream interface
   Status Close() override;
+  bool closed() const override;
   Status Tell(int64_t* position) const override;
   Status Write(const void* data, int64_t nbytes) override;
 
@@ -86,10 +87,11 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
 // \brief A helper class to tracks the size of allocations
 class ARROW_EXPORT MockOutputStream : public OutputStream {
  public:
-  MockOutputStream() : extent_bytes_written_(0) {}
+  MockOutputStream() : extent_bytes_written_(0), is_open_(true) {}
 
   // Implement the OutputStream interface
   Status Close() override;
+  bool closed() const override;
   Status Tell(int64_t* position) const override;
   Status Write(const void* data, int64_t nbytes) override;
 
@@ -97,6 +99,7 @@ class ARROW_EXPORT MockOutputStream : public OutputStream {
 
  private:
   int64_t extent_bytes_written_;
+  bool is_open_;
 };
 
 /// \brief Enables random writes into a fixed-size mutable buffer
@@ -107,6 +110,7 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WritableFile {
   ~FixedSizeBufferWriter() override;
 
   Status Close() override;
+  bool closed() const override;
   Status Seek(int64_t position) override;
   Status Tell(int64_t* position) const override;
   Status Write(const void* data, int64_t nbytes) override;
@@ -130,6 +134,7 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   BufferReader(const uint8_t* data, int64_t size);
 
   Status Close() override;
+  bool closed() const override;
   Status Tell(int64_t* position) const override;
   Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
   // Zero copy read
@@ -151,6 +156,7 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   const uint8_t* data_;
   int64_t size_;
   int64_t position_;
+  bool is_open_;
 };
 
 }  // namespace io

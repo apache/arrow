@@ -189,6 +189,8 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
 
   Status Close() override;
 
+  bool closed() const override;
+
   Status GetSize(int64_t* size) override;
 
   // NOTE: If you wish to read a particular range of a file in a multithreaded
@@ -227,6 +229,8 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
   ~HdfsOutputStream() override;
 
   Status Close() override;
+
+  bool closed() const override;
 
   Status Write(const void* buffer, int64_t nbytes) override;
 

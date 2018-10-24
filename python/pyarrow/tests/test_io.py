@@ -15,8 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import bz2
 from io import (BytesIO, TextIOWrapper, BufferedIOBase, IOBase)
 import gc
+import gzip
 import os
 import pickle
 import pytest
@@ -74,7 +76,9 @@ def test_python_file_write():
     result = buf.getvalue()
     assert result == expected
 
+    assert not f.closed
     f.close()
+    assert f.closed
 
 
 def test_python_file_read():
@@ -102,7 +106,9 @@ def test_python_file_read():
 
     assert f.size() == len(data)
 
+    assert not f.closed
     f.close()
+    assert f.closed
 
 
 def test_python_file_readall():
@@ -175,7 +181,9 @@ def test_bytes_reader():
 
     assert f.read(50) == b'sample data'
 
+    assert not f.closed
     f.close()
+    assert f.closed
 
 
 def test_bytes_reader_non_bytes():
@@ -541,7 +549,6 @@ def test_uninitialized_buffer():
 def test_memory_output_stream():
     # 10 bytes
     val = b'dataabcdef'
-
     f = pa.BufferOutputStream()
 
     K = 1000
@@ -549,7 +556,6 @@ def test_memory_output_stream():
         f.write(val)
 
     buf = f.getvalue()
-
     assert len(buf) == len(val) * K
     assert buf.to_pybytes() == val * K
 
@@ -557,7 +563,9 @@ def test_memory_output_stream():
 def test_inmemory_write_after_closed():
     f = pa.BufferOutputStream()
     f.write(b'ok')
+    assert not f.closed
     f.getvalue()
+    assert f.closed
 
     with pytest.raises(ValueError):
         f.write(b'not ok')
@@ -931,3 +939,114 @@ def test_native_file_TextIOWrapper(tmpdir):
     with TextIOWrapper(pa.OSFile(path2, mode='rb')) as fil:
         res = fil.read()
         assert res == data
+
+
+# ----------------------------------------------------------------------
+# Compressed input and output streams
+
+def check_compressed_input(data, fn, compression):
+    raw = pa.OSFile(fn, mode="rb")
+    with pa.CompressedInputStream(raw, compression) as compressed:
+        assert not compressed.closed
+        assert compressed.readable()
+        assert not compressed.writable()
+        assert not compressed.seekable()
+        got = compressed.read()
+        assert got == data
+    assert compressed.closed
+    assert raw.closed
+
+    # Same with read_buffer()
+    raw = pa.OSFile(fn, mode="rb")
+    with pa.CompressedInputStream(raw, compression) as compressed:
+        buf = compressed.read_buffer()
+        assert isinstance(buf, pa.Buffer)
+        assert buf.to_pybytes() == data
+
+
+def test_compressed_input_gzip(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    fn = str(tmpdir / "compressed_input_test.gz")
+    with gzip.open(fn, "wb") as f:
+        f.write(data)
+    check_compressed_input(data, fn, "gzip")
+
+
+def test_compressed_input_bz2(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    fn = str(tmpdir / "compressed_input_test.bz2")
+    with bz2.BZ2File(fn, "w") as f:
+        f.write(data)
+    try:
+        check_compressed_input(data, fn, "bz2")
+    except NotImplementedError as e:
+        pytest.skip(str(e))
+
+
+def test_compressed_input_invalid():
+    data = b"foo" * 10
+    raw = pa.BufferReader(data)
+    with pytest.raises(ValueError):
+        pa.CompressedInputStream(raw, "unknown_compression")
+    with pytest.raises(ValueError):
+        pa.CompressedInputStream(raw, None)
+
+    with pa.CompressedInputStream(raw, "gzip") as compressed:
+        with pytest.raises(IOError, match="zlib inflate failed"):
+            compressed.read()
+
+
+def make_compressed_output(data, fn, compression):
+    raw = pa.BufferOutputStream()
+    with pa.CompressedOutputStream(raw, compression) as compressed:
+        assert not compressed.closed
+        assert not compressed.readable()
+        assert compressed.writable()
+        assert not compressed.seekable()
+        compressed.write(data)
+    assert compressed.closed
+    assert raw.closed
+    with open(fn, "wb") as f:
+        f.write(raw.getvalue())
+
+
+def test_compressed_output_gzip(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    fn = str(tmpdir / "compressed_output_test.gz")
+    make_compressed_output(data, fn, "gzip")
+    with gzip.open(fn, "rb") as f:
+        got = f.read()
+        assert got == data
+
+
+def test_compressed_output_bz2(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    fn = str(tmpdir / "compressed_output_test.bz2")
+    try:
+        make_compressed_output(data, fn, "bz2")
+    except NotImplementedError as e:
+        pytest.skip(str(e))
+    with bz2.BZ2File(fn, "r") as f:
+        got = f.read()
+        assert got == data
+
+
+@pytest.mark.parametrize("compression",
+                         ["bz2", "brotli", "gzip", "lz4", "zstd"])
+def test_compressed_roundtrip(compression):
+    data = b"some test data\n" * 10 + b"eof\n"
+    raw = pa.BufferOutputStream()
+    try:
+        with pa.CompressedOutputStream(raw, compression) as compressed:
+            compressed.write(data)
+    except NotImplementedError as e:
+        if compression == "bz2":
+            pytest.skip(str(e))
+        else:
+            raise
+    cdata = raw.getvalue()
+    assert len(cdata) < len(data)
+    raw = pa.BufferReader(cdata)
+    with pa.CompressedInputStream(raw, compression) as compressed:
+        got = compressed.read()
+        assert got == data

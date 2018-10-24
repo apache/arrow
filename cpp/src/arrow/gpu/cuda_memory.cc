@@ -206,6 +206,14 @@ class CudaBufferWriter::CudaBufferWriterImpl {
     return Status::OK();
   }
 
+  Status Close() {
+    if (!closed_) {
+      closed_ = true;
+      RETURN_NOT_OK(Flush());
+    }
+    return Status::OK();
+  }
+
   Status Flush() {
     if (buffer_size_ > 0 && buffer_position_ > 0) {
       // Only need to flush when the write has been buffered
@@ -216,6 +224,8 @@ class CudaBufferWriter::CudaBufferWriterImpl {
     }
     return Status::OK();
   }
+
+  bool closed() const { return closed_; }
 
   Status Tell(int64_t* position) const {
     *position = position_;
@@ -275,6 +285,7 @@ class CudaBufferWriter::CudaBufferWriterImpl {
   uint8_t* mutable_data_;
   int64_t size_;
   int64_t position_;
+  bool closed_;
 
   // Pinned host buffer for buffering writes on CPU before calling cudaMalloc
   int64_t buffer_size_;
@@ -289,7 +300,9 @@ CudaBufferWriter::CudaBufferWriter(const std::shared_ptr<CudaBuffer>& buffer) {
 
 CudaBufferWriter::~CudaBufferWriter() {}
 
-Status CudaBufferWriter::Close() { return Flush(); }
+Status CudaBufferWriter::Close() { return impl_->Close(); }
+
+bool CudaBufferWriter::closed() const { return impl_->closed(); }
 
 Status CudaBufferWriter::Flush() { return impl_->Flush(); }
 

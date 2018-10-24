@@ -162,6 +162,8 @@ class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
   /// \brief Close writer and flush buffered bytes to GPU
   Status Close() override;
 
+  bool closed() const override;
+
   /// \brief Flush buffered bytes to GPU
   Status Flush() override;
 

@@ -138,7 +138,9 @@ TEST_F(TestFileOutputStream, Close) {
   ASSERT_OK(file_->Write(data, strlen(data)));
 
   int fd = file_->file_descriptor();
+  ASSERT_FALSE(file_->closed());
   ASSERT_OK(file_->Close());
+  ASSERT_TRUE(file_->closed());
   ASSERT_TRUE(FileIsClosed(fd));
 
   // Idempotent
@@ -149,7 +151,9 @@ TEST_F(TestFileOutputStream, Close) {
   ASSERT_OK(stream_->Write(data, strlen(data)));
 
   fd = std::static_pointer_cast<FileOutputStream>(stream_)->file_descriptor();
+  ASSERT_FALSE(stream_->closed());
   ASSERT_OK(stream_->Close());
+  ASSERT_TRUE(stream_->closed());
   ASSERT_TRUE(FileIsClosed(fd));
 
   // Idempotent
@@ -305,7 +309,9 @@ TEST_F(TestReadableFile, Close) {
   OpenFile();
 
   int fd = file_->file_descriptor();
+  ASSERT_FALSE(file_->closed());
   ASSERT_OK(file_->Close());
+  ASSERT_TRUE(file_->closed());
 
   ASSERT_TRUE(FileIsClosed(fd));
 
@@ -559,7 +565,9 @@ TEST_F(TestPipeIO, TestWrite) {
   ASSERT_EQ(bytes_read, 4);
   ASSERT_EQ(0, std::memcmp(buffer, "data", 4));
 
+  ASSERT_FALSE(file->closed());
   ASSERT_OK(file->Close());
+  ASSERT_TRUE(file->closed());
   ASSERT_OK(internal::FileRead(r_, buffer, 2, &bytes_read));
   ASSERT_EQ(bytes_read, 1);
   ASSERT_EQ(0, std::memcmp(buffer, "!", 1));
@@ -963,7 +971,9 @@ TEST_F(TestMemoryMappedFile, RetainMemoryMapReference) {
     std::shared_ptr<MemoryMappedFile> rwmmap;
     ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, &rwmmap));
     ASSERT_OK(rwmmap->Write(buffer.data(), buffer_size));
+    ASSERT_FALSE(rwmmap->closed());
     ASSERT_OK(rwmmap->Close());
+    ASSERT_TRUE(rwmmap->closed());
   }
 
   std::shared_ptr<Buffer> out_buffer;
@@ -972,7 +982,9 @@ TEST_F(TestMemoryMappedFile, RetainMemoryMapReference) {
     std::shared_ptr<MemoryMappedFile> rommap;
     ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READ, &rommap));
     ASSERT_OK(rommap->Read(buffer_size, &out_buffer));
+    ASSERT_FALSE(rommap->closed());
     ASSERT_OK(rommap->Close());
+    ASSERT_TRUE(rommap->closed());
   }
 
   // valgrind will catch if memory is unmapped

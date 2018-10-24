@@ -573,9 +573,9 @@ cdef class BufferReader(NativeFile):
     def __cinit__(self, CudaBuffer obj):
         self.buffer = obj
         self.reader = new CCudaBufferReader(self.buffer.buffer)
-        self.rd_file.reset(self.reader)
+        self.set_random_access_file(
+            shared_ptr[RandomAccessFile](self.reader))
         self.is_readable = True
-        self.closed = False
 
     def read_buffer(self, nbytes=None):
         """Return a slice view of the underlying device buffer.
@@ -621,9 +621,8 @@ cdef class BufferWriter(NativeFile):
     def __cinit__(self, CudaBuffer buffer):
         self.buffer = buffer
         self.writer = new CCudaBufferWriter(self.buffer.cuda_buffer)
-        self.wr_file.reset(self.writer)
+        self.set_output_stream(shared_ptr[OutputStream](self.writer))
         self.is_writable = True
-        self.closed = False
 
     def writeat(self, int64_t position, object data):
         """Write data to buffer starting from position.
