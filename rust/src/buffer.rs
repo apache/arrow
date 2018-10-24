@@ -402,7 +402,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ensure_null_bits() {
+    fn test_set_null_bits() {
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         mut_buf.set_null_bits(0, 64);
         let buf = mut_buf.freeze();
