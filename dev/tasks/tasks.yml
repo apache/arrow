@@ -45,6 +45,7 @@ groups:
     - ubuntu-trusty
     - ubuntu-xenial
     - ubuntu-bionic
+    - ubuntu-cosmic
     - centos-6
     - centos-7
 
