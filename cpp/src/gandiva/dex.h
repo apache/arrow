@@ -282,7 +282,11 @@ class InExprDex;
 template <typename Type>
 class InExprDexBase : public Dex {
  public:
-  explicit InExprDexBase(const ValueValidityPairVector& args) : args_(args) {}
+  InExprDexBase(const ValueValidityPairVector& args,
+                const std::unordered_set<Type>& values)
+      : args_(args) {
+    in_holder_.reset(new InHolder<Type>(values));
+  }
 
   const ValueValidityPairVector& args() const { return args_; }
 
@@ -290,9 +294,12 @@ class InExprDexBase : public Dex {
 
   const std::string& runtime_function() const { return runtime_function_; }
 
+  const std::shared_ptr<InHolder<Type>>& in_holder() const { return in_holder_; }
+
  protected:
   ValueValidityPairVector args_;
   std::string runtime_function_;
+  std::shared_ptr<InHolder<Type>> in_holder_;
 };
 
 template <>
@@ -300,46 +307,29 @@ class InExprDex<int32_t> : public InExprDexBase<int32_t> {
  public:
   InExprDex(const ValueValidityPairVector& args,
             const std::unordered_set<int32_t>& values)
-      : InExprDexBase(args) {
-    in_holder_.reset(new InHolder<int32_t>(values));
+      : InExprDexBase(args, values) {
     runtime_function_ = "gdv_fn_in_expr_lookup_int32";
   }
-
-  const std::shared_ptr<InHolder<int32_t>>& in_holder() const { return in_holder_; }
-
- private:
-  std::shared_ptr<InHolder<int32_t>> in_holder_;
 };
 
 template <>
 class InExprDex<int64_t> : public InExprDexBase<int64_t> {
  public:
-  InExprDex(const ValueValidityPairVector& args, const std::unordered_set<int64_t> values)
-      : InExprDexBase(args) {
-    in_holder_.reset(new InHolder<int64_t>(values));
+  InExprDex(const ValueValidityPairVector& args,
+            const std::unordered_set<int64_t>& values)
+      : InExprDexBase(args, values) {
     runtime_function_ = "gdv_fn_in_expr_lookup_int64";
   }
-
-  const std::shared_ptr<InHolder<int64_t>>& in_holder() const { return in_holder_; }
-
- private:
-  std::shared_ptr<InHolder<int64_t>> in_holder_;
 };
 
 template <>
 class InExprDex<std::string> : public InExprDexBase<std::string> {
  public:
   InExprDex(const ValueValidityPairVector& args,
-            const std::unordered_set<std::string> values)
-      : InExprDexBase(args) {
-    in_holder_.reset(new InHolder<std::string>(values));
+            const std::unordered_set<std::string>& values)
+      : InExprDexBase(args, values) {
     runtime_function_ = "gdv_fn_in_expr_lookup_utf8";
   }
-
-  const std::shared_ptr<InHolder<std::string>>& in_holder() const { return in_holder_; }
-
- private:
-  std::shared_ptr<InHolder<std::string>> in_holder_;
 };
 
 }  // namespace gandiva

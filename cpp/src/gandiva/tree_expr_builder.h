@@ -88,10 +88,10 @@ class TreeExprBuilder {
                                     const FieldVector& in_fields);
 
   /// \brief creates an in expression
-  static NodePtr MakeInExpressionInt(NodePtr node,
-                                     const std::unordered_set<int32_t>& constants);
-  static NodePtr MakeInExpressionLong(NodePtr node,
-                                      const std::unordered_set<int64_t>& constants);
+  static NodePtr MakeInExpressionInt32(NodePtr node,
+                                       const std::unordered_set<int32_t>& constants);
+  static NodePtr MakeInExpressionInt64(NodePtr node,
+                                       const std::unordered_set<int64_t>& constants);
   static NodePtr MakeInExpressionString(NodePtr node,
                                         const std::unordered_set<std::string>& constants);
   static NodePtr MakeInExpressionBinary(NodePtr node,

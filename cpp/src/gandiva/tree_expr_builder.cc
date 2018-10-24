@@ -183,8 +183,8 @@ ConditionPtr TreeExprBuilder::MakeCondition(const std::string& function,
     return std::make_shared<InExpressionNode<ctype>>(node, values); \
   }
 
-MAKE_IN(Int, int32_t);
-MAKE_IN(Long, int64_t);
+MAKE_IN(Int32, int32_t);
+MAKE_IN(Int64, int64_t);
 MAKE_IN(Date, int64_t);
 MAKE_IN(TimeStamp, int64_t);
 MAKE_IN(Time, int32_t);

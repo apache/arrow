@@ -112,18 +112,18 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->i32_type(),  // int32 value
           types->i1_type()};  // bool in_validity
 
-  engine.AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_int32",
-                                 types->i1_type() /*return_type*/, args,
-                                 reinterpret_cast<void*>(gdv_fn_in_expr_lookup_int32));
+  engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_int32",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_in_expr_lookup_int32));
 
   // gdv_fn_in_expr_lookup_int64
   args = {types->i64_type(),  // int64_t in holder ptr
           types->i64_type(),  // int64 value
           types->i1_type()};  // bool in_validity
 
-  engine.AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_int64",
-                                 types->i1_type() /*return_type*/, args,
-                                 reinterpret_cast<void*>(gdv_fn_in_expr_lookup_int64));
+  engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_int64",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_in_expr_lookup_int64));
 
   // gdv_fn_in_expr_lookup_utf8
   args = {types->i64_type(),     // int64_t in holder ptr
@@ -131,9 +131,9 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->i32_type(),     // int value_len
           types->i1_type()};     // bool in_validity
 
-  engine.AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_utf8",
-                                 types->i1_type() /*return_type*/, args,
-                                 reinterpret_cast<void*>(gdv_fn_in_expr_lookup_utf8));
+  engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_utf8",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_in_expr_lookup_utf8));
 }
 
 }  // namespace gandiva

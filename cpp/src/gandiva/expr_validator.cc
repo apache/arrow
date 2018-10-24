@@ -161,56 +161,33 @@ Status ExprValidator::Visit(const BooleanNode& node) {
  * 2. Expression returns of the same type as the constants.
  */
 Status ExprValidator::Visit(const InExpressionNode<int32_t>& node) {
-  Status status;
-
-  if (node.values().size() == 0) {
-    std::stringstream ss;
-    ss << "IN Expression needs a non-empty constant list to match.";
-    return Status::ExpressionValidationError(ss.str());
-  }
-
-  if (!node.eval_expr()->return_type()->Equals(arrow::int32())) {
-    std::stringstream ss;
-    ss << "Evaluation expression for IN clause returns "
-       << node.eval_expr()->return_type() << " values are of type int32";
-    return Status::ExpressionValidationError(ss.str());
-  }
-
-  return Status::OK();
+  return ValidateInExpression(node.values().size(), node.eval_expr()->return_type(),
+                              arrow::int32());
 }
 
 Status ExprValidator::Visit(const InExpressionNode<int64_t>& node) {
-  Status status;
-
-  if (node.values().size() == 0) {
-    std::stringstream ss;
-    ss << "IN Expression needs a non-empty constant list to match.";
-    return Status::ExpressionValidationError(ss.str());
-  }
-
-  if (!node.eval_expr()->return_type()->Equals(arrow::int64())) {
-    std::stringstream ss;
-    ss << "Evaluation expression for IN clause returns "
-       << node.eval_expr()->return_type() << " values are of type int64";
-    return Status::ExpressionValidationError(ss.str());
-  }
-
-  return Status::OK();
+  return ValidateInExpression(node.values().size(), node.eval_expr()->return_type(),
+                              arrow::int64());
 }
 
 Status ExprValidator::Visit(const InExpressionNode<std::string>& node) {
-  Status status;
+  return ValidateInExpression(node.values().size(), node.eval_expr()->return_type(),
+                              arrow::utf8());
+}
 
-  if (node.values().size() == 0) {
+Status ExprValidator::ValidateInExpression(int32_t number_of_values,
+                                           DataTypePtr in_expr_return_type,
+                                           DataTypePtr type_of_values) {
+  if (number_of_values == 0) {
     std::stringstream ss;
     ss << "IN Expression needs a non-empty constant list to match.";
     return Status::ExpressionValidationError(ss.str());
   }
 
-  if (!node.eval_expr()->return_type()->Equals(arrow::utf8())) {
+  if (!in_expr_return_type->Equals(type_of_values)) {
     std::stringstream ss;
-    ss << "Evaluation expression for IN clause returns "
-       << node.eval_expr()->return_type() << " values are of type string";
+    ss << "Evaluation expression for IN clause returns " << in_expr_return_type
+       << " values are of type" << type_of_values;
     return Status::ExpressionValidationError(ss.str());
   }
 

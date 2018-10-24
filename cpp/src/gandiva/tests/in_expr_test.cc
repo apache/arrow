@@ -47,7 +47,7 @@ TEST_F(TestIn, TestInSimple) {
   auto sum_func =
       TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::int32());
   std::unordered_set<int32_t> in_constants({6, 11});
-  auto in_expr = TreeExprBuilder::MakeInExpressionInt(sum_func, in_constants);
+  auto in_expr = TreeExprBuilder::MakeInExpressionInt32(sum_func, in_constants);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
