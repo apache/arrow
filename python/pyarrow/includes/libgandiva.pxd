@@ -83,4 +83,6 @@ cdef extern from "gandiva/projector.h" namespace "gandiva" nogil:
 
     cdef cppclass CProjector" gandiva::Projector":
 
-         GStatus Evaluate(const CRecordBatch& batch, CMemoryPool* pool, const CArrayVector* output)
+        GStatus Evaluate(
+            const CRecordBatch& batch, CMemoryPool* pool,
+            const CArrayVector* output)
