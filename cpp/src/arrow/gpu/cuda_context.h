@@ -36,7 +36,7 @@ class ARROW_EXPORT CudaDeviceManager {
  public:
   static Status GetInstance(CudaDeviceManager** manager);
 
-  /// \brief Get the cached CUDA driver context for a particular device
+  /// \brief Get the CUDA driver context for a particular device
   /// \param[in] device_number
   /// \param[out] out cached context
   Status GetContext(int gpu_number, std::shared_ptr<CudaContext>* ctx);
