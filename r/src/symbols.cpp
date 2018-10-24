@@ -19,8 +19,6 @@
 
 namespace arrow {
 namespace r {
-
 SEXP symbols::units = Rf_install("units");
-
 }
 }  // namespace arrow
