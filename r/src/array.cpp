@@ -25,6 +25,8 @@ namespace r {
 
 // the integer64 sentinel
 static const int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
+static const int64_t MAX_INT32 = std::numeric_limits<int32_t>::max();
+static const int64_t MIN_INT32 = std::numeric_limits<int32_t>::min();
 
 template <int RTYPE, typename Type>
 std::shared_ptr<Array> SimpleArray(SEXP x) {
@@ -713,19 +715,36 @@ SEXP IntFromInt64Array(const std::shared_ptr<Array>& array) {
   auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
   auto p_vec = reinterpret_cast<int32_t*>(vec.begin());
 
+  size_t overflowed = 0;
   if (array->null_count()) {
     internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
                                          n);
 
     for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
-      p_vec[i] = bitmap_reader.IsNotSet()
-      ? NA_INTEGER
-      : p_values[i];
+      if (p_values[i] > MAX_INT32 || p_values[i] < MIN_INT32) {
+        overflowed++;
+        p_vec[i] = NA_INTEGER;
+      }
+      else {
+        p_vec[i] = bitmap_reader.IsNotSet()
+        ? NA_INTEGER
+        : p_values[i];
+      }
     }
   } else {
     for (size_t i = 0; i < n; i++) {
-      p_vec[i] = p_values[i];
+      if (p_values[i] > MAX_INT32 || p_values[i] < MIN_INT32) {
+        overflowed++;
+        p_vec[i] = NA_INTEGER;
+      }
+      else {
+        p_vec[i] = p_values[i];
+      }
     }
+  }
+
+  if (overflowed > 0) {
+    Rcpp::warning(tfm::format("Integer overflow, %i values replaced with NAs. Consider using 'options(arrow.int64 = \"bit64\")'.", overflowed));
   }
 
   return vec;
