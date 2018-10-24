@@ -49,6 +49,18 @@ matrix:
   allow_failures:
   - jdk: oraclejdk9
   include:
+  # Lint C++, Python, R
+  - os: linux
+    language: python
+    python: "3.6"
+    env:
+    - ARROW_TRAVIS_CLANG_FORMAT=1
+    before_script:
+    # Always run RAT checks, in case another build in matrix breaks RAT
+    - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
   # C++ & Python w/ clang 6.0
   - compiler: gcc
     language: cpp
@@ -59,7 +71,6 @@ matrix:
     - ARROW_TRAVIS_VALGRIND=1
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_CLANG_FORMAT=1
     - ARROW_TRAVIS_COVERAGE=1
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
@@ -71,13 +82,9 @@ matrix:
     - CC="clang-6.0"
     - CXX="clang++-6.0"
     before_script:
-    # Always run RAT checks, in case another build in matrix breaks RAT
-    - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh
     # (ARROW_CI_CPP_AFFECTED implies ARROW_CI_PYTHON_AFFECTED)
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
@@ -102,7 +109,6 @@ matrix:
     - ARROW_TRAVIS_GANDIVA=1
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_VALGRIND=1
-    - ARROW_TRAVIS_CLANG_FORMAT=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
     before_script:
@@ -110,7 +116,6 @@ matrix:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
@@ -305,7 +310,6 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib
     - export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib/pkgconfig
     - pushd ${TRAVIS_BUILD_DIR}/r
