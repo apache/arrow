@@ -27,6 +27,7 @@ from libc.stdint cimport int64_t, uint8_t, uintptr_t
 
 from pyarrow.includes.libarrow cimport *
 from pyarrow.compat import frombytes
+from pyarrow.lib cimport pyarrow_wrap_array
 
 from pyarrow.includes.libgandiva cimport (GStatus, CExpression,
                                           CNode, CProjector,
@@ -67,11 +68,6 @@ cdef class Expression:
     cdef void init(self, shared_ptr[CExpression] expression):
         self.expression = expression
 
-cdef make_array(shared_ptr[CArray] array):
-    cdef Array result = Array()
-    result.init(array)
-    return result
-
 cdef class Projector:
     cdef:
         shared_ptr[CProjector] projector
@@ -86,7 +82,7 @@ cdef class Projector:
         cdef shared_ptr[CArray] result
         arrays = []
         for result in results:
-            arrays.append(make_array(result))
+            arrays.append(pyarrow_wrap_array(result))
         return arrays
 
 cdef class TreeExprBuilder:
