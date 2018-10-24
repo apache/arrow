@@ -23,9 +23,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include <boost/functional/hash.hpp>
-#include <boost/variant.hpp>
-
 namespace gandiva {
 
 class Dex;

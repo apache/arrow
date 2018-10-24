@@ -22,8 +22,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include <boost/lexical_cast.hpp>
-
 #include "gandiva/arrow.h"
 #include "gandiva/func_descriptor.h"
 #include "gandiva/gandiva_aliases.h"

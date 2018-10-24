@@ -182,7 +182,7 @@ Status ExprDecomposer::Visit(const BooleanNode& node) {
     auto status = node.eval_expr()->Accept(*this);                            \
     GANDIVA_RETURN_NOT_OK(status);                                            \
     args.push_back(result());                                                 \
-    /* In always outpus valid results, so no validity dex */                  \
+    /* In always outputs valid results, so no validity dex */                 \
     auto value_dex = std::make_shared<InExprDex<ctype>>(args, node.values()); \
     result_ = std::make_shared<ValueValidityPair>(value_dex);                 \
     return Status::OK();                                                      \
