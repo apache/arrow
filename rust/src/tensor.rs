@@ -54,23 +54,23 @@ fn compute_column_major_strides<T>(shape: &Vec<i64>) -> Vec<i64>
 }
 
 /// Tensor of primitive types, excl boolean
-pub struct Tensor<T> where T: ArrowPrimitiveType {
+pub struct Tensor<'a, T> where T: ArrowPrimitiveType {
     data_type: DataType,
     buffer: Buffer,
     shape: Option<Vec<i64>>,
     strides: Option<Vec<i64>>,
-    names: Option<Vec<String>>,
+    names: Option<Vec<&'a str>>,
     _marker: PhantomData<T>,
 }
 
 macro_rules! impl_tensor {
 ($data_ty:path, $native_ty:ident) => {
-        impl Tensor<$native_ty> {
+        impl<'a> Tensor<'a, $native_ty> {
             /// Creates a new `Tensor`
             pub fn new(buffer: Buffer,
                        shape: Option<Vec<i64>>,
                        strides: Option<Vec<i64>>,
-                       names: Option<Vec<String>>) -> Self {
+                       names: Option<Vec<&'a str>>) -> Self {
                 if shape.is_none() {
                     assert_eq!(buffer.len(), mem::size_of::<$native_ty>(), "UPDATE");
                     assert_eq!(None, strides);
@@ -89,7 +89,7 @@ macro_rules! impl_tensor {
             /// Creates a new Tensor using a row major memory layout
             pub fn new_row_major(buffer: Buffer,
                        shape: Option<Vec<i64>>,
-                       names: Option<Vec<String>>) -> Self {
+                       names: Option<Vec<&'a str>>) -> Self {
                 let strides = match &shape {
                     None => None,
                     Some(ref s) => Some(compute_row_major_strides::<$native_ty>(&s))
@@ -100,7 +100,7 @@ macro_rules! impl_tensor {
             /// Creates a new Tensor using a column major memory layout
             pub fn new_column_major(buffer: Buffer,
                        shape: Option<Vec<i64>>,
-                       names: Option<Vec<String>>) -> Self {
+                       names: Option<Vec<&'a str>>) -> Self {
                 let strides = match &shape {
                     None => None,
                     Some(ref s) => Some(compute_column_major_strides::<$native_ty>(&s))
@@ -129,7 +129,7 @@ macro_rules! impl_tensor {
             }
 
             /// The names of the dimensions
-            pub fn names(&self) -> Option<&Vec<String>> {
+            pub fn names(&self) -> Option<&Vec<&'a str>> {
                 self.names.as_ref()
             }
 
@@ -141,14 +141,14 @@ macro_rules! impl_tensor {
                 }
             }
 
-            pub fn dim_name(&self, i: i64) -> Option<&String> {
+            pub fn dim_name(&self, i: i64) -> Option<&'a str> {
                 match &self.names {
                     None => None,
                     Some(ref names) => Some(&names[i as usize])
                 }
             }
 
-            /// The totol number of elements in the `Tensor`
+            /// The total number of elements in the `Tensor`
             pub fn size(&self) -> i64 {
                 (self.buffer.len() / mem::size_of::<$native_ty>()) as i64
             }
@@ -291,12 +291,12 @@ mod tests {
             builder.push(i).unwrap();
         }
         let buf = builder.finish();
-        let names = vec!["Dim 1".to_string(), "Dim 2".to_string()];
+        let names = vec!["Dim 1", "Dim 2"];
         let tensor = Tensor::<i64>::new_column_major(buf, Some(vec![2, 4]), Some(names));
         assert_eq!(8, tensor.size());
         assert_eq!(Some(vec![2_i64, 4]).as_ref(), tensor.shape());
-        assert_eq!(&"Dim 1".to_string(), tensor.dim_name(0).unwrap());
-        assert_eq!(&"Dim 2".to_string(), tensor.dim_name(1).unwrap());
+        assert_eq!("Dim 1", tensor.dim_name(0).unwrap());
+        assert_eq!("Dim 2", tensor.dim_name(1).unwrap());
         assert_eq!(2, tensor.ndim());
         assert_eq!(false, tensor.is_row_major());
         assert_eq!(true, tensor.is_column_major());
