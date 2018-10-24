@@ -99,6 +99,7 @@ if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
   conda install -q -y ^
       brotli ^
+      bzip2 ^
       cmake ^
       flatbuffers ^
       gflags ^

@@ -19,6 +19,11 @@
 @rem (i.e. for usual configurations)
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
+set CMAKE_ARGS=
+
+if "%JOB%" == "Toolchain" (
+    set CMAKE_ARGS=%CMAKE_ARGS% -DARROW_WITH_BZ2=ON
+)
 
 @rem Retrieve git submodules, configure env var for Parquet unit tests
 git submodule update --init || exit /B
@@ -38,7 +43,7 @@ set CMAKE_CXX_FLAGS_RELEASE=/Od /UNDEBUG
 mkdir cpp\build
 pushd cpp\build
 
-cmake -G "%GENERATOR%" ^
+cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^

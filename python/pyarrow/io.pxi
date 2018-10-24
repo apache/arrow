@@ -1135,6 +1135,8 @@ cdef CompressionType _get_compression_type(object name):
 cdef CompressionType _get_compression_type_by_filename(filename):
     if filename.endswith('.gz'):
         return CompressionType_GZIP
+    elif filename.endswith('.bz2'):
+        return CompressionType_BZ2
     elif filename.endswith('.lz4'):
         return CompressionType_LZ4
     elif filename.endswith('.zst'):

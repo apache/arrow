@@ -28,6 +28,7 @@ install(FILES
   compiler-util.h
   compression.h
   compression_brotli.h
+  compression_bz2.h
   compression_lz4.h
   compression_snappy.h
   compression_zlib.h

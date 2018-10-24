@@ -228,6 +228,10 @@ Pass multiple labels by dividing with semicolons")
     "Build with Brotli compression"
     ON)
 
+  option(ARROW_WITH_BZ2
+    "Build with BZ2 compression"
+    OFF)
+
   option(ARROW_WITH_LZ4
     "Build with lz4 compression"
     ON)
@@ -611,6 +615,10 @@ if (ARROW_WITH_BROTLI)
     brotli_enc
     brotli_common
     ${ARROW_STATIC_LINK_LIBS})
+endif()
+
+if (ARROW_WITH_BZ2)
+  SET(ARROW_STATIC_LINK_LIBS bz2_static ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_WITH_LZ4)

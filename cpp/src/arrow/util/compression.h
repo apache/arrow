@@ -28,7 +28,7 @@ namespace arrow {
 class Status;
 
 struct Compression {
-  enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZO };
+  enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZO, BZ2 };
 };
 
 namespace util {

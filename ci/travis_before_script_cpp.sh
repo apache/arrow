@@ -52,6 +52,7 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   # Set up C++ toolchain from conda-forge packages for faster builds
   source $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
   CMAKE_COMMON_FLAGS="${CMAKE_COMMON_FLAGS} -DARROW_JEMALLOC=ON"
+  CMAKE_COMMON_FLAGS="${CMAKE_COMMON_FLAGS} -DARROW_WITH_BZ2=ON"
 fi
 
 mkdir -p $ARROW_CPP_BUILD_DIR
