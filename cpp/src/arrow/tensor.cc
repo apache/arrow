@@ -147,17 +147,9 @@ template <typename TYPE>
 int64_t NumericTensor<TYPE>::CalculateValueOffset(
     const std::vector<int64_t>& index) const {
   int64_t offset = 0;
-  if (strides_.size() > 0) {
-    for (size_t i = 0; i < index.size(); ++i) {
-      offset += index[i] * strides_[i];
-    }
-  } else {
-    for (size_t i = 0; i < index.size(); ++i) {
-      offset = index[i] + offset * shape_[i];
-    }
-    offset *= static_cast<int64_t>(sizeof(value_type));
+  for (size_t i = 0; i < index.size(); ++i) {
+    offset += index[i] * strides_[i];
   }
-
   return offset;
 }
 
