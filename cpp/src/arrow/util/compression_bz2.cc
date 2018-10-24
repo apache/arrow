@@ -118,11 +118,11 @@ class BZ2Decompressor : public Decompressor {
     int ret;
 
     ret = BZ2_bzDecompress(&stream_);
-    if (ret == BZ_OK || BZ_STREAM_END) {
+    if (ret == BZ_OK || ret == BZ_STREAM_END) {
       *bytes_read = input_len - stream_.avail_in;
       *bytes_written = output_len - stream_.avail_out;
-      *need_more_output = (*bytes_read == 0 && *bytes_written == 0);
       finished_ = (ret == BZ_STREAM_END);
+      *need_more_output = (!finished_ && *bytes_read == 0 && *bytes_written == 0);
       return Status::OK();
     } else {
       return BZ2Error("bz2 decompress failed: ", ret);
