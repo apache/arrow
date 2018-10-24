@@ -173,6 +173,7 @@ macro_rules! impl_tensor {
                 }
             }
 
+            /// The name of dimension i
             pub fn dim_name(&self, i: i64) -> Option<&'a str> {
                 match &self.names {
                     None => None,
@@ -185,12 +186,12 @@ macro_rules! impl_tensor {
                 (self.buffer.len() / mem::size_of::<$native_ty>()) as i64
             }
 
-            /// Is the data laid out contiguously in memory
+            /// Indicates if the data is laid out contiguously in memory
             pub fn is_contiguous(&self) -> bool {
                 self.is_row_major() || self.is_column_major()
             }
 
-            /// Is the memory layout row major
+            /// Indicates if the memory layout row major
             pub fn is_row_major(&self) -> bool {
                 match self.shape {
                     None => false,
@@ -198,7 +199,7 @@ macro_rules! impl_tensor {
                 }
             }
 
-            /// Is the memory layout column major
+            /// Indicates if the memory layout column major
             pub fn is_column_major(&self) -> bool {
                 match self.shape {
                     None => false,
