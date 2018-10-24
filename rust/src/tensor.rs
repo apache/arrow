@@ -22,7 +22,7 @@ use std::mem;
 use buffer::Buffer;
 use datatypes::{ArrowPrimitiveType, DataType};
 
-/// Computes the strides required given `shape` assuming a row major memory layout
+/// Computes the strides required assuming a row major memory layout
 fn compute_row_major_strides<T>(shape: &Vec<i64>) -> Vec<i64>
 where
     T: ArrowPrimitiveType,
@@ -40,7 +40,7 @@ where
     strides
 }
 
-/// Computes the strides required given `shape` assuming a column major memory layout
+/// Computes the strides required assuming a column major memory layout
 fn compute_column_major_strides<T>(shape: &Vec<i64>) -> Vec<i64>
 where
     T: ArrowPrimitiveType,
@@ -54,7 +54,7 @@ where
     strides
 }
 
-/// Tensor of primitive types, excl boolean
+/// Tensor of primitive types
 pub struct Tensor<'a, T>
 where
     T: ArrowPrimitiveType,
@@ -68,22 +68,40 @@ where
 }
 
 macro_rules! impl_tensor {
-($data_ty:path, $native_ty:ident) => {
+    ($data_ty:path, $native_ty:ident) => {
         impl<'a> Tensor<'a, $native_ty> {
             /// Creates a new `Tensor`
-            pub fn new(buffer: Buffer,
-                       shape: Option<Vec<i64>>,
-                       strides: Option<Vec<i64>>,
-                       names: Option<Vec<&'a str>>) -> Self {
+            pub fn new(
+                buffer: Buffer,
+                shape: Option<Vec<i64>>,
+                strides: Option<Vec<i64>>,
+                names: Option<Vec<&'a str>>,
+            ) -> Self {
                 match &shape {
                     None => {
-                        assert_eq!(buffer.len(), mem::size_of::<$native_ty>(), "underlying buffer should only contain a single tensor element");
+                        assert_eq!(
+                            buffer.len(),
+                            mem::size_of::<$native_ty>(),
+                            "underlying buffer should only contain a single tensor element"
+                        );
                         assert_eq!(None, strides);
                         assert_eq!(None, names);
-                    },
+                    }
                     Some(ref s) => {
-                        strides.iter().map(|i| assert_eq!(s.len(), i.len(), "shape and stride dimensions differ")).next();
-                        names.iter().map(|i| assert_eq!(s.len(), i.len(), "the number of dimension names provided is not the same as the number of dimensions")).next();
+                        strides
+                            .iter()
+                            .map(|i| {
+                                assert_eq!(s.len(), i.len(), "shape and stride dimensions differ")
+                            }).next();
+                        names
+                            .iter()
+                            .map(|i| {
+                                assert_eq!(
+                                    s.len(),
+                                    i.len(),
+                                    "number of dimensions and number of dimension names differ"
+                                )
+                            }).next();
                     }
                 };
                 Self {
@@ -96,24 +114,28 @@ macro_rules! impl_tensor {
                 }
             }
 
-            /// Creates a new Tensor using a row major memory layout
-            pub fn new_row_major(buffer: Buffer,
-                       shape: Option<Vec<i64>>,
-                       names: Option<Vec<&'a str>>) -> Self {
+            /// Creates a new Tensor using row major memory layout
+            pub fn new_row_major(
+                buffer: Buffer,
+                shape: Option<Vec<i64>>,
+                names: Option<Vec<&'a str>>,
+            ) -> Self {
                 let strides = match &shape {
                     None => None,
-                    Some(ref s) => Some(compute_row_major_strides::<$native_ty>(&s))
+                    Some(ref s) => Some(compute_row_major_strides::<$native_ty>(&s)),
                 };
                 Self::new(buffer, shape, strides, names)
             }
 
-            /// Creates a new Tensor using a column major memory layout
-            pub fn new_column_major(buffer: Buffer,
-                       shape: Option<Vec<i64>>,
-                       names: Option<Vec<&'a str>>) -> Self {
+            /// Creates a new Tensor using column major memory layout
+            pub fn new_column_major(
+                buffer: Buffer,
+                shape: Option<Vec<i64>>,
+                names: Option<Vec<&'a str>>,
+            ) -> Self {
                 let strides = match &shape {
                     None => None,
-                    Some(ref s) => Some(compute_column_major_strides::<$native_ty>(&s))
+                    Some(ref s) => Some(compute_column_major_strides::<$native_ty>(&s)),
                 };
                 Self::new(buffer, shape, strides, names)
             }
@@ -147,14 +169,14 @@ macro_rules! impl_tensor {
             pub fn ndim(&self) -> i64 {
                 match &self.shape {
                     None => 0,
-                    Some(v) => v.len() as i64
+                    Some(v) => v.len() as i64,
                 }
             }
 
             pub fn dim_name(&self, i: i64) -> Option<&'a str> {
                 match &self.names {
                     None => None,
-                    Some(ref names) => Some(&names[i as usize])
+                    Some(ref names) => Some(&names[i as usize]),
                 }
             }
 
@@ -172,9 +194,7 @@ macro_rules! impl_tensor {
             pub fn is_row_major(&self) -> bool {
                 match self.shape {
                     None => false,
-                    Some(ref s) => {
-                        Some(compute_row_major_strides::<$native_ty>(s)) == self.strides
-                    }
+                    Some(ref s) => Some(compute_row_major_strides::<$native_ty>(s)) == self.strides,
                 }
             }
 
@@ -343,9 +363,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "the number of dimension names provided is not the same as the number of dimensions"
-    )]
+    #[should_panic(expected = "number of dimensions and number of dimension names differ")]
     fn test_inconsistent_names() {
         let mut builder = BufferBuilder::<i32>::new(16);
         for i in 0..16 {
