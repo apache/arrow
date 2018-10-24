@@ -698,6 +698,39 @@ SEXP Int64Array(const std::shared_ptr<Array>& array) {
   return vec;
 }
 
+SEXP IntFromInt64Array(const std::shared_ptr<Array>& array) {
+  auto n = array->length();
+  IntegerVector vec(no_init(n));
+
+  if (n == 0) return vec;
+
+  auto null_count = array->null_count();
+  if (null_count == n) {
+    std::fill(vec.begin(), vec.end(), NA_INTEGER);
+    return vec;
+  }
+
+  auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
+  auto p_vec = reinterpret_cast<int32_t*>(vec.begin());
+
+  if (array->null_count()) {
+    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                         n);
+
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
+      p_vec[i] = bitmap_reader.IsNotSet()
+      ? NA_INTEGER
+      : p_values[i];
+    }
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      p_vec[i] = p_values[i];
+    }
+  }
+
+  return vec;
+}
+
 }  // namespace r
 }  // namespace arrow
 
@@ -747,7 +780,7 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
 
     // lossy promotions to numeric vector
     case Type::INT64:
-      return arrow::r::Int64Array(array);
+      return arrow::r::IntFromInt64Array(array);
 
     default:
       break;
