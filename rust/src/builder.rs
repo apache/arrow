@@ -132,7 +132,7 @@ impl BufferBuilder<bool> {
         let byte_capacity = bit_util::ceil(capacity, 8);
         let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity) as usize;
         let mut buffer = MutableBuffer::new(actual_capacity);
-        buffer.ensure_null_bits(0, actual_capacity);
+        buffer.set_null_bits(0, actual_capacity);
         Self {
             buffer,
             len: 0,
@@ -189,16 +189,16 @@ impl BufferBuilder<bool> {
         let new_byte_capacity = bit_util::ceil(new_capacity, 8) as usize;
         let existing_capacity = self.buffer.capacity();
         let capacity_added = self.buffer.resize(new_byte_capacity)?;
-        self.buffer
-            .ensure_null_bits(existing_capacity, capacity_added);
+        self.buffer.set_null_bits(existing_capacity, capacity_added);
         Ok(())
     }
 
     /// Build an immutable `Buffer` from the existing internal `MutableBuffer`'s memory
-    pub fn finish(self) -> Buffer {
+    pub fn finish(mut self) -> Buffer {
         // `push` does not update the buffer's `len` to it is done before `freeze` is called
         let new_buffer_len = bit_util::ceil(self.len, 8);
-        self.buffer.set_len(new_buffer_len as usize).freeze()
+        self.buffer.set_len(new_buffer_len as usize);
+        self.buffer.freeze()
     }
 }
 

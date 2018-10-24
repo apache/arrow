@@ -177,20 +177,19 @@ impl MutableBuffer {
     }
 
     /// Manually sets the `len` of this buffer
-    pub fn set_len(mut self, new_len: usize) -> Self {
+    pub fn set_len(&mut self, new_len: usize) {
         assert!(
             new_len <= self.capacity,
             "Unable to set len outside capacity"
         );
         self.len = new_len;
-        self
     }
 
     /// Ensure that `count` bytes from `start` contain zero bits
     ///
     /// This is used to initialize the bits in a buffer, however, it has no impact on the `len`
     /// of the buffer and so can be used to initialize the memory region from `len` to `capacity`.
-    pub fn ensure_null_bits(&mut self, start: usize, count: usize) {
+    pub fn set_null_bits(&mut self, start: usize, count: usize) {
         assert!(start + count <= self.capacity);
         unsafe {
             ::std::ptr::write_bytes(self.data.offset(start as isize), 0, count);
@@ -405,12 +404,12 @@ mod tests {
     #[test]
     fn test_ensure_null_bits() {
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
-        mut_buf.ensure_null_bits(0, 64);
+        mut_buf.set_null_bits(0, 64);
         let buf = mut_buf.freeze();
         assert_eq!(0, bit_util::count_set_bits(buf.data()));
 
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
-        mut_buf.ensure_null_bits(32, 32);
+        mut_buf.set_null_bits(32, 32);
         let buf = mut_buf.freeze();
         assert_eq!(256, bit_util::count_set_bits(buf.data()));
     }
