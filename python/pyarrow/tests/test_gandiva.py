@@ -38,8 +38,7 @@ def test_tree_exp_builder():
 
     expr = builder.make_expression(if_node, field_result)
 
-    projector = gandiva.make_projector(schema, [expr],
-                                       pa.default_memory_pool())
+    projector = gandiva.make_projector(schema, [expr], pa.default_memory_pool())
 
     a = pa.array([10, 12, -20, 5], type=pa.int32())
     b = pa.array([5, 15, 15, 17], type=pa.int32())

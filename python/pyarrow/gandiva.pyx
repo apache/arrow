@@ -71,14 +71,16 @@ cdef class Expression:
 cdef class Projector:
     cdef:
         shared_ptr[CProjector] projector
+        MemoryPool pool
 
-    cdef void init(self, shared_ptr[CProjector] projector):
+    cdef void init(self, shared_ptr[CProjector] projector, MemoryPool pool):
         self.projector = projector
+        self.pool = pool
 
     def evaluate(self, RecordBatch batch):
         cdef vector[shared_ptr[CArray]] results
         check_status(self.projector.get().Evaluate(
-            batch.sp_batch.get()[0], c_get_memory_pool(), &results))
+            batch.sp_batch.get()[0], self.pool.pool, &results))
         cdef shared_ptr[CArray] result
         arrays = []
         for result in results:
@@ -127,5 +129,5 @@ cpdef make_projector(Schema schema, children, MemoryPool pool):
     check_status(Projector_Make(schema.sp_schema, c_children,
                                 &result))
     cdef Projector projector = Projector()
-    projector.init(result)
+    projector.init(result, pool)
     return projector
