@@ -724,11 +724,8 @@ SEXP IntFromInt64Array(const std::shared_ptr<Array>& array) {
       if (p_values[i] > MAX_INT32 || p_values[i] < MIN_INT32) {
         overflowed++;
         p_vec[i] = NA_INTEGER;
-      }
-      else {
-        p_vec[i] = bitmap_reader.IsNotSet()
-        ? NA_INTEGER
-        : p_values[i];
+      } else {
+        p_vec[i] = bitmap_reader.IsNotSet() ? NA_INTEGER : p_values[i];
       }
     }
   } else {
@@ -736,15 +733,17 @@ SEXP IntFromInt64Array(const std::shared_ptr<Array>& array) {
       if (p_values[i] > MAX_INT32 || p_values[i] < MIN_INT32) {
         overflowed++;
         p_vec[i] = NA_INTEGER;
-      }
-      else {
+      } else {
         p_vec[i] = p_values[i];
       }
     }
   }
 
   if (overflowed > 0) {
-    Rcpp::warning(tfm::format("Integer overflow, %i values replaced with NAs. Consider using 'options(arrow.int64 = \"bit64\")'.", overflowed));
+    Rcpp::warning(
+        tfm::format("Integer overflow, %i values replaced with NAs. Consider using "
+                    "'options(arrow.int64 = \"bit64\")'.",
+                    overflowed));
   }
 
   return vec;
@@ -803,8 +802,7 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
       SEXP option = get_option("arrow.int64");
       if (!Rf_isNull(option) && std::string("integer") == CHAR(STRING_ELT(option, 0))) {
         return arrow::r::IntFromInt64Array(array);
-      }
-      else {
+      } else {
         return arrow::r::Int64Array(array);
       }
     }
