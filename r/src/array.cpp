@@ -682,7 +682,7 @@ SEXP Date32Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
 
 SEXP Date64Array_to_Vector(const std::shared_ptr<arrow::Array> array) {
   auto n = array->length();
-  NumericVector vec(n);
+  NumericVector vec(no_init(n));
   vec.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
   if (n == 0) {
     return vec;
@@ -744,7 +744,7 @@ SEXP promotion_Array_to_Vector(const std::shared_ptr<Array>& array) {
 
 SEXP Int64Array(const std::shared_ptr<Array>& array) {
   auto n = array->length();
-  NumericVector vec(n);
+  NumericVector vec(no_init(n));
   vec.attr("class") = "integer64";
   if (n == 0) {
     return vec;
@@ -769,6 +769,35 @@ SEXP Int64Array(const std::shared_ptr<Array>& array) {
 
   return vec;
 }
+
+template <typename value_type>
+SEXP TimeArray_to_Vector(const std::shared_ptr<Array>& array, int32_t multiplier) {
+  auto n = array->length();
+  NumericVector vec(no_init(n));
+  auto null_count = array->null_count();
+  vec.attr("class") = CharacterVector::create("hms", "difftime");
+  vec.attr("units") = "secs";
+  if (n == 0) {
+    return vec;
+  }
+  auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+  auto p_vec = vec.begin();
+
+  if (null_count) {
+    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+      array->offset(), n);
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_vec, ++p_values) {
+      *p_vec =
+        bitmap_reader.IsSet() ? (static_cast<double>(*p_values) / multiplier) : NA_REAL;
+    }
+  } else {
+    std::transform(p_values, p_values + n, vec.begin(), [multiplier](value_type value) {
+      return static_cast<double>(value) / multiplier;
+    });
+  }
+  return vec;
+}
+
 
 SEXP DecimalArray(const std::shared_ptr<Array>& array) {
   auto n = array->length();
@@ -851,7 +880,18 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
     case Type::FLOAT:
       return arrow::r::promotion_Array_to_Vector<REALSXP, arrow::UInt32Type>(array);
 
-    // lossy promotions to numeric vector
+    // time32 ane time64
+    case Type::TIME32:
+      return arrow::r::TimeArray_to_Vector<int32_t>(
+          array, static_cast<TimeType*>(array->type().get())->unit() == TimeUnit::SECOND
+                     ? 1
+                     : 1000);
+    case Type::TIME64:
+      return arrow::r::TimeArray_to_Vector<int64_t>(
+          array, static_cast<TimeType*>(array->type().get())->unit() == TimeUnit::MICRO
+                     ? 1000000
+                     : 1000000000);
+
     case Type::INT64:
       return arrow::r::Int64Array(array);
     case Type::DECIMAL:
