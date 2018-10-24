@@ -41,39 +41,39 @@ class Projector {
   /// Build a default projector for the given schema to evaluate
   /// the vector of expressions.
   ///
-  /// \param[in] : schema schema for the record batches, and the expressions.
-  /// \param[in] : exprs vector of expressions.
-  /// \param[out]: projector the returned projector object
+  /// \param[in] schema schema for the record batches, and the expressions.
+  /// \param[in] exprs vector of expressions.
+  /// \param[out] projector the returned projector object
   static Status Make(SchemaPtr schema, const ExpressionVector& exprs,
                      std::shared_ptr<Projector>* projector);
 
   /// Build a projector for the given schema to evaluate the vector of expressions.
   /// Customize the projector with runtime configuration.
   ///
-  /// \param[in] : schema schema for the record batches, and the expressions.
-  /// \param[in] : exprs vector of expressions.
-  /// \param[in] : run time configuration.
-  /// \param[out]: projector the returned projector object
+  /// \param[in] schema schema for the record batches, and the expressions.
+  /// \param[in] exprs vector of expressions.
+  /// \param[in] configuration run time configuration.
+  /// \param[out] projector the returned projector object
   static Status Make(SchemaPtr schema, const ExpressionVector& exprs,
-                     std::shared_ptr<Configuration>,
+                     std::shared_ptr<Configuration> configuration,
                      std::shared_ptr<Projector>* projector);
 
   /// Evaluate the specified record batch, and return the allocated and populated output
   /// arrays. The output arrays will be allocated from the memory pool 'pool', and added
   /// to the vector 'output'.
   ///
-  /// \param[in] : batch the record batch. schema should be the same as the one in 'Make'
-  /// \param[in] : pool memory pool used to allocate output arrays (if required).
-  /// \param[out]: output the vector of allocated/populated arrays.
+  /// \param[in] batch the record batch. schema should be the same as the one in 'Make'
+  /// \param[in] pool memory pool used to allocate output arrays (if required).
+  /// \param[out] output the vector of allocated/populated arrays.
   Status Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* pool,
-                  arrow::ArrayVector* ouput);
+                  arrow::ArrayVector* output);
 
   /// Evaluate the specified record batch, and populate the output arrays. The output
   /// arrays of sufficient capacity must be allocated by the caller.
   ///
-  /// \param[in] : batch the record batch. schema should be the same as the one in 'Make'
-  /// \param[in/out]: vector of arrays, the arrays are allocated by the caller and
-  ///                 populated by Evaluate.
+  /// \param[in] batch the record batch. schema should be the same as the one in 'Make'
+  /// \param[in,out] output vector of arrays, the arrays are allocated by the caller and
+  ///                populated by Evaluate.
   Status Evaluate(const arrow::RecordBatch& batch, const ArrayDataVector& output);
 
  private:

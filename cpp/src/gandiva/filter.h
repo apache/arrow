@@ -46,9 +46,9 @@ class Filter {
 
   /// Build a filter for the given schema and condition, with the default configuration.
   ///
-  /// \param[in] : schema schema for the record batches, and the condition.
-  /// \param[in] : condition filter condition.
-  /// \param[out]: filter the returned filter object
+  /// \param[in] schema schema for the record batches, and the condition.
+  /// \param[in] condition filter condition.
+  /// \param[out] filter the returned filter object
   static Status Make(SchemaPtr schema, ConditionPtr condition,
                      std::shared_ptr<Filter>* filter) {
     return Make(schema, condition, ConfigurationBuilder::DefaultConfiguration(), filter);
@@ -57,19 +57,19 @@ class Filter {
   /// \brief Build a filter for the given schema and condition.
   /// Customize the filter with runtime configuration.
   ///
-  /// \param[in] : schema schema for the record batches, and the condition.
-  /// \param[in] : condition filter conditions.
-  /// \param[in] : config run time configuration.
-  /// \param[out]: filter the returned filter object
+  /// \param[in] schema schema for the record batches, and the condition.
+  /// \param[in] condition filter conditions.
+  /// \param[in] config run time configuration.
+  /// \param[out] filter the returned filter object
   static Status Make(SchemaPtr schema, ConditionPtr condition,
                      std::shared_ptr<Configuration> config,
                      std::shared_ptr<Filter>* filter);
 
   /// Evaluate the specified record batch, and populate output selection vector.
   ///
-  /// \param[in] : batch the record batch. schema should be the same as the one in 'Make'
-  /// \param[in/out]: out_selection the selection array with indices of rows that match
-  ///                 the condition.
+  /// \param[in] batch the record batch. schema should be the same as the one in 'Make'
+  /// \param[in,out] out_selection the selection array with indices of rows that match
+  ///                the condition.
   Status Evaluate(const arrow::RecordBatch& batch,
                   std::shared_ptr<SelectionVector> out_selection);
 

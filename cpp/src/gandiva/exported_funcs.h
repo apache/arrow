@@ -28,18 +28,20 @@ class Engine;
 // Base-class type for exporting functions that can be accessed from LLVM/IR.
 class ExportedFuncsBase {
  public:
-  virtual void AddMappings(Engine& engine) const = 0;
+  virtual ~ExportedFuncsBase() = default;
+
+  virtual void AddMappings(Engine* engine) const = 0;
 };
 
 // Class for exporting Stub functions
 class ExportedStubFunctions : public ExportedFuncsBase {
-  void AddMappings(Engine& engine) const override;
+  void AddMappings(Engine* engine) const override;
 };
 REGISTER_EXPORTED_FUNCS(ExportedStubFunctions);
 
 // Class for exporting Context functions
 class ExportedContextFunctions : public ExportedFuncsBase {
-  void AddMappings(Engine& engine) const override;
+  void AddMappings(Engine* engine) const override;
 };
 REGISTER_EXPORTED_FUNCS(ExportedContextFunctions);
 

@@ -38,7 +38,7 @@ class FunctionRegistry;
 /// data types, signatures and return types
 class ExprValidator : public NodeVisitor {
  public:
-  explicit ExprValidator(LLVMTypes& types, SchemaPtr schema)
+  explicit ExprValidator(LLVMTypes* types, SchemaPtr schema)
       : types_(types), schema_(schema) {
     for (auto& field : schema_->fields()) {
       field_map_[field->name()] = field;
@@ -62,7 +62,7 @@ class ExprValidator : public NodeVisitor {
 
   FunctionRegistry registry_;
 
-  LLVMTypes& types_;
+  LLVMTypes* types_;
 
   SchemaPtr schema_;
 

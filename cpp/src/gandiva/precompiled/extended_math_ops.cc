@@ -33,11 +33,9 @@ extern "C" {
   INNER(float64, OUT_TYPE)
 
 // Cubic root
-#define CBRT(IN_TYPE, OUT_TYPE)                                     \
-  FORCE_INLINE                                                      \
-  OUT_TYPE cbrt_##IN_TYPE(IN_TYPE in) {                             \
-    return static_cast<float64>((cbrtl(static_cast<float64>(in)))); \
-  }
+#define CBRT(IN_TYPE, OUT_TYPE) \
+  FORCE_INLINE                  \
+  OUT_TYPE cbrt_##IN_TYPE(IN_TYPE in) { return static_cast<float64>(cbrtl(in)); }
 
 ENUMERIC_TYPES_UNARY(CBRT, float64)
 
@@ -84,7 +82,7 @@ void set_error_for_logbase(int64_t execution_context, double base) {
     }                                                                          \
     OUT_TYPE log_of_base = static_cast<float64>(logl(base));                   \
     if (log_of_base == 0) {                                                    \
-      set_error_for_logbase(context, static_cast<double>(base));               \
+      set_error_for_logbase(context, static_cast<float64>(base));              \
       return 0;                                                                \
     }                                                                          \
     *out_valid = true;                                                         \

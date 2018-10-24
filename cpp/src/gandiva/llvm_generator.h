@@ -58,7 +58,7 @@ class LLVMGenerator {
   Status Execute(const arrow::RecordBatch& record_batch,
                  const ArrayDataVector& output_vector);
 
-  LLVMTypes& types() { return engine_->types(); }
+  LLVMTypes* types() { return engine_->types(); }
   llvm::Module* module() { return engine_->module(); }
 
  private:
@@ -68,8 +68,8 @@ class LLVMGenerator {
   FRIEND_TEST(TestLLVMGenerator, TestAdd);
   FRIEND_TEST(TestLLVMGenerator, TestNullInternal);
 
-  llvm::LLVMContext& context() { return *(engine_->context()); }
-  llvm::IRBuilder<>& ir_builder() { return engine_->ir_builder(); }
+  llvm::LLVMContext* context() { return engine_->context(); }
+  llvm::IRBuilder<>* ir_builder() { return engine_->ir_builder(); }
 
   /// Visitor to generate the code for a decomposed expression.
   class Visitor : public DexVisitor {
@@ -98,7 +98,7 @@ class LLVMGenerator {
    private:
     enum BufferType { kBufferTypeValidity = 0, kBufferTypeData, kBufferTypeOffsets };
 
-    llvm::IRBuilder<>& ir_builder() { return generator_->ir_builder(); }
+    llvm::IRBuilder<>* ir_builder() { return generator_->ir_builder(); }
     llvm::Module* module() { return generator_->module(); }
 
     // Generate the code to build the combined validity (bitwise and) from the
@@ -174,9 +174,9 @@ class LLVMGenerator {
 
   /// Compute the result bitmap for the expression.
   ///
-  /// \param[in] : the compiled expression (includes the bitmap indices to be used for
-  ///              computing the validity bitmap of the result).
-  /// \param[in] : eval_batch (includes input/output buffer addresses)
+  /// \param[in] compiled_expr the compiled expression (includes the bitmap indices to be
+  ///            used for computing the validity bitmap of the result).
+  /// \param[in] eval_batch (includes input/output buffer addresses)
   void ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
                              const EvalBatch& eval_batch);
 
