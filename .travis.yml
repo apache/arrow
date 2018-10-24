@@ -298,6 +298,8 @@ matrix:
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
   # R
   - language: r
+    env:
+    - GITHUB_PAT="4aa63e8f11dbebae5a51018c3e8d5bfa269947f7"
     cache: packages
     latex: false
     before_install:
