@@ -18,6 +18,8 @@
 import pyarrow as pa
 import pyarrow.gandiva as gandiva
 
+import pandas as pd
+
 
 def test_tree_exp_builder():
     builder = gandiva.TreeExprBuilder()
@@ -47,4 +49,27 @@ def test_tree_exp_builder():
     input_batch = pa.RecordBatch.from_arrays([a, b], names=['a', 'b'])
 
     r, = projector.evaluate(input_batch)
+    assert r.equals(e)
+
+def test_table():
+    df = pd.DataFrame({"a": [1.0, 2.0], "b": [3.0, 4.0]})
+    table = pa.Table.from_pandas(df)
+
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    node_b = builder.make_field(table.schema.field_by_name("b"))
+
+    sum = builder.make_function(b"add", [node_a, node_b], pa.float64())
+
+    field_result = pa.field("c", pa.float64())
+    expr = builder.make_expression(sum, field_result)
+
+    projector = gandiva.make_projector(
+        table.schema, [expr], pa.default_memory_pool())
+
+    # TODO: Add .evaluate function which can take Tables instead of
+    # RecordBatches
+    r, = projector.evaluate(table.to_batches()[0])
+
+    e = pa.Array.from_pandas(df["a"] + df["b"])
     assert r.equals(e)
