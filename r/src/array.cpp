@@ -373,6 +373,75 @@ std::shared_ptr<arrow::Array> Int64Array(SEXP x) {
   return std::make_shared<typename TypeTraits<Int64Type>::ArrayType>(data);
 }
 
+inline int difftime_unit_multiplier(SEXP x) {
+  std::string unit(CHAR(STRING_ELT(Rf_getAttrib(x, symbols::units), 0)));
+  if (unit == "secs") {
+    return 1;
+  } else if (unit == "mins") {
+    return 60;
+  } else if (unit == "hours") {
+    return 3600;
+  } else if (unit == "days") {
+    return 86400;
+  } else if (unit == "weeks") {
+    return 604800;
+  }
+  Rcpp::stop("unknown difftime unit");
+  return 0;
+}
+
+std::shared_ptr<arrow::Array> Time32Array_From_difftime(SEXP x) {
+  // number of seconds as a double
+  auto p_vec_start = REAL(x);
+  auto n = Rf_xlength(x);
+  int64_t null_count = 0;
+
+  int multiplier = difftime_unit_multiplier(x);
+  std::vector<std::shared_ptr<Buffer>> buffers{nullptr, nullptr};
+
+  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(int32_t), &buffers[1]));
+  auto p_values = reinterpret_cast<int32_t*>(buffers[1]->mutable_data());
+
+  R_xlen_t i = 0;
+  auto p_vec = p_vec_start;
+  for (; i < n; i++, ++p_vec, ++p_values) {
+    if (NumericVector::is_na(*p_vec)) {
+      break;
+    }
+    *p_values = static_cast<int32_t>(*p_vec * multiplier);
+  }
+
+  if (i < n) {
+    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &buffers[0]));
+    internal::FirstTimeBitmapWriter bitmap_writer(buffers[0]->mutable_data(), 0, n);
+
+    // first loop to clear all the bits before the first NA
+    for (R_xlen_t j = 0; j < i; j++, bitmap_writer.Next()) {
+      bitmap_writer.Set();
+    }
+
+    // then finish
+    for (; i < n; i++, bitmap_writer.Next(), ++p_vec, ++p_values) {
+      if (NumericVector::is_na(*p_vec)) {
+        bitmap_writer.Clear();
+        null_count++;
+      } else {
+        bitmap_writer.Set();
+        *p_values = static_cast<int32_t>(*p_vec * multiplier);
+      }
+    }
+
+    bitmap_writer.Finish();
+  }
+
+  auto data = ArrayData::Make(
+      time32(TimeUnit::SECOND), n, std::move(buffers), null_count, 0 /*offset*/
+  );
+
+  // return the right Array class
+  return std::make_shared<Time32Array>(data);
+}
+
 }  // namespace r
 }  // namespace arrow
 
@@ -401,6 +470,9 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
       }
       if (Rf_inherits(x, "integer64")) {
         return arrow::r::Int64Array(x);
+      }
+      if (Rf_inherits(x, "difftime")) {
+        return arrow::r::Time32Array_From_difftime(x);
       }
       return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
     case RAWSXP:

@@ -95,6 +95,8 @@ construct <- function(class, xp) {
         DATE32 = date32(),
         DATE64 = date64(),
         TIMESTAMP = construct(`arrow::Timestamp`,self$pointer()),
+        TIME32 = construct(`arrow::Time32`,self$pointer()),
+        TIME64 = construct(`arrow::Time64`,self$pointer()),
         INTERVAL = stop("Type INTERVAL not implemented yet"),
         DECIMAL = construct(`arrow::Decimal128Type`, self$pointer()),
         LIST = construct(`arrow::ListType`, self$pointer()),
