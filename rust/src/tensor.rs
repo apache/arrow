@@ -19,13 +19,13 @@
 use std::marker::PhantomData;
 use std::mem;
 
-
-use datatypes::{DataType, ArrowPrimitiveType};
 use buffer::Buffer;
+use datatypes::{ArrowPrimitiveType, DataType};
 
 /// Computes the strides required given `shape` assuming a row major memory layout
 fn compute_row_major_strides<T>(shape: &Vec<i64>) -> Vec<i64>
-where T: ArrowPrimitiveType
+where
+    T: ArrowPrimitiveType,
 {
     let mut remaining_bytes = mem::size_of::<T>() as i64;
     for i in shape {
@@ -42,7 +42,8 @@ where T: ArrowPrimitiveType
 
 /// Computes the strides required given `shape` assuming a column major memory layout
 fn compute_column_major_strides<T>(shape: &Vec<i64>) -> Vec<i64>
-    where T: ArrowPrimitiveType
+where
+    T: ArrowPrimitiveType,
 {
     let mut remaining_bytes = mem::size_of::<T>() as i64;
     let mut strides = Vec::<i64>::new();
@@ -54,7 +55,10 @@ fn compute_column_major_strides<T>(shape: &Vec<i64>) -> Vec<i64>
 }
 
 /// Tensor of primitive types, excl boolean
-pub struct Tensor<'a, T> where T: ArrowPrimitiveType {
+pub struct Tensor<'a, T>
+where
+    T: ArrowPrimitiveType,
+{
     data_type: DataType,
     buffer: Buffer,
     shape: Option<Vec<i64>>,
@@ -198,7 +202,6 @@ impl_tensor!(DataType::Int64, i64);
 impl_tensor!(DataType::Float32, f32);
 impl_tensor!(DataType::Float64, f64);
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -207,16 +210,31 @@ mod tests {
 
     #[test]
     fn test_compute_row_major_strides() {
-        assert_eq!(vec![48, 8], compute_row_major_strides::<i64>(&vec![4_i64, 6]));
-        assert_eq!(vec![24, 4], compute_row_major_strides::<i32>(&vec![4_i64, 6]));
+        assert_eq!(
+            vec![48, 8],
+            compute_row_major_strides::<i64>(&vec![4_i64, 6])
+        );
+        assert_eq!(
+            vec![24, 4],
+            compute_row_major_strides::<i32>(&vec![4_i64, 6])
+        );
         assert_eq!(vec![6, 1], compute_row_major_strides::<i8>(&vec![4_i64, 6]));
     }
 
     #[test]
     fn test_compute_column_major_strides() {
-        assert_eq!(vec![8, 32], compute_column_major_strides::<i64>(&vec![4_i64, 6]));
-        assert_eq!(vec![4, 16], compute_column_major_strides::<i32>(&vec![4_i64, 6]));
-        assert_eq!(vec![1, 4], compute_column_major_strides::<i8>(&vec![4_i64, 6]));
+        assert_eq!(
+            vec![8, 32],
+            compute_column_major_strides::<i64>(&vec![4_i64, 6])
+        );
+        assert_eq!(
+            vec![4, 16],
+            compute_column_major_strides::<i32>(&vec![4_i64, 6])
+        );
+        assert_eq!(
+            vec![1, 4],
+            compute_column_major_strides::<i8>(&vec![4_i64, 6])
+        );
     }
 
     #[test]
@@ -325,14 +343,20 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "the number of dimension names provided is not the same as the number of dimensions")]
+    #[should_panic(
+        expected = "the number of dimension names provided is not the same as the number of dimensions"
+    )]
     fn test_inconsistent_names() {
         let mut builder = BufferBuilder::<i32>::new(16);
         for i in 0..16 {
             builder.push(i).unwrap();
         }
         let buf = builder.finish();
-        Tensor::<i32>::new(buf, Some(vec![2, 8]), Some(vec![4, 8]), Some(vec!["1", "2", "3"]));
+        Tensor::<i32>::new(
+            buf,
+            Some(vec![2, 8]),
+            Some(vec![4, 8]),
+            Some(vec!["1", "2", "3"]),
+        );
     }
 }
-
