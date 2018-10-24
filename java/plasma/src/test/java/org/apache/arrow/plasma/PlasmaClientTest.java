@@ -189,9 +189,25 @@ public class PlasmaClientTest {
     assert Arrays.equals(meta5, fullData5.metadata);
     assert Arrays.equals(value5, fullData5.data);
     System.out.println("Plasma java client metadata get test success.");
+    
+    byte[] id6 =  getArrayFilledWithValue(20, (byte) 6);
+    byte[] val6 =  getArrayFilledWithValue(21, (byte) 6);
+    pLink.put(id6, val6, null);
+    assert pLink.contains(id6);
+    pLink.delete(id6);
+    assert !pLink.contains(id6);
+    System.out.println("Plasma java client delete test success.");
+    
     cleanup();
     System.out.println("All test success.");
 
+  }
+
+
+  private byte[] getArrayFilledWithValue(int arrayLength, byte val) {
+    byte[] arr =  new byte[arrayLength];
+    Arrays.fill(arr, val);
+    return arr;
   }
 
   public String getStoreAddress() {
