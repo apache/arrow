@@ -97,7 +97,7 @@ submission. The tasks are defined in `tasks.yml`
 8. Install the python dependencies for the script:
 
    ```bash
-   conda install -y jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg toolz jira
+   conda install -c conda-forge -y jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg toolz jira
    ```
 
    ```bash
