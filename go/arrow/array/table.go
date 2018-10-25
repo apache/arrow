@@ -17,11 +17,83 @@
 package array
 
 import (
+	"fmt"
+	"reflect"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/internal/debug"
 )
+
+// Table represents a logical sequence of chunked arrays.
+type Table interface {
+	Schema() *arrow.Schema
+	NumRows() int
+	NumCols() int
+	Column(i int) *Column
+
+	Retain()
+	Release()
+}
+
+// Column is an immutable column data structure consisting of
+// a field (type metadata) and a chunked data array.
+type Column struct {
+	field arrow.Field
+	data  *Chunked
+}
+
+// NewColumn returns a column from a field and a chunked data array.
+//
+// NewColumn panics if the field's data type is inconsistent with the data type
+// of the chunked data array.
+func NewColumn(field arrow.Field, chunks *Chunked) *Column {
+	col := Column{
+		field: field,
+		data:  chunks,
+	}
+	col.data.Retain()
+
+	if col.data.DataType() != col.field.Type {
+		col.data.Release()
+		panic("arrow/array: inconsistent data type")
+	}
+
+	return &col
+}
+
+// Retain increases the reference count by 1.
+// Retain may be called simultaneously from multiple goroutines.
+func (col *Column) Retain() {
+	col.data.Retain()
+}
+
+// Release decreases the reference count by 1.
+// When the reference count goes to zero, the memory is freed.
+// Release may be called simultaneously from multiple goroutines.
+func (col *Column) Release() {
+	col.data.Release()
+}
+
+func (col *Column) Len() int                 { return col.data.Len() }
+func (col *Column) NullN() int               { return col.data.NullN() }
+func (col *Column) Data() *Chunked           { return col.data }
+func (col *Column) Field() arrow.Field       { return col.field }
+func (col *Column) Name() string             { return col.field.Name }
+func (col *Column) DataType() arrow.DataType { return col.field.Type }
+
+// NewSlice returns a new zero-copy slice of the column with the indicated
+// indices i and j, corresponding to the column's array[i:j].
+// The returned column must be Release()'d after use.
+//
+// NewSlice panics if the slice is outside the valid range of the column's array.
+// NewSlice panics if j < i.
+func (col *Column) NewSlice(i, j int64) *Column {
+	return &Column{
+		field: col.field,
+		data:  col.data.NewSlice(i, j),
+	}
+}
 
 // Chunked manages a collection of primitives arrays as one logical large array.
 type Chunked struct {
@@ -126,3 +198,93 @@ func (a *Chunked) NewSlice(i, j int64) *Chunked {
 
 	return NewChunked(a.dtype, chunks)
 }
+
+// simpleTable is a basic, non-lazy in-memory table.
+type simpleTable struct {
+	refCount int64
+
+	rows int
+	cols []Column
+
+	schema *arrow.Schema
+}
+
+// NewTable returns a new basic, non-lazy in-memory table.
+// If rows is negative, the number of rows will be inferred from the height
+// of the columns.
+//
+// NewTable panics if the columns and schema are inconsistent.
+// NewTable panics if rows is larger than the height of the columns.
+func NewTable(schema *arrow.Schema, cols []Column, rows int) *simpleTable {
+	tbl := simpleTable{
+		refCount: 1,
+		rows:     rows,
+		cols:     cols,
+		schema:   schema,
+	}
+
+	if tbl.rows < 0 {
+		switch len(tbl.cols) {
+		case 0:
+			tbl.rows = 0
+		default:
+			tbl.rows = tbl.cols[0].Len()
+		}
+	}
+
+	// validate the table and its constituents.
+	// note we retain the columns after having validated the table
+	// in case the validation fails and panics (and would otherwise leak
+	// a ref-count on the columns.)
+	tbl.validate()
+
+	for i := range tbl.cols {
+		tbl.cols[i].Retain()
+	}
+
+	return &tbl
+}
+
+func (tbl *simpleTable) Schema() *arrow.Schema { return tbl.schema }
+func (tbl *simpleTable) NumRows() int          { return tbl.rows }
+func (tbl *simpleTable) NumCols() int          { return len(tbl.cols) }
+func (tbl *simpleTable) Column(i int) *Column  { return &tbl.cols[i] }
+
+func (tbl *simpleTable) validate() {
+	if len(tbl.cols) != len(tbl.schema.Fields()) {
+		panic("arrow/array: table schema mismatch")
+	}
+	for i, col := range tbl.cols {
+		if !reflect.DeepEqual(col.field, tbl.schema.Field(i)) { // FIXME(sbinet): impl+use arrow.Field.Equal()
+			panic(fmt.Errorf("arrow/array: column field %q is inconsistent with schema", col.Name()))
+		}
+
+		if col.Len() < tbl.rows {
+			panic(fmt.Errorf("arrow/array: column %q expected length >= %d but got length %d", col.Name(), tbl.rows, col.Len()))
+		}
+	}
+}
+
+// Retain increases the reference count by 1.
+// Retain may be called simultaneously from multiple goroutines.
+func (tbl *simpleTable) Retain() {
+	atomic.AddInt64(&tbl.refCount, 1)
+}
+
+// Release decreases the reference count by 1.
+// When the reference count goes to zero, the memory is freed.
+// Release may be called simultaneously from multiple goroutines.
+func (tbl *simpleTable) Release() {
+	debug.Assert(atomic.LoadInt64(&tbl.refCount) > 0, "too many releases")
+
+	if atomic.AddInt64(&tbl.refCount, -1) == 0 {
+		for i := range tbl.cols {
+			tbl.cols[i].Release()
+		}
+		tbl.cols = nil
+	}
+}
+
+var (
+	_ Table = (*simpleTable)(nil)
+)

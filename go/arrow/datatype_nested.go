@@ -46,7 +46,7 @@ func (t *ListType) Elem() DataType { return t.elem }
 type StructType struct {
 	fields []Field
 	index  map[string]int
-	meta   KeyValueMetadata
+	meta   Metadata
 }
 
 // StructOf returns the struct type with fields fs.
@@ -97,33 +97,13 @@ func (t *StructType) FieldByName(name string) (Field, bool) {
 }
 
 type Field struct {
-	Name     string           // Field name
-	Type     DataType         // The field's data type
-	Nullable bool             // Fields can be nullable
-	Metadata KeyValueMetadata // The field's metadata, if any
+	Name     string   // Field name
+	Type     DataType // The field's data type
+	Nullable bool     // Fields can be nullable
+	Metadata Metadata // The field's metadata, if any
 }
 
-func (f Field) HasMetadata() bool { return len(f.Metadata.keys) != 0 }
-
-type KeyValueMetadata struct {
-	keys   []string
-	values []string
-}
-
-func (kv KeyValueMetadata) clone() KeyValueMetadata {
-	if len(kv.keys) == 0 {
-		return KeyValueMetadata{}
-	}
-
-	o := KeyValueMetadata{
-		keys:   make([]string, len(kv.keys)),
-		values: make([]string, len(kv.values)),
-	}
-	copy(o.keys, kv.keys)
-	copy(o.values, kv.values)
-
-	return o
-}
+func (f Field) HasMetadata() bool { return f.Metadata.Len() != 0 }
 
 var (
 	_ DataType = (*ListType)(nil)
