@@ -99,9 +99,9 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->i1_type(),                    // bool in1_validity
           types->i8_ptr_type(),                // const char* pattern
           types->i32_type(),                   // int pattern_len
-          types->i1_type(),                    // bool in1_validity
+          types->i1_type(),                    // bool in2_validity
           types->i32_type(),                   // int32_t suppress_errors
-          types->i1_type(),                    // bool in1_validity
+          types->i1_type(),                    // bool in3_validity
           types->ptr_type(types->i8_type())};  // bool* out_valid
 
   engine->AddGlobalMappingForFunc(

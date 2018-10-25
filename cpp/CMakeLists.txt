@@ -311,7 +311,7 @@ Always OFF if building binaries"
   # Gandiva related build options
   option(ARROW_GANDIVA
     "Build the Gandiva libraries"
-    ON)
+    OFF)
 
   option(ARROW_GANDIVA_JAVA
     "Build the Gandiva JNI wrappers"

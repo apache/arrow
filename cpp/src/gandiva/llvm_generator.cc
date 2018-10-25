@@ -559,7 +559,7 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
 }
 
 void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
-  const std::string &function_name = dex.func_descriptor()->name();
+  const std::string& function_name = dex.func_descriptor()->name();
   ADD_VISITOR_TRACE("visit NonNullableFunc base function " + function_name);
 
   const NativeFunction* native_function = dex.native_function();
@@ -584,7 +584,7 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
     }
 
     // then block
-    auto then_lambda = [this, &native_function, &params, &function_name]() {
+    auto then_lambda = [&] {
       ADD_VISITOR_TRACE("fn " + function_name +
                         " can return errors : all args valid, invoke fn");
       llvm::Value* then_value = BuildFunctionCall(native_function, params);
@@ -592,7 +592,7 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
     };
 
     // else block
-    auto else_lambda = [this, result_type, &function_name]() {
+    auto else_lambda = [&] {
       ADD_VISITOR_TRACE("fn " + function_name +
                         " can return errors : not all args valid, return dummy value");
       llvm::Value* else_value = generator_->types()->NullConstant(result_type);
@@ -661,7 +661,7 @@ void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
       builder->CreateAnd(if_condition->data(), if_condition->validity(), "validAndMatch");
 
   // then block
-  auto then_lambda = [this, &dex]() {
+  auto then_lambda = [&] {
     ADD_VISITOR_TRACE("branch to then block");
     LValuePtr then_lvalue = BuildValueAndValidity(dex.then_vv());
     ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), then_lvalue->validity());
@@ -671,7 +671,7 @@ void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
   };
 
   // else block
-  auto else_lambda = [this, &dex]() {
+  auto else_lambda = [&] {
     LValuePtr else_lvalue;
     if (dex.is_terminal_else()) {
       ADD_VISITOR_TRACE("branch to terminal else block");

@@ -130,14 +130,14 @@ int32 utf8_length(int64 context, const char* data, int32 data_len) {
   return count;
 }
 
-#define UTF8_LENGTH_NULL_INTERNAL(NAME, TYPE)                 \
+#define UTF8_LENGTH(NAME, TYPE)                               \
   FORCE_INLINE                                                \
   int32 NAME##_##TYPE(int64 context, TYPE in, int32 in_len) { \
     return utf8_length(context, in, in_len);                  \
   }
 
-UTF8_LENGTH_NULL_INTERNAL(char_length, utf8)
-UTF8_LENGTH_NULL_INTERNAL(length, utf8)
-UTF8_LENGTH_NULL_INTERNAL(lengthUtf8, binary)
+UTF8_LENGTH(char_length, utf8)
+UTF8_LENGTH(length, utf8)
+UTF8_LENGTH(lengthUtf8, binary)
 
 }  // extern "C"

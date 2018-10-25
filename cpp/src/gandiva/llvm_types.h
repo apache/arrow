@@ -24,6 +24,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include "gandiva/arrow.h"
+#include "gandiva/logging.h"
 
 namespace gandiva {
 
@@ -100,6 +101,7 @@ class LLVMTypes {
     } else if (type->isFloatingPointTy()) {
       return llvm::ConstantFP::get(type, 0);
     } else {
+      DCHECK(type->isPointerTy());
       return llvm::ConstantPointerNull::getNullValue(type);
     }
   }
