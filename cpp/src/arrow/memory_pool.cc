@@ -88,32 +88,6 @@ MemoryPool::~MemoryPool() {}
 int64_t MemoryPool::max_memory() const { return -1; }
 
 ///////////////////////////////////////////////////////////////////////
-// Helper tracking memory statistics
-
-class MemoryPoolStats {
- public:
-  MemoryPoolStats() : bytes_allocated_(0), max_memory_(0) {}
-
-  int64_t max_memory() const { return max_memory_.load(); }
-
-  int64_t bytes_allocated() const { return bytes_allocated_.load(); }
-
-  inline void UpdateAllocatedBytes(int64_t diff) {
-    auto allocated = bytes_allocated_.fetch_add(diff) + diff;
-    DCHECK_GE(allocated, 0) << "allocation counter became negative";
-    // "maximum" allocated memory is ill-defined in multi-threaded code,
-    // so don't try to be too rigorous here
-    if (diff > 0 && allocated > max_memory_) {
-      max_memory_ = allocated;
-    }
-  }
-
- protected:
-  std::atomic<int64_t> bytes_allocated_;
-  std::atomic<int64_t> max_memory_;
-};
-
-///////////////////////////////////////////////////////////////////////
 // Default MemoryPool implementation
 
 class DefaultMemoryPool : public MemoryPool {
@@ -174,7 +148,7 @@ class DefaultMemoryPool : public MemoryPool {
   int64_t max_memory() const override { return stats_.max_memory(); }
 
  private:
-  MemoryPoolStats stats_;
+  internal::MemoryPoolStats stats_;
 };
 
 MemoryPool* default_memory_pool() {
@@ -247,7 +221,7 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
 
  private:
   MemoryPool* pool_;
-  MemoryPoolStats stats_;
+  internal::MemoryPoolStats stats_;
 };
 
 ProxyMemoryPool::ProxyMemoryPool(MemoryPool* pool) {
