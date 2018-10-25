@@ -47,6 +47,8 @@ groups:
     - ubuntu-bionic
     - centos-6
     - centos-7
+  gandiva:
+    - ubuntu-trusty-gandiva   
 
 tasks:
   # arbitrary_task_name:
@@ -447,3 +449,8 @@ tasks:
       - parquet-glib-doc-{no_rc_version}-1.el7.x86_64.rpm
       - parquet-glib-libs-{no_rc_version}-1.el7.x86_64.rpm
       - parquet-libs-{no_rc_version}-1.el7.x86_64.rpm
+
+  ############################## Gandiva Tasks ####################################
+  ubuntu-trusty-gandiva:
+    platform: linux
+    template: gandiva/travis.linux.yml      
