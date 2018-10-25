@@ -14,7 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-{
-  global: extern "C++" { gandiva*; like*;to_date*};
-  local: *;
-};
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: Apache Arrow Gandiva GLib
+Description: C API for Apache Arrow Gandiva based on GLib
+Version: @VERSION@
+Libs: -L${libdir} -lgandiva-glib
+Cflags: -I${includedir}
+Requires: gandiva arrow-glib

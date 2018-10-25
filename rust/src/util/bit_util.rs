@@ -62,6 +62,15 @@ pub fn set_bit(data: &mut [u8], i: usize) {
     data[i >> 3] |= BIT_MASK[i & 7]
 }
 
+/// Sets bit at position `i` for `data`
+///
+/// Note this doesn't do any bound checking, for performance reason. The caller is
+/// responsible to guarantee that `i` is within bounds.
+#[inline]
+pub unsafe fn set_bit_raw(data: *mut u8, i: usize) {
+    *data.offset((i >> 3) as isize) |= BIT_MASK[i & 7]
+}
+
 /// Returns the number of 1-bits in `data`
 #[inline]
 pub fn count_set_bits(data: &[u8]) -> i64 {
@@ -179,6 +188,30 @@ mod tests {
         assert_eq!([0b00000101], b);
         set_bit(&mut b, 5);
         assert_eq!([0b00100101], b);
+    }
+
+    #[test]
+    fn test_set_bit_raw() {
+        const NUM_BYTE: usize = 10;
+        let mut buf = vec![0; NUM_BYTE];
+        let mut expected = vec![];
+        let mut rng = thread_rng();
+        for i in 0..8 * NUM_BYTE {
+            let b = rng.gen_bool(0.5);
+            expected.push(b);
+            if b {
+                unsafe {
+                    set_bit_raw(buf.as_mut_ptr(), i);
+                }
+            }
+        }
+
+        let raw_ptr = buf.as_ptr();
+        for (i, b) in expected.iter().enumerate() {
+            unsafe {
+                assert_eq!(*b, get_bit_raw(raw_ptr, i));
+            }
+        }
     }
 
     #[test]

@@ -176,22 +176,43 @@ impl MutableBuffer {
         self
     }
 
+    /// Manually sets the `len` of this buffer
+    pub fn set_len(&mut self, new_len: usize) {
+        assert!(
+            new_len <= self.capacity,
+            "Unable to set len outside capacity"
+        );
+        self.len = new_len;
+    }
+
+    /// Ensure that `count` bytes from `start` contain zero bits
+    ///
+    /// This is used to initialize the bits in a buffer, however, it has no impact on the `len`
+    /// of the buffer and so can be used to initialize the memory region from `len` to `capacity`.
+    pub fn set_null_bits(&mut self, start: usize, count: usize) {
+        assert!(start + count <= self.capacity);
+        unsafe {
+            ::std::ptr::write_bytes(self.data.offset(start as isize), 0, count);
+        }
+    }
+
     /// Adjust the capacity of this buffer to be at least `new_capacity`.
     ///
     /// If the `new_capacity` is less than the current capacity, nothing is done and `Ok`
     /// will be returned. Otherwise, the new capacity value will be chosen between the
     /// larger one of the incoming `new_capacity` (after rounding up to the nearest 64)
-    /// and the doubled value of the existing capacity.
-    pub fn resize(&mut self, new_capacity: usize) -> Result<()> {
+    /// and the doubled value of the existing capacity, the capacity added is returned.
+    pub fn resize(&mut self, new_capacity: usize) -> Result<usize> {
         if new_capacity <= self.capacity {
-            return Ok(());
+            return Ok(0);
         }
         let new_capacity = bit_util::round_upto_multiple_of_64(new_capacity as i64);
-        let new_capacity = cmp::max(new_capacity, self.capacity as i64 * 2);
-        let new_data = memory::reallocate(self.capacity, new_capacity as usize, self.data)?;
+        let new_capacity = cmp::max(new_capacity, self.capacity as i64 * 2) as usize;
+        let new_data = memory::reallocate(self.capacity, new_capacity, self.data)?;
         self.data = new_data as *mut u8;
-        self.capacity = new_capacity as usize;
-        Ok(())
+        let capacity_added = new_capacity - self.capacity;
+        self.capacity = new_capacity;
+        Ok(capacity_added)
     }
 
     /// Returns whether this buffer is empty or not.
@@ -378,6 +399,19 @@ mod tests {
         let mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         let buf = mut_buf.freeze();
         assert_eq!(512, bit_util::count_set_bits(buf.data()));
+    }
+
+    #[test]
+    fn test_set_null_bits() {
+        let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
+        mut_buf.set_null_bits(0, 64);
+        let buf = mut_buf.freeze();
+        assert_eq!(0, bit_util::count_set_bits(buf.data()));
+
+        let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
+        mut_buf.set_null_bits(32, 32);
+        let buf = mut_buf.freeze();
+        assert_eq!(256, bit_util::count_set_bits(buf.data()));
     }
 
     #[test]

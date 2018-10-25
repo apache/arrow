@@ -19,6 +19,7 @@
 #define GANDIVA_EXPR_NODE_H
 
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "gandiva/arrow.h"
@@ -122,7 +123,7 @@ class FunctionNode : public Node {
     std::stringstream ss;
     ss << descriptor()->return_type()->name() << " " << descriptor()->name() << "(";
     bool skip_comma = true;
-    for (auto child : children()) {
+    for (auto& child : children()) {
       if (skip_comma) {
         ss << child->ToString();
         skip_comma = false;
@@ -213,6 +214,40 @@ class BooleanNode : public Node {
  private:
   ExprType expr_type_;
   NodeVector children_;
+};
+
+/// \brief Node in expression tree, representing an in expression.
+template <typename Type>
+class InExpressionNode : public Node {
+ public:
+  InExpressionNode(NodePtr eval_expr, const std::unordered_set<Type>& values)
+      : Node(arrow::boolean()), eval_expr_(eval_expr), values_(values) {}
+
+  const NodePtr& eval_expr() const { return eval_expr_; }
+
+  const std::unordered_set<Type>& values() const { return values_; }
+
+  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << eval_expr_->ToString() << " IN (";
+    bool add_comma = false;
+    for (auto& value : values_) {
+      if (add_comma) {
+        ss << ", ";
+      }
+      // add type in the front to differentiate
+      ss << value;
+      add_comma = true;
+    }
+    ss << ")";
+    return ss.str();
+  }
+
+ private:
+  NodePtr eval_expr_;
+  std::unordered_set<Type> values_;
 };
 
 }  // namespace gandiva

@@ -20,6 +20,7 @@
 #include <memory>
 #include <stack>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "gandiva/annotator.h"
@@ -27,6 +28,7 @@
 #include "gandiva/function_holder_registry.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/function_signature.h"
+#include "gandiva/in_holder.h"
 #include "gandiva/node.h"
 
 namespace gandiva {
@@ -172,6 +174,23 @@ Status ExprDecomposer::Visit(const BooleanNode& node) {
   result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
   return Status::OK();
 }
+
+#define MAKE_VISIT_IN(ctype)                                                  \
+  Status ExprDecomposer::Visit(const InExpressionNode<ctype>& node) {         \
+    /* decompose the children. */                                             \
+    std::vector<ValueValidityPairPtr> args;                                   \
+    auto status = node.eval_expr()->Accept(*this);                            \
+    GANDIVA_RETURN_NOT_OK(status);                                            \
+    args.push_back(result());                                                 \
+    /* In always outputs valid results, so no validity dex */                 \
+    auto value_dex = std::make_shared<InExprDex<ctype>>(args, node.values()); \
+    result_ = std::make_shared<ValueValidityPair>(value_dex);                 \
+    return Status::OK();                                                      \
+  }
+
+MAKE_VISIT_IN(int32_t);
+MAKE_VISIT_IN(int64_t);
+MAKE_VISIT_IN(std::string);
 
 Status ExprDecomposer::Visit(const LiteralNode& node) {
   auto value_dex = std::make_shared<LiteralDex>(node.return_type(), node.holder());

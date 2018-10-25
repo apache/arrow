@@ -57,6 +57,10 @@ Makefile.in
 /arrow-glib/version.h
 /arrow-glib/*.pc
 /arrow-gpu-glib/*.pc
+/gandiva-glib/gandiva-enums.c
+/gandiva-glib/gandiva-enums.h
+/gandiva-glib/stamp-*
+/gandiva-glib/*.pc
 /example/build
 /example/read-batch
 /example/read-stream

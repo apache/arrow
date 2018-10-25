@@ -62,7 +62,7 @@ class ARROW_EXPORT Tensor {
   Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
          const std::vector<int64_t>& shape, const std::vector<int64_t>& strides);
 
-  /// Constructor with strides and dimension names
+  /// Constructor with non-negative strides and dimension names
   Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
          const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
          const std::vector<std::string>& dim_names);
@@ -112,6 +112,34 @@ class ARROW_EXPORT Tensor {
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Tensor);
+};
+
+template <typename TYPE>
+class ARROW_EXPORT NumericTensor : public Tensor {
+ public:
+  using TypeClass = TYPE;
+  using value_type = typename TypeClass::c_type;
+
+  /// Constructor with no dimension names or strides, data assumed to be row-major
+  NumericTensor(const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape);
+
+  /// Constructor with non-negative strides
+  NumericTensor(const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
+                const std::vector<int64_t>& strides);
+
+  /// Constructor with non-negative strides and dimension names
+  NumericTensor(const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
+                const std::vector<int64_t>& strides,
+                const std::vector<std::string>& dim_names);
+
+  const value_type& Value(const std::vector<int64_t>& index) const {
+    int64_t offset = CalculateValueOffset(index);
+    const value_type* ptr = reinterpret_cast<const value_type*>(raw_data() + offset);
+    return *ptr;
+  }
+
+ protected:
+  int64_t CalculateValueOffset(const std::vector<int64_t>& index) const;
 };
 
 }  // namespace arrow

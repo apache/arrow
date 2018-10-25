@@ -832,6 +832,54 @@ void LLVMGenerator::Visitor::Visit(const BooleanOrDex& dex) {
   result_.reset(new LValue(result_value));
 }
 
+void LLVMGenerator::Visitor::Visit(const InExprDexBase<int32_t>& dex) {
+  VisitInExpression<int32_t>(dex);
+}
+
+void LLVMGenerator::Visitor::Visit(const InExprDexBase<int64_t>& dex) {
+  VisitInExpression<int64_t>(dex);
+}
+
+void LLVMGenerator::Visitor::Visit(const InExprDexBase<std::string>& dex) {
+  VisitInExpression<std::string>(dex);
+}
+
+template <typename Type>
+void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
+  ADD_VISITOR_TRACE("visit In Expression");
+  LLVMTypes* types = generator_->types();
+  std::vector<llvm::Value*> params;
+
+  const InExprDex<Type>& dex_instance = dynamic_cast<const InExprDex<Type>&>(dex);
+  /* add the holder at the beginning */
+  llvm::Constant* ptr_int_cast =
+      types->i64_constant((int64_t)(dex_instance.in_holder().get()));
+  params.push_back(ptr_int_cast);
+
+  /* eval expr result */
+  for (auto& pair : dex.args()) {
+    DexPtr value_expr = pair->value_expr();
+    value_expr->Accept(*this);
+    LValue& result_ref = *result();
+    params.push_back(result_ref.data());
+
+    /* length if the result is a string */
+    if (result_ref.length() != nullptr) {
+      params.push_back(result_ref.length());
+    }
+
+    /* push the validity of eval expr result */
+    llvm::Value* validity_expr = BuildCombinedValidity(pair->validity_exprs());
+    params.push_back(validity_expr);
+  }
+
+  llvm::Type* ret_type = types->IRType(arrow::Type::type::BOOL);
+
+  llvm::Value* value =
+      generator_->AddFunctionCall(dex.runtime_function(), ret_type, params);
+  result_.reset(new LValue(value));
+}
+
 LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair& pair) {
   // generate code for value
   auto value_expr = pair.value_expr();

@@ -22,20 +22,24 @@
 #include <memory>
 #include <unordered_map>
 
-extern "C" {
-#include "ae/ae.h"
-}
+struct aeEventLoop;
 
 namespace plasma {
 
+// The constants below are defined using hardcoded values taken from ae.h so
+// that ae.h does not need to be included in this file.
+
 /// Constant specifying that the timer is done and it will be removed.
-constexpr int kEventLoopTimerDone = AE_NOMORE;
+constexpr int kEventLoopTimerDone = -1;  // AE_NOMORE
+
+/// A successful status.
+constexpr int kEventLoopOk = 0;  // AE_OK
 
 /// Read event on the file descriptor.
-constexpr int kEventLoopRead = AE_READABLE;
+constexpr int kEventLoopRead = 1;  // AE_READABLE
 
 /// Write event on the file descriptor.
-constexpr int kEventLoopWrite = AE_WRITABLE;
+constexpr int kEventLoopWrite = 2;  // AE_WRITABLE
 
 typedef long long TimerID;  // NOLINT
 
@@ -57,29 +61,29 @@ class EventLoop {
 
   /// Add a new file event handler to the event loop.
   ///
-  /// @param fd The file descriptor we are listening to.
-  /// @param events The flags for events we are listening to (read or write).
-  /// @param callback The callback that will be called when the event happens.
-  /// @return Returns true if the event handler was added successfully.
+  /// \param fd The file descriptor we are listening to.
+  /// \param events The flags for events we are listening to (read or write).
+  /// \param callback The callback that will be called when the event happens.
+  /// \return Returns true if the event handler was added successfully.
   bool AddFileEvent(int fd, int events, const FileCallback& callback);
 
   /// Remove a file event handler from the event loop.
   ///
-  /// @param fd The file descriptor of the event handler.
+  /// \param fd The file descriptor of the event handler.
   void RemoveFileEvent(int fd);
 
   /// Register a handler that will be called after a time slice of
-  ///  "timeout" milliseconds.
+  /// "timeout" milliseconds.
   ///
-  ///  @param timeout The timeout in milliseconds.
-  ///  @param callback The callback for the timeout.
-  ///  @return The ID of the newly created timer.
+  /// \param timeout The timeout in milliseconds.
+  /// \param callback The callback for the timeout.
+  /// \return The ID of the newly created timer.
   int64_t AddTimer(int64_t timeout, const TimerCallback& callback);
 
   /// Remove a timer handler from the event loop.
   ///
-  /// @param timer_id The ID of the timer that is to be removed.
-  /// @return The ae.c error code. TODO(pcm): needs to be standardized
+  /// \param timer_id The ID of the timer that is to be removed.
+  /// \return The ae.c error code. TODO(pcm): needs to be standardized
   int RemoveTimer(int64_t timer_id);
 
   /// \brief Run the event loop.

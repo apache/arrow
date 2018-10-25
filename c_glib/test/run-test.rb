@@ -43,6 +43,11 @@ rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
 begin
+  Gandiva = GI.load("Gandiva")
+rescue GObjectIntrospection::RepositoryError::TypelibNotFound
+end
+
+begin
   Parquet = GI.load("Parquet")
 rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end

@@ -22,6 +22,7 @@
 
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
+#include "gandiva/in_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/to_date_holder.h"
 
@@ -43,6 +44,32 @@ int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t ptr, const char* data, int data_l
   gandiva::ToDateHolder* holder = reinterpret_cast<gandiva::ToDateHolder*>(ptr);
   return (*holder)(std::string(data, data_len), in1_validity, execution_context,
                    out_valid);
+}
+
+bool gdv_fn_in_expr_lookup_int32(int64_t ptr, int32_t value, bool in_validity) {
+  if (!in_validity) {
+    return false;
+  }
+  gandiva::InHolder<int32_t>* holder = reinterpret_cast<gandiva::InHolder<int32_t>*>(ptr);
+  return holder->HasValue(value);
+}
+
+bool gdv_fn_in_expr_lookup_int64(int64_t ptr, int64_t value, bool in_validity) {
+  if (!in_validity) {
+    return false;
+  }
+  gandiva::InHolder<int64_t>* holder = reinterpret_cast<gandiva::InHolder<int64_t>*>(ptr);
+  return holder->HasValue(value);
+}
+
+bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len,
+                                bool in_validity) {
+  if (!in_validity) {
+    return false;
+  }
+  gandiva::InHolder<std::string>* holder =
+      reinterpret_cast<gandiva::InHolder<std::string>*>(ptr);
+  return holder->HasValue(std::string(data, data_len));
 }
 }
 
@@ -79,6 +106,34 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_to_date_utf8_utf8_int32", types->i64_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_to_date_utf8_utf8_int32));
+
+  // gdv_fn_in_expr_lookup_int32
+  args = {types->i64_type(),  // int64_t in holder ptr
+          types->i32_type(),  // int32 value
+          types->i1_type()};  // bool in_validity
+
+  engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_int32",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_in_expr_lookup_int32));
+
+  // gdv_fn_in_expr_lookup_int64
+  args = {types->i64_type(),  // int64_t in holder ptr
+          types->i64_type(),  // int64 value
+          types->i1_type()};  // bool in_validity
+
+  engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_int64",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_in_expr_lookup_int64));
+
+  // gdv_fn_in_expr_lookup_utf8
+  args = {types->i64_type(),     // int64_t in holder ptr
+          types->i8_ptr_type(),  // const char* value
+          types->i32_type(),     // int value_len
+          types->i1_type()};     // bool in_validity
+
+  engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_utf8",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_in_expr_lookup_utf8));
 }
 
 }  // namespace gandiva
