@@ -559,9 +559,8 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
 }
 
 void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
-  const std::string function_name = dex.func_descriptor()->name();
+  const std::string &function_name = dex.func_descriptor()->name();
   ADD_VISITOR_TRACE("visit NonNullableFunc base function " + function_name);
-  LLVMTypes* types = generator_->types();
 
   const NativeFunction* native_function = dex.native_function();
 
@@ -570,8 +569,12 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
                             native_function->NeedsContext());
 
   if (native_function->CanReturnErrors()) {
+    // slow path : if a function can return errors, skip invoking the function
+    // unless all of the input args are valid. Otherwise, it can cause spurious errors.
+
     llvm::IRBuilder<>* builder = ir_builder();
-    llvm::LLVMContext* context = generator_->context();
+    LLVMTypes* types = generator_->types();
+    auto result_type = types->IRType(native_function->signature().ret_type()->id());
 
     // Build combined validity of the args.
     llvm::Value* is_valid = types->true_constant();
@@ -580,39 +583,25 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
       is_valid = builder->CreateAnd(is_valid, arg_validity, "validityBitAnd");
     }
 
-    llvm::BasicBlock* then_bb = llvm::BasicBlock::Create(*context, "then", function_);
-    llvm::BasicBlock* else_bb = llvm::BasicBlock::Create(*context, "else", function_);
-    llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(*context, "merge", function_);
-    auto ret_type = types->IRType(native_function->signature().ret_type()->id());
+    // then block
+    auto then_lambda = [this, &native_function, &params, &function_name]() {
+      ADD_VISITOR_TRACE("fn " + function_name +
+                        " can return errors : all args valid, invoke fn");
+      llvm::Value* then_value = BuildFunctionCall(native_function, params);
+      return std::make_shared<LValue>(then_value);
+    };
 
-    // Compute validity.
-    builder->CreateCondBr(is_valid, then_bb, else_bb);
+    // else block
+    auto else_lambda = [this, result_type, &function_name]() {
+      ADD_VISITOR_TRACE("fn " + function_name +
+                        " can return errors : not all args valid, return dummy value");
+      llvm::Value* else_value = generator_->types()->NullConstant(result_type);
+      return std::make_shared<LValue>(else_value);
+    };
 
-    // Emit the then block.
-    builder->SetInsertPoint(then_bb);
-    ADD_VISITOR_TRACE("branch to then block");
-    llvm::Value* then_value = BuildFunctionCall(native_function, params);
-    builder->CreateBr(merge_bb);
-
-    // refresh then_bb for phi (could have changed due to code generation of then_vv).
-    then_bb = builder->GetInsertBlock();
-
-    // Emit the else block.
-    builder->SetInsertPoint(else_bb);
-    llvm::Value* else_value = types->NullConstant(ret_type);
-    builder->CreateBr(merge_bb);
-
-    // refresh else_bb for phi (could have changed due to code generation of else_vv).
-    else_bb = builder->GetInsertBlock();
-
-    // Emit the merge block.
-    builder->SetInsertPoint(merge_bb);
-
-    llvm::PHINode* value = builder->CreatePHI(ret_type, 2, "res_value");
-    value->addIncoming(then_value, then_bb);
-    value->addIncoming(else_value, else_bb);
-    result_.reset(new LValue(value));
+    result_ = BuildIfElse(is_valid, then_lambda, else_lambda, result_type);
   } else {
+    // fast path : invoke function without computing validities.
     auto value = BuildFunctionCall(native_function, params);
     result_.reset(new LValue(value));
   }
@@ -671,68 +660,45 @@ void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
   llvm::Value* validAndMatched =
       builder->CreateAnd(if_condition->data(), if_condition->validity(), "validAndMatch");
 
-  // Create blocks for the then, else and merge cases.
-  llvm::LLVMContext* context = generator_->context();
-  llvm::BasicBlock* then_bb = llvm::BasicBlock::Create(*context, "then", function_);
-  llvm::BasicBlock* else_bb = llvm::BasicBlock::Create(*context, "else", function_);
-  llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(*context, "merge", function_);
+  // then block
+  auto then_lambda = [this, &dex]() {
+    ADD_VISITOR_TRACE("branch to then block");
+    LValuePtr then_lvalue = BuildValueAndValidity(dex.then_vv());
+    ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), then_lvalue->validity());
+    ADD_VISITOR_TRACE("IfExpression result validity %T in matching then",
+                      then_lvalue->validity());
+    return then_lvalue;
+  };
 
-  builder->CreateCondBr(validAndMatched, then_bb, else_bb);
+  // else block
+  auto else_lambda = [this, &dex]() {
+    LValuePtr else_lvalue;
+    if (dex.is_terminal_else()) {
+      ADD_VISITOR_TRACE("branch to terminal else block");
 
-  // Emit the then block.
-  builder->SetInsertPoint(then_bb);
-  ADD_VISITOR_TRACE("branch to then block");
-  LValuePtr then_lvalue = BuildValueAndValidity(dex.then_vv());
-  ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), then_lvalue->validity());
-  ADD_VISITOR_TRACE("IfExpression result validity %T in matching then",
-                    then_lvalue->validity());
-  builder->CreateBr(merge_bb);
+      else_lvalue = BuildValueAndValidity(dex.else_vv());
+      // update the local bitmap with the validity.
+      ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), else_lvalue->validity());
+      ADD_VISITOR_TRACE("IfExpression result validity %T in terminal else",
+                        else_lvalue->validity());
+    } else {
+      ADD_VISITOR_TRACE("branch to non-terminal else block");
 
-  // refresh then_bb for phi (could have changed due to code generation of then_vv).
-  then_bb = builder->GetInsertBlock();
+      // this is a non-terminal else. let the child (nested if/else) handle validity.
+      auto value_expr = dex.else_vv().value_expr();
+      value_expr->Accept(*this);
+      else_lvalue = result();
+    }
+    return else_lvalue;
+  };
 
-  // Emit the else block.
-  builder->SetInsertPoint(else_bb);
-  LValuePtr else_lvalue;
-  if (dex.is_terminal_else()) {
-    ADD_VISITOR_TRACE("branch to terminal else block");
-
-    else_lvalue = BuildValueAndValidity(dex.else_vv());
-    // update the local bitmap with the validity.
-    ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), else_lvalue->validity());
-    ADD_VISITOR_TRACE("IfExpression result validity %T in terminal else",
-                      else_lvalue->validity());
-  } else {
-    ADD_VISITOR_TRACE("branch to non-terminal else block");
-
-    // this is a non-terminal else. let the child (nested if/else) handle validity.
-    auto value_expr = dex.else_vv().value_expr();
-    value_expr->Accept(*this);
-    else_lvalue = result();
+  // build the if-else condition.
+  auto result_type = types->IRType(dex.result_type()->id());
+  result_ = BuildIfElse(validAndMatched, then_lambda, else_lambda, result_type);
+  if (result_type == types->i8_ptr_type()) {
+    ADD_VISITOR_TRACE("IfElse result length %T", result_->length());
   }
-  builder->CreateBr(merge_bb);
-
-  // refresh else_bb for phi (could have changed due to code generation of else_vv).
-  else_bb = builder->GetInsertBlock();
-
-  // Emit the merge block.
-  builder->SetInsertPoint(merge_bb);
-  llvm::Type* result_llvm_type = types->DataVecType(dex.result_type());
-  llvm::PHINode* result_value = builder->CreatePHI(result_llvm_type, 2, "res_value");
-  result_value->addIncoming(then_lvalue->data(), then_bb);
-  result_value->addIncoming(else_lvalue->data(), else_bb);
-
-  llvm::PHINode* result_length = nullptr;
-  if (then_lvalue->length() != nullptr) {
-    result_length = builder->CreatePHI(types->i32_type(), 2, "res_length");
-    result_length->addIncoming(then_lvalue->length(), then_bb);
-    result_length->addIncoming(else_lvalue->length(), else_bb);
-
-    ADD_VISITOR_TRACE("IfExpression result length %T", result_length);
-  }
-  ADD_VISITOR_TRACE("IfExpression result value %T", result_value);
-
-  result_.reset(new LValue(result_value, result_length));
+  ADD_VISITOR_TRACE("IfElse result value %T", result_->data());
 }
 
 // Boolean AND
@@ -914,6 +880,52 @@ void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
   llvm::Value* value =
       generator_->AddFunctionCall(dex.runtime_function(), ret_type, params);
   result_.reset(new LValue(value));
+}
+
+LValuePtr LLVMGenerator::Visitor::BuildIfElse(llvm::Value* condition,
+                                              std::function<LValuePtr()> then_func,
+                                              std::function<LValuePtr()> else_func,
+                                              llvm::Type* result_type) {
+  llvm::IRBuilder<>* builder = ir_builder();
+  llvm::LLVMContext* context = generator_->context();
+  LLVMTypes* types = generator_->types();
+
+  // Create blocks for the then, else and merge cases.
+  llvm::BasicBlock* then_bb = llvm::BasicBlock::Create(*context, "then", function_);
+  llvm::BasicBlock* else_bb = llvm::BasicBlock::Create(*context, "else", function_);
+  llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(*context, "merge", function_);
+
+  builder->CreateCondBr(condition, then_bb, else_bb);
+
+  // Emit the then block.
+  builder->SetInsertPoint(then_bb);
+  LValuePtr then_lvalue = then_func();
+  builder->CreateBr(merge_bb);
+
+  // refresh then_bb for phi (could have changed due to code generation of then_vv).
+  then_bb = builder->GetInsertBlock();
+
+  // Emit the else block.
+  builder->SetInsertPoint(else_bb);
+  LValuePtr else_lvalue = else_func();
+  builder->CreateBr(merge_bb);
+
+  // refresh else_bb for phi (could have changed due to code generation of else_vv).
+  else_bb = builder->GetInsertBlock();
+
+  // Emit the merge block.
+  builder->SetInsertPoint(merge_bb);
+  llvm::PHINode* result_value = builder->CreatePHI(result_type, 2, "res_value");
+  result_value->addIncoming(then_lvalue->data(), then_bb);
+  result_value->addIncoming(else_lvalue->data(), else_bb);
+
+  llvm::PHINode* result_length = nullptr;
+  if (result_type == types->i8_ptr_type()) {
+    result_length = builder->CreatePHI(types->i32_type(), 2, "res_length");
+    result_length->addIncoming(then_lvalue->length(), then_bb);
+    result_length->addIncoming(else_lvalue->length(), else_bb);
+  }
+  return std::make_shared<LValue>(result_value, result_length);
 }
 
 LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair& pair) {
