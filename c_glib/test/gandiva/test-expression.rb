@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,25 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-sudo apt-get install -y -q \
-    gdb binutils ccache libboost-dev libboost-filesystem-dev \
-    libboost-system-dev libboost-regex-dev
+class TestExpression < Test::Unit::TestCase
+  def setup
+    omit("Gandiva is required") unless defined?(::Gandiva)
+  end
 
-if [ "$CXX" == "g++-4.9" ]; then
-    sudo apt-get install -y -q g++-4.9
-fi
-
-if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
-    sudo apt-get install -y -q valgrind
-fi
-
-if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
-    sudo apt-get install -y -q lcov
-fi
-
-if [ "$ARROW_TRAVIS_GANDIVA" == "1" -a "$ARROW_USE_TOOLCHAIN" != "1" ]; then
-    sudo add-apt-repository -y ppa:dluxen/cmake-backports
-    sudo apt-get update -q
-    sudo apt-get install -y -q cmake3
-    sudo rm -rf /usr/local/cmake-*
-fi
+  def test_to_s
+    augend = Arrow::Field.new("augend", Arrow::Int32DataType.new)
+    addend = Arrow::Field.new("addend", Arrow::Int32DataType.new)
+    sum = Arrow::Field.new("sum", Arrow::Int32DataType.new)
+    expression = Gandiva::Expression.new("add", [augend, addend], sum)
+    assert_equal("int32 add((int32) augend, (int32) addend)", expression.to_s)
+  end
+end

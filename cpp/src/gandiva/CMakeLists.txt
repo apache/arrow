@@ -115,8 +115,7 @@ install(FILES
   selection_vector.h
   status.h
   tree_expr_builder.h
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/gandiva")
 
 # pkg-config support
 configure_file(gandiva.pc.in

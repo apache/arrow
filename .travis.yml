@@ -226,13 +226,15 @@ matrix:
     os: linux
     env:
     - ARROW_TRAVIS_ORC=1
+    - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_USE_VENDORED_BOOST=1
     - ARROW_TRAVIS_PARQUET=1
     - BUILD_TORCH_EXAMPLE=no
-    - CC="gcc-4.9"
-    - CXX="g++-4.9"
+    - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
     before_script:
     - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
