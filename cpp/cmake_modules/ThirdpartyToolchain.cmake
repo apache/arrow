@@ -28,6 +28,7 @@ set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 
 if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(BROTLI_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(BZ2_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(FLATBUFFERS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GFLAGS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GLOG_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -59,6 +60,10 @@ endif()
 
 if (DEFINED ENV{BROTLI_HOME})
   set(BROTLI_HOME "$ENV{BROTLI_HOME}")
+endif()
+
+if (DEFINED ENV{BZ2_HOME})
+  set(BZ2_HOME "$ENV{BZ2_HOME}")
 endif()
 
 if (DEFINED ENV{DOUBLE_CONVERSION_HOME})
@@ -973,6 +978,21 @@ if (ARROW_WITH_BROTLI)
     add_dependencies(brotli_dec brotli_ep)
     add_dependencies(brotli_common brotli_ep)
   endif()
+endif()
+
+if (ARROW_WITH_BZ2)
+# ----------------------------------------------------------------------
+# BZ2
+
+  if("${BZ2_HOME}" STREQUAL "")
+    message(SEND_ERROR "a binary install of libbz2 must be present, please set the BZ2_HOME environment variable")
+  else()
+    find_package(Bz2 REQUIRED)
+  endif()
+
+  include_directories(SYSTEM ${BZ2_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(bz2_static
+    STATIC_LIB ${BZ2_STATIC_LIB})
 endif()
 
 if (ARROW_WITH_LZ4)

@@ -34,10 +34,9 @@ function(build_gandiva_lib TYPE ARROW)
     PUBLIC
       ${ARROW}
     PRIVATE
-      Boost::boost
-      Boost::regex
-      Boost::system
-      Boost::filesystem
+      boost_regex
+      boost_system
+      boost_filesystem
       LLVM::LLVM_INTERFACE
       re2)
 
@@ -91,7 +90,7 @@ function(add_gandiva_unit_test REL_TEST_NAME)
     ${CMAKE_SOURCE_DIR}/src
   )
   target_link_libraries(${TEST_NAME}
-    PRIVATE arrow_shared ${GANDIVA_TEST_LINK_LIBS} Boost::boost
+    PRIVATE arrow_shared ${GANDIVA_TEST_LINK_LIBS}
   )
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
   set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva,unittest ${TEST_NAME})

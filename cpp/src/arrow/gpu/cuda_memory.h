@@ -192,11 +192,13 @@ class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
 };
 
 /// \brief Allocate CUDA-accessible memory on CPU host
+/// \param[in] device_number
 /// \param[in] size number of bytes
 /// \param[out] out the allocated buffer
 /// \return Status
 ARROW_EXPORT
-Status AllocateCudaHostBuffer(const int64_t size, std::shared_ptr<CudaHostBuffer>* out);
+Status AllocateCudaHostBuffer(int device_number, const int64_t size,
+                              std::shared_ptr<CudaHostBuffer>* out);
 
 }  // namespace gpu
 }  // namespace arrow

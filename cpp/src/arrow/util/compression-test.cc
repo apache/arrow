@@ -314,6 +314,11 @@ class CodecTest : public ::testing::TestWithParam<Compression::type> {
 };
 
 TEST_P(CodecTest, CodecRoundtrip) {
+  if (GetCompression() == Compression::BZ2) {
+    // SKIP: BZ2 doesn't support one-shot compression
+    return;
+  }
+
   int sizes[] = {0, 10000, 100000};
   for (int data_size : sizes) {
     vector<uint8_t> data = MakeRandomData(data_size);
@@ -327,6 +332,10 @@ TEST_P(CodecTest, CodecRoundtrip) {
 TEST_P(CodecTest, StreamingCompressor) {
   if (GetCompression() == Compression::SNAPPY) {
     // SKIP: snappy doesn't support streaming compression
+    return;
+  }
+  if (GetCompression() == Compression::BZ2) {
+    // SKIP: BZ2 doesn't support one-shot decompression
     return;
   }
   if (GetCompression() == Compression::LZ4) {
@@ -350,6 +359,10 @@ TEST_P(CodecTest, StreamingCompressor) {
 TEST_P(CodecTest, StreamingDecompressor) {
   if (GetCompression() == Compression::SNAPPY) {
     // SKIP: snappy doesn't support streaming decompression
+    return;
+  }
+  if (GetCompression() == Compression::BZ2) {
+    // SKIP: BZ2 doesn't support one-shot compression
     return;
   }
   if (GetCompression() == Compression::LZ4) {
@@ -397,6 +410,10 @@ INSTANTIATE_TEST_CASE_P(TestSnappy, CodecTest, ::testing::Values(Compression::SN
 INSTANTIATE_TEST_CASE_P(TestLZ4, CodecTest, ::testing::Values(Compression::LZ4));
 
 INSTANTIATE_TEST_CASE_P(TestBrotli, CodecTest, ::testing::Values(Compression::BROTLI));
+
+#if ARROW_WITH_BZ2
+INSTANTIATE_TEST_CASE_P(TestBZ2, CodecTest, ::testing::Values(Compression::BZ2));
+#endif
 
 }  // namespace util
 }  // namespace arrow

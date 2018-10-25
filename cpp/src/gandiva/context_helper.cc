@@ -25,16 +25,17 @@
 
 namespace gandiva {
 
-void ExportedContextFunctions::AddMappings(Engine& engine) const {
+void ExportedContextFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
-  auto types = engine.types();
+  auto types = engine->types();
 
   // gdv_fn_context_set_error_msg
-  args = {types.i64_type(),      // int64_t context_ptr
-          types.i8_ptr_type()};  // char const* err_msg
+  args = {types->i64_type(),      // int64_t context_ptr
+          types->i8_ptr_type()};  // char const* err_msg
 
-  engine.AddGlobalMappingForFunc("gdv_fn_context_set_error_msg", types.void_type(), args,
-                                 reinterpret_cast<void*>(gdv_fn_context_set_error_msg));
+  engine->AddGlobalMappingForFunc("gdv_fn_context_set_error_msg", types->void_type(),
+                                  args,
+                                  reinterpret_cast<void*>(gdv_fn_context_set_error_msg));
 }
 
 }  // namespace gandiva

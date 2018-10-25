@@ -111,8 +111,6 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
-    # If either C++ or Python changed, we must install the C++ libraries
-    - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
@@ -139,6 +137,25 @@ matrix:
     - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
+  # [OS X] Gandiva C++ w/ XCode 8.3 & Java
+  - compiler: clang
+    language: cpp
+    # xcode 7.3 has a bug in strptime.
+    osx_image: xcode8.3
+    os: osx
+    cache:
+    addons:
+    env:
+    - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    before_script:
+    # Run if something changed in CPP or Java.
+    - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
   # [manylinux1] Python
   - language: cpp
     before_script:

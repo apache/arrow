@@ -89,6 +89,11 @@ if (ARROW_WITH_BROTLI)
   SET(ARROW_SRCS util/compression_brotli.cc ${ARROW_SRCS})
 endif()
 
+if (ARROW_WITH_BZ2)
+  add_definitions(-DARROW_WITH_BZ2)
+  SET(ARROW_SRCS util/compression_bz2.cc ${ARROW_SRCS})
+endif()
+
 if (ARROW_WITH_LZ4)
   add_definitions(-DARROW_WITH_LZ4)
   SET(ARROW_SRCS util/compression_lz4.cc ${ARROW_SRCS})

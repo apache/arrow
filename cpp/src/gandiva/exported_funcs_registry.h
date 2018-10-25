@@ -33,7 +33,7 @@ class ExportedFuncsRegistry {
   using list_type = std::vector<ExportedFuncsBase*>;
 
   // Add functions from all the registered classes to the engine.
-  static void AddMappings(Engine& engine);
+  static void AddMappings(Engine* engine);
 
   static bool Register(ExportedFuncsBase* entry) {
     registered().push_back(entry);

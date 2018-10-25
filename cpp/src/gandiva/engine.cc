@@ -221,7 +221,7 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
   execution_engine_->addGlobalMapping(fn, function_ptr);
 }
 
-void Engine::AddGlobalMappings() { ExportedFuncsRegistry::AddMappings(*this); }
+void Engine::AddGlobalMappings() { ExportedFuncsRegistry::AddMappings(this); }
 
 void Engine::DumpIR(std::string prefix) {
   std::string str;

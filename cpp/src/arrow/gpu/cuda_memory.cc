@@ -85,7 +85,7 @@ CudaBuffer::~CudaBuffer() { DCHECK(Close().ok()); }
 Status CudaBuffer::Close() {
   if (own_data_) {
     if (is_ipc_) {
-      CU_RETURN_NOT_OK(cuIpcCloseMemHandle(reinterpret_cast<CUdeviceptr>(mutable_data_)));
+      return context_->CloseIpcBuffer(this);
     } else {
       return context_->Free(mutable_data_, size_);
     }
@@ -257,7 +257,8 @@ class CudaBufferWriter::CudaBufferWriterImpl {
       // Flush any buffered data
       RETURN_NOT_OK(Flush());
     }
-    RETURN_NOT_OK(AllocateCudaHostBuffer(buffer_size, &host_buffer_));
+    RETURN_NOT_OK(AllocateCudaHostBuffer(context_.get()->device_number(), buffer_size,
+                                         &host_buffer_));
     host_buffer_data_ = host_buffer_->mutable_data();
     buffer_size_ = buffer_size;
     return Status::OK();
@@ -319,10 +320,11 @@ int64_t CudaBufferWriter::num_bytes_buffered() const { return impl_->buffer_posi
 
 // ----------------------------------------------------------------------
 
-Status AllocateCudaHostBuffer(const int64_t size, std::shared_ptr<CudaHostBuffer>* out) {
+Status AllocateCudaHostBuffer(int device_number, const int64_t size,
+                              std::shared_ptr<CudaHostBuffer>* out) {
   CudaDeviceManager* manager = nullptr;
   RETURN_NOT_OK(CudaDeviceManager::GetInstance(&manager));
-  return manager->AllocateHost(size, out);
+  return manager->AllocateHost(device_number, size, out);
 }
 
 }  // namespace gpu

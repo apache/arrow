@@ -64,20 +64,11 @@ else()
     ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-if (ARROW_BOOST_USE_SHARED)
-  set(PARQUET_BOOST_LINK_LIBS
-    boost_regex_shared)
-  if(MSVC)
-    set(PARQUET_BOOST_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS}
-      boost_system_shared)
-  endif()
-else()
-  set(PARQUET_BOOST_LINK_LIBS
-    boost_regex_static)
-  if(MSVC)
-    set(PARQUET_BOOST_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS}
-      boost_system_static boost_filesystem_static)
-  endif()
+set(PARQUET_BOOST_LINK_LIBS
+  boost_regex)
+if(MSVC)
+  set(PARQUET_BOOST_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS}
+    boost_system)
 endif()
 
 set(PARQUET_MIN_TEST_LIBS

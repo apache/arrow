@@ -47,6 +47,8 @@
     zlibCompileFlags;
     zlibVersion;
     _tr_*;
+    # bz2
+    BZ2_*;
     # lz4
     LZ4_*;
     LZ4F_*;

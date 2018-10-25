@@ -30,9 +30,21 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 # Find the libraries that correspond to the LLVM components
 llvm_map_components_to_libnames(LLVM_LIBS core mcjit native ipo bitreader target linker analysis debuginfodwarf)
 
-set(CLANG_EXECUTABLE ${LLVM_TOOLS_BINARY_DIR}/clang CACHE STRING "clang")
-set(LINK_EXECUTABLE ${LLVM_TOOLS_BINARY_DIR}/llvm-link CACHE STRING "link")
-set(CLANG_FORMAT_EXECUTABLE ${LLVM_TOOLS_BINARY_DIR}/clang-format CACHE STRING "clang-format")
+find_program(CLANG_EXECUTABLE clang
+  HINTS ${LLVM_TOOLS_BINARY_DIR})
+if (CLANG_EXECUTABLE)
+  message(STATUS "Found clang ${CLANG_EXECUTABLE}")
+else ()
+  message(FATAL_ERROR "Couldn't find clang")
+endif ()
+
+find_program(LLVM_LINK_EXECUTABLE llvm-link
+  HINTS ${LLVM_TOOLS_BINARY_DIR})
+if (LLVM_LINK_EXECUTABLE)
+  message(STATUS "Found llvm-link ${LLVM_LINK_EXECUTABLE}")
+else ()
+  message(FATAL_ERROR "Couldn't find llvm-link")
+endif ()
 
 add_library(LLVM::LLVM_INTERFACE INTERFACE IMPORTED)
 
@@ -40,4 +52,9 @@ set_target_properties(LLVM::LLVM_INTERFACE PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES "${LLVM_INCLUDE_DIRS}"
   INTERFACE_COMPILE_FLAGS "${LLVM_DEFINITIONS}"
   INTERFACE_LINK_LIBRARIES "${LLVM_LIBS}"
+)
+
+mark_as_advanced(
+  CLANG_EXECUTABLE
+  LLVM_LINK_EXECUTABLE
 )

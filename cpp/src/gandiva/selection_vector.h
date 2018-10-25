@@ -55,41 +55,41 @@ class SelectionVector {
 
   /// \brief populate selection vector for all the set bits in the bitmap.
   ///
-  /// \param[in] : bitmap the bitmap
-  /// \param[in] : bitmap_size size of the bitmap in bytes
-  /// \param[in] : max_bitmap_index max valid index in bitmap (can be lesser than
-  ///              capacity in the bitmap, due to alignment/padding).
+  /// \param[in] bitmap the bitmap
+  /// \param[in] bitmap_size size of the bitmap in bytes
+  /// \param[in] max_bitmap_index max valid index in bitmap (can be lesser than
+  ///            capacity in the bitmap, due to alignment/padding).
   Status PopulateFromBitMap(const uint8_t* bitmap, int bitmap_size, int max_bitmap_index);
 
   /// \brief make selection vector with int16 type records.
   ///
-  /// \param[in] : max_slots max number of slots
-  /// \param[in] : buffer buffer sized to accomodate max_slots
-  /// \param[out]: selection_vector selection vector backed by 'buffer'
+  /// \param[in] max_slots max number of slots
+  /// \param[in] buffer buffer sized to accomodate max_slots
+  /// \param[out] selection_vector selection vector backed by 'buffer'
   static Status MakeInt16(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
                           std::shared_ptr<SelectionVector>* selection_vector);
 
-  /// \param[in] : max_slots max number of slots
-  /// \param[in] : pool memory pool to allocate buffer
-  /// \param[out]: selection_vector selection vector backed by a buffer allocated from the
+  /// \param[in] max_slots max number of slots
+  /// \param[in] pool memory pool to allocate buffer
+  /// \param[out] selection_vector selection vector backed by a buffer allocated from the
   ///              pool.
   static Status MakeInt16(int max_slots, arrow::MemoryPool* pool,
                           std::shared_ptr<SelectionVector>* selection_vector);
 
   /// \brief make selection vector with int32 type records.
   ///
-  /// \param[in] : max_slots max number of slots
-  /// \param[in] : buffer buffer sized to accomodate max_slots
-  /// \param[out]: selection_vector selection vector backed by 'buffer'
+  /// \param[in] max_slots max number of slots
+  /// \param[in] buffer buffer sized to accomodate max_slots
+  /// \param[out] selection_vector selection vector backed by 'buffer'
   static Status MakeInt32(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
                           std::shared_ptr<SelectionVector>* selection_vector);
 
   /// \brief make selection vector with int32 type records.
   ///
-  /// \param[in] : max_slots max number of slots
-  /// \param[in] : pool memory pool to allocate buffer
-  /// \param[out]: selection_vector selection vector backed by a buffer allocated from the
-  ///              pool.
+  /// \param[in] max_slots max number of slots
+  /// \param[in] pool memory pool to allocate buffer
+  /// \param[out] selection_vector selection vector backed by a buffer allocated from the
+  ///             pool.
   static Status MakeInt32(int max_slots, arrow::MemoryPool* pool,
                           std::shared_ptr<SelectionVector>* selection_vector);
 };
