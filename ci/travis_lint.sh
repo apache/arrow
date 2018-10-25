@@ -23,13 +23,12 @@ set -ex
 export ARROW_TRAVIS_USE_TOOLCHAIN=0
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-# Fail fast for code linting issues
-
+# C++ code linting
 if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
   mkdir $ARROW_CPP_DIR/lint
   pushd $ARROW_CPP_DIR/lint
 
-  cmake ..
+  cmake .. -DARROW_ONLY_LINT=ON
   make lint
 
   if [ "$ARROW_TRAVIS_CLANG_FORMAT" == "1" ]; then
@@ -41,29 +40,25 @@ if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
   popd
 fi
 
+# Python style checks
+# (need Python 3 for crossbow)
+FLAKE8="python3 -m flake8"
+python3 -m pip install -q flake8==3.5
 
-# Fail fast on style checks
 if [ "$ARROW_CI_DEV_AFFECTED" != "0" ]; then
-  # crossbow requires python3
-  sudo apt-get install -y -q python3-pip
-  sudo pip3 install -q flake8==3.5
-  python3 -m flake8 --count $ARROW_CROSSBOW_DIR
+  $FLAKE8 --count $ARROW_CROSSBOW_DIR
 fi
 
 if [ "$ARROW_CI_INTEGRATION_AFFECTED" != "0" ]; then
-  sudo pip install -q flake8==3.5
-  python -m flake8 --count $ARROW_INTEGRATION_DIR
+  $FLAKE8 --count $ARROW_INTEGRATION_DIR
 fi
 
 if [ "$ARROW_CI_PYTHON_AFFECTED" != "0" ]; then
-  sudo pip install -q flake8==3.5
-
-  python -m flake8 --count $ARROW_PYTHON_DIR
-
+  $FLAKE8 --count $ARROW_PYTHON_DIR
   # Check Cython files with some checks turned off
-  python -m flake8 --count \
-                   --config=$ARROW_PYTHON_DIR/.flake8.cython \
-                   $ARROW_PYTHON_DIR
+  $FLAKE8 --count \
+          --config=$ARROW_PYTHON_DIR/.flake8.cython \
+          $ARROW_PYTHON_DIR
 fi
 
 if [ "$ARROW_CI_R_AFFECTED" != "0" ]; then

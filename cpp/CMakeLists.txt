@@ -104,6 +104,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   set(ARROW_CXXFLAGS "" CACHE STRING
     "Compiler flags to append when compiling Arrow")
 
+  option(ARROW_ONLY_LINT
+    "Only define the lint and check-format targets"
+    OFF)
+
   option(ARROW_BUILD_STATIC
     "Build the libarrow static libraries"
     ON)
@@ -315,6 +319,86 @@ Always OFF if building binaries"
 
 endif()
 
+
+############################################################
+# "make lint" target
+############################################################
+if (NOT ARROW_VERBOSE_LINT)
+  set(ARROW_LINT_QUIET "--quiet")
+endif()
+
+if (UNIX)
+
+  file(GLOB_RECURSE LINT_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
+    )
+
+  FOREACH(item ${LINT_FILES})
+    IF(NOT ((item MATCHES "_generated.h") OR
+            (item MATCHES "pyarrow_api.h") OR
+            (item MATCHES "xxhash.h") OR
+            (item MATCHES "xxhash.cc") OR
+            (item MATCHES "config.h") OR
+            (item MATCHES "util/variant") OR
+            (item MATCHES "zmalloc.h") OR
+            (item MATCHES "gandiva/precompiled/date.h") OR
+            (item MATCHES "ae.h")))
+      LIST(APPEND FILTERED_LINT_FILES ${item})
+    ENDIF()
+  ENDFOREACH(item ${LINT_FILES})
+
+  find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
+  message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
+
+  # Full lint
+  # Balancing act: cpplint.py takes a non-trivial time to launch,
+  # so process 12 files per invocation, while still ensuring parallelism
+  add_custom_target(lint echo ${FILTERED_LINT_FILES} | xargs -n12 -P8
+  ${CPPLINT_BIN}
+  --verbose=2 ${ARROW_LINT_QUIET}
+  --linelength=90
+  --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order
+  )
+endif (UNIX)
+
+############################################################
+# "make format" and "make check-format" targets
+############################################################
+
+# runs clang format and updates files in place.
+add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
+  ${CLANG_FORMAT_BIN}
+  ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/src --fix ${ARROW_LINT_QUIET})
+
+# runs clang format and exits with a non-zero exit code if any files need to be reformatted
+add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run_clang_format.py
+   ${CLANG_FORMAT_BIN}
+   ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
+   ${CMAKE_CURRENT_SOURCE_DIR}/src ${ARROW_LINT_QUIET})
+
+############################################################
+# "make clang-tidy" and "make check-clang-tidy" targets
+############################################################
+if (${CLANG_TIDY_FOUND})
+  # runs clang-tidy and attempts to fix any warning automatically
+  add_custom_target(clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json 1
+  `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc | sed -e '/_generated/g'`)
+  # runs clang-tidy and exits with a non-zero exit code if any errors are found.
+  add_custom_target(check-clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json
+  0 `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc |grep -v -F -f ${CMAKE_CURRENT_SOURCE_DIR}/src/.clang-tidy-ignore | sed -e '/_generated/g'`)
+endif()
+
+if (ARROW_ONLY_LINT)
+  return()
+endif()
+
+
+############################################################
+# Set up various options
+############################################################
+
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_WITH_BROTLI ON)
   set(ARROW_WITH_LZ4 ON)
@@ -507,78 +591,6 @@ if (UNIX)
     -name \\*.h -or -name \\*.c -or -name \\*.f )
   -exec echo \"{}\" \; > cscope.files && cscope -q -b VERBATIM)
 endif (UNIX)
-
-############################################################
-# "make lint" target
-############################################################
-if (NOT ARROW_VERBOSE_LINT)
-  set(ARROW_LINT_QUIET "--quiet")
-endif()
-
-if (UNIX)
-
-  file(GLOB_RECURSE LINT_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
-    )
-
-  FOREACH(item ${LINT_FILES})
-    IF(NOT ((item MATCHES "_generated.h") OR
-            (item MATCHES "pyarrow_api.h") OR
-            (item MATCHES "xxhash.h") OR
-            (item MATCHES "xxhash.cc") OR
-            (item MATCHES "config.h") OR
-            (item MATCHES "util/variant") OR
-            (item MATCHES "zmalloc.h") OR
-            (item MATCHES "gandiva/precompiled/date.h") OR
-            (item MATCHES "ae.h")))
-      LIST(APPEND FILTERED_LINT_FILES ${item})
-    ENDIF()
-  ENDFOREACH(item ${LINT_FILES})
-
-  find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
-  message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
-
-  # Full lint
-  # Balancing act: cpplint.py takes a non-trivial time to launch,
-  # so process 12 files per invocation, while still ensuring parallelism
-  add_custom_target(lint echo ${FILTERED_LINT_FILES} | xargs -n12 -P8
-  ${CPPLINT_BIN}
-  --verbose=2 ${ARROW_LINT_QUIET}
-  --linelength=90
-  --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order
-  )
-endif (UNIX)
-
-
-############################################################
-# "make format" and "make check-format" targets
-############################################################
-
-# runs clang format and updates files in place.
-add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
-  ${CLANG_FORMAT_BIN}
-  ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-  ${CMAKE_CURRENT_SOURCE_DIR}/src --fix ${ARROW_LINT_QUIET})
-
-# runs clang format and exits with a non-zero exit code if any files need to be reformatted
-add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run_clang_format.py
-   ${CLANG_FORMAT_BIN}
-   ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-   ${CMAKE_CURRENT_SOURCE_DIR}/src ${ARROW_LINT_QUIET})
-
-############################################################
-# "make clang-tidy" and "make check-clang-tidy" targets
-############################################################
-if (${CLANG_TIDY_FOUND})
-  # runs clang-tidy and attempts to fix any warning automatically
-  add_custom_target(clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json 1
-  `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc | sed -e '/_generated/g'`)
-  # runs clang-tidy and exits with a non-zero exit code if any errors are found.
-  add_custom_target(check-clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json
-  0 `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc |grep -v -F -f ${CMAKE_CURRENT_SOURCE_DIR}/src/.clang-tidy-ignore | sed -e '/_generated/g'`)
-
-endif()
 
 ############################################################
 # "make infer" target
