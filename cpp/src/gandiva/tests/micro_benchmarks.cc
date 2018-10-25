@@ -24,6 +24,7 @@
 #include "gandiva/tests/timed_evaluate.h"
 #include "gandiva/tree_expr_builder.h"
 
+
 namespace gandiva {
 
 using arrow::boolean;
@@ -182,7 +183,7 @@ TEST_F(TestBenchmarks, TimedTestFilterAdd2) {
   ASSERT_TRUE(status.ok());
   std::cout << "Time taken for Filter with Add2 " << elapsed_millis << " ms\n";
 
-  EXPECT_LE(elapsed_millis, 2 * tolerance_ratio);
+  EXPECT_LE(elapsed_millis, 2.5 * tolerance_ratio);
 }
 
 TEST_F(TestBenchmarks, TimedTestFilterLike) {
@@ -233,7 +234,8 @@ TEST_F(TestBenchmarks, TimedTestMultiOr) {
   FastUtf8DataGenerator data_generator1(250);
   for (int thresh = 1; thresh <= 32; thresh++) {
     auto literal = TreeExprBuilder::MakeStringLiteral(data_generator1.GenerateData());
-    auto condition = TreeExprBuilder::MakeFunction("equal", {node_a, literal}, boolean());
+    auto condition =
+        TreeExprBuilder::MakeFunction("equal", {node_a, literal}, boolean());
     boolean_functions.push_back(condition);
   }
 
@@ -248,11 +250,12 @@ TEST_F(TestBenchmarks, TimedTestMultiOr) {
   int64_t elapsed_millis;
   FastUtf8DataGenerator data_generator(250);
   ProjectEvaluator evaluator(projector);
-  status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
-      elapsed_millis);
+  status = TimedEvaluate<arrow::StringType, std::string>(schema, evaluator, data_generator,
+                                                    pool_, 1 * MILLION, 16 * THOUSAND,
+                                                    elapsed_millis);
   ASSERT_TRUE(status.ok());
   std::cout << "Time taken for BooleanOr " << elapsed_millis << " ms\n";
+
 }
 
 TEST_F(TestBenchmarks, TimedTestInExpr) {
@@ -266,6 +269,7 @@ TEST_F(TestBenchmarks, TimedTestInExpr) {
   // build expression.
   // a in (string1, string2, ..)
   auto node_a = TreeExprBuilder::MakeField(fielda);
+
 
   std::unordered_set<std::string> values;
   FastUtf8DataGenerator data_generator1(250);
@@ -284,12 +288,13 @@ TEST_F(TestBenchmarks, TimedTestInExpr) {
   FastUtf8DataGenerator data_generator(250);
   ProjectEvaluator evaluator(projector);
 
-  status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
-      elapsed_millis);
+  status = TimedEvaluate<arrow::StringType, std::string>(schema, evaluator, data_generator,
+                                                    pool_, 1 * MILLION, 16 * THOUSAND,
+                                                    elapsed_millis);
 
   ASSERT_TRUE(status.ok());
   std::cout << "Time taken for BooleanIn " << elapsed_millis << " ms\n";
+
 }
 
 }  // namespace gandiva
