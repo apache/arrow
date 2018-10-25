@@ -18,6 +18,8 @@
 #ifndef GANDIVA_DEX_DEXVISITOR_H
 #define GANDIVA_DEX_DEXVISITOR_H
 
+#include <string>
+
 #include "gandiva/logging.h"
 
 namespace gandiva {
@@ -35,6 +37,8 @@ class NullableInternalFuncDex;
 class IfDex;
 class BooleanAndDex;
 class BooleanOrDex;
+template <typename Type>
+class InExprDexBase;
 
 /// \brief Visitor for decomposed expression.
 class DexVisitor {
@@ -54,6 +58,9 @@ class DexVisitor {
   virtual void Visit(const IfDex& dex) = 0;
   virtual void Visit(const BooleanAndDex& dex) = 0;
   virtual void Visit(const BooleanOrDex& dex) = 0;
+  virtual void Visit(const InExprDexBase<int32_t>& dex) = 0;
+  virtual void Visit(const InExprDexBase<int64_t>& dex) = 0;
+  virtual void Visit(const InExprDexBase<std::string>& dex) = 0;
 };
 
 /// Default implementation with only DCHECK().
@@ -74,6 +81,9 @@ class DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(IfDex)
   VISIT_DCHECK(BooleanAndDex)
   VISIT_DCHECK(BooleanOrDex)
+  VISIT_DCHECK(InExprDexBase<int32_t>)
+  VISIT_DCHECK(InExprDexBase<int64_t>)
+  VISIT_DCHECK(InExprDexBase<std::string>)
 };
 
 }  // namespace gandiva

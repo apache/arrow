@@ -15,39 +15,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_NODE_VISITOR_H
-#define GANDIVA_NODE_VISITOR_H
+#ifndef GANDIVA_IN_HOLDER_H
+#define GANDIVA_IN_HOLDER_H
 
+#include <iostream>
 #include <string>
+#include <unordered_set>
 
-#include "gandiva/logging.h"
-#include "gandiva/status.h"
+#include "gandiva/arrow.h"
+#include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {
 
-class FieldNode;
-class FunctionNode;
-class IfNode;
-class LiteralNode;
-class BooleanNode;
+/// Function Holder for IN Expressions
 template <typename Type>
-class InExpressionNode;
-
-/// \brief Visitor for nodes in the expression tree.
-class NodeVisitor {
+class InHolder {
  public:
-  virtual ~NodeVisitor() = default;
+  explicit InHolder(const std::unordered_set<Type>& values) {
+    values_.max_load_factor(0.25f);
+    for (auto& value : values) {
+      values_.insert(value);
+    }
+  }
 
-  virtual Status Visit(const FieldNode& node) = 0;
-  virtual Status Visit(const FunctionNode& node) = 0;
-  virtual Status Visit(const IfNode& node) = 0;
-  virtual Status Visit(const LiteralNode& node) = 0;
-  virtual Status Visit(const BooleanNode& node) = 0;
-  virtual Status Visit(const InExpressionNode<int32_t>& node) = 0;
-  virtual Status Visit(const InExpressionNode<int64_t>& node) = 0;
-  virtual Status Visit(const InExpressionNode<std::string>& node) = 0;
+  bool HasValue(Type value) const { return values_.count(value) == 1; }
+
+ private:
+  std::unordered_set<Type> values_;
 };
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_NODE_VISITOR_H
+#endif  // GANDIVA_IN_HOLDER_H

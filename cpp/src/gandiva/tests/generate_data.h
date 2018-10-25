@@ -16,6 +16,7 @@
 // under the License.
 
 #include <stdlib.h>
+#include <random>
 #include <string>
 
 #ifndef GANDIVA_GENERATE_DATA_H
@@ -33,12 +34,12 @@ class DataGenerator {
 
 class Int32DataGenerator : public DataGenerator<int32_t> {
  public:
-  Int32DataGenerator() : seed_(100) {}
+  Int32DataGenerator() {}
 
-  int32_t GenerateData() { return rand_r(&seed_); }
+  int32_t GenerateData() { return random_(); }
 
  protected:
-  unsigned int seed_;
+  std::random_device random_;
 };
 
 class BoundedInt32DataGenerator : public Int32DataGenerator {
@@ -46,31 +47,35 @@ class BoundedInt32DataGenerator : public Int32DataGenerator {
   explicit BoundedInt32DataGenerator(uint32_t upperBound)
       : Int32DataGenerator(), upperBound_(upperBound) {}
 
-  int32_t GenerateData() { return (rand_r(&seed_) % upperBound_); }
+  int32_t GenerateData() {
+    int32_t value = (random_() % upperBound_);
+    // std::cout << value << std::endl;
+    return value;
+  }
 
  protected:
   uint32_t upperBound_;
+  std::random_device random_;
 };
 
 class Int64DataGenerator : public DataGenerator<int64_t> {
  public:
-  Int64DataGenerator() : seed_(100) {}
+  Int64DataGenerator() {}
 
-  int64_t GenerateData() { return rand_r(&seed_); }
+  int64_t GenerateData() { return random_(); }
 
  protected:
-  unsigned int seed_;
+  std::random_device random_;
 };
 
 class FastUtf8DataGenerator : public DataGenerator<std::string> {
  public:
-  explicit FastUtf8DataGenerator(int max_len)
-      : seed_(100), max_len_(max_len), cur_char_('a') {}
+  explicit FastUtf8DataGenerator(int max_len) : max_len_(max_len), cur_char_('a') {}
 
   std::string GenerateData() {
     std::string generated_str;
 
-    int slen = rand_r(&seed_) % max_len_;
+    int slen = random_() % max_len_;
     for (int i = 0; i < slen; ++i) {
       generated_str += generate_next_char();
     }
@@ -86,7 +91,7 @@ class FastUtf8DataGenerator : public DataGenerator<std::string> {
     return cur_char_;
   }
 
-  unsigned int seed_;
+  std::random_device random_;
   unsigned int max_len_;
   char cur_char_;
 };

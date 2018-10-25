@@ -52,7 +52,6 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   std::shared_ptr<Filter> cachedFilter = cache.GetModule(cache_key);
   if (cachedFilter != nullptr) {
     *filter = cachedFilter;
-    std::cout << "llvm filter module cache hit : " << cache_key.ToString() << std::endl;
     return Status::OK();
   }
   // Build LLVM generator, and generate code for the specified expression
@@ -72,7 +71,6 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
   cache.PutModule(cache_key, *filter);
-  std::cout << "llvm filter module cache insert : " << cache_key.ToString() << std::endl;
 
   return Status::OK();
 }
