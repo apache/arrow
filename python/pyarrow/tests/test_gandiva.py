@@ -51,6 +51,7 @@ def test_tree_exp_builder():
     r, = projector.evaluate(input_batch)
     assert r.equals(e)
 
+
 def test_table():
     df = pd.DataFrame({"a": [1.0, 2.0], "b": [3.0, 4.0]})
     table = pa.Table.from_pandas(df)
@@ -73,6 +74,7 @@ def test_table():
 
     e = pa.Array.from_pandas(df["a"] + df["b"])
     assert r.equals(e)
+
 
 def test_filter():
     df = pd.DataFrame({"a": [1.0 * i for i in range(10000)]})
