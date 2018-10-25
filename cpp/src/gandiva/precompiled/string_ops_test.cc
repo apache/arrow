@@ -54,32 +54,24 @@ TEST(TestStringOps, TestBeginsEnds) {
 }
 
 TEST(TestStringOps, TestCharLength) {
-  bool valid;
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
 
-  EXPECT_EQ(utf8_length(0, "hello sir", 9, true, &valid), 9);
-  EXPECT_TRUE(valid);
+  EXPECT_EQ(utf8_length(ctx_ptr, "hello sir", 9), 9);
 
   std::string a("âpple");
-  EXPECT_EQ(utf8_length(0, a.data(), static_cast<int>(a.length()), true, &valid), 5);
-  EXPECT_TRUE(valid);
+  EXPECT_EQ(utf8_length(ctx_ptr, a.data(), static_cast<int>(a.length())), 5);
 
   std::string b("मदन");
-  EXPECT_EQ(static_cast<int>(
-                utf8_length(0, b.data(), static_cast<int>(b.length()), true, &valid)),
-            3);
-  EXPECT_TRUE(valid);
+  EXPECT_EQ(utf8_length(ctx_ptr, b.data(), static_cast<int>(b.length())), 3);
 
   // invalid utf8
-  gandiva::ExecutionContext ctx;
   std::string c("\xf8\x28");
-  EXPECT_EQ(utf8_length(reinterpret_cast<int64>(&ctx), c.data(), static_cast<int>(c.length()), true,
-                        &valid),
-            0);
+  EXPECT_EQ(utf8_length(ctx_ptr, c.data(), static_cast<int>(c.length())), 0);
   EXPECT_TRUE(ctx.get_error().find(
                   "unexpected byte \\f8 encountered while decoding utf8 string") !=
               std::string::npos)
       << ctx.get_error();
-  EXPECT_FALSE(valid);
 }
 
 }  // namespace gandiva

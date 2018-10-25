@@ -559,36 +559,74 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
 }
 
 void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
-  ADD_VISITOR_TRACE("visit NonNullableFunc base function " +
-                    dex.func_descriptor()->name());
+  const std::string function_name = dex.func_descriptor()->name();
+  ADD_VISITOR_TRACE("visit NonNullableFunc base function " + function_name);
   LLVMTypes* types = generator_->types();
 
   const NativeFunction* native_function = dex.native_function();
 
   // build the function params (ignore validity).
   auto params = BuildParams(dex.function_holder().get(), dex.args(), false,
-                            native_function->needs_context());
+                            native_function->NeedsContext());
 
-  llvm::Type* ret_type = types->IRType(native_function->signature().ret_type()->id());
+  if (native_function->CanReturnErrors()) {
+    llvm::IRBuilder<>* builder = ir_builder();
+    llvm::LLVMContext* context = generator_->context();
 
-  llvm::Value* value =
-      generator_->AddFunctionCall(native_function->pc_name(), ret_type, params);
-  result_.reset(new LValue(value));
+    // Build combined validity of the args.
+    llvm::Value* is_valid = types->true_constant();
+    for (auto& pair : dex.args()) {
+      auto arg_validity = BuildCombinedValidity(pair->validity_exprs());
+      is_valid = builder->CreateAnd(is_valid, arg_validity, "validityBitAnd");
+    }
+
+    llvm::BasicBlock* then_bb = llvm::BasicBlock::Create(*context, "then", function_);
+    llvm::BasicBlock* else_bb = llvm::BasicBlock::Create(*context, "else", function_);
+    llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(*context, "merge", function_);
+    auto ret_type = types->IRType(native_function->signature().ret_type()->id());
+
+    // Compute validity.
+    builder->CreateCondBr(is_valid, then_bb, else_bb);
+
+    // Emit the then block.
+    builder->SetInsertPoint(then_bb);
+    ADD_VISITOR_TRACE("branch to then block");
+    llvm::Value* then_value = BuildFunctionCall(native_function, params);
+    builder->CreateBr(merge_bb);
+
+    // refresh then_bb for phi (could have changed due to code generation of then_vv).
+    then_bb = builder->GetInsertBlock();
+
+    // Emit the else block.
+    builder->SetInsertPoint(else_bb);
+    llvm::Value* else_value = types->NullConstant(ret_type);
+    builder->CreateBr(merge_bb);
+
+    // refresh else_bb for phi (could have changed due to code generation of else_vv).
+    else_bb = builder->GetInsertBlock();
+
+    // Emit the merge block.
+    builder->SetInsertPoint(merge_bb);
+
+    llvm::PHINode* value = builder->CreatePHI(ret_type, 2, "res_value");
+    value->addIncoming(then_value, then_bb);
+    value->addIncoming(else_value, else_bb);
+    result_.reset(new LValue(value));
+  } else {
+    auto value = BuildFunctionCall(native_function, params);
+    result_.reset(new LValue(value));
+  }
 }
 
 void LLVMGenerator::Visitor::Visit(const NullableNeverFuncDex& dex) {
   ADD_VISITOR_TRACE("visit NullableNever base function " + dex.func_descriptor()->name());
-  LLVMTypes* types = generator_->types();
-
   const NativeFunction* native_function = dex.native_function();
 
   // build function params along with validity.
   auto params = BuildParams(dex.function_holder().get(), dex.args(), true,
-                            native_function->needs_context());
+                            native_function->NeedsContext());
 
-  llvm::Type* ret_type = types->IRType(native_function->signature().ret_type()->id());
-  llvm::Value* value =
-      generator_->AddFunctionCall(native_function->pc_name(), ret_type, params);
+  auto value = BuildFunctionCall(native_function, params);
   result_.reset(new LValue(value));
 }
 
@@ -602,16 +640,14 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
 
   // build function params along with validity.
   auto params = BuildParams(dex.function_holder().get(), dex.args(), true,
-                            native_function->needs_context());
+                            native_function->NeedsContext());
 
   // add an extra arg for validity (alloced on stack).
   llvm::AllocaInst* result_valid_ptr =
       new llvm::AllocaInst(types->i8_type(), 0, "result_valid", entry_block_);
   params.push_back(result_valid_ptr);
 
-  llvm::Type* ret_type = types->IRType(native_function->signature().ret_type()->id());
-  llvm::Value* value =
-      generator_->AddFunctionCall(native_function->pc_name(), ret_type, params);
+  auto value = BuildFunctionCall(native_function, params);
 
   // load the result validity and truncate to i1.
   llvm::Value* result_valid_i8 = builder->CreateLoad(result_valid_ptr);
@@ -893,13 +929,24 @@ LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair&
   return std::make_shared<LValue>(value, length, validity);
 }
 
+llvm::Value* LLVMGenerator::Visitor::BuildFunctionCall(
+    const NativeFunction* func, const std::vector<llvm::Value*>& params) {
+  auto ret_type = generator_->types()->IRType(func->signature().ret_type()->id());
+  return generator_->AddFunctionCall(func->pc_name(), ret_type, params);
+}
+
 std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
     FunctionHolder* holder, const ValueValidityPairVector& args, bool with_validity,
     bool with_context) {
   LLVMTypes* types = generator_->types();
   std::vector<llvm::Value*> params;
 
-  // if the function has holder, add the holder pointer first.
+  // add context if required.
+  if (with_context) {
+    params.push_back(arg_context_ptr_);
+  }
+
+  // if the function has holder, add the holder pointer.
   if (holder != nullptr) {
     auto ptr = types->i64_constant((int64_t)holder);
     params.push_back(ptr);
@@ -923,11 +970,6 @@ std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
       llvm::Value* validity_expr = BuildCombinedValidity(pair->validity_exprs());
       params.push_back(validity_expr);
     }
-  }
-
-  // add error holder if function can return error
-  if (with_context) {
-    params.push_back(arg_context_ptr_);
   }
 
   return params;

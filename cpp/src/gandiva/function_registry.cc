@@ -55,13 +55,13 @@ using std::vector;
 // - can return error.
 //
 // The pre-compiled fn name includes the base name & input type names. eg. add_int32_int32
-#define BINARY_UNSAFE_NULL_INTERNAL(NAME, IN_TYPE, OUT_TYPE)                    \
-  NativeFunction(#NAME, DataTypeVector{IN_TYPE(), IN_TYPE()}, OUT_TYPE(),       \
-                 RESULT_NULL_INTERNAL, STRINGIFY(NAME##_##IN_TYPE##_##IN_TYPE), \
-                 false /* does not need holder */, true /* can return error */)
+#define BINARY_UNSAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                    \
+  NativeFunction(#NAME, DataTypeVector{IN_TYPE(), IN_TYPE()}, OUT_TYPE(),      \
+                 RESULT_NULL_IF_NULL, STRINGIFY(NAME##_##IN_TYPE##_##IN_TYPE), \
+                 NativeFunction::NEEDS_CONTEXT | NativeFunction::CAN_RETURN_ERRORS)
 
-// Divide function
-#define DIVIDE(NAME, TYPE) BINARY_UNSAFE_NULL_INTERNAL(NAME, TYPE, TYPE)
+#define BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(NAME, TYPE) \
+  BINARY_UNSAFE_NULL_IF_NULL(NAME, TYPE, TYPE)
 
 // Binary functions that :
 // - have different input types, or output type
@@ -103,10 +103,10 @@ using std::vector;
 // - NULL handling is of type NULL_INTERNAL
 //
 // The pre-compiled fn name includes the base name & input type name. eg. castFloat_int32
-#define UNARY_UNSAFE_NULL_INTERNAL(NAME, IN_TYPE, OUT_TYPE)                          \
-  NativeFunction(#NAME, DataTypeVector{IN_TYPE()}, OUT_TYPE(), RESULT_NULL_INTERNAL, \
-                 STRINGIFY(NAME##_##IN_TYPE), false /* does not need holder */,      \
-                 true /* can return error */)
+#define UNARY_UNSAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                          \
+  NativeFunction(#NAME, DataTypeVector{IN_TYPE()}, OUT_TYPE(), RESULT_NULL_IF_NULL, \
+                 STRINGIFY(NAME##_##IN_TYPE),                                       \
+                 NativeFunction::NEEDS_CONTEXT | NativeFunction::CAN_RETURN_ERRORS)
 
 // Binary functions that :
 // - NULL handling is of type NULL_NEVER
@@ -190,7 +190,7 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, add),
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, subtract),
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, multiply),
-    NUMERIC_TYPES(DIVIDE, divide),
+    NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int32, int32),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int64, int64),
     NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
@@ -239,12 +239,12 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     UNARY_SAFE_NULL_IF_NULL(log10, float32, float64),
     UNARY_SAFE_NULL_IF_NULL(log10, float64, float64),
 
-    BINARY_UNSAFE_NULL_INTERNAL(log, int32, float64),
-    BINARY_UNSAFE_NULL_INTERNAL(log, int64, float64),
-    BINARY_UNSAFE_NULL_INTERNAL(log, uint32, float64),
-    BINARY_UNSAFE_NULL_INTERNAL(log, uint64, float64),
-    BINARY_UNSAFE_NULL_INTERNAL(log, float32, float64),
-    BINARY_UNSAFE_NULL_INTERNAL(log, float64, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, int32, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, int64, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, uint32, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, uint64, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, float32, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, float64, float64),
 
     BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(power, float64),
 
@@ -401,9 +401,9 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     UNARY_SAFE_NULL_IF_NULL(octet_length, binary, int32),
     UNARY_SAFE_NULL_IF_NULL(bit_length, utf8, int32),
     UNARY_SAFE_NULL_IF_NULL(bit_length, binary, int32),
-    UNARY_UNSAFE_NULL_INTERNAL(char_length, utf8, int32),
-    UNARY_UNSAFE_NULL_INTERNAL(length, utf8, int32),
-    UNARY_UNSAFE_NULL_INTERNAL(lengthUtf8, binary, int32),
+    UNARY_UNSAFE_NULL_IF_NULL(char_length, utf8, int32),
+    UNARY_UNSAFE_NULL_IF_NULL(length, utf8, int32),
+    UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, binary, int32),
 
     VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
     VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
@@ -416,17 +416,16 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     BINARY_RELATIONAL_SAFE_NULL_IF_NULL(ends_with, utf8),
 
     NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), RESULT_NULL_IF_NULL,
-                   "gdv_fn_like_utf8_utf8", true /*needs_holder*/),
+                   "gdv_fn_like_utf8_utf8", NativeFunction::NEEDS_FUNCTION_HOLDER),
+
+    NativeFunction("castDATE", DataTypeVector{utf8()}, date64(), RESULT_NULL_IF_NULL,
+                   "castDATE_utf8",
+                   NativeFunction::NEEDS_CONTEXT | NativeFunction::CAN_RETURN_ERRORS),
 
     NativeFunction("to_date", DataTypeVector{utf8(), utf8(), int32()}, date64(),
-                   RESULT_NULL_INTERNAL, "gdv_fn_to_date_utf8_utf8_int32", true, true),
-
-    NativeFunction("castDATE", DataTypeVector{utf8()}, date64(), RESULT_NULL_INTERNAL,
-                   "castDATE_utf8", false /*needs_holder*/, true /*needs context*/),
-
-    // Null internal (sample)
-    NativeFunction("half_or_null", DataTypeVector{int32()}, int32(), RESULT_NULL_INTERNAL,
-                   "half_or_null_int32"),
+                   RESULT_NULL_INTERNAL, "gdv_fn_to_date_utf8_utf8_int32",
+                   NativeFunction::NEEDS_CONTEXT | NativeFunction::NEEDS_FUNCTION_HOLDER |
+                       NativeFunction::CAN_RETURN_ERRORS),
 };  // namespace gandiva
 
 FunctionRegistry::iterator FunctionRegistry::begin() const {

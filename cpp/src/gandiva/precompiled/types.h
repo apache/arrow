@@ -122,8 +122,7 @@ int32 mem_compare(const char* left, int32 left_len, const char* right, int32 rig
 
 int32 mod_int64_int32(int64 left, int32 right);
 
-int64 divide_int64_int64(int64 context, int64 in1, boolean is_valid1, int64 in2, boolean is_valid2,
-                         bool* out_valid);
+int64 divide_int64_int64(int64 context, int64 in1, int64 in2);
 
 float64 cbrt_int32(int32);
 float64 cbrt_int64(int64);
@@ -147,19 +146,16 @@ float64 log10_float64(float64);
 
 float64 power_float64_float64(float64, float64);
 
-float64 log_int32_int32(int64 context, int32 base, boolean is_base_valid, int32 value,
-                        boolean is_value_valid, boolean* out_valid);
+float64 log_int32_int32(int64 context, int32 base, int32 value);
 
 bool starts_with_utf8_utf8(const char* data, int32 data_len, const char* prefix,
                            int32 prefix_len);
 bool ends_with_utf8_utf8(const char* data, int32 data_len, const char* suffix,
                          int32 suffix_len);
 
-int32 utf8_length(int64 context, const char* data, int32 data_len, boolean is_valid,
-                  boolean* out_valid);
+int32 utf8_length(int64 context, const char* data, int32 data_len);
 
-date64 castDATE_utf8(int64_t execution_context, const char* input, int32 length, boolean is_valid1,
-                     boolean* out_valid);
+date64 castDATE_utf8(int64_t execution_context, const char* input, int32 length);
 
 }  // extern "C"
 

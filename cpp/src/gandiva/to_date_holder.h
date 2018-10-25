@@ -22,6 +22,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "gandiva/execution_context.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/status.h"
@@ -39,14 +40,14 @@ class ToDateHolder : public FunctionHolder {
                      std::shared_ptr<ToDateHolder>* holder);
 
   /// Return true if the data matches the pattern.
-  int64_t operator()(const std::string& data, bool in_valid, int64_t execution_context,
+  int64_t operator()(ExecutionContext* context, const std::string& data, bool in_valid,
                      bool* out_valid);
 
  private:
   ToDateHolder(const std::string& pattern, int32_t suppress_errors)
       : pattern_(pattern), suppress_errors_(suppress_errors) {}
 
-  void return_error(int64_t execution_context, const std::string& data);
+  void return_error(ExecutionContext* context, const std::string& data);
 
   std::string pattern_;  // date format string
 

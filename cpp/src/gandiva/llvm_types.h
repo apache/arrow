@@ -94,6 +94,16 @@ class LLVMTypes {
     return llvm::ConstantFP::get(double_type(), val);
   }
 
+  llvm::Constant* NullConstant(llvm::Type* type) {
+    if (type->isIntegerTy()) {
+      return llvm::ConstantInt::get(type, 0);
+    } else if (type->isFloatingPointTy()) {
+      return llvm::ConstantFP::get(type, 0);
+    } else {
+      return llvm::ConstantPointerNull::getNullValue(type);
+    }
+  }
+
   /// For a given data type, find the ir type used for the data vector slot.
   llvm::Type* DataVecType(const DataTypePtr& data_type) {
     return IRType(data_type->id());

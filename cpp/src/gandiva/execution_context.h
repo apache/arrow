@@ -37,6 +37,8 @@ class ExecutionContext {
 
   bool has_error() const { return !error_msg_.empty(); }
 
+  void Reset() { error_msg_.clear(); }
+
  private:
   std::string error_msg_;
 };

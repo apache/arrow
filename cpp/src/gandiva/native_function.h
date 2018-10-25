@@ -39,28 +39,32 @@ enum ResultNullableType {
 /// precompiled function.
 class NativeFunction {
  public:
+  // fucntion attributes.
+  static constexpr int32_t NEEDS_CONTEXT = (1 << 1);
+  static constexpr int32_t NEEDS_FUNCTION_HOLDER = (1 << 2);
+  static constexpr int32_t CAN_RETURN_ERRORS = (1 << 3);
+
   const FunctionSignature& signature() const { return signature_; }
   std::string pc_name() const { return pc_name_; }
   ResultNullableType result_nullable_type() const { return result_nullable_type_; }
-  bool needs_holder() const { return needs_holder_; }
-  bool needs_context() const { return needs_context_; }
+
+  bool NeedsContext() const { return (flags_ & NEEDS_CONTEXT) != 0; }
+  bool NeedsFunctionHolder() const { return (flags_ & NEEDS_FUNCTION_HOLDER) != 0; }
+  bool CanReturnErrors() const { return (flags_ & CAN_RETURN_ERRORS) != 0; }
 
  private:
   NativeFunction(const std::string& base_name, const DataTypeVector& param_types,
                  DataTypePtr ret_type, const ResultNullableType& result_nullable_type,
-                 const std::string& pc_name, bool needs_holder = false,
-                 bool needs_context = false)
+                 const std::string& pc_name, int32_t flags = 0)
       : signature_(base_name, param_types, ret_type),
-        needs_holder_(needs_holder),
-        needs_context_(needs_context),
+        flags_(flags),
         result_nullable_type_(result_nullable_type),
         pc_name_(pc_name) {}
 
   FunctionSignature signature_;
 
   /// attributes
-  bool needs_holder_;
-  bool needs_context_;
+  int32_t flags_;
   ResultNullableType result_nullable_type_;
 
   /// pre-compiled function name.
