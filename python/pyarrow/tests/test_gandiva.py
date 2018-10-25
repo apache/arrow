@@ -73,3 +73,17 @@ def test_table():
 
     e = pa.Array.from_pandas(df["a"] + df["b"])
     assert r.equals(e)
+
+def test_filter():
+    df = pd.DataFrame({"a": [1.0 * i for i in range(10000)]})
+    table = pa.Table.from_pandas(df)
+
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    thousand = builder.make_literal(1000.0)
+    cond = builder.make_function(b"less_than", [node_a, thousand], pa.bool_())
+    condition = builder.make_condition(cond)
+
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert result.to_array().equals(pa.array(range(1000), type=pa.uint32()))

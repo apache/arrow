@@ -46,6 +46,21 @@ cdef extern from "gandiva/gandiva_aliases.h" namespace "gandiva" nogil:
     ctypedef vector[shared_ptr[CExpression]] \
         CExpressionVector" gandiva::ExpressionVector"
 
+cdef extern from "gandiva/selection_vector.h" namespace "gandiva" nogil:
+
+    cdef cppclass CSelectionVector" gandiva::SelectionVector":
+
+        shared_ptr[CArray] ToArray()
+
+    cdef GStatus SelectionVector_MakeInt32\
+        "gandiva::SelectionVector::MakeInt32"(
+            int max_slots, CMemoryPool* pool,
+            shared_ptr[CSelectionVector]* selection_vector)
+
+cdef extern from "gandiva/condition.h" namespace "gandiva" nogil:
+
+    cdef cppclass CCondition" gandiva::Condition":
+        pass
 
 cdef extern from "gandiva/arrow.h" namespace "gandiva" nogil:
 
@@ -55,7 +70,7 @@ cdef extern from "gandiva/arrow.h" namespace "gandiva" nogil:
 cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
 
     cdef shared_ptr[CNode] TreeExprBuilder_MakeLiteral \
-        "gandiva::TreeExprBuilder::MakeLiteral"(c_bool value)
+        "gandiva::TreeExprBuilder::MakeLiteral"(double value)
 
     cdef shared_ptr[CExpression] TreeExprBuilder_MakeExpression\
         "gandiva::TreeExprBuilder::MakeExpression"(
@@ -74,6 +89,10 @@ cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
             shared_ptr[CNode] condition, shared_ptr[CNode] this_node,
             shared_ptr[CNode] else_node, shared_ptr[CDataType] return_type)
 
+    cdef shared_ptr[CCondition] TreeExprBuilder_MakeCondition \
+        "gandiva::TreeExprBuilder::MakeCondition"(
+            shared_ptr[CNode] condition)
+
     cdef GStatus Projector_Make \
         "gandiva::Projector::Make"(
             shared_ptr[CSchema] schema, const CExpressionVector& children,
@@ -86,3 +105,16 @@ cdef extern from "gandiva/projector.h" namespace "gandiva" nogil:
         GStatus Evaluate(
             const CRecordBatch& batch, CMemoryPool* pool,
             const CArrayVector* output)
+
+cdef extern from "gandiva/filter.h" namespace "gandiva" nogil:
+
+    cdef cppclass CFilter" gandiva::Filter":
+
+        GStatus Evaluate(
+            const CRecordBatch& batch,
+            shared_ptr[CSelectionVector] out_selection)
+
+    cdef GStatus Filter_Make \
+        "gandiva::Filter::Make"(
+            shared_ptr[CSchema] schema, shared_ptr[CCondition] condition,
+            shared_ptr[CFilter]* filter)

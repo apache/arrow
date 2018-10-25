@@ -30,13 +30,18 @@ from pyarrow.compat import frombytes
 from pyarrow.lib cimport pyarrow_wrap_array
 
 from pyarrow.includes.libgandiva cimport (GStatus, CExpression,
-                                          CNode, CProjector,
+                                          CCondition,
+                                          CNode, CProjector, CFilter,
+                                          CSelectionVector,
                                           TreeExprBuilder_MakeExpression,
                                           TreeExprBuilder_MakeFunction,
                                           TreeExprBuilder_MakeLiteral,
                                           TreeExprBuilder_MakeField,
                                           TreeExprBuilder_MakeIf,
-                                          Projector_Make)
+                                          TreeExprBuilder_MakeCondition,
+                                          SelectionVector_MakeInt32,
+                                          Projector_Make,
+                                          Filter_Make)
 
 from pyarrow.lib cimport (Array, DataType, Field, MemoryPool,
                           RecordBatch, Schema)
@@ -68,6 +73,34 @@ cdef class Expression:
     cdef void init(self, shared_ptr[CExpression] expression):
         self.expression = expression
 
+cdef class Condition:
+    cdef:
+        shared_ptr[CCondition] condition
+
+    cdef void init(self, shared_ptr[CCondition] condition):
+        self.condition = condition
+
+cdef make_condition(shared_ptr[CCondition] condition):
+    cdef Condition result = Condition()
+    result.init(condition)
+    return result
+
+cdef class SelectionVector:
+    cdef:
+        shared_ptr[CSelectionVector] selection_vector
+
+    cdef void init(self, shared_ptr[CSelectionVector] selection_vector):
+        self.selection_vector = selection_vector
+
+    def to_array(self):
+        cdef shared_ptr[CArray] result = self.selection_vector.get().ToArray()
+        return pyarrow_wrap_array(result)
+
+cdef make_selection_vector(shared_ptr[CSelectionVector] selection_vector):
+    cdef SelectionVector result = SelectionVector()
+    result.init(selection_vector)
+    return result
+
 cdef class Projector:
     cdef:
         shared_ptr[CProjector] projector
@@ -86,6 +119,20 @@ cdef class Projector:
         for result in results:
             arrays.append(pyarrow_wrap_array(result))
         return arrays
+
+cdef class Filter:
+    cdef:
+        shared_ptr[CFilter] filter
+
+    cdef void init(self, shared_ptr[CFilter] filter):
+        self.filter = filter
+
+    def evaluate(self, RecordBatch batch, MemoryPool pool):
+        cdef shared_ptr[CSelectionVector] selection
+        check_status(SelectionVector_MakeInt32(batch.num_rows, pool.pool, &selection))
+        check_status(self.filter.get().Evaluate(
+            batch.sp_batch.get()[0], selection))
+        return make_selection_vector(selection)
 
 cdef class TreeExprBuilder:
 
@@ -120,6 +167,11 @@ cdef class TreeExprBuilder:
             return_type.sp_type)
         return make_node(r)
 
+    def make_condition(self, Node condition):
+        cdef shared_ptr[CCondition] r = TreeExprBuilder_MakeCondition(
+            condition.node)
+        return make_condition(r)
+
 cpdef make_projector(Schema schema, children, MemoryPool pool):
     cdef c_vector[shared_ptr[CExpression]] c_children
     cdef Expression child
@@ -131,3 +183,10 @@ cpdef make_projector(Schema schema, children, MemoryPool pool):
     cdef Projector projector = Projector()
     projector.init(result, pool)
     return projector
+
+cpdef make_filter(Schema schema, Condition condition):
+    cdef shared_ptr[CFilter] result
+    check_status(Filter_Make(schema.sp_schema, condition.condition, &result))
+    cdef Filter filter = Filter()
+    filter.init(result)
+    return filter
