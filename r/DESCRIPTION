@@ -63,5 +63,6 @@ Collate:
     'read_table.R'
     'reexports-bit64.R'
     'reexports-tibble.R'
+    'vctrs-type-decimal128.R'
     'write_arrow.R'
     'zzz.R'

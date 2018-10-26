@@ -17,9 +17,6 @@
 
 #include "./arrow_types.h"
 
-using Rcpp::LogicalVector;
-using Rcpp::no_init;
-
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array,
                                             int offset) {
@@ -90,13 +87,13 @@ bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
 }
 
 // [[Rcpp::export]]
-LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array) {
+Rcpp::LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array) {
   if (array->null_count() == 0) {
-    return LogicalVector(array->length(), true);
+    return Rcpp::LogicalVector(array->length(), true);
   }
 
   auto n = array->length();
-  LogicalVector res(no_init(n));
+  Rcpp::LogicalVector res(Rcpp::no_init(n));
   arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
                                               array->offset(), n);
   for (size_t i = 0; i < array->length(); i++, bitmap_reader.Next()) {

@@ -842,3 +842,7 @@ SetCpuThreadPoolCapacity <- function(threads) {
     invisible(.Call(`_arrow_SetCpuThreadPoolCapacity`, threads))
 }
 
+format_decimal128 <- function(data, scale) {
+    .Call(`_arrow_format_decimal128`, data, scale)
+}
+
