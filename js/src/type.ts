@@ -369,8 +369,12 @@ export class List<T extends DataType = any> extends DataType<Type.List> {
     })(List.prototype);
 }
 
-export interface Struct extends DataType<Type.Struct> { TArray: any; TValue: View<any>; }
-export class Struct extends DataType<Type.Struct> {
+export type StructData = {[name: string]: DataType}
+export type StructValue<T extends StructData> = {
+    [P in keyof T]: T[P]['TValue'];
+}
+export interface Struct<T extends StructData = StructData> extends DataType<Type.Struct> { TArray: any; TValue: StructValue<T> & View<any>; }
+export class Struct<T extends StructData = StructData> extends DataType<Type.Struct> {
     constructor(public children: Field[]) {
         super(Type.Struct, children);
     }

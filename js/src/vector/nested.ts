@@ -19,7 +19,7 @@ import { Data } from '../data';
 import { View, Vector } from '../vector';
 import { IterableArrayLike } from '../type';
 import { valueToString } from '../util/pretty';
-import { DataType, NestedType, DenseUnion, SparseUnion, Struct, Map_ } from '../type';
+import { DataType, NestedType, DenseUnion, SparseUnion, Struct, StructData, StructValue, Map_ } from '../type';
 
 export abstract class NestedView<T extends NestedType> implements View<T> {
     public length: number;
@@ -128,16 +128,15 @@ export class DenseUnionView extends UnionView<DenseUnion> {
     }
 }
 
-type RowProxy = {[name: string]: any};
-interface RowViewConstructor<T extends RowProxy = RowProxy> {
-    readonly prototype: T & RowView;
-    new (data: Data<SparseUnion> & NestedView<any>, children?: Vector<any>[], rowIndex?: number): T & RowView;
+interface RowViewConstructor<T extends StructData = StructData> {
+    readonly prototype: StructValue<T> & RowView;
+    new (data: Data<SparseUnion> & NestedView<any>, children?: Vector<any>[], rowIndex?: number): StructValue<T> & RowView;
 }
 
-export class StructView extends NestedView<Struct> {
-    private RowView: RowViewConstructor;
+export class StructView<T extends StructData = StructData> extends NestedView<Struct<T>> {
+    private RowView: RowViewConstructor<T>;
 
-    constructor(data: Data<Struct>, children?: Vector<any>[]) {
+    constructor(data: Data<Struct<T>>, children?: Vector<any>[]) {
         super(data, children);
 
         // Make a customized RowView that includes proxies for
@@ -156,10 +155,10 @@ export class StructView extends NestedView<Struct> {
 
         this.RowView = (RowProxy as any);
     }
-    protected getNested(self: StructView, index: number) {
+    protected getNested(self: StructView<T>, index: number) {
         return new self.RowView(self as any, self._children, index);
     }
-    protected setNested(self: StructView, index: number, value: any): void {
+    protected setNested(self: StructView<T>, index: number, value: any): void {
         let idx = -1, len = self.numChildren, child: Vector | null;
         if (!(value instanceof NestedView || value instanceof Vector)) {
             while (++idx < len) {
