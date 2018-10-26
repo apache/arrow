@@ -115,6 +115,9 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
       case SELECTED_NULL_COLUMN:
         sqlToArrowTestSelectedNullColumnsValues(table.getVectors(), root, table.getRowCount());
         break;
+      default:
+        // do nothing
+        break;
     }
   }
 

@@ -210,6 +210,9 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
         assertFloat4VectorValues((Float4Vector) root.getVector(table.getVector()), table.getValues().length,
             table.getFloatValues());
         break;
+      default:
+        // do nothing
+        break;
     }
   }
 }

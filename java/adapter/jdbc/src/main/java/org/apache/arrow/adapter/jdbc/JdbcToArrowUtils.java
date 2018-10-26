@@ -95,8 +95,8 @@ public class JdbcToArrowUtils {
    * <p>
    * This method currently performs following type mapping for JDBC SQL data types to corresponding Arrow data types.
    * <p>
-   * CHAR	--> ArrowType.Utf8
-   * NCHAR	--> ArrowType.Utf8
+   * CHAR --> ArrowType.Utf8
+   * NCHAR --> ArrowType.Utf8
    * VARCHAR --> ArrowType.Utf8
    * NVARCHAR --> ArrowType.Utf8
    * LONGVARCHAR --> ArrowType.Utf8

@@ -37,8 +37,8 @@ import com.google.common.base.Preconditions;
  * <p>
  * This utility uses following data mapping to map JDBC/SQL datatype to Arrow data types.
  * <p>
- * CHAR	--> ArrowType.Utf8
- * NCHAR	--> ArrowType.Utf8
+ * CHAR --> ArrowType.Utf8
+ * NCHAR --> ArrowType.Utf8
  * VARCHAR --> ArrowType.Utf8
  * NVARCHAR --> ArrowType.Utf8
  * LONGVARCHAR --> ArrowType.Utf8
