@@ -36,6 +36,6 @@
   <suppress checks="javadoc.*" files=".*" />
 
   <!-- TODO: Temporarily suppress certain check requiring many code changes -->
-  <suppress checks="OverloadMethodsDeclarationOrder|VariableDeclarationUsageDistance" files=".*" />
+  <suppress checks="NoFinalizer|OverloadMethodsDeclarationOrder|VariableDeclarationUsageDistance" files=".*" />
 
 </suppressions>
