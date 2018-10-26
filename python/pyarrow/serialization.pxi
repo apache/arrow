@@ -119,7 +119,7 @@ cdef class SerializationContext:
             This argument is optional, but can be provided to
             deserialize objects of the class in a particular way.
         """
-        if not isinstance(type_id, str):
+        if not isinstance(type_id, six.string_types):
             raise ValueError("The type_id argument must be a string. The "
                              "value passed in has type {}."
                              .format(type(type_id)))
