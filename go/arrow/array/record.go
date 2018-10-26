@@ -113,8 +113,8 @@ type Record interface {
 
 	Schema() *arrow.Schema
 
-	NumRows() int
-	NumCols() int
+	NumRows() int64
+	NumCols() int64
 	Column(i int) Interface
 	ColumnName(i int) string
 
@@ -133,7 +133,7 @@ type simpleRecord struct {
 
 	schema *arrow.Schema
 
-	rows int
+	rows int64
 	arrs []Interface
 }
 
@@ -141,7 +141,7 @@ type simpleRecord struct {
 //
 // NewRecord panics if the columns and schema are inconsistent.
 // NewRecord panics if rows is larger than the height of the columns.
-func NewRecord(schema *arrow.Schema, cols []Interface, nrows int) *simpleRecord {
+func NewRecord(schema *arrow.Schema, cols []Interface, nrows int64) *simpleRecord {
 	rec := &simpleRecord{
 		refCount: 1,
 		schema:   schema,
@@ -158,7 +158,7 @@ func NewRecord(schema *arrow.Schema, cols []Interface, nrows int) *simpleRecord 
 		case 0:
 			rec.rows = 0
 		default:
-			rec.rows = rec.arrs[0].Len()
+			rec.rows = int64(rec.arrs[0].Len())
 		}
 	}
 
@@ -178,7 +178,7 @@ func (rec *simpleRecord) validate() error {
 
 	for i, arr := range rec.arrs {
 		f := rec.schema.Field(i)
-		if arr.Len() < rec.rows {
+		if int64(arr.Len()) < rec.rows {
 			return fmt.Errorf("arrow/array: mismatch number of rows in column %q: got=%d, want=%d",
 				f.Name,
 				arr.Len(), rec.rows,
@@ -215,8 +215,8 @@ func (rec *simpleRecord) Release() {
 }
 
 func (rec *simpleRecord) Schema() *arrow.Schema   { return rec.schema }
-func (rec *simpleRecord) NumRows() int            { return rec.rows }
-func (rec *simpleRecord) NumCols() int            { return len(rec.arrs) }
+func (rec *simpleRecord) NumRows() int64          { return rec.rows }
+func (rec *simpleRecord) NumCols() int64          { return int64(len(rec.arrs)) }
 func (rec *simpleRecord) Column(i int) Interface  { return rec.arrs[i] }
 func (rec *simpleRecord) ColumnName(i int) string { return rec.schema.Field(i).Name }
 
@@ -236,7 +236,7 @@ func (rec *simpleRecord) NewSlice(i, j int64) Record {
 			arr.Release()
 		}
 	}()
-	return NewRecord(rec.schema, arrs, int(j-i))
+	return NewRecord(rec.schema, arrs, j-i)
 }
 
 var (

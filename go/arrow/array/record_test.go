@@ -66,10 +66,10 @@ func TestRecord(t *testing.T) {
 		t.Fatalf("invalid schema: got=%#v, want=%#v", got, want)
 	}
 
-	if got, want := rec.NumRows(), 10; got != want {
+	if got, want := rec.NumRows(), int64(10); got != want {
 		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
 	}
-	if got, want := rec.NumCols(), 2; got != want {
+	if got, want := rec.NumCols(), int64(2); got != want {
 		t.Fatalf("invalid number of columns: got=%d, want=%d", got, want)
 	}
 	if got, want := rec.Column(0), cols[0]; got != want {
@@ -116,7 +116,7 @@ func TestRecord(t *testing.T) {
 			sub := rec.NewSlice(tc.i, tc.j)
 			defer sub.Release()
 
-			if got, want := sub.NumRows(), int(tc.j-tc.i); got != want {
+			if got, want := sub.NumRows(), tc.j-tc.i; got != want {
 				t.Fatalf("invalid rec-slice number of rows: got=%d, want=%d", got, want)
 			}
 		})
@@ -125,7 +125,7 @@ func TestRecord(t *testing.T) {
 	for _, tc := range []struct {
 		schema *arrow.Schema
 		cols   []array.Interface
-		rows   int
+		rows   int64
 		err    error
 	}{
 		{

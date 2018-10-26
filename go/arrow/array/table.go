@@ -17,6 +17,7 @@
 package array
 
 import (
+	"errors"
 	"fmt"
 	"sync/atomic"
 
@@ -251,7 +252,7 @@ func (tbl *simpleTable) Column(i int) *Column  { return &tbl.cols[i] }
 
 func (tbl *simpleTable) validate() {
 	if len(tbl.cols) != len(tbl.schema.Fields()) {
-		panic("arrow/array: table schema mismatch")
+		panic(errors.New("arrow/array: table schema mismatch"))
 	}
 	for i, col := range tbl.cols {
 		if !col.field.Equal(tbl.schema.Field(i)) {
