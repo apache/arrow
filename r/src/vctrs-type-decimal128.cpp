@@ -87,7 +87,7 @@ CharacterVector format_decimal128(arrow::r::Decimal128Record record) {
 }
 
 // [[Rcpp::export]]
-std::string Decimal128Array__FormatValue(const std::shared_ptr<arrow::Decimal128Array>& array, int64_t i) {
+std::string Decimal128Array__FormatValue(
+    const std::shared_ptr<arrow::Decimal128Array>& array, int64_t i) {
   return array->FormatValue(i);
 }
-
