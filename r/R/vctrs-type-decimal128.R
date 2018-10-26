@@ -19,7 +19,11 @@
 #'
 #' @param data decimal data, hosted in a complex vector
 #' @param scale scale
+#' @param precision precision
 #' @param x a `arrow_decimal128`
+#' @param y TODO
+#' @param to TODO
+#' @param ... TODO
 #'
 #' @export
 new_decimal128 <- function(data = complex(), precision = 10L, scale = 0L) {

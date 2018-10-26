@@ -21,9 +21,17 @@ decimal128(data, precision = 10L, scale = 0L)
 \arguments{
 \item{data}{decimal data, hosted in a complex vector}
 
+\item{precision}{precision}
+
 \item{scale}{scale}
 
 \item{x}{a \code{arrow_decimal128}}
+
+\item{...}{TODO}
+
+\item{y}{TODO}
+
+\item{to}{TODO}
 }
 \description{
 decimal type
