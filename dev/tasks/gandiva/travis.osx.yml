@@ -37,23 +37,10 @@ before_script:
   - git -C arrow checkout {{ arrow.head }}
   - mkdir -p dist
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
-  - arrow/ci/travis_install_toolchain.sh
-  - cd arrow/cpp
-  - mkdir build
-  - cd build
-  - export PATH=$TRAVIS_BUILD_DIR/cpp-toolchain/bin:$PATH
-  - export BOOST_ROOT=$TRAVIS_BUILD_DIR/cpp-toolchain
-  - export PROTOBUF_HOME=$TRAVIS_BUILD_DIR/cpp-toolchain
-  - export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/cpp-toolchain/lib:$LD_LIBRARY_PATH
-  - cmake .. -DCMAKE_BUILD_TYPE=Release -DARROW_GANDIVA=ON -DARROW_BUILD_UTILITIES=OFF
-  - make -j4
-  - ctest
+  - arrow/dev/tasks/gandiva/build_cpp_crossbow.sh
 
 script:
-  - cd $TRAVIS_BUILD_DIR/java
-  - mvn clean install -P gandiva -Dgandiva.cpp.build.dir=../../cpp/build/release
-  - cp gandiva/target/*.jar ../../dist/
-  - cd $TRAVIS_BUILD_DIR/..
+  - arrow/dev/tasks/gandiva/build_java_crossbow.sh
 
 deploy:
   provider: releases
