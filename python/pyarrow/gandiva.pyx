@@ -129,7 +129,8 @@ cdef class Filter:
 
     def evaluate(self, RecordBatch batch, MemoryPool pool):
         cdef shared_ptr[CSelectionVector] selection
-        check_status(SelectionVector_MakeInt32(batch.num_rows, pool.pool, &selection))
+        check_status(SelectionVector_MakeInt32(
+            batch.num_rows, pool.pool, &selection))
         check_status(self.filter.get().Evaluate(
             batch.sp_batch.get()[0], selection))
         return make_selection_vector(selection)
