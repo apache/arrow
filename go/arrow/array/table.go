@@ -18,7 +18,6 @@ package array
 
 import (
 	"fmt"
-	"reflect"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
@@ -255,7 +254,7 @@ func (tbl *simpleTable) validate() {
 		panic("arrow/array: table schema mismatch")
 	}
 	for i, col := range tbl.cols {
-		if !reflect.DeepEqual(col.field, tbl.schema.Field(i)) { // FIXME(sbinet): impl+use arrow.Field.Equal()
+		if !col.field.Equal(tbl.schema.Field(i)) {
 			panic(fmt.Errorf("arrow/array: column field %q is inconsistent with schema", col.Name()))
 		}
 

@@ -331,7 +331,7 @@ func TestColumn(t *testing.T) {
 			if got, want := col.Data(), tc.chunk; got != want {
 				t.Fatalf("invalid chunked: got=%#v, want=%#v", got, want)
 			}
-			if got, want := col.Field(), tc.field; !reflect.DeepEqual(got, want) {
+			if got, want := col.Field(), tc.field; !got.Equal(want) {
 				t.Fatalf("invalid field: got=%#v, want=%#v", got, want)
 			}
 			if got, want := col.Name(), tc.field.Name; got != want {

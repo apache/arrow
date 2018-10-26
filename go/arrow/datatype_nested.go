@@ -16,7 +16,10 @@
 
 package arrow
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 // ListType describes a nested type in which each array slot contains
 // a variable-size sequence of values, all having the same relative type.
@@ -104,6 +107,10 @@ type Field struct {
 }
 
 func (f Field) HasMetadata() bool { return f.Metadata.Len() != 0 }
+
+func (f Field) Equal(o Field) bool {
+	return reflect.DeepEqual(f, o)
+}
 
 var (
 	_ DataType = (*ListType)(nil)

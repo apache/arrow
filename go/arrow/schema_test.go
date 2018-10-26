@@ -161,7 +161,7 @@ func TestSchema(t *testing.T) {
 				t.Fatalf("invalid number of fields. got=%d, want=%d", got, want)
 			}
 
-			if got, want := s.Field(0), tc.fields[0]; !reflect.DeepEqual(got, want) {
+			if got, want := s.Field(0), tc.fields[0]; !got.Equal(want) {
 				t.Fatalf("invalid field: got=%#v, want=%#v", got, want)
 			}
 
@@ -196,7 +196,7 @@ func TestSchema(t *testing.T) {
 					if ok := s.HasField(tc.name); ok != tc.ok {
 						t.Fatalf("invalid HasField(%s): got=%v, want=%v", tc.name, ok, tc.ok)
 					}
-					if !reflect.DeepEqual(got, tc.field) {
+					if !got.Equal(tc.field) {
 						t.Fatalf("invalid field: got=%#v, want=%#v", got, tc.field)
 					}
 				})

@@ -241,3 +241,53 @@ func TestStructOf(t *testing.T) {
 		})
 	}
 }
+
+func TestFieldEqual(t *testing.T) {
+	for _, tc := range []struct {
+		a, b Field
+		want bool
+	}{
+		{
+			a:    Field{},
+			b:    Field{},
+			want: true,
+		},
+		{
+			a:    Field{Name: "a", Type: PrimitiveTypes.Int32},
+			b:    Field{Name: "a", Type: PrimitiveTypes.Int32},
+			want: true,
+		},
+		{
+			a:    Field{Name: "a", Type: PrimitiveTypes.Int32, Metadata: MetadataFrom(map[string]string{"k": "v"})},
+			b:    Field{Name: "a", Type: PrimitiveTypes.Int32, Metadata: MetadataFrom(map[string]string{"k": "v"})},
+			want: true,
+		},
+		{
+			a:    Field{Name: "a", Type: PrimitiveTypes.Int32, Metadata: MetadataFrom(map[string]string{"k": "k"})},
+			b:    Field{Name: "a", Type: PrimitiveTypes.Int32, Metadata: MetadataFrom(map[string]string{"k": "v"})},
+			want: false,
+		},
+		{
+			a:    Field{Name: "a", Type: PrimitiveTypes.Int32},
+			b:    Field{Name: "a", Type: PrimitiveTypes.Int32, Metadata: MetadataFrom(map[string]string{"k": "v"})},
+			want: false,
+		},
+		{
+			a:    Field{Name: "a", Type: PrimitiveTypes.Int32},
+			b:    Field{Name: "b", Type: PrimitiveTypes.Int32},
+			want: false,
+		},
+		{
+			a:    Field{Name: "a", Type: PrimitiveTypes.Int32},
+			b:    Field{Name: "a", Type: PrimitiveTypes.Uint32},
+			want: false,
+		},
+	} {
+		t.Run("", func(t *testing.T) {
+			got := tc.a.Equal(tc.b)
+			if got != tc.want {
+				t.Fatalf("got=%v, want=%v", got, tc.want)
+			}
+		})
+	}
+}
