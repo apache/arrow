@@ -44,8 +44,7 @@ public class PlasmaClientTest {
       this.startObjectStore(plasmaStorePath);
       System.loadLibrary("plasma_java");
       pLink = new PlasmaClient(this.getStoreAddress(), "", 0);
-    }
-    catch (Throwable t) {
+    } catch (Throwable t) {
       cleanup();
       throw t;
     }
