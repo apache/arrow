@@ -2366,6 +2366,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Decimal128Array__FormatValue
+std::string Decimal128Array__FormatValue(const std::shared_ptr<arrow::Decimal128Array>& array, int64_t i);
+RcppExport SEXP _arrow_Decimal128Array__FormatValue(SEXP arraySEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Decimal128Array>& >::type array(arraySEXP);
+    Rcpp::traits::input_parameter< int64_t >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(Decimal128Array__FormatValue(array, i));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2},
@@ -2579,6 +2591,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Decimal128_To_Integer64", (DL_FUNC) &_arrow_Decimal128_To_Integer64, 1},
     {"_arrow_Decimal128_To_Integer", (DL_FUNC) &_arrow_Decimal128_To_Integer, 1},
     {"_arrow_format_decimal128", (DL_FUNC) &_arrow_format_decimal128, 1},
+    {"_arrow_Decimal128Array__FormatValue", (DL_FUNC) &_arrow_Decimal128Array__FormatValue, 2},
     {NULL, NULL, 0}
 };
 

@@ -862,3 +862,7 @@ format_decimal128 <- function(record) {
     .Call(`_arrow_format_decimal128`, record)
 }
 
+Decimal128Array__FormatValue <- function(array, i) {
+    .Call(`_arrow_Decimal128Array__FormatValue`, array, i)
+}
+

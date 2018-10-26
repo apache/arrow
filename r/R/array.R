@@ -103,10 +103,25 @@
   )
 )
 
+`arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `arrow::Array`,
+  public = list(
+    indices = function() `arrow::Array`$dispatch(DictionaryArray__indices(self)),
+    dictionary = function() `arrow::Array`$dispatch(DictionaryArray__dictionary(self))
+  )
+)
+
+`arrow::Decimal128Array` <- R6Class("arrow::Decimal128Array", inherit = `arrow::Array`,
+  public = list(
+    FormatValue = function(i) Decimal128Array__FormatValue(self, i)
+  )
+)
+
 `arrow::Array`$dispatch <- function(xp){
   a <- shared_ptr(`arrow::Array`, xp)
   if(a$type_id() == Type$DICTIONARY){
     a <- shared_ptr(`arrow::DictionaryArray`, xp)
+  } else if (a$type_id() == Type$DECIMAL) {
+    a <- shared_ptr(`arrow::Decimal128Array`, xp)
   }
   a
 }
@@ -127,11 +142,3 @@
 array <- function(x, type = NULL){
   `arrow::Array`$dispatch(Array__from_vector(x, type))
 }
-
-`arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `arrow::Array`,
-  public = list(
-    indices = function() `arrow::Array`$dispatch(DictionaryArray__indices(self)),
-    dictionary = function() `arrow::Array`$dispatch(DictionaryArray__dictionary(self))
-  )
-)
-
