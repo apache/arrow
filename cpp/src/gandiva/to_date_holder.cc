@@ -71,19 +71,20 @@ Status ToDateHolder::Make(const std::string& sql_pattern, int32_t suppress_error
   return Status::OK();
 }
 
-int64_t ToDateHolder::operator()(const std::string& data, bool in_valid,
-                                 int64_t execution_context, bool* out_valid) {
-  // Issues
-  // 1. processes date that do not match the format.
-  // 2. does not process time in format +08:00 (or) id.
+int64_t ToDateHolder::operator()(ExecutionContext* context, const std::string& data,
+                                 bool in_valid, bool* out_valid) {
   *out_valid = false;
   if (!in_valid) {
     return 0;
   }
+
+  // Issues
+  // 1. processes date that do not match the format.
+  // 2. does not process time in format +08:00 (or) id.
   struct tm result = {};
   char* ret = strptime(data.c_str(), pattern_.c_str(), &result);
   if (ret == nullptr) {
-    return_error(execution_context, data);
+    return_error(context, data);
     return 0;
   }
   *out_valid = true;
@@ -92,20 +93,19 @@ int64_t ToDateHolder::operator()(const std::string& data, bool in_valid,
                                           (result.tm_mon + 1) / result.tm_mday);
   int64_t seconds_since_epoch = secs.time_since_epoch().count();
   if (seconds_since_epoch == 0) {
-    return_error(execution_context, data);
+    return_error(context, data);
     return 0;
   }
   return seconds_since_epoch * 1000;
 }
 
-void ToDateHolder::return_error(int64_t execution_context, const std::string& data) {
+void ToDateHolder::return_error(ExecutionContext* context, const std::string& data) {
   if (suppress_errors_ == 1) {
     return;
   }
-  ExecutionContext* execution_context_ptr =
-      reinterpret_cast<ExecutionContext*>(execution_context);
+
   std::string err_msg = "Error parsing value " + data + " for given format.";
-  (execution_context_ptr)->set_error_msg(err_msg.c_str());
+  context->set_error_msg(err_msg.c_str());
 }
 
 }  // namespace gandiva

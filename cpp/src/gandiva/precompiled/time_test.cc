@@ -31,58 +31,22 @@ timestamp StringToTimestamp(const char* buf) {
 }
 
 TEST(TestTime, TestCastDate) {
-  const char* date = "1967-12-1";
   ExecutionContext context;
-  bool valid;
-  int64_t cast_to_date = castDATE_utf8(date, 9, true, (int64_t)&context, &valid);
-  EXPECT_EQ(cast_to_date, -65836800000);
-  EXPECT_EQ(valid, true);
 
-  const char* date1 = "1972-12-1";
-  cast_to_date = castDATE_utf8(date1, 9, true, (int64_t)&context, &valid);
-  EXPECT_EQ(cast_to_date, 92016000000);
-  EXPECT_EQ(valid, true);
+  EXPECT_EQ(castDATE_utf8((int64_t)&context, "1967-12-1", 9), -65836800000);
+  EXPECT_EQ(castDATE_utf8((int64_t)&context, "1972-12-1", 9), 92016000000);
 
-  const char* date2 = "1972222222";
-  cast_to_date = castDATE_utf8(date2, 10, true, (int64_t)&context, &valid);
-  EXPECT_EQ(cast_to_date, 0);
+  EXPECT_EQ(castDATE_utf8((int64_t)&context, "1972222222", 10), 0);
   EXPECT_EQ(context.get_error(), "Not a valid date value 1972222222");
-  EXPECT_EQ(valid, false);
 
-  const char* date3 = "blahblah";
-  cast_to_date = castDATE_utf8(date3, 8, true, (int64_t)&context, &valid);
-  EXPECT_EQ(cast_to_date, 0);
-  EXPECT_EQ(valid, false);
+  EXPECT_EQ(castDATE_utf8((int64_t)&context, "blahblah", 8), 0);
+  EXPECT_EQ(castDATE_utf8((int64_t)&context, "1967-12-1bb", 11), -65836800000);
 
-  const char* date4 = "1967-12-1bb";
-  cast_to_date = castDATE_utf8(date4, 11, true, (int64_t)&context, &valid);
-  EXPECT_EQ(cast_to_date, -65836800000);
-  EXPECT_EQ(valid, true);
-
-  const char* date5 = "67-12-1";
-  cast_to_date = castDATE_utf8(date5, 7, true, (int64_t)&context, &valid);
-  EXPECT_EQ(cast_to_date, 3089923200000);
-  EXPECT_EQ(valid, true);
-
-  const char* date6 = "67-1-1";
-  cast_to_date = castDATE_utf8(date6, 7, true, (int64_t)&context, &valid);
-  EXPECT_EQ(cast_to_date, 3061065600000);
-  EXPECT_EQ(valid, true);
-
-  const char* date7 = "71-1-1";
-  cast_to_date = castDATE_utf8(date7, 7, true, (int64_t)&context, &valid);
-  EXPECT_EQ(cast_to_date, 31536000000);
-  EXPECT_EQ(valid, true);
-
-  const char* date8 = "71-45-1";
-  cast_to_date = castDATE_utf8(date8, 7, true, (int64_t)&context, &valid);
-  EXPECT_EQ(cast_to_date, 0);
-  EXPECT_EQ(valid, false);
-
-  const char* date9 = "71-12-XX";
-  cast_to_date = castDATE_utf8(date9, 8, true, (int64_t)&context, &valid);
-  EXPECT_EQ(cast_to_date, 0);
-  EXPECT_EQ(valid, false);
+  EXPECT_EQ(castDATE_utf8((int64_t)&context, "67-12-1", 7), 3089923200000);
+  EXPECT_EQ(castDATE_utf8((int64_t)&context, "67-1-1", 7), 3061065600000);
+  EXPECT_EQ(castDATE_utf8((int64_t)&context, "71-1-1", 7), 31536000000);
+  EXPECT_EQ(castDATE_utf8((int64_t)&context, "71-45-1", 7), 0);
+  EXPECT_EQ(castDATE_utf8((int64_t)&context, "71-12-XX", 8), 0);
 }
 
 TEST(TestTime, TestExtractTime) {

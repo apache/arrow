@@ -79,7 +79,7 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
 
   // Make a function holder, if required.
   std::shared_ptr<FunctionHolder> holder;
-  if (native_function->needs_holder()) {
+  if (native_function->NeedsFunctionHolder()) {
     auto status = FunctionHolderRegistry::Make(desc->name(), node, &holder);
     GANDIVA_RETURN_NOT_OK(status);
   }

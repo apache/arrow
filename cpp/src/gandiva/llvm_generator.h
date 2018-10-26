@@ -118,6 +118,14 @@ class LLVMGenerator {
                                           const ValueValidityPairVector& args,
                                           bool with_validity, bool with_context);
 
+    // Generate code to onvoke a function call.
+    llvm::Value* BuildFunctionCall(const NativeFunction* func,
+                                   const std::vector<llvm::Value*>& params);
+
+    // Generate code for an if-else condition.
+    LValuePtr BuildIfElse(llvm::Value* condition, std::function<LValuePtr()> then_func,
+                          std::function<LValuePtr()> else_func, llvm::Type* result_type);
+
     // Switch to the entry_block and get reference of the validity/value/offsets buffer
     llvm::Value* GetBufferReference(int idx, BufferType buffer_type, FieldPtr field);
 

@@ -249,10 +249,10 @@ TEST_F(TestBenchmarks, TimedTestMultiOr) {
   FastUtf8DataGenerator data_generator(250);
   ProjectEvaluator evaluator(projector);
   status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
+      schema, evaluator, data_generator, pool_, 100 * THOUSAND, 16 * THOUSAND,
       elapsed_millis);
   ASSERT_TRUE(status.ok());
-  std::cout << "Time taken for BooleanOr " << elapsed_millis << " ms\n";
+  std::cout << "Time taken for BooleanOr (100K) " << elapsed_millis << " ms\n";
 }
 
 TEST_F(TestBenchmarks, TimedTestInExpr) {
@@ -285,11 +285,11 @@ TEST_F(TestBenchmarks, TimedTestInExpr) {
   ProjectEvaluator evaluator(projector);
 
   status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
+      schema, evaluator, data_generator, pool_, 100 * THOUSAND, 16 * THOUSAND,
       elapsed_millis);
 
   ASSERT_TRUE(status.ok());
-  std::cout << "Time taken for BooleanIn " << elapsed_millis << " ms\n";
+  std::cout << "Time taken for BooleanIn (100K) " << elapsed_millis << " ms\n";
 }
 
 }  // namespace gandiva

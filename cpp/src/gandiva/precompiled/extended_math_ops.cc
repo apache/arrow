@@ -71,22 +71,15 @@ void set_error_for_logbase(int64_t execution_context, double base) {
 }
 
 // log with base
-#define LOG_WITH_BASE(IN_TYPE1, IN_TYPE2, OUT_TYPE)                            \
-  FORCE_INLINE                                                                 \
-  OUT_TYPE log_##IN_TYPE1##_##IN_TYPE2(IN_TYPE1 base, boolean is_base_valid,   \
-                                       IN_TYPE2 value, boolean is_value_valid, \
-                                       int64 context, boolean* out_valid) {    \
-    *out_valid = false;                                                        \
-    if (!is_base_valid || !is_value_valid) {                                   \
-      return 0;                                                                \
-    }                                                                          \
-    OUT_TYPE log_of_base = static_cast<float64>(logl(base));                   \
-    if (log_of_base == 0) {                                                    \
-      set_error_for_logbase(context, static_cast<float64>(base));              \
-      return 0;                                                                \
-    }                                                                          \
-    *out_valid = true;                                                         \
-    return static_cast<float64>(logl(value) / logl(base));                     \
+#define LOG_WITH_BASE(IN_TYPE1, IN_TYPE2, OUT_TYPE)                                    \
+  FORCE_INLINE                                                                         \
+  OUT_TYPE log_##IN_TYPE1##_##IN_TYPE2(int64 context, IN_TYPE1 base, IN_TYPE2 value) { \
+    OUT_TYPE log_of_base = static_cast<float64>(logl(base));                           \
+    if (log_of_base == 0) {                                                            \
+      set_error_for_logbase(context, static_cast<float64>(base));                      \
+      return 0;                                                                        \
+    }                                                                                  \
+    return static_cast<float64>(logl(value) / logl(base));                             \
   }
 
 LOG_WITH_BASE(int32, int32, float64)

@@ -116,13 +116,7 @@ void set_error_for_invalid_utf(int64_t execution_context, char val) {
 
 // Count the number of utf8 characters
 FORCE_INLINE
-int32 utf8_length(const char* data, int32 data_len, boolean is_valid, int64 context,
-                  boolean* out_valid) {
-  *out_valid = false;
-  if (!is_valid) {
-    return 0;
-  }
-
+int32 utf8_length(int64 context, const char* data, int32 data_len) {
   int char_len = 0;
   int count = 0;
   for (int i = 0; i < data_len; i += char_len) {
@@ -133,19 +127,17 @@ int32 utf8_length(const char* data, int32 data_len, boolean is_valid, int64 cont
     }
     ++count;
   }
-  *out_valid = true;
   return count;
 }
 
-#define UTF8_LENGTH_NULL_INTERNAL(NAME, TYPE)                                 \
-  FORCE_INLINE                                                                \
-  int32 NAME##_##TYPE(TYPE in, int32 in_len, boolean is_valid, int64 context, \
-                      boolean* out_valid) {                                   \
-    return utf8_length(in, in_len, is_valid, context, out_valid);             \
+#define UTF8_LENGTH(NAME, TYPE)                               \
+  FORCE_INLINE                                                \
+  int32 NAME##_##TYPE(int64 context, TYPE in, int32 in_len) { \
+    return utf8_length(context, in, in_len);                  \
   }
 
-UTF8_LENGTH_NULL_INTERNAL(char_length, utf8)
-UTF8_LENGTH_NULL_INTERNAL(length, utf8)
-UTF8_LENGTH_NULL_INTERNAL(lengthUtf8, binary)
+UTF8_LENGTH(char_length, utf8)
+UTF8_LENGTH(length, utf8)
+UTF8_LENGTH(lengthUtf8, binary)
 
 }  // extern "C"
