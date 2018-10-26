@@ -22,23 +22,24 @@
 #' @param x a `arrow_decimal128`
 #'
 #' @export
-new_decimal128 <- function(data = complex(), scale = 0L) {
+new_decimal128 <- function(data = complex(), precision = 10L, scale = 0L) {
   stopifnot(is.complex(data))
+  stopifnot(is.integer(precision), length(precision) == 1L)
   stopifnot(is.integer(scale), length(scale) == 1L)
 
-  new_rcrd(list(data = data), scale = scale, class = "arrow_decimal128")
+  new_rcrd(list(data = data), precision = precision, scale = scale, class = "arrow_decimal128")
 }
 
 #' @rdname new_decimal128
 #' @export
-decimal128 <- function(data, scale = 0L) {
-  new_decimal128(data, scale = scale)
+decimal128 <- function(data, precision = 10L, scale = 0L) {
+  new_decimal128(data, precision = precision, scale = scale)
 }
 
 #' @rdname new_decimal128
 #' @export
 format.arrow_decimal128 <- function(x, ...) {
-  format_decimal128(vctrs::field(x, "data"), attr(x, "scale"))
+  format_decimal128(x)
 }
 
 # Coerce ------------------------------------------------------------------

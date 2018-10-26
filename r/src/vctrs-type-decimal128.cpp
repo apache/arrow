@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
 #include <arrow/util/decimal.h>
+#include "arrow_types.h"
 
 using namespace Rcpp;
 
@@ -27,7 +27,7 @@ ComplexVector IntVector_to_Decimal128(Vector x) {
   auto p = reinterpret_cast<arrow::Decimal128*>(res.begin());
   auto p_x = reinterpret_cast<value_type*>(x.begin());
 
-  for (R_xlen_t i = 0; i< n ; i++, ++p, ++p_x) {
+  for (R_xlen_t i = 0; i < n; i++, ++p, ++p_x) {
     *p = arrow::Decimal128(*p_x);
   }
 
@@ -35,12 +35,12 @@ ComplexVector IntVector_to_Decimal128(Vector x) {
 }
 
 // [[Rcpp::export]]
-ComplexVector IntegerVector_to_Decimal128(IntegerVector_ x){
+ComplexVector IntegerVector_to_Decimal128(IntegerVector_ x) {
   return IntVector_to_Decimal128<IntegerVector_, int32_t>(x);
 }
 
 // [[Rcpp::export]]
-ComplexVector Integer64Vector_to_Decimal128(NumericVector_ x){
+ComplexVector Integer64Vector_to_Decimal128(NumericVector_ x) {
   return IntVector_to_Decimal128<NumericVector_, int64_t>(x);
 }
 
@@ -49,12 +49,12 @@ OutputVector Decimal128_To_Int(ComplexVector_ x, value_type NA) {
   auto n = x.size();
   OutputVector res(no_init(n));
 
-  auto p_res = reinterpret_cast<int64_t*>(res.begin());
+  auto p_res = reinterpret_cast<value_type*>(res.begin());
   auto p_x = reinterpret_cast<arrow::Decimal128*>(x.begin());
 
   for (R_xlen_t i = 0; i < n; i++, ++p_x, ++p_res) {
-    auto status = p_x->ToInteger<int64_t>(p_res);
-    if(!status.ok()){
+    auto status = p_x->ToInteger<value_type>(p_res);
+    if (!status.ok()) {
       *p_res = NA;
     }
   }
@@ -74,15 +74,14 @@ IntegerVector Decimal128_To_Integer(ComplexVector_ x) {
   return Decimal128_To_Int<IntegerVector, int32_t>(x, NA_INTEGER);
 }
 
-
 // [[Rcpp::export]]
-CharacterVector format_decimal128(ComplexVector_ data, int scale){
+CharacterVector format_decimal128(arrow::r::Decimal128Record record) {
+  auto data = record.data();
   auto n = data.size();
   auto p = reinterpret_cast<arrow::Decimal128*>(data.begin());
   CharacterVector res(no_init(n));
-  for (R_xlen_t i =0; i<n; i++, ++p) {
-    res[i] = p->ToString(scale);
+  for (R_xlen_t i = 0; i < n; i++, ++p) {
+    res[i] = p->ToString(record.scale());
   }
-
   return res;
 }

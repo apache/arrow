@@ -209,5 +209,21 @@ inline std::shared_ptr<T> extract(SEXP x) {
   return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>>(x);
 }
 
+struct Decimal128Record {
+  SEXP record_;
+
+  inline Decimal128Record(SEXP record) : record_(record) {}
+
+  inline Rcpp::ComplexVector_ data() const { return VECTOR_ELT(record_, 0); }
+
+  inline int precision() const {
+    return Rcpp::as<int>(Rf_getAttrib(record_, Rf_install("precision")));
+  }
+
+  inline int scale() const {
+    return Rcpp::as<int>(Rf_getAttrib(record_, Rf_install("scale")));
+  }
+};
+
 }  // namespace r
 }  // namespace arrow

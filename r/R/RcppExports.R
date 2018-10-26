@@ -858,7 +858,7 @@ Decimal128_To_Integer <- function(x) {
     .Call(`_arrow_Decimal128_To_Integer`, x)
 }
 
-format_decimal128 <- function(data, scale) {
-    .Call(`_arrow_format_decimal128`, data, scale)
+format_decimal128 <- function(record) {
+    .Call(`_arrow_format_decimal128`, record)
 }
 

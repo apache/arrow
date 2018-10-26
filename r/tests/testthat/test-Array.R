@@ -399,3 +399,11 @@ test_that("array() does not convert doubles to integer", {
   }
 })
 
+test_that("array supports decimal128", {
+  dec <- vctrs::vec_c(1:10, new_decimal128())
+  a <- array(dec)
+  expect_equal(a$length(), 10L)
+
+  x <- a$as_vector()
+  expect_equal(as.integer(x), 1:10)
+})
