@@ -842,6 +842,14 @@ SetCpuThreadPoolCapacity <- function(threads) {
     invisible(.Call(`_arrow_SetCpuThreadPoolCapacity`, threads))
 }
 
+IntegerVector_to_Decimal128 <- function(x) {
+    .Call(`_arrow_IntegerVector_to_Decimal128`, x)
+}
+
+Integer64Vector_to_Decimal128 <- function(x) {
+    .Call(`_arrow_Integer64Vector_to_Decimal128`, x)
+}
+
 format_decimal128 <- function(data, scale) {
     .Call(`_arrow_format_decimal128`, data, scale)
 }

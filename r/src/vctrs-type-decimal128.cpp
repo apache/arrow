@@ -20,6 +20,30 @@
 
 using namespace Rcpp;
 
+template <typename Vector, typename value_type>
+ComplexVector IntVector_to_Decimal128(Vector x) {
+  auto n = x.size();
+  ComplexVector res(no_init(n));
+  auto p = reinterpret_cast<arrow::Decimal128*>(res.begin());
+  auto p_x = reinterpret_cast<value_type*>(x.begin());
+
+  for (R_xlen_t i = 0; i< n ; i++, ++p, ++p_x) {
+    *p = arrow::Decimal128(*p_x);
+  }
+
+  return res;
+}
+
+// [[Rcpp::export]]
+ComplexVector IntegerVector_to_Decimal128(IntegerVector_ x){
+  return IntVector_to_Decimal128<IntegerVector_, int32_t>(x);
+}
+
+// [[Rcpp::export]]
+ComplexVector Integer64Vector_to_Decimal128(NumericVector_ x){
+  return IntVector_to_Decimal128<NumericVector_, int64_t>(x);
+}
+
 // [[Rcpp::export]]
 CharacterVector format_decimal128(ComplexVector_ data, int scale){
   auto n = data.size();

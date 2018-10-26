@@ -40,3 +40,77 @@ decimal128 <- function(data, scale = 0L) {
 format.arrow_decimal128 <- function(x, ...) {
   format_decimal128(vctrs::field(x, "data"), attr(x, "scale"))
 }
+
+# Coerce ------------------------------------------------------------------
+
+#' @import vctrs
+#' @rdname new_decimal128
+#' @export
+#' @method vec_type2 arrow_decimal128
+#' @export vec_type2.arrow_decimal128
+vec_type2.arrow_decimal128 <- function(x, y){
+  UseMethod("vec_type2.arrow_decimal128", y)
+}
+
+#' @export
+#' @method vec_type2.arrow_decimal128 arrow_decimal128
+vec_type2.arrow_decimal128.arrow_decimal128 <- function(x, y){
+  new_decimal128()
+}
+
+#' @export
+#' @method vec_type2.integer arrow_decimal128
+vec_type2.integer.arrow_decimal128 <- function(x, y){
+  new_decimal128()
+}
+
+#' @export
+#' @method vec_type2.arrow_decimal128 integer
+vec_type2.arrow_decimal128.integer <- function(x, y){
+  new_decimal128()
+}
+
+#' @export
+#' @method vec_type2.integer64 arrow_decimal128
+vec_type2.integer64.arrow_decimal128 <- function(x, y){
+  new_decimal128()
+}
+
+#' @export
+#' @method vec_type2.arrow_decimal128 integer64
+vec_type2.arrow_decimal128.integer64 <- function(x, y){
+  new_decimal128()
+}
+
+# Cast ------------------------------------------------------------------
+
+#' @importFrom vctrs vec_cast
+#' @export
+#' @rdname new_decimal128
+#' @export vec_cast.arrow_decimal128
+#' @method vec_cast arrow_decimal128
+vec_cast.arrow_decimal128 <- function(x, to) UseMethod("vec_cast.arrow_decimal128")
+
+#' @export
+#' @method vec_cast.arrow_decimal128 default
+vec_cast.arrow_decimal128.default <- function(x, to) {
+  stop_incompatible_cast(x, to)
+}
+
+#' @export
+#' @method vec_cast.arrow_decimal128 arrow_decimal128
+vec_cast.arrow_decimal128.arrow_decimal128 <- function(x, to) {
+  x
+}
+
+#' @export
+#' @method vec_cast.arrow_decimal128 integer64
+vec_cast.arrow_decimal128.integer64 <- function(x, to) {
+  new_decimal128(Integer64Vector_to_Decimal128(x), scale = 0L)
+}
+
+#' @export
+#' @method vec_cast.arrow_decimal128 integer
+vec_cast.arrow_decimal128.integer <- function(x, to) {
+  new_decimal128(IntegerVector_to_Decimal128(x), scale = 0L)
+}

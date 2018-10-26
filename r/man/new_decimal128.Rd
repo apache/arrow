@@ -4,6 +4,8 @@
 \alias{new_decimal128}
 \alias{decimal128}
 \alias{format.arrow_decimal128}
+\alias{vec_type2.arrow_decimal128}
+\alias{vec_cast.arrow_decimal128}
 \title{decimal type}
 \usage{
 new_decimal128(data = complex(), scale = 0L)
@@ -11,6 +13,10 @@ new_decimal128(data = complex(), scale = 0L)
 decimal128(data, scale = 0L)
 
 \method{format}{arrow_decimal128}(x, ...)
+
+\method{vec_type2}{arrow_decimal128}(x, y)
+
+\method{vec_cast}{arrow_decimal128}(x, to)
 }
 \arguments{
 \item{data}{decimal data, hosted in a complex vector}
