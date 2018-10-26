@@ -172,7 +172,8 @@ public class TestIntegration {
 
     BufferedReader orig = readNormalized(testJSONFile);
     BufferedReader rt = readNormalized(testRoundTripJSONFile);
-    String i, o;
+    String i;
+    String o;
     int j = 0;
     while ((i = orig.readLine()) != null && (o = rt.readLine()) != null) {
       assertEquals("line: " + j, i, o);
@@ -202,7 +203,8 @@ public class TestIntegration {
 
     BufferedReader orig = readNormalized(testJSONFile);
     BufferedReader rt = readNormalized(testRoundTripJSONFile);
-    String i, o;
+    String i;
+    String o;
     int j = 0;
     while ((i = orig.readLine()) != null && (o = rt.readLine()) != null) {
       assertEquals("line: " + j, i, o);
