@@ -48,7 +48,8 @@ groups:
     - centos-6
     - centos-7
   gandiva:
-    - ubuntu-trusty-gandiva   
+    - ubuntu-trusty-gandiva 
+    - osx-gandiva   
 
 tasks:
   # arbitrary_task_name:
@@ -453,4 +454,8 @@ tasks:
   ############################## Gandiva Tasks ####################################
   ubuntu-trusty-gandiva:
     platform: linux
-    template: gandiva/travis.linux.yml      
+    template: gandiva/travis.linux.yml    
+
+  osx-gandiva:
+    platform: osx
+    template: gandiva/travis.osx.yml         
