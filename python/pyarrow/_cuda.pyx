@@ -220,7 +220,7 @@ cdef class Context:
         buf = as_buffer(data)
 
         bsize = buf.size
-        if offset < 0 or offset >= bsize:
+        if offset < 0 or (bsize and offset >= bsize):
             raise ValueError('offset argument is out-of-range')
         if size < 0:
             size = bsize - offset
@@ -384,7 +384,8 @@ cdef class CudaBuffer(Buffer):
           Output buffer in host.
 
         """
-        if position < 0 or position > self.size:
+        if position < 0 or (self.size and position > self.size) \
+           or (self.size == 0 and position != 0):
             raise ValueError('position argument is out-of-range')
         cdef int64_t nbytes_
         if buf is None:
@@ -500,14 +501,17 @@ cdef class CudaBuffer(Buffer):
           Specify offset from the start of device buffer to slice
         length : int, default None
           Specify the length of slice (default is until end of device
-          buffer starting from offset)
+          buffer starting from offset). If the length is larger than
+          the data available, the returned slice will have a size of
+          the available data starting from the offset.
 
         Returns
         -------
         sliced : CudaBuffer
           Zero-copy slice of device buffer.
+
         """
-        if offset < 0 or offset >= self.size:
+        if offset < 0 or (self.size and offset >= self.size):
             raise ValueError('offset argument is out-of-range')
         cdef int64_t offset_ = offset
         cdef int64_t size
@@ -516,8 +520,7 @@ cdef class CudaBuffer(Buffer):
         elif offset + length <= self.size:
             size = length
         else:
-            raise ValueError(
-                'requested larger slice than available in device buffer')
+            size = self.size - offset
         parent = pyarrow_unwrap_cudabuffer(self)
         return pyarrow_wrap_cudabuffer(make_shared[CCudaBuffer](parent,
                                                                 offset_, size))
