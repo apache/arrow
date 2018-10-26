@@ -28,8 +28,8 @@ import (
 // Table represents a logical sequence of chunked arrays.
 type Table interface {
 	Schema() *arrow.Schema
-	NumRows() int
-	NumCols() int
+	NumRows() int64
+	NumCols() int64
 	Column(i int) *Column
 
 	Retain()
@@ -203,7 +203,7 @@ func (a *Chunked) NewSlice(i, j int64) *Chunked {
 type simpleTable struct {
 	refCount int64
 
-	rows int
+	rows int64
 	cols []Column
 
 	schema *arrow.Schema
@@ -215,7 +215,7 @@ type simpleTable struct {
 //
 // NewTable panics if the columns and schema are inconsistent.
 // NewTable panics if rows is larger than the height of the columns.
-func NewTable(schema *arrow.Schema, cols []Column, rows int) *simpleTable {
+func NewTable(schema *arrow.Schema, cols []Column, rows int64) *simpleTable {
 	tbl := simpleTable{
 		refCount: 1,
 		rows:     rows,
@@ -228,7 +228,7 @@ func NewTable(schema *arrow.Schema, cols []Column, rows int) *simpleTable {
 		case 0:
 			tbl.rows = 0
 		default:
-			tbl.rows = tbl.cols[0].Len()
+			tbl.rows = int64(tbl.cols[0].Len())
 		}
 	}
 
@@ -246,8 +246,8 @@ func NewTable(schema *arrow.Schema, cols []Column, rows int) *simpleTable {
 }
 
 func (tbl *simpleTable) Schema() *arrow.Schema { return tbl.schema }
-func (tbl *simpleTable) NumRows() int          { return tbl.rows }
-func (tbl *simpleTable) NumCols() int          { return len(tbl.cols) }
+func (tbl *simpleTable) NumRows() int64        { return tbl.rows }
+func (tbl *simpleTable) NumCols() int64        { return int64(len(tbl.cols)) }
 func (tbl *simpleTable) Column(i int) *Column  { return &tbl.cols[i] }
 
 func (tbl *simpleTable) validate() {
@@ -259,7 +259,7 @@ func (tbl *simpleTable) validate() {
 			panic(fmt.Errorf("arrow/array: column field %q is inconsistent with schema", col.Name()))
 		}
 
-		if col.Len() < tbl.rows {
+		if int64(col.Len()) < tbl.rows {
 			panic(fmt.Errorf("arrow/array: column %q expected length >= %d but got length %d", col.Name(), tbl.rows, col.Len()))
 		}
 	}

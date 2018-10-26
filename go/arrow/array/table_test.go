@@ -450,10 +450,10 @@ func TestTable(t *testing.T) {
 		t.Fatalf("invalid schema: got=%#v, want=%#v", got, want)
 	}
 
-	if got, want := tbl.NumRows(), 10; got != want {
+	if got, want := tbl.NumRows(), int64(10); got != want {
 		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
 	}
-	if got, want := tbl.NumCols(), 2; got != want {
+	if got, want := tbl.NumCols(), int64(2); got != want {
 		t.Fatalf("invalid number of columns: got=%d, want=%d", got, want)
 	}
 	if got, want := tbl.Column(0).Name(), col1.Name(); got != want {
@@ -463,7 +463,7 @@ func TestTable(t *testing.T) {
 	for _, tc := range []struct {
 		schema *arrow.Schema
 		cols   []array.Column
-		rows   int
+		rows   int64
 		err    error
 	}{
 		{
