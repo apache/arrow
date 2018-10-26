@@ -19,6 +19,7 @@ package array
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
@@ -285,6 +286,144 @@ func (tbl *simpleTable) Release() {
 	}
 }
 
+// TableReader is a Record iterator over a (possibly chunked) Table
+type TableReader struct {
+	refCount int64
+
+	tbl   Table
+	cur   int64  // current row
+	max   int64  // total number of rows
+	rec   Record // current Record
+	chksz int64  // chunk size
+
+	chunks  []*Chunked
+	slots   []int   // chunk indices
+	offsets []int64 // chunk offsets
+}
+
+// NewTableReader returns a new TableReader to iterate over the (possibly chunked) Table.
+// if chunkSize is <= 0, the biggest possible chunk will be selected.
+func NewTableReader(tbl Table, chunkSize int64) *TableReader {
+	ncols := tbl.NumCols()
+	tr := &TableReader{
+		refCount: 1,
+		tbl:      tbl,
+		cur:      0,
+		max:      int64(tbl.NumRows()),
+		chksz:    chunkSize,
+		chunks:   make([]*Chunked, ncols),
+		slots:    make([]int, ncols),
+		offsets:  make([]int64, ncols),
+	}
+	tr.tbl.Retain()
+
+	if tr.chksz <= 0 {
+		tr.chksz = math.MaxInt64
+	}
+
+	for i := range tr.chunks {
+		col := tr.tbl.Column(i)
+		tr.chunks[i] = col.Data()
+		tr.chunks[i].Retain()
+	}
+	return tr
+}
+
+func (tr *TableReader) Schema() *arrow.Schema { return tr.tbl.Schema() }
+func (tr *TableReader) Record() Record        { return tr.rec }
+
+func (tr *TableReader) Next() bool {
+	if tr.cur >= tr.max {
+		return false
+	}
+
+	if tr.rec != nil {
+		tr.rec.Release()
+	}
+
+	// determine the minimum contiguous slice across all columns
+	chunksz := imin64(tr.max, tr.chksz)
+	chunks := make([]Interface, len(tr.chunks))
+	for i := range chunks {
+		j := tr.slots[i]
+		chunk := tr.chunks[i].Chunk(j)
+		remain := int64(chunk.Len()) - tr.offsets[i]
+		if remain < chunksz {
+			chunksz = remain
+		}
+
+		chunks[i] = chunk
+	}
+
+	// slice the chunks, advance each chunk slot as appropriate.
+	batch := make([]Interface, len(tr.chunks))
+	for i, chunk := range chunks {
+		var slice Interface
+		offset := tr.offsets[i]
+		switch int64(chunk.Len()) - offset {
+		case chunksz:
+			tr.slots[i]++
+			tr.offsets[i] = 0
+			if offset > 0 {
+				// need to slice
+				slice = NewSlice(chunk, offset, offset+chunksz)
+			} else {
+				// no need to slice
+				slice = chunk
+				slice.Retain()
+			}
+		default:
+			tr.offsets[i] += chunksz
+			slice = NewSlice(chunk, offset, offset+chunksz)
+		}
+		batch[i] = slice
+	}
+
+	tr.cur += chunksz
+	tr.rec = NewRecord(tr.tbl.Schema(), batch, chunksz)
+
+	for _, arr := range batch {
+		arr.Release()
+	}
+
+	return true
+}
+
+// Retain increases the reference count by 1.
+// Retain may be called simultaneously from multiple goroutines.
+func (tr *TableReader) Retain() {
+	atomic.AddInt64(&tr.refCount, 1)
+}
+
+// Release decreases the reference count by 1.
+// When the reference count goes to zero, the memory is freed.
+// Release may be called simultaneously from multiple goroutines.
+func (tr *TableReader) Release() {
+	debug.Assert(atomic.LoadInt64(&tr.refCount) > 0, "too many releases")
+
+	if atomic.AddInt64(&tr.refCount, -1) == 0 {
+		tr.tbl.Release()
+		for _, chk := range tr.chunks {
+			chk.Release()
+		}
+		if tr.rec != nil {
+			tr.rec.Release()
+		}
+		tr.tbl = nil
+		tr.chunks = nil
+		tr.slots = nil
+		tr.offsets = nil
+	}
+}
+
+func imin64(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 var (
-	_ Table = (*simpleTable)(nil)
+	_ Table        = (*simpleTable)(nil)
+	_ RecordReader = (*TableReader)(nil)
 )
