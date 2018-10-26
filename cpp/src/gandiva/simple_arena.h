@@ -83,7 +83,7 @@ inline SimpleArena::SimpleArena(int32_t chunk_size)
       first_chunk_size_(0),
       total_bytes_(0),
       avail_bytes_(0),
-      avail_buf_(nullptr) {}
+      avail_buf_(NULL) {}
 
 inline uint8_t* SimpleArena::Allocate(int32_t size) {
   if (avail_bytes_ < size) {

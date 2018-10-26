@@ -150,7 +150,7 @@ char* upper_utf8(int64 context, const char* data, int32 data_len, int32_t* out_l
     // 'A- - 'Z' : 0x41 - 0x5a
     // 'a' - 'z' : 0x61 - 0x7a
     if (cur >= 0x61 && cur <= 0x7a) {
-      cur -= 0x20;
+      cur = static_cast<char>(cur - 0x20);
     }
     ret[i] = cur;
   }
