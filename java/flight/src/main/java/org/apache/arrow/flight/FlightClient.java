@@ -55,7 +55,7 @@ import io.grpc.stub.ClientResponseObserver;
 import io.grpc.stub.StreamObserver;
 
 public class FlightClient implements AutoCloseable {
-  private final static int PENDING_REQUESTS = 5;
+  private static final int PENDING_REQUESTS = 5;
   private final BufferAllocator allocator;
   private final ManagedChannel channel;
   private final FlightServiceBlockingStub blockingStub;

@@ -135,9 +135,9 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
       case "drop":
         return new Result(new byte[0]);
         // not implemented.
+      default:
+        throw new UnsupportedOperationException();
     }
-
-    throw new UnsupportedOperationException();
   }
 
   @Override
