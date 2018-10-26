@@ -110,7 +110,19 @@ vec_cast.arrow_decimal128.integer64 <- function(x, to) {
 }
 
 #' @export
+#' @method vec_cast.integer64 arrow_decimal128
+vec_cast.integer64.arrow_decimal128 <- function(x, to) {
+  Decimal128_To_Integer64(vctrs::field(x, "data"))
+}
+
+#' @export
 #' @method vec_cast.arrow_decimal128 integer
 vec_cast.arrow_decimal128.integer <- function(x, to) {
   new_decimal128(IntegerVector_to_Decimal128(x), scale = 0L)
+}
+
+#' @export
+#' @method vec_cast.integer arrow_decimal128
+vec_cast.integer.arrow_decimal128 <- function(x, to) {
+  Decimal128_To_Integer(vctrs::field(x, "data"))
 }

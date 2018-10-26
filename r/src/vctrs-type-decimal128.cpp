@@ -44,6 +44,37 @@ ComplexVector Integer64Vector_to_Decimal128(NumericVector_ x){
   return IntVector_to_Decimal128<NumericVector_, int64_t>(x);
 }
 
+template <typename OutputVector, typename value_type>
+OutputVector Decimal128_To_Int(ComplexVector_ x, value_type NA) {
+  auto n = x.size();
+  OutputVector res(no_init(n));
+
+  auto p_res = reinterpret_cast<int64_t*>(res.begin());
+  auto p_x = reinterpret_cast<arrow::Decimal128*>(x.begin());
+
+  for (R_xlen_t i = 0; i < n; i++, ++p_x, ++p_res) {
+    auto status = p_x->ToInteger<int64_t>(p_res);
+    if(!status.ok()){
+      *p_res = NA;
+    }
+  }
+
+  return res;
+}
+
+// [[Rcpp::export]]
+NumericVector Decimal128_To_Integer64(ComplexVector_ x) {
+  NumericVector res = Decimal128_To_Int<NumericVector, int64_t>(x, arrow::r::NA_INT64);
+  res.attr("class") = "integer64";
+  return res;
+}
+
+// [[Rcpp::export]]
+IntegerVector Decimal128_To_Integer(ComplexVector_ x) {
+  return Decimal128_To_Int<IntegerVector, int32_t>(x, NA_INTEGER);
+}
+
+
 // [[Rcpp::export]]
 CharacterVector format_decimal128(ComplexVector_ data, int scale){
   auto n = data.size();

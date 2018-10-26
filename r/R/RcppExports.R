@@ -850,6 +850,14 @@ Integer64Vector_to_Decimal128 <- function(x) {
     .Call(`_arrow_Integer64Vector_to_Decimal128`, x)
 }
 
+Decimal128_To_Integer64 <- function(x) {
+    .Call(`_arrow_Decimal128_To_Integer64`, x)
+}
+
+Decimal128_To_Integer <- function(x) {
+    .Call(`_arrow_Decimal128_To_Integer`, x)
+}
+
 format_decimal128 <- function(data, scale) {
     .Call(`_arrow_format_decimal128`, data, scale)
 }

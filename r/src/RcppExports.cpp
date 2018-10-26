@@ -2333,6 +2333,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Decimal128_To_Integer64
+NumericVector Decimal128_To_Integer64(ComplexVector_ x);
+RcppExport SEXP _arrow_Decimal128_To_Integer64(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< ComplexVector_ >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Decimal128_To_Integer64(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Decimal128_To_Integer
+IntegerVector Decimal128_To_Integer(ComplexVector_ x);
+RcppExport SEXP _arrow_Decimal128_To_Integer(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< ComplexVector_ >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Decimal128_To_Integer(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 // format_decimal128
 CharacterVector format_decimal128(ComplexVector_ data, int scale);
 RcppExport SEXP _arrow_format_decimal128(SEXP dataSEXP, SEXP scaleSEXP) {
@@ -2555,6 +2577,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1},
     {"_arrow_IntegerVector_to_Decimal128", (DL_FUNC) &_arrow_IntegerVector_to_Decimal128, 1},
     {"_arrow_Integer64Vector_to_Decimal128", (DL_FUNC) &_arrow_Integer64Vector_to_Decimal128, 1},
+    {"_arrow_IntegerVector_to_Decimal128", (DL_FUNC) &_arrow_IntegerVector_to_Decimal128, 1},
+    {"_arrow_Integer64Vector_to_Decimal128", (DL_FUNC) &_arrow_Integer64Vector_to_Decimal128, 1},
+    {"_arrow_Decimal128_To_Integer64", (DL_FUNC) &_arrow_Decimal128_To_Integer64, 1},
+    {"_arrow_Decimal128_To_Integer", (DL_FUNC) &_arrow_Decimal128_To_Integer, 1},
     {"_arrow_format_decimal128", (DL_FUNC) &_arrow_format_decimal128, 2},
     {NULL, NULL, 0}
 };
