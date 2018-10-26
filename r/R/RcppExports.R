@@ -301,6 +301,14 @@ Schema__ToString <- function(s) {
     .Call(`_arrow_Schema__ToString`, s)
 }
 
+Schema__num_fields <- function(s) {
+    .Call(`_arrow_Schema__num_fields`, s)
+}
+
+Schema__field <- function(s, i) {
+    .Call(`_arrow_Schema__field`, s, i)
+}
+
 ListType__ToString <- function(type) {
     .Call(`_arrow_ListType__ToString`, type)
 }

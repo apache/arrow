@@ -698,6 +698,40 @@ SEXP Int64Array(const std::shared_ptr<Array>& array) {
   return vec;
 }
 
+SEXP DecimalArray(const std::shared_ptr<Array>& array) {
+  auto n = array->length();
+  NumericVector vec(no_init(n));
+
+  if (n == 0) return vec;
+
+  auto null_count = array->null_count();
+  if (null_count == n) {
+    std::fill(vec.begin(), vec.end(), NA_REAL);
+    return vec;
+  }
+
+  auto p_vec = reinterpret_cast<double*>(vec.begin());
+  const auto& decimals_arr =
+      internal::checked_cast<const arrow::Decimal128Array&>(*array);
+
+  if (array->null_count()) {
+    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                         n);
+
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
+      p_vec[i] = bitmap_reader.IsNotSet()
+                     ? NA_REAL
+                     : std::stod(decimals_arr.FormatValue(i).c_str());
+    }
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      p_vec[i] = std::stod(decimals_arr.FormatValue(i).c_str());
+    }
+  }
+
+  return vec;
+}
+
 }  // namespace r
 }  // namespace arrow
 
@@ -748,6 +782,8 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
     // lossy promotions to numeric vector
     case Type::INT64:
       return arrow::r::Int64Array(array);
+    case Type::DECIMAL:
+      return arrow::r::DecimalArray(array);
 
     default:
       break;

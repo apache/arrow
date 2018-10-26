@@ -20,7 +20,9 @@
 `arrow::Schema` <- R6Class("arrow::Schema",
   inherit = `arrow::Object`,
   public = list(
-    ToString = function() Schema__ToString(self)
+    ToString = function() Schema__ToString(self),
+    num_fields = function() Schema__num_fields(self),
+    field = function(i) construct(`arrow::Field`, Schema__field(self, i))
   )
 )
 
