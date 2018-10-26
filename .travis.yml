@@ -48,6 +48,7 @@ matrix:
   fast_finish: true
   allow_failures:
   - jdk: oraclejdk9
+  - language: r
   include:
   # Lint C++, Python, R
   - os: linux
