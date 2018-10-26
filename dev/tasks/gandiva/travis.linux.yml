@@ -18,6 +18,7 @@ os: linux
 dist: trusty
 sudo: required
 language: cpp
+compiler: gcc
 services:
   - docker
 
@@ -28,6 +29,8 @@ env:
   global:
     - PLAT=x86_64
     - TRAVIS_TAG={{ task.tag }}
+    - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
 
 before_install:
   - eval "${MATRIX_EVAL}"
@@ -36,39 +39,32 @@ before_install:
       sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
       sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
       sudo apt-get update -qq
-matrix:
-  fast_finish: true
-  include:
-  - compiler: gcc
-    language: cpp
-    os: linux
-    jdk: openjdk8
-    env:
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
-    before_script:
-    - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
-    - git -C arrow checkout {{ arrow.head }}
-    - mkdir -p dist
-    - arrow/ci/travis_install_linux.sh
-    - arrow/ci/travis_install_clang_tools.sh
-    - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
-    - arrow/ci/travis_install_toolchain.sh
-    - cd arrow/cpp
-    - mkdir build
-    - cd build
-    - export PATH=$TRAVIS_BUILD_DIR/cpp-toolchain/bin:$PATH
-    - export BOOST_ROOT=$TRAVIS_BUILD_DIR/cpp-toolchain
-    - export PROTOBUF_HOME=$TRAVIS_BUILD_DIR/cpp-toolchain
-    - export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/cpp-toolchain/lib:$LD_LIBRARY_PATH
-    - cmake .. -DCMAKE_BUILD_TYPE=Release -DARROW_GANDIVA=ON -DARROW_BUILD_UTILITIES=OFF
-    - make -j4
-    - ctest
-    script:
-    - cd $TRAVIS_BUILD_DIR/java
-    - mvn clean install -P gandiva -Dgandiva.cpp.build.dir=../../cpp/build/release
-    - cp gandiva/target/*.jar ../../dist/
-    - cd $TRAVIS_BUILD_DIR/..
+
+before_script:
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
+  - mkdir -p dist
+  - arrow/ci/travis_install_linux.sh
+  - arrow/ci/travis_install_clang_tools.sh
+  - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
+  - arrow/ci/travis_install_toolchain.sh
+  - cd arrow/cpp
+  - mkdir build
+  - cd build
+  - export PATH=$TRAVIS_BUILD_DIR/cpp-toolchain/bin:$PATH
+  - export BOOST_ROOT=$TRAVIS_BUILD_DIR/cpp-toolchain
+  - export PROTOBUF_HOME=$TRAVIS_BUILD_DIR/cpp-toolchain
+  - export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/cpp-toolchain/lib:$LD_LIBRARY_PATH
+  - cmake .. -DCMAKE_BUILD_TYPE=Release -DARROW_GANDIVA=ON -DARROW_BUILD_UTILITIES=OFF
+  - make -j4
+  - ctest
+
+script:
+  - cd $TRAVIS_BUILD_DIR/java
+  - mvn clean install -P gandiva -Dgandiva.cpp.build.dir=../../cpp/build/release
+  - cp gandiva/target/*.jar ../../dist/
+  - cd $TRAVIS_BUILD_DIR/..
+
 deploy:
   provider: releases
   api_key: $CROSSBOW_GITHUB_TOKEN
@@ -80,4 +76,4 @@ deploy:
 
 notifications:
   email:
-    - praveen@dremio.com
+    - {{ job.email }}
