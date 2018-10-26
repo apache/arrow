@@ -35,8 +35,6 @@ before_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
   - mkdir -p dist
-  - arrow/ci/travis_install_linux.sh
-  - arrow/ci/travis_install_clang_tools.sh
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
   - arrow/ci/travis_install_toolchain.sh
   - cd arrow/cpp
