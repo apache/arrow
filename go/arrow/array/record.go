@@ -59,7 +59,7 @@ func NewRecordReader(schema *arrow.Schema, recs []Record) (*simpleRecords, error
 	}
 
 	for _, rec := range recs {
-		if !reflect.DeepEqual(rec.Schema(), rs.schema) {
+		if !rec.Schema().Equal(rs.schema) {
 			rs.Release()
 			return nil, fmt.Errorf("arrow/array: mismatch schema")
 		}

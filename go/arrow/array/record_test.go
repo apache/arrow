@@ -62,7 +62,7 @@ func TestRecord(t *testing.T) {
 	rec.Retain()
 	rec.Release()
 
-	if got, want := rec.Schema(), schema; !reflect.DeepEqual(got, want) {
+	if got, want := rec.Schema(), schema; !got.Equal(want) {
 		t.Fatalf("invalid schema: got=%#v, want=%#v", got, want)
 	}
 
@@ -287,7 +287,7 @@ func TestRecordReader(t *testing.T) {
 	itr.Retain()
 	itr.Release()
 
-	if got, want := itr.Schema(), schema; !reflect.DeepEqual(got, want) {
+	if got, want := itr.Schema(), schema; !got.Equal(want) {
 		t.Fatalf("invalid schema. got=%#v, want=%#v", got, want)
 	}
 

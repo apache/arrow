@@ -446,7 +446,7 @@ func TestTable(t *testing.T) {
 	tbl.Retain()
 	tbl.Release()
 
-	if got, want := tbl.Schema(), schema; !reflect.DeepEqual(got, want) {
+	if got, want := tbl.Schema(), schema; !got.Equal(want) {
 		t.Fatalf("invalid schema: got=%#v, want=%#v", got, want)
 	}
 

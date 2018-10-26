@@ -204,3 +204,83 @@ func TestSchema(t *testing.T) {
 		})
 	}
 }
+
+func TestSchemaEqual(t *testing.T) {
+	fields := []Field{
+		{Name: "f1", Type: PrimitiveTypes.Int32},
+		{Name: "f2", Type: PrimitiveTypes.Int64},
+	}
+	md := func() *Metadata {
+		md := MetadataFrom(map[string]string{"k1": "v1", "k2": "v2"})
+		return &md
+	}()
+
+	for _, tc := range []struct {
+		a, b *Schema
+		want bool
+	}{
+		{
+			a:    nil,
+			b:    nil,
+			want: true,
+		},
+		{
+			a:    NewSchema(nil, nil),
+			b:    NewSchema(nil, nil),
+			want: true,
+		},
+		{
+			a:    NewSchema(fields, nil),
+			b:    NewSchema(fields, nil),
+			want: true,
+		},
+		{
+			a:    NewSchema(fields, md),
+			b:    NewSchema(fields, nil),
+			want: true,
+		},
+		{
+			a:    NewSchema(fields, md),
+			b:    NewSchema(fields, md),
+			want: true,
+		},
+		{
+			a:    NewSchema(fields[:1], md),
+			b:    NewSchema(fields, md),
+			want: false,
+		},
+		{
+			a: NewSchema(fields, md),
+			b: NewSchema([]Field{
+				{Name: "f1", Type: PrimitiveTypes.Int32},
+				{Name: "f2", Type: PrimitiveTypes.Int32},
+			}, md),
+			want: false,
+		},
+		{
+			a: NewSchema(fields, md),
+			b: NewSchema([]Field{
+				{Name: "f1", Type: PrimitiveTypes.Int32},
+				{Name: "fx", Type: PrimitiveTypes.Int64},
+			}, md),
+			want: false,
+		},
+	} {
+		t.Run("", func(t *testing.T) {
+			if !tc.a.Equal(tc.a) {
+				t.Fatalf("a != a")
+			}
+			if !tc.b.Equal(tc.b) {
+				t.Fatalf("b != b")
+			}
+			ab := tc.a.Equal(tc.b)
+			if ab != tc.want {
+				t.Fatalf("got=%v, want=%v", ab, tc.want)
+			}
+			ba := tc.b.Equal(tc.a)
+			if ab != ba {
+				t.Fatalf("ab != ba")
+			}
+		})
+	}
+}
