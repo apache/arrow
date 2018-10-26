@@ -498,6 +498,8 @@ public class BaseFileTest {
           unionReader.reader("timestamp").read(h);
           Assert.assertEquals(i, h.value);
           break;
+        default:
+          assert false : "Unexpected value in switch statement: " + i;
       }
     }
   }
@@ -539,6 +541,8 @@ public class BaseFileTest {
           structWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
           structWriter.end();
           break;
+        default:
+          assert false : "Unexpected value in switch statement: " + i;
       }
     }
     writer.setValueCount(count);

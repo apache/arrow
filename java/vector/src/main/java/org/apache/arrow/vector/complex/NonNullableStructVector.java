@@ -26,7 +26,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.*;
+import org.apache.arrow.vector.DensityAwareVector;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.SingleStructReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
@@ -68,7 +70,7 @@ public class NonNullableStructVector extends AbstractStructVector {
     return reader;
   }
 
-  transient private StructTransferPair ephPair;
+  private transient StructTransferPair ephPair;
 
   public void copyFromSafe(int fromIndex, int thisIndex, NonNullableStructVector from) {
     if (ephPair == null || ephPair.from != from) {
@@ -264,10 +266,14 @@ public class NonNullableStructVector extends AbstractStructVector {
   }
 
   @Override
-  public boolean isNull(int index) { return false; }
+  public boolean isNull(int index) {
+    return false;
+  }
 
   @Override
-  public int getNullCount() { return 0; }
+  public int getNullCount() {
+    return 0;
+  }
 
   public void get(int index, ComplexHolder holder) {
     reader.setPosition(index);

@@ -122,7 +122,8 @@ public class Field {
     Map<String, String> metadata = new HashMap<>();
     for (int i = 0; i < field.customMetadataLength(); i++) {
       KeyValue kv = field.customMetadata(i);
-      String key = kv.key(), value = kv.value();
+      String key = kv.key();
+      String value = kv.value();
       metadata.put(key == null ? "" : key, value == null ? "" : value);
     }
     metadata = Collections.unmodifiableMap(metadata);
