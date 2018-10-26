@@ -84,7 +84,7 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
     ARROW_RETURN_NOT_OK(status);
   }
 
-  if (native_function->result_nullable_type() == RESULT_NULL_IF_NULL) {
+  if (native_function->result_nullable_type() == kResultNullIfNull) {
     // These functions are decomposable, merge the validity bits of the children.
 
     std::vector<DexPtr> merged_validity;
@@ -98,13 +98,13 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
     auto value_dex =
         std::make_shared<NonNullableFuncDex>(desc, native_function, holder, args);
     result_ = std::make_shared<ValueValidityPair>(merged_validity, value_dex);
-  } else if (native_function->result_nullable_type() == RESULT_NULL_NEVER) {
+  } else if (native_function->result_nullable_type() == kResultNullNever) {
     // These functions always output valid results. So, no validity dex.
     auto value_dex =
         std::make_shared<NullableNeverFuncDex>(desc, native_function, holder, args);
     result_ = std::make_shared<ValueValidityPair>(value_dex);
   } else {
-    DCHECK(native_function->result_nullable_type() == RESULT_NULL_INTERNAL);
+    DCHECK(native_function->result_nullable_type() == kResultNullInternal);
 
     // Add a local bitmap to track the output validity.
     int local_bitmap_idx = annotator_.AddLocalBitMap();

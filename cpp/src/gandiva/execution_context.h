@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <string>
+#include "gandiva/simple_arena.h"
 
 namespace gandiva {
 
@@ -37,10 +38,16 @@ class ExecutionContext {
 
   bool has_error() const { return !error_msg_.empty(); }
 
-  void Reset() { error_msg_.clear(); }
+  SimpleArena* arena() { return &arena_; }
+
+  void Reset() {
+    error_msg_.clear();
+    arena_.Reset();
+  }
 
  private:
   std::string error_msg_;
+  SimpleArena arena_;
 };
 
 }  // namespace gandiva
