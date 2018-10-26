@@ -365,7 +365,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
           releaseRecordBatch(batch);
           releaseValueVectors(output);
           evaluator.close();
-        } catch (GandivaException e) {
+        } catch (GandivaException ignore) {
         }
       });
     });
