@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -19,17 +19,17 @@
 
 set -e
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-JAVA_DIR=${TRAVIS_BUILD_DIR}/java
+source arrow/ci/travis_env_common.sh
 
-pushd $JAVA_DIR
-
-export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
-
-# build with gandiva profile
-mvn -P gandiva -B install -DskipTests -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR/debug
-
-# run gandiva tests
-mvn test -P gandiva -pl gandiva -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR/debug
-
+# Builds arrow + gandiva and tests the same.
+pushd arrow/cpp
+  mkdir build
+  pushd build
+    cmake -DCMAKE_BUILD_TYPE=Release \
+          -DARROW_GANDIVA=ON \
+          -DARROW_BUILD_UTILITIES=OFF \
+          ..
+    make -j4
+    ctest
+  popd
 popd
