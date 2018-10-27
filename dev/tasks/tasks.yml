@@ -295,26 +295,26 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib11-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-glib11_{no_rc_version}-1_amd64.deb
+      - libarrow-glib12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-glib12_{no_rc_version}-1_amd64.deb
       - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
       - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib11-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib11_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu11-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu11_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu12_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python11-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-python11_{no_rc_version}-1_amd64.deb
-      - libarrow11-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow11_{no_rc_version}-1_amd64.deb
+      - libarrow-python12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-python12_{no_rc_version}-1_amd64.deb
+      - libarrow12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow12_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib11-dbgsym_{no_rc_version}-1_amd64.deb
-      - libparquet-glib11_{no_rc_version}-1_amd64.deb
-      - libparquet11-dbgsym_{no_rc_version}-1_amd64.deb
-      - libparquet11_{no_rc_version}-1_amd64.deb
+      - libparquet-glib12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet-glib12_{no_rc_version}-1_amd64.deb
+      - libparquet12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet12_{no_rc_version}-1_amd64.deb
 
   ubuntu-trusty:
     platform: linux
@@ -335,13 +335,13 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib11_{no_rc_version}-1_amd64.deb
-      - libarrow11_{no_rc_version}-1_amd64.deb
+      - libarrow-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow12_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib11_{no_rc_version}-1_amd64.deb
-      - libparquet11_{no_rc_version}-1_amd64.deb
+      - libparquet-glib12_{no_rc_version}-1_amd64.deb
+      - libparquet12_{no_rc_version}-1_amd64.deb
 
   ubuntu-xenial:
     platform: linux
@@ -363,19 +363,19 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib11_{no_rc_version}-1_amd64.deb
+      - libarrow-glib12_{no_rc_version}-1_amd64.deb
       - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
       - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib11_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu11_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu12_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python11_{no_rc_version}-1_amd64.deb
-      - libarrow11_{no_rc_version}-1_amd64.deb
+      - libarrow-python12_{no_rc_version}-1_amd64.deb
+      - libarrow12_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib11_{no_rc_version}-1_amd64.deb
-      - libparquet11_{no_rc_version}-1_amd64.deb
+      - libparquet-glib12_{no_rc_version}-1_amd64.deb
+      - libparquet12_{no_rc_version}-1_amd64.deb
 
   ubuntu-bionic:
     platform: linux
@@ -397,19 +397,19 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib11_{no_rc_version}-1_amd64.deb
+      - libarrow-glib12_{no_rc_version}-1_amd64.deb
       - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
       - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib11_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu11_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu12_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python11_{no_rc_version}-1_amd64.deb
-      - libarrow11_{no_rc_version}-1_amd64.deb
+      - libarrow-python12_{no_rc_version}-1_amd64.deb
+      - libarrow12_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib11_{no_rc_version}-1_amd64.deb
-      - libparquet11_{no_rc_version}-1_amd64.deb
+      - libparquet-glib12_{no_rc_version}-1_amd64.deb
+      - libparquet12_{no_rc_version}-1_amd64.deb
 
   ubuntu-cosmic:
     platform: linux
