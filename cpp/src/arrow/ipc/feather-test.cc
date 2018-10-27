@@ -276,7 +276,7 @@ void CheckBatches(const RecordBatch& expected, const RecordBatch& result) {
   }
 }
 
-std::shared_ptr<RecordBatch> TableToBatch(const Table &table) {
+std::shared_ptr<RecordBatch> TableToBatch(const Table& table) {
   TableBatchReader reader(table);
   std::shared_ptr<RecordBatch> batch;
   EXPECT_OK(reader.ReadNext(&batch));
@@ -340,8 +340,7 @@ TEST_F(TestTableReader, ReadIndices) {
   arrays.push_back(batch1->column(0));
   fields.push_back(std::make_shared<Field>("f3", int32()));
   arrays.push_back(batch2->column(1));
-  auto expected = Table::Make(std::make_shared<Schema>(fields),
-                              arrays);
+  auto expected = Table::Make(std::make_shared<Schema>(fields), arrays);
   CheckTables(*expected, *result);
 }
 
@@ -366,8 +365,7 @@ TEST_F(TestTableReader, ReadNames) {
   arrays.push_back(batch1->column(0));
   fields.push_back(std::make_shared<Field>("f3", int32()));
   arrays.push_back(batch2->column(1));
-  auto expected = Table::Make(std::make_shared<Schema>(fields),
-                              arrays);
+  auto expected = Table::Make(std::make_shared<Schema>(fields), arrays);
   CheckTables(*expected, *result);
 }
 
