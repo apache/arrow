@@ -59,7 +59,4 @@ ENV LD_LIBRARY_PATH=/opt/conda/lib/:/build/cpp/src/arrow:/arrow/r/src
 
 # build, install, test R package
 CMD /arrow/ci/docker_build_cpp.sh && \
-    Rscript -e "Rcpp::compileAttributes('/arrow/r')" && \
-    R CMD build --keep-empty-dirs /arrow/r && \
-    R CMD INSTALL $(ls | grep arrow_*.tar.gz) && \
-    R CMD check $(ls | grep arrow_*.tar.gz) --as-cran
+    /arrow/ci/docker_build_r.sh
