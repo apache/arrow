@@ -19,15 +19,11 @@
 
 set -e
 
-# Builds arrow + gandiva and tests the same.
-arrow/ci/travis_install_toolchain.sh
-cd arrow/cpp
-mkdir build
-cd build
-export PATH=$TRAVIS_BUILD_DIR/cpp-toolchain/bin:$PATH
-export BOOST_ROOT=$TRAVIS_BUILD_DIR/cpp-toolchain
-export PROTOBUF_HOME=$TRAVIS_BUILD_DIR/cpp-toolchain
-export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/cpp-toolchain/lib:$LD_LIBRARY_PATH
-cmake .. -DCMAKE_BUILD_TYPE=Release -DARROW_GANDIVA=ON -DARROW_BUILD_UTILITIES=OFF
-make -j4
-ctest
+pushd arrow/java
+  # build the entire project
+  mvn clean install -DskipTests -P gandiva -Dgandiva.cpp.build.dir=../../cpp/build/release
+  # test only gandiva
+  mvn test -P gandiva -pl gandiva -Dgandiva.cpp.build.dir=../../cpp/build/release
+  # copy the jars to distribution folder
+  find gandiva/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} ../../dist/ \;
+popd

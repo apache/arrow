@@ -30,10 +30,9 @@ env:
     - PLAT=x86_64
     - TRAVIS_TAG={{ task.tag }}
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
 
 before_install:
-  - eval "${MATRIX_EVAL}"
+  - export CC="gcc-4.9" CXX="g++-4.9"
   - ulimit -c unlimited -S
   - |
       sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
@@ -43,14 +42,15 @@ before_install:
 before_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
-  - mkdir -p dist
   - arrow/ci/travis_install_linux.sh
   - arrow/ci/travis_install_clang_tools.sh
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
-  - arrow/dev/tasks/gandiva/build_cpp_crossbow.sh
+  - arrow/ci/travis_install_toolchain.sh
 
 script:
-  - arrow/dev/tasks/gandiva/build_java_crossbow.sh
+  - mkdir -p dist
+  - arrow/dev/tasks/gandiva-jars/build-cpp.sh
+  - arrow/dev/tasks/gandiva-jars/build-java.sh
 
 deploy:
   provider: releases
@@ -59,7 +59,7 @@ deploy:
   file: dist/*.jar
   skip_cleanup: true
   on:
-    tags: true    
+    tags: true
 
 notifications:
   email:

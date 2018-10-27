@@ -48,8 +48,8 @@ groups:
     - centos-6
     - centos-7
   gandiva:
-    - ubuntu-trusty-gandiva 
-    - osx-gandiva   
+    - gandiva-jar-trusty
+    - gandiva-jar-osx
 
 tasks:
   # arbitrary_task_name:
@@ -451,15 +451,16 @@ tasks:
       - parquet-glib-libs-{no_rc_version}-1.el7.x86_64.rpm
       - parquet-libs-{no_rc_version}-1.el7.x86_64.rpm
 
-  ############################## Gandiva Tasks ####################################
-  ubuntu-trusty-gandiva:
-    platform: linux
-    template: gandiva/travis.linux.yml
-    artifacts:
-      - arrow-gandiva-{version}-SNAPSHOT.jar     
+  ############################## Gandiva Tasks ################################
 
-  osx-gandiva:
-    platform: osx
-    template: gandiva/travis.osx.yml  
+  gandiva-jar-trusty:
+    platform: linux
+    template: gandiva-jars/travis.linux.yml
     artifacts:
-      - arrow-gandiva-{version}-SNAPSHOT.jar                
+      - arrow-gandiva-{version}-SNAPSHOT.jar
+
+  gandiva-jar-osx:
+    platform: osx
+    template: gandiva-jars/travis.osx.yml
+    artifacts:
+      - arrow-gandiva-{version}-SNAPSHOT.jar
