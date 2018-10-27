@@ -785,10 +785,10 @@ SEXP TimeArray_to_Vector(const std::shared_ptr<Array>& array, int32_t multiplier
 
   if (null_count) {
     arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-      array->offset(), n);
+                                                array->offset(), n);
     for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_vec, ++p_values) {
       *p_vec =
-        bitmap_reader.IsSet() ? (static_cast<double>(*p_values) / multiplier) : NA_REAL;
+          bitmap_reader.IsSet() ? (static_cast<double>(*p_values) / multiplier) : NA_REAL;
     }
   } else {
     std::transform(p_values, p_values + n, vec.begin(), [multiplier](value_type value) {
@@ -797,7 +797,6 @@ SEXP TimeArray_to_Vector(const std::shared_ptr<Array>& array, int32_t multiplier
   }
   return vec;
 }
-
 
 SEXP DecimalArray(const std::shared_ptr<Array>& array) {
   auto n = array->length();
