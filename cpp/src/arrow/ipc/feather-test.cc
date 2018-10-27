@@ -333,7 +333,7 @@ TEST_F(TestTableReader, ReadIndices) {
 
   std::vector<int> indices({3, 0, 5});
   std::shared_ptr<Table> result;
-  reader_->Read(indices, &result);
+  ASSERT_OK(reader_->Read(indices, &result));
   std::vector<std::shared_ptr<Field>> fields;
   std::vector<std::shared_ptr<Array>> arrays;
   fields.push_back(std::make_shared<Field>("f0", int32()));
@@ -359,7 +359,7 @@ TEST_F(TestTableReader, ReadNames) {
 
   std::vector<std::string> names({"f3", "f0", "f5"});
   std::shared_ptr<Table> result;
-  reader_->Read(names, &result);
+  ASSERT_OK(reader_->Read(names, &result));
   std::vector<std::shared_ptr<Field>> fields;
   std::vector<std::shared_ptr<Array>> arrays;
   fields.push_back(std::make_shared<Field>("f0", int32()));
