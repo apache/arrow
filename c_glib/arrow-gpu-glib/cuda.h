@@ -152,7 +152,9 @@ garrow_gpu_cuda_buffer_read_record_batch(GArrowGPUCUDABuffer *buffer,
 
 
 GArrowGPUCUDAHostBuffer *
-garrow_gpu_cuda_host_buffer_new(gint64 size, GError **error);
+garrow_gpu_cuda_host_buffer_new(gint gpu_number,
+                                gint64 size,
+                                GError **error);
 
 GArrowGPUCUDAIPCMemoryHandle *
 garrow_gpu_cuda_ipc_memory_handle_new(const guint8 *data,

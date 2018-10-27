@@ -502,6 +502,7 @@ garrow_gpu_cuda_host_buffer_class_init(GArrowGPUCUDAHostBufferClass *klass)
 
 /**
  * garrow_gpu_cuda_host_buffer_new:
+ * @gpu_number: A GPU device number for the target context.
  * @size: The number of bytes to be allocated on CPU host.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
@@ -512,12 +513,12 @@ garrow_gpu_cuda_host_buffer_class_init(GArrowGPUCUDAHostBufferClass *klass)
  * Since: 0.8.0
  */
 GArrowGPUCUDAHostBuffer *
-garrow_gpu_cuda_host_buffer_new(gint64 size, GError **error)
+garrow_gpu_cuda_host_buffer_new(gint gpu_number, gint64 size, GError **error)
 {
   arrow::gpu::CudaDeviceManager *manager;
   auto status = arrow::gpu::CudaDeviceManager::GetInstance(&manager);
   std::shared_ptr<arrow::gpu::CudaHostBuffer> arrow_buffer;
-  status = manager->AllocateHost(size, &arrow_buffer);
+  status = manager->AllocateHost(gpu_number, size, &arrow_buffer);
   if (garrow_error_check(error, status, "[gpu][cuda][host-buffer][new]")) {
     return garrow_gpu_cuda_host_buffer_new_raw(&arrow_buffer);
   } else {
