@@ -447,7 +447,7 @@ class TableReader::TableReaderImpl {
   Status Read(std::shared_ptr<Table>* out) {
     std::vector<std::shared_ptr<Field>> fields;
     std::vector<std::shared_ptr<Column>> columns;
-    for (int64_t i = 0; i < num_columns(); ++i) {
+    for (int i = 0; i < num_columns(); ++i) {
       std::shared_ptr<Column> column;
       RETURN_NOT_OK(GetColumn(i, &column));
       columns.push_back(column);
@@ -460,7 +460,7 @@ class TableReader::TableReaderImpl {
   Status Read(const std::vector<int>& indices, std::shared_ptr<Table>* out) {
     std::vector<std::shared_ptr<Field>> fields;
     std::vector<std::shared_ptr<Column>> columns;
-    for (int64_t i = 0; i < num_columns(); ++i) {
+    for (int i = 0; i < num_columns(); ++i) {
       bool found = false;
       for (auto j : indices) {
         if (i == j) {
@@ -483,7 +483,7 @@ class TableReader::TableReaderImpl {
   Status Read(const std::vector<std::string>& names, std::shared_ptr<Table>* out) {
     std::vector<std::shared_ptr<Field>> fields;
     std::vector<std::shared_ptr<Column>> columns;
-    for (int64_t i = 0; i < num_columns(); ++i) {
+    for (int i = 0; i < num_columns(); ++i) {
       auto name = GetColumnName(i);
       bool found = false;
       for (auto& n : names) {
