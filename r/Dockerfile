@@ -55,11 +55,11 @@ RUN apt install -y \
 
 # Tell R where it can find the source code for arrow
 ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/build/cpp/src/arrow
-ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/build/r/src
+ENV LD_LIBRARY_PATH=/opt/conda/lib/:/build/cpp/src/arrow:/arrow/r/src
 
 # build, install, test R package
 CMD /arrow/ci/docker_build_cpp.sh && \
-    cd /arrow/r && \
-    R CMD build . && \
+    Rscript -e "Rcpp::compileAttributes('/arrow/r')" && \
+    R CMD build --keep-empty-dirs /arrow/r && \
     R CMD INSTALL $(ls | grep arrow_*.tar.gz) && \
     R CMD check $(ls | grep arrow_*.tar.gz) --as-cran
