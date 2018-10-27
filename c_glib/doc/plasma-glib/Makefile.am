@@ -49,8 +49,8 @@ AM_CFLAGS =					\
 	$(PLASMA_CFLAGS)
 
 GTKDOC_LIBS =						\
-	$(top_builddir)/plasma-glib/libplasma-glib.la	\
-	$(top_builddir)/arrow-glib/libarrow-glib.la
+	$(top_builddir)/arrow-glib/libarrow-glib.la	\
+	$(top_builddir)/plasma-glib/libplasma-glib.la
 
 include $(top_srcdir)/gtk-doc.make
 
