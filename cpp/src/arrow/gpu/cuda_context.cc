@@ -100,6 +100,14 @@ class CudaContext::CudaContextImpl {
     return Status::OK();
   }
 
+  Status CopyDeviceToDevice(void* dst, const void* src, int64_t nbytes) {
+    ContextSaver set_temporary(context_);
+    CU_RETURN_NOT_OK(cuMemcpyDtoD(reinterpret_cast<CUdeviceptr>(dst),
+                                  reinterpret_cast<const CUdeviceptr>(src),
+                                  static_cast<size_t>(nbytes)));
+    return Status::OK();
+  }
+
   Status Synchronize(void) {
     ContextSaver set_temporary(context_);
     CU_RETURN_NOT_OK(cuCtxSynchronize());
@@ -287,6 +295,10 @@ Status CudaContext::CopyHostToDevice(void* dst, const void* src, int64_t nbytes)
 
 Status CudaContext::CopyDeviceToHost(void* dst, const void* src, int64_t nbytes) {
   return impl_->CopyDeviceToHost(dst, src, nbytes);
+}
+
+Status CudaContext::CopyDeviceToDevice(void* dst, const void* src, int64_t nbytes) {
+  return impl_->CopyDeviceToDevice(dst, src, nbytes);
 }
 
 Status CudaContext::Synchronize(void) { return impl_->Synchronize(); }

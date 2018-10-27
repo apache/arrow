@@ -138,6 +138,12 @@ Status CudaBuffer::CopyFromHost(const int64_t position, const void* data,
   return context_->CopyHostToDevice(mutable_data_ + position, data, nbytes);
 }
 
+Status CudaBuffer::CopyFromDevice(const int64_t position, const void* data,
+                                  int64_t nbytes) {
+  DCHECK_LE(nbytes, size_ - position) << "Copy would overflow buffer";
+  return context_->CopyDeviceToDevice(mutable_data_ + position, data, nbytes);
+}
+
 Status CudaBuffer::ExportForIpc(std::shared_ptr<CudaIpcMemHandle>* handle) {
   if (is_ipc_) {
     return Status::Invalid("Buffer has already been exported for IPC");
