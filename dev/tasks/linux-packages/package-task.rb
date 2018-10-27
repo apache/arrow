@@ -250,6 +250,7 @@ VERSION=#{@deb_upstream_version}
               "ubuntu-trusty",
               "ubuntu-xenial",
               "ubuntu-bionic",
+              "ubuntu-cosmic",
             ]
           end
           targets.each do |target|

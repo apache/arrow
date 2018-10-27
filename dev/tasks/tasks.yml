@@ -45,6 +45,7 @@ groups:
     - ubuntu-trusty
     - ubuntu-xenial
     - ubuntu-bionic
+    - ubuntu-cosmic
     - centos-6
     - centos-7
 
@@ -409,6 +410,40 @@ tasks:
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
       - libparquet-glib11_{no_rc_version}-1_amd64.deb
       - libparquet11_{no_rc_version}-1_amd64.deb
+
+  ubuntu-cosmic:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=ubuntu-bionic
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - libarrow-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-doc_{no_rc_version}-1_all.deb
+      - libarrow-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-gpu12_{no_rc_version}-1_amd64.deb
+      - libarrow-python-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-python12_{no_rc_version}-1_amd64.deb
+      - libarrow12_{no_rc_version}-1_amd64.deb
+      - libparquet-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-doc_{no_rc_version}-1_all.deb
+      - libparquet-glib12_{no_rc_version}-1_amd64.deb
+      - libparquet12_{no_rc_version}-1_amd64.deb
 
   centos-6:
     platform: linux
