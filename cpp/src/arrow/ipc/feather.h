@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "arrow/util/visibility.h"
 
@@ -32,6 +33,7 @@ namespace arrow {
 class Array;
 class Column;
 class Status;
+class Table;
 
 namespace io {
 
@@ -90,6 +92,32 @@ class ARROW_EXPORT TableReader {
   ///
   /// This function is zero-copy if the file source supports zero-copy reads
   Status GetColumn(int i, std::shared_ptr<Column>* out);
+
+  /// \brief Read all columns from the file as an arrow::Table.
+  ///
+  /// \param[out] out the returned table
+  /// \return Status
+  ///
+  /// This function is zero-copy if the file source supports zero-copy reads
+  Status Read(std::shared_ptr<Table>* out);
+
+  /// \brief Read only the specified columns from the file as an arrow::Table.
+  ///
+  /// \param[in] indices the column indices to read
+  /// \param[out] out the returned table
+  /// \return Status
+  ///
+  /// This function is zero-copy if the file source supports zero-copy reads
+  Status Read(const std::vector<int>& indices, std::shared_ptr<Table>* out);
+
+  /// \brief Read only the specified columns from the file as an arrow::Table.
+  ///
+  /// \param[in] names the column names to read
+  /// \param[out] out the returned table
+  /// \return Status
+  ///
+  /// This function is zero-copy if the file source supports zero-copy reads
+  Status Read(const std::vector<std::string>& names, std::shared_ptr<Table>* out);
 
  private:
   class ARROW_NO_EXPORT TableReaderImpl;

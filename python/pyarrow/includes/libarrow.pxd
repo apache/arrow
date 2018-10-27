@@ -910,6 +910,10 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CStatus GetColumn(int i, shared_ptr[CColumn]* out)
         c_string GetColumnName(int i)
 
+        CStatus Read(shared_ptr[CTable]* out)
+        CStatus Read(const vector[int] indices, shared_ptr[CTable]* out)
+        CStatus Read(const vector[c_string] names, shared_ptr[CTable]* out)
+
 
 cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
