@@ -291,10 +291,10 @@ func Example_structArray() {
 
 // This example shows how one can slice an array.
 // The initial (float64) array is:
-//  [1, 2, 3, (null), 4, 5]
+//  [1, 2, 3, -1, 4, 5]
 //
 // and the sub-slice is:
-//  [3, (null), 4]
+//  [3, -1, 4]
 func Example_float64Slice() {
 	pool := memory.NewGoAllocator()
 
