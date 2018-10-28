@@ -33,8 +33,8 @@ import collections
 import pyarrow
 import random
 
-from pyarrow.lib cimport (Buffer, NativeFile, check_status, pyarrow_wrap_buffer,
-                          pyarrow_unwrap_buffer)
+from pyarrow.lib cimport (Buffer, NativeFile, check_status,
+                          pyarrow_wrap_buffer, pyarrow_unwrap_buffer)
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
