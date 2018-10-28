@@ -18,6 +18,7 @@
 #ifndef ARROW_MEMORY_POOL_H
 #define ARROW_MEMORY_POOL_H
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 

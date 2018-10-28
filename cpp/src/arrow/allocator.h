@@ -19,7 +19,6 @@
 #define ARROW_ALLOCATOR_H
 
 #include <algorithm>
-#include <atomic>
 #include <cstddef>
 #include <memory>
 #include <utility>
