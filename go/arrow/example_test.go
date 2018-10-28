@@ -22,6 +22,7 @@ import (
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/tensor"
 )
 
 // This example demonstrates how to build an array of int64 values using a builder and Append.
@@ -319,4 +320,90 @@ func Example_float64Slice() {
 	// Output:
 	// array = [1 2 3 -1 4 5]
 	// slice = [3 -1 4]
+}
+
+func Example_float64Tensor2x5() {
+	pool := memory.NewGoAllocator()
+
+	b := array.NewFloat64Builder(pool)
+	defer b.Release()
+
+	raw := []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	b.AppendValues(raw, nil)
+
+	arr := b.NewFloat64Array()
+	defer arr.Release()
+
+	f64 := tensor.NewFloat64(arr.Data(), []int64{2, 5}, nil, []string{"x", "y"})
+	defer f64.Release()
+
+	for _, i := range [][]int64{
+		[]int64{0, 0},
+		[]int64{0, 1},
+		[]int64{0, 2},
+		[]int64{0, 3},
+		[]int64{0, 4},
+		[]int64{1, 0},
+		[]int64{1, 1},
+		[]int64{1, 2},
+		[]int64{1, 3},
+		[]int64{1, 4},
+	} {
+		fmt.Printf("arr%v = %v\n", i, f64.Value(i))
+	}
+
+	// Output:
+	// arr[0 0] = 1
+	// arr[0 1] = 2
+	// arr[0 2] = 3
+	// arr[0 3] = 4
+	// arr[0 4] = 5
+	// arr[1 0] = 6
+	// arr[1 1] = 7
+	// arr[1 2] = 8
+	// arr[1 3] = 9
+	// arr[1 4] = 10
+}
+
+func Example_float64Tensor2x5ColMajor() {
+	pool := memory.NewGoAllocator()
+
+	b := array.NewFloat64Builder(pool)
+	defer b.Release()
+
+	raw := []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	b.AppendValues(raw, nil)
+
+	arr := b.NewFloat64Array()
+	defer arr.Release()
+
+	f64 := tensor.NewFloat64(arr.Data(), []int64{2, 5}, []int64{8, 16}, []string{"x", "y"})
+	defer f64.Release()
+
+	for _, i := range [][]int64{
+		[]int64{0, 0},
+		[]int64{0, 1},
+		[]int64{0, 2},
+		[]int64{0, 3},
+		[]int64{0, 4},
+		[]int64{1, 0},
+		[]int64{1, 1},
+		[]int64{1, 2},
+		[]int64{1, 3},
+		[]int64{1, 4},
+	} {
+		fmt.Printf("arr%v = %v\n", i, f64.Value(i))
+	}
+
+	// Output:
+	// arr[0 0] = 1
+	// arr[0 1] = 3
+	// arr[0 2] = 5
+	// arr[0 3] = 7
+	// arr[0 4] = 9
+	// arr[1 0] = 2
+	// arr[1 1] = 4
+	// arr[1 2] = 6
+	// arr[1 3] = 8
+	// arr[1 4] = 10
 }

@@ -85,9 +85,11 @@ func (d *Data) Release() {
 	}
 }
 
-func (d *Data) DataType() arrow.DataType { return d.dtype }
-func (d *Data) NullN() int               { return d.nulls }
-func (d *Data) Len() int                 { return d.length }
+func (d *Data) DataType() arrow.DataType  { return d.dtype }
+func (d *Data) NullN() int                { return d.nulls }
+func (d *Data) Len() int                  { return d.length }
+func (d *Data) Offset() int               { return d.offset }
+func (d *Data) Buffers() []*memory.Buffer { return d.buffers }
 
 // NewSliceData returns a new slice that shares backing data with the input.
 // The returned Data slice starts at i and extends j-i elements, such as:
