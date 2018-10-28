@@ -27,9 +27,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
-RUN apt install -y \
-    apt-transport-https \
-    software-properties-common && \
+RUN apt update && \
+    apt install -y \
+        apt-transport-https \
+        software-properties-common && \
     apt-key adv \
         --keyserver keyserver.ubuntu.com \
         --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \
