@@ -16,4 +16,4 @@
 # under the License.
 
 _build
-source/generated
+source/python/generated

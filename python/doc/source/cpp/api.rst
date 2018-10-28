@@ -15,24 +15,12 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Apache Arrow
-============
-
-Apache Arrow is a cross-language development platform for in-memory data. It
-specifies a standardized language-independent columnar memory format for flat
-and hierarchical data, organized for efficient analytic operations on modern
-hardware. It also provides computational libraries and zero-copy streaming
-messaging and interprocess communication.
-
-.. toctree::
-   :caption: Memory Format
-
-   format
+*************
+API Reference
+*************
 
 .. toctree::
    :maxdepth: 2
-   :caption: Languages
+   :caption: Getting Started
 
-   language_interop
-   cpp/index
-   python/index
+   api/array
