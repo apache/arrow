@@ -112,7 +112,7 @@ upload_file() {
 
   local sha256=$(shasum -a 256 ${path} | awk '{print $1}')
   bintray \
-    PUT /content/apache/arrow/${target}/${version_name}/${target}/${path} \
+    PUT /content/apache/arrow/${target}/${version}/${target}/${path} \
     --header "X-Bintray-Publish: 1" \
     --header "X-Bintray-Override: 1" \
     --header "X-Checksum-Sha2: ${sha256}" \
