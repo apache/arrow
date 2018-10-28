@@ -33,7 +33,8 @@ import collections
 import pyarrow
 import random
 
-from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
+from pyarrow.lib cimport (Buffer, NativeFile, check_status, pyarrow_wrap_buffer,
+                          pyarrow_unwrap_buffer)
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
@@ -441,8 +442,8 @@ cdef class PlasmaClient:
                 result.append(None)
         return result
 
-    def put_buffer(self, object value, ObjectID object_id=None,
-                   int memcopy_threads=6):
+    def put_raw_buffer(self, object value, ObjectID object_id=None,
+                       c_string metadata=b"", int memcopy_threads=6):
         """
         Store Python buffer into the object store.
 
@@ -453,6 +454,9 @@ cdef class PlasmaClient:
         object_id : ObjectID, default None
             If this is provided, the specified object ID will be used to refer
             to the object.
+        metadata : bytes
+            An optional string of bytes encoding whatever metadata the user
+            wishes to encode.
         memcopy_threads : int, default 6
             The number of threads to use to write the serialized object into
             the object store for large objects.
@@ -464,14 +468,14 @@ cdef class PlasmaClient:
         cdef ObjectID target_id = (object_id if object_id
                                    else ObjectID.from_random())
         cdef Buffer arrow_buffer = pyarrow.py_buffer(value)
-        write_buffer = self.create(target_id, len(value))
+        write_buffer = self.create(target_id, len(value), metadata)
         stream = pyarrow.FixedSizeBufferWriter(write_buffer)
         stream.set_memcopy_threads(memcopy_threads)
         stream.write(arrow_buffer)
         self.seal(target_id)
         return target_id
 
-    def get_buffer(self, object_ids, int timeout_ms=-1):
+    def get_raw_buffer(self, object_ids, int timeout_ms=-1):
         """
         Get one or more Python buffers from the object store.
 
@@ -487,10 +491,10 @@ cdef class PlasmaClient:
 
         Returns
         -------
-        list of buffer objects or a buffer object
-            Python buffer or list of Python buffer for the data
-            associated with the object_ids and ObjectNotAvailable if the
-            object was not available.
+        list of tuples of metadata bytes and a buffer object
+            Python tuple or list of tuples of metadata bytes and a buffer
+            object associated with the object_ids and ObjectNotAvailable if
+            the object was not available.
         """
         cdef c_vector[CObjectBuffer] object_buffers
         if isinstance(object_ids, collections.Sequence):
@@ -498,13 +502,25 @@ cdef class PlasmaClient:
             self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
             for i in range(object_buffers.size()):
                 if object_buffers[i].data.get() != nullptr:
-                    size = object_buffers[i].data.get().size()
-                    results.append(object_buffers[i].data.get().data()[:size])
+                    data = pyarrow_wrap_buffer(object_buffers[i].data)
                 else:
-                    results.append(None)
+                    data = ObjectNotAvailable
+                if object_buffers[i].data.get() != nullptr:
+                    metadata = object_buffers[i].metadata.get().data()[:]
+                else:
+                    metadata = None
+                results.append((metadata, data))
             return results
         else:
-            return self.get_buffer([object_ids], timeout_ms)[0]
+            return self.get_raw_buffer([object_ids], timeout_ms)[0]
+
+    def deserialize_buffer(self, buffer, serialization_context=None):
+        return pyarrow.deserialize(buffer, serialization_context)
+
+    def get_bytes_from_buffer(self, buffer):
+        buf = pyarrow_unwrap_buffer(buffer)
+        size = buf.get().size()
+        return buf.get().data()[:size]
 
     def put(self, object value, ObjectID object_id=None, int memcopy_threads=6,
             serialization_context=None):

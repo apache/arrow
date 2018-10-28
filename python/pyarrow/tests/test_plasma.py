@@ -333,20 +333,36 @@ class TestPlasmaClient(object):
             [result] = self.plasma_client.get([object_id], timeout_ms=0)
             assert result == pa.plasma.ObjectNotAvailable
 
-    def test_put_and_get_buffer_without_serialization(self):
+    def test_put_and_get_raw_buffer(self):
         temp_id = random_object_id()
-        for value in [b"This is a bytes obj", temp_id.binary(), 10 * b"\x00"]:
-            object_id = self.plasma_client.put_buffer(value)
-            [result] = self.plasma_client.get_buffer([object_id])
+        use_meta = b"RAW"
+        def deserialize_or_output(data_tuple):
+            if data_tuple[0] == use_meta:
+                return self.plasma_client.get_bytes_from_buffer(data_tuple[1])
+            else:
+                if data_tuple[1] == pa.plasma.ObjectNotAvailable:
+                    return pa.plasma.ObjectNotAvailable
+                else:
+                    return self.plasma_client.deserialize_buffer(data_tuple[1])
+        for value in [b"Bytes Test", temp_id.binary(), 10 * b"\x00", 123]:
+            if isinstance(value, bytes):
+                object_id = self.plasma_client.put_raw_buffer(
+                    value, metadata=use_meta)
+            else:
+                object_id = self.plasma_client.put(value)
+            [result] = self.plasma_client.get_raw_buffer([object_id])
+            result = deserialize_or_output(result)
             assert result == value
 
-            result = self.plasma_client.get_buffer(object_id)
+            result = self.plasma_client.get_raw_buffer(object_id)
+            result = deserialize_or_output(result)
             assert result == value
 
             object_id = random_object_id()
-            [result] = self.plasma_client.get_buffer(
+            [result] = self.plasma_client.get_raw_buffer(
                 [object_id], timeout_ms=0)
-            assert result is None
+            result = deserialize_or_output(result)
+            assert result == pa.plasma.ObjectNotAvailable
 
     def test_put_and_get_serialization_context(self):
 
