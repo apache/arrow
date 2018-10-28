@@ -82,34 +82,32 @@ bintray() {
 
 upload_deb() {
   local version=$1
-  local distribution=$2
-  local code_name=$3
+  local rc=$2
+  local distribution=$3
+  local code_name=$4
 
-  # TODO
-  # apt-ftparchive sources pool > dists/stretch/main/binary-amd64/Sources
-  # apt-ftparchive packages pool > dists/stretch/main/binary-amd64/Packages
-  # apt-ftparchive contents pool > dists/stretch/main/binary-amd64/Contents
-  # apt-ftparchive release dists/stretch/main/binary-amd64/ > dists/stretch/main/binary-amd64/Release
-  # gpg --sign --detach-sign --armor --output dists/stretch/main/binary-amd64/Release.gpg dists/stretch/main/binary-amd64/Release
-  # gpg --clear-sign --armor --output dists/stretch/main/binary-amd64/InRelease dists/stretch/main/binary-amd64/Release
-
-  # TODO
-  # debsign **.{dsc,changes}
-  # It should be inline signed.
+  local version_name=${version}-rc${rc}
 
   bintray \
     POST /packages/apache/arrow/${distribution}-rc/versions \
     --data-binary "
 {
-  \"name\": \"${version}\",
-  \"desc\": \"Apache Arrow ${version}.\"
+  \"name\": \"${version_name}\",
+  \"desc\": \"Apache Arrow ${version} RC${rc}.\"
 }
 "
+  local keyring_name=apache-arrow-keyring.gpg
+  rm -f ${keyring_name}
+  curl https://dist.apache.org/repos/dist/dev/arrow/KEYS | \
+    gpg \
+      --no-default-keyring \
+      --keyring ${keyring_name} \
+      --import -
   for base_path in *; do
     local path=pool/${code_name}/main/a/apache-arrow/${base_path}
     local sha256=$(shasum -a 256 ${base_path} | awk '{print $1}')
     bintray \
-      PUT /content/apache/arrow/${distribution}-rc/${version}/${path} \
+      PUT /content/apache/arrow/${distribution}-rc/${version_name}/${distribution}-rc/${path} \
       --header "X-Bintray-Publish: 1" \
       --header "X-Bintray-Override: 1" \
       --header "X-Checksum-Sha2: ${sha256}" \
@@ -118,7 +116,6 @@ upload_deb() {
 }
 
 apt_ftparchive() {
-  local distribution=$1
   shift
   docker \
     run \
@@ -132,95 +129,189 @@ apt_ftparchive() {
 
 upload_apt() {
   local version=$1
-  local distribution=$2
+  local rc=$2
+  local distribution=$3
 
-  # local files=$(
-  #   bintray \
-  #     GET /packages/apache/arrow/${distribution}-rc/versions/${version}/files | \
-  #     jq -r ".[].path")
+  local version_name=${version}-rc${rc}
 
-  local tmp_dir=tmp/apt
-  # rm -rf ${tmp_dir}
-  # mkdir -p ${tmp_dir}
+  local files=$(
+    bintray \
+      GET /packages/apache/arrow/${distribution}-rc/versions/${version_name}/files | \
+      jq -r ".[].path")
+
+  local tmp_dir=tmp/${distribution}
+  rm -rf ${tmp_dir}
+  mkdir -p ${tmp_dir}
   pushd "${tmp_dir}"
-  # for file in ${files}; do
-  #   mkdir -p "$(dirname ${file})"
-  #   curl \
-  #     --fail \
-  #     --location \
-  #     --output ${file} \
-  #     https://dl.bintray.com/apache/arrow/${file}
-  # done
+
+  for file in ${files}; do
+    mkdir -p "$(dirname ${file})"
+    curl \
+      --fail \
+      --location \
+      --output ${file} \
+      https://dl.bintray.com/apache/arrow/${file}
+  done
+
+  pushd ${distribution}-rc
   for pool_code_name in pool/*; do
     local code_name=$(basename ${pool_code_name})
     local dist=dists/${code_name}/main
+    rm -rf dists
     mkdir -p ${dist}/{source,binary-amd64}
     apt_ftparchive \
-      ${distribution} sources pool/${code_name} > \
+      sources pool/${code_name} > \
       dists/${code_name}/main/source/Sources
+    gzip --keep dists/${code_name}/main/source/Sources
+    xz --keep dists/${code_name}/main/source/Sources
     apt_ftparchive \
-      ${distribution} packages pool/${code_name} > \
+      packages pool/${code_name} > \
       dists/${code_name}/main/binary-amd64/Packages
+    gzip --keep dists/${code_name}/main/binary-amd64/Packages
+    xz --keep dists/${code_name}/main/binary-amd64/Packages
     apt_ftparchive \
-      ${distribution} contents pool/${code_name} > \
+      contents pool/${code_name} > \
       dists/${code_name}/main/Contents-amd64
-    # TODO
+    gzip --keep dists/${code_name}/main/Contents-amd64
     apt_ftparchive \
-      ${distribution} release dists/${code_name}/main/binary-amd64/ > \
-      dists/${code_name}/main/binary-amd64/Release
+      release \
+      -o "APT::FTPArchive::Release::Origin=Apache\\ Arrow" \
+      -o "APT::FTPArchive::Release::Label=Apache\\ Arrow" \
+      -o APT::FTPArchive::Release::Codename=${code_name} \
+      -o APT::FTPArchive::Release::Architectures=amd64 \
+      -o APT::FTPArchive::Release::Components=main \
+      dists/${code_name} > \
+      dists/${code_name}/Release
     gpg \
       --sign \
       --detach-sign \
       --armor \
-      --output
+      --output dists/${code_name}/Release.gpg \
+      dists/${code_name}/Release
+
+    for base_path in $(find dists/${code_name}/ -type f); do
+      local path=${distribution}-rc/${base_path}
+      local sha256=$(shasum -a 256 ${base_path} | awk '{print $1}')
+      bintray \
+        PUT /content/apache/arrow/${distribution}-rc/${version_name}/${path} \
+        --header "X-Bintray-Publish: 1" \
+        --header "X-Bintray-Override: 1" \
+        --header "X-Checksum-Sha2: ${sha256}" \
+        --data-binary "@${base_path}"
+    done
   done
-  # apt-ftparchive packages pool > dists/stretch/main/binary-amd64/Packages
-  # apt-ftparchive contents pool > dists/stretch/main/binary-amd64/Contents
-  # apt-ftparchive release dists/stretch/main/binary-amd64/ > dists/stretch/main/binary-amd64/Release
-  # gpg --sign --detach-sign --armor --output dists/stretch/main/binary-amd64/Release.gpg dists/stretch/main/binary-amd64/Release
-  # gpg --clear-sign --armor --output dists/stretch/main/binary-amd64/InRelease dists/stretch/main/binary-amd64/Release
+  popd
 
   popd
-  # rm -rf "$tmp_dir"
-
-  # TODO
-  # apt-ftparchive sources pool > dists/stretch/main/binary-amd64/Sources
-  # apt-ftparchive packages pool > dists/stretch/main/binary-amd64/Packages
-  # apt-ftparchive contents pool > dists/stretch/main/binary-amd64/Contents
-  # apt-ftparchive release dists/stretch/main/binary-amd64/ > dists/stretch/main/binary-amd64/Release
-  # gpg --sign --detach-sign --armor --output dists/stretch/main/binary-amd64/Release.gpg dists/stretch/main/binary-amd64/Release
-  # gpg --clear-sign --armor --output dists/stretch/main/binary-amd64/InRelease dists/stretch/main/binary-amd64/Release
-
-  # TODO
-  # debsign **.{dsc,changes}
-  # It should be inline signed.
-
-#   bintray \
-#     POST /packages/apache/arrow/${distribution}-rc/versions \
-#     --data-binary "
-# {
-#   \"name\": \"${version}\",
-#   \"desc\": \"Apache Arrow ${version}.\"
-# }
-# "
-#   for base_path in *; do
-#     local path=pool/${code_name}/main/a/apache-arrow/${base_path}
-#     local sha256=$(shasum -a 256 ${base_path} | awk '{print $1}')
-#     bintray \
-#       PUT /content/apache/arrow/${distribution}-rc/${version}/${path} \
-#       --header "X-Bintray-Publish: 1" \
-#       --header "X-Bintray-Override: 1" \
-#       --header "X-Checksum-Sha2: ${sha256}" \
-#       --data-binary "@${base_path}"
-#   done
+  rm -rf "$tmp_dir"
 }
 
-version="0.11.0-rc${rc}"
+upload_rpm() {
+  local version=$1
+  local rc=$2
+  local distribution=$3
+  local distribution_version=$4
+
+  local version_name=${version}-rc${rc}
+
+  bintray \
+    POST /packages/apache/arrow/${distribution}-rc/versions \
+    --data-binary "
+{
+  \"name\": \"${version_name}\",
+  \"desc\": \"Apache Arrow ${version} RC${rc}.\"
+}
+"
+  local keyring_name=RPM-GPG-KEY-Apache-Arrow
+  curl -o ${keyring_name} https://dist.apache.org/repos/dist/dev/arrow/KEYS
+  for base_path in *; do
+    local path=${distribution_version}
+    case ${base_path} in
+      *.src.rpm*)
+        path=${path}/Source/SPackages
+        ;;
+      *)
+        path=${path}/x86_64/Packages
+        ;;
+    esac
+    path=${path}/${base_path}
+    local sha256=$(shasum -a 256 ${base_path} | awk '{print $1}')
+    bintray \
+      PUT /content/apache/arrow/${distribution}-rc/${version_name}/${distribution}-rc/${path} \
+      --header "X-Bintray-Publish: 1" \
+      --header "X-Bintray-Override: 1" \
+      --header "X-Checksum-Sha2: ${sha256}" \
+      --data-binary "@${base_path}"
+  done
+}
+
+createrepo() {
+  shift
+  docker \
+    run \
+    --rm \
+    --tty \
+    --interactive \
+    --volume "$PWD":/host \
+    ${docker_image_name} \
+    bash -c "cd /host && createrepo $*"
+}
+
+upload_yum() {
+  local version=$1
+  local rc=$2
+  local distribution=$3
+
+  local version_name=${version}-rc${rc}
+
+  local files=$(
+    bintray \
+      GET /packages/apache/arrow/${distribution}-rc/versions/${version_name}/files | \
+      jq -r ".[].path")
+
+  local tmp_dir=tmp/${distribution}
+  rm -rf ${tmp_dir}
+  mkdir -p ${tmp_dir}
+  pushd "${tmp_dir}"
+
+  for file in ${files}; do
+    mkdir -p "$(dirname ${file})"
+    curl \
+      --fail \
+      --location \
+      --output ${file} \
+      https://dl.bintray.com/apache/arrow/${file}
+  done
+
+  pushd ${distribution}-rc
+  for version_dir in $(find . -mindepth 1 -maxdepth 1 -type d); do
+    for arch_dir in ${version_dir}/*; do
+      # TODO
+      # rpm --addsign ${arch_dir}/**/*.rpm
+      createrepo ${arch_dir}
+      for base_path in ${arch_dir}/repodata/*; do
+        local path=${distribution}-rc/${base_path}
+        local sha256=$(shasum -a 256 ${base_path} | awk '{print $1}')
+        bintray \
+          PUT /content/apache/arrow/${distribution}-rc/${version_name}/${path} \
+          --header "X-Bintray-Publish: 1" \
+          --header "X-Bintray-Override: 1" \
+          --header "X-Checksum-Sha2: ${sha256}" \
+          --data-binary "@${base_path}"
+      done
+    done
+  done
+  popd
+
+  popd
+  rm -rf "$tmp_dir"
+}
 
 docker build -t ${docker_image_name} ${SOURCE_DIR}/binary
 
 have_debian=no
 have_ubuntu=no
+have_centos=no
 pushd "${artifact_dir}"
 for dir in *; do
   is_deb=no
@@ -238,27 +329,51 @@ for dir in *; do
       is_deb=yes
       have_ubuntu=yes
       ;;
+    centos-*)
+      distribution=centos
+      distribution_version=$(echo ${dir} | sed -e 's/^centos-//')
+      is_rpm=yes
+      have_centos=yes
+      ;;
   esac
 
   if [ ${is_deb} = "yes" ]; then
     pushd ${dir}
-    : upload_deb ${version} ${distribution} ${code_name}
+    : upload_deb ${version} ${rc} ${distribution} ${code_name}
+    popd
+  elif [ ${is_rpm} = "yes" ]; then
+    pushd ${dir}
+    : upload_rpm ${version} ${rc} ${distribution} ${distribution_version}
     popd
   fi
 done
 popd
 
-if [ ${have_debian} = "yes" ]; then
-  upload_apt ${version} debian
-fi
-# if [ ${have_ubuntu} = "yes" ]; then
-#   upload_apt ${version} ubuntu
+# if [ ${have_debian} = "yes" ]; then
+#   upload_apt ${version} ${rc} debian
 # fi
+# if [ ${have_ubuntu} = "yes" ]; then
+#   upload_apt ${version} ${rc} ubuntu
+# fi
+if [ ${have_centos} = "yes" ]; then
+  upload_yum ${version} ${rc} centos
+fi
 
 echo "Success! The release candidate binaries are available here:"
 if [ ${have_debian} = "yes" ]; then
-  echo "  https://binray.com/apache/arrow/debian-rc/${version}"
+  echo "  https://binray.com/apache/arrow/debian-rc/${version}-rc${rc}"
 fi
 if [ ${have_ubuntu} = "yes" ]; then
-  echo "  https://binray.com/apache/arrow/ubuntu-rc/${version}"
+  echo "  https://binray.com/apache/arrow/ubuntu-rc/${version}-rc${rc}"
 fi
+if [ ${have_centos} = "yes" ]; then
+  echo "  https://binray.com/apache/arrow/centos-rc/${version}-rc${rc}"
+fi
+
+# % sudo apt install -y -V lsb-release apt-transport-https
+# % sudo wget -O /usr/share/keyrings/apache-arrow-keyring.gpg https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-keyring.gpg
+# % sudo tee /etc/apt/sources.list.d/apache-arrow.list <<APT_LINE
+# deb [signed-by=/usr/share/keyrings/apache-arrow-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
+# deb-src [signed-by=/usr/share/keyrings/red-data-tools-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
+# APT_LINE
+# % sudo apt update
