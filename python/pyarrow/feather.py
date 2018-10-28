@@ -58,9 +58,10 @@ class FeatherReader(ext.FeatherReader):
         elif all(map(lambda t: t == str, column_types)):
             return self._read_names(columns)
 
-        message = "Columns must be indices or names. Got columns {} of types {}"
         column_type_names = [t.__name__ for t in column_types]
-        raise TypeError(message.format(columns, column_type_names))
+        raise TypeError("Columns must be indices or names. "
+                        "Got columns {} of types {}"
+                        .format(columns, column_type_names))
 
     def read_pandas(self, columns=None, use_threads=True):
         return self.read_table(columns=columns).to_pandas(
