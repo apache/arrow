@@ -1,32 +1,42 @@
 [
   {
-    "Name": "Int8"
+    "Name": "Int8",
+    "Size": 8
   },
   {
-    "Name": "Int16"
+    "Name": "Int16",
+    "Size": 16
   },
   {
-    "Name": "Int32"
+    "Name": "Int32",
+    "Size": 32
   },
   {
-    "Name": "Int64"
+    "Name": "Int64",
+    "Size": 64
   },
   {
-    "Name": "Uint8"
+    "Name": "Uint8",
+    "Size": 8
   },
   {
-    "Name": "Uint16"
+    "Name": "Uint16",
+    "Size": 16
   },
   {
-    "Name": "Uint32"
+    "Name": "Uint32",
+    "Size": 32
   },
   {
-    "Name": "Uint64"
+    "Name": "Uint64",
+    "Size": 64
   },
   {
-    "Name": "Float32"
+    "Name": "Float32",
+    "Size": 32
   },
   {
-    "Name": "Float64"
+    "Name": "Float64",
+    "Size": 64
   }
 ]
