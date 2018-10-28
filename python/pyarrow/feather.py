@@ -24,7 +24,7 @@ import warnings
 
 from pyarrow.compat import pdapi
 from pyarrow.lib import FeatherError  # noqa
-from pyarrow.lib import RecordBatch, Table, concat_tables
+from pyarrow.lib import RecordBatch, concat_tables
 import pyarrow.lib as ext
 
 
