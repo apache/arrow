@@ -31,6 +31,8 @@ pushd /arrow/r
 Rscript -e "Rcpp::compileAttributes()"
 R CMD build --keep-empty-dirs .
 R CMD INSTALL $(ls | grep arrow_*.tar.gz)
+
+export _R_CHECK_FORCE_SUGGESTS_=false
 R CMD check $(ls | grep arrow_*.tar.gz) --as-cran
 
 popd
