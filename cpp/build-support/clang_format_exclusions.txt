@@ -1,6 +1,7 @@
 *_generated*
 *windows_compatibility.h
 *pyarrow_api.h
+*pyarrow_lib.h
 *python/config.h
 *python/platform.h
 *util/variant.h
