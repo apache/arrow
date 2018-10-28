@@ -27,6 +27,7 @@ RUN \
   apt install -y -V ${quiet} \
     apt-utils \
     createrepo \
+    gpg \
     jq \
     rpm && \
   apt clean && \
