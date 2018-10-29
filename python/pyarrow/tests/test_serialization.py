@@ -789,5 +789,5 @@ def test_distinct_objects():
             pa.serialize([{'a': obj}, [[{'b': obj}]]], context=context)
 
     # Make sure the following do not cause errors.
-    for obj in [(), 1, 'a', b'a']:
+    for obj in [(), 1, 'a', b'a', None, True, False]:
         pa.serialize([obj, obj], context=context)
