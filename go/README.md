@@ -131,7 +131,7 @@ them internally in the [ifql][] execution engine and storage layers of [InfluxDB
 - [x] 32 and 64 bit floats
 - [x] Packed LSB booleans
 - [x] Variable-length binary
-- [ ] String (valid UTF-8)
+- [x] String (valid UTF-8)
 - [ ] Half-float (16-bit)
 - [x] Null (no physical storage)
 
@@ -156,17 +156,15 @@ them internally in the [ifql][] execution engine and storage layers of [InfluxDB
 ### Type metadata
 
 - [x] Data types (implemented arrays)
-- [ ] Field
-- [ ] Schema
+- [x] Field
+- [x] Schema
   
 
 ### I/O 
 
-Serialization is planned for a future iteration.
-
 - [ ] Flat buffers for serializing metadata
-- [ ] Record Batch
-- [ ] Table
+- [x] Record Batch
+- [x] Table
 
 
 
