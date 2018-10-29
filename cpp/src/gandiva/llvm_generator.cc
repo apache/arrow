@@ -19,6 +19,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -44,7 +45,7 @@ Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
                            std::unique_ptr<LLVMGenerator>* llvm_generator) {
   std::unique_ptr<LLVMGenerator> llvmgen_obj(new LLVMGenerator());
   Status status = Engine::Make(config, &(llvmgen_obj->engine_));
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   *llvm_generator = std::move(llvmgen_obj);
   return Status::OK();
@@ -57,12 +58,12 @@ Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr out
   ExprDecomposer decomposer(function_registry_, annotator_);
   ValueValidityPairPtr value_validity;
   auto status = decomposer.Decompose(*expr->root(), &value_validity);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   // Generate the IR function for the decomposed expression.
   llvm::Function* ir_function = nullptr;
   status = CodeGenExprValue(value_validity->value_expr(), output, idx, &ir_function);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   std::unique_ptr<CompiledExpr> compiled_expr(
       new CompiledExpr(value_validity, output, ir_function));
@@ -77,12 +78,12 @@ Status LLVMGenerator::Build(const ExpressionVector& exprs) {
   for (auto& expr : exprs) {
     auto output = annotator_.AddOutputFieldDescriptor(expr->result());
     status = Add(expr, output);
-    GANDIVA_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(status);
   }
 
   // optimise, compile and finalize the module
   status = engine_->FinalizeModule(optimise_ir_, dump_ir_);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   // setup the jit functions for each expression.
   for (auto& compiled_expr : compiled_exprs_) {
@@ -232,8 +233,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
   engine_->AddFunctionToCompile(func_name);
   *fn = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, func_name,
                                module());
-  GANDIVA_RETURN_FAILURE_IF_FALSE((*fn != nullptr),
-                                  Status::CodeGenError("Error creating function."));
+  ARROW_RETURN_FAILURE_IF_FALSE((*fn != nullptr),
+                                Status::CodeGenError("Error creating function."));
   // Name the arguments
   llvm::Function::arg_iterator args = (*fn)->arg_begin();
   llvm::Value* arg_addrs = &*args;

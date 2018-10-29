@@ -21,7 +21,7 @@
 #include <memory>
 #include <string>
 
-#include "gandiva/status.h"
+#include "arrow/status.h"
 
 namespace gandiva {
 

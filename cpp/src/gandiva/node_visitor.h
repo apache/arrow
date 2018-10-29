@@ -20,8 +20,9 @@
 
 #include <string>
 
+#include "arrow/status.h"
+
 #include "gandiva/logging.h"
-#include "gandiva/status.h"
 
 namespace gandiva {
 

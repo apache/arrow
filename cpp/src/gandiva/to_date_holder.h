@@ -22,10 +22,11 @@
 #include <string>
 #include <unordered_map>
 
+#include "arrow/status.h"
+
 #include "gandiva/execution_context.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
-#include "gandiva/status.h"
 
 namespace gandiva {
 

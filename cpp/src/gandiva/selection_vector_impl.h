@@ -21,12 +21,12 @@
 #include <limits>
 #include <memory>
 
+#include "arrow/status.h"
 #include "arrow/util/macros.h"
 
 #include "gandiva/arrow.h"
 #include "gandiva/logging.h"
 #include "gandiva/selection_vector.h"
-#include "gandiva/status.h"
 
 namespace gandiva {
 

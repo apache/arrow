@@ -23,11 +23,12 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/status.h"
+
 #include "gandiva/arrow.h"
 #include "gandiva/condition.h"
 #include "gandiva/configuration.h"
 #include "gandiva/selection_vector.h"
-#include "gandiva/status.h"
 
 namespace gandiva {
 

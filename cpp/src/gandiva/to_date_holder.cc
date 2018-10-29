@@ -64,7 +64,7 @@ Status ToDateHolder::Make(const std::string& sql_pattern, int32_t suppress_error
                           std::shared_ptr<ToDateHolder>* holder) {
   std::shared_ptr<std::string> transformed_pattern;
   Status status = DateUtils::ToInternalFormat(sql_pattern, &transformed_pattern);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
   auto lholder = std::shared_ptr<ToDateHolder>(
       new ToDateHolder(*(transformed_pattern.get()), suppress_errors));
   *holder = lholder;

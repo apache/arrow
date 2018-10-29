@@ -21,14 +21,15 @@
 #include <string>
 #include <unordered_map>
 
+#include "arrow/status.h"
 #include "boost/functional/hash.hpp"
+
 #include "gandiva/arrow.h"
 #include "gandiva/expression.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/node.h"
 #include "gandiva/node_visitor.h"
-#include "gandiva/status.h"
 
 namespace gandiva {
 

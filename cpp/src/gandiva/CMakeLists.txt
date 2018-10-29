@@ -113,7 +113,6 @@ install(FILES
   logging.h
   projector.h
   selection_vector.h
-  status.h
   tree_expr_builder.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/gandiva")
 
@@ -141,7 +140,6 @@ add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc regex_util.cc eng
 add_gandiva_unit_test(annotator_test.cc annotator.cc function_signature.cc)
 add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
 add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
-add_gandiva_unit_test(status_test.cc)
 add_gandiva_unit_test(expression_registry_test.cc llvm_types.cc expression_registry.cc function_signature.cc function_registry.cc)
 add_gandiva_unit_test(selection_vector_test.cc selection_vector.cc)
 add_gandiva_unit_test(lru_cache_test.cc)
