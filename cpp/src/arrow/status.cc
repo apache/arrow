@@ -84,6 +84,15 @@ std::string Status::CodeAsString() const {
     case StatusCode::PlasmaObjectAlreadySealed:
       type = "Plasma object is already sealed";
       break;
+    case StatusCode::CodeGenError:
+      type = "CodeGenError in Gandiva";
+      break;
+    case StatusCode::ExpressionValidationError:
+      type = "ExpressionValidationError";
+      break;
+    case StatusCode::ExecutionError:
+      type = "ExecutionError in Gandiva";
+      break;
     default:
       type = "Unknown";
       break;

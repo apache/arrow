@@ -18,11 +18,11 @@
 #include "gandiva/selection_vector.h"
 
 #include <memory>
+#include <sstream>
 #include <utility>
 #include <vector>
 
 #include "gandiva/selection_vector_impl.h"
-#include "gandiva/status.h"
 
 namespace gandiva {
 
@@ -76,7 +76,7 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int bitmap_siz
 Status SelectionVector::MakeInt16(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   auto status = SelectionVectorInt16::ValidateBuffer(max_slots, buffer);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   *selection_vector = std::make_shared<SelectionVectorInt16>(max_slots, buffer);
   return Status::OK();
@@ -86,7 +86,7 @@ Status SelectionVector::MakeInt16(int max_slots, arrow::MemoryPool* pool,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   std::shared_ptr<arrow::Buffer> buffer;
   auto status = SelectionVectorInt16::AllocateBuffer(max_slots, pool, &buffer);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   *selection_vector = std::make_shared<SelectionVectorInt16>(max_slots, buffer);
   return Status::OK();
@@ -95,7 +95,7 @@ Status SelectionVector::MakeInt16(int max_slots, arrow::MemoryPool* pool,
 Status SelectionVector::MakeInt32(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   auto status = SelectionVectorInt32::ValidateBuffer(max_slots, buffer);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   *selection_vector = std::make_shared<SelectionVectorInt32>(max_slots, buffer);
   return Status::OK();
@@ -105,7 +105,7 @@ Status SelectionVector::MakeInt32(int max_slots, arrow::MemoryPool* pool,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   std::shared_ptr<arrow::Buffer> buffer;
   auto status = SelectionVectorInt32::AllocateBuffer(max_slots, pool, &buffer);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   *selection_vector = std::make_shared<SelectionVectorInt32>(max_slots, buffer);
   return Status::OK();
@@ -116,7 +116,7 @@ Status SelectionVectorImpl<C_TYPE, A_TYPE>::AllocateBuffer(
     int max_slots, arrow::MemoryPool* pool, std::shared_ptr<arrow::Buffer>* buffer) {
   auto buffer_len = max_slots * sizeof(C_TYPE);
   auto astatus = arrow::AllocateBuffer(pool, buffer_len, buffer);
-  GANDIVA_RETURN_ARROW_NOT_OK(astatus);
+  ARROW_RETURN_NOT_OK(astatus);
 
   return Status::OK();
 }

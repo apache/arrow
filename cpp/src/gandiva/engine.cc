@@ -92,7 +92,7 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   engine_obj->AddGlobalMappings();
 
   auto status = engine_obj->LoadPreCompiledIRFiles(config->byte_code_file_path());
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   *engine = std::move(engine_obj);
   return Status::OK();
@@ -162,7 +162,7 @@ Status Engine::RemoveUnusedFunctions() {
 // Optimise and compile the module.
 Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
   auto status = RemoveUnusedFunctions();
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   if (dump_ir) {
     DumpIR("Before optimise");

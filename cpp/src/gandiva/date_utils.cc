@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <sstream>
 #include <vector>
 
 #include "gandiva/date_utils.h"

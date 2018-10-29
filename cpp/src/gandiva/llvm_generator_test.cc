@@ -88,9 +88,11 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   llvm::Function* ir_func = nullptr;
 
   status = generator->CodeGenExprValue(func_dex, desc_sum, 0, &ir_func);
-  ASSERT_TRUE(status.ok());
+  EXPECT_TRUE(status.ok()) << status.message();
 
-  generator->engine_->FinalizeModule(true, false);
+  status = generator->engine_->FinalizeModule(true, false);
+  EXPECT_TRUE(status.ok()) << status.message();
+
   EvalFunc eval_func = (EvalFunc)generator->engine_->CompiledFunction(ir_func);
 
   int num_records = 4;

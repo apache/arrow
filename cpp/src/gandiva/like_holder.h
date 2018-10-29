@@ -22,9 +22,9 @@
 #include <string>
 
 #include <re2/re2.h>
+#include "arrow/status.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
-#include "gandiva/status.h"
 
 namespace gandiva {
 

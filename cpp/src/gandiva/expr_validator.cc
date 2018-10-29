@@ -85,18 +85,18 @@ Status ExprValidator::Visit(const FunctionNode& node) {
 
   for (auto& child : node.children()) {
     Status status = child->Accept(*this);
-    GANDIVA_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(status);
   }
   return Status::OK();
 }
 
 Status ExprValidator::Visit(const IfNode& node) {
   Status status = node.condition()->Accept(*this);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
   status = node.then_node()->Accept(*this);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
   status = node.else_node()->Accept(*this);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   auto if_node_ret_type = node.return_type();
   auto then_node_ret_type = node.then_node()->return_type();
@@ -149,7 +149,7 @@ Status ExprValidator::Visit(const BooleanNode& node) {
     }
 
     status = child->Accept(*this);
-    GANDIVA_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(status);
   }
   return Status::OK();
 }

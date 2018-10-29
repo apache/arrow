@@ -25,6 +25,7 @@
 #include <arrow/builder.h>
 #include <arrow/pretty_print.h>
 #include <arrow/record_batch.h>
+#include <arrow/status.h>
 #include <arrow/type.h>
 
 namespace gandiva {
@@ -43,6 +44,9 @@ using SchemaPtr = std::shared_ptr<arrow::Schema>;
 
 using ArrayDataPtr = std::shared_ptr<arrow::ArrayData>;
 using ArrayDataVector = std::vector<ArrayDataPtr>;
+
+using Status = arrow::Status;
+using StatusCode = arrow::StatusCode;
 
 }  // namespace gandiva
 

@@ -23,10 +23,11 @@
 #include <string>
 #include <unordered_map>
 
+#include "arrow/status.h"
+
 #include "gandiva/function_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/node.h"
-#include "gandiva/status.h"
 #include "gandiva/to_date_holder.h"
 
 namespace gandiva {

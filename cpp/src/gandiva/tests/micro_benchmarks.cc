@@ -18,8 +18,8 @@
 
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "gandiva/projector.h"
-#include "gandiva/status.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tests/timed_evaluate.h"
 #include "gandiva/tree_expr_builder.h"

@@ -24,6 +24,7 @@
 #include <utility>
 
 #include <gtest/gtest_prod.h>
+#include "gandiva/arrow.h"
 #include "gandiva/expression.h"
 #include "gandiva/node.h"
 #include "gandiva/node_visitor.h"

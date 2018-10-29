@@ -15,10 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
+
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
+#include "arrow/status.h"
+
 #include "gandiva/projector.h"
-#include "gandiva/status.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
 

@@ -100,11 +100,12 @@ llvm::Function* TestEngine::BuildVecAdd(Engine* engine, LLVMTypes* types) {
 
 TEST_F(TestEngine, TestAddUnoptimised) {
   std::unique_ptr<Engine> engine;
-  Engine::Make(ConfigurationBuilder::DefaultConfiguration(), &engine);
+  Status status = Engine::Make(ConfigurationBuilder::DefaultConfiguration(), &engine);
+  EXPECT_TRUE(status.ok()) << status.message();
   LLVMTypes types(*engine->context());
   llvm::Function* ir_func = BuildVecAdd(engine.get(), &types);
-  engine->FinalizeModule(false, false);
-
+  status = engine->FinalizeModule(false, false);
+  EXPECT_TRUE(status.ok()) << status.message();
   add_vector_func_t add_func =
       reinterpret_cast<add_vector_func_t>(engine->CompiledFunction(ir_func));
 
@@ -114,10 +115,12 @@ TEST_F(TestEngine, TestAddUnoptimised) {
 
 TEST_F(TestEngine, TestAddOptimised) {
   std::unique_ptr<Engine> engine;
-  Engine::Make(ConfigurationBuilder::DefaultConfiguration(), &engine);
+  Status status = Engine::Make(ConfigurationBuilder::DefaultConfiguration(), &engine);
+  EXPECT_TRUE(status.ok()) << status.message();
   LLVMTypes types(*engine->context());
   llvm::Function* ir_func = BuildVecAdd(engine.get(), &types);
-  engine->FinalizeModule(true, false);
+  status = engine->FinalizeModule(true, false);
+  EXPECT_TRUE(status.ok()) << status.message();
 
   add_vector_func_t add_func =
       reinterpret_cast<add_vector_func_t>(engine->CompiledFunction(ir_func));
