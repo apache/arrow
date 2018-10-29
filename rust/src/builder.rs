@@ -206,7 +206,6 @@ impl BufferBuilder<bool> {
     }
 }
 
-
 ///  Array builder for fixed-width primitive types
 pub struct PrimitiveArrayBuilder<T>
 where
@@ -219,7 +218,6 @@ where
 macro_rules! impl_primitive_array_builder {
     ($data_ty:path, $native_ty:ident) => {
         impl PrimitiveArrayBuilder<$native_ty> {
-
             /// Creates a new primitive array builder
             pub fn new(capacity: i64) -> Self {
                 Self {
@@ -250,7 +248,10 @@ macro_rules! impl_primitive_array_builder {
             /// Pushes a value of type T into the builder
             pub fn push_slice(&mut self, v: &[$native_ty]) -> Result<()> {
                 if self.bitmap_builder.is_some() {
-                    self.bitmap_builder.as_mut().unwrap().push_slice(&vec![true; v.len()][..])?;
+                    self.bitmap_builder
+                        .as_mut()
+                        .unwrap()
+                        .push_slice(&vec![true; v.len()][..])?;
                 }
                 self.values_builder.push_slice(v)?;
                 Ok(())
@@ -274,17 +275,8 @@ macro_rules! impl_primitive_array_builder {
             pub fn push_option(&mut self, v: Option<$native_ty>) -> Result<()> {
                 match v {
                     None => self.push_null()?,
-                    Some(v) => self.push(v)?
+                    Some(v) => self.push(v)?,
                 };
-                Ok(())
-            }
-
-            /// Pushes a slice of type T into the builder
-            pub fn push_value_slice(&mut self, slice: &[$native_ty]) -> Result<()> {
-                if self.bitmap_builder.is_some() {
-                    self.bitmap_builder.as_mut().unwrap().advance(slice.len() as i64)?;
-                }
-                self.values_builder.push_slice(slice)?;
                 Ok(())
             }
 
@@ -300,11 +292,11 @@ macro_rules! impl_primitive_array_builder {
                             .add_buffer(self.values_builder.finish())
                             .null_bit_buffer(null_bit_buffer)
                             .build()
-                    },
+                    }
                     None => ArrayData::builder($data_ty)
-                                .len(len)
-                                .add_buffer(self.values_builder.finish())
-                                .build(),
+                        .len(len)
+                        .add_buffer(self.values_builder.finish())
+                        .build(),
                 };
                 PrimitiveArray::<$native_ty>::from(data)
             }
