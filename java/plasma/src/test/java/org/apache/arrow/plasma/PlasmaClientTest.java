@@ -170,15 +170,15 @@ public class PlasmaClientTest {
     Arrays.fill(value5, (byte)15);
     pLink.put(id5, value5, meta5);
 
-    byte[] getValue4_meta = pLink.get(id4, timeoutMs, true);
-    assert Arrays.equals(meta4, getValue4_meta);
-    byte[] getValue4_data = pLink.get(id4, timeoutMs, false);
-    assert Arrays.equals(value4, getValue4_data);
+    byte[] getMeta4 = pLink.get(id4, timeoutMs, true);
+    assert Arrays.equals(meta4, getMeta4);
+    byte[] getValue4 = pLink.get(id4, timeoutMs, false);
+    assert Arrays.equals(value4, getValue4);
 
-    byte[] getValue5_meta = pLink.get(id5, timeoutMs, true);
-    assert Arrays.equals(meta5, getValue5_meta);
-    byte[] getValue5_data = pLink.get(id5, timeoutMs, false);
-    assert Arrays.equals(value5, getValue5_data);
+    byte[] getMeta5 = pLink.get(id5, timeoutMs, true);
+    assert Arrays.equals(meta5, getMeta5);
+    byte[] getValue5 = pLink.get(id5, timeoutMs, false);
+    assert Arrays.equals(value5, getValue5);
     System.out.println("Plasma java client metadata get test success.");
     cleanup();
     System.out.println("All test success.");
