@@ -196,7 +196,7 @@ macro_rules! def_primitive_array {
                 n
             }
 
-            // Returns a builder to create a primitive array
+            // Returns a new primitive array builder
             pub fn builder(capacity: i64) -> PrimitiveArrayBuilder<$native_ty> {
                 PrimitiveArrayBuilder::<$native_ty>::new(capacity)
             }
@@ -318,7 +318,7 @@ impl PrimitiveArray<bool> {
         unsafe { bit_util::get_bit_raw(self.raw_values.get() as *const u8, offset as usize) }
     }
 
-    // Returns a builder to create a primitive array
+    // Returns a new primitive array builder
     pub fn builder(capacity: i64) -> PrimitiveArrayBuilder<bool> {
         PrimitiveArrayBuilder::<bool>::new(capacity)
     }
