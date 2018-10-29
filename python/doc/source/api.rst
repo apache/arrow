@@ -325,6 +325,20 @@ In-Memory Object Store
    PlasmaClient
    PlasmaBuffer
 
+.. currentmodule:: pyarrow.csv
+
+.. _api.csv:
+
+CSV Files
+---------
+
+.. autosummary::
+   :toctree: generated/
+
+   ReadOptions
+   ParseOptions
+   read_csv
+
 .. currentmodule:: pyarrow.parquet
 
 .. _api.parquet:

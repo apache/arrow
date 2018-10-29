@@ -34,6 +34,18 @@ cdef unsigned char _single_char(s) except 0:
 
 
 cdef class ReadOptions:
+    """
+    Options for reading CSV files.
+
+    Parameters
+    ----------
+    use_threads : bool, optional (default True)
+        Whether to use multiple threads to accelerate reading
+    block_size : int, optional
+        How much bytes to process at a time from the input stream.
+        This will determine multi-threading granularity as well as
+        the size of individual chunks in the Table.
+    """
     cdef:
         CCSVReadOptions options
 
@@ -49,6 +61,9 @@ cdef class ReadOptions:
 
     @property
     def use_threads(self):
+        """
+        Whether to use multiple threads to accelerate reading.
+        """
         return self.options.use_threads
 
     @use_threads.setter
@@ -57,6 +72,11 @@ cdef class ReadOptions:
 
     @property
     def block_size(self):
+        """
+        How much bytes to process at a time from the input stream.
+        This will determine multi-threading granularity as well as
+        the size of individual chunks in the Table.
+        """
         return self.options.block_size
 
     @block_size.setter
@@ -65,6 +85,29 @@ cdef class ReadOptions:
 
 
 cdef class ParseOptions:
+    """
+    Options for parsing CSV files.
+
+    Parameters
+    ----------
+    delimiter: 1-character string, optional (default ',')
+        The character delimiting individual cells in the CSV data.
+    quote_char: 1-character string or False, optional (default '"')
+        The character used optionally for quoting CSV values
+        (False if quoting is not allowed).
+    double_quote: bool, optional (default True)
+        Whether two quotes in a quoted CSV value denote a single quote
+        in the data.
+    escape_char: 1-character string or False, optional (default False)
+        The character used optionally for escaping special characters
+        (False if escaping is not allowed).
+    header_rows: int, optional (default 1)
+        The number of rows to skip at the start of the CSV data.
+    newlines_in_values: bool, optional (default False)
+        Whether newline characters are allowed in CSV values.
+        Setting this to True reduces the performance of multi-threaded
+        CSV reading.
+    """
     cdef:
         CCSVParseOptions options
 
@@ -88,6 +131,9 @@ cdef class ParseOptions:
 
     @property
     def delimiter(self):
+        """
+        The character delimiting individual cells in the CSV data.
+        """
         return chr(self.options.delimiter)
 
     @delimiter.setter
@@ -96,6 +142,10 @@ cdef class ParseOptions:
 
     @property
     def quote_char(self):
+        """
+        The character used optionally for quoting CSV values
+        (False if quoting is not allowed).
+        """
         if self.options.quoting:
             return chr(self.options.quote_char)
         else:
@@ -111,6 +161,10 @@ cdef class ParseOptions:
 
     @property
     def double_quote(self):
+        """
+        Whether two quotes in a quoted CSV value denote a single quote
+        in the data.
+        """
         return self.options.double_quote
 
     @double_quote.setter
@@ -119,6 +173,10 @@ cdef class ParseOptions:
 
     @property
     def escape_char(self):
+        """
+        The character used optionally for escaping special characters
+        (False if escaping is not allowed).
+        """
         if self.options.escaping:
             return chr(self.options.escape_char)
         else:
@@ -134,6 +192,9 @@ cdef class ParseOptions:
 
     @property
     def header_rows(self):
+        """
+        The number of rows to skip at the start of the CSV data.
+        """
         return self.options.header_rows
 
     @header_rows.setter
@@ -142,6 +203,11 @@ cdef class ParseOptions:
 
     @property
     def newlines_in_values(self):
+        """
+        Whether newline characters are allowed in CSV values.
+        Setting this to True reduces the performance of multi-threaded
+        CSV reading.
+        """
         return self.options.newlines_in_values
 
     @newlines_in_values.setter
@@ -177,6 +243,30 @@ cdef _get_convert_options(convert_options, CCSVConvertOptions* out):
 
 def read_csv(input_file, read_options=None, parse_options=None,
              convert_options=None, MemoryPool memory_pool=None):
+    """
+    Read a Table from a stream of CSV data.
+
+    Parameters
+    ----------
+    input_file: string, path or file-like object
+        The location of CSV data.  If a string or path, and if it ends
+        with a recognized compressed file extension (e.g. ".gz" or ".bz2"),
+        the data is automatically decompressed when reading.
+    read_options: ReadOptions, optional
+        Options for the CSV reader (see ReadOptions constructor for defaults)
+    parse_options: ParseOptions, optional
+        Options for the CSV parser
+        (see ParseOptions constructor for defaults)
+    convert_options: None
+        Currently unused
+    memory_pool: MemoryPool, optional
+        Pool to allocate Table memory from
+
+    Returns
+    -------
+    :class:`pyarrow.Table`
+        Contents of the CSV file as a in-memory table.
+    """
     cdef:
         shared_ptr[InputStream] stream
         CCSVReadOptions c_read_options
