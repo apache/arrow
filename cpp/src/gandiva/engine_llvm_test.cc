@@ -122,7 +122,6 @@ TEST_F(TestEngine, TestAddOptimised) {
   status = engine->FinalizeModule(true, false);
   EXPECT_TRUE(status.ok()) << status.message();
 
-
   add_vector_func_t add_func =
       reinterpret_cast<add_vector_func_t>(engine->CompiledFunction(ir_func));
 

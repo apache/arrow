@@ -46,10 +46,6 @@
       <title>Projector</title>
       <xi:include href="xml/projector.xml"/>
     </chapter>
-    <chapter id="error">
-      <title>Error</title>
-      <xi:include href="xml/error.xml"/>
-    </chapter>
   </part>
 
   <chapter id="object-tree">
