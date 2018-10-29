@@ -29,7 +29,7 @@
         <protobuf.version>2.5.0</protobuf.version>
         <dep.guava.version>18.0</dep.guava.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-        <gandiva.cpp.build.dir>../../cpp/debug</gandiva.cpp.build.dir>
+        <gandiva.cpp.build.dir>../../cpp/debug/debug</gandiva.cpp.build.dir>
     </properties>
     <dependencies>
         <dependency>

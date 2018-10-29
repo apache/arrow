@@ -15,36 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/util/decimal.h>
+#include "gandiva/decimal_type_sql.h"
 
-extern "C" {
+namespace gandiva {
 
-#include <stdio.h>
+constexpr int32_t DecimalTypeSql::kMaxDecimal32Precision;
+constexpr int32_t DecimalTypeSql::kMaxDecimal64Precision;
+constexpr int32_t DecimalTypeSql::kMaxPrecision;
 
-#include "./types.h"
+constexpr int32_t DecimalTypeSql::kMaxScale;
+constexpr int32_t DecimalTypeSql::kMinAdjustedScale;
 
-int print_double(char* msg, double val) { return printf(msg, val); }
-
-int print_float(char* msg, float val) { return printf(msg, val); }
-
-typedef __int128 int128_t;
-
-void divb(const int128_t* x, const int128_t* y, int128_t* z) {
-  arrow::Decimal128 xd((const uint8_t*)x);
-  arrow::Decimal128 yd((const uint8_t*)y);
-  xd /= yd;
-  *z = xd.high_bits();
-  *z <<= 64;
-  *z += xd.low_bits();
-}
-
-void mulb(const int128_t* x, const int128_t* y, int128_t* z) {
-  arrow::Decimal128 xd((const uint8_t*)x);
-  arrow::Decimal128 yd((const uint8_t*)y);
-  xd *= yd;
-  *z = xd.high_bits();
-  *z <<= 64;
-  *z += xd.low_bits();
-}
-
-}  // extern "C"
+}  // namespace gandiva

@@ -20,12 +20,15 @@ project(gandiva)
 set(PRECOMPILED_SRCS
     arithmetic_ops.cc
     bitmap.cc
+    decimal_ops.cc
+    decimal_sql.cc
     extended_math_ops.cc
     hash.cc
     print.cc
     string_ops.cc
     time.cc
-    timestamp_arithmetic.cc)
+    timestamp_arithmetic.cc
+    ../../arrow/util/decimal.cc)
 
 # Create bitcode for each of the source files.
 foreach(SRC_FILE ${PRECOMPILED_SRCS})
@@ -35,7 +38,10 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
   add_custom_command(
     OUTPUT ${BC_FILE}
     COMMAND ${CLANG_EXECUTABLE}
-            -std=c++11 -emit-llvm -O2 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
+            -std=c++11 -emit-llvm
+            -DNDEBUG # DCHECK macros not implemented in precompiled code
+            -fno-use-cxa-atexit  # Workaround for unresolved __dso_handle
+            -O3 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
             -I${CMAKE_SOURCE_DIR}/src
     DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})
@@ -77,4 +83,5 @@ if (ARROW_BUILD_TESTS)
   add_precompiled_unit_test(string_ops_test.cc string_ops.cc ../context_helper.cc)
   add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)
   add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc ../context_helper.cc)
+  add_precompiled_unit_test(decimal_sql_test.cc decimal_sql.cc ../decimal_type_sql.cc)
 endif()

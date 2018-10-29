@@ -37,6 +37,8 @@
 
 namespace gandiva {
 
+class FunctionIRBuilder;
+
 /// \brief LLVM Execution engine wrapper.
 class Engine {
  public:
@@ -67,6 +69,10 @@ class Engine {
   // Create and add a mapping for the cpp function to make it accessible from LLVM.
   void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                const std::vector<llvm::Type*>& args, void* func);
+
+  void AddFunctionIRBuilder(std::shared_ptr<FunctionIRBuilder> func_ir_builder) {
+    function_ir_builders_.push_back(func_ir_builder);
+  }
 
  private:
   /// private constructor to ensure engine is created
@@ -99,6 +105,7 @@ class Engine {
                           // explicitly deleted.
 
   std::vector<std::string> functions_to_compile_;
+  std::vector<std::shared_ptr<FunctionIRBuilder>> function_ir_builders_;
 
   bool module_finalized_;
   std::string llvm_error_;

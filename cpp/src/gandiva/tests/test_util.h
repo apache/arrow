@@ -47,6 +47,14 @@ static ArrayPtr MakeArrowArray(std::vector<C_TYPE> values) {
 }
 
 template <typename TYPE, typename C_TYPE>
+static ArrayPtr MakeArrowArray(const std::shared_ptr<arrow::DataType>& type,
+                               std::vector<C_TYPE> values, std::vector<bool> validity) {
+  ArrayPtr out;
+  arrow::ArrayFromVector<TYPE, C_TYPE>(type, validity, values, &out);
+  return out;
+}
+
+template <typename TYPE, typename C_TYPE>
 static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>& type,
                                    const std::vector<C_TYPE>& values,
                                    const std::vector<bool>& validity) {
@@ -68,6 +76,7 @@ static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>& type,
 #define MakeArrowArrayFloat64 MakeArrowArray<arrow::DoubleType, double>
 #define MakeArrowArrayUtf8 MakeArrowArray<arrow::StringType, std::string>
 #define MakeArrowArrayBinary MakeArrowArray<arrow::BinaryType, std::string>
+#define MakeArrowArrayDecimal MakeArrowArray<arrow::Decimal128Type, arrow::Decimal128>
 
 #define EXPECT_ARROW_ARRAY_EQUALS(a, b)                                \
   EXPECT_TRUE((a)->Equals(b)) << "expected array: " << (a)->ToString() \

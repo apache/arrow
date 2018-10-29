@@ -15,36 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/util/decimal.h>
+#ifndef DECIMAL_SQL_H
+#define DECIMAL_SQL_H
 
-extern "C" {
+#include <cstdint>
+#include <string>
+#include "gandiva/decimal_full.h"
 
-#include <stdio.h>
+namespace gandiva {
+namespace decimalsql {
 
-#include "./types.h"
+Decimal128 Add(const Decimal128Full& x, const Decimal128Full& y, int32_t out_precision,
+               int32_t out_scale);
 
-int print_double(char* msg, double val) { return printf(msg, val); }
+}  // namespace decimalsql
+}  // namespace gandiva
 
-int print_float(char* msg, float val) { return printf(msg, val); }
-
-typedef __int128 int128_t;
-
-void divb(const int128_t* x, const int128_t* y, int128_t* z) {
-  arrow::Decimal128 xd((const uint8_t*)x);
-  arrow::Decimal128 yd((const uint8_t*)y);
-  xd /= yd;
-  *z = xd.high_bits();
-  *z <<= 64;
-  *z += xd.low_bits();
-}
-
-void mulb(const int128_t* x, const int128_t* y, int128_t* z) {
-  arrow::Decimal128 xd((const uint8_t*)x);
-  arrow::Decimal128 yd((const uint8_t*)y);
-  xd *= yd;
-  *z = xd.high_bits();
-  *z <<= 64;
-  *z += xd.low_bits();
-}
-
-}  // extern "C"
+#endif  // DECIMAL_SQL_H
