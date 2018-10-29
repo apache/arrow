@@ -517,7 +517,7 @@ namespace garrow {
     }
 
     bool closed() const override {
-      return !!g_input_stream_is_closed(input_stream_);
+      return static_cast<bool>(g_input_stream_is_closed(input_stream_));
     }
 
     arrow::Status Close() override {

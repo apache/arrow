@@ -1048,7 +1048,8 @@ cdef class CompressedInputStream(NativeFile):
     ----------
     stream : pa.NativeFile
     compression : str
-        The compression type (e.g. "gzip" or "bz2")
+        The compression type ("bz2", "brotli", "gzip", "lz4", "snappy"
+        or "zstd")
     """
     def __cinit__(self, NativeFile stream, compression):
         cdef:
@@ -1077,7 +1078,8 @@ cdef class CompressedOutputStream(NativeFile):
     ----------
     stream : pa.NativeFile
     compression : str
-        The compression type (e.g. "gzip" or "bz2")
+        The compression type ("bz2", "brotli", "gzip", "lz4", "snappy"
+        or "zstd")
     """
     def __cinit__(self, NativeFile stream, compression):
         cdef:
@@ -1213,12 +1215,12 @@ cdef CompressionType _get_compression_type(object name):
         return CompressionType_UNCOMPRESSED
     elif name == 'bz2':
         return CompressionType_BZ2
-    elif name == 'lz4':
-        return CompressionType_LZ4
     elif name == 'brotli':
         return CompressionType_BROTLI
     elif name == 'gzip':
         return CompressionType_GZIP
+    elif name == 'lz4':
+        return CompressionType_LZ4
     elif name == 'snappy':
         return CompressionType_SNAPPY
     elif name == 'zstd':
