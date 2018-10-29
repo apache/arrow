@@ -411,6 +411,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CBinaryArray" arrow::BinaryArray"(CListArray):
         const uint8_t* GetValue(int i, int32_t* length)
+        shared_ptr[CBuffer] value_data()
+        int32_t value_offset(int64_t i)
+        int32_t value_length(int64_t i)
 
     cdef cppclass CStringArray" arrow::StringArray"(CBinaryArray):
         CStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,

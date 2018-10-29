@@ -31,6 +31,12 @@ class TestScalars(unittest.TestCase):
         with pytest.raises(Exception):
             pa.NAType()
 
+    def test_nulls(self):
+        arr = pa.array([None, None])
+        for v in arr:
+            assert v is pa.NA
+            assert v.as_py() is None
+
     def test_bool(self):
         arr = pa.array([True, None, False, None])
 
@@ -102,18 +108,20 @@ class TestScalars(unittest.TestCase):
     def test_bytes(self):
         arr = pa.array([b'foo', None, u('bar')])
 
-        v = arr[0]
-        assert isinstance(v, pa.BinaryValue)
-        assert v.as_py() == b'foo'
-        assert str(v) == str(b"foo")
-        assert repr(v) == repr(b"foo")
-        assert v == b'foo'
+        def check_value(v, expected):
+            assert isinstance(v, pa.BinaryValue)
+            assert v.as_py() == expected
+            assert str(v) == str(expected)
+            assert repr(v) == repr(expected)
+            assert v == expected
+            assert v != b'xxxxx'
+            buf = v.as_buffer()
+            assert isinstance(buf, pa.Buffer)
+            assert buf.to_pybytes() == expected
 
+        check_value(arr[0], b'foo')
         assert arr[1] is pa.NA
-
-        v = arr[2].as_py()
-        assert v == b'bar'
-        assert isinstance(v, bytes)
+        check_value(arr[2], b'bar')
 
     def test_fixed_size_bytes(self):
         data = [b'foof', None, b'barb']
