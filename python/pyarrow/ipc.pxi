@@ -80,9 +80,10 @@ cdef class Message:
             int64_t output_length = 0
             int32_t c_alignment = alignment
 
+        handle = stream.get_output_stream()
         with nogil:
             check_status(self.message.get()
-                         .SerializeTo(stream.wr_file.get(), c_alignment,
+                         .SerializeTo(handle.get(), c_alignment,
                                       &output_length))
         return stream.getvalue()
 
@@ -154,7 +155,7 @@ cdef class _RecordBatchWriter:
         bint closed
 
     def __cinit__(self):
-        self.closed = True
+        pass
 
     def __dealloc__(self):
         pass
@@ -167,7 +168,6 @@ cdef class _RecordBatchWriter:
                 CRecordBatchStreamWriter.Open(self.sink.get(),
                                               schema.sp_schema,
                                               &self.writer))
-        self.closed = False
 
     def write(self, table_or_batch):
         """
@@ -219,12 +219,8 @@ cdef class _RecordBatchWriter:
         """
         Close stream and write end-of-stream 0 marker
         """
-        if self.closed:
-            return
-
         with nogil:
             check_status(self.writer.get().Close())
-        self.closed = True
 
 
 cdef _get_input_stream(object source, shared_ptr[InputStream]* out):
@@ -316,8 +312,6 @@ cdef class _RecordBatchFileWriter(_RecordBatchWriter):
             check_status(
                 CRecordBatchFileWriter.Open(self.sink.get(), schema.sp_schema,
                                             &self.writer))
-
-        self.closed = False
 
 
 cdef class _RecordBatchFileReader:
@@ -432,11 +426,11 @@ def write_tensor(Tensor tensor, NativeFile dest):
         int32_t metadata_length
         int64_t body_length
 
-    dest._assert_writable()
+    handle = dest.get_output_stream()
 
     with nogil:
         check_status(
-            WriteTensor(deref(tensor.tp), dest.wr_file.get(),
+            WriteTensor(deref(tensor.tp), handle.get(),
                         &metadata_length, &body_length))
 
     return metadata_length + body_length
@@ -459,10 +453,11 @@ def read_tensor(NativeFile source):
     """
     cdef:
         shared_ptr[CTensor] sp_tensor
+        RandomAccessFile* rd_file
 
-    source._assert_readable()
+    rd_file = source.get_random_access_file().get()
     with nogil:
-        check_status(ReadTensor(source.rd_file.get(), &sp_tensor))
+        check_status(ReadTensor(rd_file, &sp_tensor))
     return pyarrow_wrap_tensor(sp_tensor)
 
 
@@ -481,6 +476,7 @@ def read_message(source):
     cdef:
         Message result = Message.__new__(Message)
         NativeFile cpp_file
+        RandomAccessFile* rd_file
 
     if not isinstance(source, NativeFile):
         if hasattr(source, 'read'):
@@ -492,13 +488,11 @@ def read_message(source):
         raise ValueError('Unable to read message from object with type: {0}'
                          .format(type(source)))
 
-    source._assert_readable()
-
     cpp_file = source
+    rd_file = cpp_file.get_random_access_file().get()
 
     with nogil:
-        check_status(ReadMessage(cpp_file.rd_file.get(),
-                                 &result.message))
+        check_status(ReadMessage(rd_file, &result.message))
 
     return result
 

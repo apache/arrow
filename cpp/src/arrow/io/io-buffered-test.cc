@@ -135,11 +135,14 @@ TEST_F(TestBufferedOutputStream, DestructorClosesFile) {
 
 TEST_F(TestBufferedOutputStream, ExplicitCloseClosesFile) {
   OpenBuffered();
+  ASSERT_FALSE(stream_->closed());
   ASSERT_FALSE(FileIsClosed(fd_));
   ASSERT_OK(stream_->Close());
+  ASSERT_TRUE(stream_->closed());
   ASSERT_TRUE(FileIsClosed(fd_));
   // Idempotency
   ASSERT_OK(stream_->Close());
+  ASSERT_TRUE(stream_->closed());
   ASSERT_TRUE(FileIsClosed(fd_));
 }
 

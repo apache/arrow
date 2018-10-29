@@ -1393,12 +1393,13 @@ class TestConvertStringLikeTypes(object):
         assert converted.equals(expected)
 
         with pytest.raises(pa.lib.ArrowInvalid,
-                           match='Got bytestring of length 3 \(expected 4\)'):
+                           match=r'Got bytestring of length 3 \(expected 4\)'):
             arr = np.array([b'foo', b'bar', b'baz'], dtype='|S3')
             pa.array(arr, type=pa.binary(4))
 
-        with pytest.raises(pa.lib.ArrowInvalid,
-                           match='Got bytestring of length 12 \(expected 3\)'):
+        with pytest.raises(
+                pa.lib.ArrowInvalid,
+                match=r'Got bytestring of length 12 \(expected 3\)'):
             arr = np.array([b'foo', b'bar', b'baz'], dtype='|U3')
             pa.array(arr, type=pa.binary(3))
 
