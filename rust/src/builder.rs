@@ -59,7 +59,7 @@ macro_rules! impl_buffer_builder {
 
             // Advances the `len` of the underlying `Buffer` by `i` slots of type T
             pub fn advance(&mut self, i: i64) -> Result<()> {
-                let new_buffer_len = (self.len + 1) as usize * mem::size_of::<$native_ty>();
+                let new_buffer_len = (self.len + i) as usize * mem::size_of::<$native_ty>();
                 self.buffer.resize(new_buffer_len)?;
                 self.len += i;
                 Ok(())
@@ -247,15 +247,22 @@ macro_rules! impl_primitive_array_builder {
                 Ok(())
             }
 
+            /// Pushes a value of type T into the builder
+            pub fn push_slice(&mut self, v: &[$native_ty]) -> Result<()> {
+                if self.bitmap_builder.is_some() {
+                    self.bitmap_builder.as_mut().unwrap().push_slice(&vec![true; v.len()][..])?;
+                }
+                self.values_builder.push_slice(v)?;
+                Ok(())
+            }
+
             /// Pushes a null slot into the builder
-            pub fn push_none(&mut self) -> Result<()> {
+            pub fn push_null(&mut self) -> Result<()> {
                 if self.bitmap_builder.is_some() {
                     self.bitmap_builder.as_mut().unwrap().push(false)?;
                 } else {
                     let mut b = BufferBuilder::<bool>::new(self.capacity());
-                    for _ in 0..self.len() {
-                        b.push(true)?;
-                    }
+                    b.push_slice(&vec![true; self.len() as usize][..])?;
                     b.push(false)?;
                     self.bitmap_builder = Some(b);
                 }
@@ -266,7 +273,7 @@ macro_rules! impl_primitive_array_builder {
             /// Pushes an Option<T> into the builder
             pub fn push_option(&mut self, v: Option<$native_ty>) -> Result<()> {
                 match v {
-                    None => self.push_none()?,
+                    None => self.push_null()?,
                     Some(v) => self.push(v)?
                 };
                 Ok(())
@@ -520,14 +527,37 @@ mod tests {
     }
 
     #[test]
-    fn test_primitive_array_builder_push_none() {
+    fn test_primitive_array_builder_push_null() {
         let arr1 = PrimitiveArray::<i32>::from(vec![Some(0), Some(2), None, None, Some(4)]);
 
         let mut builder = PrimitiveArray::<i32>::builder(5);
         builder.push(0).unwrap();
         builder.push(2).unwrap();
-        builder.push_none().unwrap();
-        builder.push_none().unwrap();
+        builder.push_null().unwrap();
+        builder.push_null().unwrap();
+        builder.push(4).unwrap();
+        let arr2 = builder.finish();
+
+        assert_eq!(arr1.len(), arr2.len());
+        assert_eq!(arr1.offset(), arr2.offset());
+        assert_eq!(arr1.null_count(), arr2.null_count());
+        for i in 0..5 {
+            assert_eq!(arr1.is_null(i), arr2.is_null(i));
+            assert_eq!(arr1.is_valid(i), arr2.is_valid(i));
+            if arr1.is_valid(i) {
+                assert_eq!(arr1.value(i), arr2.value(i));
+            }
+        }
+    }
+
+    #[test]
+    fn test_primitive_array_builder_push_slice() {
+        let arr1 = PrimitiveArray::<i32>::from(vec![Some(0), Some(2), None, None, Some(4)]);
+
+        let mut builder = PrimitiveArray::<i32>::builder(5);
+        builder.push_slice(&[0, 2]).unwrap();
+        builder.push_null().unwrap();
+        builder.push_null().unwrap();
         builder.push(4).unwrap();
         let arr2 = builder.finish();
 
