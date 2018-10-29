@@ -399,7 +399,7 @@ cdef class PlasmaClient:
             If with_meta=False, this is a list of PlasmaBuffers for the data
             associated with the object_ids and None if the object was not
             available. If with_meta=True, this is a list of tuples of
-            PlasmaBuffer and metadate bytes.
+            PlasmaBuffer and metadata bytes.
         """
         cdef c_vector[CObjectBuffer] object_buffers
         self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
