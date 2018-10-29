@@ -155,6 +155,31 @@ public class PlasmaClientTest {
     boolean notExsit = pLink.contains(id3);
     assert !notExsit;
     System.out.println("Plasma java client contains test success.");
+
+    byte[] id4 =  new byte[20];
+    Arrays.fill(id4, (byte)4);
+    byte[] value4 =  new byte[20];
+    byte[] meta4 = "META4".getBytes();
+    Arrays.fill(value4, (byte)14);
+    pLink.put(id4, value4, meta4);
+
+    byte[] id5 =  new byte[20];
+    Arrays.fill(id5, (byte)5);
+    byte[] value5 =  new byte[20];
+    byte[] meta5 = "META5".getBytes();
+    Arrays.fill(value5, (byte)15);
+    pLink.put(id5, value5, meta5);
+
+    byte[] getValue4_meta = pLink.get(id4, timeoutMs, true);
+    assert Arrays.equals(meta4, getValue4_meta);
+    byte[] getValue4_data = pLink.get(id4, timeoutMs, false);
+    assert Arrays.equals(value4, getValue4_data);
+
+    byte[] getValue5_meta = pLink.get(id5, timeoutMs, true);
+    assert Arrays.equals(meta5, getValue5_meta);
+    byte[] getValue5_data = pLink.get(id5, timeoutMs, false);
+    assert Arrays.equals(value5, getValue5_data);
+    System.out.println("Plasma java client metadata get test success.");
     cleanup();
     System.out.println("All test success.");
 
