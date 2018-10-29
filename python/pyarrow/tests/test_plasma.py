@@ -220,8 +220,9 @@ class TestPlasmaClient(object):
             self.plasma_client.create_and_seal(object_id, i * b'a', i * b'b')
 
         for i in range(1000):
-            data_tuple = self.plasma_client.get_raw_buffer(object_ids[i])
-            assert data_tuple[1] == i * b'a'
+            data_tuple = self.plasma_client.get_buffers(object_ids[i],
+                                                        with_meta=True)
+            assert data_tuple[1].to_pybytes() == i * b'a'
             assert (self.plasma_client.get_metadata(
                         [object_ids[i]])[0].to_pybytes()
                     == i * b'b')
@@ -285,13 +286,14 @@ class TestPlasmaClient(object):
         # not sealed.
         object_id = random_object_id()
         self.plasma_client.create(object_id, 10, b"metadata")
-        assert self.plasma_client.get_raw_buffer(
-            object_id, timeout_ms=0)[1] == pa.plasma.ObjectNotAvailable
-        assert self.plasma_client.get_raw_buffer(
-            object_id, timeout_ms=1)[1] == pa.plasma.ObjectNotAvailable
+        assert self.plasma_client.get_buffers(
+            object_id, timeout_ms=0, with_meta=True)[1] is None
+        assert self.plasma_client.get_buffers(
+            object_id, timeout_ms=1, with_meta=True)[1] is None
         self.plasma_client.seal(object_id)
-        assert (self.plasma_client.get_raw_buffer(object_id, timeout_ms=0)[1]
-                != pa.plasma.ObjectNotAvailable)
+        assert (self.plasma_client.get_buffers(
+            object_id, timeout_ms=0, with_meta=True)[1]
+                is not None)
 
     def test_buffer_lifetime(self):
         # ARROW-2195
@@ -342,28 +344,25 @@ class TestPlasmaClient(object):
 
         def deserialize_or_output(data_tuple):
             if data_tuple[0] == use_meta:
-                return self.plasma_client.get_bytes_from_buffer(data_tuple[1])
+                return data_tuple[1].to_pybytes()
             else:
-                if data_tuple[1] == pa.plasma.ObjectNotAvailable:
+                if data_tuple[1] is None:
                     return pa.plasma.ObjectNotAvailable
                 else:
-                    return self.plasma_client.deserialize_buffer(data_tuple[1])
+                    return pa.deserialize(data_tuple[1])
+
         for value in [b"Bytes Test", temp_id.binary(), 10 * b"\x00", 123]:
             if isinstance(value, bytes):
                 object_id = self.plasma_client.put_raw_buffer(
                     value, metadata=use_meta)
             else:
                 object_id = self.plasma_client.put(value)
-            [result] = self.plasma_client.get_raw_buffer([object_id])
-            result = deserialize_or_output(result)
-            assert result == value
-
-            result = self.plasma_client.get_raw_buffer(object_id)
+            [result] = self.plasma_client.get_buffers([object_id])
             result = deserialize_or_output(result)
             assert result == value
 
             object_id = random_object_id()
-            [result] = self.plasma_client.get_raw_buffer(
+            [result] = self.plasma_client.get_buffers(
                 [object_id], timeout_ms=0)
             result = deserialize_or_output(result)
             assert result == pa.plasma.ObjectNotAvailable
