@@ -771,3 +771,23 @@ def test_serialization_determinism():
         buf1 = pa.serialize(obj).to_buffer()
         buf2 = pa.serialize(obj).to_buffer()
         assert buf1.to_pybytes() == buf2.to_pybytes()
+
+
+def test_distinct_objects():
+    class Foo(object):
+        pass
+
+    context = pa.SerializationContext()
+    context.register_type(Foo, 'Foo', pickle=True)
+
+    for obj in [(1,), [], np.zeros(1), Foo(), {}, set()]:
+        with pytest.raises(pa.ArrowNotImplementedError):
+            pa.serialize([obj, obj], context=context)
+        with pytest.raises(pa.ArrowNotImplementedError):
+            pa.serialize({'a': obj, 'b': obj}, context=context)
+        with pytest.raises(pa.ArrowNotImplementedError):
+            pa.serialize([{'a': obj}, [[{'b': obj}]]], context=context)
+
+    # Make sure the following do not cause errors.
+    for obj in [(), 1, 'a', b'a']:
+        pa.serialize([obj, obj], context=context)

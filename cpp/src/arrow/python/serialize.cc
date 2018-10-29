@@ -23,6 +23,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <numpy/arrayobject.h>
@@ -423,15 +424,17 @@ Status CallDeserializeCallback(PyObject* context, PyObject* value,
 }
 
 Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
-                     int32_t recursion_depth, std::shared_ptr<Array>* out,
-                     SerializedPyObject* blobs_out);
+                     int32_t recursion_depth,
+                     std::unordered_set<PyObject*> &distinct_objects,
+                     std::shared_ptr<Array>* out, SerializedPyObject* blobs_out);
 
 Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* builder,
                       std::vector<PyObject*>* subdicts, SerializedPyObject* blobs_out);
 
 Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
-                          int32_t recursion_depth, std::shared_ptr<Array>* out,
-                          SerializedPyObject* blobs_out);
+                          int32_t recursion_depth,
+                          std::unordered_set<PyObject*> &distinct_objects,
+                          std::shared_ptr<Array>* out, SerializedPyObject* blobs_out);
 
 template <typename NumpyScalarObject>
 Status AppendIntegerScalar(PyObject* obj, SequenceBuilder* builder) {
@@ -491,6 +494,7 @@ Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
 }
 
 Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
+              std::unordered_set<PyObject*> &distinct_objects,
               std::vector<PyObject*>* sublists, std::vector<PyObject*>* subtuples,
               std::vector<PyObject*>* subdicts, std::vector<PyObject*>* subsets,
               SerializedPyObject* blobs_out) {
@@ -531,20 +535,47 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     RETURN_NOT_OK(internal::CastSize(view.size, &size));
     RETURN_NOT_OK(builder->AppendString(view.bytes, size));
   } else if (PyList_CheckExact(elem)) {
+    if (distinct_objects.count(elem) == 1) {
+      return Status::NotImplemented(
+          "Multiple copies of the same list appear in this object.");
+    }
+    distinct_objects.insert(elem);
     RETURN_NOT_OK(builder->AppendList(PyList_Size(elem)));
     sublists->push_back(elem);
   } else if (PyDict_CheckExact(elem)) {
+    if (distinct_objects.count(elem) == 1) {
+      return Status::NotImplemented(
+          "Multiple copies of the same dictionary appear in this object.");
+    }
+    distinct_objects.insert(elem);
     RETURN_NOT_OK(builder->AppendDict(PyDict_Size(elem)));
     subdicts->push_back(elem);
   } else if (PyTuple_CheckExact(elem)) {
+    // All empty tuples are the same Python object, so don't worry if multiple
+    // copies of the same empty tuple appear in the serialized object.
+    if (distinct_objects.count(elem) == 1 && PyTuple_Size(elem) > 0) {
+      return Status::NotImplemented(
+          "Multiple copies of the same tuple appear in this object.");
+    }
+    distinct_objects.insert(elem);
     RETURN_NOT_OK(builder->AppendTuple(PyTuple_Size(elem)));
     subtuples->push_back(elem);
   } else if (PySet_Check(elem)) {
+    if (distinct_objects.count(elem) == 1) {
+      return Status::NotImplemented(
+          "Multiple copies of the same set appear in this object.");
+    }
+    distinct_objects.insert(elem);
     RETURN_NOT_OK(builder->AppendSet(PySet_Size(elem)));
     subsets->push_back(elem);
   } else if (PyArray_IsScalar(elem, Generic)) {
     RETURN_NOT_OK(AppendScalar(elem, builder));
   } else if (PyArray_CheckExact(elem)) {
+    if (distinct_objects.count(elem) == 1) {
+      return Status::NotImplemented(
+          "Multiple copies of the same array appear in this object.");
+    }
+    distinct_objects.insert(elem);
     RETURN_NOT_OK(SerializeArray(context, reinterpret_cast<PyArrayObject*>(elem), builder,
                                  subdicts, blobs_out));
   } else if (elem == Py_None) {
@@ -553,11 +584,21 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     PyDateTime_DateTime* datetime = reinterpret_cast<PyDateTime_DateTime*>(elem);
     RETURN_NOT_OK(builder->AppendDate64(PyDateTime_to_us(datetime)));
   } else if (is_buffer(elem)) {
+    if (distinct_objects.count(elem) == 1) {
+      return Status::NotImplemented(
+          "Multiple copies of the same buffer appear in this object.");
+    }
+    distinct_objects.insert(elem);
     RETURN_NOT_OK(builder->AppendBuffer(static_cast<int32_t>(blobs_out->buffers.size())));
     std::shared_ptr<Buffer> buffer;
     RETURN_NOT_OK(unwrap_buffer(elem, &buffer));
     blobs_out->buffers.push_back(buffer);
   } else {
+    if (distinct_objects.count(elem) == 1) {
+      return Status::NotImplemented(
+          "Multiple copies of the same custom object appear in this object.");
+    }
+    distinct_objects.insert(elem);
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;
     // The reference count of serialized_object will be decremented in SerializeDict
@@ -603,8 +644,9 @@ Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* 
 }
 
 Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
-                          int32_t recursion_depth, std::shared_ptr<Array>* out,
-                          SerializedPyObject* blobs_out) {
+                          int32_t recursion_depth,
+                          std::unordered_set<PyObject*> &distinct_objects,
+                          std::shared_ptr<Array>* out, SerializedPyObject* blobs_out) {
   DCHECK(out);
   if (recursion_depth >= kMaxRecursionDepth) {
     return Status::NotImplemented(
@@ -616,36 +658,41 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
   for (const auto& sequence : sequences) {
     RETURN_NOT_OK(internal::VisitIterable(
         sequence, [&](PyObject* obj, bool* keep_going /* unused */) {
-          return Append(context, obj, &builder, &sublists, &subtuples, &subdicts,
+          return Append(context, obj, &builder, distinct_objects, &sublists, &subtuples, &subdicts,
                         &subsets, blobs_out);
         }));
   }
   std::shared_ptr<Array> list;
   if (sublists.size() > 0) {
     RETURN_NOT_OK(
-        SerializeSequences(context, sublists, recursion_depth + 1, &list, blobs_out));
+        SerializeSequences(context, sublists, recursion_depth + 1, distinct_objects,
+                           &list, blobs_out));
   }
   std::shared_ptr<Array> tuple;
   if (subtuples.size() > 0) {
     RETURN_NOT_OK(
-        SerializeSequences(context, subtuples, recursion_depth + 1, &tuple, blobs_out));
+        SerializeSequences(context, subtuples, recursion_depth + 1, distinct_objects,
+                           &tuple, blobs_out));
   }
   std::shared_ptr<Array> dict;
   if (subdicts.size() > 0) {
     RETURN_NOT_OK(
-        SerializeDict(context, subdicts, recursion_depth + 1, &dict, blobs_out));
+        SerializeDict(context, subdicts, recursion_depth + 1, distinct_objects, &dict,
+                      blobs_out));
   }
   std::shared_ptr<Array> set;
   if (subsets.size() > 0) {
     RETURN_NOT_OK(
-        SerializeSequences(context, subsets, recursion_depth + 1, &set, blobs_out));
+        SerializeSequences(context, subsets, recursion_depth + 1, distinct_objects,
+                           &set, blobs_out));
   }
   return builder.Finish(list.get(), tuple.get(), dict.get(), set.get(), out);
 }
 
 Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
-                     int32_t recursion_depth, std::shared_ptr<Array>* out,
-                     SerializedPyObject* blobs_out) {
+                     int32_t recursion_depth,
+                     std::unordered_set<PyObject*> &distinct_objects,
+                     std::shared_ptr<Array>* out, SerializedPyObject* blobs_out) {
   DictBuilder result;
   if (recursion_depth >= kMaxRecursionDepth) {
     return Status::NotImplemented(
@@ -659,42 +706,43 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
     PyObject* value;
     Py_ssize_t pos = 0;
     while (PyDict_Next(dict, &pos, &key, &value)) {
-      RETURN_NOT_OK(Append(context, key, &result.keys(), &dummy, &key_tuples, &key_dicts,
-                           &dummy, blobs_out));
+      RETURN_NOT_OK(Append(context, key, &result.keys(), distinct_objects, &dummy,
+                           &key_tuples, &key_dicts, &dummy, blobs_out));
       DCHECK_EQ(dummy.size(), 0);
-      RETURN_NOT_OK(Append(context, value, &result.vals(), &val_lists, &val_tuples,
-                           &val_dicts, &val_sets, blobs_out));
+      RETURN_NOT_OK(Append(context, value, &result.vals(), distinct_objects, &val_lists,
+                           &val_tuples, &val_dicts, &val_sets, blobs_out));
     }
   }
   std::shared_ptr<Array> key_tuples_arr;
   if (key_tuples.size() > 0) {
     RETURN_NOT_OK(SerializeSequences(context, key_tuples, recursion_depth + 1,
-                                     &key_tuples_arr, blobs_out));
+                                     distinct_objects, &key_tuples_arr, blobs_out));
   }
   std::shared_ptr<Array> key_dicts_arr;
   if (key_dicts.size() > 0) {
-    RETURN_NOT_OK(SerializeDict(context, key_dicts, recursion_depth + 1, &key_dicts_arr,
-                                blobs_out));
+    RETURN_NOT_OK(SerializeDict(context, key_dicts, recursion_depth + 1, distinct_objects,
+                                &key_dicts_arr, blobs_out));
   }
   std::shared_ptr<Array> val_list_arr;
   if (val_lists.size() > 0) {
     RETURN_NOT_OK(SerializeSequences(context, val_lists, recursion_depth + 1,
-                                     &val_list_arr, blobs_out));
+                                     distinct_objects, &val_list_arr, blobs_out));
   }
   std::shared_ptr<Array> val_tuples_arr;
   if (val_tuples.size() > 0) {
     RETURN_NOT_OK(SerializeSequences(context, val_tuples, recursion_depth + 1,
-                                     &val_tuples_arr, blobs_out));
+                                     distinct_objects, &val_tuples_arr, blobs_out));
   }
   std::shared_ptr<Array> val_dict_arr;
   if (val_dicts.size() > 0) {
     RETURN_NOT_OK(
-        SerializeDict(context, val_dicts, recursion_depth + 1, &val_dict_arr, blobs_out));
+        SerializeDict(context, val_dicts, recursion_depth + 1, distinct_objects,
+                      &val_dict_arr, blobs_out));
   }
   std::shared_ptr<Array> val_set_arr;
   if (val_sets.size() > 0) {
-    RETURN_NOT_OK(SerializeSequences(context, val_sets, recursion_depth + 1, &val_set_arr,
-                                     blobs_out));
+    RETURN_NOT_OK(SerializeSequences(context, val_sets, recursion_depth + 1, distinct_objects,
+                                     &val_set_arr, blobs_out));
   }
   RETURN_NOT_OK(result.Finish(key_tuples_arr.get(), key_dicts_arr.get(),
                               val_list_arr.get(), val_tuples_arr.get(),
@@ -730,7 +778,10 @@ Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject
   import_pyarrow();
   std::vector<PyObject*> sequences = {sequence};
   std::shared_ptr<Array> array;
-  RETURN_NOT_OK(SerializeSequences(context, sequences, 0, &array, out));
+  // Keep track of the distinct Python objects that we have seen so far to be
+  // sure that we are not serializing duplicate objects.
+  std::unordered_set<PyObject*> distinct_objects;
+  RETURN_NOT_OK(SerializeSequences(context, sequences, 0, distinct_objects, &array, out));
   out->batch = MakeBatch(array);
   return Status::OK();
 }
