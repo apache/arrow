@@ -97,10 +97,10 @@ enum class StatusCode : char {
   PlasmaObjectAlreadySealed = 23,
   StillExecuting = 24,
   // Gandiva range of errors
-  CodeGenError = 42,
-  ArrowError = 43,
-  ExpressionValidationError = 44,
-  ExecutionError = 45
+  CodeGenError = 40,
+  ArrowError = 41,
+  ExpressionValidationError = 42,
+  ExecutionError = 43
 };
 
 #if defined(__clang__)

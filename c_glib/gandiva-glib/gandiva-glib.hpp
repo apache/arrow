@@ -21,6 +21,5 @@
 
 #include <gandiva-glib/gandiva-glib.h>
 
-#include <gandiva-glib/error.hpp>
 #include <gandiva-glib/expression.hpp>
 #include <gandiva-glib/projector.hpp>

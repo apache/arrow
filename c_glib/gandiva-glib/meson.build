@@ -20,35 +20,21 @@
 project_name = 'gandiva-glib'
 
 sources = files(
-  'error.cpp',
   'expression.cpp',
   'projector.cpp',
 )
 
 c_headers = files(
-  'error.h',
   'expression.h',
   'gandiva-glib.h',
   'projector.h',
 )
 
 cpp_headers = files(
-  'error.hpp',
   'expression.hpp',
   'gandiva-glib.hpp',
   'projector.hpp',
 )
-
-enums = gnome.mkenums('enums',
-                      sources: c_headers,
-                      identifier_prefix: 'GGandiva',
-                      symbol_prefix: 'ggandiva',
-                      c_template: 'gandiva-enums.c.template',
-                      h_template: 'gandiva-enums.h.template',
-                      install_dir: join_paths(include_dir, project_name),
-                      install_header: true)
-enums_source = enums[0]
-enums_header = enums[1]
 
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: project_name)
@@ -78,7 +64,7 @@ pkgconfig.generate(filebase: project_name,
 
 gnome.generate_gir(libgandiva_glib,
                    dependencies: declare_dependency(sources: arrow_glib_gir),
-                   sources: sources + c_headers + enums,
+                   sources: sources + c_headers,
                    namespace: 'Gandiva',
                    nsversion: api_version,
                    identifier_prefix: 'GGandiva',
