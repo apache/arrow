@@ -337,6 +337,7 @@ if (UNIX)
   FOREACH(item ${LINT_FILES})
     IF(NOT ((item MATCHES "_generated.h") OR
             (item MATCHES "pyarrow_api.h") OR
+            (item MATCHES "pyarrow_lib.h") OR
             (item MATCHES "xxhash.h") OR
             (item MATCHES "xxhash.cc") OR
             (item MATCHES "config.h") OR
