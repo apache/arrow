@@ -27,15 +27,17 @@ fn compute_row_major_strides<T>(shape: &Vec<i64>) -> Vec<i64>
 where
     T: ArrowPrimitiveType,
 {
-    let mut remaining_bytes = mem::size_of::<T>() as i64;
+    let mut remaining_bytes = mem::size_of::<T>();
     for i in shape {
-        remaining_bytes *= i;
+        remaining_bytes = remaining_bytes
+            .checked_mul(*i as usize)
+            .expect("Overflow occurred when computing row major strides.");
     }
 
     let mut strides = Vec::<i64>::new();
     for i in shape {
-        remaining_bytes /= i;
-        strides.push(remaining_bytes);
+        remaining_bytes /= *i as usize;
+        strides.push(remaining_bytes as i64);
     }
     strides
 }
@@ -45,11 +47,13 @@ fn compute_column_major_strides<T>(shape: &Vec<i64>) -> Vec<i64>
 where
     T: ArrowPrimitiveType,
 {
-    let mut remaining_bytes = mem::size_of::<T>() as i64;
+    let mut remaining_bytes = mem::size_of::<T>();
     let mut strides = Vec::<i64>::new();
     for i in shape {
-        strides.push(remaining_bytes);
-        remaining_bytes *= i;
+        strides.push(remaining_bytes as i64);
+        remaining_bytes = remaining_bytes
+            .checked_mul(*i as usize)
+            .expect("Overflow occurred when computing column major strides.");
     }
     strides
 }
