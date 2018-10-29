@@ -658,8 +658,8 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
   for (const auto& sequence : sequences) {
     RETURN_NOT_OK(internal::VisitIterable(
         sequence, [&](PyObject* obj, bool* keep_going /* unused */) {
-          return Append(context, obj, &builder, distinct_objects, &sublists, &subtuples, &subdicts,
-                        &subsets, blobs_out);
+          return Append(context, obj, &builder, distinct_objects, &sublists, &subtuples,
+                        &subdicts, &subsets, blobs_out);
         }));
   }
   std::shared_ptr<Array> list;
@@ -741,8 +741,8 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
   }
   std::shared_ptr<Array> val_set_arr;
   if (val_sets.size() > 0) {
-    RETURN_NOT_OK(SerializeSequences(context, val_sets, recursion_depth + 1, distinct_objects,
-                                     &val_set_arr, blobs_out));
+    RETURN_NOT_OK(SerializeSequences(context, val_sets, recursion_depth + 1,
+                                     distinct_objects, &val_set_arr, blobs_out));
   }
   RETURN_NOT_OK(result.Finish(key_tuples_arr.get(), key_dicts_arr.get(),
                               val_list_arr.get(), val_tuples_arr.get(),
