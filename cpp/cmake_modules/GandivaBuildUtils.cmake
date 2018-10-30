@@ -104,7 +104,9 @@ function(add_precompiled_unit_test REL_TEST_NAME)
   # Require toolchain to be built
   add_dependencies(${TEST_NAME} arrow_dependencies)
   target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
-  target_link_libraries(${TEST_NAME} PRIVATE ${GANDIVA_TEST_LINK_LIBS})
+  target_link_libraries(${TEST_NAME}
+    PRIVATE arrow_shared ${GANDIVA_TEST_LINK_LIBS}
+  )
   target_compile_definitions(${TEST_NAME} PRIVATE GANDIVA_UNIT_TEST=1)
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
   set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva,unittest ${TEST_NAME})

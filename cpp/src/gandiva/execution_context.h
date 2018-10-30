@@ -20,12 +20,15 @@
 
 #include <memory>
 #include <string>
+#include "gandiva/simple_arena.h"
 
 namespace gandiva {
 
 /// Execution context during llvm evaluation
 class ExecutionContext {
  public:
+  explicit ExecutionContext(arrow::MemoryPool* pool = arrow::default_memory_pool())
+      : arena_(pool) {}
   std::string get_error() const { return error_msg_; }
 
   void set_error_msg(const char* error_msg) {
@@ -37,10 +40,16 @@ class ExecutionContext {
 
   bool has_error() const { return !error_msg_.empty(); }
 
-  void Reset() { error_msg_.clear(); }
+  SimpleArena* arena() { return &arena_; }
+
+  void Reset() {
+    error_msg_.clear();
+    arena_.Reset();
+  }
 
  private:
   std::string error_msg_;
+  SimpleArena arena_;
 };
 
 }  // namespace gandiva

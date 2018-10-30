@@ -287,6 +287,15 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
   }
   ADD_TRACE("saving result " + output->Name() + " value %T", output_value->data());
 
+  if (visitor.has_arena_allocs()) {
+    // Reset allocations to avoid excessive memory usage. Once the result is copied to
+    // the output vector (store instruction above), any memory allocations in this
+    // iteration of the loop are no longer needed.
+    std::vector<llvm::Value*> reset_args;
+    reset_args.push_back(arg_context_ptr);
+    AddFunctionCall("gdv_fn_context_arena_reset", types()->void_type(), reset_args);
+  }
+
   // check loop_var
   loop_var->addIncoming(types()->i64_constant(0), loop_entry);
   llvm::Value* loop_update =
@@ -396,7 +405,8 @@ LLVMGenerator::Visitor::Visitor(LLVMGenerator* generator, llvm::Function* functi
       arg_addrs_(arg_addrs),
       arg_local_bitmaps_(arg_local_bitmaps),
       arg_context_ptr_(arg_context_ptr),
-      loop_var_(loop_var) {
+      loop_var_(loop_var),
+      has_arena_allocs_(false) {
   ADD_VISITOR_TRACE("Iteration %T", loop_var);
 }
 
@@ -575,7 +585,8 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
 
     llvm::IRBuilder<>* builder = ir_builder();
     LLVMTypes* types = generator_->types();
-    auto result_type = types->IRType(native_function->signature().ret_type()->id());
+    auto arrow_type_id = native_function->signature().ret_type()->id();
+    auto result_type = types->IRType(arrow_type_id);
 
     // Build combined validity of the args.
     llvm::Value* is_valid = types->true_constant();
@@ -588,23 +599,25 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
     auto then_lambda = [&] {
       ADD_VISITOR_TRACE("fn " + function_name +
                         " can return errors : all args valid, invoke fn");
-      llvm::Value* then_value = BuildFunctionCall(native_function, params);
-      return std::make_shared<LValue>(then_value);
+      return BuildFunctionCall(native_function, &params);
     };
 
     // else block
     auto else_lambda = [&] {
       ADD_VISITOR_TRACE("fn " + function_name +
                         " can return errors : not all args valid, return dummy value");
-      llvm::Value* else_value = generator_->types()->NullConstant(result_type);
-      return std::make_shared<LValue>(else_value);
+      llvm::Value* else_value = types->NullConstant(result_type);
+      llvm::Value* else_value_len = nullptr;
+      if (arrow::is_binary_like(arrow_type_id)) {
+        else_value_len = types->i32_constant(0);
+      }
+      return std::make_shared<LValue>(else_value, else_value_len);
     };
 
     result_ = BuildIfElse(is_valid, then_lambda, else_lambda, result_type);
   } else {
     // fast path : invoke function without computing validities.
-    auto value = BuildFunctionCall(native_function, params);
-    result_.reset(new LValue(value));
+    result_ = BuildFunctionCall(native_function, &params);
   }
 }
 
@@ -616,8 +629,7 @@ void LLVMGenerator::Visitor::Visit(const NullableNeverFuncDex& dex) {
   auto params = BuildParams(dex.function_holder().get(), dex.args(), true,
                             native_function->NeedsContext());
 
-  auto value = BuildFunctionCall(native_function, params);
-  result_.reset(new LValue(value));
+  result_ = BuildFunctionCall(native_function, &params);
 }
 
 void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
@@ -637,7 +649,7 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
       new llvm::AllocaInst(types->i8_type(), 0, "result_valid", entry_block_);
   params.push_back(result_valid_ptr);
 
-  auto value = BuildFunctionCall(native_function, params);
+  result_ = BuildFunctionCall(native_function, &params);
 
   // load the result validity and truncate to i1.
   llvm::Value* result_valid_i8 = builder->CreateLoad(result_valid_ptr);
@@ -645,8 +657,6 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
 
   // set validity bit in the local bitmap.
   ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), result_valid);
-
-  result_.reset(new LValue(value));
 }
 
 void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
@@ -942,10 +952,26 @@ LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair&
   return std::make_shared<LValue>(value, length, validity);
 }
 
-llvm::Value* LLVMGenerator::Visitor::BuildFunctionCall(
-    const NativeFunction* func, const std::vector<llvm::Value*>& params) {
-  auto ret_type = generator_->types()->IRType(func->signature().ret_type()->id());
-  return generator_->AddFunctionCall(func->pc_name(), ret_type, params);
+LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
+                                                    std::vector<llvm::Value*>* params) {
+  auto arrow_return_type = func->signature().ret_type()->id();
+  auto llvm_return_type = generator_->types()->IRType(arrow_return_type);
+
+  // add extra arg for return length for variable len return types (alloced on stack).
+  llvm::AllocaInst* result_len_ptr = nullptr;
+  if (arrow::is_binary_like(arrow_return_type)) {
+    result_len_ptr = new llvm::AllocaInst(generator_->types()->i32_type(), 0,
+                                          "result_len", entry_block_);
+    params->push_back(result_len_ptr);
+    has_arena_allocs_ = true;
+  }
+
+  // Make the function call
+  llvm::IRBuilder<>* builder = ir_builder();
+  auto value = generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
+  auto value_len =
+      (result_len_ptr == nullptr) ? nullptr : builder->CreateLoad(result_len_ptr);
+  return std::make_shared<LValue>(value, value_len);
 }
 
 std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(

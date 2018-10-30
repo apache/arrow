@@ -28,11 +28,11 @@ namespace gandiva {
 
 enum ResultNullableType {
   /// result validity is an intersection of the validity of the children.
-  RESULT_NULL_IF_NULL,
+  kResultNullIfNull,
   /// result is always valid.
-  RESULT_NULL_NEVER,
+  kResultNullNever,
   /// result validity depends on some internal logic.
-  RESULT_NULL_INTERNAL,
+  kResultNullInternal,
 };
 
 /// \brief Holder for the mapping from a function in an expression to a
@@ -40,17 +40,17 @@ enum ResultNullableType {
 class NativeFunction {
  public:
   // fucntion attributes.
-  static constexpr int32_t NEEDS_CONTEXT = (1 << 1);
-  static constexpr int32_t NEEDS_FUNCTION_HOLDER = (1 << 2);
-  static constexpr int32_t CAN_RETURN_ERRORS = (1 << 3);
+  static constexpr int32_t kNeedsContext = (1 << 1);
+  static constexpr int32_t kNeedsFunctionHolder = (1 << 2);
+  static constexpr int32_t kCanReturnErrors = (1 << 3);
 
   const FunctionSignature& signature() const { return signature_; }
   std::string pc_name() const { return pc_name_; }
   ResultNullableType result_nullable_type() const { return result_nullable_type_; }
 
-  bool NeedsContext() const { return (flags_ & NEEDS_CONTEXT) != 0; }
-  bool NeedsFunctionHolder() const { return (flags_ & NEEDS_FUNCTION_HOLDER) != 0; }
-  bool CanReturnErrors() const { return (flags_ & CAN_RETURN_ERRORS) != 0; }
+  bool NeedsContext() const { return (flags_ & kNeedsContext) != 0; }
+  bool NeedsFunctionHolder() const { return (flags_ & kNeedsFunctionHolder) != 0; }
+  bool CanReturnErrors() const { return (flags_ & kCanReturnErrors) != 0; }
 
  private:
   NativeFunction(const std::string& base_name, const DataTypeVector& param_types,

@@ -32,21 +32,23 @@ timestamp StringToTimestamp(const char* buf) {
 
 TEST(TestTime, TestCastDate) {
   ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
 
-  EXPECT_EQ(castDATE_utf8((int64_t)&context, "1967-12-1", 9), -65836800000);
-  EXPECT_EQ(castDATE_utf8((int64_t)&context, "1972-12-1", 9), 92016000000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "1967-12-1", 9), -65836800000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "1972-12-1", 9), 92016000000);
 
-  EXPECT_EQ(castDATE_utf8((int64_t)&context, "1972222222", 10), 0);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "1972222222", 10), 0);
   EXPECT_EQ(context.get_error(), "Not a valid date value 1972222222");
+  context.Reset();
 
-  EXPECT_EQ(castDATE_utf8((int64_t)&context, "blahblah", 8), 0);
-  EXPECT_EQ(castDATE_utf8((int64_t)&context, "1967-12-1bb", 11), -65836800000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "blahblah", 8), 0);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "1967-12-1bb", 11), -65836800000);
 
-  EXPECT_EQ(castDATE_utf8((int64_t)&context, "67-12-1", 7), 3089923200000);
-  EXPECT_EQ(castDATE_utf8((int64_t)&context, "67-1-1", 7), 3061065600000);
-  EXPECT_EQ(castDATE_utf8((int64_t)&context, "71-1-1", 7), 31536000000);
-  EXPECT_EQ(castDATE_utf8((int64_t)&context, "71-45-1", 7), 0);
-  EXPECT_EQ(castDATE_utf8((int64_t)&context, "71-12-XX", 8), 0);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "67-12-1", 7), 3089923200000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "67-1-1", 7), 3061065600000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "71-1-1", 7), 31536000000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "71-45-1", 7), 0);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "71-12-XX", 8), 0);
 }
 
 TEST(TestTime, TestExtractTime) {

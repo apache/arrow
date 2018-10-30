@@ -144,6 +144,7 @@ add_gandiva_unit_test(expression_registry_test.cc llvm_types.cc expression_regis
 add_gandiva_unit_test(selection_vector_test.cc selection_vector.cc)
 add_gandiva_unit_test(lru_cache_test.cc)
 add_gandiva_unit_test(to_date_holder_test.cc to_date_holder.cc date_utils.cc)
+add_gandiva_unit_test(simple_arena_test.cc)
 
 if (ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)

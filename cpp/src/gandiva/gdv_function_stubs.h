@@ -34,6 +34,10 @@ int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context, int64_t ptr, const char*
 
 void gdv_fn_context_set_error_msg(int64_t context_ptr, const char* err_msg);
 
+uint8_t* gdv_fn_context_arena_malloc(int64_t context_ptr, int32_t data_len);
+
+void gdv_fn_context_arena_reset(int64_t context_ptr);
+
 bool in_expr_lookup_int32(int64_t ptr, int32_t value, bool in_validity);
 
 bool in_expr_lookup_int64(int64_t ptr, int64_t value, bool in_validity);
