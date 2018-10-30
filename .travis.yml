@@ -94,6 +94,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     # Build Arrow Java to test the pyarrow<->JVM in-process bridge
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
     # Only run Plasma tests with valgrind in one of the Python builds because
     # they are slow
     - export PLASMA_VALGRIND=0
