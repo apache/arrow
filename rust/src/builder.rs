@@ -212,7 +212,7 @@ where
     T: ArrowPrimitiveType,
 {
     values_builder: BufferBuilder<T>,
-    bitmap_builder: Option<BufferBuilder<bool>>,
+    bitmap_builder: BufferBuilder<bool>,
 }
 
 macro_rules! impl_primitive_array_builder {
@@ -222,56 +222,35 @@ macro_rules! impl_primitive_array_builder {
             pub fn new(capacity: i64) -> Self {
                 Self {
                     values_builder: BufferBuilder::<$native_ty>::new(capacity),
-                    bitmap_builder: None,
+                    bitmap_builder: BufferBuilder::<bool>::new(capacity),
                 }
             }
 
-            /// Returns the capacity of this builder measured in slots of type T
+            /// Returns the capacity of this builder measured in slots of type `T`
             pub fn capacity(&self) -> i64 {
                 self.values_builder.capacity()
             }
 
-            /// Returns the length of this builder measured in slots of type T
+            /// Returns the length of this builder measured in slots of type `T`
             pub fn len(&self) -> i64 {
                 self.values_builder.len()
             }
 
-            /// Pushes a value of type T into the builder
+            /// Pushes a value of type `T` into the builder
             pub fn push(&mut self, v: $native_ty) -> Result<()> {
-                if self.bitmap_builder.is_some() {
-                    self.bitmap_builder.as_mut().unwrap().push(true)?;
-                }
+                self.bitmap_builder.push(true)?;
                 self.values_builder.push(v)?;
-                Ok(())
-            }
-
-            /// Pushes a value of type T into the builder
-            pub fn push_slice(&mut self, v: &[$native_ty]) -> Result<()> {
-                if self.bitmap_builder.is_some() {
-                    self.bitmap_builder
-                        .as_mut()
-                        .unwrap()
-                        .push_slice(&vec![true; v.len()][..])?;
-                }
-                self.values_builder.push_slice(v)?;
                 Ok(())
             }
 
             /// Pushes a null slot into the builder
             pub fn push_null(&mut self) -> Result<()> {
-                if self.bitmap_builder.is_some() {
-                    self.bitmap_builder.as_mut().unwrap().push(false)?;
-                } else {
-                    let mut b = BufferBuilder::<bool>::new(self.capacity());
-                    b.push_slice(&vec![true; self.len() as usize][..])?;
-                    b.push(false)?;
-                    self.bitmap_builder = Some(b);
-                }
+                self.bitmap_builder.push(false)?;
                 self.values_builder.advance(1)?;
                 Ok(())
             }
 
-            /// Pushes an Option<T> into the builder
+            /// Pushes an `Option<T>` into the builder
             pub fn push_option(&mut self, v: Option<$native_ty>) -> Result<()> {
                 match v {
                     None => self.push_null()?,
@@ -280,24 +259,23 @@ macro_rules! impl_primitive_array_builder {
                 Ok(())
             }
 
+            /// Pushes a slice of type `T` into the builder
+            pub fn push_slice(&mut self, v: &[$native_ty]) -> Result<()> {
+                self.bitmap_builder.push_slice(&vec![true; v.len()][..])?;
+                self.values_builder.push_slice(v)?;
+                Ok(())
+            }
+
             /// Builds the PrimitiveArray
             pub fn finish(self) -> PrimitiveArray<$native_ty> {
                 let len = self.len();
-                let data = match self.bitmap_builder {
-                    Some(b) => {
-                        let null_bit_buffer = b.finish();
-                        ArrayData::builder($data_ty)
-                            .len(len)
-                            .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
-                            .add_buffer(self.values_builder.finish())
-                            .null_bit_buffer(null_bit_buffer)
-                            .build()
-                    }
-                    None => ArrayData::builder($data_ty)
-                        .len(len)
-                        .add_buffer(self.values_builder.finish())
-                        .build(),
-                };
+                let null_bit_buffer = self.bitmap_builder.finish();
+                let data = ArrayData::builder($data_ty)
+                    .len(len)
+                    .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+                    .add_buffer(self.values_builder.finish())
+                    .null_bit_buffer(null_bit_buffer)
+                    .build();
                 PrimitiveArray::<$native_ty>::from(data)
             }
         }
