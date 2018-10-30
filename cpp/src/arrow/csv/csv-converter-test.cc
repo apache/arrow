@@ -158,6 +158,11 @@ TEST(IntegerConversion, Nulls) {
   AssertConversionAllNulls<Int8Type, int8_t>(int8());
 }
 
+TEST(IntegerConversion, Whitespace) {
+  AssertConversion<Int32Type, int32_t>(int32(), {" 12,34 \n", " 56 ,78\n"},
+                                       {{12, 56}, {34, 78}});
+}
+
 TEST(FloatingPointConversion, Basics) {
   AssertConversion<FloatType, float>(float32(), {"12,34.5\n", "0,-1e30\n"},
                                      {{12., 0.}, {34.5, -1e30f}});
@@ -171,6 +176,11 @@ TEST(FloatingPointConversion, Nulls) {
                                      {{true, false}, {true, true}});
 
   AssertConversionAllNulls<DoubleType, double>(float64());
+}
+
+TEST(FloatingPointConversion, Whitespace) {
+  AssertConversion<DoubleType, double>(float64(), {" 12,34.5\n", " 0 ,-1e100 \n"},
+                                       {{12., 0.}, {34.5, -1e100}});
 }
 
 TEST(BooleanConversion, Basics) {
