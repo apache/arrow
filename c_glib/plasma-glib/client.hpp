@@ -23,7 +23,7 @@
 
 #include <plasma/client.h>
 
-#include <plasma-glib/plasma-client.h>
+#include <plasma-glib/client.h>
 
-GPlasmaPlasmaClient *gplasma_plasma_client_new_raw(std::shared_ptr<plasma::PlasmaClient> *plasma_plasma_client);
-std::shared_ptr<plasma::PlasmaClient> gplasma_plasma_client_get_raw(GPlasmaPlasmaClient *plasma_client);
+GPlasmaClient *gplasma_client_new_raw(std::shared_ptr<plasma::PlasmaClient> *plasma_client);
+std::shared_ptr<plasma::PlasmaClient> gplasma_client_get_raw(GPlasmaClient *client);

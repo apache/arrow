@@ -52,15 +52,15 @@ libplasma_glib_la_LIBADD =			\
 	../arrow-glib/libarrow-glib.la
 
 libplasma_glib_la_headers =			\
-	plasma-client.h				\
+	client.h				\
 	plasma-glib.h
 
 libplasma_glib_la_sources =			\
-	plasma-client.cpp			\
+	client.cpp				\
 	$(libplasma_glib_la_headers)
 
 libplasma_glib_la_cpp_headers =		\
-	plasma-client.hpp			\
+	client.hpp				\
 	plasma-glib.hpp
 
 libplasma_glib_la_SOURCES =			\

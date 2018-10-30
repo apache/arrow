@@ -23,18 +23,18 @@
 
 G_BEGIN_DECLS
 
-#define GPLASMA_TYPE_PLASMA_CLIENT (gplasma_plasma_client_get_type())
-G_DECLARE_DERIVABLE_TYPE(GPlasmaPlasmaClient,
-                         gplasma_plasma_client,
+#define GPLASMA_TYPE_CLIENT (gplasma_client_get_type())
+G_DECLARE_DERIVABLE_TYPE(GPlasmaClient,
+                         gplasma_client,
                          GPLASMA,
-                         PLASMA_CLIENT,
+                         CLIENT,
                          GObject)
 
-struct _GPlasmaPlasmaClientClass
+struct _GPlasmaClientClass
 {
   GObjectClass parent_class;
 };
 
-GPlasmaPlasmaClient *gplasma_plasma_client_new(void);
+GPlasmaClient *gplasma_client_new(void);
 
 G_END_DECLS

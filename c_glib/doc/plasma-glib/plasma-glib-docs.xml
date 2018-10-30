@@ -38,9 +38,9 @@
 
   <part id="client">
     <title>Client</title>
-    <chapter id="plasma-client">
-      <title>Plasma Client</title>
-      <xi:include href="xml/plasma-client.xml"/>
+    <chapter id="client">
+      <title>Client</title>
+      <xi:include href="xml/client.xml"/>
     </chapter>
   </part>
 

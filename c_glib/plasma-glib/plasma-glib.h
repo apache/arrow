@@ -19,4 +19,4 @@
 
 #pragma once
 
-#include <plasma-glib/plasma-client.h>
+#include <plasma-glib/client.h>

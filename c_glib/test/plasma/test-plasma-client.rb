@@ -15,14 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestPlasmaClient < Test::Unit::TestCase
+class TestClient < Test::Unit::TestCase
   def setup
     omit("Plasma is required") unless defined?(::Plasma)
   end
 
   def test_new
     assert_nothing_raised do
-      Plasma::PlasmaClient.new
+      Plasma::Client.new
     end
   end
 end

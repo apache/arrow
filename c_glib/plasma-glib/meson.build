@@ -20,16 +20,16 @@
 project_name = 'plasma-glib'
 
 sources = files(
-  'plasma-client.cpp',
+  'client.cpp',
 )
 
 c_headers = files(
-  'plasma-client.h',
+  'client.h',
   'plasma-glib.h',
 )
 
 cpp_headers = files(
-  'plasma-client.hpp',
+  'client.hpp',
   'plasma-glib.hpp',
 )
 
