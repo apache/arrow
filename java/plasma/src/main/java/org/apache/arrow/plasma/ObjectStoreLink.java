@@ -19,6 +19,8 @@ package org.apache.arrow.plasma;
 
 import java.util.List;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 /**
  * Object store interface, which provides the capabilities to put and get raw byte array, and serves
  */
@@ -57,6 +59,16 @@ public interface ObjectStoreLink {
    * @return List of PlasmaBuffers wrapping objects.
    */
   List<byte[]> get(byte[][] objectIds, int timeoutMs, boolean isMetadata);
+
+  /**
+   * Create buffer pairs (data & metadata) from the PlasmaStore based on <tt>objectIds</tt>.
+   *
+   * @param objectIds List of object IDs used to identify some objects.
+   * @param timeoutMs The number of milliseconds that the get call should block before timing out
+   * and returning. Pass -1 if the call should block and 0 if the call should return immediately.
+   * @return List of Pairs of PlasmaBuffer wrapping objects and its metadata.
+   */
+  List<Pair<byte[], byte[]>> get(byte[][] objectIds, int timeoutMs);
 
   /**
    * Wait until <tt>numReturns</tt> objects in <tt>objectIds</tt> are ready.

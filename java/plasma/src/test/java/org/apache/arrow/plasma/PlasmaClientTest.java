@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 
 public class PlasmaClientTest {
 
@@ -174,11 +175,17 @@ public class PlasmaClientTest {
     assert Arrays.equals(meta4, getMeta4);
     byte[] getValue4 = pLink.get(id4, timeoutMs, false);
     assert Arrays.equals(value4, getValue4);
+    Pair<byte[], byte[]> fullData4 = pLink.get(id4, timeoutMs);
+    assert Arrays.equals(meta4, fullData4.getRight());
+    assert Arrays.equals(value4, fullData4.getLeft());
 
     byte[] getMeta5 = pLink.get(id5, timeoutMs, true);
     assert Arrays.equals(meta5, getMeta5);
     byte[] getValue5 = pLink.get(id5, timeoutMs, false);
     assert Arrays.equals(value5, getValue5);
+    Pair<byte[], byte[]> fullData5 = pLink.get(id5, timeoutMs);
+    assert Arrays.equals(meta5, fullData5.getRight());
+    assert Arrays.equals(value5, fullData5.getLeft());
     System.out.println("Plasma java client metadata get test success.");
     cleanup();
     System.out.println("All test success.");

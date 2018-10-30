@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.commons.lang3.tuple.Pair;
 
 
 
@@ -108,6 +109,33 @@ public class PlasmaClient implements ObjectStoreLink {
   @Override
   public void fetch(byte[][] objectIds) {
     PlasmaClientJNI.fetch(conn, objectIds);
+  }
+
+  @Override
+  public List<Pair<byte[], byte[]>> get(byte[][] objectIds, int timeoutMs) {
+    ByteBuffer[][] bufs = PlasmaClientJNI.get(threadConn.get(), objectIds, timeoutMs);
+    assert bufs.length == objectIds.length;
+
+    List<Pair<byte[], byte[]>> ret = new ArrayList<>();
+    for (int i = 0; i < bufs.length; i++) {
+      ByteBuffer databuf = bufs[i][0];
+      ByteBuffer metabuf = bufs[i][1];
+      if (databuf == null) {
+        ret.add(Pair.of(null, null));
+      } else {
+        byte[] data = new byte[databuf.remaining()];
+        databuf.get(data);
+        byte[] meta;
+        if (metabuf != null) {
+          meta = new byte[metabuf.remaining()];
+          metabuf.get(meta);
+        } else {
+          meta = null;
+        }
+        ret.add(Pair.of(data, meta));
+      }
+    }
+    return ret;
   }
 
   @Override
