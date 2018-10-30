@@ -16,12 +16,12 @@
 # under the License.
 
 import pyarrow as pa
-import pyarrow.gandiva as gandiva
-
 import pandas as pd
 
 
 def test_tree_exp_builder():
+    import pyarrow.gandiva as gandiva
+
     builder = gandiva.TreeExprBuilder()
 
     field_a = pa.field('a', pa.int32())
@@ -53,6 +53,8 @@ def test_tree_exp_builder():
 
 
 def test_table():
+    import pyarrow.gandiva as gandiva
+
     df = pd.DataFrame({"a": [1.0, 2.0], "b": [3.0, 4.0]})
     table = pa.Table.from_pandas(df)
 
@@ -77,6 +79,8 @@ def test_table():
 
 
 def test_filter():
+    import pyarrow.gandiva as gandiva
+
     df = pd.DataFrame({"a": [1.0 * i for i in range(10000)]})
     table = pa.Table.from_pandas(df)
 
