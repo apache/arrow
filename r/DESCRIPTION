@@ -57,5 +57,6 @@ Collate:
     'io.R'
     'memory_pool.R'
     'on_exit.R'
+    'reexports-bit64.R'
     'reexports-tibble.R'
     'zzz.R'
