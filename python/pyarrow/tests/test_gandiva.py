@@ -19,6 +19,7 @@ import pyarrow as pa
 import pandas as pd
 
 
+@pytest.mark.gandiva
 def test_tree_exp_builder():
     import pyarrow.gandiva as gandiva
 
@@ -52,6 +53,7 @@ def test_tree_exp_builder():
     assert r.equals(e)
 
 
+@pytest.mark.gandiva
 def test_table():
     import pyarrow.gandiva as gandiva
 
@@ -78,6 +80,7 @@ def test_table():
     assert r.equals(e)
 
 
+@pytest.mark.gandiva
 def test_filter():
     import pyarrow.gandiva as gandiva
 
