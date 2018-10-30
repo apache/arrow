@@ -15,9 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "../../red-arrow/version"
-require_relative "../version"
+require "arrow"
 
-require "arrow-gpu"
+require "parquet/version"
 
-require "test-unit"
+require "parquet/loader"
+
+module Parquet
+  class Error < StandardError
+  end
+
+  Loader.load
+end

@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "../../red-arrow/version"
-require_relative "../version"
+/lib/parquet/version.rb
 
-require "arrow-gpu"
-
-require "test-unit"
+/pkg/

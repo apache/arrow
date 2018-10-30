@@ -15,9 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "../../red-arrow/version"
-require_relative "../version"
+module Parquet
+  class Loader < GObjectIntrospection::Loader
+    class << self
+      def load
+        super("Parquet", Parquet)
+      end
+    end
 
-require "arrow-gpu"
+    private
+    def post_load(repository, namespace)
+      require_libraries
+    end
 
-require "test-unit"
+    def require_libraries
+      require "parquet/arrow-table-loadable"
+      require "parquet/arrow-table-savable"
+    end
+
+    def load_object_info(info)
+      super
+
+      klass = @base_module.const_get(rubyish_class_name(info))
+      if klass.method_defined?(:close)
+        klass.extend(Arrow::BlockClosable)
+      end
+    end
+  end
+end

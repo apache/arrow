@@ -118,7 +118,8 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
 else
     if [ "$using_homebrew" = "yes" ]; then
 	# build against homebrew's boost if we're using it
-	export BOOST_ROOT=/usr/local/opt/boost
+	export BOOST_ROOT=$(brew --prefix boost)
+	export THRIFT_HOME=$(brew --prefix thrift)
     fi
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_OSX_FLAGS \

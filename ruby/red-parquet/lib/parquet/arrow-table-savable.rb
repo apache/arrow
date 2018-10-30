@@ -15,9 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "../../red-arrow/version"
-require_relative "../version"
+module Parquet
+  module ArrowTableSavable
+    private
+    def save_as_parquet(path)
+      chunk_size = @options[:chunk_size] || 1024 # TODO
+      Parquet::ArrowFileWriter.open(@table.schema, path) do |writer|
+        writer.write_table(@table, chunk_size)
+      end
+    end
+  end
+end
 
-require "arrow-gpu"
-
-require "test-unit"
+module Arrow
+  class TableSaver
+    include Parquet::ArrowTableSavable
+  end
+end
