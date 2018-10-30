@@ -380,6 +380,8 @@ class build_ext(_build_ext):
             return True
         if name == '_cuda' and not self.with_cuda:
             return True
+        if name == 'gandiva' and not self.with_gandiva:
+            return True
         return False
 
     def _get_build_dir(self):
