@@ -200,7 +200,7 @@ cdef class Context:
 
         Parameters
         ----------
-        data : {HostBuffer, Buffer, array-like}
+        data : {CudaBuffer, HostBuffer, Buffer, array-like}
           Specify data to be copied to device buffer.
         offset : int
           Specify the offset of input buffer for device data
