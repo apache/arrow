@@ -19,17 +19,19 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/memory_pool.h"
+
 namespace gandiva {
 
 class TestSimpleArena : public ::testing::Test {};
 
 TEST_F(TestSimpleArena, TestAlloc) {
-  int32_t chunk_size = 4096;
-  SimpleArena arena(chunk_size);
+  int64_t chunk_size = 4096;
+  SimpleArena arena(arrow::default_memory_pool(), chunk_size);
 
   // Small allocations should come from the same chunk.
-  int small_size = 100;
-  for (int i = 0; i < 20; ++i) {
+  int64_t small_size = 100;
+  for (int64_t i = 0; i < 20; ++i) {
     auto p = arena.Allocate(small_size);
     EXPECT_NE(p, nullptr);
 
@@ -38,7 +40,7 @@ TEST_F(TestSimpleArena, TestAlloc) {
   }
 
   // large allocations require separate chunks
-  int32_t large_size = 100 * chunk_size;
+  int64_t large_size = 100 * chunk_size;
   auto p = arena.Allocate(large_size);
   EXPECT_NE(p, nullptr);
   EXPECT_EQ(arena.total_bytes(), chunk_size + large_size);
@@ -47,14 +49,14 @@ TEST_F(TestSimpleArena, TestAlloc) {
 
 // small followed by big, then reset
 TEST_F(TestSimpleArena, TestReset1) {
-  int32_t chunk_size = 4096;
-  SimpleArena arena(chunk_size);
+  int64_t chunk_size = 4096;
+  SimpleArena arena(arrow::default_memory_pool(), chunk_size);
 
-  int small_size = 100;
+  int64_t small_size = 100;
   auto p = arena.Allocate(small_size);
   EXPECT_NE(p, nullptr);
 
-  int32_t large_size = 100 * chunk_size;
+  int64_t large_size = 100 * chunk_size;
   p = arena.Allocate(large_size);
   EXPECT_NE(p, nullptr);
 
@@ -73,14 +75,14 @@ TEST_F(TestSimpleArena, TestReset1) {
 
 // big followed by small, then reset
 TEST_F(TestSimpleArena, TestReset2) {
-  int32_t chunk_size = 4096;
-  SimpleArena arena(chunk_size);
+  int64_t chunk_size = 4096;
+  SimpleArena arena(arrow::default_memory_pool(), chunk_size);
 
-  int32_t large_size = 100 * chunk_size;
+  int64_t large_size = 100 * chunk_size;
   auto p = arena.Allocate(large_size);
   EXPECT_NE(p, nullptr);
 
-  int small_size = 100;
+  int64_t small_size = 100;
   p = arena.Allocate(small_size);
   EXPECT_NE(p, nullptr);
 
@@ -95,11 +97,6 @@ TEST_F(TestSimpleArena, TestReset2) {
   EXPECT_NE(p, nullptr);
   EXPECT_EQ(arena.total_bytes(), large_size);
   EXPECT_EQ(arena.avail_bytes(), large_size - small_size);
-}
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
 }
 
 }  // namespace gandiva

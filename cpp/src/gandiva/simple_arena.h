@@ -18,15 +18,16 @@
 #ifndef GANDIVA_SIMPLE_ARENA_H
 #define GANDIVA_SIMPLE_ARENA_H
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <vector>
 
-namespace gandiva {
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "gandiva/arrow.h"
 
-#ifdef GDV_HELPERS
-namespace helpers {
-#endif
+namespace gandiva {
 
 /// \brief Simple arena allocator.
 ///
@@ -41,53 +42,70 @@ namespace helpers {
 ///
 class SimpleArena {
  public:
-  explicit SimpleArena(int32_t chunk_size = 4096);
+  explicit SimpleArena(arrow::MemoryPool* pool, int64_t min_chunk_size = 4096);
+
+  ~SimpleArena();
 
   // Allocate buffer of requested size.
-  uint8_t* Allocate(int32_t size);
+  uint8_t* Allocate(int64_t size);
 
   // Reset arena state.
   void Reset();
 
   // total bytes allocated from system.
-  int32_t total_bytes() { return total_bytes_; }
+  int64_t total_bytes() { return total_bytes_; }
 
   // total bytes available for allocations.
-  int32_t avail_bytes() { return avail_bytes_; }
+  int64_t avail_bytes() { return avail_bytes_; }
 
  private:
+  struct Chunk {
+    Chunk(uint8_t* buf, int64_t size) : buf_(buf), size_(size) {}
+
+    uint8_t* buf_;
+    int64_t size_;
+  };
+
   // Allocate new chunk.
-  void AllocateChunk(int size);
+  arrow::Status AllocateChunk(int64_t size);
+
+  // release memory from buffers.
+  void ReleaseChunks(bool retain_first);
+
+  // Memory pool used for allocs.
+  arrow::MemoryPool* pool_;
 
   // The chunk-size used for allocations from system.
-  int32_t chunk_size_;
-
-  // The size of the first chunk.
-  int32_t first_chunk_size_;
+  int64_t min_chunk_size_;
 
   // Total bytes allocated from system.
-  int32_t total_bytes_;
+  int64_t total_bytes_;
 
   // Bytes available from allocated chunk.
-  int32_t avail_bytes_;
+  int64_t avail_bytes_;
 
   // buffer from current chunk.
   uint8_t* avail_buf_;
 
   // List of alloced chunks.
-  std::vector<std::unique_ptr<uint8_t>> chunks_;
+  std::vector<Chunk> chunks_;
 };
 
-inline SimpleArena::SimpleArena(int32_t chunk_size)
-    : chunk_size_(chunk_size),
-      first_chunk_size_(0),
+inline SimpleArena::SimpleArena(arrow::MemoryPool* pool, int64_t min_chunk_size)
+    : pool_(pool),
+      min_chunk_size_(min_chunk_size),
       total_bytes_(0),
       avail_bytes_(0),
       avail_buf_(NULL) {}
 
-inline uint8_t* SimpleArena::Allocate(int32_t size) {
+inline SimpleArena::~SimpleArena() { ReleaseChunks(false /*retain_first*/); }
+
+inline uint8_t* SimpleArena::Allocate(int64_t size) {
   if (avail_bytes_ < size) {
-    AllocateChunk(size <= chunk_size_ ? chunk_size_ : size);
+    auto status = AllocateChunk(std::max(size, min_chunk_size_));
+    if (!status.ok()) {
+      return NULL;
+    }
   }
 
   uint8_t* ret = avail_buf_;
@@ -96,31 +114,49 @@ inline uint8_t* SimpleArena::Allocate(int32_t size) {
   return ret;
 }
 
-inline void SimpleArena::AllocateChunk(int size) {
-  std::unique_ptr<uint8_t> chunk(new uint8_t[size]);
-  avail_buf_ = chunk.get();
+inline arrow::Status SimpleArena::AllocateChunk(int64_t size) {
+  uint8_t* out;
+
+  auto status = pool_->Allocate(size, &out);
+  ARROW_RETURN_NOT_OK(status);
+
+  chunks_.emplace_back(out, size);
+  avail_buf_ = out;
   avail_bytes_ = size;  // left-over bytes in the previous chunk cannot be used anymore.
-  if (total_bytes_ == 0) {
-    first_chunk_size_ = size;
-  }
   total_bytes_ += size;
-
-  chunks_.push_back(std::move(chunk));
+  return arrow::Status::OK();
 }
 
+// In the most common case, a chunk will be allocated when processing the first record.
+// And, the same chunk can be used for processing the remaining records in the batch.
+// By retaining the first chunk, the number of malloc calls are reduced to one per batch,
+// instead of one per record.
 inline void SimpleArena::Reset() {
-  // Release all but the first chunk.
-  if (first_chunk_size_ > 0) {
-    chunks_.erase(chunks_.begin() + 1, chunks_.end());
+  if (chunks_.size() == 0) {
+    // if there are no chunks, nothing to do.
+    return;
+  }
 
-    avail_buf_ = chunks_.at(0).get();
-    avail_bytes_ = total_bytes_ = first_chunk_size_;
+  // Release all but the first chunk.
+  if (chunks_.size() > 1) {
+    ReleaseChunks(true);
+    chunks_.erase(chunks_.begin() + 1, chunks_.end());
+  }
+
+  avail_buf_ = chunks_.at(0).buf_;
+  avail_bytes_ = total_bytes_ = chunks_.at(0).size_;
+}
+
+inline void SimpleArena::ReleaseChunks(bool retain_first) {
+  for (auto& chunk : chunks_) {
+    if (retain_first) {
+      // skip freeing first chunk.
+      retain_first = false;
+      continue;
+    }
+    pool_->Free(chunk.buf_, chunk.size_);
   }
 }
-
-#ifdef GDV_HELPERS
-}  // namespace helpers
-#endif
 
 }  // namespace gandiva
 

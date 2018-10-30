@@ -141,9 +141,11 @@ UTF8_LENGTH(length, utf8)
 UTF8_LENGTH(lengthUtf8, binary)
 
 // Convert a utf8 sequence to upper case.
+// TODO : This handles only ascii characters.
 FORCE_INLINE
 char* upper_utf8(int64 context, const char* data, int32 data_len, int32_t* out_len) {
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, data_len));
+  // TODO: handle allocation failures
   for (int32 i = 0; i < data_len; ++i) {
     char cur = data[i];
 
