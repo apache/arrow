@@ -256,3 +256,18 @@ test_that("array supports integer64", {
   expect_equal(a$as_vector(), x)
   expect_true(a$IsNull(3L))
 })
+
+test_that("array supports difftime", {
+  time <- hms::hms(56, 34, 12)
+  a <- array(time, time)
+  expect_equal(a$type(), time32(unit = TimeUnit$SECOND))
+  expect_equal(a$length(), 2L)
+  expect_equal(a$as_vector(), c(time, time))
+
+  a <- array(time, NA)
+  expect_equal(a$type(), time32(unit = TimeUnit$SECOND))
+  expect_equal(a$length(), 2L)
+  expect_true(a$IsNull(1))
+  expect_equal(a$as_vector()[1], time)
+  expect_true(is.na(a$as_vector()[2]))
+})

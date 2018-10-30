@@ -373,6 +373,75 @@ std::shared_ptr<arrow::Array> Int64Array(SEXP x) {
   return std::make_shared<typename TypeTraits<Int64Type>::ArrayType>(data);
 }
 
+inline int difftime_unit_multiplier(SEXP x) {
+  std::string unit(CHAR(STRING_ELT(Rf_getAttrib(x, symbols::units), 0)));
+  if (unit == "secs") {
+    return 1;
+  } else if (unit == "mins") {
+    return 60;
+  } else if (unit == "hours") {
+    return 3600;
+  } else if (unit == "days") {
+    return 86400;
+  } else if (unit == "weeks") {
+    return 604800;
+  }
+  Rcpp::stop("unknown difftime unit");
+  return 0;
+}
+
+std::shared_ptr<arrow::Array> Time32Array_From_difftime(SEXP x) {
+  // number of seconds as a double
+  auto p_vec_start = REAL(x);
+  auto n = Rf_xlength(x);
+  int64_t null_count = 0;
+
+  int multiplier = difftime_unit_multiplier(x);
+  std::vector<std::shared_ptr<Buffer>> buffers(2);
+
+  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(int32_t), &buffers[1]));
+  auto p_values = reinterpret_cast<int32_t*>(buffers[1]->mutable_data());
+
+  R_xlen_t i = 0;
+  auto p_vec = p_vec_start;
+  for (; i < n; i++, ++p_vec, ++p_values) {
+    if (NumericVector::is_na(*p_vec)) {
+      break;
+    }
+    *p_values = static_cast<int32_t>(*p_vec * multiplier);
+  }
+
+  if (i < n) {
+    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &buffers[0]));
+    internal::FirstTimeBitmapWriter bitmap_writer(buffers[0]->mutable_data(), 0, n);
+
+    // first loop to clear all the bits before the first NA
+    for (R_xlen_t j = 0; j < i; j++, bitmap_writer.Next()) {
+      bitmap_writer.Set();
+    }
+
+    // then finish
+    for (; i < n; i++, bitmap_writer.Next(), ++p_vec, ++p_values) {
+      if (NumericVector::is_na(*p_vec)) {
+        bitmap_writer.Clear();
+        null_count++;
+      } else {
+        bitmap_writer.Set();
+        *p_values = static_cast<int32_t>(*p_vec * multiplier);
+      }
+    }
+
+    bitmap_writer.Finish();
+  }
+
+  auto data = ArrayData::Make(
+      time32(TimeUnit::SECOND), n, std::move(buffers), null_count, 0 /*offset*/
+  );
+
+  // return the right Array class
+  return std::make_shared<Time32Array>(data);
+}
+
 }  // namespace r
 }  // namespace arrow
 
@@ -401,6 +470,9 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
       }
       if (Rf_inherits(x, "integer64")) {
         return arrow::r::Int64Array(x);
+      }
+      if (Rf_inherits(x, "difftime")) {
+        return arrow::r::Time32Array_From_difftime(x);
       }
       return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
     case RAWSXP:
@@ -610,7 +682,7 @@ SEXP Date32Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
 
 SEXP Date64Array_to_Vector(const std::shared_ptr<arrow::Array> array) {
   auto n = array->length();
-  NumericVector vec(n);
+  NumericVector vec(no_init(n));
   vec.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
   if (n == 0) {
     return vec;
@@ -672,7 +744,7 @@ SEXP promotion_Array_to_Vector(const std::shared_ptr<Array>& array) {
 
 SEXP Int64Array(const std::shared_ptr<Array>& array) {
   auto n = array->length();
-  NumericVector vec(n);
+  NumericVector vec(no_init(n));
   vec.attr("class") = "integer64";
   if (n == 0) {
     return vec;
@@ -695,6 +767,34 @@ SEXP Int64Array(const std::shared_ptr<Array>& array) {
     std::copy_n(p_values, n, p_vec);
   }
 
+  return vec;
+}
+
+template <typename value_type>
+SEXP TimeArray_to_Vector(const std::shared_ptr<Array>& array, int32_t multiplier) {
+  auto n = array->length();
+  NumericVector vec(no_init(n));
+  auto null_count = array->null_count();
+  vec.attr("class") = CharacterVector::create("hms", "difftime");
+  vec.attr("units") = "secs";
+  if (n == 0) {
+    return vec;
+  }
+  auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+  auto p_vec = vec.begin();
+
+  if (null_count) {
+    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                                array->offset(), n);
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_vec, ++p_values) {
+      *p_vec =
+          bitmap_reader.IsSet() ? (static_cast<double>(*p_values) / multiplier) : NA_REAL;
+    }
+  } else {
+    std::transform(p_values, p_values + n, vec.begin(), [multiplier](value_type value) {
+      return static_cast<double>(value) / multiplier;
+    });
+  }
   return vec;
 }
 
@@ -779,7 +879,18 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
     case Type::FLOAT:
       return arrow::r::promotion_Array_to_Vector<REALSXP, arrow::UInt32Type>(array);
 
-    // lossy promotions to numeric vector
+    // time32 ane time64
+    case Type::TIME32:
+      return arrow::r::TimeArray_to_Vector<int32_t>(
+          array, static_cast<TimeType*>(array->type().get())->unit() == TimeUnit::SECOND
+                     ? 1
+                     : 1000);
+    case Type::TIME64:
+      return arrow::r::TimeArray_to_Vector<int64_t>(
+          array, static_cast<TimeType*>(array->type().get())->unit() == TimeUnit::MICRO
+                     ? 1000000
+                     : 1000000000);
+
     case Type::INT64:
       return arrow::r::Int64Array(array);
     case Type::DECIMAL:
