@@ -72,6 +72,9 @@ func TestRecord(t *testing.T) {
 	if got, want := rec.NumCols(), int64(2); got != want {
 		t.Fatalf("invalid number of columns: got=%d, want=%d", got, want)
 	}
+	if got, want := rec.Columns()[0], cols[0]; got != want {
+		t.Fatalf("invalid column: got=%q, want=%q", got, want)
+	}
 	if got, want := rec.Column(0), cols[0]; got != want {
 		t.Fatalf("invalid column: got=%q, want=%q", got, want)
 	}
@@ -343,5 +346,45 @@ func TestRecordReader(t *testing.T) {
 				t.Fatalf("invalid error: got=%v, want=%v", err, tc.err)
 			}
 		})
+	}
+}
+
+func TestRecordBuilder(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+		},
+		nil,
+	)
+
+	b := array.NewRecordBuilder(mem, schema)
+	defer b.Release()
+
+	b.Retain()
+	b.Release()
+
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3, 4, 5, 6}, nil)
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{7, 8, 9, 10}, nil)
+	b.Field(1).(*array.Float64Builder).AppendValues([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+
+	rec := b.NewRecord()
+	defer rec.Release()
+
+	if got, want := rec.Schema(), schema; !got.Equal(want) {
+		t.Fatalf("invalid schema: got=%#v, want=%#v", got, want)
+	}
+
+	if got, want := rec.NumRows(), int64(10); got != want {
+		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
+	}
+	if got, want := rec.NumCols(), int64(2); got != want {
+		t.Fatalf("invalid number of columns: got=%d, want=%d", got, want)
+	}
+	if got, want := rec.ColumnName(0), schema.Field(0).Name; got != want {
+		t.Fatalf("invalid column name: got=%q, want=%q", got, want)
 	}
 }
