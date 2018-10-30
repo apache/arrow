@@ -397,7 +397,7 @@ std::shared_ptr<arrow::Array> Time32Array_From_difftime(SEXP x) {
   int64_t null_count = 0;
 
   int multiplier = difftime_unit_multiplier(x);
-  std::vector<std::shared_ptr<Buffer>> buffers{nullptr, nullptr};
+  std::vector<std::shared_ptr<Buffer>> buffers(2);
 
   R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(int32_t), &buffers[1]));
   auto p_values = reinterpret_cast<int32_t*>(buffers[1]->mutable_data());
