@@ -114,7 +114,7 @@ public class PlasmaClient implements ObjectStoreLink {
 
   @Override
   public List<Pair<byte[], byte[]>> get(byte[][] objectIds, int timeoutMs) {
-    ByteBuffer[][] bufs = PlasmaClientJNI.get(threadConn.get(), objectIds, timeoutMs);
+    ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
     assert bufs.length == objectIds.length;
 
     List<Pair<byte[], byte[]>> ret = new ArrayList<>();
