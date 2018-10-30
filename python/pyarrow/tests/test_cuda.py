@@ -54,13 +54,10 @@ def test_Context():
     assert cuda.Context.get_num_devices() > 0
     assert global_context.device_number == 0
 
-    with pytest.raises(ValueError):
-        try:
-            cuda.Context(cuda.Context.get_num_devices())
-        except Exception as e_info:
-            assert str(e_info).startswith(
-                "device_number argument must be non-negative less than")
-            raise
+    with pytest.raises(ValueError,
+                       match=("device_number argument must "
+                              "be non-negative less than")):
+        cuda.Context(cuda.Context.get_num_devices())
 
 
 @pytest.mark.parametrize("size", [0, 1, 8, 1000])
@@ -136,11 +133,22 @@ def test_context_device_buffer(size):
     arr2 = np.frombuffer(cudabuf2.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr, arr2)
 
+    if size > 1:
+        cudabuf2.copy_from_host(arr[size//2:])
+        arr3 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+        np.testing.assert_equal(np.concatenate((arr[size//2:], arr[size//2:])),
+                                arr3)
+        cudabuf2.copy_from_host(arr[:size//2])  # restoring arr
+
     # Creating a device buffer from another device buffer, copy:
     cudabuf2 = global_context.buffer_from_data(cudabuf)
     assert cudabuf2.size == size
     arr2 = np.frombuffer(cudabuf2.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr, arr2)
+
+    cudabuf2.copy_from_host(arr[size//2:])
+    arr3 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
+    np.testing.assert_equal(arr, arr3)
 
     # Slice of a device buffer
     cudabuf2 = cudabuf.slice(0, cudabuf.size+10)
@@ -242,13 +250,9 @@ def test_CudaBuffer(size):
     sbuf = cbuf.slice(size//4, size//2)
     assert sbuf.parent == cbuf
 
-    with pytest.raises(TypeError):
-        try:
-            cuda.CudaBuffer()
-        except Exception as e_info:
-            assert str(e_info).startswith(
-                "Do not call CudaBuffer's constructor directly")
-            raise
+    with pytest.raises(TypeError,
+                       match="Do not call CudaBuffer's constructor directly"):
+        cuda.CudaBuffer()
 
 
 @pytest.mark.parametrize("size", [0, 1, 8, 1000])
@@ -272,13 +276,9 @@ def test_HostBuffer(size):
 
     del hbuf
 
-    with pytest.raises(TypeError):
-        try:
-            cuda.HostBuffer()
-        except Exception as e_info:
-            assert str(e_info).startswith(
-                "Do not call HostBuffer's constructor directly")
-            raise
+    with pytest.raises(TypeError,
+                       match="Do not call HostBuffer's constructor directly"):
+        cuda.HostBuffer()
 
 
 @pytest.mark.parametrize("size", [0, 1, 8, 1000])
@@ -326,24 +326,17 @@ def test_copy_to_host(size):
     for (position, nbytes) in [
         (size+2, -1), (-2, -1), (size+1, 0), (-3, 0),
     ]:
-        with pytest.raises(ValueError):
-            try:
-                dbuf.copy_to_host(position=position, nbytes=nbytes)
-            except Exception as e_info:
-                assert str(e_info).startswith(
-                    'position argument is out-of-range')
-                raise
+        with pytest.raises(ValueError,
+                           match='position argument is out-of-range'):
+            dbuf.copy_to_host(position=position, nbytes=nbytes)
 
     for (position, nbytes) in [
         (0, size+1), (size//2, (size+1)//2+1), (size, 1)
     ]:
-        with pytest.raises(ValueError):
-            try:
-                dbuf.copy_to_host(position=position, nbytes=nbytes)
-            except Exception as e_info:
-                assert str(e_info).startswith(
-                    'requested more to copy than available from device buffer')
-                raise
+        with pytest.raises(ValueError,
+                           match=('requested more to copy than'
+                                  ' available from device buffer')):
+            dbuf.copy_to_host(position=position, nbytes=nbytes)
 
     buf = pa.allocate_buffer(size//4)
     dbuf.copy_to_host(buf=buf)
@@ -367,15 +360,10 @@ def test_copy_to_host(size):
             (0, size+10), (10, size-5),
             (0, size//2), (size//4, size//4+1)
     ]:
-        with pytest.raises(ValueError):
-            try:
-                dbuf.copy_to_host(buf=buf, position=position, nbytes=nbytes)
-                print('dbuf.size={}, buf.size={}, position={}, nbytes={}'
-                      .format(dbuf.size, buf.size, position, nbytes))
-            except Exception as e_info:
-                assert str(e_info).startswith(
-                    'requested copy does not fit into host buffer')
-                raise
+        with pytest.raises(ValueError,
+                           match=('requested copy does not '
+                                  'fit into host buffer')):
+            dbuf.copy_to_host(buf=buf, position=position, nbytes=nbytes)
 
 
 @pytest.mark.parametrize("size", [0, 1, 8, 1000])
@@ -398,28 +386,17 @@ def test_copy_from_device(size):
     for (position, nbytes) in [
             (size+2, -1), (-2, -1), (size+1, 0), (-3, 0),
     ]:
-        with pytest.raises(ValueError):
-            try:
-                put(position=position, nbytes=nbytes)
-                print('dbuf.size={}, buf.size={}, position={}, nbytes={}'
-                      .format(dbuf.size, buf.size, position, nbytes))
-            except Exception as e_info:
-                assert str(e_info).startswith(
-                    'position argument is out-of-range')
-                raise
+        with pytest.raises(ValueError,
+                           match='position argument is out-of-range'):
+            put(position=position, nbytes=nbytes)
 
     for (position, nbytes) in [
         (0, size+1),
     ]:
-        with pytest.raises(ValueError):
-            try:
-                put(position=position, nbytes=nbytes)
-                print('dbuf.size={}, buf.size={}, position={}, nbytes={}'
-                      .format(dbuf.size, buf.size, position, nbytes))
-            except Exception as e_info:
-                assert str(e_info).startswith(
-                    'requested more to copy than available from device buffer')
-                raise
+        with pytest.raises(ValueError,
+                           match=('requested more to copy than'
+                                  ' available from device buffer')):
+            put(position=position, nbytes=nbytes)
 
     if size < 4:
         return
@@ -427,15 +404,10 @@ def test_copy_from_device(size):
     for (position, nbytes) in [
         (size//2, (size+1)//2+1)
     ]:
-        with pytest.raises(ValueError):
-            try:
-                put(position=position, nbytes=nbytes)
-                print('dbuf.size={}, buf.size={}, position={}, nbytes={}'
-                      .format(dbuf.size, buf.size, position, nbytes))
-            except Exception as e_info:
-                assert str(e_info).startswith(
-                    'requested more to copy than available in device buffer')
-                raise
+        with pytest.raises(ValueError,
+                           match=('requested more to copy than'
+                                  ' available in device buffer')):
+            put(position=position, nbytes=nbytes)
 
 
 @pytest.mark.parametrize("size", [0, 1, 8, 1000])
@@ -458,28 +430,17 @@ def test_copy_from_host(size):
     for (position, nbytes) in [
             (size+2, -1), (-2, -1), (size+1, 0), (-3, 0),
     ]:
-        with pytest.raises(ValueError):
-            try:
-                put(position=position, nbytes=nbytes)
-                print('dbuf.size={}, buf.size={}, position={}, nbytes={}'
-                      .format(dbuf.size, buf.size, position, nbytes))
-            except Exception as e_info:
-                assert str(e_info).startswith(
-                    'position argument is out-of-range')
-                raise
+        with pytest.raises(ValueError,
+                           match='position argument is out-of-range'):
+            put(position=position, nbytes=nbytes)
 
     for (position, nbytes) in [
         (0, size+1),
     ]:
-        with pytest.raises(ValueError):
-            try:
-                put(position=position, nbytes=nbytes)
-                print('dbuf.size={}, buf.size={}, position={}, nbytes={}'
-                      .format(dbuf.size, buf.size, position, nbytes))
-            except Exception as e_info:
-                assert str(e_info).startswith(
-                    'requested more to copy than available from host buffer')
-                raise
+        with pytest.raises(ValueError,
+                           match=('requested more to copy than'
+                                  ' available from host buffer')):
+            put(position=position, nbytes=nbytes)
 
     if size < 4:
         return
@@ -487,15 +448,10 @@ def test_copy_from_host(size):
     for (position, nbytes) in [
         (size//2, (size+1)//2+1)
     ]:
-        with pytest.raises(ValueError):
-            try:
-                put(position=position, nbytes=nbytes)
-                print('dbuf.size={}, buf.size={}, position={}, nbytes={}'
-                      .format(dbuf.size, buf.size, position, nbytes))
-            except Exception as e_info:
-                assert str(e_info).startswith(
-                    'requested more to copy than available in device buffer')
-                raise
+        with pytest.raises(ValueError,
+                           match=('requested more to copy than'
+                                  ' available in device buffer')):
+            put(position=position, nbytes=nbytes)
 
 
 def test_BufferWriter():
