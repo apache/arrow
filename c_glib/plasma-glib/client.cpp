@@ -21,6 +21,8 @@
 #  include <config.h>
 #endif
 
+#include <arrow-glib/error.hpp>
+
 #include <plasma-glib/client.hpp>
 
 G_BEGIN_DECLS
@@ -108,16 +110,25 @@ gplasma_client_class_init(GPlasmaClientClass *klass)
 
 /**
  * gplasma_client_new:
+ * @store_socket_name: The name of the UNIX domain socket.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: A newly created #GPlasmaClient.
+ * Returns: (nullable): A newly created #GPlasmaClient on success,
+ *   %NULL on error.
  *
  * Since: 0.12.0
  */
 GPlasmaClient *
-gplasma_client_new(void)
+gplasma_client_new(const gchar *store_socket_name,
+                   GError **error)
 {
   auto plasma_client = std::make_shared<plasma::PlasmaClient>();
-  return gplasma_client_new_raw(&plasma_client);
+  auto status = plasma_client->Connect(store_socket_name, "");
+  if (garrow_error_check(error, status, "[plasma][client][new]")) {
+    return gplasma_client_new_raw(&plasma_client);
+  } else {
+    return NULL;
+  }
 }
 
 G_END_DECLS

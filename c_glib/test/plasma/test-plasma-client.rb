@@ -18,11 +18,22 @@
 class TestClient < Test::Unit::TestCase
   def setup
     omit("Plasma is required") unless defined?(::Plasma)
+    plasma_store_server_path = `pkg-config --variable=executable plasma`.chomp
+    plasma_store_memory_size = 1000000000
+    @plasma_store_socket_name = "/tmp/plasma"
+    @pid = spawn("#{plasma_store_server_path}      \
+                 -m #{plasma_store_memory_size}    \
+                 -s #{@plasma_store_socket_name}")
+    sleep 0.1
+  end
+
+  def teardown
+    Process.kill(:TERM, @pid) if @pid
   end
 
   def test_new
     assert_nothing_raised do
-      Plasma::Client.new
+      Plasma::Client.new(@plasma_store_socket_name)
     end
   end
 end

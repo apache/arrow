@@ -35,6 +35,7 @@ struct _GPlasmaClientClass
   GObjectClass parent_class;
 };
 
-GPlasmaClient *gplasma_client_new(void);
+GPlasmaClient *gplasma_client_new(const gchar *store_socket_name,
+                                  GError **error);
 
 G_END_DECLS
