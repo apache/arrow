@@ -101,17 +101,19 @@ from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
                          default_memory_pool, logging_memory_pool,
                          proxy_memory_pool, log_memory_allocations)
 
+# I/O
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          CompressedInputStream, CompressedOutputStream,
                          FixedSizeBufferWriter,
                          BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
                          create_memory_map, have_libhdfs, have_libhdfs3,
-                         MockOutputStream)
+                         MockOutputStream, input_stream, output_stream)
 
 from pyarrow.lib import (ChunkedArray, Column, RecordBatch, Table,
                          concat_tables)
 
+# Exceptions
 from pyarrow.lib import (ArrowException,
                          ArrowKeyError,
                          ArrowInvalid,
