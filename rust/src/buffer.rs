@@ -189,17 +189,17 @@ impl MutableBuffer {
 
     /// Ensures that this buffer has at least `capacity` slots in this buffer. This will
     /// also ensure the new capacity will be a multiple of 64 bytes.
+    ///
+    /// Returns the new capacity for this buffer.
     pub fn reserve(&mut self, capacity: usize) -> Result<usize> {
         if capacity > self.capacity {
             let new_capacity = bit_util::round_upto_multiple_of_64(capacity as i64);
             let new_capacity = cmp::max(new_capacity, self.capacity as i64 * 2) as usize;
             let new_data = memory::reallocate(self.capacity, new_capacity, self.data)?;
             self.data = new_data as *mut u8;
-            let added = new_capacity - self.capacity;
             self.capacity = new_capacity;
-            return Ok(added)
         }
-        Ok(0)
+        Ok(self.capacity)
     }
 
     /// Resizes the buffer so that the `len` will equal to the `new_len`.
@@ -467,10 +467,12 @@ mod tests {
         assert_eq!(64, buf.capacity());
 
         // Reserving a smaller capacity should have no effect.
-        buf.reserve(10).expect("reserve should be OK");
+        let mut new_cap = buf.reserve(10).expect("reserve should be OK");
+        assert_eq!(64, new_cap);
         assert_eq!(64, buf.capacity());
 
-        buf.reserve(100).expect("reserve should be OK");
+        new_cap = buf.reserve(100).expect("reserve should be OK");
+        assert_eq!(128, new_cap);
         assert_eq!(128, buf.capacity());
     }
 

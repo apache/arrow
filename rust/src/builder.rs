@@ -120,9 +120,10 @@ impl_buffer_builder!(f64);
 impl BufferBuilder<bool> {
     /// Creates a builder with a fixed initial capacity.
     pub fn new(capacity: i64) -> Self {
-        let byte_capacity = bit_util::ceil(capacity, 8) as usize;
-        let mut buffer = MutableBuffer::new(byte_capacity);
-        buffer.set_null_bits(0, byte_capacity);
+        let byte_capacity = bit_util::ceil(capacity, 8);
+        let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity) as usize;
+        let mut buffer = MutableBuffer::new(actual_capacity);
+        buffer.set_null_bits(0, actual_capacity);
         Self {
             buffer,
             len: 0,
@@ -146,7 +147,7 @@ impl BufferBuilder<bool> {
         self.reserve(1)?;
         if v {
             // For performance the `len` of the buffer is not updated on each push but
-            // is updated in the `freeze` method instead
+            // is updated in the `freeze` method instead.
             unsafe {
                 bit_util::set_bit_raw(self.buffer.raw_data() as *mut u8, (self.len) as usize);
             }
@@ -170,8 +171,9 @@ impl BufferBuilder<bool> {
         if new_capacity > self.capacity() {
             let new_byte_capacity = bit_util::ceil(new_capacity, 8) as usize;
             let existing_capacity = self.buffer.capacity();
-            let capacity_added = self.buffer.reserve(new_byte_capacity)?;
-            self.buffer.set_null_bits(existing_capacity, capacity_added);
+            let new_capacity = self.buffer.reserve(new_byte_capacity)?;
+            self.buffer
+                .set_null_bits(existing_capacity, new_capacity - existing_capacity);
         }
         Ok(())
     }
@@ -180,7 +182,7 @@ impl BufferBuilder<bool> {
     pub fn finish(mut self) -> Buffer {
         // `push` does not update the buffer's `len` so do it before `freeze` is called.
         let new_buffer_len = bit_util::ceil(self.len, 8) as usize;
-        debug_assert!(new_buffer_len > self.buffer.len());
+        debug_assert!(new_buffer_len >= self.buffer.len());
         self.buffer.resize(new_buffer_len).unwrap();
         self.buffer.freeze()
     }
