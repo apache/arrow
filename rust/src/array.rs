@@ -452,7 +452,7 @@ impl From<ArrayDataRef> for ListArray {
             assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
             assert_eq!(
                 *value_offsets.offset(data.len() as isize),
-                values.data().len() as i32 + 1,
+                values.data().len() as i32,
                 "inconsistent offsets buffer and values array"
             );
         }
@@ -813,7 +813,7 @@ mod tests {
     fn test_list_array() {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
-            .len(7)
+            .len(8)
             .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
             .build();
 
@@ -864,7 +864,7 @@ mod tests {
     #[should_panic(expected = "ListArray data should contain a single buffer only (value offsets)")]
     fn test_list_array_invalid_buffer_len() {
         let value_data = ArrayData::builder(DataType::Int32)
-            .len(7)
+            .len(8)
             .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
             .build();
         let list_data_type = DataType::List(Box::new(DataType::Int32));
@@ -891,7 +891,7 @@ mod tests {
     #[should_panic(expected = "offsets do not start at zero")]
     fn test_list_array_invalid_value_offset_start() {
         let value_data = ArrayData::builder(DataType::Int32)
-            .len(7)
+            .len(8)
             .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
             .build();
 
@@ -910,7 +910,7 @@ mod tests {
     #[should_panic(expected = "inconsistent offsets buffer and values array")]
     fn test_list_array_invalid_value_offset_end() {
         let value_data = ArrayData::builder(DataType::Int32)
-            .len(7)
+            .len(8)
             .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
             .build();
 
