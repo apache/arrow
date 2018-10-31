@@ -452,7 +452,7 @@ impl From<ArrayDataRef> for ListArray {
             assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
             assert_eq!(
                 *value_offsets.offset(data.len() as isize),
-                values.data().len() as i32,
+                values.data().len() as i32 + 1,
                 "inconsistent offsets buffer and values array"
             );
         }
@@ -819,7 +819,7 @@ mod tests {
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
-        let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
+        let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
 
         // Construct a list array from the above two
         let list_data_type = DataType::List(Box::new(DataType::Int32));
@@ -835,7 +835,7 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
-        assert_eq!(5, list_array.value_offset(2));
+        assert_eq!(6, list_array.value_offset(2));
         assert_eq!(2, list_array.value_length(2));
         for i in 0..3 {
             assert!(list_array.is_valid(i as i64));
@@ -856,7 +856,7 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
-        assert_eq!(5, list_array.value_offset(1));
+        assert_eq!(6, list_array.value_offset(1));
         assert_eq!(2, list_array.value_length(1));
     }
 
@@ -914,7 +914,7 @@ mod tests {
             .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
             .build();
 
-        let value_offsets = Buffer::from(&[0, 2, 5, 8].to_byte_slice());
+        let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
 
         let list_data_type = DataType::List(Box::new(DataType::Int32));
         let list_data = ArrayData::builder(list_data_type.clone())
