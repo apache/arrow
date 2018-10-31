@@ -451,22 +451,3 @@ fi
 if [ ${have_python} = "yes" ]; then
   echo "  https://binray.com/apache/arrow/python-rc/${version}-rc${rc}"
 fi
-
-# Debian/Ubuntu:
-# % sudo apt install -y -V lsb-release apt-transport-https
-# % sudo wget -O /usr/share/keyrings/apache-arrow-keyring.gpg https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-keyring.gpg
-# % sudo tee /etc/apt/sources.list.d/apache-arrow.list <<APT_LINE
-# deb [signed-by=/usr/share/keyrings/apache-arrow-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
-# deb-src [signed-by=/usr/share/keyrings/red-data-tools-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
-# APT_LINE
-# % sudo apt update
-#
-# CentOS:
-# % sudo tee /etc/yum.repos.d/Apache-Arrow.repo <<REPO
-# [apache-arrow]
-# name=Apache Arrow
-# baseurl=https://dl.bintray.com/apache/arrow/centos/\$releasever/\$basearch/
-# gpgcheck=1
-# enabled=1
-# gpgkey=https://dl.bintray.com/apache/arrow/centos/RPM-GPG-KEY-apache-arrow
-# REPO
