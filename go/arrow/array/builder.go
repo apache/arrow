@@ -220,7 +220,9 @@ func newBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.FLOAT64:
 		return NewFloat64Builder(mem)
 	case arrow.STRING:
+		return NewStringBuilder(mem)
 	case arrow.BINARY:
+		return NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
 	case arrow.FIXED_SIZE_BINARY:
 	case arrow.DATE32:
 	case arrow.DATE64:
