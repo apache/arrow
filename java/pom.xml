@@ -37,7 +37,6 @@
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.9.0</dep.fbs.version>
     <dep.flatc.version>1.9.0</dep.flatc.version>
-    <dep.lang3.version>3.4</dep.lang3.version>
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
   </properties>
@@ -530,11 +529,6 @@
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>
         <version>${dep.slf4j.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.commons</groupId>
-        <artifactId>commons-lang3</artifactId>
-        <version>${dep.lang3.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

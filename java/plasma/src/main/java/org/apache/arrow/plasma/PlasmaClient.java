@@ -22,10 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
-
-
 
 /**
  * The PlasmaClient is used to interface with a plasma store and manager.
@@ -114,16 +110,16 @@ public class PlasmaClient implements ObjectStoreLink {
   }
 
   @Override
-  public List<Pair<byte[], byte[]>> get(byte[][] objectIds, int timeoutMs) {
+  public List<ObjectStoreData> get(byte[][] objectIds, int timeoutMs) {
     ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
     assert bufs.length == objectIds.length;
 
-    List<Pair<byte[], byte[]>> ret = new ArrayList<>();
+    List<ObjectStoreData> ret = new ArrayList<>();
     for (int i = 0; i < bufs.length; i++) {
       ByteBuffer databuf = bufs[i][0];
       ByteBuffer metabuf = bufs[i][1];
       if (databuf == null) {
-        ret.add(new ImmutablePair<byte[], byte[]>(null, null));
+        ret.add(new ObjectStoreData(null, null));
       } else {
         byte[] data = new byte[databuf.remaining()];
         databuf.get(data);
@@ -134,7 +130,7 @@ public class PlasmaClient implements ObjectStoreLink {
         } else {
           meta = null;
         }
-        ret.add(new ImmutablePair<>(data, meta));
+        ret.add(new ObjectStoreData(data, meta));
       }
     }
     return ret;

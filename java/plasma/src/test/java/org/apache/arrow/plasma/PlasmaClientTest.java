@@ -23,8 +23,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.tuple.Pair;
-
 public class PlasmaClientTest {
 
   private String storeSuffix = "/tmp/store";
@@ -178,9 +176,9 @@ public class PlasmaClientTest {
     assert Arrays.equals(value4, getValue4);
     byte[][] ids4 = new byte[1][];
     ids4[0] = id4;
-    Pair<byte[], byte[]> fullData4 = pLink.get(ids4, timeoutMs).get(0);
-    assert Arrays.equals(meta4, fullData4.getRight());
-    assert Arrays.equals(value4, fullData4.getLeft());
+    ObjectStoreLink.ObjectStoreData fullData4 = pLink.get(ids4, timeoutMs).get(0);
+    assert Arrays.equals(meta4, fullData4.metadata);
+    assert Arrays.equals(value4, fullData4.data);
 
     byte[] getMeta5 = pLink.get(id5, timeoutMs, true);
     assert Arrays.equals(meta5, getMeta5);
@@ -188,9 +186,9 @@ public class PlasmaClientTest {
     assert Arrays.equals(value5, getValue5);
     byte[][] ids5 = new byte[1][];
     ids5[0] = id5;
-    Pair<byte[], byte[]> fullData5 = pLink.get(ids5, timeoutMs).get(0);
-    assert Arrays.equals(meta5, fullData5.getRight());
-    assert Arrays.equals(value5, fullData5.getLeft());
+    ObjectStoreLink.ObjectStoreData fullData5 = pLink.get(ids5, timeoutMs).get(0);
+    assert Arrays.equals(meta5, fullData5.metadata);
+    assert Arrays.equals(value5, fullData5.data);
     System.out.println("Plasma java client metadata get test success.");
     cleanup();
     System.out.println("All test success.");
