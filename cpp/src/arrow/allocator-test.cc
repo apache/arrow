@@ -66,19 +66,6 @@ TEST(stl_allocator, TestOOM) {
   ASSERT_THROW(alloc.allocate(to_alloc), std::bad_alloc);
 }
 
-TEST(stl_allocator, FreeLargeMemory) {
-  stl_allocator<uint8_t> alloc;
-
-  uint8_t* data = alloc.allocate(100);
-
-#ifndef NDEBUG
-  EXPECT_DEATH(alloc.deallocate(data, 120),
-               ".*Check failed:.* allocation counter became negative");
-#endif
-
-  alloc.deallocate(data, 100);
-}
-
 TEST(stl_allocator, MaxMemory) {
   auto pool = default_memory_pool();
 
