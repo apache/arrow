@@ -105,6 +105,15 @@ download_files() {
   done
 }
 
+delete_file() {
+  local version=$1
+  local target=$2
+  local path=$3
+
+  bintray \
+    DELETE /content/apache/arrow/${target}/${path}
+}
+
 upload_file() {
   local version=$1
   local target=$2
@@ -119,6 +128,15 @@ upload_file() {
     --data-binary "@${path}"
 }
 
+replace_file() {
+  local version=$1
+  local target=$2
+  local path=$3
+
+  delete_file ${version} ${target} ${path} || : # Ignore error
+  upload_file ${version} ${target} ${path}
+}
+
 docker build -t ${docker_image_name} ${SOURCE_DIR}/binary
 
 for target in debian ubuntu centos python; do
@@ -130,7 +148,7 @@ for target in debian ubuntu centos python; do
   download_files ${version} ${rc} ${target}
   mv ${target}-rc ${target}
   for file in $(find ${target} -type f); do
-    upload_file ${version} ${target} ${file}
+    replace_file ${version} ${target} ${file}
   done
   popd
   rm -rf ${tmp_dir}

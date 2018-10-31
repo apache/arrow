@@ -160,6 +160,18 @@ download_files() {
   done
 }
 
+delete_file() {
+  local version=$1
+  local rc=$2
+  local target=$3
+  local upload_path=$4
+
+  local version_name=${version}-rc${rc}
+
+  bintray \
+    DELETE /content/apache/arrow/${target}-rc/${upload_path}
+}
+
 upload_file() {
   local version=$1
   local rc=$2
@@ -178,6 +190,17 @@ upload_file() {
     --data-binary "@${local_path}"
 }
 
+replace_file() {
+  local version=$1
+  local rc=$2
+  local target=$3
+  local local_path=$4
+  local upload_path=$5
+
+  delete_file ${version} ${rc} ${target} ${upload_path} || : # Ignore error
+  upload_file ${version} ${rc} ${target} ${local_path} ${upload_path}
+}
+
 upload_deb() {
   local version=$1
   local rc=$2
@@ -192,7 +215,7 @@ upload_deb() {
         docker_run_gpg_ready debsign -k${gpg_key_id} ${base_path}
         ;;
     esac
-    upload_file \
+    replace_file \
       ${version} \
       ${rc} \
       ${distribution} \
@@ -222,7 +245,7 @@ upload_apt() {
       --no-default-keyring \
       --keyring ./${keyring_name} \
       --import - || : # XXX: Ignore gpg error
-  upload_file \
+  replace_file \
     ${version} \
     ${rc} \
     ${distribution} \
@@ -266,7 +289,7 @@ upload_apt() {
       dists/${code_name}/Release
 
     for path in $(find dists/${code_name}/ -type f); do
-      upload_file \
+      replace_file \
         ${version} \
         ${rc} \
         ${distribution} \
@@ -306,7 +329,7 @@ upload_rpm() {
       -D "_gpg_name\\ ${gpg_key_id}" \
       --addsign \
       ${rpm_path}
-    upload_file \
+    replace_file \
       ${version} \
       ${rc} \
       ${distribution} \
@@ -333,7 +356,7 @@ upload_yum() {
   pushd ${distribution}-rc
   local keyring_name=RPM-GPG-KEY-apache-arrow
   curl -o ${keyring_name} https://dist.apache.org/repos/dist/dev/arrow/KEYS
-  upload_file \
+  replace_file \
     ${version} \
     ${rc} \
     ${distribution} \
@@ -344,7 +367,7 @@ upload_yum() {
       mkdir -p ${arch_dir}/repodata/
       docker_run createrepo ${arch_dir}
       for repo_path in ${arch_dir}/repodata/*; do
-        upload_file \
+        replace_file \
           ${version} \
           ${rc} \
           ${distribution} \
@@ -367,12 +390,12 @@ upload_python() {
   ensure_version ${version} ${rc} ${target}
 
   for base_path in *; do
-    upload_file \
+    replace_file \
       ${version} \
       ${rc} \
       ${target} \
       ${base_path} \
-      ${base_path}
+      ${version}/${base_path}
   done
 }
 
