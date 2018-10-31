@@ -85,7 +85,8 @@ public class Schema {
     Map<String, String> metadata = new HashMap<>();
     for (int i = 0; i < schema.customMetadataLength(); i++) {
       KeyValue kv = schema.customMetadata(i);
-      String key = kv.key(), value = kv.value();
+      String key = kv.key();
+      String value = kv.value();
       metadata.put(key == null ? "" : key, value == null ? "" : value);
     }
     return new Schema(Collections2.immutableListCopy(fields), Collections2.immutableMapCopy(metadata));

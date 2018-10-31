@@ -44,8 +44,9 @@ public class TestArrowStream extends BaseFileTest {
 
     // Write the stream.
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (ArrowStreamWriter writer = new ArrowStreamWriter(root, null, out)) {
-    }
+    ArrowStreamWriter writer = new ArrowStreamWriter(root, null, out);
+    writer.close();
+    Assert.assertTrue(out.size() > 0);
 
     ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
     try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator)) {

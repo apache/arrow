@@ -34,7 +34,7 @@ import org.junit.Test;
  */
 public class TestOversizedAllocationForValueVector {
 
-  private final static String EMPTY_SCHEMA_PATH = "";
+  private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
 

@@ -38,7 +38,7 @@ import org.apache.arrow.vector.util.TransferPair;
 import io.netty.buffer.ArrowBuf;
 
 public class ZeroVector implements FieldVector {
-  public final static ZeroVector INSTANCE = new ZeroVector();
+  public static final ZeroVector INSTANCE = new ZeroVector();
 
   private final TransferPair defaultPair = new TransferPair() {
     @Override
@@ -219,17 +219,26 @@ public class ZeroVector implements FieldVector {
   }
 
   @Override
-  public int getValueCount() { return 0; }
+  public int getValueCount() {
+    return 0;
+  }
 
   @Override
-  public void setValueCount(int valueCount) { }
+  public void setValueCount(int valueCount) {
+  }
 
   @Override
-  public Object getObject(int index) { return null; }
+  public Object getObject(int index) {
+    return null;
+  }
 
   @Override
-  public int getNullCount() { return 0; }
+  public int getNullCount() {
+    return 0;
+  }
 
   @Override
-  public boolean isNull(int index) { return false; }
+  public boolean isNull(int index) {
+    return false;
+  }
 }

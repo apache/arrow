@@ -204,7 +204,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   }
 
   private abstract class BufferReader {
-    abstract protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException;
+    protected abstract ArrowBuf read(BufferAllocator allocator, int count) throws IOException;
 
     ArrowBuf readBuffer(BufferAllocator allocator, int count) throws IOException {
       readToken(START_ARRAY);

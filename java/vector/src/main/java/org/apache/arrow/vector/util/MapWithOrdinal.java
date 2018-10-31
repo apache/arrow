@@ -53,7 +53,7 @@ import io.netty.util.collection.IntObjectMap;
  */
 
 public class MapWithOrdinal<K, V> implements Map<K, V> {
-  private final static Logger logger = LoggerFactory.getLogger(MapWithOrdinal.class);
+  private static final Logger logger = LoggerFactory.getLogger(MapWithOrdinal.class);
 
   private final Map<K, Entry<Integer, V>> primary = new HashMap<>();
   private final IntObjectHashMap<V> secondary = new IntObjectHashMap<>();

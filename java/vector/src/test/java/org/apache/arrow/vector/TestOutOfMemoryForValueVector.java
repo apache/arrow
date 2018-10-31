@@ -29,7 +29,7 @@ import org.junit.Test;
  */
 public class TestOutOfMemoryForValueVector {
 
-  private final static String EMPTY_SCHEMA_PATH = "";
+  private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
 

@@ -51,7 +51,7 @@ import io.netty.buffer.ArrowBuf;
 
 public class TestValueVector {
 
-  private final static String EMPTY_SCHEMA_PATH = "";
+  private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
 
@@ -60,16 +60,16 @@ public class TestValueVector {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  private final static Charset utf8Charset = Charset.forName("UTF-8");
-  private final static byte[] STR1 = "AAAAA1".getBytes(utf8Charset);
-  private final static byte[] STR2 = "BBBBBBBBB2".getBytes(utf8Charset);
-  private final static byte[] STR3 = "CCCC3".getBytes(utf8Charset);
-  private final static byte[] STR4 = "DDDDDDDD4".getBytes(utf8Charset);
-  private final static byte[] STR5 = "EEE5".getBytes(utf8Charset);
-  private final static byte[] STR6 = "FFFFF6".getBytes(utf8Charset);
-  private final static int MAX_VALUE_COUNT =
+  private static final Charset utf8Charset = Charset.forName("UTF-8");
+  private static final byte[] STR1 = "AAAAA1".getBytes(utf8Charset);
+  private static final byte[] STR2 = "BBBBBBBBB2".getBytes(utf8Charset);
+  private static final byte[] STR3 = "CCCC3".getBytes(utf8Charset);
+  private static final byte[] STR4 = "DDDDDDDD4".getBytes(utf8Charset);
+  private static final byte[] STR5 = "EEE5".getBytes(utf8Charset);
+  private static final byte[] STR6 = "FFFFF6".getBytes(utf8Charset);
+  private static final int MAX_VALUE_COUNT =
             Integer.getInteger("arrow.vector.max_allocation_bytes", Integer.MAX_VALUE) / 4;
-  private final static int MAX_VALUE_COUNT_8BYTE = MAX_VALUE_COUNT / 2;
+  private static final int MAX_VALUE_COUNT_8BYTE = MAX_VALUE_COUNT / 2;
 
   @After
   public void terminate() throws Exception {
@@ -125,22 +125,18 @@ public class TestValueVector {
 
       try {
         vector.set(1024, 10000);
-      }
-      catch (IndexOutOfBoundsException ie) {
+      } catch (IndexOutOfBoundsException ie) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
 
       try {
         vector.get(1024);
-      }
-      catch (IndexOutOfBoundsException ie) {
+      } catch (IndexOutOfBoundsException ie) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -185,11 +181,9 @@ public class TestValueVector {
 
       try {
         intVector.setInitialCapacity(MAX_VALUE_COUNT + 1);
-      }
-      catch (OversizedAllocationException oe) {
+      } catch (OversizedAllocationException oe) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -212,11 +206,9 @@ public class TestValueVector {
 
       try {
         intVector.set(16, 9);
-      }
-      catch (IndexOutOfBoundsException ie) {
+      } catch (IndexOutOfBoundsException ie) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -230,11 +222,9 @@ public class TestValueVector {
 
       try {
         intVector.get(16);
-      }
-      catch (IndexOutOfBoundsException ie) {
+      } catch (IndexOutOfBoundsException ie) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -277,11 +267,9 @@ public class TestValueVector {
 
       try {
         floatVector.setInitialCapacity(MAX_VALUE_COUNT + 1);
-      }
-      catch (OversizedAllocationException oe) {
+      } catch (OversizedAllocationException oe) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -309,11 +297,9 @@ public class TestValueVector {
 
       try {
         floatVector.set(16, 9.5f);
-      }
-      catch (IndexOutOfBoundsException ie) {
+      } catch (IndexOutOfBoundsException ie) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -330,11 +316,9 @@ public class TestValueVector {
 
       try {
         floatVector.get(16);
-      }
-      catch (IndexOutOfBoundsException ie) {
+      } catch (IndexOutOfBoundsException ie) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -381,11 +365,9 @@ public class TestValueVector {
 
       try {
         floatVector.setInitialCapacity(MAX_VALUE_COUNT_8BYTE + 1);
-      }
-      catch (OversizedAllocationException oe) {
+      } catch (OversizedAllocationException oe) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -411,11 +393,9 @@ public class TestValueVector {
 
       try {
         floatVector.set(16, 9.53);
-      }
-      catch (IndexOutOfBoundsException ie) {
+      } catch (IndexOutOfBoundsException ie) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -432,11 +412,9 @@ public class TestValueVector {
 
       try {
         floatVector.get(16);
-      }
-      catch (IndexOutOfBoundsException ie) {
+      } catch (IndexOutOfBoundsException ie) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -515,22 +493,18 @@ public class TestValueVector {
 
       try {
         vector.set(1024, 10000);
-      }
-      catch (IndexOutOfBoundsException ie) {
+      } catch (IndexOutOfBoundsException ie) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
 
       try {
         vector.get(1024);
-      }
-      catch (IndexOutOfBoundsException ie) {
+      } catch (IndexOutOfBoundsException ie) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -600,11 +574,9 @@ public class TestValueVector {
 
       try {
         vector.set(16, 90.5f);
-      }
-      catch (IndexOutOfBoundsException ie) {
+      } catch (IndexOutOfBoundsException ie) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -629,11 +601,9 @@ public class TestValueVector {
 
       try {
         vector.get(16);
-      }
-      catch (IndexOutOfBoundsException ie) {
+      } catch (IndexOutOfBoundsException ie) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
@@ -700,8 +670,7 @@ public class TestValueVector {
       for (int i = 0; i <= 1023; i++) {
         if ((i >= 2 && i <= 99) || (i >= 101 && i <= 1021)) {
           assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
-        }
-        else {
+        } else {
           assertFalse("null data not expected at index: " + i, vector.isNull(i));
           assertEquals("unexpected value at index: " + i, j, vector.get(i));
           j++;
@@ -740,8 +709,7 @@ public class TestValueVector {
       for (int i = 0; i < (initialCapacity * 2); i++) {
         if ((i > 1024) || (i >= 2 && i <= 99) || (i >= 101 && i <= 1021)) {
           assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
-        }
-        else {
+        } else {
           assertFalse("null data not expected at index: " + i, vector.isNull(i));
           assertEquals("unexpected value at index: " + i, j, vector.get(i));
           j++;
@@ -1034,8 +1002,7 @@ public class TestValueVector {
       for (int i = 0; i < (initialDefaultCapacity * 8); i++) {
         if (i < (initialDefaultCapacity * 4)) {
           assertEquals(baseValue + (double)i, toVector.get(i), 0);
-        }
-        else {
+        } else {
           assertTrue(toVector.isNull(i));
         }
       }
@@ -1121,8 +1088,7 @@ public class TestValueVector {
           assertFalse("unexpected null value at index: " + i, toVector.isNull(i));
           double value = toVector.get(i);
           assertEquals("unexpected value at index: " + i, baseValue + (double)i, value, 0);
-        }
-        else {
+        } else {
           assertTrue("unexpected non-null value at index: " + i, toVector.isNull(i));
         }
       }
@@ -1143,8 +1109,7 @@ public class TestValueVector {
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 1) {
           vector.set(i, STR1);
-        }
-        else {
+        } else {
           vector.set(i, STR2);
         }
       }
@@ -1153,8 +1118,7 @@ public class TestValueVector {
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 1) {
           assertArrayEquals(STR1, vector.get(i));
-        }
-        else {
+        } else {
           assertArrayEquals(STR2, vector.get(i));
         }
       }
@@ -1167,8 +1131,7 @@ public class TestValueVector {
       for (int i = valueCapacity; i < vector.getValueCapacity(); i++) {
         if ((i & 1) == 1) {
           vector.set(i, STR1);
-        }
-        else {
+        } else {
           vector.set(i, STR2);
         }
       }
@@ -1178,8 +1141,7 @@ public class TestValueVector {
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 1) {
           assertArrayEquals(STR1, vector.get(i));
-        }
-        else {
+        } else {
           assertArrayEquals(STR2, vector.get(i));
         }
       }
@@ -1192,8 +1154,7 @@ public class TestValueVector {
       for (int i = valueCapacity; i < vector.getValueCapacity(); i++) {
         if ((i & 1) == 1) {
           vector.set(i, STR1);
-        }
-        else {
+        } else {
           vector.set(i, STR2);
         }
       }
@@ -1203,8 +1164,7 @@ public class TestValueVector {
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 1) {
           assertArrayEquals(STR1, vector.get(i));
-        }
-        else {
+        } else {
           assertArrayEquals(STR2, vector.get(i));
         }
       }
@@ -1221,8 +1181,7 @@ public class TestValueVector {
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 1) {
           assertArrayEquals(STR1, toVector.get(i));
-        }
-        else {
+        } else {
           assertArrayEquals(STR2, toVector.get(i));
         }
       }
@@ -1252,8 +1211,7 @@ public class TestValueVector {
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 0) {
           assertEquals(1000 + i, vector.get(i));
-        }
-        else {
+        } else {
           assertTrue(vector.isNull(i));
         }
       }
@@ -1274,8 +1232,7 @@ public class TestValueVector {
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 0) {
           assertEquals(1000 + i, vector.get(i));
-        }
-        else {
+        } else {
           assertTrue(vector.isNull(i));
         }
       }
@@ -1296,8 +1253,7 @@ public class TestValueVector {
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 0) {
           assertEquals(1000 + i, vector.get(i));
-        }
-        else {
+        } else {
           assertTrue(vector.isNull(i));
         }
       }
@@ -1317,8 +1273,7 @@ public class TestValueVector {
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 0) {
           assertEquals(1000 + i, toVector.get(i));
-        }
-        else {
+        } else {
           assertTrue(toVector.isNull(i));
         }
       }
@@ -1413,8 +1368,8 @@ public class TestValueVector {
   @Test
   public void testCopyFromWithNulls() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator))
-    {
+         final VarCharVector vector2 =
+             newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
 
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
@@ -1474,8 +1429,8 @@ public class TestValueVector {
   @Test
   public void testCopyFromWithNulls1() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator))
-    {
+         final VarCharVector vector2 =
+             newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
 
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
@@ -1882,11 +1837,9 @@ public class TestValueVector {
 
       try {
         long offsetAddress = vector.getOffsetBufferAddress();
-      }
-      catch (UnsupportedOperationException ue) {
+      } catch (UnsupportedOperationException ue) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
       }
 
