@@ -67,7 +67,6 @@ class BoundedInt32DataGenerator : public Int32DataGenerator {
 
  protected:
   uint32_t upperBound_;
-  Random random_;
 };
 
 class Int64DataGenerator : public DataGenerator<int64_t> {
