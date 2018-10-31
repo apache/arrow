@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 
@@ -122,7 +123,7 @@ public class PlasmaClient implements ObjectStoreLink {
       ByteBuffer databuf = bufs[i][0];
       ByteBuffer metabuf = bufs[i][1];
       if (databuf == null) {
-        ret.add(Pair.of(null, null));
+        ret.add(new ImmutablePair<byte[], byte[]>(null, null));
       } else {
         byte[] data = new byte[databuf.remaining()];
         databuf.get(data);
@@ -133,7 +134,7 @@ public class PlasmaClient implements ObjectStoreLink {
         } else {
           meta = null;
         }
-        ret.add(Pair.of(data, meta));
+        ret.add(new ImmutablePair<>(data, meta));
       }
     }
     return ret;
