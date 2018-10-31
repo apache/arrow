@@ -72,3 +72,7 @@ func (a *Boolean) setData(data *Data) {
 		a.values = vals.Bytes()
 	}
 }
+
+var (
+	_ Interface = (*Boolean)(nil)
+)

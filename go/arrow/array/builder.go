@@ -31,6 +31,10 @@ const (
 
 // Builder provides an interface to build arrow arrays.
 type Builder interface {
+	// Retain increases the reference count by 1.
+	// Retain may be called simultaneously from multiple goroutines.
+	Retain()
+
 	// Release decreases the reference count by 1.
 	Release()
 
@@ -46,6 +50,14 @@ type Builder interface {
 
 	// AppendNull adds a new null value to the array being built.
 	AppendNull()
+
+	// Reserve ensures there is enough space for appending n elements
+	// by checking the capacity and calling Resize if necessary.
+	Reserve(n int)
+
+	// Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
+	// additional memory will be allocated. If n is smaller, the allocated memory may reduced.
+	Resize(n int)
 
 	// NewArray creates a new array from the memory buffers used
 	// by the builder and resets the Builder so it can be used to build

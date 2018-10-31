@@ -246,6 +246,32 @@ func NewTable(schema *arrow.Schema, cols []Column, rows int64) *simpleTable {
 	return &tbl
 }
 
+// NewTableFromRecords returns a new basic, non-lazy in-memory table.
+//
+// NewTableFromRecords panics if the records and schema are inconsistent.
+func NewTableFromRecords(schema *arrow.Schema, recs []Record) *simpleTable {
+	arrs := make([]Interface, len(recs))
+	cols := make([]Column, len(schema.Fields()))
+
+	defer func(cols []Column) {
+		for i := range cols {
+			cols[i].Release()
+		}
+	}(cols)
+
+	for i := range cols {
+		field := schema.Field(i)
+		for j, rec := range recs {
+			arrs[j] = rec.Column(i)
+		}
+		chunk := NewChunked(field.Type, arrs)
+		cols[i] = *NewColumn(field, chunk)
+		chunk.Release()
+	}
+
+	return NewTable(schema, cols, -1)
+}
+
 func (tbl *simpleTable) Schema() *arrow.Schema { return tbl.schema }
 func (tbl *simpleTable) NumRows() int64        { return tbl.rows }
 func (tbl *simpleTable) NumCols() int64        { return int64(len(tbl.cols)) }
