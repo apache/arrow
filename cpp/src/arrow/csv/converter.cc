@@ -45,7 +45,7 @@ Status GenericConversionError(const std::shared_ptr<DataType>& type, const uint8
 }
 
 inline bool IsWhitespace(uint8_t c) {
-  if (ARROW_PREDICT_TRUE(c > 0x20)) {
+  if (ARROW_PREDICT_TRUE(c > ' ')) {
     return false;
   }
   return c == ' ' || c == '\t';
@@ -285,7 +285,8 @@ Status NumericConverter<T>::Convert(const BlockParser& parser, int32_t col_index
     // XXX should quoted values be allowed at all?
     value_type value;
     if (IsNull(data, size, quoted)) {
-      return builder.AppendNull();
+      builder.UnsafeAppendNull();
+      return Status::OK();
     }
     if (!std::is_same<BooleanType, T>::value) {
       // Skip trailing whitespace
