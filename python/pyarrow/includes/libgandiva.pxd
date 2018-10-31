@@ -20,12 +20,12 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-cdef extern from "gandiva/status.h" namespace "gandiva" nogil:
+cdef extern from "arrow/status.h" namespace "gandiva" nogil:
     # We can later add more of the common status factory methods as needed
     cdef GStatus GStatus_OK "Status::OK"()
     cdef GStatus GStatus_Invalid "Status::Invalid"()
 
-    cdef cppclass GStatus "gandiva::Status":
+    cdef cppclass GStatus "arrow::Status":
         GStatus()
 
         c_string ToString()

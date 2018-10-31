@@ -506,8 +506,8 @@ if (PYARROW_BUILD_GANDIVA)
 
   set(LINK_LIBS
     ${LINK_LIBS}
-    gandiva_shared)
-  
+    ${GANDIVA_SHARED_LIB})
+
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
 endif()
 
