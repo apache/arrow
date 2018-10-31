@@ -15,8 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-SUBDIRS =					\
-	arrow-glib				\
-	gandiva-glib				\
-	parquet-glib				\
-	plasma-glib
+class TestPlasmaClient < Test::Unit::TestCase
+  def setup
+    @store = nil
+    omit("Plasma is required") unless defined?(::Plasma)
+    @store = Helper::PlasmaStore.new
+    @store.start
+  end
+
+  def teardown
+    @store.stop if @store
+  end
+
+  def test_new
+    assert_nothing_raised do
+      Plasma::Client.new(@store.socket_path)
+    end
+  end
+end

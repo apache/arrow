@@ -142,6 +142,10 @@ if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
                     [parquet],
                     [HAVE_PARQUET=yes],
                     [HAVE_PARQUET=no])
+  PKG_CHECK_MODULES([PLASMA],
+                    [plasma],
+                    [HAVE_PLASMA=yes],
+                    [HAVE_PLASMA=no])
 else
   USE_ARROW_BUILD_DIR=yes
 
@@ -196,6 +200,17 @@ else
   fi
   AC_SUBST(PARQUET_CFLAGS)
   AC_SUBST(PARQUET_LIBS)
+
+  PLASMA_CFLAGS=""
+  if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/plasma/plasma.pc"; then
+    HAVE_PLASMA=yes
+    PLASMA_LIBS="-lplasma"
+  else
+    HAVE_PLASMA=no
+    PLASMA_LIBS=""
+  fi
+  AC_SUBST(PLASMA_CFLAGS)
+  AC_SUBST(PLASMA_LIBS)
 fi
 
 AM_CONDITIONAL([USE_ARROW_BUILD_DIR],
@@ -211,14 +226,19 @@ if test "$HAVE_ARROW_GPU" = "yes"; then
   AC_DEFINE(HAVE_ARROW_GPU, [1], [Define to 1 if Apache Arrow supports GPU.])
 fi
 
+AM_CONDITIONAL([HAVE_GANDIVA], [test "$HAVE_GANDIVA" = "yes"])
+if test "$HAVE_GANDIVA" = "yes"; then
+  AC_DEFINE(HAVE_GANDIVA, [1], [Define to 1 if Gandiva exists.])
+fi
+
 AM_CONDITIONAL([HAVE_PARQUET], [test "$HAVE_PARQUET" = "yes"])
 if test "$HAVE_PARQUET" = "yes"; then
   AC_DEFINE(HAVE_PARQUET, [1], [Define to 1 if Apache Parquet exists.])
 fi
 
-AM_CONDITIONAL([HAVE_GANDIVA], [test "$HAVE_GANDIVA" = "yes"])
-if test "$HAVE_GANDIVA" = "yes"; then
-  AC_DEFINE(HAVE_GANDIVA, [1], [Define to 1 if Gandiva exists.])
+AM_CONDITIONAL([HAVE_PLASMA], [test "$HAVE_PLASMA" = "yes"])
+if test "$HAVE_PLASMA" = "yes"; then
+  AC_DEFINE(HAVE_PLASMA, [1], [Define to 1 if Plasma exists.])
 fi
 
 exampledir="\$(datadir)/arrow-glib/example"
@@ -236,6 +256,8 @@ AC_CONFIG_FILES([
   gandiva-glib/gandiva-glib.pc
   parquet-glib/Makefile
   parquet-glib/parquet-glib.pc
+  plasma-glib/Makefile
+  plasma-glib/plasma-glib.pc
   doc/Makefile
   doc/arrow-glib/Makefile
   doc/arrow-glib/entities.xml
@@ -243,6 +265,8 @@ AC_CONFIG_FILES([
   doc/gandiva-glib/entities.xml
   doc/parquet-glib/Makefile
   doc/parquet-glib/entities.xml
+  doc/plasma-glib/Makefile
+  doc/plasma-glib/entities.xml
   example/Makefile
   example/lua/Makefile
   tool/Makefile

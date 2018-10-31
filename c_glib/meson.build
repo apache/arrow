@@ -67,6 +67,7 @@ if arrow_cpp_build_lib_dir == ''
   arrow_gpu = dependency('arrow-gpu', required: false)
   gandiva = dependency('gandiva', required: false)
   parquet = dependency('parquet', required: false)
+  plasma = dependency('plasma', required: false)
 else
   base_include_directories += [
     include_directories(join_paths(arrow_cpp_build_dir, 'src')),
@@ -97,6 +98,9 @@ main(void)
   parquet = cpp_compiler.find_library('parquet',
                                       dirs: [arrow_cpp_build_lib_dir],
                                       required: false)
+  plasma = cpp_compiler.find_library('plasma',
+                                      dirs: [arrow_cpp_build_lib_dir],
+                                      required: false)
 endif
 
 subdir('arrow-glib')
@@ -109,6 +113,9 @@ endif
 if parquet.found()
   subdir('parquet-glib')
 endif
+if plasma.found()
+  subdir('plasma-glib')
+endif
 subdir('example')
 
 if get_option('gtk_doc')
@@ -118,6 +125,9 @@ if get_option('gtk_doc')
   endif
   if parquet.found()
     subdir('doc/parquet-glib')
+  endif
+  if plasma.found()
+    subdir('doc/plasma-glib')
   endif
 endif
 
@@ -129,4 +139,5 @@ test('unit test',
        'ARROW_GPU_GLIB_TYPELIB_DIR=@0@/arrow-gpu-glib'.format(meson.build_root()),
        'GANDIVA_GLIB_TYPELIB_DIR=@0@/gandiva-glib'.format(meson.build_root()),
        'PARQUET_GLIB_TYPELIB_DIR=@0@/parquet-glib'.format(meson.build_root()),
+       'PARQUET_GLIB_TYPELIB_DIR=@0@/plasma-glib'.format(meson.build_root()),
      ])
