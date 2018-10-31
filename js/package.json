@@ -96,7 +96,7 @@
     "ts-jest": "22.4.6",
     "ts-node": "7.0.1",
     "tslint": "5.11.0",
-    "typedoc": "0.13",
+    "typedoc": "0.12",
     "typescript": "3.0.3",
     "webpack": "4.21.0",
     "xml2js": "0.4.19"
