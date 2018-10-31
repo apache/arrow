@@ -331,7 +331,7 @@ func TestColumn(t *testing.T) {
 			if got, want := col.Data(), tc.chunk; got != want {
 				t.Fatalf("invalid chunked: got=%#v, want=%#v", got, want)
 			}
-			if got, want := col.Field(), tc.field; !reflect.DeepEqual(got, want) {
+			if got, want := col.Field(), tc.field; !got.Equal(want) {
 				t.Fatalf("invalid field: got=%#v, want=%#v", got, want)
 			}
 			if got, want := col.Name(), tc.field.Name; got != want {
@@ -446,14 +446,14 @@ func TestTable(t *testing.T) {
 	tbl.Retain()
 	tbl.Release()
 
-	if got, want := tbl.Schema(), schema; !reflect.DeepEqual(got, want) {
+	if got, want := tbl.Schema(), schema; !got.Equal(want) {
 		t.Fatalf("invalid schema: got=%#v, want=%#v", got, want)
 	}
 
-	if got, want := tbl.NumRows(), 10; got != want {
+	if got, want := tbl.NumRows(), int64(10); got != want {
 		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
 	}
-	if got, want := tbl.NumCols(), 2; got != want {
+	if got, want := tbl.NumCols(), int64(2); got != want {
 		t.Fatalf("invalid number of columns: got=%d, want=%d", got, want)
 	}
 	if got, want := tbl.Column(0).Name(), col1.Name(); got != want {
@@ -463,7 +463,7 @@ func TestTable(t *testing.T) {
 	for _, tc := range []struct {
 		schema *arrow.Schema
 		cols   []array.Column
-		rows   int
+		rows   int64
 		err    error
 	}{
 		{
@@ -551,6 +551,128 @@ func TestTable(t *testing.T) {
 			defer tbl.Release()
 			if got, want := tbl.NumRows(), tc.rows; got != want {
 				t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
+			}
+		})
+	}
+}
+
+func TestTableReader(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+		},
+		nil,
+	)
+	col1 := func() *array.Column {
+		chunk := func() *array.Chunked {
+			ib := array.NewInt32Builder(mem)
+			defer ib.Release()
+
+			ib.AppendValues([]int32{1, 2, 3}, nil)
+			i1 := ib.NewInt32Array()
+			defer i1.Release()
+
+			ib.AppendValues([]int32{4, 5, 6, 7, 8, 9, 10}, nil)
+			i2 := ib.NewInt32Array()
+			defer i2.Release()
+
+			c := array.NewChunked(
+				arrow.PrimitiveTypes.Int32,
+				[]array.Interface{i1, i2},
+			)
+			return c
+		}()
+		defer chunk.Release()
+
+		return array.NewColumn(schema.Field(0), chunk)
+	}()
+	defer col1.Release()
+
+	col2 := func() *array.Column {
+		chunk := func() *array.Chunked {
+			fb := array.NewFloat64Builder(mem)
+			defer fb.Release()
+
+			fb.AppendValues([]float64{1, 2, 3, 4, 5}, nil)
+			f1 := fb.NewFloat64Array()
+			defer f1.Release()
+
+			fb.AppendValues([]float64{6, 7}, nil)
+			f2 := fb.NewFloat64Array()
+			defer f2.Release()
+
+			fb.AppendValues([]float64{8, 9, 10}, nil)
+			f3 := fb.NewFloat64Array()
+			defer f3.Release()
+
+			c := array.NewChunked(
+				arrow.PrimitiveTypes.Float64,
+				[]array.Interface{f1, f2, f3},
+			)
+			return c
+		}()
+		defer chunk.Release()
+
+		return array.NewColumn(schema.Field(1), chunk)
+	}()
+	defer col2.Release()
+
+	cols := []array.Column{*col1, *col2}
+	tbl := array.NewTable(schema, cols, -1)
+	defer tbl.Release()
+
+	tr := array.NewTableReader(tbl, 1)
+	defer tr.Release()
+
+	tr.Retain()
+	tr.Release()
+
+	for tr.Next() {
+	}
+
+	for _, tc := range []struct {
+		sz   int64
+		n    int64
+		rows []int64
+	}{
+		{sz: -1, n: 4, rows: []int64{3, 2, 2, 3}},
+		{sz: +0, n: 4, rows: []int64{3, 2, 2, 3}},
+		{sz: +1, n: 10, rows: []int64{1, 1, 1, 1, 1, 1, 1, 1, 1, 1}},
+		{sz: +2, n: 6, rows: []int64{2, 1, 2, 2, 2, 1}},
+	} {
+		t.Run(fmt.Sprintf("chunksz=%d", tc.sz), func(t *testing.T) {
+			tr := array.NewTableReader(tbl, tc.sz)
+			defer tr.Release()
+
+			if got, want := tr.Schema(), tbl.Schema(); !got.Equal(want) {
+				t.Fatalf("invalid schema: got=%#v, want=%#v", got, want)
+			}
+
+			var (
+				n   int64
+				sum int64
+			)
+			for tr.Next() {
+				rec := tr.Record()
+				if got, want := rec.Schema(), tbl.Schema(); !got.Equal(want) {
+					t.Fatalf("invalid schema: got=%#v, want=%#v", got, want)
+				}
+				if got, want := rec.NumRows(), tc.rows[n]; got != want {
+					t.Fatalf("invalid number of rows[%d]: got=%d, want=%d", n, got, want)
+				}
+				n++
+				sum += rec.NumRows()
+			}
+
+			if got, want := n, tc.n; got != want {
+				t.Fatalf("invalid number of iterations: got=%d, want=%d", got, want)
+			}
+			if sum != tbl.NumRows() {
+				t.Fatalf("invalid number of rows iterated over: got=%d, want=%d", sum, tbl.NumRows())
 			}
 		})
 	}
