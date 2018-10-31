@@ -781,6 +781,14 @@ struct Converter_Time {
   int32_t multiplier_;
 };
 
+template <typename value_type>
+struct Converter_TimeStamp {
+  Converter_TimeStamp(int64_t n, int32_t multiplier)
+    : data(no_init(n)), multiplier_(multiplier) {
+    data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
+  }
+};
+
 struct Converter_Int64 {
   Converter_Int64(R_xlen_t n) : data(no_init(n)) { data.attr("class") = "integer64"; }
 
@@ -951,6 +959,12 @@ SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
           static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::MICRO
               ? 1000000
               : 1000000000);
+
+    case Type::TIMESTAMP:
+      return ArrayVector_To_Vector<Converter_TimeStamp<int64_t>>(
+        array, static_cast<TimeType*>(array->type().get())->unit() == TimeUnit::MICRO
+      ? 1000000
+      : 1000000000);
 
     case Type::INT64:
       return ArrayVector_To_Vector<Converter_Int64>(n, arrays);
