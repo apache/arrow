@@ -55,6 +55,41 @@ if [ -z "${BINTRAY_PASSWORD}" ]; then
   exit 1
 fi
 
+docker_run() {
+  local uid=$(id -u)
+  local gid=$(id -g)
+  docker \
+    run \
+    --rm \
+    --tty \
+    --interactive \
+    --user ${uid}:${gid} \
+    --volume "$PWD":/host \
+    ${docker_image_name} \
+    bash -c "cd /host && $*"
+}
+
+docker_run_gpg_ready() {
+  local gpg_agent_socket_dir="$(gpgconf --list-dir socketdir)"
+  local uid=$(id -u)
+  local gid=$(id -g)
+  local commands="groupadd --gid ${gid} ${USER}"
+  commands="${commands} && useradd --uid ${uid} --gid ${gid} ${USER}"
+  commands="${commands} && chown ${USER}: /run/user/${uid}"
+  commands="${commands} && cd /host"
+  commands="${commands} && sudo -u ${USER} -H $*"
+  docker \
+    run \
+    --rm \
+    --tty \
+    --interactive \
+    --volume "$PWD":/host \
+    --volume "${HOME}/.gnupg:/home/${USER}/.gnupg:ro" \
+    --volume "${gpg_agent_socket_dir}:/run/user/${uid}/gnupg:ro" \
+    ${docker_image_name} \
+    bash -c "${commands}"
+}
+
 jq() {
   docker \
     run \
@@ -152,6 +187,11 @@ upload_deb() {
   ensure_version ${version} ${rc} ${distribution}
 
   for base_path in *; do
+    case ${base_path} in
+      *.dsc|*.changes)
+        docker_run_gpg_ready debsign -k${gpg_key_id} ${base_path}
+        ;;
+    esac
     upload_file \
       ${version} \
       ${rc} \
@@ -159,17 +199,6 @@ upload_deb() {
       ${base_path} \
       pool/${code_name}/main/a/apache-arrow/${base_path}
   done
-}
-
-apt_ftparchive() {
-  docker \
-    run \
-    --rm \
-    --tty \
-    --interactive \
-    --volume "$PWD":/host \
-    ${docker_image_name} \
-    bash -c "cd /host && apt-ftparchive $*"
 }
 
 upload_apt() {
@@ -205,21 +234,21 @@ upload_apt() {
     local dist=dists/${code_name}/main
     rm -rf dists
     mkdir -p ${dist}/{source,binary-amd64}
-    apt_ftparchive \
+    docker_run apt-ftparchive \
       sources pool/${code_name} > \
       dists/${code_name}/main/source/Sources
     gzip --keep dists/${code_name}/main/source/Sources
     xz --keep dists/${code_name}/main/source/Sources
-    apt_ftparchive \
+    docker_run apt-ftparchive \
       packages pool/${code_name} > \
       dists/${code_name}/main/binary-amd64/Packages
     gzip --keep dists/${code_name}/main/binary-amd64/Packages
     xz --keep dists/${code_name}/main/binary-amd64/Packages
-    apt_ftparchive \
+    docker_run apt-ftparchive \
       contents pool/${code_name} > \
       dists/${code_name}/main/Contents-amd64
     gzip --keep dists/${code_name}/main/Contents-amd64
-    apt_ftparchive \
+    docker_run apt-ftparchive \
       release \
       -o "APT::FTPArchive::Release::Origin=Apache\\ Arrow" \
       -o "APT::FTPArchive::Release::Label=Apache\\ Arrow" \
@@ -252,21 +281,6 @@ upload_apt() {
   rm -rf "$tmp_dir"
 }
 
-rpm() {
-  local gpg_agent_volume="$(dirname $(gpgconf --list-dir socketdir))"
-  docker \
-    run \
-    --rm \
-    --tty \
-    --interactive \
-    --user $(id -u):$(id -g) \
-    --volume "$PWD":/host \
-    --volume "${HOME}/.gnupg:/.gnupg:ro" \
-    --volume "${gpg_agent_volume}:${gpg_agent_volume}:ro" \
-    ${docker_image_name} \
-    bash -c "cd /host && rpm $*"
-}
-
 upload_rpm() {
   local version=$1
   local rc=$2
@@ -288,8 +302,7 @@ upload_rpm() {
         ;;
     esac
     upload_path=${upload_path}/${rpm_path}
-    # TODO: Done in crossbow?
-    rpm \
+    docker_run_gpg_ready rpm \
       -D "_gpg_name\\ ${gpg_key_id}" \
       --addsign \
       ${rpm_path}
@@ -301,17 +314,6 @@ upload_rpm() {
       ${upload_path}
     # TODO: Re-compute checksum and upload
   done
-}
-
-createrepo() {
-  docker \
-    run \
-    --rm \
-    --tty \
-    --interactive \
-    --volume "$PWD":/host \
-    ${docker_image_name} \
-    bash -c "cd /host && createrepo $*"
 }
 
 upload_yum() {
@@ -340,7 +342,7 @@ upload_yum() {
   for version_dir in $(find . -mindepth 1 -maxdepth 1 -type d); do
     for arch_dir in ${version_dir}/*; do
       mkdir -p ${arch_dir}/repodata/
-      createrepo ${arch_dir}
+      docker_run createrepo ${arch_dir}
       for repo_path in ${arch_dir}/repodata/*; do
         upload_file \
           ${version} \

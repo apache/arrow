@@ -27,8 +27,10 @@ RUN \
   apt install -y -V ${quiet} \
     apt-utils \
     createrepo \
+    devscripts \
     gpg \
     jq \
-    rpm && \
+    rpm \
+    sudo && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
