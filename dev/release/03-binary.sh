@@ -261,7 +261,7 @@ upload_apt() {
   local tmp_dir=tmp/${distribution}
   rm -rf ${tmp_dir}
   mkdir -p ${tmp_dir}
-  pushd "${tmp_dir}"
+  pushd ${tmp_dir}
 
   download_files ${version} ${rc} ${distribution}
 
@@ -330,7 +330,7 @@ upload_apt() {
   popd
 
   popd
-  rm -rf "$tmp_dir"
+  rm -rf ${tmp_dir}
 }
 
 upload_rpm() {
@@ -377,7 +377,7 @@ upload_yum() {
   local tmp_dir=tmp/${distribution}
   rm -rf ${tmp_dir}
   mkdir -p ${tmp_dir}
-  pushd "${tmp_dir}"
+  pushd ${tmp_dir}
 
   download_files ${version} ${rc} ${distribution}
 
@@ -407,7 +407,7 @@ upload_yum() {
   popd
 
   popd
-  rm -rf "$tmp_dir"
+  rm -rf ${tmp_dir}
 }
 
 upload_python() {
@@ -443,7 +443,7 @@ for dir in *; do
   is_deb=no
   is_rpm=no
   is_python=no
-  case "$dir" in
+  case ${dir} in
     debian-*)
       distribution=debian
       code_name=$(echo ${dir} | sed -e 's/^debian-//')
