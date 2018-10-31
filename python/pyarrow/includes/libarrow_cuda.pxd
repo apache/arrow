@@ -68,6 +68,8 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
                            void* out) const
         CStatus CopyFromHost(const int64_t position, const void* data,
                              int64_t nbytes)
+        CStatus CopyFromDevice(const int64_t position, const void* data,
+                               int64_t nbytes)
         CStatus ExportForIpc(shared_ptr[CCudaIpcMemHandle]* handle)
         shared_ptr[CCudaContext] context() const
 

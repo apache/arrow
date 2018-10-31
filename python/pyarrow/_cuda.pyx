@@ -200,7 +200,7 @@ cdef class Context:
 
         Parameters
         ----------
-        data : {HostBuffer, Buffer, array-like}
+        data : {CudaBuffer, HostBuffer, Buffer, array-like}
           Specify data to be copied to device buffer.
         offset : int
           Specify the offset of input buffer for device data
@@ -214,13 +214,11 @@ cdef class Context:
         cbuf : CudaBuffer
           Device buffer with copied data.
         """
-        if pyarrow_is_cudabuffer(data):
-            raise NotImplementedError('copying data from device to device')
-
-        buf = as_buffer(data)
+        is_host_data = not pyarrow_is_cudabuffer(data)
+        buf = as_buffer(data) if is_host_data else data
 
         bsize = buf.size
-        if offset < 0 or offset >= bsize:
+        if offset < 0 or (bsize and offset >= bsize):
             raise ValueError('offset argument is out-of-range')
         if size < 0:
             size = bsize - offset
@@ -232,7 +230,10 @@ cdef class Context:
             buf = buf.slice(offset, size)
 
         result = self.new_buffer(size)
-        result.copy_from_host(buf, position=0, nbytes=size)
+        if is_host_data:
+            result.copy_from_host(buf, position=0, nbytes=size)
+        else:
+            result.copy_from_device(buf, position=0, nbytes=size)
         return result
 
 
@@ -384,7 +385,8 @@ cdef class CudaBuffer(Buffer):
           Output buffer in host.
 
         """
-        if position < 0 or position > self.size:
+        if position < 0 or (self.size and position > self.size) \
+           or (self.size == 0 and position != 0):
             raise ValueError('position argument is out-of-range')
         cdef int64_t nbytes_
         if buf is None:
@@ -467,6 +469,58 @@ cdef class CudaBuffer(Buffer):
                          CopyFromHost(position_, buf_.get().data(), nbytes_))
         return nbytes_
 
+    def copy_from_device(self, buf, int64_t position=0, int64_t nbytes=-1):
+        """Copy data from device to device.
+
+        The destination device buffer must be pre-allocated within the
+        same context as source device buffer.
+
+        Parameters
+        ----------
+        buf : CudaBuffer
+          Specify source device buffer.
+        position : int
+          Specify the starting position of the copy in devive buffer.
+          Default: 0.
+        nbytes : int
+          Specify the number of bytes to copy. Default: -1 (all from
+          source until device buffer, starting from position, is full)
+
+        Returns
+        -------
+        nbytes : int
+          Number of bytes copied.
+
+        """
+        if self.context.handle != buf.context.handle:
+            raise ValueError('device source and destination buffers must be '
+                             'within the same context')
+        if position < 0 or position > self.size:
+            raise ValueError('position argument is out-of-range')
+        cdef int64_t nbytes_
+
+        if nbytes < 0:
+            # copy from source device buffer to device buffer starting
+            # from position until device buffer is full
+            nbytes_ = min(self.size - position, buf.size)
+        else:
+            if nbytes > buf.size:
+                raise ValueError(
+                    'requested more to copy than available from device buffer')
+            if nbytes > self.size - position:
+                raise ValueError(
+                    'requested more to copy than available in device buffer')
+            # copy nbytes from source device buffer to device buffer
+            # starting from position
+            nbytes_ = nbytes
+
+        cdef shared_ptr[CCudaBuffer] buf_ = pyarrow_unwrap_cudabuffer(buf)
+        cdef int64_t position_ = position
+        with nogil:
+            check_status(self.cuda_buffer.get().
+                         CopyFromDevice(position_, buf_.get().data(), nbytes_))
+        return nbytes_
+
     def export_for_ipc(self):
         """
         Expose this device buffer as IPC memory which can be used in other
@@ -500,14 +554,17 @@ cdef class CudaBuffer(Buffer):
           Specify offset from the start of device buffer to slice
         length : int, default None
           Specify the length of slice (default is until end of device
-          buffer starting from offset)
+          buffer starting from offset). If the length is larger than
+          the data available, the returned slice will have a size of
+          the available data starting from the offset.
 
         Returns
         -------
         sliced : CudaBuffer
           Zero-copy slice of device buffer.
+
         """
-        if offset < 0 or offset >= self.size:
+        if offset < 0 or (self.size and offset >= self.size):
             raise ValueError('offset argument is out-of-range')
         cdef int64_t offset_ = offset
         cdef int64_t size
@@ -516,8 +573,7 @@ cdef class CudaBuffer(Buffer):
         elif offset + length <= self.size:
             size = length
         else:
-            raise ValueError(
-                'requested larger slice than available in device buffer')
+            size = self.size - offset
         parent = pyarrow_unwrap_cudabuffer(self)
         return pyarrow_wrap_cudabuffer(make_shared[CCudaBuffer](parent,
                                                                 offset_, size))
