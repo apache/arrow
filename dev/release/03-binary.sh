@@ -496,14 +496,14 @@ fi
 
 echo "Success! The release candidate binaries are available here:"
 if [ ${have_debian} = "yes" ]; then
-  echo "  https://binray.com/apache/arrow/debian-rc/${version}-rc${rc}"
+  echo "  https://bintray.com/apache/arrow/debian-rc/${version}-rc${rc}"
 fi
 if [ ${have_ubuntu} = "yes" ]; then
-  echo "  https://binray.com/apache/arrow/ubuntu-rc/${version}-rc${rc}"
+  echo "  https://bintray.com/apache/arrow/ubuntu-rc/${version}-rc${rc}"
 fi
 if [ ${have_centos} = "yes" ]; then
-  echo "  https://binray.com/apache/arrow/centos-rc/${version}-rc${rc}"
+  echo "  https://bintray.com/apache/arrow/centos-rc/${version}-rc${rc}"
 fi
 if [ ${have_python} = "yes" ]; then
-  echo "  https://binray.com/apache/arrow/python-rc/${version}-rc${rc}"
+  echo "  https://bintray.com/apache/arrow/python-rc/${version}-rc${rc}"
 fi
