@@ -155,7 +155,7 @@ for target in debian ubuntu centos python; do
 done
 
 echo "Success! The release binaries are available here:"
-echo "  https://binray.com/apache/arrow/debian/${version}"
-echo "  https://binray.com/apache/arrow/ubuntu/${version}"
-echo "  https://binray.com/apache/arrow/centos/${version}"
-echo "  https://binray.com/apache/arrow/python/${version}"
+echo "  https://bintray.com/apache/arrow/debian/${version}"
+echo "  https://bintray.com/apache/arrow/ubuntu/${version}"
+echo "  https://bintray.com/apache/arrow/centos/${version}"
+echo "  https://bintray.com/apache/arrow/python/${version}"
