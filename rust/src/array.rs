@@ -813,13 +813,13 @@ mod tests {
     fn test_list_array() {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
-            .len(7)
+            .len(8)
             .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
             .build();
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
-        let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
+        let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
 
         // Construct a list array from the above two
         let list_data_type = DataType::List(Box::new(DataType::Int32));
@@ -835,7 +835,7 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
-        assert_eq!(5, list_array.value_offset(2));
+        assert_eq!(6, list_array.value_offset(2));
         assert_eq!(2, list_array.value_length(2));
         for i in 0..3 {
             assert!(list_array.is_valid(i as i64));
@@ -856,7 +856,7 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
-        assert_eq!(5, list_array.value_offset(1));
+        assert_eq!(6, list_array.value_offset(1));
         assert_eq!(2, list_array.value_length(1));
     }
 
@@ -864,7 +864,7 @@ mod tests {
     #[should_panic(expected = "ListArray data should contain a single buffer only (value offsets)")]
     fn test_list_array_invalid_buffer_len() {
         let value_data = ArrayData::builder(DataType::Int32)
-            .len(7)
+            .len(8)
             .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
             .build();
         let list_data_type = DataType::List(Box::new(DataType::Int32));
@@ -891,7 +891,7 @@ mod tests {
     #[should_panic(expected = "offsets do not start at zero")]
     fn test_list_array_invalid_value_offset_start() {
         let value_data = ArrayData::builder(DataType::Int32)
-            .len(7)
+            .len(8)
             .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
             .build();
 
@@ -910,11 +910,11 @@ mod tests {
     #[should_panic(expected = "inconsistent offsets buffer and values array")]
     fn test_list_array_invalid_value_offset_end() {
         let value_data = ArrayData::builder(DataType::Int32)
-            .len(7)
+            .len(8)
             .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
             .build();
 
-        let value_offsets = Buffer::from(&[0, 2, 5, 8].to_byte_slice());
+        let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
 
         let list_data_type = DataType::List(Box::new(DataType::Int32));
         let list_data = ArrayData::builder(list_data_type.clone())
