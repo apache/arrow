@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestClient < Test::Unit::TestCase
+class TestPlasmaClient < Test::Unit::TestCase
   def setup
     omit("Plasma is required") unless defined?(::Plasma)
     plasma_store_server_path = `pkg-config --variable=executable plasma`.chomp
