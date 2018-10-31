@@ -52,27 +52,16 @@ libgandiva_glib_la_LIBADD =			\
 	../arrow-glib/libarrow-glib.la
 
 libgandiva_glib_la_headers =			\
-	error.h					\
 	expression.h				\
 	gandiva-glib.h				\
 	projector.h
 
-libgandiva_glib_la_generated_headers =		\
-	gandiva-enums.h
-
-libgandiva_glib_la_generated_sources =		\
-	gandiva-enums.c				\
-	$(libgandiva_glib_la_generated_headers)
-
 libgandiva_glib_la_sources =			\
-	error.cpp				\
 	expression.cpp				\
 	projector.cpp				\
-	$(libgandiva_glib_la_headers)		\
-	$(libgandiva_glib_la_generated_sources)
+	$(libgandiva_glib_la_headers)
 
 libgandiva_glib_la_cpp_headers =		\
-	error.hpp				\
 	expression.hpp				\
 	gandiva-glib.hpp			\
 	projector.hpp
@@ -81,49 +70,10 @@ libgandiva_glib_la_SOURCES =			\
 	$(libgandiva_glib_la_sources)		\
 	$(libgandiva_glib_la_cpp_headers)
 
-BUILT_SOURCES =					\
-	$(libgandiva_glib_la_genearted_headers)	\
-	$(libgandiva_glib_la_genearted_sources)	\
-	stamp-gandiva-enums.c			\
-	stamp-gandiva-enums.h
-
-DISTCLEANFILES +=				\
-	stamp-gandiva-enums.c			\
-	stamp-gandiva-enums.h
-
-EXTRA_DIST +=					\
-	gandiva-enums.c.template		\
-	gandiva-enums.h.template
-
-gandiva-enums.h: stamp-gandiva-enums.h
-	@true
-stamp-gandiva-enums.h: $(libgandiva_glib_la_headers) gandiva-enums.h.template
-	$(AM_V_GEN)					\
-	  (cd $(srcdir) &&				\
-	   $(GLIB_MKENUMS)				\
-	     --identifier-prefix GGandiva		\
-	     --symbol-prefix ggandiva			\
-	     --template gandiva-enums.h.template	\
-	     $(libgandiva_glib_la_headers)) > gandiva-enums.h
-	touch $@
-
-gandiva-enums.c: stamp-gandiva-enums.c
-	@true
-stamp-gandiva-enums.c: $(libgandiva_glib_la_headers) gandiva-enums.c.template
-	$(AM_V_GEN)					\
-	  (cd $(srcdir) &&				\
-	   $(GLIB_MKENUMS)				\
-	     --identifier-prefix GGandiva		\
-	     --symbol-prefix ggandiva			\
-	     --template gandiva-enums.c.template	\
-	     $(libgandiva_glib_la_headers)) > gandiva-enums.c
-	touch $@
-
 gandiva_glib_includedir = $(includedir)/gandiva-glib
 gandiva_glib_include_HEADERS =			\
 	$(libgandiva_glib_la_headers)		\
-	$(libgandiva_glib_la_cpp_headers)	\
-	$(libgandiva_glib_la_generated_headers)
+	$(libgandiva_glib_la_cpp_headers)
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA =				\

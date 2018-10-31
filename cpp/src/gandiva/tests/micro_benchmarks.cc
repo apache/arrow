@@ -18,8 +18,8 @@
 
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "gandiva/projector.h"
-#include "gandiva/status.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tests/timed_evaluate.h"
 #include "gandiva/tree_expr_builder.h"
@@ -214,6 +214,35 @@ TEST_F(TestBenchmarks, TimedTestFilterLike) {
   EXPECT_LE(elapsed_millis, 600 * tolerance_ratio);
 }
 
+TEST_F(TestBenchmarks, TimedTestAllocs) {
+  // schema for input fields
+  auto field_a = field("a", arrow::utf8());
+  auto schema = arrow::schema({field_a});
+
+  // output field
+  auto field_res = field("res", int32());
+
+  // Build expression
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto upper = TreeExprBuilder::MakeFunction("upper", {node_a}, utf8());
+  auto length = TreeExprBuilder::MakeFunction("octet_length", {upper}, int32());
+  auto expr = TreeExprBuilder::MakeExpression(length, field_res);
+
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok());
+
+  int64_t elapsed_millis;
+  FastUtf8DataGenerator data_generator(64);
+  ProjectEvaluator evaluator(projector);
+
+  status = TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
+      elapsed_millis);
+  ASSERT_TRUE(status.ok());
+  std::cout << "Time taken for length(upper(utf8)) " << elapsed_millis << " ms\n";
+}
+
 // following two tests are for benchmark optimization of
 // in expr. will be used in follow-up PRs to optimize in expr.
 
@@ -249,10 +278,10 @@ TEST_F(TestBenchmarks, TimedTestMultiOr) {
   FastUtf8DataGenerator data_generator(250);
   ProjectEvaluator evaluator(projector);
   status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
+      schema, evaluator, data_generator, pool_, 100 * THOUSAND, 16 * THOUSAND,
       elapsed_millis);
   ASSERT_TRUE(status.ok());
-  std::cout << "Time taken for BooleanOr " << elapsed_millis << " ms\n";
+  std::cout << "Time taken for BooleanOr (100K) " << elapsed_millis << " ms\n";
 }
 
 TEST_F(TestBenchmarks, TimedTestInExpr) {
@@ -285,11 +314,11 @@ TEST_F(TestBenchmarks, TimedTestInExpr) {
   ProjectEvaluator evaluator(projector);
 
   status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
+      schema, evaluator, data_generator, pool_, 100 * THOUSAND, 16 * THOUSAND,
       elapsed_millis);
 
   ASSERT_TRUE(status.ok());
-  std::cout << "Time taken for BooleanIn " << elapsed_millis << " ms\n";
+  std::cout << "Time taken for BooleanIn (100K) " << elapsed_millis << " ms\n";
 }
 
 }  // namespace gandiva

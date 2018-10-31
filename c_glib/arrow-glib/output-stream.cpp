@@ -322,6 +322,10 @@ namespace garrow {
       return output_stream_;
     }
 
+    bool closed() const override {
+      return static_cast<bool>(g_output_stream_is_closed(output_stream_));
+    }
+
     arrow::Status Close() override {
       GError *error = NULL;
       if (g_output_stream_close(output_stream_, NULL, &error)) {

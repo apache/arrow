@@ -56,6 +56,12 @@ test:
     - pyarrow.parquet
     - pyarrow.plasma  # [unix]
 
+  requires:
+    - pytest
+
+  commands:
+    - pytest --pyargs pyarrow
+
 about:
   home: http://github.com/apache/arrow
   license: Apache 2.0

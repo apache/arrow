@@ -19,6 +19,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -44,7 +45,7 @@ Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
                            std::unique_ptr<LLVMGenerator>* llvm_generator) {
   std::unique_ptr<LLVMGenerator> llvmgen_obj(new LLVMGenerator());
   Status status = Engine::Make(config, &(llvmgen_obj->engine_));
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   *llvm_generator = std::move(llvmgen_obj);
   return Status::OK();
@@ -57,12 +58,12 @@ Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr out
   ExprDecomposer decomposer(function_registry_, annotator_);
   ValueValidityPairPtr value_validity;
   auto status = decomposer.Decompose(*expr->root(), &value_validity);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   // Generate the IR function for the decomposed expression.
   llvm::Function* ir_function = nullptr;
   status = CodeGenExprValue(value_validity->value_expr(), output, idx, &ir_function);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   std::unique_ptr<CompiledExpr> compiled_expr(
       new CompiledExpr(value_validity, output, ir_function));
@@ -77,12 +78,12 @@ Status LLVMGenerator::Build(const ExpressionVector& exprs) {
   for (auto& expr : exprs) {
     auto output = annotator_.AddOutputFieldDescriptor(expr->result());
     status = Add(expr, output);
-    GANDIVA_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(status);
   }
 
   // optimise, compile and finalize the module
   status = engine_->FinalizeModule(optimise_ir_, dump_ir_);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   // setup the jit functions for each expression.
   for (auto& compiled_expr : compiled_exprs_) {
@@ -232,8 +233,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
   engine_->AddFunctionToCompile(func_name);
   *fn = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, func_name,
                                module());
-  GANDIVA_RETURN_FAILURE_IF_FALSE((*fn != nullptr),
-                                  Status::CodeGenError("Error creating function."));
+  ARROW_RETURN_FAILURE_IF_FALSE((*fn != nullptr),
+                                Status::CodeGenError("Error creating function."));
   // Name the arguments
   llvm::Function::arg_iterator args = (*fn)->arg_begin();
   llvm::Value* arg_addrs = &*args;
@@ -285,6 +286,15 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
     builder->CreateStore(output_value->data(), slot_offset);
   }
   ADD_TRACE("saving result " + output->Name() + " value %T", output_value->data());
+
+  if (visitor.has_arena_allocs()) {
+    // Reset allocations to avoid excessive memory usage. Once the result is copied to
+    // the output vector (store instruction above), any memory allocations in this
+    // iteration of the loop are no longer needed.
+    std::vector<llvm::Value*> reset_args;
+    reset_args.push_back(arg_context_ptr);
+    AddFunctionCall("gdv_fn_context_arena_reset", types()->void_type(), reset_args);
+  }
 
   // check loop_var
   loop_var->addIncoming(types()->i64_constant(0), loop_entry);
@@ -395,7 +405,8 @@ LLVMGenerator::Visitor::Visitor(LLVMGenerator* generator, llvm::Function* functi
       arg_addrs_(arg_addrs),
       arg_local_bitmaps_(arg_local_bitmaps),
       arg_context_ptr_(arg_context_ptr),
-      loop_var_(loop_var) {
+      loop_var_(loop_var),
+      has_arena_allocs_(false) {
   ADD_VISITOR_TRACE("Iteration %T", loop_var);
 }
 
@@ -559,37 +570,66 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
 }
 
 void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
-  ADD_VISITOR_TRACE("visit NonNullableFunc base function " +
-                    dex.func_descriptor()->name());
-  LLVMTypes* types = generator_->types();
+  const std::string& function_name = dex.func_descriptor()->name();
+  ADD_VISITOR_TRACE("visit NonNullableFunc base function " + function_name);
 
   const NativeFunction* native_function = dex.native_function();
 
   // build the function params (ignore validity).
   auto params = BuildParams(dex.function_holder().get(), dex.args(), false,
-                            native_function->needs_context());
+                            native_function->NeedsContext());
 
-  llvm::Type* ret_type = types->IRType(native_function->signature().ret_type()->id());
+  if (native_function->CanReturnErrors()) {
+    // slow path : if a function can return errors, skip invoking the function
+    // unless all of the input args are valid. Otherwise, it can cause spurious errors.
 
-  llvm::Value* value =
-      generator_->AddFunctionCall(native_function->pc_name(), ret_type, params);
-  result_.reset(new LValue(value));
+    llvm::IRBuilder<>* builder = ir_builder();
+    LLVMTypes* types = generator_->types();
+    auto arrow_type_id = native_function->signature().ret_type()->id();
+    auto result_type = types->IRType(arrow_type_id);
+
+    // Build combined validity of the args.
+    llvm::Value* is_valid = types->true_constant();
+    for (auto& pair : dex.args()) {
+      auto arg_validity = BuildCombinedValidity(pair->validity_exprs());
+      is_valid = builder->CreateAnd(is_valid, arg_validity, "validityBitAnd");
+    }
+
+    // then block
+    auto then_lambda = [&] {
+      ADD_VISITOR_TRACE("fn " + function_name +
+                        " can return errors : all args valid, invoke fn");
+      return BuildFunctionCall(native_function, &params);
+    };
+
+    // else block
+    auto else_lambda = [&] {
+      ADD_VISITOR_TRACE("fn " + function_name +
+                        " can return errors : not all args valid, return dummy value");
+      llvm::Value* else_value = types->NullConstant(result_type);
+      llvm::Value* else_value_len = nullptr;
+      if (arrow::is_binary_like(arrow_type_id)) {
+        else_value_len = types->i32_constant(0);
+      }
+      return std::make_shared<LValue>(else_value, else_value_len);
+    };
+
+    result_ = BuildIfElse(is_valid, then_lambda, else_lambda, result_type);
+  } else {
+    // fast path : invoke function without computing validities.
+    result_ = BuildFunctionCall(native_function, &params);
+  }
 }
 
 void LLVMGenerator::Visitor::Visit(const NullableNeverFuncDex& dex) {
   ADD_VISITOR_TRACE("visit NullableNever base function " + dex.func_descriptor()->name());
-  LLVMTypes* types = generator_->types();
-
   const NativeFunction* native_function = dex.native_function();
 
   // build function params along with validity.
   auto params = BuildParams(dex.function_holder().get(), dex.args(), true,
-                            native_function->needs_context());
+                            native_function->NeedsContext());
 
-  llvm::Type* ret_type = types->IRType(native_function->signature().ret_type()->id());
-  llvm::Value* value =
-      generator_->AddFunctionCall(native_function->pc_name(), ret_type, params);
-  result_.reset(new LValue(value));
+  result_ = BuildFunctionCall(native_function, &params);
 }
 
 void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
@@ -602,16 +642,14 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
 
   // build function params along with validity.
   auto params = BuildParams(dex.function_holder().get(), dex.args(), true,
-                            native_function->needs_context());
+                            native_function->NeedsContext());
 
   // add an extra arg for validity (alloced on stack).
   llvm::AllocaInst* result_valid_ptr =
       new llvm::AllocaInst(types->i8_type(), 0, "result_valid", entry_block_);
   params.push_back(result_valid_ptr);
 
-  llvm::Type* ret_type = types->IRType(native_function->signature().ret_type()->id());
-  llvm::Value* value =
-      generator_->AddFunctionCall(native_function->pc_name(), ret_type, params);
+  result_ = BuildFunctionCall(native_function, &params);
 
   // load the result validity and truncate to i1.
   llvm::Value* result_valid_i8 = builder->CreateLoad(result_valid_ptr);
@@ -619,8 +657,6 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
 
   // set validity bit in the local bitmap.
   ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), result_valid);
-
-  result_.reset(new LValue(value));
 }
 
 void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
@@ -635,68 +671,45 @@ void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
   llvm::Value* validAndMatched =
       builder->CreateAnd(if_condition->data(), if_condition->validity(), "validAndMatch");
 
-  // Create blocks for the then, else and merge cases.
-  llvm::LLVMContext* context = generator_->context();
-  llvm::BasicBlock* then_bb = llvm::BasicBlock::Create(*context, "then", function_);
-  llvm::BasicBlock* else_bb = llvm::BasicBlock::Create(*context, "else", function_);
-  llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(*context, "merge", function_);
+  // then block
+  auto then_lambda = [&] {
+    ADD_VISITOR_TRACE("branch to then block");
+    LValuePtr then_lvalue = BuildValueAndValidity(dex.then_vv());
+    ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), then_lvalue->validity());
+    ADD_VISITOR_TRACE("IfExpression result validity %T in matching then",
+                      then_lvalue->validity());
+    return then_lvalue;
+  };
 
-  builder->CreateCondBr(validAndMatched, then_bb, else_bb);
+  // else block
+  auto else_lambda = [&] {
+    LValuePtr else_lvalue;
+    if (dex.is_terminal_else()) {
+      ADD_VISITOR_TRACE("branch to terminal else block");
 
-  // Emit the then block.
-  builder->SetInsertPoint(then_bb);
-  ADD_VISITOR_TRACE("branch to then block");
-  LValuePtr then_lvalue = BuildValueAndValidity(dex.then_vv());
-  ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), then_lvalue->validity());
-  ADD_VISITOR_TRACE("IfExpression result validity %T in matching then",
-                    then_lvalue->validity());
-  builder->CreateBr(merge_bb);
+      else_lvalue = BuildValueAndValidity(dex.else_vv());
+      // update the local bitmap with the validity.
+      ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), else_lvalue->validity());
+      ADD_VISITOR_TRACE("IfExpression result validity %T in terminal else",
+                        else_lvalue->validity());
+    } else {
+      ADD_VISITOR_TRACE("branch to non-terminal else block");
 
-  // refresh then_bb for phi (could have changed due to code generation of then_vv).
-  then_bb = builder->GetInsertBlock();
+      // this is a non-terminal else. let the child (nested if/else) handle validity.
+      auto value_expr = dex.else_vv().value_expr();
+      value_expr->Accept(*this);
+      else_lvalue = result();
+    }
+    return else_lvalue;
+  };
 
-  // Emit the else block.
-  builder->SetInsertPoint(else_bb);
-  LValuePtr else_lvalue;
-  if (dex.is_terminal_else()) {
-    ADD_VISITOR_TRACE("branch to terminal else block");
-
-    else_lvalue = BuildValueAndValidity(dex.else_vv());
-    // update the local bitmap with the validity.
-    ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), else_lvalue->validity());
-    ADD_VISITOR_TRACE("IfExpression result validity %T in terminal else",
-                      else_lvalue->validity());
-  } else {
-    ADD_VISITOR_TRACE("branch to non-terminal else block");
-
-    // this is a non-terminal else. let the child (nested if/else) handle validity.
-    auto value_expr = dex.else_vv().value_expr();
-    value_expr->Accept(*this);
-    else_lvalue = result();
+  // build the if-else condition.
+  auto result_type = types->IRType(dex.result_type()->id());
+  result_ = BuildIfElse(validAndMatched, then_lambda, else_lambda, result_type);
+  if (result_type == types->i8_ptr_type()) {
+    ADD_VISITOR_TRACE("IfElse result length %T", result_->length());
   }
-  builder->CreateBr(merge_bb);
-
-  // refresh else_bb for phi (could have changed due to code generation of else_vv).
-  else_bb = builder->GetInsertBlock();
-
-  // Emit the merge block.
-  builder->SetInsertPoint(merge_bb);
-  llvm::Type* result_llvm_type = types->DataVecType(dex.result_type());
-  llvm::PHINode* result_value = builder->CreatePHI(result_llvm_type, 2, "res_value");
-  result_value->addIncoming(then_lvalue->data(), then_bb);
-  result_value->addIncoming(else_lvalue->data(), else_bb);
-
-  llvm::PHINode* result_length = nullptr;
-  if (then_lvalue->length() != nullptr) {
-    result_length = builder->CreatePHI(types->i32_type(), 2, "res_length");
-    result_length->addIncoming(then_lvalue->length(), then_bb);
-    result_length->addIncoming(else_lvalue->length(), else_bb);
-
-    ADD_VISITOR_TRACE("IfExpression result length %T", result_length);
-  }
-  ADD_VISITOR_TRACE("IfExpression result value %T", result_value);
-
-  result_.reset(new LValue(result_value, result_length));
+  ADD_VISITOR_TRACE("IfElse result value %T", result_->data());
 }
 
 // Boolean AND
@@ -880,6 +893,52 @@ void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
   result_.reset(new LValue(value));
 }
 
+LValuePtr LLVMGenerator::Visitor::BuildIfElse(llvm::Value* condition,
+                                              std::function<LValuePtr()> then_func,
+                                              std::function<LValuePtr()> else_func,
+                                              llvm::Type* result_type) {
+  llvm::IRBuilder<>* builder = ir_builder();
+  llvm::LLVMContext* context = generator_->context();
+  LLVMTypes* types = generator_->types();
+
+  // Create blocks for the then, else and merge cases.
+  llvm::BasicBlock* then_bb = llvm::BasicBlock::Create(*context, "then", function_);
+  llvm::BasicBlock* else_bb = llvm::BasicBlock::Create(*context, "else", function_);
+  llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(*context, "merge", function_);
+
+  builder->CreateCondBr(condition, then_bb, else_bb);
+
+  // Emit the then block.
+  builder->SetInsertPoint(then_bb);
+  LValuePtr then_lvalue = then_func();
+  builder->CreateBr(merge_bb);
+
+  // refresh then_bb for phi (could have changed due to code generation of then_vv).
+  then_bb = builder->GetInsertBlock();
+
+  // Emit the else block.
+  builder->SetInsertPoint(else_bb);
+  LValuePtr else_lvalue = else_func();
+  builder->CreateBr(merge_bb);
+
+  // refresh else_bb for phi (could have changed due to code generation of else_vv).
+  else_bb = builder->GetInsertBlock();
+
+  // Emit the merge block.
+  builder->SetInsertPoint(merge_bb);
+  llvm::PHINode* result_value = builder->CreatePHI(result_type, 2, "res_value");
+  result_value->addIncoming(then_lvalue->data(), then_bb);
+  result_value->addIncoming(else_lvalue->data(), else_bb);
+
+  llvm::PHINode* result_length = nullptr;
+  if (result_type == types->i8_ptr_type()) {
+    result_length = builder->CreatePHI(types->i32_type(), 2, "res_length");
+    result_length->addIncoming(then_lvalue->length(), then_bb);
+    result_length->addIncoming(else_lvalue->length(), else_bb);
+  }
+  return std::make_shared<LValue>(result_value, result_length);
+}
+
 LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair& pair) {
   // generate code for value
   auto value_expr = pair.value_expr();
@@ -893,13 +952,40 @@ LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair&
   return std::make_shared<LValue>(value, length, validity);
 }
 
+LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
+                                                    std::vector<llvm::Value*>* params) {
+  auto arrow_return_type = func->signature().ret_type()->id();
+  auto llvm_return_type = generator_->types()->IRType(arrow_return_type);
+
+  // add extra arg for return length for variable len return types (alloced on stack).
+  llvm::AllocaInst* result_len_ptr = nullptr;
+  if (arrow::is_binary_like(arrow_return_type)) {
+    result_len_ptr = new llvm::AllocaInst(generator_->types()->i32_type(), 0,
+                                          "result_len", entry_block_);
+    params->push_back(result_len_ptr);
+    has_arena_allocs_ = true;
+  }
+
+  // Make the function call
+  llvm::IRBuilder<>* builder = ir_builder();
+  auto value = generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
+  auto value_len =
+      (result_len_ptr == nullptr) ? nullptr : builder->CreateLoad(result_len_ptr);
+  return std::make_shared<LValue>(value, value_len);
+}
+
 std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
     FunctionHolder* holder, const ValueValidityPairVector& args, bool with_validity,
     bool with_context) {
   LLVMTypes* types = generator_->types();
   std::vector<llvm::Value*> params;
 
-  // if the function has holder, add the holder pointer first.
+  // add context if required.
+  if (with_context) {
+    params.push_back(arg_context_ptr_);
+  }
+
+  // if the function has holder, add the holder pointer.
   if (holder != nullptr) {
     auto ptr = types->i64_constant((int64_t)holder);
     params.push_back(ptr);
@@ -923,11 +1009,6 @@ std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
       llvm::Value* validity_expr = BuildCombinedValidity(pair->validity_exprs());
       params.push_back(validity_expr);
     }
-  }
-
-  // add error holder if function can return error
-  if (with_context) {
-    params.push_back(arg_context_ptr_);
   }
 
   return params;

@@ -356,11 +356,12 @@ cdef class ResizableBuffer(Buffer):
 
 cdef class NativeFile:
     cdef:
-        shared_ptr[RandomAccessFile] rd_file
-        shared_ptr[OutputStream] wr_file
+        shared_ptr[InputStream] input_stream
+        shared_ptr[RandomAccessFile] random_access
+        shared_ptr[OutputStream] output_stream
         bint is_readable
         bint is_writable
-        readonly bint closed
+        bint is_seekable
         bint own_file
         object __weakref__
 
@@ -368,8 +369,14 @@ cdef class NativeFile:
     # extension classes are technically virtual in the C++ sense) we can expose
     # the arrow::io abstract file interfaces to other components throughout the
     # suite of Arrow C++ libraries
-    cdef read_handle(self, shared_ptr[RandomAccessFile]* file)
-    cdef write_handle(self, shared_ptr[OutputStream]* file)
+    cdef set_random_access_file(self, shared_ptr[RandomAccessFile] handle)
+    cdef set_input_stream(self, shared_ptr[InputStream] handle)
+    cdef set_output_stream(self, shared_ptr[OutputStream] handle)
+
+    cdef shared_ptr[RandomAccessFile] get_random_access_file(self) except *
+    cdef shared_ptr[InputStream] get_input_stream(self) except *
+    cdef shared_ptr[OutputStream] get_output_stream(self) except *
+
 
 cdef get_input_stream(object source, c_bool use_memory_map,
                       shared_ptr[InputStream]* reader)

@@ -100,6 +100,8 @@ class LLVMGenerator {
 
     LValuePtr result() { return result_; }
 
+    bool has_arena_allocs() { return has_arena_allocs_; }
+
    private:
     enum BufferType { kBufferTypeValidity = 0, kBufferTypeData, kBufferTypeOffsets };
 
@@ -118,6 +120,14 @@ class LLVMGenerator {
                                           const ValueValidityPairVector& args,
                                           bool with_validity, bool with_context);
 
+    // Generate code to onvoke a function call.
+    LValuePtr BuildFunctionCall(const NativeFunction* func,
+                                std::vector<llvm::Value*>* params);
+
+    // Generate code for an if-else condition.
+    LValuePtr BuildIfElse(llvm::Value* condition, std::function<LValuePtr()> then_func,
+                          std::function<LValuePtr()> else_func, llvm::Type* result_type);
+
     // Switch to the entry_block and get reference of the validity/value/offsets buffer
     llvm::Value* GetBufferReference(int idx, BufferType buffer_type, FieldPtr field);
 
@@ -135,6 +145,7 @@ class LLVMGenerator {
     llvm::Value* arg_local_bitmaps_;
     llvm::Value* arg_context_ptr_;
     llvm::Value* loop_var_;
+    bool has_arena_allocs_;
   };
 
   // Generate the code for one expression, with the output of the expression going to

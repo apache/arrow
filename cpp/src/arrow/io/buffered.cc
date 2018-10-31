@@ -54,6 +54,11 @@ class BufferedOutputStream::Impl {
     return Status::OK();
   }
 
+  bool closed() const {
+    std::lock_guard<std::mutex> guard(lock_);
+    return !is_open_;
+  }
+
   Status Tell(int64_t* position) const {
     std::lock_guard<std::mutex> guard(lock_);
     if (raw_pos_ == -1) {
@@ -122,6 +127,8 @@ BufferedOutputStream::BufferedOutputStream(std::shared_ptr<OutputStream> raw)
 BufferedOutputStream::~BufferedOutputStream() {}
 
 Status BufferedOutputStream::Close() { return impl_->Close(); }
+
+bool BufferedOutputStream::closed() const { return impl_->closed(); }
 
 Status BufferedOutputStream::Tell(int64_t* position) const {
   return impl_->Tell(position);

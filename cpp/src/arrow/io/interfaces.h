@@ -68,6 +68,7 @@ class ARROW_EXPORT FileInterface {
   virtual ~FileInterface() = 0;
   virtual Status Close() = 0;
   virtual Status Tell(int64_t* position) const = 0;
+  virtual bool closed() const = 0;
 
   FileMode::type mode() const { return mode_; }
 

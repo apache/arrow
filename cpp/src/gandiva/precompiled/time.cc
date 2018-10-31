@@ -517,12 +517,7 @@ void set_error_for_date(int32 length, const char* input, const char* msg,
   free(error);
 }
 
-date64 castDATE_utf8(const char* input, int32 length, boolean is_valid1,
-                     int64_t execution_context, boolean* out_valid) {
-  *out_valid = false;
-  if (!is_valid1) {
-    return 0;
-  }
+date64 castDATE_utf8(int64_t context, const char* input, int32 length) {
   // format : 0 is year, 1 is month and 2 is day.
   int dateFields[3];
   int dateIndex = 0, index = 0, value = 0;
@@ -543,7 +538,7 @@ date64 castDATE_utf8(const char* input, int32 length, boolean is_valid1,
   }
   const char* msg = "Not a valid date value ";
   if (dateIndex != 3) {
-    set_error_for_date(length, input, msg, execution_context);
+    set_error_for_date(length, input, msg, context);
     return 0;
   }
 
@@ -561,10 +556,9 @@ date64 castDATE_utf8(const char* input, int32 length, boolean is_valid1,
   date::year_month_day day =
       date::year(dateFields[0]) / date::month(dateFields[1]) / date::day(dateFields[2]);
   if (!day.ok()) {
-    set_error_for_date(length, input, msg, execution_context);
+    set_error_for_date(length, input, msg, context);
     return 0;
   }
-  *out_valid = true;
   return std::chrono::time_point_cast<std::chrono::milliseconds>(date::sys_days(day))
       .time_since_epoch()
       .count();

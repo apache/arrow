@@ -252,6 +252,7 @@ table Field {
   // Name is not required, in i.e. a List
   name: string;
   nullable: bool;
+  // This is the type of the decoded value if the field is dictionary encoded
   type: Type;
 
   // Present only if the field is dictionary encoded

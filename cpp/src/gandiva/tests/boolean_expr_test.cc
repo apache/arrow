@@ -17,8 +17,9 @@
 
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
+#include "arrow/status.h"
+
 #include "gandiva/projector.h"
-#include "gandiva/status.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
 
@@ -81,7 +82,7 @@ TEST_F(TestBooleanExpr, SimpleAnd) {
   exp = MakeArrowArrayBool({false, false, false, false}, {true, false, false, false});
   in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
   outputs.clear();
-  projector->Evaluate(*in_batch, pool_, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 
@@ -92,7 +93,7 @@ TEST_F(TestBooleanExpr, SimpleAnd) {
   exp = MakeArrowArrayBool({false, false, true, false}, {true, false, true, false});
   in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
   outputs.clear();
-  projector->Evaluate(*in_batch, pool_, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 
@@ -103,7 +104,7 @@ TEST_F(TestBooleanExpr, SimpleAnd) {
   exp = MakeArrowArrayBool({false, false, false, false}, {true, false, false, false});
   in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
   outputs.clear();
-  projector->Evaluate(*in_batch, pool_, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
@@ -154,7 +155,7 @@ TEST_F(TestBooleanExpr, SimpleOr) {
   exp = MakeArrowArrayBool({false, false, true, false}, {false, false, true, false});
   in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
   outputs.clear();
-  projector->Evaluate(*in_batch, pool_, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 
@@ -165,7 +166,7 @@ TEST_F(TestBooleanExpr, SimpleOr) {
   exp = MakeArrowArrayBool({false, false, true, false}, {true, false, true, false});
   in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
   outputs.clear();
-  projector->Evaluate(*in_batch, pool_, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 
@@ -176,7 +177,7 @@ TEST_F(TestBooleanExpr, SimpleOr) {
   exp = MakeArrowArrayBool({false, false, true, false}, {false, false, true, false});
   in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
   outputs.clear();
-  projector->Evaluate(*in_batch, pool_, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }

@@ -133,6 +133,14 @@ c_glib/doc/parquet-glib/parquet-glib.types
 c_glib/doc/parquet-glib/parquet-glib-sections.txt
 c_glib/doc/parquet-glib/parquet-glib-overrides.txt
 c_glib/gtk-doc.make
+csharp/.gitattributes
+csharp/src/Apache.Arrow/Flatbuf/*
+csharp/build/Common.props
+csharp/src/Apache.Arrow/Apache.Arrow.csproj
+csharp/src/Apache.Arrow/Properties/Resources.Designer.cs
+csharp/src/Apache.Arrow/Properties/Resources.resx
+csharp/test/Apache.Arrow.Tests/Apache.Arrow.Tests.csproj
+csharp/test/Apache.Arrow.Tests/app.config
 *.html
 *.sgml
 *.css

@@ -832,6 +832,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Schema__num_fields
+int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s);
+RcppExport SEXP _arrow_Schema__num_fields(SEXP sSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type s(sSEXP);
+    rcpp_result_gen = Rcpp::wrap(Schema__num_fields(s));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Schema__field
+std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s, int i);
+RcppExport SEXP _arrow_Schema__field(SEXP sSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type s(sSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(Schema__field(s, i));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ListType__ToString
 std::string ListType__ToString(const std::shared_ptr<arrow::ListType>& type);
 RcppExport SEXP _arrow_ListType__ToString(SEXP typeSEXP) {
@@ -1737,6 +1760,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_DataType__id", (DL_FUNC) &_arrow_DataType__id, 1},
     {"_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1},
     {"_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1},
+    {"_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1},
+    {"_arrow_Schema__field", (DL_FUNC) &_arrow_Schema__field, 2},
     {"_arrow_ListType__ToString", (DL_FUNC) &_arrow_ListType__ToString, 1},
     {"_arrow_FixedWidthType__bit_width", (DL_FUNC) &_arrow_FixedWidthType__bit_width, 1},
     {"_arrow_DateType__unit", (DL_FUNC) &_arrow_DateType__unit, 1},

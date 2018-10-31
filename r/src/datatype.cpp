@@ -174,6 +174,21 @@ std::string Schema__ToString(const std::shared_ptr<arrow::Schema>& s) {
 }
 
 // [[Rcpp::export]]
+int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s) {
+  return s->num_fields();
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s,
+                                            int i) {
+  if (i >= s->num_fields() || i < 0) {
+    Rcpp::stop("Invalid field index for schema.");
+  }
+
+  return s->field(i);
+}
+
+// [[Rcpp::export]]
 std::string ListType__ToString(const std::shared_ptr<arrow::ListType>& type) {
   return type->ToString();
 }

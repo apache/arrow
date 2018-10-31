@@ -150,5 +150,9 @@ class RBuffer : public MutableBuffer {
   Vec vec_;
 };
 
+struct symbols {
+  static SEXP units;
+};
+
 }  // namespace r
 }  // namespace arrow

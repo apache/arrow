@@ -411,6 +411,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CBinaryArray" arrow::BinaryArray"(CListArray):
         const uint8_t* GetValue(int i, int32_t* length)
+        shared_ptr[CBuffer] value_data()
+        int32_t value_offset(int64_t i)
+        int32_t value_length(int64_t i)
 
     cdef cppclass CStringArray" arrow::StringArray"(CBinaryArray):
         CStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
@@ -593,6 +596,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus Close()
         CStatus Tell(int64_t* position)
         FileMode mode()
+        c_bool closed()
 
     cdef cppclass Readable:
         # put overload under a different name to avoid cython bug with multiple
@@ -663,15 +667,27 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
         int file_descriptor()
 
-    cdef cppclass CompressedInputStream(InputStream):
+    cdef cppclass CCompressedInputStream \
+            " arrow::io::CompressedInputStream"(InputStream):
         @staticmethod
         CStatus Make(CMemoryPool* pool, CCodec* codec,
                      shared_ptr[InputStream] raw,
-                     shared_ptr[CompressedInputStream]* out)
+                     shared_ptr[CCompressedInputStream]* out)
 
         @staticmethod
         CStatus Make(CCodec* codec, shared_ptr[InputStream] raw,
-                     shared_ptr[CompressedInputStream]* out)
+                     shared_ptr[CCompressedInputStream]* out)
+
+    cdef cppclass CCompressedOutputStream \
+            " arrow::io::CompressedOutputStream"(OutputStream):
+        @staticmethod
+        CStatus Make(CMemoryPool* pool, CCodec* codec,
+                     shared_ptr[OutputStream] raw,
+                     shared_ptr[CCompressedOutputStream]* out)
+
+        @staticmethod
+        CStatus Make(CCodec* codec, shared_ptr[OutputStream] raw,
+                     shared_ptr[CCompressedOutputStream]* out)
 
     # ----------------------------------------------------------------------
     # HDFS
@@ -909,6 +925,10 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         CStatus GetColumn(int i, shared_ptr[CColumn]* out)
         c_string GetColumnName(int i)
+
+        CStatus Read(shared_ptr[CTable]* out)
+        CStatus Read(const vector[int] indices, shared_ptr[CTable]* out)
+        CStatus Read(const vector[c_string] names, shared_ptr[CTable]* out)
 
 
 cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:

@@ -45,13 +45,13 @@ cdef extern from "Python.h":
 cdef class NativeFile:
 
     def __cinit__(self):
-        self.closed = True
         self.own_file = False
         self.is_readable = False
         self.is_writable = False
+        self.is_seekable = False
 
     def __dealloc__(self):
-        if self.own_file and not self.closed:
+        if self.own_file:
             self.close()
 
     def __enter__(self):
@@ -89,7 +89,7 @@ cdef class NativeFile:
 
     def seekable(self):
         self._assert_open()
-        return self.is_readable
+        return self.is_seekable
 
     def isatty(self):
         self._assert_open()
@@ -101,14 +101,22 @@ cdef class NativeFile:
         """
         raise UnsupportedOperation()
 
+    @property
+    def closed(self):
+        if self.is_readable:
+            return self.input_stream.get().closed()
+        elif self.is_writable:
+            return self.output_stream.get().closed()
+        else:
+            return True
+
     def close(self):
         if not self.closed:
             with nogil:
                 if self.is_readable:
-                    check_status(self.rd_file.get().Close())
+                    check_status(self.input_stream.get().Close())
                 else:
-                    check_status(self.wr_file.get().Close())
-        self.closed = True
+                    check_status(self.output_stream.get().Close())
 
     def flush(self):
         """Flush the buffer stream, if applicable.
@@ -116,13 +124,31 @@ cdef class NativeFile:
         No-op to match the IOBase interface."""
         self._assert_open()
 
-    cdef read_handle(self, shared_ptr[RandomAccessFile]* file):
-        self._assert_readable()
-        file[0] = <shared_ptr[RandomAccessFile]> self.rd_file
+    cdef set_random_access_file(self, shared_ptr[RandomAccessFile] handle):
+        self.input_stream = <shared_ptr[InputStream]> handle
+        self.random_access = handle
+        self.is_seekable = True
 
-    cdef write_handle(self, shared_ptr[OutputStream]* file):
+    cdef set_input_stream(self, shared_ptr[InputStream] handle):
+        self.input_stream = handle
+        self.random_access.reset()
+        self.is_seekable = False
+
+    cdef set_output_stream(self, shared_ptr[OutputStream] handle):
+        self.output_stream = handle
+
+    cdef shared_ptr[RandomAccessFile] get_random_access_file(self) except *:
+        self._assert_readable()
+        self._assert_seekable()
+        return self.random_access
+
+    cdef shared_ptr[InputStream] get_input_stream(self) except *:
+        self._assert_readable()
+        return self.input_stream
+
+    cdef shared_ptr[OutputStream] get_output_stream(self) except *:
         self._assert_writable()
-        file[0] = <shared_ptr[OutputStream]> self.wr_file
+        return self.output_stream
 
     def _assert_open(self):
         if self.closed:
@@ -131,6 +157,7 @@ cdef class NativeFile:
     def _assert_readable(self):
         self._assert_open()
         if not self.is_readable:
+            # XXX UnsupportedOperation
             raise IOError("only valid on readonly files")
 
     def _assert_writable(self):
@@ -138,14 +165,20 @@ cdef class NativeFile:
         if not self.is_writable:
             raise IOError("only valid on writable files")
 
+    def _assert_seekable(self):
+        self._assert_open()
+        if not self.is_seekable:
+            raise IOError("only valid on seekable files")
+
     def size(self):
         """
         Return file size
         """
         cdef int64_t size
-        self._assert_readable()
+
+        handle = self.get_random_access_file()
         with nogil:
-            check_status(self.rd_file.get().GetSize(&size))
+            check_status(handle.get().GetSize(&size))
         return size
 
     def tell(self):
@@ -153,12 +186,15 @@ cdef class NativeFile:
         Return current stream position
         """
         cdef int64_t position
-        self._assert_open()
-        with nogil:
-            if self.is_readable:
-                check_status(self.rd_file.get().Tell(&position))
-            else:
-                check_status(self.wr_file.get().Tell(&position))
+
+        if self.is_readable:
+            rd_handle = self.get_random_access_file()
+            with nogil:
+                check_status(rd_handle.get().Tell(&position))
+        else:
+            wr_handle = self.get_output_stream()
+            with nogil:
+                check_status(wr_handle.get().Tell(&position))
         return position
 
     def seek(self, int64_t position, int whence=0):
@@ -184,22 +220,22 @@ cdef class NativeFile:
         new_position : the new absolute stream position
         """
         cdef int64_t offset
-        self._assert_readable()
+        handle = self.get_random_access_file()
 
         with nogil:
             if whence == 0:
                 offset = position
             elif whence == 1:
-                check_status(self.rd_file.get().Tell(&offset))
+                check_status(handle.get().Tell(&offset))
                 offset = offset + position
             elif whence == 2:
-                check_status(self.rd_file.get().GetSize(&offset))
+                check_status(handle.get().GetSize(&offset))
                 offset = offset + position
             else:
                 with gil:
                     raise ValueError("Invalid value of whence: {0}"
                                      .format(whence))
-            check_status(self.rd_file.get().Seek(offset))
+            check_status(handle.get().Seek(offset))
 
         return self.tell()
 
@@ -222,8 +258,10 @@ cdef class NativeFile:
 
         cdef const uint8_t* buf = arrow_buffer.buffer.get().data()
         cdef int64_t bufsize = len(arrow_buffer)
+        handle = self.get_output_stream()
+
         with nogil:
-            check_status(self.wr_file.get().Write(buf, bufsize))
+            check_status(handle.get().Write(buf, bufsize))
         return bufsize
 
     def read(self, nbytes=None):
@@ -245,18 +283,29 @@ cdef class NativeFile:
             PyObject* obj
 
         if nbytes is None:
+            if not self.is_seekable:
+                # Cannot get file size => read chunkwise
+                bs = 16384
+                chunks = []
+                while True:
+                    chunk = self.read(bs)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                return b"".join(chunks)
+
             c_nbytes = self.size() - self.tell()
         else:
             c_nbytes = nbytes
 
-        self._assert_readable()
+        handle = self.get_input_stream()
 
         # Allocate empty write space
         obj = PyBytes_FromStringAndSizeNative(NULL, c_nbytes)
 
         cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
         with nogil:
-            check_status(self.rd_file.get().Read(c_nbytes, &bytes_read, buf))
+            check_status(handle.get().Read(c_nbytes, &bytes_read, buf))
 
         if bytes_read < c_nbytes:
             cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
@@ -291,15 +340,14 @@ cdef class NativeFile:
             Buffer py_buf
             int64_t buf_len
 
-        self._assert_readable()
+        handle = self.get_input_stream()
 
         py_buf = py_buffer(b)
         buf_len = py_buf.size
-
         buf = py_buf.buffer.get().mutable_data()
 
         with nogil:
-            check_status(self.rd_file.get().Read(buf_len, &bytes_read, buf))
+            check_status(handle.get().Read(buf_len, &bytes_read, buf))
 
         return bytes_read
 
@@ -339,15 +387,19 @@ cdef class NativeFile:
             int64_t c_nbytes
             int64_t bytes_read = 0
             shared_ptr[CBuffer] output
-        self._assert_readable()
+
+        handle = self.get_input_stream()
 
         if nbytes is None:
+            if not self.is_seekable:
+                # Cannot get file size => read chunkwise
+                return py_buffer(self.read())
             c_nbytes = self.size() - self.tell()
         else:
             c_nbytes = nbytes
 
         with nogil:
-            check_status(self.rd_file.get().ReadB(c_nbytes, &output))
+            check_status(handle.get().ReadB(c_nbytes, &output))
 
         return pyarrow_wrap_buffer(output)
 
@@ -371,7 +423,8 @@ cdef class NativeFile:
         cdef:
             int64_t bytes_read = 0
             uint8_t* buf
-        self._assert_readable()
+
+        handle = self.get_input_stream()
 
         buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
 
@@ -423,7 +476,7 @@ cdef class NativeFile:
         try:
             while True:
                 with nogil:
-                    check_status(self.rd_file.get()
+                    check_status(handle.get()
                                  .Read(c_buffer_size, &bytes_read, buf))
 
                 total_bytes += bytes_read
@@ -524,15 +577,15 @@ cdef class PythonFile(NativeFile):
                                      "object %r, please pass it explicitly"
                                      % (handle,))
         if mode.startswith('w'):
-            self.wr_file.reset(new PyOutputStream(handle))
+            self.set_output_stream(
+                shared_ptr[OutputStream](new PyOutputStream(handle)))
             self.is_writable = True
         elif mode.startswith('r'):
-            self.rd_file.reset(new PyReadableFile(handle))
+            self.set_random_access_file(
+                shared_ptr[RandomAccessFile](new PyReadableFile(handle)))
             self.is_readable = True
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
-
-        self.closed = False
 
     def truncate(self, pos=None):
         self.handle.truncate(pos)
@@ -566,10 +619,9 @@ cdef class MemoryMappedFile(NativeFile):
         result.path = path
         result.is_readable = True
         result.is_writable = True
-        result.wr_file = <shared_ptr[OutputStream]> handle
-        result.rd_file = <shared_ptr[RandomAccessFile]> handle
+        result.set_output_stream(<shared_ptr[OutputStream]> handle)
+        result.set_random_access_file(<shared_ptr[RandomAccessFile]> handle)
         result.handle = handle
-        result.closed = False
 
         return result
 
@@ -597,10 +649,9 @@ cdef class MemoryMappedFile(NativeFile):
         with nogil:
             check_status(CMemoryMappedFile.Open(c_path, c_mode, &handle))
 
-        self.wr_file = <shared_ptr[OutputStream]> handle
-        self.rd_file = <shared_ptr[RandomAccessFile]> handle
+        self.set_output_stream(<shared_ptr[OutputStream]> handle)
+        self.set_random_access_file(<shared_ptr[RandomAccessFile]> handle)
         self.handle = handle
-        self.closed = False
 
     def resize(self, new_size):
         """
@@ -674,8 +725,6 @@ cdef class OSFile(NativeFile):
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
-        self.closed = False
-
     cdef _open_readable(self, c_string path, CMemoryPool* pool):
         cdef shared_ptr[ReadableFile] handle
 
@@ -683,11 +732,11 @@ cdef class OSFile(NativeFile):
             check_status(ReadableFile.Open(path, pool, &handle))
 
         self.is_readable = True
-        self.rd_file = <shared_ptr[RandomAccessFile]> handle
+        self.set_random_access_file(<shared_ptr[RandomAccessFile]> handle)
 
     cdef _open_writable(self, c_string path):
         with nogil:
-            check_status(FileOutputStream.Open(path, &self.wr_file))
+            check_status(FileOutputStream.Open(path, &self.output_stream))
         self.is_writable = True
 
     def fileno(self):
@@ -698,23 +747,22 @@ cdef class OSFile(NativeFile):
 cdef class FixedSizeBufferWriter(NativeFile):
 
     def __cinit__(self, Buffer buffer):
-        self.wr_file.reset(new CFixedSizeBufferWriter(buffer.buffer))
+        self.output_stream.reset(new CFixedSizeBufferWriter(buffer.buffer))
         self.is_writable = True
-        self.closed = False
 
     def set_memcopy_threads(self, int num_threads):
         cdef CFixedSizeBufferWriter* writer = \
-            <CFixedSizeBufferWriter*> self.wr_file.get()
+            <CFixedSizeBufferWriter*> self.output_stream.get()
         writer.set_memcopy_threads(num_threads)
 
     def set_memcopy_blocksize(self, int64_t blocksize):
         cdef CFixedSizeBufferWriter* writer = \
-            <CFixedSizeBufferWriter*> self.wr_file.get()
+            <CFixedSizeBufferWriter*> self.output_stream.get()
         writer.set_memcopy_blocksize(blocksize)
 
     def set_memcopy_threshold(self, int64_t threshold):
         cdef CFixedSizeBufferWriter* writer = \
-            <CFixedSizeBufferWriter*> self.wr_file.get()
+            <CFixedSizeBufferWriter*> self.output_stream.get()
         writer.set_memcopy_threshold(threshold)
 
 
@@ -941,10 +989,9 @@ cdef class BufferOutputStream(NativeFile):
 
     def __cinit__(self, MemoryPool memory_pool=None):
         self.buffer = _allocate_buffer(maybe_unbox_memory_pool(memory_pool))
-        self.wr_file.reset(new CBufferOutputStream(
+        self.output_stream.reset(new CBufferOutputStream(
             <shared_ptr[CResizableBuffer]> self.buffer))
         self.is_writable = True
-        self.closed = False
 
     def getvalue(self):
         """
@@ -955,20 +1002,19 @@ cdef class BufferOutputStream(NativeFile):
         value : Buffer
         """
         with nogil:
-            check_status(self.wr_file.get().Close())
-        self.closed = True
+            check_status(self.output_stream.get().Close())
         return pyarrow_wrap_buffer(<shared_ptr[CBuffer]> self.buffer)
 
 
 cdef class MockOutputStream(NativeFile):
 
     def __cinit__(self):
-        self.wr_file.reset(new CMockOutputStream())
+        self.output_stream.reset(new CMockOutputStream())
         self.is_writable = True
-        self.closed = False
 
     def size(self):
-        return (<CMockOutputStream*>self.wr_file.get()).GetExtentBytesWritten()
+        handle = <CMockOutputStream*> self.output_stream.get()
+        return handle.GetExtentBytesWritten()
 
 
 cdef class BufferReader(NativeFile):
@@ -989,9 +1035,69 @@ cdef class BufferReader(NativeFile):
         else:
             self.buffer = py_buffer(obj)
 
-        self.rd_file.reset(new CBufferReader(self.buffer.buffer))
+        self.set_random_access_file(shared_ptr[RandomAccessFile](
+            new CBufferReader(self.buffer.buffer)))
         self.is_readable = True
-        self.closed = False
+
+
+cdef class CompressedInputStream(NativeFile):
+    """
+    An input stream wrapper which decompresses data on the fly.
+
+    Parameters
+    ----------
+    stream : pa.NativeFile
+    compression : str
+        The compression type ("bz2", "brotli", "gzip", "lz4", "snappy"
+        or "zstd")
+    """
+    def __cinit__(self, NativeFile stream, compression):
+        cdef:
+            CompressionType compression_type
+            shared_ptr[CCompressedInputStream] compressed_stream
+            unique_ptr[CCodec] codec
+
+        compression_type = _get_compression_type(compression)
+        if compression_type == CompressionType_UNCOMPRESSED:
+            raise ValueError("Invalid value for compression: %r"
+                             % (compression,))
+
+        check_status(CCodec.Create(compression_type, &codec))
+        check_status(CCompressedInputStream.Make(codec.get(),
+                                                 stream.get_input_stream(),
+                                                 &compressed_stream))
+        self.set_input_stream(<shared_ptr[InputStream]> compressed_stream)
+        self.is_readable = True
+
+
+cdef class CompressedOutputStream(NativeFile):
+    """
+    An output stream wrapper which compresses data on the fly.
+
+    Parameters
+    ----------
+    stream : pa.NativeFile
+    compression : str
+        The compression type ("bz2", "brotli", "gzip", "lz4", "snappy"
+        or "zstd")
+    """
+    def __cinit__(self, NativeFile stream, compression):
+        cdef:
+            CompressionType compression_type
+            shared_ptr[CCompressedOutputStream] compressed_stream
+            unique_ptr[CCodec] codec
+
+        compression_type = _get_compression_type(compression)
+        if compression_type == CompressionType_UNCOMPRESSED:
+            raise ValueError("Invalid value for compression: %r"
+                             % (compression,))
+
+        check_status(CCodec.Create(compression_type, &codec))
+        check_status(CCompressedOutputStream.Make(codec.get(),
+                                                  stream.get_output_stream(),
+                                                  &compressed_stream))
+        self.set_output_stream(<shared_ptr[OutputStream]> compressed_stream)
+        self.is_writable = True
 
 
 def py_buffer(object obj):
@@ -1024,10 +1130,7 @@ def as_buffer(object o):
     return py_buffer(o)
 
 
-cdef get_reader(object source, c_bool use_memory_map,
-                shared_ptr[RandomAccessFile]* reader):
-    cdef NativeFile nf
-
+cdef NativeFile _get_native_file(object source, c_bool use_memory_map):
     try:
         source_path = _stringify_path(source)
     except TypeError:
@@ -1042,17 +1145,15 @@ cdef get_reader(object source, c_bool use_memory_map,
         else:
             source = OSFile(source_path, mode='r')
 
-    if isinstance(source, NativeFile):
-        nf = source
+    return source
 
-        # TODO: what about read-write sources (e.g. memory maps)
-        if not nf.is_readable:
-            raise IOError('Native file is not readable')
 
-        nf.read_handle(reader)
-    else:
-        raise TypeError('Unable to read from object of type: {0}'
-                        .format(type(source)))
+cdef get_reader(object source, c_bool use_memory_map,
+                shared_ptr[RandomAccessFile]* reader):
+    cdef NativeFile nf
+
+    nf = _get_native_file(source, use_memory_map)
+    reader[0] = nf.get_random_access_file()
 
 
 cdef get_input_stream(object source, c_bool use_memory_map,
@@ -1063,9 +1164,8 @@ cdef get_input_stream(object source, c_bool use_memory_map,
     """
     cdef:
         NativeFile nf
-        shared_ptr[RandomAccessFile] random_access_file
         shared_ptr[InputStream] input_stream
-        shared_ptr[CompressedInputStream] compressed_stream
+        shared_ptr[CCompressedInputStream] compressed_stream
         CompressionType compression_type = CompressionType_UNCOMPRESSED
         unique_ptr[CCodec] codec
 
@@ -1076,13 +1176,13 @@ cdef get_input_stream(object source, c_bool use_memory_map,
     else:
         compression_type = _get_compression_type_by_filename(source_path)
 
-    get_reader(source, use_memory_map, &random_access_file)
-    input_stream = <shared_ptr[InputStream]> random_access_file
+    nf = _get_native_file(source, use_memory_map)
+    input_stream = nf.get_input_stream()
 
     if compression_type != CompressionType_UNCOMPRESSED:
         check_status(CCodec.Create(compression_type, &codec))
-        check_status(CompressedInputStream.Make(codec.get(), input_stream,
-                                                &compressed_stream))
+        check_status(CCompressedInputStream.Make(codec.get(), input_stream,
+                                                 &compressed_stream))
         input_stream = <shared_ptr[InputStream]> compressed_stream
 
     out[0] = input_stream
@@ -1102,11 +1202,7 @@ cdef get_writer(object source, shared_ptr[OutputStream]* writer):
 
     if isinstance(source, NativeFile):
         nf = source
-
-        if not nf.is_writable:
-            raise IOError('Native file is not writable')
-
-        nf.write_handle(writer)
+        writer[0] = nf.get_output_stream()
     else:
         raise TypeError('Unable to read from object of type: {0}'
                         .format(type(source)))
@@ -1117,26 +1213,28 @@ cdef get_writer(object source, shared_ptr[OutputStream]* writer):
 cdef CompressionType _get_compression_type(object name):
     if name is None or name == 'uncompressed':
         return CompressionType_UNCOMPRESSED
-    elif name == 'snappy':
-        return CompressionType_SNAPPY
-    elif name == 'gzip':
-        return CompressionType_GZIP
+    elif name == 'bz2':
+        return CompressionType_BZ2
     elif name == 'brotli':
         return CompressionType_BROTLI
-    elif name == 'zstd':
-        return CompressionType_ZSTD
+    elif name == 'gzip':
+        return CompressionType_GZIP
     elif name == 'lz4':
         return CompressionType_LZ4
+    elif name == 'snappy':
+        return CompressionType_SNAPPY
+    elif name == 'zstd':
+        return CompressionType_ZSTD
     else:
         raise ValueError("Unrecognized compression type: {0}"
                          .format(str(name)))
 
 
 cdef CompressionType _get_compression_type_by_filename(filename):
-    if filename.endswith('.gz'):
-        return CompressionType_GZIP
-    elif filename.endswith('.bz2'):
+    if filename.endswith('.bz2'):
         return CompressionType_BZ2
+    elif filename.endswith('.gz'):
+        return CompressionType_GZIP
     elif filename.endswith('.lz4'):
         return CompressionType_LZ4
     elif filename.endswith('.zst'):

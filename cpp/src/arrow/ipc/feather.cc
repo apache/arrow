@@ -444,6 +444,66 @@ class TableReader::TableReaderImpl {
     return Status::OK();
   }
 
+  Status Read(std::shared_ptr<Table>* out) {
+    std::vector<std::shared_ptr<Field>> fields;
+    std::vector<std::shared_ptr<Column>> columns;
+    for (int i = 0; i < num_columns(); ++i) {
+      std::shared_ptr<Column> column;
+      RETURN_NOT_OK(GetColumn(i, &column));
+      columns.push_back(column);
+      fields.push_back(column->field());
+    }
+    *out = Table::Make(schema(fields), columns);
+    return Status::OK();
+  }
+
+  Status Read(const std::vector<int>& indices, std::shared_ptr<Table>* out) {
+    std::vector<std::shared_ptr<Field>> fields;
+    std::vector<std::shared_ptr<Column>> columns;
+    for (int i = 0; i < num_columns(); ++i) {
+      bool found = false;
+      for (auto j : indices) {
+        if (i == j) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        continue;
+      }
+      std::shared_ptr<Column> column;
+      RETURN_NOT_OK(GetColumn(i, &column));
+      columns.push_back(column);
+      fields.push_back(column->field());
+    }
+    *out = Table::Make(schema(fields), columns);
+    return Status::OK();
+  }
+
+  Status Read(const std::vector<std::string>& names, std::shared_ptr<Table>* out) {
+    std::vector<std::shared_ptr<Field>> fields;
+    std::vector<std::shared_ptr<Column>> columns;
+    for (int i = 0; i < num_columns(); ++i) {
+      auto name = GetColumnName(i);
+      bool found = false;
+      for (auto& n : names) {
+        if (name == n) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        continue;
+      }
+      std::shared_ptr<Column> column;
+      RETURN_NOT_OK(GetColumn(i, &column));
+      columns.push_back(column);
+      fields.push_back(column->field());
+    }
+    *out = Table::Make(schema(fields), columns);
+    return Status::OK();
+  }
+
  private:
   std::shared_ptr<io::RandomAccessFile> source_;
   std::unique_ptr<TableMetadata> metadata_;
@@ -478,6 +538,17 @@ std::string TableReader::GetColumnName(int i) const { return impl_->GetColumnNam
 
 Status TableReader::GetColumn(int i, std::shared_ptr<Column>* out) {
   return impl_->GetColumn(i, out);
+}
+
+Status TableReader::Read(std::shared_ptr<Table>* out) { return impl_->Read(out); }
+
+Status TableReader::Read(const std::vector<int>& indices, std::shared_ptr<Table>* out) {
+  return impl_->Read(indices, out);
+}
+
+Status TableReader::Read(const std::vector<std::string>& names,
+                         std::shared_ptr<Table>* out) {
+  return impl_->Read(names, out);
 }
 
 // ----------------------------------------------------------------------

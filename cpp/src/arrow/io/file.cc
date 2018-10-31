@@ -250,6 +250,8 @@ Status ReadableFile::Open(int fd, std::shared_ptr<ReadableFile>* file) {
 
 Status ReadableFile::Close() { return impl_->Close(); }
 
+bool ReadableFile::closed() const { return !impl_->is_open(); }
+
 Status ReadableFile::Tell(int64_t* pos) const { return impl_->Tell(pos); }
 
 Status ReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
@@ -337,6 +339,8 @@ Status FileOutputStream::Open(int fd, std::shared_ptr<FileOutputStream>* file) {
 
 Status FileOutputStream::Close() { return impl_->Close(); }
 
+bool FileOutputStream::closed() const { return !impl_->is_open(); }
+
 Status FileOutputStream::Tell(int64_t* pos) const { return impl_->Tell(pos); }
 
 Status FileOutputStream::Write(const void* data, int64_t length) {
@@ -353,13 +357,23 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
   MemoryMap() : MutableBuffer(nullptr, 0) {}
 
   ~MemoryMap() {
-    if (file_->is_open()) {
-      if (mutable_data_ != nullptr) {
-        DCHECK_EQ(munmap(mutable_data_, static_cast<size_t>(size_)), 0);
-      }
-      DCHECK(file_->Close().ok());
+    DCHECK_OK(Close());
+    if (mutable_data_ != nullptr) {
+      DCHECK_EQ(munmap(mutable_data_, static_cast<size_t>(size_)), 0);
     }
   }
+
+  Status Close() {
+    if (file_->is_open()) {
+      // NOTE: we don't unmap here, so that buffers exported through Read()
+      // remain valid until the MemoryMap object is destroyed
+      return file_->Close();
+    } else {
+      return Status::OK();
+    }
+  }
+
+  bool closed() const { return !file_->is_open(); }
 
   Status Open(const std::string& path, FileMode::type mode) {
     file_.reset(new OSFile());
@@ -523,10 +537,9 @@ Status MemoryMappedFile::Tell(int64_t* position) const {
 
 Status MemoryMappedFile::Seek(int64_t position) { return memory_map_->Seek(position); }
 
-Status MemoryMappedFile::Close() {
-  // munmap handled in pimpl dtor
-  return Status::OK();
-}
+Status MemoryMappedFile::Close() { return memory_map_->Close(); }
+
+bool MemoryMappedFile::closed() const { return memory_map_->closed(); }
 
 Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes,
                                 std::shared_ptr<Buffer>* out) {

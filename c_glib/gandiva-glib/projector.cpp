@@ -25,7 +25,7 @@
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 
-#include <gandiva-glib/error.hpp>
+#include <arrow-glib/error.hpp>
 #include <gandiva-glib/expression.hpp>
 #include <gandiva-glib/projector.hpp>
 
@@ -140,7 +140,7 @@ ggandiva_projector_new(GArrowSchema *schema,
     gandiva_projector->Make(arrow_schema,
                             gandiva_expressions,
                             &gandiva_projector);
-  if (ggandiva_error_check(error, status, "[gandiva][projector][new]")) {
+  if (garrow_error_check(error, status, "[gandiva][projector][new]")) {
     return ggandiva_projector_new_raw(&gandiva_projector);
   } else {
     return NULL;
@@ -171,7 +171,7 @@ ggandiva_projector_evaluate(GGandivaProjector *projector,
     gandiva_projector->Evaluate(*arrow_record_batch,
                                 memory_pool,
                                 &arrow_arrays);
-  if (ggandiva_error_check(error, status, "[gandiva][projector][evaluate]")) {
+  if (garrow_error_check(error, status, "[gandiva][projector][evaluate]")) {
     GList *arrays = NULL;
     for (auto arrow_array : arrow_arrays) {
       auto array = garrow_array_new_raw(&arrow_array);

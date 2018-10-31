@@ -48,6 +48,7 @@ matrix:
   fast_finish: true
   allow_failures:
   - jdk: oraclejdk9
+  - language: r
   include:
   # Lint C++, Python, R
   - os: linux
@@ -249,6 +250,7 @@ matrix:
     os: osx
     env:
     - ARROW_TRAVIS_ORC=1
+    - ARROW_TRAVIS_PARQUET=1
     cache:
     addons:
     rvm: 2.2

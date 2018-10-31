@@ -25,7 +25,6 @@
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"
 #include "gandiva/projector_cache_key.h"
-#include "gandiva/status.h"
 
 namespace gandiva {
 
@@ -46,12 +45,12 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
                        std::shared_ptr<Configuration> configuration,
                        std::shared_ptr<Projector>* projector) {
-  GANDIVA_RETURN_FAILURE_IF_FALSE(schema != nullptr,
-                                  Status::Invalid("schema cannot be null"));
-  GANDIVA_RETURN_FAILURE_IF_FALSE(!exprs.empty(),
-                                  Status::Invalid("expressions need to be non-empty"));
-  GANDIVA_RETURN_FAILURE_IF_FALSE(configuration != nullptr,
-                                  Status::Invalid("configuration cannot be null"));
+  ARROW_RETURN_FAILURE_IF_FALSE(schema != nullptr,
+                                Status::Invalid("schema cannot be null"));
+  ARROW_RETURN_FAILURE_IF_FALSE(!exprs.empty(),
+                                Status::Invalid("expressions need to be non-empty"));
+  ARROW_RETURN_FAILURE_IF_FALSE(configuration != nullptr,
+                                Status::Invalid("configuration cannot be null"));
 
   // see if equivalent projector was already built
   static Cache<ProjectorCacheKey, std::shared_ptr<Projector>> cache;
@@ -65,7 +64,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;
   Status status = LLVMGenerator::Make(configuration, &llvm_gen);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   // Run the validation on the expressions.
   // Return if any of the expression is invalid since
@@ -73,11 +72,11 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   ExprValidator expr_validator(llvm_gen->types(), schema);
   for (auto& expr : exprs) {
     status = expr_validator.Validate(expr);
-    GANDIVA_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(status);
   }
 
   status = llvm_gen->Build(exprs);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;
@@ -96,7 +95,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 Status Projector::Evaluate(const arrow::RecordBatch& batch,
                            const ArrayDataVector& output_data_vecs) {
   Status status = ValidateEvaluateArgsCommon(batch);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   if (output_data_vecs.size() != output_fields_.size()) {
     std::stringstream ss;
@@ -115,7 +114,7 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
 
     Status status = ValidateArrayDataCapacity(*array_data, *(output_fields_[idx]),
                                               static_cast<int>(batch.num_rows()));
-    GANDIVA_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(status);
     ++idx;
   }
   return llvm_generator_->Execute(batch, output_data_vecs);
@@ -124,7 +123,7 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
 Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* pool,
                            arrow::ArrayVector* output) {
   Status status = ValidateEvaluateArgsCommon(batch);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   if (output == nullptr) {
     return Status::Invalid("output must be non-null.");
@@ -141,14 +140,14 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* p
 
     status = AllocArrayData(field->type(), static_cast<int>(batch.num_rows()), pool,
                             &output_data);
-    GANDIVA_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(status);
 
     output_data_vecs.push_back(output_data);
   }
 
   // Execute the expression(s).
   status = llvm_generator_->Execute(batch, output_data_vecs);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   // Create and return array arrays.
   output->clear();
@@ -169,13 +168,13 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int num_records,
   std::shared_ptr<arrow::Buffer> null_bitmap;
   int64_t size = arrow::BitUtil::BytesForBits(num_records);
   astatus = arrow::AllocateBuffer(pool, size, &null_bitmap);
-  GANDIVA_RETURN_ARROW_NOT_OK(astatus);
+  ARROW_RETURN_NOT_OK(astatus);
 
   std::shared_ptr<arrow::Buffer> data;
   const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
   int64_t data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
   astatus = arrow::AllocateBuffer(pool, data_len, &data);
-  GANDIVA_RETURN_ARROW_NOT_OK(astatus);
+  ARROW_RETURN_NOT_OK(astatus);
 
   *array_data = arrow::ArrayData::Make(type, num_records, {null_bitmap, data});
   return Status::OK();

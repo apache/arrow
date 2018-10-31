@@ -169,6 +169,11 @@ class CompressedOutputStream::Impl {
     }
   }
 
+  bool closed() {
+    std::lock_guard<std::mutex> guard(lock_);
+    return !is_open_;
+  }
+
  private:
   // Write 64 KB compressed data at a time
   static const int64_t kChunkSize = 64 * 1024;
@@ -204,6 +209,8 @@ CompressedOutputStream::~CompressedOutputStream() {}
 
 Status CompressedOutputStream::Close() { return impl_->Close(); }
 
+bool CompressedOutputStream::closed() const { return impl_->closed(); }
+
 Status CompressedOutputStream::Tell(int64_t* position) const {
   return impl_->Tell(position);
 }
@@ -237,6 +244,11 @@ class CompressedInputStream::Impl {
     } else {
       return Status::OK();
     }
+  }
+
+  bool closed() {
+    std::lock_guard<std::mutex> guard(lock_);
+    return !is_open_;
   }
 
   Status Tell(int64_t* position) const {
@@ -380,6 +392,8 @@ Status CompressedInputStream::Make(MemoryPool* pool, Codec* codec,
 CompressedInputStream::~CompressedInputStream() {}
 
 Status CompressedInputStream::Close() { return impl_->Close(); }
+
+bool CompressedInputStream::closed() const { return impl_->closed(); }
 
 Status CompressedInputStream::Tell(int64_t* position) const {
   return impl_->Tell(position);

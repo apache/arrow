@@ -121,13 +121,13 @@
     <build>
         <resources>
             <resource>
-                <directory>${gandiva.cpp.build.dir}/debug</directory>
+                <directory>${gandiva.cpp.build.dir}</directory>
                 <includes>
                     <include>**/libgandiva_jni.*</include>
                 </includes>
             </resource>
             <resource>
-                <directory>${gandiva.cpp.build.dir}/debug</directory>
+                <directory>${gandiva.cpp.build.dir}</directory>
                 <includes>
                     <include>**/libgandiva_helpers.*</include>
                 </includes>

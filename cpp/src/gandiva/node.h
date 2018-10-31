@@ -22,12 +22,13 @@
 #include <unordered_set>
 #include <vector>
 
+#include "arrow/status.h"
+
 #include "gandiva/arrow.h"
 #include "gandiva/func_descriptor.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/literal_holder.h"
 #include "gandiva/node_visitor.h"
-#include "gandiva/status.h"
 
 namespace gandiva {
 

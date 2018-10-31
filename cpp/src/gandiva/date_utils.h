@@ -23,7 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gandiva/status.h"
+#include "gandiva/arrow.h"
 
 namespace gandiva {
 

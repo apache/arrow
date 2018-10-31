@@ -89,6 +89,7 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
 
   // OutputStream interface
   Status Close() override;
+  bool closed() const override;
   Status Tell(int64_t* position) const override;
 
   // Write bytes to the stream. Thread-safe
@@ -142,6 +143,7 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
   static Status Open(int fd, MemoryPool* pool, std::shared_ptr<ReadableFile>* file);
 
   Status Close() override;
+  bool closed() const override;
   Status Tell(int64_t* position) const override;
 
   // Read bytes from the file. Thread-safe
@@ -187,6 +189,8 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
                      std::shared_ptr<MemoryMappedFile>* out);
 
   Status Close() override;
+
+  bool closed() const override;
 
   Status Tell(int64_t* position) const override;
 

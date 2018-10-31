@@ -77,7 +77,7 @@ Status LikeHolder::Make(const std::string& sql_pattern,
                         std::shared_ptr<LikeHolder>* holder) {
   std::string pcre_pattern;
   auto status = RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
   if (!lholder->regex_.ok()) {

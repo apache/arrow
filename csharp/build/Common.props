@@ -1,0 +1,8 @@
+<Project>
+    <PropertyGroup>
+        <BaseOutputPath>../../artifacts/$(AssemblyName)</BaseOutputPath>
+    </PropertyGroup>
+    <Target Name="Clean">  
+        <RemoveDir Directories="../../artifacts" />  
+    </Target>
+</Project>

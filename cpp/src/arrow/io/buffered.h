@@ -44,6 +44,7 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   /// \brief Close the buffered output stream.  This implicitly closes the
   /// underlying raw output stream.
   Status Close() override;
+  bool closed() const override;
 
   Status Tell(int64_t* position) const override;
   // Write bytes to the stream. Thread-safe

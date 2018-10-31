@@ -64,6 +64,11 @@ if [ "$#" -eq 2 ]; then
   rm -f debian*/control.bak
   git add debian*/control
   cd -
+  cd $SOURCE_DIR/../tasks/
+  sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" tasks.yml
+  rm -f tasks.yml.bak
+  git add tasks.yml
+  cd -
   cd $SOURCE_DIR
   sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" rat_exclude_files.txt
   rm -f rat_exclude_files.txt.bak

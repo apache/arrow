@@ -72,19 +72,19 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
   std::vector<ValueValidityPairPtr> args;
   for (auto& child : node.children()) {
     auto status = child->Accept(*this);
-    GANDIVA_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(status);
 
     args.push_back(result());
   }
 
   // Make a function holder, if required.
   std::shared_ptr<FunctionHolder> holder;
-  if (native_function->needs_holder()) {
+  if (native_function->NeedsFunctionHolder()) {
     auto status = FunctionHolderRegistry::Make(desc->name(), node, &holder);
-    GANDIVA_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(status);
   }
 
-  if (native_function->result_nullable_type() == RESULT_NULL_IF_NULL) {
+  if (native_function->result_nullable_type() == kResultNullIfNull) {
     // These functions are decomposable, merge the validity bits of the children.
 
     std::vector<DexPtr> merged_validity;
@@ -98,13 +98,13 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
     auto value_dex =
         std::make_shared<NonNullableFuncDex>(desc, native_function, holder, args);
     result_ = std::make_shared<ValueValidityPair>(merged_validity, value_dex);
-  } else if (native_function->result_nullable_type() == RESULT_NULL_NEVER) {
+  } else if (native_function->result_nullable_type() == kResultNullNever) {
     // These functions always output valid results. So, no validity dex.
     auto value_dex =
         std::make_shared<NullableNeverFuncDex>(desc, native_function, holder, args);
     result_ = std::make_shared<ValueValidityPair>(value_dex);
   } else {
-    DCHECK(native_function->result_nullable_type() == RESULT_NULL_INTERNAL);
+    DCHECK(native_function->result_nullable_type() == kResultNullInternal);
 
     // Add a local bitmap to track the output validity.
     int local_bitmap_idx = annotator_.AddLocalBitMap();
@@ -121,20 +121,20 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
 Status ExprDecomposer::Visit(const IfNode& node) {
   PushConditionEntry(node);
   auto status = node.condition()->Accept(*this);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
   auto condition_vv = result();
   PopConditionEntry(node);
 
   // Add a local bitmap to track the output validity.
   int local_bitmap_idx = PushThenEntry(node);
   status = node.then_node()->Accept(*this);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
   auto then_vv = result();
   PopThenEntry(node);
 
   PushElseEntry(node, local_bitmap_idx);
   status = node.else_node()->Accept(*this);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
   auto else_vv = result();
   bool is_terminal_else = PopElseEntry(node);
 
@@ -153,7 +153,7 @@ Status ExprDecomposer::Visit(const BooleanNode& node) {
   std::vector<ValueValidityPairPtr> args;
   for (auto& child : node.children()) {
     auto status = child->Accept(*this);
-    GANDIVA_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(status);
 
     args.push_back(result());
   }
@@ -180,7 +180,7 @@ Status ExprDecomposer::Visit(const BooleanNode& node) {
     /* decompose the children. */                                             \
     std::vector<ValueValidityPairPtr> args;                                   \
     auto status = node.eval_expr()->Accept(*this);                            \
-    GANDIVA_RETURN_NOT_OK(status);                                            \
+    ARROW_RETURN_NOT_OK(status);                                              \
     args.push_back(result());                                                 \
     /* In always outputs valid results, so no validity dex */                 \
     auto value_dex = std::make_shared<InExprDex<ctype>>(args, node.values()); \
