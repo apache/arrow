@@ -17,6 +17,9 @@
 package array
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/apache/arrow/go/arrow"
 )
 
@@ -37,6 +40,24 @@ func New{{.Name}}Data(data *Data) *{{.Name}} {
 
 func (a *{{.Name}}) Value(i int)      {{or .QualifiedType .Type}} { return a.values[i] }
 func (a *{{.Name}}) {{.Name}}Values() []{{or .QualifiedType .Type}} { return a.values }
+
+func (a *{{.Name}}) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
 
 func (a *{{.Name}}) setData(data *Data) {
 	a.array.setData(data)

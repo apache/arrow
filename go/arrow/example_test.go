@@ -57,6 +57,7 @@ func Example_minimal() {
 			fmt.Println(v)
 		}
 	}
+	fmt.Printf("ints = %v\n", ints)
 
 	// Output:
 	// ints[0] = 1
@@ -67,6 +68,7 @@ func Example_minimal() {
 	// ints[5] = 6
 	// ints[6] = 7
 	// ints[7] = 8
+	// ints = [1 2 3 (null) 5 6 7 8]
 }
 
 // This example demonstrates creating an array, sourcing the values and
@@ -310,16 +312,16 @@ func Example_float64Slice() {
 	arr := b.NewFloat64Array()
 	defer arr.Release()
 
-	fmt.Printf("array = %v\n", arr.Float64Values())
+	fmt.Printf("array = %v\n", arr)
 
 	sli := array.NewSlice(arr, 2, 5).(*array.Float64)
 	defer sli.Release()
 
-	fmt.Printf("slice = %v\n", sli.Float64Values())
+	fmt.Printf("slice = %v\n", sli)
 
 	// Output:
-	// array = [1 2 3 -1 4 5]
-	// slice = [3 -1 4]
+	// array = [1 2 3 (null) 4 5]
+	// slice = [3 (null) 4]
 }
 
 func Example_float64Tensor2x5() {

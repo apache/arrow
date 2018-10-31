@@ -17,6 +17,9 @@
 package array
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/internal/bitutil"
 	"github.com/apache/arrow/go/arrow/memory"
@@ -43,6 +46,24 @@ func NewBooleanData(data *Data) *Boolean {
 }
 
 func (a *Boolean) Value(i int) bool { return bitutil.BitIsSet(a.values, i) }
+
+func (a *Boolean) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", a.Value(i))
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
 
 func (a *Boolean) setData(data *Data) {
 	a.array.setData(data)
