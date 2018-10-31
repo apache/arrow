@@ -197,8 +197,34 @@ replace_file() {
   local local_path=$4
   local upload_path=$5
 
-  delete_file ${version} ${rc} ${target} ${upload_path} || : # Ignore error
+  # Ignore error
+  delete_file ${version} ${rc} ${target} ${upload_path} || :
   upload_file ${version} ${rc} ${target} ${local_path} ${upload_path}
+
+  for suffix in asc sha256 sha512; do
+    pushd $(dirname ${local_path})
+    local local_path_base=$(basename ${local_path})
+    local output=tmp.${suffix}
+    case $suffix in
+      asc)
+        docker_run_gpg_ready gpg \
+          --local-user ${gpg_key_id} \
+          --detach-sig \
+          --output ${output} \
+          ${local_path_base}
+        ;;
+      sha*)
+        shasum \
+          --algorithm $(echo $suffix | sed -e 's/^sha//') \
+          ${local_path_base} > ${output}
+        ;;
+    esac
+    # Ignore error
+    delete_file ${version} ${rc} ${target} ${upload_path}.${suffix} || :
+    upload_file ${version} ${rc} ${target} ${output} ${upload_path}.${suffix}
+    rm -f ${output}
+    popd
+  done
 }
 
 upload_deb() {
@@ -213,6 +239,9 @@ upload_deb() {
     case ${base_path} in
       *.dsc|*.changes)
         docker_run_gpg_ready debsign -k${gpg_key_id} ${base_path}
+        ;;
+      *.asc|*.sha256|*.sha512)
+        continue
         ;;
     esac
     replace_file \
@@ -335,7 +364,6 @@ upload_rpm() {
       ${distribution} \
       ${rpm_path} \
       ${upload_path}
-    # TODO: Re-compute checksum and upload
   done
 }
 
@@ -390,12 +418,17 @@ upload_python() {
   ensure_version ${version} ${rc} ${target}
 
   for base_path in *; do
+    case ${base_path} in
+      *.asc|*.sha256|*.sha512)
+        continue
+        ;;
+    esac
     replace_file \
       ${version} \
       ${rc} \
       ${target} \
       ${base_path} \
-      ${version}/${base_path}
+      ${version}-rc${rc}/${base_path}
   done
 }
 
