@@ -37,6 +37,30 @@ var (
 	ErrMismatchFields = errors.New("arrow/csv: number of records mismatch")
 )
 
+// Option configures a CSV reader.
+type Option func(*Reader)
+
+// WithComment specifies the comment character used while parsing CSV files.
+func WithComment(c rune) Option {
+	return func(r *Reader) {
+		r.R.Comment = c
+	}
+}
+
+// WithComma specifies the fields separation character used while parsing CSV files.
+func WithComma(c rune) Option {
+	return func(r *Reader) {
+		r.R.Comma = c
+	}
+}
+
+// WithAllocator specifies the Arrow memory allocator used while building records.
+func WithAllocator(mem memory.Allocator) Option {
+	return func(r *Reader) {
+		r.mem = mem
+	}
+}
+
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
 type Reader struct {
 	R      *csv.Reader
@@ -46,6 +70,8 @@ type Reader struct {
 	bld  *array.RecordBuilder
 	cur  array.Record
 	err  error
+
+	mem memory.Allocator
 }
 
 // NewReader returns a reader that reads from the CSV file and creates
@@ -53,14 +79,21 @@ type Reader struct {
 //
 // NewReader panics if the given schema contains fields that have types that are not
 // primitive types.
-func NewReader(r io.Reader, mem memory.Allocator, schema *arrow.Schema) *Reader {
+func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 	validate(schema)
-	return &Reader{
-		R:      csv.NewReader(r),
-		schema: schema,
-		refs:   1,
-		bld:    array.NewRecordBuilder(mem, schema),
+
+	rr := &Reader{R: csv.NewReader(r), schema: schema, refs: 1}
+	for _, opt := range opts {
+		opt(rr)
 	}
+
+	if rr.mem == nil {
+		rr.mem = memory.DefaultAllocator
+	}
+
+	rr.bld = array.NewRecordBuilder(rr.mem, rr.schema)
+
+	return rr
 }
 
 // Err returns the last error encountered during the iteration over the

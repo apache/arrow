@@ -44,9 +44,7 @@ func Example() {
 		},
 		nil,
 	)
-	r := csv.NewReader(f, memory.NewGoAllocator(), schema)
-	r.R.Comment = '#'
-	r.R.Comma = ';'
+	r := csv.NewReader(f, schema, csv.WithComment('#'), csv.WithComma(';'))
 	defer r.Release()
 
 	n := 0
@@ -117,9 +115,10 @@ func TestCSVReader(t *testing.T) {
 		},
 		nil,
 	)
-	r := csv.NewReader(bytes.NewReader(raw), mem, schema)
-	r.R.Comment = '#'
-	r.R.Comma = ';'
+	r := csv.NewReader(bytes.NewReader(raw), schema,
+		csv.WithAllocator(mem),
+		csv.WithComment('#'), csv.WithComma(';'),
+	)
 	defer r.Release()
 
 	r.Retain()
@@ -180,9 +179,10 @@ rec[11]["str"]: ["str-2"]
 
 	// test error modes
 	{
-		r := csv.NewReader(bytes.NewReader(raw), mem, schema)
-		r.R.Comment = '#'
-		r.R.Comma = ';'
+		r := csv.NewReader(bytes.NewReader(raw), schema,
+			csv.WithAllocator(mem),
+			csv.WithComment('#'), csv.WithComma(';'),
+		)
 
 		r.Next()
 		r.Record()
