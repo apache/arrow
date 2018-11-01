@@ -62,7 +62,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
-  # C++ & Python w/ clang 6.0
+  # C++ & Python w/ gcc 4.9
   - compiler: gcc
     language: cpp
     os: linux
@@ -80,8 +80,7 @@ matrix:
     - ARROW_TRAVIS_JAVA_BUILD_ONLY=1
     # ARROW-2999 Benchmarks are disabled in Travis CI for the time being
     # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
-    - CC="clang-6.0"
-    - CXX="clang++-6.0"
+    - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
     before_script:
     # (ARROW_CI_CPP_AFFECTED implies ARROW_CI_PYTHON_AFFECTED)
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
