@@ -484,7 +484,7 @@ mod tests {
         assert_eq!(64, buf.capacity());
         assert_eq!(20, buf.len());
 
-        buf.resize(10).expect("resize should be OK");;
+        buf.resize(10).expect("resize should be OK");
         assert_eq!(64, buf.capacity());
         assert_eq!(10, buf.len());
 
