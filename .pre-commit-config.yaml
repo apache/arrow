@@ -28,6 +28,7 @@ repos:
        types:
          - file
          - python
+       args: [--config=python/.flake8]
      - id: flake8
        files: ^python/
        types:

@@ -16,5 +16,4 @@
 # under the License.
 
 [flake8]
-filename = *.pyx,*.pxd,*.pxi
-ignore = E211,E901,E999,E225,E226,E227,W504,W605
+extend-ignore = W605  # introduced in flake8 3.6.0
