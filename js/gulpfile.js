@@ -27,7 +27,7 @@ const { testTask, createTestData, cleanTestData } = require('./gulp/test-task');
 const {
     targetDir,
     taskName, combinations,
-    knownTargets, knownModules,
+    knownTargets,
     npmPkgName, UMDSourceTargets,
     tasksToSkipPerTargetOrFormat
 } = require('./gulp/util');
@@ -88,7 +88,7 @@ const buildConcurrent = (tasks) => () =>
 
 gulp.task(`clean:testdata`, cleanTestData);
 gulp.task(`create:testdata`, createTestData);
-gulp.task( `test`, gulp.series(getTasks(`test`)));
+gulp.task(`test`, gulp.series(getTasks(`test`)));
 gulp.task(`debug`, gulp.series(getTasks(`debug`)));
 gulp.task(`clean`, gulp.parallel(getTasks(`clean`)));
 gulp.task(`build`, buildConcurrent(getTasks(`build`)));
