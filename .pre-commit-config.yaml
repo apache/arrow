@@ -18,6 +18,7 @@
 # To use this, install the python package `pre-commit` and
 # run once `pre-commit install`. This will setup a git pre-commit-hook
 # that is executed on each commit and will report the linting problems.
+# To run all hooks on all files use `pre-commit run -a`
 
 repos:
   - repo: git://github.com/pre-commit/pre-commit-hooks
