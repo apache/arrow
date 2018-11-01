@@ -25,7 +25,8 @@ Imports:
     fs,
     tibble,
     crayon,
-    withr
+    withr,
+    bit64
 Remotes:
     romainfrancois/vctrs@bit64, 
     RcppCore/Rcpp, 
@@ -33,9 +34,8 @@ Remotes:
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.0.9000
 Suggests:
-    testthat, 
+    testthat,
     lubridate, 
-    bit64, 
     hms
 Collate:
     'enums.R'
