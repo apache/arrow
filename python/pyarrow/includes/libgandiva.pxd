@@ -20,19 +20,6 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-cdef extern from "arrow/status.h" namespace "gandiva" nogil:
-    # We can later add more of the common status factory methods as needed
-    cdef GStatus GStatus_OK "Status::OK"()
-    cdef GStatus GStatus_Invalid "Status::Invalid"()
-
-    cdef cppclass GStatus "arrow::Status":
-        GStatus()
-
-        c_string ToString()
-        c_string message()
-
-        c_bool ok()
-
 cdef extern from "gandiva/gandiva_aliases.h" namespace "gandiva" nogil:
 
     cdef cppclass CNode" gandiva::Node":
@@ -52,7 +39,7 @@ cdef extern from "gandiva/selection_vector.h" namespace "gandiva" nogil:
 
         shared_ptr[CArray] ToArray()
 
-    cdef GStatus SelectionVector_MakeInt32\
+    cdef CStatus SelectionVector_MakeInt32\
         "gandiva::SelectionVector::MakeInt32"(
             int max_slots, CMemoryPool* pool,
             shared_ptr[CSelectionVector]* selection_vector)
@@ -93,7 +80,7 @@ cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
         "gandiva::TreeExprBuilder::MakeCondition"(
             shared_ptr[CNode] condition)
 
-    cdef GStatus Projector_Make \
+    cdef CStatus Projector_Make \
         "gandiva::Projector::Make"(
             shared_ptr[CSchema] schema, const CExpressionVector& children,
             shared_ptr[CProjector]* projector)
@@ -102,7 +89,7 @@ cdef extern from "gandiva/projector.h" namespace "gandiva" nogil:
 
     cdef cppclass CProjector" gandiva::Projector":
 
-        GStatus Evaluate(
+        CStatus Evaluate(
             const CRecordBatch& batch, CMemoryPool* pool,
             const CArrayVector* output)
 
@@ -110,11 +97,11 @@ cdef extern from "gandiva/filter.h" namespace "gandiva" nogil:
 
     cdef cppclass CFilter" gandiva::Filter":
 
-        GStatus Evaluate(
+        CStatus Evaluate(
             const CRecordBatch& batch,
             shared_ptr[CSelectionVector] out_selection)
 
-    cdef GStatus Filter_Make \
+    cdef CStatus Filter_Make \
         "gandiva::Filter::Make"(
             shared_ptr[CSchema] schema, shared_ptr[CCondition] condition,
             shared_ptr[CFilter]* filter)

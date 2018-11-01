@@ -27,10 +27,9 @@ from libc.stdint cimport int64_t, uint8_t, uintptr_t
 
 from pyarrow.includes.libarrow cimport *
 from pyarrow.compat import frombytes
-from pyarrow.lib cimport pyarrow_wrap_array
+from pyarrow.lib cimport (check_status, pyarrow_wrap_array)
 
-from pyarrow.includes.libgandiva cimport (GStatus, CExpression,
-                                          CCondition,
+from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           CNode, CProjector, CFilter,
                                           CSelectionVector,
                                           TreeExprBuilder_MakeExpression,
@@ -45,14 +44,6 @@ from pyarrow.includes.libgandiva cimport (GStatus, CExpression,
 
 from pyarrow.lib cimport (Array, DataType, Field, MemoryPool,
                           RecordBatch, Schema)
-
-cdef int check_status(const GStatus& status) nogil except -1:
-    if status.ok():
-        return 0
-
-    with gil:
-        message = frombytes(status.message())
-        raise Exception(message)
 
 cdef class Node:
     cdef:
