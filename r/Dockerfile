@@ -51,7 +51,8 @@ RUN apt update && \
         'fs', \
         'tibble', \
         'crayon', \
-        'testthat'), \
+        'testthat', \
+        'bit64'), \
         repos = 'http://cran.rstudio.com')"
 
 # Tell R where it can find the source code for arrow
