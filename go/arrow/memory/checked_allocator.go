@@ -68,3 +68,7 @@ func (c *CheckedAllocatorScope) CheckSize(t TestingT) {
 		t.Errorf("invalid memory size exp=%d, got=%d", c.sz, c.alloc.sz)
 	}
 }
+
+var (
+	_ Allocator = (*CheckedAllocator)(nil)
+)

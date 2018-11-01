@@ -33,10 +33,9 @@
   <suppress checks="Header" files="AutoCloseables.java|Collections2.java" />
 
   <!-- TODO: Temporarily suppress Javadoc checks -->
-  <suppress checks="Javadoc.*" files=".*" />
+  <suppress checks="javadoc.*" files=".*" />
 
-  <!-- TODO: Temporarily suppress all but certain checks to fix in increments -->
-  <suppress
-    checks="^(?!.*(Header|ImportOrder|LineLength|Indentation|OperatorWrapCheck|SeparatorWrapCheck|NewlineAtEndOfFileCheck|WhitespaceAroundCheck|EmptyLineSeparatorCheck|LocalVariableNameCheck|CatchParameterNameCheck|ParameterNameCheck|MemberNameCheck|ClassTypeParameterName|MethodTypeParameterName|InterfaceTypeParameterName)).*"
-    files=".*" />
+  <!-- TODO: Temporarily suppress certain check requiring many code changes -->
+  <suppress checks="NoFinalizer|OverloadMethodsDeclarationOrder|VariableDeclarationUsageDistance" files=".*" />
+
 </suppressions>

@@ -775,9 +775,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
             final StringBuilder sb = new StringBuilder();
             print(sb, 0, Verbosity.LOG_WITH_STACKTRACE);
             logger.debug(sb.toString());
-            throw new IllegalStateException(
-                String.format("Didn't find closing reservation[%d]", System.identityHashCode
-                    (this)));
+            throw new IllegalStateException(String.format("Didn't find closing reservation[%d]",
+                System.identityHashCode(this)));
           }
 
           historicalLog.recordEvent("closed");

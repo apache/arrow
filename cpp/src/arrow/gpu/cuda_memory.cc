@@ -40,15 +40,27 @@ namespace gpu {
 // CUDA IPC memory handle
 
 struct CudaIpcMemHandle::CudaIpcMemHandleImpl {
-  explicit CudaIpcMemHandleImpl(const void* handle) {
-    memcpy(&ipc_handle, handle, sizeof(CUipcMemHandle));
+  explicit CudaIpcMemHandleImpl(const uint8_t* handle) {
+    memcpy(&memory_size, handle, sizeof(memory_size));
+    if (memory_size != 0)
+      memcpy(&ipc_handle, handle + sizeof(memory_size), sizeof(CUipcMemHandle));
   }
 
-  CUipcMemHandle ipc_handle;
+  explicit CudaIpcMemHandleImpl(int64_t memory_size, const void* cu_handle)
+      : memory_size(memory_size) {
+    if (memory_size != 0) memcpy(&ipc_handle, cu_handle, sizeof(CUipcMemHandle));
+  }
+
+  CUipcMemHandle ipc_handle;  /// initialized only when memory_size != 0
+  int64_t memory_size;        /// size of the memory that ipc_handle refers to
 };
 
 CudaIpcMemHandle::CudaIpcMemHandle(const void* handle) {
-  impl_.reset(new CudaIpcMemHandleImpl(handle));
+  impl_.reset(new CudaIpcMemHandleImpl(reinterpret_cast<const uint8_t*>(handle)));
+}
+
+CudaIpcMemHandle::CudaIpcMemHandle(int64_t memory_size, const void* cu_handle) {
+  impl_.reset(new CudaIpcMemHandleImpl(memory_size, cu_handle));
 }
 
 CudaIpcMemHandle::~CudaIpcMemHandle() {}
@@ -61,14 +73,21 @@ Status CudaIpcMemHandle::FromBuffer(const void* opaque_handle,
 
 Status CudaIpcMemHandle::Serialize(MemoryPool* pool, std::shared_ptr<Buffer>* out) const {
   std::shared_ptr<Buffer> buffer;
-  constexpr size_t kHandleSize = sizeof(CUipcMemHandle);
+  int64_t size = impl_->memory_size;
+  size_t kHandleSize =
+      (size > 0 ? sizeof(int64_t) + sizeof(CUipcMemHandle) : sizeof(int64_t));
   RETURN_NOT_OK(AllocateBuffer(pool, static_cast<int64_t>(kHandleSize), &buffer));
-  memcpy(buffer->mutable_data(), &impl_->ipc_handle, kHandleSize);
+  memcpy(buffer->mutable_data(), &impl_->memory_size, sizeof(impl_->memory_size));
+  if (size > 0)
+    memcpy(buffer->mutable_data() + sizeof(impl_->memory_size), &impl_->ipc_handle,
+           sizeof(impl_->ipc_handle));
   *out = buffer;
   return Status::OK();
 }
 
 const void* CudaIpcMemHandle::handle() const { return &impl_->ipc_handle; }
+
+int64_t CudaIpcMemHandle::memory_size() const { return impl_->memory_size; }
 
 // ----------------------------------------------------------------------
 
@@ -138,11 +157,17 @@ Status CudaBuffer::CopyFromHost(const int64_t position, const void* data,
   return context_->CopyHostToDevice(mutable_data_ + position, data, nbytes);
 }
 
+Status CudaBuffer::CopyFromDevice(const int64_t position, const void* data,
+                                  int64_t nbytes) {
+  DCHECK_LE(nbytes, size_ - position) << "Copy would overflow buffer";
+  return context_->CopyDeviceToDevice(mutable_data_ + position, data, nbytes);
+}
+
 Status CudaBuffer::ExportForIpc(std::shared_ptr<CudaIpcMemHandle>* handle) {
   if (is_ipc_) {
     return Status::Invalid("Buffer has already been exported for IPC");
   }
-  RETURN_NOT_OK(context_->ExportIpcBuffer(mutable_data_, handle));
+  RETURN_NOT_OK(context_->ExportIpcBuffer(mutable_data_, size_, handle));
   own_data_ = false;
   return Status::OK();
 }

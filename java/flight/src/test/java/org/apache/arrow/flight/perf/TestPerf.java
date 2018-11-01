@@ -86,7 +86,7 @@ public class TestPerf {
 
         server.start();
 
-        final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000l, 4095, 2));
+        final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000L, 4095, 2));
         ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(4));
         List<ListenableFuture<Result>> results = info.getEndpoints()
             .stream()

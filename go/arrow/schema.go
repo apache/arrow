@@ -138,3 +138,24 @@ func (sc *Schema) HasField(n string) bool {
 }
 
 func (sc *Schema) HasMetadata() bool { return len(sc.meta.keys) > 0 }
+
+// Equal returns whether two schema are equal.
+// Equal does not compare the metadata.
+func (sc *Schema) Equal(o *Schema) bool {
+	if sc == o {
+		return true
+	}
+	if sc == nil || o == nil {
+		return false
+	}
+	if len(sc.fields) != len(o.fields) {
+		return false
+	}
+
+	for i := range sc.fields {
+		if !sc.fields[i].Equal(o.fields[i]) {
+			return false
+		}
+	}
+	return true
+}
