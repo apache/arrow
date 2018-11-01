@@ -176,15 +176,6 @@ impl MutableBuffer {
         self
     }
 
-    /// Manually sets the `len` of this buffer
-    pub fn set_len(&mut self, new_len: usize) {
-        assert!(
-            new_len <= self.capacity,
-            "Unable to set len outside capacity"
-        );
-        self.len = new_len;
-    }
-
     /// Ensure that `count` bytes from `start` contain zero bits
     ///
     /// This is used to initialize the bits in a buffer, however, it has no impact on the `len`
@@ -196,23 +187,41 @@ impl MutableBuffer {
         }
     }
 
-    /// Adjust the capacity of this buffer to be at least `new_capacity`.
+    /// Ensures that this buffer has at least `capacity` slots in this buffer. This will
+    /// also ensure the new capacity will be a multiple of 64 bytes.
     ///
-    /// If the `new_capacity` is less than the current capacity, nothing is done and `Ok`
-    /// will be returned. Otherwise, the new capacity value will be chosen between the
-    /// larger one of the incoming `new_capacity` (after rounding up to the nearest 64)
-    /// and the doubled value of the existing capacity, the capacity added is returned.
-    pub fn resize(&mut self, new_capacity: usize) -> Result<usize> {
-        if new_capacity <= self.capacity {
-            return Ok(0);
+    /// Returns the new capacity for this buffer.
+    pub fn reserve(&mut self, capacity: usize) -> Result<usize> {
+        if capacity > self.capacity {
+            let new_capacity = bit_util::round_upto_multiple_of_64(capacity as i64);
+            let new_capacity = cmp::max(new_capacity, self.capacity as i64 * 2) as usize;
+            let new_data = memory::reallocate(self.capacity, new_capacity, self.data)?;
+            self.data = new_data as *mut u8;
+            self.capacity = new_capacity;
         }
-        let new_capacity = bit_util::round_upto_multiple_of_64(new_capacity as i64);
-        let new_capacity = cmp::max(new_capacity, self.capacity as i64 * 2) as usize;
-        let new_data = memory::reallocate(self.capacity, new_capacity, self.data)?;
-        self.data = new_data as *mut u8;
-        let capacity_added = new_capacity - self.capacity;
-        self.capacity = new_capacity;
-        Ok(capacity_added)
+        Ok(self.capacity)
+    }
+
+    /// Resizes the buffer so that the `len` will equal to the `new_len`.
+    ///
+    /// If `new_len` is greater than `len`, the buffer's length is simply adjusted to be
+    /// the former, optionally extending the capacity. The data between `len` and
+    /// `new_len` will remain unchanged.
+    ///
+    /// If `new_len` is less than `len`, the buffer will be truncated.
+    pub fn resize(&mut self, new_len: usize) -> Result<()> {
+        if new_len > self.len {
+            self.reserve(new_len)?;
+        } else {
+            let new_capacity = bit_util::round_upto_multiple_of_64(new_len as i64) as usize;
+            if new_capacity < self.capacity {
+                let new_data = memory::reallocate(self.capacity, new_capacity, self.data)?;
+                self.data = new_data as *mut u8;
+                self.capacity = new_capacity;
+            }
+        }
+        self.len = new_len;
+        Ok(())
     }
 
     /// Returns whether this buffer is empty or not.
@@ -451,16 +460,45 @@ mod tests {
     }
 
     #[test]
-    fn test_mutable_resize() {
+    fn test_mutable_reserve() {
         let mut buf = MutableBuffer::new(1);
         assert_eq!(64, buf.capacity());
 
-        // resizing to a smaller value should have no effect.
+        // Reserving a smaller capacity should have no effect.
+        let mut new_cap = buf.reserve(10).expect("reserve should be OK");
+        assert_eq!(64, new_cap);
+        assert_eq!(64, buf.capacity());
+
+        new_cap = buf.reserve(100).expect("reserve should be OK");
+        assert_eq!(128, new_cap);
+        assert_eq!(128, buf.capacity());
+    }
+
+    #[test]
+    fn test_mutable_resize() {
+        let mut buf = MutableBuffer::new(1);
+        assert_eq!(64, buf.capacity());
+        assert_eq!(0, buf.len());
+
+        buf.resize(20).expect("resize should be OK");
+        assert_eq!(64, buf.capacity());
+        assert_eq!(20, buf.len());
+
         buf.resize(10).expect("resize should be OK");
         assert_eq!(64, buf.capacity());
+        assert_eq!(10, buf.len());
 
         buf.resize(100).expect("resize should be OK");
         assert_eq!(128, buf.capacity());
+        assert_eq!(100, buf.len());
+
+        buf.resize(30).expect("resize should be OK");
+        assert_eq!(64, buf.capacity());
+        assert_eq!(30, buf.len());
+
+        buf.resize(0).expect("resize should be OK");
+        assert_eq!(0, buf.capacity());
+        assert_eq!(0, buf.len());
     }
 
     #[test]

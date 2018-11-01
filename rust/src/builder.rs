@@ -61,37 +61,28 @@ macro_rules! impl_buffer_builder {
                 (byte_capacity / mem::size_of::<$native_ty>()) as i64
             }
 
-            /// Push a value into the builder, growing the internal buffer as needed
+            /// Pushes a value into the builder, growing the internal buffer as needed.
             pub fn push(&mut self, v: $native_ty) -> Result<()> {
                 self.reserve(1)?;
                 self.write_bytes(v.to_byte_slice(), 1)
             }
 
-            /// Push a slice of type T, growing the internal buffer as needed
+            /// Pushes a slice of type `T`, growing the internal buffer as needed.
             pub fn push_slice(&mut self, slice: &[$native_ty]) -> Result<()> {
                 let array_slots = slice.len() as i64;
                 self.reserve(array_slots)?;
                 self.write_bytes(slice.to_byte_slice(), array_slots)
             }
 
-            /// Reserve memory for n elements of type T
+            /// Reserves memory for `n` elements of type `T`.
             pub fn reserve(&mut self, n: i64) -> Result<()> {
                 let new_capacity = self.len + n;
-                if new_capacity > self.capacity() {
-                    return self.grow(new_capacity);
-                }
-                Ok(())
-            }
-
-            /// Grow the internal buffer to `new_capacity`, where `new_capacity` is the capacity in
-            /// elements of type T
-            fn grow(&mut self, new_capacity: i64) -> Result<()> {
                 let byte_capacity = mem::size_of::<$native_ty>() * new_capacity as usize;
-                self.buffer.resize(byte_capacity)?;
+                self.buffer.reserve(byte_capacity)?;
                 Ok(())
             }
 
-            /// Build an immutable `Buffer` from the existing internal `MutableBuffer`'s memory
+            /// Consumes this builder and returns an immutable `Buffer`.
             pub fn finish(self) -> Buffer {
                 self.buffer.freeze()
             }
@@ -127,7 +118,7 @@ impl_buffer_builder!(f32);
 impl_buffer_builder!(f64);
 
 impl BufferBuilder<bool> {
-    /// Creates a builder with a fixed initial capacity
+    /// Creates a builder with a fixed initial capacity.
     pub fn new(capacity: i64) -> Self {
         let byte_capacity = bit_util::ceil(capacity, 8);
         let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity) as usize;
@@ -140,23 +131,23 @@ impl BufferBuilder<bool> {
         }
     }
 
-    /// Returns the number of array elements (slots) in the builder
+    /// Returns the number of array elements (slots) in the builder.
     pub fn len(&self) -> i64 {
         self.len
     }
 
-    /// Returns the current capacity of the builder (number of elements)
+    /// Returns the current capacity of the builder (number of elements).
     pub fn capacity(&self) -> i64 {
         let byte_capacity = self.buffer.capacity() as i64;
         byte_capacity * 8
     }
 
-    /// Push a value into the builder, growing the internal buffer as needed
+    /// Pushes a value into the builder, growing the internal buffer as needed.
     pub fn push(&mut self, v: bool) -> Result<()> {
         self.reserve(1)?;
         if v {
             // For performance the `len` of the buffer is not updated on each push but
-            // is updated in the `freeze` method instead
+            // is updated in the `freeze` method instead.
             unsafe {
                 bit_util::set_bit_raw(self.buffer.raw_data() as *mut u8, (self.len) as usize);
             }
@@ -165,7 +156,7 @@ impl BufferBuilder<bool> {
         Ok(())
     }
 
-    /// Push a slice of type T, growing the internal buffer as needed
+    /// Pushes a slice of type `T`, growing the internal buffer as needed.
     pub fn push_slice(&mut self, slice: &[bool]) -> Result<()> {
         let array_slots = slice.len();
         for i in 0..array_slots {
@@ -174,30 +165,25 @@ impl BufferBuilder<bool> {
         Ok(())
     }
 
-    /// Reserve memory for n elements of type T
+    /// Reserves memory for `n` elements of type `T`.
     pub fn reserve(&mut self, n: i64) -> Result<()> {
         let new_capacity = self.len + n;
         if new_capacity > self.capacity() {
-            return self.grow(new_capacity);
+            let new_byte_capacity = bit_util::ceil(new_capacity, 8) as usize;
+            let existing_capacity = self.buffer.capacity();
+            let new_capacity = self.buffer.reserve(new_byte_capacity)?;
+            self.buffer
+                .set_null_bits(existing_capacity, new_capacity - existing_capacity);
         }
         Ok(())
     }
 
-    /// Grow the internal buffer to `new_capacity`, where `new_capacity` is the capacity in
-    /// elements of type T
-    fn grow(&mut self, new_capacity: i64) -> Result<()> {
-        let new_byte_capacity = bit_util::ceil(new_capacity, 8) as usize;
-        let existing_capacity = self.buffer.capacity();
-        let capacity_added = self.buffer.resize(new_byte_capacity)?;
-        self.buffer.set_null_bits(existing_capacity, capacity_added);
-        Ok(())
-    }
-
-    /// Build an immutable `Buffer` from the existing internal `MutableBuffer`'s memory
+    /// Consumes this and returns an immutable `Buffer`.
     pub fn finish(mut self) -> Buffer {
-        // `push` does not update the buffer's `len` to it is done before `freeze` is called
-        let new_buffer_len = bit_util::ceil(self.len, 8);
-        self.buffer.set_len(new_buffer_len as usize);
+        // `push` does not update the buffer's `len` so do it before `freeze` is called.
+        let new_buffer_len = bit_util::ceil(self.len, 8) as usize;
+        debug_assert!(new_buffer_len >= self.buffer.len());
+        self.buffer.resize(new_buffer_len).unwrap();
         self.buffer.freeze()
     }
 }
