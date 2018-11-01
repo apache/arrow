@@ -18,10 +18,12 @@ package arrow_test
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/tensor"
 )
 
 // This example demonstrates how to build an array of int64 values using a builder and Append.
@@ -56,6 +58,7 @@ func Example_minimal() {
 			fmt.Println(v)
 		}
 	}
+	fmt.Printf("ints = %v\n", ints)
 
 	// Output:
 	// ints[0] = 1
@@ -66,6 +69,7 @@ func Example_minimal() {
 	// ints[5] = 6
 	// ints[6] = 7
 	// ints[7] = 8
+	// ints = [1 2 3 (null) 5 6 7 8]
 }
 
 // This example demonstrates creating an array, sourcing the values and
@@ -309,14 +313,232 @@ func Example_float64Slice() {
 	arr := b.NewFloat64Array()
 	defer arr.Release()
 
-	fmt.Printf("array = %v\n", arr.Float64Values())
+	fmt.Printf("array = %v\n", arr)
 
 	sli := array.NewSlice(arr, 2, 5).(*array.Float64)
 	defer sli.Release()
 
-	fmt.Printf("slice = %v\n", sli.Float64Values())
+	fmt.Printf("slice = %v\n", sli)
 
 	// Output:
-	// array = [1 2 3 -1 4 5]
-	// slice = [3 -1 4]
+	// array = [1 2 3 (null) 4 5]
+	// slice = [3 (null) 4]
+}
+
+func Example_float64Tensor2x5() {
+	pool := memory.NewGoAllocator()
+
+	b := array.NewFloat64Builder(pool)
+	defer b.Release()
+
+	raw := []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	b.AppendValues(raw, nil)
+
+	arr := b.NewFloat64Array()
+	defer arr.Release()
+
+	f64 := tensor.NewFloat64(arr.Data(), []int64{2, 5}, nil, []string{"x", "y"})
+	defer f64.Release()
+
+	for _, i := range [][]int64{
+		[]int64{0, 0},
+		[]int64{0, 1},
+		[]int64{0, 2},
+		[]int64{0, 3},
+		[]int64{0, 4},
+		[]int64{1, 0},
+		[]int64{1, 1},
+		[]int64{1, 2},
+		[]int64{1, 3},
+		[]int64{1, 4},
+	} {
+		fmt.Printf("arr%v = %v\n", i, f64.Value(i))
+	}
+
+	// Output:
+	// arr[0 0] = 1
+	// arr[0 1] = 2
+	// arr[0 2] = 3
+	// arr[0 3] = 4
+	// arr[0 4] = 5
+	// arr[1 0] = 6
+	// arr[1 1] = 7
+	// arr[1 2] = 8
+	// arr[1 3] = 9
+	// arr[1 4] = 10
+}
+
+func Example_float64Tensor2x5ColMajor() {
+	pool := memory.NewGoAllocator()
+
+	b := array.NewFloat64Builder(pool)
+	defer b.Release()
+
+	raw := []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	b.AppendValues(raw, nil)
+
+	arr := b.NewFloat64Array()
+	defer arr.Release()
+
+	f64 := tensor.NewFloat64(arr.Data(), []int64{2, 5}, []int64{8, 16}, []string{"x", "y"})
+	defer f64.Release()
+
+	for _, i := range [][]int64{
+		[]int64{0, 0},
+		[]int64{0, 1},
+		[]int64{0, 2},
+		[]int64{0, 3},
+		[]int64{0, 4},
+		[]int64{1, 0},
+		[]int64{1, 1},
+		[]int64{1, 2},
+		[]int64{1, 3},
+		[]int64{1, 4},
+	} {
+		fmt.Printf("arr%v = %v\n", i, f64.Value(i))
+	}
+
+	// Output:
+	// arr[0 0] = 1
+	// arr[0 1] = 3
+	// arr[0 2] = 5
+	// arr[0 3] = 7
+	// arr[0 4] = 9
+	// arr[1 0] = 2
+	// arr[1 1] = 4
+	// arr[1 2] = 6
+	// arr[1 3] = 8
+	// arr[1 4] = 10
+}
+
+func Example_record() {
+	pool := memory.NewGoAllocator()
+
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+		},
+		nil,
+	)
+
+	b := array.NewRecordBuilder(pool, schema)
+	defer b.Release()
+
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3, 4, 5, 6}, nil)
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{7, 8, 9, 10}, []bool{true, true, false, true})
+	b.Field(1).(*array.Float64Builder).AppendValues([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+
+	rec := b.NewRecord()
+	defer rec.Release()
+
+	for i, col := range rec.Columns() {
+		fmt.Printf("column[%d] %q: %v\n", i, rec.ColumnName(i), col)
+	}
+
+	// Output:
+	// column[0] "f1-i32": [1 2 3 4 5 6 7 8 (null) 10]
+	// column[1] "f2-f64": [1 2 3 4 5 6 7 8 9 10]
+}
+
+func Example_recordReader() {
+	pool := memory.NewGoAllocator()
+
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+		},
+		nil,
+	)
+
+	b := array.NewRecordBuilder(pool, schema)
+	defer b.Release()
+
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3, 4, 5, 6}, nil)
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{7, 8, 9, 10}, []bool{true, true, false, true})
+	b.Field(1).(*array.Float64Builder).AppendValues([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+
+	rec1 := b.NewRecord()
+	defer rec1.Release()
+
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, nil)
+	b.Field(1).(*array.Float64Builder).AppendValues([]float64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, nil)
+
+	rec2 := b.NewRecord()
+	defer rec2.Release()
+
+	itr, err := array.NewRecordReader(schema, []array.Record{rec1, rec2})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer itr.Release()
+
+	n := 0
+	for itr.Next() {
+		rec := itr.Record()
+		for i, col := range rec.Columns() {
+			fmt.Printf("rec[%d][%q]: %v\n", n, rec.ColumnName(i), col)
+		}
+		n++
+	}
+
+	// Output:
+	// rec[0]["f1-i32"]: [1 2 3 4 5 6 7 8 (null) 10]
+	// rec[0]["f2-f64"]: [1 2 3 4 5 6 7 8 9 10]
+	// rec[1]["f1-i32"]: [11 12 13 14 15 16 17 18 19 20]
+	// rec[1]["f2-f64"]: [11 12 13 14 15 16 17 18 19 20]
+}
+
+func Example_table() {
+	pool := memory.NewGoAllocator()
+
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+		},
+		nil,
+	)
+
+	b := array.NewRecordBuilder(pool, schema)
+	defer b.Release()
+
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3, 4, 5, 6}, nil)
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{7, 8, 9, 10}, []bool{true, true, false, true})
+	b.Field(1).(*array.Float64Builder).AppendValues([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+
+	rec1 := b.NewRecord()
+	defer rec1.Release()
+
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, nil)
+	b.Field(1).(*array.Float64Builder).AppendValues([]float64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, nil)
+
+	rec2 := b.NewRecord()
+	defer rec2.Release()
+
+	tbl := array.NewTableFromRecords(schema, []array.Record{rec1, rec2})
+	defer tbl.Release()
+
+	tr := array.NewTableReader(tbl, 5)
+	defer tr.Release()
+
+	n := 0
+	for tr.Next() {
+		rec := tr.Record()
+		for i, col := range rec.Columns() {
+			fmt.Printf("rec[%d][%q]: %v\n", n, rec.ColumnName(i), col)
+		}
+		n++
+	}
+
+	// Output:
+	// rec[0]["f1-i32"]: [1 2 3 4 5]
+	// rec[0]["f2-f64"]: [1 2 3 4 5]
+	// rec[1]["f1-i32"]: [6 7 8 (null) 10]
+	// rec[1]["f2-f64"]: [6 7 8 9 10]
+	// rec[2]["f1-i32"]: [11 12 13 14 15]
+	// rec[2]["f2-f64"]: [11 12 13 14 15]
+	// rec[3]["f1-i32"]: [16 17 18 19 20]
+	// rec[3]["f2-f64"]: [16 17 18 19 20]
 }

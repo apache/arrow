@@ -52,10 +52,17 @@ begin
 rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
+begin
+  Plasma = GI.load("Plasma")
+rescue GObjectIntrospection::RepositoryError::TypelibNotFound
+end
+
+require "fileutils"
 require "rbconfig"
 require "tempfile"
 require_relative "helper/buildable"
 require_relative "helper/fixture"
 require_relative "helper/omittable"
+require_relative "helper/plasma-store"
 
 exit(Test::Unit::AutoRunner.run(true, test_dir.to_s))

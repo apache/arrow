@@ -25,12 +25,12 @@ import io.netty.buffer.ArrowBuf;
 
 public class DecimalUtility {
 
-  public final static int MAX_DIGITS = 9;
-  public final static int DIGITS_BASE = 1000000000;
-  public final static int DIGITS_MAX = 999999999;
-  public final static int INTEGER_SIZE = (Integer.SIZE / 8);
+  public static final int MAX_DIGITS = 9;
+  public static final int DIGITS_BASE = 1000000000;
+  public static final int DIGITS_MAX = 999999999;
+  public static final int INTEGER_SIZE = (Integer.SIZE / 8);
 
-  public final static String[] decimalToString = {"",
+  public static final String[] decimalToString = {"",
       "0",
       "00",
       "000",
@@ -41,7 +41,7 @@ public class DecimalUtility {
       "00000000",
       "000000000"};
 
-  public final static long[] scale_long_constants = {
+  public static final long[] scale_long_constants = {
       1,
       10,
       100,
@@ -52,15 +52,15 @@ public class DecimalUtility {
       10000000,
       100000000,
       1000000000,
-      10000000000l,
-      100000000000l,
-      1000000000000l,
-      10000000000000l,
-      100000000000000l,
-      1000000000000000l,
-      10000000000000000l,
-      100000000000000000l,
-      1000000000000000000l};
+      10000000000L,
+      100000000000L,
+      1000000000000L,
+      10000000000000L,
+      100000000000000L,
+      1000000000000000L,
+      10000000000000000L,
+      100000000000000000L,
+      1000000000000000000L};
 
   public static final int DECIMAL_BYTE_LENGTH = 16;
 

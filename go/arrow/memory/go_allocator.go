@@ -42,3 +42,7 @@ func (a *GoAllocator) Reallocate(size int, b []byte) []byte {
 }
 
 func (a *GoAllocator) Free(b []byte) {}
+
+var (
+	_ Allocator = (*GoAllocator)(nil)
+)

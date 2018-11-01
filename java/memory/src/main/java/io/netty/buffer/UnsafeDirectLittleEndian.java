@@ -135,21 +135,21 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public ByteBuf setShort(int index, int value) {
     wrapped.checkIndex(index, 2);
-    _setShort(index, value);
+    setShort_(index, value);
     return this;
   }
 
   @Override
   public ByteBuf setInt(int index, int value) {
     wrapped.checkIndex(index, 4);
-    _setInt(index, value);
+    setInt_(index, value);
     return this;
   }
 
   @Override
   public ByteBuf setLong(int index, long value) {
     wrapped.checkIndex(index, 8);
-    _setLong(index, value);
+    setLong_(index, value);
     return this;
   }
 
@@ -174,7 +174,7 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public ByteBuf writeShort(int value) {
     wrapped.ensureWritable(2);
-    _setShort(wrapped.writerIndex, value);
+    setShort_(wrapped.writerIndex, value);
     wrapped.writerIndex += 2;
     return this;
   }
@@ -182,7 +182,7 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public ByteBuf writeInt(int value) {
     wrapped.ensureWritable(4);
-    _setInt(wrapped.writerIndex, value);
+    setInt_(wrapped.writerIndex, value);
     wrapped.writerIndex += 4;
     return this;
   }
@@ -190,7 +190,7 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public ByteBuf writeLong(long value) {
     wrapped.ensureWritable(8);
-    _setLong(wrapped.writerIndex, value);
+    setLong_(wrapped.writerIndex, value);
     wrapped.writerIndex += 8;
     return this;
   }
@@ -213,15 +213,15 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
     return this;
   }
 
-  private void _setShort(int index, int value) {
+  private void setShort_(int index, int value) {
     PlatformDependent.putShort(addr(index), (short) value);
   }
 
-  private void _setInt(int index, int value) {
+  private void setInt_(int index, int value) {
     PlatformDependent.putInt(addr(index), value);
   }
 
-  private void _setLong(int index, long value) {
+  private void setLong_(int index, long value) {
     PlatformDependent.putLong(addr(index), value);
   }
 

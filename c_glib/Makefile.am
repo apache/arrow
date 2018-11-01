@@ -22,6 +22,7 @@ SUBDIRS =					\
 	arrow-gpu-glib				\
 	gandiva-glib				\
 	parquet-glib				\
+	plasma-glib				\
 	doc					\
 	example					\
 	tool

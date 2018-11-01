@@ -38,7 +38,7 @@ import org.junit.Test;
 import io.netty.buffer.ArrowBuf;
 
 public class TestUnionVector {
-  private final static String EMPTY_SCHEMA_PATH = "";
+  private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
 
@@ -339,22 +339,18 @@ public class TestUnionVector {
 
       try {
         long offsetAddress = vector.getOffsetBufferAddress();
-      }
-      catch (UnsupportedOperationException ue) {
+      } catch (UnsupportedOperationException ue) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
         error = false;
       }
 
       try {
         long dataAddress = vector.getDataBufferAddress();
-      }
-      catch (UnsupportedOperationException ue) {
+      } catch (UnsupportedOperationException ue) {
         error = true;
-      }
-      finally {
+      } finally {
         assertTrue(error);
       }
 

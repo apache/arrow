@@ -45,10 +45,10 @@ import io.netty.buffer.ArrowBuf;
 
 public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector {
 
-  public final static FieldVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
-  public final static String DATA_VECTOR_NAME = "$data$";
+  public static final FieldVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
+  public static final String DATA_VECTOR_NAME = "$data$";
 
-  public final static byte OFFSET_WIDTH = 4;
+  public static final byte OFFSET_WIDTH = 4;
   protected ArrowBuf offsetBuffer;
   protected FieldVector vector;
   protected final CallBack callBack;

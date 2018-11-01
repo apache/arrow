@@ -255,8 +255,11 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     Preconditions.checkNotNull(key);
 
     boolean hashedOk;
-    int index, next, hash;
-    Object result, object;
+    int index;
+    int next;
+    int hash;
+    Object result;
+    Object object;
     index = next = findIndex(key, elementData);
 
     if (elementData[index] == null || ((V)elementData[index]).getKey() != key) {

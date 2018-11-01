@@ -31,7 +31,7 @@ import io.netty.buffer.ArrowBuf.TransferResult;
 
 public class TestBaseAllocator {
 
-  private final static int MAX_ALLOCATION = 8 * 1024;
+  private static final int MAX_ALLOCATION = 8 * 1024;
 
   /*
   // ---------------------------------------- DEBUG -----------------------------------

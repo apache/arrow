@@ -19,6 +19,9 @@
 package array
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/apache/arrow/go/arrow"
 )
 
@@ -37,6 +40,24 @@ func NewInt64Data(data *Data) *Int64 {
 
 func (a *Int64) Value(i int) int64    { return a.values[i] }
 func (a *Int64) Int64Values() []int64 { return a.values }
+
+func (a *Int64) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
 
 func (a *Int64) setData(data *Data) {
 	a.array.setData(data)
@@ -65,6 +86,24 @@ func NewUint64Data(data *Data) *Uint64 {
 func (a *Uint64) Value(i int) uint64     { return a.values[i] }
 func (a *Uint64) Uint64Values() []uint64 { return a.values }
 
+func (a *Uint64) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
 func (a *Uint64) setData(data *Data) {
 	a.array.setData(data)
 	vals := data.buffers[1]
@@ -91,6 +130,24 @@ func NewFloat64Data(data *Data) *Float64 {
 
 func (a *Float64) Value(i int) float64      { return a.values[i] }
 func (a *Float64) Float64Values() []float64 { return a.values }
+
+func (a *Float64) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
 
 func (a *Float64) setData(data *Data) {
 	a.array.setData(data)
@@ -119,6 +176,24 @@ func NewInt32Data(data *Data) *Int32 {
 func (a *Int32) Value(i int) int32    { return a.values[i] }
 func (a *Int32) Int32Values() []int32 { return a.values }
 
+func (a *Int32) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
 func (a *Int32) setData(data *Data) {
 	a.array.setData(data)
 	vals := data.buffers[1]
@@ -145,6 +220,24 @@ func NewUint32Data(data *Data) *Uint32 {
 
 func (a *Uint32) Value(i int) uint32     { return a.values[i] }
 func (a *Uint32) Uint32Values() []uint32 { return a.values }
+
+func (a *Uint32) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
 
 func (a *Uint32) setData(data *Data) {
 	a.array.setData(data)
@@ -173,6 +266,24 @@ func NewFloat32Data(data *Data) *Float32 {
 func (a *Float32) Value(i int) float32      { return a.values[i] }
 func (a *Float32) Float32Values() []float32 { return a.values }
 
+func (a *Float32) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
 func (a *Float32) setData(data *Data) {
 	a.array.setData(data)
 	vals := data.buffers[1]
@@ -199,6 +310,24 @@ func NewInt16Data(data *Data) *Int16 {
 
 func (a *Int16) Value(i int) int16    { return a.values[i] }
 func (a *Int16) Int16Values() []int16 { return a.values }
+
+func (a *Int16) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
 
 func (a *Int16) setData(data *Data) {
 	a.array.setData(data)
@@ -227,6 +356,24 @@ func NewUint16Data(data *Data) *Uint16 {
 func (a *Uint16) Value(i int) uint16     { return a.values[i] }
 func (a *Uint16) Uint16Values() []uint16 { return a.values }
 
+func (a *Uint16) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
 func (a *Uint16) setData(data *Data) {
 	a.array.setData(data)
 	vals := data.buffers[1]
@@ -253,6 +400,24 @@ func NewInt8Data(data *Data) *Int8 {
 
 func (a *Int8) Value(i int) int8   { return a.values[i] }
 func (a *Int8) Int8Values() []int8 { return a.values }
+
+func (a *Int8) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
 
 func (a *Int8) setData(data *Data) {
 	a.array.setData(data)
@@ -281,6 +446,24 @@ func NewUint8Data(data *Data) *Uint8 {
 func (a *Uint8) Value(i int) uint8    { return a.values[i] }
 func (a *Uint8) Uint8Values() []uint8 { return a.values }
 
+func (a *Uint8) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
 func (a *Uint8) setData(data *Data) {
 	a.array.setData(data)
 	vals := data.buffers[1]
@@ -307,6 +490,24 @@ func NewTimestampData(data *Data) *Timestamp {
 
 func (a *Timestamp) Value(i int) arrow.Timestamp        { return a.values[i] }
 func (a *Timestamp) TimestampValues() []arrow.Timestamp { return a.values }
+
+func (a *Timestamp) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
 
 func (a *Timestamp) setData(data *Data) {
 	a.array.setData(data)

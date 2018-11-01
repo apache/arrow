@@ -53,7 +53,7 @@ import org.junit.Test;
 
 public class TestCopyFrom {
 
-  private final static String EMPTY_SCHEMA_PATH = "";
+  private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
 
@@ -70,8 +70,8 @@ public class TestCopyFrom {
   @Test /* NullableVarChar */
   public void testCopyFromWithNulls() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator))
-    {
+         final VarCharVector vector2 =
+             newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
       assertEquals(4095, capacity);
@@ -130,8 +130,8 @@ public class TestCopyFrom {
   @Test /* NullableVarChar */
   public void testCopyFromWithNulls1() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator))
-    {
+         final VarCharVector vector2 =
+             newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
       assertEquals(4095, capacity);
