@@ -43,14 +43,14 @@ type Option func(*Reader)
 // WithComment specifies the comment character used while parsing CSV files.
 func WithComment(c rune) Option {
 	return func(r *Reader) {
-		r.R.Comment = c
+		r.r.Comment = c
 	}
 }
 
 // WithComma specifies the fields separation character used while parsing CSV files.
 func WithComma(c rune) Option {
 	return func(r *Reader) {
-		r.R.Comma = c
+		r.r.Comma = c
 	}
 }
 
@@ -63,7 +63,7 @@ func WithAllocator(mem memory.Allocator) Option {
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
 type Reader struct {
-	R      *csv.Reader
+	r      *csv.Reader
 	schema *arrow.Schema
 
 	refs int64
@@ -82,7 +82,7 @@ type Reader struct {
 func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 	validate(schema)
 
-	rr := &Reader{R: csv.NewReader(r), schema: schema, refs: 1}
+	rr := &Reader{r: csv.NewReader(r), schema: schema, refs: 1}
 	for _, opt := range opts {
 		opt(rr)
 	}
@@ -122,7 +122,7 @@ func (r *Reader) Next() bool {
 	}
 
 	var recs []string
-	recs, r.err = r.R.Read()
+	recs, r.err = r.r.Read()
 	if r.err != nil {
 		if r.err == io.EOF {
 			r.err = nil
