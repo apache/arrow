@@ -199,7 +199,7 @@ upload_file() {
   fi
 }
 
-replace_file() {
+sign_and_upload_file() {
   local version=$1
   local rc=$2
   local target=$3
@@ -249,7 +249,7 @@ upload_deb() {
         continue
         ;;
     esac
-    replace_file \
+    sign_and_upload_file \
       ${version} \
       ${rc} \
       ${distribution} \
@@ -279,7 +279,7 @@ upload_apt() {
       --no-default-keyring \
       --keyring ./${keyring_name} \
       --import - || : # XXX: Ignore gpg error
-  replace_file \
+  sign_and_upload_file \
     ${version} \
     ${rc} \
     ${distribution} \
@@ -323,7 +323,7 @@ upload_apt() {
       dists/${code_name}/Release
 
     for path in $(find dists/${code_name}/ -type f); do
-      replace_file \
+      sign_and_upload_file \
         ${version} \
         ${rc} \
         ${distribution} \
@@ -363,7 +363,7 @@ upload_rpm() {
       -D "_gpg_name\\ ${gpg_key_id}" \
       --addsign \
       ${rpm_path}
-    replace_file \
+    sign_and_upload_file \
       ${version} \
       ${rc} \
       ${distribution} \
@@ -389,7 +389,7 @@ upload_yum() {
   pushd ${distribution}-rc
   local keyring_name=RPM-GPG-KEY-apache-arrow
   curl -o ${keyring_name} https://dist.apache.org/repos/dist/dev/arrow/KEYS
-  replace_file \
+  sign_and_upload_file \
     ${version} \
     ${rc} \
     ${distribution} \
@@ -400,7 +400,7 @@ upload_yum() {
       mkdir -p ${arch_dir}/repodata/
       docker_run createrepo ${arch_dir}
       for repo_path in ${arch_dir}/repodata/*; do
-        replace_file \
+        sign_and_upload_file \
           ${version} \
           ${rc} \
           ${distribution} \
@@ -428,7 +428,7 @@ upload_python() {
         continue
         ;;
     esac
-    replace_file \
+    sign_and_upload_file \
       ${version} \
       ${rc} \
       ${target} \
