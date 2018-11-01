@@ -28,14 +28,14 @@ Imports:
     withr,
     bit64
 Remotes:
-    romainfrancois/vctrs@bit64, 
-    RcppCore/Rcpp, 
+    romainfrancois/vctrs@bit64,
+    RcppCore/Rcpp,
     r-lib/withr
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.0.9000
 Suggests:
     testthat,
-    lubridate, 
+    lubridate,
     hms
 Collate:
     'enums.R'
