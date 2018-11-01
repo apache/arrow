@@ -22,8 +22,10 @@ use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
 
+use array::PrimitiveArray;
+use array_data::ArrayData;
 use buffer::{Buffer, MutableBuffer};
-use datatypes::{ArrowPrimitiveType, ToByteSlice};
+use datatypes::{ArrowPrimitiveType, DataType, ToByteSlice};
 use error::{ArrowError, Result};
 use util::bit_util;
 
@@ -53,6 +55,14 @@ macro_rules! impl_buffer_builder {
             /// Returns the number of array elements (slots) in the builder
             pub fn len(&self) -> i64 {
                 self.len
+            }
+
+            // Advances the `len` of the underlying `Buffer` by `i` slots of type T
+            fn advance(&mut self, i: i64) -> Result<()> {
+                let new_buffer_len = (self.len + i) as usize * mem::size_of::<$native_ty>();
+                self.buffer.resize(new_buffer_len)?;
+                self.len += i;
+                Ok(())
             }
 
             /// Returns the current capacity of the builder (number of elements)
@@ -136,7 +146,15 @@ impl BufferBuilder<bool> {
         self.len
     }
 
-    /// Returns the current capacity of the builder (number of elements).
+    // Advances the `len` of the underlying `Buffer` by `i` slots of type T
+    pub fn advance(&mut self, i: i64) -> Result<()> {
+        let new_buffer_len = bit_util::ceil(self.len + i, 8);
+        self.buffer.resize(new_buffer_len as usize)?;
+        self.len += i;
+        Ok(())
+    }
+
+    /// Returns the current capacity of the builder (number of elements)
     pub fn capacity(&self) -> i64 {
         let byte_capacity = self.buffer.capacity() as i64;
         byte_capacity * 8
@@ -188,8 +206,99 @@ impl BufferBuilder<bool> {
     }
 }
 
+///  Array builder for fixed-width primitive types
+pub struct PrimitiveArrayBuilder<T>
+where
+    T: ArrowPrimitiveType,
+{
+    values_builder: BufferBuilder<T>,
+    bitmap_builder: BufferBuilder<bool>,
+}
+
+macro_rules! impl_primitive_array_builder {
+    ($data_ty:path, $native_ty:ident) => {
+        impl PrimitiveArrayBuilder<$native_ty> {
+            /// Creates a new primitive array builder
+            pub fn new(capacity: i64) -> Self {
+                Self {
+                    values_builder: BufferBuilder::<$native_ty>::new(capacity),
+                    bitmap_builder: BufferBuilder::<bool>::new(capacity),
+                }
+            }
+
+            /// Returns the capacity of this builder measured in slots of type `T`
+            pub fn capacity(&self) -> i64 {
+                self.values_builder.capacity()
+            }
+
+            /// Returns the length of this builder measured in slots of type `T`
+            pub fn len(&self) -> i64 {
+                self.values_builder.len()
+            }
+
+            /// Pushes a value of type `T` into the builder
+            pub fn push(&mut self, v: $native_ty) -> Result<()> {
+                self.bitmap_builder.push(true)?;
+                self.values_builder.push(v)?;
+                Ok(())
+            }
+
+            /// Pushes a null slot into the builder
+            pub fn push_null(&mut self) -> Result<()> {
+                self.bitmap_builder.push(false)?;
+                self.values_builder.advance(1)?;
+                Ok(())
+            }
+
+            /// Pushes an `Option<T>` into the builder
+            pub fn push_option(&mut self, v: Option<$native_ty>) -> Result<()> {
+                match v {
+                    None => self.push_null()?,
+                    Some(v) => self.push(v)?,
+                };
+                Ok(())
+            }
+
+            /// Pushes a slice of type `T` into the builder
+            pub fn push_slice(&mut self, v: &[$native_ty]) -> Result<()> {
+                self.bitmap_builder.push_slice(&vec![true; v.len()][..])?;
+                self.values_builder.push_slice(v)?;
+                Ok(())
+            }
+
+            /// Builds the PrimitiveArray
+            pub fn finish(self) -> PrimitiveArray<$native_ty> {
+                let len = self.len();
+                let null_bit_buffer = self.bitmap_builder.finish();
+                let data = ArrayData::builder($data_ty)
+                    .len(len)
+                    .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+                    .add_buffer(self.values_builder.finish())
+                    .null_bit_buffer(null_bit_buffer)
+                    .build();
+                PrimitiveArray::<$native_ty>::from(data)
+            }
+        }
+    };
+}
+
+impl_primitive_array_builder!(DataType::Boolean, bool);
+impl_primitive_array_builder!(DataType::UInt8, u8);
+impl_primitive_array_builder!(DataType::UInt16, u16);
+impl_primitive_array_builder!(DataType::UInt32, u32);
+impl_primitive_array_builder!(DataType::UInt64, u64);
+impl_primitive_array_builder!(DataType::Int8, i8);
+impl_primitive_array_builder!(DataType::Int16, i16);
+impl_primitive_array_builder!(DataType::Int32, i32);
+impl_primitive_array_builder!(DataType::Int64, i64);
+impl_primitive_array_builder!(DataType::Float32, f32);
+impl_primitive_array_builder!(DataType::Float64, f64);
+
 #[cfg(test)]
 mod tests {
+
+    use array::Array;
+
     use super::*;
 
     #[test]
@@ -319,5 +428,118 @@ mod tests {
 
         assert_eq!(buf.len(), buf2.len());
         assert_eq!(buf.data(), buf2.data());
+    }
+
+    #[test]
+    fn test_primitive_array_builder_i32() {
+        let mut builder = PrimitiveArray::<i32>::builder(5);
+        for i in 0..5 {
+            builder.push(i).unwrap();
+        }
+        let arr = builder.finish();
+        assert_eq!(5, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        for i in 0..5 {
+            assert!(!arr.is_null(i));
+            assert!(arr.is_valid(i));
+            assert_eq!(i as i32, arr.value(i));
+        }
+    }
+
+    #[test]
+    fn test_primitive_array_builder_bool() {
+        // 00000010 01001000
+        let buf = Buffer::from([72_u8, 2_u8]);
+        let mut builder = PrimitiveArray::<bool>::builder(10);
+        for i in 0..10 {
+            if i == 3 || i == 6 || i == 9 {
+                builder.push(true).unwrap();
+            } else {
+                builder.push(false).unwrap();
+            }
+        }
+
+        let arr = builder.finish();
+        assert_eq!(buf, arr.values());
+        assert_eq!(10, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        for i in 0..10 {
+            assert!(!arr.is_null(i));
+            assert!(arr.is_valid(i));
+            assert_eq!(i == 3 || i == 6 || i == 9, arr.value(i), "failed at {}", i)
+        }
+    }
+
+    #[test]
+    fn test_primitive_array_builder_push_option() {
+        let arr1 = PrimitiveArray::<i32>::from(vec![Some(0), None, Some(2), None, Some(4)]);
+
+        let mut builder = PrimitiveArray::<i32>::builder(5);
+        builder.push_option(Some(0)).unwrap();
+        builder.push_option(None).unwrap();
+        builder.push_option(Some(2)).unwrap();
+        builder.push_option(None).unwrap();
+        builder.push_option(Some(4)).unwrap();
+        let arr2 = builder.finish();
+
+        assert_eq!(arr1.len(), arr2.len());
+        assert_eq!(arr1.offset(), arr2.offset());
+        assert_eq!(arr1.null_count(), arr2.null_count());
+        for i in 0..5 {
+            assert_eq!(arr1.is_null(i), arr2.is_null(i));
+            assert_eq!(arr1.is_valid(i), arr2.is_valid(i));
+            if arr1.is_valid(i) {
+                assert_eq!(arr1.value(i), arr2.value(i));
+            }
+        }
+    }
+
+    #[test]
+    fn test_primitive_array_builder_push_null() {
+        let arr1 = PrimitiveArray::<i32>::from(vec![Some(0), Some(2), None, None, Some(4)]);
+
+        let mut builder = PrimitiveArray::<i32>::builder(5);
+        builder.push(0).unwrap();
+        builder.push(2).unwrap();
+        builder.push_null().unwrap();
+        builder.push_null().unwrap();
+        builder.push(4).unwrap();
+        let arr2 = builder.finish();
+
+        assert_eq!(arr1.len(), arr2.len());
+        assert_eq!(arr1.offset(), arr2.offset());
+        assert_eq!(arr1.null_count(), arr2.null_count());
+        for i in 0..5 {
+            assert_eq!(arr1.is_null(i), arr2.is_null(i));
+            assert_eq!(arr1.is_valid(i), arr2.is_valid(i));
+            if arr1.is_valid(i) {
+                assert_eq!(arr1.value(i), arr2.value(i));
+            }
+        }
+    }
+
+    #[test]
+    fn test_primitive_array_builder_push_slice() {
+        let arr1 = PrimitiveArray::<i32>::from(vec![Some(0), Some(2), None, None, Some(4)]);
+
+        let mut builder = PrimitiveArray::<i32>::builder(5);
+        builder.push_slice(&[0, 2]).unwrap();
+        builder.push_null().unwrap();
+        builder.push_null().unwrap();
+        builder.push(4).unwrap();
+        let arr2 = builder.finish();
+
+        assert_eq!(arr1.len(), arr2.len());
+        assert_eq!(arr1.offset(), arr2.offset());
+        assert_eq!(arr1.null_count(), arr2.null_count());
+        for i in 0..5 {
+            assert_eq!(arr1.is_null(i), arr2.is_null(i));
+            assert_eq!(arr1.is_valid(i), arr2.is_valid(i));
+            if arr1.is_valid(i) {
+                assert_eq!(arr1.value(i), arr2.value(i));
+            }
+        }
     }
 }

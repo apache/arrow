@@ -24,6 +24,7 @@ use std::sync::Arc;
 
 use array_data::*;
 use buffer::*;
+use builder::PrimitiveArrayBuilder;
 use datatypes::*;
 use memory;
 use util::bit_util;
@@ -194,6 +195,11 @@ macro_rules! def_primitive_array {
                 }
                 n
             }
+
+            // Returns a new primitive array builder
+            pub fn builder(capacity: i64) -> PrimitiveArrayBuilder<$native_ty> {
+                PrimitiveArrayBuilder::<$native_ty>::new(capacity)
+            }
         }
 
         /// Constructs a primitive array from a vector. Should only be used for testing.
@@ -310,6 +316,11 @@ impl PrimitiveArray<bool> {
         let offset = i + self.offset();
         assert!(offset < self.data.len());
         unsafe { bit_util::get_bit_raw(self.raw_values.get() as *const u8, offset as usize) }
+    }
+
+    // Returns a new primitive array builder
+    pub fn builder(capacity: i64) -> PrimitiveArrayBuilder<bool> {
+        PrimitiveArrayBuilder::<bool>::new(capacity)
     }
 }
 
