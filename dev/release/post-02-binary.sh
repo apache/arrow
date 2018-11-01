@@ -120,21 +120,21 @@ upload_file() {
   local path=$3
 
   local sha256=$(shasum -a 256 ${path} | awk '{print $1}')
-  bintray \
-    PUT /content/apache/arrow/${target}/${version}/${target}/${path} \
-    --header "X-Bintray-Publish: 1" \
-    --header "X-Bintray-Override: 1" \
-    --header "X-Checksum-Sha2: ${sha256}" \
-    --data-binary "@${path}"
-}
-
-replace_file() {
-  local version=$1
-  local target=$2
-  local path=$3
-
-  delete_file ${version} ${target} ${path} || : # Ignore error
-  upload_file ${version} ${target} ${path}
+  local request_path=/content/apache/arrow/${target}/${version}/${target}/${path}
+  if ! bintray \
+         PUT ${request_path} \
+         --header "X-Bintray-Publish: 1" \
+         --header "X-Bintray-Override: 1" \
+         --header "X-Checksum-Sha2: ${sha256}" \
+         --data-binary "@${path}"; then
+    delete_file ${version} ${target} ${path}
+    bintray \
+      PUT ${request_path} \
+      --header "X-Bintray-Publish: 1" \
+      --header "X-Bintray-Override: 1" \
+      --header "X-Checksum-Sha2: ${sha256}" \
+      --data-binary "@${path}"
+  fi
 }
 
 docker build -t ${docker_image_name} ${SOURCE_DIR}/binary
@@ -148,7 +148,7 @@ for target in debian ubuntu centos python; do
   download_files ${version} ${rc} ${target}
   mv ${target}-rc ${target}
   for file in $(find ${target} -type f); do
-    replace_file ${version} ${target} ${file}
+    upload_file ${version} ${target} ${file}
   done
   popd
   rm -rf ${tmp_dir}
