@@ -522,9 +522,13 @@ Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
   return Status::OK();
 }
 
-Status MemoryMappedFile::GetSize(int64_t* size) {
+Status MemoryMappedFile::GetSize(int64_t* size) const {
   *size = memory_map_->size();
   return Status::OK();
+}
+
+Status MemoryMappedFile::GetSize(int64_t* size) {
+  return static_cast<const MemoryMappedFile*>(this)->GetSize(size);
 }
 
 Status MemoryMappedFile::Tell(int64_t* position) const {
