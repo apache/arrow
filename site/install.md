@@ -81,30 +81,14 @@ Apache Arrow GLib (C). Here are supported platforms:
 * CentOS 6
 * CentOS 7
 
-Debian GNU/Linux:
+Debian GNU/Linux and Ubuntu:
 
 ```shell
 sudo apt install -y -V apt-transport-https lsb-release
 sudo wget -O /usr/share/keyrings/apache-arrow-keyring.gpg https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-keyring.gpg
 sudo tee /etc/apt/sources.list.d/apache-arrow.list <<APT_LINE
-deb [signed-by=/usr/share/keyrings/apache-arrow-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
+deb [arch=amd64 signed-by=/usr/share/keyrings/apache-arrow-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
 deb-src [signed-by=/usr/share/keyrings/apache-arrow-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
-APT_LINE
-sudo apt update
-sudo apt install -y -V libarrow-dev # For C++
-sudo apt install -y -V libarrow-glib-dev # For GLib (C)
-sudo apt install -y -V libparquet-dev # For Apache Parquet C++
-sudo apt install -y -V libparquet-glib-dev # For Parquet GLib (C)
-```
-
-Ubuntu:
-
-```shell
-sudo apt install -y -V apt-transport-https lsb-release
-sudo wget -O /usr/share/keyrings/apache-arrow-keyring.gpg https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-keyring.gpg
-sudo tee /etc/apt/sources.list.d/apache-arrow.list <<APT_LINE
-deb [signed-by=/usr/share/keyrings/apache-arrow-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) universe
-deb-src [signed-by=/usr/share/keyrings/apache-arrow-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) universe
 APT_LINE
 sudo apt update
 sudo apt install -y -V libarrow-dev # For C++
