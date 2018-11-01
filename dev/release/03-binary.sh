@@ -182,12 +182,21 @@ upload_file() {
   local version_name=${version}-rc${rc}
 
   local sha256=$(shasum -a 256 ${local_path} | awk '{print $1}')
-  bintray \
-    PUT /content/apache/arrow/${target}-rc/${version_name}/${target}-rc/${upload_path} \
-    --header "X-Bintray-Publish: 1" \
-    --header "X-Bintray-Override: 1" \
-    --header "X-Checksum-Sha2: ${sha256}" \
-    --data-binary "@${local_path}"
+  local request_path=/content/apache/arrow/${target}-rc/${version_name}/${target}-rc/${upload_path}
+  if ! bintray \
+         PUT ${request_path} \
+         --header "X-Bintray-Publish: 1" \
+         --header "X-Bintray-Override: 1" \
+         --header "X-Checksum-Sha2: ${sha256}" \
+         --data-binary "@${local_path}"; then
+    delete_file ${version} ${rc} ${target} ${upload_path}
+    bintray \
+      PUT ${request_path} \
+      --header "X-Bintray-Publish: 1" \
+      --header "X-Bintray-Override: 1" \
+      --header "X-Checksum-Sha2: ${sha256}" \
+      --data-binary "@${local_path}"
+  fi
 }
 
 replace_file() {
@@ -197,8 +206,6 @@ replace_file() {
   local local_path=$4
   local upload_path=$5
 
-  # Ignore error
-  delete_file ${version} ${rc} ${target} ${upload_path} || :
   upload_file ${version} ${rc} ${target} ${local_path} ${upload_path}
 
   for suffix in asc sha256 sha512; do
@@ -219,8 +226,6 @@ replace_file() {
           ${local_path_base} > ${output}
         ;;
     esac
-    # Ignore error
-    delete_file ${version} ${rc} ${target} ${upload_path}.${suffix} || :
     upload_file ${version} ${rc} ${target} ${output} ${upload_path}.${suffix}
     rm -f ${output}
     popd
@@ -238,7 +243,7 @@ upload_deb() {
   for base_path in *; do
     case ${base_path} in
       *.dsc|*.changes)
-        docker_run_gpg_ready debsign -k${gpg_key_id} ${base_path}
+        docker_run_gpg_ready debsign -k${gpg_key_id} --re-sign ${base_path}
         ;;
       *.asc|*.sha256|*.sha512)
         continue
@@ -474,11 +479,11 @@ for dir in *; do
     popd
   elif [ ${is_rpm} = "yes" ]; then
     pushd ${dir}
-    upload_rpm ${version} ${rc} ${distribution} ${distribution_version}
+    : upload_rpm ${version} ${rc} ${distribution} ${distribution_version}
     popd
   elif [ ${is_python} = "yes" ]; then
     pushd ${dir}
-    upload_python ${version} ${rc}
+    : upload_python ${version} ${rc}
     popd
   fi
 done
@@ -490,9 +495,9 @@ fi
 if [ ${have_ubuntu} = "yes" ]; then
   upload_apt ${version} ${rc} ubuntu
 fi
-if [ ${have_centos} = "yes" ]; then
-  upload_yum ${version} ${rc} centos
-fi
+# if [ ${have_centos} = "yes" ]; then
+#   upload_yum ${version} ${rc} centos
+# fi
 
 echo "Success! The release candidate binaries are available here:"
 if [ ${have_debian} = "yes" ]; then
