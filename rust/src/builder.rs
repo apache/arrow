@@ -58,7 +58,7 @@ macro_rules! impl_buffer_builder {
             }
 
             // Advances the `len` of the underlying `Buffer` by `i` slots of type T
-            pub fn advance(&mut self, i: i64) -> Result<()> {
+            fn advance(&mut self, i: i64) -> Result<()> {
                 let new_buffer_len = (self.len + i) as usize * mem::size_of::<$native_ty>();
                 self.buffer.resize(new_buffer_len)?;
                 self.len += i;
