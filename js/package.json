@@ -58,7 +58,7 @@
     "@types/text-encoding-utf-8": "1.0.1",
     "command-line-args": "5.0.2",
     "command-line-usage": "5.0.5",
-    "flatbuffers": "1.10.0",
+    "flatbuffers": "1.10.2",
     "json-bignum": "0.0.3",
     "text-encoding-utf-8": "1.0.2",
     "tslib": "1.9.3"
@@ -98,7 +98,7 @@
     "tslint": "5.11.0",
     "typedoc": "0.12",
     "typescript": "3.0.3",
-    "webpack": "4.21.0",
+    "webpack": "4.23.1",
     "xml2js": "0.4.19"
   },
   "@std/esm": {
