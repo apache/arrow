@@ -211,9 +211,7 @@ impl MutableBuffer {
     /// If `new_len` is less than `len`, the buffer will be truncated.
     pub fn resize(&mut self, new_len: usize) -> Result<()> {
         if new_len > self.len {
-            if new_len > self.capacity {
-                self.reserve(new_len)?;
-            }
+            self.reserve(new_len)?;
         } else {
             let new_capacity = bit_util::round_upto_multiple_of_64(new_len as i64) as usize;
             if new_capacity < self.capacity {

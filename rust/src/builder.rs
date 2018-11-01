@@ -82,7 +82,7 @@ macro_rules! impl_buffer_builder {
                 Ok(())
             }
 
-            /// Consumes this and returns an immutable `Buffer`.
+            /// Consumes this builder and returns an immutable `Buffer`.
             pub fn finish(self) -> Buffer {
                 self.buffer.freeze()
             }
