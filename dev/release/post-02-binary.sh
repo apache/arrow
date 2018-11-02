@@ -148,6 +148,9 @@ for target in debian ubuntu centos python; do
   download_files ${version} ${rc} ${target}
   mv ${target}-rc ${target}
   pushd ${target}
+  if [ ${target} = "python"]; then
+    mv ${target}-rc{$rc} ${target}
+  fi
   for file in $(find . -type f); do
     upload_file ${version} ${target} ${file}
   done
