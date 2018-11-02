@@ -84,6 +84,7 @@ Apache Arrow GLib (C). Here are supported platforms:
 Debian GNU/Linux and Ubuntu:
 
 ```shell
+sudo apt update
 sudo apt install -y -V apt-transport-https lsb-release
 sudo wget -O /usr/share/keyrings/apache-arrow-keyring.gpg https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-keyring.gpg
 sudo tee /etc/apt/sources.list.d/apache-arrow.list <<APT_LINE
