@@ -479,11 +479,11 @@ for dir in *; do
     popd
   elif [ ${is_rpm} = "yes" ]; then
     pushd ${dir}
-    : upload_rpm ${version} ${rc} ${distribution} ${distribution_version}
+    upload_rpm ${version} ${rc} ${distribution} ${distribution_version}
     popd
   elif [ ${is_python} = "yes" ]; then
     pushd ${dir}
-    : upload_python ${version} ${rc}
+    upload_python ${version} ${rc}
     popd
   fi
 done
@@ -495,9 +495,9 @@ fi
 if [ ${have_ubuntu} = "yes" ]; then
   upload_apt ${version} ${rc} ubuntu
 fi
-# if [ ${have_centos} = "yes" ]; then
-#   upload_yum ${version} ${rc} centos
-# fi
+if [ ${have_centos} = "yes" ]; then
+  upload_yum ${version} ${rc} centos
+fi
 
 echo "Success! The release candidate binaries are available here:"
 if [ ${have_debian} = "yes" ]; then
