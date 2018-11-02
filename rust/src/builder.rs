@@ -22,7 +22,7 @@ use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
 
-use array::PrimitiveArray;
+use array::{Array, ListArray, PrimitiveArray};
 use array_data::ArrayData;
 use buffer::{Buffer, MutableBuffer};
 use datatypes::{ArrowPrimitiveType, DataType, ToByteSlice};
@@ -294,6 +294,99 @@ impl_primitive_array_builder!(DataType::Int64, i64);
 impl_primitive_array_builder!(DataType::Float32, f32);
 impl_primitive_array_builder!(DataType::Float64, f64);
 
+
+///  Array builder for `ListArray`
+pub struct ListArrayBuilder<T>
+    where
+        T: ArrowPrimitiveType,
+{
+    offsets_builder: BufferBuilder<i32>,
+    bitmap_builder: BufferBuilder<bool>,
+    values_builder: PrimitiveArrayBuilder<T>,
+    len: i64,
+}
+
+macro_rules! impl_list_array_builder {
+    ($data_ty:path, $native_ty:ident) => {
+        impl ListArrayBuilder<$native_ty> {
+            pub fn new(capacity: i64) -> Result<Self> {
+                let mut offsets_builder = BufferBuilder::<i32>::new(capacity);
+                offsets_builder.push(0)?;
+                Ok(Self {
+                    offsets_builder,
+                    bitmap_builder: BufferBuilder::<bool>::new(capacity),
+                    values_builder: PrimitiveArrayBuilder::<$native_ty>::new(capacity),
+                    len: 0,
+                })
+            }
+
+            /// The number of array slots currently in the builder
+            pub fn len(&self) -> i64 {
+                self.len
+            }
+
+            /// Pushes a value into the array
+            ///
+            /// Note that this pushes a value into the values array, a new top level array slot
+            /// will only be added once `next_slot` is called
+            pub fn push(&mut self, v: $native_ty) -> Result<()> {
+                self.values_builder.push(v)?;
+                Ok(())
+            }
+
+            /// Pushes a null into the array
+            ///
+            /// Note that this pushes a null into the underlying values array, if you want to push
+            /// a top level null slot call `next_slot` without calling `push`
+            pub fn push_null(&mut self) -> Result<()> {
+                self.values_builder.push_null()?;
+                Ok(())
+            }
+
+            /// Finishes the current top level array slot and moves to the next
+            pub fn next_slot(&mut self) -> Result<()> {
+                self.offsets_builder.push(self.values_builder.len() as i32)?;
+                self.bitmap_builder.push(true)?;
+                self.len += 1;
+                Ok(())
+            }
+
+            /// Builds the `ListArray`
+            pub fn finish(self) -> ListArray {
+
+                let len = self.len();
+                let values_arr = self.values_builder.finish();
+                let values_data = values_arr.data();
+
+                let null_bit_buffer = self.bitmap_builder.finish();
+                let data = ArrayData::builder(DataType::List(Box::new($data_ty)))
+                    .len(len)
+                    .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+                    .add_buffer(self.offsets_builder.finish())
+                    .add_child_data(values_data)
+                    .null_bit_buffer(null_bit_buffer)
+                    .build();
+
+                ListArray::from(data)
+            }
+        }
+    };
+}
+
+
+impl_list_array_builder!(DataType::Boolean, bool);
+impl_list_array_builder!(DataType::UInt8, u8);
+impl_list_array_builder!(DataType::UInt16, u16);
+impl_list_array_builder!(DataType::UInt32, u32);
+impl_list_array_builder!(DataType::UInt64, u64);
+impl_list_array_builder!(DataType::Int8, i8);
+impl_list_array_builder!(DataType::Int16, i16);
+impl_list_array_builder!(DataType::Int32, i32);
+impl_list_array_builder!(DataType::Int64, i64);
+impl_list_array_builder!(DataType::Float32, f32);
+impl_list_array_builder!(DataType::Float64, f64);
+
+
 #[cfg(test)]
 mod tests {
 
@@ -540,6 +633,38 @@ mod tests {
             if arr1.is_valid(i) {
                 assert_eq!(arr1.value(i), arr2.value(i));
             }
+        }
+    }
+
+    #[test]
+    fn test_list_array_builder() {
+        let mut builder = ListArrayBuilder::<i32>::new(10).unwrap();
+
+        //  [[0, 1, 2], [3, 4, 5], [6, 7]]
+        builder.push(0).unwrap();
+        builder.push(1).unwrap();
+        builder.push(2).unwrap();
+        builder.next_slot().unwrap();
+        builder.push(3).unwrap();
+        builder.push(4).unwrap();
+        builder.push(5).unwrap();
+        builder.next_slot().unwrap();
+        builder.push(6).unwrap();
+        builder.push(7).unwrap();
+        builder.next_slot().unwrap();
+
+        let list_array = builder.finish();
+
+        let values = list_array.values().data().buffers()[0].clone();
+        assert_eq!(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()), values);
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(3, list_array.len());
+        assert_eq!(0, list_array.null_count());
+        assert_eq!(6, list_array.value_offset(2));
+        assert_eq!(2, list_array.value_length(2));
+        for i in 0..3 {
+            assert!(list_array.is_valid(i as i64));
+            assert!(!list_array.is_null(i as i64));
         }
     }
 }
