@@ -147,9 +147,11 @@ for target in debian ubuntu centos python; do
   ensure_version ${version} ${target}
   download_files ${version} ${rc} ${target}
   mv ${target}-rc ${target}
-  for file in $(find ${target} -type f); do
+  pushd ${target}
+  for file in $(find . -type f); do
     upload_file ${version} ${target} ${file}
   done
+  popd
   popd
   rm -rf ${tmp_dir}
 done
