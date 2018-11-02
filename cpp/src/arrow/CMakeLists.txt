@@ -170,9 +170,15 @@ ADD_ARROW_LIB(arrow
   STATIC_PRIVATE_LINK_LIBS ${ARROW_STATIC_PRIVATE_LINK_LIBS}
 )
 
+find_package(Backtrace)
+
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
     PRIVATE ARROW_EXPORTING)
+  if (Backtrace_FOUND)
+    target_compile_definitions(${LIB_TARGET}
+      PRIVATE ARROW_WITH_BACKTRACE)
+  endif()
 endforeach()
 
 if (ARROW_BUILD_STATIC AND WIN32)
