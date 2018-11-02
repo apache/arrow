@@ -27,7 +27,7 @@ const { testTask, createTestData, cleanTestData } = require('./gulp/test-task');
 const {
     targetDir,
     taskName, combinations,
-    knownTargets, knownModules,
+    knownTargets,
     npmPkgName, UMDSourceTargets,
     tasksToSkipPerTargetOrFormat
 } = require('./gulp/util');
@@ -44,7 +44,7 @@ for (const [target, format] of combinations([`all`], [`all`])) {
 
 // The UMD bundles build temporary es5/6/next targets via TS,
 // then run the TS source through either closure-compiler or
-// uglify, so we special case that here.
+// a minifier, so we special case that here.
 knownTargets.forEach((target) =>
     gulp.task(`build:${target}:umd`,
         gulp.series(
@@ -78,17 +78,17 @@ gulp.task(`build:${npmPkgName}`,
 function gulpConcurrent(tasks) {
     return () => Observable.bindCallback((tasks, cb) => gulp.parallel(tasks)(cb))(tasks);
 }
-  
+
 const buildConcurrent = (tasks) => () =>
     gulpConcurrent(tasks)()
         .concat(Observable
             .defer(() => Observable
             .merge(...knownTargets.map((target) =>
                 del(`${targetDir(target, `cls`)}/**`)))));
-  
+
 gulp.task(`clean:testdata`, cleanTestData);
 gulp.task(`create:testdata`, createTestData);
-gulp.task( `test`, gulp.series(getTasks(`test`)));
+gulp.task(`test`, gulp.series(getTasks(`test`)));
 gulp.task(`debug`, gulp.series(getTasks(`debug`)));
 gulp.task(`clean`, gulp.parallel(getTasks(`clean`)));
 gulp.task(`build`, buildConcurrent(getTasks(`build`)));
