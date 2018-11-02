@@ -82,7 +82,7 @@ public class ArrowFileReader extends ArrowReader {
         throw new InvalidArrowFileException("invalid footer length: " + footerLength);
       }
       long footerOffset = footerLengthOffset - footerLength;
-      LOGGER.debug("Footer starts at %d, length: %d", footerOffset, footerLength);
+      LOGGER.debug("Footer starts at {}, length: {}", footerOffset, footerLength);
       ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
       in.setPosition(footerOffset);
       in.readFully(footerBuffer);
@@ -141,7 +141,7 @@ public class ArrowFileReader extends ArrowReader {
   private ArrowDictionaryBatch readDictionaryBatch(SeekableReadChannel in,
                                                    ArrowBlock block,
                                                    BufferAllocator allocator) throws IOException {
-    LOGGER.debug("DictionaryRecordBatch at %d, metadata: %d, body: %d",
+    LOGGER.debug("DictionaryRecordBatch at {}, metadata: {}, body: {}",
         block.getOffset(), block.getMetadataLength(), block.getBodyLength());
     in.setPosition(block.getOffset());
     ArrowDictionaryBatch batch = MessageSerializer.deserializeDictionaryBatch(in, block, allocator);
@@ -154,7 +154,7 @@ public class ArrowFileReader extends ArrowReader {
   private ArrowRecordBatch readRecordBatch(SeekableReadChannel in,
                                            ArrowBlock block,
                                            BufferAllocator allocator) throws IOException {
-    LOGGER.debug("RecordBatch at %d, metadata: %d, body: %d",
+    LOGGER.debug("RecordBatch at {}, metadata: {}, body: {}",
         block.getOffset(), block.getMetadataLength(),
         block.getBodyLength());
     in.setPosition(block.getOffset());

@@ -107,14 +107,14 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   protected ArrowBlock writeDictionaryBatch(ArrowDictionaryBatch batch) throws IOException {
     ArrowBlock block = MessageSerializer.serialize(out, batch);
-    LOGGER.debug("DictionaryRecordBatch at %d, metadata: %d, body: %d",
+    LOGGER.debug("DictionaryRecordBatch at {}, metadata: {}, body: {}",
         block.getOffset(), block.getMetadataLength(), block.getBodyLength());
     return block;
   }
 
   protected ArrowBlock writeRecordBatch(ArrowRecordBatch batch) throws IOException {
     ArrowBlock block = MessageSerializer.serialize(out, batch);
-    LOGGER.debug("RecordBatch at %d, metadata: %d, body: %d",
+    LOGGER.debug("RecordBatch at {}, metadata: {}, body: {}",
         block.getOffset(), block.getMetadataLength(), block.getBodyLength());
     return block;
   }
