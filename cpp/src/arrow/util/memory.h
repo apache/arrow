@@ -31,6 +31,10 @@ uint8_t* pointer_logical_and(const uint8_t* address, uintptr_t bits) {
   return reinterpret_cast<uint8_t*>(value & bits);
 }
 
+// This function is just for avoiding MinGW-w64 32bit crash.
+// See also: https://sourceforge.net/p/mingw-w64/bugs/767/
+void* wrap_memcpy(void* dst, const void* src, size_t n) { return memcpy(dst, src, n); }
+
 // A helper function for doing memcpy with multiple threads. This is required
 // to saturate the memory bandwidth of modern cpus.
 void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
@@ -59,7 +63,7 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
   std::vector<std::future<void*>> futures;
 
   for (int i = 0; i < num_threads; i++) {
-    futures.emplace_back(pool->Submit(memcpy, dst + prefix + i * chunk_size,
+    futures.emplace_back(pool->Submit(wrap_memcpy, dst + prefix + i * chunk_size,
                                       left + i * chunk_size, chunk_size));
   }
   memcpy(dst, src, prefix);
