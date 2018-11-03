@@ -16,23 +16,19 @@
 # under the License.
 
 class SchemaTest < Test::Unit::TestCase
+  def setup
+    @count_field = Arrow::Field.new("count", :uint32)
+    @visible_field = Arrow::Field.new("visible", :boolean)
+    @schema = Arrow::Schema.new([@count_field, @visible_field])
+  end
+
   test("#[]") do
-    fields = [
-      Arrow::Field.new("field1",  :int32),
-      Arrow::Field.new("field2",  :int32)
-    ]
-    schema = Arrow::Schema.new(fields)
-    assert_equal(["field1: int32", "field2: int32"],
-                 [schema[:field1].to_s, schema[:field2].to_s])
+    assert_equal([@count_field, @visible_field],
+                 [@schema[:count], @schema[:visible]])
   end
 
   test("#each") do
-    fields = [
-      Arrow::Field.new("field1",  :int32),
-      Arrow::Field.new("field2",  :int32)
-    ]
-    schema = Arrow::Schema.new(fields)
-    assert_equal(["field1: int32", "field2: int32"],
-                 schema.to_a.collect(&:to_s))
+    assert_equal([@count_field, @visible_field],
+                 @schema.to_a)
   end
 end
