@@ -248,6 +248,7 @@ matrix:
     os: osx
     env:
     - ARROW_TRAVIS_ORC=1
+    - ARROW_TRAVIS_GANDIVA=1
     - ARROW_TRAVIS_PARQUET=1
     cache:
     addons:
