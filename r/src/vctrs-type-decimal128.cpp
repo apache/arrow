@@ -24,11 +24,11 @@ template <typename Vector, typename value_type>
 ComplexVector IntVector_to_Decimal128(Vector x) {
   auto n = x.size();
   ComplexVector res(no_init(n));
-  auto p = reinterpret_cast<arrow::Decimal128*>(res.begin());
+  auto p = reinterpret_cast<uint8_t*>(res.begin());
   auto p_x = reinterpret_cast<value_type*>(x.begin());
 
-  for (R_xlen_t i = 0; i < n; i++, ++p, ++p_x) {
-    *p = arrow::Decimal128(*p_x);
+  for (R_xlen_t i = 0; i < n; i++, p += 16, ++p_x) {
+    arrow::Decimal128(*p_x).ToBytes(p);
   }
 
   return res;
@@ -50,10 +50,10 @@ OutputVector Decimal128_To_Int(ComplexVector_ x, value_type NA) {
   OutputVector res(no_init(n));
 
   auto p_res = reinterpret_cast<value_type*>(res.begin());
-  auto p_x = reinterpret_cast<arrow::Decimal128*>(x.begin());
+  auto p_x = reinterpret_cast<uint8_t*>(x.begin());
 
-  for (R_xlen_t i = 0; i < n; i++, ++p_x, ++p_res) {
-    auto status = p_x->ToInteger<value_type>(p_res);
+  for (R_xlen_t i = 0; i < n; i++, p_x += 16, ++p_res) {
+    auto status = arrow::Decimal128(p_x).ToInteger<value_type>(p_res);
     if (!status.ok()) {
       *p_res = NA;
     }
