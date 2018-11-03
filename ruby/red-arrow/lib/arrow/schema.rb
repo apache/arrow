@@ -17,6 +17,14 @@
 
 module Arrow
   class Schema
+    include Enumerable
+
     alias_method :[], :get_field_by_name
+
+    def each(&block)
+      return to_enum(__method__) unless block_given?
+
+      fields.each(&block)
+    end
   end
 end

@@ -17,10 +17,22 @@
 
 class SchemaTest < Test::Unit::TestCase
   test("#[]") do
-    table = Arrow::Table.new(:field1 => Arrow::Int32Array.new([1, 2, 3, 4]),
-                             :field2 => Arrow::Int32Array.new([11, 13, 15, 17]))
-    schema = table.schema
+    fields = [
+      Arrow::Field.new("field1",  :int32),
+      Arrow::Field.new("field2",  :int32)
+    ]
+    schema = Arrow::Schema.new(fields)
     assert_equal(["field1: int32", "field2: int32"],
                  [schema[:field1].to_s, schema[:field2].to_s])
+  end
+
+  test("#each") do
+    fields = [
+      Arrow::Field.new("field1",  :int32),
+      Arrow::Field.new("field2",  :int32)
+    ]
+    schema = Arrow::Schema.new(fields)
+    assert_equal(["field1: int32", "field2: int32"],
+                 schema.to_a.collect(&:to_s))
   end
 end
