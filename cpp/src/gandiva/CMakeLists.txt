@@ -61,35 +61,31 @@ set(SRC_FILES annotator.cc
       ${SHARED_HELPER_FILES}
       ${BC_FILE_PATH_CC})
 
-# TODO(wesm): Replace this with ADD_ARROW_LIB which deals with objlib/no-objlib
-# (not supported on Windows), dependencies, etc.
-add_library(gandiva_obj_lib OBJECT ${SRC_FILES})
-add_dependencies(gandiva_obj_lib arrow_dependencies)
+set(GANDIVA_PRIVATE_LINK_LIBS
+  boost_regex
+  boost_system
+  boost_filesystem
+  LLVM::LLVM_INTERFACE
+  re2)
+set(GANDIVA_SHARED_PRIVATE_LINK_LIBS ${GANDIVA_PRIVATE_LINK_LIBS})
+set(GANDIVA_STATIC_PRIVATE_LINK_LIBS ${GANDIVA_PRIVATE_LINK_LIBS})
+if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+  set(GANDIVA_STATIC_PRIVATE_LINK_LIBS
+    ${GANDIVA_STATIC_PRIVATE_LINK_LIBS}
+    -static-libstdc++
+    -static-libgcc)
+endif()
 
-# set PIC so that object library can be included in shared libs.
-set_target_properties(gandiva_obj_lib PROPERTIES POSITION_INDEPENDENT_CODE 1)
-
-# For users of gandiva library (including integ tests), include-dir is :
-#   /usr/**/include dir after install,
-#   cpp/include during build
-# For building gandiva library itself, include-dir (in addition to above) is :
-#   cpp/src
-target_include_directories(gandiva_obj_lib
-  PUBLIC
-    $<INSTALL_INTERFACE:include>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
-
-target_include_directories(gandiva_obj_lib SYSTEM
-  PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
-    $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
-    ${ARROW_INCLUDE_DIR}
-    $<TARGET_PROPERTY:gtest_main,INCLUDE_DIRECTORIES>
-)
-
-build_gandiva_lib("shared" arrow_shared)
-
-build_gandiva_lib("static" arrow_static)
+add_arrow_lib(gandiva
+  SOURCES ${SRC_FILES}
+  OUTPUTS GANDIVA_LIBRARIES
+  DEPENDENCIES arrow_dependencies
+  EXTRA_INCLUDES
+  $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
+  SHARED_LINK_LIBS arrow_shared
+  SHARED_PRIVATE_LINK_LIBS ${GANDIVA_SHARED_PRIVATE_LINK_LIBS}
+  STATIC_LINK_LIBS arrow_static
+  STATIC_PRIVATE_LINK_LIBS ${GANDIVA_STATIC_PRIVATE_LINK_LIBS})
 
 # install for gandiva
 include(GNUInstallDirs)

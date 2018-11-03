@@ -15,50 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Build the gandiva library
-function(build_gandiva_lib TYPE ARROW)
-  string(TOUPPER ${TYPE} TYPE_UPPER_CASE)
-  add_library(gandiva_${TYPE} ${TYPE_UPPER_CASE} $<TARGET_OBJECTS:gandiva_obj_lib>)
-  add_dependencies(gandiva_${TYPE} arrow_dependencies)
-
-  target_include_directories(gandiva_${TYPE}
-    PUBLIC
-      $<INSTALL_INTERFACE:include>
-      $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-    PRIVATE
-      ${CMAKE_SOURCE_DIR}/src
-  )
-
-  # ARROW is a public dependency i.e users of gandiva also will have a dependency on arrow.
-  target_link_libraries(gandiva_${TYPE}
-    PUBLIC
-      ${ARROW}
-    PRIVATE
-      boost_regex
-      boost_system
-      boost_filesystem
-      LLVM::LLVM_INTERFACE
-      re2)
-
-  if (${TYPE} MATCHES "static" AND NOT APPLE)
-    target_link_libraries(gandiva_${TYPE}
-      LINK_PRIVATE
-        -static-libstdc++ -static-libgcc)
-  endif()
-
-  # Set version for the library.
-  set(GANDIVA_VERSION_MAJOR 0)
-  set(GANDIVA_VERSION_MINOR 1)
-  set(GANDIVA_VERSION_PATCH 0)
-  set(GANDIVA_VERSION ${GANDIVA_VERSION_MAJOR}.${GANDIVA_VERSION_MINOR}.${GANDIVA_VERSION_PATCH})
-
-  set_target_properties(gandiva_${TYPE} PROPERTIES
-    VERSION ${GANDIVA_VERSION}
-    SOVERSION ${GANDIVA_VERSION_MAJOR}
-    OUTPUT_NAME gandiva
-  )
-endfunction(build_gandiva_lib TYPE)
-
 set(GANDIVA_TEST_LINK_LIBS
   gtest
   gtest_main
