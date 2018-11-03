@@ -810,6 +810,19 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     return current_column_->Finish();
   }
 
+  Status Write(const Table& table) {
+    for (int i = 0; i < table.num_columns(); ++i) {
+      auto column = table.column(i);
+      current_column_ = metadata_.AddColumn(column->name());
+      auto chunked_array = column->data();
+      for (const auto chunk : chunked_array->chunks()) {
+        RETURN_NOT_OK(chunk->Accept(this));
+      }
+      RETURN_NOT_OK(current_column_->Finish());
+    }
+    return Status::OK();
+  }
+
  private:
   Status CheckStarted() {
     if (!initialized_stream_) {
@@ -849,6 +862,8 @@ void TableWriter::SetNumRows(int64_t num_rows) { impl_->SetNumRows(num_rows); }
 Status TableWriter::Append(const std::string& name, const Array& values) {
   return impl_->Append(name, values);
 }
+
+Status TableWriter::Write(const Table& table) { return impl_->Write(table); }
 
 Status TableWriter::Finalize() { return impl_->Finalize(); }
 
