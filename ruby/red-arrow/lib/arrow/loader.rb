@@ -45,6 +45,7 @@ module Arrow
       require "arrow/record"
       require "arrow/record-batch"
       require "arrow/rolling-window"
+      require "arrow/schema"
       require "arrow/slicer"
       require "arrow/struct-array"
       require "arrow/table"
