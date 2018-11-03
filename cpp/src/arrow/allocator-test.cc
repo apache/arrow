@@ -23,8 +23,29 @@
 
 #include "arrow/allocator.h"
 #include "arrow/memory_pool.h"
+#include "arrow/test-util.h"
 
 namespace arrow {
+
+TEST(STLMemoryPool, Base) {
+  std::allocator<uint8_t> allocator;
+  STLMemoryPool<std::allocator<uint8_t>> pool(allocator);
+
+  uint8_t* data = nullptr;
+  ASSERT_OK(pool.Allocate(100, &data));
+  ASSERT_EQ(pool.max_memory(), 100);
+  ASSERT_EQ(pool.bytes_allocated(), 100);
+  ASSERT_NE(data, nullptr);
+
+  ASSERT_OK(pool.Reallocate(100, 150, &data));
+  ASSERT_EQ(pool.max_memory(), 150);
+  ASSERT_EQ(pool.bytes_allocated(), 150);
+
+  pool.Free(data, 150);
+
+  ASSERT_EQ(pool.max_memory(), 150);
+  ASSERT_EQ(pool.bytes_allocated(), 0);
+}
 
 TEST(stl_allocator, MemoryTracking) {
   auto pool = default_memory_pool();
@@ -43,19 +64,6 @@ TEST(stl_allocator, TestOOM) {
   stl_allocator<uint64_t> alloc;
   uint64_t to_alloc = std::numeric_limits<uint64_t>::max() / 2;
   ASSERT_THROW(alloc.allocate(to_alloc), std::bad_alloc);
-}
-
-TEST(stl_allocator, FreeLargeMemory) {
-  stl_allocator<uint8_t> alloc;
-
-  uint8_t* data = alloc.allocate(100);
-
-#ifndef NDEBUG
-  EXPECT_DEATH(alloc.deallocate(data, 120),
-               ".*Check failed:.* allocation counter became negative");
-#endif
-
-  alloc.deallocate(data, 100);
 }
 
 TEST(stl_allocator, MaxMemory) {
