@@ -78,10 +78,11 @@ IntegerVector Decimal128_To_Integer(ComplexVector_ x) {
 CharacterVector format_decimal128(arrow::r::Decimal128Record record) {
   auto data = record.data();
   auto n = data.size();
-  auto p = reinterpret_cast<arrow::Decimal128*>(data.begin());
+  auto p = reinterpret_cast<uint8_t*>(data.begin());
+
   CharacterVector res(no_init(n));
-  for (R_xlen_t i = 0; i < n; i++, ++p) {
-    res[i] = p->ToString(record.scale());
+  for (R_xlen_t i = 0; i < n; i++, p += 16) {
+    res[i] = arrow::Decimal128(p).ToString(record.scale());
   }
   return res;
 }
