@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <sstream>  // IWYU pragma: keep
 
@@ -44,7 +45,13 @@ namespace {
 // Allocate memory according to the alignment requirements for Arrow
 // (as of May 2016 64 bytes)
 Status AllocateAligned(int64_t size, uint8_t** out) {
-// TODO(emkornfield) find something compatible with windows
+  // TODO(emkornfield) find something compatible with windows
+  if (size < 0) {
+    return Status::Invalid("negative malloc size");
+  }
+  if (static_cast<uint64_t>(size) >= std::numeric_limits<size_t>::max()) {
+    return Status::CapacityError("malloc size overflows size_t");
+  }
 #ifdef _WIN32
   // Special code path for Windows
   *out =
@@ -104,7 +111,14 @@ class DefaultMemoryPool : public MemoryPool {
   Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
 #ifdef ARROW_JEMALLOC
     uint8_t* previous_ptr = *ptr;
-    *ptr = reinterpret_cast<uint8_t*>(rallocx(*ptr, new_size, MALLOCX_ALIGN(kAlignment)));
+    if (new_size < 0) {
+      return Status::Invalid("negative realloc size");
+    }
+    if (static_cast<uint64_t>(new_size) >= std::numeric_limits<size_t>::max()) {
+      return Status::CapacityError("realloc overflows size_t");
+    }
+    *ptr = reinterpret_cast<uint8_t*>(
+        rallocx(*ptr, static_cast<size_t>(new_size), MALLOCX_ALIGN(kAlignment)));
     if (*ptr == NULL) {
       std::stringstream ss;
       ss << "realloc of size " << new_size << " failed";
