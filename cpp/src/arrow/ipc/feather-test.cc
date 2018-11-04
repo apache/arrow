@@ -370,8 +370,7 @@ class TestTableWriter : public ::testing::Test {
 
   void CheckBatch(std::shared_ptr<RecordBatch> batch) {
     std::shared_ptr<Table> table;
-    std::vector<std::shared_ptr<RecordBatch>> batches;
-    batches.push_back(batch);
+    std::vector<std::shared_ptr<RecordBatch>> batches = {batch};
     ASSERT_OK(Table::FromRecordBatches(batches, &table));
     ASSERT_OK(writer_->Write(*table));
     Finish();
