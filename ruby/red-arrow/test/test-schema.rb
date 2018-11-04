@@ -22,8 +22,20 @@ class SchemaTest < Test::Unit::TestCase
     @schema = Arrow::Schema.new([@count_field, @visible_field])
   end
 
-  test("#[]") do
-    assert_equal([@count_field, @visible_field],
-                 [@schema[:count], @schema[:visible]])
+  sub_test_case("#[]") do
+    test("[String]") do
+      assert_equal([@count_field, @visible_field],
+                   [@schema["count"], @schema["visible"]])
+    end
+
+    test("[Symbol]") do
+      assert_equal([@count_field, @visible_field],
+                   [@schema[:count], @schema[:visible]])
+    end
+
+    test("[Integer]") do
+      assert_equal([@count_field, @visible_field],
+                   [@schema[0], @schema[1]])
+    end
   end
 end

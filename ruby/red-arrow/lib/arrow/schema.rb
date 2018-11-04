@@ -17,6 +17,18 @@
 
 module Arrow
   class Schema
-    alias_method :[], :get_field_by_name
+    def [](name_or_index)
+      case name_or_index
+      when String, Symbol
+        name = name_or_index.to_s
+        get_field_by_name(name)
+      when Integer
+        index = name_or_index
+        fields[index]
+      else
+        message = "field name or index must be String, Symbol or Integer"
+        raise ArgumentError, message
+      end
+    end
   end
 end
