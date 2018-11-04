@@ -60,7 +60,7 @@ class BitMapAccumulator : public DexDefaultVisitor {
   /// Compute the intersection of the accumulated bitmaps and save the result in
   /// dst_bmap.
   static void IntersectBitMaps(uint8_t* dst_map, const std::vector<uint8_t*>& src_maps,
-                               int num_records);
+                               int64_t num_records);
 
  private:
   const EvalBatch& eval_batch_;

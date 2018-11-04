@@ -94,8 +94,8 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
 
   // Allocate three local_bitmaps (one for output, one for validity, one to compute the
   // intersection).
-  LocalBitMapsHolder bitmaps(static_cast<int>(batch.num_rows()), 3 /*local_bitmaps*/);
-  int bitmap_size = bitmaps.GetLocalBitMapSize();
+  LocalBitMapsHolder bitmaps(batch.num_rows(), 3 /*local_bitmaps*/);
+  int64_t bitmap_size = bitmaps.GetLocalBitMapSize();
 
   auto validity = std::make_shared<arrow::Buffer>(bitmaps.GetLocalBitMap(0), bitmap_size);
   auto value = std::make_shared<arrow::Buffer>(bitmaps.GetLocalBitMap(1), bitmap_size);
@@ -109,11 +109,9 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
   // Compute the intersection of the value and validity.
   auto result = bitmaps.GetLocalBitMap(2);
   BitMapAccumulator::IntersectBitMaps(
-      result, {bitmaps.GetLocalBitMap(0), bitmaps.GetLocalBitMap((1))},
-      static_cast<int>(batch.num_rows()));
+      result, {bitmaps.GetLocalBitMap(0), bitmaps.GetLocalBitMap((1))}, batch.num_rows());
 
-  return out_selection->PopulateFromBitMap(result, bitmap_size,
-                                           static_cast<int>(batch.num_rows()) - 1);
+  return out_selection->PopulateFromBitMap(result, bitmap_size, batch.num_rows() - 1);
 }
 
 }  // namespace gandiva

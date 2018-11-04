@@ -113,7 +113,7 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
     }
 
     Status status = ValidateArrayDataCapacity(*array_data, *(output_fields_[idx]),
-                                              static_cast<int>(batch.num_rows()));
+                                              batch.num_rows());
     ARROW_RETURN_NOT_OK(status);
     ++idx;
   }
@@ -190,7 +190,8 @@ Status Projector::ValidateEvaluateArgsCommon(const arrow::RecordBatch& batch) {
 }
 
 Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
-                                            const arrow::Field& field, int num_records) {
+                                            const arrow::Field& field, 
+                                            int64_t num_records) {
   // verify that there are atleast two buffers (validity and data).
   if (array_data.buffers.size() < 2) {
     std::stringstream ss;
