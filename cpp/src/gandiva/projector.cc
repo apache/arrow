@@ -112,8 +112,8 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
       return Status::Invalid(ss.str());
     }
 
-    Status status = ValidateArrayDataCapacity(*array_data, *(output_fields_[idx]),
-                                              batch.num_rows());
+    Status status =
+        ValidateArrayDataCapacity(*array_data, *(output_fields_[idx]), batch.num_rows());
     ARROW_RETURN_NOT_OK(status);
     ++idx;
   }

@@ -22,7 +22,7 @@
 namespace gandiva {
 
 void BitMapAccumulator::ComputeResult(uint8_t* dst_bitmap) {
-  int num_records = eval_batch_.num_records();
+  int64_t num_records = eval_batch_.num_records();
 
   if (all_invalid_) {
     // set all bits to 0.
