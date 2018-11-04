@@ -138,8 +138,7 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* p
   for (auto& field : output_fields_) {
     ArrayDataPtr output_data;
 
-    status = AllocArrayData(field->type(), static_cast<int>(batch.num_rows()), pool,
-                            &output_data);
+    status = AllocArrayData(field->type(), batch.num_rows(), pool, &output_data);
     ARROW_RETURN_NOT_OK(status);
 
     output_data_vecs.push_back(output_data);
@@ -158,7 +157,7 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* p
 }
 
 // TODO : handle variable-len vectors
-Status Projector::AllocArrayData(const DataTypePtr& type, int num_records,
+Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
                                  arrow::MemoryPool* pool, ArrayDataPtr* array_data) {
   if (!arrow::is_primitive(type->id())) {
     return Status::Invalid("Unsupported output data type " + type->ToString());
