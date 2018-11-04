@@ -26,9 +26,4 @@ class SchemaTest < Test::Unit::TestCase
     assert_equal([@count_field, @visible_field],
                  [@schema[:count], @schema[:visible]])
   end
-
-  test("#each") do
-    assert_equal([@count_field, @visible_field],
-                 @schema.to_a)
-  end
 end
