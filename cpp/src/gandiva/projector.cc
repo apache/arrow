@@ -190,7 +190,7 @@ Status Projector::ValidateEvaluateArgsCommon(const arrow::RecordBatch& batch) {
 }
 
 Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
-                                            const arrow::Field& field, 
+                                            const arrow::Field& field,
                                             int64_t num_records) {
   // verify that there are atleast two buffers (validity and data).
   if (array_data.buffers.size() < 2) {

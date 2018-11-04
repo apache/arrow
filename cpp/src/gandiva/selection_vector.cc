@@ -73,7 +73,8 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap
   return Status::OK();
 }
 
-Status SelectionVector::MakeInt16(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer,
+Status SelectionVector::MakeInt16(int64_t max_slots,
+                                  std::shared_ptr<arrow::Buffer> buffer,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   auto status = SelectionVectorInt16::ValidateBuffer(max_slots, buffer);
   ARROW_RETURN_NOT_OK(status);
@@ -92,7 +93,8 @@ Status SelectionVector::MakeInt16(int64_t max_slots, arrow::MemoryPool* pool,
   return Status::OK();
 }
 
-Status SelectionVector::MakeInt32(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer,
+Status SelectionVector::MakeInt32(int64_t max_slots,
+                                  std::shared_ptr<arrow::Buffer> buffer,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   auto status = SelectionVectorInt32::ValidateBuffer(max_slots, buffer);
   ARROW_RETURN_NOT_OK(status);
