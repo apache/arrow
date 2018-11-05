@@ -48,6 +48,8 @@ class SpecializedOptions {
   static constexpr bool escaping = Escaping;
 };
 
+// A helper class allocating the buffer for parsed values and writing into it
+// without any further resizes, except at the end.
 class BlockParser::PresizedParsedWriter {
  public:
   PresizedParsedWriter(MemoryPool* pool, uint32_t size)
@@ -68,6 +70,7 @@ class BlockParser::PresizedParsedWriter {
     parsed_[parsed_size_++] = static_cast<uint8_t>(c);
   }
 
+  // Rollback the state that was saved in BeginLine()
   void RollbackLine() { parsed_size_ = saved_parsed_size_; }
 
   int64_t size() { return parsed_size_; }
@@ -80,6 +83,9 @@ class BlockParser::PresizedParsedWriter {
   int64_t saved_parsed_size_;
 };
 
+// A helper class handling a growable buffer for values offsets.  This class is
+// used when the number of columns is not yet known and we therefore cannot
+// efficiently presize the target area for a given number of rows.
 class BlockParser::ResizableValuesWriter {
  public:
   explicit ResizableValuesWriter(MemoryPool* pool)
@@ -104,10 +110,11 @@ class BlockParser::ResizableValuesWriter {
   void StartField(bool quoted) { quoted_ = quoted; }
 
   template <typename ParsedWriter>
-  void FinishField(ParsedWriter& parsed_writer) {
-    PushValue({static_cast<uint32_t>(parsed_writer.size()) & 0x7fffffffU, quoted_});
+  void FinishField(ParsedWriter* parsed_writer) {
+    PushValue({static_cast<uint32_t>(parsed_writer->size()) & 0x7fffffffU, quoted_});
   }
 
+  // Rollback the state that was saved in BeginLine()
   void RollbackLine() { values_size_ = saved_values_size_; }
 
  protected:
@@ -129,6 +136,10 @@ class BlockParser::ResizableValuesWriter {
   int64_t saved_values_size_;
 };
 
+// A helper class allocating the buffer for values offsets and writing into it
+// without any further resizes, except at the end.  This class is used once the
+// number of columns is known, as it eliminates resizes and generates simpler,
+// faster CSV parsing code.
 class BlockParser::PresizedValuesWriter {
  public:
   PresizedValuesWriter(MemoryPool* pool, int32_t num_rows, int32_t num_cols)
@@ -153,10 +164,11 @@ class BlockParser::PresizedValuesWriter {
   void StartField(bool quoted) { quoted_ = quoted; }
 
   template <typename ParsedWriter>
-  void FinishField(ParsedWriter& parsed_writer) {
-    PushValue({static_cast<uint32_t>(parsed_writer.size()) & 0x7fffffffU, quoted_});
+  void FinishField(ParsedWriter* parsed_writer) {
+    PushValue({static_cast<uint32_t>(parsed_writer->size()) & 0x7fffffffU, quoted_});
   }
 
+  // Rollback the state that was saved in BeginLine()
   void RollbackLine() { values_size_ = saved_values_size_; }
 
  protected:
@@ -175,16 +187,16 @@ class BlockParser::PresizedValuesWriter {
 };
 
 template <typename SpecializedOptions, typename ValuesWriter, typename ParsedWriter>
-Status BlockParser::ParseLine(ValuesWriter& values_writer, ParsedWriter& parsed_writer,
+Status BlockParser::ParseLine(ValuesWriter* values_writer, ParsedWriter* parsed_writer,
                               const char* data, const char* data_end, bool is_final,
                               const char** out_data) {
   int32_t num_cols = 0;
   char c;
 
-  values_writer.BeginLine();
-  parsed_writer.BeginLine();
+  values_writer->BeginLine();
+  parsed_writer->BeginLine();
 
-  auto FinishField = [&]() { values_writer.FinishField(parsed_writer); };
+  auto FinishField = [&]() { values_writer->FinishField(parsed_writer); };
 
   DCHECK_GT(data_end, data);
 
@@ -195,10 +207,10 @@ FieldStart:
   // Quoting is only recognized at start of field
   if (SpecializedOptions::quoting && ARROW_PREDICT_FALSE(*data == options_.quote_char)) {
     ++data;
-    values_writer.StartField(true /* quoted */);
+    values_writer->StartField(true /* quoted */);
     goto InQuotedField;
   } else {
-    values_writer.StartField(false /* quoted */);
+    values_writer->StartField(false /* quoted */);
     goto InField;
   }
 
@@ -213,7 +225,7 @@ InField:
       goto AbortLine;
     }
     c = *data++;
-    parsed_writer.PushFieldChar(c);
+    parsed_writer->PushFieldChar(c);
     goto InField;
   }
   if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
@@ -231,7 +243,7 @@ InField:
       goto LineEnd;
     }
   }
-  parsed_writer.PushFieldChar(c);
+  parsed_writer->PushFieldChar(c);
   goto InField;
 
 InQuotedField:
@@ -245,7 +257,7 @@ InQuotedField:
       goto AbortLine;
     }
     c = *data++;
-    parsed_writer.PushFieldChar(c);
+    parsed_writer->PushFieldChar(c);
     goto InQuotedField;
   }
   if (ARROW_PREDICT_FALSE(c == options_.quote_char)) {
@@ -258,7 +270,7 @@ InQuotedField:
       goto InField;
     }
   }
-  parsed_writer.PushFieldChar(c);
+  parsed_writer->PushFieldChar(c);
   goto InQuotedField;
 
 FieldEnd:
@@ -296,13 +308,13 @@ AbortLine:
     return Status::OK();
   }
   // Truncated line at end of block, rewind parsed state
-  values_writer.RollbackLine();
-  parsed_writer.RollbackLine();
+  values_writer->RollbackLine();
+  parsed_writer->RollbackLine();
   return Status::OK();
 }
 
 template <typename SpecializedOptions, typename ValuesWriter, typename ParsedWriter>
-Status BlockParser::ParseChunk(ValuesWriter& values_writer, ParsedWriter& parsed_writer,
+Status BlockParser::ParseChunk(ValuesWriter* values_writer, ParsedWriter* parsed_writer,
                                const char* data, const char* data_end, bool is_final,
                                int32_t rows_in_chunk, const char** out_data,
                                bool* finished_parsing) {
@@ -321,7 +333,7 @@ Status BlockParser::ParseChunk(ValuesWriter& values_writer, ParsedWriter& parsed
   }
   // Append new buffers and update size
   std::shared_ptr<Buffer> values_buffer;
-  values_writer.Finish(&values_buffer);
+  values_writer->Finish(&values_buffer);
   if (values_buffer->size() > 0) {
     values_size_ += static_cast<int32_t>(values_buffer->size() / sizeof(ValueDesc) - 1);
     values_buffers_.push_back(std::move(values_buffer));
@@ -353,7 +365,7 @@ Status BlockParser::DoParseSpecialized(const char* start, uint32_t size, bool is
     ResizableValuesWriter values_writer(pool_);
     values_writer.Start(parsed_writer);
 
-    RETURN_NOT_OK(ParseChunk<SpecializedOptions>(values_writer, parsed_writer, data,
+    RETURN_NOT_OK(ParseChunk<SpecializedOptions>(&values_writer, &parsed_writer, data,
                                                  data_end, is_final, rows_in_chunk, &data,
                                                  &finished_parsing));
   }
@@ -372,7 +384,7 @@ Status BlockParser::DoParseSpecialized(const char* start, uint32_t size, bool is
     PresizedValuesWriter values_writer(pool_, rows_in_chunk, num_cols_);
     values_writer.Start(parsed_writer);
 
-    RETURN_NOT_OK(ParseChunk<SpecializedOptions>(values_writer, parsed_writer, data,
+    RETURN_NOT_OK(ParseChunk<SpecializedOptions>(&values_writer, &parsed_writer, data,
                                                  data_end, is_final, rows_in_chunk, &data,
                                                  &finished_parsing));
   }

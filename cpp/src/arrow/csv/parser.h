@@ -102,13 +102,13 @@ class ARROW_EXPORT BlockParser {
                             uint32_t* out_size);
 
   template <typename SpecializedOptions, typename ValuesWriter, typename ParsedWriter>
-  Status ParseChunk(ValuesWriter& values_writer, ParsedWriter& parsed_writer,
+  Status ParseChunk(ValuesWriter* values_writer, ParsedWriter* parsed_writer,
                     const char* data, const char* data_end, bool is_final,
                     int32_t rows_in_chunk, const char** out_data, bool* finished_parsing);
 
   // Parse a single line from the data pointer
   template <typename SpecializedOptions, typename ValuesWriter, typename ParsedWriter>
-  Status ParseLine(ValuesWriter& values_writer, ParsedWriter& parsed_writer,
+  Status ParseLine(ValuesWriter* values_writer, ParsedWriter* parsed_writer,
                    const char* data, const char* data_end, bool is_final,
                    const char** out_data);
 
