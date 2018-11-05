@@ -20,7 +20,7 @@ module Arrow
     def [](name_or_index)
       case name_or_index
       when String, Symbol
-        name = name_or_index.to_s
+        name = name_or_index
         get_field_by_name(name)
       when Integer
         index = name_or_index
