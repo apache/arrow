@@ -317,6 +317,10 @@ Always OFF if building binaries"
     "Build the Gandiva JNI wrappers"
     ON)
 
+  option(ARROW_GANDIVA_BUILD_TESTS
+    "Build the Gandiva googletest unit tests"
+    ON)
+
 endif()
 
 
