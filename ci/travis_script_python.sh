@@ -136,6 +136,7 @@ export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_WITH_ORC=1
+export PYARROW_WITH_GANDIVA=1
 
 python setup.py develop
 
@@ -201,6 +202,7 @@ if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" 
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PLASMA=1
   export PYARROW_WITH_ORC=0
+  export PYARROW_WITH_GANDIVA=0
 
   pushd $ARROW_PYTHON_DIR
   # Workaround for https://github.com/airspeed-velocity/asv/issues/631
