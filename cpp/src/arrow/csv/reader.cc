@@ -138,7 +138,7 @@ class BaseTableReader : public csv::TableReader {
       return Status::Invalid("header_rows == 0 needs explicit column names");
     }
 
-    BlockParser parser(parse_options_, num_cols_, parse_options_.header_rows);
+    BlockParser parser(pool_, parse_options_, num_cols_, parse_options_.header_rows);
 
     uint32_t parsed_size = 0;
     RETURN_NOT_OK(parser.Parse(reinterpret_cast<const char*>(cur_data_),
@@ -251,7 +251,8 @@ class SerialTableReader : public BaseTableReader {
     RETURN_NOT_OK(ProcessHeader());
 
     static constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
-    auto parser = std::make_shared<BlockParser>(parse_options_, num_cols_, max_num_rows);
+    auto parser =
+        std::make_shared<BlockParser>(pool_, parse_options_, num_cols_, max_num_rows);
     while (!eof_) {
       // Consume current block
       uint32_t parsed_size = 0;
@@ -338,8 +339,8 @@ class ThreadedTableReader : public BaseTableReader {
 
         // "mutable" allows to modify captured by-copy chunk_buffer
         task_group_->Append([=]() mutable -> Status {
-          auto parser =
-              std::make_shared<BlockParser>(parse_options_, num_cols_, max_num_rows);
+          auto parser = std::make_shared<BlockParser>(pool_, parse_options_, num_cols_,
+                                                      max_num_rows);
           uint32_t parsed_size = 0;
           RETURN_NOT_OK(parser->Parse(reinterpret_cast<const char*>(chunk_data),
                                       chunk_size, &parsed_size));
@@ -374,7 +375,7 @@ class ThreadedTableReader : public BaseTableReader {
         builder->SetTaskGroup(task_group_);
       }
       auto parser =
-          std::make_shared<BlockParser>(parse_options_, num_cols_, max_num_rows);
+          std::make_shared<BlockParser>(pool_, parse_options_, num_cols_, max_num_rows);
       uint32_t parsed_size = 0;
       RETURN_NOT_OK(parser->ParseFinal(reinterpret_cast<const char*>(cur_data_),
                                        static_cast<uint32_t>(cur_size_), &parsed_size));

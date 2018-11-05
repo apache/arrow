@@ -22,20 +22,19 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/buffer.h"
 #include "arrow/csv/options.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class MemoryPool;
+
 namespace csv {
 
 constexpr int32_t kMaxParserNumRows = 100000;
-
-// Whether BlockParser will use bitfields for better memory consumption
-// and cache locality.
-#undef CSV_PARSER_USE_BITFIELD
-#define CSV_PARSER_USE_BITFIELD
 
 /// \class BlockParser
 /// \brief A reusable block-based parser for CSV data
@@ -53,6 +52,8 @@ class ARROW_EXPORT BlockParser {
  public:
   explicit BlockParser(ParseOptions options, int32_t num_cols = -1,
                        int32_t max_num_rows = kMaxParserNumRows);
+  explicit BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols = -1,
+                       int32_t max_num_rows = kMaxParserNumRows);
 
   /// \brief Parse a block of data
   ///
@@ -69,7 +70,7 @@ class ARROW_EXPORT BlockParser {
   int32_t num_rows() const { return num_rows_; }
   int32_t num_cols() const { return num_cols_; }
   /// \brief Return the total size in bytes of parsed data
-  int32_t num_bytes() const { return static_cast<int32_t>(parsed_.size()); }
+  uint32_t num_bytes() const { return parsed_size_; }
 
   /// \brief Visit parsed values in a column
   ///
@@ -77,36 +78,42 @@ class ARROW_EXPORT BlockParser {
   /// Status(const uint8_t* data, uint32_t size, bool quoted)
   template <typename Visitor>
   Status VisitColumn(int32_t col_index, Visitor&& visit) const {
-#ifdef CSV_PARSER_USE_BITFIELD
-    for (int32_t pos = col_index; pos < num_cols_ * num_rows_; pos += num_cols_) {
-      auto start = values_[pos].offset;
-      auto stop = values_[pos + 1].offset;
-      auto quoted = values_[pos + 1].quoted;
-      ARROW_RETURN_NOT_OK(visit(parsed_.data() + start, stop - start, quoted));
+    for (size_t buf_index = 0; buf_index < values_buffers_.size(); ++buf_index) {
+      const auto& values_buffer = values_buffers_[buf_index];
+      const auto values = reinterpret_cast<const ValueDesc*>(values_buffer->data());
+      const auto max_pos =
+          static_cast<int32_t>(values_buffer->size() / sizeof(ValueDesc)) - 1;
+      for (int32_t pos = col_index; pos < max_pos; pos += num_cols_) {
+        auto start = values[pos].offset;
+        auto stop = values[pos + 1].offset;
+        auto quoted = values[pos + 1].quoted;
+        ARROW_RETURN_NOT_OK(visit(parsed_ + start, stop - start, quoted));
+      }
     }
-#else
-    for (int32_t pos = col_index; pos < num_cols_ * num_rows_; pos += num_cols_) {
-      auto start = offsets_[pos];
-      auto stop = offsets_[pos + 1];
-      auto quoted = quoted_[pos];
-      ARROW_RETURN_NOT_OK(visit(parsed_.data() + start, stop - start, quoted));
-    }
-#endif
     return Status::OK();
   }
-
-  // XXX add a ClearColumn method to signal that a column won't be visited anymore?
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(BlockParser);
 
   Status DoParse(const char* data, uint32_t size, bool is_final, uint32_t* out_size);
+  template <typename SpecializedOptions>
+  Status DoParseSpecialized(const char* data, uint32_t size, bool is_final,
+                            uint32_t* out_size);
+
+  template <typename SpecializedOptions, typename ValuesWriter, typename ParsedWriter>
+  Status ParseChunk(ValuesWriter* values_writer, ParsedWriter* parsed_writer,
+                    const char* data, const char* data_end, bool is_final,
+                    int32_t rows_in_chunk, const char** out_data, bool* finished_parsing);
 
   // Parse a single line from the data pointer
-  Status ParseLine(const char* data, const char* data_end, bool is_final,
+  template <typename SpecializedOptions, typename ValuesWriter, typename ParsedWriter>
+  Status ParseLine(ValuesWriter* values_writer, ParsedWriter* parsed_writer,
+                   const char* data, const char* data_end, bool is_final,
                    const char** out_data);
 
-  ParseOptions options_;
+  MemoryPool* pool_;
+  const ParseOptions options_;
   // The number of rows parsed from the block
   int32_t num_rows_;
   // The number of columns (can be -1 at start)
@@ -115,22 +122,22 @@ class ARROW_EXPORT BlockParser {
   int32_t max_num_rows_;
 
   // Linear scratchpad for parsed values
-  // XXX should we ensure it's padded with 8 or 16 excess zero bytes? it could help
-  // with null parsing...
-  // TODO should be able to presize scratch space
-  std::vector<uint8_t> parsed_;
-#ifdef CSV_PARSER_USE_BITFIELD
   struct ValueDesc {
     uint32_t offset : 31;
     bool quoted : 1;
   };
-  std::vector<ValueDesc> values_;
-#else
-  // Value offsets inside the scratchpad
-  std::vector<uint32_t> offsets_;
-  // Whether each value was quoted or not
-  std::vector<bool> quoted_;
-#endif
+
+  // XXX should we ensure the parsed buffer is padded with 8 or 16 excess zero bytes?
+  // It may help with null parsing...
+  std::vector<std::shared_ptr<Buffer>> values_buffers_;
+  std::shared_ptr<Buffer> parsed_buffer_;
+  const uint8_t* parsed_;
+  int32_t values_size_;
+  int32_t parsed_size_;
+
+  class ResizableValuesWriter;
+  class PresizedValuesWriter;
+  class PresizedParsedWriter;
 };
 
 }  // namespace csv
