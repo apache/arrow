@@ -131,19 +131,22 @@ TEST(BlockParser, Basics) {
   AssertColumnsEq(parser, {{"ab", "ef", ""}, {"cd", "", "ij"}, {"", "gh", "kl"}});
 }
 
-TEST(BlockParser, Empty) {
+TEST(BlockParser, EmptyHeader) {
+  // Cannot infer number of columns
+  uint32_t out_size;
+  {
+    auto csv = MakeCSVData({""});
+    BlockParser parser(ParseOptions::Defaults());
+    ASSERT_RAISES(Invalid, ParseFinal(parser, csv, &out_size));
+  }
   {
     auto csv = MakeCSVData({"\n"});
     BlockParser parser(ParseOptions::Defaults());
-    AssertParseOk(parser, csv);
-    AssertColumnsEq(parser, {{""}});
+    ASSERT_RAISES(Invalid, ParseFinal(parser, csv, &out_size));
   }
-  {
-    auto csv = MakeCSVData({"\n\n"});
-    BlockParser parser(ParseOptions::Defaults());
-    AssertParseOk(parser, csv);
-    AssertColumnsEq(parser, {{"", ""}});
-  }
+}
+
+TEST(BlockParser, Empty) {
   {
     auto csv = MakeCSVData({",\n"});
     BlockParser parser(ParseOptions::Defaults());
@@ -186,6 +189,40 @@ TEST(BlockParser, MaxNumRows) {
 
   AssertParseOk(parser, csv.substr(8));
   AssertColumnsEq(parser, {{}});
+}
+
+TEST(BlockParser, EmptyLinesWithOneColumn) {
+  auto csv = MakeCSVData({"a\n", "\n", "b\r", "\r", "c\r\n", "\r\n", "d\n"});
+  {
+    BlockParser parser(ParseOptions::Defaults());
+    AssertParseOk(parser, csv);
+    AssertColumnsEq(parser, {{"a", "b", "c", "d"}});
+  }
+  {
+    auto options = ParseOptions::Defaults();
+    options.ignore_empty_lines = false;
+    BlockParser parser(options);
+    AssertParseOk(parser, csv);
+    AssertColumnsEq(parser, {{"a", "", "b", "", "c", "", "d"}});
+  }
+}
+
+TEST(BlockParser, EmptyLinesWithSeveralColumns) {
+  uint32_t out_size;
+  auto csv = MakeCSVData({"a,b\n", "\n", "c,d\r", "\r", "e,f\r\n", "\r\n", "g,h\n"});
+  {
+    BlockParser parser(ParseOptions::Defaults());
+    AssertParseOk(parser, csv);
+    AssertColumnsEq(parser, {{"a", "c", "e", "g"}, {"b", "d", "f", "h"}});
+  }
+  {
+    // A non-ignored empty line is a single value, but two columns are expected
+    auto options = ParseOptions::Defaults();
+    options.ignore_empty_lines = false;
+    BlockParser parser(options);
+    Status st = Parse(parser, csv, &out_size);
+    ASSERT_RAISES(Invalid, st);
+  }
 }
 
 TEST(BlockParser, TruncatedData) {

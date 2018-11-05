@@ -38,22 +38,30 @@ std::string MakeCSVData(std::vector<std::string> lines) {
 }
 
 // Make a BlockParser from a vector of lines representing a CSV file
-void MakeCSVParser(std::vector<std::string> lines, std::shared_ptr<BlockParser>* out) {
+void MakeCSVParser(std::vector<std::string> lines, ParseOptions options,
+                   std::shared_ptr<BlockParser>* out) {
   auto csv = MakeCSVData(lines);
-  auto parser = std::make_shared<BlockParser>(ParseOptions::Defaults());
+  auto parser = std::make_shared<BlockParser>(options);
   uint32_t out_size;
   ASSERT_OK(parser->Parse(csv.data(), static_cast<uint32_t>(csv.size()), &out_size));
   ASSERT_EQ(out_size, csv.size()) << "trailing CSV data not parsed";
   *out = parser;
 }
 
+void MakeCSVParser(std::vector<std::string> lines, std::shared_ptr<BlockParser>* out) {
+  MakeCSVParser(lines, ParseOptions::Defaults(), out);
+}
+
 // Make a BlockParser from a vector of strings representing a single CSV column
 void MakeColumnParser(std::vector<std::string> items, std::shared_ptr<BlockParser>* out) {
+  auto options = ParseOptions::Defaults();
+  // Need this to test for null (empty) values
+  options.ignore_empty_lines = false;
   std::vector<std::string> lines;
   for (const auto& item : items) {
     lines.push_back(item + '\n');
   }
-  MakeCSVParser(lines, out);
+  MakeCSVParser(lines, options, out);
   ASSERT_EQ((*out)->num_cols(), 1) << "Should have seen only 1 CSV column";
   ASSERT_EQ((*out)->num_rows(), items.size());
 }
