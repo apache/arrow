@@ -271,3 +271,10 @@ test_that("array supports difftime", {
   expect_equal(a$as_vector()[1], time)
   expect_true(is.na(a$as_vector()[2]))
 })
+
+test_that("support for NaN (ARROW-3615)", {
+  x <- c(1, NA, NaN, -1)
+  y <- array(x)
+  expect_true(y$IsValid(2))
+  expect_equal(y$null_count(), 1L)
+})
