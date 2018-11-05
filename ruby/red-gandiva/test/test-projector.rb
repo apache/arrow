@@ -20,8 +20,8 @@ class TestProjector < Test::Unit::TestCase
     table = Arrow::Table.new(:field1 => Arrow::Int32Array.new([1, 2, 3, 4]),
                              :field2 => Arrow::Int32Array.new([11, 13, 15, 17]))
     schema = table.schema
-    field1 = schema.get_field_by_name(:field1) # TODO: schema[:field1]
-    field2 = schema.get_field_by_name(:field2) # TODO: schema[:field2]
+    field1 = schema[:field1]
+    field2 = schema[:field2]
     add_result = Arrow::Field.new("add_result", :int32)
     add_expression = Gandiva::Expression.new("add",
                                              [field1, field2],
