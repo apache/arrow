@@ -1,3 +1,5 @@
+# -*- ruby -*-
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,18 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "autoconf-archive"
-brew "automake"
-brew "boost"
-brew "ccache"
-brew "cmake"
-brew "git"
-brew "gobject-introspection"
-brew "gtk-doc"
-brew "libtool"
-brew "llvm@6"
-brew "lua"
-brew "luarocks"
-brew "ninja"
-brew "thrift"
-brew "wget"
+source "https://rubygems.org/"
+
+gemspec

@@ -1,3 +1,5 @@
+# -*- ruby -*-
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,18 +17,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "autoconf-archive"
-brew "automake"
-brew "boost"
-brew "ccache"
-brew "cmake"
-brew "git"
-brew "gobject-introspection"
-brew "gtk-doc"
-brew "libtool"
-brew "llvm@6"
-brew "lua"
-brew "luarocks"
-brew "ninja"
-brew "thrift"
-brew "wget"
+require "rubygems"
+require "bundler/gem_helper"
+
+base_dir = File.join(__dir__)
+
+helper = Bundler::GemHelper.new(base_dir)
+helper.install
+
+release_task = Rake::Task["release"]
+release_task.prerequisites.replace(["build", "release:rubygem_push"])
+
+desc "Run tests"
+task :test do
+  cd("dependency-check") do
+    ruby("-S", "rake")
+  end
+  ruby("test/run-test.rb")
+end
+
+task default: :test

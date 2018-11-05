@@ -15,18 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "autoconf-archive"
-brew "automake"
-brew "boost"
-brew "ccache"
-brew "cmake"
-brew "git"
-brew "gobject-introspection"
-brew "gtk-doc"
-brew "libtool"
-brew "llvm@6"
-brew "lua"
-brew "luarocks"
-brew "ninja"
-brew "thrift"
-brew "wget"
+module Gandiva
+  class Loader < GObjectIntrospection::Loader
+    class << self
+      def load
+        super("Gandiva", Gandiva)
+      end
+    end
+  end
+end

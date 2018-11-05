@@ -15,18 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "autoconf-archive"
-brew "automake"
-brew "boost"
-brew "ccache"
-brew "cmake"
-brew "git"
-brew "gobject-introspection"
-brew "gtk-doc"
-brew "libtool"
-brew "llvm@6"
-brew "lua"
-brew "luarocks"
-brew "ninja"
-brew "thrift"
-brew "wget"
+require "arrow"
+
+require "gandiva/version"
+
+require "gandiva/loader"
+
+module Gandiva
+  class Error < StandardError
+  end
+
+  Loader.load
+end
