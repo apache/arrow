@@ -37,5 +37,14 @@ class SchemaTest < Test::Unit::TestCase
       assert_equal([@count_field, @visible_field],
                    [@schema[0], @schema[1]])
     end
+
+    test("[invalid]") do
+      invalid = []
+      message = "field name or index must be String, Symbol or Integer"
+      message << ": <#{invalid.inspect}>"
+      assert_raise(ArgumentError.new(message)) do
+        @schema[invalid]
+      end
+    end
   end
 end
