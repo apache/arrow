@@ -44,6 +44,13 @@ Status GenericConversionError(const std::shared_ptr<DataType>& type, const uint8
   return Status::Invalid(ss.str());
 }
 
+inline bool IsWhitespace(uint8_t c) {
+  if (ARROW_PREDICT_TRUE(c > ' ')) {
+    return false;
+  }
+  return c == ' ' || c == '\t';
+}
+
 class ConcreteConverter : public Converter {
  public:
   using Converter::Converter;
@@ -275,9 +282,29 @@ Status NumericConverter<T>::Convert(const BlockParser& parser, int32_t col_index
   StringConverter<T> converter;
 
   auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+    // XXX should quoted values be allowed at all?
     value_type value;
     if (IsNull(data, size, quoted)) {
-      return builder.AppendNull();
+      builder.UnsafeAppendNull();
+      return Status::OK();
+    }
+    if (!std::is_same<BooleanType, T>::value) {
+      // Skip trailing whitespace
+      if (ARROW_PREDICT_TRUE(size > 0) &&
+          ARROW_PREDICT_FALSE(IsWhitespace(data[size - 1]))) {
+        const uint8_t* p = data + size - 1;
+        while (size > 0 && IsWhitespace(*p)) {
+          --size;
+          --p;
+        }
+      }
+      // Skip leading whitespace
+      if (ARROW_PREDICT_TRUE(size > 0) && ARROW_PREDICT_FALSE(IsWhitespace(data[0]))) {
+        while (size > 0 && IsWhitespace(*data)) {
+          --size;
+          ++data;
+        }
+      }
     }
     if (ARROW_PREDICT_FALSE(
             !converter(reinterpret_cast<const char*>(data), size, &value))) {
