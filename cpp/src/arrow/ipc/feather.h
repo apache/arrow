@@ -150,6 +150,12 @@ class ARROW_EXPORT TableWriter {
   /// \return Status
   Status Append(const std::string& name, const Array& values);
 
+  /// \brief Write a table to the file
+  ///
+  /// \param[in] table the table to be written
+  /// \return Status
+  Status Write(const Table& table);
+
   /// \brief Finalize the file by writing the file metadata and footer
   /// \return Status
   Status Finalize();

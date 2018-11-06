@@ -174,6 +174,8 @@ class ARROW_EXPORT ArrayBuilder {
     length_ += std::distance(begin, end);
   }
 
+  void UnsafeAppendNull() { UnsafeAppendToBitmap(false); }
+
  protected:
   ArrayBuilder() {}
 

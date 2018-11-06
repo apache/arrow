@@ -224,6 +224,9 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   Status WriteAt(int64_t position, const void* data, int64_t nbytes) override;
 
   // @return: the size in bytes of the memory source
+  Status GetSize(int64_t* size) const;
+
+  // @return: the size in bytes of the memory source
   Status GetSize(int64_t* size) override;
 
   int file_descriptor() const;

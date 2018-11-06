@@ -23,7 +23,6 @@ import java.util.Arrays;
 import java.util.List;
 
 
-
 /**
  * The PlasmaClient is used to interface with a plasma store and manager.
  *
@@ -108,6 +107,33 @@ public class PlasmaClient implements ObjectStoreLink {
   @Override
   public void fetch(byte[][] objectIds) {
     PlasmaClientJNI.fetch(conn, objectIds);
+  }
+
+  @Override
+  public List<ObjectStoreData> get(byte[][] objectIds, int timeoutMs) {
+    ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
+    assert bufs.length == objectIds.length;
+
+    List<ObjectStoreData> ret = new ArrayList<>();
+    for (int i = 0; i < bufs.length; i++) {
+      ByteBuffer databuf = bufs[i][0];
+      ByteBuffer metabuf = bufs[i][1];
+      if (databuf == null) {
+        ret.add(new ObjectStoreData(null, null));
+      } else {
+        byte[] data = new byte[databuf.remaining()];
+        databuf.get(data);
+        byte[] meta;
+        if (metabuf != null) {
+          meta = new byte[metabuf.remaining()];
+          metabuf.get(meta);
+        } else {
+          meta = null;
+        }
+        ret.add(new ObjectStoreData(data, meta));
+      }
+    }
+    return ret;
   }
 
   @Override

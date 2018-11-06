@@ -20,7 +20,7 @@ const {
     mainExport,
     ESKeywords,
     UMDSourceTargets,
-    uglifyLanguageNames,
+    terserLanguageNames,
     observableFromStreams
 } = require('./util');
 
@@ -29,7 +29,7 @@ const webpack = require(`webpack`);
 const { memoizeTask } = require('./memoize-task');
 const { compileBinFiles } = require('./typescript-task');
 const { Observable, ReplaySubject } = require('rxjs');
-const UglifyJSPlugin = require(`uglifyjs-webpack-plugin`);
+const TerserPlugin = require(`terser-webpack-plugin`);
 const esmRequire = require(`@std/esm`)(module, {
     mode: `js`,
     warnings: false,
@@ -49,7 +49,7 @@ const esmRequire = require(`@std/esm`)(module, {
     }
 });
 
-const uglifyTask = ((cache, commonConfig) => memoizeTask(cache, function uglifyJS(target, format) {
+const minifyTask = ((cache, commonConfig) => memoizeTask(cache, function minifyJS(target, format) {
 
     const sourceTarget = UMDSourceTargets[target];
     const PublicNames = reservePublicNames(sourceTarget, `cls`);
@@ -74,15 +74,16 @@ const uglifyTask = ((cache, commonConfig) => memoizeTask(cache, function uglifyJ
                         .replace(/\s/, `_`)
                         .replace(/\.\/node_modules\//, ``)
             }),
-            new UglifyJSPlugin({
+            new TerserPlugin({
                 sourceMap: true,
-                uglifyOptions: {
-                    ecma: uglifyLanguageNames[target],
+                terserOptions: {
+                    ecma: terserLanguageNames[target],
                     compress: { unsafe: true },
                     output: { comments: false, beautify: false },
-                    mangle: { eval: true, safari10: true, // <-- Works around a Safari 10 bug: // https://github.com/mishoo/UglifyJS2/issues/1753
+                    mangle: { eval: true,
                         properties: { reserved, keep_quoted: true }
-                    }
+                    },
+                    safari10: true // <-- works around safari10 bugs, see the "safari10" option here: https://github.com/terser-js/terser#minify-options
                 },
             })
         ]
@@ -99,8 +100,8 @@ const uglifyTask = ((cache, commonConfig) => memoizeTask(cache, function uglifyJ
     output: { filename: '[name].js', library: mainExport, libraryTarget: `umd`, umdNamedDefine: true },
 });
 
-module.exports = uglifyTask;
-module.exports.uglifyTask = uglifyTask;
+module.exports = minifyTask;
+module.exports.minifyTask = minifyTask;
 
 const reservePublicNames = ((ESKeywords) => function reservePublicNames(target, format) {
     const src = targetDir(target, format);
@@ -119,7 +120,8 @@ const reservePublicNames = ((ESKeywords) => function reservePublicNames(target, 
     ], [...ESKeywords]);
 })(ESKeywords);
 
-// Reflect on the Arrow modules to come up with a list of keys to save from Uglify's
+// Reflect on the Arrow modules to come up with a list of keys to save from
+// Terser's
 // mangler. Assume all the non-inherited static and prototype members of the Arrow
 // module and its direct exports are public, and should be preserved through minification.
 const reserveExportedNames = (entryModule) => (

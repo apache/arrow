@@ -19,7 +19,7 @@ const { Observable } = require('rxjs');
 const { npmPkgName } = require('./util');
 const { memoizeTask } = require('./memoize-task');
 
-const uglifyTask = require('./uglify-task');
+const minifyTask = require('./minify-task');
 const closureTask = require('./closure-task');
 const typescriptTask = require('./typescript-task');
 const { arrowTask, arrowTSTask } = require('./arrow-task');
@@ -29,7 +29,7 @@ const buildTask = ((cache) => memoizeTask(cache, function build(target, format, 
          : target === npmPkgName               ? arrowTask(target, format, ...args)()
          : target === `ts`                     ? arrowTSTask(target, format, ...args)()
          : format === `umd` ? target === `es5` ? closureTask(target, format, ...args)()
-                                               : uglifyTask(target, format, ...args)()
+                                               : minifyTask(target, format, ...args)()
                                                : typescriptTask(target, format, ...args)();
 }))({});
 

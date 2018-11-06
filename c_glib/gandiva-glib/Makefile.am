@@ -117,6 +117,7 @@ Gandiva_1_0_gir_LIBS +=				\
 	arrow-glib				\
 	gandiva-glib
 Gandiva_1_0_gir_SCANNERFLAGS +=					\
+	--no-libtool						\
 	--library-path=$(abs_top_builddir)/arrow-glib/.libs	\
 	--library-path=$(abs_builddir)/.libs
 else

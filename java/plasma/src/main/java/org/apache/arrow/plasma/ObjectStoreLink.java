@@ -24,6 +24,17 @@ import java.util.List;
  */
 public interface ObjectStoreLink {
 
+  class ObjectStoreData {
+
+    ObjectStoreData(byte[] metadata, byte[] data) {
+      this.data = data;
+      this.metadata = metadata;
+    }
+
+    public final byte[] metadata;
+    public final byte[] data;
+  }
+
   /**
    * Put value in the local plasma store with object ID <tt>objectId</tt>.
    *
@@ -34,7 +45,7 @@ public interface ObjectStoreLink {
   void put(byte[] objectId, byte[] value, byte[] metadata);
 
   /**
-   * Create a buffer from the PlasmaStore based on the <tt>objectId</tt>.
+   * Get a buffer from the PlasmaStore based on the <tt>objectId</tt>.
    *
    * @param objectId The object ID used to identify the object.
    * @param timeoutMs The number of milliseconds that the get call should block before timing out
@@ -48,7 +59,7 @@ public interface ObjectStoreLink {
   }
 
   /**
-   * Create buffers from the PlasmaStore based on <tt>objectIds</tt>.
+   * Get buffers from the PlasmaStore based on <tt>objectIds</tt>.
    *
    * @param objectIds List of object IDs used to identify some objects.
    * @param timeoutMs The number of milliseconds that the get call should block before timing out
@@ -57,6 +68,16 @@ public interface ObjectStoreLink {
    * @return List of PlasmaBuffers wrapping objects.
    */
   List<byte[]> get(byte[][] objectIds, int timeoutMs, boolean isMetadata);
+
+  /**
+   * Get buffer pairs (data & metadata) from the PlasmaStore based on <tt>objectIds</tt>.
+   *
+   * @param objectIds List of object IDs used to identify some objects.
+   * @param timeoutMs The number of milliseconds that the get call should block before timing out
+   * and returning. Pass -1 if the call should block and 0 if the call should return immediately.
+   * @return List of Pairs of PlasmaBuffer wrapping objects and its metadata.
+   */
+  List<ObjectStoreData> get(byte[][] objectIds, int timeoutMs);
 
   /**
    * Wait until <tt>numReturns</tt> objects in <tt>objectIds</tt> are ready.

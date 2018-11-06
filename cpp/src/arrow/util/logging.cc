@@ -68,7 +68,7 @@ class CerrLog {
   bool has_logged_;
 
   void PrintBackTrace() {
-#if defined(_EXECINFO_H) || !defined(_WIN32)
+#ifdef ARROW_WITH_BACKTRACE
     void* buffer[255];
     const int calls = backtrace(buffer, static_cast<int>(sizeof(buffer) / sizeof(void*)));
     backtrace_symbols_fd(buffer, calls, 1);
