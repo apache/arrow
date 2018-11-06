@@ -78,7 +78,7 @@ services:
 
   python:
     # Usage:
-    #   export PYTHON_VERSION=3.6
+    #   export PYTHON_VERSION=2.7|3.6|3.7
     #   docker-compose build cpp
     #   docker-compose build python
     #   docker-compose run python
@@ -180,6 +180,21 @@ services:
     build:
       context: .
       dockerfile: integration/hdfs/Dockerfile
+
+  pandas-master:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build --no-cache pandas-master
+    #   docker-compose run pandas-master
+    image: arrow:pandas-master
+    build:
+      context: .
+      dockerfile: integration/pandas/Dockerfile
+    shm_size: 2G
+    volumes: *volumes
+
 
   # TODO(kszucs): dask-integration
   # TODO(kszucs): hive-integration
