@@ -116,6 +116,7 @@ RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
 RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
 RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::Message::Type)
 
 namespace Rcpp {
 namespace internal {
