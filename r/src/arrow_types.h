@@ -132,17 +132,7 @@ inline const T* GetValuesSafely(const std::shared_ptr<ArrayData>& data, int i,
                                 int64_t offset) {
   auto buffer = data->buffers[i];
   if (!buffer) {
-    Rcpp::stop(tfm::format("invalid data in buffer %d", i));
-  };
-  return reinterpret_cast<const T*>(buffer->data()) + offset;
-}
-
-template <typename T>
-inline const T* GetValuesOrNull(const std::shared_ptr<ArrayData>& data, int i,
-                                int64_t offset) {
-  auto buffer = data->buffers[i];
-  if (!buffer) {
-    return reinterpret_cast<const T*>(NULL);
+    return nullptr;
   } else {
     return reinterpret_cast<const T*>(buffer->data()) + offset;
   }

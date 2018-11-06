@@ -549,7 +549,7 @@ inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
 
   Rcpp::CharacterVector res(no_init(n));
   auto p_offset = GetValuesSafely<int32_t>(array->data(), 1, array->offset());
-  auto p_data = GetValuesOrNull<char>(array->data(), 2, *p_offset);
+  auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
 
   if (null_count) {
     // need to watch for nulls
