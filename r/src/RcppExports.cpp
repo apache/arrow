@@ -482,14 +482,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// xptr_is_null
-bool xptr_is_null(SEXP xp);
-RcppExport SEXP _arrow_xptr_is_null(SEXP xpSEXP) {
+// shared_ptr_is_null
+bool shared_ptr_is_null(SEXP xp);
+RcppExport SEXP _arrow_shared_ptr_is_null(SEXP xpSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type xp(xpSEXP);
-    rcpp_result_gen = Rcpp::wrap(xptr_is_null(xp));
+    rcpp_result_gen = Rcpp::wrap(shared_ptr_is_null(xp));
+    return rcpp_result_gen;
+END_RCPP
+}
+// unique_ptr_is_null
+bool unique_ptr_is_null(SEXP xp);
+RcppExport SEXP _arrow_unique_ptr_is_null(SEXP xpSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type xp(xpSEXP);
+    rcpp_result_gen = Rcpp::wrap(unique_ptr_is_null(xp));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1353,6 +1364,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ipc___MessageReader__Open
+std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
+RcppExport SEXP _arrow_ipc___MessageReader__Open(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::InputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___MessageReader__Open(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___MessageReader__ReadNextMessage
+std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(const std::unique_ptr<arrow::ipc::MessageReader>& reader);
+RcppExport SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::MessageReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___MessageReader__ReadNextMessage(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
 // RecordBatch__num_columns
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
 RcppExport SEXP _arrow_RecordBatch__num_columns(SEXP xSEXP) {
@@ -1760,7 +1793,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1},
     {"_arrow_Column__type", (DL_FUNC) &_arrow_Column__type, 1},
     {"_arrow_Column__data", (DL_FUNC) &_arrow_Column__data, 1},
-    {"_arrow_xptr_is_null", (DL_FUNC) &_arrow_xptr_is_null, 1},
+    {"_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1},
+    {"_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1},
     {"_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0},
     {"_arrow_Int16__initialize", (DL_FUNC) &_arrow_Int16__initialize, 0},
     {"_arrow_Int32__initialize", (DL_FUNC) &_arrow_Int32__initialize, 0},
@@ -1840,6 +1874,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___Message__metadata", (DL_FUNC) &_arrow_ipc___Message__metadata, 1},
     {"_arrow_ipc___Message__body", (DL_FUNC) &_arrow_ipc___Message__body, 1},
     {"_arrow_ipc___Message__Verify", (DL_FUNC) &_arrow_ipc___Message__Verify, 1},
+    {"_arrow_ipc___MessageReader__Open", (DL_FUNC) &_arrow_ipc___MessageReader__Open, 1},
+    {"_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1},
     {"_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
     {"_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},

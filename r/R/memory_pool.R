@@ -29,5 +29,5 @@
 )
 
 default_memory_pool <- function() {
-  construct(`arrow::MemoryPool`, MemoryPool__default())
+  shared_ptr(`arrow::MemoryPool`, MemoryPool__default())
 }

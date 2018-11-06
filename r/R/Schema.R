@@ -22,12 +22,12 @@
   public = list(
     ToString = function() Schema__ToString(self),
     num_fields = function() Schema__num_fields(self),
-    field = function(i) construct(`arrow::Field`, Schema__field(self, i))
+    field = function(i) shared_ptr(`arrow::Field`, Schema__field(self, i))
   )
 )
 
 #' @rdname DataType
 #' @export
 schema <- function(...){
-  construct(`arrow::Schema`, schema_(.fields(list(...))))
+  shared_ptr(`arrow::Schema`, schema_(.fields(list(...))))
 }

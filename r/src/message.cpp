@@ -40,3 +40,17 @@ std::shared_ptr<arrow::Buffer> ipc___Message__body(
 int64_t ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message) {
   return message->Verify();
 }
+
+// [[Rcpp::export]]
+std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(
+    const std::shared_ptr<arrow::io::InputStream>& stream) {
+  return arrow::ipc::MessageReader::Open(stream);
+}
+
+// [[Rcpp::export]]
+std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(
+    const std::unique_ptr<arrow::ipc::MessageReader>& reader) {
+  std::unique_ptr<arrow::ipc::Message> message;
+  R_ERROR_NOT_OK(reader->ReadNextMessage(&message));
+  return message;
+}

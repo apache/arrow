@@ -20,8 +20,13 @@
 using namespace Rcpp;
 
 // [[Rcpp::export]]
-bool xptr_is_null(SEXP xp) {
+bool shared_ptr_is_null(SEXP xp) {
   return reinterpret_cast<std::shared_ptr<void>*>(EXTPTR_PTR(xp))->get() == nullptr;
+}
+
+// [[Rcpp::export]]
+bool unique_ptr_is_null(SEXP xp) {
+  return reinterpret_cast<std::unique_ptr<void>*>(EXTPTR_PTR(xp))->get() == nullptr;
 }
 
 // [[Rcpp::export]]

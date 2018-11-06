@@ -20,8 +20,33 @@
 `arrow::ipc::Message` <- R6Class("arrow::ipc::Message",
   public = list(
     body_length = function() ipc___Message__body_length(self),
-    metadata = function() construct(`arrow::Buffer`, ipc__Message__metadata(self)),
-    body = function() construct(`arrow::Buffer`, ipc__Message__body(self)),
+    metadata = function() shared_ptr(`arrow::Buffer`, ipc__Message__metadata(self)),
+    body = function() shared_ptr(`arrow::Buffer`, ipc__Message__body(self)),
     Verify = function() ipc__Message__Verify(self)
   )
 )
+
+`arrow::ipc::MessageReader` <- R6Class("arrow::ipc::MessageReader",
+  public = list(
+    ReadNextMessage = function() unique_ptr(`arrow::ipc::Message`, ipc___MessageReader__ReadNextMessage(self))
+  )
+)
+
+#' Open a MessageReader that reads from a stream
+#'
+#' @param stream an InputStream
+#'
+#' @export
+message_reader <- function(stream) {
+  UseMethod("message_reader")
+}
+
+#' @export
+message_reader.default <- function(stream) {
+  stop("unsupported")
+}
+
+#' @export
+`message_reader.arrow::io::InputStream` <- function(stream) {
+  unique_ptr(`arrow::ipc::MessageReader`, ipc___MessageReader__Create(stream))
+}

@@ -129,8 +129,8 @@ inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag) {
 
 template <typename T>
 inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_unique_ptr_tag) {
-  return Rcpp::XPtr<std::shared_ptr<typename T::element_type>>(
-      new std::unique_ptr<typename T::element_type>(std::move(x)));
+  return Rcpp::XPtr<std::unique_ptr<typename T::element_type>>(
+      new std::unique_ptr<typename T::element_type>(const_cast<T&>(x).release()));
 }
 
 }  // namespace internal

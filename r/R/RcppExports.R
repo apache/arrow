@@ -169,8 +169,12 @@ Column__data <- function(column) {
     .Call(`_arrow_Column__data`, column)
 }
 
-xptr_is_null <- function(xp) {
-    .Call(`_arrow_xptr_is_null`, xp)
+shared_ptr_is_null <- function(xp) {
+    .Call(`_arrow_shared_ptr_is_null`, xp)
+}
+
+unique_ptr_is_null <- function(xp) {
+    .Call(`_arrow_unique_ptr_is_null`, xp)
 }
 
 Int8__initialize <- function() {
@@ -487,6 +491,14 @@ ipc___Message__body <- function(message) {
 
 ipc___Message__Verify <- function(message) {
     .Call(`_arrow_ipc___Message__Verify`, message)
+}
+
+ipc___MessageReader__Open <- function(stream) {
+    .Call(`_arrow_ipc___MessageReader__Open`, stream)
+}
+
+ipc___MessageReader__ReadNextMessage <- function(reader) {
+    .Call(`_arrow_ipc___MessageReader__ReadNextMessage`, reader)
 }
 
 RecordBatch__num_columns <- function(x) {
