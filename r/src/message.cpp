@@ -42,6 +42,7 @@ int64_t ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& messag
 }
 
 // [[Rcpp::export]]
+<<<<<<< HEAD
 arrow::ipc::Message::Type ipc___Message__type(
     const std::unique_ptr<arrow::ipc::Message>& message) {
   return message->type();
@@ -73,6 +74,8 @@ std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(
 //--------- MessageReader
 
 // [[Rcpp::export]]
+=======
+>>>>>>> s/construct/shared_ptr/, add unique_ptr R function. support for unique_ptr.
 std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   return arrow::ipc::MessageReader::Open(stream);
@@ -82,6 +85,7 @@ std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(
 std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(
     const std::unique_ptr<arrow::ipc::MessageReader>& reader) {
   std::unique_ptr<arrow::ipc::Message> message;
+<<<<<<< HEAD
   STOP_IF_NOT_OK(reader->ReadNextMessage(&message));
   return message;
 }
@@ -91,5 +95,8 @@ std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   std::unique_ptr<arrow::ipc::Message> message;
   STOP_IF_NOT_OK(arrow::ipc::ReadMessage(stream.get(), &message));
+=======
+  R_ERROR_NOT_OK(reader->ReadNextMessage(&message));
+>>>>>>> s/construct/shared_ptr/, add unique_ptr R function. support for unique_ptr.
   return message;
 }
