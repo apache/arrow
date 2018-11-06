@@ -341,10 +341,6 @@ TimestampType__unit <- function(type) {
     .Call(`_arrow_TimestampType__unit`, type)
 }
 
-Object__pointer_address <- function(obj) {
-    .Call(`_arrow_Object__pointer_address`, obj)
-}
-
 DictionaryType__initialize <- function(type, array, ordered) {
     .Call(`_arrow_DictionaryType__initialize`, type, array, ordered)
 }
@@ -475,6 +471,22 @@ MemoryPool__bytes_allocated <- function(pool) {
 
 MemoryPool__max_memory <- function(pool) {
     .Call(`_arrow_MemoryPool__max_memory`, pool)
+}
+
+ipc___Message__body_length <- function(message) {
+    .Call(`_arrow_ipc___Message__body_length`, message)
+}
+
+ipc___Message__metadata <- function(message) {
+    .Call(`_arrow_ipc___Message__metadata`, message)
+}
+
+ipc___Message__body <- function(message) {
+    .Call(`_arrow_ipc___Message__body`, message)
+}
+
+ipc___Message__Verify <- function(message) {
+    .Call(`_arrow_ipc___Message__Verify`, message)
 }
 
 RecordBatch__num_columns <- function(x) {

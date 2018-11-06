@@ -233,11 +233,6 @@ arrow::TimeUnit::type TimestampType__unit(
 }
 
 // [[Rcpp::export]]
-std::string Object__pointer_address(SEXP obj) {
-  return tfm::format("%p", EXTPTR_PTR(obj));
-}
-
-// [[Rcpp::export]]
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(
     const std::shared_ptr<arrow::DataType>& type,
     const std::shared_ptr<arrow::Array>& array, bool ordered) {

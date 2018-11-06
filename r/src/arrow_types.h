@@ -78,11 +78,22 @@ struct input_parameter<const std::shared_ptr<T>&> {
   typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> type ;
 } ;
 
+template <typename T>
+struct input_parameter<const std::unique_ptr<T>&> {
+  typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::unique_ptr<T>> type ;
+} ;
+
 struct wrap_type_shared_ptr_tag {};
+struct wrap_type_unique_ptr_tag {};
 
 template <typename T>
 struct wrap_type_traits<std::shared_ptr<T>> {
   using wrap_category = wrap_type_shared_ptr_tag;
+};
+
+template <typename T>
+struct wrap_type_traits<std::unique_ptr<T>> {
+  using wrap_category = wrap_type_unique_ptr_tag;
 };
 
 }  // namespace traits
@@ -90,6 +101,9 @@ namespace internal {
 
 template <typename T>
 inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag);
+
+template <typename T>
+inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_unique_ptr_tag);
 
 }  // namespace internal
 
@@ -110,6 +124,12 @@ template <typename T>
 inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag) {
   return Rcpp::XPtr<std::shared_ptr<typename T::element_type>>(
       new std::shared_ptr<typename T::element_type>(x));
+}
+
+template <typename T>
+inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_unique_ptr_tag) {
+  return Rcpp::XPtr<std::shared_ptr<typename T::element_type>>(
+      new std::unique_ptr<typename T::element_type>(std::move(x)));
 }
 
 }  // namespace internal

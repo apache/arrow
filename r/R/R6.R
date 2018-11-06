@@ -32,14 +32,11 @@
       self$`.:xp:.` <- xp
     },
     print = function(...){
-      cat(crayon::silver(glue::glue("{cl} <{p}>", cl = class(self)[[1]], p = self$pointer_address())), "\n")
+      cat(crayon::silver(glue::glue("{cl}", cl = class(self)[[1]])), "\n")
       if(!is.null(self$ToString)){
         cat(self$ToString(), "\n")
       }
       invisible(self)
-    },
-    pointer_address = function(){
-      Object__pointer_address(self$pointer())
     }
   )
 )

@@ -943,17 +943,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Object__pointer_address
-std::string Object__pointer_address(SEXP obj);
-RcppExport SEXP _arrow_Object__pointer_address(SEXP objSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type obj(objSEXP);
-    rcpp_result_gen = Rcpp::wrap(Object__pointer_address(obj));
-    return rcpp_result_gen;
-END_RCPP
-}
 // DictionaryType__initialize
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& type, const std::shared_ptr<arrow::Array>& array, bool ordered);
 RcppExport SEXP _arrow_DictionaryType__initialize(SEXP typeSEXP, SEXP arraySEXP, SEXP orderedSEXP) {
@@ -1317,6 +1306,50 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::MemoryPool>& >::type pool(poolSEXP);
     rcpp_result_gen = Rcpp::wrap(MemoryPool__max_memory(pool));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___Message__body_length
+int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message);
+RcppExport SEXP _arrow_ipc___Message__body_length(SEXP messageSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type message(messageSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___Message__body_length(message));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___Message__metadata
+std::shared_ptr<arrow::Buffer> ipc___Message__metadata(const std::unique_ptr<arrow::ipc::Message>& message);
+RcppExport SEXP _arrow_ipc___Message__metadata(SEXP messageSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type message(messageSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___Message__metadata(message));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___Message__body
+std::shared_ptr<arrow::Buffer> ipc___Message__body(const std::unique_ptr<arrow::ipc::Message>& message);
+RcppExport SEXP _arrow_ipc___Message__body(SEXP messageSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type message(messageSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___Message__body(message));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___Message__Verify
+int64_t ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message);
+RcppExport SEXP _arrow_ipc___Message__Verify(SEXP messageSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type message(messageSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___Message__Verify(message));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1770,7 +1803,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_DecimalType__scale", (DL_FUNC) &_arrow_DecimalType__scale, 1},
     {"_arrow_TimestampType__timezone", (DL_FUNC) &_arrow_TimestampType__timezone, 1},
     {"_arrow_TimestampType__unit", (DL_FUNC) &_arrow_TimestampType__unit, 1},
-    {"_arrow_Object__pointer_address", (DL_FUNC) &_arrow_Object__pointer_address, 1},
     {"_arrow_DictionaryType__initialize", (DL_FUNC) &_arrow_DictionaryType__initialize, 3},
     {"_arrow_DictionaryType__index_type", (DL_FUNC) &_arrow_DictionaryType__index_type, 1},
     {"_arrow_DictionaryType__name", (DL_FUNC) &_arrow_DictionaryType__name, 1},
@@ -1804,6 +1836,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_MemoryPool__default", (DL_FUNC) &_arrow_MemoryPool__default, 0},
     {"_arrow_MemoryPool__bytes_allocated", (DL_FUNC) &_arrow_MemoryPool__bytes_allocated, 1},
     {"_arrow_MemoryPool__max_memory", (DL_FUNC) &_arrow_MemoryPool__max_memory, 1},
+    {"_arrow_ipc___Message__body_length", (DL_FUNC) &_arrow_ipc___Message__body_length, 1},
+    {"_arrow_ipc___Message__metadata", (DL_FUNC) &_arrow_ipc___Message__metadata, 1},
+    {"_arrow_ipc___Message__body", (DL_FUNC) &_arrow_ipc___Message__body, 1},
+    {"_arrow_ipc___Message__Verify", (DL_FUNC) &_arrow_ipc___Message__Verify, 1},
     {"_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
     {"_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
