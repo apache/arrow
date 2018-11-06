@@ -43,31 +43,31 @@ struct symbols {
   static SEXP units;
   static SEXP xp;
 };
-}
-}
+}  // namespace r
+}  // namespace arrow
 
 namespace Rcpp {
 namespace internal {
 
 template <typename Pointer>
 Pointer r6_to_smart_pointer(SEXP self) {
-  return reinterpret_cast<Pointer>(EXTPTR_PTR(Rf_findVarInFrame(self, arrow::r::symbols::xp)));
+  return reinterpret_cast<Pointer>(
+      EXTPTR_PTR(Rf_findVarInFrame(self, arrow::r::symbols::xp)));
 }
 
-}
+}  // namespace internal
 
 template <typename T>
 class ConstReferenceSmartPtrInputParameter {
-public:
+ public:
   using const_reference = const T&;
 
-  ConstReferenceSmartPtrInputParameter(SEXP self) :
-    ptr(internal::r6_to_smart_pointer<const T*>(self))
-  {}
+  ConstReferenceSmartPtrInputParameter(SEXP self)
+      : ptr(internal::r6_to_smart_pointer<const T*>(self)) {}
 
-  inline operator const_reference(){ return *ptr; }
+  inline operator const_reference() { return *ptr; }
 
-private:
+ private:
   const T* ptr;
 };
 
@@ -75,13 +75,13 @@ namespace traits {
 
 template <typename T>
 struct input_parameter<const std::shared_ptr<T>&> {
-  typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> type ;
-} ;
+  typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> type;
+};
 
 template <typename T>
 struct input_parameter<const std::unique_ptr<T>&> {
-  typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::unique_ptr<T>> type ;
-} ;
+  typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::unique_ptr<T>> type;
+};
 
 struct wrap_type_shared_ptr_tag {};
 struct wrap_type_unique_ptr_tag {};

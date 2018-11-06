@@ -21,5 +21,5 @@ namespace arrow {
 namespace r {
 SEXP symbols::units = Rf_install("units");
 SEXP symbols::xp = Rf_install(".:xp:.");
-}
+}  // namespace r
 }  // namespace arrow

@@ -25,12 +25,14 @@ int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& m
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Buffer> ipc___Message__metadata(const std::unique_ptr<arrow::ipc::Message>& message) {
+std::shared_ptr<arrow::Buffer> ipc___Message__metadata(
+    const std::unique_ptr<arrow::ipc::Message>& message) {
   return message->metadata();
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Buffer> ipc___Message__body(const std::unique_ptr<arrow::ipc::Message>& message) {
+std::shared_ptr<arrow::Buffer> ipc___Message__body(
+    const std::unique_ptr<arrow::ipc::Message>& message) {
   return message->body();
 }
 
