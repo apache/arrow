@@ -93,6 +93,10 @@ ArrayData__get_offset <- function(x) {
     .Call(`_arrow_ArrayData__get_offset`, x)
 }
 
+ArrayData__buffers <- function(x) {
+    .Call(`_arrow_ArrayData__buffers`, x)
+}
+
 Buffer__is_mutable <- function(buffer) {
     .Call(`_arrow_Buffer__is_mutable`, buffer)
 }
