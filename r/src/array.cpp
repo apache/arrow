@@ -146,8 +146,11 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(LogicalVector_ vec) {
 std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   R_xlen_t n = vec.size();
 
-  std::shared_ptr<Buffer> null_buffer(nullptr);
+  std::shared_ptr<Buffer> null_buffer;
   std::shared_ptr<Buffer> offset_buffer;
+  std::shared_ptr<Buffer> value_buffer;
+
+  // there is always an offset buffer
   R_ERROR_NOT_OK(AllocateBuffer((n + 1) * sizeof(int32_t), &offset_buffer));
 
   R_xlen_t i = 0;
@@ -191,17 +194,18 @@ std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   }
 
   // ----- data buffer
-  std::shared_ptr<Buffer> value_buffer;
-  R_ERROR_NOT_OK(AllocateBuffer(current_offset, &value_buffer));
-  p_offset = reinterpret_cast<int32_t*>(offset_buffer->mutable_data());
-  auto p_data = reinterpret_cast<char*>(value_buffer->mutable_data());
+  if (current_offset > 0) {
+    R_ERROR_NOT_OK(AllocateBuffer(current_offset, &value_buffer));
+    p_offset = reinterpret_cast<int32_t*>(offset_buffer->mutable_data());
+    auto p_data = reinterpret_cast<char*>(value_buffer->mutable_data());
 
-  for (R_xlen_t i = 0; i < n; i++) {
-    SEXP s = STRING_ELT(vec, i);
-    if (s != NA_STRING) {
-      auto ni = LENGTH(s);
-      std::copy_n(CHAR(s), ni, p_data);
-      p_data += ni;
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP s = STRING_ELT(vec, i);
+      if (s != NA_STRING) {
+        auto ni = LENGTH(s);
+        std::copy_n(CHAR(s), ni, p_data);
+        p_data += ni;
+      }
     }
   }
 
