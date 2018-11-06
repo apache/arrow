@@ -516,6 +516,7 @@ inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
 
   // first copy all the data
   auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+  R_ERROR_IF_NULL(p_values);
   Rcpp::Vector<RTYPE> vec(p_values, p_values + n);
 
   // then set the sentinel NA
@@ -549,8 +550,15 @@ inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
 
   Rcpp::CharacterVector res(no_init(n));
   auto p_offset = GetValuesSafely<int32_t>(array->data(), 1, array->offset());
-  auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
+  R_ERROR_IF_NULL(p_offset);
 
+  auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
+  if (!p_data) {
+    // There is an offset buffer, but the data buffer is null
+    // There is at least one value in the array and not all the values are null
+    // That means all values are empty strings so we can just return `res`
+    return res;
+  }
   if (null_count) {
     // need to watch for nulls
     arrow::internal::BitmapReader null_reader(array->null_bitmap_data(), array->offset(),
@@ -593,6 +601,7 @@ inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
 
   // process the data
   auto p_data = GetValuesSafely<uint8_t>(array->data(), 1, 0);
+  R_ERROR_IF_NULL(p_data);
   arrow::internal::BitmapReader data_reader(p_data, array->offset(), n);
   for (size_t i = 0; i < n; i++, data_reader.Next()) {
     vec[i] = data_reader.IsSet();
@@ -638,6 +647,7 @@ inline SEXP DictionaryArrayInt32Indices_to_Vector(
   }
 
   auto p_array = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+  R_ERROR_IF_NULL(p_array);
 
   if (array->null_count()) {
     arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
@@ -703,6 +713,7 @@ SEXP Date64Array_to_Vector(const std::shared_ptr<arrow::Array> array) {
     return vec;
   }
   auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
+  R_ERROR_IF_NULL(p_values);
   auto p_vec = vec.begin();
 
   if (null_count) {
@@ -736,6 +747,7 @@ SEXP promotion_Array_to_Vector(const std::shared_ptr<Array>& array) {
   }
 
   auto start = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+  R_ERROR_IF_NULL(start);
 
   if (null_count) {
     internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
@@ -765,6 +777,7 @@ SEXP Int64Array(const std::shared_ptr<Array>& array) {
     return vec;
   }
   auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
+  R_ERROR_IF_NULL(p_values);
   auto p_vec = reinterpret_cast<int64_t*>(vec.begin());
 
   if (array->null_count()) {
@@ -791,6 +804,7 @@ SEXP TimeArray_to_Vector(const std::shared_ptr<Array>& array, int32_t multiplier
     return vec;
   }
   auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+  R_ERROR_IF_NULL(p_values);
   auto p_vec = vec.begin();
 
   if (null_count) {

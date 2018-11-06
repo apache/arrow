@@ -32,6 +32,11 @@
     if (!s.ok()) Rcpp::stop(s.ToString()); \
   } while (0);
 
+#define R_ERROR_IF_NULL(buf)              \
+  do {                                    \
+    if (!buf) Rcpp::stop("invalid data"); \
+  } while (0);
+
 template <typename T>
 struct NoDelete {
   inline void operator()(T* ptr){};
