@@ -18,6 +18,7 @@
 #ifndef GANDIVA_EXPR_NODE_H
 #define GANDIVA_EXPR_NODE_H
 
+#include <sstream>
 #include <string>
 #include <unordered_set>
 #include <vector>
