@@ -86,6 +86,11 @@ struct input_parameter<const std::unique_ptr<T>&> {
   typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::unique_ptr<T>> type;
 };
 
+template <typename T>
+struct input_parameter<const std::unique_ptr<T>&> {
+  typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::unique_ptr<T>> type ;
+} ;
+
 struct wrap_type_shared_ptr_tag {};
 struct wrap_type_unique_ptr_tag {};
 
