@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 import warnings
-from io import BufferedIOBase, UnsupportedOperation
+from io import BufferedIOBase, IOBase, UnsupportedOperation
 
 from pyarrow.util import _stringify_path
 from pyarrow.compat import (
@@ -567,26 +567,54 @@ cdef class PythonFile(NativeFile):
 
         if mode is None:
             try:
-                mode = handle.mode
+                inferred_mode = handle.mode
             except AttributeError:
                 # Not all file-like objects have a mode attribute
                 # (e.g. BytesIO)
                 try:
-                    mode = 'w' if handle.writable() else 'r'
+                    inferred_mode = 'w' if handle.writable() else 'r'
                 except AttributeError:
                     raise ValueError("could not infer open mode for file-like "
                                      "object %r, please pass it explicitly"
                                      % (handle,))
-        if mode.startswith('w'):
-            self.set_output_stream(
-                shared_ptr[OutputStream](new PyOutputStream(handle)))
-            self.is_writable = True
-        elif mode.startswith('r'):
+        else:
+            inferred_mode = mode
+
+        if inferred_mode.startswith('w'):
+            kind = 'w'
+        elif inferred_mode.startswith('r'):
+            kind = 'r'
+        else:
+            raise ValueError('Invalid file mode: {0}'.format(mode))
+
+        # If mode was given, check it matches the given file
+        if mode is not None:
+            if isinstance(handle, IOBase):
+                # Python 3 IO object
+                if kind == 'r':
+                    if not handle.readable():
+                        raise TypeError("readable file expected")
+                else:
+                    if not handle.writable():
+                        raise TypeError("writable file expected")
+            elif file_type is not None and isinstance(handle, file_type):
+                # Python 2 file type
+                if kind == 'r':
+                    if 'r' not in handle.mode and '+' not in handle.mode:
+                        raise TypeError("readable file expected")
+                else:
+                    if 'w' not in handle.mode and '+' not in handle.mode:
+                        raise TypeError("writable file expected")
+            # (other duck-typed file-like objects are possible)
+
+        if kind == 'r':
             self.set_random_access_file(
                 shared_ptr[RandomAccessFile](new PyReadableFile(handle)))
             self.is_readable = True
         else:
-            raise ValueError('Invalid file mode: {0}'.format(mode))
+            self.set_output_stream(
+                shared_ptr[OutputStream](new PyOutputStream(handle)))
+            self.is_writable = True
 
     def truncate(self, pos=None):
         self.handle.truncate(pos)
@@ -1395,6 +1423,17 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
     return pybuf if asbytes else out_buf
 
 
+cdef CompressionType _stream_compression_argument(
+        compression, source_path) except *:
+    if compression == 'detect':
+        if source_path is not None:
+            return _get_compression_type_by_filename(source_path)
+        else:
+            return CompressionType_UNCOMPRESSED
+    else:
+        return _get_compression_type(compression)
+
+
 def input_stream(source, compression='detect'):
     """
     Create an Arrow input stream.
@@ -1419,13 +1458,7 @@ def input_stream(source, compression='detect'):
     except TypeError:
         source_path = None
 
-    if compression == 'detect':
-        if source_path is not None:
-            compression_type = _get_compression_type_by_filename(source_path)
-        else:
-            compression_type = CompressionType_UNCOMPRESSED
-    else:
-        compression_type = _get_compression_type(compression)
+    compression_type = _stream_compression_argument(compression, source_path)
 
     if isinstance(source, NativeFile):
         stream = source
@@ -1434,13 +1467,9 @@ def input_stream(source, compression='detect'):
     elif isinstance(source, (Buffer, memoryview)):
         stream = BufferReader(as_buffer(source))
     elif isinstance(source, BufferedIOBase):
-        if not source.readable():
-            raise TypeError("pa.input_stream() called with non-readable file")
         stream = PythonFile(source, 'r')
     elif file_type is not None and isinstance(source, file_type):
         # Python 2 file type
-        if 'r' not in source.mode and '+' not in source.mode:
-            raise TypeError("pa.input_stream() called with non-readable file")
         stream = PythonFile(source, 'r')
     else:
         raise TypeError("pa.input_stream() called with instance of '{}'"
@@ -1476,13 +1505,7 @@ def output_stream(source, compression='detect'):
     except TypeError:
         source_path = None
 
-    if compression == 'detect':
-        if source_path is not None:
-            compression_type = _get_compression_type_by_filename(source_path)
-        else:
-            compression_type = CompressionType_UNCOMPRESSED
-    else:
-        compression_type = _get_compression_type(compression)
+    compression_type = _stream_compression_argument(compression, source_path)
 
     if isinstance(source, NativeFile):
         stream = source
@@ -1491,13 +1514,9 @@ def output_stream(source, compression='detect'):
     elif isinstance(source, (Buffer, memoryview)):
         stream = FixedSizeBufferWriter(as_buffer(source))
     elif isinstance(source, BufferedIOBase):
-        if not source.writable():
-            raise TypeError("pa.output_stream() called with non-writable file")
         stream = PythonFile(source, 'w')
     elif file_type is not None and isinstance(source, file_type):
         # Python 2 file type
-        if 'w' not in source.mode and '+' not in source.mode:
-            raise TypeError("pa.output_stream() called with non-writable file")
         stream = PythonFile(source, 'w')
     else:
         raise TypeError("pa.output_stream() called with instance of '{}'"

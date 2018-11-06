@@ -29,7 +29,7 @@ import weakref
 try:
     import pathlib
 except ImportError:
-    pathlib = None
+    import pathlib2 as pathlib
 
 import numpy as np
 
@@ -1110,9 +1110,8 @@ def test_input_stream_file_path(tmpdir):
     assert stream.read() == data
     stream = pa.input_stream(str(file_path))
     assert stream.read() == data
-    if pathlib is not None:
-        stream = pa.input_stream(pathlib.Path(str(file_path)))
-        assert stream.read() == data
+    stream = pa.input_stream(pathlib.Path(str(file_path)))
+    assert stream.read() == data
 
 
 def test_input_stream_file_path_compressed(tmpdir):
@@ -1126,9 +1125,8 @@ def test_input_stream_file_path_compressed(tmpdir):
     assert stream.read() == data
     stream = pa.input_stream(str(file_path))
     assert stream.read() == data
-    if pathlib is not None:
-        stream = pa.input_stream(pathlib.Path(str(file_path)))
-        assert stream.read() == data
+    stream = pa.input_stream(pathlib.Path(str(file_path)))
+    assert stream.read() == data
 
     stream = pa.input_stream(file_path, compression='gzip')
     assert stream.read() == data
@@ -1183,7 +1181,7 @@ def test_input_stream_errors(tmpdir):
         pa.input_stream("non_existent_file")
 
     with open(str(tmpdir / 'new_file'), 'wb') as f:
-        with pytest.raises(TypeError, match="called with non-readable file"):
+        with pytest.raises(TypeError, match="readable file expected"):
             pa.input_stream(f)
 
 
@@ -1212,8 +1210,7 @@ def test_output_stream_file_path(tmpdir):
 
     check_data(file_path, data)
     check_data(str(file_path), data)
-    if pathlib is not None:
-        check_data(pathlib.Path(str(file_path)), data)
+    check_data(pathlib.Path(str(file_path)), data)
 
 
 def test_output_stream_file_path_compressed(tmpdir):
@@ -1228,9 +1225,8 @@ def test_output_stream_file_path_compressed(tmpdir):
 
     assert gzip_decompress(check_data(file_path, data)) == data
     assert gzip_decompress(check_data(str(file_path), data)) == data
-    if pathlib is not None:
-        assert gzip_decompress(
-            check_data(pathlib.Path(str(file_path)), data)) == data
+    assert gzip_decompress(
+        check_data(pathlib.Path(str(file_path)), data)) == data
 
     assert gzip_decompress(
         check_data(file_path, data, compression='gzip')) == data
@@ -1243,7 +1239,7 @@ def test_output_stream_python_file(tmpdir):
     def check_data(data, **kwargs):
         # XXX cannot use BytesIO because stream.close() is necessary
         # to finish writing compressed data, but it will also close the
-        # underlying BytesiO
+        # underlying BytesIO
         fn = str(tmpdir / 'output_stream_file')
         with open(fn, 'wb') as f:
             with pa.output_stream(f, **kwargs) as stream:
@@ -1268,5 +1264,5 @@ def test_output_stream_errors(tmpdir):
     with open(fn, 'wb') as f:
         pass
     with open(fn, 'rb') as f:
-        with pytest.raises(TypeError, match="called with non-writable file"):
+        with pytest.raises(TypeError, match="writable file expected"):
             pa.output_stream(f)

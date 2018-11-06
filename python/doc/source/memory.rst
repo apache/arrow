@@ -86,7 +86,7 @@ then precisely track amount of memory that has been allocated:
    pa.total_allocated_bytes()
 
 PyArrow uses a default built-in memory pool, but in the future there may be
-additional memory pools (and subpools) to choose from.  Let's allocate
+additional memory pools (and subpools) to choose from. Let's allocate
 a resizable ``Buffer`` from the default pool:
 
 .. ipython:: python
