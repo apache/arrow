@@ -46,8 +46,8 @@ struct symbols {
   static SEXP units;
   static SEXP xp;
 };
-}  // namespace r
-}  // namespace arrow
+}
+}
 
 namespace Rcpp {
 namespace internal {
@@ -70,7 +70,7 @@ class ConstReferenceSmartPtrInputParameter {
 
   inline operator const_reference() { return *ptr; }
 
- private:
+private:
   const T* ptr;
 };
 
