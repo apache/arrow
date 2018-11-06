@@ -37,7 +37,7 @@ def test_tree_exp_builder():
     node_a = builder.make_field(field_a)
     node_b = builder.make_field(field_b)
 
-    condition = builder.make_function(b"greater_than", [node_a, node_b],
+    condition = builder.make_function("greater_than", [node_a, node_b],
                                       pa.bool_())
     if_node = builder.make_if(condition, node_a, node_b, pa.int32())
 
@@ -66,7 +66,7 @@ def test_table():
     node_a = builder.make_field(table.schema.field_by_name("a"))
     node_b = builder.make_field(table.schema.field_by_name("b"))
 
-    sum = builder.make_function(b"add", [node_a, node_b], pa.float64())
+    sum = builder.make_function("add", [node_a, node_b], pa.float64())
 
     field_result = pa.field("c", pa.float64())
     expr = builder.make_expression(sum, field_result)
@@ -92,7 +92,7 @@ def test_filter():
     builder = gandiva.TreeExprBuilder()
     node_a = builder.make_field(table.schema.field_by_name("a"))
     thousand = builder.make_literal(1000.0)
-    cond = builder.make_function(b"less_than", [node_a, thousand], pa.bool_())
+    cond = builder.make_function("less_than", [node_a, thousand], pa.bool_())
     condition = builder.make_condition(cond)
 
     filter = gandiva.make_filter(table.schema, condition)

@@ -145,7 +145,7 @@ cdef class TreeExprBuilder:
         for child in children:
             c_children.push_back(child.node)
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeFunction(
-            name, c_children, return_type.sp_type)
+            name.encode(), c_children, return_type.sp_type)
         return make_node(r)
 
     def make_field(self, Field field):
