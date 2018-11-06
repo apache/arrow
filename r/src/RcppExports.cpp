@@ -1036,23 +1036,23 @@ BEGIN_RCPP
 END_RCPP
 }
 // Field__name
-std::string Field__name(std::shared_ptr<arrow::Field> type);
+std::string Field__name(const std::shared_ptr<arrow::Field>& type);
 RcppExport SEXP _arrow_Field__name(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::Field> >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(Field__name(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // Field__nullable
-bool Field__nullable(std::shared_ptr<arrow::Field> type);
+bool Field__nullable(const std::shared_ptr<arrow::Field>& type);
 RcppExport SEXP _arrow_Field__nullable(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::Field> >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(Field__nullable(type));
     return rcpp_result_gen;
 END_RCPP
@@ -1299,23 +1299,23 @@ BEGIN_RCPP
 END_RCPP
 }
 // MemoryPool__bytes_allocated
-int MemoryPool__bytes_allocated(std::shared_ptr<arrow::MemoryPool> pool);
+int MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool);
 RcppExport SEXP _arrow_MemoryPool__bytes_allocated(SEXP poolSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::MemoryPool> >::type pool(poolSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::MemoryPool>& >::type pool(poolSEXP);
     rcpp_result_gen = Rcpp::wrap(MemoryPool__bytes_allocated(pool));
     return rcpp_result_gen;
 END_RCPP
 }
 // MemoryPool__max_memory
-int MemoryPool__max_memory(std::shared_ptr<arrow::MemoryPool> pool);
+int MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool);
 RcppExport SEXP _arrow_MemoryPool__max_memory(SEXP poolSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::MemoryPool> >::type pool(poolSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::MemoryPool>& >::type pool(poolSEXP);
     rcpp_result_gen = Rcpp::wrap(MemoryPool__max_memory(pool));
     return rcpp_result_gen;
 END_RCPP
@@ -1435,24 +1435,24 @@ BEGIN_RCPP
 END_RCPP
 }
 // RecordBatch__Slice1
-std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(std::shared_ptr<arrow::RecordBatch>& self, int offset);
+std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(const std::shared_ptr<arrow::RecordBatch>& self, int offset);
 RcppExport SEXP _arrow_RecordBatch__Slice1(SEXP selfSEXP, SEXP offsetSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::RecordBatch>& >::type self(selfSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type self(selfSEXP);
     Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
     rcpp_result_gen = Rcpp::wrap(RecordBatch__Slice1(self, offset));
     return rcpp_result_gen;
 END_RCPP
 }
 // RecordBatch__Slice2
-std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(std::shared_ptr<arrow::RecordBatch>& self, int offset, int length);
+std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(const std::shared_ptr<arrow::RecordBatch>& self, int offset, int length);
 RcppExport SEXP _arrow_RecordBatch__Slice2(SEXP selfSEXP, SEXP offsetSEXP, SEXP lengthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::RecordBatch>& >::type self(selfSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type self(selfSEXP);
     Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
     Rcpp::traits::input_parameter< int >::type length(lengthSEXP);
     rcpp_result_gen = Rcpp::wrap(RecordBatch__Slice2(self, offset, length));

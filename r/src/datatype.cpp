@@ -107,11 +107,13 @@ std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit) 
 // [[Rcpp::export]]
 SEXP list__(SEXP x) {
   if (Rf_inherits(x, "arrow::Field")) {
-    return wrap(arrow::list(Rcpp::as<std::shared_ptr<arrow::Field>>(x)));
+    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Field>> field(x);
+    return wrap(arrow::list(field));
   }
 
   if (Rf_inherits(x, "arrow::DataType")) {
-    return wrap(arrow::list(Rcpp::as<std::shared_ptr<arrow::DataType>>(x)));
+    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::DataType>> type(x);
+    return wrap(arrow::list(type));
   }
 
   stop("incompatible");
@@ -122,7 +124,8 @@ template <typename T>
 std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(List x) {
   std::vector<std::shared_ptr<T>> vec;
   for (SEXP element : x) {
-    vec.push_back(as<std::shared_ptr<T>>(element));
+    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> ptr(element);
+    vec.push_back(ptr);
   }
   return vec;
 }

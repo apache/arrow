@@ -37,8 +37,46 @@ struct NoDelete {
   inline void operator()(T* ptr){};
 };
 
+namespace arrow {
+namespace r {
+struct symbols {
+  static SEXP units;
+  static SEXP xp;
+};
+}
+}
+
 namespace Rcpp {
+namespace internal {
+
+template <typename Pointer>
+Pointer r6_to_smart_pointer(SEXP self) {
+  return reinterpret_cast<Pointer>(EXTPTR_PTR(Rf_findVarInFrame(self, arrow::r::symbols::xp)));
+}
+
+}
+
+template <typename T>
+class ConstReferenceSmartPtrInputParameter {
+public:
+  using const_reference = const T&;
+
+  ConstReferenceSmartPtrInputParameter(SEXP self) :
+    ptr(internal::r6_to_smart_pointer<const T*>(self))
+  {}
+
+  inline operator const_reference(){ return *ptr; }
+
+private:
+  const T* ptr;
+};
+
 namespace traits {
+
+template <typename T>
+struct input_parameter<const std::shared_ptr<T>&> {
+  typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> type ;
+} ;
 
 struct wrap_type_shared_ptr_tag {};
 
@@ -46,9 +84,6 @@ template <typename T>
 struct wrap_type_traits<std::shared_ptr<T>> {
   using wrap_category = wrap_type_shared_ptr_tag;
 };
-
-template <typename T>
-class Exporter<std::shared_ptr<T>>;
 
 }  // namespace traits
 namespace internal {
@@ -69,26 +104,6 @@ RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
 RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
 
 namespace Rcpp {
-namespace traits {
-
-template <typename T>
-class Exporter<std::shared_ptr<T>> {
- public:
-  Exporter(SEXP self) : xp(extract_xp(self)) {}
-
-  inline std::shared_ptr<T> get() { return *Rcpp::XPtr<std::shared_ptr<T>>(xp); }
-
- private:
-  SEXP xp;
-
-  SEXP extract_xp(SEXP self) {
-    static SEXP symb_xp = Rf_install(".:xp:.");
-    return Rf_findVarInFrame(self, symb_xp);
-  }
-};
-
-}  // namespace traits
-
 namespace internal {
 
 template <typename T>
@@ -148,10 +163,6 @@ class RBuffer : public MutableBuffer {
  private:
   // vec_ holds the memory
   Vec vec_;
-};
-
-struct symbols {
-  static SEXP units;
 };
 
 }  // namespace r
