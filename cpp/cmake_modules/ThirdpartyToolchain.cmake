@@ -1053,38 +1053,38 @@ if (ARROW_WITH_ZSTD)
 # ZSTD
 
   if("${ZSTD_HOME}" STREQUAL "")
-    set(ZSTD_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/zstd_ep-prefix/src/zstd_ep")
-    set(ZSTD_INCLUDE_DIR "${ZSTD_BUILD_DIR}/lib")
+    set(ZSTD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zstd_ep-install")
+    set(ZSTD_INCLUDE_DIR "${ZSTD_PREFIX}/include")
+
+    set(ZSTD_CMAKE_ARGS
+        "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+        "-DCMAKE_INSTALL_PREFIX=${ZSTD_PREFIX}"
+        "-DZSTD_BUILD_PROGRAMS=off"
+        "-DZSTD_BUILD_SHARED=off"
+        "-DZSTD_BUILD_STATIC=on"
+        "-DZSTD_MULTITHREAD_SUPPORT=off")
 
     if (MSVC)
+      set(ZSTD_STATIC_LIB "${ZSTD_PREFIX}/lib/zstd_static.lib")
       if (ARROW_USE_STATIC_CRT)
-        if (${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-          set(ZSTD_RUNTIME_LIBRARY_LINKAGE "/p:RuntimeLibrary=MultiThreadedDebug")
-        else()
-          set(ZSTD_RUNTIME_LIBRARY_LINKAGE "/p:RuntimeLibrary=MultiThreaded")
-        endif()
+        set(ZSTD_CMAKE_ARGS ${ZSTD_CMAKE_ARGS} "-DZSTD_USE_STATIC_RUNTIME=on")
       endif()
-      set(ZSTD_STATIC_LIB "${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/libzstd_static.lib")
-      set(ZSTD_BUILD_COMMAND BUILD_COMMAND msbuild ${ZSTD_BUILD_DIR}/build/VS2010/zstd.sln /t:Build /v:minimal /p:Configuration=${CMAKE_BUILD_TYPE}
-                             ${ZSTD_RUNTIME_LIBRARY_LINKAGE} /p:Platform=x64 /p:PlatformToolset=v140
-                             /p:OutDir=${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/ /p:SolutionDir=${ZSTD_BUILD_DIR}/build/VS2010/ )
-      set(ZSTD_PATCH_COMMAND PATCH_COMMAND git --git-dir=. apply --verbose --whitespace=fix ${CMAKE_SOURCE_DIR}/build-support/zstd_msbuild_gl_runtimelibrary_params.patch)
     else()
-      set(ZSTD_STATIC_LIB "${ZSTD_BUILD_DIR}/lib/libzstd.a")
-      set(ZSTD_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-zstd-lib.sh)
+      set(ZSTD_STATIC_LIB "${ZSTD_PREFIX}/lib/libzstd.a")
+      # Only pass our C flags on Unix as on MSVC it leads to a
+      # "incompatible command-line options" error
+      set(ZSTD_CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
+          "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+          "-DCMAKE_C_FLAGS=${EP_C_FLAGS}")
     endif()
 
     ExternalProject_Add(zstd_ep
-        URL ${ZSTD_SOURCE_URL}
-        ${EP_LOG_OPTIONS}
-        UPDATE_COMMAND ""
-        ${ZSTD_PATCH_COMMAND}
-        CONFIGURE_COMMAND ""
-        INSTALL_COMMAND ""
-        BINARY_DIR ${ZSTD_BUILD_DIR}
-        BUILD_BYPRODUCTS ${ZSTD_STATIC_LIB}
-        ${ZSTD_BUILD_COMMAND}
-        )
+      ${EP_LOG_OPTIONS}
+      CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
+      SOURCE_SUBDIR "build/cmake"
+      INSTALL_DIR ${ZSTD_PREFIX}
+      URL ${ZSTD_SOURCE_URL}
+      BUILD_BYPRODUCTS "${ZSTD_STATIC_LIB}")
 
     set(ZSTD_VENDORED 1)
   else()
