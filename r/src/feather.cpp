@@ -58,44 +58,52 @@ std::unique_ptr<arrow::ipc::feather::TableWriter> ipc___feather___TableWriter__O
 // ----------- TableReader
 
 // [[Rcpp::export]]
-std::string ipc___feather___TableReader__GetDescription(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader){
+std::string ipc___feather___TableReader__GetDescription(
+    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
   return reader->GetDescription();
 }
 
 // [[Rcpp::export]]
-bool ipc___feather___TableReader__HasDescription(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader){
+bool ipc___feather___TableReader__HasDescription(
+    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
   return reader->HasDescription();
 }
 
 // [[Rcpp::export]]
-int ipc___feather___TableReader__version(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader){
+int ipc___feather___TableReader__version(
+    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
   return reader->version();
 }
 
 // [[Rcpp::export]]
-int64_t ipc___feather___TableReader__num_rows(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader){
+int64_t ipc___feather___TableReader__num_rows(
+    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
   return reader->num_rows();
 }
 
 // [[Rcpp::export]]
-int64_t ipc___feather___TableReader__num_columns(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader){
+int64_t ipc___feather___TableReader__num_columns(
+    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
   return reader->num_columns();
 }
 
 // [[Rcpp::export]]
-std::string ipc___feather___TableReader__GetColumnName(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i){
+std::string ipc___feather___TableReader__GetColumnName(
+    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i) {
   return reader->GetColumnName(i);
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Column> ipc___feather___TableReader__GetColumn(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i){
+std::shared_ptr<arrow::Column> ipc___feather___TableReader__GetColumn(
+    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i) {
   std::shared_ptr<arrow::Column> column;
   R_ERROR_NOT_OK(reader->GetColumn(i, &column));
   return column;
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
+std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(
+    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
   std::shared_ptr<arrow::Table> table;
   R_ERROR_NOT_OK(reader->Read(&table));
   return table;
