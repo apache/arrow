@@ -294,11 +294,10 @@ impl_primitive_array_builder!(DataType::Int64, i64);
 impl_primitive_array_builder!(DataType::Float32, f32);
 impl_primitive_array_builder!(DataType::Float64, f64);
 
-
 ///  Array builder for `ListArray`
 pub struct ListArrayBuilder<T>
-    where
-        T: ArrowPrimitiveType,
+where
+    T: ArrowPrimitiveType,
 {
     offsets_builder: BufferBuilder<i32>,
     bitmap_builder: BufferBuilder<bool>,
@@ -336,7 +335,8 @@ macro_rules! impl_list_array_builder {
 
             /// Finish the current variable-length list array slot.
             pub fn append(&mut self, is_valid: bool) -> Result<()> {
-                self.offsets_builder.push(self.values_builder.len() as i32)?;
+                self.offsets_builder
+                    .push(self.values_builder.len() as i32)?;
                 self.bitmap_builder.push(is_valid)?;
                 self.len += 1;
                 Ok(())
@@ -364,7 +364,6 @@ macro_rules! impl_list_array_builder {
     };
 }
 
-
 impl_list_array_builder!(DataType::Boolean, bool);
 impl_list_array_builder!(DataType::UInt8, u8);
 impl_list_array_builder!(DataType::UInt16, u16);
@@ -376,7 +375,6 @@ impl_list_array_builder!(DataType::Int32, i32);
 impl_list_array_builder!(DataType::Int64, i64);
 impl_list_array_builder!(DataType::Float32, f32);
 impl_list_array_builder!(DataType::Float64, f64);
-
 
 #[cfg(test)]
 mod tests {
