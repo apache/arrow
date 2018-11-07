@@ -1,0 +1,54 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#include "arrow_types.h"
+
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+void ipc___feather___TableWriter__SetDescription(
+    const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer,
+    const std::string& description) {
+  writer->SetDescription(description);
+}
+
+// [[Rcpp::export]]
+void ipc___feather___TableWriter__SetNumRows(
+    const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, int64_t num_rows) {
+  writer->SetNumRows(num_rows);
+}
+
+// [[Rcpp::export]]
+void ipc___feather___TableWriter__Append(
+    const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer,
+    const std::string& name, const std::shared_ptr<arrow::Array>& values) {
+  R_ERROR_NOT_OK(writer->Append(name, *values));
+}
+
+// [[Rcpp::export]]
+void ipc___feather___TableWriter__Finalize(
+    const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer) {
+  R_ERROR_NOT_OK(writer->Finalize());
+}
+
+// [[Rcpp::export]]
+std::unique_ptr<arrow::ipc::feather::TableWriter> ipc___feather___TableWriter__Open(
+    const std::shared_ptr<arrow::io::OutputStream>& stream) {
+  std::unique_ptr<arrow::ipc::feather::TableWriter> writer;
+  R_ERROR_NOT_OK(arrow::ipc::feather::TableWriter::Open(stream, &writer));
+  return writer;
+}

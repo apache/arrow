@@ -1022,6 +1022,61 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ipc___feather___TableWriter__SetDescription
+void ipc___feather___TableWriter__SetDescription(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, const std::string& description);
+RcppExport SEXP _arrow_ipc___feather___TableWriter__SetDescription(SEXP writerSEXP, SEXP descriptionSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableWriter>& >::type writer(writerSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type description(descriptionSEXP);
+    ipc___feather___TableWriter__SetDescription(writer, description);
+    return R_NilValue;
+END_RCPP
+}
+// ipc___feather___TableWriter__SetNumRows
+void ipc___feather___TableWriter__SetNumRows(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, int64_t num_rows);
+RcppExport SEXP _arrow_ipc___feather___TableWriter__SetNumRows(SEXP writerSEXP, SEXP num_rowsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableWriter>& >::type writer(writerSEXP);
+    Rcpp::traits::input_parameter< int64_t >::type num_rows(num_rowsSEXP);
+    ipc___feather___TableWriter__SetNumRows(writer, num_rows);
+    return R_NilValue;
+END_RCPP
+}
+// ipc___feather___TableWriter__Append
+void ipc___feather___TableWriter__Append(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, const std::string& name, const std::shared_ptr<arrow::Array>& values);
+RcppExport SEXP _arrow_ipc___feather___TableWriter__Append(SEXP writerSEXP, SEXP nameSEXP, SEXP valuesSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableWriter>& >::type writer(writerSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type name(nameSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type values(valuesSEXP);
+    ipc___feather___TableWriter__Append(writer, name, values);
+    return R_NilValue;
+END_RCPP
+}
+// ipc___feather___TableWriter__Finalize
+void ipc___feather___TableWriter__Finalize(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer);
+RcppExport SEXP _arrow_ipc___feather___TableWriter__Finalize(SEXP writerSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableWriter>& >::type writer(writerSEXP);
+    ipc___feather___TableWriter__Finalize(writer);
+    return R_NilValue;
+END_RCPP
+}
+// ipc___feather___TableWriter__Open
+std::unique_ptr<arrow::ipc::feather::TableWriter> ipc___feather___TableWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream);
+RcppExport SEXP _arrow_ipc___feather___TableWriter__Open(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::OutputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableWriter__Open(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Field__initialize
 std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
 RcppExport SEXP _arrow_Field__initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
@@ -1911,6 +1966,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_DictionaryType__name", (DL_FUNC) &_arrow_DictionaryType__name, 1},
     {"_arrow_DictionaryType__dictionary", (DL_FUNC) &_arrow_DictionaryType__dictionary, 1},
     {"_arrow_DictionaryType__ordered", (DL_FUNC) &_arrow_DictionaryType__ordered, 1},
+    {"_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetDescription, 2},
+    {"_arrow_ipc___feather___TableWriter__SetNumRows", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetNumRows, 2},
+    {"_arrow_ipc___feather___TableWriter__Append", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Append, 3},
+    {"_arrow_ipc___feather___TableWriter__Finalize", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Finalize, 1},
+    {"_arrow_ipc___feather___TableWriter__Open", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Open, 1},
     {"_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3},
     {"_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1},
     {"_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1},

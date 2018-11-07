@@ -369,6 +369,26 @@ DictionaryType__ordered <- function(type) {
     .Call(`_arrow_DictionaryType__ordered`, type)
 }
 
+ipc___feather___TableWriter__SetDescription <- function(writer, description) {
+    invisible(.Call(`_arrow_ipc___feather___TableWriter__SetDescription`, writer, description))
+}
+
+ipc___feather___TableWriter__SetNumRows <- function(writer, num_rows) {
+    invisible(.Call(`_arrow_ipc___feather___TableWriter__SetNumRows`, writer, num_rows))
+}
+
+ipc___feather___TableWriter__Append <- function(writer, name, values) {
+    invisible(.Call(`_arrow_ipc___feather___TableWriter__Append`, writer, name, values))
+}
+
+ipc___feather___TableWriter__Finalize <- function(writer) {
+    invisible(.Call(`_arrow_ipc___feather___TableWriter__Finalize`, writer))
+}
+
+ipc___feather___TableWriter__Open <- function(stream) {
+    .Call(`_arrow_ipc___feather___TableWriter__Open`, stream)
+}
+
 Field__initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field__initialize`, name, type, nullable)
 }
