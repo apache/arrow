@@ -309,44 +309,35 @@ pub struct ListArrayBuilder<T>
 macro_rules! impl_list_array_builder {
     ($data_ty:path, $native_ty:ident) => {
         impl ListArrayBuilder<$native_ty> {
-            pub fn new(capacity: i64) -> Result<Self> {
+            /// Creates a new `ListArrayBuilder` with a certain child array `capacity`.
+            pub fn new(capacity: i64) -> Self {
                 let mut offsets_builder = BufferBuilder::<i32>::new(capacity);
-                offsets_builder.push(0)?;
-                Ok(Self {
+                offsets_builder.push(0).unwrap();
+                Self {
                     offsets_builder,
                     bitmap_builder: BufferBuilder::<bool>::new(capacity),
                     values_builder: PrimitiveArrayBuilder::<$native_ty>::new(capacity),
                     len: 0,
-                })
+                }
             }
 
-            /// The number of array slots currently in the builder
+            /// The number of array slots (distinct list values) currently in the builder.
             pub fn len(&self) -> i64 {
                 self.len
             }
 
-            /// Pushes a value into the array
+            /// Returns the child array builder as a mutable reference
             ///
-            /// Note that this pushes a value into the values array, a new top level array slot
-            /// will only be added once `next_slot` is called
-            pub fn push(&mut self, v: $native_ty) -> Result<()> {
-                self.values_builder.push(v)?;
-                Ok(())
+            /// This mutable reference can be used to push values into the child array builder,
+            /// but you must call `append` to delimit each distinct list value.
+            pub fn values(&mut self) -> &mut PrimitiveArrayBuilder<$native_ty> {
+                &mut self.values_builder
             }
 
-            /// Pushes a null into the array
-            ///
-            /// Note that this pushes a null into the underlying values array, if you want to push
-            /// a top level null slot call `next_slot` without calling `push`
-            pub fn push_null(&mut self) -> Result<()> {
-                self.values_builder.push_null()?;
-                Ok(())
-            }
-
-            /// Finishes the current top level array slot and moves to the next
-            pub fn next_slot(&mut self) -> Result<()> {
+            /// Finish the current variable-length list array slot.
+            pub fn append(&mut self, is_valid: bool) -> Result<()> {
                 self.offsets_builder.push(self.values_builder.len() as i32)?;
-                self.bitmap_builder.push(true)?;
+                self.bitmap_builder.push(is_valid)?;
                 self.len += 1;
                 Ok(())
             }
@@ -638,21 +629,20 @@ mod tests {
 
     #[test]
     fn test_list_array_builder() {
-        let mut builder = ListArrayBuilder::<i32>::new(10).unwrap();
+        let mut builder = ListArrayBuilder::<i32>::new(10);
 
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
-        builder.push(0).unwrap();
-        builder.push(1).unwrap();
-        builder.push(2).unwrap();
-        builder.next_slot().unwrap();
-        builder.push(3).unwrap();
-        builder.push(4).unwrap();
-        builder.push(5).unwrap();
-        builder.next_slot().unwrap();
-        builder.push(6).unwrap();
-        builder.push(7).unwrap();
-        builder.next_slot().unwrap();
-
+        builder.values().push(0).unwrap();
+        builder.values().push(1).unwrap();
+        builder.values().push(2).unwrap();
+        builder.append(true).unwrap();
+        builder.values().push(3).unwrap();
+        builder.values().push(4).unwrap();
+        builder.values().push(5).unwrap();
+        builder.append(true).unwrap();
+        builder.values().push(6).unwrap();
+        builder.values().push(7).unwrap();
+        builder.append(true).unwrap();
         let list_array = builder.finish();
 
         let values = list_array.values().data().buffers()[0].clone();
@@ -666,5 +656,31 @@ mod tests {
             assert!(list_array.is_valid(i as i64));
             assert!(!list_array.is_null(i as i64));
         }
+    }
+
+    #[test]
+    fn test_list_array_builder_nulls() {
+        let mut builder = ListArrayBuilder::<i32>::new(10);
+
+        //  [[0, 1, 2], null, [3, null, 5], [6, 7]]
+        builder.values().push(0).unwrap();
+        builder.values().push(1).unwrap();
+        builder.values().push(2).unwrap();
+        builder.append(true).unwrap();
+        builder.append(false).unwrap();
+        builder.values().push(3).unwrap();
+        builder.values().push_null().unwrap();
+        builder.values().push(5).unwrap();
+        builder.append(true).unwrap();
+        builder.values().push(6).unwrap();
+        builder.values().push(7).unwrap();
+        builder.append(true).unwrap();
+        let list_array = builder.finish();
+
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(4, list_array.len());
+        assert_eq!(1, list_array.null_count());
+        assert_eq!(3, list_array.value_offset(2));
+        assert_eq!(3, list_array.value_length(2));
     }
 }
