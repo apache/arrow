@@ -204,8 +204,8 @@ Tensor type and Functions
 
 .. _api.io:
 
-Input / Output and Shared Memory
---------------------------------
+In-Memory Buffers
+-----------------
 
 .. autosummary::
    :toctree: generated/
@@ -217,10 +217,23 @@ Input / Output and Shared Memory
    foreign_buffer
    Buffer
    ResizableBuffer
+
+Input / Output and Shared Memory
+--------------------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   input_stream
+   output_stream
    BufferReader
    BufferOutputStream
+   FixedSizeBufferWriter
    NativeFile
+   OSFile
    MemoryMappedFile
+   CompressedInputStream
+   CompressedOutputStream
    memory_map
    create_memory_map
    PythonFile
