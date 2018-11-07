@@ -8,6 +8,7 @@
 \alias{Type}
 \alias{StatusCode}
 \alias{FileMode}
+\alias{MessageType}
 \alias{int8}
 \alias{int16}
 \alias{int32}
@@ -43,6 +44,8 @@ Type
 StatusCode
 
 FileMode
+
+MessageType
 
 int8()
 
