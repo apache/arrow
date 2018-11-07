@@ -23,6 +23,16 @@ using namespace arrow;
 namespace arrow {
 namespace r {
 
+template <int RTYPE>
+inline bool isna(typename Vector<RTYPE>::stored_type x) {
+  return Vector<RTYPE>::is_na(x);
+}
+
+template <>
+inline bool isna<REALSXP>(double x) {
+  return ISNA(x);
+}
+
 // the integer64 sentinel
 static const int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
 
@@ -51,7 +61,7 @@ std::shared_ptr<Array> SimpleArray(SEXP x) {
 
       // then finish
       for (; i < n; i++, bitmap_writer.Next()) {
-        if (Rcpp::Vector<RTYPE>::is_na(vec[i])) {
+        if (isna<RTYPE>(vec[i])) {
           bitmap_writer.Clear();
           null_count++;
         } else {
