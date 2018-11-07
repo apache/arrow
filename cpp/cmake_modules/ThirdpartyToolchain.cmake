@@ -580,7 +580,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
                           -DBUILD_STATIC_LIBS=ON
                           -DBUILD_PACKAGING=OFF
                           -DBUILD_TESTING=OFF
-                          -BUILD_CONFIG_TESTS=OFF
+                          -DBUILD_CONFIG_TESTS=OFF
                           -DINSTALL_HEADERS=ON
                           -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}
                           -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}
