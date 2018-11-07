@@ -496,7 +496,6 @@ END_RCPP
 // shared_ptr_is_null
 bool shared_ptr_is_null(SEXP xp);
 RcppExport SEXP _arrow_shared_ptr_is_null(SEXP xpSEXP) {
-<<<<<<< HEAD
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -508,27 +507,11 @@ END_RCPP
 // unique_ptr_is_null
 bool unique_ptr_is_null(SEXP xp);
 RcppExport SEXP _arrow_unique_ptr_is_null(SEXP xpSEXP) {
-=======
->>>>>>> s/construct/shared_ptr/, add unique_ptr R function. support for unique_ptr.
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type xp(xpSEXP);
-<<<<<<< HEAD
-=======
     rcpp_result_gen = Rcpp::wrap(shared_ptr_is_null(xp));
-    return rcpp_result_gen;
-END_RCPP
-}
-// unique_ptr_is_null
-bool unique_ptr_is_null(SEXP xp);
-RcppExport SEXP _arrow_unique_ptr_is_null(SEXP xpSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type xp(xpSEXP);
->>>>>>> s/construct/shared_ptr/, add unique_ptr R function. support for unique_ptr.
-    rcpp_result_gen = Rcpp::wrap(unique_ptr_is_null(xp));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1969,6 +1952,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1},
     {"_arrow_ipc___MessageReader__Open", (DL_FUNC) &_arrow_ipc___MessageReader__Open, 1},
     {"_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1},
+    {"_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1},
     {"_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
     {"_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
