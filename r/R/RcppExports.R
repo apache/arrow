@@ -389,6 +389,42 @@ ipc___feather___TableWriter__Open <- function(stream) {
     .Call(`_arrow_ipc___feather___TableWriter__Open`, stream)
 }
 
+ipc___feather___TableReader__GetDescription <- function(reader) {
+    .Call(`_arrow_ipc___feather___TableReader__GetDescription`, reader)
+}
+
+ipc___feather___TableReader__HasDescription <- function(reader) {
+    .Call(`_arrow_ipc___feather___TableReader__HasDescription`, reader)
+}
+
+ipc___feather___TableReader__version <- function(reader) {
+    .Call(`_arrow_ipc___feather___TableReader__version`, reader)
+}
+
+ipc___feather___TableReader__num_rows <- function(reader) {
+    .Call(`_arrow_ipc___feather___TableReader__num_rows`, reader)
+}
+
+ipc___feather___TableReader__num_columns <- function(reader) {
+    .Call(`_arrow_ipc___feather___TableReader__num_columns`, reader)
+}
+
+ipc___feather___TableReader__GetColumnName <- function(reader, i) {
+    .Call(`_arrow_ipc___feather___TableReader__GetColumnName`, reader, i)
+}
+
+ipc___feather___TableReader__GetColumn <- function(reader, i) {
+    .Call(`_arrow_ipc___feather___TableReader__GetColumn`, reader, i)
+}
+
+ipc___feather___TableReader__Read <- function(reader) {
+    .Call(`_arrow_ipc___feather___TableReader__Read`, reader)
+}
+
+ipc___feather___TableReader__Open <- function(stream) {
+    .Call(`_arrow_ipc___feather___TableReader__Open`, stream)
+}
+
 Field__initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field__initialize`, name, type, nullable)
 }

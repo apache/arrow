@@ -1077,6 +1077,107 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ipc___feather___TableReader__GetDescription
+std::string ipc___feather___TableReader__GetDescription(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
+RcppExport SEXP _arrow_ipc___feather___TableReader__GetDescription(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__GetDescription(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___feather___TableReader__HasDescription
+bool ipc___feather___TableReader__HasDescription(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
+RcppExport SEXP _arrow_ipc___feather___TableReader__HasDescription(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__HasDescription(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___feather___TableReader__version
+int ipc___feather___TableReader__version(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
+RcppExport SEXP _arrow_ipc___feather___TableReader__version(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__version(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___feather___TableReader__num_rows
+int64_t ipc___feather___TableReader__num_rows(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
+RcppExport SEXP _arrow_ipc___feather___TableReader__num_rows(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__num_rows(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___feather___TableReader__num_columns
+int64_t ipc___feather___TableReader__num_columns(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
+RcppExport SEXP _arrow_ipc___feather___TableReader__num_columns(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__num_columns(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___feather___TableReader__GetColumnName
+std::string ipc___feather___TableReader__GetColumnName(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i);
+RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumnName(SEXP readerSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableReader>& >::type reader(readerSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__GetColumnName(reader, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___feather___TableReader__GetColumn
+std::shared_ptr<arrow::Column> ipc___feather___TableReader__GetColumn(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i);
+RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumn(SEXP readerSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableReader>& >::type reader(readerSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__GetColumn(reader, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___feather___TableReader__Read
+std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
+RcppExport SEXP _arrow_ipc___feather___TableReader__Read(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__Read(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___feather___TableReader__Open
+std::unique_ptr<arrow::ipc::feather::TableReader> ipc___feather___TableReader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
+RcppExport SEXP _arrow_ipc___feather___TableReader__Open(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::RandomAccessFile>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__Open(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Field__initialize
 std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
 RcppExport SEXP _arrow_Field__initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
@@ -1971,6 +2072,15 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___feather___TableWriter__Append", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Append, 3},
     {"_arrow_ipc___feather___TableWriter__Finalize", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Finalize, 1},
     {"_arrow_ipc___feather___TableWriter__Open", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Open, 1},
+    {"_arrow_ipc___feather___TableReader__GetDescription", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetDescription, 1},
+    {"_arrow_ipc___feather___TableReader__HasDescription", (DL_FUNC) &_arrow_ipc___feather___TableReader__HasDescription, 1},
+    {"_arrow_ipc___feather___TableReader__version", (DL_FUNC) &_arrow_ipc___feather___TableReader__version, 1},
+    {"_arrow_ipc___feather___TableReader__num_rows", (DL_FUNC) &_arrow_ipc___feather___TableReader__num_rows, 1},
+    {"_arrow_ipc___feather___TableReader__num_columns", (DL_FUNC) &_arrow_ipc___feather___TableReader__num_columns, 1},
+    {"_arrow_ipc___feather___TableReader__GetColumnName", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumnName, 2},
+    {"_arrow_ipc___feather___TableReader__GetColumn", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumn, 2},
+    {"_arrow_ipc___feather___TableReader__Read", (DL_FUNC) &_arrow_ipc___feather___TableReader__Read, 1},
+    {"_arrow_ipc___feather___TableReader__Open", (DL_FUNC) &_arrow_ipc___feather___TableReader__Open, 1},
     {"_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3},
     {"_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1},
     {"_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1},

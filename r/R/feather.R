@@ -26,6 +26,19 @@
   )
 )
 
+`arrow::ipc::feather::TableReader` <- R6Class("arrow::ipc::feather::TableReader", inherit = `arrow::Object`,
+  public = list(
+    GetDescription = function() ipc___feather___TableReader__GetDescription(self),
+    HasDescription = function() ipc__feather___TableReader__HasDescription(self),
+    version = function() ipc___feather___TableReader__version(self),
+    num_rows = function() ipc___feather___TableReader__num_rows(self),
+    num_columns = function() ipc___feather___TableReader__num_columns(self),
+    GetColumnName = function(i) ipc___feather___TableReader__GetColumnName(self, i),
+    GetColumn = function(i) shared_ptr(`arrow::Column`, ipc___feather___TableReader__GetColumn(self, i)),
+    Read = function() shared_ptr(`arrow::Table`, ipc___feather___TableReader__Read(self))
+  )
+)
+
 #' Create TableWriter that writes into a stream
 #'
 #' @param stream an OutputStream
@@ -62,7 +75,48 @@ write_feather.default <- function(data, stream) {
 
   file_stream <- close_on_exit(file_output_stream(stream))
   writer <- table_writer(file_stream)
+  writer$SetNumRows(nrow(data))
 
   walk2(names(data), data, ~writer$Append(.x, array(.y)))
   writer$Finalize()
+}
+
+#' @export
+table_reader <- function(file){
+  UseMethod("table_reader")
+}
+
+#' @export
+table_reader.default <- function(file) {
+  stop("unsupported")
+}
+
+#' @export
+table_reader.character <- function(file) {
+  table_reader(fs::path_abs(file))
+}
+
+#' @export
+table_reader.fs_path <- function(file) {
+  table_reader(file_open(file))
+}
+
+#' @export
+`table_reader.arrow::io::RandomAccessFile` <- function(file){
+  unique_ptr(`arrow::ipc::feather::TableReader`, ipc___feather___TableReader__Open(file))
+}
+
+#' @export
+`table_reader.arrow::ipc::feather::TableReader` <- function(file){
+  file
+}
+
+#' Read a feather file
+#'
+#' @param reader a arrow::ipc::feather::TableReader or whatever the [table_reader()] function can handle
+#' @return an arrow::Table
+#'
+#' @export
+`read_feather` <- function(reader){
+  table_reader(reader)$Read()
 }
