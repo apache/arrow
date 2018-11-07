@@ -817,7 +817,7 @@ JNIEXPORT jint JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evalua
     if (num_slots > INT_MAX) {
       std::stringstream ss;
       ss << "The selection vector has " << num_slots
-        << " slots, which is larger than the " << INT_MAX << " limit.\n";
+         << " slots, which is larger than the " << INT_MAX << " limit.\n";
       const std::string message = ss.str();
       env->ThrowNew(gandiva_exception_, message.c_str());
       return -1;

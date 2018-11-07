@@ -215,7 +215,11 @@ Status ZSTDCodec::Decompress(int64_t input_len, const uint8_t* input, int64_t ou
     return ZSTDError(ret, "ZSTD decompression failed: ");
   }
   if (static_cast<int64_t>(ret) != output_len) {
-    return Status::IOError("Corrupt ZSTD compressed data.");
+    std::stringstream ss;
+    ss << "Corrupt ZSTD compressed data. Expected output length is " << output_len
+       << ", but got " << ret << ".\n";
+    std::string message = ss.str();
+    return Status::IOError(message);
   }
   return Status::OK();
 }
