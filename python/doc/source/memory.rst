@@ -18,6 +18,7 @@
 .. currentmodule:: pyarrow
 .. _io:
 
+========================
 Memory and IO Interfaces
 ========================
 
@@ -25,8 +26,11 @@ This section will introduce you to the major concepts in PyArrow's memory
 management and IO systems:
 
 * Buffers
-* File-like and stream-like objects
 * Memory pools
+* File-like and stream-like objects
+
+Referencing and Allocating Memory
+=================================
 
 pyarrow.Buffer
 --------------
@@ -70,10 +74,41 @@ required, and such conversions are also zero-copy:
 
    memoryview(buf)
 
-.. _io.native_file:
-
-Native Files
+Memory Pools
 ------------
+
+All memory allocations and deallocations (like ``malloc`` and ``free`` in C)
+are tracked in an instance of ``arrow::MemoryPool``. This means that we can
+then precisely track amount of memory that has been allocated:
+
+.. ipython:: python
+
+   pa.total_allocated_bytes()
+
+PyArrow uses a default built-in memory pool, but in the future there may be
+additional memory pools (and subpools) to choose from. Let's allocate
+a resizable ``Buffer`` from the default pool:
+
+.. ipython:: python
+
+   buf = pa.allocate_buffer(1024, resizable=True)
+   pa.total_allocated_bytes()
+   buf.resize(2048)
+   pa.total_allocated_bytes()
+
+The default allocator requests memory in a minimum increment of 64 bytes. If
+the buffer is garbaged-collected, all of the memory is freed:
+
+.. ipython:: python
+
+   buf = None
+   pa.total_allocated_bytes()
+
+
+Input and Output
+================
+
+.. _io.native_file:
 
 The Arrow C++ libraries have several abstract interfaces for different kinds of
 IO objects:
@@ -86,8 +121,7 @@ IO objects:
 
 In the interest of making these objects behave more like Python's built-in
 ``file`` objects, we have defined a :class:`~pyarrow.NativeFile` base class
-which is intended to mimic Python files and able to be used in functions where
-a Python file (such as ``file`` or ``BytesIO``) is expected.
+which implements the same API as regular Python file objects.
 
 :class:`~pyarrow.NativeFile` has some important features which make it
 preferable to using Python files with PyArrow where possible:
@@ -106,41 +140,70 @@ There are several kinds of :class:`~pyarrow.NativeFile` options available:
   as a file
 * :class:`~pyarrow.BufferOutputStream`, for writing data in-memory, producing a
   Buffer at the end
+* :class:`~pyarrow.FixedSizeBufferWriter`, for writing data into an already
+  allocated Buffer
 * :class:`~pyarrow.HdfsFile`, for reading and writing data to the Hadoop Filesystem
 * :class:`~pyarrow.PythonFile`, for interfacing with Python file objects in C++
+* :class:`~pyarrow.CompressedInputStream` and
+  :class:`~pyarrow.CompressedOutputStream`, for on-the-fly compression or
+  decompression to/from another stream
 
-We will discuss these in the following sections after explaining memory pools.
+There are also high-level APIs to make instantiating common kinds of streams
+easier.
 
-Memory Pools
-------------
+High-Level API
+--------------
 
-All memory allocations and deallocations (like ``malloc`` and ``free`` in C)
-are tracked in an instance of ``arrow::MemoryPool``. This means that we can
-then precisely track amount of memory that has been allocated:
+Input Streams
+~~~~~~~~~~~~~
+
+The :func:`~pyarrow.input_stream` function allows creating a readable
+:class:`~pyarrow.NativeFile` from various kinds of sources.
+
+* If passed a :class:`~pyarrow.Buffer` or a ``memoryview`` object, a
+  :class:`~pyarrow.BufferReader` will be returned:
+
+   .. ipython:: python
+
+      buf = memoryview(b"some data")
+      stream = pa.input_stream(buf)
+      stream.read(4)
+
+* If passed a string or file path, it will open the given file on disk
+  for reading, creating a :class:`~pyarrow.OSFile`.  Optionally, the file
+  can be compressed: if its filename ends with a recognized extension
+  such as ``.gz``, its contents will automatically be decompressed on
+  reading.
+
+  .. ipython:: python
+
+     import gzip
+     with gzip.open('example.gz', 'wb') as f:
+         f.write(b'some data\n' * 3)
+
+     stream = pa.input_stream('example.gz')
+     stream.read()
+
+* If passed a Python file object, it will wrapped in a :class:`PythonFile`
+  such that the Arrow C++ libraries can read data from it (at the expense
+  of a slight overhead).
+
+Output Streams
+~~~~~~~~~~~~~~
+
+:func:`~pyarrow.output_stream` is the equivalent function for output streams
+and allows creating a writable :class:`~pyarrow.NativeFile`.  It has the same
+features as explained above for :func:`~pyarrow.input_stream`, such as being
+able to write to buffers or do on-the-fly compression.
 
 .. ipython:: python
 
-   pa.total_allocated_bytes()
+   with pa.output_stream('example1.dat') as stream:
+       stream.write(b'some data')
 
-PyArrow uses a default built-in memory pool, but in the future there may be
-additional memory pools (and subpools) to choose from. Let's consider an
-``BufferOutputStream``, which is like a ``BytesIO``:
+   f = open('example1.dat', 'rb')
+   f.read()
 
-.. ipython:: python
-
-   stream = pa.BufferOutputStream()
-   stream.write(b'foo')
-   pa.total_allocated_bytes()
-   for i in range(1024): stream.write(b'foo')
-   pa.total_allocated_bytes()
-
-The default allocator requests memory in a minimum increment of 64 bytes. If
-the stream is garbaged-collected, all of the memory is freed:
-
-.. ipython:: python
-
-   stream = None
-   pa.total_allocated_bytes()
 
 On-Disk and Memory Mapped Files
 -------------------------------
@@ -151,17 +214,17 @@ write:
 
 .. ipython:: python
 
-   with open('example.dat', 'wb') as f:
+   with open('example2.dat', 'wb') as f:
        f.write(b'some example data')
 
 Using pyarrow's :class:`~pyarrow.OSFile` class, you can write:
 
 .. ipython:: python
 
-   with pa.OSFile('example2.dat', 'wb') as f:
+   with pa.OSFile('example3.dat', 'wb') as f:
        f.write(b'some example data')
 
-For reading files, you can use ``OSFile`` or
+For reading files, you can use :class:`~pyarrow.OSFile` or
 :class:`~pyarrow.MemoryMappedFile`. The difference between these is that
 :class:`~pyarrow.OSFile` allocates new memory on each read, like Python file
 objects. In reads from memory maps, the library constructs a buffer referencing
@@ -169,8 +232,8 @@ the mapped memory without any memory allocation or copying:
 
 .. ipython:: python
 
-   file_obj = pa.OSFile('example.dat')
-   mmap = pa.memory_map('example.dat')
+   file_obj = pa.OSFile('example2.dat')
+   mmap = pa.memory_map('example3.dat')
    file_obj.read(4)
    mmap.read(4)
 

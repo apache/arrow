@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,25 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+FROM arrow:python-3.6
 
-RUST_DIR=${TRAVIS_BUILD_DIR}/rust
-
-pushd $RUST_DIR
-
-# show activated toolchain
-rustup show
-
-# raises on any formatting errors
-rustup component add rustfmt-preview
-cargo fmt --all -- --check
-
-# raises on any warnings
-cargo rustc -- -D warnings
-
-cargo build
-cargo test
-cargo bench
-cargo run --example dynamic_types
-
-popd
+# test against pandas' master
+RUN pip install git+https://github.com/pandas-dev/pandas.git

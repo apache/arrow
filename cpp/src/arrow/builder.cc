@@ -736,7 +736,7 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
 
   int64_t i = 0;
   internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                 [values, &i]() -> bool { return values[i++]; });
+                                 [&values, &i]() -> bool { return values[i++]; });
 
   // this updates length_
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
@@ -749,7 +749,7 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
 
   int64_t i = 0;
   internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                 [values, &i]() -> bool { return values[i++]; });
+                                 [&values, &i]() -> bool { return values[i++]; });
 
   // this updates length_
   ArrayBuilder::UnsafeSetNotNull(length);

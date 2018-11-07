@@ -170,7 +170,7 @@ static inline int CountLeadingZeros(uint32_t value) {
 static inline int CountLeadingZeros(uint64_t value) {
 #if defined(__clang__) || defined(__GNUC__)
   if (value == 0) return 64;
-  return static_cast<int>(__builtin_clzl(value));
+  return static_cast<int>(__builtin_clzll(value));
 #elif defined(_MSC_VER)
   unsigned long index;                     // NOLINT
   if (_BitScanReverse64(&index, value)) {  // NOLINT
