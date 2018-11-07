@@ -813,6 +813,7 @@ JNIEXPORT jint JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evalua
     return -1;
   } else {
     int64_t num_slots = selection_vector->GetNumSlots();
+    // Check integer overflow
     if (num_slots > INT_MAX) {
       std::stringstream ss;
       ss << "The selection vector has " << num_slots
