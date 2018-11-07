@@ -344,7 +344,6 @@ macro_rules! impl_list_array_builder {
 
             /// Builds the `ListArray`
             pub fn finish(self) -> ListArray {
-
                 let len = self.len();
                 let values_arr = self.values_builder.finish();
                 let values_data = values_arr.data();
@@ -644,7 +643,10 @@ mod tests {
         let list_array = builder.finish();
 
         let values = list_array.values().data().buffers()[0].clone();
-        assert_eq!(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()), values);
+        assert_eq!(
+            Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()),
+            values
+        );
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
