@@ -493,12 +493,24 @@ ipc___Message__Verify <- function(message) {
     .Call(`_arrow_ipc___Message__Verify`, message)
 }
 
+ipc___Message__type <- function(message) {
+    .Call(`_arrow_ipc___Message__type`, message)
+}
+
+ipc___Message__Equals <- function(x, y) {
+    .Call(`_arrow_ipc___Message__Equals`, x, y)
+}
+
 ipc___MessageReader__Open <- function(stream) {
     .Call(`_arrow_ipc___MessageReader__Open`, stream)
 }
 
 ipc___MessageReader__ReadNextMessage <- function(reader) {
     .Call(`_arrow_ipc___MessageReader__ReadNextMessage`, reader)
+}
+
+ipc___ReadMessage <- function(stream) {
+    .Call(`_arrow_ipc___ReadMessage`, stream)
 }
 
 RecordBatch__num_columns <- function(x) {

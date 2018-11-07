@@ -1364,6 +1364,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ipc___Message__type
+arrow::ipc::Message::Type ipc___Message__type(const std::unique_ptr<arrow::ipc::Message>& message);
+RcppExport SEXP _arrow_ipc___Message__type(SEXP messageSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type message(messageSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___Message__type(message));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___Message__Equals
+bool ipc___Message__Equals(const std::unique_ptr<arrow::ipc::Message>& x, const std::unique_ptr<arrow::ipc::Message>& y);
+RcppExport SEXP _arrow_ipc___Message__Equals(SEXP xSEXP, SEXP ySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type y(ySEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___Message__Equals(x, y));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ipc___MessageReader__Open
 std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 RcppExport SEXP _arrow_ipc___MessageReader__Open(SEXP streamSEXP) {
@@ -1383,6 +1406,17 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::MessageReader>& >::type reader(readerSEXP);
     rcpp_result_gen = Rcpp::wrap(ipc___MessageReader__ReadNextMessage(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___ReadMessage
+std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(const std::shared_ptr<arrow::io::InputStream>& stream);
+RcppExport SEXP _arrow_ipc___ReadMessage(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::InputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___ReadMessage(stream));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1874,8 +1908,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___Message__metadata", (DL_FUNC) &_arrow_ipc___Message__metadata, 1},
     {"_arrow_ipc___Message__body", (DL_FUNC) &_arrow_ipc___Message__body, 1},
     {"_arrow_ipc___Message__Verify", (DL_FUNC) &_arrow_ipc___Message__Verify, 1},
+    {"_arrow_ipc___Message__type", (DL_FUNC) &_arrow_ipc___Message__type, 1},
+    {"_arrow_ipc___Message__Equals", (DL_FUNC) &_arrow_ipc___Message__Equals, 2},
     {"_arrow_ipc___MessageReader__Open", (DL_FUNC) &_arrow_ipc___MessageReader__Open, 1},
     {"_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1},
+    {"_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1},
     {"_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
     {"_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},

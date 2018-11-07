@@ -42,6 +42,18 @@ int64_t ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& messag
 }
 
 // [[Rcpp::export]]
+arrow::ipc::Message::Type ipc___Message__type(
+    const std::unique_ptr<arrow::ipc::Message>& message) {
+  return message->type();
+}
+
+// [[Rcpp::export]]
+bool ipc___Message__Equals(const std::unique_ptr<arrow::ipc::Message>& x,
+                           const std::unique_ptr<arrow::ipc::Message>& y) {
+  return x->Equals(*y);
+}
+
+// [[Rcpp::export]]
 std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   return arrow::ipc::MessageReader::Open(stream);
@@ -52,5 +64,13 @@ std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(
     const std::unique_ptr<arrow::ipc::MessageReader>& reader) {
   std::unique_ptr<arrow::ipc::Message> message;
   R_ERROR_NOT_OK(reader->ReadNextMessage(&message));
+  return message;
+}
+
+// [[Rcpp::export]]
+std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(
+    const std::shared_ptr<arrow::io::InputStream>& stream) {
+  std::unique_ptr<arrow::ipc::Message> message;
+  R_ERROR_NOT_OK(ReadMessage(stream.get(), &message));
   return message;
 }

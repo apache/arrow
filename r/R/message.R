@@ -17,20 +17,47 @@
 
 #' @include R6.R
 
-`arrow::ipc::Message` <- R6Class("arrow::ipc::Message",
+`arrow::ipc::Message` <- R6Class("arrow::ipc::Message", inherit = `arrow::Object`,
   public = list(
+    Equals = function(other){
+      assert_that(inherits(other), "arrow::ipc::Message")
+      ipc___Message__Equals(self, other)
+    },
     body_length = function() ipc___Message__body_length(self),
-    metadata = function() shared_ptr(`arrow::Buffer`, ipc__Message__metadata(self)),
-    body = function() shared_ptr(`arrow::Buffer`, ipc__Message__body(self)),
-    Verify = function() ipc__Message__Verify(self)
+    metadata = function() shared_ptr(`arrow::Buffer`, ipc___Message__metadata(self)),
+    body = function() shared_ptr(`arrow::Buffer`, ipc___Message__body(self)),
+    Verify = function() ipc___Message__Verify(self),
+    type = function() ipc___Message__type(self)
   )
 )
 
-`arrow::ipc::MessageReader` <- R6Class("arrow::ipc::MessageReader",
+#' @export
+`==.arrow::ipc::Message` <- function(x, y) x$Equals(y)
+
+`arrow::ipc::MessageReader` <- R6Class("arrow::ipc::MessageReader", inherit = `arrow::Object`,
   public = list(
     ReadNextMessage = function() unique_ptr(`arrow::ipc::Message`, ipc___MessageReader__ReadNextMessage(self))
   )
 )
+
+#' Read a Message from a stream
+#'
+#' @param stream an InputStream
+#'
+#' @export
+read_message <- function(stream) {
+  UseMethod("read_message")
+}
+
+#' @export
+read_message.default <- function(stream) {
+  stop("unsupported")
+}
+
+#' @export
+`read_message.arrow::io::InputStream` <- function(stream) {
+  unique_ptr(`arrow::ipc::Message`, ipc___ReadMessage(stream) )
+}
 
 #' Open a MessageReader that reads from a stream
 #'
@@ -44,6 +71,11 @@ message_reader <- function(stream) {
 #' @export
 message_reader.default <- function(stream) {
   stop("unsupported")
+}
+
+#' @export
+message_reader.raw <- function(stream) {
+  message_reader(buffer_reader(stream))
 }
 
 #' @export
