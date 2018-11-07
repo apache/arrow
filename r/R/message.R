@@ -48,5 +48,5 @@ message_reader.default <- function(stream) {
 
 #' @export
 `message_reader.arrow::io::InputStream` <- function(stream) {
-  unique_ptr(`arrow::ipc::MessageReader`, ipc___MessageReader__Create(stream))
+  unique_ptr(`arrow::ipc::MessageReader`, ipc___MessageReader__Open(stream))
 }
