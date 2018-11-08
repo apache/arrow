@@ -37,13 +37,27 @@ struct _GArrowORCFileReaderClass
 GArrowORCFileReader *
 garrow_orc_file_reader_new(GArrowSeekableInputStream *file,
                            GError **error);
+
+#ifndef GARROW_DISABLE_DEPRECATED
+G_GNUC_DEPRECATED_FOR(garrow_orc_file_reader_set_field_indices)
 void
 garrow_orc_file_reader_set_field_indexes(GArrowORCFileReader *reader,
                                          const gint *field_indexes,
                                          guint n_field_indexes);
+#endif
+void
+garrow_orc_file_reader_set_field_indices(GArrowORCFileReader *reader,
+                                         const gint *field_indices,
+                                         guint n_field_indices);
+#ifndef GARROW_DISABLE_DEPRECATED
+G_GNUC_DEPRECATED_FOR(garrow_orc_file_reader_get_field_indices)
 const gint *
 garrow_orc_file_reader_get_field_indexes(GArrowORCFileReader *reader,
                                          guint *n_field_indexes);
+#endif
+const gint *
+garrow_orc_file_reader_get_field_indices(GArrowORCFileReader *reader,
+                                         guint *n_field_indices);
 GArrowSchema *
 garrow_orc_file_reader_read_type(GArrowORCFileReader *reader,
                                  GError **error);
