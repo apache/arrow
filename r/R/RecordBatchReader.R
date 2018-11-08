@@ -135,6 +135,13 @@ read_record_batch.raw <- function(stream, ...){
   stream$ReadRecordBatch(i)
 }
 
+#' @export
+`read_record_batch.arrow::ipc::Message` <- function(stream, schema, ...) {
+  assert_that(inherits(schema, "arrow::Schema"))
+  shared_ptr(`arrow::RecordBatch`, ipc___ReadRecordBatch__Message__Schema(stream, schema))
+}
+
+
 #--------- read_table
 
 #' Read an arrow::Table from a stream

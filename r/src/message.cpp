@@ -54,6 +54,17 @@ bool ipc___Message__Equals(const std::unique_ptr<arrow::ipc::Message>& x,
 }
 
 // [[Rcpp::export]]
+std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(
+    const std::unique_ptr<arrow::ipc::Message>& message,
+    const std::shared_ptr<arrow::Schema>& schema) {
+  std::shared_ptr<arrow::RecordBatch> batch;
+  R_ERROR_NOT_OK(arrow::ipc::ReadRecordBatch(*message, schema, &batch));
+  return batch;
+}
+
+//--------- MessageReader
+
+// [[Rcpp::export]]
 std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   return arrow::ipc::MessageReader::Open(stream);
