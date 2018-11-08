@@ -113,6 +113,26 @@ Status SelectionVector::MakeInt32(int64_t max_slots, arrow::MemoryPool* pool,
   return Status::OK();
 }
 
+Status SelectionVector::MakeInt64(int64_t max_slots,
+                                  std::shared_ptr<arrow::Buffer> buffer,
+                                  std::shared_ptr<SelectionVector>* selection_vector) {
+  auto status = SelectionVectorInt64::ValidateBuffer(max_slots, buffer);
+  ARROW_RETURN_NOT_OK(status);
+
+  *selection_vector = std::make_shared<SelectionVectorInt64>(max_slots, buffer);
+  return Status::OK();
+}
+
+Status SelectionVector::MakeInt64(int64_t max_slots, arrow::MemoryPool* pool,
+                                  std::shared_ptr<SelectionVector>* selection_vector) {
+  std::shared_ptr<arrow::Buffer> buffer;
+  auto status = SelectionVectorInt64::AllocateBuffer(max_slots, pool, &buffer);
+  ARROW_RETURN_NOT_OK(status);
+
+  *selection_vector = std::make_shared<SelectionVectorInt64>(max_slots, buffer);
+  return Status::OK();
+}
+
 template <typename C_TYPE, typename A_TYPE>
 Status SelectionVectorImpl<C_TYPE, A_TYPE>::AllocateBuffer(
     int64_t max_slots, arrow::MemoryPool* pool, std::shared_ptr<arrow::Buffer>* buffer) {

@@ -94,6 +94,23 @@ class SelectionVector {
   ///             pool.
   static Status MakeInt32(int64_t max_slots, arrow::MemoryPool* pool,
                           std::shared_ptr<SelectionVector>* selection_vector);
+
+  /// \brief make selection vector with int64 type records.
+  ///
+  /// \param[in] max_slots max number of slots
+  /// \param[in] buffer buffer sized to accomodate max_slots
+  /// \param[out] selection_vector selection vector backed by 'buffer'
+  static Status MakeInt64(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer,
+                          std::shared_ptr<SelectionVector>* selection_vector);
+
+  /// \brief make selection vector with int64 type records.
+  ///
+  /// \param[in] max_slots max number of slots
+  /// \param[in] pool memory pool to allocate buffer
+  /// \param[out] selection_vector selection vector backed by a buffer allocated from the
+  ///             pool.
+  static Status MakeInt64(int64_t max_slots, arrow::MemoryPool* pool,
+                          std::shared_ptr<SelectionVector>* selection_vector);
 };
 
 }  // namespace gandiva

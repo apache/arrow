@@ -86,6 +86,7 @@ ArrayPtr SelectionVectorImpl<C_TYPE, A_TYPE>::ToArray() const {
 
 using SelectionVectorInt16 = SelectionVectorImpl<uint16_t, arrow::UInt16Type>;
 using SelectionVectorInt32 = SelectionVectorImpl<uint32_t, arrow::UInt32Type>;
+using SelectionVectorInt64 = SelectionVectorImpl<uint64_t, arrow::UInt64Type>;
 
 }  // namespace gandiva
 
