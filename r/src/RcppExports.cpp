@@ -1399,6 +1399,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ipc___ReadSchema_InputStream
+std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(const std::shared_ptr<arrow::io::InputStream>& stream);
+RcppExport SEXP _arrow_ipc___ReadSchema_InputStream(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::InputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___ReadSchema_InputStream(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ipc___MessageReader__Open
 std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 RcppExport SEXP _arrow_ipc___MessageReader__Open(SEXP streamSEXP) {
@@ -1923,6 +1934,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___Message__type", (DL_FUNC) &_arrow_ipc___Message__type, 1},
     {"_arrow_ipc___Message__Equals", (DL_FUNC) &_arrow_ipc___Message__Equals, 2},
     {"_arrow_ipc___ReadRecordBatch__Message__Schema", (DL_FUNC) &_arrow_ipc___ReadRecordBatch__Message__Schema, 2},
+    {"_arrow_ipc___ReadSchema_InputStream", (DL_FUNC) &_arrow_ipc___ReadSchema_InputStream, 1},
     {"_arrow_ipc___MessageReader__Open", (DL_FUNC) &_arrow_ipc___MessageReader__Open, 1},
     {"_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1},
     {"_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1},

@@ -26,8 +26,43 @@
   )
 )
 
-#' @rdname DataType
+#' Schema functions
+#'
+#' @param ... named list of data types
+#'
+#' @return a Schema
+#'
 #' @export
 schema <- function(...){
   shared_ptr(`arrow::Schema`, schema_(.fields(list(...))))
+}
+
+#' read a Schema from a stream
+#'
+#' @param stream a stream
+#' @param ... currently ignored
+#'
+#' @export
+read_schema <- function(stream, ...) {
+  UseMethod("read_schema")
+}
+
+#' @export
+read_schema.default <- function(stream, ...) {
+  stop("unsupported")
+}
+
+#' @export
+`read_schema.arrow::io::InputStream` <- function(stream, ...) {
+  shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
+}
+
+#' @export
+`read_schema.arrow::Buffer` <- function(stream, ...) {
+  read_schema(buffer_reader(stream), ...)
+}
+
+#' @export
+`read_schema.raw` <- function(stream, ...) {
+  read_schema(buffer(stream), ...)
 }

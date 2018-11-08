@@ -62,6 +62,14 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(
   return batch;
 }
 
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(
+    const std::shared_ptr<arrow::io::InputStream>& stream) {
+  std::shared_ptr<arrow::Schema> schema;
+  R_ERROR_NOT_OK(arrow::ipc::ReadSchema(stream.get(), &schema));
+  return schema;
+}
+
 //--------- MessageReader
 
 // [[Rcpp::export]]
@@ -82,6 +90,6 @@ std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(
 std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   std::unique_ptr<arrow::ipc::Message> message;
-  R_ERROR_NOT_OK(ReadMessage(stream.get(), &message));
+  R_ERROR_NOT_OK(arrow::ipc::ReadMessage(stream.get(), &message));
   return message;
 }

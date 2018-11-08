@@ -505,6 +505,10 @@ ipc___ReadRecordBatch__Message__Schema <- function(message, schema) {
     .Call(`_arrow_ipc___ReadRecordBatch__Message__Schema`, message, schema)
 }
 
+ipc___ReadSchema_InputStream <- function(stream) {
+    .Call(`_arrow_ipc___ReadSchema_InputStream`, stream)
+}
+
 ipc___MessageReader__Open <- function(stream) {
     .Call(`_arrow_ipc___MessageReader__Open`, stream)
 }
