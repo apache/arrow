@@ -283,7 +283,7 @@ struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>
 
     if (input.null_count != 0) {
       internal::BitmapReader is_valid_reader(input.buffers[0]->data(), in_offset,
-                                              input.length);
+                                             input.length);
       for (int64_t i = 0; i < input.length; ++i) {
         auto out_value = static_cast<out_type>(*in_data);
         if (!options.allow_float_truncate &&
