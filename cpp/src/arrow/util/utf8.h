@@ -79,12 +79,13 @@ static inline uint8_t ValidateOneUTF8Byte(uint8_t byte, uint8_t state) {
 
 inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
   static constexpr uint64_t high_bits_64 = 0x8080808080808080ULL;
+  // For some reason, defining this variable outside the loop helps clang
+  uint64_t mask;
 
   while (size >= 8) {
     // XXX This is doing an unaligned access.  Contemporary architectures
     // (x86-64, AArch64, PPC64) support it natively and often have good
     // performance nevertheless.
-    uint64_t mask;
     memcpy(&mask, data, 8);
     if (ARROW_PREDICT_TRUE((mask & high_bits_64) == 0)) {
       // 8 bytes of pure ASCII, move forward
