@@ -281,16 +281,17 @@ struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>
     constexpr int64_t kMax = 1LL << std::numeric_limits<in_type>::digits;
     constexpr int64_t kMin = -kMax;
 
-    // safe cast
     if (input.null_count != 0) {
       internal::BitmapReader is_valid_reader(input.buffers[0]->data(), in_offset,
                                               input.length);
       for (int64_t i = 0; i < input.length; ++i) {
         auto out_value = static_cast<out_type>(*in_data);
-        if (!options.allow_float_truncate && ARROW_PREDICT_FALSE(static_cast<in_type>(out_value) != *in_data)) {
+        if (!options.allow_float_truncate &&
+            ARROW_PREDICT_FALSE(static_cast<in_type>(out_value) != *in_data)) {
           ctx->SetStatus(Status::Invalid("Floating point value truncated"));
         }
-        if (!options.allow_float_overflow && ARROW_PREDICT_FALSE(out_value >= kMax || out_value <= kMin)) {
+        if (!options.allow_float_overflow &&
+            ARROW_PREDICT_FALSE(out_value >= kMax || out_value <= kMin)) {
           ctx->SetStatus(Status::Invalid("Floating point value overflowed"));
         }
         *out_data++ = out_value;
@@ -300,10 +301,12 @@ struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>
     } else {
       for (int64_t i = 0; i < input.length; ++i) {
         auto out_value = static_cast<out_type>(*in_data);
-        if (!options.allow_float_truncate && ARROW_PREDICT_FALSE(static_cast<in_type>(out_value) != *in_data)) {
+        if (!options.allow_float_truncate &&
+            ARROW_PREDICT_FALSE(static_cast<in_type>(out_value) != *in_data)) {
           ctx->SetStatus(Status::Invalid("Floating point value truncated"));
         }
-        if (!options.allow_float_overflow && ARROW_PREDICT_FALSE(out_value >= kMax || out_value <= kMin)) {
+        if (!options.allow_float_overflow &&
+            ARROW_PREDICT_FALSE(out_value >= kMax || out_value <= kMin)) {
           ctx->SetStatus(Status::Invalid("Floating point value overflowed"));
         }
         *out_data++ = out_value;
