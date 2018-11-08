@@ -33,7 +33,7 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap
     ss << "bitmap size " << bitmap_size << " must be padded to 64-bit size";
     return Status::Invalid(ss.str());
   }
-  if (static_cast<unsigned int>(max_bitmap_index) > GetMaxSupportedValue()) {
+  if (max_bitmap_index > GetMaxSupportedValue()) {
     std::stringstream ss;
     ss << "max_bitmap_index " << max_bitmap_index << " must be <= maxSupportedValue "
        << GetMaxSupportedValue() << " in selection vector";

@@ -34,13 +34,13 @@ class SelectionVector {
   virtual ~SelectionVector() = default;
 
   /// Get the value at a given index.
-  virtual int64_t GetIndex(int64_t index) const = 0;
+  virtual uint64_t GetIndex(int64_t index) const = 0;
 
   /// Set the value at a given index.
-  virtual void SetIndex(int64_t index, int64_t value) = 0;
+  virtual void SetIndex(int64_t index, uint64_t value) = 0;
 
   // Get the max supported value in the selection vector.
-  virtual int64_t GetMaxSupportedValue() const = 0;
+  virtual uint64_t GetMaxSupportedValue() const = 0;
 
   /// The maximum slots (capacity) of the selection vector.
   virtual int64_t GetMaxSlots() const = 0;

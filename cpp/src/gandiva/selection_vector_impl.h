@@ -40,9 +40,9 @@ class SelectionVectorImpl : public SelectionVector {
     raw_data_ = reinterpret_cast<C_TYPE*>(buffer->mutable_data());
   }
 
-  int64_t GetIndex(int64_t index) const override { return raw_data_[index]; }
+  uint64_t GetIndex(int64_t index) const override { return raw_data_[index]; }
 
-  void SetIndex(int64_t index, int64_t value) override {
+  void SetIndex(int64_t index, uint64_t value) override {
     raw_data_[index] = static_cast<C_TYPE>(value);
   }
 
@@ -57,7 +57,7 @@ class SelectionVectorImpl : public SelectionVector {
     num_slots_ = num_slots;
   }
 
-  int64_t GetMaxSupportedValue() const override {
+  uint64_t GetMaxSupportedValue() const override {
     return std::numeric_limits<C_TYPE>::max();
   }
 
