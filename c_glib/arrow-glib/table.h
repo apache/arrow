@@ -58,5 +58,7 @@ GArrowTable    *garrow_table_replace_column(GArrowTable *table,
                                             guint i,
                                             GArrowColumn *column,
                                             GError **error);
+gchar          *garrow_table_to_string     (GArrowTable *table,
+                                            GError **error);
 
 G_END_DECLS

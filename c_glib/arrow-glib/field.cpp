@@ -135,9 +135,8 @@ GArrowField *
 garrow_field_new(const gchar *name,
                  GArrowDataType *data_type)
 {
-  auto arrow_field =
-    std::make_shared<arrow::Field>(name,
-                                   garrow_data_type_get_raw(data_type));
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_field = std::make_shared<arrow::Field>(name, arrow_data_type);
   return garrow_field_new_raw(&arrow_field);
 }
 

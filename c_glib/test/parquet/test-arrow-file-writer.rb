@@ -34,23 +34,13 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
 
     reader = Parquet::ArrowFileReader.new(@file.path)
     reader.use_threads = true
-    assert_equal(enabled_values.length / chunk_size, reader.n_row_groups)
-    table = reader.read_table
-    table = reader.read_table
-    table_data = table.n_columns.times.collect do |i|
-      column = table.get_column(i)
-      data = []
-      column.data.chunks.each do |chunk|
-        chunk.length.times do |j|
-          if chunk.null?(j)
-            data << nil
-          else
-            data << chunk.get_value(j)
-          end
-        end
-      end
-      [column.name, data]
-    end
-    assert_equal([["enabled", enabled_values]], table_data)
+    assert_equal([
+                   enabled_values.length / chunk_size,
+                   table,
+                 ],
+                 [
+                   reader.n_row_groups,
+                   reader.read_table,
+                 ])
   end
 end
