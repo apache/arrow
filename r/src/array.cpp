@@ -49,7 +49,7 @@ std::shared_ptr<Array> SimpleArray(SEXP x) {
 
     auto first_na = std::find_if(vec.begin(), vec.end(), Rcpp::Vector<RTYPE>::is_na);
     if (first_na < vec.end()) {
-      R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
+      STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
       internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
 
       // first loop to clear all the bits before the first NA
@@ -87,7 +87,7 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(LogicalVector_ vec) {
 
   // allocate a buffer for the data
   std::shared_ptr<Buffer> data_bitmap;
-  R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &data_bitmap));
+  STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &data_bitmap));
   auto data_bitmap_data = data_bitmap->mutable_data();
   internal::FirstTimeBitmapWriter bitmap_writer(data_bitmap_data, 0, n);
   R_xlen_t null_count = 0;
@@ -108,7 +108,7 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(LogicalVector_ vec) {
   if (i < n) {
     // there has been a null before the end, so we need
     // to collect that information in a null bitmap
-    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
+    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
     auto null_bitmap_data = null_bitmap->mutable_data();
     internal::FirstTimeBitmapWriter null_bitmap_writer(null_bitmap_data, 0, n);
 
@@ -146,9 +146,12 @@ std::shared_ptr<arrow::Array> MakeBooleanArray(LogicalVector_ vec) {
 std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   R_xlen_t n = vec.size();
 
-  std::shared_ptr<Buffer> null_buffer(nullptr);
+  std::shared_ptr<Buffer> null_buffer;
   std::shared_ptr<Buffer> offset_buffer;
-  R_ERROR_NOT_OK(AllocateBuffer((n + 1) * sizeof(int32_t), &offset_buffer));
+  std::shared_ptr<Buffer> value_buffer;
+
+  // there is always an offset buffer
+  STOP_IF_NOT_OK(AllocateBuffer((n + 1) * sizeof(int32_t), &offset_buffer));
 
   R_xlen_t i = 0;
   int current_offset = 0;
@@ -166,7 +169,7 @@ std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   }
 
   if (i < n) {
-    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
+    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
     internal::FirstTimeBitmapWriter null_bitmap_writer(null_buffer->mutable_data(), 0, n);
 
     // catch up
@@ -191,17 +194,18 @@ std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   }
 
   // ----- data buffer
-  std::shared_ptr<Buffer> value_buffer;
-  R_ERROR_NOT_OK(AllocateBuffer(current_offset, &value_buffer));
-  p_offset = reinterpret_cast<int32_t*>(offset_buffer->mutable_data());
-  auto p_data = reinterpret_cast<char*>(value_buffer->mutable_data());
+  if (current_offset > 0) {
+    STOP_IF_NOT_OK(AllocateBuffer(current_offset, &value_buffer));
+    p_offset = reinterpret_cast<int32_t*>(offset_buffer->mutable_data());
+    auto p_data = reinterpret_cast<char*>(value_buffer->mutable_data());
 
-  for (R_xlen_t i = 0; i < n; i++) {
-    SEXP s = STRING_ELT(vec, i);
-    if (s != NA_STRING) {
-      auto ni = LENGTH(s);
-      std::copy_n(CHAR(s), ni, p_data);
-      p_data += ni;
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP s = STRING_ELT(vec, i);
+      if (s != NA_STRING) {
+        auto ni = LENGTH(s);
+        std::copy_n(CHAR(s), ni, p_data);
+        p_data += ni;
+      }
     }
   }
 
@@ -220,7 +224,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor) {
   auto n = factor.size();
 
   std::shared_ptr<Buffer> indices_buffer;
-  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(value_type), &indices_buffer));
+  STOP_IF_NOT_OK(AllocateBuffer(n * sizeof(value_type), &indices_buffer));
 
   std::vector<std::shared_ptr<Buffer>> buffers{nullptr, indices_buffer};
 
@@ -236,7 +240,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor) {
   if (i < n) {
     // there are NA's so we need a null buffer
     std::shared_ptr<Buffer> null_buffer;
-    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
+    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
     internal::FirstTimeBitmapWriter null_bitmap_writer(null_buffer->mutable_data(), 0, n);
 
     // catch up
@@ -264,7 +268,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor) {
   auto array_indices = MakeArray(array_indices_data);
 
   std::shared_ptr<Array> out;
-  R_ERROR_NOT_OK(DictionaryArray::FromArrays(dict_type, array_indices, &out));
+  STOP_IF_NOT_OK(DictionaryArray::FromArrays(dict_type, array_indices, &out));
   return out;
 }
 
@@ -300,7 +304,7 @@ std::shared_ptr<Array> Date64Array_From_POSIXct(SEXP x) {
   auto n = vec.size();
 
   std::shared_ptr<Buffer> values_buffer;
-  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(int64_t), &values_buffer));
+  STOP_IF_NOT_OK(AllocateBuffer(n * sizeof(int64_t), &values_buffer));
   auto p_values = reinterpret_cast<int64_t*>(values_buffer->mutable_data());
 
   std::vector<std::shared_ptr<Buffer>> buffers{nullptr, values_buffer};
@@ -313,7 +317,7 @@ std::shared_ptr<Array> Date64Array_From_POSIXct(SEXP x) {
   }
   if (i < n) {
     std::shared_ptr<Buffer> null_buffer;
-    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
+    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
     internal::FirstTimeBitmapWriter bitmap_writer(null_buffer->mutable_data(), 0, n);
 
     // catch up
@@ -353,7 +357,7 @@ std::shared_ptr<arrow::Array> Int64Array(SEXP x) {
   auto p_vec = std::find(p_vec_start, p_vec_start + n, NA_INT64);
   auto first_na = p_vec - p_vec_start;
   if (first_na < n) {
-    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &buffers[0]));
+    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &buffers[0]));
     internal::FirstTimeBitmapWriter bitmap_writer(buffers[0]->mutable_data(), 0, n);
 
     // first loop to clear all the bits before the first NA
@@ -409,7 +413,7 @@ std::shared_ptr<arrow::Array> Time32Array_From_difftime(SEXP x) {
   int multiplier = difftime_unit_multiplier(x);
   std::vector<std::shared_ptr<Buffer>> buffers(2);
 
-  R_ERROR_NOT_OK(AllocateBuffer(n * sizeof(int32_t), &buffers[1]));
+  STOP_IF_NOT_OK(AllocateBuffer(n * sizeof(int32_t), &buffers[1]));
   auto p_values = reinterpret_cast<int32_t*>(buffers[1]->mutable_data());
 
   R_xlen_t i = 0;
@@ -422,7 +426,7 @@ std::shared_ptr<arrow::Array> Time32Array_From_difftime(SEXP x) {
   }
 
   if (i < n) {
-    R_ERROR_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &buffers[0]));
+    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &buffers[0]));
     internal::FirstTimeBitmapWriter bitmap_writer(buffers[0]->mutable_data(), 0, n);
 
     // first loop to clear all the bits before the first NA
@@ -516,6 +520,7 @@ inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
 
   // first copy all the data
   auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+  STOP_IF_NULL(p_values);
   Rcpp::Vector<RTYPE> vec(p_values, p_values + n);
 
   // then set the sentinel NA
@@ -549,8 +554,15 @@ inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
 
   Rcpp::CharacterVector res(no_init(n));
   auto p_offset = GetValuesSafely<int32_t>(array->data(), 1, array->offset());
-  auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
+  STOP_IF_NULL(p_offset);
 
+  auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
+  if (!p_data) {
+    // There is an offset buffer, but the data buffer is null
+    // There is at least one value in the array and not all the values are null
+    // That means all values are empty strings so we can just return `res`
+    return res;
+  }
   if (null_count) {
     // need to watch for nulls
     arrow::internal::BitmapReader null_reader(array->null_bitmap_data(), array->offset(),
@@ -593,6 +605,7 @@ inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
 
   // process the data
   auto p_data = GetValuesSafely<uint8_t>(array->data(), 1, 0);
+  STOP_IF_NULL(p_data);
   arrow::internal::BitmapReader data_reader(p_data, array->offset(), n);
   for (size_t i = 0; i < n; i++, data_reader.Next()) {
     vec[i] = data_reader.IsSet();
@@ -638,6 +651,7 @@ inline SEXP DictionaryArrayInt32Indices_to_Vector(
   }
 
   auto p_array = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+  STOP_IF_NULL(p_array);
 
   if (array->null_count()) {
     arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
@@ -703,6 +717,7 @@ SEXP Date64Array_to_Vector(const std::shared_ptr<arrow::Array> array) {
     return vec;
   }
   auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
+  STOP_IF_NULL(p_values);
   auto p_vec = vec.begin();
 
   if (null_count) {
@@ -736,6 +751,7 @@ SEXP promotion_Array_to_Vector(const std::shared_ptr<Array>& array) {
   }
 
   auto start = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+  STOP_IF_NULL(start);
 
   if (null_count) {
     internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
@@ -765,6 +781,7 @@ SEXP Int64Array(const std::shared_ptr<Array>& array) {
     return vec;
   }
   auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
+  STOP_IF_NULL(p_values);
   auto p_vec = reinterpret_cast<int64_t*>(vec.begin());
 
   if (array->null_count()) {
@@ -791,6 +808,7 @@ SEXP TimeArray_to_Vector(const std::shared_ptr<Array>& array, int32_t multiplier
     return vec;
   }
   auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+  STOP_IF_NULL(p_values);
   auto p_vec = vec.begin();
 
   if (null_count) {

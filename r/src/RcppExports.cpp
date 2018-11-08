@@ -270,6 +270,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ArrayData__buffers
+List ArrayData__buffers(const std::shared_ptr<arrow::ArrayData>& x);
+RcppExport SEXP _arrow_ArrayData__buffers(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(ArrayData__buffers(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Buffer__is_mutable
 bool Buffer__is_mutable(const std::shared_ptr<arrow::Buffer>& buffer);
 RcppExport SEXP _arrow_Buffer__is_mutable(SEXP bufferSEXP) {
@@ -1831,6 +1842,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},
     {"_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1},
     {"_arrow_ArrayData__get_offset", (DL_FUNC) &_arrow_ArrayData__get_offset, 1},
+    {"_arrow_ArrayData__buffers", (DL_FUNC) &_arrow_ArrayData__buffers, 1},
     {"_arrow_Buffer__is_mutable", (DL_FUNC) &_arrow_Buffer__is_mutable, 1},
     {"_arrow_Buffer__ZeroPadding", (DL_FUNC) &_arrow_Buffer__ZeroPadding, 1},
     {"_arrow_Buffer__capacity", (DL_FUNC) &_arrow_Buffer__capacity, 1},
