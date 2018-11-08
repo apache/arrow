@@ -105,8 +105,8 @@ def test_regex():
     import pyarrow.gandiva as gandiva
 
     elements = ["park", "sparkle", "bright spark and fire", "spark"]
-    df = pd.DataFrame({"a": elements})
-    table = pa.Table.from_pandas(df)
+    data = pa.array(elements, type=pa.string())
+    table = pa.Table.from_arrays([data], names=['a'])
 
     builder = gandiva.TreeExprBuilder()
     node_a = builder.make_field(table.schema.field_by_name("a"))
