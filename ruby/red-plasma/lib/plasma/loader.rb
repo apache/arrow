@@ -22,5 +22,14 @@ module Plasma
         super("Plasma", Plasma)
       end
     end
+
+    private
+    def post_load(repository, namespace)
+      require_libraries
+    end
+
+    def require_libraries
+      require "plasma/client"
+    end
   end
 end

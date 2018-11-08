@@ -17,10 +17,11 @@
 
 require_relative "../../red-arrow/version"
 require_relative "../version"
-require_relative "../../../c_glib/test/helper/plasma-store"
 
 require "plasma"
 
 require "tempfile"
 
 require "test-unit"
+
+require_relative "helper/plasma-store"

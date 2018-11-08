@@ -15,20 +15,36 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestPlasmaClient < Test::Unit::TestCase
-  def setup
-    @store = nil
-    @store = Helper::PlasmaStore.new
-    @store.start
-  end
+module Helper
+  class PlasmaStore
+    def initialize(options={})
+      @path = `pkg-config --variable=executable plasma`.chomp
+      @memory_size = options[:memory_size] || 1024 * 1024
+      @socket_file = Tempfile.new(["plasma-store", ".sock"])
+      @socket_file.close
+      @pid = nil
+      FileUtils.rm_f(socket_path)
+    end
 
-  def teardown
-    @store.stop if @store
-  end
+    def socket_path
+      @socket_file.path
+    end
 
-  def test_new
-    assert_nothing_raised do
-      Plasma::Client.new(Pathname(@store.socket_path))
+    def start
+      @pid = spawn(@path,
+                   "-m", @memory_size.to_s,
+                   "-s", socket_path)
+      until File.exist?(socket_path)
+        if Process.waitpid(@pid, Process::WNOHANG)
+          raise "Failed to run plasma_store_server: #{@path}"
+        end
+      end
+    end
+
+    def stop
+      return if @pid.nil?
+      Process.kill(:TERM, @pid)
+      Process.waitpid(@pid)
     end
   end
 end
