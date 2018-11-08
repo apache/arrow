@@ -480,7 +480,8 @@ include(ThirdpartyToolchain)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
 
-# For any C code, use the same flags. These flags don't contaon
+# For any C code, use the same flags. These flags don't contain
+# C++ specific flags.
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARROW_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 
 # Remove --std=c++11 to avoid errors from C compilers
