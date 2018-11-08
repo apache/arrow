@@ -192,6 +192,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   #
   #   http://petereisentraut.blogspot.com/2011/05/ccache-and-clang.html
   #   http://petereisentraut.blogspot.com/2011/09/ccache-and-clang-part-2.html
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Qunused-arguments")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
 
   # Avoid clang error when an unknown warning flag is passed
@@ -325,11 +326,16 @@ endif()
 #   Debug symbols are stripped for reduced binary size. Add
 #   -DARROW_CXXFLAGS="-g" to add them
 if (NOT MSVC)
+  set(C_FLAGS_DEBUG "-ggdb -O0")
+  set(C_FLAGS_FASTDEBUG "-ggdb -O1")
+  set(C_FLAGS_RELEASE "-O3 -DNDEBUG")
   set(CXX_FLAGS_DEBUG "-ggdb -O0")
   set(CXX_FLAGS_FASTDEBUG "-ggdb -O1")
   set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 endif()
 
+set(C_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
+set(C_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
 set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 
@@ -343,14 +349,19 @@ string (TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
 # Set compile flags based on the build type.
 message("Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})")
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_FASTDEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_FASTDEBUG}")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_RELEASE}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_RELEASE}")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_GEN")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_GEN}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_GEN}")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_BUILD")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_BUILD}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_BUILD}")
 else()
   message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")

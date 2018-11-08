@@ -439,6 +439,7 @@ endif()
 
 if (ARROW_TENSORFLOW)
   # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
@@ -483,8 +484,9 @@ include(ThirdpartyToolchain)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
 
-# For any C code, use the same flags.
-set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
+# For any C code, use the same flags. These flags don't contain
+# C++ specific flags.
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARROW_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 
 # Remove --std=c++11 to avoid errors from C compilers
 string(REPLACE "-std=c++11" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
@@ -500,10 +502,12 @@ include(san-config)
 
 # Code coverage
 if ("${ARROW_GENERATE_COVERAGE}")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage -DCOVERAGE_BUILD")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -DCOVERAGE_BUILD")
 endif()
 
 # CMAKE_CXX_FLAGS now fully assembled
+message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 
 # set compile output directory
