@@ -30,6 +30,8 @@ namespace util {
 class UTF8Test : public ::testing::Test {
  protected:
   static void SetUpTestCase() {
+    InitializeUTF8();
+
     all_valid_sequences.clear();
     for (const auto& v :
          {valid_sequences_1, valid_sequences_2, valid_sequences_3, valid_sequences_4}) {

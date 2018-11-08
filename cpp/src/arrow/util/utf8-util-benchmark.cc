@@ -55,6 +55,7 @@ static void BenchmarkUTF8Validation(
   auto data = reinterpret_cast<const uint8_t*>(s.data());
   auto data_size = static_cast<int64_t>(s.size());
 
+  InitializeUTF8();
   bool b = ValidateUTF8(data, data_size);
   if (b != expected) {
     std::cerr << "Unexpected validation result" << std::endl;

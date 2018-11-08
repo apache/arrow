@@ -18,6 +18,7 @@
 #ifndef ARROW_UTIL_UTF8_H
 #define ARROW_UTIL_UTF8_H
 
+#include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -33,54 +34,57 @@ namespace internal {
 // Copyright (c) 2008-2010 Bjoern Hoehrmann <bjoern@hoehrmann.de>
 // See http://bjoern.hoehrmann.de/utf-8/decoder/dfa/ for details.
 
-static constexpr uint8_t kUTF8Accept = 0;
-static constexpr uint8_t kUTF8Reject = 12;
+// A compact state table allowing UTF8 decoding using two dependent
+// lookups per byte.  The first lookup determines the character class
+// and the second lookup reads the next state.
+// In this table states are multiples of 12.
+ARROW_EXPORT extern const uint8_t utf8_small_table[256 + 9 * 12];
 
-// clang-format off
-static const uint8_t utf8d[] = { // NOLINT
-  // The first part of the table maps bytes to character classes that
-  // to reduce the size of the transition table and create bitmasks.
-   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  // NOLINT
-   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  // NOLINT
-   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  // NOLINT
-   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  // NOLINT
-   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,  9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,  // NOLINT
-   7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,  7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,  // NOLINT
-   8,8,2,2,2,2,2,2,2,2,2,2,2,2,2,2,  2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,  // NOLINT
-  10,3,3,3,3,3,3,3,3,3,3,3,3,4,3,3, 11,6,6,6,5,8,8,8,8,8,8,8,8,8,8,8,  // NOLINT
+// Success / reject states when looked up in the small table
+static constexpr uint8_t kUTF8DecodeAccept = 0;
+static constexpr uint8_t kUTF8DecodeReject = 12;
 
-  // The second part is a transition table that maps a combination
-  // of a state of the automaton and a character class to a state.
-  // Character classes are between 0 and 11, states are multiples of 12.
-   0,12,24,36,60,96,84,12,12,12,48,72, 12,12,12,12,12,12,12,12,12,12,12,12,  // NOLINT
-  12, 0,12,12,12,12,12, 0,12, 0,12,12, 12,24,12,12,12,12,12,24,12,24,12,12,  // NOLINT
-  12,12,12,12,12,12,12,24,12,12,12,12, 12,24,12,12,12,12,12,12,12,24,12,12,  // NOLINT
-  12,12,12,12,12,12,12,36,12,36,12,12, 12,36,12,12,12,12,12,36,12,36,12,12,  // NOLINT
-  12,36,12,12,12,12,12,12,12,12,12,12,  // NOLINT
-};
-// clang-format on
+// An expanded state table allowing transitions using a single lookup
+// at the expense of a larger memory footprint (but on non-random data,
+// not all the table will end up accessed and cached).
+// In this table states are multiples of 256.
+ARROW_EXPORT extern uint16_t utf8_large_table[9 * 256];
+
+// Success / reject states when looked up in the large table
+static constexpr uint16_t kUTF8ValidateAccept = 0;
+static constexpr uint16_t kUTF8ValidateReject = 256;
 
 static inline uint8_t DecodeOneUTF8Byte(uint8_t byte, uint8_t state, uint32_t* codep) {
-  uint8_t type = utf8d[byte];
+  uint8_t type = utf8_small_table[byte];
 
-  *codep =
-      (state != kUTF8Accept) ? (byte & 0x3fu) | (*codep << 6) : (0xff >> type) & (byte);
+  *codep = (state != kUTF8DecodeAccept) ? (byte & 0x3fu) | (*codep << 6)
+                                        : (0xff >> type) & (byte);
 
-  state = utf8d[256 + state + type];
+  state = utf8_small_table[256 + state + type];
   return state;
 }
 
-static inline uint8_t ValidateOneUTF8Byte(uint8_t byte, uint8_t state) {
-  uint32_t codepoint;
-  return DecodeOneUTF8Byte(byte, state, &codepoint);
+static inline uint16_t ValidateOneUTF8Byte(uint8_t byte, uint16_t state) {
+  return utf8_large_table[state + byte];
 }
 
+#ifndef NDEBUG
+ARROW_EXPORT void CheckUTF8Initialized();
+#endif
+
 }  // namespace internal
+
+// This function needs to be called before doing UTF8 validation.
+ARROW_EXPORT void InitializeUTF8();
 
 inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
   static constexpr uint64_t high_bits_64 = 0x8080808080808080ULL;
   // For some reason, defining this variable outside the loop helps clang
   uint64_t mask;
+
+#ifndef NDEBUG
+  internal::CheckUTF8Initialized();
+#endif
 
   while (size >= 8) {
     // XXX This is doing an unaligned access.  Contemporary architectures
@@ -100,7 +104,7 @@ inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
     // (once in reject state, we always remain in reject state).
     // It is guaranteed that size >= 8 when arriving here, which allows
     // us to avoid size checks.
-    uint8_t state = internal::kUTF8Accept;
+    uint16_t state = internal::kUTF8ValidateAccept;
     // Byte 0
     state = internal::ValidateOneUTF8Byte(*data++, state);
     --size;
@@ -116,29 +120,29 @@ inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
     // Byte 4
     state = internal::ValidateOneUTF8Byte(*data++, state);
     --size;
-    if (state == internal::kUTF8Accept) {
+    if (state == internal::kUTF8ValidateAccept) {
       continue;  // Got full char, switch back to ASCII detection
     }
     // Byte 5
     state = internal::ValidateOneUTF8Byte(*data++, state);
     --size;
-    if (state == internal::kUTF8Accept) {
+    if (state == internal::kUTF8ValidateAccept) {
       continue;  // Got full char, switch back to ASCII detection
     }
     // Byte 6
     state = internal::ValidateOneUTF8Byte(*data++, state);
     --size;
-    if (state == internal::kUTF8Accept) {
+    if (state == internal::kUTF8ValidateAccept) {
       continue;  // Got full char, switch back to ASCII detection
     }
     // Byte 7
     state = internal::ValidateOneUTF8Byte(*data++, state);
     --size;
-    if (state == internal::kUTF8Accept) {
+    if (state == internal::kUTF8ValidateAccept) {
       continue;  // Got full char, switch back to ASCII detection
     }
-    // kUTF8Accept not reached along 4 transitions has to mean a rejection
-    assert(state == internal::kUTF8Reject);
+    // kUTF8ValidateAccept not reached along 4 transitions has to mean a rejection
+    assert(state == internal::kUTF8ValidateReject);
     return false;
   }
 
@@ -146,11 +150,11 @@ inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
   // Note the state table is designed so that, once in the reject state,
   // we remain in that state until the end.  So we needn't check for
   // rejection at each char (we don't gain much by short-circuiting here).
-  uint8_t state = internal::kUTF8Accept;
+  uint16_t state = internal::kUTF8ValidateAccept;
   while (size-- > 0) {
     state = internal::ValidateOneUTF8Byte(*data++, state);
   }
-  return ARROW_PREDICT_TRUE(state == internal::kUTF8Accept);
+  return ARROW_PREDICT_TRUE(state == internal::kUTF8ValidateAccept);
 }
 
 }  // namespace util
