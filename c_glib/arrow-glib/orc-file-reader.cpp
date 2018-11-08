@@ -43,7 +43,7 @@ G_BEGIN_DECLS
 typedef struct GArrowORCFileReaderPrivate_ {
   GArrowSeekableInputStream *input;
   arrow::adapters::orc::ORCFileReader *orc_file_reader;
-  GArray *field_indexes;
+  GArray *field_indices;
 } GArrowORCFileReaderPrivate;
 
 enum {
@@ -81,8 +81,8 @@ garrow_orc_file_reader_finalize(GObject *object)
 
   delete priv->orc_file_reader;
 
-  if (priv->field_indexes) {
-    g_array_free(priv->field_indexes, TRUE);
+  if (priv->field_indices) {
+    g_array_free(priv->field_indices, TRUE);
   }
 
   G_OBJECT_CLASS(garrow_orc_file_reader_parent_class)->finalize(object);
@@ -197,24 +197,47 @@ garrow_orc_file_reader_new(GArrowSeekableInputStream *input,
  * @n_field_indexes: The number of the specified indexes.
  *
  * Since: 0.10.0
+ *
+ * Deprecated: 0.12.0:
+ *  Use garrow_orc_file_reader_set_field_indices() instead.
+ *
  */
 void
 garrow_orc_file_reader_set_field_indexes(GArrowORCFileReader *reader,
                                          const gint *field_indexes,
                                          guint n_field_indexes)
 {
+  garrow_orc_file_reader_set_field_indices(reader,
+                                           field_indexes,
+                                           n_field_indexes);
+}
+
+/**
+ * garrow_orc_file_reader_set_field_indices:
+ * @reader: A #GArrowORCFileReader.
+ * @field_indices: (nullable) (array length=n_field_indices):
+ *   The field indices to be read.
+ * @n_field_indices: The number of the specified indices.
+ *
+ * Since: 0.12.0
+ */
+void
+garrow_orc_file_reader_set_field_indices(GArrowORCFileReader *reader,
+                                         const gint *field_indices,
+                                         guint n_field_indices)
+{
   auto priv = GARROW_ORC_FILE_READER_GET_PRIVATE(reader);
-  if (priv->field_indexes) {
-    g_array_free(priv->field_indexes, TRUE);
+  if (priv->field_indices) {
+    g_array_free(priv->field_indices, TRUE);
   }
-  if (n_field_indexes == 0) {
-    priv->field_indexes = NULL;
+  if (n_field_indices == 0) {
+    priv->field_indices = NULL;
   } else {
-    priv->field_indexes = g_array_sized_new(FALSE,
+    priv->field_indices = g_array_sized_new(FALSE,
                                             FALSE,
                                             sizeof(gint),
-                                            n_field_indexes);
-    g_array_append_vals(priv->field_indexes, field_indexes, n_field_indexes);
+                                            n_field_indices);
+    g_array_append_vals(priv->field_indices, field_indices, n_field_indices);
   }
 }
 
@@ -227,17 +250,37 @@ garrow_orc_file_reader_set_field_indexes(GArrowORCFileReader *reader,
  *  The field indexes to be read.
  *
  * Since: 0.10.0
+ *
+ * Deprecated: 0.12.0:
+ *   Use garrow_orc_file_reader_get_field_indices() instead.
  */
 const gint *
 garrow_orc_file_reader_get_field_indexes(GArrowORCFileReader *reader,
                                          guint *n_field_indexes)
 {
+  return garrow_orc_file_reader_get_field_indices(reader, n_field_indexes);
+}
+
+/**
+ * garrow_orc_file_reader_get_field_indices:
+ * @reader: A #GArrowORCFileReader.
+ * @n_field_indices: The number of the specified indices.
+ *
+ * Returns: (nullable) (array length=n_field_indices) (transfer none):
+ *  The field indices to be read.
+ *
+ * Since: 0.12.0
+ */
+const gint *
+garrow_orc_file_reader_get_field_indices(GArrowORCFileReader *reader,
+                                         guint *n_field_indices)
+{
   auto priv = GARROW_ORC_FILE_READER_GET_PRIVATE(reader);
-  if (priv->field_indexes) {
-    *n_field_indexes = priv->field_indexes->len;
-    return reinterpret_cast<gint *>(priv->field_indexes->data);
+  if (priv->field_indices) {
+    *n_field_indices = priv->field_indices->len;
+    return reinterpret_cast<gint *>(priv->field_indices->data);
   } else {
-    *n_field_indexes = 0;
+    *n_field_indices = 0;
     return NULL;
   }
 }
@@ -282,14 +325,14 @@ garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader,
 {
   auto arrow_reader = garrow_orc_file_reader_get_raw(reader);
   auto priv = GARROW_ORC_FILE_READER_GET_PRIVATE(reader);
-  if (priv->field_indexes) {
-    std::vector<int> arrow_field_indexes;
-    auto field_indexes = priv->field_indexes;
-    for (guint i = 0; i < field_indexes->len; ++i) {
-      arrow_field_indexes.push_back(g_array_index(field_indexes, gint, i));
+  if (priv->field_indices) {
+    std::vector<int> arrow_field_indices;
+    auto field_indices = priv->field_indices;
+    for (guint i = 0; i < field_indices->len; ++i) {
+      arrow_field_indices.push_back(g_array_index(field_indices, gint, i));
     }
     std::shared_ptr<arrow::Table> arrow_table;
-    auto status = arrow_reader->Read(arrow_field_indexes, &arrow_table);
+    auto status = arrow_reader->Read(arrow_field_indices, &arrow_table);
     if (garrow_error_check(error, status, "[orc-file-reader][read-stripes]")) {
       return garrow_table_new_raw(&arrow_table);
     } else {
@@ -327,15 +370,15 @@ garrow_orc_file_reader_read_stripe(GArrowORCFileReader *reader,
     i += arrow_reader->NumberOfStripes();
   }
   auto priv = GARROW_ORC_FILE_READER_GET_PRIVATE(reader);
-  if (priv->field_indexes) {
-    std::vector<int> arrow_field_indexes;
-    auto field_indexes = priv->field_indexes;
-    for (guint j = 0; j < field_indexes->len; ++j) {
-      arrow_field_indexes.push_back(g_array_index(field_indexes, gint, j));
+  if (priv->field_indices) {
+    std::vector<int> arrow_field_indices;
+    auto field_indices = priv->field_indices;
+    for (guint j = 0; j < field_indices->len; ++j) {
+      arrow_field_indices.push_back(g_array_index(field_indices, gint, j));
     }
     std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
     auto status = arrow_reader->ReadStripe(i,
-                                           arrow_field_indexes,
+                                           arrow_field_indices,
                                            &arrow_record_batch);
     if (garrow_error_check(error, status, "[orc-file-reader][read-stripe]")) {
       return garrow_record_batch_new_raw(&arrow_record_batch);
