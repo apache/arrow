@@ -164,7 +164,7 @@ garrow_orc_file_reader_class_init(GArrowORCFileReaderClass *klass)
 /**
  * garrow_orc_file_reader_new:
  * @file: The file to be read.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GArrowORCFileReader
  *   or %NULL on error.
@@ -245,7 +245,7 @@ garrow_orc_file_reader_get_field_indexes(GArrowORCFileReader *reader,
 /**
  * garrow_orc_file_reader_read_type:
  * @reader: A #GArrowORCFileReader.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): A newly read type as
  *   #GArrowSchema or %NULL on error.
@@ -269,7 +269,7 @@ garrow_orc_file_reader_read_type(GArrowORCFileReader *reader,
 /**
  * garrow_orc_file_reader_read_stripes:
  * @reader: A #GArrowORCFileReader.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): A newly read stripes as
  *   #GArrowTable or %NULL on error.
@@ -310,7 +310,7 @@ garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader,
  * garrow_orc_file_reader_read_stripe:
  * @reader: A #GArrowORCFileReader.
  * @i: The stripe index to be read.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): A newly read stripe as
  *   #GArrowRecordBatch or %NULL on error.
