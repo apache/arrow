@@ -318,9 +318,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowFeatherFileWriter,
                            G_TYPE_OBJECT);
 
 #define GARROW_FEATHER_FILE_WRITER_GET_PRIVATE(obj)             \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
-                               GARROW_TYPE_FEATHER_FILE_WRITER, \
-                               GArrowFeatherFileWriterPrivate))
+  static_cast<GArrowFeatherFileWriterPrivate *>(                \
+    garrow_feather_file_writer_get_instance_private(            \
+      GARROW_FEATHER_FILE_WRITER(obj)))
 
 static void
 garrow_feather_file_writer_finalize(GObject *object)
@@ -469,9 +469,29 @@ garrow_feather_file_writer_append(GArrowFeatherFileWriter *writer,
   auto arrow_array = garrow_array_get_raw(array);
 
   auto status = arrow_writer->Append(std::string(name), *arrow_array);
-  return garrow_error_check(error,
-                            status,
-                            "[feather-file-writer][append]");
+  return garrow_error_check(error, status, "[feather-file-writer][append]");
+}
+
+/**
+ * garrow_feather_file_writer_writer:
+ * @writer: A #GArrowFeatherFileWriter.
+ * @array: The table to be written.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+garrow_feather_file_writer_write(GArrowFeatherFileWriter *writer,
+                                 GArrowTable *table,
+                                 GError **error)
+{
+  auto arrow_writer = garrow_feather_file_writer_get_raw(writer);
+  auto arrow_table = garrow_table_get_raw(table);
+
+  auto status = arrow_writer->Write(*arrow_table);
+  return garrow_error_check(error, status, "[feather-file-writer][write]");
 }
 
 /**

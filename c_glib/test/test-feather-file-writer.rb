@@ -65,4 +65,26 @@ class TestFeatherFileWriter < Test::Unit::TestCase
       input.close
     end
   end
+
+  def test_write
+    messages = build_string_array(["Crash", "Error", "Shutdown"])
+    is_criticals = build_boolean_array([true, true, false])
+    table = build_table("message" => messages,
+                        "is_critical" => is_criticals)
+
+    tempfile = Tempfile.open("arrow-feather-file-writer")
+
+    output = Arrow::FileOutputStream.new(tempfile.path, false)
+    writer = Arrow::FeatherFileWriter.new(output)
+    writer.n_rows = table.n_rows
+    writer.write(table)
+    writer.close
+    output.close
+
+    input = Arrow::MemoryMappedInputStream.new(tempfile.path)
+    reader = Arrow::FeatherFileReader.new(input)
+    assert_equal([table.n_rows, table],
+                 [reader.n_rows, reader.read])
+    input.close
+  end
 end

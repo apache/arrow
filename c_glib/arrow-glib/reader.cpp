@@ -535,9 +535,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowFeatherFileReader,
                            G_TYPE_OBJECT);
 
 #define GARROW_FEATHER_FILE_READER_GET_PRIVATE(obj)             \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
-                               GARROW_TYPE_FEATHER_FILE_READER, \
-                               GArrowFeatherFileReaderPrivate))
+  static_cast<GArrowFeatherFileReaderPrivate *>(                \
+    garrow_feather_file_reader_get_instance_private(            \
+      GARROW_FEATHER_FILE_READER(obj)))
 
 static void
 garrow_feather_file_reader_finalize(GObject *object)
@@ -801,6 +801,92 @@ garrow_feather_file_reader_get_columns(GArrowFeatherFileReader *reader,
   return g_list_reverse(columns);
 }
 
+/**
+ * garrow_feather_file_reader_read:
+ * @reader: A #GArrowFeatherFileReader.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The table in the file that has all columns.
+ *
+ * Since: 0.12.0
+ */
+GArrowTable *
+garrow_feather_file_reader_read(GArrowFeatherFileReader *reader,
+                                GError **error)
+{
+  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
+  std::shared_ptr<arrow::Table> arrow_table;
+  auto status = arrow_reader->Read(&arrow_table);
+  if (garrow_error_check(error, status, "[feather-file-reader][read]")) {
+    return garrow_table_new_raw(&arrow_table);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_feather_file_reader_read_indices:
+ * @reader: A #GArrowFeatherFileReader.
+ * @indices: (array length=n_indices): The indices of column to be read.
+ * @n_indices: The number of indices.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The table in the file that has only the
+ *   specified columns.
+ *
+ * Since: 0.12.0
+ */
+GArrowTable *
+garrow_feather_file_reader_read_indices(GArrowFeatherFileReader *reader,
+                                        const gint *indices,
+                                        guint n_indices,
+                                        GError **error)
+{
+  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
+  std::vector<int> cpp_indices(n_indices);
+  for (guint i = 0; i < n_indices; ++i) {
+    cpp_indices.push_back(indices[i]);
+  }
+  std::shared_ptr<arrow::Table> arrow_table;
+  auto status = arrow_reader->Read(cpp_indices, &arrow_table);
+  if (garrow_error_check(error, status, "[feather-file-reader][read-indices]")) {
+    return garrow_table_new_raw(&arrow_table);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_feather_file_reader_read_names:
+ * @reader: A #GArrowFeatherFileReader.
+ * @names: (array length=n_names): The names of column to be read.
+ * @n_names: The number of names.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The table in the file that has only the
+ *   specified columns.
+ *
+ * Since: 0.12.0
+ */
+GArrowTable *
+garrow_feather_file_reader_read_names(GArrowFeatherFileReader *reader,
+                                      const gchar **names,
+                                      guint n_names,
+                                      GError **error)
+{
+  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
+  std::vector<std::string> cpp_names(n_names);
+  for (guint i = 0; i < n_names; ++i) {
+    cpp_names.push_back(names[i]);
+  }
+  std::shared_ptr<arrow::Table> arrow_table;
+  auto status = arrow_reader->Read(cpp_names, &arrow_table);
+  if (garrow_error_check(error, status, "[feather-file-reader][read-names]")) {
+    return garrow_table_new_raw(&arrow_table);
+  } else {
+    return NULL;
+  }
+}
 
 G_END_DECLS
 
