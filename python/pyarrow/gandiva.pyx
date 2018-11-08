@@ -27,8 +27,7 @@ from libc.stdint cimport int64_t, uint8_t, uintptr_t
 
 from pyarrow.includes.libarrow cimport *
 from pyarrow.compat import frombytes
-from pyarrow.lib cimport check_status, pyarrow_wrap_array
-from pyarrow.lib import type_for_alias
+from pyarrow.lib cimport check_status, pyarrow_wrap_array, _as_type
 
 from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           CNode, CProjector, CFilter,
@@ -164,20 +163,11 @@ cdef class Filter:
         return SelectionVector.create(selection)
 
 
-cdef inline DataType _ensure_type(object type):
-    if type is None:
-        return None
-    elif not isinstance(type, DataType):
-        return type_for_alias(type)
-    else:
-        return type
-
-
 cdef class TreeExprBuilder:
 
     def make_literal(self, value, dtype):
         cdef shared_ptr[CNode] r
-        cdef DataType type = _ensure_type(dtype)
+        cdef DataType type = _as_type(dtype)
         if type.id == _Type_BOOL:
             r = TreeExprBuilder_MakeBoolLiteral(value)
         elif type.id == _Type_UINT8:

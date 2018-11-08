@@ -101,6 +101,45 @@ def test_filter():
 
 
 @pytest.mark.gandiva
+def test_literals():
+    import pyarrow.gandiva as gandiva
+
+    builder = gandiva.TreeExprBuilder()
+
+    builder.make_literal(True, pa.bool_())
+    builder.make_literal(0, pa.uint8())
+    builder.make_literal(1, pa.uint16())
+    builder.make_literal(2, pa.uint32())
+    builder.make_literal(3, pa.uint64())
+    builder.make_literal(4, pa.int8())
+    builder.make_literal(5, pa.int16())
+    builder.make_literal(6, pa.int32())
+    builder.make_literal(7, pa.int64())
+    builder.make_literal(8.0, pa.float32())
+    builder.make_literal(9.0, pa.float64())
+    builder.make_literal("hello", pa.string())
+    builder.make_literal(b"world", pa.binary())
+
+    builder.make_literal(True, "bool")
+    builder.make_literal(0, "uint8")
+    builder.make_literal(1, "uint16")
+    builder.make_literal(2, "uint32")
+    builder.make_literal(3, "uint64")
+    builder.make_literal(4, "int8")
+    builder.make_literal(5, "int16")
+    builder.make_literal(6, "int32")
+    builder.make_literal(7, "int64")
+    builder.make_literal(8.0, "float32")
+    builder.make_literal(9.0, "float64")
+    builder.make_literal("hello", "string")
+    builder.make_literal(b"world", "binary")
+
+    with pytest.raises(TypeError):
+        builder.make_literal("hello", pa.int64())
+        builder.make_literal(True, None)
+
+
+@pytest.mark.gandiva
 def test_regex():
     import pyarrow.gandiva as gandiva
 
