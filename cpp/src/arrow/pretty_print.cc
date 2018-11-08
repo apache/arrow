@@ -409,6 +409,16 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
   return Status::OK();
 }
 
+Status PrettyPrint(const Column& column, const PrettyPrintOptions& options,
+                   std::ostream* sink) {
+  for (int i = 0; i < options.indent; ++i) {
+    (*sink) << " ";
+  }
+  (*sink) << column.field()->ToString() << "\n";
+
+  return PrettyPrint(*column.data(), options, sink);
+}
+
 Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& options,
                    std::string* result) {
   std::ostringstream sink;
@@ -422,6 +432,26 @@ Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
     const std::string& name = batch.column_name(i);
     (*sink) << name << ": ";
     RETURN_NOT_OK(PrettyPrint(*batch.column(i), indent + 2, sink));
+    (*sink) << "\n";
+  }
+  (*sink) << std::flush;
+  return Status::OK();
+}
+
+Status PrettyPrint(const Table& table, const PrettyPrintOptions& options,
+                   std::ostream* sink) {
+  RETURN_NOT_OK(PrettyPrint(*table.schema(), options, sink));
+  (*sink) << "\n";
+  (*sink) << "----\n";
+
+  PrettyPrintOptions column_options = options;
+  column_options.indent += 2;
+  for (int i = 0; i < table.num_columns(); ++i) {
+    for (int j = 0; j < options.indent; ++j) {
+      (*sink) << " ";
+    }
+    (*sink) << table.schema()->field(i)->name() << ":\n";
+    RETURN_NOT_OK(PrettyPrint(*table.column(i)->data(), column_options, sink));
     (*sink) << "\n";
   }
   (*sink) << std::flush;
