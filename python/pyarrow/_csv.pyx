@@ -215,6 +215,38 @@ cdef class ParseOptions:
         self.options.newlines_in_values = value
 
 
+cdef class ConvertOptions:
+    """
+    Options for converting CSV data.
+
+    Parameters
+    ----------
+    check_utf8 : bool, optional (default True)
+        Whether to check UTF8 validity of string columns.
+    """
+    cdef:
+        CCSVConvertOptions options
+
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, check_utf8=None):
+        self.options = CCSVConvertOptions.Defaults()
+        if check_utf8 is not None:
+            self.check_utf8 = check_utf8
+
+    @property
+    def check_utf8(self):
+        """
+        Whether to check UTF8 validity of string columns.
+        """
+        return self.options.check_utf8
+
+    @check_utf8.setter
+    def check_utf8(self, value):
+        self.options.check_utf8 = value
+
+
 cdef _get_reader(input_file, shared_ptr[InputStream]* out):
     use_memory_map = False
     get_input_stream(input_file, use_memory_map, out)
@@ -234,11 +266,12 @@ cdef _get_parse_options(ParseOptions parse_options, CCSVParseOptions* out):
         out[0] = parse_options.options
 
 
-cdef _get_convert_options(convert_options, CCSVConvertOptions* out):
+cdef _get_convert_options(ConvertOptions convert_options,
+                          CCSVConvertOptions* out):
     if convert_options is None:
         out[0] = CCSVConvertOptions.Defaults()
     else:
-        raise NotImplementedError("non-default convert options not supported")
+        out[0] = convert_options.options
 
 
 def read_csv(input_file, read_options=None, parse_options=None,
@@ -257,8 +290,9 @@ def read_csv(input_file, read_options=None, parse_options=None,
     parse_options: ParseOptions, optional
         Options for the CSV parser
         (see ParseOptions constructor for defaults)
-    convert_options: None
-        Currently unused
+    convert_options: ConvertOptions, optional
+        Options for converting CSV data
+        (see ConvertOptions constructor for defaults)
     memory_pool: MemoryPool, optional
         Pool to allocate Table memory from
 

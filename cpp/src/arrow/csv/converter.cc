@@ -28,6 +28,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
+#include "arrow/util/utf8.h"
 
 namespace arrow {
 namespace csv {
@@ -56,6 +57,7 @@ class ConcreteConverter : public Converter {
   using Converter::Converter;
 
  protected:
+  Status Initialize() override { return Status::OK(); }
   inline bool IsNull(const uint8_t* data, uint32_t size, bool quoted);
 };
 
@@ -197,34 +199,41 @@ Status NullConverter::Convert(const BlockParser& parser, int32_t col_index,
 /////////////////////////////////////////////////////////////////////////
 // Concrete Converter for var-sized binary strings
 
-template <typename T>
+template <typename T, bool CheckUTF8>
 class VarSizeBinaryConverter : public ConcreteConverter {
  public:
   using ConcreteConverter::ConcreteConverter;
 
   Status Convert(const BlockParser& parser, int32_t col_index,
-                 std::shared_ptr<Array>* out) override;
-};
+                 std::shared_ptr<Array>* out) override {
+    using BuilderType = typename TypeTraits<T>::BuilderType;
+    BuilderType builder(pool_);
 
-template <typename T>
-Status VarSizeBinaryConverter<T>::Convert(const BlockParser& parser, int32_t col_index,
-                                          std::shared_ptr<Array>* out) {
-  using BuilderType = typename TypeTraits<T>::BuilderType;
-  BuilderType builder(pool_);
+    // TODO do we accept nulls here?
 
-  // TODO handle nulls
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+      if (CheckUTF8 && ARROW_PREDICT_FALSE(!util::ValidateUTF8(data, size))) {
+        std::stringstream ss;
+        ss << "CSV conversion error to " << type_->ToString() << ": invalid UTF8 data";
+        return Status::Invalid(ss.str());
+      }
+      builder.UnsafeAppend(data, size);
+      return Status::OK();
+    };
+    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
+    RETURN_NOT_OK(builder.ReserveData(parser.num_bytes()));
+    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
+    RETURN_NOT_OK(builder.Finish(out));
 
-  auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-    builder.UnsafeAppend(data, size);
     return Status::OK();
-  };
-  RETURN_NOT_OK(builder.Resize(parser.num_rows()));
-  RETURN_NOT_OK(builder.ReserveData(parser.num_bytes()));
-  RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-  RETURN_NOT_OK(builder.Finish(out));
+  }
 
-  return Status::OK();
-}
+ protected:
+  Status Initialize() override {
+    util::InitializeUTF8();
+    return Status::OK();
+  }
+};
 
 /////////////////////////////////////////////////////////////////////////
 // Concrete Converter for fixed-sized binary strings
@@ -242,7 +251,7 @@ Status FixedSizeBinaryConverter::Convert(const BlockParser& parser, int32_t col_
   FixedSizeBinaryBuilder builder(type_, pool_);
   const uint32_t byte_width = static_cast<uint32_t>(builder.byte_width());
 
-  // TODO handle nulls
+  // TODO do we accept nulls here?
 
   auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
     if (ARROW_PREDICT_FALSE(size != byte_width)) {
@@ -340,9 +349,6 @@ Status Converter::Make(const std::shared_ptr<DataType>& type, ConvertOptions opt
     break;
 
     CONVERTER_CASE(Type::NA, NullConverter)
-    CONVERTER_CASE(Type::BINARY, VarSizeBinaryConverter<BinaryType>)
-    CONVERTER_CASE(Type::STRING, VarSizeBinaryConverter<StringType>)
-    CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
     CONVERTER_CASE(Type::INT8, NumericConverter<Int8Type>)
     CONVERTER_CASE(Type::INT16, NumericConverter<Int16Type>)
     CONVERTER_CASE(Type::INT32, NumericConverter<Int32Type>)
@@ -354,6 +360,16 @@ Status Converter::Make(const std::shared_ptr<DataType>& type, ConvertOptions opt
     CONVERTER_CASE(Type::FLOAT, NumericConverter<FloatType>)
     CONVERTER_CASE(Type::DOUBLE, NumericConverter<DoubleType>)
     CONVERTER_CASE(Type::BOOL, NumericConverter<BooleanType>)
+    CONVERTER_CASE(Type::BINARY, (VarSizeBinaryConverter<BinaryType, false>))
+    CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
+
+    case Type::STRING:
+      if (options.check_utf8) {
+        result = new VarSizeBinaryConverter<StringType, true>(type, options, pool);
+      } else {
+        result = new VarSizeBinaryConverter<StringType, false>(type, options, pool);
+      }
+      break;
 
     default: {
       std::stringstream ss;
@@ -364,7 +380,7 @@ Status Converter::Make(const std::shared_ptr<DataType>& type, ConvertOptions opt
 #undef CONVERTER_CASE
   }
   out->reset(result);
-  return Status::OK();
+  return result->Initialize();
 }
 
 Status Converter::Make(const std::shared_ptr<DataType>& type, ConvertOptions options,
