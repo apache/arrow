@@ -39,3 +39,8 @@ int ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x) {
 int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x) {
   return x->offset;
 }
+
+// [[Rcpp::export]]
+List ArrayData__buffers(const std::shared_ptr<arrow::ArrayData>& x) {
+  return wrap(x->buffers);
+}

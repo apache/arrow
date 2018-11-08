@@ -89,7 +89,7 @@ bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
 std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(
     const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
   std::shared_ptr<arrow::RecordBatch> res;
-  R_ERROR_NOT_OK(batch->RemoveColumn(i, &res));
+  STOP_IF_NOT_OK(batch->RemoveColumn(i, &res));
   return res;
 }
 

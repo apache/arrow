@@ -28,7 +28,7 @@ std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl) {
   auto rb = RecordBatch__from_dataframe(tbl);
 
   std::shared_ptr<arrow::Table> out;
-  R_ERROR_NOT_OK(arrow::Table::FromRecordBatches({std::move(rb)}, &out));
+  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches({std::move(rb)}, &out));
   return out;
 }
 

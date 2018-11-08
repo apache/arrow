@@ -15,15 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include R6.R
+context("ArrayData")
 
-`arrow::ArrayData` <- R6Class("arrow::ArrayData",
-  inherit = `arrow::Object`,
-  active = list(
-    type = function() `arrow::DataType`$dispatch(ArrayData__get_type(self)),
-    length = function() ArrayData__get_length(self),
-    null_count = function() ArrayData__get_null_count(self),
-    offset = function() ArrayData__get_offset(self),
-    buffers = function() map(ArrayData__buffers(self), construct, class = `arrow::Buffer`)
-  )
-)
+test_that("string vectors with only empty strings and nulls don't allocate a data buffer (ARROW-3693)", {
+  a <- array("")
+  expect_equal(a$length(), 1L)
+
+  buffers <- a$data()$buffers
+  expect_null(buffers[[1]])
+  expect_null(buffers[[3]])
+  expect_equal(buffers[[2]]$size(), 8L)
+})
