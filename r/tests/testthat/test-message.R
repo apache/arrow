@@ -22,7 +22,16 @@ test_that("read_message can read from input stream", {
   bytes <- write_record_batch(batch, raw())
   stream <- buffer_reader(bytes)
 
-  expect_equal(read_message(stream)$type(), MessageType$SCHEMA)
-  expect_equal(read_message(stream)$type(), MessageType$RECORD_BATCH)
+  message <- read_message(stream)
+  expect_equal(message$type(), MessageType$SCHEMA)
+  expect_is(message$body, "arrow::Buffer")
+  expect_is(message$metadata, "arrow::Buffer")
+
+  message <- read_message(stream)
+  expect_equal(message$type(), MessageType$RECORD_BATCH)
+  expect_is(message$body, "arrow::Buffer")
+  expect_is(message$metadata, "arrow::Buffer")
+
+  message <- read_message(stream)
   expect_null(read_message(stream))
 })

@@ -22,9 +22,18 @@ test_that("MessageReader can be created from raw vectors", {
   bytes <- write_record_batch(batch, raw())
 
   reader <- message_reader(bytes)
-  expect_equal(reader$ReadNextMessage()$type(), MessageType$SCHEMA)
-  expect_equal(reader$ReadNextMessage()$type(), MessageType$RECORD_BATCH)
-  expect_null(reader$ReadNextMessage())
+  message <- reader$ReadNextMessage()
+  expect_equal(message$type(), MessageType$SCHEMA)
+  expect_is(message$body, "arrow::Buffer")
+  expect_is(message$metadata, "arrow::Buffer")
+
+  message <- reader$ReadNextMessage()
+  expect_equal(message$type(), MessageType$RECORD_BATCH)
+  expect_is(message$body, "arrow::Buffer")
+  expect_is(message$metadata, "arrow::Buffer")
+
+  message <- reader$ReadNextMessage()
+  expect_null(message)
 })
 
 test_that("MessageReader can be created from input stream", {
@@ -33,7 +42,16 @@ test_that("MessageReader can be created from input stream", {
   stream <- buffer_reader(bytes)
 
   reader <- message_reader(stream)
-  expect_equal(reader$ReadNextMessage()$type(), MessageType$SCHEMA)
-  expect_equal(reader$ReadNextMessage()$type(), MessageType$RECORD_BATCH)
-  expect_null(reader$ReadNextMessage())
+  message <- reader$ReadNextMessage()
+  expect_equal(message$type(), MessageType$SCHEMA)
+  expect_is(message$body, "arrow::Buffer")
+  expect_is(message$metadata, "arrow::Buffer")
+
+  message <- reader$ReadNextMessage()
+  expect_equal(message$type(), MessageType$RECORD_BATCH)
+  expect_is(message$body, "arrow::Buffer")
+  expect_is(message$metadata, "arrow::Buffer")
+
+  message <- reader$ReadNextMessage()
+  expect_null(message)
 })

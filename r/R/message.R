@@ -24,10 +24,12 @@
       ipc___Message__Equals(self, other)
     },
     body_length = function() ipc___Message__body_length(self),
-    metadata = function() shared_ptr(`arrow::Buffer`, ipc___Message__metadata(self)),
-    body = function() shared_ptr(`arrow::Buffer`, ipc___Message__body(self)),
     Verify = function() ipc___Message__Verify(self),
     type = function() ipc___Message__type(self)
+  ),
+  active = list(
+    metadata = function() shared_ptr(`arrow::Buffer`, ipc___Message__metadata(self)),
+    body = function() shared_ptr(`arrow::Buffer`, ipc___Message__body(self))
   )
 )
 
