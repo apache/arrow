@@ -32,20 +32,21 @@
       self$`.:xp:.` <- xp
     },
     print = function(...){
-      cat(crayon::silver(glue::glue("{cl} <{p}>", cl = class(self)[[1]], p = self$pointer_address())), "\n")
+      cat(crayon::silver(glue::glue("{cl}", cl = class(self)[[1]])), "\n")
       if(!is.null(self$ToString)){
         cat(self$ToString(), "\n")
       }
       invisible(self)
-    },
-    pointer_address = function(){
-      Object__pointer_address(self$pointer())
     }
   )
 )
 
-construct <- function(class, xp) {
-  if (!xptr_is_null(xp)) class$new(xp)
+shared_ptr <- function(class, xp) {
+  if(!shared_ptr_is_null(xp)) class$new(xp)
+}
+
+unique_ptr <- function(class, xp) {
+  if(!unique_ptr_is_null(xp)) class$new(xp)
 }
 
 #' @export
@@ -70,7 +71,7 @@ construct <- function(class, xp) {
       DataType__num_children(self)
     },
     children = function() {
-      map(DataType__children_pointer(self), construct, class= `arrow::Field`)
+      map(DataType__children_pointer(self), shared_ptr, class= `arrow::Field`)
     },
     id = function(){
       DataType__id(self)
@@ -94,15 +95,15 @@ construct <- function(class, xp) {
         BINARY = stop("Type BINARY not implemented yet"),
         DATE32 = date32(),
         DATE64 = date64(),
-        TIMESTAMP = construct(`arrow::Timestamp`,self$pointer()),
-        TIME32 = construct(`arrow::Time32`,self$pointer()),
-        TIME64 = construct(`arrow::Time64`,self$pointer()),
+        TIMESTAMP = shared_ptr(`arrow::Timestamp`,self$pointer()),
+        TIME32 = shared_ptr(`arrow::Time32`,self$pointer()),
+        TIME64 = shared_ptr(`arrow::Time64`,self$pointer()),
         INTERVAL = stop("Type INTERVAL not implemented yet"),
-        DECIMAL = construct(`arrow::Decimal128Type`, self$pointer()),
-        LIST = construct(`arrow::ListType`, self$pointer()),
-        STRUCT = construct(`arrow::StructType`, self$pointer()),
+        DECIMAL = shared_ptr(`arrow::Decimal128Type`, self$pointer()),
+        LIST = shared_ptr(`arrow::ListType`, self$pointer()),
+        STRUCT = shared_ptr(`arrow::StructType`, self$pointer()),
         UNION = stop("Type UNION not implemented yet"),
-        DICTIONARY = construct(`arrow::DictionaryType`, self$pointer()),
+        DICTIONARY = shared_ptr(`arrow::DictionaryType`, self$pointer()),
         MAP = stop("Type MAP not implemented yet")
       )
     }
@@ -110,7 +111,7 @@ construct <- function(class, xp) {
 )
 
 `arrow::DataType`$dispatch <- function(xp){
-  construct(`arrow::DataType`, xp)$..dispatch()
+  shared_ptr(`arrow::DataType`, xp)$..dispatch()
 }
 
 #----- metadata
@@ -243,88 +244,88 @@ construct <- function(class, xp) {
 #'
 #' @rdname DataType
 #' @export
-int8 <- function() construct(`arrow::Int8`, Int8__initialize())
+int8 <- function() shared_ptr(`arrow::Int8`, Int8__initialize())
 
 #' @rdname DataType
 #' @export
-int16 <- function() construct(`arrow::Int16`, Int16__initialize())
+int16 <- function() shared_ptr(`arrow::Int16`, Int16__initialize())
 
 #' @rdname DataType
 #' @export
-int32 <- function() construct(`arrow::Int32`, Int32__initialize())
+int32 <- function() shared_ptr(`arrow::Int32`, Int32__initialize())
 
 #' @rdname DataType
 #' @export
-int64 <- function() construct(`arrow::Int64`, Int64__initialize())
+int64 <- function() shared_ptr(`arrow::Int64`, Int64__initialize())
 
 #' @rdname DataType
 #' @export
-uint8 <- function() construct(`arrow::UInt8`, UInt8__initialize())
+uint8 <- function() shared_ptr(`arrow::UInt8`, UInt8__initialize())
 
 #' @rdname DataType
 #' @export
-uint16 <- function() construct(`arrow::UInt16`, UInt16__initialize())
+uint16 <- function() shared_ptr(`arrow::UInt16`, UInt16__initialize())
 
 #' @rdname DataType
 #' @export
-uint32 <- function() construct(`arrow::UInt32`, UInt32__initialize())
+uint32 <- function() shared_ptr(`arrow::UInt32`, UInt32__initialize())
 
 #' @rdname DataType
 #' @export
-uint64 <- function() construct(`arrow::UInt64`, UInt64__initialize())
+uint64 <- function() shared_ptr(`arrow::UInt64`, UInt64__initialize())
 
 #' @rdname DataType
 #' @export
-float16 <- function() construct(`arrow::Float16`,  Float16__initialize())
+float16 <- function() shared_ptr(`arrow::Float16`,  Float16__initialize())
 
 #' @rdname DataType
 #' @export
-float32 <- function() construct(`arrow::Float32`, Float32__initialize())
+float32 <- function() shared_ptr(`arrow::Float32`, Float32__initialize())
 
 #' @rdname DataType
 #' @export
-float64 <- function() construct(`arrow::Float64`, Float64__initialize())
+float64 <- function() shared_ptr(`arrow::Float64`, Float64__initialize())
 
 #' @rdname DataType
 #' @export
-boolean <- function() construct(`arrow::Boolean`, Boolean__initialize())
+boolean <- function() shared_ptr(`arrow::Boolean`, Boolean__initialize())
 
 #' @rdname DataType
 #' @export
-utf8 <- function() construct(`arrow::Utf8`, Utf8__initialize())
+utf8 <- function() shared_ptr(`arrow::Utf8`, Utf8__initialize())
 
 #' @rdname DataType
 #' @export
-date32 <- function() construct(`arrow::Date32`, Date32__initialize())
+date32 <- function() shared_ptr(`arrow::Date32`, Date32__initialize())
 
 #' @rdname DataType
 #' @export
-date64 <- function() construct(`arrow::Date64`, Date64__initialize())
+date64 <- function() shared_ptr(`arrow::Date64`, Date64__initialize())
 
 #' @rdname DataType
 #' @export
-time32 <- function(unit) construct(`arrow::Time32`, Time32__initialize(unit))
+time32 <- function(unit) shared_ptr(`arrow::Time32`, Time32__initialize(unit))
 
 #' @rdname DataType
 #' @export
-time64 <- function(unit) construct(`arrow::Time64`, Time64__initialize(unit))
+time64 <- function(unit) shared_ptr(`arrow::Time64`, Time64__initialize(unit))
 
 #' @rdname DataType
 #' @export
-null <- function() construct(`arrow::Null`, Null__initialize())
+null <- function() shared_ptr(`arrow::Null`, Null__initialize())
 
 #' @rdname DataType
 #' @export
 timestamp <- function(unit, timezone) {
   if (missing(timezone)) {
-    construct(`arrow::Timestamp`, Timestamp__initialize1(unit))
+    shared_ptr(`arrow::Timestamp`, Timestamp__initialize1(unit))
   } else {
-    construct(`arrow::Timestamp`, Timestamp__initialize2(unit, timezone))
+    shared_ptr(`arrow::Timestamp`, Timestamp__initialize2(unit, timezone))
   }
 }
 
 #' @rdname DataType
 #' @export
-decimal <- function(precision, scale) construct(`arrow::Decimal128Type`, Decimal128Type__initialize(precision, scale))
+decimal <- function(precision, scale) shared_ptr(`arrow::Decimal128Type`, Decimal128Type__initialize(precision, scale))
 
 `arrow::NestedType` <- R6Class("arrow::NestedType", inherit = `arrow::DataType`)

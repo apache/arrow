@@ -19,9 +19,9 @@
 
 `arrow::RecordBatchReader` <- R6Class("arrow::RecordBatchReader", inherit = `arrow::Object`,
   public = list(
-    schema = function() construct(`arrow::Schema`, RecordBatchReader__schema(self)),
+    schema = function() shared_ptr(`arrow::Schema`, RecordBatchReader__schema(self)),
     ReadNext = function() {
-      construct(`arrow::RecordBatch`, RecordBatchReader__ReadNext(self))
+      shared_ptr(`arrow::RecordBatch`, RecordBatchReader__ReadNext(self))
     }
   )
 )
@@ -30,9 +30,9 @@
 
 `arrow::ipc::RecordBatchFileReader` <- R6Class("arrow::ipc::RecordBatchFileReader", inherit = `arrow::Object`,
   public = list(
-    schema = function() construct(`arrow::Schema`, ipc___RecordBatchFileReader__schema(self)),
+    schema = function() shared_ptr(`arrow::Schema`, ipc___RecordBatchFileReader__schema(self)),
     num_record_batches = function() ipc___RecordBatchFileReader__num_record_batches(self),
-    ReadRecordBatch = function(i) construct(`arrow::RecordBatch`, ipc___RecordBatchFileReader__ReadRecordBatch(self, i))
+    ReadRecordBatch = function(i) shared_ptr(`arrow::RecordBatch`, ipc___RecordBatchFileReader__ReadRecordBatch(self, i))
   )
 )
 
@@ -47,7 +47,7 @@ record_batch_stream_reader <- function(stream){
 
 #' @export
 `record_batch_stream_reader.arrow::io::InputStream` <- function(stream) {
-  construct(`arrow::ipc::RecordBatchStreamReader`, ipc___RecordBatchStreamReader__Open(stream))
+  shared_ptr(`arrow::ipc::RecordBatchStreamReader`, ipc___RecordBatchStreamReader__Open(stream))
 }
 
 #' @export
@@ -67,7 +67,7 @@ record_batch_file_reader <- function(file) {
 
 #' @export
 `record_batch_file_reader.arrow::io::RandomAccessFile` <- function(file) {
-  construct(`arrow::ipc::RecordBatchFileReader`, ipc___RecordBatchFileReader__Open(file))
+  shared_ptr(`arrow::ipc::RecordBatchFileReader`, ipc___RecordBatchFileReader__Open(file))
 }
 
 #' @export
@@ -135,6 +135,13 @@ read_record_batch.raw <- function(stream, ...){
   stream$ReadRecordBatch(i)
 }
 
+#' @export
+`read_record_batch.arrow::ipc::Message` <- function(stream, schema, ...) {
+  assert_that(inherits(schema, "arrow::Schema"))
+  shared_ptr(`arrow::RecordBatch`, ipc___ReadRecordBatch__Message__Schema(stream, schema))
+}
+
+
 #--------- read_table
 
 #' Read an arrow::Table from a stream
@@ -166,12 +173,12 @@ read_table.fs_path <- function(stream) {
 
 #' @export
 `read_table.arrow::ipc::RecordBatchFileReader` <- function(stream) {
-  construct(`arrow::Table`, Table__from_RecordBatchFileReader(stream))
+  shared_ptr(`arrow::Table`, Table__from_RecordBatchFileReader(stream))
 }
 
 #' @export
 `read_table.arrow::ipc::RecordBatchStreamReader` <- function(stream) {
-  construct(`arrow::Table`, Table__from_RecordBatchStreamReader(stream))
+  shared_ptr(`arrow::Table`, Table__from_RecordBatchStreamReader(stream))
 }
 
 #' @export

@@ -57,6 +57,7 @@ Collate:
     'dictionary.R'
     'io.R'
     'memory_pool.R'
+    'message.R'
     'on_exit.R'
     'reexports-bit64.R'
     'reexports-tibble.R'

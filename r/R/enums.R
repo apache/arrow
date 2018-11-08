@@ -64,3 +64,9 @@ StatusCode <- enum("arrow::StatusCode",
 FileMode <- enum("arrow::io::FileMode",
   READ = 0L, WRITE = 1L, READWRITE = 2L
 )
+
+#' @rdname DataType
+#' @export
+MessageType <- enum("arrow::ipc::Message::Type",
+  NONE = 0L, SCHEMA = 1L, DICTIONARY_BATCH = 2L, RECORD_BATCH = 3L, TENSOR = 4L
+)

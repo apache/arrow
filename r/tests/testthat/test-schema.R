@@ -15,19 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include R6.R
+context("test-schema")
 
-`arrow::MemoryPool` <- R6Class("arrow::MemoryPool",
-  inherit = `arrow::Object`,
-  public = list(
-    # TODO: Allocate
-    # TODO: Reallocate
-    # TODO: Free
-    bytes_allocated = function() MemoryPool__bytes_allocated(self),
-    max_memory = function() MemoryPool__max_memory(self)
-  )
-)
+test_that("reading schema from raw vector", {
+  batch <- record_batch(tibble::tibble(x = 1:10))
+  bytes <- write_record_batch(batch, raw())
+  schema <- read_schema(bytes)
+  expect_equal(schema, batch$schema())
+})
 
-default_memory_pool <- function() {
-  shared_ptr(`arrow::MemoryPool`, MemoryPool__default())
-}
+test_that("reading schema from streams", {
+  batch <- record_batch(tibble::tibble(x = 1:10))
+  bytes <- write_record_batch(batch, raw())
+  stream <- buffer_reader(bytes)
+
+  schema <- read_schema(stream)
+  expect_equal(schema, batch$schema())
+})
