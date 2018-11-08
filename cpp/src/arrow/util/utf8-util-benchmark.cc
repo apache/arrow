@@ -33,11 +33,12 @@ static const char* tiny_valid_non_ascii = "caractères";
 static const char* valid_ascii =
     "UTF-8 is a variable width character encoding capable of encoding all 1,112,064 "
     "valid code points in Unicode using one to four 8-bit bytes";
-// Note this is almost ASCII.  We could devise a harder benchmark with lots
-// of non-ASCII characters inside.
-static const char* valid_non_ascii =
+static const char* valid_almost_ascii =
     "UTF-8 est un codage de caractères informatiques conçu pour coder l’ensemble des "
     "caractères du « répertoire universel de caractères codés »";
+static const char* valid_non_ascii =
+    "UTF-8 はISO/IEC 10646 (UCS) "
+    "とUnicodeで使える8ビット符号単位の文字符号化形式及び文字符号化スキーム。 ";
 
 static std::string MakeLargeString(const std::string& base, int64_t nbytes) {
   int64_t nrepeats = (nbytes + base.size() - 1) / base.size();
@@ -83,6 +84,11 @@ static void BM_ValidateSmallAscii(
   BenchmarkUTF8Validation(state, valid_ascii, true);
 }
 
+static void BM_ValidateSmallAlmostAscii(
+    benchmark::State& state) {  // NOLINT non-const reference
+  BenchmarkUTF8Validation(state, valid_almost_ascii, true);
+}
+
 static void BM_ValidateSmallNonAscii(
     benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkUTF8Validation(state, valid_non_ascii, true);
@@ -91,6 +97,12 @@ static void BM_ValidateSmallNonAscii(
 static void BM_ValidateLargeAscii(
     benchmark::State& state) {  // NOLINT non-const reference
   auto s = MakeLargeString(valid_ascii, 100000);
+  BenchmarkUTF8Validation(state, s, true);
+}
+
+static void BM_ValidateLargeAlmostAscii(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto s = MakeLargeString(valid_almost_ascii, 100000);
   BenchmarkUTF8Validation(state, s, true);
 }
 
@@ -105,8 +117,10 @@ static const int kRepetitions = 1;
 BENCHMARK(BM_ValidateTinyAscii)->Repetitions(kRepetitions);
 BENCHMARK(BM_ValidateTinyNonAscii)->Repetitions(kRepetitions);
 BENCHMARK(BM_ValidateSmallAscii)->Repetitions(kRepetitions);
+BENCHMARK(BM_ValidateSmallAlmostAscii)->Repetitions(kRepetitions);
 BENCHMARK(BM_ValidateSmallNonAscii)->Repetitions(kRepetitions);
 BENCHMARK(BM_ValidateLargeAscii)->Repetitions(kRepetitions);
+BENCHMARK(BM_ValidateLargeAlmostAscii)->Repetitions(kRepetitions);
 BENCHMARK(BM_ValidateLargeNonAscii)->Repetitions(kRepetitions);
 
 }  // namespace util

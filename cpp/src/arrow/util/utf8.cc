@@ -59,7 +59,7 @@ static void InitializeLargeTable() {
       uint32_t byte_class = utf8_small_table[byte];
       uint8_t next_state = utf8_small_table[256 + state * 12 + byte_class] / 12;
       DCHECK_LT(next_state, 9);
-      utf8_large_table[state * 256 + byte] = next_state * 256;
+      utf8_large_table[state * 256 + byte] = static_cast<uint16_t>(next_state * 256);
     }
   }
 }
