@@ -194,51 +194,16 @@ GArrowRecordBatch *garrow_record_batch_file_reader_read_record_batch(
   GError **error);
 
 
-#define GARROW_TYPE_FEATHER_FILE_READER         \
-  (garrow_feather_file_reader_get_type())
-#define GARROW_FEATHER_FILE_READER(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_FEATHER_FILE_READER,  \
-                              GArrowFeatherFileReader))
-#define GARROW_FEATHER_FILE_READER_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_FEATHER_FILE_READER,     \
-                           GArrowFeatherFileReaderClass))
-#define GARROW_IS_FEATHER_FILE_READER(obj)                      \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_FEATHER_FILE_READER))
-#define GARROW_IS_FEATHER_FILE_READER_CLASS(klass)              \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_FEATHER_FILE_READER))
-#define GARROW_FEATHER_FILE_READER_GET_CLASS(obj)               \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_FEATHER_FILE_READER,   \
-                             GArrowFeatherFileReaderClass))
-
-typedef struct _GArrowFeatherFileReader      GArrowFeatherFileReader;
-#ifndef __GTK_DOC_IGNORE__
-typedef struct _GArrowFeatherFileReaderClass GArrowFeatherFileReaderClass;
-#endif
-
-/**
- * GArrowFeatherFileReader:
- *
- * It wraps `arrow::ipc::feather::TableReader`.
- */
-struct _GArrowFeatherFileReader
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
-#ifndef __GTK_DOC_IGNORE__
+#define GARROW_TYPE_FEATHER_FILE_READER (garrow_feather_file_reader_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFeatherFileReader,
+                         garrow_feather_file_reader,
+                         GARROW,
+                         FEATHER_FILE_READER,
+                         GObject)
 struct _GArrowFeatherFileReaderClass
 {
   GObjectClass parent_class;
 };
-#endif
-
-GType garrow_feather_file_reader_get_type(void) G_GNUC_CONST;
 
 GArrowFeatherFileReader *garrow_feather_file_reader_new(
   GArrowSeekableInputStream *file,
@@ -264,5 +229,18 @@ GArrowColumn *garrow_feather_file_reader_get_column(
 GList *garrow_feather_file_reader_get_columns(
   GArrowFeatherFileReader *reader,
   GError **error);
+GArrowTable *
+garrow_feather_file_reader_read(GArrowFeatherFileReader *reader,
+                                GError **error);
+GArrowTable *
+garrow_feather_file_reader_read_indices(GArrowFeatherFileReader *reader,
+                                        const gint *indices,
+                                        guint n_indices,
+                                        GError **error);
+GArrowTable *
+garrow_feather_file_reader_read_names(GArrowFeatherFileReader *reader,
+                                      const gchar **names,
+                                      guint n_names,
+                                      GError **error);
 
 G_END_DECLS

@@ -161,7 +161,7 @@ garrow_record_batch_reader_get_schema(GArrowRecordBatchReader *reader)
 /**
  * garrow_record_batch_reader_get_next_record_batch:
  * @reader: A #GArrowRecordBatchReader.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full):
  *   The next record batch in the stream or %NULL on end of stream.
@@ -181,7 +181,7 @@ garrow_record_batch_reader_get_next_record_batch(GArrowRecordBatchReader *reader
 /**
  * garrow_record_batch_reader_read_next_record_batch:
  * @reader: A #GArrowRecordBatchReader.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full):
  *   The next record batch in the stream or %NULL on end of stream.
@@ -201,7 +201,7 @@ garrow_record_batch_reader_read_next_record_batch(GArrowRecordBatchReader *reade
 /**
  * garrow_record_batch_reader_read_next:
  * @reader: A #GArrowRecordBatchReader.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full):
  *   The next record batch in the stream or %NULL on end of stream.
@@ -279,7 +279,7 @@ garrow_record_batch_stream_reader_class_init(GArrowRecordBatchStreamReaderClass 
 /**
  * garrow_record_batch_stream_reader_new:
  * @stream: The stream to be read.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GArrowRecordBatchStreamReader
  *   or %NULL on error.
@@ -398,7 +398,7 @@ garrow_record_batch_file_reader_class_init(GArrowRecordBatchFileReaderClass *kla
 /**
  * garrow_record_batch_file_reader_new:
  * @file: The file to be read.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GArrowRecordBatchFileReader
  *   or %NULL on error.
@@ -473,7 +473,7 @@ garrow_record_batch_file_reader_get_version(GArrowRecordBatchFileReader *reader)
  * garrow_record_batch_file_reader_get_record_batch:
  * @reader: A #GArrowRecordBatchFileReader.
  * @i: The index of the target record batch.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full):
  *   The i-th record batch in the file or %NULL on error.
@@ -495,7 +495,7 @@ garrow_record_batch_file_reader_get_record_batch(GArrowRecordBatchFileReader *re
  * garrow_record_batch_file_reader_read_record_batch:
  * @reader: A #GArrowRecordBatchFileReader.
  * @i: The index of the target record batch.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full):
  *   The i-th record batch in the file or %NULL on error.
@@ -535,9 +535,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowFeatherFileReader,
                            G_TYPE_OBJECT);
 
 #define GARROW_FEATHER_FILE_READER_GET_PRIVATE(obj)             \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
-                               GARROW_TYPE_FEATHER_FILE_READER, \
-                               GArrowFeatherFileReaderPrivate))
+  static_cast<GArrowFeatherFileReaderPrivate *>(                \
+    garrow_feather_file_reader_get_instance_private(            \
+      GARROW_FEATHER_FILE_READER(obj)))
 
 static void
 garrow_feather_file_reader_finalize(GObject *object)
@@ -614,7 +614,7 @@ garrow_feather_file_reader_class_init(GArrowFeatherFileReaderClass *klass)
 /**
  * garrow_feather_file_reader_new:
  * @file: The file to be read.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GArrowFeatherFileReader
  *   or %NULL on error.
@@ -745,7 +745,7 @@ garrow_feather_file_reader_get_column_name(GArrowFeatherFileReader *reader,
  * garrow_feather_file_reader_get_column:
  * @reader: A #GArrowFeatherFileReader.
  * @i: The index of the target column.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full):
  *   The i-th column in the file or %NULL on error.
@@ -771,7 +771,7 @@ garrow_feather_file_reader_get_column(GArrowFeatherFileReader *reader,
 /**
  * garrow_feather_file_reader_get_columns:
  * @reader: A #GArrowFeatherFileReader.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (element-type GArrowColumn) (transfer full):
  *   The columns in the file.
@@ -801,6 +801,92 @@ garrow_feather_file_reader_get_columns(GArrowFeatherFileReader *reader,
   return g_list_reverse(columns);
 }
 
+/**
+ * garrow_feather_file_reader_read:
+ * @reader: A #GArrowFeatherFileReader.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The table in the file that has all columns.
+ *
+ * Since: 0.12.0
+ */
+GArrowTable *
+garrow_feather_file_reader_read(GArrowFeatherFileReader *reader,
+                                GError **error)
+{
+  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
+  std::shared_ptr<arrow::Table> arrow_table;
+  auto status = arrow_reader->Read(&arrow_table);
+  if (garrow_error_check(error, status, "[feather-file-reader][read]")) {
+    return garrow_table_new_raw(&arrow_table);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_feather_file_reader_read_indices:
+ * @reader: A #GArrowFeatherFileReader.
+ * @indices: (array length=n_indices): The indices of column to be read.
+ * @n_indices: The number of indices.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The table in the file that has only the
+ *   specified columns.
+ *
+ * Since: 0.12.0
+ */
+GArrowTable *
+garrow_feather_file_reader_read_indices(GArrowFeatherFileReader *reader,
+                                        const gint *indices,
+                                        guint n_indices,
+                                        GError **error)
+{
+  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
+  std::vector<int> cpp_indices(n_indices);
+  for (guint i = 0; i < n_indices; ++i) {
+    cpp_indices.push_back(indices[i]);
+  }
+  std::shared_ptr<arrow::Table> arrow_table;
+  auto status = arrow_reader->Read(cpp_indices, &arrow_table);
+  if (garrow_error_check(error, status, "[feather-file-reader][read-indices]")) {
+    return garrow_table_new_raw(&arrow_table);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_feather_file_reader_read_names:
+ * @reader: A #GArrowFeatherFileReader.
+ * @names: (array length=n_names): The names of column to be read.
+ * @n_names: The number of names.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The table in the file that has only the
+ *   specified columns.
+ *
+ * Since: 0.12.0
+ */
+GArrowTable *
+garrow_feather_file_reader_read_names(GArrowFeatherFileReader *reader,
+                                      const gchar **names,
+                                      guint n_names,
+                                      GError **error)
+{
+  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
+  std::vector<std::string> cpp_names(n_names);
+  for (guint i = 0; i < n_names; ++i) {
+    cpp_names.push_back(names[i]);
+  }
+  std::shared_ptr<arrow::Table> arrow_table;
+  auto status = arrow_reader->Read(cpp_names, &arrow_table);
+  if (garrow_error_check(error, status, "[feather-file-reader][read-names]")) {
+    return garrow_table_new_raw(&arrow_table);
+  } else {
+    return NULL;
+  }
+}
 
 G_END_DECLS
 
