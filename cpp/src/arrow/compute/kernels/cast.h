@@ -38,12 +38,14 @@ struct ARROW_EXPORT CastOptions {
   CastOptions()
       : allow_int_overflow(false),
         allow_time_truncate(false),
-        allow_float_truncate(false) {}
+        allow_float_truncate(false),
+        allow_float_overflow(false) {}
 
   explicit CastOptions(bool safe)
       : allow_int_overflow(!safe),
         allow_time_truncate(!safe),
-        allow_float_truncate(!safe) {}
+        allow_float_truncate(!safe),
+        allow_float_overflow(!safe) {}
 
   static CastOptions Safe() { return CastOptions(true); }
 
@@ -52,6 +54,7 @@ struct ARROW_EXPORT CastOptions {
   bool allow_int_overflow;
   bool allow_time_truncate;
   bool allow_float_truncate;
+  bool allow_float_overflow;
 };
 
 /// \since 0.7.0

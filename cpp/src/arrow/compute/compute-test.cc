@@ -286,6 +286,7 @@ TEST_F(TestCast, ToIntDowncastUnsafe) {
 TEST_F(TestCast, FloatingPointToInt) {
   // which means allow_float_truncate == false
   auto options = CastOptions::Safe();
+  options.allow_float_overflow = true;
 
   vector<bool> is_valid = {true, false, true, true, true};
   vector<bool> all_valid = {true, true, true, true, true};
@@ -340,6 +341,24 @@ TEST_F(TestCast, FloatingPointToInt) {
   CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v5, is_valid, int64(), e5,
                                                     options);
   CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v5, all_valid, int64(), e5,
+                                                    options);
+
+  // float64 to int64 overflow
+  is_valid = {true, true, false};
+  all_valid = {true, true, true};
+  vector<double> v6 = {0.0, -9007199254740991.0, 9007199254740993.0};
+  vector<int64_t> e6 = {0, -9007199254740991, 9007199254740992};
+
+  options.allow_float_overflow = false;
+  shared_ptr<Array> input, result;
+  ArrayFromVector<DoubleType, double>(float64(), is_valid, v6, &input);
+  ASSERT_OK(Cast(&ctx_, *input, int64(), options, &result));
+  CheckFails<DoubleType>(float64(), v6, all_valid, int64(), options);
+
+  options.allow_float_overflow = true;
+  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v6, is_valid, int64(), e6,
+                                                    options);
+  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v6, all_valid, int64(), e6,
                                                     options);
 }
 
@@ -1038,6 +1057,7 @@ TEST_F(TestCast, ListToList) {
   CheckPass(*int64_list_array, *float64_list_array, float64_list_array->type(), options);
 
   options.allow_float_truncate = true;
+  options.allow_float_overflow = true;
   CheckPass(*float64_list_array, *int32_list_array, int32_list_array->type(), options);
   CheckPass(*float64_list_array, *int64_list_array, int64_list_array->type(), options);
 }
