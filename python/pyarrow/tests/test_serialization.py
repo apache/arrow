@@ -99,6 +99,16 @@ def assert_equal(obj1, obj2):
                                         .format(obj1, obj2))
         for i in range(len(obj1)):
             assert_equal(obj1[i], obj2[i])
+    elif isinstance(obj1, pa.Array) and isinstance(obj2, pa.Array):
+        assert obj1.equals(obj2)
+    elif isinstance(obj1, pa.Tensor) and isinstance(obj2, pa.Tensor):
+        assert obj1.equals(obj2)
+    elif isinstance(obj1, pa.Tensor) and isinstance(obj2, pa.Tensor):
+        assert obj1.equals(obj2)
+    elif isinstance(obj1, pa.RecordBatch) and isinstance(obj2, pa.RecordBatch):
+        assert obj1.equals(obj2)
+    elif isinstance(obj1, pa.Table) and isinstance(obj2, pa.Table):
+        assert obj1.equals(obj2)
     else:
         assert type(obj1) == type(obj2) and obj1 == obj2, \
                 "Objects {} and {} are different.".format(obj1, obj2)
@@ -120,7 +130,7 @@ PRIMITIVE_OBJECTS = [
     np.float64(1.9), np.zeros([8, 20]),
     np.random.normal(size=[17, 10]), np.array(["hi", 3]),
     np.array(["hi", 3], dtype=object),
-    np.random.normal(size=[15, 13]).T,
+    np.random.normal(size=[15, 13]).T
 ]
 
 
@@ -477,6 +487,27 @@ def test_numpy_subclass_serialization():
     assert np.alltrue(new_x.view(np.ndarray) == np.zeros(3))
 
 
+def test_pyarrow_objects_serialization(large_buffer):
+    # NOTE: We have to put these objects inside,
+    # or it will affect 'test_total_bytes_allocated'.
+    pyarrow_objects = [
+        pa.array([1, 2, 3, 4]), pa.array(['1', u'never U+1F631', '',
+                                         u"233 * U+1F600"]),
+        pa.array([1, None, 2, 3]),
+        pa.Tensor.from_numpy(np.random.rand(2, 3, 4)),
+        pa.RecordBatch.from_arrays(
+            [pa.array([1, None, 2, 3]),
+             pa.array(['1', u'never U+1F631', '', u"233 * u1F600"])],
+            ['a', 'b']),
+        pa.Table.from_arrays([pa.array([1, None, 2, 3]),
+                              pa.array(['1', u'never U+1F631', '',
+                                       u"233 * u1F600"])],
+                             ['a', 'b'])
+    ]
+    for obj in pyarrow_objects:
+        serialization_roundtrip(obj, large_buffer)
+
+
 def test_buffer_serialization():
 
     class BufferClass(object):
@@ -623,6 +654,7 @@ def test_serialize_to_components_invalid_cases():
 
     components = {
         'num_tensors': 0,
+        'num_ndarrays': 0,
         'num_buffers': 1,
         'data': [buf]
     }
@@ -631,7 +663,8 @@ def test_serialize_to_components_invalid_cases():
         pa.deserialize_components(components)
 
     components = {
-        'num_tensors': 1,
+        'num_tensors': 0,
+        'num_ndarrays': 1,
         'num_buffers': 0,
         'data': [buf, buf]
     }
