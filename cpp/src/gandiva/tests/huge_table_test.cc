@@ -44,7 +44,7 @@ class DISABLED_TestHugeFilter : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(DISABLED_TestHugeProjector, SimpleTestSum) {
+TEST_F(DISABLED_TestHugeProjector, SimpleTestSumHuge) {
   auto atype = arrow::TypeTraits<arrow::Int32Type>::type_singleton();
 
   // schema for input fields
@@ -95,22 +95,22 @@ TEST_F(DISABLED_TestHugeProjector, SimpleTestSum) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
 }
 
-TEST_F(DISABLED_TestHugeFilter, TestSimple) {
+TEST_F(DISABLED_TestHugeFilter, TestSimpleHugeFilter) {
   // Create a row-batch with some sample data
   int64_t num_records = INT32_MAX + 3; // Cause an overflow in int32_t
-  std::vector<int16_t> input0 = {2, 29, 5, 37, 11, 59, 17, 19};
-  std::vector<int16_t> input1 = {23, 3, 31, 7, 41, 47, 13};
+  std::vector<int32_t> input0 = {2, 29, 5, 37, 11, 59, 17, 19};
+  std::vector<int32_t> input1 = {23, 3, 31, 7, 41, 47, 13};
   std::vector<bool> validity;
 
-  std::vector<int16_t> arr1;
-  std::vector<int16_t> arr2;
+  std::vector<int32_t> arr1;
+  std::vector<int32_t> arr2;
   // expected output
   std::vector<uint64_t> sel;
 
   for (int64_t i = 0; i < num_records; i++) {
     arr1.push_back(input0[i % 8]);
     arr2.push_back(input1[i % 7]);
-    if (input0[i % 8] + input1[i % 7] > 50){
+    if (input0[i % 8] + input1[i % 7] > 50) {
         sel.push_back(i);
     }
     validity.push_back(true);
@@ -128,7 +128,7 @@ TEST_F(DISABLED_TestHugeFilter, TestSimple) {
   auto node_f1 = TreeExprBuilder::MakeField(field1);
   auto sum_func =
       TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::int32());
-  auto literal_10 = TreeExprBuilder::MakeLiteral((int16_t)50);
+  auto literal_10 = TreeExprBuilder::MakeLiteral((int32_t)50);
   auto less_than_10 = TreeExprBuilder::MakeFunction("less_than", {sum_func, literal_10},
                                                     arrow::boolean());
   auto condition = TreeExprBuilder::MakeCondition(less_than_10);
