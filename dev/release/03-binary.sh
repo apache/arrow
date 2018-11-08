@@ -55,6 +55,8 @@ if [ -z "${BINTRAY_PASSWORD}" ]; then
   exit 1
 fi
 
+: ${BINTRAY_REPOSITORY:=apache/arrow}
+
 docker_run() {
   local uid=$(id -u)
   local gid=$(id -g)
@@ -126,9 +128,9 @@ ensure_version() {
 
   if ! bintray \
          GET \
-         /packages/apache/arrow/${target}-rc/versions/${version_name}; then
+         /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}; then
     bintray \
-      POST /packages/apache/arrow/${target}-rc/versions \
+      POST /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions \
       --data-binary "
 {
   \"name\": \"${version_name}\",
@@ -147,7 +149,7 @@ download_files() {
 
   local files=$(
     bintray \
-      GET /packages/apache/arrow/${target}-rc/versions/${version_name}/files | \
+      GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
       jq -r ".[].path")
 
   for file in ${files}; do
@@ -156,7 +158,7 @@ download_files() {
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/apache/arrow/${file}
+      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
   done
 }
 
@@ -169,7 +171,7 @@ delete_file() {
   local version_name=${version}-rc${rc}
 
   bintray \
-    DELETE /content/apache/arrow/${target}-rc/${upload_path}
+    DELETE /content/${BINTRAY_REPOSITORY}/${target}-rc/${upload_path}
 }
 
 upload_file() {
@@ -182,7 +184,7 @@ upload_file() {
   local version_name=${version}-rc${rc}
 
   local sha256=$(shasum -a 256 ${local_path} | awk '{print $1}')
-  local request_path=/content/apache/arrow/${target}-rc/${version_name}/${target}-rc/${upload_path}
+  local request_path=/content/${BINTRAY_REPOSITORY}/${target}-rc/${version_name}/${target}-rc/${upload_path}
   if ! bintray \
          PUT ${request_path} \
          --header "X-Bintray-Publish: 1" \
@@ -501,14 +503,14 @@ fi
 
 echo "Success! The release candidate binaries are available here:"
 if [ ${have_debian} = "yes" ]; then
-  echo "  https://bintray.com/apache/arrow/debian-rc/${version}-rc${rc}"
+  echo "  https://bintray.com/${BINTRAY_REPOSITORY}/debian-rc/${version}-rc${rc}"
 fi
 if [ ${have_ubuntu} = "yes" ]; then
-  echo "  https://bintray.com/apache/arrow/ubuntu-rc/${version}-rc${rc}"
+  echo "  https://bintray.com/${BINTRAY_REPOSITORY}/ubuntu-rc/${version}-rc${rc}"
 fi
 if [ ${have_centos} = "yes" ]; then
-  echo "  https://bintray.com/apache/arrow/centos-rc/${version}-rc${rc}"
+  echo "  https://bintray.com/${BINTRAY_REPOSITORY}/centos-rc/${version}-rc${rc}"
 fi
 if [ ${have_python} = "yes" ]; then
-  echo "  https://bintray.com/apache/arrow/python-rc/${version}-rc${rc}"
+  echo "  https://bintray.com/${BINTRAY_REPOSITORY}/python-rc/${version}-rc${rc}"
 fi

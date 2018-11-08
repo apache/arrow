@@ -36,6 +36,8 @@ if [ -z "${BINTRAY_PASSWORD}" ]; then
   exit 1
 fi
 
+: ${BINTRAY_REPOSITORY:=apache/arrow}
+
 docker_image_name=apache-arrow/release-binary
 
 jq() {
@@ -71,9 +73,9 @@ ensure_version() {
 
   if ! bintray \
          GET \
-         /packages/apache/arrow/${target}/versions/${version}; then
+         /packages/${BINTRAY_REPOSITORY}/${target}/versions/${version}; then
     bintray \
-      POST /packages/apache/arrow/${target}/versions \
+      POST /packages/${BINTRAY_REPOSITORY}/${target}/versions \
       --data-binary "
 {
   \"name\": \"${version}\",
@@ -92,7 +94,7 @@ download_files() {
 
   local files=$(
     bintray \
-      GET /packages/apache/arrow/${target}-rc/versions/${version_name}/files | \
+      GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
       jq -r ".[].path")
 
   for file in ${files}; do
@@ -101,7 +103,7 @@ download_files() {
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/apache/arrow/${file}
+      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
   done
 }
 
@@ -111,7 +113,7 @@ delete_file() {
   local path=$3
 
   bintray \
-    DELETE /content/apache/arrow/${target}/${path}
+    DELETE /content/${BINTRAY_REPOSITORY}/${target}/${path}
 }
 
 upload_file() {
@@ -120,7 +122,7 @@ upload_file() {
   local path=$3
 
   local sha256=$(shasum -a 256 ${path} | awk '{print $1}')
-  local request_path=/content/apache/arrow/${target}/${version}/${target}/${path}
+  local request_path=/content/${BINTRAY_REPOSITORY}/${target}/${version}/${target}/${path}
   if ! bintray \
          PUT ${request_path} \
          --header "X-Bintray-Publish: 1" \
@@ -160,7 +162,7 @@ for target in debian ubuntu centos python; do
 done
 
 echo "Success! The release binaries are available here:"
-echo "  https://bintray.com/apache/arrow/debian/${version}"
-echo "  https://bintray.com/apache/arrow/ubuntu/${version}"
-echo "  https://bintray.com/apache/arrow/centos/${version}"
-echo "  https://bintray.com/apache/arrow/python/${version}"
+echo "  https://bintray.com/${BINTRAY_REPOSITORY}/debian/${version}"
+echo "  https://bintray.com/${BINTRAY_REPOSITORY}/ubuntu/${version}"
+echo "  https://bintray.com/${BINTRAY_REPOSITORY}/centos/${version}"
+echo "  https://bintray.com/${BINTRAY_REPOSITORY}/python/${version}"
