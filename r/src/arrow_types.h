@@ -27,15 +27,13 @@
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
 
-#define R_ERROR_NOT_OK(s)                  \
-  do {                                     \
-    if (!s.ok()) Rcpp::stop(s.ToString()); \
-  } while (0);
+#define STOP_IF_NOT(TEST, MSG)  \
+  do {                          \
+    if (!TEST) Rcpp::stop(MSG); \
+  } while (0)
 
-#define R_ERROR_IF_NULL(buf)              \
-  do {                                    \
-    if (!buf) Rcpp::stop("invalid data"); \
-  } while (0);
+#define STOP_IF_NOT_OK(s) STOP_IF_NOT(s.ok(), s.ToString())
+#define STOP_IF_NULL(buf) STOP_IF_NOT(buf, "invalid data")
 
 template <typename T>
 struct NoDelete {

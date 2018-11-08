@@ -27,7 +27,7 @@ std::shared_ptr<arrow::Schema> RecordBatchReader__schema(
 std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   std::shared_ptr<arrow::RecordBatch> batch;
-  R_ERROR_NOT_OK(reader->ReadNext(&batch));
+  STOP_IF_NOT_OK(reader->ReadNext(&batch));
   return batch;
 }
 
@@ -37,7 +37,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
 std::shared_ptr<arrow::RecordBatchReader> ipc___RecordBatchStreamReader__Open(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   std::shared_ptr<arrow::RecordBatchReader> reader;
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchStreamReader::Open(stream, &reader));
+  STOP_IF_NOT_OK(arrow::ipc::RecordBatchStreamReader::Open(stream, &reader));
   return reader;
 }
 
@@ -60,7 +60,7 @@ std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader, int i) {
   std::shared_ptr<arrow::RecordBatch> batch;
   if (i >= 0 && i < reader->num_record_batches()) {
-    R_ERROR_NOT_OK(reader->ReadRecordBatch(i, &batch));
+    STOP_IF_NOT_OK(reader->ReadRecordBatch(i, &batch));
   }
   return batch;
 }
@@ -69,7 +69,7 @@ std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch
 std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc___RecordBatchFileReader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file) {
   std::shared_ptr<arrow::ipc::RecordBatchFileReader> reader;
-  R_ERROR_NOT_OK(arrow::ipc::RecordBatchFileReader::Open(file, &reader));
+  STOP_IF_NOT_OK(arrow::ipc::RecordBatchFileReader::Open(file, &reader));
   return reader;
 }
 
@@ -79,11 +79,11 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(
   int num_batches = reader->num_record_batches();
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches(num_batches);
   for (int i = 0; i < num_batches; i++) {
-    R_ERROR_NOT_OK(reader->ReadRecordBatch(i, &batches[i]));
+    STOP_IF_NOT_OK(reader->ReadRecordBatch(i, &batches[i]));
   }
 
   std::shared_ptr<arrow::Table> table;
-  R_ERROR_NOT_OK(arrow::Table::FromRecordBatches(std::move(batches), &table));
+  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(std::move(batches), &table));
 
   return table;
 }
@@ -94,13 +94,13 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(
   std::shared_ptr<arrow::RecordBatch> batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
   while (true) {
-    R_ERROR_NOT_OK(reader->ReadNext(&batch));
+    STOP_IF_NOT_OK(reader->ReadNext(&batch));
     if (!batch) break;
     batches.push_back(batch);
   }
 
   std::shared_ptr<arrow::Table> table;
-  R_ERROR_NOT_OK(arrow::Table::FromRecordBatches(std::move(batches), &table));
+  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(std::move(batches), &table));
 
   return table;
 }

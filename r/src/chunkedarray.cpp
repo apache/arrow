@@ -36,7 +36,7 @@ inline SEXP simple_ChunkedArray_to_Vector(
     auto q = p;
     auto p_chunk =
         arrow::r::GetValuesSafely<value_type>(chunk->data(), 1, chunk->offset());
-    R_ERROR_IF_NULL(p_chunk);
+    STOP_IF_NULL(p_chunk);
     p = std::copy_n(p_chunk, n, p);
 
     // set NA using the bitmap
