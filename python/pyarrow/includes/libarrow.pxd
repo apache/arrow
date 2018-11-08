@@ -1121,7 +1121,8 @@ cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
     CStatus ReadSerializedObject(RandomAccessFile* src,
                                  CSerializedPyObject* out)
 
-    CStatus GetSerializedFromComponents(int num_tensors, int num_buffers,
+    CStatus GetSerializedFromComponents(int num_tensors, int num_ndarrays,
+                                        int num_buffers,
                                         object buffers,
                                         CSerializedPyObject* out)
 
