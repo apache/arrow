@@ -104,7 +104,8 @@ def test_filter():
 def test_regex():
     import pyarrow.gandiva as gandiva
 
-    df = pd.DataFrame({"a": ["park", "sparkle", "bright spark and fire", "spark"]})
+    elements = ["park", "sparkle", "bright spark and fire", "spark"]
+    df = pd.DataFrame({"a": elements})
     table = pa.Table.from_pandas(df)
 
     builder = gandiva.TreeExprBuilder()
