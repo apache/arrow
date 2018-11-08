@@ -120,34 +120,38 @@ install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
-#args: label test-file src-files
-add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)
-add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc configuration.cc
-    gdv_function_stubs.cc context_helper.cc to_date_holder.cc date_utils.cc
-    exported_funcs_registry.cc ${BC_FILE_PATH_CC})
-add_gandiva_unit_test(function_signature_test.cc function_signature.cc)
-add_gandiva_unit_test(function_registry_test.cc function_registry.cc function_signature.cc)
-add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)
-add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc regex_util.cc engine.cc
-    llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc
-    bitmap_accumulator.cc configuration.cc  function_signature.cc like_holder.cc
-    to_date_holder.cc date_utils.cc regex_util.cc gdv_function_stubs.cc context_helper.cc
-    exported_funcs_registry.cc ${BC_FILE_PATH_CC})
-add_gandiva_unit_test(annotator_test.cc annotator.cc function_signature.cc)
-add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
-add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
-add_gandiva_unit_test(expression_registry_test.cc llvm_types.cc expression_registry.cc function_signature.cc function_registry.cc)
-add_gandiva_unit_test(selection_vector_test.cc selection_vector.cc)
-add_gandiva_unit_test(lru_cache_test.cc)
-add_gandiva_unit_test(to_date_holder_test.cc to_date_holder.cc date_utils.cc)
-add_gandiva_unit_test(simple_arena_test.cc)
+if (ARROW_GANDIVA_BUILD_TESTS)
+  #args: label test-file src-files
+  add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)
+  add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc configuration.cc
+      gdv_function_stubs.cc context_helper.cc to_date_holder.cc date_utils.cc
+      exported_funcs_registry.cc ${BC_FILE_PATH_CC})
+  add_gandiva_unit_test(function_signature_test.cc function_signature.cc)
+  add_gandiva_unit_test(function_registry_test.cc function_registry.cc function_signature.cc)
+  add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)
+  add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc regex_util.cc engine.cc
+      llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc
+      bitmap_accumulator.cc configuration.cc  function_signature.cc like_holder.cc
+      to_date_holder.cc date_utils.cc regex_util.cc gdv_function_stubs.cc context_helper.cc
+      exported_funcs_registry.cc ${BC_FILE_PATH_CC})
+  add_gandiva_unit_test(annotator_test.cc annotator.cc function_signature.cc)
+  add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
+  add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
+  add_gandiva_unit_test(expression_registry_test.cc llvm_types.cc expression_registry.cc function_signature.cc function_registry.cc)
+  add_gandiva_unit_test(selection_vector_test.cc selection_vector.cc)
+  add_gandiva_unit_test(lru_cache_test.cc)
+  add_gandiva_unit_test(to_date_holder_test.cc to_date_holder.cc date_utils.cc)
+  add_gandiva_unit_test(simple_arena_test.cc)
+endif()
 
 if (ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)
 endif()
 add_subdirectory(precompiled)
 
-include(CTest)
-enable_testing()
+if (ARROW_GANDIVA_BUILD_TESTS)
+  include(CTest)
+  enable_testing()
 
-add_subdirectory(tests)
+  add_subdirectory(tests)
+endif()

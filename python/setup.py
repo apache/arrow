@@ -106,6 +106,7 @@ class build_ext(_build_ext):
                      ('with-tensorflow', None,
                       'build pyarrow with TensorFlow support'),
                      ('with-orc', None, 'build the ORC extension'),
+                     ('with-gandiva', None, 'build the Gandiva extension'),
                      ('generate-coverage', None,
                       'enable Cython code coverage'),
                      ('bundle-boost', None,
@@ -147,6 +148,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_TENSORFLOW', '0'))
         self.with_orc = strtobool(
             os.environ.get('PYARROW_WITH_ORC', '0'))
+        self.with_gandiva = strtobool(
+            os.environ.get('PYARROW_WITH_GANDIVA', '0'))
         self.generate_coverage = strtobool(
             os.environ.get('PYARROW_GENERATE_COVERAGE', '0'))
         self.bundle_arrow_cpp = strtobool(
@@ -155,6 +158,7 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
 
     CYTHON_MODULE_NAMES = [
+        'gandiva',
         'lib',
         '_csv',
         '_cuda',
@@ -213,6 +217,9 @@ class build_ext(_build_ext):
 
             if self.with_orc:
                 cmake_options.append('-DPYARROW_BUILD_ORC=on')
+
+            if self.with_gandiva:
+                cmake_options.append('-DPYARROW_BUILD_GANDIVA=on')
 
             if len(self.cmake_cxxflags) > 0:
                 cmake_options.append('-DPYARROW_CXXFLAGS={0}'
@@ -372,6 +379,8 @@ class build_ext(_build_ext):
         if name == '_orc' and not self.with_orc:
             return True
         if name == '_cuda' and not self.with_cuda:
+            return True
+        if name == 'gandiva' and not self.with_gandiva:
             return True
         return False
 

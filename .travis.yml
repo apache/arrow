@@ -78,6 +78,7 @@ matrix:
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - ARROW_TRAVIS_PYTHON_JVM=1
     - ARROW_TRAVIS_JAVA_BUILD_ONLY=1
+    - ARROW_TRAVIS_PYTHON_GANDIVA=1
     # ARROW-2999 Benchmarks are disabled in Travis CI for the time being
     # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
@@ -85,6 +86,7 @@ matrix:
     # (ARROW_CI_CPP_AFFECTED implies ARROW_CI_PYTHON_AFFECTED)
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
