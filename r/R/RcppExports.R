@@ -169,8 +169,12 @@ Column__data <- function(column) {
     .Call(`_arrow_Column__data`, column)
 }
 
-xptr_is_null <- function(xp) {
-    .Call(`_arrow_xptr_is_null`, xp)
+shared_ptr_is_null <- function(xp) {
+    .Call(`_arrow_shared_ptr_is_null`, xp)
+}
+
+unique_ptr_is_null <- function(xp) {
+    .Call(`_arrow_unique_ptr_is_null`, xp)
 }
 
 Int8__initialize <- function() {
@@ -341,10 +345,6 @@ TimestampType__unit <- function(type) {
     .Call(`_arrow_TimestampType__unit`, type)
 }
 
-Object__pointer_address <- function(obj) {
-    .Call(`_arrow_Object__pointer_address`, obj)
-}
-
 DictionaryType__initialize <- function(type, array, ordered) {
     .Call(`_arrow_DictionaryType__initialize`, type, array, ordered)
 }
@@ -475,6 +475,50 @@ MemoryPool__bytes_allocated <- function(pool) {
 
 MemoryPool__max_memory <- function(pool) {
     .Call(`_arrow_MemoryPool__max_memory`, pool)
+}
+
+ipc___Message__body_length <- function(message) {
+    .Call(`_arrow_ipc___Message__body_length`, message)
+}
+
+ipc___Message__metadata <- function(message) {
+    .Call(`_arrow_ipc___Message__metadata`, message)
+}
+
+ipc___Message__body <- function(message) {
+    .Call(`_arrow_ipc___Message__body`, message)
+}
+
+ipc___Message__Verify <- function(message) {
+    .Call(`_arrow_ipc___Message__Verify`, message)
+}
+
+ipc___Message__type <- function(message) {
+    .Call(`_arrow_ipc___Message__type`, message)
+}
+
+ipc___Message__Equals <- function(x, y) {
+    .Call(`_arrow_ipc___Message__Equals`, x, y)
+}
+
+ipc___ReadRecordBatch__Message__Schema <- function(message, schema) {
+    .Call(`_arrow_ipc___ReadRecordBatch__Message__Schema`, message, schema)
+}
+
+ipc___ReadSchema_InputStream <- function(stream) {
+    .Call(`_arrow_ipc___ReadSchema_InputStream`, stream)
+}
+
+ipc___MessageReader__Open <- function(stream) {
+    .Call(`_arrow_ipc___MessageReader__Open`, stream)
+}
+
+ipc___MessageReader__ReadNextMessage <- function(reader) {
+    .Call(`_arrow_ipc___MessageReader__ReadNextMessage`, reader)
+}
+
+ipc___ReadMessage <- function(stream) {
+    .Call(`_arrow_ipc___ReadMessage`, stream)
 }
 
 RecordBatch__num_columns <- function(x) {

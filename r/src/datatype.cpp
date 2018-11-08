@@ -20,8 +20,13 @@
 using namespace Rcpp;
 
 // [[Rcpp::export]]
-bool xptr_is_null(SEXP xp) {
+bool shared_ptr_is_null(SEXP xp) {
   return reinterpret_cast<std::shared_ptr<void>*>(EXTPTR_PTR(xp))->get() == nullptr;
+}
+
+// [[Rcpp::export]]
+bool unique_ptr_is_null(SEXP xp) {
+  return reinterpret_cast<std::unique_ptr<void>*>(EXTPTR_PTR(xp))->get() == nullptr;
 }
 
 // [[Rcpp::export]]
@@ -107,11 +112,13 @@ std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit) 
 // [[Rcpp::export]]
 SEXP list__(SEXP x) {
   if (Rf_inherits(x, "arrow::Field")) {
-    return wrap(arrow::list(Rcpp::as<std::shared_ptr<arrow::Field>>(x)));
+    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Field>> field(x);
+    return wrap(arrow::list(field));
   }
 
   if (Rf_inherits(x, "arrow::DataType")) {
-    return wrap(arrow::list(Rcpp::as<std::shared_ptr<arrow::DataType>>(x)));
+    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::DataType>> type(x);
+    return wrap(arrow::list(type));
   }
 
   stop("incompatible");
@@ -122,7 +129,8 @@ template <typename T>
 std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(List x) {
   std::vector<std::shared_ptr<T>> vec;
   for (SEXP element : x) {
-    vec.push_back(as<std::shared_ptr<T>>(element));
+    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> ptr(element);
+    vec.push_back(ptr);
   }
   return vec;
 }
@@ -227,11 +235,6 @@ std::string TimestampType__timezone(const std::shared_ptr<arrow::TimestampType>&
 arrow::TimeUnit::type TimestampType__unit(
     const std::shared_ptr<arrow::TimestampType>& type) {
   return type->unit();
-}
-
-// [[Rcpp::export]]
-std::string Object__pointer_address(SEXP obj) {
-  return tfm::format("%p", EXTPTR_PTR(obj));
 }
 
 // [[Rcpp::export]]

@@ -24,5 +24,5 @@
 #' @rdname DataType
 #' @export
 struct <- function(...){
-  construct(`arrow::StructType`, struct_(.fields(list(...))))
+  shared_ptr(`arrow::StructType`, struct_(.fields(list(...))))
 }

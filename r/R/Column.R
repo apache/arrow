@@ -22,6 +22,6 @@
     length = function() Column__length(self),
     null_count = function() Column__null_count(self),
     type = function() `arrow::DataType`$dispatch(Column__type(self)),
-    data = function() construct(`arrow::ChunkedArray`, Column__data(self))
+    data = function() shared_ptr(`arrow::ChunkedArray`, Column__data(self))
   )
 )

@@ -156,3 +156,17 @@ test_that("read_record_batch handles various streams (ARROW-3450, ARROW-3505)", 
   expect_equal(batch, batch7)
   expect_equal(batch, batch8)
 })
+
+test_that("read_record_batch can handle Message, Schema parameters (ARROW-3499)", {
+  batch <- record_batch(tibble::tibble(x = 1:10))
+  stream <- buffer_reader(write_record_batch(batch, raw()))
+
+  # schema
+  message <- read_message(stream)
+
+  # batch
+  message <- read_message(stream)
+  schema <- batch$schema()
+  batch2 <- read_record_batch(message, schema)
+  expect_equal(batch, batch2)
+})

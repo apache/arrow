@@ -15,19 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include R6.R
+context("arrow::ipc::Message")
 
-`arrow::MemoryPool` <- R6Class("arrow::MemoryPool",
-  inherit = `arrow::Object`,
-  public = list(
-    # TODO: Allocate
-    # TODO: Reallocate
-    # TODO: Free
-    bytes_allocated = function() MemoryPool__bytes_allocated(self),
-    max_memory = function() MemoryPool__max_memory(self)
-  )
-)
+test_that("read_message can read from input stream", {
+  batch <- record_batch(tibble::tibble(x = 1:10))
+  bytes <- write_record_batch(batch, raw())
+  stream <- buffer_reader(bytes)
 
-default_memory_pool <- function() {
-  shared_ptr(`arrow::MemoryPool`, MemoryPool__default())
-}
+  message <- read_message(stream)
+  expect_equal(message$type(), MessageType$SCHEMA)
+  expect_is(message$body, "arrow::Buffer")
+  expect_is(message$metadata, "arrow::Buffer")
+
+  message <- read_message(stream)
+  expect_equal(message$type(), MessageType$RECORD_BATCH)
+  expect_is(message$body, "arrow::Buffer")
+  expect_is(message$metadata, "arrow::Buffer")
+
+  message <- read_message(stream)
+  expect_null(read_message(stream))
+})

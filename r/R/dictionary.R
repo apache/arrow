@@ -22,7 +22,7 @@
   public = list(
     index_type = function() `arrow::DataType`$dispatch(DictionaryType__index_type(self)),
     name = function() DictionaryType__name(self),
-    dictionary = function() construct(`arrow::Array`, DictionaryType__dictionary(self)),
+    dictionary = function() shared_ptr(`arrow::Array`, DictionaryType__dictionary(self)),
     ordered = function() DictionaryType__ordered(self)
   )
 
@@ -40,5 +40,5 @@ dictionary <- function(type, values, ordered = FALSE) {
     inherits(type, "arrow::DataType"),
     inherits(values, "arrow::Array")
   )
-  construct(`arrow::DictionaryType`, DictionaryType__initialize(type, values, ordered))
+  shared_ptr(`arrow::DictionaryType`, DictionaryType__initialize(type, values, ordered))
 }

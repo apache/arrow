@@ -21,7 +21,7 @@
 
 `arrow::io::Readable` <- R6Class("arrow::io::Readable", inherit = `arrow::Object`,
   public = list(
-    Read = function(nbytes) construct(`arrow::Buffer`, io___Readable__Read(self, nbytes))
+    Read = function(nbytes) shared_ptr(`arrow::Buffer`, io___Readable__Read(self, nbytes))
   )
 )
 
@@ -50,7 +50,7 @@
 `arrow::io::BufferOutputStream` <- R6Class("arrow::io::BufferOutputStream", inherit = `arrow::io::OutputStream`,
   public = list(
     capacity = function() io___BufferOutputStream__capacity(self),
-    Finish = function() construct(`arrow::Buffer`, io___BufferOutputStream__Finish(self)),
+    Finish = function() shared_ptr(`arrow::Buffer`, io___BufferOutputStream__Finish(self)),
     Write = function(bytes) io___BufferOutputStream__Write(self, bytes),
     Tell = function() io___BufferOutputStream__Tell(self)
   )
@@ -88,38 +88,38 @@
 #' @rdname io
 #' @export
 mmap_create <- `arrow::io::MemoryMappedFile`$create <- function(path, size) {
-  construct(`arrow::io::MemoryMappedFile`, io___MemoryMappedFile__Create(fs::path_abs(path), size))
+  shared_ptr(`arrow::io::MemoryMappedFile`, io___MemoryMappedFile__Create(fs::path_abs(path), size))
 }
 
 #' @rdname io
 #' @export
 mmap_open <- `arrow::io::MemoryMappedFile`$open <- function(path, mode = c("read", "write", "readwrite")) {
   mode <- match(match.arg(mode), c("read", "write", "readwrite")) - 1L
-  construct(`arrow::io::MemoryMappedFile`, io___MemoryMappedFile__Open(fs::path_abs(path), mode))
+  shared_ptr(`arrow::io::MemoryMappedFile`, io___MemoryMappedFile__Open(fs::path_abs(path), mode))
 }
 
 #' @rdname io
 #' @export
 file_open <- `arrow::io::ReadableFile`$open <- function(path) {
-  construct(`arrow::io::ReadableFile`, io___ReadableFile__Open(fs::path_abs(path)))
+  shared_ptr(`arrow::io::ReadableFile`, io___ReadableFile__Open(fs::path_abs(path)))
 }
 
 #' @rdname io
 #' @export
 file_output_stream <- function(path) {
-  construct(`arrow::io::FileOutputStream`, io___FileOutputStream__Open(path))
+  shared_ptr(`arrow::io::FileOutputStream`, io___FileOutputStream__Open(path))
 }
 
 #' @rdname io
 #' @export
 mock_output_stream <- function() {
-  construct(`arrow::io::MockOutputStream`, io___MockOutputStream__initialize())
+  shared_ptr(`arrow::io::MockOutputStream`, io___MockOutputStream__initialize())
 }
 
 #' @rdname io
 #' @export
 buffer_output_stream <- function(initial_capacity = 0L) {
-  construct(`arrow::io::BufferOutputStream`, io___BufferOutputStream__Create(initial_capacity))
+  shared_ptr(`arrow::io::BufferOutputStream`, io___BufferOutputStream__Create(initial_capacity))
 }
 
 #' @rdname io
@@ -136,7 +136,7 @@ fixed_size_buffer_writer.default <- function(buffer){
 #' @export
 `fixed_size_buffer_writer.arrow::Buffer` <- function(buffer){
   assert_that(buffer$is_mutable())
-  construct(`arrow::io::FixedSizeBufferWriter`, io___FixedSizeBufferWriter__initialize(buffer))
+  shared_ptr(`arrow::io::FixedSizeBufferWriter`, io___FixedSizeBufferWriter__initialize(buffer))
 }
 
 #' Create a `arrow::BufferReader`
@@ -150,7 +150,7 @@ buffer_reader <- function(x) {
 
 #' @export
 `buffer_reader.arrow::Buffer` <- function(x) {
-  construct(`arrow::io::BufferReader`, io___BufferReader__initialize(x))
+  shared_ptr(`arrow::io::BufferReader`, io___BufferReader__initialize(x))
 }
 
 #' @export

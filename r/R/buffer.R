@@ -47,15 +47,15 @@ buffer.default <- function(x) {
 
 #' @export
 buffer.raw <- function(x) {
-  construct(`arrow::Buffer`, r___RBuffer__initialize(x))
+  shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
 }
 
 #' @export
 buffer.numeric <- function(x) {
-  construct(`arrow::Buffer`, r___RBuffer__initialize(x))
+  shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
 }
 
 #' @export
 buffer.integer <- function(x) {
-  construct(`arrow::Buffer`, r___RBuffer__initialize(x))
+  shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
 }

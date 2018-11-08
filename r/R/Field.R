@@ -41,7 +41,7 @@
 }
 
 field <- function(name, type) {
-  construct(`arrow::Field`, Field__initialize(name, type))
+  shared_ptr(`arrow::Field`, Field__initialize(name, type))
 }
 
 .fields <- function(.list){

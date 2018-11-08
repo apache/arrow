@@ -482,14 +482,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// xptr_is_null
-bool xptr_is_null(SEXP xp);
-RcppExport SEXP _arrow_xptr_is_null(SEXP xpSEXP) {
+// shared_ptr_is_null
+bool shared_ptr_is_null(SEXP xp);
+RcppExport SEXP _arrow_shared_ptr_is_null(SEXP xpSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type xp(xpSEXP);
-    rcpp_result_gen = Rcpp::wrap(xptr_is_null(xp));
+    rcpp_result_gen = Rcpp::wrap(shared_ptr_is_null(xp));
+    return rcpp_result_gen;
+END_RCPP
+}
+// unique_ptr_is_null
+bool unique_ptr_is_null(SEXP xp);
+RcppExport SEXP _arrow_unique_ptr_is_null(SEXP xpSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type xp(xpSEXP);
+    rcpp_result_gen = Rcpp::wrap(unique_ptr_is_null(xp));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -943,17 +954,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Object__pointer_address
-std::string Object__pointer_address(SEXP obj);
-RcppExport SEXP _arrow_Object__pointer_address(SEXP objSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type obj(objSEXP);
-    rcpp_result_gen = Rcpp::wrap(Object__pointer_address(obj));
-    return rcpp_result_gen;
-END_RCPP
-}
 // DictionaryType__initialize
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& type, const std::shared_ptr<arrow::Array>& array, bool ordered);
 RcppExport SEXP _arrow_DictionaryType__initialize(SEXP typeSEXP, SEXP arraySEXP, SEXP orderedSEXP) {
@@ -1036,23 +1036,23 @@ BEGIN_RCPP
 END_RCPP
 }
 // Field__name
-std::string Field__name(std::shared_ptr<arrow::Field> type);
+std::string Field__name(const std::shared_ptr<arrow::Field>& type);
 RcppExport SEXP _arrow_Field__name(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::Field> >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(Field__name(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // Field__nullable
-bool Field__nullable(std::shared_ptr<arrow::Field> type);
+bool Field__nullable(const std::shared_ptr<arrow::Field>& type);
 RcppExport SEXP _arrow_Field__nullable(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::Field> >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(Field__nullable(type));
     return rcpp_result_gen;
 END_RCPP
@@ -1299,24 +1299,147 @@ BEGIN_RCPP
 END_RCPP
 }
 // MemoryPool__bytes_allocated
-int MemoryPool__bytes_allocated(std::shared_ptr<arrow::MemoryPool> pool);
+int MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool);
 RcppExport SEXP _arrow_MemoryPool__bytes_allocated(SEXP poolSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::MemoryPool> >::type pool(poolSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::MemoryPool>& >::type pool(poolSEXP);
     rcpp_result_gen = Rcpp::wrap(MemoryPool__bytes_allocated(pool));
     return rcpp_result_gen;
 END_RCPP
 }
 // MemoryPool__max_memory
-int MemoryPool__max_memory(std::shared_ptr<arrow::MemoryPool> pool);
+int MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool);
 RcppExport SEXP _arrow_MemoryPool__max_memory(SEXP poolSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::MemoryPool> >::type pool(poolSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::MemoryPool>& >::type pool(poolSEXP);
     rcpp_result_gen = Rcpp::wrap(MemoryPool__max_memory(pool));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___Message__body_length
+int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message);
+RcppExport SEXP _arrow_ipc___Message__body_length(SEXP messageSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type message(messageSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___Message__body_length(message));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___Message__metadata
+std::shared_ptr<arrow::Buffer> ipc___Message__metadata(const std::unique_ptr<arrow::ipc::Message>& message);
+RcppExport SEXP _arrow_ipc___Message__metadata(SEXP messageSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type message(messageSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___Message__metadata(message));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___Message__body
+std::shared_ptr<arrow::Buffer> ipc___Message__body(const std::unique_ptr<arrow::ipc::Message>& message);
+RcppExport SEXP _arrow_ipc___Message__body(SEXP messageSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type message(messageSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___Message__body(message));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___Message__Verify
+int64_t ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message);
+RcppExport SEXP _arrow_ipc___Message__Verify(SEXP messageSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type message(messageSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___Message__Verify(message));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___Message__type
+arrow::ipc::Message::Type ipc___Message__type(const std::unique_ptr<arrow::ipc::Message>& message);
+RcppExport SEXP _arrow_ipc___Message__type(SEXP messageSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type message(messageSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___Message__type(message));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___Message__Equals
+bool ipc___Message__Equals(const std::unique_ptr<arrow::ipc::Message>& x, const std::unique_ptr<arrow::ipc::Message>& y);
+RcppExport SEXP _arrow_ipc___Message__Equals(SEXP xSEXP, SEXP ySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type y(ySEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___Message__Equals(x, y));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___ReadRecordBatch__Message__Schema
+std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(const std::unique_ptr<arrow::ipc::Message>& message, const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_ipc___ReadRecordBatch__Message__Schema(SEXP messageSEXP, SEXP schemaSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::Message>& >::type message(messageSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type schema(schemaSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___ReadRecordBatch__Message__Schema(message, schema));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___ReadSchema_InputStream
+std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(const std::shared_ptr<arrow::io::InputStream>& stream);
+RcppExport SEXP _arrow_ipc___ReadSchema_InputStream(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::InputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___ReadSchema_InputStream(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___MessageReader__Open
+std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
+RcppExport SEXP _arrow_ipc___MessageReader__Open(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::InputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___MessageReader__Open(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___MessageReader__ReadNextMessage
+std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(const std::unique_ptr<arrow::ipc::MessageReader>& reader);
+RcppExport SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::MessageReader>& >::type reader(readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___MessageReader__ReadNextMessage(reader));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ipc___ReadMessage
+std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(const std::shared_ptr<arrow::io::InputStream>& stream);
+RcppExport SEXP _arrow_ipc___ReadMessage(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::InputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___ReadMessage(stream));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1435,24 +1558,24 @@ BEGIN_RCPP
 END_RCPP
 }
 // RecordBatch__Slice1
-std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(std::shared_ptr<arrow::RecordBatch>& self, int offset);
+std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(const std::shared_ptr<arrow::RecordBatch>& self, int offset);
 RcppExport SEXP _arrow_RecordBatch__Slice1(SEXP selfSEXP, SEXP offsetSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::RecordBatch>& >::type self(selfSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type self(selfSEXP);
     Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
     rcpp_result_gen = Rcpp::wrap(RecordBatch__Slice1(self, offset));
     return rcpp_result_gen;
 END_RCPP
 }
 // RecordBatch__Slice2
-std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(std::shared_ptr<arrow::RecordBatch>& self, int offset, int length);
+std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(const std::shared_ptr<arrow::RecordBatch>& self, int offset, int length);
 RcppExport SEXP _arrow_RecordBatch__Slice2(SEXP selfSEXP, SEXP offsetSEXP, SEXP lengthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::shared_ptr<arrow::RecordBatch>& >::type self(selfSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type self(selfSEXP);
     Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
     Rcpp::traits::input_parameter< int >::type length(lengthSEXP);
     rcpp_result_gen = Rcpp::wrap(RecordBatch__Slice2(self, offset, length));
@@ -1727,7 +1850,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1},
     {"_arrow_Column__type", (DL_FUNC) &_arrow_Column__type, 1},
     {"_arrow_Column__data", (DL_FUNC) &_arrow_Column__data, 1},
-    {"_arrow_xptr_is_null", (DL_FUNC) &_arrow_xptr_is_null, 1},
+    {"_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1},
+    {"_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1},
     {"_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0},
     {"_arrow_Int16__initialize", (DL_FUNC) &_arrow_Int16__initialize, 0},
     {"_arrow_Int32__initialize", (DL_FUNC) &_arrow_Int32__initialize, 0},
@@ -1770,7 +1894,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_DecimalType__scale", (DL_FUNC) &_arrow_DecimalType__scale, 1},
     {"_arrow_TimestampType__timezone", (DL_FUNC) &_arrow_TimestampType__timezone, 1},
     {"_arrow_TimestampType__unit", (DL_FUNC) &_arrow_TimestampType__unit, 1},
-    {"_arrow_Object__pointer_address", (DL_FUNC) &_arrow_Object__pointer_address, 1},
     {"_arrow_DictionaryType__initialize", (DL_FUNC) &_arrow_DictionaryType__initialize, 3},
     {"_arrow_DictionaryType__index_type", (DL_FUNC) &_arrow_DictionaryType__index_type, 1},
     {"_arrow_DictionaryType__name", (DL_FUNC) &_arrow_DictionaryType__name, 1},
@@ -1804,6 +1927,17 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_MemoryPool__default", (DL_FUNC) &_arrow_MemoryPool__default, 0},
     {"_arrow_MemoryPool__bytes_allocated", (DL_FUNC) &_arrow_MemoryPool__bytes_allocated, 1},
     {"_arrow_MemoryPool__max_memory", (DL_FUNC) &_arrow_MemoryPool__max_memory, 1},
+    {"_arrow_ipc___Message__body_length", (DL_FUNC) &_arrow_ipc___Message__body_length, 1},
+    {"_arrow_ipc___Message__metadata", (DL_FUNC) &_arrow_ipc___Message__metadata, 1},
+    {"_arrow_ipc___Message__body", (DL_FUNC) &_arrow_ipc___Message__body, 1},
+    {"_arrow_ipc___Message__Verify", (DL_FUNC) &_arrow_ipc___Message__Verify, 1},
+    {"_arrow_ipc___Message__type", (DL_FUNC) &_arrow_ipc___Message__type, 1},
+    {"_arrow_ipc___Message__Equals", (DL_FUNC) &_arrow_ipc___Message__Equals, 2},
+    {"_arrow_ipc___ReadRecordBatch__Message__Schema", (DL_FUNC) &_arrow_ipc___ReadRecordBatch__Message__Schema, 2},
+    {"_arrow_ipc___ReadSchema_InputStream", (DL_FUNC) &_arrow_ipc___ReadSchema_InputStream, 1},
+    {"_arrow_ipc___MessageReader__Open", (DL_FUNC) &_arrow_ipc___MessageReader__Open, 1},
+    {"_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1},
+    {"_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1},
     {"_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
     {"_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
