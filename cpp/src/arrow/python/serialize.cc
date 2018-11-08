@@ -74,6 +74,7 @@ class SequenceBuilder {
         doubles_(::arrow::float64(), pool),
         date64s_(::arrow::date64(), pool),
         tensor_indices_(::arrow::int32(), pool),
+        ndarray_indices_(::arrow::int32(), pool),
         buffer_indices_(::arrow::int32(), pool),
         list_offsets_({0}),
         tuple_offsets_({0}),
@@ -158,6 +159,14 @@ class SequenceBuilder {
   Status AppendTensor(const int32_t tensor_index) {
     RETURN_NOT_OK(Update(tensor_indices_.length(), &tensor_tag_));
     return tensor_indices_.Append(tensor_index);
+  }
+
+  /// Appending a numpy ndarray to the sequence
+  ///
+  /// \param tensor_index Index of the tensor in the object.
+  Status AppendNdarray(const int32_t ndarray_index) {
+    RETURN_NOT_OK(Update(ndarray_indices_.length(), &ndarray_tag_));
+    return ndarray_indices_.Append(ndarray_index);
   }
 
   /// Appending a buffer to the sequence
@@ -265,6 +274,7 @@ class SequenceBuilder {
     RETURN_NOT_OK(AddElement(date64_tag_, &date64s_));
     RETURN_NOT_OK(AddElement(tensor_tag_, &tensor_indices_, "tensor"));
     RETURN_NOT_OK(AddElement(buffer_tag_, &buffer_indices_, "buffer"));
+    RETURN_NOT_OK(AddElement(ndarray_tag_, &ndarray_indices_, "ndarray"));
 
     RETURN_NOT_OK(AddSubsequence(list_tag_, list_data, list_offsets_, "list"));
     RETURN_NOT_OK(AddSubsequence(tuple_tag_, tuple_data, tuple_offsets_, "tuple"));
@@ -307,6 +317,7 @@ class SequenceBuilder {
   Date64Builder date64s_;
 
   Int32Builder tensor_indices_;
+  Int32Builder ndarray_indices_;
   Int32Builder buffer_indices_;
 
   std::vector<int32_t> list_offsets_;
@@ -331,6 +342,7 @@ class SequenceBuilder {
 
   int8_t tensor_tag_ = -1;
   int8_t buffer_tag_ = -1;
+  int8_t ndarray_tag_ = -1;
   int8_t list_tag_ = -1;
   int8_t tuple_tag_ = -1;
   int8_t dict_tag_ = -1;
@@ -557,6 +569,11 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     std::shared_ptr<Buffer> buffer;
     RETURN_NOT_OK(unwrap_buffer(elem, &buffer));
     blobs_out->buffers.push_back(buffer);
+  } else if (is_tensor(elem)) {
+    RETURN_NOT_OK(builder->AppendTensor(static_cast<int32_t>(blobs_out->tensors.size())));
+    std::shared_ptr<Tensor> tensor;
+    RETURN_NOT_OK(unwrap_tensor(elem, &tensor));
+    blobs_out->tensors.push_back(tensor);
   } else {
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;
@@ -584,11 +601,11 @@ Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* 
     case NPY_FLOAT:
     case NPY_DOUBLE: {
       RETURN_NOT_OK(
-          builder->AppendTensor(static_cast<int32_t>(blobs_out->tensors.size())));
+          builder->AppendNdarray(static_cast<int32_t>(blobs_out->ndarrays.size())));
       std::shared_ptr<Tensor> tensor;
       RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(),
                                     reinterpret_cast<PyObject*>(array), &tensor));
-      blobs_out->tensors.push_back(tensor);
+      blobs_out->ndarrays.push_back(tensor);
     } break;
     default: {
       PyObject* serialized_object;
@@ -757,11 +774,17 @@ Status WriteTensorHeader(std::shared_ptr<DataType> dtype,
 
 Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
   int32_t num_tensors = static_cast<int32_t>(this->tensors.size());
+  int32_t num_ndarrays = static_cast<int32_t>(this->ndarrays.size());
   int32_t num_buffers = static_cast<int32_t>(this->buffers.size());
   RETURN_NOT_OK(
       dst->Write(reinterpret_cast<const uint8_t*>(&num_tensors), sizeof(int32_t)));
   RETURN_NOT_OK(
+      dst->Write(reinterpret_cast<const uint8_t*>(&num_ndarrays), sizeof(int32_t)));
+  RETURN_NOT_OK(
       dst->Write(reinterpret_cast<const uint8_t*>(&num_buffers), sizeof(int32_t)));
+
+  // Align stream to 8-byte offset
+  RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kArrowIpcAlignment));
   RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, dst));
 
   // Align stream to 64-byte offset so tensor bodies are 64-byte aligned
@@ -770,6 +793,11 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
   int32_t metadata_length;
   int64_t body_length;
   for (const auto& tensor : this->tensors) {
+    RETURN_NOT_OK(ipc::WriteTensor(*tensor, dst, &metadata_length, &body_length));
+    RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kTensorAlignment));
+  }
+
+  for (const auto& tensor : this->ndarrays) {
     RETURN_NOT_OK(ipc::WriteTensor(*tensor, dst, &metadata_length, &body_length));
     RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kTensorAlignment));
   }
@@ -795,6 +823,8 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
   // quite esoteric
   PyDict_SetItemString(result.obj(), "num_tensors",
                        PyLong_FromSize_t(this->tensors.size()));
+  PyDict_SetItemString(result.obj(), "num_ndarrays",
+                       PyLong_FromSize_t(this->ndarrays.size()));
   PyDict_SetItemString(result.obj(), "num_buffers",
                        PyLong_FromSize_t(this->buffers.size()));
   PyDict_SetItemString(result.obj(), "data", buffers);
@@ -831,6 +861,14 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
   for (const auto& tensor : this->tensors) {
     std::unique_ptr<ipc::Message> message;
     RETURN_NOT_OK(ipc::GetTensorMessage(*tensor, memory_pool, &message));
+    RETURN_NOT_OK(PushBuffer(message->metadata()));
+    RETURN_NOT_OK(PushBuffer(message->body()));
+  }
+
+  // For each ndarray, get a metadata buffer and a buffer for the body
+  for (const auto& ndarray : this->ndarrays) {
+    std::unique_ptr<ipc::Message> message;
+    RETURN_NOT_OK(ipc::GetTensorMessage(*ndarray, memory_pool, &message));
     RETURN_NOT_OK(PushBuffer(message->metadata()));
     RETURN_NOT_OK(PushBuffer(message->body()));
   }
