@@ -54,8 +54,7 @@ plasma_store_server -m 1000000000 -s /tmp/plasma
 Creating a Plasma client
 
 ```ruby
-require "pathname"
 require "plasma"
 
-client = Plasma::Client.new(Pathname("/tmp/plasma"))
+client = Plasma::Client.new("/tmp/plasma")
 ```
