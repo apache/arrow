@@ -98,9 +98,6 @@ cdef class Decimal128Type(FixedSizeBinaryType):
         const CDecimal128Type* decimal128_type
 
 
-cdef _as_type(object type)
-
-
 cdef class Field:
     cdef:
         shared_ptr[CField] sp_field

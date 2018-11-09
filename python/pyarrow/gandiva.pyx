@@ -27,7 +27,9 @@ from libc.stdint cimport int64_t, uint8_t, uintptr_t
 
 from pyarrow.includes.libarrow cimport *
 from pyarrow.compat import frombytes
-from pyarrow.lib cimport check_status, pyarrow_wrap_array, _as_type
+from pyarrow.types import _as_type
+from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
+                          Schema, check_status, pyarrow_wrap_array)
 
 from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           CNode, CProjector, CFilter,
@@ -54,8 +56,6 @@ from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           Projector_Make,
                                           Filter_Make)
 
-from pyarrow.lib cimport (Array, DataType, Field, MemoryPool,
-                          RecordBatch, Schema)
 
 cdef class Node:
     cdef:
