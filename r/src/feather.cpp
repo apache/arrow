@@ -38,20 +38,20 @@ void ipc___feather___TableWriter__SetNumRows(
 void ipc___feather___TableWriter__Append(
     const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer,
     const std::string& name, const std::shared_ptr<arrow::Array>& values) {
-  R_ERROR_NOT_OK(writer->Append(name, *values));
+  STOP_IF_NOT_OK(writer->Append(name, *values));
 }
 
 // [[Rcpp::export]]
 void ipc___feather___TableWriter__Finalize(
     const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer) {
-  R_ERROR_NOT_OK(writer->Finalize());
+  STOP_IF_NOT_OK(writer->Finalize());
 }
 
 // [[Rcpp::export]]
 std::unique_ptr<arrow::ipc::feather::TableWriter> ipc___feather___TableWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream) {
   std::unique_ptr<arrow::ipc::feather::TableWriter> writer;
-  R_ERROR_NOT_OK(arrow::ipc::feather::TableWriter::Open(stream, &writer));
+  STOP_IF_NOT_OK(arrow::ipc::feather::TableWriter::Open(stream, &writer));
   return writer;
 }
 
@@ -97,7 +97,7 @@ std::string ipc___feather___TableReader__GetColumnName(
 std::shared_ptr<arrow::Column> ipc___feather___TableReader__GetColumn(
     const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i) {
   std::shared_ptr<arrow::Column> column;
-  R_ERROR_NOT_OK(reader->GetColumn(i, &column));
+  STOP_IF_NOT_OK(reader->GetColumn(i, &column));
   return column;
 }
 
@@ -105,7 +105,7 @@ std::shared_ptr<arrow::Column> ipc___feather___TableReader__GetColumn(
 std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(
     const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
   std::shared_ptr<arrow::Table> table;
-  R_ERROR_NOT_OK(reader->Read(&table));
+  STOP_IF_NOT_OK(reader->Read(&table));
   return table;
 }
 
@@ -113,6 +113,6 @@ std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(
 std::unique_ptr<arrow::ipc::feather::TableReader> ipc___feather___TableReader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
   std::unique_ptr<arrow::ipc::feather::TableReader> reader;
-  R_ERROR_NOT_OK(arrow::ipc::feather::TableReader::Open(stream, &reader));
+  STOP_IF_NOT_OK(arrow::ipc::feather::TableReader::Open(stream, &reader));
   return reader;
 }
