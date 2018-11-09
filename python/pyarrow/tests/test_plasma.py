@@ -380,7 +380,7 @@ class TestPlasmaClient(object):
             self.plasma_client.put(val)
 
         serialization_context = pa.SerializationContext()
-        serialization_context.register_type(CustomType, 20*b"\x00")
+        serialization_context.register_type(CustomType, 20*"\x00")
 
         object_id = self.plasma_client.put(
             val, None, serialization_context=serialization_context)
