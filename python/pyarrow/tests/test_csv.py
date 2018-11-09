@@ -30,7 +30,7 @@ import pytest
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.csv import read_csv, ReadOptions, ParseOptions
+from pyarrow.csv import read_csv, ReadOptions, ParseOptions, ConvertOptions
 
 
 def generate_col_names():
@@ -117,6 +117,18 @@ def test_parse_options():
     assert opts.newlines_in_values is True
 
 
+def test_convert_options():
+    cls = ConvertOptions
+    opts = cls()
+
+    assert opts.check_utf8 is True
+    opts.check_utf8 = False
+    assert opts.check_utf8 is False
+
+    opts = cls(check_utf8=False)
+    assert opts.check_utf8 is False
+
+
 class BaseTestCSVRead:
 
     def read_bytes(self, b, **kwargs):
@@ -153,31 +165,33 @@ class BaseTestCSVRead:
         table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.float64()),
                             ('b', pa.int64()),
-                            ('c', pa.binary())])
+                            ('c', pa.string())])
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1.0, 4.0],
             'b': [2, -5],
-            'c': [b"3", b"foo"],
+            'c': [u"3", u"foo"],
             }
 
     def test_simple_nulls(self):
         # Infer various kinds of data, with nulls
-        rows = (b"a,b,c,d\n"
-                b"1,2,,\n"
-                b"nan,-5,foo,\n"
-                b"4.5,#N/A,nan,\n")
+        rows = (b"a,b,c,d,e\n"
+                b"1,2,,,3\n"
+                b"nan,-5,foo,,nan\n"
+                b"4.5,#N/A,nan,,\xff\n")
         table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.float64()),
                             ('b', pa.int64()),
-                            ('c', pa.binary()),
-                            ('d', pa.null())])
+                            ('c', pa.string()),
+                            ('d', pa.null()),
+                            ('e', pa.binary())])
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1.0, None, 4.5],
             'b': [2, -5, None],
-            'c': [b"", b"foo", b"nan"],
-            'd': [None, None, None]
+            'c': [u"", u"foo", u"nan"],
+            'd': [None, None, None],
+            'e': [b"3", b"nan", b"\xff"],
             }
 
     def test_no_ending_newline(self):
@@ -212,14 +226,14 @@ class BaseTestCSVRead:
         rows = b"a;b,c\nde,fg;eh\n"
         table = self.read_bytes(rows)
         assert table.to_pydict() == {
-            'a;b': [b'de'],
-            'c': [b'fg;eh'],
+            'a;b': [u'de'],
+            'c': [u'fg;eh'],
             }
         opts = ParseOptions(delimiter=';')
         table = self.read_bytes(rows, parse_options=opts)
         assert table.to_pydict() == {
-            'a': [b'de,fg'],
-            'b,c': [b'eh'],
+            'a': [u'de,fg'],
+            'b,c': [u'eh'],
             }
 
     def test_small_random_csv(self):

@@ -947,6 +947,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         CCSVParseOptions Defaults()
 
     cdef cppclass CCSVConvertOptions" arrow::csv::ConvertOptions":
+        c_bool check_utf8
+
         @staticmethod
         CCSVConvertOptions Defaults()
 

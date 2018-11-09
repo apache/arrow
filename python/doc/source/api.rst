@@ -350,6 +350,7 @@ CSV Files
 
    ReadOptions
    ParseOptions
+   ConvertOptions
    read_csv
 
 .. currentmodule:: pyarrow.parquet

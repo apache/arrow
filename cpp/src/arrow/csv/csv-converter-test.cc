@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -45,12 +46,13 @@ std::vector<std::string> AllNulls() {
 template <typename DATA_TYPE, typename C_TYPE>
 void AssertConversion(const std::shared_ptr<DataType>& type,
                       const std::vector<std::string>& csv_string,
-                      const std::vector<std::vector<C_TYPE>>& expected) {
+                      const std::vector<std::vector<C_TYPE>>& expected,
+                      ConvertOptions options = ConvertOptions::Defaults()) {
   std::shared_ptr<BlockParser> parser;
   std::shared_ptr<Converter> converter;
   std::shared_ptr<Array> array, expected_array;
 
-  ASSERT_OK(Converter::Make(type, ConvertOptions::Defaults(), &converter));
+  ASSERT_OK(Converter::Make(type, options, &converter));
 
   MakeCSVParser(csv_string, &parser);
   for (int32_t col_index = 0; col_index < static_cast<int32_t>(expected.size());
@@ -65,12 +67,13 @@ template <typename DATA_TYPE, typename C_TYPE>
 void AssertConversion(const std::shared_ptr<DataType>& type,
                       const std::vector<std::string>& csv_string,
                       const std::vector<std::vector<C_TYPE>>& expected,
-                      const std::vector<std::vector<bool>>& is_valid) {
+                      const std::vector<std::vector<bool>>& is_valid,
+                      ConvertOptions options = ConvertOptions::Defaults()) {
   std::shared_ptr<BlockParser> parser;
   std::shared_ptr<Converter> converter;
   std::shared_ptr<Array> array, expected_array;
 
-  ASSERT_OK(Converter::Make(type, ConvertOptions::Defaults(), &converter));
+  ASSERT_OK(Converter::Make(type, options, &converter));
 
   MakeCSVParser(csv_string, &parser);
   for (int32_t col_index = 0; col_index < static_cast<int32_t>(expected.size());
@@ -90,17 +93,47 @@ void AssertConversionAllNulls(const std::shared_ptr<DataType>& type) {
   AssertConversion<DATA_TYPE, C_TYPE>(type, nulls, {values}, {is_valid});
 }
 
+void AssertConversionError(const std::shared_ptr<DataType>& type,
+                           const std::vector<std::string>& csv_string,
+                           const std::set<int32_t>& invalid_columns,
+                           ConvertOptions options = ConvertOptions::Defaults()) {
+  std::shared_ptr<BlockParser> parser;
+  std::shared_ptr<Converter> converter;
+  std::shared_ptr<Array> array;
+
+  ASSERT_OK(Converter::Make(type, options, &converter));
+
+  MakeCSVParser(csv_string, &parser);
+  for (int32_t i = 0; i < parser->num_cols(); ++i) {
+    if (invalid_columns.find(i) == invalid_columns.end()) {
+      ASSERT_OK(converter->Convert(*parser, i, &array));
+    } else {
+      ASSERT_RAISES(Invalid, converter->Convert(*parser, i, &array));
+    }
+  }
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Test functions begin here
 
 TEST(BinaryConversion, Basics) {
-  AssertConversion<BinaryType, std::string>(binary(), {"ab,cde\n", ",gh\n"},
-                                            {{"ab", ""}, {"cde", "gh"}});
+  AssertConversion<BinaryType, std::string>(binary(), {"ab,cdé\n", ",\xffgh\n"},
+                                            {{"ab", ""}, {"cdé", "\xffgh"}});
 }
 
 TEST(StringConversion, Basics) {
-  AssertConversion<StringType, std::string>(utf8(), {"ab,cde\n", ",gh\n"},
-                                            {{"ab", ""}, {"cde", "gh"}});
+  AssertConversion<StringType, std::string>(utf8(), {"ab,cdé\n", ",gh\n"},
+                                            {{"ab", ""}, {"cdé", "gh"}});
+
+  auto options = ConvertOptions::Defaults();
+  options.check_utf8 = false;
+  AssertConversion<StringType, std::string>(utf8(), {"ab,cdé\n", ",\xffgh\n"},
+                                            {{"ab", ""}, {"cdé", "\xffgh"}}, options);
+}
+
+TEST(StringConversion, Errors) {
+  // Invalid UTF8 in column 0
+  AssertConversionError(utf8(), {"ab,cdé\n", "\xff,gh\n"}, {0});
 }
 
 TEST(FixedSizeBinaryConversion, Basics) {
@@ -109,16 +142,8 @@ TEST(FixedSizeBinaryConversion, Basics) {
 }
 
 TEST(FixedSizeBinaryConversion, Errors) {
-  std::shared_ptr<BlockParser> parser;
-  std::shared_ptr<Converter> converter;
-  std::shared_ptr<Array> array;
-  std::shared_ptr<DataType> type = fixed_size_binary(2);
-
-  ASSERT_OK(Converter::Make(type, ConvertOptions::Defaults(), &converter));
-
-  MakeCSVParser({"ab,cd\n", "g,ij\n"}, &parser);
-  ASSERT_RAISES(Invalid, converter->Convert(*parser, 0, &array));
-  ASSERT_OK(converter->Convert(*parser, 1, &array));
+  // Wrong-sized string in column 0
+  AssertConversionError(fixed_size_binary(2), {"ab,cd\n", "g,ij\n"}, {0});
 }
 
 TEST(NullConversion, Basics) {

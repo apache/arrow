@@ -155,7 +155,7 @@ class InferringColumnBuilder : public ColumnBuilder {
   std::shared_ptr<Converter> converter_;
 
   // Current inference status
-  enum class InferKind { Null, Integer, Real, Text };
+  enum class InferKind { Null, Integer, Real, Text, Binary };
 
   std::shared_ptr<DataType> infer_type_;
   InferKind infer_kind_;
@@ -185,6 +185,9 @@ Status InferringColumnBuilder::LoosenType() {
       infer_kind_ = InferKind::Text;
       break;
     case InferKind::Text:
+      infer_kind_ = InferKind::Binary;
+      break;
+    case InferKind::Binary:
       return Status::UnknownError("Shouldn't come here");
   }
   return UpdateType();
@@ -207,6 +210,10 @@ Status InferringColumnBuilder::UpdateType() {
       can_loosen_type_ = true;
       break;
     case InferKind::Text:
+      infer_type_ = utf8();
+      can_loosen_type_ = true;
+      break;
+    case InferKind::Binary:
       infer_type_ = binary();
       can_loosen_type_ = false;
       break;

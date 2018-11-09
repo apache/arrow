@@ -15,4 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow._csv import ReadOptions, ParseOptions, read_csv  # noqa
+from pyarrow._csv import ReadOptions, ParseOptions, ConvertOptions, read_csv  # noqa
