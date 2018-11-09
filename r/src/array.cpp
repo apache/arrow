@@ -297,8 +297,12 @@ inline int64_t time_cast<double>(double value) {
   return static_cast<int64_t>(value * 1000);
 }
 
+inline int64_t timestamp_cast(int value) {
+  return static_cast<int64_t>(value) * 1000000;
+}
+
 template <int RTYPE>
-std::shared_ptr<Array> Date64Array_From_POSIXct(SEXP x) {
+std::shared_ptr<Array> TimeStampArray_From_POSIXct(SEXP x) {
   Rcpp::Vector<RTYPE> vec(x);
   auto p_vec = vec.begin();
   auto n = vec.size();
@@ -313,7 +317,7 @@ std::shared_ptr<Array> Date64Array_From_POSIXct(SEXP x) {
   R_xlen_t i = 0;
   for (; i < n; i++, ++p_vec, ++p_values) {
     if (Rcpp::Vector<RTYPE>::is_na(*p_vec)) break;
-    *p_values = time_cast(*p_vec);
+    *p_values = timestamp_cast(*p_vec);
   }
   if (i < n) {
     std::shared_ptr<Buffer> null_buffer;
@@ -332,7 +336,7 @@ std::shared_ptr<Array> Date64Array_From_POSIXct(SEXP x) {
         null_count++;
       } else {
         bitmap_writer.Set();
-        *p_values = time_cast(*p_vec);
+        *p_values = timestamp_cast(*p_vec);
       }
     }
 
@@ -340,10 +344,10 @@ std::shared_ptr<Array> Date64Array_From_POSIXct(SEXP x) {
     buffers[0] = std::move(null_buffer);
   }
 
-  auto data = ArrayData::Make(std::make_shared<Date64Type>(), n, std::move(buffers),
+  auto data = ArrayData::Make(std::make_shared<TimestampType>(TimeUnit::MICRO, "GMT"), n, std::move(buffers),
                               null_count, 0);
 
-  return std::make_shared<Date64Array>(data);
+  return std::make_shared<TimestampArray>(data);
 }
 
 std::shared_ptr<arrow::Array> Int64Array(SEXP x) {
@@ -472,7 +476,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
         return arrow::r::SimpleArray<INTSXP, arrow::Date32Type>(x);
       }
       if (Rf_inherits(x, "POSIXct")) {
-        return arrow::r::Date64Array_From_POSIXct<INTSXP>(x);
+        return arrow::r::TimeStampArray_From_POSIXct<INTSXP>(x);
       }
       return arrow::r::SimpleArray<INTSXP, arrow::Int32Type>(x);
     case REALSXP:
@@ -480,7 +484,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
         return arrow::r::SimpleArray<INTSXP, arrow::Date32Type>(x);
       }
       if (Rf_inherits(x, "POSIXct")) {
-        return arrow::r::Date64Array_From_POSIXct<REALSXP>(x);
+        return arrow::r::TimeStampArray_From_POSIXct<REALSXP>(x);
       }
       if (Rf_inherits(x, "integer64")) {
         return arrow::r::Int64Array(x);
