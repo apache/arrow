@@ -22,7 +22,7 @@
 namespace gandiva {
 
 void BitMapAccumulator::ComputeResult(uint8_t* dst_bitmap) {
-  int num_records = eval_batch_.num_records();
+  int64_t num_records = eval_batch_.num_records();
 
   if (all_invalid_) {
     // set all bits to 0.
@@ -35,11 +35,11 @@ void BitMapAccumulator::ComputeResult(uint8_t* dst_bitmap) {
 /// Compute the intersection of multiple bitmaps.
 void BitMapAccumulator::IntersectBitMaps(uint8_t* dst_map,
                                          const std::vector<uint8_t*>& src_maps,
-                                         int num_records) {
+                                         int64_t num_records) {
   uint64_t* dst_map64 = reinterpret_cast<uint64_t*>(dst_map);
-  int num_words = (num_records + 63) / 64;  // aligned to 8-byte.
-  int num_bytes = num_words * 8;
-  int nmaps = static_cast<int>(src_maps.size());
+  int64_t num_words = (num_records + 63) / 64;  // aligned to 8-byte.
+  int64_t num_bytes = num_words * 8;
+  int64_t nmaps = src_maps.size();
 
   switch (nmaps) {
     case 0: {
@@ -58,7 +58,7 @@ void BitMapAccumulator::IntersectBitMaps(uint8_t* dst_map,
       // two src_maps bitmaps. do 64-bit ANDs
       uint64_t* src_maps0_64 = reinterpret_cast<uint64_t*>(src_maps[0]);
       uint64_t* src_maps1_64 = reinterpret_cast<uint64_t*>(src_maps[1]);
-      for (int i = 0; i < num_words; ++i) {
+      for (int64_t i = 0; i < num_words; ++i) {
         dst_map64[i] = src_maps0_64[i] & src_maps1_64[i];
       }
       break;
@@ -68,8 +68,8 @@ void BitMapAccumulator::IntersectBitMaps(uint8_t* dst_map,
       /* > 2 src_maps bitmaps. do 64-bit ANDs */
       uint64_t* src_maps0_64 = reinterpret_cast<uint64_t*>(src_maps[0]);
       memcpy(dst_map64, src_maps0_64, num_bytes);
-      for (int m = 1; m < nmaps; ++m) {
-        for (int i = 0; i < num_words; ++i) {
+      for (int64_t m = 1; m < nmaps; ++m) {
+        for (int64_t i = 0; i < num_words; ++i) {
           uint64_t* src_mapsm_64 = reinterpret_cast<uint64_t*>(src_maps[m]);
           dst_map64[i] &= src_mapsm_64[i];
         }

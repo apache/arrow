@@ -26,34 +26,39 @@
 
 namespace gandiva {
 
-Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int bitmap_size,
-                                           int max_bitmap_index) {
+Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap_size,
+                                           int64_t max_bitmap_index) {
   if (bitmap_size % 8 != 0) {
     std::stringstream ss;
     ss << "bitmap size " << bitmap_size << " must be padded to 64-bit size";
     return Status::Invalid(ss.str());
   }
-  if (static_cast<unsigned int>(max_bitmap_index) > GetMaxSupportedValue()) {
+  if (max_bitmap_index < 0) {
+    std::stringstream ss;
+    ss << "max bitmap index " << max_bitmap_index << " must be positive";
+    return Status::Invalid(ss.str());
+  }
+  if (static_cast<uint64_t>(max_bitmap_index) > GetMaxSupportedValue()) {
     std::stringstream ss;
     ss << "max_bitmap_index " << max_bitmap_index << " must be <= maxSupportedValue "
        << GetMaxSupportedValue() << " in selection vector";
     return Status::Invalid(ss.str());
   }
 
-  int max_slots = GetMaxSlots();
+  int64_t max_slots = GetMaxSlots();
 
-  // jump  8-bytes at a time, add the index corresponding to each valid bit to the
+  // jump 8-bytes at a time, add the index corresponding to each valid bit to the
   // the selection vector.
-  int selection_idx = 0;
+  int64_t selection_idx = 0;
   const uint64_t* bitmap_64 = reinterpret_cast<const uint64_t*>(bitmap);
-  for (int bitmap_idx = 0; bitmap_idx < bitmap_size / 8; ++bitmap_idx) {
+  for (int64_t bitmap_idx = 0; bitmap_idx < bitmap_size / 8; ++bitmap_idx) {
     uint64_t current_word = bitmap_64[bitmap_idx];
 
     while (current_word != 0) {
       uint64_t highest_only = current_word & -current_word;
       int pos_in_word = __builtin_ctzl(highest_only);
 
-      int pos_in_bitmap = bitmap_idx * 64 + pos_in_word;
+      int64_t pos_in_bitmap = bitmap_idx * 64 + pos_in_word;
       if (pos_in_bitmap > max_bitmap_index) {
         // the bitmap may be slighly larger for alignment/padding.
         break;
@@ -73,7 +78,8 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int bitmap_siz
   return Status::OK();
 }
 
-Status SelectionVector::MakeInt16(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
+Status SelectionVector::MakeInt16(int64_t max_slots,
+                                  std::shared_ptr<arrow::Buffer> buffer,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   auto status = SelectionVectorInt16::ValidateBuffer(max_slots, buffer);
   ARROW_RETURN_NOT_OK(status);
@@ -82,7 +88,7 @@ Status SelectionVector::MakeInt16(int max_slots, std::shared_ptr<arrow::Buffer> 
   return Status::OK();
 }
 
-Status SelectionVector::MakeInt16(int max_slots, arrow::MemoryPool* pool,
+Status SelectionVector::MakeInt16(int64_t max_slots, arrow::MemoryPool* pool,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   std::shared_ptr<arrow::Buffer> buffer;
   auto status = SelectionVectorInt16::AllocateBuffer(max_slots, pool, &buffer);
@@ -92,7 +98,8 @@ Status SelectionVector::MakeInt16(int max_slots, arrow::MemoryPool* pool,
   return Status::OK();
 }
 
-Status SelectionVector::MakeInt32(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
+Status SelectionVector::MakeInt32(int64_t max_slots,
+                                  std::shared_ptr<arrow::Buffer> buffer,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   auto status = SelectionVectorInt32::ValidateBuffer(max_slots, buffer);
   ARROW_RETURN_NOT_OK(status);
@@ -101,7 +108,7 @@ Status SelectionVector::MakeInt32(int max_slots, std::shared_ptr<arrow::Buffer> 
   return Status::OK();
 }
 
-Status SelectionVector::MakeInt32(int max_slots, arrow::MemoryPool* pool,
+Status SelectionVector::MakeInt32(int64_t max_slots, arrow::MemoryPool* pool,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   std::shared_ptr<arrow::Buffer> buffer;
   auto status = SelectionVectorInt32::AllocateBuffer(max_slots, pool, &buffer);
@@ -111,9 +118,29 @@ Status SelectionVector::MakeInt32(int max_slots, arrow::MemoryPool* pool,
   return Status::OK();
 }
 
+Status SelectionVector::MakeInt64(int64_t max_slots,
+                                  std::shared_ptr<arrow::Buffer> buffer,
+                                  std::shared_ptr<SelectionVector>* selection_vector) {
+  auto status = SelectionVectorInt64::ValidateBuffer(max_slots, buffer);
+  ARROW_RETURN_NOT_OK(status);
+
+  *selection_vector = std::make_shared<SelectionVectorInt64>(max_slots, buffer);
+  return Status::OK();
+}
+
+Status SelectionVector::MakeInt64(int64_t max_slots, arrow::MemoryPool* pool,
+                                  std::shared_ptr<SelectionVector>* selection_vector) {
+  std::shared_ptr<arrow::Buffer> buffer;
+  auto status = SelectionVectorInt64::AllocateBuffer(max_slots, pool, &buffer);
+  ARROW_RETURN_NOT_OK(status);
+
+  *selection_vector = std::make_shared<SelectionVectorInt64>(max_slots, buffer);
+  return Status::OK();
+}
+
 template <typename C_TYPE, typename A_TYPE>
 Status SelectionVectorImpl<C_TYPE, A_TYPE>::AllocateBuffer(
-    int max_slots, arrow::MemoryPool* pool, std::shared_ptr<arrow::Buffer>* buffer) {
+    int64_t max_slots, arrow::MemoryPool* pool, std::shared_ptr<arrow::Buffer>* buffer) {
   auto buffer_len = max_slots * sizeof(C_TYPE);
   auto astatus = arrow::AllocateBuffer(pool, buffer_len, buffer);
   ARROW_RETURN_NOT_OK(astatus);
@@ -123,7 +150,7 @@ Status SelectionVectorImpl<C_TYPE, A_TYPE>::AllocateBuffer(
 
 template <typename C_TYPE, typename A_TYPE>
 Status SelectionVectorImpl<C_TYPE, A_TYPE>::ValidateBuffer(
-    int max_slots, std::shared_ptr<arrow::Buffer> buffer) {
+    int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer) {
   // verify buffer is mutable
   if (!buffer->is_mutable()) {
     return Status::Invalid("buffer for selection vector must be mutable");

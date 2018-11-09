@@ -207,4 +207,72 @@ TEST_F(TestSelectionVector, TestInt32MakeNegative) {
   EXPECT_EQ(status.IsInvalid(), true);
 }
 
+TEST_F(TestSelectionVector, TestInt64Set) {
+  int max_slots = 10;
+
+  std::shared_ptr<SelectionVector> selection;
+  auto status = SelectionVector::MakeInt64(max_slots, pool_, &selection);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  selection->SetIndex(0, 100);
+  EXPECT_EQ(selection->GetIndex(0), 100);
+
+  selection->SetIndex(1, 200);
+  EXPECT_EQ(selection->GetIndex(1), 200);
+
+  selection->SetIndex(2, 100000);
+  EXPECT_EQ(selection->GetIndex(2), 100000);
+
+  selection->SetNumSlots(3);
+  EXPECT_EQ(selection->GetNumSlots(), 3);
+
+  // TopArray() should return an array with 100,200,100000
+  auto array_raw = selection->ToArray();
+  const auto& array = dynamic_cast<const arrow::UInt64Array&>(*array_raw);
+  EXPECT_EQ(array.length(), 3) << array_raw->ToString();
+  EXPECT_EQ(array.Value(0), 100) << array_raw->ToString();
+  EXPECT_EQ(array.Value(1), 200) << array_raw->ToString();
+  EXPECT_EQ(array.Value(2), 100000) << array_raw->ToString();
+}
+
+TEST_F(TestSelectionVector, TestInt64PopulateFromBitMap) {
+  int max_slots = 200;
+
+  std::shared_ptr<SelectionVector> selection;
+  auto status = SelectionVector::MakeInt64(max_slots, pool_, &selection);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  int bitmap_size = RoundUpNumi64(max_slots) * 8;
+  std::unique_ptr<uint8_t> bitmap(new uint8_t[bitmap_size]);
+  memset(bitmap.get(), 0, bitmap_size);
+
+  arrow::BitUtil::SetBit(bitmap.get(), 0);
+  arrow::BitUtil::SetBit(bitmap.get(), 5);
+  arrow::BitUtil::SetBit(bitmap.get(), 121);
+  arrow::BitUtil::SetBit(bitmap.get(), 220);
+
+  status = selection->PopulateFromBitMap(bitmap.get(), bitmap_size, max_slots - 1);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  EXPECT_EQ(selection->GetNumSlots(), 3);
+  EXPECT_EQ(selection->GetIndex(0), 0);
+  EXPECT_EQ(selection->GetIndex(1), 5);
+  EXPECT_EQ(selection->GetIndex(2), 121);
+}
+
+TEST_F(TestSelectionVector, TestInt64MakeNegative) {
+  int max_slots = 10;
+
+  std::shared_ptr<SelectionVector> selection;
+  std::shared_ptr<arrow::Buffer> buffer;
+  auto buffer_len = max_slots * sizeof(int64_t);
+
+  // alloc a buffer that's insufficient.
+  auto astatus = arrow::AllocateBuffer(pool_, buffer_len - 1, &buffer);
+  EXPECT_EQ(astatus.ok(), true);
+
+  auto status = SelectionVector::MakeInt64(max_slots, buffer, &selection);
+  EXPECT_EQ(status.IsInvalid(), true);
+}
+
 }  // namespace gandiva

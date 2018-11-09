@@ -68,8 +68,7 @@ class FilterEvaluator : public BaseEvaluator {
 
   Status Evaluate(arrow::RecordBatch& batch, arrow::MemoryPool* pool) override {
     if (selection_ == nullptr || selection_->GetMaxSlots() < batch.num_rows()) {
-      auto status = SelectionVector::MakeInt16(static_cast<int>(batch.num_rows()), pool,
-                                               &selection_);
+      auto status = SelectionVector::MakeInt16(batch.num_rows(), pool, &selection_);
       if (!status.ok()) {
         return status;
       }

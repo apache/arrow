@@ -33,7 +33,7 @@ namespace gandiva {
 /// expression evaluation.
 class EvalBatch {
  public:
-  explicit EvalBatch(int num_records, int num_buffers, int num_local_bitmaps)
+  explicit EvalBatch(int64_t num_records, int num_buffers, int num_local_bitmaps)
       : num_records_(num_records), num_buffers_(num_buffers) {
     if (num_buffers > 0) {
       buffers_array_.reset(new uint8_t*[num_buffers]);
@@ -42,7 +42,7 @@ class EvalBatch {
     execution_context_.reset(new ExecutionContext());
   }
 
-  int num_records() const { return num_records_; }
+  int64_t num_records() const { return num_records_; }
 
   uint8_t** GetBufferArray() const { return buffers_array_.get(); }
 
@@ -60,7 +60,9 @@ class EvalBatch {
 
   int GetNumLocalBitMaps() const { return local_bitmaps_holder_->GetNumLocalBitMaps(); }
 
-  int GetLocalBitmapSize() const { return local_bitmaps_holder_->GetLocalBitMapSize(); }
+  int64_t GetLocalBitmapSize() const {
+    return local_bitmaps_holder_->GetLocalBitMapSize();
+  }
 
   uint8_t* GetLocalBitMap(int idx) const {
     DCHECK(idx <= GetNumLocalBitMaps());
@@ -75,7 +77,7 @@ class EvalBatch {
 
  private:
   /// number of records in the current batch.
-  int num_records_;
+  int64_t num_records_;
 
   // number of buffers.
   int num_buffers_;
