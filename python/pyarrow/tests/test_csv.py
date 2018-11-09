@@ -84,6 +84,7 @@ def test_parse_options():
     assert opts.escape_char is False
     assert opts.header_rows == 1
     assert opts.newlines_in_values is False
+    assert opts.ignore_empty_lines is True
 
     opts.delimiter = 'x'
     assert opts.delimiter == 'x'
@@ -104,17 +105,22 @@ def test_parse_options():
     opts.newlines_in_values = True
     assert opts.newlines_in_values is True
 
+    opts.ignore_empty_lines = False
+    assert opts.ignore_empty_lines is False
+
     opts.header_rows = 2
     assert opts.header_rows == 2
 
     opts = cls(delimiter=';', quote_char='%', double_quote=False,
-               escape_char='\\', header_rows=2, newlines_in_values=True)
+               escape_char='\\', header_rows=2, newlines_in_values=True,
+               ignore_empty_lines=False)
     assert opts.delimiter == ';'
     assert opts.quote_char == '%'
     assert opts.double_quote is False
     assert opts.escape_char == '\\'
     assert opts.header_rows == 2
     assert opts.newlines_in_values is True
+    assert opts.ignore_empty_lines is False
 
 
 def test_convert_options():
@@ -206,9 +212,9 @@ class BaseTestCSVRead:
 
     def test_trivial(self):
         # A bit pointless, but at least it shouldn't crash
-        rows = b"\n\n"
+        rows = b",\n\n"
         table = self.read_bytes(rows)
-        assert table.to_pydict() == {'': [None]}
+        assert table.to_pydict() == {'': []}
 
     def test_invalid_csv(self):
         # Various CSV errors
@@ -218,9 +224,9 @@ class BaseTestCSVRead:
         rows = b"a,b,c\n1,2,3\n4"
         with pytest.raises(pa.ArrowInvalid, match="Expected 3 columns, got 1"):
             self.read_bytes(rows)
-        rows = b""
-        with pytest.raises(pa.ArrowInvalid, match="Empty CSV file"):
-            self.read_bytes(rows)
+        for rows in [b"", b"\n", b"\r\n", b"\r", b"\n\n"]:
+            with pytest.raises(pa.ArrowInvalid, match="Empty CSV file"):
+                self.read_bytes(rows)
 
     def test_options_delimiter(self):
         rows = b"a;b,c\nde,fg;eh\n"
