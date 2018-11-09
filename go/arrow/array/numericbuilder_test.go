@@ -130,4 +130,6 @@ func TestFloat64Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
+
+	ab.Release()
 }
