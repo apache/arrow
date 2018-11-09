@@ -830,26 +830,16 @@ def field(name, type, bint nullable=True, dict metadata=None):
     cdef:
         shared_ptr[CKeyValueMetadata] c_meta
         Field result = Field.__new__(Field)
-        DataType _type
+        DataType _type = _as_type(type)
 
     if metadata is not None:
         convert_metadata(metadata, &c_meta)
-
-    _type = _as_type(type)
 
     result.sp_field.reset(new CField(tobytes(name), _type.sp_type,
                                      nullable == 1, c_meta))
     result.field = result.sp_field.get()
     result.type = _type
     return result
-
-
-cdef _as_type(type):
-    if isinstance(type, DataType):
-        return type
-    if not isinstance(type, six.string_types):
-        raise TypeError(type)
-    return type_for_alias(type)
 
 
 cdef set PRIMITIVE_TYPES = set([
@@ -1429,6 +1419,15 @@ def type_for_alias(name):
     if isinstance(alias, DataType):
         return alias
     return alias()
+
+
+def _as_type(type):
+    if isinstance(type, DataType):
+        return type
+    elif isinstance(type, six.string_types):
+        return type_for_alias(type)
+    else:
+        raise TypeError(type)
 
 
 def schema(fields, dict metadata=None):

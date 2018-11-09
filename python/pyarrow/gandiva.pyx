@@ -27,14 +27,28 @@ from libc.stdint cimport int64_t, uint8_t, uintptr_t
 
 from pyarrow.includes.libarrow cimport *
 from pyarrow.compat import frombytes
-from pyarrow.lib cimport check_status, pyarrow_wrap_array
+from pyarrow.types import _as_type
+from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
+                          Schema, check_status, pyarrow_wrap_array)
 
 from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           CNode, CProjector, CFilter,
                                           CSelectionVector,
                                           TreeExprBuilder_MakeExpression,
                                           TreeExprBuilder_MakeFunction,
-                                          TreeExprBuilder_MakeLiteral,
+                                          TreeExprBuilder_MakeBoolLiteral,
+                                          TreeExprBuilder_MakeUInt8Literal,
+                                          TreeExprBuilder_MakeUInt16Literal,
+                                          TreeExprBuilder_MakeUInt32Literal,
+                                          TreeExprBuilder_MakeUInt64Literal,
+                                          TreeExprBuilder_MakeInt8Literal,
+                                          TreeExprBuilder_MakeInt16Literal,
+                                          TreeExprBuilder_MakeInt32Literal,
+                                          TreeExprBuilder_MakeInt64Literal,
+                                          TreeExprBuilder_MakeFloatLiteral,
+                                          TreeExprBuilder_MakeDoubleLiteral,
+                                          TreeExprBuilder_MakeStringLiteral,
+                                          TreeExprBuilder_MakeBinaryLiteral,
                                           TreeExprBuilder_MakeField,
                                           TreeExprBuilder_MakeIf,
                                           TreeExprBuilder_MakeCondition,
@@ -42,8 +56,6 @@ from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           Projector_Make,
                                           Filter_Make)
 
-from pyarrow.lib cimport (Array, DataType, Field, MemoryPool,
-                          RecordBatch, Schema)
 
 cdef class Node:
     cdef:
@@ -150,10 +162,40 @@ cdef class Filter:
             batch.sp_batch.get()[0], selection))
         return SelectionVector.create(selection)
 
+
 cdef class TreeExprBuilder:
 
-    def make_literal(self, value):
-        cdef shared_ptr[CNode] r = TreeExprBuilder_MakeLiteral(value)
+    def make_literal(self, value, dtype):
+        cdef shared_ptr[CNode] r
+        cdef DataType type = _as_type(dtype)
+        if type.id == _Type_BOOL:
+            r = TreeExprBuilder_MakeBoolLiteral(value)
+        elif type.id == _Type_UINT8:
+            r = TreeExprBuilder_MakeUInt8Literal(value)
+        elif type.id == _Type_UINT16:
+            r = TreeExprBuilder_MakeUInt16Literal(value)
+        elif type.id == _Type_UINT32:
+            r = TreeExprBuilder_MakeUInt32Literal(value)
+        elif type.id == _Type_UINT64:
+            r = TreeExprBuilder_MakeUInt64Literal(value)
+        elif type.id == _Type_INT8:
+            r = TreeExprBuilder_MakeInt8Literal(value)
+        elif type.id == _Type_INT16:
+            r = TreeExprBuilder_MakeInt16Literal(value)
+        elif type.id == _Type_INT32:
+            r = TreeExprBuilder_MakeInt32Literal(value)
+        elif type.id == _Type_INT64:
+            r = TreeExprBuilder_MakeInt64Literal(value)
+        elif type.id == _Type_FLOAT:
+            r = TreeExprBuilder_MakeFloatLiteral(value)
+        elif type.id == _Type_DOUBLE:
+            r = TreeExprBuilder_MakeDoubleLiteral(value)
+        elif type.id == _Type_STRING:
+            r = TreeExprBuilder_MakeStringLiteral(value.encode('UTF-8'))
+        elif type.id == _Type_BINARY:
+            r = TreeExprBuilder_MakeBinaryLiteral(value)
+        else:
+            raise TypeError("Didn't recognize dtype " + str(dtype))
         return Node.create(r)
 
     def make_expression(self, Node root_node, Field return_field):
