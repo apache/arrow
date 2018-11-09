@@ -242,7 +242,7 @@ garrow_struct_data_type_get_field_by_name(GArrowStructDataType *data_type,
  */
 gint
 garrow_struct_data_type_get_field_index(GArrowStructDataType *data_type,
-                                          const gchar *name)
+                                        const gchar *name)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   auto arrow_struct_data_type =
