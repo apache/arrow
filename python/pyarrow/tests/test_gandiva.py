@@ -136,6 +136,7 @@ def test_literals():
 
     with pytest.raises(TypeError):
         builder.make_literal("hello", pa.int64())
+    with pytest.raises(TypeError):
         builder.make_literal(True, None)
 
 
