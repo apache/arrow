@@ -506,114 +506,112 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
 namespace arrow {
 namespace r {
 
-template <int RTYPE>
-inline void simple_Array_to_Vector_Slice(Rcpp::Vector<RTYPE>& out, const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
-  using value_type = typename Rcpp::Vector<RTYPE>::stored_type;
-  auto null_count = array->null_count();
-
-  if (n == null_count) {
-    std::fill_n(out.begin() + start, n, default_value<RTYPE>());
-  } else {
-    auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
-    STOP_IF_NULL(p_values);
-
-    // first copy all the data
-    std::copy_n(p_values, n, out.begin() + start);
-
-    if (null_count){
-      // then set the sentinel NA
-      arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-        array->offset(), n);
-
-      for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
-        if (bitmap_reader.IsNotSet()) {
-          out[i + start] = default_value<RTYPE>();
-        }
-      }
-    }
-  }
-}
-
-
-template <int RTYPE>
-inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
+template <typename Converter>
+SEXP Array_To_Vector(const std::shared_ptr<arrow::Array>& array) {
   auto n = array->length();
-
-  // special cases
-  if (n == 0) return Rcpp::Vector<RTYPE>(0);
-
-  Rcpp::Vector<RTYPE> out(no_init(n));
-  simple_Array_to_Vector_Slice<RTYPE>(out, array, 0, n);
-  return out;
+  Converter converter(n);
+  converter.Ingest(array, 0, n);
+  return converter.data;
 }
 
-template <int RTYPE>
-inline SEXP simple_ChunkedArray_to_Vector(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  auto n = chunked_array->length();
-  Rcpp::Vector<RTYPE> out = no_init(n);
-  if(n == 0) return out;
+template <typename Converter>
+SEXP ChunkedArray_To_Vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  Converter converter(chunked_array->length());
 
   R_xlen_t k = 0;
   for (int i = 0; i < chunked_array->num_chunks(); i++) {
     auto chunk = chunked_array->chunk(i);
-    auto n_chunk = chunk->length();
-
-    simple_Array_to_Vector_Slice<RTYPE>(out, chunk, k, n_chunk);
-    k += n_chunk;
+    auto n = chunk->length();
+    converter.Ingest(chunk, k, n);
+    k += n;
   }
-  return out;
+  return converter.data;
 }
 
-inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  auto n = array->length();
-  auto null_count = array->null_count();
+template <int RTYPE>
+struct Converter_SimpleArray{
+  using Vector = Rcpp::Vector<RTYPE>;
 
-  // special cases
-  if (n == 0) return Rcpp::CharacterVector_(0);
+  Converter_SimpleArray(R_xlen_t n) : data(n){}
 
-  // only NA
-  if (null_count == n) {
-    return StringVector_(n, NA_STRING);
-  }
+  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n){
+    using value_type = typename Vector::stored_type;
+    auto null_count = array->null_count();
 
-  Rcpp::CharacterVector res(no_init(n));
-  auto p_offset = GetValuesSafely<int32_t>(array->data(), 1, array->offset());
-  STOP_IF_NULL(p_offset);
+    if (n == null_count) {
+      std::fill_n(data.begin() + start, n, default_value<RTYPE>());
+    } else {
+      auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+      STOP_IF_NULL(p_values);
 
-  auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
-  if (!p_data) {
-    // There is an offset buffer, but the data buffer is null
-    // There is at least one value in the array and not all the values are null
-    // That means all values are empty strings so we can just return `res`
-    return res;
-  }
-  if (null_count) {
-    // need to watch for nulls
-    arrow::internal::BitmapReader null_reader(array->null_bitmap_data(), array->offset(),
-                                              n);
-    for (int i = 0; i < n; i++, null_reader.Next()) {
-      if (null_reader.IsSet()) {
-        auto diff = p_offset[i + 1] - p_offset[i];
-        SET_STRING_ELT(res, i, Rf_mkCharLenCE(p_data, diff, CE_UTF8));
-        p_data += diff;
-      } else {
-        SET_STRING_ELT(res, i, NA_STRING);
+      // first copy all the data
+      std::copy_n(p_values, n, data.begin() + start);
+
+      if (null_count){
+        // then set the sentinel NA
+        arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+          array->offset(), n);
+
+        for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
+          if (bitmap_reader.IsNotSet()) {
+            data[i + start] = default_value<RTYPE>();
+          }
+        }
       }
     }
+  }
 
-  } else {
-    // no need to check for nulls
-    // TODO: altrep mark this as no na
-    for (int i = 0; i < n; i++) {
-      auto diff = p_offset[i + 1] - p_offset[i];
-      SET_STRING_ELT(res, i, Rf_mkCharLenCE(p_data, diff, CE_UTF8));
-      p_data += diff;
+  Vector data;
+};
+
+struct Converter_String {
+  Converter_String(R_xlen_t n) : data(n){}
+
+  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n){
+    auto null_count = array->null_count();
+
+    if (null_count == n) {
+      std::fill_n(data.begin(), n, NA_STRING);
+    } else {
+      auto p_offset = GetValuesSafely<int32_t>(array->data(), 1, array->offset());
+      STOP_IF_NULL(p_offset);
+      auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
+      if (!p_data) {
+        // There is an offset buffer, but the data buffer is null
+        // There is at least one value in the array and not all the values are null
+        // That means all values are empty strings so there is nothing to do
+        return;
+      }
+
+      if (null_count) {
+        // need to watch for nulls
+        arrow::internal::BitmapReader null_reader(array->null_bitmap_data(), array->offset(),
+          n);
+        for (int i = 0; i < n; i++, null_reader.Next()) {
+          if (null_reader.IsSet()) {
+            auto diff = p_offset[i + 1] - p_offset[i];
+            SET_STRING_ELT(data, start + i, Rf_mkCharLenCE(p_data, diff, CE_UTF8));
+            p_data += diff;
+          } else {
+            SET_STRING_ELT(data, start + i, NA_STRING);
+          }
+        }
+
+      } else {
+        // no need to check for nulls
+        // TODO: altrep mark this as no na
+        for (int i = 0; i < n; i++) {
+          auto diff = p_offset[i + 1] - p_offset[i];
+          SET_STRING_ELT(data, start + i, Rf_mkCharLenCE(p_data, diff, CE_UTF8));
+          p_data += diff;
+        }
+      }
+
     }
   }
 
-  return res;
-}
+  CharacterVector data;
+};
 
 inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   auto n = array->length();
@@ -658,7 +656,7 @@ inline SEXP DictionaryArrayInt32Indices_to_Vector(
 
   size_t n = array->length();
   IntegerVector vec(no_init(n));
-  vec.attr("levels") = StringArray_to_Vector(dict);
+  vec.attr("levels") = Array_To_Vector<Converter_String>(dict);
   if (ordered) {
     vec.attr("class") = CharacterVector::create("ordered", "factor");
   } else {
@@ -724,7 +722,7 @@ SEXP DictionaryArray_to_Vector(arrow::DictionaryArray* dict_array) {
 }
 
 SEXP Date32Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  IntegerVector out(simple_Array_to_Vector<INTSXP>(array));
+  IntegerVector out(arrow::r::Array_To_Vector<Converter_SimpleArray<INTSXP>>(array));
   out.attr("class") = "Date";
   return out;
 }
@@ -895,11 +893,11 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
   switch (array->type_id()) {
     // direct support
     case Type::INT8:
-      return simple_Array_to_Vector<RAWSXP>(array);
+      return Array_To_Vector<Converter_SimpleArray<RAWSXP>>(array);
     case Type::INT32:
-      return simple_Array_to_Vector<INTSXP>(array);
+      return Array_To_Vector<Converter_SimpleArray<INTSXP>>(array);
     case Type::DOUBLE:
-      return simple_Array_to_Vector<REALSXP>(array);
+      return Array_To_Vector<Converter_SimpleArray<REALSXP>>(array);
 
     // need to handle 1-bit case
     case Type::BOOL:
@@ -907,7 +905,7 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
 
     // handle memory dense strings
     case Type::STRING:
-      return StringArray_to_Vector(array);
+      return Array_To_Vector<Converter_String>(array);
     case Type::DICTIONARY:
       return DictionaryArray_to_Vector(static_cast<arrow::DictionaryArray*>(array.get()));
 
@@ -959,13 +957,19 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
 
 // [[Rcpp::export]]
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  using namespace arrow::r;
+
   switch (chunked_array->type()->id()) {
   case Type::INT8:
-    return arrow::r::simple_ChunkedArray_to_Vector<RAWSXP>(chunked_array);
+    return ChunkedArray_To_Vector<Converter_SimpleArray<RAWSXP>>(chunked_array);
   case Type::INT32:
-    return arrow::r::simple_ChunkedArray_to_Vector<INTSXP>(chunked_array);
+    return ChunkedArray_To_Vector<Converter_SimpleArray<INTSXP>>(chunked_array);
   case Type::DOUBLE:
-    return arrow::r::simple_ChunkedArray_to_Vector<REALSXP>(chunked_array);
+    return ChunkedArray_To_Vector<Converter_SimpleArray<REALSXP>>(chunked_array);
+
+  case Type::STRING:
+    return ChunkedArray_To_Vector<Converter_String>(chunked_array);
+
   default:
     break;
   }

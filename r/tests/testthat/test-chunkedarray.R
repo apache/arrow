@@ -110,6 +110,7 @@ test_that("ChunkedArray supports character vectors (ARROW-3339)", {
   arr_chr <- chunked_array(!!!data)
   expect_equal(arr_chr$length(), length(unlist(data)))
   expect_equal(arr_chr$null_count(), 1L)
+  expect_equal(arr_chr$as_vector(), purrr::flatten_chr(data))
 
   chunks <- arr_chr$chunks()
   expect_equal(data, purrr::map(chunks, ~.$as_vector()))
