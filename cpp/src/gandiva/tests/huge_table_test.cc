@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/projector.h"
-#include "gandiva/filter.h"
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
+#include "gandiva/filter.h"
+#include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
 
@@ -62,7 +62,7 @@ TEST_F(DISABLED_TestHugeProjector, SimpleTestSumHuge) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int64_t num_records = INT32_MAX + 3; // Cause an overflow in int32_t
+  int64_t num_records = static_cast<int64_t>(INT32_MAX) + 3;  // Cause an overflow in int32_t
   std::vector<int32_t> input0 = {2, 29, 5, 37, 11, 59, 17, 19};
   std::vector<int32_t> input1 = {23, 3, 31, 7, 41, 47, 13};
   std::vector<bool> validity;
@@ -97,7 +97,7 @@ TEST_F(DISABLED_TestHugeProjector, SimpleTestSumHuge) {
 
 TEST_F(DISABLED_TestHugeFilter, TestSimpleHugeFilter) {
   // Create a row-batch with some sample data
-  int64_t num_records = INT32_MAX + 3; // Cause an overflow in int32_t
+  int64_t num_records = static_cast<int64_t>(INT32_MAX) + 3;  // Cause an overflow in int32_t
   std::vector<int32_t> input0 = {2, 29, 5, 37, 11, 59, 17, 19};
   std::vector<int32_t> input1 = {23, 3, 31, 7, 41, 47, 13};
   std::vector<bool> validity;
@@ -111,7 +111,7 @@ TEST_F(DISABLED_TestHugeFilter, TestSimpleHugeFilter) {
     arr1.push_back(input0[i % 8]);
     arr2.push_back(input1[i % 7]);
     if (input0[i % 8] + input1[i % 7] > 50) {
-        sel.push_back(i);
+      sel.push_back(i);
     }
     validity.push_back(true);
   }
