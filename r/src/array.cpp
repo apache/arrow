@@ -515,7 +515,8 @@ SEXP Array_To_Vector(const std::shared_ptr<arrow::Array>& array, Args... args) {
 }
 
 template <typename Converter, typename... Args>
-SEXP ChunkedArray_To_Vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, Args... args) {
+SEXP ChunkedArray_To_Vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
+                            Args... args) {
   Converter converter(chunked_array->length(), std::forward<Args>(args)...);
 
   R_xlen_t k = 0;
@@ -673,7 +674,7 @@ struct Converter_Dictionary_Int32Indices {
 
       if (array->null_count()) {
         arrow::internal::BitmapReader bitmap_reader(indices->null_bitmap()->data(),
-          indices->offset(), n);
+                                                    indices->offset(), n);
         for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_array) {
           data[start + i] =
               bitmap_reader.IsNotSet() ? NA_INTEGER : (static_cast<int>(*p_array) + 1);
@@ -702,23 +703,23 @@ SEXP DictionaryArray_to_Vector(const std::shared_ptr<Array>& array) {
   switch (indices->type_id()) {
     case Type::UINT8:
       return Array_To_Vector<Converter_Dictionary_Int32Indices<arrow::UInt8Type>>(
-        array, dict, ordered);
+          array, dict, ordered);
 
     case Type::INT8:
       return Array_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int8Type>>(
-        array, dict, ordered);
+          array, dict, ordered);
 
     case Type::UINT16:
       return Array_To_Vector<Converter_Dictionary_Int32Indices<arrow::UInt16Type>>(
-        array, dict, ordered);
+          array, dict, ordered);
 
     case Type::INT16:
       return Array_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int16Type>>(
-        array, dict, ordered);
+          array, dict, ordered);
 
     case Type::INT32:
       return Array_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int32Type>>(
-        array, dict, ordered);
+          array, dict, ordered);
 
     default:
       stop("Cannot convert Dictionary Array of type `%s` to R",
@@ -727,49 +728,58 @@ SEXP DictionaryArray_to_Vector(const std::shared_ptr<Array>& array) {
   return R_NilValue;
 }
 
-SEXP DictionaryChunkedArray_to_Vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  DictionaryArray* dict_array = static_cast<DictionaryArray*>(chunked_array->chunk(0).get());
+SEXP DictionaryChunkedArray_to_Vector(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  DictionaryArray* dict_array =
+      static_cast<DictionaryArray*>(chunked_array->chunk(0).get());
 
   auto dict = dict_array->dictionary();
   auto indices = dict_array->indices();
 
   if (dict->type_id() != Type::STRING) {
     stop("Cannot convert Dictionary Array of type `%s` to R",
-      dict_array->type()->ToString());
+         dict_array->type()->ToString());
   }
   bool ordered = dict_array->dict_type()->ordered();
 
   switch (indices->type_id()) {
-  case Type::UINT8:
-    return ChunkedArray_To_Vector<Converter_Dictionary_Int32Indices<arrow::UInt8Type>>(
-      chunked_array, dict, ordered);
+    case Type::UINT8:
+      return ChunkedArray_To_Vector<Converter_Dictionary_Int32Indices<arrow::UInt8Type>>(
+          chunked_array, dict, ordered);
 
-  case Type::INT8:
-    return ChunkedArray_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int8Type>>(
-      chunked_array, dict, ordered);
+    case Type::INT8:
+      return ChunkedArray_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int8Type>>(
+          chunked_array, dict, ordered);
 
-  case Type::UINT16:
-    return ChunkedArray_To_Vector<Converter_Dictionary_Int32Indices<arrow::UInt16Type>>(
-      chunked_array, dict, ordered);
+    case Type::UINT16:
+      return ChunkedArray_To_Vector<Converter_Dictionary_Int32Indices<arrow::UInt16Type>>(
+          chunked_array, dict, ordered);
 
-  case Type::INT16:
-    return ChunkedArray_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int16Type>>(
-      chunked_array, dict, ordered);
+    case Type::INT16:
+      return ChunkedArray_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int16Type>>(
+          chunked_array, dict, ordered);
 
-  case Type::INT32:
-    return ChunkedArray_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int32Type>>(
-      chunked_array, dict, ordered);
+    case Type::INT32:
+      return ChunkedArray_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int32Type>>(
+          chunked_array, dict, ordered);
 
-  default:
-    stop("Cannot convert Dictionary Array of type `%s` to R",
-      dict_array->type()->ToString());
+    default:
+      stop("Cannot convert Dictionary Array of type `%s` to R",
+           dict_array->type()->ToString());
   }
   return R_NilValue;
 }
 
-
 SEXP Date32Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
   IntegerVector out(arrow::r::Array_To_Vector<Converter_SimpleArray<INTSXP>>(array));
+  out.attr("class") = "Date";
+  return out;
+}
+
+SEXP Date32ChunkArray_to_Vector(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  IntegerVector out(
+      arrow::r::ChunkedArray_To_Vector<Converter_SimpleArray<INTSXP>>(chunked_array));
   out.attr("class") = "Date";
   return out;
 }
@@ -1024,6 +1034,9 @@ SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked
 
     case Type::DICTIONARY:
       return DictionaryChunkedArray_to_Vector(chunked_array);
+
+    case Type::DATE32:
+      return Date32ChunkArray_to_Vector(chunked_array);
 
     default:
       break;

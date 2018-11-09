@@ -126,3 +126,12 @@ test_that("ChunkedArray supports factors (ARROW-3716)", {
   expect_equal(arr_fac$type()$index_type(), int8())
   expect_identical(arr_fac$as_vector(), vctrs::vec_c(f, f, f))
 })
+
+test_that("ChunkedArray supports dates (ARROW-3716)", {
+  d <- Sys.Date() + 1:10
+  a <- chunked_array(d, d)
+  expect_equal(a$type(), date32())
+  expect_equal(a$length(), 20L)
+  expect_equal(a$as_vector(), c(d, d))
+})
+
