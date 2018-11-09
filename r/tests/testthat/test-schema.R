@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("test-schema")
+context("arrow::Schema")
 
 test_that("reading schema from raw vector", {
   batch <- record_batch(tibble::tibble(x = 1:10))

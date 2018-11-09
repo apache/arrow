@@ -135,3 +135,26 @@ test_that("ChunkedArray supports dates (ARROW-3716)", {
   expect_equal(a$as_vector(), c(d, d))
 })
 
+test_that("ChunkedArray supports POSIXct (ARROW-3716)", {
+  times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
+  a <- chunked_array(times, times)
+  expect_equal(a$type(), date64())
+  expect_equal(a$length(), 20L)
+  expect_equal(as.numeric(a$as_vector()), as.numeric(c(times, times)))
+})
+
+test_that("ChunkedArray supports integer64 (ARROW-3716)", {
+  x <- bit64::as.integer64(1:10)
+  a <- chunked_array(x, x)
+  expect_equal(a$type(), int64())
+  expect_equal(a$length(), 20L)
+  expect_equal(a$as_vector(), c(x,x))
+})
+
+test_that("ChunkedArray supports difftime", {
+  time <- hms::hms(56, 34, 12)
+  a <- chunked_array(time, time)
+  expect_equal(a$type(), time32(unit = TimeUnit$SECOND))
+  expect_equal(a$length(), 2L)
+  expect_equal(a$as_vector(), c(time, time))
+})
