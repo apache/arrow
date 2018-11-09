@@ -1065,12 +1065,12 @@ if (ARROW_WITH_ZSTD)
         "-DZSTD_MULTITHREAD_SUPPORT=off")
 
     if (MSVC)
-      set(ZSTD_STATIC_LIB "${ZSTD_PREFIX}/lib/zstd_static.lib")
+      set(ZSTD_STATIC_LIB "${ZSTD_PREFIX}/${CMAKE_INSTALL_LIBDIR}/zstd_static.lib")
       if (ARROW_USE_STATIC_CRT)
         set(ZSTD_CMAKE_ARGS ${ZSTD_CMAKE_ARGS} "-DZSTD_USE_STATIC_RUNTIME=on")
       endif()
     else()
-      set(ZSTD_STATIC_LIB "${ZSTD_PREFIX}/lib/libzstd.a")
+      set(ZSTD_STATIC_LIB "${ZSTD_PREFIX}/${CMAKE_INSTALL_LIBDIR}/libzstd.a")
       # Only pass our C flags on Unix as on MSVC it leads to a
       # "incompatible command-line options" error
       set(ZSTD_CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
