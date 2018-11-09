@@ -532,7 +532,7 @@ template <int RTYPE>
 struct Converter_SimpleArray{
   using Vector = Rcpp::Vector<RTYPE>;
 
-  Converter_SimpleArray(R_xlen_t n) : data(n){}
+  Converter_SimpleArray(R_xlen_t n) : data(no_init(n)){}
 
   void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n){
     using value_type = typename Vector::stored_type;
@@ -613,40 +613,40 @@ struct Converter_String {
   CharacterVector data;
 };
 
-inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  auto n = array->length();
-  auto null_count = array->null_count();
+struct Converter_Boolean {
+  Converter_Boolean(R_xlen_t n) : data(n){}
 
-  if (n == 0) {
-    return LogicalVector(0);
-  }
-  if (n == null_count) {
-    return LogicalVector(n, NA_LOGICAL);
-  }
+  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n){
+    auto null_count = array->null_count();
 
-  LogicalVector vec = no_init(n);
+    if (n == null_count) {
+      std::fill_n(data.begin() + start, n, NA_LOGICAL);
+    } else {
+      // process the data
+      auto p_data = GetValuesSafely<uint8_t>(array->data(), 1, 0);
+      STOP_IF_NULL(p_data);
 
-  // process the data
-  auto p_data = GetValuesSafely<uint8_t>(array->data(), 1, 0);
-  STOP_IF_NULL(p_data);
-  arrow::internal::BitmapReader data_reader(p_data, array->offset(), n);
-  for (size_t i = 0; i < n; i++, data_reader.Next()) {
-    vec[i] = data_reader.IsSet();
-  }
-
-  // then the null bitmap if needed
-  if (array->null_count()) {
-    arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
-                                              array->offset(), n);
-    for (size_t i = 0; i < n; i++, null_reader.Next()) {
-      if (null_reader.IsNotSet()) {
-        vec[i] = LogicalVector::get_na();
+      arrow::internal::BitmapReader data_reader(p_data, array->offset(), n);
+      for (size_t i = 0; i < n; i++, data_reader.Next()) {
+        data[start + i] = data_reader.IsSet();
       }
+
+      // then the null bitmap if needed
+      if (null_count) {
+        arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
+          array->offset(), n);
+        for (size_t i = 0; i < n; i++, null_reader.Next()) {
+          if (null_reader.IsNotSet()) {
+            data[start + i] = NA_LOGICAL;
+          }
+        }
+      }
+
     }
   }
 
-  return vec;
-}
+  LogicalVector data;
+};
 
 template <typename Type>
 inline SEXP DictionaryArrayInt32Indices_to_Vector(
@@ -901,7 +901,7 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
 
     // need to handle 1-bit case
     case Type::BOOL:
-      return BooleanArray_to_Vector(array);
+      return Array_To_Vector<Converter_Boolean>(array);
 
     // handle memory dense strings
     case Type::STRING:
@@ -967,8 +967,14 @@ SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked
   case Type::DOUBLE:
     return ChunkedArray_To_Vector<Converter_SimpleArray<REALSXP>>(chunked_array);
 
+  // need to handle 1-bit case
+  case Type::BOOL:
+    return ChunkedArray_To_Vector<Converter_Boolean>(chunked_array);
+
+  // handle memory dense strings
   case Type::STRING:
     return ChunkedArray_To_Vector<Converter_String>(chunked_array);
+
 
   default:
     break;
