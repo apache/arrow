@@ -252,6 +252,7 @@ matrix:
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_GANDIVA=1
     - ARROW_TRAVIS_PARQUET=1
+    - ARROW_TRAVIS_PLASMA=1
     cache:
     addons:
     rvm: 2.2
