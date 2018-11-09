@@ -118,3 +118,11 @@ test_that("ChunkedArray supports character vectors (ARROW-3339)", {
   chunks <- arr_chr$chunks()
   expect_equal(data, purrr::map(chunks, ~.$as_vector()))
 })
+
+test_that("ChunkedArray supports factors (ARROW-3716)", {
+  f <- factor(c("itsy", "bitsy", "spider", "spider"))
+  arr_fac <- chunked_array(f, f, f)
+  expect_equal(arr_fac$length(), 12L)
+  expect_equal(arr_fac$type()$index_type(), int8())
+  expect_identical(arr_fac$as_vector(), vctrs::vec_c(f, f, f))
+})
