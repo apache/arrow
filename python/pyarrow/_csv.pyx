@@ -107,6 +107,10 @@ cdef class ParseOptions:
         Whether newline characters are allowed in CSV values.
         Setting this to True reduces the performance of multi-threaded
         CSV reading.
+    ignore_empty_lines: bool, optional (default True)
+        Whether empty lines are ignored in CSV input.
+        If False, an empty line is interpreted as containing a single empty
+        value (assuming a one-column CSV file).
     """
     cdef:
         CCSVParseOptions options
@@ -114,7 +118,8 @@ cdef class ParseOptions:
     __slots__ = ()
 
     def __init__(self, delimiter=None, quote_char=None, double_quote=None,
-                 escape_char=None, header_rows=None, newlines_in_values=None):
+                 escape_char=None, header_rows=None, newlines_in_values=None,
+                 ignore_empty_lines=None):
         self.options = CCSVParseOptions.Defaults()
         if delimiter is not None:
             self.delimiter = delimiter
@@ -128,6 +133,8 @@ cdef class ParseOptions:
             self.header_rows = header_rows
         if newlines_in_values is not None:
             self.newlines_in_values = newlines_in_values
+        if ignore_empty_lines is not None:
+            self.ignore_empty_lines = ignore_empty_lines
 
     @property
     def delimiter(self):
@@ -213,6 +220,19 @@ cdef class ParseOptions:
     @newlines_in_values.setter
     def newlines_in_values(self, value):
         self.options.newlines_in_values = value
+
+    @property
+    def ignore_empty_lines(self):
+        """
+        Whether empty lines are ignored in CSV input.
+        If False, an empty line is interpreted as containing a single empty
+        value (assuming a one-column CSV file).
+        """
+        return self.options.ignore_empty_lines
+
+    @ignore_empty_lines.setter
+    def ignore_empty_lines(self, value):
+        self.options.ignore_empty_lines = value
 
 
 cdef class ConvertOptions:

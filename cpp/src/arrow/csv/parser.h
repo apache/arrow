@@ -67,7 +67,9 @@ class ARROW_EXPORT BlockParser {
   /// The last row may lack a trailing line separator.
   Status ParseFinal(const char* data, uint32_t size, uint32_t* out_size);
 
+  /// \brief Return the number of parsed rows
   int32_t num_rows() const { return num_rows_; }
+  /// \brief Return the number of parsed columns
   int32_t num_cols() const { return num_cols_; }
   /// \brief Return the total size in bytes of parsed data
   uint32_t num_bytes() const { return parsed_size_; }

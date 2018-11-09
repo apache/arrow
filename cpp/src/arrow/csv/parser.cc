@@ -41,6 +41,8 @@ static Status MismatchingColumns(int32_t expected, int32_t actual) {
   return ParseError(s);
 }
 
+static inline bool IsControlChar(uint8_t c) { return c < ' '; }
+
 template <bool Quoting, bool Escaping>
 class SpecializedOptions {
  public:
@@ -75,6 +77,7 @@ class BlockParser::PresizedParsedWriter {
 
   int64_t size() { return parsed_size_; }
 
+ protected:
   std::shared_ptr<ResizableBuffer> parsed_buffer_;
   uint8_t* parsed_;
   int64_t parsed_size_;
@@ -193,14 +196,30 @@ Status BlockParser::ParseLine(ValuesWriter* values_writer, ParsedWriter* parsed_
   int32_t num_cols = 0;
   char c;
 
-  values_writer->BeginLine();
-  parsed_writer->BeginLine();
+  DCHECK_GT(data_end, data);
 
   auto FinishField = [&]() { values_writer->FinishField(parsed_writer); };
 
-  DCHECK_GT(data_end, data);
+  values_writer->BeginLine();
+  parsed_writer->BeginLine();
 
   // The parsing state machine
+
+  // Special case empty lines: do we start with a newline separator?
+  c = *data;
+  if (ARROW_PREDICT_FALSE(IsControlChar(c)) && options_.ignore_empty_lines) {
+    if (c == '\r') {
+      data++;
+      if (data < data_end && *data == '\n') {
+        data++;
+      }
+      goto EmptyLine;
+    }
+    if (c == '\n') {
+      data++;
+      goto EmptyLine;
+    }
+  }
 
 FieldStart:
   // At the start of a field
@@ -231,7 +250,7 @@ InField:
   if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
     goto FieldEnd;
   }
-  if (ARROW_PREDICT_FALSE(c < ' ')) {
+  if (ARROW_PREDICT_FALSE(IsControlChar(c))) {
     if (c == '\r') {
       // In the middle of a newline separator?
       if (ARROW_PREDICT_TRUE(data < data_end) && *data == '\n') {
@@ -286,11 +305,14 @@ LineEnd:
   // At the end of line
   FinishField();
   ++num_cols;
-  if (ARROW_PREDICT_FALSE(num_cols_ == -1)) {
-    num_cols_ = num_cols;
-  } else if (ARROW_PREDICT_FALSE(num_cols != num_cols_)) {
-    return MismatchingColumns(num_cols_, num_cols);
+  if (ARROW_PREDICT_FALSE(num_cols != num_cols_)) {
+    if (num_cols_ == -1) {
+      num_cols_ = num_cols;
+    } else {
+      return MismatchingColumns(num_cols_, num_cols);
+    }
   }
+  ++num_rows_;
   *out_data = data;
   return Status::OK();
 
@@ -304,12 +326,17 @@ AbortLine:
     } else if (num_cols != num_cols_) {
       return MismatchingColumns(num_cols_, num_cols);
     }
+    ++num_rows_;
     *out_data = data;
     return Status::OK();
   }
   // Truncated line at end of block, rewind parsed state
   values_writer->RollbackLine();
   parsed_writer->RollbackLine();
+  return Status::OK();
+
+EmptyLine:
+  *out_data = data;
   return Status::OK();
 }
 
@@ -328,7 +355,8 @@ Status BlockParser::ParseChunk(ValuesWriter* values_writer, ParsedWriter* parsed
       break;
     }
     data = line_end;
-    ++num_rows_;
+    // This will pessimize chunk size a bit if there are empty lines,
+    // but that shouldn't be important
     --rows_in_chunk;
   }
   // Append new buffers and update size
@@ -368,6 +396,9 @@ Status BlockParser::DoParseSpecialized(const char* start, uint32_t size, bool is
     RETURN_NOT_OK(ParseChunk<SpecializedOptions>(&values_writer, &parsed_writer, data,
                                                  data_end, is_final, rows_in_chunk, &data,
                                                  &finished_parsing));
+    if (num_cols_ == -1) {
+      return ParseError("Empty CSV file or block: cannot infer number of columns");
+    }
   }
   while (!finished_parsing && data < data_end && num_rows_ < max_num_rows_) {
     // We know the number of columns, so can presize a values array for

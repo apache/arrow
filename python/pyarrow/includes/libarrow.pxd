@@ -942,6 +942,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         unsigned char escape_char
         int32_t header_rows
         c_bool newlines_in_values
+        c_bool ignore_empty_lines
 
         @staticmethod
         CCSVParseOptions Defaults()

@@ -42,9 +42,12 @@ struct ARROW_EXPORT ParseOptions {
   char escape_char = '\\';
   // Whether values are allowed to contain CR (0x0d) and LF (0x0a) characters
   bool newlines_in_values = false;
+  // Whether empty lines are ignored.  If false, an empty line represents
+  // a single empty value (assuming a one-column CSV file).
+  bool ignore_empty_lines = true;
 
   // XXX Should this be in ReadOptions?
-  // Number of header rows to skip
+  // Number of header rows to skip (including the first row containing column names)
   int32_t header_rows = 1;
 
   static ParseOptions Defaults();
