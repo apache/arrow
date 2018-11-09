@@ -507,37 +507,62 @@ namespace arrow {
 namespace r {
 
 template <int RTYPE>
-inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
+inline void simple_Array_to_Vector_Slice(Rcpp::Vector<RTYPE>& out, const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
   using value_type = typename Rcpp::Vector<RTYPE>::stored_type;
-  auto n = array->length();
   auto null_count = array->null_count();
 
-  // special cases
-  if (n == 0) return Rcpp::Vector<RTYPE>(0);
   if (n == null_count) {
-    return Rcpp::Vector<RTYPE>(n, default_value<RTYPE>());
-  }
+    std::fill_n(out.begin() + start, n, default_value<RTYPE>());
+  } else {
+    auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+    STOP_IF_NULL(p_values);
 
-  // first copy all the data
-  auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
-  STOP_IF_NULL(p_values);
-  Rcpp::Vector<RTYPE> vec(p_values, p_values + n);
+    // first copy all the data
+    std::copy_n(p_values, n, out.begin() + start);
 
-  // then set the sentinel NA
-  if (array->null_count() && RTYPE != RAWSXP) {
-    // TODO: not sure what to do with RAWSXP since
-    //       R raw vector do not have a concept of missing data
+    if (null_count){
+      // then set the sentinel NA
+      arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+        array->offset(), n);
 
-    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                                array->offset(), n);
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
-      if (bitmap_reader.IsNotSet()) {
-        vec[i] = Rcpp::Vector<RTYPE>::get_na();
+      for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
+        if (bitmap_reader.IsNotSet()) {
+          out[i + start] = default_value<RTYPE>();
+        }
       }
     }
   }
+}
 
-  return vec;
+
+template <int RTYPE>
+inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
+  auto n = array->length();
+
+  // special cases
+  if (n == 0) return Rcpp::Vector<RTYPE>(0);
+
+  Rcpp::Vector<RTYPE> out(no_init(n));
+  simple_Array_to_Vector_Slice<RTYPE>(out, array, 0, n);
+  return out;
+}
+
+template <int RTYPE>
+inline SEXP simple_ChunkedArray_to_Vector(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  auto n = chunked_array->length();
+  Rcpp::Vector<RTYPE> out = no_init(n);
+  if(n == 0) return out;
+
+  R_xlen_t k = 0;
+  for (int i = 0; i < chunked_array->num_chunks(); i++) {
+    auto chunk = chunked_array->chunk(i);
+    auto n_chunk = chunk->length();
+
+    simple_Array_to_Vector_Slice<RTYPE>(out, chunk, k, n_chunk);
+    k += n_chunk;
+  }
+  return out;
 }
 
 inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
@@ -859,44 +884,6 @@ SEXP DecimalArray(const std::shared_ptr<Array>& array) {
 
   return vec;
 }
-
-template <int RTYPE>
-inline SEXP simple_ChunkedArray_to_Vector(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  using value_type = typename Rcpp::Vector<RTYPE>::stored_type;
-  Rcpp::Vector<RTYPE> out = no_init(chunked_array->length());
-  auto p = out.begin();
-
-  int k = 0;
-  for (int i = 0; i < chunked_array->num_chunks(); i++) {
-    auto chunk = chunked_array->chunk(i);
-    auto n = chunk->length();
-
-    // copy the data
-    auto q = p;
-    auto p_chunk =
-      arrow::r::GetValuesSafely<value_type>(chunk->data(), 1, chunk->offset());
-    STOP_IF_NULL(p_chunk);
-    p = std::copy_n(p_chunk, n, p);
-
-    // set NA using the bitmap
-    auto bitmap_data = chunk->null_bitmap();
-    if (bitmap_data && RTYPE != RAWSXP) {
-      arrow::internal::BitmapReader bitmap_reader(bitmap_data->data(), chunk->offset(),
-        n);
-
-      for (int j = 0; j < n; j++, bitmap_reader.Next()) {
-        if (bitmap_reader.IsNotSet()) {
-          q[k + j] = Rcpp::Vector<RTYPE>::get_na();
-        }
-      }
-    }
-
-    k += chunk->length();
-  }
-  return out;
-}
-
 
 }  // namespace r
 }  // namespace arrow

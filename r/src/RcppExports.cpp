@@ -28,6 +28,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ChunkedArray__as_vector
+SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__as_vector(chunked_array));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Array__Slice1
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, int offset);
 RcppExport SEXP _arrow_Array__Slice1(SEXP arraySEXP, SEXP offsetSEXP) {
@@ -399,17 +410,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
     rcpp_result_gen = Rcpp::wrap(ChunkedArray__type(chunked_array));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ChunkedArray__as_vector
-SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
-RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_arraySEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
-    rcpp_result_gen = Rcpp::wrap(ChunkedArray__as_vector(chunked_array));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1821,6 +1821,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 1},
     {"_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1},
+    {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
     {"_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2},
     {"_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3},
     {"_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2},
@@ -1854,7 +1855,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ChunkedArray__chunk", (DL_FUNC) &_arrow_ChunkedArray__chunk, 2},
     {"_arrow_ChunkedArray__chunks", (DL_FUNC) &_arrow_ChunkedArray__chunks, 1},
     {"_arrow_ChunkedArray__type", (DL_FUNC) &_arrow_ChunkedArray__type, 1},
-    {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
     {"_arrow_ChunkArray__Slice1", (DL_FUNC) &_arrow_ChunkArray__Slice1, 2},
     {"_arrow_ChunkArray__Slice2", (DL_FUNC) &_arrow_ChunkArray__Slice2, 3},
     {"_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 1},
