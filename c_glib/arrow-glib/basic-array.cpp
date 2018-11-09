@@ -29,7 +29,6 @@
 #include <arrow-glib/type.hpp>
 #include <arrow-glib/decimal.hpp>
 
-#include <iostream>
 #include <sstream>
 
 template <typename T>

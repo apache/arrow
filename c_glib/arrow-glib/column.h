@@ -25,47 +25,16 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_COLUMN                      \
-  (garrow_column_get_type())
-#define GARROW_COLUMN(obj)                              \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_COLUMN,       \
-                              GArrowColumn))
-#define GARROW_COLUMN_CLASS(klass)              \
-  (G_TYPE_CHECK_CLASS_CAST((klass),             \
-                           GARROW_TYPE_COLUMN,  \
-                           GArrowColumnClass))
-#define GARROW_IS_COLUMN(obj)                           \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
-                              GARROW_TYPE_COLUMN))
-#define GARROW_IS_COLUMN_CLASS(klass)           \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),             \
-                           GARROW_TYPE_COLUMN))
-#define GARROW_COLUMN_GET_CLASS(obj)                    \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_COLUMN,        \
-                             GArrowColumnClass))
-
-typedef struct _GArrowColumn         GArrowColumn;
-typedef struct _GArrowColumnClass    GArrowColumnClass;
-
-/**
- * GArrowColumn:
- *
- * It wraps `arrow::Column`.
- */
-struct _GArrowColumn
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
+#define GARROW_TYPE_COLUMN (garrow_column_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowColumn,
+                         garrow_column,
+                         GARROW,
+                         COLUMN,
+                         GObject)
 struct _GArrowColumnClass
 {
   GObjectClass parent_class;
 };
-
-GType               garrow_column_get_type      (void) G_GNUC_CONST;
 
 GArrowColumn *garrow_column_new_array(GArrowField *field,
                                       GArrowArray *array);
@@ -84,5 +53,7 @@ GArrowField        *garrow_column_get_field     (GArrowColumn *column);
 const gchar        *garrow_column_get_name      (GArrowColumn *column);
 GArrowDataType     *garrow_column_get_data_type (GArrowColumn *column);
 GArrowChunkedArray *garrow_column_get_data      (GArrowColumn *column);
+gchar              *garrow_column_to_string     (GArrowColumn *column,
+                                                 GError **error);
 
 G_END_DECLS

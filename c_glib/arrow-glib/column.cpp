@@ -25,7 +25,10 @@
 #include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/column.hpp>
 #include <arrow-glib/data-type.hpp>
+#include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
+
+#include <sstream>
 
 G_BEGIN_DECLS
 
@@ -362,6 +365,31 @@ garrow_column_get_data(GArrowColumn *column)
   const auto arrow_column = garrow_column_get_raw(column);
   auto arrow_chunked_array = arrow_column->data();
   return garrow_chunked_array_new_raw(&arrow_chunked_array);
+}
+
+/**
+ * garrow_column_to_string:
+ * @column: A #GArrowColumn.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): The formatted column content or %NULL on error.
+ *
+ *   The returned string should be freed when with g_free() when no
+ *   longer needed.
+ *
+ * Since: 0.12.0
+ */
+gchar *
+garrow_column_to_string(GArrowColumn *column, GError **error)
+{
+  const auto arrow_column = garrow_column_get_raw(column);
+  std::stringstream sink;
+  auto status = arrow::PrettyPrint(*arrow_column, 0, &sink);
+  if (garrow_error_check(error, status, "[column][to-string]")) {
+    return g_strdup(sink.str().c_str());
+  } else {
+    return NULL;
+  }
 }
 
 G_END_DECLS

@@ -118,5 +118,21 @@ class TestTable < Test::Unit::TestCase
       assert_equal(["added", "valid"],
                    new_table.schema.fields.collect(&:name))
     end
+
+    def test_to_s
+      table = build_table("valid" => build_boolean_array([true, false, true]))
+      assert_equal(<<-TABLE, table.to_s)
+valid: bool
+----
+valid:
+  [
+    [
+      true,
+      false,
+      true
+    ]
+  ]
+      TABLE
+    end
   end
 end
