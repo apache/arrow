@@ -50,10 +50,11 @@ set(ARROW_SRCS
   util/decimal.cc
   util/hash.cc
   util/io-util.cc
+  util/logging.cc
   util/key_value_metadata.cc
   util/task-group.cc
   util/thread-pool.cc
-  util/logging.cc
+  util/utf8.cc
 )
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
