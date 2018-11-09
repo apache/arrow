@@ -860,6 +860,44 @@ SEXP DecimalArray(const std::shared_ptr<Array>& array) {
   return vec;
 }
 
+template <int RTYPE>
+inline SEXP simple_ChunkedArray_to_Vector(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  using value_type = typename Rcpp::Vector<RTYPE>::stored_type;
+  Rcpp::Vector<RTYPE> out = no_init(chunked_array->length());
+  auto p = out.begin();
+
+  int k = 0;
+  for (int i = 0; i < chunked_array->num_chunks(); i++) {
+    auto chunk = chunked_array->chunk(i);
+    auto n = chunk->length();
+
+    // copy the data
+    auto q = p;
+    auto p_chunk =
+      arrow::r::GetValuesSafely<value_type>(chunk->data(), 1, chunk->offset());
+    STOP_IF_NULL(p_chunk);
+    p = std::copy_n(p_chunk, n, p);
+
+    // set NA using the bitmap
+    auto bitmap_data = chunk->null_bitmap();
+    if (bitmap_data && RTYPE != RAWSXP) {
+      arrow::internal::BitmapReader bitmap_reader(bitmap_data->data(), chunk->offset(),
+        n);
+
+      for (int j = 0; j < n; j++, bitmap_reader.Next()) {
+        if (bitmap_reader.IsNotSet()) {
+          q[k + j] = Rcpp::Vector<RTYPE>::get_na();
+        }
+      }
+    }
+
+    k += chunk->length();
+  }
+  return out;
+}
+
+
 }  // namespace r
 }  // namespace arrow
 
@@ -931,6 +969,24 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
   stop(tfm::format("cannot handle Array of type %s", array->type()->name()));
   return R_NilValue;
 }
+
+// [[Rcpp::export]]
+SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  switch (chunked_array->type()->id()) {
+  case Type::INT8:
+    return arrow::r::simple_ChunkedArray_to_Vector<RAWSXP>(chunked_array);
+  case Type::INT32:
+    return arrow::r::simple_ChunkedArray_to_Vector<INTSXP>(chunked_array);
+  case Type::DOUBLE:
+    return arrow::r::simple_ChunkedArray_to_Vector<REALSXP>(chunked_array);
+  default:
+    break;
+  }
+
+  stop(tfm::format("cannot handle Array of type %d", chunked_array->type()->id()));
+  return R_NilValue;
+}
+
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array,
