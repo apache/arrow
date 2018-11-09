@@ -120,9 +120,8 @@ cdef class SerializationContext:
             deserialize objects of the class in a particular way.
         """
         if not isinstance(type_id, six.string_types):
-            raise ValueError("The type_id argument must be a string. The "
-                             "value passed in has type {}."
-                             .format(type(type_id)))
+            raise TypeError("The type_id argument must be a string. The value "
+                            "passed in has type {}.".format(type(type_id)))
 
         self.type_to_type_id[type_] = type_id
         self.whitelisted_types[type_id] = type_

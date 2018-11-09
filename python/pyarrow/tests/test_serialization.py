@@ -586,7 +586,7 @@ def test_serialization_callback_error():
 
     # Make sure that we receive an error when we use an inappropriate value for
     # the type_id argument.
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         serialization_context.register_type(TempClass2, 1)
 
 
