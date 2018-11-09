@@ -51,6 +51,7 @@ install(FILES
   string.h
   thread-pool.h
   type_traits.h
+  utf8.h
   variant.h
   visibility.h
   windows_compatibility.h
@@ -87,18 +88,20 @@ ADD_ARROW_TEST(checked-cast-test)
 ADD_ARROW_TEST(compression-test)
 ADD_ARROW_TEST(decimal-test)
 ADD_ARROW_TEST(key-value-metadata-test)
-ADD_ARROW_TEST(rle-encoding-test)
-ADD_ARROW_TEST(parsing-util-test)
-ADD_ARROW_TEST(stl-util-test)
-ADD_ARROW_TEST(thread-pool-test)
-ADD_ARROW_TEST(task-group-test)
 ADD_ARROW_TEST(lazy-test)
 ADD_ARROW_TEST(logging-test)
+ADD_ARROW_TEST(parsing-util-test)
+ADD_ARROW_TEST(rle-encoding-test)
+ADD_ARROW_TEST(stl-util-test)
+ADD_ARROW_TEST(task-group-test)
+ADD_ARROW_TEST(thread-pool-test)
+ADD_ARROW_TEST(utf8-util-test)
 
 ADD_ARROW_BENCHMARK(bit-util-benchmark)
 ADD_ARROW_BENCHMARK(compression-benchmark)
 ADD_ARROW_BENCHMARK(decimal-benchmark)
 ADD_ARROW_BENCHMARK(lazy-benchmark)
 ADD_ARROW_BENCHMARK(number-parsing-benchmark)
+ADD_ARROW_BENCHMARK(utf8-util-benchmark)
 
 add_subdirectory(variant)
