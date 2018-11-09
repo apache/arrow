@@ -62,7 +62,8 @@ TEST_F(DISABLED_TestHugeProjector, SimpleTestSumHuge) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int64_t num_records = static_cast<int64_t>(INT32_MAX) + 3;  // Cause an overflow in int32_t
+  // Cause an overflow in int32_t
+  int64_t num_records = static_cast<int64_t>(INT32_MAX) + 3;
   std::vector<int32_t> input0 = {2, 29, 5, 37, 11, 59, 17, 19};
   std::vector<int32_t> input1 = {23, 3, 31, 7, 41, 47, 13};
   std::vector<bool> validity;
@@ -97,7 +98,8 @@ TEST_F(DISABLED_TestHugeProjector, SimpleTestSumHuge) {
 
 TEST_F(DISABLED_TestHugeFilter, TestSimpleHugeFilter) {
   // Create a row-batch with some sample data
-  int64_t num_records = static_cast<int64_t>(INT32_MAX) + 3;  // Cause an overflow in int32_t
+  // Cause an overflow in int32_t
+  int64_t num_records = static_cast<int64_t>(INT32_MAX) + 3;
   std::vector<int32_t> input0 = {2, 29, 5, 37, 11, 59, 17, 19};
   std::vector<int32_t> input1 = {23, 3, 31, 7, 41, 47, 13};
   std::vector<bool> validity;
