@@ -56,8 +56,44 @@ cdef extern from "gandiva/arrow.h" namespace "gandiva" nogil:
 
 cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
 
-    cdef shared_ptr[CNode] TreeExprBuilder_MakeLiteral \
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeBoolLiteral \
+        "gandiva::TreeExprBuilder::MakeLiteral"(c_bool value)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeUInt8Literal \
+        "gandiva::TreeExprBuilder::MakeLiteral"(uint8_t value)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeUInt16Literal \
+        "gandiva::TreeExprBuilder::MakeLiteral"(uint16_t value)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeUInt32Literal \
+        "gandiva::TreeExprBuilder::MakeLiteral"(uint32_t value)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeUInt64Literal \
+        "gandiva::TreeExprBuilder::MakeLiteral"(uint64_t value)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInt8Literal \
+        "gandiva::TreeExprBuilder::MakeLiteral"(int8_t value)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInt16Literal \
+        "gandiva::TreeExprBuilder::MakeLiteral"(int16_t value)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInt32Literal \
+        "gandiva::TreeExprBuilder::MakeLiteral"(int32_t value)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInt64Literal \
+        "gandiva::TreeExprBuilder::MakeLiteral"(int64_t value)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeFloatLiteral \
+        "gandiva::TreeExprBuilder::MakeLiteral"(float value)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeDoubleLiteral \
         "gandiva::TreeExprBuilder::MakeLiteral"(double value)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeStringLiteral \
+        "gandiva::TreeExprBuilder::MakeStringLiteral"(const c_string& value)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeBinaryLiteral \
+        "gandiva::TreeExprBuilder::MakeBinaryLiteral"(const c_string& value)
 
     cdef shared_ptr[CExpression] TreeExprBuilder_MakeExpression\
         "gandiva::TreeExprBuilder::MakeExpression"(
