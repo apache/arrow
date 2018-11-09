@@ -26,6 +26,8 @@
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
 
+#include <sstream>
+
 G_BEGIN_DECLS
 
 /**
@@ -301,6 +303,31 @@ garrow_table_replace_column(GArrowTable *table,
   auto status = arrow_table->SetColumn(i, arrow_column, &arrow_new_table);
   if (garrow_error_check(error, status, "[table][replace-column]")) {
     return garrow_table_new_raw(&arrow_new_table);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_table_to_string:
+ * @table: A #GArrowTable.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): The formatted table content or %NULL on error.
+ *
+ *   The returned string should be freed when with g_free() when no
+ *   longer needed.
+ *
+ * Since: 0.12.0
+ */
+gchar *
+garrow_table_to_string(GArrowTable *table, GError **error)
+{
+  const auto arrow_table = garrow_table_get_raw(table);
+  std::stringstream sink;
+  auto status = arrow::PrettyPrint(*arrow_table, 0, &sink);
+  if (garrow_error_check(error, status, "[table][to-string]")) {
+    return g_strdup(sink.str().c_str());
   } else {
     return NULL;
   }
