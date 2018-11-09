@@ -561,7 +561,7 @@ def test_arrow_limits(self):
 def test_serialization_callback_error():
 
     class TempClass(object):
-            pass
+        pass
 
     # Pass a SerializationContext into serialize, but TempClass
     # is not registered
@@ -571,7 +571,7 @@ def test_serialization_callback_error():
         serialized_object = pa.serialize(val, serialization_context)
     assert err.value.example_object == val
 
-    serialization_context.register_type(TempClass, 20*b"\x00")
+    serialization_context.register_type(TempClass, "TempClass")
     serialized_object = pa.serialize(TempClass(), serialization_context)
     deserialization_context = pa.SerializationContext()
 
@@ -579,7 +579,15 @@ def test_serialization_callback_error():
     # is not registered
     with pytest.raises(pa.DeserializationCallbackError) as err:
         serialized_object.deserialize(deserialization_context)
-    assert err.value.type_id == 20*b"\x00"
+    assert err.value.type_id == "TempClass"
+
+    class TempClass2(object):
+        pass
+
+    # Make sure that we receive an error when we use an inappropriate value for
+    # the type_id argument.
+    with pytest.raises(TypeError):
+        serialization_context.register_type(TempClass2, 1)
 
 
 def test_fallback_to_subclasses():
