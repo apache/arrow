@@ -55,6 +55,8 @@ class ARROW_EXPORT Converter {
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Converter);
 
+  virtual Status Initialize() = 0;
+
   ConvertOptions options_;
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;

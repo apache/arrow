@@ -214,17 +214,58 @@ TEST(InferringColumnBuilder, MultipleChunkReal) {
   AssertChunkedEqual(*expected, *actual);
 }
 
+TEST(InferringColumnBuilder, SingleChunkString) {
+  auto tg = TaskGroup::MakeSerial();
+  std::shared_ptr<ColumnBuilder> builder;
+  std::shared_ptr<ChunkedArray> actual;
+  std::shared_ptr<ChunkedArray> expected;
+
+  // With valid UTF8
+  ASSERT_OK(ColumnBuilder::Make(0, ConvertOptions::Defaults(), tg, &builder));
+  AssertBuilding(builder, {{"", "foo", "baré"}}, &actual);
+
+  ChunkedArrayFromVector<StringType, std::string>({{true, true, true}},
+                                                  {{"", "foo", "baré"}}, &expected);
+  AssertChunkedEqual(*expected, *actual);
+
+  // With invalid UTF8, non-checking
+  auto options = ConvertOptions::Defaults();
+  options.check_utf8 = false;
+  tg = TaskGroup::MakeSerial();
+  ASSERT_OK(ColumnBuilder::Make(0, options, tg, &builder));
+  AssertBuilding(builder, {{"", "foo\xff", "baré"}}, &actual);
+
+  ChunkedArrayFromVector<StringType, std::string>({{true, true, true}},
+                                                  {{"", "foo\xff", "baré"}}, &expected);
+  AssertChunkedEqual(*expected, *actual);
+}
+
 TEST(InferringColumnBuilder, SingleChunkBinary) {
+  auto tg = TaskGroup::MakeSerial();
+  std::shared_ptr<ColumnBuilder> builder;
+  std::shared_ptr<ChunkedArray> actual;
+  std::shared_ptr<ChunkedArray> expected;
+
+  // With invalid UTF8, checking
+  ASSERT_OK(ColumnBuilder::Make(0, ConvertOptions::Defaults(), tg, &builder));
+  AssertBuilding(builder, {{"", "foo\xff", "baré"}}, &actual);
+
+  ChunkedArrayFromVector<BinaryType, std::string>({{true, true, true}},
+                                                  {{"", "foo\xff", "baré"}}, &expected);
+  AssertChunkedEqual(*expected, *actual);
+}
+
+TEST(InferringColumnBuilder, MultipleChunkString) {
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
   ASSERT_OK(ColumnBuilder::Make(0, ConvertOptions::Defaults(), tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
-  AssertBuilding(builder, {{"", "foo", "bar"}}, &actual);
+  AssertBuilding(builder, {{""}, {"008"}, {"NaN", "baré"}}, &actual);
 
   std::shared_ptr<ChunkedArray> expected;
-  ChunkedArrayFromVector<BinaryType, std::string>({{true, true, true}},
-                                                  {{"", "foo", "bar"}}, &expected);
+  ChunkedArrayFromVector<StringType, std::string>(
+      {{true}, {true}, {true, true}}, {{""}, {"008"}, {"NaN", "baré"}}, &expected);
   AssertChunkedEqual(*expected, *actual);
 }
 
@@ -234,11 +275,11 @@ TEST(InferringColumnBuilder, MultipleChunkBinary) {
   ASSERT_OK(ColumnBuilder::Make(0, ConvertOptions::Defaults(), tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
-  AssertBuilding(builder, {{""}, {"008"}, {"NaN", "bar"}}, &actual);
+  AssertBuilding(builder, {{""}, {"008"}, {"NaN", "baré\xff"}}, &actual);
 
   std::shared_ptr<ChunkedArray> expected;
   ChunkedArrayFromVector<BinaryType, std::string>(
-      {{true}, {true}, {true, true}}, {{""}, {"008"}, {"NaN", "bar"}}, &expected);
+      {{true}, {true}, {true, true}}, {{""}, {"008"}, {"NaN", "baré\xff"}}, &expected);
   AssertChunkedEqual(*expected, *actual);
 }
 

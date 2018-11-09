@@ -51,6 +51,11 @@ struct ARROW_EXPORT ParseOptions {
 };
 
 struct ARROW_EXPORT ConvertOptions {
+  // Conversion options
+
+  // Whether to check UTF8 validity of string columns
+  bool check_utf8 = true;
+
   static ConvertOptions Defaults();
 };
 
