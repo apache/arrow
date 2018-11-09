@@ -114,6 +114,7 @@ func (b *Int64Builder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *Int64Builder) Resize(n int) {
+	nBuilder := n
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -121,7 +122,7 @@ func (b *Int64Builder) Resize(n int) {
 	if b.capacity == 0 {
 		b.init(n)
 	} else {
-		b.builder.resize(n, b.init)
+		b.builder.resize(nBuilder, b.init)
 		b.data.Resize(arrow.Int64Traits.BytesRequired(n))
 		b.rawData = arrow.Int64Traits.CastFromBytes(b.data.Bytes())
 	}
@@ -247,6 +248,7 @@ func (b *Uint64Builder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *Uint64Builder) Resize(n int) {
+	nBuilder := n
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -254,7 +256,7 @@ func (b *Uint64Builder) Resize(n int) {
 	if b.capacity == 0 {
 		b.init(n)
 	} else {
-		b.builder.resize(n, b.init)
+		b.builder.resize(nBuilder, b.init)
 		b.data.Resize(arrow.Uint64Traits.BytesRequired(n))
 		b.rawData = arrow.Uint64Traits.CastFromBytes(b.data.Bytes())
 	}
@@ -380,6 +382,7 @@ func (b *Float64Builder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *Float64Builder) Resize(n int) {
+	nBuilder := n
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -387,7 +390,7 @@ func (b *Float64Builder) Resize(n int) {
 	if b.capacity == 0 {
 		b.init(n)
 	} else {
-		b.builder.resize(n, b.init)
+		b.builder.resize(nBuilder, b.init)
 		b.data.Resize(arrow.Float64Traits.BytesRequired(n))
 		b.rawData = arrow.Float64Traits.CastFromBytes(b.data.Bytes())
 	}
@@ -513,6 +516,7 @@ func (b *Int32Builder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *Int32Builder) Resize(n int) {
+	nBuilder := n
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -520,7 +524,7 @@ func (b *Int32Builder) Resize(n int) {
 	if b.capacity == 0 {
 		b.init(n)
 	} else {
-		b.builder.resize(n, b.init)
+		b.builder.resize(nBuilder, b.init)
 		b.data.Resize(arrow.Int32Traits.BytesRequired(n))
 		b.rawData = arrow.Int32Traits.CastFromBytes(b.data.Bytes())
 	}
@@ -646,6 +650,7 @@ func (b *Uint32Builder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *Uint32Builder) Resize(n int) {
+	nBuilder := n
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -653,7 +658,7 @@ func (b *Uint32Builder) Resize(n int) {
 	if b.capacity == 0 {
 		b.init(n)
 	} else {
-		b.builder.resize(n, b.init)
+		b.builder.resize(nBuilder, b.init)
 		b.data.Resize(arrow.Uint32Traits.BytesRequired(n))
 		b.rawData = arrow.Uint32Traits.CastFromBytes(b.data.Bytes())
 	}
@@ -779,6 +784,7 @@ func (b *Float32Builder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *Float32Builder) Resize(n int) {
+	nBuilder := n
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -786,7 +792,7 @@ func (b *Float32Builder) Resize(n int) {
 	if b.capacity == 0 {
 		b.init(n)
 	} else {
-		b.builder.resize(n, b.init)
+		b.builder.resize(nBuilder, b.init)
 		b.data.Resize(arrow.Float32Traits.BytesRequired(n))
 		b.rawData = arrow.Float32Traits.CastFromBytes(b.data.Bytes())
 	}
@@ -912,6 +918,7 @@ func (b *Int16Builder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *Int16Builder) Resize(n int) {
+	nBuilder := n
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -919,7 +926,7 @@ func (b *Int16Builder) Resize(n int) {
 	if b.capacity == 0 {
 		b.init(n)
 	} else {
-		b.builder.resize(n, b.init)
+		b.builder.resize(nBuilder, b.init)
 		b.data.Resize(arrow.Int16Traits.BytesRequired(n))
 		b.rawData = arrow.Int16Traits.CastFromBytes(b.data.Bytes())
 	}
@@ -1045,6 +1052,7 @@ func (b *Uint16Builder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *Uint16Builder) Resize(n int) {
+	nBuilder := n
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -1052,7 +1060,7 @@ func (b *Uint16Builder) Resize(n int) {
 	if b.capacity == 0 {
 		b.init(n)
 	} else {
-		b.builder.resize(n, b.init)
+		b.builder.resize(nBuilder, b.init)
 		b.data.Resize(arrow.Uint16Traits.BytesRequired(n))
 		b.rawData = arrow.Uint16Traits.CastFromBytes(b.data.Bytes())
 	}
@@ -1178,6 +1186,7 @@ func (b *Int8Builder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *Int8Builder) Resize(n int) {
+	nBuilder := n
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -1185,7 +1194,7 @@ func (b *Int8Builder) Resize(n int) {
 	if b.capacity == 0 {
 		b.init(n)
 	} else {
-		b.builder.resize(n, b.init)
+		b.builder.resize(nBuilder, b.init)
 		b.data.Resize(arrow.Int8Traits.BytesRequired(n))
 		b.rawData = arrow.Int8Traits.CastFromBytes(b.data.Bytes())
 	}
@@ -1311,6 +1320,7 @@ func (b *Uint8Builder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *Uint8Builder) Resize(n int) {
+	nBuilder := n
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -1318,7 +1328,7 @@ func (b *Uint8Builder) Resize(n int) {
 	if b.capacity == 0 {
 		b.init(n)
 	} else {
-		b.builder.resize(n, b.init)
+		b.builder.resize(nBuilder, b.init)
 		b.data.Resize(arrow.Uint8Traits.BytesRequired(n))
 		b.rawData = arrow.Uint8Traits.CastFromBytes(b.data.Bytes())
 	}
@@ -1445,6 +1455,7 @@ func (b *TimestampBuilder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *TimestampBuilder) Resize(n int) {
+	nBuilder := n
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -1452,7 +1463,7 @@ func (b *TimestampBuilder) Resize(n int) {
 	if b.capacity == 0 {
 		b.init(n)
 	} else {
-		b.builder.resize(n, b.init)
+		b.builder.resize(nBuilder, b.init)
 		b.data.Resize(arrow.TimestampTraits.BytesRequired(n))
 		b.rawData = arrow.TimestampTraits.CastFromBytes(b.data.Bytes())
 	}
