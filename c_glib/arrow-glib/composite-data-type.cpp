@@ -136,6 +136,121 @@ garrow_struct_data_type_new(GList *fields)
   return data_type;
 }
 
+/**
+ * garrow_struct_data_type_get_n_fields:
+ * @data_type: A #GArrowStructDataType.
+ *
+ * Returns: The number of fields of the struct data type.
+ *
+ * Since: 0.12.0
+ */
+gint
+garrow_struct_data_type_get_n_fields(GArrowStructDataType *data_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  return arrow_data_type->num_children();
+}
+
+/**
+ * garrow_struct_data_type_get_fields:
+ * @data_type: A #GArrowStructDataType.
+ *
+ * Returns: (transfer full) (element-type GArrowField):
+ *   The fields of the struct data type.
+ *
+ * Since: 0.12.0
+ */
+GList *
+garrow_struct_data_type_get_fields(GArrowStructDataType *data_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_fields = arrow_data_type->children();
+
+  GList *fields = NULL;
+  for (auto arrow_field : arrow_fields) {
+    fields = g_list_prepend(fields, garrow_field_new_raw(&arrow_field));
+  }
+  return g_list_reverse(fields);
+}
+
+/**
+ * garrow_struct_data_type_get_field:
+ * @data_type: A #GArrowStructDataType.
+ * @i: The index of the target field.
+ *
+ * Returns: (transfer full) (nullable):
+ *   The field at the index in the struct data type or %NULL on not found.
+ *
+ * Since: 0.12.0
+ */
+GArrowField *
+garrow_struct_data_type_get_field(GArrowStructDataType *data_type,
+                                  gint i)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+
+  while (i < 0) {
+    i += arrow_data_type->num_children();
+  }
+  if (i >= arrow_data_type->num_children()) {
+    return NULL;
+  }
+
+  auto arrow_field = arrow_data_type->child(i);
+  if (arrow_field) {
+    return garrow_field_new_raw(&arrow_field);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_struct_data_type_get_field_by_name:
+ * @data_type: A #GArrowStructDataType.
+ * @name: The name of the target field.
+ *
+ * Returns: (transfer full) (nullable):
+ *   The field that has the name in the struct data type or %NULL on not found.
+ *
+ * Since: 0.12.0
+ */
+GArrowField *
+garrow_struct_data_type_get_field_by_name(GArrowStructDataType *data_type,
+                                          const gchar *name)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_struct_data_type =
+    std::static_pointer_cast<arrow::StructType>(arrow_data_type);
+
+  auto arrow_field = arrow_struct_data_type->GetChildByName(name);
+  if (arrow_field) {
+    return garrow_field_new_raw(&arrow_field);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_struct_data_type_get_field_index:
+ * @data_type: A #GArrowStructDataType.
+ * @name: The name of the target field.
+ *
+ * Returns: The index of the target index in the struct data type
+ *   or `-1` on not found.
+ *
+ * Since: 0.12.0
+ */
+gint
+garrow_struct_data_type_get_field_index(GArrowStructDataType *data_type,
+                                        const gchar *name)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_struct_data_type =
+    std::static_pointer_cast<arrow::StructType>(arrow_data_type);
+
+  return arrow_struct_data_type->GetChildIndex(name);
+}
+
 
 G_DEFINE_TYPE(GArrowDictionaryDataType,                \
               garrow_dictionary_data_type,             \

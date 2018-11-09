@@ -70,49 +70,31 @@ GArrowListDataType *garrow_list_data_type_new      (GArrowField *field);
 GArrowField *garrow_list_data_type_get_value_field (GArrowListDataType *list_data_type);
 
 
-#define GARROW_TYPE_STRUCT_DATA_TYPE            \
-  (garrow_struct_data_type_get_type())
-#define GARROW_STRUCT_DATA_TYPE(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_STRUCT_DATA_TYPE,     \
-                              GArrowStructDataType))
-#define GARROW_STRUCT_DATA_TYPE_CLASS(klass)                    \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_STRUCT_DATA_TYPE,        \
-                           GArrowStructDataTypeClass))
-#define GARROW_IS_STRUCT_DATA_TYPE(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_STRUCT_DATA_TYPE))
-#define GARROW_IS_STRUCT_DATA_TYPE_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_STRUCT_DATA_TYPE))
-#define GARROW_STRUCT_DATA_TYPE_GET_CLASS(obj)                  \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_STRUCT_DATA_TYPE,      \
-                             GArrowStructDataTypeClass))
-
-typedef struct _GArrowStructDataType         GArrowStructDataType;
-typedef struct _GArrowStructDataTypeClass    GArrowStructDataTypeClass;
-
-/**
- * GArrowStructDataType:
- *
- * It wraps `arrow::StructType`.
- */
-struct _GArrowStructDataType
-{
-  /*< private >*/
-  GArrowDataType parent_instance;
-};
-
+#define GARROW_TYPE_STRUCT_DATA_TYPE (garrow_struct_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowStructDataType,
+                         garrow_struct_data_type,
+                         GARROW,
+                         STRUCT_DATA_TYPE,
+                         GArrowDataType)
 struct _GArrowStructDataTypeClass
 {
   GArrowDataTypeClass parent_class;
 };
 
-GType                 garrow_struct_data_type_get_type (void) G_GNUC_CONST;
 GArrowStructDataType *garrow_struct_data_type_new      (GList *fields);
-
+gint
+garrow_struct_data_type_get_n_fields(GArrowStructDataType *data_type);
+GList *
+garrow_struct_data_type_get_fields(GArrowStructDataType *data_type);
+GArrowField *
+garrow_struct_data_type_get_field(GArrowStructDataType *data_type,
+                                  gint i);
+GArrowField *
+garrow_struct_data_type_get_field_by_name(GArrowStructDataType *data_type,
+                                          const gchar *name);
+gint
+garrow_struct_data_type_get_field_index(GArrowStructDataType *data_type,
+                                        const gchar *name);
 
 #define GARROW_TYPE_DICTIONARY_DATA_TYPE (garrow_dictionary_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDictionaryDataType,
