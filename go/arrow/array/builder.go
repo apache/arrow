@@ -126,6 +126,9 @@ func (b *builder) resize(newBits int, init func(int)) {
 		// TODO(sgc): necessary?
 		memory.Set(b.nullBitmap.Buf()[oldBytesN:], 0)
 	}
+	if newBits < b.length {
+		b.length = newBits
+	}
 }
 
 func (b *builder) reserve(elements int, resize func(int)) {
