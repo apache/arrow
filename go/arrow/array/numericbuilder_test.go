@@ -72,7 +72,7 @@ func TestNewFloat64Builder(t *testing.T) {
 	a.Release()
 }
 
-func TestFloat32Builder_AppendValues(t *testing.T) {
+func TestFloat64Builder_AppendValues(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
@@ -87,7 +87,7 @@ func TestFloat32Builder_AppendValues(t *testing.T) {
 	ab.Release()
 }
 
-func TestFloat32Builder_Empty(t *testing.T) {
+func TestFloat64Builder_Empty(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
@@ -102,6 +102,34 @@ func TestFloat32Builder_Empty(t *testing.T) {
 	a = ab.NewFloat64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
+
+	ab.Release()
+}
+
+func TestFloat64Builder_Resize(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewFloat64Builder(mem)
+
+	assert.Equal(t, 0, ab.Cap())
+	assert.Equal(t, 0, ab.Len())
+
+	ab.Reserve(63)
+	assert.Equal(t, 64, ab.Cap())
+	assert.Equal(t, 0, ab.Len())
+
+	for i := 0; i < 63; i++ {
+		ab.Append(0)
+	}
+	assert.Equal(t, 64, ab.Cap())
+	assert.Equal(t, 63, ab.Len())
+
+	ab.Resize(5)
+	assert.Equal(t, 5, ab.Len())
+
+	ab.Resize(32)
+	assert.Equal(t, 5, ab.Len())
 
 	ab.Release()
 }
