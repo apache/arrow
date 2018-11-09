@@ -69,3 +69,12 @@ if [ -d $ARROW_C_GLIB_INSTALL_MESON/lib/$(arch)-linux-gnu ]; then
 #   (arrow_ruby_run_test $ARROW_C_GLIB_INSTALL_MESON/lib)
 fi
 popd
+
+pushd $ARROW_RUBY_DIR/red-plasma
+(arrow_ruby_run_test $ARROW_C_GLIB_INSTALL_AUTOTOOLS/lib)
+if [ -d $ARROW_C_GLIB_INSTALL_MESON/lib/$(arch)-linux-gnu ]; then
+  (arrow_ruby_run_test $ARROW_C_GLIB_INSTALL_MESON/lib/$(arch)-linux-gnu)
+# else # TODO: Enable this
+#   (arrow_ruby_run_test $ARROW_C_GLIB_INSTALL_MESON/lib)
+fi
+popd
