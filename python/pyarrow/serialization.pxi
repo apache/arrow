@@ -119,6 +119,10 @@ cdef class SerializationContext:
             This argument is optional, but can be provided to
             deserialize objects of the class in a particular way.
         """
+        if not isinstance(type_id, six.string_types):
+            raise TypeError("The type_id argument must be a string. The value "
+                            "passed in has type {}.".format(type(type_id)))
+
         self.type_to_type_id[type_] = type_id
         self.whitelisted_types[type_id] = type_
         if pickle:
@@ -168,7 +172,7 @@ cdef class SerializationContext:
         else:
             assert type_id not in self.types_to_pickle
             if type_id not in self.whitelisted_types:
-                msg = "Type ID " + str(type_id) + " not registered in " \
+                msg = "Type ID " + type_id + " not registered in " \
                       "deserialization callback"
                 raise DeserializationCallbackError(msg, type_id)
             type_ = self.whitelisted_types[type_id]
