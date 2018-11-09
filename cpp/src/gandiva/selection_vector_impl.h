@@ -35,43 +35,43 @@ namespace gandiva {
 template <typename C_TYPE, typename A_TYPE>
 class SelectionVectorImpl : public SelectionVector {
  public:
-  SelectionVectorImpl(int max_slots, std::shared_ptr<arrow::Buffer> buffer)
+  SelectionVectorImpl(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer)
       : max_slots_(max_slots), num_slots_(0), buffer_(buffer) {
     raw_data_ = reinterpret_cast<C_TYPE*>(buffer->mutable_data());
   }
 
-  uint GetIndex(int index) const override { return raw_data_[index]; }
+  uint64_t GetIndex(int64_t index) const override { return raw_data_[index]; }
 
-  void SetIndex(int index, uint value) override {
+  void SetIndex(int64_t index, uint64_t value) override {
     raw_data_[index] = static_cast<C_TYPE>(value);
   }
 
   ArrayPtr ToArray() const override;
 
-  int GetMaxSlots() const override { return max_slots_; }
+  int64_t GetMaxSlots() const override { return max_slots_; }
 
-  int GetNumSlots() const override { return num_slots_; }
+  int64_t GetNumSlots() const override { return num_slots_; }
 
-  void SetNumSlots(int num_slots) override {
+  void SetNumSlots(int64_t num_slots) override {
     DCHECK_LE(num_slots, max_slots_);
     num_slots_ = num_slots;
   }
 
-  uint GetMaxSupportedValue() const override {
+  uint64_t GetMaxSupportedValue() const override {
     return std::numeric_limits<C_TYPE>::max();
   }
 
-  static Status AllocateBuffer(int max_slots, arrow::MemoryPool* pool,
+  static Status AllocateBuffer(int64_t max_slots, arrow::MemoryPool* pool,
                                std::shared_ptr<arrow::Buffer>* buffer);
 
-  static Status ValidateBuffer(int max_slots, std::shared_ptr<arrow::Buffer> buffer);
+  static Status ValidateBuffer(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer);
 
  protected:
   /// maximum slots in the vector
-  int max_slots_;
+  int64_t max_slots_;
 
   /// number of slots in the vector
-  int num_slots_;
+  int64_t num_slots_;
 
   std::shared_ptr<arrow::Buffer> buffer_;
   C_TYPE* raw_data_;
@@ -86,6 +86,7 @@ ArrayPtr SelectionVectorImpl<C_TYPE, A_TYPE>::ToArray() const {
 
 using SelectionVectorInt16 = SelectionVectorImpl<uint16_t, arrow::UInt16Type>;
 using SelectionVectorInt32 = SelectionVectorImpl<uint32_t, arrow::UInt32Type>;
+using SelectionVectorInt64 = SelectionVectorImpl<uint64_t, arrow::UInt64Type>;
 
 }  // namespace gandiva
 
