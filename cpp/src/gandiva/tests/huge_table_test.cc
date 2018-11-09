@@ -125,15 +125,15 @@ TEST_F(DISABLED_TestHugeFilter, TestSimpleHugeFilter) {
   auto field1 = field("f1", int32());
   auto schema = arrow::schema({field0, field1});
 
-  // Build condition f0 + f1 < 10
+  // Build condition f0 + f1 < 50
   auto node_f0 = TreeExprBuilder::MakeField(field0);
   auto node_f1 = TreeExprBuilder::MakeField(field1);
   auto sum_func =
       TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::int32());
-  auto literal_10 = TreeExprBuilder::MakeLiteral((int32_t)50);
-  auto less_than_10 = TreeExprBuilder::MakeFunction("less_than", {sum_func, literal_10},
+  auto literal_50 = TreeExprBuilder::MakeLiteral((int32_t)50);
+  auto less_than_50 = TreeExprBuilder::MakeFunction("less_than", {sum_func, literal_50},
                                                     arrow::boolean());
-  auto condition = TreeExprBuilder::MakeCondition(less_than_10);
+  auto condition = TreeExprBuilder::MakeCondition(less_than_50);
 
   std::shared_ptr<Filter> filter;
   Status status = Filter::Make(schema, condition, &filter);
