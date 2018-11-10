@@ -270,17 +270,25 @@ module Arrow
       self.class.new(schema, packed_columns)
     end
 
+    alias_method :to_s_raw, :to_s
     def to_s(options={})
-      case options[:format]
+      format = options[:format]
+      case format
+      when :column
+        return to_s_raw
       when :list
         formatter_class = TableListFormatter
-      else
+      when :table, nil
         formatter_class = TableTableFormatter
+      else
+        message = ":format must be :column, :list, :table or nil"
+        raise ArgumentError, "#{message}: <#{format.inspect}>"
       end
       formatter = formatter_class.new(self, options)
       formatter.format
     end
 
+    alias_method :inspect_raw, :inspect
     def inspect
       "#{super}\n#{to_s}"
     end
