@@ -46,6 +46,7 @@ ENV CC=gcc \
     CXX=g++ \
     ARROW_BUILD_TESTS=ON
 
-# build, install and test
+# build and test
 CMD arrow/ci/docker_build_cpp.sh && \
-    ninja -C /build/cpp test
+    cd /build/cpp && \
+    ctest -j2 --output-on-failure -L unittest
