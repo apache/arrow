@@ -121,7 +121,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_CXXFLAGS="/MP" ^
       .. >nul 2>error.txt
 
-FINDSTR /M /C:"No static or shared library provided for lz4_static" error.txt || exit /B
+FINDSTR /M /C:"No static or shared library provided for lz4" error.txt || exit /B
 set LZ4_HOME=
 
 popd
@@ -164,7 +164,7 @@ cmake -G "%GENERATOR%" ^
       .. 2>output.txt
 
 set LIBRARY_FOUND_MSG=Added static library dependency
-for %%x in (snappy gflags brotli_enc brotli_dec brotli_common lz4_static zstd_static) do (
+for %%x in (snappy gflags brotli_enc brotli_dec brotli_common lz4 zstd) do (
     echo Checking %%x library path
     FINDSTR /C:"%LIBRARY_FOUND_MSG% %%x: %CONDA_PREFIX:\=/%" output.txt || exit /B
 )
