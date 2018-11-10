@@ -64,16 +64,16 @@ if (ARROW_BUILD_STATIC)
 endif()
 
 set(PARQUET_BOOST_LINK_LIBS
-  boost_regex)
+  ${BOOST_REGEX_LIBRARY})
 
 if(MSVC)
   set(PARQUET_BOOST_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS}
-    boost_system)
+    ${BOOST_SYSTEM_LIBRARY})
 endif()
 
 set(PARQUET_MIN_TEST_LIBS
-  gtest_main
-  gtest)
+  gtest_main_static
+  gtest_static)
 
 if (APPLE)
   set(PARQUET_MIN_TEST_LIBS

@@ -129,7 +129,7 @@ if (ARROW_BUILD_TESTS)
 	util/test_main.cc)
 
   target_link_libraries(arrow_python_test_main
-    gtest)
+    gtest_static)
   target_include_directories(arrow_python_test_main SYSTEM PUBLIC
     ${ARROW_PYTHON_INCLUDES})
 

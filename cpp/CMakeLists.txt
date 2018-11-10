@@ -632,13 +632,13 @@ endif(UNIX)
 set(ARROW_LINK_LIBS)
 
 # Libraries to link statically with libarrow.so
-set(ARROW_STATIC_LINK_LIBS double-conversion::double-conversion)
+set(ARROW_STATIC_LINK_LIBS double-conversion_static)
 
 if (ARROW_WITH_BROTLI)
   SET(ARROW_STATIC_LINK_LIBS
-    brotli_dec
-    brotli_enc
-    brotli_common
+    brotli_dec_static
+    brotli_enc_static
+    brotli_common_static
     ${ARROW_STATIC_LINK_LIBS})
 endif()
 
@@ -651,14 +651,11 @@ if (ARROW_WITH_LZ4)
 endif()
 
 if (ARROW_WITH_SNAPPY)
-  SET(ARROW_STATIC_LINK_LIBS snappy ${ARROW_STATIC_LINK_LIBS})
+  SET(ARROW_STATIC_LINK_LIBS snappy_static ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_WITH_ZLIB)
-  if (ZLIB_SHARED_LIB)
-    SET(ARROW_PRIVATE_LINK_LIBS zlib ${ARROW_PRIVATE_LINK_LIBS})
-  endif()
-  SET(ARROW_STATIC_LINK_LIBS zlib ${ARROW_STATIC_LINK_LIBS})
+  SET(ARROW_STATIC_LINK_LIBS ${ZLIB_LIBRARY} ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_WITH_ZSTD)
@@ -668,7 +665,7 @@ endif()
 if (ARROW_ORC)
   SET(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
-    orc)
+    orc_static)
 endif()
 
 if (ARROW_USE_GLOG)
@@ -683,7 +680,7 @@ if (ARROW_BUILD_BENCHMARKS)
   set(ARROW_BENCHMARK_LINK_LIBS
     arrow_benchmark_main
     arrow_static
-    gtest)
+    gtest_static)
 endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
@@ -707,18 +704,18 @@ endif()
 if (ARROW_BUILD_STATIC)
   set(ARROW_MIN_TEST_LIBS
     arrow_static
-    gtest_main
-    gtest)
+    gtest_main_static
+    gtest_static)
 else ()
   set(ARROW_MIN_TEST_LIBS
     arrow_shared
     ${ARROW_LINK_LIBS}
-    double-conversion::double-conversion
+    double-conversion_static
     ${BOOST_SYSTEM_LIBRARY}
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_REGEX_LIBRARY}
-    gtest_main
-    gtest)
+    gtest_main_static
+    gtest_static)
 endif()
 
 if(NOT MSVC)

@@ -31,7 +31,7 @@ get_filename_component(ABS_GANDIVA_PROTO ${CMAKE_SOURCE_DIR}/src/gandiva/proto/T
 add_custom_command(
   OUTPUT ${PROTO_OUTPUT_FILES}
   COMMAND ${PROTOBUF_EXECUTABLE} --proto_path ${CMAKE_SOURCE_DIR}/src/gandiva/proto --cpp_out ${PROTO_OUTPUT_DIR} ${CMAKE_SOURCE_DIR}/src/gandiva/proto/Types.proto
-  DEPENDS ${ABS_GANDIVA_PROTO} protobuf
+  DEPENDS ${ABS_GANDIVA_PROTO} ${PROTOBUF_LIBRARY}
   COMMENT "Running PROTO compiler on Types.proto"
   VERBATIM
 )
