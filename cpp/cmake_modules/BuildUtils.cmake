@@ -96,6 +96,7 @@ function(ADD_ARROW_LIB LIB_NAME)
                        SHARED_LINK_LIBS
                        SHARED_PRIVATE_LINK_LIBS
                        EXTRA_INCLUDES
+                       PRIVATE_INCLUDES
                        DEPENDENCIES)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
@@ -150,6 +151,10 @@ function(ADD_ARROW_LIB LIB_NAME)
         ${ARG_EXTRA_INCLUDES}
         )
     endif()
+    if (ARG_PRIVATE_INCLUDES)
+      target_include_directories(${LIB_NAME}_objlib PRIVATE
+        ${ARG_PRIVATE_INCLUDES})
+    endif()
   endif()
 
   set(RUNTIME_INSTALL_DIR bin)
@@ -168,6 +173,11 @@ function(ADD_ARROW_LIB LIB_NAME)
       target_include_directories(${LIB_NAME}_shared SYSTEM PUBLIC
         ${ARG_EXTRA_INCLUDES}
         )
+    endif()
+
+    if (ARG_PRIVATE_INCLUDES)
+      target_include_directories(${LIB_NAME}_shared PRIVATE
+        ${ARG_PRIVATE_INCLUDES})
     endif()
 
     if(APPLE)
@@ -236,6 +246,11 @@ function(ADD_ARROW_LIB LIB_NAME)
       target_include_directories(${LIB_NAME}_static SYSTEM PUBLIC
         ${ARG_EXTRA_INCLUDES}
         )
+    endif()
+
+    if (ARG_PRIVATE_INCLUDES)
+      target_include_directories(${LIB_NAME}_static PRIVATE
+        ${ARG_PRIVATE_INCLUDES})
     endif()
 
     if (MSVC)
@@ -464,7 +479,6 @@ function(ARROW_TEST_LINK_LIBRARIES REL_TEST_NAME)
 
   target_link_libraries(${TEST_NAME} ${ARGN})
 endfunction()
-
 
 ############################################################
 # Fuzzing
