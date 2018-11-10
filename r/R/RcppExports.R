@@ -9,6 +9,10 @@ Array__as_vector <- function(array) {
     .Call(`_arrow_Array__as_vector`, array)
 }
 
+ChunkedArray__as_vector <- function(chunked_array) {
+    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
+}
+
 Array__Slice1 <- function(array, offset) {
     .Call(`_arrow_Array__Slice1`, array, offset)
 }
@@ -139,10 +143,6 @@ ChunkedArray__chunks <- function(chunked_array) {
 
 ChunkedArray__type <- function(chunked_array) {
     .Call(`_arrow_ChunkedArray__type`, chunked_array)
-}
-
-ChunkedArray__as_vector <- function(chunked_array) {
-    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
 }
 
 ChunkArray__Slice1 <- function(chunked_array, offset) {

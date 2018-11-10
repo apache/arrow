@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("ArrayData")
+context("arrow::ArrayData")
 
 test_that("string vectors with only empty strings and nulls don't allocate a data buffer (ARROW-3693)", {
   a <- array("")

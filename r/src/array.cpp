@@ -506,167 +506,310 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x) {
 namespace arrow {
 namespace r {
 
+template <typename Converter, typename... Args>
+SEXP ArrayVector_To_Vector(int64_t n, const ArrayVector& arrays, Args... args) {
+  Converter converter(n, std::forward<Args>(args)...);
+
+  R_xlen_t k = 0;
+  for (const auto& array : arrays) {
+    auto n_chunk = array->length();
+    converter.Ingest(array, k, n_chunk);
+    k += n_chunk;
+  }
+  return converter.data;
+}
+
 template <int RTYPE>
-inline SEXP simple_Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  using value_type = typename Rcpp::Vector<RTYPE>::stored_type;
-  auto n = array->length();
-  auto null_count = array->null_count();
+struct Converter_SimpleArray {
+  using Vector = Rcpp::Vector<RTYPE>;
 
-  // special cases
-  if (n == 0) return Rcpp::Vector<RTYPE>(0);
-  if (n == null_count) {
-    return Rcpp::Vector<RTYPE>(n, default_value<RTYPE>());
-  }
+  Converter_SimpleArray(R_xlen_t n) : data(no_init(n)) {}
 
-  // first copy all the data
-  auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
-  STOP_IF_NULL(p_values);
-  Rcpp::Vector<RTYPE> vec(p_values, p_values + n);
+  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    using value_type = typename Vector::stored_type;
+    auto null_count = array->null_count();
 
-  // then set the sentinel NA
-  if (array->null_count() && RTYPE != RAWSXP) {
-    // TODO: not sure what to do with RAWSXP since
-    //       R raw vector do not have a concept of missing data
+    if (n == null_count) {
+      std::fill_n(data.begin() + start, n, default_value<RTYPE>());
+    } else {
+      auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+      STOP_IF_NULL(p_values);
 
-    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                                array->offset(), n);
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
-      if (bitmap_reader.IsNotSet()) {
-        vec[i] = Rcpp::Vector<RTYPE>::get_na();
+      // first copy all the data
+      std::copy_n(p_values, n, data.begin() + start);
+
+      if (null_count) {
+        // then set the sentinel NA
+        arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                                    array->offset(), n);
+
+        for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
+          if (bitmap_reader.IsNotSet()) {
+            data[i + start] = default_value<RTYPE>();
+          }
+        }
       }
     }
   }
 
-  return vec;
-}
+  Vector data;
+};
 
-inline SEXP StringArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  auto n = array->length();
-  auto null_count = array->null_count();
+struct Converter_String {
+  Converter_String(R_xlen_t n) : data(n) {}
 
-  // special cases
-  if (n == 0) return Rcpp::CharacterVector_(0);
+  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    auto null_count = array->null_count();
 
-  // only NA
-  if (null_count == n) {
-    return StringVector_(n, NA_STRING);
-  }
+    if (null_count == n) {
+      std::fill_n(data.begin(), n, NA_STRING);
+    } else {
+      auto p_offset = GetValuesSafely<int32_t>(array->data(), 1, array->offset());
+      STOP_IF_NULL(p_offset);
+      auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
+      if (!p_data) {
+        // There is an offset buffer, but the data buffer is null
+        // There is at least one value in the array and not all the values are null
+        // That means all values are empty strings so there is nothing to do
+        return;
+      }
 
-  Rcpp::CharacterVector res(no_init(n));
-  auto p_offset = GetValuesSafely<int32_t>(array->data(), 1, array->offset());
-  STOP_IF_NULL(p_offset);
+      if (null_count) {
+        // need to watch for nulls
+        arrow::internal::BitmapReader null_reader(array->null_bitmap_data(),
+                                                  array->offset(), n);
+        for (int i = 0; i < n; i++, null_reader.Next()) {
+          if (null_reader.IsSet()) {
+            auto diff = p_offset[i + 1] - p_offset[i];
+            SET_STRING_ELT(data, start + i, Rf_mkCharLenCE(p_data, diff, CE_UTF8));
+            p_data += diff;
+          } else {
+            SET_STRING_ELT(data, start + i, NA_STRING);
+          }
+        }
 
-  auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
-  if (!p_data) {
-    // There is an offset buffer, but the data buffer is null
-    // There is at least one value in the array and not all the values are null
-    // That means all values are empty strings so we can just return `res`
-    return res;
-  }
-  if (null_count) {
-    // need to watch for nulls
-    arrow::internal::BitmapReader null_reader(array->null_bitmap_data(), array->offset(),
-                                              n);
-    for (int i = 0; i < n; i++, null_reader.Next()) {
-      if (null_reader.IsSet()) {
-        auto diff = p_offset[i + 1] - p_offset[i];
-        SET_STRING_ELT(res, i, Rf_mkCharLenCE(p_data, diff, CE_UTF8));
-        p_data += diff;
       } else {
-        SET_STRING_ELT(res, i, NA_STRING);
-      }
-    }
-
-  } else {
-    // no need to check for nulls
-    // TODO: altrep mark this as no na
-    for (int i = 0; i < n; i++) {
-      auto diff = p_offset[i + 1] - p_offset[i];
-      SET_STRING_ELT(res, i, Rf_mkCharLenCE(p_data, diff, CE_UTF8));
-      p_data += diff;
-    }
-  }
-
-  return res;
-}
-
-inline SEXP BooleanArray_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  auto n = array->length();
-  auto null_count = array->null_count();
-
-  if (n == 0) {
-    return LogicalVector(0);
-  }
-  if (n == null_count) {
-    return LogicalVector(n, NA_LOGICAL);
-  }
-
-  LogicalVector vec = no_init(n);
-
-  // process the data
-  auto p_data = GetValuesSafely<uint8_t>(array->data(), 1, 0);
-  STOP_IF_NULL(p_data);
-  arrow::internal::BitmapReader data_reader(p_data, array->offset(), n);
-  for (size_t i = 0; i < n; i++, data_reader.Next()) {
-    vec[i] = data_reader.IsSet();
-  }
-
-  // then the null bitmap if needed
-  if (array->null_count()) {
-    arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
-                                              array->offset(), n);
-    for (size_t i = 0; i < n; i++, null_reader.Next()) {
-      if (null_reader.IsNotSet()) {
-        vec[i] = LogicalVector::get_na();
+        // no need to check for nulls
+        // TODO: altrep mark this as no na
+        for (int i = 0; i < n; i++) {
+          auto diff = p_offset[i + 1] - p_offset[i];
+          SET_STRING_ELT(data, start + i, Rf_mkCharLenCE(p_data, diff, CE_UTF8));
+          p_data += diff;
+        }
       }
     }
   }
 
-  return vec;
-}
+  CharacterVector data;
+};
+
+struct Converter_Boolean {
+  Converter_Boolean(R_xlen_t n) : data(n) {}
+
+  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    auto null_count = array->null_count();
+
+    if (n == null_count) {
+      std::fill_n(data.begin() + start, n, NA_LOGICAL);
+    } else {
+      // process the data
+      auto p_data = GetValuesSafely<uint8_t>(array->data(), 1, 0);
+      STOP_IF_NULL(p_data);
+
+      arrow::internal::BitmapReader data_reader(p_data, array->offset(), n);
+      for (size_t i = 0; i < n; i++, data_reader.Next()) {
+        data[start + i] = data_reader.IsSet();
+      }
+
+      // then the null bitmap if needed
+      if (null_count) {
+        arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
+                                                  array->offset(), n);
+        for (size_t i = 0; i < n; i++, null_reader.Next()) {
+          if (null_reader.IsNotSet()) {
+            data[start + i] = NA_LOGICAL;
+          }
+        }
+      }
+    }
+  }
+
+  LogicalVector data;
+};
 
 template <typename Type>
-inline SEXP DictionaryArrayInt32Indices_to_Vector(
-    const std::shared_ptr<arrow::Array>& array, const std::shared_ptr<arrow::Array>& dict,
-    bool ordered) {
-  using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
-
-  size_t n = array->length();
-  IntegerVector vec(no_init(n));
-  vec.attr("levels") = StringArray_to_Vector(dict);
-  if (ordered) {
-    vec.attr("class") = CharacterVector::create("ordered", "factor");
-  } else {
-    vec.attr("class") = "factor";
-  }
-
-  if (n == 0) {
-    return vec;
-  }
-
-  auto null_count = array->null_count();
-  if (n == null_count) {
-    std::fill(vec.begin(), vec.end(), NA_INTEGER);
-    return vec;
-  }
-
-  auto p_array = GetValuesSafely<value_type>(array->data(), 1, array->offset());
-  STOP_IF_NULL(p_array);
-
-  if (array->null_count()) {
-    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                                array->offset(), n);
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_array) {
-      vec[i] = bitmap_reader.IsNotSet() ? NA_INTEGER : (static_cast<int>(*p_array) + 1);
+struct Converter_Dictionary_Int32Indices {
+  Converter_Dictionary_Int32Indices(R_xlen_t n, const std::shared_ptr<arrow::Array>& dict,
+                                    bool ordered)
+      : data(no_init(n)) {
+    data.attr("levels") = ArrayVector_To_Vector<Converter_String>(dict->length(), {dict});
+    if (ordered) {
+      data.attr("class") = CharacterVector::create("ordered", "factor");
+    } else {
+      data.attr("class") = "factor";
     }
-  } else {
-    std::transform(p_array, p_array + n, vec.begin(),
-                   [](const value_type value) { return static_cast<int>(value) + 1; });
   }
-  return vec;
-}
 
-SEXP DictionaryArray_to_Vector(arrow::DictionaryArray* dict_array) {
+  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
+    using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
+    auto null_count = array->null_count();
+
+    if (n == null_count) {
+      std::fill_n(data.begin() + start, n, NA_INTEGER);
+    } else {
+      std::shared_ptr<Array> indices = dict_array->indices();
+      auto p_array = GetValuesSafely<value_type>(indices->data(), 1, indices->offset());
+      STOP_IF_NULL(p_array);
+
+      if (array->null_count()) {
+        arrow::internal::BitmapReader bitmap_reader(indices->null_bitmap()->data(),
+                                                    indices->offset(), n);
+        for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_array) {
+          data[start + i] =
+              bitmap_reader.IsNotSet() ? NA_INTEGER : (static_cast<int>(*p_array) + 1);
+        }
+      } else {
+        std::transform(
+            p_array, p_array + n, data.begin() + start,
+            [](const value_type value) { return static_cast<int>(value) + 1; });
+      }
+    }
+  }
+
+  IntegerVector data;
+};
+
+struct Converter_Date64 {
+  Converter_Date64(R_xlen_t n) : data(n) {
+    data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
+  }
+
+  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    auto null_count = array->null_count();
+    if (null_count == n) {
+      std::fill_n(data.begin() + start, n, NA_REAL);
+    } else {
+      auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
+      STOP_IF_NULL(p_values);
+      auto p_vec = data.begin() + start;
+
+      // convert DATE64 milliseconds to R seconds (stored as double)
+      auto seconds = [](int64_t ms) { return static_cast<double>(ms / 1000); };
+
+      if (null_count) {
+        arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                                    array->offset(), n);
+        for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_vec, ++p_values) {
+          *p_vec = bitmap_reader.IsSet() ? seconds(*p_values) : NA_REAL;
+        }
+      } else {
+        std::transform(p_values, p_values + n, p_vec, seconds);
+      }
+    }
+  }
+
+  NumericVector data;
+};
+
+template <int RTYPE, typename Type>
+struct Converter_Promotion {
+  using r_stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
+  using value_type = typename TypeTraits<Type>::ArrayType::value_type;
+
+  Converter_Promotion(R_xlen_t n) : data(no_init(n)) {}
+
+  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    auto null_count = array->null_count();
+    if (null_count == n) {
+      std::fill_n(data.begin() + start, n, default_value<RTYPE>());
+    } else {
+      auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+      STOP_IF_NULL(start);
+
+      auto value_convert = [](value_type value) {
+        return static_cast<r_stored_type>(value);
+      };
+      if (null_count) {
+        internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                             array->offset(), n);
+        for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
+          data[start + i] = bitmap_reader.IsNotSet() ? Rcpp::Vector<RTYPE>::get_na()
+                                                     : value_convert(p_values[i]);
+        }
+      } else {
+        std::transform(p_values, p_values + n, data.begin(), value_convert);
+      }
+    }
+  }
+
+  Rcpp::Vector<RTYPE> data;
+};
+
+template <typename value_type>
+struct Converter_Time {
+  Converter_Time(int64_t n, int32_t multiplier)
+      : data(no_init(n)), multiplier_(multiplier) {
+    data.attr("class") = CharacterVector::create("hms", "difftime");
+    data.attr("units") = "secs";
+  }
+
+  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    auto null_count = array->null_count();
+    if (n == null_count) {
+      std::fill_n(data.begin() + start, n, NA_REAL);
+    } else {
+      auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+      STOP_IF_NULL(p_values);
+      auto p_vec = data.begin() + start;
+      auto convert = [this](value_type value) {
+        return static_cast<double>(value) / multiplier_;
+      };
+      if (null_count) {
+        arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                                    array->offset(), n);
+        for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_vec, ++p_values) {
+          *p_vec = bitmap_reader.IsSet() ? convert(*p_values) : NA_REAL;
+        }
+      } else {
+        std::transform(p_values, p_values + n, p_vec, convert);
+      }
+    }
+  }
+
+  NumericVector data;
+  int32_t multiplier_;
+};
+
+struct Converter_Int64 {
+  Converter_Int64(R_xlen_t n) : data(no_init(n)) { data.attr("class") = "integer64"; }
+
+  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    auto null_count = array->null_count();
+    if (null_count == n) {
+      std::fill_n(data.begin() + start, n, NA_INT64);
+    } else {
+      auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
+      STOP_IF_NULL(p_values);
+      auto p_vec = reinterpret_cast<int64_t*>(data.begin()) + start;
+
+      if (array->null_count()) {
+        internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                             array->offset(), n);
+        for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
+          p_vec[i] = bitmap_reader.IsNotSet() ? NA_INT64 : p_values[i];
+        }
+      } else {
+        std::copy_n(p_values, n, p_vec);
+      }
+    }
+  }
+
+  NumericVector data;
+};
+
+SEXP DictionaryArrays_to_Vector(int64_t n, const ArrayVector& arrays) {
+  DictionaryArray* dict_array = static_cast<DictionaryArray*>(arrays[0].get());
   auto dict = dict_array->dictionary();
   auto indices = dict_array->indices();
 
@@ -677,20 +820,25 @@ SEXP DictionaryArray_to_Vector(arrow::DictionaryArray* dict_array) {
   bool ordered = dict_array->dict_type()->ordered();
   switch (indices->type_id()) {
     case Type::UINT8:
-      return DictionaryArrayInt32Indices_to_Vector<arrow::UInt8Type>(indices, dict,
-                                                                     ordered);
+      return ArrayVector_To_Vector<Converter_Dictionary_Int32Indices<arrow::UInt8Type>>(
+          n, arrays, dict, ordered);
+
     case Type::INT8:
-      return DictionaryArrayInt32Indices_to_Vector<arrow::Int8Type>(indices, dict,
-                                                                    ordered);
+      return ArrayVector_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int8Type>>(
+          n, arrays, dict, ordered);
+
     case Type::UINT16:
-      return DictionaryArrayInt32Indices_to_Vector<arrow::UInt16Type>(indices, dict,
-                                                                      ordered);
+      return ArrayVector_To_Vector<Converter_Dictionary_Int32Indices<arrow::UInt16Type>>(
+          n, arrays, dict, ordered);
+
     case Type::INT16:
-      return DictionaryArrayInt32Indices_to_Vector<arrow::Int16Type>(indices, dict,
-                                                                     ordered);
+      return ArrayVector_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int16Type>>(
+          n, arrays, dict, ordered);
+
     case Type::INT32:
-      return DictionaryArrayInt32Indices_to_Vector<arrow::Int32Type>(indices, dict,
-                                                                     ordered);
+      return ArrayVector_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int32Type>>(
+          n, arrays, dict, ordered);
+
     default:
       stop("Cannot convert Dictionary Array of type `%s` to R",
            dict_array->type()->ToString());
@@ -698,238 +846,133 @@ SEXP DictionaryArray_to_Vector(arrow::DictionaryArray* dict_array) {
   return R_NilValue;
 }
 
-SEXP Date32Array_to_Vector(const std::shared_ptr<arrow::Array>& array) {
-  IntegerVector out(simple_Array_to_Vector<INTSXP>(array));
+SEXP Date32ArrayVector_to_Vector(int64_t n, const ArrayVector& arrays) {
+  IntegerVector out(
+      arrow::r::ArrayVector_To_Vector<Converter_SimpleArray<INTSXP>>(n, arrays));
   out.attr("class") = "Date";
   return out;
 }
 
-SEXP Date64Array_to_Vector(const std::shared_ptr<arrow::Array> array) {
-  auto n = array->length();
-  NumericVector vec(no_init(n));
-  vec.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
-  if (n == 0) {
-    return vec;
-  }
-  auto null_count = array->null_count();
-  if (null_count == n) {
-    std::fill(vec.begin(), vec.end(), NA_REAL);
-    return vec;
-  }
-  auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
-  STOP_IF_NULL(p_values);
-  auto p_vec = vec.begin();
+struct Converter_Decimal {
+  Converter_Decimal(R_xlen_t n) : data(no_init(n)) {}
 
-  if (null_count) {
-    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                                array->offset(), n);
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_vec, ++p_values) {
-      *p_vec = bitmap_reader.IsSet() ? static_cast<double>(*p_values / 1000) : NA_REAL;
-    }
-  } else {
-    std::transform(p_values, p_values + n, vec.begin(),
-                   [](int64_t value) { return static_cast<double>(value / 1000); });
-  }
+  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    auto null_count = array->null_count();
+    if (n == null_count) {
+      std::fill_n(data.begin() + start, n, NA_REAL);
+    } else {
+      auto p_vec = reinterpret_cast<double*>(data.begin()) + start;
+      const auto& decimals_arr =
+          internal::checked_cast<const arrow::Decimal128Array&>(*array);
 
-  return vec;
-}
+      if (array->null_count()) {
+        internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                             array->offset(), n);
 
-template <int RTYPE, typename Type>
-SEXP promotion_Array_to_Vector(const std::shared_ptr<Array>& array) {
-  using r_stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
-  using value_type = typename TypeTraits<Type>::ArrayType::value_type;
-
-  auto n = array->length();
-  Rcpp::Vector<RTYPE> vec(no_init(n));
-  if (n == 0) {
-    return vec;
-  }
-  auto null_count = array->null_count();
-  if (null_count == n) {
-    std::fill(vec.begin(), vec.end(), NA_REAL);
-    return vec;
-  }
-
-  auto start = GetValuesSafely<value_type>(array->data(), 1, array->offset());
-  STOP_IF_NULL(start);
-
-  if (null_count) {
-    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-                                         n);
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
-      vec[i] = bitmap_reader.IsNotSet() ? Rcpp::Vector<RTYPE>::get_na()
-                                        : static_cast<r_stored_type>(start[i]);
-    }
-  } else {
-    std::transform(start, start + n, vec.begin(),
-                   [](value_type x) { return static_cast<r_stored_type>(x); });
-  }
-
-  return vec;
-}
-
-SEXP Int64Array(const std::shared_ptr<Array>& array) {
-  auto n = array->length();
-  NumericVector vec(no_init(n));
-  vec.attr("class") = "integer64";
-  if (n == 0) {
-    return vec;
-  }
-  auto null_count = array->null_count();
-  if (null_count == n) {
-    std::fill(vec.begin(), vec.end(), NA_REAL);
-    return vec;
-  }
-  auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
-  STOP_IF_NULL(p_values);
-  auto p_vec = reinterpret_cast<int64_t*>(vec.begin());
-
-  if (array->null_count()) {
-    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-                                         n);
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
-      p_vec[i] = bitmap_reader.IsNotSet() ? NA_INT64 : p_values[i];
-    }
-  } else {
-    std::copy_n(p_values, n, p_vec);
-  }
-
-  return vec;
-}
-
-template <typename value_type>
-SEXP TimeArray_to_Vector(const std::shared_ptr<Array>& array, int32_t multiplier) {
-  auto n = array->length();
-  NumericVector vec(no_init(n));
-  auto null_count = array->null_count();
-  vec.attr("class") = CharacterVector::create("hms", "difftime");
-  vec.attr("units") = "secs";
-  if (n == 0) {
-    return vec;
-  }
-  auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
-  STOP_IF_NULL(p_values);
-  auto p_vec = vec.begin();
-
-  if (null_count) {
-    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                                array->offset(), n);
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_vec, ++p_values) {
-      *p_vec =
-          bitmap_reader.IsSet() ? (static_cast<double>(*p_values) / multiplier) : NA_REAL;
-    }
-  } else {
-    std::transform(p_values, p_values + n, vec.begin(), [multiplier](value_type value) {
-      return static_cast<double>(value) / multiplier;
-    });
-  }
-  return vec;
-}
-
-SEXP DecimalArray(const std::shared_ptr<Array>& array) {
-  auto n = array->length();
-  NumericVector vec(no_init(n));
-
-  if (n == 0) return vec;
-
-  auto null_count = array->null_count();
-  if (null_count == n) {
-    std::fill(vec.begin(), vec.end(), NA_REAL);
-    return vec;
-  }
-
-  auto p_vec = reinterpret_cast<double*>(vec.begin());
-  const auto& decimals_arr =
-      internal::checked_cast<const arrow::Decimal128Array&>(*array);
-
-  if (array->null_count()) {
-    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-                                         n);
-
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
-      p_vec[i] = bitmap_reader.IsNotSet()
-                     ? NA_REAL
-                     : std::stod(decimals_arr.FormatValue(i).c_str());
-    }
-  } else {
-    for (size_t i = 0; i < n; i++) {
-      p_vec[i] = std::stod(decimals_arr.FormatValue(i).c_str());
+        for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
+          p_vec[i] = bitmap_reader.IsNotSet()
+                         ? NA_REAL
+                         : std::stod(decimals_arr.FormatValue(i).c_str());
+        }
+      } else {
+        for (size_t i = 0; i < n; i++) {
+          p_vec[i] = std::stod(decimals_arr.FormatValue(i).c_str());
+        }
+      }
     }
   }
 
-  return vec;
-}
+  NumericVector data;
+};
 
 }  // namespace r
 }  // namespace arrow
 
-// [[Rcpp::export]]
-SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
+SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
   using namespace arrow::r;
 
-  switch (array->type_id()) {
+  switch (arrays[0]->type_id()) {
     // direct support
     case Type::INT8:
-      return simple_Array_to_Vector<RAWSXP>(array);
+      return ArrayVector_To_Vector<Converter_SimpleArray<RAWSXP>>(n, arrays);
     case Type::INT32:
-      return simple_Array_to_Vector<INTSXP>(array);
+      return ArrayVector_To_Vector<Converter_SimpleArray<INTSXP>>(n, arrays);
     case Type::DOUBLE:
-      return simple_Array_to_Vector<REALSXP>(array);
+      return ArrayVector_To_Vector<Converter_SimpleArray<REALSXP>>(n, arrays);
 
     // need to handle 1-bit case
     case Type::BOOL:
-      return BooleanArray_to_Vector(array);
+      return ArrayVector_To_Vector<Converter_Boolean>(n, arrays);
 
-    // handle memory dense strings
+      // handle memory dense strings
     case Type::STRING:
-      return StringArray_to_Vector(array);
+      return ArrayVector_To_Vector<Converter_String>(n, arrays);
     case Type::DICTIONARY:
-      return DictionaryArray_to_Vector(static_cast<arrow::DictionaryArray*>(array.get()));
+      return DictionaryArrays_to_Vector(n, arrays);
 
     case Type::DATE32:
-      return Date32Array_to_Vector(array);
+      return Date32ArrayVector_to_Vector(n, arrays);
     case Type::DATE64:
-      return Date64Array_to_Vector(array);
+      return ArrayVector_To_Vector<Converter_Date64>(n, arrays);
 
-    // promotions to integer vector
+      // promotions to integer vector
     case Type::UINT8:
-      return arrow::r::promotion_Array_to_Vector<INTSXP, arrow::UInt8Type>(array);
+      return ArrayVector_To_Vector<Converter_Promotion<INTSXP, arrow::UInt8Type>>(n,
+                                                                                  arrays);
     case Type::INT16:
-      return arrow::r::promotion_Array_to_Vector<INTSXP, arrow::Int16Type>(array);
+      return ArrayVector_To_Vector<Converter_Promotion<INTSXP, arrow::Int16Type>>(n,
+                                                                                  arrays);
     case Type::UINT16:
-      return arrow::r::promotion_Array_to_Vector<INTSXP, arrow::UInt16Type>(array);
+      return ArrayVector_To_Vector<Converter_Promotion<INTSXP, arrow::UInt16Type>>(
+          n, arrays);
 
-    // promotions to numeric vector
+      // promotions to numeric vector
     case Type::UINT32:
-      return arrow::r::promotion_Array_to_Vector<REALSXP, arrow::UInt32Type>(array);
+      return ArrayVector_To_Vector<Converter_Promotion<REALSXP, arrow::UInt32Type>>(
+          n, arrays);
     case Type::HALF_FLOAT:
-      return arrow::r::promotion_Array_to_Vector<REALSXP, arrow::UInt32Type>(array);
+      return ArrayVector_To_Vector<Converter_Promotion<REALSXP, arrow::UInt32Type>>(
+          n, arrays);
     case Type::FLOAT:
-      return arrow::r::promotion_Array_to_Vector<REALSXP, arrow::UInt32Type>(array);
+      return ArrayVector_To_Vector<Converter_Promotion<REALSXP, arrow::UInt32Type>>(
+          n, arrays);
 
-    // time32 ane time64
+      // time32 ane time64
     case Type::TIME32:
-      return arrow::r::TimeArray_to_Vector<int32_t>(
-          array, static_cast<TimeType*>(array->type().get())->unit() == TimeUnit::SECOND
-                     ? 1
-                     : 1000);
+      return ArrayVector_To_Vector<Converter_Time<int32_t>>(
+          n, arrays,
+          static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::SECOND
+              ? 1
+              : 1000);
+
     case Type::TIME64:
-      return arrow::r::TimeArray_to_Vector<int64_t>(
-          array, static_cast<TimeType*>(array->type().get())->unit() == TimeUnit::MICRO
-                     ? 1000000
-                     : 1000000000);
+      return ArrayVector_To_Vector<Converter_Time<int64_t>>(
+          n, arrays,
+          static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::MICRO
+              ? 1000000
+              : 1000000000);
 
     case Type::INT64:
-      return arrow::r::Int64Array(array);
+      return ArrayVector_To_Vector<Converter_Int64>(n, arrays);
     case Type::DECIMAL:
-      return arrow::r::DecimalArray(array);
+      ArrayVector_To_Vector<Converter_Decimal>(n, arrays);
 
     default:
       break;
   }
 
-  stop(tfm::format("cannot handle Array of type %s", array->type()->name()));
+  stop(tfm::format("cannot handle Array of type %s", arrays[0]->type()->name()));
   return R_NilValue;
+}
+
+// [[Rcpp::export]]
+SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
+  return ArrayVector__as_vector(array->length(), {array});
+}
+
+// [[Rcpp::export]]
+SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  return ArrayVector__as_vector(chunked_array->length(), chunked_array->chunks());
 }
 
 // [[Rcpp::export]]

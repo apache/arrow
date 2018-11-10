@@ -82,17 +82,20 @@ test_that("ChunkedArray supports logical vectors (ARROW-3341)", {
   arr_lgl <- chunked_array(!!!data)
   expect_equal(arr_lgl$length(), 300L)
   expect_equal(arr_lgl$null_count(), sum(unlist(map(data, is.na))))
+  expect_identical(arr_lgl$as_vector(), purrr::flatten_lgl(data))
 
   chunks <- arr_lgl$chunks()
   expect_identical(data[[1]], chunks[[1]]$as_vector())
   expect_identical(data[[2]], chunks[[2]]$as_vector())
   expect_identical(data[[3]], chunks[[3]]$as_vector())
 
+
   # without NA
   data <- purrr::rerun(3, sample(c(TRUE, FALSE), 100, replace = TRUE))
   arr_lgl <- chunked_array(!!!data)
   expect_equal(arr_lgl$length(), 300L)
   expect_equal(arr_lgl$null_count(), sum(unlist(map(data, is.na))))
+  expect_identical(arr_lgl$as_vector(), purrr::flatten_lgl(data))
 
   chunks <- arr_lgl$chunks()
   expect_identical(data[[1]], chunks[[1]]$as_vector())
@@ -110,8 +113,48 @@ test_that("ChunkedArray supports character vectors (ARROW-3339)", {
   arr_chr <- chunked_array(!!!data)
   expect_equal(arr_chr$length(), length(unlist(data)))
   expect_equal(arr_chr$null_count(), 1L)
+  expect_equal(arr_chr$as_vector(), purrr::flatten_chr(data))
 
   chunks <- arr_chr$chunks()
   expect_equal(data, purrr::map(chunks, ~.$as_vector()))
 })
 
+test_that("ChunkedArray supports factors (ARROW-3716)", {
+  f <- factor(c("itsy", "bitsy", "spider", "spider"))
+  arr_fac <- chunked_array(f, f, f)
+  expect_equal(arr_fac$length(), 12L)
+  expect_equal(arr_fac$type()$index_type(), int8())
+  expect_identical(arr_fac$as_vector(), vctrs::vec_c(f, f, f))
+})
+
+test_that("ChunkedArray supports dates (ARROW-3716)", {
+  d <- Sys.Date() + 1:10
+  a <- chunked_array(d, d)
+  expect_equal(a$type(), date32())
+  expect_equal(a$length(), 20L)
+  expect_equal(a$as_vector(), c(d, d))
+})
+
+test_that("ChunkedArray supports POSIXct (ARROW-3716)", {
+  times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
+  a <- chunked_array(times, times)
+  expect_equal(a$type(), date64())
+  expect_equal(a$length(), 20L)
+  expect_equal(as.numeric(a$as_vector()), as.numeric(c(times, times)))
+})
+
+test_that("ChunkedArray supports integer64 (ARROW-3716)", {
+  x <- bit64::as.integer64(1:10)
+  a <- chunked_array(x, x)
+  expect_equal(a$type(), int64())
+  expect_equal(a$length(), 20L)
+  expect_equal(a$as_vector(), c(x,x))
+})
+
+test_that("ChunkedArray supports difftime", {
+  time <- hms::hms(56, 34, 12)
+  a <- chunked_array(time, time)
+  expect_equal(a$type(), time32(unit = TimeUnit$SECOND))
+  expect_equal(a$length(), 2L)
+  expect_equal(a$as_vector(), c(time, time))
+})
