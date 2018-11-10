@@ -117,7 +117,9 @@ module Arrow
         reader = ORCFileReader.new(input)
         field_indexes = @options[:field_indexes]
         reader.set_field_indexes(field_indexes) if field_indexes
-        reader.read_stripes
+        table = reader.read_stripes
+        table.instance_variable_set(:@input, input)
+        table
       end
     end
 
@@ -125,6 +127,14 @@ module Arrow
       options = @options.dup
       options.delete(:format)
       CSVLoader.load(Pathname.new(path), options)
+    end
+
+    def load_as_feather(path)
+      input = MemoryMappedInputStream.new(path)
+      reader = FeatherFileReader.new(input)
+      table = reader.read
+      table.instance_variable_set(:@input, input)
+      table
     end
   end
 end
