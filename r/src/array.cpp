@@ -297,9 +297,7 @@ inline int64_t time_cast<double>(double value) {
   return static_cast<int64_t>(value * 1000);
 }
 
-inline int64_t timestamp_cast(int value) {
-  return static_cast<int64_t>(value) * 1000000;
-}
+inline int64_t timestamp_cast(int value) { return static_cast<int64_t>(value) * 1000000; }
 
 template <int RTYPE>
 std::shared_ptr<Array> TimeStampArray_From_POSIXct(SEXP x) {
@@ -344,8 +342,8 @@ std::shared_ptr<Array> TimeStampArray_From_POSIXct(SEXP x) {
     buffers[0] = std::move(null_buffer);
   }
 
-  auto data = ArrayData::Make(std::make_shared<TimestampType>(TimeUnit::MICRO, "GMT"), n, std::move(buffers),
-                              null_count, 0);
+  auto data = ArrayData::Make(std::make_shared<TimestampType>(TimeUnit::MICRO, "GMT"), n,
+                              std::move(buffers), null_count, 0);
 
   return std::make_shared<TimestampArray>(data);
 }
@@ -752,6 +750,11 @@ struct Converter_Promotion {
 
 template <typename value_type>
 struct Converter_Time {
+  Converter_Time(int64_t n, int32_t multiplier, CharacterVector classes)
+      : data(no_init(n)), multiplier_(multiplier) {
+    data.attr("class") = classes;
+  }
+
   Converter_Time(int64_t n, int32_t multiplier)
       : data(no_init(n)), multiplier_(multiplier) {
     data.attr("class") = CharacterVector::create("hms", "difftime");
@@ -786,11 +789,10 @@ struct Converter_Time {
 };
 
 template <typename value_type>
-struct Converter_TimeStamp {
+struct Converter_TimeStamp : Converter_Time<value_type> {
   Converter_TimeStamp(int64_t n, int32_t multiplier)
-    : data(no_init(n)), multiplier_(multiplier) {
-    data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
-  }
+      : Converter_Time<value_type>(n, multiplier,
+                                   CharacterVector::create("POSIXct", "POSIXt")) {}
 };
 
 struct Converter_Int64 {
@@ -966,9 +968,10 @@ SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
 
     case Type::TIMESTAMP:
       return ArrayVector_To_Vector<Converter_TimeStamp<int64_t>>(
-        array, static_cast<TimeType*>(array->type().get())->unit() == TimeUnit::MICRO
-      ? 1000000
-      : 1000000000);
+          n, arrays,
+          static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::MICRO
+              ? 1000000
+              : 1000000000);
 
     case Type::INT64:
       return ArrayVector_To_Vector<Converter_Int64>(n, arrays);
