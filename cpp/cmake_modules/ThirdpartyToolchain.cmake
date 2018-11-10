@@ -611,7 +611,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   ADD_THIRDPARTY_LIB(gflags
     STATIC_LIB ${GFLAGS_STATIC_LIB})
   if(MSVC)
-    set_target_properties(gflags
+    set_target_properties(gflags_static
       PROPERTIES
       INTERFACE_LINK_LIBRARIES "shlwapi.lib")
   endif()
