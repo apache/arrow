@@ -92,5 +92,13 @@ module Arrow
         end
       end
     end
+
+    def save_as_feather(path)
+      FileOutputStream.open(path, false) do |output|
+        FeatherFileWriter.open(output) do |writer|
+          writer.write(@table)
+        end
+      end
+    end
   end
 end
