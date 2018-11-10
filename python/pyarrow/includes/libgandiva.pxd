@@ -146,7 +146,9 @@ cdef extern from "gandiva/function_signature.h" namespace "gandiva" nogil:
 
     cdef cppclass CFunctionSignature" gandiva::FunctionSignature":
 
-        CFunctionSignature(const c_string& base_name, vector[shared_ptr[CDataType]] param_types, shared_ptr[CDataType] ret_type)
+        CFunctionSignature(const c_string& base_name,
+                           vector[shared_ptr[CDataType]] param_types,
+                           shared_ptr[CDataType] ret_type)
 
         shared_ptr[CDataType] ret_type() const
 

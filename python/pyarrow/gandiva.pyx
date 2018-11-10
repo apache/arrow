@@ -292,6 +292,7 @@ cdef class FunctionSignature:
         signature = deref(self.signature).ToString().decode()
         return "FunctionSignature(" + signature + ")"
 
+
 def get_registered_functions():
     """
     Return the function in Gandiva's FunctionRegistry.
@@ -309,7 +310,7 @@ def get_registered_functions():
     # might not be sure that the addresses are stable
     while begin != end:
         name = begin[0].signature().base_name().decode()
-        results[name] =  FunctionSignature.create(begin[0].signature())
+        results[name] = FunctionSignature.create(begin[0].signature())
         begin += 1
 
     return results
