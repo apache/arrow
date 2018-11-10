@@ -156,21 +156,21 @@ cdef class Filter:
         self.filter = filter
         return self
 
-    def evaluate(self, RecordBatch batch, MemoryPool pool,
-                 selection_vector_type='int32'):
+    def evaluate(self, RecordBatch batch, MemoryPool pool, dtype='int32'):
         cdef shared_ptr[CSelectionVector] selection
-        if selection_vector_type == 'int16':
+        cdef DataType type = _as_type(dtype)
+        if type.id == _Type_INT16:
             check_status(SelectionVector_MakeInt16(
                 batch.num_rows, pool.pool, &selection))
-        elif selection_vector_type == 'int32':
+        elif type.id == _Type_INT32:
             check_status(SelectionVector_MakeInt32(
                 batch.num_rows, pool.pool, &selection))
-        elif selection_vector_type == 'int64':
+        elif type.id == _Type_INT64:
             check_status(SelectionVector_MakeInt64(
                 batch.num_rows, pool.pool, &selection))
         else:
-            raise ValueError("'selection_vector_type' should be one of "
-                             "'int16', 'int32' and 'int64'.")
+            raise ValueError("'dtype' of the selection vector should be "
+                             "one of 'int16', 'int32' and 'int64'.")
         check_status(self.filter.get().Evaluate(
             batch.sp_batch.get()[0], selection))
         return SelectionVector.create(selection)
