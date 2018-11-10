@@ -65,22 +65,22 @@ if (ARROW_BUILD_BENCHMARKS)
   add_library(arrow_benchmark_main benchmark_main.cc)
   if (APPLE)
     target_link_libraries(arrow_benchmark_main
-      benchmark
+      benchmark_static
     )
   elseif(MSVC)
     target_link_libraries(arrow_benchmark_main
-      benchmark
+      benchmark_static
       Shlwapi.lib
   )
   else()
     target_link_libraries(arrow_benchmark_main
-      benchmark
+      benchmark_static
       pthread
     )
   endif()
 
   # TODO(wesm): Some benchmarks include gtest.h
-  add_dependencies(arrow_benchmark_main gtest)
+  add_dependencies(arrow_benchmark_main gtest_static)
 endif()
 
 ADD_ARROW_TEST(bit-util-test)

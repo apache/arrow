@@ -16,9 +16,9 @@
 # under the License.
 
 set(GANDIVA_TEST_LINK_LIBS
-  gtest
-  gtest_main
-  re2)
+  gtest_static
+  gtest_main_static
+  ${RE2_LIBRARY})
 
 if (PTHREAD_LIBRARY)
   set(GANDIVA_TEST_LINK_LIBS
