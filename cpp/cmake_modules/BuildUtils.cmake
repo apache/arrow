@@ -264,8 +264,6 @@ function(ADD_ARROW_LIB LIB_NAME)
     target_link_libraries(${LIB_NAME}_static
       LINK_PUBLIC ${ARG_STATIC_LINK_LIBS})
 
-    message(STATUS "static libs for ${LIB_NAME}: ${ARG_STATIC_LINK_LIBS}")
-
     install(TARGETS ${LIB_NAME}_static
       EXPORT ${PROJECT_NAME}-targets
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
