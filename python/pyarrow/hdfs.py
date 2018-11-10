@@ -168,6 +168,9 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
     driver : {'libhdfs', 'libhdfs3'}, default 'libhdfs'
       Connect using libhdfs (JNI-based) or libhdfs3 (3rd-party C++
       library from Apache HAWQ (incubating) )
+    extra_conf : dict, default None
+      extra Key/Value pairs for config; Will override any
+      hdfs-site.xml properties
 
     Notes
     -----
