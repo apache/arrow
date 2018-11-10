@@ -39,9 +39,19 @@ cdef extern from "gandiva/selection_vector.h" namespace "gandiva" nogil:
 
         shared_ptr[CArray] ToArray()
 
+    cdef CStatus SelectionVector_MakeInt16\
+        "gandiva::SelectionVector::MakeInt16"(
+            int64_t max_slots, CMemoryPool* pool,
+            shared_ptr[CSelectionVector]* selection_vector)
+
     cdef CStatus SelectionVector_MakeInt32\
         "gandiva::SelectionVector::MakeInt32"(
-            int max_slots, CMemoryPool* pool,
+            int64_t max_slots, CMemoryPool* pool,
+            shared_ptr[CSelectionVector]* selection_vector)
+
+    cdef CStatus SelectionVector_MakeInt64\
+        "gandiva::SelectionVector::MakeInt64"(
+            int64_t max_slots, CMemoryPool* pool,
             shared_ptr[CSelectionVector]* selection_vector)
 
 cdef extern from "gandiva/condition.h" namespace "gandiva" nogil:

@@ -52,7 +52,9 @@ from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           TreeExprBuilder_MakeField,
                                           TreeExprBuilder_MakeIf,
                                           TreeExprBuilder_MakeCondition,
+                                          SelectionVector_MakeInt16,
                                           SelectionVector_MakeInt32,
+                                          SelectionVector_MakeInt64,
                                           Projector_Make,
                                           Filter_Make)
 
@@ -154,10 +156,21 @@ cdef class Filter:
         self.filter = filter
         return self
 
-    def evaluate(self, RecordBatch batch, MemoryPool pool):
+    def evaluate(self, RecordBatch batch, MemoryPool pool, dtype='int32'):
         cdef shared_ptr[CSelectionVector] selection
-        check_status(SelectionVector_MakeInt32(
-            batch.num_rows, pool.pool, &selection))
+        cdef DataType type = _as_type(dtype)
+        if type.id == _Type_INT16:
+            check_status(SelectionVector_MakeInt16(
+                batch.num_rows, pool.pool, &selection))
+        elif type.id == _Type_INT32:
+            check_status(SelectionVector_MakeInt32(
+                batch.num_rows, pool.pool, &selection))
+        elif type.id == _Type_INT64:
+            check_status(SelectionVector_MakeInt64(
+                batch.num_rows, pool.pool, &selection))
+        else:
+            raise ValueError("'dtype' of the selection vector should be "
+                             "one of 'int16', 'int32' and 'int64'.")
         check_status(self.filter.get().Evaluate(
             batch.sp_batch.get()[0], selection))
         return SelectionVector.create(selection)
