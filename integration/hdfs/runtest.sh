@@ -21,10 +21,8 @@ set -e
 
 export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
 
-pushd arrow/cpp/build
+pushd /build/cpp
   debug/io-hdfs-test
 popd
 
-pushd arrow/python
-  python -m pytest -vv -r sxX -s --only-parquet --only-hdfs pyarrow
-popd
+pytest -v --pyargs pyarrow
