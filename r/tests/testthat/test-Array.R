@@ -400,6 +400,8 @@ test_that("array() does not convert doubles to integer", {
 })
 
 test_that("array supports decimal128", {
+  skip("until ARROW-3747 is implemented")
+
   dec <- vctrs::vec_c(1:10, new_decimal128())
   a <- array(dec)
   expect_equal(a$length(), 10L)
