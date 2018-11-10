@@ -55,9 +55,6 @@ endfunction()
 
 # TODO(wesm): Handling of ABI/SO version
 
-set(PARQUET_SHARED_LINK_LIBS
-  arrow_shared)
-
 if (ARROW_BUILD_STATIC)
   set(PARQUET_STATIC_LINK_LIBS
     arrow_static)
@@ -92,7 +89,6 @@ endif()
 set(PARQUET_SHARED_TEST_LINK_LIBS
   ${PARQUET_MIN_TEST_LIBS}
   parquet_shared
-  ${ARROW_LIBRARY_TESTING}
   thriftstatic)
 
 set(PARQUET_STATIC_TEST_LINK_LIBS
@@ -160,10 +156,12 @@ add_custom_target(parquet-thrift-deps ALL
 set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} parquet-thrift-deps)
 
 if (NOT PARQUET_MINIMAL_DEPENDENCY)
+  set(PARQUET_SHARED_LINK_LIBS
+    arrow_shared)
+
 # These are libraries that we will link privately with parquet_shared (as they
 # do not need to be linked transitively by other linkers)
-  set(PARQUET_SHARED_LINK_LIBS
-    ${PARQUET_SHARED_LINK_LIBS}
+  set(PARQUET_SHARED_PRIVATE_LINK_LIBS
     ${PARQUET_BOOST_LINK_LIBS}
     thriftstatic
   )
@@ -180,6 +178,7 @@ if (NOT PARQUET_MINIMAL_DEPENDENCY)
 # on these libs as we may generate their headers via ExternalProject_Add
 set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES}
   ${PARQUET_SHARED_LINK_LIBS}
+  ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
   ${PARQUET_STATIC_LINK_LIBS})
 endif()
 
@@ -204,7 +203,8 @@ ADD_ARROW_LIB(parquet
   OUTPUTS PARQUET_LIBRARIES
   DEPENDENCIES ${PARQUET_DEPENDENCIES}
   SHARED_LINK_FLAGS ${PARQUET_SHARED_LINK_FLAGS}
-  SHARED_PRIVATE_LINK_LIBS ${PARQUET_SHARED_LINK_LIBS}
+  SHARED_LINK_LIBS ${PARQUET_SHARED_LINK_LIBS}
+  SHARED_PRIVATE_LINK_LIBS ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
   STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS}
 )
 
