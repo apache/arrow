@@ -93,6 +93,6 @@ if (ARROW_BUILD_BENCHMARKS)
   cuda_add_executable(cuda-benchmark cuda-benchmark.cc)
   target_link_libraries(cuda-benchmark
     arrow_gpu_shared
-    gtest
+    gtest_static
     ${ARROW_BENCHMARK_LINK_LIBS})
 endif()

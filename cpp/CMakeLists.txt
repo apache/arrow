@@ -109,11 +109,11 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     OFF)
 
   option(ARROW_BUILD_STATIC
-    "Build the libarrow static libraries"
+    "Build static libraries"
     ON)
 
   option(ARROW_BUILD_SHARED
-    "Build the libarrow shared libraries"
+    "Build shared libraries"
     ON)
 
   option(ARROW_TEST_MEMCHECK
@@ -298,15 +298,12 @@ Always OFF if building binaries"
     OFF)
 
   option(PARQUET_BUILD_EXECUTABLES
-    "Build the Parquet executable CLI tools"
+    "Build the Parquet executable CLI tools. Requires static libraries to be built."
     OFF)
 
   option(PARQUET_BUILD_EXAMPLES
-    "Build the Parquet examples"
+    "Build the Parquet examples. Requires static libraries to be built."
     OFF)
-
-  set(PARQUET_ARROW_LINKAGE "shared" CACHE STRING
-    "How to link Arrow libraries with libparquet.so. static|shared (default shared)")
 
   # Gandiva related build options
   option(ARROW_GANDIVA
@@ -412,6 +409,11 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_WITH_ZSTD ON)
 endif()
 
+if(PARQUET_BUILD_EXAMPLES OR PARQUET_BUILD_EXECUTABLES)
+  set(ARROW_PARQUET ON)
+  set(ARROW_BUILD_STATIC ON)
+endif()
+
 if (MSVC)
   # ORC doesn't build on windows
   set(ARROW_ORC OFF)
@@ -427,6 +429,8 @@ endif()
 
 if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
+else()
+  set(ARROW_BUILD_SHARED ON)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
@@ -628,13 +632,13 @@ endif(UNIX)
 set(ARROW_LINK_LIBS)
 
 # Libraries to link statically with libarrow.so
-set(ARROW_STATIC_LINK_LIBS double-conversion::double-conversion)
+set(ARROW_STATIC_LINK_LIBS double-conversion_static)
 
 if (ARROW_WITH_BROTLI)
   SET(ARROW_STATIC_LINK_LIBS
-    brotli_dec
-    brotli_enc
-    brotli_common
+    brotli_dec_static
+    brotli_enc_static
+    brotli_common_static
     ${ARROW_STATIC_LINK_LIBS})
 endif()
 
@@ -647,14 +651,11 @@ if (ARROW_WITH_LZ4)
 endif()
 
 if (ARROW_WITH_SNAPPY)
-  SET(ARROW_STATIC_LINK_LIBS snappy ${ARROW_STATIC_LINK_LIBS})
+  SET(ARROW_STATIC_LINK_LIBS snappy_static ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_WITH_ZLIB)
-  if (ZLIB_SHARED_LIB)
-    SET(ARROW_PRIVATE_LINK_LIBS zlib ${ARROW_PRIVATE_LINK_LIBS})
-  endif()
-  SET(ARROW_STATIC_LINK_LIBS zlib ${ARROW_STATIC_LINK_LIBS})
+  SET(ARROW_STATIC_LINK_LIBS ${ZLIB_LIBRARY} ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_WITH_ZSTD)
@@ -664,11 +665,10 @@ endif()
 if (ARROW_ORC)
   SET(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
-    orc)
+    orc_static)
 endif()
 
 if (ARROW_USE_GLOG)
-  #add_definitions(-DARROW_USE_GLOG)
   SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
 endif()
 
@@ -678,10 +678,9 @@ endif()
 
 if (ARROW_BUILD_BENCHMARKS)
   set(ARROW_BENCHMARK_LINK_LIBS
-    arrow_static
     arrow_benchmark_main
-    gtest
-    ${ARROW_STATIC_LINK_LIBS})
+    arrow_static
+    gtest_static)
 endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
@@ -690,7 +689,8 @@ set(ARROW_SHARED_PRIVATE_LINK_LIBS
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
 
-set(ARROW_STATIC_PRIVATE_LINK_LIBS
+set(ARROW_STATIC_LINK_LIBS
+  ${ARROW_STATIC_LINK_LIBS}
   ${BOOST_SYSTEM_LIBRARY}
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
@@ -704,19 +704,18 @@ endif()
 if (ARROW_BUILD_STATIC)
   set(ARROW_MIN_TEST_LIBS
     arrow_static
-    ${ARROW_STATIC_LINK_LIBS}
-    gtest_main
-    gtest)
+    gtest_main_static
+    gtest_static)
 else ()
   set(ARROW_MIN_TEST_LIBS
     arrow_shared
     ${ARROW_LINK_LIBS}
-    double-conversion::double-conversion
+    double-conversion_static
     ${BOOST_SYSTEM_LIBRARY}
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_REGEX_LIBRARY}
-    gtest_main
-    gtest)
+    gtest_main_static
+    gtest_static)
 endif()
 
 if(NOT MSVC)
@@ -755,10 +754,10 @@ endif(ARROW_JEMALLOC)
 if (PTHREAD_LIBRARY)
   set(ARROW_LINK_LIBS
     ${ARROW_LINK_LIBS}
-    ${PTHREAD_LIBRARY})
+    pthreadshared)
   set(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
-    ${PTHREAD_LIBRARY})
+    pthreadshared)
 endif()
 
 ############################################################

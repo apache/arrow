@@ -331,6 +331,8 @@ if (WIN32)
 else()
   find_library(PTHREAD_LIBRARY pthread)
   message(STATUS "Found pthread: ${PTHREAD_LIBRARY}")
+  add_library(pthreadshared SHARED IMPORTED)
+  set_target_properties(pthreadshared PROPERTIES IMPORTED_LOCATION ${PTHREAD_LIBRARY})
 endif()
 
 # ----------------------------------------------------------------------
@@ -361,9 +363,9 @@ if (ARROW_BOOST_VENDORED)
     "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(BOOST_STATIC_REGEX_LIBRARY
     "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  set(BOOST_SYSTEM_LIBRARY "${BOOST_STATIC_SYSTEM_LIBRARY}")
-  set(BOOST_FILESYSTEM_LIBRARY "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
-  set(BOOST_REGEX_LIBRARY "${BOOST_STATIC_REGEX_LIBRARY}")
+  set(BOOST_SYSTEM_LIBRARY boost_system_static)
+  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+  set(BOOST_REGEX_LIBRARY boost_regex_static)
   if (ARROW_BOOST_HEADER_ONLY)
     set(BOOST_BUILD_PRODUCTS)
     set(BOOST_CONFIGURE_COMMAND "")
@@ -470,7 +472,7 @@ if (NOT ARROW_BOOST_HEADER_ONLY)
       STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}"
       SHARED_LIB "${BOOST_SHARED_REGEX_LIBRARY}")
 
-  SET(ARROW_BOOST_LIBS boost_system boost_filesystem)
+  SET(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
 endif()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
@@ -503,10 +505,16 @@ endif()
 
 include_directories(SYSTEM ${DOUBLE_CONVERSION_INCLUDE_DIR})
 
+add_library(double-conversion INTERFACE)
 if (DOUBLE_CONVERSION_VENDORED)
-  ADD_THIRDPARTY_LIB(double-conversion::double-conversion
+  ADD_THIRDPARTY_LIB(double-conversion
     STATIC_LIB ${DOUBLE_CONVERSION_STATIC_LIB})
   add_dependencies(arrow_dependencies double-conversion_ep)
+  set_target_properties(double-conversion
+    PROPERTIES INTERFACE_LINK_LIBRARIES double-conversion_static)
+else()
+  set_target_properties(double-conversion
+    PROPERTIES INTERFACE_LINK_LIBRARIES double-conversion::double-conversion)
 endif()
 
 # ----------------------------------------------------------------------
@@ -557,8 +565,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
     STATIC_LIB ${GTEST_MAIN_STATIC_LIB})
 
   if(GTEST_VENDORED)
-    add_dependencies(gtest googletest_ep)
-    add_dependencies(gtest_main googletest_ep)
+    add_dependencies(gtest_static googletest_ep)
+    add_dependencies(gtest_main_static googletest_ep)
   endif()
 
   # gflags (formerly Googleflags) command line parsing
@@ -603,13 +611,13 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   ADD_THIRDPARTY_LIB(gflags
     STATIC_LIB ${GFLAGS_STATIC_LIB})
   if(MSVC)
-    set_target_properties(gflags
+    set_target_properties(gflags_static
       PROPERTIES
       INTERFACE_LINK_LIBRARIES "shlwapi.lib")
   endif()
 
   if(GFLAGS_VENDORED)
-    add_dependencies(gflags gflags_ep)
+    add_dependencies(gflags_static gflags_ep)
   endif()
 endif()
 
@@ -655,7 +663,7 @@ if(ARROW_BUILD_BENCHMARKS)
     STATIC_LIB ${GBENCHMARK_STATIC_LIB})
 
   if(GBENCHMARK_VENDORED)
-    add_dependencies(benchmark gbenchmark_ep)
+    add_dependencies(benchmark_static gbenchmark_ep)
   endif()
 endif()
 
@@ -815,6 +823,7 @@ if (ARROW_WITH_ZLIB)
   endif()
   if(ZLIB_FOUND)
     ADD_THIRDPARTY_LIB(zlib SHARED_LIB ${ZLIB_SHARED_LIB})
+    set(ZLIB_LIBRARY zlib_shared)
   else()
     set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
     set(ZLIB_HOME "${ZLIB_PREFIX}")
@@ -837,13 +846,14 @@ if (ARROW_WITH_ZLIB)
                         -DBUILD_SHARED_LIBS=OFF)
     ADD_THIRDPARTY_LIB(zlib
       STATIC_LIB ${ZLIB_STATIC_LIB})
+    set(ZLIB_LIBRARY zlib_static)
 
     ExternalProject_Add(zlib_ep
       URL ${ZLIB_SOURCE_URL}
       ${EP_LOG_OPTIONS}
       BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
       CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
-    add_dependencies(zlib zlib_ep)
+    add_dependencies(${ZLIB_LIBRARY} zlib_ep)
   endif()
 
   include_directories(SYSTEM ${ZLIB_INCLUDE_DIR})
@@ -915,7 +925,7 @@ if (ARROW_WITH_SNAPPY)
     STATIC_LIB ${SNAPPY_STATIC_LIB})
 
   if (SNAPPY_VENDORED)
-    add_dependencies(snappy snappy_ep)
+    add_dependencies(snappy_static snappy_ep)
   endif()
 endif()
 
@@ -974,9 +984,9 @@ if (ARROW_WITH_BROTLI)
     STATIC_LIB ${BROTLI_STATIC_LIBRARY_COMMON})
 
   if (BROTLI_VENDORED)
-    add_dependencies(brotli_enc brotli_ep)
-    add_dependencies(brotli_dec brotli_ep)
-    add_dependencies(brotli_common brotli_ep)
+    add_dependencies(brotli_enc_static brotli_ep)
+    add_dependencies(brotli_dec_static brotli_ep)
+    add_dependencies(brotli_common_static brotli_ep)
   endif()
 endif()
 
@@ -991,7 +1001,7 @@ if (ARROW_WITH_BZ2)
   endif()
 
   include_directories(SYSTEM ${BZ2_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(bz2_static
+  ADD_THIRDPARTY_LIB(bz2
     STATIC_LIB ${BZ2_STATIC_LIB})
 endif()
 
@@ -1040,7 +1050,7 @@ if (ARROW_WITH_LZ4)
   endif()
 
   include_directories(SYSTEM ${LZ4_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(lz4_static
+  ADD_THIRDPARTY_LIB(lz4
     STATIC_LIB ${LZ4_STATIC_LIB})
 
   if (LZ4_VENDORED)
@@ -1093,7 +1103,7 @@ if (ARROW_WITH_ZSTD)
   endif()
 
   include_directories(SYSTEM ${ZSTD_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(zstd_static
+  ADD_THIRDPARTY_LIB(zstd
     STATIC_LIB ${ZSTD_STATIC_LIB})
 
   if (ZSTD_VENDORED)
@@ -1132,10 +1142,12 @@ if (ARROW_GANDIVA)
 
   if (ARROW_RE2_LINKAGE STREQUAL "shared")
     ADD_THIRDPARTY_LIB(re2
-      STATIC_LIB ${RE2_SHARED_LIB})
+      SHARED_LIB ${RE2_SHARED_LIB})
+    set(RE2_LIBRARY re2_shared)
   else()
     ADD_THIRDPARTY_LIB(re2
       STATIC_LIB ${RE2_STATIC_LIB})
+    set(RE2_LIBRARY re2_static)
   endif()
 
   if (RE2_VENDORED)
@@ -1172,14 +1184,15 @@ if (ARROW_ORC OR ARROW_FLIGHT OR ARROW_GANDIVA)
   include_directories (SYSTEM ${PROTOBUF_INCLUDE_DIR})
   if (ARROW_PROTOBUF_USE_SHARED)
     ADD_THIRDPARTY_LIB(protobuf
-      SHARED_LIB ${PROTOBUF_LIBRARY})
+      SHARED_LIB ${PROTOBUF_SHARED_LIB})
+    set(PROTOBUF_LIBRARY protobuf_shared)
   else ()
     ADD_THIRDPARTY_LIB(protobuf
       STATIC_LIB ${PROTOBUF_STATIC_LIB})
+    set(PROTOBUF_LIBRARY protobuf_static)
   endif ()
-
   if (PROTOBUF_VENDORED)
-    add_dependencies (protobuf protobuf_ep)
+    add_dependencies (${PROTOBUF_LIBRARY} protobuf_ep)
   endif ()
 endif()
 
@@ -1283,15 +1296,15 @@ if (ARROW_ORC)
       ${EP_LOG_OPTIONS})
 
     set(ORC_VENDORED 1)
-    add_dependencies(orc_ep zlib)
+    add_dependencies(orc_ep ${ZLIB_LIBRARY})
     if (LZ4_VENDORED)
       add_dependencies(orc_ep lz4_static)
     endif()
     if (SNAPPY_VENDORED)
-      add_dependencies(orc_ep snappy)
+      add_dependencies(orc_ep snappy_static)
     endif()
     if (PROTOBUF_VENDORED)
-      add_dependencies(orc_ep protobuf_ep)
+      add_dependencies(orc_ep ${PROTOBUF_LIBRARY})
     endif()
   else()
      set(ORC_INCLUDE_DIR "${ORC_HOME}/include")
@@ -1302,10 +1315,10 @@ if (ARROW_ORC)
   include_directories(SYSTEM ${ORC_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(orc
     STATIC_LIB ${ORC_STATIC_LIB}
-    DEPS protobuf)
+    DEPS ${PROTOBUF_LIBRARY})
 
   if (ORC_VENDORED)
-    add_dependencies(orc orc_ep)
+    add_dependencies(orc_static orc_ep)
   endif()
 
 endif()
@@ -1372,7 +1385,7 @@ if (NOT THRIFT_FOUND)
     set(THRIFT_CMAKE_ARGS "-DZLIB_LIBRARY=${ZLIB_STATIC_LIB}"
                           ${THRIFT_CMAKE_ARGS})
   endif()
-  set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} zlib)
+  set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} ${ZLIB_LIBRARY})
 
   if (MSVC)
     set(WINFLEXBISON_VERSION 2.4.9)
@@ -1478,7 +1491,7 @@ if (ARROW_USE_GLOG)
   message(STATUS "Glog static library: ${GLOG_STATIC_LIB}")
 
   include_directories(SYSTEM ${GLOG_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(glog_static
+  ADD_THIRDPARTY_LIB(glog
     STATIC_LIB ${GLOG_STATIC_LIB})
 
   if (GLOG_VENDORED)
