@@ -109,11 +109,11 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     OFF)
 
   option(ARROW_BUILD_STATIC
-    "Build the libarrow and libparquet static libraries"
+    "Build static libraries"
     ON)
 
   option(ARROW_BUILD_SHARED
-    "Build the libarrow and libparquet shared libraries"
+    "Build shared libraries"
     ON)
 
   option(ARROW_TEST_MEMCHECK
@@ -298,15 +298,12 @@ Always OFF if building binaries"
     OFF)
 
   option(PARQUET_BUILD_EXECUTABLES
-    "Build the Parquet executable CLI tools. Depend on the Parquet and Arrow static libraries."
+    "Build the Parquet executable CLI tools. Requires static libraries to be built."
     OFF)
 
   option(PARQUET_BUILD_EXAMPLES
-    "Build the Parquet examples. Depend on the Parquet and Arrow static libraries."
+    "Build the Parquet examples. Requires static libraries to be built."
     OFF)
-
-  set(PARQUET_ARROW_LINKAGE "shared" CACHE STRING
-    "How to link Arrow libraries with libparquet.so. static|shared (default shared)")
 
   # Gandiva related build options
   option(ARROW_GANDIVA
