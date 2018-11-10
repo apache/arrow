@@ -19,6 +19,7 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+from cython.operator cimport dereference as deref
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
@@ -29,7 +30,8 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.compat import frombytes
 from pyarrow.types import _as_type
 from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
-                          Schema, check_status, pyarrow_wrap_array)
+                          Schema, check_status, pyarrow_wrap_array,
+                          pyarrow_wrap_data_type)
 
 from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           CNode, CProjector, CFilter,
@@ -54,7 +56,12 @@ from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           TreeExprBuilder_MakeCondition,
                                           SelectionVector_MakeInt32,
                                           Projector_Make,
-                                          Filter_Make)
+                                          Filter_Make,
+                                          CFunctionSignature,
+                                          CNativeFunction,
+                                          FunctionRegistry_begin,
+                                          FunctionRegistry_end,
+                                          CFunctionRegistry)
 
 
 cdef class Node:
@@ -244,3 +251,54 @@ cpdef make_filter(Schema schema, Condition condition):
     cdef shared_ptr[CFilter] result
     check_status(Filter_Make(schema.sp_schema, condition.condition, &result))
     return Filter.create(result)
+
+cdef class FunctionSignature:
+
+    cdef:
+        shared_ptr[CFunctionSignature] signature
+
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly."
+                        .format(self.__class__.__name__))
+
+    @staticmethod
+    cdef create(CFunctionSignature signature):
+        cdef FunctionSignature self = FunctionSignature.__new__(
+            FunctionSignature)
+        self.signature = make_shared[CFunctionSignature](
+            signature.base_name(), signature.param_types(),
+            signature.ret_type())
+        return self
+
+    def return_type(self):
+        return pyarrow_wrap_data_type(deref(self.signature).ret_type())
+
+    def param_types(self):
+        result = []
+        cdef vector[shared_ptr[CDataType]] types = deref(
+            self.signature).param_types()
+        for t in types:
+            result.append(pyarrow_wrap_data_type(t))
+        return result
+
+    def name(self):
+        return deref(self.signature).base_name().decode()
+
+    def __repr__(self):
+        signature = deref(self.signature).ToString().decode()
+        return "FunctionSignature(" + signature + ")"
+
+def get_registered_functions():
+    results = dict()
+
+    cdef const CNativeFunction* begin = FunctionRegistry_begin()
+    cdef const CNativeFunction* end = FunctionRegistry_end()
+
+    # The following makes a copy of the function signature since we
+    # might not be sure that the addresses are stable
+    while begin != end:
+        name = begin[0].signature().base_name().decode()
+        results[name] =  FunctionSignature.create(begin[0].signature())
+        begin += 1
+
+    return results

@@ -105,8 +105,10 @@ install(FILES
   expression_registry.h
   filter.h
   function_signature.h
+  function_registry.h
   gandiva_aliases.h
   logging.h
+  native_function.h
   projector.h
   selection_vector.h
   tree_expr_builder.h

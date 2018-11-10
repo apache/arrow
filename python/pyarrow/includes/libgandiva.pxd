@@ -141,3 +141,35 @@ cdef extern from "gandiva/filter.h" namespace "gandiva" nogil:
         "gandiva::Filter::Make"(
             shared_ptr[CSchema] schema, shared_ptr[CCondition] condition,
             shared_ptr[CFilter]* filter)
+
+cdef extern from "gandiva/function_signature.h" namespace "gandiva" nogil:
+
+    cdef cppclass CFunctionSignature" gandiva::FunctionSignature":
+
+        CFunctionSignature(const c_string& base_name, vector[shared_ptr[CDataType]] param_types, shared_ptr[CDataType] ret_type)
+
+        shared_ptr[CDataType] ret_type() const
+
+        const c_string& base_name() const
+
+        vector[shared_ptr[CDataType]] param_types() const
+
+        c_string ToString() const
+
+cdef extern from "gandiva/native_function.h" namespace "gandiva" nogil:
+
+    cdef cppclass CNativeFunction" gandiva::NativeFunction":
+
+        const CFunctionSignature& signature() const
+
+cdef extern from "gandiva/function_registry.h" namespace "gandiva" nogil:
+
+    cdef cppclass CFunctionRegistry" gandiva::FunctionRegistry":
+
+        pass
+
+    cdef CNativeFunction* FunctionRegistry_begin \
+        "gandiva::FunctionRegistry::begin"()
+
+    cdef CNativeFunction* FunctionRegistry_end \
+        "gandiva::FunctionRegistry::end"()
