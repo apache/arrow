@@ -52,6 +52,8 @@ from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           TreeExprBuilder_MakeBinaryLiteral,
                                           TreeExprBuilder_MakeField,
                                           TreeExprBuilder_MakeIf,
+                                          TreeExprBuilder_MakeAnd,
+                                          TreeExprBuilder_MakeOr,
                                           TreeExprBuilder_MakeCondition,
                                           SelectionVector_MakeInt16,
                                           SelectionVector_MakeInt32,
@@ -239,6 +241,22 @@ cdef class TreeExprBuilder:
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeIf(
             condition.node, this_node.node, else_node.node,
             return_type.sp_type)
+        return Node.create(r)
+
+    def make_and(self, children):
+        cdef c_vector[shared_ptr[CNode]] c_children
+        cdef Node child
+        for child in children:
+            c_children.push_back(child.node)
+        cdef shared_ptr[CNode] r = TreeExprBuilder_MakeAnd(c_children)
+        return Node.create(r)
+
+    def make_or(self, children):
+        cdef c_vector[shared_ptr[CNode]] c_children
+        cdef Node child
+        for child in children:
+            c_children.push_back(child.node)
+        cdef shared_ptr[CNode] r = TreeExprBuilder_MakeOr(c_children)
         return Node.create(r)
 
     def make_condition(self, Node condition):

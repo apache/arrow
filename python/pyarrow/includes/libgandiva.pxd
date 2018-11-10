@@ -122,6 +122,12 @@ cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
             shared_ptr[CNode] condition, shared_ptr[CNode] this_node,
             shared_ptr[CNode] else_node, shared_ptr[CDataType] return_type)
 
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeAnd \
+        "gandiva::TreeExprBuilder::MakeAnd"(const CNodeVector& children)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeOr \
+        "gandiva::TreeExprBuilder::MakeOr"(const CNodeVector& children)
+
     cdef shared_ptr[CCondition] TreeExprBuilder_MakeCondition \
         "gandiva::TreeExprBuilder::MakeCondition"(
             shared_ptr[CNode] condition)
