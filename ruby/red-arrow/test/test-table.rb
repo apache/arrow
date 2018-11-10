@@ -461,4 +461,64 @@ class TableTest < Test::Unit::TestCase
 7	  128	       
     TABLE
   end
+
+  sub_test_case("#to_s") do
+    sub_test_case(":format") do
+      def setup
+        columns = {
+          "count" => Arrow::UInt8Array.new([1, 2]),
+          "visible" => Arrow::BooleanArray.new([true, false]),
+        }
+        @table = Arrow::Table.new(columns)
+      end
+
+      test(":column") do
+        assert_equal(<<-TABLE, @table.to_s(format: :column))
+count: uint8
+visible: bool
+----
+count:
+  [
+    [
+      1,
+      2
+    ]
+  ]
+visible:
+  [
+    [
+      true,
+      false
+    ]
+  ]
+        TABLE
+      end
+
+      test(":list") do
+        assert_equal(<<-TABLE, @table.to_s(format: :list))
+==================== 0 ====================
+count: 1
+visible: true
+==================== 1 ====================
+count: 2
+visible: false
+        TABLE
+      end
+
+      test(":table") do
+        assert_equal(<<-TABLE, @table.to_s(format: :table))
+	count	visible
+0	    1	true   
+1	    2	false  
+        TABLE
+      end
+
+      test("invalid") do
+        message = ":format must be :column, :list, :table or nil: <:invalid>"
+        assert_raise(ArgumentError.new(message)) do
+          @table.to_s(format: :invalid)
+        end
+      end
+    end
+  end
 end
