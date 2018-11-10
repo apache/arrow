@@ -39,7 +39,7 @@ G_BEGIN_DECLS
  * @GARROW_ERROR_PLASMA_OBJECT_NONEXISTENT: Object doesn't exist on Plasma.
  * @GARROW_ERROR_PLASMA_STORE_FULL: Store full error on Plasma.
  * @GARROW_ERROR_PLASMA_OBJECT_ALREADY_SEALED: Object already sealed on Plasma.
- * @GARROW_ERROR_CODE_GENRATION: Error generating code for expression evaluation
+ * @GARROW_ERROR_CODE_GENERATION: Error generating code for expression evaluation
  *   in Gandiva.
  * @GARROW_ERROR_ARROW: Error in Gandiva-Arrow integration.
  * @GARROW_ERROR_EXPRESSION_VALIDATION: Validation errors in expression given for code generation.

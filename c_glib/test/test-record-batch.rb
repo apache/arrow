@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestTable < Test::Unit::TestCase
+class TestRecordBatch < Test::Unit::TestCase
   include Helper::Buildable
 
   sub_test_case(".new") do
