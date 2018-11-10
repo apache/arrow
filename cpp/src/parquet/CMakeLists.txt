@@ -97,6 +97,7 @@ set(PARQUET_SHARED_TEST_LINK_LIBS
 
 set(PARQUET_STATIC_TEST_LINK_LIBS
   ${PARQUET_MIN_TEST_LIBS}
+  ${ARROW_LIBRARY_TESTING}
   parquet_static)
 
 ############################################################
