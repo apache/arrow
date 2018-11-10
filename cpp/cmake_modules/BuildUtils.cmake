@@ -105,13 +105,10 @@ function(ADD_ARROW_LIB LIB_NAME)
   set(one_value_args SHARED_LINK_FLAGS)
   set(multi_value_args SOURCES OUTPUTS
                        STATIC_LINK_LIBS
-                       STATIC_PRIVATE_LINK_LIBS
                        SHARED_LINK_LIBS
                        SHARED_PRIVATE_LINK_LIBS
                        EXTRA_INCLUDES
-                       DEPENDENCIES
-                       SHARED_DEPENDENCIES
-                       STATIC_DEPENDENCIES)
+                       DEPENDENCIES)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -173,9 +170,6 @@ function(ADD_ARROW_LIB LIB_NAME)
     add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
     if (EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_shared ${EXTRA_DEPS})
-    endif()
-    if (ARG_SHARED_DEPENDENCIES)
-      add_dependencies(${LIB_NAME}_shared ${ARG_SHARED_DEPENDENCIES})
     endif()
 
     if (ARG_OUTPUTS)
@@ -245,9 +239,6 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_static ${EXTRA_DEPS})
     endif()
-    if (ARG_STATIC_DEPENDENCIES)
-      add_dependencies(${LIB_NAME}_static ${ARG_STATIC_DEPENDENCIES})
-    endif()
 
     if (ARG_OUTPUTS)
       list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_static)
@@ -271,8 +262,9 @@ function(ADD_ARROW_LIB LIB_NAME)
       OUTPUT_NAME ${LIB_NAME_STATIC})
 
     target_link_libraries(${LIB_NAME}_static
-      LINK_PUBLIC ${ARG_STATIC_LINK_LIBS}
-      LINK_PRIVATE ${ARG_STATIC_PRIVATE_LINK_LIBS})
+      LINK_PUBLIC ${ARG_STATIC_LINK_LIBS})
+
+    message(STATUS "static libs for ${LIB_NAME}: ${ARG_STATIC_LINK_LIBS}")
 
     install(TARGETS ${LIB_NAME}_static
       EXPORT ${PROJECT_NAME}-targets

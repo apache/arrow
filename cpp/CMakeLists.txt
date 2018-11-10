@@ -672,7 +672,6 @@ if (ARROW_ORC)
 endif()
 
 if (ARROW_USE_GLOG)
-  #add_definitions(-DARROW_USE_GLOG)
   SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
 endif()
 
@@ -682,10 +681,9 @@ endif()
 
 if (ARROW_BUILD_BENCHMARKS)
   set(ARROW_BENCHMARK_LINK_LIBS
-    arrow_static
     arrow_benchmark_main
-    gtest
-    ${ARROW_STATIC_LINK_LIBS})
+    arrow_static
+    gtest)
 endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
@@ -694,7 +692,8 @@ set(ARROW_SHARED_PRIVATE_LINK_LIBS
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
 
-set(ARROW_STATIC_PRIVATE_LINK_LIBS
+set(ARROW_STATIC_LINK_LIBS
+  ${ARROW_STATIC_LINK_LIBS}
   ${BOOST_SYSTEM_LIBRARY}
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
@@ -708,7 +707,6 @@ endif()
 if (ARROW_BUILD_STATIC)
   set(ARROW_MIN_TEST_LIBS
     arrow_static
-    ${ARROW_STATIC_LINK_LIBS}
     gtest_main
     gtest)
 else ()
