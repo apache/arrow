@@ -75,8 +75,6 @@ garrow_error_code(const arrow::Status &status)
     return GARROW_ERROR_PLASMA_OBJECT_ALREADY_SEALED;
   case arrow::StatusCode::CodeGenError:
     return GARROW_ERROR_CODE_GENERATION;
-  case arrow::StatusCode::ArrowError:
-    return GARROW_ERROR_ARROW;
   case arrow::StatusCode::ExpressionValidationError:
     return GARROW_ERROR_EXPRESSION_VALIDATION;
   case arrow::StatusCode::ExecutionError:

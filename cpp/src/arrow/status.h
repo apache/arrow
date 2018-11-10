@@ -98,9 +98,8 @@ enum class StatusCode : char {
   StillExecuting = 24,
   // Gandiva range of errors
   CodeGenError = 40,
-  ArrowError = 41,
-  ExpressionValidationError = 42,
-  ExecutionError = 43
+  ExpressionValidationError = 41,
+  ExecutionError = 42
 };
 
 #if defined(__clang__)
@@ -204,10 +203,6 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::CodeGenError, msg);
   }
 
-  static Status ArrowError(const std::string& msg) {
-    return Status(StatusCode::ArrowError, msg);
-  }
-
   static Status ExpressionValidationError(const std::string& msg) {
     return Status(StatusCode::ExpressionValidationError, msg);
   }
@@ -249,8 +244,6 @@ class ARROW_EXPORT Status {
   bool IsStillExecuting() const { return code() == StatusCode::StillExecuting; }
 
   bool IsCodeGenError() const { return code() == StatusCode::CodeGenError; }
-
-  bool IsArrowError() const { return code() == StatusCode::ArrowError; }
 
   bool IsExpressionValidationError() const {
     return code() == StatusCode::ExpressionValidationError;
