@@ -253,6 +253,10 @@ cpdef make_filter(Schema schema, Condition condition):
     return Filter.create(result)
 
 cdef class FunctionSignature:
+    """
+    Signature of a Gandiva function including name, parameter types
+    and return type.
+    """
 
     cdef:
         shared_ptr[CFunctionSignature] signature
@@ -289,6 +293,13 @@ cdef class FunctionSignature:
         return "FunctionSignature(" + signature + ")"
 
 def get_registered_functions():
+    """
+    Return the function in Gandiva's FunctionRegistry.
+
+    Returns
+    -------
+    registry: a dictionary mapping the name of the function to it's signature
+    """
     results = dict()
 
     cdef const CNativeFunction* begin = FunctionRegistry_begin()
