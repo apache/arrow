@@ -58,7 +58,7 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(
     const std::unique_ptr<arrow::ipc::Message>& message,
     const std::shared_ptr<arrow::Schema>& schema) {
   std::shared_ptr<arrow::RecordBatch> batch;
-  R_ERROR_NOT_OK(arrow::ipc::ReadRecordBatch(*message, schema, &batch));
+  STOP_IF_NOT_OK(arrow::ipc::ReadRecordBatch(*message, schema, &batch));
   return batch;
 }
 
@@ -66,7 +66,7 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(
 std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   std::shared_ptr<arrow::Schema> schema;
-  R_ERROR_NOT_OK(arrow::ipc::ReadSchema(stream.get(), &schema));
+  STOP_IF_NOT_OK(arrow::ipc::ReadSchema(stream.get(), &schema));
   return schema;
 }
 
@@ -82,7 +82,7 @@ std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(
 std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(
     const std::unique_ptr<arrow::ipc::MessageReader>& reader) {
   std::unique_ptr<arrow::ipc::Message> message;
-  R_ERROR_NOT_OK(reader->ReadNextMessage(&message));
+  STOP_IF_NOT_OK(reader->ReadNextMessage(&message));
   return message;
 }
 
@@ -90,6 +90,6 @@ std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(
 std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   std::unique_ptr<arrow::ipc::Message> message;
-  R_ERROR_NOT_OK(arrow::ipc::ReadMessage(stream.get(), &message));
+  STOP_IF_NOT_OK(arrow::ipc::ReadMessage(stream.get(), &message));
   return message;
 }
