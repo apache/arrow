@@ -158,20 +158,7 @@ cdef extern from "gandiva/function_signature.h" namespace "gandiva" nogil:
 
         c_string ToString() const
 
-cdef extern from "gandiva/native_function.h" namespace "gandiva" nogil:
+cdef extern from "gandiva/expression_registry.h" namespace "gandiva" nogil:
 
-    cdef cppclass CNativeFunction" gandiva::NativeFunction":
-
-        const CFunctionSignature& signature() const
-
-cdef extern from "gandiva/function_registry.h" namespace "gandiva" nogil:
-
-    cdef cppclass CFunctionRegistry" gandiva::FunctionRegistry":
-
-        pass
-
-    cdef CNativeFunction* FunctionRegistry_begin \
-        "gandiva::FunctionRegistry::begin"()
-
-    cdef CNativeFunction* FunctionRegistry_end \
-        "gandiva::FunctionRegistry::end"()
+    cdef void GetRegisteredFunctionSignatures(
+        vector[shared_ptr[CFunctionSignature]]* signatures)

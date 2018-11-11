@@ -19,7 +19,7 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from cython.operator cimport dereference as deref
+from cython.operator cimport dereference as deref, postincrement as inc
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
@@ -58,10 +58,7 @@ from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           Projector_Make,
                                           Filter_Make,
                                           CFunctionSignature,
-                                          CNativeFunction,
-                                          FunctionRegistry_begin,
-                                          FunctionRegistry_end,
-                                          CFunctionRegistry)
+                                          GetRegisteredFunctionSignatures)
 
 
 cdef class Node:
@@ -293,7 +290,7 @@ cdef class FunctionSignature:
         return "FunctionSignature(" + signature + ")"
 
 
-def get_registered_functions():
+def get_registered_function_signatures():
     """
     Return the function in Gandiva's FunctionRegistry.
 
@@ -301,16 +298,13 @@ def get_registered_functions():
     -------
     registry: a dictionary mapping the name of the function to it's signature
     """
-    results = dict()
+    results = []
 
-    cdef const CNativeFunction* begin = FunctionRegistry_begin()
-    cdef const CNativeFunction* end = FunctionRegistry_end()
+    cdef vector[shared_ptr[CFunctionSignature]] signatures
 
-    # The following makes a copy of the function signature since we
-    # might not be sure that the addresses are stable
-    while begin != end:
-        name = begin[0].signature().base_name().decode()
-        results[name] = FunctionSignature.create(begin[0].signature())
-        begin += 1
+    GetRegisteredFunctionSignatures(&signatures)
+
+    for signature in signatures:
+        results.append(FunctionSignature.create(deref(signature)))
 
     return results

@@ -61,5 +61,8 @@ class ExpressionRegistry {
   static void AddArrowTypesToVector(arrow::Type::type& type, DataTypeVector& vector);
   std::unique_ptr<FunctionRegistry> function_registry_;
 };
+
+void GetRegisteredFunctionSignatures(std::vector<std::shared_ptr<FunctionSignature>>* signatures);
+
 }  // namespace gandiva
 #endif  // GANDIVA_TYPES_H

@@ -431,9 +431,13 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
                        NativeFunction::kCanReturnErrors),
 };  // namespace gandiva
 
-FunctionRegistry::iterator FunctionRegistry::begin() { return std::begin(pc_registry_); }
+FunctionRegistry::iterator FunctionRegistry::begin() const {
+  return std::begin(pc_registry_);
+}
 
-FunctionRegistry::iterator FunctionRegistry::end() { return std::end(pc_registry_); }
+FunctionRegistry::iterator FunctionRegistry::end() const {
+  return std::end(pc_registry_);
+}
 
 FunctionRegistry::SignatureMap FunctionRegistry::pc_registry_map_ = InitPCMap();
 

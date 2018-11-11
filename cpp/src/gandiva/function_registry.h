@@ -33,8 +33,8 @@ class FunctionRegistry {
   /// Lookup a pre-compiled function by its signature.
   const NativeFunction* LookupSignature(const FunctionSignature& signature) const;
 
-  static iterator begin();
-  static iterator end();
+  iterator begin() const;
+  iterator end() const;
 
  private:
   struct KeyHash {
