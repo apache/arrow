@@ -162,3 +162,13 @@ def test_regex():
     r, = projector.evaluate(table.to_batches()[0])
     b = pa.array([False, True, True, True], type=pa.bool_())
     assert r.equals(b)
+
+
+@pytest.mark.gandiva
+def test_get_registered_function_signatures():
+    import pyarrow.gandiva as gandiva
+    signatures = gandiva.get_registered_function_signatures()
+
+    assert type(signatures[0].return_type()) is pa.DataType
+    assert type(signatures[0].param_types()) is list
+    assert hasattr(signatures[0], "name")
