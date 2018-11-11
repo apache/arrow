@@ -43,7 +43,7 @@ class ARROW_EXPORT Decimal128 {
  public:
   /// \brief Create an Decimal128 from the two's complement representation.
   constexpr Decimal128(int64_t high, uint64_t low) noexcept
-      : high_bits_(high), low_bits_(low) {}
+      : low_bits_(low), high_bits_(high) {}
 
   /// \brief Empty constructor creates an Decimal128 with a value of 0.
   constexpr Decimal128() noexcept : Decimal128(0, 0) {}
@@ -153,8 +153,8 @@ class ARROW_EXPORT Decimal128 {
   }
 
  private:
-  int64_t high_bits_;
   uint64_t low_bits_;
+  int64_t high_bits_;
 };
 
 ARROW_EXPORT bool operator==(const Decimal128& left, const Decimal128& right);
