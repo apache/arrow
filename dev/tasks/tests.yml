@@ -32,6 +32,7 @@ groups:
     - docker-iwyu
     - docker-clang-format
     - docker-hdfs-integration
+    - docker-pandas-master
 
 tasks:
   # arbitrary_task_name:
@@ -174,3 +175,15 @@ tasks:
       commands:
         - docker-compose build hdfs-integration
         - docker-compose run hdfs-integration
+
+  docker-pandas-master:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build --no-cache pandas-master
+        - docker-compose run pandas-master
