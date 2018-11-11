@@ -150,7 +150,8 @@ void ExpressionRegistry::AddArrowTypesToVector(arrow::Type::type& type,
   }
 }
 
-void GetRegisteredFunctionSignatures(std::vector<std::shared_ptr<FunctionSignature>>* signatures) {
+void GetRegisteredFunctionSignatures(
+    std::vector<std::shared_ptr<FunctionSignature>>* signatures) {
   ExpressionRegistry registry;
   for (auto iter = registry.function_signature_begin();
        iter != registry.function_signature_end(); iter++) {
