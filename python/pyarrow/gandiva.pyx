@@ -19,7 +19,6 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from cython.operator cimport dereference as deref
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
