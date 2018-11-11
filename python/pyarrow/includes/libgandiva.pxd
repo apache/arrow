@@ -160,5 +160,5 @@ cdef extern from "gandiva/function_signature.h" namespace "gandiva" nogil:
 
 cdef extern from "gandiva/expression_registry.h" namespace "gandiva" nogil:
 
-    cdef void GetRegisteredFunctionSignatures(
-        vector[shared_ptr[CFunctionSignature]]* signatures)
+    cdef vector[shared_ptr[CFunctionSignature]] \
+        GetRegisteredFunctionSignatures()

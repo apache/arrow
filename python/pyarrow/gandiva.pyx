@@ -289,17 +289,16 @@ cdef class FunctionSignature:
 
 def get_registered_function_signatures():
     """
-    Return the function in Gandiva's FunctionRegistry.
+    Return the function in Gandiva's ExpressionRegistry.
 
     Returns
     -------
-    registry: a dictionary mapping the name of the function to it's signature
+    registry: a list of registered function signatures
     """
     results = []
 
-    cdef vector[shared_ptr[CFunctionSignature]] signatures
-
-    GetRegisteredFunctionSignatures(&signatures)
+    cdef vector[shared_ptr[CFunctionSignature]] signatures = \
+        GetRegisteredFunctionSignatures()
 
     for signature in signatures:
         results.append(FunctionSignature.create(signature))

@@ -150,14 +150,15 @@ void ExpressionRegistry::AddArrowTypesToVector(arrow::Type::type& type,
   }
 }
 
-void GetRegisteredFunctionSignatures(
-    std::vector<std::shared_ptr<FunctionSignature>>* signatures) {
+std::vector<std::shared_ptr<FunctionSignature>> GetRegisteredFunctionSignatures() {
   ExpressionRegistry registry;
+  std::vector<std::shared_ptr<FunctionSignature>> signatures;
   for (auto iter = registry.function_signature_begin();
        iter != registry.function_signature_end(); iter++) {
-    signatures->push_back(std::make_shared<FunctionSignature>(
+    signatures.push_back(std::make_shared<FunctionSignature>(
         (*iter).base_name(), (*iter).param_types(), (*iter).ret_type()));
   }
+  return signatures;
 }
 
 }  // namespace gandiva
