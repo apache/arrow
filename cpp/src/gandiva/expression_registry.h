@@ -62,7 +62,8 @@ class ExpressionRegistry {
   std::unique_ptr<FunctionRegistry> function_registry_;
 };
 
-void GetRegisteredFunctionSignatures(std::vector<std::shared_ptr<FunctionSignature>>* signatures);
+void GetRegisteredFunctionSignatures(
+    std::vector<std::shared_ptr<FunctionSignature>>* signatures);
 
 }  // namespace gandiva
 #endif  // GANDIVA_TYPES_H
