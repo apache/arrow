@@ -69,6 +69,7 @@ services:
     build:
       context: .
       dockerfile: java/Dockerfile
+    volumes: *volumes
 
   js:
     image: arrow:js

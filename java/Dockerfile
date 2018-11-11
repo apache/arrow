@@ -15,16 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM maven
+FROM maven:3.6-jdk-8
 
-ADD header /arrow/
-ADD format /arrow/format
-ADD integration/data /arrow/integration/data
-ADD java /arrow/java
 WORKDIR /arrow/java
 
-# build
-RUN mvn -DskipTests=true -Dcheckstyle.skip=true -B install
-
-# test
-CMD mvn test
+CMD mvn -Dcheckstyle.skip=true \
+        -Dmaven.repo.local=/build/java/repository \
+        -DforkCount=0 \
+        install
