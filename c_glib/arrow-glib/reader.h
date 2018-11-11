@@ -243,4 +243,35 @@ garrow_feather_file_reader_read_names(GArrowFeatherFileReader *reader,
                                       guint n_names,
                                       GError **error);
 
+#define GARROW_TYPE_CSV_READ_OPTIONS (garrow_csv_read_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowCSVReadOptions,
+                         garrow_csv_read_options,
+                         GARROW,
+                         CSV_READ_OPTIONS,
+                         GObject)
+struct _GArrowCSVReadOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GArrowCSVReadOptions *garrow_csv_read_options_new(void);
+
+#define GARROW_TYPE_CSV_READER (garrow_csv_reader_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowCSVReader,
+                         garrow_csv_reader,
+                         GARROW,
+                         CSV_READER,
+                         GObject)
+struct _GArrowCSVReaderClass
+{
+  GObjectClass parent_class;
+};
+
+GArrowCSVReader *garrow_csv_reader_new(GArrowInputStream *input,
+                                       GArrowCSVReadOptions *options,
+                                       GError **error);
+GArrowTable *garrow_csv_reader_read(GArrowCSVReader *reader,
+                                    GError **error);
+
+
 G_END_DECLS
