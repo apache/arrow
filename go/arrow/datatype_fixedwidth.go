@@ -26,6 +26,8 @@ func (t *BooleanType) BitWidth() int { return 1 }
 
 type (
 	Timestamp int64
+	Time32    int32
+	Time64    int64
 	TimeUnit  int
 )
 
@@ -51,6 +53,24 @@ func (*TimestampType) Name() string { return "timestamp" }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
+
+// Time32Type is encoded as a 32-bit signed integer, representing either seconds or milliseconds since midnight.
+type Time32Type struct {
+	Unit TimeUnit
+}
+
+func (*Time32Type) ID() Type      { return TIME32 }
+func (*Time32Type) Name() string  { return "time32" }
+func (*Time32Type) BitWidth() int { return 32 }
+
+// Time64Type is encoded as a 64-bit signed integer, representing either microseconds or nanoseconds since midnight.
+type Time64Type struct {
+	Unit TimeUnit
+}
+
+func (*Time64Type) ID() Type      { return TIME32 }
+func (*Time64Type) Name() string  { return "time64" }
+func (*Time64Type) BitWidth() int { return 64 }
 
 var (
 	FixedWidthTypes = struct {
