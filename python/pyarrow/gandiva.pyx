@@ -29,7 +29,8 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.compat import frombytes
 from pyarrow.types import _as_type
 from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
-                          Schema, check_status, pyarrow_wrap_array)
+                          Schema, check_status, pyarrow_wrap_array,
+                          pyarrow_wrap_data_type)
 
 from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           CNode, CProjector, CFilter,
@@ -56,7 +57,9 @@ from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
                                           SelectionVector_MakeInt32,
                                           SelectionVector_MakeInt64,
                                           Projector_Make,
-                                          Filter_Make)
+                                          Filter_Make,
+                                          CFunctionSignature,
+                                          GetRegisteredFunctionSignatures)
 
 
 cdef class Node:
@@ -257,3 +260,60 @@ cpdef make_filter(Schema schema, Condition condition):
     cdef shared_ptr[CFilter] result
     check_status(Filter_Make(schema.sp_schema, condition.condition, &result))
     return Filter.create(result)
+
+cdef class FunctionSignature:
+    """
+    Signature of a Gandiva function including name, parameter types
+    and return type.
+    """
+
+    cdef:
+        shared_ptr[CFunctionSignature] signature
+
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly."
+                        .format(self.__class__.__name__))
+
+    @staticmethod
+    cdef create(shared_ptr[CFunctionSignature] signature):
+        cdef FunctionSignature self = FunctionSignature.__new__(
+            FunctionSignature)
+        self.signature = signature
+        return self
+
+    def return_type(self):
+        return pyarrow_wrap_data_type(self.signature.get().ret_type())
+
+    def param_types(self):
+        result = []
+        cdef vector[shared_ptr[CDataType]] types = \
+            self.signature.get().param_types()
+        for t in types:
+            result.append(pyarrow_wrap_data_type(t))
+        return result
+
+    def name(self):
+        return self.signature.get().base_name().decode()
+
+    def __repr__(self):
+        signature = self.signature.get().ToString().decode()
+        return "FunctionSignature(" + signature + ")"
+
+
+def get_registered_function_signatures():
+    """
+    Return the function in Gandiva's ExpressionRegistry.
+
+    Returns
+    -------
+    registry: a list of registered function signatures
+    """
+    results = []
+
+    cdef vector[shared_ptr[CFunctionSignature]] signatures = \
+        GetRegisteredFunctionSignatures()
+
+    for signature in signatures:
+        results.append(FunctionSignature.create(signature))
+
+    return results
