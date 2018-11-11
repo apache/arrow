@@ -262,30 +262,28 @@ cdef class FunctionSignature:
                         .format(self.__class__.__name__))
 
     @staticmethod
-    cdef create(CFunctionSignature signature):
+    cdef create(shared_ptr[CFunctionSignature] signature):
         cdef FunctionSignature self = FunctionSignature.__new__(
             FunctionSignature)
-        self.signature = make_shared[CFunctionSignature](
-            signature.base_name(), signature.param_types(),
-            signature.ret_type())
+        self.signature = signature
         return self
 
     def return_type(self):
-        return pyarrow_wrap_data_type(deref(self.signature).ret_type())
+        return pyarrow_wrap_data_type(self.signature.get().ret_type())
 
     def param_types(self):
         result = []
-        cdef vector[shared_ptr[CDataType]] types = deref(
-            self.signature).param_types()
+        cdef vector[shared_ptr[CDataType]] types = \
+            self.signature.get().param_types()
         for t in types:
             result.append(pyarrow_wrap_data_type(t))
         return result
 
     def name(self):
-        return deref(self.signature).base_name().decode()
+        return self.signature.get().base_name().decode()
 
     def __repr__(self):
-        signature = deref(self.signature).ToString().decode()
+        signature = self.signature.get().ToString().decode()
         return "FunctionSignature(" + signature + ")"
 
 
@@ -304,6 +302,6 @@ def get_registered_function_signatures():
     GetRegisteredFunctionSignatures(&signatures)
 
     for signature in signatures:
-        results.append(FunctionSignature.create(deref(signature)))
+        results.append(FunctionSignature.create(signature))
 
     return results
