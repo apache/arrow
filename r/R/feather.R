@@ -44,12 +44,12 @@
 #' @param stream an OutputStream
 #'
 #' @export
-table_writer <- function(stream) {
-  UseMethod("table_writer")
+feather_table_writer <- function(stream) {
+  UseMethod("feather_table_writer")
 }
 
 #' @export
-`table_writer.arrow::io::OutputStream` <- function(stream){
+`feather_table_writer.arrow::io::OutputStream` <- function(stream){
   unique_ptr(`arrow::ipc::feather::TableWriter`, ipc___feather___TableWriter__Open(stream))
 }
 
@@ -107,7 +107,7 @@ write_feather_RecordBatch <- function(data, stream) {
 #' @export
 #' @method write_feather_RecordBatch arrow::io::OutputStream
 `write_feather_RecordBatch.arrow::io::OutputStream` <- function(data, stream) {
-  ipc___TableWriter__RecordBatch__WriteFeather(table_writer(stream), data)
+  ipc___TableWriter__RecordBatch__WriteFeather(feather_table_writer(stream), data)
 }
 
 #' A arrow::ipc::feather::TableReader to read from a file
@@ -117,44 +117,44 @@ write_feather_RecordBatch <- function(data, stream) {
 #' @param ... extra parameters
 #'
 #' @export
-table_reader <- function(file, ...){
-  UseMethod("table_reader")
+feather_table_reader <- function(file, ...){
+  UseMethod("feather_table_reader")
 }
 
 #' @export
-table_reader.default <- function(file, ...) {
+feather_table_reader.default <- function(file, ...) {
   stop("unsupported")
 }
 
 #' @export
-table_reader.character <- function(file, mmap = TRUE, ...) {
-  table_reader(fs::path_abs(file), mmap = mmap, ...)
+feather_table_reader.character <- function(file, mmap = TRUE, ...) {
+  feather_table_reader(fs::path_abs(file), mmap = mmap, ...)
 }
 
 #' @export
-table_reader.fs_path <- function(file, mmap = TRUE, ...) {
+feather_table_reader.fs_path <- function(file, mmap = TRUE, ...) {
   stream <- if(isTRUE(mmap)) mmap_open(file, ...) else file_open(file, ...)
-  table_reader(stream)
+  feather_table_reader(stream)
 }
 
 #' @export
-`table_reader.arrow::io::RandomAccessFile` <- function(file, ...){
+`feather_table_reader.arrow::io::RandomAccessFile` <- function(file, ...){
   unique_ptr(`arrow::ipc::feather::TableReader`, ipc___feather___TableReader__Open(file))
 }
 
 #' @export
-`table_reader.arrow::ipc::feather::TableReader` <- function(file){
+`feather_table_reader.arrow::ipc::feather::TableReader` <- function(file){
   file
 }
 
 #' Read a feather file
 #'
-#' @param file a arrow::ipc::feather::TableReader or whatever the [table_reader()] function can handle
+#' @param file a arrow::ipc::feather::TableReader or whatever the [feather_table_reader()] function can handle
 #' @param ... additional parameters
 #'
 #' @return an arrow::Table
 #'
 #' @export
 read_feather <- function(file, ...){
-  table_reader(file, ...)$Read()
+  feather_table_reader(file, ...)$Read()
 }
