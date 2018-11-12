@@ -976,7 +976,7 @@ SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
     case Type::INT64:
       return ArrayVector_To_Vector<Converter_Int64>(n, arrays);
     case Type::DECIMAL:
-      ArrayVector_To_Vector<Converter_Decimal>(n, arrays);
+      return ArrayVector_To_Vector<Converter_Decimal>(n, arrays);
 
     default:
       break;
