@@ -113,29 +113,32 @@ write_feather_RecordBatch <- function(data, stream) {
 #' A arrow::ipc::feather::TableReader to read from a file
 #'
 #' @param file A file path, arrow::io::RandomAccessFile
+#' @param mmap Is the file memory mapped (applicable to the character and fs_path methods)
+#' @param ... extra parameters
 #'
 #' @export
-table_reader <- function(file){
+table_reader <- function(file, ...){
   UseMethod("table_reader")
 }
 
 #' @export
-table_reader.default <- function(file) {
+table_reader.default <- function(file, ...) {
   stop("unsupported")
 }
 
 #' @export
-table_reader.character <- function(file) {
-  table_reader(fs::path_abs(file))
+table_reader.character <- function(file, mmap = TRUE, ...) {
+  table_reader(fs::path_abs(file), mmap = mmap, ...)
 }
 
 #' @export
-table_reader.fs_path <- function(file) {
-  table_reader(file_open(file))
+table_reader.fs_path <- function(file, mmap = TRUE, ...) {
+  stream <- if(isTRUE(mmap)) mmap_open(file, ...) else file_open(file, ...)
+  table_reader(stream)
 }
 
 #' @export
-`table_reader.arrow::io::RandomAccessFile` <- function(file){
+`table_reader.arrow::io::RandomAccessFile` <- function(file, ...){
   unique_ptr(`arrow::ipc::feather::TableReader`, ipc___feather___TableReader__Open(file))
 }
 
@@ -146,10 +149,12 @@ table_reader.fs_path <- function(file) {
 
 #' Read a feather file
 #'
-#' @param reader a arrow::ipc::feather::TableReader or whatever the [table_reader()] function can handle
+#' @param file a arrow::ipc::feather::TableReader or whatever the [table_reader()] function can handle
+#' @param ... additional parameters
+#'
 #' @return an arrow::Table
 #'
 #' @export
-read_feather <- function(reader){
-  table_reader(reader)$Read()
+read_feather <- function(file, ...){
+  table_reader(file, ...)$Read()
 }

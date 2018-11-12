@@ -4,10 +4,14 @@
 \alias{table_reader}
 \title{A arrow::ipc::feather::TableReader to read from a file}
 \usage{
-table_reader(file)
+table_reader(file, ...)
 }
 \arguments{
 \item{file}{A file path, arrow::io::RandomAccessFile}
+
+\item{...}{extra parameters}
+
+\item{mmap}{Is the file memory mapped (applicable to the character and fs_path methods)}
 }
 \description{
 A arrow::ipc::feather::TableReader to read from a file

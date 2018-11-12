@@ -4,10 +4,12 @@
 \alias{read_feather}
 \title{Read a feather file}
 \usage{
-read_feather(reader)
+read_feather(file, ...)
 }
 \arguments{
-\item{reader}{a arrow::ipc::feather::TableReader or whatever the \code{\link[=table_reader]{table_reader()}} function can handle}
+\item{file}{a arrow::ipc::feather::TableReader or whatever the \code{\link[=table_reader]{table_reader()}} function can handle}
+
+\item{...}{additional parameters}
 }
 \value{
 an arrow::Table
