@@ -24,13 +24,8 @@ template <typename Vector, typename value_type>
 ComplexVector IntVector_to_Decimal128(Vector x) {
   auto n = x.size();
   ComplexVector res(no_init(n));
-  auto p = reinterpret_cast<uint8_t*>(res.begin());
-  auto p_x = reinterpret_cast<value_type*>(x.begin());
-
-  for (R_xlen_t i = 0; i < n; i++, p += 16, ++p_x) {
-    arrow::Decimal128(*p_x).ToBytes(p);
-  }
-
+  std::copy_n(reinterpret_cast<value_type*>(x.begin()), n,
+              reinterpret_cast<arrow::Decimal128*>(res.begin()));
   return res;
 }
 
@@ -40,8 +35,8 @@ ComplexVector IntegerVector_to_Decimal128(IntegerVector_ x) {
 }
 
 // [[Rcpp::export]]
-ComplexVector Integer64Vector_to_Decimal128(NumericVector_ x) {
-  return IntVector_to_Decimal128<NumericVector_, int64_t>(x);
+ComplexVector Integer64Vector_to_Decimal128(Integer64Vector_ x) {
+  return IntVector_to_Decimal128<Integer64Vector_, int64_t>(x);
 }
 
 template <typename OutputVector, typename value_type>
@@ -50,21 +45,25 @@ OutputVector Decimal128_To_Int(ComplexVector_ x, value_type NA) {
   OutputVector res(no_init(n));
 
   auto p_res = reinterpret_cast<value_type*>(res.begin());
-  auto p_x = reinterpret_cast<uint8_t*>(x.begin());
+  auto p_x = reinterpret_cast<arrow::Decimal128*>(x.begin());
 
-  for (R_xlen_t i = 0; i < n; i++, p_x += 16, ++p_res) {
-    auto status = arrow::Decimal128(p_x).ToInteger<value_type>(p_res);
+  auto construct = [NA](arrow::Decimal128 decimal) {
+    value_type value;
+    auto status = decimal.ToInteger<value_type>(&value);
     if (!status.ok()) {
-      *p_res = NA;
+      value = NA;
     }
-  }
+    return value;
+  };
+  std::transform(p_x, p_x + n, p_res, construct);
 
   return res;
 }
 
 // [[Rcpp::export]]
 NumericVector Decimal128_To_Integer64(ComplexVector_ x) {
-  NumericVector res = Decimal128_To_Int<NumericVector, int64_t>(x, arrow::r::NA_INT64);
+  Integer64Vector res =
+      Decimal128_To_Int<Integer64Vector, int64_t>(x, arrow::r::NA_INT64);
   res.attr("class") = "integer64";
   return res;
 }
@@ -78,12 +77,11 @@ IntegerVector Decimal128_To_Integer(ComplexVector_ x) {
 CharacterVector format_decimal128(arrow::r::Decimal128Record record) {
   auto data = record.data();
   auto n = data.size();
-  auto p = reinterpret_cast<uint8_t*>(data.begin());
+  auto p = reinterpret_cast<arrow::Decimal128*>(data.begin());
 
-  CharacterVector res(no_init(n));
-  for (R_xlen_t i = 0; i < n; i++, p += 16) {
-    res[i] = arrow::Decimal128(p).ToString(record.scale());
-  }
+  CharacterVector res(p, p + n, [record](arrow::Decimal128 decimal) {
+    return decimal.ToString(record.scale());
+  });
   return res;
 }
 

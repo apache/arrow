@@ -192,6 +192,7 @@ test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   expect_equal(a_uint64$type, uint64())
 })
 
+<<<<<<< HEAD
 test_that("chunked_array() supports the type= argument. conversion from INTSXP and int64 to all int types", {
   num_int32 <- 12L
   num_int64 <- bit64::as.integer64(10)
@@ -264,4 +265,14 @@ test_that("chunked_array() handles 0 chunks if given a type", {
     expect_equal(a$type, type)
     expect_equal(a$length(), 0L)
   }
+})
+
+test_that("ChunkedArray supports decimal128", {
+  decimals <- vctrs::vec_c(1:10, new_decimal128())
+
+  a <- chunked_array(decimals, decimals)
+  expect_equal(a$length(), 20L)
+
+  x <- a$as_vector()
+  expect_equal(as.integer(x), c(1:10, 1:10))
 })

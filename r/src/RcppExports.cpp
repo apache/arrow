@@ -2323,12 +2323,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // Integer64Vector_to_Decimal128
-ComplexVector Integer64Vector_to_Decimal128(NumericVector_ x);
+ComplexVector Integer64Vector_to_Decimal128(Integer64Vector_ x);
 RcppExport SEXP _arrow_Integer64Vector_to_Decimal128(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector_ >::type x(xSEXP);
+    Rcpp::traits::input_parameter< Integer64Vector_ >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Integer64Vector_to_Decimal128(x));
     return rcpp_result_gen;
 END_RCPP

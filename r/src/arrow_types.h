@@ -165,6 +165,8 @@ using RawVector_ = Rcpp::Vector<RAWSXP, Rcpp::NoProtectStorage>;
 using List_ = Rcpp::Vector<VECSXP, Rcpp::NoProtectStorage>;
 using ComplexVector_ = Rcpp::Vector<CPLXSXP, Rcpp::NoProtectStorage>;
 using NumericVector_ = Rcpp::Vector<REALSXP, Rcpp::NoProtectStorage>;
+using Integer64Vector = NumericVector;
+using Integer64Vector_ = NumericVector_;
 
 template <int RTYPE>
 inline constexpr typename Rcpp::Vector<RTYPE>::stored_type default_value() {
