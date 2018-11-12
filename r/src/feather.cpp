@@ -55,6 +55,18 @@ std::unique_ptr<arrow::ipc::feather::TableWriter> ipc___feather___TableWriter__O
   return writer;
 }
 
+// [[Rcpp::export]]
+void ipc___TableWriter__RecordBatch__WriteFeather(
+    const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer,
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
+  writer->SetNumRows(batch->num_rows());
+
+  for (int i = 0; i < batch->num_columns(); i++) {
+    STOP_IF_NOT_OK(writer->Append(batch->column_name(i), *batch->column(i)));
+  }
+  STOP_IF_NOT_OK(writer->Finalize());
+}
+
 // ----------- TableReader
 
 // [[Rcpp::export]]

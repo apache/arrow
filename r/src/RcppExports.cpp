@@ -1077,6 +1077,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ipc___TableWriter__RecordBatch__WriteFeather
+void ipc___TableWriter__RecordBatch__WriteFeather(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, const std::shared_ptr<arrow::RecordBatch>& batch);
+RcppExport SEXP _arrow_ipc___TableWriter__RecordBatch__WriteFeather(SEXP writerSEXP, SEXP batchSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableWriter>& >::type writer(writerSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
+    ipc___TableWriter__RecordBatch__WriteFeather(writer, batch);
+    return R_NilValue;
+END_RCPP
+}
 // ipc___feather___TableReader__GetDescription
 std::string ipc___feather___TableReader__GetDescription(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
 RcppExport SEXP _arrow_ipc___feather___TableReader__GetDescription(SEXP readerSEXP) {
@@ -2072,6 +2083,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___feather___TableWriter__Append", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Append, 3},
     {"_arrow_ipc___feather___TableWriter__Finalize", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Finalize, 1},
     {"_arrow_ipc___feather___TableWriter__Open", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Open, 1},
+    {"_arrow_ipc___TableWriter__RecordBatch__WriteFeather", (DL_FUNC) &_arrow_ipc___TableWriter__RecordBatch__WriteFeather, 2},
     {"_arrow_ipc___feather___TableReader__GetDescription", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetDescription, 1},
     {"_arrow_ipc___feather___TableReader__HasDescription", (DL_FUNC) &_arrow_ipc___feather___TableReader__HasDescription, 1},
     {"_arrow_ipc___feather___TableReader__version", (DL_FUNC) &_arrow_ipc___feather___TableReader__version, 1},

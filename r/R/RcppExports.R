@@ -389,6 +389,10 @@ ipc___feather___TableWriter__Open <- function(stream) {
     .Call(`_arrow_ipc___feather___TableWriter__Open`, stream)
 }
 
+ipc___TableWriter__RecordBatch__WriteFeather <- function(writer, batch) {
+    invisible(.Call(`_arrow_ipc___TableWriter__RecordBatch__WriteFeather`, writer, batch))
+}
+
 ipc___feather___TableReader__GetDescription <- function(reader) {
     .Call(`_arrow_ipc___feather___TableReader__GetDescription`, reader)
 }

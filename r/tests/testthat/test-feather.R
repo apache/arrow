@@ -15,14 +15,35 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("test-feather")
+context("Feather")
 
 test_that("feather read/write round trip", {
-  tf <- tempfile()
-  write_feather(iris, tf)
-  expect_true(fs::file_exists(tf))
+  tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
 
-  tab1 <- table(iris)
-  tab2 <- read_feather(tf)
-  expect_equal(tab1, tab2)
+  tf1 <- local_tempfile()
+  write_feather(tib, tf1)
+  expect_true(fs::file_exists(tf1))
+
+  tf2 <- fs::path_abs(local_tempfile())
+  write_feather(tib, tf2)
+  expect_true(fs::file_exists(tf2))
+
+  tf3 <- local_tempfile()
+  stream <- close_on_exit(file_output_stream(tf3))
+  write_feather(tib, stream)
+  expect_true(fs::file_exists(tf3))
+
+  tab1 <- read_feather(tf1)
+  expect_is(tab1, "arrow::Table")
+
+  tab2 <- read_feather(tf2)
+  expect_is(tab2, "arrow::Table")
+
+  tab3 <- read_feather(tf3)
+  expect_is(tab3, "arrow::Table")
+
+  expect_equal(tib, as_tibble(tab1))
+  expect_equal(tib, as_tibble(tab2))
+  expect_equal(tib, as_tibble(tab3))
 })
+

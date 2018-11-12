@@ -53,9 +53,14 @@ table_writer <- function(stream) {
   unique_ptr(`arrow::ipc::feather::TableWriter`, ipc___feather___TableWriter__Open(stream))
 }
 
+#' Write data in the feather format
+#'
+#' @param data frame or arrow::RecordBatch
+#' @param stream A file path or an arrow::io::OutputStream
+#'
 #' @export
 write_feather <- function(data, stream) {
-  UseMethod("write_feather", stream)
+  UseMethod("write_feather", data)
 }
 
 #' @export
@@ -64,23 +69,47 @@ write_feather.default <- function(data, stream) {
 }
 
 #' @export
-`write_feather.character` <- function(data, stream) {
-  write_feather(data, fs::path_abs(stream))
+write_feather.data.frame <- function(data, stream) {
+  write_feather(record_batch(data), stream)
 }
 
-#' @importFrom purrr walk2
+#' @rdname write_feather
+#' @method write_feather arrow::RecordBatch
+#' @export write_feather.arrow::RecordBatch
 #' @export
-`write_feather.fs_path` <- function(data, stream) {
-  nms <- names(data)
-
-  file_stream <- close_on_exit(file_output_stream(stream))
-  writer <- table_writer(file_stream)
-  writer$SetNumRows(nrow(data))
-
-  walk2(names(data), data, ~writer$Append(.x, array(.y)))
-  writer$Finalize()
+`write_feather.arrow::RecordBatch` <- function(data, stream) {
+  UseMethod("write_feather.arrow::RecordBatch", stream)
 }
 
+#' @export
+#' @method write_feather.arrow::RecordBatch default
+`write_feather.arrow::RecordBatch.default` <- function(data, stream) {
+  stop("unsupported")
+}
+
+#' @export
+#' @method write_feather.arrow::RecordBatch character
+`write_feather.arrow::RecordBatch.character` <- function(data, stream) {
+  `write_feather.arrow::RecordBatch.fs_path`(data, fs::path_abs(stream))
+}
+
+#' @export
+#' @method write_feather.arrow::RecordBatch fs_path
+`write_feather.arrow::RecordBatch.fs_path` <- function(data, stream) {
+  file_stream <- close_on_exit(file_output_stream(stream))
+  `write_feather.arrow::RecordBatch.arrow::io::OutputStream`(data, file_stream)
+}
+
+#' @export
+#' @method write_feather.arrow::RecordBatch arrow::io::OutputStream
+`write_feather.arrow::RecordBatch.arrow::io::OutputStream` <- function(data, stream) {
+  ipc___TableWriter__RecordBatch__WriteFeather(table_writer(stream), data)
+}
+
+#' A arrow::ipc::feather::TableReader to read from a file
+#'
+#' @param file A file path, arrow::io::RandomAccessFile
+#'
 #' @export
 table_reader <- function(file){
   UseMethod("table_reader")
@@ -117,6 +146,6 @@ table_reader.fs_path <- function(file) {
 #' @return an arrow::Table
 #'
 #' @export
-`read_feather` <- function(reader){
+read_feather <- function(reader){
   table_reader(reader)$Read()
 }
