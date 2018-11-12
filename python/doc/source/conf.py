@@ -30,7 +30,6 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import glob
 import os
 import sys
 
@@ -78,7 +77,7 @@ napoleon_use_rtype = False
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
-breathe_projects = { "arrow_cpp": "../../../cpp/apidoc/xml" }
+breathe_projects = {"arrow_cpp": "../../../cpp/apidoc/xml"}
 breathe_default_project = "arrow_cpp"
 
 # The suffix(es) of source filenames.

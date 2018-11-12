@@ -178,6 +178,8 @@ services:
 
   clang-format:
     # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run clang-format
     image: arrow:lint

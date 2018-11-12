@@ -397,7 +397,6 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
   const uint8_t* raw_values_;
 };
 
-
 /// Concrete Array class for numeric data.
 template <typename TYPE>
 class ARROW_EXPORT NumericArray : public PrimitiveArray {
