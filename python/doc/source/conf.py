@@ -62,12 +62,12 @@ extensions = [
 ]
 
 # Show members for classes in .. autosummary
-autodoc_default_flags = [
-    'members',
-    'undoc-members',
-    'show-inheritance',
-    'inherited-members'
-]
+autodoc_default_options = {
+    'members': None,
+    'undoc-members': None,
+    'show-inheritance': None,
+    'inherited-members': None
+}
 
 # ipython directive options
 ipython_mplbackend = ''
@@ -87,7 +87,7 @@ breathe_default_project = "arrow_cpp"
 # source_suffix = ['.rst', '.md']
 source_suffix = '.rst'
 
-autosummary_generate = glob.glob("*.rst")
+autosummary_generate = True
 
 # The encoding of source files.
 #

@@ -40,6 +40,7 @@ files into Arrow structures.
    plasma
    numpy
    pandas
+   csv
    parquet
    extending
    api
