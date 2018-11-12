@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import java.time.LocalDateTime;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeMilliReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -24,8 +26,8 @@ import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
 import org.apache.arrow.vector.holders.TimeMilliHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.DateUtility;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.LocalDateTime;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -129,9 +131,9 @@ public class TimeMilliVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     }
-    org.joda.time.LocalDateTime ldt = new org.joda.time.LocalDateTime(get(index),
-            org.joda.time.DateTimeZone.UTC);
-    return ldt;
+    final int millis = valueBuffer.getInt(index * TYPE_WIDTH);
+    // TODO: this doesn't seem right, time not from epoch
+    return DateUtility.getLocalDateTimeFromEpochMilli(millis);
   }
 
   /**

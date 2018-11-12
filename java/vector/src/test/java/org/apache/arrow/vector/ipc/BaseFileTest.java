@@ -25,6 +25,10 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 
@@ -54,6 +58,7 @@ import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.complex.writer.TimeMilliWriter;
 import org.apache.arrow.vector.complex.writer.TimeStampMilliTZWriter;
 import org.apache.arrow.vector.complex.writer.TimeStampMilliWriter;
+import org.apache.arrow.vector.complex.writer.TimeStampNanoWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -62,10 +67,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.apache.arrow.vector.util.DateUtility;
 import org.apache.arrow.vector.util.Text;
-import org.joda.time.DateTimeZone;
-import org.joda.time.LocalDateTime;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -82,18 +84,14 @@ public class BaseFileTest {
   protected static final int COUNT = 10;
   protected BufferAllocator allocator;
 
-  private DateTimeZone defaultTimezone = DateTimeZone.getDefault();
-
   @Before
   public void init() {
-    DateTimeZone.setDefault(DateTimeZone.forOffsetHours(2));
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
   @After
   public void tearDown() {
     allocator.close();
-    DateTimeZone.setDefault(defaultTimezone);
   }
 
   protected void writeData(int count, StructVector parent) {
@@ -188,7 +186,7 @@ public class BaseFileTest {
   }
 
   private LocalDateTime makeDateTimeFromCount(int i) {
-    return new LocalDateTime(2000 + i, 1 + i, 1 + i, i, i, i, i);
+    return LocalDateTime.of(2000 + i, 1 + i, 1 + i, i, i, i, i * 100_000_000 + i);
   }
 
   protected void writeDateTimeData(int count, StructVector parent) {
@@ -199,20 +197,27 @@ public class BaseFileTest {
     TimeMilliWriter timeWriter = rootWriter.timeMilli("time");
     TimeStampMilliWriter timeStampMilliWriter = rootWriter.timeStampMilli("timestamp-milli");
     TimeStampMilliTZWriter timeStampMilliTZWriter = rootWriter.timeStampMilliTZ("timestamp-milliTZ", "Europe/Paris");
+    TimeStampNanoWriter timeStampNanoWriter = rootWriter.timeStampNano("timestamp-nano");
     for (int i = 0; i < count; i++) {
       LocalDateTime dt = makeDateTimeFromCount(i);
       // Number of days in milliseconds since epoch, stored as 64-bit integer, only date part is used
       dateWriter.setPosition(i);
-      long dateLong = DateUtility.toMillis(dt.minusMillis(dt.getMillisOfDay()));
+      long dateLong = dt.toLocalDate().atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli();
       dateWriter.writeDateMilli(dateLong);
       // Time is a value in milliseconds since midnight, stored as 32-bit integer
       timeWriter.setPosition(i);
-      timeWriter.writeTimeMilli(dt.getMillisOfDay());
-      // Timestamp is milliseconds since the epoch, stored as 64-bit integer
+      int milliOfDay = (int) java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(dt.toLocalTime().toNanoOfDay());
+      timeWriter.writeTimeMilli(milliOfDay);
+      // Timestamp as milliseconds since the epoch, stored as 64-bit integer
       timeStampMilliWriter.setPosition(i);
-      timeStampMilliWriter.writeTimeStampMilli(DateUtility.toMillis(dt));
+      timeStampMilliWriter.writeTimeStampMilli(dt.toInstant(ZoneOffset.UTC).toEpochMilli());
+      // Timestamp as milliseconds since epoch with timezone
       timeStampMilliTZWriter.setPosition(i);
-      timeStampMilliTZWriter.writeTimeStampMilliTZ(DateUtility.toMillis(dt));
+      timeStampMilliTZWriter.writeTimeStampMilliTZ(dt.atZone(ZoneId.of("Europe/Paris")).toInstant().toEpochMilli());
+      // Timestamp as nanoseconds since epoch
+      timeStampNanoWriter.setPosition(i);
+      long tsNanos = dt.toInstant(ZoneOffset.UTC).toEpochMilli() * 1_000_000 + i;  // need to add back in nano val
+      timeStampNanoWriter.writeTimeStampNano(tsNanos);
     }
     writer.setValueCount(count);
   }
@@ -221,16 +226,19 @@ public class BaseFileTest {
     Assert.assertEquals(count, root.getRowCount());
     printVectors(root.getFieldVectors());
     for (int i = 0; i < count; i++) {
-      long dateVal = ((DateMilliVector) root.getVector("date")).get(i);
       LocalDateTime dt = makeDateTimeFromCount(i);
-      LocalDateTime dateExpected = dt.minusMillis(dt.getMillisOfDay());
-      Assert.assertEquals(DateUtility.toMillis(dateExpected), dateVal);
-      long timeVal = ((TimeMilliVector) root.getVector("time")).get(i);
-      Assert.assertEquals(dt.getMillisOfDay(), timeVal);
+      LocalDateTime dtMilli = dt.minusNanos(i);
+      LocalDateTime dateVal = ((DateMilliVector) root.getVector("date")).getObject(i);
+      LocalDateTime dateExpected = dt.toLocalDate().atStartOfDay();
+      Assert.assertEquals(dateExpected, dateVal);
+      LocalTime timeVal = ((TimeMilliVector) root.getVector("time")).getObject(i).toLocalTime();
+      Assert.assertEquals(dtMilli.toLocalTime(), timeVal);
       Object timestampMilliVal = root.getVector("timestamp-milli").getObject(i);
-      Assert.assertEquals(dt, timestampMilliVal);
+      Assert.assertEquals(dtMilli, timestampMilliVal);
       Object timestampMilliTZVal = root.getVector("timestamp-milliTZ").getObject(i);
-      Assert.assertEquals(DateUtility.toMillis(dt), timestampMilliTZVal);
+      Assert.assertEquals(dt.atZone(ZoneId.of("Europe/Paris")).toInstant().toEpochMilli(), timestampMilliTZVal);
+      Object timestampNanoVal = root.getVector("timestamp-nano").getObject(i);
+      Assert.assertEquals(dt, timestampNanoVal);
     }
   }
 

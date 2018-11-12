@@ -19,6 +19,7 @@ package org.apache.arrow.gandiva.evaluator;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -37,7 +38,6 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.joda.time.Instant;
 import org.junit.After;
 import org.junit.Before;
 
@@ -265,7 +265,7 @@ class BaseEvaluatorTest {
     ArrowBuf buffer = allocator.buffer(dates.length * 8);
     for (int i = 0; i < dates.length; i++) {
       Instant instant = Instant.parse(dates[i]);
-      buffer.writeLong(instant.getMillis());
+      buffer.writeLong(instant.toEpochMilli());
     }
 
     return buffer;
