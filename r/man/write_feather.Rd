@@ -2,12 +2,12 @@
 % Please edit documentation in R/feather.R
 \name{write_feather}
 \alias{write_feather}
-\alias{write_feather.arrow::RecordBatch}
+\alias{write_feather_RecordBatch}
 \title{Write data in the feather format}
 \usage{
 write_feather(data, stream)
 
-\method{write_feather}{arrow::RecordBatch}(data, stream)
+write_feather_RecordBatch(data, stream)
 }
 \arguments{
 \item{data}{frame or arrow::RecordBatch}

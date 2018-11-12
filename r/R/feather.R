@@ -73,36 +73,40 @@ write_feather.data.frame <- function(data, stream) {
   write_feather(record_batch(data), stream)
 }
 
-#' @rdname write_feather
 #' @method write_feather arrow::RecordBatch
-#' @export write_feather.arrow::RecordBatch
 #' @export
 `write_feather.arrow::RecordBatch` <- function(data, stream) {
-  UseMethod("write_feather.arrow::RecordBatch", stream)
+  write_feather_RecordBatch(data, stream)
+}
+
+#' @rdname write_feather
+#' @export
+write_feather_RecordBatch <- function(data, stream) {
+  UseMethod("write_feather_RecordBatch", stream)
 }
 
 #' @export
-#' @method write_feather.arrow::RecordBatch default
-`write_feather.arrow::RecordBatch.default` <- function(data, stream) {
+#' @method write_feather_RecordBatch default
+`write_feather_RecordBatch.default` <- function(data, stream) {
   stop("unsupported")
 }
 
 #' @export
-#' @method write_feather.arrow::RecordBatch character
-`write_feather.arrow::RecordBatch.character` <- function(data, stream) {
-  `write_feather.arrow::RecordBatch.fs_path`(data, fs::path_abs(stream))
+#' @method write_feather_RecordBatch character
+`write_feather_RecordBatch.character` <- function(data, stream) {
+  `write_feather_RecordBatch.fs_path`(data, fs::path_abs(stream))
 }
 
 #' @export
-#' @method write_feather.arrow::RecordBatch fs_path
-`write_feather.arrow::RecordBatch.fs_path` <- function(data, stream) {
+#' @method write_feather_RecordBatch fs_path
+`write_feather_RecordBatch.fs_path` <- function(data, stream) {
   file_stream <- close_on_exit(file_output_stream(stream))
-  `write_feather.arrow::RecordBatch.arrow::io::OutputStream`(data, file_stream)
+  `write_feather_RecordBatch.arrow::io::OutputStream`(data, file_stream)
 }
 
 #' @export
-#' @method write_feather.arrow::RecordBatch arrow::io::OutputStream
-`write_feather.arrow::RecordBatch.arrow::io::OutputStream` <- function(data, stream) {
+#' @method write_feather_RecordBatch arrow::io::OutputStream
+`write_feather_RecordBatch.arrow::io::OutputStream` <- function(data, stream) {
   ipc___TableWriter__RecordBatch__WriteFeather(table_writer(stream), data)
 }
 
