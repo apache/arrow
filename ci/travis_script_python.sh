@@ -65,6 +65,7 @@ if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; the
         ipython \
         numpydoc \
         sphinx \
+        breathe \
         sphinx_rtd_theme
 fi
 
