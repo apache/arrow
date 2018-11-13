@@ -209,7 +209,6 @@ impl BufferBuilder<bool> {
 
 /// Trait for dealing with different array builders at runtime
 pub trait ArrayBuilder {
-
     /// The type of array that this builder creates
     type ArrayType;
 
@@ -221,8 +220,7 @@ pub trait ArrayBuilder {
     fn len(&self) -> i64;
 
     /// Builds the array
-    fn finish(self) -> Self:: ArrayType;
-
+    fn finish(self) -> Self::ArrayType;
 }
 
 ///  Array builder for fixed-width primitive types
@@ -367,17 +365,23 @@ macro_rules! impl_list_array_builder {
             /// Builds the `ListArray`
             fn finish(self) -> ListArray {
                 let len = self.len();
-                let values_arr = self.values_builder.into_any().downcast::<$native_ty>().unwrap().finish();
+                let values_arr = self
+                    .values_builder
+                    .into_any()
+                    .downcast::<$native_ty>()
+                    .unwrap()
+                    .finish();
                 let values_data = values_arr.data();
 
                 let null_bit_buffer = self.bitmap_builder.finish();
-                let data = ArrayData::builder(DataType::List(Box::new(values_data.data_type().clone())))
-                    .len(len)
-                    .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
-                    .add_buffer(self.offsets_builder.finish())
-                    .add_child_data(values_data)
-                    .null_bit_buffer(null_bit_buffer)
-                    .build();
+                let data =
+                    ArrayData::builder(DataType::List(Box::new(values_data.data_type().clone())))
+                        .len(len)
+                        .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+                        .add_buffer(self.offsets_builder.finish())
+                        .add_child_data(values_data)
+                        .null_bit_buffer(null_bit_buffer)
+                        .build();
 
                 ListArray::from(data)
             }
@@ -400,7 +404,6 @@ macro_rules! impl_list_array_builder {
                 self.len += 1;
                 Ok(())
             }
-
         }
     };
 }
@@ -427,7 +430,6 @@ impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<i32>>);
 impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<i64>>);
 impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<f32>>);
 impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<f64>>);
-
 
 #[cfg(test)]
 mod tests {
