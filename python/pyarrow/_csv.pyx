@@ -23,7 +23,10 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, MemoryPool, maybe_unbox_memory_pool,
-                          pyarrow_wrap_table, get_input_stream)
+                          pyarrow_wrap_table, pyarrow_wrap_data_type,
+                          pyarrow_unwrap_data_type, get_input_stream)
+
+from pyarrow.compat import frombytes, tobytes
 
 
 cdef unsigned char _single_char(s) except 0:
@@ -243,6 +246,9 @@ cdef class ConvertOptions:
     ----------
     check_utf8 : bool, optional (default True)
         Whether to check UTF8 validity of string columns.
+    column_types: dict, optional
+        Map column names to column types
+        (disabling type inference on those columns).
     """
     cdef:
         CCSVConvertOptions options
@@ -250,10 +256,12 @@ cdef class ConvertOptions:
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, check_utf8=None):
+    def __init__(self, check_utf8=None, column_types=None):
         self.options = CCSVConvertOptions.Defaults()
         if check_utf8 is not None:
             self.check_utf8 = check_utf8
+        if column_types is not None:
+            self.column_types = column_types
 
     @property
     def check_utf8(self):
@@ -265,6 +273,28 @@ cdef class ConvertOptions:
     @check_utf8.setter
     def check_utf8(self, value):
         self.options.check_utf8 = value
+
+    @property
+    def column_types(self):
+        """
+        Map column names to column types
+        (disabling type inference on those columns).
+        """
+        d = {frombytes(item.first): pyarrow_wrap_data_type(item.second)
+             for item in self.options.column_types}
+        return d
+
+    @column_types.setter
+    def column_types(self, value):
+        cdef:
+            shared_ptr[CDataType] typ
+
+        self.options.column_types.clear()
+        for k, v in value.items():
+            typ = pyarrow_unwrap_data_type(v)
+            if typ == NULL:
+                raise TypeError("data type expected, got '%r'" % (type(v),))
+            self.options.column_types[tobytes(k)] = typ
 
 
 cdef _get_reader(input_file, shared_ptr[InputStream]* out):

@@ -131,8 +131,16 @@ def test_convert_options():
     opts.check_utf8 = False
     assert opts.check_utf8 is False
 
-    opts = cls(check_utf8=False)
+    assert opts.column_types == {}
+    opts.column_types = {'b': pa.int16(), 'c': pa.float32()}
+    assert opts.column_types == {'b': pa.int16(), 'c': pa.float32()}
+
+    with pytest.raises(TypeError, match='data type expected'):
+        opts.column_types = {'a': 'int16'}
+
+    opts = cls(check_utf8=False, column_types={'a': pa.null()})
     assert opts.check_utf8 is False
+    assert opts.column_types == {'a': pa.null()}
 
 
 class BaseTestCSVRead:
@@ -199,6 +207,30 @@ class BaseTestCSVRead:
             'd': [None, None, None],
             'e': [b"3", b"nan", b"\xff"],
             }
+
+    def test_column_types(self):
+        # Ask for specific column types in ConvertOptions
+        opts = ConvertOptions(column_types={'b': pa.float32(),
+                                            'c': pa.string(),
+                                            'd': pa.null()})
+        rows = b"a,b,c\n1,2,3\n4,-5,6\n"
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.int64()),
+                            ('b', pa.float32()),
+                            ('c', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [1, 4],
+            'b': [2.0, -5.0],
+            'c': ["3", "6"],
+            }
+        # One of the columns in column_types fails converting
+        rows = b"a,b,c\n1,XXX,3\n4,-5,6\n"
+        with pytest.raises(pa.ArrowInvalid) as exc:
+            self.read_bytes(rows, convert_options=opts)
+        err = str(exc.value)
+        assert "In column #1: " in err
+        assert "CSV conversion error to float: invalid value 'XXX'" in err
 
     def test_no_ending_newline(self):
         # No \n after last line
