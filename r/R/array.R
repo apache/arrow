@@ -66,7 +66,14 @@
 #'
 #' @export
 array <- function(...){
-  `arrow::Array`$dispatch(Array__from_vector(vctrs::vec_c(...)))
+  args <- list(...)
+  args$type <- NULL
+
+  `arrow::Array`$dispatch(
+    Array__from_vector(
+      do.call("vec_c", args, envir = as.environment(asNamespace("vctrs")))
+    )
+  )
 }
 
 `arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `arrow::Array`,
