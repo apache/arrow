@@ -42,8 +42,17 @@ test_that("feather read/write round trip", {
   tab3 <- read_feather(tf3)
   expect_is(tab3, "arrow::Table")
 
+  # reading directly from arrow::io::MemoryMappedFile
+  tab4 <- read_feather(mmap_open(tf3))
+  expect_is(tab4, "arrow::Table")
+
+  # reading directly from arrow::io::ReadableFile
+  tab5 <- read_feather(file_open(tf3))
+  expect_is(tab5, "arrow::Table")
+
   expect_equal(tib, as_tibble(tab1))
   expect_equal(tib, as_tibble(tab2))
   expect_equal(tib, as_tibble(tab3))
+  expect_equal(tib, as_tibble(tab4))
+  expect_equal(tib, as_tibble(tab5))
 })
-
