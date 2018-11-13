@@ -22,13 +22,13 @@
 #undef Free
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
+#include <arrow/csv/reader.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/feather.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
-#include <arrow/csv/reader.h>
 
 #define STOP_IF_NOT(TEST, MSG)  \
   do {                          \
