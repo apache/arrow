@@ -55,7 +55,12 @@ csv_read_options <- function(use_threads = TRUE, block_size = 1048576L) {
 #' @param header_rows Number of header rows to skip (including the first row containing column names)
 #'
 #' @export
-csv_parse_options <- function(delimiter = ",", quoting = TRUE, quote_char = '"', double_quote = TRUE, escaping = FALSE, escape_char = '\\', newlines_in_values = FALSE, ignore_empty_lines = TRUE, header_rows = 1L){
+csv_parse_options <- function(
+  delimiter = ",", quoting = TRUE, quote_char = '"',
+  double_quote = TRUE, escaping = FALSE, escape_char = '\\',
+  newlines_in_values = FALSE, ignore_empty_lines = TRUE,
+  header_rows = 1L
+){
   shared_ptr(`arrow::csv::ParseOptions`, csv___ParseOptions__initialize(
     list(
       delimiter = delimiter,
@@ -93,34 +98,77 @@ csv_convert_options <- function(check_utf8 = TRUE){
 #' @param ... additional parameters.
 #'
 #' @export
-csv_table_reader <- function(file, read_options = csv_read_options(), parse_options = csv_parse_options(), convert_options = csv_convert_options(), ...){
+csv_table_reader <- function(file,
+  read_options = csv_read_options(),
+  parse_options = csv_parse_options(),
+  convert_options = csv_convert_options(),
+  ...
+){
   UseMethod("csv_table_reader")
 }
 
 #' @importFrom rlang abort
 #' @export
-csv_table_reader.default <- function(file, read_options = csv_read_options(), parse_options = csv_parse_options(), convert_options = csv_convert_options(), ...) {
+csv_table_reader.default <- function(file,
+  read_options = csv_read_options(),
+  parse_options = csv_parse_options(),
+  convert_options = csv_convert_options(),
+  ...
+) {
   abort("unsupported")
 }
 
 #' @export
-`csv_table_reader.character` <- function(file, read_options = csv_read_options(), parse_options = csv_parse_options(), convert_options = csv_convert_options(), ...){
-  csv_table_reader(fs::path_abs(file), read_options = read_options, parse_options = parse_options, convert_options = convert_options, ...)
+`csv_table_reader.character` <- function(file,
+  read_options = csv_read_options(),
+  parse_options = csv_parse_options(),
+  convert_options = csv_convert_options(),
+  ...
+){
+  csv_table_reader(fs::path_abs(file),
+    read_options = read_options,
+    parse_options = parse_options,
+    convert_options = convert_options,
+    ...
+  )
 }
 
 #' @export
-`csv_table_reader.fs_path` <- function(file, read_options = csv_read_options(), parse_options = csv_parse_options(), convert_options = csv_convert_options(), mmap = TRUE, ...){
+`csv_table_reader.fs_path` <- function(file,
+  read_options = csv_read_options(),
+  parse_options = csv_parse_options(),
+  convert_options = csv_convert_options(),
+  mmap = TRUE,
+  ...
+){
   stream <- if (isTRUE(mmap)) mmap_open(file) else file_open(file)
-  csv_table_reader(stream, read_options = read_options, parse_options = parse_options, convert_options = convert_options, ...)
+  csv_table_reader(stream,
+    read_options = read_options,
+    parse_options = parse_options,
+    convert_options = convert_options,
+    ...
+  )
 }
 
 #' @export
-`csv_table_reader.arrow::io::InputStream` <- function(file, read_options = csv_read_options(), parse_options = csv_parse_options(), convert_options = csv_convert_options(), ...){
-  shared_ptr(`arrow::csv::TableReader`, csv___TableReader__Make(file, read_options, parse_options, convert_options))
+`csv_table_reader.arrow::io::InputStream` <- function(file,
+  read_options = csv_read_options(),
+  parse_options = csv_parse_options(),
+  convert_options = csv_convert_options(),
+  ...
+){
+  shared_ptr(`arrow::csv::TableReader`,
+    csv___TableReader__Make(file, read_options, parse_options, convert_options)
+  )
 }
 
 #' @export
-`csv_table_reader.arrow::csv::TableReader` <- function(file, read_options = csv_read_options(), parse_options = csv_parse_options(), convert_options = csv_convert_options(), ...){
+`csv_table_reader.arrow::csv::TableReader` <- function(file,
+  read_options = csv_read_options(),
+  parse_options = csv_parse_options(),
+  convert_options = csv_convert_options(),
+  ...
+){
   file
 }
 
