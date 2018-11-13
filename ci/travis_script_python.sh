@@ -66,6 +66,7 @@ if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; the
         numpydoc \
         sphinx \
         breathe \
+        doxygen \
         sphinx_rtd_theme
 fi
 
@@ -191,6 +192,9 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
 fi
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
+  pushd ../cpp/apidoc
+  doxygen
+  popd
   cd doc
   sphinx-build -q -b html -d _build/doctrees -W source _build/html
 fi
