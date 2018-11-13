@@ -28,7 +28,7 @@ std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(List_ opt
   return res;
 }
 
-inline char get_char(SEXP x) { return CHAR(STRING_ELT(x, 0))[0]; }
+inline char get_char(CharacterVector x) { return CHAR(STRING_ELT(x, 0))[0]; }
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(List_ options) {
