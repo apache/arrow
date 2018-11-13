@@ -18,6 +18,7 @@
 //! Defines a `BufferBuilder` capable of creating a `Buffer` which can be used as an internal
 //! buffer in an `ArrayData` object.
 
+use std::any::Any;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
@@ -206,6 +207,24 @@ impl BufferBuilder<bool> {
     }
 }
 
+/// Trait for dealing with different array builders at runtime
+pub trait ArrayBuilder {
+
+    /// The type of array that this builder creates
+    type ArrayType;
+
+    /// Returns the builder as an owned `Any` type so that it can be `downcast` to a specific
+    /// implementation before calling it's `finish` method
+    fn into_any(self) -> Box<Any>;
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> i64;
+
+    /// Builds the array
+    fn finish(self) -> Self:: ArrayType;
+
+}
+
 ///  Array builder for fixed-width primitive types
 pub struct PrimitiveArrayBuilder<T>
 where
@@ -217,6 +236,34 @@ where
 
 macro_rules! impl_primitive_array_builder {
     ($data_ty:path, $native_ty:ident) => {
+        impl ArrayBuilder for PrimitiveArrayBuilder<$native_ty> {
+            type ArrayType = PrimitiveArray<$native_ty>;
+
+            /// Returns the builder as an owned `Any` type so that it can be `downcast` to a specific
+            /// implementation before calling it's `finish` method
+            fn into_any(self) -> Box<Any> {
+                Box::new(self)
+            }
+
+            /// Returns the number of array slots in the builder
+            fn len(&self) -> i64 {
+                self.values_builder.len
+            }
+
+            /// Builds the PrimitiveArray
+            fn finish(self) -> PrimitiveArray<$native_ty> {
+                let len = self.len();
+                let null_bit_buffer = self.bitmap_builder.finish();
+                let data = ArrayData::builder($data_ty)
+                    .len(len)
+                    .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+                    .add_buffer(self.values_builder.finish())
+                    .null_bit_buffer(null_bit_buffer)
+                    .build();
+                PrimitiveArray::<$native_ty>::from(data)
+            }
+        }
+
         impl PrimitiveArrayBuilder<$native_ty> {
             /// Creates a new primitive array builder
             pub fn new(capacity: i64) -> Self {
@@ -229,11 +276,6 @@ macro_rules! impl_primitive_array_builder {
             /// Returns the capacity of this builder measured in slots of type `T`
             pub fn capacity(&self) -> i64 {
                 self.values_builder.capacity()
-            }
-
-            /// Returns the length of this builder measured in slots of type `T`
-            pub fn len(&self) -> i64 {
-                self.values_builder.len()
             }
 
             /// Pushes a value of type `T` into the builder
@@ -265,19 +307,6 @@ macro_rules! impl_primitive_array_builder {
                 self.values_builder.push_slice(v)?;
                 Ok(())
             }
-
-            /// Builds the PrimitiveArray
-            pub fn finish(self) -> PrimitiveArray<$native_ty> {
-                let len = self.len();
-                let null_bit_buffer = self.bitmap_builder.finish();
-                let data = ArrayData::builder($data_ty)
-                    .len(len)
-                    .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
-                    .add_buffer(self.values_builder.finish())
-                    .null_bit_buffer(null_bit_buffer)
-                    .build();
-                PrimitiveArray::<$native_ty>::from(data)
-            }
         }
     };
 }
@@ -297,59 +326,52 @@ impl_primitive_array_builder!(DataType::Float64, f64);
 ///  Array builder for `ListArray`
 pub struct ListArrayBuilder<T>
 where
-    T: ArrowPrimitiveType,
+    T: ArrayBuilder,
 {
     offsets_builder: BufferBuilder<i32>,
     bitmap_builder: BufferBuilder<bool>,
-    values_builder: PrimitiveArrayBuilder<T>,
+    values_builder: T,
     len: i64,
 }
 
+impl<T: ArrayBuilder> ListArrayBuilder<T> {
+    /// Creates a new `ListArrayBuilder` from a given values array builder
+    pub fn new(values_builder: T) -> Self {
+        let mut offsets_builder = BufferBuilder::<i32>::new(values_builder.len() + 1);
+        offsets_builder.push(0).unwrap();
+        Self {
+            offsets_builder,
+            bitmap_builder: BufferBuilder::<bool>::new(values_builder.len()),
+            values_builder,
+            len: 0,
+        }
+    }
+}
+
 macro_rules! impl_list_array_builder {
-    ($data_ty:path, $native_ty:ident) => {
-        impl ListArrayBuilder<$native_ty> {
-            /// Creates a new `ListArrayBuilder` with a certain child array `capacity`.
-            pub fn new(capacity: i64) -> Self {
-                let mut offsets_builder = BufferBuilder::<i32>::new(capacity);
-                offsets_builder.push(0).unwrap();
-                Self {
-                    offsets_builder,
-                    bitmap_builder: BufferBuilder::<bool>::new(capacity),
-                    values_builder: PrimitiveArrayBuilder::<$native_ty>::new(capacity),
-                    len: 0,
-                }
+    ($native_ty:ty) => {
+        impl ArrayBuilder for ListArrayBuilder<$native_ty> {
+            type ArrayType = ListArray;
+
+            /// Returns the builder as an owned `Any` type so that it can be `downcast` to a specific
+            /// implementation before calling it's `finish` method.
+            fn into_any(self) -> Box<Any> {
+                Box::new(self)
             }
 
-            /// The number of array slots (distinct list values) currently in the builder.
-            pub fn len(&self) -> i64 {
+            /// Returns the number of array slots in the builder
+            fn len(&self) -> i64 {
                 self.len
             }
 
-            /// Returns the child array builder as a mutable reference
-            ///
-            /// This mutable reference can be used to push values into the child array builder,
-            /// but you must call `append` to delimit each distinct list value.
-            pub fn values(&mut self) -> &mut PrimitiveArrayBuilder<$native_ty> {
-                &mut self.values_builder
-            }
-
-            /// Finish the current variable-length list array slot.
-            pub fn append(&mut self, is_valid: bool) -> Result<()> {
-                self.offsets_builder
-                    .push(self.values_builder.len() as i32)?;
-                self.bitmap_builder.push(is_valid)?;
-                self.len += 1;
-                Ok(())
-            }
-
             /// Builds the `ListArray`
-            pub fn finish(self) -> ListArray {
+            fn finish(self) -> ListArray {
                 let len = self.len();
-                let values_arr = self.values_builder.finish();
+                let values_arr = self.values_builder.into_any().downcast::<$native_ty>().unwrap().finish();
                 let values_data = values_arr.data();
 
                 let null_bit_buffer = self.bitmap_builder.finish();
-                let data = ArrayData::builder(DataType::List(Box::new($data_ty)))
+                let data = ArrayData::builder(DataType::List(Box::new(values_data.data_type().clone())))
                     .len(len)
                     .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
                     .add_buffer(self.offsets_builder.finish())
@@ -360,20 +382,52 @@ macro_rules! impl_list_array_builder {
                 ListArray::from(data)
             }
         }
+
+        impl ListArrayBuilder<$native_ty> {
+            /// Returns the child array builder as a mutable reference.
+            ///
+            /// This mutable reference can be used to push values into the child array builder,
+            /// but you must call `append` to delimit each distinct list value.
+            pub fn values(&mut self) -> &mut $native_ty {
+                &mut self.values_builder
+            }
+
+            /// Finish the current variable-length list array slot
+            pub fn append(&mut self, is_valid: bool) -> Result<()> {
+                self.offsets_builder
+                    .push(self.values_builder.len() as i32)?;
+                self.bitmap_builder.push(is_valid)?;
+                self.len += 1;
+                Ok(())
+            }
+
+        }
     };
 }
 
-impl_list_array_builder!(DataType::Boolean, bool);
-impl_list_array_builder!(DataType::UInt8, u8);
-impl_list_array_builder!(DataType::UInt16, u16);
-impl_list_array_builder!(DataType::UInt32, u32);
-impl_list_array_builder!(DataType::UInt64, u64);
-impl_list_array_builder!(DataType::Int8, i8);
-impl_list_array_builder!(DataType::Int16, i16);
-impl_list_array_builder!(DataType::Int32, i32);
-impl_list_array_builder!(DataType::Int64, i64);
-impl_list_array_builder!(DataType::Float32, f32);
-impl_list_array_builder!(DataType::Float64, f64);
+impl_list_array_builder!(PrimitiveArrayBuilder<bool>);
+impl_list_array_builder!(PrimitiveArrayBuilder<u8>);
+impl_list_array_builder!(PrimitiveArrayBuilder<u16>);
+impl_list_array_builder!(PrimitiveArrayBuilder<u32>);
+impl_list_array_builder!(PrimitiveArrayBuilder<u64>);
+impl_list_array_builder!(PrimitiveArrayBuilder<i8>);
+impl_list_array_builder!(PrimitiveArrayBuilder<i16>);
+impl_list_array_builder!(PrimitiveArrayBuilder<i32>);
+impl_list_array_builder!(PrimitiveArrayBuilder<i64>);
+impl_list_array_builder!(PrimitiveArrayBuilder<f32>);
+impl_list_array_builder!(PrimitiveArrayBuilder<f64>);
+impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<bool>>);
+impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<u8>>);
+impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<u16>>);
+impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<u32>>);
+impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<u64>>);
+impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<i8>>);
+impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<i16>>);
+impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<i32>>);
+impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<i64>>);
+impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<f32>>);
+impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<f64>>);
+
 
 #[cfg(test)]
 mod tests {
@@ -626,7 +680,8 @@ mod tests {
 
     #[test]
     fn test_list_array_builder() {
-        let mut builder = ListArrayBuilder::<i32>::new(10);
+        let values_builder = PrimitiveArrayBuilder::<i32>::new(10);
+        let mut builder = ListArrayBuilder::new(values_builder);
 
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
         builder.values().push(0).unwrap();
@@ -647,6 +702,10 @@ mod tests {
             Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()),
             values
         );
+        assert_eq!(
+            Buffer::from(&[0, 3, 6, 8].to_byte_slice()),
+            list_array.data().buffers()[0].clone()
+        );
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -660,7 +719,8 @@ mod tests {
 
     #[test]
     fn test_list_array_builder_nulls() {
-        let mut builder = ListArrayBuilder::<i32>::new(10);
+        let values_builder = PrimitiveArrayBuilder::<i32>::new(10);
+        let mut builder = ListArrayBuilder::new(values_builder);
 
         //  [[0, 1, 2], null, [3, null, 5], [6, 7]]
         builder.values().push(0).unwrap();
@@ -682,5 +742,113 @@ mod tests {
         assert_eq!(1, list_array.null_count());
         assert_eq!(3, list_array.value_offset(2));
         assert_eq!(3, list_array.value_length(2));
+    }
+
+    #[test]
+    fn test_list_list_array_builder() {
+        let primitive_builder = PrimitiveArrayBuilder::<i32>::new(10);
+        let values_builder = ListArrayBuilder::new(primitive_builder);
+        let mut builder = ListArrayBuilder::new(values_builder);
+
+        //  [[[1, 2], [3, 4]], [[5, 6, 7], null, [8]], [[9, 10]]]
+        builder.values().values().push(1).unwrap();
+        builder.values().values().push(2).unwrap();
+        builder.values().append(true).unwrap();
+        builder.values().values().push(3).unwrap();
+        builder.values().values().push(4).unwrap();
+        builder.values().append(true).unwrap();
+        builder.append(true).unwrap();
+
+        builder.values().values().push(5).unwrap();
+        builder.values().values().push(6).unwrap();
+        builder.values().values().push(7).unwrap();
+        builder.values().append(true).unwrap();
+        builder.values().append(false).unwrap();
+        builder.values().values().push(8).unwrap();
+        builder.values().append(true).unwrap();
+        builder.append(true).unwrap();
+
+        builder.values().values().push(9).unwrap();
+        builder.values().values().push(10).unwrap();
+        builder.values().append(true).unwrap();
+        builder.append(true).unwrap();
+
+        let list_array = builder.finish();
+
+        assert_eq!(3, list_array.len());
+        assert_eq!(0, list_array.null_count());
+        assert_eq!(
+            Buffer::from(&[0, 2, 5, 6].to_byte_slice()),
+            list_array.data().buffers()[0].clone()
+        );
+
+        assert_eq!(6, list_array.values().data().len());
+        assert_eq!(1, list_array.values().data().null_count());
+        assert_eq!(
+            Buffer::from(&[0, 2, 4, 7, 7, 8, 10].to_byte_slice()),
+            list_array.values().data().buffers()[0].clone()
+        );
+
+        assert_eq!(10, list_array.values().data().child_data()[0].len());
+        assert_eq!(0, list_array.values().data().child_data()[0].null_count());
+        assert_eq!(
+            Buffer::from(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].to_byte_slice()),
+            list_array.values().data().child_data()[0].buffers()[0].clone()
+        );
+    }
+
+    #[test]
+    fn test_list_list_array_builder_nulls() {
+        let primitive_builder = PrimitiveArrayBuilder::<i32>::new(10);
+        let values_builder = ListArrayBuilder::new(primitive_builder);
+        let mut builder = ListArrayBuilder::new(values_builder);
+
+        //  [[[1, 2], [3, 4]], [[5, 6, 7], null, [8]], null, [[9, 10]]]
+        builder.values().values().push(1).unwrap();
+        builder.values().values().push(2).unwrap();
+        builder.values().append(true).unwrap();
+        builder.values().values().push(3).unwrap();
+        builder.values().values().push(4).unwrap();
+        builder.values().append(true).unwrap();
+        builder.append(true).unwrap();
+
+        builder.values().values().push(5).unwrap();
+        builder.values().values().push(6).unwrap();
+        builder.values().values().push(7).unwrap();
+        builder.values().append(true).unwrap();
+        builder.values().append(false).unwrap();
+        builder.values().values().push(8).unwrap();
+        builder.values().append(true).unwrap();
+        builder.append(true).unwrap();
+
+        builder.append(false).unwrap();
+
+        builder.values().values().push(9).unwrap();
+        builder.values().values().push(10).unwrap();
+        builder.values().append(true).unwrap();
+        builder.append(true).unwrap();
+
+        let list_array = builder.finish();
+
+        assert_eq!(4, list_array.len());
+        assert_eq!(1, list_array.null_count());
+        assert_eq!(
+            Buffer::from(&[0, 2, 5, 5, 6].to_byte_slice()),
+            list_array.data().buffers()[0].clone()
+        );
+
+        assert_eq!(6, list_array.values().data().len());
+        assert_eq!(1, list_array.values().data().null_count());
+        assert_eq!(
+            Buffer::from(&[0, 2, 4, 7, 7, 8, 10].to_byte_slice()),
+            list_array.values().data().buffers()[0].clone()
+        );
+
+        assert_eq!(10, list_array.values().data().child_data()[0].len());
+        assert_eq!(0, list_array.values().data().child_data()[0].null_count());
+        assert_eq!(
+            Buffer::from(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].to_byte_slice()),
+            list_array.values().data().child_data()[0].buffers()[0].clone()
+        );
     }
 }
