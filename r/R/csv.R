@@ -138,11 +138,9 @@ csv_table_reader.default <- function(file,
   read_options = csv_read_options(),
   parse_options = csv_parse_options(),
   convert_options = csv_convert_options(),
-  mmap = TRUE,
   ...
 ){
-  stream <- if (isTRUE(mmap)) mmap_open(file) else file_open(file)
-  csv_table_reader(stream,
+  csv_table_reader(file_open(file),
     read_options = read_options,
     parse_options = parse_options,
     convert_options = convert_options,
