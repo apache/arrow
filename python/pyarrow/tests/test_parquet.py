@@ -190,8 +190,7 @@ def test_no_memory_map(tempdir):
     _check_roundtrip(table, read_table_kwargs={'memory_map': False},
                      version='2.0')
 
-    filename = tempdir / 'tmp_file'
-
+    filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.0')
     table_read = pq.read_pandas(filename, memory_map=False)
