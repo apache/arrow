@@ -74,8 +74,16 @@ func (*Time64Type) BitWidth() int { return 64 }
 
 var (
 	FixedWidthTypes = struct {
-		Boolean FixedWidthDataType
+		Boolean  FixedWidthDataType
+		Time32s  FixedWidthDataType
+		Time32ms FixedWidthDataType
+		Time32µs FixedWidthDataType
+		Time32ns FixedWidthDataType
 	}{
-		Boolean: &BooleanType{},
+		Boolean:  &BooleanType{},
+		Time32s:  &Time32Type{Unit: Second},
+		Time32ms: &Time32Type{Unit: Millisecond},
+		Time32µs: &Time32Type{Unit: Microsecond},
+		Time32ns: &Time32Type{Unit: Nanosecond},
 	}
 )

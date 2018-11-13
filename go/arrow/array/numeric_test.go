@@ -134,3 +134,133 @@ func TestFloat64SliceDataWithNull(t *testing.T) {
 		t.Fatalf("got=%v, want=%v", got, want)
 	}
 }
+
+func TestNewTime32Data(t *testing.T) {
+	data := []arrow.Time32{
+		arrow.Time32(1),
+		arrow.Time32(2),
+		arrow.Time32(4),
+		arrow.Time32(8),
+		arrow.Time32(16),
+	}
+
+	dtype := arrow.FixedWidthTypes.Time32s
+	ad := array.NewData(dtype, len(data),
+		[]*memory.Buffer{nil, memory.NewBufferBytes(arrow.Time32Traits.CastToBytes(data))},
+		nil, 0, 0,
+	)
+	t32a := array.NewTime32Data(ad)
+
+	assert.Equal(t, len(data), t32a.Len(), "unexpected Len()")
+	assert.Equal(t, data, t32a.Time32Values(), "unexpected Float64Values()")
+}
+
+func TestTime32SliceData(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	const (
+		beg = 2
+		end = 4
+	)
+
+	var (
+		vs = []arrow.Time32{
+			arrow.Time32(1),
+			arrow.Time32(2),
+			arrow.Time32(4),
+			arrow.Time32(8),
+			arrow.Time32(16),
+		}
+		sub = vs[beg:end]
+	)
+
+	dtype := arrow.FixedWidthTypes.Time32s
+	b := array.NewTime32Builder(pool, dtype.(*arrow.Time32Type))
+	defer b.Release()
+
+	for _, v := range vs {
+		b.Append(v)
+	}
+
+	arr := b.NewArray().(*array.Time32)
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(vs); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.Time32Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	slice := array.NewSlice(arr, beg, end).(*array.Time32)
+	defer slice.Release()
+
+	if got, want := slice.Len(), len(sub); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Time32Values(), sub; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+}
+
+func TestTime32SliceDataWithNull(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	const (
+		beg = 2
+		end = 5
+	)
+
+	var (
+		valids = []bool{true, true, true, false, true, true}
+		vs     = []arrow.Time32{
+			arrow.Time32(1),
+			arrow.Time32(2),
+			arrow.Time32(3),
+			arrow.Time32(0),
+			arrow.Time32(4),
+			arrow.Time32(5),
+		}
+		sub = vs[beg:end]
+	)
+
+	dtype := arrow.FixedWidthTypes.Time32s
+	b := array.NewTime32Builder(pool, dtype.(*arrow.Time32Type))
+	defer b.Release()
+
+	b.AppendValues(vs, valids)
+
+	arr := b.NewArray().(*array.Time32)
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(valids); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.NullN(), 1; got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.Time32Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	slice := array.NewSlice(arr, beg, end).(*array.Time32)
+	defer slice.Release()
+
+	if got, want := slice.NullN(), 1; got != want {
+		t.Errorf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Len(), len(sub); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Time32Values(), sub; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+}
