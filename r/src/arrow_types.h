@@ -28,6 +28,7 @@
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
+#include <arrow/csv/reader.h>
 
 #define STOP_IF_NOT(TEST, MSG)  \
   do {                          \
