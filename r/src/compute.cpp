@@ -67,3 +67,21 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(
 
   return arrow::RecordBatch::Make(schema, batch->num_rows(), std::move(columns));
 }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Table> Table__cast(
+    const std::shared_ptr<arrow::Table>& table,
+    const std::shared_ptr<arrow::Schema>& schema,
+    const std::shared_ptr<arrow::compute::CastOptions>& options) {
+  auto nc = table->num_columns();
+
+  using ColumnVector = std::vector<std::shared_ptr<arrow::Column>>;
+  ColumnVector columns(nc);
+  for (int i = 0; i < nc; i++) {
+    columns[i] = std::make_shared<arrow::Column>(
+        table->column(i)->name(),
+        ChunkedArray__cast(table->column(i)->data(), schema->field(i)->type(), options));
+  }
+
+  return arrow::Table::Make(schema, std::move(columns), table->num_rows());
+}

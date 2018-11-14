@@ -189,6 +189,10 @@ RecordBatch__cast <- function(batch, schema, options) {
     .Call(`_arrow_RecordBatch__cast`, batch, schema, options)
 }
 
+Table__cast <- function(table, schema, options) {
+    .Call(`_arrow_Table__cast`, table, schema, options)
+}
+
 shared_ptr_is_null <- function(xp) {
     .Call(`_arrow_shared_ptr_is_null`, xp)
 }

@@ -545,6 +545,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Table__cast
+std::shared_ptr<arrow::Table> Table__cast(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::compute::CastOptions>& options);
+RcppExport SEXP _arrow_Table__cast(SEXP tableSEXP, SEXP schemaSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type schema(schemaSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::compute::CastOptions>& >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__cast(table, schema, options));
+    return rcpp_result_gen;
+END_RCPP
+}
 // shared_ptr_is_null
 bool shared_ptr_is_null(SEXP xp);
 RcppExport SEXP _arrow_shared_ptr_is_null(SEXP xpSEXP) {
@@ -2096,6 +2109,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array__cast", (DL_FUNC) &_arrow_Array__cast, 3},
     {"_arrow_ChunkedArray__cast", (DL_FUNC) &_arrow_ChunkedArray__cast, 3},
     {"_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3},
+    {"_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3},
     {"_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1},
     {"_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1},
     {"_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0},
