@@ -104,13 +104,13 @@ def test_filter():
 def test_in_expr():
     import pyarrow.gandiva as gandiva
 
-    df = pd.DataFrame({"a": ['ga', 'an', 'nd', 'di', 'iv', 'va']})
-    table = pa.Table.from_pandas(df)
+    arr = pa.array([u"ga", u"an", u"nd", u"di", u"iv", u"va"])    
+    table = pa.Table.from_arrays([arr], ["a"])
 
     # string
     builder = gandiva.TreeExprBuilder()
     node_a = builder.make_field(table.schema.field_by_name("a"))
-    cond = builder.make_in_expression(node_a, ['an', 'nd'], pa.string())
+    cond = builder.make_in_expression(node_a, [u"an", u"nd"], pa.string())
     condition = builder.make_condition(cond)
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
@@ -147,8 +147,8 @@ def test_in_expr_todo():
     # Evaluation expression for IN clause returns XXXX values are of typeXXXX
 
     # binary
-    arr = pa.array([b'ga', b'an', b'nd', b'di', b'iv', b'va'])
-    table = pa.Table.from_arrays([arr], ['a'])
+    arr = pa.array([b"ga", b"an", b"nd", b"di", b"iv", b"va"])
+    table = pa.Table.from_arrays([arr], ["a"])
 
     builder = gandiva.TreeExprBuilder()
     node_a = builder.make_field(table.schema.field_by_name("a"))
