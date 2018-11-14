@@ -181,6 +181,10 @@ Array__cast <- function(array, target_type, options) {
     .Call(`_arrow_Array__cast`, array, target_type, options)
 }
 
+ChunkedArray__cast <- function(chunked_array, target_type, options) {
+    .Call(`_arrow_ChunkedArray__cast`, chunked_array, target_type, options)
+}
+
 shared_ptr_is_null <- function(xp) {
     .Call(`_arrow_shared_ptr_is_null`, xp)
 }

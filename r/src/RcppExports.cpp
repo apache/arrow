@@ -519,6 +519,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ChunkedArray__cast
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, const std::shared_ptr<arrow::DataType>& target_type, const std::shared_ptr<arrow::compute::CastOptions>& options);
+RcppExport SEXP _arrow_ChunkedArray__cast(SEXP chunked_arraySEXP, SEXP target_typeSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type target_type(target_typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::compute::CastOptions>& >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__cast(chunked_array, target_type, options));
+    return rcpp_result_gen;
+END_RCPP
+}
 // shared_ptr_is_null
 bool shared_ptr_is_null(SEXP xp);
 RcppExport SEXP _arrow_shared_ptr_is_null(SEXP xpSEXP) {
@@ -2068,6 +2081,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Column__data", (DL_FUNC) &_arrow_Column__data, 1},
     {"_arrow_compute___CastOptions__initialize", (DL_FUNC) &_arrow_compute___CastOptions__initialize, 3},
     {"_arrow_Array__cast", (DL_FUNC) &_arrow_Array__cast, 3},
+    {"_arrow_ChunkedArray__cast", (DL_FUNC) &_arrow_ChunkedArray__cast, 3},
     {"_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1},
     {"_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1},
     {"_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0},
