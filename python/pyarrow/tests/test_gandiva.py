@@ -101,6 +101,34 @@ def test_filter():
 
 
 @pytest.mark.gandiva
+def test_in_expr():
+    import pyarrow.gandiva as gandiva
+
+    df = pd.DataFrame({"a": ['ga', 'an', 'nd', 'di', 'iv', 'va']})
+    table = pa.Table.from_pandas(df)
+
+    # binary
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [b'an', b'nd'], pa.binary())
+    condition = builder.make_condition(cond)
+
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [2, 3]
+    
+    # string
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, ['an', 'nd'], pa.string())
+    condition = builder.make_condition(cond)
+
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [2, 3]
+
+
+@pytest.mark.gandiva
 def test_boolean():
     import pyarrow.gandiva as gandiva
 

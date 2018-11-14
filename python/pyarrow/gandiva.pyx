@@ -284,13 +284,23 @@ cdef class TreeExprBuilder:
         r = TreeExprBuilder_MakeInExpressionInt64(node.node, c_values)
         return Node.create(r)
 
-    def _make_in_expression_str(self, Node node, values):
+    def _make_in_expression_binary(self, Node node, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[c_string] c_values
         cdef char* _v
         for v in values:
             _v = v
             c_values.insert(c_string(_v))
+        r = TreeExprBuilder_MakeInExpressionString(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_str(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[c_string] c_values
+        cdef c_string _v
+        for v in values:
+            _v = v.encode('UTF-8')
+            c_values.insert(_v)
         r = TreeExprBuilder_MakeInExpressionString(node.node, c_values)
         return Node.create(r)
 
@@ -301,7 +311,9 @@ cdef class TreeExprBuilder:
         elif (type.id == _Type_INT64 or type.id == _Type_DATE64 or
               type.id == _Type_TIMESTAMP):
             return self._make_in_expression_int64(node, values)
-        elif type.id == _Type_BINARY or type.id == _Type_STRING:
+        elif type.id == _Type_BINARY:
+            return self._make_in_expression_binary(node, values)
+        elif type.id == _Type_STRING:
             return self._make_in_expression_str(node, values)
         else:
             raise TypeError("Data type " + str(dtype) + " not supported.")
