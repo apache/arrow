@@ -115,7 +115,7 @@ def test_in_expr():
 
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
-    assert list(result.to_array()) == [2, 3]
+    assert list(result.to_array()) == [1, 2]
 
     # string
     builder = gandiva.TreeExprBuilder()
@@ -125,7 +125,7 @@ def test_in_expr():
 
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
-    assert list(result.to_array()) == [2, 3]
+    assert list(result.to_array()) == [1, 2]
 
 
 @pytest.mark.gandiva
