@@ -46,10 +46,24 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
     const std::shared_ptr<arrow::DataType>& target_type,
     const std::shared_ptr<arrow::compute::CastOptions>& options) {
-
   arrow::compute::Datum value(chunked_array);
   arrow::compute::Datum out;
   arrow::compute::FunctionContext context;
   STOP_IF_NOT_OK(arrow::compute::Cast(&context, value, target_type, *options, &out));
   return out.chunked_array();
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(
+    const std::shared_ptr<arrow::RecordBatch>& batch,
+    const std::shared_ptr<arrow::Schema>& schema,
+    const std::shared_ptr<arrow::compute::CastOptions>& options) {
+  auto nc = batch->num_columns();
+
+  arrow::ArrayVector columns(nc);
+  for (int i = 0; i < nc; i++) {
+    columns[i] = Array__cast(batch->column(i), schema->field(i)->type(), options);
+  }
+
+  return arrow::RecordBatch::Make(schema, batch->num_rows(), std::move(columns));
 }

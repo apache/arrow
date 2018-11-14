@@ -185,6 +185,10 @@ ChunkedArray__cast <- function(chunked_array, target_type, options) {
     .Call(`_arrow_ChunkedArray__cast`, chunked_array, target_type, options)
 }
 
+RecordBatch__cast <- function(batch, schema, options) {
+    .Call(`_arrow_RecordBatch__cast`, batch, schema, options)
+}
+
 shared_ptr_is_null <- function(xp) {
     .Call(`_arrow_shared_ptr_is_null`, xp)
 }
