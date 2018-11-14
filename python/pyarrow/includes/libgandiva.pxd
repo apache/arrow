@@ -140,15 +140,23 @@ cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
         "gandiva::TreeExprBuilder::MakeInExpressionInt32"(
             shared_ptr[CNode] node, const c_unordered_set[int32_t]& values)
 
-    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionTime \
-        "gandiva::TreeExprBuilder::MakeInExpressionTime"(
-            shared_ptr[CNode] node, const c_unordered_set[int32_t]& values)
-
     cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionInt64 \
         "gandiva::TreeExprBuilder::MakeInExpressionInt64"(
             shared_ptr[CNode] node, const c_unordered_set[int64_t]& values)
 
-    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionDate \
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionTime32 \
+        "gandiva::TreeExprBuilder::MakeInExpressionTime"(
+            shared_ptr[CNode] node, const c_unordered_set[int32_t]& values)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionTime64 \
+        "gandiva::TreeExprBuilder::MakeInExpressionTime"(
+            shared_ptr[CNode] node, const c_unordered_set[int64_t]& values)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionDate32 \
+        "gandiva::TreeExprBuilder::MakeInExpressionDate"(
+            shared_ptr[CNode] node, const c_unordered_set[int32_t]& values)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionDate64 \
         "gandiva::TreeExprBuilder::MakeInExpressionDate"(
             shared_ptr[CNode] node, const c_unordered_set[int64_t]& values)
 

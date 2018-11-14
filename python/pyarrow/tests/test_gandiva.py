@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import datetime
 import pytest
 
 import pyarrow as pa
@@ -158,6 +159,57 @@ def test_in_expr_todo():
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
     assert list(result.to_array()) == [1, 2]
+
+    # timestamp
+    datetime_1 = datetime.datetime.utcfromtimestamp(1542238951.621877)
+    datetime_2 = datetime.datetime.utcfromtimestamp(1542238911.621877)
+    datetime_3 = datetime.datetime.utcfromtimestamp(1542238051.621877)
+
+    arr = pa.array([datetime_1, datetime_2, datetime_3])
+    table = pa.Table.from_arrays([arr], ["a"])
+
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [datetime_2], pa.timestamp('ms'))
+    condition = builder.make_condition(cond)
+
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1]
+
+    # time
+    time_1 = datetime_1.time()
+    time_2 = datetime_2.time()
+    time_3 = datetime_3.time()
+
+    arr = pa.array([time_1, time_2, time_3])
+    table = pa.Table.from_arrays([arr], ["a"])
+
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [time_2], pa.time64('ms'))
+    condition = builder.make_condition(cond)
+
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1]
+
+    # date
+    date_1 = datetime_1.date()
+    date_2 = datetime_2.date()
+    date_3 = datetime_3.date()
+
+    arr = pa.array([date_1, date_2, date_3])
+    table = pa.Table.from_arrays([arr], ["a"])
+
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [date_2], pa.date32())
+    condition = builder.make_condition(cond)
+
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1]
 
 
 @pytest.mark.gandiva

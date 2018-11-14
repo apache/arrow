@@ -59,10 +59,13 @@ from pyarrow.includes.libgandiva cimport (
     TreeExprBuilder_MakeCondition,
     TreeExprBuilder_MakeInExpressionInt32,
     TreeExprBuilder_MakeInExpressionInt64,
-    TreeExprBuilder_MakeInExpressionString,
-    TreeExprBuilder_MakeInExpressionTime,
+    TreeExprBuilder_MakeInExpressionTime32,
+    TreeExprBuilder_MakeInExpressionTime64,
+    TreeExprBuilder_MakeInExpressionDate32,
+    TreeExprBuilder_MakeInExpressionDate64,
     TreeExprBuilder_MakeInExpressionTimeStamp,
-    TreeExprBuilder_MakeInExpressionDate,
+    TreeExprBuilder_MakeInExpressionString,
+    TreeExprBuilder_MakeInExpressionBinary,
     SelectionVector_MakeInt16,
     SelectionVector_MakeInt32,
     SelectionVector_MakeInt64,
@@ -291,7 +294,7 @@ cdef class TreeExprBuilder:
         cdef int32_t v
         for v in values:
             c_values.insert(v)
-        r = TreeExprBuilder_MakeInExpressionTime(node.node, c_values)
+        r = TreeExprBuilder_MakeInExpressionTime32(node.node, c_values)
         return Node.create(r)
 
     def _make_in_expression_time64(self, Node node, values):
@@ -300,8 +303,7 @@ cdef class TreeExprBuilder:
         cdef int64_t v
         for v in values:
             c_values.insert(v)
-        # We do not have TreeExprBuilder_MakeInExpressionTime64 in gandiva c++.
-        r = TreeExprBuilder_MakeInExpressionInt64(node.node, c_values)
+        r = TreeExprBuilder_MakeInExpressionTime64(node.node, c_values)
         return Node.create(r)
 
     def _make_in_expression_date32(self, Node node, values):
@@ -310,8 +312,7 @@ cdef class TreeExprBuilder:
         cdef int32_t v
         for v in values:
             c_values.insert(v)
-        # We do not have TreeExprBuilder_MakeInExpressionTime32 in gandiva c++.
-        r = TreeExprBuilder_MakeInExpressionInt32(node.node, c_values)
+        r = TreeExprBuilder_MakeInExpressionDate32(node.node, c_values)
         return Node.create(r)
 
     def _make_in_expression_date64(self, Node node, values):
@@ -320,7 +321,7 @@ cdef class TreeExprBuilder:
         cdef int64_t v
         for v in values:
             c_values.insert(v)
-        r = TreeExprBuilder_MakeInExpressionDate(node.node, c_values)
+        r = TreeExprBuilder_MakeInExpressionDate64(node.node, c_values)
         return Node.create(r)
 
     def _make_in_expression_timestamp(self, Node node, values):
