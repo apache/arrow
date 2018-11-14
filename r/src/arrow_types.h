@@ -35,7 +35,11 @@
   } while (0)
 
 #define STOP_IF_NOT_OK(s) STOP_IF_NOT(s.ok(), s.ToString())
-#define STOP_IF_NULL(buf) STOP_IF_NOT(buf, "invalid data")
+
+template <typename T>
+inline void STOP_IF_NULL(T* ptr) {
+  STOP_IF_NOT(ptr, "invalid data");
+}
 
 template <typename T>
 struct NoDelete {
