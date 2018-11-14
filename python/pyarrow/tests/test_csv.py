@@ -135,6 +135,8 @@ def test_convert_options():
     # Pass column_types as mapping
     opts.column_types = {'b': pa.int16(), 'c': pa.float32()}
     assert opts.column_types == {'b': pa.int16(), 'c': pa.float32()}
+    opts.column_types = {'v': 'int16', 'w': 'null'}
+    assert opts.column_types == {'v': pa.int16(), 'w': pa.null()}
     # Pass column_types as schema
     schema = pa.schema([('a', pa.int32()), ('b', pa.string())])
     opts.column_types = schema
@@ -144,7 +146,9 @@ def test_convert_options():
     assert opts.column_types == {'x': pa.binary()}
 
     with pytest.raises(TypeError, match='data type expected'):
-        opts.column_types = {'a': 'int16'}
+        opts.column_types = {'a': None}
+    with pytest.raises(TypeError):
+        opts.column_types = 0
 
     opts = cls(check_utf8=False, column_types={'a': pa.null()})
     assert opts.check_utf8 is False
@@ -218,18 +222,21 @@ class BaseTestCSVRead:
 
     def test_column_types(self):
         # Ask for specific column types in ConvertOptions
-        opts = ConvertOptions(column_types={'b': pa.float32(),
-                                            'c': pa.string(),
-                                            'd': pa.null()})
-        rows = b"a,b,c\n1,2,3\n4,-5,6\n"
+        opts = ConvertOptions(column_types={'b': 'float32',
+                                            'c': 'string',
+                                            'd': 'boolean',
+                                            'zz': 'null'})
+        rows = b"a,b,c,d\n1,2,3,true\n4,-5,6,false\n"
         table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.int64()),
                             ('b', pa.float32()),
-                            ('c', pa.string())])
+                            ('c', pa.string()),
+                            ('d', pa.bool_())])
         expected = {
             'a': [1, 4],
             'b': [2.0, -5.0],
             'c': ["3", "6"],
+            'd': [True, False],
             }
         assert table.schema == schema
         assert table.to_pydict() == expected
@@ -237,12 +244,13 @@ class BaseTestCSVRead:
         opts = ConvertOptions(
             column_types=pa.schema([('b', pa.float32()),
                                     ('c', pa.string()),
-                                    ('d', pa.null())]))
+                                    ('d', pa.bool_()),
+                                    ('zz', pa.bool_())]))
         table = self.read_bytes(rows, convert_options=opts)
         assert table.schema == schema
         assert table.to_pydict() == expected
         # One of the columns in column_types fails converting
-        rows = b"a,b,c\n1,XXX,3\n4,-5,6\n"
+        rows = b"a,b,c,d\n1,XXX,3,true\n4,-5,6,false\n"
         with pytest.raises(pa.ArrowInvalid) as exc:
             self.read_bytes(rows, convert_options=opts)
         err = str(exc.value)

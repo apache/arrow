@@ -22,7 +22,7 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (check_status, Field, MemoryPool,
+from pyarrow.lib cimport (check_status, Field, MemoryPool, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,
                           pyarrow_wrap_table, pyarrow_wrap_data_type,
                           pyarrow_unwrap_data_type)
@@ -302,9 +302,8 @@ cdef class ConvertOptions:
                 v = item.type
             else:
                 k, v = item
-            typ = pyarrow_unwrap_data_type(v)
-            if typ == NULL:
-                raise TypeError("data type expected, got '%r'" % (type(v),))
+            typ = pyarrow_unwrap_data_type(ensure_type(v))
+            assert typ != NULL
             self.options.column_types[tobytes(k)] = typ
 
 
