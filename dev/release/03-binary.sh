@@ -43,6 +43,7 @@ else
   docker_uid=$(id -u)
   docker_gid=$(id -g)
 fi
+chmod go-rwx ${SOURCE_DIR}/binary/id_rsa
 
 if [ -z "$artifact_dir" ]; then
   echo "artifact_dir is empty"
