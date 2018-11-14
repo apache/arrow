@@ -727,7 +727,7 @@ struct Converter_Promotion {
       std::fill_n(data.begin() + start, n, default_value<RTYPE>());
     } else {
       auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
-      STOP_IF_NULL(start);
+      STOP_IF_NULL(p_values);
 
       auto value_convert = [](value_type value) {
         return static_cast<r_stored_type>(value);
