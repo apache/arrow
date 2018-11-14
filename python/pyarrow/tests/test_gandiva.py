@@ -117,7 +117,7 @@ def test_in_expr():
     assert list(result.to_array()) == [1, 2]
 
     # int32
-    arr = pa.array([3, 1, 4, 1, 5, 9, 2 ,6, 5, 4])
+    arr = pa.array([3, 1, 4, 1, 5, 9, 2, 6, 5, 4])
     table = pa.Table.from_arrays([arr.cast(pa.int32())], ["a"])
     node_a = builder.make_field(table.schema.field_by_name("a"))
     cond = builder.make_in_expression(node_a, [1, 5], pa.int32())
@@ -127,7 +127,7 @@ def test_in_expr():
     assert list(result.to_array()) == [1, 3, 4, 8]
 
     # int64
-    arr = pa.array([3, 1, 4, 1, 5, 9, 2 ,6, 5, 4])
+    arr = pa.array([3, 1, 4, 1, 5, 9, 2, 6, 5, 4])
     table = pa.Table.from_arrays([arr], ["a"])
     node_a = builder.make_field(table.schema.field_by_name("a"))
     cond = builder.make_in_expression(node_a, [1, 5], pa.int64())
@@ -137,7 +137,8 @@ def test_in_expr():
     assert list(result.to_array()) == [1, 3, 4, 8]
 
 
-@pytest.mark.skip(reason="Gandiva C++ did not have *real* binary, time and date support.")
+@pytest.mark.skip(reason="Gandiva C++ did not have *real* binary, "
+                         "time and date support.")
 def test_in_expr_todo():
     import pyarrow.gandiva as gandiva
     # TODO: Implement reasonable support for timestamp, time & date.
