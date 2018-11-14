@@ -39,6 +39,7 @@
 #' create an arrow::Array from an R vector
 #'
 #' @param \dots Vectors to coerce
+#' @param type currently ignored
 #'
 #' @importFrom rlang list2
 #' @export

@@ -8,6 +8,8 @@ array(..., type)
 }
 \arguments{
 \item{\dots}{Vectors to coerce}
+
+\item{type}{currently ignored}
 }
 \description{
 create an arrow::Array from an R vector
