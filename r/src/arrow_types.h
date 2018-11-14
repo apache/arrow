@@ -23,6 +23,7 @@
 #include <arrow/api.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
+#include <arrow/ipc/feather.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
