@@ -34,6 +34,15 @@ gpg_key_id=$3
 artifact_dir=$4
 
 docker_image_name=apache-arrow/release-binary
+docker_gpg_ssh_port=10022
+gpg_agent_extra_socket="$(gpgconf --list-dirs agent-extra-socket)"
+if [ $(uname) = "Darwin" ]; then
+  docker_uid=10000
+  docker_gid=10000
+else
+  docker_uid=$(id -u)
+  docker_gid=$(id -g)
+fi
 
 if [ -z "$artifact_dir" ]; then
   echo "artifact_dir is empty"
@@ -58,38 +67,53 @@ fi
 : ${BINTRAY_REPOSITORY:=apache/arrow}
 
 docker_run() {
-  local uid=$(id -u)
-  local gid=$(id -g)
   docker \
     run \
     --rm \
     --tty \
     --interactive \
-    --user ${uid}:${gid} \
+    --user ${docker_uid}:${docker_gid} \
     --volume "$PWD":/host \
     ${docker_image_name} \
     bash -c "cd /host && $*"
 }
 
+docker_gpg_ssh() {
+  ssh \
+    -o StrictHostKeyChecking=no \
+    -i "${SOURCE_DIR}/binary/id_rsa" \
+    -p ${docker_gpg_ssh_port} \
+    -R "/home/arrow/.gnupg/S.gpg-agent:${gpg_agent_extra_socket}" \
+    arrow@127.0.0.1 \
+    "$@"
+}
+
 docker_run_gpg_ready() {
-  local gpg_agent_socket_dir="$(gpgconf --list-dir socketdir)"
-  local uid=$(id -u)
-  local gid=$(id -g)
-  local commands="groupadd --gid ${gid} ${USER}"
-  commands="${commands} && useradd --uid ${uid} --gid ${gid} ${USER}"
-  commands="${commands} && chown ${USER}: /run/user/${uid}"
-  commands="${commands} && cd /host"
-  commands="${commands} && sudo -u ${USER} -H $*"
+  local docker_container_id_file=/tmp/arrow-binary-gpg-container-id
+  if [ -f ${docker_container_id_file} ]; then
+    docker kill $(cat ${docker_container_id_file}) || :
+    rm -rf ${docker_container_id_file}
+  fi
   docker \
     run \
     --rm \
-    --tty \
-    --interactive \
+    --detach \
+    --cidfile ${docker_container_id_file} \
+    --publish ${docker_gpg_ssh_port}:22 \
     --volume "$PWD":/host \
-    --volume "${HOME}/.gnupg:/home/${USER}/.gnupg:ro" \
-    --volume "${gpg_agent_socket_dir}:/run/user/${uid}/gnupg:ro" \
     ${docker_image_name} \
-    bash -c "${commands}"
+    bash -c "
+if [ \$(id -u) -ne ${docker_uid} ]; then
+  usermod --uid ${docker_uid} arrow
+  chown -R arrow: ~arrow
+fi
+/usr/sbin/sshd -D
+"
+  sleep 1 # Wait for sshd available
+  gpg --export | docker_gpg_ssh gpg --import
+  docker_gpg_ssh "cd /host && $@"
+  docker kill $(cat ${docker_container_id_file})
+  rm -f ${docker_container_id_file}
 }
 
 jq() {

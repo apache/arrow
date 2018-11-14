@@ -30,7 +30,26 @@ RUN \
     devscripts \
     gpg \
     jq \
+    openssh-server \
     rpm \
     sudo && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /run/sshd
+RUN echo "StreamLocalBindUnlink yes" >> /etc/ssh/sshd_config
+
+ENV ARROW_USER arrow
+ENV ARROW_UID 10000
+
+RUN \
+  groupadd --gid ${ARROW_UID} ${ARROW_USER} && \
+  useradd --uid ${ARROW_UID} --gid ${ARROW_UID} --create-home ${ARROW_USER} && \
+  mkdir -p /home/arrow/.gnupg /home/arrow/.ssh && \
+  chown -R arrow: /home/arrow/.gnupg /home/arrow/.ssh && \
+  chmod -R og-rwx /home/arrow/.gnupg /home/arrow/.ssh
+
+COPY id_rsa.pub /home/arrow/.ssh/authorized_keys
+RUN \
+  chown -R arrow: /home/arrow/.ssh && \
+  chmod -R og-rwx /home/arrow/.ssh
