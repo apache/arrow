@@ -1358,6 +1358,7 @@ def union(children_fields, mode):
 cdef dict _type_aliases = {
     'null': null,
     'bool': bool_,
+    'boolean': bool_,
     'i1': int8,
     'int8': int8,
     'i2': int16,
@@ -1421,13 +1422,20 @@ def type_for_alias(name):
     return alias()
 
 
-def _as_type(type):
-    if isinstance(type, DataType):
-        return type
-    elif isinstance(type, six.string_types):
-        return type_for_alias(type)
+def _as_type(typ):
+    if isinstance(typ, DataType):
+        return typ
+    elif isinstance(typ, six.string_types):
+        return type_for_alias(typ)
     else:
-        raise TypeError(type)
+        raise TypeError("data type expected, got '%r'" % (type(typ),))
+
+
+cdef DataType ensure_type(object type, c_bool allow_none=False):
+    if allow_none and type is None:
+        return None
+    else:
+        return _as_type(type)
 
 
 def schema(fields, dict metadata=None):

@@ -19,6 +19,8 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -68,6 +70,16 @@ class TypedColumnBuilder : public ColumnBuilder {
   Status Finish(std::shared_ptr<ChunkedArray>* out) override;
 
  protected:
+  Status WrapConversionError(const Status& st) {
+    if (st.ok()) {
+      return st;
+    } else {
+      std::stringstream ss;
+      ss << "In column #" << col_index_ << ": " << st.message();
+      return Status(st.code(), ss.str());
+    }
+  }
+
   std::mutex mutex_;
 
   std::shared_ptr<DataType> type_;
@@ -99,7 +111,7 @@ void TypedColumnBuilder::Insert(int64_t block_index,
   // We're careful that all references in the closure outlive the Append() call
   task_group_->Append([=]() -> Status {
     std::shared_ptr<Array> res;
-    RETURN_NOT_OK(converter_->Convert(*parser, col_index_, &res));
+    RETURN_NOT_OK(WrapConversionError(converter_->Convert(*parser, col_index_, &res)));
 
     std::lock_guard<std::mutex> lock(mutex_);
     // Should not insert an already converted chunk

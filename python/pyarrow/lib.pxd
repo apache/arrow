@@ -386,7 +386,12 @@ cdef get_writer(object source, shared_ptr[OutputStream]* writer)
 
 cdef dict box_metadata(const CKeyValueMetadata* sp_metadata)
 
+# Default is allow_none=False
+cdef DataType ensure_type(object type, c_bool allow_none=*)
+
+#
 # Public Cython API for 3rd party code
+#
 
 cdef public object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array)
 # XXX pyarrow.h calls it `wrap_record_batch`

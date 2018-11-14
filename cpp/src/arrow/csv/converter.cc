@@ -334,12 +334,13 @@ Status NumericConverter<T>::Convert(const BlockParser& parser, int32_t col_index
 /////////////////////////////////////////////////////////////////////////
 // Base Converter class implementation
 
-Converter::Converter(const std::shared_ptr<DataType>& type, ConvertOptions options,
+Converter::Converter(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
                      MemoryPool* pool)
     : options_(options), pool_(pool), type_(type) {}
 
-Status Converter::Make(const std::shared_ptr<DataType>& type, ConvertOptions options,
-                       MemoryPool* pool, std::shared_ptr<Converter>* out) {
+Status Converter::Make(const std::shared_ptr<DataType>& type,
+                       const ConvertOptions& options, MemoryPool* pool,
+                       std::shared_ptr<Converter>* out) {
   Converter* result;
 
   switch (type->id()) {
@@ -383,8 +384,8 @@ Status Converter::Make(const std::shared_ptr<DataType>& type, ConvertOptions opt
   return result->Initialize();
 }
 
-Status Converter::Make(const std::shared_ptr<DataType>& type, ConvertOptions options,
-                       std::shared_ptr<Converter>* out) {
+Status Converter::Make(const std::shared_ptr<DataType>& type,
+                       const ConvertOptions& options, std::shared_ptr<Converter>* out) {
   return Make(type, options, default_memory_pool(), out);
 }
 
