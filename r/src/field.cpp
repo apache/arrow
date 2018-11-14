@@ -17,8 +17,6 @@
 
 #include "arrow_types.h"
 
-// [[Rcpp::plugins(cpp11)]]
-
 using namespace Rcpp;
 
 // [[Rcpp::export]]
