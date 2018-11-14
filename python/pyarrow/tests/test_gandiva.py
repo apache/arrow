@@ -104,7 +104,7 @@ def test_filter():
 def test_boolean():
     import pyarrow.gandiva as gandiva
 
-    df = pd.DataFrame({"a": [1., 31., 46., 3., 57., 44., 22.], 
+    df = pd.DataFrame({"a": [1., 31., 46., 3., 57., 44., 22.],
                        "b": [5., 45., 36., 73., 83., 23., 76.]})
     table = pa.Table.from_pandas(df)
 
@@ -115,7 +115,8 @@ def test_boolean():
     eleven = builder.make_literal(11.0, pa.float64())
 
     cond_1 = builder.make_function("less_than", [node_a, fifty], pa.bool_())
-    cond_2 = builder.make_function("greater_than", [node_a, node_b], pa.bool_())
+    cond_2 = builder.make_function("greater_than", [node_a, node_b],
+                                   pa.bool_())
     cond_3 = builder.make_function("less_than", [node_b, eleven], pa.bool_())
     cond = builder.make_or([builder.make_and([cond_1, cond_2]), cond_3])
     condition = builder.make_condition(cond)

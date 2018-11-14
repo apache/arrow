@@ -33,39 +33,40 @@ from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
                           Schema, check_status, pyarrow_wrap_array,
                           pyarrow_wrap_data_type)
 
-from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
-                                          CNode, CProjector, CFilter,
-                                          CSelectionVector,
-                                          TreeExprBuilder_MakeExpression,
-                                          TreeExprBuilder_MakeFunction,
-                                          TreeExprBuilder_MakeBoolLiteral,
-                                          TreeExprBuilder_MakeUInt8Literal,
-                                          TreeExprBuilder_MakeUInt16Literal,
-                                          TreeExprBuilder_MakeUInt32Literal,
-                                          TreeExprBuilder_MakeUInt64Literal,
-                                          TreeExprBuilder_MakeInt8Literal,
-                                          TreeExprBuilder_MakeInt16Literal,
-                                          TreeExprBuilder_MakeInt32Literal,
-                                          TreeExprBuilder_MakeInt64Literal,
-                                          TreeExprBuilder_MakeFloatLiteral,
-                                          TreeExprBuilder_MakeDoubleLiteral,
-                                          TreeExprBuilder_MakeStringLiteral,
-                                          TreeExprBuilder_MakeBinaryLiteral,
-                                          TreeExprBuilder_MakeField,
-                                          TreeExprBuilder_MakeIf,
-                                          TreeExprBuilder_MakeAnd,
-                                          TreeExprBuilder_MakeOr,
-                                          TreeExprBuilder_MakeCondition,
-                                          TreeExprBuilder_MakeInExpressionInt32,
-                                          TreeExprBuilder_MakeInExpressionInt64,
-                                          TreeExprBuilder_MakeInExpressionString,
-                                          SelectionVector_MakeInt16,
-                                          SelectionVector_MakeInt32,
-                                          SelectionVector_MakeInt64,
-                                          Projector_Make,
-                                          Filter_Make,
-                                          CFunctionSignature,
-                                          GetRegisteredFunctionSignatures)
+from pyarrow.includes.libgandiva cimport (
+    CCondition, CExpression,
+    CNode, CProjector, CFilter,
+    CSelectionVector,
+    TreeExprBuilder_MakeExpression,
+    TreeExprBuilder_MakeFunction,
+    TreeExprBuilder_MakeBoolLiteral,
+    TreeExprBuilder_MakeUInt8Literal,
+    TreeExprBuilder_MakeUInt16Literal,
+    TreeExprBuilder_MakeUInt32Literal,
+    TreeExprBuilder_MakeUInt64Literal,
+    TreeExprBuilder_MakeInt8Literal,
+    TreeExprBuilder_MakeInt16Literal,
+    TreeExprBuilder_MakeInt32Literal,
+    TreeExprBuilder_MakeInt64Literal,
+    TreeExprBuilder_MakeFloatLiteral,
+    TreeExprBuilder_MakeDoubleLiteral,
+    TreeExprBuilder_MakeStringLiteral,
+    TreeExprBuilder_MakeBinaryLiteral,
+    TreeExprBuilder_MakeField,
+    TreeExprBuilder_MakeIf,
+    TreeExprBuilder_MakeAnd,
+    TreeExprBuilder_MakeOr,
+    TreeExprBuilder_MakeCondition,
+    TreeExprBuilder_MakeInExpressionInt32,
+    TreeExprBuilder_MakeInExpressionInt64,
+    TreeExprBuilder_MakeInExpressionString,
+    SelectionVector_MakeInt16,
+    SelectionVector_MakeInt32,
+    SelectionVector_MakeInt64,
+    Projector_Make,
+    Filter_Make,
+    CFunctionSignature,
+    GetRegisteredFunctionSignatures)
 
 
 cdef class Node:
@@ -265,7 +266,7 @@ cdef class TreeExprBuilder:
 
     def _make_in_expression_int32(self, Node node, values):
         cdef shared_ptr[CNode] r
-        cdef c_unordered_set[int32_t] c_values;
+        cdef c_unordered_set[int32_t] c_values
         cdef int32_t _v
         for v in values:
             _v = v
@@ -275,7 +276,7 @@ cdef class TreeExprBuilder:
 
     def _make_in_expression_int64(self, Node node, values):
         cdef shared_ptr[CNode] r
-        cdef c_unordered_set[int64_t] c_values;
+        cdef c_unordered_set[int64_t] c_values
         cdef int64_t _v
         for v in values:
             _v = v
@@ -285,7 +286,7 @@ cdef class TreeExprBuilder:
 
     def _make_in_expression_str(self, Node node, values):
         cdef shared_ptr[CNode] r
-        cdef c_unordered_set[c_string] c_values;
+        cdef c_unordered_set[c_string] c_values
         cdef char* _v
         for v in values:
             _v = v
@@ -297,7 +298,8 @@ cdef class TreeExprBuilder:
         cdef DataType type = _as_type(dtype)
         if type.id == _Type_INT32 or type.id == _Type_TIME32:
             return self._make_in_expression_int32(node, values)
-        elif type.id == _Type_INT64 or type.id == _Type_DATE64 or type.id == _Type_TIMESTAMP:
+        elif (type.id == _Type_INT64 or type.id == _Type_DATE64 or
+              type.id == _Type_TIMESTAMP):
             return self._make_in_expression_int64(node, values)
         elif type.id == _Type_BINARY or type.id == _Type_STRING:
             return self._make_in_expression_str(node, values)
