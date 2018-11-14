@@ -43,7 +43,7 @@ else
   docker_uid=$(id -u)
   docker_gid=$(id -g)
 fi
-chmod go-rwx ${SOURCE_DIR}/binary/id_rsa
+docker_ssh_key="${SOURCE_DIR}/binary/id_rsa"
 
 if [ -z "$artifact_dir" ]; then
   echo "artifact_dir is empty"
@@ -82,7 +82,7 @@ docker_run() {
 docker_gpg_ssh() {
   ssh \
     -o StrictHostKeyChecking=no \
-    -i "${SOURCE_DIR}/binary/id_rsa" \
+    -i "${docker_ssh_key}" \
     -p ${docker_gpg_ssh_port} \
     -R "/home/arrow/.gnupg/S.gpg-agent:${gpg_agent_extra_socket}" \
     arrow@127.0.0.1 \
@@ -465,6 +465,8 @@ upload_python() {
 }
 
 docker build -t ${docker_image_name} ${SOURCE_DIR}/binary
+
+chmod go-rwx "${docker_ssh_key}"
 
 have_debian=no
 have_ubuntu=no
