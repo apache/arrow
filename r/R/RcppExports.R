@@ -173,6 +173,14 @@ Column__data <- function(column) {
     .Call(`_arrow_Column__data`, column)
 }
 
+compute___CastOptions__initialize <- function(allow_int_overflow, allow_time_truncate, allow_float_truncate) {
+    .Call(`_arrow_compute___CastOptions__initialize`, allow_int_overflow, allow_time_truncate, allow_float_truncate)
+}
+
+Array__cast <- function(array, target_type, options) {
+    .Call(`_arrow_Array__cast`, array, target_type, options)
+}
+
 shared_ptr_is_null <- function(xp) {
     .Call(`_arrow_shared_ptr_is_null`, xp)
 }

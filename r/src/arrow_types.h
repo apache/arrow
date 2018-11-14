@@ -21,6 +21,7 @@
 
 #undef Free
 #include <arrow/api.h>
+#include <arrow/compute/api.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/feather.h>

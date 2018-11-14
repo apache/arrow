@@ -493,6 +493,32 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// compute___CastOptions__initialize
+std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate);
+RcppExport SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflowSEXP, SEXP allow_time_truncateSEXP, SEXP allow_float_truncateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< bool >::type allow_int_overflow(allow_int_overflowSEXP);
+    Rcpp::traits::input_parameter< bool >::type allow_time_truncate(allow_time_truncateSEXP);
+    Rcpp::traits::input_parameter< bool >::type allow_float_truncate(allow_float_truncateSEXP);
+    rcpp_result_gen = Rcpp::wrap(compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__cast
+std::shared_ptr<arrow::Array> Array__cast(const std::shared_ptr<arrow::Array>& array, const std::shared_ptr<arrow::DataType>& target_type, const std::shared_ptr<arrow::compute::CastOptions>& options);
+RcppExport SEXP _arrow_Array__cast(SEXP arraySEXP, SEXP target_typeSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type target_type(target_typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::compute::CastOptions>& >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__cast(array, target_type, options));
+    return rcpp_result_gen;
+END_RCPP
+}
 // shared_ptr_is_null
 bool shared_ptr_is_null(SEXP xp);
 RcppExport SEXP _arrow_shared_ptr_is_null(SEXP xpSEXP) {
@@ -2029,6 +2055,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1},
     {"_arrow_Column__type", (DL_FUNC) &_arrow_Column__type, 1},
     {"_arrow_Column__data", (DL_FUNC) &_arrow_Column__data, 1},
+    {"_arrow_compute___CastOptions__initialize", (DL_FUNC) &_arrow_compute___CastOptions__initialize, 3},
+    {"_arrow_Array__cast", (DL_FUNC) &_arrow_Array__cast, 3},
     {"_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1},
     {"_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1},
     {"_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0},
