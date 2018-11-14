@@ -138,7 +138,8 @@ test_that("ChunkedArray supports dates (ARROW-3716)", {
 test_that("ChunkedArray supports POSIXct (ARROW-3716)", {
   times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
   a <- chunked_array(times, times)
-  expect_equal(a$type(), date64())
+  expect_equal(a$type()$name(), "timestamp")
+  expect_equal(a$type()$unit(), unclass(TimeUnit$MICRO))
   expect_equal(a$length(), 20L)
   expect_equal(as.numeric(a$as_vector()), as.numeric(c(times, times)))
 })
