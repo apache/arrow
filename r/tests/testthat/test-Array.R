@@ -278,3 +278,8 @@ test_that("support for NaN (ARROW-3615)", {
   expect_true(y$IsValid(2))
   expect_equal(y$null_count(), 1L)
 })
+
+test_that("can create array of floats (ARROW-3784)", {
+  y <- array(1:10, type=float32())
+  expect_equal(y$length(), 10L)
+})
