@@ -230,13 +230,15 @@ test_that("array supports Date (ARROW-3340)", {
 test_that("array supports POSIXct (ARROW-3340)", {
   times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
   a <- array(times)
-  expect_equal(a$type(), date64())
+  expect_equal(a$type()$name(), "timestamp")
+  expect_equal(a$type()$unit(), unclass(TimeUnit$MICRO))
   expect_equal(a$length(), 10L)
   expect_equal(as.numeric(a$as_vector()), as.numeric(times))
 
   times[5] <- NA
   a <- array(times)
-  expect_equal(a$type(), date32())
+  expect_equal(a$type()$name(), "timestamp")
+  expect_equal(a$type()$unit(), unclass(TimeUnit$MICRO))
   expect_equal(a$length(), 10L)
   expect_equal(as.numeric(a$as_vector()), as.numeric(times))
   expect_true(a$IsNull(4))
