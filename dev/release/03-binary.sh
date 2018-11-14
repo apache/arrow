@@ -110,7 +110,7 @@ fi
 /usr/sbin/sshd -D
 "
   sleep 1 # Wait for sshd available
-  gpg --export | docker_gpg_ssh gpg --import
+  gpg --export ${gpg_key_id} | docker_gpg_ssh gpg --import
   docker_gpg_ssh "cd /host && $@"
   docker kill $(cat ${docker_container_id_file})
   rm -f ${docker_container_id_file}
