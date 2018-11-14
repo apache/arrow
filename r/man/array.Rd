@@ -4,7 +4,7 @@
 \alias{array}
 \title{create an arrow::Array from an R vector}
 \usage{
-array(...)
+array(..., type)
 }
 \arguments{
 \item{\dots}{Vectors to coerce}

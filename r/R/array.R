@@ -64,8 +64,12 @@
 #'
 #' @param \dots Vectors to coerce
 #'
+#' @importFrom rlang warn
 #' @export
-array <- function(...){
+array <- function(..., type){
+  if (!missing(type)) {
+    warn("The `type` argument is currently ignored")
+  }
   `arrow::Array`$dispatch(Array__from_vector(vctrs::vec_c(...)))
 }
 

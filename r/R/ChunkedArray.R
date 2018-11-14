@@ -40,7 +40,11 @@
 #'
 #' @param \dots Vectors to coerce
 #'
+#' @importFrom rlang list2
 #' @export
-chunked_array <- function(...){
-  shared_ptr(`arrow::ChunkedArray`, ChunkedArray__from_list(rlang::list2(...)))
+chunked_array <- function(..., type){
+  if (!missing(type)) {
+    warn("The `type` argument is currently ignored")
+  }
+  shared_ptr(`arrow::ChunkedArray`, ChunkedArray__from_list(list2(...)))
 }

@@ -280,3 +280,9 @@ test_that("support for NaN (ARROW-3615)", {
   expect_true(y$IsValid(2))
   expect_equal(y$null_count(), 1L)
 })
+
+test_that("array ignores the type argument (ARROW-3784)", {
+  a <- expect_warning(array(1:10, type = int16()))
+  b <- array(1:10)
+  expect_equal(a, b)
+})
