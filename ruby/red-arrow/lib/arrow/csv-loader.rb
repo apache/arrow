@@ -60,11 +60,68 @@ module Arrow
     end
 
     def read_csv(csv)
-      reader = CSVReader.new(csv)
-      reader.read
+      values_set = []
+      csv.each do |row|
+        if row.is_a?(CSV::Row)
+          row = row.collect(&:last)
+        end
+        row.each_with_index do |value, i|
+          values = (values_set[i] ||= [])
+          values << value
+        end
+      end
+      return nil if values_set.empty?
+
+      arrays = values_set.collect.with_index do |values, i|
+        ArrayBuilder.build(values)
+      end
+      if csv.headers
+        names = csv.headers
+      else
+        names = arrays.size.times.collect(&:to_s)
+      end
+      raw_table = {}
+      names.each_with_index do |name, i|
+        raw_table[name] = arrays[i]
+      end
+      Table.new(raw_table)
+    end
+
+    def reader_options
+      return nil unless @options.key?(:use_threads)
+
+      options = CSVReadOptions.new
+      @options.each do |key, value|
+        case key
+        when :headers
+          if value
+            options.n_header_rows = 1
+          else
+            options.n_header_rows = 0
+          end
+        else
+          setter = "#{key}="
+          if options.respond_to?(setter)
+            options.__send__(setter, value)
+          else
+            return nil
+          end
+        end
+      end
+      options
     end
 
     def load_from_path(path)
+      options = reader_options
+      if options
+        begin
+          MemoryMappedInputStream.open(path.to_s) do |input|
+            return CSVReader.new(input, options).read
+          end
+        rescue Arrow::Error::Invalid
+        end
+      end
+
       options = update_csv_parse_options(@options, :open_csv, path)
       open_csv(path, **options) do |csv|
         read_csv(csv)
@@ -72,6 +129,16 @@ module Arrow
     end
 
     def load_data(data)
+      options = reader_options
+      if options
+        begin
+          BufferInputStream.open(Buffer.new(data)) do |input|
+            return CSVReader.new(input, options).read
+          end
+        rescue Arrow::Error::Invalid
+        end
+      end
+
       options = update_csv_parse_options(@options, :parse_csv_data, data)
       parse_csv_data(data, **options) do |csv|
         read_csv(csv)
