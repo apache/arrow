@@ -264,3 +264,133 @@ func TestTime32SliceDataWithNull(t *testing.T) {
 		t.Fatalf("got=%v, want=%v", got, want)
 	}
 }
+
+func TestNewTime64Data(t *testing.T) {
+	data := []arrow.Time64{
+		arrow.Time64(1),
+		arrow.Time64(2),
+		arrow.Time64(4),
+		arrow.Time64(8),
+		arrow.Time64(16),
+	}
+
+	dtype := arrow.FixedWidthTypes.Time64µs
+	ad := array.NewData(dtype, len(data),
+		[]*memory.Buffer{nil, memory.NewBufferBytes(arrow.Time64Traits.CastToBytes(data))},
+		nil, 0, 0,
+	)
+	t64a := array.NewTime64Data(ad)
+
+	assert.Equal(t, len(data), t64a.Len(), "unexpected Len()")
+	assert.Equal(t, data, t64a.Time64Values(), "unexpected Float64Values()")
+}
+
+func TestTime64SliceData(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	const (
+		beg = 2
+		end = 4
+	)
+
+	var (
+		vs = []arrow.Time64{
+			arrow.Time64(1),
+			arrow.Time64(2),
+			arrow.Time64(4),
+			arrow.Time64(8),
+			arrow.Time64(16),
+		}
+		sub = vs[beg:end]
+	)
+
+	dtype := arrow.FixedWidthTypes.Time64µs
+	b := array.NewTime64Builder(pool, dtype.(*arrow.Time64Type))
+	defer b.Release()
+
+	for _, v := range vs {
+		b.Append(v)
+	}
+
+	arr := b.NewArray().(*array.Time64)
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(vs); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.Time64Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	slice := array.NewSlice(arr, beg, end).(*array.Time64)
+	defer slice.Release()
+
+	if got, want := slice.Len(), len(sub); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Time64Values(), sub; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+}
+
+func TestTime64SliceDataWithNull(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	const (
+		beg = 2
+		end = 5
+	)
+
+	var (
+		valids = []bool{true, true, true, false, true, true}
+		vs     = []arrow.Time64{
+			arrow.Time64(1),
+			arrow.Time64(2),
+			arrow.Time64(3),
+			arrow.Time64(0),
+			arrow.Time64(4),
+			arrow.Time64(5),
+		}
+		sub = vs[beg:end]
+	)
+
+	dtype := arrow.FixedWidthTypes.Time64µs
+	b := array.NewTime64Builder(pool, dtype.(*arrow.Time64Type))
+	defer b.Release()
+
+	b.AppendValues(vs, valids)
+
+	arr := b.NewArray().(*array.Time64)
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(valids); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.NullN(), 1; got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.Time64Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	slice := array.NewSlice(arr, beg, end).(*array.Time64)
+	defer slice.Release()
+
+	if got, want := slice.NullN(), 1; got != want {
+		t.Errorf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Len(), len(sub); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Time64Values(), sub; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+}
