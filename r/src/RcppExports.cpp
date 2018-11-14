@@ -493,6 +493,41 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// util___Codec__Create
+std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec);
+RcppExport SEXP _arrow_util___Codec__Create(SEXP codecSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arrow::Compression::type >::type codec(codecSEXP);
+    rcpp_result_gen = Rcpp::wrap(util___Codec__Create(codec));
+    return rcpp_result_gen;
+END_RCPP
+}
+// io___CompressedOutputStream__Make
+std::shared_ptr<arrow::io::CompressedOutputStream> io___CompressedOutputStream__Make(const std::unique_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::OutputStream>& raw);
+RcppExport SEXP _arrow_io___CompressedOutputStream__Make(SEXP codecSEXP, SEXP rawSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::util::Codec>& >::type codec(codecSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::OutputStream>& >::type raw(rawSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___CompressedOutputStream__Make(codec, raw));
+    return rcpp_result_gen;
+END_RCPP
+}
+// io___CompressedInputStream__Make
+std::shared_ptr<arrow::io::CompressedInputStream> io___CompressedInputStream__Make(const std::unique_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::InputStream>& raw);
+RcppExport SEXP _arrow_io___CompressedInputStream__Make(SEXP codecSEXP, SEXP rawSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::util::Codec>& >::type codec(codecSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::InputStream>& >::type raw(rawSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___CompressedInputStream__Make(codec, raw));
+    return rcpp_result_gen;
+END_RCPP
+}
 // compute___CastOptions__initialize
 std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate);
 RcppExport SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflowSEXP, SEXP allow_time_truncateSEXP, SEXP allow_float_truncateSEXP) {
@@ -2264,6 +2299,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1},
     {"_arrow_Column__type", (DL_FUNC) &_arrow_Column__type, 1},
     {"_arrow_Column__data", (DL_FUNC) &_arrow_Column__data, 1},
+    {"_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 1},
+    {"_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2},
+    {"_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2},
     {"_arrow_compute___CastOptions__initialize", (DL_FUNC) &_arrow_compute___CastOptions__initialize, 3},
     {"_arrow_Array__cast", (DL_FUNC) &_arrow_Array__cast, 3},
     {"_arrow_ChunkedArray__cast", (DL_FUNC) &_arrow_ChunkedArray__cast, 3},

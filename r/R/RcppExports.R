@@ -173,6 +173,18 @@ Column__data <- function(column) {
     .Call(`_arrow_Column__data`, column)
 }
 
+util___Codec__Create <- function(codec) {
+    .Call(`_arrow_util___Codec__Create`, codec)
+}
+
+io___CompressedOutputStream__Make <- function(codec, raw) {
+    .Call(`_arrow_io___CompressedOutputStream__Make`, codec, raw)
+}
+
+io___CompressedInputStream__Make <- function(codec, raw) {
+    .Call(`_arrow_io___CompressedInputStream__Make`, codec, raw)
+}
+
 compute___CastOptions__initialize <- function(allow_int_overflow, allow_time_truncate, allow_float_truncate) {
     .Call(`_arrow_compute___CastOptions__initialize`, allow_int_overflow, allow_time_truncate, allow_float_truncate)
 }
