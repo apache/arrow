@@ -1499,15 +1499,17 @@ TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
   vector<uint8_t> is_null = {0, 0, 0, 1, 0};
 
   int N = static_cast<int>(strings.size());
-  int reps = 10;
+  int reps = 13;
+  int total_length = 0;
+  for (auto &&s : strings) total_length += s.size();
 
-  ASSERT_OK(builder_->Reserve(5));
-  ASSERT_OK(builder_->ReserveData(6));
+  ASSERT_OK(builder_->Reserve(N * reps));
+  ASSERT_OK(builder_->ReserveData(total_length * reps));
 
   for (int j = 0; j < reps; ++j) {
     for (int i = 0; i < N; ++i) {
       if (is_null[i]) {
-        ASSERT_OK(builder_->AppendNull());
+        ASSERT_OK(builder_->UnsafeAppendNull());
       } else {
         builder_->UnsafeAppend(strings[i]);
       }
@@ -1517,7 +1519,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
   ASSERT_OK(ValidateArray(*result_));
   ASSERT_EQ(reps * N, result_->length());
   ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 6, result_->value_data()->size());
+  ASSERT_EQ(reps * total_length, result_->value_data()->size());
 
   int32_t length;
   for (int i = 0; i < N * reps; ++i) {
