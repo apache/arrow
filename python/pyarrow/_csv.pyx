@@ -22,11 +22,14 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (check_status, MemoryPool, maybe_unbox_memory_pool,
+from pyarrow.lib cimport (check_status, Field, MemoryPool,
+                          maybe_unbox_memory_pool, get_input_stream,
                           pyarrow_wrap_table, pyarrow_wrap_data_type,
-                          pyarrow_unwrap_data_type, get_input_stream)
+                          pyarrow_unwrap_data_type)
 
 from pyarrow.compat import frombytes, tobytes
+
+from collections import Mapping
 
 
 cdef unsigned char _single_char(s) except 0:
@@ -289,8 +292,16 @@ cdef class ConvertOptions:
         cdef:
             shared_ptr[CDataType] typ
 
+        if isinstance(value, Mapping):
+            value = value.items()
+
         self.options.column_types.clear()
-        for k, v in value.items():
+        for item in value:
+            if isinstance(item, Field):
+                k = item.name
+                v = item.type
+            else:
+                k, v = item
             typ = pyarrow_unwrap_data_type(v)
             if typ == NULL:
                 raise TypeError("data type expected, got '%r'" % (type(v),))
