@@ -40,9 +40,16 @@ RUN apt update && \
     apt install -y \
         libgit2-dev \
         libssl-dev && \
+    # install clang to mirror what was done on Travis
+    apt install -y\
+        clang \
+        clang-format \
+        clang-tidy && \
     # Install vctrs from Github
     Rscript -e "install.packages('devtools', repos = 'http://cran.rstudio.com')" && \
-    Rscript -e "devtools::install_github('r-lib/vctrs')" && \
+    Rscript -e "devtools::install_github('romainfrancois/vctrs@bit64')" && \
+    Rscript -e "devtools::install_github('r-lib/withr')" && \
+    Rscript -e "devtools::install_github('RcppCore/Rcpp')" && \
     # R is not good at picking up dependencies and installing them automatically
     Rscript -e "install.packages(c( \
         'Rcpp', \
@@ -52,12 +59,17 @@ RUN apt update && \
         'tibble', \
         'crayon', \
         'testthat', \
-        'bit64'), \
+        'bit64', \
+        'hms', \
+        'lubridate'), \
         repos = 'http://cran.rstudio.com')"
 
 # Tell R where it can find the source code for arrow
 ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/build/cpp/src/arrow
 ENV LD_LIBRARY_PATH=/opt/conda/lib/:/build/cpp/src/arrow:/arrow/r/src
+env CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
+
+#export BUILD_DIR=/build/cpp-install
 
 # build, install, test R package
 CMD /arrow/ci/docker_build_cpp.sh && \

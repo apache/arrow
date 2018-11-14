@@ -28,6 +28,7 @@ export PKG_CXXFLAGS=$CXXFLAGS
 # Build arrow
 pushd /arrow/r
 
+rm src/RcppExports*
 Rscript -e "Rcpp::compileAttributes()"
 R CMD build --keep-empty-dirs .
 R CMD INSTALL $(ls | grep arrow_*.tar.gz)
