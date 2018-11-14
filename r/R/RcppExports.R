@@ -325,6 +325,10 @@ Schema__field <- function(s, i) {
     .Call(`_arrow_Schema__field`, s, i)
 }
 
+Schema__names <- function(schema) {
+    .Call(`_arrow_Schema__names`, schema)
+}
+
 ListType__ToString <- function(type) {
     .Call(`_arrow_ListType__ToString`, type)
 }

@@ -903,6 +903,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Schema__names
+CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_Schema__names(SEXP schemaSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type schema(schemaSEXP);
+    rcpp_result_gen = Rcpp::wrap(Schema__names(schema));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ListType__ToString
 std::string ListType__ToString(const std::shared_ptr<arrow::ListType>& type);
 RcppExport SEXP _arrow_ListType__ToString(SEXP typeSEXP) {
@@ -2093,6 +2104,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1},
     {"_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1},
     {"_arrow_Schema__field", (DL_FUNC) &_arrow_Schema__field, 2},
+    {"_arrow_Schema__names", (DL_FUNC) &_arrow_Schema__names, 1},
     {"_arrow_ListType__ToString", (DL_FUNC) &_arrow_ListType__ToString, 1},
     {"_arrow_FixedWidthType__bit_width", (DL_FUNC) &_arrow_FixedWidthType__bit_width, 1},
     {"_arrow_DateType__unit", (DL_FUNC) &_arrow_DateType__unit, 1},
