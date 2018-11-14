@@ -17,6 +17,7 @@
 
 import os
 import posixpath
+import sys
 
 from pyarrow.util import implements
 from pyarrow.filesystem import FileSystem
@@ -122,25 +123,38 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
 
 def _maybe_set_hadoop_classpath():
-    import subprocess
-
     if 'hadoop' in os.environ.get('CLASSPATH', ''):
         return
 
     if 'HADOOP_HOME' in os.environ:
-        find_args = ('find', os.environ['HADOOP_HOME'], '-name', '*.jar')
-        find = subprocess.Popen(find_args, stdout=subprocess.PIPE)
-        xargs_echo = subprocess.Popen(('xargs', 'echo'),
-                                      stdin=find.stdout,
-                                      stdout=subprocess.PIPE)
-        classpath = subprocess.check_output(('tr', "' '", "':'"),
-                                            stdin=xargs_echo.stdout)
+        if sys.platform != 'win32':
+            classpath = _derive_hadoop_classpath()
+        else:
+            hadoop_bin = '{0}/bin/hadoop'.format(os.environ['HADOOP_HOME'])
+            classpath = _hadoop_classpath_glob(hadoop_bin)
     else:
-        hadoop_bin = 'hadoop'
-        hadoop_classpath_args = (hadoop_bin, 'classpath', '--glob')
-        classpath = subprocess.check_output(hadoop_classpath_args)
+        classpath = _hadoop_classpath_glob('hadoop')
 
     os.environ['CLASSPATH'] = classpath.decode('utf-8')
+
+
+def _derive_hadoop_classpath():
+    import subprocess
+
+    find_args = ('find', os.environ['HADOOP_HOME'], '-name', '*.jar')
+    find = subprocess.Popen(find_args, stdout=subprocess.PIPE)
+    xargs_echo = subprocess.Popen(('xargs', 'echo'),
+                                  stdin=find.stdout,
+                                  stdout=subprocess.PIPE)
+    return subprocess.check_output(('tr', "' '", "':'"),
+                                   stdin=xargs_echo.stdout)
+
+
+def _hadoop_classpath_glob(hadoop_bin):
+    import subprocess
+
+    hadoop_classpath_args = (hadoop_bin, 'classpath', '--glob')
+    return subprocess.check_output(hadoop_classpath_args)
 
 
 def _libhdfs_walk_files_dirs(top_path, contents):
