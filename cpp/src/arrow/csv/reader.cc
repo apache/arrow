@@ -156,15 +156,21 @@ class BaseTableReader : public csv::TableReader {
 
     for (int32_t col_index = 0; col_index < num_cols_; ++col_index) {
       auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        if (names_.size() <= static_cast<uint32_t>(col_index)) {
-          names_.emplace_back(reinterpret_cast<const char*>(data), size);
-        }
+        DCHECK_EQ(column_names_.size(), static_cast<uint32_t>(col_index));
+        column_names_.emplace_back(reinterpret_cast<const char*>(data), size);
         return Status::OK();
       };
       RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
       std::shared_ptr<ColumnBuilder> builder;
-      RETURN_NOT_OK(
-          ColumnBuilder::Make(col_index, convert_options_, task_group_, &builder));
+      // Does the named column have a fixed type?
+      auto it = convert_options_.column_types.find(column_names_[col_index]);
+      if (it == convert_options_.column_types.end()) {
+        RETURN_NOT_OK(
+            ColumnBuilder::Make(col_index, convert_options_, task_group_, &builder));
+      } else {
+        RETURN_NOT_OK(ColumnBuilder::Make(it->second, col_index, convert_options_,
+                                          task_group_, &builder));
+      }
       column_builders_.push_back(builder);
     }
 
@@ -184,7 +190,7 @@ class BaseTableReader : public csv::TableReader {
 
   Status MakeTable(std::shared_ptr<Table>* out) {
     DCHECK_GT(num_cols_, 0);
-    DCHECK_EQ(names_.size(), static_cast<uint32_t>(num_cols_));
+    DCHECK_EQ(column_names_.size(), static_cast<uint32_t>(num_cols_));
     DCHECK_EQ(column_builders_.size(), static_cast<uint32_t>(num_cols_));
 
     std::vector<std::shared_ptr<Field>> fields;
@@ -193,7 +199,7 @@ class BaseTableReader : public csv::TableReader {
     for (int32_t i = 0; i < num_cols_; ++i) {
       std::shared_ptr<ChunkedArray> array;
       RETURN_NOT_OK(column_builders_[i]->Finish(&array));
-      columns.push_back(std::make_shared<Column>(names_[i], array));
+      columns.push_back(std::make_shared<Column>(column_names_[i], array));
       fields.push_back(columns.back()->field());
     }
     *out = Table::Make(schema(fields), columns);
@@ -207,7 +213,8 @@ class BaseTableReader : public csv::TableReader {
 
   int32_t num_cols_ = -1;
   std::shared_ptr<ReadaheadSpooler> readahead_;
-  std::vector<std::string> names_;
+  // Column names
+  std::vector<std::string> column_names_;
   std::shared_ptr<internal::TaskGroup> task_group_;
   std::vector<std::shared_ptr<ColumnBuilder>> column_builders_;
 
