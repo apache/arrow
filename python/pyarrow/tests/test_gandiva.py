@@ -104,7 +104,7 @@ def test_filter():
 def test_in_expr():
     import pyarrow.gandiva as gandiva
 
-    arr = pa.array([u"ga", u"an", u"nd", u"di", u"iv", u"va"])    
+    arr = pa.array([u"ga", u"an", u"nd", u"di", u"iv", u"va"])
     table = pa.Table.from_arrays([arr], ["a"])
 
     # string
