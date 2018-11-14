@@ -116,7 +116,7 @@ def test_in_expr():
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
     assert list(result.to_array()) == [2, 3]
-    
+
     # string
     builder = gandiva.TreeExprBuilder()
     node_a = builder.make_field(table.schema.field_by_name("a"))
