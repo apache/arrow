@@ -101,6 +101,31 @@ def test_filter():
 
 
 @pytest.mark.gandiva
+def test_boolean():
+    import pyarrow.gandiva as gandiva
+
+    df = pd.DataFrame({"a": [1., 31., 46., 3., 57., 44., 22.], 
+                       "b": [5., 45., 36., 73., 83., 23., 76.]})
+    table = pa.Table.from_pandas(df)
+
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    node_b = builder.make_field(table.schema.field_by_name("b"))
+    fifty = builder.make_literal(50.0, pa.float64())
+    eleven = builder.make_literal(11.0, pa.float64())
+
+    cond_1 = builder.make_function("less_than", [node_a, fifty], pa.bool_())
+    cond_2 = builder.make_function("greater_than", [node_a, node_b], pa.bool_())
+    cond_3 = builder.make_function("less_than", [node_b, eleven], pa.bool_())
+    cond = builder.make_or([builder.make_and([cond_1, cond_2]), cond_3])
+    condition = builder.make_condition(cond)
+
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [0, 2, 5]
+
+
+@pytest.mark.gandiva
 def test_literals():
     import pyarrow.gandiva as gandiva
 
