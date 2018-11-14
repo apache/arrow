@@ -107,20 +107,51 @@ def test_in_expr():
     df = pd.DataFrame({"a": ['ga', 'an', 'nd', 'di', 'iv', 'va']})
     table = pa.Table.from_pandas(df)
 
-    # binary
-    builder = gandiva.TreeExprBuilder()
-    node_a = builder.make_field(table.schema.field_by_name("a"))
-    cond = builder.make_in_expression(node_a, [b'an', b'nd'], pa.binary())
-    condition = builder.make_condition(cond)
-
-    filter = gandiva.make_filter(table.schema, condition)
-    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
-    assert list(result.to_array()) == [1, 2]
-
     # string
     builder = gandiva.TreeExprBuilder()
     node_a = builder.make_field(table.schema.field_by_name("a"))
     cond = builder.make_in_expression(node_a, ['an', 'nd'], pa.string())
+    condition = builder.make_condition(cond)
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1, 2]
+
+    # int32
+    arr = pa.array([3, 1, 4, 1, 5, 9, 2 ,6, 5, 4])
+    table = pa.Table.from_arrays([arr.cast(pa.int32())], ["a"])
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [1, 5], pa.int32())
+    condition = builder.make_condition(cond)
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1, 3, 4, 8]
+
+    # int64
+    arr = pa.array([3, 1, 4, 1, 5, 9, 2 ,6, 5, 4])
+    table = pa.Table.from_arrays([arr], ["a"])
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [1, 5], pa.int64())
+    condition = builder.make_condition(cond)
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1, 3, 4, 8]
+
+
+@pytest.mark.skip(reason="Gandiva C++ did not have *real* binary, time and date support.")
+def test_in_expr_todo():
+    import pyarrow.gandiva as gandiva
+    # TODO: Implement reasonable support for timestamp, time & date.
+    # Current exceptions:
+    # pyarrow.lib.ArrowException: ExpressionValidationError:
+    # Evaluation expression for IN clause returns XXXX values are of typeXXXX
+
+    # binary
+    arr = pa.array([b'ga', b'an', b'nd', b'di', b'iv', b'va'])
+    table = pa.Table.from_arrays([arr], ['a'])
+
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [b'an', b'nd'], pa.binary())
     condition = builder.make_condition(cond)
 
     filter = gandiva.make_filter(table.schema, condition)

@@ -60,6 +60,9 @@ from pyarrow.includes.libgandiva cimport (
     TreeExprBuilder_MakeInExpressionInt32,
     TreeExprBuilder_MakeInExpressionInt64,
     TreeExprBuilder_MakeInExpressionString,
+    TreeExprBuilder_MakeInExpressionTime,
+    TreeExprBuilder_MakeInExpressionTimeStamp,
+    TreeExprBuilder_MakeInExpressionDate,
     SelectionVector_MakeInt16,
     SelectionVector_MakeInt32,
     SelectionVector_MakeInt64,
@@ -267,34 +270,78 @@ cdef class TreeExprBuilder:
     def _make_in_expression_int32(self, Node node, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[int32_t] c_values
-        cdef int32_t _v
+        cdef int32_t v
         for v in values:
-            _v = v
-            c_values.insert(_v)
+            c_values.insert(v)
         r = TreeExprBuilder_MakeInExpressionInt32(node.node, c_values)
         return Node.create(r)
 
     def _make_in_expression_int64(self, Node node, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[int64_t] c_values
-        cdef int64_t _v
+        cdef int64_t v
         for v in values:
-            _v = v
-            c_values.insert(_v)
+            c_values.insert(v)
         r = TreeExprBuilder_MakeInExpressionInt64(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_time32(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[int32_t] c_values
+        cdef int32_t v
+        for v in values:
+            c_values.insert(v)
+        r = TreeExprBuilder_MakeInExpressionTime(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_time64(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[int64_t] c_values
+        cdef int64_t v
+        for v in values:
+            c_values.insert(v)
+        # We do not have TreeExprBuilder_MakeInExpressionTime64 in gandiva c++.
+        r = TreeExprBuilder_MakeInExpressionInt64(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_date32(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[int32_t] c_values
+        cdef int32_t v
+        for v in values:
+            c_values.insert(v)
+        # We do not have TreeExprBuilder_MakeInExpressionTime32 in gandiva c++.
+        r = TreeExprBuilder_MakeInExpressionInt32(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_date64(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[int64_t] c_values
+        cdef int64_t v
+        for v in values:
+            c_values.insert(v)
+        r = TreeExprBuilder_MakeInExpressionDate(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_timestamp(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[int64_t] c_values
+        cdef int64_t v
+        for v in values:
+            c_values.insert(v)
+        r = TreeExprBuilder_MakeInExpressionTimeStamp(node.node, c_values)
         return Node.create(r)
 
     def _make_in_expression_binary(self, Node node, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[c_string] c_values
-        cdef char* _v
+        cdef char* v
         for v in values:
-            _v = v
-            c_values.insert(c_string(_v))
+            c_values.insert(c_string(v))
         r = TreeExprBuilder_MakeInExpressionString(node.node, c_values)
         return Node.create(r)
 
-    def _make_in_expression_str(self, Node node, values):
+    def _make_in_expression_string(self, Node node, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[c_string] c_values
         cdef c_string _v
@@ -306,15 +353,24 @@ cdef class TreeExprBuilder:
 
     def make_in_expression(self, Node node, values, dtype):
         cdef DataType type = _as_type(dtype)
-        if type.id == _Type_INT32 or type.id == _Type_TIME32:
+        if type.id == _Type_INT32:
             return self._make_in_expression_int32(node, values)
-        elif (type.id == _Type_INT64 or type.id == _Type_DATE64 or
-              type.id == _Type_TIMESTAMP):
+        elif type.id == _Type_INT64:
             return self._make_in_expression_int64(node, values)
+        elif type.id == _Type_TIME32:
+            return self._make_in_expression_time32(node, values)
+        elif type.id == _Type_TIME64:
+            return self._make_in_expression_time64(node, values)
+        elif type.id == _Type_TIMESTAMP:
+            return self._make_in_expression_timestamp(node, values)
+        elif type.id == _Type_DATE32:
+            return self._make_in_expression_date32(node, values)
+        elif type.id == _Type_DATE64:
+            return self._make_in_expression_date64(node, values)
         elif type.id == _Type_BINARY:
             return self._make_in_expression_binary(node, values)
         elif type.id == _Type_STRING:
-            return self._make_in_expression_str(node, values)
+            return self._make_in_expression_string(node, values)
         else:
             raise TypeError("Data type " + str(dtype) + " not supported.")
 
