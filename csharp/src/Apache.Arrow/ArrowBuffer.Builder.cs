@@ -54,6 +54,7 @@ namespace Apache.Arrow
                     // TODO: Consider a specifiable growth strategy
 
                     _memory = _pool.Reallocate(_memory, (_memory.Length * 3) / 2);
+                    span = GetSpan();
                 }
 
                 span[_offset++] = value;
