@@ -117,12 +117,12 @@ write_feather_RecordBatch <- function(data, stream) {
 #' @param ... extra parameters
 #'
 #' @export
-feather_table_reader <- function(file, ...){
+feather_table_reader <- function(file, mmap = TRUE, ...){
   UseMethod("feather_table_reader")
 }
 
 #' @export
-feather_table_reader.default <- function(file, ...) {
+feather_table_reader.default <- function(file, mmap = TRUE, ...) {
   stop("unsupported")
 }
 
@@ -138,12 +138,12 @@ feather_table_reader.fs_path <- function(file, mmap = TRUE, ...) {
 }
 
 #' @export
-`feather_table_reader.arrow::io::RandomAccessFile` <- function(file, ...){
+`feather_table_reader.arrow::io::RandomAccessFile` <- function(file, mmap = TRUE, ...){
   unique_ptr(`arrow::ipc::feather::TableReader`, ipc___feather___TableReader__Open(file))
 }
 
 #' @export
-`feather_table_reader.arrow::ipc::feather::TableReader` <- function(file){
+`feather_table_reader.arrow::ipc::feather::TableReader` <- function(file, mmap = TRUE, ...){
   file
 }
 
