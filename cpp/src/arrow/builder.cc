@@ -760,7 +760,6 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
 // DictionaryBuilder
 
 using internal::DictionaryScalar;
-using internal::WrappedBinary;
 
 namespace {
 
@@ -809,32 +808,28 @@ struct DictionaryHashHelper<T, enable_if_binary<T>> {
   using Scalar = typename DictionaryScalar<T>::type;
 
   static Scalar GetDictionaryValue(const Builder& builder, int64_t index) {
-    int32_t v_length;
-    const uint8_t* v_ptr = builder.GetValue(index, &v_length);
-    return WrappedBinary(v_ptr, v_length);
+    return builder.GetView(index);
   }
 
   static int64_t HashValue(const Scalar& value, int byte_width) {
-    return HashUtil::Hash<SSE4_FLAG>(value.ptr_, value.length_, 0);
+    return HashUtil::Hash<SSE4_FLAG>(value.data(), static_cast<int32_t>(value.length()),
+                                     0);
   }
 
   static bool SlotDifferent(const Builder& builder, int64_t index, const Scalar& value) {
-    int32_t other_length;
-    const uint8_t* other_ptr = builder.GetValue(index, &other_length);
-    return value.length_ != other_length ||
-           memcmp(value.ptr_, other_ptr, other_length) != 0;
+    const Scalar other = GetDictionaryValue(builder, index);
+    return value.length() != other.length() ||
+           memcmp(value.data(), other.data(), other.length()) != 0;
   }
 
   static Status AppendValue(Builder& builder, const Scalar& value) {
-    return builder.Append(value.ptr_, value.length_);
+    return builder.Append(value);
   }
 
   static Status AppendArray(Builder& builder, const Array& in_array) {
     const auto& array = checked_cast<const BinaryArray&>(in_array);
     for (uint64_t index = 0, limit = array.length(); index < limit; ++index) {
-      int32_t length;
-      const uint8_t* ptr = array.GetValue(index, &length);
-      RETURN_NOT_OK(builder.Append(ptr, length));
+      RETURN_NOT_OK(builder.Append(array.GetView(index)));
     }
     return Status::OK();
   }
@@ -1033,12 +1028,12 @@ Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
     return Status::Invalid("Cannot append FixedSizeBinary array with non-matching type");
   }
 
-  const auto& numeric_array = checked_cast<const FixedSizeBinaryArray&>(array);
+  const auto& typed_array = checked_cast<const FixedSizeBinaryArray&>(array);
   for (int64_t i = 0; i < array.length(); i++) {
     if (array.IsNull(i)) {
       RETURN_NOT_OK(AppendNull());
     } else {
-      RETURN_NOT_OK(Append(numeric_array.Value(i)));
+      RETURN_NOT_OK(Append(typed_array.GetValue(i)));
     }
   }
   return Status::OK();
@@ -1087,21 +1082,20 @@ Status DictionaryBuilder<NullType>::FinishInternal(std::shared_ptr<ArrayData>* o
 // StringType and BinaryType specializations
 //
 
-#define BINARY_DICTIONARY_SPECIALIZATIONS(Type)                                \
-                                                                               \
-  template <>                                                                  \
-  Status DictionaryBuilder<Type>::AppendArray(const Array& array) {            \
-    const BinaryArray& binary_array = checked_cast<const BinaryArray&>(array); \
-    WrappedBinary value(nullptr, 0);                                           \
-    for (int64_t i = 0; i < array.length(); i++) {                             \
-      if (array.IsNull(i)) {                                                   \
-        RETURN_NOT_OK(AppendNull());                                           \
-      } else {                                                                 \
-        value.ptr_ = binary_array.GetValue(i, &value.length_);                 \
-        RETURN_NOT_OK(Append(value));                                          \
-      }                                                                        \
-    }                                                                          \
-    return Status::OK();                                                       \
+#define BINARY_DICTIONARY_SPECIALIZATIONS(Type)                            \
+                                                                           \
+  template <>                                                              \
+  Status DictionaryBuilder<Type>::AppendArray(const Array& array) {        \
+    using ArrayType = typename TypeTraits<Type>::ArrayType;                \
+    const ArrayType& binary_array = checked_cast<const ArrayType&>(array); \
+    for (int64_t i = 0; i < array.length(); i++) {                         \
+      if (array.IsNull(i)) {                                               \
+        RETURN_NOT_OK(AppendNull());                                       \
+      } else {                                                             \
+        RETURN_NOT_OK(Append(binary_array.GetView(i)));                    \
+      }                                                                    \
+    }                                                                      \
+    return Status::OK();                                                   \
   }
 
 BINARY_DICTIONARY_SPECIALIZATIONS(StringType);
@@ -1314,6 +1308,19 @@ const uint8_t* BinaryBuilder::GetValue(int64_t i, int32_t* out_length) const {
   return value_data_builder_.data() + offset;
 }
 
+util::string_view BinaryBuilder::GetView(int64_t i) const {
+  const int32_t* offsets = offsets_builder_.data();
+  int32_t offset = offsets[i];
+  int32_t value_length;
+  if (i == (length_ - 1)) {
+    value_length = static_cast<int32_t>(value_data_builder_.length()) - offset;
+  } else {
+    value_length = offsets[i + 1] - offset;
+  }
+  return util::string_view(
+      reinterpret_cast<const char*>(value_data_builder_.data() + offset), value_length);
+}
+
 StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(utf8(), pool) {}
 
 Status StringBuilder::AppendValues(const std::vector<std::string>& values,
@@ -1453,6 +1460,12 @@ Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 const uint8_t* FixedSizeBinaryBuilder::GetValue(int64_t i) const {
   const uint8_t* data_ptr = byte_builder_.data();
   return data_ptr + i * byte_width_;
+}
+
+util::string_view FixedSizeBinaryBuilder::GetView(int64_t i) const {
+  const uint8_t* data_ptr = byte_builder_.data();
+  return util::string_view(reinterpret_cast<const char*>(data_ptr + i * byte_width_),
+                           byte_width_);
 }
 
 // ----------------------------------------------------------------------

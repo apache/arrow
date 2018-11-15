@@ -13,6 +13,7 @@ cpp/src/arrow/io/mman.h
 cpp/src/arrow/util/random.h
 cpp/src/arrow/status.cc
 cpp/src/arrow/status.h
+cpp/src/arrow/util/string_view/string_view.hpp
 cpp/src/arrow/util/variant.h
 cpp/src/arrow/util/variant/optional.h
 cpp/src/arrow/util/variant/recursive_wrapper.h

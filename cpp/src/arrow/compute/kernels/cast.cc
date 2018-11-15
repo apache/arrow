@@ -662,9 +662,7 @@ Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
 
     for (int64_t i = 0; i < indices.length(); ++i) {
       if (valid_bits_reader.IsSet()) {
-        int32_t length;
-        const uint8_t* value = dictionary.GetValue(in[i], &length);
-        RETURN_NOT_OK(binary_builder->Append(value, length));
+        RETURN_NOT_OK(binary_builder->Append(dictionary.GetView(in[i])));
       } else {
         RETURN_NOT_OK(binary_builder->AppendNull());
       }
@@ -672,9 +670,7 @@ Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
     }
   } else {
     for (int64_t i = 0; i < indices.length(); ++i) {
-      int32_t length;
-      const uint8_t* value = dictionary.GetValue(in[i], &length);
-      RETURN_NOT_OK(binary_builder->Append(value, length));
+      RETURN_NOT_OK(binary_builder->Append(dictionary.GetView(in[i])));
     }
   }
 
@@ -806,10 +802,8 @@ struct CastFunctor<O, StringType, enable_if_number<O>> {
         continue;
       }
 
-      int32_t length = -1;
-      auto str = input_array.GetValue(i, &length);
-      if (!converter(reinterpret_cast<const char*>(str), static_cast<size_t>(length),
-                     out_data)) {
+      auto str = input_array.GetView(i);
+      if (!converter(str.data(), str.length(), out_data)) {
         std::stringstream ss;
         ss << "Failed to cast String '" << str << "' into " << output->type->ToString();
         ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
@@ -838,11 +832,9 @@ struct CastFunctor<O, StringType,
         continue;
       }
 
-      int32_t length = -1;
-      auto str = input_array.GetValue(i, &length);
       bool value;
-      if (!converter(reinterpret_cast<const char*>(str), static_cast<size_t>(length),
-                     &value)) {
+      auto str = input_array.GetView(i);
+      if (!converter(str.data(), str.length(), &value)) {
         std::stringstream ss;
         ss << "Failed to cast String '" << input_array.GetString(i) << "' into "
            << output->type->ToString();

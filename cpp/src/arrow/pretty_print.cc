@@ -163,11 +163,7 @@ class ArrayPrinter : public PrettyPrinter {
   template <typename T>
   inline typename std::enable_if<std::is_same<StringArray, T>::value, Status>::type
   WriteDataValues(const T& array) {
-    WriteValues(array, [&](int64_t i) {
-      int32_t length;
-      const char* buf = reinterpret_cast<const char*>(array.GetValue(i, &length));
-      (*sink_) << "\"" << std::string(buf, length) << "\"";
-    });
+    WriteValues(array, [&](int64_t i) { (*sink_) << "\"" << array.GetView(i) << "\""; });
     return Status::OK();
   }
 
@@ -175,11 +171,7 @@ class ArrayPrinter : public PrettyPrinter {
   template <typename T>
   inline typename std::enable_if<std::is_same<BinaryArray, T>::value, Status>::type
   WriteDataValues(const T& array) {
-    WriteValues(array, [&](int64_t i) {
-      int32_t length;
-      const uint8_t* buf = array.GetValue(i, &length);
-      (*sink_) << HexEncode(buf, length);
-    });
+    WriteValues(array, [&](int64_t i) { (*sink_) << HexEncode(array.GetView(i)); });
     return Status::OK();
   }
 
@@ -187,9 +179,7 @@ class ArrayPrinter : public PrettyPrinter {
   inline
       typename std::enable_if<std::is_same<FixedSizeBinaryArray, T>::value, Status>::type
       WriteDataValues(const T& array) {
-    int32_t width = array.byte_width();
-    WriteValues(array,
-                [&](int64_t i) { (*sink_) << HexEncode(array.GetValue(i), width); });
+    WriteValues(array, [&](int64_t i) { (*sink_) << HexEncode(array.GetView(i)); });
     return Status::OK();
   }
 
