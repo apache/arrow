@@ -63,9 +63,14 @@
 #' create an arrow::Array from an R vector
 #'
 #' @param \dots Vectors to coerce
+#' @param type currently ignored
 #'
+#' @importFrom rlang warn
 #' @export
-array <- function(...){
+array <- function(..., type){
+  if (!missing(type)) {
+    warn("The `type` argument is currently ignored")
+  }
   `arrow::Array`$dispatch(Array__from_vector(vctrs::vec_c(...)))
 }
 
