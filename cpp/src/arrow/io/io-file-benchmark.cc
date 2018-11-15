@@ -41,6 +41,8 @@ std::string GetNullFile() { return "/dev/null"; }
 const std::valarray<int64_t> small_sizes = {8, 24, 33, 1, 32, 192, 16, 40};
 const std::valarray<int64_t> large_sizes = {8192, 100000};
 
+constexpr int64_t kBufferSize = 4096;
+
 class BackgroundReader {
   // A class that reads data in the background from a file descriptor
 
@@ -161,7 +163,7 @@ static void BM_BufferedOutputStreamSmallWritesToNull(
   ABORT_NOT_OK(io::FileOutputStream::Open(GetNullFile(), &file));
 
   std::shared_ptr<io::BufferedOutputStream> buffered_file;
-  ABORT_NOT_OK(io::BufferedOutputStream::Create(file, 4096, &buffered_file));
+  ABORT_NOT_OK(io::BufferedOutputStream::Create(file, kBufferSize, &buffered_file));
   BenchmarkStreamingWrites(state, small_sizes, buffered_file.get());
 }
 
@@ -194,7 +196,7 @@ static void BM_BufferedOutputStreamSmallWritesToPipe(
   SetupPipeWriter(&stream, &reader);
 
   std::shared_ptr<io::BufferedOutputStream> buffered_stream;
-  ABORT_NOT_OK(io::BufferedOutputStream::Create(stream, 4096, &buffered_stream));
+  ABORT_NOT_OK(io::BufferedOutputStream::Create(stream, kBufferSize, &buffered_stream));
   BenchmarkStreamingWrites(state, small_sizes, buffered_stream.get(), reader.get());
 }
 
@@ -205,7 +207,7 @@ static void BM_BufferedOutputStreamLargeWritesToPipe(
   SetupPipeWriter(&stream, &reader);
 
   std::shared_ptr<io::BufferedOutputStream> buffered_stream;
-  ABORT_NOT_OK(io::BufferedOutputStream::Create(stream, 4096, &buffered_stream));
+  ABORT_NOT_OK(io::BufferedOutputStream::Create(stream, kBufferSize, &buffered_stream));
 
   BenchmarkStreamingWrites(state, large_sizes, buffered_stream.get(), reader.get());
 }
