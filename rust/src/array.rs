@@ -526,7 +526,7 @@ impl BinaryArray {
     /// Note this doesn't do any bound checking, for performance reason.
     #[inline]
     pub fn value_offset(&self, i: i64) -> i32 {
-        self.value_offset_at(i)
+        self.value_offset_at(self.data.offset() + i)
     }
 
     /// Returns the length for the element at index `i`.
