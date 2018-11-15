@@ -1509,7 +1509,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
   for (int j = 0; j < reps; ++j) {
     for (int i = 0; i < N; ++i) {
       if (is_null[i]) {
-        ASSERT_OK(builder_->UnsafeAppendNull());
+        builder_->UnsafeAppendNull();
       } else {
         builder_->UnsafeAppend(strings[i]);
       }
