@@ -22,6 +22,7 @@
 #endif
 
 #include <arrow-glib/column.hpp>
+#include <arrow-glib/data-type.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
@@ -1274,6 +1275,73 @@ garrow_csv_read_options_new(void)
                                        "pool", arrow::default_memory_pool(),
                                        NULL);
   return GARROW_CSV_READ_OPTIONS(csv_read_options);
+}
+
+/**
+ * garrow_csv_read_options_add_column_type:
+ * @options: A #GArrowCSVReadOptions.
+ * @name: The name of the target column.
+ * @data_type: The #GArrowDataType for the column.
+ *
+ * Add value type of a column.
+ *
+ * Since: 0.12.0
+ */
+void
+garrow_csv_read_options_add_column_type(GArrowCSVReadOptions *options,
+                                        const gchar *name,
+                                        GArrowDataType *data_type)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  priv->convert_options.column_types[name] = arrow_data_type;
+}
+
+/**
+ * garrow_csv_read_options_add_schema:
+ * @options: A #GArrowCSVReadOptions.
+ * @schema: The #GArrowSchema that specifies columns and their types.
+ *
+ * Add value types for columns in the schema.
+ *
+ * Since: 0.12.0
+ */
+void
+garrow_csv_read_options_add_schema(GArrowCSVReadOptions *options,
+                                   GArrowSchema *schema)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  auto arrow_schema = garrow_schema_get_raw(schema);
+  for (const auto field : arrow_schema->fields()) {
+    priv->convert_options.column_types[field->name()] = field->type();
+  }
+}
+
+/**
+ * garrow_csv_read_options_get_column_types:
+ * @options: A #GArrowCSVReadOptions.
+ *
+ * Returns: (transfer full) (element-type gchar* GArrowDataType):
+ *   The column name and value type mapping of the options.
+ *
+ * Since: 0.12.0
+ */
+GHashTable *
+garrow_csv_read_options_get_column_types(GArrowCSVReadOptions *options)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  GHashTable *types = g_hash_table_new_full(g_str_hash,
+                                            g_str_equal,
+                                            g_free,
+                                            g_object_unref);
+  for (const auto iter : priv->convert_options.column_types) {
+    auto arrow_name = iter.first;
+    auto arrow_data_type = iter.second;
+    g_hash_table_insert(types,
+                        g_strdup(arrow_name.c_str()),
+                        garrow_data_type_new_raw(&arrow_data_type));
+  }
+  return types;
 }
 
 
