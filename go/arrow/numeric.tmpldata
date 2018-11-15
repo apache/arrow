@@ -83,5 +83,29 @@
     "Opt": {
       "Parametric": true
     }
+  },
+  {
+    "Name": "Time32",
+    "name": "time32",
+    "Type": "Time32",
+    "QualifiedType": "arrow.Time32",
+    "InternalType": "int32",
+    "Default": "0",
+    "Size": "4",
+    "Opt": {
+      "Parametric": true
+    }
+  },
+  {
+    "Name": "Time64",
+    "name": "time64",
+    "Type": "Time64",
+    "QualifiedType": "arrow.Time64",
+    "InternalType": "int64",
+    "Default": "0",
+    "Size": "8",
+    "Opt": {
+      "Parametric": true
+    }
   }
 ]

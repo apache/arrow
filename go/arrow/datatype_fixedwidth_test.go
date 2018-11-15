@@ -30,7 +30,7 @@ func TestTimeUnit_String(t *testing.T) {
 		exp string
 	}{
 		{arrow.Nanosecond, "ns"},
-		{arrow.Microsecond, "µs"},
+		{arrow.Microsecond, "us"},
 		{arrow.Millisecond, "ms"},
 		{arrow.Second, "s"},
 	}

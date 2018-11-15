@@ -36,6 +36,8 @@ var (
 	Int8Traits      int8Traits
 	Uint8Traits     uint8Traits
 	TimestampTraits timestampTraits
+	Time32Traits    time32Traits
+	Time64Traits    time64Traits
 )
 
 // Int64 traits
@@ -565,3 +567,99 @@ func (timestampTraits) CastToBytes(b []Timestamp) []byte {
 
 // Copy copies src to dst.
 func (timestampTraits) Copy(dst, src []Timestamp) { copy(dst, src) }
+
+// Time32 traits
+
+const (
+	// Time32SizeBytes specifies the number of bytes required to store a single Time32 in memory
+	Time32SizeBytes = int(unsafe.Sizeof(Time32(0)))
+)
+
+type time32Traits struct{}
+
+// BytesRequired returns the number of bytes required to store n elements in memory.
+func (time32Traits) BytesRequired(n int) int { return Time32SizeBytes * n }
+
+// PutValue
+func (time32Traits) PutValue(b []byte, v Time32) {
+	binary.LittleEndian.PutUint32(b, uint32(v))
+}
+
+// CastFromBytes reinterprets the slice b to a slice of type Time32.
+//
+// NOTE: len(b) must be a multiple of Time32SizeBytes.
+func (time32Traits) CastFromBytes(b []byte) []Time32 {
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []Time32
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len / Time32SizeBytes
+	s.Cap = h.Cap / Time32SizeBytes
+
+	return res
+}
+
+// CastToBytes reinterprets the slice b to a slice of bytes.
+func (time32Traits) CastToBytes(b []Time32) []byte {
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []byte
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len * Time32SizeBytes
+	s.Cap = h.Cap * Time32SizeBytes
+
+	return res
+}
+
+// Copy copies src to dst.
+func (time32Traits) Copy(dst, src []Time32) { copy(dst, src) }
+
+// Time64 traits
+
+const (
+	// Time64SizeBytes specifies the number of bytes required to store a single Time64 in memory
+	Time64SizeBytes = int(unsafe.Sizeof(Time64(0)))
+)
+
+type time64Traits struct{}
+
+// BytesRequired returns the number of bytes required to store n elements in memory.
+func (time64Traits) BytesRequired(n int) int { return Time64SizeBytes * n }
+
+// PutValue
+func (time64Traits) PutValue(b []byte, v Time64) {
+	binary.LittleEndian.PutUint64(b, uint64(v))
+}
+
+// CastFromBytes reinterprets the slice b to a slice of type Time64.
+//
+// NOTE: len(b) must be a multiple of Time64SizeBytes.
+func (time64Traits) CastFromBytes(b []byte) []Time64 {
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []Time64
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len / Time64SizeBytes
+	s.Cap = h.Cap / Time64SizeBytes
+
+	return res
+}
+
+// CastToBytes reinterprets the slice b to a slice of bytes.
+func (time64Traits) CastToBytes(b []Time64) []byte {
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []byte
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len * Time64SizeBytes
+	s.Cap = h.Cap * Time64SizeBytes
+
+	return res
+}
+
+// Copy copies src to dst.
+func (time64Traits) Copy(dst, src []Time64) { copy(dst, src) }

@@ -519,3 +519,93 @@ func (a *Timestamp) setData(data *Data) {
 		a.values = a.values[beg:end]
 	}
 }
+
+// A type which represents an immutable sequence of arrow.Time32 values.
+type Time32 struct {
+	array
+	values []arrow.Time32
+}
+
+func NewTime32Data(data *Data) *Time32 {
+	a := &Time32{}
+	a.refCount = 1
+	a.setData(data)
+	return a
+}
+
+func (a *Time32) Value(i int) arrow.Time32     { return a.values[i] }
+func (a *Time32) Time32Values() []arrow.Time32 { return a.values }
+
+func (a *Time32) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *Time32) setData(data *Data) {
+	a.array.setData(data)
+	vals := data.buffers[1]
+	if vals != nil {
+		a.values = arrow.Time32Traits.CastFromBytes(vals.Bytes())
+		beg := a.array.data.offset
+		end := beg + a.array.data.length
+		a.values = a.values[beg:end]
+	}
+}
+
+// A type which represents an immutable sequence of arrow.Time64 values.
+type Time64 struct {
+	array
+	values []arrow.Time64
+}
+
+func NewTime64Data(data *Data) *Time64 {
+	a := &Time64{}
+	a.refCount = 1
+	a.setData(data)
+	return a
+}
+
+func (a *Time64) Value(i int) arrow.Time64     { return a.values[i] }
+func (a *Time64) Time64Values() []arrow.Time64 { return a.values }
+
+func (a *Time64) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *Time64) setData(data *Data) {
+	a.array.setData(data)
+	vals := data.buffers[1]
+	if vals != nil {
+		a.values = arrow.Time64Traits.CastFromBytes(vals.Bytes())
+		beg := a.array.data.offset
+		end := beg + a.array.data.length
+		a.values = a.values[beg:end]
+	}
+}

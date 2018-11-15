@@ -26,6 +26,8 @@ func (t *BooleanType) BitWidth() int { return 1 }
 
 type (
 	Timestamp int64
+	Time32    int32
+	Time64    int64
 	TimeUnit  int
 )
 
@@ -36,7 +38,7 @@ const (
 	Second
 )
 
-func (u TimeUnit) String() string { return [...]string{"ns", "µs", "ms", "s"}[uint(u)&3] }
+func (u TimeUnit) String() string { return [...]string{"ns", "us", "ms", "s"}[uint(u)&3] }
 
 // TimestampType is encoded as a 64-bit signed integer since the UNIX epoch (2017-01-01T00:00:00Z).
 // The zero-value is a nanosecond and time zone neutral. Time zone neutral can be
@@ -52,10 +54,36 @@ func (*TimestampType) Name() string { return "timestamp" }
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
 
+// Time32Type is encoded as a 32-bit signed integer, representing either seconds or milliseconds since midnight.
+type Time32Type struct {
+	Unit TimeUnit
+}
+
+func (*Time32Type) ID() Type      { return TIME32 }
+func (*Time32Type) Name() string  { return "time32" }
+func (*Time32Type) BitWidth() int { return 32 }
+
+// Time64Type is encoded as a 64-bit signed integer, representing either microseconds or nanoseconds since midnight.
+type Time64Type struct {
+	Unit TimeUnit
+}
+
+func (*Time64Type) ID() Type      { return TIME64 }
+func (*Time64Type) Name() string  { return "time64" }
+func (*Time64Type) BitWidth() int { return 64 }
+
 var (
 	FixedWidthTypes = struct {
-		Boolean FixedWidthDataType
+		Boolean  FixedWidthDataType
+		Time32s  FixedWidthDataType
+		Time32ms FixedWidthDataType
+		Time64us FixedWidthDataType
+		Time64ns FixedWidthDataType
 	}{
-		Boolean: &BooleanType{},
+		Boolean:  &BooleanType{},
+		Time32s:  &Time32Type{Unit: Second},
+		Time32ms: &Time32Type{Unit: Millisecond},
+		Time64us: &Time64Type{Unit: Microsecond},
+		Time64ns: &Time64Type{Unit: Nanosecond},
 	}
 )
