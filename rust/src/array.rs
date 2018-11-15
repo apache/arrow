@@ -981,10 +981,10 @@ mod tests {
             binary_array.get_value(1)
         );
         assert_eq!("parquet", binary_array.get_string(1));
-        assert_eq!(binary_array.value_offset(0), 5);
-        assert_eq!(binary_array.value_length(0), 0);
-        assert_eq!(binary_array.value_offset(1), 5);
-        assert_eq!(binary_array.value_length(1), 7);
+        assert_eq!(5, binary_array.value_offset(0));
+        assert_eq!(0, binary_array.value_length(0));
+        assert_eq!(5, binary_array.value_offset(1));
+        assert_eq!(7, binary_array.value_length(1));
     }
 
     #[test]
