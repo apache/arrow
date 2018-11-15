@@ -1501,7 +1501,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
   int N = static_cast<int>(strings.size());
   int reps = 13;
   int total_length = 0;
-  for (auto&& s : strings) total_length += s.size();
+  for (auto&& s : strings) total_length += static_cast<int>(s.size());
 
   ASSERT_OK(builder_->Reserve(N * reps));
   ASSERT_OK(builder_->ReserveData(total_length * reps));
