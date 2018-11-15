@@ -185,9 +185,11 @@ ConditionPtr TreeExprBuilder::MakeCondition(const std::string& function,
 
 MAKE_IN(Int32, int32_t);
 MAKE_IN(Int64, int64_t);
-MAKE_IN(Date, int64_t);
+MAKE_IN(Date32, int32_t);
+MAKE_IN(Date64, int64_t);
 MAKE_IN(TimeStamp, int64_t);
-MAKE_IN(Time, int32_t);
+MAKE_IN(Time32, int32_t);
+MAKE_IN(Time64, int64_t);
 MAKE_IN(String, std::string);
 MAKE_IN(Binary, std::string);
 
