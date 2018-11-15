@@ -162,6 +162,7 @@ Now build and install the Arrow C++ libraries:
 
    cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
          -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+         -DCMAKE_INSTALL_LIBDIR=lib \
          -DARROW_PARQUET=on \
          -DARROW_PYTHON=on \
          -DARROW_PLASMA=on \
@@ -173,6 +174,13 @@ Now build and install the Arrow C++ libraries:
 
 If you don't want to build and install the Plasma in-memory object store,
 you can omit the ``-DARROW_PLASMA=on`` flag.
+
+.. note::
+
+   On Linux systems with support for building on multiple architectures,
+   ``make`` may install libraries in the ``lib64`` directory by default. For
+   this reason we recommend passing ``-DCMAKE_INSTALL_LIBDIR=lib`` because the
+   Python build scripts assume the library directory is ``lib``
 
 Now, build pyarrow:
 
