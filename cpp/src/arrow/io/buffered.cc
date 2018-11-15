@@ -110,13 +110,14 @@ class BufferedOutputStream::Impl {
   std::shared_ptr<OutputStream> raw() const { return raw_; }
 
   Status SetBufferSize(int64_t new_buffer_size) {
+    std::lock_guard<std::mutex> guard(lock_);
     DCHECK_GT(new_buffer_size, 0);
     if (!buffer_) {
       RETURN_NOT_OK(AllocateResizableBuffer(new_buffer_size, &buffer_));
     } else {
       if (buffer_pos_ >= new_buffer_size) {
         // If the buffer is shrinking, first flush to the raw OutputStream
-        RETURN_NOT_OK(Flush());
+        RETURN_NOT_OK(FlushUnlocked());
       }
       RETURN_NOT_OK(buffer_->Resize(new_buffer_size));
     }
