@@ -248,9 +248,15 @@ Pass multiple labels by dividing with semicolons")
     "Build with zlib compression"
     ON)
 
+  if(CMAKE_VERSION VERSION_LESS 3.7)
+    set(ARROW_WITH_ZSTD_DEFAULT OFF)
+  else()
+    # ExternalProject_Add(SOURCE_SUBDIR) is available since CMake 3.7.
+    set(ARROW_WITH_ZSTD_DEFAULT ON)
+  endif()
   option(ARROW_WITH_ZSTD
     "Build with zstd compression"
-    ON)
+    ${ARROW_WITH_ZSTD_DEFAULT})
 
   option(ARROW_GENERATE_COVERAGE
     "Build with C++ code coverage enabled"
