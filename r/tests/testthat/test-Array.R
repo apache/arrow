@@ -340,7 +340,8 @@ test_that("integer types cast safety (ARROW-3741)", {
 })
 
 test_that("float types casts (ARROW-3741)", {
-  a <- array(c(1, 2, 3, NA))
+  x <- c(1, 2, 3, NA)
+  a <- array(x)
   a_f32 <- a$cast(float32())
   a_f64 <- a$cast(float64())
 
@@ -350,6 +351,10 @@ test_that("float types casts (ARROW-3741)", {
   expect_true(a_f32$IsNull(3L))
   expect_true(a_f64$IsNull(3L))
 
-  # a_f16 <- a$cast(float16())
-  # expect_equal(a_16$type(), float16())
+  expect_equal(a_f32$as_vector(), x)
+  expect_equal(a_f64$as_vector(), x)
+
+  a <- array(1:4)
+  a_f16 <- a$cast(float16())
+  expect_equal(a_16$type(), float16())
 })

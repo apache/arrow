@@ -945,10 +945,10 @@ SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
       return ArrayVector_To_Vector<Converter_Promotion<REALSXP, arrow::UInt32Type>>(
           n, arrays);
     case Type::HALF_FLOAT:
-      return ArrayVector_To_Vector<Converter_Promotion<REALSXP, arrow::UInt32Type>>(
+      return ArrayVector_To_Vector<Converter_Promotion<REALSXP, arrow::HalfFloatType>>(
           n, arrays);
     case Type::FLOAT:
-      return ArrayVector_To_Vector<Converter_Promotion<REALSXP, arrow::UInt32Type>>(
+      return ArrayVector_To_Vector<Converter_Promotion<REALSXP, arrow::FloatType>>(
           n, arrays);
 
       // time32 ane time64
