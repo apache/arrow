@@ -19,7 +19,7 @@
 # instruction sets that would boost performance.
 include(CheckCXXCompilerFlag)
 # x86/amd64 compiler flags
-CHECK_CXX_COMPILER_FLAG("-msse3" CXX_SUPPORTS_SSE3)
+CHECK_CXX_COMPILER_FLAG("-msse4.2" CXX_SUPPORTS_SSE4_2)
 # power compiler flags
 CHECK_CXX_COMPILER_FLAG("-maltivec" CXX_SUPPORTS_ALTIVEC)
 
@@ -212,8 +212,8 @@ if (BUILD_WARNING_FLAGS)
 endif(BUILD_WARNING_FLAGS)
 
 # Only enable additional instruction sets if they are supported
-if (CXX_SUPPORTS_SSE3 AND ARROW_SSE3)
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse3")
+if (CXX_SUPPORTS_SSE4_2)
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse4.2")
 endif()
 
 if (CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)

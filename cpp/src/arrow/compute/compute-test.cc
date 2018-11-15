@@ -1330,7 +1330,7 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   ASSERT_OK(DictionaryEncode(&this->ctx_, Datum(carr), &encoded_out));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
 
-  ASSERT_TRUE(encoded_out.chunked_array()->Equals(*dict_carr));
+  AssertChunkedEqual(*dict_carr, *encoded_out.chunked_array());
 }
 
 using BinaryKernelFunc =
