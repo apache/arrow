@@ -336,9 +336,9 @@ cdef class TreeExprBuilder:
     def _make_in_expression_binary(self, Node node, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[c_string] c_values
-        cdef char* v
+        cdef c_string v
         for v in values:
-            c_values.insert(c_string(v))
+            c_values.insert(v)
         r = TreeExprBuilder_MakeInExpressionString(node.node, c_values)
         return Node.create(r)
 
