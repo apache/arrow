@@ -2257,3 +2257,28 @@ def test_convert_unsupported_type_error_message():
     expected_msg = 'Conversion failed for column diff with type timedelta64'
     with pytest.raises(pa.ArrowNotImplementedError, match=expected_msg):
         pa.Table.from_pandas(df)
+
+
+def test_from_pandas_keeps_column_ordering():
+    # ARROW-3766
+    df = pd.DataFrame({
+        'partition': [0, 0, 1, 1],
+        'arrays': [[0, 1, 2], [3, 4], None, None],
+        'strings': [None, None, 'a', 'b']
+    })
+
+    schema = pa.schema([
+        # ('DPRD_ID', pa.int64()),
+        ('partition', pa.int32()),
+        ('arrays', pa.list_(pa.int32())),
+        ('strings', pa.string()),
+        # ('new_column', pa.string())
+    ])
+
+    df1 = df[df.partition == 0]
+    df2 = df[df.partition == 1][['strings', 'partition', 'arrays']]
+
+    table1 = pa.Table.from_pandas(df1, schema=schema)
+    table2 = pa.Table.from_pandas(df2, schema=schema)
+
+    assert table1.schema.equals(table2.schema, check_metadata=False)
