@@ -37,25 +37,16 @@ let array = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
 println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
 ```
 
-## Creating an Array from a Builder
-
-```rust
-let mut builder: Builder<i32> = Builder::new();
-for i in 0..10 {
-    builder.push(i);
-}
-let buffer = builder.finish();
-let array = PrimitiveArray::from(buffer);
-
-println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
-```
-
 ## Run Examples
+
+The examples folder shows how to construct some different types of Arrow
+arrays, including dynamic arrays created at runtime.
 
 Examples can be run using the `cargo run --example` command. For example:
 
 ```bash
-cargo run --example array_from_builder
+cargo run --example builders
+cargo run --example dynamic_types
 ```
 
 ## Run Tests
@@ -74,7 +65,7 @@ instructions](https://doc.rust-lang.org/cargo/reference/publishing.html) to
 create an account and login to crates.io before asking to be added as an owner
 of the [arrow crate](https://crates.io/crates/arrow).
 
-Checkout the tag for the version to be releases. For example:
+Checkout the tag for the version to be released. For example:
 
 ```bash
 git checkout apache-arrow-0.11.0
