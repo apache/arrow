@@ -26,6 +26,7 @@
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace io {
@@ -33,13 +34,45 @@ namespace io {
 // ----------------------------------------------------------------------
 // BufferedOutputStream implementation
 
+struct StreamBuffer {
+  explicit StreamBuffer(MemoryPool* pool)
+      : pool(pool), data(nullptr), position(0), size(0) {}
+
+  Status Resize(int64_t new_buffer_size) {
+    if (!this->buffer || this->buffer.use_count() > 1) {
+      // On first invocation, or if there are any exported references to the
+      // current buffer (e.g. through a zero-copy slice), then we allocate a
+      // new buffer
+      RETURN_NOT_OK(AllocateResizableBuffer(this->pool, new_buffer_size,
+                                            &this->buffer));
+    } else {
+      RETURN_NOT_OK(this->buffer->Resize(new_buffer_size));
+    }
+    this->data = reinterpret_cast<char*>(this->buffer->mutable_data());
+    this->position = 0;
+    this->size = new_buffer_size;
+    return Status::OK();
+  }
+
+  void Append(const void* data, int64_t nbytes) {
+    DCHECK_LE(this->position + nbytes, this->size);
+    std::memcpy(this->data + this->position, data, nbytes);
+    this->position += nbytes;
+  }
+
+  MemoryPool* pool;
+  std::shared_ptr<ResizableBuffer> buffer;
+  char* data;
+  int64_t position;
+  int64_t size;
+};
+
 class BufferedOutputStream::Impl {
  public:
   explicit Impl(std::shared_ptr<OutputStream> raw)
       : raw_(std::move(raw)),
         is_open_(true),
-        buffer_pos_(0),
-        buffer_size_(0),
+        buffer_(default_memory_pool()),
         raw_pos_(-1) {}
 
   ~Impl() { DCHECK(Close().ok()); }
@@ -66,7 +99,7 @@ class BufferedOutputStream::Impl {
       RETURN_NOT_OK(raw_->Tell(&raw_pos_));
       DCHECK_GE(raw_pos_, 0);
     }
-    *position = raw_pos_ + buffer_pos_;
+    *position = raw_pos_ + buffer_.position;
     return Status::OK();
   }
 
@@ -78,26 +111,24 @@ class BufferedOutputStream::Impl {
     if (nbytes == 0) {
       return Status::OK();
     }
-    if (nbytes + buffer_pos_ >= buffer_size_) {
+    if (nbytes + buffer_.position >= buffer_.size) {
       RETURN_NOT_OK(FlushUnlocked());
-      DCHECK_EQ(buffer_pos_, 0);
-      if (nbytes >= buffer_size_) {
+      DCHECK_EQ(buffer_.position, 0);
+      if (nbytes >= buffer_.size) {
         // Direct write
         return raw_->Write(data, nbytes);
       }
     }
-    DCHECK_LE(buffer_pos_ + nbytes, buffer_size_);
-    std::memcpy(buffer_data_ + buffer_pos_, data, nbytes);
-    buffer_pos_ += nbytes;
+    buffer_.Append(data, nbytes);
     return Status::OK();
   }
 
   Status FlushUnlocked() {
-    if (buffer_pos_ > 0) {
+    if (buffer_.position > 0) {
       // Invalidate cached raw pos
       raw_pos_ = -1;
-      RETURN_NOT_OK(raw_->Write(buffer_data_, buffer_pos_));
-      buffer_pos_ = 0;
+      RETURN_NOT_OK(raw_->Write(buffer_.data, buffer_.position));
+      buffer_.position = 0;
     }
     return Status::OK();
   }
@@ -112,31 +143,20 @@ class BufferedOutputStream::Impl {
   Status SetBufferSize(int64_t new_buffer_size) {
     std::lock_guard<std::mutex> guard(lock_);
     DCHECK_GT(new_buffer_size, 0);
-    if (!buffer_) {
-      RETURN_NOT_OK(AllocateResizableBuffer(new_buffer_size, &buffer_));
-    } else {
-      if (buffer_pos_ >= new_buffer_size) {
-        // If the buffer is shrinking, first flush to the raw OutputStream
-        RETURN_NOT_OK(FlushUnlocked());
-      }
-      RETURN_NOT_OK(buffer_->Resize(new_buffer_size));
+    if (buffer_.position >= new_buffer_size) {
+      // If the buffer is shrinking, first flush to the raw OutputStream
+      RETURN_NOT_OK(FlushUnlocked());
     }
-    buffer_data_ = reinterpret_cast<char*>(buffer_->mutable_data());
-    buffer_pos_ = 0;
-    buffer_size_ = new_buffer_size;
-    return Status::OK();
+    return buffer_.Resize(new_buffer_size);
   }
 
-  int64_t buffer_size() const { return buffer_size_; }
+  int64_t buffer_size() const { return buffer_.size; }
 
  private:
   std::shared_ptr<OutputStream> raw_;
   bool is_open_;
 
-  std::shared_ptr<ResizableBuffer> buffer_;
-  char* buffer_data_;
-  int64_t buffer_pos_;
-  int64_t buffer_size_;
+  StreamBuffer buffer_;
   mutable int64_t raw_pos_;
   mutable std::mutex lock_;
 };
@@ -177,6 +197,9 @@ Status BufferedOutputStream::Write(const void* data, int64_t nbytes) {
 Status BufferedOutputStream::Flush() { return impl_->Flush(); }
 
 std::shared_ptr<OutputStream> BufferedOutputStream::raw() const { return impl_->raw(); }
+
+// ----------------------------------------------------------------------
+// BufferedInputStream implementation
 
 }  // namespace io
 }  // namespace arrow

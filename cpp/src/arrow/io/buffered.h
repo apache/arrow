@@ -24,10 +24,12 @@
 #include <memory>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
+class MemoryPool;
 class Status;
 
 namespace io {
@@ -76,9 +78,23 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   std::unique_ptr<Impl> impl_;
 };
 
+/// \class BufferedInputStream
+/// \brief An InputStream that performs buffered reads from an unbuffered
+/// InputStream, which can mitigate the overhead of many small reads in some
+/// cases
 class ARROW_EXPORT BufferedInputStream : virtual public InputStream {
  public:
-  void Peek(int64_t bytes, std::shared_ptr<Buffer>* out);
+  /// \brief Create a BufferedInputStream from a raw InputStream
+  /// \param[in] raw a raw InputStream
+  /// \param[in] buffer_size the size of the temporary read buffer
+  /// \param[in] pool a MemoryPool to use for allocations
+  /// \param[out] out the created BufferedInputStream
+  static Status Create(std::shared_ptr<InputStream> raw, int64_t buffer_size,
+                       MemoryPool* pool, std::shared_ptr<BufferedInputStream>* out);
+
+  /// \brief Return string_view to buffered bytes, up to the indicated
+  /// number. View becomes invalid after any operation on file
+  util::string_view Peek(int64_t bytes);
 
   /// \brief Resize internal read buffer; calls to Read(...) will read at least
   /// \param[in] new_buffer_size the new read buffer size
@@ -90,6 +106,9 @@ class ARROW_EXPORT BufferedInputStream : virtual public InputStream {
 
   // InputStream APIs
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
+
+  /// \brief Read into buffer. If the read is already buffered, then this will
+  /// return a slice into the buffer
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
  private:
@@ -99,24 +118,22 @@ class ARROW_EXPORT BufferedInputStream : virtual public InputStream {
 
 /// \brief A RandomAccessFile implementation which performs buffered
 /// reads. Seeking invalidates any buffered data
-class ARROW_EXPORT BufferedReader : public BufferedInputStream,
-                                    virtual public RandomAccessFile {
+class ARROW_EXPORT BufferedRandomAccessFile : public BufferedInputStream,
+                                              virtual public RandomAccessFile {
  public:
-  /// \brief Create a buffered output stream wrapping the given output stream.
-  /// \param[in] raw another OutputStream
-  /// \param[in] buffer_size the size of the temporary buffer. Allocates from
-  /// the default memory pool
-  /// \param[out] out the created BufferedOutputStream
-  /// \return Status
-  static Status Create(std::shared_ptr<OutputStream> raw, int64_t buffer_size,
-                       std::shared_ptr<BufferedOutputStream>* out);
+  /// \brief Create a buffered random access file from a raw RandomAccessFile
+  /// \param[in] raw a raw RandomAccessFile
+  /// \param[in] buffer_size the size of the temporary read buffer
+  /// \param[in] pool a MemoryPool to use for allocations
+  /// \param[out] out the created BufferedRandomAccessFile
+  static Status Create(std::shared_ptr<RandomAccessFile> raw, int64_t buffer_size,
+                       MemoryPool* pool, std::shared_ptr<BufferedRandomAccessFile>* out);
 
   // RandomAccessFile APIs
   Status GetSize(int64_t* size) override;
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                 void* out) override;
-  Status ReadAt(int64_t position, int64_t nbytes,
-                std::shared_ptr<Buffer>* out) override;
+  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   Status Seek(int64_t position) override;
 
