@@ -30,7 +30,7 @@ namespace Apache.Arrow.Types
 
         public override void Accept(IArrowTypeVisitor visitor)
         {
-            if (visitor is IArrowTypeVisitor<Int8Type> v)
+            if (visitor is IArrowTypeVisitor<BooleanType> v)
                 v.Visit(this);
         }
     }
