@@ -15,10 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "gandiva/filter.h"
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
-#include "arrow/type_fwd.h"
-#include "gandiva/filter.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
 
@@ -316,7 +315,7 @@ TEST_F(TestFilter, TestNullValidityBuffer) {
 
   auto array_ = MakeArrowArrayInt32({1, 2, 3, 4, 6}, {true, true, true, false, true});
   // Create an array without a validity buffer.
-  auto array0 = std::make_shared<Int32Array>(5, array_->data()->buffers[1], nullptr, 0);
+  auto array0 = std::make_shared<arrow::Int32Array>(5, array_->data()->buffers[1], nullptr, 0);
   auto array1 = MakeArrowArrayInt32({5, 9, 6, 17, 3}, {true, true, false, true, true});
   // expected output (indices for which condition matches)
   auto exp = MakeArrowArrayUint16({0, 4});
