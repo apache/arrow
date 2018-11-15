@@ -526,7 +526,7 @@ impl BinaryArray {
     /// Note this doesn't do any bound checking, for performance reason.
     #[inline]
     pub fn value_offset(&self, i: i64) -> i32 {
-        self.value_offset_at(i)
+        self.value_offset_at(self.data.offset() + i)
     }
 
     /// Returns the length for the element at index `i`.
@@ -981,6 +981,10 @@ mod tests {
             binary_array.get_value(1)
         );
         assert_eq!("parquet", binary_array.get_string(1));
+        assert_eq!(5, binary_array.value_offset(0));
+        assert_eq!(0, binary_array.value_length(0));
+        assert_eq!(5, binary_array.value_offset(1));
+        assert_eq!(7, binary_array.value_length(1));
     }
 
     #[test]
