@@ -35,8 +35,12 @@ namespace io {
 
 class BufferedOutputStream::Impl {
  public:
-  explicit Impl(const std::shared_ptr<OutputStream>& raw)
-      : raw_(raw), is_open_(true), buffer_pos_(0), buffer_size_(0), raw_pos_(-1) {}
+  explicit Impl(std::shared_ptr<OutputStream> raw)
+      : raw_(std::move(raw)),
+        is_open_(true),
+        buffer_pos_(0),
+        buffer_size_(0),
+        raw_pos_(-1) {}
 
   ~Impl() { DCHECK(Close().ok()); }
 
@@ -106,6 +110,7 @@ class BufferedOutputStream::Impl {
   std::shared_ptr<OutputStream> raw() const { return raw_; }
 
   Status SetBufferSize(int64_t new_buffer_size) {
+    DCHECK_GT(new_buffer_size, 0);
     if (!buffer_) {
       RETURN_NOT_OK(AllocateResizableBuffer(new_buffer_size, &buffer_));
     } else {
@@ -135,13 +140,14 @@ class BufferedOutputStream::Impl {
   mutable std::mutex lock_;
 };
 
-BufferedOutputStream::BufferedOutputStream(const std::shared_ptr<OutputStream>& raw)
-    : impl_(new BufferedOutputStream::Impl(raw)) {}
+BufferedOutputStream::BufferedOutputStream(std::shared_ptr<OutputStream> raw)
+    : impl_(new BufferedOutputStream::Impl(std::move(raw))) {}
 
-Status BufferedOutputStream::Create(const std::shared_ptr<OutputStream>& raw,
+Status BufferedOutputStream::Create(std::shared_ptr<OutputStream> raw,
                                     int64_t buffer_size,
                                     std::shared_ptr<BufferedOutputStream>* out) {
-  auto result = std::shared_ptr<BufferedOutputStream>(new BufferedOutputStream(raw));
+  auto result =
+      std::shared_ptr<BufferedOutputStream>(new BufferedOutputStream(std::move(raw)));
   RETURN_NOT_OK(result->SetBufferSize(buffer_size));
   *out = std::move(result);
   return Status::OK();

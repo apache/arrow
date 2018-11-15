@@ -42,7 +42,7 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   /// the default memory pool
   /// \param[out] out the created BufferedOutputStream
   /// \return Status
-  static Status Create(const std::shared_ptr<OutputStream>& raw, int64_t buffer_size,
+  static Status Create(std::shared_ptr<OutputStream> raw, int64_t buffer_size,
                        std::shared_ptr<BufferedOutputStream>* out);
 
   /// \brief Resize internal buffer
@@ -70,7 +70,7 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   std::shared_ptr<OutputStream> raw() const;
 
  private:
-  explicit BufferedOutputStream(const std::shared_ptr<OutputStream>& raw);
+  explicit BufferedOutputStream(std::shared_ptr<OutputStream> raw);
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
