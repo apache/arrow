@@ -15,6 +15,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+import six
 import decimal
 import json
 import multiprocessing as mp
@@ -26,6 +28,7 @@ import numpy.testing as npt
 import pandas as pd
 import pandas.util.testing as tm
 import pytest
+import pytz
 
 import pyarrow as pa
 import pyarrow.types as patypes
@@ -822,6 +825,31 @@ class TestConvertDateTimeLikeTypes(object):
             'datetime': date_array
         })
         tm.assert_frame_equal(expected_df, result)
+
+    def test_python_datetime_with_pytz_tzinfo(self):
+        for tz in [pytz.utc, pytz.timezone('US/Eastern'), pytz.FixedOffset(1)]:
+            values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
+            df = pd.DataFrame({'datetime': values})
+            _check_pandas_roundtrip(df)
+
+    @pytest.mark.skipif(six.PY2, reason='datetime.timezone is available since '
+                                        'python version 3.2')
+    def test_python_datetime_with_timezone_tzinfo(self):
+        from datetime import timezone
+
+        values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=pytz.utc)]
+        df = pd.DataFrame({'datetime': values})
+        _check_pandas_roundtrip(df)
+
+        # datetime.timezone is going to be pytz.FixedOffset
+        hours = 1
+        tz_timezone = timezone(timedelta(hours=hours))
+        tz_pytz = pytz.FixedOffset(hours * 60)
+        values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_timezone)]
+        values_exp = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_pytz)]
+        df = pd.DataFrame({'datetime': values})
+        df_exp = pd.DataFrame({'datetime': values_exp})
+        _check_pandas_roundtrip(df, expected=df_exp)
 
     def test_python_datetime_subclass(self):
 

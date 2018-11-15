@@ -20,6 +20,7 @@ import decimal
 import io
 import json
 import os
+import six
 import pytest
 
 import numpy as np
@@ -242,6 +243,16 @@ def test_pandas_parquet_datetime_tz():
 
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
+
+
+@pytest.mark.skipif(six.PY2, reason='datetime.timezone is available since '
+                                    'python version 3.2')
+def test_datetime_timezone_tzinfo():
+    value = datetime.datetime(2018, 1, 1, 1, 23, 45,
+                              tzinfo=datetime.timezone.utc)
+    df = pd.DataFrame({'foo': [value]})
+
+    _roundtrip_pandas_dataframe(df, write_kwargs={})
 
 
 def test_pandas_parquet_custom_metadata(tempdir):
