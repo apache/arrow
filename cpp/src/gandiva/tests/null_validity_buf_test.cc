@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/filter.h"
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
+#include "gandiva/filter.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
 
@@ -28,7 +28,7 @@ using arrow::boolean;
 using arrow::float32;
 using arrow::int32;
 
-class TestFilter : public ::testing::Test {
+class TestNullValidityBuffer : public ::testing::Test {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -36,7 +36,7 @@ class TestFilter : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestFilter, TestSimple) {
+TEST_F(TestNullValidityBuffer, TestSimple) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
