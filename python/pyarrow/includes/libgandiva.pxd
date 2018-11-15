@@ -17,6 +17,10 @@
 
 # distutils: language = c++
 
+from libcpp.string cimport string as c_string
+from libcpp.unordered_set cimport unordered_set as c_unordered_set
+from libc.stdint cimport int64_t, int32_t, uint8_t, uintptr_t
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
@@ -122,9 +126,51 @@ cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
             shared_ptr[CNode] condition, shared_ptr[CNode] this_node,
             shared_ptr[CNode] else_node, shared_ptr[CDataType] return_type)
 
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeAnd \
+        "gandiva::TreeExprBuilder::MakeAnd"(const CNodeVector& children)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeOr \
+        "gandiva::TreeExprBuilder::MakeOr"(const CNodeVector& children)
+
     cdef shared_ptr[CCondition] TreeExprBuilder_MakeCondition \
         "gandiva::TreeExprBuilder::MakeCondition"(
             shared_ptr[CNode] condition)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionInt32 \
+        "gandiva::TreeExprBuilder::MakeInExpressionInt32"(
+            shared_ptr[CNode] node, const c_unordered_set[int32_t]& values)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionInt64 \
+        "gandiva::TreeExprBuilder::MakeInExpressionInt64"(
+            shared_ptr[CNode] node, const c_unordered_set[int64_t]& values)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionTime32 \
+        "gandiva::TreeExprBuilder::MakeInExpressionTime32"(
+            shared_ptr[CNode] node, const c_unordered_set[int32_t]& values)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionTime64 \
+        "gandiva::TreeExprBuilder::MakeInExpressionTime64"(
+            shared_ptr[CNode] node, const c_unordered_set[int64_t]& values)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionDate32 \
+        "gandiva::TreeExprBuilder::MakeInExpressionDate32"(
+            shared_ptr[CNode] node, const c_unordered_set[int32_t]& values)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionDate64 \
+        "gandiva::TreeExprBuilder::MakeInExpressionDate64"(
+            shared_ptr[CNode] node, const c_unordered_set[int64_t]& values)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionTimeStamp \
+        "gandiva::TreeExprBuilder::MakeInExpressionTimeStamp"(
+            shared_ptr[CNode] node, const c_unordered_set[int64_t]& values)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionString \
+        "gandiva::TreeExprBuilder::MakeInExpressionString"(
+            shared_ptr[CNode] node, const c_unordered_set[c_string]& values)
+
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionBinary \
+        "gandiva::TreeExprBuilder::MakeInExpressionBinary"(
+            shared_ptr[CNode] node, const c_unordered_set[c_string]& values)
 
     cdef CStatus Projector_Make \
         "gandiva::Projector::Make"(

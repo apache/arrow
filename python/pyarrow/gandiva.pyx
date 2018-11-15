@@ -23,7 +23,8 @@ from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector as c_vector
-from libc.stdint cimport int64_t, uint8_t, uintptr_t
+from libcpp.unordered_set cimport unordered_set as c_unordered_set
+from libc.stdint cimport int64_t, int32_t, uint8_t, uintptr_t
 
 from pyarrow.includes.libarrow cimport *
 from pyarrow.compat import frombytes
@@ -32,34 +33,46 @@ from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
                           Schema, check_status, pyarrow_wrap_array,
                           pyarrow_wrap_data_type)
 
-from pyarrow.includes.libgandiva cimport (CCondition, CExpression,
-                                          CNode, CProjector, CFilter,
-                                          CSelectionVector,
-                                          TreeExprBuilder_MakeExpression,
-                                          TreeExprBuilder_MakeFunction,
-                                          TreeExprBuilder_MakeBoolLiteral,
-                                          TreeExprBuilder_MakeUInt8Literal,
-                                          TreeExprBuilder_MakeUInt16Literal,
-                                          TreeExprBuilder_MakeUInt32Literal,
-                                          TreeExprBuilder_MakeUInt64Literal,
-                                          TreeExprBuilder_MakeInt8Literal,
-                                          TreeExprBuilder_MakeInt16Literal,
-                                          TreeExprBuilder_MakeInt32Literal,
-                                          TreeExprBuilder_MakeInt64Literal,
-                                          TreeExprBuilder_MakeFloatLiteral,
-                                          TreeExprBuilder_MakeDoubleLiteral,
-                                          TreeExprBuilder_MakeStringLiteral,
-                                          TreeExprBuilder_MakeBinaryLiteral,
-                                          TreeExprBuilder_MakeField,
-                                          TreeExprBuilder_MakeIf,
-                                          TreeExprBuilder_MakeCondition,
-                                          SelectionVector_MakeInt16,
-                                          SelectionVector_MakeInt32,
-                                          SelectionVector_MakeInt64,
-                                          Projector_Make,
-                                          Filter_Make,
-                                          CFunctionSignature,
-                                          GetRegisteredFunctionSignatures)
+from pyarrow.includes.libgandiva cimport (
+    CCondition, CExpression,
+    CNode, CProjector, CFilter,
+    CSelectionVector,
+    TreeExprBuilder_MakeExpression,
+    TreeExprBuilder_MakeFunction,
+    TreeExprBuilder_MakeBoolLiteral,
+    TreeExprBuilder_MakeUInt8Literal,
+    TreeExprBuilder_MakeUInt16Literal,
+    TreeExprBuilder_MakeUInt32Literal,
+    TreeExprBuilder_MakeUInt64Literal,
+    TreeExprBuilder_MakeInt8Literal,
+    TreeExprBuilder_MakeInt16Literal,
+    TreeExprBuilder_MakeInt32Literal,
+    TreeExprBuilder_MakeInt64Literal,
+    TreeExprBuilder_MakeFloatLiteral,
+    TreeExprBuilder_MakeDoubleLiteral,
+    TreeExprBuilder_MakeStringLiteral,
+    TreeExprBuilder_MakeBinaryLiteral,
+    TreeExprBuilder_MakeField,
+    TreeExprBuilder_MakeIf,
+    TreeExprBuilder_MakeAnd,
+    TreeExprBuilder_MakeOr,
+    TreeExprBuilder_MakeCondition,
+    TreeExprBuilder_MakeInExpressionInt32,
+    TreeExprBuilder_MakeInExpressionInt64,
+    TreeExprBuilder_MakeInExpressionTime32,
+    TreeExprBuilder_MakeInExpressionTime64,
+    TreeExprBuilder_MakeInExpressionDate32,
+    TreeExprBuilder_MakeInExpressionDate64,
+    TreeExprBuilder_MakeInExpressionTimeStamp,
+    TreeExprBuilder_MakeInExpressionString,
+    TreeExprBuilder_MakeInExpressionBinary,
+    SelectionVector_MakeInt16,
+    SelectionVector_MakeInt32,
+    SelectionVector_MakeInt64,
+    Projector_Make,
+    Filter_Make,
+    CFunctionSignature,
+    GetRegisteredFunctionSignatures)
 
 
 cdef class Node:
@@ -240,6 +253,127 @@ cdef class TreeExprBuilder:
             condition.node, this_node.node, else_node.node,
             return_type.sp_type)
         return Node.create(r)
+
+    def make_and(self, children):
+        cdef c_vector[shared_ptr[CNode]] c_children
+        cdef Node child
+        for child in children:
+            c_children.push_back(child.node)
+        cdef shared_ptr[CNode] r = TreeExprBuilder_MakeAnd(c_children)
+        return Node.create(r)
+
+    def make_or(self, children):
+        cdef c_vector[shared_ptr[CNode]] c_children
+        cdef Node child
+        for child in children:
+            c_children.push_back(child.node)
+        cdef shared_ptr[CNode] r = TreeExprBuilder_MakeOr(c_children)
+        return Node.create(r)
+
+    def _make_in_expression_int32(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[int32_t] c_values
+        cdef int32_t v
+        for v in values:
+            c_values.insert(v)
+        r = TreeExprBuilder_MakeInExpressionInt32(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_int64(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[int64_t] c_values
+        cdef int64_t v
+        for v in values:
+            c_values.insert(v)
+        r = TreeExprBuilder_MakeInExpressionInt64(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_time32(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[int32_t] c_values
+        cdef int32_t v
+        for v in values:
+            c_values.insert(v)
+        r = TreeExprBuilder_MakeInExpressionTime32(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_time64(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[int64_t] c_values
+        cdef int64_t v
+        for v in values:
+            c_values.insert(v)
+        r = TreeExprBuilder_MakeInExpressionTime64(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_date32(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[int32_t] c_values
+        cdef int32_t v
+        for v in values:
+            c_values.insert(v)
+        r = TreeExprBuilder_MakeInExpressionDate32(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_date64(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[int64_t] c_values
+        cdef int64_t v
+        for v in values:
+            c_values.insert(v)
+        r = TreeExprBuilder_MakeInExpressionDate64(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_timestamp(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[int64_t] c_values
+        cdef int64_t v
+        for v in values:
+            c_values.insert(v)
+        r = TreeExprBuilder_MakeInExpressionTimeStamp(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_binary(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[c_string] c_values
+        cdef c_string v
+        for v in values:
+            c_values.insert(v)
+        r = TreeExprBuilder_MakeInExpressionString(node.node, c_values)
+        return Node.create(r)
+
+    def _make_in_expression_string(self, Node node, values):
+        cdef shared_ptr[CNode] r
+        cdef c_unordered_set[c_string] c_values
+        cdef c_string _v
+        for v in values:
+            _v = v.encode('UTF-8')
+            c_values.insert(_v)
+        r = TreeExprBuilder_MakeInExpressionString(node.node, c_values)
+        return Node.create(r)
+
+    def make_in_expression(self, Node node, values, dtype):
+        cdef DataType type = _as_type(dtype)
+        if type.id == _Type_INT32:
+            return self._make_in_expression_int32(node, values)
+        elif type.id == _Type_INT64:
+            return self._make_in_expression_int64(node, values)
+        elif type.id == _Type_TIME32:
+            return self._make_in_expression_time32(node, values)
+        elif type.id == _Type_TIME64:
+            return self._make_in_expression_time64(node, values)
+        elif type.id == _Type_TIMESTAMP:
+            return self._make_in_expression_timestamp(node, values)
+        elif type.id == _Type_DATE32:
+            return self._make_in_expression_date32(node, values)
+        elif type.id == _Type_DATE64:
+            return self._make_in_expression_date64(node, values)
+        elif type.id == _Type_BINARY:
+            return self._make_in_expression_binary(node, values)
+        elif type.id == _Type_STRING:
+            return self._make_in_expression_string(node, values)
+        else:
+            raise TypeError("Data type " + str(dtype) + " not supported.")
 
     def make_condition(self, Node condition):
         cdef shared_ptr[CCondition] r = TreeExprBuilder_MakeCondition(

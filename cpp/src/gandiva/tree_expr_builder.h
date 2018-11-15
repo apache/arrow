@@ -90,18 +90,32 @@ class TreeExprBuilder {
   /// \brief creates an in expression
   static NodePtr MakeInExpressionInt32(NodePtr node,
                                        const std::unordered_set<int32_t>& constants);
+
   static NodePtr MakeInExpressionInt64(NodePtr node,
                                        const std::unordered_set<int64_t>& constants);
+
   static NodePtr MakeInExpressionString(NodePtr node,
                                         const std::unordered_set<std::string>& constants);
+
   static NodePtr MakeInExpressionBinary(NodePtr node,
                                         const std::unordered_set<std::string>& constants);
-  /// \brief Date as millis since epoch.
-  static NodePtr MakeInExpressionDate(NodePtr node,
-                                      const std::unordered_set<int64_t>& constants);
-  /// \brief Time as millis of day
-  static NodePtr MakeInExpressionTime(NodePtr node,
-                                      const std::unordered_set<int32_t>& constants);
+
+  /// \brief Date as s/millis since epoch.
+  static NodePtr MakeInExpressionDate32(NodePtr node,
+                                        const std::unordered_set<int32_t>& constants);
+
+  /// \brief Date as millis/us/ns since epoch.
+  static NodePtr MakeInExpressionDate64(NodePtr node,
+                                        const std::unordered_set<int64_t>& constants);
+
+  /// \brief Time as s/millis of day
+  static NodePtr MakeInExpressionTime32(NodePtr node,
+                                        const std::unordered_set<int32_t>& constants);
+
+  /// \brief Time as millis/us/ns of day
+  static NodePtr MakeInExpressionTime64(NodePtr node,
+                                        const std::unordered_set<int64_t>& constants);
+
   /// \brief Timestamp as millis since epoch.
   static NodePtr MakeInExpressionTimeStamp(NodePtr node,
                                            const std::unordered_set<int64_t>& constants);

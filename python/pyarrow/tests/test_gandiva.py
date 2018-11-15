@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import datetime
 import pytest
 
 import pyarrow as pa
@@ -98,6 +99,143 @@ def test_filter():
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
     assert result.to_array().equals(pa.array(range(1000), type=pa.uint32()))
+
+
+@pytest.mark.gandiva
+def test_in_expr():
+    import pyarrow.gandiva as gandiva
+
+    arr = pa.array([u"ga", u"an", u"nd", u"di", u"iv", u"va"])
+    table = pa.Table.from_arrays([arr], ["a"])
+
+    # string
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [u"an", u"nd"], pa.string())
+    condition = builder.make_condition(cond)
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1, 2]
+
+    # int32
+    arr = pa.array([3, 1, 4, 1, 5, 9, 2, 6, 5, 4])
+    table = pa.Table.from_arrays([arr.cast(pa.int32())], ["a"])
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [1, 5], pa.int32())
+    condition = builder.make_condition(cond)
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1, 3, 4, 8]
+
+    # int64
+    arr = pa.array([3, 1, 4, 1, 5, 9, 2, 6, 5, 4])
+    table = pa.Table.from_arrays([arr], ["a"])
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [1, 5], pa.int64())
+    condition = builder.make_condition(cond)
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1, 3, 4, 8]
+
+
+@pytest.mark.skip(reason="Gandiva C++ did not have *real* binary, "
+                         "time and date support.")
+def test_in_expr_todo():
+    import pyarrow.gandiva as gandiva
+    # TODO: Implement reasonable support for timestamp, time & date.
+    # Current exceptions:
+    # pyarrow.lib.ArrowException: ExpressionValidationError:
+    # Evaluation expression for IN clause returns XXXX values are of typeXXXX
+
+    # binary
+    arr = pa.array([b"ga", b"an", b"nd", b"di", b"iv", b"va"])
+    table = pa.Table.from_arrays([arr], ["a"])
+
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [b'an', b'nd'], pa.binary())
+    condition = builder.make_condition(cond)
+
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1, 2]
+
+    # timestamp
+    datetime_1 = datetime.datetime.utcfromtimestamp(1542238951.621877)
+    datetime_2 = datetime.datetime.utcfromtimestamp(1542238911.621877)
+    datetime_3 = datetime.datetime.utcfromtimestamp(1542238051.621877)
+
+    arr = pa.array([datetime_1, datetime_2, datetime_3])
+    table = pa.Table.from_arrays([arr], ["a"])
+
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [datetime_2], pa.timestamp('ms'))
+    condition = builder.make_condition(cond)
+
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1]
+
+    # time
+    time_1 = datetime_1.time()
+    time_2 = datetime_2.time()
+    time_3 = datetime_3.time()
+
+    arr = pa.array([time_1, time_2, time_3])
+    table = pa.Table.from_arrays([arr], ["a"])
+
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [time_2], pa.time64('ms'))
+    condition = builder.make_condition(cond)
+
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1]
+
+    # date
+    date_1 = datetime_1.date()
+    date_2 = datetime_2.date()
+    date_3 = datetime_3.date()
+
+    arr = pa.array([date_1, date_2, date_3])
+    table = pa.Table.from_arrays([arr], ["a"])
+
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    cond = builder.make_in_expression(node_a, [date_2], pa.date32())
+    condition = builder.make_condition(cond)
+
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [1]
+
+
+@pytest.mark.gandiva
+def test_boolean():
+    import pyarrow.gandiva as gandiva
+
+    df = pd.DataFrame({"a": [1., 31., 46., 3., 57., 44., 22.],
+                       "b": [5., 45., 36., 73., 83., 23., 76.]})
+    table = pa.Table.from_pandas(df)
+
+    builder = gandiva.TreeExprBuilder()
+    node_a = builder.make_field(table.schema.field_by_name("a"))
+    node_b = builder.make_field(table.schema.field_by_name("b"))
+    fifty = builder.make_literal(50.0, pa.float64())
+    eleven = builder.make_literal(11.0, pa.float64())
+
+    cond_1 = builder.make_function("less_than", [node_a, fifty], pa.bool_())
+    cond_2 = builder.make_function("greater_than", [node_a, node_b],
+                                   pa.bool_())
+    cond_3 = builder.make_function("less_than", [node_b, eleven], pa.bool_())
+    cond = builder.make_or([builder.make_and([cond_1, cond_2]), cond_3])
+    condition = builder.make_condition(cond)
+
+    filter = gandiva.make_filter(table.schema, condition)
+    result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
+    assert list(result.to_array()) == [0, 2, 5]
 
 
 @pytest.mark.gandiva
