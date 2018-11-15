@@ -20,6 +20,7 @@
 
 #include <vector>
 
+#include "arrow/util/macros.h"
 #include "gandiva/dex.h"
 #include "gandiva/dex_visitor.h"
 #include "gandiva/eval_batch.h"
@@ -37,7 +38,7 @@ class BitMapAccumulator : public DexDefaultVisitor {
     int idx = dex.ValidityIdx();
     auto bitmap = eval_batch_.GetBuffer(idx);
     // The bitmap could be null. Ignore it in this case.
-    if (bitmap != nullptr) src_maps_.push_back(bitmap);
+    if (bitmap != NULLPTR) src_maps_.push_back(bitmap);
   }
 
   void Visit(const LocalBitMapValidityDex& dex) {
