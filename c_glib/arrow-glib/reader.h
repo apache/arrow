@@ -255,6 +255,15 @@ struct _GArrowCSVReadOptionsClass
 };
 
 GArrowCSVReadOptions *garrow_csv_read_options_new(void);
+void
+garrow_csv_read_options_add_column_type(GArrowCSVReadOptions *options,
+                                        const gchar *name,
+                                        GArrowDataType *data_type);
+void
+garrow_csv_read_options_add_schema(GArrowCSVReadOptions *options,
+                                   GArrowSchema *schema);
+GHashTable *
+garrow_csv_read_options_get_column_types(GArrowCSVReadOptions *options);
 
 #define GARROW_TYPE_CSV_READER (garrow_csv_reader_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowCSVReader,
