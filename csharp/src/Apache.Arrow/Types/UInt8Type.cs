@@ -26,7 +26,7 @@ namespace Apache.Arrow.Types
 
         public override void Accept(IArrowTypeVisitor visitor)
         {
-            if (visitor is IArrowTypeVisitor<Int8Type> v)
+            if (visitor is IArrowTypeVisitor<UInt8Type> v)
                 v.Visit(this);
         }
     }
