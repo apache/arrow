@@ -134,11 +134,11 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
 
   virtual bool supports_zero_copy() const = 0;
 
-  /// \brief Read nbytes at position, provide default implementations using Read(...), but
-  /// can be overridden. Default implementation is thread-safe.  It is unspecified
-  /// whether this method updates the file position or not.
+  /// \brief Read nbytes at position, provide default implementations using
+  /// Read(...), but can be overridden. It is unspecified whether this method
+  /// updates the file position or not.
   ///
-  /// \note Child classes must explicitly call this implementation or provide their own.
+  /// \note Child classes must provide their own implementation.
   ///
   /// \param[in] position Where to read bytes from
   /// \param[in] nbytes The number of bytes to read
@@ -148,11 +148,11 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   virtual Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                         void* out) = 0;
 
-  /// \brief Read nbytes at position, provide default implementations using Read(...), but
-  /// can be overridden. Default implementation is thread-safe.  It is unspecified
-  /// whether this method updates the file position or not.
+  /// \brief Read nbytes at position, provide default implementations using
+  /// Read(...), but can be overridden. It is unspecified whether this method
+  /// updates the file position or not.
   ///
-  /// \note Child classes must explicitly call this implementation or provide their own.
+  /// \note Child classes must provide their own implementation.
   ///
   /// \param[in] position Where to read bytes from
   /// \param[in] nbytes The number of bytes to read

@@ -76,6 +76,57 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   std::unique_ptr<Impl> impl_;
 };
 
+class ARROW_EXPORT BufferedInputStream : virtual public InputStream {
+ public:
+  void Peek(int64_t bytes, std::shared_ptr<Buffer>* out);
+
+  /// \brief Resize internal read buffer; calls to Read(...) will read at least
+  /// \param[in] new_buffer_size the new read buffer size
+  /// \return Status
+  Status SetBufferSize(int64_t new_buffer_size);
+
+  /// \brief Return the current size of the internal buffer
+  int64_t buffer_size() const;
+
+  // InputStream APIs
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
+ private:
+  class ARROW_NO_EXPORT BufferedInputStreamImpl;
+  std::unique_ptr<BufferedInputStreamImpl> impl_;
+};
+
+/// \brief A RandomAccessFile implementation which performs buffered
+/// reads. Seeking invalidates any buffered data
+class ARROW_EXPORT BufferedReader : public BufferedInputStream,
+                                    virtual public RandomAccessFile {
+ public:
+  /// \brief Create a buffered output stream wrapping the given output stream.
+  /// \param[in] raw another OutputStream
+  /// \param[in] buffer_size the size of the temporary buffer. Allocates from
+  /// the default memory pool
+  /// \param[out] out the created BufferedOutputStream
+  /// \return Status
+  static Status Create(std::shared_ptr<OutputStream> raw, int64_t buffer_size,
+                       std::shared_ptr<BufferedOutputStream>* out);
+
+  // RandomAccessFile APIs
+  Status GetSize(int64_t* size) override;
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                void* out) override;
+  Status ReadAt(int64_t position, int64_t nbytes,
+                std::shared_ptr<Buffer>* out) override;
+
+  Status Seek(int64_t position) override;
+
+  bool supports_zero_copy() const override;
+
+ public:
+  class ARROW_NO_EXPORT BufferedReaderImpl;
+  std::unique_ptr<BufferedReaderImpl> impl_;
+};
+
 }  // namespace io
 }  // namespace arrow
 
