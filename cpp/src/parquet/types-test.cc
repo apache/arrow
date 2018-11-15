@@ -61,6 +61,16 @@ TEST(TestLogicalTypeToString, LogicalTypes) {
   ASSERT_STREQ("INTERVAL", LogicalTypeToString(LogicalType::INTERVAL).c_str());
 }
 
+TEST(TestCompressionToString, Compression) {
+  ASSERT_STREQ("UNCOMPRESSED", CompressionToString(Compression::UNCOMPRESSED).c_str());
+  ASSERT_STREQ("SNAPPY", CompressionToString(Compression::SNAPPY).c_str());
+  ASSERT_STREQ("GZIP", CompressionToString(Compression::GZIP).c_str());
+  ASSERT_STREQ("LZO", CompressionToString(Compression::LZO).c_str());
+  ASSERT_STREQ("BROTLI", CompressionToString(Compression::BROTLI).c_str());
+  ASSERT_STREQ("LZ4", CompressionToString(Compression::LZ4).c_str());
+  ASSERT_STREQ("ZSTD", CompressionToString(Compression::ZSTD).c_str());
+}
+
 #if !(defined(_WIN32) || defined(__CYGWIN__))
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"

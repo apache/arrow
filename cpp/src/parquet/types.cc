@@ -129,6 +129,8 @@ std::string CompressionToString(Compression::type t) {
       return "GZIP";
     case Compression::LZO:
       return "LZO";
+    case Compression::BROTLI:
+      return "BROTLI";
     case Compression::LZ4:
       return "LZ4";
     case Compression::ZSTD:
