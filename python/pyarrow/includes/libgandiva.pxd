@@ -145,19 +145,19 @@ cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
             shared_ptr[CNode] node, const c_unordered_set[int64_t]& values)
 
     cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionTime32 \
-        "gandiva::TreeExprBuilder::MakeInExpressionTime"(
+        "gandiva::TreeExprBuilder::MakeInExpressionTime32"(
             shared_ptr[CNode] node, const c_unordered_set[int32_t]& values)
 
     cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionTime64 \
-        "gandiva::TreeExprBuilder::MakeInExpressionTime"(
+        "gandiva::TreeExprBuilder::MakeInExpressionTime64"(
             shared_ptr[CNode] node, const c_unordered_set[int64_t]& values)
 
     cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionDate32 \
-        "gandiva::TreeExprBuilder::MakeInExpressionDate"(
+        "gandiva::TreeExprBuilder::MakeInExpressionDate32"(
             shared_ptr[CNode] node, const c_unordered_set[int32_t]& values)
 
     cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionDate64 \
-        "gandiva::TreeExprBuilder::MakeInExpressionDate"(
+        "gandiva::TreeExprBuilder::MakeInExpressionDate64"(
             shared_ptr[CNode] node, const c_unordered_set[int64_t]& values)
 
     cdef shared_ptr[CNode] TreeExprBuilder_MakeInExpressionTimeStamp \
