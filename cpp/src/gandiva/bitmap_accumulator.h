@@ -36,7 +36,8 @@ class BitMapAccumulator : public DexDefaultVisitor {
   void Visit(const VectorReadValidityDex& dex) {
     int idx = dex.ValidityIdx();
     auto bitmap = eval_batch_.GetBuffer(idx);
-    src_maps_.push_back(bitmap);
+    // The bitmap could be null. Ignore it in this case.
+    if (bitmap != nullptr) src_maps_.push_back(bitmap);
   }
 
   void Visit(const LocalBitMapValidityDex& dex) {
