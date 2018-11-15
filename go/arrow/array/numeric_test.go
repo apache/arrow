@@ -274,7 +274,7 @@ func TestNewTime64Data(t *testing.T) {
 		arrow.Time64(16),
 	}
 
-	dtype := arrow.FixedWidthTypes.Time64µs
+	dtype := arrow.FixedWidthTypes.Time64us
 	ad := array.NewData(dtype, len(data),
 		[]*memory.Buffer{nil, memory.NewBufferBytes(arrow.Time64Traits.CastToBytes(data))},
 		nil, 0, 0,
@@ -305,7 +305,7 @@ func TestTime64SliceData(t *testing.T) {
 		sub = vs[beg:end]
 	)
 
-	dtype := arrow.FixedWidthTypes.Time64µs
+	dtype := arrow.FixedWidthTypes.Time64us
 	b := array.NewTime64Builder(pool, dtype.(*arrow.Time64Type))
 	defer b.Release()
 
@@ -358,7 +358,7 @@ func TestTime64SliceDataWithNull(t *testing.T) {
 		sub = vs[beg:end]
 	)
 
-	dtype := arrow.FixedWidthTypes.Time64µs
+	dtype := arrow.FixedWidthTypes.Time64us
 	b := array.NewTime64Builder(pool, dtype.(*arrow.Time64Type))
 	defer b.Release()
 

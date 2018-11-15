@@ -38,7 +38,7 @@ const (
 	Second
 )
 
-func (u TimeUnit) String() string { return [...]string{"ns", "µs", "ms", "s"}[uint(u)&3] }
+func (u TimeUnit) String() string { return [...]string{"ns", "us", "ms", "s"}[uint(u)&3] }
 
 // TimestampType is encoded as a 64-bit signed integer since the UNIX epoch (2017-01-01T00:00:00Z).
 // The zero-value is a nanosecond and time zone neutral. Time zone neutral can be
@@ -77,13 +77,13 @@ var (
 		Boolean  FixedWidthDataType
 		Time32s  FixedWidthDataType
 		Time32ms FixedWidthDataType
-		Time64µs FixedWidthDataType
+		Time64us FixedWidthDataType
 		Time64ns FixedWidthDataType
 	}{
 		Boolean:  &BooleanType{},
 		Time32s:  &Time32Type{Unit: Second},
 		Time32ms: &Time32Type{Unit: Millisecond},
-		Time64µs: &Time64Type{Unit: Microsecond},
+		Time64us: &Time64Type{Unit: Microsecond},
 		Time64ns: &Time64Type{Unit: Nanosecond},
 	}
 )
