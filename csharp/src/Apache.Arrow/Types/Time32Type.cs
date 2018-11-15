@@ -32,7 +32,7 @@ namespace Apache.Arrow.Types
 
         public override void Accept(IArrowTypeVisitor visitor)
         {
-            if (visitor is IArrowTypeVisitor<Int16Type> v)
+            if (visitor is IArrowTypeVisitor<Time32Type> v)
                 v.Visit(this);
         }
     }
