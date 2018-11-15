@@ -17,18 +17,20 @@
 
 package org.apache.arrow.vector;
 
+import static org.junit.Assert.assertEquals;
+
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
 
 public class TestStructVector {
 
@@ -51,6 +53,20 @@ public class TestStructVector {
     FieldType type = new FieldType(true, Struct.INSTANCE, null, metadata);
     try (StructVector vector = new StructVector("struct", allocator, type, null)) {
       Assert.assertEquals(vector.getField().getMetadata(), type.getMetadata());
+    }
+  }
+
+  @Test
+  public void testMakeTransferPair() {
+    try (final StructVector s1 = StructVector.empty("s1", allocator);
+         final StructVector s2 = StructVector.empty("s2", allocator)) {
+      s1.addOrGet("struct_child", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
+      s1.makeTransferPair(s2);
+      final FieldVector child = s1.getChild("struct_child");
+      final FieldVector toChild = s2.addOrGet("struct_child", child.getField().getFieldType(), child.getClass());
+      assertEquals(0, toChild.getValueCapacity());
+      assertEquals(0, toChild.getDataBuffer().capacity());
+      assertEquals(0, toChild.getValidityBuffer().capacity());
     }
   }
 }
