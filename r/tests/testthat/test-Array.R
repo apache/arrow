@@ -353,7 +353,10 @@ test_that("float types casts (ARROW-3741)", {
 
   expect_equal(a_f32$as_vector(), x)
   expect_equal(a_f64$as_vector(), x)
+})
 
+test_that("cast to half float works", {
+  skip("until https://issues.apache.org/jira/browse/ARROW-3802")
   a <- array(1:4)
   a_f16 <- a$cast(float16())
   expect_equal(a_16$type(), float16())
