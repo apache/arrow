@@ -49,6 +49,7 @@ install(FILES
   stl.h
   stopwatch.h
   string.h
+  string_view.h
   thread-pool.h
   type_traits.h
   utf8.h
@@ -104,4 +105,5 @@ ADD_ARROW_BENCHMARK(lazy-benchmark)
 ADD_ARROW_BENCHMARK(number-parsing-benchmark)
 ADD_ARROW_BENCHMARK(utf8-util-benchmark)
 
+add_subdirectory(string_view)
 add_subdirectory(variant)

@@ -76,22 +76,22 @@ struct WrapBytes {};
 
 template <>
 struct WrapBytes<StringArray> {
-  static inline PyObject* Wrap(const uint8_t* data, int64_t length) {
-    return PyUnicode_FromStringAndSize(reinterpret_cast<const char*>(data), length);
+  static inline PyObject* Wrap(const char* data, int64_t length) {
+    return PyUnicode_FromStringAndSize(data, length);
   }
 };
 
 template <>
 struct WrapBytes<BinaryArray> {
-  static inline PyObject* Wrap(const uint8_t* data, int64_t length) {
-    return PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), length);
+  static inline PyObject* Wrap(const char* data, int64_t length) {
+    return PyBytes_FromStringAndSize(data, length);
   }
 };
 
 template <>
 struct WrapBytes<FixedSizeBinaryArray> {
-  static inline PyObject* Wrap(const uint8_t* data, int64_t length) {
-    return PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), length);
+  static inline PyObject* Wrap(const char* data, int64_t length) {
+    return PyBytes_FromStringAndSize(data, length);
   }
 };
 
@@ -404,21 +404,18 @@ inline Status ConvertBinaryLike(PandasOptions options, const ChunkedArray& data,
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = checked_cast<const ArrayType&>(*data.chunk(c));
 
-    const uint8_t* data_ptr;
-    int32_t length;
     const bool has_nulls = data.null_count() > 0;
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (has_nulls && arr.IsNull(i)) {
         Py_INCREF(Py_None);
         *out_values = Py_None;
       } else {
-        data_ptr = arr.GetValue(i, &length);
-        *out_values = WrapBytes<ArrayType>::Wrap(data_ptr, length);
+        auto view = arr.GetView(i);
+        *out_values = WrapBytes<ArrayType>::Wrap(view.data(), view.length());
         if (*out_values == nullptr) {
           PyErr_Clear();
           std::stringstream ss;
-          ss << "Wrapping "
-             << std::string(reinterpret_cast<const char*>(data_ptr), length) << " failed";
+          ss << "Wrapping " << view << " failed";
           return Status::UnknownError(ss.str());
         }
       }
@@ -438,37 +435,6 @@ inline Status ConvertNulls(PandasOptions options, const ChunkedArray& data,
       // All values are null
       Py_INCREF(Py_None);
       *out_values = Py_None;
-      ++out_values;
-    }
-  }
-  return Status::OK();
-}
-
-inline Status ConvertFixedSizeBinary(PandasOptions options, const ChunkedArray& data,
-                                     PyObject** out_values) {
-  PyAcquireGIL lock;
-  for (int c = 0; c < data.num_chunks(); c++) {
-    auto arr = checked_cast<FixedSizeBinaryArray*>(data.chunk(c).get());
-
-    const uint8_t* data_ptr;
-    int32_t length =
-        std::dynamic_pointer_cast<FixedSizeBinaryType>(arr->type())->byte_width();
-    const bool has_nulls = data.null_count() > 0;
-    for (int64_t i = 0; i < arr->length(); ++i) {
-      if (has_nulls && arr->IsNull(i)) {
-        Py_INCREF(Py_None);
-        *out_values = Py_None;
-      } else {
-        data_ptr = arr->GetValue(i);
-        *out_values = WrapBytes<FixedSizeBinaryArray>::Wrap(data_ptr, length);
-        if (*out_values == nullptr) {
-          PyErr_Clear();
-          std::stringstream ss;
-          ss << "Wrapping "
-             << std::string(reinterpret_cast<const char*>(data_ptr), length) << " failed";
-          return Status::UnknownError(ss.str());
-        }
-      }
       ++out_values;
     }
   }
@@ -771,7 +737,7 @@ class ObjectBlock : public PandasBlock {
     } else if (type == Type::STRING) {
       RETURN_NOT_OK(ConvertBinaryLike<StringType>(options_, data, out_buffer));
     } else if (type == Type::FIXED_SIZE_BINARY) {
-      RETURN_NOT_OK(ConvertFixedSizeBinary(options_, data, out_buffer));
+      RETURN_NOT_OK(ConvertBinaryLike<FixedSizeBinaryType>(options_, data, out_buffer));
     } else if (type == Type::DATE32) {
       RETURN_NOT_OK(ConvertDates<Date32Type>(options_, data, out_buffer));
     } else if (type == Type::DATE64) {
@@ -1820,19 +1786,19 @@ class ArrowDeserializer {
     return func(options_, data_, out_values);
   }
 
-  // UTF8 strings
+  // Strings and binary
   template <typename Type>
   typename std::enable_if<std::is_base_of<BinaryType, Type>::value, Status>::type Visit(
       const Type& type) {
     return VisitObjects(ConvertBinaryLike<Type>);
   }
 
-  Status Visit(const NullType& type) { return VisitObjects(ConvertNulls); }
-
   // Fixed length binary strings
   Status Visit(const FixedSizeBinaryType& type) {
-    return VisitObjects(ConvertFixedSizeBinary);
+    return VisitObjects(ConvertBinaryLike<FixedSizeBinaryType>);
   }
+
+  Status Visit(const NullType& type) { return VisitObjects(ConvertNulls); }
 
   Status Visit(const Decimal128Type& type) { return VisitObjects(ConvertDecimals); }
 

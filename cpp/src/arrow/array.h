@@ -33,6 +33,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -488,27 +489,33 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
               int64_t null_count = 0, int64_t offset = 0);
 
-  // Return the pointer to the given elements bytes
-  // TODO(emkornfield) introduce a StringPiece or something similar to capture zero-copy
-  // pointer + offset
+  /// Return the pointer to the given elements bytes
+  // XXX should GetValue(int64_t i) return a string_view?
   const uint8_t* GetValue(int64_t i, int32_t* out_length) const {
     // Account for base offset
     i += data_->offset;
-
     const int32_t pos = raw_value_offsets_[i];
     *out_length = raw_value_offsets_[i + 1] - pos;
     return raw_data_ + pos;
+  }
+
+  /// \brief Get binary value as a string_view
+  ///
+  /// \param i the value index
+  /// \return the view over the selected value
+  util::string_view GetView(int64_t i) const {
+    // Account for base offset
+    i += data_->offset;
+    const int32_t pos = raw_value_offsets_[i];
+    return util::string_view(reinterpret_cast<const char*>(raw_data_ + pos),
+                             raw_value_offsets_[i + 1] - pos);
   }
 
   /// \brief Get binary value as a std::string
   ///
   /// \param i the value index
   /// \return the value copied into a std::string
-  std::string GetString(int64_t i) const {
-    int32_t length = 0;
-    const uint8_t* bytes = GetValue(i, &length);
-    return std::string(reinterpret_cast<const char*>(bytes), static_cast<size_t>(length));
-  }
+  std::string GetString(int64_t i) const { return std::string(GetView(i)); }
 
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[1]; }
@@ -555,14 +562,6 @@ class ARROW_EXPORT StringArray : public BinaryArray {
               const std::shared_ptr<Buffer>& data,
               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
               int64_t null_count = 0, int64_t offset = 0);
-
-  // Construct a std::string
-  // TODO: std::bad_alloc possibility
-  std::string GetString(int64_t i) const {
-    int32_t nchars;
-    const uint8_t* str = GetValue(i, &nchars);
-    return std::string(reinterpret_cast<const char*>(str), nchars);
-  }
 };
 
 // ----------------------------------------------------------------------
@@ -582,6 +581,12 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 
   const uint8_t* GetValue(int64_t i) const;
   const uint8_t* Value(int64_t i) const { return GetValue(i); }
+
+  util::string_view GetView(int64_t i) const {
+    return util::string_view(reinterpret_cast<const char*>(GetValue(i)), byte_width());
+  }
+
+  std::string GetString(int64_t i) const { return std::string(GetView(i)); }
 
   int32_t byte_width() const { return byte_width_; }
 

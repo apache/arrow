@@ -348,6 +348,7 @@ if (UNIX)
             (item MATCHES "xxhash.h") OR
             (item MATCHES "xxhash.cc") OR
             (item MATCHES "config.h") OR
+            (item MATCHES "util/string_view/") OR
             (item MATCHES "util/variant") OR
             (item MATCHES "zmalloc.h") OR
             (item MATCHES "gandiva/precompiled/date.h") OR

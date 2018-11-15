@@ -22,20 +22,29 @@
 #include <string>
 
 #include "arrow/status.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 
 static const char* kAsciiTable = "0123456789ABCDEF";
 
-static inline std::string HexEncode(const uint8_t* data, int32_t length) {
+static inline std::string HexEncode(const char* data, size_t length) {
   std::string hex_string;
   hex_string.reserve(length * 2);
-  for (int32_t j = 0; j < length; ++j) {
+  for (size_t j = 0; j < length; ++j) {
     // Convert to 2 base16 digits
     hex_string.push_back(kAsciiTable[data[j] >> 4]);
     hex_string.push_back(kAsciiTable[data[j] & 15]);
   }
   return hex_string;
+}
+
+static inline std::string HexEncode(const uint8_t* data, int32_t length) {
+  return HexEncode(reinterpret_cast<const char*>(data), length);
+}
+
+static inline std::string HexEncode(util::string_view str) {
+  return HexEncode(str.data(), str.size());
 }
 
 static inline Status ParseHexValue(const char* data, uint8_t* out) {

@@ -1386,9 +1386,8 @@ TEST_F(TestBinaryArray, TestGetValue) {
     if (valid_bytes_[i] == 0) {
       ASSERT_TRUE(strings_->IsNull(i));
     } else {
-      int32_t len = -1;
-      const uint8_t* bytes = strings_->GetValue(i, &len);
-      ASSERT_EQ(0, std::memcmp(expected_[i].data(), bytes, len));
+      ASSERT_FALSE(strings_->IsNull(i));
+      ASSERT_EQ(strings_->GetString(i), expected_[i]);
     }
   }
 }
@@ -1398,9 +1397,8 @@ TEST_F(TestBinaryArray, TestNullValuesInitialized) {
     if (valid_bytes_[i] == 0) {
       ASSERT_TRUE(strings_->IsNull(i));
     } else {
-      int32_t len = -1;
-      const uint8_t* bytes = strings_->GetValue(i, &len);
-      ASSERT_EQ(0, std::memcmp(expected_[i].data(), bytes, len));
+      ASSERT_FALSE(strings_->IsNull(i));
+      ASSERT_EQ(strings_->GetString(i), expected_[i]);
     }
   }
   TestInitialized(*strings_);

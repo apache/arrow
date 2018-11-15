@@ -127,15 +127,13 @@ Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
       return Status::OK();
     }
     case Type::BINARY: {
-      int32_t nchars;
-      const uint8_t* str = checked_cast<const BinaryArray&>(arr).GetValue(index, &nchars);
-      *result = PyBytes_FromStringAndSize(reinterpret_cast<const char*>(str), nchars);
+      auto view = checked_cast<const BinaryArray&>(arr).GetView(index);
+      *result = PyBytes_FromStringAndSize(view.data(), view.length());
       return CheckPyError();
     }
     case Type::STRING: {
-      int32_t nchars;
-      const uint8_t* str = checked_cast<const StringArray&>(arr).GetValue(index, &nchars);
-      *result = PyUnicode_FromStringAndSize(reinterpret_cast<const char*>(str), nchars);
+      auto view = checked_cast<const StringArray&>(arr).GetView(index);
+      *result = PyUnicode_FromStringAndSize(view.data(), view.length());
       return CheckPyError();
     }
     case Type::HALF_FLOAT: {
