@@ -29,10 +29,6 @@ namespace Apache.Arrow.Types
         public override bool IsSigned => true;
         public override PrecisionKind Precision => PrecisionKind.Half;
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<HalfFloatType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

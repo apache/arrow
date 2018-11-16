@@ -33,10 +33,6 @@ namespace Apache.Arrow.Types
             ValueDataType = valueDataType ?? NullType.Default;
         }
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<ListType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

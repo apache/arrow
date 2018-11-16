@@ -19,17 +19,13 @@ using System.Text;
 
 namespace Apache.Arrow.Types
 {
-    public class BinaryType: ArrowType
+    public class BinaryType : ArrowType
     {
         public static readonly BinaryType Default = new BinaryType();
 
         public override ArrowTypeId TypeId => ArrowTypeId.Binary;
         public override string Name => "binary";
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<BinaryType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

@@ -34,11 +34,7 @@ namespace Apache.Arrow.Types
             ByteWidth = byteWidth;
         }
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<FixedSizeBinaryType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
 
         
     }

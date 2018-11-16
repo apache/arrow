@@ -26,10 +26,6 @@ namespace Apache.Arrow.Types
         public override ArrowTypeId TypeId => ArrowTypeId.String;
         public override string Name => "utf8";
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<StringType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

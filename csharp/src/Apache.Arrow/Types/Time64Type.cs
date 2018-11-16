@@ -30,10 +30,6 @@ namespace Apache.Arrow.Types
         public Time64Type(TimeUnit unit = TimeUnit.Millisecond)
             : base(unit) { }
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<Time64Type> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

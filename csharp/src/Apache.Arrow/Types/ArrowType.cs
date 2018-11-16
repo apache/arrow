@@ -15,7 +15,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public abstract class ArrowType: IArrowType
+    public abstract class ArrowType : IArrowType
     {
         public abstract ArrowTypeId TypeId { get; }
 
@@ -24,5 +24,17 @@ namespace Apache.Arrow.Types
         public virtual bool IsFixedWidth => false;
 
         public abstract void Accept(IArrowTypeVisitor visitor);
+
+        internal static void Accept<T>(T arrowType, IArrowTypeVisitor visitor) where T : IArrowType
+        {
+            if (visitor is IArrowTypeVisitor<T> v)
+            {
+                v.Visit(arrowType);
+            }
+            else
+            {
+                visitor.Visit(arrowType);
+            }
+        }
     }
 }

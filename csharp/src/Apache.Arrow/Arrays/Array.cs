@@ -37,10 +37,7 @@ namespace Apache.Arrow
 
         public ArrowBuffer NullBitmapBuffer => Data.Buffers[0];
 
-        public virtual void Accept(IArrowArrayVisitor visitor)
-        {
-            Accept(this, visitor);
-        }
+        public abstract void Accept(IArrowArrayVisitor visitor);
 
         public bool IsValid(int index) =>
             NullBitmapBuffer == null || NullBitmap.IsSet(index);
