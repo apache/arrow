@@ -31,8 +31,10 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
 Suggests:
     testthat,
-    lubridate, 
-    hms
+    lubridate,
+    hms,
+    knitr,
+    rmarkdown
 Collate:
     'enums.R'
     'R6.R'
@@ -65,3 +67,4 @@ Collate:
     'reexports-tibble.R'
     'write_arrow.R'
     'zzz.R'
+VignetteBuilder: knitr

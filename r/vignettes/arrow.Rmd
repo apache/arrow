@@ -1,0 +1,103 @@
+---
+title: "arrow"
+author: "Romain François"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{arrow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+library(arrow, warn.conflicts = FALSE)
+```
+
+# Install arrow
+
+## CRAN 
+
+`arrow` is not yet available from CRAN
+
+## Installing from source
+
+The `arrow` package is currently only available from github. To install the development version, you first need to 
+install the C++ library so that `pkg-config` finds it: 
+
+```shell
+git clone https://github.com/apache/arrow.git
+cd arrow/cpp && mkdir release && cd release
+
+# It is important to statically link to boost libraries
+cmake .. -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:BOOL=Off
+make install
+```
+
+Then you can install the R package with [remotes::install_github()](https://remotes.r-lib.org/reference/install_github.html)
+
+```{r, eval = FALSE}
+# install.packages("remotes")
+remotes::install_github("apache/arrow/r")
+```
+
+This will install the correct versions of packages `arrow` depend on. 
+
+# Development
+
+## System Requirements
+
+## Environment Setup and Build
+
+## Build and test
+
+## Developing on Windows
+
+# Memory and IO Interfaces
+
+# Data Type and In-Memory Data Model
+
+Apache Arrow defines columnar array data structures by composing type metadata with memory buffers. These data 
+structures are exposed in R as a set of interrelated [R6](https://r6.r-lib.org) classes. 
+
+ - Type metadata: Instances of `arrow::DataType`, which describe a logical array type
+ - Schemas: Instances of `arrow::Schema`, which describes a named collection of types. These
+   can be thought of as the column types in a table-like object. 
+ - Arrays: Instances of `arrow::Array`, which are atomic, contiguous columnar data structures 
+   composed from `arrow::Buffer` objects. 
+ - Record Batches: Instances of `arrow::RecordBatch` which are a collection of `Array` objects 
+   with a particular schema
+ - Tables: Instances of `arrow::Table`, a logical table data structures in which each column
+   consists of one or more `Array` objects of the same logical type. 
+   
+## Type metadata
+
+Apache Arrow defines language agnostic column-oriented data structures for array data. These include: 
+
+ - Fixed-length primitive types: numbers, booleans, data and times, fixed size binary and other values
+   that fit into a given number
+ - Variable length primitive types: binary, string
+ - Nested types: list, struct and union
+ - Dictionary type: An encoded categorical type
+ 
+Each logical type in `arrow` has a corresponding factory function for creating an instance of that type object in R. 
+
+```{r}
+library(arrow, warn.conflicts = FALSE)
+t1 <- int32()
+t2 <- utf8()
+t5 <- timestamp(TimeUnit$MILLI)
+
+t1
+t2
+t5
+```
+
+We use the name *logical* type because the *physical* storage may be the same for one or more types. For
+example `int64`, `float64` and `timestamp[ms]` all occupy 64 bites per value. 
+
+These objects are *metadata*, they are used for describing the data in arrays, schemas and record batches. 
+
