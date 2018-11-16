@@ -216,6 +216,15 @@ class Accountant implements AutoCloseable {
   }
 
   /**
+   * Return the initial reservation.
+   *
+   * @return reservation in bytes.
+   */
+  public long getInitReservation() {
+    return reservation;
+  }
+
+  /**
    * Set the maximum amount of memory that can be allocated in the this Accountant before failing
    * an allocation.
    *

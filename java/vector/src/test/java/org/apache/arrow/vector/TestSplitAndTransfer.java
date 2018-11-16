@@ -61,13 +61,12 @@ public class TestSplitAndTransfer {
   
       final TransferPair tp = varCharVector.getTransferPair(allocator);
       final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
-      final int[][] startLengths = {{0, 201}, {201, 200}, {401, 99}};
+      final int[][] startLengths = {{0, 201}, {201, 0}, {201, 200}, {401, 99}};
   
       for (final int[] startLength : startLengths) {
         final int start = startLength[0];
         final int length = startLength[1];
         tp.splitAndTransfer(start, length);
-        newVarCharVector.setValueCount(length);
         for (int i = 0; i < length; i++) {
           final boolean expectedSet = ((start + i) % 3) == 0;
           if (expectedSet) {
@@ -78,6 +77,34 @@ public class TestSplitAndTransfer {
             assertTrue(newVarCharVector.isNull(i));
           }
         }
+        newVarCharVector.clear();
+      }
+    }
+  }
+
+  @Test
+  public void testMemoryConstrainedTransfer() {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
+      allocator.setLimit(32768); /* set limit of 32KB */
+
+      varCharVector.allocateNew(10000, 1000);
+
+      final int valueCount = 1000;
+
+      for (int i = 0; i < valueCount; i += 3) {
+        final String s = String.format("%010d", i);
+        varCharVector.set(i, s.getBytes());
+      }
+      varCharVector.setValueCount(valueCount);
+
+      final TransferPair tp = varCharVector.getTransferPair(allocator);
+      final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
+      final int[][] startLengths = {{0, 700}, {700, 299}};
+
+      for (final int[] startLength : startLengths) {
+        final int start = startLength[0];
+        final int length = startLength[1];
+        tp.splitAndTransfer(start, length);
         newVarCharVector.clear();
       }
     }

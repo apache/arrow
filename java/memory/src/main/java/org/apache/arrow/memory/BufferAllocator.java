@@ -106,6 +106,13 @@ public interface BufferAllocator extends AutoCloseable {
   public long getLimit();
 
   /**
+   * Return the initial reservation.
+   *
+   * @return reservation in bytes.
+   */
+  public long getInitReservation();
+
+  /**
    * Set the maximum amount of memory this allocator is allowed to allocate.
    *
    * @param newLimit The new Limit to apply to allocations
