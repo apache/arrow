@@ -417,7 +417,10 @@ class TableTest < Test::Unit::TestCase
       test(":csv") do
         file = Tempfile.new(["red-arrow", ".csv"])
         @table.save(file.path, :format => :csv)
-        assert_equal(@table, Arrow::Table.load(file.path, :format => :csv))
+        assert_equal(@table,
+                     Arrow::Table.load(file.path,
+                                       :format => :csv,
+                                       :schema => @table.schema))
       end
 
       sub_test_case("load: auto detect") do

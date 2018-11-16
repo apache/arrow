@@ -88,8 +88,6 @@ module Arrow
     end
 
     def reader_options
-      return nil unless @options.key?(:use_threads)
-
       options = CSVReadOptions.new
       @options.each do |key, value|
         case key
@@ -99,6 +97,12 @@ module Arrow
           else
             options.n_header_rows = 0
           end
+        when :column_types
+          value.each do |name, type|
+            options.add_column_type(name, type)
+          end
+        when :schema
+          options.add_schema(value)
         else
           setter = "#{key}="
           if options.respond_to?(setter)
@@ -186,12 +190,23 @@ module Arrow
       end
     end
 
+    AVAILABLE_CSV_PARSE_OPTIONS = {}
+    CSV.instance_method(:initialize).parameters.each do |type, name|
+      AVAILABLE_CSV_PARSE_OPTIONS[name] = true if type == :key
+    end
+
     def update_csv_parse_options(options, create_csv, *args)
       if options.key?(:converters)
         new_options = options.dup
       else
         converters = [:all, BOOLEAN_CONVERTER, ISO8601_CONVERTER]
         new_options = options.merge(converters: converters)
+      end
+
+      # TODO: Support :schema and :column_types
+
+      new_options.select! do |key, value|
+        AVAILABLE_CSV_PARSE_OPTIONS.key?(key)
       end
 
       unless options.key?(:headers)
