@@ -205,8 +205,10 @@ module Arrow
 
       # TODO: Support :schema and :column_types
 
-      new_options.select! do |key, value|
-        AVAILABLE_CSV_PARSE_OPTIONS.key?(key)
+      unless AVAILABLE_CSV_PARSE_OPTIONS.empty?
+        new_options.select! do |key, value|
+          AVAILABLE_CSV_PARSE_OPTIONS.key?(key)
+        end
       end
 
       unless options.key?(:headers)
