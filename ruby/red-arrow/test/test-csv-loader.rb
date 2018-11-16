@@ -115,4 +115,31 @@ class CSVLoaderTest < Test::Unit::TestCase
                    load_csv(path)[:score].to_a)
     end
   end
+
+  sub_test_case("CSVReader") do
+    def load_csv(data, options)
+      Arrow::CSVLoader.load(data, options)
+    end
+
+    test(":column_types") do
+      assert_equal(Arrow::Table.new(:count => Arrow::UInt16Array.new([1, 2, 4])),
+                   load_csv(<<-CSV, column_types: {count: :uint16}))
+count
+1
+2
+4
+                   CSV
+    end
+
+    test(":schema") do
+      table = Arrow::Table.new(:count => Arrow::UInt16Array.new([1, 2, 4]))
+      assert_equal(table,
+                   load_csv(<<-CSV, schema: table.schema))
+count
+1
+2
+4
+                   CSV
+    end
+  end
 end

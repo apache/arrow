@@ -15,40 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "csv"
-
 module Arrow
-  class CSVReader
-    def initialize(csv)
-      @csv = csv
-    end
-
-    def read
-      values_set = []
-      @csv.each do |row|
-        if row.is_a?(CSV::Row)
-          row = row.collect(&:last)
-        end
-        row.each_with_index do |value, i|
-          values = (values_set[i] ||= [])
-          values << value
-        end
-      end
-      return nil if values_set.empty?
-
-      arrays = values_set.collect.with_index do |values, i|
-        ArrayBuilder.build(values)
-      end
-      if @csv.headers
-        names = @csv.headers
-      else
-        names = arrays.size.times.collect(&:to_s)
-      end
-      raw_table = {}
-      names.each_with_index do |name, i|
-        raw_table[name] = arrays[i]
-      end
-      Table.new(raw_table)
+  class CSVReadOptions
+    alias_method :add_column_type_raw, :add_column_type
+    def add_column_type(name, type)
+      add_column_type_raw(name, DataType.resolve(type))
     end
   end
 end

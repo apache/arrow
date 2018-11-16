@@ -15,20 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class CSVReaderTest < Test::Unit::TestCase
-  include Helper::Fixture
-
-  test("#read") do
-    CSV.open(fixture_path("with-header.csv").to_s,
-             headers: true,
-             skip_lines: /^#/) do |csv|
-      reader = Arrow::CSVReader.new(csv)
-      assert_equal(<<-TABLE, reader.read.to_s)
-	name	score
-0	alice	10   
-1	bob 	29   
-2	chris	-1   
-      TABLE
+module Arrow
+  class DataType
+    class << self
+      def resolve(data_type)
+        case data_type
+        when DataType
+          data_type
+        when String, Symbol
+          data_type_name = data_type.to_s.capitalize.gsub(/\AUint/, "UInt")
+          data_type_class_name = "#{data_type_name}DataType"
+          unless Arrow.const_defined?(data_type_class_name)
+            raise ArgumentError, "invalid data type: #{data_typeinspect}"
+          end
+          data_type_class = Arrow.const_get(data_type_class_name)
+          data_type_class.new
+        else
+          raise ArgumentError, "invalid data type: #{data_type.inspect}"
+        end
+      end
     end
   end
 end
