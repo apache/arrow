@@ -52,10 +52,12 @@ constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1
 constexpr int64_t kMinBuilderCapacity = 1 << 5;
 
 /// Base class for all data array builders.
-//
+///
 /// This class provides a facilities for incrementally building the null bitmap
 /// (see Append methods) and as a side effect the current number of slots and
 /// the null count.
+///
+/// NB: Users are expected to cast to one of the concrete types below before use
 class ARROW_EXPORT ArrayBuilder {
  public:
   explicit ArrayBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
