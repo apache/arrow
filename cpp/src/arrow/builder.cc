@@ -1284,7 +1284,7 @@ Status BinaryBuilder::AppendNull() {
 
 void BinaryBuilder::UnsafeAppendNull() {
   const int64_t num_bytes = value_data_builder_.length();
-  offsets_builder_.UnsafeAppend(num_bytes);
+  offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_bytes));
   UnsafeAppendToBitmap(false);
 }
 
