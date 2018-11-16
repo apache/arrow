@@ -34,7 +34,7 @@ inline bool isna<REALSXP>(double x) {
 }
 
 // the integer64 sentinel
-static const int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
+constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
 
 template <int RTYPE, typename Type>
 std::shared_ptr<Array> SimpleArray(SEXP x) {
@@ -801,7 +801,7 @@ struct Converter_Int64 {
   void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
     auto null_count = array->null_count();
     if (null_count == n) {
-      std::fill_n(data.begin() + start, n, NA_INT64);
+      std::fill_n(reinterpret_cast<int64_t*>(data.begin()) + start, n, NA_INT64);
     } else {
       auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
       STOP_IF_NULL(p_values);
