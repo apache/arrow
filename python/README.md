@@ -58,8 +58,9 @@ See the [Development][2] page in the documentation.
 
 ### Running the unit tests
 
-We are using [pytest][4] to develop out unit test suite. After building the
-project in place, you can run its unit tests like so:
+We are using [pytest][4] to develop our unit test suite. After building the
+project using `setup.py build_ext --inplace`, you can run its unit tests like
+so:
 
 ```bash
 pytest pyarrow
