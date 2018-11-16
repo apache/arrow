@@ -24,8 +24,8 @@ package arrow.flight.protocol;
 /*
  * A flight service is an endpoint for retrieving or storing Arrow data. A
  * flight service can expose one or more predefined endpoints that can be
- * access using the Arrow Flight Protocol.  Additionally, the a flight service
- * and expose a set of actions that are available.
+ * accessed using the Arrow Flight Protocol. Additionally, a flight service
+ * can expose a set of actions that are available.
  */
 service FlightService {
 
@@ -33,7 +33,7 @@ service FlightService {
    * Handshake between client and server. Depending on the server, the
    * handshake may be required to determine the token that should be used for
    * future operations. Both request and response are streams to allow multiple
-   * roundtrips depending on auth mechanism.
+   * round-trips depending on auth mechanism.
    */
   rpc Handshake(stream HandshakeRequest) returns (stream HandshakeResponse) {}
 
@@ -70,11 +70,11 @@ service FlightService {
   rpc DoGet(Ticket) returns (stream FlightData) {}
 
   /*
-   * Push a stream to the flight service using associated with a particular
+   * Push a stream to the flight service associated with a particular
    * flight stream. This allows a client of a flight service to upload a stream
    * of data. Depending on the particular flight service, a client consumer
    * could be allowed to upload a single stream per descriptor or an unlimited
-   * number. (In the latter, the service might implement a 'seal' action that
+   * number. In the latter, the service might implement a 'seal' action that
    * can be applied to a descriptor once all streams are uploaded.
    */
   rpc DoPut(stream FlightData) returns (PutResult) {}
@@ -91,8 +91,8 @@ service FlightService {
 
   /*
    * A flight service exposes all of the available action types that it has
-   * along with descriptions.  This allows different flight consumers to
-   * understand the capabilities of the flight servic
+   * along with descriptions. This allows different flight consumers to
+   * understand the capabilities of the flight service.
    */
   rpc ListActions(Empty) returns (stream ActionType) {}
 
@@ -147,7 +147,7 @@ message ActionType {
 }
 
 /*
- * A service specific expression that can be used to return a limited the set
+ * A service specific expression that can be used to return a limited set
  * of available Arrow Flight streams.
  */
 message Criteria {
@@ -163,7 +163,7 @@ message Action {
 }
 
 /*
- * An opaque result returned after execution an action.
+ * An opaque result returned after executing an action.
  */
 message Result {
   bytes body = 1;
@@ -216,7 +216,7 @@ message FlightDescriptor {
  * consumer is able to determine how to retrieve a dataset.
  */
 message FlightGetInfo {
-  // schema of the dataset as described in Schema.fbs::Schema
+  // schema of the dataset as described in Schema.fbs::Schema.
   bytes schema = 1;
 
   /*
@@ -276,18 +276,18 @@ message FlightData {
 
   /*
    * The descriptor of the data. This is only relevant when a client is
-   * starting a new DoPut stream
+   * starting a new DoPut stream.
    */
   FlightDescriptor flight_descriptor = 1;
 
   /*
-   * Header for message data as described in Message.fbs::Message
+   * Header for message data as described in Message.fbs::Message.
    */
   bytes data_header = 2;
 
   /*
-   * The actual batch of Arrow data. Preferrably handled with minimal-copies
-   * comes last in the definition to help with sidecar patterns.
+   * The actual batch of Arrow data. Preferably handled with minimal-copies
+   * coming last in the definition to help with sidecar patterns.
    */
   bytes data_body = 1000;
 }
