@@ -303,6 +303,7 @@ matrix:
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
   # R
   - language: r
+    r: 3.1
     cache: packages
     latex: false
     before_install:
