@@ -259,6 +259,12 @@ test_that("array supports integer64", {
   expect_true(a$IsNull(3L))
 })
 
+test_that("array$as_vector() correctly handles all NA inte64 (ARROW-3795)", {
+  x <- bit64::as.integer64(NA)
+  a <- array(x)
+  expect_true(is.na(a$as_vector()))
+})
+
 test_that("array supports difftime", {
   time <- hms::hms(56, 34, 12)
   a <- array(time, time)
