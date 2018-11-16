@@ -22,7 +22,6 @@ services:
   - docker
 
 cache:
-  ccache: true
   directories:
     - $HOME/.m2  # Maven
 
