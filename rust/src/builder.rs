@@ -347,8 +347,8 @@ impl<T: ArrayBuilder> ListArrayBuilder<T> {
 }
 
 macro_rules! impl_list_array_builder {
-    ($native_ty:ty) => {
-        impl ArrayBuilder for ListArrayBuilder<$native_ty> {
+    ($builder_ty:ty) => {
+        impl ArrayBuilder for ListArrayBuilder<$builder_ty> {
             type ArrayType = ListArray;
 
             /// Returns the builder as an owned `Any` type so that it can be `downcast` to a specific
@@ -368,7 +368,7 @@ macro_rules! impl_list_array_builder {
                 let values_arr = self
                     .values_builder
                     .into_any()
-                    .downcast::<$native_ty>()
+                    .downcast::<$builder_ty>()
                     .unwrap()
                     .finish();
                 let values_data = values_arr.data();
@@ -387,12 +387,12 @@ macro_rules! impl_list_array_builder {
             }
         }
 
-        impl ListArrayBuilder<$native_ty> {
+        impl ListArrayBuilder<$builder_ty> {
             /// Returns the child array builder as a mutable reference.
             ///
             /// This mutable reference can be used to push values into the child array builder,
             /// but you must call `append` to delimit each distinct list value.
-            pub fn values(&mut self) -> &mut $native_ty {
+            pub fn values(&mut self) -> &mut $builder_ty {
                 &mut self.values_builder
             }
 
@@ -748,59 +748,6 @@ mod tests {
 
     #[test]
     fn test_list_list_array_builder() {
-        let primitive_builder = PrimitiveArrayBuilder::<i32>::new(10);
-        let values_builder = ListArrayBuilder::new(primitive_builder);
-        let mut builder = ListArrayBuilder::new(values_builder);
-
-        //  [[[1, 2], [3, 4]], [[5, 6, 7], null, [8]], [[9, 10]]]
-        builder.values().values().push(1).unwrap();
-        builder.values().values().push(2).unwrap();
-        builder.values().append(true).unwrap();
-        builder.values().values().push(3).unwrap();
-        builder.values().values().push(4).unwrap();
-        builder.values().append(true).unwrap();
-        builder.append(true).unwrap();
-
-        builder.values().values().push(5).unwrap();
-        builder.values().values().push(6).unwrap();
-        builder.values().values().push(7).unwrap();
-        builder.values().append(true).unwrap();
-        builder.values().append(false).unwrap();
-        builder.values().values().push(8).unwrap();
-        builder.values().append(true).unwrap();
-        builder.append(true).unwrap();
-
-        builder.values().values().push(9).unwrap();
-        builder.values().values().push(10).unwrap();
-        builder.values().append(true).unwrap();
-        builder.append(true).unwrap();
-
-        let list_array = builder.finish();
-
-        assert_eq!(3, list_array.len());
-        assert_eq!(0, list_array.null_count());
-        assert_eq!(
-            Buffer::from(&[0, 2, 5, 6].to_byte_slice()),
-            list_array.data().buffers()[0].clone()
-        );
-
-        assert_eq!(6, list_array.values().data().len());
-        assert_eq!(1, list_array.values().data().null_count());
-        assert_eq!(
-            Buffer::from(&[0, 2, 4, 7, 7, 8, 10].to_byte_slice()),
-            list_array.values().data().buffers()[0].clone()
-        );
-
-        assert_eq!(10, list_array.values().data().child_data()[0].len());
-        assert_eq!(0, list_array.values().data().child_data()[0].null_count());
-        assert_eq!(
-            Buffer::from(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].to_byte_slice()),
-            list_array.values().data().child_data()[0].buffers()[0].clone()
-        );
-    }
-
-    #[test]
-    fn test_list_list_array_builder_nulls() {
         let primitive_builder = PrimitiveArrayBuilder::<i32>::new(10);
         let values_builder = ListArrayBuilder::new(primitive_builder);
         let mut builder = ListArrayBuilder::new(values_builder);
