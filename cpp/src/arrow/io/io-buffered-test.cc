@@ -76,9 +76,11 @@ class FileTestFixture : public ::testing::Test {
 // ----------------------------------------------------------------------
 // File output tests
 
+constexpr int64_t kDefaultBufferSize = 4096;
+
 class TestBufferedOutputStream : public FileTestFixture {
  public:
-  void OpenBuffered(bool append = false) {
+  void OpenBuffered(int64_t buffer_size = kDefaultBufferSize, bool append = false) {
     stream_.reset();
     std::shared_ptr<FileOutputStream> file;
     ASSERT_OK(FileOutputStream::Open(path_, append, &file));
@@ -91,7 +93,7 @@ class TestBufferedOutputStream : public FileTestFixture {
       lseek(fd_, 0, SEEK_END);
 #endif
     }
-    stream_ = std::make_shared<BufferedOutputStream>(std::move(file));
+    ASSERT_OK(BufferedOutputStream::Create(file, buffer_size, &stream_));
   }
 
   void WriteChunkwise(const std::string& datastr, const std::valarray<int64_t>& sizes) {
@@ -123,7 +125,7 @@ class TestBufferedOutputStream : public FileTestFixture {
 
  protected:
   int fd_;
-  std::shared_ptr<OutputStream> stream_;
+  std::shared_ptr<BufferedOutputStream> stream_;
 };
 
 TEST_F(TestBufferedOutputStream, DestructorClosesFile) {
@@ -217,6 +219,28 @@ TEST_F(TestBufferedOutputStream, Flush) {
   ASSERT_OK(stream_->Close());
 }
 
+TEST_F(TestBufferedOutputStream, SetBufferSize) {
+  OpenBuffered(20);
+
+  ASSERT_EQ(20, stream_->buffer_size());
+
+  const std::string datastr = "1234568790abcdefghij";
+  const char* data = datastr.data();
+
+  // Write part of the data, then shrink buffer size to make sure it gets
+  // flushed
+  ASSERT_OK(stream_->Write(data, 10));
+  ASSERT_OK(stream_->SetBufferSize(10));
+
+  ASSERT_EQ(10, stream_->buffer_size());
+
+  ASSERT_OK(stream_->Write(data + 10, 10));
+  ASSERT_OK(stream_->Flush());
+
+  AssertFileContents(path_, datastr);
+  ASSERT_OK(stream_->Close());
+}
+
 TEST_F(TestBufferedOutputStream, Tell) {
   OpenBuffered();
 
@@ -229,7 +253,7 @@ TEST_F(TestBufferedOutputStream, Tell) {
 
   ASSERT_OK(stream_->Close());
 
-  OpenBuffered(true /* append */);
+  OpenBuffered(kDefaultBufferSize, true /* append */);
   AssertTell(100100);
   WriteChunkwise(std::string(90, 'x'), {1, 1, 2, 3, 5, 8});
   AssertTell(100190);

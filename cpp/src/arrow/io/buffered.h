@@ -37,7 +37,21 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   ~BufferedOutputStream() override;
 
   /// \brief Create a buffered output stream wrapping the given output stream.
-  explicit BufferedOutputStream(std::shared_ptr<OutputStream> raw);
+  /// \param[in] raw another OutputStream
+  /// \param[in] buffer_size the size of the temporary buffer. Allocates from
+  /// the default memory pool
+  /// \param[out] out the created BufferedOutputStream
+  /// \return Status
+  static Status Create(std::shared_ptr<OutputStream> raw, int64_t buffer_size,
+                       std::shared_ptr<BufferedOutputStream>* out);
+
+  /// \brief Resize internal buffer
+  /// \param[in] new_buffer_size the new buffer size
+  /// \return Status
+  Status SetBufferSize(int64_t new_buffer_size);
+
+  /// \brief Return the current size of the internal buffer
+  int64_t buffer_size() const;
 
   // OutputStream interface
 
@@ -56,6 +70,8 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   std::shared_ptr<OutputStream> raw() const;
 
  private:
+  explicit BufferedOutputStream(std::shared_ptr<OutputStream> raw);
+
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
 };
