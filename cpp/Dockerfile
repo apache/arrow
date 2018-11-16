@@ -20,8 +20,6 @@ FROM ubuntu:18.04
 # install build essentials
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-      autoconf \
-      automake \
       ca-certificates \
       ccache \
       g++ \
