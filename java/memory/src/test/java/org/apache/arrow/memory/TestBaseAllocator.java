@@ -739,6 +739,17 @@ public class TestBaseAllocator {
   }
 
   @Test
+  public void testInitReservationAndLimit() throws Exception {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+      try (final BufferAllocator childAllocator = rootAllocator.newChildAllocator(
+              "child", 2048, 4096)) {
+        assertEquals(2048, childAllocator.getInitReservation());
+        assertEquals(4096, childAllocator.getLimit());
+      }
+    }
+  }
+
+  @Test
   public void multiple() throws Exception {
     final String owner = "test";
     try (RootAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
