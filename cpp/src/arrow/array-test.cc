@@ -1515,6 +1515,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
       }
     }
   }
+  ASSERT_EQ(builder_->value_data_length(), total_length * reps);
   Done();
   ASSERT_OK(ValidateArray(*result_));
   ASSERT_EQ(reps * N, result_->length());
