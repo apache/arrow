@@ -59,11 +59,13 @@ void Annotator::PrepareBuffersForField(const FieldDescriptor& desc,
                                        EvalBatch* eval_batch) {
   int buffer_idx = 0;
 
-  // TODO:
-  // - validity is optional
-
-  uint8_t* validity_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
-  eval_batch->SetBuffer(desc.validity_idx(), validity_buf);
+  // The validity buffer is optional. Use nullptr if it does not have one.
+  if (array_data.buffers[buffer_idx]) {
+    uint8_t* validity_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
+    eval_batch->SetBuffer(desc.validity_idx(), validity_buf);
+  } else {
+    eval_batch->SetBuffer(desc.validity_idx(), nullptr);
+  }
   ++buffer_idx;
 
   if (desc.HasOffsetsIdx()) {
