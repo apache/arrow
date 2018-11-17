@@ -59,14 +59,20 @@ struct PrettyPrintOptions {
 ARROW_EXPORT
 Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink);
 
+/// \brief Print human-readable representation of Table
+ARROW_EXPORT
+Status PrettyPrint(const Table& table, const PrettyPrintOptions& options,
+                   std::ostream* sink);
+
 /// \brief Print human-readable representation of Array
 ARROW_EXPORT
 Status PrettyPrint(const Array& arr, int indent, std::ostream* sink);
-/// \brief Print human-readable representation of Array
 
+/// \brief Print human-readable representation of Array
 ARROW_EXPORT
 Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
                    std::ostream* sink);
+
 /// \brief Print human-readable representation of Array
 ARROW_EXPORT
 Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
@@ -76,10 +82,16 @@ Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
 ARROW_EXPORT
 Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& options,
                    std::ostream* sink);
+
 /// \brief Print human-readable representation of ChunkedArray
 ARROW_EXPORT
 Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& options,
                    std::string* result);
+
+/// \brief Print human-readable representation of Column
+ARROW_EXPORT
+Status PrettyPrint(const Column& column, const PrettyPrintOptions& options,
+                   std::ostream* sink);
 
 ARROW_EXPORT
 Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,

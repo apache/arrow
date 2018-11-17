@@ -250,6 +250,8 @@ Status ReadableFile::Open(int fd, std::shared_ptr<ReadableFile>* file) {
 
 Status ReadableFile::Close() { return impl_->Close(); }
 
+bool ReadableFile::closed() const { return !impl_->is_open(); }
+
 Status ReadableFile::Tell(int64_t* pos) const { return impl_->Tell(pos); }
 
 Status ReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
@@ -337,6 +339,8 @@ Status FileOutputStream::Open(int fd, std::shared_ptr<FileOutputStream>* file) {
 
 Status FileOutputStream::Close() { return impl_->Close(); }
 
+bool FileOutputStream::closed() const { return !impl_->is_open(); }
+
 Status FileOutputStream::Tell(int64_t* pos) const { return impl_->Tell(pos); }
 
 Status FileOutputStream::Write(const void* data, int64_t length) {
@@ -353,13 +357,23 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
   MemoryMap() : MutableBuffer(nullptr, 0) {}
 
   ~MemoryMap() {
-    if (file_->is_open()) {
-      if (mutable_data_ != nullptr) {
-        DCHECK_EQ(munmap(mutable_data_, static_cast<size_t>(size_)), 0);
-      }
-      DCHECK(file_->Close().ok());
+    DCHECK_OK(Close());
+    if (mutable_data_ != nullptr) {
+      DCHECK_EQ(munmap(mutable_data_, static_cast<size_t>(size_)), 0);
     }
   }
+
+  Status Close() {
+    if (file_->is_open()) {
+      // NOTE: we don't unmap here, so that buffers exported through Read()
+      // remain valid until the MemoryMap object is destroyed
+      return file_->Close();
+    } else {
+      return Status::OK();
+    }
+  }
+
+  bool closed() const { return !file_->is_open(); }
 
   Status Open(const std::string& path, FileMode::type mode) {
     file_.reset(new OSFile());
@@ -393,39 +407,9 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
     return Status::OK();
   }
 
-  Status Resize(const int64_t new_size) { return ResizeMap(new_size); }
-
-  int64_t size() const { return size_; }
-
-  Status Seek(int64_t position) {
-    if (position < 0) {
-      return Status::Invalid("position is out of bounds");
-    }
-    position_ = position;
-    return Status::OK();
-  }
-
-  int64_t position() { return position_; }
-
-  void advance(int64_t nbytes) { position_ = position_ + nbytes; }
-
-  uint8_t* head() { return mutable_data_ + position_; }
-
-  bool writable() { return file_->mode() != FileMode::READ; }
-
-  bool opened() { return file_->is_open(); }
-
-  int fd() const { return file_->fd(); }
-
-  std::mutex& write_lock() { return file_->lock(); }
-
-  std::mutex& resize_lock() { return resize_lock_; }
-
- private:
   // Resize the mmap and file to the specified size.
-  Status ResizeMap(int64_t new_size) {
-    if (file_->mode() != FileMode::type::READWRITE &&
-        file_->mode() != FileMode::type::WRITE) {
+  Status Resize(const int64_t new_size) {
+    if (!writable()) {
       return Status::IOError("Cannot resize a readonly memory map");
     }
 
@@ -461,6 +445,33 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
     return Status::OK();
   }
 
+  int64_t size() const { return size_; }
+
+  Status Seek(int64_t position) {
+    if (position < 0) {
+      return Status::Invalid("position is out of bounds");
+    }
+    position_ = position;
+    return Status::OK();
+  }
+
+  int64_t position() { return position_; }
+
+  void advance(int64_t nbytes) { position_ = position_ + nbytes; }
+
+  uint8_t* head() { return mutable_data_ + position_; }
+
+  bool writable() { return file_->mode() != FileMode::READ; }
+
+  bool opened() { return file_->is_open(); }
+
+  int fd() const { return file_->fd(); }
+
+  std::mutex& write_lock() { return file_->lock(); }
+
+  std::mutex& resize_lock() { return resize_lock_; }
+
+ private:
   // Initialize the mmap and set size, capacity and the data pointers
   Status InitMMap(int64_t initial_size, bool resize_file = false) {
     if (resize_file) {
@@ -511,9 +522,13 @@ Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
   return Status::OK();
 }
 
-Status MemoryMappedFile::GetSize(int64_t* size) {
+Status MemoryMappedFile::GetSize(int64_t* size) const {
   *size = memory_map_->size();
   return Status::OK();
+}
+
+Status MemoryMappedFile::GetSize(int64_t* size) {
+  return static_cast<const MemoryMappedFile*>(this)->GetSize(size);
 }
 
 Status MemoryMappedFile::Tell(int64_t* position) const {
@@ -523,17 +538,18 @@ Status MemoryMappedFile::Tell(int64_t* position) const {
 
 Status MemoryMappedFile::Seek(int64_t position) { return memory_map_->Seek(position); }
 
-Status MemoryMappedFile::Close() {
-  // munmap handled in pimpl dtor
-  return Status::OK();
-}
+Status MemoryMappedFile::Close() { return memory_map_->Close(); }
+
+bool MemoryMappedFile::closed() const { return memory_map_->closed(); }
 
 Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes,
                                 std::shared_ptr<Buffer>* out) {
-  // we acquire the lock before creating any slices in case a resize is
-  // triggered concurrently, otherwise we wouldn't detect a change in the
-  // use count
-  std::lock_guard<std::mutex> guard_resize(memory_map_->resize_lock());
+  // if the file is writable, we acquire the lock before creating any slices
+  // in case a resize is triggered concurrently, otherwise we wouldn't detect
+  // a change in the use count
+  auto guard_resize = memory_map_->writable()
+                          ? std::unique_lock<std::mutex>(memory_map_->resize_lock())
+                          : std::unique_lock<std::mutex>();
   nbytes = std::max<int64_t>(0, std::min(nbytes, memory_map_->size() - position));
 
   if (nbytes > 0) {
@@ -546,7 +562,9 @@ Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes,
 
 Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                                 void* out) {
-  std::lock_guard<std::mutex> resize_guard(memory_map_->resize_lock());
+  auto guard_resize = memory_map_->writable()
+                          ? std::unique_lock<std::mutex>(memory_map_->resize_lock())
+                          : std::unique_lock<std::mutex>();
   nbytes = std::max<int64_t>(0, std::min(nbytes, memory_map_->size() - position));
   if (nbytes > 0) {
     memcpy(out, memory_map_->data() + position, static_cast<size_t>(nbytes));

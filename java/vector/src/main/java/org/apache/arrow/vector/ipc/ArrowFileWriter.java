@@ -72,9 +72,9 @@ public class ArrowFileWriter extends ArrowWriter {
       throw new InvalidArrowFileException("invalid footer");
     }
     out.writeIntLittleEndian(footerLength);
-    LOGGER.debug(String.format("Footer starts at %d, length: %d", footerStart, footerLength));
+    LOGGER.debug("Footer starts at {}, length: {}", footerStart, footerLength);
     ArrowMagic.writeMagic(out, false);
-    LOGGER.debug(String.format("magic written, now at %d", out.getCurrentPosition()));
+    LOGGER.debug("magic written, now at {}", out.getCurrentPosition());
   }
 
   @VisibleForTesting

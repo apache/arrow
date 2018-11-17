@@ -45,8 +45,8 @@ using std::vector;
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type names. eg. add_int32_int32
-#define BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(NAME, TYPE)                               \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, TYPE(), RESULT_NULL_IF_NULL, \
+#define BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(NAME, TYPE)                             \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, TYPE(), kResultNullIfNull, \
                  STRINGIFY(NAME##_##TYPE##_##TYPE))
 
 // Binary functions that :
@@ -55,13 +55,13 @@ using std::vector;
 // - can return error.
 //
 // The pre-compiled fn name includes the base name & input type names. eg. add_int32_int32
-#define BINARY_UNSAFE_NULL_INTERNAL(NAME, IN_TYPE, OUT_TYPE)                    \
-  NativeFunction(#NAME, DataTypeVector{IN_TYPE(), IN_TYPE()}, OUT_TYPE(),       \
-                 RESULT_NULL_INTERNAL, STRINGIFY(NAME##_##IN_TYPE##_##IN_TYPE), \
-                 false /* does not need holder */, true /* can return error */)
+#define BINARY_UNSAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                  \
+  NativeFunction(#NAME, DataTypeVector{IN_TYPE(), IN_TYPE()}, OUT_TYPE(),    \
+                 kResultNullIfNull, STRINGIFY(NAME##_##IN_TYPE##_##IN_TYPE), \
+                 NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
-// Divide function
-#define DIVIDE(NAME, TYPE) BINARY_UNSAFE_NULL_INTERNAL(NAME, TYPE, TYPE)
+#define BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(NAME, TYPE) \
+  BINARY_UNSAFE_NULL_IF_NULL(NAME, TYPE, TYPE)
 
 // Binary functions that :
 // - have different input types, or output type
@@ -70,7 +70,7 @@ using std::vector;
 // The pre-compiled fn name includes the base name & input type names. eg. mod_int64_int32
 #define BINARY_GENERIC_SAFE_NULL_IF_NULL(NAME, IN_TYPE1, IN_TYPE2, OUT_TYPE) \
   NativeFunction(#NAME, DataTypeVector{IN_TYPE1(), IN_TYPE2()}, OUT_TYPE(),  \
-                 RESULT_NULL_IF_NULL, STRINGIFY(NAME##_##IN_TYPE1##_##IN_TYPE2))
+                 kResultNullIfNull, STRINGIFY(NAME##_##IN_TYPE1##_##IN_TYPE2))
 
 // Binary functions that :
 // - have the same input type
@@ -79,82 +79,82 @@ using std::vector;
 //
 // The pre-compiled fn name includes the base name & input type names.
 // eg. equal_int32_int32
-#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL(NAME, TYPE)                                 \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, boolean(), RESULT_NULL_IF_NULL, \
+#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL(NAME, TYPE)                               \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, boolean(), kResultNullIfNull, \
                  STRINGIFY(NAME##_##TYPE##_##TYPE))
 
 // Unary functions that :
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type name. eg. castFloat_int32
-#define UNARY_SAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                            \
-  NativeFunction(#NAME, DataTypeVector{IN_TYPE()}, OUT_TYPE(), RESULT_NULL_IF_NULL, \
+#define UNARY_SAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                          \
+  NativeFunction(#NAME, DataTypeVector{IN_TYPE()}, OUT_TYPE(), kResultNullIfNull, \
                  STRINGIFY(NAME##_##IN_TYPE))
 
 // Unary functions that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. eg. isnull_int32
-#define UNARY_SAFE_NULL_NEVER_BOOL(NAME, TYPE)                                \
-  NativeFunction(#NAME, DataTypeVector{TYPE()}, boolean(), RESULT_NULL_NEVER, \
+#define UNARY_SAFE_NULL_NEVER_BOOL(NAME, TYPE)                               \
+  NativeFunction(#NAME, DataTypeVector{TYPE()}, boolean(), kResultNullNever, \
                  STRINGIFY(NAME##_##TYPE))
 
 // Unary functions that :
 // - NULL handling is of type NULL_INTERNAL
 //
 // The pre-compiled fn name includes the base name & input type name. eg. castFloat_int32
-#define UNARY_UNSAFE_NULL_INTERNAL(NAME, IN_TYPE, OUT_TYPE)                          \
-  NativeFunction(#NAME, DataTypeVector{IN_TYPE()}, OUT_TYPE(), RESULT_NULL_INTERNAL, \
-                 STRINGIFY(NAME##_##IN_TYPE), false /* does not need holder */,      \
-                 true /* can return error */)
+#define UNARY_UNSAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                        \
+  NativeFunction(#NAME, DataTypeVector{IN_TYPE()}, OUT_TYPE(), kResultNullIfNull, \
+                 STRINGIFY(NAME##_##IN_TYPE),                                     \
+                 NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
 // Binary functions that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type names,
 // eg. is_distinct_from_int32_int32
-#define BINARY_SAFE_NULL_NEVER_BOOL(NAME, TYPE)                                       \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, boolean(), RESULT_NULL_NEVER, \
+#define BINARY_SAFE_NULL_NEVER_BOOL(NAME, TYPE)                                      \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, boolean(), kResultNullNever, \
                  STRINGIFY(NAME##_##TYPE##_##TYPE))
 
 // Extract functions (used with data/time types) that :
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type name. eg. extractYear_date
-#define EXTRACT_SAFE_NULL_IF_NULL(NAME, TYPE)                                 \
-  NativeFunction(#NAME, DataTypeVector{TYPE()}, int64(), RESULT_NULL_IF_NULL, \
+#define EXTRACT_SAFE_NULL_IF_NULL(NAME, TYPE)                               \
+  NativeFunction(#NAME, DataTypeVector{TYPE()}, int64(), kResultNullIfNull, \
                  STRINGIFY(NAME##_##TYPE))
 
 // Hash32 functions that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. hash32_int8
-#define HASH32_SAFE_NULL_NEVER(NAME, TYPE)                                  \
-  NativeFunction(#NAME, DataTypeVector{TYPE()}, int32(), RESULT_NULL_NEVER, \
+#define HASH32_SAFE_NULL_NEVER(NAME, TYPE)                                 \
+  NativeFunction(#NAME, DataTypeVector{TYPE()}, int32(), kResultNullNever, \
                  STRINGIFY(NAME##_##TYPE))
 
 // Hash32 functions that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. hash32_int8
-#define HASH64_SAFE_NULL_NEVER(NAME, TYPE)                                  \
-  NativeFunction(#NAME, DataTypeVector{TYPE()}, int64(), RESULT_NULL_NEVER, \
+#define HASH64_SAFE_NULL_NEVER(NAME, TYPE)                                 \
+  NativeFunction(#NAME, DataTypeVector{TYPE()}, int64(), kResultNullNever, \
                  STRINGIFY(NAME##_##TYPE))
 
 // Hash32 functions with seed that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. hash32WithSeed_int8
-#define HASH32_SEED_SAFE_NULL_NEVER(NAME, TYPE)                                      \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), int32()}, int32(), RESULT_NULL_NEVER, \
+#define HASH32_SEED_SAFE_NULL_NEVER(NAME, TYPE)                                     \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), int32()}, int32(), kResultNullNever, \
                  STRINGIFY(NAME##WithSeed_##TYPE))
 
 // Hash64 functions with seed that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. hash32WithSeed_int8
-#define HASH64_SEED_SAFE_NULL_NEVER(NAME, TYPE)                                      \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), int64()}, int64(), RESULT_NULL_NEVER, \
+#define HASH64_SEED_SAFE_NULL_NEVER(NAME, TYPE)                                     \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), int64()}, int64(), kResultNullNever, \
                  STRINGIFY(NAME##WithSeed_##TYPE))
 
 // Iterate the inner macro over all numeric types
@@ -190,7 +190,7 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, add),
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, subtract),
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, multiply),
-    NUMERIC_TYPES(DIVIDE, divide),
+    NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int32, int32),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int64, int64),
     NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
@@ -239,12 +239,12 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     UNARY_SAFE_NULL_IF_NULL(log10, float32, float64),
     UNARY_SAFE_NULL_IF_NULL(log10, float64, float64),
 
-    BINARY_UNSAFE_NULL_INTERNAL(log, int32, float64),
-    BINARY_UNSAFE_NULL_INTERNAL(log, int64, float64),
-    BINARY_UNSAFE_NULL_INTERNAL(log, uint32, float64),
-    BINARY_UNSAFE_NULL_INTERNAL(log, uint64, float64),
-    BINARY_UNSAFE_NULL_INTERNAL(log, float32, float64),
-    BINARY_UNSAFE_NULL_INTERNAL(log, float64, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, int32, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, int64, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, uint32, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, uint64, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, float32, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, float64, float64),
 
     BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(power, float64),
 
@@ -401,9 +401,9 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     UNARY_SAFE_NULL_IF_NULL(octet_length, binary, int32),
     UNARY_SAFE_NULL_IF_NULL(bit_length, utf8, int32),
     UNARY_SAFE_NULL_IF_NULL(bit_length, binary, int32),
-    UNARY_UNSAFE_NULL_INTERNAL(char_length, utf8, int32),
-    UNARY_UNSAFE_NULL_INTERNAL(length, utf8, int32),
-    UNARY_UNSAFE_NULL_INTERNAL(lengthUtf8, binary, int32),
+    UNARY_UNSAFE_NULL_IF_NULL(char_length, utf8, int32),
+    UNARY_UNSAFE_NULL_IF_NULL(length, utf8, int32),
+    UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, binary, int32),
 
     VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
     VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
@@ -415,18 +415,20 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     BINARY_RELATIONAL_SAFE_NULL_IF_NULL(starts_with, utf8),
     BINARY_RELATIONAL_SAFE_NULL_IF_NULL(ends_with, utf8),
 
-    NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), RESULT_NULL_IF_NULL,
-                   "gdv_fn_like_utf8_utf8", true /*needs_holder*/),
+    NativeFunction("upper", DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+                   "upper_utf8", NativeFunction::kNeedsContext),
+
+    NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), kResultNullIfNull,
+                   "gdv_fn_like_utf8_utf8", NativeFunction::kNeedsFunctionHolder),
+
+    NativeFunction("castDATE", DataTypeVector{utf8()}, date64(), kResultNullIfNull,
+                   "castDATE_utf8",
+                   NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
     NativeFunction("to_date", DataTypeVector{utf8(), utf8(), int32()}, date64(),
-                   RESULT_NULL_INTERNAL, "gdv_fn_to_date_utf8_utf8_int32", true, true),
-
-    NativeFunction("castDATE", DataTypeVector{utf8()}, date64(), RESULT_NULL_INTERNAL,
-                   "castDATE_utf8", false /*needs_holder*/, true /*needs context*/),
-
-    // Null internal (sample)
-    NativeFunction("half_or_null", DataTypeVector{int32()}, int32(), RESULT_NULL_INTERNAL,
-                   "half_or_null_int32"),
+                   kResultNullInternal, "gdv_fn_to_date_utf8_utf8_int32",
+                   NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
+                       NativeFunction::kCanReturnErrors),
 };  // namespace gandiva
 
 FunctionRegistry::iterator FunctionRegistry::begin() const {
@@ -443,8 +445,6 @@ FunctionRegistry::SignatureMap FunctionRegistry::InitPCMap() {
   SignatureMap map;
 
   int num_entries = static_cast<int>(sizeof(pc_registry_) / sizeof(NativeFunction));
-  printf("Registry has %d pre-compiled functions\n", num_entries);
-
   for (int i = 0; i < num_entries; i++) {
     const NativeFunction* entry = &pc_registry_[i];
 

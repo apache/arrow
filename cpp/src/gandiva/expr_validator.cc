@@ -85,18 +85,18 @@ Status ExprValidator::Visit(const FunctionNode& node) {
 
   for (auto& child : node.children()) {
     Status status = child->Accept(*this);
-    GANDIVA_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(status);
   }
   return Status::OK();
 }
 
 Status ExprValidator::Visit(const IfNode& node) {
   Status status = node.condition()->Accept(*this);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
   status = node.then_node()->Accept(*this);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
   status = node.else_node()->Accept(*this);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   auto if_node_ret_type = node.return_type();
   auto then_node_ret_type = node.then_node()->return_type();
@@ -149,8 +149,48 @@ Status ExprValidator::Visit(const BooleanNode& node) {
     }
 
     status = child->Accept(*this);
-    GANDIVA_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(status);
   }
+  return Status::OK();
+}
+
+/*
+ * Validate the following
+ *
+ * 1. Non empty list of constants to search in.
+ * 2. Expression returns of the same type as the constants.
+ */
+Status ExprValidator::Visit(const InExpressionNode<int32_t>& node) {
+  return ValidateInExpression(node.values().size(), node.eval_expr()->return_type(),
+                              arrow::int32());
+}
+
+Status ExprValidator::Visit(const InExpressionNode<int64_t>& node) {
+  return ValidateInExpression(node.values().size(), node.eval_expr()->return_type(),
+                              arrow::int64());
+}
+
+Status ExprValidator::Visit(const InExpressionNode<std::string>& node) {
+  return ValidateInExpression(node.values().size(), node.eval_expr()->return_type(),
+                              arrow::utf8());
+}
+
+Status ExprValidator::ValidateInExpression(size_t number_of_values,
+                                           DataTypePtr in_expr_return_type,
+                                           DataTypePtr type_of_values) {
+  if (static_cast<int32_t>(number_of_values) == 0) {
+    std::stringstream ss;
+    ss << "IN Expression needs a non-empty constant list to match.";
+    return Status::ExpressionValidationError(ss.str());
+  }
+
+  if (!in_expr_return_type->Equals(type_of_values)) {
+    std::stringstream ss;
+    ss << "Evaluation expression for IN clause returns " << in_expr_return_type
+       << " values are of type" << type_of_values;
+    return Status::ExpressionValidationError(ss.str());
+  }
+
   return Status::OK();
 }
 

@@ -37,7 +37,7 @@ import {
 export function* serializeStream(table: Table) {
     yield serializeMessage(table.schema).buffer;
     for (const [id, field] of table.schema.dictionaries) {
-        const vec = table.getColumn(field.name) as DictionaryVector;
+        const vec = table.getColumn(field.name) as any as DictionaryVector;
         if (vec && vec.dictionary) {
             yield serializeDictionaryBatch(vec.dictionary, id).buffer;
         }
@@ -64,7 +64,7 @@ export function* serializeFile(table: Table) {
     yield buffer;
 
     for (const [id, field] of table.schema.dictionaries) {
-        const vec = table.getColumn(field.name) as DictionaryVector;
+        const vec = table.getColumn(field.name) as any as DictionaryVector;
         if (vec && vec.dictionary) {
             ({ metadataLength, bodyLength, buffer } = serializeDictionaryBatch(vec.dictionary, id));
             dictionaryBatches.push(new FileBlock(metadataLength, bodyLength, byteLength));

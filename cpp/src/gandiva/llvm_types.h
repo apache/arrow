@@ -24,6 +24,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include "gandiva/arrow.h"
+#include "gandiva/logging.h"
 
 namespace gandiva {
 
@@ -92,6 +93,17 @@ class LLVMTypes {
 
   llvm::Constant* double_constant(double val) {
     return llvm::ConstantFP::get(double_type(), val);
+  }
+
+  llvm::Constant* NullConstant(llvm::Type* type) {
+    if (type->isIntegerTy()) {
+      return llvm::ConstantInt::get(type, 0);
+    } else if (type->isFloatingPointTy()) {
+      return llvm::ConstantFP::get(type, 0);
+    } else {
+      DCHECK(type->isPointerTy());
+      return llvm::ConstantPointerNull::getNullValue(type);
+    }
   }
 
   /// For a given data type, find the ir type used for the data vector slot.

@@ -145,7 +145,7 @@ garrow_record_batch_writer_class_init(GArrowRecordBatchWriterClass *klass)
  * garrow_record_batch_writer_write_record_batch:
  * @writer: A #GArrowRecordBatchWriter.
  * @record_batch: The record batch to be written.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
@@ -170,7 +170,7 @@ garrow_record_batch_writer_write_record_batch(GArrowRecordBatchWriter *writer,
  * garrow_record_batch_writer_write_table:
  * @writer: A #GArrowRecordBatchWriter.
  * @table: The table to be written.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
@@ -193,7 +193,7 @@ garrow_record_batch_writer_write_table(GArrowRecordBatchWriter *writer,
 /**
  * garrow_record_batch_writer_close:
  * @writer: A #GArrowRecordBatchWriter.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
@@ -228,7 +228,7 @@ garrow_record_batch_stream_writer_class_init(GArrowRecordBatchStreamWriterClass 
  * garrow_record_batch_stream_writer_new:
  * @sink: The output of the writer.
  * @schema: The schema of the writer.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GArrowRecordBatchStreamWriter
  *   or %NULL on error.
@@ -275,7 +275,7 @@ garrow_record_batch_file_writer_class_init(GArrowRecordBatchFileWriterClass *kla
  * garrow_record_batch_file_writer_new:
  * @sink: The output of the writer.
  * @schema: The schema of the writer.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GArrowRecordBatchFileWriter
  *   or %NULL on error.
@@ -318,9 +318,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowFeatherFileWriter,
                            G_TYPE_OBJECT);
 
 #define GARROW_FEATHER_FILE_WRITER_GET_PRIVATE(obj)             \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
-                               GARROW_TYPE_FEATHER_FILE_WRITER, \
-                               GArrowFeatherFileWriterPrivate))
+  static_cast<GArrowFeatherFileWriterPrivate *>(                \
+    garrow_feather_file_writer_get_instance_private(            \
+      GARROW_FEATHER_FILE_WRITER(obj)))
 
 static void
 garrow_feather_file_writer_finalize(GObject *object)
@@ -396,7 +396,7 @@ garrow_feather_file_writer_class_init(GArrowFeatherFileWriterClass *klass)
 /**
  * garrow_feather_file_writer_new:
  * @sink: The output of the writer.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GArrowFeatherFileWriter
  *   or %NULL on error.
@@ -453,7 +453,7 @@ garrow_feather_file_writer_set_n_rows(GArrowFeatherFileWriter *writer,
  * @writer: A #GArrowFeatherFileWriter.
  * @name: The name of the array to be appended.
  * @array: The array to be appended.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
@@ -469,15 +469,35 @@ garrow_feather_file_writer_append(GArrowFeatherFileWriter *writer,
   auto arrow_array = garrow_array_get_raw(array);
 
   auto status = arrow_writer->Append(std::string(name), *arrow_array);
-  return garrow_error_check(error,
-                            status,
-                            "[feather-file-writer][append]");
+  return garrow_error_check(error, status, "[feather-file-writer][append]");
+}
+
+/**
+ * garrow_feather_file_writer_writer:
+ * @writer: A #GArrowFeatherFileWriter.
+ * @array: The table to be written.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+garrow_feather_file_writer_write(GArrowFeatherFileWriter *writer,
+                                 GArrowTable *table,
+                                 GError **error)
+{
+  auto arrow_writer = garrow_feather_file_writer_get_raw(writer);
+  auto arrow_table = garrow_table_get_raw(table);
+
+  auto status = arrow_writer->Write(*arrow_table);
+  return garrow_error_check(error, status, "[feather-file-writer][write]");
 }
 
 /**
  * garrow_feather_file_writer_close:
  * @writer: A #GArrowFeatherFileWriter.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *

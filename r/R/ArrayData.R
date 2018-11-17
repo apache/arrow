@@ -23,6 +23,7 @@
     type = function() `arrow::DataType`$dispatch(ArrayData__get_type(self)),
     length = function() ArrayData__get_length(self),
     null_count = function() ArrayData__get_null_count(self),
-    offset = function() ArrayData__get_offset(self)
+    offset = function() ArrayData__get_offset(self),
+    buffers = function() map(ArrayData__buffers(self), shared_ptr, class = `arrow::Buffer`)
   )
 )

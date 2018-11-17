@@ -29,7 +29,6 @@
 #include <arrow-glib/type.hpp>
 #include <arrow-glib/decimal.hpp>
 
-#include <iostream>
 #include <sstream>
 
 template <typename T>
@@ -423,7 +422,7 @@ garrow_array_get_n_nulls(GArrowArray *array)
  * @array: A #GArrowArray.
  *
  * Returns: (transfer full) (nullable): The bitmap that indicates null
- *   value indexes for the array as #GArrowBuffer or %NULL when
+ *   value indices for the array as #GArrowBuffer or %NULL when
  *   garrow_array_get_n_nulls() returns 0.
  *
  * Since: 0.3.0

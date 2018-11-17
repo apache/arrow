@@ -163,11 +163,7 @@ class ArrayPrinter : public PrettyPrinter {
   template <typename T>
   inline typename std::enable_if<std::is_same<StringArray, T>::value, Status>::type
   WriteDataValues(const T& array) {
-    WriteValues(array, [&](int64_t i) {
-      int32_t length;
-      const char* buf = reinterpret_cast<const char*>(array.GetValue(i, &length));
-      (*sink_) << "\"" << std::string(buf, length) << "\"";
-    });
+    WriteValues(array, [&](int64_t i) { (*sink_) << "\"" << array.GetView(i) << "\""; });
     return Status::OK();
   }
 
@@ -175,11 +171,7 @@ class ArrayPrinter : public PrettyPrinter {
   template <typename T>
   inline typename std::enable_if<std::is_same<BinaryArray, T>::value, Status>::type
   WriteDataValues(const T& array) {
-    WriteValues(array, [&](int64_t i) {
-      int32_t length;
-      const uint8_t* buf = array.GetValue(i, &length);
-      (*sink_) << HexEncode(buf, length);
-    });
+    WriteValues(array, [&](int64_t i) { (*sink_) << HexEncode(array.GetView(i)); });
     return Status::OK();
   }
 
@@ -187,9 +179,7 @@ class ArrayPrinter : public PrettyPrinter {
   inline
       typename std::enable_if<std::is_same<FixedSizeBinaryArray, T>::value, Status>::type
       WriteDataValues(const T& array) {
-    int32_t width = array.byte_width();
-    WriteValues(array,
-                [&](int64_t i) { (*sink_) << HexEncode(array.GetValue(i), width); });
+    WriteValues(array, [&](int64_t i) { (*sink_) << HexEncode(array.GetView(i)); });
     return Status::OK();
   }
 
@@ -409,6 +399,16 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
   return Status::OK();
 }
 
+Status PrettyPrint(const Column& column, const PrettyPrintOptions& options,
+                   std::ostream* sink) {
+  for (int i = 0; i < options.indent; ++i) {
+    (*sink) << " ";
+  }
+  (*sink) << column.field()->ToString() << "\n";
+
+  return PrettyPrint(*column.data(), options, sink);
+}
+
 Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& options,
                    std::string* result) {
   std::ostringstream sink;
@@ -422,6 +422,26 @@ Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
     const std::string& name = batch.column_name(i);
     (*sink) << name << ": ";
     RETURN_NOT_OK(PrettyPrint(*batch.column(i), indent + 2, sink));
+    (*sink) << "\n";
+  }
+  (*sink) << std::flush;
+  return Status::OK();
+}
+
+Status PrettyPrint(const Table& table, const PrettyPrintOptions& options,
+                   std::ostream* sink) {
+  RETURN_NOT_OK(PrettyPrint(*table.schema(), options, sink));
+  (*sink) << "\n";
+  (*sink) << "----\n";
+
+  PrettyPrintOptions column_options = options;
+  column_options.indent += 2;
+  for (int i = 0; i < table.num_columns(); ++i) {
+    for (int j = 0; j < options.indent; ++j) {
+      (*sink) << " ";
+    }
+    (*sink) << table.schema()->field(i)->name() << ":\n";
+    RETURN_NOT_OK(PrettyPrint(*table.column(i)->data(), column_options, sink));
     (*sink) << "\n";
   }
   (*sink) << std::flush;

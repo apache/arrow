@@ -25,17 +25,18 @@ Imports:
     fs,
     tibble,
     crayon,
-    withr
+    withr,
+    bit64
 Remotes:
     romainfrancois/vctrs@bit64, 
     RcppCore/Rcpp, 
     r-lib/withr
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 6.1.0.9000
+RoxygenNote: 6.1.1
 Suggests:
-    testthat, 
+    testthat,
     lubridate, 
-    bit64
+    hms
 Collate:
     'enums.R'
     'R6.R'
@@ -54,8 +55,11 @@ Collate:
     'array.R'
     'buffer.R'
     'dictionary.R'
+    'feather.R'
     'io.R'
     'memory_pool.R'
+    'message.R'
     'on_exit.R'
+    'reexports-bit64.R'
     'reexports-tibble.R'
     'zzz.R'

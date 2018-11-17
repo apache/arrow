@@ -32,11 +32,11 @@ namespace gandiva {
 /// expression evaluation.
 class LocalBitMapsHolder {
  public:
-  LocalBitMapsHolder(int num_records, int num_local_bitmaps);
+  LocalBitMapsHolder(int64_t num_records, int num_local_bitmaps);
 
   int GetNumLocalBitMaps() const { return static_cast<int>(local_bitmaps_vec_.size()); }
 
-  int GetLocalBitMapSize() const { return local_bitmap_size_; }
+  int64_t GetLocalBitMapSize() const { return local_bitmap_size_; }
 
   uint8_t** GetLocalBitMapArray() const { return local_bitmaps_array_.get(); }
 
@@ -47,7 +47,7 @@ class LocalBitMapsHolder {
 
  private:
   /// number of records in the current batch.
-  int num_records_;
+  int64_t num_records_;
 
   /// A container of 'local_bitmaps_', each sized to accomodate 'num_records'.
   std::vector<std::unique_ptr<uint8_t>> local_bitmaps_vec_;
@@ -55,10 +55,10 @@ class LocalBitMapsHolder {
   /// An array of the local bitmaps.
   std::unique_ptr<uint8_t*> local_bitmaps_array_;
 
-  int local_bitmap_size_;
+  int64_t local_bitmap_size_;
 };
 
-inline LocalBitMapsHolder::LocalBitMapsHolder(int num_records, int num_local_bitmaps)
+inline LocalBitMapsHolder::LocalBitMapsHolder(int64_t num_records, int num_local_bitmaps)
     : num_records_(num_records) {
   // alloc an array for the pointers to the bitmaps.
   if (num_local_bitmaps > 0) {
@@ -66,7 +66,7 @@ inline LocalBitMapsHolder::LocalBitMapsHolder(int num_records, int num_local_bit
   }
 
   // 64-bit aligned bitmaps.
-  uint32_t roundUp64Multiple = (num_records_ + 63) >> 6;
+  int64_t roundUp64Multiple = (num_records_ + 63) >> 6;
   local_bitmap_size_ = roundUp64Multiple * 8;
 
   // Alloc 'num_local_bitmaps_' number of bitmaps, each of capacity 'num_records_'.

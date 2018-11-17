@@ -377,7 +377,7 @@ cdef class PlasmaClient:
             check_status(self.client.get().CreateAndSeal(object_id.data, data,
                                                          metadata))
 
-    def get_buffers(self, object_ids, timeout_ms=-1):
+    def get_buffers(self, object_ids, timeout_ms=-1, with_meta=False):
         """
         Returns data buffer from the PlasmaStore based on object ID.
 
@@ -396,17 +396,28 @@ cdef class PlasmaClient:
         Returns
         -------
         list
-            List of PlasmaBuffers for the data associated with the object_ids
-            and None if the object was not available.
+            If with_meta=False, this is a list of PlasmaBuffers for the data
+            associated with the object_ids and None if the object was not
+            available. If with_meta=True, this is a list of tuples of
+            PlasmaBuffer and metadata bytes.
         """
         cdef c_vector[CObjectBuffer] object_buffers
         self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
         result = []
         for i in range(object_buffers.size()):
             if object_buffers[i].data.get() != nullptr:
-                result.append(pyarrow_wrap_buffer(object_buffers[i].data))
+                data = pyarrow_wrap_buffer(object_buffers[i].data)
             else:
-                result.append(None)
+                data = None
+            if not with_meta:
+                result.append(data)
+            else:
+                if object_buffers[i].metadata.get() != nullptr:
+                    size = object_buffers[i].metadata.get().size()
+                    metadata = object_buffers[i].metadata.get().data()[:size]
+                else:
+                    metadata = None
+                result.append((metadata, data))
         return result
 
     def get_metadata(self, object_ids, timeout_ms=-1):
@@ -441,8 +452,8 @@ cdef class PlasmaClient:
                 result.append(None)
         return result
 
-    def put_buffer(self, object value, ObjectID object_id=None,
-                   int memcopy_threads=6):
+    def put_raw_buffer(self, object value, ObjectID object_id=None,
+                       c_string metadata=b"", int memcopy_threads=6):
         """
         Store Python buffer into the object store.
 
@@ -453,6 +464,9 @@ cdef class PlasmaClient:
         object_id : ObjectID, default None
             If this is provided, the specified object ID will be used to refer
             to the object.
+        metadata : bytes
+            An optional string of bytes encoding whatever metadata the user
+            wishes to encode.
         memcopy_threads : int, default 6
             The number of threads to use to write the serialized object into
             the object store for large objects.
@@ -464,47 +478,12 @@ cdef class PlasmaClient:
         cdef ObjectID target_id = (object_id if object_id
                                    else ObjectID.from_random())
         cdef Buffer arrow_buffer = pyarrow.py_buffer(value)
-        write_buffer = self.create(target_id, len(value))
+        write_buffer = self.create(target_id, len(value), metadata)
         stream = pyarrow.FixedSizeBufferWriter(write_buffer)
         stream.set_memcopy_threads(memcopy_threads)
         stream.write(arrow_buffer)
         self.seal(target_id)
         return target_id
-
-    def get_buffer(self, object_ids, int timeout_ms=-1):
-        """
-        Get one or more Python buffers from the object store.
-
-        Parameters
-        ----------
-        object_ids : list or ObjectID
-            Object ID or list of object IDs associated to the values we get
-            from the store.
-        timeout_ms : int, default -1
-            The number of milliseconds that the get call should block before
-            timing out and returning. Pass -1 if the call should block and 0
-            if the call should return immediately.
-
-        Returns
-        -------
-        list of buffer objects or a buffer object
-            Python buffer or list of Python buffer for the data
-            associated with the object_ids and ObjectNotAvailable if the
-            object was not available.
-        """
-        cdef c_vector[CObjectBuffer] object_buffers
-        if isinstance(object_ids, collections.Sequence):
-            results = []
-            self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
-            for i in range(object_buffers.size()):
-                if object_buffers[i].data.get() != nullptr:
-                    size = object_buffers[i].data.get().size()
-                    results.append(object_buffers[i].data.get().data()[:size])
-                else:
-                    results.append(None)
-            return results
-        else:
-            return self.get_buffer([object_ids], timeout_ms)[0]
 
     def put(self, object value, ObjectID object_id=None, int memcopy_threads=6,
             serialization_context=None):

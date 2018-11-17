@@ -113,6 +113,8 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
+  bool closed() const { return !is_open_; }
+
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* buffer) {
     tSize ret;
     if (driver_->HasPread()) {
@@ -206,6 +208,8 @@ HdfsReadableFile::~HdfsReadableFile() { DCHECK(impl_->Close().ok()); }
 
 Status HdfsReadableFile::Close() { return impl_->Close(); }
 
+bool HdfsReadableFile::closed() const { return impl_->closed(); }
+
 Status HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                                 void* buffer) {
   return impl_->ReadAt(position, nbytes, bytes_read, buffer);
@@ -250,6 +254,8 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
+  bool closed() const { return !is_open_; }
+
   Status Flush() {
     int ret = driver_->Flush(fs_, file_);
     CHECK_FAILURE(ret, "Flush");
@@ -271,6 +277,8 @@ HdfsOutputStream::HdfsOutputStream() { impl_.reset(new HdfsOutputStreamImpl()); 
 HdfsOutputStream::~HdfsOutputStream() { DCHECK(impl_->Close().ok()); }
 
 Status HdfsOutputStream::Close() { return impl_->Close(); }
+
+bool HdfsOutputStream::closed() const { return impl_->closed(); }
 
 Status HdfsOutputStream::Write(const void* buffer, int64_t nbytes, int64_t* bytes_read) {
   return impl_->Write(buffer, nbytes, bytes_read);

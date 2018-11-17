@@ -19,10 +19,16 @@
 #define ARROW_CSV_OPTIONS_H
 
 #include <cstdint>
+#include <memory>
+#include <string>
+#include <unordered_map>
 
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class DataType;
+
 namespace csv {
 
 struct ARROW_EXPORT ParseOptions {
@@ -42,15 +48,25 @@ struct ARROW_EXPORT ParseOptions {
   char escape_char = '\\';
   // Whether values are allowed to contain CR (0x0d) and LF (0x0a) characters
   bool newlines_in_values = false;
+  // Whether empty lines are ignored.  If false, an empty line represents
+  // a single empty value (assuming a one-column CSV file).
+  bool ignore_empty_lines = true;
 
   // XXX Should this be in ReadOptions?
-  // Number of header rows to skip
+  // Number of header rows to skip (including the first row containing column names)
   int32_t header_rows = 1;
 
   static ParseOptions Defaults();
 };
 
 struct ARROW_EXPORT ConvertOptions {
+  // Conversion options
+
+  // Whether to check UTF8 validity of string columns
+  bool check_utf8 = true;
+  // Optional per-column types (disabling type inference on those columns)
+  std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
+
   static ConvertOptions Defaults();
 };
 

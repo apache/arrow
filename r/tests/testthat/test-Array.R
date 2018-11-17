@@ -230,13 +230,15 @@ test_that("array supports Date (ARROW-3340)", {
 test_that("array supports POSIXct (ARROW-3340)", {
   times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
   a <- array(times)
-  expect_equal(a$type(), date64())
+  expect_equal(a$type()$name(), "timestamp")
+  expect_equal(a$type()$unit(), unclass(TimeUnit$MICRO))
   expect_equal(a$length(), 10L)
   expect_equal(as.numeric(a$as_vector()), as.numeric(times))
 
   times[5] <- NA
   a <- array(times)
-  expect_equal(a$type(), date32())
+  expect_equal(a$type()$name(), "timestamp")
+  expect_equal(a$type()$unit(), unclass(TimeUnit$MICRO))
   expect_equal(a$length(), 10L)
   expect_equal(as.numeric(a$as_vector()), as.numeric(times))
   expect_true(a$IsNull(4))
@@ -255,4 +257,38 @@ test_that("array supports integer64", {
   expect_equal(a$length(), 10L)
   expect_equal(a$as_vector(), x)
   expect_true(a$IsNull(3L))
+})
+
+test_that("array$as_vector() correctly handles all NA inte64 (ARROW-3795)", {
+  x <- bit64::as.integer64(NA)
+  a <- array(x)
+  expect_true(is.na(a$as_vector()))
+})
+
+test_that("array supports difftime", {
+  time <- hms::hms(56, 34, 12)
+  a <- array(time, time)
+  expect_equal(a$type(), time32(unit = TimeUnit$SECOND))
+  expect_equal(a$length(), 2L)
+  expect_equal(a$as_vector(), c(time, time))
+
+  a <- array(time, NA)
+  expect_equal(a$type(), time32(unit = TimeUnit$SECOND))
+  expect_equal(a$length(), 2L)
+  expect_true(a$IsNull(1))
+  expect_equal(a$as_vector()[1], time)
+  expect_true(is.na(a$as_vector()[2]))
+})
+
+test_that("support for NaN (ARROW-3615)", {
+  x <- c(1, NA, NaN, -1)
+  y <- array(x)
+  expect_true(y$IsValid(2))
+  expect_equal(y$null_count(), 1L)
+})
+
+test_that("array ignores the type argument (ARROW-3784)", {
+  a <- expect_warning(array(1:10, type = int16()))
+  b <- array(1:10)
+  expect_equal(a, b)
 })

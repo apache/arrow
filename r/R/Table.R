@@ -21,8 +21,8 @@
   public = list(
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
-    schema = function() construct(`arrow::Schema`, Table__schema(self)),
-    column = function(i) construct(`arrow::Column`, Table__column(self, i)),
+    schema = function() shared_ptr(`arrow::Schema`, Table__schema(self)),
+    column = function(i) shared_ptr(`arrow::Column`, Table__column(self, i)),
 
     serialize = function(output_stream, ...) write_table(self, output_stream, ...)
   )
@@ -34,7 +34,7 @@
 #'
 #' @export
 table <- function(.data){
-  construct(`arrow::Table`, Table__from_dataframe(.data))
+  shared_ptr(`arrow::Table`, Table__from_dataframe(.data))
 }
 
 #' @export

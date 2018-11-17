@@ -17,4 +17,6 @@
 
 SUBDIRS =					\
 	arrow-glib				\
-	parquet-glib
+	gandiva-glib				\
+	parquet-glib				\
+	plasma-glib

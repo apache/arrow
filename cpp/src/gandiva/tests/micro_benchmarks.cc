@@ -14,11 +14,12 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#include <stdlib.h>
 
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "gandiva/projector.h"
-#include "gandiva/status.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tests/timed_evaluate.h"
 #include "gandiva/tree_expr_builder.h"
@@ -181,7 +182,7 @@ TEST_F(TestBenchmarks, TimedTestFilterAdd2) {
   ASSERT_TRUE(status.ok());
   std::cout << "Time taken for Filter with Add2 " << elapsed_millis << " ms\n";
 
-  EXPECT_LE(elapsed_millis, 2 * tolerance_ratio);
+  EXPECT_LE(elapsed_millis, 2.5 * tolerance_ratio);
 }
 
 TEST_F(TestBenchmarks, TimedTestFilterLike) {
@@ -211,6 +212,113 @@ TEST_F(TestBenchmarks, TimedTestFilterLike) {
   std::cout << "Time taken for Filter with like " << elapsed_millis << " ms\n";
 
   EXPECT_LE(elapsed_millis, 600 * tolerance_ratio);
+}
+
+TEST_F(TestBenchmarks, TimedTestAllocs) {
+  // schema for input fields
+  auto field_a = field("a", arrow::utf8());
+  auto schema = arrow::schema({field_a});
+
+  // output field
+  auto field_res = field("res", int32());
+
+  // Build expression
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto upper = TreeExprBuilder::MakeFunction("upper", {node_a}, utf8());
+  auto length = TreeExprBuilder::MakeFunction("octet_length", {upper}, int32());
+  auto expr = TreeExprBuilder::MakeExpression(length, field_res);
+
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok());
+
+  int64_t elapsed_millis;
+  FastUtf8DataGenerator data_generator(64);
+  ProjectEvaluator evaluator(projector);
+
+  status = TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
+      elapsed_millis);
+  ASSERT_TRUE(status.ok());
+  std::cout << "Time taken for length(upper(utf8)) " << elapsed_millis << " ms\n";
+}
+
+// following two tests are for benchmark optimization of
+// in expr. will be used in follow-up PRs to optimize in expr.
+
+TEST_F(TestBenchmarks, TimedTestMultiOr) {
+  // schema for input fields
+  auto fielda = field("a", utf8());
+  auto schema = arrow::schema({fielda});
+
+  // output fields
+  auto field_result = field("res", boolean());
+
+  // build expression.
+  // booleanOr(a = string1, a = string2, ..)
+  auto node_a = TreeExprBuilder::MakeField(fielda);
+
+  NodeVector boolean_functions;
+  FastUtf8DataGenerator data_generator1(250);
+  for (int thresh = 1; thresh <= 32; thresh++) {
+    auto literal = TreeExprBuilder::MakeStringLiteral(data_generator1.GenerateData());
+    auto condition = TreeExprBuilder::MakeFunction("equal", {node_a, literal}, boolean());
+    boolean_functions.push_back(condition);
+  }
+
+  auto boolean_or = TreeExprBuilder::MakeOr(boolean_functions);
+  auto expr = TreeExprBuilder::MakeExpression(boolean_or, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok());
+
+  int64_t elapsed_millis;
+  FastUtf8DataGenerator data_generator(250);
+  ProjectEvaluator evaluator(projector);
+  status = TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool_, 100 * THOUSAND, 16 * THOUSAND,
+      elapsed_millis);
+  ASSERT_TRUE(status.ok());
+  std::cout << "Time taken for BooleanOr (100K) " << elapsed_millis << " ms\n";
+}
+
+TEST_F(TestBenchmarks, TimedTestInExpr) {
+  // schema for input fields
+  auto fielda = field("a", utf8());
+  auto schema = arrow::schema({fielda});
+
+  // output fields
+  auto field_result = field("res", boolean());
+
+  // build expression.
+  // a in (string1, string2, ..)
+  auto node_a = TreeExprBuilder::MakeField(fielda);
+
+  std::unordered_set<std::string> values;
+  FastUtf8DataGenerator data_generator1(250);
+  for (int i = 1; i <= 32; i++) {
+    values.insert(data_generator1.GenerateData());
+  }
+  auto boolean_or = TreeExprBuilder::MakeInExpressionString(node_a, values);
+  auto expr = TreeExprBuilder::MakeExpression(boolean_or, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok());
+
+  int64_t elapsed_millis;
+  FastUtf8DataGenerator data_generator(250);
+  ProjectEvaluator evaluator(projector);
+
+  status = TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool_, 100 * THOUSAND, 16 * THOUSAND,
+      elapsed_millis);
+
+  ASSERT_TRUE(status.ok());
+  std::cout << "Time taken for BooleanIn (100K) " << elapsed_millis << " ms\n";
 }
 
 }  // namespace gandiva

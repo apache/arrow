@@ -46,7 +46,7 @@ import io.grpc.stub.StreamObserver;
 class FlightService extends FlightServiceImplBase {
 
   private static final Logger logger = LoggerFactory.getLogger(FlightService.class);
-  private final static int PENDING_REQUESTS = 5;
+  private static final int PENDING_REQUESTS = 5;
 
   private final BufferAllocator allocator;
   private final FlightProducer producer;

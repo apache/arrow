@@ -13,6 +13,7 @@ cpp/src/arrow/io/mman.h
 cpp/src/arrow/util/random.h
 cpp/src/arrow/status.cc
 cpp/src/arrow/status.h
+cpp/src/arrow/util/string_view/string_view.hpp
 cpp/src/arrow/util/variant.h
 cpp/src/arrow/util/variant/optional.h
 cpp/src/arrow/util/variant/recursive_wrapper.h
@@ -133,6 +134,14 @@ c_glib/doc/parquet-glib/parquet-glib.types
 c_glib/doc/parquet-glib/parquet-glib-sections.txt
 c_glib/doc/parquet-glib/parquet-glib-overrides.txt
 c_glib/gtk-doc.make
+csharp/.gitattributes
+csharp/src/Apache.Arrow/Flatbuf/*
+csharp/build/Common.props
+csharp/src/Apache.Arrow/Apache.Arrow.csproj
+csharp/src/Apache.Arrow/Properties/Resources.Designer.cs
+csharp/src/Apache.Arrow/Properties/Resources.resx
+csharp/test/Apache.Arrow.Tests/Apache.Arrow.Tests.csproj
+csharp/test/Apache.Arrow.Tests/app.config
 *.html
 *.sgml
 *.css

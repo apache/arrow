@@ -132,6 +132,9 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
         assertTimeStampVectorValues((TimeStampVector) root.getVector(table.getVector()), table.getValues().length,
             table.getLongValues());
         break;
+      default:
+        // do nothing
+        break;
     }
   }
 

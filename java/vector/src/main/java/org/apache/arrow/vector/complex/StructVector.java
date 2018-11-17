@@ -134,7 +134,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
 
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new NullableStructTransferPair(this, (StructVector) to, true);
+    return new NullableStructTransferPair(this, (StructVector) to, false);
   }
 
   @Override

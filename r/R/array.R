@@ -29,14 +29,14 @@
     type_id = function() Array__type_id(self),
     Equals = function(other) Array__Equals(self, other),
     ApproxEquals = function(othet) Array__ApproxEquals(self, other),
-    data = function() construct(`arrow::ArrayData`, Array__data(self)),
+    data = function() shared_ptr(`arrow::ArrayData`, Array__data(self)),
     as_vector = function() Array__as_vector(self),
     ToString = function() Array__ToString(self),
     Slice = function(offset, length = NULL){
       if (is.null(length)) {
-        construct(`arrow::Array`, Array__Slice1(self, offset))
+        shared_ptr(`arrow::Array`, Array__Slice1(self, offset))
       } else {
-        construct(`arrow::Array`, Array__Slice2(self, offset, length))
+        shared_ptr(`arrow::Array`, Array__Slice2(self, offset, length))
       }
     },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx) {
@@ -47,9 +47,9 @@
 )
 
 `arrow::Array`$dispatch <- function(xp){
-  a <- construct(`arrow::Array`, xp)
+  a <- shared_ptr(`arrow::Array`, xp)
   if(a$type_id() == Type$DICTIONARY){
-    a <- construct(`arrow::DictionaryArray`, xp)
+    a <- shared_ptr(`arrow::DictionaryArray`, xp)
   }
   a
 }
@@ -63,9 +63,14 @@
 #' create an arrow::Array from an R vector
 #'
 #' @param \dots Vectors to coerce
+#' @param type currently ignored
 #'
+#' @importFrom rlang warn
 #' @export
-array <- function(...){
+array <- function(..., type){
+  if (!missing(type)) {
+    warn("The `type` argument is currently ignored")
+  }
   `arrow::Array`$dispatch(Array__from_vector(vctrs::vec_c(...)))
 }
 

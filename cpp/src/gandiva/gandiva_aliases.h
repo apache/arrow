@@ -19,6 +19,8 @@
 #define GANDIVA_ALIASES_H
 
 #include <memory>
+#include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace gandiva {

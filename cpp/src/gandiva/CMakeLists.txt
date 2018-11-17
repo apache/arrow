@@ -30,7 +30,7 @@ set(GANDIVA_BC_INSTALL_DIR
 
 set(GANDIVA_BC_FILE_NAME irhelpers.bc)
 set(GANDIVA_BC_INSTALL_PATH ${GANDIVA_BC_INSTALL_DIR}/${GANDIVA_BC_FILE_NAME})
-set(GANDIVA_BC_OUTPUT_PATH ${CMAKE_BINARY_DIR}/${GANDIVA_BC_FILE_NAME})
+set(GANDIVA_BC_OUTPUT_PATH ${BUILD_OUTPUT_ROOT_DIRECTORY}/${GANDIVA_BC_FILE_NAME})
 
 set(BC_FILE_PATH_CC "${CMAKE_CURRENT_BINARY_DIR}/bc_file_path.cc")
 configure_file(bc_file_path.cc.in ${BC_FILE_PATH_CC})
@@ -61,35 +61,35 @@ set(SRC_FILES annotator.cc
       ${SHARED_HELPER_FILES}
       ${BC_FILE_PATH_CC})
 
-# TODO(wesm): Replace this with ADD_ARROW_LIB which deals with objlib/no-objlib
-# (not supported on Windows), dependencies, etc.
-add_library(gandiva_obj_lib OBJECT ${SRC_FILES})
-add_dependencies(gandiva_obj_lib arrow_dependencies)
+set(GANDIVA_SHARED_PRIVATE_LINK_LIBS
+  arrow_shared
+  ${BOOST_REGEX_LIBRARY}
+  ${BOOST_SYSTEM_LIBRARY}
+  ${BOOST_FILESYSTEM_LIBRARY}
+  LLVM::LLVM_INTERFACE
+  ${RE2_LIBRARY})
 
-# set PIC so that object library can be included in shared libs.
-set_target_properties(gandiva_obj_lib PROPERTIES POSITION_INDEPENDENT_CODE 1)
+set(GANDIVA_STATIC_LINK_LIBS
+  arrow_static
+  LLVM::LLVM_INTERFACE
+  ${RE2_LIBRARY})
 
-# For users of gandiva library (including integ tests), include-dir is :
-#   /usr/**/include dir after install,
-#   cpp/include during build
-# For building gandiva library itself, include-dir (in addition to above) is :
-#   cpp/src
-target_include_directories(gandiva_obj_lib
-  PUBLIC
-    $<INSTALL_INTERFACE:include>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
+if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+  set(GANDIVA_STATIC_LINK_LIBS
+    ${GANDIVA_STATIC_LINK_LIBS}
+    -static-libstdc++
+    -static-libgcc)
+endif()
 
-target_include_directories(gandiva_obj_lib SYSTEM
-  PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
-    $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
-    ${ARROW_INCLUDE_DIR}
-    $<TARGET_PROPERTY:gtest_main,INCLUDE_DIRECTORIES>
-)
-
-build_gandiva_lib("shared" arrow_shared)
-
-build_gandiva_lib("static" arrow_static)
+ADD_ARROW_LIB(gandiva
+  SOURCES ${SRC_FILES}
+  OUTPUTS GANDIVA_LIBRARIES
+  DEPENDENCIES arrow_dependencies
+  EXTRA_INCLUDES
+  $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
+  SHARED_LINK_LIBS arrow_shared
+  SHARED_PRIVATE_LINK_LIBS ${GANDIVA_SHARED_PRIVATE_LINK_LIBS}
+  STATIC_LINK_LIBS ${GANDIVA_STATIC_LINK_LIBS})
 
 # install for gandiva
 include(GNUInstallDirs)
@@ -113,10 +113,8 @@ install(FILES
   logging.h
   projector.h
   selection_vector.h
-  status.h
   tree_expr_builder.h
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/gandiva")
 
 # pkg-config support
 configure_file(gandiva.pc.in
@@ -126,34 +124,38 @@ install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
-#args: label test-file src-files
-add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)
-add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc configuration.cc
-    gdv_function_stubs.cc context_helper.cc to_date_holder.cc date_utils.cc
-    exported_funcs_registry.cc ${BC_FILE_PATH_CC})
-add_gandiva_unit_test(function_signature_test.cc function_signature.cc)
-add_gandiva_unit_test(function_registry_test.cc function_registry.cc function_signature.cc)
-add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)
-add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc regex_util.cc engine.cc
-    llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc
-    bitmap_accumulator.cc configuration.cc  function_signature.cc like_holder.cc
-    to_date_holder.cc date_utils.cc regex_util.cc gdv_function_stubs.cc context_helper.cc
-    exported_funcs_registry.cc ${BC_FILE_PATH_CC})
-add_gandiva_unit_test(annotator_test.cc annotator.cc function_signature.cc)
-add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
-add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
-add_gandiva_unit_test(status_test.cc)
-add_gandiva_unit_test(expression_registry_test.cc llvm_types.cc expression_registry.cc function_signature.cc function_registry.cc)
-add_gandiva_unit_test(selection_vector_test.cc selection_vector.cc)
-add_gandiva_unit_test(lru_cache_test.cc)
-add_gandiva_unit_test(to_date_holder_test.cc to_date_holder.cc date_utils.cc)
+if (ARROW_GANDIVA_BUILD_TESTS)
+  #args: label test-file src-files
+  add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)
+  add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc configuration.cc
+      gdv_function_stubs.cc context_helper.cc to_date_holder.cc date_utils.cc
+      exported_funcs_registry.cc ${BC_FILE_PATH_CC})
+  add_gandiva_unit_test(function_signature_test.cc function_signature.cc)
+  add_gandiva_unit_test(function_registry_test.cc function_registry.cc function_signature.cc)
+  add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)
+  add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc regex_util.cc engine.cc
+      llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc
+      bitmap_accumulator.cc configuration.cc  function_signature.cc like_holder.cc
+      to_date_holder.cc date_utils.cc regex_util.cc gdv_function_stubs.cc context_helper.cc
+      exported_funcs_registry.cc ${BC_FILE_PATH_CC})
+  add_gandiva_unit_test(annotator_test.cc annotator.cc function_signature.cc)
+  add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
+  add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
+  add_gandiva_unit_test(expression_registry_test.cc llvm_types.cc expression_registry.cc function_signature.cc function_registry.cc)
+  add_gandiva_unit_test(selection_vector_test.cc selection_vector.cc)
+  add_gandiva_unit_test(lru_cache_test.cc)
+  add_gandiva_unit_test(to_date_holder_test.cc to_date_holder.cc date_utils.cc)
+  add_gandiva_unit_test(simple_arena_test.cc)
+endif()
 
 if (ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)
 endif()
 add_subdirectory(precompiled)
 
-include(CTest)
-enable_testing()
+if (ARROW_GANDIVA_BUILD_TESTS)
+  include(CTest)
+  enable_testing()
 
-add_subdirectory(tests)
+  add_subdirectory(tests)
+endif()

@@ -28,7 +28,6 @@
 #include "gandiva/filter_cache_key.h"
 #include "gandiva/llvm_generator.h"
 #include "gandiva/selection_vector_impl.h"
-#include "gandiva/status.h"
 
 namespace gandiva {
 
@@ -41,38 +40,36 @@ Filter::Filter(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
 Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
                     std::shared_ptr<Configuration> configuration,
                     std::shared_ptr<Filter>* filter) {
-  GANDIVA_RETURN_FAILURE_IF_FALSE(schema != nullptr,
-                                  Status::Invalid("schema cannot be null"));
-  GANDIVA_RETURN_FAILURE_IF_FALSE(condition != nullptr,
-                                  Status::Invalid("condition cannot be null"));
-  GANDIVA_RETURN_FAILURE_IF_FALSE(configuration != nullptr,
-                                  Status::Invalid("configuration cannot be null"));
+  ARROW_RETURN_FAILURE_IF_FALSE(schema != nullptr,
+                                Status::Invalid("schema cannot be null"));
+  ARROW_RETURN_FAILURE_IF_FALSE(condition != nullptr,
+                                Status::Invalid("condition cannot be null"));
+  ARROW_RETURN_FAILURE_IF_FALSE(configuration != nullptr,
+                                Status::Invalid("configuration cannot be null"));
   static Cache<FilterCacheKey, std::shared_ptr<Filter>> cache;
   FilterCacheKey cache_key(schema, configuration, *(condition.get()));
   std::shared_ptr<Filter> cachedFilter = cache.GetModule(cache_key);
   if (cachedFilter != nullptr) {
     *filter = cachedFilter;
-    std::cout << "llvm filter module cache hit : " << cache_key.ToString() << std::endl;
     return Status::OK();
   }
   // Build LLVM generator, and generate code for the specified expression
   std::unique_ptr<LLVMGenerator> llvm_gen;
   Status status = LLVMGenerator::Make(configuration, &llvm_gen);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   // Run the validation on the expression.
   // Return if the expression is invalid since we will not be able to process further.
   ExprValidator expr_validator(llvm_gen->types(), schema);
   status = expr_validator.Validate(condition);
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   status = llvm_gen->Build({condition});
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
   cache.PutModule(cache_key, *filter);
-  std::cout << "llvm filter module cache insert : " << cache_key.ToString() << std::endl;
 
   return Status::OK();
 }
@@ -97,8 +94,8 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
 
   // Allocate three local_bitmaps (one for output, one for validity, one to compute the
   // intersection).
-  LocalBitMapsHolder bitmaps(static_cast<int>(batch.num_rows()), 3 /*local_bitmaps*/);
-  int bitmap_size = bitmaps.GetLocalBitMapSize();
+  LocalBitMapsHolder bitmaps(batch.num_rows(), 3 /*local_bitmaps*/);
+  int64_t bitmap_size = bitmaps.GetLocalBitMapSize();
 
   auto validity = std::make_shared<arrow::Buffer>(bitmaps.GetLocalBitMap(0), bitmap_size);
   auto value = std::make_shared<arrow::Buffer>(bitmaps.GetLocalBitMap(1), bitmap_size);
@@ -107,16 +104,14 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
 
   // Execute the expression(s).
   auto status = llvm_generator_->Execute(batch, {array_data});
-  GANDIVA_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(status);
 
   // Compute the intersection of the value and validity.
   auto result = bitmaps.GetLocalBitMap(2);
   BitMapAccumulator::IntersectBitMaps(
-      result, {bitmaps.GetLocalBitMap(0), bitmaps.GetLocalBitMap((1))},
-      static_cast<int>(batch.num_rows()));
+      result, {bitmaps.GetLocalBitMap(0), bitmaps.GetLocalBitMap((1))}, batch.num_rows());
 
-  return out_selection->PopulateFromBitMap(result, bitmap_size,
-                                           static_cast<int>(batch.num_rows()) - 1);
+  return out_selection->PopulateFromBitMap(result, bitmap_size, batch.num_rows() - 1);
 }
 
 }  // namespace gandiva

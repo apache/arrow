@@ -247,7 +247,7 @@
             <property name="ignoreInlineTags" value="false"/>
         </module>
         <module name="EmptyCatchBlock">
-            <property name="exceptionVariableName" value="expected"/>
+            <property name="exceptionVariableName" value="expected|ignore"/>
         </module>
         <module name="CommentsIndentation"/>
     </module>

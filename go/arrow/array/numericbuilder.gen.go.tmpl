@@ -18,6 +18,7 @@ package array
 
 import (
 	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/internal/bitutil"
 	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/memory"
 )
@@ -120,6 +121,7 @@ func (b *{{.Name}}Builder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *{{.Name}}Builder) Resize(n int) {
+	nBuilder := n
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -127,7 +129,7 @@ func (b *{{.Name}}Builder) Resize(n int) {
 	if b.capacity == 0 {
 		b.init(n)
 	} else {
-		b.builder.resize(n, b.init)
+		b.builder.resize(nBuilder, b.init)
 		b.data.Resize(arrow.{{.Name}}Traits.BytesRequired(n))
 		b.rawData = arrow.{{.Name}}Traits.CastFromBytes(b.data.Bytes())
 	}

@@ -70,7 +70,7 @@ ADD_ARROW_LIB(arrow_python
   OUTPUTS ARROW_PYTHON_LIBRARIES
   SHARED_LINK_FLAGS ""
   SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS}
-  STATIC_LINK_LIBS "${PYTHON_OTHER_LIBS}"
+  STATIC_LINK_LIBS ${PYTHON_OTHER_LIBS}
   EXTRA_INCLUDES "${ARROW_PYTHON_INCLUDES}"
 )
 
@@ -129,7 +129,7 @@ if (ARROW_BUILD_TESTS)
 	util/test_main.cc)
 
   target_link_libraries(arrow_python_test_main
-    gtest)
+    gtest_static)
   target_include_directories(arrow_python_test_main SYSTEM PUBLIC
     ${ARROW_PYTHON_INCLUDES})
 

@@ -20,9 +20,10 @@
 
 #include <memory>
 #include <stack>
+#include <string>
 #include <utility>
 
-#include <gtest/gtest_prod.h>
+#include "gandiva/arrow.h"
 #include "gandiva/expression.h"
 #include "gandiva/node.h"
 #include "gandiva/node_visitor.h"
@@ -59,6 +60,9 @@ class ExprDecomposer : public NodeVisitor {
   Status Visit(const IfNode& node) override;
   Status Visit(const LiteralNode& node) override;
   Status Visit(const BooleanNode& node) override;
+  Status Visit(const InExpressionNode<int32_t>& node) override;
+  Status Visit(const InExpressionNode<int64_t>& node) override;
+  Status Visit(const InExpressionNode<std::string>& node) override;
 
   // Optimize a function node, if possible.
   const FunctionNode TryOptimize(const FunctionNode& node);

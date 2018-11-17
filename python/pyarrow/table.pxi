@@ -443,7 +443,7 @@ cdef class Column:
         """
         cdef:
             CCastOptions options = CCastOptions(safe)
-            DataType type = _ensure_type(target_type)
+            DataType type = ensure_type(target_type)
             shared_ptr[CArray] result
             CDatum out
 

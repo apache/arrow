@@ -104,12 +104,16 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   set(ARROW_CXXFLAGS "" CACHE STRING
     "Compiler flags to append when compiling Arrow")
 
+  option(ARROW_ONLY_LINT
+    "Only define the lint and check-format targets"
+    OFF)
+
   option(ARROW_BUILD_STATIC
-    "Build the libarrow static libraries"
+    "Build static libraries"
     ON)
 
   option(ARROW_BUILD_SHARED
-    "Build the libarrow shared libraries"
+    "Build shared libraries"
     ON)
 
   option(ARROW_TEST_MEMCHECK
@@ -244,9 +248,15 @@ Pass multiple labels by dividing with semicolons")
     "Build with zlib compression"
     ON)
 
+  if(CMAKE_VERSION VERSION_LESS 3.7)
+    set(ARROW_WITH_ZSTD_DEFAULT OFF)
+  else()
+    # ExternalProject_Add(SOURCE_SUBDIR) is available since CMake 3.7.
+    set(ARROW_WITH_ZSTD_DEFAULT ON)
+  endif()
   option(ARROW_WITH_ZSTD
     "Build with zstd compression"
-    ON)
+    ${ARROW_WITH_ZSTD_DEFAULT})
 
   option(ARROW_GENERATE_COVERAGE
     "Build with C++ code coverage enabled"
@@ -294,15 +304,12 @@ Always OFF if building binaries"
     OFF)
 
   option(PARQUET_BUILD_EXECUTABLES
-    "Build the Parquet executable CLI tools"
+    "Build the Parquet executable CLI tools. Requires static libraries to be built."
     OFF)
 
   option(PARQUET_BUILD_EXAMPLES
-    "Build the Parquet examples"
+    "Build the Parquet examples. Requires static libraries to be built."
     OFF)
-
-  set(PARQUET_ARROW_LINKAGE "shared" CACHE STRING
-    "How to link Arrow libraries with libparquet.so. static|shared (default shared)")
 
   # Gandiva related build options
   option(ARROW_GANDIVA
@@ -313,7 +320,93 @@ Always OFF if building binaries"
     "Build the Gandiva JNI wrappers"
     ON)
 
+  option(ARROW_GANDIVA_BUILD_TESTS
+    "Build the Gandiva googletest unit tests"
+    ON)
+
 endif()
+
+
+############################################################
+# "make lint" target
+############################################################
+if (NOT ARROW_VERBOSE_LINT)
+  set(ARROW_LINT_QUIET "--quiet")
+endif()
+
+if (UNIX)
+
+  file(GLOB_RECURSE LINT_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
+    )
+
+  FOREACH(item ${LINT_FILES})
+    IF(NOT ((item MATCHES "_generated.h") OR
+            (item MATCHES "pyarrow_api.h") OR
+            (item MATCHES "pyarrow_lib.h") OR
+            (item MATCHES "xxhash.h") OR
+            (item MATCHES "xxhash.cc") OR
+            (item MATCHES "config.h") OR
+            (item MATCHES "util/string_view/") OR
+            (item MATCHES "util/variant") OR
+            (item MATCHES "zmalloc.h") OR
+            (item MATCHES "gandiva/precompiled/date.h") OR
+            (item MATCHES "ae.h")))
+      LIST(APPEND FILTERED_LINT_FILES ${item})
+    ENDIF()
+  ENDFOREACH(item ${LINT_FILES})
+
+  find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
+  message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
+
+  # Full lint
+  # Balancing act: cpplint.py takes a non-trivial time to launch,
+  # so process 12 files per invocation, while still ensuring parallelism
+  add_custom_target(lint echo ${FILTERED_LINT_FILES} | xargs -n12 -P8
+  ${CPPLINT_BIN}
+  --verbose=2 ${ARROW_LINT_QUIET}
+  --linelength=90
+  --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order
+  )
+endif (UNIX)
+
+############################################################
+# "make format" and "make check-format" targets
+############################################################
+
+# runs clang format and updates files in place.
+add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
+  ${CLANG_FORMAT_BIN}
+  ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/src --fix ${ARROW_LINT_QUIET})
+
+# runs clang format and exits with a non-zero exit code if any files need to be reformatted
+add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run_clang_format.py
+   ${CLANG_FORMAT_BIN}
+   ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
+   ${CMAKE_CURRENT_SOURCE_DIR}/src ${ARROW_LINT_QUIET})
+
+############################################################
+# "make clang-tidy" and "make check-clang-tidy" targets
+############################################################
+if (${CLANG_TIDY_FOUND})
+  # runs clang-tidy and attempts to fix any warning automatically
+  add_custom_target(clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json 1
+  `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc | sed -e '/_generated/g'`)
+  # runs clang-tidy and exits with a non-zero exit code if any errors are found.
+  add_custom_target(check-clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json
+  0 `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc |grep -v -F -f ${CMAKE_CURRENT_SOURCE_DIR}/src/.clang-tidy-ignore | sed -e '/_generated/g'`)
+endif()
+
+if (ARROW_ONLY_LINT)
+  return()
+endif()
+
+
+############################################################
+# Set up various options
+############################################################
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_WITH_BROTLI ON)
@@ -321,6 +414,11 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_WITH_SNAPPY ON)
   set(ARROW_WITH_ZLIB ON)
   set(ARROW_WITH_ZSTD ON)
+endif()
+
+if(PARQUET_BUILD_EXAMPLES OR PARQUET_BUILD_EXECUTABLES)
+  set(ARROW_PARQUET ON)
+  set(ARROW_BUILD_STATIC ON)
 endif()
 
 if (MSVC)
@@ -338,6 +436,8 @@ endif()
 
 if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
+else()
+  set(ARROW_BUILD_SHARED ON)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
@@ -350,6 +450,7 @@ endif()
 
 if (ARROW_TENSORFLOW)
   # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
@@ -394,8 +495,9 @@ include(ThirdpartyToolchain)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
 
-# For any C code, use the same flags.
-set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
+# For any C code, use the same flags. These flags don't contain
+# C++ specific flags.
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARROW_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 
 # Remove --std=c++11 to avoid errors from C compilers
 string(REPLACE "-std=c++11" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
@@ -411,10 +513,12 @@ include(san-config)
 
 # Code coverage
 if ("${ARROW_GENERATE_COVERAGE}")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage -DCOVERAGE_BUILD")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -DCOVERAGE_BUILD")
 endif()
 
 # CMAKE_CXX_FLAGS now fully assembled
+message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 
 # set compile output directory
@@ -509,78 +613,6 @@ if (UNIX)
 endif (UNIX)
 
 ############################################################
-# "make lint" target
-############################################################
-if (NOT ARROW_VERBOSE_LINT)
-  set(ARROW_LINT_QUIET "--quiet")
-endif()
-
-if (UNIX)
-
-  file(GLOB_RECURSE LINT_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
-    )
-
-  FOREACH(item ${LINT_FILES})
-    IF(NOT ((item MATCHES "_generated.h") OR
-            (item MATCHES "pyarrow_api.h") OR
-            (item MATCHES "xxhash.h") OR
-            (item MATCHES "xxhash.cc") OR
-            (item MATCHES "config.h") OR
-            (item MATCHES "util/variant") OR
-            (item MATCHES "zmalloc.h") OR
-            (item MATCHES "gandiva/precompiled/date.h") OR
-            (item MATCHES "ae.h")))
-      LIST(APPEND FILTERED_LINT_FILES ${item})
-    ENDIF()
-  ENDFOREACH(item ${LINT_FILES})
-
-  find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
-  message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
-
-  # Full lint
-  # Balancing act: cpplint.py takes a non-trivial time to launch,
-  # so process 12 files per invocation, while still ensuring parallelism
-  add_custom_target(lint echo ${FILTERED_LINT_FILES} | xargs -n12 -P8
-  ${CPPLINT_BIN}
-  --verbose=2 ${ARROW_LINT_QUIET}
-  --linelength=90
-  --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order
-  )
-endif (UNIX)
-
-
-############################################################
-# "make format" and "make check-format" targets
-############################################################
-
-# runs clang format and updates files in place.
-add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
-  ${CLANG_FORMAT_BIN}
-  ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-  ${CMAKE_CURRENT_SOURCE_DIR}/src --fix ${ARROW_LINT_QUIET})
-
-# runs clang format and exits with a non-zero exit code if any files need to be reformatted
-add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run_clang_format.py
-   ${CLANG_FORMAT_BIN}
-   ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-   ${CMAKE_CURRENT_SOURCE_DIR}/src ${ARROW_LINT_QUIET})
-
-############################################################
-# "make clang-tidy" and "make check-clang-tidy" targets
-############################################################
-if (${CLANG_TIDY_FOUND})
-  # runs clang-tidy and attempts to fix any warning automatically
-  add_custom_target(clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json 1
-  `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc | sed -e '/_generated/g'`)
-  # runs clang-tidy and exits with a non-zero exit code if any errors are found.
-  add_custom_target(check-clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json
-  0 `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc |grep -v -F -f ${CMAKE_CURRENT_SOURCE_DIR}/src/.clang-tidy-ignore | sed -e '/_generated/g'`)
-
-endif()
-
-############################################################
 # "make infer" target
 ############################################################
 
@@ -607,13 +639,13 @@ endif(UNIX)
 set(ARROW_LINK_LIBS)
 
 # Libraries to link statically with libarrow.so
-set(ARROW_STATIC_LINK_LIBS double-conversion::double-conversion)
+set(ARROW_STATIC_LINK_LIBS double-conversion_static)
 
 if (ARROW_WITH_BROTLI)
   SET(ARROW_STATIC_LINK_LIBS
-    brotli_dec
-    brotli_enc
-    brotli_common
+    brotli_dec_static
+    brotli_enc_static
+    brotli_common_static
     ${ARROW_STATIC_LINK_LIBS})
 endif()
 
@@ -626,14 +658,11 @@ if (ARROW_WITH_LZ4)
 endif()
 
 if (ARROW_WITH_SNAPPY)
-  SET(ARROW_STATIC_LINK_LIBS snappy ${ARROW_STATIC_LINK_LIBS})
+  SET(ARROW_STATIC_LINK_LIBS snappy_static ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_WITH_ZLIB)
-  if (ZLIB_SHARED_LIB)
-    SET(ARROW_LINK_LIBS zlib ${ARROW_LINK_LIBS})
-  endif()
-  SET(ARROW_STATIC_LINK_LIBS zlib ${ARROW_STATIC_LINK_LIBS})
+  SET(ARROW_STATIC_LINK_LIBS ${ZLIB_LIBRARY} ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_WITH_ZSTD)
@@ -643,11 +672,10 @@ endif()
 if (ARROW_ORC)
   SET(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
-    orc)
+    orc_static)
 endif()
 
 if (ARROW_USE_GLOG)
-  #add_definitions(-DARROW_USE_GLOG)
   SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
 endif()
 
@@ -657,10 +685,9 @@ endif()
 
 if (ARROW_BUILD_BENCHMARKS)
   set(ARROW_BENCHMARK_LINK_LIBS
-    arrow_static
     arrow_benchmark_main
-    gtest
-    ${ARROW_STATIC_LINK_LIBS})
+    arrow_static
+    gtest_static)
 endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
@@ -669,7 +696,8 @@ set(ARROW_SHARED_PRIVATE_LINK_LIBS
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
 
-set(ARROW_STATIC_PRIVATE_LINK_LIBS
+set(ARROW_STATIC_LINK_LIBS
+  ${ARROW_STATIC_LINK_LIBS}
   ${BOOST_SYSTEM_LIBRARY}
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
@@ -683,19 +711,18 @@ endif()
 if (ARROW_BUILD_STATIC)
   set(ARROW_MIN_TEST_LIBS
     arrow_static
-    ${ARROW_STATIC_LINK_LIBS}
-    gtest_main
-    gtest)
+    gtest_main_static
+    gtest_static)
 else ()
   set(ARROW_MIN_TEST_LIBS
     arrow_shared
     ${ARROW_LINK_LIBS}
-    double-conversion::double-conversion
+    double-conversion_static
     ${BOOST_SYSTEM_LIBRARY}
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_REGEX_LIBRARY}
-    gtest_main
-    gtest)
+    gtest_main_static
+    gtest_static)
 endif()
 
 if(NOT MSVC)
@@ -734,10 +761,10 @@ endif(ARROW_JEMALLOC)
 if (PTHREAD_LIBRARY)
   set(ARROW_LINK_LIBS
     ${ARROW_LINK_LIBS}
-    ${PTHREAD_LIBRARY})
+    pthreadshared)
   set(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
-    ${PTHREAD_LIBRARY})
+    pthreadshared)
 endif()
 
 ############################################################
@@ -771,3 +798,22 @@ endif()
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
 endif()
+
+include(CMakePackageConfigHelpers)
+
+# Makes the project importable from the build directory
+export(EXPORT ${PROJECT_NAME}-targets
+       FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake")
+configure_package_config_file(${PROJECT_NAME}Config.cmake.in
+                              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+                              INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+                                 VERSION ${${PROJECT_NAME}_VERSION}
+                                 COMPATIBILITY AnyNewerVersion)
+
+install(EXPORT ${PROJECT_NAME}-targets
+        FILE ${PROJECT_NAME}Targets.cmake
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")

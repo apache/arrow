@@ -50,10 +50,11 @@ set(ARROW_SRCS
   util/decimal.cc
   util/hash.cc
   util/io-util.cc
+  util/logging.cc
   util/key_value_metadata.cc
   util/task-group.cc
   util/thread-pool.cc
-  util/logging.cc
+  util/utf8.cc
 )
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -166,13 +167,17 @@ ADD_ARROW_LIB(arrow
   SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
   SHARED_LINK_LIBS ${ARROW_LINK_LIBS}
   SHARED_PRIVATE_LINK_LIBS ${ARROW_SHARED_PRIVATE_LINK_LIBS}
-  STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS}
-  STATIC_PRIVATE_LINK_LIBS ${ARROW_STATIC_PRIVATE_LINK_LIBS}
-)
+  STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
+
+find_package(Backtrace)
 
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
     PRIVATE ARROW_EXPORTING)
+  if (Backtrace_FOUND)
+    target_compile_definitions(${LIB_TARGET}
+      PRIVATE ARROW_WITH_BACKTRACE)
+  endif()
 endforeach()
 
 if (ARROW_BUILD_STATIC AND WIN32)

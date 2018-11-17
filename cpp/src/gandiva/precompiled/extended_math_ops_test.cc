@@ -64,23 +64,19 @@ TEST(TestExtendedMathOps, TestPower) {
   EXPECT_EQ(power_float64_float64(5.4, 2), 29.160000000000004);
 }
 
-TEST(TestArithmeticOps, TestLogWithBase) {
-  boolean is_valid;
-  gandiva::ExecutionContext error_holder;
-  float64 out = log_int32_int32(1, true, 10, true, reinterpret_cast<int64>(&error_holder),
-                                &is_valid);
+TEST(TestExtendedMathOps, TestLogWithBase) {
+  gandiva::ExecutionContext context;
+  float64 out =
+      log_int32_int32(reinterpret_cast<int64>(&context), 1 /*base*/, 10 /*value*/);
   EXPECT_EQ(out, 0);
-  EXPECT_EQ(is_valid, false);
-  EXPECT_EQ(error_holder.has_error(), true);
-  EXPECT_TRUE(error_holder.get_error().find("divide by zero error") != std::string::npos)
-      << error_holder.get_error();
+  EXPECT_EQ(context.has_error(), true);
+  EXPECT_TRUE(context.get_error().find("divide by zero error") != std::string::npos)
+      << context.get_error();
 
-  gandiva::ExecutionContext error_holder1;
-  out = log_int32_int32(2, true, 64, true, reinterpret_cast<int64>(&error_holder),
-                        &is_valid);
+  gandiva::ExecutionContext context1;
+  out = log_int32_int32(reinterpret_cast<int64>(&context), 2 /*base*/, 64 /*value*/);
   EXPECT_EQ(out, 6);
-  EXPECT_EQ(is_valid, true);
-  EXPECT_EQ(error_holder1.has_error(), false);
+  EXPECT_EQ(context1.has_error(), false);
 }
 
 }  // namespace gandiva

@@ -51,6 +51,7 @@ build: off
 test_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow || exit /B
   - git -C arrow checkout {{ arrow.head }} || exit /B
+
   - pushd arrow\dev\tasks\conda-recipes
   - conda.exe build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
   - pushd win-64

@@ -78,6 +78,7 @@ if PY2:
         from decimal import Decimal
 
     unicode_type = unicode
+    file_type = file
     lzip = zip
     zip = itertools.izip
     zip_longest = itertools.izip_longest
@@ -113,6 +114,7 @@ else:
         import pickle as builtin_pickle
 
     unicode_type = str
+    file_type = None
     def lzip(*x):
         return list(zip(*x))
     long = int

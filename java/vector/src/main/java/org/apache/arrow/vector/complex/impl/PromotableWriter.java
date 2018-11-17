@@ -48,7 +48,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   private final ListVector listVector;
   private final NullableStructWriterFactory nullableStructWriterFactory;
   private int position;
-  private final static int MAX_DECIMAL_PRECISION = 38;
+  private static final int MAX_DECIMAL_PRECISION = 38;
 
   private enum State {
     UNTYPED, SINGLE, UNION

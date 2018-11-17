@@ -40,6 +40,7 @@ class ARROW_EXPORT StdoutStream : public OutputStream {
   ~StdoutStream() override {}
 
   Status Close() override { return Status::OK(); }
+  bool closed() const override { return false; }
 
   Status Tell(int64_t* position) const override {
     *position = pos_;
@@ -63,6 +64,7 @@ class ARROW_EXPORT StderrStream : public OutputStream {
   ~StderrStream() override {}
 
   Status Close() override { return Status::OK(); }
+  bool closed() const override { return false; }
 
   Status Tell(int64_t* position) const override {
     *position = pos_;
@@ -86,6 +88,7 @@ class ARROW_EXPORT StdinStream : public InputStream {
   ~StdinStream() override {}
 
   Status Close() override { return Status::OK(); }
+  bool closed() const override { return false; }
 
   Status Tell(int64_t* position) const override {
     *position = pos_;

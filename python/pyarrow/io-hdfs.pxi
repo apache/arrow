@@ -18,7 +18,7 @@
 # ----------------------------------------------------------------------
 # HDFS IO implementation
 
-_HDFS_PATH_RE = re.compile('hdfs://(.*):(\d+)(.*)')
+_HDFS_PATH_RE = re.compile(r'hdfs://(.*):(\d+)(.*)')
 
 try:
     # Python 3
@@ -424,15 +424,15 @@ cdef class HadoopFileSystem:
                                   c_replication, c_default_block_size,
                                   &wr_handle))
 
-            out.wr_file = <shared_ptr[OutputStream]> wr_handle
+            out.set_output_stream(<shared_ptr[OutputStream]> wr_handle)
             out.is_writable = True
         else:
             with nogil:
                 check_status(self.client.get()
                              .OpenReadable(c_path, &rd_handle))
 
-            out.rd_file = <shared_ptr[RandomAccessFile]> rd_handle
-            out.is_readable = True
+            out.set_random_access_file(
+                <shared_ptr[RandomAccessFile]> rd_handle)
 
         if c_buffer_size == 0:
             c_buffer_size = 2 ** 16
@@ -440,7 +440,6 @@ cdef class HadoopFileSystem:
         out.mode = mode
         out.buffer_size = c_buffer_size
         out.parent = _HdfsFileNanny(self, out)
-        out.closed = False
         out.own_file = True
 
         return out

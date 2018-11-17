@@ -280,7 +280,7 @@ void PlasmaStore::RemoveGetRequest(GetRequest* get_request) {
   }
   // Remove the get request.
   if (get_request->timer != -1) {
-    ARROW_CHECK(loop_->RemoveTimer(get_request->timer) == AE_OK);
+    ARROW_CHECK(loop_->RemoveTimer(get_request->timer) == kEventLoopOk);
   }
   delete get_request;
 }

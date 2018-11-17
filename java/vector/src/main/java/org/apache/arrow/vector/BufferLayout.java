@@ -27,7 +27,7 @@ public class BufferLayout {
     VALIDITY("VALIDITY"),
     TYPE("TYPE");
 
-    final private String name;
+    private final String name;
 
     BufferType(String name) {
       this.name = name;

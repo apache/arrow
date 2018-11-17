@@ -265,6 +265,92 @@ void CheckArrays(const Array& expected, const Array& result) {
   }
 }
 
+void CheckBatches(const RecordBatch& expected, const RecordBatch& result) {
+  if (!result.Equals(expected)) {
+    std::stringstream pp_result;
+    std::stringstream pp_expected;
+
+    EXPECT_OK(PrettyPrint(result, 0, &pp_result));
+    EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
+    FAIL() << "Got: " << pp_result.str() << "\nExpected: " << pp_expected.str();
+  }
+}
+
+class TestTableReader : public ::testing::Test {
+ public:
+  void SetUp() {
+    ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &stream_));
+    ASSERT_OK(TableWriter::Open(stream_, &writer_));
+  }
+
+  void Finish() {
+    // Write table footer
+    ASSERT_OK(writer_->Finalize());
+
+    ASSERT_OK(stream_->Finish(&output_));
+
+    std::shared_ptr<io::BufferReader> buffer(new io::BufferReader(output_));
+    ASSERT_OK(TableReader::Open(buffer, &reader_));
+  }
+
+ protected:
+  std::shared_ptr<io::BufferOutputStream> stream_;
+  std::unique_ptr<TableWriter> writer_;
+  std::unique_ptr<TableReader> reader_;
+
+  std::shared_ptr<Buffer> output_;
+};
+
+TEST_F(TestTableReader, ReadIndices) {
+  std::shared_ptr<RecordBatch> batch1;
+  ASSERT_OK(MakeIntRecordBatch(&batch1));
+  std::shared_ptr<RecordBatch> batch2;
+  ASSERT_OK(MakeIntRecordBatch(&batch2));
+
+  ASSERT_OK(writer_->Append("f0", *batch1->column(0)));
+  ASSERT_OK(writer_->Append("f1", *batch1->column(1)));
+  ASSERT_OK(writer_->Append("f2", *batch2->column(0)));
+  ASSERT_OK(writer_->Append("f3", *batch2->column(1)));
+  Finish();
+
+  std::vector<int> indices({3, 0, 5});
+  std::shared_ptr<Table> result;
+  ASSERT_OK(reader_->Read(indices, &result));
+  std::vector<std::shared_ptr<Field>> fields;
+  std::vector<std::shared_ptr<Array>> arrays;
+  fields.push_back(std::make_shared<Field>("f0", int32()));
+  arrays.push_back(batch1->column(0));
+  fields.push_back(std::make_shared<Field>("f3", int32()));
+  arrays.push_back(batch2->column(1));
+  auto expected = Table::Make(std::make_shared<Schema>(fields), arrays);
+  AssertTablesEqual(*expected, *result);
+}
+
+TEST_F(TestTableReader, ReadNames) {
+  std::shared_ptr<RecordBatch> batch1;
+  ASSERT_OK(MakeIntRecordBatch(&batch1));
+  std::shared_ptr<RecordBatch> batch2;
+  ASSERT_OK(MakeIntRecordBatch(&batch2));
+
+  ASSERT_OK(writer_->Append("f0", *batch1->column(0)));
+  ASSERT_OK(writer_->Append("f1", *batch1->column(1)));
+  ASSERT_OK(writer_->Append("f2", *batch2->column(0)));
+  ASSERT_OK(writer_->Append("f3", *batch2->column(1)));
+  Finish();
+
+  std::vector<std::string> names({"f3", "f0", "f5"});
+  std::shared_ptr<Table> result;
+  ASSERT_OK(reader_->Read(names, &result));
+  std::vector<std::shared_ptr<Field>> fields;
+  std::vector<std::shared_ptr<Array>> arrays;
+  fields.push_back(std::make_shared<Field>("f0", int32()));
+  arrays.push_back(batch1->column(0));
+  fields.push_back(std::make_shared<Field>("f3", int32()));
+  arrays.push_back(batch2->column(1));
+  auto expected = Table::Make(std::make_shared<Schema>(fields), arrays);
+  AssertTablesEqual(*expected, *result);
+}
+
 class TestTableWriter : public ::testing::Test {
  public:
   void SetUp() {
@@ -282,18 +368,16 @@ class TestTableWriter : public ::testing::Test {
     ASSERT_OK(TableReader::Open(buffer, &reader_));
   }
 
-  void CheckBatch(const RecordBatch& batch) {
-    for (int i = 0; i < batch.num_columns(); ++i) {
-      ASSERT_OK(writer_->Append(batch.column_name(i), *batch.column(i)));
-    }
+  void CheckBatch(std::shared_ptr<RecordBatch> batch) {
+    std::shared_ptr<Table> table;
+    std::vector<std::shared_ptr<RecordBatch>> batches = {batch};
+    ASSERT_OK(Table::FromRecordBatches(batches, &table));
+    ASSERT_OK(writer_->Write(*table));
     Finish();
 
-    std::shared_ptr<Column> col;
-    for (int i = 0; i < batch.num_columns(); ++i) {
-      ASSERT_OK(reader_->GetColumn(i, &col));
-      ASSERT_EQ(batch.column_name(i), col->name());
-      CheckArrays(*batch.column(i), *col->data()->chunk(0));
-    }
+    std::shared_ptr<Table> read_table;
+    ASSERT_OK(reader_->Read(&read_table));
+    AssertTablesEqual(*table, *read_table);
   }
 
  protected:
@@ -353,7 +437,7 @@ TEST_F(TestTableWriter, PrimitiveRoundTrip) {
 TEST_F(TestTableWriter, CategoryRoundtrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeDictionaryFlat(&batch));
-  CheckBatch(*batch);
+  CheckBatch(batch);
 }
 
 TEST_F(TestTableWriter, TimeTypes) {
@@ -399,13 +483,13 @@ TEST_F(TestTableWriter, TimeTypes) {
   }
 
   auto batch = RecordBatch::Make(schema, 7, std::move(arrays));
-  CheckBatch(*batch);
+  CheckBatch(batch);
 }
 
 TEST_F(TestTableWriter, VLenPrimitiveRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeStringTypesRecordBatch(&batch));
-  CheckBatch(*batch);
+  CheckBatch(batch);
 }
 
 TEST_F(TestTableWriter, PrimitiveNullRoundTrip) {

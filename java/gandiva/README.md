@@ -28,5 +28,5 @@ install:
 
 ```
 cd java
-mvn install -Dgandiva.cpp.build.dir=<path_to_cpp_build_directory>
+mvn install -Dgandiva.cpp.build.dir=<path_to_cpp_artifact_directory>
 ```

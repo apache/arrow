@@ -31,7 +31,7 @@ get_filename_component(ABS_GANDIVA_PROTO ${CMAKE_SOURCE_DIR}/src/gandiva/proto/T
 add_custom_command(
   OUTPUT ${PROTO_OUTPUT_FILES}
   COMMAND ${PROTOBUF_EXECUTABLE} --proto_path ${CMAKE_SOURCE_DIR}/src/gandiva/proto --cpp_out ${PROTO_OUTPUT_DIR} ${CMAKE_SOURCE_DIR}/src/gandiva/proto/Types.proto
-  DEPENDS ${ABS_GANDIVA_PROTO} protobuf
+  DEPENDS ${ABS_GANDIVA_PROTO} ${PROTOBUF_LIBRARY}
   COMMENT "Running PROTO compiler on Types.proto"
   VERBATIM
 )
@@ -44,40 +44,34 @@ set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/Types.pb.h")
 set(JNI_HEADERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/java")
 add_subdirectory(../../../../java/gandiva ./java/gandiva)
 
-add_library(gandiva_jni SHARED
-  config_builder.cc
+set(GANDIVA_LINK_LIBS
+  ${PROTOBUF_LIBRARY}
+  gandiva_static)
+
+set(GANDIVA_JNI_SOURCES config_builder.cc
   config_holder.cc
   expression_registry_helper.cc
   jni_common.cc
   ${PROTO_SRCS})
-add_dependencies(gandiva_jni gandiva_java gandiva_jni_proto)
 
 # For users of gandiva_jni library (including integ tests), include-dir is :
 #   /usr/**/include dir after install,
 #   cpp/include during build
 # For building gandiva_jni library itself, include-dir (in addition to above) is :
 #   cpp/src
-target_include_directories(gandiva_jni
-  PUBLIC
-    $<INSTALL_INTERFACE:include>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-    ${JNI_HEADERS_DIR}
-  PRIVATE
-    ${JNI_INCLUDE_DIRS}
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-)
+ADD_ARROW_LIB(gandiva_jni
+  SOURCES ${GANDIVA_JNI_SOURCES}
+  SHARED_PRIVATE_LINK_LIBS ${GANDIVA_LINK_LIBS}
+  STATIC_LINK_LIBS ${GANDIVA_LINK_LIBS}
+  DEPENDENCIES gandiva_java gandiva_jni_proto
+  EXTRA_INCLUDES $<INSTALL_INTERFACE:include>
+  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+  ${JNI_HEADERS_DIR}
+  PRIVATE_INCLUDES ${JNI_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR})
 
 # filter out everything that is not needed for the jni bridge
 # statically linked stdc++ has conflicts with stdc++ loaded by other libraries.
 if (NOT APPLE)
-set_target_properties(gandiva_jni PROPERTIES LINK_FLAGS "-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/gandiva/jni/symbols.map")
+  set_target_properties(gandiva_jni_shared PROPERTIES
+    LINK_FLAGS "-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/gandiva/jni/symbols.map")
 endif()
-
-# PROTOBUF is a private dependency i.e users of gandiva also will not have a 
-# dependency on protobuf.
-target_link_libraries(gandiva_jni
-  PRIVATE
-    protobuf
-    gandiva_static
-)

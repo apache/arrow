@@ -17,8 +17,6 @@
 
 #include "arrow_types.h"
 
-// [[Rcpp::plugins(cpp11)]]
-
 using namespace Rcpp;
 
 // [[Rcpp::export]]
@@ -34,7 +32,11 @@ std::string Field__ToString(const std::shared_ptr<arrow::Field>& type) {
 }
 
 // [[Rcpp::export]]
-std::string Field__name(std::shared_ptr<arrow::Field> type) { return type->name(); }
+std::string Field__name(const std::shared_ptr<arrow::Field>& type) {
+  return type->name();
+}
 
 // [[Rcpp::export]]
-bool Field__nullable(std::shared_ptr<arrow::Field> type) { return type->nullable(); }
+bool Field__nullable(const std::shared_ptr<arrow::Field>& type) {
+  return type->nullable();
+}

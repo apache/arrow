@@ -50,7 +50,7 @@ public class ReadChannel implements AutoCloseable {
    * @throws IOException if nit enough bytes left to read
    */
   public int readFully(ByteBuffer buffer) throws IOException {
-    LOGGER.debug("Reading buffer with size: " + buffer.remaining());
+    LOGGER.debug("Reading buffer with size: {}", buffer.remaining());
     int totalRead = 0;
     while (buffer.remaining() != 0) {
       int read = in.read(buffer);

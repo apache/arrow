@@ -28,7 +28,9 @@ class TestFeatherFileReader < Test::Unit::TestCase
           writer.description = data[:description]
         end
         writer.n_rows = data[:n_rows] || 0
-        if data[:columns]
+        if data[:table]
+          writer.write(data[:table])
+        elsif data[:columns]
           data[:columns].each do |name, array|
             writer.append(name, array)
           end
@@ -97,7 +99,7 @@ class TestFeatherFileReader < Test::Unit::TestCase
 
   test("#n_columns") do
     columns = {
-      "messages" => build_string_array([]),
+      "message" => build_string_array([]),
       "is_critical" => build_boolean_array([]),
     }
     setup_file(:columns => columns) do |reader|
@@ -107,12 +109,12 @@ class TestFeatherFileReader < Test::Unit::TestCase
 
   test("#get_column_name") do
     columns = {
-      "messages" => build_string_array([]),
+      "message" => build_string_array([]),
       "is_critical" => build_boolean_array([]),
     }
     setup_file(:columns => columns) do |reader|
       assert_equal([
-                     "messages",
+                     "message",
                      "is_critical",
                    ],
                    [
@@ -124,12 +126,12 @@ class TestFeatherFileReader < Test::Unit::TestCase
 
   test("#get_column") do
     columns = {
-      "messages" => build_string_array([]),
+      "message" => build_string_array([]),
       "is_critical" => build_boolean_array([]),
     }
     setup_file(:columns => columns) do |reader|
       assert_equal([
-                     "messages",
+                     "message",
                      "is_critical",
                    ],
                    [
@@ -141,15 +143,45 @@ class TestFeatherFileReader < Test::Unit::TestCase
 
   test("#columns") do
     columns = {
-      "messages" => build_string_array([]),
+      "message" => build_string_array([]),
       "is_critical" => build_boolean_array([]),
     }
     setup_file(:columns => columns) do |reader|
       assert_equal([
-                     "messages",
+                     "message",
                      "is_critical",
                    ],
                    reader.columns.collect(&:name))
+    end
+  end
+
+  test("#read") do
+    table = build_table("message" => build_string_array(["Login"]),
+                        "is_critical" => build_boolean_array([true]))
+    setup_file(:table => table) do |reader|
+      assert_equal(table, reader.read)
+    end
+  end
+
+  test("#read_indices") do
+    table = build_table("message" => build_string_array(["Login"]),
+                        "is_critical" => build_boolean_array([true]),
+                        "host" => build_string_array(["www"]))
+    setup_file(:table => table) do |reader|
+      assert_equal(build_table("message" => build_string_array(["Login"]),
+                               "host" => build_string_array(["www"])),
+                   reader.read_indices([2, 0]))
+    end
+  end
+
+  test("#read_names") do
+    table = build_table("message" => build_string_array(["Login"]),
+                        "is_critical" => build_boolean_array([true]),
+                        "host" => build_string_array(["www"]))
+    setup_file(:table => table) do |reader|
+      assert_equal(build_table("message" => build_string_array(["Login"]),
+                               "host" => build_string_array(["www"])),
+                   reader.read_names(["host", "message"]))
     end
   end
 end

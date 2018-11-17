@@ -75,7 +75,7 @@ public class WriteChannel implements AutoCloseable {
 
   public long write(ByteBuffer buffer) throws IOException {
     long length = buffer.remaining();
-    LOGGER.debug("Writing buffer with size: " + length);
+    LOGGER.debug("Writing buffer with size: {}", length);
     while (buffer.hasRemaining()) {
       out.write(buffer);
     }

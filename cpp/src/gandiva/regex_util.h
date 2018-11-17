@@ -19,9 +19,10 @@
 #define GANDIVA_REGEX_UTIL_H
 
 #include <set>
+#include <sstream>
 #include <string>
 
-#include "gandiva/status.h"
+#include "gandiva/arrow.h"
 
 namespace gandiva {
 

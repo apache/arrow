@@ -30,7 +30,7 @@ import pytest
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.csv import read_csv, ReadOptions, ParseOptions
+from pyarrow.csv import read_csv, ReadOptions, ParseOptions, ConvertOptions
 
 
 def generate_col_names():
@@ -84,6 +84,7 @@ def test_parse_options():
     assert opts.escape_char is False
     assert opts.header_rows == 1
     assert opts.newlines_in_values is False
+    assert opts.ignore_empty_lines is True
 
     opts.delimiter = 'x'
     assert opts.delimiter == 'x'
@@ -104,17 +105,54 @@ def test_parse_options():
     opts.newlines_in_values = True
     assert opts.newlines_in_values is True
 
+    opts.ignore_empty_lines = False
+    assert opts.ignore_empty_lines is False
+
     opts.header_rows = 2
     assert opts.header_rows == 2
 
     opts = cls(delimiter=';', quote_char='%', double_quote=False,
-               escape_char='\\', header_rows=2, newlines_in_values=True)
+               escape_char='\\', header_rows=2, newlines_in_values=True,
+               ignore_empty_lines=False)
     assert opts.delimiter == ';'
     assert opts.quote_char == '%'
     assert opts.double_quote is False
     assert opts.escape_char == '\\'
     assert opts.header_rows == 2
     assert opts.newlines_in_values is True
+    assert opts.ignore_empty_lines is False
+
+
+def test_convert_options():
+    cls = ConvertOptions
+    opts = cls()
+
+    assert opts.check_utf8 is True
+    opts.check_utf8 = False
+    assert opts.check_utf8 is False
+
+    assert opts.column_types == {}
+    # Pass column_types as mapping
+    opts.column_types = {'b': pa.int16(), 'c': pa.float32()}
+    assert opts.column_types == {'b': pa.int16(), 'c': pa.float32()}
+    opts.column_types = {'v': 'int16', 'w': 'null'}
+    assert opts.column_types == {'v': pa.int16(), 'w': pa.null()}
+    # Pass column_types as schema
+    schema = pa.schema([('a', pa.int32()), ('b', pa.string())])
+    opts.column_types = schema
+    assert opts.column_types == {'a': pa.int32(), 'b': pa.string()}
+    # Pass column_types as sequence
+    opts.column_types = [('x', pa.binary())]
+    assert opts.column_types == {'x': pa.binary()}
+
+    with pytest.raises(TypeError, match='data type expected'):
+        opts.column_types = {'a': None}
+    with pytest.raises(TypeError):
+        opts.column_types = 0
+
+    opts = cls(check_utf8=False, column_types={'a': pa.null()})
+    assert opts.check_utf8 is False
+    assert opts.column_types == {'a': pa.null()}
 
 
 class BaseTestCSVRead:
@@ -153,32 +191,71 @@ class BaseTestCSVRead:
         table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.float64()),
                             ('b', pa.int64()),
-                            ('c', pa.binary())])
+                            ('c', pa.string())])
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1.0, 4.0],
             'b': [2, -5],
-            'c': [b"3", b"foo"],
+            'c': [u"3", u"foo"],
             }
 
     def test_simple_nulls(self):
         # Infer various kinds of data, with nulls
-        rows = (b"a,b,c,d\n"
-                b"1,2,,\n"
-                b"nan,-5,foo,\n"
-                b"4.5,#N/A,nan,\n")
+        rows = (b"a,b,c,d,e\n"
+                b"1,2,,,3\n"
+                b"nan,-5,foo,,nan\n"
+                b"4.5,#N/A,nan,,\xff\n")
         table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.float64()),
                             ('b', pa.int64()),
-                            ('c', pa.binary()),
-                            ('d', pa.null())])
+                            ('c', pa.string()),
+                            ('d', pa.null()),
+                            ('e', pa.binary())])
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1.0, None, 4.5],
             'b': [2, -5, None],
-            'c': [b"", b"foo", b"nan"],
-            'd': [None, None, None]
+            'c': [u"", u"foo", u"nan"],
+            'd': [None, None, None],
+            'e': [b"3", b"nan", b"\xff"],
             }
+
+    def test_column_types(self):
+        # Ask for specific column types in ConvertOptions
+        opts = ConvertOptions(column_types={'b': 'float32',
+                                            'c': 'string',
+                                            'd': 'boolean',
+                                            'zz': 'null'})
+        rows = b"a,b,c,d\n1,2,3,true\n4,-5,6,false\n"
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.int64()),
+                            ('b', pa.float32()),
+                            ('c', pa.string()),
+                            ('d', pa.bool_())])
+        expected = {
+            'a': [1, 4],
+            'b': [2.0, -5.0],
+            'c': ["3", "6"],
+            'd': [True, False],
+            }
+        assert table.schema == schema
+        assert table.to_pydict() == expected
+        # Pass column_types as schema
+        opts = ConvertOptions(
+            column_types=pa.schema([('b', pa.float32()),
+                                    ('c', pa.string()),
+                                    ('d', pa.bool_()),
+                                    ('zz', pa.bool_())]))
+        table = self.read_bytes(rows, convert_options=opts)
+        assert table.schema == schema
+        assert table.to_pydict() == expected
+        # One of the columns in column_types fails converting
+        rows = b"a,b,c,d\n1,XXX,3,true\n4,-5,6,false\n"
+        with pytest.raises(pa.ArrowInvalid) as exc:
+            self.read_bytes(rows, convert_options=opts)
+        err = str(exc.value)
+        assert "In column #1: " in err
+        assert "CSV conversion error to float: invalid value 'XXX'" in err
 
     def test_no_ending_newline(self):
         # No \n after last line
@@ -192,9 +269,9 @@ class BaseTestCSVRead:
 
     def test_trivial(self):
         # A bit pointless, but at least it shouldn't crash
-        rows = b"\n\n"
+        rows = b",\n\n"
         table = self.read_bytes(rows)
-        assert table.to_pydict() == {'': [None]}
+        assert table.to_pydict() == {'': []}
 
     def test_invalid_csv(self):
         # Various CSV errors
@@ -204,22 +281,22 @@ class BaseTestCSVRead:
         rows = b"a,b,c\n1,2,3\n4"
         with pytest.raises(pa.ArrowInvalid, match="Expected 3 columns, got 1"):
             self.read_bytes(rows)
-        rows = b""
-        with pytest.raises(pa.ArrowInvalid, match="Empty CSV file"):
-            self.read_bytes(rows)
+        for rows in [b"", b"\n", b"\r\n", b"\r", b"\n\n"]:
+            with pytest.raises(pa.ArrowInvalid, match="Empty CSV file"):
+                self.read_bytes(rows)
 
     def test_options_delimiter(self):
         rows = b"a;b,c\nde,fg;eh\n"
         table = self.read_bytes(rows)
         assert table.to_pydict() == {
-            'a;b': [b'de'],
-            'c': [b'fg;eh'],
+            'a;b': [u'de'],
+            'c': [u'fg;eh'],
             }
         opts = ParseOptions(delimiter=';')
         table = self.read_bytes(rows, parse_options=opts)
         assert table.to_pydict() == {
-            'a': [b'de,fg'],
-            'b,c': [b'eh'],
+            'a': [u'de,fg'],
+            'b,c': [u'eh'],
             }
 
     def test_small_random_csv(self):

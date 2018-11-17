@@ -151,6 +151,12 @@ func (b *BinaryBuilder) Resize(n int) {
 	b.builder.resize(n, b.init)
 }
 
+// NewArray creates a Binary array from the memory buffers used by the builder and resets the BinaryBuilder
+// so it can be used to build a new array.
+func (b *BinaryBuilder) NewArray() Interface {
+	return b.NewBinaryArray()
+}
+
 // NewBinaryArray creates a Binary array from the memory buffers used by the builder and resets the BinaryBuilder
 // so it can be used to build a new array.
 func (b *BinaryBuilder) NewBinaryArray() (a *Binary) {
@@ -182,3 +188,7 @@ func (b *BinaryBuilder) appendNextOffset() {
 	// TODO(sgc): check binaryArrayMaximumCapacity?
 	b.offsets.AppendValue(int32(numBytes))
 }
+
+var (
+	_ Builder = (*BinaryBuilder)(nil)
+)

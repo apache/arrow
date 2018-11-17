@@ -31,7 +31,7 @@ import io.netty.buffer.ArrowBuf.TransferResult;
 
 public class TestBaseAllocator {
 
-  private final static int MAX_ALLOCATION = 8 * 1024;
+  private static final int MAX_ALLOCATION = 8 * 1024;
 
   /*
   // ---------------------------------------- DEBUG -----------------------------------
@@ -734,6 +734,17 @@ public class TestBaseAllocator {
           rootAllocator.verify();
         }
         rootAllocator.verify();
+      }
+    }
+  }
+
+  @Test
+  public void testInitReservationAndLimit() throws Exception {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+      try (final BufferAllocator childAllocator = rootAllocator.newChildAllocator(
+              "child", 2048, 4096)) {
+        assertEquals(2048, childAllocator.getInitReservation());
+        assertEquals(4096, childAllocator.getLimit());
       }
     }
   }

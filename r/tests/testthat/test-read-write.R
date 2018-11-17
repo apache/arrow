@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("test-read-write")
+context("read-write")
 
 test_that("arrow::table round trip", {
   tbl <- tibble::tibble(

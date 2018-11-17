@@ -24,7 +24,7 @@ import warnings
 
 from pyarrow.compat import pdapi
 from pyarrow.lib import FeatherError  # noqa
-from pyarrow.lib import RecordBatch, Table, concat_tables
+from pyarrow.lib import RecordBatch, concat_tables
 import pyarrow.lib as ext
 
 
@@ -50,22 +50,18 @@ class FeatherReader(ext.FeatherReader):
         return self.read_pandas(*args, **kwargs)
 
     def read_table(self, columns=None):
-        if columns is not None:
-            column_set = set(columns)
-        else:
-            column_set = None
+        if columns is None:
+            return self._read()
+        column_types = [type(column) for column in columns]
+        if all(map(lambda t: t == int, column_types)):
+            return self._read_indices(columns)
+        elif all(map(lambda t: t == str, column_types)):
+            return self._read_names(columns)
 
-        columns = []
-        names = []
-        for i in range(self.num_columns):
-            name = self.get_column_name(i)
-            if column_set is None or name in column_set:
-                col = self.get_column(i)
-                columns.append(col)
-                names.append(name)
-
-        table = Table.from_arrays(columns, names=names)
-        return table
+        column_type_names = [t.__name__ for t in column_types]
+        raise TypeError("Columns must be indices or names. "
+                        "Got columns {} of types {}"
+                        .format(columns, column_type_names))
 
     def read_pandas(self, columns=None, use_threads=True):
         return self.read_table(columns=columns).to_pandas(

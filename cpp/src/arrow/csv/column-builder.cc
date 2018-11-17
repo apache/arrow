@@ -19,6 +19,8 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -68,6 +70,16 @@ class TypedColumnBuilder : public ColumnBuilder {
   Status Finish(std::shared_ptr<ChunkedArray>* out) override;
 
  protected:
+  Status WrapConversionError(const Status& st) {
+    if (st.ok()) {
+      return st;
+    } else {
+      std::stringstream ss;
+      ss << "In column #" << col_index_ << ": " << st.message();
+      return Status(st.code(), ss.str());
+    }
+  }
+
   std::mutex mutex_;
 
   std::shared_ptr<DataType> type_;
@@ -99,7 +111,7 @@ void TypedColumnBuilder::Insert(int64_t block_index,
   // We're careful that all references in the closure outlive the Append() call
   task_group_->Append([=]() -> Status {
     std::shared_ptr<Array> res;
-    RETURN_NOT_OK(converter_->Convert(*parser, col_index_, &res));
+    RETURN_NOT_OK(WrapConversionError(converter_->Convert(*parser, col_index_, &res)));
 
     std::lock_guard<std::mutex> lock(mutex_);
     // Should not insert an already converted chunk
@@ -155,7 +167,7 @@ class InferringColumnBuilder : public ColumnBuilder {
   std::shared_ptr<Converter> converter_;
 
   // Current inference status
-  enum class InferKind { Null, Integer, Real, Text };
+  enum class InferKind { Null, Integer, Real, Text, Binary };
 
   std::shared_ptr<DataType> infer_type_;
   InferKind infer_kind_;
@@ -185,6 +197,9 @@ Status InferringColumnBuilder::LoosenType() {
       infer_kind_ = InferKind::Text;
       break;
     case InferKind::Text:
+      infer_kind_ = InferKind::Binary;
+      break;
+    case InferKind::Binary:
       return Status::UnknownError("Shouldn't come here");
   }
   return UpdateType();
@@ -207,6 +222,10 @@ Status InferringColumnBuilder::UpdateType() {
       can_loosen_type_ = true;
       break;
     case InferKind::Text:
+      infer_type_ = utf8();
+      can_loosen_type_ = true;
+      break;
+    case InferKind::Binary:
       infer_type_ = binary();
       can_loosen_type_ = false;
       break;

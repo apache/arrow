@@ -50,6 +50,7 @@ namespace py {
 struct ARROW_EXPORT SerializedPyObject {
   std::shared_ptr<RecordBatch> batch;
   std::vector<std::shared_ptr<Tensor>> tensors;
+  std::vector<std::shared_ptr<Tensor>> ndarrays;
   std::vector<std::shared_ptr<Buffer>> buffers;
 
   /// \brief Write serialized Python object to OutputStream

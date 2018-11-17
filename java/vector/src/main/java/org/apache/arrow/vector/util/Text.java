@@ -454,7 +454,7 @@ public class Text {
     return bytes;
   }
 
-  static final public int DEFAULT_MAX_LEN = 1024 * 1024;
+  public static final int DEFAULT_MAX_LEN = 1024 * 1024;
 
   // //// states for validateUTF8
 
@@ -601,29 +601,35 @@ public class Text {
       case 5:
         ch += (bytes.get() & 0xFF);
         ch <<= 6; /* remember, illegal UTF-8 */
+        // fall through
       case 4:
         ch += (bytes.get() & 0xFF);
         ch <<= 6; /* remember, illegal UTF-8 */
+        // fall through
       case 3:
         ch += (bytes.get() & 0xFF);
         ch <<= 6;
+        // fall through
       case 2:
         ch += (bytes.get() & 0xFF);
         ch <<= 6;
+        // fall through
       case 1:
         ch += (bytes.get() & 0xFF);
         ch <<= 6;
+        // fall through
       case 0:
         ch += (bytes.get() & 0xFF);
+        break;
+      default:  // do nothing
     }
     ch -= offsetsFromUTF8[extraBytesToRead];
 
     return ch;
   }
 
-  static final int offsetsFromUTF8[] =
-      {0x00000000, 0x00003080,
-          0x000E2080, 0x03C82080, 0xFA082080, 0x82082080};
+  static final int[] offsetsFromUTF8 =
+      {0x00000000, 0x00003080, 0x000E2080, 0x03C82080, 0xFA082080, 0x82082080};
 
   /**
    * For the given string, returns the number of UTF-8 bytes required to encode the string.

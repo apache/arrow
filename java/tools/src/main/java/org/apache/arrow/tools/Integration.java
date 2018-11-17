@@ -227,7 +227,7 @@ public class Integration {
       this.jsonExists = jsonExists;
     }
 
-    abstract public void execute(File arrowFile, File jsonFile) throws IOException;
+    public abstract void execute(File arrowFile, File jsonFile) throws IOException;
 
   }
 
