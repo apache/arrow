@@ -52,10 +52,10 @@ set(FBS_OUTPUT_FILES
   "${OUTPUT_DIR}/feather_generated.h")
 
 set(FBS_SRC
-  ${CMAKE_SOURCE_DIR}/../format/Message.fbs
-  ${CMAKE_SOURCE_DIR}/../format/File.fbs
-  ${CMAKE_SOURCE_DIR}/../format/Schema.fbs
-  ${CMAKE_SOURCE_DIR}/../format/Tensor.fbs
+  ${CMAKE_SOURCE_DIR}/../doc/source/format/Message.fbs
+  ${CMAKE_SOURCE_DIR}/../doc/source/format/File.fbs
+  ${CMAKE_SOURCE_DIR}/../doc/source/format/Schema.fbs
+  ${CMAKE_SOURCE_DIR}/../doc/source/format/Tensor.fbs
   ${CMAKE_CURRENT_SOURCE_DIR}/feather.fbs)
 
 foreach(FIL ${FBS_SRC})
