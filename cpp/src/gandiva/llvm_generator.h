@@ -175,6 +175,9 @@ class LLVMGenerator {
   /// Generate code to get the bit value at 'position' in the bitmap.
   llvm::Value* GetPackedBitValue(llvm::Value* bitmap, llvm::Value* position);
 
+  /// Generate code to get the bit value at 'position' in the validity bitmap.
+  llvm::Value* GetPackedValidityBitValue(llvm::Value* bitmap, llvm::Value* position);
+
   /// Generate code to set the bit value at 'position' in the bitmap to 'value'.
   void SetPackedBitValue(llvm::Value* bitmap, llvm::Value* position, llvm::Value* value);
 

@@ -333,6 +333,16 @@ void LLVMGenerator::SetPackedBitValue(llvm::Value* bitmap, llvm::Value* position
   AddFunctionCall("bitMapSetBit", types()->void_type(), {bitmap8, position, value});
 }
 
+/// Return value of a bit in validity bitMap (handles null bitmaps too).
+llvm::Value* LLVMGenerator::GetPackedValidityBitValue(llvm::Value* bitmap,
+                                                      llvm::Value* position) {
+  ADD_TRACE("fetch validity bit at position %T", position);
+
+  llvm::Value* bitmap8 = ir_builder()->CreateBitCast(
+      bitmap, types()->ptr_type(types()->i8_type()), "bitMapCast");
+  return AddFunctionCall("bitMapValidityGetBit", types()->i1_type(), {bitmap8, position});
+}
+
 /// Clear the bit in bitMap if value = false.
 void LLVMGenerator::ClearPackedBitValueIfFalse(llvm::Value* bitmap, llvm::Value* position,
                                                llvm::Value* value) {
@@ -462,7 +472,7 @@ void LLVMGenerator::Visitor::Visit(const VectorReadVarLenValueDex& dex) {
 void LLVMGenerator::Visitor::Visit(const VectorReadValidityDex& dex) {
   llvm::Value* slot_ref =
       GetBufferReference(dex.ValidityIdx(), kBufferTypeValidity, dex.Field());
-  llvm::Value* validity = generator_->GetPackedBitValue(slot_ref, loop_var_);
+  llvm::Value* validity = generator_->GetPackedValidityBitValue(slot_ref, loop_var_);
 
   ADD_VISITOR_TRACE("visit validity vector " + dex.FieldName() + " value %T", validity);
   result_.reset(new LValue(validity));

@@ -35,6 +35,16 @@ bool bitMapGetBit(const uint8_t* bmap, int64_t position) {
 }
 
 FORCE_INLINE
+bool bitMapValidityGetBit(const uint8_t* bmap, int64_t position) {
+  if (bmap == nullptr) {
+    // if validity bitmap is null, all entries are valid.
+    return true;
+  } else {
+    return bitMapGetBit(bmap, position);
+  }
+}
+
+FORCE_INLINE
 void bitMapSetBit(uint8_t* bmap, int64_t position, bool value) {
   arrow::BitUtil::SetBitTo(bmap, position, value);
 }
