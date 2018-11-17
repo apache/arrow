@@ -56,6 +56,26 @@ flake8 --config=.flake8.cython .
 
 See the [Development][2] page in the documentation.
 
+### Running the unit tests
+
+We are using [pytest][4] to develop our unit test suite. After building the
+project using `setup.py build_ext --inplace`, you can run its unit tests like
+so:
+
+```bash
+pytest pyarrow
+```
+
+The project has a number of custom command line options for its test
+suite. Some tests are disabled by default, for example. To see all the options,
+run
+
+```bash
+pytest pyarrow --help
+```
+
+and look for the "custom options" section.
+
 ### Building the documentation
 
 ```bash
@@ -65,3 +85,4 @@ python setup.py build_sphinx -s doc/source
 
 [2]: https://github.com/apache/arrow/blob/master/python/doc/source/development.rst
 [3]: https://github.com/pandas-dev/pandas
+[4]: https://docs.pytest.org/en/latest/
