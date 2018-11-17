@@ -591,12 +591,12 @@ impl From<ListArray> for BinaryArray {
         assert_eq!(
             v.data().child_data()[0].child_data().len(),
             0,
-            "BinaryArray's can only be created from list array of u8 values (i.e. List<PrimitiveArray<u8>>)."
+            "BinaryArray can only be created from list array of u8 values (i.e. List<PrimitiveArray<u8>>)."
         );
         assert_eq!(
             v.data().child_data()[0].data_type(),
             &DataType::UInt8,
-            "BinaryArray's can only be created from List<u8> arrays, mismatched data types."
+            "BinaryArray can only be created from List<u8> arrays, mismatched data types."
         );
 
         let data = ArrayData::builder(DataType::Utf8)
@@ -1048,7 +1048,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "BinaryArray's can only be created from List<u8> arrays, mismatched data types."
+        expected = "BinaryArray can only be created from List<u8> arrays, mismatched data types."
     )]
     fn test_binary_array_from_incorrect_list_array_type() {
         let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
