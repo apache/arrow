@@ -85,6 +85,10 @@
       <title>Buffer</title>
       <xi:include href="xml/buffer.xml"/>
     </chapter>
+    <chapter id="codec">
+      <title>Codec</title>
+      <xi:include href="xml/codec.xml"/>
+    </chapter>
     <chapter id="error">
       <title>Error</title>
       <xi:include href="xml/error.xml"/>
