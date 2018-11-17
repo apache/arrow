@@ -19,7 +19,9 @@
 #
 
 # download apache rat
-curl -s https://repo1.maven.org/maven2/org/apache/rat/apache-rat/0.12/apache-rat-0.12.jar > apache-rat-0.12.jar
+if [ ! -f apache-rat-0.12.jar ]; then
+  curl -s https://repo1.maven.org/maven2/org/apache/rat/apache-rat/0.12/apache-rat-0.12.jar > apache-rat-0.12.jar
+fi
 
 RAT="java -jar apache-rat-0.12.jar -x "
 
