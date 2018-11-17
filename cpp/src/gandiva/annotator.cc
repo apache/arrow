@@ -43,8 +43,6 @@ FieldDescriptorPtr Annotator::AddOutputFieldDescriptor(FieldPtr field) {
 }
 
 FieldDescriptorPtr Annotator::MakeDesc(FieldPtr field) {
-  // TODO:
-  // - validity is optional
   int data_idx = buffer_count_++;
   int validity_idx = buffer_count_++;
   int offsets_idx = FieldDescriptor::kInvalidIdx;
