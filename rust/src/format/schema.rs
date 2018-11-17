@@ -5,8 +5,8 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
-use std::mem;
 use std::cmp::Ordering;
+use std::mem;
 extern crate flatbuffers;
 use self::flatbuffers::EndianScalar;
 
@@ -14,41 +14,40 @@ use self::flatbuffers::EndianScalar;
 #[repr(i16)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum MetadataVersion {
-  /// 0.1.0
-  V1 = 0,
-  /// 0.2.0
-  V2 = 1,
-  /// 0.3.0 -> 0.7.1
-  V3 = 2,
-  /// >= 0.8.0
-  V4 = 3,
-
+    /// 0.1.0
+    V1 = 0,
+    /// 0.2.0
+    V2 = 1,
+    /// 0.3.0 -> 0.7.1
+    V3 = 2,
+    /// >= 0.8.0
+    V4 = 3,
 }
 
 const ENUM_MIN_METADATA_VERSION: i16 = 0;
 const ENUM_MAX_METADATA_VERSION: i16 = 3;
 
 impl<'a> flatbuffers::Follow<'a> for MetadataVersion {
-  type Inner = Self;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    flatbuffers::read_scalar_at::<Self>(buf, loc)
-  }
+    type Inner = Self;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::read_scalar_at::<Self>(buf, loc)
+    }
 }
 
 impl flatbuffers::EndianScalar for MetadataVersion {
-  #[inline]
-  fn to_little_endian(self) -> Self {
-    let n = i16::to_le(self as i16);
-    let p = &n as *const i16 as *const MetadataVersion;
-    unsafe { *p }
-  }
-  #[inline]
-  fn from_little_endian(self) -> Self {
-    let n = i16::from_le(self as i16);
-    let p = &n as *const i16 as *const MetadataVersion;
-    unsafe { *p }
-  }
+    #[inline]
+    fn to_little_endian(self) -> Self {
+        let n = i16::to_le(self as i16);
+        let p = &n as *const i16 as *const MetadataVersion;
+        unsafe { *p }
+    }
+    #[inline]
+    fn from_little_endian(self) -> Self {
+        let n = i16::from_le(self as i16);
+        let p = &n as *const i16 as *const MetadataVersion;
+        unsafe { *p }
+    }
 }
 
 impl flatbuffers::Push for MetadataVersion {
@@ -60,59 +59,53 @@ impl flatbuffers::Push for MetadataVersion {
 }
 
 #[allow(non_camel_case_types)]
-const ENUM_VALUES_METADATA_VERSION:[MetadataVersion; 4] = [
-  MetadataVersion::V1,
-  MetadataVersion::V2,
-  MetadataVersion::V3,
-  MetadataVersion::V4
+const ENUM_VALUES_METADATA_VERSION: [MetadataVersion; 4] = [
+    MetadataVersion::V1,
+    MetadataVersion::V2,
+    MetadataVersion::V3,
+    MetadataVersion::V4,
 ];
 
 #[allow(non_camel_case_types)]
-const ENUM_NAMES_METADATA_VERSION:[&'static str; 4] = [
-    "V1",
-    "V2",
-    "V3",
-    "V4"
-];
+const ENUM_NAMES_METADATA_VERSION: [&'static str; 4] = ["V1", "V2", "V3", "V4"];
 
 pub fn enum_name_metadata_version(e: MetadataVersion) -> &'static str {
-  let index: usize = e as usize;
-  ENUM_NAMES_METADATA_VERSION[index]
+    let index: usize = e as usize;
+    ENUM_NAMES_METADATA_VERSION[index]
 }
 
 #[allow(non_camel_case_types)]
 #[repr(i16)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum UnionMode {
-  Sparse = 0,
-  Dense = 1,
-
+    Sparse = 0,
+    Dense = 1,
 }
 
 const ENUM_MIN_UNION_MODE: i16 = 0;
 const ENUM_MAX_UNION_MODE: i16 = 1;
 
 impl<'a> flatbuffers::Follow<'a> for UnionMode {
-  type Inner = Self;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    flatbuffers::read_scalar_at::<Self>(buf, loc)
-  }
+    type Inner = Self;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::read_scalar_at::<Self>(buf, loc)
+    }
 }
 
 impl flatbuffers::EndianScalar for UnionMode {
-  #[inline]
-  fn to_little_endian(self) -> Self {
-    let n = i16::to_le(self as i16);
-    let p = &n as *const i16 as *const UnionMode;
-    unsafe { *p }
-  }
-  #[inline]
-  fn from_little_endian(self) -> Self {
-    let n = i16::from_le(self as i16);
-    let p = &n as *const i16 as *const UnionMode;
-    unsafe { *p }
-  }
+    #[inline]
+    fn to_little_endian(self) -> Self {
+        let n = i16::to_le(self as i16);
+        let p = &n as *const i16 as *const UnionMode;
+        unsafe { *p }
+    }
+    #[inline]
+    fn from_little_endian(self) -> Self {
+        let n = i16::from_le(self as i16);
+        let p = &n as *const i16 as *const UnionMode;
+        unsafe { *p }
+    }
 }
 
 impl flatbuffers::Push for UnionMode {
@@ -124,56 +117,49 @@ impl flatbuffers::Push for UnionMode {
 }
 
 #[allow(non_camel_case_types)]
-const ENUM_VALUES_UNION_MODE:[UnionMode; 2] = [
-  UnionMode::Sparse,
-  UnionMode::Dense
-];
+const ENUM_VALUES_UNION_MODE: [UnionMode; 2] = [UnionMode::Sparse, UnionMode::Dense];
 
 #[allow(non_camel_case_types)]
-const ENUM_NAMES_UNION_MODE:[&'static str; 2] = [
-    "Sparse",
-    "Dense"
-];
+const ENUM_NAMES_UNION_MODE: [&'static str; 2] = ["Sparse", "Dense"];
 
 pub fn enum_name_union_mode(e: UnionMode) -> &'static str {
-  let index: usize = e as usize;
-  ENUM_NAMES_UNION_MODE[index]
+    let index: usize = e as usize;
+    ENUM_NAMES_UNION_MODE[index]
 }
 
 #[allow(non_camel_case_types)]
 #[repr(i16)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Precision {
-  HALF = 0,
-  SINGLE = 1,
-  DOUBLE = 2,
-
+    HALF = 0,
+    SINGLE = 1,
+    DOUBLE = 2,
 }
 
 const ENUM_MIN_PRECISION: i16 = 0;
 const ENUM_MAX_PRECISION: i16 = 2;
 
 impl<'a> flatbuffers::Follow<'a> for Precision {
-  type Inner = Self;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    flatbuffers::read_scalar_at::<Self>(buf, loc)
-  }
+    type Inner = Self;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::read_scalar_at::<Self>(buf, loc)
+    }
 }
 
 impl flatbuffers::EndianScalar for Precision {
-  #[inline]
-  fn to_little_endian(self) -> Self {
-    let n = i16::to_le(self as i16);
-    let p = &n as *const i16 as *const Precision;
-    unsafe { *p }
-  }
-  #[inline]
-  fn from_little_endian(self) -> Self {
-    let n = i16::from_le(self as i16);
-    let p = &n as *const i16 as *const Precision;
-    unsafe { *p }
-  }
+    #[inline]
+    fn to_little_endian(self) -> Self {
+        let n = i16::to_le(self as i16);
+        let p = &n as *const i16 as *const Precision;
+        unsafe { *p }
+    }
+    #[inline]
+    fn from_little_endian(self) -> Self {
+        let n = i16::from_le(self as i16);
+        let p = &n as *const i16 as *const Precision;
+        unsafe { *p }
+    }
 }
 
 impl flatbuffers::Push for Precision {
@@ -185,57 +171,49 @@ impl flatbuffers::Push for Precision {
 }
 
 #[allow(non_camel_case_types)]
-const ENUM_VALUES_PRECISION:[Precision; 3] = [
-  Precision::HALF,
-  Precision::SINGLE,
-  Precision::DOUBLE
-];
+const ENUM_VALUES_PRECISION: [Precision; 3] =
+    [Precision::HALF, Precision::SINGLE, Precision::DOUBLE];
 
 #[allow(non_camel_case_types)]
-const ENUM_NAMES_PRECISION:[&'static str; 3] = [
-    "HALF",
-    "SINGLE",
-    "DOUBLE"
-];
+const ENUM_NAMES_PRECISION: [&'static str; 3] = ["HALF", "SINGLE", "DOUBLE"];
 
 pub fn enum_name_precision(e: Precision) -> &'static str {
-  let index: usize = e as usize;
-  ENUM_NAMES_PRECISION[index]
+    let index: usize = e as usize;
+    ENUM_NAMES_PRECISION[index]
 }
 
 #[allow(non_camel_case_types)]
 #[repr(i16)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum DateUnit {
-  DAY = 0,
-  MILLISECOND = 1,
-
+    DAY = 0,
+    MILLISECOND = 1,
 }
 
 const ENUM_MIN_DATE_UNIT: i16 = 0;
 const ENUM_MAX_DATE_UNIT: i16 = 1;
 
 impl<'a> flatbuffers::Follow<'a> for DateUnit {
-  type Inner = Self;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    flatbuffers::read_scalar_at::<Self>(buf, loc)
-  }
+    type Inner = Self;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::read_scalar_at::<Self>(buf, loc)
+    }
 }
 
 impl flatbuffers::EndianScalar for DateUnit {
-  #[inline]
-  fn to_little_endian(self) -> Self {
-    let n = i16::to_le(self as i16);
-    let p = &n as *const i16 as *const DateUnit;
-    unsafe { *p }
-  }
-  #[inline]
-  fn from_little_endian(self) -> Self {
-    let n = i16::from_le(self as i16);
-    let p = &n as *const i16 as *const DateUnit;
-    unsafe { *p }
-  }
+    #[inline]
+    fn to_little_endian(self) -> Self {
+        let n = i16::to_le(self as i16);
+        let p = &n as *const i16 as *const DateUnit;
+        unsafe { *p }
+    }
+    #[inline]
+    fn from_little_endian(self) -> Self {
+        let n = i16::from_le(self as i16);
+        let p = &n as *const i16 as *const DateUnit;
+        unsafe { *p }
+    }
 }
 
 impl flatbuffers::Push for DateUnit {
@@ -247,57 +225,50 @@ impl flatbuffers::Push for DateUnit {
 }
 
 #[allow(non_camel_case_types)]
-const ENUM_VALUES_DATE_UNIT:[DateUnit; 2] = [
-  DateUnit::DAY,
-  DateUnit::MILLISECOND
-];
+const ENUM_VALUES_DATE_UNIT: [DateUnit; 2] = [DateUnit::DAY, DateUnit::MILLISECOND];
 
 #[allow(non_camel_case_types)]
-const ENUM_NAMES_DATE_UNIT:[&'static str; 2] = [
-    "DAY",
-    "MILLISECOND"
-];
+const ENUM_NAMES_DATE_UNIT: [&'static str; 2] = ["DAY", "MILLISECOND"];
 
 pub fn enum_name_date_unit(e: DateUnit) -> &'static str {
-  let index: usize = e as usize;
-  ENUM_NAMES_DATE_UNIT[index]
+    let index: usize = e as usize;
+    ENUM_NAMES_DATE_UNIT[index]
 }
 
 #[allow(non_camel_case_types)]
 #[repr(i16)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum TimeUnit {
-  SECOND = 0,
-  MILLISECOND = 1,
-  MICROSECOND = 2,
-  NANOSECOND = 3,
-
+    SECOND = 0,
+    MILLISECOND = 1,
+    MICROSECOND = 2,
+    NANOSECOND = 3,
 }
 
 const ENUM_MIN_TIME_UNIT: i16 = 0;
 const ENUM_MAX_TIME_UNIT: i16 = 3;
 
 impl<'a> flatbuffers::Follow<'a> for TimeUnit {
-  type Inner = Self;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    flatbuffers::read_scalar_at::<Self>(buf, loc)
-  }
+    type Inner = Self;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::read_scalar_at::<Self>(buf, loc)
+    }
 }
 
 impl flatbuffers::EndianScalar for TimeUnit {
-  #[inline]
-  fn to_little_endian(self) -> Self {
-    let n = i16::to_le(self as i16);
-    let p = &n as *const i16 as *const TimeUnit;
-    unsafe { *p }
-  }
-  #[inline]
-  fn from_little_endian(self) -> Self {
-    let n = i16::from_le(self as i16);
-    let p = &n as *const i16 as *const TimeUnit;
-    unsafe { *p }
-  }
+    #[inline]
+    fn to_little_endian(self) -> Self {
+        let n = i16::to_le(self as i16);
+        let p = &n as *const i16 as *const TimeUnit;
+        unsafe { *p }
+    }
+    #[inline]
+    fn from_little_endian(self) -> Self {
+        let n = i16::from_le(self as i16);
+        let p = &n as *const i16 as *const TimeUnit;
+        unsafe { *p }
+    }
 }
 
 impl flatbuffers::Push for TimeUnit {
@@ -309,59 +280,54 @@ impl flatbuffers::Push for TimeUnit {
 }
 
 #[allow(non_camel_case_types)]
-const ENUM_VALUES_TIME_UNIT:[TimeUnit; 4] = [
-  TimeUnit::SECOND,
-  TimeUnit::MILLISECOND,
-  TimeUnit::MICROSECOND,
-  TimeUnit::NANOSECOND
+const ENUM_VALUES_TIME_UNIT: [TimeUnit; 4] = [
+    TimeUnit::SECOND,
+    TimeUnit::MILLISECOND,
+    TimeUnit::MICROSECOND,
+    TimeUnit::NANOSECOND,
 ];
 
 #[allow(non_camel_case_types)]
-const ENUM_NAMES_TIME_UNIT:[&'static str; 4] = [
-    "SECOND",
-    "MILLISECOND",
-    "MICROSECOND",
-    "NANOSECOND"
-];
+const ENUM_NAMES_TIME_UNIT: [&'static str; 4] =
+    ["SECOND", "MILLISECOND", "MICROSECOND", "NANOSECOND"];
 
 pub fn enum_name_time_unit(e: TimeUnit) -> &'static str {
-  let index: usize = e as usize;
-  ENUM_NAMES_TIME_UNIT[index]
+    let index: usize = e as usize;
+    ENUM_NAMES_TIME_UNIT[index]
 }
 
 #[allow(non_camel_case_types)]
 #[repr(i16)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum IntervalUnit {
-  YEAR_MONTH = 0,
-  DAY_TIME = 1,
-
+    YEAR_MONTH = 0,
+    DAY_TIME = 1,
 }
 
 const ENUM_MIN_INTERVAL_UNIT: i16 = 0;
 const ENUM_MAX_INTERVAL_UNIT: i16 = 1;
 
 impl<'a> flatbuffers::Follow<'a> for IntervalUnit {
-  type Inner = Self;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    flatbuffers::read_scalar_at::<Self>(buf, loc)
-  }
+    type Inner = Self;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::read_scalar_at::<Self>(buf, loc)
+    }
 }
 
 impl flatbuffers::EndianScalar for IntervalUnit {
-  #[inline]
-  fn to_little_endian(self) -> Self {
-    let n = i16::to_le(self as i16);
-    let p = &n as *const i16 as *const IntervalUnit;
-    unsafe { *p }
-  }
-  #[inline]
-  fn from_little_endian(self) -> Self {
-    let n = i16::from_le(self as i16);
-    let p = &n as *const i16 as *const IntervalUnit;
-    unsafe { *p }
-  }
+    #[inline]
+    fn to_little_endian(self) -> Self {
+        let n = i16::to_le(self as i16);
+        let p = &n as *const i16 as *const IntervalUnit;
+        unsafe { *p }
+    }
+    #[inline]
+    fn from_little_endian(self) -> Self {
+        let n = i16::from_le(self as i16);
+        let p = &n as *const i16 as *const IntervalUnit;
+        unsafe { *p }
+    }
 }
 
 impl flatbuffers::Push for IntervalUnit {
@@ -373,20 +339,15 @@ impl flatbuffers::Push for IntervalUnit {
 }
 
 #[allow(non_camel_case_types)]
-const ENUM_VALUES_INTERVAL_UNIT:[IntervalUnit; 2] = [
-  IntervalUnit::YEAR_MONTH,
-  IntervalUnit::DAY_TIME
-];
+const ENUM_VALUES_INTERVAL_UNIT: [IntervalUnit; 2] =
+    [IntervalUnit::YEAR_MONTH, IntervalUnit::DAY_TIME];
 
 #[allow(non_camel_case_types)]
-const ENUM_NAMES_INTERVAL_UNIT:[&'static str; 2] = [
-    "YEAR_MONTH",
-    "DAY_TIME"
-];
+const ENUM_NAMES_INTERVAL_UNIT: [&'static str; 2] = ["YEAR_MONTH", "DAY_TIME"];
 
 pub fn enum_name_interval_unit(e: IntervalUnit) -> &'static str {
-  let index: usize = e as usize;
-  ENUM_NAMES_INTERVAL_UNIT[index]
+    let index: usize = e as usize;
+    ENUM_NAMES_INTERVAL_UNIT[index]
 }
 
 /// ----------------------------------------------------------------------
@@ -396,51 +357,50 @@ pub fn enum_name_interval_unit(e: IntervalUnit) -> &'static str {
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Type {
-  NONE = 0,
-  Null = 1,
-  Int = 2,
-  FloatingPoint = 3,
-  Binary = 4,
-  Utf8 = 5,
-  Bool = 6,
-  Decimal = 7,
-  Date = 8,
-  Time = 9,
-  Timestamp = 10,
-  Interval = 11,
-  List = 12,
-  Struct_ = 13,
-  Union = 14,
-  FixedSizeBinary = 15,
-  FixedSizeList = 16,
-  Map = 17,
-
+    NONE = 0,
+    Null = 1,
+    Int = 2,
+    FloatingPoint = 3,
+    Binary = 4,
+    Utf8 = 5,
+    Bool = 6,
+    Decimal = 7,
+    Date = 8,
+    Time = 9,
+    Timestamp = 10,
+    Interval = 11,
+    List = 12,
+    Struct_ = 13,
+    Union = 14,
+    FixedSizeBinary = 15,
+    FixedSizeList = 16,
+    Map = 17,
 }
 
 const ENUM_MIN_TYPE: u8 = 0;
 const ENUM_MAX_TYPE: u8 = 17;
 
 impl<'a> flatbuffers::Follow<'a> for Type {
-  type Inner = Self;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    flatbuffers::read_scalar_at::<Self>(buf, loc)
-  }
+    type Inner = Self;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::read_scalar_at::<Self>(buf, loc)
+    }
 }
 
 impl flatbuffers::EndianScalar for Type {
-  #[inline]
-  fn to_little_endian(self) -> Self {
-    let n = u8::to_le(self as u8);
-    let p = &n as *const u8 as *const Type;
-    unsafe { *p }
-  }
-  #[inline]
-  fn from_little_endian(self) -> Self {
-    let n = u8::from_le(self as u8);
-    let p = &n as *const u8 as *const Type;
-    unsafe { *p }
-  }
+    #[inline]
+    fn to_little_endian(self) -> Self {
+        let n = u8::to_le(self as u8);
+        let p = &n as *const u8 as *const Type;
+        unsafe { *p }
+    }
+    #[inline]
+    fn from_little_endian(self) -> Self {
+        let n = u8::from_le(self as u8);
+        let p = &n as *const u8 as *const Type;
+        unsafe { *p }
+    }
 }
 
 impl flatbuffers::Push for Type {
@@ -452,29 +412,29 @@ impl flatbuffers::Push for Type {
 }
 
 #[allow(non_camel_case_types)]
-const ENUM_VALUES_TYPE:[Type; 18] = [
-  Type::NONE,
-  Type::Null,
-  Type::Int,
-  Type::FloatingPoint,
-  Type::Binary,
-  Type::Utf8,
-  Type::Bool,
-  Type::Decimal,
-  Type::Date,
-  Type::Time,
-  Type::Timestamp,
-  Type::Interval,
-  Type::List,
-  Type::Struct_,
-  Type::Union,
-  Type::FixedSizeBinary,
-  Type::FixedSizeList,
-  Type::Map
+const ENUM_VALUES_TYPE: [Type; 18] = [
+    Type::NONE,
+    Type::Null,
+    Type::Int,
+    Type::FloatingPoint,
+    Type::Binary,
+    Type::Utf8,
+    Type::Bool,
+    Type::Decimal,
+    Type::Date,
+    Type::Time,
+    Type::Timestamp,
+    Type::Interval,
+    Type::List,
+    Type::Struct_,
+    Type::Union,
+    Type::FixedSizeBinary,
+    Type::FixedSizeList,
+    Type::Map,
 ];
 
 #[allow(non_camel_case_types)]
-const ENUM_NAMES_TYPE:[&'static str; 18] = [
+const ENUM_NAMES_TYPE: [&'static str; 18] = [
     "NONE",
     "Null",
     "Int",
@@ -492,12 +452,12 @@ const ENUM_NAMES_TYPE:[&'static str; 18] = [
     "Union",
     "FixedSizeBinary",
     "FixedSizeList",
-    "Map"
+    "Map",
 ];
 
 pub fn enum_name_type(e: Type) -> &'static str {
-  let index: usize = e as usize;
-  ENUM_NAMES_TYPE[index]
+    let index: usize = e as usize;
+    ENUM_NAMES_TYPE[index]
 }
 
 pub struct TypeUnionTableOffset {}
@@ -507,35 +467,34 @@ pub struct TypeUnionTableOffset {}
 #[repr(i16)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Endianness {
-  Little = 0,
-  Big = 1,
-
+    Little = 0,
+    Big = 1,
 }
 
 const ENUM_MIN_ENDIANNESS: i16 = 0;
 const ENUM_MAX_ENDIANNESS: i16 = 1;
 
 impl<'a> flatbuffers::Follow<'a> for Endianness {
-  type Inner = Self;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    flatbuffers::read_scalar_at::<Self>(buf, loc)
-  }
+    type Inner = Self;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::read_scalar_at::<Self>(buf, loc)
+    }
 }
 
 impl flatbuffers::EndianScalar for Endianness {
-  #[inline]
-  fn to_little_endian(self) -> Self {
-    let n = i16::to_le(self as i16);
-    let p = &n as *const i16 as *const Endianness;
-    unsafe { *p }
-  }
-  #[inline]
-  fn from_little_endian(self) -> Self {
-    let n = i16::from_le(self as i16);
-    let p = &n as *const i16 as *const Endianness;
-    unsafe { *p }
-  }
+    #[inline]
+    fn to_little_endian(self) -> Self {
+        let n = i16::to_le(self as i16);
+        let p = &n as *const i16 as *const Endianness;
+        unsafe { *p }
+    }
+    #[inline]
+    fn from_little_endian(self) -> Self {
+        let n = i16::from_le(self as i16);
+        let p = &n as *const i16 as *const Endianness;
+        unsafe { *p }
+    }
 }
 
 impl flatbuffers::Push for Endianness {
@@ -547,20 +506,14 @@ impl flatbuffers::Push for Endianness {
 }
 
 #[allow(non_camel_case_types)]
-const ENUM_VALUES_ENDIANNESS:[Endianness; 2] = [
-  Endianness::Little,
-  Endianness::Big
-];
+const ENUM_VALUES_ENDIANNESS: [Endianness; 2] = [Endianness::Little, Endianness::Big];
 
 #[allow(non_camel_case_types)]
-const ENUM_NAMES_ENDIANNESS:[&'static str; 2] = [
-    "Little",
-    "Big"
-];
+const ENUM_NAMES_ENDIANNESS: [&'static str; 2] = ["Little", "Big"];
 
 pub fn enum_name_endianness(e: Endianness) -> &'static str {
-  let index: usize = e as usize;
-  ENUM_NAMES_ENDIANNESS[index]
+    let index: usize = e as usize;
+    ENUM_NAMES_ENDIANNESS[index]
 }
 
 /// ----------------------------------------------------------------------
@@ -569,23 +522,23 @@ pub fn enum_name_endianness(e: Endianness) -> &'static str {
 #[repr(C, align(8))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Buffer {
-  offset_: i64,
-  length_: i64,
+    offset_: i64,
+    length_: i64,
 } // pub struct Buffer
 impl flatbuffers::SafeSliceAccess for Buffer {}
 impl<'a> flatbuffers::Follow<'a> for Buffer {
-  type Inner = &'a Buffer;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    <&'a Buffer>::follow(buf, loc)
-  }
+    type Inner = &'a Buffer;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        <&'a Buffer>::follow(buf, loc)
+    }
 }
 impl<'a> flatbuffers::Follow<'a> for &'a Buffer {
-  type Inner = &'a Buffer;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    flatbuffers::follow_cast_ref::<Buffer>(buf, loc)
-  }
+    type Inner = &'a Buffer;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::follow_cast_ref::<Buffer>(buf, loc)
+    }
 }
 impl<'b> flatbuffers::Push for Buffer {
     type Output = Buffer;
@@ -609,25 +562,23 @@ impl<'b> flatbuffers::Push for &'b Buffer {
     }
 }
 
-
 impl Buffer {
-  pub fn new<'a>(_offset: i64, _length: i64) -> Self {
-    Buffer {
-      offset_: _offset.to_little_endian(),
-      length_: _length.to_little_endian(),
-
+    pub fn new<'a>(_offset: i64, _length: i64) -> Self {
+        Buffer {
+            offset_: _offset.to_little_endian(),
+            length_: _length.to_little_endian(),
+        }
     }
-  }
-  /// The relative offset into the shared memory page where the bytes for this
-  /// buffer starts
-  pub fn offset<'a>(&'a self) -> i64 {
-    self.offset_.from_little_endian()
-  }
-  /// The absolute length (in bytes) of the memory buffer. The memory is found
-  /// from offset (inclusive) to offset + length (non-inclusive).
-  pub fn length<'a>(&'a self) -> i64 {
-    self.length_.from_little_endian()
-  }
+    /// The relative offset into the shared memory page where the bytes for this
+    /// buffer starts
+    pub fn offset<'a>(&'a self) -> i64 {
+        self.offset_.from_little_endian()
+    }
+    /// The absolute length (in bytes) of the memory buffer. The memory is found
+    /// from offset (inclusive) to offset + length (non-inclusive).
+    pub fn length<'a>(&'a self) -> i64 {
+        self.length_.from_little_endian()
+    }
 }
 
 /// These are stored in the flatbuffer in the Type union below
@@ -635,7 +586,7 @@ pub enum NullOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Null<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Null<'a> {
@@ -651,47 +602,43 @@ impl<'a> flatbuffers::Follow<'a> for Null<'a> {
 impl<'a> Null<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Null {
-            _tab: table,
-        }
+        Null { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        _args: &'args NullArgs) -> flatbuffers::WIPOffset<Null<'bldr>> {
-      let mut builder = NullBuilder::new(_fbb);
-      builder.finish()
+        _args: &'args NullArgs,
+    ) -> flatbuffers::WIPOffset<Null<'bldr>> {
+        let mut builder = NullBuilder::new(_fbb);
+        builder.finish()
     }
-
 }
 
-pub struct NullArgs {
-}
+pub struct NullArgs {}
 impl<'a> Default for NullArgs {
     #[inline]
     fn default() -> Self {
-        NullArgs {
-        }
+        NullArgs {}
     }
 }
 pub struct NullBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> NullBuilder<'a, 'b> {
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> NullBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    NullBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> NullBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        NullBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Null<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Null<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 /// A Struct_ in the flatbuffer metadata is the same as an Arrow Struct
@@ -701,7 +648,7 @@ pub enum Struct_Offset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Struct_<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Struct_<'a> {
@@ -717,54 +664,50 @@ impl<'a> flatbuffers::Follow<'a> for Struct_<'a> {
 impl<'a> Struct_<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Struct_ {
-            _tab: table,
-        }
+        Struct_ { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        _args: &'args Struct_Args) -> flatbuffers::WIPOffset<Struct_<'bldr>> {
-      let mut builder = Struct_Builder::new(_fbb);
-      builder.finish()
+        _args: &'args Struct_Args,
+    ) -> flatbuffers::WIPOffset<Struct_<'bldr>> {
+        let mut builder = Struct_Builder::new(_fbb);
+        builder.finish()
     }
-
 }
 
-pub struct Struct_Args {
-}
+pub struct Struct_Args {}
 impl<'a> Default for Struct_Args {
     #[inline]
     fn default() -> Self {
-        Struct_Args {
-        }
+        Struct_Args {}
     }
 }
 pub struct Struct_Builder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> Struct_Builder<'a, 'b> {
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> Struct_Builder<'a, 'b> {
-    let start = _fbb.start_table();
-    Struct_Builder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> Struct_Builder<'a, 'b> {
+        let start = _fbb.start_table();
+        Struct_Builder {
+            fbb_: _fbb,
+            start_: start,
+        }
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Struct_<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Struct_<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 pub enum ListOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct List<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for List<'a> {
@@ -780,54 +723,50 @@ impl<'a> flatbuffers::Follow<'a> for List<'a> {
 impl<'a> List<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        List {
-            _tab: table,
-        }
+        List { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        _args: &'args ListArgs) -> flatbuffers::WIPOffset<List<'bldr>> {
-      let mut builder = ListBuilder::new(_fbb);
-      builder.finish()
+        _args: &'args ListArgs,
+    ) -> flatbuffers::WIPOffset<List<'bldr>> {
+        let mut builder = ListBuilder::new(_fbb);
+        builder.finish()
     }
-
 }
 
-pub struct ListArgs {
-}
+pub struct ListArgs {}
 impl<'a> Default for ListArgs {
     #[inline]
     fn default() -> Self {
-        ListArgs {
-        }
+        ListArgs {}
     }
 }
 pub struct ListBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> ListBuilder<'a, 'b> {
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> ListBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    ListBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> ListBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        ListBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<List<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<List<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 pub enum FixedSizeListOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct FixedSizeList<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for FixedSizeList<'a> {
@@ -843,26 +782,27 @@ impl<'a> flatbuffers::Follow<'a> for FixedSizeList<'a> {
 impl<'a> FixedSizeList<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        FixedSizeList {
-            _tab: table,
-        }
+        FixedSizeList { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args FixedSizeListArgs) -> flatbuffers::WIPOffset<FixedSizeList<'bldr>> {
-      let mut builder = FixedSizeListBuilder::new(_fbb);
-      builder.add_listSize(args.listSize);
-      builder.finish()
+        args: &'args FixedSizeListArgs,
+    ) -> flatbuffers::WIPOffset<FixedSizeList<'bldr>> {
+        let mut builder = FixedSizeListBuilder::new(_fbb);
+        builder.add_listSize(args.listSize);
+        builder.finish()
     }
 
     pub const VT_LISTSIZE: flatbuffers::VOffsetT = 4;
 
-  /// Number of list items per value
-  #[inline]
-  pub fn listSize(&self) -> i32 {
-    self._tab.get::<i32>(FixedSizeList::VT_LISTSIZE, Some(0)).unwrap()
-  }
+    /// Number of list items per value
+    #[inline]
+    pub fn listSize(&self) -> i32 {
+        self._tab
+            .get::<i32>(FixedSizeList::VT_LISTSIZE, Some(0))
+            .unwrap()
+    }
 }
 
 pub struct FixedSizeListArgs {
@@ -871,33 +811,32 @@ pub struct FixedSizeListArgs {
 impl<'a> Default for FixedSizeListArgs {
     #[inline]
     fn default() -> Self {
-        FixedSizeListArgs {
-            listSize: 0,
-        }
+        FixedSizeListArgs { listSize: 0 }
     }
 }
 pub struct FixedSizeListBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> FixedSizeListBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_listSize(&mut self, listSize: i32) {
-    self.fbb_.push_slot::<i32>(FixedSizeList::VT_LISTSIZE, listSize, 0);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> FixedSizeListBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    FixedSizeListBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_listSize(&mut self, listSize: i32) {
+        self.fbb_
+            .push_slot::<i32>(FixedSizeList::VT_LISTSIZE, listSize, 0);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<FixedSizeList<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> FixedSizeListBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        FixedSizeListBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<FixedSizeList<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 /// A Map is a logical nested type that is represented as
@@ -928,7 +867,7 @@ pub enum MapOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Map<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Map<'a> {
@@ -944,26 +883,27 @@ impl<'a> flatbuffers::Follow<'a> for Map<'a> {
 impl<'a> Map<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Map {
-            _tab: table,
-        }
+        Map { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args MapArgs) -> flatbuffers::WIPOffset<Map<'bldr>> {
-      let mut builder = MapBuilder::new(_fbb);
-      builder.add_keysSorted(args.keysSorted);
-      builder.finish()
+        args: &'args MapArgs,
+    ) -> flatbuffers::WIPOffset<Map<'bldr>> {
+        let mut builder = MapBuilder::new(_fbb);
+        builder.add_keysSorted(args.keysSorted);
+        builder.finish()
     }
 
     pub const VT_KEYSSORTED: flatbuffers::VOffsetT = 4;
 
-  /// Set to true if the keys within each value are sorted
-  #[inline]
-  pub fn keysSorted(&self) -> bool {
-    self._tab.get::<bool>(Map::VT_KEYSSORTED, Some(false)).unwrap()
-  }
+    /// Set to true if the keys within each value are sorted
+    #[inline]
+    pub fn keysSorted(&self) -> bool {
+        self._tab
+            .get::<bool>(Map::VT_KEYSSORTED, Some(false))
+            .unwrap()
+    }
 }
 
 pub struct MapArgs {
@@ -972,33 +912,32 @@ pub struct MapArgs {
 impl<'a> Default for MapArgs {
     #[inline]
     fn default() -> Self {
-        MapArgs {
-            keysSorted: false,
-        }
+        MapArgs { keysSorted: false }
     }
 }
 pub struct MapBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> MapBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_keysSorted(&mut self, keysSorted: bool) {
-    self.fbb_.push_slot::<bool>(Map::VT_KEYSSORTED, keysSorted, false);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> MapBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    MapBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_keysSorted(&mut self, keysSorted: bool) {
+        self.fbb_
+            .push_slot::<bool>(Map::VT_KEYSSORTED, keysSorted, false);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Map<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> MapBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        MapBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Map<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 /// A union is a complex type with children in Field
@@ -1009,7 +948,7 @@ pub enum UnionOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Union<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Union<'a> {
@@ -1025,36 +964,43 @@ impl<'a> flatbuffers::Follow<'a> for Union<'a> {
 impl<'a> Union<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Union {
-            _tab: table,
-        }
+        Union { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args UnionArgs<'args>) -> flatbuffers::WIPOffset<Union<'bldr>> {
-      let mut builder = UnionBuilder::new(_fbb);
-      if let Some(x) = args.typeIds { builder.add_typeIds(x); }
-      builder.add_mode(args.mode);
-      builder.finish()
+        args: &'args UnionArgs<'args>,
+    ) -> flatbuffers::WIPOffset<Union<'bldr>> {
+        let mut builder = UnionBuilder::new(_fbb);
+        if let Some(x) = args.typeIds {
+            builder.add_typeIds(x);
+        }
+        builder.add_mode(args.mode);
+        builder.finish()
     }
 
     pub const VT_MODE: flatbuffers::VOffsetT = 4;
     pub const VT_TYPEIDS: flatbuffers::VOffsetT = 6;
 
-  #[inline]
-  pub fn mode(&self) -> UnionMode {
-    self._tab.get::<UnionMode>(Union::VT_MODE, Some(UnionMode::Sparse)).unwrap()
-  }
-  #[inline]
-  pub fn typeIds(&self) -> Option<flatbuffers::Vector<'a, i32>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(Union::VT_TYPEIDS, None)
-  }
+    #[inline]
+    pub fn mode(&self) -> UnionMode {
+        self._tab
+            .get::<UnionMode>(Union::VT_MODE, Some(UnionMode::Sparse))
+            .unwrap()
+    }
+    #[inline]
+    pub fn typeIds(&self) -> Option<flatbuffers::Vector<'a, i32>> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(
+                Union::VT_TYPEIDS,
+                None,
+            )
+    }
 }
 
 pub struct UnionArgs<'a> {
     pub mode: UnionMode,
-    pub typeIds: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a ,  i32>>>,
+    pub typeIds: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, i32>>>,
 }
 impl<'a> Default for UnionArgs<'a> {
     #[inline]
@@ -1066,38 +1012,40 @@ impl<'a> Default for UnionArgs<'a> {
     }
 }
 pub struct UnionBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> UnionBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_mode(&mut self, mode: UnionMode) {
-    self.fbb_.push_slot::<UnionMode>(Union::VT_MODE, mode, UnionMode::Sparse);
-  }
-  #[inline]
-  pub fn add_typeIds(&mut self, typeIds: flatbuffers::WIPOffset<flatbuffers::Vector<'b , i32>>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(Union::VT_TYPEIDS, typeIds);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> UnionBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    UnionBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_mode(&mut self, mode: UnionMode) {
+        self.fbb_
+            .push_slot::<UnionMode>(Union::VT_MODE, mode, UnionMode::Sparse);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Union<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn add_typeIds(&mut self, typeIds: flatbuffers::WIPOffset<flatbuffers::Vector<'b, i32>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(Union::VT_TYPEIDS, typeIds);
+    }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> UnionBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        UnionBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Union<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 pub enum IntOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Int<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Int<'a> {
@@ -1113,31 +1061,32 @@ impl<'a> flatbuffers::Follow<'a> for Int<'a> {
 impl<'a> Int<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Int {
-            _tab: table,
-        }
+        Int { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args IntArgs) -> flatbuffers::WIPOffset<Int<'bldr>> {
-      let mut builder = IntBuilder::new(_fbb);
-      builder.add_bitWidth(args.bitWidth);
-      builder.add_is_signed(args.is_signed);
-      builder.finish()
+        args: &'args IntArgs,
+    ) -> flatbuffers::WIPOffset<Int<'bldr>> {
+        let mut builder = IntBuilder::new(_fbb);
+        builder.add_bitWidth(args.bitWidth);
+        builder.add_is_signed(args.is_signed);
+        builder.finish()
     }
 
     pub const VT_BITWIDTH: flatbuffers::VOffsetT = 4;
     pub const VT_IS_SIGNED: flatbuffers::VOffsetT = 6;
 
-  #[inline]
-  pub fn bitWidth(&self) -> i32 {
-    self._tab.get::<i32>(Int::VT_BITWIDTH, Some(0)).unwrap()
-  }
-  #[inline]
-  pub fn is_signed(&self) -> bool {
-    self._tab.get::<bool>(Int::VT_IS_SIGNED, Some(false)).unwrap()
-  }
+    #[inline]
+    pub fn bitWidth(&self) -> i32 {
+        self._tab.get::<i32>(Int::VT_BITWIDTH, Some(0)).unwrap()
+    }
+    #[inline]
+    pub fn is_signed(&self) -> bool {
+        self._tab
+            .get::<bool>(Int::VT_IS_SIGNED, Some(false))
+            .unwrap()
+    }
 }
 
 pub struct IntArgs {
@@ -1154,38 +1103,39 @@ impl<'a> Default for IntArgs {
     }
 }
 pub struct IntBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> IntBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_bitWidth(&mut self, bitWidth: i32) {
-    self.fbb_.push_slot::<i32>(Int::VT_BITWIDTH, bitWidth, 0);
-  }
-  #[inline]
-  pub fn add_is_signed(&mut self, is_signed: bool) {
-    self.fbb_.push_slot::<bool>(Int::VT_IS_SIGNED, is_signed, false);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> IntBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    IntBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_bitWidth(&mut self, bitWidth: i32) {
+        self.fbb_.push_slot::<i32>(Int::VT_BITWIDTH, bitWidth, 0);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Int<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn add_is_signed(&mut self, is_signed: bool) {
+        self.fbb_
+            .push_slot::<bool>(Int::VT_IS_SIGNED, is_signed, false);
+    }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> IntBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        IntBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Int<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 pub enum FloatingPointOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct FloatingPoint<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for FloatingPoint<'a> {
@@ -1201,25 +1151,26 @@ impl<'a> flatbuffers::Follow<'a> for FloatingPoint<'a> {
 impl<'a> FloatingPoint<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        FloatingPoint {
-            _tab: table,
-        }
+        FloatingPoint { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args FloatingPointArgs) -> flatbuffers::WIPOffset<FloatingPoint<'bldr>> {
-      let mut builder = FloatingPointBuilder::new(_fbb);
-      builder.add_precision(args.precision);
-      builder.finish()
+        args: &'args FloatingPointArgs,
+    ) -> flatbuffers::WIPOffset<FloatingPoint<'bldr>> {
+        let mut builder = FloatingPointBuilder::new(_fbb);
+        builder.add_precision(args.precision);
+        builder.finish()
     }
 
     pub const VT_PRECISION: flatbuffers::VOffsetT = 4;
 
-  #[inline]
-  pub fn precision(&self) -> Precision {
-    self._tab.get::<Precision>(FloatingPoint::VT_PRECISION, Some(Precision::HALF)).unwrap()
-  }
+    #[inline]
+    pub fn precision(&self) -> Precision {
+        self._tab
+            .get::<Precision>(FloatingPoint::VT_PRECISION, Some(Precision::HALF))
+            .unwrap()
+    }
 }
 
 pub struct FloatingPointArgs {
@@ -1234,27 +1185,28 @@ impl<'a> Default for FloatingPointArgs {
     }
 }
 pub struct FloatingPointBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> FloatingPointBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_precision(&mut self, precision: Precision) {
-    self.fbb_.push_slot::<Precision>(FloatingPoint::VT_PRECISION, precision, Precision::HALF);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> FloatingPointBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    FloatingPointBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_precision(&mut self, precision: Precision) {
+        self.fbb_
+            .push_slot::<Precision>(FloatingPoint::VT_PRECISION, precision, Precision::HALF);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<FloatingPoint<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> FloatingPointBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        FloatingPointBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<FloatingPoint<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 /// Unicode with UTF-8 encoding
@@ -1262,7 +1214,7 @@ pub enum Utf8Offset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Utf8<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Utf8<'a> {
@@ -1278,54 +1230,50 @@ impl<'a> flatbuffers::Follow<'a> for Utf8<'a> {
 impl<'a> Utf8<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Utf8 {
-            _tab: table,
-        }
+        Utf8 { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        _args: &'args Utf8Args) -> flatbuffers::WIPOffset<Utf8<'bldr>> {
-      let mut builder = Utf8Builder::new(_fbb);
-      builder.finish()
+        _args: &'args Utf8Args,
+    ) -> flatbuffers::WIPOffset<Utf8<'bldr>> {
+        let mut builder = Utf8Builder::new(_fbb);
+        builder.finish()
     }
-
 }
 
-pub struct Utf8Args {
-}
+pub struct Utf8Args {}
 impl<'a> Default for Utf8Args {
     #[inline]
     fn default() -> Self {
-        Utf8Args {
-        }
+        Utf8Args {}
     }
 }
 pub struct Utf8Builder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> Utf8Builder<'a, 'b> {
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> Utf8Builder<'a, 'b> {
-    let start = _fbb.start_table();
-    Utf8Builder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> Utf8Builder<'a, 'b> {
+        let start = _fbb.start_table();
+        Utf8Builder {
+            fbb_: _fbb,
+            start_: start,
+        }
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Utf8<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Utf8<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 pub enum BinaryOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Binary<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Binary<'a> {
@@ -1341,54 +1289,50 @@ impl<'a> flatbuffers::Follow<'a> for Binary<'a> {
 impl<'a> Binary<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Binary {
-            _tab: table,
-        }
+        Binary { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        _args: &'args BinaryArgs) -> flatbuffers::WIPOffset<Binary<'bldr>> {
-      let mut builder = BinaryBuilder::new(_fbb);
-      builder.finish()
+        _args: &'args BinaryArgs,
+    ) -> flatbuffers::WIPOffset<Binary<'bldr>> {
+        let mut builder = BinaryBuilder::new(_fbb);
+        builder.finish()
     }
-
 }
 
-pub struct BinaryArgs {
-}
+pub struct BinaryArgs {}
 impl<'a> Default for BinaryArgs {
     #[inline]
     fn default() -> Self {
-        BinaryArgs {
-        }
+        BinaryArgs {}
     }
 }
 pub struct BinaryBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> BinaryBuilder<'a, 'b> {
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> BinaryBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    BinaryBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> BinaryBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        BinaryBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Binary<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Binary<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 pub enum FixedSizeBinaryOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct FixedSizeBinary<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for FixedSizeBinary<'a> {
@@ -1404,26 +1348,27 @@ impl<'a> flatbuffers::Follow<'a> for FixedSizeBinary<'a> {
 impl<'a> FixedSizeBinary<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        FixedSizeBinary {
-            _tab: table,
-        }
+        FixedSizeBinary { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args FixedSizeBinaryArgs) -> flatbuffers::WIPOffset<FixedSizeBinary<'bldr>> {
-      let mut builder = FixedSizeBinaryBuilder::new(_fbb);
-      builder.add_byteWidth(args.byteWidth);
-      builder.finish()
+        args: &'args FixedSizeBinaryArgs,
+    ) -> flatbuffers::WIPOffset<FixedSizeBinary<'bldr>> {
+        let mut builder = FixedSizeBinaryBuilder::new(_fbb);
+        builder.add_byteWidth(args.byteWidth);
+        builder.finish()
     }
 
     pub const VT_BYTEWIDTH: flatbuffers::VOffsetT = 4;
 
-  /// Number of bytes per value
-  #[inline]
-  pub fn byteWidth(&self) -> i32 {
-    self._tab.get::<i32>(FixedSizeBinary::VT_BYTEWIDTH, Some(0)).unwrap()
-  }
+    /// Number of bytes per value
+    #[inline]
+    pub fn byteWidth(&self) -> i32 {
+        self._tab
+            .get::<i32>(FixedSizeBinary::VT_BYTEWIDTH, Some(0))
+            .unwrap()
+    }
 }
 
 pub struct FixedSizeBinaryArgs {
@@ -1432,40 +1377,39 @@ pub struct FixedSizeBinaryArgs {
 impl<'a> Default for FixedSizeBinaryArgs {
     #[inline]
     fn default() -> Self {
-        FixedSizeBinaryArgs {
-            byteWidth: 0,
-        }
+        FixedSizeBinaryArgs { byteWidth: 0 }
     }
 }
 pub struct FixedSizeBinaryBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> FixedSizeBinaryBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_byteWidth(&mut self, byteWidth: i32) {
-    self.fbb_.push_slot::<i32>(FixedSizeBinary::VT_BYTEWIDTH, byteWidth, 0);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> FixedSizeBinaryBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    FixedSizeBinaryBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_byteWidth(&mut self, byteWidth: i32) {
+        self.fbb_
+            .push_slot::<i32>(FixedSizeBinary::VT_BYTEWIDTH, byteWidth, 0);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<FixedSizeBinary<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> FixedSizeBinaryBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        FixedSizeBinaryBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<FixedSizeBinary<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 pub enum BoolOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Bool<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Bool<'a> {
@@ -1481,54 +1425,50 @@ impl<'a> flatbuffers::Follow<'a> for Bool<'a> {
 impl<'a> Bool<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Bool {
-            _tab: table,
-        }
+        Bool { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        _args: &'args BoolArgs) -> flatbuffers::WIPOffset<Bool<'bldr>> {
-      let mut builder = BoolBuilder::new(_fbb);
-      builder.finish()
+        _args: &'args BoolArgs,
+    ) -> flatbuffers::WIPOffset<Bool<'bldr>> {
+        let mut builder = BoolBuilder::new(_fbb);
+        builder.finish()
     }
-
 }
 
-pub struct BoolArgs {
-}
+pub struct BoolArgs {}
 impl<'a> Default for BoolArgs {
     #[inline]
     fn default() -> Self {
-        BoolArgs {
-        }
+        BoolArgs {}
     }
 }
 pub struct BoolBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> BoolBuilder<'a, 'b> {
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> BoolBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    BoolBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> BoolBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        BoolBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Bool<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Bool<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 pub enum DecimalOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Decimal<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Decimal<'a> {
@@ -1544,33 +1484,34 @@ impl<'a> flatbuffers::Follow<'a> for Decimal<'a> {
 impl<'a> Decimal<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Decimal {
-            _tab: table,
-        }
+        Decimal { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args DecimalArgs) -> flatbuffers::WIPOffset<Decimal<'bldr>> {
-      let mut builder = DecimalBuilder::new(_fbb);
-      builder.add_scale(args.scale);
-      builder.add_precision(args.precision);
-      builder.finish()
+        args: &'args DecimalArgs,
+    ) -> flatbuffers::WIPOffset<Decimal<'bldr>> {
+        let mut builder = DecimalBuilder::new(_fbb);
+        builder.add_scale(args.scale);
+        builder.add_precision(args.precision);
+        builder.finish()
     }
 
     pub const VT_PRECISION: flatbuffers::VOffsetT = 4;
     pub const VT_SCALE: flatbuffers::VOffsetT = 6;
 
-  /// Total number of decimal digits
-  #[inline]
-  pub fn precision(&self) -> i32 {
-    self._tab.get::<i32>(Decimal::VT_PRECISION, Some(0)).unwrap()
-  }
-  /// Number of digits after the decimal point "."
-  #[inline]
-  pub fn scale(&self) -> i32 {
-    self._tab.get::<i32>(Decimal::VT_SCALE, Some(0)).unwrap()
-  }
+    /// Total number of decimal digits
+    #[inline]
+    pub fn precision(&self) -> i32 {
+        self._tab
+            .get::<i32>(Decimal::VT_PRECISION, Some(0))
+            .unwrap()
+    }
+    /// Number of digits after the decimal point "."
+    #[inline]
+    pub fn scale(&self) -> i32 {
+        self._tab.get::<i32>(Decimal::VT_SCALE, Some(0)).unwrap()
+    }
 }
 
 pub struct DecimalArgs {
@@ -1587,31 +1528,32 @@ impl<'a> Default for DecimalArgs {
     }
 }
 pub struct DecimalBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> DecimalBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_precision(&mut self, precision: i32) {
-    self.fbb_.push_slot::<i32>(Decimal::VT_PRECISION, precision, 0);
-  }
-  #[inline]
-  pub fn add_scale(&mut self, scale: i32) {
-    self.fbb_.push_slot::<i32>(Decimal::VT_SCALE, scale, 0);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> DecimalBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    DecimalBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_precision(&mut self, precision: i32) {
+        self.fbb_
+            .push_slot::<i32>(Decimal::VT_PRECISION, precision, 0);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Decimal<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn add_scale(&mut self, scale: i32) {
+        self.fbb_.push_slot::<i32>(Decimal::VT_SCALE, scale, 0);
+    }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> DecimalBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        DecimalBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Decimal<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 /// Date is either a 32-bit or 64-bit type representing elapsed time since UNIX
@@ -1624,7 +1566,7 @@ pub enum DateOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Date<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Date<'a> {
@@ -1640,25 +1582,26 @@ impl<'a> flatbuffers::Follow<'a> for Date<'a> {
 impl<'a> Date<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Date {
-            _tab: table,
-        }
+        Date { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args DateArgs) -> flatbuffers::WIPOffset<Date<'bldr>> {
-      let mut builder = DateBuilder::new(_fbb);
-      builder.add_unit(args.unit);
-      builder.finish()
+        args: &'args DateArgs,
+    ) -> flatbuffers::WIPOffset<Date<'bldr>> {
+        let mut builder = DateBuilder::new(_fbb);
+        builder.add_unit(args.unit);
+        builder.finish()
     }
 
     pub const VT_UNIT: flatbuffers::VOffsetT = 4;
 
-  #[inline]
-  pub fn unit(&self) -> DateUnit {
-    self._tab.get::<DateUnit>(Date::VT_UNIT, Some(DateUnit::MILLISECOND)).unwrap()
-  }
+    #[inline]
+    pub fn unit(&self) -> DateUnit {
+        self._tab
+            .get::<DateUnit>(Date::VT_UNIT, Some(DateUnit::MILLISECOND))
+            .unwrap()
+    }
 }
 
 pub struct DateArgs {
@@ -1673,27 +1616,28 @@ impl<'a> Default for DateArgs {
     }
 }
 pub struct DateBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> DateBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_unit(&mut self, unit: DateUnit) {
-    self.fbb_.push_slot::<DateUnit>(Date::VT_UNIT, unit, DateUnit::MILLISECOND);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> DateBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    DateBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_unit(&mut self, unit: DateUnit) {
+        self.fbb_
+            .push_slot::<DateUnit>(Date::VT_UNIT, unit, DateUnit::MILLISECOND);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Date<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> DateBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        DateBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Date<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 /// Time type. The physical storage type depends on the unit
@@ -1703,7 +1647,7 @@ pub enum TimeOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Time<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Time<'a> {
@@ -1719,31 +1663,32 @@ impl<'a> flatbuffers::Follow<'a> for Time<'a> {
 impl<'a> Time<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Time {
-            _tab: table,
-        }
+        Time { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args TimeArgs) -> flatbuffers::WIPOffset<Time<'bldr>> {
-      let mut builder = TimeBuilder::new(_fbb);
-      builder.add_bitWidth(args.bitWidth);
-      builder.add_unit(args.unit);
-      builder.finish()
+        args: &'args TimeArgs,
+    ) -> flatbuffers::WIPOffset<Time<'bldr>> {
+        let mut builder = TimeBuilder::new(_fbb);
+        builder.add_bitWidth(args.bitWidth);
+        builder.add_unit(args.unit);
+        builder.finish()
     }
 
     pub const VT_UNIT: flatbuffers::VOffsetT = 4;
     pub const VT_BITWIDTH: flatbuffers::VOffsetT = 6;
 
-  #[inline]
-  pub fn unit(&self) -> TimeUnit {
-    self._tab.get::<TimeUnit>(Time::VT_UNIT, Some(TimeUnit::MILLISECOND)).unwrap()
-  }
-  #[inline]
-  pub fn bitWidth(&self) -> i32 {
-    self._tab.get::<i32>(Time::VT_BITWIDTH, Some(32)).unwrap()
-  }
+    #[inline]
+    pub fn unit(&self) -> TimeUnit {
+        self._tab
+            .get::<TimeUnit>(Time::VT_UNIT, Some(TimeUnit::MILLISECOND))
+            .unwrap()
+    }
+    #[inline]
+    pub fn bitWidth(&self) -> i32 {
+        self._tab.get::<i32>(Time::VT_BITWIDTH, Some(32)).unwrap()
+    }
 }
 
 pub struct TimeArgs {
@@ -1760,31 +1705,32 @@ impl<'a> Default for TimeArgs {
     }
 }
 pub struct TimeBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> TimeBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_unit(&mut self, unit: TimeUnit) {
-    self.fbb_.push_slot::<TimeUnit>(Time::VT_UNIT, unit, TimeUnit::MILLISECOND);
-  }
-  #[inline]
-  pub fn add_bitWidth(&mut self, bitWidth: i32) {
-    self.fbb_.push_slot::<i32>(Time::VT_BITWIDTH, bitWidth, 32);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TimeBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    TimeBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_unit(&mut self, unit: TimeUnit) {
+        self.fbb_
+            .push_slot::<TimeUnit>(Time::VT_UNIT, unit, TimeUnit::MILLISECOND);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Time<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn add_bitWidth(&mut self, bitWidth: i32) {
+        self.fbb_.push_slot::<i32>(Time::VT_BITWIDTH, bitWidth, 32);
+    }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TimeBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        TimeBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Time<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 /// Time elapsed from the Unix epoch, 00:00:00.000 on 1 January 1970, excluding
@@ -1797,7 +1743,7 @@ pub enum TimestampOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Timestamp<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Timestamp<'a> {
@@ -1813,56 +1759,60 @@ impl<'a> flatbuffers::Follow<'a> for Timestamp<'a> {
 impl<'a> Timestamp<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Timestamp {
-            _tab: table,
-        }
+        Timestamp { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args TimestampArgs<'args>) -> flatbuffers::WIPOffset<Timestamp<'bldr>> {
-      let mut builder = TimestampBuilder::new(_fbb);
-      if let Some(x) = args.timezone { builder.add_timezone(x); }
-      builder.add_unit(args.unit);
-      builder.finish()
+        args: &'args TimestampArgs<'args>,
+    ) -> flatbuffers::WIPOffset<Timestamp<'bldr>> {
+        let mut builder = TimestampBuilder::new(_fbb);
+        if let Some(x) = args.timezone {
+            builder.add_timezone(x);
+        }
+        builder.add_unit(args.unit);
+        builder.finish()
     }
 
     pub const VT_UNIT: flatbuffers::VOffsetT = 4;
     pub const VT_TIMEZONE: flatbuffers::VOffsetT = 6;
 
-  #[inline]
-  pub fn unit(&self) -> TimeUnit {
-    self._tab.get::<TimeUnit>(Timestamp::VT_UNIT, Some(TimeUnit::SECOND)).unwrap()
-  }
-  /// The time zone is a string indicating the name of a time zone, one of:
-  ///
-  /// * As used in the Olson time zone database (the "tz database" or
-  ///   "tzdata"), such as "America/New_York"
-  /// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
-  ///
-  /// Whether a timezone string is present indicates different semantics about
-  /// the data:
-  ///
-  /// * If the time zone is null or equal to an empty string, the data is "time
-  ///   zone naive" and shall be displayed *as is* to the user, not localized
-  ///   to the locale of the user. This data can be though of as UTC but
-  ///   without having "UTC" as the time zone, it is not considered to be
-  ///   localized to any time zone
-  ///
-  /// * If the time zone is set to a valid value, values can be displayed as
-  ///   "localized" to that time zone, even though the underlying 64-bit
-  ///   integers are identical to the same data stored in UTC. Converting
-  ///   between time zones is a metadata-only operation and does not change the
-  ///   underlying values
-  #[inline]
-  pub fn timezone(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(Timestamp::VT_TIMEZONE, None)
-  }
+    #[inline]
+    pub fn unit(&self) -> TimeUnit {
+        self._tab
+            .get::<TimeUnit>(Timestamp::VT_UNIT, Some(TimeUnit::SECOND))
+            .unwrap()
+    }
+    /// The time zone is a string indicating the name of a time zone, one of:
+    ///
+    /// * As used in the Olson time zone database (the "tz database" or
+    ///   "tzdata"), such as "America/New_York"
+    /// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
+    ///
+    /// Whether a timezone string is present indicates different semantics about
+    /// the data:
+    ///
+    /// * If the time zone is null or equal to an empty string, the data is "time
+    ///   zone naive" and shall be displayed *as is* to the user, not localized
+    ///   to the locale of the user. This data can be though of as UTC but
+    ///   without having "UTC" as the time zone, it is not considered to be
+    ///   localized to any time zone
+    ///
+    /// * If the time zone is set to a valid value, values can be displayed as
+    ///   "localized" to that time zone, even though the underlying 64-bit
+    ///   integers are identical to the same data stored in UTC. Converting
+    ///   between time zones is a metadata-only operation and does not change the
+    ///   underlying values
+    #[inline]
+    pub fn timezone(&self) -> Option<&'a str> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<&str>>(Timestamp::VT_TIMEZONE, None)
+    }
 }
 
 pub struct TimestampArgs<'a> {
     pub unit: TimeUnit,
-    pub timezone: Option<flatbuffers::WIPOffset<&'a  str>>,
+    pub timezone: Option<flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for TimestampArgs<'a> {
     #[inline]
@@ -1874,38 +1824,40 @@ impl<'a> Default for TimestampArgs<'a> {
     }
 }
 pub struct TimestampBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> TimestampBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_unit(&mut self, unit: TimeUnit) {
-    self.fbb_.push_slot::<TimeUnit>(Timestamp::VT_UNIT, unit, TimeUnit::SECOND);
-  }
-  #[inline]
-  pub fn add_timezone(&mut self, timezone: flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(Timestamp::VT_TIMEZONE, timezone);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TimestampBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    TimestampBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_unit(&mut self, unit: TimeUnit) {
+        self.fbb_
+            .push_slot::<TimeUnit>(Timestamp::VT_UNIT, unit, TimeUnit::SECOND);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Timestamp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn add_timezone(&mut self, timezone: flatbuffers::WIPOffset<&'b str>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(Timestamp::VT_TIMEZONE, timezone);
+    }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TimestampBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        TimestampBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Timestamp<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 pub enum IntervalOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Interval<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Interval<'a> {
@@ -1921,25 +1873,26 @@ impl<'a> flatbuffers::Follow<'a> for Interval<'a> {
 impl<'a> Interval<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Interval {
-            _tab: table,
-        }
+        Interval { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args IntervalArgs) -> flatbuffers::WIPOffset<Interval<'bldr>> {
-      let mut builder = IntervalBuilder::new(_fbb);
-      builder.add_unit(args.unit);
-      builder.finish()
+        args: &'args IntervalArgs,
+    ) -> flatbuffers::WIPOffset<Interval<'bldr>> {
+        let mut builder = IntervalBuilder::new(_fbb);
+        builder.add_unit(args.unit);
+        builder.finish()
     }
 
     pub const VT_UNIT: flatbuffers::VOffsetT = 4;
 
-  #[inline]
-  pub fn unit(&self) -> IntervalUnit {
-    self._tab.get::<IntervalUnit>(Interval::VT_UNIT, Some(IntervalUnit::YEAR_MONTH)).unwrap()
-  }
+    #[inline]
+    pub fn unit(&self) -> IntervalUnit {
+        self._tab
+            .get::<IntervalUnit>(Interval::VT_UNIT, Some(IntervalUnit::YEAR_MONTH))
+            .unwrap()
+    }
 }
 
 pub struct IntervalArgs {
@@ -1954,27 +1907,28 @@ impl<'a> Default for IntervalArgs {
     }
 }
 pub struct IntervalBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> IntervalBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_unit(&mut self, unit: IntervalUnit) {
-    self.fbb_.push_slot::<IntervalUnit>(Interval::VT_UNIT, unit, IntervalUnit::YEAR_MONTH);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> IntervalBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    IntervalBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_unit(&mut self, unit: IntervalUnit) {
+        self.fbb_
+            .push_slot::<IntervalUnit>(Interval::VT_UNIT, unit, IntervalUnit::YEAR_MONTH);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Interval<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> IntervalBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        IntervalBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Interval<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 /// ----------------------------------------------------------------------
@@ -1984,7 +1938,7 @@ pub enum KeyValueOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct KeyValue<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for KeyValue<'a> {
@@ -2000,36 +1954,41 @@ impl<'a> flatbuffers::Follow<'a> for KeyValue<'a> {
 impl<'a> KeyValue<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        KeyValue {
-            _tab: table,
-        }
+        KeyValue { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args KeyValueArgs<'args>) -> flatbuffers::WIPOffset<KeyValue<'bldr>> {
-      let mut builder = KeyValueBuilder::new(_fbb);
-      if let Some(x) = args.value { builder.add_value(x); }
-      if let Some(x) = args.key { builder.add_key(x); }
-      builder.finish()
+        args: &'args KeyValueArgs<'args>,
+    ) -> flatbuffers::WIPOffset<KeyValue<'bldr>> {
+        let mut builder = KeyValueBuilder::new(_fbb);
+        if let Some(x) = args.value {
+            builder.add_value(x);
+        }
+        if let Some(x) = args.key {
+            builder.add_key(x);
+        }
+        builder.finish()
     }
 
     pub const VT_KEY: flatbuffers::VOffsetT = 4;
     pub const VT_VALUE: flatbuffers::VOffsetT = 6;
 
-  #[inline]
-  pub fn key(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(KeyValue::VT_KEY, None)
-  }
-  #[inline]
-  pub fn value(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(KeyValue::VT_VALUE, None)
-  }
+    #[inline]
+    pub fn key(&self) -> Option<&'a str> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<&str>>(KeyValue::VT_KEY, None)
+    }
+    #[inline]
+    pub fn value(&self) -> Option<&'a str> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<&str>>(KeyValue::VT_VALUE, None)
+    }
 }
 
 pub struct KeyValueArgs<'a> {
-    pub key: Option<flatbuffers::WIPOffset<&'a  str>>,
-    pub value: Option<flatbuffers::WIPOffset<&'a  str>>,
+    pub key: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub value: Option<flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for KeyValueArgs<'a> {
     #[inline]
@@ -2041,31 +2000,33 @@ impl<'a> Default for KeyValueArgs<'a> {
     }
 }
 pub struct KeyValueBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> KeyValueBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_key(&mut self, key: flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(KeyValue::VT_KEY, key);
-  }
-  #[inline]
-  pub fn add_value(&mut self, value: flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(KeyValue::VT_VALUE, value);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> KeyValueBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    KeyValueBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_key(&mut self, key: flatbuffers::WIPOffset<&'b str>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(KeyValue::VT_KEY, key);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<KeyValue<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn add_value(&mut self, value: flatbuffers::WIPOffset<&'b str>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(KeyValue::VT_VALUE, value);
+    }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> KeyValueBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        KeyValueBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<KeyValue<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 /// ----------------------------------------------------------------------
@@ -2074,7 +2035,7 @@ pub enum DictionaryEncodingOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct DictionaryEncoding<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for DictionaryEncoding<'a> {
@@ -2090,51 +2051,57 @@ impl<'a> flatbuffers::Follow<'a> for DictionaryEncoding<'a> {
 impl<'a> DictionaryEncoding<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        DictionaryEncoding {
-            _tab: table,
-        }
+        DictionaryEncoding { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args DictionaryEncodingArgs<'args>) -> flatbuffers::WIPOffset<DictionaryEncoding<'bldr>> {
-      let mut builder = DictionaryEncodingBuilder::new(_fbb);
-      builder.add_id(args.id);
-      if let Some(x) = args.indexType { builder.add_indexType(x); }
-      builder.add_isOrdered(args.isOrdered);
-      builder.finish()
+        args: &'args DictionaryEncodingArgs<'args>,
+    ) -> flatbuffers::WIPOffset<DictionaryEncoding<'bldr>> {
+        let mut builder = DictionaryEncodingBuilder::new(_fbb);
+        builder.add_id(args.id);
+        if let Some(x) = args.indexType {
+            builder.add_indexType(x);
+        }
+        builder.add_isOrdered(args.isOrdered);
+        builder.finish()
     }
 
     pub const VT_ID: flatbuffers::VOffsetT = 4;
     pub const VT_INDEXTYPE: flatbuffers::VOffsetT = 6;
     pub const VT_ISORDERED: flatbuffers::VOffsetT = 8;
 
-  /// The known dictionary id in the application where this data is used. In
-  /// the file or streaming formats, the dictionary ids are found in the
-  /// DictionaryBatch messages
-  #[inline]
-  pub fn id(&self) -> i64 {
-    self._tab.get::<i64>(DictionaryEncoding::VT_ID, Some(0)).unwrap()
-  }
-  /// The dictionary indices are constrained to be positive integers. If this
-  /// field is null, the indices must be signed int32
-  #[inline]
-  pub fn indexType(&self) -> Option<Int<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<Int<'a>>>(DictionaryEncoding::VT_INDEXTYPE, None)
-  }
-  /// By default, dictionaries are not ordered, or the order does not have
-  /// semantic meaning. In some statistical, applications, dictionary-encoding
-  /// is used to represent ordered categorical data, and we provide a way to
-  /// preserve that metadata here
-  #[inline]
-  pub fn isOrdered(&self) -> bool {
-    self._tab.get::<bool>(DictionaryEncoding::VT_ISORDERED, Some(false)).unwrap()
-  }
+    /// The known dictionary id in the application where this data is used. In
+    /// the file or streaming formats, the dictionary ids are found in the
+    /// DictionaryBatch messages
+    #[inline]
+    pub fn id(&self) -> i64 {
+        self._tab
+            .get::<i64>(DictionaryEncoding::VT_ID, Some(0))
+            .unwrap()
+    }
+    /// The dictionary indices are constrained to be positive integers. If this
+    /// field is null, the indices must be signed int32
+    #[inline]
+    pub fn indexType(&self) -> Option<Int<'a>> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<Int<'a>>>(DictionaryEncoding::VT_INDEXTYPE, None)
+    }
+    /// By default, dictionaries are not ordered, or the order does not have
+    /// semantic meaning. In some statistical, applications, dictionary-encoding
+    /// is used to represent ordered categorical data, and we provide a way to
+    /// preserve that metadata here
+    #[inline]
+    pub fn isOrdered(&self) -> bool {
+        self._tab
+            .get::<bool>(DictionaryEncoding::VT_ISORDERED, Some(false))
+            .unwrap()
+    }
 }
 
 pub struct DictionaryEncodingArgs<'a> {
     pub id: i64,
-    pub indexType: Option<flatbuffers::WIPOffset<Int<'a >>>,
+    pub indexType: Option<flatbuffers::WIPOffset<Int<'a>>>,
     pub isOrdered: bool,
 }
 impl<'a> Default for DictionaryEncodingArgs<'a> {
@@ -2148,35 +2115,41 @@ impl<'a> Default for DictionaryEncodingArgs<'a> {
     }
 }
 pub struct DictionaryEncodingBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> DictionaryEncodingBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_id(&mut self, id: i64) {
-    self.fbb_.push_slot::<i64>(DictionaryEncoding::VT_ID, id, 0);
-  }
-  #[inline]
-  pub fn add_indexType(&mut self, indexType: flatbuffers::WIPOffset<Int<'b >>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<Int>>(DictionaryEncoding::VT_INDEXTYPE, indexType);
-  }
-  #[inline]
-  pub fn add_isOrdered(&mut self, isOrdered: bool) {
-    self.fbb_.push_slot::<bool>(DictionaryEncoding::VT_ISORDERED, isOrdered, false);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> DictionaryEncodingBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    DictionaryEncodingBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_id(&mut self, id: i64) {
+        self.fbb_.push_slot::<i64>(DictionaryEncoding::VT_ID, id, 0);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<DictionaryEncoding<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn add_indexType(&mut self, indexType: flatbuffers::WIPOffset<Int<'b>>) {
+        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<Int>>(
+            DictionaryEncoding::VT_INDEXTYPE,
+            indexType,
+        );
+    }
+    #[inline]
+    pub fn add_isOrdered(&mut self, isOrdered: bool) {
+        self.fbb_
+            .push_slot::<bool>(DictionaryEncoding::VT_ISORDERED, isOrdered, false);
+    }
+    #[inline]
+    pub fn new(
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    ) -> DictionaryEncodingBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        DictionaryEncodingBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<DictionaryEncoding<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 /// ----------------------------------------------------------------------
@@ -2190,7 +2163,7 @@ pub enum FieldOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Field<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Field<'a> {
@@ -2206,23 +2179,32 @@ impl<'a> flatbuffers::Follow<'a> for Field<'a> {
 impl<'a> Field<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Field {
-            _tab: table,
-        }
+        Field { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args FieldArgs<'args>) -> flatbuffers::WIPOffset<Field<'bldr>> {
-      let mut builder = FieldBuilder::new(_fbb);
-      if let Some(x) = args.custom_metadata { builder.add_custom_metadata(x); }
-      if let Some(x) = args.children { builder.add_children(x); }
-      if let Some(x) = args.dictionary { builder.add_dictionary(x); }
-      if let Some(x) = args.type_ { builder.add_type_(x); }
-      if let Some(x) = args.name { builder.add_name(x); }
-      builder.add_type_type(args.type_type);
-      builder.add_nullable(args.nullable);
-      builder.finish()
+        args: &'args FieldArgs<'args>,
+    ) -> flatbuffers::WIPOffset<Field<'bldr>> {
+        let mut builder = FieldBuilder::new(_fbb);
+        if let Some(x) = args.custom_metadata {
+            builder.add_custom_metadata(x);
+        }
+        if let Some(x) = args.children {
+            builder.add_children(x);
+        }
+        if let Some(x) = args.dictionary {
+            builder.add_dictionary(x);
+        }
+        if let Some(x) = args.type_ {
+            builder.add_type_(x);
+        }
+        if let Some(x) = args.name {
+            builder.add_name(x);
+        }
+        builder.add_type_type(args.type_type);
+        builder.add_nullable(args.nullable);
+        builder.finish()
     }
 
     pub const VT_NAME: flatbuffers::VOffsetT = 4;
@@ -2233,214 +2215,230 @@ impl<'a> Field<'a> {
     pub const VT_CHILDREN: flatbuffers::VOffsetT = 14;
     pub const VT_CUSTOM_METADATA: flatbuffers::VOffsetT = 16;
 
-  #[inline]
-  pub fn name(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(Field::VT_NAME, None)
-  }
-  #[inline]
-  pub fn nullable(&self) -> bool {
-    self._tab.get::<bool>(Field::VT_NULLABLE, Some(false)).unwrap()
-  }
-  #[inline]
-  pub fn type_type(&self) -> Type {
-    self._tab.get::<Type>(Field::VT_TYPE_TYPE, Some(Type::NONE)).unwrap()
-  }
-  #[inline]
-  pub fn type_(&self) -> Option<flatbuffers::Table<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Table<'a>>>(Field::VT_TYPE_, None)
-  }
-  #[inline]
-  pub fn dictionary(&self) -> Option<DictionaryEncoding<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<DictionaryEncoding<'a>>>(Field::VT_DICTIONARY, None)
-  }
-  #[inline]
-  pub fn children(&self) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>>>(Field::VT_CHILDREN, None)
-  }
-  #[inline]
-  pub fn custom_metadata(&self) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>>>(Field::VT_CUSTOM_METADATA, None)
-  }
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_null(&'a self) -> Option<Null> {
-    if self.type_type() == Type::Null {
-      self.type_().map(|u| Null::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    pub fn name(&self) -> Option<&'a str> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<&str>>(Field::VT_NAME, None)
     }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_int(&'a self) -> Option<Int> {
-    if self.type_type() == Type::Int {
-      self.type_().map(|u| Int::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    pub fn nullable(&self) -> bool {
+        self._tab
+            .get::<bool>(Field::VT_NULLABLE, Some(false))
+            .unwrap()
     }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_floating_point(&'a self) -> Option<FloatingPoint> {
-    if self.type_type() == Type::FloatingPoint {
-      self.type_().map(|u| FloatingPoint::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    pub fn type_type(&self) -> Type {
+        self._tab
+            .get::<Type>(Field::VT_TYPE_TYPE, Some(Type::NONE))
+            .unwrap()
     }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_binary(&'a self) -> Option<Binary> {
-    if self.type_type() == Type::Binary {
-      self.type_().map(|u| Binary::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    pub fn type_(&self) -> Option<flatbuffers::Table<'a>> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Table<'a>>>(Field::VT_TYPE_, None)
     }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_utf_8(&'a self) -> Option<Utf8> {
-    if self.type_type() == Type::Utf8 {
-      self.type_().map(|u| Utf8::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    pub fn dictionary(&self) -> Option<DictionaryEncoding<'a>> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<DictionaryEncoding<'a>>>(Field::VT_DICTIONARY, None)
     }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_bool(&'a self) -> Option<Bool> {
-    if self.type_type() == Type::Bool {
-      self.type_().map(|u| Bool::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    pub fn children(&self) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>> {
+        self._tab.get::<flatbuffers::ForwardsUOffset<
+            flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>,
+        >>(Field::VT_CHILDREN, None)
     }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_decimal(&'a self) -> Option<Decimal> {
-    if self.type_type() == Type::Decimal {
-      self.type_().map(|u| Decimal::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    pub fn custom_metadata(
+        &self,
+    ) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
+        self._tab.get::<flatbuffers::ForwardsUOffset<
+            flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
+        >>(Field::VT_CUSTOM_METADATA, None)
     }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_date(&'a self) -> Option<Date> {
-    if self.type_type() == Type::Date {
-      self.type_().map(|u| Date::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_null(&'a self) -> Option<Null> {
+        if self.type_type() == Type::Null {
+            self.type_().map(|u| Null::init_from_table(u))
+        } else {
+            None
+        }
     }
-  }
 
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_time(&'a self) -> Option<Time> {
-    if self.type_type() == Type::Time {
-      self.type_().map(|u| Time::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_int(&'a self) -> Option<Int> {
+        if self.type_type() == Type::Int {
+            self.type_().map(|u| Int::init_from_table(u))
+        } else {
+            None
+        }
     }
-  }
 
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_timestamp(&'a self) -> Option<Timestamp> {
-    if self.type_type() == Type::Timestamp {
-      self.type_().map(|u| Timestamp::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_floating_point(&'a self) -> Option<FloatingPoint> {
+        if self.type_type() == Type::FloatingPoint {
+            self.type_().map(|u| FloatingPoint::init_from_table(u))
+        } else {
+            None
+        }
     }
-  }
 
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_interval(&'a self) -> Option<Interval> {
-    if self.type_type() == Type::Interval {
-      self.type_().map(|u| Interval::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_binary(&'a self) -> Option<Binary> {
+        if self.type_type() == Type::Binary {
+            self.type_().map(|u| Binary::init_from_table(u))
+        } else {
+            None
+        }
     }
-  }
 
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_list(&'a self) -> Option<List> {
-    if self.type_type() == Type::List {
-      self.type_().map(|u| List::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_utf_8(&'a self) -> Option<Utf8> {
+        if self.type_type() == Type::Utf8 {
+            self.type_().map(|u| Utf8::init_from_table(u))
+        } else {
+            None
+        }
     }
-  }
 
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_struct_(&'a self) -> Option<Struct_> {
-    if self.type_type() == Type::Struct_ {
-      self.type_().map(|u| Struct_::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_bool(&'a self) -> Option<Bool> {
+        if self.type_type() == Type::Bool {
+            self.type_().map(|u| Bool::init_from_table(u))
+        } else {
+            None
+        }
     }
-  }
 
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_union(&'a self) -> Option<Union> {
-    if self.type_type() == Type::Union {
-      self.type_().map(|u| Union::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_decimal(&'a self) -> Option<Decimal> {
+        if self.type_type() == Type::Decimal {
+            self.type_().map(|u| Decimal::init_from_table(u))
+        } else {
+            None
+        }
     }
-  }
 
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_fixed_size_binary(&'a self) -> Option<FixedSizeBinary> {
-    if self.type_type() == Type::FixedSizeBinary {
-      self.type_().map(|u| FixedSizeBinary::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_date(&'a self) -> Option<Date> {
+        if self.type_type() == Type::Date {
+            self.type_().map(|u| Date::init_from_table(u))
+        } else {
+            None
+        }
     }
-  }
 
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_fixed_size_list(&'a self) -> Option<FixedSizeList> {
-    if self.type_type() == Type::FixedSizeList {
-      self.type_().map(|u| FixedSizeList::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_time(&'a self) -> Option<Time> {
+        if self.type_type() == Type::Time {
+            self.type_().map(|u| Time::init_from_table(u))
+        } else {
+            None
+        }
     }
-  }
 
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn type__as_map(&'a self) -> Option<Map> {
-    if self.type_type() == Type::Map {
-      self.type_().map(|u| Map::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_timestamp(&'a self) -> Option<Timestamp> {
+        if self.type_type() == Type::Timestamp {
+            self.type_().map(|u| Timestamp::init_from_table(u))
+        } else {
+            None
+        }
     }
-  }
 
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_interval(&'a self) -> Option<Interval> {
+        if self.type_type() == Type::Interval {
+            self.type_().map(|u| Interval::init_from_table(u))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_list(&'a self) -> Option<List> {
+        if self.type_type() == Type::List {
+            self.type_().map(|u| List::init_from_table(u))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_struct_(&'a self) -> Option<Struct_> {
+        if self.type_type() == Type::Struct_ {
+            self.type_().map(|u| Struct_::init_from_table(u))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_union(&'a self) -> Option<Union> {
+        if self.type_type() == Type::Union {
+            self.type_().map(|u| Union::init_from_table(u))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_fixed_size_binary(&'a self) -> Option<FixedSizeBinary> {
+        if self.type_type() == Type::FixedSizeBinary {
+            self.type_().map(|u| FixedSizeBinary::init_from_table(u))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_fixed_size_list(&'a self) -> Option<FixedSizeList> {
+        if self.type_type() == Type::FixedSizeList {
+            self.type_().map(|u| FixedSizeList::init_from_table(u))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type__as_map(&'a self) -> Option<Map> {
+        if self.type_type() == Type::Map {
+            self.type_().map(|u| Map::init_from_table(u))
+        } else {
+            None
+        }
+    }
 }
 
 pub struct FieldArgs<'a> {
-    pub name: Option<flatbuffers::WIPOffset<&'a  str>>,
+    pub name: Option<flatbuffers::WIPOffset<&'a str>>,
     pub nullable: bool,
     pub type_type: Type,
     pub type_: Option<flatbuffers::WIPOffset<flatbuffers::UnionWIPOffset>>,
-    pub dictionary: Option<flatbuffers::WIPOffset<DictionaryEncoding<'a >>>,
-    pub children: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a , flatbuffers::ForwardsUOffset<Field<'a >>>>>,
-    pub custom_metadata: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a , flatbuffers::ForwardsUOffset<KeyValue<'a >>>>>,
+    pub dictionary: Option<flatbuffers::WIPOffset<DictionaryEncoding<'a>>>,
+    pub children: Option<
+        flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Field<'a>>>>,
+    >,
+    pub custom_metadata: Option<
+        flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue<'a>>>>,
+    >,
 }
 impl<'a> Default for FieldArgs<'a> {
     #[inline]
@@ -2457,51 +2455,73 @@ impl<'a> Default for FieldArgs<'a> {
     }
 }
 pub struct FieldBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> FieldBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(Field::VT_NAME, name);
-  }
-  #[inline]
-  pub fn add_nullable(&mut self, nullable: bool) {
-    self.fbb_.push_slot::<bool>(Field::VT_NULLABLE, nullable, false);
-  }
-  #[inline]
-  pub fn add_type_type(&mut self, type_type: Type) {
-    self.fbb_.push_slot::<Type>(Field::VT_TYPE_TYPE, type_type, Type::NONE);
-  }
-  #[inline]
-  pub fn add_type_(&mut self, type_: flatbuffers::WIPOffset<flatbuffers::UnionWIPOffset>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(Field::VT_TYPE_, type_);
-  }
-  #[inline]
-  pub fn add_dictionary(&mut self, dictionary: flatbuffers::WIPOffset<DictionaryEncoding<'b >>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<DictionaryEncoding>>(Field::VT_DICTIONARY, dictionary);
-  }
-  #[inline]
-  pub fn add_children(&mut self, children: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<Field<'b >>>>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(Field::VT_CHILDREN, children);
-  }
-  #[inline]
-  pub fn add_custom_metadata(&mut self, custom_metadata: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<KeyValue<'b >>>>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(Field::VT_CUSTOM_METADATA, custom_metadata);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> FieldBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    FieldBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b str>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(Field::VT_NAME, name);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Field<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn add_nullable(&mut self, nullable: bool) {
+        self.fbb_
+            .push_slot::<bool>(Field::VT_NULLABLE, nullable, false);
+    }
+    #[inline]
+    pub fn add_type_type(&mut self, type_type: Type) {
+        self.fbb_
+            .push_slot::<Type>(Field::VT_TYPE_TYPE, type_type, Type::NONE);
+    }
+    #[inline]
+    pub fn add_type_(&mut self, type_: flatbuffers::WIPOffset<flatbuffers::UnionWIPOffset>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(Field::VT_TYPE_, type_);
+    }
+    #[inline]
+    pub fn add_dictionary(&mut self, dictionary: flatbuffers::WIPOffset<DictionaryEncoding<'b>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<DictionaryEncoding>>(
+                Field::VT_DICTIONARY,
+                dictionary,
+            );
+    }
+    #[inline]
+    pub fn add_children(
+        &mut self,
+        children: flatbuffers::WIPOffset<
+            flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<Field<'b>>>,
+        >,
+    ) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(Field::VT_CHILDREN, children);
+    }
+    #[inline]
+    pub fn add_custom_metadata(
+        &mut self,
+        custom_metadata: flatbuffers::WIPOffset<
+            flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<KeyValue<'b>>>,
+        >,
+    ) {
+        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+            Field::VT_CUSTOM_METADATA,
+            custom_metadata,
+        );
+    }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> FieldBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        FieldBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Field<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 /// ----------------------------------------------------------------------
@@ -2510,7 +2530,7 @@ pub enum SchemaOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Schema<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Schema<'a> {
@@ -2526,46 +2546,61 @@ impl<'a> flatbuffers::Follow<'a> for Schema<'a> {
 impl<'a> Schema<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Schema {
-            _tab: table,
-        }
+        Schema { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args SchemaArgs<'args>) -> flatbuffers::WIPOffset<Schema<'bldr>> {
-      let mut builder = SchemaBuilder::new(_fbb);
-      if let Some(x) = args.custom_metadata { builder.add_custom_metadata(x); }
-      if let Some(x) = args.fields { builder.add_fields(x); }
-      builder.add_endianness(args.endianness);
-      builder.finish()
+        args: &'args SchemaArgs<'args>,
+    ) -> flatbuffers::WIPOffset<Schema<'bldr>> {
+        let mut builder = SchemaBuilder::new(_fbb);
+        if let Some(x) = args.custom_metadata {
+            builder.add_custom_metadata(x);
+        }
+        if let Some(x) = args.fields {
+            builder.add_fields(x);
+        }
+        builder.add_endianness(args.endianness);
+        builder.finish()
     }
 
     pub const VT_ENDIANNESS: flatbuffers::VOffsetT = 4;
     pub const VT_FIELDS: flatbuffers::VOffsetT = 6;
     pub const VT_CUSTOM_METADATA: flatbuffers::VOffsetT = 8;
 
-  /// endianness of the buffer
-  /// it is Little Endian by default
-  /// if endianness doesn't match the underlying system then the vectors need to be converted
-  #[inline]
-  pub fn endianness(&self) -> Endianness {
-    self._tab.get::<Endianness>(Schema::VT_ENDIANNESS, Some(Endianness::Little)).unwrap()
-  }
-  #[inline]
-  pub fn fields(&self) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>>>(Schema::VT_FIELDS, None)
-  }
-  #[inline]
-  pub fn custom_metadata(&self) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>>>(Schema::VT_CUSTOM_METADATA, None)
-  }
+    /// endianness of the buffer
+    /// it is Little Endian by default
+    /// if endianness doesn't match the underlying system then the vectors need to be converted
+    #[inline]
+    pub fn endianness(&self) -> Endianness {
+        self._tab
+            .get::<Endianness>(Schema::VT_ENDIANNESS, Some(Endianness::Little))
+            .unwrap()
+    }
+    #[inline]
+    pub fn fields(&self) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>> {
+        self._tab.get::<flatbuffers::ForwardsUOffset<
+            flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>,
+        >>(Schema::VT_FIELDS, None)
+    }
+    #[inline]
+    pub fn custom_metadata(
+        &self,
+    ) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
+        self._tab.get::<flatbuffers::ForwardsUOffset<
+            flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
+        >>(Schema::VT_CUSTOM_METADATA, None)
+    }
 }
 
 pub struct SchemaArgs<'a> {
     pub endianness: Endianness,
-    pub fields: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a , flatbuffers::ForwardsUOffset<Field<'a >>>>>,
-    pub custom_metadata: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a , flatbuffers::ForwardsUOffset<KeyValue<'a >>>>>,
+    pub fields: Option<
+        flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Field<'a>>>>,
+    >,
+    pub custom_metadata: Option<
+        flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue<'a>>>>,
+    >,
 }
 impl<'a> Default for SchemaArgs<'a> {
     #[inline]
@@ -2578,57 +2613,74 @@ impl<'a> Default for SchemaArgs<'a> {
     }
 }
 pub struct SchemaBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> SchemaBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_endianness(&mut self, endianness: Endianness) {
-    self.fbb_.push_slot::<Endianness>(Schema::VT_ENDIANNESS, endianness, Endianness::Little);
-  }
-  #[inline]
-  pub fn add_fields(&mut self, fields: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<Field<'b >>>>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(Schema::VT_FIELDS, fields);
-  }
-  #[inline]
-  pub fn add_custom_metadata(&mut self, custom_metadata: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<KeyValue<'b >>>>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(Schema::VT_CUSTOM_METADATA, custom_metadata);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SchemaBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    SchemaBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_endianness(&mut self, endianness: Endianness) {
+        self.fbb_
+            .push_slot::<Endianness>(Schema::VT_ENDIANNESS, endianness, Endianness::Little);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Schema<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn add_fields(
+        &mut self,
+        fields: flatbuffers::WIPOffset<
+            flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<Field<'b>>>,
+        >,
+    ) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(Schema::VT_FIELDS, fields);
+    }
+    #[inline]
+    pub fn add_custom_metadata(
+        &mut self,
+        custom_metadata: flatbuffers::WIPOffset<
+            flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<KeyValue<'b>>>,
+        >,
+    ) {
+        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+            Schema::VT_CUSTOM_METADATA,
+            custom_metadata,
+        );
+    }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SchemaBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        SchemaBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Schema<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 #[inline]
 pub fn get_root_as_schema<'a>(buf: &'a [u8]) -> Schema<'a> {
-  flatbuffers::get_root::<Schema<'a>>(buf)
+    flatbuffers::get_root::<Schema<'a>>(buf)
 }
 
 #[inline]
 pub fn get_size_prefixed_root_as_schema<'a>(buf: &'a [u8]) -> Schema<'a> {
-  flatbuffers::get_size_prefixed_root::<Schema<'a>>(buf)
+    flatbuffers::get_size_prefixed_root::<Schema<'a>>(buf)
 }
 
 #[inline]
 pub fn finish_schema_buffer<'a, 'b>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    root: flatbuffers::WIPOffset<Schema<'a>>) {
-  fbb.finish(root, None);
+    root: flatbuffers::WIPOffset<Schema<'a>>,
+) {
+    fbb.finish(root, None);
 }
 
 #[inline]
-pub fn finish_size_prefixed_schema_buffer<'a, 'b>(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>, root: flatbuffers::WIPOffset<Schema<'a>>) {
-  fbb.finish_size_prefixed(root, None);
+pub fn finish_size_prefixed_schema_buffer<'a, 'b>(
+    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    root: flatbuffers::WIPOffset<Schema<'a>>,
+) {
+    fbb.finish_size_prefixed(root, None);
 }
-
-

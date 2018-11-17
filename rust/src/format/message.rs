@@ -5,12 +5,12 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
-use std::mem;
 use std::cmp::Ordering;
+use std::mem;
 extern crate flatbuffers;
 use self::flatbuffers::EndianScalar;
-use ::format::schema::*;
-use ::format::tensor::*;
+use format::schema::*;
+use format::tensor::*;
 
 /// ----------------------------------------------------------------------
 /// The root Message type
@@ -24,38 +24,37 @@ use ::format::tensor::*;
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum MessageHeader {
-  NONE = 0,
-  Schema = 1,
-  DictionaryBatch = 2,
-  RecordBatch = 3,
-  Tensor = 4,
-
+    NONE = 0,
+    Schema = 1,
+    DictionaryBatch = 2,
+    RecordBatch = 3,
+    Tensor = 4,
 }
 
 const ENUM_MIN_MESSAGE_HEADER: u8 = 0;
 const ENUM_MAX_MESSAGE_HEADER: u8 = 4;
 
 impl<'a> flatbuffers::Follow<'a> for MessageHeader {
-  type Inner = Self;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    flatbuffers::read_scalar_at::<Self>(buf, loc)
-  }
+    type Inner = Self;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::read_scalar_at::<Self>(buf, loc)
+    }
 }
 
 impl flatbuffers::EndianScalar for MessageHeader {
-  #[inline]
-  fn to_little_endian(self) -> Self {
-    let n = u8::to_le(self as u8);
-    let p = &n as *const u8 as *const MessageHeader;
-    unsafe { *p }
-  }
-  #[inline]
-  fn from_little_endian(self) -> Self {
-    let n = u8::from_le(self as u8);
-    let p = &n as *const u8 as *const MessageHeader;
-    unsafe { *p }
-  }
+    #[inline]
+    fn to_little_endian(self) -> Self {
+        let n = u8::to_le(self as u8);
+        let p = &n as *const u8 as *const MessageHeader;
+        unsafe { *p }
+    }
+    #[inline]
+    fn from_little_endian(self) -> Self {
+        let n = u8::from_le(self as u8);
+        let p = &n as *const u8 as *const MessageHeader;
+        unsafe { *p }
+    }
 }
 
 impl flatbuffers::Push for MessageHeader {
@@ -67,26 +66,21 @@ impl flatbuffers::Push for MessageHeader {
 }
 
 #[allow(non_camel_case_types)]
-const ENUM_VALUES_MESSAGE_HEADER:[MessageHeader; 5] = [
-  MessageHeader::NONE,
-  MessageHeader::Schema,
-  MessageHeader::DictionaryBatch,
-  MessageHeader::RecordBatch,
-  MessageHeader::Tensor
+const ENUM_VALUES_MESSAGE_HEADER: [MessageHeader; 5] = [
+    MessageHeader::NONE,
+    MessageHeader::Schema,
+    MessageHeader::DictionaryBatch,
+    MessageHeader::RecordBatch,
+    MessageHeader::Tensor,
 ];
 
 #[allow(non_camel_case_types)]
-const ENUM_NAMES_MESSAGE_HEADER:[&'static str; 5] = [
-    "NONE",
-    "Schema",
-    "DictionaryBatch",
-    "RecordBatch",
-    "Tensor"
-];
+const ENUM_NAMES_MESSAGE_HEADER: [&'static str; 5] =
+    ["NONE", "Schema", "DictionaryBatch", "RecordBatch", "Tensor"];
 
 pub fn enum_name_message_header(e: MessageHeader) -> &'static str {
-  let index: usize = e as usize;
-  ENUM_NAMES_MESSAGE_HEADER[index]
+    let index: usize = e as usize;
+    ENUM_NAMES_MESSAGE_HEADER[index]
 }
 
 pub struct MessageHeaderUnionTableOffset {}
@@ -103,23 +97,23 @@ pub struct MessageHeaderUnionTableOffset {}
 #[repr(C, align(8))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FieldNode {
-  length_: i64,
-  null_count_: i64,
+    length_: i64,
+    null_count_: i64,
 } // pub struct FieldNode
 impl flatbuffers::SafeSliceAccess for FieldNode {}
 impl<'a> flatbuffers::Follow<'a> for FieldNode {
-  type Inner = &'a FieldNode;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    <&'a FieldNode>::follow(buf, loc)
-  }
+    type Inner = &'a FieldNode;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        <&'a FieldNode>::follow(buf, loc)
+    }
 }
 impl<'a> flatbuffers::Follow<'a> for &'a FieldNode {
-  type Inner = &'a FieldNode;
-  #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    flatbuffers::follow_cast_ref::<FieldNode>(buf, loc)
-  }
+    type Inner = &'a FieldNode;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::follow_cast_ref::<FieldNode>(buf, loc)
+    }
 }
 impl<'b> flatbuffers::Push for FieldNode {
     type Output = FieldNode;
@@ -143,26 +137,24 @@ impl<'b> flatbuffers::Push for &'b FieldNode {
     }
 }
 
-
 impl FieldNode {
-  pub fn new<'a>(_length: i64, _null_count: i64) -> Self {
-    FieldNode {
-      length_: _length.to_little_endian(),
-      null_count_: _null_count.to_little_endian(),
-
+    pub fn new<'a>(_length: i64, _null_count: i64) -> Self {
+        FieldNode {
+            length_: _length.to_little_endian(),
+            null_count_: _null_count.to_little_endian(),
+        }
     }
-  }
-  /// The number of value slots in the Arrow array at this level of a nested
-  /// tree
-  pub fn length<'a>(&'a self) -> i64 {
-    self.length_.from_little_endian()
-  }
-  /// The number of observed nulls. Fields with null_count == 0 may choose not
-  /// to write their physical validity bitmap out as a materialized buffer,
-  /// instead setting the length of the bitmap buffer to 0.
-  pub fn null_count<'a>(&'a self) -> i64 {
-    self.null_count_.from_little_endian()
-  }
+    /// The number of value slots in the Arrow array at this level of a nested
+    /// tree
+    pub fn length<'a>(&'a self) -> i64 {
+        self.length_.from_little_endian()
+    }
+    /// The number of observed nulls. Fields with null_count == 0 may choose not
+    /// to write their physical validity bitmap out as a materialized buffer,
+    /// instead setting the length of the bitmap buffer to 0.
+    pub fn null_count<'a>(&'a self) -> i64 {
+        self.null_count_.from_little_endian()
+    }
 }
 
 /// A data header describing the shared memory layout of a "record" or "row"
@@ -172,7 +164,7 @@ pub enum RecordBatchOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct RecordBatch<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for RecordBatch<'a> {
@@ -188,52 +180,67 @@ impl<'a> flatbuffers::Follow<'a> for RecordBatch<'a> {
 impl<'a> RecordBatch<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        RecordBatch {
-            _tab: table,
-        }
+        RecordBatch { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args RecordBatchArgs<'args>) -> flatbuffers::WIPOffset<RecordBatch<'bldr>> {
-      let mut builder = RecordBatchBuilder::new(_fbb);
-      builder.add_length(args.length);
-      if let Some(x) = args.buffers { builder.add_buffers(x); }
-      if let Some(x) = args.nodes { builder.add_nodes(x); }
-      builder.finish()
+        args: &'args RecordBatchArgs<'args>,
+    ) -> flatbuffers::WIPOffset<RecordBatch<'bldr>> {
+        let mut builder = RecordBatchBuilder::new(_fbb);
+        builder.add_length(args.length);
+        if let Some(x) = args.buffers {
+            builder.add_buffers(x);
+        }
+        if let Some(x) = args.nodes {
+            builder.add_nodes(x);
+        }
+        builder.finish()
     }
 
     pub const VT_LENGTH: flatbuffers::VOffsetT = 4;
     pub const VT_NODES: flatbuffers::VOffsetT = 6;
     pub const VT_BUFFERS: flatbuffers::VOffsetT = 8;
 
-  /// number of records / rows. The arrays in the batch should all have this
-  /// length
-  #[inline]
-  pub fn length(&self) -> i64 {
-    self._tab.get::<i64>(RecordBatch::VT_LENGTH, Some(0)).unwrap()
-  }
-  /// Nodes correspond to the pre-ordered flattened logical schema
-  #[inline]
-  pub fn nodes(&self) -> Option<&'a [FieldNode]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<FieldNode>>>(RecordBatch::VT_NODES, None).map(|v| v.safe_slice() )
-  }
-  /// Buffers correspond to the pre-ordered flattened buffer tree
-  ///
-  /// The number of buffers appended to this list depends on the schema. For
-  /// example, most primitive arrays will have 2 buffers, 1 for the validity
-  /// bitmap and 1 for the values. For struct arrays, there will only be a
-  /// single buffer for the validity (nulls) bitmap
-  #[inline]
-  pub fn buffers(&self) -> Option<&'a [Buffer]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<Buffer>>>(RecordBatch::VT_BUFFERS, None).map(|v| v.safe_slice() )
-  }
+    /// number of records / rows. The arrays in the batch should all have this
+    /// length
+    #[inline]
+    pub fn length(&self) -> i64 {
+        self._tab
+            .get::<i64>(RecordBatch::VT_LENGTH, Some(0))
+            .unwrap()
+    }
+    /// Nodes correspond to the pre-ordered flattened logical schema
+    #[inline]
+    pub fn nodes(&self) -> Option<&'a [FieldNode]> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<FieldNode>>>(
+                RecordBatch::VT_NODES,
+                None,
+            )
+            .map(|v| v.safe_slice())
+    }
+    /// Buffers correspond to the pre-ordered flattened buffer tree
+    ///
+    /// The number of buffers appended to this list depends on the schema. For
+    /// example, most primitive arrays will have 2 buffers, 1 for the validity
+    /// bitmap and 1 for the values. For struct arrays, there will only be a
+    /// single buffer for the validity (nulls) bitmap
+    #[inline]
+    pub fn buffers(&self) -> Option<&'a [Buffer]> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<Buffer>>>(
+                RecordBatch::VT_BUFFERS,
+                None,
+            )
+            .map(|v| v.safe_slice())
+    }
 }
 
 pub struct RecordBatchArgs<'a> {
     pub length: i64,
-    pub nodes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a , FieldNode>>>,
-    pub buffers: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a , Buffer>>>,
+    pub nodes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, FieldNode>>>,
+    pub buffers: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, Buffer>>>,
 }
 impl<'a> Default for RecordBatchArgs<'a> {
     #[inline]
@@ -246,35 +253,41 @@ impl<'a> Default for RecordBatchArgs<'a> {
     }
 }
 pub struct RecordBatchBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> RecordBatchBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_length(&mut self, length: i64) {
-    self.fbb_.push_slot::<i64>(RecordBatch::VT_LENGTH, length, 0);
-  }
-  #[inline]
-  pub fn add_nodes(&mut self, nodes: flatbuffers::WIPOffset<flatbuffers::Vector<'b , FieldNode>>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RecordBatch::VT_NODES, nodes);
-  }
-  #[inline]
-  pub fn add_buffers(&mut self, buffers: flatbuffers::WIPOffset<flatbuffers::Vector<'b , Buffer>>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RecordBatch::VT_BUFFERS, buffers);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RecordBatchBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    RecordBatchBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_length(&mut self, length: i64) {
+        self.fbb_
+            .push_slot::<i64>(RecordBatch::VT_LENGTH, length, 0);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<RecordBatch<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn add_nodes(&mut self, nodes: flatbuffers::WIPOffset<flatbuffers::Vector<'b, FieldNode>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(RecordBatch::VT_NODES, nodes);
+    }
+    #[inline]
+    pub fn add_buffers(
+        &mut self,
+        buffers: flatbuffers::WIPOffset<flatbuffers::Vector<'b, Buffer>>,
+    ) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(RecordBatch::VT_BUFFERS, buffers);
+    }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RecordBatchBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        RecordBatchBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<RecordBatch<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 /// For sending dictionary encoding information. Any Field can be
@@ -287,7 +300,7 @@ pub enum DictionaryBatchOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct DictionaryBatch<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for DictionaryBatch<'a> {
@@ -303,44 +316,50 @@ impl<'a> flatbuffers::Follow<'a> for DictionaryBatch<'a> {
 impl<'a> DictionaryBatch<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        DictionaryBatch {
-            _tab: table,
-        }
+        DictionaryBatch { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args DictionaryBatchArgs<'args>) -> flatbuffers::WIPOffset<DictionaryBatch<'bldr>> {
-      let mut builder = DictionaryBatchBuilder::new(_fbb);
-      builder.add_id(args.id);
-      if let Some(x) = args.data { builder.add_data(x); }
-      builder.add_isDelta(args.isDelta);
-      builder.finish()
+        args: &'args DictionaryBatchArgs<'args>,
+    ) -> flatbuffers::WIPOffset<DictionaryBatch<'bldr>> {
+        let mut builder = DictionaryBatchBuilder::new(_fbb);
+        builder.add_id(args.id);
+        if let Some(x) = args.data {
+            builder.add_data(x);
+        }
+        builder.add_isDelta(args.isDelta);
+        builder.finish()
     }
 
     pub const VT_ID: flatbuffers::VOffsetT = 4;
     pub const VT_DATA: flatbuffers::VOffsetT = 6;
     pub const VT_ISDELTA: flatbuffers::VOffsetT = 8;
 
-  #[inline]
-  pub fn id(&self) -> i64 {
-    self._tab.get::<i64>(DictionaryBatch::VT_ID, Some(0)).unwrap()
-  }
-  #[inline]
-  pub fn data(&self) -> Option<RecordBatch<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<RecordBatch<'a>>>(DictionaryBatch::VT_DATA, None)
-  }
-  /// If isDelta is true the values in the dictionary are to be appended to a
-  /// dictionary with the indicated id
-  #[inline]
-  pub fn isDelta(&self) -> bool {
-    self._tab.get::<bool>(DictionaryBatch::VT_ISDELTA, Some(false)).unwrap()
-  }
+    #[inline]
+    pub fn id(&self) -> i64 {
+        self._tab
+            .get::<i64>(DictionaryBatch::VT_ID, Some(0))
+            .unwrap()
+    }
+    #[inline]
+    pub fn data(&self) -> Option<RecordBatch<'a>> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<RecordBatch<'a>>>(DictionaryBatch::VT_DATA, None)
+    }
+    /// If isDelta is true the values in the dictionary are to be appended to a
+    /// dictionary with the indicated id
+    #[inline]
+    pub fn isDelta(&self) -> bool {
+        self._tab
+            .get::<bool>(DictionaryBatch::VT_ISDELTA, Some(false))
+            .unwrap()
+    }
 }
 
 pub struct DictionaryBatchArgs<'a> {
     pub id: i64,
-    pub data: Option<flatbuffers::WIPOffset<RecordBatch<'a >>>,
+    pub data: Option<flatbuffers::WIPOffset<RecordBatch<'a>>>,
     pub isDelta: bool,
 }
 impl<'a> Default for DictionaryBatchArgs<'a> {
@@ -354,42 +373,47 @@ impl<'a> Default for DictionaryBatchArgs<'a> {
     }
 }
 pub struct DictionaryBatchBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> DictionaryBatchBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_id(&mut self, id: i64) {
-    self.fbb_.push_slot::<i64>(DictionaryBatch::VT_ID, id, 0);
-  }
-  #[inline]
-  pub fn add_data(&mut self, data: flatbuffers::WIPOffset<RecordBatch<'b >>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<RecordBatch>>(DictionaryBatch::VT_DATA, data);
-  }
-  #[inline]
-  pub fn add_isDelta(&mut self, isDelta: bool) {
-    self.fbb_.push_slot::<bool>(DictionaryBatch::VT_ISDELTA, isDelta, false);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> DictionaryBatchBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    DictionaryBatchBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_id(&mut self, id: i64) {
+        self.fbb_.push_slot::<i64>(DictionaryBatch::VT_ID, id, 0);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<DictionaryBatch<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn add_data(&mut self, data: flatbuffers::WIPOffset<RecordBatch<'b>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<RecordBatch>>(
+                DictionaryBatch::VT_DATA,
+                data,
+            );
+    }
+    #[inline]
+    pub fn add_isDelta(&mut self, isDelta: bool) {
+        self.fbb_
+            .push_slot::<bool>(DictionaryBatch::VT_ISDELTA, isDelta, false);
+    }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> DictionaryBatchBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        DictionaryBatchBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<DictionaryBatch<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 pub enum MessageOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
 pub struct Message<'a> {
-  pub _tab: flatbuffers::Table<'a>,
+    pub _tab: flatbuffers::Table<'a>,
 }
 
 impl<'a> flatbuffers::Follow<'a> for Message<'a> {
@@ -405,20 +429,21 @@ impl<'a> flatbuffers::Follow<'a> for Message<'a> {
 impl<'a> Message<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Message {
-            _tab: table,
-        }
+        Message { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args MessageArgs) -> flatbuffers::WIPOffset<Message<'bldr>> {
-      let mut builder = MessageBuilder::new(_fbb);
-      builder.add_bodyLength(args.bodyLength);
-      if let Some(x) = args.header { builder.add_header(x); }
-      builder.add_version(args.version);
-      builder.add_header_type(args.header_type);
-      builder.finish()
+        args: &'args MessageArgs,
+    ) -> flatbuffers::WIPOffset<Message<'bldr>> {
+        let mut builder = MessageBuilder::new(_fbb);
+        builder.add_bodyLength(args.bodyLength);
+        if let Some(x) = args.header {
+            builder.add_header(x);
+        }
+        builder.add_version(args.version);
+        builder.add_header_type(args.header_type);
+        builder.finish()
     }
 
     pub const VT_VERSION: flatbuffers::VOffsetT = 4;
@@ -426,62 +451,68 @@ impl<'a> Message<'a> {
     pub const VT_HEADER: flatbuffers::VOffsetT = 8;
     pub const VT_BODYLENGTH: flatbuffers::VOffsetT = 10;
 
-  #[inline]
-  pub fn version(&self) -> MetadataVersion {
-    self._tab.get::<MetadataVersion>(Message::VT_VERSION, Some(MetadataVersion::V1)).unwrap()
-  }
-  #[inline]
-  pub fn header_type(&self) -> MessageHeader {
-    self._tab.get::<MessageHeader>(Message::VT_HEADER_TYPE, Some(MessageHeader::NONE)).unwrap()
-  }
-  #[inline]
-  pub fn header(&self) -> Option<flatbuffers::Table<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Table<'a>>>(Message::VT_HEADER, None)
-  }
-  #[inline]
-  pub fn bodyLength(&self) -> i64 {
-    self._tab.get::<i64>(Message::VT_BODYLENGTH, Some(0)).unwrap()
-  }
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn header_as_schema(&'a self) -> Option<Schema> {
-    if self.header_type() == MessageHeader::Schema {
-      self.header().map(|u| Schema::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    pub fn version(&self) -> MetadataVersion {
+        self._tab
+            .get::<MetadataVersion>(Message::VT_VERSION, Some(MetadataVersion::V1))
+            .unwrap()
     }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn header_as_dictionary_batch(&'a self) -> Option<DictionaryBatch> {
-    if self.header_type() == MessageHeader::DictionaryBatch {
-      self.header().map(|u| DictionaryBatch::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    pub fn header_type(&self) -> MessageHeader {
+        self._tab
+            .get::<MessageHeader>(Message::VT_HEADER_TYPE, Some(MessageHeader::NONE))
+            .unwrap()
     }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn header_as_record_batch(&'a self) -> Option<RecordBatch> {
-    if self.header_type() == MessageHeader::RecordBatch {
-      self.header().map(|u| RecordBatch::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    pub fn header(&self) -> Option<flatbuffers::Table<'a>> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Table<'a>>>(Message::VT_HEADER, None)
     }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn header_as_tensor(&'a self) -> Option<Tensor> {
-    if self.header_type() == MessageHeader::Tensor {
-      self.header().map(|u| Tensor::init_from_table(u))
-    } else {
-      None
+    #[inline]
+    pub fn bodyLength(&self) -> i64 {
+        self._tab
+            .get::<i64>(Message::VT_BODYLENGTH, Some(0))
+            .unwrap()
     }
-  }
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn header_as_schema(&'a self) -> Option<Schema> {
+        if self.header_type() == MessageHeader::Schema {
+            self.header().map(|u| Schema::init_from_table(u))
+        } else {
+            None
+        }
+    }
 
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn header_as_dictionary_batch(&'a self) -> Option<DictionaryBatch> {
+        if self.header_type() == MessageHeader::DictionaryBatch {
+            self.header().map(|u| DictionaryBatch::init_from_table(u))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn header_as_record_batch(&'a self) -> Option<RecordBatch> {
+        if self.header_type() == MessageHeader::RecordBatch {
+            self.header().map(|u| RecordBatch::init_from_table(u))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn header_as_tensor(&'a self) -> Option<Tensor> {
+        if self.header_type() == MessageHeader::Tensor {
+            self.header().map(|u| Tensor::init_from_table(u))
+        } else {
+            None
+        }
+    }
 }
 
 pub struct MessageArgs {
@@ -502,59 +533,70 @@ impl<'a> Default for MessageArgs {
     }
 }
 pub struct MessageBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
 impl<'a: 'b, 'b> MessageBuilder<'a, 'b> {
-  #[inline]
-  pub fn add_version(&mut self, version: MetadataVersion) {
-    self.fbb_.push_slot::<MetadataVersion>(Message::VT_VERSION, version, MetadataVersion::V1);
-  }
-  #[inline]
-  pub fn add_header_type(&mut self, header_type: MessageHeader) {
-    self.fbb_.push_slot::<MessageHeader>(Message::VT_HEADER_TYPE, header_type, MessageHeader::NONE);
-  }
-  #[inline]
-  pub fn add_header(&mut self, header: flatbuffers::WIPOffset<flatbuffers::UnionWIPOffset>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(Message::VT_HEADER, header);
-  }
-  #[inline]
-  pub fn add_bodyLength(&mut self, bodyLength: i64) {
-    self.fbb_.push_slot::<i64>(Message::VT_BODYLENGTH, bodyLength, 0);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> MessageBuilder<'a, 'b> {
-    let start = _fbb.start_table();
-    MessageBuilder {
-      fbb_: _fbb,
-      start_: start,
+    #[inline]
+    pub fn add_version(&mut self, version: MetadataVersion) {
+        self.fbb_
+            .push_slot::<MetadataVersion>(Message::VT_VERSION, version, MetadataVersion::V1);
     }
-  }
-  #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<Message<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    flatbuffers::WIPOffset::new(o.value())
-  }
+    #[inline]
+    pub fn add_header_type(&mut self, header_type: MessageHeader) {
+        self.fbb_.push_slot::<MessageHeader>(
+            Message::VT_HEADER_TYPE,
+            header_type,
+            MessageHeader::NONE,
+        );
+    }
+    #[inline]
+    pub fn add_header(&mut self, header: flatbuffers::WIPOffset<flatbuffers::UnionWIPOffset>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(Message::VT_HEADER, header);
+    }
+    #[inline]
+    pub fn add_bodyLength(&mut self, bodyLength: i64) {
+        self.fbb_
+            .push_slot::<i64>(Message::VT_BODYLENGTH, bodyLength, 0);
+    }
+    #[inline]
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> MessageBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        MessageBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Message<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
 }
 
 #[inline]
 pub fn get_root_as_message<'a>(buf: &'a [u8]) -> Message<'a> {
-  flatbuffers::get_root::<Message<'a>>(buf)
+    flatbuffers::get_root::<Message<'a>>(buf)
 }
 
 #[inline]
 pub fn get_size_prefixed_root_as_message<'a>(buf: &'a [u8]) -> Message<'a> {
-  flatbuffers::get_size_prefixed_root::<Message<'a>>(buf)
+    flatbuffers::get_size_prefixed_root::<Message<'a>>(buf)
 }
 
 #[inline]
 pub fn finish_message_buffer<'a, 'b>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    root: flatbuffers::WIPOffset<Message<'a>>) {
-  fbb.finish(root, None);
+    root: flatbuffers::WIPOffset<Message<'a>>,
+) {
+    fbb.finish(root, None);
 }
 
 #[inline]
-pub fn finish_size_prefixed_message_buffer<'a, 'b>(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>, root: flatbuffers::WIPOffset<Message<'a>>) {
-  fbb.finish_size_prefixed(root, None);
+pub fn finish_size_prefixed_message_buffer<'a, 'b>(
+    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    root: flatbuffers::WIPOffset<Message<'a>>,
+) {
+    fbb.finish_size_prefixed(root, None);
 }
