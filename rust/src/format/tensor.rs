@@ -2,6 +2,8 @@
 
 #![allow(dead_code)]
 #![allow(unused_imports)]
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
 
 use std::mem;
 use std::cmp::Ordering;
