@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# Arrow: Physical memory layout
+# Physical memory layout
 
 ## Definitions / Terminology
 

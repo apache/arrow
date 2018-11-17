@@ -25,14 +25,18 @@ hardware. It also provides computational libraries and zero-copy streaming
 messaging and interprocess communication.
 
 .. toctree::
+   :maxdepth: 1
    :caption: Memory Format
 
-   format
+   format/README
+   format/Guidelines
+   format/Layout
+   format/Metadata
+   format/IPC
 
 .. toctree::
    :maxdepth: 2
    :caption: Languages
 
-   language_interop
    cpp/index
    python/index

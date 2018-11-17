@@ -17,7 +17,7 @@
   under the License.
 -->
 
-## Arrow specification documents
+# Arrow specification documents
 
 Currently, the Arrow specification consists of these pieces:
 

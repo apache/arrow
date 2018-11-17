@@ -30,6 +30,8 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+from recommonmark.parser import CommonMarkParser
+
 import os
 import sys
 
@@ -77,14 +79,25 @@ napoleon_use_rtype = False
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
-breathe_projects = {"arrow_cpp": "../../../cpp/apidoc/xml"}
+breathe_projects = {"arrow_cpp": "../../cpp/apidoc/xml"}
 breathe_default_project = "arrow_cpp"
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-# source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+
+class CMWithLicenseParser(CommonMarkParser):
+
+    def parse(self, inputstring, document):
+        # Strip the license header from the MarkDown file. Sadly recommmark cannot handle this.
+        inputstring = inputstring[inputstring.index('>'):]
+        return super(CMWithLicenseParser, self).parse(inputstring, document)
+
+source_suffix = ['.rst', '.md']
+
+source_parsers = {
+   '.md': CMWithLicenseParser
+}
 
 autosummary_generate = True
 

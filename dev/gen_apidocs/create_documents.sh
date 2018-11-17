@@ -91,7 +91,7 @@ popd
 pushd arrow/python
 python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
     --with-plasma --with-parquet --inplace
-python setup.py build_sphinx -s doc/source
+python setup.py build_sphinx -s ../doc/source
 mkdir -p ../site/asf-site/docs/python
 rsync -r doc/_build/html/ ../site/asf-site/docs/python
 popd
