@@ -1282,12 +1282,6 @@ Status BinaryBuilder::AppendNull() {
   return Status::OK();
 }
 
-void BinaryBuilder::UnsafeAppendNull() {
-  const int64_t num_bytes = value_data_builder_.length();
-  offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_bytes));
-  UnsafeAppendToBitmap(false);
-}
-
 Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   // Write final offset (values length)
   RETURN_NOT_OK(AppendNextOffset());

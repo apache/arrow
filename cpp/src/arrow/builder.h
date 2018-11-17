@@ -57,7 +57,8 @@ constexpr int64_t kMinBuilderCapacity = 1 << 5;
 /// (see Append methods) and as a side effect the current number of slots and
 /// the null count.
 ///
-/// NB: Users are expected to cast to one of the concrete types below before use
+/// \note Users are expected to use builders as one of the concrete types below.
+/// For example, ArrayBuilder* pointing to BinaryBuilder should be downcast before use.
 class ARROW_EXPORT ArrayBuilder {
  public:
   explicit ArrayBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
@@ -372,11 +373,7 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
           ARROW_MEMORY_POOL_DEFAULT)
       : PrimitiveBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
-  using ArrayBuilder::AppendToBitmap;
-  using ArrayBuilder::SetNotNull;
   using ArrayBuilder::UnsafeAppendNull;
-  using ArrayBuilder::UnsafeAppendToBitmap;
-  using ArrayBuilder::UnsafeSetNotNull;
   using PrimitiveBuilder<T>::AppendValues;
   using PrimitiveBuilder<T>::Resize;
   using PrimitiveBuilder<T>::Reserve;
@@ -867,8 +864,6 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
 
   Status AppendNull();
 
-  void UnsafeAppendNull();
-
   /// \brief Append without checking capacity
   ///
   /// Offsets and data should have been presized using Reserve() and
@@ -885,6 +880,12 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
 
   void UnsafeAppend(const std::string& value) {
     UnsafeAppend(value.c_str(), static_cast<int32_t>(value.size()));
+  }
+
+  void UnsafeAppendNull() {
+    const int64_t num_bytes = value_data_builder_.length();
+    offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_bytes));
+    UnsafeAppendToBitmap(false);
   }
 
   void Reset() override;
