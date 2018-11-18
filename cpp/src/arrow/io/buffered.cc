@@ -50,19 +50,22 @@ class BufferedBase {
     return !is_open_;
   }
 
-  Status ResizeBuffer(int64_t new_buffer_size) {
-    if (!buffer_ || buffer_.use_count() > 1) {
-      // On first invocation, or if there are any exported references to the
-      // current buffer (e.g. through a zero-copy slice), then we allocate a
+  Status ResetBuffer() {
+    if (!buffer_) {
+      // On first invocation, or if the buffer has been released, we allocate a
       // new buffer
-      RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_buffer_size, &buffer_));
-    } else {
-      RETURN_NOT_OK(buffer_->Resize(new_buffer_size));
+      RETURN_NOT_OK(AllocateResizableBuffer(pool_, buffer_size_, &buffer_));
+    } else if (buffer_->size() != buffer_size_) {
+      RETURN_NOT_OK(buffer_->Resize(buffer_size_));
     }
     buffer_data_ = reinterpret_cast<char*>(buffer_->mutable_data());
     buffer_pos_ = 0;
-    buffer_size_ = new_buffer_size;
     return Status::OK();
+  }
+
+  Status ResizeBuffer(int64_t new_buffer_size) {
+    buffer_size_ = new_buffer_size;
+    return ResetBuffer();
   }
 
   void AppendToBuffer(const void* data, int64_t nbytes) {
@@ -150,6 +153,7 @@ class BufferedOutputStream::Impl : public BufferedBase {
   Status Detach(std::shared_ptr<OutputStream>* raw) {
     RETURN_NOT_OK(Flush());
     *raw = std::move(raw_);
+    is_open_ = false;
     return Status::OK();
   }
 
@@ -219,14 +223,16 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
       : BufferedBase(pool),
         input_stream_(std::move(input_stream)),
         raw_input_(input_stream.get()),
-        raw_random_access_(nullptr) {}
+        raw_random_access_(nullptr),
+        bytes_buffered_(0) {}
 
   BufferedReaderImpl(std::shared_ptr<RandomAccessFile> random_access_file,
                      MemoryPool* pool)
       : BufferedBase(pool),
         random_access_file_(std::move(random_access_file)),
         raw_input_(random_access_file.get()),
-        raw_random_access_(random_access_file.get()) {}
+        raw_random_access_(random_access_file.get()),
+        bytes_buffered_(0) {}
 
   ~BufferedReaderImpl() { DCHECK(Close().ok()); }
 
@@ -246,7 +252,7 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
       DCHECK_GE(raw_pos_, 0);
     }
     // Shift by bytes_buffered to return semantic stream position
-    *position = raw_pos_ + buffer_pos_ - bytes_buffered_;
+    *position = raw_pos_ - bytes_buffered_;
     return Status::OK();
   }
 
@@ -260,7 +266,7 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
   }
 
   util::string_view Peek(int64_t nbytes) const {
-    int64_t peek_size = std::min(nbytes, bytes_buffered_ - buffer_pos_);
+    int64_t peek_size = std::min(nbytes, bytes_buffered_);
     return util::string_view(buffer_data_ + buffer_pos_, static_cast<size_t>(peek_size));
   }
 
@@ -278,6 +284,98 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
     return std::move(random_access_file_);
   }
 
+  void RewindBuffer() {
+    // Invalidate buffered data, as with a Seek or large Read
+    buffer_pos_ = bytes_buffered_ = 0;
+  }
+
+  Status BufferIfNeeded() {
+    // TODO more graceful handling of zero-copy sources. Should
+    // InputStream/Readable have a virtual supports_zero_copy method?
+
+    if (bytes_buffered_ == 0) {
+      if (buffer_.use_count() > 1) {
+        // A reference to the internal buffer has been exported, so we allocate
+        // a new buffer here. This optimization avoids unnecessary memory
+        // allocations and copies, while making exported buffers safe for use
+        // if the caller does not destroy them
+        buffer_ = nullptr;
+        RETURN_NOT_OK(ResetBuffer());
+      }
+
+      // Fill buffer
+      RETURN_NOT_OK(input_stream_->Read(buffer_size_, &bytes_buffered_, buffer_data_));
+      buffer_pos_ = 0;
+    }
+    return Status::OK();
+  }
+
+  void ConsumeBuffer(int64_t nbytes) {
+    buffer_pos_ += nbytes;
+    bytes_buffered_ -= nbytes;
+  }
+
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+    std::lock_guard<std::mutex> guard(lock_);
+    DCHECK_GT(nbytes, 0);
+
+    if (nbytes < buffer_size_) {
+      // Pre-buffer for small reads
+      RETURN_NOT_OK(BufferIfNeeded());
+    }
+
+    if (nbytes > bytes_buffered_) {
+      // Copy buffered bytes into out, then read rest
+      memcpy(out, buffer_data_ + buffer_pos_, bytes_buffered_);
+      RETURN_NOT_OK(
+          input_stream_->Read(nbytes - bytes_buffered_, bytes_read,
+                              reinterpret_cast<uint8_t*>(out) + bytes_buffered_));
+      *bytes_read += bytes_buffered_;
+      RewindBuffer();
+    } else {
+      memcpy(out, buffer_data_ + buffer_pos_, nbytes);
+      *bytes_read = nbytes;
+      ConsumeBuffer(nbytes);
+    }
+    return Status::OK();
+  }
+
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+    if (nbytes > bytes_buffered_) {
+      // Cannot do zero copy read, instead allocate buffer and read into that
+      std::shared_ptr<ResizableBuffer> buffer;
+      RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
+
+      int64_t bytes_read = 0;
+      RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
+      if (bytes_read < nbytes) {
+        RETURN_NOT_OK(buffer->Resize(bytes_read));
+        buffer->ZeroPadding();
+      }
+      *out = buffer;
+    } else {
+      RETURN_NOT_OK(BufferIfNeeded());
+
+      // Slice the internal buffer. On subsequent reads, a new buffer will be
+      // allocated if any caller retains a reference to the internal buffer.
+      *out = SliceBuffer(buffer_, buffer_pos_, nbytes);
+      ConsumeBuffer(nbytes);
+    }
+    return Status::OK();
+  }
+
+  Status Seek(int64_t position) {
+    // Invalidate buffered bytes, then seek
+    RewindBuffer();
+    return random_access_file_->Seek(position);
+  }
+
+  // For providing access to the raw file handles
+  std::shared_ptr<InputStream> input_stream() const { return input_stream_; }
+  std::shared_ptr<RandomAccessFile> random_access_file() const {
+    return random_access_file_;
+  }
+
  private:
   // So we can use this PIMPL for either case
   std::shared_ptr<InputStream> input_stream_;
@@ -286,6 +384,8 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
   InputStream* raw_input_;
   RandomAccessFile* raw_random_access_;
 
+  // Number of remaining bytes in the buffer, to be reduced on each read from
+  // the buffer
   int64_t bytes_buffered_;
 };
 
@@ -331,11 +431,11 @@ std::shared_ptr<InputStream> BufferedInputStream::Detach() {
 }
 
 Status BufferedInputStream::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
-  return Status::NotImplemented("");
+  return impl_->Read(nbytes, bytes_read, out);
 }
 
 Status BufferedInputStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  return Status::NotImplemented("");
+  return impl_->Read(nbytes, out);
 }
 
 }  // namespace io

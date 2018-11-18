@@ -40,6 +40,7 @@
 #include "arrow/io/test-common.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace io {
@@ -54,10 +55,11 @@ static std::string GenerateRandomData(size_t nbytes) {
   return std::string(reinterpret_cast<char*>(data.data()), nbytes);
 }
 
+template <typename FileType>
 class FileTestFixture : public ::testing::Test {
  public:
   void SetUp() {
-    path_ = "arrow-test-io-buffered-output-stream.txt";
+    path_ = "arrow-test-io-buffered-stream.txt";
     EnsureFileDeleted();
   }
 
@@ -69,19 +71,29 @@ class FileTestFixture : public ::testing::Test {
     }
   }
 
+  void AssertTell(int64_t expected) {
+    int64_t actual;
+    ASSERT_OK(stream_->Tell(&actual));
+    ASSERT_EQ(expected, actual);
+  }
+
  protected:
+  int fd_;
+  std::shared_ptr<FileType> stream_;
   std::string path_;
 };
 
 // ----------------------------------------------------------------------
-// File output tests
+// Buffered output tests
 
 constexpr int64_t kDefaultBufferSize = 4096;
 
-class TestBufferedOutputStream : public FileTestFixture {
+class TestBufferedOutputStream : public FileTestFixture<BufferedOutputStream> {
  public:
   void OpenBuffered(int64_t buffer_size = kDefaultBufferSize, bool append = false) {
+    // So that any open file is closed
     stream_.reset();
+
     std::shared_ptr<FileOutputStream> file;
     ASSERT_OK(FileOutputStream::Open(path_, append, &file));
     fd_ = file->file_descriptor();
@@ -116,16 +128,6 @@ class TestBufferedOutputStream : public FileTestFixture {
     }
     ASSERT_OK(stream_->Write(data + data_pos, data_size - data_pos));
   }
-
-  void AssertTell(int64_t expected) {
-    int64_t actual;
-    ASSERT_OK(stream_->Tell(&actual));
-    ASSERT_EQ(expected, actual);
-  }
-
- protected:
-  int fd_;
-  std::shared_ptr<BufferedOutputStream> stream_;
 };
 
 TEST_F(TestBufferedOutputStream, DestructorClosesFile) {
@@ -133,6 +135,25 @@ TEST_F(TestBufferedOutputStream, DestructorClosesFile) {
   ASSERT_FALSE(FileIsClosed(fd_));
   stream_.reset();
   ASSERT_TRUE(FileIsClosed(fd_));
+}
+
+TEST_F(TestBufferedOutputStream, Detach) {
+  OpenBuffered();
+  const std::string datastr = "1234568790";
+
+  ASSERT_OK(stream_->Write(datastr.data(), 10));
+
+  std::shared_ptr<OutputStream> detached_stream;
+  ASSERT_OK(stream_->Detach(&detached_stream));
+
+  // Destroying the stream does not close the file because we have detached
+  stream_.reset();
+  ASSERT_FALSE(FileIsClosed(fd_));
+
+  ASSERT_OK(detached_stream->Close());
+  ASSERT_TRUE(FileIsClosed(fd_));
+
+  AssertFileContents(path_, datastr);
 }
 
 TEST_F(TestBufferedOutputStream, ExplicitCloseClosesFile) {
@@ -276,6 +297,82 @@ TEST_F(TestBufferedOutputStream, TruncatesFile) {
   OpenBuffered();
   AssertFileContents(path_, "");
 }
+
+// ----------------------------------------------------------------------
+// BufferedInputStream tests
+
+class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
+ public:
+  // void OpenBuffered(const std::string& file_contents,
+  //                   int64_t buffer_size = kDefaultBufferSize) {
+  //   // So that any open file is closed, and this method can be called multiple times
+  //   stream_.reset();
+
+  //   std::shared_ptr<FileOutputStream> file;
+  //   ASSERT_OK(FileOutputStream::Open(path_, &file));
+  //   ASSERT_OK(file->Write(file_contents));
+  //   ASSERT_OK(file->Close());
+  //   std::shared_ptr<ReadableFile> rd_file;
+  // }
+};
+
+TEST_F(TestBufferedInputStream, BasicOperation) {
+  const std::string test_data =
+      ("informatic"
+       "acrobatics"
+       "immolation");
+  auto raw = std::make_shared<BufferReader>(std::make_shared<Buffer>(test_data));
+
+  const int64_t kBufferSize = 10;
+  std::shared_ptr<BufferedInputStream> buffered;
+  ASSERT_OK(
+      BufferedInputStream::Create(raw, kBufferSize, default_memory_pool(), &buffered));
+
+  ASSERT_EQ(kBufferSize, buffered->buffer_size());
+
+  int64_t stream_position = -1;
+  ASSERT_OK(buffered->Tell(&stream_position));
+  ASSERT_EQ(0, stream_position);
+
+  // Nothing in the buffer
+  ASSERT_EQ(0, buffered->bytes_buffered());
+  util::string_view peek = buffered->Peek(10);
+  ASSERT_EQ(0, peek.size());
+
+  char buf[kBufferSize];
+  int64_t bytes_read;
+  ASSERT_OK(buffered->Read(4, &bytes_read, buf));
+  ASSERT_EQ(4, bytes_read);
+  ASSERT_EQ(0, memcmp(buf, test_data.data(), 4));
+
+  // 6 bytes remaining in buffer
+  ASSERT_EQ(6, buffered->bytes_buffered());
+
+  // Buffered position is 4
+  ASSERT_OK(buffered->Tell(&stream_position));
+  ASSERT_EQ(4, stream_position);
+
+  // Raw position actually 10
+  ASSERT_OK(raw->Tell(&stream_position));
+  ASSERT_EQ(10, stream_position);
+
+  // Peek does not look beyond end of buffer
+  peek = buffered->Peek(10);
+  ASSERT_EQ(6, peek.size());
+  ASSERT_EQ(0, memcmp(peek.data(), test_data.data() + 4, 6));
+
+  // Reading to end of buffered bytes does not cause any more data to be
+  // buffered
+  ASSERT_OK(buffered->Read(6, &bytes_read, buf));
+  ASSERT_EQ(6, bytes_read);
+  ASSERT_EQ(0, memcmp(buf, test_data.data() + 4, 6));
+
+  ASSERT_EQ(0, buffered->bytes_buffered());
+}
+
+TEST_F(TestBufferedInputStream, ReadBuffer) {}
+
+TEST_F(TestBufferedInputStream, SetBufferSize) {}
 
 }  // namespace io
 }  // namespace arrow
