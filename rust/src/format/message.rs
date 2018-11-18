@@ -217,8 +217,7 @@ impl<'a> RecordBatch<'a> {
             .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<FieldNode>>>(
                 RecordBatch::VT_NODES,
                 None,
-            )
-            .map(|v| v.safe_slice())
+            ).map(|v| v.safe_slice())
     }
     /// Buffers correspond to the pre-ordered flattened buffer tree
     ///
@@ -232,8 +231,7 @@ impl<'a> RecordBatch<'a> {
             .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<Buffer>>>(
                 RecordBatch::VT_BUFFERS,
                 None,
-            )
-            .map(|v| v.safe_slice())
+            ).map(|v| v.safe_slice())
     }
 }
 

@@ -148,8 +148,7 @@ impl<'a> Footer<'a> {
             .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<Block>>>(
                 Footer::VT_DICTIONARIES,
                 None,
-            )
-            .map(|v| v.safe_slice())
+            ).map(|v| v.safe_slice())
     }
     #[inline]
     pub fn recordBatches(&self) -> Option<&'a [Block]> {
@@ -157,8 +156,7 @@ impl<'a> Footer<'a> {
             .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<Block>>>(
                 Footer::VT_RECORDBATCHES,
                 None,
-            )
-            .map(|v| v.safe_slice())
+            ).map(|v| v.safe_slice())
     }
 }
 
