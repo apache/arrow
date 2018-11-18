@@ -53,10 +53,13 @@ constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1
 constexpr int64_t kMinBuilderCapacity = 1 << 5;
 
 /// Base class for all data array builders.
-//
+///
 /// This class provides a facilities for incrementally building the null bitmap
 /// (see Append methods) and as a side effect the current number of slots and
 /// the null count.
+///
+/// \note Users are expected to use builders as one of the concrete types below.
+/// For example, ArrayBuilder* pointing to BinaryBuilder should be downcast before use.
 class ARROW_EXPORT ArrayBuilder {
  public:
   explicit ArrayBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
@@ -79,16 +82,6 @@ class ARROW_EXPORT ArrayBuilder {
   int64_t length() const { return length_; }
   int64_t null_count() const { return null_count_; }
   int64_t capacity() const { return capacity_; }
-
-  /// Append to null bitmap
-  Status AppendToBitmap(bool is_valid);
-
-  /// Vector append. Treat each zero byte as a null.   If valid_bytes is null
-  /// assume all of length bits are valid.
-  Status AppendToBitmap(const uint8_t* valid_bytes, int64_t length);
-
-  /// Set the next length bits to not null (i.e. valid).
-  Status SetNotNull(int64_t length);
 
   /// \brief Ensure that enough memory has been allocated to fit the indicated
   /// number of total elements in the builder, including any that have already
@@ -131,7 +124,22 @@ class ARROW_EXPORT ArrayBuilder {
 
   std::shared_ptr<DataType> type() const { return type_; }
 
+ protected:
+  ArrayBuilder() {}
+
+  /// Append to null bitmap
+  Status AppendToBitmap(bool is_valid);
+
+  /// Vector append. Treat each zero byte as a null.   If valid_bytes is null
+  /// assume all of length bits are valid.
+  Status AppendToBitmap(const uint8_t* valid_bytes, int64_t length);
+
+  /// Set the next length bits to not null (i.e. valid).
+  Status SetNotNull(int64_t length);
+
   // Unsafe operations (don't check capacity/don't resize)
+
+  void UnsafeAppendNull() { UnsafeAppendToBitmap(false); }
 
   // Append to null bitmap, update the length
   void UnsafeAppendToBitmap(bool is_valid) {
@@ -175,10 +183,14 @@ class ARROW_EXPORT ArrayBuilder {
     length_ += std::distance(begin, end);
   }
 
-  void UnsafeAppendNull() { UnsafeAppendToBitmap(false); }
+  // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
+  // assume all of length bits are valid.
+  void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length);
 
- protected:
-  ArrayBuilder() {}
+  void UnsafeAppendToBitmap(const std::vector<bool>& is_valid);
+
+  // Set the next length bits to not null (i.e. valid).
+  void UnsafeSetNotNull(int64_t length);
 
   std::shared_ptr<DataType> type_;
   MemoryPool* pool_;
@@ -194,15 +206,6 @@ class ARROW_EXPORT ArrayBuilder {
 
   // Child value array builders. These are owned by this class
   std::vector<std::unique_ptr<ArrayBuilder>> children_;
-
-  // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
-  // assume all of length bits are valid.
-  void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length);
-
-  void UnsafeAppendToBitmap(const std::vector<bool>& is_valid);
-
-  // Set the next length bits to not null (i.e. valid).
-  void UnsafeSetNotNull(int64_t length);
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
@@ -371,6 +374,7 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
           ARROW_MEMORY_POOL_DEFAULT)
       : PrimitiveBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
+  using ArrayBuilder::UnsafeAppendNull;
   using PrimitiveBuilder<T>::AppendValues;
   using PrimitiveBuilder<T>::Resize;
   using PrimitiveBuilder<T>::Reserve;
@@ -627,6 +631,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
   using ArrayBuilder::Advance;
+  using ArrayBuilder::UnsafeAppendNull;
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
@@ -876,6 +881,12 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
 
   void UnsafeAppend(const std::string& value) {
     UnsafeAppend(value.c_str(), static_cast<int32_t>(value.size()));
+  }
+
+  void UnsafeAppendNull() {
+    const int64_t num_bytes = value_data_builder_.length();
+    offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_bytes));
+    UnsafeAppendToBitmap(false);
   }
 
   void Reset() override;

@@ -749,7 +749,7 @@ class DictEncodeImpl : public HashTableKernel<Type, DictEncodeImpl<Type>> {
 
   Status Reserve(const int64_t length) { return indices_builder_.Reserve(length); }
 
-  void ObserveNull() { indices_builder_.UnsafeAppendToBitmap(false); }
+  void ObserveNull() { indices_builder_.UnsafeAppendNull(); }
 
   void ObserveFound(const hash_slot_t slot) { indices_builder_.UnsafeAppend(slot); }
 
