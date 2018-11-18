@@ -19,7 +19,7 @@ FROM maven:3.6-jdk-8
 
 WORKDIR /arrow/java
 
-CMD mvn -Dcheckstyle.skip=true \
-        -Dmaven.repo.local=/build/java/repository \
+CMD mvn -Dmaven.repo.local=/build/java/repository \
+        -Dalt.build.dir=/build/java \
         -DforkCount=0 \
         install

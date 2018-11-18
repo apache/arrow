@@ -658,6 +658,19 @@
         <module>gandiva</module>
       </modules>
     </profile>
+
+    <profile>
+      <!-- to speed up the docker-compose builds -->
+      <id>alternateBuildDir</id>
+      <activation>
+        <property>
+          <name>alt.build.dir</name>
+        </property>
+      </activation>
+      <build>
+        <directory>${alt.build.dir}</directory>
+      </build>
+    </profile>
   </profiles>
 
 </project>
