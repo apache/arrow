@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,8 +16,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-PKG_CPPFLAGS=@cflags@
-PKG_CXXFLAGS+=$(C_VISIBILITY)
-CXX_STD=CXX11
-PKG_LIBS=@libs@  -Wl,-rpath,/usr/local/lib
-#CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
+set -e
+
+export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
+export ARROW_HOME=$CONDA_PREFIX
+
+# For newer GCC per https://arrow.apache.org/docs/python/development.html#known-issues
+export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
+export PKG_CXXFLAGS=$CXXFLAGS
+
+# Build arrow
+pushd /arrow/r
+
+rm src/RcppExports*
+Rscript -e "Rcpp::compileAttributes()"
+R CMD build --keep-empty-dirs .
+R CMD INSTALL $(ls | grep arrow_*.tar.gz)
+
+export _R_CHECK_FORCE_SUGGESTS_=false
+R CMD check $(ls | grep arrow_*.tar.gz) --as-cran --no-manual
+
+popd

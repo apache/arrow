@@ -5,4 +5,5 @@ src/.clang-format
 LICENSE.md
 ^data-raw$
 lint.sh
-
+Dockerfile
+.*\.tar\.gz
