@@ -397,7 +397,8 @@ def dataframe_to_types(df, preserve_index, columns=None):
     return names, types, metadata
 
 
-def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None):
+def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
+                        safe=True):
     names, column_names, index_columns, index_column_names, \
         columns_to_convert, convert_types = _get_columns_to_convert(
             df, schema, preserve_index, columns

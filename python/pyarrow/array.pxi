@@ -48,12 +48,16 @@ cdef _is_array_like(obj):
     except ImportError:
         return isinstance(obj, np.ndarray)
 
-def nd_array_to_arrow_type(object values, DataType type):
-    return pyarrow_wrap_data_type(_ndarray_to_arrow_type(values, type))
 
-cdef shared_ptr[CDataType] _ndarray_to_arrow_type(object values, DataType type):
+def nd_array_to_arrow_type(object values, DataType type):
+    return pyarrow_wrap_data_type(_ndarray_to_type(values, type))
+
+
+cdef shared_ptr[CDataType] _ndarray_to_type(object values, DataType type):
     cdef shared_ptr[CDataType] c_type
+
     dtype = values.dtype
+
     if type is None and dtype != object:
         with nogil:
             check_status(NumPyDtypeToArrow(dtype, &c_type))
@@ -63,12 +67,13 @@ cdef shared_ptr[CDataType] _ndarray_to_arrow_type(object values, DataType type):
 
     return c_type
 
-cdef _ndarray_to_array(object values, object mask, DataType type,
-                       c_bool use_pandas_null_sentinels,
-                       CMemoryPool* pool):
-    cdef shared_ptr[CChunkedArray] chunked_out
 
-    c_type = _ndarray_to_arrow_type(values, type)
+cdef _ndarray_to_array(object values, object mask, DataType type,
+                       c_bool from_pandas, c_bool safe, CMemoryPool* pool):
+    cdef:
+        shared_ptr[CChunkedArray] chunked_out
+        shared_ptr[CDataType] c_type = _ndarray_to_type(values, type)
+        CCastOptions cast_options = CCastOptions(safe)
 
     with nogil:
         check_status(NdarrayToArrow(pool, values, mask, from_pandas,
