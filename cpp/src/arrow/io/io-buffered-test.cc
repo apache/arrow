@@ -73,13 +73,13 @@ class FileTestFixture : public ::testing::Test {
 
   void AssertTell(int64_t expected) {
     int64_t actual;
-    ASSERT_OK(stream_->Tell(&actual));
+    ASSERT_OK(buffered_->Tell(&actual));
     ASSERT_EQ(expected, actual);
   }
 
  protected:
   int fd_;
-  std::shared_ptr<FileType> stream_;
+  std::shared_ptr<FileType> buffered_;
   std::string path_;
 };
 
@@ -92,7 +92,7 @@ class TestBufferedOutputStream : public FileTestFixture<BufferedOutputStream> {
  public:
   void OpenBuffered(int64_t buffer_size = kDefaultBufferSize, bool append = false) {
     // So that any open file is closed
-    stream_.reset();
+    buffered_.reset();
 
     std::shared_ptr<FileOutputStream> file;
     ASSERT_OK(FileOutputStream::Open(path_, append, &file));
@@ -105,7 +105,7 @@ class TestBufferedOutputStream : public FileTestFixture<BufferedOutputStream> {
       lseek(fd_, 0, SEEK_END);
 #endif
     }
-    ASSERT_OK(BufferedOutputStream::Create(file, buffer_size, &stream_));
+    ASSERT_OK(BufferedOutputStream::Create(file, buffer_size, &buffered_));
   }
 
   void WriteChunkwise(const std::string& datastr, const std::valarray<int64_t>& sizes) {
@@ -123,17 +123,17 @@ class TestBufferedOutputStream : public FileTestFixture<BufferedOutputStream> {
       if (data_pos + size > data_size) {
         break;
       }
-      ASSERT_OK(stream_->Write(data + data_pos, size));
+      ASSERT_OK(buffered_->Write(data + data_pos, size));
       data_pos += size;
     }
-    ASSERT_OK(stream_->Write(data + data_pos, data_size - data_pos));
+    ASSERT_OK(buffered_->Write(data + data_pos, data_size - data_pos));
   }
 };
 
 TEST_F(TestBufferedOutputStream, DestructorClosesFile) {
   OpenBuffered();
   ASSERT_FALSE(FileIsClosed(fd_));
-  stream_.reset();
+  buffered_.reset();
   ASSERT_TRUE(FileIsClosed(fd_));
 }
 
@@ -141,13 +141,13 @@ TEST_F(TestBufferedOutputStream, Detach) {
   OpenBuffered();
   const std::string datastr = "1234568790";
 
-  ASSERT_OK(stream_->Write(datastr.data(), 10));
+  ASSERT_OK(buffered_->Write(datastr.data(), 10));
 
   std::shared_ptr<OutputStream> detached_stream;
-  ASSERT_OK(stream_->Detach(&detached_stream));
+  ASSERT_OK(buffered_->Detach(&detached_stream));
 
   // Destroying the stream does not close the file because we have detached
-  stream_.reset();
+  buffered_.reset();
   ASSERT_FALSE(FileIsClosed(fd_));
 
   ASSERT_OK(detached_stream->Close());
@@ -158,14 +158,14 @@ TEST_F(TestBufferedOutputStream, Detach) {
 
 TEST_F(TestBufferedOutputStream, ExplicitCloseClosesFile) {
   OpenBuffered();
-  ASSERT_FALSE(stream_->closed());
+  ASSERT_FALSE(buffered_->closed());
   ASSERT_FALSE(FileIsClosed(fd_));
-  ASSERT_OK(stream_->Close());
-  ASSERT_TRUE(stream_->closed());
+  ASSERT_OK(buffered_->Close());
+  ASSERT_TRUE(buffered_->closed());
   ASSERT_TRUE(FileIsClosed(fd_));
   // Idempotency
-  ASSERT_OK(stream_->Close());
-  ASSERT_TRUE(stream_->closed());
+  ASSERT_OK(buffered_->Close());
+  ASSERT_TRUE(buffered_->closed());
   ASSERT_TRUE(FileIsClosed(fd_));
 }
 
@@ -173,7 +173,7 @@ TEST_F(TestBufferedOutputStream, InvalidWrites) {
   OpenBuffered();
 
   const char* data = "";
-  ASSERT_RAISES(Invalid, stream_->Write(data, -1));
+  ASSERT_RAISES(Invalid, buffered_->Write(data, -1));
 }
 
 TEST_F(TestBufferedOutputStream, TinyWrites) {
@@ -182,9 +182,9 @@ TEST_F(TestBufferedOutputStream, TinyWrites) {
   const std::string datastr = "1234568790";
   const char* data = datastr.data();
 
-  ASSERT_OK(stream_->Write(data, 2));
-  ASSERT_OK(stream_->Write(data + 2, 6));
-  ASSERT_OK(stream_->Close());
+  ASSERT_OK(buffered_->Write(data, 2));
+  ASSERT_OK(buffered_->Write(data + 2, 6));
+  ASSERT_OK(buffered_->Close());
 
   AssertFileContents(path_, datastr.substr(0, 8));
 }
@@ -197,7 +197,7 @@ TEST_F(TestBufferedOutputStream, SmallWrites) {
   const std::valarray<int64_t> sizes = {1, 1, 2, 3, 5, 8, 13};
 
   WriteChunkwise(data, sizes);
-  ASSERT_OK(stream_->Close());
+  ASSERT_OK(buffered_->Close());
 
   AssertFileContents(path_, data);
 }
@@ -209,7 +209,7 @@ TEST_F(TestBufferedOutputStream, MixedWrites) {
   const std::valarray<int64_t> sizes = {1, 1, 2, 3, 70000};
 
   WriteChunkwise(data, sizes);
-  ASSERT_OK(stream_->Close());
+  ASSERT_OK(buffered_->Close());
 
   AssertFileContents(path_, data);
 }
@@ -221,7 +221,7 @@ TEST_F(TestBufferedOutputStream, LargeWrites) {
   const std::valarray<int64_t> sizes = {10000, 60000, 70000};
 
   WriteChunkwise(data, sizes);
-  ASSERT_OK(stream_->Close());
+  ASSERT_OK(buffered_->Close());
 
   AssertFileContents(path_, data);
 }
@@ -232,34 +232,34 @@ TEST_F(TestBufferedOutputStream, Flush) {
   const std::string datastr = "1234568790";
   const char* data = datastr.data();
 
-  ASSERT_OK(stream_->Write(data, datastr.size()));
-  ASSERT_OK(stream_->Flush());
+  ASSERT_OK(buffered_->Write(data, datastr.size()));
+  ASSERT_OK(buffered_->Flush());
 
   AssertFileContents(path_, datastr);
 
-  ASSERT_OK(stream_->Close());
+  ASSERT_OK(buffered_->Close());
 }
 
 TEST_F(TestBufferedOutputStream, SetBufferSize) {
   OpenBuffered(20);
 
-  ASSERT_EQ(20, stream_->buffer_size());
+  ASSERT_EQ(20, buffered_->buffer_size());
 
   const std::string datastr = "1234568790abcdefghij";
   const char* data = datastr.data();
 
   // Write part of the data, then shrink buffer size to make sure it gets
   // flushed
-  ASSERT_OK(stream_->Write(data, 10));
-  ASSERT_OK(stream_->SetBufferSize(10));
+  ASSERT_OK(buffered_->Write(data, 10));
+  ASSERT_OK(buffered_->SetBufferSize(10));
 
-  ASSERT_EQ(10, stream_->buffer_size());
+  ASSERT_EQ(10, buffered_->buffer_size());
 
-  ASSERT_OK(stream_->Write(data + 10, 10));
-  ASSERT_OK(stream_->Flush());
+  ASSERT_OK(buffered_->Write(data + 10, 10));
+  ASSERT_OK(buffered_->Flush());
 
   AssertFileContents(path_, datastr);
-  ASSERT_OK(stream_->Close());
+  ASSERT_OK(buffered_->Close());
 }
 
 TEST_F(TestBufferedOutputStream, Tell) {
@@ -272,14 +272,14 @@ TEST_F(TestBufferedOutputStream, Tell) {
   WriteChunkwise(std::string(100000, 'x'), {60000});
   AssertTell(100100);
 
-  ASSERT_OK(stream_->Close());
+  ASSERT_OK(buffered_->Close());
 
   OpenBuffered(kDefaultBufferSize, true /* append */);
   AssertTell(100100);
   WriteChunkwise(std::string(90, 'x'), {1, 1, 2, 3, 5, 8});
   AssertTell(100190);
 
-  ASSERT_OK(stream_->Close());
+  ASSERT_OK(buffered_->Close());
 
   OpenBuffered();
   AssertTell(0);
@@ -289,8 +289,8 @@ TEST_F(TestBufferedOutputStream, TruncatesFile) {
   OpenBuffered();
 
   const std::string datastr = "1234568790";
-  ASSERT_OK(stream_->Write(datastr.data(), datastr.size()));
-  ASSERT_OK(stream_->Close());
+  ASSERT_OK(buffered_->Write(datastr.data(), datastr.size()));
+  ASSERT_OK(buffered_->Close());
 
   AssertFileContents(path_, datastr);
 
@@ -301,6 +301,8 @@ TEST_F(TestBufferedOutputStream, TruncatesFile) {
 // ----------------------------------------------------------------------
 // BufferedInputStream tests
 
+const char kExample1[] = ("informaticacrobaticsimmolation");
+
 class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
  public:
   void SetUp() {
@@ -309,10 +311,7 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
   }
 
   void MakeExample1(int64_t buffer_size, MemoryPool* pool = default_memory_pool()) {
-    test_data_ =
-        ("informatic"
-         "acrobatics"
-         "immolation");
+    test_data_ = kExample1;
 
     std::shared_ptr<FileOutputStream> file_out;
     ASSERT_OK(FileOutputStream::Open(path_, &file_out));
@@ -329,7 +328,6 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
   std::unique_ptr<MemoryPool> local_pool_;
   std::string test_data_;
   std::shared_ptr<InputStream> raw_;
-  std::shared_ptr<BufferedInputStream> buffered_;
 };
 
 TEST_F(TestBufferedInputStream, BasicOperation) {
@@ -442,16 +440,11 @@ TEST_F(TestBufferedInputStream, ReadBuffer) {
 TEST_F(TestBufferedInputStream, ReadBufferZeroCopy) {
   // Check that we can read through an entire zero-copy input stream without any
   // memory allocation if the buffer size is a multiple of the read size
-
-  std::string test_data = ("informatic"
-                           "acrobatics"
-                           "immolation");
-
+  std::string test_data = kExample1;
   const int64_t kBufferSize = 10;
 
   auto raw = std::make_shared<BufferReader>(std::make_shared<Buffer>(test_data_));
-  ASSERT_OK(BufferedInputStream::Create(raw, kBufferSize, local_pool_.get(),
-                                        &buffered_));
+  ASSERT_OK(BufferedInputStream::Create(raw, kBufferSize, local_pool_.get(), &buffered_));
 
   // An initial buffer with padding is allocated
   ASSERT_EQ(64, local_pool_->bytes_allocated());
@@ -468,6 +461,9 @@ TEST_F(TestBufferedInputStream, ReadBufferZeroCopy) {
     ASSERT_OK(buffered_->Read(read_size, &buf));
     auto after_bytes = local_pool_->bytes_allocated();
     buffers.push_back(buf);
+
+    // Zero-copy reads do not cause buffering
+    ASSERT_EQ(0, buffered_->bytes_buffered());
 
     // The initial buffer may be deallocated after the first couple reads
     ASSERT_LE(after_bytes, before_bytes);
@@ -502,6 +498,61 @@ TEST_F(TestBufferedInputStream, SetBufferSize) {
 
   // Shrinking to exactly number of buffered bytes is ok
   ASSERT_OK(buffered_->SetBufferSize(5));
+}
+
+// ----------------------------------------------------------------------
+// BufferedRandomAccessFile, extension of BufferedInputStream
+
+class TestBufferedRandomAccessFile : public FileTestFixture<BufferedRandomAccessFile> {
+ public:
+  void OpenExample1() {
+    test_data_ = kExample1;
+    std::shared_ptr<FileOutputStream> file_out;
+    ASSERT_OK(FileOutputStream::Open(path_, &file_out));
+    ASSERT_OK(file_out->Write(test_data_));
+    ASSERT_OK(file_out->Close());
+
+    ASSERT_OK(ReadableFile::Open(path_, &raw_));
+    ASSERT_OK(BufferedRandomAccessFile::Create(raw_, kBufferSize, default_memory_pool(),
+                                               &buffered_));
+  }
+
+ protected:
+  std::string test_data_;
+  static constexpr int64_t kBufferSize = 10;
+  std::shared_ptr<ReadableFile> raw_;
+};
+
+TEST_F(TestBufferedRandomAccessFile, GetSize) {
+  OpenExample1();
+
+  int64_t size = -1;
+  ASSERT_OK(buffered_->GetSize(&size));
+  ASSERT_EQ(30, size);
+}
+
+TEST_F(TestBufferedRandomAccessFile, Seek) {
+  OpenExample1();
+
+  // Read, then seek to invalidate buffer
+  char buffer[128];
+  int64_t bytes_read = -1;
+  ASSERT_OK(buffered_->Read(4, &bytes_read, buffer));
+  ASSERT_EQ(0, memcmp(buffer, test_data_.data(), 4));
+  ASSERT_EQ(6, buffered_->bytes_buffered());
+
+  // Seek invalidates buffer
+  ASSERT_OK(buffered_->Seek(20));
+  ASSERT_EQ(0, buffered_->bytes_buffered());
+
+  // Check raw and buffered file position after seek
+  int64_t position = -1;
+  ASSERT_OK(buffered_->Tell(&position));
+  ASSERT_EQ(20, position);
+
+  position = -1;
+  ASSERT_OK(raw_->Tell(&position));
+  ASSERT_EQ(20, position);
 }
 
 }  // namespace io

@@ -88,7 +88,7 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
 /// \brief An InputStream that performs buffered reads from an unbuffered
 /// InputStream, which can mitigate the overhead of many small reads in some
 /// cases
-class ARROW_EXPORT BufferedInputStream : virtual public InputStream {
+class ARROW_EXPORT BufferedInputStream : public InputStream {
  public:
   ~BufferedInputStream() override;
 
@@ -141,6 +141,9 @@ class ARROW_EXPORT BufferedInputStream : virtual public InputStream {
   bool supports_zero_copy() const override;
 
  protected:
+  // For use by subclass below
+  BufferedInputStream();
+
   // The PIMPL is named thusly as it is shared with BufferedRandomAccessFile
   class ARROW_NO_EXPORT BufferedReaderImpl;
   std::unique_ptr<BufferedReaderImpl> impl_;
@@ -152,7 +155,7 @@ class ARROW_EXPORT BufferedInputStream : virtual public InputStream {
 /// \brief A RandomAccessFile implementation which performs buffered
 /// reads. Seeking invalidates any buffered data
 class ARROW_EXPORT BufferedRandomAccessFile : public BufferedInputStream,
-                                              virtual public RandomAccessFile {
+                                              public RandomAccessFile {
  public:
   /// \brief Create a buffered random access file from a raw RandomAccessFile
   /// \param[in] raw a raw RandomAccessFile
@@ -164,11 +167,11 @@ class ARROW_EXPORT BufferedRandomAccessFile : public BufferedInputStream,
 
   // RandomAccessFile APIs
   Status GetSize(int64_t* size) override;
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                void* out) override;
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
   Status Seek(int64_t position) override;
+
+ private:
+  explicit BufferedRandomAccessFile(std::shared_ptr<RandomAccessFile> raw,
+                                    MemoryPool* pool);
 };
 
 }  // namespace io
