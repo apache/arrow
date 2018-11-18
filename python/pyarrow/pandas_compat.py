@@ -318,11 +318,17 @@ def _index_level_name(index, i, column_names):
 
 def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
                         safe=True):
-    cols = df.columns if schema is None else schema.names
-    if columns is not None:
+    if schema is not None and columns is not None:
+        raise ValueError('Schema and columns arguments are mutually '
+                         'exclusive, pass only one of them')
+    elif schema is not None:
+        columns = schema.names
+    elif columns is not None:
         # columns is only for filtering, the function must keep the column
         # ordering of either the dataframe or the passed schema
-        cols = [c for c in cols if c in columns]
+        columns = [c for c in df.columns if c in columns]
+    else:
+        columns = df.columns
 
     column_names = []
     index_columns = []
@@ -341,7 +347,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
             'Duplicate column names found: {}'.format(list(df.columns))
         )
 
-    for name in cols:
+    for name in columns:
         col = df[name]
         name = _column_name_to_strings(name)
 

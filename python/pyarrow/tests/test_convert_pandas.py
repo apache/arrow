@@ -70,10 +70,8 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=True,
 
     if expected_schema:
         # all occurences of _check_pandas_roundtrip passes expected_schema
-        # without the pandas generated key-value metadata, so we need to
-        # add it before checking schema equality
-        expected_schema = expected_schema.add_metadata(table.schema.metadata)
-        assert table.schema.equals(expected_schema)
+        # without the pandas generated key-value metadata
+        assert table.schema.equals(expected_schema, check_metadata=False)
 
     if expected is None:
         expected = df
@@ -2259,7 +2257,33 @@ def test_convert_unsupported_type_error_message():
         pa.Table.from_pandas(df)
 
 
-def test_from_pandas_keeps_column_ordering():
+def test_table_from_pandas_keeps_column_order_of_dataframe():
+    df1 = pd.DataFrame({
+        'partition': [0, 0, 1, 1],
+        'arrays': [[0, 1, 2], [3, 4], None, None],
+        'strings': [None, None, 'a', 'b']
+    })
+    df2 = df1[['strings', 'partition', 'arrays']]
+
+    schema1 = pa.schema([
+        ('partition', pa.int64()),
+        ('arrays', pa.list_(pa.int64())),
+        ('strings', pa.string()),
+    ])
+    schema2 = pa.schema([
+        ('strings', pa.string()),
+        ('partition', pa.int64()),
+        ('arrays', pa.list_(pa.int64()))
+    ])
+
+    table1 = pa.Table.from_pandas(df1, preserve_index=False)
+    table2 = pa.Table.from_pandas(df2, preserve_index=False)
+
+    assert table1.schema.equals(schema1, check_metadata=False)
+    assert table2.schema.equals(schema2, check_metadata=False)
+
+
+def test_table_from_pandas_keeps_column_order_of_schema():
     # ARROW-3766
     df = pd.DataFrame({
         'partition': [0, 0, 1, 1],
@@ -2268,17 +2292,60 @@ def test_from_pandas_keeps_column_ordering():
     })
 
     schema = pa.schema([
-        # ('DPRD_ID', pa.int64()),
-        ('partition', pa.int32()),
-        ('arrays', pa.list_(pa.int32())),
         ('strings', pa.string()),
-        # ('new_column', pa.string())
+        ('arrays', pa.list_(pa.int32())),
+        ('partition', pa.int32())
     ])
 
     df1 = df[df.partition == 0]
     df2 = df[df.partition == 1][['strings', 'partition', 'arrays']]
 
-    table1 = pa.Table.from_pandas(df1, schema=schema)
-    table2 = pa.Table.from_pandas(df2, schema=schema)
+    table1 = pa.Table.from_pandas(df1, schema=schema, preserve_index=False)
+    table2 = pa.Table.from_pandas(df2, schema=schema, preserve_index=False)
 
+    assert table1.schema.equals(schema, check_metadata=False)
     assert table1.schema.equals(table2.schema, check_metadata=False)
+
+
+def test_table_from_pandas_columns_argument_only_does_filtering():
+    df = pd.DataFrame({
+        'partition': [0, 0, 1, 1],
+        'arrays': [[0, 1, 2], [3, 4], None, None],
+        'strings': [None, None, 'a', 'b']
+    })
+
+    columns1 = ['arrays', 'strings', 'partition']
+    schema1 = pa.schema([
+        ('partition', pa.int64()),
+        ('arrays', pa.list_(pa.int64())),
+        ('strings', pa.string()),
+    ])
+
+    columns2 = ['strings', 'partition']
+    schema2 = pa.schema([
+        ('partition', pa.int64()),
+        ('strings', pa.string())
+    ])
+
+    table1 = pa.Table.from_pandas(df, columns=columns1, preserve_index=False)
+    table2 = pa.Table.from_pandas(df, columns=columns2, preserve_index=False)
+
+    assert table1.schema.equals(schema1, check_metadata=False)
+    assert table2.schema.equals(schema2, check_metadata=False)
+
+
+def test_table_from_pandas_columns_and_schema_are_mutually_exclusive():
+    df = pd.DataFrame({
+        'partition': [0, 0, 1, 1],
+        'arrays': [[0, 1, 2], [3, 4], None, None],
+        'strings': [None, None, 'a', 'b']
+    })
+    schema = pa.schema([
+        ('partition', pa.int32()),
+        ('arrays', pa.list_(pa.int32())),
+        ('strings', pa.string()),
+    ])
+    columns = ['arrays', 'strings']
+
+    with pytest.raises(ValueError):
+        pa.Table.from_pandas(df, schema=schema, columns=columns)
