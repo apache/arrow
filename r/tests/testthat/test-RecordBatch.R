@@ -137,7 +137,6 @@ test_that("read_record_batch handles various streams (ARROW-3450, ARROW-3505)", 
   batch4 <- read_record_batch(mmap_file)
   batch5 <- read_record_batch(bytes)
   batch6 <- read_record_batch(buf_reader)
-  expect_error(read_record_batch(buf_reader))
 
   stream_reader <- record_batch_stream_reader(bytes)
   batch7 <- read_record_batch(stream_reader)

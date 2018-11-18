@@ -28,8 +28,6 @@ services:
 
   ######################### Language Containers ###############################
 
-  #TODO(kszucs): R
-
   c_glib:
     # Usage:
     #   docker-compose build cpp
@@ -99,6 +97,17 @@ services:
     build:
       context: .
       dockerfile: rust/Dockerfile
+    volumes: *volumes
+
+  r:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build r
+    #   docker-compose run r
+    image: arrow:r
+    build:
+      context: .
+      dockerfile: r/Dockerfile
     volumes: *volumes
 
   ######################### Tools and Linters #################################
