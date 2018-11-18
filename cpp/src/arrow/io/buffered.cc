@@ -259,7 +259,7 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
   Status SetBufferSize(int64_t new_buffer_size) {
     std::lock_guard<std::mutex> guard(lock_);
     DCHECK_GT(new_buffer_size, 0);
-    if (buffer_pos_ >= new_buffer_size) {
+    if ((buffer_pos_ + bytes_buffered_) >= new_buffer_size) {
       return Status::Invalid("Cannot shrink read buffer if buffered data remains");
     }
     return ResizeBuffer(new_buffer_size);
@@ -275,12 +275,16 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
   int64_t buffer_size() const { return buffer_size_; }
 
   std::shared_ptr<InputStream> DetachInputStream() {
+    std::lock_guard<std::mutex> guard(lock_);
     raw_input_ = nullptr;
+    is_open_ = false;
     return std::move(input_stream_);
   }
 
   std::shared_ptr<RandomAccessFile> DetachRandomAccessFile() {
+    std::lock_guard<std::mutex> guard(lock_);
     raw_input_ = raw_random_access_ = nullptr;
+    is_open_ = false;
     return std::move(random_access_file_);
   }
 
@@ -306,6 +310,9 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
       // Fill buffer
       RETURN_NOT_OK(input_stream_->Read(buffer_size_, &bytes_buffered_, buffer_data_));
       buffer_pos_ = 0;
+
+      // Do not make assumptions about the raw stream position
+      raw_pos_ = -1;
     }
     return Status::OK();
   }
@@ -330,6 +337,8 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
       RETURN_NOT_OK(
           input_stream_->Read(nbytes - bytes_buffered_, bytes_read,
                               reinterpret_cast<uint8_t*>(out) + bytes_buffered_));
+      // Do not make assumptions about the raw stream position
+      raw_pos_ = -1;
       *bytes_read += bytes_buffered_;
       RewindBuffer();
     } else {
@@ -410,6 +419,14 @@ Status BufferedInputStream::Close() { return impl_->Close(); }
 
 bool BufferedInputStream::closed() const { return impl_->closed(); }
 
+std::shared_ptr<InputStream> BufferedInputStream::Detach() {
+  return impl_->DetachInputStream();
+}
+
+std::shared_ptr<InputStream> BufferedInputStream::raw() const {
+  return impl_->input_stream();
+}
+
 Status BufferedInputStream::Tell(int64_t* position) const {
   return impl_->Tell(position);
 }
@@ -425,10 +442,6 @@ Status BufferedInputStream::SetBufferSize(int64_t new_buffer_size) {
 int64_t BufferedInputStream::bytes_buffered() const { return impl_->bytes_buffered(); }
 
 int64_t BufferedInputStream::buffer_size() const { return impl_->buffer_size(); }
-
-std::shared_ptr<InputStream> BufferedInputStream::Detach() {
-  return impl_->DetachInputStream();
-}
 
 Status BufferedInputStream::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
   return impl_->Read(nbytes, bytes_read, out);

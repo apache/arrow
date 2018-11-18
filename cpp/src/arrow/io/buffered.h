@@ -120,6 +120,9 @@ class ARROW_EXPORT BufferedInputStream : virtual public InputStream {
   /// \return raw the underlying InputStream
   std::shared_ptr<InputStream> Detach();
 
+  /// \brief Return the unbuffered InputStream
+  std::shared_ptr<InputStream> raw() const;
+
   // InputStream APIs
   Status Close() override;
   bool closed() const override;

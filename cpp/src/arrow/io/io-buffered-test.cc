@@ -303,76 +303,159 @@ TEST_F(TestBufferedOutputStream, TruncatesFile) {
 
 class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
  public:
-  // void OpenBuffered(const std::string& file_contents,
-  //                   int64_t buffer_size = kDefaultBufferSize) {
-  //   // So that any open file is closed, and this method can be called multiple times
-  //   stream_.reset();
+  void MakeExample1(int64_t buffer_size) {
+    test_data_ =
+        ("informatic"
+         "acrobatics"
+         "immolation");
+    raw_ = std::make_shared<BufferReader>(std::make_shared<Buffer>(test_data_));
+    ASSERT_OK(BufferedInputStream::Create(raw_, buffer_size, default_memory_pool(),
+                                          &buffered_));
+  }
 
-  //   std::shared_ptr<FileOutputStream> file;
-  //   ASSERT_OK(FileOutputStream::Open(path_, &file));
-  //   ASSERT_OK(file->Write(file_contents));
-  //   ASSERT_OK(file->Close());
-  //   std::shared_ptr<ReadableFile> rd_file;
-  // }
+ protected:
+  std::string test_data_;
+  std::shared_ptr<InputStream> raw_;
+  std::shared_ptr<BufferedInputStream> buffered_;
 };
 
 TEST_F(TestBufferedInputStream, BasicOperation) {
-  const std::string test_data =
-      ("informatic"
-       "acrobatics"
-       "immolation");
-  auto raw = std::make_shared<BufferReader>(std::make_shared<Buffer>(test_data));
-
   const int64_t kBufferSize = 10;
-  std::shared_ptr<BufferedInputStream> buffered;
-  ASSERT_OK(
-      BufferedInputStream::Create(raw, kBufferSize, default_memory_pool(), &buffered));
-
-  ASSERT_EQ(kBufferSize, buffered->buffer_size());
+  MakeExample1(kBufferSize);
+  ASSERT_EQ(kBufferSize, buffered_->buffer_size());
 
   int64_t stream_position = -1;
-  ASSERT_OK(buffered->Tell(&stream_position));
+  ASSERT_OK(buffered_->Tell(&stream_position));
   ASSERT_EQ(0, stream_position);
 
   // Nothing in the buffer
-  ASSERT_EQ(0, buffered->bytes_buffered());
-  util::string_view peek = buffered->Peek(10);
+  ASSERT_EQ(0, buffered_->bytes_buffered());
+  util::string_view peek = buffered_->Peek(10);
   ASSERT_EQ(0, peek.size());
 
-  char buf[kBufferSize];
+  char buf[test_data_.size()];
   int64_t bytes_read;
-  ASSERT_OK(buffered->Read(4, &bytes_read, buf));
+  ASSERT_OK(buffered_->Read(4, &bytes_read, buf));
   ASSERT_EQ(4, bytes_read);
-  ASSERT_EQ(0, memcmp(buf, test_data.data(), 4));
+  ASSERT_EQ(0, memcmp(buf, test_data_.data(), 4));
 
   // 6 bytes remaining in buffer
-  ASSERT_EQ(6, buffered->bytes_buffered());
+  ASSERT_EQ(6, buffered_->bytes_buffered());
 
   // Buffered position is 4
-  ASSERT_OK(buffered->Tell(&stream_position));
+  ASSERT_OK(buffered_->Tell(&stream_position));
   ASSERT_EQ(4, stream_position);
 
   // Raw position actually 10
-  ASSERT_OK(raw->Tell(&stream_position));
+  ASSERT_OK(raw_->Tell(&stream_position));
   ASSERT_EQ(10, stream_position);
 
   // Peek does not look beyond end of buffer
-  peek = buffered->Peek(10);
+  peek = buffered_->Peek(10);
   ASSERT_EQ(6, peek.size());
-  ASSERT_EQ(0, memcmp(peek.data(), test_data.data() + 4, 6));
+  ASSERT_EQ(0, memcmp(peek.data(), test_data_.data() + 4, 6));
 
   // Reading to end of buffered bytes does not cause any more data to be
   // buffered
-  ASSERT_OK(buffered->Read(6, &bytes_read, buf));
+  ASSERT_OK(buffered_->Read(6, &bytes_read, buf));
   ASSERT_EQ(6, bytes_read);
-  ASSERT_EQ(0, memcmp(buf, test_data.data() + 4, 6));
+  ASSERT_EQ(0, memcmp(buf, test_data_.data() + 4, 6));
 
-  ASSERT_EQ(0, buffered->bytes_buffered());
+  ASSERT_EQ(0, buffered_->bytes_buffered());
+
+  // Read to EOF, exceeding buffer size
+  ASSERT_OK(buffered_->Read(20, &bytes_read, buf));
+  ASSERT_EQ(20, bytes_read);
+  ASSERT_EQ(0, memcmp(buf, test_data_.data() + 10, 20));
+  ASSERT_EQ(0, buffered_->bytes_buffered());
+
+  // Read to EOF
+  ASSERT_OK(buffered_->Read(1, &bytes_read, buf));
+  ASSERT_EQ(0, bytes_read);
+  ASSERT_OK(buffered_->Tell(&stream_position));
+  ASSERT_EQ(test_data_.size(), stream_position);
+
+  // Peek at EOF
+  peek = buffered_->Peek(10);
+  ASSERT_EQ(0, peek.size());
+
+  // Calling Close closes raw_
+  ASSERT_OK(buffered_->Close());
+  ASSERT_TRUE(buffered_->raw()->closed());
 }
 
-TEST_F(TestBufferedInputStream, ReadBuffer) {}
+TEST_F(TestBufferedInputStream, Detach) {
+  MakeExample1(10);
+  auto raw = buffered_->Detach();
+  ASSERT_OK(buffered_->Close());
+  ASSERT_FALSE(raw->closed());
+}
 
-TEST_F(TestBufferedInputStream, SetBufferSize) {}
+TEST_F(TestBufferedInputStream, ReadBuffer) {
+  const int64_t kBufferSize = 10;
+  MakeExample1(kBufferSize);
+
+  std::shared_ptr<Buffer> buf;
+
+  // Read exceeding buffer size
+  ASSERT_OK(buffered_->Read(15, &buf));
+  ASSERT_EQ(15, buf->size());
+  ASSERT_EQ(0, memcmp(buf->data(), test_data_.data(), 15));
+  ASSERT_EQ(0, buffered_->bytes_buffered());
+
+  // Buffered reads
+  ASSERT_OK(buffered_->Read(6, &buf));
+  ASSERT_EQ(6, buf->size());
+  ASSERT_EQ(0, memcmp(buf->data(), test_data_.data() + 15, 6));
+  ASSERT_EQ(4, buffered_->bytes_buffered());
+
+  // Record memory address, to ensure new buffer created
+  const uint8_t* buffer_address = buf->data();
+
+  ASSERT_OK(buffered_->Read(4, &buf));
+  ASSERT_EQ(4, buf->size());
+  ASSERT_EQ(0, memcmp(buf->data(), test_data_.data() + 21, 4));
+  ASSERT_EQ(0, buffered_->bytes_buffered());
+
+  // Buffered read causes new memory to be allocated because we retain an
+  // exported shared_ptr reference
+  std::shared_ptr<Buffer> buf2;
+  ASSERT_OK(buffered_->Read(5, &buf2));
+  ASSERT_NE(buf2->data(), buffer_address);
+  ASSERT_EQ(0, buffered_->bytes_buffered());
+  ASSERT_EQ(0, memcmp(buf2->data(), test_data_.data() + 25, 5));
+}
+
+TEST_F(TestBufferedInputStream, ReadBufferZeroCopy) {
+  // Check that we can read through an entire zero-copy input stream without any
+  // memory allocation if the buffer size is a multiple of the read size
+}
+
+TEST_F(TestBufferedInputStream, SetBufferSize) {
+  MakeExample1(5);
+
+  std::shared_ptr<Buffer> buf;
+  ASSERT_OK(buffered_->Read(5, &buf));
+  ASSERT_EQ(5, buf->size());
+
+  // Increase buffer size
+  ASSERT_OK(buffered_->SetBufferSize(10));
+  ASSERT_EQ(10, buffered_->buffer_size());
+  ASSERT_OK(buffered_->Read(6, &buf));
+  ASSERT_EQ(4, buffered_->bytes_buffered());
+
+  // Consume until 5 byte left
+  ASSERT_OK(buffered_->Read(15, &buf));
+
+  // Read at EOF so there will be only 5 bytes in the buffer
+  ASSERT_OK(buffered_->Read(2, &buf));
+
+  // Cannot shrink buffer if it would destroy data
+  ASSERT_RAISES(Invalid, buffered_->SetBufferSize(4));
+
+  // Shrinking to exactly number of buffered bytes is ok
+  ASSERT_OK(buffered_->SetBufferSize(5));
+}
 
 }  // namespace io
 }  // namespace arrow
