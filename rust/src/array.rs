@@ -1058,7 +1058,6 @@ mod tests {
             .build();
         let offsets: [i32; 4] = [0, 5, 5, 12];
 
-        // Array data: ["hello", "", "parquet"]
         let array_data = ArrayData::builder(DataType::Utf8)
             .len(3)
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
@@ -1070,7 +1069,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "BinaryArray's can only be created from list array of u8 values (i.e. List<PrimitiveArray<u8>>)."
+        expected = "BinaryArray can only be created from list array of u8 values (i.e. List<PrimitiveArray<u8>>)."
     )]
     fn test_binary_array_from_incorrect_list_array() {
         let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
@@ -1081,7 +1080,6 @@ mod tests {
             .build();
         let offsets: [i32; 4] = [0, 5, 5, 12];
 
-        // Array data: ["hello", "", "parquet"]
         let array_data = ArrayData::builder(DataType::Utf8)
             .len(3)
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
