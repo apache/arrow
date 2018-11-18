@@ -212,8 +212,6 @@ Status PyReadableFile::GetSize(int64_t* size) {
   return Status::OK();
 }
 
-bool PyReadableFile::supports_zero_copy() const { return false; }
-
 // ----------------------------------------------------------------------
 // Output stream
 

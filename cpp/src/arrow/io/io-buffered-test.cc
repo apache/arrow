@@ -303,17 +303,30 @@ TEST_F(TestBufferedOutputStream, TruncatesFile) {
 
 class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
  public:
-  void MakeExample1(int64_t buffer_size) {
+  void SetUp() {
+    FileTestFixture<BufferedInputStream>::SetUp();
+    local_pool_ = MemoryPool::CreateDefault();
+  }
+
+  void MakeExample1(int64_t buffer_size, MemoryPool* pool = default_memory_pool()) {
     test_data_ =
         ("informatic"
          "acrobatics"
          "immolation");
-    raw_ = std::make_shared<BufferReader>(std::make_shared<Buffer>(test_data_));
-    ASSERT_OK(BufferedInputStream::Create(raw_, buffer_size, default_memory_pool(),
-                                          &buffered_));
+
+    std::shared_ptr<FileOutputStream> file_out;
+    ASSERT_OK(FileOutputStream::Open(path_, &file_out));
+    ASSERT_OK(file_out->Write(test_data_));
+    ASSERT_OK(file_out->Close());
+
+    std::shared_ptr<ReadableFile> file_in;
+    ASSERT_OK(ReadableFile::Open(path_, &file_in));
+    raw_ = file_in;
+    ASSERT_OK(BufferedInputStream::Create(raw_, buffer_size, pool, &buffered_));
   }
 
  protected:
+  std::unique_ptr<MemoryPool> local_pool_;
   std::string test_data_;
   std::shared_ptr<InputStream> raw_;
   std::shared_ptr<BufferedInputStream> buffered_;
@@ -429,6 +442,40 @@ TEST_F(TestBufferedInputStream, ReadBuffer) {
 TEST_F(TestBufferedInputStream, ReadBufferZeroCopy) {
   // Check that we can read through an entire zero-copy input stream without any
   // memory allocation if the buffer size is a multiple of the read size
+
+  std::string test_data = ("informatic"
+                           "acrobatics"
+                           "immolation");
+
+  const int64_t kBufferSize = 10;
+
+  auto raw = std::make_shared<BufferReader>(std::make_shared<Buffer>(test_data_));
+  ASSERT_OK(BufferedInputStream::Create(raw, kBufferSize, local_pool_.get(),
+                                        &buffered_));
+
+  // An initial buffer with padding is allocated
+  ASSERT_EQ(64, local_pool_->bytes_allocated());
+
+  const int64_t read_size = 5;
+  int64_t bytes_read = 0;
+
+  // Test that it's safe to hold on to these buffers
+  std::vector<std::shared_ptr<Buffer>> buffers;
+
+  while (bytes_read < static_cast<int64_t>(test_data_.size())) {
+    std::shared_ptr<Buffer> buf;
+    auto before_bytes = local_pool_->bytes_allocated();
+    ASSERT_OK(buffered_->Read(read_size, &buf));
+    auto after_bytes = local_pool_->bytes_allocated();
+    buffers.push_back(buf);
+
+    // The initial buffer may be deallocated after the first couple reads
+    ASSERT_LE(after_bytes, before_bytes);
+  }
+
+  // Destruct things manually so they will be done with the MemoryPool
+  buffered_ = nullptr;
+  buffers.clear();
 }
 
 TEST_F(TestBufferedInputStream, SetBufferSize) {

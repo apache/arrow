@@ -137,6 +137,9 @@ class ARROW_EXPORT BufferedInputStream : virtual public InputStream {
   /// return a slice into the buffer
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
+  /// \brief If true, supports zero copy reads of buffered bytes
+  bool supports_zero_copy() const override;
+
  protected:
   // The PIMPL is named thusly as it is shared with BufferedRandomAccessFile
   class ARROW_NO_EXPORT BufferedReaderImpl;
@@ -166,8 +169,6 @@ class ARROW_EXPORT BufferedRandomAccessFile : public BufferedInputStream,
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   Status Seek(int64_t position) override;
-
-  bool supports_zero_copy() const override;
 };
 
 }  // namespace io

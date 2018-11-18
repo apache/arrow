@@ -121,6 +121,9 @@ class ARROW_EXPORT InputStream : virtual public FileInterface, public Readable {
   /// \return Status
   Status Advance(int64_t nbytes);
 
+  /// \brief Return true if InputStream is capable of zero copy Buffer reads
+  virtual bool supports_zero_copy() const;
+
  protected:
   InputStream() = default;
 };
@@ -131,8 +134,6 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   ~RandomAccessFile() override;
 
   virtual Status GetSize(int64_t* size) = 0;
-
-  virtual bool supports_zero_copy() const = 0;
 
   /// \brief Read nbytes at position, provide default implementations using
   /// Read(...), but can be overridden. It is unspecified whether this method

@@ -33,6 +33,10 @@ Status InputStream::Advance(int64_t nbytes) {
   return Read(nbytes, &temp);
 }
 
+bool InputStream::supports_zero_copy() const {
+  return false;
+}
+
 struct RandomAccessFile::RandomAccessFileImpl {
   std::mutex lock_;
 };

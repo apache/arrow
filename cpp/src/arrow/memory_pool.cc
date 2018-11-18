@@ -165,6 +165,10 @@ class DefaultMemoryPool : public MemoryPool {
   internal::MemoryPoolStats stats_;
 };
 
+std::unique_ptr<MemoryPool> MemoryPool::CreateDefault() {
+  return std::unique_ptr<MemoryPool>(new DefaultMemoryPool);
+}
+
 MemoryPool* default_memory_pool() {
   static DefaultMemoryPool default_memory_pool_;
   return &default_memory_pool_;
