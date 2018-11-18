@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.pub mod file;
 
+pub mod file;
 pub mod message;
 pub mod schema;
 pub mod tensor;
