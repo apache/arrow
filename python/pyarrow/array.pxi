@@ -49,11 +49,11 @@ cdef _is_array_like(obj):
         return isinstance(obj, np.ndarray)
 
 
-def nd_array_to_arrow_type(object values, DataType type):
-    return pyarrow_wrap_data_type(_ndarray_to_type(values, type))
+def _ndarray_to_type(object values, DataType type):
+    return pyarrow_wrap_data_type(_ndarray_to_c_type(values, type))
 
 
-cdef shared_ptr[CDataType] _ndarray_to_type(object values, DataType type):
+cdef shared_ptr[CDataType] _ndarray_to_c_type(object values, DataType type):
     cdef shared_ptr[CDataType] c_type
 
     dtype = values.dtype
@@ -72,7 +72,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
                        c_bool from_pandas, c_bool safe, CMemoryPool* pool):
     cdef:
         shared_ptr[CChunkedArray] chunked_out
-        shared_ptr[CDataType] c_type = _ndarray_to_type(values, type)
+        shared_ptr[CDataType] c_type = _ndarray_to_c_type(values, type)
         CCastOptions cast_options = CCastOptions(safe)
 
     with nogil:

@@ -366,8 +366,8 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
 
     names = column_names + index_column_names
 
-    return names, column_names, index_columns, index_column_names, \
-        columns_to_convert, convert_types
+    return (names, column_names, index_columns, index_column_names,
+            columns_to_convert, convert_types)
 
 
 def dataframe_to_types(df, preserve_index, columns=None):
@@ -384,15 +384,13 @@ def dataframe_to_types(df, preserve_index, columns=None):
             type_ = pa.array(c, from_pandas=True).type
         else:
             values, type_ = get_datetimetz_type(values, c.dtype, None)
-            type_ = pa.lib.nd_array_to_arrow_type(values, type_)
+            type_ = pa.lib._ndarray_to_type(values, type_)
             if type_ is None:
                 type_ = pa.array(c, from_pandas=True).type
         types.append(type_)
 
-    metadata = construct_metadata(
-        df, column_names, index_columns, index_column_names, preserve_index,
-        types
-    )
+    metadata = construct_metadata(df, column_names, index_columns,
+                                  index_column_names, preserve_index, types)
 
     return names, types, metadata
 
