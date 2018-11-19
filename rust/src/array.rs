@@ -169,9 +169,8 @@ macro_rules! def_primitive_array {
             }
 
             pub fn value_slice(&self, offset: i64, len: i64) -> &[$native_ty] {
-                let raw = unsafe {
-                    std::slice::from_raw_parts(self.raw_values(), self.len() as usize)
-                };
+                let raw =
+                    unsafe { std::slice::from_raw_parts(self.raw_values(), self.len() as usize) };
                 &raw[offset as usize..offset as usize + len as usize]
             }
 

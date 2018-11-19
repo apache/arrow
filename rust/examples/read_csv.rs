@@ -18,13 +18,12 @@
 extern crate arrow;
 
 use arrow::array::{ListArray, PrimitiveArray};
-use arrow::datatypes::{Schema, Field, DataType};
 use arrow::csvreader::CsvFile;
+use arrow::datatypes::{DataType, Field, Schema};
 use std::fs::File;
 use std::sync::Arc;
 
 fn main() {
-
     let schema = Schema::new(vec![
         Field::new("city", DataType::Utf8, false),
         Field::new("lat", DataType::Float64, false),
@@ -33,24 +32,48 @@ fn main() {
 
     let file = File::open("test/data/uk_cities.csv").unwrap();
 
-    let mut csv = CsvFile::open(file, Arc::new(schema), false, 1024,None);
+    let mut csv = CsvFile::open(file, Arc::new(schema), false, 1024, None);
     let batch = csv.next().unwrap().unwrap();
 
-    println!("Loaded {} rows containing {} columns", batch.num_rows(), batch.num_columns());
+    println!(
+        "Loaded {} rows containing {} columns",
+        batch.num_rows(),
+        batch.num_columns()
+    );
 
-    let city = batch.column(0).as_any().downcast_ref::<ListArray>().unwrap();
-    let lat = batch.column(1).as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
-    let lng = batch.column(2).as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
+    let city = batch
+        .column(0)
+        .as_any()
+        .downcast_ref::<ListArray>()
+        .unwrap();
+    let lat = batch
+        .column(1)
+        .as_any()
+        .downcast_ref::<PrimitiveArray<f64>>()
+        .unwrap();
+    let lng = batch
+        .column(2)
+        .as_any()
+        .downcast_ref::<PrimitiveArray<f64>>()
+        .unwrap();
 
     let city_values = city.values();
-    let buffer: &PrimitiveArray<u8> = city_values.as_any().downcast_ref::<PrimitiveArray<u8>>().unwrap();
+    let buffer: &PrimitiveArray<u8> = city_values
+        .as_any()
+        .downcast_ref::<PrimitiveArray<u8>>()
+        .unwrap();
 
     for i in 0..batch.num_rows() {
-
         let offset = city.value_offset(i) as i64;
         let len = city.value_length(i) as i64;
-        let city_name: String = String::from_utf8(buffer.value_slice(offset, len).to_vec()).unwrap();
+        let city_name: String =
+            String::from_utf8(buffer.value_slice(offset, len).to_vec()).unwrap();
 
-        println!("City: {}, Latitude: {}, Longitude: {}", city_name, lat.value(i), lng.value(i));
+        println!(
+            "City: {}, Latitude: {}, Longitude: {}",
+            city_name,
+            lat.value(i),
+            lng.value(i)
+        );
     }
 }

@@ -18,12 +18,12 @@
 //! CSV Support
 
 use std::fs::File;
-use std::io::{BufReader};
+use std::io::BufReader;
 use std::sync::Arc;
 
 use array::ArrayRef;
-use builder::{ArrayBuilder, PrimitiveArrayBuilder, ListArrayBuilder};
-use datatypes::{Schema, DataType};
+use builder::{ArrayBuilder, ListArrayBuilder, PrimitiveArrayBuilder};
+use datatypes::{DataType, Schema};
 use error::ArrowError;
 use record_batch::RecordBatch;
 
@@ -38,7 +38,6 @@ pub struct CsvFile {
 }
 
 impl CsvFile {
-
     pub fn open(
         file: File,
         schema: Arc<Schema>,
@@ -58,17 +57,15 @@ impl CsvFile {
             batch_size,
         }
     }
-
 }
 
 macro_rules! build_primitive_array {
     ($ROWS:expr, $COL_INDEX:expr, $TY:ty) => {{
-
         let mut builder = PrimitiveArrayBuilder::<$TY>::new($ROWS.len() as i64);
         for row_index in 0..$ROWS.len() {
             match $ROWS[row_index].get(*$COL_INDEX) {
-                Some(s) if s.len() > 0 => builder.push(s.parse::<$TY> ().unwrap()).unwrap(),
-                _ => builder.push_null().unwrap()
+                Some(s) if s.len() > 0 => builder.push(s.parse::<$TY>().unwrap()).unwrap(),
+                _ => builder.push_null().unwrap(),
             }
         }
         Ok(Arc::new(builder.finish()) as ArrayRef)
@@ -76,7 +73,6 @@ macro_rules! build_primitive_array {
 }
 
 impl CsvFile {
-
     /// Read the next batch of rows
     pub fn next(&mut self) -> Option<Result<Arc<RecordBatch>, ArrowError>> {
         // read a batch of rows into memory
@@ -87,7 +83,9 @@ impl CsvFile {
                     rows.push(r);
                 }
                 Some(Err(_)) => {
-                    return Some(Err(ArrowError::ParseError("Error reading CSV file".to_string())));
+                    return Some(Err(ArrowError::ParseError(
+                        "Error reading CSV file".to_string(),
+                    )));
                 }
                 None => break,
             }
@@ -109,9 +107,9 @@ impl CsvFile {
                 .collect(),
         };
 
-        let arrays: Result<Vec<ArrayRef>, ArrowError> = projection.iter()
+        let arrays: Result<Vec<ArrayRef>, ArrowError> = projection
+            .iter()
             .map(|i| {
-
                 let field = self.schema.field(*i);
 
                 match field.data_type() {
@@ -128,7 +126,8 @@ impl CsvFile {
                     &DataType::Float32 => build_primitive_array!(rows, i, f32),
                     &DataType::Float64 => build_primitive_array!(rows, i, f64),
                     &DataType::Utf8 => {
-                        let mut values_builder: PrimitiveArrayBuilder<u8> = PrimitiveArrayBuilder::<u8>::new(rows.len() as i64);
+                        let mut values_builder: PrimitiveArrayBuilder<u8> =
+                            PrimitiveArrayBuilder::<u8>::new(rows.len() as i64);
                         let mut list_builder = ListArrayBuilder::new(values_builder);
                         for row_index in 0..rows.len() {
                             match rows[row_index].get(*i) {
@@ -142,17 +141,14 @@ impl CsvFile {
                             }
                         }
                         Ok(Arc::new(list_builder.finish()) as ArrayRef)
-                    },
-                    _ => Err(ArrowError::ParseError("Unsupported data type".to_string()))
+                    }
+                    _ => Err(ArrowError::ParseError("Unsupported data type".to_string())),
                 }
             }).collect();
 
         match arrays {
-            Ok(arr) => Some(Ok(Arc::new(RecordBatch::new(
-                self.schema.clone(),
-                arr
-            )))),
-            Err(e) => Some(Err(e))
+            Ok(arr) => Some(Ok(Arc::new(RecordBatch::new(self.schema.clone(), arr)))),
+            Err(e) => Some(Err(e)),
         }
     }
 }
@@ -174,27 +170,38 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = CsvFile::open(file, Arc::new(schema), false, 1024,None);
+        let mut csv = CsvFile::open(file, Arc::new(schema), false, 1024, None);
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
         assert_eq!(3, batch.num_columns());
 
         // access data from a primitive array
-        let lat = batch.column(1).as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
+        let lat = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<PrimitiveArray<f64>>()
+            .unwrap();
         assert_eq!(57.653484, lat.value(0));
 
         // access data from a string array (ListArray<u8>)
-        let city = batch.column(0).as_any().downcast_ref::<ListArray>().unwrap();
+        let city = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
         let city_values = city.values();
-        let buffer: &PrimitiveArray<u8> = city_values.as_any().downcast_ref::<PrimitiveArray<u8>>().unwrap();
+        let buffer: &PrimitiveArray<u8> = city_values
+            .as_any()
+            .downcast_ref::<PrimitiveArray<u8>>()
+            .unwrap();
 
         let i = 13;
         let offset = city.value_offset(i) as i64;
         let len = city.value_length(i) as i64;
-        let city_name: String = String::from_utf8(buffer.value_slice(offset, len).to_vec()).unwrap();
+        let city_name: String =
+            String::from_utf8(buffer.value_slice(offset, len).to_vec()).unwrap();
 
         assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
-
     }
 
     #[test]
@@ -207,7 +214,7 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = CsvFile::open(file, Arc::new(schema), false, 1024,Some(vec![0,1]));
+        let mut csv = CsvFile::open(file, Arc::new(schema), false, 1024, Some(vec![0, 1]));
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
         assert_eq!(2, batch.num_columns());
