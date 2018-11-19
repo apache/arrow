@@ -298,11 +298,27 @@ endfunction()
 # of 'benchmark'.
 #
 # Arguments after the test name will be passed to set_tests_properties().
+#
+# \arg PREFIX a string to append to the name of the benchmark executable. For
+# example, if you have src/arrow/foo/bar-benchmark.cc, then PREFIX "foo" will
+# create test executable foo-bar-benchmark
 function(ADD_ARROW_BENCHMARK REL_BENCHMARK_NAME)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
   if(NO_BENCHMARKS)
     return()
   endif()
   get_filename_component(BENCHMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
+
+  if(ARG_PREFIX)
+    set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
+  endif()
 
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
     # This benchmark has a corresponding .cc file, set it up as an executable.
@@ -311,40 +327,24 @@ function(ADD_ARROW_BENCHMARK REL_BENCHMARK_NAME)
     target_link_libraries(${BENCHMARK_NAME} ${ARROW_BENCHMARK_LINK_LIBS})
     add_dependencies(runbenchmark ${BENCHMARK_NAME})
     set(NO_COLOR "--color_print=false")
+
+    if (ARG_EXTRA_LINK_LIBS)
+      target_link_libraries(${BENCHMARK_NAME} ${ARG_EXTRA_LINK_LIBS})
+    endif()
   else()
     # No executable, just invoke the benchmark (probably a script) directly.
     set(BENCHMARK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME})
     set(NO_COLOR "")
   endif()
 
+  if (ARG_DEPENDENCIES)
+    add_dependencies(${BENCHMARK_NAME} ${ARG_DEPENDENCIES})
+  endif()
+
   add_test(${BENCHMARK_NAME}
     ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} benchmark ${BENCHMARK_PATH} ${NO_COLOR})
   set_tests_properties(${BENCHMARK_NAME} PROPERTIES LABELS "benchmark")
-  if(ARGN)
-    set_tests_properties(${BENCHMARK_NAME} PROPERTIES ${ARGN})
-  endif()
 endfunction()
-
-# A wrapper for add_dependencies() that is compatible with NO_BENCHMARKS.
-function(ADD_ARROW_BENCHMARK_DEPENDENCIES REL_BENCHMARK_NAME)
-  if(NO_BENCHMARKS)
-    return()
-  endif()
-  get_filename_component(BENCMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
-
-  add_dependencies(${BENCHMARK_NAME} ${ARGN})
-endfunction()
-
-# A wrapper for target_link_libraries() that is compatible with NO_BENCHMARKS.
-function(ARROW_BENCHMARK_LINK_LIBRARIES REL_BENCHMARK_NAME)
-    if(NO_BENCHMARKS)
-    return()
-  endif()
-  get_filename_component(BENCHMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
-
-  target_link_libraries(${BENCHMARK_NAME} ${ARGN})
-endfunction()
-
 
 ############################################################
 # Testing
