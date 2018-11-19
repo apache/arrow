@@ -15,24 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-extern crate bytes;
-extern crate csv;
-extern crate libc;
+extern crate arrow;
 
-#[macro_use]
-extern crate serde_json;
+use arrow::datatypes::{Schema, Field, DataType};
+use arrow::csvreader::CsvFile;
+use std::fs::File;
+use std::sync::Arc;
 
-extern crate rand;
+fn main() {
 
-pub mod array;
-pub mod array_data;
-pub mod bitmap;
-pub mod buffer;
-pub mod builder;
-pub mod csvreader;
-pub mod datatypes;
-pub mod error;
-pub mod memory;
-pub mod record_batch;
-pub mod tensor;
-pub mod util;
+    let schema = Schema::new(vec![
+        Field::new("city", DataType::Utf8, false),
+        Field::new("lat", DataType::Float64, false),
+        Field::new("lng", DataType::Float64, false),
+    ]);
+
+    let file = File::open("test/data/uk_cities.csv").unwrap();
+
+    let mut csv = CsvFile::open(file, Arc::new(schema), false, 1024,None);
+    let batch = csv.next().unwrap().unwrap();
+
+    println!("Loaded {} rows containing {} columns", batch.num_rows(), batch.num_columns());
+}
