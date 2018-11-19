@@ -161,7 +161,7 @@ impl CsvFile {
 mod tests {
 
     use super::*;
-    use std::cell::RefCell;
+    use datatypes::Field;
 
     #[test]
     fn test_csv() {
@@ -192,7 +192,7 @@ mod tests {
         let mut csv = CsvFile::open(file, Arc::new(schema), false, 1024,Some(vec![0,1]));
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
-        assert_eq!(, batch.num_columns());
+        assert_eq!(2, batch.num_columns());
     }
 
     #[test]
