@@ -669,9 +669,72 @@ namespace garrow {
 
 G_BEGIN_DECLS
 
-G_DEFINE_TYPE(GArrowGIOInputStream,
-              garrow_gio_input_stream,
-              GARROW_TYPE_SEEKABLE_INPUT_STREAM);
+
+typedef struct GArrowGIOInputStreamPrivate_ {
+  GInputStream *raw;
+} GArrowGIOInputStreamPrivate;
+
+enum {
+  PROP_GIO_RAW = 1
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowGIOInputStream,
+                           garrow_gio_input_stream,
+                           GARROW_TYPE_SEEKABLE_INPUT_STREAM);
+
+#define GARROW_GIO_INPUT_STREAM_GET_PRIVATE(object)     \
+  static_cast<GArrowGIOInputStreamPrivate *>(           \
+    garrow_gio_input_stream_get_instance_private(       \
+      GARROW_GIO_INPUT_STREAM(object)))
+
+static void
+garrow_gio_input_stream_dispose(GObject *object)
+{
+  auto priv = GARROW_GIO_INPUT_STREAM_GET_PRIVATE(object);
+
+  if (priv->raw) {
+    g_object_unref(priv->raw);
+    priv->raw = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_gio_input_stream_parent_class)->dispose(object);
+}
+
+static void
+garrow_gio_input_stream_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto priv = GARROW_GIO_INPUT_STREAM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_GIO_RAW:
+    priv->raw = G_INPUT_STREAM(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_gio_input_stream_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto priv = GARROW_GIO_INPUT_STREAM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_GIO_RAW:
+    g_value_set_object(value, priv->raw);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 garrow_gio_input_stream_init(GArrowGIOInputStream *object)
@@ -681,6 +744,21 @@ garrow_gio_input_stream_init(GArrowGIOInputStream *object)
 static void
 garrow_gio_input_stream_class_init(GArrowGIOInputStreamClass *klass)
 {
+  GParamSpec *spec;
+
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose      = garrow_gio_input_stream_dispose;
+  gobject_class->set_property = garrow_gio_input_stream_set_property;
+  gobject_class->get_property = garrow_gio_input_stream_get_property;
+
+  spec = g_param_spec_object("raw",
+                             "Raw",
+                             "The raw GInputStream *",
+                             G_TYPE_INPUT_STREAM,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_GIO_RAW, spec);
 }
 
 /**
@@ -698,6 +776,7 @@ garrow_gio_input_stream_new(GInputStream *gio_input_stream)
     std::make_shared<garrow::GIOInputStream>(gio_input_stream);
   auto object = g_object_new(GARROW_TYPE_GIO_INPUT_STREAM,
                              "input-stream", &arrow_input_stream,
+                             "raw", gio_input_stream,
                              NULL);
   auto input_stream = GARROW_GIO_INPUT_STREAM(object);
   return input_stream;
@@ -710,16 +789,14 @@ garrow_gio_input_stream_new(GInputStream *gio_input_stream)
  * Returns: (transfer none): The wrapped #GInputStream.
  *
  * Since: 0.5.0
+ *
+ * Deprecated: 0.12.0: Use GArrowGIOInputStream::raw property instead.
  */
 GInputStream *
 garrow_gio_input_stream_get_raw(GArrowGIOInputStream *input_stream)
 {
-  auto arrow_input_stream =
-    garrow_input_stream_get_raw(GARROW_INPUT_STREAM(input_stream));
-  auto arrow_gio_input_stream =
-    std::static_pointer_cast<garrow::GIOInputStream>(arrow_input_stream);
-  auto gio_input_stream = arrow_gio_input_stream->get_input_stream();
-  return gio_input_stream;
+  auto priv = GARROW_GIO_INPUT_STREAM_GET_PRIVATE(input_stream);
+  return priv->raw;
 }
 
 typedef struct GArrowCompressedInputStreamPrivate_ {
