@@ -74,7 +74,7 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=True,
         assert table.schema.equals(expected_schema, check_metadata=False)
 
     if expected is None:
-        expected = df
+        expected = df if schema is None else df[schema.names]
 
     tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
                           check_index_type=('equiv' if preserve_index
@@ -2099,18 +2099,12 @@ class TestConvertMisc(object):
         df = pd.DataFrame(data)
 
         partial_schema = pa.schema([
-            pa.field('a', pa.int64()),
-            pa.field('b', pa.int32())
-        ])
-
-        expected_schema = pa.schema([
-            pa.field('a', pa.int64()),
-            pa.field('b', pa.int32()),
-            pa.field('c', pa.int64())
+            pa.field('c', pa.int64()),
+            pa.field('a', pa.int64())
         ])
 
         _check_pandas_roundtrip(df, schema=partial_schema,
-                                expected_schema=expected_schema)
+                                expected_schema=partial_schema)
 
     def test_table_batch_empty_dataframe(self):
         df = pd.DataFrame({})
