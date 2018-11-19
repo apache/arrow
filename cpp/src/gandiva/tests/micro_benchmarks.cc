@@ -14,11 +14,11 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#include <stdlib.h>
 
-#include <gtest/gtest.h>
+#include <stdlib.h>
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "benchmark/benchmark.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tests/timed_evaluate.h"
@@ -35,20 +35,13 @@ using arrow::utf8;
 // for the hardware used by travis.
 float tolerance_ratio = 6.0;
 
-class TestBenchmarks : public ::testing::Test {
- public:
-  void SetUp() { pool_ = arrow::default_memory_pool(); }
-
- protected:
-  arrow::MemoryPool* pool_;
-};
-
-TEST_F(TestBenchmarks, TimedTestAdd3) {
+static void TimedTestAdd3(benchmark::State& state) {
   // schema for input fields
   auto field0 = field("f0", int64());
   auto field1 = field("f1", int64());
   auto field2 = field("f2", int64());
   auto schema = arrow::schema({field0, field1, field2});
+  auto pool_ = arrow::default_memory_pool();
 
   // output field
   auto field_sum = field("add", int64());
@@ -63,25 +56,21 @@ TEST_F(TestBenchmarks, TimedTestAdd3) {
   auto sum_expr = TreeExprBuilder::MakeExpression(sum, field_sum);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {sum_expr}, &projector);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(Projector::Make(schema, {sum_expr}, &projector));
 
-  int64_t elapsed_millis;
   Int64DataGenerator data_generator;
   ProjectEvaluator evaluator(projector);
 
-  status = TimedEvaluate<arrow::Int64Type, int64_t>(schema, evaluator, data_generator,
-                                                    pool_, 1 * MILLION, 16 * THOUSAND,
-                                                    elapsed_millis);
-  ASSERT_TRUE(status.ok());
-  std::cout << "Time taken for Add3 " << elapsed_millis << " ms\n";
-  EXPECT_LE(elapsed_millis, 2 * tolerance_ratio);
+  Status status = TimedEvaluate<arrow::Int64Type, int64_t>(
+      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND, state);
+  ASSERT_OK(status);
 }
 
-TEST_F(TestBenchmarks, TimedTestBigNested) {
+static void TimedTestBigNested(benchmark::State& state) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto schema = arrow::schema({fielda});
+  auto pool_ = arrow::default_memory_pool();
 
   // output fields
   auto field_result = field("res", int32());
@@ -110,26 +99,21 @@ TEST_F(TestBenchmarks, TimedTestBigNested) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(Projector::Make(schema, {expr}, &projector));
 
-  int64_t elapsed_millis;
   BoundedInt32DataGenerator data_generator(250);
   ProjectEvaluator evaluator(projector);
 
-  status = TimedEvaluate<arrow::Int32Type, int32_t>(schema, evaluator, data_generator,
-                                                    pool_, 1 * MILLION, 16 * THOUSAND,
-                                                    elapsed_millis);
+  Status status = TimedEvaluate<arrow::Int32Type, int32_t>(
+      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND, state);
   ASSERT_TRUE(status.ok());
-  std::cout << "Time taken for BigNestedIf " << elapsed_millis << " ms\n";
-
-  EXPECT_LE(elapsed_millis, 12 * tolerance_ratio);
 }
 
-TEST_F(TestBenchmarks, TimedTestExtractYear) {
+static void TimedTestExtractYear(benchmark::State& state) {
   // schema for input fields
   auto field0 = field("f0", arrow::date64());
   auto schema = arrow::schema({field0});
+  auto pool_ = arrow::default_memory_pool();
 
   // output field
   auto field_res = field("res", int64());
@@ -138,28 +122,23 @@ TEST_F(TestBenchmarks, TimedTestExtractYear) {
   auto expr = TreeExprBuilder::MakeExpression("extractYear", {field0}, field_res);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(Projector::Make(schema, {expr}, &projector));
 
-  int64_t elapsed_millis;
   Int64DataGenerator data_generator;
   ProjectEvaluator evaluator(projector);
 
-  status = TimedEvaluate<arrow::Date64Type, int64_t>(schema, evaluator, data_generator,
-                                                     pool_, 1 * MILLION, 16 * THOUSAND,
-                                                     elapsed_millis);
+  Status status = TimedEvaluate<arrow::Date64Type, int64_t>(
+      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND, state);
   ASSERT_TRUE(status.ok());
-  std::cout << "Time taken for extractYear " << elapsed_millis << " ms\n";
-
-  EXPECT_LE(elapsed_millis, 11 * tolerance_ratio);
 }
 
-TEST_F(TestBenchmarks, TimedTestFilterAdd2) {
+static void TimedTestFilterAdd2(benchmark::State& state) {
   // schema for input fields
   auto field0 = field("f0", int64());
   auto field1 = field("f1", int64());
   auto field2 = field("f2", int64());
   auto schema = arrow::schema({field0, field1, field2});
+  auto pool_ = arrow::default_memory_pool();
 
   // Build expression
   auto sum = TreeExprBuilder::MakeFunction(
@@ -170,25 +149,21 @@ TEST_F(TestBenchmarks, TimedTestFilterAdd2) {
   auto condition = TreeExprBuilder::MakeCondition(less_than);
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(Filter::Make(schema, condition, &filter));
 
-  int64_t elapsed_millis;
   Int64DataGenerator data_generator;
   FilterEvaluator evaluator(filter);
 
-  status = TimedEvaluate<arrow::Int64Type, int64_t>(
-      schema, evaluator, data_generator, pool_, MILLION, 16 * THOUSAND, elapsed_millis);
+  Status status = TimedEvaluate<arrow::Int64Type, int64_t>(
+      schema, evaluator, data_generator, pool_, MILLION, 16 * THOUSAND, state);
   ASSERT_TRUE(status.ok());
-  std::cout << "Time taken for Filter with Add2 " << elapsed_millis << " ms\n";
-
-  EXPECT_LE(elapsed_millis, 2.5 * tolerance_ratio);
 }
 
-TEST_F(TestBenchmarks, TimedTestFilterLike) {
+static void TimedTestFilterLike(benchmark::State& state) {
   // schema for input fields
   auto fielda = field("a", utf8());
   auto schema = arrow::schema({fielda});
+  auto pool_ = arrow::default_memory_pool();
 
   // build expression.
   auto node_a = TreeExprBuilder::MakeField(fielda);
@@ -198,26 +173,21 @@ TEST_F(TestBenchmarks, TimedTestFilterLike) {
   auto condition = TreeExprBuilder::MakeCondition(like_yellow);
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(Filter::Make(schema, condition, &filter));
 
-  int64_t elapsed_millis;
   FastUtf8DataGenerator data_generator(32);
   FilterEvaluator evaluator(filter);
 
-  status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
-      elapsed_millis);
+  Status status = TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND, state);
   ASSERT_TRUE(status.ok());
-  std::cout << "Time taken for Filter with like " << elapsed_millis << " ms\n";
-
-  EXPECT_LE(elapsed_millis, 600 * tolerance_ratio);
 }
 
-TEST_F(TestBenchmarks, TimedTestAllocs) {
+static void TimedTestAllocs(benchmark::State& state) {
   // schema for input fields
   auto field_a = field("a", arrow::utf8());
   auto schema = arrow::schema({field_a});
+  auto pool_ = arrow::default_memory_pool();
 
   // output field
   auto field_res = field("res", int32());
@@ -229,27 +199,23 @@ TEST_F(TestBenchmarks, TimedTestAllocs) {
   auto expr = TreeExprBuilder::MakeExpression(length, field_res);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(Projector::Make(schema, {expr}, &projector));
 
-  int64_t elapsed_millis;
   FastUtf8DataGenerator data_generator(64);
   ProjectEvaluator evaluator(projector);
 
-  status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND,
-      elapsed_millis);
+  Status status = TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND, state);
   ASSERT_TRUE(status.ok());
-  std::cout << "Time taken for length(upper(utf8)) " << elapsed_millis << " ms\n";
 }
-
 // following two tests are for benchmark optimization of
 // in expr. will be used in follow-up PRs to optimize in expr.
 
-TEST_F(TestBenchmarks, TimedTestMultiOr) {
+static void TimedTestMultiOr(benchmark::State& state) {
   // schema for input fields
   auto fielda = field("a", utf8());
   auto schema = arrow::schema({fielda});
+  auto pool_ = arrow::default_memory_pool();
 
   // output fields
   auto field_result = field("res", boolean());
@@ -271,23 +237,20 @@ TEST_F(TestBenchmarks, TimedTestMultiOr) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(Projector::Make(schema, {expr}, &projector));
 
-  int64_t elapsed_millis;
   FastUtf8DataGenerator data_generator(250);
   ProjectEvaluator evaluator(projector);
-  status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool_, 100 * THOUSAND, 16 * THOUSAND,
-      elapsed_millis);
-  ASSERT_TRUE(status.ok());
-  std::cout << "Time taken for BooleanOr (100K) " << elapsed_millis << " ms\n";
+  Status status = TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool_, 100 * THOUSAND, 16 * THOUSAND, state);
+  ASSERT_OK(status);
 }
 
-TEST_F(TestBenchmarks, TimedTestInExpr) {
+static void TimedTestInExpr(benchmark::State& state) {
   // schema for input fields
   auto fielda = field("a", utf8());
   auto schema = arrow::schema({fielda});
+  auto pool_ = arrow::default_memory_pool();
 
   // output fields
   auto field_result = field("res", boolean());
@@ -306,19 +269,25 @@ TEST_F(TestBenchmarks, TimedTestInExpr) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(Projector::Make(schema, {expr}, &projector));
 
-  int64_t elapsed_millis;
   FastUtf8DataGenerator data_generator(250);
   ProjectEvaluator evaluator(projector);
 
-  status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool_, 100 * THOUSAND, 16 * THOUSAND,
-      elapsed_millis);
+  Status status = TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool_, 100 * THOUSAND, 16 * THOUSAND, state);
 
-  ASSERT_TRUE(status.ok());
-  std::cout << "Time taken for BooleanIn (100K) " << elapsed_millis << " ms\n";
+  ASSERT_OK(status);
 }
+
+BENCHMARK(TimedTestAdd3)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestBigNested)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestBigNested)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestExtractYear)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestFilterAdd2)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestFilterLike)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestAllocs)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestMultiOr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestInExpr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 
 }  // namespace gandiva

@@ -27,9 +27,16 @@ foreach(lib_type "shared" "static")
   add_gandiva_integ_test(utf8_test.cc gandiva_${lib_type})
   add_gandiva_integ_test(binary_test.cc gandiva_${lib_type})
   add_gandiva_integ_test(date_time_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(micro_benchmarks.cc gandiva_${lib_type})
   add_gandiva_integ_test(to_string_test.cc gandiva_${lib_type})
   add_gandiva_integ_test(hash_test.cc gandiva_${lib_type})
   add_gandiva_integ_test(in_expr_test.cc gandiva_${lib_type})
   add_gandiva_integ_test(null_validity_test.cc gandiva_${lib_type})
 endforeach(lib_type)
+
+set(GANDIVA_BENCHMARK_LINK_LIBRARIES
+  gandiva_static
+)
+
+ADD_ARROW_BENCHMARK(micro_benchmarks
+  PREFIX "gandiva"
+  EXTRA_LINK_LIBS ${GANDIVA_BENCHMARK_LINK_LIBRARIES})
