@@ -96,6 +96,10 @@ set(PARQUET_STATIC_TEST_LINK_LIBS
   ${ARROW_LIBRARY_TESTING}
   parquet_static)
 
+set(PARQUET_BENCHMARK_LINK_LIBRARIES
+  arrow_benchmark_main
+  parquet_shared)
+
 ############################################################
 # Generated Thrift sources
 
@@ -285,17 +289,9 @@ ADD_PARQUET_TEST(reader-test)
 ADD_PARQUET_TEST(file-deserialize-test USE_STATIC_LINKING)
 ADD_PARQUET_TEST(schema-test USE_STATIC_LINKING)
 
-#############################################################
-# Benchmark linking
-
-set(PARQUET_BENCHMARK_LINK_LIBRARIES
-  arrow_benchmark_main
-  parquet_static)
-
-ADD_ARROW_BENCHMARK(column-io-benchmark)
-ARROW_BENCHMARK_LINK_LIBRARIES(column-io-benchmark
-  ${PARQUET_BENCHMARK_LINK_LIBRARIES})
-
-ADD_ARROW_BENCHMARK(encoding-benchmark)
-ARROW_BENCHMARK_LINK_LIBRARIES(encoding-benchmark
-  ${PARQUET_BENCHMARK_LINK_LIBRARIES})
+ADD_ARROW_BENCHMARK(column-io-benchmark
+  PREFIX "parquet"
+  EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
+ADD_ARROW_BENCHMARK(encoding-benchmark
+  PREFIX "parquet"
+  EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
