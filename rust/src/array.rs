@@ -151,6 +151,11 @@ macro_rules! def_primitive_array {
                 self.data.buffers()[0].clone()
             }
 
+            /// Returns the length of this array
+            pub fn len(&self) -> i64 {
+                self.data.len()
+            }
+
             /// Returns a raw pointer to the values of this array.
             pub fn raw_values(&self) -> *const $native_ty {
                 unsafe { mem::transmute(self.raw_values.get().offset(self.data.offset() as isize)) }

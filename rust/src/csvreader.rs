@@ -179,9 +179,24 @@ mod tests {
         assert_eq!(37, batch.num_rows());
         assert_eq!(3, batch.num_columns());
 
-        // access some data
+        // access data from a primitive array
         let lat = batch.column(1).as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
         assert_eq!(57.653484, lat.value(0));
+
+        // access data from a string array (ListArray<u8>)
+        let city = batch.column(0).as_any().downcast_ref::<ListArray>().unwrap();
+        let city_values = city.values();
+        let buffer: &PrimitiveArray<u8> = city_values.as_any().downcast_ref::<PrimitiveArray<u8>>().unwrap();
+        let parts: &[u8] = unsafe {
+            std::slice::from_raw_parts(buffer.raw_values(), buffer.len() as usize)
+        };
+
+        let i = 13;
+        let offset = city.value_offset(i) as usize;
+        let len = city.value_length(i) as usize;
+        let city_name: String = String::from_utf8(parts[offset..offset+len].to_vec()).unwrap();
+
+        assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
 
     }
 

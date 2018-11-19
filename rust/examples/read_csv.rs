@@ -38,9 +38,22 @@ fn main() {
 
     println!("Loaded {} rows containing {} columns", batch.num_rows(), batch.num_columns());
 
+    let city = batch.column(0).as_any().downcast_ref::<ListArray>().unwrap();
     let lat = batch.column(1).as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
     let lng = batch.column(2).as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
+
+    let city_values = city.values();
+    let buffer: &PrimitiveArray<u8> = city_values.as_any().downcast_ref::<PrimitiveArray<u8>>().unwrap();
+    let parts: &[u8] = unsafe {
+        std::slice::from_raw_parts(buffer.raw_values(), buffer.len() as usize)
+    };
+
     for i in 0..batch.num_rows() {
-        println!("Latitude: {}, Longitude: {}", lat.value(i), lng.value(i));
+
+        let offset = city.value_offset(i) as usize;
+        let len = city.value_length(i) as usize;
+        let city_name: String = String::from_utf8(parts[offset..offset+len].to_vec()).unwrap();
+
+        println!("City: {}, Latitude: {}, Longitude: {}", city_name, lat.value(i), lng.value(i));
     }
 }
