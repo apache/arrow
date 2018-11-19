@@ -140,38 +140,11 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   /// \brief If true, supports zero copy reads of buffered bytes
   bool supports_zero_copy() const override;
 
- protected:
-  // For use by subclass below
-  BufferedInputStream();
-
-  // The PIMPL is named thusly as it is shared with BufferedRandomAccessFile
-  class ARROW_NO_EXPORT BufferedReaderImpl;
-  std::unique_ptr<BufferedReaderImpl> impl_;
-
  private:
   explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool);
-};
 
-/// \brief A RandomAccessFile implementation which performs buffered
-/// reads. Seeking invalidates any buffered data
-class ARROW_EXPORT BufferedRandomAccessFile : public BufferedInputStream,
-                                              public RandomAccessFile {
- public:
-  /// \brief Create a buffered random access file from a raw RandomAccessFile
-  /// \param[in] raw a raw RandomAccessFile
-  /// \param[in] buffer_size the size of the temporary read buffer
-  /// \param[in] pool a MemoryPool to use for allocations
-  /// \param[out] out the created BufferedRandomAccessFile
-  static Status Create(std::shared_ptr<RandomAccessFile> raw, int64_t buffer_size,
-                       MemoryPool* pool, std::shared_ptr<BufferedRandomAccessFile>* out);
-
-  // RandomAccessFile APIs
-  Status GetSize(int64_t* size) override;
-  Status Seek(int64_t position) override;
-
- private:
-  explicit BufferedRandomAccessFile(std::shared_ptr<RandomAccessFile> raw,
-                                    MemoryPool* pool);
+  class ARROW_NO_EXPORT BufferedInputStreamImpl;
+  std::unique_ptr<BufferedInputStreamImpl> impl_;
 };
 
 }  // namespace io

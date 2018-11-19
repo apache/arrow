@@ -220,33 +220,21 @@ std::shared_ptr<OutputStream> BufferedOutputStream::raw() const { return impl_->
 // ----------------------------------------------------------------------
 // BufferedInputStream implementation
 
-class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
+class BufferedInputStream::BufferedInputStreamImpl : public BufferedBase {
  public:
-  BufferedReaderImpl(InputStream* raw_input_stream, MemoryPool* pool)
+  BufferedInputStreamImpl(std::shared_ptr<InputStream> raw, MemoryPool* pool)
       : BufferedBase(pool),
-        raw_input_(raw_input_stream),
-        supports_zero_copy_(raw_input_stream->supports_zero_copy()),
+        raw_(std::move(raw)),
+        supports_zero_copy_(raw_->supports_zero_copy()),
         bytes_buffered_(0) {}
 
-  BufferedReaderImpl(std::shared_ptr<InputStream> input_stream, MemoryPool* pool)
-      : BufferedReaderImpl(input_stream.get(), pool) {
-    input_stream_ = std::move(input_stream);
-  }
-
-  BufferedReaderImpl(std::shared_ptr<RandomAccessFile> random_access_file,
-                     MemoryPool* pool)
-      : BufferedReaderImpl(random_access_file.get(), pool) {
-    raw_random_access_ = random_access_file.get();
-    random_access_file_ = std::move(random_access_file);
-  }
-
-  ~BufferedReaderImpl() { DCHECK(Close().ok()); }
+  ~BufferedInputStreamImpl() { DCHECK(Close().ok()); }
 
   Status Close() {
     std::lock_guard<std::mutex> guard(lock_);
     if (is_open_) {
       is_open_ = false;
-      return raw_input_->Close();
+      return raw_->Close();
     }
     return Status::OK();
   }
@@ -254,7 +242,7 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
   Status Tell(int64_t* position) const {
     std::lock_guard<std::mutex> guard(lock_);
     if (raw_pos_ == -1) {
-      RETURN_NOT_OK(raw_input_->Tell(&raw_pos_));
+      RETURN_NOT_OK(raw_->Tell(&raw_pos_));
       DCHECK_GE(raw_pos_, 0);
     }
     // Shift by bytes_buffered to return semantic stream position
@@ -281,18 +269,10 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
 
   int64_t buffer_size() const { return buffer_size_; }
 
-  std::shared_ptr<InputStream> DetachInputStream() {
+  std::shared_ptr<InputStream> Detach() {
     std::lock_guard<std::mutex> guard(lock_);
-    raw_input_ = nullptr;
     is_open_ = false;
-    return std::move(input_stream_);
-  }
-
-  std::shared_ptr<RandomAccessFile> DetachRandomAccessFile() {
-    std::lock_guard<std::mutex> guard(lock_);
-    raw_input_ = raw_random_access_ = nullptr;
-    is_open_ = false;
-    return std::move(random_access_file_);
+    return std::move(raw_);
   }
 
   void RewindBuffer() {
@@ -312,8 +292,7 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
         buffer_ = nullptr;
         RETURN_NOT_OK(ResetBuffer());
       }
-      RETURN_NOT_OK(
-          raw_input_->Read(buffer_size_, &bytes_buffered_, writable_buffer_data_));
+      RETURN_NOT_OK(raw_->Read(buffer_size_, &bytes_buffered_, writable_buffer_data_));
       buffer_pos_ = 0;
 
       // Do not make assumptions about the raw stream position
@@ -339,8 +318,8 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
     if (nbytes > bytes_buffered_) {
       // Copy buffered bytes into out, then read rest
       memcpy(out, buffer_data_ + buffer_pos_, bytes_buffered_);
-      RETURN_NOT_OK(raw_input_->Read(nbytes - bytes_buffered_, bytes_read,
-                                     reinterpret_cast<uint8_t*>(out) + bytes_buffered_));
+      RETURN_NOT_OK(raw_->Read(nbytes - bytes_buffered_, bytes_read,
+                               reinterpret_cast<uint8_t*>(out) + bytes_buffered_));
       // Do not make assumptions about the raw stream position
       raw_pos_ = -1;
       *bytes_read += bytes_buffered_;
@@ -356,7 +335,7 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
     if (bytes_buffered_ == 0 && supports_zero_copy_) {
       raw_pos_ = -1;
-      return raw_input_->Read(nbytes, out);
+      return raw_->Read(nbytes, out);
     }
 
     if (nbytes > bytes_buffered_) {
@@ -382,25 +361,11 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
     return Status::OK();
   }
 
-  Status Seek(int64_t position) {
-    // Invalidate buffered bytes, then seek
-    RewindBuffer();
-    return random_access_file_->Seek(position);
-  }
-
   // For providing access to the raw file handles
-  std::shared_ptr<InputStream> input_stream() const { return input_stream_; }
-  std::shared_ptr<RandomAccessFile> random_access_file() const {
-    return random_access_file_;
-  }
+  std::shared_ptr<InputStream> raw() const { return raw_; }
 
  private:
-  // So we can use this PIMPL for either case
-  std::shared_ptr<InputStream> input_stream_;
-  std::shared_ptr<RandomAccessFile> random_access_file_;
-
-  InputStream* raw_input_;
-  RandomAccessFile* raw_random_access_;
+  std::shared_ptr<InputStream> raw_;
 
   bool supports_zero_copy_;
 
@@ -409,11 +374,9 @@ class BufferedInputStream::BufferedReaderImpl : public BufferedBase {
   int64_t bytes_buffered_;
 };
 
-BufferedInputStream::BufferedInputStream() {}
-
 BufferedInputStream::BufferedInputStream(std::shared_ptr<InputStream> raw,
                                          MemoryPool* pool) {
-  impl_.reset(new BufferedReaderImpl(std::move(raw), pool));
+  impl_.reset(new BufferedInputStreamImpl(std::move(raw), pool));
 }
 
 BufferedInputStream::~BufferedInputStream() { DCHECK(impl_->Close().ok()); }
@@ -432,13 +395,9 @@ Status BufferedInputStream::Close() { return impl_->Close(); }
 
 bool BufferedInputStream::closed() const { return impl_->closed(); }
 
-std::shared_ptr<InputStream> BufferedInputStream::Detach() {
-  return impl_->DetachInputStream();
-}
+std::shared_ptr<InputStream> BufferedInputStream::Detach() { return impl_->Detach(); }
 
-std::shared_ptr<InputStream> BufferedInputStream::raw() const {
-  return impl_->input_stream();
-}
+std::shared_ptr<InputStream> BufferedInputStream::raw() const { return impl_->raw(); }
 
 Status BufferedInputStream::Tell(int64_t* position) const {
   return impl_->Tell(position);
@@ -465,32 +424,8 @@ Status BufferedInputStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
 }
 
 bool BufferedInputStream::supports_zero_copy() const {
-  return impl_->input_stream()->supports_zero_copy();
+  return impl_->raw()->supports_zero_copy();
 }
-
-// ----------------------------------------------------------------------
-// BufferedRandomAccessFile implementation using shared PIMPL
-
-BufferedRandomAccessFile::BufferedRandomAccessFile(std::shared_ptr<RandomAccessFile> raw,
-                                                   MemoryPool* pool) {
-  impl_.reset(new BufferedReaderImpl(std::move(raw), pool));
-}
-
-Status BufferedRandomAccessFile::Create(std::shared_ptr<RandomAccessFile> raw,
-                                        int64_t buffer_size, MemoryPool* pool,
-                                        std::shared_ptr<BufferedRandomAccessFile>* out) {
-  auto result = std::shared_ptr<BufferedRandomAccessFile>(
-      new BufferedRandomAccessFile(std::move(raw), pool));
-  RETURN_NOT_OK(result->SetBufferSize(buffer_size));
-  *out = std::move(result);
-  return Status::OK();
-}
-
-Status BufferedRandomAccessFile::GetSize(int64_t* size) {
-  return impl_->random_access_file()->GetSize(size);
-}
-
-Status BufferedRandomAccessFile::Seek(int64_t position) { return impl_->Seek(position); }
 
 }  // namespace io
 }  // namespace arrow
