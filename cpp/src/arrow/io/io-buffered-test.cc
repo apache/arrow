@@ -344,11 +344,11 @@ TEST_F(TestBufferedInputStream, BasicOperation) {
   util::string_view peek = buffered_->Peek(10);
   ASSERT_EQ(0, peek.size());
 
-  char buf[test_data_.size()];
+  std::vector<char> buf(test_data_.size());
   int64_t bytes_read;
-  ASSERT_OK(buffered_->Read(4, &bytes_read, buf));
+  ASSERT_OK(buffered_->Read(4, &bytes_read, buf.data()));
   ASSERT_EQ(4, bytes_read);
-  ASSERT_EQ(0, memcmp(buf, test_data_.data(), 4));
+  ASSERT_EQ(0, memcmp(buf.data(), test_data_.data(), 4));
 
   // 6 bytes remaining in buffer
   ASSERT_EQ(6, buffered_->bytes_buffered());
@@ -368,20 +368,20 @@ TEST_F(TestBufferedInputStream, BasicOperation) {
 
   // Reading to end of buffered bytes does not cause any more data to be
   // buffered
-  ASSERT_OK(buffered_->Read(6, &bytes_read, buf));
+  ASSERT_OK(buffered_->Read(6, &bytes_read, buf.data()));
   ASSERT_EQ(6, bytes_read);
-  ASSERT_EQ(0, memcmp(buf, test_data_.data() + 4, 6));
+  ASSERT_EQ(0, memcmp(buf.data(), test_data_.data() + 4, 6));
 
   ASSERT_EQ(0, buffered_->bytes_buffered());
 
   // Read to EOF, exceeding buffer size
-  ASSERT_OK(buffered_->Read(20, &bytes_read, buf));
+  ASSERT_OK(buffered_->Read(20, &bytes_read, buf.data()));
   ASSERT_EQ(20, bytes_read);
-  ASSERT_EQ(0, memcmp(buf, test_data_.data() + 10, 20));
+  ASSERT_EQ(0, memcmp(buf.data(), test_data_.data() + 10, 20));
   ASSERT_EQ(0, buffered_->bytes_buffered());
 
   // Read to EOF
-  ASSERT_OK(buffered_->Read(1, &bytes_read, buf));
+  ASSERT_OK(buffered_->Read(1, &bytes_read, buf.data()));
   ASSERT_EQ(0, bytes_read);
   ASSERT_OK(buffered_->Tell(&stream_position));
   ASSERT_EQ(test_data_.size(), stream_position);
