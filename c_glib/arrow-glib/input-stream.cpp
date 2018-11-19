@@ -435,7 +435,7 @@ garrow_buffer_input_stream_new(GArrowBuffer *buffer)
   auto arrow_buffer = garrow_buffer_get_raw(buffer);
   auto arrow_buffer_reader =
     std::make_shared<arrow::io::BufferReader>(arrow_buffer);
-  return garrow_buffer_input_stream_new_raw_buffer(&arrow_buffer_reader, buffer);
+  return garrow_buffer_input_stream_new_raw(&arrow_buffer_reader, buffer);
 }
 
 /**
@@ -896,14 +896,8 @@ garrow_seekable_input_stream_get_raw(GArrowSeekableInputStream *seekable_input_s
 }
 
 GArrowBufferInputStream *
-garrow_buffer_input_stream_new_raw(std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader)
-{
-  return garrow_buffer_input_stream_new_raw_buffer(arrow_buffer_reader, nullptr);
-}
-
-GArrowBufferInputStream *
-garrow_buffer_input_stream_new_raw_buffer(std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader,
-                                          GArrowBuffer *buffer)
+garrow_buffer_input_stream_new_raw(std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader,
+                                   GArrowBuffer *buffer)
 {
   auto buffer_input_stream =
     GARROW_BUFFER_INPUT_STREAM(g_object_new(GARROW_TYPE_BUFFER_INPUT_STREAM,
