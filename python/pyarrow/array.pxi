@@ -49,11 +49,7 @@ cdef _is_array_like(obj):
         return isinstance(obj, np.ndarray)
 
 
-def _ndarray_to_type(object values, DataType type):
-    return pyarrow_wrap_data_type(_ndarray_to_c_type(values, type))
-
-
-cdef shared_ptr[CDataType] _ndarray_to_c_type(object values, DataType type):
+cpdef DataType _ndarray_to_arrow_type(object values, DataType type):
     cdef shared_ptr[CDataType] c_type
 
     dtype = values.dtype
@@ -65,19 +61,19 @@ cdef shared_ptr[CDataType] _ndarray_to_c_type(object values, DataType type):
     if type is not None:
         c_type = type.sp_type
 
-    return c_type
+    return pyarrow_wrap_data_type(c_type)
 
 
 cdef _ndarray_to_array(object values, object mask, DataType type,
                        c_bool from_pandas, c_bool safe, CMemoryPool* pool):
     cdef:
         shared_ptr[CChunkedArray] chunked_out
-        shared_ptr[CDataType] c_type = _ndarray_to_c_type(values, type)
         CCastOptions cast_options = CCastOptions(safe)
 
+    type = _ndarray_to_arrow_type(values, type)
     with nogil:
         check_status(NdarrayToArrow(pool, values, mask, from_pandas,
-                                    c_type, cast_options, &chunked_out))
+                                    type.sp_type, cast_options, &chunked_out))
 
     if chunked_out.get().num_chunks() > 1:
         return pyarrow_wrap_chunked_array(chunked_out)
