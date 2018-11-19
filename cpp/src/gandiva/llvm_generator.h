@@ -23,8 +23,6 @@
 #include <string>
 #include <vector>
 
-#include <gtest/gtest_prod.h>
-
 #include "arrow/util/macros.h"
 
 #include "gandiva/annotator.h"
