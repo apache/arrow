@@ -17,6 +17,7 @@
 
 extern crate arrow;
 
+use arrow::array::{ListArray, PrimitiveArray};
 use arrow::datatypes::{Schema, Field, DataType};
 use arrow::csvreader::CsvFile;
 use std::fs::File;
@@ -36,4 +37,10 @@ fn main() {
     let batch = csv.next().unwrap().unwrap();
 
     println!("Loaded {} rows containing {} columns", batch.num_rows(), batch.num_columns());
+
+    let lat = batch.column(1).as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
+    let lng = batch.column(2).as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
+    for i in 0..batch.num_rows() {
+        println!("Latitude: {}, Longitude: {}", lat.value(i), lng.value(i));
+    }
 }

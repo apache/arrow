@@ -161,6 +161,7 @@ impl CsvFile {
 mod tests {
 
     use super::*;
+    use array::{ListArray, PrimitiveArray};
     use datatypes::Field;
 
     #[test]
@@ -177,6 +178,11 @@ mod tests {
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
         assert_eq!(3, batch.num_columns());
+
+        // access some data
+        let lat = batch.column(1).as_any().downcast_ref::<PrimitiveArray<f64>>().unwrap();
+        assert_eq!(57.653484, lat.value(0));
+
     }
 
     #[test]
