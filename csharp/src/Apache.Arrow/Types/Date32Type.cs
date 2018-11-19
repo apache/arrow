@@ -28,10 +28,6 @@ namespace Apache.Arrow.Types
         public override int BitWidth => 32;
         public override DateUnit Unit => DateUnit.Day;
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<Date32Type> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

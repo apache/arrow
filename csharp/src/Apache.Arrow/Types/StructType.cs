@@ -55,10 +55,6 @@ namespace Apache.Arrow.Types
                 field => comparer.Equals(field.Name, name));
         }
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<StructType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

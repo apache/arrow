@@ -24,10 +24,6 @@ namespace Apache.Arrow.Types
         public override int BitWidth => 32;
         public override bool IsSigned => false;
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<UInt32Type> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

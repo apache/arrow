@@ -26,10 +26,6 @@ namespace Apache.Arrow.Types
         public override ArrowTypeId TypeId => ArrowTypeId.Null;
         public override string Name => "null";
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<NullType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }
