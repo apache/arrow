@@ -733,6 +733,19 @@ endif()
 
 set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
+if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  # TODO(wesm): maybe find a better place to put shared auxiliary testing tools
+  # that depend on gtest
+  add_library(arrow_testing_aux STATIC src/arrow/test-util.cc)
+  target_compile_definitions(arrow_testing_aux
+    PRIVATE ARROW_EXPORTING)
+  add_dependencies(arrow_testing_aux gtest_static)
+  set(ARROW_TEST_LINK_LIBS arrow_testing_aux
+    ${ARROW_TEST_LINK_LIBS})
+  set(ARROW_BENCHMARK_LINK_LIBS arrow_testing_aux
+    ${ARROW_BENCHMARK_LINK_LIBS})
+endif()
+
 if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})

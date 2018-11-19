@@ -72,6 +72,7 @@ if(MSVC)
 endif()
 
 set(PARQUET_MIN_TEST_LIBS
+  arrow_testing_aux
   gtest_main_static
   gtest_static)
 
