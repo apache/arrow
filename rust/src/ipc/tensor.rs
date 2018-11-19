@@ -27,7 +27,7 @@ use std::mem;
 
 extern crate flatbuffers;
 use self::flatbuffers::EndianScalar;
-use format::schema::*;
+use ipc::schema::*;
 
 /// Shape data for a single axis in a tensor
 pub enum TensorDimOffset {}

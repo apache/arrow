@@ -26,7 +26,7 @@ use std::cmp::Ordering;
 use std::mem;
 extern crate flatbuffers;
 use self::flatbuffers::EndianScalar;
-use format::schema::*;
+use ipc::schema::*;
 
 // struct Block, aligned to 8
 #[repr(C, align(8))]

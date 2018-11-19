@@ -30,7 +30,7 @@ pub mod buffer;
 pub mod builder;
 pub mod datatypes;
 pub mod error;
-pub mod format;
+pub mod ipc;
 pub mod memory;
 pub mod record_batch;
 pub mod tensor;

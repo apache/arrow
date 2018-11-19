@@ -30,4 +30,4 @@ flatc --rust ../format/Tensor.fbs
 
 There seems to be a bug in the current Flatbuffers code in the Rust implementation, so I had to manually search and replace to change `type__type` to `type_type`.
 
-I also removed the generated namespace `org::apache::arrow::format` and had to manually add imports at the top of each file.
+I also removed the generated namespace `org::apache::arrow::ipc` and had to manually add imports at the top of each file.

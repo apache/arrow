@@ -26,8 +26,8 @@ use std::cmp::Ordering;
 use std::mem;
 extern crate flatbuffers;
 use self::flatbuffers::EndianScalar;
-use format::schema::*;
-use format::tensor::*;
+use ipc::schema::*;
+use ipc::tensor::*;
 
 /// ----------------------------------------------------------------------
 /// The root Message type
