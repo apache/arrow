@@ -18,6 +18,7 @@
 ///! This example demonstrates dealing with mixed types dynamically at runtime
 use std::sync::Arc;
 
+#[macro_use(numeric_from_nonnull)]
 extern crate arrow;
 
 use arrow::array::*;
@@ -40,7 +41,7 @@ fn main() {
     ]);
 
     // create some data
-    let id = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
+    let id = numeric_from_nonnull!(Int32Array, 1, 2, 3, 4, 5);
 
     let nested = StructArray::from(vec![
         (
@@ -49,11 +50,11 @@ fn main() {
         ),
         (
             Field::new("b", DataType::Float64, false),
-            Arc::new(PrimitiveArray::from(vec![1.1, 2.2, 3.3, 4.4, 5.5])),
+            Arc::new(numeric_from_nonnull!(Float64Array, 1.1, 2.2, 3.3, 4.4, 5.5)),
         ),
         (
             Field::new("c", DataType::Float64, false),
-            Arc::new(PrimitiveArray::from(vec![2.2, 3.3, 4.4, 5.5, 6.6])),
+            Arc::new(numeric_from_nonnull!(Float64Array, 2.2, 3.3, 4.4, 5.5, 6.6)),
         ),
     ]);
 
@@ -75,12 +76,12 @@ fn process(batch: &RecordBatch) {
     let _nested_b = nested
         .column(1)
         .as_any()
-        .downcast_ref::<PrimitiveArray<f64>>()
+        .downcast_ref::<Float64Array>()
         .unwrap();
-    let nested_c: &PrimitiveArray<f64> = nested
+    let nested_c: &Float64Array = nested
         .column(2)
         .as_any()
-        .downcast_ref::<PrimitiveArray<f64>>()
+        .downcast_ref::<Float64Array>()
         .unwrap();
 
     let projected_schema = Schema::new(vec![
@@ -91,8 +92,8 @@ fn process(batch: &RecordBatch) {
     let _ = RecordBatch::new(
         Arc::new(projected_schema),
         vec![
-            id.clone(), //NOTE: this is cloning the Arc not the array data
-            Arc::new(PrimitiveArray::<f64>::from(nested_c.data())),
+            id.clone(), // NOTE: this is cloning the Arc not the array data
+            Arc::new(Float64Array::from(nested_c.data())),
         ],
     );
 }

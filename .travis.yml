@@ -267,6 +267,13 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
   # Rust
   - language: rust
+    rust:
+      - stable
+      - nightly
+    matrix:
+      allow_failures:
+        - rust: stable
+      fast_finish: true
     cache: cargo
     addons:
       apt:
