@@ -35,6 +35,7 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
         ccache \
         cmake \
         curl \
+        double-conversion \
         flatbuffers \
         gflags \
         glog \
