@@ -168,6 +168,13 @@ macro_rules! def_primitive_array {
                 unsafe { *(self.raw_values().offset(i as isize)) }
             }
 
+            pub fn value_slice(&self, offset: i64, len: i64) -> &[$native_ty] {
+                let raw = unsafe {
+                    std::slice::from_raw_parts(self.raw_values(), self.len() as usize)
+                };
+                &raw[offset as usize..offset as usize + len as usize]
+            }
+
             /// Returns the minimum value in the array, according to the natural order.
             pub fn min(&self) -> Option<$native_ty> {
                 self.min_max_helper(|a, b| a < b)

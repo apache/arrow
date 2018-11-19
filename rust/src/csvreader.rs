@@ -187,14 +187,11 @@ mod tests {
         let city = batch.column(0).as_any().downcast_ref::<ListArray>().unwrap();
         let city_values = city.values();
         let buffer: &PrimitiveArray<u8> = city_values.as_any().downcast_ref::<PrimitiveArray<u8>>().unwrap();
-        let parts: &[u8] = unsafe {
-            std::slice::from_raw_parts(buffer.raw_values(), buffer.len() as usize)
-        };
 
         let i = 13;
-        let offset = city.value_offset(i) as usize;
-        let len = city.value_length(i) as usize;
-        let city_name: String = String::from_utf8(parts[offset..offset+len].to_vec()).unwrap();
+        let offset = city.value_offset(i) as i64;
+        let len = city.value_length(i) as i64;
+        let city_name: String = String::from_utf8(buffer.value_slice(offset, len).to_vec()).unwrap();
 
         assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
 
