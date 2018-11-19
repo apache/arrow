@@ -18,7 +18,7 @@
 if (PARQUET_BUILD_EXECUTABLES)
   set(PARQUET_TOOLS
     parquet-dump-schema
-    parquet_reader
+    parquet-reader
     parquet-scan)
 
   foreach(TOOL ${PARQUET_TOOLS})
