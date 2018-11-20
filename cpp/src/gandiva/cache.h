@@ -33,7 +33,7 @@ class Cache {
     mtx_.lock();
     result = cache_.get(cache_key);
     mtx_.unlock();
-    return result != boost::none ? result.value() : nullptr;
+    return result != boost::none ? *result : nullptr;
   }
 
   void PutModule(KeyType cache_key, ValueType module) {

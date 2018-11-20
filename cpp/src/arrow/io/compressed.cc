@@ -221,6 +221,8 @@ Status CompressedOutputStream::Write(const void* data, int64_t nbytes) {
 
 Status CompressedOutputStream::Flush() { return impl_->Flush(); }
 
+std::shared_ptr<OutputStream> CompressedOutputStream::raw() const { return impl_->raw(); }
+
 // ----------------------------------------------------------------------
 // CompressedInputStream implementation
 
