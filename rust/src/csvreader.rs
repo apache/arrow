@@ -103,7 +103,7 @@ macro_rules! build_primitive_array {
 
 impl CsvReader {
     /// Read the next batch of rows
-    pub fn next(&mut self) -> Option<Result<Arc<RecordBatch>>> {
+    pub fn next(&mut self) -> Option<Result<RecordBatch>> {
         // read a batch of rows into memory
         let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
         for _ in 0..self.batch_size {
@@ -175,7 +175,7 @@ impl CsvReader {
             }).collect();
 
         match arrays {
-            Ok(arr) => Some(Ok(Arc::new(RecordBatch::new(self.schema.clone(), arr)))),
+            Ok(arr) => Some(Ok(RecordBatch::new(self.schema.clone(), arr))),
             Err(e) => Some(Err(e)),
         }
     }
