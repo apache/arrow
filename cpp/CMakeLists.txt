@@ -57,16 +57,6 @@ include(CMakeParseArguments)
 include(ExternalProject)
 include(FindPkgConfig)
 
-# This ensures that things like gnu++11 get passed correctly
-set(CMAKE_CXX_STANDARD 11)
-
-# We require a C++11 compliant compiler
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Build with -fPIC so that can static link our libraries into other people's
-# shared libraries
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 include(GNUInstallDirs)
 
 # Compatibility with CMake 3.1
