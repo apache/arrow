@@ -151,7 +151,6 @@ impl CsvReader {
                     &DataType::UInt16 => build_primitive_array!(rows, i, u16),
                     &DataType::UInt32 => build_primitive_array!(rows, i, u32),
                     &DataType::UInt64 => build_primitive_array!(rows, i, u64),
-                    &DataType::Float16 => build_primitive_array!(rows, i, f32),
                     &DataType::Float32 => build_primitive_array!(rows, i, f32),
                     &DataType::Float64 => build_primitive_array!(rows, i, f64),
                     &DataType::Utf8 => {
@@ -171,7 +170,7 @@ impl CsvReader {
                         }
                         Ok(Arc::new(BinaryArray::from(list_builder.finish())) as ArrayRef)
                     }
-                    _ => Err(ArrowError::ParseError("Unsupported data type".to_string())),
+                    other => Err(ArrowError::ParseError(format!("Unsupported data type {:?}", other))),
                 }
             }).collect();
 
