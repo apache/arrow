@@ -168,6 +168,9 @@ macro_rules! def_primitive_array {
                 unsafe { *(self.raw_values().offset(i as isize)) }
             }
 
+            /// Returns a slice for the given offset and length
+            ///
+            /// Note this doesn't do any bound checking, for performance reason.
             pub fn value_slice(&self, offset: i64, len: i64) -> &[$native_ty] {
                 let raw =
                     unsafe { std::slice::from_raw_parts(self.raw_values(), self.len() as usize) };

@@ -15,7 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! CSV Support
+//! CSV Reader
+//!
+//! This CSV reader allows CSV files to be read into the Arrow memory model. Records are loaded in
+//! batches and are then converted from row-based data to columnar data.
+//!
+//! Example:
+//!
+//! ```
+//! use arrow::csvreader::CsvReader;
+//! use arrow::datatypes::{DataType, Field, Schema};
+//! use std::fs::File;
+//! use std::sync::Arc;
+//!
+//! let schema = Schema::new(vec![
+//!   Field::new("city", DataType::Utf8, false),
+//!   Field::new("lat", DataType::Float64, false),
+//!   Field::new("lng", DataType::Float64, false),
+//! ]);
+//!
+//! let file = File::open("test/data/uk_cities.csv").unwrap();
+//!
+//! let mut csv = CsvReader::new(file, Arc::new(schema), false, 1024, None);
+//! let batch = csv.next().unwrap().unwrap();
+//!```
 
 use std::fs::File;
 use std::io::BufReader;
@@ -30,15 +53,22 @@ use record_batch::RecordBatch;
 use csv;
 use csv::{StringRecord, StringRecordsIntoIter};
 
-pub struct CsvFile {
+/// CSV file reader
+pub struct CsvReader {
+    /// Explicit schema for the CSV file
     schema: Arc<Schema>,
+    /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
+    /// File reader
     record_iter: StringRecordsIntoIter<BufReader<File>>,
+    /// Batch size (number of records to load each time)
     batch_size: usize,
 }
 
-impl CsvFile {
-    pub fn open(
+impl CsvReader {
+
+    /// Create a new CsvReader
+    pub fn new(
         file: File,
         schema: Arc<Schema>,
         has_headers: bool,
@@ -50,7 +80,7 @@ impl CsvFile {
             .from_reader(BufReader::new(file));
 
         let record_iter = csv_reader.into_records();
-        CsvFile {
+        CsvReader {
             schema: schema.clone(),
             projection,
             record_iter,
@@ -72,7 +102,7 @@ macro_rules! build_primitive_array {
     }};
 }
 
-impl CsvFile {
+impl CsvReader {
     /// Read the next batch of rows
     pub fn next(&mut self) -> Option<Result<Arc<RecordBatch>, ArrowError>> {
         // read a batch of rows into memory
@@ -170,7 +200,7 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = CsvFile::open(file, Arc::new(schema), false, 1024, None);
+        let mut csv = CsvReader::new(file, Arc::new(schema), false, 1024, None);
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
         assert_eq!(3, batch.num_columns());
@@ -214,7 +244,7 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = CsvFile::open(file, Arc::new(schema), false, 1024, Some(vec![0, 1]));
+        let mut csv = CsvReader::new(file, Arc::new(schema), false, 1024, Some(vec![0, 1]));
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
         assert_eq!(2, batch.num_columns());
@@ -230,7 +260,7 @@ mod tests {
 
         let file = File::open("test/data/null_test.csv").unwrap();
 
-        let mut csv = CsvFile::open(file, Arc::new(schema), true, 1024, None);
+        let mut csv = CsvReader::new(file, Arc::new(schema), true, 1024, None);
         let batch = csv.next().unwrap().unwrap();
 
         assert_eq!(false, batch.column(1).is_null(0));

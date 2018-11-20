@@ -18,7 +18,7 @@
 extern crate arrow;
 
 use arrow::array::{ListArray, PrimitiveArray};
-use arrow::csvreader::CsvFile;
+use arrow::csvreader::CsvReader;
 use arrow::datatypes::{DataType, Field, Schema};
 use std::fs::File;
 use std::sync::Arc;
@@ -32,7 +32,7 @@ fn main() {
 
     let file = File::open("test/data/uk_cities.csv").unwrap();
 
-    let mut csv = CsvFile::open(file, Arc::new(schema), false, 1024, None);
+    let mut csv = CsvReader::new(file, Arc::new(schema), false, 1024, None);
     let batch = csv.next().unwrap().unwrap();
 
     println!(
