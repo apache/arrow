@@ -176,4 +176,57 @@ TEST(TestSparseCOOTensor, CreationFromTensor) {
   ASSERT_EQ(3, sidx->Value({11, 2}));
 }
 
+TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
+  std::vector<int64_t> shape = {6, 4};
+  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  std::shared_ptr<Buffer> buffer(Buffer::Wrap(values));
+  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
+  NumericTensor<Int64Type> tensor1(buffer, shape);
+  NumericTensor<Int64Type> tensor2(buffer, shape, {}, dim_names);
+
+  SparseTensor<SparseCSRIndex> st1(tensor1);
+  SparseTensor<SparseCSRIndex> st2(tensor2);
+
+  ASSERT_EQ(12, st1.length());
+  ASSERT_TRUE(st1.is_mutable());
+
+  ASSERT_EQ("foo", st2.dim_name(0));
+  ASSERT_EQ("bar", st2.dim_name(1));
+  ASSERT_EQ("baz", st2.dim_name(2));
+
+  ASSERT_EQ("", st1.dim_name(0));
+  ASSERT_EQ("", st1.dim_name(1));
+  ASSERT_EQ("", st1.dim_name(2));
+
+  const int64_t* ptr = reinterpret_cast<const int64_t*>(st1.raw_data());
+  for (int i = 0; i < 6; ++i) {
+    ASSERT_EQ(i + 1, ptr[i]);
+  }
+  for (int i = 0; i < 6; ++i) {
+    ASSERT_EQ(i + 11, ptr[i + 6]);
+  }
+
+  std::shared_ptr<SparseCSRIndex> si = st1.sparse_index();
+
+  ASSERT_EQ(1, si->indptr()->ndim());
+  ASSERT_EQ(1, si->indices()->ndim());
+
+  const int64_t* indptr_begin =
+      reinterpret_cast<const int64_t*>(si->indptr()->raw_data());
+  std::vector<int64_t> indptr_values(indptr_begin,
+                                     indptr_begin + si->indptr()->shape()[0]);
+
+  ASSERT_EQ(7, indptr_values.size());
+  ASSERT_EQ(std::vector<int64_t>({0, 2, 4, 6, 8, 10, 12}), indptr_values);
+
+  const int64_t* indices_begin =
+      reinterpret_cast<const int64_t*>(si->indices()->raw_data());
+  std::vector<int64_t> indices_values(indices_begin,
+                                      indices_begin + si->indices()->shape()[0]);
+
+  ASSERT_EQ(12, indices_values.size());
+  ASSERT_EQ(std::vector<int64_t>({0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3}), indices_values);
+}
+
 }  // namespace arrow

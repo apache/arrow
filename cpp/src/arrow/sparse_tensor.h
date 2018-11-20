@@ -57,6 +57,27 @@ class ARROW_EXPORT SparseCOOIndex : public SparseIndex {
 };
 
 // ----------------------------------------------------------------------
+// SparseCSRIndex class
+
+class ARROW_EXPORT SparseCSRIndex : public SparseIndex {
+ public:
+  using IndexTensor = NumericTensor<Int64Type>;
+
+  virtual ~SparseCSRIndex() = default;
+
+  // Constructor with two index vectors
+  explicit SparseCSRIndex(const std::shared_ptr<IndexTensor>& indptr,
+                          const std::shared_ptr<IndexTensor>& indices);
+
+  const std::shared_ptr<IndexTensor>& indptr() const { return indptr_; }
+  const std::shared_ptr<IndexTensor>& indices() const { return indices_; }
+
+ protected:
+  std::shared_ptr<IndexTensor> indptr_;
+  std::shared_ptr<IndexTensor> indices_;
+};
+
+// ----------------------------------------------------------------------
 // SparseTensor class
 
 template <typename SparseIndexType>
