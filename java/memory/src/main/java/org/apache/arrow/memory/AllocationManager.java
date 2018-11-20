@@ -42,12 +42,12 @@ import io.netty.buffer.UnsafeDirectLittleEndian;
  * This class is also responsible for managing when memory is allocated and returned to the
  * Netty-based
  * PooledByteBufAllocatorL.
- * <p>
- * The only reason that this isn't package private is we're forced to put ArrowBuf in Netty's
+ *
+ * <p>The only reason that this isn't package private is we're forced to put ArrowBuf in Netty's
  * package which need access
  * to these objects or methods.
- * <p>
- * Threading: AllocationManager manages thread-safety internally. Operations within the context
+ *
+ * <p>Threading: AllocationManager manages thread-safety internally. Operations within the context
  * of a single BufferLedger
  * are lockless in nature and can be leveraged by multiple threads. Operations that cross the
  * context of two ledgers
@@ -215,7 +215,7 @@ public class AllocationManager {
     }
 
     /**
-     * Get the allocator for this ledger
+     * Get the allocator for this ledger.
      * @return allocator
      */
     private BaseAllocator getAllocator() {
@@ -368,8 +368,7 @@ public class AllocationManager {
      *
      * @param offset The offset in bytes to start this new ArrowBuf.
      * @param length The length in bytes that this ArrowBuf will provide access to.
-     * @return A new ArrowBuf that shares references with all ArrowBufs associated with this
-     * BufferLedger
+     * @return A new ArrowBuf that shares references with all ArrowBufs associated with this BufferLedger
      */
     public ArrowBuf newArrowBuf(int offset, int length) {
       allocator.assertOpen();
@@ -383,8 +382,7 @@ public class AllocationManager {
      * @param length  The length in bytes that this ArrowBuf will provide access to.
      * @param manager An optional BufferManager argument that can be used to manage expansion of
      *                this ArrowBuf
-     * @return A new ArrowBuf that shares references with all ArrowBufs associated with this
-     * BufferLedger
+     * @return A new ArrowBuf that shares references with all ArrowBufs associated with this BufferLedger
      */
     public ArrowBuf newArrowBuf(int offset, int length, BufferManager manager) {
       allocator.assertOpen();
