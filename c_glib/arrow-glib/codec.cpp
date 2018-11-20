@@ -34,7 +34,7 @@ G_BEGIN_DECLS
  * #GArrowCompressionType provides compression types corresponding to
  * `arrow::Compression::type`.
  *
- * #GArrowCocec is a class for compressing and decompressing data.
+ * #GArrowCodec is a class for compressing and decompressing data.
  */
 
 typedef struct GArrowCodecPrivate_ {
