@@ -23,8 +23,17 @@ CHECK_CXX_COMPILER_FLAG("-msse3" CXX_SUPPORTS_SSE3)
 # power compiler flags
 CHECK_CXX_COMPILER_FLAG("-maltivec" CXX_SUPPORTS_ALTIVEC)
 
-# compiler flags that are common across debug/release builds
+# This ensures that things like gnu++11 get passed correctly
+set(CMAKE_CXX_STANDARD 11)
 
+# We require a C++11 compliant compiler
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Build with -fPIC so that can static link our libraries into other people's
+# shared libraries
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# compiler flags that are common across debug/release builds
 if (WIN32)
   # TODO(wesm): Change usages of C runtime functions that MSVC says are
   # insecure, like std::getenv
@@ -80,10 +89,6 @@ if (NOT BUILD_WARNING_LEVEL)
 endif(NOT BUILD_WARNING_LEVEL)
 
 string(TOUPPER ${BUILD_WARNING_LEVEL} UPPERCASE_BUILD_WARNING_LEVEL)
-
-if (NOT ("${COMPILER_FAMILY}" STREQUAL "msvc"))
-  set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -std=c++11")
-endif()
 
 if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   # Pre-checkin builds
