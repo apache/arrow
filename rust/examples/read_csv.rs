@@ -18,7 +18,7 @@
 extern crate arrow;
 
 use arrow::array::{BinaryArray, PrimitiveArray};
-use arrow::csvreader::CsvReader;
+use arrow::csv::reader::CsvReader;
 use arrow::datatypes::{DataType, Field, Schema};
 use std::fs::File;
 use std::sync::Arc;
