@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <vector>
+#include "benchmark/benchmark.h"
 #include "gandiva/arrow.h"
 #include "gandiva/filter.h"
 #include "gandiva/projector.h"
@@ -27,6 +28,7 @@
 
 #define THOUSAND (1024)
 #define MILLION (1024 * 1024)
+#define NUM_BATCHES 16
 
 namespace gandiva {
 
@@ -84,48 +86,49 @@ class FilterEvaluator : public BaseEvaluator {
 template <typename TYPE, typename C_TYPE>
 Status TimedEvaluate(SchemaPtr schema, BaseEvaluator& evaluator,
                      DataGenerator<C_TYPE>& data_generator, arrow::MemoryPool* pool,
-                     int num_records, int batch_size, int64_t& num_millis) {
+                     int num_records, int batch_size, benchmark::State& state) {
   int num_remaining = num_records;
   int num_fields = schema->num_fields();
   int num_calls = 0;
   Status status;
-  std::chrono::duration<int64_t, std::micro> micros(0);
-  std::chrono::time_point<std::chrono::high_resolution_clock> start;
-  std::chrono::time_point<std::chrono::high_resolution_clock> finish;
 
-  while (num_remaining > 0) {
-    int num_in_batch = batch_size;
-    if (batch_size > num_remaining) {
-      num_in_batch = num_remaining;
-    }
-
+  // Generate batches of data
+  std::shared_ptr<arrow::RecordBatch> batches[NUM_BATCHES];
+  for (int i = 0; i < NUM_BATCHES; i++) {
     // generate data for all columns in the schema
     std::vector<ArrayPtr> columns;
     for (int col = 0; col < num_fields; col++) {
-      std::vector<C_TYPE> data = GenerateData<C_TYPE>(num_in_batch, data_generator);
-      std::vector<bool> validity(num_in_batch, true);
+      std::vector<C_TYPE> data = GenerateData<C_TYPE>(batch_size, data_generator);
+      std::vector<bool> validity(batch_size, true);
       ArrayPtr col_data = MakeArrowArray<TYPE, C_TYPE>(data, validity);
-
       columns.push_back(col_data);
     }
 
     // make the record batch
-    auto in_batch = arrow::RecordBatch::Make(schema, num_in_batch, columns);
-
-    // evaluate
-    start = std::chrono::high_resolution_clock::now();
-    status = evaluator.Evaluate(*in_batch, pool);
-    finish = std::chrono::high_resolution_clock::now();
-    if (!status.ok()) {
-      return status;
-    }
-
-    micros += std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
-    num_calls++;
-    num_remaining -= num_in_batch;
+    std::shared_ptr<arrow::RecordBatch> batch =
+        arrow::RecordBatch::Make(schema, batch_size, columns);
+    batches[i] = batch;
   }
 
-  num_millis = micros.count() / 1000;
+  for (auto _ : state) {
+    int num_in_batch = batch_size;
+    num_remaining = num_records;
+    while (num_remaining > 0) {
+      if (batch_size > num_remaining) {
+        num_in_batch = num_remaining;
+      }
+
+      status = evaluator.Evaluate(*(batches[num_calls % NUM_BATCHES]), pool);
+      if (!status.ok()) {
+        state.SkipWithError("Evaluation of the batch failed");
+        return status;
+      }
+
+      num_calls++;
+      num_remaining -= num_in_batch;
+    }
+  }
+
   return Status::OK();
 }
 
