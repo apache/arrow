@@ -585,6 +585,29 @@ impl<'a> From<Vec<&'a str>> for BinaryArray {
     }
 }
 
+/// Creates a `BinaryArray` from `List<u8>` array
+impl From<ListArray> for BinaryArray {
+    fn from(v: ListArray) -> Self {
+        assert_eq!(
+            v.data().child_data()[0].child_data().len(),
+            0,
+            "BinaryArray can only be created from list array of u8 values (i.e. List<PrimitiveArray<u8>>)."
+        );
+        assert_eq!(
+            v.data().child_data()[0].data_type(),
+            &DataType::UInt8,
+            "BinaryArray can only be created from List<u8> arrays, mismatched data types."
+        );
+
+        let data = ArrayData::builder(DataType::Utf8)
+            .len(v.len())
+            .add_buffer(v.data().buffers()[0].clone())
+            .add_buffer(v.data().child_data()[0].buffers()[0].clone())
+            .build();
+        Self::from(data)
+    }
+}
+
 impl Array for BinaryArray {
     fn as_any(&self) -> &Any {
         self
@@ -985,6 +1008,89 @@ mod tests {
         assert_eq!(0, binary_array.value_length(0));
         assert_eq!(5, binary_array.value_offset(1));
         assert_eq!(7, binary_array.value_length(1));
+    }
+
+    #[test]
+    fn test_binary_array_from_list_array() {
+        let values: [u8; 12] = [
+            b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',
+        ];
+        let values_data = ArrayData::builder(DataType::UInt8)
+            .len(12)
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let offsets: [i32; 4] = [0, 5, 5, 12];
+
+        // Array data: ["hello", "", "parquet"]
+        let array_data1 = ArrayData::builder(DataType::Utf8)
+            .len(3)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let binary_array1 = BinaryArray::from(array_data1);
+
+        let array_data2 = ArrayData::builder(DataType::Utf8)
+            .len(3)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_child_data(values_data)
+            .build();
+        let list_array = ListArray::from(array_data2);
+        let binary_array2 = BinaryArray::from(list_array);
+
+        assert_eq!(2, binary_array2.data().buffers().len());
+        assert_eq!(0, binary_array2.data().child_data().len());
+
+        assert_eq!(binary_array1.len(), binary_array2.len());
+        assert_eq!(binary_array1.null_count(), binary_array2.null_count());
+        for i in 0..binary_array1.len() {
+            assert_eq!(binary_array1.get_value(i), binary_array2.get_value(i));
+            assert_eq!(binary_array1.get_string(i), binary_array2.get_string(i));
+            assert_eq!(binary_array1.value_offset(i), binary_array2.value_offset(i));
+            assert_eq!(binary_array1.value_length(i), binary_array2.value_length(i));
+        }
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "BinaryArray can only be created from List<u8> arrays, mismatched data types."
+    )]
+    fn test_binary_array_from_incorrect_list_array_type() {
+        let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        let values_data = ArrayData::builder(DataType::UInt32)
+            .len(12)
+            .add_buffer(Buffer::from(values[..].to_byte_slice()))
+            .build();
+        let offsets: [i32; 4] = [0, 5, 5, 12];
+
+        let array_data = ArrayData::builder(DataType::Utf8)
+            .len(3)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_child_data(values_data)
+            .build();
+        let list_array = ListArray::from(array_data);
+        BinaryArray::from(list_array);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "BinaryArray can only be created from list array of u8 values (i.e. List<PrimitiveArray<u8>>)."
+    )]
+    fn test_binary_array_from_incorrect_list_array() {
+        let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        let values_data = ArrayData::builder(DataType::UInt32)
+            .len(12)
+            .add_buffer(Buffer::from(values[..].to_byte_slice()))
+            .add_child_data(ArrayData::builder(DataType::Boolean).build())
+            .build();
+        let offsets: [i32; 4] = [0, 5, 5, 12];
+
+        let array_data = ArrayData::builder(DataType::Utf8)
+            .len(3)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_child_data(values_data)
+            .build();
+        let list_array = ListArray::from(array_data);
+        BinaryArray::from(list_array);
     }
 
     #[test]

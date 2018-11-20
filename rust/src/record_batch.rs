@@ -88,8 +88,8 @@ mod tests {
         let offset_data = vec![0, 1, 2, 3, 4, 5, 6];
         let array_data = ArrayData::builder(DataType::Utf8)
             .len(5)
-            .add_buffer(Buffer::from(v.to_byte_slice()))
             .add_buffer(Buffer::from(offset_data.to_byte_slice()))
+            .add_buffer(Buffer::from(v.to_byte_slice()))
             .build();
         let b = BinaryArray::from(array_data);
 
