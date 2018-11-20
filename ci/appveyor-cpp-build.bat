@@ -104,6 +104,7 @@ if "%JOB%" == "Toolchain" (
       brotli ^
       bzip2 ^
       cmake ^
+      double-conversion ^
       flatbuffers ^
       gflags ^
       gtest ^
