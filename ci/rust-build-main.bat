@@ -55,5 +55,6 @@ cargo test --target %TARGET% --release
 @echo ---------------------
 cargo run --example builders --target %TARGET% --release
 cargo run --example dynamic_types --target %TARGET% --release
+cargo run --example read_csv --target %TARGET% --release
 
 popd
