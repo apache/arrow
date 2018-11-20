@@ -2255,17 +2255,17 @@ def test_table_from_pandas_keeps_column_order_of_dataframe():
     df1 = pd.DataFrame({
         'partition': [0, 0, 1, 1],
         'arrays': [[0, 1, 2], [3, 4], None, None],
-        'strings': [None, None, 'a', 'b']
+        'floats': [None, None, 1.1, 3.3]
     })
-    df2 = df1[['strings', 'partition', 'arrays']]
+    df2 = df1[['floats', 'partition', 'arrays']]
 
     schema1 = pa.schema([
         ('partition', pa.int64()),
         ('arrays', pa.list_(pa.int64())),
-        ('strings', pa.string()),
+        ('floats', pa.float64()),
     ])
     schema2 = pa.schema([
-        ('strings', pa.string()),
+        ('floats', pa.float64()),
         ('partition', pa.int64()),
         ('arrays', pa.list_(pa.int64()))
     ])
@@ -2282,17 +2282,17 @@ def test_table_from_pandas_keeps_column_order_of_schema():
     df = pd.DataFrame({
         'partition': [0, 0, 1, 1],
         'arrays': [[0, 1, 2], [3, 4], None, None],
-        'strings': [None, None, 'a', 'b']
+        'floats': [None, None, 1.1, 3.3]
     })
 
     schema = pa.schema([
-        ('strings', pa.string()),
+        ('floats', pa.float64()),
         ('arrays', pa.list_(pa.int32())),
         ('partition', pa.int32())
     ])
 
     df1 = df[df.partition == 0]
-    df2 = df[df.partition == 1][['strings', 'partition', 'arrays']]
+    df2 = df[df.partition == 1][['floats', 'partition', 'arrays']]
 
     table1 = pa.Table.from_pandas(df1, schema=schema, preserve_index=False)
     table2 = pa.Table.from_pandas(df2, schema=schema, preserve_index=False)
@@ -2305,20 +2305,20 @@ def test_table_from_pandas_columns_argument_only_does_filtering():
     df = pd.DataFrame({
         'partition': [0, 0, 1, 1],
         'arrays': [[0, 1, 2], [3, 4], None, None],
-        'strings': [None, None, 'a', 'b']
+        'floats': [None, None, 1.1, 3.3]
     })
 
-    columns1 = ['arrays', 'strings', 'partition']
+    columns1 = ['arrays', 'floats', 'partition']
     schema1 = pa.schema([
         ('partition', pa.int64()),
         ('arrays', pa.list_(pa.int64())),
-        ('strings', pa.string()),
+        ('floats', pa.float64()),
     ])
 
-    columns2 = ['strings', 'partition']
+    columns2 = ['floats', 'partition']
     schema2 = pa.schema([
         ('partition', pa.int64()),
-        ('strings', pa.string())
+        ('floats', pa.float64())
     ])
 
     table1 = pa.Table.from_pandas(df, columns=columns1, preserve_index=False)
@@ -2332,14 +2332,14 @@ def test_table_from_pandas_columns_and_schema_are_mutually_exclusive():
     df = pd.DataFrame({
         'partition': [0, 0, 1, 1],
         'arrays': [[0, 1, 2], [3, 4], None, None],
-        'strings': [None, None, 'a', 'b']
+        'floats': [None, None, 1.1, 3.3]
     })
     schema = pa.schema([
         ('partition', pa.int32()),
         ('arrays', pa.list_(pa.int32())),
-        ('strings', pa.string()),
+        ('floats', pa.float64()),
     ])
-    columns = ['arrays', 'strings']
+    columns = ['arrays', 'floats']
 
     with pytest.raises(ValueError):
         pa.Table.from_pandas(df, schema=schema, columns=columns)
