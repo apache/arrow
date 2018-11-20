@@ -44,7 +44,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
 
-use array::ArrayRef;
+use array::{ArrayRef, BinaryArray};
 use builder::{ArrayBuilder, ListArrayBuilder, PrimitiveArrayBuilder};
 use datatypes::{DataType, Schema};
 use error::ArrowError;
@@ -66,7 +66,6 @@ pub struct CsvReader {
 }
 
 impl CsvReader {
-
     /// Create a new CsvReader
     pub fn new(
         file: File,
@@ -170,7 +169,7 @@ impl CsvReader {
                                 }
                             }
                         }
-                        Ok(Arc::new(list_builder.finish()) as ArrayRef)
+                        Ok(Arc::new(BinaryArray::from(list_builder.finish())) as ArrayRef)
                     }
                     _ => Err(ArrowError::ParseError("Unsupported data type".to_string())),
                 }
@@ -187,7 +186,7 @@ impl CsvReader {
 mod tests {
 
     use super::*;
-    use array::{ListArray, PrimitiveArray};
+    use array::PrimitiveArray;
     use datatypes::Field;
 
     #[test]
@@ -217,19 +216,10 @@ mod tests {
         let city = batch
             .column(0)
             .as_any()
-            .downcast_ref::<ListArray>()
-            .unwrap();
-        let city_values = city.values();
-        let buffer: &PrimitiveArray<u8> = city_values
-            .as_any()
-            .downcast_ref::<PrimitiveArray<u8>>()
+            .downcast_ref::<BinaryArray>()
             .unwrap();
 
-        let i = 13;
-        let offset = city.value_offset(i) as i64;
-        let len = city.value_length(i) as i64;
-        let city_name: String =
-            String::from_utf8(buffer.value_slice(offset, len).to_vec()).unwrap();
+        let city_name: String = String::from_utf8(city.get_value(13).to_vec()).unwrap();
 
         assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
     }

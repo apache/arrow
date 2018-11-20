@@ -17,7 +17,7 @@
 
 extern crate arrow;
 
-use arrow::array::{ListArray, PrimitiveArray};
+use arrow::array::{BinaryArray, PrimitiveArray};
 use arrow::csvreader::CsvReader;
 use arrow::datatypes::{DataType, Field, Schema};
 use std::fs::File;
@@ -44,7 +44,7 @@ fn main() {
     let city = batch
         .column(0)
         .as_any()
-        .downcast_ref::<ListArray>()
+        .downcast_ref::<BinaryArray>()
         .unwrap();
     let lat = batch
         .column(1)
@@ -57,17 +57,8 @@ fn main() {
         .downcast_ref::<PrimitiveArray<f64>>()
         .unwrap();
 
-    let city_values = city.values();
-    let buffer: &PrimitiveArray<u8> = city_values
-        .as_any()
-        .downcast_ref::<PrimitiveArray<u8>>()
-        .unwrap();
-
     for i in 0..batch.num_rows() {
-        let offset = city.value_offset(i) as i64;
-        let len = city.value_length(i) as i64;
-        let city_name: String =
-            String::from_utf8(buffer.value_slice(offset, len).to_vec()).unwrap();
+        let city_name: String = String::from_utf8(city.get_value(i).to_vec()).unwrap();
 
         println!(
             "City: {}, Latitude: {}, Longitude: {}",
