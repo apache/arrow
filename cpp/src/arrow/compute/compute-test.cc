@@ -914,7 +914,7 @@ TEST_F(TestCast, StringToNumber) {
   try {
     // French locale uses the comma as decimal point
     std::locale::global(std::locale("fr_FR.UTF-8"));
-  } catch (std::runtime_error) {
+  } catch (std::runtime_error&) {
     // Locale unavailable, ignore
   }
   CheckCase<StringType, std::string, FloatType, float>(utf8(), v_float, is_valid,
