@@ -16,8 +16,8 @@
   -->
 
 <!DOCTYPE suppressions PUBLIC
-"-//Puppy Crawl//DTD Suppressions 1.1//EN"
-"http://www.puppycrawl.com/dtds/suppressions_1_1.dtd">
+          "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+          "https://checkstyle.org/dtds/suppressions_1_2.dtd">
 
 <suppressions>
   <suppress checks="JavadocPackage" files=".*[\\/]src[\\/]test[\\/].*"/>
@@ -32,10 +32,10 @@
   <!-- suppress files that include additional lines in license -->
   <suppress checks="Header" files="AutoCloseables.java|Collections2.java" />
 
-  <!-- TODO: Temporarily suppress Javadoc checks -->
-  <suppress checks="javadoc.*" files=".*" />
+  <!-- TODO: Temporarily suppress missing Javadocs -->
+  <suppress checks="JavadocMethod" message="Missing a Javadoc comment." files=".*" />
 
-  <!-- TODO: Temporarily suppress certain check requiring many code changes -->
+  <!-- Suppress certain checks requiring many code changes, that add little benefit -->
   <suppress checks="NoFinalizer|OverloadMethodsDeclarationOrder|VariableDeclarationUsageDistance" files=".*" />
 
 </suppressions>
