@@ -37,6 +37,7 @@ MANIFEST
 *.iml
 
 cpp/.idea/
+cpp/apidoc/xml/
 python/.eggs/
 .vscode
 .idea/
