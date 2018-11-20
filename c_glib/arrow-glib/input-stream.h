@@ -22,6 +22,7 @@
 #include <gio/gio.h>
 
 #include <arrow-glib/buffer.h>
+#include <arrow-glib/codec.h>
 #include <arrow-glib/tensor.h>
 
 G_BEGIN_DECLS
@@ -182,5 +183,22 @@ GType garrow_gio_input_stream_get_type(void) G_GNUC_CONST;
 
 GArrowGIOInputStream *garrow_gio_input_stream_new(GInputStream *gio_input_stream);
 GInputStream *garrow_gio_input_stream_get_raw(GArrowGIOInputStream *input_stream);
+
+#define GARROW_TYPE_COMPRESSED_INPUT_STREAM     \
+  (garrow_compressed_input_stream_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowCompressedInputStream,
+                         garrow_compressed_input_stream,
+                         GARROW,
+                         COMPRESSED_INPUT_STREAM,
+                         GArrowInputStream)
+struct _GArrowCompressedInputStreamClass
+{
+  GArrowInputStreamClass parent_class;
+};
+
+GArrowCompressedInputStream *
+garrow_compressed_input_stream_new(GArrowCodec *codec,
+                                   GArrowInputStream *raw,
+                                   GError **error);
 
 G_END_DECLS

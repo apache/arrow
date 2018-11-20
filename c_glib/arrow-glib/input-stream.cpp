@@ -26,6 +26,7 @@
 #include <arrow/ipc/reader.h>
 
 #include <arrow-glib/buffer.hpp>
+#include <arrow-glib/codec.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/file.hpp>
 #include <arrow-glib/input-stream.hpp>
@@ -52,6 +53,9 @@ G_BEGIN_DECLS
  *
  * #GArrowGIOInputStream is a class for `GInputStream` based input
  * stream.
+ *
+ * #GArrowCompressedInputStream is a class to read data from
+ * compressed input stream.
  */
 
 typedef struct GArrowInputStreamPrivate_ {
@@ -718,6 +722,147 @@ garrow_gio_input_stream_get_raw(GArrowGIOInputStream *input_stream)
   return gio_input_stream;
 }
 
+typedef struct GArrowCompressedInputStreamPrivate_ {
+  GArrowCodec *codec;
+  GArrowInputStream *raw;
+} GArrowCompressedInputStreamPrivate;
+
+enum {
+  PROP_CODEC = 1,
+  PROP_RAW
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowCompressedInputStream,
+                           garrow_compressed_input_stream,
+                           GARROW_TYPE_INPUT_STREAM)
+
+#define GARROW_COMPRESSED_INPUT_STREAM_GET_PRIVATE(object)      \
+  static_cast<GArrowCompressedInputStreamPrivate *>(            \
+    garrow_compressed_input_stream_get_instance_private(        \
+      GARROW_COMPRESSED_INPUT_STREAM(object)))
+
+static void
+garrow_compressed_input_stream_dispose(GObject *object)
+{
+  auto priv = GARROW_COMPRESSED_INPUT_STREAM_GET_PRIVATE(object);
+
+  if (priv->codec) {
+    g_object_unref(priv->codec);
+    priv->codec = NULL;
+  }
+
+  if (priv->raw) {
+    g_object_unref(priv->raw);
+    priv->raw = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_compressed_input_stream_parent_class)->dispose(object);
+}
+
+static void
+garrow_compressed_input_stream_set_property(GObject *object,
+                                            guint prop_id,
+                                            const GValue *value,
+                                            GParamSpec *pspec)
+{
+  auto priv = GARROW_COMPRESSED_INPUT_STREAM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_CODEC:
+    priv->codec = GARROW_CODEC(g_value_dup_object(value));
+    break;
+  case PROP_RAW:
+    priv->raw = GARROW_INPUT_STREAM(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_compressed_input_stream_get_property(GObject *object,
+                                            guint prop_id,
+                                            GValue *value,
+                                            GParamSpec *pspec)
+{
+  auto priv = GARROW_COMPRESSED_INPUT_STREAM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_CODEC:
+    g_value_set_object(value, priv->codec);
+    break;
+  case PROP_RAW:
+    g_value_set_object(value, priv->raw);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_compressed_input_stream_init(GArrowCompressedInputStream *object)
+{
+}
+
+static void
+garrow_compressed_input_stream_class_init(GArrowCompressedInputStreamClass *klass)
+{
+  GParamSpec *spec;
+
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose      = garrow_compressed_input_stream_dispose;
+  gobject_class->set_property = garrow_compressed_input_stream_set_property;
+  gobject_class->get_property = garrow_compressed_input_stream_get_property;
+
+  spec = g_param_spec_object("codec",
+                             "Codec",
+                             "The codec for the stream",
+                             GARROW_TYPE_CODEC,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_CODEC, spec);
+
+  spec = g_param_spec_object("raw",
+                             "Raw",
+                             "The underlying raw input stream",
+                             GARROW_TYPE_INPUT_STREAM,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_RAW, spec);
+}
+
+/**
+ * garrow_compressed_input_stream_new:
+ * @codec: A #GArrowCodec for compressed data in the @raw.
+ * @raw: A #GArrowInputStream that contains compressed data.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: A newly created #GArrowCompressedInputStream.
+ *
+ * Since: 0.12.0
+ */
+GArrowCompressedInputStream *
+garrow_compressed_input_stream_new(GArrowCodec *codec,
+                                   GArrowInputStream *raw,
+                                   GError **error)
+{
+  auto arrow_codec = garrow_codec_get_raw(codec);
+  auto arrow_raw = garrow_input_stream_get_raw(raw);
+  std::shared_ptr<arrow::io::CompressedInputStream> arrow_stream;
+  auto status = arrow::io::CompressedInputStream::Make(arrow_codec,
+                                                       arrow_raw,
+                                                       &arrow_stream);
+  if (garrow_error_check(error, status, "[compressed-input-stream][new]")) {
+    return garrow_compressed_input_stream_new_raw(&arrow_stream,
+                                                  codec,
+                                                  raw);
+  } else {
+    return NULL;
+  }
+}
 
 G_END_DECLS
 
@@ -786,4 +931,28 @@ garrow_memory_mapped_input_stream_new_raw(std::shared_ptr<arrow::io::MemoryMappe
                              NULL);
   auto memory_mapped_input_stream = GARROW_MEMORY_MAPPED_INPUT_STREAM(object);
   return memory_mapped_input_stream;
+}
+
+GArrowCompressedInputStream *
+garrow_compressed_input_stream_new_raw(std::shared_ptr<arrow::io::CompressedInputStream> *arrow_raw,
+                                       GArrowCodec *codec,
+                                       GArrowInputStream *raw)
+{
+  auto compressed_input_stream =
+    g_object_new(GARROW_TYPE_COMPRESSED_INPUT_STREAM,
+                 "input-stream", arrow_raw,
+                 "codec", codec,
+                 "raw", raw,
+                 NULL);
+  return GARROW_COMPRESSED_INPUT_STREAM(compressed_input_stream);
+}
+
+std::shared_ptr<arrow::io::InputStream>
+garrow_compressed_input_stream_get_raw(GArrowCompressedInputStream *compressed_input_stream)
+{
+  auto input_stream = GARROW_INPUT_STREAM(compressed_input_stream);
+  auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
+  auto arrow_compressed_input_stream =
+    std::static_pointer_cast<arrow::io::CompressedInputStream>(arrow_input_stream);
+  return arrow_compressed_input_stream->raw();
 }

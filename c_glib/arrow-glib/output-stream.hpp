@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <arrow/io/compressed.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 
@@ -30,3 +31,10 @@ std::shared_ptr<arrow::io::OutputStream> garrow_output_stream_get_raw(GArrowOutp
 
 GArrowFileOutputStream *garrow_file_output_stream_new_raw(std::shared_ptr<arrow::io::FileOutputStream> *arrow_file_output_stream);
 GArrowBufferOutputStream *garrow_buffer_output_stream_new_raw(std::shared_ptr<arrow::io::BufferOutputStream> *arrow_buffer_output_stream);
+
+GArrowCompressedOutputStream *
+garrow_compressed_output_stream_new_raw(std::shared_ptr<arrow::io::CompressedOutputStream> *arrow_raw,
+                                        GArrowCodec *codec,
+                                        GArrowOutputStream *raw);
+std::shared_ptr<arrow::io::OutputStream>
+garrow_compressed_output_stream_get_raw(GArrowCompressedOutputStream *stream);
