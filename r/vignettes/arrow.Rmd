@@ -234,3 +234,14 @@ tab$column(0L)$data()
 tab$column(0L)$data()$chunks()
 ```
 
+# Streaming, Serialization, and IPC
+
+## Writing and Reading Streams
+
+Arrow defines two types of binary formats for serializing record batches:
+
+ - Streaming format: for sending an arbitrary length sequence of record batches. 
+   The format must be processed from start to end, and does not support random access
+-  File or Random Access format: for serializing a fixed number of record batches. 
+   Supports random access, and thus is very useful when used with memory maps
+
