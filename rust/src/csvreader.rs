@@ -47,7 +47,7 @@ use std::sync::Arc;
 use array::{ArrayRef, BinaryArray};
 use builder::{ArrayBuilder, ListArrayBuilder, PrimitiveArrayBuilder};
 use datatypes::{DataType, Schema};
-use error::ArrowError;
+use error::{ArrowError, Result};
 use record_batch::RecordBatch;
 
 use csv;
@@ -103,7 +103,7 @@ macro_rules! build_primitive_array {
 
 impl CsvReader {
     /// Read the next batch of rows
-    pub fn next(&mut self) -> Option<Result<Arc<RecordBatch>, ArrowError>> {
+    pub fn next(&mut self) -> Option<Result<Arc<RecordBatch>>> {
         // read a batch of rows into memory
         let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
         for _ in 0..self.batch_size {
@@ -136,7 +136,7 @@ impl CsvReader {
                 .collect(),
         };
 
-        let arrays: Result<Vec<ArrayRef>, ArrowError> = projection
+        let arrays: Result<Vec<ArrayRef>> = projection
             .iter()
             .map(|i| {
                 let field = self.schema.field(*i);
