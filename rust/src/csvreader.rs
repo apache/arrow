@@ -121,7 +121,7 @@ impl CsvReader {
         }
 
         // return early if no data was loaded
-        if rows.len() == 0 {
+        if rows.is_empty() {
             return None;
         }
 
