@@ -48,7 +48,7 @@ class LocaleGuard {
   explicit LocaleGuard(const char* new_locale) : global_locale_(std::locale()) {
     try {
       std::locale::global(std::locale(new_locale));
-    } catch (std::runtime_error) {
+    } catch (std::runtime_error&) {
       // Locale unavailable, ignore
     }
   }
