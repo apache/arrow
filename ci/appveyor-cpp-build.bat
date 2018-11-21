@@ -100,7 +100,8 @@ set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
 
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
-  conda install -q -y --file=ci\conda_env_cpp.yml -c conda-forge
+  conda install -q -y --file=ci\conda_env_cpp.yml ^
+        python=%PYTHON% -c conda-forge
   set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 )
 
