@@ -18,6 +18,7 @@
 boost-cpp
 brotli
 cmake
+double-conversion
 flatbuffers
 gflags
 glog
