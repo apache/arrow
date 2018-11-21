@@ -201,7 +201,7 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Subscribe(int* fd);
 
-  Status DecodeNotification(const uint8_t *buffer, ObjectID* object_id,
+  Status DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
                             int64_t* data_size, int64_t* metadata_size);
 
   Status GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
@@ -945,8 +945,8 @@ Status PlasmaClient::Impl::Subscribe(int* fd) {
   return Status::OK();
 }
 
-Status PlasmaClient::Impl::DecodeNotification(const uint8_t* buffer,
-                                              ObjectID* object_id, int64_t* data_size,
+Status PlasmaClient::Impl::DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
+                                              int64_t* data_size,
                                               int64_t* metadata_size) {
   auto object_info = flatbuffers::GetRoot<fb::ObjectInfo>(buffer);
   ARROW_CHECK(object_info->object_id()->size() == sizeof(ObjectID));
@@ -1146,8 +1146,8 @@ Status PlasmaClient::GetNotification(int fd, ObjectID* object_id, int64_t* data_
   return impl_->GetNotification(fd, object_id, data_size, metadata_size);
 }
 
-Status PlasmaClient::DecodeNotification(const uint8_t* buffer,
-                                        ObjectID* object_id, int64_t* data_size,
+Status PlasmaClient::DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
+                                        int64_t* data_size,
                                         int64_t* metadata_size) {
   return impl_->DecodeNotification(buffer, object_id, data_size, metadata_size);
 }
