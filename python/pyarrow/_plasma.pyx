@@ -28,6 +28,7 @@ from libcpp.unordered_map cimport unordered_map
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
 from cython.operator cimport dereference as deref, preincrement as inc
 from cpython.pycapsule cimport *
+from cpython.version cimport PY_MAJOR_VERSION
 
 import collections
 import pyarrow
@@ -738,8 +739,17 @@ cdef class PlasmaClient:
         """
         Get the notification socket.
         """
-        return socket.socket(fileno=self.notification_fd,
-                             family=socket.AF_UNIX)
+
+        if PY_MAJOR_VERSION >= 3:
+            return socket.socket(fileno=self.notification_fd,
+                                 family=socket.AF_UNIX,
+                                 type=socket.SOCK_STREAM)
+        else:
+            socket_obj = socket.fromfd(self.notification_fd,
+                                       family=socket.AF_UNIX,
+                                       type=socket.SOCK_STREAM)
+            return socket.socket(socket.AF_UNIX, socket.SOCK_STREAM,
+                                 _sock=socket_obj)
 
     def decode_notification(self, const uint8_t* buf):
         """
