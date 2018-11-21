@@ -85,7 +85,7 @@ public class TinyIntVector extends BaseFixedWidthVector {
 
   /*----------------------------------------------------------------*
    |                                                                |
-   |          vector value getter methods                           |
+   |          vector value retrieval methods                        |
    |                                                                |
    *----------------------------------------------------------------*/
 

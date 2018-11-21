@@ -86,7 +86,7 @@ public class TimeMilliVector extends BaseFixedWidthVector {
 
   /*----------------------------------------------------------------*
    |                                                                |
-   |          vector value getter methods                           |
+   |          vector value retrieval methods                        |
    |                                                                |
    *----------------------------------------------------------------*/
 

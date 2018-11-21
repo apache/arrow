@@ -79,7 +79,7 @@ public class VarCharVector extends BaseVariableWidthVector {
 
   /*----------------------------------------------------------------*
    |                                                                |
-   |          vector value getter methods                           |
+   |          vector value retrieval methods                        |
    |                                                                |
    *----------------------------------------------------------------*/
 

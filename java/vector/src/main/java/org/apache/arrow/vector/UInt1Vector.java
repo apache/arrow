@@ -57,7 +57,7 @@ public class UInt1Vector extends BaseFixedWidthVector {
 
   /*----------------------------------------------------------------*
    |                                                                |
-   |          vector value getter methods                           |
+   |          vector value retrieval methods                        |
    |                                                                |
    *----------------------------------------------------------------*/
 

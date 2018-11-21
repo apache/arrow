@@ -87,7 +87,7 @@ public class TimeStampMicroTZVector extends TimeStampVector {
 
   /*----------------------------------------------------------------*
    |                                                                |
-   |          vector value getter methods                           |
+   |          vector value retrieval methods                        |
    |                                                                |
    *----------------------------------------------------------------*/
 

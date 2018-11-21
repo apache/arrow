@@ -85,7 +85,7 @@ public class Float4Vector extends BaseFixedWidthVector {
 
   /*----------------------------------------------------------------*
    |                                                                |
-   |          vector value getter methods                           |
+   |          vector value retrieval methods                        |
    |                                                                |
    *----------------------------------------------------------------*/
 
@@ -164,7 +164,7 @@ public class Float4Vector extends BaseFixedWidthVector {
 
   /*----------------------------------------------------------------*
    |                                                                |
-   |          vector value getter methods                           |
+   |          vector value setter methods                           |
    |                                                                |
    *----------------------------------------------------------------*/
 
