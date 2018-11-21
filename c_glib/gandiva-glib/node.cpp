@@ -56,10 +56,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GGandivaNode,
                            ggandiva_node,
                            G_TYPE_OBJECT)
 
-#define GGANDIVA_NODE_GET_PRIVATE(obj)                 \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                  \
-                               GGANDIVA_TYPE_NODE,     \
-                               GGandivaNodePrivate))
+#define GGANDIVA_NODE_GET_PRIVATE(object)                       \
+  static_cast<GGandivaNodePrivate *>(                           \
+    ggandiva_node_get_instance_private(                         \
+      GGANDIVA_NODE(object)))
 
 static void
 ggandiva_node_finalize(GObject *object)
