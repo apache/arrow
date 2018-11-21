@@ -71,7 +71,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 /**
  * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with various data types
- * for H2 database using single test data file
+ * for H2 database using single test data file.
  */
 @RunWith(Parameterized.class)
 public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
@@ -97,21 +97,21 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
   private static final String[] testFiles = {"h2/test1_all_datatypes_h2.yml"};
 
   /**
-   * Constructor which populate table object for each test iteration
+   * Constructor which populate table object for each test iteration.
    *
-   * @param table
+   * @param table Table object
    */
   public JdbcToArrowTest(Table table) {
     this.table = table;
   }
 
   /**
-   * This method returns collection of Table object for each test iteration
+   * Get the test data as a collection of Table objects for each test iteration.
    *
-   * @return
-   * @throws SQLException
-   * @throws ClassNotFoundException
-   * @throws IOException
+   * @return Collection of Table objects
+   * @throws SQLException on error
+   * @throws ClassNotFoundException on error
+   * @throws IOException on error
    */
   @Parameters
   public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
@@ -119,7 +119,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
   }
 
   /**
-   * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with only one test data file
+   * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with only one test data file.
    */
   @Test
   public void testJdbcToArroValues() throws SQLException, IOException {
@@ -136,9 +136,9 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
   }
 
   /**
-   * This method calls the assert methods for various DataSets
+   * This method calls the assert methods for various DataSets.
    *
-   * @param root
+   * @param root VectorSchemaRoot for test
    */
   public void testDataSets(VectorSchemaRoot root) {
     assertBigIntVectorValues((BigIntVector) root.getVector(BIGINT), table.getRowCount(),

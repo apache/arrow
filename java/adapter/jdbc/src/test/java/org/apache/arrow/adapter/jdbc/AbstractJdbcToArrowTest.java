@@ -39,11 +39,11 @@ public abstract class AbstractJdbcToArrowTest {
   protected Table table;
 
   /**
-   * This method creates Table object after reading YAML file
+   * This method creates Table object after reading YAML file.
    *
-   * @param ymlFilePath
-   * @return
-   * @throws IOException
+   * @param ymlFilePath path to file
+   * @return Table object
+   * @throws IOException on error
    */
   protected static Table getTable(String ymlFilePath, Class clss) throws IOException {
     return new ObjectMapper(new YAMLFactory()).readValue(
@@ -52,10 +52,10 @@ public abstract class AbstractJdbcToArrowTest {
 
 
   /**
-   * This method creates Connection object and DB table and also populate data into table for test
+   * This method creates Connection object and DB table and also populate data into table for test.
    *
-   * @throws SQLException
-   * @throws ClassNotFoundException
+   * @throws SQLException on error
+   * @throws ClassNotFoundException on error
    */
   @Before
   public void setUp() throws SQLException, ClassNotFoundException {
@@ -72,9 +72,9 @@ public abstract class AbstractJdbcToArrowTest {
   }
 
   /**
-   * Clean up method to close connection after test completes
+   * Clean up method to close connection after test completes.
    *
-   * @throws SQLException
+   * @throws SQLException on error
    */
   @After
   public void destroy() throws SQLException {
@@ -85,12 +85,14 @@ public abstract class AbstractJdbcToArrowTest {
   }
 
   /**
-   * This method returns collection of Table object for each test iteration
+   * Prepares test data and returns collection of Table object for each test iteration.
    *
-   * @return
-   * @throws SQLException
-   * @throws ClassNotFoundException
-   * @throws IOException
+   * @param testFiles files for test
+   * @param clss Class type
+   * @return Collection of Table objects
+   * @throws SQLException on error
+   * @throws ClassNotFoundException on error
+   * @throws IOException on error
    */
   public static Object[][] prepareTestData(String[] testFiles, Class clss)
       throws SQLException, ClassNotFoundException, IOException {
@@ -103,18 +105,18 @@ public abstract class AbstractJdbcToArrowTest {
   }
 
   /**
-   * Abstract method to implement test Functionality to test JdbcToArrow methods
+   * Abstract method to implement test Functionality to test JdbcToArrow methods.
    *
-   * @throws SQLException
-   * @throws IOException
+   * @throws SQLException on error
+   * @throws IOException on error
    */
   @Test
   public abstract void testJdbcToArroValues() throws SQLException, IOException;
 
   /**
-   * Abstract method to implement logic to assert test various datatype values
+   * Abstract method to implement logic to assert test various datatype values.
    *
-   * @param root
+   * @param root VectorSchemaRoot for test
    */
   public abstract void testDataSets(VectorSchemaRoot root);
 
