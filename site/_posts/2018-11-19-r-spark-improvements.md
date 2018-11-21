@@ -56,26 +56,42 @@ data <- data.frame(y = runif(10^6, 0, 1))
 
 # Copying
 
-The following benchmark using [microbenchmark][8], copies 1M rows from
-R into Spark using `sparklyr` with and without `arrow`, there is close
-to a 10x improvement using `arrow`.
+Currently, copying data to Spark using `sparklyr` is performed by persising
+data on-disk from R and reading it back from Spark. This was meant to be
+used for small datasets since there are better tools to transfer data
+into distributed storage systems. Nevertheless, many users have request
+support to transfer more data at fast speeds into Spark.
 
+Using `arrow` with `sparklyr`, we can transfer data directly from R to
+Spark without having to serialize this data in R or persist in disk.
+
+The following example copies 1M rows from R into Spark using `sparklyr`
+with and without `arrow`, there is close to a 10x improvement using `arrow`.
+
+This benchmark uses the [microbenchmark][8] R package, which runs code
+multiple times, provides stats on total execution time and plots each
+excecution time to understand the distribution over each iteration.
 
 ```r
 microbenchmark::microbenchmark(
   setup = library(arrow),
   arrow_on = {
-    library(arrow)
     sparklyr_df <<- copy_to(sc, data, overwrite = T)
-    count(sparklyr_df)
+    count(sparklyr_df) %>% collect()
   },
   arrow_off = {
     if ("arrow" %in% .packages()) detach("package:arrow")
     sparklyr_df <<- copy_to(sc, data, overwrite = T)
-    count(sparklyr_df)
+    count(sparklyr_df) %>% collect()
   },
   times = 10
-) %>% ggplot2::autoplot()
+) %T>% print() %>% ggplot2::autoplot()
+```
+```
+Unit: milliseconds
+      expr       min        lq      mean    median        uq      max neval
+  arrow_on  396.9805  427.5132  455.8761  447.8131  486.2177  523.980    10
+ arrow_off 2816.4576 3045.4154 3177.0776 3124.9995 3289.3395 3620.697    10
 ```
 
 <div align="center">
@@ -86,23 +102,33 @@ microbenchmark::microbenchmark(
 
 # Collecting
 
-The following benchmark collects 1M rows from Spark into R and shows that `arrow`
-can bring 2x improvements. The collection improvements are not as significant as
-copying data since, `sparklyr` already collects data in columnar format.
+Similarly, `arrow` with `sparklyr` can now avoid deserializing data in R
+while collecting data from Spark into R. These improvements are not as
+significant as copying data since, `sparklyr` already collects data in
+columnar format.
+
+The following benchmark collects 1M rows from Spark into R and shows that
+`arrow` can bring 2x improvements. 
 
 ```r
 microbenchmark::microbenchmark(
   setup = library(arrow),
   arrow_on = {
-    dplyr::collect(sparklyr_df)
+    collect(sparklyr_df)
   },
   arrow_off = {
     if ("arrow" %in% .packages()) detach("package:arrow")
-    dplyr::collect(sparklyr_df)
+    collect(sparklyr_df)
   },
   times = 10
-) %>% ggplot2::autoplot()
+) %T>% print() %>% ggplot2::autoplot()
 ```
+```
+Unit: milliseconds
+      expr      min       lq     mean   median       uq      max neval
+  arrow_on 260.5992 287.5217 298.4174 293.6197 312.2250 341.7968    10
+ arrow_off 363.2187 380.6286 426.6134 424.8232 440.3115 517.2623    10
+ ```
 
 <div align="center">
 <img src="{{ site.base-url }}/img/arrow-r-spark-collecting.png"
@@ -112,11 +138,23 @@ microbenchmark::microbenchmark(
 
 # Transforming
 
-Custom transformations of data using R functions are about 100X faster using `arrow`.
-This improvement was significant since transforming data in R was copying
-and collecting data and was not optimized to be collected in columnar format.
-Therefore, `arrow` will be strongly encouraged to perform custom R transformations
-in Spark. The following example transforms 100K rows with and without `arrow` enabled.
+Today, custom transformations of data using R functions are performed in 
+`sparklyr` by moving data in row-format from Spark into an R process through 
+a socket connection, transferring data in row-format is inefficient since 
+multiple data types need to be deserialized over each row, then the data
+gets converted to columnar format (R was originally designed to use columnar
+data), once R finishes this computation, data is again converted to 
+row-format, serialized row-by-row and then sent back to Spark over the 
+socket connection.
+
+By adding support for `arrow` in `sparklyr`, it makes Spark perform the
+row-format to column-format conversion in parallel in Spark. Data
+is then transferred through the socket but no custom serialization takes place.
+All the R process needs to do is copy this data from the socket into its heap,
+transform it and copy it back to the socket connection.
+
+The following example transforms 100K rows with and without `arrow` enabled,
+`arrow` makes transformation with R functions close to a 100X faster.
 
 ```r
 microbenchmark::microbenchmark(
@@ -129,9 +167,15 @@ microbenchmark::microbenchmark(
     sample_n(sparklyr_df, 10^5) %>% spark_apply(~ .x / 2) %>% count()
   },
   times = 10
-) %>% ggplot2::autoplot()
+) %T>% print() %>% ggplot2::autoplot()
 ```
-
+```
+Unit: seconds
+      expr        min         lq       mean     median         uq       max neval
+  arrow_on   3.399136   3.505688   3.906025   4.112791   4.183889   4.32687    10
+ arrow_off 104.667242 106.801747 109.201360 107.879391 111.520811 116.69798    10
+ ```
+ 
 <div align="center">
 <img src="{{ site.base-url }}/img/arrow-r-spark-transforming.png"
      alt="Transforming data with R in Spark with and without Arrow"
