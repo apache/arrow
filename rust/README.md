@@ -47,6 +47,7 @@ Examples can be run using the `cargo run --example` command. For example:
 ```bash
 cargo run --example builders
 cargo run --example dynamic_types
+cargo run --example read_csv
 ```
 
 ## Run Tests

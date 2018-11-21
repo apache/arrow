@@ -151,6 +151,11 @@ macro_rules! def_primitive_array {
                 self.data.buffers()[0].clone()
             }
 
+            /// Returns the length of this array
+            pub fn len(&self) -> i64 {
+                self.data.len()
+            }
+
             /// Returns a raw pointer to the values of this array.
             pub fn raw_values(&self) -> *const $native_ty {
                 unsafe { mem::transmute(self.raw_values.get().offset(self.data.offset() as isize)) }
@@ -161,6 +166,15 @@ macro_rules! def_primitive_array {
             /// Note this doesn't do any bound checking, for performance reason.
             pub fn value(&self, i: i64) -> $native_ty {
                 unsafe { *(self.raw_values().offset(i as isize)) }
+            }
+
+            /// Returns a slice for the given offset and length
+            ///
+            /// Note this doesn't do any bound checking, for performance reason.
+            pub fn value_slice(&self, offset: i64, len: i64) -> &[$native_ty] {
+                let raw =
+                    unsafe { std::slice::from_raw_parts(self.raw_values(), self.len() as usize) };
+                &raw[offset as usize..offset as usize + len as usize]
             }
 
             /// Returns the minimum value in the array, according to the natural order.
