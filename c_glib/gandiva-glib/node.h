@@ -60,8 +60,11 @@ struct _GGandivaFunctionNodeClass
   GGandivaNodeClass parent_class;
 };
 
-GGandivaFunctionNode *ggandiva_function_node_new(const gchar *function,
-                                                 GList *nodes,
-                                                 GArrowDataType *data_type);
+GGandivaFunctionNode *
+ggandiva_function_node_new(const gchar *name,
+                           GList *parameters,
+                           GArrowDataType *return_type);
+GList *
+ggandiva_function_node_get_parameters(GGandivaFunctionNode *node);
 
 G_END_DECLS
