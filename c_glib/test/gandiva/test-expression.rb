@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestExpression < Test::Unit::TestCase
+class TestGandivaExpression < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
   end

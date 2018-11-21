@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestProjector < Test::Unit::TestCase
+class TestGandivaProjector < Test::Unit::TestCase
   include Helper::Buildable
 
   def setup
