@@ -88,7 +88,7 @@ public class AddWritableBuffer {
    * @param buf The buffer to add.
    * @param stream The Candidate OutputStream to add to.
    * @return True if added. False if not possible.
-   * @throws IOException
+   * @throws IOException on error
    */
   public static boolean add(ByteBuf buf, OutputStream stream) throws IOException {
     buf.readBytes(stream, buf.readableBytes());
