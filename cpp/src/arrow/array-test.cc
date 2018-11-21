@@ -1199,7 +1199,7 @@ TEST_F(TestAdaptiveIntBuilder, TestInt8) {
 
   std::vector<int8_t> expected_values({0, 127, -128});
   ArrayFromVector<Int8Type, int8_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  AssertArraysEqual(*expected_, *result_);
 }
 
 TEST_F(TestAdaptiveIntBuilder, TestInt16) {
@@ -1209,7 +1209,7 @@ TEST_F(TestAdaptiveIntBuilder, TestInt16) {
 
   std::vector<int16_t> expected_values({0, 128});
   ArrayFromVector<Int16Type, int16_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  AssertArraysEqual(*expected_, *result_);
 
   SetUp();
   ASSERT_OK(builder_->Append(-129));
@@ -1217,7 +1217,7 @@ TEST_F(TestAdaptiveIntBuilder, TestInt16) {
   Done();
 
   ArrayFromVector<Int16Type, int16_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  AssertArraysEqual(*expected_, *result_);
 
   SetUp();
   ASSERT_OK(builder_->Append(std::numeric_limits<int16_t>::max()));
@@ -1227,7 +1227,7 @@ TEST_F(TestAdaptiveIntBuilder, TestInt16) {
   Done();
 
   ArrayFromVector<Int16Type, int16_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  AssertArraysEqual(*expected_, *result_);
 }
 
 TEST_F(TestAdaptiveIntBuilder, TestInt32) {
@@ -1239,7 +1239,7 @@ TEST_F(TestAdaptiveIntBuilder, TestInt32) {
   std::vector<int32_t> expected_values(
       {0, static_cast<int32_t>(std::numeric_limits<int16_t>::max()) + 1});
   ArrayFromVector<Int32Type, int32_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  AssertArraysEqual(*expected_, *result_);
 
   SetUp();
   ASSERT_OK(
@@ -1248,7 +1248,7 @@ TEST_F(TestAdaptiveIntBuilder, TestInt32) {
   Done();
 
   ArrayFromVector<Int32Type, int32_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  AssertArraysEqual(*expected_, *result_);
 
   SetUp();
   ASSERT_OK(builder_->Append(std::numeric_limits<int32_t>::max()));
@@ -1258,7 +1258,7 @@ TEST_F(TestAdaptiveIntBuilder, TestInt32) {
   Done();
 
   ArrayFromVector<Int32Type, int32_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  AssertArraysEqual(*expected_, *result_);
 }
 
 TEST_F(TestAdaptiveIntBuilder, TestInt64) {
@@ -1270,7 +1270,7 @@ TEST_F(TestAdaptiveIntBuilder, TestInt64) {
   std::vector<int64_t> expected_values(
       {0, static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1});
   ArrayFromVector<Int64Type, int64_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  AssertArraysEqual(*expected_, *result_);
 
   SetUp();
   ASSERT_OK(
@@ -1279,7 +1279,7 @@ TEST_F(TestAdaptiveIntBuilder, TestInt64) {
   Done();
 
   ArrayFromVector<Int64Type, int64_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  AssertArraysEqual(*expected_, *result_);
 
   SetUp();
   ASSERT_OK(builder_->Append(std::numeric_limits<int64_t>::max()));
@@ -1289,17 +1289,58 @@ TEST_F(TestAdaptiveIntBuilder, TestInt64) {
   Done();
 
   ArrayFromVector<Int64Type, int64_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  AssertArraysEqual(*expected_, *result_);
 }
 
 TEST_F(TestAdaptiveIntBuilder, TestAppendValues) {
-  std::vector<int64_t> expected_values(
-      {0, static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1});
-  ASSERT_OK(builder_->AppendValues(expected_values.data(), expected_values.size()));
-  Done();
+  {
+    std::vector<int64_t> expected_values(
+        {0, static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1});
+    ASSERT_OK(builder_->AppendValues(expected_values.data(), expected_values.size()));
+    Done();
 
-  ArrayFromVector<Int64Type, int64_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+    ArrayFromVector<Int64Type, int64_t>(expected_values, &expected_);
+    AssertArraysEqual(*expected_, *result_);
+  }
+  {
+    SetUp();
+    std::vector<int64_t> values(
+        {0, std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max()});
+    ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+    Done();
+
+    std::vector<int32_t> expected_values(
+        {0, std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max()});
+
+    ArrayFromVector<Int32Type, int32_t>(expected_values, &expected_);
+    AssertArraysEqual(*expected_, *result_);
+  }
+  {
+    SetUp();
+    std::vector<int64_t> values(
+        {0, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max()});
+    ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+    Done();
+
+    std::vector<int16_t> expected_values(
+        {0, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max()});
+
+    ArrayFromVector<Int16Type, int16_t>(expected_values, &expected_);
+    AssertArraysEqual(*expected_, *result_);
+  }
+  {
+    SetUp();
+    std::vector<int64_t> values(
+        {0, std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()});
+    ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+    Done();
+
+    std::vector<int8_t> expected_values(
+        {0, std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()});
+
+    ArrayFromVector<Int8Type, int8_t>(expected_values, &expected_);
+    AssertArraysEqual(*expected_, *result_);
+  }
 }
 
 TEST_F(TestAdaptiveIntBuilder, TestAssertZeroPadded) {
@@ -1311,15 +1352,23 @@ TEST_F(TestAdaptiveIntBuilder, TestAssertZeroPadded) {
 
 TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
   int64_t size = 1000;
-  for (unsigned index = 0; index < size; ++index) {
+  ASSERT_OK(builder_->Append(127));
+  for (unsigned index = 1; index < size - 1; ++index) {
     ASSERT_OK(builder_->AppendNull());
   }
+  ASSERT_OK(builder_->Append(-128));
 
   Done();
 
-  for (unsigned index = 0; index < size; ++index) {
-    ASSERT_TRUE(result_->IsNull(index));
-  }
+  std::vector<bool> expected_valid(size, false);
+  expected_valid[0] = true;
+  expected_valid[size - 1] = true;
+  std::vector<int8_t> expected_values(size);
+  expected_values[0] = 127;
+  expected_values[size - 1] = -128;
+  std::shared_ptr<Array> expected;
+  ArrayFromVector<Int8Type, int8_t>(expected_valid, expected_values, &expected_);
+  AssertArraysEqual(*expected_, *result_);
 }
 
 TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
@@ -1438,15 +1487,23 @@ TEST_F(TestAdaptiveUIntBuilder, TestAssertZeroPadded) {
 
 TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
   int64_t size = 1000;
-  for (unsigned index = 0; index < size; ++index) {
+  ASSERT_OK(builder_->Append(254));
+  for (unsigned index = 1; index < size - 1; ++index) {
     ASSERT_OK(builder_->AppendNull());
   }
+  ASSERT_OK(builder_->Append(255));
 
   Done();
 
-  for (unsigned index = 0; index < size; ++index) {
-    ASSERT_TRUE(result_->IsNull(index));
-  }
+  std::vector<bool> expected_valid(size, false);
+  expected_valid[0] = true;
+  expected_valid[size - 1] = true;
+  std::vector<uint8_t> expected_values(size);
+  expected_values[0] = 254;
+  expected_values[size - 1] = 255;
+  std::shared_ptr<Array> expected;
+  ArrayFromVector<UInt8Type, uint8_t>(expected_valid, expected_values, &expected_);
+  AssertArraysEqual(*expected_, *result_);
 }
 
 TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
