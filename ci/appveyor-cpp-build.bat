@@ -113,7 +113,8 @@ if "%JOB%" == "Toolchain" (
       rapidjson ^
       snappy ^
       zlib ^
-      zstd
+      zstd ^
+      -c conda-forge
   set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 )
 
