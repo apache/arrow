@@ -708,42 +708,34 @@ if (NOT MSVC)
     ${CMAKE_DL_LIBS})
 endif()
 
-if (ARROW_BUILD_STATIC)
-  set(ARROW_MIN_TEST_LIBS
-    arrow_static
-    gtest_main_static
-    gtest_static)
-else ()
-  set(ARROW_MIN_TEST_LIBS
-    arrow_shared
-    ${ARROW_LINK_LIBS}
-    double-conversion_static
-    ${BOOST_SYSTEM_LIBRARY}
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_REGEX_LIBRARY}
-    gtest_main_static
-    gtest_static)
-endif()
+set(ARROW_TEST_STATIC_LINK_LIBS
+  arrow_testing_static
+  arrow_static
+  gtest_main_static
+  gtest_static)
+
+set(ARROW_TEST_SHARED_LINK_LIBS
+  arrow_testing_shared
+  arrow_shared
+  ${ARROW_LINK_LIBS}
+  double-conversion_static
+  ${BOOST_SYSTEM_LIBRARY}
+  ${BOOST_FILESYSTEM_LIBRARY}
+  ${BOOST_REGEX_LIBRARY}
+  gtest_main_static
+  gtest_static)
 
 if(NOT MSVC)
-  set(ARROW_MIN_TEST_LIBS
-    ${ARROW_MIN_TEST_LIBS}
+  set(ARROW_TEST_SHARED_LINK_LIBS
+    ${ARROW_TEST_SHARED_LINK_LIBS}
     ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
-
-if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
-  # TODO(wesm): maybe find a better place to put shared auxiliary testing tools
-  # that depend on gtest
-  add_library(arrow_testing_aux STATIC src/arrow/test-util.cc)
-  target_compile_definitions(arrow_testing_aux
-    PRIVATE ARROW_EXPORTING)
-  add_dependencies(arrow_testing_aux gtest_static)
-  set(ARROW_TEST_LINK_LIBS arrow_testing_aux
-    ${ARROW_TEST_LINK_LIBS})
-  set(ARROW_BENCHMARK_LINK_LIBS arrow_testing_aux
-    ${ARROW_BENCHMARK_LINK_LIBS})
+if (ARROW_BUILD_SHARED)
+  # Use shared linking for unit tests if it's available
+  set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS})
+else()
+  set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_JEMALLOC)

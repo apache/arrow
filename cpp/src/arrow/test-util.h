@@ -51,6 +51,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/visibility.h"
 
 #define STRINGIFY(x) #x
 
@@ -160,28 +161,31 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
 
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
 // and the rest to non-zero (true) values.
-void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes);
-void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid);
-void random_bytes(int64_t n, uint32_t seed, uint8_t* out);
-int32_t DecimalSize(int32_t precision);
-void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t* out);
-void random_ascii(int64_t n, uint32_t seed, uint8_t* out);
-int64_t CountNulls(const std::vector<uint8_t>& valid_bytes);
+ARROW_EXPORT void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes);
+ARROW_EXPORT void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid);
+ARROW_EXPORT void random_bytes(int64_t n, uint32_t seed, uint8_t* out);
+ARROW_EXPORT int32_t DecimalSize(int32_t precision);
+ARROW_EXPORT void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t* out);
+ARROW_EXPORT void random_ascii(int64_t n, uint32_t seed, uint8_t* out);
+ARROW_EXPORT int64_t CountNulls(const std::vector<uint8_t>& valid_bytes);
 
-Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
-                            std::shared_ptr<ResizableBuffer>* out, uint32_t seed = 0);
+ARROW_EXPORT Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
+                                         std::shared_ptr<ResizableBuffer>* out,
+                                         uint32_t seed = 0);
 
-void AssertArraysEqual(const Array& expected, const Array& actual);
-void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual);
-void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected);
-void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expected);
-void AssertBufferEqual(const Buffer& buffer, const std::string& expected);
-void AssertBufferEqual(const Buffer& buffer, const Buffer& expected);
-void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);
+ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual);
+ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual);
+ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected);
+ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expected);
+ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const std::string& expected);
+ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected);
+ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);
 
-void PrintColumn(const Column& col, std::stringstream* ss);
-void AssertTablesEqual(const Table& expected, const Table& actual,
-                       bool same_chunk_layout = true);
+ARROW_EXPORT void PrintColumn(const Column& col, std::stringstream* ss);
+ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
+                                    bool same_chunk_layout = true);
+
+ARROW_EXPORT void CompareBatch(const RecordBatch& left, const RecordBatch& right);
 
 template <typename T, typename U>
 void rand_uniform_int(int64_t n, uint32_t seed, T min_value, T max_value, U* out) {
@@ -332,8 +336,6 @@ Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& 
       FAIL() << ss.str();                    \
     }                                        \
   } while (false)
-
-void CompareBatch(const RecordBatch& left, const RecordBatch& right);
 
 // ----------------------------------------------------------------------
 // A RecordBatchReader for serving a sequence of in-memory record batches
