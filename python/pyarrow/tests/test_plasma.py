@@ -25,6 +25,7 @@ import os
 import pytest
 import random
 import signal
+import struct
 import subprocess
 import sys
 import time
@@ -762,7 +763,8 @@ class TestPlasmaClient(object):
             for j in range(i):
                 # Assume the plasma store will not be full,
                 # so we always get the data size instead of -1.
-                content = rsock.recv(104)[8:]
+                msg_len = struct.unpack('L', rsock.recv(8))[0]
+                content = rsock.recv(msg_len)
                 recv_objid, recv_dsize, recv_msize = (
                     self.plasma_client.decode_notification(content))
                 assert object_ids[j] == recv_objid
