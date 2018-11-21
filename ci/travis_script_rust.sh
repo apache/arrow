@@ -39,5 +39,6 @@ cd arrow
 cargo run --example builders
 cargo run --example dynamic_types
 cargo run --example read_csv
+cargo run --example read_csv_infer_schema
 
 popd

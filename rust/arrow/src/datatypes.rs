@@ -42,7 +42,7 @@ use crate::error::{ArrowError, Result};
 /// Nested types can themselves be nested within other arrays.
 /// For more information on these types please see
 /// [here](https://arrow.apache.org/docs/memory_layout.html).
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DataType {
     Boolean,
     Int8,
@@ -64,7 +64,7 @@ pub enum DataType {
 /// Contains the meta-data for a single relative type.
 ///
 /// The `Schema` object is an ordered collection of `Field` objects.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Field {
     name: String,
     data_type: DataType,
