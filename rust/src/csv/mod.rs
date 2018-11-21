@@ -15,24 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-extern crate bytes;
-extern crate csv as csv_crate;
-extern crate libc;
+pub mod reader;
 
-#[macro_use]
-extern crate serde_json;
-
-extern crate rand;
-
-pub mod array;
-pub mod array_data;
-pub mod bitmap;
-pub mod buffer;
-pub mod builder;
-pub mod csv;
-pub mod datatypes;
-pub mod error;
-pub mod memory;
-pub mod record_batch;
-pub mod tensor;
-pub mod util;
+pub use self::reader::Reader;
