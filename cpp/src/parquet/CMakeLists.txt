@@ -58,9 +58,13 @@ endfunction()
 if (ARROW_BUILD_STATIC)
   set(PARQUET_STATIC_LINK_LIBS
     arrow_static)
-  set(ARROW_LIBRARY_TESTING arrow_static)
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS
+    arrow_testing_static
+    arrow_static)
 else()
-  set(ARROW_LIBRARY_TESTING arrow_shared)
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS
+    arrow_testing_shared
+    arrow_shared)
 endif()
 
 set(PARQUET_BOOST_LINK_LIBS
@@ -93,9 +97,8 @@ set(PARQUET_SHARED_TEST_LINK_LIBS
   thriftstatic)
 
 set(PARQUET_STATIC_TEST_LINK_LIBS
-  arrow_testing_static
   ${PARQUET_MIN_TEST_LIBS}
-  ${ARROW_LIBRARY_TESTING}
+  ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
   parquet_static)
 
 set(PARQUET_BENCHMARK_LINK_LIBRARIES

@@ -162,10 +162,12 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
 // and the rest to non-zero (true) values.
 ARROW_EXPORT void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes);
-ARROW_EXPORT void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid);
+ARROW_EXPORT void random_is_valid(int64_t n, double pct_null,
+                                  std::vector<bool>* is_valid);
 ARROW_EXPORT void random_bytes(int64_t n, uint32_t seed, uint8_t* out);
 ARROW_EXPORT int32_t DecimalSize(int32_t precision);
-ARROW_EXPORT void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t* out);
+ARROW_EXPORT void random_decimals(int64_t n, uint32_t seed, int32_t precision,
+                                  uint8_t* out);
 ARROW_EXPORT void random_ascii(int64_t n, uint32_t seed, uint8_t* out);
 ARROW_EXPORT int64_t CountNulls(const std::vector<uint8_t>& valid_bytes);
 
@@ -174,9 +176,12 @@ ARROW_EXPORT Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
                                          uint32_t seed = 0);
 
 ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual);
-ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual);
-ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected);
-ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expected);
+ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& expected,
+                                     const ChunkedArray& actual);
+ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,
+                                     const ArrayVector& expected);
+ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer,
+                                    const std::vector<uint8_t>& expected);
 ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const std::string& expected);
 ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected);
 ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);

@@ -683,13 +683,6 @@ if (ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-if (ARROW_BUILD_BENCHMARKS)
-  set(ARROW_BENCHMARK_LINK_LIBS
-    arrow_benchmark_main
-    arrow_static
-    gtest_static)
-endif()
-
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
   ${ARROW_STATIC_LINK_LIBS}
   ${BOOST_SYSTEM_LIBRARY}
@@ -736,6 +729,12 @@ if (ARROW_BUILD_SHARED)
   set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS})
 else()
   set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_STATIC_LINK_LIBS})
+endif()
+
+if (ARROW_BUILD_BENCHMARKS)
+  set(ARROW_BENCHMARK_LINK_LIBS
+    arrow_benchmark_main
+    ${ARROW_TEST_LINK_LIBS})
 endif()
 
 if (ARROW_JEMALLOC)
