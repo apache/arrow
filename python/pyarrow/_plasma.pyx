@@ -739,15 +739,13 @@ cdef class PlasmaClient:
         """
         Get the notification socket.
         """
-
         if PY_MAJOR_VERSION >= 3:
             return socket.socket(fileno=self.notification_fd,
                                  family=socket.AF_UNIX,
                                  type=socket.SOCK_STREAM)
         else:
-            socket_obj = socket.fromfd(self.notification_fd,
-                                       family=socket.AF_UNIX,
-                                       type=socket.SOCK_STREAM)
+            socket_obj = socket.fromfd(self.notification_fd, socket.AF_UNIX,
+                                       socket.SOCK_STREAM)
             return socket.socket(socket.AF_UNIX, socket.SOCK_STREAM,
                                  _sock=socket_obj)
 
@@ -764,7 +762,6 @@ cdef class PlasmaClient:
         int
             The metadata size of the object that was stored.
         """
-
         cdef CUniqueID object_id
         cdef int64_t data_size
         cdef int64_t metadata_size
