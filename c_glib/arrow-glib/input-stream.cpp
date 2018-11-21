@@ -246,8 +246,8 @@ garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
 }
 
 
-G_DEFINE_TYPE(GArrowSeekableInputStream,                \
-              garrow_seekable_input_stream,             \
+G_DEFINE_TYPE(GArrowSeekableInputStream,
+              garrow_seekable_input_stream,
               GARROW_TYPE_INPUT_STREAM);
 
 static void
@@ -336,8 +336,8 @@ enum {
   PROP_BUFFER
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowBufferInputStream,                     \
-                           garrow_buffer_input_stream,                  \
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowBufferInputStream,
+                           garrow_buffer_input_stream,
                            GARROW_TYPE_SEEKABLE_INPUT_STREAM);
 
 #define GARROW_BUFFER_INPUT_STREAM_GET_PRIVATE(obj)                     \
@@ -455,8 +455,8 @@ garrow_buffer_input_stream_get_buffer(GArrowBufferInputStream *input_stream)
 }
 
 
-G_DEFINE_TYPE(GArrowMemoryMappedInputStream,            \
-              garrow_memory_mapped_input_stream,        \
+G_DEFINE_TYPE(GArrowMemoryMappedInputStream,
+              garrow_memory_mapped_input_stream,
               GARROW_TYPE_SEEKABLE_INPUT_STREAM);
 
 static void
@@ -665,8 +665,8 @@ namespace garrow {
 
 G_BEGIN_DECLS
 
-G_DEFINE_TYPE(GArrowGIOInputStream,                \
-              garrow_gio_input_stream,             \
+G_DEFINE_TYPE(GArrowGIOInputStream,
+              garrow_gio_input_stream,
               GARROW_TYPE_SEEKABLE_INPUT_STREAM);
 
 static void
