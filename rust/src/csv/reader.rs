@@ -23,7 +23,7 @@
 //! Example:
 //!
 //! ```
-//! use arrow::csv::reader::CsvReader;
+//! use arrow::csv;
 //! use arrow::datatypes::{DataType, Field, Schema};
 //! use std::fs::File;
 //! use std::sync::Arc;
@@ -36,7 +36,7 @@
 //!
 //! let file = File::open("test/data/uk_cities.csv").unwrap();
 //!
-//! let mut csv = CsvReader::new(file, Arc::new(schema), false, 1024, None);
+//! let mut csv = csv::Reader::new(file, Arc::new(schema), false, 1024, None);
 //! let batch = csv.next().unwrap().unwrap();
 //!```
 
@@ -53,7 +53,7 @@ use record_batch::RecordBatch;
 use csv_crate::{StringRecord, StringRecordsIntoIter};
 
 /// CSV file reader
-pub struct CsvReader {
+pub struct Reader {
     /// Explicit schema for the CSV file
     schema: Arc<Schema>,
     /// Optional projection for which columns to load (zero-based column indices)
@@ -64,7 +64,7 @@ pub struct CsvReader {
     batch_size: usize,
 }
 
-impl CsvReader {
+impl Reader {
     /// Create a new CsvReader
     pub fn new(
         file: File,
@@ -78,7 +78,7 @@ impl CsvReader {
             .from_reader(BufReader::new(file));
 
         let record_iter = csv_reader.into_records();
-        CsvReader {
+        Reader {
             schema: schema.clone(),
             projection,
             record_iter,
@@ -100,7 +100,7 @@ macro_rules! build_primitive_array {
     }};
 }
 
-impl CsvReader {
+impl Reader {
     /// Read the next batch of rows
     pub fn next(&mut self) -> Option<Result<RecordBatch>> {
         // read a batch of rows into memory
@@ -200,7 +200,7 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = CsvReader::new(file, Arc::new(schema), false, 1024, None);
+        let mut csv = Reader::new(file, Arc::new(schema), false, 1024, None);
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
         assert_eq!(3, batch.num_columns());
@@ -235,7 +235,7 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = CsvReader::new(file, Arc::new(schema), false, 1024, Some(vec![0, 1]));
+        let mut csv = Reader::new(file, Arc::new(schema), false, 1024, Some(vec![0, 1]));
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
         assert_eq!(2, batch.num_columns());
@@ -251,7 +251,7 @@ mod tests {
 
         let file = File::open("test/data/null_test.csv").unwrap();
 
-        let mut csv = CsvReader::new(file, Arc::new(schema), true, 1024, None);
+        let mut csv = Reader::new(file, Arc::new(schema), true, 1024, None);
         let batch = csv.next().unwrap().unwrap();
 
         assert_eq!(false, batch.column(1).is_null(0));
