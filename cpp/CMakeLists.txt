@@ -124,6 +124,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow googletest unit tests"
     ON)
 
+  set(ARROW_TEST_LINKAGE "shared" CACHE STRING
+    "Linkage of Arrow libraries with unit tests executables. \
+static|shared (default shared)")
+
   set(ARROW_TEST_INCLUDE_LABELS "" CACHE STRING
     "Only build unit tests having the indicated label or labels. \
 Pass multiple labels by dividing with semicolons")
@@ -436,8 +440,6 @@ endif()
 
 if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
-else()
-  set(ARROW_BUILD_SHARED ON)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
@@ -704,6 +706,7 @@ endif()
 set(ARROW_TEST_STATIC_LINK_LIBS
   arrow_testing_static
   arrow_static
+  ${ARROW_LINK_LIBS}
   gtest_main_static
   gtest_static)
 
@@ -724,10 +727,18 @@ if(NOT MSVC)
     ${CMAKE_DL_LIBS})
 endif()
 
-if (ARROW_BUILD_SHARED)
+if ("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
+  if (NOT ARROW_BUILD_SHARED)
+    message(FATAL_ERROR "If using shared linkage for unit tests, must also \
+pass ARROW_BUILD_SHARED=on")
+  endif()
   # Use shared linking for unit tests if it's available
   set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS})
 else()
+  if (NOT ARROW_BUILD_STATIC)
+    message(FATAL_ERROR "If using static linkage for unit tests, must also \
+pass ARROW_BUILD_STATIC=on")
+  endif()
   set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_STATIC_LINK_LIBS})
 endif()
 
