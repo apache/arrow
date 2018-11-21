@@ -742,6 +742,22 @@ class TestPlasmaClient(object):
                 assert data_sizes[j] == recv_dsize
                 assert metadata_sizes[j] == recv_msize
 
+            for j in range(i):
+                self.plasma_client.create(
+                    object_ids[j], data_sizes[j],
+                    metadata=bytearray(np.random.bytes(metadata_sizes[j])))
+                self.plasma_client.seal(object_ids[j])
+            rsock = self.plasma_client.get_notification_socket()
+
+            # Check that we received notifications for all of the objects.
+            for j in range(i):
+                content = rsock.recv(104)[8:]
+                recv_objid, recv_dsize, recv_msize = (
+                    self.plasma_client.decode_notification(content))
+                assert object_ids[j] == recv_objid
+                assert data_sizes[j] == recv_dsize
+                assert metadata_sizes[j] == recv_msize
+
     def test_subscribe_deletions(self):
         # Subscribe to notifications from the Plasma Store. We use
         # plasma_client2 to make sure that all used objects will get evicted
