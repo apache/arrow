@@ -101,7 +101,11 @@ set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
   conda install -q -y --file=ci\conda_env_cpp.yml ^
-        python=%PYTHON% -c conda-forge
+        python=%PYTHON%
+
+  @rem ARROW-3785, double-conversion is not part of Anaconda's toolchain yet
+  conda install -q -y --no-update-deps double-conversion -c conda-forge
+
   set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 )
 
