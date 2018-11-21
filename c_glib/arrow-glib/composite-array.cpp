@@ -51,8 +51,8 @@ G_BEGIN_DECLS
  * normal array to dictionary array by garrow_array_dictionary_encode().
  */
 
-G_DEFINE_TYPE(GArrowListArray,               \
-              garrow_list_array,             \
+G_DEFINE_TYPE(GArrowListArray,
+              garrow_list_array,
               GARROW_TYPE_ARRAY)
 
 static void
@@ -141,8 +141,8 @@ garrow_list_array_get_value(GArrowListArray *array,
 }
 
 
-G_DEFINE_TYPE(GArrowStructArray,               \
-              garrow_struct_array,             \
+G_DEFINE_TYPE(GArrowStructArray,
+              garrow_struct_array,
               GARROW_TYPE_ARRAY)
 
 static void
@@ -264,8 +264,8 @@ garrow_struct_array_flatten(GArrowStructArray *array, GError **error)
 }
 
 
-G_DEFINE_TYPE(GArrowDictionaryArray,            \
-              garrow_dictionary_array,          \
+G_DEFINE_TYPE(GArrowDictionaryArray,
+              garrow_dictionary_array,
               GARROW_TYPE_ARRAY)
 
 static void

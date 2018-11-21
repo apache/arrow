@@ -43,8 +43,8 @@ G_BEGIN_DECLS
  * #GArrowDictionaryDataType is a class for dictionary data type.
  */
 
-G_DEFINE_TYPE(GArrowListDataType,                \
-              garrow_list_data_type,             \
+G_DEFINE_TYPE(GArrowListDataType,
+              garrow_list_data_type,
               GARROW_TYPE_DATA_TYPE)
 
 static void
@@ -98,8 +98,8 @@ garrow_list_data_type_get_value_field(GArrowListDataType *list_data_type)
 }
 
 
-G_DEFINE_TYPE(GArrowStructDataType,                \
-              garrow_struct_data_type,             \
+G_DEFINE_TYPE(GArrowStructDataType,
+              garrow_struct_data_type,
               GARROW_TYPE_DATA_TYPE)
 
 static void
@@ -252,8 +252,8 @@ garrow_struct_data_type_get_field_index(GArrowStructDataType *data_type,
 }
 
 
-G_DEFINE_TYPE(GArrowDictionaryDataType,                \
-              garrow_dictionary_data_type,             \
+G_DEFINE_TYPE(GArrowDictionaryDataType,
+              garrow_dictionary_data_type,
               GARROW_TYPE_FIXED_WIDTH_DATA_TYPE)
 
 static void

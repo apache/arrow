@@ -404,8 +404,8 @@ garrow_buffer_slice(GArrowBuffer *buffer, gint64 offset, gint64 size)
 }
 
 
-G_DEFINE_TYPE(GArrowMutableBuffer,              \
-              garrow_mutable_buffer,            \
+G_DEFINE_TYPE(GArrowMutableBuffer,
+              garrow_mutable_buffer,
               GARROW_TYPE_BUFFER)
 
 static void
@@ -484,8 +484,8 @@ garrow_mutable_buffer_slice(GArrowMutableBuffer *buffer,
 }
 
 
-G_DEFINE_TYPE(GArrowResizableBuffer,              \
-              garrow_resizable_buffer,            \
+G_DEFINE_TYPE(GArrowResizableBuffer,
+              garrow_resizable_buffer,
               GARROW_TYPE_MUTABLE_BUFFER)
 
 static void
