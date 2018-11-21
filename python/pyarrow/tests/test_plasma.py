@@ -742,6 +742,11 @@ class TestPlasmaClient(object):
                 assert data_sizes[j] == recv_dsize
                 assert metadata_sizes[j] == recv_msize
 
+            # Get notification from socket.
+            object_ids = [random_object_id() for _ in range(i)]
+            metadata_sizes = [np.random.randint(1000) for _ in range(i)]
+            data_sizes = [np.random.randint(1000) for _ in range(i)]
+
             for j in range(i):
                 self.plasma_client.create(
                     object_ids[j], data_sizes[j],
@@ -751,6 +756,8 @@ class TestPlasmaClient(object):
 
             # Check that we received notifications for all of the objects.
             for j in range(i):
+                # Assume the plasma store will not be full,
+                # so we always get the data size instead of -1.
                 content = rsock.recv(104)[8:]
                 recv_objid, recv_dsize, recv_msize = (
                     self.plasma_client.decode_notification(content))

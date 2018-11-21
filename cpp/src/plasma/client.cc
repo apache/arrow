@@ -1147,8 +1147,7 @@ Status PlasmaClient::GetNotification(int fd, ObjectID* object_id, int64_t* data_
 }
 
 Status PlasmaClient::DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
-                                        int64_t* data_size,
-                                        int64_t* metadata_size) {
+                                        int64_t* data_size, int64_t* metadata_size) {
   return impl_->DecodeNotification(buffer, object_id, data_size, metadata_size);
 }
 
