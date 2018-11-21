@@ -2252,11 +2252,11 @@ def test_convert_unsupported_type_error_message():
 
 
 def test_table_from_pandas_keeps_column_order_of_dataframe():
-    df1 = pd.DataFrame({
-        'partition': [0, 0, 1, 1],
-        'arrays': [[0, 1, 2], [3, 4], None, None],
-        'floats': [None, None, 1.1, 3.3]
-    })
+    df1 = pd.DataFrame(OrderedDict([
+        ('partition', [0, 0, 1, 1]),
+        ('arrays', [[0, 1, 2], [3, 4], None, None]),
+        ('floats', [None, None, 1.1, 3.3])
+    ]))
     df2 = df1[['floats', 'partition', 'arrays']]
 
     schema1 = pa.schema([
@@ -2279,11 +2279,11 @@ def test_table_from_pandas_keeps_column_order_of_dataframe():
 
 def test_table_from_pandas_keeps_column_order_of_schema():
     # ARROW-3766
-    df = pd.DataFrame({
-        'partition': [0, 0, 1, 1],
-        'arrays': [[0, 1, 2], [3, 4], None, None],
-        'floats': [None, None, 1.1, 3.3]
-    })
+    df = pd.DataFrame(OrderedDict([
+        ('partition', [0, 0, 1, 1]),
+        ('arrays', [[0, 1, 2], [3, 4], None, None]),
+        ('floats', [None, None, 1.1, 3.3])
+    ]))
 
     schema = pa.schema([
         ('floats', pa.float64()),
@@ -2302,11 +2302,11 @@ def test_table_from_pandas_keeps_column_order_of_schema():
 
 
 def test_table_from_pandas_columns_argument_only_does_filtering():
-    df = pd.DataFrame({
-        'partition': [0, 0, 1, 1],
-        'arrays': [[0, 1, 2], [3, 4], None, None],
-        'floats': [None, None, 1.1, 3.3]
-    })
+    df = pd.DataFrame(OrderedDict([
+        ('partition', [0, 0, 1, 1]),
+        ('arrays', [[0, 1, 2], [3, 4], None, None]),
+        ('floats', [None, None, 1.1, 3.3])
+    ]))
 
     columns1 = ['arrays', 'floats', 'partition']
     schema1 = pa.schema([
@@ -2329,11 +2329,11 @@ def test_table_from_pandas_columns_argument_only_does_filtering():
 
 
 def test_table_from_pandas_columns_and_schema_are_mutually_exclusive():
-    df = pd.DataFrame({
-        'partition': [0, 0, 1, 1],
-        'arrays': [[0, 1, 2], [3, 4], None, None],
-        'floats': [None, None, 1.1, 3.3]
-    })
+    df = pd.DataFrame(OrderedDict([
+        ('partition', [0, 0, 1, 1]),
+        ('arrays', [[0, 1, 2], [3, 4], None, None]),
+        ('floats', [None, None, 1.1, 3.3])
+    ]))
     schema = pa.schema([
         ('partition', pa.int32()),
         ('arrays', pa.list_(pa.int32())),
