@@ -48,8 +48,7 @@ typedef struct GGandivaNodePrivate_ {
 } GGandivaNodePrivate;
 
 enum {
-  PROP_0,
-  PROP_NODE
+  PROP_NODE = 1
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GGandivaNode,
@@ -114,9 +113,71 @@ ggandiva_node_class_init(GGandivaNodeClass *klass)
 }
 
 
-G_DEFINE_TYPE(GGandivaFieldNode,
-              ggandiva_field_node,
-              GGANDIVA_TYPE_NODE)
+typedef struct GGandivaFieldNodePrivate_ {
+  GArrowField *field;
+} GGandivaFieldNodePrivate;
+
+enum {
+  PROP_FIELD = 1
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GGandivaFieldNode,
+                           ggandiva_field_node,
+                           GGANDIVA_TYPE_NODE)
+
+#define GGANDIVA_FIELD_NODE_GET_PRIVATE(object)                 \
+  static_cast<GGandivaFieldNodePrivate *>(                      \
+    ggandiva_field_node_get_instance_private(                   \
+      GGANDIVA_FIELD_NODE(object)))
+
+static void
+ggandiva_field_node_dispose(GObject *object)
+{
+  auto priv = GGANDIVA_FIELD_NODE_GET_PRIVATE(object);
+
+  if (priv->field) {
+    g_object_unref(priv->field);
+    priv->field = nullptr;
+  }
+
+  G_OBJECT_CLASS(ggandiva_field_node_parent_class)->dispose(object);
+}
+
+static void
+ggandiva_field_node_set_property(GObject *object,
+                                 guint prop_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto priv = GGANDIVA_FIELD_NODE_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_FIELD:
+    priv->field = GARROW_FIELD(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+ggandiva_field_node_get_property(GObject *object,
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto priv = GGANDIVA_FIELD_NODE_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_FIELD:
+    g_value_set_object(value, priv->field);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 ggandiva_field_node_init(GGandivaFieldNode *field_node)
@@ -126,6 +187,20 @@ ggandiva_field_node_init(GGandivaFieldNode *field_node)
 static void
 ggandiva_field_node_class_init(GGandivaFieldNodeClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose      = ggandiva_field_node_dispose;
+  gobject_class->set_property = ggandiva_field_node_set_property;
+  gobject_class->get_property = ggandiva_field_node_get_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_object("field",
+                             "Field",
+                             "The field",
+                             GARROW_TYPE_FIELD,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_FIELD, spec);
 }
 
 /**
@@ -141,9 +216,8 @@ GGandivaFieldNode *
 ggandiva_field_node_new(GArrowField *field)
 {
   auto arrow_field = garrow_field_get_raw(field);
-  auto gandiva_node =
-    gandiva::TreeExprBuilder::MakeField(arrow_field);
-  return ggandiva_field_node_new_raw(&gandiva_node);
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeField(arrow_field);
+  return ggandiva_field_node_new_raw(&gandiva_node, field);
 }
 
 
@@ -200,10 +274,12 @@ ggandiva_node_get_raw(GGandivaNode *gandiva)
 }
 
 GGandivaFieldNode *
-ggandiva_field_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
+ggandiva_field_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
+                            GArrowField *field)
 {
   auto gandiva = g_object_new(GGANDIVA_TYPE_FIELD_NODE,
                               "node", gandiva_node,
+                              "field", field,
                               NULL);
   return GGANDIVA_FIELD_NODE(gandiva);
 }

@@ -26,5 +26,7 @@
 #include <gandiva-glib/node.h>
 
 std::shared_ptr<gandiva::Node> ggandiva_node_get_raw(GGandivaNode *node);
-GGandivaFieldNode *ggandiva_field_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
+GGandivaFieldNode *
+ggandiva_field_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
+                            GArrowField *field);
 GGandivaFunctionNode *ggandiva_function_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
