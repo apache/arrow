@@ -733,12 +733,13 @@ cdef class PlasmaClient:
         """Subscribe to notifications about sealed objects."""
         with nogil:
             check_status(self.client.get().Subscribe(&self.notification_fd))
-    
+
     def get_notification_socket(self):
         """
         Get the notification socket.
         """
-        return socket.socket(fileno=self.notification_fd, family=socket.AF_UNIX)
+        return socket.socket(fileno=self.notification_fd,
+                             family=socket.AF_UNIX)
 
     def decode_notification(self, const uint8_t* buf):
         """
