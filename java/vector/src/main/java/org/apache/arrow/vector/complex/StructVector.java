@@ -249,7 +249,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   /**
-   * Get the current value capacity for the vector
+   * Get the current value capacity for the vector.
    * @return number of elements that vector can hold.
    */
   @Override
@@ -301,7 +301,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   /**
-   * Same as {@link #close()}
+   * Same as {@link #close()}.
    */
   @Override
   public void clear() {
@@ -310,7 +310,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   /**
-   * Reset this vector to empty, does not release buffers
+   * Reset this vector to empty, does not release buffers.
    */
   @Override
   public void reset() {
@@ -319,7 +319,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   /**
-   * Release the validity buffer
+   * Release the validity buffer.
    */
   private void clearValidityBuffer() {
     validityBuffer.release();
@@ -327,8 +327,8 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   /**
-   * Get the size (number of bytes) of underlying buffers used by this
-   * vector
+   * Get the size (number of bytes) of underlying buffers used by this vector.
+   *
    * @return size of underlying buffers.
    */
   @Override
@@ -342,6 +342,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
 
   /**
    * Get the potential buffer size for a particular number of records.
+   *
    * @param valueCount desired number of elements in the vector
    * @return estimated size of underlying buffers if the vector holds
    *         a given number of elements

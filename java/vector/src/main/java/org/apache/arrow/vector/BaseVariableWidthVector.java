@@ -189,7 +189,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /**
-   * Get the density of this ListVector
+   * Get the density of this ListVector.
    * @return density
    */
   public double getDensity() {
@@ -203,7 +203,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /**
-   * Get the current value capacity for the vector
+   * Get the current value capacity for the vector.
    * @return number of elements that vector can hold.
    */
   @Override
@@ -258,7 +258,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /**
-   * Same as {@link #close()}
+   * Same as {@link #close()}.
    */
   @Override
   public void clear() {
@@ -291,8 +291,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   /**
    * Get the inner child vectors.
-   * @return list of child vectors for complex types, empty list for scalar vector
-   * types
+   * @return list of child vectors for complex types, empty list for scalar vector types
    */
   @Override
   public List<FieldVector> getChildrenFromFields() {
@@ -325,7 +324,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /**
-   * Get the buffers belonging to this vector
+   * Get the buffers belonging to this vector.
    * @return the inner buffers.
    */
   public List<ArrowBuf> getFieldBuffers() {
@@ -405,7 +404,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    *
    * @param totalBytes desired total memory capacity
    * @param valueCount the desired number of elements in the vector
-   * @throws org.apache.arrow.memory.OutOfMemoryException
+   * @throws org.apache.arrow.memory.OutOfMemoryException if memory allocation fails
    */
   @Override
   public void allocateNew(int totalBytes, int valueCount) {
@@ -505,11 +504,11 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * the vector and offset buffer is used to store the lengths of variable
    * width elements in the vector.
    *
-   * Note that data buffer for variable length vectors moves independent
+   * <p>Note that data buffer for variable length vectors moves independent
    * of the companion validity and offset buffers. This is in
    * contrast to what we have for fixed width vectors.
    *
-   * So even though we may have setup an initial capacity of 1024
+   * <p>So even though we may have setup an initial capacity of 1024
    * elements in the vector, it is quite possible
    * that we need to reAlloc() the data buffer when we are setting
    * the 5th element in the vector simply because previous
@@ -561,7 +560,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   /**
    * Get the size (number of bytes) of underlying data buffer.
-   * @return
+   * @return number of bytes in the data buffer
    */
   @Override
   public int getByteCapacity() {
@@ -576,7 +575,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   /**
    * Get the size (number of bytes) of underlying buffers used by this
-   * vector
+   * vector.
    * @return size of underlying buffers.
    */
   @Override
@@ -648,7 +647,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * Construct a transfer pair of this vector and another vector of same type.
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
-   * @param callBack
+   * @param callBack not used
    * @return TransferPair
    */
   @Override
@@ -712,7 +711,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     }
   }
 
-  /*
+  /**
    * Transfer the offsets along with data. Unlike the data buffer, we cannot simply
    * slice the offset buffer for split and transfer. The reason is that offsets
    * in the target vector have to be adjusted and made relative to the staring
@@ -792,15 +791,15 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *                common getters and setters                      *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |                common getters and setters                      |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
-   * Get the number of elements that are null in the vector
+   * Get the number of elements that are null in the vector.
    *
    * @return the number of null elements.
    */
@@ -810,7 +809,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   /**
    * Check if the given index is within the current value capacity
-   * of the vector
+   * of the vector.
    *
    * @param index  position to check
    * @return true if index is within the current value capacity
@@ -853,7 +852,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /**
-   * Sets the value count for the vector
+   * Sets the value count for the vector.
    *
    * @param valueCount   value count
    */
@@ -1028,7 +1027,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   /**
    * Set the variable length element at the specified index to the
-   * content in supplied ByteBuffer
+   * content in supplied ByteBuffer.
    *
    * @param index   position of the element to set
    * @param value   ByteBuffer with data
@@ -1165,11 +1164,11 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *                helper methods for setters                      *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |                helper methods for setters                      |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   protected final void fillHoles(int index) {
@@ -1228,7 +1227,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * Method used by Json Writer to read a variable width element from
    * the variable width vector and write to Json.
    *
-   * This method should not be used externally.
+   * <p>This method should not be used externally.
    *
    * @param data buffer storing the variable width vector elements
    * @param offset buffer storing the offsets of variable width vector elements
@@ -1249,7 +1248,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * width vector data. The method takes care of allocating the memory for
    * offsets if the caller hasn't done so.
    *
-   * This method should not be used externally.
+   * <p>This method should not be used externally.
    *
    * @param buffer ArrowBuf to store offsets for variable width elements
    * @param allocator memory allocator

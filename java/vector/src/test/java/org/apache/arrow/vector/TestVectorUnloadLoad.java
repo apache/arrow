@@ -191,10 +191,10 @@ public class TestVectorUnloadLoad {
 
   /**
    * The validity buffer can be empty if:
-   * - all values are defined
-   * - all values are null
+   * - all values are defined.
+   * - all values are null.
    *
-   * @throws IOException
+   * @throws IOException on error
    */
   @Test
   public void testLoadValidityBuffer() throws IOException {

@@ -33,7 +33,7 @@ import org.apache.arrow.vector.util.MapWithOrdinal;
 
 import io.netty.buffer.ArrowBuf;
 
-/*
+/**
  * Base class for StructVectors. Currently used by NonNullableStructVector
  */
 public abstract class AbstractStructVector extends AbstractContainerVector {
@@ -90,7 +90,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
    * Adds a new field with the given parameters or replaces the existing one and consequently returns the resultant
    * {@link org.apache.arrow.vector.ValueVector}.
    *
-   * Execution takes place in the following order:
+   * <p>Execution takes place in the following order:
    * <ul>
    * <li>
    * if field is new, create and insert a new vector of desired type.
@@ -191,7 +191,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   /**
    * Inserts the vector with the given name if it does not exist else replaces it with the new value.
    *
-   * Note that this method does not enforce any vector type check nor throws a schema change exception.
+   * <p>Note that this method does not enforce any vector type check nor throws a schema change exception.
    *
    * @param name   the name of the child to add
    * @param vector the vector to add as a child
@@ -201,7 +201,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   /**
-   * Inserts the input vector into the map if it does not exist, replaces if it exists already
+   * Inserts the input vector into the map if it does not exist, replaces if it exists already.
    *
    * @param name   field name
    * @param vector vector to be inserted
@@ -218,6 +218,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   /**
+   * Get child vectors.
    * @return a sequence of underlying child vectors.
    */
   protected List<FieldVector> getChildren() {
@@ -236,6 +237,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   /**
+   * Get the number of child vectors.
    * @return the number of underlying child vectors.
    */
   @Override
@@ -249,6 +251,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   /**
+   * Get primitive child vectors.
    * @return a list of scalar child vectors recursing the entire vector hierarchy.
    */
   public List<ValueVector> getPrimitiveVectors() {
@@ -265,6 +268,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   /**
+   * Get a child vector by name.
    * @param name the name of the child to return
    * @return a vector with its corresponding ordinal mapping if field exists or null.
    */

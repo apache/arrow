@@ -137,7 +137,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   /**
-   * Get the density of this ListVector
+   * Get the density of this ListVector.
    * @return density
    */
   public double getDensity() {
@@ -184,7 +184,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   /**
-   * Get the buffers belonging to this vector
+   * Get the buffers belonging to this vector.
    * @return the inner buffers.
    */
   @Override
@@ -320,7 +320,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   /**
    * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector
+   * position in this vector.
    * @param inIndex position to copy from in source vector
    * @param outIndex position to copy to in this vector
    * @param from source vector
@@ -334,7 +334,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   /**
-   * Get the inner data vector for this list vector
+   * Get the inner data vector for this list vector.
    * @return data vector
    */
   @Override
@@ -531,7 +531,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   /**
    * Get the size (number of bytes) of underlying buffers used by this
-   * vector
+   * vector.
    * @return size of underlying buffers.
    */
   @Override
@@ -613,7 +613,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   /**
-   * Get the element in the list vector at a particular index
+   * Get the element in the list vector at a particular index.
    * @param index position of the element
    * @return Object at given position
    */
@@ -658,7 +658,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   /**
-   * Get the number of elements that are null in the vector
+   * Get the number of elements that are null in the vector.
    *
    * @return the number of null elements.
    */
@@ -668,7 +668,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   /**
-   * Get the current value capacity for the vector
+   * Get the current value capacity for the vector.
    * @return number of elements that vector can hold.
    */
   @Override
@@ -694,7 +694,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   /**
-   * Start a new value in the list vector
+   * Start a new value in the list vector.
    *
    * @param index index of the value to start
    */
@@ -713,7 +713,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   /**
-   * End the current value
+   * End the current value.
    *
    * @param index index of the value to end
    * @param size  number of elements in the list that was written
@@ -724,7 +724,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   /**
-   * Sets the value count for the vector
+   * Sets the value count for the vector.
    *
    * @param valueCount   value count
    */

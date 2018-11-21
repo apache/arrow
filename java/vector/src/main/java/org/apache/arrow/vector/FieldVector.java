@@ -25,28 +25,28 @@ import org.apache.arrow.vector.types.pojo.Field;
 import io.netty.buffer.ArrowBuf;
 
 /**
- * A vector corresponding to a Field in the schema
+ * A vector corresponding to a Field in the schema.
  * It has inner vectors backed by buffers (validity, offsets, data, ...)
  */
 public interface FieldVector extends ValueVector {
 
   /**
    * Initializes the child vectors
-   * to be later loaded with loadBuffers
+   * to be later loaded with loadBuffers.
    *
    * @param children the schema
    */
   void initializeChildrenFromFields(List<Field> children);
 
   /**
-   * the returned list is the same size as the list passed to initializeChildrenFromFields
+   * The returned list is the same size as the list passed to initializeChildrenFromFields.
    *
    * @return the children according to schema (empty for primitive types)
    */
   List<FieldVector> getChildrenFromFields();
 
   /**
-   * loads data in the vectors
+   * Loads data in the vectors.
    * (ownBuffers must be the same size as getFieldVectors())
    *
    * @param fieldNode  the fieldNode
@@ -55,33 +55,35 @@ public interface FieldVector extends ValueVector {
   void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers);
 
   /**
-   * (same size as getFieldVectors() since it is their content)
+   * Get the buffers of the fields, (same size as getFieldVectors() since it is their content).
    *
    * @return the buffers containing the data for this vector (ready for reading)
    */
   List<ArrowBuf> getFieldBuffers();
 
   /**
+   * Get the inner vectors.
+   *
    * @return the inner vectors for this field as defined by the TypeLayout
    */
   List<BufferBacked> getFieldInnerVectors();
 
   /**
-   * Gets the starting address of the underlying buffer associated with validity vector
+   * Gets the starting address of the underlying buffer associated with validity vector.
    *
    * @return buffer address
    */
   public long getValidityBufferAddress();
 
   /**
-   * Gets the starting address of the underlying buffer associated with data vector
+   * Gets the starting address of the underlying buffer associated with data vector.
    *
    * @return buffer address
    */
   public long getDataBufferAddress();
 
   /**
-   * Gets the starting address of the underlying buffer associated with offset vector
+   * Gets the starting address of the underlying buffer associated with offset vector.
    *
    * @return buffer address
    */

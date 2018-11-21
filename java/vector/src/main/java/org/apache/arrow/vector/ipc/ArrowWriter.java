@@ -41,7 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Abstract base class for implementing Arrow writers for IPC over a WriteChannel
+ * Abstract base class for implementing Arrow writers for IPC over a WriteChannel.
  */
 public abstract class ArrowWriter implements AutoCloseable {
 
@@ -58,7 +58,7 @@ public abstract class ArrowWriter implements AutoCloseable {
   private boolean ended = false;
 
   /**
-   * Note: fields are not closed when the writer is closed
+   * Note: fields are not closed when the writer is closed.
    *
    * @param root     the vectors to write to the output
    * @param provider where to find the dictionaries
