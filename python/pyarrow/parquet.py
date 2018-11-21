@@ -1209,12 +1209,14 @@ def write_to_dataset(table, root_path, partition_cols=None,
         data_cols = df.columns.drop(partition_cols)
         if len(data_cols) == 0:
             raise ValueError('No data left to save outside partition columns')
+
         subschema = table.schema
         # ARROW-2891: Ensure the output_schema is preserved when writing a
         # partitioned dataset
-        for partition_col in partition_cols:
-            subschema = subschema.remove(
-                subschema.get_field_index(partition_col))
+        for col in table.schema.names:
+            if (col.startswith('__index_level_') or col in partition_cols):
+                subschema = subschema.remove(subschema.get_field_index(col))
+
         for keys, subgroup in data_df.groupby(partition_keys):
             if not isinstance(keys, tuple):
                 keys = (keys,)
