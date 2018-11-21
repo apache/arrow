@@ -72,7 +72,6 @@ if(MSVC)
 endif()
 
 set(PARQUET_MIN_TEST_LIBS
-  arrow_testing_aux
   gtest_main_static
   gtest_static)
 
@@ -88,11 +87,13 @@ elseif(NOT MSVC)
 endif()
 
 set(PARQUET_SHARED_TEST_LINK_LIBS
+  arrow_testing_shared
   ${PARQUET_MIN_TEST_LIBS}
   parquet_shared
   thriftstatic)
 
 set(PARQUET_STATIC_TEST_LINK_LIBS
+  arrow_testing_static
   ${PARQUET_MIN_TEST_LIBS}
   ${ARROW_LIBRARY_TESTING}
   parquet_static)
