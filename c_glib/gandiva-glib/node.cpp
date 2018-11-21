@@ -30,6 +30,7 @@ G_BEGIN_DECLS
 
 /**
  * SECTION: node
+ * @section_id: node-classes
  * @title: Node classes
  * @include: gandiva-glib/gandiva-glib.h
  *
