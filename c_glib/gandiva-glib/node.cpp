@@ -398,9 +398,9 @@ ggandiva_function_node_get_parameters(GGandivaFunctionNode *node)
 G_END_DECLS
 
 std::shared_ptr<gandiva::Node>
-ggandiva_node_get_raw(GGandivaNode *gandiva)
+ggandiva_node_get_raw(GGandivaNode *node)
 {
-  auto priv = GGANDIVA_NODE_GET_PRIVATE(gandiva);
+  auto priv = GGANDIVA_NODE_GET_PRIVATE(node);
   return priv->node;
 }
 

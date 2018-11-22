@@ -221,17 +221,17 @@ ggandiva_expression_new_raw(std::shared_ptr<gandiva::Expression> *gandiva_expres
                             GGandivaNode *root_node,
                             GArrowField *result_field)
 {
-  auto gandiva = g_object_new(GGANDIVA_TYPE_EXPRESSION,
-                              "expression", gandiva_expression,
-                              "root-node", root_node,
-                              "result-field", result_field,
-                              NULL);
-  return GGANDIVA_EXPRESSION(gandiva);
+  auto expression = g_object_new(GGANDIVA_TYPE_EXPRESSION,
+                                 "expression", gandiva_expression,
+                                 "root-node", root_node,
+                                 "result-field", result_field,
+                                 NULL);
+  return GGANDIVA_EXPRESSION(expression);
 }
 
 std::shared_ptr<gandiva::Expression>
-ggandiva_expression_get_raw(GGandivaExpression *gandiva)
+ggandiva_expression_get_raw(GGandivaExpression *expression)
 {
-  auto priv = GGANDIVA_EXPRESSION_GET_PRIVATE(gandiva);
+  auto priv = GGANDIVA_EXPRESSION_GET_PRIVATE(expression);
   return priv->expression;
 }
