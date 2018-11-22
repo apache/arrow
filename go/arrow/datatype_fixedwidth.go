@@ -94,4 +94,6 @@ var (
 		Time64us: &Time64Type{Unit: Microsecond},
 		Time64ns: &Time64Type{Unit: Nanosecond},
 	}
+
+	_ FixedWidthDataType = (*FixedSizeBinaryType)(nil)
 )
