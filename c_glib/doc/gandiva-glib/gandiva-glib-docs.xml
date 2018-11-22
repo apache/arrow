@@ -48,8 +48,8 @@
     </chapter>
   </part>
 
-  <part id="tree-expression-builder">
-    <title>Tree Expression Builder</title>
+  <part id="expression-tree">
+    <title>Expression Tree</title>
     <chapter id="node">
       <title>Node</title>
       <xi:include href="xml/node.xml"/>
