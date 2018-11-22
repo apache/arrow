@@ -23,7 +23,7 @@ use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
 
-use array::{Array, ListArray, PrimitiveArray};
+use array::{Array, BinaryArray, ListArray, PrimitiveArray};
 use array_data::ArrayData;
 use buffer::{Buffer, MutableBuffer};
 use datatypes::{ArrowPrimitiveType, DataType, ToByteSlice};
@@ -431,6 +431,65 @@ impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<i64>>);
 impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<f32>>);
 impl_list_array_builder!(ListArrayBuilder<PrimitiveArrayBuilder<f64>>);
 
+///  Array builder for `BinaryArray`
+pub struct BinaryArrayBuilder {
+    builder: ListArrayBuilder<PrimitiveArrayBuilder<u8>>,
+}
+
+impl ArrayBuilder for BinaryArrayBuilder {
+    type ArrayType = BinaryArray;
+
+    /// Returns the builder as an owned `Any` type so that it can be `downcast` to a specific
+    /// implementation before calling it's `finish` method.
+    fn into_any(self) -> Box<Any> {
+        Box::new(self)
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> i64 {
+        self.builder.len()
+    }
+
+    /// Builds the `BinaryArray`
+    fn finish(self) -> BinaryArray {
+        BinaryArray::from(self.builder.finish())
+    }
+}
+
+impl BinaryArrayBuilder {
+    /// Creates a new `BinaryArrayBuilder`, `capacity` is the number of bytes in the values array
+    pub fn new(capacity: i64) -> Self {
+        let values_builder = PrimitiveArrayBuilder::<u8>::new(capacity);
+        Self {
+            builder: ListArrayBuilder::new(values_builder),
+        }
+    }
+
+    /// Pushes a single byte value into the builder's values array.
+    ///
+    /// Note, when pushing individual byte values you must call `append` to delimit each
+    /// distinct list value.
+    pub fn push(&mut self, value: u8) -> Result<()> {
+        self.builder.values().push(value)?;
+        Ok(())
+    }
+
+    /// Pushes a `&String` or `&str` into the builder.
+    ///
+    /// Automatically calls the `append` method to delimit the string pushed in as a distinct
+    /// array element.
+    pub fn push_string(&mut self, value: &str) -> Result<()> {
+        self.builder.values().push_slice(value.as_bytes())?;
+        self.builder.append(true)?;
+        Ok(())
+    }
+
+    /// Finish the current variable-length list array slot.
+    pub fn append(&mut self, is_valid: bool) -> Result<()> {
+        self.builder.append(is_valid)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -799,5 +858,66 @@ mod tests {
             Buffer::from(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].to_byte_slice()),
             list_array.values().data().child_data()[0].buffers()[0].clone()
         );
+    }
+
+    #[test]
+    fn test_binary_array_builder() {
+        use array::BinaryArray;
+        let mut builder = BinaryArrayBuilder::new(20);
+
+        builder.push(b'h').unwrap();
+        builder.push(b'e').unwrap();
+        builder.push(b'l').unwrap();
+        builder.push(b'l').unwrap();
+        builder.push(b'o').unwrap();
+        builder.append(true).unwrap();
+        builder.append(true).unwrap();
+        builder.push(b'w').unwrap();
+        builder.push(b'o').unwrap();
+        builder.push(b'r').unwrap();
+        builder.push(b'l').unwrap();
+        builder.push(b'd').unwrap();
+        builder.append(true).unwrap();
+
+        let array = builder.finish();
+
+        let binary_array = BinaryArray::from(array);
+
+        assert_eq!(3, binary_array.len());
+        assert_eq!(0, binary_array.null_count());
+        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.get_value(0));
+        assert_eq!("hello", binary_array.get_string(0));
+        assert_eq!([] as [u8; 0], binary_array.get_value(1));
+        assert_eq!("", binary_array.get_string(1));
+        assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.get_value(2));
+        assert_eq!("world", binary_array.get_string(2));
+        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!(5, binary_array.value_length(2));
+    }
+
+    #[test]
+    fn test_binary_array_builder_push_string() {
+        use array::BinaryArray;
+        let mut builder = BinaryArrayBuilder::new(20);
+
+        let var = "hello".to_owned();
+        builder.push_string(&var).unwrap();
+        builder.append(true).unwrap();
+        builder.push_string("world").unwrap();
+
+        let array = builder.finish();
+
+        let binary_array = BinaryArray::from(array);
+
+        assert_eq!(3, binary_array.len());
+        assert_eq!(0, binary_array.null_count());
+        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.get_value(0));
+        assert_eq!("hello", binary_array.get_string(0));
+        assert_eq!([] as [u8; 0], binary_array.get_value(1));
+        assert_eq!("", binary_array.get_string(1));
+        assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.get_value(2));
+        assert_eq!("world", binary_array.get_string(2));
+        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!(5, binary_array.value_length(2));
     }
 }
