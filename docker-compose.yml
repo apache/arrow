@@ -63,10 +63,16 @@ services:
     volumes: *volumes
 
   java:
+    # Usage:
+    #   docker-compose build java
+    #   docker-compose run java
     image: arrow:java
     build:
       context: .
       dockerfile: java/Dockerfile
+    volumes:
+      - .:/arrow:delegated
+      - $HOME/.m2:/root/.m2:delegated
 
   js:
     image: arrow:js
