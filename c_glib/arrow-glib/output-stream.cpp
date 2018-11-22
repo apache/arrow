@@ -111,9 +111,7 @@ G_DEFINE_TYPE_WITH_CODE(GArrowOutputStream,
 static void
 garrow_output_stream_finalize(GObject *object)
 {
-  GArrowOutputStreamPrivate *priv;
-
-  priv = GARROW_OUTPUT_STREAM_GET_PRIVATE(object);
+  auto priv = GARROW_OUTPUT_STREAM_GET_PRIVATE(object);
 
   priv->output_stream = nullptr;
 
@@ -126,9 +124,7 @@ garrow_output_stream_set_property(GObject *object,
                                           const GValue *value,
                                           GParamSpec *pspec)
 {
-  GArrowOutputStreamPrivate *priv;
-
-  priv = GARROW_OUTPUT_STREAM_GET_PRIVATE(object);
+  auto priv = GARROW_OUTPUT_STREAM_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_OUTPUT_STREAM:
@@ -162,15 +158,13 @@ garrow_output_stream_init(GArrowOutputStream *object)
 static void
 garrow_output_stream_class_init(GArrowOutputStreamClass *klass)
 {
-  GObjectClass *gobject_class;
-  GParamSpec *spec;
-
-  gobject_class = G_OBJECT_CLASS(klass);
+  auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize     = garrow_output_stream_finalize;
   gobject_class->set_property = garrow_output_stream_set_property;
   gobject_class->get_property = garrow_output_stream_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_pointer("output-stream",
                               "io::OutputStream",
                               "The raw std::shared<arrow::io::OutputStream> *",
@@ -394,18 +388,94 @@ namespace garrow {
 
 G_BEGIN_DECLS
 
-G_DEFINE_TYPE(GArrowGIOOutputStream,
-              garrow_gio_output_stream,
-              GARROW_TYPE_OUTPUT_STREAM);
+typedef struct GArrowGIOOutputStreamPrivate_ {
+  GOutputStream *raw;
+} GArrowGIOOutputStreamPrivate;
+
+enum {
+  PROP_GIO_RAW = 1
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowGIOOutputStream,
+                           garrow_gio_output_stream,
+                           GARROW_TYPE_OUTPUT_STREAM);
+
+#define GARROW_GIO_OUTPUT_STREAM_GET_PRIVATE(object)    \
+  static_cast<GArrowGIOOutputStreamPrivate *>(          \
+    garrow_gio_output_stream_get_instance_private(      \
+      GARROW_GIO_OUTPUT_STREAM(object)))
 
 static void
-garrow_gio_output_stream_init(GArrowGIOOutputStream *gio_output_stream)
+garrow_gio_output_stream_dispose(GObject *object)
+{
+  auto priv = GARROW_GIO_OUTPUT_STREAM_GET_PRIVATE(object);
+
+  if (priv->raw) {
+    g_object_unref(priv->raw);
+    priv->raw = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_gio_output_stream_parent_class)->dispose(object);
+}
+
+static void
+garrow_gio_output_stream_set_property(GObject *object,
+                                      guint prop_id,
+                                      const GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto priv = GARROW_GIO_OUTPUT_STREAM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_GIO_RAW:
+    priv->raw = G_OUTPUT_STREAM(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_gio_output_stream_get_property(GObject *object,
+                                      guint prop_id,
+                                      GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto priv = GARROW_GIO_OUTPUT_STREAM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_GIO_RAW:
+    g_value_set_object(value, priv->raw);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_gio_output_stream_init(GArrowGIOOutputStream *object)
 {
 }
 
 static void
 garrow_gio_output_stream_class_init(GArrowGIOOutputStreamClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose      = garrow_gio_output_stream_dispose;
+  gobject_class->set_property = garrow_gio_output_stream_set_property;
+  gobject_class->get_property = garrow_gio_output_stream_get_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_object("raw",
+                             "Raw",
+                             "The raw GOutputStream *",
+                             G_TYPE_OUTPUT_STREAM,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_GIO_RAW, spec);
 }
 
 /**
@@ -421,6 +491,7 @@ garrow_gio_output_stream_new(GOutputStream *gio_output_stream)
     std::make_shared<garrow::GIOOutputStream>(gio_output_stream);
   auto object = g_object_new(GARROW_TYPE_GIO_OUTPUT_STREAM,
                              "output-stream", &arrow_output_stream,
+                             "raw", gio_output_stream,
                              NULL);
   auto output_stream = GARROW_GIO_OUTPUT_STREAM(object);
   return output_stream;
@@ -433,16 +504,14 @@ garrow_gio_output_stream_new(GOutputStream *gio_output_stream)
  * Returns: (transfer none): The wrapped #GOutputStream.
  *
  * Since: 0.5.0
+ *
+ * Deprecated: 0.12.0: Use GArrowGIOOutputStream::raw property instead.
  */
 GOutputStream *
 garrow_gio_output_stream_get_raw(GArrowGIOOutputStream *output_stream)
 {
-  auto arrow_output_stream =
-    garrow_output_stream_get_raw(GARROW_OUTPUT_STREAM(output_stream));
-  auto arrow_gio_output_stream =
-    std::static_pointer_cast<garrow::GIOOutputStream>(arrow_output_stream);
-  auto gio_output_stream = arrow_gio_output_stream->get_output_stream();
-  return gio_output_stream;
+  auto priv = GARROW_GIO_OUTPUT_STREAM_GET_PRIVATE(output_stream);
+  return priv->raw;
 }
 
 typedef struct GArrowCompressedOutputStreamPrivate_ {
@@ -532,14 +601,13 @@ garrow_compressed_output_stream_init(GArrowCompressedOutputStream *object)
 static void
 garrow_compressed_output_stream_class_init(GArrowCompressedOutputStreamClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose      = garrow_compressed_output_stream_dispose;
   gobject_class->set_property = garrow_compressed_output_stream_set_property;
   gobject_class->get_property = garrow_compressed_output_stream_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_object("codec",
                              "Codec",
                              "The codec for the stream",
@@ -603,9 +671,7 @@ garrow_output_stream_new_raw(std::shared_ptr<arrow::io::OutputStream> *arrow_out
 std::shared_ptr<arrow::io::OutputStream>
 garrow_output_stream_get_raw(GArrowOutputStream *output_stream)
 {
-  GArrowOutputStreamPrivate *priv;
-
-  priv = GARROW_OUTPUT_STREAM_GET_PRIVATE(output_stream);
+  auto priv = GARROW_OUTPUT_STREAM_GET_PRIVATE(output_stream);
   return priv->output_stream;
 }
 
