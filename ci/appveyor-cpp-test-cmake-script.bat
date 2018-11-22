@@ -152,7 +152,7 @@ pushd %BUILD_DIR%
 set CONDA_ENV=arrow-cmake-tests-toolchain
 conda create -n %CONDA_ENV% -q -y
 conda install -n %CONDA_ENV% -q -y -c conda-forge ^
-      --file=ci\env\conda_env_cpp.yml
+      --file=ci\conda_env_cpp.yml
 call activate %CONDA_ENV%
 
 set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
