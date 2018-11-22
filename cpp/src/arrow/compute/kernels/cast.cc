@@ -153,7 +153,7 @@ struct CastFunctor<T, BooleanType, enable_if_number<T>> {
 
     internal::BitmapReader bit_reader(input.buffers[1]->data(), input.offset,
                                       input.length);
-    auto out = GetMutableValues<c_type>(output, 1);
+    auto out = output->GetMutableValues<c_type>(1);
     for (int64_t i = 0; i < input.length; ++i) {
       *out++ = bit_reader.IsSet() ? kOne : kZero;
       bit_reader.Next();
@@ -215,7 +215,7 @@ struct CastFunctor<O, I,
                                            !std::is_same<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    auto in_data = GetValues<typename I::c_type>(input, 1);
+    auto in_data = input.GetValues<typename I::c_type>(1);
     const auto generate = [&in_data]() -> bool { return *in_data++ != 0; };
     internal::GenerateBitsUnrolled(output->buffers[1]->mutable_data(), output->offset,
                                    input.length, generate);
@@ -232,8 +232,8 @@ struct CastFunctor<O, I,
 
     auto in_offset = input.offset;
 
-    const in_type* in_data = GetValues<in_type>(input, 1);
-    auto out_data = GetMutableValues<out_type>(output, 1);
+    const in_type* in_data = input.GetValues<in_type>(1);
+    auto out_data = output->GetMutableValues<out_type>(1);
 
     if (!options.allow_int_overflow) {
       constexpr in_type kMax = static_cast<in_type>(std::numeric_limits<out_type>::max());
@@ -275,8 +275,8 @@ struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>
     using out_type = typename O::c_type;
 
     auto in_offset = input.offset;
-    const in_type* in_data = GetValues<in_type>(input, 1);
-    auto out_data = GetMutableValues<out_type>(output, 1);
+    const in_type* in_data = input.GetValues<in_type>(1);
+    auto out_data = output->GetMutableValues<out_type>(1);
 
     if (options.allow_float_truncate) {
       // unsafe cast
@@ -321,8 +321,8 @@ struct CastFunctor<O, I,
     using in_type = typename I::c_type;
     using out_type = typename O::c_type;
 
-    const in_type* in_data = GetValues<in_type>(input, 1);
-    auto out_data = GetMutableValues<out_type>(output, 1);
+    const in_type* in_data = input.GetValues<in_type>(1);
+    auto out_data = output->GetMutableValues<out_type>(1);
     for (int64_t i = 0; i < input.length; ++i) {
       *out_data++ = static_cast<out_type>(*in_data++);
     }
@@ -335,8 +335,8 @@ struct CastFunctor<O, I,
 template <typename in_type, typename out_type>
 void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_multiply,
                const int64_t factor, const ArrayData& input, ArrayData* output) {
-  const in_type* in_data = GetValues<in_type>(input, 1);
-  auto out_data = GetMutableValues<out_type>(output, 1);
+  const in_type* in_data = input.GetValues<in_type>(1);
+  auto out_data = output->GetMutableValues<out_type>(1);
 
   if (factor == 1) {
     for (int64_t i = 0; i < input.length; i++) {
@@ -450,7 +450,7 @@ struct CastFunctor<Date64Type, TimestampType> {
                                 output);
 
     // Ensure that intraday milliseconds have been zeroed out
-    auto out_data = GetMutableValues<int64_t>(output, 1);
+    auto out_data = output->GetMutableValues<int64_t>(1);
 
     if (input.null_count != 0) {
       internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
@@ -582,7 +582,7 @@ void UnpackFixedSizeBinaryDictionary(FunctionContext* ctx, const Array& indices,
                                      ArrayData* output) {
   using index_c_type = typename IndexType::c_type;
 
-  const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
+  const index_c_type* in = indices.data()->GetValues<index_c_type>(1);
   int32_t byte_width =
       checked_cast<const FixedSizeBinaryType&>(*output->type).byte_width();
 
@@ -655,7 +655,7 @@ Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
   RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output->type, &builder));
   BinaryBuilder* binary_builder = checked_cast<BinaryBuilder*>(builder.get());
 
-  const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
+  const index_c_type* in = indices.data()->GetValues<index_c_type>(1);
   if (indices.null_count() != 0) {
     internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
                                              indices.length());
@@ -732,7 +732,7 @@ void UnpackPrimitiveDictionary(const Array& indices, const c_type* dictionary,
   internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
                                            indices.length());
 
-  auto in = GetValues<typename IndexType::c_type>(*indices.data(), 1);
+  auto in = indices.data()->GetValues<typename IndexType::c_type>(1);
   for (int64_t i = 0; i < indices.length(); ++i) {
     if (valid_bits_reader.IsSet()) {
       out[i] = dictionary[in[i]];
@@ -758,9 +758,9 @@ struct CastFunctor<T, DictionaryType,
     DCHECK(values_type.Equals(*output->type))
         << "Dictionary type: " << values_type << " target type: " << (*output->type);
 
-    const c_type* dictionary = GetValues<c_type>(*type.dictionary()->data(), 1);
+    const c_type* dictionary = type.dictionary()->data()->GetValues<c_type>(1);
 
-    auto out = GetMutableValues<c_type>(output, 1);
+    auto out = output->GetMutableValues<c_type>(1);
     const Array& indices = *dict_array.indices();
     switch (indices.type()->id()) {
       case Type::INT8:
@@ -794,7 +794,7 @@ struct CastFunctor<O, StringType, enable_if_number<O>> {
     using out_type = typename O::c_type;
 
     StringArray input_array(input.Copy());
-    auto out_data = GetMutableValues<out_type>(output, 1);
+    auto out_data = output->GetMutableValues<out_type>(1);
     internal::StringConverter<O> converter;
 
     for (int64_t i = 0; i < input.length; ++i, ++out_data) {

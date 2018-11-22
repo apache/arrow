@@ -48,7 +48,6 @@ set(ARROW_SRCS
   util/compression.cc
   util/cpu-info.cc
   util/decimal.cc
-  util/hash.cc
   util/io-util.cc
   util/logging.cc
   util/key_value_metadata.cc

@@ -15,11 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <cstdint>
+#include <limits>
+#include <random>
+#include <string>
+#include <vector>
+
 #include "benchmark/benchmark.h"
 
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/test-util.h"
+#include "arrow/util/bit-util.h"
 
 namespace arrow {
 
@@ -148,7 +156,6 @@ static void BM_BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const 
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
   }
-  // Assuming a string here needs on average 2 bytes
   state.SetBytesProcessed(state.iterations() * iterations * value.size());
 }
 
@@ -171,18 +178,195 @@ static void BM_BuildFixedSizeBinaryArray(
   state.SetBytesProcessed(state.iterations() * iterations * width);
 }
 
-BENCHMARK(BM_BuildPrimitiveArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildVectorNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+// ----------------------------------------------------------------------
+// DictionaryBuilder benchmarks
 
-BENCHMARK(BM_BuildBooleanArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+// Testing with different distributions of integer values helps stress
+// the hash table's robustness.
 
-BENCHMARK(BM_BuildAdaptiveIntNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+// Make a vector out of `n_distinct` sequential int values
+template <class Integer>
+static std::vector<Integer> MakeSequentialIntDictFodder(int32_t n_values,
+                                                        int32_t n_distinct) {
+  std::default_random_engine gen(42);
+  std::vector<Integer> values(n_values);
+  {
+    std::uniform_int_distribution<Integer> values_dist(0, n_distinct - 1);
+    std::generate(values.begin(), values.end(), [&]() { return values_dist(gen); });
+  }
+  return values;
+}
+
+// Make a vector out of `n_distinct` int values with potentially colliding hash
+// entries as only their highest bits differ.
+template <class Integer>
+static std::vector<Integer> MakeSimilarIntDictFodder(int32_t n_values,
+                                                     int32_t n_distinct) {
+  std::default_random_engine gen(42);
+  std::vector<Integer> values(n_values);
+  {
+    std::uniform_int_distribution<Integer> values_dist(0, n_distinct - 1);
+    auto max_int = std::numeric_limits<Integer>::max();
+    auto multiplier = static_cast<Integer>(BitUtil::NextPower2(max_int / n_distinct / 2));
+    std::generate(values.begin(), values.end(),
+                  [&]() { return multiplier * values_dist(gen); });
+  }
+  return values;
+}
+
+// Make a vector out of `n_distinct` random int values
+template <class Integer>
+static std::vector<Integer> MakeRandomIntDictFodder(int32_t n_values,
+                                                    int32_t n_distinct) {
+  std::default_random_engine gen(42);
+  std::vector<Integer> values_dict(n_distinct);
+  std::vector<Integer> values(n_values);
+
+  {
+    std::uniform_int_distribution<Integer> values_dist(
+        0, std::numeric_limits<Integer>::max());
+    std::generate(values_dict.begin(), values_dict.end(),
+                  [&]() { return static_cast<Integer>(values_dist(gen)); });
+  }
+  {
+    std::uniform_int_distribution<int32_t> indices_dist(0, n_distinct - 1);
+    std::generate(values.begin(), values.end(),
+                  [&]() { return values_dict[indices_dist(gen)]; });
+  }
+  return values;
+}
+
+// Make a vector out of `n_distinct` string values
+static std::vector<std::string> MakeStringDictFodder(int32_t n_values,
+                                                     int32_t n_distinct) {
+  std::default_random_engine gen(42);
+  std::vector<std::string> values_dict(n_distinct);
+  std::vector<std::string> values(n_values);
+
+  {
+    auto it = values_dict.begin();
+    // Add empty string
+    *it++ = "";
+    // Add a few similar strings
+    *it++ = "abc";
+    *it++ = "abcdef";
+    *it++ = "abcfgh";
+    // Add random strings
+    std::uniform_int_distribution<int32_t> length_dist(2, 20);
+    std::independent_bits_engine<std::default_random_engine, 8, uint8_t> bytes_gen(42);
+
+    std::generate(it, values_dict.end(), [&]() {
+      auto length = length_dist(gen);
+      std::string s(length, 'X');
+      for (int32_t i = 0; i < length; ++i) {
+        s[i] = bytes_gen();
+      }
+      return s;
+    });
+  }
+  {
+    std::uniform_int_distribution<int32_t> indices_dist(0, n_distinct - 1);
+    std::generate(values.begin(), values.end(),
+                  [&]() { return values_dict[indices_dist(gen)]; });
+  }
+  return values;
+}
+
+template <class DictionaryBuilderType, class Scalar>
+static void BenchmarkScalarDictionaryArray(
+    benchmark::State& state,  // NOLINT non-const reference
+    const std::vector<Scalar>& fodder) {
+  while (state.KeepRunning()) {
+    DictionaryBuilder<Int64Type> builder(default_memory_pool());
+    for (const auto value : fodder) {
+      ABORT_NOT_OK(builder.Append(value));
+    }
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+  state.SetBytesProcessed(state.iterations() * fodder.size() * sizeof(Scalar));
+}
+
+static void BM_BuildInt64DictionaryArrayRandom(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const auto fodder = MakeRandomIntDictFodder<int64_t>(10000, 100);
+  BenchmarkScalarDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
+}
+
+static void BM_BuildInt64DictionaryArraySequential(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const auto fodder = MakeSequentialIntDictFodder<int64_t>(10000, 100);
+  BenchmarkScalarDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
+}
+
+static void BM_BuildInt64DictionaryArraySimilar(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const auto fodder = MakeSimilarIntDictFodder<int64_t>(10000, 100);
+  BenchmarkScalarDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
+}
+
+static void BM_BuildStringDictionaryArray(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const auto fodder = MakeStringDictFodder(10000, 100);
+  auto type = binary();
+  auto fodder_size =
+      std::accumulate(fodder.begin(), fodder.end(), 0,
+                      [&](size_t acc, const std::string& s) { return acc + s.size(); });
+
+  while (state.KeepRunning()) {
+    BinaryDictionaryBuilder builder(default_memory_pool());
+    for (const auto& value : fodder) {
+      ABORT_NOT_OK(builder.Append(value));
+    }
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+  state.SetBytesProcessed(state.iterations() * fodder_size);
+}
+
+// ----------------------------------------------------------------------
+// Benchmark declarations
+
+static constexpr int32_t kRepetitions = 2;
+
+BENCHMARK(BM_BuildPrimitiveArrayNoNulls)
+    ->Repetitions(kRepetitions)
+    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildVectorNoNulls)
+    ->Repetitions(kRepetitions)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK(BM_BuildBooleanArrayNoNulls)
+    ->Repetitions(kRepetitions)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK(BM_BuildAdaptiveIntNoNulls)
+    ->Repetitions(kRepetitions)
+    ->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildAdaptiveIntNoNullsScalarAppend)
     ->Repetitions(3)
     ->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildAdaptiveUIntNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildAdaptiveUIntNoNulls)
+    ->Repetitions(kRepetitions)
+    ->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_BuildBinaryArray)->Repetitions(3)->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildFixedSizeBinaryArray)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildBinaryArray)->Repetitions(kRepetitions)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildFixedSizeBinaryArray)
+    ->Repetitions(kRepetitions)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK(BM_BuildInt64DictionaryArrayRandom)
+    ->Repetitions(kRepetitions)
+    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildInt64DictionaryArraySequential)
+    ->Repetitions(kRepetitions)
+    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildInt64DictionaryArraySimilar)
+    ->Repetitions(kRepetitions)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK(BM_BuildStringDictionaryArray)
+    ->Repetitions(kRepetitions)
+    ->Unit(benchmark::kMicrosecond);
 
 }  // namespace arrow

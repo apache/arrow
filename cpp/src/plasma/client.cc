@@ -62,8 +62,9 @@ using arrow::gpu::CudaContext;
 using arrow::gpu::CudaDeviceManager;
 #endif
 
-#define XXH_STATIC_LINKING_ONLY
-#include "thirdparty/xxhash.h"
+#define XXH_INLINE_ALL 1
+#define XXH_NAMESPACE plasma_client_
+#include "arrow/util/xxhash/xxhash.h"
 
 #define XXH64_DEFAULT_SEED 0
 
