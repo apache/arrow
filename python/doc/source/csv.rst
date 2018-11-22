@@ -29,7 +29,7 @@ The features currently offered are the following:
   such as ``my_data.csv.gz``)
 * fetching column names from the first row in the CSV file
 * column-wise type inference and conversion to one of ``null``, ``int64``,
-  ``float64``, ``string`` or ``binary`` data
+  ``float64``, ``timestamp[s]``, ``string`` or ``binary`` data
 * detecting various spellings of null values such as ``NaN`` or ``#N/A``
 
 Usage
@@ -74,13 +74,6 @@ Customized conversion
 
 To alter how CSV data is converted to Arrow types and data, you should create
 a :class:`ConvertOptions` instance and pass it to :func:`read_csv`.
-
-Limitations
------------
-
-Arrow is not able to detect or convert other data types (such as dates
-and times) than the five mentioned above.  It is also not possible to
-choose the data types of columns explicitly.
 
 Performance
 -----------

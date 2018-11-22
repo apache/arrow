@@ -20,8 +20,11 @@
 #ifndef ARROW_UTIL_PARSING_H
 #define ARROW_UTIL_PARSING_H
 
+#include <cassert>
+#include <chrono>
 #include <limits>
 #include <locale>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -30,6 +33,8 @@
 
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/date.h"
 
 namespace arrow {
 namespace internal {
@@ -146,16 +151,18 @@ class StringConverter<DoubleType> : public StringToFloatConverterMixin<DoubleTyp
 
 namespace detail {
 
-#define PARSE_UNSIGNED_ITERATION(C_TYPE)              \
-  if (length > 0) {                                   \
-    uint8_t digit = static_cast<uint8_t>(*s++ - '0'); \
-    result = static_cast<C_TYPE>(result * 10U);       \
-    length--;                                         \
-    if (ARROW_PREDICT_FALSE(digit > 9U)) {            \
-      /* Non-digit */                                 \
-      return false;                                   \
-    }                                                 \
-    result = static_cast<C_TYPE>(result + digit);     \
+inline uint8_t ParseDecimalDigit(char c) { return static_cast<uint8_t>(c - '0'); }
+
+#define PARSE_UNSIGNED_ITERATION(C_TYPE)          \
+  if (length > 0) {                               \
+    uint8_t digit = ParseDecimalDigit(*s++);      \
+    result = static_cast<C_TYPE>(result * 10U);   \
+    length--;                                     \
+    if (ARROW_PREDICT_FALSE(digit > 9U)) {        \
+      /* Non-digit */                             \
+      return false;                               \
+    }                                             \
+    result = static_cast<C_TYPE>(result + digit); \
   }
 
 #define PARSE_UNSIGNED_ITERATION_LAST(C_TYPE)                                     \
@@ -164,7 +171,7 @@ namespace detail {
       /* Overflow */                                                              \
       return false;                                                               \
     }                                                                             \
-    uint8_t digit = static_cast<uint8_t>(*s++ - '0');                             \
+    uint8_t digit = ParseDecimalDigit(*s++);                                      \
     result = static_cast<C_TYPE>(result * 10U);                                   \
     C_TYPE new_result = static_cast<C_TYPE>(result + digit);                      \
     if (ARROW_PREDICT_FALSE(--length > 0)) {                                      \
@@ -350,6 +357,121 @@ class StringConverter<Int32Type> : public StringToSignedIntConverterMixin<Int32T
 
 template <>
 class StringConverter<Int64Type> : public StringToSignedIntConverterMixin<Int64Type> {};
+
+template <>
+class StringConverter<TimestampType> {
+ public:
+  using value_type = TimestampType::c_type;
+
+  explicit StringConverter(const std::shared_ptr<DataType>& type)
+      : unit_(checked_cast<TimestampType*>(type.get())->unit()) {}
+
+  bool operator()(const char* s, size_t length, value_type* out) {
+    // We allow the following formats:
+    // - "YYYY-MM-DD"
+    // - "YYYY-MM-DD[ T]hh:mm:ss"
+    // - "YYYY-MM-DD[ T]hh:mm:ssZ"
+    // UTC is always assumed, and the DataType's timezone is ignored.
+    date::year_month_day ymd;
+    if (ARROW_PREDICT_FALSE(length < 10)) {
+      return false;
+    }
+    if (length == 10) {
+      if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
+        return false;
+      }
+      return ConvertTimePoint(date::sys_days(ymd), out);
+    }
+    if (ARROW_PREDICT_FALSE(s[10] != ' ') && ARROW_PREDICT_FALSE(s[10] != 'T')) {
+      return false;
+    }
+    if (s[length - 1] == 'Z') {
+      --length;
+    }
+    if (length == 19) {
+      if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
+        return false;
+      }
+      std::chrono::duration<value_type> seconds;
+      if (ARROW_PREDICT_FALSE(!ParseHH_MM_SS(s + 11, &seconds))) {
+        return false;
+      }
+      return ConvertTimePoint(date::sys_days(ymd) + seconds, out);
+    }
+    return false;
+  }
+
+ protected:
+  template <class TimePoint>
+  bool ConvertTimePoint(TimePoint tp, value_type* out) {
+    auto duration = tp.time_since_epoch();
+    switch (unit_) {
+      case TimeUnit::SECOND:
+        *out = std::chrono::duration_cast<std::chrono::seconds>(duration).count();
+        return true;
+      case TimeUnit::MILLI:
+        *out = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+        return true;
+      case TimeUnit::MICRO:
+        *out = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+        return true;
+      case TimeUnit::NANO:
+        *out = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+        return true;
+    }
+    // Unreachable
+    assert(0);
+    return true;
+  }
+
+  bool ParseYYYY_MM_DD(const char* s, date::year_month_day* out) {
+    uint16_t year;
+    uint8_t month, day;
+    if (ARROW_PREDICT_FALSE(s[4] != '-') || ARROW_PREDICT_FALSE(s[7] != '-')) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 0, 4, &year))) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 5, 2, &month))) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 8, 2, &day))) {
+      return false;
+    }
+    *out = {date::year{year}, date::month{month}, date::day{day}};
+    return out->ok();
+  }
+
+  bool ParseHH_MM_SS(const char* s, std::chrono::duration<value_type>* out) {
+    uint8_t hours, minutes, seconds;
+    if (ARROW_PREDICT_FALSE(s[2] != ':') || ARROW_PREDICT_FALSE(s[5] != ':')) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 0, 2, &hours))) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 3, 2, &minutes))) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 6, 2, &seconds))) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(hours >= 24)) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(minutes >= 60)) {
+      return false;
+    }
+    if (ARROW_PREDICT_FALSE(seconds >= 60)) {
+      return false;
+    }
+    *out = std::chrono::duration<value_type>(3600U * hours + 60U * minutes + seconds);
+    return true;
+  }
+
+  const TimeUnit::type unit_;
+};
 
 }  // namespace internal
 }  // namespace arrow
