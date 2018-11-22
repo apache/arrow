@@ -25,15 +25,14 @@ module Arrow
 
     def initialize(table, path, options={})
       @table = table
+      path = path.to_path if path.respond_to?(:to_path)
       @path = path
       @options = options
+      fill_options
     end
 
     def save
-      path = @path
-      path = path.to_path if path.respond_to?(:to_path)
-      format = @options[:format] || guess_format(path) || :arrow
-
+      format = @options[:format]
       custom_save_method = "save_as_#{format}"
       unless respond_to?(custom_save_method, true)
         available_formats = []
@@ -48,41 +47,73 @@ module Arrow
         message << "]: #{format.inspect}"
         raise ArgumentError, message
       end
-      __send__(custom_save_method, path)
+      if method(custom_save_method).arity.zero?
+        __send__(custom_save_method)
+      else
+        # For backward compatibility.
+        __send__(custom_save_method, @path)
+      end
     end
 
     private
-    def guess_format(path)
-      extension = ::File.extname(path).gsub(/\A\./, "").downcase
-      return nil if extension.empty?
+    def fill_options
+      if @options[:format] and @options.key?(:compression)
+        return
+      end
 
-      return extension if respond_to?("save_as_#{extension}", true)
-
-      nil
+      extension = PathExtension.new(@path)
+      info = extension.extract
+      format = info[:format]
+      @options = @options.dup
+      if respond_to?("save_as_#{format}", true)
+        @options[:format] ||= format.to_sym
+      else
+        @options[:format] ||= :arrow
+      end
+      unless @options.key?(:compression)
+        @options[:compression] = info[:compression]
+      end
     end
 
-    def save_raw(writer_class, path)
-      FileOutputStream.open(path, false) do |output|
+    def save_raw(writer_class)
+      FileOutputStream.open(@path, false) do |output|
         writer_class.open(output, @table.schema) do |writer|
           writer.write_table(@table)
         end
       end
     end
 
-    def save_as_arrow(path)
-      save_as_batch(path)
+    def save_as_arrow
+      save_as_batch
     end
 
-    def save_as_batch(path)
-      save_raw(RecordBatchFileWriter, path)
+    def save_as_batch
+      save_raw(RecordBatchFileWriter)
     end
 
-    def save_as_stream(path)
-      save_raw(RecordBatchStreamWriter, path)
+    def save_as_stream
+      save_raw(RecordBatchStreamWriter)
     end
 
-    def save_as_csv(path)
-      CSV.open(path, "w") do |csv|
+    def open_output
+      compression = @options[:compression]
+      if compression
+        codec = Codec.new(compression)
+        FileOutputStream.open(@path, false) do |raw_output|
+          CompressedOutputStream.open(codec, raw_output) do |output|
+            yield(output)
+          end
+        end
+      else
+        ::File.open(@path, "w") do |output|
+          yield(output)
+        end
+      end
+    end
+
+    def save_as_csv
+      open_output do |output|
+        csv = CSV.new(output)
         names = @table.schema.fields.collect(&:name)
         csv << names
         @table.each_record(reuse_record: true) do |record|
@@ -93,8 +124,8 @@ module Arrow
       end
     end
 
-    def save_as_feather(path)
-      FileOutputStream.open(path, false) do |output|
+    def save_as_feather
+      FileOutputStream.open(@path, false) do |output|
         FeatherFileWriter.open(output) do |writer|
           writer.write(@table)
         end
