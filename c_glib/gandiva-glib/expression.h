@@ -37,8 +37,8 @@ struct _GGandivaExpressionClass
   GObjectClass parent_class;
 };
 
-GGandivaExpression *ggandiva_expression_new(GGandivaNode *node,
-                                            GArrowField *field);
+GGandivaExpression *ggandiva_expression_new(GGandivaNode *root_node,
+                                            GArrowField *result_field);
 gchar *ggandiva_expression_to_string(GGandivaExpression *expression);
 
 G_END_DECLS

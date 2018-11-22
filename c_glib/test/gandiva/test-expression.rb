@@ -35,8 +35,8 @@ class TestGandivaExpression < Test::Unit::TestCase
                    @sum
                  ],
                  [
-                   @expression.node,
-                   @expression.field
+                   @expression.root_node,
+                   @expression.result_field
                  ])
   end
 
