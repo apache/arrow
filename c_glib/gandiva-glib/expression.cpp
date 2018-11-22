@@ -111,8 +111,8 @@ ggandiva_expression_class_init(GGandivaExpressionClass *klass)
 
 /**
  * ggandiva_expression_new:
- * @node: The node in the expression tree.
- * @field: A #GArrowField to be output.
+ * @root_node: The node in the expression tree.
+ * @result_field: A #GArrowField to be output.
  *
  * Returns: (transfer full): The expression tree with a root node,
  *   and a result field.
@@ -120,11 +120,11 @@ ggandiva_expression_class_init(GGandivaExpressionClass *klass)
  * Since: 0.12.0
  */
 GGandivaExpression *
-ggandiva_expression_new(GGandivaNode *node,
-                        GArrowField *field)
+ggandiva_expression_new(GGandivaNode *root_node,
+                        GArrowField *result_field)
 {
-  auto gandiva_node = ggandiva_node_get_raw(node);
-  auto arrow_field = garrow_field_get_raw(field);
+  auto gandiva_node = ggandiva_node_get_raw(root_node);
+  auto arrow_field = garrow_field_get_raw(result_field);
   auto gandiva_expression =
     gandiva::TreeExprBuilder::MakeExpression(gandiva_node,
                                              arrow_field);
