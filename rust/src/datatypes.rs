@@ -402,18 +402,20 @@ mod tests {
         // NOTE that this is testing the default (derived) serialization format, not the
         // JSON format specified in metadata.md
 
-        assert_eq!("{\"Struct\":[\
-            {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false},\
-            {\"name\":\"last_name\",\"data_type\":\"Utf8\",\"nullable\":false},\
-            {\"name\":\"address\",\"data_type\":{\"Struct\":\
-            [{\"name\":\"street\",\"data_type\":\"Utf8\",\"nullable\":false},\
-            {\"name\":\"zip\",\"data_type\":\"UInt16\",\"nullable\":false}\
-            ]},\"nullable\":false}]}", serialized);
+        assert_eq!(
+            "{\"Struct\":[\
+             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false},\
+             {\"name\":\"last_name\",\"data_type\":\"Utf8\",\"nullable\":false},\
+             {\"name\":\"address\",\"data_type\":{\"Struct\":\
+             [{\"name\":\"street\",\"data_type\":\"Utf8\",\"nullable\":false},\
+             {\"name\":\"zip\",\"data_type\":\"UInt16\",\"nullable\":false}\
+             ]},\"nullable\":false}]}",
+            serialized
+        );
 
         let deserialized = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(person, deserialized);
-
     }
 
     #[test]
