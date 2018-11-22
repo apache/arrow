@@ -20,9 +20,9 @@
 #ifndef ARROW_UTIL_HASH_UTIL_H
 #define ARROW_UTIL_HASH_UTIL_H
 
+#include <cassert>
 #include <cstdint>
 
-#include "arrow/util/cpu-info.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/sse-util.h"
@@ -32,33 +32,87 @@ namespace arrow {
 /// Utility class to compute hash values.
 class HashUtil {
  public:
+#ifdef ARROW_HAVE_SSE4_2
+  static constexpr bool have_hardware_crc32 = true;
+#else
+  static constexpr bool have_hardware_crc32 = false;
+#endif
+
   /// Compute the Crc32 hash for data using SSE4 instructions.  The input hash
   /// parameter is the current hash/seed value.
   /// This should only be called if SSE is supported.
   /// This is ~4x faster than Fnv/Boost Hash.
   /// TODO: crc32 hashes with different seeds do not result in different hash functions.
   /// The resulting hashes are correlated.
-  /// TODO: update this to also use SSE4_crc32_u64 and SSE4_crc32_u16 where appropriate.
-  static uint32_t CrcHash(const void* data, int32_t bytes, uint32_t hash) {
-    uint32_t words = static_cast<uint32_t>(bytes / sizeof(uint32_t));
-    bytes = static_cast<int32_t>(bytes % sizeof(uint32_t));
+  static uint32_t CrcHash(const void* data, int32_t nbytes, uint32_t hash) {
+    const uint8_t* p = reinterpret_cast<const uint8_t*>(data);
+    const uint8_t* end = p + nbytes;
 
-    const uint32_t* p = reinterpret_cast<const uint32_t*>(data);
-    while (words--) {
-      hash = SSE4_crc32_u32(hash, *p);
-      ++p;
+    while (p <= end - 8) {
+      hash = SSE4_crc32_u64(hash, *reinterpret_cast<const uint64_t*>(p));
+      p += 8;
     }
-
-    const uint8_t* s = reinterpret_cast<const uint8_t*>(p);
-    while (bytes--) {
-      hash = SSE4_crc32_u8(hash, *s);
-      ++s;
+    while (p <= end - 4) {
+      hash = SSE4_crc32_u32(hash, *reinterpret_cast<const uint32_t*>(p));
+      p += 4;
+    }
+    while (p < end) {
+      hash = SSE4_crc32_u8(hash, *p);
+      ++p;
     }
 
     // The lower half of the CRC hash has has poor uniformity, so swap the halves
     // for anyone who only uses the first several bits of the hash.
     hash = (hash << 16) | (hash >> 16);
     return hash;
+  }
+
+  /// A variant of CRC32 hashing that computes two independent running CRCs
+  /// over interleaved halves of the input, giving out a 64-bit integer.
+  /// The result's quality should be improved by a finalization step.
+  ///
+  /// In addition to producing more bits of output, this should be twice
+  /// faster than CrcHash on CPUs that can overlap several independent
+  /// CRC computations.
+  static uint64_t DoubleCrcHash(const void* data, int32_t nbytes, uint64_t hash) {
+    const uint8_t* p = reinterpret_cast<const uint8_t*>(data);
+
+    uint32_t h1 = static_cast<uint32_t>(hash >> 32);
+    uint32_t h2 = static_cast<uint32_t>(hash);
+
+    while (nbytes >= 16) {
+      h1 = SSE4_crc32_u64(h1, *reinterpret_cast<const uint64_t*>(p));
+      h2 = SSE4_crc32_u64(h2, *reinterpret_cast<const uint64_t*>(p + 8));
+      nbytes -= 16;
+      p += 16;
+    }
+    if (nbytes >= 8) {
+      h1 = SSE4_crc32_u32(h1, *reinterpret_cast<const uint32_t*>(p));
+      h2 = SSE4_crc32_u32(h2, *reinterpret_cast<const uint32_t*>(p + 4));
+      nbytes -= 8;
+      p += 8;
+    }
+    if (nbytes >= 4) {
+      h1 = SSE4_crc32_u16(h1, *reinterpret_cast<const uint16_t*>(p));
+      h2 = SSE4_crc32_u16(h2, *reinterpret_cast<const uint16_t*>(p + 2));
+      nbytes -= 4;
+      p += 4;
+    }
+    switch (nbytes) {
+      case 3:
+        h1 = SSE4_crc32_u8(h1, p[3]);
+      case 2:
+        h2 = SSE4_crc32_u8(h2, p[2]);
+      case 1:
+        h1 = SSE4_crc32_u8(h1, p[1]);
+      case 0:
+        break;
+      default:
+        assert(0);
+    }
+
+    // A finalization step is recommended to mix up the result's bits
+    return (static_cast<uint64_t>(h1) << 32) + h2;
   }
 
   /// CrcHash() specialized for 1-byte data

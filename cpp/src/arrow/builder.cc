@@ -33,15 +33,8 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/hash-util.h"
-#include "arrow/util/hash.h"
+#include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
-
-#ifdef ARROW_USE_SSE
-#define SSE4_FLAG true
-#else
-#define SSE4_FLAG false
-#endif
 
 namespace arrow {
 
@@ -759,147 +752,42 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
 // ----------------------------------------------------------------------
 // DictionaryBuilder
 
-using internal::DictionaryScalar;
-
-namespace {
-
-// A helper class to manage a hash table embedded in a typed Builder.
-template <typename T, typename Enable = void>
-struct DictionaryHashHelper {};
-
-// DictionaryHashHelper implementation for primitive types
 template <typename T>
-struct DictionaryHashHelper<T, enable_if_has_c_type<T>> {
-  using Builder = typename TypeTraits<T>::BuilderType;
-  using Scalar = typename DictionaryScalar<T>::type;
-
-  // Get the dictionary value at the given builder index
-  static Scalar GetDictionaryValue(const Builder& builder, int64_t index) {
-    return builder.GetValue(index);
-  }
-
-  // Compute the hash of a scalar value
-  static int64_t HashValue(const Scalar& value, int byte_width) {
-    return HashUtil::Hash<SSE4_FLAG>(&value, sizeof(Scalar), 0);
-  }
-
-  // Return whether the dictionary value at the given builder index is unequal to value
-  static bool SlotDifferent(const Builder& builder, int64_t index, const Scalar& value) {
-    return GetDictionaryValue(builder, index) != value;
-  }
-
-  // Append a value to the builder
-  static Status AppendValue(Builder& builder, const Scalar& value) {
-    return builder.Append(value);
-  }
-
-  // Append another builder's contents to the builder
-  static Status AppendArray(Builder& builder, const Array& in_array) {
-    const auto& array = checked_cast<const PrimitiveArray&>(in_array);
-    return builder.AppendValues(reinterpret_cast<const Scalar*>(array.values()->data()),
-                                array.length(), nullptr);
-  }
+class DictionaryBuilder<T>::MemoTableImpl
+    : public internal::HashTraits<T>::MemoTableType {
+ public:
+  using MemoTableType = typename internal::HashTraits<T>::MemoTableType;
+  using MemoTableType::MemoTableType;
 };
 
-// DictionaryHashHelper implementation for StringType / BinaryType
 template <typename T>
-struct DictionaryHashHelper<T, enable_if_binary<T>> {
-  using Builder = typename TypeTraits<T>::BuilderType;
-  using Scalar = typename DictionaryScalar<T>::type;
-
-  static Scalar GetDictionaryValue(const Builder& builder, int64_t index) {
-    return builder.GetView(index);
-  }
-
-  static int64_t HashValue(const Scalar& value, int byte_width) {
-    return HashUtil::Hash<SSE4_FLAG>(value.data(), static_cast<int32_t>(value.length()),
-                                     0);
-  }
-
-  static bool SlotDifferent(const Builder& builder, int64_t index, const Scalar& value) {
-    const Scalar other = GetDictionaryValue(builder, index);
-    return value.length() != other.length() ||
-           memcmp(value.data(), other.data(), other.length()) != 0;
-  }
-
-  static Status AppendValue(Builder& builder, const Scalar& value) {
-    return builder.Append(value);
-  }
-
-  static Status AppendArray(Builder& builder, const Array& in_array) {
-    const auto& array = checked_cast<const BinaryArray&>(in_array);
-    for (uint64_t index = 0, limit = array.length(); index < limit; ++index) {
-      RETURN_NOT_OK(builder.Append(array.GetView(index)));
-    }
-    return Status::OK();
-  }
-};
-
-// DictionaryHashHelper implementation for FixedSizeBinaryType
-template <typename T>
-struct DictionaryHashHelper<T, enable_if_fixed_size_binary<T>> {
-  using Builder = typename TypeTraits<FixedSizeBinaryType>::BuilderType;
-  using Scalar = typename DictionaryScalar<FixedSizeBinaryType>::type;
-
-  static Scalar GetDictionaryValue(const Builder& builder, int64_t index) {
-    return builder.GetValue(index);
-  }
-
-  static int64_t HashValue(const Scalar& value, int byte_width) {
-    return HashUtil::Hash<SSE4_FLAG>(value, byte_width, 0);
-  }
-
-  static bool SlotDifferent(const Builder& builder, int64_t index, const uint8_t* value) {
-    const int32_t width = builder.byte_width();
-    const uint8_t* other_value = builder.GetValue(index);
-    return memcmp(value, other_value, width) != 0;
-  }
-
-  static Status AppendValue(Builder& builder, const Scalar& value) {
-    return builder.Append(value);
-  }
-
-  static Status AppendArray(Builder& builder, const Array& in_array) {
-    const auto& array = checked_cast<const FixedSizeBinaryArray&>(in_array);
-    for (uint64_t index = 0, limit = array.length(); index < limit; ++index) {
-      const Scalar value = array.GetValue(index);
-      RETURN_NOT_OK(builder.Append(value));
-    }
-    return Status::OK();
-  }
-};
-
-}  // namespace
+DictionaryBuilder<T>::~DictionaryBuilder() {}
 
 template <typename T>
 DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
                                         MemoryPool* pool)
-    : ArrayBuilder(type, pool),
-      hash_slots_(nullptr),
-      dict_builder_(type, pool),
-      overflow_dict_builder_(type, pool),
-      values_builder_(pool),
-      byte_width_(-1) {}
+    : ArrayBuilder(type, pool), byte_width_(-1), values_builder_(pool) {
+  DCHECK_EQ(T::type_id, type->id()) << "inconsistent type passed to DictionaryBuilder";
+}
 
 DictionaryBuilder<NullType>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
                                                MemoryPool* pool)
-    : ArrayBuilder(type, pool), values_builder_(pool) {}
+    : ArrayBuilder(type, pool), values_builder_(pool) {
+  DCHECK_EQ(Type::NA, type->id()) << "inconsistent type passed to DictionaryBuilder";
+}
 
 template <>
 DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
     const std::shared_ptr<DataType>& type, MemoryPool* pool)
     : ArrayBuilder(type, pool),
-      hash_slots_(nullptr),
-      dict_builder_(type, pool),
-      overflow_dict_builder_(type, pool),
-      values_builder_(pool),
       byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()) {}
 
 template <typename T>
 void DictionaryBuilder<T>::Reset() {
-  dict_builder_.Reset();
-  overflow_dict_builder_.Reset();
+  ArrayBuilder::Reset();
   values_builder_.Reset();
+  memo_table_.reset();
+  delta_offset_ = 0;
 }
 
 template <typename T>
@@ -909,14 +797,10 @@ Status DictionaryBuilder<T>::Resize(int64_t capacity) {
   }
 
   if (capacity_ == 0) {
-    // Fill the initial hash table
-    RETURN_NOT_OK(internal::NewHashTable(kInitialHashTableSize, pool_, &hash_table_));
-    hash_slots_ = reinterpret_cast<int32_t*>(hash_table_->mutable_data());
-    hash_table_size_ = kInitialHashTableSize;
-    entry_id_offset_ = 0;
-    mod_bitmask_ = kInitialHashTableSize - 1;
-    hash_table_load_threshold_ =
-        static_cast<int64_t>(static_cast<double>(capacity) * kMaxHashTableLoad);
+    // Initialize hash table
+    // XXX should we let the user pass additional size heuristics?
+    memo_table_.reset(new MemoTableImpl(0));
+    delta_offset_ = 0;
   }
   RETURN_NOT_OK(values_builder_.Resize(capacity));
   return ArrayBuilder::Resize(capacity);
@@ -931,66 +815,11 @@ Status DictionaryBuilder<NullType>::Resize(int64_t capacity) {
 }
 
 template <typename T>
-int64_t DictionaryBuilder<T>::HashValue(const Scalar& value) {
-  return DictionaryHashHelper<T>::HashValue(value, byte_width_);
-}
-
-template <typename T>
-typename DictionaryBuilder<T>::Scalar DictionaryBuilder<T>::GetDictionaryValue(
-    typename TypeTraits<T>::BuilderType& dictionary_builder, int64_t index) {
-  return DictionaryHashHelper<T>::GetDictionaryValue(dictionary_builder, index);
-}
-
-template <typename T>
-bool DictionaryBuilder<T>::SlotDifferent(hash_slot_t index, const Scalar& value) {
-  DCHECK_GE(index, 0);
-  if (index >= entry_id_offset_) {
-    // Lookup delta dictionary
-    DCHECK_LT(index - entry_id_offset_, dict_builder_.length());
-    return DictionaryHashHelper<T>::SlotDifferent(
-        dict_builder_, static_cast<int64_t>(index - entry_id_offset_), value);
-  } else {
-    DCHECK_LT(index, overflow_dict_builder_.length());
-    return DictionaryHashHelper<T>::SlotDifferent(overflow_dict_builder_,
-                                                  static_cast<int64_t>(index), value);
-  }
-}
-
-template <typename T>
-Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
-  return DictionaryHashHelper<T>::AppendValue(dict_builder_, value);
-}
-
-template <typename T>
 Status DictionaryBuilder<T>::Append(const Scalar& value) {
   RETURN_NOT_OK(Reserve(1));
-  // Based on DictEncoder<DType>::Put
-  int64_t j = HashValue(value) & mod_bitmask_;
-  hash_slot_t index = hash_slots_[j];
 
-  // Find an empty slot
-  while (kHashSlotEmpty != index && SlotDifferent(index, value)) {
-    // Linear probing
-    ++j;
-    if (j == hash_table_size_) {
-      j = 0;
-    }
-    index = hash_slots_[j];
-  }
-
-  if (index == kHashSlotEmpty) {
-    // Not in the hash table, so we insert it now
-    index = static_cast<hash_slot_t>(dict_builder_.length() + entry_id_offset_);
-    hash_slots_[j] = index;
-    RETURN_NOT_OK(AppendDictionary(value));
-
-    if (ARROW_PREDICT_FALSE(static_cast<int32_t>(dict_builder_.length()) >
-                            hash_table_load_threshold_)) {
-      RETURN_NOT_OK(DoubleTableSize());
-    }
-  }
-
-  RETURN_NOT_OK(values_builder_.Append(index));
+  auto memo_index = memo_table_->GetOrInsert(value);
+  RETURN_NOT_OK(values_builder_.Append(memo_index));
 
   return Status::OK();
 }
@@ -1022,48 +851,24 @@ Status DictionaryBuilder<NullType>::AppendArray(const Array& array) {
   return Status::OK();
 }
 
-template <>
-Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
-  if (!type_->Equals(*array.type())) {
-    return Status::Invalid("Cannot append FixedSizeBinary array with non-matching type");
-  }
-
-  const auto& typed_array = checked_cast<const FixedSizeBinaryArray&>(array);
-  for (int64_t i = 0; i < array.length(); i++) {
-    if (array.IsNull(i)) {
-      RETURN_NOT_OK(AppendNull());
-    } else {
-      RETURN_NOT_OK(Append(typed_array.GetValue(i)));
-    }
-  }
-  return Status::OK();
-}
-
-template <typename T>
-Status DictionaryBuilder<T>::DoubleTableSize() {
-#define INNER_LOOP \
-  int64_t j = HashValue(GetDictionaryValue(dict_builder_, index)) & new_mod_bitmask
-
-  DOUBLE_TABLE_SIZE(, INNER_LOOP);
-
-  return Status::OK();
-}
-
 template <typename T>
 Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  std::shared_ptr<Array> dictionary;
-  entry_id_offset_ += dict_builder_.length();
-  RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
-
-  // Store current dict entries for further uses of this DictionaryBuilder
-  RETURN_NOT_OK(
-      DictionaryHashHelper<T>::AppendArray(overflow_dict_builder_, *dictionary));
-  DCHECK_EQ(entry_id_offset_, overflow_dict_builder_.length());
-
+  // Finalize indices array
   RETURN_NOT_OK(values_builder_.FinishInternal(out));
+
+  // Generate dictionary array from hash table contents
+  std::shared_ptr<Array> dictionary;
+  std::shared_ptr<ArrayData> dictionary_data;
+
+  RETURN_NOT_OK(internal::DictionaryTraits<T>::GetDictionaryArrayData(
+      pool_, type_, *memo_table_, delta_offset_, &dictionary_data));
+  dictionary = MakeArray(dictionary_data);
+
+  // Set type of array data to the right dictionary type
   (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
 
-  dict_builder_.Reset();
+  // Update internals for further uses of this DictionaryBuilder
+  delta_offset_ = memo_table_->size();
   values_builder_.Reset();
 
   return Status::OK();
@@ -1100,6 +905,23 @@ Status DictionaryBuilder<NullType>::FinishInternal(std::shared_ptr<ArrayData>* o
 
 BINARY_DICTIONARY_SPECIALIZATIONS(StringType);
 BINARY_DICTIONARY_SPECIALIZATIONS(BinaryType);
+
+template <>
+Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
+  if (!type_->Equals(*array.type())) {
+    return Status::Invalid("Cannot append FixedSizeBinary array with non-matching type");
+  }
+
+  const auto& typed_array = checked_cast<const FixedSizeBinaryArray&>(array);
+  for (int64_t i = 0; i < array.length(); i++) {
+    if (array.IsNull(i)) {
+      RETURN_NOT_OK(AppendNull());
+    } else {
+      RETURN_NOT_OK(Append(typed_array.GetValue(i)));
+    }
+  }
+  return Status::OK();
+}
 
 template class DictionaryBuilder<UInt8Type>;
 template class DictionaryBuilder<UInt16Type>;
@@ -1419,15 +1241,17 @@ FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& 
       byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()),
       byte_builder_(pool) {}
 
+#ifndef NDEBUG
+void FixedSizeBinaryBuilder::CheckValueSize(int64_t size) {
+  DCHECK_EQ(size, byte_width_) << "Appending wrong size to FixedSizeBinaryBuilder";
+}
+#endif
+
 Status FixedSizeBinaryBuilder::AppendValues(const uint8_t* data, int64_t length,
                                             const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
   return byte_builder_.Append(data, length * byte_width_);
-}
-
-Status FixedSizeBinaryBuilder::Append(const std::string& value) {
-  return Append(reinterpret_cast<const uint8_t*>(value.c_str()));
 }
 
 Status FixedSizeBinaryBuilder::AppendNull() {

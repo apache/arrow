@@ -168,6 +168,26 @@ struct ARROW_EXPORT ArrayData {
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
 
+  // Access a buffer's data as a typed C pointer
+  template <typename T>
+  inline const T* GetValues(int i) const {
+    if (buffers[i]) {
+      return reinterpret_cast<const T*>(buffers[i]->data()) + offset;
+    } else {
+      return NULLPTR;
+    }
+  }
+
+  // Access a buffer's data as a typed C pointer
+  template <typename T>
+  inline T* GetMutableValues(int i) {
+    if (buffers[i]) {
+      return reinterpret_cast<T*>(buffers[i]->mutable_data()) + offset;
+    } else {
+      return NULLPTR;
+    }
+  }
+
   std::shared_ptr<DataType> type;
   int64_t length;
   int64_t null_count;

@@ -35,7 +35,6 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/hash.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/type_traits.h"
@@ -453,6 +452,8 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 
   uint8_t int_size_;
 };
+
+// TODO investigate AdaptiveIntBuilder / AdaptiveUIntBuilder performance
 
 // Check if we would need to expand the underlying storage type
 inline uint8_t ExpandedIntSize(int64_t val, uint8_t current_int_size) {
@@ -971,8 +972,23 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     UnsafeAppendToBitmap(true);
     return byte_builder_.Append(value, byte_width_);
   }
+
   Status Append(const char* value) {
     return Append(reinterpret_cast<const uint8_t*>(value));
+  }
+
+  Status Append(const util::string_view& view) {
+#ifndef NDEBUG
+    CheckValueSize(static_cast<int64_t>(view.size()));
+#endif
+    return Append(reinterpret_cast<const uint8_t*>(view.data()));
+  }
+
+  Status Append(const std::string& s) {
+#ifndef NDEBUG
+    CheckValueSize(static_cast<int64_t>(s.size()));
+#endif
+    return Append(reinterpret_cast<const uint8_t*>(s.data()));
   }
 
   template <size_t NBYTES>
@@ -984,7 +1000,6 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   Status AppendValues(const uint8_t* data, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
-  Status Append(const std::string& value);
   Status AppendNull();
 
   void Reset() override;
@@ -1009,6 +1024,10 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
  protected:
   int32_t byte_width_;
   BufferBuilder byte_builder_;
+
+#ifndef NDEBUG
+  void CheckValueSize(int64_t size);
+#endif
 };
 
 class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
@@ -1094,7 +1113,7 @@ struct DictionaryScalar<StringType> {
 
 template <>
 struct DictionaryScalar<FixedSizeBinaryType> {
-  using type = const uint8_t*;
+  using type = util::string_view;
 };
 
 }  // namespace internal
@@ -1112,6 +1131,8 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
  public:
   using Scalar = typename internal::DictionaryScalar<T>::type;
 
+  // WARNING: the type given below is the value type, not the DictionaryType.
+  // The DictionaryType is instantiated on the Finish() call.
   DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
   template <typename T1 = T>
@@ -1119,8 +1140,24 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
       typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
       : DictionaryBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
+  ~DictionaryBuilder();
+
   /// \brief Append a scalar value
   Status Append(const Scalar& value);
+
+  /// \brief Append a fixed-width string (only for FixedSizeBinaryType)
+  template <typename T1 = T>
+  Status Append(typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
+                                        const uint8_t*>::type value) {
+    return Append(util::string_view(reinterpret_cast<const char*>(value), byte_width_));
+  }
+
+  /// \brief Append a fixed-width string (only for FixedSizeBinaryType)
+  template <typename T1 = T>
+  Status Append(typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
+                                        const char*>::type value) {
+    return Append(util::string_view(value, byte_width_));
+  }
 
   /// \brief Append a scalar null value
   Status AppendNull();
@@ -1133,45 +1170,17 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
   /// is the dictionary builder in the delta building mode
-  bool is_building_delta() { return entry_id_offset_ > 0; }
+  bool is_building_delta() { return delta_offset_ > 0; }
 
  protected:
-  // Hash table implementation helpers
-  Status DoubleTableSize();
-  Scalar GetDictionaryValue(typename TypeTraits<T>::BuilderType& dictionary_builder,
-                            int64_t index);
-  int64_t HashValue(const Scalar& value);
-  // Check whether the dictionary entry in *slot* is equal to the given *value*
-  bool SlotDifferent(hash_slot_t slot, const Scalar& value);
-  Status AppendDictionary(const Scalar& value);
+  class MemoTableImpl;
+  std::unique_ptr<MemoTableImpl> memo_table_;
 
-  std::shared_ptr<Buffer> hash_table_;
-  int32_t* hash_slots_;
-
-  /// Size of the table. Must be a power of 2.
-  int64_t hash_table_size_;
-
-  // Offset for the dictionary entries in dict_builder_.
-  // Increased on every Finish call by the number of current entries
-  // in the dictionary.
-  int64_t entry_id_offset_;
-
-  // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
-  // hash_table_size_, but uses far fewer CPU cycles
-  int64_t mod_bitmask_;
-
-  // This builder accumulates new dictionary entries since the last Finish call
-  // (or since the beginning if Finish hasn't been called).
-  // In other words, it contains the current delta dictionary.
-  typename TypeTraits<T>::BuilderType dict_builder_;
-  // This builder stores dictionary entries encountered before the last Finish call.
-  typename TypeTraits<T>::BuilderType overflow_dict_builder_;
-
-  AdaptiveIntBuilder values_builder_;
+  int32_t delta_offset_;
+  // Only used for FixedSizeBinaryType
   int32_t byte_width_;
 
-  /// Size at which we decide to resize
-  int64_t hash_table_load_threshold_;
+  AdaptiveIntBuilder values_builder_;
 };
 
 template <>
