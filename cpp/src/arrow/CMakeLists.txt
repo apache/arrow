@@ -169,6 +169,28 @@ ADD_ARROW_LIB(arrow
   SHARED_PRIVATE_LINK_LIBS ${ARROW_SHARED_PRIVATE_LINK_LIBS}
   STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
+if (ARROW_BUILD_STATIC AND WIN32)
+  target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
+endif()
+
+if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  # that depend on gtest
+  ADD_ARROW_LIB(arrow_testing
+    SOURCES test-util.cc
+    OUTPUTS ARROW_TESTING_LIBRARIES
+    DEPENDENCIES gtest_static
+    SHARED_LINK_LIBS arrow_shared gtest_static
+    STATIC_LINK_LIBS arrow_static)
+
+  if (ARROW_BUILD_STATIC AND WIN32)
+    target_compile_definitions(arrow_testing_static PUBLIC ARROW_STATIC)
+  endif()
+
+  set(ARROW_LIBRARIES
+    ${ARROW_LIBRARIES}
+    ${ARROW_TESTING_LIBRARIES})
+endif()
+
 find_package(Backtrace)
 
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
@@ -179,10 +201,6 @@ foreach(LIB_TARGET ${ARROW_LIBRARIES})
       PRIVATE ARROW_WITH_BACKTRACE)
   endif()
 endforeach()
-
-if (ARROW_BUILD_STATIC AND WIN32)
-  target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
-endif()
 
 # Headers: top level
 install(FILES
