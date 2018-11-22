@@ -400,14 +400,13 @@ garrow_buffer_input_stream_init(GArrowBufferInputStream *object)
 static void
 garrow_buffer_input_stream_class_init(GArrowBufferInputStreamClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose      = garrow_buffer_input_stream_dispose;
   gobject_class->set_property = garrow_buffer_input_stream_set_property;
   gobject_class->get_property = garrow_buffer_input_stream_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_object("buffer",
                              "Buffer",
                              "The data",
@@ -738,14 +737,13 @@ garrow_gio_input_stream_init(GArrowGIOInputStream *object)
 static void
 garrow_gio_input_stream_class_init(GArrowGIOInputStreamClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose      = garrow_gio_input_stream_dispose;
   gobject_class->set_property = garrow_gio_input_stream_set_property;
   gobject_class->get_property = garrow_gio_input_stream_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_object("raw",
                              "Raw",
                              "The raw GInputStream *",
@@ -880,14 +878,13 @@ garrow_compressed_input_stream_init(GArrowCompressedInputStream *object)
 static void
 garrow_compressed_input_stream_class_init(GArrowCompressedInputStreamClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose      = garrow_compressed_input_stream_dispose;
   gobject_class->set_property = garrow_compressed_input_stream_set_property;
   gobject_class->get_property = garrow_compressed_input_stream_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_object("codec",
                              "Codec",
                              "The codec for the stream",

@@ -462,14 +462,13 @@ garrow_gio_output_stream_init(GArrowGIOOutputStream *object)
 static void
 garrow_gio_output_stream_class_init(GArrowGIOOutputStreamClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose      = garrow_gio_output_stream_dispose;
   gobject_class->set_property = garrow_gio_output_stream_set_property;
   gobject_class->get_property = garrow_gio_output_stream_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_object("raw",
                              "Raw",
                              "The raw GOutputStream *",
@@ -602,14 +601,13 @@ garrow_compressed_output_stream_init(GArrowCompressedOutputStream *object)
 static void
 garrow_compressed_output_stream_class_init(GArrowCompressedOutputStreamClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose      = garrow_compressed_output_stream_dispose;
   gobject_class->set_property = garrow_compressed_output_stream_set_property;
   gobject_class->get_property = garrow_compressed_output_stream_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_object("codec",
                              "Codec",
                              "The codec for the stream",
