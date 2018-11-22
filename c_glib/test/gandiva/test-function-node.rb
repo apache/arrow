@@ -15,32 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestGandivaExpression < Test::Unit::TestCase
+class TestGandivaFunctionNode < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
-    augend = Arrow::Field.new("augend", Arrow::Int32DataType.new)
-    addend = Arrow::Field.new("addend", Arrow::Int32DataType.new)
-    augend_node = Gandiva::FieldNode.new(augend)
-    addend_node = Gandiva::FieldNode.new(addend)
-    @function_node = Gandiva::FunctionNode.new("add",
-                                               [augend_node, addend_node],
-                                               Arrow::Int32DataType.new)
-    @sum = Arrow::Field.new("sum", Arrow::Int32DataType.new)
-    @expression = Gandiva::Expression.new(@function_node, @sum)
   end
 
   def test_readers
+    field1 = Arrow::Field.new("field1", Arrow::Int32DataType.new)
+    field2 = Arrow::Field.new("field2", Arrow::Int32DataType.new)
+    field1_node = Gandiva::FieldNode.new(field1)
+    field2_node = Gandiva::FieldNode.new(field2)
+    return_type = Arrow::Int64DataType.new
+    function_node = Gandiva::FunctionNode.new("add",
+                                              [field1_node, field2_node],
+                                              return_type)
     assert_equal([
-                   @function_node,
-                   @sum
+                   "add",
+                   [field1_node, field2_node],
+                   return_type,
                  ],
                  [
-                   @expression.root_node,
-                   @expression.result_field
+                   function_node.name,
+                   function_node.parameters,
+                   function_node.return_type,
                  ])
-  end
-
-  def test_to_s
-    assert_equal("int32 add((int32) augend, (int32) addend)", @expression.to_s)
   end
 end
