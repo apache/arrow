@@ -28,5 +28,6 @@
 
 GGandivaExpression
 *ggandiva_expression_new_raw(std::shared_ptr<gandiva::Expression> *gandiva_expression,
+                             GGandivaNode *node,
                              GArrowField *field);
 std::shared_ptr<gandiva::Expression> ggandiva_expression_get_raw(GGandivaExpression *expression);

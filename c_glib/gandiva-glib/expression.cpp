@@ -41,11 +41,13 @@ G_BEGIN_DECLS
 
 typedef struct GGandivaExpressionPrivate_ {
   std::shared_ptr<gandiva::Expression> expression;
+  GGandivaNode *node;
   GArrowField *field;
 } GGandivaExpressionPrivate;
 
 enum {
   PROP_EXPRESSION = 1,
+  PROP_NODE,
   PROP_FIELD
 };
 
@@ -62,6 +64,11 @@ static void
 ggandiva_expression_dispose(GObject *object)
 {
   auto priv = GGANDIVA_EXPRESSION_GET_PRIVATE(object);
+
+  if (priv->node) {
+    g_object_unref(priv->node);
+    priv->field = nullptr;
+  }
 
   if (priv->field) {
     g_object_unref(priv->field);
@@ -94,6 +101,9 @@ ggandiva_expression_set_property(GObject *object,
     priv->expression =
       *static_cast<std::shared_ptr<gandiva::Expression> *>(g_value_get_pointer(value));
     break;
+  case PROP_NODE:
+    priv->node = GGANDIVA_NODE(g_value_dup_object(value));
+    break;
   case PROP_FIELD:
     priv->field = GARROW_FIELD(g_value_dup_object(value));
     break;
@@ -112,6 +122,9 @@ ggandiva_expression_get_property(GObject *object,
   auto priv = GGANDIVA_EXPRESSION_GET_PRIVATE(object);
 
   switch (prop_id) {
+  case PROP_NODE:
+    g_value_set_object(value, priv->node);
+    break;
   case PROP_FIELD:
     g_value_set_object(value, priv->field);
     break;
@@ -144,6 +157,14 @@ ggandiva_expression_class_init(GGandivaExpressionClass *klass)
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_EXPRESSION, spec);
 
+  spec = g_param_spec_object("node",
+                             "Node",
+                             "The node",
+                             GGANDIVA_TYPE_NODE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_NODE, spec);
+
   spec = g_param_spec_object("field",
                              "Field",
                              "The field",
@@ -172,7 +193,9 @@ ggandiva_expression_new(GGandivaNode *root_node,
   auto gandiva_expression =
     gandiva::TreeExprBuilder::MakeExpression(gandiva_node,
                                              arrow_field);
-  return ggandiva_expression_new_raw(&gandiva_expression, result_field);
+  return ggandiva_expression_new_raw(&gandiva_expression,
+                                     root_node,
+                                     result_field);
 }
 
 /**
@@ -196,10 +219,12 @@ G_END_DECLS
 
 GGandivaExpression *
 ggandiva_expression_new_raw(std::shared_ptr<gandiva::Expression> *gandiva_expression,
+                            GGandivaNode *node,
                             GArrowField *field)
 {
   auto gandiva = g_object_new(GGANDIVA_TYPE_EXPRESSION,
                               "expression", gandiva_expression,
+                              "node", node,
                               "field", field,
                               NULL);
   return GGANDIVA_EXPRESSION(gandiva);

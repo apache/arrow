@@ -22,15 +22,22 @@ class TestGandivaExpression < Test::Unit::TestCase
     addend = Arrow::Field.new("addend", Arrow::Int32DataType.new)
     augend_node = Gandiva::FieldNode.new(augend)
     addend_node = Gandiva::FieldNode.new(addend)
-    function_node = Gandiva::FunctionNode.new("add",
-                                              [augend_node, addend_node],
-                                              Arrow::Int32DataType.new)
+    @function_node = Gandiva::FunctionNode.new("add",
+                                               [augend_node, addend_node],
+                                               Arrow::Int32DataType.new)
     @sum = Arrow::Field.new("sum", Arrow::Int32DataType.new)
-    @expression = Gandiva::Expression.new(function_node, @sum)
+    @expression = Gandiva::Expression.new(@function_node, @sum)
   end
 
-  def test_field
-    assert_equal(@sum, @expression.field)
+  def test_readers
+    assert_equal([
+                  @function_node,
+                  @sum
+                ],
+                [
+                  @expression.node,
+                  @expression.field
+                ])
   end
 
   def test_to_s
