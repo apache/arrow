@@ -101,8 +101,6 @@ func (b *FixedSizeBinaryBuilder) AppendValues(v [][]byte, valid []bool) {
 }
 
 func (b *FixedSizeBinaryBuilder) Value(i int) []byte {
-	// start := i * b.dtype.ByteWidth
-	// return b.values.Bytes()[start : start+b.dtype.ByteWidth]
 	offsets := b.offsets.Values()
 	start := int(offsets[i])
 	var end int
@@ -129,7 +127,6 @@ func (b *FixedSizeBinaryBuilder) Reserve(n int) {
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *FixedSizeBinaryBuilder) Resize(n int) {
 	b.offsets.resize((n + 1) * arrow.Int32SizeBytes)
-	//b.values.resize(n * b.dtype.ByteWidth)
 	b.builder.resize(n, b.init)
 }
 
