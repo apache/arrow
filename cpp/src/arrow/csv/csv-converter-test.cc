@@ -220,6 +220,29 @@ TEST(BooleanConversion, Nulls) {
                                       {{true, true}, {false, true}});
 }
 
+TEST(TimestampConversion, Basics) {
+  auto type = timestamp(TimeUnit::SECOND);
+
+  AssertConversion<TimestampType, int64_t>(
+      type, {"1970-01-01\n2000-02-29\n3989-07-14\n1900-02-28\n"},
+      {{0, 951782400, 63730281600LL, -2203977600LL}});
+  AssertConversion<TimestampType, int64_t>(type,
+                                           {"2018-11-13 17:11:10\n1900-02-28 12:34:56\n"},
+                                           {{1542129070, -2203932304LL}});
+
+  type = timestamp(TimeUnit::NANO);
+  AssertConversion<TimestampType, int64_t>(
+      type, {"1970-01-01\n2000-02-29\n1900-02-28\n"},
+      {{0, 951782400000000000LL, -2203977600000000000LL}});
+}
+
+TEST(TimestampConversion, Nulls) {
+  auto type = timestamp(TimeUnit::MILLI);
+  AssertConversion<TimestampType, int64_t>(type, {"1970-01-01 00:01:00,,N/A\n"},
+                                           {{60000}, {0}, {0}},
+                                           {{true}, {false}, {false}});
+}
+
 TEST(DecimalConversion, NotImplemented) {
   std::shared_ptr<Converter> converter;
   ASSERT_RAISES(NotImplemented,

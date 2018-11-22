@@ -4,6 +4,7 @@
 *pyarrow_lib.h
 *python/config.h
 *python/platform.h
+*util/date.h
 *util/string_view/*
 *util/variant.h
 *util/variant/*
@@ -11,4 +12,3 @@
 *xxhash.cc
 *xxhash.h
 *RcppExports.cpp*
-*gandiva/precompiled/date.h

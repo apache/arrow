@@ -33,7 +33,7 @@ void AssertConversion(ConverterType& converter, const std::string& s, C_TYPE exp
   typename ConverterType::value_type out;
   ASSERT_TRUE(converter(s.data(), s.length(), &out))
       << "Conversion failed for '" << s << "' (expected to return " << expected << ")";
-  ASSERT_EQ(out, expected);
+  ASSERT_EQ(out, expected) << "Conversion failed for '" << s << "'";
 }
 
 template <typename ConverterType>
@@ -262,6 +262,100 @@ TEST(StringConversion, ToUInt64) {
   AssertConversionFails(converter, "-");
   AssertConversionFails(converter, "0.0");
   AssertConversionFails(converter, "e");
+}
+
+TEST(StringConversion, ToTimestamp1) {
+  {
+    StringConverter<TimestampType> converter(timestamp(TimeUnit::SECOND));
+
+    AssertConversion(converter, "1970-01-01", 0);
+    AssertConversion(converter, "1989-07-14", 616377600);
+    AssertConversion(converter, "2000-02-29", 951782400);
+    AssertConversion(converter, "3989-07-14", 63730281600LL);
+    AssertConversion(converter, "1900-02-28", -2203977600LL);
+
+    AssertConversionFails(converter, "");
+    AssertConversionFails(converter, "1970");
+    AssertConversionFails(converter, "19700101");
+    AssertConversionFails(converter, "1970/01/01");
+    AssertConversionFails(converter, "1970-01-01 ");
+    AssertConversionFails(converter, "1970-01-01Z");
+
+    // Invalid dates
+    AssertConversionFails(converter, "1970-00-01");
+    AssertConversionFails(converter, "1970-13-01");
+    AssertConversionFails(converter, "1970-01-32");
+    AssertConversionFails(converter, "1970-02-29");
+    AssertConversionFails(converter, "2100-02-29");
+  }
+  {
+    StringConverter<TimestampType> converter(timestamp(TimeUnit::MILLI));
+
+    AssertConversion(converter, "1970-01-01", 0);
+    AssertConversion(converter, "1989-07-14", 616377600000LL);
+    AssertConversion(converter, "3989-07-14", 63730281600000LL);
+    AssertConversion(converter, "1900-02-28", -2203977600000LL);
+  }
+  {
+    StringConverter<TimestampType> converter(timestamp(TimeUnit::MICRO));
+
+    AssertConversion(converter, "1970-01-01", 0);
+    AssertConversion(converter, "1989-07-14", 616377600000000LL);
+    AssertConversion(converter, "3989-07-14", 63730281600000000LL);
+    AssertConversion(converter, "1900-02-28", -2203977600000000LL);
+  }
+  {
+    StringConverter<TimestampType> converter(timestamp(TimeUnit::NANO));
+
+    AssertConversion(converter, "1970-01-01", 0);
+    AssertConversion(converter, "1989-07-14", 616377600000000000LL);
+    AssertConversion(converter, "2018-11-13", 1542067200000000000LL);
+    AssertConversion(converter, "1900-02-28", -2203977600000000000LL);
+  }
+}
+
+TEST(StringConversion, ToTimestamp2) {
+  {
+    StringConverter<TimestampType> converter(timestamp(TimeUnit::SECOND));
+
+    AssertConversion(converter, "1970-01-01 00:00:00", 0);
+    AssertConversion(converter, "2018-11-13 17:11:10", 1542129070);
+    AssertConversion(converter, "2018-11-13T17:11:10", 1542129070);
+    AssertConversion(converter, "2018-11-13 17:11:10Z", 1542129070);
+    AssertConversion(converter, "2018-11-13T17:11:10Z", 1542129070);
+    AssertConversion(converter, "1900-02-28 12:34:56", -2203932304LL);
+
+    // Invalid dates
+    AssertConversionFails(converter, "1970-02-29 00:00:00");
+    AssertConversionFails(converter, "2100-02-29 00:00:00");
+    // Invalid times
+    AssertConversionFails(converter, "1970-01-01 24:00:00");
+    AssertConversionFails(converter, "1970-01-01 00:60:00");
+    AssertConversionFails(converter, "1970-01-01 00:00:60");
+  }
+  {
+    StringConverter<TimestampType> converter(timestamp(TimeUnit::MILLI));
+
+    AssertConversion(converter, "2018-11-13 17:11:10", 1542129070000LL);
+    AssertConversion(converter, "2018-11-13T17:11:10Z", 1542129070000LL);
+    AssertConversion(converter, "3989-07-14T11:22:33Z", 63730322553000LL);
+    AssertConversion(converter, "1900-02-28 12:34:56", -2203932304000LL);
+  }
+  {
+    StringConverter<TimestampType> converter(timestamp(TimeUnit::MICRO));
+
+    AssertConversion(converter, "2018-11-13 17:11:10", 1542129070000000LL);
+    AssertConversion(converter, "2018-11-13T17:11:10Z", 1542129070000000LL);
+    AssertConversion(converter, "3989-07-14T11:22:33Z", 63730322553000000LL);
+    AssertConversion(converter, "1900-02-28 12:34:56", -2203932304000000LL);
+  }
+  {
+    StringConverter<TimestampType> converter(timestamp(TimeUnit::NANO));
+
+    AssertConversion(converter, "2018-11-13 17:11:10", 1542129070000000000LL);
+    AssertConversion(converter, "2018-11-13T17:11:10Z", 1542129070000000000LL);
+    AssertConversion(converter, "1900-02-28 12:34:56", -2203932304000000000LL);
+  }
 }
 
 }  // namespace arrow

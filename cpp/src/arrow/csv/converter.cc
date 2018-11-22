@@ -329,6 +329,41 @@ Status NumericConverter<T>::Convert(const BlockParser& parser, int32_t col_index
   return Status::OK();
 }
 
+/////////////////////////////////////////////////////////////////////////
+// Concrete Converter for timestamps
+
+class TimestampConverter : public ConcreteConverter {
+ public:
+  using ConcreteConverter::ConcreteConverter;
+
+  Status Convert(const BlockParser& parser, int32_t col_index,
+                 std::shared_ptr<Array>* out) override {
+    using value_type = TimestampType::c_type;
+
+    TimestampBuilder builder(type_, pool_);
+    StringConverter<TimestampType> converter(type_);
+
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+      value_type value;
+      if (IsNull(data, size, quoted)) {
+        builder.UnsafeAppendNull();
+        return Status::OK();
+      }
+      if (ARROW_PREDICT_FALSE(
+              !converter(reinterpret_cast<const char*>(data), size, &value))) {
+        return GenericConversionError(type_, data, size);
+      }
+      builder.UnsafeAppend(value);
+      return Status::OK();
+    };
+    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
+    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
+    RETURN_NOT_OK(builder.Finish(out));
+
+    return Status::OK();
+  }
+};
+
 }  // namespace
 
 /////////////////////////////////////////////////////////////////////////
@@ -361,6 +396,7 @@ Status Converter::Make(const std::shared_ptr<DataType>& type,
     CONVERTER_CASE(Type::FLOAT, NumericConverter<FloatType>)
     CONVERTER_CASE(Type::DOUBLE, NumericConverter<DoubleType>)
     CONVERTER_CASE(Type::BOOL, NumericConverter<BooleanType>)
+    CONVERTER_CASE(Type::TIMESTAMP, TimestampConverter)
     CONVERTER_CASE(Type::BINARY, (VarSizeBinaryConverter<BinaryType, false>))
     CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
 

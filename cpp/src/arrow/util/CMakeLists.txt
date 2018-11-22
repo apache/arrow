@@ -34,6 +34,7 @@ install(FILES
   compression_zlib.h
   compression_zstd.h
   cpu-info.h
+  date.h
   decimal.h
   hash-util.h
   hash.h

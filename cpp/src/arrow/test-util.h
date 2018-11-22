@@ -222,6 +222,8 @@ Status MakeRandomBuffer(int64_t length, MemoryPool* pool,
   return Status::OK();
 }
 
+// ArrayFromVector: construct an Array from vectors of C values
+
 template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
 void ArrayFromVector(const std::shared_ptr<DataType>& type,
                      const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
@@ -261,54 +263,66 @@ void ArrayFromVector(const std::shared_ptr<DataType>& type,
   ASSERT_OK(builder.Finish(out));
 }
 
+// Overloads without a DataType argument, for parameterless types
+
 template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
 void ArrayFromVector(const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
                      std::shared_ptr<Array>* out) {
-  typename TypeTraits<TYPE>::BuilderType builder;
-  DCHECK_EQ(is_valid.size(), values.size());
-  for (size_t i = 0; i < values.size(); ++i) {
-    if (is_valid[i]) {
-      ASSERT_OK(builder.Append(values[i]));
-    } else {
-      ASSERT_OK(builder.AppendNull());
-    }
-  }
-  ASSERT_OK(builder.Finish(out));
+  auto type = TypeTraits<TYPE>::type_singleton();
+  ArrayFromVector<TYPE, C_TYPE>(type, is_valid, values, out);
 }
 
 template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
 void ArrayFromVector(const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
-  typename TypeTraits<TYPE>::BuilderType builder;
-  for (auto& value : values) {
-    ASSERT_OK(builder.Append(value));
-  }
-  ASSERT_OK(builder.Finish(out));
+  auto type = TypeTraits<TYPE>::type_singleton();
+  ArrayFromVector<TYPE, C_TYPE>(type, values, out);
 }
 
+// ChunkedArrayFromVector: construct a ChunkedArray from vectors of C values
+
 template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
-void ChunkedArrayFromVector(const std::vector<std::vector<bool>>& is_valid,
+void ChunkedArrayFromVector(const std::shared_ptr<DataType>& type,
+                            const std::vector<std::vector<bool>>& is_valid,
                             const std::vector<std::vector<C_TYPE>>& values,
                             std::shared_ptr<ChunkedArray>* out) {
   ArrayVector chunks;
   DCHECK_EQ(is_valid.size(), values.size());
   for (size_t i = 0; i < values.size(); ++i) {
     std::shared_ptr<Array> array;
-    ArrayFromVector<TYPE, C_TYPE>(is_valid[i], values[i], &array);
+    ArrayFromVector<TYPE, C_TYPE>(type, is_valid[i], values[i], &array);
     chunks.push_back(array);
   }
   *out = std::make_shared<ChunkedArray>(chunks);
 }
 
 template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
-void ChunkedArrayFromVector(const std::vector<std::vector<C_TYPE>>& values,
+void ChunkedArrayFromVector(const std::shared_ptr<DataType>& type,
+                            const std::vector<std::vector<C_TYPE>>& values,
                             std::shared_ptr<ChunkedArray>* out) {
   ArrayVector chunks;
   for (size_t i = 0; i < values.size(); ++i) {
     std::shared_ptr<Array> array;
-    ArrayFromVector<TYPE, C_TYPE>(values[i], &array);
+    ArrayFromVector<TYPE, C_TYPE>(type, values[i], &array);
     chunks.push_back(array);
   }
   *out = std::make_shared<ChunkedArray>(chunks);
+}
+
+// Overloads without a DataType argument, for parameterless types
+
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+void ChunkedArrayFromVector(const std::vector<std::vector<bool>>& is_valid,
+                            const std::vector<std::vector<C_TYPE>>& values,
+                            std::shared_ptr<ChunkedArray>* out) {
+  auto type = TypeTraits<TYPE>::type_singleton();
+  ChunkedArrayFromVector<TYPE, C_TYPE>(type, is_valid, values, out);
+}
+
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+void ChunkedArrayFromVector(const std::vector<std::vector<C_TYPE>>& values,
+                            std::shared_ptr<ChunkedArray>* out) {
+  auto type = TypeTraits<TYPE>::type_singleton();
+  ChunkedArrayFromVector<TYPE, C_TYPE>(type, values, out);
 }
 
 template <class T, class Builder>

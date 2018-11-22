@@ -51,7 +51,7 @@ void AssertBuilding(const std::shared_ptr<ColumnBuilder>& builder,
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Test functions begin here
+// Tests for fixed-type column builder
 
 TEST(ColumnBuilder, Empty) {
   auto tg = TaskGroup::MakeSerial();
@@ -122,6 +122,9 @@ TEST(ColumnBuilder, MultipleChunksParallel) {
   ChunkedArrayFromVector<Int32Type>({{1, 2}, {3}, {4, 5}, {6, 7}}, &expected);
   AssertChunkedEqual(*actual, *expected);
 }
+
+//////////////////////////////////////////////////////////////////////////
+// Tests for type-inferring column builder
 
 TEST(InferringColumnBuilder, Empty) {
   auto tg = TaskGroup::MakeSerial();
@@ -211,6 +214,36 @@ TEST(InferringColumnBuilder, MultipleChunkReal) {
   std::shared_ptr<ChunkedArray> expected;
   ChunkedArrayFromVector<DoubleType>({{false}, {true}, {false, true}},
                                      {{0.0}, {8.0}, {0.0, 12.5}}, &expected);
+  AssertChunkedEqual(*expected, *actual);
+}
+
+TEST(InferringColumnBuilder, SingleChunkTimestamp) {
+  auto tg = TaskGroup::MakeSerial();
+  std::shared_ptr<ColumnBuilder> builder;
+  ASSERT_OK(ColumnBuilder::Make(0, ConvertOptions::Defaults(), tg, &builder));
+
+  std::shared_ptr<ChunkedArray> actual;
+  AssertBuilding(builder, {{"", "1970-01-01", "2018-11-13 17:11:10"}}, &actual);
+
+  std::shared_ptr<ChunkedArray> expected;
+  ChunkedArrayFromVector<TimestampType>(timestamp(TimeUnit::SECOND),
+                                        {{false, true, true}}, {{0, 0, 1542129070}},
+                                        &expected);
+  AssertChunkedEqual(*expected, *actual);
+}
+
+TEST(InferringColumnBuilder, MultipleChunkTimestamp) {
+  auto tg = TaskGroup::MakeSerial();
+  std::shared_ptr<ColumnBuilder> builder;
+  ASSERT_OK(ColumnBuilder::Make(0, ConvertOptions::Defaults(), tg, &builder));
+
+  std::shared_ptr<ChunkedArray> actual;
+  AssertBuilding(builder, {{""}, {"1970-01-01"}, {"2018-11-13 17:11:10"}}, &actual);
+
+  std::shared_ptr<ChunkedArray> expected;
+  ChunkedArrayFromVector<TimestampType>(timestamp(TimeUnit::SECOND),
+                                        {{false}, {true}, {true}},
+                                        {{0}, {0}, {1542129070}}, &expected);
   AssertChunkedEqual(*expected, *actual);
 }
 
