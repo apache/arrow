@@ -55,8 +55,10 @@ enum {
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowBuffer, garrow_buffer, G_TYPE_OBJECT)
 
-#define GARROW_BUFFER_GET_PRIVATE(obj) \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj), GARROW_TYPE_BUFFER, GArrowBufferPrivate))
+#define GARROW_BUFFER_GET_PRIVATE(obj)         \
+  static_cast<GArrowBufferPrivate *>(          \
+     garrow_buffer_get_instance_private(       \
+       GARROW_BUFFER(obj)))
 
 static void
 garrow_buffer_dispose(GObject *object)
