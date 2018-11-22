@@ -15,14 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "../version"
+module Arrow
+  class PathExtension
+    def initialize(path)
+      @path = path
+    end
 
-require "arrow"
+    def extract
+      basename = ::File.basename(@path)
+      components = basename.split(".")
+      return {} if components.size == 1
 
-require "pathname"
-require "tempfile"
-require "zlib"
-
-require "test-unit"
-
-require_relative "helper/fixture"
+      extension = components.last.downcase
+      if components.size > 2
+        compression = CompressionType.resolve_extension(extension)
+        if compression
+          {
+            format: components[-2].downcase,
+            compression: compression,
+          }
+        else
+          {format: extension}
+        end
+      else
+        {format: extension}
+      end
+    end
+  end
+end
