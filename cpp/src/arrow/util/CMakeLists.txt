@@ -21,6 +21,7 @@
 
 # Headers: top level
 install(FILES
+  armce-util.h
   bit-stream-utils.h
   bit-util.h
   bpacking.h
@@ -58,6 +59,9 @@ install(FILES
   visibility.h
   windows_compatibility.h
   DESTINATION include/arrow/util)
+
+# Armv8 CRC support
+configure_file(config.in.cmake ${CMAKE_CURRENT_SOURCE_DIR}/my_config.h)
 
 #######################################
 # arrow_test_main
