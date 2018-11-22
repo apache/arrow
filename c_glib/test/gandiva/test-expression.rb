@@ -18,9 +18,6 @@
 class TestGandivaExpression < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
-  end
-
-  def test_to_s
     augend = Arrow::Field.new("augend", Arrow::Int32DataType.new)
     addend = Arrow::Field.new("addend", Arrow::Int32DataType.new)
     augend_node = Gandiva::FieldNode.new(augend)
@@ -28,8 +25,15 @@ class TestGandivaExpression < Test::Unit::TestCase
     function_node = Gandiva::FunctionNode.new("add",
                                               [augend_node, addend_node],
                                               Arrow::Int32DataType.new)
-    sum = Arrow::Field.new("sum", Arrow::Int32DataType.new)
-    expression = Gandiva::Expression.new(function_node, sum)
-    assert_equal("int32 add((int32) augend, (int32) addend)", expression.to_s)
+    @sum = Arrow::Field.new("sum", Arrow::Int32DataType.new)
+    @expression = Gandiva::Expression.new(function_node, @sum)
+  end
+
+  def test_field
+    assert_equal(@sum, @expression.field)
+  end
+
+  def test_to_s
+    assert_equal("int32 add((int32) augend, (int32) addend)", @expression.to_s)
   end
 end

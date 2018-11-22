@@ -41,21 +41,35 @@ G_BEGIN_DECLS
 
 typedef struct GGandivaExpressionPrivate_ {
   std::shared_ptr<gandiva::Expression> expression;
+  GArrowField *field;
 } GGandivaExpressionPrivate;
 
 enum {
-  PROP_0,
-  PROP_EXPRESSION
+  PROP_EXPRESSION = 1,
+  PROP_FIELD
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GGandivaExpression,
                            ggandiva_expression,
                            G_TYPE_OBJECT)
 
-#define GGANDIVA_EXPRESSION_GET_PRIVATE(obj)                 \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                        \
-                               GGANDIVA_TYPE_EXPRESSION,     \
-                               GGandivaExpressionPrivate))
+#define GGANDIVA_EXPRESSION_GET_PRIVATE(object)                 \
+  static_cast<GGandivaExpressionPrivate *>(                     \
+    ggandiva_expression_get_instance_private(                   \
+      GGANDIVA_EXPRESSION(object)))
+
+static void
+ggandiva_expression_dispose(GObject *object)
+{
+  auto priv = GGANDIVA_EXPRESSION_GET_PRIVATE(object);
+
+  if (priv->field) {
+    g_object_unref(priv->field);
+    priv->field = nullptr;
+  }
+
+  G_OBJECT_CLASS(ggandiva_expression_parent_class)->dispose(object);
+}
 
 static void
 ggandiva_expression_finalize(GObject *object)
@@ -80,6 +94,27 @@ ggandiva_expression_set_property(GObject *object,
     priv->expression =
       *static_cast<std::shared_ptr<gandiva::Expression> *>(g_value_get_pointer(value));
     break;
+  case PROP_FIELD:
+    priv->field = GARROW_FIELD(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+ggandiva_expression_get_property(GObject *object,
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto priv = GGANDIVA_EXPRESSION_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_FIELD:
+    g_value_set_object(value, priv->field);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -94,19 +129,28 @@ ggandiva_expression_init(GGandivaExpression *object)
 static void
 ggandiva_expression_class_init(GGandivaExpressionClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->dispose      = ggandiva_expression_dispose;
   gobject_class->finalize     = ggandiva_expression_finalize;
   gobject_class->set_property = ggandiva_expression_set_property;
+  gobject_class->get_property = ggandiva_expression_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_pointer("expression",
                               "Expression",
                               "The raw std::shared<gandiva::Expression> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_EXPRESSION, spec);
+
+  spec = g_param_spec_object("field",
+                             "Field",
+                             "The field",
+                             GARROW_TYPE_FIELD,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_FIELD, spec);
 }
 
 /**
@@ -128,7 +172,7 @@ ggandiva_expression_new(GGandivaNode *root_node,
   auto gandiva_expression =
     gandiva::TreeExprBuilder::MakeExpression(gandiva_node,
                                              arrow_field);
-  return ggandiva_expression_new_raw(&gandiva_expression);
+  return ggandiva_expression_new_raw(&gandiva_expression, result_field);
 }
 
 /**
@@ -151,10 +195,12 @@ ggandiva_expression_to_string(GGandivaExpression *expression)
 G_END_DECLS
 
 GGandivaExpression *
-ggandiva_expression_new_raw(std::shared_ptr<gandiva::Expression> *gandiva_expression)
+ggandiva_expression_new_raw(std::shared_ptr<gandiva::Expression> *gandiva_expression,
+                            GArrowField *field)
 {
   auto gandiva = g_object_new(GGANDIVA_TYPE_EXPRESSION,
                               "expression", gandiva_expression,
+                              "field", field,
                               NULL);
   return GGANDIVA_EXPRESSION(gandiva);
 }
