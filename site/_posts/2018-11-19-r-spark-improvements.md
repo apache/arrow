@@ -83,15 +83,14 @@ microbenchmark::microbenchmark(
     if ("arrow" %in% .packages()) detach("package:arrow")
     sparklyr_df <<- copy_to(sc, data, overwrite = T)
     count(sparklyr_df) %>% collect()
-  },
-  times = 10
+  }
 ) %T>% print() %>% ggplot2::autoplot()
 ```
 ```
 Unit: milliseconds
       expr       min        lq      mean    median        uq      max neval
-  arrow_on  396.9805  427.5132  455.8761  447.8131  486.2177  523.980    10
- arrow_off 2816.4576 3045.4154 3177.0776 3124.9995 3289.3395 3620.697    10
+  arrow_on  326.4083  401.3589  484.4189  428.9402  489.8033 1093.707   100
+ arrow_off 2450.5797 3146.0476 3386.6042 3246.9822 3488.6524 6945.576   100
 ```
 
 <div align="center">
@@ -119,16 +118,15 @@ microbenchmark::microbenchmark(
   arrow_off = {
     if ("arrow" %in% .packages()) detach("package:arrow")
     collect(sparklyr_df)
-  },
-  times = 10
+  }
 ) %T>% print() %>% ggplot2::autoplot()
 ```
 ```
 Unit: milliseconds
-      expr      min       lq     mean   median       uq      max neval
-  arrow_on 260.5992 287.5217 298.4174 293.6197 312.2250 341.7968    10
- arrow_off 363.2187 380.6286 426.6134 424.8232 440.3115 517.2623    10
- ```
+      expr      min       lq     mean   median       uq       max neval
+  arrow_on 254.4486 278.3992 313.2547 300.1484 334.9117  496.9672   100
+ arrow_off 336.9897 408.1203 478.3004 450.7942 485.0992 1070.5376   100
+```
 
 <div align="center">
 <img src="{{ site.base-url }}/img/arrow-r-spark-collecting.png"
@@ -175,7 +173,7 @@ Unit: seconds
   arrow_on   3.399136   3.505688   3.906025   4.112791   4.183889   4.32687    10
  arrow_off 104.667242 106.801747 109.201360 107.879391 111.520811 116.69798    10
  ```
- 
+
 <div align="center">
 <img src="{{ site.base-url }}/img/arrow-r-spark-transforming.png"
      alt="Transforming data with R in Spark with and without Arrow"
