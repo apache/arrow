@@ -15,11 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM maven:3.6-jdk-8
+FROM maven:3.5.2-jdk-8-slim
 
 WORKDIR /arrow/java
 
-CMD mvn -Dmaven.repo.local=/build/java/repository \
-        -Dalt.build.dir=/build/java \
-        -DforkCount=0 \
-        install
+CMD mvn test
