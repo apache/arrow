@@ -48,6 +48,14 @@
     </chapter>
   </part>
 
+  <part id="expression-tree">
+    <title>Expression Tree</title>
+    <chapter id="node">
+      <title>Node</title>
+      <xi:include href="xml/node.xml"/>
+    </chapter>
+  </part>
+
   <chapter id="object-tree">
     <title>Object Hierarchy</title>
     <xi:include href="xml/tree_index.sgml"/>

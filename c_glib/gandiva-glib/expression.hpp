@@ -26,5 +26,8 @@
 
 #include <gandiva-glib/expression.h>
 
-GGandivaExpression *ggandiva_expression_new_raw(std::shared_ptr<gandiva::Expression> *gandiva_expression);
+GGandivaExpression
+*ggandiva_expression_new_raw(std::shared_ptr<gandiva::Expression> *gandiva_expression,
+                             GGandivaNode *root_node,
+                             GArrowField *result_field);
 std::shared_ptr<gandiva::Expression> ggandiva_expression_get_raw(GGandivaExpression *expression);

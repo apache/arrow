@@ -188,15 +188,15 @@ G_END_DECLS
 GGandivaProjector *
 ggandiva_projector_new_raw(std::shared_ptr<gandiva::Projector> *gandiva_projector)
 {
-  auto gandiva = g_object_new(GGANDIVA_TYPE_PROJECTOR,
-                              "projector", gandiva_projector,
-                              NULL);
-  return GGANDIVA_PROJECTOR(gandiva);
+  auto projector = g_object_new(GGANDIVA_TYPE_PROJECTOR,
+                                "projector", gandiva_projector,
+                                NULL);
+  return GGANDIVA_PROJECTOR(projector);
 }
 
 std::shared_ptr<gandiva::Projector>
-ggandiva_projector_get_raw(GGandivaProjector *gandiva)
+ggandiva_projector_get_raw(GGandivaProjector *projector)
 {
-  auto priv = GGANDIVA_PROJECTOR_GET_PRIVATE(gandiva);
+  auto priv = GGANDIVA_PROJECTOR_GET_PRIVATE(projector);
   return priv->projector;
 }
