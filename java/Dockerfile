@@ -15,16 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM maven
+FROM maven:3.5.2-jdk-8-slim
 
-ADD header /arrow/
-ADD format /arrow/format
-ADD integration/data /arrow/integration/data
-ADD java /arrow/java
 WORKDIR /arrow/java
 
-# build
-RUN mvn -DskipTests=true -Dcheckstyle.skip=true -B install
-
-# test
 CMD mvn test
