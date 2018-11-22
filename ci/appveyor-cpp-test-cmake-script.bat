@@ -146,15 +146,14 @@ rmdir /S /Q %BUILD_DIR%
 call deactivate
 
 @rem Validate libs availability in conda toolchain
-mkdir %BUILD_DIR%
-pushd %BUILD_DIR%
-
 set CONDA_ENV=arrow-cmake-tests-toolchain
 conda create -n %CONDA_ENV% -q -y
 conda install -n %CONDA_ENV% -q -y -c conda-forge ^
-      flatbuffers rapidjson boost-cpp ^
-      thrift-cpp snappy zlib brotli gflags lz4-c zstd
+      --file=ci\conda_env_cpp.yml
 call activate %CONDA_ENV%
+
+mkdir %BUILD_DIR%
+pushd %BUILD_DIR%
 
 set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 cmake -G "%GENERATOR%" ^

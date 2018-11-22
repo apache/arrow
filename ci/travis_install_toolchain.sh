@@ -28,26 +28,11 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
 
     # Set up C++ toolchain from conda-forge packages for faster builds
     conda create -y -q -p $CPP_TOOLCHAIN \
-        boost-cpp \
-        brotli \
-        bzip2 \
+        --file=$TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
         ${CONDA_LLVM} \
         ccache \
-        cmake \
         curl \
-        flatbuffers \
-        gflags \
-        glog \
-        gtest \
-        libprotobuf \
-        lz4-c \
         ninja \
         nomkl \
-        python=3.6 \
-        rapidjson \
-        re2 \
-        snappy \
-        thrift-cpp=0.11.0 \
-        zlib \
-        zstd
+        python=3.6
 fi

@@ -29,6 +29,7 @@ set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(BROTLI_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(BZ2_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(DOUBLE_CONVERSION_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(FLATBUFFERS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GFLAGS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GLOG_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -499,23 +500,27 @@ if("${DOUBLE_CONVERSION_HOME}" STREQUAL "")
     BUILD_BYPRODUCTS "${DOUBLE_CONVERSION_STATIC_LIB}")
   set(DOUBLE_CONVERSION_VENDORED 1)
 else()
-  find_package(double-conversion REQUIRED)
+  find_package(double-conversion REQUIRED
+    PATHS "${DOUBLE_CONVERSION_HOME}")
   set(DOUBLE_CONVERSION_VENDORED 0)
+endif()
+
+if (DOUBLE_CONVERSION_VENDORED)
+  add_dependencies(arrow_dependencies double-conversion_ep)
+else()
+  get_property(DOUBLE_CONVERSION_STATIC_LIB TARGET double-conversion::double-conversion
+    PROPERTY LOCATION)
+  get_property(DOUBLE_CONVERSION_INCLUDE_DIR TARGET double-conversion::double-conversion
+    PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
 endif()
 
 include_directories(SYSTEM ${DOUBLE_CONVERSION_INCLUDE_DIR})
 
-add_library(double-conversion INTERFACE)
-if (DOUBLE_CONVERSION_VENDORED)
-  ADD_THIRDPARTY_LIB(double-conversion
-    STATIC_LIB ${DOUBLE_CONVERSION_STATIC_LIB})
-  add_dependencies(arrow_dependencies double-conversion_ep)
-  set_target_properties(double-conversion
-    PROPERTIES INTERFACE_LINK_LIBRARIES double-conversion_static)
-else()
-  set_target_properties(double-conversion
-    PROPERTIES INTERFACE_LINK_LIBRARIES double-conversion::double-conversion)
-endif()
+ADD_THIRDPARTY_LIB(double-conversion
+  STATIC_LIB ${DOUBLE_CONVERSION_STATIC_LIB})
+
+message(STATUS "double-conversion include dir: ${DOUBLE_CONVERSION_INCLUDE_DIR}")
+message(STATUS "double-conversion static library: ${DOUBLE_CONVERSION_STATIC_LIB}")
 
 # ----------------------------------------------------------------------
 # Google gtest & gflags
