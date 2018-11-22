@@ -113,9 +113,7 @@ G_DEFINE_TYPE_WITH_CODE(GArrowInputStream,
 static void
 garrow_input_stream_finalize(GObject *object)
 {
-  GArrowInputStreamPrivate *priv;
-
-  priv = GARROW_INPUT_STREAM_GET_PRIVATE(object);
+  auto priv = GARROW_INPUT_STREAM_GET_PRIVATE(object);
 
   priv->input_stream = nullptr;
 
@@ -128,9 +126,7 @@ garrow_input_stream_set_property(GObject *object,
                                  const GValue *value,
                                  GParamSpec *pspec)
 {
-  GArrowInputStreamPrivate *priv;
-
-  priv = GARROW_INPUT_STREAM_GET_PRIVATE(object);
+  auto priv = GARROW_INPUT_STREAM_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_INPUT_STREAM:
@@ -164,15 +160,13 @@ garrow_input_stream_init(GArrowInputStream *object)
 static void
 garrow_input_stream_class_init(GArrowInputStreamClass *klass)
 {
-  GObjectClass *gobject_class;
-  GParamSpec *spec;
-
-  gobject_class = G_OBJECT_CLASS(klass);
+  auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize     = garrow_input_stream_finalize;
   gobject_class->set_property = garrow_input_stream_set_property;
   gobject_class->get_property = garrow_input_stream_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_pointer("input-stream",
                               "Input stream",
                               "The raw std::shared<arrow::io::InputStream> *",
@@ -956,9 +950,7 @@ garrow_input_stream_new_raw(std::shared_ptr<arrow::io::InputStream> *arrow_input
 std::shared_ptr<arrow::io::InputStream>
 garrow_input_stream_get_raw(GArrowInputStream *input_stream)
 {
-  GArrowInputStreamPrivate *priv;
-
-  priv = GARROW_INPUT_STREAM_GET_PRIVATE(input_stream);
+  auto priv = GARROW_INPUT_STREAM_GET_PRIVATE(input_stream);
   return priv->input_stream;
 }
 
