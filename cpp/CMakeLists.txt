@@ -118,6 +118,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow googletest unit tests"
     ON)
 
+  set(ARROW_TEST_LINKAGE "shared" CACHE STRING
+    "Linkage of Arrow libraries with unit tests executables. \
+static|shared (default shared)")
+
   set(ARROW_TEST_INCLUDE_LABELS "" CACHE STRING
     "Only build unit tests having the indicated label or labels. \
 Pass multiple labels by dividing with semicolons")
@@ -430,8 +434,6 @@ endif()
 
 if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
-else()
-  set(ARROW_BUILD_SHARED ON)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
@@ -677,13 +679,6 @@ if (ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-if (ARROW_BUILD_BENCHMARKS)
-  set(ARROW_BENCHMARK_LINK_LIBS
-    arrow_benchmark_main
-    arrow_static
-    gtest_static)
-endif()
-
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
   ${ARROW_STATIC_LINK_LIBS}
   ${BOOST_SYSTEM_LIBRARY}
@@ -702,30 +697,50 @@ if (NOT MSVC)
     ${CMAKE_DL_LIBS})
 endif()
 
-if (ARROW_BUILD_STATIC)
-  set(ARROW_MIN_TEST_LIBS
-    arrow_static
-    gtest_main_static
-    gtest_static)
-else ()
-  set(ARROW_MIN_TEST_LIBS
-    arrow_shared
-    ${ARROW_LINK_LIBS}
-    double-conversion_static
-    ${BOOST_SYSTEM_LIBRARY}
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_REGEX_LIBRARY}
-    gtest_main_static
-    gtest_static)
-endif()
+set(ARROW_TEST_STATIC_LINK_LIBS
+  arrow_testing_static
+  arrow_static
+  ${ARROW_LINK_LIBS}
+  gtest_main_static
+  gtest_static)
+
+set(ARROW_TEST_SHARED_LINK_LIBS
+  arrow_testing_shared
+  arrow_shared
+  ${ARROW_LINK_LIBS}
+  double-conversion_static
+  ${BOOST_SYSTEM_LIBRARY}
+  ${BOOST_FILESYSTEM_LIBRARY}
+  ${BOOST_REGEX_LIBRARY}
+  gtest_main_static
+  gtest_static)
 
 if(NOT MSVC)
-  set(ARROW_MIN_TEST_LIBS
-    ${ARROW_MIN_TEST_LIBS}
+  set(ARROW_TEST_SHARED_LINK_LIBS
+    ${ARROW_TEST_SHARED_LINK_LIBS}
     ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
+if ("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
+  if (NOT ARROW_BUILD_SHARED)
+    message(FATAL_ERROR "If using shared linkage for unit tests, must also \
+pass ARROW_BUILD_SHARED=on")
+  endif()
+  # Use shared linking for unit tests if it's available
+  set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS})
+else()
+  if (NOT ARROW_BUILD_STATIC)
+    message(FATAL_ERROR "If using static linkage for unit tests, must also \
+pass ARROW_BUILD_STATIC=on")
+  endif()
+  set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_STATIC_LINK_LIBS})
+endif()
+
+if (ARROW_BUILD_BENCHMARKS)
+  set(ARROW_BENCHMARK_LINK_LIBS
+    arrow_benchmark_main
+    ${ARROW_TEST_LINK_LIBS})
+endif()
 
 if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)

@@ -35,6 +35,7 @@ if "%JOB%" == "Static_Crt_Build" (
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
         -DCMAKE_BUILD_TYPE=Debug ^
+        -DARROW_TEST_LINKAGE=static ^
         -DARROW_CXXFLAGS="/MP" ^
         ..  || exit /B
 
@@ -51,6 +52,7 @@ if "%JOB%" == "Static_Crt_Build" (
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
         -DCMAKE_BUILD_TYPE=Release ^
+        -DARROW_TEST_LINKAGE=static ^
         -DCMAKE_CXX_FLAGS_RELEASE="/MT %CMAKE_CXX_FLAGS_RELEASE%" ^
         -DARROW_CXXFLAGS="/WX /MP" ^
         ..  || exit /B

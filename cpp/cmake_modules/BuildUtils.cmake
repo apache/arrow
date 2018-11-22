@@ -259,6 +259,10 @@ function(ADD_ARROW_LIB LIB_NAME)
       set(LIB_NAME_STATIC ${LIB_NAME})
     endif()
 
+    if (ARROW_BUILD_STATIC AND WIN32)
+      target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_STATIC)
+    endif()
+
     set_target_properties(${LIB_NAME}_static
       PROPERTIES
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
@@ -458,26 +462,6 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
   set_property(TEST ${TEST_NAME}
     APPEND PROPERTY
     LABELS ${ARG_LABELS})
-endfunction()
-
-# A wrapper for add_dependencies() that is compatible with NO_TESTS.
-function(ADD_ARROW_TEST_DEPENDENCIES REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  add_dependencies(${TEST_NAME} ${ARGN})
-endfunction()
-
-# A wrapper for target_link_libraries() that is compatible with NO_TESTS.
-function(ARROW_TEST_LINK_LIBRARIES REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  target_link_libraries(${TEST_NAME} ${ARGN})
 endfunction()
 
 ############################################################
