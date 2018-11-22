@@ -31,13 +31,13 @@ class TestGandivaExpression < Test::Unit::TestCase
 
   def test_readers
     assert_equal([
-                  @function_node,
-                  @sum
-                ],
-                [
-                  @expression.node,
-                  @expression.field
-                ])
+                   @function_node,
+                   @sum
+                 ],
+                 [
+                   @expression.node,
+                   @expression.field
+                 ])
   end
 
   def test_to_s
