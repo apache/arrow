@@ -37,17 +37,29 @@ func TestFixedSizeBinary(t *testing.T) {
 		nil,
 		[]byte("AZERTYU"),
 	}
-	b.AppendValues(values, []bool{true, false, true})
+	valid := []bool{true, false, true}
+	b.AppendValues(values, valid)
+
+	b.Retain()
+	b.Release()
 
 	a := b.NewFixedSizeBinaryArray()
-
 	assert.Equal(t, 3, a.Len())
 	assert.Equal(t, 1, a.NullN())
-
 	assert.Equal(t, []byte("7654321"), a.Value(0))
 	assert.Equal(t, []byte{}, a.Value(1))
 	assert.Equal(t, []byte("AZERTYU"), a.Value(2))
+	a.Release()
+
+	// Test builder reset and NewArray API.
+	b.AppendValues(values, valid)
+	a = b.NewArray().(*FixedSizeBinary)
+	assert.Equal(t, 3, a.Len())
+	assert.Equal(t, 1, a.NullN())
+	assert.Equal(t, []byte("7654321"), a.Value(0))
+	assert.Equal(t, []byte{}, a.Value(1))
+	assert.Equal(t, []byte("AZERTYU"), a.Value(2))
+	a.Release()
 
 	b.Release()
-	a.Release()
 }
