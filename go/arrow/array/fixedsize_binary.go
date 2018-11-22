@@ -59,3 +59,7 @@ func (a *FixedSizeBinary) setData(data *Data) {
 		a.valueOffsets = arrow.Int32Traits.CastFromBytes(valueOffsets.Bytes())
 	}
 }
+
+var (
+	_ Interface = (*FixedSizeBinary)(nil)
+)
