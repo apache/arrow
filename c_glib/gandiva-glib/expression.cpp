@@ -158,7 +158,7 @@ ggandiva_expression_class_init(GGandivaExpressionClass *klass)
  * @root_node: The node in the expression tree.
  * @result_field: A #GArrowField to be output.
  *
- * Returns: (transfer full): The expression tree with a root node,
+ * Returns: The expression tree with a root node,
  *   and a result field.
  *
  * Since: 0.12.0
