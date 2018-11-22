@@ -22,9 +22,7 @@ func TestBinary(t *testing.T) {
 	}
 	b.AppendValues(values, []bool{true, false, true})
 
-	t.Log(b.offsets.Values())
 	a := b.NewBinaryArray()
-	t.Log(a.valueOffsets)
 
 	assert.Equal(t, 3, a.Len())
 	assert.Equal(t, 1, a.NullN())
