@@ -30,6 +30,7 @@ module Arrow
     def initialize(path_or_data, **options)
       @path_or_data = path_or_data
       @options = options
+      @compression = @options.delete(:compression)
     end
 
     def load
@@ -115,12 +116,25 @@ module Arrow
       options
     end
 
+    def open_input(raw_input)
+      if @compression
+        codec = Codec.new(@compression)
+        CompressedInputStream.open(codec, raw_input) do |input|
+          yield(input)
+        end
+      else
+        yield(raw_input)
+      end
+    end
+
     def load_from_path(path)
       options = reader_options
       if options
         begin
-          MemoryMappedInputStream.open(path.to_s) do |input|
-            return CSVReader.new(input, options).read
+          MemoryMappedInputStream.open(path.to_s) do |raw_input|
+            open_input(raw_input) do |input|
+              return CSVReader.new(input, options).read
+            end
           end
         rescue Arrow::Error::Invalid
         end
@@ -136,8 +150,10 @@ module Arrow
       options = reader_options
       if options
         begin
-          BufferInputStream.open(Buffer.new(data)) do |input|
-            return CSVReader.new(input, options).read
+          BufferInputStream.open(Buffer.new(data)) do |raw_input|
+            open_input(raw_input) do |input|
+              return CSVReader.new(input, options).read
+            end
           end
         rescue Arrow::Error::Invalid
         end

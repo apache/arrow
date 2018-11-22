@@ -15,14 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "../version"
-
-require "arrow"
-
-require "pathname"
-require "tempfile"
-require "zlib"
-
-require "test-unit"
-
-require_relative "helper/fixture"
+module Arrow
+  module Writable
+    alias_method :<<, :write
+  end
+end

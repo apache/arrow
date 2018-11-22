@@ -18,8 +18,8 @@
 module Parquet
   module ArrowTableLoadable
     private
-    def load_as_parquet(path)
-      reader = Parquet::ArrowFileReader.new(path)
+    def load_as_parquet
+      reader = Parquet::ArrowFileReader.new(@path)
       reader.use_threads = (@options[:use_threads] != false)
       reader.read_table
     end

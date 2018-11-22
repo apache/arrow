@@ -423,22 +423,50 @@ class TableTest < Test::Unit::TestCase
                                        :schema => @table.schema))
       end
 
+      test("csv.gz") do
+        file = Tempfile.new(["red-arrow", ".csv.gz"])
+        @table.save(file.path)
+        assert_equal(@table,
+                     Arrow::Table.load(file.path,
+                                       :format => :csv,
+                                       :compression => :gzip,
+                                       :schema => @table.schema))
+      end
+
       sub_test_case("load: auto detect") do
-        test(":batch") do
+        test("batch") do
           file = Tempfile.new(["red-arrow", ".arrow"])
           @table.save(file.path, :format => :batch)
           assert_equal(@table, Arrow::Table.load(file.path))
         end
 
-        test(":stream") do
+        test("stream") do
           file = Tempfile.new(["red-arrow", ".arrow"])
           @table.save(file.path, :format => :stream)
           assert_equal(@table, Arrow::Table.load(file.path))
         end
 
-        test(":csv") do
+        test("csv") do
           path = fixture_path("with-header.csv")
           assert_equal(<<-TABLE, Arrow::Table.load(path, skip_lines: /^#/).to_s)
+	name	score
+0	alice	   10
+1	bob 	   29
+2	chris	   -1
+          TABLE
+        end
+
+        test("csv.gz") do
+          file = Tempfile.new(["red-arrow", ".csv.gz"])
+          Zlib::GzipWriter.wrap(file) do |gz|
+            gz.write(<<-CSV)
+name,score
+alice,10
+bob,29
+chris,-1
+            CSV
+          end
+          assert_equal(<<-TABLE, Arrow::Table.load(file.path).to_s)
 	name	score
 0	alice	   10
 1	bob 	   29

@@ -24,15 +24,14 @@ module Arrow
     end
 
     def initialize(path, options={})
+      path = path.to_path if path.respond_to?(:to_path)
       @path = path
       @options = options
+      fill_options
     end
 
     def load
-      path = @path
-      path = path.to_path if path.respond_to?(:to_path)
-      format = @options[:format] || guess_format(path) || :arrow
-
+      format = @options[:format]
       custom_load_method = "load_as_#{format}"
       unless respond_to?(custom_load_method, true)
         available_formats = []
@@ -47,17 +46,32 @@ module Arrow
         message << "]: #{format.inspect}"
         raise ArgumentError, message
       end
-      __send__(custom_load_method, path)
+      if method(custom_load_method).arity.zero?
+        __send__(custom_load_method)
+      else
+        # For backward compatibility.
+        __send__(custom_load_method, @path)
+      end
     end
 
     private
-    def guess_format(path)
-      extension = ::File.extname(path).gsub(/\A\./, "").downcase
-      return nil if extension.empty?
+    def fill_options
+      if @options[:format] and @options.key?(:compression)
+        return
+      end
 
-      return extension if respond_to?("load_as_#{extension}", true)
-
-      nil
+      extension = PathExtension.new(@path)
+      info = extension.extract
+      format = info[:format]
+      @options = @options.dup
+      if respond_to?("load_as_#{format}", true)
+        @options[:format] ||= format.to_sym
+      else
+        @options[:format] ||= :arrow
+      end
+      unless @options.key?(:compression)
+        @options[:compression] = info[:compression]
+      end
     end
 
     def load_raw(input, reader)
@@ -77,7 +91,7 @@ module Arrow
       table
     end
 
-    def load_as_arrow(path)
+    def load_as_arrow
       input = nil
       reader = nil
       error = nil
@@ -86,7 +100,7 @@ module Arrow
         RecordBatchStreamReader,
       ]
       reader_class_candidates.each do |reader_class_candidate|
-        input = MemoryMappedInputStream.new(path)
+        input = MemoryMappedInputStream.new(@path)
         begin
           reader = reader_class_candidate.new(input)
         rescue Arrow::Error
@@ -99,21 +113,21 @@ module Arrow
       load_raw(input, reader)
     end
 
-    def load_as_batch(path)
-      input = MemoryMappedInputStream.new(path)
+    def load_as_batch
+      input = MemoryMappedInputStream.new(@path)
       reader = RecordBatchFileReader.new(input)
       load_raw(input, reader)
     end
 
-    def load_as_stream(path)
-      input = MemoryMappedInputStream.new(path)
+    def load_as_stream
+      input = MemoryMappedInputStream.new(@path)
       reader = RecordBatchStreamReader.new(input)
       load_raw(input, reader)
     end
 
     if Arrow.const_defined?(:ORCFileReader)
-      def load_as_orc(path)
-        input = MemoryMappedInputStream.new(path)
+      def load_as_orc
+        input = MemoryMappedInputStream.new(@path)
         reader = ORCFileReader.new(input)
         field_indexes = @options[:field_indexes]
         reader.set_field_indexes(field_indexes) if field_indexes
@@ -123,14 +137,14 @@ module Arrow
       end
     end
 
-    def load_as_csv(path)
+    def load_as_csv
       options = @options.dup
       options.delete(:format)
-      CSVLoader.load(Pathname.new(path), options)
+      CSVLoader.load(Pathname.new(@path), options)
     end
 
-    def load_as_feather(path)
-      input = MemoryMappedInputStream.new(path)
+    def load_as_feather
+      input = MemoryMappedInputStream.new(@path)
       reader = FeatherFileReader.new(input)
       table = reader.read
       table.instance_variable_set(:@input, input)

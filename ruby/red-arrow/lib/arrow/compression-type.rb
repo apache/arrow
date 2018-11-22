@@ -15,14 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "../version"
+module Arrow
+  class CompressionType
+    EXTENSIONS = {}
+    values.each do |value|
+      case value
+      when UNCOMPRESSED
+      when GZIP
+        EXTENSIONS["gz"] = value
+      else
+        EXTENSIONS[value.nick] = value
+      end
+    end
 
-require "arrow"
-
-require "pathname"
-require "tempfile"
-require "zlib"
-
-require "test-unit"
-
-require_relative "helper/fixture"
+    class << self
+      def resolve_extension(extension)
+        EXTENSIONS[extension.to_s]
+      end
+    end
+  end
+end
