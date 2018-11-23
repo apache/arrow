@@ -17,7 +17,20 @@
 
 #' @include R6.R
 
-`arrow::Field` <- R6Class("arrow::Field", inherit = `arrow::Object`,
+#' @title class arrow::Field
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__Field
+#' @name arrow__Field
+`arrow::Field` <- R6Class("arrow::Field",
+  inherit = `arrow::Object`,
   public = list(
     ToString = function() {
       Field__ToString(self)

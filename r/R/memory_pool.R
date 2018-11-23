@@ -16,7 +16,19 @@
 # under the License.
 
 #' @include R6.R
-
+#'
+#' @title class arrow::MemoryPool
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow___MemoryPool
+#' @name arrow__MemoryPool
 `arrow::MemoryPool` <- R6Class("arrow::MemoryPool",
   inherit = `arrow::Object`,
   public = list(
@@ -28,6 +40,10 @@
   )
 )
 
+#' default [arrow::MemoryPool][arrow__MemoryPool]
+#'
+#' @return the default [arrow::MemoryPool][arrow__MemoryPool]
+#' @export
 default_memory_pool <- function() {
   shared_ptr(`arrow::MemoryPool`, MemoryPool__default())
 }

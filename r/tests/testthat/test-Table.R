@@ -28,12 +28,12 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   write_table(tab, tf)
 
   bytes <- write_table(tab, raw())
-  buf_reader <- buffer_reader(bytes)
+  buf_reader <- BufferReader(bytes)
 
   tab1 <- read_table(tf)
   tab2 <- read_table(fs::path_abs(tf))
 
-  readable_file <- close_on_exit(file_open(tf))
+  readable_file <- close_on_exit(ReadableFile(tf))
   tab3 <- read_table(readable_file)
 
   mmap_file <- close_on_exit(mmap_open(tf))
@@ -42,10 +42,10 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tab5 <- read_table(bytes)
   tab6 <- read_table(buf_reader)
 
-  stream_reader <- record_batch_stream_reader(bytes)
+  stream_reader <- RecordBatchStreamReader(bytes)
   tab7 <- read_table(stream_reader)
 
-  file_reader <- record_batch_file_reader(tf)
+  file_reader <- RecordBatchFileReader(tf)
   tab8 <- read_table(file_reader)
 
   expect_equal(tab, tab1)

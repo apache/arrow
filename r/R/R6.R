@@ -54,6 +54,18 @@ unique_ptr <- function(class, xp) {
   !(lhs == rhs)
 }
 
+#' @title class arrow::DataType
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__DataType
+#' @name arrow__DataType
 `arrow::DataType` <- R6Class("arrow::DataType",
   inherit = `arrow::Object`,
   public = list(
@@ -116,6 +128,18 @@ unique_ptr <- function(class, xp) {
 
 #----- metadata
 
+#' @title class arrow::FixedWidthType
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__FixedWidthType
+#' @name arrow__FixedWidthType
 `arrow::FixedWidthType` <- R6Class("arrow::FixedWidthType",
   inherit = `arrow::DataType`,
   public = list(

@@ -17,6 +17,18 @@
 
 #' @include R6.R
 
+#' @title class arrow::RecordBatch
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__RecordBatch
+#' @name arrow__RecordBatch
 `arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = `arrow::Object`,
   public = list(
     num_columns = function() RecordBatch__num_columns(self),
@@ -29,9 +41,11 @@
       assert_that(inherits(other, "arrow::RecordBatch"))
       RecordBatch__Equals(self, other)
     },
+
     RemoveColumn = function(i){
       shared_ptr(`arrow::RecordBatch`, RecordBatch__RemoveColumn(self, i))
     },
+
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
         shared_ptr(`arrow::RecordBatch`, RecordBatch__Slice1(self, offset))
@@ -66,10 +80,11 @@
   RecordBatch__to_dataframe(x)
 }
 
-#' Create an arrow::RecordBatch from a data frame
+#' Create an [arrow::RecordBatch][arrow__RecordBatch] from a data frame
 #'
 #' @param .data a data frame
 #'
+#' @return a [arrow::RecordBatch][arrow__RecordBatch]
 #' @export
 record_batch <- function(.data){
   shared_ptr(`arrow::RecordBatch`, RecordBatch__from_dataframe(.data))

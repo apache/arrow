@@ -18,6 +18,21 @@
 #' @include R6.R
 #' @include enums.R
 
+#' @title class arrow::Buffer
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' - `$is_mutable()` :
+#' - `$ZeroPadding()` :
+#' - `$size()` :
+#' - `$capacity()`:
+#'
+#' @rdname arrow__Buffer
+#' @name arrow__Buffer
 `arrow::Buffer` <- R6Class("arrow::Buffer", inherit = `arrow::Object`,
   public = list(
     is_mutable = function() Buffer__is_mutable(self),
@@ -27,12 +42,11 @@
   )
 )
 
-`arrow::MutableBuffer` <- R6Class("arrow::Buffer", inherit = `arrow::Buffer`)
-
-#' Create a buffer from an R object
+#' Create a [arrow::Buffer][arrow__Buffer] from an R object
 #'
-#' @param x R object
-#' @return an instance of `arrow::Buffer` that borrows memory from `x`
+#' @param x R object. Only raw, numeric and integer vectors are currently supported
+#'
+#' @return an instance of [arrow::Buffer][arrow__Buffer] that borrows memory from `x`
 #'
 #' @export
 buffer <- function(x){
@@ -43,7 +57,6 @@ buffer <- function(x){
 buffer.default <- function(x) {
   stop("cannot convert to Buffer")
 }
-
 
 #' @export
 buffer.raw <- function(x) {

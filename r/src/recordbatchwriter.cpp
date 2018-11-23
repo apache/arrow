@@ -17,31 +17,13 @@
 
 #include "arrow_types.h"
 
-// [[Rcpp::export]]
-std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(
-    const std::shared_ptr<arrow::io::OutputStream>& stream,
-    const std::shared_ptr<arrow::Schema>& schema) {
-  std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
-  STOP_IF_NOT_OK(
-      arrow::ipc::RecordBatchFileWriter::Open(stream.get(), schema, &file_writer));
-  return file_writer;
-}
 
-// [[Rcpp::export]]
-std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(
-    const std::shared_ptr<arrow::io::OutputStream>& stream,
-    const std::shared_ptr<arrow::Schema>& schema) {
-  std::shared_ptr<arrow::ipc::RecordBatchWriter> stream_writer;
-  STOP_IF_NOT_OK(
-      arrow::ipc::RecordBatchStreamWriter::Open(stream.get(), schema, &stream_writer));
-  return stream_writer;
-}
 
 // [[Rcpp::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer,
-    const std::shared_ptr<arrow::RecordBatch>& batch, bool allow_64bit) {
-  STOP_IF_NOT_OK(batch_writer->WriteRecordBatch(*batch, allow_64bit));
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
+  STOP_IF_NOT_OK(batch_writer->WriteRecordBatch(*batch, true));
 }
 
 // [[Rcpp::export]]
@@ -56,3 +38,26 @@ void ipc___RecordBatchWriter__Close(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer) {
   STOP_IF_NOT_OK(batch_writer->Close());
 }
+
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(
+    const std::shared_ptr<arrow::io::OutputStream>& stream,
+    const std::shared_ptr<arrow::Schema>& schema) {
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
+  STOP_IF_NOT_OK(
+      arrow::ipc::RecordBatchFileWriter::Open(stream.get(), schema, &file_writer));
+  return file_writer;
+}
+
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(
+    const std::shared_ptr<arrow::io::OutputStream>& stream,
+    const std::shared_ptr<arrow::Schema>& schema) {
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> stream_writer;
+  STOP_IF_NOT_OK(
+      arrow::ipc::RecordBatchStreamWriter::Open(stream.get(), schema, &stream_writer));
+  return stream_writer;
+}
+

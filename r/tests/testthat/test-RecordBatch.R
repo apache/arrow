@@ -107,67 +107,6 @@ test_that("RecordBatch with 0 rows are supported", {
       fct = dictionary(int32(), array(c("a", "b")))
     )
   )
-
-  tf <- local_tempfile()
-  write_record_batch(batch, tf)
-  res <- read_record_batch(tf)
-  expect_equal(res, batch)
-})
-
-test_that("read_record_batch handles various streams (ARROW-3450, ARROW-3505)", {
-  tbl <- tibble::tibble(
-    int = 1:10, dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10]
-  )
-  batch <- record_batch(tbl)
-  tf <- local_tempfile()
-  write_record_batch(batch, tf)
-
-  bytes <- write_record_batch(batch, raw())
-  buf_reader <- buffer_reader(bytes)
-
-  batch1 <- read_record_batch(tf)
-  batch2 <- read_record_batch(fs::path_abs(tf))
-
-  readable_file <- close_on_exit(file_open(tf))
-  batch3 <- read_record_batch(readable_file)
-
-  mmap_file <- close_on_exit(mmap_open(tf))
-  batch4 <- read_record_batch(mmap_file)
-  batch5 <- read_record_batch(bytes)
-  batch6 <- read_record_batch(buf_reader)
-
-  stream_reader <- record_batch_stream_reader(bytes)
-  batch7 <- read_record_batch(stream_reader)
-  expect_null(read_record_batch(stream_reader))
-
-  file_reader <- record_batch_file_reader(tf)
-  batch8 <- read_record_batch(file_reader)
-  expect_null(read_record_batch(file_reader, i = 2))
-
-  expect_equal(batch, batch1)
-  expect_equal(batch, batch2)
-  expect_equal(batch, batch3)
-  expect_equal(batch, batch4)
-  expect_equal(batch, batch5)
-  expect_equal(batch, batch6)
-  expect_equal(batch, batch7)
-  expect_equal(batch, batch8)
-})
-
-test_that("read_record_batch can handle Message, Schema parameters (ARROW-3499)", {
-  batch <- record_batch(tibble::tibble(x = 1:10))
-  stream <- buffer_reader(write_record_batch(batch, raw()))
-
-  # schema
-  message <- read_message(stream)
-
-  # batch
-  message <- read_message(stream)
-  schema <- batch$schema()
-  batch2 <- read_record_batch(message, schema)
-  expect_equal(batch, batch2)
 })
 
 test_that("RecordBatch cast (ARROW-3741)", {

@@ -17,6 +17,18 @@
 
 #' @include R6.R
 
+#' @title class arrow::ChunkedArray
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__ChunkedArray
+#' @name arrow__ChunkedArray
 `arrow::ChunkedArray` <- R6Class("arrow::ChunkedArray", inherit = `arrow::Object`,
   public = list(
     length = function() ChunkedArray__length(self),
@@ -41,7 +53,7 @@
   )
 )
 
-#' create an arrow::Array from an R vector
+#' create an [arrow::ChunkedArray][arrow__ChunkedArray] from various R vectors
 #'
 #' @param \dots Vectors to coerce
 #' @param type currently ignored
