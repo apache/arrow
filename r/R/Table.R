@@ -48,14 +48,3 @@ table <- function(.data){
 `as_tibble.arrow::Table` <- function(x, ...){
   Table__to_dataframe(x)
 }
-
-#' Read an tibble from an arrow::Table on disk
-#'
-#' @param stream input stream
-#'
-#' @return a [tibble::tibble]
-#'
-#' @export
-read_arrow <- function(stream){
-  as_tibble(read_table(stream))
-}

@@ -33,7 +33,10 @@
 #'
 #'  - a raw vector: read using a [arrow::ipc::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader]
 #'
-#' @return an [arrow::Table][arrow__Table]
+#' @return
+#'
+#'  - `read_table` returns an [arrow::Table][arrow__Table]
+#'  - `read_arrow` returns a [tibble::tibble()]
 #'
 #' @details
 #'
@@ -76,3 +79,8 @@ read_table.fs_path <- function(stream) {
   shared_ptr(`arrow::Table`, Table__from_RecordBatchStreamReader(batch_reader))
 }
 
+#' @rdname read_table
+#' @export
+read_arrow <- function(stream){
+  as_tibble(read_table(stream))
+}

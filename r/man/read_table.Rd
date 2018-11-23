@@ -2,9 +2,12 @@
 % Please edit documentation in R/read_table.R
 \name{read_table}
 \alias{read_table}
+\alias{read_arrow}
 \title{Read an \link[=arrow__Table]{arrow::Table} from a stream}
 \usage{
 read_table(stream)
+
+read_arrow(stream)
 }
 \arguments{
 \item{stream}{stream.
@@ -22,7 +25,10 @@ to process it.
 }}
 }
 \value{
-an \link[=arrow__Table]{arrow::Table}
+\itemize{
+\item \code{read_table} returns an \link[=arrow__Table]{arrow::Table}
+\item \code{read_arrow} returns a \code{\link[tibble:tibble]{tibble::tibble()}}
+}
 }
 \description{
 Read an \link[=arrow__Table]{arrow::Table} from a stream

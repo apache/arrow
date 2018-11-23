@@ -42,10 +42,11 @@ std::shared_ptr<arrow::RecordBatchReader> ipc___RecordBatchStreamReader__Open(
 }
 
 // [[Rcpp::export]]
-std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchStreamReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader) {
+std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchStreamReader__batches(
+    const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> res;
 
-  while(true) {
+  while (true) {
     std::shared_ptr<arrow::RecordBatch> batch;
     STOP_IF_NOT_OK(reader->ReadNext(&batch));
     if (!batch) break;
@@ -121,11 +122,12 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(
 }
 
 // [[Rcpp::export]]
-std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchFileReader__batches( const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
+std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchFileReader__batches(
+    const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
   auto n = reader->num_record_batches();
   std::vector<std::shared_ptr<arrow::RecordBatch>> res(n);
 
-  for(int i = 0; i<n; i++) {
+  for (int i = 0; i < n; i++) {
     STOP_IF_NOT_OK(reader->ReadRecordBatch(i, &res[i]));
   }
 

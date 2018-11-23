@@ -122,7 +122,8 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(
 }
 
 // [[Rcpp::export]]
-RawVector ipc___SerializeRecordBatch__Raw(const std::shared_ptr<arrow::RecordBatch>& batch) {
+RawVector ipc___SerializeRecordBatch__Raw(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
   // how many bytes do we need ?
   int64_t size;
   STOP_IF_NOT_OK(arrow::ipc::GetRecordBatchSize(*batch, &size));
@@ -133,7 +134,8 @@ RawVector ipc___SerializeRecordBatch__Raw(const std::shared_ptr<arrow::RecordBat
   // serialize into the bytes of the raw vector
   auto buffer = std::make_shared<arrow::r::RBuffer<RAWSXP, RawVector>>(out);
   arrow::io::FixedSizeBufferWriter stream(buffer);
-  STOP_IF_NOT_OK(arrow::ipc::SerializeRecordBatch(*batch, arrow::default_memory_pool(), &stream));
+  STOP_IF_NOT_OK(
+      arrow::ipc::SerializeRecordBatch(*batch, arrow::default_memory_pool(), &stream));
   STOP_IF_NOT_OK(stream.Close());
 
   return out;

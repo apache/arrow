@@ -17,7 +17,6 @@
 
 #include "arrow_types.h"
 
-
 // [[Rcpp::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer,
@@ -48,7 +47,6 @@ std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open
   return file_writer;
 }
 
-
 // [[Rcpp::export]]
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
@@ -58,4 +56,3 @@ std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Op
       arrow::ipc::RecordBatchStreamWriter::Open(stream.get(), schema, &stream_writer));
   return stream_writer;
 }
-
