@@ -2,13 +2,33 @@
 % Please edit documentation in R/read_table.R
 \name{read_table}
 \alias{read_table}
-\title{Read an arrow::Table from a stream}
+\title{Read an \link[=arrow__Table]{arrow::Table} from a stream}
 \usage{
 read_table(stream)
 }
 \arguments{
-\item{stream}{stream. Either a stream created by \code{\link[=ReadableFile]{ReadableFile()}} or \code{\link[=mmap_open]{mmap_open()}} or a file path.}
+\item{stream}{stream.
+\itemize{
+\item a \link[=arrow__ipc__RecordBatchFileReader]{arrow::ipc::RecordBatchFileReader}:
+read an \link[=arrow__Table]{arrow::Table}
+from all the record batches in the reader
+\item a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::ipc::RecordBatchStreamReader}:
+read an \link[=arrow__Table]{arrow::Table} from the remaining record batches
+in the reader
+\item a string or \link[fs:path_abs]{file path}: interpret the file as an arrow
+binary file format, and uses a \link[=arrow__ipc__RecordBatchFileReader]{arrow::ipc::RecordBatchFileReader}
+to process it.
+\item a raw vector: read using a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::ipc::RecordBatchStreamReader}
+}}
+}
+\value{
+an \link[=arrow__Table]{arrow::Table}
 }
 \description{
-Read an arrow::Table from a stream
+Read an \link[=arrow__Table]{arrow::Table} from a stream
+}
+\details{
+The methods using \link[=arrow__ipc__RecordBatchFileReader]{arrow::ipc::RecordBatchFileReader} and
+\link[=arrow__ipc__RecordBatchStreamReader]{arrow::ipc::RecordBatchStreamReader} offer the most
+flexibility. The other methods are for convenience.
 }

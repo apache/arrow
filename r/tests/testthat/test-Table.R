@@ -29,25 +29,23 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   write_arrow(tab, tf)
 
   bytes <- write_arrow(tab, raw())
-  buf_reader <- BufferReader(bytes)
 
   tab1 <- read_table(tf)
   tab2 <- read_table(fs::path_abs(tf))
 
   readable_file <- close_on_exit(ReadableFile(tf))
-  tab3 <- read_table(readable_file)
+  tab3 <- read_table(close_on_exit(RecordBatchFileReader(readable_file)))
 
   mmap_file <- close_on_exit(mmap_open(tf))
-  tab4 <- read_table(mmap_file)
+  tab4 <- read_table(close_on_exit(RecordBatchFileReader(mmap_file)))
 
   tab5 <- read_table(bytes)
-  tab6 <- read_table(buf_reader)
 
   stream_reader <- RecordBatchStreamReader(bytes)
-  tab7 <- read_table(stream_reader)
+  tab6 <- read_table(stream_reader)
 
   file_reader <- RecordBatchFileReader(tf)
-  tab8 <- read_table(file_reader)
+  tab7 <- read_table(file_reader)
 
   expect_equal(tab, tab1)
   expect_equal(tab, tab2)
@@ -56,7 +54,6 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   expect_equal(tab, tab5)
   expect_equal(tab, tab6)
   expect_equal(tab, tab7)
-  expect_equal(tab, tab8)
 })
 
 test_that("Table cast (ARROW-3741)", {

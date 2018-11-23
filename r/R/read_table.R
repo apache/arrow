@@ -15,31 +15,35 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' Read an arrow::Table from a stream
+#' Read an [arrow::Table][arrow__Table] from a stream
 #'
-#' @param stream stream. Either a stream created by [ReadableFile()] or [mmap_open()] or a file path.
+#' @param stream stream.
+#'
+#' - a [arrow::ipc::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader]:
+#'   read an [arrow::Table][arrow__Table]
+#'   from all the record batches in the reader
+#'
+#' - a [arrow::ipc::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader]:
+#'   read an [arrow::Table][arrow__Table] from the remaining record batches
+#'   in the reader
+#'
+#'  - a string or [file path][fs::path_abs()]: interpret the file as an arrow
+#'    binary file format, and uses a [arrow::ipc::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader]
+#'    to process it.
+#'
+#'  - a raw vector: read using a [arrow::ipc::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader]
+#'
+#' @return an [arrow::Table][arrow__Table]
+#'
+#' @details
+#'
+#' The methods using [arrow::ipc::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader] and
+#' [arrow::ipc::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader] offer the most
+#' flexibility. The other methods are for convenience.
 #'
 #' @export
 read_table <- function(stream){
   UseMethod("read_table")
-}
-
-#' @export
-read_table.character <- function(stream){
-  assert_that(length(stream) == 1L)
-  read_table(fs::path_abs(stream))
-}
-
-#' @export
-read_table.fs_path <- function(stream) {
-  stream <- close_on_exit(ReadableFile(stream))
-  read_table(stream)
-}
-
-#' @export
-`read_table.arrow::io::RandomAccessFile` <- function(stream) {
-  reader <- RecordBatchFileReader(stream)
-  read_table(reader)
 }
 
 #' @export
@@ -53,14 +57,22 @@ read_table.fs_path <- function(stream) {
 }
 
 #' @export
-`read_table.arrow::io::BufferReader` <- function(stream) {
-  reader <- RecordBatchStreamReader(stream)
-  read_table(reader)
+read_table.character <- function(stream){
+  assert_that(length(stream) == 1L)
+  read_table(fs::path_abs(stream))
+}
+
+#' @export
+read_table.fs_path <- function(stream) {
+  stream <- close_on_exit(ReadableFile(stream))
+  batch_reader <- close_on_exit(RecordBatchFileReader(stream))
+  shared_ptr(`arrow::Table`, Table__from_RecordBatchFileReader(batch_reader))
 }
 
 #' @export
 `read_table.raw` <- function(stream) {
   stream <- close_on_exit(BufferReader(stream))
-  read_table(stream)
+  batch_reader <- close_on_exit(RecordBatchStreamReader(stream))
+  shared_ptr(`arrow::Table`, Table__from_RecordBatchStreamReader(batch_reader))
 }
 
