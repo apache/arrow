@@ -73,7 +73,8 @@
 `arrow::io::BufferOutputStream` <- R6Class("arrow::io::BufferOutputStream", inherit = `arrow::io::OutputStream`,
   public = list(
     capacity = function() io___BufferOutputStream__capacity(self),
-    Finish = function() shared_ptr(`arrow::Buffer`, io___BufferOutputStream__Finish(self)),
+    getvalue = function() shared_ptr(`arrow::Buffer`, io___BufferOutputStream__Finish(self)),
+
     Write = function(bytes) io___BufferOutputStream__Write(self, bytes),
     Tell = function() io___BufferOutputStream__Tell(self)
   )
