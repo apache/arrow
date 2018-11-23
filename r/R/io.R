@@ -25,6 +25,10 @@
 
 #' @title OutputStream
 #'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
 #' @section Methods:
 #'
 #'  - `arrow::Buffer` `Read`(`int` nbytes):  Read `nbytes` bytes
@@ -40,6 +44,10 @@
 
 #' @title class arrow::io::FileOutputStream
 #'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
 #' @section Methods:
 #'
 #'  TODO
@@ -49,6 +57,11 @@
 `arrow::io::FileOutputStream` <- R6Class("arrow::io::FileOutputStream", inherit = `arrow::io::OutputStream`)
 
 #' @title class arrow::io::MockOutputStream
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
 #'
 #' @section Methods:
 #'
@@ -64,6 +77,8 @@
 
 #' @title class arrow::io::BufferOutputStream
 #'
+#' @usage NULL
+#' @docType class
 #' @section Methods:
 #'
 #'  TODO
@@ -82,6 +97,11 @@
 
 #' @title class arrow::io::FixedSizeBufferWriter
 #'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#'
 #' @section Methods:
 #'
 #'  TODO
@@ -94,6 +114,11 @@
 # InputStream -------------------------------------------------------------
 
 #' @title class arrow::io::Readable
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
 #'
 #' @section Methods:
 #'
@@ -109,6 +134,11 @@
 
 #' @title class arrow::io::InputStream
 #'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#'
 #' @section Methods:
 #'
 #'  TODO
@@ -122,6 +152,11 @@
 )
 
 #' @title class arrow::io::RandomAccessFile
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
 #'
 #' @section Methods:
 #'
@@ -140,6 +175,11 @@
 
 #' @title class arrow::io::MemoryMappedFile
 #'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#'
 #' @section Methods:
 #'
 #'  TODO
@@ -156,6 +196,11 @@
 )
 
 #' @title class arrow::io::ReadableFile
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
 #'
 #' @section Methods:
 #'
