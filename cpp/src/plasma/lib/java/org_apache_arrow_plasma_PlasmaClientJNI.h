@@ -80,8 +80,9 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_release(JNIE
  * Method:    delete
  * Signature: (J[B)V
  */
-JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_delete(
-     JNIEnv*, jclass, jlong, jbyteArray);
+JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_delete(JNIEnv*,
+                                                                           jclass, jlong,
+                                                                           jbyteArray);
 
 /*
  * Class:     org_apache_arrow_plasma_PlasmaClientJNI
