@@ -94,7 +94,7 @@
 #'
 #' @param sink Where to write. Can either be:
 #'
-#' - A string, meant as a file path, passed to [fs::path_ab]
+#' - A string, meant as a file path, passed to [fs::path_abs()]
 #' - a [file path][fs::path_abs()]
 #' - [arrow::io::OutputStream][arrow__io__OutputStream]
 #'

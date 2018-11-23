@@ -16,7 +16,19 @@
 # under the License.
 
 #' @include R6.R
-
+#'
+#' @title class arrow::Table
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__Table
+#' @name arrow__Table
 `arrow::Table` <- R6Class("arrow::Table", inherit = `arrow::Object`,
   public = list(
     column = function(i) shared_ptr(`arrow::Column`, Table__column(self, i)),

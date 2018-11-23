@@ -7,7 +7,7 @@
 BufferReader(x)
 }
 \arguments{
-\item{buffer}{R object to treat as a buffer or a buffer created by \code{\link[=buffer]{buffer()}}}
+\item{x}{R object to treat as a buffer or a buffer created by \code{\link[=buffer]{buffer()}}}
 }
 \description{
 Create a \link[=arrow__io__BufferReader]{arrow::io::BufferReader}

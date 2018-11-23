@@ -212,6 +212,10 @@
 
 #' @title class arrow::io::BufferReader
 #'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
 #' @section Methods:
 #'
 #'  TODO
@@ -309,7 +313,7 @@ FixedSizeBufferWriter.default <- function(buffer){
 
 #' Create a [arrow::io::BufferReader][arrow__io__BufferReader]
 #'
-#' @param buffer R object to treat as a buffer or a buffer created by [buffer()]
+#' @param x R object to treat as a buffer or a buffer created by [buffer()]
 #'
 #' @export
 BufferReader <- function(x) {
