@@ -47,27 +47,27 @@ test_that("RecordBatch", {
   col_int <- batch$column(0)
   expect_true(inherits(col_int, 'arrow::Array'))
   expect_equal(col_int$as_vector(), tbl$int)
-  expect_equal(col_int$type(), int32())
+  expect_equal(col_int$type, int32())
 
   col_dbl <- batch$column(1)
   expect_true(inherits(col_dbl, 'arrow::Array'))
   expect_equal(col_dbl$as_vector(), tbl$dbl)
-  expect_equal(col_dbl$type(), float64())
+  expect_equal(col_dbl$type, float64())
 
   col_lgl <- batch$column(2)
   expect_true(inherits(col_dbl, 'arrow::Array'))
   expect_equal(col_lgl$as_vector(), tbl$lgl)
-  expect_equal(col_lgl$type(), boolean())
+  expect_equal(col_lgl$type, boolean())
 
   col_chr <- batch$column(3)
   expect_true(inherits(col_chr, 'arrow::Array'))
   expect_equal(col_chr$as_vector(), tbl$chr)
-  expect_equal(col_chr$type(), utf8())
+  expect_equal(col_chr$type, utf8())
 
   col_fct <- batch$column(4)
   expect_true(inherits(col_fct, 'arrow::Array'))
   expect_equal(col_fct$as_vector(), tbl$fct)
-  expect_equal(col_fct$type(), dictionary(int32(), array(letters[1:10])))
+  expect_equal(col_fct$type, dictionary(int32(), array(letters[1:10])))
 
 
   batch2 <- batch$RemoveColumn(0)

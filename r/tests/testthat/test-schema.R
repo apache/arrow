@@ -36,11 +36,11 @@ test_that("reading schema from Buffer", {
 
   message <- reader$ReadNextMessage()
   expect_is(message, "arrow::ipc::Message")
-  expect_equal(message$type(), MessageType$SCHEMA)
+  expect_equal(message$type, MessageType$SCHEMA)
 
   stream <- BufferReader(buffer)
   expect_is(stream, "arrow::io::BufferReader")
   message <- read_message(stream)
   expect_is(message, "arrow::ipc::Message")
-  expect_equal(message$type(), MessageType$SCHEMA)
+  expect_equal(message$type, MessageType$SCHEMA)
 })

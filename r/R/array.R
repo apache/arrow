@@ -73,9 +73,6 @@
     IsNull = function(i) Array__IsNull(self, i),
     IsValid = function(i) Array__IsValid(self, i),
     length = function() Array__length(self),
-    offset = function() Array__offset(self),
-    null_count = function() Array__null_count(self),
-    type = function() `arrow::DataType`$dispatch(Array__type(self)),
     type_id = function() Array__type_id(self),
     Equals = function(other) Array__Equals(self, other),
     ApproxEquals = function(othet) Array__ApproxEquals(self, other),
@@ -98,6 +95,11 @@
       assert_that(inherits(options, "arrow::compute::CastOptions"))
       `arrow::Array`$dispatch(Array__cast(self, target_type, options))
     }
+  ),
+  active = list(
+    null_count = function() Array__null_count(self),
+    type = function() `arrow::DataType`$dispatch(Array__type(self)),
+    offset = function() Array__offset(self)
   )
 )
 
