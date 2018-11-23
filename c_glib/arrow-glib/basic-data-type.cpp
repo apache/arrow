@@ -101,10 +101,10 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowDataType,
                                     garrow_data_type,
                                     G_TYPE_OBJECT)
 
-#define GARROW_DATA_TYPE_GET_PRIVATE(obj)               \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                   \
-                               GARROW_TYPE_DATA_TYPE,   \
-                               GArrowDataTypePrivate))
+#define GARROW_DATA_TYPE_GET_PRIVATE(obj)         \
+  static_cast<GArrowDataTypePrivate *>(           \
+     garrow_data_type_get_instance_private(       \
+       GARROW_DATA_TYPE(obj)))
 
 static void
 garrow_data_type_finalize(GObject *object)

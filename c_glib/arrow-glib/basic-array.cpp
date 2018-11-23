@@ -211,8 +211,10 @@ enum {
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowArray, garrow_array, G_TYPE_OBJECT)
 
-#define GARROW_ARRAY_GET_PRIVATE(obj)                                   \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj), GARROW_TYPE_ARRAY, GArrowArrayPrivate))
+#define GARROW_ARRAY_GET_PRIVATE(obj)         \
+  static_cast<GArrowArrayPrivate *>(          \
+     garrow_array_get_instance_private(       \
+       GARROW_ARRAY(obj)))
 
 static void
 garrow_array_finalize(GObject *object)

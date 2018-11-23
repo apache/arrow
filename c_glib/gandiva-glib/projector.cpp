@@ -55,10 +55,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GGandivaProjector,
                            ggandiva_projector,
                            G_TYPE_OBJECT)
 
-#define GGANDIVA_PROJECTOR_GET_PRIVATE(obj)                 \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                       \
-                               GGANDIVA_TYPE_PROJECTOR,     \
-                               GGandivaProjectorPrivate))
+#define GGANDIVA_PROJECTOR_GET_PRIVATE(obj)         \
+  static_cast<GGandivaProjectorPrivate *>(          \
+     ggandiva_projector_get_instance_private(       \
+       GGANDIVA_PROJECTOR(obj)))
 
 static void
 ggandiva_projector_finalize(GObject *object)

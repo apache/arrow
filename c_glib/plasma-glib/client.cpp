@@ -51,10 +51,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GPlasmaClient,
                            gplasma_client,
                            G_TYPE_OBJECT)
 
-#define GPLASMA_CLIENT_GET_PRIVATE(obj)                 \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                   \
-                               GPLASMA_TYPE_CLIENT,     \
-                               GPlasmaClientPrivate))
+#define GPLASMA_CLIENT_GET_PRIVATE(obj)         \
+  static_cast<GPlasmaClientPrivate *>(          \
+     gplasma_client_get_instance_private(       \
+       GPLASMA_CLIENT(obj)))
 
 static void
 gplasma_client_finalize(GObject *object)

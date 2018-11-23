@@ -51,8 +51,10 @@ enum {
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowTensor, garrow_tensor, G_TYPE_OBJECT)
 
-#define GARROW_TENSOR_GET_PRIVATE(obj)                                   \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj), GARROW_TYPE_TENSOR, GArrowTensorPrivate))
+#define GARROW_TENSOR_GET_PRIVATE(obj)         \
+  static_cast<GArrowTensorPrivate *>(          \
+     garrow_tensor_get_instance_private(       \
+       GARROW_TENSOR(obj)))
 
 static void
 garrow_tensor_dispose(GObject *object)
