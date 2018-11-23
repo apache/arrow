@@ -19,9 +19,6 @@
 
 `arrow::Table` <- R6Class("arrow::Table", inherit = `arrow::Object`,
   public = list(
-    num_columns = function() Table__num_columns(self),
-    num_rows = function() Table__num_rows(self),
-    schema = function() shared_ptr(`arrow::Schema`, Table__schema(self)),
     column = function(i) shared_ptr(`arrow::Column`, Table__column(self, i)),
 
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
@@ -32,6 +29,12 @@
       assert_that(identical(self$schema()$names, target_schema$names), msg = "incompatible schemas")
       shared_ptr(`arrow::Table`, Table__cast(self, target_schema, options))
     }
+  ),
+
+  active = list(
+    num_columns = function() Table__num_columns(self),
+    num_rows = function() Table__num_rows(self),
+    schema = function() shared_ptr(`arrow::Schema`, Table__schema(self))
   )
 )
 

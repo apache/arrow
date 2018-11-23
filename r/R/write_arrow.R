@@ -67,14 +67,14 @@ write_arrow <- function(x, stream, ...) {
   assert_that(length(stream) == 1L)
   x <- to_arrow(x)
   file_stream <- close_on_exit(FileOutputStream(stream))
-  file_writer <- close_on_exit(RecordBatchFileWriter(file_stream, x$schema()))
+  file_writer <- close_on_exit(RecordBatchFileWriter(file_stream, x$schema))
   write_arrow(x, file_writer, ...)
 }
 
 #' @export
 `write_arrow.raw` <- function(x, stream, ...) {
   x <- to_arrow(x)
-  schema <- x$schema()
+  schema <- x$schema
 
   # how many bytes do we need
   mock_stream <- MockOutputStream()

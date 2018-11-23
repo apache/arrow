@@ -28,15 +28,15 @@ test_that("RecordBatch", {
 
   expect_true(batch == batch)
   expect_equal(
-    batch$schema(),
+    batch$schema,
     schema(
       int = int32(), dbl = float64(),
       lgl = boolean(), chr = utf8(),
       fct = dictionary(int32(), array(letters[1:10]))
     )
   )
-  expect_equal(batch$num_columns(), 5L)
-  expect_equal(batch$num_rows(), 10L)
+  expect_equal(batch$num_columns, 5L)
+  expect_equal(batch$num_rows, 10L)
   expect_equal(batch$column_name(0), "int")
   expect_equal(batch$column_name(1), "dbl")
   expect_equal(batch$column_name(2), "lgl")
@@ -72,7 +72,7 @@ test_that("RecordBatch", {
 
   batch2 <- batch$RemoveColumn(0)
   expect_equal(
-    batch2$schema(),
+    batch2$schema,
     schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int32(), array(letters[1:10])))
   )
   expect_equal(batch2$column(0), batch$column(1))
@@ -95,10 +95,10 @@ test_that("RecordBatch with 0 rows are supported", {
   )
 
   batch <- record_batch(tbl)
-  expect_equal(batch$num_columns(), 5L)
-  expect_equal(batch$num_rows(), 0L)
+  expect_equal(batch$num_columns, 5L)
+  expect_equal(batch$num_rows, 0L)
   expect_equal(
-    batch$schema(),
+    batch$schema,
     schema(
       int = int32(),
       dbl = float64(),

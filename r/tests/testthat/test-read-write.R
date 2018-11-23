@@ -25,8 +25,8 @@ test_that("arrow::table round trip", {
   )
 
   tab <- arrow::table(tbl)
-  expect_equal(tab$num_columns(), 3L)
-  expect_equal(tab$num_rows(), 10L)
+  expect_equal(tab$num_columns, 3L)
+  expect_equal(tab$num_rows, 10L)
 
   # arrow::Column
   col_int <- tab$column(0)
@@ -99,8 +99,8 @@ test_that("arrow::table round trip handles NA in integer and numeric", {
   )
 
   tab <- arrow::table(tbl)
-  expect_equal(tab$num_columns(), 3L)
-  expect_equal(tab$num_rows(), 10L)
+  expect_equal(tab$num_columns, 3L)
+  expect_equal(tab$num_rows, 10L)
 
   expect_equal(tab$column(0)$length(), 10L)
   expect_equal(tab$column(1)$length(), 10L)

@@ -25,7 +25,7 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
   ))
   tf <- local_tempfile()
 
-  writer <- RecordBatchFileWriter(tf, tab$schema())
+  writer <- RecordBatchFileWriter(tf, tab$schema)
   expect_is(writer, "arrow::ipc::RecordBatchFileWriter")
   writer$write_table(tab)
   writer$close()
@@ -33,7 +33,7 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
   expect_equal(tab, tab2)
 
   stream <- FileOutputStream(tf)
-  writer <- RecordBatchFileWriter(stream, tab$schema())
+  writer <- RecordBatchFileWriter(stream, tab$schema)
   expect_is(writer, "arrow::ipc::RecordBatchFileWriter")
   writer$write_table(tab)
   writer$close()
@@ -48,7 +48,7 @@ test_that("read_record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3
     chr = letters[1:10]
   )
   batch <- record_batch(tbl)
-  schema <- batch$schema()
+  schema <- batch$schema
 
   raw <- batch$serialize()
   batch2 <- read_record_batch(raw, schema)
@@ -62,7 +62,7 @@ test_that("read_record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3
 
 test_that("read_record_batch() can handle (Message, Schema) parameters (ARROW-3499)", {
   batch <- record_batch(tibble::tibble(x = 1:10))
-  schema <- batch$schema()
+  schema <- batch$schema
 
   raw <- batch$serialize()
   stream <- close_on_exit(BufferReader(raw))

@@ -31,9 +31,6 @@
 #' @name arrow__RecordBatch
 `arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = `arrow::Object`,
   public = list(
-    num_columns = function() RecordBatch__num_columns(self),
-    num_rows = function() RecordBatch__num_rows(self),
-    schema = function() shared_ptr(`arrow::Schema`, RecordBatch__schema(self)),
     column = function(i) shared_ptr(`arrow::Array`, RecordBatch__column(self, i)),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
@@ -62,6 +59,13 @@
       assert_that(identical(self$schema()$names, target_schema$names), msg = "incompatible schemas")
       shared_ptr(`arrow::RecordBatch`, RecordBatch__cast(self, target_schema, options))
     }
+  ),
+
+  active = list(
+    num_columns = function() RecordBatch__num_columns(self),
+    num_rows = function() RecordBatch__num_rows(self),
+    schema = function() shared_ptr(`arrow::Schema`, RecordBatch__schema(self))
+    # TODO: columns
   )
 )
 
