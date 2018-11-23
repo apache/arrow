@@ -26,7 +26,7 @@ test_that("reading schema from Buffer", {
   stream <- BufferOutputStream()
   writer <- RecordBatchStreamWriter(stream, batch$schema())
   expect_is(writer, "arrow::ipc::RecordBatchStreamWriter")
-  writer$Close()
+  writer$close()
 
   buffer <- stream$Finish()
   expect_is(buffer, "arrow::Buffer")

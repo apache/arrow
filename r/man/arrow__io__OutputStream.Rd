@@ -16,7 +16,7 @@ OutputStream
 
 \itemize{
 \item \code{arrow::Buffer} \code{Read}(\code{int} nbytes):  Read \code{nbytes} bytes
-\item \code{void} \code{Close}(): close the stream
+\item \code{void} \code{close}(): close the stream
 }
 }
 

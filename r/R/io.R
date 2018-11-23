@@ -28,13 +28,13 @@
 #' @section Methods:
 #'
 #'  - `arrow::Buffer` `Read`(`int` nbytes):  Read `nbytes` bytes
-#'  - `void` `Close`(): close the stream
+#'  - `void` `close`(): close the stream
 #'
 #' @rdname arrow__io__OutputStream
 #' @name arrow__io__OutputStream
 `arrow::io::OutputStream` <- R6Class("arrow::io::OutputStream", inherit = `arrow::io::Writable`,
   public = list(
-    Close = function() io___OutputStream__Close(self)
+    close = function() io___OutputStream__Close(self)
   )
 )
 
@@ -116,7 +116,7 @@
 #' @name arrow__io__InputStream
 `arrow::io::InputStream` <- R6Class("arrow::io::InputStream", inherit = `arrow::io::Readable`,
   public = list(
-    Close = function() io___InputStream__Close(self)
+    close = function() io___InputStream__Close(self)
   )
 )
 

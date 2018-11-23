@@ -15,9 +15,9 @@ Writer for the Arrow streaming binary format
 \section{usage}{
 \preformatted{writer <- RecordBatchStreamWriter(sink, schema)
 
-writer$WriteRecordBatch(batch)
-writer$WriteTable(table)
-writer$Close()
+writer$write_batch(batch)
+writer$write_table(table)
+writer$close()
 }
 }
 
@@ -31,9 +31,9 @@ The \code{\link[=RecordBatchStreamWriter]{RecordBatchStreamWriter()}} function c
 
 inherited from \link[=arrow__ipc__RecordBatchWriter]{arrow::ipc::RecordBatchWriter}
 \itemize{
-\item \code{$WriteRecordBatch(batch)}: Write record batch to stream
-\item \code{$WriteTable(table)}: write Table to stream
-\item \code{$Close()}: close stream
+\item \code{$write_batch(batch)}: Write record batch to stream
+\item \code{$write_table(table)}: write Table to stream
+\item \code{$close()}: close stream
 }
 }
 

@@ -25,9 +25,9 @@
 #'
 #' @section Methods:
 #'
-#' - `$WriteRecordBatch(batch)`: Write record batch to stream
-#' - `$WriteTable(table)`: write Table to stream
-#' - `$Close()`: close stream
+#' - `$write_batch(batch)`: Write record batch to stream
+#' - `$write_table(table)`: write Table to stream
+#' - `$close()`: close stream
 #'
 #' @section Derived classes:
 #'
@@ -38,9 +38,10 @@
 #' @name arrow__ipc__RecordBatchWriter
 `arrow::ipc::RecordBatchWriter` <- R6Class("arrow::ipc::RecordBatchWriter", inherit = `arrow::Object`,
   public = list(
-    WriteRecordBatch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
-    WriteTable = function(table) ipc___RecordBatchWriter__WriteTable(self, table),
-    Close = function() ipc___RecordBatchWriter__Close(self)
+    write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
+    write_table = function(table) ipc___RecordBatchWriter__WriteTable(self, table),
+
+    close = function() ipc___RecordBatchWriter__Close(self)
   )
 )
 
@@ -57,9 +58,9 @@
 #' ```
 #' writer <- RecordBatchStreamWriter(sink, schema)
 #'
-#' writer$WriteRecordBatch(batch)
-#' writer$WriteTable(table)
-#' writer$Close()
+#' writer$write_batch(batch)
+#' writer$write_table(table)
+#' writer$close()
 #' ```
 #'
 #' @section Factory:
@@ -69,9 +70,9 @@
 #' @section Methods:
 #' inherited from [arrow::ipc::RecordBatchWriter][arrow__ipc__RecordBatchWriter]
 #'
-#' - `$WriteRecordBatch(batch)`: Write record batch to stream
-#' - `$WriteTable(table)`: write Table to stream
-#' - `$Close()`: close stream
+#' - `$write_batch(batch)`: Write record batch to stream
+#' - `$write_table(table)`: write Table to stream
+#' - `$close()`: close stream
 #'
 #' @rdname arrow__ipc__RecordBatchStreamWriter
 #' @name arrow__ipc__RecordBatchStreamWriter
@@ -123,9 +124,9 @@ RecordBatchStreamWriter.fs_path <- function(sink, schema){
 #' ```
 #' writer <- RecordBatchFileWriter(sink, schema)
 #'
-#' writer$WriteRecordBatch(batch)
-#' writer$WriteTable(table)
-#' writer$Close()
+#' writer$write_batch(batch)
+#' writer$write_table(table)
+#' writer$close()
 #' ```
 #'
 #' @section Factory:
@@ -135,9 +136,9 @@ RecordBatchStreamWriter.fs_path <- function(sink, schema){
 #' @section Methods:
 #' inherited from [arrow::ipc::RecordBatchWriter][arrow__ipc__RecordBatchWriter]
 #'
-#' - `$WriteRecordBatch(batch)`: Write record batch to stream
-#' - `$WriteTable(table)`: write Table to stream
-#' - `$Close()`: close stream
+#' - `$write_batch(batch)`: Write record batch to stream
+#' - `$write_table(table)`: write Table to stream
+#' - `$close()`: close stream
 #'
 #' @rdname arrow__ipc__RecordBatchFileWriter
 #' @name arrow__ipc__RecordBatchFileWriter

@@ -18,7 +18,6 @@
 #include "arrow_types.h"
 
 
-
 // [[Rcpp::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer,
@@ -38,7 +37,6 @@ void ipc___RecordBatchWriter__Close(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer) {
   STOP_IF_NOT_OK(batch_writer->Close());
 }
-
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(

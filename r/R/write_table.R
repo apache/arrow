@@ -34,7 +34,7 @@ write_table <- function(x, stream, ...) {
 
 #' @export
 `write_table.arrow::ipc::RecordBatchWriter` <- function(x, stream, ...){
-  stream$WriteTable(x)
+  stream$write_table(x)
 }
 
 #' @export

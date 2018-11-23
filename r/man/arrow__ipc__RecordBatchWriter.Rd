@@ -11,9 +11,9 @@ class arrow::ipc::RecordBatchWriter
 \section{Methods}{
 
 \itemize{
-\item \code{$WriteRecordBatch(batch)}: Write record batch to stream
-\item \code{$WriteTable(table)}: write Table to stream
-\item \code{$Close()}: close stream
+\item \code{$write_batch(batch)}: Write record batch to stream
+\item \code{$write_table(table)}: write Table to stream
+\item \code{$close()}: close stream
 }
 }
 
