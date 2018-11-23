@@ -152,7 +152,7 @@ endif()
 file(STRINGS "${THIRDPARTY_DIR}/versions.txt" TOOLCHAIN_VERSIONS_TXT)
 foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
   # Exclude comments
-  if(_VERSION_ENTRY MATCHES "#.*")
+  if(NOT _VERSION_ENTRY MATCHES "^[^#][A-Za-z0-9-_]+_VERSION=")
     continue()
   endif()
 
