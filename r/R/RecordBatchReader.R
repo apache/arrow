@@ -50,7 +50,11 @@
 #'
 #' @rdname arrow__ipc__RecordBatchStreamReader
 #' @name arrow__ipc__RecordBatchStreamReader
-`arrow::ipc::RecordBatchStreamReader` <- R6Class("arrow::ipc::RecordBatchStreamReader", inherit = `arrow::RecordBatchReader`)
+`arrow::ipc::RecordBatchStreamReader` <- R6Class("arrow::ipc::RecordBatchStreamReader", inherit = `arrow::RecordBatchReader`,
+  public = list(
+    batches = function() map(ipc___RecordBatchStreamReader__batches(self), shared_ptr, class = `arrow::RecordBatch`)
+  )
+)
 
 #' @title class arrow::ipc::RecordBatchFileReader
 #'
@@ -68,7 +72,9 @@
   public = list(
     schema = function() shared_ptr(`arrow::Schema`, ipc___RecordBatchFileReader__schema(self)),
     num_record_batches = function() ipc___RecordBatchFileReader__num_record_batches(self),
-    ReadRecordBatch = function(i) shared_ptr(`arrow::RecordBatch`, ipc___RecordBatchFileReader__ReadRecordBatch(self, i))
+    ReadRecordBatch = function(i) shared_ptr(`arrow::RecordBatch`, ipc___RecordBatchFileReader__ReadRecordBatch(self, i)),
+
+    batches = function() map(ipc___RecordBatchFileReader__batches(self), shared_ptr, class = `arrow::RecordBatch`)
   )
 )
 

@@ -685,6 +685,10 @@ ipc___RecordBatchStreamReader__Open <- function(stream) {
     .Call(`_arrow_ipc___RecordBatchStreamReader__Open`, stream)
 }
 
+ipc___RecordBatchStreamReader__batches <- function(reader) {
+    .Call(`_arrow_ipc___RecordBatchStreamReader__batches`, reader)
+}
+
 ipc___RecordBatchFileReader__schema <- function(reader) {
     .Call(`_arrow_ipc___RecordBatchFileReader__schema`, reader)
 }
@@ -707,6 +711,10 @@ Table__from_RecordBatchFileReader <- function(reader) {
 
 Table__from_RecordBatchStreamReader <- function(reader) {
     .Call(`_arrow_Table__from_RecordBatchStreamReader`, reader)
+}
+
+ipc___RecordBatchFileReader__batches <- function(reader) {
+    .Call(`_arrow_ipc___RecordBatchFileReader__batches`, reader)
 }
 
 ipc___RecordBatchWriter__WriteRecordBatch <- function(batch_writer, batch) {
