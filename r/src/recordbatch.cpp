@@ -41,6 +41,17 @@ std::shared_ptr<arrow::Schema> RecordBatch__schema(
 }
 
 // [[Rcpp::export]]
+arrow::ArrayVector RecordBatch__columns(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
+  auto nc = batch->num_columns();
+  ArrayVector res(nc);
+  for (int i = 0; i < nc; i++) {
+    res[i] = batch->column(i);
+  }
+  return res;
+}
+
+// [[Rcpp::export]]
 std::shared_ptr<arrow::Array> RecordBatch__column(
     const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
   return batch->column(i);

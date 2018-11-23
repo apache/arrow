@@ -1753,6 +1753,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// RecordBatch__columns
+arrow::ArrayVector RecordBatch__columns(const std::shared_ptr<arrow::RecordBatch>& batch);
+RcppExport SEXP _arrow_RecordBatch__columns(SEXP batchSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__columns(batch));
+    return rcpp_result_gen;
+END_RCPP
+}
 // RecordBatch__column
 std::shared_ptr<arrow::Array> RecordBatch__column(const std::shared_ptr<arrow::RecordBatch>& batch, int i);
 RcppExport SEXP _arrow_RecordBatch__column(SEXP batchSEXP, SEXP iSEXP) {
@@ -2127,6 +2138,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Table__columns
+std::vector<std::shared_ptr<arrow::Column>> Table__columns(const std::shared_ptr<arrow::Table>& table);
+RcppExport SEXP _arrow_Table__columns(SEXP tableSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__columns(table));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 1},
@@ -2286,6 +2308,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
     {"_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
+    {"_arrow_RecordBatch__columns", (DL_FUNC) &_arrow_RecordBatch__columns, 1},
     {"_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2},
     {"_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 1},
     {"_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1},
@@ -2319,6 +2342,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
     {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 1},
     {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
+    {"_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1},
     {NULL, NULL, 0}
 };
 

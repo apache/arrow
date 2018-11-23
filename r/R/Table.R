@@ -34,7 +34,8 @@
   active = list(
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
-    schema = function() shared_ptr(`arrow::Schema`, Table__schema(self))
+    schema = function() shared_ptr(`arrow::Schema`, Table__schema(self)),
+    columns = function() map(Table__columns(self), shared_ptr, class = `arrow::Column`)
   )
 )
 

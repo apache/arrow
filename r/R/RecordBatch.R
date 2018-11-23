@@ -64,8 +64,8 @@
   active = list(
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
-    schema = function() shared_ptr(`arrow::Schema`, RecordBatch__schema(self))
-    # TODO: columns
+    schema = function() shared_ptr(`arrow::Schema`, RecordBatch__schema(self)),
+    columns = function() map(RecordBatch__columns(self), shared_ptr, `arrow::Array`)
   )
 )
 
