@@ -21,15 +21,13 @@ import "github.com/apache/arrow/go/arrow"
 // A type which represents an immutable sequence of fixed-length binary strings.
 type FixedSizeBinary struct {
 	array
-	byteWidth    int
 	valueOffsets []int32
 	valueBytes   []byte
 }
 
 // NewFixedSizeBinaryData constructs a new fixed-size binary array from data.
 func NewFixedSizeBinaryData(data *Data) *FixedSizeBinary {
-	dtype := data.dtype.(*arrow.FixedSizeBinaryType)
-	a := &FixedSizeBinary{byteWidth: dtype.ByteWidth}
+	a := &FixedSizeBinary{}
 	a.refCount = 1
 	a.setData(data)
 	return a
