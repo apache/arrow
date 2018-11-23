@@ -35,8 +35,11 @@
 #' @name arrow__Buffer
 `arrow::Buffer` <- R6Class("arrow::Buffer", inherit = `arrow::Object`,
   public = list(
+    ZeroPadding = function() Buffer__ZeroPadding(self)
+  ),
+
+  active = list(
     is_mutable = function() Buffer__is_mutable(self),
-    ZeroPadding = function() Buffer__ZeroPadding(self),
     size = function() Buffer__size(self),
     capacity = function() Buffer__capacity(self)
   )

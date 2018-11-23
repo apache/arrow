@@ -24,5 +24,5 @@ test_that("string vectors with only empty strings and nulls don't allocate a dat
   buffers <- a$data()$buffers
   expect_null(buffers[[1]])
   expect_null(buffers[[3]])
-  expect_equal(buffers[[2]]$size(), 8L)
+  expect_equal(buffers[[2]]$size, 8L)
 })

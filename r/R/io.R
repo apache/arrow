@@ -258,7 +258,7 @@ FixedSizeBufferWriter.default <- function(buffer){
 
 #' @export
 `FixedSizeBufferWriter.arrow::Buffer` <- function(buffer){
-  assert_that(buffer$is_mutable())
+  assert_that(buffer$is_mutable)
   shared_ptr(`arrow::io::FixedSizeBufferWriter`, io___FixedSizeBufferWriter__initialize(buffer))
 }
 
