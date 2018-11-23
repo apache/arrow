@@ -85,11 +85,9 @@ unique_ptr <- function(class, xp) {
     children = function() {
       map(DataType__children_pointer(self), shared_ptr, class= `arrow::Field`)
     },
-    id = function(){
-      DataType__id(self)
-    },
+
     ..dispatch = function(){
-      switch(names(Type)[self$id()+1],
+      switch(names(Type)[self$id + 1],
         "NA" = null(),
         BOOL = boolean(),
         UINT8 = uint8(),
@@ -119,6 +117,12 @@ unique_ptr <- function(class, xp) {
         MAP = stop("Type MAP not implemented yet")
       )
     }
+  ),
+
+  active = list(
+    id = function(){
+      DataType__id(self)
+    }
   )
 )
 
@@ -142,7 +146,7 @@ unique_ptr <- function(class, xp) {
 #' @name arrow__FixedWidthType
 `arrow::FixedWidthType` <- R6Class("arrow::FixedWidthType",
   inherit = `arrow::DataType`,
-  public = list(
+  active = list(
     bit_width = function() FixedWidthType__bit_width(self)
   )
 )
