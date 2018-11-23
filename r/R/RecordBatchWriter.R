@@ -41,6 +41,18 @@
     write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
     write_table = function(table) ipc___RecordBatchWriter__WriteTable(self, table),
 
+    write = function(x) {
+      if (inherits(x, "arrow::RecordBatch")) {
+        self$write_batch(x)
+      } else if(inherits(x, "arrow::Table")) {
+        self$write_table(x)
+      } else if (inherits(x, "data.frame")) {
+        self$write_table(table(x))
+      } else {
+        abort("unexpected type for RecordBatchWriter$write(), must be an arrow::RecordBatch or an arrow::Table")
+      }
+    },
+
     close = function() ipc___RecordBatchWriter__Close(self)
   )
 )

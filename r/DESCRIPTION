@@ -65,5 +65,5 @@ Collate:
     'read_table.R'
     'reexports-bit64.R'
     'reexports-tibble.R'
-    'write_table.R'
+    'write_arrow.R'
     'zzz.R'
