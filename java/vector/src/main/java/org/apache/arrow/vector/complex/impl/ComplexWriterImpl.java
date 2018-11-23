@@ -89,6 +89,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
   @Override
   public void clear() {
+    //checkstyle:off: MissingSwitchDefault
     switch (mode) {
       case STRUCT:
         structRoot.clear();
@@ -96,13 +97,13 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
       case LIST:
         listRoot.clear();
         break;
-      default:
-        throw new RuntimeException("Unexpected mode:" + mode);
     }
+    //checkstyle:on: MissingSwitchDefault
   }
 
   @Override
   public void setValueCount(int count) {
+    //checkstyle:off: MissingSwitchDefault
     switch (mode) {
       case STRUCT:
         structRoot.setValueCount(count);
@@ -110,13 +111,13 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
       case LIST:
         listRoot.setValueCount(count);
         break;
-      default:
-        throw new RuntimeException("Unexpected mode:" + mode);
     }
+    //checkstyle:on: MissingSwitchDefault
   }
 
   @Override
   public void setPosition(int index) {
+    //checkstyle:off: MissingSwitchDefault
     super.setPosition(index);
     switch (mode) {
       case STRUCT:
@@ -125,9 +126,8 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
       case LIST:
         listRoot.setPosition(index);
         break;
-      default:
-        throw new RuntimeException("Unexpected mode:" + mode);
     }
+    //checkstyle:on: MissingSwitchDefault
   }
 
 
