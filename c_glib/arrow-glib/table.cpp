@@ -51,10 +51,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowTable,
                            garrow_table,
                            G_TYPE_OBJECT)
 
-#define GARROW_TABLE_GET_PRIVATE(obj)               \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),               \
-                               GARROW_TYPE_TABLE,   \
-                               GArrowTablePrivate))
+#define GARROW_TABLE_GET_PRIVATE(obj)         \
+  static_cast<GArrowTablePrivate *>(          \
+     garrow_table_get_instance_private(       \
+       GARROW_TABLE(obj)))
 
 static void
 garrow_table_dispose(GObject *object)

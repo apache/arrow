@@ -103,10 +103,10 @@ G_DEFINE_TYPE_WITH_CODE(GArrowOutputStream,
                         G_IMPLEMENT_INTERFACE(GARROW_TYPE_WRITABLE,
                                               garrow_output_stream_writable_interface_init));
 
-#define GARROW_OUTPUT_STREAM_GET_PRIVATE(obj)                   \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
-                               GARROW_TYPE_OUTPUT_STREAM,       \
-                               GArrowOutputStreamPrivate))
+#define GARROW_OUTPUT_STREAM_GET_PRIVATE(obj)         \
+  static_cast<GArrowOutputStreamPrivate *>(           \
+     garrow_output_stream_get_instance_private(       \
+       GARROW_OUTPUT_STREAM(obj)))
 
 static void
 garrow_output_stream_finalize(GObject *object)

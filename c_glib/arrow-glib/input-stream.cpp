@@ -105,10 +105,10 @@ G_DEFINE_TYPE_WITH_CODE(GArrowInputStream,
                         G_IMPLEMENT_INTERFACE(GARROW_TYPE_READABLE,
                                               garrow_input_stream_readable_interface_init));
 
-#define GARROW_INPUT_STREAM_GET_PRIVATE(obj)                    \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
-                               GARROW_TYPE_INPUT_STREAM,        \
-                               GArrowInputStreamPrivate))
+#define GARROW_INPUT_STREAM_GET_PRIVATE(obj)         \
+  static_cast<GArrowInputStreamPrivate *>(           \
+     garrow_input_stream_get_instance_private(       \
+       GARROW_INPUT_STREAM(obj)))
 
 static void
 garrow_input_stream_finalize(GObject *object)
@@ -338,10 +338,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowBufferInputStream,
                            garrow_buffer_input_stream,
                            GARROW_TYPE_SEEKABLE_INPUT_STREAM);
 
-#define GARROW_BUFFER_INPUT_STREAM_GET_PRIVATE(obj)                     \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                                   \
-                               GARROW_TYPE_BUFFER_INPUT_STREAM,         \
-                               GArrowBufferInputStreamPrivate))
+#define GARROW_BUFFER_INPUT_STREAM_GET_PRIVATE(obj)         \
+  static_cast<GArrowBufferInputStreamPrivate *>(            \
+     garrow_buffer_input_stream_get_instance_private(       \
+       GARROW_BUFFER_INPUT_STREAM(obj)))
 
 static void
 garrow_buffer_input_stream_dispose(GObject *object)
