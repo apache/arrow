@@ -493,6 +493,71 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// compute___CastOptions__initialize
+std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate);
+RcppExport SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflowSEXP, SEXP allow_time_truncateSEXP, SEXP allow_float_truncateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< bool >::type allow_int_overflow(allow_int_overflowSEXP);
+    Rcpp::traits::input_parameter< bool >::type allow_time_truncate(allow_time_truncateSEXP);
+    Rcpp::traits::input_parameter< bool >::type allow_float_truncate(allow_float_truncateSEXP);
+    rcpp_result_gen = Rcpp::wrap(compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__cast
+std::shared_ptr<arrow::Array> Array__cast(const std::shared_ptr<arrow::Array>& array, const std::shared_ptr<arrow::DataType>& target_type, const std::shared_ptr<arrow::compute::CastOptions>& options);
+RcppExport SEXP _arrow_Array__cast(SEXP arraySEXP, SEXP target_typeSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type target_type(target_typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::compute::CastOptions>& >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__cast(array, target_type, options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ChunkedArray__cast
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, const std::shared_ptr<arrow::DataType>& target_type, const std::shared_ptr<arrow::compute::CastOptions>& options);
+RcppExport SEXP _arrow_ChunkedArray__cast(SEXP chunked_arraySEXP, SEXP target_typeSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type target_type(target_typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::compute::CastOptions>& >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__cast(chunked_array, target_type, options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatch__cast
+std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::compute::CastOptions>& options);
+RcppExport SEXP _arrow_RecordBatch__cast(SEXP batchSEXP, SEXP schemaSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type schema(schemaSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::compute::CastOptions>& >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__cast(batch, schema, options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Table__cast
+std::shared_ptr<arrow::Table> Table__cast(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::compute::CastOptions>& options);
+RcppExport SEXP _arrow_Table__cast(SEXP tableSEXP, SEXP schemaSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type schema(schemaSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::compute::CastOptions>& >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__cast(table, schema, options));
+    return rcpp_result_gen;
+END_RCPP
+}
 // shared_ptr_is_null
 bool shared_ptr_is_null(SEXP xp);
 RcppExport SEXP _arrow_shared_ptr_is_null(SEXP xpSEXP) {
@@ -874,6 +939,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type s(sSEXP);
     Rcpp::traits::input_parameter< int >::type i(iSEXP);
     rcpp_result_gen = Rcpp::wrap(Schema__field(s, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Schema__names
+CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_Schema__names(SEXP schemaSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type schema(schemaSEXP);
+    rcpp_result_gen = Rcpp::wrap(Schema__names(schema));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -2029,6 +2105,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1},
     {"_arrow_Column__type", (DL_FUNC) &_arrow_Column__type, 1},
     {"_arrow_Column__data", (DL_FUNC) &_arrow_Column__data, 1},
+    {"_arrow_compute___CastOptions__initialize", (DL_FUNC) &_arrow_compute___CastOptions__initialize, 3},
+    {"_arrow_Array__cast", (DL_FUNC) &_arrow_Array__cast, 3},
+    {"_arrow_ChunkedArray__cast", (DL_FUNC) &_arrow_ChunkedArray__cast, 3},
+    {"_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3},
+    {"_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3},
     {"_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1},
     {"_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1},
     {"_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0},
@@ -2065,6 +2146,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1},
     {"_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1},
     {"_arrow_Schema__field", (DL_FUNC) &_arrow_Schema__field, 2},
+    {"_arrow_Schema__names", (DL_FUNC) &_arrow_Schema__names, 1},
     {"_arrow_ListType__ToString", (DL_FUNC) &_arrow_ListType__ToString, 1},
     {"_arrow_FixedWidthType__bit_width", (DL_FUNC) &_arrow_FixedWidthType__bit_width, 1},
     {"_arrow_DateType__unit", (DL_FUNC) &_arrow_DateType__unit, 1},

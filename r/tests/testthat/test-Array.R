@@ -292,3 +292,72 @@ test_that("array ignores the type argument (ARROW-3784)", {
   b <- array(1:10)
   expect_equal(a, b)
 })
+
+test_that("integer types casts (ARROW-3741)", {
+  a <- array(1:10, NA)
+  a_int8 <- a$cast(int8())
+  a_int16 <- a$cast(int16())
+  a_int32 <- a$cast(int32())
+  a_int64 <- a$cast(int64())
+
+  expect_equal(a_int8$type(), int8())
+  expect_equal(a_int16$type(), int16())
+  expect_equal(a_int32$type(), int32())
+  expect_equal(a_int64$type(), int64())
+  expect_true(a_int8$IsNull(10L))
+  expect_true(a_int16$IsNull(10L))
+  expect_true(a_int32$IsNull(10L))
+  expect_true(a_int64$IsNull(10L))
+
+  a_uint8 <- a$cast(uint8())
+  a_uint16 <- a$cast(uint16())
+  a_uint32 <- a$cast(uint32())
+  a_uint64 <- a$cast(uint64())
+
+  expect_equal(a_uint8$type(), uint8())
+  expect_equal(a_uint16$type(), uint16())
+  expect_equal(a_uint32$type(), uint32())
+  expect_equal(a_uint64$type(), uint64())
+  expect_true(a_uint8$IsNull(10L))
+  expect_true(a_uint16$IsNull(10L))
+  expect_true(a_uint32$IsNull(10L))
+  expect_true(a_uint64$IsNull(10L))
+})
+
+test_that("integer types cast safety (ARROW-3741)", {
+  a <- array(-(1:10))
+  expect_error(a$cast(uint8()))
+  expect_error(a$cast(uint16()))
+
+  # this looks like a bug in the C++
+  # expect_error(a$cast(uint32()))
+  # expect_error(a$cast(uint64()))
+
+  expect_error(a$cast(uint8(), safe = FALSE), NA)
+  expect_error(a$cast(uint16(), safe = FALSE), NA)
+  expect_error(a$cast(uint32(), safe = FALSE), NA)
+  expect_error(a$cast(uint64(), safe = FALSE), NA)
+})
+
+test_that("float types casts (ARROW-3741)", {
+  x <- c(1, 2, 3, NA)
+  a <- array(x)
+  a_f32 <- a$cast(float32())
+  a_f64 <- a$cast(float64())
+
+  expect_equal(a_f32$type(), float32())
+  expect_equal(a_f64$type(), float64())
+
+  expect_true(a_f32$IsNull(3L))
+  expect_true(a_f64$IsNull(3L))
+
+  expect_equal(a_f32$as_vector(), x)
+  expect_equal(a_f64$as_vector(), x)
+})
+
+test_that("cast to half float works", {
+  skip("until https://issues.apache.org/jira/browse/ARROW-3802")
+  a <- array(1:4)
+  a_f16 <- a$cast(float16())
+  expect_equal(a_16$type(), float16())
+})
