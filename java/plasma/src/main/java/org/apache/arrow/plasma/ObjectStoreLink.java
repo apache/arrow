@@ -131,6 +131,13 @@ public interface ObjectStoreLink {
   void release(byte[] objectId);
 
   /**
+   * Removes object with given objectId from plasma store.
+   *
+   * @param objectId used to identify an object.
+   */
+  void delete(byte[] objectId);
+
+  /**
    * Check if the object is present and has been sealed in the PlasmaStore.
    *
    * @param objectId used to identify an object.
