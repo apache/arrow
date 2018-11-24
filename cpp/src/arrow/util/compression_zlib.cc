@@ -389,10 +389,10 @@ class GZipCodec::GZipCodecImpl {
       RETURN_NOT_OK(InitDecompressor());
     }
     if (output_buffer_length == 0) {
-      // The zlib library does not allow *output to be NULL, even when output_length
-      // is 0 (inflate() will return Z_STREAM_ERROR). We don't consider this an
-      // error, so bail early if no output is expected. Note that we don't signal
-      // an error if the input actually contains compressed data.
+      // The zlib library does not allow *output to be NULL, even when
+      // output_buffer_length is 0 (inflate() will return Z_STREAM_ERROR). We don't
+      // consider this an error, so bail early if no output is expected. Note that we
+      // don't signal an error if the input actually contains compressed data.
       if (output_length) {
         *output_length = 0;
       }
