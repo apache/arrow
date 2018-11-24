@@ -420,58 +420,10 @@ TEST_F(TestBufferedInputStream, ReadBuffer) {
   ASSERT_EQ(0, memcmp(buf->data(), test_data_.data() + 15, 6));
   ASSERT_EQ(4, buffered_->bytes_buffered());
 
-  // Record memory address, to ensure new buffer created
-  const uint8_t* buffer_address = buf->data();
-
   ASSERT_OK(buffered_->Read(4, &buf));
   ASSERT_EQ(4, buf->size());
   ASSERT_EQ(0, memcmp(buf->data(), test_data_.data() + 21, 4));
   ASSERT_EQ(0, buffered_->bytes_buffered());
-
-  // Buffered read causes new memory to be allocated because we retain an
-  // exported shared_ptr reference
-  std::shared_ptr<Buffer> buf2;
-  ASSERT_OK(buffered_->Read(5, &buf2));
-  ASSERT_NE(buf2->data(), buffer_address);
-  ASSERT_EQ(0, buffered_->bytes_buffered());
-  ASSERT_EQ(0, memcmp(buf2->data(), test_data_.data() + 25, 5));
-}
-
-TEST_F(TestBufferedInputStream, ReadBufferZeroCopy) {
-  // Check that we can read through an entire zero-copy input stream without any
-  // memory allocation if the buffer size is a multiple of the read size
-  std::string test_data = kExample1;
-  const int64_t kBufferSize = 10;
-
-  auto raw = std::make_shared<BufferReader>(std::make_shared<Buffer>(test_data_));
-  ASSERT_OK(BufferedInputStream::Create(raw, kBufferSize, local_pool_.get(), &buffered_));
-
-  // An initial buffer with padding is allocated
-  ASSERT_EQ(64, local_pool_->bytes_allocated());
-
-  const int64_t read_size = 5;
-  int64_t bytes_read = 0;
-
-  // Test that it's safe to hold on to these buffers
-  std::vector<std::shared_ptr<Buffer>> buffers;
-
-  while (bytes_read < static_cast<int64_t>(test_data_.size())) {
-    std::shared_ptr<Buffer> buf;
-    auto before_bytes = local_pool_->bytes_allocated();
-    ASSERT_OK(buffered_->Read(read_size, &buf));
-    auto after_bytes = local_pool_->bytes_allocated();
-    buffers.push_back(buf);
-
-    // Zero-copy reads do not cause buffering
-    ASSERT_EQ(0, buffered_->bytes_buffered());
-
-    // The initial buffer may be deallocated after the first couple reads
-    ASSERT_LE(after_bytes, before_bytes);
-  }
-
-  // Destruct things manually so they will be done with the MemoryPool
-  buffered_ = nullptr;
-  buffers.clear();
 }
 
 TEST_F(TestBufferedInputStream, SetBufferSize) {

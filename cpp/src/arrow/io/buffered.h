@@ -137,9 +137,6 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   /// return a slice into the buffer
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
-  /// \brief If true, supports zero copy reads of buffered bytes
-  bool supports_zero_copy() const override;
-
  private:
   explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool);
 

@@ -1140,7 +1140,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
       typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
       : DictionaryBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
-  ~DictionaryBuilder();
+  ~DictionaryBuilder() override;
 
   /// \brief Append a scalar value
   Status Append(const Scalar& value);

@@ -40,7 +40,6 @@ class BufferedBase {
   explicit BufferedBase(MemoryPool* pool)
       : pool_(pool),
         is_open_(true),
-        writable_buffer_data_(nullptr),
         buffer_data_(nullptr),
         buffer_pos_(0),
         buffer_size_(0),
@@ -59,8 +58,7 @@ class BufferedBase {
     } else if (buffer_->size() != buffer_size_) {
       RETURN_NOT_OK(buffer_->Resize(buffer_size_));
     }
-    writable_buffer_data_ = buffer_->mutable_data();
-    buffer_data_ = buffer_->data();
+    buffer_data_ = buffer_->mutable_data();
     buffer_pos_ = 0;
     return Status::OK();
   }
@@ -72,7 +70,7 @@ class BufferedBase {
 
   void AppendToBuffer(const void* data, int64_t nbytes) {
     DCHECK_LE(buffer_pos_ + nbytes, buffer_size_);
-    std::memcpy(writable_buffer_data_ + buffer_pos_, data, nbytes);
+    std::memcpy(buffer_data_ + buffer_pos_, data, nbytes);
     buffer_pos_ += nbytes;
   }
 
@@ -83,8 +81,7 @@ class BufferedBase {
   bool is_open_;
 
   std::shared_ptr<ResizableBuffer> buffer_;
-  uint8_t* writable_buffer_data_;
-  const uint8_t* buffer_data_;
+  uint8_t* buffer_data_;
   int64_t buffer_pos_;
   int64_t buffer_size_;
 
@@ -189,7 +186,7 @@ Status BufferedOutputStream::Create(std::shared_ptr<OutputStream> raw,
   return Status::OK();
 }
 
-BufferedOutputStream::~BufferedOutputStream() { DCHECK(impl_->Close().ok()); }
+BufferedOutputStream::~BufferedOutputStream() { DCHECK_OK(impl_->Close()); }
 
 Status BufferedOutputStream::SetBufferSize(int64_t new_buffer_size) {
   return impl_->SetBufferSize(new_buffer_size);
@@ -223,12 +220,9 @@ std::shared_ptr<OutputStream> BufferedOutputStream::raw() const { return impl_->
 class BufferedInputStream::BufferedInputStreamImpl : public BufferedBase {
  public:
   BufferedInputStreamImpl(std::shared_ptr<InputStream> raw, MemoryPool* pool)
-      : BufferedBase(pool),
-        raw_(std::move(raw)),
-        supports_zero_copy_(raw_->supports_zero_copy()),
-        bytes_buffered_(0) {}
+      : BufferedBase(pool), raw_(std::move(raw)), bytes_buffered_(0) {}
 
-  ~BufferedInputStreamImpl() { DCHECK(Close().ok()); }
+  ~BufferedInputStreamImpl() { DCHECK_OK(Close()); }
 
   Status Close() {
     std::lock_guard<std::mutex> guard(lock_);
@@ -281,18 +275,12 @@ class BufferedInputStream::BufferedInputStreamImpl : public BufferedBase {
   }
 
   Status BufferIfNeeded() {
-    // TODO more graceful handling of zero-copy sources.
     if (bytes_buffered_ == 0) {
       // Fill buffer
-      if (!buffer_ || buffer_.use_count() > 1) {
-        // A reference to the internal buffer has been exported, so we allocate
-        // a new buffer here. This optimization avoids unnecessary memory
-        // allocations and copies, while making exported buffers safe for use
-        // if the caller does not destroy them
-        buffer_ = nullptr;
+      if (!buffer_) {
         RETURN_NOT_OK(ResetBuffer());
       }
-      RETURN_NOT_OK(raw_->Read(buffer_size_, &bytes_buffered_, writable_buffer_data_));
+      RETURN_NOT_OK(raw_->Read(buffer_size_, &bytes_buffered_, buffer_data_));
       buffer_pos_ = 0;
 
       // Do not make assumptions about the raw stream position
@@ -333,31 +321,19 @@ class BufferedInputStream::BufferedInputStreamImpl : public BufferedBase {
   }
 
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-    if (bytes_buffered_ == 0 && supports_zero_copy_) {
-      raw_pos_ = -1;
-      return raw_->Read(nbytes, out);
+    std::shared_ptr<ResizableBuffer> buffer;
+    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
+
+    int64_t bytes_read = 0;
+    RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
+
+    if (bytes_read < nbytes) {
+      // Change size but do not reallocate internal capacity
+      RETURN_NOT_OK(buffer->Resize(bytes_read, false /* shrink_to_fit */));
+      buffer->ZeroPadding();
     }
 
-    if (nbytes > bytes_buffered_) {
-      // Cannot do zero copy read, instead allocate buffer and read into that
-      std::shared_ptr<ResizableBuffer> buffer;
-      RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
-
-      int64_t bytes_read = 0;
-      RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
-      if (bytes_read < nbytes) {
-        RETURN_NOT_OK(buffer->Resize(bytes_read));
-        buffer->ZeroPadding();
-      }
-      *out = buffer;
-    } else {
-      RETURN_NOT_OK(BufferIfNeeded());
-
-      // Slice the internal buffer. On subsequent reads, a new buffer will be
-      // allocated if any caller retains a reference to the internal buffer.
-      *out = SliceBuffer(buffer_, buffer_pos_, nbytes);
-      ConsumeBuffer(nbytes);
-    }
+    *out = buffer;
     return Status::OK();
   }
 
@@ -366,8 +342,6 @@ class BufferedInputStream::BufferedInputStreamImpl : public BufferedBase {
 
  private:
   std::shared_ptr<InputStream> raw_;
-
-  bool supports_zero_copy_;
 
   // Number of remaining bytes in the buffer, to be reduced on each read from
   // the buffer
@@ -379,7 +353,7 @@ BufferedInputStream::BufferedInputStream(std::shared_ptr<InputStream> raw,
   impl_.reset(new BufferedInputStreamImpl(std::move(raw), pool));
 }
 
-BufferedInputStream::~BufferedInputStream() { DCHECK(impl_->Close().ok()); }
+BufferedInputStream::~BufferedInputStream() { DCHECK_OK(impl_->Close()); }
 
 Status BufferedInputStream::Create(std::shared_ptr<InputStream> raw, int64_t buffer_size,
                                    MemoryPool* pool,
@@ -421,10 +395,6 @@ Status BufferedInputStream::Read(int64_t nbytes, int64_t* bytes_read, void* out)
 
 Status BufferedInputStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   return impl_->Read(nbytes, out);
-}
-
-bool BufferedInputStream::supports_zero_copy() const {
-  return impl_->raw()->supports_zero_copy();
 }
 
 }  // namespace io
