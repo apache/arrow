@@ -24,7 +24,14 @@
     schema = function() shared_ptr(`arrow::Schema`, Table__schema(self)),
     column = function(i) shared_ptr(`arrow::Column`, Table__column(self, i)),
 
-    serialize = function(output_stream, ...) write_table(self, output_stream, ...)
+    serialize = function(output_stream, ...) write_table(self, output_stream, ...),
+
+    cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
+      assert_that(inherits(target_schema, "arrow::Schema"))
+      assert_that(inherits(options, "arrow::compute::CastOptions"))
+      assert_that(identical(self$schema()$names, target_schema$names), msg = "incompatible schemas")
+      shared_ptr(`arrow::Table`, Table__cast(self, target_schema, options))
+    }
   )
 )
 

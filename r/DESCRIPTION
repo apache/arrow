@@ -54,6 +54,7 @@ Collate:
     'Table.R'
     'array.R'
     'buffer.R'
+    'compute.R'
     'dictionary.R'
     'feather.R'
     'io.R'

@@ -42,6 +42,11 @@
     RangeEquals = function(other, start_idx, end_idx, other_start_idx) {
       assert_that(inherits(other, "arrow::Array"))
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
+    },
+    cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
+      assert_that(inherits(target_type, "arrow::DataType"))
+      assert_that(inherits(options, "arrow::compute::CastOptions"))
+      `arrow::Array`$dispatch(Array__cast(self, target_type, options))
     }
   )
 )

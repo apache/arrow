@@ -165,3 +165,35 @@ test_that("chunked_array ignores the type argument (ARROW-3784)", {
   b <- chunked_array(1:10)
   expect_equal(a, b)
 })
+
+test_that("integer types casts for ChunkedArray (ARROW-3741)", {
+  a <- chunked_array(1:10, 1:10)
+  a_int8 <- a$cast(int8())
+  a_int16 <- a$cast(int16())
+  a_int32 <- a$cast(int32())
+  a_int64 <- a$cast(int64())
+
+  expect_is(a_int8, "arrow::ChunkedArray")
+  expect_is(a_int16, "arrow::ChunkedArray")
+  expect_is(a_int32, "arrow::ChunkedArray")
+  expect_is(a_int64, "arrow::ChunkedArray")
+  expect_equal(a_int8$type(), int8())
+  expect_equal(a_int16$type(), int16())
+  expect_equal(a_int32$type(), int32())
+  expect_equal(a_int64$type(), int64())
+
+  a_uint8 <- a$cast(uint8())
+  a_uint16 <- a$cast(uint16())
+  a_uint32 <- a$cast(uint32())
+  a_uint64 <- a$cast(uint64())
+
+  expect_is(a_uint8, "arrow::ChunkedArray")
+  expect_is(a_uint16, "arrow::ChunkedArray")
+  expect_is(a_uint32, "arrow::ChunkedArray")
+  expect_is(a_uint64, "arrow::ChunkedArray")
+
+  expect_equal(a_uint8$type(), uint8())
+  expect_equal(a_uint16$type(), uint16())
+  expect_equal(a_uint32$type(), uint32())
+  expect_equal(a_uint64$type(), uint64())
+})

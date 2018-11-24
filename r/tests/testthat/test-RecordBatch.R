@@ -169,3 +169,16 @@ test_that("read_record_batch can handle Message, Schema parameters (ARROW-3499)"
   batch2 <- read_record_batch(message, schema)
   expect_equal(batch, batch2)
 })
+
+test_that("RecordBatch cast (ARROW-3741)", {
+  batch <- table(tibble::tibble(x = 1:10, y  = 1:10))
+
+  expect_error(batch$cast(schema(x = int32())))
+  expect_error(batch$cast(schema(x = int32(), z = int32())))
+
+  s2 <- schema(x = int16(), y = int64())
+  batch2 <- batch$cast(s2)
+  expect_equal(batch2$schema(), s2)
+  expect_equal(batch2$column(0L)$type(), int16())
+  expect_equal(batch2$column(1L)$type(), int64())
+})
