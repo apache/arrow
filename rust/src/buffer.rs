@@ -56,7 +56,10 @@ impl PartialEq for BufferData {
 /// Release the underlying memory when the current buffer goes out of scope
 impl Drop for BufferData {
     fn drop(&mut self) {
-        memory::free_aligned(self.ptr);
+        if !self.ptr.is_null() {
+            memory::free_aligned(self.ptr);
+            self.ptr = std::ptr::null_mut();
+        }
     }
 }
 
@@ -278,7 +281,10 @@ impl MutableBuffer {
 
 impl Drop for MutableBuffer {
     fn drop(&mut self) {
-        memory::free_aligned(self.data);
+        if !self.data.is_null() {
+            memory::free_aligned(self.data);
+            self.data = std::ptr::null_mut();
+        }
     }
 }
 
