@@ -130,6 +130,10 @@ else()
   # Converting to/from C++ bool is pretty wonky in Cython. The C4800 warning
   # seem harmless, and probably not worth the effort of working around it
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4800")
+
+  # See https://github.com/cython/cython/issues/2731. Change introduced in
+  # Cython 0.29.1 causes "unsafe use of type 'bool' in operation"
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4804")
 endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
