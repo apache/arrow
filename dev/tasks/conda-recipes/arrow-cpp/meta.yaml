@@ -37,6 +37,7 @@ requirements:
     - {{ compiler('cxx') }}
   host:
     - boost-cpp
+    - double-conversion
     - thrift-cpp >=0.11
     - libprotobuf
     - flatbuffers
