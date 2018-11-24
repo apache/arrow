@@ -424,7 +424,7 @@ class GZipCodec::GZipCodecImpl {
       // Failure, buffer was too small
       std::stringstream ss;
       ss << "Too small a buffer passed to GZipCodec. InputLength=" << input_length
-         << " OutputLength=" << output_length;
+         << " OutputLength=" << output_buffer_length;
       return Status::IOError(ss.str());
     }
 
