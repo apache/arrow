@@ -393,6 +393,9 @@ class GZipCodec::GZipCodecImpl {
       // is 0 (inflate() will return Z_STREAM_ERROR). We don't consider this an
       // error, so bail early if no output is expected. Note that we don't signal
       // an error if the input actually contains compressed data.
+      if (output_length) {
+        *output_length = 0;
+      }
       return Status::OK();
     }
 
