@@ -33,6 +33,8 @@ Status InputStream::Advance(int64_t nbytes) {
   return Read(nbytes, &temp);
 }
 
+bool InputStream::supports_zero_copy() const { return false; }
+
 struct RandomAccessFile::RandomAccessFileImpl {
   std::mutex lock_;
 };
@@ -40,18 +42,18 @@ struct RandomAccessFile::RandomAccessFileImpl {
 RandomAccessFile::~RandomAccessFile() = default;
 
 RandomAccessFile::RandomAccessFile()
-    : impl_(new RandomAccessFile::RandomAccessFileImpl()) {}
+    : interface_impl_(new RandomAccessFile::RandomAccessFileImpl()) {}
 
 Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                                 void* out) {
-  std::lock_guard<std::mutex> lock(impl_->lock_);
+  std::lock_guard<std::mutex> lock(interface_impl_->lock_);
   RETURN_NOT_OK(Seek(position));
   return Read(nbytes, bytes_read, out);
 }
 
 Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
                                 std::shared_ptr<Buffer>* out) {
-  std::lock_guard<std::mutex> lock(impl_->lock_);
+  std::lock_guard<std::mutex> lock(interface_impl_->lock_);
   RETURN_NOT_OK(Seek(position));
   return Read(nbytes, out);
 }

@@ -204,8 +204,6 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
 
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
-  bool supports_zero_copy() const override;
-
   Status Seek(int64_t position) override;
   Status Tell(int64_t* position) const override;
 

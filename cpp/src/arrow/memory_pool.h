@@ -65,6 +65,9 @@ class ARROW_EXPORT MemoryPool {
  public:
   virtual ~MemoryPool();
 
+  /// \brief EXPERIMENTAL. Create a new instance of the default MemoryPool
+  static std::unique_ptr<MemoryPool> CreateDefault();
+
   /// Allocate a new memory region of at least size bytes.
   ///
   /// The allocated region shall be 64-byte aligned.

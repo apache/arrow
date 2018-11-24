@@ -24,10 +24,12 @@
 #include <memory>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
+class MemoryPool;
 class Status;
 
 namespace io {
@@ -53,6 +55,12 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   /// \brief Return the current size of the internal buffer
   int64_t buffer_size() const;
 
+  /// \brief Flush any buffered writes and release the raw
+  /// OutputStream. Further operations on this object are invalid
+  /// \param[out] raw the underlying OutputStream
+  /// \return Status
+  Status Detach(std::shared_ptr<OutputStream>* raw);
+
   // OutputStream interface
 
   /// \brief Close the buffered output stream.  This implicitly closes the
@@ -74,6 +82,66 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
+};
+
+/// \class BufferedInputStream
+/// \brief An InputStream that performs buffered reads from an unbuffered
+/// InputStream, which can mitigate the overhead of many small reads in some
+/// cases
+class ARROW_EXPORT BufferedInputStream : public InputStream {
+ public:
+  ~BufferedInputStream() override;
+
+  /// \brief Create a BufferedInputStream from a raw InputStream
+  /// \param[in] raw a raw InputStream
+  /// \param[in] buffer_size the size of the temporary read buffer
+  /// \param[in] pool a MemoryPool to use for allocations
+  /// \param[out] out the created BufferedInputStream
+  static Status Create(std::shared_ptr<InputStream> raw, int64_t buffer_size,
+                       MemoryPool* pool, std::shared_ptr<BufferedInputStream>* out);
+
+  /// \brief Return string_view to buffered bytes, up to the indicated
+  /// number. View becomes invalid after any operation on file
+  util::string_view Peek(int64_t nbytes) const;
+
+  /// \brief Resize internal read buffer; calls to Read(...) will read at least
+  /// \param[in] new_buffer_size the new read buffer size
+  /// \return Status
+  Status SetBufferSize(int64_t new_buffer_size);
+
+  /// \brief Return the number of remaining bytes in the read buffer
+  int64_t bytes_buffered() const;
+
+  /// \brief Return the current size of the internal buffer
+  int64_t buffer_size() const;
+
+  /// \brief Release the raw InputStream. Any data buffered will be
+  /// discarded. Further operations on this object are invalid
+  /// \return raw the underlying InputStream
+  std::shared_ptr<InputStream> Detach();
+
+  /// \brief Return the unbuffered InputStream
+  std::shared_ptr<InputStream> raw() const;
+
+  // InputStream APIs
+  Status Close() override;
+  bool closed() const override;
+
+  /// \brief Returns the position of the buffered stream, though the position
+  /// of the unbuffered stream may be further advanced
+  Status Tell(int64_t* position) const override;
+
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
+
+  /// \brief Read into buffer. If the read is already buffered, then this will
+  /// return a slice into the buffer
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
+ private:
+  explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool);
+
+  class ARROW_NO_EXPORT BufferedInputStreamImpl;
+  std::unique_ptr<BufferedInputStreamImpl> impl_;
 };
 
 }  // namespace io
