@@ -28,12 +28,12 @@ import (
 type FixedSizeBinaryBuilder struct {
 	builder
 
-	dtype   arrow.FixedSizeBinaryType
+	dtype   *arrow.FixedSizeBinaryType
 	offsets *int32BufferBuilder
 	values  *byteBufferBuilder
 }
 
-func NewFixedSizeBinaryBuilder(mem memory.Allocator, dtype arrow.FixedSizeBinaryType) *FixedSizeBinaryBuilder {
+func NewFixedSizeBinaryBuilder(mem memory.Allocator, dtype *arrow.FixedSizeBinaryType) *FixedSizeBinaryBuilder {
 	b := &FixedSizeBinaryBuilder{
 		builder: builder{refCount: 1, mem: mem},
 		dtype:   dtype,
@@ -149,7 +149,7 @@ func (b *FixedSizeBinaryBuilder) newData() (data *Data) {
 	b.appendNextOffset()
 	values := b.values.Finish()
 	offsets := b.offsets.Finish()
-	data = NewData(&b.dtype, b.length, []*memory.Buffer{b.nullBitmap, offsets, values}, nil, b.nulls, 0)
+	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, offsets, values}, nil, b.nulls, 0)
 
 	if values != nil {
 		values.Release()

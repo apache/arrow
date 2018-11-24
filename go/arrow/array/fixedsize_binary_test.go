@@ -30,7 +30,7 @@ func TestFixedSizeBinary(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	dtype := arrow.FixedSizeBinaryType{ByteWidth: 7}
-	b := NewFixedSizeBinaryBuilder(mem, dtype)
+	b := NewFixedSizeBinaryBuilder(mem, &dtype)
 
 	values := [][]byte{
 		[]byte("7654321"),
