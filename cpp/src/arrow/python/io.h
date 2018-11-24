@@ -60,8 +60,6 @@ class ARROW_EXPORT PyReadableFile : public io::RandomAccessFile {
 
   Status Tell(int64_t* position) const override;
 
-  bool supports_zero_copy() const override;
-
  private:
   std::unique_ptr<PythonFile> file_;
 };

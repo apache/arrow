@@ -220,8 +220,6 @@ Status HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes,
   return impl_->ReadAt(position, nbytes, out);
 }
 
-bool HdfsReadableFile::supports_zero_copy() const { return false; }
-
 Status HdfsReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
   return impl_->Read(nbytes, bytes_read, buffer);
 }

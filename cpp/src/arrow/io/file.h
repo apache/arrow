@@ -95,6 +95,8 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   // Write bytes to the stream. Thread-safe
   Status Write(const void* data, int64_t nbytes) override;
 
+  using Writable::Write;
+
   int file_descriptor() const;
 
  private:
@@ -159,8 +161,6 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
 
   Status GetSize(int64_t* size) override;
   Status Seek(int64_t position) override;
-
-  bool supports_zero_copy() const override;
 
   int file_descriptor() const;
 
