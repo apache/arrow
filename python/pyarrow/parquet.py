@@ -370,7 +370,7 @@ schema : arrow Schema
             table = _sanitize_table(table, self.schema, self.flavor)
         assert self.is_open
 
-        if not table.schema.equals(self.schema):
+        if not table.schema.equals(self.schema, check_metadata=False):
             msg = ('Table schema does not match schema used to create file: '
                    '\ntable:\n{0!s} vs. \nfile:\n{1!s}'.format(table.schema,
                                                                self.schema))
