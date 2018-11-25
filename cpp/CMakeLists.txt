@@ -554,6 +554,27 @@ endif()
 include(SetupCxxFlags)
 
 ############################################################
+# Visibility
+############################################################
+# For generate_export_header() and add_compiler_export_flags().
+include(GenerateExportHeader)
+
+# Adapted from Apache Kudu: https://github.com/apache/kudu/commit/bd549e13743a51013585
+# Honor visibility properties for all target types. See
+# "cmake --help-policy CMP0063" for details.
+#
+# This policy was only added to cmake in version 3.3, so until the cmake in
+# thirdparty is updated, we must check if the policy exists before setting it.
+if(POLICY CMP0063)
+  cmake_policy(SET CMP0063 NEW)
+endif()
+
+if (ARROW_BUILD_SHARED AND NOT (POLICY CMP0063))
+  # Sets -fvisibility=hidden for gcc
+  add_compiler_export_flags()
+endif()
+
+############################################################
 # Dependencies
 ############################################################
 
@@ -625,27 +646,6 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(src)
-
-############################################################
-# Visibility
-############################################################
-# For generate_export_header() and add_compiler_export_flags().
-include(GenerateExportHeader)
-
-# Adapted from Apache Kudu: https://github.com/apache/kudu/commit/bd549e13743a51013585
-# Honor visibility properties for all target types. See
-# "cmake --help-policy CMP0063" for details.
-#
-# This policy was only added to cmake in version 3.3, so until the cmake in
-# thirdparty is updated, we must check if the policy exists before setting it.
-if(POLICY CMP0063)
-  cmake_policy(SET CMP0063 NEW)
-endif()
-
-if (ARROW_BUILD_SHARED AND NOT (POLICY CMP0063))
-  # Sets -fvisibility=hidden for gcc
-  add_compiler_export_flags()
-endif()
 
 ############################################################
 # "make ctags" target
