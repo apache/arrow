@@ -2195,6 +2195,7 @@ def test_zlib_compression_bug():
 
 
 def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
+    # ARROW-3728: Merging Parquet Files - Pandas Meta in Schema Mismatch
     schema = pa.schema([
         pa.field('int', pa.int16()),
         pa.field('float', pa.float32()),
