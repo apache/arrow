@@ -642,17 +642,9 @@ if(POLICY CMP0063)
   cmake_policy(SET CMP0063 NEW)
 endif()
 
-if (ARROW_BUILD_SHARED)
-  if (POLICY CMP0063)
-    set_target_properties(arrow_shared
-      PROPERTIES
-      C_VISIBILITY_PRESET hidden
-      CXX_VISIBILITY_PRESET hidden
-      VISIBILITY_INLINES_HIDDEN 1)
-  else()
-    # Sets -fvisibility=hidden for gcc
-    add_compiler_export_flags()
-  endif()
+if (ARROW_BUILD_SHARED AND NOT (POLICY CMP0063))
+  # Sets -fvisibility=hidden for gcc
+  add_compiler_export_flags()
 endif()
 
 ############################################################

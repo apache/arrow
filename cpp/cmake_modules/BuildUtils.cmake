@@ -54,6 +54,16 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
       set_target_properties(${AUG_LIB_NAME}
         PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
+
+    if (POLICY CMP0063)
+      # If policy CMP0063 is not available, add_compiler_export_flags is used
+      set_target_properties(${AUG_LIB_NAME}
+        PROPERTIES
+        C_VISIBILITY_PRESET hidden
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN 1)
+    endif()
+
     message("Added shared library dependency ${AUG_LIB_NAME}: ${ARG_SHARED_LIB}")
   elseif(ARG_STATIC_LIB)
     SET(AUG_LIB_NAME "${LIB_NAME}_static")
