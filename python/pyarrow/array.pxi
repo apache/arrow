@@ -53,7 +53,8 @@ def _ndarray_to_arrow_type(object values, DataType type):
     return pyarrow_wrap_data_type(_ndarray_to_type(values, type))
 
 
-cdef shared_ptr[CDataType] _ndarray_to_type(object values, DataType type):
+cdef shared_ptr[CDataType] _ndarray_to_type(object values,
+                                            DataType type) except *:
     cdef shared_ptr[CDataType] c_type
 
     dtype = values.dtype
