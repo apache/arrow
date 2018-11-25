@@ -238,8 +238,14 @@ Status BZ2Codec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
   return Status::OK();
 }
 
-Status BZ2Codec::Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
-                            uint8_t* output_buffer) {
+Status BZ2Codec::Decompress(int64_t input_len, const uint8_t* input,
+                            int64_t output_buffer_len, uint8_t* output_buffer) {
+  return Status::NotImplemented("One-shot bz2 decompression not supported");
+}
+
+Status BZ2Codec::Decompress(int64_t input_len, const uint8_t* input,
+                            int64_t output_buffer_len, uint8_t* output_buffer,
+                            int64_t* output_len) {
   return Status::NotImplemented("One-shot bz2 decompression not supported");
 }
 
@@ -251,7 +257,7 @@ int64_t BZ2Codec::MaxCompressedLen(int64_t input_len,
 
 Status BZ2Codec::Compress(int64_t input_len, const uint8_t* input,
                           int64_t output_buffer_len, uint8_t* output_buffer,
-                          int64_t* output_length) {
+                          int64_t* output_len) {
   return Status::NotImplemented("One-shot bz2 compression not supported");
 }
 
