@@ -60,9 +60,6 @@ install(FILES
   windows_compatibility.h
   DESTINATION include/arrow/util)
 
-# Armv8 CRC support
-configure_file(config.in.cmake ${CMAKE_CURRENT_SOURCE_DIR}/my_config.h)
-
 #######################################
 # arrow_test_main
 #######################################

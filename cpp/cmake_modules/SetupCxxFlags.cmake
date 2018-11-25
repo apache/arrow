@@ -22,6 +22,8 @@ include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-msse4.2" CXX_SUPPORTS_SSE4_2)
 # power compiler flags
 CHECK_CXX_COMPILER_FLAG("-maltivec" CXX_SUPPORTS_ALTIVEC)
+# Arm64 compiler flags
+CHECK_CXX_COMPILER_FLAG("-march=armv8-a+crc" CXX_SUPPORTS_ARMCRC)
 
 # This ensures that things like gnu++11 get passed correctly
 set(CMAKE_CXX_STANDARD 11)
@@ -218,6 +220,10 @@ endif()
 
 if (CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -maltivec")
+endif()
+
+if (CXX_SUPPORTS_ARMCRC)
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc")
 endif()
 
 if (ARROW_USE_SIMD)
