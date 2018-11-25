@@ -2192,3 +2192,31 @@ def test_zlib_compression_bug():
     f.seek(0)
     roundtrip = pq.read_table(f)
     tm.assert_frame_equal(roundtrip.to_pandas(), table.to_pandas())
+
+
+def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
+    # ARROW-3728: Merging Parquet Files - Pandas Meta in Schema Mismatch
+    schema = pa.schema([
+        pa.field('int', pa.int16()),
+        pa.field('float', pa.float32()),
+        pa.field('string', pa.string())
+    ])
+    df1 = pd.DataFrame({
+        'int': np.arange(3, dtype=np.uint8),
+        'float': np.arange(3, dtype=np.float32),
+        'string': ['ABBA', 'EDDA', 'ACDC']
+    })
+    df2 = pd.DataFrame({
+        'int': [4, 5],
+        'float': [1.1, None],
+        'string': [None, None]
+    })
+    table1 = pa.Table.from_pandas(df1, schema=schema, preserve_index=False)
+    table2 = pa.Table.from_pandas(df2, schema=schema, preserve_index=False)
+
+    assert not table1.schema.equals(table2.schema)
+    assert table1.schema.equals(table2.schema, check_metadata=False)
+
+    writer = pq.ParquetWriter(tempdir / 'merged.parquet', schema=schema)
+    writer.write_table(table1)
+    writer.write_table(table2)
