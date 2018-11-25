@@ -199,11 +199,20 @@ Status BrotliCodec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
 }
 
 Status BrotliCodec::Decompress(int64_t input_len, const uint8_t* input,
-                               int64_t output_len, uint8_t* output_buffer) {
-  std::size_t output_size = output_len;
+                               int64_t output_buffer_len, uint8_t* output_buffer) {
+  return Decompress(input_len, input, output_buffer_len, output_buffer, nullptr);
+}
+
+Status BrotliCodec::Decompress(int64_t input_len, const uint8_t* input,
+                               int64_t output_buffer_len, uint8_t* output_buffer,
+                               int64_t* output_len) {
+  std::size_t output_size = output_buffer_len;
   if (BrotliDecoderDecompress(input_len, input, &output_size, output_buffer) !=
       BROTLI_DECODER_RESULT_SUCCESS) {
     return Status::IOError("Corrupt brotli compressed data.");
+  }
+  if (output_len) {
+    *output_len = output_size;
   }
   return Status::OK();
 }
@@ -215,14 +224,14 @@ int64_t BrotliCodec::MaxCompressedLen(int64_t input_len,
 
 Status BrotliCodec::Compress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer,
-                             int64_t* output_length) {
-  std::size_t output_len = output_buffer_len;
+                             int64_t* output_len) {
+  std::size_t output_size = output_buffer_len;
   if (BrotliEncoderCompress(kBrotliDefaultCompressionLevel, BROTLI_DEFAULT_WINDOW,
-                            BROTLI_DEFAULT_MODE, input_len, input, &output_len,
+                            BROTLI_DEFAULT_MODE, input_len, input, &output_size,
                             output_buffer) == BROTLI_FALSE) {
     return Status::IOError("Brotli compression failure.");
   }
-  *output_length = output_len;
+  *output_len = output_size;
   return Status::OK();
 }
 

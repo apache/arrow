@@ -98,13 +98,30 @@ class ARROW_EXPORT Codec {
 
   /// \brief One-shot decompression function
   ///
-  /// output_len must be correct and therefore be obtained in advance.
+  /// output_buffer_len must be correct and therefore be obtained in advance.
   ///
   /// \note One-shot decompression is not always compatible with streaming
   /// compression.  Depending on the codec (e.g. LZ4), different formats may
   /// be used.
-  virtual Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
-                            uint8_t* output_buffer) = 0;
+  virtual Status Decompress(int64_t input_len, const uint8_t* input,
+                            int64_t output_buffer_len, uint8_t* output_buffer) = 0;
+
+  /// \brief One-shot decompression function that also returns the
+  /// actual decompressed size.
+  ///
+  /// \param[in] input_len the number of bytes of compressed data.
+  /// \param[in] input the compressed data.
+  /// \param[in] output_buffer_len the number of bytes of buffer for
+  /// decompressed data.
+  /// \param[in] output_buffer the buffer for decompressed data.
+  /// \param[out] output_len the actual decompressed size.
+  ///
+  /// \note One-shot decompression is not always compatible with streaming
+  /// compression.  Depending on the codec (e.g. LZ4), different formats may
+  /// be used.
+  virtual Status Decompress(int64_t input_len, const uint8_t* input,
+                            int64_t output_buffer_len, uint8_t* output_buffer,
+                            int64_t* output_len) = 0;
 
   /// \brief One-shot compression function
   ///
@@ -115,7 +132,7 @@ class ARROW_EXPORT Codec {
   /// be used.
   virtual Status Compress(int64_t input_len, const uint8_t* input,
                           int64_t output_buffer_len, uint8_t* output_buffer,
-                          int64_t* output_length) = 0;
+                          int64_t* output_len) = 0;
 
   virtual int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) = 0;
 

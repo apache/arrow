@@ -79,6 +79,14 @@ void CheckCodecRoundtrip(Compression::type ctype, const vector<uint8_t>& data) {
 
   ASSERT_EQ(data, decompressed);
 
+  // decompress with size with c2
+  int64_t actual_decompressed_size;
+  ASSERT_OK(c2->Decompress(compressed.size(), compressed.data(), decompressed.size(),
+                           decompressed.data(), &actual_decompressed_size));
+
+  ASSERT_EQ(data, decompressed);
+  ASSERT_EQ(data.size(), actual_decompressed_size);
+
   // compress with c2
   int64_t actual_size2;
   ASSERT_OK(c2->Compress(data.size(), data.data(), max_compressed_len, compressed.data(),
@@ -90,6 +98,14 @@ void CheckCodecRoundtrip(Compression::type ctype, const vector<uint8_t>& data) {
                            decompressed.data()));
 
   ASSERT_EQ(data, decompressed);
+
+  // decompress with size with c1
+  int64_t actual_decompressed_size2;
+  ASSERT_OK(c1->Decompress(compressed.size(), compressed.data(), decompressed.size(),
+                           decompressed.data(), &actual_decompressed_size2));
+
+  ASSERT_EQ(data, decompressed);
+  ASSERT_EQ(data.size(), actual_decompressed_size2);
 }
 
 // Check the streaming compressor against one-shot decompression
