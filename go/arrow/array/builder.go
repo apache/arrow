@@ -239,11 +239,17 @@ func newBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.BINARY:
 		return NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
 	case arrow.FIXED_SIZE_BINARY:
+		typ := dtype.(*arrow.FixedSizeBinaryType)
+		return NewFixedSizeBinaryBuilder(mem, typ)
 	case arrow.DATE32:
 	case arrow.DATE64:
 	case arrow.TIMESTAMP:
 	case arrow.TIME32:
+		typ := dtype.(*arrow.Time32Type)
+		return NewTime32Builder(mem, typ)
 	case arrow.TIME64:
+		typ := dtype.(*arrow.Time64Type)
+		return NewTime64Builder(mem, typ)
 	case arrow.INTERVAL:
 	case arrow.DECIMAL:
 	case arrow.LIST:

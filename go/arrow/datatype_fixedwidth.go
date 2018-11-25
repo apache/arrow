@@ -24,6 +24,14 @@ func (t *BooleanType) Name() string { return "bool" }
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *BooleanType) BitWidth() int { return 1 }
 
+type FixedSizeBinaryType struct {
+	ByteWidth int
+}
+
+func (*FixedSizeBinaryType) ID() Type        { return FIXED_SIZE_BINARY }
+func (*FixedSizeBinaryType) Name() string    { return "fixed_size_binary" }
+func (t *FixedSizeBinaryType) BitWidth() int { return 8 * t.ByteWidth }
+
 type (
 	Timestamp int64
 	Time32    int32
@@ -86,4 +94,6 @@ var (
 		Time64us: &Time64Type{Unit: Microsecond},
 		Time64ns: &Time64Type{Unit: Nanosecond},
 	}
+
+	_ FixedWidthDataType = (*FixedSizeBinaryType)(nil)
 )
