@@ -2204,8 +2204,7 @@ def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
         'int': np.arange(3, dtype=np.uint8),
         'float': np.arange(3, dtype=np.float32),
         'string': ['ABBA', 'EDDA', 'ACDC']
-    }, )
-    df1['string'] = df1['string'].astype('|S4')
+    })
     df2 = pd.DataFrame({
         'int': [4, 5],
         'float': [1.1, None],
