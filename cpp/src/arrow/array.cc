@@ -19,9 +19,7 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstring>
 #include <limits>
-#include <set>
 #include <sstream>
 #include <utility>
 
@@ -29,6 +27,7 @@
 #include "arrow/compare.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
+#include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
@@ -39,6 +38,11 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+using internal::BitmapAnd;
+using internal::checked_cast;
+using internal::CopyBitmap;
+using internal::CountSetBits;
 
 std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
                                            int64_t length,
@@ -370,6 +374,10 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
   boxed_fields_.resize(children.size());
 }
 
+const StructType* StructArray::struct_type() const {
+  return checked_cast<const StructType*>(data_->type.get());
+}
+
 std::shared_ptr<Array> StructArray::field(int i) const {
   if (!boxed_fields_[i]) {
     std::shared_ptr<ArrayData> field_data;
@@ -382,6 +390,11 @@ std::shared_ptr<Array> StructArray::field(int i) const {
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
+}
+
+std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) const {
+  int i = struct_type()->GetChildIndex(name);
+  return i == -1 ? nullptr : field(i);
 }
 
 Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {

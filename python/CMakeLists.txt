@@ -17,6 +17,9 @@
 #
 # Includes code assembled from BSD/MIT/Apache-licensed code from some 3rd-party
 # projects, including Kudu, Impala, and libdynd. See python/LICENSE.txt
+#
+# TODO(ARROW-3209): rename arrow_gpu to arrow_cuda
+#
 
 cmake_minimum_required(VERSION 2.7)
 project(pyarrow)
@@ -58,6 +61,9 @@ endif()
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+  option(PYARROW_BUILD_CUDA
+    "Build the PyArrow CUDA support"
+    OFF)
   option(PYARROW_BUILD_PARQUET
     "Build the PyArrow Parquet integration"
     OFF)
@@ -124,6 +130,10 @@ else()
   # Converting to/from C++ bool is pretty wonky in Cython. The C4800 warning
   # seem harmless, and probably not worth the effort of working around it
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4800")
+
+  # See https://github.com/cython/cython/issues/2731. Change introduced in
+  # Cython 0.29.1 causes "unsafe use of type 'bool' in operation"
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4804")
 endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -263,6 +273,35 @@ function(bundle_boost_lib library_path)
   endif()
 endfunction()
 
+function(bundle_zlib)
+  # We can assume that manylinux1 and macosx have system zlib.
+  # See https://mail.python.org/mm3/archives/list/distutils-sig@python.org/thread/ZZG6GL3XTBLBJXSITYHEXMFKN43EREB7/
+  # for manylinux1.
+  if (MSVC)
+    # zlib uses zlib.dll for Windows
+    set(ZLIB_SHARED_LIB_NAME zlib.dll)
+    if (DEFINED ENV{ARROW_BUILD_TOOLCHAIN})
+      set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+    endif()
+    if (DEFINED ENV{ZLIB_HOME})
+      set(ZLIB_HOME "$ENV{ZLIB_HOME}")
+    endif()
+    if ("${ZLIB_HOME}" STREQUAL "")
+      find_library(ZLIB_SHARED_LIB NAMES ${ZLIB_SHARED_LIB_NAME})
+    else()
+      find_library(ZLIB_SHARED_LIB
+	NAMES ${ZLIB_SHARED_LIB_NAME}
+	PATHS ${ZLIB_HOME} NO_DEFAULT_PATH
+	PATH_SUFFIXES "bin")
+    endif()
+    if (ZLIB_SHARED_LIB)
+      file(COPY
+	${ZLIB_SHARED_LIB}
+	DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+    endif()
+  endif()
+endfunction()
+
 # Always bundle includes
 file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
 
@@ -302,6 +341,8 @@ if (PYARROW_BUNDLE_ARROW_CPP)
     bundle_boost_lib(Boost_SYSTEM_LIBRARY)
   endif()
 
+  bundle_zlib()
+
   if (MSVC)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
     bundle_arrow_implib(ARROW_PYTHON_SHARED_IMP_LIB)
@@ -329,13 +370,39 @@ if (UNIX)
 endif()
 
 set(CYTHON_EXTENSIONS
-  lib
+  lib _csv
 )
 
 set(LINK_LIBS
   arrow_shared
   arrow_python_shared
 )
+
+if (PYARROW_BUILD_CUDA)
+  ## Arrow CUDA
+  find_package(ArrowCuda)
+  if(NOT ARROW_CUDA_FOUND)
+    message(FATAL_ERROR "Unable to locate Arrow CUDA libraries")
+  else()
+    if (PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(ARROW_CUDA_SHARED_LIB
+        ABI_VERSION ${ARROW_ABI_VERSION}
+        SO_VERSION ${ARROW_SO_VERSION})
+      if (MSVC)
+        bundle_arrow_implib(ARROW_CUDA_SHARED_IMP_LIB)
+      endif()
+    endif()
+    if (MSVC)
+      ADD_THIRDPARTY_LIB(arrow_gpu
+        SHARED_LIB ${ARROW_CUDA_SHARED_IMP_LIB})
+    else()
+      ADD_THIRDPARTY_LIB(arrow_gpu
+        SHARED_LIB ${ARROW_CUDA_SHARED_LIB})
+    endif()
+    set(LINK_LIBS ${LINK_LIBS} arrow_gpu_shared)
+    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
+  endif()
+endif()
 
 if (PYARROW_BUILD_PARQUET)
   ## Parquet
@@ -424,6 +491,30 @@ if (PYARROW_BUILD_ORC)
       ${CYTHON_EXTENSIONS}
       _orc)
 endif()
+
+## Gandiva
+if (PYARROW_BUILD_GANDIVA)
+  find_package(Gandiva)
+
+  if(NOT GANDIVA_FOUND)
+    message(FATAL_ERROR "Unable to locate Gandiva libraries")
+  endif()
+
+  include_directories(SYSTEM ${GANDIVA_INCLUDE_DIR})
+
+  if (PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(GANDIVA_SHARED_LIB
+      ABI_VERSION ${ARROW_ABI_VERSION}
+      SO_VERSION ${ARROW_SO_VERSION})
+  endif()
+
+  set(LINK_LIBS
+    ${LINK_LIBS}
+    ${GANDIVA_SHARED_LIB})
+
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
+endif()
+
 
 ############################################################
 # Setup and build Cython modules

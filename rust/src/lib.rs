@@ -16,6 +16,7 @@
 // under the License.
 
 extern crate bytes;
+extern crate csv as csv_crate;
 extern crate libc;
 
 #[macro_use]
@@ -28,9 +29,10 @@ pub mod array_data;
 pub mod bitmap;
 pub mod buffer;
 pub mod builder;
+pub mod csv;
 pub mod datatypes;
 pub mod error;
 pub mod memory;
-pub mod memory_pool;
 pub mod record_batch;
+pub mod tensor;
 pub mod util;

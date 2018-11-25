@@ -31,6 +31,7 @@ cdef _sequence_to_array(object sequence, object mask, object size,
     options.from_pandas = from_pandas
 
     cdef shared_ptr[CChunkedArray] out
+
     with nogil:
         check_status(ConvertPySequence(sequence, mask, options, &out))
 
@@ -72,15 +73,6 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         return pyarrow_wrap_chunked_array(chunked_out)
     else:
         return pyarrow_wrap_array(chunked_out.get().chunk(0))
-
-
-cdef inline DataType _ensure_type(object type):
-    if type is None:
-        return None
-    elif not isinstance(type, DataType):
-        return type_for_alias(type)
-    else:
-        return type
 
 
 def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
@@ -146,7 +138,7 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
     array : pyarrow.Array or pyarrow.ChunkedArray (if object data
     overflowed binary storage)
     """
-    type = _ensure_type(type)
+    type = ensure_type(type, allow_none=True)
     cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
     if _is_array_like(obj):
@@ -159,9 +151,10 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
                 mask=mask, ordered=values.ordered,
-                from_pandas=from_pandas, safe=safe,
+                from_pandas=True, safe=safe,
                 memory_pool=memory_pool)
         else:
+            import pyarrow.pandas_compat as pdcompat
             values, type = pdcompat.get_datetimetz_type(values, obj.dtype,
                                                         type)
             return _ndarray_to_array(values, mask, type, from_pandas, safe,
@@ -404,7 +397,7 @@ cdef class Array:
         """
         cdef:
             CCastOptions options = CCastOptions(safe)
-            DataType type = _ensure_type(target_type)
+            DataType type = ensure_type(target_type)
             shared_ptr[CArray] result
 
         with nogil:
@@ -599,7 +592,8 @@ cdef class Array:
         return pyarrow_wrap_array(result)
 
     def to_pandas(self, bint strings_to_categorical=False,
-                  bint zero_copy_only=False, bint integer_object_nulls=False):
+                  bint zero_copy_only=False, bint integer_object_nulls=False,
+                  bint date_as_object=False):
         """
         Convert to a NumPy array object suitable for use in pandas.
 
@@ -612,6 +606,8 @@ cdef class Array:
             the underlying data
         integer_object_nulls : boolean, default False
             Cast integers with nulls to objects
+        date_as_object : boolean, default False
+            Cast dates to objects
 
         See also
         --------
@@ -627,6 +623,7 @@ cdef class Array:
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
             integer_object_nulls=integer_object_nulls,
+            date_as_object=date_as_object,
             use_threads=False)
         with nogil:
             check_status(ConvertArrayToPandas(options, self.sp_array,
@@ -805,7 +802,7 @@ cdef wrap_array_output(PyObject* output):
     if isinstance(obj, dict):
         return Categorical(obj['indices'],
                            categories=obj['dictionary'],
-                           fastpath=True)
+                           ordered=obj['ordered'], fastpath=True)
     else:
         return obj
 
@@ -930,6 +927,17 @@ cdef class ListArray(Array):
             check_status(CListArray.FromArrays(_offsets.ap[0], _values.ap[0],
                                                cpool, &out))
         return pyarrow_wrap_array(out)
+
+    def flatten(self):
+        """
+        Unnest this ListArray by one level
+
+        Returns
+        -------
+        result : Array
+        """
+        cdef CListArray* arr = <CListArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
 
 
 cdef class UnionArray(Array):
@@ -1121,6 +1129,35 @@ cdef class DictionaryArray(Array):
 
 
 cdef class StructArray(Array):
+
+    def field(self, index):
+        """
+        Retrieves the child array belonging to field
+
+        Parameters
+        ----------
+        index : Union[int, str]
+            Index / position or name of the field
+
+        Returns
+        -------
+        result : Array
+        """
+        cdef:
+            CStructArray* arr = <CStructArray*> self.ap
+            shared_ptr[CArray] child
+
+        if isinstance(index, six.string_types):
+            child = arr.GetFieldByName(tobytes(index))
+            if child == nullptr:
+                raise KeyError(index)
+        elif isinstance(index, six.integer_types):
+            child = arr.field(
+                <int>_normalize_index(index, self.ap.num_fields()))
+        else:
+            raise TypeError('Expected integer or string index')
+
+        return pyarrow_wrap_array(child)
 
     def flatten(self, MemoryPool memory_pool=None):
         """

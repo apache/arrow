@@ -16,9 +16,12 @@
 // under the License.
 
 #include "parquet/metadata.h"
+
 #include <gtest/gtest.h>
+
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
+#include "parquet/thrift.h"
 #include "parquet/types.h"
 
 namespace parquet {
@@ -219,12 +222,36 @@ TEST(ApplicationVersion, Basics) {
 
   ASSERT_EQ(true, version.VersionLt(version1));
 
-  ASSERT_FALSE(version1.HasCorrectStatistics(Type::INT96, SortOrder::UNKNOWN));
-  ASSERT_TRUE(version.HasCorrectStatistics(Type::INT32, SortOrder::SIGNED));
-  ASSERT_FALSE(version.HasCorrectStatistics(Type::BYTE_ARRAY, SortOrder::SIGNED));
-  ASSERT_TRUE(version1.HasCorrectStatistics(Type::BYTE_ARRAY, SortOrder::SIGNED));
+  EncodedStatistics stats;
+  ASSERT_FALSE(version1.HasCorrectStatistics(Type::INT96, stats, SortOrder::UNKNOWN));
+  ASSERT_TRUE(version.HasCorrectStatistics(Type::INT32, stats, SortOrder::SIGNED));
+  ASSERT_FALSE(version.HasCorrectStatistics(Type::BYTE_ARRAY, stats, SortOrder::SIGNED));
+  ASSERT_TRUE(version1.HasCorrectStatistics(Type::BYTE_ARRAY, stats, SortOrder::SIGNED));
+  ASSERT_FALSE(
+      version1.HasCorrectStatistics(Type::BYTE_ARRAY, stats, SortOrder::UNSIGNED));
+  ASSERT_TRUE(version3.HasCorrectStatistics(Type::FIXED_LEN_BYTE_ARRAY, stats,
+                                            SortOrder::SIGNED));
+
+  // Check that the old stats are correct if min and max are the same
+  // regardless of sort order
+  EncodedStatistics stats_str;
+  stats_str.set_min("a").set_max("b");
+  ASSERT_FALSE(
+      version1.HasCorrectStatistics(Type::BYTE_ARRAY, stats_str, SortOrder::UNSIGNED));
+  stats_str.set_max("a");
   ASSERT_TRUE(
-      version3.HasCorrectStatistics(Type::FIXED_LEN_BYTE_ARRAY, SortOrder::SIGNED));
+      version1.HasCorrectStatistics(Type::BYTE_ARRAY, stats_str, SortOrder::UNSIGNED));
+
+  // Check that the same holds true for ints
+  int32_t int_min = 100, int_max = 200;
+  EncodedStatistics stats_int;
+  stats_int.set_min(std::string(reinterpret_cast<const char*>(&int_min), 4))
+      .set_max(std::string(reinterpret_cast<const char*>(&int_max), 4));
+  ASSERT_FALSE(
+      version1.HasCorrectStatistics(Type::BYTE_ARRAY, stats_int, SortOrder::UNSIGNED));
+  stats_int.set_max(std::string(reinterpret_cast<const char*>(&int_min), 4));
+  ASSERT_TRUE(
+      version1.HasCorrectStatistics(Type::BYTE_ARRAY, stats_int, SortOrder::UNSIGNED));
 }
 
 }  // namespace metadata

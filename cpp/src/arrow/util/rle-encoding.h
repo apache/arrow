@@ -29,6 +29,7 @@
 #include "arrow/util/macros.h"
 
 namespace arrow {
+namespace util {
 
 /// Utility classes to do run length encoding (RLE) for fixed bit width values.  If runs
 /// are sufficiently long, RLE is used, otherwise, the values are just bit-packed
@@ -126,7 +127,7 @@ class RleDecoder {
                              int64_t valid_bits_offset);
 
  protected:
-  BitReader bit_reader_;
+  BitUtil::BitReader bit_reader_;
   /// Number of bits needed to encode the value. Must be between 0 and 64.
   int bit_width_;
   uint64_t current_value_;
@@ -172,8 +173,8 @@ class RleEncoder {
         1 +
         static_cast<int>(BitUtil::BytesForBits(MAX_VALUES_PER_LITERAL_RUN * bit_width));
     /// Up to MAX_VLQ_BYTE_LEN indicator and a single 'bit_width' value.
-    int max_repeated_run_size =
-        BitReader::MAX_VLQ_BYTE_LEN + static_cast<int>(BitUtil::BytesForBits(bit_width));
+    int max_repeated_run_size = BitUtil::BitReader::MAX_VLQ_BYTE_LEN +
+                                static_cast<int>(BitUtil::BytesForBits(bit_width));
     return std::max(max_literal_run_size, max_repeated_run_size);
   }
 
@@ -241,7 +242,7 @@ class RleEncoder {
   const int bit_width_;
 
   /// Underlying buffer.
-  BitWriter bit_writer_;
+  BitUtil::BitWriter bit_writer_;
 
   /// If true, the buffer is full and subsequent Put()'s will fail.
   bool buffer_full_;
@@ -596,6 +597,7 @@ inline void RleEncoder::Clear() {
   bit_writer_.Clear();
 }
 
+}  // namespace util
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_RLE_ENCODING_H

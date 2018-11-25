@@ -17,6 +17,8 @@
 package array
 
 import (
+	"fmt"
+	"strings"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
@@ -41,6 +43,24 @@ func NewStructData(data *Data) *Struct {
 
 func (a *Struct) NumField() int         { return len(a.fields) }
 func (a *Struct) Field(i int) Interface { return a.fields[i] }
+
+func (a *Struct) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.fields {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
 
 func (a *Struct) setData(data *Data) {
 	a.array.setData(data)

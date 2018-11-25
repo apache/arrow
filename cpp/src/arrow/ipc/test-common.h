@@ -39,36 +39,6 @@
 namespace arrow {
 namespace ipc {
 
-static inline void AssertSchemaEqual(const Schema& lhs, const Schema& rhs) {
-  if (!lhs.Equals(rhs)) {
-    std::stringstream ss;
-    ss << "left schema: " << lhs.ToString() << std::endl
-       << "right schema: " << rhs.ToString() << std::endl;
-    FAIL() << ss.str();
-  }
-}
-
-static inline void CompareBatch(const RecordBatch& left, const RecordBatch& right) {
-  if (!left.schema()->Equals(*right.schema())) {
-    FAIL() << "Left schema: " << left.schema()->ToString()
-           << "\nRight schema: " << right.schema()->ToString();
-  }
-  ASSERT_EQ(left.num_columns(), right.num_columns())
-      << left.schema()->ToString() << " result: " << right.schema()->ToString();
-  ASSERT_EQ(left.num_rows(), right.num_rows());
-  for (int i = 0; i < left.num_columns(); ++i) {
-    if (!left.column(i)->Equals(right.column(i))) {
-      std::stringstream ss;
-      ss << "Idx: " << i << " Name: " << left.column_name(i);
-      ss << std::endl << "Left: ";
-      ASSERT_OK(PrettyPrint(*left.column(i), 0, &ss));
-      ss << std::endl << "Right: ";
-      ASSERT_OK(PrettyPrint(*right.column(i), 0, &ss));
-      FAIL() << ss.str();
-    }
-  }
-}
-
 static inline void CompareArraysDetailed(int index, const Array& result,
                                          const Array& expected) {
   if (!expected.Equals(result)) {
@@ -96,9 +66,9 @@ const auto kListInt32 = list(int32());
 const auto kListListInt32 = list(kListInt32);
 
 Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool,
-                            std::shared_ptr<Array>* out) {
+                            std::shared_ptr<Array>* out, uint32_t seed = 0) {
   std::shared_ptr<ResizableBuffer> data;
-  RETURN_NOT_OK(MakeRandomInt32Buffer(length, pool, &data));
+  RETURN_NOT_OK(MakeRandomBuffer<int32_t>(length, pool, &data, seed));
   Int32Builder builder(int32(), pool);
   RETURN_NOT_OK(builder.Resize(length));
   if (include_nulls) {
@@ -195,7 +165,8 @@ Status MakeBooleanBatch(std::shared_ptr<RecordBatch>* out) {
   return MakeBooleanBatchSized(1000, out);
 }
 
-Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out) {
+Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out,
+                         uint32_t seed = 0) {
   // Make the schema
   auto f0 = field("f0", int32());
   auto f1 = field("f1", int32());
@@ -204,8 +175,8 @@ Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out) {
   // Example data
   std::shared_ptr<Array> a0, a1;
   MemoryPool* pool = default_memory_pool();
-  RETURN_NOT_OK(MakeRandomInt32Array(length, false, pool, &a0));
-  RETURN_NOT_OK(MakeRandomInt32Array(length, true, pool, &a1));
+  RETURN_NOT_OK(MakeRandomInt32Array(length, false, pool, &a0, seed));
+  RETURN_NOT_OK(MakeRandomInt32Array(length, true, pool, &a1, seed + 1));
   *out = RecordBatch::Make(schema, length, {a0, a1});
   return Status::OK();
 }

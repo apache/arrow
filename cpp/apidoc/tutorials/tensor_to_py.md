@@ -60,12 +60,9 @@ for (int64_t i = 0; i < input_length; ++i) {
   input[i] = 2.0;
 }
 
-// Cast float array to bytes array
-const uint8_t* bytes_array = reinterpret_cast<const uint8_t*>(input.data());
-
 // Create Arrow Tensor Object, no copy made!
 // {input_length} is the shape of the tensor
-auto value_buffer = std::make_shared<Buffer>(bytes_array, sizeof(float) * input_length);
+auto value_buffer = Buffer::Wrap<float>(input);
 Tensor t(float32(), value_buffer, {input_length});
 ```
 

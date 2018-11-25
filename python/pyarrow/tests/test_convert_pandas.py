@@ -15,6 +15,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+import six
 import decimal
 import json
 import multiprocessing as mp
@@ -26,6 +28,7 @@ import numpy.testing as npt
 import pandas as pd
 import pandas.util.testing as tm
 import pytest
+import pytz
 
 import pyarrow as pa
 import pyarrow.types as patypes
@@ -70,13 +73,11 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=True,
 
     if expected_schema:
         # all occurences of _check_pandas_roundtrip passes expected_schema
-        # without the pandas generated key-value metadata, so we need to
-        # add it before checking schema equality
-        expected_schema = expected_schema.add_metadata(table.schema.metadata)
-        assert table.schema.equals(expected_schema)
+        # without the pandas generated key-value metadata
+        assert table.schema.equals(expected_schema, check_metadata=False)
 
     if expected is None:
-        expected = df
+        expected = df if schema is None else df[schema.names]
 
     tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
                           check_index_type=('equiv' if preserve_index
@@ -823,6 +824,31 @@ class TestConvertDateTimeLikeTypes(object):
         })
         tm.assert_frame_equal(expected_df, result)
 
+    def test_python_datetime_with_pytz_tzinfo(self):
+        for tz in [pytz.utc, pytz.timezone('US/Eastern'), pytz.FixedOffset(1)]:
+            values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
+            df = pd.DataFrame({'datetime': values})
+            _check_pandas_roundtrip(df)
+
+    @pytest.mark.skipif(six.PY2, reason='datetime.timezone is available since '
+                                        'python version 3.2')
+    def test_python_datetime_with_timezone_tzinfo(self):
+        from datetime import timezone
+
+        values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=pytz.utc)]
+        df = pd.DataFrame({'datetime': values})
+        _check_pandas_roundtrip(df)
+
+        # datetime.timezone is going to be pytz.FixedOffset
+        hours = 1
+        tz_timezone = timezone(timedelta(hours=hours))
+        tz_pytz = pytz.FixedOffset(hours * 60)
+        values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_timezone)]
+        values_exp = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_pytz)]
+        df = pd.DataFrame({'datetime': values})
+        df_exp = pd.DataFrame({'datetime': values_exp})
+        _check_pandas_roundtrip(df, expected=df_exp)
+
     def test_python_datetime_subclass(self):
 
         class MyDatetime(datetime):
@@ -905,6 +931,85 @@ class TestConvertDateTimeLikeTypes(object):
         expected_msg = 'Timestamp value had non-zero intraday milliseconds'
         with pytest.raises(pa.ArrowInvalid, match=expected_msg):
             pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
+
+    def test_array_date_as_object(self):
+        data = [date(2000, 1, 1),
+                None,
+                date(1970, 1, 1),
+                date(2040, 2, 26)]
+        expected = np.array(['2000-01-01',
+                             None,
+                             '1970-01-01',
+                             '2040-02-26'], dtype='datetime64')
+
+        arr = pa.array(data)
+        assert arr.equals(pa.array(expected))
+
+        result = arr.to_pandas()
+        assert result.dtype == expected.dtype
+        npt.assert_array_equal(arr.to_pandas(), expected)
+
+        result = arr.to_pandas(date_as_object=True)
+        expected = expected.astype(object)
+        assert result.dtype == expected.dtype
+        npt.assert_array_equal(result, expected)
+
+    def test_chunked_array_convert_date_as_object(self):
+        data = [date(2000, 1, 1),
+                None,
+                date(1970, 1, 1),
+                date(2040, 2, 26)]
+        expected = np.array(['2000-01-01',
+                             None,
+                             '1970-01-01',
+                             '2040-02-26'], dtype='datetime64')
+        carr = pa.chunked_array([data])
+
+        result = carr.to_pandas()
+        assert result.dtype == expected.dtype
+        npt.assert_array_equal(carr.to_pandas(), expected)
+
+        result = carr.to_pandas(date_as_object=True)
+        expected = expected.astype(object)
+        assert result.dtype == expected.dtype
+        npt.assert_array_equal(result, expected)
+
+    def test_column_convert_date_as_object(self):
+        data = [date(2000, 1, 1),
+                None,
+                date(1970, 1, 1),
+                date(2040, 2, 26)]
+        expected = np.array(['2000-01-01',
+                             None,
+                             '1970-01-01',
+                             '2040-02-26'], dtype='datetime64')
+
+        arr = pa.array(data)
+        column = pa.column('date', arr)
+
+        result = column.to_pandas()
+        npt.assert_array_equal(column.to_pandas(), expected)
+
+        result = column.to_pandas(date_as_object=True)
+        expected = expected.astype(object)
+        assert result.dtype == expected.dtype
+        npt.assert_array_equal(result, expected)
+
+    def test_table_convert_date_as_object(self):
+        df = pd.DataFrame({
+            'date': [date(2000, 1, 1),
+                     None,
+                     date(1970, 1, 1),
+                     date(2040, 2, 26)]})
+
+        table = pa.Table.from_pandas(df, preserve_index=False)
+
+        df_datetime = table.to_pandas()
+        df_object = table.to_pandas(date_as_object=True)
+
+        tm.assert_frame_equal(df.astype('datetime64[ns]'), df_datetime,
+                              check_dtype=True)
+        tm.assert_frame_equal(df, df_object, check_dtype=True)
 
     def test_date_infer(self):
         df = pd.DataFrame({
@@ -1314,12 +1419,13 @@ class TestConvertStringLikeTypes(object):
         assert converted.equals(expected)
 
         with pytest.raises(pa.lib.ArrowInvalid,
-                           match='Got bytestring of length 3 \(expected 4\)'):
+                           match=r'Got bytestring of length 3 \(expected 4\)'):
             arr = np.array([b'foo', b'bar', b'baz'], dtype='|S3')
             pa.array(arr, type=pa.binary(4))
 
-        with pytest.raises(pa.lib.ArrowInvalid,
-                           match='Got bytestring of length 12 \(expected 3\)'):
+        with pytest.raises(
+                pa.lib.ArrowInvalid,
+                match=r'Got bytestring of length 12 \(expected 3\)'):
             arr = np.array([b'foo', b'bar', b'baz'], dtype='|U3')
             pa.array(arr, type=pa.binary(3))
 
@@ -1904,26 +2010,41 @@ class TestConvertMisc(object):
         v1 = ['foo', None, 'bar', 'qux', np.nan]
         v2 = [4, 5, 6, 7, 8]
         v3 = [b'foo', None, b'bar', b'qux', np.nan]
-        df = pd.DataFrame({'cat_strings': pd.Categorical(v1 * repeats),
-                           'cat_ints': pd.Categorical(v2 * repeats),
-                           'cat_binary': pd.Categorical(v3 * repeats),
-                           'cat_strings_ordered': pd.Categorical(
-                               v1 * repeats, categories=['bar', 'qux', 'foo'],
-                               ordered=True),
-                           'ints': v2 * repeats,
-                           'ints2': v2 * repeats,
-                           'strings': v1 * repeats,
-                           'strings2': v1 * repeats,
-                           'strings3': v3 * repeats})
+
+        arrays = {
+            'cat_strings': pd.Categorical(v1 * repeats),
+            'cat_strings_with_na': pd.Categorical(v1 * repeats,
+                                                  categories=['foo', 'bar']),
+            'cat_ints': pd.Categorical(v2 * repeats),
+            'cat_binary': pd.Categorical(v3 * repeats),
+            'cat_strings_ordered': pd.Categorical(
+                v1 * repeats, categories=['bar', 'qux', 'foo'],
+                ordered=True),
+            'ints': v2 * repeats,
+            'ints2': v2 * repeats,
+            'strings': v1 * repeats,
+            'strings2': v1 * repeats,
+            'strings3': v3 * repeats}
+        df = pd.DataFrame(arrays)
         _check_pandas_roundtrip(df)
 
+        for k in arrays:
+            _check_array_roundtrip(arrays[k])
+
+    def test_category_implicit_from_pandas(self):
+        # ARROW-3374
+        def _check(v):
+            arr = pa.array(v)
+            result = arr.to_pandas()
+            tm.assert_series_equal(pd.Series(result), pd.Series(v))
+
         arrays = [
-            pd.Categorical(v1 * repeats),
-            pd.Categorical(v2 * repeats),
-            pd.Categorical(v3 * repeats)
+            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b']),
+            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b'],
+                           ordered=True)
         ]
-        for values in arrays:
-            _check_array_roundtrip(values)
+        for arr in arrays:
+            _check(arr)
 
     def test_empty_category(self):
         # ARROW-2443
@@ -1990,11 +2111,12 @@ class TestConvertMisc(object):
             assert isinstance(converted, pa.NullArray)
             assert len(converted) == 3
             assert converted.null_count == 3
-            assert converted[0] is pa.NA
+            for item in converted:
+                assert item is pa.NA
 
         _check_series(pd.Series([None] * 3, dtype=object))
         _check_series(pd.Series([np.nan] * 3, dtype=object))
-        _check_series(pd.Series([np.sqrt(-1)] * 3, dtype=object))
+        _check_series(pd.Series([None, np.nan, None], dtype=object))
 
     def test_partial_schema(self):
         data = OrderedDict([
@@ -2005,18 +2127,12 @@ class TestConvertMisc(object):
         df = pd.DataFrame(data)
 
         partial_schema = pa.schema([
-            pa.field('a', pa.int64()),
-            pa.field('b', pa.int32())
-        ])
-
-        expected_schema = pa.schema([
-            pa.field('a', pa.int64()),
-            pa.field('b', pa.int32()),
-            pa.field('c', pa.int64())
+            pa.field('c', pa.int64()),
+            pa.field('a', pa.int64())
         ])
 
         _check_pandas_roundtrip(df, schema=partial_schema,
-                                expected_schema=expected_schema)
+                                expected_schema=partial_schema)
 
     def test_table_batch_empty_dataframe(self):
         df = pd.DataFrame({})
@@ -2161,3 +2277,97 @@ def test_convert_unsupported_type_error_message():
     expected_msg = 'Conversion failed for column diff with type timedelta64'
     with pytest.raises(pa.ArrowNotImplementedError, match=expected_msg):
         pa.Table.from_pandas(df)
+
+
+def test_table_from_pandas_keeps_column_order_of_dataframe():
+    df1 = pd.DataFrame(OrderedDict([
+        ('partition', [0, 0, 1, 1]),
+        ('arrays', [[0, 1, 2], [3, 4], None, None]),
+        ('floats', [None, None, 1.1, 3.3])
+    ]))
+    df2 = df1[['floats', 'partition', 'arrays']]
+
+    schema1 = pa.schema([
+        ('partition', pa.int64()),
+        ('arrays', pa.list_(pa.int64())),
+        ('floats', pa.float64()),
+    ])
+    schema2 = pa.schema([
+        ('floats', pa.float64()),
+        ('partition', pa.int64()),
+        ('arrays', pa.list_(pa.int64()))
+    ])
+
+    table1 = pa.Table.from_pandas(df1, preserve_index=False)
+    table2 = pa.Table.from_pandas(df2, preserve_index=False)
+
+    assert table1.schema.equals(schema1, check_metadata=False)
+    assert table2.schema.equals(schema2, check_metadata=False)
+
+
+def test_table_from_pandas_keeps_column_order_of_schema():
+    # ARROW-3766
+    df = pd.DataFrame(OrderedDict([
+        ('partition', [0, 0, 1, 1]),
+        ('arrays', [[0, 1, 2], [3, 4], None, None]),
+        ('floats', [None, None, 1.1, 3.3])
+    ]))
+
+    schema = pa.schema([
+        ('floats', pa.float64()),
+        ('arrays', pa.list_(pa.int32())),
+        ('partition', pa.int32())
+    ])
+
+    df1 = df[df.partition == 0]
+    df2 = df[df.partition == 1][['floats', 'partition', 'arrays']]
+
+    table1 = pa.Table.from_pandas(df1, schema=schema, preserve_index=False)
+    table2 = pa.Table.from_pandas(df2, schema=schema, preserve_index=False)
+
+    assert table1.schema.equals(schema, check_metadata=False)
+    assert table1.schema.equals(table2.schema, check_metadata=False)
+
+
+def test_table_from_pandas_columns_argument_only_does_filtering():
+    df = pd.DataFrame(OrderedDict([
+        ('partition', [0, 0, 1, 1]),
+        ('arrays', [[0, 1, 2], [3, 4], None, None]),
+        ('floats', [None, None, 1.1, 3.3])
+    ]))
+
+    columns1 = ['arrays', 'floats', 'partition']
+    schema1 = pa.schema([
+        ('partition', pa.int64()),
+        ('arrays', pa.list_(pa.int64())),
+        ('floats', pa.float64()),
+    ])
+
+    columns2 = ['floats', 'partition']
+    schema2 = pa.schema([
+        ('partition', pa.int64()),
+        ('floats', pa.float64())
+    ])
+
+    table1 = pa.Table.from_pandas(df, columns=columns1, preserve_index=False)
+    table2 = pa.Table.from_pandas(df, columns=columns2, preserve_index=False)
+
+    assert table1.schema.equals(schema1, check_metadata=False)
+    assert table2.schema.equals(schema2, check_metadata=False)
+
+
+def test_table_from_pandas_columns_and_schema_are_mutually_exclusive():
+    df = pd.DataFrame(OrderedDict([
+        ('partition', [0, 0, 1, 1]),
+        ('arrays', [[0, 1, 2], [3, 4], None, None]),
+        ('floats', [None, None, 1.1, 3.3])
+    ]))
+    schema = pa.schema([
+        ('partition', pa.int32()),
+        ('arrays', pa.list_(pa.int32())),
+        ('floats', pa.float64()),
+    ])
+    columns = ['arrays', 'floats']
+
+    with pytest.raises(ValueError):
+        pa.Table.from_pandas(df, schema=schema, columns=columns)

@@ -19,7 +19,11 @@
 
 sudo apt-get install -y -q \
     gdb binutils ccache libboost-dev libboost-filesystem-dev \
-    libboost-system-dev libboost-regex-dev libjemalloc-dev
+    libboost-system-dev libboost-regex-dev
+
+if [ "$CXX" == "g++-4.9" ]; then
+    sudo apt-get install -y -q g++-4.9
+fi
 
 if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
     sudo apt-get install -y -q valgrind
@@ -27,4 +31,11 @@ fi
 
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     sudo apt-get install -y -q lcov
+fi
+
+if [ "$ARROW_TRAVIS_GANDIVA" == "1" -a "$ARROW_USE_TOOLCHAIN" != "1" ]; then
+    sudo add-apt-repository -y ppa:dluxen/cmake-backports
+    sudo apt-get update -q
+    sudo apt-get install -y -q cmake3
+    sudo rm -rf /usr/local/cmake-*
 fi

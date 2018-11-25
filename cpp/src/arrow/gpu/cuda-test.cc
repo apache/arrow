@@ -340,7 +340,7 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   io::BufferReader cpu_reader(host_buffer);
   ASSERT_OK(ipc::ReadRecordBatch(batch->schema(), &cpu_reader, &cpu_batch));
 
-  ipc::CompareBatch(*batch, *cpu_batch);
+  CompareBatch(*batch, *cpu_batch);
 }
 
 }  // namespace gpu

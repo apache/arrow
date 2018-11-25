@@ -75,3 +75,42 @@
                                      ObjectName ## Class);              \
   }
 #endif
+
+#ifndef G_DECLARE_INTERFACE
+#  define G_DECLARE_INTERFACE(ModuleObjectName,                         \
+                              module_object_name,                       \
+                              MODULE_NAME,                              \
+                              OBJECT_NAME,                              \
+                              PrerequisiteName)                         \
+  typedef struct                                                        \
+    _ ## ModuleObjectName                                               \
+    ModuleObjectName;                                                   \
+  typedef struct                                                        \
+    _ ## ModuleObjectName ## Interface                                  \
+    ModuleObjectName ## Interface;                                      \
+                                                                        \
+  GType module_object_name ## _get_type(void);                          \
+                                                                        \
+  static inline ModuleObjectName *                                      \
+  MODULE_NAME ## _ ## OBJECT_NAME(gpointer object)                      \
+  {                                                                     \
+   return G_TYPE_CHECK_INSTANCE_CAST(object,                            \
+                                     module_object_name ## _get_type(), \
+                                     ModuleObjectName);                 \
+  }                                                                     \
+                                                                        \
+  static inline gboolean                                                \
+  MODULE_NAME ## _IS_ ## OBJECT_NAME(gpointer object)                   \
+  {                                                                     \
+    return G_TYPE_CHECK_INSTANCE_TYPE(                                  \
+      object, module_object_name ## _get_type());                       \
+  }                                                                     \
+                                                                        \
+  static inline ModuleObjectName ## Interface *                         \
+  MODULE_NAME ## _ ## OBJECT_NAME ## _GET_IFACE(gpointer object)        \
+  {                                                                     \
+   return G_TYPE_INSTANCE_GET_INTERFACE(object,                         \
+                                        module_object_name ## _get_type(), \
+                                        ModuleObjectName ## Interface); \
+  }
+#endif

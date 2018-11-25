@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,8 +21,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.RecordBatch;
+import org.apache.arrow.memory.BufferAllocator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,11 +72,27 @@ public class ArrowRecordBatch implements ArrowMessage {
       arrowBuf.retain();
       long size = arrowBuf.readableBytes();
       arrowBuffers.add(new ArrowBuffer(offset, size));
-      LOGGER.debug(String.format("Buffer in RecordBatch at %d, length: %d", offset, size));
+      LOGGER.debug("Buffer in RecordBatch at {}, length: {}", offset, size);
       offset += size;
       if (alignBuffers && offset % 8 != 0) { // align on 8 byte boundaries
         offset += 8 - (offset % 8);
       }
+    }
+    this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
+  }
+
+  // clone constructor
+  private ArrowRecordBatch(boolean dummy, int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
+    this.length = length;
+    this.nodes = nodes;
+    this.buffers = buffers;
+    this.closed = false;
+    List<ArrowBuffer> arrowBuffers = new ArrayList<>();
+    long offset = 0;
+    for (ArrowBuf arrowBuf : buffers) {
+      long size = arrowBuf.readableBytes();
+      arrowBuffers.add(new ArrowBuffer(offset, size));
+      offset += size;
     }
     this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
   }
@@ -99,6 +116,22 @@ public class ArrowRecordBatch implements ArrowMessage {
       throw new IllegalStateException("already closed");
     }
     return buffers;
+  }
+
+  /**
+   * Create a new ArrowRecordBatch which has the same information as this batch but whose buffers
+   * are owned by that Allocator.
+   *
+   * This will also close this record batch and make it no longer useful.
+   *
+   * @return A cloned ArrowRecordBatch
+   */
+  public ArrowRecordBatch cloneWithTransfer(final BufferAllocator allocator) {
+    final List<ArrowBuf> newBufs = buffers.stream()
+        .map(t -> (t.transferOwnership(allocator).buffer).writerIndex(t.writerIndex()))
+        .collect(Collectors.toList());
+    close();
+    return new ArrowRecordBatch(false, length, nodes, newBufs);
   }
 
   /**

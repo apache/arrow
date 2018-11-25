@@ -47,8 +47,11 @@
     zlibCompileFlags;
     zlibVersion;
     _tr_*;
+    # bz2
+    BZ2_*;
     # lz4
     LZ4_*;
+    LZ4F_*;
     # zstandard
     ZSTD_*;
     ZSTDv*;
@@ -62,6 +65,9 @@
     je_arrow_*;
     # ORC destructors
     _ZThn8_N3orc*;
+    # Protobuf symbols that aren't hidden by the C++ section below
+    # (destructors, vtables, other stuff)
+    *N6google8protobuf*;
 
     extern "C++" {
       # devtoolset or -static-libstdc++ - the Red Hat devtoolset statically
@@ -72,7 +78,10 @@
 
       # Statically linked C++ dependencies
       boost::*;
+      double_conversion::*;
       google::*;
+      # glog
+      *MakeCheckOpValueString*;
       orc::*;
       snappy::*;
     };

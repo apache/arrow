@@ -70,7 +70,7 @@ Java `arrow-tool` JAR and the build path for the C++ executables:
 JAVA_DIR=$ARROW_HOME/java
 CPP_BUILD_DIR=$ARROW_HOME/cpp/build
 
-VERSION=0.1.1-SNAPSHOT
+VERSION=0.11.0-SNAPSHOT
 export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
 export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/debug
 ```

@@ -17,6 +17,11 @@
 
 # Tools for dealing with Arrow type metadata in Python
 
+from pyarrow.lib import (is_boolean_value,  # noqa
+                         is_integer_value,
+                         is_float_value,
+                         _as_type)
+
 import pyarrow.lib as lib
 
 

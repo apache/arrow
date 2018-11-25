@@ -15,24 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
-#include <cstdlib>
+#include <cstring>
+#include <iterator>
+#include <limits>
 #include <memory>
 #include <numeric>
+#include <ostream>
+#include <string>
+#include <type_traits>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/lazy.h"
@@ -41,6 +50,8 @@ namespace arrow {
 
 using std::string;
 using std::vector;
+
+using internal::checked_cast;
 
 namespace {
 // used to prevent compiler optimizing away side-effect-less statements
@@ -313,9 +324,7 @@ class TestPrimitiveBuilder : public TestBuilder {
 
   void Check(const std::unique_ptr<BuilderType>& builder, bool nullable) {
     int64_t size = builder->length();
-
-    auto ex_data = std::make_shared<Buffer>(reinterpret_cast<uint8_t*>(draws_.data()),
-                                            size * sizeof(T));
+    auto ex_data = Buffer::Wrap(draws_.data(), size);
 
     std::shared_ptr<Buffer> ex_null_bitmap;
     int64_t ex_null_count = 0;
@@ -1006,8 +1015,8 @@ class TestStringArray : public ::testing::Test {
 
   void MakeArray() {
     length_ = static_cast<int64_t>(offsets_.size()) - 1;
-    value_buf_ = GetBufferFromVector(chars_);
-    offsets_buf_ = GetBufferFromVector(offsets_);
+    value_buf_ = Buffer::Wrap(chars_);
+    offsets_buf_ = Buffer::Wrap(offsets_);
     ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
     null_count_ = CountNulls(valid_bytes_);
 
@@ -1071,7 +1080,7 @@ TEST_F(TestStringArray, TestGetString) {
 
 TEST_F(TestStringArray, TestEmptyStringComparison) {
   offsets_ = {0, 0, 0, 0, 0, 0};
-  offsets_buf_ = GetBufferFromVector(offsets_);
+  offsets_buf_ = Buffer::Wrap(offsets_);
   length_ = static_cast<int64_t>(offsets_.size() - 1);
 
   auto strings_a = std::make_shared<StringArray>(length_, offsets_buf_, nullptr,
@@ -1318,8 +1327,8 @@ class TestBinaryArray : public ::testing::Test {
 
   void MakeArray() {
     length_ = static_cast<int64_t>(offsets_.size() - 1);
-    value_buf_ = GetBufferFromVector(chars_);
-    offsets_buf_ = GetBufferFromVector(offsets_);
+    value_buf_ = Buffer::Wrap(chars_);
+    offsets_buf_ = Buffer::Wrap(offsets_);
 
     ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
     null_count_ = CountNulls(valid_bytes_);
@@ -1377,9 +1386,8 @@ TEST_F(TestBinaryArray, TestGetValue) {
     if (valid_bytes_[i] == 0) {
       ASSERT_TRUE(strings_->IsNull(i));
     } else {
-      int32_t len = -1;
-      const uint8_t* bytes = strings_->GetValue(i, &len);
-      ASSERT_EQ(0, std::memcmp(expected_[i].data(), bytes, len));
+      ASSERT_FALSE(strings_->IsNull(i));
+      ASSERT_EQ(strings_->GetString(i), expected_[i]);
     }
   }
 }
@@ -1389,9 +1397,8 @@ TEST_F(TestBinaryArray, TestNullValuesInitialized) {
     if (valid_bytes_[i] == 0) {
       ASSERT_TRUE(strings_->IsNull(i));
     } else {
-      int32_t len = -1;
-      const uint8_t* bytes = strings_->GetValue(i, &len);
-      ASSERT_EQ(0, std::memcmp(expected_[i].data(), bytes, len));
+      ASSERT_FALSE(strings_->IsNull(i));
+      ASSERT_EQ(strings_->GetString(i), expected_[i]);
     }
   }
   TestInitialized(*strings_);
@@ -1471,6 +1478,47 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   ASSERT_EQ(reps * N, result_->length());
   ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * 6, result_->value_data()->size());
+
+  int32_t length;
+  for (int i = 0; i < N * reps; ++i) {
+    if (is_null[i % N]) {
+      ASSERT_TRUE(result_->IsNull(i));
+    } else {
+      ASSERT_FALSE(result_->IsNull(i));
+      const uint8_t* vals = result_->GetValue(i, &length);
+      ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
+      ASSERT_EQ(0, std::memcmp(vals, strings[i % N].data(), length));
+    }
+  }
+}
+
+TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
+  vector<string> strings = {"", "bb", "a", "", "ccc"};
+  vector<uint8_t> is_null = {0, 0, 0, 1, 0};
+
+  int N = static_cast<int>(strings.size());
+  int reps = 13;
+  int total_length = 0;
+  for (auto&& s : strings) total_length += static_cast<int>(s.size());
+
+  ASSERT_OK(builder_->Reserve(N * reps));
+  ASSERT_OK(builder_->ReserveData(total_length * reps));
+
+  for (int j = 0; j < reps; ++j) {
+    for (int i = 0; i < N; ++i) {
+      if (is_null[i]) {
+        builder_->UnsafeAppendNull();
+      } else {
+        builder_->UnsafeAppend(strings[i]);
+      }
+    }
+  }
+  ASSERT_EQ(builder_->value_data_length(), total_length * reps);
+  Done();
+  ASSERT_OK(ValidateArray(*result_));
+  ASSERT_EQ(reps * N, result_->length());
+  ASSERT_EQ(reps, result_->null_count());
+  ASSERT_EQ(reps * total_length, result_->value_data()->size());
 
   int32_t length;
   for (int i = 0; i < N * reps; ++i) {
@@ -3191,6 +3239,10 @@ void ValidateBasicStructArray(const StructArray* result,
   auto list_char_arr = std::dynamic_pointer_cast<ListArray>(result->field(0));
   auto char_arr = std::dynamic_pointer_cast<Int8Array>(list_char_arr->values());
   auto int32_arr = std::dynamic_pointer_cast<Int32Array>(result->field(1));
+
+  ASSERT_EQ(nullptr, result->GetFieldByName("non-existing"));
+  ASSERT_TRUE(list_char_arr->Equals(result->GetFieldByName("list")));
+  ASSERT_TRUE(int32_arr->Equals(result->GetFieldByName("int")));
 
   ASSERT_EQ(0, result->null_count());
   ASSERT_EQ(1, list_char_arr->null_count());

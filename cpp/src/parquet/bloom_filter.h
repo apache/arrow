@@ -26,6 +26,7 @@
 #include "parquet/hasher.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 class OutputStream;
@@ -33,7 +34,7 @@ class OutputStream;
 // A Bloom filter is a compact structure to indicate whether an item is not in a set or
 // probably in a set. The Bloom filter usually consists of a bit set that represents a
 // set of elements, a hash strategy and a Bloom filter algorithm.
-class BloomFilter {
+class PARQUET_EXPORT BloomFilter {
  public:
   // Maximum Bloom filter size, it sets to HDFS default block size 128MB
   // This value will be reconsidered when implementing Bloom filter producer.
@@ -117,7 +118,7 @@ class BloomFilter {
 //
 // This implementation sets 8 bits in each tiny Bloom filter. Each tiny Bloom
 // filter is 32 bytes to take advantage of 32-byte SIMD instructions.
-class BlockSplitBloomFilter : public BloomFilter {
+class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
  public:
   /// The constructor of BlockSplitBloomFilter. It uses murmur3_x64_128 as hash function.
   BlockSplitBloomFilter();

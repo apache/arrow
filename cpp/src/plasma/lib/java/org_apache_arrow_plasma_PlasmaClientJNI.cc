@@ -155,6 +155,15 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_release(
   ARROW_CHECK_OK(client->Release(oid));
 }
 
+JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_delete(
+    JNIEnv* env, jclass cls, jlong conn, jbyteArray object_id) {
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
+  plasma::ObjectID oid;
+  jbyteArray_to_object_id(env, object_id, &oid);
+
+  ARROW_CHECK_OK(client->Delete(oid));
+}
+
 JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_get(
     JNIEnv* env, jclass cls, jlong conn, jobjectArray object_ids, jint timeout_ms) {
   plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);

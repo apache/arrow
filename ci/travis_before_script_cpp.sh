@@ -52,6 +52,7 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   # Set up C++ toolchain from conda-forge packages for faster builds
   source $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
   CMAKE_COMMON_FLAGS="${CMAKE_COMMON_FLAGS} -DARROW_JEMALLOC=ON"
+  CMAKE_COMMON_FLAGS="${CMAKE_COMMON_FLAGS} -DARROW_WITH_BZ2=ON"
 fi
 
 mkdir -p $ARROW_CPP_BUILD_DIR
@@ -83,7 +84,14 @@ if [ $ARROW_TRAVIS_ORC == "1" ]; then
 fi
 
 if [ $ARROW_TRAVIS_PARQUET == "1" ]; then
-  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_PARQUET=ON"
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS \
+-DARROW_PARQUET=ON \
+-DPARQUET_BUILD_EXAMPLES=ON \
+-DPARQUET_BUILD_EXECUTABLES=ON"
+fi
+
+if [ $ARROW_TRAVIS_GANDIVA == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA=ON"
 fi
 
 if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
@@ -92,6 +100,14 @@ fi
 
 if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GENERATE_COVERAGE=ON"
+fi
+
+if [ $ARROW_TRAVIS_VERBOSE == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_VERBOSE_THIRDPARTY_BUILD=ON"
+fi
+
+if [ $ARROW_TRAVIS_USE_VENDORED_BOOST == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_BOOST_VENDORED=ON"
 fi
 
 if [ $TRAVIS_OS_NAME == "linux" ]; then
@@ -103,7 +119,9 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
 else
     if [ "$using_homebrew" = "yes" ]; then
 	# build against homebrew's boost if we're using it
-	export BOOST_ROOT=/usr/local/opt/boost
+	export BOOST_ROOT=$(brew --prefix boost)
+	export LLVM_DIR=$(brew --prefix llvm@6)/lib/cmake/llvm
+	export THRIFT_HOME=$(brew --prefix thrift)
     fi
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_OSX_FLAGS \

@@ -16,27 +16,26 @@
 // under the License.
 
 #include <cstdint>
-#include <cstdlib>
+#include <cstdio>
+#include <functional>
 #include <locale>
 #include <memory>
-#include <numeric>
-#include <sstream>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/builder.h"
-#include "arrow/compare.h"
-#include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
-#include "arrow/pretty_print.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
@@ -198,8 +197,7 @@ TEST_F(TestCast, OverflowInNullSlot) {
   shared_ptr<Array> expected;
   ArrayFromVector<Int16Type, int16_t>(int16(), is_valid, e11, &expected);
 
-  auto buf = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(v11.data()),
-                                      static_cast<int64_t>(v11.size()));
+  auto buf = Buffer::Wrap(v11.data(), v11.size());
   Int32Array tmp11(5, buf, expected->null_bitmap(), -1);
 
   CheckPass(tmp11, *expected, int16(), options);
@@ -286,20 +284,21 @@ TEST_F(TestCast, ToIntDowncastUnsafe) {
 }
 
 TEST_F(TestCast, FloatingPointToInt) {
+  // which means allow_float_truncate == false
   auto options = CastOptions::Safe();
 
   vector<bool> is_valid = {true, false, true, true, true};
   vector<bool> all_valid = {true, true, true, true, true};
 
-  // float32 point to integer
-  vector<float> v1 = {1.5, 0, 0.5, -1.5, 5.5};
+  // float32 to int32 no truncation
+  vector<float> v1 = {1.0, 0, 0.0, -1.0, 5.0};
   vector<int32_t> e1 = {1, 0, 0, -1, 5};
   CheckCase<FloatType, float, Int32Type, int32_t>(float32(), v1, is_valid, int32(), e1,
                                                   options);
   CheckCase<FloatType, float, Int32Type, int32_t>(float32(), v1, all_valid, int32(), e1,
                                                   options);
 
-  // float64 point to integer
+  // float64 to int32 no truncation
   vector<double> v2 = {1.0, 0, 0.0, -1.0, 5.0};
   vector<int32_t> e2 = {1, 0, 0, -1, 5};
   CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v2, is_valid, int32(), e2,
@@ -307,15 +306,40 @@ TEST_F(TestCast, FloatingPointToInt) {
   CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v2, all_valid, int32(), e2,
                                                     options);
 
-  vector<double> v3 = {1.5, 0, 0.5, -1.5, 5.5};
-  vector<int32_t> e3 = {1, 0, 0, -1, 5};
-  CheckFails<DoubleType>(float64(), v3, is_valid, int32(), options);
-  CheckFails<DoubleType>(float64(), v3, all_valid, int32(), options);
+  // float64 to int64 no truncation
+  vector<double> v3 = {1.0, 0, 0.0, -1.0, 5.0};
+  vector<int64_t> e3 = {1, 0, 0, -1, 5};
+  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v3, is_valid, int64(), e3,
+                                                    options);
+  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v3, all_valid, int64(), e3,
+                                                    options);
+
+  // float64 to int32 truncate
+  vector<double> v4 = {1.5, 0, 0.5, -1.5, 5.5};
+  vector<int32_t> e4 = {1, 0, 0, -1, 5};
+
+  options.allow_float_truncate = false;
+  CheckFails<DoubleType>(float64(), v4, is_valid, int32(), options);
+  CheckFails<DoubleType>(float64(), v4, all_valid, int32(), options);
 
   options.allow_float_truncate = true;
-  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v3, is_valid, int32(), e3,
+  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v4, is_valid, int32(), e4,
                                                     options);
-  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v3, all_valid, int32(), e3,
+  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v4, all_valid, int32(), e4,
+                                                    options);
+
+  // float64 to int64 truncate
+  vector<double> v5 = {1.5, 0, 0.5, -1.5, 5.5};
+  vector<int64_t> e5 = {1, 0, 0, -1, 5};
+
+  options.allow_float_truncate = false;
+  CheckFails<DoubleType>(float64(), v5, is_valid, int64(), options);
+  CheckFails<DoubleType>(float64(), v5, all_valid, int64(), options);
+
+  options.allow_float_truncate = true;
+  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v5, is_valid, int64(), e5,
+                                                    options);
+  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v5, all_valid, int64(), e5,
                                                     options);
 }
 
@@ -890,7 +914,7 @@ TEST_F(TestCast, StringToNumber) {
   try {
     // French locale uses the comma as decimal point
     std::locale::global(std::locale("fr_FR.UTF-8"));
-  } catch (std::runtime_error) {
+  } catch (std::runtime_error&) {
     // Locale unavailable, ignore
   }
   CheckCase<StringType, std::string, FloatType, float>(utf8(), v_float, is_valid,
@@ -946,10 +970,8 @@ TEST_F(TestCast, DictToNonDictNoNulls) {
   // Explicitly construct with nullptr for the null_bitmap_data
   std::vector<int32_t> i1 = {1, 0, 1};
   std::vector<int32_t> i2 = {2, 1, 0, 1};
-  auto c1 = std::make_shared<NumericArray<Int32Type>>(
-      3, arrow::GetBufferFromVector<int32_t>(i1));
-  auto c2 = std::make_shared<NumericArray<Int32Type>>(
-      4, arrow::GetBufferFromVector<int32_t>(i2));
+  auto c1 = std::make_shared<NumericArray<Int32Type>>(3, Buffer::Wrap(i1));
+  auto c2 = std::make_shared<NumericArray<Int32Type>>(4, Buffer::Wrap(i2));
 
   ArrayVector dict_arrays = {std::make_shared<DictionaryArray>(dict_type, c1),
                              std::make_shared<DictionaryArray>(dict_type, c2)};
@@ -1308,7 +1330,7 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   ASSERT_OK(DictionaryEncode(&this->ctx_, Datum(carr), &encoded_out));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
 
-  ASSERT_TRUE(encoded_out.chunked_array()->Equals(*dict_carr));
+  AssertChunkedEqual(*dict_carr, *encoded_out.chunked_array());
 }
 
 using BinaryKernelFunc =

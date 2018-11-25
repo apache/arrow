@@ -21,7 +21,6 @@
 #define ARROW_IPC_WRITER_H
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <vector>
 
@@ -30,9 +29,7 @@
 
 namespace arrow {
 
-class Array;
 class Buffer;
-class Field;
 class MemoryPool;
 class RecordBatch;
 class Schema;
@@ -256,11 +253,14 @@ ARROW_EXPORT
 Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
                         std::unique_ptr<Message>* out);
 
-/// \brief EXPERIMENTAL: Write arrow::Tensor as a contiguous message
+/// \brief Write arrow::Tensor as a contiguous message. The metadata and body
+/// are written assuming 64-byte alignment. It is the user's responsibility to
+/// ensure that the OutputStream has been aligned to a 64-byte multiple before
+/// writing the message.
 ///
 /// \param[in] tensor the Tensor to write
 /// \param[in] dst the OutputStream to write to
-/// \param[out] metadata_length the actual metadata length
+/// \param[out] metadata_length the actual metadata length, including padding
 /// \param[out] body_length the acutal message body length
 /// \return Status
 ///
@@ -268,6 +268,36 @@ Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
 ARROW_EXPORT
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length);
+
+namespace internal {
+
+// These internal APIs may change without warning or deprecation
+
+// Intermediate data structure with metadata header plus zero or more buffers
+// for the message body. This data can either be written out directly as an
+// encapsulated IPC message or used with Flight RPCs
+struct IpcPayload {
+  Message::Type type;
+  std::shared_ptr<Buffer> metadata;
+  std::vector<std::shared_ptr<Buffer>> body_buffers;
+  int64_t body_length;
+};
+
+/// \brief Extract IPC payloads from given schema for purposes of wire
+/// transport, separate from using the *StreamWriter classes
+ARROW_EXPORT
+Status GetDictionaryPayloads(const Schema& schema,
+                             std::vector<std::unique_ptr<IpcPayload>>* out);
+
+/// \brief Compute IpcPayload for the given record batch
+/// \param[in] batch the RecordBatch that is being serialized
+/// \param[in,out] pool for any required temporary memory allocations
+/// \param[out] out the returned IpcPayload
+/// \return Status
+ARROW_EXPORT
+Status GetRecordBatchPayload(const RecordBatch& batch, MemoryPool* pool, IpcPayload* out);
+
+}  // namespace internal
 
 }  // namespace ipc
 }  // namespace arrow

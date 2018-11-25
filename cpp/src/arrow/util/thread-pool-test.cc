@@ -22,11 +22,19 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <functional>
+#include <future>
+#include <memory>
+#include <string>
 #include <thread>
 #include <vector>
 
+#include <gtest/gtest.h>
+
+#include "arrow/status.h"
 #include "arrow/test-util.h"
 #include "arrow/util/io-util.h"
 #include "arrow/util/macros.h"

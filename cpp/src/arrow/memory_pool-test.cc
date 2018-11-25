@@ -22,6 +22,7 @@
 #include "arrow/memory_pool-test.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/test-util.h"
 
 namespace arrow {
 
@@ -43,20 +44,6 @@ TEST_F(TestDefaultMemoryPool, Reallocate) { this->TestReallocate(); }
 // Death tests and valgrind are known to not play well 100% of the time. See
 // googletest documentation
 #if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
-
-TEST(DefaultMemoryPoolDeathTest, FreeLargeMemory) {
-  MemoryPool* pool = default_memory_pool();
-
-  uint8_t* data;
-  ASSERT_OK(pool->Allocate(100, &data));
-
-#ifndef NDEBUG
-  EXPECT_DEATH(pool->Free(data, 120),
-               ".*Check failed:.* allocation counter became negative");
-#endif
-
-  pool->Free(data, 100);
-}
 
 TEST(DefaultMemoryPoolDeathTest, MaxMemory) {
   MemoryPool* pool = default_memory_pool();

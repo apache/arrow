@@ -17,13 +17,21 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
+#include <cstdint>
+#include <limits>
+#include <memory>
 #include <random>
 #include <string>
+#include <vector>
 
+#include "arrow/buffer.h"
 #include "arrow/io/file.h"
+#include "arrow/status.h"
+
 #include "parquet/bloom_filter.h"
+#include "parquet/exception.h"
 #include "parquet/murmur3.h"
+#include "parquet/types.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 

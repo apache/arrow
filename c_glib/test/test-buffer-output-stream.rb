@@ -23,4 +23,13 @@ class TestBufferOutputStream < Test::Unit::TestCase
     output_stream.close
     assert_equal("Hello", buffer.data.to_s)
   end
+
+  def test_align
+    buffer = Arrow::ResizableBuffer.new(0)
+    output_stream = Arrow::BufferOutputStream.new(buffer)
+    output_stream.write("Hello")
+    output_stream.align(8)
+    output_stream.close
+    assert_equal("Hello\x00\x00\x00", buffer.data.to_s)
+  end
 end

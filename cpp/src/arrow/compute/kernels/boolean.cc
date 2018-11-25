@@ -17,13 +17,27 @@
 
 #include "arrow/compute/kernels/boolean.h"
 
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernels/util-internal.h"
-#include "arrow/util/logging.h"
-
+#include <memory>
 #include <vector>
 
+#include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/compute/context.h"
+#include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/util-internal.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/bit-util.h"
+#include "arrow/util/logging.h"
+
 namespace arrow {
+
+using internal::BitmapAnd;
+using internal::BitmapOr;
+using internal::BitmapXor;
+using internal::CopyBitmap;
+using internal::CountSetBits;
+using internal::InvertBitmap;
+
 namespace compute {
 
 class InvertKernel : public UnaryKernel {

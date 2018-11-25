@@ -230,6 +230,29 @@ def field(jvm_field):
     return pa.field(name, typ, nullable, metadata)
 
 
+def schema(jvm_schema):
+    """
+    Construct a Schema from a org.apache.arrow.vector.types.pojo.Schema
+    instance.
+
+    Parameters
+    ----------
+    jvm_schema: org.apache.arrow.vector.types.pojo.Schema
+
+    Returns
+    -------
+    pyarrow.Schema
+    """
+    fields = jvm_schema.getFields()
+    fields = [field(f) for f in fields]
+    metadata = jvm_schema.getCustomMetadata()
+    if metadata.isEmpty():
+        meta = None
+    else:
+        meta = {k: metadata[k] for k in metadata.keySet()}
+    return pa.schema(fields, meta)
+
+
 def array(jvm_array):
     """
     Construct an (Python) Array from its JVM equivalent.
@@ -253,3 +276,28 @@ def array(jvm_array):
                for buf in list(jvm_array.getBuffers(False))]
     null_count = jvm_array.getNullCount()
     return pa.Array.from_buffers(dtype, length, buffers, null_count)
+
+
+def record_batch(jvm_vector_schema_root):
+    """
+    Construct a (Python) RecordBatch from a JVM VectorSchemaRoot
+
+    Parameters
+    ----------
+    jvm_vector_schema_root : org.apache.arrow.vector.VectorSchemaRoot
+
+    Returns
+    -------
+    record_batch: pyarrow.RecordBatch
+    """
+    pa_schema = schema(jvm_vector_schema_root.getSchema())
+
+    arrays = []
+    for name in pa_schema.names:
+        arrays.append(array(jvm_vector_schema_root.getVector(name)))
+
+    return pa.RecordBatch.from_arrays(
+        arrays,
+        pa_schema.names,
+        metadata=pa_schema.metadata
+    )

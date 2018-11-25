@@ -30,7 +30,15 @@ set(ARROW_SRCS
   type.cc
   visitor.cc
 
+  csv/converter.cc
+  csv/chunker.cc
+  csv/column-builder.cc
+  csv/options.cc
+  csv/parser.cc
+  csv/reader.cc
+
   io/buffered.cc
+  io/compressed.cc
   io/file.cc
   io/interfaces.cc
   io/memory.cc
@@ -40,10 +48,12 @@ set(ARROW_SRCS
   util/compression.cc
   util/cpu-info.cc
   util/decimal.cc
-  util/hash.cc
   util/io-util.cc
+  util/logging.cc
   util/key_value_metadata.cc
+  util/task-group.cc
   util/thread-pool.cc
+  util/utf8.cc
 )
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -77,6 +87,11 @@ endif()
 if (ARROW_WITH_BROTLI)
   add_definitions(-DARROW_WITH_BROTLI)
   SET(ARROW_SRCS util/compression_brotli.cc ${ARROW_SRCS})
+endif()
+
+if (ARROW_WITH_BZ2)
+  add_definitions(-DARROW_WITH_BZ2)
+  SET(ARROW_SRCS util/compression_bz2.cc ${ARROW_SRCS})
 endif()
 
 if (ARROW_WITH_LZ4)
@@ -151,18 +166,40 @@ ADD_ARROW_LIB(arrow
   SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
   SHARED_LINK_LIBS ${ARROW_LINK_LIBS}
   SHARED_PRIVATE_LINK_LIBS ${ARROW_SHARED_PRIVATE_LINK_LIBS}
-  STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS}
-  STATIC_PRIVATE_LINK_LIBS ${ARROW_STATIC_PRIVATE_LINK_LIBS}
-)
-
-foreach(LIB_TARGET ${ARROW_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET}
-    PRIVATE ARROW_EXPORTING)
-endforeach()
+  STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
 if (ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()
+
+if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  # that depend on gtest
+  ADD_ARROW_LIB(arrow_testing
+    SOURCES test-util.cc
+    OUTPUTS ARROW_TESTING_LIBRARIES
+    DEPENDENCIES gtest_static
+    SHARED_LINK_LIBS arrow_shared gtest_static
+    STATIC_LINK_LIBS arrow_static)
+
+  if (ARROW_BUILD_STATIC AND WIN32)
+    target_compile_definitions(arrow_testing_static PUBLIC ARROW_STATIC)
+  endif()
+
+  set(ARROW_LIBRARIES
+    ${ARROW_LIBRARIES}
+    ${ARROW_TESTING_LIBRARIES})
+endif()
+
+find_package(Backtrace)
+
+foreach(LIB_TARGET ${ARROW_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET}
+    PRIVATE ARROW_EXPORTING)
+  if (Backtrace_FOUND)
+    target_compile_definitions(${LIB_TARGET}
+      PRIVATE ARROW_WITH_BACKTRACE)
+  endif()
+endforeach()
 
 # Headers: top level
 install(FILES
@@ -216,5 +253,6 @@ ADD_ARROW_TEST(tensor-test)
 ADD_ARROW_BENCHMARK(builder-benchmark)
 ADD_ARROW_BENCHMARK(column-benchmark)
 
+add_subdirectory(csv)
 add_subdirectory(io)
 add_subdirectory(util)

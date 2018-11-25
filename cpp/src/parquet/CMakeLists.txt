@@ -26,7 +26,7 @@ endif()
 add_custom_target(parquet)
 
 function(ADD_PARQUET_TEST REL_TEST_NAME)
-  set(options NO_VALGRIND)
+  set(options USE_STATIC_LINKING)
   set(one_value_args)
   set(multi_value_args EXTRA_DEPENDENCIES LABELS)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
@@ -34,10 +34,20 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  ADD_ARROW_TEST(${REL_TEST_NAME}
-    STATIC_LINK_LIBS ${PARQUET_TEST_LINK_LIBS}
-    PREFIX "parquet"
-    LABELS "parquet")
+  # By default we prefer shared linking with libparquet, as it's faster
+  # and uses less disk space, but in some cases we need to force static
+  # linking (see rationale below).
+  if (ARG_USE_STATIC_LINKING)
+    ADD_ARROW_TEST(${REL_TEST_NAME}
+      STATIC_LINK_LIBS ${PARQUET_STATIC_TEST_LINK_LIBS}
+      PREFIX "parquet"
+      LABELS "unittest;parquet")
+  else()
+    ADD_ARROW_TEST(${REL_TEST_NAME}
+      STATIC_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS}
+      PREFIX "parquet"
+      LABELS "unittest;parquet")
+  endif()
 endfunction()
 
 # ----------------------------------------------------------------------
@@ -45,34 +55,29 @@ endfunction()
 
 # TODO(wesm): Handling of ABI/SO version
 
-if ("${PARQUET_ARROW_LINKAGE}" STREQUAL "shared")
-  set(PARQUET_ARROW_LINK_LIBS
-    arrow_shared)
+if (ARROW_BUILD_STATIC)
+  set(PARQUET_STATIC_LINK_LIBS
+    arrow_static)
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS
+    arrow_testing_static
+    arrow_static)
 else()
-  set(PARQUET_ARROW_LINK_LIBS
-    arrow_static
-    ${ARROW_STATIC_LINK_LIBS})
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS
+    arrow_testing_shared
+    arrow_shared)
 endif()
 
-if (ARROW_BOOST_USE_SHARED)
-  set(PARQUET_BOOST_LINK_LIBS
-    boost_regex_shared)
-  if(MSVC)
-    set(PARQUET_BOOST_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS}
-      boost_system_shared)
-  endif()
-else()
-  set(PARQUET_BOOST_LINK_LIBS
-    boost_regex_static)
-  if(MSVC)
-    set(PARQUET_BOOST_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS}
-      boost_system_static boost_filesystem_static)
-  endif()
+set(PARQUET_BOOST_LINK_LIBS
+  ${BOOST_REGEX_LIBRARY})
+
+if(MSVC)
+  set(PARQUET_BOOST_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS}
+    ${BOOST_SYSTEM_LIBRARY})
 endif()
 
 set(PARQUET_MIN_TEST_LIBS
-  gtest_main
-  gtest)
+  gtest_main_static
+  gtest_static)
 
 if (APPLE)
   set(PARQUET_MIN_TEST_LIBS
@@ -85,28 +90,20 @@ elseif(NOT MSVC)
     ${CMAKE_DL_LIBS})
 endif()
 
-set(PARQUET_TEST_LINK_LIBS
+set(PARQUET_SHARED_TEST_LINK_LIBS
+  arrow_testing_shared
   ${PARQUET_MIN_TEST_LIBS}
-  ${PARQUET_ARROW_LINK_LIBS}
-  parquet_static
+  parquet_shared
   thriftstatic)
 
-set(PARQUET_TEST_SHARED_LINK_LIBS
+set(PARQUET_STATIC_TEST_LINK_LIBS
   ${PARQUET_MIN_TEST_LIBS}
+  ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
+  parquet_static)
+
+set(PARQUET_BENCHMARK_LINK_LIBRARIES
+  arrow_benchmark_main
   parquet_shared)
-
-#############################################################
-# Benchmark linking
-
-if (PARQUET_BUILD_STATIC)
-  set(PARQUET_BENCHMARK_LINK_LIBS
-    parquet_benchmark_main
-    parquet_static)
-else()
-  set(PARQUET_BENCHMARK_LINK_LIBS
-    parquet_benchmark_main
-    parquet_shared)
-endif()
 
 ############################################################
 # Generated Thrift sources
@@ -161,25 +158,37 @@ set(PARQUET_SRCS
   util/memory.cc
 )
 
-# # Ensure that thrift compilation is done before using its generated headers
-# # in parquet code.
+# Ensure that thrift compilation is done before using its generated headers
+# in parquet code.
 add_custom_target(parquet-thrift-deps ALL
   DEPENDS ${THRIFT_OUTPUT_FILES})
 set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} parquet-thrift-deps)
 
 if (NOT PARQUET_MINIMAL_DEPENDENCY)
+  set(PARQUET_SHARED_LINK_LIBS
+    arrow_shared)
+
 # These are libraries that we will link privately with parquet_shared (as they
-# do not need to be linked transitively by other linkers), but publicly with
-# parquet_static (because internal users need to transitively link all
-# dependencies)
-  set(PARQUET_INTERFACE_LINK_LIBS
-    ${PARQUET_ARROW_LINK_LIBS}
+# do not need to be linked transitively by other linkers)
+  set(PARQUET_SHARED_PRIVATE_LINK_LIBS
     ${PARQUET_BOOST_LINK_LIBS}
     thriftstatic
   )
+
+# Link publicly with # parquet_static (because internal users need to
+# transitively link all dependencies)
+  set(PARQUET_STATIC_LINK_LIBS
+    ${PARQUET_STATIC_LINK_LIBS}
+    ${PARQUET_BOOST_LINK_LIBS}
+    thriftstatic
+  )
+
 # Although we don't link parquet_objlib against anything, we need it to depend
 # on these libs as we may generate their headers via ExternalProject_Add
-  set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} ${PARQUET_INTERFACE_LINK_LIBS})
+set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES}
+  ${PARQUET_SHARED_LINK_LIBS}
+  ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
+  ${PARQUET_STATIC_LINK_LIBS})
 endif()
 
 if(NOT APPLE AND NOT MSVC)
@@ -189,21 +198,27 @@ if(NOT APPLE AND NOT MSVC)
   set(SHARED_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/parquet/symbols.map")
 endif()
 
+# Because of PARQUET-1420 (Thrift-generated symbols not exported in DLL),
+# parquet tests must be linked against the static parquet lib.
+if (NO_TESTS)
+  set(PARQUET_LIB_OPTIONS)
+else ()
+  set(PARQUET_LIB_OPTIONS "BUILD_STATIC")
+endif()
+
 ADD_ARROW_LIB(parquet
+  ${PARQUET_LIB_OPTIONS}
   SOURCES ${PARQUET_SRCS}
   OUTPUTS PARQUET_LIBRARIES
   DEPENDENCIES ${PARQUET_DEPENDENCIES}
   SHARED_LINK_FLAGS ${PARQUET_SHARED_LINK_FLAGS}
-  SHARED_PRIVATE_LINK_LIBS ${PARQUET_INTERFACE_LINK_LIBS}
-  STATIC_LINK_LIBS ${PARQUET_INTERFACE_LINK_LIBS}
+  SHARED_LINK_LIBS ${PARQUET_SHARED_LINK_LIBS}
+  SHARED_PRIVATE_LINK_LIBS ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
+  STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS}
 )
 
 # Thrift requires these definitions for some types that we use
 foreach(LIB_TARGET ${PARQUET_LIBRARIES})
-  if ("${PARQUET_ARROW_LINKAGE}" STREQUAL "static")
-    target_compile_definitions(${LIB_TARGET}
-      PRIVATE ARROW_STATIC)
-  endif()
   target_compile_definitions(${LIB_TARGET}
     PRIVATE PARQUET_EXPORTING
     PRIVATE HAVE_INTTYPES_H
@@ -265,7 +280,6 @@ ADD_PARQUET_TEST(bloom_filter-test)
 ADD_PARQUET_TEST(column_reader-test)
 ADD_PARQUET_TEST(column_scanner-test)
 ADD_PARQUET_TEST(column_writer-test)
-ADD_PARQUET_TEST(file-deserialize-test)
 ADD_PARQUET_TEST(file-serialize-test)
 ADD_PARQUET_TEST(properties-test)
 ADD_PARQUET_TEST(statistics-test)
@@ -274,18 +288,15 @@ ADD_PARQUET_TEST(metadata-test)
 ADD_PARQUET_TEST(public-api-test)
 ADD_PARQUET_TEST(types-test)
 ADD_PARQUET_TEST(reader-test)
-ADD_PARQUET_TEST(schema-test)
 
-set(PARQUET_BENCHMARK_LINK_LIBRARIES
-  arrow_benchmark_main
-  parquet_static
-  arrow_static
-  thriftstatic)
+# Those tests need to use static linking as they access thrift-generated
+# symbols which are not exported by parquet.dll on Windows (PARQUET-1420).
+ADD_PARQUET_TEST(file-deserialize-test USE_STATIC_LINKING)
+ADD_PARQUET_TEST(schema-test USE_STATIC_LINKING)
 
-ADD_ARROW_BENCHMARK(column-io-benchmark)
-ARROW_BENCHMARK_LINK_LIBRARIES(column-io-benchmark
-  ${PARQUET_BENCHMARK_LINK_LIBRARIES})
-
-ADD_ARROW_BENCHMARK(encoding-benchmark)
-ARROW_BENCHMARK_LINK_LIBRARIES(encoding-benchmark
-  ${PARQUET_BENCHMARK_LINK_LIBRARIES})
+ADD_ARROW_BENCHMARK(column-io-benchmark
+  PREFIX "parquet"
+  EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
+ADD_ARROW_BENCHMARK(encoding-benchmark
+  PREFIX "parquet"
+  EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})

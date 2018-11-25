@@ -19,6 +19,7 @@ import { Data, ChunkedData, FlatData, BoolData, FlatListData, NestedData, Dictio
 import { VisitorNode, TypeVisitor, VectorVisitor } from './visitor';
 import { DataType, ListType, FlatType, NestedType, FlatListType, TimeUnit } from './type';
 import { IterableArrayLike, Precision, DateUnit, IntervalUnit, UnionMode } from './type';
+import * as IntUtil from './util/int';
 
 export interface VectorLike { length: number; nullCount: number; }
 
@@ -177,7 +178,7 @@ export abstract class NestedVector<T extends NestedType> extends Vector<T>  {
 import { List, Binary, Utf8, Bool, } from './type';
 import { Null, Int, Float, Decimal, Date_, Time, Timestamp, Interval } from './type';
 import { Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64, Float16, Float32, Float64 } from './type';
-import { Struct, Union, SparseUnion, DenseUnion, FixedSizeBinary, FixedSizeList, Map_, Dictionary } from './type';
+import { Struct, StructData, Union, SparseUnion, DenseUnion, FixedSizeBinary, FixedSizeList, Map_, Dictionary } from './type';
 
 import { ChunkedView } from './vector/chunked';
 import { ValidityView } from './vector/validity';
@@ -259,6 +260,19 @@ export class FloatVector<T extends Float = Float<any>> extends FlatVector<T> {
 }
 
 export class DateVector extends FlatVector<Date_> {
+    static from(data: Date[], unit: DateUnit = DateUnit.MILLISECOND): DateVector {
+        const type_ = new Date_(unit);
+        const converted =
+            unit === DateUnit.MILLISECOND ?
+            IntUtil.Int64.convertArray(data.map((d) => d.valueOf())) :
+            unit === DateUnit.DAY ?
+            Int32Array.from(data.map((d) => d.valueOf() / 86400000)) :
+            undefined;
+        if (converted === undefined) {
+            throw new TypeError(`Unrecognized date unit "${DateUnit[unit]}"`);
+        }
+        return new DateVector(new FlatData(type_, data.length, null, converted));
+    }
     static defaultView<T extends Date_>(data: Data<T>) {
         return data.type.unit === DateUnit.DAY ? new DateDayView(data) : new DateMillisecondView(data, 2);
     }
@@ -278,6 +292,9 @@ export class DateVector extends FlatVector<Date_> {
             case DateUnit.MILLISECOND: return new IntVector(data, new TimestampMillisecondView(data as any, 2) as any);
         }
         throw new TypeError(`Unrecognized date unit "${DateUnit[this.type.unit]}"`);
+    }
+    public indexOf(search: Date) {
+        return this.asEpochMilliseconds().indexOf(search.valueOf());
     }
 }
 
@@ -388,8 +405,8 @@ export class MapVector extends NestedVector<Map_> {
     }
 }
 
-export class StructVector extends NestedVector<Struct> {
-    constructor(data: Data<Struct>, view: View<Struct> = new StructView(data)) {
+export class StructVector<T extends StructData = StructData> extends NestedVector<Struct<T>> {
+    constructor(data: Data<Struct<T>>, view: View<Struct<T>> = new StructView<T>(data)) {
         super(data, view);
     }
     public asMap(keysSorted: boolean = false) {

@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,13 +31,12 @@ package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
 import java.util.Map;
+import java.util.HashMap;
 
 import org.apache.arrow.vector.holders.RepeatedStructHolder;
 import org.apache.arrow.vector.AllocationHelper;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
-
-import com.google.common.collect.Maps;
 
 /*
  * This class is generated using FreeMarker and the ${.template_name} template.
@@ -48,7 +46,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
 
   protected final ${containerClass} container;
   private int initialCapacity;
-  private final Map<String, FieldWriter> fields = Maps.newHashMap();
+  private final Map<String, FieldWriter> fields = new HashMap<>();
   public ${mode}StructWriter(${containerClass} container) {
     <#if mode == "Single">
     if (container instanceof StructVector) {

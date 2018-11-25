@@ -1,14 +1,13 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * <p>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -38,8 +37,7 @@ import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.BufferManager;
 import org.apache.arrow.memory.util.HistoricalLog;
-
-import com.google.common.base.Preconditions;
+import org.apache.arrow.util.Preconditions;
 
 import io.netty.util.internal.PlatformDependent;
 
@@ -267,8 +265,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
 
     if (decrement < 1) {
-      throw new IllegalStateException(String.format("release(%d) argument is not positive. Buffer" +
-              " Info: %s",
+      throw new IllegalStateException(String.format("release(%d) argument is not positive. Buffer Info: %s",
           decrement, toVerboseString()));
     }
 
@@ -307,8 +304,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
       return this;
     }
 
-    throw new UnsupportedOperationException("Buffers don't support resizing that increases the " +
-        "size.");
+    throw new UnsupportedOperationException("Buffers don't support resizing that increases the size.");
   }
 
   @Override
@@ -442,8 +438,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   public String toString() {
-    return String.format("ArrowBuf[%d], udle: [%d %d..%d]", id, udle.id, offset, offset +
-        capacity());
+    return String.format("ArrowBuf[%d], udle: [%d %d..%d]", id, udle.id, offset, offset + capacity());
   }
 
   @Override

@@ -26,7 +26,6 @@ environment:
   ARROW_SRC: C:\apache-arrow
   PYARROW_VERSION: {{ arrow.version }}
   PYARROW_REF: {{ arrow.head }}
-  PARQUET_CPP_REF: master
 
 init:
   - set MINICONDA=C:\Miniconda35-x64

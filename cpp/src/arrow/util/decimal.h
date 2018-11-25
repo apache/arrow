@@ -43,7 +43,7 @@ class ARROW_EXPORT Decimal128 {
  public:
   /// \brief Create an Decimal128 from the two's complement representation.
   constexpr Decimal128(int64_t high, uint64_t low) noexcept
-      : high_bits_(high), low_bits_(low) {}
+      : low_bits_(low), high_bits_(high) {}
 
   /// \brief Empty constructor creates an Decimal128 with a value of 0.
   constexpr Decimal128() noexcept : Decimal128(0, 0) {}
@@ -138,7 +138,7 @@ class ARROW_EXPORT Decimal128 {
   Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const;
 
   /// \brief Convert to a signed integer
-  template <typename T, typename = EnableIfIsOneOf<T, int32_t, int64_t>>
+  template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
   Status ToInteger(T* out) const {
     constexpr auto min_value = std::numeric_limits<T>::min();
     constexpr auto max_value = std::numeric_limits<T>::max();
@@ -153,8 +153,8 @@ class ARROW_EXPORT Decimal128 {
   }
 
  private:
-  int64_t high_bits_;
   uint64_t low_bits_;
+  int64_t high_bits_;
 };
 
 ARROW_EXPORT bool operator==(const Decimal128& left, const Decimal128& right);

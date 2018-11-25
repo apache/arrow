@@ -37,7 +37,7 @@ import {
 export function* serializeStream(table: Table) {
     yield serializeMessage(table.schema).buffer;
     for (const [id, field] of table.schema.dictionaries) {
-        const vec = table.getColumn(field.name) as DictionaryVector;
+        const vec = table.getColumn(field.name) as any as DictionaryVector;
         if (vec && vec.dictionary) {
             yield serializeDictionaryBatch(vec.dictionary, id).buffer;
         }
@@ -54,7 +54,7 @@ export function* serializeFile(table: Table) {
 
     // First yield the magic string (aligned)
     let buffer = new Uint8Array(align(magicLength, 8));
-    let metadataLength, byteLength = buffer.byteLength;
+    let metadataLength, bodyLength, byteLength = buffer.byteLength;
     buffer.set(MAGIC, 0);
     yield buffer;
 
@@ -64,17 +64,17 @@ export function* serializeFile(table: Table) {
     yield buffer;
 
     for (const [id, field] of table.schema.dictionaries) {
-        const vec = table.getColumn(field.name) as DictionaryVector;
+        const vec = table.getColumn(field.name) as any as DictionaryVector;
         if (vec && vec.dictionary) {
-            ({ metadataLength, buffer } = serializeDictionaryBatch(vec.dictionary, id));
-            dictionaryBatches.push(new FileBlock(metadataLength, buffer.byteLength, byteLength));
+            ({ metadataLength, bodyLength, buffer } = serializeDictionaryBatch(vec.dictionary, id));
+            dictionaryBatches.push(new FileBlock(metadataLength, bodyLength, byteLength));
             byteLength += buffer.byteLength;
             yield buffer;
         }
     }
     for (const recordBatch of table.batches) {
-        ({ metadataLength, buffer } = serializeRecordBatch(recordBatch));
-        recordBatches.push(new FileBlock(metadataLength, buffer.byteLength, byteLength));
+        ({ metadataLength, bodyLength, buffer } = serializeRecordBatch(recordBatch));
+        recordBatches.push(new FileBlock(metadataLength, bodyLength, byteLength));
         byteLength += buffer.byteLength;
         yield buffer;
     }
@@ -127,7 +127,7 @@ export function serializeMessage(message: Message, data?: Uint8Array) {
     (data && dataByteLength > 0) && messageBytes.set(data, metadataLength);
     // if (messageBytes.byteLength % 8 !== 0) { debugger; }
     // Return the metadata length because we need to write it into each FileBlock also
-    return { metadataLength, buffer: messageBytes };
+    return { metadataLength, bodyLength: message.bodyLength, buffer: messageBytes };
 }
 
 export function serializeFooter(footer: Footer) {
@@ -215,7 +215,7 @@ export class RecordBatchSerializer extends VectorVisitor {
                 // Set all to -1 to indicate that we haven't observed a first occurrence of a particular child yet
                 const childOffsets = new Int32Array(maxChildTypeId + 1).fill(-1);
                 const shiftedOffsets = new Int32Array(length);
-                const unshiftedOffsets = this.getZeroBasedValueOffsets(sliceOffset, length, valueOffsets);
+                const unshiftedOffsets = this.getZeroBasedValueOffsets(0, length, valueOffsets);
                 for (let typeId, shift, index = -1; ++index < length;) {
                     typeId = typeIds[index];
                     // ~(-1) used to be faster than x === -1, so maybe worth benchmarking the difference of these two impls for large dense unions:
@@ -257,29 +257,29 @@ export class RecordBatchSerializer extends VectorVisitor {
     }
     protected visitFlatVector<T extends FlatType>(vector: Vector<T>) {
         const { view, data } = vector;
-        const { offset, length, values } = data;
+        const { length, values } = data;
         const scaledLength = length * ((view as any).size || 1);
-        return this.addBuffer(values.subarray(offset, scaledLength));
+        return this.addBuffer(values.subarray(0, scaledLength));
     }
     protected visitFlatListVector<T extends FlatListType>(vector: Vector<T>) {
         const { data, length } = vector;
-        const { offset, values, valueOffsets } = data;
+        const { values, valueOffsets } = data;
         const firstOffset = valueOffsets[0];
         const lastOffset = valueOffsets[length];
         const byteLength = Math.min(lastOffset - firstOffset, values.byteLength - firstOffset);
         // Push in the order FlatList types read their buffers
         // valueOffsets buffer first
-        this.addBuffer(this.getZeroBasedValueOffsets(offset, length, valueOffsets));
+        this.addBuffer(this.getZeroBasedValueOffsets(0, length, valueOffsets));
         // sliced values buffer second
-        this.addBuffer(values.subarray(firstOffset + offset, firstOffset + offset + byteLength));
+        this.addBuffer(values.subarray(firstOffset, firstOffset + byteLength));
         return this;
     }
     protected visitListVector<T extends SingleNestedType>(vector: Vector<T>) {
         const { data, length } = vector;
-        const { offset, valueOffsets } = <any> data;
+        const { valueOffsets } = <any> data;
         // If we have valueOffsets (ListVector), push that buffer first
         if (valueOffsets) {
-            this.addBuffer(this.getZeroBasedValueOffsets(offset, length, valueOffsets));
+            this.addBuffer(this.getZeroBasedValueOffsets(0, length, valueOffsets));
         }
         // Then insert the List's values child
         return this.visit((vector as any as ListVector<T>).getChildAt(0)!);

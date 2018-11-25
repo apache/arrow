@@ -19,11 +19,13 @@
 #define ARROW_BUFFER_H
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -123,6 +125,39 @@ class ARROW_EXPORT Buffer {
   /// using the default memory pool
   static Status FromString(const std::string& data, std::shared_ptr<Buffer>* out);
 
+  /// \brief Construct an immutable buffer that takes ownership of the contents
+  /// of an std::string
+  /// \param[in] data an rvalue-reference of a string
+  /// \return a new Buffer instance
+  static std::shared_ptr<Buffer> FromString(std::string&& data);
+
+  /// \brief Create buffer referencing typed memory with some length without
+  /// copying
+  /// \param[in] data the typed memory as C array
+  /// \param[in] length the number of values in the array
+  /// \return a new shared_ptr<Buffer>
+  template <typename T, typename SizeType = int64_t>
+  static std::shared_ptr<Buffer> Wrap(const T* data, SizeType length) {
+    return std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(data),
+                                    static_cast<int64_t>(sizeof(T) * length));
+  }
+
+  /// \brief Create buffer referencing std::vector with some length without
+  /// copying
+  /// \param[in] data the vector to be referenced. If this vector is changed,
+  /// the buffer may become invalid
+  /// \return a new shared_ptr<Buffer>
+  template <typename T>
+  static std::shared_ptr<Buffer> Wrap(const std::vector<T>& data) {
+    return std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(data.data()),
+                                    static_cast<int64_t>(sizeof(T) * data.size()));
+  }
+
+  /// \brief Copy buffer contents into a new std::string
+  /// \return std::string
+  /// \note Can throw std::bad_alloc if buffer is large
+  std::string ToString() const;
+
   int64_t capacity() const { return capacity_; }
   const uint8_t* data() const { return data_; }
 
@@ -184,6 +219,16 @@ class ARROW_EXPORT MutableBuffer : public Buffer {
 
   MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_t offset,
                 const int64_t size);
+
+  /// \brief Create buffer referencing typed memory with some length
+  /// \param[in] data the typed memory as C array
+  /// \param[in] length the number of values in the array
+  /// \return a new shared_ptr<Buffer>
+  template <typename T, typename SizeType = int64_t>
+  static std::shared_ptr<Buffer> Wrap(T* data, SizeType length) {
+    return std::make_shared<MutableBuffer>(reinterpret_cast<uint8_t*>(data),
+                                           static_cast<int64_t>(sizeof(T) * length));
+  }
 
  protected:
   MutableBuffer() : Buffer(NULLPTR, 0) {}
@@ -345,9 +390,9 @@ class ARROW_EXPORT BufferBuilder {
     int64_t old_capacity = capacity_;
 
     if (buffer_ == NULLPTR) {
-      RETURN_NOT_OK(AllocateResizableBuffer(pool_, elements, &buffer_));
+      ARROW_RETURN_NOT_OK(AllocateResizableBuffer(pool_, elements, &buffer_));
     } else {
-      RETURN_NOT_OK(buffer_->Resize(elements, shrink_to_fit));
+      ARROW_RETURN_NOT_OK(buffer_->Resize(elements, shrink_to_fit));
     }
     capacity_ = buffer_->capacity();
     data_ = buffer_->mutable_data();
@@ -367,7 +412,7 @@ class ARROW_EXPORT BufferBuilder {
   Status Append(const void* data, int64_t length) {
     if (capacity_ < length + size_) {
       int64_t new_capacity = BitUtil::NextPower2(length + size_);
-      RETURN_NOT_OK(Resize(new_capacity));
+      ARROW_RETURN_NOT_OK(Resize(new_capacity));
     }
     UnsafeAppend(data, length);
     return Status::OK();
@@ -378,7 +423,7 @@ class ARROW_EXPORT BufferBuilder {
     constexpr auto nbytes = static_cast<int64_t>(NBYTES);
     if (capacity_ < nbytes + size_) {
       int64_t new_capacity = BitUtil::NextPower2(nbytes + size_);
-      RETURN_NOT_OK(Resize(new_capacity));
+      ARROW_RETURN_NOT_OK(Resize(new_capacity));
     }
 
     std::copy(data.cbegin(), data.cend(), data_ + size_);
@@ -390,7 +435,7 @@ class ARROW_EXPORT BufferBuilder {
   Status Advance(const int64_t length) {
     if (capacity_ < length + size_) {
       int64_t new_capacity = BitUtil::NextPower2(length + size_);
-      RETURN_NOT_OK(Resize(new_capacity));
+      ARROW_RETURN_NOT_OK(Resize(new_capacity));
     }
     memset(data_ + size_, 0, static_cast<size_t>(length));
     size_ += length;
@@ -404,7 +449,7 @@ class ARROW_EXPORT BufferBuilder {
   }
 
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
-    RETURN_NOT_OK(Resize(size_, shrink_to_fit));
+    ARROW_RETURN_NOT_OK(Resize(size_, shrink_to_fit));
     *out = buffer_;
     Reset();
     return Status::OK();

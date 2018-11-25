@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -49,9 +48,9 @@ public class Text {
       new ThreadLocal<CharsetEncoder>() {
         @Override
         protected CharsetEncoder initialValue() {
-          return Charset.forName("UTF-8").newEncoder().
-              onMalformedInput(CodingErrorAction.REPORT).
-              onUnmappableCharacter(CodingErrorAction.REPORT);
+          return Charset.forName("UTF-8").newEncoder()
+              .onMalformedInput(CodingErrorAction.REPORT)
+              .onUnmappableCharacter(CodingErrorAction.REPORT);
         }
       };
 
@@ -59,9 +58,9 @@ public class Text {
       new ThreadLocal<CharsetDecoder>() {
         @Override
         protected CharsetDecoder initialValue() {
-          return Charset.forName("UTF-8").newDecoder().
-              onMalformedInput(CodingErrorAction.REPORT).
-              onUnmappableCharacter(CodingErrorAction.REPORT);
+          return Charset.forName("UTF-8").newDecoder()
+              .onMalformedInput(CodingErrorAction.REPORT)
+              .onUnmappableCharacter(CodingErrorAction.REPORT);
         }
       };
 
@@ -455,7 +454,7 @@ public class Text {
     return bytes;
   }
 
-  static final public int DEFAULT_MAX_LEN = 1024 * 1024;
+  public static final int DEFAULT_MAX_LEN = 1024 * 1024;
 
   // //// states for validateUTF8
 
@@ -602,29 +601,35 @@ public class Text {
       case 5:
         ch += (bytes.get() & 0xFF);
         ch <<= 6; /* remember, illegal UTF-8 */
+        // fall through
       case 4:
         ch += (bytes.get() & 0xFF);
         ch <<= 6; /* remember, illegal UTF-8 */
+        // fall through
       case 3:
         ch += (bytes.get() & 0xFF);
         ch <<= 6;
+        // fall through
       case 2:
         ch += (bytes.get() & 0xFF);
         ch <<= 6;
+        // fall through
       case 1:
         ch += (bytes.get() & 0xFF);
         ch <<= 6;
+        // fall through
       case 0:
         ch += (bytes.get() & 0xFF);
+        break;
+      default:  // do nothing
     }
     ch -= offsetsFromUTF8[extraBytesToRead];
 
     return ch;
   }
 
-  static final int offsetsFromUTF8[] =
-      {0x00000000, 0x00003080,
-          0x000E2080, 0x03C82080, 0xFA082080, 0x82082080};
+  static final int[] offsetsFromUTF8 =
+      {0x00000000, 0x00003080, 0x000E2080, 0x03C82080, 0xFA082080, 0x82082080};
 
   /**
    * For the given string, returns the number of UTF-8 bytes required to encode the string.

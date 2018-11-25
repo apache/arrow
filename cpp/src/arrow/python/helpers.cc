@@ -33,6 +33,9 @@
 #include <arrow/api.h>
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace py {
 
 #define GET_PRIMITIVE_TYPE(NAME, FACTORY) \

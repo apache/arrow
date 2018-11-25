@@ -41,7 +41,7 @@ namespace json {
 /// \brief Write the JSON representation of an Arrow record batch file or stream
 ///
 /// This is used for integration testing
-class JsonWriter {
+class ARROW_EXPORT JsonWriter {
  public:
   ~JsonWriter();
 
@@ -74,7 +74,7 @@ class JsonWriter {
 /// \brief Read the JSON representation of an Arrow record batch file or stream
 ///
 /// This is used for integration testing
-class JsonReader {
+class ARROW_EXPORT JsonReader {
  public:
   ~JsonReader();
 

@@ -724,6 +724,13 @@ struct RowGroup {
    * The sorting columns can be a subset of all the columns.
    */
   4: optional list<SortingColumn> sorting_columns
+
+  /** Byte offset from beginning of file to first page (data or dictionary)
+   * in this row group **/
+  5: optional i64 file_offset
+
+  /** Total byte size of all compressed column data in this row group **/
+  6: optional i64 total_compressed_size
 }
 
 /** Empty struct to signal the order defined by the physical or logical type */
@@ -891,11 +898,21 @@ struct FileMetaData {
 struct AesGcmV1 {
   /** Retrieval metadata of AAD used for encryption of pages and structures **/
   1: optional binary aad_metadata
+
+  /** If file IVs are comprised of a fixed part, and variable parts
+   *  (e.g. counter), keep the fixed part here **/
+  2: optional binary iv_prefix
 }
 
 struct AesGcmCtrV1 {
   /** Retrieval metadata of AAD used for encryption of structures **/
   1: optional binary aad_metadata
+
+  /** If file IVs are comprised of a fixed part, and variable parts
+   *  (e.g. counter), keep the fixed part here **/
+  2: optional binary gcm_iv_prefix
+
+  3: optional binary ctr_iv_prefix
 }
 
 union EncryptionAlgorithm {
@@ -915,9 +932,4 @@ struct FileCryptoMetaData {
 
   /** Offset of Parquet footer (encrypted, or plaintext) **/
   4: required i64 footer_offset
-
-  /** If file IVs are comprised of a fixed part,
-   *  and variable parts (random or counter), keep the fixed
-   *  part here **/
-  5: optional binary iv_prefix
 }

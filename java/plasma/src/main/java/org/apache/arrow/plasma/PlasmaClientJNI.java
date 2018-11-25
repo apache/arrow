@@ -1,14 +1,13 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * <p>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,27 +24,29 @@ import java.nio.ByteBuffer;
  */
 public class PlasmaClientJNI {
 
-  native public static long connect(String store_socket_name, String manager_socket_name, int release_delay);
+  public static native long connect(String storeSocketName, String managerSocketName, int releaseDelay);
 
-  native public static void disconnect(long conn);
+  public static native void disconnect(long conn);
 
-  native public static ByteBuffer create(long conn, byte[] object_id, int size, byte[] metadata);
+  public static native ByteBuffer create(long conn, byte[] objectId, int size, byte[] metadata);
 
-  native public static byte[] hash(long conn, byte[] object_id);
+  public static native byte[] hash(long conn, byte[] objectId);
 
-  native public static void seal(long conn, byte[] object_id);
+  public static native void seal(long conn, byte[] objectId);
 
-  native public static void release(long conn, byte[] object_id);
+  public static native void release(long conn, byte[] objectId);
 
-  native public static ByteBuffer[][] get(long conn, byte[][] object_ids, int timeout_ms);
+  public static native ByteBuffer[][] get(long conn, byte[][] objectIds, int timeoutMs);
+  
+  public static native void delete(long conn, byte[] objectId);
 
-  native public static boolean contains(long conn, byte[] object_id);
+  public static native boolean contains(long conn, byte[] objectId);
 
-  native public static void fetch(long conn, byte[][] object_ids);
+  public static native void fetch(long conn, byte[][] objectIds);
 
-  native public static byte[][] wait(long conn, byte[][] object_ids, int timeout_ms,
-      int num_returns);
+  public static native byte[][] wait(long conn, byte[][] objectIds, int timeoutMs,
+      int numReturns);
 
-  native public static long evict(long conn, long num_bytes);
+  public static native long evict(long conn, long numBytes);
 
 }

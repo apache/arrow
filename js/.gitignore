@@ -24,8 +24,6 @@ yarn-debug.log*
 yarn-error.log*
 
 .vscode
-yarn.lock
-package-lock.json
 
 # Runtime data
 pids
@@ -63,7 +61,6 @@ jspm_packages/
 
 # JS package manager files
 yarn.lock
-package-lock.json
 
 # Optional eslint cache
 .eslintcache

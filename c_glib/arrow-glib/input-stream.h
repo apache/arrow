@@ -22,6 +22,7 @@
 #include <gio/gio.h>
 
 #include <arrow-glib/buffer.h>
+#include <arrow-glib/codec.h>
 #include <arrow-glib/tensor.h>
 
 G_BEGIN_DECLS
@@ -36,6 +37,15 @@ struct _GArrowInputStreamClass
 {
   GObjectClass parent_class;
 };
+
+gboolean garrow_input_stream_advance(GArrowInputStream *input_stream,
+                                     gint64 n_bytes,
+                                     GError **error);
+gboolean garrow_input_stream_align(GArrowInputStream *input_stream,
+                                   gint32 alignment,
+                                   GError **error);
+GArrowTensor *garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
+                                              GError **error);
 
 #define GARROW_TYPE_SEEKABLE_INPUT_STREAM       \
   (garrow_seekable_input_stream_get_type())
@@ -56,9 +66,6 @@ GArrowBuffer *garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *in
                                                    gint64 position,
                                                    gint64 n_bytes,
                                                    GError **error);
-GArrowTensor *garrow_seekable_input_stream_read_tensor(GArrowSeekableInputStream *input_stream,
-                                                       gint64 position,
-                                                       GError **error);
 
 
 #define GARROW_TYPE_BUFFER_INPUT_STREAM         \
@@ -175,6 +182,27 @@ struct _GArrowGIOInputStreamClass
 GType garrow_gio_input_stream_get_type(void) G_GNUC_CONST;
 
 GArrowGIOInputStream *garrow_gio_input_stream_new(GInputStream *gio_input_stream);
-GInputStream *garrow_gio_input_stream_get_raw(GArrowGIOInputStream *input_stream);
+#ifndef GARROW_DISABLE_DEPRECATED
+G_GNUC_DEPRECATED
+GInputStream *
+garrow_gio_input_stream_get_raw(GArrowGIOInputStream *input_stream);
+#endif
+
+#define GARROW_TYPE_COMPRESSED_INPUT_STREAM     \
+  (garrow_compressed_input_stream_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowCompressedInputStream,
+                         garrow_compressed_input_stream,
+                         GARROW,
+                         COMPRESSED_INPUT_STREAM,
+                         GArrowInputStream)
+struct _GArrowCompressedInputStreamClass
+{
+  GArrowInputStreamClass parent_class;
+};
+
+GArrowCompressedInputStream *
+garrow_compressed_input_stream_new(GArrowCodec *codec,
+                                   GArrowInputStream *raw,
+                                   GError **error);
 
 G_END_DECLS

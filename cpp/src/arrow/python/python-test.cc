@@ -33,6 +33,9 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace py {
 
 TEST(PyBuffer, InvalidInputObject) {

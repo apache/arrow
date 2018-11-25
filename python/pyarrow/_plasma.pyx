@@ -18,6 +18,7 @@
 # cython: profile=False
 # distutils: language = c++
 # cython: embedsignature = True
+# cython: language_level = 3
 
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
@@ -109,6 +110,9 @@ cdef extern from "plasma/client.h" nogil:
         CStatus Create(const CUniqueID& object_id, int64_t data_size,
                        const uint8_t* metadata, int64_t metadata_size,
                        const shared_ptr[CBuffer]* data)
+
+        CStatus CreateAndSeal(const CUniqueID& object_id, const c_string& data,
+                              const c_string& metadata)
 
         CStatus Get(const c_vector[CUniqueID] object_ids, int64_t timeout_ms,
                     c_vector[CObjectBuffer]* object_buffers)
@@ -279,8 +283,8 @@ cdef class PlasmaClient:
     def __cinit__(self):
         self.client.reset(new CPlasmaClient())
         self.notification_fd = -1
-        self.store_socket_name = ""
-        self.manager_socket_name = ""
+        self.store_socket_name = b""
+        self.manager_socket_name = b""
 
     cdef _get_object_buffers(self, object_ids, int64_t timeout_ms,
                              c_vector[CObjectBuffer]* result):
@@ -344,7 +348,36 @@ cdef class PlasmaClient:
                                                 data.get().mutable_data(),
                                                 data_size)
 
-    def get_buffers(self, object_ids, timeout_ms=-1):
+    def create_and_seal(self, ObjectID object_id, c_string data,
+                        c_string metadata=b""):
+        """
+        Store a new object in the PlasmaStore for a particular object ID.
+
+        Parameters
+        ----------
+        object_id : ObjectID
+            The object ID used to identify an object.
+        data : bytes
+            The object to store.
+        metadata : bytes
+            An optional string of bytes encoding whatever metadata the user
+            wishes to encode.
+
+        Raises
+        ------
+        PlasmaObjectExists
+            This exception is raised if the object could not be created because
+            there already is an object with the same ID in the plasma store.
+
+        PlasmaStoreFull: This exception is raised if the object could
+                not be created because the plasma store is unable to evict
+                enough objects to create room for it.
+        """
+        with nogil:
+            check_status(self.client.get().CreateAndSeal(object_id.data, data,
+                                                         metadata))
+
+    def get_buffers(self, object_ids, timeout_ms=-1, with_meta=False):
         """
         Returns data buffer from the PlasmaStore based on object ID.
 
@@ -363,17 +396,28 @@ cdef class PlasmaClient:
         Returns
         -------
         list
-            List of PlasmaBuffers for the data associated with the object_ids
-            and None if the object was not available.
+            If with_meta=False, this is a list of PlasmaBuffers for the data
+            associated with the object_ids and None if the object was not
+            available. If with_meta=True, this is a list of tuples of
+            PlasmaBuffer and metadata bytes.
         """
         cdef c_vector[CObjectBuffer] object_buffers
         self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
         result = []
         for i in range(object_buffers.size()):
             if object_buffers[i].data.get() != nullptr:
-                result.append(pyarrow_wrap_buffer(object_buffers[i].data))
+                data = pyarrow_wrap_buffer(object_buffers[i].data)
             else:
-                result.append(None)
+                data = None
+            if not with_meta:
+                result.append(data)
+            else:
+                if object_buffers[i].metadata.get() != nullptr:
+                    size = object_buffers[i].metadata.get().size()
+                    metadata = object_buffers[i].metadata.get().data()[:size]
+                else:
+                    metadata = None
+                result.append((metadata, data))
         return result
 
     def get_metadata(self, object_ids, timeout_ms=-1):
@@ -407,6 +451,39 @@ cdef class PlasmaClient:
             else:
                 result.append(None)
         return result
+
+    def put_raw_buffer(self, object value, ObjectID object_id=None,
+                       c_string metadata=b"", int memcopy_threads=6):
+        """
+        Store Python buffer into the object store.
+
+        Parameters
+        ----------
+        value : Python object that implements the buffer protocol
+            A Python buffer object to store.
+        object_id : ObjectID, default None
+            If this is provided, the specified object ID will be used to refer
+            to the object.
+        metadata : bytes
+            An optional string of bytes encoding whatever metadata the user
+            wishes to encode.
+        memcopy_threads : int, default 6
+            The number of threads to use to write the serialized object into
+            the object store for large objects.
+
+        Returns
+        -------
+        The object ID associated to the Python buffer object.
+        """
+        cdef ObjectID target_id = (object_id if object_id
+                                   else ObjectID.from_random())
+        cdef Buffer arrow_buffer = pyarrow.py_buffer(value)
+        write_buffer = self.create(target_id, len(value), metadata)
+        stream = pyarrow.FixedSizeBufferWriter(write_buffer)
+        stream.set_memcopy_threads(memcopy_threads)
+        stream.write(arrow_buffer)
+        self.seal(target_id)
+        return target_id
 
     def put(self, object value, ObjectID object_id=None, int memcopy_threads=6,
             serialization_context=None):

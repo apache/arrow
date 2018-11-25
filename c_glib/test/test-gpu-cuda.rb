@@ -94,7 +94,7 @@ end
 
   sub_test_case("HostBuffer") do
     def test_new
-      buffer = ArrowGPU::CUDAHostBuffer.new(128)
+      buffer = ArrowGPU::CUDAHostBuffer.new(0, 128)
       assert_equal(128, buffer.size)
     end
   end

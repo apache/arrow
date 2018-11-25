@@ -51,7 +51,8 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   /// \param[out] out conversion result
   /// \return Status
   ///
-  /// This function returns an error if the buffer isn't backed by GPU memory
+  /// \note This function returns an error if the buffer isn't backed
+  /// by GPU memory
   static Status FromBuffer(std::shared_ptr<Buffer> buffer,
                            std::shared_ptr<CudaBuffer>* out);
 
@@ -66,6 +67,16 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   /// \param[in] nbytes number of bytes to copy
   /// \return Status
   Status CopyFromHost(const int64_t position, const void* data, int64_t nbytes);
+
+  /// \brief Copy memory from device to device at position
+  /// \param[in] position start position to copy bytes
+  /// \param[in] data the device data to copy
+  /// \param[in] nbytes number of bytes to copy
+  /// \return Status
+  ///
+  /// \note It is assumed that both source and destination device
+  /// memories have been allocated within the same context.
+  Status CopyFromDevice(const int64_t position, const void* data, int64_t nbytes);
 
   /// \brief Expose this device buffer as IPC memory which can be used in other processes
   /// \param[out] handle the exported IPC handle
@@ -114,11 +125,13 @@ class ARROW_EXPORT CudaIpcMemHandle {
 
  private:
   explicit CudaIpcMemHandle(const void* handle);
+  CudaIpcMemHandle(int64_t memory_size, const void* cu_handle);
 
   struct CudaIpcMemHandleImpl;
   std::unique_ptr<CudaIpcMemHandleImpl> impl_;
 
   const void* handle() const;
+  int64_t memory_size() const;
 
   friend CudaBuffer;
   friend CudaContext;
@@ -154,13 +167,15 @@ class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
 
 /// \class CudaBufferWriter
 /// \brief File interface for writing to CUDA buffers, with optional buffering
-class ARROW_EXPORT CudaBufferWriter : public io::WriteableFile {
+class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
  public:
   explicit CudaBufferWriter(const std::shared_ptr<CudaBuffer>& buffer);
   ~CudaBufferWriter() override;
 
   /// \brief Close writer and flush buffered bytes to GPU
   Status Close() override;
+
+  bool closed() const override;
 
   /// \brief Flush buffered bytes to GPU
   Status Flush() override;
@@ -192,11 +207,13 @@ class ARROW_EXPORT CudaBufferWriter : public io::WriteableFile {
 };
 
 /// \brief Allocate CUDA-accessible memory on CPU host
+/// \param[in] device_number
 /// \param[in] size number of bytes
 /// \param[out] out the allocated buffer
 /// \return Status
 ARROW_EXPORT
-Status AllocateCudaHostBuffer(const int64_t size, std::shared_ptr<CudaHostBuffer>* out);
+Status AllocateCudaHostBuffer(int device_number, const int64_t size,
+                              std::shared_ptr<CudaHostBuffer>* out);
 
 }  // namespace gpu
 }  // namespace arrow

@@ -17,11 +17,10 @@
 
 // Functions for pandas conversion via NumPy
 
-#include "arrow/python/numpy_interop.h"
+#include "arrow/python/numpy_interop.h"  // IWYU pragma: expand
 
 #include "arrow/python/arrow_to_pandas.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -31,13 +30,12 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/type_fwd.h"
+#include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parallel.h"
@@ -56,6 +54,12 @@
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {
+
+class MemoryPool;
+
+using internal::checked_cast;
+using internal::ParallelFor;
+
 namespace py {
 
 using internal::kNanosecondsInDay;
@@ -72,22 +76,22 @@ struct WrapBytes {};
 
 template <>
 struct WrapBytes<StringArray> {
-  static inline PyObject* Wrap(const uint8_t* data, int64_t length) {
-    return PyUnicode_FromStringAndSize(reinterpret_cast<const char*>(data), length);
+  static inline PyObject* Wrap(const char* data, int64_t length) {
+    return PyUnicode_FromStringAndSize(data, length);
   }
 };
 
 template <>
 struct WrapBytes<BinaryArray> {
-  static inline PyObject* Wrap(const uint8_t* data, int64_t length) {
-    return PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), length);
+  static inline PyObject* Wrap(const char* data, int64_t length) {
+    return PyBytes_FromStringAndSize(data, length);
   }
 };
 
 template <>
 struct WrapBytes<FixedSizeBinaryArray> {
-  static inline PyObject* Wrap(const uint8_t* data, int64_t length) {
-    return PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), length);
+  static inline PyObject* Wrap(const char* data, int64_t length) {
+    return PyBytes_FromStringAndSize(data, length);
   }
 };
 
@@ -105,6 +109,10 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::DOUBLE:
     case Type::BINARY:
     case Type::STRING:
+    case Type::DATE32:
+    case Type::DATE64:
+    case Type::TIME32:
+    case Type::TIME64:
     case Type::TIMESTAMP:
     case Type::NA:  // empty list
       // The above types are all supported.
@@ -396,21 +404,18 @@ inline Status ConvertBinaryLike(PandasOptions options, const ChunkedArray& data,
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = checked_cast<const ArrayType&>(*data.chunk(c));
 
-    const uint8_t* data_ptr;
-    int32_t length;
     const bool has_nulls = data.null_count() > 0;
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (has_nulls && arr.IsNull(i)) {
         Py_INCREF(Py_None);
         *out_values = Py_None;
       } else {
-        data_ptr = arr.GetValue(i, &length);
-        *out_values = WrapBytes<ArrayType>::Wrap(data_ptr, length);
+        auto view = arr.GetView(i);
+        *out_values = WrapBytes<ArrayType>::Wrap(view.data(), view.length());
         if (*out_values == nullptr) {
           PyErr_Clear();
           std::stringstream ss;
-          ss << "Wrapping "
-             << std::string(reinterpret_cast<const char*>(data_ptr), length) << " failed";
+          ss << "Wrapping " << view << " failed";
           return Status::UnknownError(ss.str());
         }
       }
@@ -430,37 +435,6 @@ inline Status ConvertNulls(PandasOptions options, const ChunkedArray& data,
       // All values are null
       Py_INCREF(Py_None);
       *out_values = Py_None;
-      ++out_values;
-    }
-  }
-  return Status::OK();
-}
-
-inline Status ConvertFixedSizeBinary(PandasOptions options, const ChunkedArray& data,
-                                     PyObject** out_values) {
-  PyAcquireGIL lock;
-  for (int c = 0; c < data.num_chunks(); c++) {
-    auto arr = checked_cast<FixedSizeBinaryArray*>(data.chunk(c).get());
-
-    const uint8_t* data_ptr;
-    int32_t length =
-        std::dynamic_pointer_cast<FixedSizeBinaryType>(arr->type())->byte_width();
-    const bool has_nulls = data.null_count() > 0;
-    for (int64_t i = 0; i < arr->length(); ++i) {
-      if (has_nulls && arr->IsNull(i)) {
-        Py_INCREF(Py_None);
-        *out_values = Py_None;
-      } else {
-        data_ptr = arr->GetValue(i);
-        *out_values = WrapBytes<FixedSizeBinaryArray>::Wrap(data_ptr, length);
-        if (*out_values == nullptr) {
-          PyErr_Clear();
-          std::stringstream ss;
-          ss << "Wrapping "
-             << std::string(reinterpret_cast<const char*>(data_ptr), length) << " failed";
-          return Status::UnknownError(ss.str());
-        }
-      }
       ++out_values;
     }
   }
@@ -633,6 +607,37 @@ inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) 
 }
 
 template <typename TYPE>
+static Status ConvertDates(PandasOptions options, const ChunkedArray& data,
+                           PyObject** out_values) {
+  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
+
+  PyAcquireGIL lock;
+  OwnedRef date_ref;
+
+  PyDateTime_IMPORT;
+
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = checked_cast<const ArrayType&>(*data.chunk(c));
+    auto type = std::dynamic_pointer_cast<TYPE>(arr.type());
+    DCHECK(type);
+
+    const DateUnit unit = type->unit();
+
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsNull(i)) {
+        Py_INCREF(Py_None);
+        *out_values++ = Py_None;
+      } else {
+        RETURN_NOT_OK(PyDate_from_int(arr.Value(i), unit, out_values++));
+        RETURN_IF_PYERROR();
+      }
+    }
+  }
+
+  return Status::OK();
+}
+
+template <typename TYPE>
 static Status ConvertTimes(PandasOptions options, const ChunkedArray& data,
                            PyObject** out_values) {
   using ArrayType = typename TypeTraits<TYPE>::ArrayType;
@@ -732,7 +737,11 @@ class ObjectBlock : public PandasBlock {
     } else if (type == Type::STRING) {
       RETURN_NOT_OK(ConvertBinaryLike<StringType>(options_, data, out_buffer));
     } else if (type == Type::FIXED_SIZE_BINARY) {
-      RETURN_NOT_OK(ConvertFixedSizeBinary(options_, data, out_buffer));
+      RETURN_NOT_OK(ConvertBinaryLike<FixedSizeBinaryType>(options_, data, out_buffer));
+    } else if (type == Type::DATE32) {
+      RETURN_NOT_OK(ConvertDates<Date32Type>(options_, data, out_buffer));
+    } else if (type == Type::DATE64) {
+      RETURN_NOT_OK(ConvertDates<Date64Type>(options_, data, out_buffer));
     } else if (type == Type::TIME32) {
       RETURN_NOT_OK(ConvertTimes<Time32Type>(options_, data, out_buffer));
     } else if (type == Type::TIME64) {
@@ -752,6 +761,10 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(Int32Type, INT32)
         CONVERTLISTSLIKE_CASE(UInt64Type, UINT64)
         CONVERTLISTSLIKE_CASE(Int64Type, INT64)
+        CONVERTLISTSLIKE_CASE(Date32Type, DATE32)
+        CONVERTLISTSLIKE_CASE(Date64Type, DATE64)
+        CONVERTLISTSLIKE_CASE(Time32Type, TIME32)
+        CONVERTLISTSLIKE_CASE(Time64Type, TIME64)
         CONVERTLISTSLIKE_CASE(TimestampType, TIMESTAMP)
         CONVERTLISTSLIKE_CASE(FloatType, FLOAT)
         CONVERTLISTSLIKE_CASE(DoubleType, DOUBLE)
@@ -1322,10 +1335,8 @@ static Status GetPandasBlockType(const Column& col, const PandasOptions& options
       *output_type = PandasBlock::OBJECT;
       break;
     case Type::DATE32:
-      *output_type = PandasBlock::DATETIME;
-      break;
     case Type::DATE64:
-      *output_type = PandasBlock::DATETIME;
+      *output_type = options.date_as_object ? PandasBlock::OBJECT : PandasBlock::DATETIME;
       break;
     case Type::TIMESTAMP: {
       const auto& ts_type = checked_cast<const TimestampType&>(*col.type());
@@ -1660,12 +1671,43 @@ class ArrowDeserializer {
   }
 
   template <typename Type>
-  typename std::enable_if<std::is_base_of<DateType, Type>::value ||
-                              std::is_base_of<TimestampType, Type>::value,
-                          Status>::type
+  typename std::enable_if<std::is_base_of<TimestampType, Type>::value, Status>::type
   Visit(const Type& type) {
     if (options_.zero_copy_only) {
       return Status::Invalid("Copy Needed, but zero_copy_only was True");
+    }
+
+    constexpr int TYPE = Type::type_id;
+    using traits = internal::arrow_traits<TYPE>;
+    using c_type = typename Type::c_type;
+
+    typedef typename traits::T T;
+
+    RETURN_NOT_OK(AllocateOutput(traits::npy_type));
+    auto out_values = reinterpret_cast<T*>(PyArray_DATA(arr_));
+
+    constexpr T na_value = traits::na_value;
+    constexpr int64_t kShift = traits::npy_shift;
+
+    for (int c = 0; c < data_.num_chunks(); c++) {
+      const auto& arr = *data_.chunk(c);
+      const c_type* in_values = GetPrimitiveValues<c_type>(arr);
+
+      for (int64_t i = 0; i < arr.length(); ++i) {
+        *out_values++ = arr.IsNull(i) ? na_value : static_cast<T>(in_values[i]) / kShift;
+      }
+    }
+    return Status::OK();
+  }
+
+  template <typename Type>
+  typename std::enable_if<std::is_base_of<DateType, Type>::value, Status>::type Visit(
+      const Type& type) {
+    if (options_.zero_copy_only) {
+      return Status::Invalid("Copy Needed, but zero_copy_only was True");
+    }
+    if (options_.date_as_object) {
+      return VisitObjects(ConvertDates<Type>);
     }
 
     constexpr int TYPE = Type::type_id;
@@ -1744,19 +1786,19 @@ class ArrowDeserializer {
     return func(options_, data_, out_values);
   }
 
-  // UTF8 strings
+  // Strings and binary
   template <typename Type>
   typename std::enable_if<std::is_base_of<BinaryType, Type>::value, Status>::type Visit(
       const Type& type) {
     return VisitObjects(ConvertBinaryLike<Type>);
   }
 
-  Status Visit(const NullType& type) { return VisitObjects(ConvertNulls); }
-
   // Fixed length binary strings
   Status Visit(const FixedSizeBinaryType& type) {
-    return VisitObjects(ConvertFixedSizeBinary);
+    return VisitObjects(ConvertBinaryLike<FixedSizeBinaryType>);
   }
+
+  Status Visit(const NullType& type) { return VisitObjects(ConvertNulls); }
 
   Status Visit(const Decimal128Type& type) { return VisitObjects(ConvertDecimals); }
 
@@ -1800,6 +1842,10 @@ class ArrowDeserializer {
       CONVERTVALUES_LISTSLIKE_CASE(Int32Type, INT32)
       CONVERTVALUES_LISTSLIKE_CASE(UInt64Type, UINT64)
       CONVERTVALUES_LISTSLIKE_CASE(Int64Type, INT64)
+      CONVERTVALUES_LISTSLIKE_CASE(Date32Type, DATE32)
+      CONVERTVALUES_LISTSLIKE_CASE(Date64Type, DATE64)
+      CONVERTVALUES_LISTSLIKE_CASE(Time32Type, TIME32)
+      CONVERTVALUES_LISTSLIKE_CASE(Time64Type, TIME64)
       CONVERTVALUES_LISTSLIKE_CASE(TimestampType, TIMESTAMP)
       CONVERTVALUES_LISTSLIKE_CASE(FloatType, FLOAT)
       CONVERTVALUES_LISTSLIKE_CASE(DoubleType, DOUBLE)
@@ -1827,6 +1873,11 @@ class ArrowDeserializer {
     PyDict_SetItemString(result_, "indices", block->block_arr());
     RETURN_IF_PYERROR();
     PyDict_SetItemString(result_, "dictionary", block->dictionary());
+    RETURN_IF_PYERROR();
+
+    PyObject* py_ordered = type.ordered() ? Py_True : Py_False;
+    Py_INCREF(py_ordered);
+    PyDict_SetItemString(result_, "ordered", py_ordered);
     RETURN_IF_PYERROR();
 
     return Status::OK();

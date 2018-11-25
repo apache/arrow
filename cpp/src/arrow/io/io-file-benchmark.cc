@@ -41,6 +41,8 @@ std::string GetNullFile() { return "/dev/null"; }
 const std::valarray<int64_t> small_sizes = {8, 24, 33, 1, 32, 192, 16, 40};
 const std::valarray<int64_t> large_sizes = {8192, 100000};
 
+constexpr int64_t kBufferSize = 4096;
+
 class BackgroundReader {
   // A class that reads data in the background from a file descriptor
 
@@ -157,11 +159,12 @@ static void BM_FileOutputStreamSmallWritesToNull(
 
 static void BM_BufferedOutputStreamSmallWritesToNull(
     benchmark::State& state) {  // NOLINT non-const reference
-  std::shared_ptr<io::OutputStream> stream;
-  ABORT_NOT_OK(io::FileOutputStream::Open(GetNullFile(), &stream));
-  stream = std::make_shared<io::BufferedOutputStream>(std::move(stream));
+  std::shared_ptr<io::OutputStream> file;
+  ABORT_NOT_OK(io::FileOutputStream::Open(GetNullFile(), &file));
 
-  BenchmarkStreamingWrites(state, small_sizes, stream.get());
+  std::shared_ptr<io::BufferedOutputStream> buffered_file;
+  ABORT_NOT_OK(io::BufferedOutputStream::Create(file, kBufferSize, &buffered_file));
+  BenchmarkStreamingWrites(state, small_sizes, buffered_file.get());
 }
 
 // Benchmark writing a pipe
@@ -191,9 +194,10 @@ static void BM_BufferedOutputStreamSmallWritesToPipe(
   std::shared_ptr<io::OutputStream> stream;
   std::shared_ptr<BackgroundReader> reader;
   SetupPipeWriter(&stream, &reader);
-  stream = std::make_shared<io::BufferedOutputStream>(std::move(stream));
 
-  BenchmarkStreamingWrites(state, small_sizes, stream.get(), reader.get());
+  std::shared_ptr<io::BufferedOutputStream> buffered_stream;
+  ABORT_NOT_OK(io::BufferedOutputStream::Create(stream, kBufferSize, &buffered_stream));
+  BenchmarkStreamingWrites(state, small_sizes, buffered_stream.get(), reader.get());
 }
 
 static void BM_BufferedOutputStreamLargeWritesToPipe(
@@ -201,9 +205,11 @@ static void BM_BufferedOutputStreamLargeWritesToPipe(
   std::shared_ptr<io::OutputStream> stream;
   std::shared_ptr<BackgroundReader> reader;
   SetupPipeWriter(&stream, &reader);
-  stream = std::make_shared<io::BufferedOutputStream>(std::move(stream));
 
-  BenchmarkStreamingWrites(state, large_sizes, stream.get(), reader.get());
+  std::shared_ptr<io::BufferedOutputStream> buffered_stream;
+  ABORT_NOT_OK(io::BufferedOutputStream::Create(stream, kBufferSize, &buffered_stream));
+
+  BenchmarkStreamingWrites(state, large_sizes, buffered_stream.get(), reader.get());
 }
 
 // We use real time as we don't want to count CPU time spent in the

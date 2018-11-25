@@ -38,6 +38,10 @@ libarrow_glib_la_CXXFLAGS =			\
 	$(ARROW_CFLAGS)				\
 	$(GARROW_CXXFLAGS)
 
+libarrow_glib_la_LDFLAGS =			\
+	-version-info $(LT_VERSION_INFO)	\
+	-no-undefined
+
 libarrow_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
 	$(ARROW_LIBS)
@@ -50,6 +54,7 @@ libarrow_glib_la_headers =			\
 	basic-data-type.h			\
 	buffer.h				\
 	chunked-array.h				\
+	codec.h					\
 	column.h				\
 	composite-array.h			\
 	composite-data-type.h			\
@@ -71,8 +76,8 @@ libarrow_glib_la_headers +=			\
 	input-stream.h				\
 	output-stream.h				\
 	readable.h				\
-	writeable.h				\
-	writeable-file.h
+	writable.h				\
+	writable-file.h
 
 libarrow_glib_la_headers +=			\
 	metadata-version.h			\
@@ -101,6 +106,7 @@ libarrow_glib_la_sources =			\
 	basic-data-type.cpp			\
 	buffer.cpp				\
 	chunked-array.cpp			\
+	codec.cpp				\
 	column.cpp				\
 	composite-array.cpp			\
 	composite-data-type.cpp			\
@@ -122,8 +128,8 @@ libarrow_glib_la_sources +=			\
 	input-stream.cpp			\
 	output-stream.cpp			\
 	readable.cpp				\
-	writeable.cpp				\
-	writeable-file.cpp
+	writable.cpp				\
+	writable-file.cpp
 
 libarrow_glib_la_sources +=			\
 	metadata-version.cpp			\
@@ -146,6 +152,7 @@ libarrow_glib_la_cpp_headers =			\
 	basic-data-type.hpp			\
 	buffer.hpp				\
 	chunked-array.hpp			\
+	codec.hpp				\
 	column.hpp				\
 	data-type.hpp				\
 	decimal.hpp				\
@@ -164,8 +171,8 @@ libarrow_glib_la_cpp_headers +=			\
 	input-stream.hpp			\
 	output-stream.hpp			\
 	readable.hpp				\
-	writeable.hpp				\
-	writeable-file.hpp
+	writable.hpp				\
+	writable-file.hpp
 
 libarrow_glib_la_cpp_headers +=			\
 	metadata-version.hpp			\

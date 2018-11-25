@@ -1,85 +1,83 @@
-<nav class="navbar navbar-default">
-  <div class="container-fluid">
-    <div class="navbar-header">
-      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#arrow-navbar">
-        <span class="sr-only">Toggle navigation</span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-      </button>
-      <a class="navbar-brand" href="{{ site.baseurl }}/">Apache Arrow&#8482;&nbsp;&nbsp;&nbsp;</a>
-    </div>
+<nav class="navbar navbar-expand-md navbar-dark bg-dark">
+  <a class="navbar-brand" href="{{ site.baseurl }}/">Apache Arrow&#8482;&nbsp;&nbsp;&nbsp;</a>
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
 
     <!-- Collect the nav links, forms, and other content for toggling -->
     <div class="collapse navbar-collapse" id="arrow-navbar">
       <ul class="nav navbar-nav">
-        <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown"
-             role="button" aria-haspopup="true"
-             aria-expanded="false">Project Links<span class="caret"></span>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#"
+             id="navbarDropdownProjectLinks" role="button" data-toggle="dropdown"
+             aria-haspopup="true" aria-expanded="false">
+             Project Links
           </a>
-          <ul class="dropdown-menu">
-            <li><a href="{{ site.baseurl }}/install/">Install</a></li>
-            <li><a href="{{ site.baseurl }}/blog/">Blog</a></li>
-            <li><a href="{{ site.baseurl }}/release/">Releases</a></li>
-            <li><a href="https://issues.apache.org/jira/browse/ARROW">Issue Tracker</a></li>
-            <li><a href="https://github.com/apache/arrow">Source Code</a></li>
-          </ul>
+          <div class="dropdown-menu" aria-labelledby="navbarDropdownProjectLinks">
+            <a class="dropdown-item" href="{{ site.baseurl }}/install/">Install</a>
+            <a class="dropdown-item" href="{{ site.baseurl }}/blog/">Blog</a>
+            <a class="dropdown-item" href="{{ site.baseurl }}/release/">Releases</a>
+            <a class="dropdown-item" href="https://issues.apache.org/jira/browse/ARROW">Issue Tracker</a>
+            <a class="dropdown-item" href="https://github.com/apache/arrow">Source Code</a>
+          </div>
         </li>
-        <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown"
-             role="button" aria-haspopup="true"
-             aria-expanded="false">Community<span class="caret"></span>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#"
+             id="navbarDropdownCommunity" role="button" data-toggle="dropdown"
+             aria-haspopup="true" aria-expanded="false">
+             Community
           </a>
-          <ul class="dropdown-menu">
-            <li><a href="http://mail-archives.apache.org/mod_mbox/arrow-user/">User Mailing List</a></li>
-            <li><a href="http://mail-archives.apache.org/mod_mbox/arrow-dev/">Dev Mailing List</a></li>
-            <li><a href="https://cwiki.apache.org/confluence/display/ARROW">Developer Wiki</a></li>
-            <li><a href="{{ site.baseurl }}/committers/">Committers</a></li>
-            <li><a href="{{ site.baseurl }}/powered_by/">Powered By</a></li>
-          </ul>
+          <div class="dropdown-menu" aria-labelledby="navbarDropdownCommunity">
+            <a class="dropdown-item" href="http://mail-archives.apache.org/mod_mbox/arrow-user/">User Mailing List</a>
+            <a class="dropdown-item" href="http://mail-archives.apache.org/mod_mbox/arrow-dev/">Dev Mailing List</a>
+            <a class="dropdown-item" href="https://cwiki.apache.org/confluence/display/ARROW">Developer Wiki</a>
+            <a class="dropdown-item" href="{{ site.baseurl }}/committers/">Committers</a>
+            <a class="dropdown-item" href="{{ site.baseurl }}/powered_by/">Powered By</a>
+          </div>
         </li>
-        <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown"
-             role="button" aria-haspopup="true"
-             aria-expanded="false">Specification<span class="caret"></span>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#"
+             id="navbarDropdownSpecification" role="button" data-toggle="dropdown"
+             aria-haspopup="true" aria-expanded="false">
+             Specification
           </a>
-          <ul class="dropdown-menu">
-            <li><a href="{{ site.baseurl }}/docs/memory_layout.html">Memory Layout</a></li>
-            <li><a href="{{ site.baseurl }}/docs/metadata.html">Metadata</a></li>
-            <li><a href="{{ site.baseurl }}/docs/ipc.html">Messaging / IPC</a></li>
-          </ul>
+          <div class="dropdown-menu" aria-labelledby="navbarDropdownSpecification">
+            <a class="dropdown-item" href="{{ site.baseurl }}/docs/memory_layout.html">Memory Layout</a>
+            <a class="dropdown-item" href="{{ site.baseurl }}/docs/metadata.html">Metadata</a>
+            <a class="dropdown-item" href="{{ site.baseurl }}/docs/ipc.html">Messaging / IPC</a>
+          </div>
         </li>
-
-        <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown"
-             role="button" aria-haspopup="true"
-             aria-expanded="false">Documentation<span class="caret"></span>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#"
+             id="navbarDropdownDocumentation" role="button" data-toggle="dropdown"
+             aria-haspopup="true" aria-expanded="false">
+             Documentation
           </a>
-          <ul class="dropdown-menu">
-            <li><a href="{{ site.baseurl }}/docs/python">Python</a></li>
-            <li><a href="{{ site.baseurl }}/docs/cpp">C++ API</a></li>
-            <li><a href="{{ site.baseurl }}/docs/java">Java API</a></li>
-            <li><a href="{{ site.baseurl }}/docs/c_glib">C GLib API</a></li>
-            <li><a href="{{ site.baseurl }}/docs/js">Javascript API</a></li>
-          </ul>
+          <div class="dropdown-menu" aria-labelledby="navbarDropdownDocumentation">
+            <a class="dropdown-item" href="{{ site.baseurl }}/docs/python">Python</a>
+            <a class="dropdown-item" href="{{ site.baseurl }}/docs/cpp">C++ API</a>
+            <a class="dropdown-item" href="{{ site.baseurl }}/docs/java">Java API</a>
+            <a class="dropdown-item" href="{{ site.baseurl }}/docs/c_glib">C GLib API</a>
+            <a class="dropdown-item" href="{{ site.baseurl }}/docs/js">Javascript API</a>
+          </div>
         </li>
         <!-- <li><a href="{{ site.baseurl }}/blog">Blog</a></li> -->
-        <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown"
-             role="button" aria-haspopup="true"
-             aria-expanded="false">ASF Links<span class="caret"></span>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#"
+             id="navbarDropdownASF" role="button" data-toggle="dropdown"
+             aria-haspopup="true" aria-expanded="false">
+             ASF Links
           </a>
-          <ul class="dropdown-menu">
-            <li><a href="http://www.apache.org/">ASF Website</a></li>
-            <li><a href="http://www.apache.org/licenses/">License</a></li>
-            <li><a href="http://www.apache.org/foundation/sponsorship.html">Donate</a></li>
-            <li><a href="http://www.apache.org/foundation/thanks.html">Thanks</a></li>
-            <li><a href="http://www.apache.org/security/">Security</a></li>
-          </ul>
+          <div class="dropdown-menu" aria-labelledby="navbarDropdownASF">
+            <a class="dropdown-item" href="http://www.apache.org/">ASF Website</a>
+            <a class="dropdown-item" href="http://www.apache.org/licenses/">License</a>
+            <a class="dropdown-item" href="http://www.apache.org/foundation/sponsorship.html">Donate</a>
+            <a class="dropdown-item" href="http://www.apache.org/foundation/thanks.html">Thanks</a>
+            <a class="dropdown-item" href="http://www.apache.org/security/">Security</a>
+          </div>
         </li>
       </ul>
-      <a href="http://www.apache.org/">
+      <a href="http://www.apache.org/" class="flex-row ml-md-auto">
         <img style="float:right;" src="{{ site.baseurl }}/img/asf_logo.svg" width="120px"/>
       </a>
       </div><!-- /.navbar-collapse -->

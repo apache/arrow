@@ -17,15 +17,16 @@
 
 brew "autoconf-archive"
 brew "automake"
-brew "boost", args: ["1.66.0"]
+brew "boost"
 brew "ccache"
 brew "cmake"
 brew "git"
 brew "gobject-introspection"
 brew "gtk-doc"
-brew "jemalloc"
 brew "libtool"
+brew "llvm@6"
 brew "lua"
 brew "luarocks"
 brew "ninja"
+brew "thrift"
 brew "wget"

@@ -29,7 +29,7 @@
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
-#define RETURN_NOT_OK(s)                                                            \
+#define ARROW_RETURN_NOT_OK(s)                                                      \
   do {                                                                              \
     ::arrow::Status _s = (s);                                                       \
     if (ARROW_PREDICT_FALSE(!_s.ok())) {                                            \
@@ -41,7 +41,7 @@
 
 #else
 
-#define RETURN_NOT_OK(s)                 \
+#define ARROW_RETURN_NOT_OK(s)           \
   do {                                   \
     ::arrow::Status _s = (s);            \
     if (ARROW_PREDICT_FALSE(!_s.ok())) { \
@@ -60,11 +60,21 @@
     }                                \
   } while (false)
 
-// This is used by other codebases. The macros above
-// should probably have that prefix, but there is a
-// lot of code that already uses that macro and changing
-// it would be of no benefit.
-#define ARROW_RETURN_NOT_OK(s) RETURN_NOT_OK(s)
+#define ARROW_RETURN_FAILURE_IF_FALSE(condition, status)                                 \
+  do {                                                                                   \
+    if (!(condition)) {                                                                  \
+      Status _status = (status);                                                         \
+      std::stringstream ss;                                                              \
+      ss << __FILE__ << ":" << __LINE__ << " code: " << _status.CodeAsString() << " \n " \
+         << _status.message();                                                           \
+      return Status(_status.code(), ss.str());                                           \
+    }                                                                                    \
+  } while (0)
+
+// This is an internal-use macro and should not be used in public headers.
+#ifndef RETURN_NOT_OK
+#define RETURN_NOT_OK(s) ARROW_RETURN_NOT_OK(s)
+#endif
 
 namespace arrow {
 
@@ -80,11 +90,16 @@ enum class StatusCode : char {
   NotImplemented = 10,
   SerializationError = 11,
   PythonError = 12,
+  RError = 13,
   PlasmaObjectExists = 20,
   PlasmaObjectNonexistent = 21,
   PlasmaStoreFull = 22,
   PlasmaObjectAlreadySealed = 23,
-  StillExecuting = 24
+  StillExecuting = 24,
+  // Gandiva range of errors
+  CodeGenError = 40,
+  ExpressionValidationError = 41,
+  ExecutionError = 42
 };
 
 #if defined(__clang__)
@@ -111,7 +126,7 @@ class ARROW_EXPORT Status {
   Status& operator=(const Status& s);
 
   // Move the specified status.
-  Status(Status&& s) noexcept;
+  inline Status(Status&& s) noexcept;
   Status& operator=(Status&& s) noexcept;
 
   // AND the statuses.
@@ -163,6 +178,8 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::SerializationError, msg);
   }
 
+  static Status RError(const std::string& msg) { return Status(StatusCode::RError, msg); }
+
   static Status PlasmaObjectExists(const std::string& msg) {
     return Status(StatusCode::PlasmaObjectExists, msg);
   }
@@ -181,6 +198,19 @@ class ARROW_EXPORT Status {
 
   static Status StillExecuting() { return Status(StatusCode::StillExecuting, ""); }
 
+  // Return error status of an appropriate type.
+  static Status CodeGenError(const std::string& msg) {
+    return Status(StatusCode::CodeGenError, msg);
+  }
+
+  static Status ExpressionValidationError(const std::string& msg) {
+    return Status(StatusCode::ExpressionValidationError, msg);
+  }
+
+  static Status ExecutionError(const std::string& msg) {
+    return Status(StatusCode::ExecutionError, msg);
+  }
+
   // Returns true iff the status indicates success.
   bool ok() const { return (state_ == NULL); }
 
@@ -194,6 +224,8 @@ class ARROW_EXPORT Status {
   bool IsNotImplemented() const { return code() == StatusCode::NotImplemented; }
   // An object could not be serialized or deserialized.
   bool IsSerializationError() const { return code() == StatusCode::SerializationError; }
+  // An error from R
+  bool IsRError() const { return code() == StatusCode::RError; }
   // An error is propagated from a nested Python function.
   bool IsPythonError() const { return code() == StatusCode::PythonError; }
   // An object with this object ID already exists in the plasma store.
@@ -210,6 +242,14 @@ class ARROW_EXPORT Status {
   bool IsPlasmaStoreFull() const { return code() == StatusCode::PlasmaStoreFull; }
 
   bool IsStillExecuting() const { return code() == StatusCode::StillExecuting; }
+
+  bool IsCodeGenError() const { return code() == StatusCode::CodeGenError; }
+
+  bool IsExpressionValidationError() const {
+    return code() == StatusCode::ExpressionValidationError;
+  }
+
+  bool IsExecutionError() const { return code() == StatusCode::ExecutionError; }
 
   // Return a string representation of this status suitable for printing.
   // Returns the string "OK" for success.

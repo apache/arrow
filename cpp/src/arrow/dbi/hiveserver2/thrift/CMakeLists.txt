@@ -44,10 +44,11 @@ function(HS2_THRIFT_GEN VAR)
     # All the output files we can determine based on filename.
     #   - Does not include .skeleton.cpp files
     #   - Does not include java output files
-    set(OUTPUT_BE_FILE "${GEN_DIR}/${FIL_WE}_types.cpp")
-    set(OUTPUT_BE_FILE ${OUTPUT_BE_FILE} " ${GEN_DIR}/${FIL_WE}_types.h")
-    set(OUTPUT_BE_FILE ${OUTPUT_BE_FILE} " ${GEN_DIR}/${FIL_WE}_constants.cpp")
-    set(OUTPUT_BE_FILE ${OUTPUT_BE_FILE} " ${GEN_DIR}/${FIL_WE}_constants.h")
+    set(OUTPUT_BE_FILE
+      "${GEN_DIR}/${FIL_WE}_types.cpp"
+      "${GEN_DIR}/${FIL_WE}_types.h"
+      "${GEN_DIR}/${FIL_WE}_constants.cpp"
+      "${GEN_DIR}/${FIL_WE}_constants.h")
     list(APPEND ${VAR} ${OUTPUT_BE_FILE})
 
     # BeeswaxService thrift generation

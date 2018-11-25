@@ -16,6 +16,7 @@
 # under the License.
 
 # distutils: language = c++
+# cython: language_level = 3
 
 from libc.string cimport const_char
 from libcpp.vector cimport vector as std_vector

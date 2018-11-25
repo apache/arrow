@@ -17,7 +17,6 @@
 
 /* tslint:disable:class-name */
 
-import { align } from '../util/bit';
 import { Schema, Long, MessageHeader, MetadataVersion } from '../type';
 
 export class Footer {
@@ -53,7 +52,7 @@ export class RecordBatchMetadata extends Message {
     public buffers: BufferMetadata[];
     constructor(version: MetadataVersion, length: Long | number, nodes: FieldMetadata[], buffers: BufferMetadata[], bodyLength?: Long | number) {
         if (bodyLength === void(0)) {
-            bodyLength = buffers.reduce((s, b) => align(s + b.length + (b.offset - s), 8), 0);
+            bodyLength = buffers.reduce((bodyLength, buffer) => bodyLength + buffer.length, 0);
         }
         super(version, bodyLength, MessageHeader.RecordBatch);
         this.nodes = nodes;

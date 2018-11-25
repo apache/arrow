@@ -1,14 +1,13 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * <p>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,15 +17,19 @@
 
 package org.apache.arrow.vector.types.pojo;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.arrow.util.Preconditions.checkNotNull;
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
 import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.flatbuf.Type;
@@ -40,9 +43,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 public class Field {
@@ -73,7 +73,7 @@ public class Field {
   private Field(String name, FieldType fieldType, List<Field> children, TypeLayout typeLayout) {
     this.name = name;
     this.fieldType = checkNotNull(fieldType);
-    this.children = children == null ? ImmutableList.<Field>of() : ImmutableList.copyOf(children);
+    this.children = children == null ? Collections.emptyList() : children.stream().collect(Collectors.toList());
   }
 
   // deprecated, use FieldType or static constructor instead
@@ -112,20 +112,21 @@ public class Field {
       }
       dictionary = new DictionaryEncoding(dictionaryFB.id(), dictionaryFB.isOrdered(), indexType);
     }
-    ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+    List<Field> children = new ArrayList<>();
     for (int i = 0; i < field.childrenLength(); i++) {
       Field childField = convertField(field.children(i));
       childField = mutateOriginalNameIfNeeded(field, childField);
-      childrenBuilder.add(childField);
+      children.add(childField);
     }
-    List<Field> children = childrenBuilder.build();
-    ImmutableMap.Builder<String, String> metadataBuilder = ImmutableMap.builder();
+    children = Collections.unmodifiableList(children);
+    Map<String, String> metadata = new HashMap<>();
     for (int i = 0; i < field.customMetadataLength(); i++) {
       KeyValue kv = field.customMetadata(i);
-      String key = kv.key(), value = kv.value();
-      metadataBuilder.put(key == null ? "" : key, value == null ? "" : value);
+      String key = kv.key();
+      String value = kv.value();
+      metadata.put(key == null ? "" : key, value == null ? "" : value);
     }
-    Map<String, String> metadata = metadataBuilder.build();
+    metadata = Collections.unmodifiableMap(metadata);
     return new Field(name, nullable, type, dictionary, children, metadata);
   }
 
@@ -137,8 +138,8 @@ public class Field {
    * @return original or mutated field
    */
   private static Field mutateOriginalNameIfNeeded(org.apache.arrow.flatbuf.Field field, Field originalChildField) {
-    if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList)
-        && originalChildField.getName().equals("[DEFAULT]")) {
+    if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList) &&
+        originalChildField.getName().equals("[DEFAULT]")) {
       return
         new Field(DATA_VECTOR_NAME,
           originalChildField.isNullable(),
@@ -256,7 +257,10 @@ public class Field {
       sb.append("[dictionary: ").append(getDictionary().getId()).append("]");
     }
     if (!children.isEmpty()) {
-      sb.append("<").append(Joiner.on(", ").join(children)).append(">");
+      sb.append("<").append(children.stream()
+          .map(t -> t.toString())
+          .collect(Collectors.joining(", ")))
+          .append(">");
     }
     if (!isNullable()) {
       sb.append(" not null");

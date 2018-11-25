@@ -1,13 +1,12 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +20,7 @@ package org.apache.arrow.vector.ipc;
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,8 +39,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableList;
 
 /**
  * Abstract base class for implementing Arrow writers for IPC over a WriteChannel
@@ -84,7 +82,9 @@ public abstract class ArrowWriter implements AutoCloseable {
       Dictionary dictionary = provider.lookup(id);
       FieldVector vector = dictionary.getVector();
       int count = vector.getValueCount();
-      VectorSchemaRoot dictRoot = new VectorSchemaRoot(ImmutableList.of(vector.getField()), ImmutableList.of(vector),
+      VectorSchemaRoot dictRoot = new VectorSchemaRoot(
+          Collections.singletonList(vector.getField()),
+          Collections.singletonList(vector),
           count);
       VectorUnloader unloader = new VectorUnloader(dictRoot);
       ArrowRecordBatch batch = unloader.getRecordBatch();
@@ -107,15 +107,15 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   protected ArrowBlock writeDictionaryBatch(ArrowDictionaryBatch batch) throws IOException {
     ArrowBlock block = MessageSerializer.serialize(out, batch);
-    LOGGER.debug(String.format("DictionaryRecordBatch at %d, metadata: %d, body: %d",
-        block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
+    LOGGER.debug("DictionaryRecordBatch at {}, metadata: {}, body: {}",
+        block.getOffset(), block.getMetadataLength(), block.getBodyLength());
     return block;
   }
 
   protected ArrowBlock writeRecordBatch(ArrowRecordBatch batch) throws IOException {
     ArrowBlock block = MessageSerializer.serialize(out, batch);
-    LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d",
-        block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
+    LOGGER.debug("RecordBatch at {}, metadata: {}, body: {}",
+        block.getOffset(), block.getMetadataLength(), block.getBodyLength());
     return block;
   }
 

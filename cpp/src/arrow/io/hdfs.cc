@@ -17,17 +17,23 @@
 
 #include <hdfs.h>
 
+#include <errno.h>
 #include <algorithm>
 #include <cerrno>
-#include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/io/hdfs-internal.h"
 #include "arrow/io/hdfs.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -106,6 +112,8 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     }
     return Status::OK();
   }
+
+  bool closed() const { return !is_open_; }
 
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* buffer) {
     tSize ret;
@@ -200,6 +208,8 @@ HdfsReadableFile::~HdfsReadableFile() { DCHECK(impl_->Close().ok()); }
 
 Status HdfsReadableFile::Close() { return impl_->Close(); }
 
+bool HdfsReadableFile::closed() const { return impl_->closed(); }
+
 Status HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                                 void* buffer) {
   return impl_->ReadAt(position, nbytes, bytes_read, buffer);
@@ -209,8 +219,6 @@ Status HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes,
                                 std::shared_ptr<Buffer>* out) {
   return impl_->ReadAt(position, nbytes, out);
 }
-
-bool HdfsReadableFile::supports_zero_copy() const { return false; }
 
 Status HdfsReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
   return impl_->Read(nbytes, bytes_read, buffer);
@@ -229,7 +237,7 @@ Status HdfsReadableFile::Tell(int64_t* position) const { return impl_->Tell(posi
 // ----------------------------------------------------------------------
 // File writing
 
-// Private implementation for writeable-only files
+// Private implementation for writable-only files
 class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
  public:
   HdfsOutputStreamImpl() {}
@@ -243,6 +251,8 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
     }
     return Status::OK();
   }
+
+  bool closed() const { return !is_open_; }
 
   Status Flush() {
     int ret = driver_->Flush(fs_, file_);
@@ -265,6 +275,8 @@ HdfsOutputStream::HdfsOutputStream() { impl_.reset(new HdfsOutputStreamImpl()); 
 HdfsOutputStream::~HdfsOutputStream() { DCHECK(impl_->Close().ok()); }
 
 Status HdfsOutputStream::Close() { return impl_->Close(); }
+
+bool HdfsOutputStream::closed() const { return impl_->closed(); }
 
 Status HdfsOutputStream::Write(const void* buffer, int64_t nbytes, int64_t* bytes_read) {
   return impl_->Write(buffer, nbytes, bytes_read);
@@ -475,9 +487,9 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     return Status::OK();
   }
 
-  Status OpenWriteable(const std::string& path, bool append, int32_t buffer_size,
-                       int16_t replication, int64_t default_block_size,
-                       std::shared_ptr<HdfsOutputStream>* file) {
+  Status OpenWritable(const std::string& path, bool append, int32_t buffer_size,
+                      int16_t replication, int64_t default_block_size,
+                      std::shared_ptr<HdfsOutputStream>* file) {
     int flags = O_WRONLY;
     if (append) flags |= O_APPEND;
 
@@ -594,17 +606,17 @@ Status HadoopFileSystem::OpenReadable(const std::string& path,
   return OpenReadable(path, kDefaultHdfsBufferSize, file);
 }
 
-Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
-                                       int32_t buffer_size, int16_t replication,
-                                       int64_t default_block_size,
-                                       std::shared_ptr<HdfsOutputStream>* file) {
-  return impl_->OpenWriteable(path, append, buffer_size, replication, default_block_size,
-                              file);
+Status HadoopFileSystem::OpenWritable(const std::string& path, bool append,
+                                      int32_t buffer_size, int16_t replication,
+                                      int64_t default_block_size,
+                                      std::shared_ptr<HdfsOutputStream>* file) {
+  return impl_->OpenWritable(path, append, buffer_size, replication, default_block_size,
+                             file);
 }
 
-Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
-                                       std::shared_ptr<HdfsOutputStream>* file) {
-  return OpenWriteable(path, append, 0, 0, 0, file);
+Status HadoopFileSystem::OpenWritable(const std::string& path, bool append,
+                                      std::shared_ptr<HdfsOutputStream>* file) {
+  return OpenWritable(path, append, 0, 0, 0, file);
 }
 
 Status HadoopFileSystem::Chmod(const std::string& path, int mode) {
@@ -618,6 +630,20 @@ Status HadoopFileSystem::Chown(const std::string& path, const char* owner,
 
 Status HadoopFileSystem::Rename(const std::string& src, const std::string& dst) {
   return impl_->Rename(src, dst);
+}
+
+// Deprecated in 0.11
+
+Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
+                                       int32_t buffer_size, int16_t replication,
+                                       int64_t default_block_size,
+                                       std::shared_ptr<HdfsOutputStream>* file) {
+  return OpenWritable(path, append, buffer_size, replication, default_block_size, file);
+}
+
+Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
+                                       std::shared_ptr<HdfsOutputStream>* file) {
+  return OpenWritable(path, append, 0, 0, 0, file);
 }
 
 // ----------------------------------------------------------------------

@@ -32,6 +32,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/ipc/util.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
@@ -44,6 +45,9 @@
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace py {
 
 Status CallDeserializeCallback(PyObject* context, PyObject* value,
@@ -92,10 +96,9 @@ Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
   return Status::OK();
 }
 
-Status DeserializeArray(const Array& array, int64_t offset, PyObject* base,
-                        const SerializedPyObject& blobs, PyObject** out) {
-  int32_t index = checked_cast<const Int32Array&>(array).Value(offset);
-  RETURN_NOT_OK(py::TensorToNdarray(blobs.tensors[index], base, out));
+Status DeserializeArray(int32_t index, PyObject* base, const SerializedPyObject& blobs,
+                        PyObject** out) {
+  RETURN_NOT_OK(py::TensorToNdarray(blobs.ndarrays[index], base, out));
   // Mark the array as immutable
   OwnedRef flags(PyObject_GetAttrString(*out, "flags"));
   DCHECK(flags.obj() != NULL) << "Could not mark Numpy array immutable";
@@ -124,15 +127,13 @@ Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
       return Status::OK();
     }
     case Type::BINARY: {
-      int32_t nchars;
-      const uint8_t* str = checked_cast<const BinaryArray&>(arr).GetValue(index, &nchars);
-      *result = PyBytes_FromStringAndSize(reinterpret_cast<const char*>(str), nchars);
+      auto view = checked_cast<const BinaryArray&>(arr).GetView(index);
+      *result = PyBytes_FromStringAndSize(view.data(), view.length());
       return CheckPyError();
     }
     case Type::STRING: {
-      int32_t nchars;
-      const uint8_t* str = checked_cast<const StringArray&>(arr).GetValue(index, &nchars);
-      *result = PyUnicode_FromStringAndSize(reinterpret_cast<const char*>(str), nchars);
+      auto view = checked_cast<const StringArray&>(arr).GetView(index);
+      *result = PyUnicode_FromStringAndSize(view.data(), view.length());
       return CheckPyError();
     }
     case Type::HALF_FLOAT: {
@@ -174,11 +175,16 @@ Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
     default: {
       const std::string& child_name = parent.type()->child(type)->name();
       if (child_name == "tensor") {
-        return DeserializeArray(arr, index, base, blobs, result);
+        int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
+        *result = wrap_tensor(blobs.tensors[ref]);
+        return Status::OK();
       } else if (child_name == "buffer") {
         int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
         *result = wrap_buffer(blobs.buffers[ref]);
         return Status::OK();
+      } else if (child_name == "ndarray") {
+        int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
+        return DeserializeArray(ref, base, blobs, result);
       } else {
         DCHECK(false) << "union tag " << type << " with child name '" << child_name
                       << "' not recognized";
@@ -250,29 +256,47 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
 }
 
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
-  int64_t offset;
   int64_t bytes_read;
   int32_t num_tensors;
+  int32_t num_ndarrays;
   int32_t num_buffers;
+
   // Read number of tensors
   RETURN_NOT_OK(
       src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_tensors)));
   RETURN_NOT_OK(
+      src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_ndarrays)));
+  RETURN_NOT_OK(
       src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_buffers)));
 
+  // Align stream to 8-byte offset
+  RETURN_NOT_OK(ipc::AlignStream(src, ipc::kArrowIpcAlignment));
   std::shared_ptr<RecordBatchReader> reader;
   RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
   RETURN_NOT_OK(reader->ReadNext(&out->batch));
 
-  RETURN_NOT_OK(src->Tell(&offset));
-  offset += 4;  // Skip the end-of-stream message
+  /// Skip EOS marker
+  RETURN_NOT_OK(src->Advance(4));
+
+  /// Align stream so tensor bodies are 64-byte aligned
+  RETURN_NOT_OK(ipc::AlignStream(src, ipc::kTensorAlignment));
+
   for (int i = 0; i < num_tensors; ++i) {
     std::shared_ptr<Tensor> tensor;
-    RETURN_NOT_OK(ipc::ReadTensor(offset, src, &tensor));
+    RETURN_NOT_OK(ipc::ReadTensor(src, &tensor));
+    RETURN_NOT_OK(ipc::AlignStream(src, ipc::kTensorAlignment));
     out->tensors.push_back(tensor);
-    RETURN_NOT_OK(src->Tell(&offset));
   }
 
+  for (int i = 0; i < num_ndarrays; ++i) {
+    std::shared_ptr<Tensor> ndarray;
+    RETURN_NOT_OK(ipc::ReadTensor(src, &ndarray));
+    RETURN_NOT_OK(ipc::AlignStream(src, ipc::kTensorAlignment));
+    out->ndarrays.push_back(ndarray);
+  }
+
+  int64_t offset = -1;
+  RETURN_NOT_OK(src->Tell(&offset));
   for (int i = 0; i < num_buffers; ++i) {
     int64_t size;
     RETURN_NOT_OK(src->ReadAt(offset, sizeof(int64_t), &bytes_read,
@@ -296,21 +320,14 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObj
                          obj, out);
 }
 
-Status DeserializeTensor(const SerializedPyObject& object, std::shared_ptr<Tensor>* out) {
-  if (object.tensors.size() != 1) {
-    return Status::Invalid("Object is not a Tensor");
-  }
-  *out = object.tensors[0];
-  return Status::OK();
-}
-
-Status GetSerializedFromComponents(int num_tensors, int num_buffers, PyObject* data,
-                                   SerializedPyObject* out) {
+Status GetSerializedFromComponents(int num_tensors, int num_ndarrays, int num_buffers,
+                                   PyObject* data, SerializedPyObject* out) {
   PyAcquireGIL gil;
   const Py_ssize_t data_length = PyList_Size(data);
   RETURN_IF_PYERROR();
 
-  const Py_ssize_t expected_data_length = 1 + num_tensors * 2 + num_buffers;
+  const Py_ssize_t expected_data_length =
+      1 + num_tensors * 2 + num_ndarrays * 2 + num_buffers;
   if (data_length != expected_data_length) {
     return Status::Invalid("Invalid number of buffers in data");
   }
@@ -348,6 +365,20 @@ Status GetSerializedFromComponents(int num_tensors, int num_buffers, PyObject* d
     out->tensors.emplace_back(std::move(tensor));
   }
 
+  // Zero-copy reconstruct tensors for numpy ndarrays
+  for (int i = 0; i < num_ndarrays; ++i) {
+    std::shared_ptr<Buffer> metadata;
+    std::shared_ptr<Buffer> body;
+    std::shared_ptr<Tensor> tensor;
+    RETURN_NOT_OK(GetBuffer(buffer_index++, &metadata));
+    RETURN_NOT_OK(GetBuffer(buffer_index++, &body));
+
+    ipc::Message message(metadata, body);
+
+    RETURN_NOT_OK(ReadTensor(message, &tensor));
+    out->ndarrays.emplace_back(std::move(tensor));
+  }
+
   // Unwrap and append buffers
   for (int i = 0; i < num_buffers; ++i) {
     std::shared_ptr<Buffer> buffer;
@@ -355,6 +386,14 @@ Status GetSerializedFromComponents(int num_tensors, int num_buffers, PyObject* d
     out->buffers.emplace_back(std::move(buffer));
   }
 
+  return Status::OK();
+}
+
+Status DeserializeTensor(const SerializedPyObject& object, std::shared_ptr<Tensor>* out) {
+  if (object.tensors.size() != 1) {
+    return Status::Invalid("Object is not a Tensor");
+  }
+  *out = object.tensors[0];
   return Status::OK();
 }
 

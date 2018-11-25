@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,8 +35,6 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
-
-import com.google.common.collect.ImmutableList;
 
 /**
  * Abstract class to read Schema and ArrowRecordBatches.
@@ -237,7 +234,9 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
       throw new IllegalArgumentException("Dictionary ID " + id + " not defined in schema");
     }
     FieldVector vector = dictionary.getVector();
-    VectorSchemaRoot root = new VectorSchemaRoot(ImmutableList.of(vector.getField()), ImmutableList.of(vector), 0);
+    VectorSchemaRoot root = new VectorSchemaRoot(
+        Collections.singletonList(vector.getField()),
+        Collections.singletonList(vector), 0);
     VectorLoader loader = new VectorLoader(root);
     try {
       loader.load(dictionaryBatch.getDictionary());

@@ -24,7 +24,7 @@ ADD_ARROW_TEST(ipc-json-test)
 
 if (NOT ARROW_BOOST_HEADER_ONLY)
   ADD_ARROW_TEST(json-integration-test
-    EXTRA_LINK_LIBS gflags)
+    EXTRA_LINK_LIBS gflags_static)
 
   # Test is being built
   if (TARGET json-integration-test)

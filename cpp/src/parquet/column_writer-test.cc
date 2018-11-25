@@ -89,8 +89,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
     writer_properties_ = wp_builder.build();
 
-    metadata_ = ColumnChunkMetaDataBuilder::Make(
-        writer_properties_, this->descr_, reinterpret_cast<uint8_t*>(&thrift_metadata_));
+    metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
     std::unique_ptr<PageWriter> pager =
         PageWriter::Open(sink_.get(), column_properties.compression(), metadata_.get());
     std::shared_ptr<ColumnWriter> writer =
@@ -177,8 +176,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     // Metadata accessor must be created lazily.
     // This is because the ColumnChunkMetaData semantics dictate the metadata object is
     // complete (no changes to the metadata buffer can be made after instantiation)
-    auto metadata_accessor = ColumnChunkMetaData::Make(
-        reinterpret_cast<const uint8_t*>(&thrift_metadata_), this->descr_);
+    auto metadata_accessor =
+        ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
     return metadata_accessor->num_values();
   }
 
@@ -187,8 +186,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     // This is because the ColumnChunkMetaData semantics dictate the metadata object is
     // complete (no changes to the metadata buffer can be made after instantiation)
     ApplicationVersion app_version(this->writer_properties_->created_by());
-    auto metadata_accessor = ColumnChunkMetaData::Make(
-        reinterpret_cast<const uint8_t*>(&thrift_metadata_), this->descr_, &app_version);
+    auto metadata_accessor =
+        ColumnChunkMetaData::Make(metadata_->contents(), this->descr_, &app_version);
     return metadata_accessor->is_stats_set();
   }
 
@@ -196,8 +195,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     // Metadata accessor must be created lazily.
     // This is because the ColumnChunkMetaData semantics dictate the metadata object is
     // complete (no changes to the metadata buffer can be made after instantiation)
-    auto metadata_accessor = ColumnChunkMetaData::Make(
-        reinterpret_cast<const uint8_t*>(&thrift_metadata_), this->descr_);
+    auto metadata_accessor =
+        ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
     return metadata_accessor->encodings();
   }
 
@@ -213,7 +212,6 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   const ColumnDescriptor* descr_;
 
  private:
-  format::ColumnChunk thrift_metadata_;
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
   std::unique_ptr<InMemoryOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;

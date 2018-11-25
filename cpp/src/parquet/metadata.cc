@@ -55,7 +55,8 @@ static std::shared_ptr<RowGroupStatistics> MakeTypedColumnStats(
     return std::make_shared<TypedRowGroupStatistics<DType>>(
         descr, metadata.statistics.min_value, metadata.statistics.max_value,
         metadata.num_values - metadata.statistics.null_count,
-        metadata.statistics.null_count, metadata.statistics.distinct_count, true);
+        metadata.statistics.null_count, metadata.statistics.distinct_count,
+        metadata.statistics.__isset.max_value || metadata.statistics.__isset.min_value);
   }
   // Default behavior
   return std::make_shared<TypedRowGroupStatistics<DType>>(
@@ -100,7 +101,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     for (auto encoding : meta_data.encodings) {
       encodings_.push_back(FromThrift(encoding));
     }
-    stats_ = nullptr;
+    possible_stats_ = nullptr;
   }
   ~ColumnChunkMetaDataImpl() {}
 
@@ -125,15 +126,22 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   //    Eg: UTF8
   inline bool is_stats_set() const {
     DCHECK(writer_version_ != nullptr);
-    return column_->meta_data.__isset.statistics &&
-           writer_version_->HasCorrectStatistics(type(), descr_->sort_order());
+    // If the column statistics don't exist or column sort order is unknown
+    // we cannot use the column stats
+    if (!column_->meta_data.__isset.statistics ||
+        descr_->sort_order() == SortOrder::UNKNOWN) {
+      return false;
+    }
+    if (possible_stats_ == nullptr) {
+      possible_stats_ = MakeColumnStats(column_->meta_data, descr_);
+    }
+    EncodedStatistics encodedStatistics = possible_stats_->Encode();
+    return writer_version_->HasCorrectStatistics(type(), encodedStatistics,
+                                                 descr_->sort_order());
   }
 
   inline std::shared_ptr<RowGroupStatistics> statistics() const {
-    if (stats_ == nullptr && is_stats_set()) {
-      stats_ = MakeColumnStats(column_->meta_data, descr_);
-    }
-    return stats_;
+    return is_stats_set() ? possible_stats_ : nullptr;
   }
 
   inline Compression::type compression() const {
@@ -169,7 +177,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
  private:
-  mutable std::shared_ptr<RowGroupStatistics> stats_;
+  mutable std::shared_ptr<RowGroupStatistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
   const format::ColumnChunk* column_;
   const ColumnDescriptor* descr_;
@@ -530,11 +538,16 @@ bool ApplicationVersion::VersionEq(const ApplicationVersion& other_version) cons
 // parquet-mr/parquet-column/src/main/java/org/apache/parquet/CorruptStatistics.java
 // PARQUET-686 has more disussion on statistics
 bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
+                                              EncodedStatistics& statistics,
                                               SortOrder::type sort_order) const {
   // Parquet cpp version 1.3.0 onwards stats are computed correctly for all types
   if ((application_ != "parquet-cpp") || (VersionLt(PARQUET_CPP_FIXED_STATS_VERSION()))) {
-    // Only SIGNED are valid
-    if (SortOrder::SIGNED != sort_order) {
+    // Only SIGNED are valid unless max and min are the same
+    // (in which case the sort order does not matter)
+    bool max_equals_min = statistics.has_min && statistics.has_max
+                              ? statistics.min() == statistics.max()
+                              : false;
+    if (SortOrder::SIGNED != sort_order && !max_equals_min) {
       return false;
     }
 
@@ -567,16 +580,25 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
 class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
  public:
   explicit ColumnChunkMetaDataBuilderImpl(const std::shared_ptr<WriterProperties>& props,
-                                          const ColumnDescriptor* column,
-                                          uint8_t* contents)
-      : properties_(props), column_(column) {
-    column_chunk_ = reinterpret_cast<format::ColumnChunk*>(contents);
-    column_chunk_->meta_data.__set_type(ToThrift(column->physical_type()));
-    column_chunk_->meta_data.__set_path_in_schema(column->path()->ToDotVector());
-    column_chunk_->meta_data.__set_codec(
-        ToThrift(properties_->compression(column->path())));
+                                          const ColumnDescriptor* column)
+      : owned_column_chunk_(new format::ColumnChunk),
+        properties_(props),
+        column_(column) {
+    Init(owned_column_chunk_.get());
   }
+
+  explicit ColumnChunkMetaDataBuilderImpl(const std::shared_ptr<WriterProperties>& props,
+                                          const ColumnDescriptor* column,
+                                          format::ColumnChunk* column_chunk)
+      : properties_(props), column_(column) {
+    Init(column_chunk);
+  }
+
   ~ColumnChunkMetaDataBuilderImpl() {}
+
+  const uint8_t* contents() const {
+    return reinterpret_cast<const uint8_t*>(column_chunk_);
+  }
 
   // column chunk
   void set_file_path(const std::string& val) { column_chunk_->__set_file_path(val); }
@@ -649,7 +671,16 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   const ColumnDescriptor* descr() const { return column_; }
 
  private:
+  void Init(format::ColumnChunk* column_chunk) {
+    column_chunk_ = column_chunk;
+    column_chunk_->meta_data.__set_type(ToThrift(column_->physical_type()));
+    column_chunk_->meta_data.__set_path_in_schema(column_->path()->ToDotVector());
+    column_chunk_->meta_data.__set_codec(
+        ToThrift(properties_->compression(column_->path())));
+  }
+
   format::ColumnChunk* column_chunk_;
+  std::unique_ptr<format::ColumnChunk> owned_column_chunk_;
   const std::shared_ptr<WriterProperties> properties_;
   const ColumnDescriptor* column_;
 };
@@ -661,13 +692,27 @@ std::unique_ptr<ColumnChunkMetaDataBuilder> ColumnChunkMetaDataBuilder::Make(
       new ColumnChunkMetaDataBuilder(props, column, contents));
 }
 
+std::unique_ptr<ColumnChunkMetaDataBuilder> ColumnChunkMetaDataBuilder::Make(
+    const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column) {
+  return std::unique_ptr<ColumnChunkMetaDataBuilder>(
+      new ColumnChunkMetaDataBuilder(props, column));
+}
+
+ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilder(
+    const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column)
+    : impl_{std::unique_ptr<ColumnChunkMetaDataBuilderImpl>(
+          new ColumnChunkMetaDataBuilderImpl(props, column))} {}
+
 ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilder(
     const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column,
     uint8_t* contents)
     : impl_{std::unique_ptr<ColumnChunkMetaDataBuilderImpl>(
-          new ColumnChunkMetaDataBuilderImpl(props, column, contents))} {}
+          new ColumnChunkMetaDataBuilderImpl(
+              props, column, reinterpret_cast<format::ColumnChunk*>(contents)))} {}
 
 ColumnChunkMetaDataBuilder::~ColumnChunkMetaDataBuilder() {}
+
+const uint8_t* ColumnChunkMetaDataBuilder::contents() const { return impl_->contents(); }
 
 void ColumnChunkMetaDataBuilder::set_file_path(const std::string& path) {
   impl_->set_file_path(path);

@@ -15,5 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-SUBDIRS =                                       \
-	reference
+SUBDIRS =					\
+	arrow-glib				\
+	gandiva-glib				\
+	parquet-glib				\
+	plasma-glib

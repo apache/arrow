@@ -96,20 +96,24 @@ from pyarrow.lib import (null, bool_,
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
                          compress, decompress, allocate_buffer)
 
-from pyarrow.lib import (MemoryPool, ProxyMemoryPool, total_allocated_bytes,
-                         set_memory_pool, default_memory_pool,
-                         log_memory_allocations)
+from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
+                         total_allocated_bytes, set_memory_pool,
+                         default_memory_pool, logging_memory_pool,
+                         proxy_memory_pool, log_memory_allocations)
 
+# I/O
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
+                         CompressedInputStream, CompressedOutputStream,
                          FixedSizeBufferWriter,
                          BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
                          create_memory_map, have_libhdfs, have_libhdfs3,
-                         MockOutputStream)
+                         MockOutputStream, input_stream, output_stream)
 
 from pyarrow.lib import (ChunkedArray, Column, RecordBatch, Table,
                          concat_tables)
 
+# Exceptions
 from pyarrow.lib import (ArrowException,
                          ArrowKeyError,
                          ArrowInvalid,
@@ -221,9 +225,10 @@ def get_library_dirs():
     if _sys.platform == 'win32':
         # TODO(wesm): Is this necessary, or does setuptools within a conda
         # installation add Library\lib to the linker path for MSVC?
-        site_packages, _ = _os.path.split(package_cwd)
-        python_base_install, _ = _os.path.split(site_packages)
-        library_dirs.append(_os.path.join(python_base_install,
-                                          'Library', 'lib'))
+        python_base_install = _os.path.dirname(_sys.executable)
+        library_lib = _os.path.join(python_base_install, 'Library', 'lib')
+
+        if _os.path.exists(_os.path.join(library_lib, 'arrow.lib')):
+            library_dirs.append(library_lib)
 
     return library_dirs

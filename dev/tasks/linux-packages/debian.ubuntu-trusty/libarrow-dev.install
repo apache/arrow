@@ -4,3 +4,4 @@ usr/lib/*/libarrow.so
 usr/lib/*/pkgconfig/arrow.pc
 usr/lib/*/pkgconfig/arrow-compute.pc
 usr/lib/*/pkgconfig/arrow-orc.pc
+usr/lib/*/cmake/arrow/

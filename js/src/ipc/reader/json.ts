@@ -100,13 +100,13 @@ export class JSONDataLoader extends TypeDataLoader {
     protected readData<T extends DataType>(type: T, { offset }: BufferMetadata = this.getBufferMetadata()) {
         const { sources } = this;
         if (DataType.isTimestamp(type) === true) {
-            return new Uint8Array(int64DataFromJSON(sources[offset] as string[]));
+            return new Uint8Array(IntUtil.Int64.convertArray(sources[offset] as string[]).buffer);
         } else if ((DataType.isInt(type) || DataType.isTime(type)) && type.bitWidth === 64) {
-            return new Uint8Array(int64DataFromJSON(sources[offset] as string[]));
+            return new Uint8Array(IntUtil.Int64.convertArray(sources[offset] as string[]).buffer);
         } else if (DataType.isDate(type) && type.unit === DateUnit.MILLISECOND) {
-            return new Uint8Array(int64DataFromJSON(sources[offset] as string[]));
+            return new Uint8Array(IntUtil.Int64.convertArray(sources[offset] as string[]).buffer);
         } else if (DataType.isDecimal(type) === true) {
-            return new Uint8Array(decimalDataFromJSON(sources[offset] as string[]));
+            return new Uint8Array(IntUtil.Int128.convertArray(sources[offset] as string[]).buffer);
         } else if (DataType.isBinary(type) === true || DataType.isFixedSizeBinary(type) === true) {
             return new Uint8Array(binaryDataFromJSON(sources[offset] as string[]));
         } else if (DataType.isBool(type) === true) {
@@ -117,28 +117,6 @@ export class JSONDataLoader extends TypeDataLoader {
             return toTypedArray(type.ArrayType, sources[offset].map((x) => +x)) as any;
         }
     }
-}
-
-function int64DataFromJSON(values: string[]) {
-    const data = new Uint32Array(values.length * 2);
-    for (let i = -1, n = values.length; ++i < n;) {
-        // Force all values (even numbers) to be parsed as strings since
-        // pulling out high and low bits seems to lose precision sometimes
-        // For example:
-        //     > -4613034156400212000 >>> 0
-        //     721782784
-        // The correct lower 32-bits are 721782752
-        IntUtil.Int64.fromString(values[i].toString(), new Uint32Array(data.buffer, data.byteOffset + 2 * i * 4, 2));
-    }
-    return data.buffer;
-}
-
-function decimalDataFromJSON(values: string[]) {
-    const data = new Uint32Array(values.length * 4);
-    for (let i = -1, n = values.length; ++i < n;) {
-        IntUtil.Int128.fromString(values[i], new Uint32Array(data.buffer, data.byteOffset + 4 * 4 * i, 4));
-    }
-    return data.buffer;
 }
 
 function binaryDataFromJSON(values: string[]) {

@@ -20,7 +20,7 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>0.11.0-SNAPSHOT</version>
+  <version>0.12.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
@@ -31,11 +31,12 @@
     <target.gen.source.path>${project.basedir}/target/generated-sources</target.gen.source.path>
     <dep.junit.version>4.11</dep.junit.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
-    <dep.guava.version>18.0</dep.guava.version>
-    <dep.netty.version>4.1.17.Final</dep.netty.version>
+    <dep.guava.version>20.0</dep.guava.version>
+    <dep.netty.version>4.1.22.Final</dep.netty.version>
     <dep.jackson.version>2.9.6</dep.jackson.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
-    <fbs.version>1.2.0-3f79e055</fbs.version>
+    <dep.fbs.version>1.9.0</dep.fbs.version>
+    <dep.flatc.version>1.9.0</dep.flatc.version>
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
   </properties>
@@ -97,6 +98,7 @@
         <configuration>
           <excludeSubProjects>false</excludeSubProjects>
           <excludes>
+            <exclude>**/dependency-reduced-pom.xml</exclude>
             <exclude>**/*.log</exclude>
             <exclude>**/*.css</exclude>
             <exclude>**/*.js</exclude>
@@ -479,9 +481,9 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>com.vlkan</groupId>
-        <artifactId>flatbuffers</artifactId>
-        <version>${fbs.version}</version>
+        <groupId>com.google.flatbuffers</groupId>
+        <artifactId>flatbuffers-java</artifactId>
+        <version>${dep.fbs.version}</version>
       </dependency>
       <dependency>
         <groupId>com.google.guava</groupId>
@@ -627,18 +629,34 @@
     <module>tools</module>
     <module>adapter/jdbc</module>
     <module>plasma</module>
+    <module>flight</module>
   </modules>
 
   <profiles>
     <profile>
       <id>java-8</id>
       <activation>
-	<jdk>[1.8,)</jdk>
+        <jdk>[1.8,)</jdk>
       </activation>
       <properties>
-	<doclint>none</doclint>
-	<additionalparam>-Xdoclint:none</additionalparam>
+        <doclint>none</doclint>
+        <additionalparam>-Xdoclint:none</additionalparam>
       </properties>
+    </profile>
+
+    <profile>
+      <!-- gandiva java depends on gandiva cpp, and gandiva cpp isn't enabled by default yet -->
+      <id>gandiva</id>
+      <modules>
+        <module>format</module>
+        <module>memory</module>
+        <module>vector</module>
+        <module>tools</module>
+        <module>adapter/jdbc</module>
+        <module>plasma</module>
+        <module>flight</module>
+        <module>gandiva</module>
+      </modules>
     </profile>
   </profiles>
 

@@ -17,9 +17,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set -e
+
 if [ "$ARROW_CI_RUBY_AFFECTED" = "1" ]; then
     brew update
     brew upgrade python
-    brew upgrade hg
+    brew uninstall postgis
     brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
 fi

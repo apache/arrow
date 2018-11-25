@@ -89,10 +89,13 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
 
   // OutputStream interface
   Status Close() override;
+  bool closed() const override;
   Status Tell(int64_t* position) const override;
 
   // Write bytes to the stream. Thread-safe
   Status Write(const void* data, int64_t nbytes) override;
+
+  using Writable::Write;
 
   int file_descriptor() const;
 
@@ -142,6 +145,7 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
   static Status Open(int fd, MemoryPool* pool, std::shared_ptr<ReadableFile>* file);
 
   Status Close() override;
+  bool closed() const override;
   Status Tell(int64_t* position) const override;
 
   // Read bytes from the file. Thread-safe
@@ -158,8 +162,6 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
   Status GetSize(int64_t* size) override;
   Status Seek(int64_t position) override;
 
-  bool supports_zero_copy() const override;
-
   int file_descriptor() const;
 
  private:
@@ -173,7 +175,7 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
 // supporting zero copy reads. The same class is used for both reading and
 // writing.
 //
-// If opening a file in a writeable mode, it is not truncated first as with
+// If opening a file in a writable mode, it is not truncated first as with
 // FileOutputStream
 class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
  public:
@@ -187,6 +189,8 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
                      std::shared_ptr<MemoryMappedFile>* out);
 
   Status Close() override;
+
+  bool closed() const override;
 
   Status Tell(int64_t* position) const override;
 
@@ -218,6 +222,9 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 
   /// Write data at a particular position in the file. Thread-safe
   Status WriteAt(int64_t position, const void* data, int64_t nbytes) override;
+
+  // @return: the size in bytes of the memory source
+  Status GetSize(int64_t* size) const;
 
   // @return: the size in bytes of the memory source
   Status GetSize(int64_t* size) override;

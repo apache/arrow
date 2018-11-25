@@ -68,10 +68,10 @@ class PARQUET_EXPORT RowGroupReader {
 
 class PARQUET_EXPORT ParquetFileReader {
  public:
-  // Forward declare a virtual class 'Contents' to aid dependency injection and more
+  // Declare a virtual class 'Contents' to aid dependency injection and more
   // easily create test fixtures
   // An implementation of the Contents class is defined in the .cc file
-  struct Contents {
+  struct PARQUET_EXPORT Contents {
     static std::unique_ptr<Contents> Open(
         std::unique_ptr<RandomAccessSource> source,
         const ReaderProperties& props = default_reader_properties(),

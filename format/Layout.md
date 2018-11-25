@@ -135,21 +135,19 @@ Unless otherwise noted, padded bytes do not need to have a specific value.
 
 ## Array lengths
 
-Any array has a known and fixed length, stored as a 32-bit signed integer, so a
-maximum of 2<sup>31</sup> - 1 elements. We choose a signed int32 for a couple reasons:
-
-* Enhance compatibility with Java and client languages which may have varying
-  quality of support for unsigned integers.
-* To encourage developers to compose smaller arrays (each of which contains
-  contiguous memory in its leaf nodes) to create larger array structures
-  possibly exceeding 2<sup>31</sup> - 1 elements, as opposed to allocating very large
-  contiguous memory blocks.
+Array lengths are represented in the Arrow metadata as a 64-bit signed
+integer. An implementation of Arrow is considered valid even if it only
+supports lengths up to the maximum 32-bit signed integer, though. If using
+Arrow in a multi-language environment, we recommend limiting lengths to
+2<sup>31</sup> - 1 elements or less. Larger data sets can be represented using
+multiple array chunks.
 
 ## Null count
 
 The number of null value slots is a property of the physical array and
-considered part of the data structure. The null count is stored as a 32-bit
-signed integer, as it may be as large as the array length.
+considered part of the data structure. The null count is represented in the
+Arrow metadata as a 64-bit signed integer, as it may be as large as the array
+length.
 
 ## Null bitmaps
 
@@ -614,10 +612,14 @@ the types array indicates that a slot contains a different type at the index.
 
 ## Dictionary encoding
 
-When a field is dictionary encoded, the values are represented by an array of Int32 representing the index of the value in the dictionary.
-The Dictionary is received as one or more DictionaryBatches with the id referenced by a dictionary attribute defined in the metadata ([Message.fbs][7]) in the Field table.
-The dictionary has the same layout as the type of the field would dictate. Each entry in the dictionary can be accessed by its index in the DictionaryBatches.
-When a Schema references a Dictionary id, it must send at least one DictionaryBatch for this id.
+When a field is dictionary encoded, the values are represented by an array of
+Int32 representing the index of the value in the dictionary.  The Dictionary is
+received as one or more DictionaryBatches with the id referenced by a
+dictionary attribute defined in the metadata ([Message.fbs][7]) in the Field
+table.  The dictionary has the same layout as the type of the field would
+dictate. Each entry in the dictionary can be accessed by its index in the
+DictionaryBatches.  When a Schema references a Dictionary id, it must send at
+least one DictionaryBatch for this id.
 
 As an example, you could have the following data:
 ```

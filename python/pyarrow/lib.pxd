@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# cython: language_level = 3
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow cimport CStatus
@@ -28,6 +30,10 @@ cdef extern from "Python.h":
 
 
 cdef int check_status(const CStatus& status) nogil except -1
+
+cdef class Message:
+    cdef:
+        unique_ptr[CMessage] message
 
 
 cdef class MemoryPool:
@@ -47,11 +53,19 @@ cdef class DataType:
         bytes pep3118_format
 
     cdef void init(self, const shared_ptr[CDataType]& type)
+    cdef Field child(self, int i)
 
 
 cdef class ListType(DataType):
     cdef:
         const CListType* list_type
+
+
+cdef class StructType(DataType):
+    cdef:
+        const CStructType* struct_type
+
+    cdef Field child_by_name(self, name)
 
 
 cdef class DictionaryType(DataType):
@@ -342,11 +356,12 @@ cdef class ResizableBuffer(Buffer):
 
 cdef class NativeFile:
     cdef:
-        shared_ptr[RandomAccessFile] rd_file
-        shared_ptr[OutputStream] wr_file
+        shared_ptr[InputStream] input_stream
+        shared_ptr[RandomAccessFile] random_access
+        shared_ptr[OutputStream] output_stream
         bint is_readable
         bint is_writable
-        readonly bint closed
+        bint is_seekable
         bint own_file
         object __weakref__
 
@@ -354,16 +369,29 @@ cdef class NativeFile:
     # extension classes are technically virtual in the C++ sense) we can expose
     # the arrow::io abstract file interfaces to other components throughout the
     # suite of Arrow C++ libraries
-    cdef read_handle(self, shared_ptr[RandomAccessFile]* file)
-    cdef write_handle(self, shared_ptr[OutputStream]* file)
+    cdef set_random_access_file(self, shared_ptr[RandomAccessFile] handle)
+    cdef set_input_stream(self, shared_ptr[InputStream] handle)
+    cdef set_output_stream(self, shared_ptr[OutputStream] handle)
 
+    cdef shared_ptr[RandomAccessFile] get_random_access_file(self) except *
+    cdef shared_ptr[InputStream] get_input_stream(self) except *
+    cdef shared_ptr[OutputStream] get_output_stream(self) except *
+
+
+cdef get_input_stream(object source, c_bool use_memory_map,
+                      shared_ptr[InputStream]* reader)
 cdef get_reader(object source, c_bool use_memory_map,
                 shared_ptr[RandomAccessFile]* reader)
 cdef get_writer(object source, shared_ptr[OutputStream]* writer)
 
 cdef dict box_metadata(const CKeyValueMetadata* sp_metadata)
 
+# Default is allow_none=False
+cdef DataType ensure_type(object type, c_bool allow_none=*)
+
+#
 # Public Cython API for 3rd party code
+#
 
 cdef public object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array)
 # XXX pyarrow.h calls it `wrap_record_batch`

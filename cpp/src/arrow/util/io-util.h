@@ -34,12 +34,13 @@ namespace arrow {
 namespace io {
 
 // Output stream that just writes to stdout.
-class StdoutStream : public OutputStream {
+class ARROW_EXPORT StdoutStream : public OutputStream {
  public:
   StdoutStream() : pos_(0) { set_mode(FileMode::WRITE); }
   ~StdoutStream() override {}
 
   Status Close() override { return Status::OK(); }
+  bool closed() const override { return false; }
 
   Status Tell(int64_t* position) const override {
     *position = pos_;
@@ -57,12 +58,13 @@ class StdoutStream : public OutputStream {
 };
 
 // Output stream that just writes to stderr.
-class StderrStream : public OutputStream {
+class ARROW_EXPORT StderrStream : public OutputStream {
  public:
   StderrStream() : pos_(0) { set_mode(FileMode::WRITE); }
   ~StderrStream() override {}
 
   Status Close() override { return Status::OK(); }
+  bool closed() const override { return false; }
 
   Status Tell(int64_t* position) const override {
     *position = pos_;
@@ -80,12 +82,13 @@ class StderrStream : public OutputStream {
 };
 
 // Input stream that just reads from stdin.
-class StdinStream : public InputStream {
+class ARROW_EXPORT StdinStream : public InputStream {
  public:
   StdinStream() : pos_(0) { set_mode(FileMode::READ); }
   ~StdinStream() override {}
 
   Status Close() override { return Status::OK(); }
+  bool closed() const override { return false; }
 
   Status Tell(int64_t* position) const override {
     *position = pos_;
@@ -105,10 +108,10 @@ class StdinStream : public InputStream {
 
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override {
     std::shared_ptr<ResizableBuffer> buffer;
-    RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buffer));
+    ARROW_RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buffer));
     int64_t bytes_read;
-    RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
-    RETURN_NOT_OK(buffer->Resize(bytes_read, false));
+    ARROW_RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
+    ARROW_RETURN_NOT_OK(buffer->Resize(bytes_read, false));
     buffer->ZeroPadding();
     *out = buffer;
     return Status::OK();
@@ -143,35 +146,55 @@ struct PlatformFilename {
 };
 #endif
 
+ARROW_EXPORT
 Status FileNameFromString(const std::string& file_name, PlatformFilename* out);
 
+ARROW_EXPORT
 Status FileOpenReadable(const PlatformFilename& file_name, int* fd);
-Status FileOpenWriteable(const PlatformFilename& file_name, bool write_only,
-                         bool truncate, bool append, int* fd);
+ARROW_EXPORT
+Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool truncate,
+                        bool append, int* fd);
 
+ARROW_EXPORT
 Status FileRead(int fd, uint8_t* buffer, const int64_t nbytes, int64_t* bytes_read);
+ARROW_EXPORT
 Status FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes,
                   int64_t* bytes_read);
+ARROW_EXPORT
 Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes);
+ARROW_EXPORT
 Status FileTruncate(int fd, const int64_t size);
 
+ARROW_EXPORT
 Status FileTell(int fd, int64_t* pos);
+ARROW_EXPORT
 Status FileSeek(int fd, int64_t pos);
+ARROW_EXPORT
 Status FileSeek(int fd, int64_t pos, int whence);
+ARROW_EXPORT
 Status FileGetSize(int fd, int64_t* size);
 
+ARROW_EXPORT
 Status FileClose(int fd);
 
+ARROW_EXPORT
 Status CreatePipe(int fd[2]);
 
+ARROW_EXPORT
 Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
                       void** new_addr);
 
+ARROW_EXPORT
 Status GetEnvVar(const char* name, std::string* out);
+ARROW_EXPORT
 Status GetEnvVar(const std::string& name, std::string* out);
+ARROW_EXPORT
 Status SetEnvVar(const char* name, const char* value);
+ARROW_EXPORT
 Status SetEnvVar(const std::string& name, const std::string& value);
+ARROW_EXPORT
 Status DelEnvVar(const char* name);
+ARROW_EXPORT
 Status DelEnvVar(const std::string& name);
 
 }  // namespace internal

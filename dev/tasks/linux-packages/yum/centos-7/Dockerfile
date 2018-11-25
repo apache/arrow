@@ -26,12 +26,13 @@ RUN \
   yum groupinstall -y ${quiet} "Development Tools" && \
   yum install -y ${quiet} \
     autoconf-archive \
+    bison \
     boost-devel \
     cmake3 \
+    flex \
     git \
     gobject-introspection-devel \
     gtk-doc \
-    jemalloc-devel \
     pkg-config \
     python34 \
     python34-devel \

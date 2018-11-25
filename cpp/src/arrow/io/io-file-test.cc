@@ -15,8 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifndef _WIN32
+#include <fcntl.h>  // IWYU pragma: keep
+#include <unistd.h>
+#endif
+
 #include <atomic>
-#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -73,13 +77,13 @@ class TestFileOutputStream : public FileTestFixture {
     internal::PlatformFilename file_name;
     ASSERT_OK(internal::FileNameFromString(path_, &file_name));
     int fd_file, fd_stream;
-    ASSERT_OK(internal::FileOpenWriteable(file_name, true /* write_only */,
-                                          false /* truncate */, false /* append */,
-                                          &fd_file));
+    ASSERT_OK(internal::FileOpenWritable(file_name, true /* write_only */,
+                                         false /* truncate */, false /* append */,
+                                         &fd_file));
     ASSERT_OK(FileOutputStream::Open(fd_file, &file_));
-    ASSERT_OK(internal::FileOpenWriteable(file_name, true /* write_only */,
-                                          false /* truncate */, false /* append */,
-                                          &fd_stream));
+    ASSERT_OK(internal::FileOpenWritable(file_name, true /* write_only */,
+                                         false /* truncate */, false /* append */,
+                                         &fd_stream));
     ASSERT_OK(FileOutputStream::Open(fd_stream, &stream_));
   }
 
@@ -134,7 +138,9 @@ TEST_F(TestFileOutputStream, Close) {
   ASSERT_OK(file_->Write(data, strlen(data)));
 
   int fd = file_->file_descriptor();
+  ASSERT_FALSE(file_->closed());
   ASSERT_OK(file_->Close());
+  ASSERT_TRUE(file_->closed());
   ASSERT_TRUE(FileIsClosed(fd));
 
   // Idempotent
@@ -145,7 +151,9 @@ TEST_F(TestFileOutputStream, Close) {
   ASSERT_OK(stream_->Write(data, strlen(data)));
 
   fd = std::static_pointer_cast<FileOutputStream>(stream_)->file_descriptor();
+  ASSERT_FALSE(stream_->closed());
   ASSERT_OK(stream_->Close());
+  ASSERT_TRUE(stream_->closed());
   ASSERT_TRUE(FileIsClosed(fd));
 
   // Idempotent
@@ -169,8 +177,8 @@ TEST_F(TestFileOutputStream, FromFileDescriptor) {
   // Re-open at end of file
   internal::PlatformFilename file_name;
   ASSERT_OK(internal::FileNameFromString(path_, &file_name));
-  ASSERT_OK(internal::FileOpenWriteable(file_name, true /* write_only */,
-                                        false /* truncate */, false /* append */, &fd));
+  ASSERT_OK(internal::FileOpenWritable(file_name, true /* write_only */,
+                                       false /* truncate */, false /* append */, &fd));
   ASSERT_OK(internal::FileSeek(fd, 0, SEEK_END));
   ASSERT_OK(FileOutputStream::Open(fd, &stream_));
 
@@ -301,7 +309,9 @@ TEST_F(TestReadableFile, Close) {
   OpenFile();
 
   int fd = file_->file_descriptor();
+  ASSERT_FALSE(file_->closed());
   ASSERT_OK(file_->Close());
+  ASSERT_TRUE(file_->closed());
 
   ASSERT_TRUE(FileIsClosed(fd));
 
@@ -555,7 +565,9 @@ TEST_F(TestPipeIO, TestWrite) {
   ASSERT_EQ(bytes_read, 4);
   ASSERT_EQ(0, std::memcmp(buffer, "data", 4));
 
+  ASSERT_FALSE(file->closed());
   ASSERT_OK(file->Close());
+  ASSERT_TRUE(file->closed());
   ASSERT_OK(internal::FileRead(r_, buffer, 2, &bytes_read));
   ASSERT_EQ(bytes_read, 1);
   ASSERT_EQ(0, std::memcmp(buffer, "!", 1));
@@ -642,6 +654,21 @@ TEST_F(TestMemoryMappedFile, WriteResizeRead) {
 
     position += buffer_size;
   }
+}
+
+TEST_F(TestMemoryMappedFile, GetConstGetSize) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  random_bytes(buffer_size, 0, buffer.data());
+
+  std::string path = "io-memory-map-write-read-test";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(buffer_size, path, &result));
+
+  const auto& const_result = *result;
+  int64_t out_size;
+  ASSERT_OK(const_result.GetSize(&out_size));
+  ASSERT_EQ(buffer_size, out_size);
 }
 
 TEST_F(TestMemoryMappedFile, ResizeRaisesOnExported) {
@@ -959,7 +986,9 @@ TEST_F(TestMemoryMappedFile, RetainMemoryMapReference) {
     std::shared_ptr<MemoryMappedFile> rwmmap;
     ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, &rwmmap));
     ASSERT_OK(rwmmap->Write(buffer.data(), buffer_size));
+    ASSERT_FALSE(rwmmap->closed());
     ASSERT_OK(rwmmap->Close());
+    ASSERT_TRUE(rwmmap->closed());
   }
 
   std::shared_ptr<Buffer> out_buffer;
@@ -968,7 +997,9 @@ TEST_F(TestMemoryMappedFile, RetainMemoryMapReference) {
     std::shared_ptr<MemoryMappedFile> rommap;
     ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READ, &rommap));
     ASSERT_OK(rommap->Read(buffer_size, &out_buffer));
+    ASSERT_FALSE(rommap->closed());
     ASSERT_OK(rommap->Close());
+    ASSERT_TRUE(rommap->closed());
   }
 
   // valgrind will catch if memory is unmapped

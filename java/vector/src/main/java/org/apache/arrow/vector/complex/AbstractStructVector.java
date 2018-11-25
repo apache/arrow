@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,17 +21,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.MapWithOrdinal;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -233,11 +230,9 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   protected List<String> getChildFieldNames() {
-    ImmutableList.Builder<String> builder = ImmutableList.builder();
-    for (ValueVector child : getChildren()) {
-      builder.add(child.getField().getName());
-    }
-    return builder.build();
+    return getChildren().stream()
+        .map(child -> child.getField().getName())
+        .collect(Collectors.toList());
   }
 
   /**
@@ -257,7 +252,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
    * @return a list of scalar child vectors recursing the entire vector hierarchy.
    */
   public List<ValueVector> getPrimitiveVectors() {
-    final List<ValueVector> primitiveVectors = Lists.newArrayList();
+    final List<ValueVector> primitiveVectors = new ArrayList<>();
     for (final ValueVector v : vectors.values()) {
       if (v instanceof AbstractStructVector) {
         AbstractStructVector structVector = (AbstractStructVector) v;
@@ -285,7 +280,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    final List<ArrowBuf> buffers = Lists.newArrayList();
+    final List<ArrowBuf> buffers = new ArrayList<>();
 
     for (final ValueVector vector : vectors.values()) {
       for (final ArrowBuf buf : vector.getBuffers(false)) {

@@ -63,6 +63,22 @@ class PythonFile {
     return Status::OK();
   }
 
+  bool closed() const {
+    PyObject* result = PyObject_GetAttrString(file_, "closed");
+    if (result == NULL) {
+      // Can't propagate the error, so write it out and return an arbitrary value
+      PyErr_WriteUnraisable(NULL);
+      return true;
+    }
+    int ret = PyObject_IsTrue(result);
+    Py_XDECREF(result);
+    if (ret < 0) {
+      PyErr_WriteUnraisable(NULL);
+      return true;
+    }
+    return ret != 0;
+  }
+
   Status Seek(int64_t position, int whence) {
     // whence: 0 for relative to start of file, 2 for end of file
     PyObject* result = cpp_PyObject_CallMethod(file_, "seek", "(ni)",
@@ -122,6 +138,11 @@ PyReadableFile::~PyReadableFile() {}
 Status PyReadableFile::Close() {
   PyAcquireGIL lock;
   return file_->Close();
+}
+
+bool PyReadableFile::closed() const {
+  PyAcquireGIL lock;
+  return file_->closed();
 }
 
 Status PyReadableFile::Seek(int64_t position) {
@@ -191,8 +212,6 @@ Status PyReadableFile::GetSize(int64_t* size) {
   return Status::OK();
 }
 
-bool PyReadableFile::supports_zero_copy() const { return false; }
-
 // ----------------------------------------------------------------------
 // Output stream
 
@@ -205,6 +224,11 @@ PyOutputStream::~PyOutputStream() {}
 Status PyOutputStream::Close() {
   PyAcquireGIL lock;
   return file_->Close();
+}
+
+bool PyOutputStream::closed() const {
+  PyAcquireGIL lock;
+  return file_->closed();
 }
 
 Status PyOutputStream::Tell(int64_t* position) const {

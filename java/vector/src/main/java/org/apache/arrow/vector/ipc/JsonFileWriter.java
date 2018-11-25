@@ -1,36 +1,64 @@
-/*******************************************************************************
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package org.apache.arrow.vector.ipc;
 
-import static org.apache.arrow.vector.BufferLayout.BufferType.*;
+import static org.apache.arrow.vector.BufferLayout.BufferType.DATA;
+import static org.apache.arrow.vector.BufferLayout.BufferType.OFFSET;
+import static org.apache.arrow.vector.BufferLayout.BufferType.TYPE;
+import static org.apache.arrow.vector.BufferLayout.BufferType.VALIDITY;
 
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.arrow.vector.*;
+import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferLayout.BufferType;
+import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TimeMicroVector;
+import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.TimeNanoVector;
+import org.apache.arrow.vector.TimeSecVector;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
+import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.TimeStampMilliTZVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
+import org.apache.arrow.vector.TimeStampNanoTZVector;
+import org.apache.arrow.vector.TimeStampNanoVector;
+import org.apache.arrow.vector.TimeStampSecTZVector;
+import org.apache.arrow.vector.TimeStampSecVector;
+import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.TypeLayout;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -45,7 +73,6 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
-import com.google.common.collect.ImmutableList;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -123,8 +150,8 @@ public class JsonFileWriter implements AutoCloseable {
       generator.writeFieldName("data");
       Dictionary dictionary = provider.lookup(id);
       FieldVector vector = dictionary.getVector();
-      List<Field> fields = ImmutableList.of(vector.getField());
-      List<FieldVector> vectors = ImmutableList.of(vector);
+      List<Field> fields = Collections.singletonList(vector.getField());
+      List<FieldVector> vectors = Collections.singletonList(vector);
       VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, vector.getValueCount());
       writeBatch(root);
 
@@ -175,7 +202,7 @@ public class JsonFileWriter implements AutoCloseable {
         for (int i = 0; i < bufferValueCount; i++) {
           if (bufferType.equals(DATA) && (vector.getMinorType() == MinorType.VARCHAR ||
                   vector.getMinorType() == MinorType.VARBINARY)) {
-            writeValueToGenerator(bufferType, vectorBuffer, vectorBuffers.get(v-1), vector, i);
+            writeValueToGenerator(bufferType, vectorBuffer, vectorBuffers.get(v - 1), vector, i);
           } else {
             writeValueToGenerator(bufferType, vectorBuffer, null, vector, i);
           }

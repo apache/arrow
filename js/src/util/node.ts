@@ -88,6 +88,6 @@ function wait(stream: NodeJS.WritableStream, done: boolean, write: (x?: any) => 
         stream['once']('error', write);
         stream['once']('drain', write);
     } else if (!(!p || stream === p.stdout) && !(stream as any)['isTTY']) {
-        stream['end'](<any> null);
+        stream['end']();
     }
 }

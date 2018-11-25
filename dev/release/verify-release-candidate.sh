@@ -29,11 +29,17 @@
 # LD_LIBRARY_PATH
 
 case $# in
-  2) VERSION="$1"
-     RC_NUMBER="$2"
+  3) ARTIFACT="$1"
+     VERSION="$2"
+     RC_NUMBER="$3"
+     case $ARTIFACT in
+       source|binaries) ;;
+       *) echo "Invalid argument: '${ARTIFACT}', valid options are 'source' or 'binaries'"
+          exit 1
+          ;;
+     esac
      ;;
-
-  *) echo "Usage: $0 X.Y.Z RC_NUMBER"
+  *) echo "Usage: $0 source|binaries X.Y.Z RC_NUMBER"
      exit 1
      ;;
 esac
@@ -74,11 +80,11 @@ fetch_archive() {
   local dist_name=$1
   download_rc_file ${dist_name}.tar.gz
   download_rc_file ${dist_name}.tar.gz.asc
-  download_rc_file ${dist_name}.tar.gz.sha1
   download_rc_file ${dist_name}.tar.gz.sha256
+  download_rc_file ${dist_name}.tar.gz.sha512
   gpg --verify ${dist_name}.tar.gz.asc ${dist_name}.tar.gz
-  shasum -a 1 -c ${dist_name}.tar.gz.sha1
   shasum -a 256 -c ${dist_name}.tar.gz.sha256
+  shasum -a 512 -c ${dist_name}.tar.gz.sha512
 }
 
 verify_binary_artifacts() {
@@ -106,8 +112,8 @@ verify_binary_artifacts() {
     # basename of the artifact
     pushd $(dirname $artifact)
     base_artifact=$(basename $artifact)
-    shasum -a 1 -c $base_artifact.sha1 || exit 1
     shasum -a 256 -c $base_artifact.sha256 || exit 1
+    shasum -a 512 -c $base_artifact.sha512 || exit 1
     popd
   done
 }
@@ -135,7 +141,7 @@ setup_miniconda() {
   bash miniconda.sh -b -p $MINICONDA
   rm -f miniconda.sh
 
-  export PATH=$MINICONDA/bin:$PATH
+  . $MINICONDA/etc/profile.d/conda.sh
 
   conda create -n arrow-test -y -q python=3.6 \
         nomkl \
@@ -158,6 +164,7 @@ test_and_install_cpp() {
 -DARROW_PLASMA=ON
 -DARROW_ORC=ON
 -DARROW_PYTHON=ON
+-DARROW_PARQUET=ON
 -DARROW_BOOST_USE_SHARED=ON
 -DCMAKE_BUILD_TYPE=release
 -DARROW_BUILD_BENCHMARKS=ON
@@ -170,28 +177,10 @@ test_and_install_cpp() {
   make -j$NPROC
   make install
 
+  git clone https://github.com/apache/parquet-testing.git
+  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
+
   ctest -VV -L unittest
-  popd
-}
-
-# Build and install Parquet master so we can test the Python bindings
-
-install_parquet_cpp() {
-  git clone git@github.com:apache/parquet-cpp.git
-
-  mkdir parquet-cpp/build
-  pushd parquet-cpp/build
-
-  cmake -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
-        -DCMAKE_INSTALL_LIBDIR=$PARQUET_HOME/lib \
-        -DCMAKE_BUILD_TYPE=release \
-        -DPARQUET_BOOST_USE_SHARED=on \
-        -DPARQUET_BUILD_TESTS=off \
-        ..
-
-  make -j$NPROC
-  make install
-
   popd
 }
 
@@ -222,6 +211,8 @@ test_glib() {
     gem install bundler
   fi
 
+  # Workaround for 0.11.0. 0.11.0 doesn't include c_glib/Gemfile.
+  wget https://raw.githubusercontent.com/apache/arrow/master/c_glib/Gemfile
   bundle install --path vendor/bundle
   bundle exec ruby test/run-test.rb
 
@@ -329,29 +320,30 @@ if [ "$(uname)" == "Darwin" ]; then
 else
   NPROC=$(nproc)
 fi
-VERSION=$1
-RC_NUMBER=$2
-
-TARBALL=apache-arrow-$1.tar.gz
 
 import_gpg_keys
-verify_binary_artifacts
 
-DIST_NAME="apache-arrow-${VERSION}"
-fetch_archive $DIST_NAME
-tar xvzf ${DIST_NAME}.tar.gz
-cd ${DIST_NAME}
+if [ "$ARTIFACT" == "source" ]; then
+  TARBALL=apache-arrow-$1.tar.gz
+  DIST_NAME="apache-arrow-${VERSION}"
 
-test_package_java
-setup_miniconda
-test_and_install_cpp
-install_parquet_cpp
-test_python
-test_glib
-test_ruby
-test_js
-test_integration
-test_rust
+  fetch_archive $DIST_NAME
+  tar xvzf ${DIST_NAME}.tar.gz
+  cd ${DIST_NAME}
+
+  test_package_java
+  setup_miniconda
+  test_and_install_cpp
+  test_python
+  test_glib
+  test_ruby
+  test_js
+  test_integration
+  test_rust
+else
+  # takes longer on slow network
+  verify_binary_artifacts
+fi
 
 echo 'Release candidate looks good!'
 exit 0

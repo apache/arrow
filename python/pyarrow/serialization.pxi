@@ -17,6 +17,8 @@
 
 from cpython.ref cimport PyObject
 
+import six
+
 from pyarrow.compat import pickle
 
 
@@ -28,7 +30,7 @@ def is_named_tuple(cls):
     f = getattr(cls, "_fields", None)
     if not isinstance(f, tuple):
         return False
-    return all(type(n) == str for n in f)
+    return all(isinstance(n, six.string_types) for n in f)
 
 
 class SerializationCallbackError(ArrowSerializationError):
@@ -117,6 +119,10 @@ cdef class SerializationContext:
             This argument is optional, but can be provided to
             deserialize objects of the class in a particular way.
         """
+        if not isinstance(type_id, six.string_types):
+            raise TypeError("The type_id argument must be a string. The value "
+                            "passed in has type {}.".format(type(type_id)))
+
         self.type_to_type_id[type_] = type_id
         self.whitelisted_types[type_id] = type_
         if pickle:
@@ -166,7 +172,7 @@ cdef class SerializationContext:
         else:
             assert type_id not in self.types_to_pickle
             if type_id not in self.whitelisted_types:
-                msg = "Type ID " + str(type_id) + " not registered in " \
+                msg = "Type ID " + type_id + " not registered in " \
                       "deserialization callback"
                 raise DeserializationCallbackError(msg, type_id)
             type_ = self.whitelisted_types[type_id]
@@ -279,12 +285,14 @@ cdef class SerializedPyObject:
         """
         cdef:
             int num_tensors = components['num_tensors']
+            int num_ndarrays = components['num_ndarrays']
             int num_buffers = components['num_buffers']
             list buffers = components['data']
             SerializedPyObject result = SerializedPyObject()
 
         with nogil:
-            check_status(GetSerializedFromComponents(num_tensors, num_buffers,
+            check_status(GetSerializedFromComponents(num_tensors, num_ndarrays,
+                                                     num_buffers,
                                                      buffers, &result.data))
 
         return result

@@ -93,13 +93,22 @@ run cp \
     /host/tmp/${distribution}/${PACKAGE}.spec \
     rpmbuild/SPECS/
 
-cat <<BUILD > build.sh
+run cat <<BUILD > build.sh
 #!/bin/bash
 
 rpmbuild -ba ${rpmbuild_options} rpmbuild/SPECS/${PACKAGE}.spec
 BUILD
 run chmod +x build.sh
 if [ "${distribution_version}" = 6 ]; then
+  run cat <<WHICH_STRIP > which-strip.sh
+#!/bin/bash
+
+which strip
+WHICH_STRIP
+  run chmod +x which-strip.sh
+  run cat <<USE_DEVTOOLSET_STRIP >> ~/.rpmmacros
+%__strip $(run scl enable devtoolset-6 ./which-strip.sh)
+USE_DEVTOOLSET_STRIP
   if [ "${DEBUG:-no}" = "yes" ]; then
     run scl enable devtoolset-6 ./build.sh
   else

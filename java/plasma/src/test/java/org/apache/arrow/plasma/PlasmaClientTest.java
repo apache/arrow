@@ -1,14 +1,13 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * <p>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -35,18 +34,17 @@ public class PlasmaClientTest {
   private ObjectStoreLink pLink;
 
 
-  public PlasmaClientTest() throws Exception{
+  public PlasmaClientTest() throws Exception {
     try {
       String plasmaStorePath = System.getenv("PLASMA_STORE");
-      if(plasmaStorePath == null) {
+      if (plasmaStorePath == null) {
         throw new Exception("Please set plasma store path in env PLASMA_STORE");
       }
 
       this.startObjectStore(plasmaStorePath);
       System.loadLibrary("plasma_java");
       pLink = new PlasmaClient(this.getStoreAddress(), "", 0);
-    }
-    catch (Throwable t) {
+    } catch (Throwable t) {
       cleanup();
       throw t;
     }
@@ -57,6 +55,7 @@ public class PlasmaClientTest {
     ProcessBuilder builder;
     List<String> newCmd = Arrays.stream(cmd).filter(s -> s.length() > 0).collect(Collectors.toList());
     builder = new ProcessBuilder(newCmd);
+    builder.inheritIO();
     Process p = null;
     try {
       p = builder.start();
@@ -155,14 +154,66 @@ public class PlasmaClientTest {
     boolean notExsit = pLink.contains(id3);
     assert !notExsit;
     System.out.println("Plasma java client contains test success.");
+
+    byte[] id4 =  new byte[20];
+    Arrays.fill(id4, (byte)4);
+    byte[] value4 =  new byte[20];
+    byte[] meta4 = "META4".getBytes();
+    Arrays.fill(value4, (byte)14);
+    pLink.put(id4, value4, meta4);
+
+    byte[] id5 =  new byte[20];
+    Arrays.fill(id5, (byte)5);
+    byte[] value5 =  new byte[20];
+    byte[] meta5 = "META5".getBytes();
+    Arrays.fill(value5, (byte)15);
+    pLink.put(id5, value5, meta5);
+
+    byte[] getMeta4 = pLink.get(id4, timeoutMs, true);
+    assert Arrays.equals(meta4, getMeta4);
+    byte[] getValue4 = pLink.get(id4, timeoutMs, false);
+    assert Arrays.equals(value4, getValue4);
+    byte[][] ids4 = new byte[1][];
+    ids4[0] = id4;
+    ObjectStoreLink.ObjectStoreData fullData4 = pLink.get(ids4, timeoutMs).get(0);
+    assert Arrays.equals(meta4, fullData4.metadata);
+    assert Arrays.equals(value4, fullData4.data);
+
+    byte[] getMeta5 = pLink.get(id5, timeoutMs, true);
+    assert Arrays.equals(meta5, getMeta5);
+    byte[] getValue5 = pLink.get(id5, timeoutMs, false);
+    assert Arrays.equals(value5, getValue5);
+    byte[][] ids5 = new byte[1][];
+    ids5[0] = id5;
+    ObjectStoreLink.ObjectStoreData fullData5 = pLink.get(ids5, timeoutMs).get(0);
+    assert Arrays.equals(meta5, fullData5.metadata);
+    assert Arrays.equals(value5, fullData5.data);
+    System.out.println("Plasma java client metadata get test success.");
+    
+    byte[] id6 =  getArrayFilledWithValue(20, (byte) 6);
+    byte[] val6 =  getArrayFilledWithValue(21, (byte) 6);
+    pLink.put(id6, val6, null);
+    assert pLink.contains(id6);
+    pLink.delete(id6);
+    assert !pLink.contains(id6);
+    System.out.println("Plasma java client delete test success.");
+    
     cleanup();
     System.out.println("All test success.");
 
   }
 
-  public String getStoreAddress() {
-    return storeSuffix+storePort;
+
+  private byte[] getArrayFilledWithValue(int arrayLength, byte val) {
+    byte[] arr =  new byte[arrayLength];
+    Arrays.fill(arr, val);
+    return arr;
   }
+
+  public String getStoreAddress() {
+    return storeSuffix + storePort;
+  }
+
   public static void main(String[] args) throws Exception {
 
     PlasmaClientTest plasmaClientTest = new PlasmaClientTest();

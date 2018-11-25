@@ -1,13 +1,12 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,6 +34,14 @@ public interface AllocationListener {
     public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
       return false;
     }
+
+    @Override
+    public void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
+    }
+
+    @Override
+    public void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
+    }
   };
 
   /**
@@ -55,4 +62,17 @@ public interface AllocationListener {
    */
   boolean onFailedAllocation(long size, AllocationOutcome outcome);
 
+  /**
+   * Called immediately after a child allocator was added to the parent allocator
+   * @param parentAllocator The parent allocator to which a child was added
+   * @param childAllocator  The child allocator that was just added
+   */
+  void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator);
+
+  /**
+   * Called immediately after a child allocator was removed from the parent allocator
+   * @param parentAllocator The parent allocator from which a child was removed
+   * @param childAllocator The child allocator that was just removed
+   */
+  void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator);
 }

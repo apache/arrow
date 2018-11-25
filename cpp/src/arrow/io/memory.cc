@@ -36,6 +36,9 @@ namespace io {
 
 static constexpr int64_t kBufferMinimumSize = 256;
 
+BufferOutputStream::BufferOutputStream()
+    : is_open_(false), capacity_(0), position_(0), mutable_data_(nullptr) {}
+
 BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer)
     : buffer_(buffer),
       is_open_(true),
@@ -45,9 +48,17 @@ BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& b
 
 Status BufferOutputStream::Create(int64_t initial_capacity, MemoryPool* pool,
                                   std::shared_ptr<BufferOutputStream>* out) {
-  std::shared_ptr<ResizableBuffer> buffer;
-  RETURN_NOT_OK(AllocateResizableBuffer(pool, initial_capacity, &buffer));
-  *out = std::make_shared<BufferOutputStream>(buffer);
+  // ctor is private, so cannot use make_shared
+  *out = std::shared_ptr<BufferOutputStream>(new BufferOutputStream);
+  return (*out)->Reset(initial_capacity, pool);
+}
+
+Status BufferOutputStream::Reset(int64_t initial_capacity, MemoryPool* pool) {
+  RETURN_NOT_OK(AllocateResizableBuffer(pool, initial_capacity, &buffer_));
+  is_open_ = true;
+  capacity_ = initial_capacity;
+  position_ = 0;
+  mutable_data_ = buffer_->mutable_data();
   return Status::OK();
 }
 
@@ -59,12 +70,16 @@ BufferOutputStream::~BufferOutputStream() {
 }
 
 Status BufferOutputStream::Close() {
-  if (position_ < capacity_) {
-    return buffer_->Resize(position_, false);
-  } else {
-    return Status::OK();
+  if (is_open_) {
+    is_open_ = false;
+    if (position_ < capacity_) {
+      RETURN_NOT_OK(buffer_->Resize(position_, false));
+    }
   }
+  return Status::OK();
 }
+
+bool BufferOutputStream::closed() const { return !is_open_; }
 
 Status BufferOutputStream::Finish(std::shared_ptr<Buffer>* result) {
   RETURN_NOT_OK(Close());
@@ -108,9 +123,11 @@ Status BufferOutputStream::Reserve(int64_t nbytes) {
 // OutputStream that doesn't write anything
 
 Status MockOutputStream::Close() {
-  // no-op
+  is_open_ = false;
   return Status::OK();
 }
+
+bool MockOutputStream::closed() const { return !is_open_; }
 
 Status MockOutputStream::Tell(int64_t* position) const {
   *position = extent_bytes_written_;
@@ -135,7 +152,8 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
 
   /// Input buffer must be mutable, will abort if not
   explicit FixedSizeBufferWriterImpl(const std::shared_ptr<Buffer>& buffer)
-      : memcopy_num_threads_(kMemcopyDefaultNumThreads),
+      : is_open_(true),
+        memcopy_num_threads_(kMemcopyDefaultNumThreads),
         memcopy_blocksize_(kMemcopyDefaultBlocksize),
         memcopy_threshold_(kMemcopyDefaultThreshold) {
     buffer_ = buffer;
@@ -146,9 +164,11 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
   }
 
   Status Close() {
-    // No-op
+    is_open_ = false;
     return Status::OK();
   }
+
+  bool closed() const { return !is_open_; }
 
   Status Seek(int64_t position) {
     if (position < 0 || position > size_) {
@@ -196,6 +216,7 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
   uint8_t* mutable_data_;
   int64_t size_;
   int64_t position_;
+  bool is_open_;
 
   int memcopy_num_threads_;
   int64_t memcopy_blocksize_;
@@ -208,6 +229,8 @@ FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buff
 FixedSizeBufferWriter::~FixedSizeBufferWriter() = default;
 
 Status FixedSizeBufferWriter::Close() { return impl_->Close(); }
+
+bool FixedSizeBufferWriter::closed() const { return impl_->closed(); }
 
 Status FixedSizeBufferWriter::Seek(int64_t position) { return impl_->Seek(position); }
 
@@ -240,18 +263,24 @@ void FixedSizeBufferWriter::set_memcopy_threshold(int64_t threshold) {
 // In-memory buffer reader
 
 BufferReader::BufferReader(const std::shared_ptr<Buffer>& buffer)
-    : buffer_(buffer), data_(buffer->data()), size_(buffer->size()), position_(0) {}
+    : buffer_(buffer),
+      data_(buffer->data()),
+      size_(buffer->size()),
+      position_(0),
+      is_open_(true) {}
 
 BufferReader::BufferReader(const uint8_t* data, int64_t size)
-    : buffer_(nullptr), data_(data), size_(size), position_(0) {}
+    : buffer_(nullptr), data_(data), size_(size), position_(0), is_open_(true) {}
 
 BufferReader::BufferReader(const Buffer& buffer)
     : BufferReader(buffer.data(), buffer.size()) {}
 
 Status BufferReader::Close() {
-  // no-op
+  is_open_ = false;
   return Status::OK();
 }
+
+bool BufferReader::closed() const { return !is_open_; }
 
 Status BufferReader::Tell(int64_t* position) const {
   *position = position_;

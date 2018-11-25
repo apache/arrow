@@ -18,7 +18,8 @@
 #include "arrow/type.h"
 
 #include <climits>
-#include <sstream>
+#include <cstddef>
+#include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <utility>
 #include <vector>
@@ -33,6 +34,8 @@
 #include "arrow/visitor.h"
 
 namespace arrow {
+
+using internal::checked_cast;
 
 bool Field::HasMetadata() const {
   return (metadata_ != nullptr) && (metadata_->size() > 0);

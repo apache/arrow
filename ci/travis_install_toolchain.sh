@@ -22,22 +22,17 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
 if [ ! -e $CPP_TOOLCHAIN ]; then
+    if [ $ARROW_TRAVIS_GANDIVA == "1" ] && [ $TRAVIS_OS_NAME == "osx" ]; then
+        CONDA_LLVM="llvmdev=6.0.1"
+    fi
+
     # Set up C++ toolchain from conda-forge packages for faster builds
-    conda create -y -q -p $CPP_TOOLCHAIN python=3.6 nomkl \
-        boost-cpp \
-        brotli \
+    conda create -y -q -p $CPP_TOOLCHAIN \
+        --file=$TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
+        ${CONDA_LLVM} \
         ccache \
-        cmake \
         curl \
-        flatbuffers \
-        lz4-c \
-        gflags \
-        gtest \
-        libprotobuf \
         ninja \
-        rapidjson \
-        snappy \
-        thrift-cpp=0.11.0 \
-        zlib \
-        zstd
+        nomkl \
+        python=3.6
 fi

@@ -31,18 +31,16 @@
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/File_generated.h"
+#include "arrow/ipc/File_generated.h"  // IWYU pragma: export
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata-internal.h"
-#include "arrow/ipc/util.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -578,6 +576,9 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     std::unique_ptr<Message> message;
     RETURN_NOT_OK(ReadMessage(block.offset, block.metadata_length, file_, &message));
 
+    // TODO(wesm): this breaks integration tests, see ARROW-3256
+    // DCHECK_EQ(message->body_length(), block.body_length);
+
     io::BufferReader reader(message->body());
     return ::arrow::ipc::ReadRecordBatch(*message->metadata(), schema_, &reader, batch);
   }
@@ -595,6 +596,9 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
 
       std::unique_ptr<Message> message;
       RETURN_NOT_OK(ReadMessage(block.offset, block.metadata_length, file_, &message));
+
+      // TODO(wesm): this breaks integration tests, see ARROW-3256
+      // DCHECK_EQ(message->body_length(), block.body_length);
 
       io::BufferReader reader(message->body());
 
@@ -689,18 +693,13 @@ Status RecordBatchFileReader::ReadRecordBatch(int i,
   return impl_->ReadRecordBatch(i, batch);
 }
 
-static Status ReadContiguousPayload(io::InputStream* file, bool aligned,
+static Status ReadContiguousPayload(io::InputStream* file,
                                     std::unique_ptr<Message>* message) {
-  RETURN_NOT_OK(ReadMessage(file, aligned, message));
+  RETURN_NOT_OK(ReadMessage(file, message));
   if (*message == nullptr) {
     return Status::Invalid("Unable to read metadata at offset");
   }
   return Status::OK();
-}
-
-static Status ReadContiguousPayload(io::InputStream* file,
-                                    std::unique_ptr<Message>* message) {
-  return ReadContiguousPayload(file, false /* aligned */, message);
 }
 
 Status ReadSchema(io::InputStream* stream, std::shared_ptr<Schema>* out) {
@@ -719,14 +718,9 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, io::InputStream* f
                          out);
 }
 
-Status ReadTensor(int64_t offset, io::RandomAccessFile* file,
-                  std::shared_ptr<Tensor>* out) {
-  // Respect alignment of Tensor messages (see WriteTensor)
-  offset = PaddedLength(offset);
-  RETURN_NOT_OK(file->Seek(offset));
-
+Status ReadTensor(io::InputStream* file, std::shared_ptr<Tensor>* out) {
   std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadContiguousPayload(file, true /* aligned */, &message));
+  RETURN_NOT_OK(ReadContiguousPayload(file, &message));
   return ReadTensor(*message, out);
 }
 

@@ -62,8 +62,9 @@ using arrow::gpu::CudaContext;
 using arrow::gpu::CudaDeviceManager;
 #endif
 
-#define XXH_STATIC_LINKING_ONLY
-#include "thirdparty/xxhash.h"
+#define XXH_INLINE_ALL 1
+#define XXH_NAMESPACE plasma_client_
+#include "arrow/util/xxhash/xxhash.h"
 
 #define XXH64_DEFAULT_SEED 0
 
@@ -174,6 +175,9 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
                 int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
 
+  Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
+                       const std::string& metadata);
+
   Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
              std::vector<ObjectBuffer>* object_buffers);
 
@@ -244,6 +248,10 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
                                  int64_t nbytes);
 
   uint64_t ComputeObjectHash(const ObjectBuffer& obj_buffer);
+
+  uint64_t ComputeObjectHash(const uint8_t* data, int64_t data_size,
+                             const uint8_t* metadata, int64_t metadata_size,
+                             int device_num);
 
   /// File descriptor of the Unix domain socket that connects to the store.
   int store_conn_;
@@ -422,15 +430,36 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
 
   // Increment the count of the number of instances of this object that this
   // client is using. A call to PlasmaClient::Release is required to decrement
-  // this
-  // count. Cache the reference to the object.
+  // this count. Cache the reference to the object.
   IncrementObjectCount(object_id, &object, false);
   // We increment the count a second time (and the corresponding decrement will
   // happen in a PlasmaClient::Release call in plasma_seal) so even if the
-  // buffer
-  // returned by PlasmaClient::Dreate goes out of scope, the object does not get
-  // released before the call to PlasmaClient::Seal happens.
+  // buffer returned by PlasmaClient::Create goes out of scope, the object does
+  // not get released before the call to PlasmaClient::Seal happens.
   IncrementObjectCount(object_id, &object, false);
+  return Status::OK();
+}
+
+Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
+                                         const std::string& data,
+                                         const std::string& metadata) {
+  ARROW_LOG(DEBUG) << "called CreateAndSeal on conn " << store_conn_;
+
+  // Compute the object hash.
+  static unsigned char digest[kDigestSize];
+  // CreateAndSeal currently only supports device_num = 0, which corresponds to
+  // the host.
+  int device_num = 0;
+  uint64_t hash = ComputeObjectHash(
+      reinterpret_cast<const uint8_t*>(data.data()), data.size(),
+      reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
+  memcpy(&digest[0], &hash, sizeof(hash));
+
+  RETURN_NOT_OK(SendCreateAndSealRequest(store_conn_, object_id, data, metadata, digest));
+  std::vector<uint8_t> buffer;
+  RETURN_NOT_OK(
+      PlasmaReceive(store_conn_, MessageType::PlasmaCreateAndSealReply, &buffer));
+  RETURN_NOT_OK(ReadCreateAndSealReply(buffer.data(), buffer.size()));
   return Status::OK();
 }
 
@@ -447,11 +476,16 @@ Status PlasmaClient::Impl::GetBuffers(
       // This object is not currently in use by this client, so we need to send
       // a request to the store.
       all_present = false;
-    } else {
-      // NOTE: If the object is still unsealed, we will deadlock, since we must
-      // have been the one who created it.
-      ARROW_CHECK(object_entry->second->is_sealed)
+    } else if (!object_entry->second->is_sealed) {
+      // This client created the object but hasn't sealed it. If we call Get
+      // with no timeout, we will deadlock, because this client won't be able to
+      // call Seal.
+      ARROW_CHECK(timeout_ms != -1)
           << "Plasma client called get on an unsealed object that it created";
+      ARROW_LOG(WARNING)
+          << "Attempting to get an object that this client created but hasn't sealed.";
+      all_present = false;
+    } else {
       PlasmaObject* object = &object_entry->second->object;
       std::shared_ptr<Buffer> physical_buf;
 
@@ -645,14 +679,14 @@ Status PlasmaClient::Impl::PerformRelease(const ObjectID& object_id) {
 }
 
 Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
+  // If the client is already disconnected, ignore release requests.
+  if (store_conn_ < 0) {
+    return Status::OK();
+  }
   // If an object is in the deletion cache, handle it directly without waiting.
   auto iter = deletion_cache_.find(object_id);
   if (iter != deletion_cache_.end()) {
     RETURN_NOT_OK(PerformRelease(object_id));
-    return Status::OK();
-  }
-  // If the client is already disconnected, ignore release requests.
-  if (store_conn_ < 0) {
     return Status::OK();
   }
   // Add the new object to the release history.
@@ -661,8 +695,8 @@ Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
   // pending release calls, and there are at least some pending release calls in
   // the release_history list, then release some objects.
 
-  // TODO(wap) Evicition policy only works on host memory, and thus objects
-  //           on the GPU cannot be released currently.
+  // TODO(wap): Eviction policy only works on host memory, and thus objects on
+  // the GPU cannot be released currently.
   while ((in_use_object_bytes_ > std::min(kL3CacheSizeBytes, store_capacity_ / 100) ||
           release_history_.size() > config_.release_delay) &&
          release_history_.size() > 0) {
@@ -758,26 +792,30 @@ bool PlasmaClient::Impl::ComputeObjectHashParallel(XXH64_state_t* hash_state,
 }
 
 uint64_t PlasmaClient::Impl::ComputeObjectHash(const ObjectBuffer& obj_buffer) {
-  DCHECK(obj_buffer.metadata);
-  DCHECK(obj_buffer.data);
+  return ComputeObjectHash(obj_buffer.data->data(), obj_buffer.data->size(),
+                           obj_buffer.metadata->data(), obj_buffer.metadata->size(),
+                           obj_buffer.device_num);
+}
+
+uint64_t PlasmaClient::Impl::ComputeObjectHash(const uint8_t* data, int64_t data_size,
+                                               const uint8_t* metadata,
+                                               int64_t metadata_size, int device_num) {
+  DCHECK(metadata);
+  DCHECK(data);
   XXH64_state_t hash_state;
-  if (obj_buffer.device_num != 0) {
+  if (device_num != 0) {
     // TODO(wap): Create cuda program to hash data on gpu.
     return 0;
   }
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
-  if (obj_buffer.data->size() >= kBytesInMB) {
-    ComputeObjectHashParallel(
-        &hash_state, reinterpret_cast<const unsigned char*>(obj_buffer.data->data()),
-        obj_buffer.data->size());
+  if (data_size >= kBytesInMB) {
+    ComputeObjectHashParallel(&hash_state, reinterpret_cast<const unsigned char*>(data),
+                              data_size);
   } else {
-    XXH64_update(&hash_state,
-                 reinterpret_cast<const unsigned char*>(obj_buffer.data->data()),
-                 obj_buffer.data->size());
+    XXH64_update(&hash_state, reinterpret_cast<const unsigned char*>(data), data_size);
   }
-  XXH64_update(&hash_state,
-               reinterpret_cast<const unsigned char*>(obj_buffer.metadata->data()),
-               obj_buffer.metadata->size());
+  XXH64_update(&hash_state, reinterpret_cast<const unsigned char*>(metadata),
+               metadata_size);
   return XXH64_digest(&hash_state);
 }
 
@@ -1046,6 +1084,11 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
                             const uint8_t* metadata, int64_t metadata_size,
                             std::shared_ptr<Buffer>* data, int device_num) {
   return impl_->Create(object_id, data_size, metadata, metadata_size, data, device_num);
+}
+
+Status PlasmaClient::CreateAndSeal(const ObjectID& object_id, const std::string& data,
+                                   const std::string& metadata) {
+  return impl_->CreateAndSeal(object_id, data, metadata);
 }
 
 Status PlasmaClient::Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,

@@ -35,6 +35,15 @@ CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION cmake curl
 conda activate $CONDA_ENV_DIR
 
+# We should use zlib in the target Python directory to avoid loading
+# wrong libpython on macOS at run-time. If we use zlib in
+# $ARROW_BUILD_TOOLCHAIN and libpython3.6m.dylib exists in both
+# $ARROW_BUILD_TOOLCHAIN and $CONDA_ENV_DIR, python-test uses
+# libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN not $CONDA_ENV_DIR.
+# libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN doesn't have NumPy. So
+# python-test fails.
+export ZLIB_HOME=$CONDA_ENV_DIR
+
 python --version
 which python
 
@@ -55,8 +64,8 @@ if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; the
   conda install -y -q \
         ipython \
         numpydoc \
-        sphinx \
-        sphinx_bootstrap_theme
+        sphinx=1.7.9 \
+        sphinx_rtd_theme
 fi
 
 # ARROW-2093: PyTorch increases the size of our conda dependency stack
@@ -85,6 +94,10 @@ CMAKE_COMMON_FLAGS="-DARROW_EXTRA_ERROR_CONTEXT=ON"
 
 if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GENERATE_COVERAGE=ON"
+fi
+
+if [ $ARROW_TRAVIS_PYTHON_GANDIVA == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA=ON -DARROW_GANDIVA_BUILD_TESTS=OFF"
 fi
 
 cmake -GNinja \
@@ -127,6 +140,9 @@ export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_WITH_ORC=1
+if [ $ARROW_TRAVIS_PYTHON_GANDIVA == "1" ]; then
+  export PYARROW_WITH_GANDIVA=1
+fi
 
 python setup.py develop
 
@@ -192,6 +208,7 @@ if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" 
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PLASMA=1
   export PYARROW_WITH_ORC=0
+  export PYARROW_WITH_GANDIVA=0
 
   pushd $ARROW_PYTHON_DIR
   # Workaround for https://github.com/airspeed-velocity/asv/issues/631

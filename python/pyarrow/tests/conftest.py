@@ -24,6 +24,7 @@ except ImportError:
 
 
 groups = [
+    'gandiva',
     'hdfs',
     'large_memory',
     'orc',
@@ -35,6 +36,7 @@ groups = [
 
 
 defaults = {
+    'gandiva': False,
     'hdfs': False,
     'large_memory': False,
     'orc': False,
@@ -43,6 +45,12 @@ defaults = {
     's3': False,
     'tensorflow': False
 }
+
+try:
+    import pyarrow.gandiva # noqa
+    defaults['gandiva'] = True
+except ImportError:
+    pass
 
 try:
     import pyarrow.orc # noqa
@@ -59,6 +67,13 @@ except ImportError:
 try:
     import pyarrow.plasma as plasma  # noqa
     defaults['plasma'] = True
+except ImportError:
+    pass
+
+
+try:
+    import tensorflow  # noqa
+    defaults['tensorflow'] = True
 except ImportError:
     pass
 

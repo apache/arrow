@@ -1,14 +1,13 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * <p>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -31,7 +30,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TestBitVector {
-  private final static String EMPTY_SCHEMA_PATH = "";
+  private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
 
@@ -238,8 +237,7 @@ public class TestBitVector {
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 1) {
           assertEquals("unexpected cleared bit at index: " + i, 1, vector.get(i));
-        }
-        else {
+        } else {
           assertTrue("unexpected set bit at index: " + i, vector.isNull(i));
         }
       }
@@ -248,36 +246,34 @@ public class TestBitVector {
       vector.setSafeToOne(valueCapacity);
       assertEquals(valueCapacity * 2, vector.getValueCapacity());
 
-      for (int i = valueCapacity; i < valueCapacity*2; i++) {
+      for (int i = valueCapacity; i < valueCapacity * 2; i++) {
         if ((i & 1) == 1) {
           vector.setToOne(i);
         }
       }
 
-      for (int i = 0; i < valueCapacity*2; i++) {
+      for (int i = 0; i < valueCapacity * 2; i++) {
         if (((i & 1) == 1) || (i == valueCapacity)) {
           assertEquals("unexpected cleared bit at index: " + i, 1, vector.get(i));
-        }
-        else {
+        } else {
           assertTrue("unexpected set bit at index: " + i, vector.isNull(i));
         }
       }
 
       /* trigger second realloc */
-      vector.setSafeToOne(valueCapacity*2);
+      vector.setSafeToOne(valueCapacity * 2);
       assertEquals(valueCapacity * 4, vector.getValueCapacity());
 
-      for (int i = valueCapacity*2; i < valueCapacity*4; i++) {
+      for (int i = valueCapacity * 2; i < valueCapacity * 4; i++) {
         if ((i & 1) == 1) {
           vector.setToOne(i);
         }
       }
 
-      for (int i = 0; i < valueCapacity*4; i++) {
-        if (((i & 1) == 1) || (i == valueCapacity) || (i == valueCapacity*2)) {
+      for (int i = 0; i < valueCapacity * 4; i++) {
+        if (((i & 1) == 1) || (i == valueCapacity) || (i == valueCapacity * 2)) {
           assertEquals("unexpected cleared bit at index: " + i, 1, vector.get(i));
-        }
-        else {
+        } else {
           assertTrue("unexpected set bit at index: " + i, vector.isNull(i));
         }
       }
@@ -295,14 +291,12 @@ public class TestBitVector {
       for (int i = 0; i < toVector.getValueCapacity(); i++) {
         if (i <= valueCapacity * 4) {
           if (((i & 1) == 1) || (i == valueCapacity) ||
-                  (i == valueCapacity*2) || (i == valueCapacity*4)) {
+                  (i == valueCapacity * 2) || (i == valueCapacity * 4)) {
             assertEquals("unexpected cleared bit at index: " + i, 1, toVector.get(i));
-          }
-          else {
+          } else {
             assertTrue("unexpected set bit at index: " + i, toVector.isNull(i));
           }
-        }
-        else {
+        } else {
           assertTrue("unexpected set bit at index: " + i, toVector.isNull(i));
         }
       }
@@ -327,8 +321,7 @@ public class TestBitVector {
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 1) {
           assertFalse("unexpected cleared bit at index: " + i, vector.isNull(i));
-        }
-        else {
+        } else {
           assertTrue("unexpected set bit at index: " + i, vector.isNull(i));
         }
       }
@@ -337,36 +330,34 @@ public class TestBitVector {
       vector.setSafe(valueCapacity, 1, 1);
       assertEquals(valueCapacity * 2, vector.getValueCapacity());
 
-      for (int i = valueCapacity; i < valueCapacity*2; i++) {
+      for (int i = valueCapacity; i < valueCapacity * 2; i++) {
         if ((i & 1) == 1) {
           vector.set(i, 1);
         }
       }
 
-      for (int i = 0; i < valueCapacity*2; i++) {
+      for (int i = 0; i < valueCapacity * 2; i++) {
         if (((i & 1) == 1) || (i == valueCapacity)) {
           assertFalse("unexpected cleared bit at index: " + i, vector.isNull(i));
-        }
-        else {
+        } else {
           assertTrue("unexpected set bit at index: " + i, vector.isNull(i));
         }
       }
 
       /* trigger second realloc */
-      vector.setSafe(valueCapacity*2, 1, 1);
+      vector.setSafe(valueCapacity * 2, 1, 1);
       assertEquals(valueCapacity * 4, vector.getValueCapacity());
 
-      for (int i = valueCapacity*2; i < valueCapacity*4; i++) {
+      for (int i = valueCapacity * 2; i < valueCapacity * 4; i++) {
         if ((i & 1) == 1) {
           vector.set(i, 1);
         }
       }
 
-      for (int i = 0; i < valueCapacity*4; i++) {
-        if (((i & 1) == 1) || (i == valueCapacity) || (i == valueCapacity*2)) {
+      for (int i = 0; i < valueCapacity * 4; i++) {
+        if (((i & 1) == 1) || (i == valueCapacity) || (i == valueCapacity * 2)) {
           assertFalse("unexpected cleared bit at index: " + i, vector.isNull(i));
-        }
-        else {
+        } else {
           assertTrue("unexpected set bit at index: " + i, vector.isNull(i));
         }
       }
@@ -384,14 +375,12 @@ public class TestBitVector {
       for (int i = 0; i < toVector.getValueCapacity(); i++) {
         if (i <= valueCapacity * 4) {
           if (((i & 1) == 1) || (i == valueCapacity) ||
-                  (i == valueCapacity*2) || (i == valueCapacity*4)) {
+                  (i == valueCapacity * 2) || (i == valueCapacity * 4)) {
             assertFalse("unexpected cleared bit at index: " + i, toVector.isNull(i));
-          }
-          else {
+          } else {
             assertTrue("unexpected set bit at index: " + i, toVector.isNull(i));
           }
-        }
-        else {
+        } else {
           assertTrue("unexpected set bit at index: " + i, toVector.isNull(i));
         }
       }

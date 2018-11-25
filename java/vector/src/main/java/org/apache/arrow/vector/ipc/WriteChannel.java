@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,6 +33,10 @@ import io.netty.buffer.ArrowBuf;
 /**
  * Wrapper around a WritableByteChannel that maintains the position as well adding
  * some common serialization utilities.
+ *
+ * All write methods in this class follow full write semantics, i.e., write calls
+ * only return after requested data has been fully written. Note this is different
+ * from java WritableByteChannel interface where partial write is allowed
  */
 public class WriteChannel implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(WriteChannel.class);
@@ -72,8 +75,10 @@ public class WriteChannel implements AutoCloseable {
 
   public long write(ByteBuffer buffer) throws IOException {
     long length = buffer.remaining();
-    LOGGER.debug("Writing buffer with size: " + length);
-    out.write(buffer);
+    LOGGER.debug("Writing buffer with size: {}", length);
+    while (buffer.hasRemaining()) {
+      out.write(buffer);
+    }
     currentPosition += length;
     return length;
   }

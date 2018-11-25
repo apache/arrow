@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <sstream>  // IWYU pragma: keep
 
@@ -44,9 +45,15 @@ namespace {
 // Allocate memory according to the alignment requirements for Arrow
 // (as of May 2016 64 bytes)
 Status AllocateAligned(int64_t size, uint8_t** out) {
-// TODO(emkornfield) find something compatible with windows
-#ifdef _MSC_VER
-  // Special code path for MSVC
+  // TODO(emkornfield) find something compatible with windows
+  if (size < 0) {
+    return Status::Invalid("negative malloc size");
+  }
+  if (static_cast<uint64_t>(size) >= std::numeric_limits<size_t>::max()) {
+    return Status::CapacityError("malloc size overflows size_t");
+  }
+#ifdef _WIN32
+  // Special code path for Windows
   *out =
       reinterpret_cast<uint8_t*>(_aligned_malloc(static_cast<size_t>(size), kAlignment));
   if (!*out) {
@@ -88,32 +95,6 @@ MemoryPool::~MemoryPool() {}
 int64_t MemoryPool::max_memory() const { return -1; }
 
 ///////////////////////////////////////////////////////////////////////
-// Helper tracking memory statistics
-
-class MemoryPoolStats {
- public:
-  MemoryPoolStats() : bytes_allocated_(0), max_memory_(0) {}
-
-  int64_t max_memory() const { return max_memory_.load(); }
-
-  int64_t bytes_allocated() const { return bytes_allocated_.load(); }
-
-  inline void UpdateAllocatedBytes(int64_t diff) {
-    auto allocated = bytes_allocated_.fetch_add(diff) + diff;
-    DCHECK_GE(allocated, 0) << "allocation counter became negative";
-    // "maximum" allocated memory is ill-defined in multi-threaded code,
-    // so don't try to be too rigorous here
-    if (diff > 0 && allocated > max_memory_) {
-      max_memory_ = allocated;
-    }
-  }
-
- protected:
-  std::atomic<int64_t> bytes_allocated_;
-  std::atomic<int64_t> max_memory_;
-};
-
-///////////////////////////////////////////////////////////////////////
 // Default MemoryPool implementation
 
 class DefaultMemoryPool : public MemoryPool {
@@ -130,7 +111,14 @@ class DefaultMemoryPool : public MemoryPool {
   Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
 #ifdef ARROW_JEMALLOC
     uint8_t* previous_ptr = *ptr;
-    *ptr = reinterpret_cast<uint8_t*>(rallocx(*ptr, new_size, MALLOCX_ALIGN(kAlignment)));
+    if (new_size < 0) {
+      return Status::Invalid("negative realloc size");
+    }
+    if (static_cast<uint64_t>(new_size) >= std::numeric_limits<size_t>::max()) {
+      return Status::CapacityError("realloc overflows size_t");
+    }
+    *ptr = reinterpret_cast<uint8_t*>(
+        rallocx(*ptr, static_cast<size_t>(new_size), MALLOCX_ALIGN(kAlignment)));
     if (*ptr == NULL) {
       std::stringstream ss;
       ss << "realloc of size " << new_size << " failed";
@@ -146,7 +134,7 @@ class DefaultMemoryPool : public MemoryPool {
     DCHECK(out);
     // Copy contents and release old memory chunk
     memcpy(out, *ptr, static_cast<size_t>(std::min(new_size, old_size)));
-#ifdef _MSC_VER
+#ifdef _WIN32
     _aligned_free(*ptr);
 #else
     std::free(*ptr);
@@ -161,7 +149,7 @@ class DefaultMemoryPool : public MemoryPool {
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
 
   void Free(uint8_t* buffer, int64_t size) override {
-#ifdef _MSC_VER
+#ifdef _WIN32
     _aligned_free(buffer);
 #elif defined(ARROW_JEMALLOC)
     dallocx(buffer, MALLOCX_ALIGN(kAlignment));
@@ -174,8 +162,12 @@ class DefaultMemoryPool : public MemoryPool {
   int64_t max_memory() const override { return stats_.max_memory(); }
 
  private:
-  MemoryPoolStats stats_;
+  internal::MemoryPoolStats stats_;
 };
+
+std::unique_ptr<MemoryPool> MemoryPool::CreateDefault() {
+  return std::unique_ptr<MemoryPool>(new DefaultMemoryPool);
+}
 
 MemoryPool* default_memory_pool() {
   static DefaultMemoryPool default_memory_pool_;
@@ -247,7 +239,7 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
 
  private:
   MemoryPool* pool_;
-  MemoryPoolStats stats_;
+  internal::MemoryPoolStats stats_;
 };
 
 ProxyMemoryPool::ProxyMemoryPool(MemoryPool* pool) {

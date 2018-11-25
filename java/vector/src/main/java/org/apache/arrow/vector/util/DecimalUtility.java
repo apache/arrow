@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,12 +25,12 @@ import io.netty.buffer.ArrowBuf;
 
 public class DecimalUtility {
 
-  public final static int MAX_DIGITS = 9;
-  public final static int DIGITS_BASE = 1000000000;
-  public final static int DIGITS_MAX = 999999999;
-  public final static int INTEGER_SIZE = (Integer.SIZE / 8);
+  public static final int MAX_DIGITS = 9;
+  public static final int DIGITS_BASE = 1000000000;
+  public static final int DIGITS_MAX = 999999999;
+  public static final int INTEGER_SIZE = (Integer.SIZE / 8);
 
-  public final static String[] decimalToString = {"",
+  public static final String[] decimalToString = {"",
       "0",
       "00",
       "000",
@@ -42,7 +41,7 @@ public class DecimalUtility {
       "00000000",
       "000000000"};
 
-  public final static long[] scale_long_constants = {
+  public static final long[] scale_long_constants = {
       1,
       10,
       100,
@@ -53,15 +52,15 @@ public class DecimalUtility {
       10000000,
       100000000,
       1000000000,
-      10000000000l,
-      100000000000l,
-      1000000000000l,
-      10000000000000l,
-      100000000000000l,
-      1000000000000000l,
-      10000000000000000l,
-      100000000000000000l,
-      1000000000000000000l};
+      10000000000L,
+      100000000000L,
+      1000000000000L,
+      10000000000000L,
+      100000000000000L,
+      1000000000000000L,
+      10000000000000000L,
+      100000000000000000L,
+      1000000000000000000L};
 
   public static final int DECIMAL_BYTE_LENGTH = 16;
 

@@ -311,9 +311,22 @@ TYPED_TEST(TestNumericRowGroupStatistics, Merge) {
   ASSERT_NO_FATAL_FAILURE(this->TestMerge());
 }
 
+// Helper for basic statistics tests below
+void AssertStatsSet(const ApplicationVersion& version,
+                    std::shared_ptr<parquet::WriterProperties> props,
+                    const ColumnDescriptor* column, bool expected_is_set) {
+  auto metadata_builder = ColumnChunkMetaDataBuilder::Make(props, column);
+  auto column_chunk =
+      ColumnChunkMetaData::Make(metadata_builder->contents(), column, &version);
+  EncodedStatistics stats;
+  metadata_builder->SetStatistics(false /* is_signed */, stats);
+  ASSERT_EQ(column_chunk->is_stats_set(), expected_is_set);
+}
+
 // Statistics are restricted for few types in older parquet version
 TEST(CorruptStatistics, Basics) {
-  ApplicationVersion version("parquet-mr version 1.8.0");
+  std::string created_by = "parquet-mr version 1.8.0";
+  ApplicationVersion version(created_by);
   SchemaDescriptor schema;
   schema::NodePtr node;
   std::vector<schema::NodePtr> fields;
@@ -335,31 +348,22 @@ TEST(CorruptStatistics, Basics) {
   node = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
   schema.Init(node);
 
-  format::ColumnChunk col_chunk;
-  col_chunk.meta_data.__isset.statistics = true;
-  auto column_chunk1 = ColumnChunkMetaData::Make(
-      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(0), &version);
-  ASSERT_TRUE(column_chunk1->is_stats_set());
-  auto column_chunk2 = ColumnChunkMetaData::Make(
-      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(1), &version);
-  ASSERT_FALSE(column_chunk2->is_stats_set());
-  auto column_chunk3 = ColumnChunkMetaData::Make(
-      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(2), &version);
-  ASSERT_TRUE(column_chunk3->is_stats_set());
-  auto column_chunk4 = ColumnChunkMetaData::Make(
-      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(3), &version);
-  ASSERT_FALSE(column_chunk4->is_stats_set());
-  auto column_chunk5 = ColumnChunkMetaData::Make(
-      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(4), &version);
-  ASSERT_FALSE(column_chunk5->is_stats_set());
-  auto column_chunk6 = ColumnChunkMetaData::Make(
-      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(5), &version);
-  ASSERT_FALSE(column_chunk6->is_stats_set());
+  parquet::WriterProperties::Builder builder;
+  builder.created_by(created_by);
+  std::shared_ptr<parquet::WriterProperties> props = builder.build();
+
+  AssertStatsSet(version, props, schema.Column(0), true);
+  AssertStatsSet(version, props, schema.Column(1), false);
+  AssertStatsSet(version, props, schema.Column(2), true);
+  AssertStatsSet(version, props, schema.Column(3), false);
+  AssertStatsSet(version, props, schema.Column(4), false);
+  AssertStatsSet(version, props, schema.Column(5), false);
 }
 
 // Statistics for all types have no restrictions in newer parquet version
 TEST(CorrectStatistics, Basics) {
-  ApplicationVersion version("parquet-cpp version 1.3.0");
+  std::string created_by = "parquet-cpp version 1.3.0";
+  ApplicationVersion version(created_by);
   SchemaDescriptor schema;
   schema::NodePtr node;
   std::vector<schema::NodePtr> fields;
@@ -381,26 +385,16 @@ TEST(CorrectStatistics, Basics) {
   node = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
   schema.Init(node);
 
-  format::ColumnChunk col_chunk;
-  col_chunk.meta_data.__isset.statistics = true;
-  auto column_chunk1 = ColumnChunkMetaData::Make(
-      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(0), &version);
-  ASSERT_TRUE(column_chunk1->is_stats_set());
-  auto column_chunk2 = ColumnChunkMetaData::Make(
-      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(1), &version);
-  ASSERT_TRUE(column_chunk2->is_stats_set());
-  auto column_chunk3 = ColumnChunkMetaData::Make(
-      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(2), &version);
-  ASSERT_TRUE(column_chunk3->is_stats_set());
-  auto column_chunk4 = ColumnChunkMetaData::Make(
-      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(3), &version);
-  ASSERT_TRUE(column_chunk4->is_stats_set());
-  auto column_chunk5 = ColumnChunkMetaData::Make(
-      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(4), &version);
-  ASSERT_FALSE(column_chunk5->is_stats_set());
-  auto column_chunk6 = ColumnChunkMetaData::Make(
-      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(5), &version);
-  ASSERT_TRUE(column_chunk6->is_stats_set());
+  parquet::WriterProperties::Builder builder;
+  builder.created_by(created_by);
+  std::shared_ptr<parquet::WriterProperties> props = builder.build();
+
+  AssertStatsSet(version, props, schema.Column(0), true);
+  AssertStatsSet(version, props, schema.Column(1), true);
+  AssertStatsSet(version, props, schema.Column(2), true);
+  AssertStatsSet(version, props, schema.Column(3), true);
+  AssertStatsSet(version, props, schema.Column(4), false);
+  AssertStatsSet(version, props, schema.Column(5), true);
 }
 
 // Test SortOrder class

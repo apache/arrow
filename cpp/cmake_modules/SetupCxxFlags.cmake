@@ -19,52 +19,63 @@
 # instruction sets that would boost performance.
 include(CheckCXXCompilerFlag)
 # x86/amd64 compiler flags
-CHECK_CXX_COMPILER_FLAG("-msse3" CXX_SUPPORTS_SSE3)
+CHECK_CXX_COMPILER_FLAG("-msse4.2" CXX_SUPPORTS_SSE4_2)
 # power compiler flags
 CHECK_CXX_COMPILER_FLAG("-maltivec" CXX_SUPPORTS_ALTIVEC)
 
-# compiler flags that are common across debug/release builds
+# This ensures that things like gnu++11 get passed correctly
+set(CMAKE_CXX_STANDARD 11)
 
-if (MSVC)
+# We require a C++11 compliant compiler
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Build with -fPIC so that can static link our libraries into other people's
+# shared libraries
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# compiler flags that are common across debug/release builds
+if (WIN32)
   # TODO(wesm): Change usages of C runtime functions that MSVC says are
   # insecure, like std::getenv
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
-  # ARROW-1931 See https://github.com/google/googletest/issues/1318
-  #
-  # This is added to CMAKE_CXX_FLAGS instead of CXX_COMMON_FLAGS since only the
-  # former is passed into the external projects
-  if (MSVC_VERSION VERSION_GREATER 1900)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING")
-  endif()
-
-  if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    # clang-cl
-    set(CXX_COMMON_FLAGS "-EHsc")
-  elseif(${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 19)
-    message(FATAL_ERROR "Only MSVC 2015 (Version 19.0) and later are supported
-    by Arrow. Found version ${CMAKE_CXX_COMPILER_VERSION}.")
-  else()
-    # Fix annoying D9025 warning
-    string(REPLACE "/W3" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-
-    # Set desired warning level (e.g. set /W4 for more warnings)
+  if (MSVC)
+    # ARROW-1931 See https://github.com/google/googletest/issues/1318
     #
-    # ARROW-2986: Without /EHsc we get C4530 warning
-    set(CXX_COMMON_FLAGS "/W3 /EHsc")
-  endif()
+    # This is added to CMAKE_CXX_FLAGS instead of CXX_COMMON_FLAGS since only the
+    # former is passed into the external projects
+    if (MSVC_VERSION VERSION_GREATER 1900)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING")
+    endif()
 
-  if (ARROW_USE_STATIC_CRT)
-    foreach (c_flag CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_DEBUG
-                    CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
-                    CMAKE_C_FLAGS CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_DEBUG
-                    CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
-      string(REPLACE "/MD" "-MT" ${c_flag} "${${c_flag}}")
-    endforeach()
-  endif()
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+      # clang-cl
+      set(CXX_COMMON_FLAGS "-EHsc")
+    elseif(${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 19)
+      message(FATAL_ERROR "Only MSVC 2015 (Version 19.0) and later are supported
+      by Arrow. Found version ${CMAKE_CXX_COMPILER_VERSION}.")
+    else()
+      # Fix annoying D9025 warning
+      string(REPLACE "/W3" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-  # Support large object code
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /bigobj")
+      # Set desired warning level (e.g. set /W4 for more warnings)
+      #
+      # ARROW-2986: Without /EHsc we get C4530 warning
+      set(CXX_COMMON_FLAGS "/W3 /EHsc")
+    endif()
+
+    if (ARROW_USE_STATIC_CRT)
+      foreach (c_flag CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_DEBUG
+		      CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
+		      CMAKE_C_FLAGS CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_DEBUG
+		      CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
+	string(REPLACE "/MD" "-MT" ${c_flag} "${${c_flag}}")
+      endforeach()
+    endif()
+
+    # Support large object code
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /bigobj")
+  endif(MSVC)
 else()
   # Common flags set below with warning level
   set(CXX_COMMON_FLAGS "")
@@ -79,10 +90,6 @@ endif(NOT BUILD_WARNING_LEVEL)
 
 string(TOUPPER ${BUILD_WARNING_LEVEL} UPPERCASE_BUILD_WARNING_LEVEL)
 
-if (NOT ("${COMPILER_FAMILY}" STREQUAL "msvc"))
-  set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -std=c++11")
-endif()
-
 if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   # Pre-checkin builds
   if ("${COMPILER_FAMILY}" STREQUAL "msvc")
@@ -93,7 +100,7 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
 -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
--Wno-comma -Wno-unused-parameter -Wno-unused-template -Wno-undef \
+-Wno-comma -Wno-unused-macros -Wno-unused-parameter -Wno-unused-template -Wno-undef \
 -Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
 -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
 -Wno-implicit-fallthrough -Wno-unreachable-code-return \
@@ -111,15 +118,13 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.6")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-reserved-id-macro")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-range-loop-analysis")
-    endif()
-    if ("${COMPILER_VERSION}" VERSION_GREATER "3.7")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-double-promotion")
     endif()
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.8")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-undefined-func-template")
     endif()
 
-    if ("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+    if ("${COMPILER_VERSION}" VERSION_GREATER "3.9")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-zero-as-null-pointer-constant")
     endif()
 
@@ -171,12 +176,16 @@ else()
   endif()
 endif()
 
-# Disable annoying "performance warning" about int-to-bool conversion
 if ("${COMPILER_FAMILY}" STREQUAL "msvc")
+  # Disable annoying "performance warning" about int-to-bool conversion
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4800")
+
+  # Disable unchecked iterator warnings, equivalent to /D_SCL_SECURE_NO_WARNINGS
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4996")
 endif()
 
-if ("${COMPILER_FAMILY}" STREQUAL "gcc")
+if ("${COMPILER_FAMILY}" STREQUAL "gcc" AND
+    "${COMPILER_VERSION}" VERSION_GREATER "6.0")
   # Without this, gcc >= 7 warns related to changes in C++17
   set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
 endif()
@@ -188,6 +197,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   #
   #   http://petereisentraut.blogspot.com/2011/05/ccache-and-clang.html
   #   http://petereisentraut.blogspot.com/2011/09/ccache-and-clang-part-2.html
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Qunused-arguments")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
 
   # Avoid clang error when an unknown warning flag is passed
@@ -202,12 +212,16 @@ if (BUILD_WARNING_FLAGS)
 endif(BUILD_WARNING_FLAGS)
 
 # Only enable additional instruction sets if they are supported
-if (CXX_SUPPORTS_SSE3 AND ARROW_SSE3)
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse3")
+if (CXX_SUPPORTS_SSE4_2)
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse4.2")
 endif()
 
 if (CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -maltivec")
+endif()
+
+if (ARROW_USE_SSE)
+  add_definitions(-DARROW_USE_SSE)
 endif()
 
 if (APPLE)
@@ -246,7 +260,7 @@ function(GET_GOLD_VERSION)
 endfunction()
 
 # Is the compiler hard-wired to use the gold linker?
-if (NOT MSVC AND NOT APPLE)
+if (NOT WIN32 AND NOT APPLE)
   GET_GOLD_VERSION()
   if (GOLD_VERSION)
     set(MUST_USE_GOLD 1)
@@ -317,11 +331,16 @@ endif()
 #   Debug symbols are stripped for reduced binary size. Add
 #   -DARROW_CXXFLAGS="-g" to add them
 if (NOT MSVC)
+  set(C_FLAGS_DEBUG "-ggdb -O0")
+  set(C_FLAGS_FASTDEBUG "-ggdb -O1")
+  set(C_FLAGS_RELEASE "-O3 -DNDEBUG")
   set(CXX_FLAGS_DEBUG "-ggdb -O0")
   set(CXX_FLAGS_FASTDEBUG "-ggdb -O1")
   set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 endif()
 
+set(C_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
+set(C_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
 set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 
@@ -335,14 +354,19 @@ string (TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
 # Set compile flags based on the build type.
 message("Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})")
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_FASTDEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_FASTDEBUG}")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_RELEASE}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_RELEASE}")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_GEN")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_GEN}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_GEN}")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_BUILD")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_BUILD}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_BUILD}")
 else()
   message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")

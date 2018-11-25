@@ -34,6 +34,10 @@ libarrow_gpu_glib_la_CXXFLAGS =			\
 	$(ARROW_GPU_CFLAGS)			\
 	$(GARROW_CXXFLAGS)
 
+libarrow_gpu_glib_la_LDFLAGS =			\
+	-version-info $(LT_VERSION_INFO)	\
+	-no-undefined
+
 libarrow_gpu_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
 	$(ARROW_LIBS)				\

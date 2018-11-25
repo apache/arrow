@@ -1,14 +1,13 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * <p>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,11 +17,15 @@
 
 package org.apache.arrow.vector.complex;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseValueVector;
@@ -38,17 +41,14 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ObjectArrays;
-
 import io.netty.buffer.ArrowBuf;
 
 public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector {
 
-  public final static FieldVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
-  public final static String DATA_VECTOR_NAME = "$data$";
+  public static final FieldVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
+  public static final String DATA_VECTOR_NAME = "$data$";
 
-  public final static byte OFFSET_WIDTH = 4;
+  public static final byte OFFSET_WIDTH = 4;
   protected ArrowBuf offsetBuffer;
   protected FieldVector vector;
   protected final CallBack callBack;
@@ -240,8 +240,10 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      buffers = ObjectArrays.concat(new ArrowBuf[]{offsetBuffer}, vector.getBuffers(false),
-              ArrowBuf.class);
+      List<ArrowBuf> list = new ArrayList<>();
+      list.add(offsetBuffer);
+      list.addAll(Arrays.asList(vector.getBuffers(false)));
+      buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {

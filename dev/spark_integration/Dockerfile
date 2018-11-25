@@ -52,7 +52,6 @@ RUN conda create -y -q -c conda-forge -n pyarrow-dev \
       zlib \
       gflags \
       brotli \
-      jemalloc \
       lz4-c \
       zstd \
       setuptools \

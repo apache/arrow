@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -427,8 +426,8 @@ public class TestListVector {
           for (int i = 0; i < splitLength; i++) {
             dataLength1 = offsetBuffer.getInt((start + i + 1) * ListVector.OFFSET_WIDTH) -
                     offsetBuffer.getInt((start + i) * ListVector.OFFSET_WIDTH);
-            dataLength2 = toOffsetBuffer.getInt((i + 1) * ListVector.OFFSET_WIDTH)
-                    - toOffsetBuffer.getInt(i * ListVector.OFFSET_WIDTH);
+            dataLength2 = toOffsetBuffer.getInt((i + 1) * ListVector.OFFSET_WIDTH) -
+                    toOffsetBuffer.getInt(i * ListVector.OFFSET_WIDTH);
 
             assertEquals("Different data lengths at index: " + i + " and start: " + start,
                     dataLength1, dataLength2);
@@ -781,7 +780,7 @@ public class TestListVector {
       vector.setInitialCapacity(512, 4);
       vector.allocateNew();
       assertEquals(512, vector.getValueCapacity());
-      assertEquals(512*4, vector.getDataVector().getValueCapacity());
+      assertEquals(512 * 4, vector.getDataVector().getValueCapacity());
 
       /**
        * inner value capacity we pass to data vector is 512 * 0.1 => 51

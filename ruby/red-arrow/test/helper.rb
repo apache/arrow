@@ -21,6 +21,7 @@ require "arrow"
 
 require "pathname"
 require "tempfile"
+require "zlib"
 
 require "test-unit"
 

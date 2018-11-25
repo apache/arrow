@@ -60,12 +60,17 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     # TensorFlow is not supported for Python 2.7 with unicode width 16 or with Python 3.7
     if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]; then
       if [ $PYTHON != "3.7" ]; then
-        $PIP install --ignore-installed --upgrade tensorflow
+        $PIP install tensorflow==1.11.0
       fi
     fi
 
+    # pin wheel, because auditwheel is not compatible with wheel=0.32
+    # pin after installing tensorflow, because it updates to wheel=0.32
+    # TODO(kszucs): remove after auditwheel properly supports wheel>0.31
+    $PIP install "wheel==${WHEEL_VERSION:-0.31.1}"
+
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
-    ARROW_BUILD_DIR=/arrow/cpp/build-PY${PYTHON}-${U_WIDTH}
+    ARROW_BUILD_DIR=/tmp/build-PY${PYTHON}-${U_WIDTH}
     mkdir -p "${ARROW_BUILD_DIR}"
     pushd "${ARROW_BUILD_DIR}"
     PATH="${CPYTHON_PATH}/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release \
@@ -77,28 +82,33 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
         -DARROW_JEMALLOC=ON \
         -DARROW_RPATH_ORIGIN=ON \
         -DARROW_PYTHON=ON \
+        -DARROW_PARQUET=ON \
         -DPythonInterp_FIND_VERSION=${PYTHON} \
         -DARROW_PLASMA=ON \
         -DARROW_TENSORFLOW=ON \
         -DARROW_ORC=ON \
         -DBoost_NAMESPACE=arrow_boost \
         -DBOOST_ROOT=/arrow_boost_dist \
-        -GNinja ..
+        -GNinja /arrow/cpp
     ninja install
     popd
+
+    # Check that we don't expose any unwanted symbols
+    /io/scripts/check_arrow_visibility.sh
 
     # Clear output directory
     rm -rf dist/
     echo "=== (${PYTHON}) Building wheel ==="
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp --bundle-boost --boost-namespace=arrow_boost
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext \
+        --inplace \
+        --bundle-arrow-cpp \
+        --bundle-boost \
+        --boost-namespace=arrow_boost
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
 
     echo "=== (${PYTHON}) Test the existence of optional modules ==="
     $PIP install -r requirements.txt
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.orc"
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"
 
     echo "=== (${PYTHON}) Tag the wheel with manylinux1 ==="
     mkdir -p repaired_wheels/
@@ -107,6 +117,10 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     echo "=== (${PYTHON}) Testing manylinux1 wheel ==="
     source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
     pip install repaired_wheels/*.whl
+
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.orc"
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"
 
     # The TensorFlow test will be skipped here, since TensorFlow is not
     # manylinux1 compatible; however, the wheels will support TensorFlow on

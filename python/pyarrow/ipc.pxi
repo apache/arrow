@@ -19,9 +19,6 @@ cdef class Message:
     """
     Container for an Arrow IPC message with metadata and optional body
     """
-    cdef:
-        unique_ptr[CMessage] message
-
     def __cinit__(self):
         pass
 
@@ -63,12 +60,14 @@ cdef class Message:
             result = self.message.get().Equals(deref(other.message.get()))
         return result
 
-    def serialize(self, memory_pool=None):
+    def serialize(self, alignment=8, memory_pool=None):
         """
         Write message as encapsulated IPC message
 
         Parameters
         ----------
+        alignment : int, default 8
+            Byte alignment for metadata and body
         memory_pool : MemoryPool, default None
             Uses default memory pool if not specified
 
@@ -79,10 +78,12 @@ cdef class Message:
         cdef:
             BufferOutputStream stream = BufferOutputStream(memory_pool)
             int64_t output_length = 0
+            int32_t c_alignment = alignment
 
+        handle = stream.get_output_stream()
         with nogil:
             check_status(self.message.get()
-                         .SerializeTo(stream.wr_file.get(),
+                         .SerializeTo(handle.get(), c_alignment,
                                       &output_length))
         return stream.getvalue()
 
@@ -118,7 +119,7 @@ cdef class MessageReader:
         cdef MessageReader result = MessageReader.__new__(MessageReader)
         cdef shared_ptr[InputStream] in_stream
         cdef unique_ptr[CMessageReader] reader
-        get_input_stream(source, &in_stream)
+        _get_input_stream(source, &in_stream)
         with nogil:
             reader = CMessageReader.Open(in_stream)
             result.reader.reset(reader.release())
@@ -154,7 +155,7 @@ cdef class _RecordBatchWriter:
         bint closed
 
     def __cinit__(self):
-        self.closed = True
+        pass
 
     def __dealloc__(self):
         pass
@@ -167,7 +168,6 @@ cdef class _RecordBatchWriter:
                 CRecordBatchStreamWriter.Open(self.sink.get(),
                                               schema.sp_schema,
                                               &self.writer))
-        self.closed = False
 
     def write(self, table_or_batch):
         """
@@ -219,15 +219,11 @@ cdef class _RecordBatchWriter:
         """
         Close stream and write end-of-stream 0 marker
         """
-        if self.closed:
-            return
-
         with nogil:
             check_status(self.writer.get().Close())
-        self.closed = True
 
 
-cdef get_input_stream(object source, shared_ptr[InputStream]* out):
+cdef _get_input_stream(object source, shared_ptr[InputStream]* out):
     cdef:
         shared_ptr[RandomAccessFile] file_handle
 
@@ -253,7 +249,7 @@ cdef class _RecordBatchReader:
         pass
 
     def _open(self, source):
-        get_input_stream(source, &self.in_stream)
+        _get_input_stream(source, &self.in_stream)
         with nogil:
             check_status(CRecordBatchStreamReader.Open(
                 self.in_stream.get(), &self.reader))
@@ -316,8 +312,6 @@ cdef class _RecordBatchFileWriter(_RecordBatchWriter):
             check_status(
                 CRecordBatchFileWriter.Open(self.sink.get(), schema.sp_schema,
                                             &self.writer))
-
-        self.closed = False
 
 
 cdef class _RecordBatchFileReader:
@@ -432,21 +426,21 @@ def write_tensor(Tensor tensor, NativeFile dest):
         int32_t metadata_length
         int64_t body_length
 
-    dest._assert_writable()
+    handle = dest.get_output_stream()
 
     with nogil:
         check_status(
-            WriteTensor(deref(tensor.tp), dest.wr_file.get(),
+            WriteTensor(deref(tensor.tp), handle.get(),
                         &metadata_length, &body_length))
 
     return metadata_length + body_length
 
 
 def read_tensor(NativeFile source):
-    """
-    Read pyarrow.Tensor from pyarrow.NativeFile object from current
+    """Read pyarrow.Tensor from pyarrow.NativeFile object from current
     position. If the file source supports zero copy (e.g. a memory map), then
-    this operation does not allocate any memory
+    this operation does not allocate any memory. This function not assume that
+    the stream is aligned
 
     Parameters
     ----------
@@ -455,16 +449,15 @@ def read_tensor(NativeFile source):
     Returns
     -------
     tensor : Tensor
+
     """
     cdef:
         shared_ptr[CTensor] sp_tensor
+        RandomAccessFile* rd_file
 
-    source._assert_readable()
-
-    cdef int64_t offset = source.tell()
+    rd_file = source.get_random_access_file().get()
     with nogil:
-        check_status(ReadTensor(offset, source.rd_file.get(), &sp_tensor))
-
+        check_status(ReadTensor(rd_file, &sp_tensor))
     return pyarrow_wrap_tensor(sp_tensor)
 
 
@@ -483,6 +476,7 @@ def read_message(source):
     cdef:
         Message result = Message.__new__(Message)
         NativeFile cpp_file
+        RandomAccessFile* rd_file
 
     if not isinstance(source, NativeFile):
         if hasattr(source, 'read'):
@@ -494,13 +488,11 @@ def read_message(source):
         raise ValueError('Unable to read message from object with type: {0}'
                          .format(type(source)))
 
-    source._assert_readable()
-
     cpp_file = source
+    rd_file = cpp_file.get_random_access_file().get()
 
     with nogil:
-        check_status(ReadMessage(cpp_file.rd_file.get(),
-                                 &result.message))
+        check_status(ReadMessage(rd_file, &result.message))
 
     return result
 

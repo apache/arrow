@@ -18,6 +18,7 @@
 #ifndef ARROW_ALLOCATOR_H
 #define ARROW_ALLOCATOR_H
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <utility>
@@ -83,6 +84,48 @@ class stl_allocator {
 
  private:
   MemoryPool* pool_;
+};
+
+template <typename Allocator = std::allocator<uint8_t>>
+class STLMemoryPool : public MemoryPool {
+ public:
+  explicit STLMemoryPool(const Allocator& alloc) : alloc_(alloc) {}
+
+  Status Allocate(int64_t size, uint8_t** out) override {
+    try {
+      *out = alloc_.allocate(size);
+    } catch (std::bad_alloc& e) {
+      return Status::OutOfMemory(e.what());
+    }
+    stats_.UpdateAllocatedBytes(size);
+    return Status::OK();
+  }
+
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
+    uint8_t* old_ptr = *ptr;
+    try {
+      *ptr = alloc_.allocate(new_size);
+    } catch (std::bad_alloc& e) {
+      return Status::OutOfMemory(e.what());
+    }
+    memcpy(*ptr, old_ptr, std::min(old_size, new_size));
+    alloc_.deallocate(old_ptr, old_size);
+    stats_.UpdateAllocatedBytes(new_size - old_size);
+    return Status::OK();
+  }
+
+  void Free(uint8_t* buffer, int64_t size) override {
+    alloc_.deallocate(buffer, size);
+    stats_.UpdateAllocatedBytes(-size);
+  }
+
+  int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
+
+  int64_t max_memory() const override { return stats_.max_memory(); }
+
+ private:
+  Allocator alloc_;
+  internal::MemoryPoolStats stats_;
 };
 
 template <class T1, class T2>

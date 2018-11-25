@@ -66,6 +66,9 @@ using arrow::gpu::CudaContext;
 using arrow::gpu::CudaDeviceManager;
 #endif
 
+using arrow::util::ArrowLog;
+using arrow::util::ArrowLogLevel;
+
 namespace fb = plasma::flatbuf;
 
 namespace plasma {
@@ -256,6 +259,50 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
   object->device_num = entry->device_num;
 }
 
+void PlasmaStore::RemoveGetRequest(GetRequest* get_request) {
+  // Remove the get request from each of the relevant object_get_requests hash
+  // tables if it is present there. It should only be present there if the get
+  // request timed out or if it was issued by a client that has disconnected.
+  for (ObjectID& object_id : get_request->object_ids) {
+    auto object_request_iter = object_get_requests_.find(object_id);
+    if (object_request_iter != object_get_requests_.end()) {
+      auto& get_requests = object_request_iter->second;
+      // Erase get_req from the vector.
+      auto it = std::find(get_requests.begin(), get_requests.end(), get_request);
+      if (it != get_requests.end()) {
+        get_requests.erase(it);
+        // If the vector is empty, remove the object ID from the map.
+        if (get_requests.empty()) {
+          object_get_requests_.erase(object_request_iter);
+        }
+      }
+    }
+  }
+  // Remove the get request.
+  if (get_request->timer != -1) {
+    ARROW_CHECK(loop_->RemoveTimer(get_request->timer) == kEventLoopOk);
+  }
+  delete get_request;
+}
+
+void PlasmaStore::RemoveGetRequestsForClient(Client* client) {
+  std::unordered_set<GetRequest*> get_requests_to_remove;
+  for (auto const& pair : object_get_requests_) {
+    for (GetRequest* get_request : pair.second) {
+      if (get_request->client == client) {
+        get_requests_to_remove.insert(get_request);
+      }
+    }
+  }
+
+  // It shouldn't be possible for a given client to be in the middle of multiple get
+  // requests.
+  ARROW_CHECK(get_requests_to_remove.size() <= 1);
+  for (GetRequest* get_request : get_requests_to_remove) {
+    RemoveGetRequest(get_request);
+  }
+}
+
 void PlasmaStore::ReturnFromGet(GetRequest* get_req) {
   // Figure out how many file descriptors we need to send.
   std::unordered_set<int> fds_to_send;
@@ -302,26 +349,20 @@ void PlasmaStore::ReturnFromGet(GetRequest* get_req) {
   // Remove the get request from each of the relevant object_get_requests hash
   // tables if it is present there. It should only be present there if the get
   // request timed out.
-  for (ObjectID& object_id : get_req->object_ids) {
-    auto object_request_iter = object_get_requests_.find(object_id);
-    if (object_request_iter != object_get_requests_.end()) {
-      auto& get_requests = object_request_iter->second;
-      // Erase get_req from the vector.
-      auto it = std::find(get_requests.begin(), get_requests.end(), get_req);
-      if (it != get_requests.end()) {
-        get_requests.erase(it);
-      }
-    }
-  }
-  // Remove the get request.
-  if (get_req->timer != -1) {
-    ARROW_CHECK(loop_->RemoveTimer(get_req->timer) == AE_OK);
-  }
-  delete get_req;
+  RemoveGetRequest(get_req);
 }
 
 void PlasmaStore::UpdateObjectGetRequests(const ObjectID& object_id) {
-  auto& get_requests = object_get_requests_[object_id];
+  auto it = object_get_requests_.find(object_id);
+  // If there are no get requests involving this object, then return.
+  if (it == object_get_requests_.end()) {
+    return;
+  }
+
+  auto& get_requests = it->second;
+
+  // After finishing the loop below, get_requests and it will have been
+  // invalidated by the removal of object_id from object_get_requests_.
   size_t index = 0;
   size_t num_requests = get_requests.size();
   for (size_t i = 0; i < num_requests; ++i) {
@@ -345,10 +386,14 @@ void PlasmaStore::UpdateObjectGetRequests(const ObjectID& object_id) {
     }
   }
 
-  DCHECK(index == get_requests.size());
-  // Remove the array of get requests for this object, since no one should be
-  // waiting for this object anymore.
-  object_get_requests_.erase(object_id);
+  // No get requests should be waiting for this object anymore. The object ID
+  // may have been removed from the object_get_requests_ by ReturnFromGet, but
+  // if the get request has not returned yet, then remove the object ID from the
+  // map here.
+  it = object_get_requests_.find(object_id);
+  if (it != object_get_requests_.end()) {
+    object_get_requests_.erase(object_id);
+  }
 }
 
 void PlasmaStore::ProcessGetRequest(Client* client,
@@ -581,6 +626,9 @@ void PlasmaStore::DisconnectClient(int client_fd) {
     }
   }
 
+  /// Remove all of the client's GetRequests.
+  RemoveGetRequestsForClient(client);
+
   for (const auto& entry : sealed_objects) {
     RemoveFromClientObjectIds(entry.first, entry.second, client);
   }
@@ -754,6 +802,35 @@ Status PlasmaStore::ProcessMessage(Client* client) {
         WarnIfSigpipe(send_fd(client->fd, object.store_fd), client->fd);
       }
     } break;
+    case fb::MessageType::PlasmaCreateAndSealRequest: {
+      std::string data;
+      std::string metadata;
+      unsigned char digest[kDigestSize];
+      RETURN_NOT_OK(ReadCreateAndSealRequest(input, input_size, &object_id, &data,
+                                             &metadata, &digest[0]));
+      // CreateAndSeal currently only supports device_num = 0, which corresponds
+      // to the host.
+      int device_num = 0;
+      PlasmaError error_code = CreateObject(object_id, data.size(), metadata.size(),
+                                            device_num, client, &object);
+      // Reply to the client.
+      HANDLE_SIGPIPE(SendCreateAndSealReply(client->fd, error_code), client->fd);
+
+      // If the object was successfully created, fill out the object data and seal it.
+      if (error_code == PlasmaError::OK) {
+        auto entry = GetObjectTableEntry(&store_info_, object_id);
+        ARROW_CHECK(entry != nullptr);
+        // Write the inlined data and metadata into the allocated object.
+        std::memcpy(entry->pointer, data.data(), data.size());
+        std::memcpy(entry->pointer + data.size(), metadata.data(), metadata.size());
+        SealObject(object_id, &digest[0]);
+        // Remove the client from the object's array of clients because the
+        // object is not being used by any client. The client was added to the
+        // object's array of clients in CreateObject. This is analogous to the
+        // Release call that happens in the client's Seal method.
+        ARROW_CHECK(RemoveFromClientObjectIds(object_id, entry, client) == 1);
+      }
+    } break;
     case fb::MessageType::PlasmaAbortRequest: {
       RETURN_NOT_OK(ReadAbortRequest(input, input_size, &object_id));
       ARROW_CHECK(AbortObject(object_id, client) == 1) << "To abort an object, the only "
@@ -857,8 +934,10 @@ class PlasmaStoreRunner {
     loop_->Start();
   }
 
+  void Stop() { loop_->Stop(); }
+
   void Shutdown() {
-    loop_->Stop();
+    loop_->Shutdown();
     loop_ = nullptr;
     store_ = nullptr;
   }
@@ -873,10 +952,8 @@ static std::unique_ptr<PlasmaStoreRunner> g_runner = nullptr;
 void HandleSignal(int signal) {
   if (signal == SIGTERM) {
     if (g_runner != nullptr) {
-      g_runner->Shutdown();
+      g_runner->Stop();
     }
-    // Report "success" to valgrind.
-    exit(0);
   }
 }
 
@@ -895,6 +972,8 @@ void StartServer(char* socket_name, int64_t system_memory, std::string plasma_di
 }  // namespace plasma
 
 int main(int argc, char* argv[]) {
+  ArrowLog::StartArrowLog(argv[0], ArrowLogLevel::ARROW_INFO);
+  ArrowLog::InstallFailureSignalHandler();
   char* socket_name = nullptr;
   // Directory where plasma memory mapped files are stored.
   std::string plasma_directory;
@@ -981,4 +1060,9 @@ int main(int argc, char* argv[]) {
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
   plasma::StartServer(socket_name, system_memory, plasma_directory, hugepages_enabled,
                       use_one_memory_mapped_file);
+  plasma::g_runner->Shutdown();
+  plasma::g_runner = nullptr;
+
+  ArrowLog::ShutDownArrowLog();
+  return 0;
 }

@@ -48,6 +48,18 @@ ARROW_EXPORT
 arrow::Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
                                     std::shared_ptr<arrow::DataType>* out_type);
 
+/// Checks whether the passed Python object is a boolean scalar
+ARROW_EXPORT
+bool IsPyBool(PyObject* obj);
+
+/// Checks whether the passed Python object is an integer scalar
+ARROW_EXPORT
+bool IsPyInt(PyObject* obj);
+
+/// Checks whether the passed Python object is a float scalar
+ARROW_EXPORT
+bool IsPyFloat(PyObject* obj);
+
 }  // namespace py
 }  // namespace arrow
 

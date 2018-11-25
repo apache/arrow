@@ -2,7 +2,8 @@ Package: arrow
 Title: R Integration to 'Apache' 'Arrow'
 Version: 0.0.0.9000
 Authors@R: c(
-    person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")), 
+    person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")),
+    person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("ctb")),
     person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
   )
 Description: R Integration to 'Apache' 'Arrow'.
@@ -11,11 +12,55 @@ License: Apache License (>= 2.0)
 Encoding: UTF-8
 LazyData: true
 SystemRequirements: C++11
-LinkingTo: 
-    Rcpp
-Imports: 
-    Rcpp
+LinkingTo:
+    Rcpp (>= 0.12.18.2)
+Imports:
+    Rcpp (>= 0.12.18.2),
+    rlang,
+    purrr,
+    assertthat,
+    glue,
+    R6,
+    vctrs (>= 0.0.0.9000),
+    fs,
+    tibble,
+    crayon,
+    withr,
+    bit64
+Remotes:
+    romainfrancois/vctrs@bit64, 
+    RcppCore/Rcpp, 
+    r-lib/withr
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 6.0.1.9000
-Suggests: 
-    testthat
+RoxygenNote: 6.1.1
+Suggests:
+    testthat,
+    lubridate, 
+    hms
+Collate:
+    'enums.R'
+    'R6.R'
+    'ArrayData.R'
+    'ChunkedArray.R'
+    'Column.R'
+    'Field.R'
+    'List.R'
+    'RcppExports.R'
+    'RecordBatch.R'
+    'RecordBatchReader.R'
+    'RecordBatchWriter.R'
+    'Schema.R'
+    'Struct.R'
+    'Table.R'
+    'array.R'
+    'buffer.R'
+    'compute.R'
+    'dictionary.R'
+    'feather.R'
+    'io.R'
+    'memory_pool.R'
+    'message.R'
+    'on_exit.R'
+    'reexports-bit64.R'
+    'reexports-tibble.R'
+    'zzz.R'

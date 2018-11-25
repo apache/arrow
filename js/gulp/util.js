@@ -69,13 +69,13 @@ const UMDSourceTargets = {
  esnext: `es2015`
 };
 
-const uglifyLanguageNames = {
+const terserLanguageNames = {
     es5: 5, es2015: 6,
  es2016: 7, es2017: 8,
  esnext: 8 // <--- ?
 };
 
-// ES7+ keywords Uglify shouldn't mangle
+// ES7+ keywords Terser shouldn't mangle
 // Hardcoded here since some are from ES7+, others are
 // only defined in interfaces, so difficult to get by reflection.
 const ESKeywords = [
@@ -143,8 +143,8 @@ function* combinations(_targets, _modules) {
         yield [`ts`, ``];
         yield [`src`, ``];
         yield [npmPkgName, ``];
-    }        
-    
+    }
+
     for (const format of modules) {
         for (const target of targets) {
             yield [target, format];
@@ -163,13 +163,13 @@ function* combinations(_targets, _modules) {
             ).sort((a, b) => known.indexOf(a) - known.indexOf(b));
     }
 }
-    
+
 module.exports = {
 
     mainExport, npmPkgName, npmOrgName, metadataFiles, packageJSONFields,
 
     knownTargets, knownModules, tasksToSkipPerTargetOrFormat,
-    ESKeywords, gCCLanguageNames, UMDSourceTargets, uglifyLanguageNames,
+    ESKeywords, gCCLanguageNames, UMDSourceTargets, terserLanguageNames,
 
     taskName, packageName, tsconfigName, targetDir, combinations, observableFromStreams,
 };

@@ -38,8 +38,11 @@ G_BEGIN_DECLS
  * @GARROW_ERROR_PLASMA_OBJECT_EXISTS: Object already exists on Plasma.
  * @GARROW_ERROR_PLASMA_OBJECT_NONEXISTENT: Object doesn't exist on Plasma.
  * @GARROW_ERROR_PLASMA_STORE_FULL: Store full error on Plasma.
- * @GARROW_ERROR_PLASMA_OBJECT_ALREADY_SEALED:
- *   Object is already sealed on Plasma.
+ * @GARROW_ERROR_PLASMA_OBJECT_ALREADY_SEALED: Object already sealed on Plasma.
+ * @GARROW_ERROR_CODE_GENERATION: Error generating code for expression evaluation
+ *   in Gandiva.
+ * @GARROW_ERROR_EXPRESSION_VALIDATION: Validation errors in expression given for code generation.
+ * @GARROW_ERROR_EXECUTION: Execution error while evaluating the expression against a record batch.
  *
  * The error codes are used by all arrow-glib functions.
  *
@@ -60,6 +63,9 @@ typedef enum {
   GARROW_ERROR_PLASMA_OBJECT_NONEXISTENT,
   GARROW_ERROR_PLASMA_STORE_FULL,
   GARROW_ERROR_PLASMA_OBJECT_ALREADY_SEALED,
+  GARROW_ERROR_CODE_GENERATION = 40,
+  GARROW_ERROR_EXPRESSION_VALIDATION = 41,
+  GARROW_ERROR_EXECUTION = 42,
 } GArrowError;
 
 #define GARROW_ERROR garrow_error_quark()

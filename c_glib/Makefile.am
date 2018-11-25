@@ -20,11 +20,15 @@ ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 SUBDIRS =					\
 	arrow-glib				\
 	arrow-gpu-glib				\
+	gandiva-glib				\
+	parquet-glib				\
+	plasma-glib				\
 	doc					\
 	example					\
 	tool
 
 EXTRA_DIST =					\
+	Gemfile					\
 	README.md				\
 	autogen.sh				\
 	meson.build				\

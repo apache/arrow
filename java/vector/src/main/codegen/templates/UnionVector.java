@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,7 +23,6 @@
 package org.apache.arrow.vector.complex;
 
 <#include "/@includes/vv_imports.ftl" />
-import com.google.common.collect.ImmutableList;
 import io.netty.buffer.ArrowBuf;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -460,11 +458,11 @@ public class UnionVector implements FieldVector {
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    ImmutableList.Builder<ArrowBuf> builder = ImmutableList.builder();
+    List<ArrowBuf> list = new java.util.ArrayList<>();
     setReaderAndWriterIndex();
     if (getBufferSize() != 0) {
-      builder.add(typeBuffer);
-      builder.add(internalStruct.getBuffers(clear));
+      list.add(typeBuffer);
+      list.addAll(java.util.Arrays.asList(internalStruct.getBuffers(clear)));
     }
     if (clear) {
       valueCount = 0;
@@ -472,13 +470,12 @@ public class UnionVector implements FieldVector {
       typeBuffer.release();
       typeBuffer = allocator.getEmpty();
     }
-    List<ArrowBuf> list = builder.build();
     return list.toArray(new ArrowBuf[list.size()]);
   }
 
   @Override
   public Iterator<ValueVector> iterator() {
-    List<ValueVector> vectors = Lists.newArrayList(internalStruct.iterator());
+    List<ValueVector> vectors = org.apache.arrow.util.Collections2.toList(internalStruct.iterator());
     return vectors.iterator();
   }
 

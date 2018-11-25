@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -54,7 +53,7 @@ import org.junit.Test;
 
 public class TestCopyFrom {
 
-  private final static String EMPTY_SCHEMA_PATH = "";
+  private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
 
@@ -71,8 +70,8 @@ public class TestCopyFrom {
   @Test /* NullableVarChar */
   public void testCopyFromWithNulls() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator))
-    {
+         final VarCharVector vector2 =
+             newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
       assertEquals(4095, capacity);
@@ -131,8 +130,8 @@ public class TestCopyFrom {
   @Test /* NullableVarChar */
   public void testCopyFromWithNulls1() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator))
-    {
+         final VarCharVector vector2 =
+             newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
       assertEquals(4095, capacity);
@@ -202,7 +201,7 @@ public class TestCopyFrom {
       assertEquals(0, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
         vector1.setSafe(i, 1000 + i);
@@ -217,7 +216,7 @@ public class TestCopyFrom {
       assertEquals(4096, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i, 1000 + i, vector1.get(i));
@@ -243,7 +242,7 @@ public class TestCopyFrom {
 
       /* check vector data after copy and realloc */
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i, 1000 + i, vector2.get(i));
@@ -262,7 +261,7 @@ public class TestCopyFrom {
       assertEquals(0, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
         vector1.setSafe(i, 10000000000L + (long)i);
@@ -277,7 +276,7 @@ public class TestCopyFrom {
       assertEquals(4096, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
@@ -304,7 +303,7 @@ public class TestCopyFrom {
 
       /* check vector data after copy and realloc */
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
@@ -325,10 +324,10 @@ public class TestCopyFrom {
 
       int counter = 0;
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
-        if ((counter&1) == 0) {
+        if ((counter & 1) == 0) {
           vector1.setSafe(i, 1);
         } else {
           vector1.setSafe(i, 0);
@@ -346,10 +345,10 @@ public class TestCopyFrom {
 
       counter = 0;
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          if ((counter&1) == 0) {
+          if ((counter & 1) == 0) {
             assertTrue(vector1.getObject(i));
           } else {
             assertFalse(vector1.getObject(i));
@@ -378,10 +377,10 @@ public class TestCopyFrom {
       /* check vector data after copy and realloc */
       counter = 0;
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
-          if ((counter&1) == 0) {
+          if ((counter & 1) == 0) {
             assertTrue(vector2.getObject(i));
           } else {
             assertFalse(vector2.getObject(i));
@@ -402,7 +401,7 @@ public class TestCopyFrom {
       assertEquals(0, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
         vector1.setSafe(i, 100.25f + (float)i);
@@ -417,7 +416,7 @@ public class TestCopyFrom {
       assertEquals(4096, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
@@ -444,11 +443,11 @@ public class TestCopyFrom {
 
       /* check vector data after copy and realloc */
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
-                  100.25f + i*1.0f, vector2.get(i), 0);
+                  100.25f + i * 1.0f, vector2.get(i), 0);
         }
       }
     }
@@ -464,7 +463,7 @@ public class TestCopyFrom {
       assertEquals(0, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
         vector1.setSafe(i, 123456.7865 + (double) i);
@@ -479,7 +478,7 @@ public class TestCopyFrom {
       assertEquals(4096, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
@@ -506,7 +505,7 @@ public class TestCopyFrom {
 
       /* check vector data after copy and realloc */
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
@@ -528,7 +527,7 @@ public class TestCopyFrom {
       final int days = 10;
       final int milliseconds = 10000;
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
         vector1.setSafe(i, days + i, milliseconds + i);
@@ -543,7 +542,7 @@ public class TestCopyFrom {
       assertEquals(4096, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
           final Period p = vector1.getObject(i);
@@ -571,7 +570,7 @@ public class TestCopyFrom {
 
       /* check vector data after copy and realloc */
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
           final Period p = vector2.getObject(i);
@@ -594,7 +593,7 @@ public class TestCopyFrom {
       final int interval = 30; /* 2 years 6 months */
       final Period[]  periods = new Period[4096];
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
         vector1.setSafe(i, interval + i);
@@ -613,7 +612,7 @@ public class TestCopyFrom {
       assertEquals(4096, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
           final Period p = vector1.getObject(i);
@@ -641,7 +640,7 @@ public class TestCopyFrom {
 
       /* check vector data after copy and realloc */
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
           final Period p = vector2.getObject(i);
@@ -662,7 +661,7 @@ public class TestCopyFrom {
 
       final short val = 1000;
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
         vector1.setSafe(i, val + (short)i);
@@ -677,7 +676,7 @@ public class TestCopyFrom {
       assertEquals(4096, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
@@ -704,7 +703,7 @@ public class TestCopyFrom {
 
       /* check vector data after copy and realloc */
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
@@ -725,7 +724,7 @@ public class TestCopyFrom {
 
       final long val = 100485765432L;
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
         vector1.setSafe(i, val + (long)i);
@@ -740,7 +739,7 @@ public class TestCopyFrom {
       assertEquals(4096, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
@@ -767,7 +766,7 @@ public class TestCopyFrom {
 
       /* check vector data after copy and realloc */
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
@@ -788,7 +787,7 @@ public class TestCopyFrom {
 
       final int val = 1000;
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
         vector1.setSafe(i, val + i);
@@ -803,7 +802,7 @@ public class TestCopyFrom {
       assertEquals(4096, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
@@ -830,7 +829,7 @@ public class TestCopyFrom {
 
       /* check vector data after copy and realloc */
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
@@ -851,7 +850,7 @@ public class TestCopyFrom {
 
       byte val = -128;
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
         vector1.setSafe(i, val);
@@ -868,7 +867,7 @@ public class TestCopyFrom {
 
       val = -128;
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i, val, vector1.get(i));
@@ -896,7 +895,7 @@ public class TestCopyFrom {
       /* check vector data after copy and realloc */
       val = -128;
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i, val, vector2.get(i));
@@ -918,7 +917,7 @@ public class TestCopyFrom {
       final double baseValue = 104567897654.876543654;
       final BigDecimal[] decimals = new BigDecimal[4096];
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
         BigDecimal decimal = new BigDecimal(baseValue + (double)i);
@@ -935,7 +934,7 @@ public class TestCopyFrom {
       assertEquals(4096, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
           final BigDecimal decimal = vector1.getObject(i);
@@ -962,7 +961,7 @@ public class TestCopyFrom {
 
       /* check vector data after copy and realloc */
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
           final BigDecimal decimal = vector2.getObject(i);
@@ -983,7 +982,7 @@ public class TestCopyFrom {
 
       final long val = 20145678912L;
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           continue;
         }
         vector1.setSafe(i, val + (long)i);
@@ -998,7 +997,7 @@ public class TestCopyFrom {
       assertEquals(4096, vector1.getValueCount());
 
       for (int i = 0; i < 4096; i++) {
-        if ((i&1) == 0) {
+        if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,
@@ -1025,7 +1024,7 @@ public class TestCopyFrom {
 
       /* check vector data after copy and realloc */
       for (int i = 0; i < 8192; i++) {
-        if (((i&1) == 0) || (i >= 4096)) {
+        if (((i & 1) == 0) || (i >= 4096)) {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals("unexpected value at index: " + i,

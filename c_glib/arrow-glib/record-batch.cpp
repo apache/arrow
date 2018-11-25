@@ -72,10 +72,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatch,
                            garrow_record_batch,
                            G_TYPE_OBJECT)
 
-#define GARROW_RECORD_BATCH_GET_PRIVATE(obj)               \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),               \
-                               GARROW_TYPE_RECORD_BATCH,   \
-                               GArrowRecordBatchPrivate))
+#define GARROW_RECORD_BATCH_GET_PRIVATE(obj)         \
+  static_cast<GArrowRecordBatchPrivate *>(           \
+     garrow_record_batch_get_instance_private(       \
+       GARROW_RECORD_BATCH(obj)))
 
 static void
 garrow_record_batch_finalize(GObject *object)

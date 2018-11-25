@@ -33,6 +33,7 @@ git:
 
 before_install:
   # Common pre-install steps for all builds
+  - eval "${MATRIX_EVAL}"
   - ulimit -c unlimited -S
   - |
       if [ $TRAVIS_OS_NAME == "linux" ]; then
@@ -47,8 +48,21 @@ matrix:
   fast_finish: true
   allow_failures:
   - jdk: oraclejdk9
+  - language: r
   include:
-  # C++ & Python w/ clang 6.0
+  # Lint C++, Python, R
+  - os: linux
+    language: python
+    python: "3.6"
+    env:
+    - ARROW_TRAVIS_CLANG_FORMAT=1
+    before_script:
+    # Always run RAT checks, in case another build in matrix breaks RAT
+    - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
+  # C++ & Python w/ gcc 4.9
   - compiler: gcc
     language: cpp
     os: linux
@@ -58,25 +72,21 @@ matrix:
     - ARROW_TRAVIS_VALGRIND=1
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_CLANG_FORMAT=1
     - ARROW_TRAVIS_COVERAGE=1
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - ARROW_TRAVIS_PYTHON_JVM=1
     - ARROW_TRAVIS_JAVA_BUILD_ONLY=1
+    - ARROW_TRAVIS_PYTHON_GANDIVA=1
     # ARROW-2999 Benchmarks are disabled in Travis CI for the time being
     # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
-    - CC="clang-6.0"
-    - CXX="clang++-6.0"
+    - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
     before_script:
-    # Always run RAT checks, in case another build in matrix breaks RAT
-    - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh
     # (ARROW_CI_CPP_AFFECTED implies ARROW_CI_PYTHON_AFFECTED)
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
@@ -92,6 +102,26 @@ matrix:
     - export PLASMA_VALGRIND=1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
+  # Gandiva C++ w/ gcc 4.9 and Java
+  - compiler: gcc
+    language: cpp
+    os: linux
+    jdk: openjdk8
+    env:
+    - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - ARROW_TRAVIS_VALGRIND=1
+    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
+    before_script:
+    # Run if something changed in CPP or Java.
+    - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
   # [OS X] C++ & Python w/ XCode 6.4
   - compiler: clang
     language: cpp
@@ -114,6 +144,25 @@ matrix:
     - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
+  # [OS X] Gandiva C++ w/ XCode 8.3 & Java
+  - compiler: clang
+    language: cpp
+    # xcode 7.3 has a bug in strptime.
+    osx_image: xcode8.3
+    os: osx
+    cache:
+    addons:
+    env:
+    - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    before_script:
+    # Run if something changed in CPP or Java.
+    - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
   # [manylinux1] Python
   - language: cpp
     before_script:
@@ -179,12 +228,16 @@ matrix:
     os: linux
     env:
     - ARROW_TRAVIS_ORC=1
+    - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_USE_VENDORED_BOOST=1
+    - ARROW_TRAVIS_PARQUET=1
+    - ARROW_TRAVIS_PLASMA=1
     - BUILD_TORCH_EXAMPLE=no
-    - CC="gcc-4.9"
-    - CXX="g++-4.9"
+    - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
     before_script:
     - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
@@ -197,6 +250,9 @@ matrix:
     os: osx
     env:
     - ARROW_TRAVIS_ORC=1
+    - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_PARQUET=1
+    - ARROW_TRAVIS_PLASMA=1
     cache:
     addons:
     rvm: 2.2
@@ -237,7 +293,7 @@ matrix:
     go_import_path: github.com/apache/arrow
     os: linux
     go:
-    - 1.10.x
+    - 1.11.x
     before_script:
     - if [ $ARROW_CI_GO_AFFECTED != "1" ]; then exit; fi
     script:
@@ -250,16 +306,38 @@ matrix:
     cache: packages
     latex: false
     before_install:
+    # Have to copy-paste this here because of how R's build steps work
+    - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
+    - if [ $ARROW_CI_R_AFFECTED != "1" ]; then exit; fi
+    - |
+        if [ $TRAVIS_OS_NAME == "linux" ]; then
+          sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update -qq
+        fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib
     - export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib/pkgconfig
     - pushd ${TRAVIS_BUILD_DIR}/r
 
 
 after_failure:
-- COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
-- if [[ -f "$COREFILE" ]]; then gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch; fi
+- |
+    if [ "$TRAVIS_OS_NAME" = "osx" ]; then
+      COREFILE=$(find /cores -maxdepth 1 -type f -name "core.*" | head -n 1)
+      if [[ -f "$COREFILE" ]]; then
+        lldb -c "$COREFILE" --batch --one-line "thread backtrace all -e true"
+      fi
+      ls -la ~/Library/Logs/DiagnosticReports/
+      cat ~/Library/Logs/DiagnosticReports/*.crash
+    else
+      COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
+      if [[ -f "$COREFILE" ]]; then
+        gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch
+      fi
+    fi
 
 env:
   global:

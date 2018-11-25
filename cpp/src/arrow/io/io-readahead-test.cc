@@ -15,10 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <chrono>
+#include <cstdint>
+#include <cstring>
+#include <functional>
 #include <memory>
+#include <set>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -33,6 +39,9 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace io {
 namespace internal {
 

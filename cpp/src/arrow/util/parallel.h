@@ -27,6 +27,7 @@
 #include "arrow/util/thread-pool.h"
 
 namespace arrow {
+namespace internal {
 
 // A parallelizer that takes a `Status(int)` function and calls it with
 // arguments between 0 and `num_tasks - 1`, on an arbitrary number of threads.
@@ -88,6 +89,7 @@ Status ParallelFor(int nthreads, int num_tasks, FUNCTION&& func) {
   return Status::OK();
 }
 
+}  // namespace internal
 }  // namespace arrow
 
 #endif

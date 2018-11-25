@@ -19,14 +19,17 @@
 #define ARROW_COMPUTE_KERNELS_HASH_H
 
 #include <memory>
-#include <vector>
 
 #include "arrow/compute/kernel.h"
 #include "arrow/status.h"
-#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Array;
+class DataType;
+struct ArrayData;
+
 namespace compute {
 
 class FunctionContext;
@@ -35,6 +38,8 @@ class FunctionContext;
 /// values. Implementations should be thread-safe
 class ARROW_EXPORT HashKernel : public UnaryKernel {
  public:
+  // XXX why are those methods exposed?
+  virtual Status Reset() = 0;
   virtual Status Append(FunctionContext* ctx, const ArrayData& input) = 0;
   virtual Status Flush(Datum* out) = 0;
   virtual Status GetDictionary(std::shared_ptr<ArrayData>* out) = 0;

@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,7 +31,7 @@ import io.netty.buffer.ArrowBuf.TransferResult;
 
 public class TestBaseAllocator {
 
-  private final static int MAX_ALLOCATION = 8 * 1024;
+  private static final int MAX_ALLOCATION = 8 * 1024;
 
   /*
   // ---------------------------------------- DEBUG -----------------------------------
@@ -230,6 +229,7 @@ public class TestBaseAllocator {
   // When set to 'expand on fail', it attempts to expand the associated allocator's limit
   private static final class TestAllocationListener implements AllocationListener {
     private int numCalls;
+    private int numChildren;
     private long totalMem;
     private boolean expandOnFail;
     BufferAllocator expandAlloc;
@@ -237,6 +237,7 @@ public class TestBaseAllocator {
 
     TestAllocationListener() {
       this.numCalls = 0;
+      this.numChildren = 0;
       this.totalMem = 0;
       this.expandOnFail = false;
       this.expandAlloc = null;
@@ -258,6 +259,16 @@ public class TestBaseAllocator {
       return false;
     }
 
+    @Override
+    public void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
+      ++numChildren;
+    }
+
+    @Override
+    public void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
+      --numChildren;
+    }
+
     void setExpandOnFail(BufferAllocator expandAlloc, long expandLimit) {
       this.expandOnFail = true;
       this.expandAlloc = expandAlloc;
@@ -266,6 +277,10 @@ public class TestBaseAllocator {
 
     int getNumCalls() {
       return numCalls;
+    }
+
+    int getNumChildren() {
+      return numChildren;
     }
 
     long getTotalMem() {
@@ -277,20 +292,25 @@ public class TestBaseAllocator {
   public void testRootAllocator_listeners() throws Exception {
     TestAllocationListener l1 = new TestAllocationListener();
     assertEquals(0, l1.getNumCalls());
+    assertEquals(0, l1.getNumChildren());
     assertEquals(0, l1.getTotalMem());
     TestAllocationListener l2 = new TestAllocationListener();
     assertEquals(0, l2.getNumCalls());
+    assertEquals(0, l2.getNumChildren());
     assertEquals(0, l2.getTotalMem());
     // root and first-level child share the first listener
     // second-level and third-level child share the second listener
     try (final RootAllocator rootAllocator = new RootAllocator(l1, MAX_ALLOCATION)) {
       try (final BufferAllocator c1 = rootAllocator.newChildAllocator("c1", 0, MAX_ALLOCATION)) {
+        assertEquals(1, l1.getNumChildren());
         final ArrowBuf buf1 = c1.buffer(16);
         assertNotNull("allocation failed", buf1);
         assertEquals(1, l1.getNumCalls());
         assertEquals(16, l1.getTotalMem());
         buf1.release();
         try (final BufferAllocator c2 = c1.newChildAllocator("c2", l2, 0, MAX_ALLOCATION)) {
+          assertEquals(2, l1.getNumChildren());  // c1 got a new child, so c1's listener (l1) is notified
+          assertEquals(0, l2.getNumChildren());
           final ArrowBuf buf2 = c2.buffer(32);
           assertNotNull("allocation failed", buf2);
           assertEquals(1, l1.getNumCalls());
@@ -299,6 +319,8 @@ public class TestBaseAllocator {
           assertEquals(32, l2.getTotalMem());
           buf2.release();
           try (final BufferAllocator c3 = c2.newChildAllocator("c3", 0, MAX_ALLOCATION)) {
+            assertEquals(2, l1.getNumChildren());
+            assertEquals(1, l2.getNumChildren());
             final ArrowBuf buf3 = c3.buffer(64);
             assertNotNull("allocation failed", buf3);
             assertEquals(1, l1.getNumCalls());
@@ -307,8 +329,13 @@ public class TestBaseAllocator {
             assertEquals(32 + 64, l2.getTotalMem());
             buf3.release();
           }
+          assertEquals(2, l1.getNumChildren());
+          assertEquals(0, l2.getNumChildren()); // third-level child removed
         }
+        assertEquals(1, l1.getNumChildren()); // second-level child removed
+        assertEquals(0, l2.getNumChildren());
       }
+      assertEquals(0, l1.getNumChildren()); // first-level child removed
     }
   }
 
@@ -707,6 +734,17 @@ public class TestBaseAllocator {
           rootAllocator.verify();
         }
         rootAllocator.verify();
+      }
+    }
+  }
+
+  @Test
+  public void testInitReservationAndLimit() throws Exception {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+      try (final BufferAllocator childAllocator = rootAllocator.newChildAllocator(
+              "child", 2048, 4096)) {
+        assertEquals(2048, childAllocator.getInitReservation());
+        assertEquals(4096, childAllocator.getLimit());
       }
     }
   }

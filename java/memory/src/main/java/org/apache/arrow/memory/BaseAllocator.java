@@ -1,14 +1,13 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * <p>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,8 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.arrow.memory.AllocationManager.BufferLedger;
 import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
-
-import com.google.common.base.Preconditions;
+import org.apache.arrow.util.Preconditions;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.UnsafeDirectLittleEndian;
@@ -37,8 +35,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   public static final String DEBUG_ALLOCATOR = "arrow.memory.debug.allocator";
   public static final int DEBUG_LOG_LENGTH = 6;
-  public static final boolean DEBUG = AssertionUtil.isAssertionsEnabled()
-      || Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
+  public static final boolean DEBUG = AssertionUtil.isAssertionsEnabled() ||
+      Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator
       .class);
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
@@ -170,9 +168,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   public void assertOpen() {
     if (AssertionUtil.ASSERT_ENABLED) {
       if (isClosed) {
-        throw new IllegalStateException("Attempting operation on allocator when allocator is " +
-            "closed.\n"
-            + toVerboseString());
+        throw new IllegalStateException("Attempting operation on allocator when allocator is closed.\n" +
+          toVerboseString());
       }
     }
   }
@@ -233,11 +230,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         final Object object = childAllocators.remove(childAllocator);
         if (object == null) {
           childAllocator.historicalLog.logHistory(logger);
-          throw new IllegalStateException("Child allocator[" + childAllocator.name
-              + "] not found in parent allocator[" + name + "]'s childAllocators");
+          throw new IllegalStateException("Child allocator[" + childAllocator.name +
+            "] not found in parent allocator[" + name + "]'s childAllocators");
         }
       }
     }
+    listener.onChildRemoved(this, childAllocator);
   }
 
   @Override
@@ -353,6 +351,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
             childAllocator.name);
       }
     }
+    this.listener.onChildAdded(this, childAllocator);
 
     return childAllocator;
   }
@@ -525,8 +524,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         }
         logger.debug("allocator[" + name + "] child event logs END");
         throw new IllegalStateException(
-            "Child allocators own more memory (" + childTotal + ") than their parent (name = "
-                + name + " ) has allocated (" + getAllocatedMemory() + ')');
+            "Child allocators own more memory (" + childTotal + ") than their parent (name = " +
+                name + " ) has allocated (" + getAllocatedMemory() + ')');
       }
 
       // Furthermore, the amount I've allocated should be that plus buffers I've allocated.
@@ -607,14 +606,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
         if (allocated2 != allocated) {
           throw new IllegalStateException(String.format(
-              "allocator[%s]: allocated t1 (%d) + allocated t2 (%d). Someone released memory " +
-                  "while in verification.",
+              "allocator[%s]: allocated t1 (%d) + allocated t2 (%d). Someone released memory while in verification.",
               name, allocated, allocated2));
 
         }
         throw new IllegalStateException(String.format(
-            "allocator[%s]: buffer space (%d) + prealloc space (%d) + child space (%d) != " +
-                "allocated (%d)",
+            "allocator[%s]: buffer space (%d) + prealloc space (%d) + child space (%d) != allocated (%d)",
             name, bufferTotal, reservedTotal, childTotal, allocated));
       }
     }
@@ -713,10 +710,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       assertOpen();
 
       Preconditions.checkArgument(nBytes >= 0, "nBytes(%d) < 0", nBytes);
-      Preconditions.checkState(!closed, "Attempt to increase reservation after reservation has " +
-          "been closed");
-      Preconditions.checkState(!used, "Attempt to increase reservation after reservation has been" +
-          " used");
+      Preconditions.checkState(!closed, "Attempt to increase reservation after reservation has been closed");
+      Preconditions.checkState(!used, "Attempt to increase reservation after reservation has been used");
 
       // we round up to next power of two since all reservations are done in powers of two. This
       // may overestimate the
@@ -780,9 +775,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
             final StringBuilder sb = new StringBuilder();
             print(sb, 0, Verbosity.LOG_WITH_STACKTRACE);
             logger.debug(sb.toString());
-            throw new IllegalStateException(
-                String.format("Didn't find closing reservation[%d]", System.identityHashCode
-                    (this)));
+            throw new IllegalStateException(String.format("Didn't find closing reservation[%d]",
+                System.identityHashCode(this)));
           }
 
           historicalLog.recordEvent("closed");

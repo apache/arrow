@@ -18,21 +18,14 @@
 #ifndef ARROW_COMPUTE_KERNELS_BOOLEAN_H
 #define ARROW_COMPUTE_KERNELS_BOOLEAN_H
 
-#include <memory>
-
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
-#include "arrow/compute/kernel.h"
-
 namespace arrow {
-
-class Array;
-class ChunkedArray;
-class Column;
-class DataType;
-
 namespace compute {
+
+struct Datum;
+class FunctionContext;
 
 /// \brief Invert the values of a boolean datum
 /// \param[in] context the FunctionContext

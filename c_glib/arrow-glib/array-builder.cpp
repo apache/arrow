@@ -243,10 +243,10 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowArrayBuilder,
                                     garrow_array_builder,
                                     G_TYPE_OBJECT)
 
-#define GARROW_ARRAY_BUILDER_GET_PRIVATE(obj)                           \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                                   \
-                               GARROW_TYPE_ARRAY_BUILDER,               \
-                               GArrowArrayBuilderPrivate))
+#define GARROW_ARRAY_BUILDER_GET_PRIVATE(obj)         \
+  static_cast<GArrowArrayBuilderPrivate *>(           \
+     garrow_array_builder_get_instance_private(       \
+       GARROW_ARRAY_BUILDER(obj)))
 
 static void
 garrow_array_builder_finalize(GObject *object)
@@ -2940,10 +2940,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowListArrayBuilder,
                            garrow_list_array_builder,
                            GARROW_TYPE_ARRAY_BUILDER)
 
-#define GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(obj)              \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
-                               GARROW_TYPE_LIST_ARRAY_BUILDER,  \
-                               GArrowListArrayBuilderPrivate))
+#define GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(obj)         \
+  static_cast<GArrowListArrayBuilderPrivate *>(            \
+     garrow_list_array_builder_get_instance_private(       \
+       GARROW_LIST_ARRAY_BUILDER(obj)))
 
 static void
 garrow_list_array_builder_dispose(GObject *object)
@@ -3110,10 +3110,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowStructArrayBuilder,
                            garrow_struct_array_builder,
                            GARROW_TYPE_ARRAY_BUILDER)
 
-#define GARROW_STRUCT_ARRAY_BUILDER_GET_PRIVATE(obj)                    \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                                   \
-                               GARROW_TYPE_STRUCT_ARRAY_BUILDER,        \
-                               GArrowStructArrayBuilderPrivate))
+#define GARROW_STRUCT_ARRAY_BUILDER_GET_PRIVATE(obj)         \
+  static_cast<GArrowStructArrayBuilderPrivate *>(            \
+     garrow_struct_array_builder_get_instance_private(       \
+       GARROW_STRUCT_ARRAY_BUILDER(obj)))
 
 static void
 garrow_struct_array_builder_dispose(GObject *object)

@@ -55,8 +55,10 @@ enum {
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowBuffer, garrow_buffer, G_TYPE_OBJECT)
 
-#define GARROW_BUFFER_GET_PRIVATE(obj) \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj), GARROW_TYPE_BUFFER, GArrowBufferPrivate))
+#define GARROW_BUFFER_GET_PRIVATE(obj)         \
+  static_cast<GArrowBufferPrivate *>(          \
+     garrow_buffer_get_instance_private(       \
+       GARROW_BUFFER(obj)))
 
 static void
 garrow_buffer_dispose(GObject *object)
@@ -404,8 +406,8 @@ garrow_buffer_slice(GArrowBuffer *buffer, gint64 offset, gint64 size)
 }
 
 
-G_DEFINE_TYPE(GArrowMutableBuffer,              \
-              garrow_mutable_buffer,            \
+G_DEFINE_TYPE(GArrowMutableBuffer,
+              garrow_mutable_buffer,
               GARROW_TYPE_BUFFER)
 
 static void
@@ -484,8 +486,8 @@ garrow_mutable_buffer_slice(GArrowMutableBuffer *buffer,
 }
 
 
-G_DEFINE_TYPE(GArrowResizableBuffer,              \
-              garrow_resizable_buffer,            \
+G_DEFINE_TYPE(GArrowResizableBuffer,
+              garrow_resizable_buffer,
               GARROW_TYPE_MUTABLE_BUFFER)
 
 static void

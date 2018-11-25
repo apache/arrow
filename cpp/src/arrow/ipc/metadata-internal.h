@@ -21,20 +21,24 @@
 #define ARROW_IPC_METADATA_INTERNAL_H
 
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include <flatbuffers/flatbuffers.h>
+
+#include "arrow/buffer.h"
 #include "arrow/ipc/Schema_generated.h"
-#include "arrow/ipc/dictionary.h"
+#include "arrow/ipc/dictionary.h"  // IYWU pragma: keep
 #include "arrow/ipc/message.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 
 namespace arrow {
 
-class Buffer;
 class DataType;
 class Schema;
-class Status;
 class Tensor;
 
 namespace flatbuf = org::apache::arrow::flatbuf;
@@ -46,6 +50,9 @@ class OutputStream;
 }  // namespace io
 
 namespace ipc {
+
+class DictionaryMemo;
+
 namespace internal {
 
 static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
@@ -97,16 +104,25 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
                          std::vector<std::string>* dim_names);
 
 /// Write a serialized message metadata with a length-prefix and padding to an
-/// 8-byte offset
+/// 8-byte offset. Does not make assumptions about whether the stream is
+/// aligned already
 ///
 /// <message_size: int32><message: const void*><padding>
-Status WriteMessage(const Buffer& message, io::OutputStream* file,
+///
+/// \param[in] message a buffer containing the metadata to write
+/// \param[in] alignment the size multiple of the total message size including
+/// length prefix, metadata, and padding. Usually 8 or 64
+/// \param[in,out] file the OutputStream to write to
+/// \param[out] message_length the total size of the payload written including
+/// padding
+/// \return Status
+Status WriteMessage(const Buffer& message, int32_t alignment, io::OutputStream* file,
                     int32_t* message_length);
 
 // Serialize arrow::Schema as a Flatbuffer
 //
 // \param[in] schema a Schema instance
-// \param[inout] dictionary_memo class for tracking dictionaries and assigning
+// \param[in,out] dictionary_memo class for tracking dictionaries and assigning
 // dictionary ids
 // \param[out] out the serialized arrow::Buffer
 // \return Status outcome
@@ -130,6 +146,19 @@ Status WriteDictionaryMessage(const int64_t id, const int64_t length,
                               const std::vector<FieldMetadata>& nodes,
                               const std::vector<BufferMetadata>& buffers,
                               std::shared_ptr<Buffer>* out);
+
+static inline Status WriteFlatbufferBuilder(flatbuffers::FlatBufferBuilder& fbb,
+                                            std::shared_ptr<Buffer>* out) {
+  int32_t size = fbb.GetSize();
+
+  std::shared_ptr<Buffer> result;
+  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), size, &result));
+
+  uint8_t* dst = result->mutable_data();
+  memcpy(dst, fbb.GetBufferPointer(), size);
+  *out = result;
+  return Status::OK();
+}
 
 }  // namespace internal
 }  // namespace ipc

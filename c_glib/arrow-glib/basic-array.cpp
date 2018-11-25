@@ -29,7 +29,6 @@
 #include <arrow-glib/type.hpp>
 #include <arrow-glib/decimal.hpp>
 
-#include <iostream>
 #include <sstream>
 
 template <typename T>
@@ -212,8 +211,10 @@ enum {
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowArray, garrow_array, G_TYPE_OBJECT)
 
-#define GARROW_ARRAY_GET_PRIVATE(obj)                                   \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj), GARROW_TYPE_ARRAY, GArrowArrayPrivate))
+#define GARROW_ARRAY_GET_PRIVATE(obj)         \
+  static_cast<GArrowArrayPrivate *>(          \
+     garrow_array_get_instance_private(       \
+       GARROW_ARRAY(obj)))
 
 static void
 garrow_array_finalize(GObject *object)
@@ -423,7 +424,7 @@ garrow_array_get_n_nulls(GArrowArray *array)
  * @array: A #GArrowArray.
  *
  * Returns: (transfer full) (nullable): The bitmap that indicates null
- *   value indexes for the array as #GArrowBuffer or %NULL when
+ *   value indices for the array as #GArrowBuffer or %NULL when
  *   garrow_array_get_n_nulls() returns 0.
  *
  * Since: 0.3.0
@@ -640,8 +641,8 @@ garrow_array_dictionary_encode(GArrowArray *array,
 }
 
 
-G_DEFINE_TYPE(GArrowNullArray,               \
-              garrow_null_array,             \
+G_DEFINE_TYPE(GArrowNullArray,
+              garrow_null_array,
               GARROW_TYPE_ARRAY)
 
 static void
@@ -670,8 +671,8 @@ garrow_null_array_new(gint64 length)
 }
 
 
-G_DEFINE_TYPE(GArrowPrimitiveArray,             \
-              garrow_primitive_array,           \
+G_DEFINE_TYPE(GArrowPrimitiveArray,
+              garrow_primitive_array,
               GARROW_TYPE_ARRAY)
 
 static void
@@ -701,8 +702,8 @@ garrow_primitive_array_get_buffer(GArrowPrimitiveArray *array)
 }
 
 
-G_DEFINE_TYPE(GArrowBooleanArray,               \
-              garrow_boolean_array,             \
+G_DEFINE_TYPE(GArrowBooleanArray,
+              garrow_boolean_array,
               GARROW_TYPE_PRIMITIVE_ARRAY)
 
 static void
@@ -783,8 +784,8 @@ garrow_boolean_array_get_values(GArrowBooleanArray *array,
 }
 
 
-G_DEFINE_TYPE(GArrowNumericArray,               \
-              garrow_numeric_array,             \
+G_DEFINE_TYPE(GArrowNumericArray,
+              garrow_numeric_array,
               GARROW_TYPE_PRIMITIVE_ARRAY)
 
 static void
@@ -798,8 +799,8 @@ garrow_numeric_array_class_init(GArrowNumericArrayClass *klass)
 }
 
 
-G_DEFINE_TYPE(GArrowInt8Array,               \
-              garrow_int8_array,             \
+G_DEFINE_TYPE(GArrowInt8Array,
+              garrow_int8_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -871,8 +872,8 @@ garrow_int8_array_get_values(GArrowInt8Array *array,
 }
 
 
-G_DEFINE_TYPE(GArrowUInt8Array,               \
-              garrow_uint8_array,             \
+G_DEFINE_TYPE(GArrowUInt8Array,
+              garrow_uint8_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -944,8 +945,8 @@ garrow_uint8_array_get_values(GArrowUInt8Array *array,
 }
 
 
-G_DEFINE_TYPE(GArrowInt16Array,               \
-              garrow_int16_array,             \
+G_DEFINE_TYPE(GArrowInt16Array,
+              garrow_int16_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -1017,8 +1018,8 @@ garrow_int16_array_get_values(GArrowInt16Array *array,
 }
 
 
-G_DEFINE_TYPE(GArrowUInt16Array,               \
-              garrow_uint16_array,             \
+G_DEFINE_TYPE(GArrowUInt16Array,
+              garrow_uint16_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -1090,8 +1091,8 @@ garrow_uint16_array_get_values(GArrowUInt16Array *array,
 }
 
 
-G_DEFINE_TYPE(GArrowInt32Array,               \
-              garrow_int32_array,             \
+G_DEFINE_TYPE(GArrowInt32Array,
+              garrow_int32_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -1163,8 +1164,8 @@ garrow_int32_array_get_values(GArrowInt32Array *array,
 }
 
 
-G_DEFINE_TYPE(GArrowUInt32Array,               \
-              garrow_uint32_array,             \
+G_DEFINE_TYPE(GArrowUInt32Array,
+              garrow_uint32_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -1236,8 +1237,8 @@ garrow_uint32_array_get_values(GArrowUInt32Array *array,
 }
 
 
-G_DEFINE_TYPE(GArrowInt64Array,               \
-              garrow_int64_array,             \
+G_DEFINE_TYPE(GArrowInt64Array,
+              garrow_int64_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -1311,8 +1312,8 @@ garrow_int64_array_get_values(GArrowInt64Array *array,
 }
 
 
-G_DEFINE_TYPE(GArrowUInt64Array,               \
-              garrow_uint64_array,             \
+G_DEFINE_TYPE(GArrowUInt64Array,
+              garrow_uint64_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -1386,8 +1387,8 @@ garrow_uint64_array_get_values(GArrowUInt64Array *array,
 }
 
 
-G_DEFINE_TYPE(GArrowFloatArray,               \
-              garrow_float_array,             \
+G_DEFINE_TYPE(GArrowFloatArray,
+              garrow_float_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -1459,8 +1460,8 @@ garrow_float_array_get_values(GArrowFloatArray *array,
 }
 
 
-G_DEFINE_TYPE(GArrowDoubleArray,               \
-              garrow_double_array,             \
+G_DEFINE_TYPE(GArrowDoubleArray,
+              garrow_double_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -1532,8 +1533,8 @@ garrow_double_array_get_values(GArrowDoubleArray *array,
 }
 
 
-G_DEFINE_TYPE(GArrowBinaryArray,               \
-              garrow_binary_array,             \
+G_DEFINE_TYPE(GArrowBinaryArray,
+              garrow_binary_array,
               GARROW_TYPE_ARRAY)
 
 static void
@@ -1636,8 +1637,8 @@ garrow_binary_array_get_offsets_buffer(GArrowBinaryArray *array)
 }
 
 
-G_DEFINE_TYPE(GArrowStringArray,               \
-              garrow_string_array,             \
+G_DEFINE_TYPE(GArrowStringArray,
+              garrow_string_array,
               GARROW_TYPE_BINARY_ARRAY)
 
 static void
@@ -1708,8 +1709,8 @@ garrow_string_array_get_string(GArrowStringArray *array,
 }
 
 
-G_DEFINE_TYPE(GArrowDate32Array,               \
-              garrow_date32_array,             \
+G_DEFINE_TYPE(GArrowDate32Array,
+              garrow_date32_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -1785,8 +1786,8 @@ garrow_date32_array_get_values(GArrowDate32Array *array,
 }
 
 
-G_DEFINE_TYPE(GArrowDate64Array,               \
-              garrow_date64_array,             \
+G_DEFINE_TYPE(GArrowDate64Array,
+              garrow_date64_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -1864,8 +1865,8 @@ garrow_date64_array_get_values(GArrowDate64Array *array,
 }
 
 
-G_DEFINE_TYPE(GArrowTimestampArray,             \
-              garrow_timestamp_array,           \
+G_DEFINE_TYPE(GArrowTimestampArray,
+              garrow_timestamp_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -1947,8 +1948,8 @@ garrow_timestamp_array_get_values(GArrowTimestampArray *array,
 }
 
 
-G_DEFINE_TYPE(GArrowTime32Array,               \
-              garrow_time32_array,             \
+G_DEFINE_TYPE(GArrowTime32Array,
+              garrow_time32_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -2028,8 +2029,8 @@ garrow_time32_array_get_values(GArrowTime32Array *array,
 }
 
 
-G_DEFINE_TYPE(GArrowTime64Array,               \
-              garrow_time64_array,             \
+G_DEFINE_TYPE(GArrowTime64Array,
+              garrow_time64_array,
               GARROW_TYPE_NUMERIC_ARRAY)
 
 static void

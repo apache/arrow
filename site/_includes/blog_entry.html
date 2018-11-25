@@ -14,11 +14,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 {% endcomment %}
-  <div class="container">
-    <h2>
+  <div class="blog-post" style="margin-bottom: 4rem">
+    <h1>
       {{ post.title }}
       <a href="{{ post.url }}" class="permalink" title="Permalink">∞</a>
-    </h2>
+    </h1>
 
     {% capture discard %}
       {% for c in site.data.contributors %}
@@ -38,20 +38,14 @@ limitations under the License.
       {% endfor %}
     {% endcapture %}{% assign discard = nil %}
 
-    <div class="panel">
-      <div class="panel-body">
-        <div>
-          <span class="label label-default">Published</span>
-          <span class="published">
-            <i class="fa fa-calendar"></i>
-            {{ post.date | date_to_string }}
-          </span>
-        </div>
-        <div>
-          <span class="label label-default">By</span>
-          <a href="{{ homepage }}"><i class="fa fa-user"></i> {{ author_name }} ({{ post.author }})</a>
-        </div>
-      </div>
-    </div>
+    <p>
+      <span class="badge badge-secondary">Published</span>
+      <span class="published">
+        {{ post.date | date_to_string }}
+      </span>
+      <br />
+      <span class="badge badge-secondary">By</span>
+      <a href="{{ homepage }}">{{ author_name }} ({{ post.author }})</a>
+    </p>
     {{ post.content }}
   </div>

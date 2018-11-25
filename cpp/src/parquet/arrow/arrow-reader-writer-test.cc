@@ -335,21 +335,6 @@ void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_s
   *out = sink->GetBuffer();
 }
 
-namespace internal {
-
-void AssertArraysEqual(const Array& expected, const Array& actual) {
-  if (!actual.Equals(expected)) {
-    std::stringstream pp_result;
-    std::stringstream pp_expected;
-
-    EXPECT_OK(::arrow::PrettyPrint(actual, 0, &pp_result));
-    EXPECT_OK(::arrow::PrettyPrint(expected, 0, &pp_expected));
-    FAIL() << "Got: \n" << pp_result.str() << "\nExpected: \n" << pp_expected.str();
-  }
-}
-
-}  // namespace internal
-
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
   ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
   if (!actual.Equals(expected)) {
@@ -492,7 +477,7 @@ class TestParquetIO : public ::testing::Test {
     ReaderFromSink(&reader);
     ReadSingleColumnFile(std::move(reader), &out);
 
-    internal::AssertArraysEqual(values, *out);
+    AssertArraysEqual(values, *out);
   }
 
   void ReadTableFromFile(std::unique_ptr<FileReader> reader,
@@ -551,7 +536,7 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_EQ(1, chunked_array->num_chunks());
     auto result = chunked_array->chunk(0);
 
-    internal::AssertArraysEqual(*values, *result);
+    AssertArraysEqual(*values, *result);
   }
 
   void CheckRoundTrip(const std::shared_ptr<Table>& table) {
@@ -623,7 +608,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
   std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
   ASSERT_EQ(1, chunked_array->num_chunks());
 
-  internal::AssertArraysEqual(*values, *chunked_array->chunk(0));
+  AssertArraysEqual(*values, *chunked_array->chunk(0));
 }
 
 TYPED_TEST(TestParquetIO, SingleColumnOptionalReadWrite) {
@@ -797,7 +782,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
   std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
   ASSERT_EQ(1, chunked_array->num_chunks());
 
-  internal::AssertArraysEqual(*values, *chunked_array->chunk(0));
+  AssertArraysEqual(*values, *chunked_array->chunk(0));
 }
 
 TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
@@ -1016,7 +1001,7 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
   ASSERT_EQ(1, chunked_array->num_chunks());
 
-  internal::AssertArraysEqual(*values, *chunked_array->chunk(0));
+  AssertArraysEqual(*values, *chunked_array->chunk(0));
 }
 
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;
@@ -1040,7 +1025,7 @@ TEST_F(TestNullParquetIO, NullColumn) {
 
     std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
     ASSERT_EQ(1, chunked_array->num_chunks());
-    internal::AssertArraysEqual(*values, *chunked_array->chunk(0));
+    AssertArraysEqual(*values, *chunked_array->chunk(0));
   }
 }
 
@@ -1070,7 +1055,7 @@ TEST_F(TestNullParquetIO, NullListColumn) {
 
     std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
     ASSERT_EQ(1, chunked_array->num_chunks());
-    internal::AssertArraysEqual(*list_array, *chunked_array->chunk(0));
+    AssertArraysEqual(*list_array, *chunked_array->chunk(0));
   }
 }
 
@@ -1099,7 +1084,7 @@ TEST_F(TestNullParquetIO, NullDictionaryColumn) {
 
   std::shared_ptr<Array> expected_values =
       std::make_shared<::arrow::NullArray>(SMALL_SIZE);
-  internal::AssertArraysEqual(*expected_values, *chunked_array->chunk(0));
+  AssertArraysEqual(*expected_values, *chunked_array->chunk(0));
 }
 
 template <typename T>
@@ -1390,6 +1375,16 @@ TEST(TestArrowReadWrite, CoerceTimestampsLosePrecision) {
                                     default_writer_properties(), coerce_millis));
   ASSERT_RAISES(Invalid, WriteTable(*t4, ::arrow::default_memory_pool(), sink, 10,
                                     default_writer_properties(), coerce_millis));
+
+  // OK to lose precision if we explicitly allow it
+  auto allow_truncation = (ArrowWriterProperties::Builder()
+                               .coerce_timestamps(TimeUnit::MILLI)
+                               ->allow_truncated_timestamps()
+                               ->build());
+  ASSERT_OK_NO_THROW(WriteTable(*t3, ::arrow::default_memory_pool(), sink, 10,
+                                default_writer_properties(), allow_truncation));
+  ASSERT_OK_NO_THROW(WriteTable(*t4, ::arrow::default_memory_pool(), sink, 10,
+                                default_writer_properties(), allow_truncation));
 
   // OK to write micros to micros
   auto coerce_micros =
@@ -2316,11 +2311,11 @@ TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
   ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
 }
 
-class TestArrowReaderAdHocSpark
+class TestArrowReaderAdHocSparkAndHvr
     : public ::testing::TestWithParam<
           std::tuple<std::string, std::shared_ptr<::DataType>>> {};
 
-TEST_P(TestArrowReaderAdHocSpark, ReadDecimals) {
+TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
   std::string path(test::get_data_dir());
 
   std::string filename;
@@ -2360,16 +2355,17 @@ TEST_P(TestArrowReaderAdHocSpark, ReadDecimals) {
   }
   ASSERT_OK(builder.Finish(&expected_array));
 
-  internal::AssertArraysEqual(*expected_array, *chunk);
+  AssertArraysEqual(*expected_array, *chunk);
 }
 
 INSTANTIATE_TEST_CASE_P(
-    ReadDecimals, TestArrowReaderAdHocSpark,
+    ReadDecimals, TestArrowReaderAdHocSparkAndHvr,
     ::testing::Values(
         std::make_tuple("int32_decimal.parquet", ::arrow::decimal(4, 2)),
         std::make_tuple("int64_decimal.parquet", ::arrow::decimal(10, 2)),
         std::make_tuple("fixed_length_decimal.parquet", ::arrow::decimal(25, 2)),
-        std::make_tuple("fixed_length_decimal_legacy.parquet", ::arrow::decimal(13, 2))));
+        std::make_tuple("fixed_length_decimal_legacy.parquet", ::arrow::decimal(13, 2)),
+        std::make_tuple("byte_array_decimal.parquet", ::arrow::decimal(4, 2))));
 
 }  // namespace arrow
 

@@ -2,13 +2,17 @@
 {% capture homepage %}http://people.apache.org/~{{ page.author }}{% endcapture %}
 
 <body class="wrap">
-  <div class="container">
+  <header>
     {% include header.html %}
+  </header>
 
-    <h2>
+  <div class="container p-lg-4">
+    <main role="main">
+
+    <h1>
       {{ page.title }}
       <a href="{{ page.url }}" class="permalink" title="Permalink">∞</a>
-    </h2>
+    </h1>
 
     {% capture discard %}
       {% for c in site.data.contributors %}
@@ -28,23 +32,18 @@
       {% endfor %}
     {% endcapture %}{% assign discard = nil %}
 
-    <div class="panel">
-      <div class="panel-body">
-        <div>
-          <span class="label label-default">Published</span>
-          <span class="published">
-            <i class="fa fa-calendar"></i>
-            {{ page.date | date_to_string }}
-          </span>
-        </div>
-        <div>
-          <span class="label label-default">By</span>
-          <a href="{{ homepage }}"><i class="fa fa-user"></i> {{ author_name }} ({{ page.author }})</a>
-        </div>
-      </div>
-    </div>
+    <p>
+      <span class="badge badge-secondary">Published</span>
+      <span class="published">
+        {{ page.date | date_to_string }}
+      </span>
+      <br />
+      <span class="badge badge-secondary">By</span>
+      <a href="{{ homepage }}">{{ author_name }} ({{ post.author }})</a>
+    </p>
 
     {{ content }}
+    </main>
 
     {% include footer.html %}
   </div>

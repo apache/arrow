@@ -28,10 +28,12 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     autoconf-archive \
+    bison \
     build-essential \
     cmake \
     debhelper\
     devscripts \
+    flex \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \
@@ -39,7 +41,6 @@ RUN \
     libboost-system-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
-    libjemalloc-dev \
     libprotobuf-dev \
     libprotoc-dev \
     lsb-release \

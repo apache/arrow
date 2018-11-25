@@ -29,11 +29,13 @@
   <suppress checks=".*" files=".+[\\/]generated-sources[\\/].+\.java" />
   <suppress checks=".*" files=".+[\\/]generated-test-sources[\\/].+\.java" />
 
-  <!-- TODO: Temporarily suppress Javadoc checks -->
-  <suppress checks="Javadoc.*" files=".*" />
+  <!-- suppress files that include additional lines in license -->
+  <suppress checks="Header" files="AutoCloseables.java|Collections2.java" />
 
-  <!-- TODO: Temporarily suppress all but certain checks to fix in increments -->
-  <suppress
-    checks="^(?!.*(ImportOrder|LineLength|Indentation)).*"
-    files=".*" />
+  <!-- TODO: Temporarily suppress Javadoc checks -->
+  <suppress checks="javadoc.*" files=".*" />
+
+  <!-- TODO: Temporarily suppress certain check requiring many code changes -->
+  <suppress checks="NoFinalizer|OverloadMethodsDeclarationOrder|VariableDeclarationUsageDistance" files=".*" />
+
 </suppressions>

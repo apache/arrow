@@ -20,6 +20,7 @@ import decimal
 import io
 import json
 import os
+import six
 import pytest
 
 import numpy as np
@@ -27,10 +28,15 @@ import pandas as pd
 import pandas.util.testing as tm
 
 import pyarrow as pa
-from pyarrow.compat import guid, u, BytesIO, unichar
+from pyarrow.compat import guid, u, BytesIO, unichar, PY2
 from pyarrow.tests import util
 from pyarrow.filesystem import LocalFileSystem
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
+
+try:
+    import pyarrow.parquet as pq
+except ImportError:
+    pq = None
 
 
 # Marks all of the tests in this module
@@ -44,6 +50,7 @@ def datadir(datadir):
 
 
 def _write_table(table, path, **kwargs):
+    # So we see the ImportError somewhere
     import pyarrow.parquet as pq
 
     if isinstance(table, pd.DataFrame):
@@ -54,27 +61,32 @@ def _write_table(table, path, **kwargs):
 
 
 def _read_table(*args, **kwargs):
-    import pyarrow.parquet as pq
-
     return pq.read_table(*args, **kwargs)
 
 
-def _roundtrip_table(table, **params):
+def _roundtrip_table(table, read_table_kwargs=None,
+                     **params):
+    read_table_kwargs = read_table_kwargs or {}
+
     buf = io.BytesIO()
     _write_table(table, buf, **params)
     buf.seek(0)
+    return _read_table(buf, **read_table_kwargs)
 
-    return _read_table(buf)
 
-
-def _check_roundtrip(table, expected=None, **params):
+def _check_roundtrip(table, expected=None, read_table_kwargs=None,
+                     **params):
     if expected is None:
         expected = table
 
+    read_table_kwargs = read_table_kwargs or {}
+
     # intentionally check twice
-    result = _roundtrip_table(table, **params)
+    result = _roundtrip_table(table, read_table_kwargs=read_table_kwargs,
+                              **params)
     assert result.equals(expected)
-    result = _roundtrip_table(result, **params)
+    result = _roundtrip_table(result, read_table_kwargs=read_table_kwargs,
+                              **params)
     assert result.equals(expected)
 
 
@@ -136,8 +148,6 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
 
 @pytest.mark.parametrize('chunk_size', [None, 1000])
 def test_pandas_parquet_2_0_rountrip(tempdir, chunk_size):
-    import pyarrow.parquet as pq
-
     df = alltypes_sample(size=10000, categorical=True)
 
     filename = tempdir / 'pandas_rountrip.parquet'
@@ -172,6 +182,22 @@ def test_chunked_table_write():
     _check_roundtrip(table, version='2.0')
 
 
+def test_no_memory_map(tempdir):
+    df = alltypes_sample(size=10)
+    # The nanosecond->us conversion is a nuisance, so we just avoid it here
+    del df['datetime']
+
+    table = pa.Table.from_pandas(df)
+    _check_roundtrip(table, read_table_kwargs={'memory_map': False},
+                     version='2.0')
+
+    filename = str(tempdir / 'tmp_file')
+    with open(filename, 'wb') as f:
+        _write_table(table, f, version='2.0')
+    table_read = pq.read_pandas(filename, memory_map=False)
+    assert table_read.equals(table)
+
+
 def test_empty_table_roundtrip():
     df = alltypes_sample(size=10)
     # The nanosecond->us conversion is a nuisance, so we just avoid it here
@@ -196,8 +222,6 @@ def test_empty_lists_table_roundtrip():
 
 
 def test_pandas_parquet_datetime_tz():
-    import pyarrow.parquet as pq
-
     s = pd.Series([datetime.datetime(2017, 9, 6)])
     s = s.dt.tz_localize('utc')
 
@@ -221,9 +245,17 @@ def test_pandas_parquet_datetime_tz():
     tm.assert_frame_equal(df, df_read)
 
 
-def test_pandas_parquet_custom_metadata(tempdir):
-    import pyarrow.parquet as pq
+@pytest.mark.skipif(six.PY2, reason='datetime.timezone is available since '
+                                    'python version 3.2')
+def test_datetime_timezone_tzinfo():
+    value = datetime.datetime(2018, 1, 1, 1, 23, 45,
+                              tzinfo=datetime.timezone.utc)
+    df = pd.DataFrame({'foo': [value]})
 
+    _roundtrip_pandas_dataframe(df, write_kwargs={})
+
+
+def test_pandas_parquet_custom_metadata(tempdir):
     df = alltypes_sample(size=10000)
 
     filename = tempdir / 'pandas_rountrip.parquet'
@@ -240,8 +272,6 @@ def test_pandas_parquet_custom_metadata(tempdir):
 
 
 def test_pandas_parquet_column_multiindex(tempdir):
-    import pyarrow.parquet as pq
-
     df = alltypes_sample(size=10)
     df.columns = pd.MultiIndex.from_tuples(
         list(zip(df.columns, df.columns[::-1])),
@@ -260,8 +290,6 @@ def test_pandas_parquet_column_multiindex(tempdir):
 
 
 def test_pandas_parquet_2_0_rountrip_read_pandas_no_index_written(tempdir):
-    import pyarrow.parquet as pq
-
     df = alltypes_sample(size=10000)
 
     filename = tempdir / 'pandas_rountrip.parquet'
@@ -393,8 +421,6 @@ def test_pandas_parquet_native_file_roundtrip(tempdir):
 
 
 def test_parquet_incremental_file_build(tempdir):
-    import pyarrow.parquet as pq
-
     df = _test_dataframe(100)
     df['unique_id'] = 0
 
@@ -421,8 +447,6 @@ def test_parquet_incremental_file_build(tempdir):
 
 
 def test_read_pandas_column_subset(tempdir):
-    import pyarrow.parquet as pq
-
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
@@ -502,8 +526,6 @@ def test_pandas_parquet_configuration_options(tempdir):
 
 
 def make_sample_file(table_or_df):
-    import pyarrow.parquet as pq
-
     if isinstance(table_or_df, pa.Table):
         a_table = table_or_df
     else:
@@ -518,8 +540,6 @@ def make_sample_file(table_or_df):
 
 
 def test_parquet_metadata_api():
-    import pyarrow.parquet as pq
-
     df = alltypes_sample(size=10000)
     df = df.reindex(columns=sorted(df.columns))
 
@@ -664,8 +684,6 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
 
 
 def test_compare_schemas():
-    import pyarrow.parquet as pq
-
     df = alltypes_sample(size=10000)
 
     fileh = make_sample_file(df)
@@ -693,8 +711,6 @@ def test_compare_schemas():
 
 def test_validate_schema_write_table(tempdir):
     # ARROW-2926
-    import pyarrow.parquet as pq
-
     simple_fields = [
         pa.field('POS', pa.uint32()),
         pa.field('desc', pa.string())
@@ -767,15 +783,53 @@ def test_coerce_timestamps(tempdir):
                      coerce_timestamps='unknown')
 
 
+def test_coerce_timestamps_truncated(tempdir):
+    """
+    ARROW-2555: Test that we can truncate timestamps when coercing if
+    explicitly allowed.
+    """
+    dt_us = datetime.datetime(year=2017, month=1, day=1, hour=1, minute=1,
+                              second=1, microsecond=1)
+    dt_ms = datetime.datetime(year=2017, month=1, day=1, hour=1, minute=1,
+                              second=1)
+
+    fields_us = [pa.field('datetime64', pa.timestamp('us'))]
+    arrays_us = {'datetime64': [dt_us, dt_ms]}
+
+    df_us = pd.DataFrame(arrays_us)
+    schema_us = pa.schema(fields_us)
+
+    filename = tempdir / 'pandas_truncated.parquet'
+    table_us = pa.Table.from_pandas(df_us, schema=schema_us)
+
+    _write_table(table_us, filename, version="2.0", coerce_timestamps='ms',
+                 allow_truncated_timestamps=True)
+    table_ms = _read_table(filename)
+    df_ms = table_ms.to_pandas()
+
+    arrays_expected = {'datetime64': [dt_ms, dt_ms]}
+    df_expected = pd.DataFrame(arrays_expected)
+    tm.assert_frame_equal(df_expected, df_ms)
+
+
 def test_column_of_lists(tempdir):
-    df, schema = dataframe_with_lists()
+    df, schema = dataframe_with_lists(parquet_compatible=True)
 
     filename = tempdir / 'pandas_rountrip.parquet'
     arrow_table = pa.Table.from_pandas(df, schema=schema)
-    _write_table(arrow_table, filename, version='2.0',
-                 coerce_timestamps='ms')
+    _write_table(arrow_table, filename, version='2.0')
     table_read = _read_table(filename)
     df_read = table_read.to_pandas()
+
+    if PY2:
+        # assert_frame_equal fails when comparing datetime.date and
+        # np.datetime64, even with check_datetimelike_compat=True so
+        # convert the values to np.datetime64 instead
+        for col in ['date32[day]_list', 'date64[ms]_list']:
+            df[col] = df[col].apply(
+                lambda x: list(map(np.datetime64, x)) if x else x
+            )
+
     tm.assert_frame_equal(df, df_read)
 
 
@@ -946,8 +1000,6 @@ def test_min_chunksize():
 
 
 def test_pass_separate_metadata():
-    import pyarrow.parquet as pq
-
     # ARROW-471
     df = alltypes_sample(size=10000)
 
@@ -967,8 +1019,6 @@ def test_pass_separate_metadata():
 
 
 def test_read_single_row_group():
-    import pyarrow.parquet as pq
-
     # ARROW-471
     N, K = 10000, 4
     df = alltypes_sample(size=N)
@@ -991,8 +1041,6 @@ def test_read_single_row_group():
 
 
 def test_read_single_row_group_with_column_subset():
-    import pyarrow.parquet as pq
-
     N, K = 10000, 4
     df = alltypes_sample(size=N)
     a_table = pa.Table.from_pandas(df)
@@ -1011,8 +1059,6 @@ def test_read_single_row_group_with_column_subset():
 
 
 def test_scan_contents():
-    import pyarrow.parquet as pq
-
     N, K = 10000, 4
     df = alltypes_sample(size=N)
     a_table = pa.Table.from_pandas(df)
@@ -1029,8 +1075,6 @@ def test_scan_contents():
 
 
 def test_parquet_piece_read(tempdir):
-    import pyarrow.parquet as pq
-
     df = _test_dataframe(1000)
     table = pa.Table.from_pandas(df)
 
@@ -1044,8 +1088,6 @@ def test_parquet_piece_read(tempdir):
 
 
 def test_parquet_piece_basics():
-    import pyarrow.parquet as pq
-
     path = '/baz.parq'
 
     piece1 = pq.ParquetDatasetPiece(path)
@@ -1064,8 +1106,6 @@ def test_parquet_piece_basics():
 
 
 def test_partition_set_dictionary_type():
-    import pyarrow.parquet as pq
-
     set1 = pq.PartitionSet('key1', [u('foo'), u('bar'), u('baz')])
     set2 = pq.PartitionSet('key2', [2007, 2008, 2009])
 
@@ -1083,8 +1123,6 @@ def test_read_partitioned_directory(tempdir):
 
 
 def test_create_parquet_dataset_multi_threaded(tempdir):
-    import pyarrow.parquet as pq
-
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1101,8 +1139,6 @@ def test_create_parquet_dataset_multi_threaded(tempdir):
 
 
 def test_equivalency(tempdir):
-    import pyarrow.parquet as pq
-
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1124,6 +1160,8 @@ def test_equivalency(tempdir):
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
+    # Old filters syntax:
+    #  integer == 1 AND string != b AND boolean == True
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
         filters=[('integer', '=', 1), ('string', '!=', 'b'),
@@ -1136,10 +1174,46 @@ def test_equivalency(tempdir):
     assert 'b' not in result_df['string'].values
     assert False not in result_df['boolean'].values
 
+    # filters in disjunctive normal form:
+    #  (integer == 1 AND string != b AND boolean == True) OR
+    #  (integer == 2 AND boolean == False)
+    # TODO(ARROW-3388): boolean columns are reconstructed as string
+    filters = [
+        [
+            ('integer', '=', 1),
+            ('string', '!=', 'b'),
+            ('boolean', '==', 'True')
+        ],
+        [('integer', '=', 0), ('boolean', '==', 'False')]
+    ]
+    dataset = pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+    table = dataset.read()
+    result_df = table.to_pandas().reset_index(drop=True)
+
+    # Check that all rows in the DF fulfill the filter
+    # Pandas 0.23.x has problems with indexing constant memoryviews in
+    # categoricals. Thus we need to make an explicity copy here with np.array.
+    df_filter_1 = (np.array(result_df['integer']) == 1) \
+        & (np.array(result_df['string']) != 'b') \
+        & (np.array(result_df['boolean']) == 'True')
+    df_filter_2 = (np.array(result_df['integer']) == 0) \
+        & (np.array(result_df['boolean']) == 'False')
+    assert df_filter_1.sum() > 0
+    assert df_filter_2.sum() > 0
+    assert result_df.shape[0] == (df_filter_1.sum() + df_filter_2.sum())
+
+    # Check for \0 in predicate values. Until they are correctly implemented
+    # in ARROW-3391, they would otherwise lead to weird results with the
+    # current code.
+    with pytest.raises(NotImplementedError):
+        filters = [[('string', '==', b'1\0a')]]
+        pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+    with pytest.raises(NotImplementedError):
+        filters = [[('string', '==', u'1\0a')]]
+        pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+
 
 def test_cutoff_exclusive_integer(tempdir):
-    import pyarrow.parquet as pq
-
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1177,8 +1251,6 @@ def test_cutoff_exclusive_integer(tempdir):
     reason='Loss of type information in creation of categoricals.'
 )
 def test_cutoff_exclusive_datetime(tempdir):
-    import pyarrow.parquet as pq
-
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1221,8 +1293,6 @@ def test_cutoff_exclusive_datetime(tempdir):
 
 
 def test_inclusive_integer(tempdir):
-    import pyarrow.parquet as pq
-
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1256,8 +1326,6 @@ def test_inclusive_integer(tempdir):
 
 
 def test_inclusive_set(tempdir):
-    import pyarrow.parquet as pq
-
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1293,8 +1361,6 @@ def test_inclusive_set(tempdir):
 
 
 def test_invalid_pred_op(tempdir):
-    import pyarrow.parquet as pq
-
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1352,7 +1418,6 @@ def s3_example():
 
 @pytest.mark.s3
 def test_read_partitioned_directory_s3fs(s3_example):
-    import pyarrow.parquet as pq
     from pyarrow.filesystem import S3FSWrapper
 
     fs, bucket_uri = s3_example
@@ -1365,8 +1430,6 @@ def test_read_partitioned_directory_s3fs(s3_example):
 
 
 def _partition_test_for_filesystem(fs, base_path):
-    import pyarrow.parquet as pq
-
     foo_keys = [0, 1]
     bar_keys = ['a', 'b', 'c']
     partition_spec = [
@@ -1434,22 +1497,21 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
 
 
 def _test_read_common_metadata_files(fs, base_path):
-    import pyarrow.parquet as pq
-
     N = 100
     df = pd.DataFrame({
         'index': np.arange(N),
         'values': np.random.randn(N)
     }, columns=['index', 'values'])
 
-    data_path = base_path / 'data.parquet'
+    base_path = str(base_path)
+    data_path = os.path.join(base_path, 'data.parquet')
 
     table = pa.Table.from_pandas(df)
 
     with fs.open(data_path, 'wb') as f:
         _write_table(table, f)
 
-    metadata_path = base_path / '_common_metadata'
+    metadata_path = os.path.join(base_path, '_common_metadata')
     with fs.open(metadata_path, 'wb') as f:
         pq.write_metadata(table.schema, f)
 
@@ -1471,8 +1533,6 @@ def test_read_common_metadata_files(tempdir):
 
 
 def test_read_metadata_files(tempdir):
-    import pyarrow.parquet as pq
-
     fs = LocalFileSystem.get_instance()
 
     N = 100
@@ -1501,8 +1561,6 @@ def test_read_metadata_files(tempdir):
 
 
 def test_read_schema(tempdir):
-    import pyarrow.parquet as pq
-
     N = 100
     df = pd.DataFrame({
         'index': np.arange(N),
@@ -1515,6 +1573,7 @@ def test_read_schema(tempdir):
     _write_table(table, data_path)
 
     assert table.schema.equals(pq.read_schema(data_path))
+    assert table.schema.equals(pq.read_schema(data_path, memory_map=True))
 
 
 def _filter_partition(df, part_keys):
@@ -1523,14 +1582,17 @@ def _filter_partition(df, part_keys):
     to_drop = []
     for name, value in part_keys:
         to_drop.append(name)
+
+        # to avoid pandas warning
+        if isinstance(value, (datetime.date, datetime.datetime)):
+            value = pd.Timestamp(value)
+
         predicate &= df[name] == value
 
     return df[predicate].drop(to_drop, axis=1)
 
 
 def test_read_multiple_files(tempdir):
-    import pyarrow.parquet as pq
-
     nfiles = 10
     size = 5
 
@@ -1610,8 +1672,6 @@ def test_read_multiple_files(tempdir):
 
 
 def test_dataset_read_pandas(tempdir):
-    import pyarrow.parquet as pq
-
     nfiles = 5
     size = 5
 
@@ -1644,8 +1704,6 @@ def test_dataset_read_pandas(tempdir):
 
 @pytest.mark.parametrize('preserve_index', [True, False])
 def test_dataset_read_pandas_common_metadata(tempdir, preserve_index):
-    import pyarrow.parquet as pq
-
     # ARROW-1103
     nfiles = 5
     size = 5
@@ -1700,8 +1758,6 @@ def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
 
 
 def test_ignore_private_directories(tempdir):
-    import pyarrow.parquet as pq
-
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
@@ -1716,8 +1772,6 @@ def test_ignore_private_directories(tempdir):
 
 
 def test_ignore_hidden_files(tempdir):
-    import pyarrow.parquet as pq
-
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
@@ -1780,8 +1834,6 @@ def test_write_error_deletes_incomplete_file(tempdir):
 
 
 def test_read_non_existent_file(tempdir):
-    import pyarrow.parquet as pq
-
     path = 'non-existent-file.parquet'
     try:
         pq.read_table(path)
@@ -1790,8 +1842,6 @@ def test_read_non_existent_file(tempdir):
 
 
 def test_read_table_doesnt_warn(datadir):
-    import pyarrow.parquet as pq
-
     with pytest.warns(None) as record:
         pq.read_table(datadir / 'v0.7.1.parquet')
 
@@ -1801,8 +1851,6 @@ def test_read_table_doesnt_warn(datadir):
 def _test_write_to_dataset_with_partitions(base_path,
                                            filesystem=None,
                                            schema=None):
-    import pyarrow.parquet as pq
-
     # ARROW-1400
     output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
                               'group2': list('eefeffgeee'),
@@ -1849,8 +1897,6 @@ def _test_write_to_dataset_with_partitions(base_path,
 
 
 def _test_write_to_dataset_no_partitions(base_path, filesystem=None):
-    import pyarrow.parquet as pq
-
     # ARROW-1400
     output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
                               'group2': list('eefeffgeee'),
@@ -1937,8 +1983,6 @@ def test_index_column_name_duplicate(tempdir):
 
 
 def test_parquet_nested_convenience(tempdir):
-    import pyarrow.parquet as pq
-
     # ARROW-1684
     df = pd.DataFrame({
         'a': [[1, 2, 3], None, [4, 5], []],
@@ -1970,9 +2014,8 @@ carat        cut  color  clarity  depth  table  price     x     y     z
  0.26  Very Good      H      SI1   61.9   55.0    337  4.07  4.11  2.53
  0.22       Fair      E      VS2   65.1   61.0    337  3.87  3.78  2.49
  0.23  Very Good      H      VS1   59.4   61.0    338  4.00  4.05  2.39"""
-    expected = pd.read_csv(
-        io.BytesIO(expected_string), sep=r'\s{2,}', index_col=None, header=0
-    )
+    expected = pd.read_csv(io.BytesIO(expected_string), sep=r'\s{2,}',
+                           index_col=None, header=0, engine='python')
     table = _read_table(datadir / 'v0.7.1.parquet')
     result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
@@ -1992,8 +2035,9 @@ carat        cut  color  clarity  depth  table  price     x     y     z
  0.22       Fair      E      VS2   65.1   61.0    337  3.87  3.78  2.49
  0.23  Very Good      H      VS1   59.4   61.0    338  4.00  4.05  2.39"""
     expected = pd.read_csv(
-        io.BytesIO(expected_string),
-        sep=r'\s{2,}', index_col=['cut', 'color', 'clarity'], header=0
+        io.BytesIO(expected_string), sep=r'\s{2,}',
+        index_col=['cut', 'color', 'clarity'],
+        header=0, engine='python'
     ).sort_index()
 
     table = _read_table(datadir / 'v0.7.1.all-named-index.parquet')
@@ -2016,7 +2060,8 @@ carat        cut  color  clarity  depth  table  price     x     y     z
  0.23  Very Good      H      VS1   59.4   61.0    338  4.00  4.05  2.39"""
     expected = pd.read_csv(
         io.BytesIO(expected_string),
-        sep=r'\s{2,}', index_col=['cut', 'color', 'clarity'], header=0
+        sep=r'\s{2,}', index_col=['cut', 'color', 'clarity'],
+        header=0, engine='python'
     ).sort_index()
     expected.index = expected.index.set_names(['cut', None, 'clarity'])
 
@@ -2084,8 +2129,6 @@ def test_decimal_roundtrip_negative_scale(tempdir):
 
 
 def test_parquet_writer_context_obj(tempdir):
-    import pyarrow.parquet as pq
-
     df = _test_dataframe(100)
     df['unique_id'] = 0
 
@@ -2110,8 +2153,6 @@ def test_parquet_writer_context_obj(tempdir):
 
 
 def test_parquet_writer_context_obj_with_exception(tempdir):
-    import pyarrow.parquet as pq
-
     df = _test_dataframe(100)
     df['unique_id'] = 0
 
@@ -2140,3 +2181,14 @@ def test_parquet_writer_context_obj_with_exception(tempdir):
 
     expected = pd.concat(frames, ignore_index=True)
     tm.assert_frame_equal(result.to_pandas(), expected)
+
+
+def test_zlib_compression_bug():
+    # ARROW-3514: "zlib deflate failed, output buffer too small"
+    table = pa.Table.from_arrays([pa.array(['abc', 'def'])], ['some_col'])
+    f = io.BytesIO()
+    pq.write_table(table, f, compression='gzip')
+
+    f.seek(0)
+    roundtrip = pq.read_table(f)
+    tm.assert_frame_equal(roundtrip.to_pandas(), table.to_pandas())

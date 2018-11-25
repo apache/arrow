@@ -17,11 +17,12 @@
 
 from collections import defaultdict
 from concurrent import futures
-import os
-import json
-import re
 
+import json
 import numpy as np
+import os
+import re
+import six
 
 import pyarrow as pa
 import pyarrow.lib as lib
@@ -35,6 +36,46 @@ from pyarrow.compat import guid
 from pyarrow.filesystem import (LocalFileSystem, _ensure_filesystem,
                                 _get_fs_from_path)
 from pyarrow.util import _is_path_like, _stringify_path, _deprecate_nthreads
+
+
+def _check_contains_null(val):
+    if isinstance(val, six.binary_type):
+        for byte in val:
+            if isinstance(byte, six.binary_type):
+                compare_to = chr(0)
+            else:
+                compare_to = 0
+            if byte == compare_to:
+                return True
+    elif isinstance(val, six.text_type):
+        return u'\x00' in val
+    return False
+
+
+def _check_filters(filters):
+    """
+    Check if filters are well-formed.
+    """
+    if filters is not None:
+        if len(filters) == 0 or any(len(f) == 0 for f in filters):
+            raise ValueError("Malformed filters")
+        if isinstance(filters[0][0], six.string_types):
+            # We have encountered the situation where we have one nesting level
+            # too few:
+            #   We have [(,,), ..] instead of [[(,,), ..]]
+            filters = [filters]
+        for conjunction in filters:
+            for col, op, val in conjunction:
+                if (
+                    isinstance(val, list)
+                    and all(_check_contains_null(v) for v in val)
+                    or _check_contains_null(val)
+                ):
+                    raise NotImplementedError(
+                        "Null-terminated binary strings are not supported as"
+                        " filter values."
+                    )
+    return filters
 
 # ----------------------------------------------------------------------
 # Reading a single Parquet file
@@ -54,11 +95,14 @@ class ParquetFile(object):
     common_metadata : ParquetFileMetadata, default None
         Will be used in reads for pandas schema metadata if not found in the
         main file's metadata, no other uses at the moment
+    memory_map : boolean, default True
+        If the source is a file path, use a memory map to read file, which can
+        improve performance in some environments
     """
-
-    def __init__(self, source, metadata=None, common_metadata=None):
+    def __init__(self, source, metadata=None, common_metadata=None,
+                 memory_map=True):
         self.reader = ParquetReader()
-        self.reader.open(source, metadata=metadata)
+        self.reader.open(source, use_memory_map=memory_map, metadata=metadata)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
 
@@ -246,6 +290,10 @@ use_deprecated_int96_timestamps : boolean, default None
 coerce_timestamps : string, default None
     Cast timestamps a particular resolution.
     Valid values: {None, 'ms', 'us'}
+allow_truncated_timestamps : boolean, default False
+    Allow loss of data when coercing timestamps to a particular
+    resolution. E.g. if microsecond or nanosecond data is lost when coercing to
+    'ms', do not raise an exception
 compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
     Valid values: {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD'}
@@ -775,10 +823,21 @@ class ParquetDataset(object):
         Divide files into pieces for each row group in the file
     validate_schema : boolean, default True
         Check that individual file schemas are all the same / compatible
-    filters : List[Tuple] or None (default)
-        List of filters to apply, like ``[('x', '=', 0), ...]``. This
+    filters : List[Tuple] or List[List[Tuple]] or None (default)
+        List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
         implements partition-level (hive) filtering only, i.e., to prevent the
         loading of some files of the dataset.
+
+        Predicates are expressed in disjunctive normal form (DNF). This means
+        that the innermost tuple describe a single column predicate. These
+        inner predicate make are all combined with a conjunction (AND) into a
+        larger predicate. The most outer list then combines all filters
+        with a disjunction (OR). By this, we should be able to express all
+        kinds of filters that are possible using boolean logic.
+
+        This function also supports passing in as List[Tuple]. These predicates
+        are evaluated as a conjunction. To express OR in predictates, one must
+        use the (preferred) List[List[Tuple]] notation.
     metadata_nthreads: int, default 1
         How many threads to allow the thread pool which is used to read the
         dataset metadata. Increasing this is helpful to read partitioned
@@ -825,7 +884,8 @@ class ParquetDataset(object):
         if validate_schema:
             self.validate_schemas()
 
-        if filters:
+        if filters is not None:
+            filters = _check_filters(filters)
             self._filter(filters)
 
     def validate_schemas(self):
@@ -940,7 +1000,8 @@ class ParquetDataset(object):
                        for level, part_key in enumerate(piece.partition_keys))
 
         def all_filters_accept(piece):
-            return all(one_filter_accepts(piece, f) for f in filters)
+            return any(all(one_filter_accepts(piece, f) for f in conjunction)
+                       for conjunction in filters)
 
         self.pieces = [p for p in self.pieces if all_filters_accept(p)]
 
@@ -998,6 +1059,9 @@ use_threads : boolean, default True
     Perform multi-threaded column reads
 metadata : FileMetaData
     If separately computed
+memory_map : boolean, default True
+    If the source is a file path, use a memory map to read file, which can
+    improve performance in some environments
 {1}
 
 Returns
@@ -1007,7 +1071,8 @@ Returns
 
 
 def read_table(source, columns=None, use_threads=True, metadata=None,
-               use_pandas_metadata=False, nthreads=None):
+               use_pandas_metadata=False, memory_map=True,
+               nthreads=None):
     use_threads = _deprecate_nthreads(use_threads, nthreads)
     if _is_path_like(source):
         fs = _get_fs_from_path(source)
@@ -1030,10 +1095,11 @@ read_table.__doc__ = _read_table_docstring.format(
 
 
 def read_pandas(source, columns=None, use_threads=True,
-                nthreads=None, metadata=None):
+                memory_map=True, nthreads=None, metadata=None):
     return read_table(source, columns=columns,
                       use_threads=use_threads,
-                      metadata=metadata, use_pandas_metadata=True)
+                      metadata=metadata, memory_map=True,
+                      use_pandas_metadata=True)
 
 
 read_pandas.__doc__ = _read_table_docstring.format(
@@ -1049,6 +1115,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_dictionary=True, compression='snappy',
                 use_deprecated_int96_timestamps=None,
                 coerce_timestamps=None,
+                allow_truncated_timestamps=False,
                 flavor=None, **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -1059,6 +1126,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 flavor=flavor,
                 use_dictionary=use_dictionary,
                 coerce_timestamps=coerce_timestamps,
+                allow_truncated_timestamps=allow_truncated_timestamps,
                 compression=compression,
                 use_deprecated_int96_timestamps=use_int96,
                 **kwargs) as writer:
@@ -1141,12 +1209,14 @@ def write_to_dataset(table, root_path, partition_cols=None,
         data_cols = df.columns.drop(partition_cols)
         if len(data_cols) == 0:
             raise ValueError('No data left to save outside partition columns')
+
         subschema = table.schema
         # ARROW-2891: Ensure the output_schema is preserved when writing a
         # partitioned dataset
-        for partition_col in partition_cols:
-            subschema = subschema.remove(
-                subschema.get_field_index(partition_col))
+        for col in table.schema.names:
+            if (col.startswith('__index_level_') or col in partition_cols):
+                subschema = subschema.remove(subschema.get_field_index(col))
+
         for keys, subgroup in data_df.groupby(partition_keys):
             if not isinstance(keys, tuple):
                 keys = (keys,)
@@ -1198,31 +1268,35 @@ def write_metadata(schema, where, version='1.0',
     writer.close()
 
 
-def read_metadata(where):
+def read_metadata(where, memory_map=False):
     """
     Read FileMetadata from footer of a single Parquet file
 
     Parameters
     ----------
     where : string (filepath) or file-like object
+    memory_map : boolean, default False
+        Create memory map when the source is a file path
 
     Returns
     -------
     metadata : FileMetadata
     """
-    return ParquetFile(where).metadata
+    return ParquetFile(where, memory_map=memory_map).metadata
 
 
-def read_schema(where):
+def read_schema(where, memory_map=False):
     """
     Read effective Arrow schema from Parquet file metadata
 
     Parameters
     ----------
     where : string (filepath) or file-like object
+    memory_map : boolean, default False
+        Create memory map when the source is a file path
 
     Returns
     -------
     schema : pyarrow.Schema
     """
-    return ParquetFile(where).schema.to_arrow_schema()
+    return ParquetFile(where, memory_map=memory_map).schema.to_arrow_schema()

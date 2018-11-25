@@ -295,7 +295,7 @@ def test_stream_simple_roundtrip(stream_fixture):
     assert total == len(batches)
 
     with pytest.raises(StopIteration):
-        reader.get_next_batch()
+        reader.read_next_batch()
 
 
 def test_stream_read_all(stream_fixture):

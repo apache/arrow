@@ -33,12 +33,16 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     add_library(${AUG_LIB_NAME} STATIC IMPORTED)
     set_target_properties(${AUG_LIB_NAME}
       PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
-    message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
+    if(ARG_DEPS)
+      set_target_properties(${AUG_LIB_NAME}
+        PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
+    endif()
+    message("Added static library dependency ${AUG_LIB_NAME}: ${ARG_STATIC_LIB}")
 
     SET(AUG_LIB_NAME "${LIB_NAME}_shared")
     add_library(${AUG_LIB_NAME} SHARED IMPORTED)
 
-    if(MSVC)
+    if(WIN32)
         # Mark the ”.lib” location as part of a Windows DLL
         set_target_properties(${AUG_LIB_NAME}
             PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
@@ -48,30 +52,24 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     endif()
     if(ARG_DEPS)
       set_target_properties(${AUG_LIB_NAME}
-        PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
+        PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
-    message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
+    message("Added shared library dependency ${AUG_LIB_NAME}: ${ARG_SHARED_LIB}")
   elseif(ARG_STATIC_LIB)
-    add_library(${LIB_NAME} STATIC IMPORTED)
-    set_target_properties(${LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
     SET(AUG_LIB_NAME "${LIB_NAME}_static")
     add_library(${AUG_LIB_NAME} STATIC IMPORTED)
     set_target_properties(${AUG_LIB_NAME}
       PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
     if(ARG_DEPS)
       set_target_properties(${AUG_LIB_NAME}
-        PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
+        PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
-    message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
+    message("Added static library dependency ${AUG_LIB_NAME}: ${ARG_STATIC_LIB}")
   elseif(ARG_SHARED_LIB)
-    add_library(${LIB_NAME} SHARED IMPORTED)
-    set_target_properties(${LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
     SET(AUG_LIB_NAME "${LIB_NAME}_shared")
     add_library(${AUG_LIB_NAME} SHARED IMPORTED)
 
-    if(MSVC)
+    if(WIN32)
         # Mark the ”.lib” location as part of a Windows DLL
         set_target_properties(${AUG_LIB_NAME}
             PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
@@ -79,10 +77,10 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
         set_target_properties(${AUG_LIB_NAME}
             PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
     endif()
-    message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
+    message("Added shared library dependency ${AUG_LIB_NAME}: ${ARG_SHARED_LIB}")
     if(ARG_DEPS)
       set_target_properties(${AUG_LIB_NAME}
-        PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
+        PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
   else()
     message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
@@ -91,9 +89,15 @@ endfunction()
 
 # \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
-  set(options)
+  set(options BUILD_SHARED BUILD_STATIC)
   set(one_value_args SHARED_LINK_FLAGS)
-  set(multi_value_args SOURCES OUTPUTS STATIC_LINK_LIBS STATIC_PRIVATE_LINK_LIBS SHARED_LINK_LIBS SHARED_PRIVATE_LINK_LIBS EXTRA_INCLUDES DEPENDENCIES)
+  set(multi_value_args SOURCES OUTPUTS
+                       STATIC_LINK_LIBS
+                       SHARED_LINK_LIBS
+                       SHARED_PRIVATE_LINK_LIBS
+                       EXTRA_INCLUDES
+                       PRIVATE_INCLUDES
+                       DEPENDENCIES)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -103,7 +107,21 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(${ARG_OUTPUTS})
   endif()
 
+  # Allow overriding ARROW_BUILD_SHARED and ARROW_BUILD_STATIC
+  if (ARG_BUILD_SHARED)
+    set(BUILD_SHARED ${ARG_BUILD_SHARED})
+  else ()
+    set(BUILD_SHARED ${ARROW_BUILD_SHARED})
+  endif()
+  if (ARG_BUILD_STATIC)
+    set(BUILD_STATIC ${ARG_BUILD_STATIC})
+  else ()
+    set(BUILD_STATIC ${ARROW_BUILD_STATIC})
+  endif()
+
   if(MSVC)
+    # MSVC needs to compile C++ separately for each library kind (shared and static)
+    # because of dllexport declarations
     set(LIB_DEPS ${ARG_SOURCES})
     set(EXTRA_DEPS ${ARG_DEPENDENCIES})
 
@@ -111,6 +129,8 @@ function(ADD_ARROW_LIB LIB_NAME)
       set(LIB_INCLUDES ${ARG_EXTRA_INCLUDES})
     endif()
   else()
+    # Otherwise, generate a single "objlib" from all C++ modules and link
+    # that "objlib" into each library kind, to avoid compiling twice
     add_library(${LIB_NAME}_objlib OBJECT
       ${ARG_SOURCES})
     # Necessary to make static linking into other shared libraries work properly
@@ -131,11 +151,15 @@ function(ADD_ARROW_LIB LIB_NAME)
         ${ARG_EXTRA_INCLUDES}
         )
     endif()
+    if (ARG_PRIVATE_INCLUDES)
+      target_include_directories(${LIB_NAME}_objlib PRIVATE
+        ${ARG_PRIVATE_INCLUDES})
+    endif()
   endif()
 
   set(RUNTIME_INSTALL_DIR bin)
 
-  if (ARROW_BUILD_SHARED)
+  if (BUILD_SHARED)
     add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
     if (EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_shared ${EXTRA_DEPS})
@@ -149,6 +173,11 @@ function(ADD_ARROW_LIB LIB_NAME)
       target_include_directories(${LIB_NAME}_shared SYSTEM PUBLIC
         ${ARG_EXTRA_INCLUDES}
         )
+    endif()
+
+    if (ARG_PRIVATE_INCLUDES)
+      target_include_directories(${LIB_NAME}_shared PRIVATE
+        ${ARG_PRIVATE_INCLUDES})
     endif()
 
     if(APPLE)
@@ -197,12 +226,13 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     install(TARGETS ${LIB_NAME}_shared
+      EXPORT ${PROJECT_NAME}-targets
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
   endif()
 
-  if (ARROW_BUILD_STATIC)
+  if (BUILD_STATIC)
     add_library(${LIB_NAME}_static STATIC ${LIB_DEPS})
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_static ${EXTRA_DEPS})
@@ -218,10 +248,19 @@ function(ADD_ARROW_LIB LIB_NAME)
         )
     endif()
 
+    if (ARG_PRIVATE_INCLUDES)
+      target_include_directories(${LIB_NAME}_static PRIVATE
+        ${ARG_PRIVATE_INCLUDES})
+    endif()
+
     if (MSVC)
       set(LIB_NAME_STATIC ${LIB_NAME}_static)
     else()
       set(LIB_NAME_STATIC ${LIB_NAME})
+    endif()
+
+    if (ARROW_BUILD_STATIC AND WIN32)
+      target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_STATIC)
     endif()
 
     set_target_properties(${LIB_NAME}_static
@@ -230,10 +269,10 @@ function(ADD_ARROW_LIB LIB_NAME)
       OUTPUT_NAME ${LIB_NAME_STATIC})
 
     target_link_libraries(${LIB_NAME}_static
-      LINK_PUBLIC ${ARG_STATIC_LINK_LIBS}
-      LINK_PRIVATE ${ARG_STATIC_PRIVATE_LINK_LIBS})
+      LINK_PUBLIC ${ARG_STATIC_LINK_LIBS})
 
     install(TARGETS ${LIB_NAME}_static
+      EXPORT ${PROJECT_NAME}-targets
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
@@ -263,11 +302,27 @@ endfunction()
 # of 'benchmark'.
 #
 # Arguments after the test name will be passed to set_tests_properties().
+#
+# \arg PREFIX a string to append to the name of the benchmark executable. For
+# example, if you have src/arrow/foo/bar-benchmark.cc, then PREFIX "foo" will
+# create test executable foo-bar-benchmark
 function(ADD_ARROW_BENCHMARK REL_BENCHMARK_NAME)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
   if(NO_BENCHMARKS)
     return()
   endif()
   get_filename_component(BENCHMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
+
+  if(ARG_PREFIX)
+    set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
+  endif()
 
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
     # This benchmark has a corresponding .cc file, set it up as an executable.
@@ -276,40 +331,24 @@ function(ADD_ARROW_BENCHMARK REL_BENCHMARK_NAME)
     target_link_libraries(${BENCHMARK_NAME} ${ARROW_BENCHMARK_LINK_LIBS})
     add_dependencies(runbenchmark ${BENCHMARK_NAME})
     set(NO_COLOR "--color_print=false")
+
+    if (ARG_EXTRA_LINK_LIBS)
+      target_link_libraries(${BENCHMARK_NAME} ${ARG_EXTRA_LINK_LIBS})
+    endif()
   else()
     # No executable, just invoke the benchmark (probably a script) directly.
     set(BENCHMARK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME})
     set(NO_COLOR "")
   endif()
 
+  if (ARG_DEPENDENCIES)
+    add_dependencies(${BENCHMARK_NAME} ${ARG_DEPENDENCIES})
+  endif()
+
   add_test(${BENCHMARK_NAME}
     ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} benchmark ${BENCHMARK_PATH} ${NO_COLOR})
   set_tests_properties(${BENCHMARK_NAME} PROPERTIES LABELS "benchmark")
-  if(ARGN)
-    set_tests_properties(${BENCHMARK_NAME} PROPERTIES ${ARGN})
-  endif()
 endfunction()
-
-# A wrapper for add_dependencies() that is compatible with NO_BENCHMARKS.
-function(ADD_ARROW_BENCHMARK_DEPENDENCIES REL_BENCHMARK_NAME)
-  if(NO_BENCHMARKS)
-    return()
-  endif()
-  get_filename_component(BENCMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
-
-  add_dependencies(${BENCHMARK_NAME} ${ARGN})
-endfunction()
-
-# A wrapper for target_link_libraries() that is compatible with NO_BENCHMARKS.
-function(ARROW_BENCHMARK_LINK_LIBRARIES REL_BENCHMARK_NAME)
-    if(NO_BENCHMARKS)
-    return()
-  endif()
-  get_filename_component(BENCHMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
-
-  target_link_libraries(${BENCHMARK_NAME} ${ARGN})
-endfunction()
-
 
 ############################################################
 # Testing
@@ -356,7 +395,7 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     endif()
   endif()
 
-  if(NO_TESTS OR NOT ARROW_BUILD_STATIC)
+  if (NO_TESTS)
     return()
   endif()
   get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
@@ -366,7 +405,7 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
   endif()
 
   if (ARG_LABELS)
-    set(ARG_LABELS "unittest;${ARG_LABELS}")
+    set(ARG_LABELS "${ARG_LABELS}")
   else()
     set(ARG_LABELS unittest)
   endif()
@@ -424,27 +463,6 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     APPEND PROPERTY
     LABELS ${ARG_LABELS})
 endfunction()
-
-# A wrapper for add_dependencies() that is compatible with NO_TESTS.
-function(ADD_ARROW_TEST_DEPENDENCIES REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  add_dependencies(${TEST_NAME} ${ARGN})
-endfunction()
-
-# A wrapper for target_link_libraries() that is compatible with NO_TESTS.
-function(ARROW_TEST_LINK_LIBRARIES REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  target_link_libraries(${TEST_NAME} ${ARGN})
-endfunction()
-
 
 ############################################################
 # Fuzzing

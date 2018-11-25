@@ -16,8 +16,9 @@
 # under the License.
 
 from collections import OrderedDict
-import pickle
 
+import numpy as np
+import pickle
 import pytest
 
 import pyarrow as pa
@@ -230,6 +231,18 @@ def test_struct_type():
 
     assert len(ty) == ty.num_children == 3
     assert list(ty) == fields
+    assert ty[0].name == 'a'
+    assert ty[2].type == pa.int32()
+    with pytest.raises(IndexError):
+        assert ty[3]
+
+    assert ty['a'] == ty[1]
+    assert ty['b'] == ty[2]
+    with pytest.raises(KeyError):
+        ty['c']
+
+    with pytest.raises(TypeError):
+        ty[None]
 
     for a, b in zip(ty, fields):
         a == b
@@ -461,3 +474,34 @@ def test_field_add_remove_metadata():
     f5 = pa.field('foo', pa.int32(), True, metadata)
     f6 = f0.add_metadata(metadata)
     assert f5.equals(f6)
+
+
+def test_empty_table():
+    schema = pa.schema([
+        pa.field("oneField", pa.int64())
+    ])
+    table = schema.empty_table()
+    assert isinstance(table, pa.Table)
+    assert table.num_rows == 0
+    assert table.schema == schema
+
+
+def test_is_integer_value():
+    assert pa.types.is_integer_value(1)
+    assert pa.types.is_integer_value(np.int64(1))
+    assert not pa.types.is_integer_value('1')
+
+
+def test_is_float_value():
+    assert not pa.types.is_float_value(1)
+    assert pa.types.is_float_value(1.)
+    assert pa.types.is_float_value(np.float64(1))
+    assert not pa.types.is_float_value('1.0')
+
+
+def test_is_boolean_value():
+    assert not pa.types.is_boolean_value(1)
+    assert pa.types.is_boolean_value(True)
+    assert pa.types.is_boolean_value(False)
+    assert pa.types.is_boolean_value(np.bool_(True))
+    assert pa.types.is_boolean_value(np.bool_(False))

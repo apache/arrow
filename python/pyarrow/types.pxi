@@ -103,6 +103,10 @@ cdef class DataType:
         self.type = type.get()
         self.pep3118_format = _datatype_to_pep3118(self.type)
 
+    cdef Field child(self, int i):
+        cdef int index = <int> _normalize_index(i, self.type.num_children())
+        return pyarrow_wrap_field(self.type.child(index))
+
     @property
     def id(self):
         return self.type.id()
@@ -207,6 +211,19 @@ cdef class StructType(DataType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
+        self.struct_type = <const CStructType*> type.get()
+
+    cdef Field child_by_name(self, name):
+        """
+        Access a child field by its name rather than the column index.
+        """
+        cdef shared_ptr[CField] field
+
+        field = self.struct_type.GetChildByName(tobytes(name))
+        if field == nullptr:
+            raise KeyError(name)
+
+        return pyarrow_wrap_field(field)
 
     def __len__(self):
         return self.type.num_children()
@@ -216,8 +233,12 @@ cdef class StructType(DataType):
             yield self[i]
 
     def __getitem__(self, i):
-        cdef int index = <int> _normalize_index(i, self.num_children)
-        return pyarrow_wrap_field(self.type.child(index))
+        if isinstance(i, six.string_types):
+            return self.child_by_name(i)
+        elif isinstance(i, six.integer_types):
+            return self.child(i)
+        else:
+            raise TypeError('Expected integer or string index')
 
     def __reduce__(self):
         return struct, (list(self),)
@@ -254,8 +275,7 @@ cdef class UnionType(DataType):
             yield self[i]
 
     def __getitem__(self, i):
-        cdef int index = <int> _normalize_index(i, self.num_children)
-        return pyarrow_wrap_field(self.type.child(index))
+        return self.child(i)
 
     def __reduce__(self):
         return union, (list(self), self.mode)
@@ -375,8 +395,6 @@ cdef class Field:
         Parameters
         ----------
         other : pyarrow.Field
-        check_metadata : boolean, default True
-            Key/value metadata must be equal too
 
         Returns
         -------
@@ -535,6 +553,25 @@ cdef class Schema:
             return self.equals(other)
         except TypeError:
             return NotImplemented
+
+    def empty_table(self):
+        """
+        Provide an empty table according to the schema.
+
+        Returns
+        -------
+        table: pyarrow.Table
+        """
+        arrays = []
+        names = []
+        for field in self:
+            arrays.append(array([], type=field.type))
+            names.append(field.name)
+        return Table.from_arrays(
+            arrays=arrays,
+            names=names,
+            metadata=self.metadata
+        )
 
     def equals(self, other, bint check_metadata=True):
         """
@@ -793,26 +830,16 @@ def field(name, type, bint nullable=True, dict metadata=None):
     cdef:
         shared_ptr[CKeyValueMetadata] c_meta
         Field result = Field.__new__(Field)
-        DataType _type
+        DataType _type = _as_type(type)
 
     if metadata is not None:
         convert_metadata(metadata, &c_meta)
-
-    _type = _as_type(type)
 
     result.sp_field.reset(new CField(tobytes(name), _type.sp_type,
                                      nullable == 1, c_meta))
     result.field = result.sp_field.get()
     result.type = _type
     return result
-
-
-cdef _as_type(type):
-    if isinstance(type, DataType):
-        return type
-    if not isinstance(type, six.string_types):
-        raise TypeError(type)
-    return type_for_alias(type)
 
 
 cdef set PRIMITIVE_TYPES = set([
@@ -935,12 +962,30 @@ def tzinfo_to_string(tz):
       name : string
         Time zone name
     """
-    if tz.zone is None:
-        sign = '+' if tz._minutes >= 0 else '-'
-        hours, minutes = divmod(abs(tz._minutes), 60)
+    import pytz
+    import datetime
+
+    def fixed_offset_to_string(offset):
+        seconds = int(offset.utcoffset(None).total_seconds())
+        sign = '+' if seconds >= 0 else '-'
+        minutes, seconds = divmod(abs(seconds), 60)
+        hours, minutes = divmod(minutes, 60)
+        if seconds > 0:
+            raise ValueError('Offset must represent whole number of minutes')
         return '{}{:02d}:{:02d}'.format(sign, hours, minutes)
-    else:
+
+    if isinstance(tz, pytz.tzinfo.BaseTzInfo):
         return tz.zone
+    elif isinstance(tz, pytz._FixedOffset):
+        return fixed_offset_to_string(tz)
+    elif isinstance(tz, datetime.tzinfo):
+        if six.PY3 and isinstance(tz, datetime.timezone):
+            return fixed_offset_to_string(tz)
+        else:
+            raise ValueError('Unable to convert timezone `{}` to string'
+                             .format(tz))
+    else:
+        raise TypeError('Must be an instance of `datetime.tzinfo`')
 
 
 def string_to_tzinfo(name):
@@ -1331,6 +1376,7 @@ def union(children_fields, mode):
 cdef dict _type_aliases = {
     'null': null,
     'bool': bool_,
+    'boolean': bool_,
     'i1': int8,
     'int8': int8,
     'i2': int16,
@@ -1394,6 +1440,22 @@ def type_for_alias(name):
     return alias()
 
 
+def _as_type(typ):
+    if isinstance(typ, DataType):
+        return typ
+    elif isinstance(typ, six.string_types):
+        return type_for_alias(typ)
+    else:
+        raise TypeError("data type expected, got '%r'" % (type(typ),))
+
+
+cdef DataType ensure_type(object type, c_bool allow_none=False):
+    if allow_none and type is None:
+        return None
+    else:
+        return _as_type(type)
+
+
 def schema(fields, dict metadata=None):
     """
     Construct pyarrow.Schema from collection of fields
@@ -1455,3 +1517,15 @@ def from_numpy_dtype(object dtype):
         check_status(NumPyDtypeToArrow(dtype, &c_type))
 
     return pyarrow_wrap_data_type(c_type)
+
+
+def is_boolean_value(object obj):
+    return IsPyBool(obj)
+
+
+def is_integer_value(object obj):
+    return IsPyInt(obj)
+
+
+def is_float_value(object obj):
+    return IsPyFloat(obj)

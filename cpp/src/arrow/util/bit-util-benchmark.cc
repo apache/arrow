@@ -26,6 +26,9 @@
 #include "arrow/util/bit-util.h"
 
 namespace arrow {
+
+using internal::CopyBitmap;
+
 namespace BitUtil {
 
 // A naive bitmap reader implementation, meant as a baseline against

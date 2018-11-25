@@ -46,12 +46,14 @@ struct PandasOptions {
   bool strings_to_categorical;
   bool zero_copy_only;
   bool integer_object_nulls;
+  bool date_as_object;
   bool use_threads;
 
   PandasOptions()
       : strings_to_categorical(false),
         zero_copy_only(false),
         integer_object_nulls(false),
+        date_as_object(false),
         use_threads(false) {}
 };
 

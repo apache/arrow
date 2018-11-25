@@ -26,12 +26,14 @@
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace io {
 
 class TestBufferOutputStream : public ::testing::Test {
@@ -80,6 +82,26 @@ TEST_F(TestBufferOutputStream, WriteAfterFinish) {
   ASSERT_OK(buffer_stream->Finish(&buffer));
 
   ASSERT_RAISES(IOError, stream_->Write(data));
+}
+
+TEST_F(TestBufferOutputStream, Reset) {
+  std::string data = "data123456";
+
+  auto stream = checked_cast<BufferOutputStream*>(stream_.get());
+
+  ASSERT_OK(stream->Write(data));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_OK(stream->Finish(&buffer));
+  ASSERT_EQ(buffer->size(), static_cast<int64_t>(data.size()));
+
+  ASSERT_OK(stream->Reset(2048));
+  ASSERT_OK(stream->Write(data));
+  ASSERT_OK(stream->Write(data));
+  std::shared_ptr<Buffer> buffer2;
+  ASSERT_OK(stream->Finish(&buffer2));
+
+  ASSERT_EQ(buffer2->size(), static_cast<int64_t>(data.size() * 2));
 }
 
 TEST(TestFixedSizeBufferWriter, Basics) {

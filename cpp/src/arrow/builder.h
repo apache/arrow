@@ -18,13 +18,15 @@
 #ifndef ARROW_BUILDER_H
 #define ARROW_BUILDER_H
 
-#include <algorithm>
+#include <algorithm>  // IWYU pragma: keep
 #include <array>
 #include <cstdint>
-#include <functional>
+#include <cstring>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -33,31 +35,30 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/hash.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
+#include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Array;
+struct ArrayData;
 class Decimal128;
 
 constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
 constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1;
 
-namespace internal {
-
-struct ArrayData;
-
-}  // namespace internal
-
 constexpr int64_t kMinBuilderCapacity = 1 << 5;
 
 /// Base class for all data array builders.
-//
+///
 /// This class provides a facilities for incrementally building the null bitmap
 /// (see Append methods) and as a side effect the current number of slots and
 /// the null count.
+///
+/// \note Users are expected to use builders as one of the concrete types below.
+/// For example, ArrayBuilder* pointing to BinaryBuilder should be downcast before use.
 class ARROW_EXPORT ArrayBuilder {
  public:
   explicit ArrayBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
@@ -80,16 +81,6 @@ class ARROW_EXPORT ArrayBuilder {
   int64_t length() const { return length_; }
   int64_t null_count() const { return null_count_; }
   int64_t capacity() const { return capacity_; }
-
-  /// Append to null bitmap
-  Status AppendToBitmap(bool is_valid);
-
-  /// Vector append. Treat each zero byte as a null.   If valid_bytes is null
-  /// assume all of length bits are valid.
-  Status AppendToBitmap(const uint8_t* valid_bytes, int64_t length);
-
-  /// Set the next length bits to not null (i.e. valid).
-  Status SetNotNull(int64_t length);
 
   /// \brief Ensure that enough memory has been allocated to fit the indicated
   /// number of total elements in the builder, including any that have already
@@ -132,7 +123,22 @@ class ARROW_EXPORT ArrayBuilder {
 
   std::shared_ptr<DataType> type() const { return type_; }
 
+ protected:
+  ArrayBuilder() {}
+
+  /// Append to null bitmap
+  Status AppendToBitmap(bool is_valid);
+
+  /// Vector append. Treat each zero byte as a null.   If valid_bytes is null
+  /// assume all of length bits are valid.
+  Status AppendToBitmap(const uint8_t* valid_bytes, int64_t length);
+
+  /// Set the next length bits to not null (i.e. valid).
+  Status SetNotNull(int64_t length);
+
   // Unsafe operations (don't check capacity/don't resize)
+
+  void UnsafeAppendNull() { UnsafeAppendToBitmap(false); }
 
   // Append to null bitmap, update the length
   void UnsafeAppendToBitmap(bool is_valid) {
@@ -176,8 +182,14 @@ class ARROW_EXPORT ArrayBuilder {
     length_ += std::distance(begin, end);
   }
 
- protected:
-  ArrayBuilder() {}
+  // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
+  // assume all of length bits are valid.
+  void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length);
+
+  void UnsafeAppendToBitmap(const std::vector<bool>& is_valid);
+
+  // Set the next length bits to not null (i.e. valid).
+  void UnsafeSetNotNull(int64_t length);
 
   std::shared_ptr<DataType> type_;
   MemoryPool* pool_;
@@ -193,15 +205,6 @@ class ARROW_EXPORT ArrayBuilder {
 
   // Child value array builders. These are owned by this class
   std::vector<std::unique_ptr<ArrayBuilder>> children_;
-
-  // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
-  // assume all of length bits are valid.
-  void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length);
-
-  void UnsafeAppendToBitmap(const std::vector<bool>& is_valid);
-
-  // Set the next length bits to not null (i.e. valid).
-  void UnsafeSetNotNull(int64_t length);
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
@@ -235,7 +238,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// The memory at the corresponding data slot is set to 0 to prevent uninitialized
   /// memory access
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
     memset(raw_data_ + length_, 0,
            static_cast<size_t>(TypeTraits<Type>::bytes_required(length)));
     UnsafeAppendToBitmap(valid_bytes, length);
@@ -243,7 +246,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   }
 
   Status AppendNull() {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     memset(raw_data_ + length_, 0, sizeof(value_type));
     UnsafeAppendToBitmap(false);
     return Status::OK();
@@ -292,7 +295,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   template <typename ValuesIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
 
     std::copy(values_begin, values_end, raw_data_ + length_);
 
@@ -310,11 +313,11 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   template <typename ValuesIter, typename ValidIter>
   typename std::enable_if<!std::is_pointer<ValidIter>::value, Status>::type AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
-    static_assert(!is_null_pointer<ValidIter>::value,
+    static_assert(!internal::is_null_pointer<ValidIter>::value,
                   "Don't pass a NULLPTR directly as valid_begin, use the 2-argument "
                   "version instead");
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
 
     std::copy(values_begin, values_end, raw_data_ + length_);
 
@@ -333,7 +336,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   typename std::enable_if<std::is_pointer<ValidIter>::value, Status>::type AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
 
     std::copy(values_begin, values_end, raw_data_ + length_);
 
@@ -370,13 +373,14 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
           ARROW_MEMORY_POOL_DEFAULT)
       : PrimitiveBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
+  using ArrayBuilder::UnsafeAppendNull;
   using PrimitiveBuilder<T>::AppendValues;
   using PrimitiveBuilder<T>::Resize;
   using PrimitiveBuilder<T>::Reserve;
 
   /// Append a single scalar and increase the size if necessary.
   Status Append(const value_type val) {
-    RETURN_NOT_OK(ArrayBuilder::Reserve(1));
+    ARROW_RETURN_NOT_OK(ArrayBuilder::Reserve(1));
     UnsafeAppend(val);
     return Status::OK();
   }
@@ -426,14 +430,14 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
     memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();
   }
 
   Status AppendNull() {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     memset(data_->mutable_data() + length_ * int_size_, 0, int_size_);
     UnsafeAppendToBitmap(false);
     return Status::OK();
@@ -448,6 +452,8 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 
   uint8_t int_size_;
 };
+
+// TODO investigate AdaptiveIntBuilder / AdaptiveUIntBuilder performance
 
 // Check if we would need to expand the underlying storage type
 inline uint8_t ExpandedIntSize(int64_t val, uint8_t current_int_size) {
@@ -501,12 +507,12 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 
   /// Scalar append
   Status Append(const uint64_t val) {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
 
     uint8_t new_int_size = internal::ExpandedUIntSize(val, int_size_);
     if (new_int_size != int_size_) {
-      RETURN_NOT_OK(ExpandIntSize(new_int_size));
+      ARROW_RETURN_NOT_OK(ExpandIntSize(new_int_size));
     }
 
     switch (int_size_) {
@@ -564,12 +570,12 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
 
   /// Scalar append
   Status Append(const int64_t val) {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
 
     uint8_t new_int_size = internal::ExpandedIntSize(val, int_size_);
     if (new_int_size != int_size_) {
-      RETURN_NOT_OK(ExpandIntSize(new_int_size));
+      ARROW_RETURN_NOT_OK(ExpandIntSize(new_int_size));
     }
 
     switch (int_size_) {
@@ -626,17 +632,18 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
   using ArrayBuilder::Advance;
+  using ArrayBuilder::UnsafeAppendNull;
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
 
     return Status::OK();
   }
 
   Status AppendNull() {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(false);
 
     return Status::OK();
@@ -644,7 +651,15 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   /// Scalar append
   Status Append(const bool val) {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppend(val);
+    return Status::OK();
+  }
+
+  Status Append(const uint8_t val) { return Append(val != 0); }
+
+  /// Scalar append, without checking for capacity
+  void UnsafeAppend(const bool val) {
     BitUtil::SetBit(null_bitmap_data_, length_);
     if (val) {
       BitUtil::SetBit(raw_data_, length_);
@@ -652,10 +667,9 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
       BitUtil::ClearBit(raw_data_, length_);
     }
     ++length_;
-    return Status::OK();
   }
 
-  Status Append(const uint8_t val) { return Append(val != 0); }
+  void UnsafeAppend(const uint8_t val) { UnsafeAppend(val != 0); }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous array of bytes (non-zero is 1)
@@ -708,7 +722,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   template <typename ValuesIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
     auto iter = values_begin;
     internal::GenerateBitsUnrolled(raw_data_, length_, length,
                                    [&iter]() -> bool { return *(iter++); });
@@ -727,11 +741,11 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   template <typename ValuesIter, typename ValidIter>
   typename std::enable_if<!std::is_pointer<ValidIter>::value, Status>::type AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
-    static_assert(!is_null_pointer<ValidIter>::value,
+    static_assert(!internal::is_null_pointer<ValidIter>::value,
                   "Don't pass a NULLPTR directly as valid_begin, use the 2-argument "
                   "version instead");
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
 
     auto iter = values_begin;
     internal::GenerateBitsUnrolled(raw_data_, length_, length,
@@ -752,7 +766,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   typename std::enable_if<std::is_pointer<ValidIter>::value, Status>::type AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
 
     auto iter = values_begin;
     internal::GenerateBitsUnrolled(raw_data_, length_, length,
@@ -846,11 +860,35 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
     return Append(reinterpret_cast<const uint8_t*>(value), length);
   }
 
-  Status Append(const std::string& value) {
-    return Append(value.c_str(), static_cast<int32_t>(value.size()));
+  Status Append(util::string_view value) {
+    return Append(value.data(), static_cast<int32_t>(value.size()));
   }
 
   Status AppendNull();
+
+  /// \brief Append without checking capacity
+  ///
+  /// Offsets and data should have been presized using Reserve() and
+  /// ReserveData(), respectively.
+  void UnsafeAppend(const uint8_t* value, int32_t length) {
+    UnsafeAppendNextOffset();
+    value_data_builder_.UnsafeAppend(value, length);
+    UnsafeAppendToBitmap(true);
+  }
+
+  void UnsafeAppend(const char* value, int32_t length) {
+    UnsafeAppend(reinterpret_cast<const uint8_t*>(value), length);
+  }
+
+  void UnsafeAppend(const std::string& value) {
+    UnsafeAppend(value.c_str(), static_cast<int32_t>(value.size()));
+  }
+
+  void UnsafeAppendNull() {
+    const int64_t num_bytes = value_data_builder_.length();
+    offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_bytes));
+    UnsafeAppendToBitmap(false);
+  }
 
   void Reset() override;
   Status Resize(int64_t capacity) override;
@@ -871,11 +909,21 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   /// This pointer becomes invalid on the next modifying operation.
   const uint8_t* GetValue(int64_t i, int32_t* out_length) const;
 
+  /// Temporary access to a value.
+  ///
+  /// This view becomes invalid on the next modifying operation.
+  util::string_view GetView(int64_t i) const;
+
  protected:
   TypedBufferBuilder<int32_t> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
   Status AppendNextOffset();
+
+  void UnsafeAppendNextOffset() {
+    const int64_t num_bytes = value_data_builder_.length();
+    offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_bytes));
+  }
 };
 
 /// \class StringBuilder
@@ -887,6 +935,7 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
 
   using BinaryBuilder::Append;
   using BinaryBuilder::Reset;
+  using BinaryBuilder::UnsafeAppend;
 
   /// \brief Append a sequence of strings in one shot.
   ///
@@ -919,24 +968,38 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   Status Append(const uint8_t* value) {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(true);
     return byte_builder_.Append(value, byte_width_);
   }
+
   Status Append(const char* value) {
     return Append(reinterpret_cast<const uint8_t*>(value));
   }
 
+  Status Append(const util::string_view& view) {
+#ifndef NDEBUG
+    CheckValueSize(static_cast<int64_t>(view.size()));
+#endif
+    return Append(reinterpret_cast<const uint8_t*>(view.data()));
+  }
+
+  Status Append(const std::string& s) {
+#ifndef NDEBUG
+    CheckValueSize(static_cast<int64_t>(s.size()));
+#endif
+    return Append(reinterpret_cast<const uint8_t*>(s.data()));
+  }
+
   template <size_t NBYTES>
   Status Append(const std::array<uint8_t, NBYTES>& value) {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(true);
     return byte_builder_.Append(value);
   }
 
   Status AppendValues(const uint8_t* data, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
-  Status Append(const std::string& value);
   Status AppendNull();
 
   void Reset() override;
@@ -953,9 +1016,18 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   /// This pointer becomes invalid on the next modifying operation.
   const uint8_t* GetValue(int64_t i) const;
 
+  /// Temporary access to a value.
+  ///
+  /// This view becomes invalid on the next modifying operation.
+  util::string_view GetView(int64_t i) const;
+
  protected:
   int32_t byte_width_;
   BufferBuilder byte_builder_;
+
+#ifndef NDEBUG
+  void CheckValueSize(int64_t size);
+#endif
 };
 
 class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
@@ -994,7 +1066,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   /// end methods or advance methods of the child builders' independently to
   /// insert data.
   Status AppendValues(int64_t length, const uint8_t* valid_bytes) {
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();
   }
@@ -1002,7 +1074,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   /// Append an element to the Struct. All child-builders' Append method must
   /// be called independently to maintain data-structure consistency.
   Status Append(bool is_valid = true) {
-    RETURN_NOT_OK(Reserve(1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(is_valid);
     return Status::OK();
   }
@@ -1024,14 +1096,6 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
 namespace internal {
 
-// TODO(ARROW-1176): Use Tensorflow's StringPiece instead of this here.
-struct WrappedBinary {
-  WrappedBinary(const uint8_t* ptr, int32_t length) : ptr_(ptr), length_(length) {}
-
-  const uint8_t* ptr_;
-  int32_t length_;
-};
-
 template <typename T>
 struct DictionaryScalar {
   using type = typename T::c_type;
@@ -1039,17 +1103,17 @@ struct DictionaryScalar {
 
 template <>
 struct DictionaryScalar<BinaryType> {
-  using type = WrappedBinary;
+  using type = util::string_view;
 };
 
 template <>
 struct DictionaryScalar<StringType> {
-  using type = WrappedBinary;
+  using type = util::string_view;
 };
 
 template <>
 struct DictionaryScalar<FixedSizeBinaryType> {
-  using type = const uint8_t*;
+  using type = util::string_view;
 };
 
 }  // namespace internal
@@ -1067,6 +1131,8 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
  public:
   using Scalar = typename internal::DictionaryScalar<T>::type;
 
+  // WARNING: the type given below is the value type, not the DictionaryType.
+  // The DictionaryType is instantiated on the Finish() call.
   DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
   template <typename T1 = T>
@@ -1074,8 +1140,24 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
       typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
       : DictionaryBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
+  ~DictionaryBuilder() override;
+
   /// \brief Append a scalar value
   Status Append(const Scalar& value);
+
+  /// \brief Append a fixed-width string (only for FixedSizeBinaryType)
+  template <typename T1 = T>
+  Status Append(typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
+                                        const uint8_t*>::type value) {
+    return Append(util::string_view(reinterpret_cast<const char*>(value), byte_width_));
+  }
+
+  /// \brief Append a fixed-width string (only for FixedSizeBinaryType)
+  template <typename T1 = T>
+  Status Append(typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
+                                        const char*>::type value) {
+    return Append(util::string_view(value, byte_width_));
+  }
 
   /// \brief Append a scalar null value
   Status AppendNull();
@@ -1088,45 +1170,17 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
   /// is the dictionary builder in the delta building mode
-  bool is_building_delta() { return entry_id_offset_ > 0; }
+  bool is_building_delta() { return delta_offset_ > 0; }
 
  protected:
-  // Hash table implementation helpers
-  Status DoubleTableSize();
-  Scalar GetDictionaryValue(typename TypeTraits<T>::BuilderType& dictionary_builder,
-                            int64_t index);
-  int64_t HashValue(const Scalar& value);
-  // Check whether the dictionary entry in *slot* is equal to the given *value*
-  bool SlotDifferent(hash_slot_t slot, const Scalar& value);
-  Status AppendDictionary(const Scalar& value);
+  class MemoTableImpl;
+  std::unique_ptr<MemoTableImpl> memo_table_;
 
-  std::shared_ptr<Buffer> hash_table_;
-  int32_t* hash_slots_;
-
-  /// Size of the table. Must be a power of 2.
-  int64_t hash_table_size_;
-
-  // Offset for the dictionary entries in dict_builder_.
-  // Increased on every Finish call by the number of current entries
-  // in the dictionary.
-  int64_t entry_id_offset_;
-
-  // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
-  // hash_table_size_, but uses far fewer CPU cycles
-  int64_t mod_bitmask_;
-
-  // This builder accumulates new dictionary entries since the last Finish call
-  // (or since the beginning if Finish hasn't been called).
-  // In other words, it contains the current delta dictionary.
-  typename TypeTraits<T>::BuilderType dict_builder_;
-  // This builder stores dictionary entries encountered before the last Finish call.
-  typename TypeTraits<T>::BuilderType overflow_dict_builder_;
-
-  AdaptiveIntBuilder values_builder_;
+  int32_t delta_offset_;
+  // Only used for FixedSizeBinaryType
   int32_t byte_width_;
 
-  /// Size at which we decide to resize
-  int64_t hash_table_load_threshold_;
+  AdaptiveIntBuilder values_builder_;
 };
 
 template <>
@@ -1154,17 +1208,11 @@ class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType
   using DictionaryBuilder::DictionaryBuilder;
 
   Status Append(const uint8_t* value, int32_t length) {
-    return Append(internal::WrappedBinary(value, length));
+    return Append(reinterpret_cast<const char*>(value), length);
   }
 
   Status Append(const char* value, int32_t length) {
-    return Append(
-        internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
-  }
-
-  Status Append(const std::string& value) {
-    return Append(internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
-                                          static_cast<int32_t>(value.size())));
+    return Append(util::string_view(value, length));
   }
 };
 
@@ -1175,17 +1223,11 @@ class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType
   using DictionaryBuilder::DictionaryBuilder;
 
   Status Append(const uint8_t* value, int32_t length) {
-    return Append(internal::WrappedBinary(value, length));
+    return Append(reinterpret_cast<const char*>(value), length);
   }
 
   Status Append(const char* value, int32_t length) {
-    return Append(
-        internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
-  }
-
-  Status Append(const std::string& value) {
-    return Append(internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
-                                          static_cast<int32_t>(value.size())));
+    return Append(util::string_view(value, length));
   }
 };
 

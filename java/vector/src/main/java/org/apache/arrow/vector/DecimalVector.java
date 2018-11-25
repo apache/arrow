@@ -1,14 +1,13 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * <p>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -217,11 +216,11 @@ public class DecimalVector extends BaseFixedWidthVector {
     final int length = value.length;
     int startIndex = index * TYPE_WIDTH;
     if (length == TYPE_WIDTH) {
-      for (int i = TYPE_WIDTH - 1; i >= 3; i-=4) {
+      for (int i = TYPE_WIDTH - 1; i >= 3; i -= 4) {
         valueBuffer.setByte(startIndex, value[i]);
-        valueBuffer.setByte(startIndex + 1, value[i-1]);
-        valueBuffer.setByte(startIndex + 2, value[i-2]);
-        valueBuffer.setByte(startIndex + 3, value[i-3]);
+        valueBuffer.setByte(startIndex + 1, value[i - 1]);
+        valueBuffer.setByte(startIndex + 2, value[i - 2]);
+        valueBuffer.setByte(startIndex + 3, value[i - 3]);
         startIndex += 4;
       }
 

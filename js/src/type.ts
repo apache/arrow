@@ -33,6 +33,19 @@ export import IntervalUnit = Schema_.org.apache.arrow.flatbuf.IntervalUnit;
 export import MessageHeader = Message_.org.apache.arrow.flatbuf.MessageHeader;
 export import MetadataVersion = Schema_.org.apache.arrow.flatbuf.MetadataVersion;
 
+function generateDictionaryMap(fields: Field[]) {
+    const result: Map<number, Field<Dictionary>> = new Map();
+    fields
+        .filter((f) => f.type instanceof Dictionary)
+        .forEach((f) => {
+            if (result.has((f.type as Dictionary).id)) {
+                throw new Error(`Cannot create Schema containing two dictionaries with the same ID`);
+            }
+            result.set((f.type as Dictionary).id, f as Field<Dictionary>);
+        });
+    return result;
+}
+
 export class Schema {
     public static from(vectors: Vector[]) {
         return new Schema(vectors.map((v, i) => new Field('' + i, v.type)));
@@ -48,7 +61,7 @@ export class Schema {
     constructor(fields: Field[],
                 metadata?: Map<string, string>,
                 version: MetadataVersion = MetadataVersion.V4,
-                dictionaries: Map<number, Field<Dictionary>> = new Map()) {
+                dictionaries: Map<number, Field<Dictionary>> = generateDictionaryMap(fields)) {
         this.fields = fields;
         this.version = version;
         this.metadata = metadata;
@@ -356,8 +369,12 @@ export class List<T extends DataType = any> extends DataType<Type.List> {
     })(List.prototype);
 }
 
-export interface Struct extends DataType<Type.Struct> { TArray: any; TValue: View<any>; }
-export class Struct extends DataType<Type.Struct> {
+export type StructData = {[name: string]: DataType}
+export type StructValue<T extends StructData> = {
+    [P in keyof T]: T[P]['TValue'];
+}
+export interface Struct<T extends StructData = StructData> extends DataType<Type.Struct> { TArray: any; TValue: StructValue<T> & View<any>; }
+export class Struct<T extends StructData = StructData> extends DataType<Type.Struct> {
     constructor(public children: Field[]) {
         super(Type.Struct, children);
     }

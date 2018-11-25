@@ -17,16 +17,11 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
-#include <exception>
 #include <memory>
-#include <string>
-#include <vector>
 
-#include "parquet/column_reader.h"
+#include "parquet/column_page.h"
 #include "parquet/exception.h"
 #include "parquet/file_reader.h"
 #include "parquet/thrift.h"
@@ -34,6 +29,8 @@
 #include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 
+#include "arrow/io/memory.h"
+#include "arrow/status.h"
 #include "arrow/util/compression.h"
 
 namespace parquet {
@@ -196,7 +193,7 @@ TEST_F(TestPageSerde, Compression) {
     test::random_bytes(page_size, 0, &faux_data[i]);
   }
   for (auto codec_type : codec_types) {
-    std::unique_ptr<::arrow::Codec> codec = GetCodecFromArrow(codec_type);
+    auto codec = GetCodecFromArrow(codec_type);
 
     std::vector<uint8_t> buffer;
     for (int i = 0; i < num_pages; ++i) {
@@ -262,22 +259,19 @@ class TestParquetFileReader : public ::testing::Test {
 TEST_F(TestParquetFileReader, InvalidHeader) {
   const char* bad_header = "PAR2";
 
-  auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(bad_header),
-                                         strlen(bad_header));
+  auto buffer = Buffer::Wrap(bad_header, strlen(bad_header));
   ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 }
 
 TEST_F(TestParquetFileReader, InvalidFooter) {
   // File is smaller than FOOTER_SIZE
   const char* bad_file = "PAR1PAR";
-  auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(bad_file),
-                                         strlen(bad_file));
+  auto buffer = Buffer::Wrap(bad_file, strlen(bad_file));
   ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 
   // Magic number incorrect
   const char* bad_file2 = "PAR1PAR2";
-  buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(bad_file2),
-                                    strlen(bad_file2));
+  buffer = Buffer::Wrap(bad_file2, strlen(bad_file2));
   ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 }
 

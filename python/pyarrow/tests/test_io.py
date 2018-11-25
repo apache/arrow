@@ -15,8 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from io import (BytesIO, TextIOWrapper, BufferedIOBase, IOBase)
+import bz2
+from io import (BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase)
 import gc
+import gzip
 import os
 import pickle
 import pytest
@@ -24,11 +26,16 @@ import sys
 import tempfile
 import weakref
 
+try:
+    import pathlib
+except ImportError:
+    import pathlib2 as pathlib
+
 import numpy as np
 
 import pandas as pd
 
-from pyarrow.compat import u, guid
+from pyarrow.compat import u, guid, PY2
 import pyarrow as pa
 
 
@@ -64,7 +71,7 @@ def test_python_file_write():
     s1 = b'enga\xc3\xb1ado'
     s2 = b'foobar'
 
-    f.write(s1.decode('utf8'))
+    f.write(s1)
     assert f.tell() == len(s1)
 
     f.write(s2)
@@ -74,7 +81,9 @@ def test_python_file_write():
     result = buf.getvalue()
     assert result == expected
 
+    assert not f.closed
     f.close()
+    assert f.closed
 
 
 def test_python_file_read():
@@ -102,7 +111,9 @@ def test_python_file_read():
 
     assert f.size() == len(data)
 
+    assert not f.closed
     f.close()
+    assert f.closed
 
 
 def test_python_file_readall():
@@ -175,7 +186,9 @@ def test_bytes_reader():
 
     assert f.read(50) == b'sample data'
 
+    assert not f.closed
     f.close()
+    assert f.closed
 
 
 def test_bytes_reader_non_bytes():
@@ -254,18 +267,6 @@ def test_python_file_closing():
     pf = pa.PythonFile(bio)
     pf.close()
     assert bio.closed
-
-
-# ----------------------------------------------------------------------
-# MemoryPool
-
-
-def test_memory_pool_cannot_use_ctor():
-    with pytest.raises(TypeError):
-        pa.MemoryPool()
-
-    with pytest.raises(TypeError):
-        pa.ProxyMemoryPool()
 
 
 # ----------------------------------------------------------------------
@@ -450,6 +451,17 @@ def test_buffer_hashing():
         hash(pa.py_buffer(b'123'))
 
 
+def test_buffer_protocol_respects_immutability():
+    # ARROW-3228; NumPy's frombuffer ctor determines whether a buffer-like
+    # object is mutable by first attempting to get a mutable buffer using
+    # PyObject_FromBuffer. If that fails, it assumes that the object is
+    # immutable
+    a = b'12345'
+    arrow_ref = pa.py_buffer(a)
+    numpy_ref = np.frombuffer(arrow_ref, dtype=np.uint8)
+    assert not numpy_ref.flags.writeable
+
+
 def test_foreign_buffer():
     obj = np.array([1, 2], dtype=np.int32)
     addr = obj.__array_interface__["data"][0]
@@ -542,7 +554,6 @@ def test_uninitialized_buffer():
 def test_memory_output_stream():
     # 10 bytes
     val = b'dataabcdef'
-
     f = pa.BufferOutputStream()
 
     K = 1000
@@ -550,7 +561,6 @@ def test_memory_output_stream():
         f.write(val)
 
     buf = f.getvalue()
-
     assert len(buf) == len(val) * K
     assert buf.to_pybytes() == val * K
 
@@ -558,7 +568,9 @@ def test_memory_output_stream():
 def test_inmemory_write_after_closed():
     f = pa.BufferOutputStream()
     f.write(b'ok')
+    assert not f.closed
     f.getvalue()
+    assert f.closed
 
     with pytest.raises(ValueError):
         f.write(b'not ok')
@@ -734,7 +746,7 @@ def test_memory_map_writer(tmpdir):
     f = pa.memory_map(path, mode='r+b')
 
     f.seek(10)
-    f.write('peekaboo')
+    f.write(b'peekaboo')
     assert f.tell() == 18
 
     f.seek(10)
@@ -751,7 +763,7 @@ def test_memory_map_writer(tmpdir):
 
     # Does not truncate file
     f3 = pa.memory_map(path, mode='w')
-    f3.write('foo')
+    f3.write(b'foo')
 
     with pa.memory_map(path) as f4:
         assert f4.size() == SIZE
@@ -806,13 +818,20 @@ def test_os_file_writer(tmpdir):
 
     # Truncates file
     f2 = pa.OSFile(path, mode='w')
-    f2.write('foo')
+    f2.write(b'foo')
 
     with pa.OSFile(path) as f3:
         assert f3.size() == 3
 
     with pytest.raises(IOError):
         f2.read(5)
+
+
+def test_native_file_write_reject_unicode():
+    # ARROW-3227
+    nf = pa.BufferOutputStream()
+    with pytest.raises(TypeError):
+        nf.write(u'foo')
 
 
 def test_native_file_modes(tmpdir):
@@ -925,3 +944,325 @@ def test_native_file_TextIOWrapper(tmpdir):
     with TextIOWrapper(pa.OSFile(path2, mode='rb')) as fil:
         res = fil.read()
         assert res == data
+
+
+# ----------------------------------------------------------------------
+# Compressed input and output streams
+
+def check_compressed_input(data, fn, compression):
+    raw = pa.OSFile(fn, mode="rb")
+    with pa.CompressedInputStream(raw, compression) as compressed:
+        assert not compressed.closed
+        assert compressed.readable()
+        assert not compressed.writable()
+        assert not compressed.seekable()
+        got = compressed.read()
+        assert got == data
+    assert compressed.closed
+    assert raw.closed
+
+    # Same with read_buffer()
+    raw = pa.OSFile(fn, mode="rb")
+    with pa.CompressedInputStream(raw, compression) as compressed:
+        buf = compressed.read_buffer()
+        assert isinstance(buf, pa.Buffer)
+        assert buf.to_pybytes() == data
+
+
+def test_compressed_input_gzip(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    fn = str(tmpdir / "compressed_input_test.gz")
+    with gzip.open(fn, "wb") as f:
+        f.write(data)
+    check_compressed_input(data, fn, "gzip")
+
+
+def test_compressed_input_bz2(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    fn = str(tmpdir / "compressed_input_test.bz2")
+    with bz2.BZ2File(fn, "w") as f:
+        f.write(data)
+    try:
+        check_compressed_input(data, fn, "bz2")
+    except NotImplementedError as e:
+        pytest.skip(str(e))
+
+
+def test_compressed_input_invalid():
+    data = b"foo" * 10
+    raw = pa.BufferReader(data)
+    with pytest.raises(ValueError):
+        pa.CompressedInputStream(raw, "unknown_compression")
+    with pytest.raises(ValueError):
+        pa.CompressedInputStream(raw, None)
+
+    with pa.CompressedInputStream(raw, "gzip") as compressed:
+        with pytest.raises(IOError, match="zlib inflate failed"):
+            compressed.read()
+
+
+def make_compressed_output(data, fn, compression):
+    raw = pa.BufferOutputStream()
+    with pa.CompressedOutputStream(raw, compression) as compressed:
+        assert not compressed.closed
+        assert not compressed.readable()
+        assert compressed.writable()
+        assert not compressed.seekable()
+        compressed.write(data)
+    assert compressed.closed
+    assert raw.closed
+    with open(fn, "wb") as f:
+        f.write(raw.getvalue())
+
+
+def test_compressed_output_gzip(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    fn = str(tmpdir / "compressed_output_test.gz")
+    make_compressed_output(data, fn, "gzip")
+    with gzip.open(fn, "rb") as f:
+        got = f.read()
+        assert got == data
+
+
+def test_compressed_output_bz2(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    fn = str(tmpdir / "compressed_output_test.bz2")
+    try:
+        make_compressed_output(data, fn, "bz2")
+    except NotImplementedError as e:
+        pytest.skip(str(e))
+    with bz2.BZ2File(fn, "r") as f:
+        got = f.read()
+        assert got == data
+
+
+@pytest.mark.parametrize("compression",
+                         ["bz2", "brotli", "gzip", "lz4", "zstd"])
+def test_compressed_roundtrip(compression):
+    data = b"some test data\n" * 10 + b"eof\n"
+    raw = pa.BufferOutputStream()
+    try:
+        with pa.CompressedOutputStream(raw, compression) as compressed:
+            compressed.write(data)
+    except NotImplementedError as e:
+        if compression == "bz2":
+            pytest.skip(str(e))
+        else:
+            raise
+    cdata = raw.getvalue()
+    assert len(cdata) < len(data)
+    raw = pa.BufferReader(cdata)
+    with pa.CompressedInputStream(raw, compression) as compressed:
+        got = compressed.read()
+        assert got == data
+
+
+# ----------------------------------------------------------------------
+# High-level API
+
+if PY2:
+    def gzip_compress(data):
+        fd, fn = tempfile.mkstemp(suffix='.gz')
+        try:
+            os.close(fd)
+            with gzip.GzipFile(fn, 'wb') as f:
+                f.write(data)
+            with open(fn, 'rb') as f:
+                return f.read()
+        finally:
+            os.unlink(fn)
+
+    def gzip_decompress(data):
+        fd, fn = tempfile.mkstemp(suffix='.gz')
+        try:
+            os.close(fd)
+            with open(fn, 'wb') as f:
+                f.write(data)
+            with gzip.GzipFile(fn, 'rb') as f:
+                return f.read()
+        finally:
+            os.unlink(fn)
+else:
+    gzip_compress = gzip.compress
+    gzip_decompress = gzip.decompress
+
+
+def test_input_stream_buffer():
+    data = b"some test data\n" * 10 + b"eof\n"
+    for arg in [pa.py_buffer(data), memoryview(data)]:
+        stream = pa.input_stream(arg)
+        assert stream.read() == data
+
+    gz_data = gzip_compress(data)
+    stream = pa.input_stream(memoryview(gz_data))
+    assert stream.read() == gz_data
+    stream = pa.input_stream(memoryview(gz_data), compression='gzip')
+    assert stream.read() == data
+
+
+def test_input_stream_file_path(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    file_path = tmpdir / 'input_stream'
+    with open(str(file_path), 'wb') as f:
+        f.write(data)
+
+    stream = pa.input_stream(file_path)
+    assert stream.read() == data
+    stream = pa.input_stream(str(file_path))
+    assert stream.read() == data
+    stream = pa.input_stream(pathlib.Path(str(file_path)))
+    assert stream.read() == data
+
+
+def test_input_stream_file_path_compressed(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    gz_data = gzip_compress(data)
+    file_path = tmpdir / 'input_stream.gz'
+    with open(str(file_path), 'wb') as f:
+        f.write(gz_data)
+
+    stream = pa.input_stream(file_path)
+    assert stream.read() == data
+    stream = pa.input_stream(str(file_path))
+    assert stream.read() == data
+    stream = pa.input_stream(pathlib.Path(str(file_path)))
+    assert stream.read() == data
+
+    stream = pa.input_stream(file_path, compression='gzip')
+    assert stream.read() == data
+    stream = pa.input_stream(file_path, compression=None)
+    assert stream.read() == gz_data
+
+
+def test_input_stream_python_file(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    bio = BytesIO(data)
+
+    stream = pa.input_stream(bio)
+    assert stream.read() == data
+
+    gz_data = gzip_compress(data)
+    bio = BytesIO(gz_data)
+    stream = pa.input_stream(bio)
+    assert stream.read() == gz_data
+    bio.seek(0)
+    stream = pa.input_stream(bio, compression='gzip')
+    assert stream.read() == data
+
+    file_path = tmpdir / 'input_stream'
+    with open(str(file_path), 'wb') as f:
+        f.write(data)
+    with open(str(file_path), 'rb') as f:
+        stream = pa.input_stream(f)
+        assert stream.read() == data
+
+
+def test_input_stream_native_file():
+    data = b"some test data\n" * 10 + b"eof\n"
+    gz_data = gzip_compress(data)
+    reader = pa.BufferReader(gz_data)
+    stream = pa.input_stream(reader)
+    assert stream is reader
+    reader = pa.BufferReader(gz_data)
+    stream = pa.input_stream(reader, compression='gzip')
+    assert stream.read() == data
+
+
+def test_input_stream_errors(tmpdir):
+    buf = memoryview(b"")
+    with pytest.raises(ValueError):
+        pa.input_stream(buf, compression="foo")
+
+    for arg in [bytearray(), StringIO()]:
+        with pytest.raises(TypeError):
+            pa.input_stream(arg)
+
+    with pytest.raises(IOError):
+        pa.input_stream("non_existent_file")
+
+    with open(str(tmpdir / 'new_file'), 'wb') as f:
+        with pytest.raises(TypeError, match="readable file expected"):
+            pa.input_stream(f)
+
+
+def test_output_stream_buffer():
+    data = b"some test data\n" * 10 + b"eof\n"
+    buf = bytearray(len(data))
+    stream = pa.output_stream(pa.py_buffer(buf))
+    stream.write(data)
+    assert buf == data
+
+    buf = bytearray(len(data))
+    stream = pa.output_stream(memoryview(buf))
+    stream.write(data)
+    assert buf == data
+
+
+def test_output_stream_file_path(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    file_path = tmpdir / 'output_stream'
+
+    def check_data(file_path, data):
+        with pa.output_stream(file_path) as stream:
+            stream.write(data)
+        with open(str(file_path), 'rb') as f:
+            assert f.read() == data
+
+    check_data(file_path, data)
+    check_data(str(file_path), data)
+    check_data(pathlib.Path(str(file_path)), data)
+
+
+def test_output_stream_file_path_compressed(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    file_path = tmpdir / 'output_stream.gz'
+
+    def check_data(file_path, data, **kwargs):
+        with pa.output_stream(file_path, **kwargs) as stream:
+            stream.write(data)
+        with open(str(file_path), 'rb') as f:
+            return f.read()
+
+    assert gzip_decompress(check_data(file_path, data)) == data
+    assert gzip_decompress(check_data(str(file_path), data)) == data
+    assert gzip_decompress(
+        check_data(pathlib.Path(str(file_path)), data)) == data
+
+    assert gzip_decompress(
+        check_data(file_path, data, compression='gzip')) == data
+    assert check_data(file_path, data, compression=None) == data
+
+
+def test_output_stream_python_file(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+
+    def check_data(data, **kwargs):
+        # XXX cannot use BytesIO because stream.close() is necessary
+        # to finish writing compressed data, but it will also close the
+        # underlying BytesIO
+        fn = str(tmpdir / 'output_stream_file')
+        with open(fn, 'wb') as f:
+            with pa.output_stream(f, **kwargs) as stream:
+                stream.write(data)
+        with open(fn, 'rb') as f:
+            return f.read()
+
+    assert check_data(data) == data
+    assert gzip_decompress(check_data(data, compression='gzip')) == data
+
+
+def test_output_stream_errors(tmpdir):
+    buf = memoryview(bytearray())
+    with pytest.raises(ValueError):
+        pa.output_stream(buf, compression="foo")
+
+    for arg in [bytearray(), StringIO()]:
+        with pytest.raises(TypeError):
+            pa.output_stream(arg)
+
+    fn = str(tmpdir / 'new_file')
+    with open(fn, 'wb') as f:
+        pass
+    with open(fn, 'rb') as f:
+        with pytest.raises(TypeError, match="writable file expected"):
+            pa.output_stream(f)
