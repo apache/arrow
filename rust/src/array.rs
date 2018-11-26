@@ -24,7 +24,7 @@ use std::sync::Arc;
 
 use array_data::*;
 use buffer::*;
-use builder::PrimitiveArrayBuilder;
+use builder::{ArrayBuilder, PrimitiveArrayBuilder};
 use datatypes::*;
 use memory;
 use util::bit_util;
@@ -208,6 +208,38 @@ macro_rules! def_primitive_array {
                     }
                 }
                 n
+            }
+
+            pub fn add(&self, other: &PrimitiveArray<$native_ty>) -> PrimitiveArray<$native_ty> {
+                self.math_helper(other, |a, b| a + b)
+            }
+
+            pub fn subtract(&self, other: &PrimitiveArray<$native_ty>) -> PrimitiveArray<$native_ty> {
+                self.math_helper(other, |a, b| a - b)
+            }
+
+            pub fn multiply(&self, other: &PrimitiveArray<$native_ty>) -> PrimitiveArray<$native_ty> {
+                self.math_helper(other, |a, b| a * b)
+            }
+
+            pub fn divide(&self, other: &PrimitiveArray<$native_ty>) -> PrimitiveArray<$native_ty> {
+                self.math_helper(other, |a, b| a / b)
+            }
+
+            fn math_helper<F>(&self, other: &PrimitiveArray<$native_ty>, op: F) -> PrimitiveArray<$native_ty>
+            where
+                F: Fn($native_ty, $native_ty) -> $native_ty,
+            {
+                let mut b = PrimitiveArrayBuilder::<$native_ty>::new(self.len());
+                for i in 0..self.data.len() {
+                    let index = i as i64;
+                    if self.is_null(i) || other.is_null(i) {
+                        b.push_null().unwrap();
+                    } else {
+                        b.push(op(self.value(index), other.value(index))).unwrap();
+                    }
+                }
+                b.finish()
             }
 
             // Returns a new primitive array builder
@@ -704,6 +736,7 @@ mod tests {
     use std::thread;
 
     use super::*;
+    use array::{Array, PrimitiveArray};
     use array_data::ArrayData;
     use buffer::Buffer;
     use datatypes::{DataType, Field, ToByteSlice};
@@ -1243,6 +1276,76 @@ mod tests {
         let a = PrimitiveArray::<i32>::from(vec![Some(5), None, None, Some(8), Some(9)]);
         assert_eq!(5, a.min().unwrap());
         assert_eq!(9, a.max().unwrap());
+    }
+
+    #[test]
+    fn test_primitive_array_add() {
+        let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
+        let b = PrimitiveArray::<i32>::from(vec![6, 7, 8, 9, 8]);
+        let c = a.add(&b);
+        assert_eq!(11, c.value(0));
+        assert_eq!(13, c.value(1));
+        assert_eq!(15, c.value(2));
+        assert_eq!(17, c.value(3));
+        assert_eq!(17, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_subtract() {
+        let a = PrimitiveArray::<i32>::from(vec![1, 2, 3, 4, 5]);
+        let b = PrimitiveArray::<i32>::from(vec![5, 4, 3, 2, 1]);
+        let c = a.subtract(&b);
+        assert_eq!(-4, c.value(0));
+        assert_eq!(-2, c.value(1));
+        assert_eq!(0, c.value(2));
+        assert_eq!(2, c.value(3));
+        assert_eq!(4, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_multiply() {
+        let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
+        let b = PrimitiveArray::<i32>::from(vec![6, 7, 8, 9, 8]);
+        let c = a.multiply(&b);
+        assert_eq!(30, c.value(0));
+        assert_eq!(42, c.value(1));
+        assert_eq!(56, c.value(2));
+        assert_eq!(72, c.value(3));
+        assert_eq!(72, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_divide() {
+        let a = PrimitiveArray::<i32>::from(vec![15, 15, 8, 1, 9]);
+        let b = PrimitiveArray::<i32>::from(vec![5, 6, 8, 9, 1]);
+        let c = a.divide(&b);
+        assert_eq!(3, c.value(0));
+        assert_eq!(2, c.value(1));
+        assert_eq!(1, c.value(2));
+        assert_eq!(0, c.value(3));
+        assert_eq!(9, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_divide_f64() {
+        let a = PrimitiveArray::<f64>::from(vec![15.0, 15.0, 8.0]);
+        let b = PrimitiveArray::<f64>::from(vec![5.0, 6.0, 8.0]);
+        let c = a.divide(&b);
+        assert_eq!(3.0, c.value(0));
+        assert_eq!(2.5, c.value(1));
+        assert_eq!(1.0, c.value(2));
+    }
+
+    #[test]
+    fn test_primitive_array_add_with_nulls() {
+        let a = PrimitiveArray::<i32>::from(vec![Some(5), None, Some(7), None]);
+        let b = PrimitiveArray::<i32>::from(vec![None, None, Some(6), Some(7)]);
+        let c = a.add(&b);
+        assert_eq!(true, c.is_null(0));
+        assert_eq!(true, c.is_null(1));
+        assert_eq!(false, c.is_null(2));
+        assert_eq!(true, c.is_null(3));
+        assert_eq!(13, c.value(2));
     }
 
     #[test]
