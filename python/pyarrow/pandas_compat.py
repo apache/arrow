@@ -380,7 +380,7 @@ def dataframe_to_types(df, preserve_index, columns=None):
     # If pandas knows type, skip conversion
     for c in columns_to_convert:
         values = c.values
-        if isinstance(c.values, pd.Categorical):
+        if isinstance(values, pd.Categorical):
             type_ = pa.array(c, from_pandas=True).type
         else:
             values, type_ = get_datetimetz_type(values, c.dtype, None)
