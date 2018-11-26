@@ -52,6 +52,8 @@ Conversion from a Table to a DataFrame is done by calling
     # Convert back to pandas
     df_new = table.to_pandas()
 
+    # Infer Arrow schema from pandas
+    schema = pa.Schema.from_pandas(df)
 
 Series
 ------

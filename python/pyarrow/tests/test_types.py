@@ -17,10 +17,11 @@
 
 from collections import OrderedDict
 
-import numpy as np
 import pickle
 import pytest
 
+import pandas as pd
+import numpy as np
 import pyarrow as pa
 import pyarrow.types as types
 
@@ -478,7 +479,7 @@ def test_field_add_remove_metadata():
 
 def test_empty_table():
     schema = pa.schema([
-        pa.field("oneField", pa.int64())
+        pa.field('oneField', pa.int64())
     ])
     table = schema.empty_table()
     assert isinstance(table, pa.Table)
@@ -505,3 +506,20 @@ def test_is_boolean_value():
     assert pa.types.is_boolean_value(False)
     assert pa.types.is_boolean_value(np.bool_(True))
     assert pa.types.is_boolean_value(np.bool_(False))
+
+
+@pytest.mark.parametrize('data', [
+    list(range(10)),
+    pd.Categorical(list(range(10))),
+    ['foo', 'bar', None, 'baz', 'qux'],
+    np.array([
+        '2007-07-13T01:23:34.123456789',
+        '2006-01-13T12:34:56.432539784',
+        '2010-08-13T05:46:57.437699912'
+    ], dtype='datetime64[ns]')
+])
+def test_schema_from_pandas(data):
+    df = pd.DataFrame({'a': data})
+    schema = pa.Schema.from_pandas(df)
+    expected = pa.Table.from_pandas(df).schema
+    assert schema == expected
