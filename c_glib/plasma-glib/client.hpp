@@ -19,11 +19,11 @@
 
 #pragma once
 
-#include <memory>
-
 #include <plasma/client.h>
 
 #include <plasma-glib/client.h>
 
-GPlasmaClient *gplasma_client_new_raw(std::shared_ptr<plasma::PlasmaClient> *plasma_client);
-std::shared_ptr<plasma::PlasmaClient> gplasma_client_get_raw(GPlasmaClient *client);
+GPlasmaClient *
+gplasma_client_new_raw(plasma::PlasmaClient *plasma_client);
+plasma::PlasmaClient *
+gplasma_client_get_raw(GPlasmaClient *client);
