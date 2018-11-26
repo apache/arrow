@@ -591,6 +591,45 @@ cdef class Schema:
         return self.sp_schema.get().Equals(deref(_other.schema),
                                            check_metadata)
 
+    @classmethod
+    def from_pandas(cls, df, bint preserve_index=True):
+        """
+        Returns implied schema from dataframe
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+        preserve_index : bool, default True
+            Whether to store the index as an additional column (or columns, for
+            MultiIndex) in the resulting `Table`.
+
+        Returns
+        -------
+        pyarrow.Schema
+
+        Examples
+        --------
+
+        >>> import pandas as pd
+        >>> import pyarrow as pa
+        >>> df = pd.DataFrame({
+            ...     'int': [1, 2],
+            ...     'str': ['a', 'b']
+            ... })
+        >>> pa.Schema.from_pandas(df)
+        int: int64
+        str: string
+        __index_level_0__: int64
+        """
+        names, types, metadata = pdcompat.dataframe_to_types(
+            df,
+            preserve_index=preserve_index
+        )
+        fields = []
+        for name, type_ in zip(names, types):
+            fields.append(field(name, type_))
+        return schema(fields, metadata)
+
     def field_by_name(self, name):
         """
         Access a field by its name rather than the column index.
