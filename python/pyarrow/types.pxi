@@ -599,9 +599,9 @@ cdef class Schema:
         Parameters
         ----------
         df : pandas.DataFrame
-        preserve_index : bool, optional
-            Whether to store the index as an additional column in the resulting
-            ``Table``.
+        preserve_index : bool, default True
+            Whether to store the index as an additional column (or columns, for
+            MultiIndex) in the resulting `Table`.
 
         Returns
         -------
