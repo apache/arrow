@@ -2220,3 +2220,10 @@ def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
     writer = pq.ParquetWriter(tempdir / 'merged.parquet', schema=schema)
     writer.write_table(table1)
     writer.write_table(table2)
+
+
+def test_writing_empty_lists():
+    # ARROW-2591: [Python] Segmentation fault issue in pq.write_table
+    arr = pa.array([[], []], pa.list_(pa.int32()))
+    table = pa.Table.from_arrays([arr], ['test'])
+    _check_roundtrip(table)
