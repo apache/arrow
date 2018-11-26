@@ -62,11 +62,6 @@
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
 
-#ifdef ARROW_USE_SSE
-#include "arrow/util/cpu-info.h"
-#include "arrow/util/sse-util.h"
-#endif
-
 namespace arrow {
 
 class Buffer;
