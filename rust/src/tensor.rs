@@ -96,7 +96,8 @@ macro_rules! impl_tensor {
                             .iter()
                             .map(|i| {
                                 assert_eq!(s.len(), i.len(), "shape and stride dimensions differ")
-                            }).next();
+                            })
+                            .next();
                         names
                             .iter()
                             .map(|i| {
@@ -105,7 +106,8 @@ macro_rules! impl_tensor {
                                     i.len(),
                                     "number of dimensions and number of dimension names differ"
                                 )
-                            }).next();
+                            })
+                            .next();
                     }
                 };
                 Self {
