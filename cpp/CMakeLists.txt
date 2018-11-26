@@ -314,6 +314,11 @@ Always OFF if building binaries"
     "Build the Gandiva libraries"
     OFF)
 
+  # ARROW-3860: Temporary workaround
+  option(ARROW_GANDIVA_STATIC_LIBSTDCPP
+    "Use -static-libstdc++ -static-libgcc when building Gandiva shared libraries"
+    OFF)
+
   option(ARROW_GANDIVA_JAVA
     "Build the Gandiva JNI wrappers"
     ON)
