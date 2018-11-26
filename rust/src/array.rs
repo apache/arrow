@@ -214,11 +214,17 @@ macro_rules! def_primitive_array {
                 self.math_helper(other, |a, b| a + b)
             }
 
-            pub fn subtract(&self, other: &PrimitiveArray<$native_ty>) -> PrimitiveArray<$native_ty> {
+            pub fn subtract(
+                &self,
+                other: &PrimitiveArray<$native_ty>,
+            ) -> PrimitiveArray<$native_ty> {
                 self.math_helper(other, |a, b| a - b)
             }
 
-            pub fn multiply(&self, other: &PrimitiveArray<$native_ty>) -> PrimitiveArray<$native_ty> {
+            pub fn multiply(
+                &self,
+                other: &PrimitiveArray<$native_ty>,
+            ) -> PrimitiveArray<$native_ty> {
                 self.math_helper(other, |a, b| a * b)
             }
 
@@ -226,7 +232,11 @@ macro_rules! def_primitive_array {
                 self.math_helper(other, |a, b| a / b)
             }
 
-            fn math_helper<F>(&self, other: &PrimitiveArray<$native_ty>, op: F) -> PrimitiveArray<$native_ty>
+            fn math_helper<F>(
+                &self,
+                other: &PrimitiveArray<$native_ty>,
+                op: F,
+            ) -> PrimitiveArray<$native_ty>
             where
                 F: Fn($native_ty, $native_ty) -> $native_ty,
             {
