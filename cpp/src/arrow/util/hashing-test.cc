@@ -370,6 +370,14 @@ TEST(BinaryMemoTable, Basics) {
     table.CopyValues(4 /* start offset */, reinterpret_cast<uint8_t*>(&values[0]));
     ASSERT_EQ(values, expected_values);
   }
+  {
+    std::vector<std::string> expected({B, C, D, E, F});
+    std::vector<std::string> actual;
+    table.VisitValues(1 /* start offset */, [&](const util::string_view& v) {
+      actual.emplace_back(v.data(), v.length());
+    });
+    ASSERT_EQ(actual, expected);
+  }
 }
 
 TEST(BinaryMemoTable, Stress) {

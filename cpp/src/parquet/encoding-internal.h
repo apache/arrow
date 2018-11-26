@@ -26,8 +26,7 @@
 
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/cpu-info.h"
-#include "arrow/util/hash-util.h"
+#include "arrow/util/hashing.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/rle-encoding.h"
 
@@ -435,17 +434,24 @@ inline void DictionaryDecoder<FLBAType>::SetDict(Decoder<FLBAType>* dictionary) 
 // ----------------------------------------------------------------------
 // Dictionary encoder
 
-// Initially imported from Apache Impala on 2016-02-22, and has been modified
-// since for parquet-cpp
+template <typename DType>
+struct DictEncoderTraits {
+  using c_type = typename DType::c_type;
+  using MemoTableType = ::arrow::internal::ScalarMemoTable<c_type>;
+};
+
+template <>
+struct DictEncoderTraits<ByteArrayType> {
+  using MemoTableType = ::arrow::internal::BinaryMemoTable;
+};
+
+template <>
+struct DictEncoderTraits<FLBAType> {
+  using MemoTableType = ::arrow::internal::BinaryMemoTable;
+};
 
 // Initially 1024 elements
-static constexpr int INITIAL_HASH_TABLE_SIZE = 1 << 10;
-
-typedef int32_t hash_slot_t;
-static constexpr hash_slot_t HASH_SLOT_EMPTY = std::numeric_limits<int32_t>::max();
-
-// The maximum load factor for the hash table before resizing.
-static constexpr double MAX_HASH_LOAD = 0.7;
+static constexpr int32_t INITIAL_HASH_TABLE_SIZE = 1 << 10;
 
 /// See the dictionary encoding section of https://github.com/Parquet/parquet-format.
 /// The encoding supports streaming encoding. Values are encoded as they are added while
@@ -454,28 +460,22 @@ static constexpr double MAX_HASH_LOAD = 0.7;
 /// the encoder, including new dictionary entries.
 template <typename DType>
 class DictEncoder : public Encoder<DType> {
+  using MemoTableType = typename DictEncoderTraits<DType>::MemoTableType;
+
  public:
   typedef typename DType::c_type T;
 
+  // XXX pool is unused
   explicit DictEncoder(const ColumnDescriptor* desc, ChunkedAllocator* pool = nullptr,
                        ::arrow::MemoryPool* allocator = ::arrow::default_memory_pool())
       : Encoder<DType>(desc, Encoding::PLAIN_DICTIONARY, allocator),
         allocator_(allocator),
         pool_(pool),
-        hash_table_size_(INITIAL_HASH_TABLE_SIZE),
-        mod_bitmask_(hash_table_size_ - 1),
-        hash_slots_(0, allocator),
         dict_encoded_size_(0),
-        type_length_(desc->type_length()) {
-    hash_slots_.Assign(hash_table_size_, HASH_SLOT_EMPTY);
-    cpu_info_ = ::arrow::internal::CpuInfo::GetInstance();
-  }
+        type_length_(desc->type_length()),
+        memo_table_(INITIAL_HASH_TABLE_SIZE) {}
 
   ~DictEncoder() override { DCHECK(buffered_indices_.empty()); }
-
-  // TODO(wesm): think about how to address the construction semantics in
-  // encodings/dictionary-encoding.h
-  void set_mem_pool(ChunkedAllocator* pool) { pool_ = pool; }
 
   void set_type_length(int type_length) { type_length_ = type_length; }
 
@@ -506,62 +506,31 @@ class DictEncoder : public Encoder<DType> {
   /// to size buffer.
   int WriteIndices(uint8_t* buffer, int buffer_len);
 
-  int hash_table_size() { return hash_table_size_; }
   int dict_encoded_size() { return dict_encoded_size_; }
-  /// Clears all the indices (but leaves the dictionary).
-  void ClearIndices() { buffered_indices_.clear(); }
 
   /// Encode value. Note that this does not actually write any data, just
   /// buffers the value's index to be written later.
-  template <bool use_sse42>
-  void Put(const T& value);
-
-  template <bool use_sse42>
-  int Hash(const T& value);
+  inline void Put(const T& value);
+  void Put(const T* values, int num_values) override;
 
   std::shared_ptr<Buffer> FlushValues() override {
     std::shared_ptr<ResizableBuffer> buffer =
         AllocateBuffer(this->allocator_, EstimatedDataEncodedSize());
     int result_size = WriteIndices(buffer->mutable_data(),
                                    static_cast<int>(EstimatedDataEncodedSize()));
-    ClearIndices();
     PARQUET_THROW_NOT_OK(buffer->Resize(result_size, false));
     return buffer;
   }
-
-  void Put(const T* values, int num_values) override {
-    if (cpu_info_->CanUseSSE4_2()) {
-      for (int i = 0; i < num_values; i++) {
-        Put<true>(values[i]);
-      }
-    } else {
-      for (int i = 0; i < num_values; i++) {
-        Put<false>(values[i]);
-      }
-    }
-  }
-
-  template <bool use_sse42>
-  void DoubleTableSize();
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override {
     ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
                                                       num_values);
-    if (cpu_info_->CanUseSSE4_2()) {
-      for (int32_t i = 0; i < num_values; i++) {
-        if (valid_bits_reader.IsSet()) {
-          Put<true>(src[i]);
-        }
-        valid_bits_reader.Next();
+    for (int32_t i = 0; i < num_values; i++) {
+      if (valid_bits_reader.IsSet()) {
+        Put(src[i]);
       }
-    } else {
-      for (int32_t i = 0; i < num_values; i++) {
-        if (valid_bits_reader.IsSet()) {
-          Put<false>(src[i]);
-        }
-        valid_bits_reader.Next();
-      }
+      valid_bits_reader.Next();
     }
   }
 
@@ -572,27 +541,16 @@ class DictEncoder : public Encoder<DType> {
   ChunkedAllocator* mem_pool() { return pool_; }
 
   /// The number of entries in the dictionary.
-  int num_entries() const { return static_cast<int>(uniques_.size()); }
+  int num_entries() const { return memo_table_.size(); }
 
  private:
+  /// Clears all the indices (but leaves the dictionary).
+  void ClearIndices() { buffered_indices_.clear(); }
+
   ::arrow::MemoryPool* allocator_;
 
   // For ByteArray / FixedLenByteArray data. Not owned
   ChunkedAllocator* pool_;
-
-  ::arrow::internal::CpuInfo* cpu_info_;
-
-  /// Size of the table. Must be a power of 2.
-  int hash_table_size_;
-
-  // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
-  // hash_table_size_, but uses far fewer CPU cycles
-  int mod_bitmask_;
-
-  // We use a fixed-size hash table with linear probing
-  //
-  // These values correspond to the uniques_ array
-  Vector<hash_slot_t> hash_slots_;
 
   /// Indices that have not yet be written out by WriteIndices().
   std::vector<int> buffered_indices_;
@@ -600,188 +558,86 @@ class DictEncoder : public Encoder<DType> {
   /// The number of bytes needed to encode the dictionary.
   int dict_encoded_size_;
 
-  // The unique observed values
-  std::vector<T> uniques_;
-
-  bool SlotDifferent(const T& v, hash_slot_t slot);
-
   /// Size of each encoded dictionary value. -1 for variable-length types.
   int type_length_;
 
-  /// Adds value to the hash table and updates dict_encoded_size_
-  void AddDictKey(const T& value);
+  MemoTableType memo_table_;
 };
 
 template <typename DType>
-template <bool use_sse42>
-int DictEncoder<DType>::Hash(const typename DType::c_type& value) {
-  return ::arrow::HashUtil::Hash<use_sse42>(&value, sizeof(value), 0);
-}
-
-template <>
-template <bool use_sse42>
-int DictEncoder<ByteArrayType>::Hash(const ByteArray& value) {
-  if (value.len > 0) {
-    DCHECK_NE(nullptr, value.ptr) << "Value ptr cannot be NULL";
+void DictEncoder<DType>::Put(const T* src, int num_values) {
+  for (int32_t i = 0; i < num_values; i++) {
+    Put(src[i]);
   }
-  return ::arrow::HashUtil::Hash<use_sse42>(value.ptr, value.len, 0);
-}
-
-template <>
-template <bool use_sse42>
-int DictEncoder<FLBAType>::Hash(const FixedLenByteArray& value) {
-  if (type_length_ > 0) {
-    DCHECK_NE(nullptr, value.ptr) << "Value ptr cannot be NULL";
-  }
-  return ::arrow::HashUtil::Hash<use_sse42>(value.ptr, type_length_, 0);
 }
 
 template <typename DType>
-inline bool DictEncoder<DType>::SlotDifferent(const typename DType::c_type& v,
-                                              hash_slot_t slot) {
-  return v != uniques_[slot];
+inline void DictEncoder<DType>::Put(const T& v) {
+  // Put() implementation for primitive types
+  auto on_found = [](int32_t memo_index) {};
+  auto on_not_found = [this](int32_t memo_index) {
+    dict_encoded_size_ += static_cast<int>(sizeof(T));
+  };
+
+  auto memo_index = memo_table_.GetOrInsert(v, on_found, on_not_found);
+  buffered_indices_.push_back(memo_index);
 }
 
 template <>
-inline bool DictEncoder<FLBAType>::SlotDifferent(const FixedLenByteArray& v,
-                                                 hash_slot_t slot) {
-  return 0 != memcmp(v.ptr, uniques_[slot].ptr, type_length_);
-}
+inline void DictEncoder<ByteArrayType>::Put(const ByteArray& v) {
+  static const uint8_t empty[] = {0};
 
-template <typename DType>
-template <bool use_sse42>
-inline void DictEncoder<DType>::Put(const typename DType::c_type& v) {
-  int j = Hash<use_sse42>(v) & mod_bitmask_;
-  hash_slot_t index = hash_slots_[j];
+  auto on_found = [](int32_t memo_index) {};
+  auto on_not_found = [&](int32_t memo_index) {
+    dict_encoded_size_ += static_cast<int>(v.len + sizeof(uint32_t));
+  };
 
-  // Find an empty slot
-  while (HASH_SLOT_EMPTY != index && SlotDifferent(v, index)) {
-    // Linear probing
-    ++j;
-    if (j == hash_table_size_) j = 0;
-    index = hash_slots_[j];
-  }
-
-  if (index == HASH_SLOT_EMPTY) {
-    // Not in the hash table, so we insert it now
-    index = static_cast<hash_slot_t>(uniques_.size());
-    hash_slots_[j] = index;
-    AddDictKey(v);
-
-    if (ARROW_PREDICT_FALSE(static_cast<int>(uniques_.size()) >
-                            hash_table_size_ * MAX_HASH_LOAD)) {
-      DoubleTableSize<use_sse42>();
-    }
-  }
-
-  buffered_indices_.push_back(index);
-}
-
-template <typename DType>
-template <bool use_sse42>
-inline void DictEncoder<DType>::DoubleTableSize() {
-  int new_size = hash_table_size_ * 2;
-  Vector<hash_slot_t> new_hash_slots(0, allocator_);
-  new_hash_slots.Assign(new_size, HASH_SLOT_EMPTY);
-  hash_slot_t index, slot;
-  int j;
-  for (int i = 0; i < hash_table_size_; ++i) {
-    index = hash_slots_[i];
-
-    if (index == HASH_SLOT_EMPTY) {
-      continue;
-    }
-
-    // Compute the hash value mod the new table size to start looking for an
-    // empty slot
-    const typename DType::c_type& v = uniques_[index];
-
-    // Find an empty slot in the new hash table
-    j = Hash<use_sse42>(v) & (new_size - 1);
-    slot = new_hash_slots[j];
-    while (HASH_SLOT_EMPTY != slot && SlotDifferent(v, slot)) {
-      ++j;
-      if (j == new_size) j = 0;
-      slot = new_hash_slots[j];
-    }
-
-    // Copy the old slot index to the new hash table
-    new_hash_slots[j] = index;
-  }
-
-  hash_table_size_ = new_size;
-  mod_bitmask_ = new_size - 1;
-
-  hash_slots_.Swap(new_hash_slots);
-}
-
-template <typename DType>
-inline void DictEncoder<DType>::AddDictKey(const typename DType::c_type& v) {
-  uniques_.push_back(v);
-  dict_encoded_size_ += static_cast<int>(sizeof(typename DType::c_type));
+  DCHECK(v.ptr != nullptr || v.len == 0);
+  const void* ptr = (v.ptr != nullptr) ? v.ptr : empty;
+  auto memo_index =
+      memo_table_.GetOrInsert(ptr, static_cast<int32_t>(v.len), on_found, on_not_found);
+  buffered_indices_.push_back(memo_index);
 }
 
 template <>
-inline void DictEncoder<ByteArrayType>::AddDictKey(const ByteArray& v) {
-  uint8_t* heap = pool_->Allocate(v.len);
-  if (ARROW_PREDICT_FALSE(v.len > 0 && heap == nullptr)) {
-    throw ParquetException("out of memory");
-  }
-  memcpy(heap, v.ptr, v.len);
-  uniques_.push_back(ByteArray(v.len, heap));
-  dict_encoded_size_ += static_cast<int>(v.len + sizeof(uint32_t));
-}
+inline void DictEncoder<FLBAType>::Put(const FixedLenByteArray& v) {
+  static const uint8_t empty[] = {0};
 
-template <>
-inline void DictEncoder<FLBAType>::AddDictKey(const FixedLenByteArray& v) {
-  uint8_t* heap = pool_->Allocate(type_length_);
-  if (ARROW_PREDICT_FALSE(type_length_ > 0 && heap == nullptr)) {
-    throw ParquetException("out of memory");
-  }
-  memcpy(heap, v.ptr, type_length_);
+  auto on_found = [](int32_t memo_index) {};
+  auto on_not_found = [this](int32_t memo_index) { dict_encoded_size_ += type_length_; };
 
-  uniques_.push_back(FixedLenByteArray(heap));
-  dict_encoded_size_ += type_length_;
+  DCHECK(v.ptr != nullptr || type_length_ == 0);
+  const void* ptr = (v.ptr != nullptr) ? v.ptr : empty;
+  auto memo_index = memo_table_.GetOrInsert(ptr, type_length_, on_found, on_not_found);
+  buffered_indices_.push_back(memo_index);
 }
 
 template <typename DType>
 inline void DictEncoder<DType>::WriteDict(uint8_t* buffer) {
   // For primitive types, only a memcpy
-  memcpy(buffer, uniques_.data(), sizeof(typename DType::c_type) * uniques_.size());
-}
-
-template <>
-inline void DictEncoder<BooleanType>::WriteDict(uint8_t* buffer) {
-  // For primitive types, only a memcpy
-  // memcpy(buffer, uniques_.data(), sizeof(typename DType::c_type) * uniques_.size());
-  for (size_t i = 0; i < uniques_.size(); i++) {
-    buffer[i] = uniques_[i];
-  }
+  DCHECK_EQ(static_cast<size_t>(dict_encoded_size_), sizeof(T) * memo_table_.size());
+  memo_table_.CopyValues(0 /* start_pos */, reinterpret_cast<T*>(buffer));
 }
 
 // ByteArray and FLBA already have the dictionary encoded in their data heaps
 template <>
 inline void DictEncoder<ByteArrayType>::WriteDict(uint8_t* buffer) {
-  for (const ByteArray& v : uniques_) {
-    memcpy(buffer, reinterpret_cast<const void*>(&v.len), sizeof(uint32_t));
+  memo_table_.VisitValues(0, [&](const ::arrow::util::string_view& v) {
+    uint32_t len = static_cast<uint32_t>(v.length());
+    memcpy(buffer, &len, sizeof(uint32_t));
     buffer += sizeof(uint32_t);
-    if (v.len > 0) {
-      DCHECK(nullptr != v.ptr) << "Value ptr cannot be NULL";
-    }
-    memcpy(buffer, v.ptr, v.len);
-    buffer += v.len;
-  }
+    memcpy(buffer, v.data(), v.length());
+    buffer += v.length();
+  });
 }
 
 template <>
 inline void DictEncoder<FLBAType>::WriteDict(uint8_t* buffer) {
-  for (const FixedLenByteArray& v : uniques_) {
-    if (type_length_ > 0) {
-      DCHECK(nullptr != v.ptr) << "Value ptr cannot be NULL";
-    }
-    memcpy(buffer, v.ptr, type_length_);
+  memo_table_.VisitValues(0, [&](const ::arrow::util::string_view& v) {
+    DCHECK_EQ(v.length(), static_cast<size_t>(type_length_));
+    memcpy(buffer, v.data(), type_length_);
     buffer += type_length_;
-  }
+  });
 }
 
 template <typename DType>
