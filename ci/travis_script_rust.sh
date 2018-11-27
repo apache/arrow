@@ -27,7 +27,8 @@ pushd $RUST_DIR
 rustup show
 
 # check code formatting only for Rust nightly
-if $RUSTUP_TOOLCHAIN == "nightly"
+if [ $RUSTUP_TOOLCHAIN == "nightly" ]
+then
   # raises on any formatting errors
   rustup component add rustfmt-preview
   cargo fmt --all -- --check
