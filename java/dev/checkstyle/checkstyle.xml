@@ -58,8 +58,8 @@
     // checkstyle:on
     -->
     <module name="SuppressionCommentFilter">
-      <property name="offCommentFormat" value="checkstyle.off\: ([\w\|]+)"/>
-      <property name="onCommentFormat" value="checkstyle.on\: ([\w\|]+)"/>
+      <property name="offCommentFormat" value="checkstyle:off: ([\w\|]+)"/>
+      <property name="onCommentFormat" value="checkstyle:on: ([\w\|]+)"/>
       <property name="checkFormat" value="$1"/>
     </module>
 
@@ -250,5 +250,7 @@
             <property name="exceptionVariableName" value="expected|ignore"/>
         </module>
         <module name="CommentsIndentation"/>
+        <!-- needed so that filters can access file contents -->
+        <module name="FileContentsHolder"/>
     </module>
 </module>
