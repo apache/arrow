@@ -272,6 +272,8 @@ test_rust() {
   # rustup component add rustfmt-preview
   # cargo fmt --all -- --check
   # raises on any warnings
+
+  rustup default nightly
   cargo rustc -- -D warnings
 
   cargo build
