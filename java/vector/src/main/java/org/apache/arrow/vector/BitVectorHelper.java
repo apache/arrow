@@ -112,7 +112,7 @@ public class BitVectorHelper {
     final int byteIndex = index >> 3;
     final byte b = buffer.getByte(byteIndex);
     final int bitIndex = index & 7;
-    return Long.bitCount(b & (1L << bitIndex));
+    return (b >> bitIndex) & 0x01;
   }
 
   /**
