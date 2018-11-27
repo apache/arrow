@@ -190,9 +190,12 @@ services:
     # Usage:
     #   docker-compose build cpp
     #   docker-compose build python
+    #   docker-compose build docs
     #   docker-compose run docs
-    image: arrow:python-3.6
-    command: arrow/dev/docs/run_doc.sh
+    image: arrow:docs
+    build:
+      context: .
+      dockerfile: docs/Dockerfile
     volumes: *volumes
 
   ######################### Integration Tests #################################

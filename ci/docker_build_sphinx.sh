@@ -18,16 +18,13 @@
 
 set -ex
 
-arrow/ci/docker_build_cpp.sh
-arrow/ci/docker_build_python.sh
-
 pushd /arrow/cpp/apidoc
 doxygen
 popd
 
 pushd /arrow/python
-python setup.py build_sphinx -s ../doc/source --build-dir ../doc/_build
+python setup.py build_sphinx -s ../docs/source --build-dir ../docs/_build
 popd
 
 mkdir -p /arrow/site/asf-site/docs/latest
-rsync -r /arrow/doc/_build/html/ /arrow/site/asf-site/docs/latest/
+rsync -r /arrow/docs/_build/html/ /arrow/site/asf-site/docs/latest/
