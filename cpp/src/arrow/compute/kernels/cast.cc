@@ -89,6 +89,8 @@ template <typename O, typename I>
 struct is_zero_copy_cast<
     O, I,
     typename std::enable_if<std::is_same<I, O>::value &&
+                            // Parametric types contains runtime data which
+                            // differentiate them, it cannot be checked statically.
                             !std::is_base_of<ParametricType, O>::value>::type> {
   static constexpr bool value = true;
 };
@@ -161,58 +163,11 @@ struct CastFunctor<T, BooleanType, enable_if_number<T>> {
   }
 };
 
-// ----------------------------------------------------------------------
-// Integers and Floating Point
-
-template <typename O, typename I>
-struct is_numeric_cast {
-  static constexpr bool value =
-      (std::is_base_of<Number, O>::value && std::is_base_of<Number, I>::value) &&
-      (!std::is_same<O, I>::value);
-};
-
-template <typename O, typename I, typename Enable = void>
-struct is_integer_downcast {
-  static constexpr bool value = false;
-};
-
-template <typename O, typename I>
-struct is_integer_downcast<
-    O, I,
-    typename std::enable_if<std::is_base_of<Integer, O>::value &&
-                            std::is_base_of<Integer, I>::value>::type> {
-  using O_T = typename O::c_type;
-  using I_T = typename I::c_type;
-
-  static constexpr bool value =
-      ((!std::is_same<O, I>::value) &&
-
-       // same size, but unsigned to signed
-       ((sizeof(O_T) == sizeof(I_T) && std::is_signed<O_T>::value &&
-         std::is_unsigned<I_T>::value) ||
-
-        // Smaller output size
-        (sizeof(O_T) < sizeof(I_T))));
-};
-
-template <typename O, typename I, typename Enable = void>
-struct is_float_truncate {
-  static constexpr bool value = false;
-};
-
-template <typename O, typename I>
-struct is_float_truncate<
-    O, I,
-    typename std::enable_if<std::is_base_of<Integer, O>::value &&
-                            std::is_base_of<FloatingPoint, I>::value>::type> {
-  static constexpr bool value = true;
-};
-
-template <typename O, typename I>
-struct CastFunctor<O, I,
-                   typename std::enable_if<std::is_same<BooleanType, O>::value &&
-                                           std::is_base_of<Number, I>::value &&
-                                           !std::is_same<O, I>::value>::type> {
+// Number to Boolean
+template <typename I>
+struct CastFunctor<BooleanType, I,
+                   typename std::enable_if<std::is_base_of<Number, I>::value &&
+                                           !std::is_same<BooleanType, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     auto in_data = input.GetValues<typename I::c_type>(1);
@@ -222,9 +177,142 @@ struct CastFunctor<O, I,
   }
 };
 
+// ----------------------------------------------------------------------
+// Integers and Floating Point
+
+// Conversions pairs (<O, I>) are partitioned in 4 type traits:
+// - is_number_downcast
+// - is_integral_signed_to_unsigned
+// - is_integral_unsigned_to_signed
+// - is_float_truncate
+//
+// Each class has a different way of validation if the conversion is safe
+// (either with bounded intervals or with explicit C casts)
+
+template <typename O, typename I, typename Enable = void>
+struct is_number_downcast {
+  static constexpr bool value = false;
+};
+
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   typename std::enable_if<is_integer_downcast<O, I>::value>::type> {
+struct is_number_downcast<
+    O, I,
+    typename std::enable_if<std::is_base_of<Number, O>::value &&
+                            std::is_base_of<Number, I>::value>::type> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
+  static constexpr bool value =
+      ((!std::is_same<O, I>::value) &&
+       // Both types are of the same sign-ness.
+       ((std::is_signed<O_T>::value == std::is_signed<I_T>::value) &&
+        // Both types are of the same integral-ness.
+        (std::is_floating_point<O_T>::value == std::is_floating_point<I_T>::value)) &&
+       // Smaller output size
+       (sizeof(O_T) < sizeof(I_T)));
+};
+
+template <typename O, typename I, typename Enable = void>
+struct is_integral_signed_to_unsigned {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_integral_signed_to_unsigned<
+    O, I,
+    typename std::enable_if<std::is_base_of<Integer, O>::value &&
+                            std::is_base_of<Integer, I>::value>::type> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
+  static constexpr bool value =
+      ((!std::is_same<O, I>::value) &&
+       ((std::is_unsigned<O_T>::value && std::is_signed<I_T>::value)));
+};
+
+template <typename O, typename I, typename Enable = void>
+struct is_integral_unsigned_to_signed {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_integral_unsigned_to_signed<
+    O, I,
+    typename std::enable_if<std::is_base_of<Integer, O>::value &&
+                            std::is_base_of<Integer, I>::value>::type> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
+  static constexpr bool value =
+      ((!std::is_same<O, I>::value) &&
+       ((std::is_signed<O_T>::value && std::is_unsigned<I_T>::value)));
+};
+
+// This set of functions SafeMinimum/SafeMaximum would be simplified with
+// C++17 and `if constexpr`.
+
+// clang-format doesn't handle this construct properly. Thus the macro, but it
+// also improves readability.
+//
+// The effective return type of the function is always `I::c_type`, this is
+// just how enable_if works with functions.
+#define RET_TYPE(TRAIT) \
+  typename std::enable_if<TRAIT<O, I>::value, typename I::c_type>::type
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_number_downcast) SafeMinimum() {
+  using out_type = typename O::c_type;
+
+  return std::numeric_limits<out_type>::lowest();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_number_downcast) SafeMaximum() {
+  using out_type = typename O::c_type;
+
+  return std::numeric_limits<out_type>::max();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_integral_unsigned_to_signed) SafeMinimum() {
+  return 0;
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_integral_unsigned_to_signed) SafeMaximum() {
+  using in_type = typename I::c_type;
+  using out_type = typename O::c_type;
+
+  // Equality is missing because in_type::max() > out_type::max() when types
+  // are of the same width.
+  return static_cast<in_type>(sizeof(in_type) < sizeof(out_type)
+                                  ? std::numeric_limits<in_type>::max()
+                                  : std::numeric_limits<out_type>::max());
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMinimum() {
+  return 0;
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMaximum() {
+  using in_type = typename I::c_type;
+  using out_type = typename O::c_type;
+
+  return static_cast<in_type>(sizeof(in_type) <= sizeof(out_type)
+                                  ? std::numeric_limits<in_type>::max()
+                                  : std::numeric_limits<out_type>::max());
+}
+
+#undef RET_TYPE
+
+template <typename O, typename I>
+struct CastFunctor<
+    O, I,
+    typename std::enable_if<is_number_downcast<O, I>::value ||
+                            is_integral_signed_to_unsigned<O, I>::value ||
+                            is_integral_unsigned_to_signed<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
@@ -236,8 +324,8 @@ struct CastFunctor<O, I,
     auto out_data = output->GetMutableValues<out_type>(1);
 
     if (!options.allow_int_overflow) {
-      constexpr in_type kMax = static_cast<in_type>(std::numeric_limits<out_type>::max());
-      constexpr in_type kMin = static_cast<in_type>(std::numeric_limits<out_type>::min());
+      constexpr in_type kMax = SafeMaximum<O, I>();
+      constexpr in_type kMin = SafeMinimum<O, I>();
 
       // Null count may be -1 if the input array had been sliced
       if (input.null_count != 0) {
@@ -267,6 +355,22 @@ struct CastFunctor<O, I,
   }
 };
 
+// Float to Integer or Integer to Float
+template <typename O, typename I, typename Enable = void>
+struct is_float_truncate {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_float_truncate<
+    O, I,
+    typename std::enable_if<(std::is_base_of<Integer, O>::value &&
+                             std::is_base_of<FloatingPoint, I>::value) ||
+                            (std::is_base_of<Integer, I>::value &&
+                             std::is_base_of<FloatingPoint, O>::value)>::type> {
+  static constexpr bool value = true;
+};
+
 template <typename O, typename I>
 struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
@@ -290,7 +394,8 @@ struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>
                                                input.length);
         for (int64_t i = 0; i < input.length; ++i) {
           auto out_value = static_cast<out_type>(*in_data);
-          if (ARROW_PREDICT_FALSE(static_cast<in_type>(out_value) != *in_data)) {
+          if (ARROW_PREDICT_FALSE(is_valid_reader.IsSet() &&
+                                  static_cast<in_type>(out_value) != *in_data)) {
             ctx->SetStatus(Status::Invalid("Floating point value truncated"));
           }
           *out_data++ = out_value;
@@ -311,11 +416,31 @@ struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>
   }
 };
 
+// Leftover of Number combinations that are safe to cast.
+template <typename O, typename I, typename Enable = void>
+struct is_safe_numeric_cast {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_safe_numeric_cast<
+    O, I,
+    typename std::enable_if<std::is_base_of<Number, O>::value &&
+                            std::is_base_of<Number, I>::value>::type> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
+  static constexpr bool value =
+      (std::is_signed<O_T>::value == std::is_signed<I_T>::value) &&
+      (std::is_integral<O_T>::value == std::is_integral<I_T>::value) &&
+      (sizeof(O_T) >= sizeof(I_T)) && (!std::is_same<O, I>::value);
+};
+
 template <typename O, typename I>
 struct CastFunctor<O, I,
-                   typename std::enable_if<is_numeric_cast<O, I>::value &&
+                   typename std::enable_if<is_safe_numeric_cast<O, I>::value &&
                                            !is_float_truncate<O, I>::value &&
-                                           !is_integer_downcast<O, I>::value>::type> {
+                                           !is_number_downcast<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
@@ -324,6 +449,8 @@ struct CastFunctor<O, I,
     const in_type* in_data = input.GetValues<in_type>(1);
     auto out_data = output->GetMutableValues<out_type>(1);
     for (int64_t i = 0; i < input.length; ++i) {
+      // Due to various checks done via type-trait, the cast is safe and bear
+      // no truncation.
       *out_data++ = static_cast<out_type>(*in_data++);
     }
   }

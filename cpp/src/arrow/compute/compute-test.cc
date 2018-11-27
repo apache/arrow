@@ -236,6 +236,76 @@ TEST_F(TestCast, ToIntDowncastSafe) {
   // underflow
   vector<int32_t> v6 = {0, 1000, 2000, -70000, 0};
   CheckFails<Int32Type>(int32(), v6, is_valid, int16(), options);
+
+  vector<int32_t> v7 = {0, 1000, 2000, -70000, 0};
+  CheckFails<Int32Type>(int32(), v7, is_valid, uint8(), options);
+}
+
+template <typename O, typename I>
+std::vector<O> UnsafeVectorCast(const std::vector<I>& v) {
+  size_t n_elems = v.size();
+  std::vector<O> result(n_elems);
+
+  for (size_t i = 0; i < v.size(); i++) result[i] = static_cast<O>(v[i]);
+
+  return std::move(result);
+}
+
+TEST_F(TestCast, IntegerSignedToUnsigned) {
+  CastOptions options;
+  options.allow_int_overflow = false;
+
+  vector<bool> is_valid = {true, false, true, true, true};
+
+  vector<int32_t> v1 = {INT32_MIN, 100, -1, UINT16_MAX, INT32_MAX};
+
+  // Same width
+  CheckFails<Int32Type>(int32(), v1, is_valid, uint32(), options);
+  // Wider
+  CheckFails<Int32Type>(int32(), v1, is_valid, uint64(), options);
+  // Narrower
+  CheckFails<Int32Type>(int32(), v1, is_valid, uint16(), options);
+  // Fail because of overflow (instead of underflow).
+  vector<int32_t> over = {0, -11, 0, UINT16_MAX + 1, INT32_MAX};
+  CheckFails<Int32Type>(int32(), over, is_valid, uint16(), options);
+
+  options.allow_int_overflow = true;
+
+  CheckCase<Int32Type, int32_t, UInt32Type, uint32_t>(
+      int32(), v1, is_valid, uint32(), UnsafeVectorCast<uint32_t, int32_t>(v1), options);
+  CheckCase<Int32Type, int32_t, UInt64Type, uint64_t>(
+      int32(), v1, is_valid, uint64(), UnsafeVectorCast<uint64_t, int32_t>(v1), options);
+  CheckCase<Int32Type, int32_t, UInt16Type, uint16_t>(
+      int32(), v1, is_valid, uint16(), UnsafeVectorCast<uint16_t, int32_t>(v1), options);
+  CheckCase<Int32Type, int32_t, UInt16Type, uint16_t>(
+      int32(), over, is_valid, uint16(), UnsafeVectorCast<uint16_t, int32_t>(over),
+      options);
+}
+
+TEST_F(TestCast, IntegerUnsignedToSigned) {
+  CastOptions options;
+  options.allow_int_overflow = false;
+
+  vector<bool> is_valid = {true, true, true};
+
+  vector<uint32_t> v1 = {0, INT16_MAX + 1, UINT32_MAX};
+  vector<uint32_t> v2 = {0, INT16_MAX + 1, 2};
+  // Same width
+  CheckFails<UInt32Type>(uint32(), v1, is_valid, int32(), options);
+  // Narrower
+  CheckFails<UInt32Type>(uint32(), v1, is_valid, int16(), options);
+  CheckFails<UInt32Type>(uint32(), v2, is_valid, int16(), options);
+
+  options.allow_int_overflow = true;
+
+  CheckCase<UInt32Type, uint32_t, Int32Type, int32_t>(
+      uint32(), v1, is_valid, int32(), UnsafeVectorCast<int32_t, uint32_t>(v1), options);
+  CheckCase<UInt32Type, uint32_t, Int64Type, int64_t>(
+      uint32(), v1, is_valid, int64(), UnsafeVectorCast<int64_t, uint32_t>(v1), options);
+  CheckCase<UInt32Type, uint32_t, Int16Type, int16_t>(
+      uint32(), v1, is_valid, int16(), UnsafeVectorCast<int16_t, uint32_t>(v1), options);
+  CheckCase<UInt32Type, uint32_t, Int16Type, int16_t>(
+      uint32(), v2, is_valid, int16(), UnsafeVectorCast<int16_t, uint32_t>(v2), options);
 }
 
 TEST_F(TestCast, ToIntDowncastUnsafe) {
@@ -340,6 +410,21 @@ TEST_F(TestCast, FloatingPointToInt) {
   CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v5, is_valid, int64(), e5,
                                                     options);
   CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v5, all_valid, int64(), e5,
+                                                    options);
+}
+
+TEST_F(TestCast, IntToFloatingPoint) {
+  auto options = CastOptions::Safe();
+
+  vector<bool> all_valid = {true, true, true, true, true};
+  vector<bool> all_invalid = {false, false, false, false, false};
+
+  vector<int64_t> v1 = {INT64_MIN, INT64_MIN + 1, 0, INT64_MAX - 1, INT64_MAX};
+  CheckFails<Int64Type>(int64(), v1, all_valid, float32(), options);
+
+  // While it's not safe to convert, all values are null.
+  CheckCase<Int64Type, int64_t, DoubleType, double>(int64(), v1, all_invalid, float64(),
+                                                    UnsafeVectorCast<double, int64_t>(v1),
                                                     options);
 }
 
@@ -581,6 +666,36 @@ TEST_F(TestCast, TimeToCompatible) {
                          options);
   CheckFails<Time64Type>(time64(TimeUnit::NANO), v10, is_valid, time32(TimeUnit::SECOND),
                          options);
+}
+
+TEST_F(TestCast, PrimitiveZeroCopy) {
+  shared_ptr<Array> arr;
+
+  ArrayFromVector<UInt8Type, uint8_t>(uint8(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, uint8());
+  ArrayFromVector<Int8Type, int8_t>(int8(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, int8());
+
+  ArrayFromVector<UInt16Type, uint16_t>(uint16(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, uint16());
+  ArrayFromVector<Int16Type, int8_t>(int16(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, int16());
+
+  ArrayFromVector<UInt32Type, uint32_t>(uint32(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, uint32());
+  ArrayFromVector<Int32Type, int8_t>(int32(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, int32());
+
+  ArrayFromVector<UInt64Type, uint64_t>(uint64(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, uint64());
+  ArrayFromVector<Int64Type, int8_t>(int64(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, int64());
+
+  ArrayFromVector<FloatType, float>(float32(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, float32());
+
+  ArrayFromVector<DoubleType, double>(float64(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, float64());
 }
 
 TEST_F(TestCast, DateToCompatible) {
