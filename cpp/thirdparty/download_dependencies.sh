@@ -20,74 +20,45 @@
 # This script downloads all the thirdparty dependencies as a series of tarballs
 # that can be used for offline builds, etc.
 
-set -e
+set -eu
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <destination-directory>"
-  exit
+  DESTDIR=$(pwd)
+else
+  DESTDIR=$1
 fi
 
-_DST=`realpath $1`
+DESTDIR=$(realpath "${DESTDIR}")
 
-# To change toolchain versions, edit versions.txt
-source $SOURCE_DIR/versions.txt
+download_dependency() {
+  local url=$1
+  local out=$2
 
-mkdir -p $_DST
+  # --show-progress will not output to stdout, it is safe to pipe the result of
+  # the script into eval.
+  wget --quiet --show-progress --continue --output-document="${out}" "${url}"
+}
 
-BOOST_UNDERSCORE_VERSION=`echo $BOOST_VERSION | sed 's/\./_/g'`
-wget -c -O $_DST/boost.tar.gz https://dl.bintray.com/boostorg/release/$BOOST_VERSION/source/boost_$BOOST_UNDERSCORE_VERSION.tar.gz
+main() {
+  mkdir -p "${DESTDIR}"
 
-wget -c -O $_DST/gtest.tar.gz https://github.com/google/googletest/archive/release-$GTEST_VERSION.tar.gz
+  # Load `DEPENDENCIES` variable.
+  source ${SOURCE_DIR}/versions.txt
 
-wget -c -O $_DST/gflags.tar.gz https://github.com/gflags/gflags/archive/$GFLAGS_VERSION.tar.gz
+  echo "# Environment variables for offline Arrow build"
+  for ((i = 0; i < ${#DEPENDENCIES[@]}; i++)); do
+    local dep_packed=${DEPENDENCIES[$i]}
 
-wget -c -O $_DST/gbenchmark.tar.gz https://github.com/google/benchmark/archive/$GBENCHMARK_VERSION.tar.gz
+    # Unpack each entry of the form "$home_var $tar_out $dep_url"
+    IFS=" " read -r dep_url_var dep_tar_name dep_url <<< "${dep_packed}"
 
-wget -c -O $_DST/flatbuffers.tar.gz https://github.com/google/flatbuffers/archive/$FLATBUFFERS_VERSION.tar.gz
+    local out=${DESTDIR}/${dep_tar_name}
+    download_dependency "${dep_url}" "${out}"
 
-wget -c -O $_DST/rapidjson.tar.gz https://github.com/miloyip/rapidjson/archive/$RAPIDJSON_VERSION.tar.gz
+    echo "export ${dep_url_var}=${out}"
+  done
+}
 
-wget -c -O $_DST/snappy.tar.gz https://github.com/google/snappy/releases/download/$SNAPPY_VERSION/snappy-$SNAPPY_VERSION.tar.gz
-
-wget -c -O $_DST/brotli.tar.gz https://github.com/google/brotli/archive/$BROTLI_VERSION.tar.gz
-
-wget -c -O $_DST/lz4.tar.gz https://github.com/lz4/lz4/archive/$LZ4_VERSION.tar.gz
-
-wget -c -O $_DST/zlib.tar.gz http://zlib.net/fossils/zlib-$ZLIB_VERSION.tar.gz
-
-wget -c -O $_DST/zstd.tar.gz https://github.com/facebook/zstd/archive/$ZSTD_VERSION.tar.gz
-
-wget -c -O $_DST/protobuf.tar.gz https://github.com/google/protobuf/releases/download/$PROTOBUF_VERSION/protobuf-all-${PROTOBUF_VERSION:1}.tar.gz
-
-wget -c -O $_DST/grpc.tar.gz https://github.com/grpc/grpc/archive/$GRPC_VERSION.tar.gz
-
-wget -c -O $_DST/orc.tar.gz https://github.com/apache/orc/archive/rel/release-$ORC_VERSION.tar.gz
-
-wget -c -O $_DST/thrift.tar.gz http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz
-
-wget -c -O $_DST/glog.tar.gz https://github.com/google/glog/archive/${GLOG_VERSION}.tar.gz
-
-wget -c -O $_DST/double-conversion.tar.gz  https://github.com/google/double-conversion/archive/${DOUBLE_CONVERSION_VERSION}.tar.gz
-
-echo "
-# Environment variables for offline Arrow build
-export ARROW_BOOST_URL=$_DST/boost.tar.gz
-export ARROW_GTEST_URL=$_DST/gtest.tar.gz
-export ARROW_GFLAGS_URL=$_DST/gflags.tar.gz
-export ARROW_GBENCHMARK_URL=$_DST/gbenchmark.tar.gz
-export ARROW_FLATBUFFERS_URL=$_DST/flatbuffers.tar.gz
-export ARROW_RAPIDJSON_URL=$_DST/rapidjson.tar.gz
-export ARROW_SNAPPY_URL=$_DST/snappy.tar.gz
-export ARROW_BROTLI_URL=$_DST/brotli.tar.gz
-export ARROW_LZ4_URL=$_DST/lz4.tar.gz
-export ARROW_ZLIB_URL=$_DST/zlib.tar.gz
-export ARROW_ZSTD_URL=$_DST/zstd.tar.gz
-export ARROW_PROTOBUF_URL=$_DST/protobuf.tar.gz
-export ARROW_GRPC_URL=$_DST/grpc.tar.gz
-export ARROW_ORC_URL=$_DST/orc.tar.gz
-export ARROW_THRIFT_URL=$_DST/thrift.tar.gz
-export ARROW_GLOG_URL=$_DST/glog.tar.gz
-export ARROW_DOUBLE_CONVERSION_URL=$_DST/double-conversion.tar.gz
-"
+main

@@ -16,6 +16,12 @@
 # under the License.
 
 # Toolchain library versions
+#
+# This file is used by `download_dependencies.sh` and cmake to figure out which
+# version of a dependency to fetch. In order to add a new dependency, add a
+# version variable, e.g. MY_DEP_VERSION and append an entry in the
+# `DEPENDENCIES` array (see the comment on top of the declaration for the
+# format).
 
 BOOST_VERSION=1.67.0
 BROTLI_VERSION=v0.6.0
@@ -31,8 +37,34 @@ LZ4_VERSION=v1.7.5
 ORC_VERSION=1.5.1
 PROTOBUF_VERSION=v3.6.1
 RAPIDJSON_VERSION=v1.1.0
+RE2_VERSION=2018-10-01
 SNAPPY_VERSION=1.1.3
 THRIFT_VERSION=0.11.0
 ZLIB_VERSION=1.2.8
 ZSTD_VERSION=v1.3.7
-RE2_VERSION=2018-10-01
+
+# The first field is the name of the environment variable expected by cmake.
+# This _must_ match what is defined. The second field is the name of the
+# generated archive file. The third field is the url of the project for the
+# given version.
+DEPENDENCIES=(
+  "ARROW_BOOST_URL boost-${BOOST_VERSION}.tar.gz https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION//./_}.tar.gz"
+  "ARROW_BROTLI_URL brotli-${BROTLI_VERSION}.tar.gz https://github.com/google/brotli/archive/${BROTLI_VERSION}.tar.gz"
+  "ARROW_DOUBLE_CONVERSION_URL double-conversion-${DOUBLE_CONVERSION_VERSION}.tar.gz https://github.com/google/double-conversion/archive/${DOUBLE_CONVERSION_VERSION}.tar.gz"
+  "ARROW_FLATBUFFERS_URL flatbuffers-${FLATBUFFERS_VERSION}.tar.gz https://github.com/google/flatbuffers/archive/${FLATBUFFERS_VERSION}.tar.gz"
+  "ARROW_GBENCHMARK_URL gbenchmark-${GBENCHMARK_VERSION}.tar.gz https://github.com/google/benchmark/archive/${GBENCHMARK_VERSION}.tar.gz"
+  "ARROW_GFLAGS_URL gflags-${GFLAGS_VERSION}.tar.gz https://github.com/gflags/gflags/archive/${GFLAGS_VERSION}.tar.gz"
+  "ARROW_GLOG_URL glog-${GLOG_VERSION}.tar.gz https://github.com/google/glog/archive/${GLOG_VERSION}.tar.gz"
+  "ARROW_GRPC_URL grpc-${GRPC_VERSION}.tar.gz https://github.com/grpc/grpc/archive/${GRPC_VERSION}.tar.gz"
+  "ARROW_GTEST_URL gtest-${GTEST_VERSION}.tar.gz https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
+  "ARROW_LZ4_URL lz4-${LZ4_VERSION}.tar.gz https://github.com/lz4/lz4/archive/${LZ4_VERSION}.tar.gz"
+  "ARROW_ORC_URL orc-${ORC_VERSION}.tar.gz https://github.com/apache/orc/archive/rel/release-${ORC_VERSION}.tar.gz"
+  "ARROW_PROTOBUF_URL protobuf-${PROTOBUF_VERSION}.tar.gz https://github.com/google/protobuf/releases/download/${PROTOBUF_VERSION}/protobuf-all-${PROTOBUF_VERSION:1}.tar.gz"
+  "ARROW_RAPIDJSON_URL rapidjson-${RAPIDJSON_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${RAPIDJSON_VERSION}.tar.gz"
+  "ARROW_SNAPPY_URL snappy-${SNAPPY_VERSION}.tar.gz https://github.com/google/snappy/releases/download/${SNAPPY_VERSION}/snappy-${SNAPPY_VERSION}.tar.gz"
+  "ARROW_THRIFT_URL thrift-${THRIFT_VERSION}.tar.gz http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
+  "ARROW_ZLIB_URL zlib-${ZLIB_VERSION}.tar.gz http://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz"
+  "ARROW_ZSTD_URL zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/${ZSTD_VERSION}.tar.gz"
+)
+
+# vim: set filetype=sh:
