@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-apache-rat-0.12.jar
+apache-rat-*.jar
 arrow-src.tar
 
 # Compiled source

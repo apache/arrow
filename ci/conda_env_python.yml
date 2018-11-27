@@ -21,11 +21,6 @@ numpy
 pandas
 pytest
 python
+rsync
 setuptools
 setuptools_scm
-# Requirements for building the documentation
-breathe
-ipython
-recommonmark
-sphinx
-sphinx_rtd_theme

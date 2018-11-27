@@ -30,8 +30,6 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-from recommonmark.parser import CommonMarkParser
-
 import os
 import sys
 
@@ -86,18 +84,7 @@ breathe_default_project = "arrow_cpp"
 # You can specify multiple suffix as a list of string:
 #
 
-class CMWithLicenseParser(CommonMarkParser):
-
-    def parse(self, inputstring, document):
-        # Strip the license header from the MarkDown file. Sadly recommmark cannot handle this.
-        inputstring = inputstring[inputstring.index('>'):]
-        return super(CMWithLicenseParser, self).parse(inputstring, document)
-
-source_suffix = ['.rst', '.md']
-
-source_parsers = {
-   '.md': CMWithLicenseParser
-}
+source_suffix = ['.rst']
 
 autosummary_generate = True
 
