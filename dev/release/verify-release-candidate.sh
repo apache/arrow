@@ -268,9 +268,9 @@ test_rust() {
   # build and test rust
   pushd rust
 
-  # raises on any formatting errors (disabled, because RC1 has a couple)
-  # rustup component add rustfmt-preview
-  # cargo fmt --all -- --check
+  # raises on any formatting errors
+  rustup component add rustfmt-preview
+  cargo fmt --all -- --check
   # raises on any warnings
 
   rustup default nightly
