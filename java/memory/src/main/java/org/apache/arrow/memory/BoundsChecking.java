@@ -23,8 +23,8 @@ public class BoundsChecking {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BoundsChecking.class);
 
   static {
-    String oldPropertry = System.getProperty("drill.enable_unsafe_memory_access");
-    if (oldPropertry != null) {
+    String oldProperty = System.getProperty("drill.enable_unsafe_memory_access");
+    if (oldProperty != null) {
       logger.warn("\"drill.enable_unsafe_memory_access\" has been renamed to \"arrow.enable_unsafe_memory_access\"");
       logger.warn("\"arrow.enable_unsafe_memory_access\" can be set to: " +
               " true (to not check) or false (to check, default)");
@@ -33,7 +33,7 @@ public class BoundsChecking {
     assert isAssertEnabled = true;
     BOUNDS_CHECKING_ENABLED = isAssertEnabled ||
       !"true".equals(System.getProperty("arrow.enable_unsafe_memory_access")) ||
-      !"true".equals(oldPropertry);
+      !"true".equals(oldProperty);
   }
 
   private BoundsChecking() {
