@@ -1288,7 +1288,7 @@ cpdef ListType list_(value_type):
     elif isinstance(value_type, Field):
         list_type.reset(new CListType((<Field> value_type).sp_field))
     else:
-        raise ValueError('List requires DataType or Field')
+        raise TypeError('List requires DataType or Field')
 
     out.init(list_type)
     return out
@@ -1535,6 +1535,8 @@ def schema(fields, dict metadata=None):
             py_field = field(*item)
         else:
             py_field = item
+        if py_field is None:
+            raise TypeError("field or tuple expected, got None")
         c_fields.push_back(py_field.sp_field)
 
     if metadata is not None:

@@ -223,6 +223,9 @@ def test_list_type():
     ty = pa.list_(pa.int64())
     assert ty.value_type == pa.int64()
 
+    with pytest.raises(TypeError):
+        pa.list_(None)
+
 
 def test_struct_type():
     fields = [pa.field('a', pa.int64()),
@@ -264,6 +267,10 @@ def test_struct_type():
     assert list(ty) == fields
     for a, b in zip(ty, fields):
         a == b
+
+    # Invalid args
+    with pytest.raises(TypeError):
+        pa.struct([('a', None)])
 
 
 def test_union_type():
@@ -408,6 +415,9 @@ def test_field_basic():
 
     f = pa.field('foo', t, False)
     assert not f.nullable
+
+    with pytest.raises(TypeError):
+        pa.field('foo', None)
 
 
 def test_field_equals():

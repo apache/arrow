@@ -221,6 +221,9 @@ bar: string
 baz: list<item: int8>
   child 0, item: int8"""
 
+    with pytest.raises(TypeError):
+        pa.schema([None])
+
 
 def test_schema_from_tuples():
     fields = [
@@ -238,6 +241,9 @@ bar: string
 baz: list<item: int8>
   child 0, item: int8"""
 
+    with pytest.raises(TypeError):
+        pa.schema([('foo', None)])
+
 
 def test_schema_from_mapping():
     fields = OrderedDict([
@@ -254,6 +260,10 @@ foo: int32
 bar: string
 baz: list<item: int8>
   child 0, item: int8"""
+
+    fields = OrderedDict([('foo', None)])
+    with pytest.raises(TypeError):
+        pa.schema(fields)
 
 
 def test_field_flatten():
