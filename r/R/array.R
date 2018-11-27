@@ -75,7 +75,7 @@
     length = function() Array__length(self),
     type_id = function() Array__type_id(self),
     Equals = function(other) Array__Equals(self, other),
-    ApproxEquals = function(othet) Array__ApproxEquals(self, other),
+    ApproxEquals = function(other) Array__ApproxEquals(self, other),
     data = function() shared_ptr(`arrow::ArrayData`, Array__data(self)),
     as_vector = function() Array__as_vector(self),
     ToString = function() Array__ToString(self),
@@ -98,8 +98,8 @@
   ),
   active = list(
     null_count = function() Array__null_count(self),
-    type = function() `arrow::DataType`$dispatch(Array__type(self)),
-    offset = function() Array__offset(self)
+    offset = function() Array__offset(self),
+    type = function() `arrow::DataType`$dispatch(Array__type(self))
   )
 )
 

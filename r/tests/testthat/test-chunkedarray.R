@@ -123,7 +123,7 @@ test_that("ChunkedArray supports factors (ARROW-3716)", {
   f <- factor(c("itsy", "bitsy", "spider", "spider"))
   arr_fac <- chunked_array(f, f, f)
   expect_equal(arr_fac$length(), 12L)
-  expect_equal(arr_fac$type$index_type(), int8())
+  expect_equal(arr_fac$type$index_type, int8())
   expect_identical(arr_fac$as_vector(), vctrs::vec_c(f, f, f))
 })
 
@@ -138,7 +138,7 @@ test_that("ChunkedArray supports dates (ARROW-3716)", {
 test_that("ChunkedArray supports POSIXct (ARROW-3716)", {
   times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
   a <- chunked_array(times, times)
-  expect_equal(a$type$name(), "timestamp")
+  expect_equal(a$type$name, "timestamp")
   expect_equal(a$type$unit(), unclass(TimeUnit$MICRO))
   expect_equal(a$length(), 20L)
   expect_equal(as.numeric(a$as_vector()), as.numeric(c(times, times)))
@@ -177,10 +177,10 @@ test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   expect_is(a_int16, "arrow::ChunkedArray")
   expect_is(a_int32, "arrow::ChunkedArray")
   expect_is(a_int64, "arrow::ChunkedArray")
-  expect_equal(a_int8$type(), int8())
-  expect_equal(a_int16$type(), int16())
-  expect_equal(a_int32$type(), int32())
-  expect_equal(a_int64$type(), int64())
+  expect_equal(a_int8$type, int8())
+  expect_equal(a_int16$type, int16())
+  expect_equal(a_int32$type, int32())
+  expect_equal(a_int64$type, int64())
 
   a_uint8 <- a$cast(uint8())
   a_uint16 <- a$cast(uint16())
@@ -192,8 +192,8 @@ test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   expect_is(a_uint32, "arrow::ChunkedArray")
   expect_is(a_uint64, "arrow::ChunkedArray")
 
-  expect_equal(a_uint8$type(), uint8())
-  expect_equal(a_uint16$type(), uint16())
-  expect_equal(a_uint32$type(), uint32())
-  expect_equal(a_uint64$type(), uint64())
+  expect_equal(a_uint8$type, uint8())
+  expect_equal(a_uint16$type, uint16())
+  expect_equal(a_uint32$type, uint32())
+  expect_equal(a_uint64$type, uint64())
 })

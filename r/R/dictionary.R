@@ -31,10 +31,11 @@
 #' @name arrow__DictionaryType
 `arrow::DictionaryType` <- R6Class("arrow::DictionaryType",
   inherit = `arrow::FixedWidthType`,
-  public = list(
+
+  active = list(
     index_type = function() `arrow::DataType`$dispatch(DictionaryType__index_type(self)),
-    name = function() DictionaryType__name(self),
     dictionary = function() shared_ptr(`arrow::Array`, DictionaryType__dictionary(self)),
+    name = function() DictionaryType__name(self),
     ordered = function() DictionaryType__ordered(self)
   )
 )

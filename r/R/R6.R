@@ -72,9 +72,6 @@ unique_ptr <- function(class, xp) {
     ToString = function() {
       DataType__ToString(self)
     },
-    name = function() {
-      DataType__name(self)
-    },
     Equals = function(other) {
       assert_that(inherits(other, "arrow::DataType"))
       DataType__Equals(self, other)
@@ -122,6 +119,9 @@ unique_ptr <- function(class, xp) {
   active = list(
     id = function(){
       DataType__id(self)
+    },
+    name = function() {
+      DataType__name(self)
     }
   )
 )

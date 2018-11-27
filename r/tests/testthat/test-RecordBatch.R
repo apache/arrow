@@ -117,7 +117,7 @@ test_that("RecordBatch cast (ARROW-3741)", {
 
   s2 <- schema(x = int16(), y = int64())
   batch2 <- batch$cast(s2)
-  expect_equal(batch2$schema(), s2)
-  expect_equal(batch2$column(0L)$type(), int16())
-  expect_equal(batch2$column(1L)$type(), int64())
+  expect_equal(batch2$schema, s2)
+  expect_equal(batch2$column(0L)$type, int16())
+  expect_equal(batch2$column(1L)$type, int64())
 })

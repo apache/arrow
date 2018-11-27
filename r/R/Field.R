@@ -29,8 +29,7 @@
 #'
 #' @rdname arrow__Field
 #' @name arrow__Field
-`arrow::Field` <- R6Class("arrow::Field",
-  inherit = `arrow::Object`,
+`arrow::Field` <- R6Class("arrow::Field", inherit = `arrow::Object`,
   public = list(
     ToString = function() {
       Field__ToString(self)
@@ -44,7 +43,6 @@
     name = function() {
       Field__name(self)
     },
-
     nullable = function() {
       Field__nullable(self)
     },

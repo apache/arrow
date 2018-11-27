@@ -64,7 +64,7 @@ test_that("Table cast (ARROW-3741)", {
 
   s2 <- schema(x = int16(), y = int64())
   tab2 <- tab$cast(s2)
-  expect_equal(tab2$schema(), s2)
-  expect_equal(tab2$column(0L)$type(), int16())
-  expect_equal(tab2$column(1L)$type(), int64())
+  expect_equal(tab2$schema, s2)
+  expect_equal(tab2$column(0L)$type, int16())
+  expect_equal(tab2$column(1L)$type, int64())
 })

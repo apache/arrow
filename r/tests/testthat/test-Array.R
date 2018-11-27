@@ -138,7 +138,7 @@ test_that("Array supports unordered factors (ARROW-3355)", {
   f <- factor(c("itsy", "bitsy", "spider", "spider"))
   arr_fac <- array(f)
   expect_equal(arr_fac$length(), 4L)
-  expect_equal(arr_fac$type$index_type(), int8())
+  expect_equal(arr_fac$type$index_type, int8())
   expect_identical(arr_fac$as_vector(), f)
   expect_true(arr_fac$IsValid(0))
   expect_true(arr_fac$IsValid(1))
@@ -147,7 +147,7 @@ test_that("Array supports unordered factors (ARROW-3355)", {
 
   sl <- arr_fac$Slice(1)
   expect_equal(sl$length(), 3L)
-  expect_equal(arr_fac$type$index_type(), int8())
+  expect_equal(arr_fac$type$index_type, int8())
   expect_equal(sl$as_vector(), f[2:4])
 
   # with NA
@@ -155,7 +155,7 @@ test_that("Array supports unordered factors (ARROW-3355)", {
   # TODO: rm the suppressWarnings when https://github.com/r-lib/vctrs/issues/109
   arr_fac <- suppressWarnings(array(f))
   expect_equal(arr_fac$length(), 5L)
-  expect_equal(arr_fac$type$index_type(), int8())
+  expect_equal(arr_fac$type$index_type, int8())
   expect_identical(arr_fac$as_vector(), f)
   expect_true(arr_fac$IsValid(0))
   expect_true(arr_fac$IsValid(1))
@@ -165,7 +165,7 @@ test_that("Array supports unordered factors (ARROW-3355)", {
 
   sl <- arr_fac$Slice(1)
   expect_equal(sl$length(), 4L)
-  expect_equal(arr_fac$type$index_type(), int8())
+  expect_equal(arr_fac$type$index_type, int8())
   expect_equal(sl$as_vector(), f[2:5])
 })
 
@@ -174,7 +174,7 @@ test_that("Array supports ordered factors (ARROW-3355)", {
   f <- ordered(c("itsy", "bitsy", "spider", "spider"))
   arr_fac <- array(f)
   expect_equal(arr_fac$length(), 4L)
-  expect_equal(arr_fac$type$index_type(), int8())
+  expect_equal(arr_fac$type$index_type, int8())
   expect_identical(arr_fac$as_vector(), f)
   expect_true(arr_fac$IsValid(0))
   expect_true(arr_fac$IsValid(1))
@@ -183,7 +183,7 @@ test_that("Array supports ordered factors (ARROW-3355)", {
 
   sl <- arr_fac$Slice(1)
   expect_equal(sl$length(), 3L)
-  expect_equal(arr_fac$type$index_type(), int8())
+  expect_equal(arr_fac$type$index_type, int8())
   expect_equal(sl$as_vector(), f[2:4])
 
   # with NA
@@ -191,7 +191,7 @@ test_that("Array supports ordered factors (ARROW-3355)", {
   # TODO: rm the suppressWarnings when https://github.com/r-lib/vctrs/issues/109
   arr_fac <- suppressWarnings(array(f))
   expect_equal(arr_fac$length(), 5L)
-  expect_equal(arr_fac$type$index_type(), int8())
+  expect_equal(arr_fac$type$index_type, int8())
   expect_identical(arr_fac$as_vector(), f)
   expect_true(arr_fac$IsValid(0))
   expect_true(arr_fac$IsValid(1))
@@ -201,7 +201,7 @@ test_that("Array supports ordered factors (ARROW-3355)", {
 
   sl <- arr_fac$Slice(1)
   expect_equal(sl$length(), 4L)
-  expect_equal(arr_fac$type$index_type(), int8())
+  expect_equal(arr_fac$type$index_type, int8())
   expect_equal(sl$as_vector(), f[2:5])
 })
 
@@ -230,14 +230,14 @@ test_that("array supports Date (ARROW-3340)", {
 test_that("array supports POSIXct (ARROW-3340)", {
   times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
   a <- array(times)
-  expect_equal(a$type$name(), "timestamp")
+  expect_equal(a$type$name, "timestamp")
   expect_equal(a$type$unit(), unclass(TimeUnit$MICRO))
   expect_equal(a$length(), 10L)
   expect_equal(as.numeric(a$as_vector()), as.numeric(times))
 
   times[5] <- NA
   a <- array(times)
-  expect_equal(a$type$name(), "timestamp")
+  expect_equal(a$type$name, "timestamp")
   expect_equal(a$type$unit(), unclass(TimeUnit$MICRO))
   expect_equal(a$length(), 10L)
   expect_equal(as.numeric(a$as_vector()), as.numeric(times))
@@ -300,10 +300,10 @@ test_that("integer types casts (ARROW-3741)", {
   a_int32 <- a$cast(int32())
   a_int64 <- a$cast(int64())
 
-  expect_equal(a_int8$type(), int8())
-  expect_equal(a_int16$type(), int16())
-  expect_equal(a_int32$type(), int32())
-  expect_equal(a_int64$type(), int64())
+  expect_equal(a_int8$type, int8())
+  expect_equal(a_int16$type, int16())
+  expect_equal(a_int32$type, int32())
+  expect_equal(a_int64$type, int64())
   expect_true(a_int8$IsNull(10L))
   expect_true(a_int16$IsNull(10L))
   expect_true(a_int32$IsNull(10L))
@@ -314,10 +314,10 @@ test_that("integer types casts (ARROW-3741)", {
   a_uint32 <- a$cast(uint32())
   a_uint64 <- a$cast(uint64())
 
-  expect_equal(a_uint8$type(), uint8())
-  expect_equal(a_uint16$type(), uint16())
-  expect_equal(a_uint32$type(), uint32())
-  expect_equal(a_uint64$type(), uint64())
+  expect_equal(a_uint8$type, uint8())
+  expect_equal(a_uint16$type, uint16())
+  expect_equal(a_uint32$type, uint32())
+  expect_equal(a_uint64$type, uint64())
   expect_true(a_uint8$IsNull(10L))
   expect_true(a_uint16$IsNull(10L))
   expect_true(a_uint32$IsNull(10L))
@@ -345,8 +345,8 @@ test_that("float types casts (ARROW-3741)", {
   a_f32 <- a$cast(float32())
   a_f64 <- a$cast(float64())
 
-  expect_equal(a_f32$type(), float32())
-  expect_equal(a_f64$type(), float64())
+  expect_equal(a_f32$type, float32())
+  expect_equal(a_f64$type, float64())
 
   expect_true(a_f32$IsNull(3L))
   expect_true(a_f64$IsNull(3L))
@@ -359,5 +359,5 @@ test_that("cast to half float works", {
   skip("until https://issues.apache.org/jira/browse/ARROW-3802")
   a <- array(1:4)
   a_f16 <- a$cast(float16())
-  expect_equal(a_16$type(), float16())
+  expect_equal(a_16$type, float16())
 })

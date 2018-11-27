@@ -18,5 +18,4 @@ Factory for a \code{arrow::Field}
 }
 \examples{
 field("x", int32())
-
 }
