@@ -238,7 +238,9 @@ install(
 #######################################
 
 ADD_ARROW_TEST(allocator-test)
-ADD_ARROW_TEST(array-test)
+ADD_ARROW_TEST(array-test
+  SOURCES array-test.cc array-binary-test.cc array-dict-test.cc
+          array-list-test.cc array-struct-test.cc)
 ADD_ARROW_TEST(buffer-test)
 ADD_ARROW_TEST(memory_pool-test)
 ADD_ARROW_TEST(pretty_print-test)
