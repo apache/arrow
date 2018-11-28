@@ -229,7 +229,7 @@ public class BitVector extends BaseFixedWidthVector {
     final int byteIndex = index >> 3;
     final byte b = valueBuffer.getByte(byteIndex);
     final int bitIndex = index & 7;
-    return Long.bitCount(b & (1L << bitIndex));
+    return (b >> bitIndex) & 0x01;
   }
 
   /**

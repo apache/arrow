@@ -27,6 +27,7 @@ pushd arrow/cpp
   pushd build
     cmake -DCMAKE_BUILD_TYPE=Release \
           -DARROW_GANDIVA=ON \
+          -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
           -DARROW_BUILD_UTILITIES=OFF \
           ..
     make -j4
