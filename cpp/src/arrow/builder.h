@@ -87,7 +87,9 @@ class ARROW_EXPORT ArrayBuilder {
   /// been appended. Does not account for reallocations that may be due to
   /// variable size data, like binary values. To make space for incremental
   /// appends, use Reserve instead.
-  /// \param[in] capacity the minimum number of additional array values
+  ///
+  /// \param[in] capacity the minimum number of total array values to
+  ///            accommodate. Must be greater than the current capacity.
   /// \return Status
   virtual Status Resize(int64_t capacity);
 
