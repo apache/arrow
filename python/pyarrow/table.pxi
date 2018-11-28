@@ -715,7 +715,7 @@ cdef class RecordBatch:
     def __len__(self):
         return self.batch.num_rows()
 
-    def replace_schema_metadata(self, dict metadata=None):
+    def replace_schema_metadata(self, object metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of record batch by replacing schema
         key-value metadata with the indicated new metadata (which may be None,
@@ -729,15 +729,17 @@ cdef class RecordBatch:
         -------
         shallow_copy : RecordBatch
         """
-        cdef shared_ptr[CKeyValueMetadata] c_meta
+        cdef:
+            shared_ptr[CKeyValueMetadata] c_meta
+            shared_ptr[CRecordBatch] c_batch
+
         if metadata is not None:
-            convert_metadata(metadata, &c_meta)
+            c_meta = pyarrow_unwrap_metadata(metadata)
 
-        cdef shared_ptr[CRecordBatch] new_batch
         with nogil:
-            new_batch = self.batch.ReplaceSchemaMetadata(c_meta)
+            c_batch = self.batch.ReplaceSchemaMetadata(c_meta)
 
-        return pyarrow_wrap_batch(new_batch)
+        return pyarrow_wrap_batch(c_batch)
 
     @property
     def num_columns(self):
@@ -1062,7 +1064,7 @@ cdef class Table:
         columns = [col.data for col in self.columns]
         return _reconstruct_table, (columns, self.schema)
 
-    def replace_schema_metadata(self, dict metadata=None):
+    def replace_schema_metadata(self, object metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of table by replacing schema
         key-value metadata with the indicated new metadata (which may be None,
@@ -1076,15 +1078,17 @@ cdef class Table:
         -------
         shallow_copy : Table
         """
-        cdef shared_ptr[CKeyValueMetadata] c_meta
+        cdef:
+            shared_ptr[CKeyValueMetadata] c_meta
+            shared_ptr[CTable] c_table
+
         if metadata is not None:
-            convert_metadata(metadata, &c_meta)
+            c_meta = pyarrow_unwrap_metadata(metadata)
 
-        cdef shared_ptr[CTable] new_table
         with nogil:
-            new_table = self.table.ReplaceSchemaMetadata(c_meta)
+            c_table = self.table.ReplaceSchemaMetadata(c_meta)
 
-        return pyarrow_wrap_table(new_table)
+        return pyarrow_wrap_table(c_table)
 
     def flatten(self, MemoryPool memory_pool=None):
         """

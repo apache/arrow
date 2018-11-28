@@ -430,11 +430,9 @@ cdef class Field:
 
     @property
     def metadata(self):
-        cdef shared_ptr[const CKeyValueMetadata] metadata = (
-            self.field.metadata())
-        return box_metadata(metadata.get())
+        return pyarrow_wrap_metadata(self.field.metadata())
 
-    def add_metadata(self, dict metadata):
+    def add_metadata(self, object metadata):
         """
         Add metadata as dict of string keys and values to Field
 
@@ -447,14 +445,15 @@ cdef class Field:
         -------
         field : pyarrow.Field
         """
-        cdef shared_ptr[CKeyValueMetadata] c_meta
-        convert_metadata(metadata, &c_meta)
+        cdef:
+            shared_ptr[CField] c_field
+            shared_ptr[CKeyValueMetadata] c_meta
 
-        cdef shared_ptr[CField] new_field
+        c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
-            new_field = self.field.AddMetadata(c_meta)
+            c_field = self.field.AddMetadata(c_meta)
 
-        return pyarrow_wrap_field(new_field)
+        return pyarrow_wrap_field(c_field)
 
     def remove_metadata(self):
         """
@@ -728,7 +727,7 @@ cdef class Schema:
 
         return pyarrow_wrap_schema(new_schema)
 
-    def add_metadata(self, dict metadata):
+    def add_metadata(self, object metadata):
         """
         Add metadata as dict of string keys and values to Schema
 
@@ -741,14 +740,15 @@ cdef class Schema:
         -------
         schema : pyarrow.Schema
         """
-        cdef shared_ptr[CKeyValueMetadata] c_meta
-        convert_metadata(metadata, &c_meta)
+        cdef:
+            shared_ptr[CKeyValueMetadata] c_meta
+            shared_ptr[CSchema] c_schema
 
-        cdef shared_ptr[CSchema] new_schema
+        c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
-            new_schema = self.schema.AddMetadata(c_meta)
+            c_schema = self.schema.AddMetadata(c_meta)
 
-        return pyarrow_wrap_schema(new_schema)
+        return pyarrow_wrap_schema(c_schema)
 
     def serialize(self, memory_pool=None):
         """
@@ -832,25 +832,12 @@ cdef DataType primitive_type(Type type):
     _type_cache[type] = out
     return out
 
+
 # -----------------------------------------------------------
 # Type factory functions
 
-cdef int convert_metadata(dict metadata,
-                          shared_ptr[CKeyValueMetadata]* out) except -1:
-    cdef:
-        shared_ptr[CKeyValueMetadata] meta = (
-            make_shared[CKeyValueMetadata]())
-        c_string key, value
 
-    for py_key, py_value in metadata.items():
-        key = tobytes(py_key)
-        value = tobytes(py_value)
-        meta.get().Append(key, value)
-    out[0] = meta
-    return 0
-
-
-def field(name, type, bint nullable=True, dict metadata=None):
+def field(name, type, bint nullable=True, metadata=None):
     """
     Create a pyarrow.Field instance
 
@@ -867,17 +854,19 @@ def field(name, type, bint nullable=True, dict metadata=None):
     field : pyarrow.Field
     """
     cdef:
-        shared_ptr[CKeyValueMetadata] c_meta
         Field result = Field.__new__(Field)
         DataType _type = ensure_type(type, allow_none=False)
+        shared_ptr[CKeyValueMetadata] c_meta
 
     if metadata is not None:
-        convert_metadata(metadata, &c_meta)
+        c_meta = pyarrow_unwrap_metadata(metadata)
 
-    result.sp_field.reset(new CField(tobytes(name), _type.sp_type,
-                                     nullable == 1, c_meta))
+    result.sp_field.reset(
+        new CField(tobytes(name), _type.sp_type, nullable, c_meta)
+    )
     result.field = result.sp_field.get()
     result.type = _type
+
     return result
 
 
@@ -1535,11 +1524,12 @@ def schema(fields, dict metadata=None):
         c_fields.push_back(py_field.sp_field)
 
     if metadata is not None:
-        convert_metadata(metadata, &c_meta)
+        c_meta = pyarrow_unwrap_metadata(metadata)
 
     c_schema.reset(new CSchema(c_fields, c_meta))
     result = Schema.__new__(Schema)
     result.init_schema(c_schema)
+
     return result
 
 

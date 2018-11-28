@@ -25,6 +25,22 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.types as types
 
+from hypothesis import given, example
+from . import strategies as past
+
+
+@given(past.fields())
+@example(pa.field(name='', type=pa.null(), metadata={'0': '', '': ''}))
+def test_fields_are_picklable(field):
+    data = pickle.dumps(field)
+    assert pickle.loads(data) == field
+
+
+@given(past.all_types)
+def test_types_are_picklable(ty):
+    data = pickle.dumps(ty)
+    assert pickle.loads(data) == ty
+
 
 def get_many_types():
     # returning them from a function is required because of pa.dictionary
