@@ -111,9 +111,7 @@ impl Reader {
                     rows.push(r);
                 }
                 Some(Err(_)) => {
-                    return Err(ArrowError::ParseError(
-                        "Error reading CSV file".to_string(),
-                    ));
+                    return Err(ArrowError::ParseError("Error reading CSV file".to_string()));
                 }
                 None => break,
             }
