@@ -20,7 +20,12 @@ extern crate csv as csv_crate;
 extern crate libc;
 
 #[macro_use]
+extern crate serde_derive;
+
+#[macro_use]
 extern crate serde_json;
+
+extern crate serde;
 
 extern crate rand;
 

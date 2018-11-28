@@ -39,7 +39,7 @@ use serde_json::Value;
 /// Nested types can themselves be nested within other arrays.
 /// For more information on these types please see
 /// [here](https://arrow.apache.org/docs/memory_layout.html).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum DataType {
     Boolean,
     Int8,
@@ -61,7 +61,7 @@ pub enum DataType {
 /// Contains the meta-data for a single relative type.
 ///
 /// The `Schema` object is an ordered collection of `Field` objects.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Field {
     name: String,
     data_type: DataType,
@@ -300,7 +300,7 @@ impl fmt::Display for Field {
 ///
 /// Note that this information is only part of the meta-data and not part of the physical memory
 /// layout.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Schema {
     fields: Vec<Field>,
 }
@@ -380,6 +380,42 @@ mod tests {
                 false,
             ),
         ]);
+    }
+
+    #[test]
+    fn serde_struct_type() {
+        let person = DataType::Struct(vec![
+            Field::new("first_name", DataType::Utf8, false),
+            Field::new("last_name", DataType::Utf8, false),
+            Field::new(
+                "address",
+                DataType::Struct(vec![
+                    Field::new("street", DataType::Utf8, false),
+                    Field::new("zip", DataType::UInt16, false),
+                ]),
+                false,
+            ),
+        ]);
+
+        let serialized = serde_json::to_string(&person).unwrap();
+
+        // NOTE that this is testing the default (derived) serialization format, not the
+        // JSON format specified in metadata.md
+
+        assert_eq!(
+            "{\"Struct\":[\
+             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false},\
+             {\"name\":\"last_name\",\"data_type\":\"Utf8\",\"nullable\":false},\
+             {\"name\":\"address\",\"data_type\":{\"Struct\":\
+             [{\"name\":\"street\",\"data_type\":\"Utf8\",\"nullable\":false},\
+             {\"name\":\"zip\",\"data_type\":\"UInt16\",\"nullable\":false}\
+             ]},\"nullable\":false}]}",
+            serialized
+        );
+
+        let deserialized = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(person, deserialized);
     }
 
     #[test]
