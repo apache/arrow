@@ -19,11 +19,13 @@ extern crate arrow;
 extern crate criterion;
 extern crate rand;
 
-use arrow::builder::*;
+use std::mem::size_of;
+
 use criterion::*;
 use rand::distributions::Standard;
 use rand::{thread_rng, Rng};
-use std::mem::size_of;
+
+use arrow::builder::*;
 
 // Build arrays with 512k elements.
 const BATCH_SIZE: usize = 8 << 10;

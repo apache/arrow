@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,28 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
-
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-
-RUST_DIR=${TRAVIS_BUILD_DIR}/rust
-
-pushd $RUST_DIR
-
-# show activated toolchain
-rustup show
-
-# raises on any formatting errors
-cargo +stable fmt --all -- --check
-
-# raises on any warnings
-cargo rustc -- -D warnings
-
-cargo build
-cargo test
-cargo bench
-cargo run --example builders
-cargo run --example dynamic_types
-cargo run --example read_csv
-
-popd
+format_doc_comments = true

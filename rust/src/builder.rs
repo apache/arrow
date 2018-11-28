@@ -456,9 +456,9 @@ impl BinaryArrayBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::array::Array;
-
     use super::*;
+
+    use crate::array::Array;
 
     #[test]
     fn test_builder_i32_empty() {
@@ -825,7 +825,6 @@ mod tests {
 
     #[test]
     fn test_binary_array_builder() {
-        use crate::array::BinaryArray;
         let mut builder = BinaryArrayBuilder::new(20);
 
         builder.push(b'h').unwrap();
@@ -860,7 +859,6 @@ mod tests {
 
     #[test]
     fn test_binary_array_builder_push_string() {
-        use crate::array::BinaryArray;
         let mut builder = BinaryArrayBuilder::new(20);
 
         let var = "hello".to_owned();

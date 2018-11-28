@@ -225,9 +225,10 @@ impl ArrayDataBuilder {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     use std::sync::Arc;
 
-    use super::{ArrayData, DataType};
     use crate::buffer::Buffer;
     use crate::util::bit_util;
 
