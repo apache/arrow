@@ -22,6 +22,7 @@ extern crate libc;
 #[macro_use]
 extern crate serde_json;
 
+extern crate num;
 extern crate rand;
 
 pub mod array;

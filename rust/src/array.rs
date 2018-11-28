@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use num::Zero;
 ///! Array types
 use std::any::Any;
 use std::convert::From;
@@ -215,28 +216,34 @@ macro_rules! def_primitive_array {
                 &self,
                 other: &PrimitiveArray<$native_ty>,
             ) -> Result<PrimitiveArray<$native_ty>> {
-                self.math_helper(other, |a, b| a + b)
+                self.math_helper(other, |a, b| Ok(a + b))
             }
 
             pub fn subtract(
                 &self,
                 other: &PrimitiveArray<$native_ty>,
             ) -> Result<PrimitiveArray<$native_ty>> {
-                self.math_helper(other, |a, b| a - b)
+                self.math_helper(other, |a, b| Ok(a - b))
             }
 
             pub fn multiply(
                 &self,
                 other: &PrimitiveArray<$native_ty>,
             ) -> Result<PrimitiveArray<$native_ty>> {
-                self.math_helper(other, |a, b| a * b)
+                self.math_helper(other, |a, b| Ok(a * b))
             }
 
             pub fn divide(
                 &self,
                 other: &PrimitiveArray<$native_ty>,
             ) -> Result<PrimitiveArray<$native_ty>> {
-                self.math_helper(other, |a, b| a / b)
+                self.math_helper(other, |a, b| {
+                    if b.is_zero() {
+                        Err(ArrowError::DivideByZero)
+                    } else {
+                        Ok(a / b)
+                    }
+                })
             }
 
             fn math_helper<F>(
@@ -245,7 +252,7 @@ macro_rules! def_primitive_array {
                 op: F,
             ) -> Result<PrimitiveArray<$native_ty>>
             where
-                F: Fn($native_ty, $native_ty) -> $native_ty,
+                F: Fn($native_ty, $native_ty) -> Result<$native_ty>,
             {
                 if self.data.len() != other.data.len() {
                     return Err(ArrowError::MathError(
@@ -259,7 +266,7 @@ macro_rules! def_primitive_array {
                     if self.is_null(i) || other.is_null(i) {
                         b.push_null().unwrap();
                     } else {
-                        b.push(op(self.value(index), other.value(index))).unwrap();
+                        b.push(op(self.value(index), other.value(index))?).unwrap();
                     }
                 }
                 Ok(b.finish())
@@ -1364,11 +1371,13 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "attempt to divide by zero")]
     fn test_primitive_array_divide_by_zero() {
         let a = PrimitiveArray::<i32>::from(vec![15]);
         let b = PrimitiveArray::<i32>::from(vec![0]);
-        a.divide(&b).unwrap();
+        assert_eq!(
+            ArrowError::DivideByZero,
+            a.divide(&b).err().expect("divide by zero should fail")
+        );
     }
 
     #[test]
