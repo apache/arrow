@@ -42,5 +42,5 @@ test_that("arrow::Buffer can be created from complex vector", {
   vec <- complex(3)
   buf <- buffer(vec)
   expect_is(buf, "arrow::Buffer")
-  expect_equal(buf$size(), 3 * 16)
+  expect_equal(buf$size, 3 * 16)
 })

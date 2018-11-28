@@ -16,7 +16,7 @@
 # under the License.
 
 PKG_CPPFLAGS=@cflags@
-PKG_CXXFLAGS+=$(C_VISIBILITY)
+PKG_CXXFLAGS=@visibility@
 CXX_STD=CXX11
 PKG_LIBS=@libs@  -Wl,-rpath,/usr/local/lib
 #CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
