@@ -281,8 +281,6 @@ Status ReadableFile::GetSize(int64_t* size) {
 
 Status ReadableFile::Seek(int64_t pos) { return impl_->Seek(pos); }
 
-bool ReadableFile::supports_zero_copy() const { return false; }
-
 int ReadableFile::file_descriptor() const { return impl_->fd(); }
 
 // ----------------------------------------------------------------------

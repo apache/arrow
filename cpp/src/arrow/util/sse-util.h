@@ -21,8 +21,31 @@
 #ifndef ARROW_UTIL_SSE_UTIL_H
 #define ARROW_UTIL_SSE_UTIL_H
 
-#ifdef ARROW_USE_SSE
+#undef ARROW_HAVE_SSE2
+#undef ARROW_HAVE_SSE4_2
+
+// MSVC x86-64
+
+#if (defined(_M_AMD64) || defined(_M_X64))
+#define ARROW_HAVE_SSE2 1
+#define ARROW_HAVE_SSE4_2 1
+#include <intrin.h>
+#endif
+
+// gcc/clang (possibly others)
+
+#if defined(__SSE4_2__)
+#define ARROW_HAVE_SSE2 1
 #include <emmintrin.h>
+#endif
+
+#if defined(__SSE4_2__)
+#define ARROW_HAVE_SSE4_2 1
+#include <nmmintrin.h>
+#endif
+
+#if defined(ARROW_USE_SSE) && !defined(ARROW_HAVE_SSE2)
+#error "ARROW_USE_SSE enabled but no intrinsics available"
 #endif
 
 namespace arrow {
@@ -58,89 +81,11 @@ static const int SSE_BITMASK[CHARS_PER_128_BIT_REGISTER] = {
 };
 }  // namespace SSEUtil
 
-#ifdef ARROW_USE_SSE
+#ifdef ARROW_HAVE_SSE4_2
 
 /// Define the SSE 4.2 intrinsics.  The caller must first verify at runtime (or codegen
 /// IR load time) that the processor supports SSE 4.2 before calling these.  These are
 /// defined outside the namespace because the IR w/ SSE 4.2 case needs to use macros.
-#ifndef IR_COMPILE
-/// When compiling to native code (i.e. not IR), we cannot use the -msse4.2 compiler
-/// flag.  Otherwise, the compiler will emit SSE 4.2 instructions outside of the runtime
-/// SSE 4.2 checks and Impala will crash on CPUs that don't support SSE 4.2
-/// (IMPALA-1399/1646).  The compiler intrinsics cannot be used without -msse4.2, so we
-/// define our own implementations of the intrinsics instead.
-
-/// The PCMPxSTRy instructions require that the control byte 'mode' be encoded as an
-/// immediate.  So, those need to be always inlined in order to always propagate the
-/// mode constant into the inline asm.
-#define SSE_ALWAYS_INLINE inline __attribute__((__always_inline__))
-
-template <int MODE>
-static inline __m128i SSE4_cmpestrm(__m128i str1, int len1, __m128i str2, int len2) {
-#ifdef __clang__
-  /// Use asm reg rather than Yz output constraint to workaround LLVM bug 13199 -
-  /// clang doesn't support Y-prefixed asm constraints.
-  register volatile __m128i result asm("xmm0");
-  __asm__ volatile("pcmpestrm %5, %2, %1"
-                   : "=x"(result)
-                   : "x"(str1), "xm"(str2), "a"(len1), "d"(len2), "i"(MODE)
-                   : "cc");
-#else
-  __m128i result;
-  __asm__ volatile("pcmpestrm %5, %2, %1"
-                   : "=Yz"(result)
-                   : "x"(str1), "xm"(str2), "a"(len1), "d"(len2), "i"(MODE)
-                   : "cc");
-#endif
-  return result;
-}
-
-template <int MODE>
-static inline int SSE4_cmpestri(__m128i str1, int len1, __m128i str2, int len2) {
-  int result;
-  __asm__("pcmpestri %5, %2, %1"
-          : "=c"(result)
-          : "x"(str1), "xm"(str2), "a"(len1), "d"(len2), "i"(MODE)
-          : "cc");
-  return result;
-}
-
-static inline uint32_t SSE4_crc32_u8(uint32_t crc, uint8_t v) {
-  __asm__("crc32b %1, %0" : "+r"(crc) : "rm"(v));
-  return crc;
-}
-
-static inline uint32_t SSE4_crc32_u16(uint32_t crc, uint16_t v) {
-  __asm__("crc32w %1, %0" : "+r"(crc) : "rm"(v));
-  return crc;
-}
-
-static inline uint32_t SSE4_crc32_u32(uint32_t crc, uint32_t v) {
-  __asm__("crc32l %1, %0" : "+r"(crc) : "rm"(v));
-  return crc;
-}
-
-static inline uint32_t SSE4_crc32_u64(uint32_t crc, uint64_t v) {
-  uint64_t result = crc;
-  __asm__("crc32q %1, %0" : "+r"(result) : "rm"(v));
-  return static_cast<uint32_t>(result);
-}
-
-static inline int64_t POPCNT_popcnt_u64(uint64_t a) {
-  int64_t result;
-  __asm__("popcntq %1, %0" : "=r"(result) : "mr"(a) : "cc");
-  return result;
-}
-
-#undef SSE_ALWAYS_INLINE
-
-#elif defined(__SSE4_2__)  // IR_COMPILE for SSE 4.2.
-/// When cross-compiling to IR, we cannot use inline asm because LLVM JIT does not
-/// support it.  However, the cross-compiled IR is compiled twice: with and without
-/// -msse4.2.  When -msse4.2 is enabled in the cross-compile, we can just use the
-/// compiler intrinsics.
-
-#include <smmintrin.h>
 
 template <int MODE>
 static inline __m128i SSE4_cmpestrm(__m128i str1, int len1, __m128i str2, int len2) {
@@ -152,60 +97,38 @@ static inline int SSE4_cmpestri(__m128i str1, int len1, __m128i str2, int len2) 
   return _mm_cmpestri(str1, len1, str2, len2, MODE);
 }
 
-#define SSE4_crc32_u8 _mm_crc32_u8
-#define SSE4_crc32_u16 _mm_crc32_u16
-#define SSE4_crc32_u32 _mm_crc32_u32
-#define SSE4_crc32_u64 _mm_crc32_u64
-#define POPCNT_popcnt_u64 _mm_popcnt_u64
+static inline uint32_t SSE4_crc32_u8(uint32_t crc, uint8_t v) {
+  return _mm_crc32_u8(crc, v);
+}
 
-#else  // IR_COMPILE without SSE 4.2.
-/// When cross-compiling to IR without SSE 4.2 support (i.e. no -msse4.2), we cannot use
-/// SSE 4.2 instructions.  Otherwise, the IR loading will fail on CPUs that don't
-/// support SSE 4.2.  However, because the caller isn't allowed to call these routines
-/// on CPUs that lack SSE 4.2 anyway, we can implement stubs for this case.
+static inline uint32_t SSE4_crc32_u16(uint32_t crc, uint16_t v) {
+  return _mm_crc32_u16(crc, v);
+}
 
-template <int MODE>
+static inline uint32_t SSE4_crc32_u32(uint32_t crc, uint32_t v) {
+  return _mm_crc32_u32(crc, v);
+}
+
+static inline uint32_t SSE4_crc32_u64(uint32_t crc, uint64_t v) {
+  return static_cast<uint32_t>(_mm_crc32_u64(crc, v));
+}
+
+#else  // without SSE 4.2.
+
+// __m128i may not be defined, so deduce it with a template parameter
+template <int MODE, typename __m128i>
 static inline __m128i SSE4_cmpestrm(__m128i str1, int len1, __m128i str2, int len2) {
   DCHECK(false) << "CPU doesn't support SSE 4.2";
   return (__m128i){0};  // NOLINT
 }
 
-template <int MODE>
+template <int MODE, typename __m128i>
 static inline int SSE4_cmpestri(__m128i str1, int len1, __m128i str2, int len2) {
   DCHECK(false) << "CPU doesn't support SSE 4.2";
   return 0;
 }
 
 static inline uint32_t SSE4_crc32_u8(uint32_t, uint8_t) {
-  DCHECK(false) << "CPU doesn't support SSE 4.2";
-  return 0;
-}
-
-static inline uint32_t SSE4_crc32_u16(uint32_t, uint16_t) {
-  DCHECK(false) << "CPU doesn't support SSE 4.2";
-  return 0;
-}
-
-static inline uint32_t SSE4_crc32_u32(uint32_t, uint32_t) {
-  DCHECK(false) << "CPU doesn't support SSE 4.2";
-  return 0;
-}
-
-static inline uint32_t SSE4_crc32_u64(uint32_t, uint64_t) {
-  DCHECK(false) << "CPU doesn't support SSE 4.2";
-  return 0;
-}
-
-static inline int64_t POPCNT_popcnt_u64(uint64_t) {
-  DCHECK(false) << "CPU doesn't support SSE 4.2";
-  return 0;
-}
-
-#endif  // IR_COMPILE
-
-#else
-
-static inline uint32_t SSE4_crc32_u8(uint32_t, uint8_t) {
   DCHECK(false) << "SSE support is not enabled";
   return 0;
 }
@@ -225,12 +148,7 @@ static inline uint32_t SSE4_crc32_u64(uint32_t, uint64_t) {
   return 0;
 }
 
-static inline int64_t POPCNT_popcnt_u64(uint64_t) {
-  DCHECK(false) << "SSE support is not enabled";
-  return 0;
-}
-
-#endif  // ARROW_USE_SSE
+#endif  // ARROW_HAVE_SSE4_2
 
 }  // namespace arrow
 

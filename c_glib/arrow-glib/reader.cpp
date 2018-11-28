@@ -70,10 +70,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchReader,
                            garrow_record_batch_reader,
                            G_TYPE_OBJECT);
 
-#define GARROW_RECORD_BATCH_READER_GET_PRIVATE(obj)             \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
-                               GARROW_TYPE_RECORD_BATCH_READER, \
-                               GArrowRecordBatchReaderPrivate))
+#define GARROW_RECORD_BATCH_READER_GET_PRIVATE(obj)         \
+  static_cast<GArrowRecordBatchReaderPrivate *>(            \
+     garrow_record_batch_reader_get_instance_private(       \
+       GARROW_RECORD_BATCH_READER(obj)))
 
 static void
 garrow_record_batch_reader_finalize(GObject *object)
@@ -322,10 +322,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchFileReader,
                            garrow_record_batch_file_reader,
                            G_TYPE_OBJECT);
 
-#define GARROW_RECORD_BATCH_FILE_READER_GET_PRIVATE(obj)                \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                                   \
-                               GARROW_TYPE_RECORD_BATCH_FILE_READER,    \
-                               GArrowRecordBatchFileReaderPrivate))
+#define GARROW_RECORD_BATCH_FILE_READER_GET_PRIVATE(obj)        \
+  static_cast<GArrowRecordBatchFileReaderPrivate *>(            \
+     garrow_record_batch_file_reader_get_instance_private(      \
+       GARROW_RECORD_BATCH_FILE_READER(obj)))
 
 static void
 garrow_record_batch_file_reader_finalize(GObject *object)

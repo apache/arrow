@@ -636,11 +636,11 @@
     <profile>
       <id>java-8</id>
       <activation>
-	<jdk>[1.8,)</jdk>
+        <jdk>[1.8,)</jdk>
       </activation>
       <properties>
-	<doclint>none</doclint>
-	<additionalparam>-Xdoclint:none</additionalparam>
+        <doclint>none</doclint>
+        <additionalparam>-Xdoclint:none</additionalparam>
       </properties>
     </profile>
 

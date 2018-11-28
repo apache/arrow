@@ -16,6 +16,7 @@
 # under the License.
 
 import bz2
+from datetime import datetime
 import gzip
 import io
 import itertools
@@ -218,6 +219,18 @@ class BaseTestCSVRead:
             'c': [u"", u"foo", u"nan"],
             'd': [None, None, None],
             'e': [b"3", b"nan", b"\xff"],
+            }
+
+    def test_simple_timestamps(self):
+        # Infer a timestamp column
+        rows = b"a,b\n1970,1970-01-01\n1989,1989-07-14\n"
+        table = self.read_bytes(rows)
+        schema = pa.schema([('a', pa.int64()),
+                            ('b', pa.timestamp('s'))])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [1970, 1989],
+            'b': [datetime(1970, 1, 1), datetime(1989, 7, 14)],
             }
 
     def test_column_types(self):

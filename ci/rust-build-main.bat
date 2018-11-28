@@ -25,22 +25,6 @@ pushd rust
 
 rustup default stable
 rustup show
-cargo build --target %TARGET% || exit /B
-cargo build --target %TARGET% --release || exit /B
-@echo Test (debug)
-@echo ------------
-cargo test --target %TARGET% || exit /B
-@echo
-@echo Test (release)
-@echo --------------
-cargo test --target %TARGET% --release || exit /B
-
-@echo ===================================
-@echo Build with nightly toolchain
-@echo ===================================
-
-rustup default nightly
-rustup show
 cargo build --target %TARGET%
 cargo build --target %TARGET% --release
 @echo Test (debug)
@@ -50,11 +34,27 @@ cargo test --target %TARGET%
 @echo Test (release)
 @echo --------------
 cargo test --target %TARGET% --release
+
+@echo ===================================
+@echo Build with nightly toolchain
+@echo ===================================
+
+rustup default nightly
+rustup show
+cargo build --target %TARGET% || exit /B
+cargo build --target %TARGET% --release || exit /B
+@echo Test (debug)
+@echo ------------
+cargo test --target %TARGET% || exit /B
+@echo
+@echo Test (release)
+@echo --------------
+cargo test --target %TARGET% --release || exit /B
 @echo
 @echo Run example (release)
 @echo ---------------------
-cargo run --example builders --target %TARGET% --release
-cargo run --example dynamic_types --target %TARGET% --release
-cargo run --example read_csv --target %TARGET% --release
+cargo run --example builders --target %TARGET% --release || exit /B
+cargo run --example dynamic_types --target %TARGET% --release || exit /B
+cargo run --example read_csv --target %TARGET% --release || exit /B
 
 popd

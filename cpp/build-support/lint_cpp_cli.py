@@ -70,12 +70,16 @@ def lint_file(path):
 
 EXCLUSIONS = [
     'arrow/python/iterators.h',
+    'arrow/util/date.h',
+    'arrow/util/hashing.h',
     'arrow/util/macros.h',
     'arrow/util/parallel.h',
     'arrow/util/string_view/string_view.hpp',
+    'arrow/util/xxhash/xxhash.c',
+    'arrow/util/xxhash/xxhash.h',
+    'arrow/visitor_inline.h',
     'gandiva/cache.h',
     'gandiva/jni',
-    'gandiva/precompiled/date.h',
     'test',
     'internal'
 ]

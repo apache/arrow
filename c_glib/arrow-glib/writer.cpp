@@ -65,10 +65,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchWriter,
                            garrow_record_batch_writer,
                            G_TYPE_OBJECT);
 
-#define GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(obj)             \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
-                               GARROW_TYPE_RECORD_BATCH_WRITER, \
-                               GArrowRecordBatchWriterPrivate))
+#define GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(obj)         \
+  static_cast<GArrowRecordBatchWriterPrivate *>(            \
+     garrow_record_batch_writer_get_instance_private(       \
+       GARROW_RECORD_BATCH_WRITER(obj)))
 
 static void
 garrow_record_batch_writer_finalize(GObject *object)

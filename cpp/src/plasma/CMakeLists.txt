@@ -78,8 +78,7 @@ set(PLASMA_SRCS
   malloc.cc
   plasma.cc
   protocol.cc
-  thirdparty/ae/ae.c
-  thirdparty/xxhash.cc)
+  thirdparty/ae/ae.c)
 
 set(PLASMA_LINK_LIBS arrow_shared)
 set(PLASMA_STATIC_LINK_LIBS arrow_static)
@@ -115,12 +114,6 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
 -Wno-null-pointer-arithmetic \
 -Wno-shorten-64-to-32 \
 -Wno-unused-macros")
-
-  set_property(SOURCE thirdparty/xxhash.cc
-    APPEND_STRING
-    PROPERTY COMPILE_FLAGS
-    "-Wno-unused-macros \
--Wno-unreachable-code")
 endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "gcc")

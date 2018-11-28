@@ -57,3 +57,16 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   expect_equal(tab, tab7)
   expect_equal(tab, tab8)
 })
+
+test_that("Table cast (ARROW-3741)", {
+  tab <- table(tibble::tibble(x = 1:10, y  = 1:10))
+
+  expect_error(tab$cast(schema(x = int32())))
+  expect_error(tab$cast(schema(x = int32(), z = int32())))
+
+  s2 <- schema(x = int16(), y = int64())
+  tab2 <- tab$cast(s2)
+  expect_equal(tab2$schema(), s2)
+  expect_equal(tab2$column(0L)$type(), int16())
+  expect_equal(tab2$column(1L)$type(), int64())
+})

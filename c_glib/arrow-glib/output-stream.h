@@ -193,7 +193,11 @@ struct _GArrowGIOOutputStreamClass
 GType garrow_gio_output_stream_get_type(void) G_GNUC_CONST;
 
 GArrowGIOOutputStream *garrow_gio_output_stream_new(GOutputStream *gio_output_stream);
-GOutputStream *garrow_gio_output_stream_get_raw(GArrowGIOOutputStream *output_stream);
+#ifndef GARROW_DISABLE_DEPRECATED
+G_GNUC_DEPRECATED
+GOutputStream *
+garrow_gio_output_stream_get_raw(GArrowGIOOutputStream *output_stream);
+#endif
 
 #define GARROW_TYPE_COMPRESSED_OUTPUT_STREAM    \
   (garrow_compressed_output_stream_get_type())

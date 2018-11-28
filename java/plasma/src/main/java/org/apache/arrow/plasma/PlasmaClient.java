@@ -163,6 +163,16 @@ public class PlasmaClient implements ObjectStoreLink {
   }
 
   /**
+   * Removes object with given objectId from plasma store.
+   *
+   * @param objectId used to identify an object.
+   */
+  @Override
+  public void delete(byte[] objectId) {
+    PlasmaClientJNI.delete(conn, objectId);
+  }
+
+  /**
    * Check if the object is present and has been sealed in the PlasmaStore.
    *
    * @param objectId used to identify an object.

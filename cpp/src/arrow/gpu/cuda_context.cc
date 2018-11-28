@@ -312,7 +312,7 @@ Status CudaContext::OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
                                   std::shared_ptr<CudaBuffer>* out) {
   if (ipc_handle.memory_size() > 0) {
     ContextSaver set_temporary(reinterpret_cast<CUcontext>(handle()));
-    uint8_t* data;
+    uint8_t* data = nullptr;
     RETURN_NOT_OK(impl_->OpenIpcBuffer(ipc_handle, &data));
     // Need to ask the device how big the buffer is
     size_t allocation_size = 0;

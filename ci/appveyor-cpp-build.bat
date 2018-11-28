@@ -35,6 +35,7 @@ if "%JOB%" == "Static_Crt_Build" (
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
         -DCMAKE_BUILD_TYPE=Debug ^
+        -DARROW_TEST_LINKAGE=static ^
         -DARROW_CXXFLAGS="/MP" ^
         ..  || exit /B
 
@@ -51,6 +52,7 @@ if "%JOB%" == "Static_Crt_Build" (
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
         -DCMAKE_BUILD_TYPE=Release ^
+        -DARROW_TEST_LINKAGE=static ^
         -DCMAKE_CXX_FLAGS_RELEASE="/MT %CMAKE_CXX_FLAGS_RELEASE%" ^
         -DARROW_CXXFLAGS="/WX /MP" ^
         ..  || exit /B
@@ -90,7 +92,8 @@ if "%JOB%" == "Build_Debug" (
 conda create -n arrow -q -y ^
       python=%PYTHON% ^
       six pytest setuptools numpy pandas cython ^
-      thrift-cpp=0.11.0 boost-cpp
+      thrift-cpp=0.11.0 boost-cpp ^
+      -c conda-forge
 
 call activate arrow
 
@@ -100,19 +103,10 @@ set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
 
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
-  conda install -q -y ^
-      brotli ^
-      bzip2 ^
-      cmake ^
-      flatbuffers ^
-      gflags ^
-      gtest ^
-      git ^
-      lz4-c ^
-      rapidjson ^
-      snappy ^
-      zlib ^
-      zstd
+  conda install -q -y --file=ci\conda_env_cpp.yml ^
+        python=%PYTHON% ^
+        -c conda-forge
+
   set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 )
 

@@ -173,6 +173,26 @@ Column__data <- function(column) {
     .Call(`_arrow_Column__data`, column)
 }
 
+compute___CastOptions__initialize <- function(allow_int_overflow, allow_time_truncate, allow_float_truncate) {
+    .Call(`_arrow_compute___CastOptions__initialize`, allow_int_overflow, allow_time_truncate, allow_float_truncate)
+}
+
+Array__cast <- function(array, target_type, options) {
+    .Call(`_arrow_Array__cast`, array, target_type, options)
+}
+
+ChunkedArray__cast <- function(chunked_array, target_type, options) {
+    .Call(`_arrow_ChunkedArray__cast`, chunked_array, target_type, options)
+}
+
+RecordBatch__cast <- function(batch, schema, options) {
+    .Call(`_arrow_RecordBatch__cast`, batch, schema, options)
+}
+
+Table__cast <- function(table, schema, options) {
+    .Call(`_arrow_Table__cast`, table, schema, options)
+}
+
 shared_ptr_is_null <- function(xp) {
     .Call(`_arrow_shared_ptr_is_null`, xp)
 }
@@ -315,6 +335,10 @@ Schema__num_fields <- function(s) {
 
 Schema__field <- function(s, i) {
     .Call(`_arrow_Schema__field`, s, i)
+}
+
+Schema__names <- function(schema) {
+    .Call(`_arrow_Schema__names`, schema)
 }
 
 ListType__ToString <- function(type) {

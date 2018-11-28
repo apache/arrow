@@ -17,7 +17,9 @@
 
 boost-cpp
 brotli
+bzip2
 cmake
+double-conversion
 flatbuffers
 gflags
 glog
@@ -26,6 +28,7 @@ libprotobuf
 lz4-c
 python
 rapidjson
+re2
 snappy
 thrift-cpp
 zlib

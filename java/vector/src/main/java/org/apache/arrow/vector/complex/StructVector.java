@@ -484,7 +484,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     final int byteIndex = index >> 3;
     final byte b = validityBuffer.getByte(byteIndex);
     final int bitIndex = index & 7;
-    return Long.bitCount(b & (1L << bitIndex));
+    return (b >> bitIndex) & 0x01;
   }
 
   public void setIndexDefined(int index) {

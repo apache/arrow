@@ -32,6 +32,11 @@
       } else {
         shared_ptr(`arrow::ChunkedArray`, ChunkArray__Slice2(self, offset, length))
       }
+    },
+    cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
+      assert_that(inherits(target_type, "arrow::DataType"))
+      assert_that(inherits(options, "arrow::compute::CastOptions"))
+      shared_ptr(`arrow::ChunkedArray`, ChunkedArray__cast(self, target_type, options))
     }
   )
 )

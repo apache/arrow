@@ -48,10 +48,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowSchema,
                            garrow_schema,
                            G_TYPE_OBJECT)
 
-#define GARROW_SCHEMA_GET_PRIVATE(obj)                  \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                   \
-                               GARROW_TYPE_SCHEMA,      \
-                               GArrowSchemaPrivate))
+#define GARROW_SCHEMA_GET_PRIVATE(obj)         \
+  static_cast<GArrowSchemaPrivate *>(          \
+     garrow_schema_get_instance_private(       \
+       GARROW_SCHEMA(obj)))
 
 static void
 garrow_schema_finalize(GObject *object)

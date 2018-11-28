@@ -19,7 +19,7 @@
 #define GANDIVA_EPOCH_TIME_POINT_H
 
 // TODO(wesm): IR compilation does not have any include directories set
-#include "./date.h"
+#include "../../arrow/util/date.h"
 
 // A point of time measured in millis since epoch.
 class EpochTimePoint {
