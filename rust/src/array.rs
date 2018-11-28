@@ -26,6 +26,7 @@ use array_data::*;
 use buffer::*;
 use builder::{ArrayBuilder, PrimitiveArrayBuilder};
 use datatypes::*;
+use error::{ArrowError, Result};
 use memory;
 use util::bit_util;
 
@@ -210,25 +211,31 @@ macro_rules! def_primitive_array {
                 n
             }
 
-            pub fn add(&self, other: &PrimitiveArray<$native_ty>) -> PrimitiveArray<$native_ty> {
+            pub fn add(
+                &self,
+                other: &PrimitiveArray<$native_ty>,
+            ) -> Result<PrimitiveArray<$native_ty>> {
                 self.math_helper(other, |a, b| a + b)
             }
 
             pub fn subtract(
                 &self,
                 other: &PrimitiveArray<$native_ty>,
-            ) -> PrimitiveArray<$native_ty> {
+            ) -> Result<PrimitiveArray<$native_ty>> {
                 self.math_helper(other, |a, b| a - b)
             }
 
             pub fn multiply(
                 &self,
                 other: &PrimitiveArray<$native_ty>,
-            ) -> PrimitiveArray<$native_ty> {
+            ) -> Result<PrimitiveArray<$native_ty>> {
                 self.math_helper(other, |a, b| a * b)
             }
 
-            pub fn divide(&self, other: &PrimitiveArray<$native_ty>) -> PrimitiveArray<$native_ty> {
+            pub fn divide(
+                &self,
+                other: &PrimitiveArray<$native_ty>,
+            ) -> Result<PrimitiveArray<$native_ty>> {
                 self.math_helper(other, |a, b| a / b)
             }
 
@@ -236,10 +243,16 @@ macro_rules! def_primitive_array {
                 &self,
                 other: &PrimitiveArray<$native_ty>,
                 op: F,
-            ) -> PrimitiveArray<$native_ty>
+            ) -> Result<PrimitiveArray<$native_ty>>
             where
                 F: Fn($native_ty, $native_ty) -> $native_ty,
             {
+                if self.data.len() != other.data.len() {
+                    return Err(ArrowError::MathError(
+                        "Cannot perform math operation on two batches of different length"
+                            .to_string(),
+                    ));
+                }
                 let mut b = PrimitiveArrayBuilder::<$native_ty>::new(self.len());
                 for i in 0..self.data.len() {
                     let index = i as i64;
@@ -249,7 +262,7 @@ macro_rules! def_primitive_array {
                         b.push(op(self.value(index), other.value(index))).unwrap();
                     }
                 }
-                b.finish()
+                Ok(b.finish())
             }
 
             // Returns a new primitive array builder
@@ -1292,7 +1305,7 @@ mod tests {
     fn test_primitive_array_add() {
         let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
         let b = PrimitiveArray::<i32>::from(vec![6, 7, 8, 9, 8]);
-        let c = a.add(&b);
+        let c = a.add(&b).unwrap();
         assert_eq!(11, c.value(0));
         assert_eq!(13, c.value(1));
         assert_eq!(15, c.value(2));
@@ -1301,10 +1314,24 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_add_mismatched_length() {
+        let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
+        let b = PrimitiveArray::<i32>::from(vec![6, 7, 8]);
+        let e = a
+            .add(&b)
+            .err()
+            .expect("should have failed due to different lengths");
+        assert_eq!(
+            "MathError(\"Cannot perform math operation on two batches of different length\")",
+            format!("{:?}", e)
+        );
+    }
+
+    #[test]
     fn test_primitive_array_subtract() {
         let a = PrimitiveArray::<i32>::from(vec![1, 2, 3, 4, 5]);
         let b = PrimitiveArray::<i32>::from(vec![5, 4, 3, 2, 1]);
-        let c = a.subtract(&b);
+        let c = a.subtract(&b).unwrap();
         assert_eq!(-4, c.value(0));
         assert_eq!(-2, c.value(1));
         assert_eq!(0, c.value(2));
@@ -1316,7 +1343,7 @@ mod tests {
     fn test_primitive_array_multiply() {
         let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
         let b = PrimitiveArray::<i32>::from(vec![6, 7, 8, 9, 8]);
-        let c = a.multiply(&b);
+        let c = a.multiply(&b).unwrap();
         assert_eq!(30, c.value(0));
         assert_eq!(42, c.value(1));
         assert_eq!(56, c.value(2));
@@ -1328,7 +1355,7 @@ mod tests {
     fn test_primitive_array_divide() {
         let a = PrimitiveArray::<i32>::from(vec![15, 15, 8, 1, 9]);
         let b = PrimitiveArray::<i32>::from(vec![5, 6, 8, 9, 1]);
-        let c = a.divide(&b);
+        let c = a.divide(&b).unwrap();
         assert_eq!(3, c.value(0));
         assert_eq!(2, c.value(1));
         assert_eq!(1, c.value(2));
@@ -1337,10 +1364,18 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "attempt to divide by zero")]
+    fn test_primitive_array_divide_by_zero() {
+        let a = PrimitiveArray::<i32>::from(vec![15]);
+        let b = PrimitiveArray::<i32>::from(vec![0]);
+        a.divide(&b).unwrap();
+    }
+
+    #[test]
     fn test_primitive_array_divide_f64() {
         let a = PrimitiveArray::<f64>::from(vec![15.0, 15.0, 8.0]);
         let b = PrimitiveArray::<f64>::from(vec![5.0, 6.0, 8.0]);
-        let c = a.divide(&b);
+        let c = a.divide(&b).unwrap();
         assert_eq!(3.0, c.value(0));
         assert_eq!(2.5, c.value(1));
         assert_eq!(1.0, c.value(2));
@@ -1350,7 +1385,7 @@ mod tests {
     fn test_primitive_array_add_with_nulls() {
         let a = PrimitiveArray::<i32>::from(vec![Some(5), None, Some(7), None]);
         let b = PrimitiveArray::<i32>::from(vec![None, None, Some(6), Some(7)]);
-        let c = a.add(&b);
+        let c = a.add(&b).unwrap();
         assert_eq!(true, c.is_null(0));
         assert_eq!(true, c.is_null(1));
         assert_eq!(false, c.is_null(2));
