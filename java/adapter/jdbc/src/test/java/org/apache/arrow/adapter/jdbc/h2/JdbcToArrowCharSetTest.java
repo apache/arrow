@@ -43,7 +43,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 /**
  * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with UTF-8 Charset,
- * including the multi-byte CJK characters for H2 database
+ * including the multi-byte CJK characters for H2 database.
  */
 @RunWith(Parameterized.class)
 public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
@@ -59,19 +59,19 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
   };
 
   /**
-   * Constructor which populate table object for each test iteration
+   * Constructor which populate table object for each test iteration.
    *
-   * @param table
+   * @param table Table oject
    */
   public JdbcToArrowCharSetTest(Table table) {
     this.table = table;
   }
 
   /**
-   * This method creates Connection object and DB table and also populate data into table for test
+   * This method creates Connection object and DB table and also populate data into table for test.
    *
-   * @throws SQLException
-   * @throws ClassNotFoundException
+   * @throws SQLException on error
+   * @throws ClassNotFoundException on error
    */
   @Before
   public void setUp() throws SQLException, ClassNotFoundException {
@@ -88,12 +88,12 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
   }
 
   /**
-   * This method returns collection of Table object for each test iteration
+   * Get the test data as a collection of Table objects for each test iteration.
    *
-   * @return
-   * @throws SQLException
-   * @throws ClassNotFoundException
-   * @throws IOException
+   * @return Collection of Table objects
+   * @throws SQLException on error
+   * @throws ClassNotFoundException on error
+   * @throws IOException on error
    */
   @Parameters
   public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
@@ -102,7 +102,7 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
 
   /**
    * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with UTF-8 Charset, including
-   * the multi-byte CJK characters
+   * the multi-byte CJK characters.
    */
   @Test
   public void testJdbcToArroValues() throws SQLException, IOException {
@@ -119,9 +119,9 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
   }
 
   /**
-   * This method calls the assert methods for various DataSets
+   * This method calls the assert methods for various DataSets.
    *
-   * @param root
+   * @param root VectorSchemaRoot for test
    */
   public void testDataSets(VectorSchemaRoot root) {
     assertVarcharVectorValues((VarCharVector) root.getVector(CLOB), table.getRowCount(),

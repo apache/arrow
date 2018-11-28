@@ -26,7 +26,7 @@ public class ByteFunctionHelpers {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);
 
   /**
-   * Helper function to check for equality of bytes in two ArrowBufs
+   * Helper function to check for equality of bytes in two ArrowBufs.
    *
    * @param left   Left ArrowBuf for comparison
    * @param lStart start offset in the buffer
@@ -80,7 +80,7 @@ public class ByteFunctionHelpers {
   /**
    * Helper function to compare a set of bytes in two ArrowBufs.
    *
-   * Function will check data before completing in the case that
+   * <p>Function will check data before completing in the case that
    *
    * @param left   Left ArrowBuf to compare
    * @param lStart start offset in the buffer

@@ -222,7 +222,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
   /**
-   * Same as {@link #close()}
+   * Same as {@link #close()}.
    */
   @Override
   public void clear() {
@@ -292,7 +292,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * elements in the vector. This method must be called prior to using the ValueVector.
    *
    * @param valueCount the desired number of elements in the vector
-   * @throws org.apache.arrow.memory.OutOfMemoryException
+   * @throws org.apache.arrow.memory.OutOfMemoryException on error
    */
   public void allocateNew(int valueCount) {
     long valueBufferSize = valueCount * typeWidth;
@@ -365,7 +365,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
 
   /**
    * Get the size (number of bytes) of underlying buffers used by this
-   * vector
+   * vector.
    * @return size of underlying buffers.
    */
   @Override
@@ -482,8 +482,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
 
   /**
    * Get the inner child vectors.
-   * @return list of child vectors for complex types, empty list for scalar vector
-   * types
+   * @return list of child vectors for complex types, empty list for scalar vector types
    */
   @Override
   public List<FieldVector> getChildrenFromFields() {
@@ -554,7 +553,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * Construct a transfer pair of this vector and another vector of same type.
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
-   * @param callBack
+   * @param callBack not used
    * @return TransferPair
    */
   @Override
@@ -685,15 +684,15 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          common getters and setters                            *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          common getters and setters                            |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
-   * Get the number of elements that are null in the vector
+   * Get the number of elements that are null in the vector.
    *
    * @return the number of null elements.
    */
@@ -763,7 +762,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
 
   /**
    * Check if the given index is within the current value capacity
-   * of the vector
+   * of the vector.
    *
    * @param index  position to check
    * @return true if index is within the current value capacity
@@ -824,11 +823,11 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *                helper methods for setters                      *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |                helper methods for setters                      |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   protected void handleSafe(int index) {

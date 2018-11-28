@@ -66,7 +66,7 @@ public class DecimalUtility {
 
   /**
    * Simple function that returns the static precomputed
-   * power of ten, instead of using Math.pow
+   * power of ten, instead of using Math.pow.
    */
   public static long getPowerOfTen(int power) {
     assert power >= 0 && power < scale_long_constants.length;
@@ -99,7 +99,7 @@ public class DecimalUtility {
   }
 
   /**
-   * Returns a string representation of the given integer
+   * Returns a string representation of the given integer.
    * If the length of the given integer is less than the
    * passed length, this function will prepend zeroes to the string
    */

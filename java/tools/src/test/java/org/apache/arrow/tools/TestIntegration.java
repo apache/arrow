@@ -219,7 +219,7 @@ public class TestIntegration {
   }
 
   /**
-   * the test should not be sensitive to small variations in float representation
+   * The test should not be sensitive to small variations in float representation.
    */
   @Test
   public void testFloat() throws Exception {

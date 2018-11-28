@@ -58,7 +58,7 @@ public class VarCharVector extends BaseVariableWidthVector {
   }
 
   /**
-   * Get a reader that supports reading values from this vector
+   * Get a reader that supports reading values from this vector.
    * @return Field Reader for this vector
    */
   @Override
@@ -77,11 +77,11 @@ public class VarCharVector extends BaseVariableWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value getter methods                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value retrieval methods                        |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
@@ -141,16 +141,17 @@ public class VarCharVector extends BaseVariableWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value setter methods                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value setter methods                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
    * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector
+   * position in this vector.
+   *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
@@ -171,6 +172,7 @@ public class VarCharVector extends BaseVariableWidthVector {
    * Same as {@link #copyFrom(int, int, VarCharVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
+   *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
@@ -190,7 +192,7 @@ public class VarCharVector extends BaseVariableWidthVector {
 
   /**
    * Set the variable length element at the specified index to the data
-   * buffer supplied in the holder
+   * buffer supplied in the holder.
    *
    * @param index   position of the element to set
    * @param holder  holder that carries data buffer.
@@ -228,7 +230,7 @@ public class VarCharVector extends BaseVariableWidthVector {
 
   /**
    * Set the variable length element at the specified index to the data
-   * buffer supplied in the holder
+   * buffer supplied in the holder.
    *
    * @param index   position of the element to set
    * @param holder  holder that carries data buffer.
@@ -266,7 +268,7 @@ public class VarCharVector extends BaseVariableWidthVector {
 
   /**
    * Set the variable length element at the specified index to the
-   * content in supplied Text
+   * content in supplied Text.
    *
    * @param index   position of the element to set
    * @param text    Text object with data
@@ -288,15 +290,16 @@ public class VarCharVector extends BaseVariableWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *                      vector transfer                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |                      vector transfer                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
   /**
    * Construct a TransferPair comprising of this and and a target vector of
    * the same type.
+   *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
    * @return {@link TransferPair}
@@ -308,6 +311,7 @@ public class VarCharVector extends BaseVariableWidthVector {
 
   /**
    * Construct a TransferPair with a desired target vector of the same type.
+   *
    * @param to target vector
    * @return {@link TransferPair}
    */

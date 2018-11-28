@@ -37,12 +37,12 @@ import io.netty.util.collection.IntObjectMap;
 /**
  * An implementation of map that supports constant time look-up by a generic key or an ordinal.
  *
- * This class extends the functionality a regular {@link Map} with ordinal lookup support.
+ * <p>This class extends the functionality a regular {@link Map} with ordinal lookup support.
  * Upon insertion an unused ordinal is assigned to the inserted (key, value) tuple.
  * Upon update the same ordinal id is re-used while value is replaced.
  * Upon deletion of an existing item, its corresponding ordinal is recycled and could be used by another item.
  *
- * For any instance with N items, this implementation guarantees that ordinals are in the range of [0, N). However,
+ * <p>For any instance with N items, this implementation guarantees that ordinals are in the range of [0, N). However,
  * the ordinal assignment is dynamic and may change after an insertion or deletion. Consumers of this class are
  * responsible for explicitly checking the ordinal corresponding to a key via
  * {@link org.apache.arrow.vector.util.MapWithOrdinal#getOrdinal(Object)} before attempting to execute a lookup
@@ -144,7 +144,7 @@ public class MapWithOrdinal<K, V> implements Map<K, V> {
   };
 
   /**
-   * Returns the value corresponding to the given ordinal
+   * Returns the value corresponding to the given ordinal.
    *
    * @param id ordinal value for lookup
    * @return an instance of V

@@ -41,6 +41,7 @@ public class DateMilliVector extends BaseFixedWidthVector {
   /**
    * Instantiate a DateMilliVector. This doesn't allocate any memory for
    * the data in vector.
+   *
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
@@ -51,6 +52,7 @@ public class DateMilliVector extends BaseFixedWidthVector {
   /**
    * Instantiate a DateMilliVector. This doesn't allocate any memory for
    * the data in vector.
+   *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
@@ -61,7 +63,8 @@ public class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get a reader that supports reading values from this vector
+   * Get a reader that supports reading values from this vector.
+   *
    * @return Field Reader for this vector
    */
   @Override
@@ -80,11 +83,11 @@ public class DateMilliVector extends BaseFixedWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value retrieval methods                        *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value retrieval methods                        |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
@@ -135,7 +138,8 @@ public class DateMilliVector extends BaseFixedWidthVector {
 
   /**
    * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector
+   * position in this vector.
+   *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
@@ -150,6 +154,7 @@ public class DateMilliVector extends BaseFixedWidthVector {
    * Same as {@link #copyFrom(int, int, DateMilliVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
+   *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
@@ -160,11 +165,11 @@ public class DateMilliVector extends BaseFixedWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value setter methods                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value setter methods                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   private void setValue(int index, long value) {
@@ -266,6 +271,7 @@ public class DateMilliVector extends BaseFixedWidthVector {
   /**
    * Store the given value at a particular position in the vector. isSet indicates
    * whether the value is NULL or not.
+   *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
    * @param value element value
@@ -282,6 +288,7 @@ public class DateMilliVector extends BaseFixedWidthVector {
    * Same as {@link #set(int, int, long)} except that it handles the case
    * when index is greater than or equal to current value capacity of the
    * vector.
+   *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
    * @param value element value
@@ -295,7 +302,7 @@ public class DateMilliVector extends BaseFixedWidthVector {
    * Given a data buffer, get the value stored at a particular position
    * in the vector.
    *
-   * This method should not be used externally.
+   * <p>This method should not be used externally.
    *
    * @param buffer data buffer
    * @param index position of the element.
@@ -306,16 +313,17 @@ public class DateMilliVector extends BaseFixedWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *                      vector transfer                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |                      vector transfer                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
    * Construct a TransferPair comprising of this and and a target vector of
    * the same type.
+   *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
    * @return {@link TransferPair}
@@ -327,6 +335,7 @@ public class DateMilliVector extends BaseFixedWidthVector {
 
   /**
    * Construct a TransferPair with a desired target vector of the same type.
+   *
    * @param to target vector
    * @return {@link TransferPair}
    */

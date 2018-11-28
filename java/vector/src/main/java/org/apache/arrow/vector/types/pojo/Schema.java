@@ -46,11 +46,13 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 /**
- * An Arrow Schema
+ * An Arrow Schema.
  */
 public class Schema {
 
   /**
+   * Search for a field by name in given the list of fields.
+   *
    * @param fields the list of the fields
    * @param name   the name of the field to return
    * @return the corresponding field
@@ -120,8 +122,11 @@ public class Schema {
   }
 
   /**
+   * Search for a field by name in this Schema.
+   *
    * @param name the name of the field to return
    * @return the corresponding field
+   * @throws IllegalArgumentException if the field was not found
    */
   public Field findField(String name) {
     return findField(getFields(), name);

@@ -28,7 +28,7 @@ import io.grpc.internal.ReadableBuffer;
  * Enable access to ReadableBuffer directly to copy data from an BufferInputStream into a target
  * ByteBuffer/ByteBuf.
  *
- * This could be solved by BufferInputStream exposing Drainable.
+ * <p>This could be solved by BufferInputStream exposing Drainable.
  */
 public class GetReadableBuffer {
 

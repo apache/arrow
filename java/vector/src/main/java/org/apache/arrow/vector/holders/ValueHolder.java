@@ -20,7 +20,7 @@ package org.apache.arrow.vector.holders;
 /**
  * Wrapper object for an individual value in Arrow.
  *
- * ValueHolders are designed to be mutable wrapper objects for defining clean
+ * <p>ValueHolders are designed to be mutable wrapper objects for defining clean
  * APIs that access data in Arrow. For performance, object creation is avoided
  * at all costs throughout execution. For this reason, ValueHolders are
  * disallowed from implementing any methods, this allows for them to be

@@ -56,7 +56,7 @@ package org.apache.arrow.util;
  *     double d = sqrt(-1.0);
  *   }}</pre>
  *
- * In this example, {@code checkArgument} throws an {@code IllegalArgumentException} to indicate
+ * <p>In this example, {@code checkArgument} throws an {@code IllegalArgumentException} to indicate
  * that {@code exampleBadCaller} made an error in <i>its</i> call to {@code sqrt}.
  *
  * <h3>Warning about performance</h3>

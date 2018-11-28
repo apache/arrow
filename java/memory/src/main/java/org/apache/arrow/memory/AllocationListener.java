@@ -19,8 +19,8 @@ package org.apache.arrow.memory;
 
 /**
  * An allocation listener being notified for allocation/deallocation
- * <p>
- * It might be called from multiple threads if the allocator hierarchy shares a listener, in which
+ *
+ * <p>It might be called from multiple threads if the allocator hierarchy shares a listener, in which
  * case, the provider should take care of making the implementation thread-safe.
  */
 public interface AllocationListener {
@@ -45,7 +45,7 @@ public interface AllocationListener {
   };
 
   /**
-   * Called each time a new buffer is allocated
+   * Called each time a new buffer is allocated.
    *
    * @param size the buffer size being allocated
    */
@@ -63,14 +63,16 @@ public interface AllocationListener {
   boolean onFailedAllocation(long size, AllocationOutcome outcome);
 
   /**
-   * Called immediately after a child allocator was added to the parent allocator
+   * Called immediately after a child allocator was added to the parent allocator.
+   *
    * @param parentAllocator The parent allocator to which a child was added
    * @param childAllocator  The child allocator that was just added
    */
   void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator);
 
   /**
-   * Called immediately after a child allocator was removed from the parent allocator
+   * Called immediately after a child allocator was removed from the parent allocator.
+   *
    * @param parentAllocator The parent allocator from which a child was removed
    * @param childAllocator The child allocator that was just removed
    */
