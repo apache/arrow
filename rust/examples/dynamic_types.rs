@@ -18,7 +18,6 @@
 ///! This example demonstrates dealing with mixed types dynamically at runtime
 use std::sync::Arc;
 
-#[macro_use(numeric_from_nonnull)]
 extern crate arrow;
 
 use arrow::array::*;
@@ -41,7 +40,7 @@ fn main() {
     ]);
 
     // create some data
-    let id = numeric_from_nonnull!(Int32Array, 1, 2, 3, 4, 5);
+    let id = Int32Array::from(vec![1, 2, 3, 4, 5]);
 
     let nested = StructArray::from(vec![
         (
@@ -50,11 +49,11 @@ fn main() {
         ),
         (
             Field::new("b", DataType::Float64, false),
-            Arc::new(numeric_from_nonnull!(Float64Array, 1.1, 2.2, 3.3, 4.4, 5.5)),
+            Arc::new(Float64Array::from(vec![1.1, 2.2, 3.3, 4.4, 5.5])),
         ),
         (
             Field::new("c", DataType::Float64, false),
-            Arc::new(numeric_from_nonnull!(Float64Array, 2.2, 3.3, 4.4, 5.5, 6.6)),
+            Arc::new(Float64Array::from(vec![2.2, 3.3, 4.4, 5.5, 6.6])),
         ),
     ]);
 

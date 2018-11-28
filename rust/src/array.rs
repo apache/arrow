@@ -271,50 +271,65 @@ impl PrimitiveArray<BooleanType> {
     }
 }
 
-// Constructs a primitive array from a vector. Should only be used for testing.
-impl<T: ArrowNumericType> From<Vec<Option<T::Native>>> for PrimitiveArray<T> {
-    fn from(data: Vec<Option<T::Native>>) -> Self {
-        let data_len = data.len();
-        let num_bytes = bit_util::ceil(data_len as i64, 8) as usize;
-        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-        let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<T::Native>());
-
-        {
-            let null = vec![0; mem::size_of::<T::Native>()];
-            let null_slice = null_buf.data_mut();
-            for (i, v) in data.iter().enumerate() {
-                if let Some(n) = v {
-                    bit_util::set_bit(null_slice, i);
-                    // unwrap() in the following should be safe here since we've
-                    // made sure enough space is allocated for the values.
-                    val_buf.write(&n.to_byte_slice()).unwrap();
-                } else {
-                    val_buf.write(&null).unwrap();
-                }
+// TODO: the macro is needed here because we'd get "conflicting implementations" error
+// otherwise with both `From<Vec<T::Native>>` and `From<Vec<Option<T::Native>>>`.
+// We should revisit this in future.
+macro_rules! def_numeric_from_vec {
+    ( $ty:ident, $native_ty:ident, $ty_id:path ) => {
+        impl From<Vec<$native_ty>> for PrimitiveArray<$ty> {
+            fn from(data: Vec<$native_ty>) -> Self {
+                let array_data = ArrayData::builder($ty_id)
+                    .len(data.len() as i64)
+                    .add_buffer(Buffer::from(data.to_byte_slice()))
+                    .build();
+                PrimitiveArray::from(array_data)
             }
         }
 
-        let array_data = ArrayData::builder(T::get_type_id())
-            .len(data_len as i64)
-            .add_buffer(val_buf.freeze())
-            .null_bit_buffer(null_buf.freeze())
-            .build();
-        PrimitiveArray::from(array_data)
-    }
+        // Constructs a primitive array from a vector. Should only be used for testing.
+        impl From<Vec<Option<$native_ty>>> for PrimitiveArray<$ty> {
+            fn from(data: Vec<Option<$native_ty>>) -> Self {
+                let data_len = data.len();
+                let num_bytes = bit_util::ceil(data_len as i64, 8) as usize;
+                let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<$native_ty>());
+
+                {
+                    let null = vec![0; mem::size_of::<$native_ty>()];
+                    let null_slice = null_buf.data_mut();
+                    for (i, v) in data.iter().enumerate() {
+                        if let Some(n) = v {
+                            bit_util::set_bit(null_slice, i);
+                            // unwrap() in the following should be safe here since we've
+                            // made sure enough space is allocated for the values.
+                            val_buf.write(&n.to_byte_slice()).unwrap();
+                        } else {
+                            val_buf.write(&null).unwrap();
+                        }
+                    }
+                }
+
+                let array_data = ArrayData::builder($ty_id)
+                    .len(data_len as i64)
+                    .add_buffer(val_buf.freeze())
+                    .null_bit_buffer(null_buf.freeze())
+                    .build();
+                PrimitiveArray::from(array_data)
+            }
+        }
+    };
 }
 
-#[macro_export]
-macro_rules! numeric_from_nonnull {
-    ( $ty:ident, $( $e:expr ), * ) => {
-        {
-            let mut result = Vec::new();
-            $(
-                result.push(Some($e));
-            )*
-                $ty::from(result)
-        }
-    }
-}
+def_numeric_from_vec!(Int8Type, i8, DataType::Int8);
+def_numeric_from_vec!(Int16Type, i16, DataType::Int16);
+def_numeric_from_vec!(Int32Type, i32, DataType::Int32);
+def_numeric_from_vec!(Int64Type, i64, DataType::Int64);
+def_numeric_from_vec!(UInt8Type, u8, DataType::UInt8);
+def_numeric_from_vec!(UInt16Type, u16, DataType::UInt16);
+def_numeric_from_vec!(UInt32Type, u32, DataType::UInt32);
+def_numeric_from_vec!(UInt64Type, u64, DataType::UInt64);
+def_numeric_from_vec!(Float32Type, f32, DataType::Float32);
+def_numeric_from_vec!(Float64Type, f64, DataType::Float64);
 
 /// Constructs a boolean array from a vector. Should only be used for testing.
 impl From<Vec<bool>> for BooleanArray {
@@ -1131,7 +1146,6 @@ mod tests {
         let int_data = ArrayData::builder(DataType::Int32)
             .len(4)
             .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
-            .null_bit_buffer(Buffer::from([15_u8]))
             .build();
         let struct_array = StructArray::from(vec![
             (
@@ -1140,7 +1154,7 @@ mod tests {
             ),
             (
                 Field::new("c", DataType::Int32, false),
-                Arc::new(numeric_from_nonnull!(Int32Array, 42, 28, 19, 31)),
+                Arc::new(Int32Array::from(vec![42, 28, 19, 31])),
             ),
         ]);
         assert_eq!(boolean_data, struct_array.column(0).data());
@@ -1153,11 +1167,11 @@ mod tests {
         StructArray::from(vec![
             (
                 Field::new("b", DataType::Float32, false),
-                Arc::new(numeric_from_nonnull!(Float32Array, 1.1)) as Arc<Array>,
+                Arc::new(Float32Array::from(vec![1.1])) as Arc<Array>,
             ),
             (
                 Field::new("c", DataType::Float64, false),
-                Arc::new(numeric_from_nonnull!(Float64Array, 2.2, 3.3)),
+                Arc::new(Float64Array::from(vec![2.2, 3.3])),
             ),
         ]);
     }
@@ -1210,7 +1224,7 @@ mod tests {
 
     #[test]
     fn test_buffer_array_min_max() {
-        let a = numeric_from_nonnull!(Int32Array, 5, 6, 7, 8, 9);
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         assert_eq!(5, a.min().unwrap());
         assert_eq!(9, a.max().unwrap());
     }
@@ -1224,7 +1238,7 @@ mod tests {
 
     #[test]
     fn test_access_array_concurrently() {
-        let a = numeric_from_nonnull!(Int32Array, 5, 6, 7, 8, 9);
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         let ret = thread::spawn(move || a.value(3)).join();
 
         assert!(ret.is_ok());
