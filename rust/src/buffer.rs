@@ -523,7 +523,8 @@ mod tests {
         let buffer_copy = thread::spawn(move || {
             // access buffer in another thread.
             buffer.clone()
-        }).join();
+        })
+        .join();
 
         assert!(buffer_copy.is_ok());
         assert_eq!(buffer2, buffer_copy.ok().unwrap());

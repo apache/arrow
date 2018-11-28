@@ -174,7 +174,8 @@ impl Reader {
                         other
                     ))),
                 }
-            }).collect();
+            })
+            .collect();
 
         match arrays {
             Ok(arr) => Some(Ok(RecordBatch::new(self.schema.clone(), arr))),
