@@ -59,3 +59,9 @@ buffer.numeric <- function(x) {
 buffer.integer <- function(x) {
   shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
 }
+
+#' @export
+buffer.complex <- function(x) {
+  shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
+}
+
