@@ -110,8 +110,7 @@ static void DecodeDict(std::vector<typename Type::c_type>& values,
 
   DictEncoder<Type> encoder(descr.get(), &pool, allocator);
   for (int i = 0; i < num_values; ++i) {
-    // No SSE
-    encoder.template Put<false>(values[i]);
+    encoder.Put(values[i]);
   }
 
   std::shared_ptr<ResizableBuffer> dict_buffer =
