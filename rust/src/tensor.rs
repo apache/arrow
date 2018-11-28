@@ -24,7 +24,7 @@ use datatypes::*;
 
 /// Computes the strides required assuming a row major memory layout
 fn compute_row_major_strides<T: ArrowPrimitiveType>(shape: &Vec<i64>) -> Vec<i64> {
-    let mut remaining_bytes = mem::size_of::<T::T>();
+    let mut remaining_bytes = mem::size_of::<T::Native>();
     for i in shape {
         remaining_bytes = remaining_bytes
             .checked_mul(*i as usize)
@@ -41,7 +41,7 @@ fn compute_row_major_strides<T: ArrowPrimitiveType>(shape: &Vec<i64>) -> Vec<i64
 
 /// Computes the strides required assuming a column major memory layout
 fn compute_column_major_strides<T: ArrowPrimitiveType>(shape: &Vec<i64>) -> Vec<i64> {
-    let mut remaining_bytes = mem::size_of::<T::T>();
+    let mut remaining_bytes = mem::size_of::<T::Native>();
     let mut strides = Vec::<i64>::new();
     for i in shape {
         strides.push(remaining_bytes as i64);
@@ -86,7 +86,7 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
             None => {
                 assert_eq!(
                     buffer.len(),
-                    mem::size_of::<T::T>(),
+                    mem::size_of::<T::Native>(),
                     "underlying buffer should only contain a single tensor element"
                 );
                 assert_eq!(None, strides);
@@ -188,7 +188,7 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
 
     /// The total number of elements in the `Tensor`
     pub fn size(&self) -> i64 {
-        (self.buffer.len() / mem::size_of::<T::T>()) as i64
+        (self.buffer.len() / mem::size_of::<T::Native>()) as i64
     }
 
     /// Indicates if the data is laid out contiguously in memory

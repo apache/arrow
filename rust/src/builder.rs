@@ -55,15 +55,15 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     fn capacity(&self) -> i64;
     fn advance(&mut self, i64) -> Result<()>;
     fn reserve(&mut self, i64) -> Result<()>;
-    fn push(&mut self, T::T) -> Result<()>;
-    fn push_slice(&mut self, &[T::T]) -> Result<()>;
+    fn push(&mut self, T::Native) -> Result<()>;
+    fn push_slice(&mut self, &[T::Native]) -> Result<()>;
     fn finish(self) -> Buffer;
 }
 
 impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     /// Creates a builder with a fixed initial capacity
     default fn new(capacity: i64) -> Self {
-        let buffer = MutableBuffer::new(capacity as usize * mem::size_of::<T::T>());
+        let buffer = MutableBuffer::new(capacity as usize * mem::size_of::<T::Native>());
         Self {
             buffer,
             len: 0,
@@ -84,7 +84,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
 
     // Advances the `len` of the underlying `Buffer` by `i` slots of type T
     default fn advance(&mut self, i: i64) -> Result<()> {
-        let new_buffer_len = (self.len + i) as usize * mem::size_of::<T::T>();
+        let new_buffer_len = (self.len + i) as usize * mem::size_of::<T::Native>();
         self.buffer.resize(new_buffer_len)?;
         self.len += i;
         Ok(())
@@ -93,19 +93,19 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     /// Reserves memory for `n` elements of type `T`.
     default fn reserve(&mut self, n: i64) -> Result<()> {
         let new_capacity = self.len + n;
-        let byte_capacity = mem::size_of::<T::T>() * new_capacity as usize;
+        let byte_capacity = mem::size_of::<T::Native>() * new_capacity as usize;
         self.buffer.reserve(byte_capacity)?;
         Ok(())
     }
 
     /// Pushes a value into the builder, growing the internal buffer as needed.
-    default fn push(&mut self, v: T::T) -> Result<()> {
+    default fn push(&mut self, v: T::Native) -> Result<()> {
         self.reserve(1)?;
         self.write_bytes(v.to_byte_slice(), 1)
     }
 
     /// Pushes a slice of type `T`, growing the internal buffer as needed.
-    default fn push_slice(&mut self, slice: &[T::T]) -> Result<()> {
+    default fn push_slice(&mut self, slice: &[T::Native]) -> Result<()> {
         let array_slots = slice.len() as i64;
         self.reserve(array_slots)?;
         self.write_bytes(slice.to_byte_slice(), array_slots)
@@ -280,7 +280,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArrayBuilder<T> {
     }
 
     /// Pushes a value of type `T` into the builder
-    pub fn push(&mut self, v: T::T) -> Result<()> {
+    pub fn push(&mut self, v: T::Native) -> Result<()> {
         self.bitmap_builder.push(true)?;
         self.values_builder.push(v)?;
         Ok(())
@@ -294,7 +294,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArrayBuilder<T> {
     }
 
     /// Pushes an `Option<T>` into the builder
-    pub fn push_option(&mut self, v: Option<T::T>) -> Result<()> {
+    pub fn push_option(&mut self, v: Option<T::Native>) -> Result<()> {
         match v {
             None => self.push_null()?,
             Some(v) => self.push(v)?,
@@ -303,7 +303,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArrayBuilder<T> {
     }
 
     /// Pushes a slice of type `T` into the builder
-    pub fn push_slice(&mut self, v: &[T::T]) -> Result<()> {
+    pub fn push_slice(&mut self, v: &[T::Native]) -> Result<()> {
         self.bitmap_builder.push_slice(&vec![true; v.len()][..])?;
         self.values_builder.push_slice(v)?;
         Ok(())

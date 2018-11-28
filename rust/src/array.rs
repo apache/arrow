@@ -126,7 +126,7 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     /// Also note that boolean arrays are bit-packed, so although the underlying pointer is of type
     /// bool it should be cast back to u8 before being used.
     /// i.e. `self.raw_values.get() as *const u8`
-    raw_values: RawPtrBox<T::T>,
+    raw_values: RawPtrBox<T::Native>,
 }
 
 pub type BooleanArray = PrimitiveArray<BooleanType>;
@@ -181,40 +181,40 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     }
 
     /// Returns a raw pointer to the values of this array.
-    pub fn raw_values(&self) -> *const T::T {
+    pub fn raw_values(&self) -> *const T::Native {
         unsafe { mem::transmute(self.raw_values.get().offset(self.data.offset() as isize)) }
     }
 
     /// Returns the primitive value at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
-    pub fn value(&self, i: i64) -> T::T {
+    pub fn value(&self, i: i64) -> T::Native {
         unsafe { *(self.raw_values().offset(i as isize)) }
     }
 
     /// Returns a slice for the given offset and length
     ///
     /// Note this doesn't do any bound checking, for performance reason.
-    pub fn value_slice(&self, offset: i64, len: i64) -> &[T::T] {
+    pub fn value_slice(&self, offset: i64, len: i64) -> &[T::Native] {
         let raw = unsafe { std::slice::from_raw_parts(self.raw_values(), self.len() as usize) };
         &raw[offset as usize..offset as usize + len as usize]
     }
 
     /// Returns the minimum value in the array, according to the natural order.
-    pub fn min(&self) -> Option<T::T> {
+    pub fn min(&self) -> Option<T::Native> {
         self.min_max_helper(|a, b| a < b)
     }
 
     /// Returns the maximum value in the array, according to the natural order.
-    pub fn max(&self) -> Option<T::T> {
+    pub fn max(&self) -> Option<T::Native> {
         self.min_max_helper(|a, b| a > b)
     }
 
-    fn min_max_helper<F>(&self, cmp: F) -> Option<T::T>
+    fn min_max_helper<F>(&self, cmp: F) -> Option<T::Native>
     where
-        F: Fn(T::T, T::T) -> bool,
+        F: Fn(T::Native, T::Native) -> bool,
     {
-        let mut n: Option<T::T> = None;
+        let mut n: Option<T::Native> = None;
         let data = self.data();
         for i in 0..data.len() {
             if data.is_null(i) {
@@ -272,15 +272,15 @@ impl PrimitiveArray<BooleanType> {
 }
 
 // Constructs a primitive array from a vector. Should only be used for testing.
-impl<T: ArrowNumericType> From<Vec<Option<T::T>>> for PrimitiveArray<T> {
-    fn from(data: Vec<Option<T::T>>) -> Self {
+impl<T: ArrowNumericType> From<Vec<Option<T::Native>>> for PrimitiveArray<T> {
+    fn from(data: Vec<Option<T::Native>>) -> Self {
         let data_len = data.len();
         let num_bytes = bit_util::ceil(data_len as i64, 8) as usize;
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-        let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<T::T>());
+        let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<T::Native>());
 
         {
-            let null = vec![0; mem::size_of::<T::T>()];
+            let null = vec![0; mem::size_of::<T::Native>()];
             let null_slice = null_buf.data_mut();
             for (i, v) in data.iter().enumerate() {
                 if let Some(n) = v {
@@ -377,12 +377,12 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
         );
         let raw_values = data.buffers()[0].raw_data();
         assert!(
-            memory::is_aligned::<u8>(raw_values, mem::align_of::<T::T>()),
+            memory::is_aligned::<u8>(raw_values, mem::align_of::<T::Native>()),
             "memory is not aligned"
         );
         Self {
             data,
-            raw_values: RawPtrBox::new(raw_values as *const T::T),
+            raw_values: RawPtrBox::new(raw_values as *const T::Native),
         }
     }
 }

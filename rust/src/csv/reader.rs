@@ -94,7 +94,7 @@ fn build_primitive_array<T: ArrowPrimitiveType>(
     let mut builder = PrimitiveArrayBuilder::<T>::new(rows.len() as i64);
     for row_index in 0..rows.len() {
         match rows[row_index].get(*col_idx) {
-            Some(s) if s.len() > 0 => match s.parse::<T::T>() {
+            Some(s) if s.len() > 0 => match s.parse::<T::Native>() {
                 Ok(v) => builder.push(v)?,
                 Err(_) => {
                     // TODO: we should surface the underlying error here.
