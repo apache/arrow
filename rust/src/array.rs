@@ -756,7 +756,7 @@ mod tests {
         // 00000010 01001000
         let buf = Buffer::from([72_u8, 2_u8]);
         let buf2 = buf.clone();
-        let arr = PrimitiveArray::<BooleanType>::new(10, buf, 0, 0);
+        let arr = BooleanArray::new(10, buf, 0, 0);
         assert_eq!(buf2, arr.values());
         assert_eq!(10, arr.len());
         assert_eq!(0, arr.offset());
