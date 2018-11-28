@@ -44,7 +44,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 
 /**
- * The buffer layout of vectors for a given type
+ * The buffer layout of vectors for a given type.
  * It defines its own buffers followed by the buffers for the children
  * if it is a nested type (Struct_, List, Union)
  */

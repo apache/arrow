@@ -26,7 +26,8 @@ import io.grpc.stub.StreamObserver;
 /**
  * Shim listener to avoid exposing GRPC internals.
 
- * @param <T>
+ * @param <FROM> From Type
+ * @param <TO> To Type
  */
 class StreamPipe<FROM, TO> implements StreamListener<FROM> {
 

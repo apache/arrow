@@ -31,7 +31,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
- * Holder for a set of vectors to be loaded/unloaded
+ * Holder for a set of vectors to be loaded/unloaded.
  */
 public class VectorSchemaRoot implements AutoCloseable {
 

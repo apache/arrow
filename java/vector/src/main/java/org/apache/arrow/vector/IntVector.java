@@ -62,7 +62,7 @@ public class IntVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get a reader that supports reading values from this vector
+   * Get a reader that supports reading values from this vector.
    *
    * @return Field Reader for this vector
    */
@@ -83,11 +83,11 @@ public class IntVector extends BaseFixedWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value retrieval methods                        *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value retrieval methods                        |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
@@ -135,7 +135,7 @@ public class IntVector extends BaseFixedWidthVector {
 
   /**
    * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector
+   * position in this vector.
    *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
@@ -162,11 +162,11 @@ public class IntVector extends BaseFixedWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value setter methods                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value setter methods                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   private void setValue(int index, int value) {
@@ -298,8 +298,8 @@ public class IntVector extends BaseFixedWidthVector {
   /**
    * Given a data buffer, get the value stored at a particular position
    * in the vector.
-   * <p>
-   * This method should not be used externally.
+   *
+   * <p>This method should not be used externally.
    *
    * @param buffer data buffer
    * @param index  position of the element.
@@ -310,11 +310,11 @@ public class IntVector extends BaseFixedWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *                      vector transfer                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |                      vector transfer                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**

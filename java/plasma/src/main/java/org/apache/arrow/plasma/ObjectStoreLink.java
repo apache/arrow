@@ -20,7 +20,7 @@ package org.apache.arrow.plasma;
 import java.util.List;
 
 /**
- * Object store interface, which provides the capabilities to put and get raw byte array, and serves
+ * Object store interface, which provides the capabilities to put and get raw byte array, and serves.
  */
 public interface ObjectStoreLink {
 
@@ -49,7 +49,7 @@ public interface ObjectStoreLink {
    *
    * @param objectId The object ID used to identify the object.
    * @param timeoutMs The number of milliseconds that the get call should block before timing out
-   * and returning. Pass -1 if the call should block and 0 if the call should return immediately.
+   *                  and returning. Pass -1 if the call should block and 0 if the call should return immediately.
    * @param isMetadata false if get data, otherwise get metadata.
    * @return A PlasmaBuffer wrapping the object.
    */
@@ -63,7 +63,7 @@ public interface ObjectStoreLink {
    *
    * @param objectIds List of object IDs used to identify some objects.
    * @param timeoutMs The number of milliseconds that the get call should block before timing out
-   * and returning. Pass -1 if the call should block and 0 if the call should return immediately.
+   *                  and returning. Pass -1 if the call should block and 0 if the call should return immediately.
    * @param isMetadata false if get data, otherwise get metadata.
    * @return List of PlasmaBuffers wrapping objects.
    */
@@ -74,7 +74,7 @@ public interface ObjectStoreLink {
    *
    * @param objectIds List of object IDs used to identify some objects.
    * @param timeoutMs The number of milliseconds that the get call should block before timing out
-   * and returning. Pass -1 if the call should block and 0 if the call should return immediately.
+   *                  and returning. Pass -1 if the call should block and 0 if the call should return immediately.
    * @return List of Pairs of PlasmaBuffer wrapping objects and its metadata.
    */
   List<ObjectStoreData> get(byte[][] objectIds, int timeoutMs);
@@ -94,7 +94,7 @@ public interface ObjectStoreLink {
    *
    * @param objectId The object ID used to identify the object.
    * @return A digest byte array contains object's SHA256 hash. <tt>null</tt> means that the object
-   * isn't in the object store.
+   *         isn't in the object store.
    */
   byte[] hash(byte[] objectId);
 

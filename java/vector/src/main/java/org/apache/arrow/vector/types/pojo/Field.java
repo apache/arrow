@@ -131,9 +131,9 @@ public class Field {
   }
 
   /**
-   * Helper method to ensure backward compatibility with schemas generated prior to ARROW-1347, ARROW-1663
+   * Helper method to ensure backward compatibility with schemas generated prior to ARROW-1347, ARROW-1663.
    *
-   * @param field
+   * @param field the field to check
    * @param originalChildField original field which name might be mutated
    * @return original or mutated field
    */

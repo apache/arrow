@@ -153,7 +153,7 @@ public class TestComplexWriter {
   }
 
   /**
-   * This test is similar to {@link #nullableStruct()} ()} but we get the inner struct writer once at the beginning
+   * This test is similar to {@link #nullableStruct()} ()} but we get the inner struct writer once at the beginning.
    */
   @Test
   public void nullableStruct2() {
@@ -367,7 +367,7 @@ public class TestComplexWriter {
   }
 
   /**
-   * This test is similar to {@link #listListType()} but we get the inner list writer once at the beginning
+   * This test is similar to {@link #listListType()} but we get the inner list writer once at the beginning.
    */
   @Test
   public void listListType2() {
@@ -434,7 +434,7 @@ public class TestComplexWriter {
   }
 
   /**
-   * This test is similar to {@link #unionListListType()} but we get the inner list writer once at the beginning
+   * This test is similar to {@link #unionListListType()} but we get the inner list writer once at the beginning.
    */
   @Test
   public void unionListListType2() {
@@ -555,7 +555,7 @@ public class TestComplexWriter {
   }
 
   /**
-   * Even without writing to the writer, the union schema is created correctly
+   * Even without writing to the writer, the union schema is created correctly.
    */
   @Test
   public void promotableWriterSchema() {

@@ -34,7 +34,7 @@ import io.netty.buffer.ArrowBuf;
  * Wrapper around a WritableByteChannel that maintains the position as well adding
  * some common serialization utilities.
  *
- * All write methods in this class follow full write semantics, i.e., write calls
+ * <p>All write methods in this class follow full write semantics, i.e., write calls
  * only return after requested data has been fully written. Note this is different
  * from java WritableByteChannel interface where partial write is allowed
  */
