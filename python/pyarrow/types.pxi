@@ -543,9 +543,7 @@ cdef class Schema:
 
     @property
     def metadata(self):
-        cdef shared_ptr[const CKeyValueMetadata] metadata = (
-            self.schema.metadata())
-        return box_metadata(metadata.get())
+        return pyarrow_wrap_metadata(self.schema.metadata())
 
     def __eq__(self, other):
         try:
@@ -808,15 +806,6 @@ cdef class Schema:
 
     def __repr__(self):
         return self.__str__()
-
-
-cdef dict box_metadata(const CKeyValueMetadata* metadata):
-    cdef unordered_map[c_string, c_string] result
-    if metadata != nullptr:
-        metadata.ToUnorderedMap(&result)
-        return result
-    else:
-        return None
 
 
 cdef dict _type_cache = {}
