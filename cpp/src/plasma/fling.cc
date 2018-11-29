@@ -54,7 +54,8 @@ int send_fd(int conn, int fd) {
       if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
         continue;
       } else if (errno == EMSGSIZE) {
-        ARROW_LOG(WARNING) << "Failed to send file descriptor with errno = EMSGSIZE, retrying.";
+        ARROW_LOG(WARNING) << "Failed to send file descriptor"
+                           << " (errno = EMSGSIZE), retrying.";
         // If we failed to send the file descriptor, loop until we have sent it
         // successfully. TODO(rkn): This is problematic for two reasons. First
         // of all, sending the file descriptor should just succeed without any
