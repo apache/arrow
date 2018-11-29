@@ -75,6 +75,11 @@ GArrowMutableBuffer *garrow_mutable_buffer_new_bytes(GBytes *data);
 GArrowMutableBuffer *garrow_mutable_buffer_slice(GArrowMutableBuffer *buffer,
                                                  gint64 offset,
                                                  gint64 size);
+gboolean garrow_mutable_buffer_set_data(GArrowMutableBuffer *buffer,
+                                        gint64 offset,
+                                        const guint8 *data,
+                                        gint64 size,
+                                        GError **error);
 
 
 #define GARROW_TYPE_RESIZABLE_BUFFER (garrow_resizable_buffer_get_type())
