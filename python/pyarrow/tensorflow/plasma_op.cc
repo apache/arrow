@@ -162,6 +162,7 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
       {
         tf::mutex_lock lock(mu_);
         ARROW_CHECK_OK(client_.Seal(object_id));
+        ARROW_CHECK_OK(client_.Release(object_id));
       }
       context->SetStatus(tensorflow::Status::OK());
       done();
