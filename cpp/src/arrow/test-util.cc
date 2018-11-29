@@ -296,4 +296,30 @@ void CompareBatch(const RecordBatch& left, const RecordBatch& right) {
   }
 }
 
+namespace {
+
+// Used to prevent compiler optimizing away side-effect-less statements
+volatile int throw_away = 0;
+
+}  // namespace
+
+void AssertZeroPadded(const Array& array) {
+  for (const auto& buffer : array.data()->buffers) {
+    if (buffer) {
+      const int64_t padding = buffer->capacity() - buffer->size();
+      std::vector<uint8_t> zeros(padding);
+      ASSERT_EQ(0, memcmp(buffer->data() + buffer->size(), zeros.data(), padding));
+    }
+  }
+}
+
+void TestInitialized(const Array& array) {
+  for (const auto& buffer : array.data()->buffers) {
+    if (buffer) {
+      std::vector<uint8_t> zeros(buffer->capacity());
+      throw_away = memcmp(buffer->data(), zeros.data(), buffer->size());
+    }
+  }
+}
+
 }  // namespace arrow
