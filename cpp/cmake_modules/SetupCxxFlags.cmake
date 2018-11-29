@@ -220,8 +220,8 @@ if (CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -maltivec")
 endif()
 
-if (ARROW_USE_SSE)
-  add_definitions(-DARROW_USE_SSE)
+if (ARROW_USE_SIMD)
+  add_definitions(-DARROW_USE_SIMD)
 endif()
 
 if (APPLE)
