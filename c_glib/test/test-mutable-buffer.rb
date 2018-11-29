@@ -45,4 +45,30 @@ class TestMutableBuffer < Test::Unit::TestCase
     sliced_buffer = @buffer.slice(1, 3)
     assert_equal(@data[1, 3], sliced_buffer.data.to_s)
   end
+
+  sub_test_case("#set_data") do
+    test("offset") do
+      @buffer.set_data(1, "EL")
+      assert_equal("HELlo", @buffer.data.to_s)
+    end
+
+    test("replace") do
+      @buffer.set_data(0, "World")
+      assert_equal("World", @buffer.data.to_s)
+    end
+
+    test("offset: too large") do
+      message = "[mutable-buffer][set-data]: Data is too large: <(5 + 1) > (5)>"
+      assert_raise(Arrow::Error::Invalid.new(message)) do
+        @buffer.set_data(5, "X")
+      end
+    end
+
+    test("data too large") do
+      message = "[mutable-buffer][set-data]: Data is too large: <(0 + 6) > (5)>"
+      assert_raise(Arrow::Error::Invalid.new(message)) do
+        @buffer.set_data(0, @data + "!")
+      end
+    end
+  end
 end
