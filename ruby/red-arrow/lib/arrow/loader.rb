@@ -53,6 +53,7 @@ module Arrow
       require "arrow/schema"
       require "arrow/slicer"
       require "arrow/struct-array"
+      require "arrow/struct-data-type"
       require "arrow/table"
       require "arrow/table-formatter"
       require "arrow/table-list-formatter"
