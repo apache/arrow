@@ -634,16 +634,7 @@ cdef class Column:
         return pyarrow_wrap_chunked_array(self.column.data())
 
 
-cdef shared_ptr[const CKeyValueMetadata] unbox_metadata(dict metadata):
-    if metadata is None:
-        return <shared_ptr[const CKeyValueMetadata]> nullptr
-    cdef:
-        unordered_map[c_string, c_string] unordered_metadata = metadata
-    return (<shared_ptr[const CKeyValueMetadata]>
-            make_shared[CKeyValueMetadata](unordered_metadata))
-
-
-cdef _schema_from_arrays(arrays, names, dict metadata,
+cdef _schema_from_arrays(arrays, names, object metadata,
                          shared_ptr[CSchema]* schema):
     cdef:
         Column col
@@ -653,7 +644,7 @@ cdef _schema_from_arrays(arrays, names, dict metadata,
         Py_ssize_t K = len(arrays)
 
     if K == 0:
-        schema.reset(new CSchema(fields, unbox_metadata(metadata)))
+        schema.reset(new CSchema(fields, pyarrow_unwrap_metadata(metadata)))
         return
 
     fields.resize(K)
@@ -684,7 +675,7 @@ cdef _schema_from_arrays(arrays, names, dict metadata,
                 c_name = tobytes(names[i])
             fields[i].reset(new CField(c_name, type_, True))
 
-    schema.reset(new CSchema(fields, unbox_metadata(metadata)))
+    schema.reset(new CSchema(fields, pyarrow_unwrap_metadata(metadata)))
 
 
 cdef class RecordBatch:
@@ -1229,7 +1220,7 @@ cdef class Table:
         return cls.from_arrays(arrays, names=names, metadata=metadata)
 
     @staticmethod
-    def from_arrays(arrays, names=None, schema=None, dict metadata=None):
+    def from_arrays(arrays, names=None, schema=None, metadata=None):
         """
         Construct a Table from Arrow arrays or columns
 
@@ -1240,6 +1231,8 @@ cdef class Table:
         names: list of str, optional
             Names for the table columns. If Columns passed, will be
             inferred. If Arrays passed, this argument is required
+        schema : Schema, default None
+            If not passed, will be inferred from the arrays
 
         Returns
         -------

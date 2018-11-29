@@ -1471,7 +1471,7 @@ cdef DataType ensure_type(object ty, c_bool allow_none=False):
         raise TypeError('DataType expected, got {!r}'.format(type(ty)))
 
 
-def schema(fields, dict metadata=None):
+def schema(fields, metadata=None):
     """
     Construct pyarrow.Schema from collection of fields
 
