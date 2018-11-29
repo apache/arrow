@@ -21,7 +21,6 @@
 
 # Headers: top level
 install(FILES
-  armce-util.h
   bit-stream-utils.h
   bit-util.h
   bpacking.h
@@ -45,6 +44,7 @@ install(FILES
   logging.h
   macros.h
   memory.h
+  neon-util.h
   parallel.h
   rle-encoding.h
   sse-util.h

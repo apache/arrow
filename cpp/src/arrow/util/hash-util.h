@@ -25,8 +25,8 @@
 
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/neon-util.h"
 #include "arrow/util/sse-util.h"
-#include "arrow/util/armce-util.h"
 
 static inline uint32_t HW_crc32_u8(uint32_t crc, uint8_t v) {
   DCHECK(false) << "Hardware CRC support is not enabled";
@@ -49,12 +49,12 @@ static inline uint32_t HW_crc32_u64(uint32_t crc, uint64_t v) {
 }
 
 #ifdef ARROW_HAVE_SSE4_2
-#define HW_crc32_u8  SSE4_crc32_u8
+#define HW_crc32_u8 SSE4_crc32_u8
 #define HW_crc32_u16 SSE4_crc32_u16
 #define HW_crc32_u32 SSE4_crc32_u32
 #define HW_crc32_u64 SSE4_crc32_u64
 #elif defined(ARROW_HAVE_ARM_CRC)
-#define HW_crc32_u8  ARMCE_crc32_u8
+#define HW_crc32_u8 ARMCE_crc32_u8
 #define HW_crc32_u16 ARMCE_crc32_u16
 #define HW_crc32_u32 ARMCE_crc32_u32
 #define HW_crc32_u64 ARMCE_crc32_u64

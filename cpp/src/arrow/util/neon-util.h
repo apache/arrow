@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_ARMCE_UTIL_H
-#define ARROW_UTIL_ARMCE_UTIL_H
+#ifndef ARROW_UTIL_NEON_UTIL_H
+#define ARROW_UTIL_NEON_UTIL_H
 
 namespace arrow {
 
@@ -29,14 +29,13 @@ namespace arrow {
 
 #if defined(__GNUC__) && defined(__linux__) && defined(ARROW_HAVE_ARM_CRC)
 
-#include <sys/auxv.h>
 #include <asm/hwcap.h>
+#include <sys/auxv.h>
 #ifndef HWCAP_CRC32
 #define HWCAP_CRC32 (1 << 7)
 #endif
-static inline uint32_t crc32c_runtime_check(void)
-{
-  unsigned long auxv = getauxval(AT_HWCAP);
+static inline uint32_t crc32c_runtime_check(void) {
+  uint64_t auxv = getauxval(AT_HWCAP);
   return (auxv & HWCAP_CRC32) != 0;
 }
 
@@ -87,4 +86,4 @@ static inline uint32_t ARMCE_crc32_u64(uint32_t, uint64_t) {
 
 }  // namespace arrow
 
-#endif  //  ARROW_UTIL_ARMCE_UTIL_H
+#endif  //  ARROW_UTIL_NEON_UTIL_H
