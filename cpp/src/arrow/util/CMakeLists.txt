@@ -44,6 +44,7 @@ install(FILES
   logging.h
   macros.h
   memory.h
+  neon-util.h
   parallel.h
   rle-encoding.h
   sse-util.h
