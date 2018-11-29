@@ -53,6 +53,15 @@ int send_fd(int conn, int fd) {
     if (r < 0) {
       if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
         continue;
+      } else if (errno == EMSGSIZE) {
+        ARROW_LOG(WARNING) << "Failed to send file descriptor with errno = EMSGSIZE, retrying.";
+        // If we failed to send the file descriptor, loop until we have sent it
+        // successfully. TODO(rkn): This is problematic for two reasons. First
+        // of all, sending the file descriptor should just succeed without any
+        // errors, but sometimes I see a "Message too long" error number.
+        // Second, looping like this allows a client to potentially block the
+        // plasma store event loop which should never happen.
+        continue;
       } else {
         ARROW_LOG(INFO) << "Error in send_fd (errno = " << errno << ")";
         return static_cast<int>(r);
