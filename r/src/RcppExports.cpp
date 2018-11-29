@@ -1266,48 +1266,71 @@ BEGIN_RCPP
 END_RCPP
 }
 // Field__initialize
-std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
-RcppExport SEXP _arrow_Field__initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
+std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& field, bool nullable);
+RcppExport SEXP _arrow_Field__initialize(SEXP nameSEXP, SEXP fieldSEXP, SEXP nullableSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type name(nameSEXP);
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type field(fieldSEXP);
     Rcpp::traits::input_parameter< bool >::type nullable(nullableSEXP);
-    rcpp_result_gen = Rcpp::wrap(Field__initialize(name, type, nullable));
+    rcpp_result_gen = Rcpp::wrap(Field__initialize(name, field, nullable));
     return rcpp_result_gen;
 END_RCPP
 }
 // Field__ToString
-std::string Field__ToString(const std::shared_ptr<arrow::Field>& type);
-RcppExport SEXP _arrow_Field__ToString(SEXP typeSEXP) {
+std::string Field__ToString(const std::shared_ptr<arrow::Field>& field);
+RcppExport SEXP _arrow_Field__ToString(SEXP fieldSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(Field__ToString(type));
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type field(fieldSEXP);
+    rcpp_result_gen = Rcpp::wrap(Field__ToString(field));
     return rcpp_result_gen;
 END_RCPP
 }
 // Field__name
-std::string Field__name(const std::shared_ptr<arrow::Field>& type);
-RcppExport SEXP _arrow_Field__name(SEXP typeSEXP) {
+std::string Field__name(const std::shared_ptr<arrow::Field>& field);
+RcppExport SEXP _arrow_Field__name(SEXP fieldSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(Field__name(type));
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type field(fieldSEXP);
+    rcpp_result_gen = Rcpp::wrap(Field__name(field));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Field__Equals
+bool Field__Equals(const std::shared_ptr<arrow::Field>& field, const std::shared_ptr<arrow::Field>& other);
+RcppExport SEXP _arrow_Field__Equals(SEXP fieldSEXP, SEXP otherSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type field(fieldSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type other(otherSEXP);
+    rcpp_result_gen = Rcpp::wrap(Field__Equals(field, other));
     return rcpp_result_gen;
 END_RCPP
 }
 // Field__nullable
-bool Field__nullable(const std::shared_ptr<arrow::Field>& type);
-RcppExport SEXP _arrow_Field__nullable(SEXP typeSEXP) {
+bool Field__nullable(const std::shared_ptr<arrow::Field>& field);
+RcppExport SEXP _arrow_Field__nullable(SEXP fieldSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(Field__nullable(type));
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type field(fieldSEXP);
+    rcpp_result_gen = Rcpp::wrap(Field__nullable(field));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Field__type
+std::shared_ptr<arrow::DataType> Field__type(const std::shared_ptr<arrow::Field>& field);
+RcppExport SEXP _arrow_Field__type(SEXP fieldSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type field(fieldSEXP);
+    rcpp_result_gen = Rcpp::wrap(Field__type(field));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -2178,7 +2201,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3},
     {"_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1},
     {"_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1},
+    {"_arrow_Field__Equals", (DL_FUNC) &_arrow_Field__Equals, 2},
     {"_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1},
+    {"_arrow_Field__type", (DL_FUNC) &_arrow_Field__type, 1},
     {"_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2},
     {"_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1},
     {"_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1},

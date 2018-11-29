@@ -453,20 +453,28 @@ ipc___feather___TableReader__Open <- function(stream) {
     .Call(`_arrow_ipc___feather___TableReader__Open`, stream)
 }
 
-Field__initialize <- function(name, type, nullable = TRUE) {
-    .Call(`_arrow_Field__initialize`, name, type, nullable)
+Field__initialize <- function(name, field, nullable = TRUE) {
+    .Call(`_arrow_Field__initialize`, name, field, nullable)
 }
 
-Field__ToString <- function(type) {
-    .Call(`_arrow_Field__ToString`, type)
+Field__ToString <- function(field) {
+    .Call(`_arrow_Field__ToString`, field)
 }
 
-Field__name <- function(type) {
-    .Call(`_arrow_Field__name`, type)
+Field__name <- function(field) {
+    .Call(`_arrow_Field__name`, field)
 }
 
-Field__nullable <- function(type) {
-    .Call(`_arrow_Field__nullable`, type)
+Field__Equals <- function(field, other) {
+    .Call(`_arrow_Field__Equals`, field, other)
+}
+
+Field__nullable <- function(field) {
+    .Call(`_arrow_Field__nullable`, field)
+}
+
+Field__type <- function(field) {
+    .Call(`_arrow_Field__type`, field)
 }
 
 io___Readable__Read <- function(x, nbytes) {
