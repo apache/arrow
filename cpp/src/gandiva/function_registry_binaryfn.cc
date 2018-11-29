@@ -189,7 +189,6 @@ using std::vector;
 
 FunctionRegistryBin::SignatureMap& FunctionRegistryBin::GetBinaryFnSignature() {
   static NativeFunction binary_fn_registry_[] = {
-
     BINARY_UNSAFE_NULL_IF_NULL(log, int32, float64),
     BINARY_UNSAFE_NULL_IF_NULL(log, int64, float64),
     BINARY_UNSAFE_NULL_IF_NULL(log, uint32, float64),
