@@ -24,6 +24,8 @@
 #undef ARROW_HAVE_SSE2
 #undef ARROW_HAVE_SSE4_2
 
+#ifdef ARROW_USE_SIMD
+
 // MSVC x86-64
 
 #if (defined(_M_AMD64) || defined(_M_X64))
@@ -44,8 +46,6 @@
 #include <nmmintrin.h>
 #endif
 
-#if defined(ARROW_USE_SSE) && !defined(ARROW_HAVE_SSE2)
-#error "ARROW_USE_SSE enabled but no intrinsics available"
 #endif
 
 namespace arrow {

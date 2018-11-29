@@ -190,8 +190,9 @@ Pass multiple labels by dividing with semicolons")
     "Build Arrow Fuzzing executables"
     OFF)
 
-  option(ARROW_SSE3
-    "Build Arrow with SSE3"
+  # Disable this option to exercise non-SIMD fallbacks
+  option(ARROW_USE_SIMD
+    "Build with SIMD optimizations"
     ON)
 
   option(ARROW_ALTIVEC
@@ -220,10 +221,6 @@ Pass multiple labels by dividing with semicolons")
 
   option(ARROW_PLASMA_JAVA_CLIENT
     "Build the plasma object store java client"
-    OFF)
-
-  option(ARROW_USE_SSE
-    "Build with SSE4 optimizations"
     OFF)
 
   option(ARROW_WITH_BROTLI
