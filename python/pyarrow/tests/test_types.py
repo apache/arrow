@@ -19,27 +19,14 @@ from collections import OrderedDict
 
 import pickle
 import pytest
+import hypothesis as h
+import hypothesis.strategies as st
 
 import pandas as pd
 import numpy as np
 import pyarrow as pa
 import pyarrow.types as types
-
-from hypothesis import given, example
-from . import strategies as past
-
-
-@given(past.fields())
-@example(pa.field(name='', type=pa.null(), metadata={'0': '', '': ''}))
-def test_fields_are_picklable(field):
-    data = pickle.dumps(field)
-    assert pickle.loads(data) == field
-
-
-@given(past.all_types)
-def test_types_are_picklable(ty):
-    data = pickle.dumps(ty)
-    assert pickle.loads(data) == ty
+import pyarrow.tests.strategies as past
 
 
 def get_many_types():
@@ -549,3 +536,38 @@ def test_schema_from_pandas(data):
     schema = pa.Schema.from_pandas(df)
     expected = pa.Table.from_pandas(df).schema
     assert schema == expected
+
+
+@h.given(
+    past.all_types |
+    past.all_fields |
+    past.all_schemas
+)
+@h.example(
+    pa.field(name='', type=pa.null(), metadata={'0': '', '': ''})
+)
+def test_pickling(field):
+    data = pickle.dumps(field)
+    assert pickle.loads(data) == field
+
+
+@h.given(
+    st.lists(past.all_types) |
+    st.lists(past.all_fields) |
+    st.lists(past.all_schemas)
+)
+def test_hashing(items):
+    h.assume(
+        # well, this is still O(n^2), but makes the input unique
+        all(not a.equals(b) for i, a in enumerate(items) for b in items[:i])
+    )
+
+    container = {}
+    for i, item in enumerate(items):
+        assert hash(item) == hash(item)
+        container[item] = i
+
+    assert len(container) == len(items)
+
+    for i, item in enumerate(items):
+        assert container[item] == i

@@ -24,6 +24,7 @@ except ImportError:
 
 
 groups = [
+    'hypothesis',
     'gandiva',
     'hdfs',
     'large_memory',
@@ -36,6 +37,7 @@ groups = [
 
 
 defaults = {
+    'hypothesis': False,
     'gandiva': False,
     'hdfs': False,
     'large_memory': False,
@@ -84,16 +86,15 @@ def pytest_configure(config):
 
 def pytest_addoption(parser):
     for group in groups:
-        parser.addoption('--{0}'.format(group), action='store_true',
-                         default=defaults[group],
-                         help=('Enable the {0} test group'.format(group)))
+        for flag in ['--{0}', '--enable-{0}']:
+            parser.addoption(flag.format(group), action='store_true',
+                             default=defaults[group],
+                             help=('Enable the {0} test group'.format(group)))
 
-    for group in groups:
         parser.addoption('--disable-{0}'.format(group), action='store_true',
                          default=False,
                          help=('Disable the {0} test group'.format(group)))
 
-    for group in groups:
         parser.addoption('--only-{0}'.format(group), action='store_true',
                          default=False,
                          help=('Run only the {0} test group'.format(group)))
@@ -115,15 +116,18 @@ def pytest_runtest_setup(item):
     only_set = False
 
     for group in groups:
-        only_flag = '--only-{0}'.format(group)
-        disable_flag = '--disable-{0}'.format(group)
         flag = '--{0}'.format(group)
+        only_flag = '--only-{0}'.format(group)
+        enable_flag = '--enable-{0}'.format(group)
+        disable_flag = '--disable-{0}'.format(group)
 
         if item.config.getoption(only_flag):
             only_set = True
         elif getattr(item.obj, group, None):
-            if (item.config.getoption(disable_flag) or
-                    not item.config.getoption(flag)):
+            is_enabled = (item.config.getoption(flag) or
+                          item.config.getoption(enable_flag))
+            is_disabled = item.config.getoption(disable_flag)
+            if is_disabled or not is_enabled:
                 pytest.skip('{0} NOT enabled'.format(flag))
 
     if only_set:

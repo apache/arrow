@@ -109,20 +109,14 @@ def nested_complex_types(inner_strategy=primitive_types):
     return st.recursive(inner_strategy, complex_types)
 
 
-all_types = st.one_of(
-    primitive_types,
-    list_types(),
-    struct_types(),
-    complex_types(),
-    nested_list_types(),
-    nested_struct_types(),
-    nested_complex_types()
-)
-
-
 @st.defines_strategy
 def schemas(type_strategy=primitive_types):
     return st.builds(pa.schema, st.lists(fields(type_strategy)))
 
 
 complex_schemas = schemas(complex_types())
+
+
+all_types = st.one_of(primitive_types, complex_types(), nested_complex_types())
+all_fields = fields(all_types)
+all_schemas = schemas(all_types)

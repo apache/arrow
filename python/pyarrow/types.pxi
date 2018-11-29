@@ -514,6 +514,9 @@ cdef class Schema:
     def __reduce__(self):
         return schema, (list(self), self.metadata)
 
+    def __hash__(self):
+        return hash((tuple(self), self.metadata))
+
     @property
     def names(self):
         """
