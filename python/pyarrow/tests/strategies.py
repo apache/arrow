@@ -22,8 +22,8 @@ import hypothesis.strategies as st
 # TODO(kszucs): alphanum_text, surrogate_text
 custom_text = st.text(
     alphabet=st.characters(
-        min_codepoint=int('41', 16),
-        max_codepoint=int('7E', 16)
+        min_codepoint=0x41,
+        max_codepoint=0x7E
     )
 )
 

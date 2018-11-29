@@ -54,6 +54,7 @@ fi
 conda install -y -q pip \
       nomkl \
       cloudpickle \
+      hypothesis \
       numpy=1.13.1 \
       ${CONDA_JVM_DEPS} \
       pandas \
