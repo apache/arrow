@@ -61,14 +61,7 @@ conda install -y -q pip \
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Install documentation dependencies
-  conda install -y -q \
-        ipython \
-        numpydoc \
-        sphinx \
-        breathe \
-        recommonmark \
-        doxygen \
-        sphinx_rtd_theme
+  conda install -y -c conda-forge --file ci/conda_env_sphinx.yml
 fi
 
 # ARROW-2093: PyTorch increases the size of our conda dependency stack
@@ -196,7 +189,7 @@ if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; the
   pushd ../cpp/apidoc
   doxygen
   popd
-  cd ../doc
+  cd ../docs
   sphinx-build -q -b html -d _build/doctrees -W source _build/html
 fi
 
