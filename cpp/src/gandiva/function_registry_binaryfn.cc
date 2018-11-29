@@ -15,10 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/function_registry.h"
 #include "gandiva/function_registry_binaryfn.h"
-#include "gandiva/function_registry_unaryfn.h"
 
+#include <memory>
 #include <vector>
 
 namespace gandiva {
@@ -186,111 +185,130 @@ using std::vector;
 #define NUMERIC_BOOL_DATE_VAR_LEN_TYPES(INNER, NAME) \
   NUMERIC_BOOL_DATE_TYPES(INNER, NAME), VAR_LEN_TYPES(INNER, NAME)
 
-// list of registered native functions.
-NativeFunction FunctionRegistry::pc_registry_[] = {
-    // Arithmetic operations
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, add),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, subtract),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, multiply),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide),
-    BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int32, int32),
-    BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int64, int64),
-    NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
-    NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
-    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
-    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
-    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
-    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
 
-    // date/timestamp operations
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMillennium),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractCentury),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDecade),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractYear),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDoy),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractQuarter),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMonth),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractWeek),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDow),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDay),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractSecond),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractEpoch),
 
-    // date_trunc operations on date/timestamp
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Millennium),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Century),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Decade),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Year),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Quarter),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Month),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Week),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Day),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Hour),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Minute),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Second),
+FunctionRegistryBin::SignatureMap& FunctionRegistryBin::GetBinaryFnSignature() {
+  static NativeFunction binary_fn_registry_[] = {
 
-    // time operations
-    TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
-    TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
-    TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractSecond),
+    BINARY_UNSAFE_NULL_IF_NULL(log, int32, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, int64, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, uint32, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, uint64, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, float32, float64),
+    BINARY_UNSAFE_NULL_IF_NULL(log, float64, float64),
 
-    NativeFunction("upper", DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
-                   "upper_utf8", NativeFunction::kNeedsContext),
+    BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(power, float64),
 
-    NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), kResultNullIfNull,
-                   "gdv_fn_like_utf8_utf8", NativeFunction::kNeedsFunctionHolder),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, date64, date64, float64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, timestamp, timestamp, float64),
 
-    NativeFunction("castDATE", DataTypeVector{utf8()}, date64(), kResultNullIfNull,
-                   "castDATE_utf8",
-                   NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+    // timestamp diff operations
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffSecond, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffMinute, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffHour, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffDay, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffWeek, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffMonth, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffQuarter, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffYear, timestamp, timestamp, int32),
 
-    NativeFunction("to_date", DataTypeVector{utf8(), utf8(), int32()}, date64(),
-                   kResultNullInternal, "gdv_fn_to_date_utf8_utf8_int32",
-                   NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
-                       NativeFunction::kCanReturnErrors),
-};  // namespace gandiva
+    // timestamp add int32 operations
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddSecond, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMinute, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddHour, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddDay, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddWeek, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMonth, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddQuarter, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddYear, timestamp, int32, timestamp),
+    // date add int32 operations
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddSecond, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMinute, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddHour, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddDay, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddWeek, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMonth, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddQuarter, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddYear, date64, int32, date64),
 
-FunctionRegistry::iterator FunctionRegistry::begin() const {
-  return std::begin(pc_registry_);
-}
+    // timestamp add int64 operations
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddSecond, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMinute, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddHour, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddDay, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddWeek, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMonth, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddQuarter, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddYear, timestamp, int64, timestamp),
+    // date add int64 operations
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddSecond, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMinute, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddHour, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddDay, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddWeek, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMonth, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddQuarter, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddYear, date64, int64, date64),
 
-FunctionRegistry::iterator FunctionRegistry::end() const {
-  return std::end(pc_registry_);
-}
+    // date_add(date64, int32), date_add(timestamp, int32)
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, timestamp, int32, timestamp),
 
-FunctionRegistry::SignatureMap FunctionRegistry::pc_registry_map_ = InitPCMap();
+    // date_add(date64, int64), date_add(timestamp, int64)
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, timestamp, int64, timestamp),
 
-FunctionRegistry::SignatureMap FunctionRegistry::InitPCMap() {
-  SignatureMap map;
+    // date_add(int32, date64), date_add(int32, timestamp)
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, int32, date64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, int32, date64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, int32, timestamp, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, int32, timestamp, timestamp),
 
-  int num_entries = static_cast<int>(sizeof(pc_registry_) / sizeof(NativeFunction));
+    // date_add(int64, date64), date_add(int64, timestamp)
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, int64, date64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, int64, date64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, int64, timestamp, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, int64, timestamp, timestamp),
+
+    // date_sub(date64, int32), subtract and date_diff
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_sub, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, date64, int32, date64),
+    // date_sub(timestamp, int32), subtract and date_diff
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_sub, timestamp, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, timestamp, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, timestamp, int32, date64),
+
+    // date_sub(date64, int64), subtract and date_diff
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_sub, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, date64, int64, date64),
+    // date_sub(timestamp, int64), subtract and date_diff
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_sub, timestamp, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, timestamp, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, timestamp, int64, date64),
+
+
+    BINARY_RELATIONAL_SAFE_NULL_IF_NULL(starts_with, utf8),
+    BINARY_RELATIONAL_SAFE_NULL_IF_NULL(ends_with, utf8)
+  };
+
+  static FunctionRegistryBin::SignatureMap map;
+
+  const int num_entries =
+      static_cast<int>(sizeof(binary_fn_registry_) / sizeof(NativeFunction));
   for (int i = 0; i < num_entries; i++) {
-    const NativeFunction* entry = &pc_registry_[i];
+    const NativeFunction* entry = &binary_fn_registry_[i];
 
     DCHECK(map.find(&entry->signature()) == map.end());
     map[&entry->signature()] = entry;
-    // printf("%s -> %s\n", entry->signature().ToString().c_str(),
-    //      entry->pc_name().c_str());
   }
 
-  FunctionRegistryBin::SignatureMap& binaryFnMap =
-      FunctionRegistryBin::GetBinaryFnSignature();
-  map.insert(binaryFnMap.begin(), binaryFnMap.end());
-
-  FunctionRegistryUnary::SignatureMap& unaryFnMap =
-      FunctionRegistryUnary::GetUnaryFnSignature();
-  map.insert(unaryFnMap.begin(), unaryFnMap.end());
-
-
   return map;
-}
-
-const NativeFunction* FunctionRegistry::LookupSignature(
-    const FunctionSignature& signature) const {
-  auto got = pc_registry_map_.find(&signature);
-  return got == pc_registry_map_.end() ? NULL : got->second;
 }
 
 }  // namespace gandiva

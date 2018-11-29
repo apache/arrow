@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/function_registry.h"
-#include "gandiva/function_registry_binaryfn.h"
 #include "gandiva/function_registry_unaryfn.h"
 
 #include <vector>
@@ -186,111 +184,102 @@ using std::vector;
 #define NUMERIC_BOOL_DATE_VAR_LEN_TYPES(INNER, NAME) \
   NUMERIC_BOOL_DATE_TYPES(INNER, NAME), VAR_LEN_TYPES(INNER, NAME)
 
-// list of registered native functions.
-NativeFunction FunctionRegistry::pc_registry_[] = {
+
+FunctionRegistryUnary::SignatureMap& FunctionRegistryUnary::GetUnaryFnSignature() {
+  // list of registered native functions.
+
+  static NativeFunction unary_fn_registry_[] = {
     // Arithmetic operations
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, add),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, subtract),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, multiply),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide),
-    BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int32, int32),
-    BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int64, int64),
-    NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
-    NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
-    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
-    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
-    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
-    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
+    UNARY_SAFE_NULL_IF_NULL(not, boolean, boolean),
 
-    // date/timestamp operations
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMillennium),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractCentury),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDecade),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractYear),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDoy),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractQuarter),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMonth),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractWeek),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDow),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDay),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractSecond),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractEpoch),
+    // cast operations
+    UNARY_SAFE_NULL_IF_NULL(castBIGINT, int32, int64),
+    UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int32, float32),
+    UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int64, float32),
+    UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int32, float64),
+    UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int64, float64),
+    UNARY_SAFE_NULL_IF_NULL(castFLOAT8, float32, float64),
+    UNARY_SAFE_NULL_IF_NULL(castDATE, int64, date64),
 
-    // date_trunc operations on date/timestamp
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Millennium),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Century),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Decade),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Year),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Quarter),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Month),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Week),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Day),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Hour),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Minute),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Second),
+    // extended math ops
+    UNARY_SAFE_NULL_IF_NULL(cbrt, int32, float64),
+    UNARY_SAFE_NULL_IF_NULL(cbrt, int64, float64),
+    UNARY_SAFE_NULL_IF_NULL(cbrt, uint32, float64),
+    UNARY_SAFE_NULL_IF_NULL(cbrt, uint64, float64),
+    UNARY_SAFE_NULL_IF_NULL(cbrt, float32, float64),
+    UNARY_SAFE_NULL_IF_NULL(cbrt, float64, float64),
 
-    // time operations
-    TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
-    TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
-    TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractSecond),
+    UNARY_SAFE_NULL_IF_NULL(exp, int32, float64),
+    UNARY_SAFE_NULL_IF_NULL(exp, int64, float64),
+    UNARY_SAFE_NULL_IF_NULL(exp, uint32, float64),
+    UNARY_SAFE_NULL_IF_NULL(exp, uint64, float64),
+    UNARY_SAFE_NULL_IF_NULL(exp, float32, float64),
+    UNARY_SAFE_NULL_IF_NULL(exp, float64, float64),
 
-    NativeFunction("upper", DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
-                   "upper_utf8", NativeFunction::kNeedsContext),
+    UNARY_SAFE_NULL_IF_NULL(log, int32, float64),
+    UNARY_SAFE_NULL_IF_NULL(log, int64, float64),
+    UNARY_SAFE_NULL_IF_NULL(log, uint32, float64),
+    UNARY_SAFE_NULL_IF_NULL(log, uint64, float64),
+    UNARY_SAFE_NULL_IF_NULL(log, float32, float64),
+    UNARY_SAFE_NULL_IF_NULL(log, float64, float64),
 
-    NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), kResultNullIfNull,
-                   "gdv_fn_like_utf8_utf8", NativeFunction::kNeedsFunctionHolder),
+    UNARY_SAFE_NULL_IF_NULL(log10, int32, float64),
+    UNARY_SAFE_NULL_IF_NULL(log10, int64, float64),
+    UNARY_SAFE_NULL_IF_NULL(log10, uint32, float64),
+    UNARY_SAFE_NULL_IF_NULL(log10, uint64, float64),
+    UNARY_SAFE_NULL_IF_NULL(log10, float32, float64),
+    UNARY_SAFE_NULL_IF_NULL(log10, float64, float64),
 
-    NativeFunction("castDATE", DataTypeVector{utf8()}, date64(), kResultNullIfNull,
-                   "castDATE_utf8",
-                   NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+    // nullable never operations
+    NUMERIC_BOOL_DATE_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnull),
+    NUMERIC_BOOL_DATE_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnotnull),
+    NUMERIC_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric),
 
-    NativeFunction("to_date", DataTypeVector{utf8(), utf8(), int32()}, date64(),
-                   kResultNullInternal, "gdv_fn_to_date_utf8_utf8_int32",
-                   NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
-                       NativeFunction::kCanReturnErrors),
-};  // namespace gandiva
+    // nullable never binary operations
+    NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, is_distinct_from),
+    NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, is_not_distinct_from),
 
-FunctionRegistry::iterator FunctionRegistry::begin() const {
-  return std::begin(pc_registry_);
-}
+    // hash functions
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SAFE_NULL_NEVER, hash),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SAFE_NULL_NEVER, hash32),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SAFE_NULL_NEVER, hash32AsDouble),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SEED_SAFE_NULL_NEVER, hash32),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SEED_SAFE_NULL_NEVER, hash32AsDouble),
 
-FunctionRegistry::iterator FunctionRegistry::end() const {
-  return std::end(pc_registry_);
-}
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SAFE_NULL_NEVER, hash64),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SAFE_NULL_NEVER, hash64AsDouble),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SEED_SAFE_NULL_NEVER, hash64),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SEED_SAFE_NULL_NEVER, hash64AsDouble),
 
-FunctionRegistry::SignatureMap FunctionRegistry::pc_registry_map_ = InitPCMap();
+    // utf8/binary operations
+    UNARY_SAFE_NULL_IF_NULL(octet_length, utf8, int32),
+    UNARY_SAFE_NULL_IF_NULL(octet_length, binary, int32),
+    UNARY_SAFE_NULL_IF_NULL(bit_length, utf8, int32),
+    UNARY_SAFE_NULL_IF_NULL(bit_length, binary, int32),
+    UNARY_UNSAFE_NULL_IF_NULL(char_length, utf8, int32),
+    UNARY_UNSAFE_NULL_IF_NULL(length, utf8, int32),
+    UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, binary, int32),
 
-FunctionRegistry::SignatureMap FunctionRegistry::InitPCMap() {
-  SignatureMap map;
+    VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
+    VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
+    VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
+    VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
+    VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
+    VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to)
+  };
 
-  int num_entries = static_cast<int>(sizeof(pc_registry_) / sizeof(NativeFunction));
+  static FunctionRegistryUnary::SignatureMap map;
+
+  const int num_entries =
+      static_cast<int>(sizeof(unary_fn_registry_) / sizeof(NativeFunction));
   for (int i = 0; i < num_entries; i++) {
-    const NativeFunction* entry = &pc_registry_[i];
+    const NativeFunction* entry = &unary_fn_registry_[i];
 
     DCHECK(map.find(&entry->signature()) == map.end());
     map[&entry->signature()] = entry;
-    // printf("%s -> %s\n", entry->signature().ToString().c_str(),
-    //      entry->pc_name().c_str());
   }
 
-  FunctionRegistryBin::SignatureMap& binaryFnMap =
-      FunctionRegistryBin::GetBinaryFnSignature();
-  map.insert(binaryFnMap.begin(), binaryFnMap.end());
-
-  FunctionRegistryUnary::SignatureMap& unaryFnMap =
-      FunctionRegistryUnary::GetUnaryFnSignature();
-  map.insert(unaryFnMap.begin(), unaryFnMap.end());
-
-
   return map;
-}
-
-const NativeFunction* FunctionRegistry::LookupSignature(
-    const FunctionSignature& signature) const {
-  auto got = pc_registry_map_.find(&signature);
-  return got == pc_registry_map_.end() ? NULL : got->second;
 }
 
 }  // namespace gandiva

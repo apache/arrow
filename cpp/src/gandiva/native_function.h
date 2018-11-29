@@ -71,6 +71,8 @@ class NativeFunction {
   std::string pc_name_;
 
   friend class FunctionRegistry;
+  friend class FunctionRegistryBin;
+  friend class FunctionRegistryUnary;
 };
 
 }  // end namespace gandiva

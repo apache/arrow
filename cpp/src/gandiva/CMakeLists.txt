@@ -55,6 +55,8 @@ set(SRC_FILES annotator.cc
       exported_funcs_registry.cc
       filter.cc
       function_registry.cc
+      function_registry_unaryfn.cc
+      function_registry_binaryfn.cc
       function_signature.cc
       gdv_function_stubs.cc
       llvm_generator.cc
