@@ -128,6 +128,7 @@ func (b *builder) resize(newBits int, init func(int)) {
 	}
 	if newBits < b.length {
 		b.length = newBits
+		b.nulls = newBits - bitutil.CountSetBits(b.nullBitmap.Buf(), 0, newBits)
 	}
 }
 
