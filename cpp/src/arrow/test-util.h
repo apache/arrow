@@ -192,6 +192,21 @@ ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
 
 ARROW_EXPORT void CompareBatch(const RecordBatch& left, const RecordBatch& right);
 
+// Check if the padding of the buffers of the array is zero.
+// Also cause valgrind warnings if the padding bytes are uninitialized.
+ARROW_EXPORT void AssertZeroPadded(const Array& array);
+
+// Check if the valid buffer bytes are initialized
+// and cause valgrind warnings otherwise.
+ARROW_EXPORT void TestInitialized(const Array& array);
+
+template <typename BuilderType>
+void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {
+  ASSERT_OK(builder->Finish(out));
+  AssertZeroPadded(**out);
+  TestInitialized(**out);
+}
+
 template <typename T, typename U>
 void rand_uniform_int(int64_t n, uint32_t seed, T min_value, T max_value, U* out) {
   DCHECK(out || (n == 0));
