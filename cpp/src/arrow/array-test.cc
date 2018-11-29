@@ -261,6 +261,16 @@ TEST_F(TestBuilder, TestReserve) {
   ASSERT_EQ(BitUtil::NextPower2(1030), builder.capacity());
 }
 
+TEST_F(TestBuilder, TestResizeDownsize) {
+  UInt8Builder builder(pool_);
+
+  ASSERT_OK(builder.Resize(1000));
+  ASSERT_EQ(1000, builder.capacity());
+
+  // Can't downsize.
+  ASSERT_RAISES(Invalid, builder.Resize(500));
+}
+
 template <typename Attrs>
 class TestPrimitiveBuilder : public TestBuilder {
  public:
@@ -888,6 +898,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_OK(this->builder_->Reserve(90));
   ASSERT_OK(this->builder_->Advance(100));
   ASSERT_OK(this->builder_->Reserve(kMinBuilderCapacity));
+
+  ASSERT_RAISES(Invalid, this->builder_->Resize(1));
 
   ASSERT_EQ(BitUtil::NextPower2(kMinBuilderCapacity + 100), this->builder_->capacity());
 }

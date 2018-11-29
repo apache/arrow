@@ -79,9 +79,17 @@ Status ArrayBuilder::AppendToBitmap(const uint8_t* valid_bytes, int64_t length) 
   return Status::OK();
 }
 
+static inline Status CheckCapacity(int64_t new_capacity, int64_t old_capacity) {
+  if (new_capacity < 0) return Status::Invalid("Resize capacity must be positive");
+  if (new_capacity < old_capacity) return Status::Invalid("Resize cannot downsize");
+
+  return Status::OK();
+}
+
 Status ArrayBuilder::Resize(int64_t capacity) {
   // Target size of validity (null) bitmap data
   const int64_t new_bitmap_size = BitUtil::BytesForBits(capacity);
+  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
 
   if (capacity_ == 0) {
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_bitmap_size, &null_bitmap_));
@@ -200,10 +208,8 @@ void PrimitiveBuilder<T>::Reset() {
 
 template <typename T>
 Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
-  // XXX: Set floor size for now
-  if (capacity < kMinBuilderCapacity) {
-    capacity = kMinBuilderCapacity;
-  }
+  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+  capacity = std::max(capacity, kMinBuilderCapacity);
 
   int64_t nbytes = TypeTraits<T>::bytes_required(capacity);
   if (capacity_ == 0) {
@@ -298,10 +304,8 @@ void AdaptiveIntBuilderBase::Reset() {
 }
 
 Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
-  // XXX: Set floor size for now
-  if (capacity < kMinBuilderCapacity) {
-    capacity = kMinBuilderCapacity;
-  }
+  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+  capacity = std::max(capacity, kMinBuilderCapacity);
 
   int64_t nbytes = capacity * int_size_;
   if (capacity_ == 0) {
@@ -634,10 +638,8 @@ void BooleanBuilder::Reset() {
 }
 
 Status BooleanBuilder::Resize(int64_t capacity) {
-  // XXX: Set floor size for now
-  if (capacity < kMinBuilderCapacity) {
-    capacity = kMinBuilderCapacity;
-  }
+  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+  capacity = std::max(capacity, kMinBuilderCapacity);
 
   const int64_t new_bitmap_size = BitUtil::BytesForBits(capacity);
   if (capacity_ == 0) {
@@ -792,9 +794,8 @@ void DictionaryBuilder<T>::Reset() {
 
 template <typename T>
 Status DictionaryBuilder<T>::Resize(int64_t capacity) {
-  if (capacity < kMinBuilderCapacity) {
-    capacity = kMinBuilderCapacity;
-  }
+  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+  capacity = std::max(capacity, kMinBuilderCapacity);
 
   if (capacity_ == 0) {
     // Initialize hash table
@@ -807,9 +808,9 @@ Status DictionaryBuilder<T>::Resize(int64_t capacity) {
 }
 
 Status DictionaryBuilder<NullType>::Resize(int64_t capacity) {
-  if (capacity < kMinBuilderCapacity) {
-    capacity = kMinBuilderCapacity;
-  }
+  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+  capacity = std::max(capacity, kMinBuilderCapacity);
+
   RETURN_NOT_OK(values_builder_.Resize(capacity));
   return ArrayBuilder::Resize(capacity);
 }
@@ -1003,6 +1004,8 @@ Status ListBuilder::Append(bool is_valid) {
 
 Status ListBuilder::Resize(int64_t capacity) {
   DCHECK_LE(capacity, kListMaximumElements);
+  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+
   // one more then requested for offsets
   RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int32_t)));
   return ArrayBuilder::Resize(capacity);
@@ -1054,6 +1057,8 @@ BinaryBuilder::BinaryBuilder(MemoryPool* pool) : BinaryBuilder(binary(), pool) {
 
 Status BinaryBuilder::Resize(int64_t capacity) {
   DCHECK_LE(capacity, kListMaximumElements);
+  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+
   // one more then requested for offsets
   RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int32_t)));
   return ArrayBuilder::Resize(capacity);
@@ -1266,6 +1271,7 @@ void FixedSizeBinaryBuilder::Reset() {
 }
 
 Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
+  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
   RETURN_NOT_OK(byte_builder_.Resize(capacity * byte_width_));
   return ArrayBuilder::Resize(capacity);
 }
