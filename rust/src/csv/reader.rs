@@ -102,7 +102,7 @@ macro_rules! build_primitive_array {
 
 impl Reader {
     /// Read the next batch of rows
-    pub fn next(&mut self) -> Option<Result<RecordBatch>> {
+    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         // read a batch of rows into memory
         let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
         for _ in 0..self.batch_size {
@@ -111,9 +111,7 @@ impl Reader {
                     rows.push(r);
                 }
                 Some(Err(_)) => {
-                    return Some(Err(ArrowError::ParseError(
-                        "Error reading CSV file".to_string(),
-                    )));
+                    return Err(ArrowError::ParseError("Error reading CSV file".to_string()));
                 }
                 None => break,
             }
@@ -121,7 +119,7 @@ impl Reader {
 
         // return early if no data was loaded
         if rows.is_empty() {
-            return None;
+            return Ok(None);
         }
 
         let projection: Vec<usize> = match self.projection {
@@ -178,8 +176,8 @@ impl Reader {
             .collect();
 
         match arrays {
-            Ok(arr) => Some(Ok(RecordBatch::new(self.schema.clone(), arr))),
-            Err(e) => Some(Err(e)),
+            Ok(arr) => Ok(Some(RecordBatch::new(self.schema.clone(), arr))),
+            Err(e) => Err(e),
         }
     }
 }
