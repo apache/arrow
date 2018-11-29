@@ -854,8 +854,8 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
   Int96 day;
   day.value[2] = UINT32_C(2440589);
   int64_t seconds = (11 * 60 + 35) * 60;
-  *(reinterpret_cast<int64_t*>(&(day.value))) =
-      seconds * INT64_C(1000) * INT64_C(1000) * INT64_C(1000) + 145738543;
+  Int96SetNanoSeconds(
+      day, seconds * INT64_C(1000) * INT64_C(1000) * INT64_C(1000) + 145738543);
   // Compute the corresponding nanosecond timestamp
   struct tm datetime;
   memset(&datetime, 0, sizeof(struct tm));
