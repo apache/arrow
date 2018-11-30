@@ -67,18 +67,18 @@ TEST(BasicJson, ParserUsage) {
 
   std::shared_ptr<Array> hello_expected;
   ArrayFromVector<DoubleType>({3.5, 3.2, 3.4, 0.0}, &hello_expected);
-  auto hello = parsed->column((int)parsed->schema()->GetFieldIndex("hello"));
+  auto hello = parsed->column(parsed->schema()->GetFieldIndex("hello"));
   AssertArraysEqual(*hello, *hello_expected);
 
   std::shared_ptr<Array> world_expected;
   ArrayFromVector<BooleanType, bool>({0, 1, 0, 1}, &world_expected);
-  auto world = parsed->column((int)parsed->schema()->GetFieldIndex("world"));
+  auto world = parsed->column(parsed->schema()->GetFieldIndex("world"));
   AssertArraysEqual(*world, *world_expected);
 
   std::shared_ptr<Array> yo_expected;
   ArrayFromVector<StringType, std::string>({"thing", "thingie", "thingy", "thingumy"},
                                            &yo_expected);
-  auto yo = parsed->column((int)parsed->schema()->GetFieldIndex("yo"));
+  auto yo = parsed->column(parsed->schema()->GetFieldIndex("yo"));
   AssertArraysEqual(*yo, *yo_expected);
 }
 
