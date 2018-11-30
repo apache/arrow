@@ -16,7 +16,7 @@ RUN apk add --no-cache -q \
         make \
         musl-dev \
         ninja \
-        rapidjson-dev
+        rapidjson-dev \
         re2-dev \
         snappy-dev \
         wget \
