@@ -297,11 +297,19 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
     OP_REQUIRES_OK_ASYNC(context, context->allocate_output(0, shape, &output_tensor),
                          done);
 
+    auto wrapped_callback = [this, context, done, object_id]() {
+      {
+        tf::mutex_lock lock(mu_);
+        ARROW_CHECK_OK(client_.Release(object_id));
+      }
+      done();
+    };
+
     if (std::is_same<Device, CPUDevice>::value) {
       std::memcpy(
           reinterpret_cast<void*>(const_cast<char*>(output_tensor->tensor_data().data())),
           plasma_data, size_in_bytes);
-      done();
+      wrapped_callback();
     } else {
 #ifdef GOOGLE_CUDA
       auto orig_stream = context->op_device_context()->stream();
@@ -340,7 +348,7 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
       CHECK(orig_stream->ThenWaitFor(h2d_stream).ok());
 
       context->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(
-          h2d_stream, std::move(done));
+          h2d_stream, std::move(wrapped_callback));
 #endif
     }
   }
