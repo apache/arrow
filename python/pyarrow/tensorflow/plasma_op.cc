@@ -283,15 +283,15 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
                                  /*timeout_ms=*/-1, &object_buffer));
     }
 
-    std::shared_ptr<arrow::Tensor> tensor;
-    ARROW_CHECK_OK(arrow::py::ReadTensor(object_buffer.data, &tensor));
+    std::shared_ptr<arrow::Tensor> ndarray;
+    ARROW_CHECK_OK(arrow::py::NdarrayFromBuffer(object_buffer.data, &ndarray));
 
-    int64_t byte_width = get_byte_width(*tensor->type());
-    const int64_t size_in_bytes = tensor->data()->size();
+    int64_t byte_width = get_byte_width(*ndarray->type());
+    const int64_t size_in_bytes = ndarray->data()->size();
 
     tf::TensorShape shape({static_cast<int64_t>(size_in_bytes / byte_width)});
 
-    const float* plasma_data = reinterpret_cast<const float*>(tensor->raw_data());
+    const float* plasma_data = reinterpret_cast<const float*>(ndarray->raw_data());
 
     tf::Tensor* output_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(context, context->allocate_output(0, shape, &output_tensor),

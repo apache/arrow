@@ -76,15 +76,15 @@ ARROW_EXPORT
 Status DeserializeObject(PyObject* context, const SerializedPyObject& object,
                          PyObject* base, PyObject** out);
 
-/// \brief Reconstruct Tensor from Arrow-serialized representation
+/// \brief Reconstruct Ndarray from Arrow-serialized representation
 /// \param[in] object Object to deserialize
 /// \param[out] out The deserialized tensor
 /// \return Status
 ARROW_EXPORT
-Status DeserializeTensor(const SerializedPyObject& object, std::shared_ptr<Tensor>* out);
+Status DeserializeNdarray(const SerializedPyObject& object, std::shared_ptr<Tensor>* out);
 
 ARROW_EXPORT
-Status ReadTensor(std::shared_ptr<Buffer> src, std::shared_ptr<Tensor>* out);
+Status NdarrayFromBuffer(std::shared_ptr<Buffer> src, std::shared_ptr<Tensor>* out);
 
 }  // namespace py
 }  // namespace arrow
