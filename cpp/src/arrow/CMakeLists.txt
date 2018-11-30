@@ -37,6 +37,9 @@ set(ARROW_SRCS
   csv/parser.cc
   csv/reader.cc
 
+  json/options.cc
+  json/parser.cc
+
   io/buffered.cc
   io/compressed.cc
   io/file.cc
@@ -254,5 +257,6 @@ ADD_ARROW_BENCHMARK(builder-benchmark)
 ADD_ARROW_BENCHMARK(column-benchmark)
 
 add_subdirectory(csv)
+add_subdirectory(json)
 add_subdirectory(io)
 add_subdirectory(util)
