@@ -1225,8 +1225,8 @@ def test_nested_dictionary_array():
 
 
 def test_array_from_numpy_str_utf8():
-    # ARROW-3890 -- ensure that this is well behaved in both 2.x and 3.x. In
-    # 2.x, the strings must have UTF-8 validation
+    # ARROW-3890 -- in Python 3, NPY_UNICODE arrays are produced, but in Python
+    # 2 they are NPY_STRING (binary), so we must do UTF-8 validation
     vec = np.array(["toto", "tata"])
     vec2 = np.array(["toto", "tata"], dtype=object)
 
