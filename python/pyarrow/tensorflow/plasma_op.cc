@@ -140,7 +140,7 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
     std::vector<int64_t> shape = {total_bytes / byte_width};
 
     arrow::io::MockOutputStream mock;
-    ARROW_CHECK_OK(arrow::py::WriteTensorHeader(arrow_dtype, shape, 0, &mock));
+    ARROW_CHECK_OK(arrow::py::WriteNdarrayHeader(arrow_dtype, shape, 0, &mock));
     int64_t header_size = mock.GetExtentBytesWritten();
 
     std::shared_ptr<Buffer> data_buffer;
@@ -152,7 +152,7 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
 
     int64_t offset;
     arrow::io::FixedSizeBufferWriter buf(data_buffer);
-    ARROW_CHECK_OK(arrow::py::WriteTensorHeader(arrow_dtype, shape, total_bytes, &buf));
+    ARROW_CHECK_OK(arrow::py::WriteNdarrayHeader(arrow_dtype, shape, total_bytes, &buf));
     ARROW_CHECK_OK(buf.Tell(&offset));
 
     uint8_t* data = reinterpret_cast<uint8_t*>(data_buffer->mutable_data() + offset);
