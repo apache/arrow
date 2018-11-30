@@ -390,10 +390,11 @@ Status GetSerializedFromComponents(int num_tensors, int num_ndarrays, int num_bu
 }
 
 Status DeserializeNdarray(const SerializedPyObject& object, std::shared_ptr<Tensor>* out) {
-  if (object.tensors.size() != 1) {
-    return Status::Invalid("Object is not a Tensor");
+  ARROW_LOG(INFO) << "XXX " << object.tensors.size() << " YYY " << object.ndarrays.size();
+  if (object.ndarrays.size() != 1) {
+    return Status::Invalid("Object is not an Ndarray");
   }
-  *out = object.tensors[0];
+  *out = object.ndarrays[0];
   return Status::OK();
 }
 

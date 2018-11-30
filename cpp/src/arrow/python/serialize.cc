@@ -755,8 +755,8 @@ Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject
 Status SerializeNdarray(std::shared_ptr<Tensor> tensor, SerializedPyObject* out) {
   std::shared_ptr<Array> array;
   SequenceBuilder builder;
-  RETURN_NOT_OK(builder.AppendNdarray(static_cast<int32_t>(out->tensors.size())));
-  out->tensors.push_back(tensor);
+  RETURN_NOT_OK(builder.AppendNdarray(static_cast<int32_t>(out->ndarrays.size())));
+  out->ndarrays.push_back(tensor);
   RETURN_NOT_OK(builder.Finish(nullptr, nullptr, nullptr, nullptr, &array));
   out->batch = MakeBatch(array);
   return Status::OK();
