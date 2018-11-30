@@ -19,6 +19,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <sstream>
 
 #include <snappy.h>
 
@@ -47,15 +48,21 @@ Status SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
 }
 
 Status SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
-                               int64_t ARROW_ARG_UNUSED(output_buffer_len),
-                               uint8_t* output_buffer, int64_t* output_len) {
+                               int64_t output_buffer_len, uint8_t* output_buffer,
+                               int64_t* output_len) {
+  size_t decompressed_size;
+  if (!snappy::GetUncompressedLength(reinterpret_cast<const char*>(input),
+                                     static_cast<size_t>(input_len),
+                                     &decompressed_size)) {
+    return Status::IOError("Corrupt snappy compressed data.");
+  }
+  if (output_buffer_len < static_cast<int64_t>(decompressed_size)) {
+    std::stringstream ss;
+    ss << "Output buffer size (" << output_buffer_len << ") must be " << decompressed_size
+       << " or larger.";
+    return Status::Invalid(ss.str());
+  }
   if (output_len) {
-    size_t decompressed_size;
-    if (!snappy::GetUncompressedLength(reinterpret_cast<const char*>(input),
-                                       static_cast<size_t>(input_len),
-                                       &decompressed_size)) {
-      return Status::IOError("Corrupt snappy compressed data.");
-    }
     *output_len = static_cast<int64_t>(decompressed_size);
   }
   if (!snappy::RawUncompress(reinterpret_cast<const char*>(input),
