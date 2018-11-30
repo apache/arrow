@@ -69,6 +69,7 @@ int send_fd(int conn, int fd) {
       }
     } else if (r == 0) {
       ARROW_LOG(INFO) << "Encountered unexpected EOF";
+      return 0;
     } else {
       ARROW_CHECK(r > 0);
       return static_cast<int>(r);
