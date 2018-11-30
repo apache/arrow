@@ -12,16 +12,11 @@ RUN apk add --no-cache -q \
         gcc \
         git \
         gzip \
-        lz4-dev \
         make \
         musl-dev \
         ninja \
-        rapidjson-dev \
-        re2-dev \
-        snappy-dev \
         wget \
-        zlib-dev \
-        zstd-dev
+        zlib-dev
 
 ENV CC=gcc \
     CXX=g++ \
