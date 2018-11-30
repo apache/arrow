@@ -18,22 +18,20 @@
 
 set -e
 
-export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
-export ARROW_HOME=$CONDA_PREFIX
+source_dir=${1:-/arrow/python}
+build_dir=${2:-/build/python}
 
 # For newer GCC per https://arrow.apache.org/docs/python/development.html#known-issues
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export PYARROW_CXXFLAGS=$CXXFLAGS
 export PYARROW_CMAKE_GENERATOR=Ninja
+export PYARROW_BUILD_TYPE=${PYARROW_BUILD_TYPE:-debug}
+export PYARROW_WITH_PARQUET=${PYARROW_WITH_PARQUET:-1}
+export PYARROW_WITH_PLASMA=${PYARROW_WITH_PLASMA:-1}
 
 # Build pyarrow
-pushd /arrow/python
+pushd ${source_dir}
 
-python setup.py build_ext \
-    --build-temp=/build/python \
-    --build-type=${PYARROW_BUILD_TYPE:-debug} \
-    --with-parquet \
-    --with-plasma \
-    install
+python setup.py build_ext --build-temp=${build_dir} install
 
 popd

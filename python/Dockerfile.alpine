@@ -30,7 +30,8 @@ RUN export PYTHON_MAJOR=${PYTHON_VERSION:0:1} && \
 ADD python/requirements.txt /arrow/python/
 RUN pip install -r /arrow/python/requirements.txt cython
 
-ENV ARROW_PYTHON=ON
+ENV ARROW_PYTHON=ON \
+    PYARROW_WITH_PARQUET=0
 
 # build and test
 CMD arrow/ci/docker_build_cpp.sh && \
