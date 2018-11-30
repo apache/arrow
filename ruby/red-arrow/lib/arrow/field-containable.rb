@@ -16,7 +16,7 @@
 # under the License.
 
 module Arrow
-  module SchemaContainable
+  module FieldContainable
     def find_field(name_or_index)
       case name_or_index
       when String, Symbol

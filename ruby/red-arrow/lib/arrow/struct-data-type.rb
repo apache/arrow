@@ -15,11 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/schema-containable"
+require "arrow/field-containable"
 
 module Arrow
   class StructDataType
-    include SchemaContainable
+    include FieldContainable
 
     alias_method :[], :find_field
   end
