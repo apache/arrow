@@ -65,6 +65,17 @@
     }                                                                     \
   } while (false)
 
+#define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                   \
+  do {                                                                    \
+    ::arrow::Status s = (expr);                                           \
+    if (!s.Is##ENUM()) {                                                  \
+      FAIL() << "Expected '" STRINGIFY(expr) "' to fail with " STRINGIFY( \
+                    ENUM) ", but got "                                    \
+             << s.ToString();                                             \
+    }                                                                     \
+    ASSERT_EQ((message), s.ToString());                                   \
+  } while (false)
+
 #define ASSERT_OK(expr)                                               \
   do {                                                                \
     ::arrow::Status s = (expr);                                       \

@@ -345,6 +345,35 @@ TEST_P(CodecTest, CodecRoundtrip) {
   }
 }
 
+TEST_P(CodecTest, OutputBufferIsSmall) {
+  auto type = GetCompression();
+  if (type != Compression::SNAPPY) {
+    return;
+  }
+
+  std::unique_ptr<Codec> codec;
+  ASSERT_OK(Codec::Create(type, &codec));
+
+  vector<uint8_t> data = MakeRandomData(10);
+  auto max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
+  std::vector<uint8_t> compressed(max_compressed_len);
+  std::vector<uint8_t> decompressed(data.size() - 1);
+
+  int64_t actual_size;
+  ASSERT_OK(codec->Compress(data.size(), data.data(), max_compressed_len,
+                            compressed.data(), &actual_size));
+  compressed.resize(actual_size);
+
+  int64_t actual_decompressed_size;
+  std::stringstream ss;
+  ss << "Invalid: Output buffer size (" << decompressed.size() << ") must be "
+     << data.size() << " or larger.";
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, ss.str(),
+      codec->Decompress(compressed.size(), compressed.data(), decompressed.size(),
+                        decompressed.data(), &actual_decompressed_size));
+}
+
 TEST_P(CodecTest, StreamingCompressor) {
   if (GetCompression() == Compression::SNAPPY) {
     // SKIP: snappy doesn't support streaming compression
