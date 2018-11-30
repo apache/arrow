@@ -17,7 +17,7 @@
 
 extern crate arrow;
 
-use arrow::array::{BinaryArray, PrimitiveArray};
+use arrow::array::{BinaryArray, Float64Array};
 use arrow::csv;
 use arrow::datatypes::{DataType, Field, Schema};
 use std::fs::File;
@@ -49,12 +49,12 @@ fn main() {
     let lat = batch
         .column(1)
         .as_any()
-        .downcast_ref::<PrimitiveArray<f64>>()
+        .downcast_ref::<Float64Array>()
         .unwrap();
     let lng = batch
         .column(2)
         .as_any()
-        .downcast_ref::<PrimitiveArray<f64>>()
+        .downcast_ref::<Float64Array>()
         .unwrap();
 
     for i in 0..batch.num_rows() {

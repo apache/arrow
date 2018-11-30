@@ -82,7 +82,7 @@ mod tests {
             .len(5)
             .add_buffer(Buffer::from(v.to_byte_slice()))
             .build();
-        let a = PrimitiveArray::<i32>::from(array_data);
+        let a = Int32Array::from(array_data);
 
         let v = vec![b'a', b'b', b'c', b'd', b'e'];
         let offset_data = vec![0, 1, 2, 3, 4, 5, 6];
