@@ -16,6 +16,8 @@
 # under the License.
 
 class TestPlasmaClient < Test::Unit::TestCase
+  include Helper::Omittable
+
   def setup
     @store = nil
     omit("Plasma is required") unless defined?(::Plasma)
