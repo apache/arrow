@@ -22,8 +22,8 @@ use std::io::Write;
 use std::mem;
 use std::sync::Arc;
 
-use array_data::*;
-use buffer::*;
+use array_data::{ArrayData, ArrayDataRef};
+use buffer::{Buffer, MutableBuffer};
 use builder::*;
 use datatypes::*;
 use memory;
@@ -155,11 +155,11 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
     }
 }
 
-/// Macro to define primitive arrays for different data types and native types.
-/// Boolean arrays are bit-packed and so are not defined by this macro
+/// Implementation for primitive arrays with numeric types.
+/// Boolean arrays are bit-packed and so implemented separately.
 impl<T: ArrowNumericType> PrimitiveArray<T> {
     pub fn new(length: i64, values: Buffer, null_count: i64, offset: i64) -> Self {
-        let array_data = ArrayData::builder(T::get_type_id())
+        let array_data = ArrayData::builder(T::get_data_type())
             .len(length)
             .add_buffer(values)
             .null_count(null_count)

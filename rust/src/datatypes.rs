@@ -73,18 +73,18 @@ pub trait ArrowNativeType: Send + Sync + Copy + PartialOrd + FromStr + 'static {
 
 /// Trait indicating a primitive fixed-width type (bool, ints and floats).
 pub trait ArrowPrimitiveType: 'static {
-    /// Corresponding native type for the primitive type.
+    /// Corresponding Rust native type for the primitive type.
     type Native: ArrowNativeType;
 
-    /// Returns the id of this primitive type.
-    fn get_type_id() -> DataType;
+    /// Returns the corresponding Arrow data type of this primitive type.
+    fn get_data_type() -> DataType;
 
     /// Returns the bit width of this primitive type.
     fn get_bit_width() -> usize;
 }
 
 macro_rules! make_type {
-    ($name:ident, $native_ty:ty, $type_id:path, $bit_width:expr) => {
+    ($name:ident, $native_ty:ty, $data_ty:path, $bit_width:expr) => {
         impl ArrowNativeType for $native_ty {}
 
         pub struct $name {}
@@ -92,8 +92,8 @@ macro_rules! make_type {
         impl ArrowPrimitiveType for $name {
             type Native = $native_ty;
 
-            fn get_type_id() -> DataType {
-                $type_id
+            fn get_data_type() -> DataType {
+                $data_ty
             }
 
             fn get_bit_width() -> usize {

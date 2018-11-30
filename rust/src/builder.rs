@@ -49,14 +49,17 @@ pub type UInt64BufferBuilder = BufferBuilder<UInt64Type>;
 pub type Float32BufferBuilder = BufferBuilder<Float32Type>;
 pub type Float64BufferBuilder = BufferBuilder<Float64Type>;
 
+// Trait for buffer builder. This is used mainly to offer separate implementations for
+// numeric types and boolean types, while still be able to call methods on buffer builder
+// with generic primitive type.
 pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
-    fn new(i64) -> Self;
+    fn new(capacity: i64) -> Self;
     fn len(&self) -> i64;
     fn capacity(&self) -> i64;
-    fn advance(&mut self, i64) -> Result<()>;
-    fn reserve(&mut self, i64) -> Result<()>;
-    fn push(&mut self, T::Native) -> Result<()>;
-    fn push_slice(&mut self, &[T::Native]) -> Result<()>;
+    fn advance(&mut self, i: i64) -> Result<()>;
+    fn reserve(&mut self, n: i64) -> Result<()>;
+    fn push(&mut self, v: T::Native) -> Result<()>;
+    fn push_slice(&mut self, slice: &[T::Native]) -> Result<()>;
     fn finish(self) -> Buffer;
 }
 
@@ -255,7 +258,7 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveArrayBuilder<T> {
     fn finish(self) -> PrimitiveArray<T> {
         let len = self.len();
         let null_bit_buffer = self.bitmap_builder.finish();
-        let data = ArrayData::builder(T::get_type_id())
+        let data = ArrayData::builder(T::get_data_type())
             .len(len)
             .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
             .add_buffer(self.values_builder.finish())
