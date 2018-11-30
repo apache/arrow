@@ -24,7 +24,7 @@ Currently, the Arrow specification consists of these pieces:
 - Physical memory layout specification (see :doc:`Layout`)
 - Logical Types, Schemas, and Record Batch Metadata (see Schema.fbs)
 - Encapsulated Messages (see Message.fbs)
-- Mechanics of messaging between Arrow systems (IPC, RPC, etc.) (see :doc:`IPC.md`)
+- Mechanics of messaging between Arrow systems (IPC, RPC, etc.) (see :doc:`IPC`)
 - Tensor (Multi-dimensional array) Metadata (see Tensor.fbs)
 
 The metadata currently uses Google's `flatbuffers library`_ for serializing a

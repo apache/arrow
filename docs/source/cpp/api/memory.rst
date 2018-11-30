@@ -15,13 +15,43 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-*************
-API Reference
-*************
+Memory (management)
+===================
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Getting Started
+Basic containers
+----------------
 
-   api/array
-   api/memory
+.. doxygenclass:: arrow::Buffer
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::MutableBuffer
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::ResizableBuffer
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::BufferBuilder
+   :project: arrow_cpp
+   :members:
+
+Memory Pools
+------------
+
+.. doxygenfunction:: arrow::default_memory_pool
+   :project: arrow_cpp
+   :outline:
+
+.. doxygenclass:: arrow::MemoryPool
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::LoggingMemoryPool
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::ProxyMemoryPool
+   :project: arrow_cpp
+   :members:

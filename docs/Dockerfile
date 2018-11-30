@@ -15,35 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-apache-rat-*.jar
-arrow-src.tar
+FROM arrow:python-3.6
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-dependency-reduced-pom.xml
-MANIFEST
-
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
-
-cpp/.idea/
-cpp/apidoc/xml/
-python/.eggs/
-python/doc/
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
-docker_cache
+ADD ci/conda_env_sphinx.yml /arrow/ci/
+RUN conda install -c conda-forge \
+        --file arrow/ci/conda_env_sphinx.yml && \
+    conda clean --all
+CMD arrow/ci/docker_build_cpp.sh && \
+    arrow/ci/docker_build_python.sh && \
+    arrow/ci/docker_build_sphinx.sh
