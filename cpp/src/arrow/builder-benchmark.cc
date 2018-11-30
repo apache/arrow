@@ -69,14 +69,14 @@ static void BM_BuildAdaptiveIntNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
   int64_t size = static_cast<int64_t>(std::numeric_limits<int16_t>::max()) * 256;
   int64_t chunk_size = size / 8;
-  std::vector<int64_t> data;
+  std::vector<int64_t> data(size);
   for (int64_t i = 0; i < size; i++) {
-    data.push_back(i);
+    data[i] = i;
   }
   while (state.KeepRunning()) {
     AdaptiveIntBuilder builder;
     for (int64_t i = 0; i < size; i += chunk_size) {
-      // Build up an array of 512 MiB in size
+      // Build up an array of 128 MiB in size
       ABORT_NOT_OK(builder.AppendValues(data.data() + i, chunk_size, nullptr));
     }
     std::shared_ptr<Array> out;
@@ -88,9 +88,9 @@ static void BM_BuildAdaptiveIntNoNulls(
 static void BM_BuildAdaptiveIntNoNullsScalarAppend(
     benchmark::State& state) {  // NOLINT non-const reference
   int64_t size = static_cast<int64_t>(std::numeric_limits<int16_t>::max()) * 256;
-  std::vector<int64_t> data;
+  std::vector<int64_t> data(size);
   for (int64_t i = 0; i < size; i++) {
-    data.push_back(i);
+    data[i] = i;
   }
   while (state.KeepRunning()) {
     AdaptiveIntBuilder builder;
@@ -107,15 +107,33 @@ static void BM_BuildAdaptiveUIntNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
   int64_t size = static_cast<int64_t>(std::numeric_limits<uint16_t>::max()) * 256;
   int64_t chunk_size = size / 8;
-  std::vector<uint64_t> data;
+  std::vector<uint64_t> data(size);
   for (uint64_t i = 0; i < static_cast<uint64_t>(size); i++) {
-    data.push_back(i);
+    data[i] = i;
   }
   while (state.KeepRunning()) {
     AdaptiveUIntBuilder builder;
     for (int64_t i = 0; i < size; i += chunk_size) {
-      // Build up an array of 512 MiB in size
+      // Build up an array of 128 MiB in size
       ABORT_NOT_OK(builder.AppendValues(data.data() + i, chunk_size, nullptr));
+    }
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+  state.SetBytesProcessed(state.iterations() * data.size() * sizeof(int64_t));
+}
+
+static void BM_BuildAdaptiveUIntNoNullsScalarAppend(
+    benchmark::State& state) {  // NOLINT non-const reference
+  int64_t size = static_cast<int64_t>(std::numeric_limits<int16_t>::max()) * 256;
+  std::vector<uint64_t> data(size);
+  for (uint64_t i = 0; i < static_cast<uint64_t>(size); i++) {
+    data[i] = i;
+  }
+  while (state.KeepRunning()) {
+    AdaptiveUIntBuilder builder;
+    for (int64_t i = 0; i < size; i++) {
+      ABORT_NOT_OK(builder.Append(data[i]));
     }
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
@@ -347,6 +365,9 @@ BENCHMARK(BM_BuildAdaptiveIntNoNullsScalarAppend)
     ->Repetitions(3)
     ->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildAdaptiveUIntNoNulls)
+    ->Repetitions(kRepetitions)
+    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildAdaptiveUIntNoNullsScalarAppend)
     ->Repetitions(kRepetitions)
     ->Unit(benchmark::kMicrosecond);
 

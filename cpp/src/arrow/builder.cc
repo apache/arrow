@@ -34,6 +34,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/hashing.h"
+#include "arrow/util/int-util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -295,12 +296,19 @@ template class PrimitiveBuilder<FloatType>;
 template class PrimitiveBuilder<DoubleType>;
 
 AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(MemoryPool* pool)
-    : ArrayBuilder(int64(), pool), data_(nullptr), raw_data_(nullptr), int_size_(1) {}
+    : ArrayBuilder(int64(), pool),
+      data_(nullptr),
+      raw_data_(nullptr),
+      int_size_(1),
+      pending_pos_(0),
+      pending_has_nulls_(false) {}
 
 void AdaptiveIntBuilderBase::Reset() {
   ArrayBuilder::Reset();
   data_.reset();
   raw_data_ = nullptr;
+  pending_pos_ = 0;
+  pending_has_nulls_ = false;
 }
 
 Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
@@ -321,6 +329,8 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
 AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool) : AdaptiveIntBuilderBase(pool) {}
 
 Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  RETURN_NOT_OK(CommitPendingData());
+
   std::shared_ptr<DataType> output_type;
   switch (int_size_) {
     case 1:
@@ -350,60 +360,89 @@ Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-Status AdaptiveIntBuilder::AppendValues(const int64_t* values, int64_t length,
-                                        const uint8_t* valid_bytes) {
-  RETURN_NOT_OK(Reserve(length));
-
-  if (length > 0) {
-    if (int_size_ < 8) {
-      uint8_t new_int_size = int_size_;
-      for (int64_t i = 0; i < length; i++) {
-        if (valid_bytes == nullptr || valid_bytes[i]) {
-          new_int_size = internal::ExpandedIntSize(values[i], new_int_size);
-        }
-      }
-      if (new_int_size != int_size_) {
-        RETURN_NOT_OK(ExpandIntSize(new_int_size));
-      }
-    }
+Status AdaptiveIntBuilder::CommitPendingData() {
+  if (pending_pos_ == 0) {
+    return Status::OK();
   }
+  RETURN_NOT_OK(Reserve(pending_pos_));
+  const uint8_t* valid_bytes = pending_has_nulls_ ? pending_valid_ : nullptr;
+  RETURN_NOT_OK(AppendValuesInternal(reinterpret_cast<const int64_t*>(pending_data_),
+                                     pending_pos_, valid_bytes));
+  pending_has_nulls_ = false;
+  pending_pos_ = 0;
+  return Status::OK();
+}
 
-  if (int_size_ == 8) {
-    std::memcpy(reinterpret_cast<int64_t*>(raw_data_) + length_, values,
-                sizeof(int64_t) * length);
-  } else {
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4996)
-#endif
-    // int_size_ may have changed, so we need to recheck
+static constexpr int64_t kAdaptiveIntChunkSize = 8192;
+
+Status AdaptiveIntBuilder::AppendValuesInternal(const int64_t* values, int64_t length,
+                                                const uint8_t* valid_bytes) {
+  while (length > 0) {
+    // In case `length` is very large, we don't want to trash the cache by
+    // scanning it twice (first to detect int width, second to copy the data).
+    // Instead, process data in L2-cacheable chunks.
+    const int64_t chunk_size = std::min(length, kAdaptiveIntChunkSize);
+
+    uint8_t new_int_size;
+    new_int_size = internal::DetectIntWidth(values, valid_bytes, chunk_size, int_size_);
+
+    DCHECK_GE(new_int_size, int_size_);
+    if (new_int_size > int_size_) {
+      // This updates int_size_
+      RETURN_NOT_OK(ExpandIntSize(new_int_size));
+    }
+
     switch (int_size_) {
-      case 1: {
-        int8_t* data_ptr = reinterpret_cast<int8_t*>(raw_data_) + length_;
-        std::transform(values, values + length, data_ptr,
-                       [](int64_t x) { return static_cast<int8_t>(x); });
-      } break;
-      case 2: {
-        int16_t* data_ptr = reinterpret_cast<int16_t*>(raw_data_) + length_;
-        std::transform(values, values + length, data_ptr,
-                       [](int64_t x) { return static_cast<int16_t>(x); });
-      } break;
-      case 4: {
-        int32_t* data_ptr = reinterpret_cast<int32_t*>(raw_data_) + length_;
-        std::transform(values, values + length, data_ptr,
-                       [](int64_t x) { return static_cast<int32_t>(x); });
-      } break;
+      case 1:
+        internal::DowncastInts(values, reinterpret_cast<int8_t*>(raw_data_) + length_,
+                               chunk_size);
+        break;
+      case 2:
+        internal::DowncastInts(values, reinterpret_cast<int16_t*>(raw_data_) + length_,
+                               chunk_size);
+        break;
+      case 4:
+        internal::DowncastInts(values, reinterpret_cast<int32_t*>(raw_data_) + length_,
+                               chunk_size);
+        break;
+      case 8:
+        internal::DowncastInts(values, reinterpret_cast<int64_t*>(raw_data_) + length_,
+                               chunk_size);
+        break;
       default:
         DCHECK(false);
     }
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
+
+    // This updates length_
+    ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, chunk_size);
+    values += chunk_size;
+    if (valid_bytes != nullptr) {
+      valid_bytes += chunk_size;
+    }
+    length -= chunk_size;
   }
 
-  // length_ is update by these
-  ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
   return Status::OK();
+}
+
+Status AdaptiveUIntBuilder::CommitPendingData() {
+  if (pending_pos_ == 0) {
+    return Status::OK();
+  }
+  RETURN_NOT_OK(Reserve(pending_pos_));
+  const uint8_t* valid_bytes = pending_has_nulls_ ? pending_valid_ : nullptr;
+  RETURN_NOT_OK(AppendValuesInternal(pending_data_, pending_pos_, valid_bytes));
+  pending_has_nulls_ = false;
+  pending_pos_ = 0;
+  return Status::OK();
+}
+
+Status AdaptiveIntBuilder::AppendValues(const int64_t* values, int64_t length,
+                                        const uint8_t* valid_bytes) {
+  RETURN_NOT_OK(CommitPendingData());
+  RETURN_NOT_OK(Reserve(length));
+
+  return AppendValuesInternal(values, length, valid_bytes);
 }
 
 template <typename new_type, typename old_type>
@@ -418,9 +457,10 @@ typename std::enable_if<__LESS(sizeof(old_type), sizeof(new_type)), Status>::typ
 AdaptiveIntBuilder::ExpandIntSizeInternal() {
   int_size_ = sizeof(new_type);
   RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
-
-  old_type* src = reinterpret_cast<old_type*>(raw_data_);
+  raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
+  const old_type* src = reinterpret_cast<old_type*>(raw_data_);
   new_type* dst = reinterpret_cast<new_type*>(raw_data_);
+
   // By doing the backward copy, we ensure that no element is overriden during
   // the copy process and the copy stays in-place.
   std::copy_backward(src, src + length_, dst + length_);
@@ -474,6 +514,8 @@ AdaptiveUIntBuilder::AdaptiveUIntBuilder(MemoryPool* pool)
     : AdaptiveIntBuilderBase(pool) {}
 
 Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  RETURN_NOT_OK(CommitPendingData());
+
   std::shared_ptr<DataType> output_type;
   switch (int_size_) {
     case 1:
@@ -503,60 +545,59 @@ Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
+Status AdaptiveUIntBuilder::AppendValuesInternal(const uint64_t* values, int64_t length,
+                                                 const uint8_t* valid_bytes) {
+  while (length > 0) {
+    // See AdaptiveIntBuilder::AppendValuesInternal
+    const int64_t chunk_size = std::min(length, kAdaptiveIntChunkSize);
+
+    uint8_t new_int_size;
+    new_int_size = internal::DetectUIntWidth(values, valid_bytes, chunk_size, int_size_);
+
+    DCHECK_GE(new_int_size, int_size_);
+    if (new_int_size > int_size_) {
+      // This updates int_size_
+      RETURN_NOT_OK(ExpandIntSize(new_int_size));
+    }
+
+    switch (int_size_) {
+      case 1:
+        internal::DowncastUInts(values, reinterpret_cast<uint8_t*>(raw_data_) + length_,
+                                chunk_size);
+        break;
+      case 2:
+        internal::DowncastUInts(values, reinterpret_cast<uint16_t*>(raw_data_) + length_,
+                                chunk_size);
+        break;
+      case 4:
+        internal::DowncastUInts(values, reinterpret_cast<uint32_t*>(raw_data_) + length_,
+                                chunk_size);
+        break;
+      case 8:
+        internal::DowncastUInts(values, reinterpret_cast<uint64_t*>(raw_data_) + length_,
+                                chunk_size);
+        break;
+      default:
+        DCHECK(false);
+    }
+
+    // This updates length_
+    ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, chunk_size);
+    values += chunk_size;
+    if (valid_bytes != nullptr) {
+      valid_bytes += chunk_size;
+    }
+    length -= chunk_size;
+  }
+
+  return Status::OK();
+}
+
 Status AdaptiveUIntBuilder::AppendValues(const uint64_t* values, int64_t length,
                                          const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
-  if (length > 0) {
-    if (int_size_ < 8) {
-      uint8_t new_int_size = int_size_;
-      for (int64_t i = 0; i < length; i++) {
-        if (valid_bytes == nullptr || valid_bytes[i]) {
-          new_int_size = internal::ExpandedUIntSize(values[i], new_int_size);
-        }
-      }
-      if (new_int_size != int_size_) {
-        RETURN_NOT_OK(ExpandIntSize(new_int_size));
-      }
-    }
-  }
-
-  if (int_size_ == 8) {
-    std::memcpy(reinterpret_cast<uint64_t*>(raw_data_) + length_, values,
-                sizeof(uint64_t) * length);
-  } else {
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4996)
-#endif
-    // int_size_ may have changed, so we need to recheck
-    switch (int_size_) {
-      case 1: {
-        uint8_t* data_ptr = reinterpret_cast<uint8_t*>(raw_data_) + length_;
-        std::transform(values, values + length, data_ptr,
-                       [](uint64_t x) { return static_cast<uint8_t>(x); });
-      } break;
-      case 2: {
-        uint16_t* data_ptr = reinterpret_cast<uint16_t*>(raw_data_) + length_;
-        std::transform(values, values + length, data_ptr,
-                       [](uint64_t x) { return static_cast<uint16_t>(x); });
-      } break;
-      case 4: {
-        uint32_t* data_ptr = reinterpret_cast<uint32_t*>(raw_data_) + length_;
-        std::transform(values, values + length, data_ptr,
-                       [](uint64_t x) { return static_cast<uint32_t>(x); });
-      } break;
-      default:
-        DCHECK(false);
-    }
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-  }
-
-  // length_ is update by these
-  ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
-  return Status::OK();
+  return AppendValuesInternal(values, length, valid_bytes);
 }
 
 template <typename new_type, typename old_type>
