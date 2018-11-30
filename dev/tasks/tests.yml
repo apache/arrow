@@ -29,7 +29,6 @@ groups:
     - docker-python-3.7
     - docker-python-2.7-alpine
     - docker-python-3.6-alpine
-    - docker-python-3.7-alpine
     - docker-java
     - docker-js
     - docker-lint
@@ -157,17 +156,6 @@ tasks:
     params:
       environment:
         PYTHON_VERSION: 3.6
-      commands:
-        - docker-compose build cpp-alpine
-        - docker-compose build python-alpine
-        - docker-compose run python-alpine
-
-  docker-python-3.7-alpine:
-    platform: linux
-    template: docker-tests/travis.linux.yml
-    params:
-      environment:
-        PYTHON_VERSION: 3.7
       commands:
         - docker-compose build cpp-alpine
         - docker-compose build python-alpine
