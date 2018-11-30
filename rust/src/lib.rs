@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#![feature(specialization)]
+
 extern crate bytes;
 extern crate csv as csv_crate;
 extern crate libc;

@@ -24,6 +24,7 @@
 use std::fmt;
 use std::mem::size_of;
 use std::slice::from_raw_parts;
+use std::str::FromStr;
 
 use error::{ArrowError, Result};
 use serde_json::Value;
@@ -68,23 +69,65 @@ pub struct Field {
     nullable: bool,
 }
 
-/// Trait indicating a primitive fixed-width type (bool, ints and floats).
-///
-/// This trait is a marker trait to indicate a primitive type, i.e. a type that occupies a fixed
-/// size in memory as indicated in bit or byte width.
-pub trait ArrowPrimitiveType: Send + Sync + Copy + PartialOrd + 'static {}
+pub trait ArrowNativeType: Send + Sync + Copy + PartialOrd + FromStr + 'static {}
 
-impl ArrowPrimitiveType for bool {}
-impl ArrowPrimitiveType for u8 {}
-impl ArrowPrimitiveType for u16 {}
-impl ArrowPrimitiveType for u32 {}
-impl ArrowPrimitiveType for u64 {}
-impl ArrowPrimitiveType for i8 {}
-impl ArrowPrimitiveType for i16 {}
-impl ArrowPrimitiveType for i32 {}
-impl ArrowPrimitiveType for i64 {}
-impl ArrowPrimitiveType for f32 {}
-impl ArrowPrimitiveType for f64 {}
+/// Trait indicating a primitive fixed-width type (bool, ints and floats).
+pub trait ArrowPrimitiveType: 'static {
+    /// Corresponding Rust native type for the primitive type.
+    type Native: ArrowNativeType;
+
+    /// Returns the corresponding Arrow data type of this primitive type.
+    fn get_data_type() -> DataType;
+
+    /// Returns the bit width of this primitive type.
+    fn get_bit_width() -> usize;
+}
+
+macro_rules! make_type {
+    ($name:ident, $native_ty:ty, $data_ty:path, $bit_width:expr) => {
+        impl ArrowNativeType for $native_ty {}
+
+        pub struct $name {}
+
+        impl ArrowPrimitiveType for $name {
+            type Native = $native_ty;
+
+            fn get_data_type() -> DataType {
+                $data_ty
+            }
+
+            fn get_bit_width() -> usize {
+                $bit_width
+            }
+        }
+    };
+}
+
+make_type!(BooleanType, bool, DataType::Boolean, 1);
+make_type!(Int8Type, i8, DataType::Int8, 8);
+make_type!(Int16Type, i16, DataType::Int16, 16);
+make_type!(Int32Type, i32, DataType::Int32, 32);
+make_type!(Int64Type, i64, DataType::Int64, 64);
+make_type!(UInt8Type, u8, DataType::UInt8, 8);
+make_type!(UInt16Type, u16, DataType::UInt16, 16);
+make_type!(UInt32Type, u32, DataType::UInt32, 32);
+make_type!(UInt64Type, u64, DataType::UInt64, 64);
+make_type!(Float32Type, f32, DataType::Float32, 32);
+make_type!(Float64Type, f64, DataType::Float64, 64);
+
+/// A subtype of primitive type that represents numeric values.
+pub trait ArrowNumericType: ArrowPrimitiveType {}
+
+impl ArrowNumericType for Int8Type {}
+impl ArrowNumericType for Int16Type {}
+impl ArrowNumericType for Int32Type {}
+impl ArrowNumericType for Int64Type {}
+impl ArrowNumericType for UInt8Type {}
+impl ArrowNumericType for UInt16Type {}
+impl ArrowNumericType for UInt32Type {}
+impl ArrowNumericType for UInt64Type {}
+impl ArrowNumericType for Float32Type {}
+impl ArrowNumericType for Float64Type {}
 
 /// Allows conversion from supported Arrow types to a byte slice.
 pub trait ToByteSlice {
@@ -92,20 +135,14 @@ pub trait ToByteSlice {
     fn to_byte_slice(&self) -> &[u8];
 }
 
-impl<T> ToByteSlice for [T]
-where
-    T: ArrowPrimitiveType,
-{
+impl<T: ArrowNativeType> ToByteSlice for [T] {
     fn to_byte_slice(&self) -> &[u8] {
         let raw_ptr = self.as_ptr() as *const T as *const u8;
         unsafe { from_raw_parts(raw_ptr, self.len() * size_of::<T>()) }
     }
 }
 
-impl<T> ToByteSlice for T
-where
-    T: ArrowPrimitiveType,
-{
+impl<T: ArrowNativeType> ToByteSlice for T {
     fn to_byte_slice(&self) -> &[u8] {
         let raw_ptr = self as *const T as *const u8;
         unsafe { from_raw_parts(raw_ptr, size_of::<T>()) }
