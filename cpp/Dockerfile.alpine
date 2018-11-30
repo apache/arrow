@@ -1,0 +1,28 @@
+FROM alpine
+
+# install dependencies
+RUN apk add -q \
+        autoconf \
+        bash \
+        bison \
+        boost-dev \
+        cmake \
+        flex \
+        g++ \
+        gcc \
+        git \
+        make \
+        musl-dev \
+        ninja \
+        wget
+
+ENV CC=gcc \
+    CXX=g++ \
+    ARROW_ORC=OFF \
+    ARROW_PARQUET=OFF \
+    ARROW_BUILD_TESTS=ON \
+    ARROW_HOME=/usr/local
+
+# build and test
+CMD arrow/ci/docker_build_cpp.sh && \
+    cd /build/cpp && ctest -j2 --output-on-failure -L unittest
