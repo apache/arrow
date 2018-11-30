@@ -50,7 +50,7 @@ class TestPlasmaCreatedObject < Test::Unit::TestCase
     end
     @object.abort
 
-    object = @client.create(@id, @data.bytesize)
+    object = @client.create(@id, @data.bytesize, @options)
     object.abort
   end
 end
