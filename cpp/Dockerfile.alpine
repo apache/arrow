@@ -1,7 +1,7 @@
 FROM alpine
 
 # install dependencies
-RUN apk add -q \
+RUN apk add --no-cache -q \
         autoconf \
         bash \
         bison \
@@ -11,10 +11,17 @@ RUN apk add -q \
         g++ \
         gcc \
         git \
+        gzip \
+        lz4-dev \
         make \
         musl-dev \
         ninja \
-        wget
+        rapidjson-dev
+        re2-dev \
+        snappy-dev \
+        wget \
+        zlib-dev \
+        zstd-dev
 
 ENV CC=gcc \
     CXX=g++ \
