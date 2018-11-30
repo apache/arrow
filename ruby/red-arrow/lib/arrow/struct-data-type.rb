@@ -18,7 +18,7 @@
 require "arrow/field-containable"
 
 module Arrow
-  class Schema
+  class StructDataType
     include FieldContainable
 
     alias_method :[], :find_field
