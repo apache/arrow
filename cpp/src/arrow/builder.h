@@ -432,6 +432,7 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
+    ARROW_RETURN_NOT_OK(CommitPendingData());
     ARROW_RETURN_NOT_OK(Reserve(length));
     memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
     UnsafeAppendToBitmap(valid_bytes, length);
@@ -439,9 +440,14 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   }
 
   Status AppendNull() {
-    ARROW_RETURN_NOT_OK(Reserve(1));
-    memset(data_->mutable_data() + length_ * int_size_, 0, int_size_);
-    UnsafeAppendToBitmap(false);
+    pending_data_[pending_pos_] = 0;
+    pending_valid_[pending_pos_] = 0;
+    pending_has_nulls_ = true;
+    ++pending_pos_;
+
+    if (ARROW_PREDICT_FALSE(pending_pos_ >= pending_size_)) {
+      return CommitPendingData();
+    }
     return Status::OK();
   }
 
@@ -449,54 +455,18 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   Status Resize(int64_t capacity) override;
 
  protected:
+  virtual Status CommitPendingData() = 0;
+
   std::shared_ptr<ResizableBuffer> data_;
   uint8_t* raw_data_;
-
   uint8_t int_size_;
+
+  static constexpr int32_t pending_size_ = 1024;
+  uint8_t pending_valid_[pending_size_];
+  uint64_t pending_data_[pending_size_];
+  int32_t pending_pos_;
+  bool pending_has_nulls_;
 };
-
-// TODO investigate AdaptiveIntBuilder / AdaptiveUIntBuilder performance
-
-// Check if we would need to expand the underlying storage type
-inline uint8_t ExpandedIntSize(int64_t val, uint8_t current_int_size) {
-  if (current_int_size == 8 ||
-      (current_int_size < 8 &&
-       (val > static_cast<int64_t>(std::numeric_limits<int32_t>::max()) ||
-        val < static_cast<int64_t>(std::numeric_limits<int32_t>::min())))) {
-    return 8;
-  } else if (current_int_size == 4 ||
-             (current_int_size < 4 &&
-              (val > static_cast<int64_t>(std::numeric_limits<int16_t>::max()) ||
-               val < static_cast<int64_t>(std::numeric_limits<int16_t>::min())))) {
-    return 4;
-  } else if (current_int_size == 2 ||
-             (current_int_size == 1 &&
-              (val > static_cast<int64_t>(std::numeric_limits<int8_t>::max()) ||
-               val < static_cast<int64_t>(std::numeric_limits<int8_t>::min())))) {
-    return 2;
-  } else {
-    return 1;
-  }
-}
-
-// Check if we would need to expand the underlying storage type
-inline uint8_t ExpandedUIntSize(uint64_t val, uint8_t current_int_size) {
-  if (current_int_size == 8 ||
-      (current_int_size < 8 &&
-       (val > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())))) {
-    return 8;
-  } else if (current_int_size == 4 ||
-             (current_int_size < 4 &&
-              (val > static_cast<uint64_t>(std::numeric_limits<uint16_t>::max())))) {
-    return 4;
-  } else if (current_int_size == 2 ||
-             (current_int_size == 1 &&
-              (val > static_cast<uint64_t>(std::numeric_limits<uint8_t>::max())))) {
-    return 2;
-  } else {
-    return 1;
-  }
-}
 
 }  // namespace internal
 
@@ -509,29 +479,12 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 
   /// Scalar append
   Status Append(const uint64_t val) {
-    ARROW_RETURN_NOT_OK(Reserve(1));
-    BitUtil::SetBit(null_bitmap_data_, length_);
+    pending_data_[pending_pos_] = val;
+    pending_valid_[pending_pos_] = 1;
+    ++pending_pos_;
 
-    uint8_t new_int_size = internal::ExpandedUIntSize(val, int_size_);
-    if (new_int_size != int_size_) {
-      ARROW_RETURN_NOT_OK(ExpandIntSize(new_int_size));
-    }
-
-    switch (int_size_) {
-      case 1:
-        reinterpret_cast<uint8_t*>(raw_data_)[length_++] = static_cast<uint8_t>(val);
-        break;
-      case 2:
-        reinterpret_cast<uint16_t*>(raw_data_)[length_++] = static_cast<uint16_t>(val);
-        break;
-      case 4:
-        reinterpret_cast<uint32_t*>(raw_data_)[length_++] = static_cast<uint32_t>(val);
-        break;
-      case 8:
-        reinterpret_cast<uint64_t*>(raw_data_)[length_++] = val;
-        break;
-      default:
-        return Status::NotImplemented("This code shall never be reached");
+    if (ARROW_PREDICT_FALSE(pending_pos_ >= pending_size_)) {
+      return CommitPendingData();
     }
     return Status::OK();
   }
@@ -548,7 +501,11 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
  protected:
+  Status CommitPendingData() override;
   Status ExpandIntSize(uint8_t new_int_size);
+
+  Status AppendValuesInternal(const uint64_t* values, int64_t length,
+                              const uint8_t* valid_bytes);
 
   template <typename new_type, typename old_type>
   typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
@@ -572,29 +529,14 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
 
   /// Scalar append
   Status Append(const int64_t val) {
-    ARROW_RETURN_NOT_OK(Reserve(1));
-    BitUtil::SetBit(null_bitmap_data_, length_);
+    auto v = static_cast<uint64_t>(val);
 
-    uint8_t new_int_size = internal::ExpandedIntSize(val, int_size_);
-    if (new_int_size != int_size_) {
-      ARROW_RETURN_NOT_OK(ExpandIntSize(new_int_size));
-    }
+    pending_data_[pending_pos_] = v;
+    pending_valid_[pending_pos_] = 1;
+    ++pending_pos_;
 
-    switch (int_size_) {
-      case 1:
-        reinterpret_cast<int8_t*>(raw_data_)[length_++] = static_cast<int8_t>(val);
-        break;
-      case 2:
-        reinterpret_cast<int16_t*>(raw_data_)[length_++] = static_cast<int16_t>(val);
-        break;
-      case 4:
-        reinterpret_cast<int32_t*>(raw_data_)[length_++] = static_cast<int32_t>(val);
-        break;
-      case 8:
-        reinterpret_cast<int64_t*>(raw_data_)[length_++] = val;
-        break;
-      default:
-        return Status::NotImplemented("This code shall never be reached");
+    if (ARROW_PREDICT_FALSE(pending_pos_ >= pending_size_)) {
+      return CommitPendingData();
     }
     return Status::OK();
   }
@@ -611,7 +553,11 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
  protected:
+  Status CommitPendingData() override;
   Status ExpandIntSize(uint8_t new_int_size);
+
+  Status AppendValuesInternal(const int64_t* values, int64_t length,
+                              const uint8_t* valid_bytes);
 
   template <typename new_type, typename old_type>
   typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
