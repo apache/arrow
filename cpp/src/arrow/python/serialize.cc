@@ -62,7 +62,7 @@ class SequenceBuilder {
   explicit SequenceBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
       : pool_(pool),
         types_(::arrow::int8(), pool),
-        offsets_(::arrow::int32(), pool),
+        offsets_(::arrow::int64(), pool),
         nones_(pool),
         bools_(::arrow::boolean(), pool),
         ints_(::arrow::int64(), pool),
@@ -92,10 +92,7 @@ class SequenceBuilder {
     if (*tag == -1) {
       *tag = num_tags_++;
     }
-    int32_t offset32 = -1;
-    RETURN_NOT_OK(internal::CastSize(offset, &offset32));
-    DCHECK_GE(offset32, 0);
-    RETURN_NOT_OK(offsets_.Append(offset32));
+    RETURN_NOT_OK(offsets_.Append(offset));
     RETURN_NOT_OK(types_.Append(*tag));
     return nones_.Append(true);
   }
@@ -191,32 +188,28 @@ class SequenceBuilder {
   /// \param size
   /// The size of the sublist
   Status AppendList(Py_ssize_t size) {
-    int32_t offset;
-    RETURN_NOT_OK(internal::CastSize(list_offsets_.back() + size, &offset));
+    int64_t offset = list_offsets_.back() + size;
     RETURN_NOT_OK(Update(list_offsets_.size() - 1, &list_tag_));
     list_offsets_.push_back(offset);
     return Status::OK();
   }
 
   Status AppendTuple(Py_ssize_t size) {
-    int32_t offset;
-    RETURN_NOT_OK(internal::CastSize(tuple_offsets_.back() + size, &offset));
+    int64_t offset = tuple_offsets_.back() + size;
     RETURN_NOT_OK(Update(tuple_offsets_.size() - 1, &tuple_tag_));
     tuple_offsets_.push_back(offset);
     return Status::OK();
   }
 
   Status AppendDict(Py_ssize_t size) {
-    int32_t offset;
-    RETURN_NOT_OK(internal::CastSize(dict_offsets_.back() + size, &offset));
+    int64_t offset = dict_offsets_.back() + size;
     RETURN_NOT_OK(Update(dict_offsets_.size() - 1, &dict_tag_));
     dict_offsets_.push_back(offset);
     return Status::OK();
   }
 
   Status AppendSet(Py_ssize_t size) {
-    int32_t offset;
-    RETURN_NOT_OK(internal::CastSize(set_offsets_.back() + size, &offset));
+    int64_t offset = set_offsets_.back() + size;
     RETURN_NOT_OK(Update(set_offsets_.size() - 1, &set_tag_));
     set_offsets_.push_back(offset);
     return Status::OK();
@@ -234,11 +227,11 @@ class SequenceBuilder {
   }
 
   Status AddSubsequence(int8_t tag, const Array* data,
-                        const std::vector<int32_t>& offsets, const std::string& name) {
+                        const std::vector<int64_t>& offsets, const std::string& name) {
     if (data != nullptr) {
       DCHECK(data->length() == offsets.back());
       std::shared_ptr<Array> offset_array;
-      Int32Builder builder(::arrow::int32(), pool_);
+      Int64Builder builder(::arrow::int64(), pool_);
       RETURN_NOT_OK(builder.AppendValues(offsets.data(), offsets.size()));
       RETURN_NOT_OK(builder.Finish(&offset_array));
       std::shared_ptr<Array> list_array;
@@ -303,7 +296,7 @@ class SequenceBuilder {
   MemoryPool* pool_;
 
   Int8Builder types_;
-  Int32Builder offsets_;
+  Int64Builder offsets_;
 
   BooleanBuilder nones_;
   BooleanBuilder bools_;
@@ -320,10 +313,10 @@ class SequenceBuilder {
   Int32Builder ndarray_indices_;
   Int32Builder buffer_indices_;
 
-  std::vector<int32_t> list_offsets_;
-  std::vector<int32_t> tuple_offsets_;
-  std::vector<int32_t> dict_offsets_;
-  std::vector<int32_t> set_offsets_;
+  std::vector<int64_t> list_offsets_;
+  std::vector<int64_t> tuple_offsets_;
+  std::vector<int64_t> dict_offsets_;
+  std::vector<int64_t> set_offsets_;
 
   // Tags for members of the sequence. If they are set to -1 it means
   // they are not used and will not part be of the metadata when we call
