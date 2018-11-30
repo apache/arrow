@@ -15,12 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/field-containable"
-
 module Arrow
-  class Schema
-    include FieldContainable
-
-    alias_method :[], :find_field
+  module FieldContainable
+    def find_field(name_or_index)
+      case name_or_index
+      when String, Symbol
+        name = name_or_index
+        get_field_by_name(name)
+      when Integer
+        index = name_or_index
+        get_field(index)
+      else
+        message = "field name or index must be String, Symbol or Integer"
+        message << ": <#{name_or_index.inspect}>"
+        raise ArgumentError, message
+      end
+    end
   end
 end
