@@ -230,6 +230,8 @@ public class JdbcToArrowUtils {
    *
    * @param rs   ResultSet to use to fetch the data from underlying database
    * @param root Arrow {@link VectorSchemaRoot} object to populate
+   * @param calendar The calendar to use when reading {@link Date}, {@link Time}, or {@link Timestamp}
+   *                 data types from the {@link ResultSet}, or <code>null</code> if not converting.
    * @throws SQLException on error
    */
   public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root, Calendar calendar)
@@ -293,24 +295,35 @@ public class JdbcToArrowUtils {
                     rs.getString(i), !rs.wasNull(), rowCount);
             break;
           case Types.DATE:
-            updateVector((DateMilliVector) root.getVector(columnName),
-                    rs.getDate(i, calendar), !rs.wasNull(), rowCount);
+        	  final Date date;
+        	  if (calendar != null) {
+        		  date = rs.getDate(i, calendar);
+        	  } else {
+        		  date = rs.getDate(i);
+        	  }
+
+        	  updateVector((DateMilliVector) root.getVector(columnName), date, !rs.wasNull(), rowCount);
             break;
           case Types.TIME:
-            updateVector((TimeMilliVector) root.getVector(columnName),
-                    rs.getTime(i, calendar), !rs.wasNull(), rowCount);
+        	  final Time time;
+        	  if (calendar != null) {
+        		  time = rs.getTime(i, calendar);
+        	  } else {
+        		  time = rs.getTime(i);
+        	  }
+
+        	  updateVector((TimeMilliVector) root.getVector(columnName), time, !rs.wasNull(), rowCount);
             break;
           case Types.TIMESTAMP:
         	final Timestamp ts;
         	if (calendar != null) {
-        		ts = rs.getTimestamp(i, calendar);
+           		ts = rs.getTimestamp(i, calendar);
         	} else {
-        		ts = rs.getTimestamp(i);
+           		ts = rs.getTimestamp(i);
         	}
-        	  
+
         	// TODO: Need to handle precision such as milli, micro, nano
-            updateVector((TimeStampVector) root.getVector(columnName),
-                    ts, !rs.wasNull(), rowCount);
+            updateVector((TimeStampVector) root.getVector(columnName), ts, !rs.wasNull(), rowCount);
             break;
           case Types.BINARY:
           case Types.VARBINARY:
