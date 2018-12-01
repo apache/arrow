@@ -39,6 +39,7 @@ from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
+from pyarrow import compat
 
 PLASMA_WAIT_TIMEOUT = 2 ** 30
 
@@ -739,15 +740,8 @@ cdef class PlasmaClient:
         """
         Get the notification socket.
         """
-        if PY_MAJOR_VERSION >= 3:
-            return socket.socket(fileno=self.notification_fd,
-                                 family=socket.AF_UNIX,
-                                 type=socket.SOCK_STREAM)
-        else:
-            socket_obj = socket.fromfd(self.notification_fd, socket.AF_UNIX,
-                                       socket.SOCK_STREAM)
-            return socket.socket(socket.AF_UNIX, socket.SOCK_STREAM,
-                                 _sock=socket_obj)
+        compat.get_socket_from_fd(self.notification_fd, family=socket.AF_UNIX,
+                                  type=socket.SOCK_STREAM)
 
     def decode_notification(self, const uint8_t* buf):
         """
