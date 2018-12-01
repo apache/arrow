@@ -120,6 +120,11 @@ public class JdbcToArrowUtils {
    * CLOB --> ArrowType.Utf8
    * BLOB --> ArrowType.Binary
    *
+   * <p>If a {@link java.util.Calendar} is set, {@link java.sql.Timestamp} fields in the {@link java.sql.ResultSet} will
+   * be converted to an Arrow {@link org.apache.arrow.vector.TimeStampVector} using the <code>Calendar</code>'s time
+   * zone.  If the <code>Calendar</code> is <code>null</code>, no time zone will be set on the
+   * <code>TimeStampVector</code>.
+   *
    * @param rsmd ResultSetMetaData
    * @return {@link Schema}
    * @throws SQLException on error
@@ -127,7 +132,8 @@ public class JdbcToArrowUtils {
   public static Schema jdbcToArrowSchema(ResultSetMetaData rsmd, Calendar calendar) throws SQLException {
 
     Preconditions.checkNotNull(rsmd, "JDBC ResultSetMetaData object can't be null");
-    Preconditions.checkNotNull(calendar, "Calendar object can't be null");
+
+	final String tz = (calendar != null) ? calendar.getTimeZone().getID() : null;
 
     List<Field> fields = new ArrayList<>();
     int columnCount = rsmd.getColumnCount();
@@ -178,8 +184,8 @@ public class JdbcToArrowUtils {
           fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Time(TimeUnit.MILLISECOND, 32)), null));
           break;
         case Types.TIMESTAMP:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND,
-              calendar.getTimeZone().getID())), null));
+        	fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, tz)),
+        			null));
           break;
         case Types.BINARY:
         case Types.VARBINARY:
@@ -231,7 +237,6 @@ public class JdbcToArrowUtils {
 
     Preconditions.checkNotNull(rs, "JDBC ResultSet object can't be null");
     Preconditions.checkNotNull(root, "JDBC ResultSet object can't be null");
-    Preconditions.checkNotNull(calendar, "Calendar object can't be null");
 
     ResultSetMetaData rsmd = rs.getMetaData();
     int columnCount = rsmd.getColumnCount();
@@ -296,9 +301,16 @@ public class JdbcToArrowUtils {
                     rs.getTime(i, calendar), !rs.wasNull(), rowCount);
             break;
           case Types.TIMESTAMP:
-            // TODO: Need to handle precision such as milli, micro, nano
+        	final Timestamp ts;
+        	if (calendar != null) {
+        		ts = rs.getTimestamp(i, calendar);
+        	} else {
+        		ts = rs.getTimestamp(i);
+        	}
+        	  
+        	// TODO: Need to handle precision such as milli, micro, nano
             updateVector((TimeStampVector) root.getVector(columnName),
-                    rs.getTimestamp(i, calendar), !rs.wasNull(), rowCount);
+                    ts, !rs.wasNull(), rowCount);
             break;
           case Types.BINARY:
           case Types.VARBINARY:

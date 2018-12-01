@@ -131,7 +131,7 @@ public class JdbcToArrow {
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet) throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
 
-    return sqlToArrow(resultSet, Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT));
+    return sqlToArrow(resultSet, (Calendar) null);
   }
 
   /**
@@ -147,20 +147,19 @@ public class JdbcToArrow {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 
-    return sqlToArrow(resultSet, allocator, Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT));
+    return sqlToArrow(resultSet, allocator, null);
   }
 
   /**
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
-   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets.
+   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets, or <code>null</code> if none.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    * @throws SQLException on error
    */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
-    Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
     RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
     VectorSchemaRoot root = sqlToArrow(resultSet, rootAllocator, calendar);
@@ -173,7 +172,7 @@ public class JdbcToArrow {
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
    * @param allocator Memory allocator to use.
-   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets.
+   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets, or <code>null</code> if none.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    * @throws SQLException on error
    */
@@ -181,7 +180,6 @@ public class JdbcToArrow {
       throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
-    Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
     VectorSchemaRoot root = VectorSchemaRoot.create(
             JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), calendar), allocator);
