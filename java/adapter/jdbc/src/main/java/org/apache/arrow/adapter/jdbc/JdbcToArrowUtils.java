@@ -133,7 +133,7 @@ public class JdbcToArrowUtils {
 
     Preconditions.checkNotNull(rsmd, "JDBC ResultSetMetaData object can't be null");
 
-	final String tz = (calendar != null) ? calendar.getTimeZone().getID() : null;
+    final String tz = (calendar != null) ? calendar.getTimeZone().getID() : null;
 
     List<Field> fields = new ArrayList<>();
     int columnCount = rsmd.getColumnCount();
@@ -184,8 +184,8 @@ public class JdbcToArrowUtils {
           fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Time(TimeUnit.MILLISECOND, 32)), null));
           break;
         case Types.TIMESTAMP:
-        	fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, tz)),
-        			null));
+          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, tz)),
+              null));
           break;
         case Types.BINARY:
         case Types.VARBINARY:
@@ -295,34 +295,34 @@ public class JdbcToArrowUtils {
                     rs.getString(i), !rs.wasNull(), rowCount);
             break;
           case Types.DATE:
-        	  final Date date;
-        	  if (calendar != null) {
-        		  date = rs.getDate(i, calendar);
-        	  } else {
-        		  date = rs.getDate(i);
-        	  }
+            final Date date;
+            if (calendar != null) {
+              date = rs.getDate(i, calendar);
+            } else {
+              date = rs.getDate(i);
+            }
 
-        	  updateVector((DateMilliVector) root.getVector(columnName), date, !rs.wasNull(), rowCount);
+            updateVector((DateMilliVector) root.getVector(columnName), date, !rs.wasNull(), rowCount);
             break;
           case Types.TIME:
-        	  final Time time;
-        	  if (calendar != null) {
-        		  time = rs.getTime(i, calendar);
-        	  } else {
-        		  time = rs.getTime(i);
-        	  }
+            final Time time;
+            if (calendar != null) {
+              time = rs.getTime(i, calendar);
+            } else {
+              time = rs.getTime(i);
+            }
 
-        	  updateVector((TimeMilliVector) root.getVector(columnName), time, !rs.wasNull(), rowCount);
+            updateVector((TimeMilliVector) root.getVector(columnName), time, !rs.wasNull(), rowCount);
             break;
           case Types.TIMESTAMP:
-        	final Timestamp ts;
-        	if (calendar != null) {
-           		ts = rs.getTimestamp(i, calendar);
-        	} else {
-           		ts = rs.getTimestamp(i);
-        	}
+            final Timestamp ts;
+            if (calendar != null) {
+              ts = rs.getTimestamp(i, calendar);
+            } else {
+              ts = rs.getTimestamp(i);
+            }
 
-        	// TODO: Need to handle precision such as milli, micro, nano
+            // TODO: Need to handle precision such as milli, micro, nano
             updateVector((TimeStampVector) root.getVector(columnName), ts, !rs.wasNull(), rowCount);
             break;
           case Types.BINARY:
