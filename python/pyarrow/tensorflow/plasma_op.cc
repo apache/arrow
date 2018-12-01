@@ -157,11 +157,14 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
 
     uint8_t* data = reinterpret_cast<uint8_t*>(data_buffer->mutable_data() + offset);
 
-    auto wrapped_callback = [this, context, done, data_buffer, object_id]() {
+    auto wrapped_callback = [this, context, done, data_buffer, data, object_id]() {
       {
         tf::mutex_lock lock(mu_);
         ARROW_CHECK_OK(client_.Seal(object_id));
         ARROW_CHECK_OK(client_.Release(object_id));
+        auto orig_stream = context->op_device_context()->stream();
+        auto stream_executor = orig_stream->parent();
+        CHECK(stream_executor->HostMemoryUnregister(static_cast<void*>(data)));
       }
       context->SetStatus(tensorflow::Status::OK());
       done();
@@ -186,7 +189,7 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
       // async memcpy.  Under the hood it performs cuMemHostRegister(), see:
       // http://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__MEM.html#group__CUDA__MEM_1gf0a9fe11544326dabd743b7aa6b54223
       CHECK(stream_executor->HostMemoryRegister(static_cast<void*>(data),
-                                                static_cast<tf::uint64>(total_bytes)));
+                                          static_cast<tf::uint64>(total_bytes)));
 
       {
         tf::mutex_lock l(d2h_stream_mu);
@@ -297,10 +300,14 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
     OP_REQUIRES_OK_ASYNC(context, context->allocate_output(0, shape, &output_tensor),
                          done);
 
-    auto wrapped_callback = [this, context, done, object_id]() {
+    auto wrapped_callback = [this, context, done, plasma_data, object_id]() {
       {
         tf::mutex_lock lock(mu_);
         ARROW_CHECK_OK(client_.Release(object_id));
+        auto orig_stream = context->op_device_context()->stream();
+        auto stream_executor = orig_stream->parent();
+        CHECK(stream_executor->HostMemoryUnregister(
+            const_cast<void*>(static_cast<const void*>(plasma_data))));
       }
       done();
     };
@@ -326,8 +333,6 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
       }
 
       // Important.  See note in T2P op.
-      // We don't check the return status since the host memory might've been
-      // already registered (e.g., the TensorToPlasmaOp might've been run).
       CHECK(stream_executor->HostMemoryRegister(
           const_cast<void*>(static_cast<const void*>(plasma_data)),
           static_cast<tf::uint64>(size_in_bytes)));
