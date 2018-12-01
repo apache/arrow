@@ -25,6 +25,7 @@ import numpy as np
 import sys
 import six
 from six import BytesIO, StringIO, string_types as py_string
+import socket
 
 
 PY26 = sys.version_info[:2] == (2, 6)
