@@ -238,11 +238,11 @@ BENCHMARK(BM_CopyBitmap)
     ->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_NaiveBitmapReader)
-    ->Args({10000000})
-    ->MinTime(3.0)
+    ->Args({1000000})
+    ->MinTime(5.0)
     ->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_BitmapReader)->Args({10000000})->MinTime(3.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BitmapReader)->Args({1000000})->MinTime(5.0)->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_NaiveBitmapWriter)
     ->Args({100000})
