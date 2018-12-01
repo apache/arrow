@@ -98,7 +98,7 @@ static void BenchmarkBitmapReader(benchmark::State& state, int64_t nbytes) {
   const int64_t num_bits = nbytes * 8;
   const uint8_t* bitmap = buffer->data();
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     {
       BitmapReaderType reader(bitmap, 0, num_bits);
       int64_t total = 0;
