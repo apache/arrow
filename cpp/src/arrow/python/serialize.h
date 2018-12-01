@@ -103,9 +103,9 @@ Status SerializeTensor(std::shared_ptr<Tensor> tensor, py::SerializedPyObject* o
 /// \param[in] dst The OutputStream to write the Tensor header to
 /// \return Status
 ARROW_EXPORT
-Status WriteTensorHeader(std::shared_ptr<DataType> dtype,
-                         const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
-                         io::OutputStream* dst);
+Status WriteNdarrayHeader(std::shared_ptr<DataType> dtype,
+                          const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
+                          io::OutputStream* dst);
 
 }  // namespace py
 
