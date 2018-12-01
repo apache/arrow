@@ -763,7 +763,7 @@ class TestPlasmaClient(object):
             for j in range(i):
                 # Assume the plasma store will not be full,
                 # so we always get the data size instead of -1.
-                msg_len = struct.unpack('L', rsock.recv(8))[0]
+                msg_len, = struct.unpack('L', rsock.recv(8))
                 content = rsock.recv(msg_len)
                 recv_objid, recv_dsize, recv_msize = (
                     self.plasma_client.decode_notification(content))
