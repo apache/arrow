@@ -370,7 +370,7 @@ class RecordBatchSerializer : public ArrayVisitor {
 
       // Allocate an array of child offsets. Set all to -1 to indicate that we
       // haven't observed a first occurrence of a particular child yet
-      std::vector<int32_t> child_offsets(max_code + 1, -1);
+      std::vector<int64_t> child_offsets(max_code + 1, -1);
       std::vector<int32_t> child_lengths(max_code + 1, 0);
 
       if (offset != 0) {
@@ -378,7 +378,7 @@ class RecordBatchSerializer : public ArrayVisitor {
         // each child array, when we have a sliced array, we need to "rebase"
         // the value_offsets for each array
 
-        const int32_t* unshifted_offsets = array.raw_value_offsets();
+        const int64_t* unshifted_offsets = array.raw_value_offsets();
         const uint8_t* type_ids = array.raw_type_ids();
 
         // Allocate the shifted offsets

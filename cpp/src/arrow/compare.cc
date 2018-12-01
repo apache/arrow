@@ -206,8 +206,8 @@ class RangeEqualsVisitor {
           return false;
         }
       } else {
-        const int32_t offset = left.raw_value_offsets()[i];
-        const int32_t o_offset = right.raw_value_offsets()[o_i];
+        const int64_t offset = left.raw_value_offsets()[i];
+        const int64_t o_offset = right.raw_value_offsets()[o_i];
         if (!left.child(child_num)->RangeEquals(offset, offset + 1, o_offset,
                                                 right.child(child_num))) {
           return false;
@@ -397,9 +397,9 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       // One of the arrays is sliced; logic is more complicated because the
       // value offsets are not both 0-based
       auto left_offsets =
-          reinterpret_cast<const int32_t*>(left.value_offsets()->data()) + left.offset();
+          reinterpret_cast<const int64_t*>(left.value_offsets()->data()) + left.offset();
       auto right_offsets =
-          reinterpret_cast<const int32_t*>(right.value_offsets()->data()) +
+          reinterpret_cast<const int64_t*>(right.value_offsets()->data()) +
           right.offset();
 
       for (int64_t i = 0; i < left.length() + 1; ++i) {
@@ -443,8 +443,8 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       }
     } else {
       // ARROW-537: Only compare data in non-null slots
-      const int32_t* left_offsets = left.raw_value_offsets();
-      const int32_t* right_offsets = right.raw_value_offsets();
+      const int64_t* left_offsets = left.raw_value_offsets();
+      const int64_t* right_offsets = right.raw_value_offsets();
       for (int64_t i = 0; i < left.length(); ++i) {
         if (left.IsNull(i)) {
           continue;

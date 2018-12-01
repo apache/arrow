@@ -265,7 +265,7 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   auto value_offsets = data->buffers[1];
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
-                           : reinterpret_cast<const int32_t*>(value_offsets->data());
+                           : reinterpret_cast<const int64_t*>(value_offsets->data());
 
   DCHECK_EQ(data_->child_data.size(), 1);
   values_ = MakeArray(data_->child_data[0]);
@@ -293,7 +293,7 @@ void BinaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
   raw_data_ = value_data == nullptr ? nullptr : value_data->data();
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
-                           : reinterpret_cast<const int32_t*>(value_offsets->data());
+                           : reinterpret_cast<const int64_t*>(value_offsets->data());
 }
 
 BinaryArray::BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
@@ -460,7 +460,7 @@ void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
       type_ids == nullptr ? nullptr : reinterpret_cast<const uint8_t*>(type_ids->data());
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
-                           : reinterpret_cast<const int32_t*>(value_offsets->data());
+                           : reinterpret_cast<const int64_t*>(value_offsets->data());
   boxed_fields_.resize(data->child_data.size());
 }
 
@@ -504,7 +504,7 @@ Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
 
   BufferVector buffers = {type_ids.null_bitmap(),
                           checked_cast<const Int8Array&>(type_ids).values(),
-                          checked_cast<const Int32Array&>(value_offsets).values()};
+                          checked_cast<const Int64Array&>(value_offsets).values()};
   auto union_type = union_(children, UnionMode::DENSE);
   auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
                                        type_ids.null_count(), type_ids.offset());

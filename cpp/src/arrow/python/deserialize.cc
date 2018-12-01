@@ -96,7 +96,7 @@ Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
   return Status::OK();
 }
 
-Status DeserializeArray(int32_t index, PyObject* base, const SerializedPyObject& blobs,
+Status DeserializeArray(int64_t index, PyObject* base, const SerializedPyObject& blobs,
                         PyObject** out) {
   RETURN_NOT_OK(py::TensorToNdarray(blobs.ndarrays[index], base, out));
   // Mark the array as immutable
@@ -198,7 +198,7 @@ Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
   const auto& data = checked_cast<const UnionArray&>(array);                             \
   OwnedRef result(CREATE_FN(stop_idx - start_idx));                                      \
   const uint8_t* type_ids = data.raw_type_ids();                                         \
-  const int32_t* value_offsets = data.raw_value_offsets();                               \
+  const int64_t* value_offsets = data.raw_value_offsets();                               \
   for (int64_t i = start_idx; i < stop_idx; ++i) {                                       \
     if (data.IsNull(i)) {                                                                \
       Py_INCREF(Py_None);                                                                \
@@ -233,7 +233,7 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
   const auto& data = checked_cast<const UnionArray&>(array);
   OwnedRef result(PySet_New(nullptr));
   const uint8_t* type_ids = data.raw_type_ids();
-  const int32_t* value_offsets = data.raw_value_offsets();
+  const int64_t* value_offsets = data.raw_value_offsets();
   for (int64_t i = start_idx; i < stop_idx; ++i) {
     if (data.IsNull(i)) {
       Py_INCREF(Py_None);
@@ -241,7 +241,7 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
         RETURN_IF_PYERROR();
       }
     } else {
-      int32_t offset = value_offsets[i];
+      int64_t offset = value_offsets[i];
       int8_t type = type_ids[i];
       PyObject* value;
       RETURN_NOT_OK(GetValue(context, data, *data.UnsafeChild(type), offset, type, base,

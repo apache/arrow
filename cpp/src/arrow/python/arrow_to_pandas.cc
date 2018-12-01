@@ -308,7 +308,7 @@ inline void ConvertIntegerWithNulls(PandasOptions options, const ChunkedArray& d
     const T* in_values = GetPrimitiveValues<T>(arr);
     // Upcast to double, set NaN as appropriate
 
-    for (int i = 0; i < arr.length(); ++i) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
       *out_values++ = arr.IsNull(i) ? NAN : static_cast<double>(in_values[i]);
     }
   }
@@ -382,7 +382,7 @@ static Status ConvertIntegerObjects(PandasOptions options, const ChunkedArray& d
     const auto& arr = *data.chunk(c);
     const auto* in_values = GetPrimitiveValues<T>(arr);
 
-    for (int i = 0; i < arr.length(); ++i) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsNull(i)) {
         Py_INCREF(Py_None);
         *out_values++ = Py_None;
@@ -1101,7 +1101,7 @@ class CategoricalBlock : public PandasBlock {
 
         RETURN_NOT_OK(CheckIndices(indices, dict_arr.dictionary()->length()));
         // Null is -1 in CategoricalBlock
-        for (int i = 0; i < arr->length(); ++i) {
+        for (int64_t i = 0; i < arr->length(); ++i) {
           *out_values++ = indices.IsNull(i) ? -1 : in_values[i];
         }
       }
