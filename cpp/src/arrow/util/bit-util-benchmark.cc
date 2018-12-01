@@ -40,9 +40,7 @@ class NaiveBitmapReader {
       : bitmap_(bitmap), position_(0) {}
 
   bool IsSet() const {
-    const int64_t byte_offset = position_ / 8;
-    const int64_t bit_offset = position_ % 8;
-    return (bitmap_[byte_offset] & (1 << bit_offset)) == 0;
+    return BitUtil::GetBit(bitmap_, position_);
   }
 
   bool IsNotSet() const { return !IsSet(); }
@@ -51,7 +49,7 @@ class NaiveBitmapReader {
 
  private:
   const uint8_t* bitmap_;
-  int64_t position_;
+  uint64_t position_;
 };
 
 // A naive bitmap writer implementation, meant as a baseline against
@@ -240,11 +238,11 @@ BENCHMARK(BM_CopyBitmap)
     ->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_NaiveBitmapReader)
-    ->Args({100000})
-    ->MinTime(1.0)
+    ->Args({10000000})
+    ->MinTime(3.0)
     ->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_BitmapReader)->Args({100000})->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BitmapReader)->Args({10000000})->MinTime(3.0)->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_NaiveBitmapWriter)
     ->Args({100000})
