@@ -162,9 +162,11 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
         tf::mutex_lock lock(mu_);
         ARROW_CHECK_OK(client_.Seal(object_id));
         ARROW_CHECK_OK(client_.Release(object_id));
+#ifdef GOOGLE_CUDA
         auto orig_stream = context->op_device_context()->stream();
         auto stream_executor = orig_stream->parent();
         CHECK(stream_executor->HostMemoryUnregister(static_cast<void*>(data)));
+#endif
       }
       context->SetStatus(tensorflow::Status::OK());
       done();
@@ -304,10 +306,12 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
       {
         tf::mutex_lock lock(mu_);
         ARROW_CHECK_OK(client_.Release(object_id));
+#ifdef GOOGLE_CUDA
         auto orig_stream = context->op_device_context()->stream();
         auto stream_executor = orig_stream->parent();
         CHECK(stream_executor->HostMemoryUnregister(
             const_cast<void*>(static_cast<const void*>(plasma_data))));
+#endif
       }
       done();
     };
