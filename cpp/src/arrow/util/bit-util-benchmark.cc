@@ -39,9 +39,7 @@ class NaiveBitmapReader {
   NaiveBitmapReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap), position_(0) {}
 
-  bool IsSet() const {
-    return BitUtil::GetBit(bitmap_, position_);
-  }
+  bool IsSet() const { return BitUtil::GetBit(bitmap_, position_); }
 
   bool IsNotSet() const { return !IsSet(); }
 
