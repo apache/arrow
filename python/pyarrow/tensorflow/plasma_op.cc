@@ -189,7 +189,7 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
       // async memcpy.  Under the hood it performs cuMemHostRegister(), see:
       // http://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__MEM.html#group__CUDA__MEM_1gf0a9fe11544326dabd743b7aa6b54223
       CHECK(stream_executor->HostMemoryRegister(static_cast<void*>(data),
-                                          static_cast<tf::uint64>(total_bytes)));
+                                                static_cast<tf::uint64>(total_bytes)));
 
       {
         tf::mutex_lock l(d2h_stream_mu);
