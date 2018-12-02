@@ -173,7 +173,7 @@ TEST(TestBufferReader, Peek) {
 
   view = reader.Peek(20);
   ASSERT_EQ(data.size(), view.size());
-  ASSERT_EQ(data, view);
+  ASSERT_EQ(data, view.to_string());
 }
 
 TEST(TestBufferReader, RetainParentReference) {
