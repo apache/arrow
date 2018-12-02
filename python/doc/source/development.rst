@@ -76,13 +76,24 @@ Using Conda
 Let's create a conda environment with all the C++ build and Python dependencies
 from conda-forge:
 
+On Linux and OSX:
+
 .. code-block:: shell
 
-   conda create -y -q -n pyarrow-dev \
-         python=3.6 numpy six setuptools cython pandas pytest \
-         cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
-         gflags brotli jemalloc lz4-c zstd -c conda-forge
-   conda activate pyarrow-dev
+    conda create -y -n pyarrow-dev -c conda-forge \
+        --file arrow/ci/conda_env_unix.yml \
+        --file arrow/ci/conda_env_cpp.yml \
+        --file arrow/ci/conda_env_python.yml \
+        python=3.6
+
+On Windows:
+
+.. code-block:: shell
+
+    conda create -y -n pyarrow-dev -c conda-forge ^
+        --file arrow\ci\conda_env_cpp.yml ^
+        --file arrow\ci\conda_env_python.yml ^
+        python=3.6
 
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
