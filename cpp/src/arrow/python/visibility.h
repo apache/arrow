@@ -15,15 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_INIT_H
-#define ARROW_PYTHON_INIT_H
+#pragma once
 
-#include "arrow/python/platform.h"
-#include "arrow/python/visibility.h"
+#if defined(_WIN32) || defined(__CYGWIN__)  // Windows
+#if defined(_MSC_VER)
+#pragma warning(disable : 4251)
+#else
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
 
-extern "C" {
-ARROW_PYTHON_EXPORT
-int arrow_init_numpy();
-}
+#ifdef ARROW_STATIC
+#define ARROW_PYTHON_EXPORT
+#elif defined(ARROW_PYTHON_EXPORTING)
+#define ARROW_PYTHON_EXPORT __declspec(dllexport)
+#else
+#define ARROW_PYTHON_EXPORT __declspec(dllimport)
+#endif
 
-#endif  // ARROW_PYTHON_INIT_H
+#else  // Not Windows
+#ifndef ARROW_PYTHON_EXPORT
+#define ARROW_PYTHON_EXPORT __attribute__((visibility("default")))
+#endif
+#endif  // Non-Windows

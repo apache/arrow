@@ -26,9 +26,9 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/python/visibility.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/visibility.h"
 
 #include "arrow/python/common.h"
 
@@ -68,12 +68,12 @@ struct PyConversionOptions {
 /// \param[in] options various conversion options
 /// \param[out] out a ChunkedArray containing one or more chunks
 /// \return Status
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status ConvertPySequence(PyObject* obj, PyObject* mask,
                          const PyConversionOptions& options,
                          std::shared_ptr<ChunkedArray>* out);
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
                          std::shared_ptr<ChunkedArray>* out);
 

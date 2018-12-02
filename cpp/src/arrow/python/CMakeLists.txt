@@ -76,7 +76,7 @@ ADD_ARROW_LIB(arrow_python
 
 foreach(LIB_TARGET ${ARROW_PYTHON_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
-    PRIVATE ARROW_EXPORTING)
+    PRIVATE ARROW_PYTHON_EXPORTING)
 endforeach()
 
 if (ARROW_BUILD_STATIC AND MSVC)
@@ -112,6 +112,7 @@ install(FILES
   pyarrow.h
   serialize.h
   type_traits.h
+  visibility.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
 
 # pkg-config support
