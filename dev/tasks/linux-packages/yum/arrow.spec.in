@@ -75,6 +75,7 @@ cd cpp/build
 %if %{use_parquet}
   -DARROW_PARQUET=ON \
 %endif
+  -DARROW_PLASMA=ON \
   -DARROW_BUILD_TESTS=OFF
 make %{?_smp_mflags}
 cd -
@@ -88,8 +89,11 @@ cd c_glib
   --enable-gtk-doc
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
 sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
-LD_LIBRARY_PATH=$PWD/arrow-glib/.libs/:$PWD/parquet-glib/.libs/:$PWD/../cpp/build/$build_type \
-  make %{?_smp_mflags}
+ld_library_path=$PWD/arrow-glib/.libs/
+ld_library_path=$ld_library_path:$PWD/plasma-glib/.libs/
+ld_library_path=$ld_library_path:$PWD/parquet-glib/.libs/
+ld_library_path=$ld_library_path:$PWD/../cpp/build/$build_type
+LD_LIBRARY_PATH=$ld_library_path make %{?_smp_mflags}
 cd -
 %endif
 
@@ -172,6 +176,48 @@ Libraries and header files for Apache Arrow CPython extensions.
 %{_libdir}/pkgconfig/arrow-python.pc
 %endif
 
+%package -n plasma-libs
+Summary:	Runtime libraries for Plasma in-memory object store
+License:	Apache-2.0
+Requires:	%{name}-libs = %{version}-%{release}
+
+%description -n plasma-libs
+This package contains the libraries for Plasma in-memory object store.
+
+%files -n plasma-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libplasma.so.*
+
+%package -n plasma-store-server
+Summary:	Server for Plasma in-memory object store
+License:	Apache-2.0
+Requires:	plasma-libs = %{version}-%{release}
+
+%description -n plasma-store-server
+This package contains the server for Plasma in-memory object store.
+
+%files -n plasma-store-server
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_bindir}/plasma_store_server
+
+%package -n plasma-devel
+Summary:	Libraries and header files for Plasma in-memory object store
+License:	Apache-2.0
+Requires:	plasma-libs = %{version}-%{release}
+
+%description -n plasma-devel
+Libraries and header files for Plasma in-memory object store.
+
+%files -n plasma-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/plasma/
+%{_libdir}/libplasma.a
+%{_libdir}/libplasma.so
+%{_libdir}/pkgconfig/plasma*.pc
+
 %if %{use_parquet}
 %package -n parquet-libs
 Summary:	Runtime libraries for Apache Parquet C++
@@ -183,7 +229,7 @@ Requires:	boost-regex
 Requires:	%{name}-libs = %{version}-%{release}
 
 %description -n parquet-libs
-This package contains the libraries for Apache Parquet
+This package contains the libraries for Apache Parquet C++.
 
 %files -n parquet-libs
 %defattr(-,root,root,-)
@@ -197,7 +243,7 @@ Requires:	parquet-libs = %{version}-%{release}
 Requires:	zlib-devel
 
 %description -n parquet-devel
-Libraries and header files for Apache Parquet.
+Libraries and header files for Apache Parquet C++.
 
 %files -n parquet-devel
 %defattr(-,root,root,-)
@@ -257,6 +303,51 @@ Documentation for Apache Arrow GLib.
 %doc README.md LICENSE.txt NOTICE.txt
 %{_docdir}/arrow-glib/
 %{_datadir}/gtk-doc/html/arrow-glib/
+
+%package -n plasma-glib-libs
+Summary:	Runtime libraries for Plasma GLib
+License:	Apache-2.0
+Requires:	plasma-libs = %{version}-%{release}
+Requires:	%{name}-glib-libs = %{version}-%{release}
+
+%description -n plasma-glib-libs
+This package contains the libraries for Plasma GLib.
+
+%files -n plasma-glib-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libplasma-glib.so.*
+%{_datadir}/gir-1.0/Plasma-1.0.gir
+
+%package -n plasma-glib-devel
+Summary:	Libraries and header files for Plasma GLib
+License:	Apache-2.0
+Requires:	plasma-devel = %{version}-%{release}
+Requires:	%{name}-glib-devel = %{version}-%{release}
+
+%description -n plasma-glib-devel
+Libraries and header files for Plasma GLib.
+
+%files -n plasma-glib-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/plasma-glib/
+%{_libdir}/libplasma-glib.a
+%{_libdir}/libplasma-glib.so
+%{_libdir}/pkgconfig/plasma-glib.pc
+%{_libdir}/girepository-1.0/Plasma-1.0.typelib
+
+%package -n plasma-glib-doc
+Summary:	Documentation for Plasma GLib
+License:	Apache-2.0
+
+%description -n plasma-glib-doc
+Documentation for Plasma GLib.
+
+%files -n plasma-glib-doc
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_datadir}/gtk-doc/html/plasma-glib/
 %endif
 
 %if %{use_parquet} && %{use_glib}
