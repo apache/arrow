@@ -110,14 +110,12 @@ cdef public api shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(
         object meta):
     cdef vector[c_string] keys, values
 
-    if meta is None:
-        return shared_ptr[CKeyValueMetadata]()
-    elif isinstance(meta, dict):
+    if isinstance(meta, dict):
         keys = map(tobytes, meta.keys())
         values = map(tobytes, meta.values())
         return make_shared[CKeyValueMetadata](keys, values)
-    else:
-        raise TypeError('Metadata must be an instance of dict')
+
+    return shared_ptr[CKeyValueMetadata]()
 
 
 cdef public api bint pyarrow_is_field(object field):

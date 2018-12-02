@@ -432,7 +432,7 @@ cdef class Field:
     def metadata(self):
         return pyarrow_wrap_metadata(self.field.metadata())
 
-    def add_metadata(self, object metadata):
+    def add_metadata(self, metadata):
         """
         Add metadata as dict of string keys and values to Field
 
@@ -448,6 +448,9 @@ cdef class Field:
         cdef:
             shared_ptr[CField] c_field
             shared_ptr[CKeyValueMetadata] c_meta
+
+        if not isinstance(metadata, dict):
+            raise TypeError('Metadata must be an instance of dict')
 
         c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
@@ -728,7 +731,7 @@ cdef class Schema:
 
         return pyarrow_wrap_schema(new_schema)
 
-    def add_metadata(self, object metadata):
+    def add_metadata(self, metadata):
         """
         Add metadata as dict of string keys and values to Schema
 
@@ -744,6 +747,9 @@ cdef class Schema:
         cdef:
             shared_ptr[CKeyValueMetadata] c_meta
             shared_ptr[CSchema] c_schema
+
+        if not isinstance(metadata, dict):
+            raise TypeError('Metadata must be an instance of dict')
 
         c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
@@ -851,6 +857,8 @@ def field(name, type, bint nullable=True, metadata=None):
         shared_ptr[CKeyValueMetadata] c_meta
 
     if metadata is not None:
+        if not isinstance(metadata, dict):
+            raise TypeError('Metadata must be an instance of dict')
         c_meta = pyarrow_unwrap_metadata(metadata)
 
     result.sp_field.reset(
@@ -1516,6 +1524,8 @@ def schema(fields, metadata=None):
         c_fields.push_back(py_field.sp_field)
 
     if metadata is not None:
+        if not isinstance(metadata, dict):
+            raise TypeError('Metadata must be an instance of dict')
         c_meta = pyarrow_unwrap_metadata(metadata)
 
     c_schema.reset(new CSchema(c_fields, c_meta))

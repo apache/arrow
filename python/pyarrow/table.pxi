@@ -634,17 +634,22 @@ cdef class Column:
         return pyarrow_wrap_chunked_array(self.column.data())
 
 
-cdef _schema_from_arrays(arrays, names, object metadata,
-                         shared_ptr[CSchema]* schema):
+cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     cdef:
         Column col
         c_string c_name
         vector[shared_ptr[CField]] fields
         shared_ptr[CDataType] type_
         Py_ssize_t K = len(arrays)
+        shared_ptr[CKeyValueMetadata] c_metadata
+
+    if metadata is not None:
+        if not isinstance(metadata, dict):
+            raise TypeError('Metadata must be an instance of dict')
+        c_metadata = pyarrow_unwrap_metadata(metadata)
 
     if K == 0:
-        schema.reset(new CSchema(fields, pyarrow_unwrap_metadata(metadata)))
+        schema.reset(new CSchema(fields, c_metadata))
         return
 
     fields.resize(K)
@@ -675,7 +680,7 @@ cdef _schema_from_arrays(arrays, names, object metadata,
                 c_name = tobytes(names[i])
             fields[i].reset(new CField(c_name, type_, True))
 
-    schema.reset(new CSchema(fields, pyarrow_unwrap_metadata(metadata)))
+    schema.reset(new CSchema(fields, c_metadata))
 
 
 cdef class RecordBatch:
@@ -706,7 +711,7 @@ cdef class RecordBatch:
     def __len__(self):
         return self.batch.num_rows()
 
-    def replace_schema_metadata(self, object metadata=None):
+    def replace_schema_metadata(self, metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of record batch by replacing schema
         key-value metadata with the indicated new metadata (which may be None,
@@ -725,6 +730,8 @@ cdef class RecordBatch:
             shared_ptr[CRecordBatch] c_batch
 
         if metadata is not None:
+            if not isinstance(metadata, dict):
+                raise TypeError('Metadata must be an instance of dict')
             c_meta = pyarrow_unwrap_metadata(metadata)
 
         with nogil:
@@ -946,7 +953,7 @@ cdef class RecordBatch:
         return cls.from_arrays(arrays, names, metadata)
 
     @staticmethod
-    def from_arrays(list arrays, names, dict metadata=None):
+    def from_arrays(list arrays, names, metadata=None):
         """
         Construct a RecordBatch from multiple pyarrow.Arrays
 
@@ -1055,7 +1062,7 @@ cdef class Table:
         columns = [col.data for col in self.columns]
         return _reconstruct_table, (columns, self.schema)
 
-    def replace_schema_metadata(self, object metadata=None):
+    def replace_schema_metadata(self, metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of table by replacing schema
         key-value metadata with the indicated new metadata (which may be None,
@@ -1074,6 +1081,8 @@ cdef class Table:
             shared_ptr[CTable] c_table
 
         if metadata is not None:
+            if not isinstance(metadata, dict):
+                raise TypeError('Metadata must be an instance of dict')
             c_meta = pyarrow_unwrap_metadata(metadata)
 
         with nogil:

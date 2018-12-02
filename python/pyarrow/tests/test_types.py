@@ -469,14 +469,26 @@ def test_field_metadata():
 
 
 def test_field_add_remove_metadata():
+    import collections
+
     f0 = pa.field('foo', pa.int32())
 
     assert f0.metadata is None
 
     metadata = {b'foo': b'bar', b'pandas': b'badger'}
+    metadata2 = collections.OrderedDict([
+        (b'a', b'alpha'),
+        (b'b', b'beta')
+    ])
 
     f1 = f0.add_metadata(metadata)
     assert f1.metadata == metadata
+
+    f2 = f0.add_metadata(metadata2)
+    assert f2.metadata == metadata2
+
+    with pytest.raises(TypeError):
+        f0.add_metadata([1, 2, 3])
 
     f3 = f1.remove_metadata()
     assert f3.metadata is None
