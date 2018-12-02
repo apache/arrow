@@ -37,6 +37,19 @@ groups:
     - docker-hdfs-integration
     - docker-pandas-master
 
+  integration:
+    - docker-hdfs-integration
+    - docker-pandas-master
+
+  cpp-python:
+    - docker-cpp
+    - docker-cpp-alpine
+    - docker-python-2.7
+    - docker-python-2.7-alpine
+    - docker-python-3.6
+    - docker-python-3.6-alpine
+    - docker-python-3.7
+
 tasks:
   # arbitrary_task_name:
   #   platform: osx|linux|win
