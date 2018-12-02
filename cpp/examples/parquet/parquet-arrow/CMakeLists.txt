@@ -32,15 +32,11 @@ set(CMAKE_CXX_STANDARD 11)
 # We require a C++11 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# First search the packages in the system. If they are not found, use CMake's
-# ExternalProject mechanism to build them locally.
+# Look for installed packages the system
 find_package(Arrow)
 find_package(Parquet)
 
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR} ${PARQUET_INCLUDE_DIR})
 
-add_executable(parquet-arrow-reader-writer src/reader-writer.cc)
-target_link_libraries(parquet-arrow-reader-writer ${PARQUET_SHARED_LIB} ${ARROW_SHARED_LIB})
-if (ARROW_VENDORED)
-  add_dependencies(parquet-arrow-reader-writer arrow_ep)
-endif()
+add_executable(parquet-arrow-example src/reader-writer.cc)
+target_link_libraries(parquet-arrow-example ${PARQUET_SHARED_LIB} ${ARROW_SHARED_LIB})
