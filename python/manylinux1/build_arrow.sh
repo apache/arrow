@@ -108,7 +108,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
 
     echo "=== (${PYTHON}) Test the existence of optional modules ==="
-    $PIP install -r requirements.txt
+    $PIP install -r requirements-test.txt
 
     echo "=== (${PYTHON}) Tag the wheel with manylinux1 ==="
     mkdir -p repaired_wheels/
