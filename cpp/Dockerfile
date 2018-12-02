@@ -37,7 +37,8 @@ ADD ci/docker_install_conda.sh \
     /arrow/ci/
 RUN arrow/ci/docker_install_conda.sh && \
     conda install -c conda-forge \
-        --file arrow/ci/conda_env_cpp.yml && \
+        --file arrow/ci/conda_env_cpp.yml \
+        --file arrow/ci/conda_env_unix.yml && \
     conda clean --all
 
 ENV CC=gcc \

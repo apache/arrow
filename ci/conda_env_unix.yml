@@ -15,21 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-boost-cpp
-brotli
-bzip2
-cmake
-double-conversion
-flatbuffers
-gflags
-glog
-gtest
-libprotobuf
-lz4-c
-python
-rapidjson
-re2
-snappy
-thrift-cpp
-zlib
-zstd
+# conda package dependencies specific to Unix-like environments (Linux and macOS)
+
+autoconf

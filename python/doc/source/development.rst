@@ -81,6 +81,7 @@ On Linux and OSX:
 .. code-block:: shell
 
     conda create -y -n pyarrow-dev -c conda-forge \
+        --file arrow/ci/conda_env_unix.yml \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_python.yml \
         python=3.6
