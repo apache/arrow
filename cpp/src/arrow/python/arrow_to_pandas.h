@@ -27,7 +27,7 @@
 #include <string>
 #include <unordered_set>
 
-#include "arrow/util/visibility.h"
+#include "arrow/python/visibility.h"
 
 namespace arrow {
 
@@ -57,16 +57,16 @@ struct PandasOptions {
         use_threads(false) {}
 };
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status ConvertArrayToPandas(PandasOptions options, const std::shared_ptr<Array>& arr,
                             PyObject* py_ref, PyObject** out);
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status ConvertChunkedArrayToPandas(PandasOptions options,
                                    const std::shared_ptr<ChunkedArray>& col,
                                    PyObject* py_ref, PyObject** out);
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column>& col,
                              PyObject* py_ref, PyObject** out);
 
@@ -76,7 +76,7 @@ Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column
 // BlockManager structure of the pandas.DataFrame used as of pandas 0.19.x.
 //
 // tuple item: (indices: ndarray[int32], block: ndarray[TYPE, ndim=2])
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table,
                             MemoryPool* pool, PyObject** out);
 
@@ -84,7 +84,7 @@ Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>&
 ///
 /// Explicitly name columns that should be a categorical
 /// This option is only used on conversions that are applied to a table.
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status ConvertTableToPandas(PandasOptions options,
                             const std::unordered_set<std::string>& categorical_columns,
                             const std::shared_ptr<Table>& table, MemoryPool* pool,

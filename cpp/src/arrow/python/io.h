@@ -22,7 +22,7 @@
 
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-#include "arrow/util/visibility.h"
+#include "arrow/python/visibility.h"
 
 #include "arrow/python/config.h"
 
@@ -36,7 +36,7 @@ namespace py {
 
 class ARROW_NO_EXPORT PythonFile;
 
-class ARROW_EXPORT PyReadableFile : public io::RandomAccessFile {
+class ARROW_PYTHON_EXPORT PyReadableFile : public io::RandomAccessFile {
  public:
   explicit PyReadableFile(PyObject* file);
   ~PyReadableFile() override;
@@ -64,7 +64,7 @@ class ARROW_EXPORT PyReadableFile : public io::RandomAccessFile {
   std::unique_ptr<PythonFile> file_;
 };
 
-class ARROW_EXPORT PyOutputStream : public io::OutputStream {
+class ARROW_PYTHON_EXPORT PyOutputStream : public io::OutputStream {
  public:
   explicit PyOutputStream(PyObject* file);
   ~PyOutputStream() override;
@@ -87,7 +87,7 @@ class ARROW_EXPORT PyOutputStream : public io::OutputStream {
 // Keeping the reference in a Python wrapper would be incorrect as
 // the Python wrapper can get destroyed even though the wrapped C++
 // buffer is still alive (ARROW-2270).
-class ARROW_EXPORT PyForeignBuffer : public Buffer {
+class ARROW_PYTHON_EXPORT PyForeignBuffer : public Buffer {
  public:
   static Status Make(const uint8_t* data, int64_t size, PyObject* base,
                      std::shared_ptr<Buffer>* out);

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -1221,3 +1222,29 @@ def test_nested_dictionary_array():
     dict_arr = pa.DictionaryArray.from_arrays([0, 1, 0], ['a', 'b'])
     dict_arr2 = pa.DictionaryArray.from_arrays([0, 1, 2, 1, 0], dict_arr)
     assert dict_arr2.to_pylist() == ['a', 'b', 'a', 'b', 'a']
+
+
+def test_array_from_numpy_str_utf8():
+    # ARROW-3890 -- in Python 3, NPY_UNICODE arrays are produced, but in Python
+    # 2 they are NPY_STRING (binary), so we must do UTF-8 validation
+    vec = np.array(["toto", "tata"])
+    vec2 = np.array(["toto", "tata"], dtype=object)
+
+    arr = pa.array(vec, pa.string())
+    arr2 = pa.array(vec2, pa.string())
+    expected = pa.array([u"toto", u"tata"])
+    assert arr.equals(expected)
+    assert arr2.equals(expected)
+
+    # with mask, separate code path
+    mask = np.array([False, False], dtype=bool)
+    arr = pa.array(vec, pa.string(), mask=mask)
+    assert arr.equals(expected)
+
+    # UTF8 validation failures
+    vec = np.array([(u'mañana').encode('utf-16-le')])
+    with pytest.raises(ValueError):
+        pa.array(vec, pa.string())
+
+    with pytest.raises(ValueError):
+        pa.array(vec, pa.string(), mask=np.array([False]))
