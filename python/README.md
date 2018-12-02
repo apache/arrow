@@ -79,7 +79,7 @@ and look for the "custom options" section.
 ### Building the documentation
 
 ```bash
-pip install -r ../doc/requirements.txt
+pip install -r ../docs/requirements.txt
 python setup.py build_sphinx -s ../doc/source
 ```
 

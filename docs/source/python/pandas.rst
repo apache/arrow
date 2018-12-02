@@ -17,7 +17,7 @@
 
 .. _pandas_interop:
 
-pandas Integration
+Pandas Integration
 ==================
 
 To interface with `pandas <https://pandas.pydata.org/>`_, PyArrow provides
