@@ -385,8 +385,8 @@ gplasma_client_refer_object(GPlasmaClient *client,
     auto plasma_object_buffer = plasma_object_buffers[0];
     auto plasma_data = plasma_object_buffer.data;
     auto plasma_metadata = plasma_object_buffer.metadata;
-    GArrowBuffer *data;
-    GArrowBuffer *metadata;
+    GArrowBuffer *data = nullptr;
+    GArrowBuffer *metadata = nullptr;
     if (plasma_object_buffer.device_num > 0) {
 #ifdef HAVE_ARROW_GPU
       std::shared_ptr<arrow::gpu::CudaBuffer> plasma_cuda_data;
@@ -411,6 +411,7 @@ gplasma_client_refer_object(GPlasmaClient *client,
                   GARROW_ERROR_INVALID,
                   "%s Arrow GPU GLib is needed to use GPU",
                   context);
+      return NULL;
 #endif
     } else {
       data = garrow_buffer_new_raw(&plasma_data);
