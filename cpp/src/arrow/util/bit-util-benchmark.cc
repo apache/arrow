@@ -39,11 +39,7 @@ class NaiveBitmapReader {
   NaiveBitmapReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap), position_(0) {}
 
-  bool IsSet() const {
-    const int64_t byte_offset = position_ / 8;
-    const int64_t bit_offset = position_ % 8;
-    return (bitmap_[byte_offset] & (1 << bit_offset)) == 0;
-  }
+  bool IsSet() const { return BitUtil::GetBit(bitmap_, position_); }
 
   bool IsNotSet() const { return !IsSet(); }
 
@@ -51,7 +47,7 @@ class NaiveBitmapReader {
 
  private:
   const uint8_t* bitmap_;
-  int64_t position_;
+  uint64_t position_;
 };
 
 // A naive bitmap writer implementation, meant as a baseline against
@@ -100,7 +96,7 @@ static void BenchmarkBitmapReader(benchmark::State& state, int64_t nbytes) {
   const int64_t num_bits = nbytes * 8;
   const uint8_t* bitmap = buffer->data();
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     {
       BitmapReaderType reader(bitmap, 0, num_bits);
       int64_t total = 0;
@@ -240,11 +236,11 @@ BENCHMARK(BM_CopyBitmap)
     ->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_NaiveBitmapReader)
-    ->Args({100000})
-    ->MinTime(1.0)
+    ->Args({1000000})
+    ->MinTime(5.0)
     ->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_BitmapReader)->Args({100000})->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BitmapReader)->Args({1000000})->MinTime(5.0)->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_NaiveBitmapWriter)
     ->Args({100000})
