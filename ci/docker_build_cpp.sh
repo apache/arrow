@@ -32,6 +32,7 @@ pushd ${build_dir}
 cmake -GNinja \
       -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-debug} \
       -DCMAKE_INSTALL_PREFIX=${install_dir} \
+      -DCMAKE_INSTALL_LIBDIR=lib \
       -DARROW_ORC=${ARROW_ORC:-ON} \
       -DARROW_PLASMA=${ARROW_PLASMA:-ON} \
       -DARROW_PARQUET=${ARROW_PARQUET:-ON} \
