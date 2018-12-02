@@ -398,7 +398,8 @@ gplasma_created_object_seal(GPlasmaCreatedObject *object,
   auto status = plasma_client->Seal(id_priv->id);
   auto success = garrow_error_check(error, status, context);
   if (success) {
-    plasma_client->Release(id_priv->id);
+    status = plasma_client->Release(id_priv->id);
+    success = garrow_error_check(error, status, context);
     gplasma_object_release_resources(priv);
   }
   return success;
