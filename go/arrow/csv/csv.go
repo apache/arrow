@@ -17,8 +17,6 @@
 // Package csv reads CSV files and presents the extracted data as records.
 package csv
 
-// TODO: implement a row chunker to accumulate N rows into the current record.
-
 import (
 	"encoding/csv"
 	"errors"
@@ -61,6 +59,19 @@ func WithAllocator(mem memory.Allocator) Option {
 	}
 }
 
+// WithChunk specifies the chunk size used while parsing CSV files.
+//
+// If n is zero or 1, no chunking will take place and the reader will create
+// one record per row.
+// If n is greater than 1, chunks of n rows will be read.
+// If n is negative, the reader will load the whole CSV file into memory and
+// create one big record with all the rows.
+func WithChunk(n int) Option {
+	return func(r *Reader) {
+		r.chunk = n
+	}
+}
+
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
 type Reader struct {
 	r      *csv.Reader
@@ -70,6 +81,10 @@ type Reader struct {
 	bld  *array.RecordBuilder
 	cur  array.Record
 	err  error
+
+	chunk int
+	done  bool
+	next  func() bool
 
 	mem memory.Allocator
 }
@@ -82,7 +97,7 @@ type Reader struct {
 func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 	validate(schema)
 
-	rr := &Reader{r: csv.NewReader(r), schema: schema, refs: 1}
+	rr := &Reader{r: csv.NewReader(r), schema: schema, refs: 1, chunk: 1}
 	for _, opt := range opts {
 		opt(rr)
 	}
@@ -93,6 +108,14 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 
 	rr.bld = array.NewRecordBuilder(rr.mem, rr.schema)
 
+	switch {
+	case rr.chunk < 0:
+		rr.next = rr.nextall
+	case rr.chunk > 1:
+		rr.next = rr.nextn
+	default:
+		rr.next = rr.next1
+	}
 	return rr
 }
 
@@ -117,13 +140,20 @@ func (r *Reader) Next() bool {
 		r.cur = nil
 	}
 
-	if r.err != nil {
+	if r.err != nil || r.done {
 		return false
 	}
 
+	return r.next()
+}
+
+// next1 reads one row from the CSV file and creates a single Record
+// from that row.
+func (r *Reader) next1() bool {
 	var recs []string
 	recs, r.err = r.r.Read()
 	if r.err != nil {
+		r.done = true
 		if r.err == io.EOF {
 			r.err = nil
 		}
@@ -132,8 +162,65 @@ func (r *Reader) Next() bool {
 
 	r.validate(recs)
 	r.read(recs)
+	r.cur = r.bld.NewRecord()
 
-	return r.err == nil
+	return true
+}
+
+// nextall reads the whole CSV file into memory and creates one single
+// Record from all the CSV rows.
+func (r *Reader) nextall() bool {
+	defer func() {
+		r.done = true
+	}()
+
+	var (
+		recs [][]string
+	)
+
+	recs, r.err = r.r.ReadAll()
+	if r.err != nil {
+		return false
+	}
+
+	for _, rec := range recs {
+		r.validate(rec)
+		r.read(rec)
+	}
+	r.cur = r.bld.NewRecord()
+
+	return true
+}
+
+// nextn reads n rows from the CSV file, where n is the chunk size, and creates
+// a Record from these rows.
+func (r *Reader) nextn() bool {
+	var (
+		recs []string
+		n    = 0
+	)
+
+	for i := 0; i < r.chunk && !r.done; i++ {
+		recs, r.err = r.r.Read()
+		if r.err != nil {
+			r.done = true
+			break
+		}
+
+		r.validate(recs)
+		r.read(recs)
+		n++
+	}
+
+	if r.err != nil {
+		r.done = true
+		if r.err == io.EOF {
+			r.err = nil
+		}
+	}
+
+	r.cur = r.bld.NewRecord()
+	return n > 0
 }
 
 func (r *Reader) validate(recs []string) {
@@ -193,7 +280,6 @@ func (r *Reader) read(recs []string) {
 			r.bld.Field(i).(*array.StringBuilder).Append(str)
 		}
 	}
-	r.cur = r.bld.NewRecord()
 }
 
 func (r *Reader) readI8(str string) int8 {
