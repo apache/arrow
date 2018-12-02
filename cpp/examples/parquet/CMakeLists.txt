@@ -15,15 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if (PARQUET_BUILD_EXAMPLES)
-  add_executable(parquet-reader-writer reader-writer.cc)
-  add_executable(parquet-reader-writer2 reader-writer2.cc)
-  target_include_directories(parquet-reader-writer PRIVATE .)
-  target_include_directories(parquet-reader-writer2 PRIVATE .)
-  target_link_libraries(parquet-reader-writer parquet_static)
-  target_link_libraries(parquet-reader-writer2 parquet_static)
+add_executable(parquet-low-level-example low-level-api/reader-writer.cc)
+add_executable(parquet-low-level-example2 low-level-api/reader-writer2.cc)
+target_include_directories(parquet-low-level-example PRIVATE low-level-api/)
+target_include_directories(parquet-low-level-example2 PRIVATE low-level-api/)
+target_link_libraries(parquet-low-level-example parquet_static)
+target_link_libraries(parquet-low-level-example2 parquet_static)
 
-  add_dependencies(parquet
-    parquet-reader-writer
-    parquet-reader-writer2)
-endif()
+add_executable(parquet-arrow-example parquet-arrow/src/reader-writer.cc)
+target_link_libraries(parquet-arrow-example parquet_shared)
+
+add_dependencies(parquet
+  parquet-low-level-example
+  parquet-low-level-example2
+  parquet-arrow-example)
