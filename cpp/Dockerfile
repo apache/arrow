@@ -34,6 +34,7 @@ ENV PATH=/opt/conda/bin:$PATH \
     CONDA_PREFIX=/opt/conda
 ADD ci/docker_install_conda.sh \
     ci/conda_env_cpp.yml \
+    ci/conda_env_unix.yml \
     /arrow/ci/
 RUN arrow/ci/docker_install_conda.sh && \
     conda install -c conda-forge \
