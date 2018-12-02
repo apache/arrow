@@ -41,7 +41,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     echo "=== (${PYTHON}, ${U_WIDTH}) Preparing virtualenv for tests ==="
     "$(cpython_path $PYTHON ${U_WIDTH})/bin/virtualenv" -p ${PYTHON_INTERPRETER} --no-download /venv-test-${PYTHON}-${U_WIDTH}
     source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
-    pip install pytest 'numpy==1.14.5' 'pandas==0.23.4'
+    pip install pytest hypothesis 'numpy==1.14.5' 'pandas==0.23.4'
     deactivate
 done
 
