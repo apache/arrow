@@ -21,15 +21,18 @@ project_name = 'plasma-glib'
 
 sources = files(
   'client.cpp',
+  'object.cpp',
 )
 
 c_headers = files(
   'client.h',
+  'object.h',
   'plasma-glib.h',
 )
 
 cpp_headers = files(
   'client.hpp',
+  'object.hpp',
   'plasma-glib.hpp',
 )
 
@@ -41,13 +44,39 @@ dependencies = [
   plasma,
   arrow_glib,
 ]
+cpp_args = [
+  '-DG_LOG_DOMAIN="Plasma"',
+]
+pkg_config_requires = [
+  'plasma',
+  'arrow-glib',
+]
+gir_dependencies = [
+  declare_dependency(sources: arrow_glib_gir),
+]
+gir_includes = [
+  'Arrow-1.0',
+]
+gir_extra_args = [
+  '--warn-all',
+  '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+]
+if arrow_gpu.found()
+  dependencies += [arrow_gpu_glib]
+  cpp_args += ['-DHAVE_ARROW_GPU']
+  pkg_config_requires += ['arrow-gpu-glib']
+  gir_dependencies += [declare_dependency(sources: arrow_gpu_glib_gir)]
+  gir_includes += ['ArrowGPU-1.0']
+  gir_extra_args += ['--include-uninstalled=./arrow-gpu-glib/ArrowGPU-1.0.gir']
+endif
 libplasma_glib = library('plasma-glib',
-                          sources: sources,
-                          install: true,
-                          dependencies: dependencies,
-                          include_directories: base_include_directories,
-                          soversion: so_version,
-                          version: library_version)
+                         sources: sources,
+                         install: true,
+                         dependencies: dependencies,
+                         include_directories: base_include_directories,
+                         cpp_args: cpp_args,
+                         soversion: so_version,
+                         version: library_version)
 plasma_glib = declare_dependency(link_with: libplasma_glib,
                                  include_directories: base_include_directories,
                                  dependencies: dependencies)
@@ -56,22 +85,17 @@ pkgconfig.generate(filebase: project_name,
                    name: 'Apache Arrow Plasma GLib',
                    description: 'C API for Apache Arrow Plasma based on GLib',
                    version: version,
-                   requires: ['plasma', 'arrow-glib'],
+                   requires: pkg_config_requires,
                    libraries: [libplasma_glib])
 
 gnome.generate_gir(libplasma_glib,
-                   dependencies: declare_dependency(sources: arrow_glib_gir),
+                   dependencies: gir_dependencies,
                    sources: sources + c_headers,
                    namespace: 'Plasma',
                    nsversion: api_version,
                    identifier_prefix: 'GPlasma',
                    symbol_prefix: 'gplasma',
                    export_packages: 'plasma-glib',
-                   includes: [
-                     'Arrow-1.0',
-                   ],
+                   includes: gir_includes,
                    install: true,
-                   extra_args: [
-                     '--warn-all',
-                     '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-                   ])
+                   extra_args: gir_extra_args)

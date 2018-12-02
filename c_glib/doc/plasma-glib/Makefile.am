@@ -15,6 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
+PLASMA_ARROW_GPU_GTKDOC_LIBS =
+if HAVE_ARROW_GPU
+PLASMA_ARROW_GPU_GTKDOC_LIBS +=					\
+	$(top_builddir)/arrow-gpu-glib/libarrow-gpu-glib.la
+endif
+
 if HAVE_PLASMA
 DOC_MODULE = plasma-glib
 
@@ -50,6 +56,7 @@ AM_CFLAGS =					\
 
 GTKDOC_LIBS =						\
 	$(top_builddir)/arrow-glib/libarrow-glib.la	\
+	$(PLASMA_ARROW_GPU_GTKDOC_LIBS)			\
 	$(top_builddir)/plasma-glib/libplasma-glib.la
 
 include $(top_srcdir)/gtk-doc.make
