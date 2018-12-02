@@ -21,8 +21,8 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/python/visibility.h"
 #include "arrow/status.h"
-#include "arrow/util/visibility.h"
 
 // Forward declaring PyObject, see
 // https://mail.python.org/pipermail/python-dev/2003-August/037601.html
@@ -47,7 +47,7 @@ class OutputStream;
 
 namespace py {
 
-struct ARROW_EXPORT SerializedPyObject {
+struct ARROW_PYTHON_EXPORT SerializedPyObject {
   std::shared_ptr<RecordBatch> batch;
   std::vector<std::shared_ptr<Tensor>> tensors;
   std::vector<std::shared_ptr<Tensor>> ndarrays;
@@ -86,14 +86,14 @@ struct ARROW_EXPORT SerializedPyObject {
 /// \return Status
 ///
 /// Release GIL before calling
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out);
 
 /// \brief Serialize an Arrow Tensor as a SerializedPyObject.
 /// \param[in] tensor Tensor to be serialized
 /// \param[out] out The serialized representation
 /// \return Status
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status SerializeTensor(std::shared_ptr<Tensor> tensor, py::SerializedPyObject* out);
 
 /// \brief Write the Tensor metadata header to an OutputStream.
@@ -102,7 +102,7 @@ Status SerializeTensor(std::shared_ptr<Tensor> tensor, py::SerializedPyObject* o
 /// \param[in] tensor_num_bytes The lengh of the Tensor data in bytes
 /// \param[in] dst The OutputStream to write the Tensor header to
 /// \return Status
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status WriteNdarrayHeader(std::shared_ptr<DataType> dtype,
                           const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
                           io::OutputStream* dst);

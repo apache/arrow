@@ -27,9 +27,9 @@
 #include <ostream>
 #include <string>
 
+#include "arrow/python/visibility.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/visibility.h"
 
 #include "arrow/python/common.h"
 
@@ -41,23 +41,23 @@ class Status;
 namespace py {
 
 // These three functions take a sequence input, not arbitrary iterables
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 arrow::Status InferArrowType(PyObject* obj, std::shared_ptr<arrow::DataType>* out_type);
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 arrow::Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
                                     std::shared_ptr<arrow::DataType>* out_type);
 
 /// Checks whether the passed Python object is a boolean scalar
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 bool IsPyBool(PyObject* obj);
 
 /// Checks whether the passed Python object is an integer scalar
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 bool IsPyInt(PyObject* obj);
 
 /// Checks whether the passed Python object is a float scalar
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 bool IsPyFloat(PyObject* obj);
 
 }  // namespace py

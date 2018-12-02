@@ -23,8 +23,8 @@
 #include <vector>
 
 #include "arrow/python/serialize.h"
+#include "arrow/python/visibility.h"
 #include "arrow/status.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -43,7 +43,7 @@ namespace py {
 /// \param[in] src a RandomAccessFile
 /// \param[out] out the reconstructed data
 /// \return Status
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 
 /// \brief Reconstruct SerializedPyObject from representation produced by
@@ -56,7 +56,7 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 /// num_tensors * 2 + num_buffers in length
 /// \param[out] out the reconstructed object
 /// \return Status
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status GetSerializedFromComponents(int num_tensors, int num_ndarrays, int num_buffers,
                                    PyObject* data, SerializedPyObject* out);
 
@@ -72,7 +72,7 @@ Status GetSerializedFromComponents(int num_tensors, int num_ndarrays, int num_bu
 /// \param[out] out The returned object
 /// \return Status
 /// This acquires the GIL
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status DeserializeObject(PyObject* context, const SerializedPyObject& object,
                          PyObject* base, PyObject** out);
 
@@ -80,10 +80,10 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& object,
 /// \param[in] object Object to deserialize
 /// \param[out] out The deserialized tensor
 /// \return Status
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status DeserializeNdarray(const SerializedPyObject& object, std::shared_ptr<Tensor>* out);
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status NdarrayFromBuffer(std::shared_ptr<Buffer> src, std::shared_ptr<Tensor>* out);
 
 }  // namespace py
