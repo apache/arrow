@@ -16,20 +16,72 @@
 # under the License.
 
 class TestPlasmaClient < Test::Unit::TestCase
+  include Helper::Omittable
+
   def setup
     @store = nil
     omit("Plasma is required") unless defined?(::Plasma)
     @store = Helper::PlasmaStore.new
     @store.start
+    @client = Plasma::Client.new(@store.socket_path)
   end
 
   def teardown
     @store.stop if @store
   end
 
-  def test_new
-    assert_nothing_raised do
-      Plasma::Client.new(@store.socket_path)
+  sub_test_case("#create") do
+    def setup
+      super
+
+      @id = Plasma::ObjectID.new("Hello")
+      @data = "World"
+      @metadata = "Metadata"
+      @options = Plasma::ClientCreateOptions.new
+    end
+
+    test("no options") do
+      require_gi(1, 42, 0)
+
+      object = @client.create(@id, @data.bytesize)
+      object.data.set_data(0, @data)
+      object.seal
+
+      object = @client.refer_object(@id, -1)
+      assert_equal(@data, object.data.data.to_s)
+    end
+
+    test("options: metadata") do
+      @options.set_metadata(@metadata)
+      object = @client.create(@id, 1, @options)
+      object.seal
+
+      object = @client.refer_object(@id, -1)
+      assert_equal(@metadata, object.metadata.data.to_s)
+    end
+
+    test("options: GPU device") do
+      omit("Arrow GPU is required") unless defined?(::ArrowGPU)
+
+      gpu_device = 0
+
+      @options.gpu_device = gpu_device
+      @options.metadata = @metadata
+      object = @client.create(@id, @data.bytesize, @options)
+      object.data.copy_from_host(@data)
+      object.seal
+
+      object = @client.refer_object(@id, -1)
+      assert_equal([
+                     gpu_device,
+                     @data,
+                     @metadata,
+                   ],
+                   [
+                     object.gpu_device,
+                     object.data.copy_to_host(0, @data.bytesize).to_s,
+                     object.metadata.copy_to_host(0, @metadata.bytesize).to_s,
+                   ])
     end
   end
 end

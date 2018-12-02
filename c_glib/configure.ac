@@ -223,8 +223,12 @@ fi
 
 AM_CONDITIONAL([HAVE_ARROW_GPU], [test "$HAVE_ARROW_GPU" = "yes"])
 if test "$HAVE_ARROW_GPU" = "yes"; then
+  ARROW_GPU_GLIB_PACKAGE="arrow-gpu-glib"
   AC_DEFINE(HAVE_ARROW_GPU, [1], [Define to 1 if Apache Arrow supports GPU.])
+else
+  ARROW_GPU_GLIB_PACKAGE=""
 fi
+AC_SUBST(ARROW_GPU_GLIB_PACKAGE)
 
 AM_CONDITIONAL([HAVE_GANDIVA], [test "$HAVE_GANDIVA" = "yes"])
 if test "$HAVE_GANDIVA" = "yes"; then
