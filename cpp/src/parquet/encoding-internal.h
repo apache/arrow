@@ -465,12 +465,10 @@ class DictEncoder : public Encoder<DType> {
  public:
   typedef typename DType::c_type T;
 
-  // XXX pool is unused
-  explicit DictEncoder(const ColumnDescriptor* desc, ChunkedAllocator* pool = nullptr,
+  explicit DictEncoder(const ColumnDescriptor* desc,
                        ::arrow::MemoryPool* allocator = ::arrow::default_memory_pool())
       : Encoder<DType>(desc, Encoding::PLAIN_DICTIONARY, allocator),
         allocator_(allocator),
-        pool_(pool),
         dict_encoded_size_(0),
         type_length_(desc->type_length()),
         memo_table_(INITIAL_HASH_TABLE_SIZE) {}
@@ -538,8 +536,6 @@ class DictEncoder : public Encoder<DType> {
   /// dict_encoded_size() bytes.
   void WriteDict(uint8_t* buffer);
 
-  ChunkedAllocator* mem_pool() { return pool_; }
-
   /// The number of entries in the dictionary.
   int num_entries() const { return memo_table_.size(); }
 
@@ -548,9 +544,6 @@ class DictEncoder : public Encoder<DType> {
   void ClearIndices() { buffered_indices_.clear(); }
 
   ::arrow::MemoryPool* allocator_;
-
-  // For ByteArray / FixedLenByteArray data. Not owned
-  ChunkedAllocator* pool_;
 
   /// Indices that have not yet be written out by WriteIndices().
   std::vector<int> buffered_indices_;
