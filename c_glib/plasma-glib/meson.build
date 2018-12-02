@@ -44,7 +44,9 @@ dependencies = [
   plasma,
   arrow_glib,
 ]
-cpp_args = []
+cpp_args = [
+  '-DG_LOG_DOMAIN="Plasma"',
+]
 pkg_config_requires = [
   'plasma',
   'arrow-glib',

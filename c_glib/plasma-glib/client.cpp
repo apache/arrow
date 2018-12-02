@@ -205,7 +205,11 @@ gplasma_client_finalize(GObject *object)
 {
   auto priv = GPLASMA_CLIENT_GET_PRIVATE(object);
 
-  priv->client->Disconnect();
+  auto status = priv->client->Disconnect();
+  if (!status.ok()) {
+    g_warning("[plasma][client][finalize] Failed to disconnect: %s",
+              status.ToString().c_str());
+  }
   delete priv->client;
 
   G_OBJECT_CLASS(gplasma_client_parent_class)->finalize(object);

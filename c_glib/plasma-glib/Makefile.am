@@ -23,7 +23,8 @@ EXTRA_DIST =					\
 
 AM_CPPFLAGS =					\
 	-I$(top_builddir)			\
-	-I$(top_srcdir)
+	-I$(top_srcdir)				\
+	-DG_LOG_DOMAIN=\"Plasma\"
 
 AM_CFLAGS =					\
 	$(GLIB_CFLAGS)				\
