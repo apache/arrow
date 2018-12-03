@@ -152,6 +152,7 @@ using LogicalVector_ = Rcpp::Vector<LGLSXP, Rcpp::NoProtectStorage>;
 using StringVector_ = Rcpp::Vector<STRSXP, Rcpp::NoProtectStorage>;
 using CharacterVector_ = StringVector_;
 using RawVector_ = Rcpp::Vector<RAWSXP, Rcpp::NoProtectStorage>;
+using List_ = Rcpp::Vector<VECSXP, Rcpp::NoProtectStorage>;
 
 template <int RTYPE>
 inline typename Rcpp::Vector<RTYPE>::stored_type default_value() {
