@@ -353,7 +353,6 @@ ColumnWriter::ColumnWriter(ColumnChunkMetaDataBuilder* metadata,
       encoding_(encoding),
       properties_(properties),
       allocator_(properties->memory_pool()),
-      pool_(properties->memory_pool()),
       num_buffered_values_(0),
       num_buffered_encoded_values_(0),
       rows_written_(0),
@@ -546,8 +545,7 @@ TypedColumnWriter<Type>::TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
       break;
     case Encoding::PLAIN_DICTIONARY:
     case Encoding::RLE_DICTIONARY:
-      current_encoder_.reset(
-          new DictEncoder<Type>(descr_, &pool_, properties->memory_pool()));
+      current_encoder_.reset(new DictEncoder<Type>(descr_, properties->memory_pool()));
       break;
     default:
       ParquetException::NYI("Selected encoding is not supported");
@@ -582,8 +580,6 @@ void TypedColumnWriter<Type>::WriteDictionaryPage() {
   std::shared_ptr<ResizableBuffer> buffer =
       AllocateBuffer(properties_->memory_pool(), dict_encoder->dict_encoded_size());
   dict_encoder->WriteDict(buffer->mutable_data());
-  // TODO Get rid of this deep call
-  dict_encoder->mem_pool()->FreeAll();
 
   DictionaryPage page(buffer, dict_encoder->num_entries(),
                       properties_->dictionary_index_encoding());
