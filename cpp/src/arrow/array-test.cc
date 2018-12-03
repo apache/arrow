@@ -247,6 +247,23 @@ TEST_F(TestArray, BuildLargeInMemoryArray) {
 TEST_F(TestArray, TestCopy) {}
 
 // ----------------------------------------------------------------------
+// Null type tests
+
+TEST(TestNullBuilder, Basics) {
+  NullBuilder builder;
+  std::shared_ptr<Array> array;
+
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Append(nullptr));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Finish(&array));
+
+  const auto& null_array = checked_cast<NullArray&>(*array);
+  ASSERT_EQ(null_array.length(), 3);
+  ASSERT_EQ(null_array.null_count(), 3);
+}
+
+// ----------------------------------------------------------------------
 // Primitive type tests
 
 TEST_F(TestBuilder, TestReserve) {
