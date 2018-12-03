@@ -38,7 +38,7 @@ Since this work is under active development, install `sparklyr` and
 
 ```r
 devtools::install_github("apache/arrow", subdir = "r", ref = "dc5df8f")
-devtools::install_github("rstudio/sparklyr")
+devtools::install_github("rstudio/sparklyr", ref = "feature/arrow")
 ```
 
 In this benchmark, we will use [dplyr][5], but similar improvements can
