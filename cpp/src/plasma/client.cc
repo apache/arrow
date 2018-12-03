@@ -202,6 +202,9 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Subscribe(int* fd);
 
+  Status DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
+                            int64_t* data_size, int64_t* metadata_size);
+
   Status GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
                          int64_t* metadata_size);
 
@@ -943,13 +946,10 @@ Status PlasmaClient::Impl::Subscribe(int* fd) {
   return Status::OK();
 }
 
-Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
-                                           int64_t* data_size, int64_t* metadata_size) {
-  auto notification = ReadMessageAsync(fd);
-  if (notification == NULL) {
-    return Status::IOError("Failed to read object notification from Plasma socket");
-  }
-  auto object_info = flatbuffers::GetRoot<fb::ObjectInfo>(notification.get());
+Status PlasmaClient::Impl::DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
+                                              int64_t* data_size,
+                                              int64_t* metadata_size) {
+  auto object_info = flatbuffers::GetRoot<fb::ObjectInfo>(buffer);
   ARROW_CHECK(object_info->object_id()->size() == sizeof(ObjectID));
   memcpy(object_id, object_info->object_id()->data(), sizeof(ObjectID));
   if (object_info->is_deletion()) {
@@ -960,6 +960,15 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
     *metadata_size = object_info->metadata_size();
   }
   return Status::OK();
+}
+
+Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
+                                           int64_t* data_size, int64_t* metadata_size) {
+  auto notification = ReadMessageAsync(fd);
+  if (notification == NULL) {
+    return Status::IOError("Failed to read object notification from Plasma socket");
+  }
+  return DecodeNotification(notification.get(), object_id, data_size, metadata_size);
 }
 
 Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
@@ -1136,6 +1145,11 @@ Status PlasmaClient::Subscribe(int* fd) { return impl_->Subscribe(fd); }
 Status PlasmaClient::GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
                                      int64_t* metadata_size) {
   return impl_->GetNotification(fd, object_id, data_size, metadata_size);
+}
+
+Status PlasmaClient::DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
+                                        int64_t* data_size, int64_t* metadata_size) {
+  return impl_->DecodeNotification(buffer, object_id, data_size, metadata_size);
 }
 
 Status PlasmaClient::Disconnect() { return impl_->Disconnect(); }
