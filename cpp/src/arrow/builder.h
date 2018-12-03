@@ -193,6 +193,18 @@ class ARROW_EXPORT ArrayBuilder {
   // Set the next length bits to not null (i.e. valid).
   void UnsafeSetNotNull(int64_t length);
 
+  static Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer);
+
+  static Status CheckCapacity(int64_t new_capacity, int64_t old_capacity) {
+    if (new_capacity < 0) {
+      return Status::Invalid("Resize capacity must be positive");
+    }
+    if (new_capacity < old_capacity) {
+      return Status::Invalid("Resize cannot downsize");
+    }
+    return Status::OK();
+  }
+
   std::shared_ptr<DataType> type_;
   MemoryPool* pool_;
 
