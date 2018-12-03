@@ -481,6 +481,66 @@ function(ADD_TEST_CASE REL_TEST_NAME)
 endfunction()
 
 ############################################################
+# Examples
+############################################################
+# Add a new example, with or without an executable that should be built.
+# If examples are enabled then they will be run along side unit tests with ctest.
+# 'make runexample' to build/run only examples.
+#
+# REL_EXAMPLE_NAME is the name of the example app. It may be a single component
+# (e.g. monotime-example) or contain additional components (e.g.
+# net/net_util-example). Either way, the last component must be a globally
+# unique name.
+
+# The example will registered as unit test with ctest with a label
+# of 'example'.
+#
+# Arguments after the test name will be passed to set_tests_properties().
+#
+# \arg PREFIX a string to append to the name of the example executable. For
+# example, if you have src/arrow/foo/bar-example.cc, then PREFIX "foo" will
+# create test executable foo-bar-example
+function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
+  if(NO_EXAMPLES)
+    return()
+  endif()
+  get_filename_component(EXAMPLE_NAME ${REL_EXAMPLE_NAME} NAME_WE)
+
+  if(ARG_PREFIX)
+    set(EXAMPLE_NAME "${ARG_PREFIX}-${EXAMPLE_NAME}")
+  endif()
+
+  if(EXISTS ${CMAKE_SOURCE_DIR}/examples/arrow/${REL_EXAMPLE_NAME}.cc)
+    # This example has a corresponding .cc file, set it up as an executable.
+    set(EXAMPLE_PATH "${EXECUTABLE_OUTPUT_PATH}/${EXAMPLE_NAME}")
+    add_executable(${EXAMPLE_NAME} "${REL_EXAMPLE_NAME}.cc")
+    target_link_libraries(${EXAMPLE_NAME} ${ARROW_EXAMPLE_LINK_LIBS})
+    add_dependencies(runexample ${EXAMPLE_NAME})
+    set(NO_COLOR "--color_print=false")
+
+    if (ARG_EXTRA_LINK_LIBS)
+      target_link_libraries(${EXAMPLE_NAME} ${ARG_EXTRA_LINK_LIBS})
+    endif()
+  endif()
+
+  if (ARG_DEPENDENCIES)
+    add_dependencies(${EXAMPLE_NAME} ${ARG_DEPENDENCIES})
+  endif()
+
+
+  add_test(${EXAMPLE_NAME} ${EXAMPLE_PATH})
+  set_tests_properties(${EXAMPLE_NAME} PROPERTIES LABELS "example")
+endfunction()
+
+############################################################
 # Fuzzing
 ############################################################
 # Add new fuzzing test executable.
