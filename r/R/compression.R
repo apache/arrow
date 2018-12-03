@@ -40,22 +40,22 @@ compression_codec <- function(type = "GZIP") {
 #' @param stream Underlying raw output stream
 #' @param codec a codec
 #' @export
-compressed_output_stream <- function(stream, codec = compression_codec("GZIP")){
-  UseMethod("compressed_output_stream")
+CompressedOutputStream <- function(stream, codec = compression_codec("GZIP")){
+  UseMethod("CompressedOutputStream")
 }
 
 #' @export
-compressed_output_stream.character <- function(stream, codec = compression_codec("GZIP")){
-  compressed_output_stream(fs::path_abs(stream), codec = codec)
+CompressedOutputStream.character <- function(stream, codec = compression_codec("GZIP")){
+  CompressedOutputStream(fs::path_abs(stream), codec = codec)
 }
 
 #' @export
-compressed_output_stream.fs_path <- function(stream, codec = compression_codec("GZIP")){
-  compressed_output_stream(file_output_stream(stream), codec = codec)
+CompressedOutputStream.fs_path <- function(stream, codec = compression_codec("GZIP")){
+  CompressedOutputStream(file_output_stream(stream), codec = codec)
 }
 
 #' @export
-`compressed_output_stream.arrow::io::OutputStream` <- function(stream, codec) {
+`CompressedOutputStream.arrow::io::OutputStream` <- function(stream, codec) {
   assert_that(inherits(codec, "arrow::util::Codec"))
   shared_ptr(`arrow::io::CompressedOutputStream`, io___CompressedOutputStream__Make(codec, stream))
 }
@@ -65,22 +65,22 @@ compressed_output_stream.fs_path <- function(stream, codec = compression_codec("
 #' @param stream Underlying raw input stream
 #' @param codec a codec
 #' @export
-compressed_input_stream <- function(stream, codec = codec("GZIP")){
-  UseMethod("compressed_input_stream")
+CompressedInputStream <- function(stream, codec = codec("GZIP")){
+  UseMethod("CompressedInputStream")
 }
 
 #' @export
-compressed_input_stream.character <- function(stream, codec = compression_codec("GZIP")){
-  compressed_input_stream(fs::path_abs(stream), codec = codec)
+CompressedInputStream.character <- function(stream, codec = compression_codec("GZIP")){
+  CompressedInputStream(fs::path_abs(stream), codec = codec)
 }
 
 #' @export
-compressed_input_stream.fs_path <- function(stream, codec = compression_codec("GZIP")){
-  compressed_input_stream(file_open(stream), codec = codec)
+CompressedInputStream.fs_path <- function(stream, codec = compression_codec("GZIP")){
+  CompressedInputStream(file_open(stream), codec = codec)
 }
 
 #' @export
-`compressed_input_stream.arrow::io::InputStream` <- function(stream, codec) {
+`CompressedInputStream.arrow::io::InputStream` <- function(stream, codec) {
   assert_that(inherits(codec, "arrow::util::Codec"))
   shared_ptr(`arrow::io::CompressedInputStream`, io___CompressedInputStream__Make(codec, stream))
 }
