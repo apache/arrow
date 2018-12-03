@@ -35,7 +35,7 @@ from pyarrow._parquet import (ParquetReader, RowGroupStatistics,  # noqa
                               ParquetSchema, ColumnSchema)
 from pyarrow.compat import guid
 from pyarrow.filesystem import (LocalFileSystem, _ensure_filesystem,
-                                get_filesystem_from_uri)
+                                resolve_filesystem_and_path)
 from pyarrow.util import _is_path_like, _stringify_path
 
 _URI_STRIP_SCHEMES = ('hdfs',)
@@ -54,7 +54,7 @@ def _parse_uri(path):
 
 def _get_filesystem_and_path(passed_filesystem, path):
     if passed_filesystem is None:
-        return get_filesystem_from_uri(path)
+        return resolve_filesystem_and_path(path, passed_filesystem)
     else:
         passed_filesystem = _ensure_filesystem(passed_filesystem)
         parsed_path = _parse_uri(path)
@@ -320,7 +320,10 @@ compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
     Valid values: {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD'}
 flavor : {'spark'}, default None
-    Sanitize schema or set other compatibility options for compatibility"""
+    Sanitize schema or set other compatibility options for compatibility
+filesystem : FileSystem, default None
+    If nothing passed, will be inferred from `where` if path-like, else
+    `where` is already a file-like object so no filesystem is needed."""
 
 
 class ParquetWriter(object):
@@ -335,12 +338,12 @@ schema : arrow Schema
 {0}
 """.format(_parquet_writer_arg_docs)
 
-    def __init__(self, where, schema, flavor=None,
+    def __init__(self, where, schema, filesystem=None,
+                 flavor=None,
                  version='1.0',
                  use_dictionary=True,
                  compression='snappy',
-                 use_deprecated_int96_timestamps=None,
-                 filesystem=None, **options):
+                 use_deprecated_int96_timestamps=None, **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
             if flavor is not None and 'spark' in flavor:
@@ -357,13 +360,13 @@ schema : arrow Schema
         self.schema = schema
         self.where = where
 
-        # If we open a file using an implied filesystem, so it can be assured
-        # to be closed
+        # If we open a file using a filesystem, store file handle so we can be
+        # sure to close it when `self.close` is called.
         self.file_handle = None
 
-        if _is_path_like(where):
-            fs, path = _get_filesystem_and_path(filesystem, where)
-            sink = self.file_handle = fs.open(path, 'wb')
+        filesystem, path = resolve_filesystem_and_path(where, filesystem)
+        if filesystem is not None:
+            sink = self.file_handle = filesystem.open(path, 'wb')
         else:
             sink = where
 

@@ -23,7 +23,7 @@ from os.path import join as pjoin
 from six.moves.urllib.parse import urlparse
 
 import pyarrow as pa
-from pyarrow.util import implements, _stringify_path
+from pyarrow.util import implements, _stringify_path, _is_path_like
 
 
 class FileSystem(object):
@@ -397,10 +397,18 @@ def _ensure_filesystem(fs):
         return fs
 
 
-def get_filesystem_from_uri(path):
+def resolve_filesystem_and_path(where, filesystem=None):
     """
     return filesystem from path which could be an HDFS URI
     """
+    if filesystem is not None:
+        if not _is_path_like(where):
+            raise ValueError("filesystem passed but where is file-like, so"
+                             " there is nothing to open with filesystem.")
+        return _ensure_filesystem(filesystem), where
+
+    path = where
+
     # input can be hdfs URI such as hdfs://host:port/myfile.parquet
     path = _stringify_path(path)
     # if _has_pathlib and isinstance(path, pathlib.Path):
