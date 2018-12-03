@@ -24,7 +24,7 @@ endif()
 message(INFO "Compiler command: ${CMAKE_CXX_COMPILER}")
 # Some gcc seem to output their version on stdout, most do it on stderr, simply
 # merge both pipes into a single variable
-execute_process(COMMAND "${CMAKE_CXX_COMPILER}" ${COMPILER_GET_VERSION_SWITCH}
+execute_process(COMMAND bash -c "LANG=C ${CMAKE_CXX_COMPILER} ${COMPILER_GET_VERSION_SWITCH}"
                 OUTPUT_VARIABLE COMPILER_VERSION_FULL
                 ERROR_VARIABLE COMPILER_VERSION_FULL)
 message(INFO "Compiler version: ${COMPILER_VERSION_FULL}")
