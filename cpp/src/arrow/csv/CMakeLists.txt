@@ -29,3 +29,24 @@ file(GLOB_RECURSE ARROW_CSV_HEADERS "*.h")
 install(FILES
   ${ARROW_CSV_HEADERS}
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/csv")
+
+set(ARROW_CSV_SRCS
+  chunker.cc
+  column-builder.cc
+  converter.cc
+  options.cc
+  parser.cc
+  reader.cc
+)
+
+ADD_ARROW_LIB(arrow_csv
+  SOURCES ${ARROW_CSV_SRCS}
+  DEPENDENCIES arrow_dependencies
+  SHARED_LINK_LIBS arrow_shared
+  STATIC_LINK_LIBS arrow_static)
+
+add_executable(csv-to-arrow csv-to-arrow.cc)
+
+target_link_libraries(csv-to-arrow
+  arrow_csv_static
+  gflags_static)
