@@ -1561,6 +1561,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// io___Writable__write
+void io___Writable__write(const std::shared_ptr<arrow::io::Writable>& stream, const std::shared_ptr<arrow::Buffer>& buf);
+RcppExport SEXP _arrow_io___Writable__write(SEXP streamSEXP, SEXP bufSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::Writable>& >::type stream(streamSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Buffer>& >::type buf(bufSEXP);
+    io___Writable__write(stream, buf);
+    return R_NilValue;
+END_RCPP
+}
+// io___OutputStream__Tell
+int64_t io___OutputStream__Tell(const std::shared_ptr<arrow::io::OutputStream>& stream);
+RcppExport SEXP _arrow_io___OutputStream__Tell(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::OutputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___OutputStream__Tell(stream));
+    return rcpp_result_gen;
+END_RCPP
+}
 // io___FileOutputStream__Open
 std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(const std::string& path);
 RcppExport SEXP _arrow_io___FileOutputStream__Open(SEXP pathSEXP) {
@@ -2395,6 +2417,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_io___MemoryMappedFile__Resize", (DL_FUNC) &_arrow_io___MemoryMappedFile__Resize, 2},
     {"_arrow_io___ReadableFile__Open", (DL_FUNC) &_arrow_io___ReadableFile__Open, 1},
     {"_arrow_io___BufferReader__initialize", (DL_FUNC) &_arrow_io___BufferReader__initialize, 1},
+    {"_arrow_io___Writable__write", (DL_FUNC) &_arrow_io___Writable__write, 2},
+    {"_arrow_io___OutputStream__Tell", (DL_FUNC) &_arrow_io___OutputStream__Tell, 1},
     {"_arrow_io___FileOutputStream__Open", (DL_FUNC) &_arrow_io___FileOutputStream__Open, 1},
     {"_arrow_io___BufferOutputStream__Create", (DL_FUNC) &_arrow_io___BufferOutputStream__Create, 1},
     {"_arrow_io___BufferOutputStream__capacity", (DL_FUNC) &_arrow_io___BufferOutputStream__capacity, 1},

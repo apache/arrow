@@ -55,7 +55,7 @@ CompressedOutputStream.fs_path <- function(stream, codec = compression_codec("GZ
 }
 
 #' @export
-`CompressedOutputStream.arrow::io::OutputStream` <- function(stream, codec) {
+`CompressedOutputStream.arrow::io::OutputStream` <- function(stream, codec = compression_codec("GZIP")) {
   assert_that(inherits(codec, "arrow::util::Codec"))
   shared_ptr(`arrow::io::CompressedOutputStream`, io___CompressedOutputStream__Make(codec, stream))
 }
@@ -80,7 +80,7 @@ CompressedInputStream.fs_path <- function(stream, codec = compression_codec("GZI
 }
 
 #' @export
-`CompressedInputStream.arrow::io::InputStream` <- function(stream, codec) {
+`CompressedInputStream.arrow::io::InputStream` <- function(stream, codec = compression_codec("GZIP")) {
   assert_that(inherits(codec, "arrow::util::Codec"))
   shared_ptr(`arrow::io::CompressedInputStream`, io___CompressedInputStream__Make(codec, stream))
 }

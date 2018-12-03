@@ -557,6 +557,14 @@ io___BufferReader__initialize <- function(buffer) {
     .Call(`_arrow_io___BufferReader__initialize`, buffer)
 }
 
+io___Writable__write <- function(stream, buf) {
+    invisible(.Call(`_arrow_io___Writable__write`, stream, buf))
+}
+
+io___OutputStream__Tell <- function(stream) {
+    .Call(`_arrow_io___OutputStream__Tell`, stream)
+}
+
 io___FileOutputStream__Open <- function(path) {
     .Call(`_arrow_io___FileOutputStream__Open`, path)
 }
