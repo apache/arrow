@@ -178,9 +178,11 @@ namespace internal {
 static inline void DefinitionLevelsToBitmap(
     const int16_t* def_levels, int64_t num_def_levels, const int16_t max_definition_level,
     const int16_t max_repetition_level, int64_t* values_read, int64_t* null_count,
-    uint8_t* valid_bits, const int64_t valid_bits_offset) {
+    uint8_t* valid_bits, int64_t valid_bits_offset) {
+  // We assume here that valid_bits is large enough to accommodate the
+  // additional definition levels and the ones that have already been written
   ::arrow::internal::BitmapWriter valid_bits_writer(valid_bits, valid_bits_offset,
-                                                    num_def_levels);
+                                                    valid_bits_offset + num_def_levels);
 
   // TODO(itaiin): As an interim solution we are splitting the code path here
   // between repeated+flat column reads, and non-repeated+nested reads.
