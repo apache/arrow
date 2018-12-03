@@ -629,6 +629,10 @@ RecordBatch__schema <- function(x) {
     .Call(`_arrow_RecordBatch__schema`, x)
 }
 
+RecordBatch__columns <- function(batch) {
+    .Call(`_arrow_RecordBatch__columns`, batch)
+}
+
 RecordBatch__column <- function(batch, i) {
     .Call(`_arrow_RecordBatch__column`, batch, i)
 }
@@ -665,6 +669,14 @@ RecordBatch__Slice2 <- function(self, offset, length) {
     .Call(`_arrow_RecordBatch__Slice2`, self, offset, length)
 }
 
+ipc___SerializeRecordBatch__Raw <- function(batch) {
+    .Call(`_arrow_ipc___SerializeRecordBatch__Raw`, batch)
+}
+
+ipc___ReadRecordBatch__InputStream__Schema <- function(stream, schema) {
+    .Call(`_arrow_ipc___ReadRecordBatch__InputStream__Schema`, stream, schema)
+}
+
 RecordBatchReader__schema <- function(reader) {
     .Call(`_arrow_RecordBatchReader__schema`, reader)
 }
@@ -675,6 +687,10 @@ RecordBatchReader__ReadNext <- function(reader) {
 
 ipc___RecordBatchStreamReader__Open <- function(stream) {
     .Call(`_arrow_ipc___RecordBatchStreamReader__Open`, stream)
+}
+
+ipc___RecordBatchStreamReader__batches <- function(reader) {
+    .Call(`_arrow_ipc___RecordBatchStreamReader__batches`, reader)
 }
 
 ipc___RecordBatchFileReader__schema <- function(reader) {
@@ -701,16 +717,12 @@ Table__from_RecordBatchStreamReader <- function(reader) {
     .Call(`_arrow_Table__from_RecordBatchStreamReader`, reader)
 }
 
-ipc___RecordBatchFileWriter__Open <- function(stream, schema) {
-    .Call(`_arrow_ipc___RecordBatchFileWriter__Open`, stream, schema)
+ipc___RecordBatchFileReader__batches <- function(reader) {
+    .Call(`_arrow_ipc___RecordBatchFileReader__batches`, reader)
 }
 
-ipc___RecordBatchStreamWriter__Open <- function(stream, schema) {
-    .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema)
-}
-
-ipc___RecordBatchWriter__WriteRecordBatch <- function(batch_writer, batch, allow_64bit) {
-    invisible(.Call(`_arrow_ipc___RecordBatchWriter__WriteRecordBatch`, batch_writer, batch, allow_64bit))
+ipc___RecordBatchWriter__WriteRecordBatch <- function(batch_writer, batch) {
+    invisible(.Call(`_arrow_ipc___RecordBatchWriter__WriteRecordBatch`, batch_writer, batch))
 }
 
 ipc___RecordBatchWriter__WriteTable <- function(batch_writer, table) {
@@ -719,6 +731,14 @@ ipc___RecordBatchWriter__WriteTable <- function(batch_writer, table) {
 
 ipc___RecordBatchWriter__Close <- function(batch_writer) {
     invisible(.Call(`_arrow_ipc___RecordBatchWriter__Close`, batch_writer))
+}
+
+ipc___RecordBatchFileWriter__Open <- function(stream, schema) {
+    .Call(`_arrow_ipc___RecordBatchFileWriter__Open`, stream, schema)
+}
+
+ipc___RecordBatchStreamWriter__Open <- function(stream, schema) {
+    .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema)
 }
 
 Table__from_dataframe <- function(tbl) {
@@ -743,5 +763,9 @@ Table__to_dataframe <- function(table) {
 
 Table__column <- function(table, i) {
     .Call(`_arrow_Table__column`, table, i)
+}
+
+Table__columns <- function(table) {
+    .Call(`_arrow_Table__columns`, table)
 }
 

@@ -17,7 +17,7 @@
 
 #' @importFrom withr defer_parent
 close_on_exit <- function(x, ...){
-  defer_parent(x$Close(), ...)
+  defer_parent(x$close(), ...)
   x
 }
 

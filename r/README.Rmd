@@ -46,9 +46,9 @@ tf <- tempfile()
 
 # write arrow::Table to file
 (tib <- tibble(x = 1:10, y = rnorm(10)))
-arrow::write_arrow(tib, tf)
+# arrow::write_arrow(tib, tf)
 
-# read it back with pyarrow
-pa <- import("pyarrow")
-as_tibble(pa$open_file(tf)$read_pandas())
+# # read it back with pyarrow
+# pa <- import("pyarrow")
+# as_tibble(pa$open_file(tf)$read_pandas())
 ```

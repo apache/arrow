@@ -2,7 +2,7 @@
 % Please edit documentation in R/Schema.R
 \name{schema}
 \alias{schema}
-\title{Schema functions}
+\title{Schema factory}
 \usage{
 schema(...)
 }
@@ -10,8 +10,8 @@ schema(...)
 \item{...}{named list of data types}
 }
 \value{
-a Schema
+a \link[=arrow__Schema]{schema}
 }
 \description{
-Schema functions
+Schema factory
 }

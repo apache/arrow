@@ -54,14 +54,23 @@ unique_ptr <- function(class, xp) {
   !(lhs == rhs)
 }
 
+#' @title class arrow::DataType
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__DataType
+#' @name arrow__DataType
 `arrow::DataType` <- R6Class("arrow::DataType",
   inherit = `arrow::Object`,
   public = list(
     ToString = function() {
       DataType__ToString(self)
-    },
-    name = function() {
-      DataType__name(self)
     },
     Equals = function(other) {
       assert_that(inherits(other, "arrow::DataType"))
@@ -73,11 +82,9 @@ unique_ptr <- function(class, xp) {
     children = function() {
       map(DataType__children_pointer(self), shared_ptr, class= `arrow::Field`)
     },
-    id = function(){
-      DataType__id(self)
-    },
+
     ..dispatch = function(){
-      switch(names(Type)[self$id()+1],
+      switch(names(Type)[self$id + 1],
         "NA" = null(),
         BOOL = boolean(),
         UINT8 = uint8(),
@@ -107,6 +114,15 @@ unique_ptr <- function(class, xp) {
         MAP = stop("Type MAP not implemented yet")
       )
     }
+  ),
+
+  active = list(
+    id = function(){
+      DataType__id(self)
+    },
+    name = function() {
+      DataType__name(self)
+    }
   )
 )
 
@@ -116,9 +132,21 @@ unique_ptr <- function(class, xp) {
 
 #----- metadata
 
+#' @title class arrow::FixedWidthType
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__FixedWidthType
+#' @name arrow__FixedWidthType
 `arrow::FixedWidthType` <- R6Class("arrow::FixedWidthType",
   inherit = `arrow::DataType`,
-  public = list(
+  active = list(
     bit_width = function() FixedWidthType__bit_width(self)
   )
 )

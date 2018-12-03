@@ -19,8 +19,8 @@ context("arrow::Field")
 
 test_that("field() factory", {
   x <- field("x", int32())
-  expect_equal(x$type(), int32())
-  expect_equal(x$name(), "x")
+  expect_equal(x$type, int32())
+  expect_equal(x$name, "x")
   expect_true(x == x)
   expect_false(x == field("x", int64()))
 })

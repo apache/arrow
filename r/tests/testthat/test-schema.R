@@ -17,18 +17,30 @@
 
 context("arrow::Schema")
 
-test_that("reading schema from raw vector", {
+test_that("reading schema from Buffer", {
+  # TODO: this uses the streaming format, i.e. from RecordBatchStreamWriter
+  #       maybe there is an easier way to serialize a schema
   batch <- record_batch(tibble::tibble(x = 1:10))
-  bytes <- write_record_batch(batch, raw())
-  schema <- read_schema(bytes)
-  expect_equal(schema, batch$schema())
-})
+  expect_is(batch, "arrow::RecordBatch")
 
-test_that("reading schema from streams", {
-  batch <- record_batch(tibble::tibble(x = 1:10))
-  bytes <- write_record_batch(batch, raw())
-  stream <- buffer_reader(bytes)
+  stream <- BufferOutputStream()
+  writer <- RecordBatchStreamWriter(stream, batch$schema)
+  expect_is(writer, "arrow::ipc::RecordBatchStreamWriter")
+  writer$close()
 
-  schema <- read_schema(stream)
-  expect_equal(schema, batch$schema())
+  buffer <- stream$getvalue()
+  expect_is(buffer, "arrow::Buffer")
+
+  reader <- MessageReader(buffer)
+  expect_is(reader, "arrow::ipc::MessageReader")
+
+  message <- reader$ReadNextMessage()
+  expect_is(message, "arrow::ipc::Message")
+  expect_equal(message$type, MessageType$SCHEMA)
+
+  stream <- BufferReader(buffer)
+  expect_is(stream, "arrow::io::BufferReader")
+  message <- read_message(stream)
+  expect_is(message, "arrow::ipc::Message")
+  expect_equal(message$type, MessageType$SCHEMA)
 })
