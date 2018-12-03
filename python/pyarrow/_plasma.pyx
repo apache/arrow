@@ -28,7 +28,6 @@ from libcpp.unordered_map cimport unordered_map
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
 from cython.operator cimport dereference as deref, preincrement as inc
 from cpython.pycapsule cimport *
-from cpython.version cimport PY_MAJOR_VERSION
 
 import collections
 import pyarrow
