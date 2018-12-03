@@ -118,7 +118,8 @@ std::shared_ptr<arrow::io::BufferReader> io___BufferReader__initialize(
 // ------- arrow::io::Writable
 
 // [[Rcpp::export]]
-void io___Writable__write(const std::shared_ptr<arrow::io::Writable>& stream, const std::shared_ptr<arrow::Buffer>& buf) {
+void io___Writable__write(const std::shared_ptr<arrow::io::Writable>& stream,
+                          const std::shared_ptr<arrow::Buffer>& buf) {
   STOP_IF_NOT_OK(stream->Write(buf->data(), buf->size()));
 }
 
