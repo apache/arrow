@@ -25,6 +25,7 @@ import numpy as np
 import sys
 import six
 from six import BytesIO, StringIO, string_types as py_string
+import socket
 
 
 PY26 = sys.version_info[:2] == (2, 6)
@@ -266,5 +267,14 @@ def import_pytorch_extension():
 
 
 integer_types = six.integer_types + (np.integer,)
+
+
+def get_socket_from_fd(fileno, family, type):
+    if PY2:
+        socket_obj = socket.fromfd(fileno, family, type)
+        return socket.socket(family, type, _sock=socket_obj)
+    else:
+        return socket.socket(fileno=fileno, family=family, type=type)
+
 
 __all__ = []
