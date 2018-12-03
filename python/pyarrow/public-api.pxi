@@ -108,14 +108,15 @@ cdef public api object pyarrow_wrap_metadata(
 
 cdef public api shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(
         object meta):
-    cdef vector[c_string] keys, values
+    cdef:
+        shared_ptr[CKeyValueMetadata] c_meta = make_shared[CKeyValueMetadata]()
 
     if isinstance(meta, dict):
-        keys = map(tobytes, meta.keys())
-        values = map(tobytes, meta.values())
-        return make_shared[CKeyValueMetadata](keys, values)
+        c_meta.get().reserve(len(meta))
+        for key, value in meta.items():
+            c_meta.get().Append(tobytes(key), tobytes(value))
 
-    return shared_ptr[CKeyValueMetadata]()
+    return c_meta
 
 
 cdef public api bint pyarrow_is_field(object field):

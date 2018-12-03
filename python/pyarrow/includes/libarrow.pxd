@@ -26,6 +26,7 @@ cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
         CKeyValueMetadata(const vector[c_string]& keys,
                           const vector[c_string]& values)
 
+        void reserve(int64_t n)
         int64_t size() const
         c_string key(int64_t i) const
         c_string value(int64_t i) const
