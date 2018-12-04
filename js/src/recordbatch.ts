@@ -25,8 +25,8 @@ import { valueToString, leftPad } from './util/pretty';
 import Long = flatbuffers.Long;
 
 export class RecordBatch<T extends StructData = StructData> extends StructVector<T> {
-    public static from<R extends StructData = StructData>(vectors: Vector[]) {
-        return new RecordBatch<R>(Schema.from(vectors),
+    public static from<R extends StructData = StructData>(vectors: Vector[], names?: string[]) {
+      return new RecordBatch<R>(Schema.from(vectors, names),
             Math.max(...vectors.map((v) => v.length)),
             vectors
         );
