@@ -140,7 +140,7 @@ csv_table_reader.default <- function(file,
   convert_options = csv_convert_options(),
   ...
 ){
-  csv_table_reader(file_open(file),
+  csv_table_reader(ReadableFile(file),
     read_options = read_options,
     parse_options = parse_options,
     convert_options = convert_options,

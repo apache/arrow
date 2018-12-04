@@ -23,7 +23,7 @@ test_that("Can read csv file", {
 
   tab1 <- csv_read(tf)
   tab2 <- csv_read(mmap_open(tf))
-  tab3 <- csv_read(file_open(tf))
+  tab3 <- csv_read(ReadableFile(tf))
 
   iris$Species <- as.character(iris$Species)
   tab0 <- table(iris)
