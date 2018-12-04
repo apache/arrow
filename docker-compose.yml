@@ -19,10 +19,15 @@
 
 version: '3.5'
 
-x-volumes:
-  &volumes
+x-ubuntu-volumes:
+  &ubuntu-volumes
   - .:/arrow:delegated
-  - ${ARROW_DOCKER_CACHE_DIR:-./docker_cache}:/build:delegated
+  - ${ARROW_DOCKER_CACHE_DIR:-./docker_cache}/ubuntu:/build:delegated
+
+x-alpine-volumes:
+  &alpine-volumes
+  - .:/arrow:delegated
+  - ${ARROW_DOCKER_CACHE_DIR:-./docker_cache}/alpine:/build:delegated
 
 services:
 
@@ -37,7 +42,7 @@ services:
     build:
       context: .
       dockerfile: c_glib/Dockerfile
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   cpp:
     # Usage:
@@ -50,7 +55,20 @@ services:
       dockerfile: cpp/Dockerfile
     environment:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-    volumes: *volumes
+    volumes: *ubuntu-volumes
+
+  cpp-alpine:
+    # Usage:
+    #   docker-compose build cpp-alpine
+    #   docker-compose run cpp-alpine
+    image: arrow:cpp-alpine
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.alpine
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *alpine-volumes
 
   go:
     # Usage:
@@ -60,7 +78,7 @@ services:
     build:
       context: .
       dockerfile: go/Dockerfile
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   java:
     # Usage:
@@ -93,7 +111,22 @@ services:
       dockerfile: python/Dockerfile
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
-    volumes: *volumes
+    volumes: *ubuntu-volumes
+
+  python-alpine:
+    # Usage:
+    #   export PYTHON_VERSION=2.7|3.6 (minor version is ignored)
+    #   docker-compose build cpp-alpine
+    #   docker-compose build python-alpine
+    #   docker-compose run python-alpine
+    image: arrow:python-${PYTHON_VERSION:-3.6}-alpine
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: python/Dockerfile.alpine
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+    volumes: *alpine-volumes
 
   rust:
     # Usage:
@@ -103,7 +136,7 @@ services:
     build:
       context: .
       dockerfile: rust/Dockerfile
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   r:
     # Usage:
@@ -114,7 +147,7 @@ services:
     build:
       context: .
       dockerfile: r/Dockerfile
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   ######################### Tools and Linters #################################
 
@@ -130,7 +163,7 @@ services:
       context: .
       dockerfile: dev/lint/Dockerfile
     command: arrow/dev/lint/run_linters.sh
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   iwyu:
     # Usage:
@@ -141,7 +174,7 @@ services:
       CC: clang
       CXX: clang++
     command: arrow/dev/lint/run_iwyu.sh
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   clang-format:
     # Usage:
@@ -149,7 +182,7 @@ services:
     #   docker-compose run clang-format
     image: arrow:lint
     command: arrow/dev/lint/run_clang_format.sh
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   ######################### Integration Tests #################################
 
@@ -208,7 +241,7 @@ services:
       context: .
       dockerfile: integration/pandas/Dockerfile
     shm_size: 2G
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
 
   # TODO(kszucs): dask-integration

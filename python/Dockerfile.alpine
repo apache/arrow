@@ -15,17 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM arrow:cpp
+FROM arrow:cpp-alpine
 
-# install python specific packages
+# install python, either python3(3.6) or python2(2.7)
 ARG PYTHON_VERSION=3.6
-ADD ci/conda_env_python.yml /arrow/ci/
-RUN conda install -c conda-forge \
-        --file arrow/ci/conda_env_python.yml \
-        python=$PYTHON_VERSION && \
-    conda clean --all
+RUN export PYTHON_MAJOR=${PYTHON_VERSION:0:1} && \
+    apk add --no-cache python${PYTHON_MAJOR}-dev && \
+    python${PYTHON_MAJOR} -m ensurepip && \
+    ln -sf /usr/bin/pip${PYTHON_MAJOR} /usr/bin/pip && \
+    ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/bin/python && \
+    pip install --upgrade pip setuptools
 
-ENV ARROW_PYTHON=ON
+# install python requirements
+ADD python/requirements.txt /arrow/python/
+RUN pip install -r /arrow/python/requirements.txt cython pandas
+
+ENV ARROW_PYTHON=ON \
+    PYARROW_WITH_PARQUET=0
 
 # build and test
 CMD arrow/ci/docker_build_cpp.sh && \
