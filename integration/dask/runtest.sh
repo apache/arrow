@@ -19,11 +19,16 @@
 
 set -e
 
-# pytest arrow/python/testing/dask_tests
+# check that optional pyarrow modules are available
+# because pytest would just skip the dask tests
+python -c "import pyarrow.orc"
+python -c "import pyarrow.parquet"
 
+# pytest arrow/python/testing/dask_tests
 # pytest -sv --pyargs dask.bytes.tests.test_s3
 # pytest -sv --pyargs dask.bytes.tests.test_hdfs
 # pytest -sv --pyargs dask.bytes.tests.test_local
+
 pytest -v --pyargs dask.dataframe.io.tests.test_orc
 pytest -v --pyargs dask.dataframe.io.tests.test_parquet
 pytest -v --pyargs dask.dataframe.tests.test_dataframe
