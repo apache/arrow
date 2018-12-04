@@ -192,7 +192,6 @@ test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   expect_equal(a_uint64$type, uint64())
 })
 
-<<<<<<< HEAD
 test_that("chunked_array() supports the type= argument. conversion from INTSXP and int64 to all int types", {
   num_int32 <- 12L
   num_int64 <- bit64::as.integer64(10)

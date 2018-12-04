@@ -24,7 +24,7 @@ test_that("cast decimal128 <-> int types", {
   expect_is(y, "integer")
   expect_equal(y, 1L)
 
-  y <- vec_cast(x, new_int64())
+  y <- vec_cast(x, bit64::integer64())
   expect_is(y, "integer64")
   expect_equal(y, bit64::as.integer64(1))
 
