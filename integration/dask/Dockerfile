@@ -17,33 +17,16 @@
 
 FROM arrow:python-3.6
 
-# installing libhdfs3, it needs to be pinned, see ARROW-1465 and ARROW-1445
-RUN conda install -y -c conda-forge hdfs3 libhdfs3=2.2.31 && \
+# install dask release from conda
+RUN conda install -c conda-forge dask && \
     conda clean --all
-
-# installing libhdfs (JNI)
-ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
-    HADOOP_VERSION=2.8.0 \
-    HADOOP_HOME=/usr/local/hadoop \
-    HADOOP_OPTS=-Djava.library.path=/usr/local/hadoop/lib/native \
-    PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
-RUN apt-get update -y && \
-    apt-get install -y openjdk-8-jdk && \
-    wget http://archive.apache.org/dist/hadoop/core/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz && \
-    tar -zxf /hadoop-$HADOOP_VERSION.tar.gz && \
-    rm /hadoop-$HADOOP_VERSION.tar.gz && \
-    mv hadoop-$HADOOP_VERSION /usr/local/hadoop
 
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
-    ARROW_HDFS=ON \
-    ARROW_PYTHON=ON \
-    ARROW_BUILD_TESTS=ON \
-    LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HADOOP_HOME}/lib/native" \
-    LIBHDFS3_CONF=/arrow/integration/hdfs/libhdfs3.xml
+    ARROW_PYTHON=ON
 
 # build and test
 CMD arrow/ci/docker_build_cpp.sh && \
     arrow/ci/docker_build_python.sh && \
-    arrow/integration/hdfs/runtest.sh
+    arrow/integration/dask/runtest.sh
