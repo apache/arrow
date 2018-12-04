@@ -51,7 +51,7 @@ CompressedOutputStream.character <- function(stream, codec = compression_codec("
 
 #' @export
 CompressedOutputStream.fs_path <- function(stream, codec = compression_codec("GZIP")){
-  CompressedOutputStream(file_output_stream(stream), codec = codec)
+  CompressedOutputStream(FileOutputStream(stream), codec = codec)
 }
 
 #' @export
@@ -76,7 +76,7 @@ CompressedInputStream.character <- function(stream, codec = compression_codec("G
 
 #' @export
 CompressedInputStream.fs_path <- function(stream, codec = compression_codec("GZIP")){
-  CompressedInputStream(file_open(stream), codec = codec)
+  CompressedInputStream(ReadableFile(stream), codec = codec)
 }
 
 #' @export

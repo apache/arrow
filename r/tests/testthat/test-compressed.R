@@ -24,21 +24,21 @@ test_that("can write Buffer to CompressedOutputStream and read back in Compresse
   stream1 <- CompressedOutputStream(tf1)
   stream1$write(buf)
   expect_error(stream1$tell())
-  stream1$Close()
+  stream1$close()
 
   tf2 <- local_tempfile()
-  sink2 <- file_output_stream(tf2)
+  sink2 <- FileOutputStream(tf2)
   stream2 <- CompressedOutputStream(sink2)
   stream2$write(buf)
   expect_error(stream2$tell())
-  stream2$Close()
-  sink2$Close()
+  stream2$close()
+  sink2$close()
 
 
   input1 <- CompressedInputStream(tf1)
   buf1 <- input1$Read(1024L)
 
-  file2 <- file_open(tf2)
+  file2 <- ReadableFile(tf2)
   input2 <- CompressedInputStream(file2)
   buf2 <- input2$Read(1024L)
 
