@@ -20,20 +20,21 @@ FROM ubuntu:18.04
 # install build essentials
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-      ca-certificates \
-      ccache \
-      g++ \
-      gcc \
-      git \
-      ninja-build \
-      pkg-config \
-      wget
+        ca-certificates \
+        ccache \
+        g++ \
+        gcc \
+        git \
+        ninja-build \
+        pkg-config \
+        wget
 
 # install conda and required packages
 ENV PATH=/opt/conda/bin:$PATH \
     CONDA_PREFIX=/opt/conda
 ADD ci/docker_install_conda.sh \
     ci/conda_env_cpp.yml \
+    ci/conda_env_unix.yml \
     /arrow/ci/
 RUN arrow/ci/docker_install_conda.sh && \
     conda install -c conda-forge \
@@ -43,9 +44,11 @@ RUN arrow/ci/docker_install_conda.sh && \
 
 ENV CC=gcc \
     CXX=g++ \
-    ARROW_BUILD_TESTS=ON
+    ARROW_BUILD_TESTS=ON \
+    ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX \
+    ARROW_HOME=$CONDA_PREFIX \
+    PARQUET_HOME=$CONDA_PREFIX
 
 # build and test
 CMD arrow/ci/docker_build_cpp.sh && \
-    cd /build/cpp && \
-    ctest -j2 --output-on-failure -L unittest
+    cd /build/cpp && ctest -j2 --output-on-failure -L unittest

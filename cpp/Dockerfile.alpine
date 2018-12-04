@@ -15,19 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM arrow:cpp
+FROM alpine
 
-# install python specific packages
-ARG PYTHON_VERSION=3.6
-ADD ci/conda_env_python.yml /arrow/ci/
-RUN conda install -c conda-forge \
-        --file arrow/ci/conda_env_python.yml \
-        python=$PYTHON_VERSION && \
-    conda clean --all
+# install dependencies
+RUN apk add --no-cache -q \
+        autoconf \
+        bash \
+        bison \
+        boost-dev \
+        cmake \
+        flex \
+        g++ \
+        gcc \
+        git \
+        gzip \
+        make \
+        musl-dev \
+        ninja \
+        wget \
+        zlib-dev
 
-ENV ARROW_PYTHON=ON
+ENV CC=gcc \
+    CXX=g++ \
+    ARROW_ORC=OFF \
+    ARROW_PARQUET=OFF \
+    ARROW_BUILD_TESTS=ON \
+    ARROW_HOME=/usr/local
 
 # build and test
 CMD arrow/ci/docker_build_cpp.sh && \
-    arrow/ci/docker_build_python.sh && \
-    pytest -v --pyargs pyarrow
+    cd /build/cpp && ctest -j2 --output-on-failure -L unittest
