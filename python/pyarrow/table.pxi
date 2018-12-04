@@ -641,15 +641,15 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
         vector[shared_ptr[CField]] fields
         shared_ptr[CDataType] type_
         Py_ssize_t K = len(arrays)
-        shared_ptr[CKeyValueMetadata] c_metadata
+        shared_ptr[CKeyValueMetadata] c_meta
 
     if metadata is not None:
         if not isinstance(metadata, dict):
             raise TypeError('Metadata must be an instance of dict')
-        c_metadata = pyarrow_unwrap_metadata(metadata)
+        c_meta = pyarrow_unwrap_metadata(metadata)
 
     if K == 0:
-        schema.reset(new CSchema(fields, c_metadata))
+        schema.reset(new CSchema(fields, c_meta))
         return
 
     fields.resize(K)
@@ -680,7 +680,7 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
                 c_name = tobytes(names[i])
             fields[i].reset(new CField(c_name, type_, True))
 
-    schema.reset(new CSchema(fields, c_metadata))
+    schema.reset(new CSchema(fields, c_meta))
 
 
 cdef class RecordBatch:

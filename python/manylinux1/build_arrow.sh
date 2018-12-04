@@ -122,6 +122,9 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"
 
+    echo "=== (${PYTHON}) Install modules required for testing ==="
+    pip install -r requirements-test.txt
+
     # The TensorFlow test will be skipped here, since TensorFlow is not
     # manylinux1 compatible; however, the wheels will support TensorFlow on
     # a TensorFlow compatible system
