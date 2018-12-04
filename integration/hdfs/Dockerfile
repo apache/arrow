@@ -22,8 +22,8 @@ RUN conda install -y -c conda-forge hdfs3 libhdfs3=2.2.31 && \
     conda clean --all
 
 # installing libhdfs (JNI)
+ARG HADOOP_VERSION=2.6.0
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
-    HADOOP_VERSION=2.8.0 \
     HADOOP_HOME=/usr/local/hadoop \
     HADOOP_OPTS=-Djava.library.path=/usr/local/hadoop/lib/native \
     PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
