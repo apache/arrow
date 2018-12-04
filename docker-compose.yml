@@ -255,6 +255,7 @@ services:
     links:
       - hdfs-namenode:hdfs-namenode
 
+  # TODO(kszucs): pass hdfs client version explicitly as build argument
   hdfs-integration:
     # Usage:
     #   export PYTHON_VERSION=3.6
@@ -274,6 +275,7 @@ services:
       dockerfile: integration/hdfs/Dockerfile
     volumes: *ubuntu-volumes
 
+  # TODO(kszucs): pass dask version explicitly as build argument
   dask-integration:
     # Usage:
     #   export PYTHON_VERSION=3.6

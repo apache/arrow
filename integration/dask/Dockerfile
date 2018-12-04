@@ -17,14 +17,13 @@
 
 FROM arrow:python-3.6
 
-# install dask release from conda
-RUN conda install -c conda-forge dask && \
-    conda clean --all
+# setup /etc/localtime
+RUN DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y -q tzdata
 
-# build cpp with tests
-ENV CC=gcc \
-    CXX=g++ \
-    ARROW_PYTHON=ON
+# install dask release from conda
+RUN conda install -c conda-forge dask pytest=3 && \
+    conda clean --all
 
 # build and test
 CMD arrow/ci/docker_build_cpp.sh && \
