@@ -15,28 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-project(gandiva)
+ADD_GANDIVA_TEST(filter_test)
+ADD_GANDIVA_TEST(projector_test)
+ADD_GANDIVA_TEST(projector_build_validation_test)
+ADD_GANDIVA_TEST(if_expr_test)
+ADD_GANDIVA_TEST(literal_test)
+ADD_GANDIVA_TEST(boolean_expr_test)
+ADD_GANDIVA_TEST(binary_test)
+ADD_GANDIVA_TEST(date_time_test)
+ADD_GANDIVA_TEST(to_string_test)
+ADD_GANDIVA_TEST(hash_test)
+ADD_GANDIVA_TEST(in_expr_test)
+ADD_GANDIVA_TEST(null_validity_test)
 
-foreach(lib_type "shared" "static")
-  add_gandiva_integ_test(filter_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(projector_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(if_expr_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(literal_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(projector_build_validation_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(boolean_expr_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(utf8_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(binary_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(date_time_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(to_string_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(hash_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(in_expr_test.cc gandiva_${lib_type})
-  add_gandiva_integ_test(null_validity_test.cc gandiva_${lib_type})
-endforeach(lib_type)
-
-set(GANDIVA_BENCHMARK_LINK_LIBRARIES
-  gandiva_static
-)
+ADD_GANDIVA_TEST(projector_test_static
+  SOURCES projector_test.cc
+  USE_STATIC_LINKING)
 
 ADD_ARROW_BENCHMARK(micro_benchmarks
   PREFIX "gandiva"
-  EXTRA_LINK_LIBS ${GANDIVA_BENCHMARK_LINK_LIBRARIES})
+  EXTRA_LINK_LIBS gandiva_static)

@@ -424,13 +424,13 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
 
   if (ARG_STATIC_LINK_LIBS)
     # Customize link libraries
-    target_link_libraries(${TEST_NAME} ${ARG_STATIC_LINK_LIBS})
+    target_link_libraries(${TEST_NAME} PRIVATE ${ARG_STATIC_LINK_LIBS})
   else()
-    target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
+    target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS})
   endif()
 
   if (ARG_EXTRA_LINK_LIBS)
-    target_link_libraries(${TEST_NAME} ${ARG_EXTRA_LINK_LIBS})
+    target_link_libraries(${TEST_NAME} PRIVATE ${ARG_EXTRA_LINK_LIBS})
   endif()
 
   if (ARG_EXTRA_INCLUDES)
