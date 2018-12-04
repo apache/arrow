@@ -21,14 +21,21 @@ if (NOT MSVC)
   set(COMPILER_GET_VERSION_SWITCH "-v")
 endif()
 
-message(INFO "Compiler command: ${CMAKE_CXX_COMPILER}")
+set(COMPILER_VERSION_COMMAND "${CMAKE_CXX_COMPILER}" "${COMPILER_GET_VERSION_SWITCH}")
+
+if (UNIX OR APPLE)
+  set(COMPILER_VERSION_COMMAND "env" "LANG=C" ${COMPILER_VERSION_COMMAND})
+endif()
+
+string(REPLACE ";" " " COMPILER_VERSION_COMMAND_STR "${COMPILER_VERSION_COMMAND}")
+message(STATUS "Compiler command: ${COMPILER_VERSION_COMMAND_STR}")
 # Some gcc seem to output their version on stdout, most do it on stderr, simply
 # merge both pipes into a single variable
-execute_process(COMMAND "${CMAKE_CXX_COMPILER}" ${COMPILER_GET_VERSION_SWITCH}
+execute_process(COMMAND ${COMPILER_VERSION_COMMAND}
                 OUTPUT_VARIABLE COMPILER_VERSION_FULL
                 ERROR_VARIABLE COMPILER_VERSION_FULL)
-message(INFO "Compiler version: ${COMPILER_VERSION_FULL}")
-message(INFO "Compiler id: ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "Compiler version: ${COMPILER_VERSION_FULL}")
+message(STATUS "Compiler id: ${CMAKE_CXX_COMPILER_ID}")
 string(TOLOWER "${COMPILER_VERSION_FULL}" COMPILER_VERSION_FULL_LOWER)
 
 if(MSVC)
