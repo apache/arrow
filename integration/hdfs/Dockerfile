@@ -41,10 +41,6 @@ ENV CC=gcc \
     ARROW_PYTHON=ON \
     ARROW_BUILD_TESTS=ON
 
-
-# LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HADOOP_HOME}/lib/native" \
-# LIBHDFS3_CONF=/arrow/integration/hdfs/libhdfs3.xml
-
 # build and test
 CMD arrow/ci/docker_build_cpp.sh && \
     arrow/ci/docker_build_python.sh && \

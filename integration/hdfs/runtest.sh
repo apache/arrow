@@ -20,6 +20,8 @@
 set -e
 
 export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
+export LIBHDFS3_CONF=$(dirname $0)/libhdfs3.xml
+# export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HADOOP_HOME}/lib/native"
 
 pushd /build/cpp
   debug/io-hdfs-test
