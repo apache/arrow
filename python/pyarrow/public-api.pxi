@@ -92,7 +92,7 @@ cdef public api object pyarrow_wrap_data_type(
     return out
 
 
-cdef public api object pyarrow_wrap_metadata(
+cdef object pyarrow_wrap_metadata(
         const shared_ptr[const CKeyValueMetadata]& meta):
     cdef const CKeyValueMetadata* cmeta = meta.get()
 
@@ -106,8 +106,7 @@ cdef public api object pyarrow_wrap_metadata(
     return result
 
 
-cdef public api shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(
-        object meta):
+cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta):
     cdef vector[c_string] keys, values
 
     if isinstance(meta, dict):
