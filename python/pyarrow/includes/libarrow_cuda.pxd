@@ -19,9 +19,9 @@
 
 from pyarrow.includes.libarrow cimport *
 
-cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
+cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::cuda" nogil:
 
-    cdef cppclass CCudaDeviceManager" arrow::gpu::CudaDeviceManager":
+    cdef cppclass CCudaDeviceManager" arrow::cuda::CudaDeviceManager":
         @staticmethod
         CStatus GetInstance(CCudaDeviceManager** manager)
         CStatus GetContext(int gpu_number, shared_ptr[CCudaContext]* ctx)
@@ -33,7 +33,7 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
         # CStatus FreeHost(void* data, int64_t nbytes)
         int num_devices() const
 
-    cdef cppclass CCudaContext" arrow::gpu::CudaContext":
+    cdef cppclass CCudaContext" arrow::cuda::CudaContext":
         shared_ptr[CCudaContext]  shared_from_this()
         # CStatus Close()
         CStatus Allocate(int64_t nbytes, shared_ptr[CCudaBuffer]* out)
@@ -47,13 +47,13 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
         const void* handle() const
         int device_number() const
 
-    cdef cppclass CCudaIpcMemHandle" arrow::gpu::CudaIpcMemHandle":
+    cdef cppclass CCudaIpcMemHandle" arrow::cuda::CudaIpcMemHandle":
         @staticmethod
         CStatus FromBuffer(const void* opaque_handle,
                            shared_ptr[CCudaIpcMemHandle]* handle)
         CStatus Serialize(CMemoryPool* pool, shared_ptr[CBuffer]* out) const
 
-    cdef cppclass CCudaBuffer" arrow::gpu::CudaBuffer"(CBuffer):
+    cdef cppclass CCudaBuffer" arrow::cuda::CudaBuffer"(CBuffer):
         CCudaBuffer(uint8_t* data, int64_t size,
                     const shared_ptr[CCudaContext]& context,
                     c_bool own_data=false, c_bool is_ipc=false)
@@ -73,17 +73,18 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
         CStatus ExportForIpc(shared_ptr[CCudaIpcMemHandle]* handle)
         shared_ptr[CCudaContext] context() const
 
-    cdef cppclass CCudaHostBuffer" arrow::gpu::CudaHostBuffer"(CMutableBuffer):
+    cdef cppclass \
+            CCudaHostBuffer" arrow::cuda::CudaHostBuffer"(CMutableBuffer):
         pass
 
     cdef cppclass \
-            CCudaBufferReader" arrow::gpu::CudaBufferReader"(CBufferReader):
+            CCudaBufferReader" arrow::cuda::CudaBufferReader"(CBufferReader):
         CCudaBufferReader(const shared_ptr[CBuffer]& buffer)
         CStatus Read(int64_t nbytes, int64_t* bytes_read, void* buffer)
         CStatus Read(int64_t nbytes, shared_ptr[CBuffer]* out)
 
     cdef cppclass \
-            CCudaBufferWriter" arrow::gpu::CudaBufferWriter"(WritableFile):
+            CCudaBufferWriter" arrow::cuda::CudaBufferWriter"(WritableFile):
         CCudaBufferWriter(const shared_ptr[CCudaBuffer]& buffer)
         CStatus Close()
         CStatus Flush()
@@ -98,17 +99,17 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
     CStatus AllocateCudaHostBuffer(int device_number, const int64_t size,
                                    shared_ptr[CCudaHostBuffer]* out)
 
-    # Cuda prefix is added to avoid picking up arrow::gpu functions
+    # Cuda prefix is added to avoid picking up arrow::cuda functions
     # from arrow namespace.
-    CStatus CudaSerializeRecordBatch" arrow::gpu::SerializeRecordBatch"\
+    CStatus CudaSerializeRecordBatch" arrow::cuda::SerializeRecordBatch"\
         (const CRecordBatch& batch,
          CCudaContext* ctx,
          shared_ptr[CCudaBuffer]* out)
-    CStatus CudaReadMessage" arrow::gpu::ReadMessage"\
+    CStatus CudaReadMessage" arrow::cuda::ReadMessage"\
         (CCudaBufferReader* reader,
          CMemoryPool* pool,
          unique_ptr[CMessage]* message)
-    CStatus CudaReadRecordBatch" arrow::gpu::ReadRecordBatch"\
+    CStatus CudaReadRecordBatch" arrow::cuda::ReadRecordBatch"\
         (const shared_ptr[CSchema]& schema,
          const shared_ptr[CCudaBuffer]& buffer,
          CMemoryPool* pool, shared_ptr[CRecordBatch]* out)

@@ -34,7 +34,7 @@
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"
 #endif
 
@@ -118,9 +118,9 @@ struct ObjectTableEntry {
   int64_t data_size;
   /// Size of the object metadata in bytes.
   int64_t metadata_size;
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   /// IPC GPU handle to share with clients.
-  std::shared_ptr<::arrow::gpu::CudaIpcMemHandle> ipc_handle;
+  std::shared_ptr<::arrow::cuda::CudaIpcMemHandle> ipc_handle;
 #endif
   /// Number of clients currently using this object.
   int ref_count;

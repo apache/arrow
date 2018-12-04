@@ -28,7 +28,7 @@
 #include "arrow/gpu/cuda_api.h"
 
 namespace arrow {
-namespace gpu {
+namespace cuda {
 
 constexpr int64_t kGpuNumber = 0;
 
@@ -94,5 +94,5 @@ BENCHMARK(BM_Writer_Unbuffered)
     ->MinTime(1.0)
     ->UseRealTime();
 
-}  // namespace gpu
+}  // namespace cuda
 }  // namespace arrow

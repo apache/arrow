@@ -78,8 +78,8 @@ if (ARROW_COMPUTE)
   )
 endif()
 
-if (ARROW_GPU)
-  # IPC extensions required to build the GPU library
+if (ARROW_CUDA)
+  # IPC extensions required to build the CUDA library
   set(ARROW_IPC ON)
   add_subdirectory(gpu)
 endif()

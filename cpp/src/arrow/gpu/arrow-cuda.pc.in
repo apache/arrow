@@ -18,9 +18,9 @@
 libdir=@CMAKE_INSTALL_FULL_LIBDIR@
 includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
 
-Name: Apache Arrow GPU
-Description: GPU integration library for Apache Arrow
+Name: Apache Arrow CUDA
+Description: CUDA integration library for Apache Arrow
 Version: @ARROW_VERSION@
 Requires: arrow
-Libs: -L${libdir} -larrow_gpu
+Libs: -L${libdir} -larrow_cuda
 Cflags: -I${includedir}

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# - Find ARROW CUDA (arrow/gpu/cuda_api.h, libarrow_gpu.a, libarrow_gpu.so)
+# - Find ARROW CUDA (arrow/gpu/cuda_api.h, libarrow_cuda.a, libarrow_cuda.so)
 #
 # This module requires Arrow from which it uses
 #   ARROW_FOUND
@@ -30,10 +30,6 @@
 #  ARROW_CUDA_SHARED_LIB, path to libarrow's shared library
 #  ARROW_CUDA_SHARED_IMP_LIB, path to libarrow's import library (MSVC only)
 #  ARROW_CUDA_FOUND, whether arrow has been found
-
-#
-# TODO(ARROW-3209): rename arrow/gpu to arrow/cuda, arrow_gpu to arrow_cuda
-#
 
 include(FindPkgConfig)
 include(GNUInstallDirs)
@@ -63,14 +59,14 @@ if (NOT (ARROW_CUDA_INCLUDE_DIR STREQUAL ARROW_INCLUDE_DIR))
   message(WARNING ${ARROW_CUDA_WARN_MSG})
 endif()
 
-find_library(ARROW_CUDA_LIB_PATH NAMES arrow_gpu
+find_library(ARROW_CUDA_LIB_PATH NAMES arrow_cuda
   PATHS
   ${ARROW_SEARCH_LIB_PATH}
   NO_DEFAULT_PATH)
 get_filename_component(ARROW_CUDA_LIBS ${ARROW_CUDA_LIB_PATH} DIRECTORY)
 
 if (MSVC)
-  find_library(ARROW_CUDA_SHARED_LIBRARIES NAMES arrow_gpu
+  find_library(ARROW_CUDA_SHARED_LIBRARIES NAMES arrow_cuda
     PATHS ${ARROW_HOME} NO_DEFAULT_PATH
     PATH_SUFFIXES "bin" )
   get_filename_component(ARROW_CUDA_SHARED_LIBS ${ARROW_CUDA_SHARED_LIBRARIES} PATH )
@@ -79,7 +75,7 @@ endif()
 
 if (ARROW_CUDA_INCLUDE_DIR AND ARROW_CUDA_LIBS)
   set(ARROW_CUDA_FOUND TRUE)
-  set(ARROW_CUDA_LIB_NAME arrow_gpu)
+  set(ARROW_CUDA_LIB_NAME arrow_cuda)
   if (MSVC)
     set(ARROW_CUDA_STATIC_LIB ${ARROW_CUDA_LIBS}/${ARROW_CUDA_LIB_NAME}${ARROW_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX})
     set(ARROW_CUDA_SHARED_LIB ${ARROW_CUDA_SHARED_LIBS}/${ARROW_CUDA_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})

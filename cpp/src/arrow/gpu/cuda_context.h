@@ -27,7 +27,7 @@
 #include "arrow/gpu/cuda_memory.h"
 
 namespace arrow {
-namespace gpu {
+namespace cuda {
 
 // Forward declaration
 class CudaContext;
@@ -138,7 +138,7 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   friend CudaDeviceManager::CudaDeviceManagerImpl;
 };
 
-}  // namespace gpu
+}  // namespace cuda
 }  // namespace arrow
 
 #endif  // ARROW_GPU_CUDA_CONTEXT_H

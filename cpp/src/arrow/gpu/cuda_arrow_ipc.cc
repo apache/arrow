@@ -38,7 +38,7 @@ namespace arrow {
 
 namespace flatbuf = org::apache::arrow::flatbuf;
 
-namespace gpu {
+namespace cuda {
 
 Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
                             std::shared_ptr<CudaBuffer>* out) {
@@ -106,5 +106,5 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
   return ipc::ReadRecordBatch(*message, schema, out);
 }
 
-}  // namespace gpu
+}  // namespace cuda
 }  // namespace arrow
