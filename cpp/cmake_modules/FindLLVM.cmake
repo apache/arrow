@@ -23,7 +23,8 @@
 set(GANDIVA_LLVM_VERSION 6.0)
 find_package(LLVM ${GANDIVA_LLVM_VERSION} REQUIRED CONFIG HINTS
              /usr/local/opt/llvm
-             /usr/share)
+             /usr/share
+             ${LLVM_DIR})
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
