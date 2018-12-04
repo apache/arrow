@@ -50,11 +50,11 @@ deprecation warnings.
 Arrow Java follows the Google style guide [here][3] with the following
 differences:
 
-* Imports should be grouped, from top to bottom, in order: static imports,
+* Imports are grouped, from top to bottom, in this order: static imports,
 standard Java, org.\*, com.\*
-* Line length up to 120 characters
+* Line length can be up to 120 characters
 * Operators for line wrapping are at end-of-line
-* Naming rules for methods, parameters, etc have been relaxed
+* Naming rules for methods, parameters, etc. have been relaxed
 * Disabled `NoFinalizer`, `OverloadMethodsDeclarationOrder`, and
 `VariableDeclarationUsageDistance` due to the existing code base. These rules
 should be followed when possible.
