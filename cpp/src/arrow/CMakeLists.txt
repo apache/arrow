@@ -19,6 +19,9 @@ set(ARROW_SRCS
   array.cc
   buffer.cc
   builder.cc
+  builder-adaptive.cc
+  builder-binary.cc
+  builder-dict.cc
   compare.cc
   memory_pool.cc
   pretty_print.cc
