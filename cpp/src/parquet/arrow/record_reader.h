@@ -104,6 +104,8 @@ class RecordReader {
   /// \param[in] reader obtained from RowGroupReader::GetColumnPageReader
   void SetPageReader(std::unique_ptr<PageReader> reader);
 
+  void DebugPrintState();
+
  private:
   std::unique_ptr<RecordReaderImpl> impl_;
   explicit RecordReader(RecordReaderImpl* impl);
