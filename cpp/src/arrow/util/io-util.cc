@@ -147,8 +147,7 @@ Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
   int ret, errno_actual;
 #if defined(_MSC_VER)
   errno_actual = _wsopen_s(fd, file_name.wstring().c_str(),
-                           _O_RDONLY | _O_BINARY | _O_NOINHERIT,
-                           _SH_DENYNO, _S_IREAD);
+                           _O_RDONLY | _O_BINARY | _O_NOINHERIT, _SH_DENYNO, _S_IREAD);
   ret = *fd;
 #else
   ret = *fd = open(file_name.c_str(), O_RDONLY | O_BINARY);
