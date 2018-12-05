@@ -15,11 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCTION_REGISTRY_H
-#define GANDIVA_FUNCTION_REGISTRY_H
+#ifndef GANDIVA_FUNCTION_REGISTRY_DATE_TIME_H
+#define GANDIVA_FUNCTION_REGISTRY_DATE_TIME_H
 
 #include <unordered_map>
-#include <vector>
 
 #include "gandiva/function_registry_common.h"
 #include "gandiva/gandiva_aliases.h"
@@ -28,15 +27,9 @@
 namespace gandiva {
 
 ///\brief Registry of pre-compiled IR functions.
-class FunctionRegistry {
+class FunctionRegistryDateTime {
  public:
-  using iterator = const NativeFunction*;
-
-  /// Lookup a pre-compiled function by its signature.
-  const NativeFunction* LookupSignature(const FunctionSignature& signature) const;
-
-  iterator begin() const;
-  iterator end() const;
+  static void GetDateTimeFnSignature(SignatureMap* map);
 
  private:
   static DataTypePtr time32() { return arrow::time32(arrow::TimeUnit::MILLI); }
@@ -44,14 +37,8 @@ class FunctionRegistry {
   static DataTypePtr time64() { return arrow::time64(arrow::TimeUnit::MICRO); }
 
   static DataTypePtr timestamp() { return arrow::timestamp(arrow::TimeUnit::MILLI); }
-
-  static SignatureMap InitPCMap();
-
-  // static NativeFunction pc_registry_[];
-  static std::vector<NativeFunction> pc_registry_;
-  static SignatureMap pc_registry_map_;
 };
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_FUNCTION_REGISTRY_H
+#endif  // GANDIVA_FUNCTION_REGISTRY_DATE_TIME_H

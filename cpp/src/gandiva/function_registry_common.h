@@ -15,9 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/function_registry_unaryfn.h"
+#ifndef GANDIVA_FUNCTION_REGISTRY_COMMON_H
+#define GANDIVA_FUNCTION_REGISTRY_COMMON_H
 
+#include <memory>
+#include <unordered_map>
 #include <vector>
+
+#include "gandiva/arrow.h"
+#include "gandiva/function_signature.h"
+#include "gandiva/gandiva_aliases.h"
+#include "gandiva/native_function.h"
 
 namespace gandiva {
 
@@ -36,6 +44,20 @@ using arrow::uint64;
 using arrow::uint8;
 using arrow::utf8;
 using std::vector;
+
+struct KeyHash {
+  std::size_t operator()(const FunctionSignature* k) const { return k->Hash(); }
+};
+
+struct KeyEquals {
+  bool operator()(const FunctionSignature* s1, const FunctionSignature* s2) const {
+    return *s1 == *s2;
+  }
+};
+
+typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyHash,
+                           KeyEquals>
+    SignatureMap;
 
 #define STRINGIFY(a) #a
 
@@ -184,102 +206,6 @@ using std::vector;
 #define NUMERIC_BOOL_DATE_VAR_LEN_TYPES(INNER, NAME) \
   NUMERIC_BOOL_DATE_TYPES(INNER, NAME), VAR_LEN_TYPES(INNER, NAME)
 
-
-FunctionRegistryUnary::SignatureMap& FunctionRegistryUnary::GetUnaryFnSignature() {
-  // list of registered native functions.
-
-  static NativeFunction unary_fn_registry_[] = {
-    // Arithmetic operations
-    UNARY_SAFE_NULL_IF_NULL(not, boolean, boolean),
-
-    // cast operations
-    UNARY_SAFE_NULL_IF_NULL(castBIGINT, int32, int64),
-    UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int32, float32),
-    UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int64, float32),
-    UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int32, float64),
-    UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int64, float64),
-    UNARY_SAFE_NULL_IF_NULL(castFLOAT8, float32, float64),
-    UNARY_SAFE_NULL_IF_NULL(castDATE, int64, date64),
-
-    // extended math ops
-    UNARY_SAFE_NULL_IF_NULL(cbrt, int32, float64),
-    UNARY_SAFE_NULL_IF_NULL(cbrt, int64, float64),
-    UNARY_SAFE_NULL_IF_NULL(cbrt, uint32, float64),
-    UNARY_SAFE_NULL_IF_NULL(cbrt, uint64, float64),
-    UNARY_SAFE_NULL_IF_NULL(cbrt, float32, float64),
-    UNARY_SAFE_NULL_IF_NULL(cbrt, float64, float64),
-
-    UNARY_SAFE_NULL_IF_NULL(exp, int32, float64),
-    UNARY_SAFE_NULL_IF_NULL(exp, int64, float64),
-    UNARY_SAFE_NULL_IF_NULL(exp, uint32, float64),
-    UNARY_SAFE_NULL_IF_NULL(exp, uint64, float64),
-    UNARY_SAFE_NULL_IF_NULL(exp, float32, float64),
-    UNARY_SAFE_NULL_IF_NULL(exp, float64, float64),
-
-    UNARY_SAFE_NULL_IF_NULL(log, int32, float64),
-    UNARY_SAFE_NULL_IF_NULL(log, int64, float64),
-    UNARY_SAFE_NULL_IF_NULL(log, uint32, float64),
-    UNARY_SAFE_NULL_IF_NULL(log, uint64, float64),
-    UNARY_SAFE_NULL_IF_NULL(log, float32, float64),
-    UNARY_SAFE_NULL_IF_NULL(log, float64, float64),
-
-    UNARY_SAFE_NULL_IF_NULL(log10, int32, float64),
-    UNARY_SAFE_NULL_IF_NULL(log10, int64, float64),
-    UNARY_SAFE_NULL_IF_NULL(log10, uint32, float64),
-    UNARY_SAFE_NULL_IF_NULL(log10, uint64, float64),
-    UNARY_SAFE_NULL_IF_NULL(log10, float32, float64),
-    UNARY_SAFE_NULL_IF_NULL(log10, float64, float64),
-
-    // nullable never operations
-    NUMERIC_BOOL_DATE_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnull),
-    NUMERIC_BOOL_DATE_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnotnull),
-    NUMERIC_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric),
-
-    // nullable never binary operations
-    NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, is_distinct_from),
-    NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, is_not_distinct_from),
-
-    // hash functions
-    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SAFE_NULL_NEVER, hash),
-    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SAFE_NULL_NEVER, hash32),
-    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SAFE_NULL_NEVER, hash32AsDouble),
-    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SEED_SAFE_NULL_NEVER, hash32),
-    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SEED_SAFE_NULL_NEVER, hash32AsDouble),
-
-    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SAFE_NULL_NEVER, hash64),
-    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SAFE_NULL_NEVER, hash64AsDouble),
-    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SEED_SAFE_NULL_NEVER, hash64),
-    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SEED_SAFE_NULL_NEVER, hash64AsDouble),
-
-    // utf8/binary operations
-    UNARY_SAFE_NULL_IF_NULL(octet_length, utf8, int32),
-    UNARY_SAFE_NULL_IF_NULL(octet_length, binary, int32),
-    UNARY_SAFE_NULL_IF_NULL(bit_length, utf8, int32),
-    UNARY_SAFE_NULL_IF_NULL(bit_length, binary, int32),
-    UNARY_UNSAFE_NULL_IF_NULL(char_length, utf8, int32),
-    UNARY_UNSAFE_NULL_IF_NULL(length, utf8, int32),
-    UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, binary, int32),
-
-    VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
-    VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
-    VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
-    VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
-    VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
-    VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to)
-  };
-
-  static FunctionRegistryUnary::SignatureMap map;
-
-  const int num_entries =
-      static_cast<int>(sizeof(unary_fn_registry_) / sizeof(NativeFunction));
-  for (int i = 0; i < num_entries; i++) {
-    const NativeFunction* entry = &unary_fn_registry_[i];
-
-    DCHECK(map.find(&entry->signature()) == map.end());
-    map[&entry->signature()] = entry;
-  }
-
-  return map;
-}
-
 }  // namespace gandiva
+
+#endif

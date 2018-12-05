@@ -15,34 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCTION_REGISTRY_UN_H
-#define GANDIVA_FUNCTION_REGISTRY_UN_H
+#ifndef GANDIVA_FUNCTION_REGISTRY_MATHOPS_H
+#define GANDIVA_FUNCTION_REGISTRY_MATHOPS_H
 
 #include <unordered_map>
 
+#include "gandiva/function_registry_common.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"
 
 namespace gandiva {
 
 ///\brief Registry of pre-compiled IR functions.
-class FunctionRegistryUnary {
+class FunctionRegistryMathOps {
  public:
-  struct KeyHash {
-    std::size_t operator()(const FunctionSignature* k) const { return k->Hash(); }
-  };
-
-  struct KeyEquals {
-    bool operator()(const FunctionSignature* s1, const FunctionSignature* s2) const {
-      return *s1 == *s2;
-    }
-  };
-
-  typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyHash,
-                             KeyEquals>
-      SignatureMap;
-
-  static SignatureMap& GetUnaryFnSignature();
+  static void GetMathOpsFnSignature(SignatureMap* map);
 
  private:
   static DataTypePtr time32() { return arrow::time32(arrow::TimeUnit::MILLI); }
@@ -54,4 +41,4 @@ class FunctionRegistryUnary {
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_FUNCTION_REGISTRY_UN_H
+#endif  // GANDIVA_FUNCTION_REGISTRY_MATHOPS_H

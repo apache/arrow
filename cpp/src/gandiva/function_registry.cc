@@ -16,9 +16,14 @@
 // under the License.
 
 #include "gandiva/function_registry.h"
-#include "gandiva/function_registry_binaryfn.h"
-#include "gandiva/function_registry_unaryfn.h"
+#include "gandiva/function_registry_arithmetic.h"
+#include "gandiva/function_registry_datetime.h"
+#include "gandiva/function_registry_hash.h"
+#include "gandiva/function_registry_math_ops.h"
+#include "gandiva/function_registry_string.h"
+#include "gandiva/function_registry_timestamp_arithmetic.h"
 
+#include <iterator>
 #include <vector>
 
 namespace gandiva {
@@ -37,234 +42,27 @@ using arrow::uint32;
 using arrow::uint64;
 using arrow::uint8;
 using arrow::utf8;
+using std::iterator;
 using std::vector;
 
 #define STRINGIFY(a) #a
 
-// Binary functions that :
-// - have the same input type for both params
-// - output type is same as the input type
-// - NULL handling is of type NULL_IF_NULL
-//
-// The pre-compiled fn name includes the base name & input type names. eg. add_int32_int32
-#define BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(NAME, TYPE)                             \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, TYPE(), kResultNullIfNull, \
-                 STRINGIFY(NAME##_##TYPE##_##TYPE))
-
-// Binary functions that :
-// - have the same input type for both params
-// - NULL handling is of type NULL_IINTERNAL
-// - can return error.
-//
-// The pre-compiled fn name includes the base name & input type names. eg. add_int32_int32
-#define BINARY_UNSAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                  \
-  NativeFunction(#NAME, DataTypeVector{IN_TYPE(), IN_TYPE()}, OUT_TYPE(),    \
-                 kResultNullIfNull, STRINGIFY(NAME##_##IN_TYPE##_##IN_TYPE), \
-                 NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
-
-#define BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(NAME, TYPE) \
-  BINARY_UNSAFE_NULL_IF_NULL(NAME, TYPE, TYPE)
-
-// Binary functions that :
-// - have different input types, or output type
-// - NULL handling is of type NULL_IF_NULL
-//
-// The pre-compiled fn name includes the base name & input type names. eg. mod_int64_int32
-#define BINARY_GENERIC_SAFE_NULL_IF_NULL(NAME, IN_TYPE1, IN_TYPE2, OUT_TYPE) \
-  NativeFunction(#NAME, DataTypeVector{IN_TYPE1(), IN_TYPE2()}, OUT_TYPE(),  \
-                 kResultNullIfNull, STRINGIFY(NAME##_##IN_TYPE1##_##IN_TYPE2))
-
-// Binary functions that :
-// - have the same input type
-// - output type is boolean
-// - NULL handling is of type NULL_IF_NULL
-//
-// The pre-compiled fn name includes the base name & input type names.
-// eg. equal_int32_int32
-#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL(NAME, TYPE)                               \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, boolean(), kResultNullIfNull, \
-                 STRINGIFY(NAME##_##TYPE##_##TYPE))
-
-// Unary functions that :
-// - NULL handling is of type NULL_IF_NULL
-//
-// The pre-compiled fn name includes the base name & input type name. eg. castFloat_int32
-#define UNARY_SAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                          \
-  NativeFunction(#NAME, DataTypeVector{IN_TYPE()}, OUT_TYPE(), kResultNullIfNull, \
-                 STRINGIFY(NAME##_##IN_TYPE))
-
-// Unary functions that :
-// - NULL handling is of type NULL_NEVER
-//
-// The pre-compiled fn name includes the base name & input type name. eg. isnull_int32
-#define UNARY_SAFE_NULL_NEVER_BOOL(NAME, TYPE)                               \
-  NativeFunction(#NAME, DataTypeVector{TYPE()}, boolean(), kResultNullNever, \
-                 STRINGIFY(NAME##_##TYPE))
-
-// Unary functions that :
-// - NULL handling is of type NULL_INTERNAL
-//
-// The pre-compiled fn name includes the base name & input type name. eg. castFloat_int32
-#define UNARY_UNSAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                        \
-  NativeFunction(#NAME, DataTypeVector{IN_TYPE()}, OUT_TYPE(), kResultNullIfNull, \
-                 STRINGIFY(NAME##_##IN_TYPE),                                     \
-                 NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
-
-// Binary functions that :
-// - NULL handling is of type NULL_NEVER
-//
-// The pre-compiled fn name includes the base name & input type names,
-// eg. is_distinct_from_int32_int32
-#define BINARY_SAFE_NULL_NEVER_BOOL(NAME, TYPE)                                      \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, boolean(), kResultNullNever, \
-                 STRINGIFY(NAME##_##TYPE##_##TYPE))
-
-// Extract functions (used with data/time types) that :
-// - NULL handling is of type NULL_IF_NULL
-//
-// The pre-compiled fn name includes the base name & input type name. eg. extractYear_date
-#define EXTRACT_SAFE_NULL_IF_NULL(NAME, TYPE)                               \
-  NativeFunction(#NAME, DataTypeVector{TYPE()}, int64(), kResultNullIfNull, \
-                 STRINGIFY(NAME##_##TYPE))
-
-// Hash32 functions that :
-// - NULL handling is of type NULL_NEVER
-//
-// The pre-compiled fn name includes the base name & input type name. hash32_int8
-#define HASH32_SAFE_NULL_NEVER(NAME, TYPE)                                 \
-  NativeFunction(#NAME, DataTypeVector{TYPE()}, int32(), kResultNullNever, \
-                 STRINGIFY(NAME##_##TYPE))
-
-// Hash32 functions that :
-// - NULL handling is of type NULL_NEVER
-//
-// The pre-compiled fn name includes the base name & input type name. hash32_int8
-#define HASH64_SAFE_NULL_NEVER(NAME, TYPE)                                 \
-  NativeFunction(#NAME, DataTypeVector{TYPE()}, int64(), kResultNullNever, \
-                 STRINGIFY(NAME##_##TYPE))
-
-// Hash32 functions with seed that :
-// - NULL handling is of type NULL_NEVER
-//
-// The pre-compiled fn name includes the base name & input type name. hash32WithSeed_int8
-#define HASH32_SEED_SAFE_NULL_NEVER(NAME, TYPE)                                     \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), int32()}, int32(), kResultNullNever, \
-                 STRINGIFY(NAME##WithSeed_##TYPE))
-
-// Hash64 functions with seed that :
-// - NULL handling is of type NULL_NEVER
-//
-// The pre-compiled fn name includes the base name & input type name. hash32WithSeed_int8
-#define HASH64_SEED_SAFE_NULL_NEVER(NAME, TYPE)                                     \
-  NativeFunction(#NAME, DataTypeVector{TYPE(), int64()}, int64(), kResultNullNever, \
-                 STRINGIFY(NAME##WithSeed_##TYPE))
-
-// Iterate the inner macro over all numeric types
-#define NUMERIC_TYPES(INNER, NAME)                                                       \
-  INNER(NAME, int8), INNER(NAME, int16), INNER(NAME, int32), INNER(NAME, int64),         \
-      INNER(NAME, uint8), INNER(NAME, uint16), INNER(NAME, uint32), INNER(NAME, uint64), \
-      INNER(NAME, float32), INNER(NAME, float64)
-
-// Iterate the inner macro over numeric and date/time types
-#define NUMERIC_DATE_TYPES(INNER, NAME) \
-  NUMERIC_TYPES(INNER, NAME), DATE_TYPES(INNER, NAME), TIME_TYPES(INNER, NAME)
-
-// Iterate the inner macro over all date types
-#define DATE_TYPES(INNER, NAME) INNER(NAME, date64), INNER(NAME, timestamp)
-
-// Iterate the inner macro over all time types
-#define TIME_TYPES(INNER, NAME) INNER(NAME, time32)
-
-// Iterate the inner macro over all data types
-#define VAR_LEN_TYPES(INNER, NAME) INNER(NAME, utf8), INNER(NAME, binary)
-
-// Iterate the inner macro over all numeric types, date types and bool type
-#define NUMERIC_BOOL_DATE_TYPES(INNER, NAME) \
-  NUMERIC_DATE_TYPES(INNER, NAME), INNER(NAME, boolean)
-
-// Iterate the inner macro over all numeric types, date types, bool and varlen types
-#define NUMERIC_BOOL_DATE_VAR_LEN_TYPES(INNER, NAME) \
-  NUMERIC_BOOL_DATE_TYPES(INNER, NAME), VAR_LEN_TYPES(INNER, NAME)
-
-// list of registered native functions.
-NativeFunction FunctionRegistry::pc_registry_[] = {
-    // Arithmetic operations
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, add),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, subtract),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, multiply),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide),
-    BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int32, int32),
-    BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int64, int64),
-    NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
-    NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
-    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
-    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
-    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
-    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
-
-    // date/timestamp operations
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMillennium),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractCentury),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDecade),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractYear),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDoy),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractQuarter),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMonth),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractWeek),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDow),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDay),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractSecond),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractEpoch),
-
-    // date_trunc operations on date/timestamp
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Millennium),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Century),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Decade),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Year),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Quarter),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Month),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Week),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Day),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Hour),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Minute),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Second),
-
-    // time operations
-    TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
-    TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
-    TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractSecond),
-
-    NativeFunction("upper", DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
-                   "upper_utf8", NativeFunction::kNeedsContext),
-
-    NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), kResultNullIfNull,
-                   "gdv_fn_like_utf8_utf8", NativeFunction::kNeedsFunctionHolder),
-
-    NativeFunction("castDATE", DataTypeVector{utf8()}, date64(), kResultNullIfNull,
-                   "castDATE_utf8",
-                   NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
-
-    NativeFunction("to_date", DataTypeVector{utf8(), utf8(), int32()}, date64(),
-                   kResultNullInternal, "gdv_fn_to_date_utf8_utf8_int32",
-                   NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
-                       NativeFunction::kCanReturnErrors),
-};  // namespace gandiva
-
 FunctionRegistry::iterator FunctionRegistry::begin() const {
-  return std::begin(pc_registry_);
+  return &(*pc_registry_.begin());
 }
 
 FunctionRegistry::iterator FunctionRegistry::end() const {
-  return std::end(pc_registry_);
+  return &(*pc_registry_.end());
 }
 
-FunctionRegistry::SignatureMap FunctionRegistry::pc_registry_map_ = InitPCMap();
+std::vector<NativeFunction> FunctionRegistry::pc_registry_;
 
-FunctionRegistry::SignatureMap FunctionRegistry::InitPCMap() {
+SignatureMap FunctionRegistry::pc_registry_map_ = InitPCMap();
+
+SignatureMap FunctionRegistry::InitPCMap() {
   SignatureMap map;
 
+#if 0
   int num_entries = static_cast<int>(sizeof(pc_registry_) / sizeof(NativeFunction));
   for (int i = 0; i < num_entries; i++) {
     const NativeFunction* entry = &pc_registry_[i];
@@ -274,15 +72,16 @@ FunctionRegistry::SignatureMap FunctionRegistry::InitPCMap() {
     // printf("%s -> %s\n", entry->signature().ToString().c_str(),
     //      entry->pc_name().c_str());
   }
+#endif
 
-  FunctionRegistryBin::SignatureMap& binaryFnMap =
-      FunctionRegistryBin::GetBinaryFnSignature();
-  map.insert(binaryFnMap.begin(), binaryFnMap.end());
+  FunctionRegistryArithmetic::GetArithmeticFnSignature(&map);
+  FunctionRegistryDateTime::GetDateTimeFnSignature(&map);
+  FunctionRegistryHash::GetHashFnSignature(&map);
+  FunctionRegistryMathOps::GetMathOpsFnSignature(&map);
+  FunctionRegistryString::GetStringFnSignature(&map);
+  FunctionRegistryDateTimeArithmetic::GetDateTimeArithmeticFnSignature(&map);
 
-  FunctionRegistryUnary::SignatureMap& unaryFnMap =
-      FunctionRegistryUnary::GetUnaryFnSignature();
-  map.insert(unaryFnMap.begin(), unaryFnMap.end());
-
+  for (auto elem : map) pc_registry_.push_back(*elem.second);
 
   return map;
 }
