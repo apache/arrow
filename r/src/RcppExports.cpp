@@ -1244,13 +1244,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // ipc___feather___TableReader__Read
-std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
-RcppExport SEXP _arrow_ipc___feather___TableReader__Read(SEXP readerSEXP) {
+std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, SEXP columns);
+RcppExport SEXP _arrow_ipc___feather___TableReader__Read(SEXP readerSEXP, SEXP columnsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableReader>& >::type reader(readerSEXP);
-    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__Read(reader));
+    Rcpp::traits::input_parameter< SEXP >::type columns(columnsSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__Read(reader, columns));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -2262,7 +2263,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___feather___TableReader__num_columns", (DL_FUNC) &_arrow_ipc___feather___TableReader__num_columns, 1},
     {"_arrow_ipc___feather___TableReader__GetColumnName", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumnName, 2},
     {"_arrow_ipc___feather___TableReader__GetColumn", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumn, 2},
-    {"_arrow_ipc___feather___TableReader__Read", (DL_FUNC) &_arrow_ipc___feather___TableReader__Read, 1},
+    {"_arrow_ipc___feather___TableReader__Read", (DL_FUNC) &_arrow_ipc___feather___TableReader__Read, 2},
     {"_arrow_ipc___feather___TableReader__Open", (DL_FUNC) &_arrow_ipc___feather___TableReader__Open, 1},
     {"_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3},
     {"_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1},

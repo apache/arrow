@@ -36,9 +36,7 @@
     GetColumnName = function(i) ipc___feather___TableReader__GetColumnName(self, i),
     GetColumn = function(i) shared_ptr(`arrow::Column`, ipc___feather___TableReader__GetColumn(self, i)),
     Read = function(columns) {
-      if (is.null(columns)) {
-        shared_ptr(`arrow::Table`, ipc___feather___TableReader__Read(self))
-      }
+      shared_ptr(`arrow::Table`, ipc___feather___TableReader__Read(self, columns))
     }
   )
 )

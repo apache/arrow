@@ -56,3 +56,29 @@ test_that("feather read/write round trip", {
   expect_equal(tib, as_tibble(tab4))
   expect_equal(tib, as_tibble(tab5))
 })
+
+test_that("feather handles columns = <names>", {
+  tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
+
+  tf1 <- local_tempfile()
+  write_feather(tib, tf1)
+  expect_true(fs::file_exists(tf1))
+
+  tab1 <- read_feather(tf1, columns = c("x", "y"))
+  expect_is(tab1, "arrow::Table")
+
+  expect_equal(tib[, c("x", "y")], as_tibble(tab1))
+})
+
+test_that("feather handles columns = <integer>", {
+  tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
+
+  tf1 <- local_tempfile()
+  write_feather(tib, tf1)
+  expect_true(fs::file_exists(tf1))
+
+  tab1 <- read_feather(tf1, columns = 1:2)
+  expect_is(tab1, "arrow::Table")
+
+  expect_equal(tib[, c("x", "y")], as_tibble(tab1))
+})

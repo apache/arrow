@@ -445,8 +445,8 @@ ipc___feather___TableReader__GetColumn <- function(reader, i) {
     .Call(`_arrow_ipc___feather___TableReader__GetColumn`, reader, i)
 }
 
-ipc___feather___TableReader__Read <- function(reader) {
-    .Call(`_arrow_ipc___feather___TableReader__Read`, reader)
+ipc___feather___TableReader__Read <- function(reader, columns) {
+    .Call(`_arrow_ipc___feather___TableReader__Read`, reader, columns)
 }
 
 ipc___feather___TableReader__Open <- function(stream) {

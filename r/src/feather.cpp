@@ -115,9 +115,37 @@ std::shared_ptr<arrow::Column> ipc___feather___TableReader__GetColumn(
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(
-    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
+    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, SEXP columns) {
   std::shared_ptr<arrow::Table> table;
-  STOP_IF_NOT_OK(reader->Read(&table));
+
+  switch (TYPEOF(columns)) {
+    case INTSXP: {
+      R_xlen_t n = XLENGTH(columns);
+      std::vector<int> indices(n);
+      int* p_columns = INTEGER(columns);
+      for (int i = 0; i < n; i++) {
+        indices[i] = p_columns[i] - 1;
+      }
+      STOP_IF_NOT_OK(reader->Read(indices, &table));
+      break;
+    }
+    case STRSXP: {
+      R_xlen_t n = XLENGTH(columns);
+      std::vector<std::string> names(n);
+      for (R_xlen_t i = 0; i < n; i++) {
+        names[i] = CHAR(STRING_ELT(columns, i));
+      }
+      STOP_IF_NOT_OK(reader->Read(names, &table));
+      break;
+    }
+    case NILSXP:
+      STOP_IF_NOT_OK(reader->Read(&table));
+      break;
+    default:
+      Rcpp::stop("incompatible column specification");
+      break;
+  };
+
   return table;
 }
 

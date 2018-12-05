@@ -4,10 +4,12 @@
 \alias{read_feather}
 \title{Read a feather file}
 \usage{
-read_feather(file, ...)
+read_feather(file, columns = NULL, ...)
 }
 \arguments{
 \item{file}{a arrow::ipc::feather::TableReader or whatever the \code{\link[=feather_table_reader]{feather_table_reader()}} function can handle}
+
+\item{columns}{names if the columns to read. The default \code{NULL} means all columns}
 
 \item{...}{additional parameters}
 }
