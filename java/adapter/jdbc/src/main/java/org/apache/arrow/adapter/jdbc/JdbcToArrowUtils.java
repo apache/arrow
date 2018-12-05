@@ -132,36 +132,38 @@ public class JdbcToArrowUtils {
     List<Field> fields = new ArrayList<>();
     int columnCount = rsmd.getColumnCount();
     for (int i = 1; i <= columnCount; i++) {
-      String columnName = rsmd.getColumnName(i);
+      final String columnName = rsmd.getColumnName(i);
+      final FieldType fieldType;
+
       switch (rsmd.getColumnType(i)) {
         case Types.BOOLEAN:
         case Types.BIT:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Bool()), null));
+          fieldType = FieldType.nullable(new ArrowType.Bool());
           break;
         case Types.TINYINT:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Int(8, true)), null));
+          fieldType = FieldType.nullable(new ArrowType.Int(8, true));
           break;
         case Types.SMALLINT:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Int(16, true)), null));
+          fieldType = FieldType.nullable(new ArrowType.Int(16, true));
           break;
         case Types.INTEGER:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Int(32, true)), null));
+          fieldType = FieldType.nullable(new ArrowType.Int(32, true));
           break;
         case Types.BIGINT:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Int(64, true)), null));
+          fieldType = FieldType.nullable(new ArrowType.Int(64, true));
           break;
         case Types.NUMERIC:
         case Types.DECIMAL:
           int precision = rsmd.getPrecision(i);
           int scale = rsmd.getScale(i);
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Decimal(precision, scale)), null));
+          fieldType = FieldType.nullable(new ArrowType.Decimal(precision, scale));
           break;
         case Types.REAL:
         case Types.FLOAT:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.FloatingPoint(SINGLE)), null));
+          fieldType = FieldType.nullable(new ArrowType.FloatingPoint(SINGLE));
           break;
         case Types.DOUBLE:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.FloatingPoint(DOUBLE)), null));
+          fieldType = FieldType.nullable(new ArrowType.FloatingPoint(DOUBLE));
           break;
         case Types.CHAR:
         case Types.NCHAR:
@@ -169,37 +171,38 @@ public class JdbcToArrowUtils {
         case Types.NVARCHAR:
         case Types.LONGVARCHAR:
         case Types.LONGNVARCHAR:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Utf8()), null));
+        case Types.CLOB:
+          fieldType = FieldType.nullable(new ArrowType.Utf8());
           break;
         case Types.DATE:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND)), null));
+          fieldType = FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND));
           break;
         case Types.TIME:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Time(TimeUnit.MILLISECOND, 32)), null));
+          fieldType = FieldType.nullable(new ArrowType.Time(TimeUnit.MILLISECOND, 32));
           break;
         case Types.TIMESTAMP:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND,
-              calendar.getTimeZone().getID())), null));
+          fieldType = FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, calendar.getTimeZone().getID()));
           break;
         case Types.BINARY:
         case Types.VARBINARY:
         case Types.LONGVARBINARY:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Binary()), null));
-          break;
-        case Types.ARRAY:
-          // TODO Need to handle this type
-          // fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
-          break;
-        case Types.CLOB:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Utf8()), null));
+          fieldType = FieldType.nullable(new ArrowType.Binary());
           break;
         case Types.BLOB:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Binary()), null));
+          fieldType = FieldType.nullable(new ArrowType.Binary());
           break;
 
+        case Types.ARRAY:
+            // TODO Need to handle this type
+            // fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
         default:
           // no-op, shouldn't get here
+          fieldType = null;
           break;
+      }
+
+      if (fieldType != null) {
+        fields.add(new Field(columnName, fieldType, null));
       }
     }
 
