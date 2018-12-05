@@ -281,7 +281,7 @@ impl Field {
                     _ => {
                         return Err(ArrowError::ParseError(
                             "Field missing 'name' attribute".to_string(),
-                        ))
+                        ));
                     }
                 };
                 let nullable = match map.get("nullable") {
@@ -289,7 +289,7 @@ impl Field {
                     _ => {
                         return Err(ArrowError::ParseError(
                             "Field missing 'nullable' attribute".to_string(),
-                        ))
+                        ));
                     }
                 };
                 let data_type = match map.get("type") {
@@ -297,7 +297,7 @@ impl Field {
                     _ => {
                         return Err(ArrowError::ParseError(
                             "Field missing 'type' attribute".to_string(),
-                        ))
+                        ));
                     }
                 };
                 Ok(Field {
