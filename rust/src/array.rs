@@ -201,7 +201,9 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
         &raw[offset as usize..offset as usize + len as usize]
     }
 
-//    pub fn add(&self, other: &PrimitiveArray<T::Native>) -> Result<PrimitiveArray<T>> {
+    //TODO: need help here ... 
+
+//    pub fn add(&self, other: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>> {
 //        self.math_helper(other, |a, b| Ok(a + b))
 //    }
 //
@@ -223,35 +225,30 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
 //        })
 //    }
 //
-//    fn math_helper<F>(
-//        &self,
-//        other: &PrimitiveArray<T>,
-//        op: F,
-//    ) -> Result<PrimitiveArray<T>>
-//    where
-//        F: Fn(T, T) -> Result<T >,
-//    {
-//        if self.data.len() != other.data.len() {
-//            return Err(ArrowError::MathError(
-//                "Cannot perform math operation on two batches of different length".to_string(),
-//            ));
-//        }
-//        let mut b = PrimitiveArrayBuilder::<T::Native>::new(self.len());
-//        for i in 0..self.data.len() {
-//            let index = i as i64;
-//            if self.is_null(i) || other.is_null(i) {
-//                b.push_null().unwrap();
-//            } else {
-//                b.push(op(self.value(index), other.value(index))?).unwrap();
-//            }
-//        }
-//        Ok(b.finish())
-//    }
-
-    // Returns a new primitive array builder
-    //    pub fn builder(capacity: i64) -> PrimitiveArrayBuilder<T::Native> {
-    //        PrimitiveArrayBuilder::<T::Native>::new(capacity)
-    //    }
+    fn math_helper<F>(
+        &self,
+        other: &PrimitiveArray<T>,
+        op: F,
+    ) -> Result<PrimitiveArray<T>>
+    where
+        F: Fn(T::Native, T::Native) -> Result<T::Native>,
+    {
+        if self.data.len() != other.data.len() {
+            return Err(ArrowError::MathError(
+                "Cannot perform math operation on two batches of different length".to_string(),
+            ));
+        }
+        let mut b = PrimitiveArrayBuilder::<T>::new(self.len());
+        for i in 0..self.data.len() {
+            let index = i as i64;
+            if self.is_null(i) || other.is_null(i) {
+                b.push_null().unwrap();
+            } else {
+                b.push(op(self.value(index), other.value(index))?).unwrap();
+            }
+        }
+        Ok(b.finish())
+    }
 
     /// Returns the minimum value in the array, according to the natural order.
     pub fn min(&self) -> Option<T::Native> {
