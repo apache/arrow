@@ -169,7 +169,7 @@ else
   fi
 
   ARROW_CUDA_CFLAGS=""
-  if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/arrow/cuda/arrow-cuda.pc"; then
+  if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/arrow/gpu/arrow-cuda.pc"; then
     HAVE_ARROW_CUDA=yes
     ARROW_CUDA_LIBS="-larrow_cuda"
   else
