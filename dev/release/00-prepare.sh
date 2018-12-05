@@ -79,7 +79,7 @@ if [ "$#" -eq 2 ]; then
   echo "prepare release ${version} in Rust crate"
 
   cd "${SOURCE_DIR}/../../rust"
-  sed -i.bak -r -e "s/version = "$version"/version = "$nextVersion"/g" Cargo.toml
+  sed -i.bak -r -e "s/version = \"$version\"/version = \"$nextVersion\"/g" Cargo.toml
   rm -f Cargo.toml.bak
   git add Cargo.toml
   cd -
