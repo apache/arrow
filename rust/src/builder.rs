@@ -209,7 +209,7 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
 /// Trait for dealing with different array builders at runtime
 pub trait ArrayBuilder {
     /// The type of array that this builder creates
-    type ArrayType;
+    type ArrayType: Array;
 
     /// Returns the builder as an owned `Any` type so that it can be `downcast` to a specific
     /// implementation before calling it's `finish` method
@@ -335,90 +335,65 @@ impl<T: ArrayBuilder> ListArrayBuilder<T> {
     }
 }
 
-macro_rules! impl_list_array_builder {
-    ($builder_ty:ty) => {
-        impl ArrayBuilder for ListArrayBuilder<$builder_ty> {
-            type ArrayType = ListArray;
+impl<T: ArrayBuilder> ArrayBuilder for ListArrayBuilder<T>
+where
+    T: 'static,
+{
+    type ArrayType = ListArray;
 
-            /// Returns the builder as an owned `Any` type so that it can be `downcast` to a specific
-            /// implementation before calling it's `finish` method.
-            fn into_any(self) -> Box<Any> {
-                Box::new(self)
-            }
+    /// Returns the builder as an owned `Any` type so that it can be `downcast` to a specific
+    /// implementation before calling it's `finish` method.
+    fn into_any(self) -> Box<Any> {
+        Box::new(self)
+    }
 
-            /// Returns the number of array slots in the builder
-            fn len(&self) -> i64 {
-                self.len
-            }
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> i64 {
+        self.len
+    }
 
-            /// Builds the `ListArray`
-            fn finish(self) -> ListArray {
-                let len = self.len();
-                let values_arr = self
-                    .values_builder
-                    .into_any()
-                    .downcast::<$builder_ty>()
-                    .unwrap()
-                    .finish();
-                let values_data = values_arr.data();
+    /// Builds the `ListArray`
+    fn finish(self) -> ListArray {
+        let len = self.len();
+        let values_arr = self
+            .values_builder
+            .into_any()
+            .downcast::<T>()
+            .unwrap()
+            .finish();
+        let values_data = values_arr.data();
 
-                let null_bit_buffer = self.bitmap_builder.finish();
-                let data =
-                    ArrayData::builder(DataType::List(Box::new(values_data.data_type().clone())))
-                        .len(len)
-                        .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
-                        .add_buffer(self.offsets_builder.finish())
-                        .add_child_data(values_data)
-                        .null_bit_buffer(null_bit_buffer)
-                        .build();
+        let null_bit_buffer = self.bitmap_builder.finish();
+        let data = ArrayData::builder(DataType::List(Box::new(values_data.data_type().clone())))
+            .len(len)
+            .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+            .add_buffer(self.offsets_builder.finish())
+            .add_child_data(values_data)
+            .null_bit_buffer(null_bit_buffer)
+            .build();
 
-                ListArray::from(data)
-            }
-        }
-
-        impl ListArrayBuilder<$builder_ty> {
-            /// Returns the child array builder as a mutable reference.
-            ///
-            /// This mutable reference can be used to push values into the child array builder,
-            /// but you must call `append` to delimit each distinct list value.
-            pub fn values(&mut self) -> &mut $builder_ty {
-                &mut self.values_builder
-            }
-
-            /// Finish the current variable-length list array slot
-            pub fn append(&mut self, is_valid: bool) -> Result<()> {
-                self.offsets_builder
-                    .push(self.values_builder.len() as i32)?;
-                self.bitmap_builder.push(is_valid)?;
-                self.len += 1;
-                Ok(())
-            }
-        }
-    };
+        ListArray::from(data)
+    }
 }
 
-impl_list_array_builder!(BooleanBuilder);
-impl_list_array_builder!(UInt8Builder);
-impl_list_array_builder!(UInt16Builder);
-impl_list_array_builder!(UInt32Builder);
-impl_list_array_builder!(UInt64Builder);
-impl_list_array_builder!(Int8Builder);
-impl_list_array_builder!(Int16Builder);
-impl_list_array_builder!(Int32Builder);
-impl_list_array_builder!(Int64Builder);
-impl_list_array_builder!(Float32Builder);
-impl_list_array_builder!(Float64Builder);
-impl_list_array_builder!(ListArrayBuilder<BooleanBuilder>);
-impl_list_array_builder!(ListArrayBuilder<UInt8Builder>);
-impl_list_array_builder!(ListArrayBuilder<UInt16Builder>);
-impl_list_array_builder!(ListArrayBuilder<UInt32Builder>);
-impl_list_array_builder!(ListArrayBuilder<UInt64Builder>);
-impl_list_array_builder!(ListArrayBuilder<Int8Builder>);
-impl_list_array_builder!(ListArrayBuilder<Int16Builder>);
-impl_list_array_builder!(ListArrayBuilder<Int32Builder>);
-impl_list_array_builder!(ListArrayBuilder<Int64Builder>);
-impl_list_array_builder!(ListArrayBuilder<Float32Builder>);
-impl_list_array_builder!(ListArrayBuilder<Float64Builder>);
+impl<T: ArrayBuilder> ListArrayBuilder<T> {
+    /// Returns the child array builder as a mutable reference.
+    ///
+    /// This mutable reference can be used to push values into the child array builder,
+    /// but you must call `append` to delimit each distinct list value.
+    pub fn values(&mut self) -> &mut T {
+        &mut self.values_builder
+    }
+
+    /// Finish the current variable-length list array slot
+    pub fn append(&mut self, is_valid: bool) -> Result<()> {
+        self.offsets_builder
+            .push(self.values_builder.len() as i32)?;
+        self.bitmap_builder.push(is_valid)?;
+        self.len += 1;
+        Ok(())
+    }
+}
 
 ///  Array builder for `BinaryArray`
 pub struct BinaryArrayBuilder {
