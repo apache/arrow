@@ -36,7 +36,9 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BigIntVector;
@@ -124,7 +126,8 @@ public class JdbcToArrowUtils {
    * @return {@link Schema}
    * @throws SQLException on error
    */
-  public static Schema jdbcToArrowSchema(ResultSetMetaData rsmd, Calendar calendar) throws SQLException {
+  public static Schema jdbcToArrowSchema(ResultSetMetaData rsmd, Calendar calendar, boolean includeMetadata)
+          throws SQLException {
 
     Preconditions.checkNotNull(rsmd, "JDBC ResultSetMetaData object can't be null");
     Preconditions.checkNotNull(calendar, "Calendar object can't be null");
@@ -135,35 +138,47 @@ public class JdbcToArrowUtils {
       final String columnName = rsmd.getColumnName(i);
       final FieldType fieldType;
 
+      final Map<String, String> metadata;
+      if (includeMetadata) {
+        metadata = new HashMap<String, String>();
+        metadata.put(JdbcToArrow.SQL_CATALOG_NAME_KEY, rsmd.getCatalogName(i));
+        metadata.put(JdbcToArrow.SQL_TABLE_NAME_KEY, rsmd.getTableName(i));
+        metadata.put(JdbcToArrow.SQL_COLUMN_NAME_KEY, columnName);
+        metadata.put(JdbcToArrow.SQL_TYPE_KEY, rsmd.getColumnTypeName(i));
+
+      } else {
+        metadata = null;
+      }
+
       switch (rsmd.getColumnType(i)) {
         case Types.BOOLEAN:
         case Types.BIT:
-          fieldType = FieldType.nullable(new ArrowType.Bool());
+          fieldType = new FieldType(true, new ArrowType.Bool(), null, metadata);
           break;
         case Types.TINYINT:
-          fieldType = FieldType.nullable(new ArrowType.Int(8, true));
+          fieldType = new FieldType(true, new ArrowType.Int(8, true), null, metadata);
           break;
         case Types.SMALLINT:
-          fieldType = FieldType.nullable(new ArrowType.Int(16, true));
+          fieldType = new FieldType(true, new ArrowType.Int(16, true), null, metadata);
           break;
         case Types.INTEGER:
-          fieldType = FieldType.nullable(new ArrowType.Int(32, true));
+          fieldType = new FieldType(true, new ArrowType.Int(32, true), null, metadata);
           break;
         case Types.BIGINT:
-          fieldType = FieldType.nullable(new ArrowType.Int(64, true));
+          fieldType = new FieldType(true, new ArrowType.Int(64, true), null, metadata);
           break;
         case Types.NUMERIC:
         case Types.DECIMAL:
           int precision = rsmd.getPrecision(i);
           int scale = rsmd.getScale(i);
-          fieldType = FieldType.nullable(new ArrowType.Decimal(precision, scale));
+          fieldType = new FieldType(true, new ArrowType.Decimal(precision, scale), null, metadata);
           break;
         case Types.REAL:
         case Types.FLOAT:
-          fieldType = FieldType.nullable(new ArrowType.FloatingPoint(SINGLE));
+          fieldType = new FieldType(true, new ArrowType.FloatingPoint(SINGLE), null, metadata);
           break;
         case Types.DOUBLE:
-          fieldType = FieldType.nullable(new ArrowType.FloatingPoint(DOUBLE));
+          fieldType = new FieldType(true, new ArrowType.FloatingPoint(DOUBLE), null, metadata);
           break;
         case Types.CHAR:
         case Types.NCHAR:
@@ -172,24 +187,23 @@ public class JdbcToArrowUtils {
         case Types.LONGVARCHAR:
         case Types.LONGNVARCHAR:
         case Types.CLOB:
-          fieldType = FieldType.nullable(new ArrowType.Utf8());
+          fieldType = new FieldType(true, new ArrowType.Utf8(), null, metadata);
           break;
         case Types.DATE:
-          fieldType = FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND));
+          fieldType = new FieldType(true, new ArrowType.Date(DateUnit.MILLISECOND), null, metadata);
           break;
         case Types.TIME:
-          fieldType = FieldType.nullable(new ArrowType.Time(TimeUnit.MILLISECOND, 32));
+          fieldType = new FieldType(true, new ArrowType.Time(TimeUnit.MILLISECOND, 32), null, metadata);
           break;
         case Types.TIMESTAMP:
-          fieldType = FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, calendar.getTimeZone().getID()));
+          fieldType = new FieldType(true, new ArrowType.Timestamp(TimeUnit.MILLISECOND, calendar.getTimeZone().getID()),
+                  null, metadata);
           break;
         case Types.BINARY:
         case Types.VARBINARY:
         case Types.LONGVARBINARY:
-          fieldType = FieldType.nullable(new ArrowType.Binary());
-          break;
         case Types.BLOB:
-          fieldType = FieldType.nullable(new ArrowType.Binary());
+          fieldType = new FieldType(true, new ArrowType.Binary(), null, metadata);
           break;
 
         case Types.ARRAY:
