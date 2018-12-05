@@ -15,9 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "../../red-arrow/version"
-require_relative "../version"
-
-require "arrow-gpu"
-
-require "test-unit"
+module ArrowCUDA
+  class DeviceManager
+    # Experimental.
+    #
+    # Can we think device manager is a container of contexts?
+    alias_method :[], :get_context
+  end
+end

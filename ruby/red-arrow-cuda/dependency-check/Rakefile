@@ -1,3 +1,5 @@
+# -*- ruby -*-
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,21 +17,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowGPU
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("ArrowGPU", ArrowGPU)
+require "pkg-config"
+require "native-package-installer"
+
+case RUBY_PLATFORM
+when /mingw|mswin/
+  task :default => "nothing"
+else
+  task :default => "dependency:check"
+end
+
+task :nothing do
+end
+
+namespace :dependency do
+  desc "Check dependency"
+  task :check do
+    unless PKGConfig.check_version?("arrow-cuda-glib")
+      unless NativePackageInstaller.install(:debian => "libarrow-cuda-glib-dev",
+                                            :redhat => "arrow-cuda-glib-devel")
+        exit(false)
       end
-    end
-
-    private
-    def post_load(repository, namespace)
-      require_libraries
-    end
-
-    def require_libraries
-      require "arrow-gpu/cuda-device-manager"
     end
   end
 end

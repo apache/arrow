@@ -15,24 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestCUDA < Test::Unit::TestCase
-  def setup
-    @manager = ArrowGPU::CUDADeviceManager.new
-    omit("At least one GPU is required") if @manager.n_devices.zero?
-    @context = @manager[0]
+require "arrow"
+
+require "arrow-cuda/version"
+
+require "arrow-cuda/loader"
+
+module ArrowCUDA
+  class Error < StandardError
   end
 
-  sub_test_case("BufferOutputStream") do
-    def setup
-      super
-      @buffer = ArrowGPU::CUDABuffer.new(@context, 128)
-    end
-
-    def test_new
-      ArrowGPU::CUDABufferOutputStream.open(@buffer) do |stream|
-        stream.write("Hello World")
-      end
-      assert_equal("Hello World", @buffer.copy_to_host(0, 11).to_s)
-    end
-  end
+  Loader.load
 end

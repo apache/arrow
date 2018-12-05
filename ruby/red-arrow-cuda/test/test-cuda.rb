@@ -15,11 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowGPU
-  class CUDADeviceManager
-    # Experimental.
-    #
-    # Can we think device manager is a container of contexts?
-    alias_method :[], :get_context
+class TestCUDA < Test::Unit::TestCase
+  def setup
+    @manager = ArrowCUDA::DeviceManager.new
+    omit("At least one GPU is required") if @manager.n_devices.zero?
+    @context = @manager[0]
+  end
+
+  sub_test_case("BufferOutputStream") do
+    def setup
+      super
+      @buffer = ArrowCUDA::Buffer.new(@context, 128)
+    end
+
+    def test_new
+      ArrowCUDA::BufferOutputStream.open(@buffer) do |stream|
+        stream.write("Hello World")
+      end
+      assert_equal("Hello World", @buffer.copy_to_host(0, 11).to_s)
+    end
   end
 end
