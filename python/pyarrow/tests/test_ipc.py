@@ -654,3 +654,4 @@ def test_write_empty_ipc_file():
     reader = pa.RecordBatchFileReader(pa.BufferReader(buf))
     table = reader.read_all()
     assert len(table) == 0
+    assert table.schema.equals(schema)
