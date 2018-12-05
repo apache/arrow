@@ -20,9 +20,10 @@ cmake_minimum_required(VERSION 3.11)
 
 project(gandiva)
 
-include(GandivaBuildUtils)
-
 find_package(LLVM)
+
+# For "make gandiva" to build everything Gandiva-related
+add_custom_target(gandiva)
 
 # Set the path where the byte-code files will be installed.
 set(GANDIVA_BC_INSTALL_DIR
@@ -92,6 +93,8 @@ ADD_ARROW_LIB(gandiva
   SHARED_PRIVATE_LINK_LIBS ${GANDIVA_SHARED_PRIVATE_LINK_LIBS}
   STATIC_LINK_LIBS ${GANDIVA_STATIC_LINK_LIBS})
 
+add_dependencies(gandiva ${GANDIVA_LIBRARIES})
+
 # install for gandiva
 include(GNUInstallDirs)
 
@@ -125,28 +128,62 @@ install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
+set(GANDIVA_STATIC_TEST_LINK_LIBS
+  gandiva_static
+  ${RE2_LIBRARY}
+  ${ARROW_TEST_LINK_LIBS})
+set(GANDIVA_SHARED_TEST_LINK_LIBS
+  gandiva_shared
+  ${RE2_LIBRARY}
+  ${ARROW_TEST_LINK_LIBS})
+
+function(ADD_GANDIVA_TEST REL_TEST_NAME)
+  set(options USE_STATIC_LINKING)
+  set(one_value_args)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+
+  set(TEST_ARGUMENTS
+    ENABLED
+    PREFIX "gandiva"
+    LABELS "unittest;gandiva"
+    ${ARG_UNPARSED_ARGUMENTS})
+
+  # and uses less disk space, but in some cases we need to force static
+  # linking (see rationale below).
+  if (ARG_USE_STATIC_LINKING)
+    ADD_ARROW_TEST(${REL_TEST_NAME}
+      ${TEST_ARGUMENTS}
+      STATIC_LINK_LIBS ${GANDIVA_STATIC_TEST_LINK_LIBS})
+  else()
+    ADD_ARROW_TEST(${REL_TEST_NAME}
+      ${TEST_ARGUMENTS}
+      STATIC_LINK_LIBS ${GANDIVA_SHARED_TEST_LINK_LIBS})
+  endif()
+
+  if(${REL_TEST_NAME} MATCHES "llvm" OR
+     ${REL_TEST_NAME} MATCHES "expression_registry")
+    # If the unit test has llvm in its name, include llvm.
+    add_dependencies(gandiva-${REL_TEST_NAME} LLVM::LLVM_INTERFACE)
+    target_link_libraries(gandiva-${REL_TEST_NAME} PRIVATE LLVM::LLVM_INTERFACE)
+  endif()
+endfunction()
+
 if (ARROW_GANDIVA_BUILD_TESTS)
-  #args: label test-file src-files
-  add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)
-  add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc configuration.cc
-      gdv_function_stubs.cc context_helper.cc to_date_holder.cc date_utils.cc
-      exported_funcs_registry.cc ${BC_FILE_PATH_CC})
-  add_gandiva_unit_test(function_signature_test.cc function_signature.cc)
-  add_gandiva_unit_test(function_registry_test.cc function_registry.cc function_signature.cc)
-  add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)
-  add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc regex_util.cc engine.cc
-      llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc
-      bitmap_accumulator.cc configuration.cc  function_signature.cc like_holder.cc
-      to_date_holder.cc date_utils.cc regex_util.cc gdv_function_stubs.cc context_helper.cc
-      exported_funcs_registry.cc ${BC_FILE_PATH_CC})
-  add_gandiva_unit_test(annotator_test.cc annotator.cc function_signature.cc)
-  add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
-  add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc to_date_holder.cc date_utils.cc)
-  add_gandiva_unit_test(expression_registry_test.cc llvm_types.cc expression_registry.cc function_signature.cc function_registry.cc)
-  add_gandiva_unit_test(selection_vector_test.cc selection_vector.cc)
-  add_gandiva_unit_test(lru_cache_test.cc)
-  add_gandiva_unit_test(to_date_holder_test.cc to_date_holder.cc date_utils.cc)
-  add_gandiva_unit_test(simple_arena_test.cc)
+  ADD_GANDIVA_TEST(bitmap_accumulator_test)
+  ADD_GANDIVA_TEST(engine_llvm_test)
+  ADD_GANDIVA_TEST(function_signature_test)
+  ADD_GANDIVA_TEST(function_registry_test)
+  ADD_GANDIVA_TEST(llvm_types_test)
+  ADD_GANDIVA_TEST(llvm_generator_test)
+  ADD_GANDIVA_TEST(annotator_test)
+  ADD_GANDIVA_TEST(tree_expr_test)
+  ADD_GANDIVA_TEST(expr_decomposer_test)
+  ADD_GANDIVA_TEST(expression_registry_test)
+  ADD_GANDIVA_TEST(selection_vector_test)
+  ADD_GANDIVA_TEST(lru_cache_test)
+  ADD_GANDIVA_TEST(to_date_holder_test)
+  ADD_GANDIVA_TEST(simple_arena_test)
 endif()
 
 if (ARROW_GANDIVA_JAVA)

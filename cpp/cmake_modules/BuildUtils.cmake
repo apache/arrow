@@ -368,6 +368,7 @@ endfunction()
 #
 # Arguments after the test name will be passed to set_tests_properties().
 #
+# \arg ENABLED if passed, add this unit test even if ARROW_BUILD_TESTS is off
 # \arg PREFIX a string to append to the name of the test executable. For
 # example, if you have src/arrow/foo/bar-test.cc, then PREFIX "foo" will create
 # test executable foo-bar-test
@@ -377,7 +378,7 @@ endfunction()
 # groups using the syntax unittest;GROUP2;GROUP3. Custom targets for the group
 # names must exist
 function(ADD_ARROW_TEST REL_TEST_NAME)
-  set(options NO_VALGRIND)
+  set(options NO_VALGRIND ENABLED)
   set(one_value_args)
   set(multi_value_args SOURCES STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES
       EXTRA_DEPENDENCIES LABELS PREFIX)
@@ -398,7 +399,7 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     endif()
   endif()
 
-  if (NO_TESTS)
+  if (NO_TESTS AND NOT ARG_ENABLED)
     return()
   endif()
   get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
@@ -424,13 +425,13 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
 
   if (ARG_STATIC_LINK_LIBS)
     # Customize link libraries
-    target_link_libraries(${TEST_NAME} ${ARG_STATIC_LINK_LIBS})
+    target_link_libraries(${TEST_NAME} PRIVATE ${ARG_STATIC_LINK_LIBS})
   else()
-    target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
+    target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS})
   endif()
 
   if (ARG_EXTRA_LINK_LIBS)
-    target_link_libraries(${TEST_NAME} ${ARG_EXTRA_LINK_LIBS})
+    target_link_libraries(${TEST_NAME} PRIVATE ${ARG_EXTRA_LINK_LIBS})
   endif()
 
   if (ARG_EXTRA_INCLUDES)

@@ -51,6 +51,23 @@ add_custom_command(
 
 add_custom_target(precompiled ALL DEPENDS ${GANDIVA_BC_OUTPUT_PATH})
 
+# Add a unittest executable for a precompiled file (used to generate IR)
+function(add_precompiled_unit_test REL_TEST_NAME)
+  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
+
+  set(TEST_NAME "gandiva-precompiled-${TEST_NAME}")
+
+  add_executable(${TEST_NAME} ${REL_TEST_NAME} ${ARGN})
+  add_dependencies(gandiva ${TEST_NAME})
+  target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+  target_link_libraries(${TEST_NAME}
+    PRIVATE ${ARROW_TEST_LINK_LIBS} ${RE2_LIBRARY}
+  )
+  target_compile_definitions(${TEST_NAME} PRIVATE GANDIVA_UNIT_TEST=1)
+  add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+  set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva;unittest ${TEST_NAME})
+endfunction(add_precompiled_unit_test REL_TEST_NAME)
+
 # testing
 if (ARROW_GANDIVA_BUILD_TESTS)
   add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
