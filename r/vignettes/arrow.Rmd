@@ -241,3 +241,129 @@ Arrow defines two types of binary formats for serializing record batches:
 -  File or Random Access format: for serializing a fixed number of record batches. 
    Supports random access, and thus is very useful when used with memory maps
 
+## Using streams
+
+First, let’s create a small record batch:
+
+```{r}
+batch <- record_batch(
+  tibble(
+    f0 = c(1, 2, 3, 4), 
+    f1 = c('foo', 'bar', 'baz', NA), 
+    f2 = c(TRUE, NA, FALSE, TRUE)
+  )
+)
+batch$num_columns
+batch$num_rows
+```
+
+Now, we can begin writing a stream containing some number of these batches. For this we use `RecordBatchStreamWriter`:
+
+```{r}
+sink <- BufferOutputStream()
+writer <- RecordBatchStreamWriter(sink, batch$schema)
+```
+
+Here we used an in-memory Arrow buffer stream, but this could have been a socket or some other IO sink.
+
+When creating the stream writer, we pass the schema, since the schema (column names and types) must be the same 
+for all of the batches sent in this particular stream. Now we can do:
+
+```{r}
+for(i in 1:5) {
+  writer$write_batch(batch)
+}
+writer$close()
+
+buf <- sink$getvalue()
+buf$size
+```
+
+Now `buf` contains the complete stream as an in-memory byte buffer. We can read such a stream with `RecordBatchStreamReader`: 
+
+```{r}
+reader <- RecordBatchStreamReader(buf)
+# TODO change to reader$schema after #3104 is merged
+reader$schema()
+
+batches <- reader$batches()
+length(batches)
+```
+
+We can check the returned batches are the same as the original input: 
+
+```{r}
+all(purrr::map_lgl(batches, ~ .x == batch))
+```
+
+## Writing and Reading Random Access Files
+
+The `RecordBatchFileWriter` has the same API as `RecordBatchStreamWriter` :
+
+```{r}
+sink <- BufferOutputStream()
+writer <- RecordBatchFileWriter(sink, batch$schema)
+
+for(i in 1:5) {
+  writer$write_batch(batch)
+}
+writer$close()
+
+buf <- sink$getvalue()
+buf$size
+```
+
+The difference between `RecordBatchFileReader` and `RecordBatchStreamReader` is that the input source
+must have a seek method for random access.
+
+```{r}
+# TODO: after #3104
+# reader <- RecordBatchFileReader(buf)
+```
+
+Because we have access to the entire payload, we know the number of record batches in the file, and can read any at random:
+
+```{r}
+# TODO: after #3104
+# reader$num_record_batches
+# b <- reader$get_batch(3)
+# batch == b
+```
+
+RecordBatchFileReader and RecordBatchStreamReader may be used by 
+ 
+  - `read_table()` to create an `arrow::Table` from the record batches
+  - `read_arrow()` to create a data frame 
+
+
+```{r}
+# TODO: after #3104
+# reader <- RecordBatchFileReader(buf)
+# read_table(reader)
+# read_arrow(reader)
+```
+
+## Feather format
+
+Feather is a lightweight file-format for data frames that uses the Arrow memory layout for data representation on disk. 
+It was created early in the Arrow project as a [proof of concept](https://github.com/wesm/feather) 
+for fast, language-agnostic data frame storage for Python (pandas) and R.
+
+Compared with Arrow streams and files, Feather has some limitations:
+
+  - Only non-nested data types and categorical (dictionary-encoded) types are supported
+  - Supports only a single batch of rows, where general Arrow streams support an arbitrary number
+  - Supports limited scalar value types, adequate only for representing typical data found in R and pandas
+
+The `read_feather()` and `write_feather()` functions read and write files in the feather format: 
+
+```{r}
+tf <- tempfile()
+
+df <- tibble::tibble(x = 1:10, y = letters[1:10])
+write_feather(df, tf)
+fs::file_info(tf)
+df2 <- as_tibble(read_feather(tf))
+
+identical(df, df2)
+```
