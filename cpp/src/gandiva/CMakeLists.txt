@@ -143,20 +143,22 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(multi_value_args)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
+  set(TEST_ARGUMENTS
+    ENABLED
+    PREFIX "gandiva"
+    LABELS "unittest;gandiva"
+    ${ARG_UNPARSED_ARGUMENTS})
+
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
   if (ARG_USE_STATIC_LINKING)
     ADD_ARROW_TEST(${REL_TEST_NAME}
-      STATIC_LINK_LIBS ${GANDIVA_STATIC_TEST_LINK_LIBS}
-      PREFIX "gandiva"
-      LABELS "unittest;gandiva"
-      ${ARG_UNPARSED_ARGUMENTS})
+      ${TEST_ARGUMENTS}
+      STATIC_LINK_LIBS ${GANDIVA_STATIC_TEST_LINK_LIBS})
   else()
     ADD_ARROW_TEST(${REL_TEST_NAME}
-      STATIC_LINK_LIBS ${GANDIVA_SHARED_TEST_LINK_LIBS}
-      PREFIX "gandiva"
-      LABELS "unittest;gandiva"
-      ${ARG_UNPARSED_ARGUMENTS})
+      ${TEST_ARGUMENTS}
+      STATIC_LINK_LIBS ${GANDIVA_SHARED_TEST_LINK_LIBS})
   endif()
 
   if(${REL_TEST_NAME} MATCHES "llvm" OR
