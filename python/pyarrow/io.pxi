@@ -119,6 +119,25 @@ cdef class NativeFile:
                 else:
                     check_status(self.output_stream.get().Close())
 
+    def align(self, alignment=8):
+        """
+        Advance file position to a multiple of the indicated alignment, writing
+        zero padding bytes if necessary
+
+        Parameters
+        ----------
+        alignment : int, default 8
+        """
+        self._assert_open()
+        cdef int64_t c_alignment = alignment
+        if self.is_readable:
+            with nogil:
+                check_status(AlignStream(self.input_stream.get(), c_alignment))
+        else:
+            with nogil:
+                check_status(AlignStream(self.output_stream.get(),
+                                         c_alignment))
+
     def flush(self):
         """Flush the buffer stream, if applicable.
 

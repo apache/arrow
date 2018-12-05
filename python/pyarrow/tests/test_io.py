@@ -1185,6 +1185,24 @@ def test_input_stream_errors(tmpdir):
             pa.input_stream(f)
 
 
+def test_input_stream_align():
+    data = b"123456789011223344556677889900"
+
+    in_stream = pa.input_stream(pa.py_buffer(data))
+
+    in_stream.align(8)
+    assert in_stream.tell() == 0
+
+    in_stream.read(4)
+    in_stream.align(8)
+    assert in_stream.tell() == 8
+
+    assert in_stream.read(4) == b"9011"
+
+    in_stream.align(16)
+    assert in_stream.tell() == 16
+
+
 def test_output_stream_buffer():
     data = b"some test data\n" * 10 + b"eof\n"
     buf = bytearray(len(data))
@@ -1266,3 +1284,24 @@ def test_output_stream_errors(tmpdir):
     with open(fn, 'rb') as f:
         with pytest.raises(TypeError, match="writable file expected"):
             pa.output_stream(f)
+
+
+def test_output_stream_align(tmpdir):
+    path = str(tmpdir / 'output_stream_align')
+    with open(path, 'wb') as f:
+        stream = pa.output_stream(f)
+
+        stream.align(8)
+        assert stream.tell() == 0
+
+        stream.write(b"0123")
+        stream.align(8)
+        assert stream.tell() == 8
+
+        stream.align(16)
+        assert stream.tell() == 16
+
+    with open(path, 'rb') as f:
+        data = f.read()
+
+    assert data == b"0123" + b"\x00" * 12
