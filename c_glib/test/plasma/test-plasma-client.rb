@@ -61,7 +61,7 @@ class TestPlasmaClient < Test::Unit::TestCase
     end
 
     test("options: GPU device") do
-      omit("Arrow GPU is required") unless defined?(::ArrowGPU)
+      omit("Arrow CUDA is required") unless defined?(::ArrowCUDA)
 
       gpu_device = 0
 

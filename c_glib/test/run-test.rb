@@ -38,7 +38,7 @@ module Arrow
 end
 
 begin
-  ArrowGPU = GI.load("ArrowGPU")
+  ArrowCUDA = GI.load("ArrowCUDA")
 rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 

@@ -20,9 +20,9 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: Apache Arrow GPU GLib
-Description: C API for Apache Arrow GPU based on GLib
+Name: Apache Arrow CUDA GLib
+Description: C API for Apache Arrow CUDA based on GLib
 Version: @VERSION@
-Libs: -L${libdir} -larrow-gpu-glib
+Libs: -L${libdir} -larrow-cuda-glib
 Cflags: -I${includedir}
-Requires: arrow-glib
+Requires: arrow-glib arrow-cuda

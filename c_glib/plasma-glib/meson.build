@@ -61,13 +61,13 @@ gir_extra_args = [
   '--warn-all',
   '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
 ]
-if arrow_gpu.found()
-  dependencies += [arrow_gpu_glib]
-  cpp_args += ['-DHAVE_ARROW_GPU']
-  pkg_config_requires += ['arrow-gpu-glib']
-  gir_dependencies += [declare_dependency(sources: arrow_gpu_glib_gir)]
-  gir_includes += ['ArrowGPU-1.0']
-  gir_extra_args += ['--include-uninstalled=./arrow-gpu-glib/ArrowGPU-1.0.gir']
+if arrow_cuda.found()
+  dependencies += [arrow_cuda_glib]
+  cpp_args += ['-DHAVE_ARROW_CUDA']
+  pkg_config_requires += ['arrow-cuda-glib']
+  gir_dependencies += [declare_dependency(sources: arrow_cuda_glib_gir)]
+  gir_includes += ['ArrowCUDA-1.0']
+  gir_extra_args += ['--include-uninstalled=./arrow-cuda-glib/ArrowCUDA-1.0.gir']
 endif
 libplasma_glib = library('plasma-glib',
                          sources: sources,
