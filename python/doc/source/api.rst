@@ -372,6 +372,7 @@ Apache Parquet
    read_schema
    write_metadata
    write_table
+   write_to_dataset
 
 .. currentmodule:: pyarrow
 
