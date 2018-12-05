@@ -1194,7 +1194,7 @@ def test_input_stream_align():
     assert in_stream.tell() == 0
 
     in_stream.read(4)
-    in_stream.align(8)
+    in_stream.align()
     assert in_stream.tell() == 8
 
     assert in_stream.read(4) == b"9011"
@@ -1295,7 +1295,7 @@ def test_output_stream_align(tmpdir):
         assert stream.tell() == 0
 
         stream.write(b"0123")
-        stream.align(8)
+        stream.align()
         assert stream.tell() == 8
 
         stream.align(16)
