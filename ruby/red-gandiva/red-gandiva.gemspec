@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "version"
+require_relative "lib/gandiva/version"
 
 Gem::Specification.new do |spec|
   spec.name = "red-gandiva"
