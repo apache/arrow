@@ -35,11 +35,11 @@ test_that("RecordBatchStreamReader / Writer", {
   reader <- RecordBatchStreamReader(buf)
   expect_is(reader, "arrow::ipc::RecordBatchStreamReader")
 
-  batch1 <- reader$get_next_batch()
+  batch1 <- reader$read_next_batch()
   expect_is(batch1, "arrow::RecordBatch")
   expect_equal(batch, batch1)
 
-  expect_null(reader$get_next_batch())
+  expect_null(reader$read_next_batch())
 })
 
 test_that("RecordBatchFileReader / Writer", {

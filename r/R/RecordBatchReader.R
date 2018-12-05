@@ -31,9 +31,6 @@
 #' @name arrow__RecordBatchReader
 `arrow::RecordBatchReader` <- R6Class("arrow::RecordBatchReader", inherit = `arrow::Object`,
   public = list(
-    get_next_batch = function() {
-      shared_ptr(`arrow::RecordBatch`, RecordBatchReader__ReadNext(self))
-    },
     read_next_batch = function() {
       shared_ptr(`arrow::RecordBatch`, RecordBatchReader__ReadNext(self))
     }
