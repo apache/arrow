@@ -265,7 +265,7 @@ Status RecordBatchReader::ReadAll(std::vector<std::shared_ptr<RecordBatch>>* bat
 Status RecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
   std::vector<std::shared_ptr<RecordBatch>> batches;
   RETURN_NOT_OK(ReadAll(&batches));
-  return Table::FromRecordBatches(this->schema(), batches, table);
+  return Table::FromRecordBatches(schema(), batches, table);
 }
 
 }  // namespace arrow
