@@ -176,9 +176,9 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
 };
 
 template <typename TYPE, typename SparseIndexType>
-void MakeSparseCOOTensorFromTensor(const Tensor& tensor,
-                                   std::shared_ptr<SparseIndexType>* sparse_index,
-                                   std::shared_ptr<Buffer>* data) {
+void MakeSparseTensorFromTensor(const Tensor& tensor,
+                                std::shared_ptr<SparseIndex>* sparse_index,
+                                std::shared_ptr<Buffer>* data) {
   NumericTensor<TYPE> numeric_tensor(tensor.data(), tensor.shape(), tensor.strides());
   SparseTensorConverter<TYPE, SparseIndexType> converter(numeric_tensor);
   DCHECK_OK(converter.Convert());
@@ -288,7 +288,7 @@ INSTANTIATE_SPARSE_TENSOR_CONVERTER(SparseCSRIndex);
 
 // Constructor with a column-major NumericTensor
 SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<CoordsTensor>& coords)
-    : SparseIndex(SparseIndex::COO, coords->shape()[0]), coords_(coords) {
+    : SparseIndexBase(coords->shape()[0]), coords_(coords) {
   DCHECK(coords_->is_column_major());
 }
 
@@ -298,20 +298,20 @@ SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<CoordsTensor>& coords)
 // Constructor with two index vectors
 SparseCSRIndex::SparseCSRIndex(const std::shared_ptr<IndexTensor>& indptr,
                                const std::shared_ptr<IndexTensor>& indices)
-    : SparseIndex(SparseIndex::CSR, indices->shape()[0]), indptr_(indptr), indices_(indices) {
+    : SparseIndexBase(indices->shape()[0]), indptr_(indptr), indices_(indices) {
   DCHECK_EQ(1, indptr_->ndim());
   DCHECK_EQ(1, indices_->ndim());
 }
 
 // ----------------------------------------------------------------------
-// SparseTensor
+// SparseTensorBase
 
 // Constructor with all attributes
-template <typename SparseIndexType>
-SparseTensor<SparseIndexType>::SparseTensor(
-    const std::shared_ptr<SparseIndexType>& sparse_index,
-    const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-    const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names)
+SparseTensorBase::SparseTensorBase(const std::shared_ptr<DataType>& type,
+                                   const std::shared_ptr<Buffer>& data,
+                                   const std::vector<int64_t>& shape,
+                                   const std::shared_ptr<SparseIndex>& sparse_index,
+                                   const std::vector<std::string>& dim_names)
     : type_(type),
       data_(data),
       shape_(shape),
@@ -319,6 +319,23 @@ SparseTensor<SparseIndexType>::SparseTensor(
       dim_names_(dim_names) {
   DCHECK(is_tensor_supported(type->id()));
 }
+
+const std::string& SparseTensorBase::dim_name(int i) const {
+  static const std::string kEmpty = "";
+  if (dim_names_.size() == 0) {
+    return kEmpty;
+  } else {
+    DCHECK_LT(i, static_cast<int>(dim_names_.size()));
+    return dim_names_[i];
+  }
+}
+
+int64_t SparseTensorBase::size() const {
+  return std::accumulate(shape_.begin(), shape_.end(), 1LL, std::multiplies<int64_t>());
+}
+
+// ----------------------------------------------------------------------
+// SparseTensor
 
 // Constructor with a dense tensor
 template <typename SparseIndexType>
@@ -344,68 +361,52 @@ SparseTensor<SparseIndexType>::SparseTensor(const Tensor& tensor)
     : SparseTensor(nullptr, tensor.type(), nullptr, tensor.shape(), tensor.dim_names_) {
   switch (tensor.type()->id()) {
     case Type::UINT8:
-      MakeSparseCOOTensorFromTensor<UInt8Type, SparseIndexType>(tensor, &sparse_index_,
+      MakeSparseTensorFromTensor<UInt8Type, SparseIndexType>(tensor, &sparse_index_,
                                                                 &data_);
       return;
     case Type::INT8:
-      MakeSparseCOOTensorFromTensor<Int8Type, SparseIndexType>(tensor, &sparse_index_,
+      MakeSparseTensorFromTensor<Int8Type, SparseIndexType>(tensor, &sparse_index_,
                                                                &data_);
       return;
     case Type::UINT16:
-      MakeSparseCOOTensorFromTensor<UInt16Type, SparseIndexType>(tensor, &sparse_index_,
+      MakeSparseTensorFromTensor<UInt16Type, SparseIndexType>(tensor, &sparse_index_,
                                                                  &data_);
       return;
     case Type::INT16:
-      MakeSparseCOOTensorFromTensor<Int16Type, SparseIndexType>(tensor, &sparse_index_,
+      MakeSparseTensorFromTensor<Int16Type, SparseIndexType>(tensor, &sparse_index_,
                                                                 &data_);
       return;
     case Type::UINT32:
-      MakeSparseCOOTensorFromTensor<UInt32Type, SparseIndexType>(tensor, &sparse_index_,
+      MakeSparseTensorFromTensor<UInt32Type, SparseIndexType>(tensor, &sparse_index_,
                                                                  &data_);
       return;
     case Type::INT32:
-      MakeSparseCOOTensorFromTensor<Int32Type, SparseIndexType>(tensor, &sparse_index_,
+      MakeSparseTensorFromTensor<Int32Type, SparseIndexType>(tensor, &sparse_index_,
                                                                 &data_);
       return;
     case Type::UINT64:
-      MakeSparseCOOTensorFromTensor<UInt64Type, SparseIndexType>(tensor, &sparse_index_,
+      MakeSparseTensorFromTensor<UInt64Type, SparseIndexType>(tensor, &sparse_index_,
                                                                  &data_);
       return;
     case Type::INT64:
-      MakeSparseCOOTensorFromTensor<Int64Type, SparseIndexType>(tensor, &sparse_index_,
+      MakeSparseTensorFromTensor<Int64Type, SparseIndexType>(tensor, &sparse_index_,
                                                                 &data_);
       return;
     case Type::HALF_FLOAT:
-      MakeSparseCOOTensorFromTensor<HalfFloatType, SparseIndexType>(
+      MakeSparseTensorFromTensor<HalfFloatType, SparseIndexType>(
           tensor, &sparse_index_, &data_);
       return;
     case Type::FLOAT:
-      MakeSparseCOOTensorFromTensor<FloatType, SparseIndexType>(tensor, &sparse_index_,
+      MakeSparseTensorFromTensor<FloatType, SparseIndexType>(tensor, &sparse_index_,
                                                                 &data_);
       return;
     case Type::DOUBLE:
-      MakeSparseCOOTensorFromTensor<DoubleType, SparseIndexType>(tensor, &sparse_index_,
+      MakeSparseTensorFromTensor<DoubleType, SparseIndexType>(tensor, &sparse_index_,
                                                                  &data_);
       return;
     default:
       break;
   }
-}
-
-template <typename SparseIndexType>
-const std::string& SparseTensor<SparseIndexType>::dim_name(int i) const {
-  static const std::string kEmpty = "";
-  if (dim_names_.size() == 0) {
-    return kEmpty;
-  } else {
-    DCHECK_LT(i, static_cast<int>(dim_names_.size()));
-    return dim_names_[i];
-  }
-}
-
-template <typename SparseIndexType>
-int64_t SparseTensor<SparseIndexType>::size() const {
-  return std::accumulate(shape_.begin(), shape_.end(), 1LL, std::multiplies<int64_t>());
 }
 
 // ----------------------------------------------------------------------

@@ -39,6 +39,8 @@ class ARROW_EXPORT SparseIndex {
   explicit SparseIndex(format_type format_type_id, int64_t length)
       : format_type_id_(format_type_id), length_(length) {}
 
+  virtual ~SparseIndex() = default;
+
   format_type format_type_id() const { return format_type_id_; }
   int64_t length() const { return length_; }
 
@@ -47,16 +49,21 @@ class ARROW_EXPORT SparseIndex {
   int64_t length_;
 };
 
+template <typename SparseIndexType>
+class SparseIndexBase : public SparseIndex {
+ public:
+  explicit SparseIndexBase(int64_t length)
+      : SparseIndex(SparseIndexType::format_type_id, length) {}
+};
+
 // ----------------------------------------------------------------------
 // SparseCOOIndex class
 
-class ARROW_EXPORT SparseCOOIndex : public SparseIndex {
+class ARROW_EXPORT SparseCOOIndex : public SparseIndexBase<SparseCOOIndex> {
  public:
   using CoordsTensor = NumericTensor<Int64Type>;
 
   static constexpr SparseIndex::format_type format_type_id = SparseIndex::COO;
-
-  virtual ~SparseCOOIndex() = default;
 
   // Constructor with a column-major NumericTensor
   explicit SparseCOOIndex(const std::shared_ptr<CoordsTensor>& coords);
@@ -70,13 +77,11 @@ class ARROW_EXPORT SparseCOOIndex : public SparseIndex {
 // ----------------------------------------------------------------------
 // SparseCSRIndex class
 
-class ARROW_EXPORT SparseCSRIndex : public SparseIndex {
+class ARROW_EXPORT SparseCSRIndex : public SparseIndexBase<SparseCSRIndex> {
  public:
   using IndexTensor = NumericTensor<Int64Type>;
 
-  static constexpr SparseIndex::format_type format_type_id = SparseIndex::COO;
-
-  virtual ~SparseCSRIndex() = default;
+  static constexpr SparseIndex::format_type format_type_id = SparseIndex::CSR;
 
   // Constructor with two index vectors
   explicit SparseCSRIndex(const std::shared_ptr<IndexTensor>& indptr,
@@ -91,10 +96,57 @@ class ARROW_EXPORT SparseCSRIndex : public SparseIndex {
 };
 
 // ----------------------------------------------------------------------
+// SparseTensorBase class
+
+class ARROW_EXPORT SparseTensorBase {
+ public:
+  virtual ~SparseTensorBase() = default;
+
+  virtual SparseIndex::format_type sparse_index_format_type_id() const = 0;
+
+  std::shared_ptr<DataType> type() const { return type_; }
+  std::shared_ptr<Buffer> data() const { return data_; }
+
+  const uint8_t* raw_data() const { return data_->data(); }
+  uint8_t* raw_mutable_data() const { return data_->mutable_data(); }
+
+  const std::vector<int64_t>& shape() const { return shape_; }
+
+  const std::shared_ptr<SparseIndex>& sparse_index() const { return sparse_index_; }
+
+  int ndim() const { return static_cast<int>(shape_.size()); }
+
+  const std::string& dim_name(int i) const;
+
+  /// Total number of value cells in the sparse tensor
+  int64_t size() const;
+
+  /// Return true if the underlying data buffer is mutable
+  bool is_mutable() const { return data_->is_mutable(); }
+
+  /// Total number of non-zero cells in the sparse tensor
+  virtual int64_t length() const = 0;
+
+ protected:
+  // Constructor with all attributes
+  SparseTensorBase(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
+                   const std::vector<int64_t>& shape, const std::shared_ptr<SparseIndex>& sparse_index,
+                   const std::vector<std::string>& dim_names);
+
+  std::shared_ptr<DataType> type_;
+  std::shared_ptr<Buffer> data_;
+  std::vector<int64_t> shape_;
+  std::shared_ptr<SparseIndex> sparse_index_;
+
+  /// These names are optional
+  std::vector<std::string> dim_names_;
+};
+
+// ----------------------------------------------------------------------
 // SparseTensor class
 
 template <typename SparseIndexType>
-class ARROW_EXPORT SparseTensor {
+class ARROW_EXPORT SparseTensor : public SparseTensorBase {
  public:
   virtual ~SparseTensor() = default;
 
@@ -102,9 +154,10 @@ class ARROW_EXPORT SparseTensor {
   SparseTensor(const std::shared_ptr<SparseIndexType>& sparse_index,
                const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
                const std::vector<int64_t>& shape,
-               const std::vector<std::string>& dim_names);
+               const std::vector<std::string>& dim_names)
+      : SparseTensorBase(type, data, shape, sparse_index, dim_names) {}
 
-  // Constructor with a dense tensor
+  // Constructor for empty sparse tensor
   SparseTensor(const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
                const std::vector<std::string>& dim_names = {});
 
@@ -115,36 +168,10 @@ class ARROW_EXPORT SparseTensor {
   // Constructor with a dense tensor
   explicit SparseTensor(const Tensor& tensor);
 
-  std::shared_ptr<DataType> type() const { return type_; }
-  std::shared_ptr<Buffer> data() const { return data_; }
-
-  const uint8_t* raw_data() const { return data_->data(); }
-  uint8_t* raw_mutable_data() const { return data_->mutable_data(); }
-
-  const std::vector<int64_t>& shape() const { return shape_; }
-  const std::shared_ptr<SparseIndexType>& sparse_index() const { return sparse_index_; }
-
-  int ndim() const { return static_cast<int>(shape_.size()); }
-
-  const std::string& dim_name(int i) const;
+  SparseIndex::format_type sparse_index_format_type_id() const { return SparseIndexType::format_type_id; }
 
   /// Total number of non-zero cells in the sparse tensor
   int64_t length() const { return sparse_index_ ? sparse_index_->length() : 0; }
-
-  /// Total number of value cells in the sparse tensor
-  int64_t size() const;
-
-  /// Return true if the underlying data buffer is mutable
-  bool is_mutable() const { return data_->is_mutable(); }
-
- protected:
-  std::shared_ptr<DataType> type_;
-  std::shared_ptr<Buffer> data_;
-  std::vector<int64_t> shape_;
-  std::shared_ptr<SparseIndexType> sparse_index_;
-
-  /// These names are optional
-  std::vector<std::string> dim_names_;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(SparseTensor);

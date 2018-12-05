@@ -32,6 +32,12 @@
 
 namespace arrow {
 
+static inline void CheckSparseIndexFormatType(SparseIndex::format_type expected,
+                                              const SparseTensorBase& sparse_tensor) {
+  ASSERT_EQ(expected, sparse_tensor.sparse_index_format_type_id());
+  ASSERT_EQ(expected, sparse_tensor.sparse_index()->format_type_id());
+}
+
 TEST(TestSparseCOOTensor, CreationEmptyTensor) {
   std::vector<int64_t> shape = {2, 3, 4};
   SparseTensor<SparseCOOIndex> st1(int64(), shape);
@@ -65,6 +71,8 @@ TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
   SparseTensor<SparseCOOIndex> st1(tensor1);
   SparseTensor<SparseCOOIndex> st2(tensor2);
 
+  CheckSparseIndexFormatType(SparseIndex::COO, st1);
+
   ASSERT_EQ(12, st1.length());
   ASSERT_TRUE(st1.is_mutable());
 
@@ -84,7 +92,7 @@ TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
     ASSERT_EQ(i + 11, ptr[i + 6]);
   }
 
-  std::shared_ptr<SparseCOOIndex> si = st1.sparse_index();
+  std::shared_ptr<SparseCOOIndex> si = std::dynamic_pointer_cast<SparseCOOIndex>(st1.sparse_index());
   std::shared_ptr<SparseCOOIndex::CoordsTensor> sidx = si->indices();
   ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
   ASSERT_TRUE(sidx->is_column_major());
@@ -145,7 +153,7 @@ TEST(TestSparseCOOTensor, CreationFromTensor) {
     ASSERT_EQ(i + 11, ptr[i + 6]);
   }
 
-  std::shared_ptr<SparseCOOIndex> si = st1.sparse_index();
+  std::shared_ptr<SparseCOOIndex> si = std::dynamic_pointer_cast<SparseCOOIndex>(st1.sparse_index());
   std::shared_ptr<SparseCOOIndex::CoordsTensor> sidx = si->indices();
   ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
   ASSERT_TRUE(sidx->is_column_major());
@@ -188,6 +196,8 @@ TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   SparseTensor<SparseCSRIndex> st1(tensor1);
   SparseTensor<SparseCSRIndex> st2(tensor2);
 
+  CheckSparseIndexFormatType(SparseIndex::CSR, st1);
+
   ASSERT_EQ(12, st1.length());
   ASSERT_TRUE(st1.is_mutable());
 
@@ -207,7 +217,7 @@ TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
     ASSERT_EQ(i + 11, ptr[i + 6]);
   }
 
-  std::shared_ptr<SparseCSRIndex> si = st1.sparse_index();
+  std::shared_ptr<SparseCSRIndex> si = std::dynamic_pointer_cast<SparseCSRIndex>(st1.sparse_index());
 
   ASSERT_EQ(1, si->indptr()->ndim());
   ASSERT_EQ(1, si->indices()->ndim());
