@@ -534,7 +534,7 @@ struct Converter_SimpleArray {
     if (n == null_count) {
       std::fill_n(data.begin() + start, n, default_value<RTYPE>());
     } else {
-      auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+      auto p_values = array->data()->GetValues<value_type>(1);
       STOP_IF_NULL(p_values);
 
       // first copy all the data
@@ -566,9 +566,9 @@ struct Converter_String {
     if (null_count == n) {
       std::fill_n(data.begin(), n, NA_STRING);
     } else {
-      auto p_offset = GetValuesSafely<int32_t>(array->data(), 1, array->offset());
+      auto p_offset = array->data()->GetValues<int32_t>(1);
       STOP_IF_NULL(p_offset);
-      auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
+      auto p_data = array->data()->GetValues<char>(2, *p_offset);
       if (!p_data) {
         // There is an offset buffer, but the data buffer is null
         // There is at least one value in the array and not all the values are null
@@ -615,7 +615,7 @@ struct Converter_Boolean {
       std::fill_n(data.begin() + start, n, NA_LOGICAL);
     } else {
       // process the data
-      auto p_data = GetValuesSafely<uint8_t>(array->data(), 1, 0);
+      auto p_data = array->data()->GetValues<uint8_t>(1, 0);
       STOP_IF_NULL(p_data);
 
       arrow::internal::BitmapReader data_reader(p_data, array->offset(), n);
@@ -661,7 +661,7 @@ struct Converter_Dictionary_Int32Indices {
       std::fill_n(data.begin() + start, n, NA_INTEGER);
     } else {
       std::shared_ptr<Array> indices = dict_array->indices();
-      auto p_array = GetValuesSafely<value_type>(indices->data(), 1, indices->offset());
+      auto p_array = indices->data()->GetValues<value_type>(1);
       STOP_IF_NULL(p_array);
 
       if (array->null_count()) {
@@ -692,7 +692,7 @@ struct Converter_Date64 {
     if (null_count == n) {
       std::fill_n(data.begin() + start, n, NA_REAL);
     } else {
-      auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
+      auto p_values = array->data()->GetValues<int64_t>(1);
       STOP_IF_NULL(p_values);
       auto p_vec = data.begin() + start;
 
@@ -726,7 +726,7 @@ struct Converter_Promotion {
     if (null_count == n) {
       std::fill_n(data.begin() + start, n, default_value<RTYPE>());
     } else {
-      auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+      auto p_values = array->data()->GetValues<value_type>(1);
       STOP_IF_NULL(p_values);
 
       auto value_convert = [](value_type value) {
@@ -766,7 +766,7 @@ struct Converter_Time {
     if (n == null_count) {
       std::fill_n(data.begin() + start, n, NA_REAL);
     } else {
-      auto p_values = GetValuesSafely<value_type>(array->data(), 1, array->offset());
+      auto p_values = array->data()->GetValues<value_type>(1);
       STOP_IF_NULL(p_values);
       auto p_vec = data.begin() + start;
       auto convert = [this](value_type value) {
@@ -803,7 +803,7 @@ struct Converter_Int64 {
     if (null_count == n) {
       std::fill_n(reinterpret_cast<int64_t*>(data.begin()) + start, n, NA_INT64);
     } else {
-      auto p_values = GetValuesSafely<int64_t>(array->data(), 1, array->offset());
+      auto p_values = array->data()->GetValues<int64_t>(1);
       STOP_IF_NULL(p_values);
       auto p_vec = reinterpret_cast<int64_t*>(data.begin()) + start;
 
