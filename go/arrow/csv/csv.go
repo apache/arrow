@@ -98,6 +98,7 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 	validate(schema)
 
 	rr := &Reader{r: csv.NewReader(r), schema: schema, refs: 1, chunk: 1}
+	rr.r.ReuseRecord = true
 	for _, opt := range opts {
 		opt(rr)
 	}
