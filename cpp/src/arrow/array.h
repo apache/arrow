@@ -170,9 +170,9 @@ struct ARROW_EXPORT ArrayData {
 
   // Access a buffer's data as a typed C pointer
   template <typename T>
-  inline const T* GetValues(int i, int64_t offset_) const {
+  inline const T* GetValues(int i, int64_t offset) const {
     if (buffers[i]) {
-      return reinterpret_cast<const T*>(buffers[i]->data()) + offset_;
+      return reinterpret_cast<const T*>(buffers[i]->data()) + offset;
     } else {
       return NULLPTR;
     }
@@ -185,9 +185,9 @@ struct ARROW_EXPORT ArrayData {
 
   // Access a buffer's data as a typed C pointer
   template <typename T>
-  inline T* GetMutableValues(int i, int64_t offset_) {
+  inline T* GetMutableValues(int i, int64_t offset) {
     if (buffers[i]) {
-      return reinterpret_cast<T*>(buffers[i]->mutable_data()) + offset_;
+      return reinterpret_cast<T*>(buffers[i]->mutable_data()) + offset;
     } else {
       return NULLPTR;
     }
