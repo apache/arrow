@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use num::Zero;
 ///! Array types
 use std::any::Any;
 use std::convert::From;
@@ -201,55 +202,6 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
         &raw[offset as usize..offset as usize + len as usize]
     }
 
-    //TODO: need help here ... 
-
-//    pub fn add(&self, other: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>> {
-//        self.math_helper(other, |a, b| Ok(a + b))
-//    }
-//
-//    pub fn subtract(&self, other: &PrimitiveArray<T::Native>) -> Result<PrimitiveArray<T>> {
-//        self.math_helper(other, |a, b| Ok(a - b))
-//    }
-//
-//    pub fn multiply(&self, other: &PrimitiveArray<T::Native>) -> Result<PrimitiveArray<T>> {
-//        self.math_helper(other, |a, b| Ok(a * b))
-//    }
-//
-//    pub fn divide(&self, other: &PrimitiveArray<T::Native>) -> Result<PrimitiveArray<T>> {
-//        self.math_helper(other, |a, b| {
-//            if b.is_zero() {
-//                Err(ArrowError::DivideByZero)
-//            } else {
-//                Ok(a / b)
-//            }
-//        })
-//    }
-//
-    fn math_helper<F>(
-        &self,
-        other: &PrimitiveArray<T>,
-        op: F,
-    ) -> Result<PrimitiveArray<T>>
-    where
-        F: Fn(T::Native, T::Native) -> Result<T::Native>,
-    {
-        if self.data.len() != other.data.len() {
-            return Err(ArrowError::MathError(
-                "Cannot perform math operation on two batches of different length".to_string(),
-            ));
-        }
-        let mut b = PrimitiveArrayBuilder::<T>::new(self.len());
-        for i in 0..self.data.len() {
-            let index = i as i64;
-            if self.is_null(i) || other.is_null(i) {
-                b.push_null().unwrap();
-            } else {
-                b.push(op(self.value(index), other.value(index))?).unwrap();
-            }
-        }
-        Ok(b.finish())
-    }
-
     /// Returns the minimum value in the array, according to the natural order.
     pub fn min(&self) -> Option<T::Native> {
         self.min_max_helper(|a, b| a < b)
@@ -288,6 +240,67 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
         PrimitiveArrayBuilder::<T>::new(capacity)
     }
 }
+
+macro_rules! def_numeric_math_ops {
+    ( $ty:ident, $native_ty:ident ) => {
+        impl PrimitiveArray<$ty> {
+            fn math_op<F>(self, other: &PrimitiveArray<$ty>, op: F) -> Result<PrimitiveArray<$ty>>
+            where
+                F: Fn($native_ty, $native_ty) -> Result<$native_ty>,
+            {
+                if self.data.len() != other.data.len() {
+                    return Err(ArrowError::MathError(
+                        "Cannot perform math operation on two batches of different length"
+                            .to_string(),
+                    ));
+                }
+                let mut b = PrimitiveArrayBuilder::<$ty>::new(self.len());
+                for i in 0..self.data.len() {
+                    let index = i as i64;
+                    if self.is_null(i) || other.is_null(i) {
+                        b.push_null().unwrap();
+                    } else {
+                        b.push(op(self.value(index), other.value(index))?).unwrap();
+                    }
+                }
+                Ok(b.finish())
+            }
+
+            pub fn add(self, other: &PrimitiveArray<$ty>) -> Result<PrimitiveArray<$ty>> {
+                self.math_op(other, |a, b| Ok(a + b))
+            }
+
+            pub fn subtract(self, other: &PrimitiveArray<$ty>) -> Result<PrimitiveArray<$ty>> {
+                self.math_op(other, |a, b| Ok(a - b))
+            }
+
+            pub fn multiply(self, other: &PrimitiveArray<$ty>) -> Result<PrimitiveArray<$ty>> {
+                self.math_op(other, |a, b| Ok(a * b))
+            }
+
+            pub fn divide(self, other: &PrimitiveArray<$ty>) -> Result<PrimitiveArray<$ty>> {
+                self.math_op(other, |a, b| {
+                    if b.is_zero() {
+                        Err(ArrowError::DivideByZero)
+                    } else {
+                        Ok(a / b)
+                    }
+                })
+            }
+        }
+    };
+}
+
+def_numeric_math_ops!(Int8Type, i8);
+def_numeric_math_ops!(Int16Type, i16);
+def_numeric_math_ops!(Int32Type, i32);
+def_numeric_math_ops!(Int64Type, i64);
+def_numeric_math_ops!(UInt8Type, u8);
+def_numeric_math_ops!(UInt16Type, u16);
+def_numeric_math_ops!(UInt32Type, u32);
+def_numeric_math_ops!(UInt64Type, u64);
+def_numeric_math_ops!(Float32Type, f32);
+def_numeric_math_ops!(Float64Type, f64);
 
 /// Specific implementation for Boolean arrays due to bit-packing
 impl PrimitiveArray<BooleanType> {
@@ -1286,99 +1299,99 @@ mod tests {
         assert_eq!(9, a.max().unwrap());
     }
 
-//    #[test]
-//    fn test_primitive_array_add() {
-//        let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
-//        let b = PrimitiveArray::<i32>::from(vec![6, 7, 8, 9, 8]);
-//        let c = a.add(&b).unwrap();
-//        assert_eq!(11, c.value(0));
-//        assert_eq!(13, c.value(1));
-//        assert_eq!(15, c.value(2));
-//        assert_eq!(17, c.value(3));
-//        assert_eq!(17, c.value(4));
-//    }
-//
-//    #[test]
-//    fn test_primitive_array_add_mismatched_length() {
-//        let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
-//        let b = PrimitiveArray::<i32>::from(vec![6, 7, 8]);
-//        let e = a
-//            .add(&b)
-//            .err()
-//            .expect("should have failed due to different lengths");
-//        assert_eq!(
-//            "MathError(\"Cannot perform math operation on two batches of different length\")",
-//            format!("{:?}", e)
-//        );
-//    }
-//
-//    #[test]
-//    fn test_primitive_array_subtract() {
-//        let a = PrimitiveArray::<i32>::from(vec![1, 2, 3, 4, 5]);
-//        let b = PrimitiveArray::<i32>::from(vec![5, 4, 3, 2, 1]);
-//        let c = a.subtract(&b).unwrap();
-//        assert_eq!(-4, c.value(0));
-//        assert_eq!(-2, c.value(1));
-//        assert_eq!(0, c.value(2));
-//        assert_eq!(2, c.value(3));
-//        assert_eq!(4, c.value(4));
-//    }
-//
-//    #[test]
-//    fn test_primitive_array_multiply() {
-//        let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
-//        let b = PrimitiveArray::<i32>::from(vec![6, 7, 8, 9, 8]);
-//        let c = a.multiply(&b).unwrap();
-//        assert_eq!(30, c.value(0));
-//        assert_eq!(42, c.value(1));
-//        assert_eq!(56, c.value(2));
-//        assert_eq!(72, c.value(3));
-//        assert_eq!(72, c.value(4));
-//    }
-//
-//    #[test]
-//    fn test_primitive_array_divide() {
-//        let a = PrimitiveArray::<i32>::from(vec![15, 15, 8, 1, 9]);
-//        let b = PrimitiveArray::<i32>::from(vec![5, 6, 8, 9, 1]);
-//        let c = a.divide(&b).unwrap();
-//        assert_eq!(3, c.value(0));
-//        assert_eq!(2, c.value(1));
-//        assert_eq!(1, c.value(2));
-//        assert_eq!(0, c.value(3));
-//        assert_eq!(9, c.value(4));
-//    }
-//
-//    #[test]
-//    fn test_primitive_array_divide_by_zero() {
-//        let a = PrimitiveArray::<i32>::from(vec![15]);
-//        let b = PrimitiveArray::<i32>::from(vec![0]);
-//        assert_eq!(
-//            ArrowError::DivideByZero,
-//            a.divide(&b).err().expect("divide by zero should fail")
-//        );
-//    }
-//
-//    #[test]
-//    fn test_primitive_array_divide_f64() {
-//        let a = PrimitiveArray::<f64>::from(vec![15.0, 15.0, 8.0]);
-//        let b = PrimitiveArray::<f64>::from(vec![5.0, 6.0, 8.0]);
-//        let c = a.divide(&b).unwrap();
-//        assert_eq!(3.0, c.value(0));
-//        assert_eq!(2.5, c.value(1));
-//        assert_eq!(1.0, c.value(2));
-//    }
-//
-//    #[test]
-//    fn test_primitive_array_add_with_nulls() {
-//        let a = PrimitiveArray::<i32>::from(vec![Some(5), None, Some(7), None]);
-//        let b = PrimitiveArray::<i32>::from(vec![None, None, Some(6), Some(7)]);
-//        let c = a.add(&b).unwrap();
-//        assert_eq!(true, c.is_null(0));
-//        assert_eq!(true, c.is_null(1));
-//        assert_eq!(false, c.is_null(2));
-//        assert_eq!(true, c.is_null(3));
-//        assert_eq!(13, c.value(2));
-//    }
+    #[test]
+    fn test_primitive_array_add() {
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
+        let b = Int32Array::from(vec![6, 7, 8, 9, 8]);
+        let c = a.add(&b).unwrap();
+        assert_eq!(11, c.value(0));
+        assert_eq!(13, c.value(1));
+        assert_eq!(15, c.value(2));
+        assert_eq!(17, c.value(3));
+        assert_eq!(17, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_add_mismatched_length() {
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
+        let b = Int32Array::from(vec![6, 7, 8]);
+        let e = a
+            .add(&b)
+            .err()
+            .expect("should have failed due to different lengths");
+        assert_eq!(
+            "MathError(\"Cannot perform math operation on two batches of different length\")",
+            format!("{:?}", e)
+        );
+    }
+
+    #[test]
+    fn test_primitive_array_subtract() {
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+        let b = Int32Array::from(vec![5, 4, 3, 2, 1]);
+        let c = a.subtract(&b).unwrap();
+        assert_eq!(-4, c.value(0));
+        assert_eq!(-2, c.value(1));
+        assert_eq!(0, c.value(2));
+        assert_eq!(2, c.value(3));
+        assert_eq!(4, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_multiply() {
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
+        let b = Int32Array::from(vec![6, 7, 8, 9, 8]);
+        let c = a.multiply(&b).unwrap();
+        assert_eq!(30, c.value(0));
+        assert_eq!(42, c.value(1));
+        assert_eq!(56, c.value(2));
+        assert_eq!(72, c.value(3));
+        assert_eq!(72, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_divide() {
+        let a = Int32Array::from(vec![15, 15, 8, 1, 9]);
+        let b = Int32Array::from(vec![5, 6, 8, 9, 1]);
+        let c = a.divide(&b).unwrap();
+        assert_eq!(3, c.value(0));
+        assert_eq!(2, c.value(1));
+        assert_eq!(1, c.value(2));
+        assert_eq!(0, c.value(3));
+        assert_eq!(9, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_divide_by_zero() {
+        let a = Int32Array::from(vec![15]);
+        let b = Int32Array::from(vec![0]);
+        assert_eq!(
+            ArrowError::DivideByZero,
+            a.divide(&b).err().expect("divide by zero should fail")
+        );
+    }
+
+    #[test]
+    fn test_primitive_array_divide_f64() {
+        let a = Float64Array::from(vec![15.0, 15.0, 8.0]);
+        let b = Float64Array::from(vec![5.0, 6.0, 8.0]);
+        let c = a.divide(&b).unwrap();
+        assert_eq!(3.0, c.value(0));
+        assert_eq!(2.5, c.value(1));
+        assert_eq!(1.0, c.value(2));
+    }
+
+    #[test]
+    fn test_primitive_array_add_with_nulls() {
+        let a = Int32Array::from(vec![Some(5), None, Some(7), None]);
+        let b = Int32Array::from(vec![None, None, Some(6), Some(7)]);
+        let c = a.add(&b).unwrap();
+        assert_eq!(true, c.is_null(0));
+        assert_eq!(true, c.is_null(1));
+        assert_eq!(false, c.is_null(2));
+        assert_eq!(true, c.is_null(3));
+        assert_eq!(13, c.value(2));
+    }
 
     #[test]
     fn test_access_array_concurrently() {
