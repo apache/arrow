@@ -92,7 +92,7 @@ struct _GGandivaBooleanLiteralNodeClass
 };
 
 GGandivaBooleanLiteralNode *
-ggandiva_boolean_literal_node_new(gboolean value);
+ggandiva_boolean_literal_node_new(gboolean is_true);
 
 
 #define GGANDIVA_TYPE_UINT8_LITERAL_NODE (ggandiva_uint8_literal_node_get_type())

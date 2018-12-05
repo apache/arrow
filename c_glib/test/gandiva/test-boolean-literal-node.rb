@@ -21,8 +21,8 @@ class TestGandivaBooleanLiteralNode < Test::Unit::TestCase
   end
 
   def test_value
-    value = true
-    literal_node = Gandiva::BooleanLiteralNode.new(value)
-    assert_equal(value, literal_node.value?)
+    is_true = true
+    literal_node = Gandiva::BooleanLiteralNode.new(is_true)
+    assert_equal(is_true, literal_node.true?)
   end
 end
