@@ -15,13 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use num::Zero;
 ///! Array types
 use std::any::Any;
 use std::convert::From;
 use std::io::Write;
 use std::mem;
+use std::ops::{Add, Div, Mul, Sub};
 use std::sync::Arc;
+
+use num::Zero;
 
 use array_data::{ArrayData, ArrayDataRef};
 use buffer::{Buffer, MutableBuffer};
@@ -241,66 +243,57 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     }
 }
 
-macro_rules! def_numeric_math_ops {
-    ( $ty:ident, $native_ty:ident ) => {
-        impl PrimitiveArray<$ty> {
-            fn math_op<F>(self, other: &PrimitiveArray<$ty>, op: F) -> Result<PrimitiveArray<$ty>>
-            where
-                F: Fn($native_ty, $native_ty) -> Result<$native_ty>,
-            {
-                if self.data.len() != other.data.len() {
-                    return Err(ArrowError::MathError(
-                        "Cannot perform math operation on two batches of different length"
-                            .to_string(),
-                    ));
-                }
-                let mut b = PrimitiveArrayBuilder::<$ty>::new(self.len());
-                for i in 0..self.data.len() {
-                    let index = i as i64;
-                    if self.is_null(i) || other.is_null(i) {
-                        b.push_null().unwrap();
-                    } else {
-                        b.push(op(self.value(index), other.value(index))?).unwrap();
-                    }
-                }
-                Ok(b.finish())
-            }
+impl<T: ArrowNumericType> PrimitiveArray<T>
+where
+    T::Native: Add<Output = T::Native>
+        + Sub<Output = T::Native>
+        + Mul<Output = T::Native>
+        + Div<Output = T::Native>
+        + Zero,
+{
+    pub fn add(self, other: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>> {
+        self.math_op(other, |a, b| Ok(a + b))
+    }
 
-            pub fn add(self, other: &PrimitiveArray<$ty>) -> Result<PrimitiveArray<$ty>> {
-                self.math_op(other, |a, b| Ok(a + b))
-            }
+    pub fn subtract(self, other: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>> {
+        self.math_op(other, |a, b| Ok(a - b))
+    }
 
-            pub fn subtract(self, other: &PrimitiveArray<$ty>) -> Result<PrimitiveArray<$ty>> {
-                self.math_op(other, |a, b| Ok(a - b))
-            }
+    pub fn multiply(self, other: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>> {
+        self.math_op(other, |a, b| Ok(a * b))
+    }
 
-            pub fn multiply(self, other: &PrimitiveArray<$ty>) -> Result<PrimitiveArray<$ty>> {
-                self.math_op(other, |a, b| Ok(a * b))
+    pub fn divide(self, other: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>> {
+        self.math_op(other, |a, b| {
+            if b.is_zero() {
+                Err(ArrowError::DivideByZero)
+            } else {
+                Ok(a / b)
             }
+        })
+    }
 
-            pub fn divide(self, other: &PrimitiveArray<$ty>) -> Result<PrimitiveArray<$ty>> {
-                self.math_op(other, |a, b| {
-                    if b.is_zero() {
-                        Err(ArrowError::DivideByZero)
-                    } else {
-                        Ok(a / b)
-                    }
-                })
+    fn math_op<F>(self, other: &PrimitiveArray<T>, op: F) -> Result<PrimitiveArray<T>>
+    where
+        F: Fn(T::Native, T::Native) -> Result<T::Native>,
+    {
+        if self.data.len() != other.data.len() {
+            return Err(ArrowError::MathError(
+                "Cannot perform math operation on two batches of different length".to_string(),
+            ));
+        }
+        let mut b = PrimitiveArrayBuilder::<T>::new(self.len());
+        for i in 0..self.data.len() {
+            let index = i as i64;
+            if self.is_null(i) || other.is_null(i) {
+                b.push_null().unwrap();
+            } else {
+                b.push(op(self.value(index), other.value(index))?).unwrap();
             }
         }
-    };
+        Ok(b.finish())
+    }
 }
-
-def_numeric_math_ops!(Int8Type, i8);
-def_numeric_math_ops!(Int16Type, i16);
-def_numeric_math_ops!(Int32Type, i32);
-def_numeric_math_ops!(Int64Type, i64);
-def_numeric_math_ops!(UInt8Type, u8);
-def_numeric_math_ops!(UInt16Type, u16);
-def_numeric_math_ops!(UInt32Type, u32);
-def_numeric_math_ops!(UInt64Type, u64);
-def_numeric_math_ops!(Float32Type, f32);
-def_numeric_math_ops!(Float64Type, f64);
 
 /// Specific implementation for Boolean arrays due to bit-packing
 impl PrimitiveArray<BooleanType> {
