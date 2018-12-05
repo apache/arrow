@@ -26,6 +26,7 @@
 
 #include "arrow/array.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
@@ -248,5 +249,23 @@ Status RecordBatch::Validate() const {
 // Base record batch reader
 
 RecordBatchReader::~RecordBatchReader() {}
+
+Status RecordBatchReader::ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches) {
+  while (true) {
+    std::shared_ptr<RecordBatch> batch;
+    RETURN_NOT_OK(ReadNext(&batch));
+    if (!batch) {
+      break;
+    }
+    batches->emplace_back(std::move(batch));
+  }
+  return Status::OK();
+}
+
+Status RecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  RETURN_NOT_OK(ReadAll(&batches));
+  return Table::FromRecordBatches(schema(), batches, table);
+}
 
 }  // namespace arrow
