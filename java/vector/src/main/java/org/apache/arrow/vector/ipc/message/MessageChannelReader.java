@@ -50,7 +50,7 @@ public class MessageChannelReader implements AutoCloseable {
    * returns null.
    *
    * @return MessageResult or null if reached end-of-stream
-   * @throws IOException
+   * @throws IOException on error
    */
   public MessageResult readNext() throws IOException {
 
@@ -83,7 +83,7 @@ public class MessageChannelReader implements AutoCloseable {
   /**
    * Close the ReadChannel.
    *
-   * @throws IOException
+   * @throws IOException on error
    */
   @Override
   public void close() throws IOException {

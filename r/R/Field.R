@@ -17,20 +17,37 @@
 
 #' @include R6.R
 
-`arrow::Field` <- R6Class("arrow::Field",
-  inherit = `arrow::Object`,
+#' @title class arrow::Field
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__Field
+#' @name arrow__Field
+`arrow::Field` <- R6Class("arrow::Field", inherit = `arrow::Object`,
   public = list(
     ToString = function() {
       Field__ToString(self)
     },
+    Equals = function(other) {
+      inherits(other, "arrow::Field") && Field__Equals(self, other)
+    }
+  ),
+
+  active = list(
     name = function() {
       Field__name(self)
     },
     nullable = function() {
       Field__nullable(self)
     },
-    Equals = function(other) {
-      inherits(other, "arrow::Field") && Field__Equals(self, other)
+    type = function() {
+      `arrow::DataType`$dispatch(Field__type(self))
     }
   )
 )
@@ -40,7 +57,20 @@
   lhs$Equals(rhs)
 }
 
-field <- function(name, type) {
+#' Factory for a `arrow::Field`
+#'
+#' @param name field name
+#' @param type logical type, instance of `arrow::DataType`
+#' @param metadata currently ignored
+#'
+#' @examples
+#' field("x", int32())
+#'
+#' @export
+field <- function(name, type, metadata) {
+  assert_that(inherits(name, "character"), length(name) == 1L)
+  assert_that(inherits(type, "arrow::DataType"))
+  assert_that(missing(metadata), msg = "metadata= is currently ignored")
   shared_ptr(`arrow::Field`, Field__initialize(name, type))
 }
 

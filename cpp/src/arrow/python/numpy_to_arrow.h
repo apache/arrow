@@ -25,7 +25,7 @@
 #include <memory>
 
 #include "arrow/compute/kernels/cast.h"
-#include "arrow/util/visibility.h"
+#include "arrow/python/visibility.h"
 
 namespace arrow {
 
@@ -48,7 +48,7 @@ namespace py {
 /// \param[in] type a specific type to cast to, may be null
 /// \param[in] cast_options casting options
 /// \param[out] out a ChunkedArray, to accommodate chunked output
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
                       const std::shared_ptr<DataType>& type,
                       const compute::CastOptions& cast_options,
@@ -64,7 +64,7 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
 /// whether values are null
 /// \param[in] type a specific type to cast to, may be null
 /// \param[out] out a ChunkedArray, to accommodate chunked output
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
                       const std::shared_ptr<DataType>& type,
                       std::shared_ptr<ChunkedArray>* out);

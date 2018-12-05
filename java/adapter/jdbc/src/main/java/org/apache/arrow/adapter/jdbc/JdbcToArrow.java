@@ -34,10 +34,10 @@ import com.google.common.base.Preconditions;
 
 /**
  * Utility class to convert JDBC objects to columnar Arrow format objects.
- * <p>
- * This utility uses following data mapping to map JDBC/SQL datatype to Arrow data types.
- * <p>
- * CHAR --> ArrowType.Utf8
+ *
+ * <p>This utility uses following data mapping to map JDBC/SQL datatype to Arrow data types.
+ *
+ * <p>CHAR --> ArrowType.Utf8
  * NCHAR --> ArrowType.Utf8
  * VARCHAR --> ArrowType.Utf8
  * NVARCHAR --> ArrowType.Utf8
@@ -61,8 +61,8 @@ import com.google.common.base.Preconditions;
  * TIMESTAMP --> ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone=null)
  * CLOB --> ArrowType.Utf8
  * BLOB --> ArrowType.Binary
- * <p>
- * TODO: At this time, SQL Data type java.sql.Types.ARRAY is still not supported.
+ *
+ * <p>TODO: At this time, SQL Data type java.sql.Types.ARRAY is still not supported.
  *
  * @since 0.10.0
  */
@@ -124,9 +124,9 @@ public class JdbcToArrow {
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects. This
    * method uses the default RootAllocator and Calendar object.
    *
-   * @param resultSet
+   * @param resultSet ResultSet to use to fetch the data from underlying database
    * @return Arrow Data Objects {@link VectorSchemaRoot}
-   * @throws SQLException
+   * @throws SQLException on error
    */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet) throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
@@ -137,10 +137,10 @@ public class JdbcToArrow {
   /**
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
    *
-   * @param resultSet
+   * @param resultSet ResultSet to use to fetch the data from underlying database
    * @param allocator Memory allocator
    * @return Arrow Data Objects {@link VectorSchemaRoot}
-   * @throws SQLException
+   * @throws SQLException on error
    */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator)
       throws SQLException, IOException {
@@ -153,10 +153,10 @@ public class JdbcToArrow {
   /**
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
    *
-   * @param resultSet
+   * @param resultSet ResultSet to use to fetch the data from underlying database
    * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
-   * @throws SQLException
+   * @throws SQLException on error
    */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
@@ -171,11 +171,11 @@ public class JdbcToArrow {
   /**
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
    *
-   * @param resultSet
+   * @param resultSet ResultSet to use to fetch the data from underlying database
    * @param allocator Memory allocator to use.
    * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
-   * @throws SQLException
+   * @throws SQLException on error
    */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator, Calendar calendar)
       throws SQLException, IOException {

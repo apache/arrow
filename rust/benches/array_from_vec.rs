@@ -35,7 +35,7 @@ fn array_from_vec(n: usize) {
     let arr_data = ArrayDataBuilder::new(DataType::Int32)
         .add_buffer(Buffer::from(v))
         .build();
-    criterion::black_box(PrimitiveArray::<i32>::from(arr_data));
+    criterion::black_box(Int32Array::from(arr_data));
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

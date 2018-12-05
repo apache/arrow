@@ -13,6 +13,9 @@ dictionary(type, values, ordered = FALSE)
 
 \item{ordered}{Is this an ordered dictionary}
 }
+\value{
+a \link[=arrow__DictionaryType]{arrow::DictionaryType}
+}
 \description{
 dictionary type factory
 }

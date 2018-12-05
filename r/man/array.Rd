@@ -2,7 +2,7 @@
 % Please edit documentation in R/array.R
 \name{array}
 \alias{array}
-\title{create an arrow::Array from an R vector}
+\title{create an \link[=arrow__Array]{arrow::Array} from an R vector}
 \usage{
 array(..., type)
 }
@@ -12,5 +12,5 @@ array(..., type)
 \item{type}{currently ignored}
 }
 \description{
-create an arrow::Array from an R vector
+create an \link[=arrow__Array]{arrow::Array} from an R vector
 }

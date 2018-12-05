@@ -981,6 +981,35 @@ struct CastFunctor<O, StringType,
 };
 
 // ----------------------------------------------------------------------
+// String to Timestamp
+
+template <>
+struct CastFunctor<TimestampType, StringType> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    using out_type = TimestampType::c_type;
+
+    StringArray input_array(input.Copy());
+    auto out_data = output->GetMutableValues<out_type>(1);
+    internal::StringConverter<TimestampType> converter(output->type);
+
+    for (int64_t i = 0; i < input.length; ++i, ++out_data) {
+      if (input_array.IsNull(i)) {
+        continue;
+      }
+
+      auto str = input_array.GetView(i);
+      if (!converter(str.data(), str.length(), out_data)) {
+        std::stringstream ss;
+        ss << "Failed to cast String '" << str << "' into " << output->type->ToString();
+        ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
+        return;
+      }
+    }
+  }
+};
+
+// ----------------------------------------------------------------------
 
 typedef std::function<void(FunctionContext*, const CastOptions& options, const ArrayData&,
                            ArrayData*)>
@@ -1170,7 +1199,8 @@ class CastKernel : public UnaryKernel {
   FN(StringType, UInt64Type);     \
   FN(StringType, Int64Type);      \
   FN(StringType, FloatType);      \
-  FN(StringType, DoubleType);
+  FN(StringType, DoubleType);     \
+  FN(StringType, TimestampType);
 
 #define DICTIONARY_CASES(FN, IN_TYPE) \
   FN(IN_TYPE, NullType);              \

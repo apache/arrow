@@ -361,7 +361,7 @@ Status GetSerializedFromComponents(int num_tensors, int num_ndarrays, int num_bu
 
     ipc::Message message(metadata, body);
 
-    RETURN_NOT_OK(ReadTensor(message, &tensor));
+    RETURN_NOT_OK(ipc::ReadTensor(message, &tensor));
     out->tensors.emplace_back(std::move(tensor));
   }
 
@@ -375,7 +375,7 @@ Status GetSerializedFromComponents(int num_tensors, int num_ndarrays, int num_bu
 
     ipc::Message message(metadata, body);
 
-    RETURN_NOT_OK(ReadTensor(message, &tensor));
+    RETURN_NOT_OK(ipc::ReadTensor(message, &tensor));
     out->ndarrays.emplace_back(std::move(tensor));
   }
 
@@ -389,19 +389,20 @@ Status GetSerializedFromComponents(int num_tensors, int num_ndarrays, int num_bu
   return Status::OK();
 }
 
-Status DeserializeTensor(const SerializedPyObject& object, std::shared_ptr<Tensor>* out) {
-  if (object.tensors.size() != 1) {
-    return Status::Invalid("Object is not a Tensor");
+Status DeserializeNdarray(const SerializedPyObject& object,
+                          std::shared_ptr<Tensor>* out) {
+  if (object.ndarrays.size() != 1) {
+    return Status::Invalid("Object is not an Ndarray");
   }
-  *out = object.tensors[0];
+  *out = object.ndarrays[0];
   return Status::OK();
 }
 
-Status ReadTensor(std::shared_ptr<Buffer> src, std::shared_ptr<Tensor>* out) {
+Status NdarrayFromBuffer(std::shared_ptr<Buffer> src, std::shared_ptr<Tensor>* out) {
   io::BufferReader reader(src);
   SerializedPyObject object;
   RETURN_NOT_OK(ReadSerializedObject(&reader, &object));
-  return DeserializeTensor(object, out);
+  return DeserializeNdarray(object, out);
 }
 
 }  // namespace py

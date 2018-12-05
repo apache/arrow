@@ -62,7 +62,7 @@ public class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get a reader that supports reading values from this vector
+   * Get a reader that supports reading values from this vector.
    *
    * @return Field Reader for this vector
    */
@@ -113,7 +113,7 @@ public class BitVector extends BaseFixedWidthVector {
    *
    * @param count desired number of elements in the vector
    * @return estimated size of underlying buffers if the vector holds
-   * a given number of elements
+   *         a given number of elements
    */
   @Override
   public int getBufferSizeFor(final int count) {
@@ -219,11 +219,11 @@ public class BitVector extends BaseFixedWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value retrieval methods                        *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value retrieval methods                        |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
   private int getBit(int index) {
     final int byteIndex = index >> 3;
@@ -277,7 +277,7 @@ public class BitVector extends BaseFixedWidthVector {
 
   /**
    * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector
+   * position in this vector.
    *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
@@ -303,11 +303,11 @@ public class BitVector extends BaseFixedWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value setter methods                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value setter methods                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
@@ -466,7 +466,7 @@ public class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Set count bits to 1 in data starting at firstBitIndex
+   * Set count bits to 1 in data starting at firstBitIndex.
    *
    * @param firstBitIndex the index of the first bit to set
    * @param count         the number of bits to set
@@ -511,11 +511,11 @@ public class BitVector extends BaseFixedWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *                      vector transfer                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |                      vector transfer                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**

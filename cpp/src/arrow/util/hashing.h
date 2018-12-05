@@ -34,6 +34,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/builder.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -603,6 +604,17 @@ class BinaryMemoTable {
 
   void CopyValues(int64_t out_size, uint8_t* out_data) const {
     CopyValues(0, out_size, out_data);
+  }
+
+  // Visit the stored values in insertion order.
+  // The visitor function should have the signature `void(util::string_view)`
+  // or `void(const util::string_view&)`.
+  template <typename VisitFunc>
+  void VisitValues(int32_t start, VisitFunc&& visit) const {
+    for (uint32_t i = start; i < offsets_.size() - 1; ++i) {
+      visit(
+          util::string_view(values_.data() + offsets_[i], offsets_[i + 1] - offsets_[i]));
+    }
   }
 
  protected:

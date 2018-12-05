@@ -57,19 +57,23 @@ pkgconfig.generate(filebase: 'arrow-gpu-glib',
                    requires: ['arrow-glib', 'arrow-gpu'],
                    libraries: [libarrow_gpu_glib])
 
-gnome.generate_gir(libarrow_gpu_glib,
-                   dependencies: declare_dependency(sources: arrow_glib_gir),
-                   sources: sources + c_headers,
-                   namespace: 'ArrowGPU',
-                   nsversion: api_version,
-                   identifier_prefix: 'GArrowGPU',
-                   symbol_prefix: 'garrow_gpu',
-                   export_packages: 'arrow-gpu-glib',
-                   includes: [
-                     'Arrow-1.0',
-                   ],
-                   install: true,
-                   extra_args: [
-                     '--warn-all',
-                     '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-                   ])
+gir_dependencies = [
+  declare_dependency(sources: arrow_glib_gir),
+]
+gir_extra_args = [
+  '--warn-all',
+  '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+]
+arrow_gpu_glib_gir = gnome.generate_gir(libarrow_gpu_glib,
+                                        dependencies: gir_dependencies,
+                                        sources: sources + c_headers,
+                                        namespace: 'ArrowGPU',
+                                        nsversion: api_version,
+                                        identifier_prefix: 'GArrowGPU',
+                                        symbol_prefix: 'garrow_gpu',
+                                        export_packages: 'arrow-gpu-glib',
+                                        includes: [
+                                          'Arrow-1.0',
+                                        ],
+                                        install: true,
+                                        extra_args: gir_extra_args)

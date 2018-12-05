@@ -36,10 +36,10 @@ public class ServerAuthWrapper {
   /**
    * Wrap the auth handler for handshake purposes.
    *
-   * @param authHandler
-   * @param responseObserver
-   * @param executors
-   * @return
+   * @param authHandler Authentication handler
+   * @param responseObserver Observer for handshake response
+   * @param executors ExecutorService
+   * @return AuthObserver
    */
   public static StreamObserver<HandshakeRequest> wrapHandshake(ServerAuthHandler authHandler,
       StreamObserver<HandshakeResponse> responseObserver, ExecutorService executors) {

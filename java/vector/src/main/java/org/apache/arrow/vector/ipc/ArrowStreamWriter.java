@@ -26,7 +26,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 
 /**
- * Writer for the Arrow stream format to send ArrowRecordBatches over a WriteChannel
+ * Writer for the Arrow stream format to send ArrowRecordBatches over a WriteChannel.
  */
 public class ArrowStreamWriter extends ArrowWriter {
 
@@ -58,7 +58,7 @@ public class ArrowStreamWriter extends ArrowWriter {
    * Write an EOS identifier to the WriteChannel.
    *
    * @param out Open WriteChannel with an active Arrow stream.
-   * @throws IOException
+   * @throws IOException on error
    */
   public static void writeEndOfStream(WriteChannel out) throws IOException {
     out.writeIntLittleEndian(0);

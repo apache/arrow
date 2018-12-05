@@ -58,7 +58,7 @@ public class Filter {
    * Filter::Evaluate() against a RecordBatch to evaluate the filter on this record batch
    *
    * @param schema Table schema. The field names in the schema should match the fields used to
-   * create the TreeNodes
+   *               create the TreeNodes
    * @param condition condition to be evaluated against data
    * @return A native filter object that can be used to invoke on a RecordBatch
    */
@@ -71,7 +71,7 @@ public class Filter {
    * Filter::Evaluate() against a RecordBatch to evaluate the filter on this record batch
    *
    * @param schema Table schema. The field names in the schema should match the fields used to
-   * create the TreeNodes
+   *               create the TreeNodes
    * @param condition condition to be evaluated against data
    * @param configurationId Custom configuration created through config builder.
    * @return A native evaluator object that can be used to invoke these projections on a RecordBatch

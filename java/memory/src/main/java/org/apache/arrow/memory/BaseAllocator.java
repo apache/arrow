@@ -153,6 +153,13 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
   }
 
+  /**
+   * Specify an indentation amount when using a StringBuilder.
+   *
+   * @param sb StringBuilder to use
+   * @param indent Indentation amount
+   * @return the StringBuilder object with indentation applied
+   */
   public static StringBuilder indent(StringBuilder sb, int indent) {
     final char[] indentation = new char[indent * 2];
     Arrays.fill(indentation, ' ');
@@ -478,12 +485,10 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   /**
    * Verifies the accounting state of the allocator. Only works for DEBUG.
-   * <p>
-   * <p>
-   * This overload is used for recursive calls, allowing for checking that ArrowBufs are unique
+   *
+   * <p>This overload is used for recursive calls, allowing for checking that ArrowBufs are unique
    * across all allocators
    * that are checked.
-   * </p>
    *
    * @param buffersSeen a map of buffers that have already been seen when walking a tree of
    *                    allocators
@@ -805,9 +810,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     /**
      * Allocate a buffer of the requested size.
-     * <p>
-     * <p>
-     * The implementation of the allocator's inner class provides this.
+     *
+     * <p>The implementation of the allocator's inner class provides this.
      *
      * @param nBytes the size of the buffer requested
      * @return the buffer, or null, if the request cannot be satisfied

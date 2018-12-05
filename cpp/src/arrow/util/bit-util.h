@@ -62,11 +62,6 @@
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
 
-#ifdef ARROW_USE_SSE
-#include "arrow/util/cpu-info.h"
-#include "arrow/util/sse-util.h"
-#endif
-
 namespace arrow {
 
 class Buffer;
@@ -315,8 +310,8 @@ static constexpr uint8_t kPrecedingBitmask[] = {0, 1, 3, 7, 15, 31, 63, 127};
 // the bitwise complement version of kPrecedingBitmask
 static constexpr uint8_t kTrailingBitmask[] = {255, 254, 252, 248, 240, 224, 192, 128};
 
-static inline bool GetBit(const uint8_t* bits, int64_t i) {
-  return (bits[i / 8] & kBitmask[i % 8]) != 0;
+static inline bool GetBit(const uint8_t* bits, uint64_t i) {
+  return (bits[i >> 3] >> (i & 0x07)) & 1;
 }
 
 static inline void ClearBit(uint8_t* bits, int64_t i) {

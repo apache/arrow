@@ -111,8 +111,10 @@ class TestCast : public ComputeFixture, public TestBase {
   void CheckCase(const shared_ptr<DataType>& in_type, const vector<I_TYPE>& in_values,
                  const vector<bool>& is_valid, const shared_ptr<DataType>& out_type,
                  const vector<O_TYPE>& out_values, const CastOptions& options) {
+    DCHECK_EQ(in_values.size(), out_values.size());
     shared_ptr<Array> input, expected;
     if (is_valid.size() > 0) {
+      DCHECK_EQ(is_valid.size(), out_values.size());
       ArrayFromVector<InType, I_TYPE>(in_type, is_valid, in_values, &input);
       ArrayFromVector<OutType, O_TYPE>(out_type, is_valid, out_values, &expected);
     } else {
@@ -1054,6 +1056,37 @@ TEST_F(TestCast, StringToNumberErrors) {
   CheckFails<StringType, std::string>(utf8(), {"-1"}, is_valid, uint8(), options);
 
   CheckFails<StringType, std::string>(utf8(), {"z"}, is_valid, float32(), options);
+}
+
+TEST_F(TestCast, StringToTimestamp) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true, false, true};
+  vector<std::string> strings = {"1970-01-01", "xxx", "2000-02-29"};
+
+  auto type = timestamp(TimeUnit::SECOND);
+  vector<int64_t> e = {0, 0, 951782400};
+  CheckCase<StringType, std::string, TimestampType, int64_t>(utf8(), strings, is_valid,
+                                                             type, e, options);
+
+  type = timestamp(TimeUnit::MICRO);
+  e = {0, 0, 951782400000000LL};
+  CheckCase<StringType, std::string, TimestampType, int64_t>(utf8(), strings, is_valid,
+                                                             type, e, options);
+
+  // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
+}
+
+TEST_F(TestCast, StringToTimestampErrors) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true};
+
+  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
+    auto type = timestamp(unit);
+    CheckFails<StringType, std::string>(utf8(), {""}, is_valid, type, options);
+    CheckFails<StringType, std::string>(utf8(), {"xxx"}, is_valid, type, options);
+  }
 }
 
 template <typename TestType>

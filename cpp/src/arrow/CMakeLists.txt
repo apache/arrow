@@ -19,6 +19,9 @@ set(ARROW_SRCS
   array.cc
   buffer.cc
   builder.cc
+  builder-adaptive.cc
+  builder-binary.cc
+  builder-dict.cc
   compare.cc
   memory_pool.cc
   pretty_print.cc
@@ -48,6 +51,7 @@ set(ARROW_SRCS
   util/compression.cc
   util/cpu-info.cc
   util/decimal.cc
+  util/int-util.cc
   util/io-util.cc
   util/logging.cc
   util/key_value_metadata.cc
@@ -238,7 +242,9 @@ install(
 #######################################
 
 ADD_ARROW_TEST(allocator-test)
-ADD_ARROW_TEST(array-test)
+ADD_ARROW_TEST(array-test
+  SOURCES array-test.cc array-binary-test.cc array-dict-test.cc
+          array-list-test.cc array-struct-test.cc)
 ADD_ARROW_TEST(buffer-test)
 ADD_ARROW_TEST(memory_pool-test)
 ADD_ARROW_TEST(pretty_print-test)

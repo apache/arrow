@@ -67,3 +67,14 @@ std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>
                                              int i) {
   return table->column(i);
 }
+
+// [[Rcpp::export]]
+std::vector<std::shared_ptr<arrow::Column>> Table__columns(
+    const std::shared_ptr<arrow::Table>& table) {
+  auto nc = table->num_columns();
+  std::vector<std::shared_ptr<arrow::Column>> res(nc);
+  for (int i = 0; i < nc; i++) {
+    res[i] = table->column(i);
+  }
+  return res;
+}

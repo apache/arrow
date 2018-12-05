@@ -17,18 +17,65 @@
 
 #' @include R6.R
 
+#' @title class arrow::Array
+#'
+#' Array base type. Immutable data array with some logical type and some length.
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Usage:
+#'
+#' ```
+#' a <- array(...)
+#'
+#' a$IsNull(i)
+#' a$IsValid(i)
+#' a$length() or length(a)
+#' a$offset()
+#' a$null_count()
+#' a$type()
+#' a$type_id()
+#' a$Equals(b)
+#' a$ApproxEquals(b)
+#' a$as_vector()
+#' a$ToString()
+#' a$Slice(offset, length = NULL)
+#' a$RangeEquals(other, start_idx, end_idx, other_start_idx)
+#'
+#' print(a)
+#' a == a
+#' ```
+#'
+#' @section Methods:
+#'
+#' - `$IsNull(i)`: Return true if value at index is null. Does not boundscheck
+#' - `$IsValid(i)`: Return true if value at index is valid. Does not boundscheck
+#' - `$length()`: Size in the number of elements this array contains
+#' - `$offset()`: A relative position into another array's data, to enable zero-copy slicing
+#' - `$null_count()`: The number of null entries in the array
+#' - `$type()`: logical type of data
+#' - `$type_id()`: type id
+#' - `$Equals(other)` : is this array equal to `other`
+#' - `$ApproxEquals(other)` :
+#' - `$data()`: return the underlying [arrow::ArrayData][arrow__ArrayData]
+#' - `$as_vector()`: convert to an R vector
+#' - `$ToString()`: string representation of the array
+#' - `$Slice(offset, length = NULL)` : Construct a zero-copy slice of the array with the indicated offset and length. If length is `NULL`, the slice goes until the end of the array.
+#' - `$RangeEquals(other, start_idx, end_idx, other_start_idx)` :
+#'
+#' @rdname arrow__Array
+#' @name arrow__Array
 `arrow::Array` <- R6Class("arrow::Array",
   inherit = `arrow::Object`,
   public = list(
     IsNull = function(i) Array__IsNull(self, i),
     IsValid = function(i) Array__IsValid(self, i),
     length = function() Array__length(self),
-    offset = function() Array__offset(self),
-    null_count = function() Array__null_count(self),
-    type = function() `arrow::DataType`$dispatch(Array__type(self)),
     type_id = function() Array__type_id(self),
     Equals = function(other) Array__Equals(self, other),
-    ApproxEquals = function(othet) Array__ApproxEquals(self, other),
+    ApproxEquals = function(other) Array__ApproxEquals(self, other),
     data = function() shared_ptr(`arrow::ArrayData`, Array__data(self)),
     as_vector = function() Array__as_vector(self),
     ToString = function() Array__ToString(self),
@@ -48,6 +95,11 @@
       assert_that(inherits(options, "arrow::compute::CastOptions"))
       `arrow::Array`$dispatch(Array__cast(self, target_type, options))
     }
+  ),
+  active = list(
+    null_count = function() Array__null_count(self),
+    offset = function() Array__offset(self),
+    type = function() `arrow::DataType`$dispatch(Array__type(self))
   )
 )
 
@@ -65,7 +117,7 @@
 #' @export
 `==.arrow::Array` <- function(x, y) x$Equals(y)
 
-#' create an arrow::Array from an R vector
+#' create an [arrow::Array][arrow__Array] from an R vector
 #'
 #' @param \dots Vectors to coerce
 #' @param type currently ignored

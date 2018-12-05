@@ -26,7 +26,7 @@ import java.util.List;
 /**
  * The PlasmaClient is used to interface with a plasma store and manager.
  *
- * The PlasmaClient can ask the PlasmaStore to allocate a new buffer, seal a buffer, and get a
+ * <p>The PlasmaClient can ask the PlasmaStore to allocate a new buffer, seal a buffer, and get a
  * buffer. Buffers are referred to by object IDs.
  */
 public class PlasmaClient implements ObjectStoreLink {

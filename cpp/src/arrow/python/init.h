@@ -19,10 +19,10 @@
 #define ARROW_PYTHON_INIT_H
 
 #include "arrow/python/platform.h"
-#include "arrow/util/visibility.h"
+#include "arrow/python/visibility.h"
 
 extern "C" {
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 int arrow_init_numpy();
 }
 

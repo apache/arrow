@@ -47,6 +47,7 @@ public class DecimalVector extends BaseFixedWidthVector {
   /**
    * Instantiate a DecimalVector. This doesn't allocate any memory for
    * the data in vector.
+   *
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
@@ -59,6 +60,7 @@ public class DecimalVector extends BaseFixedWidthVector {
   /**
    * Instantiate a DecimalVector. This doesn't allocate any memory for
    * the data in vector.
+   *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
@@ -72,7 +74,8 @@ public class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get a reader that supports reading values from this vector
+   * Get a reader that supports reading values from this vector.
+   *
    * @return Field Reader for this vector
    */
   @Override
@@ -83,6 +86,7 @@ public class DecimalVector extends BaseFixedWidthVector {
   /**
    * Get minor type for this vector. The vector holds values belonging
    * to a particular type.
+   *
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
@@ -91,11 +95,11 @@ public class DecimalVector extends BaseFixedWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value retrieval methods                        *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value retrieval methods                        |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
@@ -146,7 +150,8 @@ public class DecimalVector extends BaseFixedWidthVector {
 
   /**
    * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector
+   * position in this vector.
+   *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
@@ -161,6 +166,7 @@ public class DecimalVector extends BaseFixedWidthVector {
    * Same as {@link #copyFrom(int, int, DecimalVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
+   *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
@@ -171,18 +177,18 @@ public class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Return scale for the decimal value
+   * Return scale for the decimal value.
    */
   public int getScale() {
     return scale;
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value setter methods                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value setter methods                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
@@ -201,11 +207,11 @@ public class DecimalVector extends BaseFixedWidthVector {
    * Decimal is now implemented as Little Endian. This API allows the user
    * to pass a decimal value in the form of byte array in BE byte order.
    *
-   * Consumers of Arrow code can use this API instead of first swapping
+   * <p>Consumers of Arrow code can use this API instead of first swapping
    * the source bytes (doing a write and read) and then finally writing to
    * ArrowBuf of decimal vector.
    *
-   * This method takes care of adding the necessary padding if the length
+   * <p>This method takes care of adding the necessary padding if the length
    * of byte array is less then 16 (length of decimal type).
    *
    * @param index position of element
@@ -396,6 +402,7 @@ public class DecimalVector extends BaseFixedWidthVector {
   /**
    * Store the given value at a particular position in the vector. isSet indicates
    * whether the value is NULL or not.
+   *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
    * @param start start position of the value in the buffer
@@ -413,6 +420,7 @@ public class DecimalVector extends BaseFixedWidthVector {
    * Same as {@link #setSafe(int, int, int, ArrowBuf)} except that it handles
    * the case when the position of new value is beyond the current value
    * capacity of the vector.
+   *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
    * @param start start position of the value in the buffer
@@ -424,16 +432,17 @@ public class DecimalVector extends BaseFixedWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *                      vector transfer                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |                      vector transfer                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
    * Construct a TransferPair comprising of this and and a target vector of
    * the same type.
+   *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
    * @return {@link TransferPair}
@@ -445,6 +454,7 @@ public class DecimalVector extends BaseFixedWidthVector {
 
   /**
    * Construct a TransferPair with a desired target vector of the same type.
+   *
    * @param to target vector
    * @return {@link TransferPair}
    */

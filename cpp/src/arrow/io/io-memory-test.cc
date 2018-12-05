@@ -161,6 +161,21 @@ TEST(TestBufferReader, Seeking) {
   ASSERT_EQ(pos, 10);
 }
 
+TEST(TestBufferReader, Peek) {
+  std::string data = "data123456";
+
+  BufferReader reader(std::make_shared<Buffer>(data));
+
+  auto view = reader.Peek(4);
+
+  ASSERT_EQ(4, view.size());
+  ASSERT_EQ(data.substr(0, 4), view.to_string());
+
+  view = reader.Peek(20);
+  ASSERT_EQ(data.size(), view.size());
+  ASSERT_EQ(data, view.to_string());
+}
+
 TEST(TestBufferReader, RetainParentReference) {
   // ARROW-387
   std::string data = "data123456";

@@ -21,11 +21,14 @@ groups:
   docker:
     - docker-rust
     - docker-cpp
+    - docker-cpp-alpine
     - docker-c_glib
     - docker-go
     - docker-python-2.7
     - docker-python-3.6
     - docker-python-3.7
+    - docker-python-2.7-alpine
+    - docker-python-3.6-alpine
     - docker-java
     - docker-js
     - docker-lint
@@ -33,6 +36,19 @@ groups:
     - docker-clang-format
     - docker-hdfs-integration
     - docker-pandas-master
+
+  integration:
+    - docker-hdfs-integration
+    - docker-pandas-master
+
+  cpp-python:
+    - docker-cpp
+    - docker-cpp-alpine
+    - docker-python-2.7
+    - docker-python-2.7-alpine
+    - docker-python-3.6
+    - docker-python-3.6-alpine
+    - docker-python-3.7
 
 tasks:
   # arbitrary_task_name:
@@ -61,6 +77,14 @@ tasks:
       commands:
         - docker-compose build cpp
         - docker-compose run cpp
+
+  docker-cpp-alpine:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp-alpine
+        - docker-compose run cpp-alpine
 
   docker-c_glib:
     platform: linux
@@ -127,6 +151,28 @@ tasks:
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose run python
+
+  docker-python-2.7-alpine:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 2.7
+      commands:
+        - docker-compose build cpp-alpine
+        - docker-compose build python-alpine
+        - docker-compose run python-alpine
+
+  docker-python-3.6-alpine:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp-alpine
+        - docker-compose build python-alpine
+        - docker-compose run python-alpine
 
   ############################## Linter tests #################################
 
