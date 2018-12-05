@@ -25,6 +25,10 @@
   apacheId: uwe
   githubId: xhochy
   role: PMC
+- name: Jacques Nadeau
+  apacheId: jacques
+  githubId: jacques-n
+  role: PMC
 - name: Julien Le Dem
   apacheId: julienledem
   githubId: julienledem
