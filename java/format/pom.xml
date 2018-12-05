@@ -104,10 +104,10 @@
               <argument>-j</argument>
               <argument>-o</argument>
               <argument>${flatc.generated.files}</argument>
-              <argument>../../docs/source/format/Schema.fbs</argument>
-              <argument>../../docs/source/format/Tensor.fbs</argument>
-              <argument>../../docs/source/format/File.fbs</argument>
-              <argument>../../docs/source/format/Message.fbs</argument>
+              <argument>../../format/Schema.fbs</argument>
+              <argument>../../format/Tensor.fbs</argument>
+              <argument>../../format/File.fbs</argument>
+              <argument>../../format/Message.fbs</argument>
             </arguments>
           </configuration>
         </execution>
