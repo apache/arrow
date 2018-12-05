@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM rust
+FROM rustlang/rust:nightly
 
 # sadly cargo doesn't have a command to fetch and build the
 # dependencies without building the library itself
