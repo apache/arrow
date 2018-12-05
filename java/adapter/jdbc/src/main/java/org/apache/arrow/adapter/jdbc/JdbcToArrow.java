@@ -227,10 +227,10 @@ public class JdbcToArrow {
   /**
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
    *
-   * @param resultSet ResultSet to use to fetch the data from underlying database
-   * @param allocator Memory allocator to use.
-   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets.
-   * @param metadata   Whether to include column information in the schema field metadata.
+   * @param resultSet       ResultSet to use to fetch the data from underlying database
+   * @param allocator       Memory allocator to use.
+   * @param calendar        Calendar instance to use for Date, Time and Timestamp datasets.
+   * @param includeMetadata Whether to include column information in the schema field metadata.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    * @throws SQLException on error
    */
