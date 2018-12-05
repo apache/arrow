@@ -150,9 +150,7 @@ a
 The `$type()` method gives the corresponding piece of type metadata: 
 
 ```{r}
-# TODO: should this be an active like in python ?
-# a$type rather than a$type()
-a$type()
+a$type
 ```
 
 Each in-memory array has a known length and null count: 
@@ -161,9 +159,7 @@ Each in-memory array has a known length and null count:
 a$length()
 length(a)
 
-# TODO: should this be an active like in python ?
-# a$null_count rather than a$null_count()
-a$null_count()
+a$null_count
 ```
 
 ## Handling of missing values
@@ -182,7 +178,7 @@ The `arrow::Dictionary` type is a special array that is similar to an R factor. 
 ```{r}
 f <- factor(c("a", "b"), levels = c("a", "b", "c"))
 a <- array(f)
-a$type()
+a$type
 a$indices()
 a$dictionary()
 a
@@ -200,8 +196,8 @@ tbl <- tibble::tibble(
   f2 = c(TRUE, NA, FALSE, NA)
 )
 batch <- record_batch(tbl)
-batch$num_columns()
-batch$num_rows()
+batch$num_columns
+batch$num_rows
 
 # convert a record batch back to a tibble
 as_tibble(batch)
@@ -221,8 +217,8 @@ A *Table* is a set of record batches of the same schema, it can be created with 
 ```{r}
 tab <- table(tbl)
 tab
-tab$num_columns()
-tab$num_rows()
+tab$num_columns
+tab$num_rows
 ```
 
 The table columns are instances of `arrow::Column`, which is a container for one or more arrays 
@@ -231,7 +227,7 @@ of the same type.
 ```{r}
 tab$column(0L)
 tab$column(0L)$data()
-tab$column(0L)$data()$chunks()
+tab$column(0L)$data()$chunks
 ```
 
 # Streaming, Serialization, and IPC
