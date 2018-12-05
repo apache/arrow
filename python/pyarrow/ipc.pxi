@@ -285,21 +285,9 @@ cdef class _RecordBatchReader:
         """
         Read all record batches as a pyarrow.Table
         """
-        cdef:
-            vector[shared_ptr[CRecordBatch]] batches
-            shared_ptr[CRecordBatch] batch
-            shared_ptr[CTable] table
-
+        cdef shared_ptr[CTable] table
         with nogil:
-            while True:
-                check_status(self.reader.get().ReadNext(&batch))
-                if batch.get() == NULL:
-                    break
-                batches.push_back(batch)
-
-            check_status(CTable.FromRecordBatches(self.schema.sp_schema,
-                                                  batches, &table))
-
+            check_status(self.reader.get().ReadAll(&table))
         return pyarrow_wrap_table(table)
 
 

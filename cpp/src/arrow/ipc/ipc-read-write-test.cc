@@ -657,16 +657,7 @@ class TestStreamFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
 
     std::shared_ptr<RecordBatchReader> reader;
     RETURN_NOT_OK(RecordBatchStreamReader::Open(&buf_reader, &reader));
-
-    std::shared_ptr<RecordBatch> chunk;
-    while (true) {
-      RETURN_NOT_OK(reader->ReadNext(&chunk));
-      if (chunk == nullptr) {
-        break;
-      }
-      out_batches->emplace_back(chunk);
-    }
-    return Status::OK();
+    return reader->ReadAll(out_batches);
   }
 
  protected:
