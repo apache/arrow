@@ -568,7 +568,7 @@ struct Converter_String {
     } else {
       auto p_offset = array->data()->GetValues<int32_t>(1);
       STOP_IF_NULL(p_offset);
-      auto p_data = GetValuesSafely<char>(array->data(), 2, *p_offset);
+      auto p_data = array->data()->GetValues<char>(2, *p_offset);
       if (!p_data) {
         // There is an offset buffer, but the data buffer is null
         // There is at least one value in the array and not all the values are null
@@ -615,7 +615,7 @@ struct Converter_Boolean {
       std::fill_n(data.begin() + start, n, NA_LOGICAL);
     } else {
       // process the data
-      auto p_data = GetValuesSafely<uint8_t>(array->data(), 1, 0);
+      auto p_data = array->data()->GetValues<uint8_t>(1, 0);
       STOP_IF_NULL(p_data);
 
       arrow::internal::BitmapReader data_reader(p_data, array->offset(), n);
