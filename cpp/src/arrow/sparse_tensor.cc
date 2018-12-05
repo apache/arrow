@@ -27,19 +27,6 @@ namespace arrow {
 
 namespace {
 
-template <typename T>
-struct SparseIndexTraits {};
-
-template <>
-struct SparseIndexTraits<SparseCOOIndex> {
-  static inline const char* name() { return "SparseCOOIndex"; }
-};
-
-template <>
-struct SparseIndexTraits<SparseCSRIndex> {
-  static inline const char* name() { return "SparseCSRIndex"; }
-};
-
 // ----------------------------------------------------------------------
 // SparseTensorConverter
 
@@ -49,9 +36,7 @@ class SparseTensorConverter {
   explicit SparseTensorConverter(const NumericTensor<TYPE>&) {}
 
   Status Convert() {
-    std::string sparse_index_name(SparseIndexTraits<SparseIndexType>::name());
-    return Status::NotImplemented(sparse_index_name +
-                                  std::string(" is not supported yet."));
+    return Status::Invalid("Unsupported sparse index");
   }
 };
 
@@ -303,7 +288,7 @@ INSTANTIATE_SPARSE_TENSOR_CONVERTER(SparseCSRIndex);
 
 // Constructor with a column-major NumericTensor
 SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<CoordsTensor>& coords)
-    : SparseIndex(coords->shape()[0]), coords_(coords) {
+    : SparseIndex(SparseIndex::COO, coords->shape()[0]), coords_(coords) {
   DCHECK(coords_->is_column_major());
 }
 
@@ -313,7 +298,7 @@ SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<CoordsTensor>& coords)
 // Constructor with two index vectors
 SparseCSRIndex::SparseCSRIndex(const std::shared_ptr<IndexTensor>& indptr,
                                const std::shared_ptr<IndexTensor>& indices)
-    : SparseIndex(indices->shape()[0]), indptr_(indptr), indices_(indices) {
+    : SparseIndex(SparseIndex::CSR, indices->shape()[0]), indptr_(indptr), indices_(indices) {
   DCHECK_EQ(1, indptr_->ndim());
   DCHECK_EQ(1, indices_->ndim());
 }

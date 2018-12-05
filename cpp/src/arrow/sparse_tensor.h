@@ -31,10 +31,19 @@ namespace arrow {
 
 class ARROW_EXPORT SparseIndex {
  public:
-  explicit SparseIndex(int64_t length) : length_(length) {}
+  enum format_type {
+    COO,
+    CSR
+  };
+
+  explicit SparseIndex(format_type format_type_id, int64_t length)
+      : format_type_id_(format_type_id), length_(length) {}
+
+  format_type format_type_id() const { return format_type_id_; }
   int64_t length() const { return length_; }
 
  protected:
+  format_type format_type_id_;
   int64_t length_;
 };
 
@@ -44,6 +53,8 @@ class ARROW_EXPORT SparseIndex {
 class ARROW_EXPORT SparseCOOIndex : public SparseIndex {
  public:
   using CoordsTensor = NumericTensor<Int64Type>;
+
+  static constexpr SparseIndex::format_type format_type_id = SparseIndex::COO;
 
   virtual ~SparseCOOIndex() = default;
 
@@ -62,6 +73,8 @@ class ARROW_EXPORT SparseCOOIndex : public SparseIndex {
 class ARROW_EXPORT SparseCSRIndex : public SparseIndex {
  public:
   using IndexTensor = NumericTensor<Int64Type>;
+
+  static constexpr SparseIndex::format_type format_type_id = SparseIndex::COO;
 
   virtual ~SparseCSRIndex() = default;
 
