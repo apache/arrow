@@ -16,8 +16,8 @@
 // under the License.
 
 #include "gandiva/function_registry_math_ops.h"
-#include <vector>
 #include <utility>
+#include <vector>
 
 namespace gandiva {
 

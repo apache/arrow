@@ -16,12 +16,11 @@
 // under the License.
 
 #include "gandiva/function_registry_arithmetic.h"
-#include "gandiva/function_registry_common.h"
-#include <vector>
 #include <utility>
+#include <vector>
+#include "gandiva/function_registry_common.h"
 
 namespace gandiva {
-
 
 void FunctionRegistryArithmetic::GetArithmeticFnSignature(SignatureMap* map) {
   // list of registered native functions.
