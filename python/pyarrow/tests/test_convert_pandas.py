@@ -1362,6 +1362,13 @@ class TestConvertStringLikeTypes(object):
         result4 = table.to_pandas(categories=tuple())
         tm.assert_frame_equal(result4, expected_str, check_dtype=True)
 
+    def test_to_pandas_categorical_zero_length(self):
+        # ARROW-3586
+        array = pa.array([], type=pa.int32())
+        table = pa.Table.from_arrays(arrays=[array], names=['col'])
+        # This would segfault under 0.11.0
+        table.to_pandas(categories=['col'])
+
     def test_table_str_to_categorical_without_na(self):
         values = ['a', 'a', 'b', 'b', 'c']
         df = pd.DataFrame({'strings': values})
