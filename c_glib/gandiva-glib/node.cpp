@@ -74,7 +74,7 @@ G_BEGIN_DECLS
  * representing a 64-bit floating point literal.
  *
  * #GGandivaStringLiteralNode is a class for a node in the expression tree,
- * representing a UTF-8 encoded string literal.
+ * representing an UTF-8 encoded string literal.
  *
  * #GGandivaBinaryLiteralNode is a class for a node in the expression tree,
  * representing a binary literal.
