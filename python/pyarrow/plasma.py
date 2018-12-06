@@ -41,6 +41,7 @@ tf_plasma_op = None
 
 
 def load_plasma_tensorflow_op():
+    global tf_plasma_op
     import tensorflow as tf
     tf_plasma_op = tf.load_op_library(TF_PLASMA_OP_PATH)
 
