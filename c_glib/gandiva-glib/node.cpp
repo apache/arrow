@@ -451,7 +451,7 @@ ggandiva_literal_node_class_init(GGandivaLiteralNodeClass *klass)
 
 
 typedef struct GGandivaBooleanLiteralNodePrivate_ {
-  gboolean is_true;
+  gboolean value;
 } GGandivaBooleanLiteralNodePrivate;
 
 enum {
@@ -477,7 +477,7 @@ ggandiva_boolean_literal_node_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_IS_TRUE:
-    priv->is_true = g_value_get_boolean(value);
+    priv->value = g_value_get_boolean(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -495,7 +495,7 @@ ggandiva_boolean_literal_node_get_property(GObject *object,
 
   switch (prop_id) {
   case PROP_IS_TRUE:
-    g_value_set_boolean(value, priv->is_true);
+    g_value_set_boolean(value, priv->value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -517,8 +517,8 @@ ggandiva_boolean_literal_node_class_init(GGandivaBooleanLiteralNodeClass *klass)
   gobject_class->get_property = ggandiva_boolean_literal_node_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_boolean("is-true",
-                              "Is true",
+  spec = g_param_spec_boolean("value",
+                              "Value",
                               "The value of the boolean literal",
                               FALSE,
                               static_cast<GParamFlags>(G_PARAM_READWRITE |
@@ -528,17 +528,17 @@ ggandiva_boolean_literal_node_class_init(GGandivaBooleanLiteralNodeClass *klass)
 
 /**
  * ggandiva_boolean_literal_node_new:
- * @is_true: The value of the boolean literal.
+ * @value: The value of the boolean literal.
  *
  * Returns: A newly created #GGandivaBooleanLiteralNode.
  *
  * Since: 0.12.0
  */
 GGandivaBooleanLiteralNode *
-ggandiva_boolean_literal_node_new(gboolean is_true)
+ggandiva_boolean_literal_node_new(gboolean value)
 {
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(is_true);
-  return ggandiva_boolean_literal_node_new_raw(&gandiva_node, is_true);
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
+  return ggandiva_boolean_literal_node_new_raw(&gandiva_node, value);
 }
 
 
@@ -1729,11 +1729,11 @@ ggandiva_function_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
 
 GGandivaBooleanLiteralNode *
 ggandiva_boolean_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                      gboolean is_true)
+                                      gboolean value)
 {
   auto boolean_literal_node = g_object_new(GGANDIVA_TYPE_BOOLEAN_LITERAL_NODE,
                                            "node", gandiva_node,
-                                           "is-true", is_true,
+                                           "value", value,
                                            NULL);
   return GGANDIVA_BOOLEAN_LITERAL_NODE(boolean_literal_node);
 }

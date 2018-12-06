@@ -36,7 +36,7 @@ ggandiva_function_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                                GArrowDataType *return_type);
 GGandivaBooleanLiteralNode *
 ggandiva_boolean_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                      gboolean is_true);
+                                      gboolean value);
 GGandivaUint8LiteralNode *
 ggandiva_uint8_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                                     guint8 value);
