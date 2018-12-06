@@ -139,11 +139,29 @@ TEST(TestFixedSizeBufferWriter, Basics) {
   ASSERT_OK(writer.Close());
 }
 
+TEST(TestBufferReader, FromStrings) {
+  // ARROW-3291: construct BufferReader from std::string or
+  // arrow::util::string_view
+
+  std::string data = "data123456";
+  auto view = util::string_view(data);
+
+  BufferReader reader1(data);
+  BufferReader reader2(view);
+
+  std::shared_ptr<Buffer> piece;
+  ASSERT_OK(reader1.Read(4, &piece));
+  ASSERT_EQ(0, memcmp(piece->data(), data.data(), 4));
+
+  ASSERT_OK(reader2.Seek(2));
+  ASSERT_OK(reader2.Read(4, &piece));
+  ASSERT_EQ(0, memcmp(piece->data(), data.data() + 2, 4));
+}
+
 TEST(TestBufferReader, Seeking) {
   std::string data = "data123456";
 
-  auto buffer = std::make_shared<Buffer>(data);
-  BufferReader reader(buffer);
+  BufferReader reader(data);
   int64_t pos;
   ASSERT_OK(reader.Tell(&pos));
   ASSERT_EQ(pos, 0);
