@@ -115,6 +115,7 @@ AC_ARG_WITH(arrow-cpp-build-type,
   [GARROW_ARROW_CPP_BUILD_TYPE="$withval"],
   [GARROW_ARROW_CPP_BUILD_TYPE="release"])
 
+ARROW_CUDA_PKG_CONFIG_PATH=""
 AC_ARG_WITH(arrow-cpp-build-dir,
   [AS_HELP_STRING([--with-arrow-cpp-build-dir=PATH],
                   [Use this option to build with not installed Arrow C++])],
@@ -130,10 +131,10 @@ if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
                     [arrow-orc],
                     [HAVE_ARROW_ORC=yes],
                     [HAVE_ARROW_ORC=no])
-  PKG_CHECK_MODULES([ARROW_GPU],
-                    [arrow-gpu],
-                    [HAVE_ARROW_GPU=yes],
-                    [HAVE_ARROW_GPU=no])
+  PKG_CHECK_MODULES([ARROW_CUDA],
+                    [arrow-cuda],
+                    [HAVE_ARROW_CUDA=yes],
+                    [HAVE_ARROW_CUDA=no])
   PKG_CHECK_MODULES([GANDIVA],
                     [gandiva],
                     [HAVE_GANDIVA=yes],
@@ -168,16 +169,19 @@ else
     HAVE_ARROW_ORC=no
   fi
 
-  ARROW_GPU_CFLAGS=""
-  if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/arrow/gpu/arrow-gpu.pc"; then
-    HAVE_ARROW_GPU=yes
-    ARROW_GPU_LIBS="-larrow_gpu"
+  ARROW_CUDA_CFLAGS=""
+  if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/arrow/gpu/arrow-cuda.pc"; then
+    HAVE_ARROW_CUDA=yes
+    ARROW_CUDA_LIBS="-larrow_cuda"
+    ARROW_CUDA_PKG_CONFIG_PATH="\$(ARROW_BUILD_DIR)/src/arrow/gpu"
   else
-    HAVE_ARROW_GPU=no
-    ARROW_GPU_LIBS=""
+    HAVE_ARROW_CUDA=no
+    ARROW_CUDA_LIBS=""
+    ARROW_CUDA_PKG_CONFIG_PATH=""
   fi
-  AC_SUBST(ARROW_GPU_CFLAGS)
-  AC_SUBST(ARROW_GPU_LIBS)
+  AC_SUBST(ARROW_CUDA_CFLAGS)
+  AC_SUBST(ARROW_CUDA_LIBS)
+  AC_SUBST(ARROW_CUDA_PKG_CONFIG_PATH)
 
   GANDIVA_CFLAGS=""
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/gandiva/gandiva.pc"; then
@@ -221,14 +225,20 @@ if test "$HAVE_ARROW_ORC" = "yes"; then
   AC_DEFINE(HAVE_ARROW_ORC, [1], [Define to 1 if Apache Arrow supports ORC.])
 fi
 
-AM_CONDITIONAL([HAVE_ARROW_GPU], [test "$HAVE_ARROW_GPU" = "yes"])
-if test "$HAVE_ARROW_GPU" = "yes"; then
-  ARROW_GPU_GLIB_PACKAGE="arrow-gpu-glib"
-  AC_DEFINE(HAVE_ARROW_GPU, [1], [Define to 1 if Apache Arrow supports GPU.])
+AM_CONDITIONAL([HAVE_ARROW_CUDA], [test "$HAVE_ARROW_CUDA" = "yes"])
+if test "$HAVE_ARROW_CUDA" = "yes"; then
+  ARROW_CUDA_GLIB_PACKAGE="arrow-cuda-glib"
+  PLASMA_ARROW_CUDA_PKG_CONFIG_PATH=":\$(abs_top_builddir)/arrow-cuda-glib"
+  if test -n "${ARROW_CUDA_PKG_CONFIG_PATH}"; then
+    PLASMA_ARROW_CUDA_PKG_CONFIG_PATH=":${ARROW_CUDA_PKG_CONFIG_PATH}${PLASMA_ARROW_CUDA_PKG_CONFIG_PATH}"
+  fi
+  AC_DEFINE(HAVE_ARROW_CUDA, [1], [Define to 1 if Apache Arrow supports CUDA.])
 else
-  ARROW_GPU_GLIB_PACKAGE=""
+  ARROW_CUDA_GLIB_PACKAGE=""
+  PLASMA_ARROW_CUDA_PKG_CONFIG_PATH=""
 fi
-AC_SUBST(ARROW_GPU_GLIB_PACKAGE)
+AC_SUBST(ARROW_CUDA_GLIB_PACKAGE)
+AC_SUBST(PLASMA_ARROW_CUDA_PKG_CONFIG_PATH)
 
 AM_CONDITIONAL([HAVE_GANDIVA], [test "$HAVE_GANDIVA" = "yes"])
 if test "$HAVE_GANDIVA" = "yes"; then
@@ -250,12 +260,12 @@ AC_SUBST(exampledir)
 
 AC_CONFIG_FILES([
   Makefile
+  arrow-cuda-glib/Makefile
+  arrow-cuda-glib/arrow-cuda-glib.pc
   arrow-glib/Makefile
   arrow-glib/arrow-glib.pc
   arrow-glib/arrow-orc-glib.pc
   arrow-glib/version.h
-  arrow-gpu-glib/Makefile
-  arrow-gpu-glib/arrow-gpu-glib.pc
   gandiva-glib/Makefile
   gandiva-glib/gandiva-glib.pc
   parquet-glib/Makefile

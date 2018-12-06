@@ -53,13 +53,13 @@
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"
 
-using arrow::gpu::CudaBuffer;
-using arrow::gpu::CudaBufferWriter;
-using arrow::gpu::CudaContext;
-using arrow::gpu::CudaDeviceManager;
+using arrow::cuda::CudaBuffer;
+using arrow::cuda::CudaBufferWriter;
+using arrow::cuda::CudaContext;
+using arrow::cuda::CudaDeviceManager;
 #endif
 
 #define XXH_INLINE_ALL 1
@@ -89,7 +89,7 @@ constexpr int64_t kL3CacheSizeBytes = 100000000;
 // ----------------------------------------------------------------------
 // GPU support
 
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
 struct GpuProcessHandle {
   /// Pointer to CUDA buffer that is backing this GPU object.
   std::shared_ptr<CudaBuffer> ptr;
@@ -286,16 +286,16 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   /// A hash set to record the ids that users want to delete but still in use.
   std::unordered_set<ObjectID> deletion_cache_;
 
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   /// Cuda Device Manager.
-  arrow::gpu::CudaDeviceManager* manager_;
+  arrow::cuda::CudaDeviceManager* manager_;
 #endif
 };
 
 PlasmaBuffer::~PlasmaBuffer() { ARROW_UNUSED(client_->Release(object_id_)); }
 
 PlasmaClient::Impl::Impl() {
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
 }
@@ -413,7 +413,7 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
       memcpy((*data)->mutable_data() + object.data_size, metadata, metadata_size);
     }
   } else {
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
     std::lock_guard<std::mutex> lock(gpu_mutex);
     std::shared_ptr<CudaContext> context;
     RETURN_NOT_OK(manager_->GetContext(device_num - 1, &context));
@@ -497,7 +497,7 @@ Status PlasmaClient::Impl::GetBuffers(
         physical_buf = std::make_shared<Buffer>(
             data + object->data_offset, object->data_size + object->metadata_size);
       } else {
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
         physical_buf = gpu_object_map.find(object_ids[i])->second->ptr;
 #else
         ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";
@@ -560,7 +560,7 @@ Status PlasmaClient::Impl::GetBuffers(
         physical_buf = std::make_shared<Buffer>(
             data + object->data_offset, object->data_size + object->metadata_size);
       } else {
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
         std::lock_guard<std::mutex> lock(gpu_mutex);
         auto handle = gpu_object_map.find(object_ids[i]);
         if (handle == gpu_object_map.end()) {

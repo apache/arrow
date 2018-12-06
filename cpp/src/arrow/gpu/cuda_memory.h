@@ -27,7 +27,7 @@
 #include "arrow/status.h"
 
 namespace arrow {
-namespace gpu {
+namespace cuda {
 
 class CudaContext;
 class CudaIpcMemHandle;
@@ -215,7 +215,7 @@ ARROW_EXPORT
 Status AllocateCudaHostBuffer(int device_number, const int64_t size,
                               std::shared_ptr<CudaHostBuffer>* out);
 
-}  // namespace gpu
+}  // namespace cuda
 }  // namespace arrow
 
 #endif  // ARROW_GPU_CUDA_MEMORY_H

@@ -64,7 +64,7 @@ endif
 if arrow_cpp_build_lib_dir == ''
   arrow = dependency('arrow')
   have_arrow_orc = dependency('arrow-orc', required: false).found()
-  arrow_gpu = dependency('arrow-gpu', required: false)
+  arrow_cuda = dependency('arrow-cuda', required: false)
   gandiva = dependency('gandiva', required: false)
   parquet = dependency('parquet', required: false)
   plasma = dependency('plasma', required: false)
@@ -89,9 +89,9 @@ main(void)
   have_arrow_orc = cpp_compiler.links(arrow_orc_code,
                                       include_directories: base_include_directories,
                                       dependencies: [arrow])
-  arrow_gpu = cpp_compiler.find_library('arrow_gpu',
-                                        dirs: [arrow_cpp_build_lib_dir],
-                                        required: false)
+  arrow_cuda = cpp_compiler.find_library('arrow_cuda',
+                                         dirs: [arrow_cpp_build_lib_dir],
+                                         required: false)
   gandiva = cpp_compiler.find_library('gandiva',
                                       dirs: [arrow_cpp_build_lib_dir],
                                       required: false)
@@ -104,8 +104,8 @@ main(void)
 endif
 
 subdir('arrow-glib')
-if arrow_gpu.found()
-  subdir('arrow-gpu-glib')
+if arrow_cuda.found()
+  subdir('arrow-cuda-glib')
 endif
 if gandiva.found()
   subdir('gandiva-glib')
@@ -136,7 +136,7 @@ test('unit test',
      run_test,
      env: [
        'ARROW_GLIB_TYPELIB_DIR=@0@/arrow-glib'.format(meson.build_root()),
-       'ARROW_GPU_GLIB_TYPELIB_DIR=@0@/arrow-gpu-glib'.format(meson.build_root()),
+       'ARROW_CUDA_GLIB_TYPELIB_DIR=@0@/arrow-cuda-glib'.format(meson.build_root()),
        'GANDIVA_GLIB_TYPELIB_DIR=@0@/gandiva-glib'.format(meson.build_root()),
        'PARQUET_GLIB_TYPELIB_DIR=@0@/parquet-glib'.format(meson.build_root()),
        'PARQUET_GLIB_TYPELIB_DIR=@0@/plasma-glib'.format(meson.build_root()),

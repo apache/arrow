@@ -24,51 +24,51 @@ AM_CPPFLAGS =					\
 	-I$(top_builddir)			\
 	-I$(top_srcdir)
 
-if HAVE_ARROW_GPU
+if HAVE_ARROW_CUDA
 lib_LTLIBRARIES =				\
-	libarrow-gpu-glib.la
+	libarrow-cuda-glib.la
 
-libarrow_gpu_glib_la_CXXFLAGS =			\
+libarrow_cuda_glib_la_CXXFLAGS =		\
 	$(GLIB_CFLAGS)				\
 	$(ARROW_CFLAGS)				\
-	$(ARROW_GPU_CFLAGS)			\
+	$(ARROW_CUDA_CFLAGS)			\
 	$(GARROW_CXXFLAGS)
 
-libarrow_gpu_glib_la_LDFLAGS =			\
+libarrow_cuda_glib_la_LDFLAGS =			\
 	-version-info $(LT_VERSION_INFO)	\
 	-no-undefined
 
-libarrow_gpu_glib_la_LIBADD =			\
+libarrow_cuda_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
 	$(ARROW_LIBS)				\
-	$(ARROW_GPU_LIBS)			\
+	$(ARROW_CUDA_LIBS)			\
 	../arrow-glib/libarrow-glib.la
 
-libarrow_gpu_glib_la_headers =			\
-	arrow-gpu-glib.h			\
+libarrow_cuda_glib_la_headers =			\
+	arrow-cuda-glib.h			\
 	cuda.h
 
-libarrow_gpu_glib_la_sources =			\
+libarrow_cuda_glib_la_sources =			\
 	cuda.cpp				\
-	$(libarrow_gpu_glib_la_headers)
+	$(libarrow_cuda_glib_la_headers)
 
-libarrow_gpu_glib_la_cpp_headers =		\
-	arrow-gpu-glib.hpp			\
+libarrow_cuda_glib_la_cpp_headers =		\
+	arrow-cuda-glib.hpp			\
 	cuda.hpp
 
-libarrow_gpu_glib_la_SOURCES =			\
-	$(libarrow_gpu_glib_la_sources)		\
-	$(libarrow_gpu_glib_la_cpp_headers)
+libarrow_cuda_glib_la_SOURCES =			\
+	$(libarrow_cuda_glib_la_sources)	\
+	$(libarrow_cuda_glib_la_cpp_headers)
 
-arrow_gpu_glib_includedir =			\
-	$(includedir)/arrow-gpu-glib
-arrow_gpu_glib_include_HEADERS =		\
-	$(libarrow_gpu_glib_la_headers)		\
-	$(libarrow_gpu_glib_la_cpp_headers)
+arrow_cuda_glib_includedir =			\
+	$(includedir)/arrow-cuda-glib
+arrow_cuda_glib_include_HEADERS =		\
+	$(libarrow_cuda_glib_la_headers)	\
+	$(libarrow_cuda_glib_la_cpp_headers)
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA =				\
-	arrow-gpu-glib.pc
+	arrow-cuda-glib.pc
 
 if HAVE_INTROSPECTION
 -include $(INTROSPECTION_MAKEFILE)
@@ -85,39 +85,39 @@ endif
 INTROSPECTION_COMPILER_ARGS =			\
 	--includedir=$(abs_builddir)/../arrow-glib
 
-ArrowGPU-1.0.gir: libarrow-gpu-glib.la
-ArrowGPU_1_0_gir_PACKAGES =			\
+ArrowCUDA-1.0.gir: libarrow-cuda-glib.la
+ArrowCUDA_1_0_gir_PACKAGES =			\
 	arrow-glib
-ArrowGPU_1_0_gir_EXPORT_PACKAGES =		\
-	arrow-gpu-glib
-ArrowGPU_1_0_gir_INCLUDES =			\
+ArrowCUDA_1_0_gir_EXPORT_PACKAGES =		\
+	arrow-cuda-glib
+ArrowCUDA_1_0_gir_INCLUDES =			\
 	Arrow-1.0
-ArrowGPU_1_0_gir_CFLAGS =			\
+ArrowCUDA_1_0_gir_CFLAGS =			\
 	$(AM_CPPFLAGS)
-ArrowGPU_1_0_gir_LIBS =
-ArrowGPU_1_0_gir_FILES =			\
-	$(libarrow_gpu_glib_la_sources)
-ArrowGPU_1_0_gir_SCANNERFLAGS =					\
+ArrowCUDA_1_0_gir_LIBS =
+ArrowCUDA_1_0_gir_FILES =			\
+	$(libarrow_cuda_glib_la_sources)
+ArrowCUDA_1_0_gir_SCANNERFLAGS =				\
 	--library-path=$(ARROW_LIB_DIR)				\
 	--warn-all						\
 	--add-include-path=$(abs_builddir)/../arrow-glib	\
-	--identifier-prefix=GArrowGPU				\
-	--symbol-prefix=garrow_gpu
+	--identifier-prefix=GArrowCUDA				\
+	--symbol-prefix=garrow_cuda
 if OS_MACOS
-ArrowGPU_1_0_gir_LIBS +=			\
+ArrowCUDA_1_0_gir_LIBS +=			\
 	 arrow-glib				\
-	 arrow-gpu-glib
-ArrowGPU_1_0_gir_SCANNERFLAGS +=				\
+	 arrow-cuda-glib
+ArrowCUDA_1_0_gir_SCANNERFLAGS +=				\
 	--no-libtool						\
 	--library-path=$(abs_builddir)/../arrow-glib/.libs	\
 	--library-path=$(abs_builddir)/.libs
 else
-ArrowGPU_1_0_gir_LIBS +=				\
+ArrowCUDA_1_0_gir_LIBS +=				\
 	$(abs_builddir)/../arrow-glib/libarrow-glib.la	\
-	libarrow-gpu-glib.la
+	libarrow-cuda-glib.la
 endif
 
-INTROSPECTION_GIRS += ArrowGPU-1.0.gir
+INTROSPECTION_GIRS += ArrowCUDA-1.0.gir
 
 girdir = $(datadir)/gir-1.0
 gir_DATA = $(INTROSPECTION_GIRS)

@@ -293,7 +293,7 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
@@ -301,12 +301,12 @@ tasks:
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
       - libarrow-glib12-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib12-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu12-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda12_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
@@ -375,17 +375,17 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
       - libarrow-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda12_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
@@ -415,17 +415,17 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
       - libarrow-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda12_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
@@ -455,17 +455,17 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
       - libarrow-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda12_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb

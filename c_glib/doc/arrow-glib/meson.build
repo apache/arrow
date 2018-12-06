@@ -50,13 +50,13 @@ source_directories = [
 dependencies = [
   arrow_glib,
 ]
-if arrow_gpu.found()
+if arrow_cuda.found()
   source_directories += [
-    join_paths(meson.source_root(), 'arrow-gpu-glib'),
-    join_paths(meson.build_root(), 'arrow-gpu-glib'),
+    join_paths(meson.source_root(), 'arrow-cuda-glib'),
+    join_paths(meson.build_root(), 'arrow-cuda-glib'),
   ]
   dependencies += [
-    arrow_gpu_glib,
+    arrow_cuda_glib,
   ]
 endif
 ignore_headers = []

@@ -15,15 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow"
+require_relative "../../red-arrow/version"
+require_relative "../version"
 
-require "arrow-gpu/version"
+require "arrow-cuda"
 
-require "arrow-gpu/loader"
-
-module ArrowGPU
-  class Error < StandardError
-  end
-
-  Loader.load
-end
+require "test-unit"

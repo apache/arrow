@@ -204,13 +204,11 @@ The Python library must be built against the same Python version for which you
 are building pyarrow, e.g. Python 2.7 or Python 3.6. NumPy must also be
 installed.
 
-### Building GPU extension library (optional)
+### Building CUDA extension library (optional)
 
-The optional `arrow_gpu` shared library can be built by passing
-`-DARROW_GPU=on`. This requires a CUDA installation to build, and to use many
-of the functions you must have a functioning GPU. Currently only CUDA
-functionality is supported, though if there is demand we can also add OpenCL
-interfaces in this library as needed.
+The optional `arrow_cuda` shared library can be built by passing
+`-DARROW_CUDA=on`. This requires a CUDA installation to build, and to use many
+of the functions you must have a functioning CUDA-compatible GPU.
 
 The CUDA toolchain used to build the library can be customized by using the
 `$CUDA_HOME` environment variable.

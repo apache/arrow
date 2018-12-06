@@ -20,11 +20,11 @@
 require_relative "version"
 
 Gem::Specification.new do |spec|
-  spec.name = "red-arrow-gpu"
+  spec.name = "red-arrow-cuda"
   version_components = [
-    ArrowGPU::Version::MAJOR.to_s,
-    ArrowGPU::Version::MINOR.to_s,
-    ArrowGPU::Version::MICRO.to_s,
+    ArrowCUDA::Version::MAJOR.to_s,
+    ArrowCUDA::Version::MINOR.to_s,
+    ArrowCUDA::Version::MICRO.to_s,
     # "beta1",
   ]
   spec.version = version_components.join(".")
@@ -32,9 +32,9 @@ Gem::Specification.new do |spec|
   spec.authors = ["Apache Arrow Developers"]
   spec.email = ["dev@arrow.apache.org"]
 
-  spec.summary = "Red Arrow GPU is the Ruby bindings of Apache Arrow GPU"
+  spec.summary = "Red Arrow CUDA is the Ruby bindings of Apache Arrow CUDA"
   spec.description =
-    "Apache Arrow GPU is a common in-memory columnar data store on GPU. " +
+    "Apache Arrow CUDA is a common in-memory columnar data store on CUDA. " +
     "It's useful to share and process large data."
   spec.license = "Apache-2.0"
   spec.files = ["README.md", "Rakefile", "Gemfile", "#{spec.name}.gemspec"]

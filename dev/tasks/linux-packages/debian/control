@@ -54,7 +54,7 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Python support.
 
-Package: libarrow-gpu12
+Package: libarrow-cuda12
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -65,7 +65,7 @@ Depends:
   libarrow12 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides C++ library files for GPU support.
+ This package provides C++ library files for CUDA support.
 
 Package: libarrow-dev
 Section: libdevel
@@ -90,17 +90,17 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for Python support.
 
-Package: libarrow-gpu-dev
+Package: libarrow-cuda-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libarrow-gpu12 (= ${binary:Version})
+  libarrow-cuda12 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides C++ header files for GPU support.
+ This package provides C++ header files for CUDA support.
 
 Package: libplasma12
 Section: libs
@@ -110,7 +110,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-gpu12 (= ${binary:Version})
+  libarrow-cuda12 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
  This package provides C++ library files to connect plasma_store_server.
@@ -133,7 +133,7 @@ Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
-  libarrow-gpu-dev (= ${binary:Version}),
+  libarrow-cuda-dev (= ${binary:Version}),
   libplasma12 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
@@ -213,7 +213,7 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides documentations.
 
-Package: libarrow-gpu-glib12
+Package: libarrow-cuda-glib12
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -222,12 +222,12 @@ Depends:
   ${misc:Depends},
   ${shlibs:Depends},
   libarrow-glib12 (= ${binary:Version}),
-  libarrow-gpu12 (= ${binary:Version})
+  libarrow-cuda12 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides GLib based library files for GPU support.
+ This package provides GLib based library files for CUDA support.
 
-Package: gir1.2-arrow-gpu-1.0
+Package: gir1.2-arrow-cuda-1.0
 Section: introspection
 Architecture: any
 Multi-Arch: same
@@ -236,21 +236,21 @@ Depends:
   ${misc:Depends}
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides GObject Introspection typelib files for GPU support.
+ This package provides GObject Introspection typelib files for CUDA support.
 
-Package: libarrow-gpu-glib-dev
+Package: libarrow-cuda-glib-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
-  libarrow-gpu-dev (= ${binary:Version}),
+  libarrow-cuda-dev (= ${binary:Version}),
   libarrow-glib-dev (= ${binary:Version}),
-  libarrow-gpu-glib12 (= ${binary:Version}),
-  gir1.2-arrow-gpu-1.0 (= ${binary:Version})
+  libarrow-cuda-glib12 (= ${binary:Version}),
+  gir1.2-arrow-cuda-1.0 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides GLib based header files for GPU support.
+ This package provides GLib based header files for CUDA support.
 
 Package: libplasma-glib12
 Section: libs
@@ -260,7 +260,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-gpu-glib12 (= ${binary:Version}),
+  libarrow-cuda-glib12 (= ${binary:Version}),
   libplasma12 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
@@ -284,7 +284,7 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libplasma-dev (= ${binary:Version}),
-  libarrow-gpu-glib-dev (= ${binary:Version}),
+  libarrow-cuda-glib-dev (= ${binary:Version}),
   libplasma-glib12 (= ${binary:Version}),
   gir1.2-plasma-1.0 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.

@@ -20,7 +20,7 @@ require "pathname"
 version_rb_path = Pathname.new(__FILE__)
 base_dir = version_rb_path.dirname
 pom_xml_path = base_dir.join("..", "..", "java", "pom.xml")
-lib_version_rb_path = base_dir.join("lib", "arrow-gpu", "version.rb")
+lib_version_rb_path = base_dir.join("lib", "arrow-cuda", "version.rb")
 
 need_update = false
 if not lib_version_rb_path.exist?
@@ -53,7 +53,7 @@ if need_update
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowGPU
+module ArrowCUDA
   module Version
     MAJOR = #{major}
     MINOR = #{minor}
@@ -68,4 +68,4 @@ end
   end
 end
 
-require_relative "lib/arrow-gpu/version"
+require_relative "lib/arrow-cuda/version"

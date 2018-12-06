@@ -15,11 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowGPU
-  class CUDADeviceManager
-    # Experimental.
-    #
-    # Can we think device manager is a container of contexts?
-    alias_method :[], :get_context
-  end
-end
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+
+Name: Apache Arrow CUDA
+Description: CUDA integration library for Apache Arrow
+Version: @ARROW_VERSION@
+Requires: arrow
+Libs: -L${libdir} -larrow_cuda
+Cflags: -I${includedir}
