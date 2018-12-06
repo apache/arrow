@@ -21,7 +21,7 @@ module Arrow
 
     class << self
       def new(*args)
-        return super if argus.size != 1
+        return super if args.size != 1
 
         builder_class_name = "#{name}Builder"
         if const_defined?(builder_class_name)
