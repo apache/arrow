@@ -20,8 +20,14 @@
 set -e
 
 if [ "$ARROW_CI_RUBY_AFFECTED" = "1" ]; then
-    brew update
-    brew upgrade python
-    brew uninstall postgis
-    brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
+    brew_log_path=brew.log
+    function run_brew() {
+        echo brew "$@" >> ${brew_log_path}
+        brew "$@" >> ${brew_log_path} 2>&1
+    }
+    run_brew update
+    run_brew upgrade python
+    run_brew uninstall postgis
+    run_brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile --verbose
+    rm ${brew_log_path}
 fi
