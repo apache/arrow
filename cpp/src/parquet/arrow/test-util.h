@@ -19,6 +19,7 @@
 
 #include <limits>
 #include <memory>
+#include <random>
 #include <string>
 #include <utility>
 #include <vector>
@@ -29,14 +30,6 @@
 #include "arrow/util/decimal.h"
 
 #include "parquet/arrow/record_reader.h"
-
-namespace arrow {
-// PARQUET-1382: backwards-compatible shim for arrow::test namespace
-namespace test {}
-
-using namespace ::arrow::test;  // NOLINT
-
-}  // namespace arrow
 
 namespace parquet {
 

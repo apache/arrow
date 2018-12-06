@@ -17,7 +17,7 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/test-util.h"
+#include <arrow/test-util.h>
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
