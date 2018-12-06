@@ -31,10 +31,12 @@
 #' @name arrow__RecordBatchReader
 `arrow::RecordBatchReader` <- R6Class("arrow::RecordBatchReader", inherit = `arrow::Object`,
   public = list(
-    schema = function() shared_ptr(`arrow::Schema`, RecordBatchReader__schema(self)),
-    ReadNext = function() {
+    read_next_batch = function() {
       shared_ptr(`arrow::RecordBatch`, RecordBatchReader__ReadNext(self))
     }
+  ),
+  active = list(
+    schema = function() shared_ptr(`arrow::Schema`, RecordBatchReader__schema(self))
   )
 )
 
@@ -70,11 +72,13 @@
 #' @name arrow__ipc__RecordBatchFileReader
 `arrow::ipc::RecordBatchFileReader` <- R6Class("arrow::ipc::RecordBatchFileReader", inherit = `arrow::Object`,
   public = list(
-    schema = function() shared_ptr(`arrow::Schema`, ipc___RecordBatchFileReader__schema(self)),
-    num_record_batches = function() ipc___RecordBatchFileReader__num_record_batches(self),
-    ReadRecordBatch = function(i) shared_ptr(`arrow::RecordBatch`, ipc___RecordBatchFileReader__ReadRecordBatch(self, i)),
+    get_batch = function(i) shared_ptr(`arrow::RecordBatch`, ipc___RecordBatchFileReader__ReadRecordBatch(self, i)),
 
     batches = function() map(ipc___RecordBatchFileReader__batches(self), shared_ptr, class = `arrow::RecordBatch`)
+  ),
+  active = list(
+    num_record_batches = function() ipc___RecordBatchFileReader__num_record_batches(self),
+    schema = function() shared_ptr(`arrow::Schema`, ipc___RecordBatchFileReader__schema(self))
   )
 )
 
@@ -94,6 +98,11 @@ RecordBatchStreamReader <- function(stream){
 
 #' @export
 `RecordBatchStreamReader.raw` <- function(stream) {
+  RecordBatchStreamReader(BufferReader(stream))
+}
+
+#' @export
+`RecordBatchStreamReader.arrow::Buffer` <- function(stream) {
   RecordBatchStreamReader(BufferReader(stream))
 }
 
@@ -121,4 +130,14 @@ RecordBatchFileReader <- function(file) {
 #' @export
 `RecordBatchFileReader.fs_path` <- function(file) {
   RecordBatchFileReader(ReadableFile(file))
+}
+
+#' @export
+`RecordBatchFileReader.arrow::Buffer` <- function(file) {
+  RecordBatchFileReader(BufferReader(file))
+}
+
+#' @export
+`RecordBatchFileReader.raw` <- function(file) {
+  RecordBatchFileReader(BufferReader(file))
 }
