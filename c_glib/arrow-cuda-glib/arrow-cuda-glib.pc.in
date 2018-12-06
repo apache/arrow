@@ -15,21 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowGPU
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("ArrowGPU", ArrowGPU)
-      end
-    end
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
 
-    private
-    def post_load(repository, namespace)
-      require_libraries
-    end
-
-    def require_libraries
-      require "arrow-gpu/cuda-device-manager"
-    end
-  end
-end
+Name: Apache Arrow CUDA GLib
+Description: C API for Apache Arrow CUDA based on GLib
+Version: @VERSION@
+Libs: -L${libdir} -larrow-cuda-glib
+Cflags: -I${includedir}
+Requires: arrow-glib arrow-cuda

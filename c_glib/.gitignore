@@ -51,12 +51,12 @@ Makefile.in
 /libtool
 /m4/
 /stamp-h1
+/arrow-cuda-glib/*.pc
 /arrow-glib/enums.c
 /arrow-glib/enums.h
 /arrow-glib/stamp-*
 /arrow-glib/version.h
 /arrow-glib/*.pc
-/arrow-gpu-glib/*.pc
 /gandiva-glib/*.pc
 /parquet-glib/*.pc
 /plasma-glib/*.pc

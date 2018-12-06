@@ -23,4 +23,12 @@ There are the official Ruby bindings for Apache Arrow.
 
 [Red Arrow](https://github.com/apache/arrow/tree/master/ruby/red-arrow) is the base Apache Arrow bindings.
 
-[Red Arrow GPU](https://github.com/apache/arrow/tree/master/ruby/red-arrow-gpu) is the Apache Arrow bindings of GPU part.
+[Red Arrow CUDA](https://github.com/apache/arrow/tree/master/ruby/red-arrow-cuda) is the Apache Arrow bindings of CUDA part.
+
+[Red Gandiva](https://github.com/apache/arrow/tree/master/ruby/red-gandiva) is the Gandiva bindings.
+
+[Red Plasma](https://github.com/apache/arrow/tree/master/ruby/red-plasma) is the Plasma bindings.
+
+[Red Parquet](https://github.com/apache/arrow/tree/master/ruby/red-parquet) is the Parquet bindings.
+
+

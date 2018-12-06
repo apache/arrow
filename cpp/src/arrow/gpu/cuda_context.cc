@@ -28,8 +28,9 @@
 
 #include "arrow/gpu/cuda_common.h"
 #include "arrow/gpu/cuda_memory.h"
+
 namespace arrow {
-namespace gpu {
+namespace cuda {
 
 struct CudaDevice {
   int device_num;
@@ -342,5 +343,5 @@ void* CudaContext::handle() const { return impl_->context_handle(); }
 
 int CudaContext::device_number() const { return impl_->device().device_num; }
 
-}  // namespace gpu
+}  // namespace cuda
 }  // namespace arrow

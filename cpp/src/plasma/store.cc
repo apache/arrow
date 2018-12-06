@@ -58,12 +58,12 @@
 #include "plasma/io.h"
 #include "plasma/malloc.h"
 
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"
 
-using arrow::gpu::CudaBuffer;
-using arrow::gpu::CudaContext;
-using arrow::gpu::CudaDeviceManager;
+using arrow::cuda::CudaBuffer;
+using arrow::cuda::CudaContext;
+using arrow::cuda::CudaDeviceManager;
 #endif
 
 using arrow::util::ArrowLog;
@@ -117,7 +117,7 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string dir
   store_info_.memory_capacity = system_memory;
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
 }
@@ -162,7 +162,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   }
   // Try to evict objects until there is enough space.
   uint8_t* pointer = nullptr;
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   std::shared_ptr<CudaBuffer> gpu_handle;
   std::shared_ptr<CudaContext> context_;
   if (device_num != 0) {
@@ -195,7 +195,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
         break;
       }
     } else {
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
       DCHECK_OK(context_->Allocate(data_size + metadata_size, &gpu_handle));
       break;
 #endif
@@ -220,7 +220,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   entry->device_num = device_num;
   entry->create_time = std::time(nullptr);
   entry->construct_duration = -1;
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   if (device_num != 0) {
     DCHECK_OK(gpu_handle->ExportForIpc(&entry->ipc_handle));
     result->ipc_handle = entry->ipc_handle;
@@ -246,7 +246,7 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
   DCHECK(object != nullptr);
   DCHECK(entry != nullptr);
   DCHECK(entry->state == ObjectState::PLASMA_SEALED);
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   if (entry->device_num != 0) {
     object->ipc_handle = entry->ipc_handle;
   }

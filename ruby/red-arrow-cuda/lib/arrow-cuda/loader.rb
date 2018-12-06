@@ -15,6 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/lib/arrow-gpu/version.rb
+module ArrowCUDA
+  class Loader < GObjectIntrospection::Loader
+    class << self
+      def load
+        super("ArrowCUDA", ArrowCUDA)
+      end
+    end
 
-/pkg/
+    private
+    def post_load(repository, namespace)
+      require_libraries
+    end
+
+    def require_libraries
+      require "arrow-cuda/device-manager"
+    end
+  end
+end

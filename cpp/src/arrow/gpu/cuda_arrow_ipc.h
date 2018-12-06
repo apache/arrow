@@ -39,7 +39,7 @@ class Message;
 
 }  // namespace ipc
 
-namespace gpu {
+namespace cuda {
 
 /// \brief Write record batch message to GPU device memory
 /// \param[in] batch record batch to write
@@ -71,7 +71,7 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
                        const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool,
                        std::shared_ptr<RecordBatch>* out);
 
-}  // namespace gpu
+}  // namespace cuda
 }  // namespace arrow
 
 #endif  // ARROW_GPU_CUDA_ARROW_IPC_H

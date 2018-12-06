@@ -15,12 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestGPUCUDA < Test::Unit::TestCase
+class TestCUDA < Test::Unit::TestCase
   include Helper::Buildable
 
   def setup
-    omit("Arrow GPU is required") unless defined?(::ArrowGPU)
-    @manager = ArrowGPU::CUDADeviceManager.new
+    omit("Arrow CUDA is required") unless defined?(::ArrowCUDA)
+    @manager = ArrowCUDA::DeviceManager.new
     omit("At least one GPU is required") if @manager.n_devices.zero?
     @context = @manager.get_context(0)
   end
@@ -29,7 +29,7 @@ class TestGPUCUDA < Test::Unit::TestCase
     def test_allocated_size
       allocated_size_before = @context.allocated_size
       size = 128
-      buffer = ArrowGPU::CUDABuffer.new(@context, size)
+      buffer = ArrowCUDA::Buffer.new(@context, size)
       assert_equal(size,
                    @context.allocated_size - allocated_size_before)
     end
@@ -38,7 +38,7 @@ class TestGPUCUDA < Test::Unit::TestCase
   sub_test_case("Buffer") do
     def setup
       super
-      @buffer = ArrowGPU::CUDABuffer.new(@context, 128)
+      @buffer = ArrowCUDA::Buffer.new(@context, 128)
     end
 
     def test_copy
@@ -50,19 +50,19 @@ class TestGPUCUDA < Test::Unit::TestCase
       @buffer.copy_from_host("Hello World")
       handle = @buffer.export
       serialized_handle = handle.serialize.data
-      Tempfile.open("arrow-gpu-cuda-export") do |output|
+      Tempfile.open("arrow-cuda-export") do |output|
         pid = spawn(RbConfig.ruby, "-e", <<-SCRIPT)
 require "gi"
 
 Gio = GI.load("Gio")
 Arrow = GI.load("Arrow")
-ArrowGPU = GI.load("ArrowGPU")
+ArrowCUDA = GI.load("ArrowCUDA")
 
-manager = ArrowGPU::CUDADeviceManager.new
+manager = ArrowCUDA::ADeviceManager.new
 context = manager.get_context(0)
 serialized_handle = #{serialized_handle.to_s.dump}
-handle = ArrowGPU::CUDAIPCMemoryHandle.new(serialized_handle)
-buffer = ArrowGPU::CUDABuffer.new(context, handle)
+handle = ArrowCUDA::IPCMemoryHandle.new(serialized_handle)
+buffer = ArrowCUDA::Buffer.new(context, handle)
 File.open(#{output.path.dump}, "w") do |output|
   output.print(buffer.copy_to_host(0, 6).to_s)
 end
@@ -85,7 +85,7 @@ end
       ]
       cpu_record_batch = Arrow::RecordBatch.new(schema, 1, columns)
 
-      buffer = ArrowGPU::CUDABuffer.new(@context, cpu_record_batch)
+      buffer = ArrowCUDA::Buffer.new(@context, cpu_record_batch)
       gpu_record_batch = buffer.read_record_batch(schema)
       assert_equal(cpu_record_batch.n_rows,
                    gpu_record_batch.n_rows)
@@ -94,16 +94,16 @@ end
 
   sub_test_case("HostBuffer") do
     def test_new
-      buffer = ArrowGPU::CUDAHostBuffer.new(0, 128)
+      buffer = ArrowCUDA::HostBuffer.new(0, 128)
       assert_equal(128, buffer.size)
     end
   end
 
   sub_test_case("BufferInputStream") do
     def test_new
-      buffer = ArrowGPU::CUDABuffer.new(@context, 128)
+      buffer = ArrowCUDA::Buffer.new(@context, 128)
       buffer.copy_from_host("Hello World")
-      stream = ArrowGPU::CUDABufferInputStream.new(buffer)
+      stream = ArrowCUDA::BufferInputStream.new(buffer)
       begin
         assert_equal("Hello Worl", stream.read(5).copy_to_host(0, 10).to_s)
       ensure
@@ -115,9 +115,9 @@ end
   sub_test_case("BufferOutputStream") do
     def setup
       super
-      @buffer = ArrowGPU::CUDABuffer.new(@context, 128)
+      @buffer = ArrowCUDA::Buffer.new(@context, 128)
       @buffer.copy_from_host("\x00" * @buffer.size)
-      @stream = ArrowGPU::CUDABufferOutputStream.new(@buffer)
+      @stream = ArrowCUDA::BufferOutputStream.new(@buffer)
     end
 
     def cleanup

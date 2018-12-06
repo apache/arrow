@@ -150,8 +150,8 @@ Pass multiple labels by dividing with semicolons")
     "Build the Arrow IPC extensions"
     ON)
 
-  option(ARROW_GPU
-    "Build the Arrow GPU extensions (requires CUDA installation)"
+  option(ARROW_CUDA
+    "Build the Arrow CUDA extensions (requires CUDA toolkit)"
     OFF)
 
   option(ARROW_ORC

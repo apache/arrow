@@ -79,7 +79,7 @@ dev/tasks/linux-packages/debian.ubuntu-trusty/watch
 dev/tasks/linux-packages/debian/compat
 dev/tasks/linux-packages/debian/control
 dev/tasks/linux-packages/debian/gir1.2-arrow-1.0.install
-dev/tasks/linux-packages/debian/gir1.2-arrow-gpu-1.0.install
+dev/tasks/linux-packages/debian/gir1.2-arrow-cuda-1.0.install
 dev/tasks/linux-packages/debian/gir1.2-parquet-1.0.install
 dev/tasks/linux-packages/debian/gir1.2-plasma-1.0.install
 dev/tasks/linux-packages/debian/libarrow-dev.install
@@ -88,10 +88,10 @@ dev/tasks/linux-packages/debian/libarrow-glib-doc.doc-base
 dev/tasks/linux-packages/debian/libarrow-glib-doc.install
 dev/tasks/linux-packages/debian/libarrow-glib-doc.links
 dev/tasks/linux-packages/debian/libarrow-glib12.install
-dev/tasks/linux-packages/debian/libarrow-gpu-dev.install
-dev/tasks/linux-packages/debian/libarrow-gpu-glib-dev.install
-dev/tasks/linux-packages/debian/libarrow-gpu-glib12.install
-dev/tasks/linux-packages/debian/libarrow-gpu12.install
+dev/tasks/linux-packages/debian/libarrow-cuda-dev.install
+dev/tasks/linux-packages/debian/libarrow-cuda-glib-dev.install
+dev/tasks/linux-packages/debian/libarrow-cuda-glib12.install
+dev/tasks/linux-packages/debian/libarrow-cuda12.install
 dev/tasks/linux-packages/debian/libarrow-python-dev.install
 dev/tasks/linux-packages/debian/libarrow-python12.install
 dev/tasks/linux-packages/debian/libarrow12.install

@@ -25,7 +25,7 @@
 #include <cuda.h>
 
 namespace arrow {
-namespace gpu {
+namespace cuda {
 
 #define CUDA_DCHECK(STMT) \
   do {                    \
@@ -45,7 +45,7 @@ namespace gpu {
     }                                                                         \
   } while (0)
 
-}  // namespace gpu
+}  // namespace cuda
 }  // namespace arrow
 
 #endif  // ARROW_GPU_CUDA_COMMON_H

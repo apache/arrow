@@ -40,8 +40,8 @@
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
 
-#ifdef PLASMA_GPU
-using arrow::gpu::CudaIpcMemHandle;
+#ifdef PLASMA_CUDA
+using arrow::cuda::CudaIpcMemHandle;
 #endif
 
 namespace plasma {
@@ -73,7 +73,7 @@ typedef std::unordered_map<ObjectID, ObjectRequest> ObjectRequestMap;
 
 // TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
 struct PlasmaObject {
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   // IPC handle for Cuda.
   std::shared_ptr<CudaIpcMemHandle> ipc_handle;
 #endif

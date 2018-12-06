@@ -21,4 +21,4 @@
 
 #include <arrow-glib/arrow-glib.h>
 
-#include <arrow-gpu-glib/cuda.h>
+#include <arrow-cuda-glib/cuda.h>

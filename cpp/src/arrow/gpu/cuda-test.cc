@@ -29,7 +29,7 @@
 #include "arrow/gpu/cuda_api.h"
 
 namespace arrow {
-namespace gpu {
+namespace cuda {
 
 constexpr int kGpuNumber = 0;
 
@@ -323,7 +323,7 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   ASSERT_OK(ipc::MakeIntRecordBatch(&batch));
 
   std::shared_ptr<CudaBuffer> device_serialized;
-  ASSERT_OK(arrow::gpu::SerializeRecordBatch(*batch, context_.get(), &device_serialized));
+  ASSERT_OK(SerializeRecordBatch(*batch, context_.get(), &device_serialized));
 
   // Test that ReadRecordBatch works properly
   std::shared_ptr<RecordBatch> device_batch;
@@ -343,5 +343,5 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   CompareBatch(*batch, *cpu_batch);
 }
 
-}  // namespace gpu
+}  // namespace cuda
 }  // namespace arrow

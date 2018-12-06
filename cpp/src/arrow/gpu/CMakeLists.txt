@@ -16,7 +16,7 @@
 # under the License.
 
 #######################################
-# arrow_gpu
+# arrow_cuda
 #######################################
 
 if (DEFINED ENV{CUDA_HOME})
@@ -28,28 +28,28 @@ include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
 
 message(STATUS "CUDA Libraries: ${CUDA_LIBRARIES}")
 
-set(ARROW_GPU_SRCS
+set(ARROW_CUDA_SRCS
   cuda_arrow_ipc.cc
   cuda_context.cc
   cuda_memory.cc
 )
 
-set(ARROW_GPU_SHARED_LINK_LIBS
+set(ARROW_CUDA_SHARED_LINK_LIBS
   ${CUDA_LIBRARIES}
   ${CUDA_CUDA_LIBRARY}
 )
 
-ADD_ARROW_LIB(arrow_gpu
-  SOURCES ${ARROW_GPU_SRCS}
-  OUTPUTS ARROW_GPU_LIBRARIES
+ADD_ARROW_LIB(arrow_cuda
+  SOURCES ${ARROW_CUDA_SRCS}
+  OUTPUTS ARROW_CUDA_LIBRARIES
   DEPENDENCIES metadata_fbs
   SHARED_LINK_FLAGS ""
-  SHARED_LINK_LIBS arrow_shared ${ARROW_GPU_SHARED_LINK_LIBS}
-  # Static arrow_gpu must also link against CUDA shared libs
-  STATIC_LINK_LIBS ${ARROW_GPU_SHARED_LINK_LIBS}
+  SHARED_LINK_LIBS arrow_shared ${ARROW_CUDA_SHARED_LINK_LIBS}
+  # Static arrow_cuda must also link against CUDA shared libs
+  STATIC_LINK_LIBS ${ARROW_CUDA_SHARED_LINK_LIBS}
 )
 
-foreach(LIB_TARGET ${ARROW_GPU_LIBRARIES})
+foreach(LIB_TARGET ${ARROW_CUDA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
     PRIVATE ARROW_EXPORTING)
 endforeach()
@@ -71,28 +71,28 @@ install(FILES
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
 
 # pkg-config support
-configure_file(arrow-gpu.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow-gpu.pc"
+configure_file(arrow-cuda.pc.in
+  "${CMAKE_CURRENT_BINARY_DIR}/arrow-cuda.pc"
   @ONLY)
 
 install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-gpu.pc"
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-cuda.pc"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
-set(ARROW_GPU_TEST_LINK_LIBS
-  arrow_gpu_shared
+set(ARROW_CUDA_TEST_LINK_LIBS
+  arrow_cuda_shared
   ${ARROW_TEST_LINK_LIBS})
 
 if (ARROW_BUILD_TESTS)
   ADD_ARROW_TEST(cuda-test
-    STATIC_LINK_LIBS ${ARROW_GPU_TEST_LINK_LIBS}
+    STATIC_LINK_LIBS ${ARROW_CUDA_TEST_LINK_LIBS}
     NO_VALGRIND)
 endif()
 
 if (ARROW_BUILD_BENCHMARKS)
   cuda_add_executable(cuda-benchmark cuda-benchmark.cc)
   target_link_libraries(cuda-benchmark
-    arrow_gpu_shared
+    arrow_cuda_shared
     gtest_static
     ${ARROW_BENCHMARK_LINK_LIBS})
 endif()

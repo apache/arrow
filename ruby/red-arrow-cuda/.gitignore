@@ -1,5 +1,3 @@
-# -*- ruby -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,27 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "pkg-config"
-require "native-package-installer"
+/lib/arrow-cuda/version.rb
 
-case RUBY_PLATFORM
-when /mingw|mswin/
-  task :default => "nothing"
-else
-  task :default => "dependency:check"
-end
-
-task :nothing do
-end
-
-namespace :dependency do
-  desc "Check dependency"
-  task :check do
-    unless PKGConfig.check_version?("arrow-gpu-glib")
-      unless NativePackageInstaller.install(:debian => "libarrow-gpu-glib-dev",
-                                            :redhat => "arrow-gpu-glib-devel")
-        exit(false)
-      end
-    end
-  end
-end
+/pkg/
