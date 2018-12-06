@@ -96,6 +96,66 @@ gint
 garrow_struct_data_type_get_field_index(GArrowStructDataType *data_type,
                                         const gchar *name);
 
+
+#define GARROW_TYPE_UNION_DATA_TYPE (garrow_union_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowUnionDataType,
+                         garrow_union_data_type,
+                         GARROW,
+                         UNION_DATA_TYPE,
+                         GArrowDataType)
+struct _GArrowUnionDataTypeClass
+{
+  GArrowDataTypeClass parent_class;
+};
+
+gint
+garrow_union_data_type_get_n_fields(GArrowUnionDataType *data_type);
+GList *
+garrow_union_data_type_get_fields(GArrowUnionDataType *data_type);
+GArrowField *
+garrow_union_data_type_get_field(GArrowUnionDataType *data_type,
+                                 gint i);
+guint8 *
+garrow_union_data_type_get_type_codes(GArrowUnionDataType *data_type,
+                                      gsize *n_type_codes);
+
+
+#define GARROW_TYPE_SPARSE_UNION_DATA_TYPE      \
+  (garrow_sparse_union_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSparseUnionDataType,
+                         garrow_sparse_union_data_type,
+                         GARROW,
+                         SPARSE_UNION_DATA_TYPE,
+                         GArrowUnionDataType)
+struct _GArrowSparseUnionDataTypeClass
+{
+  GArrowUnionDataTypeClass parent_class;
+};
+
+GArrowSparseUnionDataType *
+garrow_sparse_union_data_type_new(GList *fields,
+                                  guint8 *type_codes,
+                                  gsize n_type_codes);
+
+
+#define GARROW_TYPE_DENSE_UNION_DATA_TYPE       \
+  (garrow_dense_union_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDenseUnionDataType,
+                         garrow_dense_union_data_type,
+                         GARROW,
+                         DENSE_UNION_DATA_TYPE,
+                         GArrowUnionDataType)
+struct _GArrowDenseUnionDataTypeClass
+{
+  GArrowUnionDataTypeClass parent_class;
+};
+
+GArrowDenseUnionDataType *
+garrow_dense_union_data_type_new(GList *fields,
+                                 guint8 *type_codes,
+                                 gsize n_type_codes);
+
+
 #define GARROW_TYPE_DICTIONARY_DATA_TYPE (garrow_dictionary_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDictionaryDataType,
                          garrow_dictionary_data_type,
