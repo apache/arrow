@@ -1580,7 +1580,7 @@ ggandiva_string_literal_node_class_init(GGandivaStringLiteralNodeClass *klass)
 GGandivaStringLiteralNode *
 ggandiva_string_literal_node_new(const gchar *value)
 {
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeStringLiteral(value);
   return ggandiva_string_literal_node_new_raw(&gandiva_node, value);
 }
 
@@ -1683,7 +1683,7 @@ ggandiva_binary_literal_node_class_init(GGandivaBinaryLiteralNodeClass *klass)
 GGandivaBinaryLiteralNode *
 ggandiva_binary_literal_node_new(const gchar *value)
 {
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeBinaryLiteral(value);
   return ggandiva_binary_literal_node_new_raw(&gandiva_node, value);
 }
 
