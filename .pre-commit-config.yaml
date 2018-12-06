@@ -21,6 +21,14 @@
 # To run all hooks on all files use `pre-commit run -a`
 
 repos:
+  - repo: local
+    hooks:
+      - id: rat
+        name: rat
+        language: system
+        entry: bash -c "git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar && ./dev/release/run-rat.sh arrow-src.tar"
+        always_run: true
+        pass_filenames: false
   - repo: git://github.com/pre-commit/pre-commit-hooks
     sha: v1.2.3
     hooks:

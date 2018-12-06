@@ -15,11 +15,13 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Arrow Protocol Files
-====================
+*************
+API Reference
+*************
 
-This folder contains binary protocol definitions for the Arrow columnar format
-and other parts of the project, like the Flight RPC framework.
+.. toctree::
+   :maxdepth: 2
+   :caption: Getting Started
 
-For documentation about the Arrow format, see the `docs/source/format`
-directory.
+   api/array
+   api/memory

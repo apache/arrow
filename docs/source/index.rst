@@ -15,11 +15,28 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Arrow Protocol Files
-====================
+Apache Arrow
+============
 
-This folder contains binary protocol definitions for the Arrow columnar format
-and other parts of the project, like the Flight RPC framework.
+Apache Arrow is a cross-language development platform for in-memory data. It
+specifies a standardized language-independent columnar memory format for flat
+and hierarchical data, organized for efficient analytic operations on modern
+hardware. It also provides computational libraries and zero-copy streaming
+messaging and interprocess communication.
 
-For documentation about the Arrow format, see the `docs/source/format`
-directory.
+.. toctree::
+   :maxdepth: 1
+   :caption: Memory Format
+
+   format/README
+   format/Guidelines
+   format/Layout
+   format/Metadata
+   format/IPC
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Languages
+
+   cpp/index
+   python/index

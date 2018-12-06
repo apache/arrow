@@ -15,24 +15,17 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Python bindings for Apache Arrow
-================================
-
-Apache Arrow is a cross-language development platform for in-memory data. It
-specifies a standardized language-independent columnar memory format for flat
-and hierarchical data, organized for efficient analytic operations on modern
-hardware. It also provides computational libraries and zero-copy streaming
-messaging and interprocess communication.
+Python bindings
+===============
 
 The Arrow Python bindings have first-class integration with NumPy, pandas, and
-built-in Python objects.
+built-in Python objects. They are based on the C++ implementation of Arrow.
 
 This is the documentation of the Python API of Apache Arrow. For more details
-on the format and other language bindings see
-`the main page for Arrow <https://arrow.apache.org/>`_. Here will we only
-detail the usage of the Python API for Arrow and the leaf libraries that add
-additional functionality such as reading Apache Parquet files into Arrow
-structures.
+on the format and other language bindings see the parent documentation.
+Here will we only detail the usage of the Python API for Arrow and the leaf
+libraries that add additional functionality such as reading Apache Parquet
+files into Arrow structures.
 
 .. toctree::
    :maxdepth: 2
@@ -52,3 +45,4 @@ structures.
    extending
    api
    getting_involved
+

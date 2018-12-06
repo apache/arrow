@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+apache-rat-*.jar
+arrow-src.tar
+
 # Compiled source
 *.a
 *.dll
@@ -34,7 +37,9 @@ MANIFEST
 *.iml
 
 cpp/.idea/
+cpp/apidoc/xml/
 python/.eggs/
+python/doc/
 .vscode
 .idea/
 .pytest_cache/

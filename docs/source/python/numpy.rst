@@ -17,8 +17,8 @@
 
 .. _numpy_interop:
 
-Using PyArrow with NumPy
-========================
+NumPy Integration
+=================
 
 PyArrow allows converting back and forth from
 `NumPy <https://www.numpy.org/>`_ arrays to Arrow :ref:`Arrays <data.array>`.

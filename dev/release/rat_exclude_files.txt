@@ -114,6 +114,7 @@ dev/tasks/linux-packages/debian/plasma-store-server.install
 dev/tasks/linux-packages/debian/rules
 dev/tasks/linux-packages/debian/source/format
 dev/tasks/linux-packages/debian/watch
+docs/requirements.txt
 go/arrow/go.sum
 go/arrow/Gopkg.lock
 go/arrow/internal/cpu/*
@@ -124,7 +125,6 @@ js/.npmignore
 js/closure-compiler-scripts/*
 python/cmake_modules
 python/cmake_modules/*
-python/doc/requirements.txt
 python/MANIFEST.in
 python/pyarrow/includes/__init__.pxd
 python/pyarrow/tests/__init__.py

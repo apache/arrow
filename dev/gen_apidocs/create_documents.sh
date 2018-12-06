@@ -87,15 +87,6 @@ rsync -r doc/parquet-glib/html/ ../../site/asf-site/docs/c_glib/parquet-glib
 popd
 popd
 
-# Now Python documentation can be built
-pushd arrow/python
-python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-    --with-plasma --with-parquet --inplace
-python setup.py build_sphinx -s doc/source
-mkdir -p ../site/asf-site/docs/python
-rsync -r doc/_build/html/ ../site/asf-site/docs/python
-popd
-
 # Make C++ documentation
 pushd arrow/cpp/apidoc
 rm -rf html/*
