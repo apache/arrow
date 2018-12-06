@@ -17,6 +17,8 @@
 
 #include <gtest/gtest.h>
 
+#include <arrow/test-util.h>
+
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/test-specialization.h"
@@ -28,6 +30,7 @@
 
 namespace parquet {
 
+using schema::GroupNode;
 using schema::NodePtr;
 using schema::PrimitiveNode;
 
@@ -579,6 +582,52 @@ TEST_F(TestByteArrayValuesWriter, CheckDefaultStats) {
   writer->Close();
 
   ASSERT_TRUE(this->metadata_is_stats_set());
+}
+
+TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
+  // In ARROW-3930 we discovered a bug when writing from Arrow when we had data
+  // that looks like this:
+  //
+  // [null, [0, 1, null, 2, 3, 4, null]]
+
+  // Create schema
+  NodePtr item = schema::Int32("item");  // optional item
+  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, LogicalType::LIST));
+  NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));  // optional list
+  std::vector<NodePtr> fields = {bag};
+  NodePtr root = GroupNode::Make("schema", Repetition::REPEATED, fields);
+
+  SchemaDescriptor schema;
+  schema.Init(root);
+
+  InMemoryOutputStream sink;
+  auto props = WriterProperties::Builder().build();
+
+  auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
+  std::unique_ptr<PageWriter> pager =
+      PageWriter::Open(&sink, Compression::UNCOMPRESSED, metadata.get());
+  std::shared_ptr<ColumnWriter> writer =
+      ColumnWriter::Make(metadata.get(), std::move(pager), props.get());
+  auto typed_writer = std::static_pointer_cast<TypedColumnWriter<Int32Type>>(writer);
+
+  std::vector<int16_t> def_levels = {1, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 2, 3, 3};
+  std::vector<int16_t> rep_levels = {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+
+  // Write the values into uninitialized memory
+  std::shared_ptr<Buffer> values_buffer;
+  ASSERT_OK(::arrow::AllocateBuffer(64, &values_buffer));
+  memcpy(values_buffer->mutable_data(), values.data(), 13 * sizeof(int32_t));
+  auto values_data = reinterpret_cast<const int32_t*>(values_buffer->data());
+
+  std::shared_ptr<Buffer> valid_bits;
+  ASSERT_OK(::arrow::BitUtil::BytesToBits({1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1},
+                                          ::arrow::default_memory_pool(), &valid_bits));
+
+  // valgrind will warn about out of bounds access into def_levels_data
+  typed_writer->WriteBatchSpaced(14, def_levels.data(), rep_levels.data(),
+                                 valid_bits->data(), 0, values_data);
+  writer->Close();
 }
 
 void GenerateLevels(int min_repeat_factor, int max_repeat_factor, int max_level,

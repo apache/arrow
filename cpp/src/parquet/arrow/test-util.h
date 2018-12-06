@@ -15,8 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include <limits>
 #include <memory>
+#include <random>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,14 +30,6 @@
 #include "arrow/util/decimal.h"
 
 #include "parquet/arrow/record_reader.h"
-
-namespace arrow {
-// PARQUET-1382: backwards-compatible shim for arrow::test namespace
-namespace test {}
-
-using namespace ::arrow::test;  // NOLINT
-
-}  // namespace arrow
 
 namespace parquet {
 
@@ -146,7 +141,7 @@ static inline void random_decimals(int64_t n, uint32_t seed, int32_t precision,
                                    uint8_t* out) {
   std::mt19937 gen(seed);
   std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
-  const int32_t required_bytes = DecimalSize(precision);
+  const int32_t required_bytes = ::arrow::DecimalSize(precision);
   constexpr int32_t byte_width = 16;
   std::fill(out, out + byte_width * n, '\0');
 
@@ -433,14 +428,13 @@ Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
   return Status::OK();
 }
 
-static std::shared_ptr<::arrow::Column> MakeColumn(const std::string& name,
-                                                   const std::shared_ptr<Array>& array,
-                                                   bool nullable) {
+static inline std::shared_ptr<::arrow::Column> MakeColumn(
+    const std::string& name, const std::shared_ptr<Array>& array, bool nullable) {
   auto field = ::arrow::field(name, array->type(), nullable);
   return std::make_shared<::arrow::Column>(field, array);
 }
 
-static std::shared_ptr<::arrow::Column> MakeColumn(
+static inline std::shared_ptr<::arrow::Column> MakeColumn(
     const std::string& name, const std::vector<std::shared_ptr<Array>>& arrays,
     bool nullable) {
   auto field = ::arrow::field(name, arrays[0]->type(), nullable);
