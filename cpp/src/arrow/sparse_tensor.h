@@ -44,6 +44,8 @@ class ARROW_EXPORT SparseIndex {
   format_type format_type_id() const { return format_type_id_; }
   int64_t length() const { return length_; }
 
+  virtual std::string ToString() const = 0;
+
  protected:
   format_type format_type_id_;
   int64_t length_;
@@ -70,6 +72,8 @@ class ARROW_EXPORT SparseCOOIndex : public SparseIndexBase<SparseCOOIndex> {
 
   const std::shared_ptr<CoordsTensor>& indices() const { return coords_; }
 
+  std::string ToString() const override;
+
  protected:
   std::shared_ptr<CoordsTensor> coords_;
 };
@@ -89,6 +93,8 @@ class ARROW_EXPORT SparseCSRIndex : public SparseIndexBase<SparseCSRIndex> {
 
   const std::shared_ptr<IndexTensor>& indptr() const { return indptr_; }
   const std::shared_ptr<IndexTensor>& indices() const { return indices_; }
+
+  std::string ToString() const override;
 
  protected:
   std::shared_ptr<IndexTensor> indptr_;

@@ -292,6 +292,8 @@ SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<CoordsTensor>& coords)
   DCHECK(coords_->is_column_major());
 }
 
+std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOIndex"); }
+
 // ----------------------------------------------------------------------
 // SparseCSRIndex
 
@@ -302,6 +304,8 @@ SparseCSRIndex::SparseCSRIndex(const std::shared_ptr<IndexTensor>& indptr,
   DCHECK_EQ(1, indptr_->ndim());
   DCHECK_EQ(1, indices_->ndim());
 }
+
+std::string SparseCSRIndex::ToString() const { return std::string("SparseCOOIndex"); }
 
 // ----------------------------------------------------------------------
 // SparseTensorBase
