@@ -35,6 +35,7 @@ module Arrow
       require "arrow/array-builder"
       require "arrow/chunked-array"
       require "arrow/column"
+      require "arrow/compression-type"
       require "arrow/csv-loader"
       require "arrow/csv-read-options"
       require "arrow/data-type"
@@ -43,12 +44,16 @@ module Arrow
       require "arrow/date64-array"
       require "arrow/date64-array-builder"
       require "arrow/field"
+      require "arrow/path-extension"
       require "arrow/record"
       require "arrow/record-batch"
+      require "arrow/record-batch-file-reader"
+      require "arrow/record-batch-stream-reader"
       require "arrow/rolling-window"
       require "arrow/schema"
       require "arrow/slicer"
       require "arrow/struct-array"
+      require "arrow/struct-data-type"
       require "arrow/table"
       require "arrow/table-formatter"
       require "arrow/table-list-formatter"
@@ -58,9 +63,7 @@ module Arrow
       require "arrow/tensor"
       require "arrow/timestamp-array"
       require "arrow/timestamp-array-builder"
-
-      require "arrow/record-batch-file-reader"
-      require "arrow/record-batch-stream-reader"
+      require "arrow/writable"
     end
 
     def load_object_info(info)

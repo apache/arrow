@@ -19,9 +19,11 @@
 # instruction sets that would boost performance.
 include(CheckCXXCompilerFlag)
 # x86/amd64 compiler flags
-CHECK_CXX_COMPILER_FLAG("-msse3" CXX_SUPPORTS_SSE3)
+CHECK_CXX_COMPILER_FLAG("-msse4.2" CXX_SUPPORTS_SSE4_2)
 # power compiler flags
 CHECK_CXX_COMPILER_FLAG("-maltivec" CXX_SUPPORTS_ALTIVEC)
+# Arm64 compiler flags
+CHECK_CXX_COMPILER_FLAG("-march=armv8-a+crc" CXX_SUPPORTS_ARMCRC)
 
 # This ensures that things like gnu++11 get passed correctly
 set(CMAKE_CXX_STANDARD 11)
@@ -212,16 +214,20 @@ if (BUILD_WARNING_FLAGS)
 endif(BUILD_WARNING_FLAGS)
 
 # Only enable additional instruction sets if they are supported
-if (CXX_SUPPORTS_SSE3 AND ARROW_SSE3)
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse3")
+if (CXX_SUPPORTS_SSE4_2)
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse4.2")
 endif()
 
 if (CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -maltivec")
 endif()
 
-if (ARROW_USE_SSE)
-  add_definitions(-DARROW_USE_SSE)
+if (CXX_SUPPORTS_ARMCRC)
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc")
+endif()
+
+if (ARROW_USE_SIMD)
+  add_definitions(-DARROW_USE_SIMD)
 endif()
 
 if (APPLE)

@@ -166,25 +166,25 @@ TEST(Comparison, UnsignedInt96) {
   aaa.value[2] = 2451545;  // 2000-01-01
   bbb.value[2] = 2451546;  // 2000-01-02
   // 12 hours + 34 minutes + 56 seconds.
-  reinterpret_cast<uint64_t*>(&aaa.value[0])[0] = 45296000000000;
+  Int96SetNanoSeconds(aaa, 45296000000000);
   // 12 hours + 34 minutes + 50 seconds.
-  reinterpret_cast<uint64_t*>(&bbb.value[0])[0] = 45290000000000;
+  Int96SetNanoSeconds(bbb, 45290000000000);
   ASSERT_TRUE(uless(aaa, bbb));
 
   aaa.value[2] = 2451545;  // 2000-01-01
   bbb.value[2] = 2451545;  // 2000-01-01
   // 11 hours + 34 minutes + 56 seconds.
-  reinterpret_cast<uint64_t*>(&aaa.value[0])[0] = 41696000000000;
+  Int96SetNanoSeconds(aaa, 41696000000000);
   // 12 hours + 34 minutes + 50 seconds.
-  reinterpret_cast<uint64_t*>(&bbb.value[0])[0] = 45290000000000;
+  Int96SetNanoSeconds(bbb, 45290000000000);
   ASSERT_TRUE(uless(aaa, bbb));
 
   aaa.value[2] = 2451545;  // 2000-01-01
   bbb.value[2] = 2451545;  // 2000-01-01
   // 12 hours + 34 minutes + 55 seconds.
-  reinterpret_cast<uint64_t*>(&aaa.value[0])[0] = 45295000000000;
+  Int96SetNanoSeconds(aaa, 45295000000000);
   // 12 hours + 34 minutes + 56 seconds.
-  reinterpret_cast<uint64_t*>(&bbb.value[0])[0] = 45296000000000;
+  Int96SetNanoSeconds(bbb, 45296000000000);
   ASSERT_TRUE(uless(aaa, bbb));
 }
 

@@ -31,9 +31,9 @@ std::shared_ptr<arrow::io::InputStream> garrow_input_stream_get_raw(GArrowInputS
 
 std::shared_ptr<arrow::io::RandomAccessFile> garrow_seekable_input_stream_get_raw(GArrowSeekableInputStream *input_stream);
 
-GArrowBufferInputStream *garrow_buffer_input_stream_new_raw(std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader);
-GArrowBufferInputStream *garrow_buffer_input_stream_new_raw_buffer(std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader,
-                                                                   GArrowBuffer *buffer);
+GArrowBufferInputStream *
+garrow_buffer_input_stream_new_raw(std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader,
+                                   GArrowBuffer *buffer);
 std::shared_ptr<arrow::io::BufferReader> garrow_buffer_input_stream_get_raw(GArrowBufferInputStream *input_stream);
 
 GArrowMemoryMappedInputStream *garrow_memory_mapped_input_stream_new_raw(std::shared_ptr<arrow::io::MemoryMappedFile> *arrow_memory_mapped_file);

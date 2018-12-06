@@ -182,7 +182,11 @@ struct _GArrowGIOInputStreamClass
 GType garrow_gio_input_stream_get_type(void) G_GNUC_CONST;
 
 GArrowGIOInputStream *garrow_gio_input_stream_new(GInputStream *gio_input_stream);
-GInputStream *garrow_gio_input_stream_get_raw(GArrowGIOInputStream *input_stream);
+#ifndef GARROW_DISABLE_DEPRECATED
+G_GNUC_DEPRECATED
+GInputStream *
+garrow_gio_input_stream_get_raw(GArrowGIOInputStream *input_stream);
+#endif
 
 #define GARROW_TYPE_COMPRESSED_INPUT_STREAM     \
   (garrow_compressed_input_stream_get_type())

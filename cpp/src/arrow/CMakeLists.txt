@@ -19,6 +19,9 @@ set(ARROW_SRCS
   array.cc
   buffer.cc
   builder.cc
+  builder-adaptive.cc
+  builder-binary.cc
+  builder-dict.cc
   compare.cc
   memory_pool.cc
   pretty_print.cc
@@ -48,7 +51,7 @@ set(ARROW_SRCS
   util/compression.cc
   util/cpu-info.cc
   util/decimal.cc
-  util/hash.cc
+  util/int-util.cc
   util/io-util.cc
   util/logging.cc
   util/key_value_metadata.cc
@@ -169,6 +172,28 @@ ADD_ARROW_LIB(arrow
   SHARED_PRIVATE_LINK_LIBS ${ARROW_SHARED_PRIVATE_LINK_LIBS}
   STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
+if (ARROW_BUILD_STATIC AND WIN32)
+  target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
+endif()
+
+if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  # that depend on gtest
+  ADD_ARROW_LIB(arrow_testing
+    SOURCES test-util.cc
+    OUTPUTS ARROW_TESTING_LIBRARIES
+    DEPENDENCIES gtest_static
+    SHARED_LINK_LIBS arrow_shared gtest_static
+    STATIC_LINK_LIBS arrow_static)
+
+  if (ARROW_BUILD_STATIC AND WIN32)
+    target_compile_definitions(arrow_testing_static PUBLIC ARROW_STATIC)
+  endif()
+
+  set(ARROW_LIBRARIES
+    ${ARROW_LIBRARIES}
+    ${ARROW_TESTING_LIBRARIES})
+endif()
+
 find_package(Backtrace)
 
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
@@ -179,10 +204,6 @@ foreach(LIB_TARGET ${ARROW_LIBRARIES})
       PRIVATE ARROW_WITH_BACKTRACE)
   endif()
 endforeach()
-
-if (ARROW_BUILD_STATIC AND WIN32)
-  target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
-endif()
 
 # Headers: top level
 install(FILES
@@ -221,7 +242,9 @@ install(
 #######################################
 
 ADD_ARROW_TEST(allocator-test)
-ADD_ARROW_TEST(array-test)
+ADD_ARROW_TEST(array-test
+  SOURCES array-test.cc array-binary-test.cc array-dict-test.cc
+          array-list-test.cc array-struct-test.cc)
 ADD_ARROW_TEST(buffer-test)
 ADD_ARROW_TEST(memory_pool-test)
 ADD_ARROW_TEST(pretty_print-test)

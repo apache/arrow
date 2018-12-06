@@ -327,22 +327,7 @@ void PlasmaStore::ReturnFromGet(GetRequest* get_req) {
   if (s.ok()) {
     // Send all of the file descriptors for the present objects.
     for (int store_fd : store_fds) {
-      int error_code = send_fd(get_req->client->fd, store_fd);
-      // If we failed to send the file descriptor, loop until we have sent it
-      // successfully. TODO(rkn): This is problematic for two reasons. First
-      // of all, sending the file descriptor should just succeed without any
-      // errors, but sometimes I see a "Message too long" error number.
-      // Second, looping like this allows a client to potentially block the
-      // plasma store event loop which should never happen.
-      while (error_code < 0) {
-        if (errno == EMSGSIZE) {
-          ARROW_LOG(WARNING) << "Failed to send file descriptor, retrying.";
-          error_code = send_fd(get_req->client->fd, store_fd);
-          continue;
-        }
-        WarnIfSigpipe(error_code, get_req->client->fd);
-        break;
-      }
+      WarnIfSigpipe(send_fd(get_req->client->fd, store_fd), get_req->client->fd);
     }
   }
 

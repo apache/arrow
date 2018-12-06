@@ -295,6 +295,7 @@ tasks:
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
@@ -318,6 +319,13 @@ tasks:
       - libparquet-glib12_{no_rc_version}-1_amd64.deb
       - libparquet12-dbgsym_{no_rc_version}-1_amd64.deb
       - libparquet12_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma-glib12_{no_rc_version}-1_amd64.deb
+      - libplasma12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma12_{no_rc_version}-1_amd64.deb
 
   ubuntu-trusty:
     platform: linux
@@ -335,6 +343,7 @@ tasks:
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
@@ -345,6 +354,11 @@ tasks:
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
       - libparquet-glib12_{no_rc_version}-1_amd64.deb
       - libparquet12_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib12_{no_rc_version}-1_amd64.deb
+      - libplasma12_{no_rc_version}-1_amd64.deb
 
   ubuntu-xenial:
     platform: linux
@@ -363,6 +377,7 @@ tasks:
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
@@ -379,6 +394,11 @@ tasks:
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
       - libparquet-glib12_{no_rc_version}-1_amd64.deb
       - libparquet12_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib12_{no_rc_version}-1_amd64.deb
+      - libplasma12_{no_rc_version}-1_amd64.deb
 
   ubuntu-bionic:
     platform: linux
@@ -397,6 +417,7 @@ tasks:
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
@@ -413,6 +434,11 @@ tasks:
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
       - libparquet-glib12_{no_rc_version}-1_amd64.deb
       - libparquet12_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib12_{no_rc_version}-1_amd64.deb
+      - libplasma12_{no_rc_version}-1_amd64.deb
 
   ubuntu-cosmic:
     platform: linux
@@ -431,6 +457,7 @@ tasks:
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
@@ -447,6 +474,11 @@ tasks:
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
       - libparquet-glib12_{no_rc_version}-1_amd64.deb
       - libparquet12_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib12_{no_rc_version}-1_amd64.deb
+      - libplasma12_{no_rc_version}-1_amd64.deb
 
   centos-6:
     platform: linux
@@ -462,6 +494,8 @@ tasks:
       - arrow-libs-{no_rc_version}-1.el6.x86_64.rpm
       - arrow-python-devel-{no_rc_version}-1.el6.x86_64.rpm
       - arrow-python-libs-{no_rc_version}-1.el6.x86_64.rpm
+      - plasma-devel-{no_rc_version}-1.el6.x86_64.rpm
+      - plasma-libs-{no_rc_version}-1.el6.x86_64.rpm
 
   centos-7:
     platform: linux
@@ -485,6 +519,11 @@ tasks:
       - parquet-glib-doc-{no_rc_version}-1.el7.x86_64.rpm
       - parquet-glib-libs-{no_rc_version}-1.el7.x86_64.rpm
       - parquet-libs-{no_rc_version}-1.el7.x86_64.rpm
+      - plasma-devel-{no_rc_version}-1.el7.x86_64.rpm
+      - plasma-glib-devel-{no_rc_version}-1.el7.x86_64.rpm
+      - plasma-glib-doc-{no_rc_version}-1.el7.x86_64.rpm
+      - plasma-glib-libs-{no_rc_version}-1.el7.x86_64.rpm
+      - plasma-libs-{no_rc_version}-1.el7.x86_64.rpm
 
   ############################## Gandiva Tasks ################################
 

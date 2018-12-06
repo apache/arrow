@@ -19,6 +19,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <sstream>
 
 #include <snappy.h>
 
@@ -42,8 +43,28 @@ Status SnappyCodec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
 }
 
 Status SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
-                               int64_t ARROW_ARG_UNUSED(output_len),
-                               uint8_t* output_buffer) {
+                               int64_t output_buffer_len, uint8_t* output_buffer) {
+  return Decompress(input_len, input, output_buffer_len, output_buffer, nullptr);
+}
+
+Status SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
+                               int64_t output_buffer_len, uint8_t* output_buffer,
+                               int64_t* output_len) {
+  size_t decompressed_size;
+  if (!snappy::GetUncompressedLength(reinterpret_cast<const char*>(input),
+                                     static_cast<size_t>(input_len),
+                                     &decompressed_size)) {
+    return Status::IOError("Corrupt snappy compressed data.");
+  }
+  if (output_buffer_len < static_cast<int64_t>(decompressed_size)) {
+    std::stringstream ss;
+    ss << "Output buffer size (" << output_buffer_len << ") must be " << decompressed_size
+       << " or larger.";
+    return Status::Invalid(ss.str());
+  }
+  if (output_len) {
+    *output_len = static_cast<int64_t>(decompressed_size);
+  }
   if (!snappy::RawUncompress(reinterpret_cast<const char*>(input),
                              static_cast<size_t>(input_len),
                              reinterpret_cast<char*>(output_buffer))) {
@@ -59,12 +80,12 @@ int64_t SnappyCodec::MaxCompressedLen(int64_t input_len,
 
 Status SnappyCodec::Compress(int64_t input_len, const uint8_t* input,
                              int64_t ARROW_ARG_UNUSED(output_buffer_len),
-                             uint8_t* output_buffer, int64_t* output_length) {
-  size_t output_len;
+                             uint8_t* output_buffer, int64_t* output_len) {
+  size_t output_size;
   snappy::RawCompress(reinterpret_cast<const char*>(input),
                       static_cast<size_t>(input_len),
-                      reinterpret_cast<char*>(output_buffer), &output_len);
-  *output_length = static_cast<int64_t>(output_len);
+                      reinterpret_cast<char*>(output_buffer), &output_size);
+  *output_len = static_cast<int64_t>(output_size);
   return Status::OK();
 }
 

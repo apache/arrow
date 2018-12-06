@@ -25,9 +25,7 @@ RUN conda install -c conda-forge \
         python=$PYTHON_VERSION && \
     conda clean --all
 
-ENV CC=gcc \
-    CXX=g++ \
-    ARROW_PYTHON=ON
+ENV ARROW_PYTHON=ON
 
 # build and test
 CMD arrow/ci/docker_build_cpp.sh && \

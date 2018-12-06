@@ -20,7 +20,7 @@ package org.apache.arrow.plasma;
 import java.nio.ByteBuffer;
 
 /**
- * JNI static methods for PlasmaClient
+ * JNI static methods for PlasmaClient.
  */
 public class PlasmaClientJNI {
 
@@ -37,6 +37,8 @@ public class PlasmaClientJNI {
   public static native void release(long conn, byte[] objectId);
 
   public static native ByteBuffer[][] get(long conn, byte[][] objectIds, int timeoutMs);
+  
+  public static native void delete(long conn, byte[] objectId);
 
   public static native boolean contains(long conn, byte[] objectId);
 

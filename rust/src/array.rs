@@ -22,9 +22,9 @@ use std::io::Write;
 use std::mem;
 use std::sync::Arc;
 
-use array_data::*;
-use buffer::*;
-use builder::PrimitiveArrayBuilder;
+use array_data::{ArrayData, ArrayDataRef};
+use buffer::{Buffer, MutableBuffer};
+use builder::*;
 use datatypes::*;
 use memory;
 use util::bit_util;
@@ -80,17 +80,17 @@ fn make_array(data: ArrayDataRef) -> ArrayRef {
     // TODO: here data_type() needs to clone the type - maybe add a type tag enum to
     // avoid the cloning.
     match data.data_type().clone() {
-        DataType::Boolean => Arc::new(PrimitiveArray::<bool>::from(data)) as ArrayRef,
-        DataType::Int8 => Arc::new(PrimitiveArray::<i8>::from(data)) as ArrayRef,
-        DataType::Int16 => Arc::new(PrimitiveArray::<i16>::from(data)) as ArrayRef,
-        DataType::Int32 => Arc::new(PrimitiveArray::<i32>::from(data)) as ArrayRef,
-        DataType::Int64 => Arc::new(PrimitiveArray::<i64>::from(data)) as ArrayRef,
-        DataType::UInt8 => Arc::new(PrimitiveArray::<u8>::from(data)) as ArrayRef,
-        DataType::UInt16 => Arc::new(PrimitiveArray::<u16>::from(data)) as ArrayRef,
-        DataType::UInt32 => Arc::new(PrimitiveArray::<u32>::from(data)) as ArrayRef,
-        DataType::UInt64 => Arc::new(PrimitiveArray::<u64>::from(data)) as ArrayRef,
-        DataType::Float32 => Arc::new(PrimitiveArray::<f32>::from(data)) as ArrayRef,
-        DataType::Float64 => Arc::new(PrimitiveArray::<f64>::from(data)) as ArrayRef,
+        DataType::Boolean => Arc::new(BooleanArray::from(data)) as ArrayRef,
+        DataType::Int8 => Arc::new(Int8Array::from(data)) as ArrayRef,
+        DataType::Int16 => Arc::new(Int16Array::from(data)) as ArrayRef,
+        DataType::Int32 => Arc::new(Int32Array::from(data)) as ArrayRef,
+        DataType::Int64 => Arc::new(Int64Array::from(data)) as ArrayRef,
+        DataType::UInt8 => Arc::new(UInt8Array::from(data)) as ArrayRef,
+        DataType::UInt16 => Arc::new(UInt16Array::from(data)) as ArrayRef,
+        DataType::UInt32 => Arc::new(UInt32Array::from(data)) as ArrayRef,
+        DataType::UInt64 => Arc::new(UInt64Array::from(data)) as ArrayRef,
+        DataType::Float32 => Arc::new(Float32Array::from(data)) as ArrayRef,
+        DataType::Float64 => Arc::new(Float64Array::from(data)) as ArrayRef,
         DataType::Utf8 => Arc::new(BinaryArray::from(data)) as ArrayRef,
         DataType::List(_) => Arc::new(ListArray::from(data)) as ArrayRef,
         DataType::Struct(_) => Arc::new(StructArray::from(data)) as ArrayRef,
@@ -126,160 +126,20 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     /// Also note that boolean arrays are bit-packed, so although the underlying pointer is of type
     /// bool it should be cast back to u8 before being used.
     /// i.e. `self.raw_values.get() as *const u8`
-    raw_values: RawPtrBox<T>,
+    raw_values: RawPtrBox<T::Native>,
 }
 
-/// Macro to define primitive arrays for different data types and native types.
-/// Boolean arrays are bit-packed and so are not defined by this macro
-macro_rules! def_primitive_array {
-    ($data_ty:path, $native_ty:ident) => {
-        impl PrimitiveArray<$native_ty> {
-            pub fn new(length: i64, values: Buffer, null_count: i64, offset: i64) -> Self {
-                let array_data = ArrayData::builder($data_ty)
-                    .len(length)
-                    .add_buffer(values)
-                    .null_count(null_count)
-                    .offset(offset)
-                    .build();
-                PrimitiveArray::from(array_data)
-            }
-
-            /// Returns a `Buffer` holds all the values of this array.
-            ///
-            /// Note this doesn't take account into the offset of this array.
-            pub fn values(&self) -> Buffer {
-                self.data.buffers()[0].clone()
-            }
-
-            /// Returns the length of this array
-            pub fn len(&self) -> i64 {
-                self.data.len()
-            }
-
-            /// Returns a raw pointer to the values of this array.
-            pub fn raw_values(&self) -> *const $native_ty {
-                unsafe { mem::transmute(self.raw_values.get().offset(self.data.offset() as isize)) }
-            }
-
-            /// Returns the primitive value at index `i`.
-            ///
-            /// Note this doesn't do any bound checking, for performance reason.
-            pub fn value(&self, i: i64) -> $native_ty {
-                unsafe { *(self.raw_values().offset(i as isize)) }
-            }
-
-            /// Returns a slice for the given offset and length
-            ///
-            /// Note this doesn't do any bound checking, for performance reason.
-            pub fn value_slice(&self, offset: i64, len: i64) -> &[$native_ty] {
-                let raw =
-                    unsafe { std::slice::from_raw_parts(self.raw_values(), self.len() as usize) };
-                &raw[offset as usize..offset as usize + len as usize]
-            }
-
-            /// Returns the minimum value in the array, according to the natural order.
-            pub fn min(&self) -> Option<$native_ty> {
-                self.min_max_helper(|a, b| a < b)
-            }
-
-            /// Returns the maximum value in the array, according to the natural order.
-            pub fn max(&self) -> Option<$native_ty> {
-                self.min_max_helper(|a, b| a > b)
-            }
-
-            fn min_max_helper<F>(&self, cmp: F) -> Option<$native_ty>
-            where
-                F: Fn($native_ty, $native_ty) -> bool,
-            {
-                let mut n: Option<$native_ty> = None;
-                let data = self.data();
-                for i in 0..data.len() {
-                    if data.is_null(i) {
-                        continue;
-                    }
-                    let m = self.value(i as i64);
-                    match n {
-                        None => n = Some(m),
-                        Some(nn) => {
-                            if cmp(m, nn) {
-                                n = Some(m)
-                            }
-                        }
-                    }
-                }
-                n
-            }
-
-            // Returns a new primitive array builder
-            pub fn builder(capacity: i64) -> PrimitiveArrayBuilder<$native_ty> {
-                PrimitiveArrayBuilder::<$native_ty>::new(capacity)
-            }
-        }
-
-        /// Constructs a primitive array from a vector. Should only be used for testing.
-        impl From<Vec<$native_ty>> for PrimitiveArray<$native_ty> {
-            fn from(data: Vec<$native_ty>) -> Self {
-                let array_data = ArrayData::builder($data_ty)
-                    .len(data.len() as i64)
-                    .add_buffer(Buffer::from(data.to_byte_slice()))
-                    .build();
-                PrimitiveArray::from(array_data)
-            }
-        }
-
-        impl From<Vec<Option<$native_ty>>> for PrimitiveArray<$native_ty> {
-            fn from(data: Vec<Option<$native_ty>>) -> Self {
-                const TY_SIZE: usize = mem::size_of::<$native_ty>();
-                const NULL: [u8; TY_SIZE] = [0; TY_SIZE];
-
-                let data_len = data.len();
-                let mut null_buf = MutableBuffer::new(data_len).with_bitset(data_len, false);
-                let mut val_buf = MutableBuffer::new(data_len * TY_SIZE);
-
-                {
-                    let null_slice = null_buf.data_mut();
-                    for (i, v) in data.iter().enumerate() {
-                        if let Some(n) = v {
-                            bit_util::set_bit(null_slice, i);
-                            // unwrap() in the following should be safe here since we've
-                            // made sure enough space is allocated for the values.
-                            val_buf.write(&n.to_byte_slice()).unwrap();
-                        } else {
-                            val_buf.write(&NULL).unwrap();
-                        }
-                    }
-                }
-
-                let array_data = ArrayData::builder($data_ty)
-                    .len(data_len as i64)
-                    .add_buffer(val_buf.freeze())
-                    .null_bit_buffer(null_buf.freeze())
-                    .build();
-                PrimitiveArray::from(array_data)
-            }
-        }
-
-        /// Constructs a `PrimitiveArray` from an array data reference.
-        impl From<ArrayDataRef> for PrimitiveArray<$native_ty> {
-            fn from(data: ArrayDataRef) -> Self {
-                assert_eq!(
-                    data.buffers().len(),
-                    1,
-                    "PrimitiveArray data should contain a single buffer only (values buffer)"
-                );
-                let raw_values = data.buffers()[0].raw_data();
-                assert!(
-                    memory::is_aligned::<u8>(raw_values, mem::align_of::<$native_ty>()),
-                    "memory is not aligned"
-                );
-                Self {
-                    data,
-                    raw_values: RawPtrBox::new(raw_values as *const $native_ty),
-                }
-            }
-        }
-    };
-}
+pub type BooleanArray = PrimitiveArray<BooleanType>;
+pub type Int8Array = PrimitiveArray<Int8Type>;
+pub type Int16Array = PrimitiveArray<Int16Type>;
+pub type Int32Array = PrimitiveArray<Int32Type>;
+pub type Int64Array = PrimitiveArray<Int64Type>;
+pub type UInt8Array = PrimitiveArray<UInt8Type>;
+pub type UInt16Array = PrimitiveArray<UInt16Type>;
+pub type UInt32Array = PrimitiveArray<UInt32Type>;
+pub type UInt64Array = PrimitiveArray<UInt64Type>;
+pub type Float32Array = PrimitiveArray<Float32Type>;
+pub type Float64Array = PrimitiveArray<Float64Type>;
 
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
     fn as_any(&self) -> &Any {
@@ -295,19 +155,92 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
     }
 }
 
-def_primitive_array!(DataType::UInt8, u8);
-def_primitive_array!(DataType::UInt16, u16);
-def_primitive_array!(DataType::UInt32, u32);
-def_primitive_array!(DataType::UInt64, u64);
-def_primitive_array!(DataType::Int8, i8);
-def_primitive_array!(DataType::Int16, i16);
-def_primitive_array!(DataType::Int32, i32);
-def_primitive_array!(DataType::Int64, i64);
-def_primitive_array!(DataType::Float32, f32);
-def_primitive_array!(DataType::Float64, f64);
+/// Implementation for primitive arrays with numeric types.
+/// Boolean arrays are bit-packed and so implemented separately.
+impl<T: ArrowNumericType> PrimitiveArray<T> {
+    pub fn new(length: i64, values: Buffer, null_count: i64, offset: i64) -> Self {
+        let array_data = ArrayData::builder(T::get_data_type())
+            .len(length)
+            .add_buffer(values)
+            .null_count(null_count)
+            .offset(offset)
+            .build();
+        PrimitiveArray::from(array_data)
+    }
+
+    /// Returns a `Buffer` holds all the values of this array.
+    ///
+    /// Note this doesn't take account into the offset of this array.
+    pub fn values(&self) -> Buffer {
+        self.data.buffers()[0].clone()
+    }
+
+    /// Returns the length of this array
+    pub fn len(&self) -> i64 {
+        self.data.len()
+    }
+
+    /// Returns a raw pointer to the values of this array.
+    pub fn raw_values(&self) -> *const T::Native {
+        unsafe { mem::transmute(self.raw_values.get().offset(self.data.offset() as isize)) }
+    }
+
+    /// Returns the primitive value at index `i`.
+    ///
+    /// Note this doesn't do any bound checking, for performance reason.
+    pub fn value(&self, i: i64) -> T::Native {
+        unsafe { *(self.raw_values().offset(i as isize)) }
+    }
+
+    /// Returns a slice for the given offset and length
+    ///
+    /// Note this doesn't do any bound checking, for performance reason.
+    pub fn value_slice(&self, offset: i64, len: i64) -> &[T::Native] {
+        let raw = unsafe { std::slice::from_raw_parts(self.raw_values(), self.len() as usize) };
+        &raw[offset as usize..offset as usize + len as usize]
+    }
+
+    /// Returns the minimum value in the array, according to the natural order.
+    pub fn min(&self) -> Option<T::Native> {
+        self.min_max_helper(|a, b| a < b)
+    }
+
+    /// Returns the maximum value in the array, according to the natural order.
+    pub fn max(&self) -> Option<T::Native> {
+        self.min_max_helper(|a, b| a > b)
+    }
+
+    fn min_max_helper<F>(&self, cmp: F) -> Option<T::Native>
+    where
+        F: Fn(T::Native, T::Native) -> bool,
+    {
+        let mut n: Option<T::Native> = None;
+        let data = self.data();
+        for i in 0..data.len() {
+            if data.is_null(i) {
+                continue;
+            }
+            let m = self.value(i as i64);
+            match n {
+                None => n = Some(m),
+                Some(nn) => {
+                    if cmp(m, nn) {
+                        n = Some(m)
+                    }
+                }
+            }
+        }
+        n
+    }
+
+    // Returns a new primitive array builder
+    pub fn builder(capacity: i64) -> PrimitiveArrayBuilder<T> {
+        PrimitiveArrayBuilder::<T>::new(capacity)
+    }
+}
 
 /// Specific implementation for Boolean arrays due to bit-packing
-impl PrimitiveArray<bool> {
+impl PrimitiveArray<BooleanType> {
     pub fn new(length: i64, values: Buffer, null_count: i64, offset: i64) -> Self {
         let array_data = ArrayData::builder(DataType::Boolean)
             .len(length)
@@ -315,7 +248,7 @@ impl PrimitiveArray<bool> {
             .null_count(null_count)
             .offset(offset)
             .build();
-        PrimitiveArray::from(array_data)
+        BooleanArray::from(array_data)
     }
 
     /// Returns a `Buffer` holds all the values of this array.
@@ -333,13 +266,73 @@ impl PrimitiveArray<bool> {
     }
 
     // Returns a new primitive array builder
-    pub fn builder(capacity: i64) -> PrimitiveArrayBuilder<bool> {
-        PrimitiveArrayBuilder::<bool>::new(capacity)
+    pub fn builder(capacity: i64) -> BooleanBuilder {
+        BooleanBuilder::new(capacity)
     }
 }
 
+// TODO: the macro is needed here because we'd get "conflicting implementations" error
+// otherwise with both `From<Vec<T::Native>>` and `From<Vec<Option<T::Native>>>`.
+// We should revisit this in future.
+macro_rules! def_numeric_from_vec {
+    ( $ty:ident, $native_ty:ident, $ty_id:path ) => {
+        impl From<Vec<$native_ty>> for PrimitiveArray<$ty> {
+            fn from(data: Vec<$native_ty>) -> Self {
+                let array_data = ArrayData::builder($ty_id)
+                    .len(data.len() as i64)
+                    .add_buffer(Buffer::from(data.to_byte_slice()))
+                    .build();
+                PrimitiveArray::from(array_data)
+            }
+        }
+
+        // Constructs a primitive array from a vector. Should only be used for testing.
+        impl From<Vec<Option<$native_ty>>> for PrimitiveArray<$ty> {
+            fn from(data: Vec<Option<$native_ty>>) -> Self {
+                let data_len = data.len();
+                let num_bytes = bit_util::ceil(data_len as i64, 8) as usize;
+                let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<$native_ty>());
+
+                {
+                    let null = vec![0; mem::size_of::<$native_ty>()];
+                    let null_slice = null_buf.data_mut();
+                    for (i, v) in data.iter().enumerate() {
+                        if let Some(n) = v {
+                            bit_util::set_bit(null_slice, i);
+                            // unwrap() in the following should be safe here since we've
+                            // made sure enough space is allocated for the values.
+                            val_buf.write(&n.to_byte_slice()).unwrap();
+                        } else {
+                            val_buf.write(&null).unwrap();
+                        }
+                    }
+                }
+
+                let array_data = ArrayData::builder($ty_id)
+                    .len(data_len as i64)
+                    .add_buffer(val_buf.freeze())
+                    .null_bit_buffer(null_buf.freeze())
+                    .build();
+                PrimitiveArray::from(array_data)
+            }
+        }
+    };
+}
+
+def_numeric_from_vec!(Int8Type, i8, DataType::Int8);
+def_numeric_from_vec!(Int16Type, i16, DataType::Int16);
+def_numeric_from_vec!(Int32Type, i32, DataType::Int32);
+def_numeric_from_vec!(Int64Type, i64, DataType::Int64);
+def_numeric_from_vec!(UInt8Type, u8, DataType::UInt8);
+def_numeric_from_vec!(UInt16Type, u16, DataType::UInt16);
+def_numeric_from_vec!(UInt32Type, u32, DataType::UInt32);
+def_numeric_from_vec!(UInt64Type, u64, DataType::UInt64);
+def_numeric_from_vec!(Float32Type, f32, DataType::Float32);
+def_numeric_from_vec!(Float64Type, f64, DataType::Float64);
+
 /// Constructs a boolean array from a vector. Should only be used for testing.
-impl From<Vec<bool>> for PrimitiveArray<bool> {
+impl From<Vec<bool>> for BooleanArray {
     fn from(data: Vec<bool>) -> Self {
         let num_byte = bit_util::ceil(data.len() as i64, 8) as usize;
         let mut mut_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
@@ -355,11 +348,11 @@ impl From<Vec<bool>> for PrimitiveArray<bool> {
             .len(data.len() as i64)
             .add_buffer(mut_buf.freeze())
             .build();
-        PrimitiveArray::from(array_data)
+        BooleanArray::from(array_data)
     }
 }
 
-impl From<Vec<Option<bool>>> for PrimitiveArray<bool> {
+impl From<Vec<Option<bool>>> for BooleanArray {
     fn from(data: Vec<Option<bool>>) -> Self {
         let data_len = data.len() as i64;
         let num_byte = bit_util::ceil(data_len, 8) as usize;
@@ -385,13 +378,13 @@ impl From<Vec<Option<bool>>> for PrimitiveArray<bool> {
             .add_buffer(val_buf.freeze())
             .null_bit_buffer(null_buf.freeze())
             .build();
-        PrimitiveArray::from(array_data)
+        BooleanArray::from(array_data)
     }
 }
 
-/// Constructs a `PrimitiveArray<bool>` from an array data reference.
-impl From<ArrayDataRef> for PrimitiveArray<bool> {
-    fn from(data: ArrayDataRef) -> Self {
+/// Constructs a `PrimitiveArray` from an array data reference.
+impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
+    default fn from(data: ArrayDataRef) -> Self {
         assert_eq!(
             data.buffers().len(),
             1,
@@ -399,17 +392,15 @@ impl From<ArrayDataRef> for PrimitiveArray<bool> {
         );
         let raw_values = data.buffers()[0].raw_data();
         assert!(
-            memory::is_aligned::<u8>(raw_values, mem::align_of::<u8>()),
+            memory::is_aligned::<u8>(raw_values, mem::align_of::<T::Native>()),
             "memory is not aligned"
         );
         Self {
             data,
-            raw_values: RawPtrBox::new(raw_values as *const bool),
+            raw_values: RawPtrBox::new(raw_values as *const T::Native),
         }
     }
 }
-
-pub type BooleanArray = PrimitiveArray<bool>;
 
 /// A list array where each element is a variable-sized sequence of values with the same
 /// type.
@@ -714,7 +705,7 @@ mod tests {
     fn test_primitive_array_from_vec() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
         let buf2 = buf.clone();
-        let arr = PrimitiveArray::<i32>::new(5, buf, 0, 0);
+        let arr = Int32Array::new(5, buf, 0, 0);
         let slice = unsafe { ::std::slice::from_raw_parts(arr.raw_values(), 5) };
         assert_eq!(buf2, arr.values());
         assert_eq!(&[0, 1, 2, 3, 4], slice);
@@ -731,7 +722,7 @@ mod tests {
     #[test]
     fn test_primitive_array_from_vec_option() {
         // Test building a primitive array with null values
-        let arr = PrimitiveArray::<i32>::from(vec![Some(0), None, Some(2), None, Some(4)]);
+        let arr = Int32Array::from(vec![Some(0), None, Some(2), None, Some(4)]);
         assert_eq!(5, arr.len());
         assert_eq!(0, arr.offset());
         assert_eq!(2, arr.null_count());
@@ -757,7 +748,7 @@ mod tests {
             .offset(2)
             .add_buffer(buf)
             .build();
-        let arr = PrimitiveArray::<i32>::from(data);
+        let arr = Int32Array::from(data);
         assert_eq!(buf2, arr.values());
         assert_eq!(5, arr.len());
         assert_eq!(0, arr.null_count());
@@ -772,7 +763,7 @@ mod tests {
     )]
     fn test_primitive_array_invalid_buffer_len() {
         let data = ArrayData::builder(DataType::Int32).len(5).build();
-        PrimitiveArray::<i32>::from(data);
+        Int32Array::from(data);
     }
 
     #[test]
@@ -780,7 +771,7 @@ mod tests {
         // 00000010 01001000
         let buf = Buffer::from([72_u8, 2_u8]);
         let buf2 = buf.clone();
-        let arr = PrimitiveArray::<bool>::new(10, buf, 0, 0);
+        let arr = BooleanArray::new(10, buf, 0, 0);
         assert_eq!(buf2, arr.values());
         assert_eq!(10, arr.len());
         assert_eq!(0, arr.offset());
@@ -795,7 +786,7 @@ mod tests {
     #[test]
     fn test_boolean_array_from_vec() {
         let buf = Buffer::from([10_u8]);
-        let arr = PrimitiveArray::<bool>::from(vec![false, true, false, true]);
+        let arr = BooleanArray::from(vec![false, true, false, true]);
         assert_eq!(buf, arr.values());
         assert_eq!(4, arr.len());
         assert_eq!(0, arr.offset());
@@ -810,7 +801,7 @@ mod tests {
     #[test]
     fn test_boolean_array_from_vec_option() {
         let buf = Buffer::from([10_u8]);
-        let arr = PrimitiveArray::<bool>::from(vec![Some(false), Some(true), None, Some(true)]);
+        let arr = BooleanArray::from(vec![Some(false), Some(true), None, Some(true)]);
         assert_eq!(buf, arr.values());
         assert_eq!(4, arr.len());
         assert_eq!(0, arr.offset());
@@ -838,7 +829,7 @@ mod tests {
             .offset(2)
             .add_buffer(buf)
             .build();
-        let arr = PrimitiveArray::<bool>::from(data);
+        let arr = BooleanArray::from(data);
         assert_eq!(buf2, arr.values());
         assert_eq!(5, arr.len());
         assert_eq!(2, arr.offset());
@@ -854,7 +845,7 @@ mod tests {
     )]
     fn test_boolean_array_invalid_buffer_len() {
         let data = ArrayData::builder(DataType::Boolean).len(5).build();
-        PrimitiveArray::<bool>::from(data);
+        BooleanArray::from(data);
     }
 
     #[test]
@@ -1159,11 +1150,11 @@ mod tests {
         let struct_array = StructArray::from(vec![
             (
                 Field::new("b", DataType::Boolean, false),
-                Arc::new(PrimitiveArray::from(vec![false, false, true, true])) as Arc<Array>,
+                Arc::new(BooleanArray::from(vec![false, false, true, true])) as Arc<Array>,
             ),
             (
                 Field::new("c", DataType::Int32, false),
-                Arc::new(PrimitiveArray::from(vec![42, 28, 19, 31])),
+                Arc::new(Int32Array::from(vec![42, 28, 19, 31])),
             ),
         ]);
         assert_eq!(boolean_data, struct_array.column(0).data());
@@ -1175,12 +1166,12 @@ mod tests {
     fn test_invalid_struct_child_array_lengths() {
         StructArray::from(vec![
             (
-                Field::new("b", DataType::Float64, false),
-                Arc::new(PrimitiveArray::from(vec![1.1])) as Arc<Array>,
+                Field::new("b", DataType::Float32, false),
+                Arc::new(Float32Array::from(vec![1.1])) as Arc<Array>,
             ),
             (
                 Field::new("c", DataType::Float64, false),
-                Arc::new(PrimitiveArray::from(vec![2.2, 3.3])),
+                Arc::new(Float64Array::from(vec![2.2, 3.3])),
             ),
         ]);
     }
@@ -1192,7 +1183,7 @@ mod tests {
         let buf = Buffer::from_raw_parts(ptr, 8);
         let buf2 = buf.slice(1);
         let array_data = ArrayData::builder(DataType::Int32).add_buffer(buf2).build();
-        PrimitiveArray::<i32>::from(array_data);
+        Int32Array::from(array_data);
     }
 
     #[test]
@@ -1233,22 +1224,21 @@ mod tests {
 
     #[test]
     fn test_buffer_array_min_max() {
-        let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         assert_eq!(5, a.min().unwrap());
         assert_eq!(9, a.max().unwrap());
     }
 
     #[test]
     fn test_buffer_array_min_max_with_nulls() {
-        let a = PrimitiveArray::<i32>::from(vec![Some(5), None, None, Some(8), Some(9)]);
+        let a = Int32Array::from(vec![Some(5), None, None, Some(8), Some(9)]);
         assert_eq!(5, a.min().unwrap());
         assert_eq!(9, a.max().unwrap());
     }
 
     #[test]
     fn test_access_array_concurrently() {
-        let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
-
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         let ret = thread::spawn(move || a.value(3)).join();
 
         assert!(ret.is_ok());

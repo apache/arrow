@@ -55,8 +55,10 @@ enum {
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowBuffer, garrow_buffer, G_TYPE_OBJECT)
 
-#define GARROW_BUFFER_GET_PRIVATE(obj) \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj), GARROW_TYPE_BUFFER, GArrowBufferPrivate))
+#define GARROW_BUFFER_GET_PRIVATE(obj)         \
+  static_cast<GArrowBufferPrivate *>(          \
+     garrow_buffer_get_instance_private(       \
+       GARROW_BUFFER(obj)))
 
 static void
 garrow_buffer_dispose(GObject *object)
@@ -481,6 +483,44 @@ garrow_mutable_buffer_slice(GArrowMutableBuffer *buffer,
                                            size);
   auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
   return garrow_mutable_buffer_new_raw_bytes(&arrow_buffer, priv->data);
+}
+
+/**
+ * garrow_mutable_buffer_set_data:
+ * @buffer: A #GArrowMutableBuffer.
+ * @offset: A write offset in the buffer data in byte.
+ * @data: (array length=size): The data to be written.
+ * @size: The number of bytes of the data to be written.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE otherwise.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+garrow_mutable_buffer_set_data(GArrowMutableBuffer *buffer,
+                               gint64 offset,
+                               const guint8 *data,
+                               gint64 size,
+                               GError **error)
+{
+  const gchar *context = "[mutable-buffer][set-data]";
+  auto arrow_buffer = garrow_buffer_get_raw(GARROW_BUFFER(buffer));
+  if (offset + size > arrow_buffer->size()) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "%s: Data is too large: "
+                "<(%" G_GINT64_FORMAT " + %" G_GINT64_FORMAT ") > "
+                "(%" G_GINT64_FORMAT ")>",
+                context,
+                offset,
+                size,
+                arrow_buffer->size());
+    return FALSE;
+  }
+  memcpy(arrow_buffer->mutable_data() + offset, data, size);
+  return TRUE;
 }
 
 

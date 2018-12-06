@@ -313,6 +313,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   }
 
   /**
+   * Get value indicating if inner vector is set.
    * @return 1 if inner vector is explicitly set via #addOrGetVector else 0
    */
   public int size() {
@@ -406,7 +407,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     final int byteIndex = index >> 3;
     final byte b = validityBuffer.getByte(byteIndex);
     final int bitIndex = index & 7;
-    return Long.bitCount(b & (1L << bitIndex));
+    return (b >> bitIndex) & 0x01;
   }
 
   @Override

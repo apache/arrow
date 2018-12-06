@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <exception>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -39,25 +38,23 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/hash-util.h"
-#include "arrow/util/hash.h"
+#include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
 class MemoryPool;
 
 using internal::checked_cast;
+using internal::DictionaryTraits;
+using internal::HashTraits;
 
 namespace compute {
 
-// TODO(wesm): Enable top-level dispatch to SSE4 hashing if it is enabled
-#define HASH_USE_SSE false
-
 namespace {
-
-enum class SIMDMode : char { NOSIMD, SSE4, AVX2 };
 
 #define CHECK_IMPLEMENTED(KERNEL, FUNCNAME, TYPE)                  \
   if (!KERNEL) {                                                   \
@@ -66,718 +63,71 @@ enum class SIMDMode : char { NOSIMD, SSE4, AVX2 };
     return Status::NotImplemented(ss.str());                       \
   }
 
-// This is a slight design concession -- some hash actions have the possibility
-// of failure. Rather than introduce extra error checking into all actions, we
-// will raise an internal exception so that only the actions where errors can
-// occur will experience the extra overhead
-class HashException : public std::exception {
- public:
-  explicit HashException(const std::string& msg, StatusCode code = StatusCode::Invalid)
-      : msg_(msg), code_(code) {}
-
-  ~HashException() throw() override {}
-
-  const char* what() const throw() override;
-
-  StatusCode code() const { return code_; }
-
- private:
-  std::string msg_;
-  StatusCode code_;
-};
-
-const char* HashException::what() const throw() { return msg_.c_str(); }
-
-class HashTable {
- public:
-  HashTable(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : type_(type),
-        pool_(pool),
-        initialized_(false),
-        hash_table_(nullptr),
-        hash_slots_(nullptr),
-        hash_table_size_(0),
-        mod_bitmask_(0) {}
-
-  virtual ~HashTable() {}
-
-  virtual Status Append(const ArrayData& input) = 0;
-  virtual Status Flush(Datum* out) = 0;
-  virtual Status GetDictionary(std::shared_ptr<ArrayData>* out) = 0;
-
- protected:
-  Status Init(int64_t elements);
-
-  std::shared_ptr<DataType> type_;
-  MemoryPool* pool_;
-  bool initialized_;
-
-  // The hash table contains integer indices that reference the set of observed
-  // distinct values
-  std::shared_ptr<Buffer> hash_table_;
-  hash_slot_t* hash_slots_;
-
-  /// Size of the table. Must be a power of 2.
-  int64_t hash_table_size_;
-
-  /// Size at which we decide to resize
-  int64_t hash_table_load_threshold_;
-
-  // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
-  // hash_table_size_, but uses far fewer CPU cycles
-  int64_t mod_bitmask_;
-};
-
-Status HashTable::Init(int64_t elements) {
-  DCHECK_EQ(elements, BitUtil::NextPower2(elements));
-  RETURN_NOT_OK(internal::NewHashTable(elements, pool_, &hash_table_));
-  hash_slots_ = reinterpret_cast<hash_slot_t*>(hash_table_->mutable_data());
-  hash_table_size_ = elements;
-  hash_table_load_threshold_ =
-      static_cast<int64_t>(static_cast<double>(elements) * kMaxHashTableLoad);
-  mod_bitmask_ = elements - 1;
-  initialized_ = true;
-  return Status::OK();
-}
-
-template <typename Type, typename Action, typename Enable = void>
-class HashTableKernel : public HashTable {};
-
-// Types of hash actions
-//
-// unique: append to dictionary when not found, no-op with slot
-// dictionary-encode: append to dictionary when not found, append slot #
-// match: raise or set null when not found, otherwise append slot #
-// isin: set false when not found, otherwise true
-// value counts: append to dictionary when not found, increment count for slot
-
-template <typename Type, typename Enable = void>
-class HashDictionary {};
-
-// ----------------------------------------------------------------------
-// Hash table pass for nulls
-
-template <typename Type, typename Action>
-class HashTableKernel<Type, Action, enable_if_null<Type>> : public HashTable {
- public:
-  using HashTable::HashTable;
-
-  Status Init() {
-    // No-op, do not even need to initialize hash table
-    return Status::OK();
-  }
-
-  Status Append(const ArrayData& arr) override {
-    if (!initialized_) {
-      RETURN_NOT_OK(Init());
-    }
-    auto action = checked_cast<Action*>(this);
-    RETURN_NOT_OK(action->Reserve(arr.length));
-    for (int64_t i = 0; i < arr.length; ++i) {
-      action->ObserveNull();
-    }
-    return Status::OK();
-  }
-
-  Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
-    // TODO(wesm): handle null being a valid dictionary value
-    auto null_array = std::make_shared<NullArray>(0);
-    *out = null_array->data();
-    return Status::OK();
-  }
-};
-
-// ----------------------------------------------------------------------
-// Hash table pass for primitive types
-
-template <typename Type>
-struct HashDictionary<Type, enable_if_has_c_type<Type>> {
-  using T = typename Type::c_type;
-
-  explicit HashDictionary(MemoryPool* pool) : pool(pool), size(0), capacity(0) {}
-
-  Status Init() {
-    this->size = 0;
-    RETURN_NOT_OK(AllocateResizableBuffer(this->pool, 0, &this->buffer));
-    return Resize(kInitialHashTableSize);
-  }
-
-  Status DoubleSize() { return Resize(this->size * 2); }
-
-  Status Resize(const int64_t elements) {
-    RETURN_NOT_OK(this->buffer->Resize(elements * sizeof(T)));
-
-    this->capacity = elements;
-    this->values = reinterpret_cast<T*>(this->buffer->mutable_data());
-    return Status::OK();
-  }
-
-  MemoryPool* pool;
-  std::shared_ptr<ResizableBuffer> buffer;
-  T* values;
-  int64_t size;
-  int64_t capacity;
-};
-
-#define GENERIC_HASH_PASS(HASH_INNER_LOOP)                                               \
-  if (arr.null_count != 0) {                                                             \
-    internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length); \
-    for (int64_t i = 0; i < arr.length; ++i) {                                           \
-      const bool is_null = valid_reader.IsNotSet();                                      \
-      valid_reader.Next();                                                               \
-                                                                                         \
-      if (is_null) {                                                                     \
-        action->ObserveNull();                                                           \
-        continue;                                                                        \
-      }                                                                                  \
-                                                                                         \
-      HASH_INNER_LOOP();                                                                 \
-    }                                                                                    \
-  } else {                                                                               \
-    for (int64_t i = 0; i < arr.length; ++i) {                                           \
-      HASH_INNER_LOOP();                                                                 \
-    }                                                                                    \
-  }
-
-template <typename Type, typename Action>
-class HashTableKernel<
-    Type, Action,
-    typename std::enable_if<has_c_type<Type>::value && !is_8bit_int<Type>::value>::type>
-    : public HashTable {
- public:
-  using T = typename Type::c_type;
-
-  HashTableKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : HashTable(type, pool), dict_(pool) {}
-
-  Status Init() {
-    RETURN_NOT_OK(dict_.Init());
-    return HashTable::Init(kInitialHashTableSize);
-  }
-
-  Status Append(const ArrayData& arr) override {
-    if (!initialized_) {
-      RETURN_NOT_OK(Init());
-    }
-
-    const T* values = GetValues<T>(arr, 1);
-    auto action = checked_cast<Action*>(this);
-
-    RETURN_NOT_OK(action->Reserve(arr.length));
-
-#define HASH_INNER_LOOP()                                               \
-  const T value = values[i];                                            \
-  int64_t j = HashValue(value) & mod_bitmask_;                          \
-  hash_slot_t slot = hash_slots_[j];                                    \
-                                                                        \
-  while (kHashSlotEmpty != slot && dict_.values[slot] != value) {       \
-    ++j;                                                                \
-    if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                   \
-      j = 0;                                                            \
-    }                                                                   \
-    slot = hash_slots_[j];                                              \
-  }                                                                     \
-                                                                        \
-  if (slot == kHashSlotEmpty) {                                         \
-    if (!Action::allow_expand) {                                        \
-      throw HashException("Encountered new dictionary value");          \
-    }                                                                   \
-                                                                        \
-    slot = static_cast<hash_slot_t>(dict_.size);                        \
-    hash_slots_[j] = slot;                                              \
-    dict_.values[dict_.size++] = value;                                 \
-                                                                        \
-    action->ObserveNotFound(slot);                                      \
-                                                                        \
-    if (ARROW_PREDICT_FALSE(dict_.size > hash_table_load_threshold_)) { \
-      RETURN_NOT_OK(action->DoubleSize());                              \
-    }                                                                   \
-  } else {                                                              \
-    action->ObserveFound(slot);                                         \
-  }
-
-    GENERIC_HASH_PASS(HASH_INNER_LOOP);
-
-#undef HASH_INNER_LOOP
-
-    return Status::OK();
-  }
-
-  Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
-    // TODO(wesm): handle null being in the dictionary
-    auto dict_data = dict_.buffer;
-    RETURN_NOT_OK(dict_data->Resize(dict_.size * sizeof(T), false));
-    dict_data->ZeroPadding();
-
-    *out = ArrayData::Make(type_, dict_.size, {nullptr, dict_data}, 0);
-    return Status::OK();
-  }
-
- protected:
-  int64_t HashValue(const T& value) const {
-    // TODO(wesm): Use faster hash function for C types
-    return HashUtil::Hash<HASH_USE_SSE>(&value, sizeof(T), 0);
-  }
-
-  Status DoubleTableSize() {
-#define PRIMITIVE_INNER_LOOP           \
-  const T value = dict_.values[index]; \
-  int64_t j = HashValue(value) & new_mod_bitmask;
-
-    DOUBLE_TABLE_SIZE(, PRIMITIVE_INNER_LOOP);
-
-#undef PRIMITIVE_INNER_LOOP
-
-    return dict_.Resize(hash_table_size_);
-  }
-
-  HashDictionary<Type> dict_;
-};
-
-// ----------------------------------------------------------------------
-// Hash table for boolean types
-
-template <typename Type, typename Action>
-class HashTableKernel<Type, Action, enable_if_boolean<Type>> : public HashTable {
- public:
-  HashTableKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : HashTable(type, pool) {
-    std::fill(table_, table_ + 2, kHashSlotEmpty);
-  }
-
-  Status Append(const ArrayData& arr) override {
-    auto action = checked_cast<Action*>(this);
-
-    RETURN_NOT_OK(action->Reserve(arr.length));
-
-    internal::BitmapReader value_reader(arr.buffers[1]->data(), arr.offset, arr.length);
-
-#define HASH_INNER_LOOP()                                      \
-  if (slot == kHashSlotEmpty) {                                \
-    if (!Action::allow_expand) {                               \
-      throw HashException("Encountered new dictionary value"); \
-    }                                                          \
-    table_[j] = slot = static_cast<hash_slot_t>(dict_.size()); \
-    dict_.push_back(value);                                    \
-    action->ObserveNotFound(slot);                             \
-  } else {                                                     \
-    action->ObserveFound(slot);                                \
-  }
-
-    if (arr.null_count != 0) {
-      internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
-      for (int64_t i = 0; i < arr.length; ++i) {
-        const bool is_null = valid_reader.IsNotSet();
-        valid_reader.Next();
-        if (is_null) {
-          value_reader.Next();
-          action->ObserveNull();
-          continue;
-        }
-        const bool value = value_reader.IsSet();
-        value_reader.Next();
-        const int j = value ? 1 : 0;
-        hash_slot_t slot = table_[j];
-        HASH_INNER_LOOP();
-      }
-    } else {
-      for (int64_t i = 0; i < arr.length; ++i) {
-        const bool value = value_reader.IsSet();
-        value_reader.Next();
-        const int j = value ? 1 : 0;
-        hash_slot_t slot = table_[j];
-        HASH_INNER_LOOP();
-      }
-    }
-
-#undef HASH_INNER_LOOP
-
-    return Status::OK();
-  }
-
-  Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
-    BooleanBuilder builder(pool_);
-    for (const bool value : dict_) {
-      RETURN_NOT_OK(builder.Append(value));
-    }
-    return builder.FinishInternal(out);
-  }
-
- private:
-  hash_slot_t table_[2];
-  std::vector<bool> dict_;
-};
-
-// ----------------------------------------------------------------------
-// Hash table pass for variable-length binary types
-
-template <typename Type, typename Action>
-class HashTableKernel<Type, Action, enable_if_binary<Type>> : public HashTable {
- public:
-  HashTableKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : HashTable(type, pool), dict_offsets_(pool), dict_data_(pool), dict_size_(0) {}
-
-  Status Init() {
-    RETURN_NOT_OK(dict_offsets_.Resize(kInitialHashTableSize));
-
-    // We append the end offset after each append to the dictionary, so this
-    // sets the initial condition for the length-0 case
-    //
-    // initial offsets (dict size == 0): 0
-    // after 1st dict entry of length 3: 0 3
-    // after 2nd dict entry of length 4: 0 3 7
-    RETURN_NOT_OK(dict_offsets_.Append(0));
-    return HashTable::Init(kInitialHashTableSize);
-  }
-
-  Status Append(const ArrayData& arr) override {
-    constexpr uint8_t empty_value = 0;
-    if (!initialized_) {
-      RETURN_NOT_OK(Init());
-    }
-
-    const int32_t* offsets = GetValues<int32_t>(arr, 1);
-    const uint8_t* data;
-    if (arr.buffers[2].get() == nullptr) {
-      data = &empty_value;
-    } else {
-      data = GetValues<uint8_t>(arr, 2);
-    }
-
-    auto action = checked_cast<Action*>(this);
-    RETURN_NOT_OK(action->Reserve(arr.length));
-
-#define HASH_INNER_LOOP()                                                           \
-  const int32_t position = offsets[i];                                              \
-  const int32_t length = offsets[i + 1] - position;                                 \
-  const uint8_t* value = data + position;                                           \
-                                                                                    \
-  int64_t j = HashValue(value, length) & mod_bitmask_;                              \
-  hash_slot_t slot = hash_slots_[j];                                                \
-                                                                                    \
-  const int32_t* dict_offsets = dict_offsets_.data();                               \
-  const uint8_t* dict_data = dict_data_.data();                                     \
-  while (kHashSlotEmpty != slot &&                                                  \
-         !((dict_offsets[slot + 1] - dict_offsets[slot]) == length &&               \
-           0 == memcmp(value, dict_data + dict_offsets[slot], length))) {           \
-    ++j;                                                                            \
-    if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                               \
-      j = 0;                                                                        \
-    }                                                                               \
-    slot = hash_slots_[j];                                                          \
-  }                                                                                 \
-                                                                                    \
-  if (slot == kHashSlotEmpty) {                                                     \
-    if (!Action::allow_expand) {                                                    \
-      throw HashException("Encountered new dictionary value");                      \
-    }                                                                               \
-                                                                                    \
-    slot = dict_size_++;                                                            \
-    hash_slots_[j] = slot;                                                          \
-                                                                                    \
-    RETURN_NOT_OK(dict_data_.Append(value, length));                                \
-    RETURN_NOT_OK(dict_offsets_.Append(static_cast<int32_t>(dict_data_.length()))); \
-                                                                                    \
-    action->ObserveNotFound(slot);                                                  \
-                                                                                    \
-    if (ARROW_PREDICT_FALSE(dict_size_ > hash_table_load_threshold_)) {             \
-      RETURN_NOT_OK(action->DoubleSize());                                          \
-    }                                                                               \
-  } else {                                                                          \
-    action->ObserveFound(slot);                                                     \
-  }
-
-    GENERIC_HASH_PASS(HASH_INNER_LOOP);
-
-#undef HASH_INNER_LOOP
-
-    return Status::OK();
-  }
-
-  Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
-    // TODO(wesm): handle null being in the dictionary
-    BufferVector buffers = {nullptr, nullptr, nullptr};
-
-    RETURN_NOT_OK(dict_offsets_.Finish(&buffers[1]));
-    RETURN_NOT_OK(dict_data_.Finish(&buffers[2]));
-
-    *out = ArrayData::Make(type_, dict_size_, std::move(buffers), 0);
-    return Status::OK();
-  }
-
- protected:
-  int64_t HashValue(const uint8_t* data, int32_t length) const {
-    return HashUtil::Hash<HASH_USE_SSE>(data, length, 0);
-  }
-
-  Status DoubleTableSize() {
-#define VARBYTES_SETUP                                \
-  const int32_t* dict_offsets = dict_offsets_.data(); \
-  const uint8_t* dict_data = dict_data_.data()
-
-#define VARBYTES_COMPUTE_HASH                                           \
-  const int32_t length = dict_offsets[index + 1] - dict_offsets[index]; \
-  const uint8_t* value = dict_data + dict_offsets[index];               \
-  int64_t j = HashValue(value, length) & new_mod_bitmask
-
-    DOUBLE_TABLE_SIZE(VARBYTES_SETUP, VARBYTES_COMPUTE_HASH);
-
-#undef VARBYTES_SETUP
-#undef VARBYTES_COMPUTE_HASH
-
-    return Status::OK();
-  }
-
-  TypedBufferBuilder<int32_t> dict_offsets_;
-  TypedBufferBuilder<uint8_t> dict_data_;
-  int32_t dict_size_;
-};
-
-// ----------------------------------------------------------------------
-// Hash table pass for fixed size binary types
-
-template <typename Type, typename Action>
-class HashTableKernel<Type, Action, enable_if_fixed_size_binary<Type>>
-    : public HashTable {
- public:
-  HashTableKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : HashTable(type, pool), dict_data_(pool), dict_size_(0) {
-    const auto& fw_type = checked_cast<const FixedSizeBinaryType&>(*type);
-    byte_width_ = fw_type.bit_width() / 8;
-  }
-
-  Status Init() {
-    RETURN_NOT_OK(dict_data_.Resize(kInitialHashTableSize * byte_width_));
-    return HashTable::Init(kInitialHashTableSize);
-  }
-
-  Status Append(const ArrayData& arr) override {
-    if (!initialized_) {
-      RETURN_NOT_OK(Init());
-    }
-
-    const uint8_t* data = GetValues<uint8_t>(arr, 1);
-
-    auto action = checked_cast<Action*>(this);
-    RETURN_NOT_OK(action->Reserve(arr.length));
-
-#define HASH_INNER_LOOP()                                                      \
-  const uint8_t* value = data + i * byte_width_;                               \
-  int64_t j = HashValue(value) & mod_bitmask_;                                 \
-  hash_slot_t slot = hash_slots_[j];                                           \
-                                                                               \
-  const uint8_t* dict_data = dict_data_.data();                                \
-  while (kHashSlotEmpty != slot &&                                             \
-         !(0 == memcmp(value, dict_data + slot * byte_width_, byte_width_))) { \
-    ++j;                                                                       \
-    if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                          \
-      j = 0;                                                                   \
-    }                                                                          \
-    slot = hash_slots_[j];                                                     \
-  }                                                                            \
-                                                                               \
-  if (slot == kHashSlotEmpty) {                                                \
-    if (!Action::allow_expand) {                                               \
-      throw HashException("Encountered new dictionary value");                 \
-    }                                                                          \
-                                                                               \
-    slot = dict_size_++;                                                       \
-    hash_slots_[j] = slot;                                                     \
-                                                                               \
-    RETURN_NOT_OK(dict_data_.Append(value, byte_width_));                      \
-                                                                               \
-    action->ObserveNotFound(slot);                                             \
-                                                                               \
-    if (ARROW_PREDICT_FALSE(dict_size_ > hash_table_load_threshold_)) {        \
-      RETURN_NOT_OK(action->DoubleSize());                                     \
-    }                                                                          \
-  } else {                                                                     \
-    action->ObserveFound(slot);                                                \
-  }
-
-    GENERIC_HASH_PASS(HASH_INNER_LOOP);
-
-#undef HASH_INNER_LOOP
-
-    return Status::OK();
-  }
-
-  Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
-    // TODO(wesm): handle null being in the dictionary
-    BufferVector buffers = {nullptr, nullptr};
-    RETURN_NOT_OK(dict_data_.Finish(&buffers[1]));
-
-    *out = ArrayData::Make(type_, dict_size_, std::move(buffers), 0);
-    return Status::OK();
-  }
-
- protected:
-  int64_t HashValue(const uint8_t* data) const {
-    return HashUtil::Hash<HASH_USE_SSE>(data, byte_width_, 0);
-  }
-
-  Status DoubleTableSize() {
-#define FIXED_BYTES_SETUP const uint8_t* dict_data = dict_data_.data()
-
-#define FIXED_BYTES_COMPUTE_HASH \
-  int64_t j = HashValue(dict_data + index * byte_width_) & new_mod_bitmask
-
-    DOUBLE_TABLE_SIZE(FIXED_BYTES_SETUP, FIXED_BYTES_COMPUTE_HASH);
-
-#undef FIXED_BYTES_SETUP
-#undef FIXED_BYTES_COMPUTE_HASH
-
-    return Status::OK();
-  }
-
-  int32_t byte_width_;
-  TypedBufferBuilder<uint8_t> dict_data_;
-  int32_t dict_size_;
-};
-
-// ----------------------------------------------------------------------
-// Hash table pass for uint8 and int8
-
-template <typename T>
-inline int Hash8Bit(const T val) {
-  return 0;
-}
-
-template <>
-inline int Hash8Bit(const uint8_t val) {
-  return val;
-}
-
-template <>
-inline int Hash8Bit(const int8_t val) {
-  return val + 128;
-}
-
-template <typename Type, typename Action>
-class HashTableKernel<Type, Action, enable_if_8bit_int<Type>> : public HashTable {
- public:
-  using T = typename Type::c_type;
-
-  HashTableKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : HashTable(type, pool) {
-    std::fill(table_, table_ + 256, kHashSlotEmpty);
-  }
-
-  Status Append(const ArrayData& arr) override {
-    const T* values = GetValues<T>(arr, 1);
-    auto action = checked_cast<Action*>(this);
-    RETURN_NOT_OK(action->Reserve(arr.length));
-
-#define HASH_INNER_LOOP()                                      \
-  const T value = values[i];                                   \
-  const int hash = Hash8Bit<T>(value);                         \
-  hash_slot_t slot = table_[hash];                             \
-                                                               \
-  if (slot == kHashSlotEmpty) {                                \
-    if (!Action::allow_expand) {                               \
-      throw HashException("Encountered new dictionary value"); \
-    }                                                          \
-                                                               \
-    slot = static_cast<hash_slot_t>(dict_.size());             \
-    table_[hash] = slot;                                       \
-    dict_.push_back(value);                                    \
-    action->ObserveNotFound(slot);                             \
-  } else {                                                     \
-    action->ObserveFound(slot);                                \
-  }
-
-    GENERIC_HASH_PASS(HASH_INNER_LOOP);
-
-#undef HASH_INNER_LOOP
-
-    return Status::OK();
-  }
-
-  Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
-    using BuilderType = typename TypeTraits<Type>::BuilderType;
-    BuilderType builder(pool_);
-
-    for (const T value : dict_) {
-      RETURN_NOT_OK(builder.Append(value));
-    }
-
-    return builder.FinishInternal(out);
-  }
-
- private:
-  hash_slot_t table_[256];
-  std::vector<T> dict_;
-};
-
 // ----------------------------------------------------------------------
 // Unique implementation
 
-template <typename Type>
-class UniqueImpl : public HashTableKernel<Type, UniqueImpl<Type>> {
+class UniqueAction {
  public:
-  static constexpr bool allow_expand = true;
-  using Base = HashTableKernel<Type, UniqueImpl<Type>>;
-  using Base::Base;
+  UniqueAction(const std::shared_ptr<DataType>& type, MemoryPool* pool) {}
+
+  Status Reset() { return Status::OK(); }
 
   Status Reserve(const int64_t length) { return Status::OK(); }
 
-  void ObserveFound(const hash_slot_t slot) {}
   void ObserveNull() {}
-  void ObserveNotFound(const hash_slot_t slot) {}
 
-  Status DoubleSize() { return Base::DoubleTableSize(); }
+  template <class Index>
+  void ObserveFound(Index index) {}
 
-  Status Append(const ArrayData& input) override { return Base::Append(input); }
+  template <class Index>
+  void ObserveNotFound(Index index) {}
 
-  Status Flush(Datum* out) override {
-    // No-op
-    return Status::OK();
-  }
+  Status Flush(Datum* out) { return Status::OK(); }
 };
 
 // ----------------------------------------------------------------------
 // Dictionary encode implementation
 
-template <typename Type>
-class DictEncodeImpl : public HashTableKernel<Type, DictEncodeImpl<Type>> {
+class DictEncodeAction {
  public:
-  static constexpr bool allow_expand = true;
-  using Base = HashTableKernel<Type, DictEncodeImpl>;
+  DictEncodeAction(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : indices_builder_(pool) {}
 
-  DictEncodeImpl(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : Base(type, pool), indices_builder_(pool) {}
+  Status Reset() {
+    indices_builder_.Reset();
+    return Status::OK();
+  }
 
   Status Reserve(const int64_t length) { return indices_builder_.Reserve(length); }
 
   void ObserveNull() { indices_builder_.UnsafeAppendNull(); }
 
-  void ObserveFound(const hash_slot_t slot) { indices_builder_.UnsafeAppend(slot); }
+  template <class Index>
+  void ObserveFound(Index index) {
+    indices_builder_.UnsafeAppend(index);
+  }
 
-  void ObserveNotFound(const hash_slot_t slot) { return ObserveFound(slot); }
+  template <class Index>
+  void ObserveNotFound(Index index) {
+    return ObserveFound(index);
+  }
 
-  Status DoubleSize() { return Base::DoubleTableSize(); }
-
-  Status Flush(Datum* out) override {
+  Status Flush(Datum* out) {
     std::shared_ptr<ArrayData> result;
     RETURN_NOT_OK(indices_builder_.FinishInternal(&result));
     out->value = std::move(result);
     return Status::OK();
   }
 
-  using Base::Append;
-
  private:
   Int32Builder indices_builder_;
 };
 
 // ----------------------------------------------------------------------
-// Kernel wrapper for generic hash table kernels
+// Base class for all hash kernel implementations
 
 class HashKernelImpl : public HashKernel {
  public:
-  explicit HashKernelImpl(std::unique_ptr<HashTable> hasher)
-      : hasher_(std::move(hasher)) {}
-
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
     DCHECK_EQ(Datum::ARRAY, input.kind());
     RETURN_NOT_OK(Append(ctx, *input.array()));
@@ -786,34 +136,140 @@ class HashKernelImpl : public HashKernel {
 
   Status Append(FunctionContext* ctx, const ArrayData& input) override {
     std::lock_guard<std::mutex> guard(lock_);
-    try {
-      RETURN_NOT_OK(hasher_->Append(input));
-    } catch (const HashException& e) {
-      return Status(e.code(), e.what());
+    return Append(input);
+  }
+
+  virtual Status Append(const ArrayData& arr) = 0;
+
+ protected:
+  std::mutex lock_;
+};
+
+// ----------------------------------------------------------------------
+// Base class for all "regular" hash kernel implementations
+// (NullType has a separate implementation)
+
+template <typename Type, typename Scalar, typename Action>
+class RegularHashKernelImpl : public HashKernelImpl {
+ public:
+  RegularHashKernelImpl(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : pool_(pool), type_(type), action_(type, pool) {}
+
+  Status Reset() override {
+    memo_table_.reset(new MemoTable(0));
+    return action_.Reset();
+  }
+
+  Status Append(const ArrayData& arr) override {
+    RETURN_NOT_OK(action_.Reserve(arr.length));
+    return ArrayDataVisitor<Type>::Visit(arr, this);
+  }
+
+  Status Flush(Datum* out) override { return action_.Flush(out); }
+
+  Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
+    return DictionaryTraits<Type>::GetDictionaryArrayData(pool_, type_, *memo_table_,
+                                                          0 /* start_offset */, out);
+  }
+
+  Status VisitNull() {
+    action_.ObserveNull();
+    return Status::OK();
+  }
+
+  Status VisitValue(const Scalar& value) {
+    auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
+    auto on_not_found = [this](int32_t memo_index) {
+      action_.ObserveNotFound(memo_index);
+    };
+    memo_table_->GetOrInsert(value, on_found, on_not_found);
+    return Status::OK();
+  }
+
+ protected:
+  using MemoTable = typename HashTraits<Type>::MemoTableType;
+
+  MemoryPool* pool_;
+  std::shared_ptr<DataType> type_;
+  Action action_;
+  std::unique_ptr<MemoTable> memo_table_;
+};
+
+// ----------------------------------------------------------------------
+// Hash kernel implementation for nulls
+
+template <typename Action>
+class NullHashKernelImpl : public HashKernelImpl {
+ public:
+  NullHashKernelImpl(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : pool_(pool), type_(type), action_(type, pool) {}
+
+  Status Reset() override { return action_.Reset(); }
+
+  Status Append(const ArrayData& arr) override {
+    RETURN_NOT_OK(action_.Reserve(arr.length));
+    for (int64_t i = 0; i < arr.length; ++i) {
+      action_.ObserveNull();
     }
     return Status::OK();
   }
 
-  Status Flush(Datum* out) override { return hasher_->Flush(out); }
+  Status Flush(Datum* out) override { return action_.Flush(out); }
 
   Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
-    return hasher_->GetDictionary(out);
+    // TODO(wesm): handle null being a valid dictionary value
+    auto null_array = std::make_shared<NullArray>(0);
+    *out = null_array->data();
+    return Status::OK();
   }
 
- private:
-  std::mutex lock_;
-  std::unique_ptr<HashTable> hasher_;
+ protected:
+  MemoryPool* pool_;
+  std::shared_ptr<DataType> type_;
+  Action action_;
+};
+
+// ----------------------------------------------------------------------
+// Kernel wrapper for generic hash table kernels
+
+template <typename Type, typename Action, typename Enable = void>
+struct HashKernelTraits {};
+
+template <typename Type, typename Action>
+struct HashKernelTraits<Type, Action, enable_if_null<Type>> {
+  using HashKernelImpl = NullHashKernelImpl<Action>;
+};
+
+template <typename Type, typename Action>
+struct HashKernelTraits<Type, Action, enable_if_has_c_type<Type>> {
+  using HashKernelImpl = RegularHashKernelImpl<Type, typename Type::c_type, Action>;
+};
+
+template <typename Type, typename Action>
+struct HashKernelTraits<Type, Action, enable_if_boolean<Type>> {
+  using HashKernelImpl = RegularHashKernelImpl<Type, bool, Action>;
+};
+
+template <typename Type, typename Action>
+struct HashKernelTraits<Type, Action, enable_if_binary<Type>> {
+  using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action>;
+};
+
+template <typename Type, typename Action>
+struct HashKernelTraits<Type, Action, enable_if_fixed_size_binary<Type>> {
+  using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action>;
 };
 
 }  // namespace
 
 Status GetUniqueKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
                        std::unique_ptr<HashKernel>* out) {
-  std::unique_ptr<HashTable> hasher;
+  std::unique_ptr<HashKernel> kernel;
 
-#define UNIQUE_CASE(InType)                                         \
-  case InType::type_id:                                             \
-    hasher.reset(new UniqueImpl<InType>(type, ctx->memory_pool())); \
+#define UNIQUE_CASE(InType)                                                           \
+  case InType::type_id:                                                               \
+    kernel.reset(new typename HashKernelTraits<InType, UniqueAction>::HashKernelImpl( \
+        type, ctx->memory_pool()));                                                   \
     break
 
   switch (type->id()) {
@@ -844,19 +300,22 @@ Status GetUniqueKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& ty
 
 #undef UNIQUE_CASE
 
-  CHECK_IMPLEMENTED(hasher, "unique", type);
-  out->reset(new HashKernelImpl(std::move(hasher)));
+  CHECK_IMPLEMENTED(kernel, "unique", type);
+  RETURN_NOT_OK(kernel->Reset());
+  *out = std::move(kernel);
   return Status::OK();
 }
 
 Status GetDictionaryEncodeKernel(FunctionContext* ctx,
                                  const std::shared_ptr<DataType>& type,
                                  std::unique_ptr<HashKernel>* out) {
-  std::unique_ptr<HashTable> hasher;
+  std::unique_ptr<HashKernel> kernel;
 
-#define DICTIONARY_ENCODE_CASE(InType)                                  \
-  case InType::type_id:                                                 \
-    hasher.reset(new DictEncodeImpl<InType>(type, ctx->memory_pool())); \
+#define DICTIONARY_ENCODE_CASE(InType)                                                \
+  case InType::type_id:                                                               \
+    kernel.reset(new                                                                  \
+                 typename HashKernelTraits<InType, DictEncodeAction>::HashKernelImpl( \
+                     type, ctx->memory_pool()));                                      \
     break
 
   switch (type->id()) {
@@ -887,8 +346,9 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
 
 #undef DICTIONARY_ENCODE_CASE
 
-  CHECK_IMPLEMENTED(hasher, "dictionary-encode", type);
-  out->reset(new HashKernelImpl(std::move(hasher)));
+  CHECK_IMPLEMENTED(kernel, "dictionary-encode", type);
+  RETURN_NOT_OK(kernel->Reset());
+  *out = std::move(kernel);
   return Status::OK();
 }
 

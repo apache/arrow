@@ -250,13 +250,22 @@ Status Lz4Codec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
   return Status::OK();
 }
 
-Status Lz4Codec::Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
-                            uint8_t* output_buffer) {
+Status Lz4Codec::Decompress(int64_t input_len, const uint8_t* input,
+                            int64_t output_buffer_len, uint8_t* output_buffer) {
+  return Decompress(input_len, input, output_buffer_len, output_buffer, nullptr);
+}
+
+Status Lz4Codec::Decompress(int64_t input_len, const uint8_t* input,
+                            int64_t output_buffer_len, uint8_t* output_buffer,
+                            int64_t* output_len) {
   int64_t decompressed_size = LZ4_decompress_safe(
       reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
-      static_cast<int>(input_len), static_cast<int>(output_len));
+      static_cast<int>(input_len), static_cast<int>(output_buffer_len));
   if (decompressed_size < 0) {
     return Status::IOError("Corrupt Lz4 compressed data.");
+  }
+  if (output_len) {
+    *output_len = decompressed_size;
   }
   return Status::OK();
 }
@@ -268,11 +277,11 @@ int64_t Lz4Codec::MaxCompressedLen(int64_t input_len,
 
 Status Lz4Codec::Compress(int64_t input_len, const uint8_t* input,
                           int64_t output_buffer_len, uint8_t* output_buffer,
-                          int64_t* output_length) {
-  *output_length = LZ4_compress_default(
+                          int64_t* output_len) {
+  *output_len = LZ4_compress_default(
       reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
       static_cast<int>(input_len), static_cast<int>(output_buffer_len));
-  if (*output_length == 0) {
+  if (*output_len == 0) {
     return Status::IOError("Lz4 compression failure.");
   }
   return Status::OK();

@@ -49,10 +49,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowDecimal128,
                            garrow_decimal128,
                            G_TYPE_OBJECT)
 
-#define GARROW_DECIMAL128_GET_PRIVATE(obj)                 \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                      \
-                               GARROW_TYPE_DECIMAL128,     \
-                               GArrowDecimal128Private))
+#define GARROW_DECIMAL128_GET_PRIVATE(obj)         \
+  static_cast<GArrowDecimal128Private *>(          \
+     garrow_decimal128_get_instance_private(       \
+       GARROW_DECIMAL128(obj)))
 
 static void
 garrow_decimal128_finalize(GObject *object)

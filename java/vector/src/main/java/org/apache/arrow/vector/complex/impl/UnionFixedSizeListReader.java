@@ -26,7 +26,7 @@ import org.apache.arrow.vector.holders.UnionHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 
 /**
- * Reader for fixed size list vectors
+ * Reader for fixed size list vectors.
  */
 public class UnionFixedSizeListReader extends AbstractFieldReader {
 

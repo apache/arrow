@@ -1,3 +1,6 @@
+Meta
+doc
+inst/doc
 *.o
 *.o-*
 *.d

@@ -26,9 +26,13 @@ pushd $RUST_DIR
 # show activated toolchain
 rustup show
 
-# raises on any formatting errors
-rustup component add rustfmt-preview
-cargo fmt --all -- --check
+# check code formatting only for Rust nightly
+if [ $RUSTUP_TOOLCHAIN == "nightly" ]
+then
+  # raises on any formatting errors
+  rustup component add rustfmt-preview
+  cargo fmt --all -- --check
+fi
 
 # raises on any warnings
 cargo rustc -- -D warnings

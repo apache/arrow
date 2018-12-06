@@ -29,7 +29,7 @@ test_that("feather read/write round trip", {
   expect_true(fs::file_exists(tf2))
 
   tf3 <- local_tempfile()
-  stream <- close_on_exit(file_output_stream(tf3))
+  stream <- close_on_exit(FileOutputStream(tf3))
   write_feather(tib, stream)
   expect_true(fs::file_exists(tf3))
 
@@ -47,7 +47,7 @@ test_that("feather read/write round trip", {
   expect_is(tab4, "arrow::Table")
 
   # reading directly from arrow::io::ReadableFile
-  tab5 <- read_feather(file_open(tf3))
+  tab5 <- read_feather(ReadableFile(tf3))
   expect_is(tab5, "arrow::Table")
 
   expect_equal(tib, as_tibble(tab1))

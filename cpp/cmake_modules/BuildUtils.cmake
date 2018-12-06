@@ -259,6 +259,10 @@ function(ADD_ARROW_LIB LIB_NAME)
       set(LIB_NAME_STATIC ${LIB_NAME})
     endif()
 
+    if (ARROW_BUILD_STATIC AND WIN32)
+      target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_STATIC)
+    endif()
+
     set_target_properties(${LIB_NAME}_static
       PROPERTIES
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
@@ -356,6 +360,9 @@ endfunction()
 # net/net_util-test). Either way, the last component must be a globally
 # unique name.
 #
+# If given, SOURCES is the list of C++ source files to compile into the test
+# executable.  Otherwise, "REL_TEST_NAME.cc" is used.
+#
 # The unit test is added with a label of "unittest" to support filtering with
 # ctest.
 #
@@ -372,8 +379,8 @@ endfunction()
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options NO_VALGRIND)
   set(one_value_args)
-  set(multi_value_args STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES EXTRA_DEPENDENCIES
-    LABELS PREFIX)
+  set(multi_value_args SOURCES STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES
+      EXTRA_DEPENDENCIES LABELS PREFIX)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -406,39 +413,39 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     set(ARG_LABELS unittest)
   endif()
 
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME}.cc)
-    # This test has a corresponding .cc file, set it up as an executable.
-    set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
-    add_executable(${TEST_NAME} "${REL_TEST_NAME}.cc")
-
-    if (ARG_STATIC_LINK_LIBS)
-      # Customize link libraries
-      target_link_libraries(${TEST_NAME} ${ARG_STATIC_LINK_LIBS})
-    else()
-      target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
-    endif()
-
-    if (ARG_EXTRA_LINK_LIBS)
-      target_link_libraries(${TEST_NAME} ${ARG_EXTRA_LINK_LIBS})
-    endif()
-
-    if (ARG_EXTRA_INCLUDES)
-      target_include_directories(${TEST_NAME} SYSTEM PUBLIC
-        ${ARG_EXTRA_INCLUDES}
-        )
-    endif()
-
-    if (ARG_EXTRA_DEPENDENCIES)
-      add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
-    endif()
-
-    foreach (TEST_LABEL ${ARG_LABELS})
-      add_dependencies(${TEST_LABEL} ${TEST_NAME})
-    endforeach()
+  if (ARG_SOURCES)
+    set(SOURCES ${ARG_SOURCES})
   else()
-    # No executable, just invoke the test (probably a script) directly.
-    set(TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME})
+    set(SOURCES "${REL_TEST_NAME}.cc")
   endif()
+
+  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
+  add_executable(${TEST_NAME} ${SOURCES})
+
+  if (ARG_STATIC_LINK_LIBS)
+    # Customize link libraries
+    target_link_libraries(${TEST_NAME} ${ARG_STATIC_LINK_LIBS})
+  else()
+    target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
+  endif()
+
+  if (ARG_EXTRA_LINK_LIBS)
+    target_link_libraries(${TEST_NAME} ${ARG_EXTRA_LINK_LIBS})
+  endif()
+
+  if (ARG_EXTRA_INCLUDES)
+    target_include_directories(${TEST_NAME} SYSTEM PUBLIC
+      ${ARG_EXTRA_INCLUDES}
+      )
+  endif()
+
+  if (ARG_EXTRA_DEPENDENCIES)
+    add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
+  endif()
+
+  foreach (TEST_LABEL ${ARG_LABELS})
+    add_dependencies(${TEST_LABEL} ${TEST_NAME})
+  endforeach()
 
   if (ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)
     SET_PROPERTY(TARGET ${TEST_NAME}
@@ -458,26 +465,6 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
   set_property(TEST ${TEST_NAME}
     APPEND PROPERTY
     LABELS ${ARG_LABELS})
-endfunction()
-
-# A wrapper for add_dependencies() that is compatible with NO_TESTS.
-function(ADD_ARROW_TEST_DEPENDENCIES REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  add_dependencies(${TEST_NAME} ${ARGN})
-endfunction()
-
-# A wrapper for target_link_libraries() that is compatible with NO_TESTS.
-function(ARROW_TEST_LINK_LIBRARIES REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  target_link_libraries(${TEST_NAME} ${ARGN})
 endfunction()
 
 ############################################################

@@ -222,7 +222,7 @@ class ArrowMessage implements AutoCloseable {
 
   /**
    * Convert the ArrowMessage to an InputStream.
-   * @return
+   * @return InputStream
    */
   private InputStream asInputStream(BufferAllocator allocator) {
     try {

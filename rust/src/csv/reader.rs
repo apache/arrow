@@ -45,8 +45,8 @@ use std::io::BufReader;
 use std::sync::Arc;
 
 use array::{ArrayRef, BinaryArray};
-use builder::{ArrayBuilder, ListArrayBuilder, PrimitiveArrayBuilder};
-use datatypes::{DataType, Schema};
+use builder::*;
+use datatypes::*;
 use error::{ArrowError, Result};
 use record_batch::RecordBatch;
 
@@ -87,22 +87,32 @@ impl Reader {
     }
 }
 
-macro_rules! build_primitive_array {
-    ($ROWS:expr, $COL_INDEX:expr, $TY:ty) => {{
-        let mut builder = PrimitiveArrayBuilder::<$TY>::new($ROWS.len() as i64);
-        for row_index in 0..$ROWS.len() {
-            match $ROWS[row_index].get(*$COL_INDEX) {
-                Some(s) if s.len() > 0 => builder.push(s.parse::<$TY>().unwrap()).unwrap(),
-                _ => builder.push_null().unwrap(),
-            }
+fn build_primitive_array<T: ArrowPrimitiveType>(
+    rows: &[StringRecord],
+    col_idx: &usize,
+) -> Result<ArrayRef> {
+    let mut builder = PrimitiveArrayBuilder::<T>::new(rows.len() as i64);
+    for row_index in 0..rows.len() {
+        match rows[row_index].get(*col_idx) {
+            Some(s) if s.len() > 0 => match s.parse::<T::Native>() {
+                Ok(v) => builder.push(v)?,
+                Err(_) => {
+                    // TODO: we should surface the underlying error here.
+                    return Err(ArrowError::ParseError(format!(
+                        "Error while parsing value {}",
+                        s
+                    )));
+                }
+            },
+            _ => builder.push_null().unwrap(),
         }
-        Ok(Arc::new(builder.finish()) as ArrayRef)
-    }};
+    }
+    Ok(Arc::new(builder.finish()) as ArrayRef)
 }
 
 impl Reader {
     /// Read the next batch of rows
-    pub fn next(&mut self) -> Option<Result<RecordBatch>> {
+    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         // read a batch of rows into memory
         let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
         for _ in 0..self.batch_size {
@@ -111,9 +121,7 @@ impl Reader {
                     rows.push(r);
                 }
                 Some(Err(_)) => {
-                    return Some(Err(ArrowError::ParseError(
-                        "Error reading CSV file".to_string(),
-                    )));
+                    return Err(ArrowError::ParseError("Error reading CSV file".to_string()));
                 }
                 None => break,
             }
@@ -121,7 +129,7 @@ impl Reader {
 
         // return early if no data was loaded
         if rows.is_empty() {
-            return None;
+            return Ok(None);
         }
 
         let projection: Vec<usize> = match self.projection {
@@ -135,26 +143,25 @@ impl Reader {
                 .collect(),
         };
 
+        let rows = &rows[..];
         let arrays: Result<Vec<ArrayRef>> = projection
             .iter()
             .map(|i| {
                 let field = self.schema.field(*i);
-
                 match field.data_type() {
-                    &DataType::Boolean => build_primitive_array!(rows, i, bool),
-                    &DataType::Int8 => build_primitive_array!(rows, i, i8),
-                    &DataType::Int16 => build_primitive_array!(rows, i, i16),
-                    &DataType::Int32 => build_primitive_array!(rows, i, i32),
-                    &DataType::Int64 => build_primitive_array!(rows, i, i64),
-                    &DataType::UInt8 => build_primitive_array!(rows, i, u8),
-                    &DataType::UInt16 => build_primitive_array!(rows, i, u16),
-                    &DataType::UInt32 => build_primitive_array!(rows, i, u32),
-                    &DataType::UInt64 => build_primitive_array!(rows, i, u64),
-                    &DataType::Float32 => build_primitive_array!(rows, i, f32),
-                    &DataType::Float64 => build_primitive_array!(rows, i, f64),
+                    &DataType::Boolean => build_primitive_array::<BooleanType>(rows, i),
+                    &DataType::Int8 => build_primitive_array::<Int8Type>(rows, i),
+                    &DataType::Int16 => build_primitive_array::<Int16Type>(rows, i),
+                    &DataType::Int32 => build_primitive_array::<Int32Type>(rows, i),
+                    &DataType::Int64 => build_primitive_array::<Int64Type>(rows, i),
+                    &DataType::UInt8 => build_primitive_array::<UInt8Type>(rows, i),
+                    &DataType::UInt16 => build_primitive_array::<UInt16Type>(rows, i),
+                    &DataType::UInt32 => build_primitive_array::<UInt32Type>(rows, i),
+                    &DataType::UInt64 => build_primitive_array::<UInt64Type>(rows, i),
+                    &DataType::Float32 => build_primitive_array::<Float32Type>(rows, i),
+                    &DataType::Float64 => build_primitive_array::<Float64Type>(rows, i),
                     &DataType::Utf8 => {
-                        let mut values_builder: PrimitiveArrayBuilder<u8> =
-                            PrimitiveArrayBuilder::<u8>::new(rows.len() as i64);
+                        let mut values_builder: UInt8Builder = UInt8Builder::new(rows.len() as i64);
                         let mut list_builder = ListArrayBuilder::new(values_builder);
                         for row_index in 0..rows.len() {
                             match rows[row_index].get(*i) {
@@ -174,11 +181,12 @@ impl Reader {
                         other
                     ))),
                 }
-            }).collect();
+            })
+            .collect();
 
         match arrays {
-            Ok(arr) => Some(Ok(RecordBatch::new(self.schema.clone(), arr))),
-            Err(e) => Some(Err(e)),
+            Ok(arr) => Ok(Some(RecordBatch::new(self.schema.clone(), arr))),
+            Err(e) => Err(e),
         }
     }
 }
@@ -187,7 +195,7 @@ impl Reader {
 mod tests {
 
     use super::*;
-    use array::PrimitiveArray;
+    use array::*;
     use datatypes::Field;
 
     #[test]
@@ -209,7 +217,7 @@ mod tests {
         let lat = batch
             .column(1)
             .as_any()
-            .downcast_ref::<PrimitiveArray<f64>>()
+            .downcast_ref::<Float64Array>()
             .unwrap();
         assert_eq!(57.653484, lat.value(0));
 

@@ -246,6 +246,9 @@ class ARROW_EXPORT PlasmaClient {
   Status GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
                          int64_t* metadata_size);
 
+  Status DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
+                            int64_t* data_size, int64_t* metadata_size);
+
   /// Disconnect from the local plasma instance, including the local store and
   /// manager.
   ///

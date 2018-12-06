@@ -69,7 +69,7 @@ in `requirements.txt` to install the latest patch release.
 These include the Apache Arrow and Apache Parquet C++ binary libraries bundled
 with the wheel.
 
-### C++ and GLib (C) Packages for Debian GNU/Linux, Ubuntu and CentOS (Unofficial)
+### C++ and GLib (C) Packages for Debian GNU/Linux, Ubuntu and CentOS
 
 We have provided APT and Yum repositories for Apache Arrow C++ and
 Apache Arrow GLib (C). Here are supported platforms:
@@ -81,50 +81,19 @@ Apache Arrow GLib (C). Here are supported platforms:
 * CentOS 6
 * CentOS 7
 
-Debian GNU/Linux:
-
-```shell
-sudo apt install -y -V apt-transport-https
-sudo apt install -y -V lsb-release
-sudo wget -O /usr/share/keyrings/red-data-tools-keyring.gpg https://packages.red-data-tools.org/$(lsb_release --id --short | tr 'A-Z' 'a-z')/red-data-tools-keyring.gpg
-sudo tee /etc/apt/sources.list.d/red-data-tools.list <<APT_LINE
-deb [signed-by=/usr/share/keyrings/red-data-tools-keyring.gpg] https://packages.red-data-tools.org/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
-deb-src [signed-by=/usr/share/keyrings/red-data-tools-keyring.gpg] https://packages.red-data-tools.org/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
-APT_LINE
-sudo apt update
-sudo apt install -y -V libarrow-dev # For C++
-sudo apt install -y -V libarrow-glib-dev # For GLib (C)
-```
-
-Ubuntu:
-
-```shell
-sudo apt install -y -V apt-transport-https
-sudo apt install -y -V lsb-release
-sudo wget -O /usr/share/keyrings/red-data-tools-keyring.gpg https://packages.red-data-tools.org/$(lsb_release --id --short | tr 'A-Z' 'a-z')/red-data-tools-keyring.gpg
-sudo tee /etc/apt/sources.list.d/red-data-tools.list <<APT_LINE
-deb [signed-by=/usr/share/keyrings/red-data-tools-keyring.gpg] https://packages.red-data-tools.org/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) universe
-deb-src [signed-by=/usr/share/keyrings/red-data-tools-keyring.gpg] https://packages.red-data-tools.org/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) universe
-APT_LINE
-sudo apt update
-sudo apt install -y -V libarrow-dev # For C++
-sudo apt install -y -V libarrow-glib-dev # For GLib (C)
-```
-
-CentOS:
-
-```shell
-sudo yum install -y https://packages.red-data-tools.org/centos/red-data-tools-release-latest.noarch.rpm
-sudo yum install -y --enablerepo=epel arrow-devel # For C++
-sudo yum install -y --enablerepo=epel arrow-glib-devel # For GLib (C)
-```
-
-These repositories also provide Apache Parquet C++ and
-Apache Parquet GLib. You can install them by the followings:
-
 Debian GNU/Linux and Ubuntu:
 
 ```shell
+sudo apt update
+sudo apt install -y -V apt-transport-https lsb-release
+sudo wget -O /usr/share/keyrings/apache-arrow-keyring.gpg https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-keyring.gpg
+sudo tee /etc/apt/sources.list.d/apache-arrow.list <<APT_LINE
+deb [arch=amd64 signed-by=/usr/share/keyrings/apache-arrow-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
+deb-src [signed-by=/usr/share/keyrings/apache-arrow-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
+APT_LINE
+sudo apt update
+sudo apt install -y -V libarrow-dev # For C++
+sudo apt install -y -V libarrow-glib-dev # For GLib (C)
 sudo apt install -y -V libparquet-dev # For Apache Parquet C++
 sudo apt install -y -V libparquet-glib-dev # For Parquet GLib (C)
 ```
@@ -132,21 +101,26 @@ sudo apt install -y -V libparquet-glib-dev # For Parquet GLib (C)
 CentOS:
 
 ```shell
+sudo tee /etc/yum.repos.d/Apache-Arrow.repo <<REPO
+[apache-arrow]
+name=Apache Arrow
+baseurl=https://dl.bintray.com/apache/arrow/centos/\$releasever/\$basearch/
+gpgcheck=1
+enabled=1
+gpgkey=https://dl.bintray.com/apache/arrow/centos/RPM-GPG-KEY-apache-arrow
+REPO
+sudo yum install -y epel-release
+sudo yum install -y --enablerepo=epel arrow-devel # For C++
+sudo yum install -y --enablerepo=epel arrow-glib-devel # For GLib (C)
 sudo yum install -y --enablerepo=epel parquet-devel # For Apache Parquet C++
 sudo yum install -y --enablerepo=epel parquet-glib-devel # For Parquet GLib (C)
 ```
-
-These repositories are managed at
-[red-data-tools/packages.red-data-tools.org][9]. If you have any
-feedback, please send it to the project instead of Apache Arrow
-project.
 
 [1]: {{site.data.versions['current'].mirrors}}
 [2]: {{site.data.versions['current'].github-tag-link}}
 [4]: {{site.data.versions['current'].java-artifacts}}
 [5]: http://conda-forge.github.io
 [6]: {{site.data.versions['current'].mirrors-tar}}
-[9]: https://github.com/red-data-tools/packages.red-data-tools.org
 [10]: {{site.data.versions['current'].release-notes}}
 [11]: http://www.apache.org/dist/arrow/KEYS
 [12]: https://www.apache.org/dyn/closer.cgi#verify

@@ -55,10 +55,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GGandivaProjector,
                            ggandiva_projector,
                            G_TYPE_OBJECT)
 
-#define GGANDIVA_PROJECTOR_GET_PRIVATE(obj)                 \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                       \
-                               GGANDIVA_TYPE_PROJECTOR,     \
-                               GGandivaProjectorPrivate))
+#define GGANDIVA_PROJECTOR_GET_PRIVATE(obj)         \
+  static_cast<GGandivaProjectorPrivate *>(          \
+     ggandiva_projector_get_instance_private(       \
+       GGANDIVA_PROJECTOR(obj)))
 
 static void
 ggandiva_projector_finalize(GObject *object)
@@ -188,15 +188,15 @@ G_END_DECLS
 GGandivaProjector *
 ggandiva_projector_new_raw(std::shared_ptr<gandiva::Projector> *gandiva_projector)
 {
-  auto gandiva = g_object_new(GGANDIVA_TYPE_PROJECTOR,
-                              "projector", gandiva_projector,
-                              NULL);
-  return GGANDIVA_PROJECTOR(gandiva);
+  auto projector = g_object_new(GGANDIVA_TYPE_PROJECTOR,
+                                "projector", gandiva_projector,
+                                NULL);
+  return GGANDIVA_PROJECTOR(projector);
 }
 
 std::shared_ptr<gandiva::Projector>
-ggandiva_projector_get_raw(GGandivaProjector *gandiva)
+ggandiva_projector_get_raw(GGandivaProjector *projector)
 {
-  auto priv = GGANDIVA_PROJECTOR_GET_PRIVATE(gandiva);
+  auto priv = GGANDIVA_PROJECTOR_GET_PRIVATE(projector);
   return priv->projector;
 }

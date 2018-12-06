@@ -34,15 +34,17 @@ install(FILES
   compression_zlib.h
   compression_zstd.h
   cpu-info.h
+  date.h
   decimal.h
   hash-util.h
-  hash.h
+  hashing.h
   io-util.h
   key_value_metadata.h
   lazy.h
   logging.h
   macros.h
   memory.h
+  neon-util.h
   parallel.h
   rle-encoding.h
   sse-util.h
@@ -88,6 +90,8 @@ ADD_ARROW_TEST(bit-util-test)
 ADD_ARROW_TEST(checked-cast-test)
 ADD_ARROW_TEST(compression-test)
 ADD_ARROW_TEST(decimal-test)
+ADD_ARROW_TEST(hashing-test)
+ADD_ARROW_TEST(int-util-test)
 ADD_ARROW_TEST(key-value-metadata-test)
 ADD_ARROW_TEST(lazy-test)
 ADD_ARROW_TEST(logging-test)
@@ -101,6 +105,8 @@ ADD_ARROW_TEST(utf8-util-test)
 ADD_ARROW_BENCHMARK(bit-util-benchmark)
 ADD_ARROW_BENCHMARK(compression-benchmark)
 ADD_ARROW_BENCHMARK(decimal-benchmark)
+ADD_ARROW_BENCHMARK(hashing-benchmark)
+ADD_ARROW_BENCHMARK(int-util-benchmark)
 ADD_ARROW_BENCHMARK(lazy-benchmark)
 ADD_ARROW_BENCHMARK(number-parsing-benchmark)
 ADD_ARROW_BENCHMARK(utf8-util-benchmark)

@@ -37,7 +37,7 @@ Depends:
   ${shlibs:Depends}
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides library files.
+ This package provides C++ library files.
 
 Package: libarrow-python12
 Section: libs
@@ -52,7 +52,7 @@ Depends:
   python3-numpy
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides library files for Python support.
+ This package provides C++ library files for Python support.
 
 Package: libarrow-gpu12
 Section: libs
@@ -65,7 +65,7 @@ Depends:
   libarrow12 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides library files for GPU support.
+ This package provides C++ library files for GPU support.
 
 Package: libarrow-dev
 Section: libdevel
@@ -76,7 +76,7 @@ Depends:
   libarrow12 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides header files.
+ This package provides C++ header files.
 
 Package: libarrow-python-dev
 Section: libdevel
@@ -88,7 +88,7 @@ Depends:
   libarrow-python12 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides header files for Python support.
+ This package provides C++ header files for Python support.
 
 Package: libarrow-gpu-dev
 Section: libdevel
@@ -100,7 +100,44 @@ Depends:
   libarrow-gpu12 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides header files for GPU support.
+ This package provides C++ header files for GPU support.
+
+Package: libplasma12
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow-gpu12 (= ${binary:Version})
+Description: Plasma is an in-memory object store and cache for big data.
+ .
+ This package provides C++ library files to connect plasma_store_server.
+
+Package: plasma-store-server
+Section: utils
+Architecture: any
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libplasma12 (= ${binary:Version})
+Description: Plasma is an in-memory object store and cache for big data.
+ .
+ This package provides plasma_store_server.
+
+Package: libplasma-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-gpu-dev (= ${binary:Version}),
+  libplasma12 (= ${binary:Version})
+Description: Plasma is an in-memory object store and cache for big data.
+ .
+ This package provides C++ header files.
 
 Package: libparquet12
 Section: libs
@@ -137,7 +174,7 @@ Depends:
   libarrow12 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides library files.
+ This package provides GLib based library files.
 
 Package: gir1.2-arrow-1.0
 Section: introspection
@@ -163,7 +200,7 @@ Depends:
 Suggests: libarrow-glib-doc
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides header files.
+ This package provides GLib based header files.
 
 Package: libarrow-glib-doc
 Section: doc
@@ -188,7 +225,7 @@ Depends:
   libarrow-gpu12 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides library files for GPU support.
+ This package provides GLib based library files for GPU support.
 
 Package: gir1.2-arrow-gpu-1.0
 Section: introspection
@@ -207,14 +244,63 @@ Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
-  libarrow-dev (= ${binary:Version}),
-  libarrow-glib-dev (= ${binary:Version}),
   libarrow-gpu-dev (= ${binary:Version}),
+  libarrow-glib-dev (= ${binary:Version}),
   libarrow-gpu-glib12 (= ${binary:Version}),
   gir1.2-arrow-gpu-1.0 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides header files for GPU support.
+ This package provides GLib based header files for GPU support.
+
+Package: libplasma-glib12
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow-gpu-glib12 (= ${binary:Version}),
+  libplasma12 (= ${binary:Version})
+Description: Plasma is an in-memory object store and cache for big data.
+ .
+ This package provides GLib based library files to connect plasma_store_server.
+
+Package: gir1.2-plasma-1.0
+Section: introspection
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${gir:Depends},
+  ${misc:Depends}
+Description: Plasma is an in-memory object store and cache for big data.
+ .
+ This package provides GObject Introspection typelib files.
+
+Package: libplasma-glib-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libplasma-dev (= ${binary:Version}),
+  libarrow-gpu-glib-dev (= ${binary:Version}),
+  libplasma-glib12 (= ${binary:Version}),
+  gir1.2-plasma-1.0 (= ${binary:Version})
+Description: Plasma is an in-memory object store and cache for big data.
+ .
+ This package provides GLib based header files.
+
+Package: libplasma-glib-doc
+Section: doc
+Architecture: all
+Multi-Arch: foreign
+Depends:
+  ${misc:Depends}
+Recommends: libglib2.0-doc
+Description: Plasma is an in-memory object store and cache for big data.
+ .
+ This package provides documentations.
 
 Package: libparquet-glib12
 Section: libs

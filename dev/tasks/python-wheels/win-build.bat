@@ -26,7 +26,7 @@ conda install -n arrow -q -y -c conda-forge ^
       git flatbuffers rapidjson ^
       cmake ^
       boost-cpp thrift-cpp ^
-      gflags snappy zlib brotli zstd lz4-c
+      gflags snappy zlib brotli zstd lz4-c double-conversion
 
 call activate arrow
 

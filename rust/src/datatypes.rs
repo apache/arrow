@@ -24,6 +24,7 @@
 use std::fmt;
 use std::mem::size_of;
 use std::slice::from_raw_parts;
+use std::str::FromStr;
 
 use error::{ArrowError, Result};
 use serde_json::Value;
@@ -39,7 +40,7 @@ use serde_json::Value;
 /// Nested types can themselves be nested within other arrays.
 /// For more information on these types please see
 /// [here](https://arrow.apache.org/docs/memory_layout.html).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum DataType {
     Boolean,
     Int8,
@@ -61,30 +62,72 @@ pub enum DataType {
 /// Contains the meta-data for a single relative type.
 ///
 /// The `Schema` object is an ordered collection of `Field` objects.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Field {
     name: String,
     data_type: DataType,
     nullable: bool,
 }
 
-/// Trait indicating a primitive fixed-width type (bool, ints and floats).
-///
-/// This trait is a marker trait to indicate a primitive type, i.e. a type that occupies a fixed
-/// size in memory as indicated in bit or byte width.
-pub trait ArrowPrimitiveType: Send + Sync + Copy + PartialOrd + 'static {}
+pub trait ArrowNativeType: Send + Sync + Copy + PartialOrd + FromStr + 'static {}
 
-impl ArrowPrimitiveType for bool {}
-impl ArrowPrimitiveType for u8 {}
-impl ArrowPrimitiveType for u16 {}
-impl ArrowPrimitiveType for u32 {}
-impl ArrowPrimitiveType for u64 {}
-impl ArrowPrimitiveType for i8 {}
-impl ArrowPrimitiveType for i16 {}
-impl ArrowPrimitiveType for i32 {}
-impl ArrowPrimitiveType for i64 {}
-impl ArrowPrimitiveType for f32 {}
-impl ArrowPrimitiveType for f64 {}
+/// Trait indicating a primitive fixed-width type (bool, ints and floats).
+pub trait ArrowPrimitiveType: 'static {
+    /// Corresponding Rust native type for the primitive type.
+    type Native: ArrowNativeType;
+
+    /// Returns the corresponding Arrow data type of this primitive type.
+    fn get_data_type() -> DataType;
+
+    /// Returns the bit width of this primitive type.
+    fn get_bit_width() -> usize;
+}
+
+macro_rules! make_type {
+    ($name:ident, $native_ty:ty, $data_ty:path, $bit_width:expr) => {
+        impl ArrowNativeType for $native_ty {}
+
+        pub struct $name {}
+
+        impl ArrowPrimitiveType for $name {
+            type Native = $native_ty;
+
+            fn get_data_type() -> DataType {
+                $data_ty
+            }
+
+            fn get_bit_width() -> usize {
+                $bit_width
+            }
+        }
+    };
+}
+
+make_type!(BooleanType, bool, DataType::Boolean, 1);
+make_type!(Int8Type, i8, DataType::Int8, 8);
+make_type!(Int16Type, i16, DataType::Int16, 16);
+make_type!(Int32Type, i32, DataType::Int32, 32);
+make_type!(Int64Type, i64, DataType::Int64, 64);
+make_type!(UInt8Type, u8, DataType::UInt8, 8);
+make_type!(UInt16Type, u16, DataType::UInt16, 16);
+make_type!(UInt32Type, u32, DataType::UInt32, 32);
+make_type!(UInt64Type, u64, DataType::UInt64, 64);
+make_type!(Float32Type, f32, DataType::Float32, 32);
+make_type!(Float64Type, f64, DataType::Float64, 64);
+
+/// A subtype of primitive type that represents numeric values.
+pub trait ArrowNumericType: ArrowPrimitiveType {}
+
+impl ArrowNumericType for Int8Type {}
+impl ArrowNumericType for Int16Type {}
+impl ArrowNumericType for Int32Type {}
+impl ArrowNumericType for Int64Type {}
+impl ArrowNumericType for UInt8Type {}
+impl ArrowNumericType for UInt16Type {}
+impl ArrowNumericType for UInt32Type {}
+impl ArrowNumericType for UInt64Type {}
+impl ArrowNumericType for Float32Type {}
+impl ArrowNumericType for Float64Type {}
 
 /// Allows conversion from supported Arrow types to a byte slice.
 pub trait ToByteSlice {
@@ -92,20 +135,14 @@ pub trait ToByteSlice {
     fn to_byte_slice(&self) -> &[u8];
 }
 
-impl<T> ToByteSlice for [T]
-where
-    T: ArrowPrimitiveType,
-{
+impl<T: ArrowNativeType> ToByteSlice for [T] {
     fn to_byte_slice(&self) -> &[u8] {
         let raw_ptr = self.as_ptr() as *const T as *const u8;
         unsafe { from_raw_parts(raw_ptr, self.len() * size_of::<T>()) }
     }
 }
 
-impl<T> ToByteSlice for T
-where
-    T: ArrowPrimitiveType,
-{
+impl<T: ArrowNativeType> ToByteSlice for T {
     fn to_byte_slice(&self) -> &[u8] {
         let raw_ptr = self as *const T as *const u8;
         unsafe { from_raw_parts(raw_ptr, size_of::<T>()) }
@@ -244,7 +281,7 @@ impl Field {
                     _ => {
                         return Err(ArrowError::ParseError(
                             "Field missing 'name' attribute".to_string(),
-                        ))
+                        ));
                     }
                 };
                 let nullable = match map.get("nullable") {
@@ -252,7 +289,7 @@ impl Field {
                     _ => {
                         return Err(ArrowError::ParseError(
                             "Field missing 'nullable' attribute".to_string(),
-                        ))
+                        ));
                     }
                 };
                 let data_type = match map.get("type") {
@@ -260,7 +297,7 @@ impl Field {
                     _ => {
                         return Err(ArrowError::ParseError(
                             "Field missing 'type' attribute".to_string(),
-                        ))
+                        ));
                     }
                 };
                 Ok(Field {
@@ -300,7 +337,7 @@ impl fmt::Display for Field {
 ///
 /// Note that this information is only part of the meta-data and not part of the physical memory
 /// layout.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Schema {
     fields: Vec<Field>,
 }
@@ -380,6 +417,42 @@ mod tests {
                 false,
             ),
         ]);
+    }
+
+    #[test]
+    fn serde_struct_type() {
+        let person = DataType::Struct(vec![
+            Field::new("first_name", DataType::Utf8, false),
+            Field::new("last_name", DataType::Utf8, false),
+            Field::new(
+                "address",
+                DataType::Struct(vec![
+                    Field::new("street", DataType::Utf8, false),
+                    Field::new("zip", DataType::UInt16, false),
+                ]),
+                false,
+            ),
+        ]);
+
+        let serialized = serde_json::to_string(&person).unwrap();
+
+        // NOTE that this is testing the default (derived) serialization format, not the
+        // JSON format specified in metadata.md
+
+        assert_eq!(
+            "{\"Struct\":[\
+             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false},\
+             {\"name\":\"last_name\",\"data_type\":\"Utf8\",\"nullable\":false},\
+             {\"name\":\"address\",\"data_type\":{\"Struct\":\
+             [{\"name\":\"street\",\"data_type\":\"Utf8\",\"nullable\":false},\
+             {\"name\":\"zip\",\"data_type\":\"UInt16\",\"nullable\":false}\
+             ]},\"nullable\":false}]}",
+            serialized
+        );
+
+        let deserialized = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(person, deserialized);
     }
 
     #[test]

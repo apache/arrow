@@ -47,6 +47,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
     Builder()
         : write_nanos_as_int96_(false),
           coerce_timestamps_enabled_(false),
+          coerce_timestamps_unit_(::arrow::TimeUnit::SECOND),
           truncated_timestamps_allowed_(false) {}
     virtual ~Builder() {}
 

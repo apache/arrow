@@ -197,6 +197,14 @@ std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>
 }
 
 // [[Rcpp::export]]
+CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema) {
+  auto fields = schema->fields();
+  return CharacterVector(
+      fields.begin(), fields.end(),
+      [](const std::shared_ptr<arrow::Field>& field) { return field->name(); });
+}
+
+// [[Rcpp::export]]
 std::string ListType__ToString(const std::shared_ptr<arrow::ListType>& type) {
   return type->ToString();
 }

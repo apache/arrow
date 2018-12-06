@@ -27,7 +27,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 
 /**
- * An Example Flight Server that provides access to the InMemoryStore
+ * An Example Flight Server that provides access to the InMemoryStore.
  */
 public class ExampleFlightServer implements AutoCloseable {
 

@@ -18,7 +18,7 @@
 ///! Many builders are available to easily create different types of arrow arrays
 extern crate arrow;
 
-use arrow::builder::*;
+use arrow::builder::{ArrayBuilder, Int32Builder};
 
 fn main() {
     // Primitive Arrays
@@ -27,7 +27,7 @@ fn main() {
     // i32, i64, f32, f64)
 
     // Create a new builder with a capacity of 100
-    let mut primitive_array_builder = PrimitiveArrayBuilder::<i32>::new(100);
+    let mut primitive_array_builder = Int32Builder::new(100);
 
     // Push an individual primitive value
     primitive_array_builder.push(55).unwrap();

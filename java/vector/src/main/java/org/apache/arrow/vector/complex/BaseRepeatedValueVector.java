@@ -255,6 +255,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   /**
+   * Get value indicating if inner vector is set.
    * @return 1 if inner vector is explicitly set via #addOrGetVector else 0
    */
   public int size() {

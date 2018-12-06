@@ -345,6 +345,15 @@ TEST_F(TestReadableFile, FromFileDescriptor) {
   ASSERT_TRUE(FileIsClosed(fd));
 }
 
+TEST_F(TestReadableFile, Peek) {
+  MakeTestFile();
+  OpenFile();
+
+  // Cannot peek
+  auto view = file_->Peek(4);
+  ASSERT_EQ(0, view.size());
+}
+
 TEST_F(TestReadableFile, SeekTellSize) {
   MakeTestFile();
   OpenFile();
