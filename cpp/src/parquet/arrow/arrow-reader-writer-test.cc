@@ -29,6 +29,11 @@
 #include <sstream>
 #include <vector>
 
+#include "arrow/api.h"
+#include "arrow/test-util.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
+
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
 
@@ -36,15 +41,8 @@
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/test-util.h"
 #include "parquet/arrow/writer.h"
-
 #include "parquet/file_writer.h"
-
 #include "parquet/util/test-common.h"
-
-#include "arrow/api.h"
-#include "arrow/test-util.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/decimal.h"
 
 using arrow::Array;
 using arrow::ArrayVisitor;

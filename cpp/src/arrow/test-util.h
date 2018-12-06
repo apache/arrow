@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TEST_UTIL_H_
-#define ARROW_TEST_UTIL_H_
+#pragma once
 
 #ifndef _WIN32
 #include <sys/stat.h>
@@ -409,5 +408,3 @@ class BatchIterator : public RecordBatchReader {
 };
 
 }  // namespace arrow
-
-#endif  // ARROW_TEST_UTIL_H_
