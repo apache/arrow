@@ -15,5 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-_build
-source/generated
+FROM arrow:python-3.6
+
+ADD ci/conda_env_sphinx.yml /arrow/ci/
+RUN conda install -c conda-forge \
+        --file arrow/ci/conda_env_sphinx.yml && \
+    conda clean --all
+CMD arrow/ci/docker_build_cpp.sh && \
+    arrow/ci/docker_build_python.sh && \
+    arrow/ci/docker_build_sphinx.sh

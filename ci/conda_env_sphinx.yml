@@ -15,12 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cython
-nomkl
-numpy
-pandas
-pytest
-python
-rsync
-setuptools
-setuptools_scm
+# Requirements for building the documentation
+breathe
+doxygen
+ipython
+sphinx
+sphinx_rtd_theme

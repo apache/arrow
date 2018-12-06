@@ -152,7 +152,7 @@ services:
   ######################### Tools and Linters #################################
 
   # TODO(kszucs): site
-  # TODO(kszucs): apidoc
+  # TODO(kszucs): {cpp,java,glib,js}-apidoc
 
   lint:
     # Usage:
@@ -178,11 +178,25 @@ services:
 
   clang-format:
     # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run clang-format
     image: arrow:lint
     command: arrow/dev/lint/run_clang_format.sh
     volumes: *ubuntu-volumes
+
+  docs:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build docs
+    #   docker-compose run docs
+    image: arrow:docs
+    build:
+      context: .
+      dockerfile: docs/Dockerfile
+    volumes: *volumes
 
   ######################### Integration Tests #################################
 

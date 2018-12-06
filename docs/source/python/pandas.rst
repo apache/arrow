@@ -17,8 +17,8 @@
 
 .. _pandas_interop:
 
-Using PyArrow with pandas
-=========================
+Pandas Integration
+==================
 
 To interface with `pandas <https://pandas.pydata.org/>`_, PyArrow provides
 various conversion routines to consume pandas structures and convert back

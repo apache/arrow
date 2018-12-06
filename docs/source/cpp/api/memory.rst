@@ -15,11 +15,43 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Arrow Protocol Files
-====================
+Memory (management)
+===================
 
-This folder contains binary protocol definitions for the Arrow columnar format
-and other parts of the project, like the Flight RPC framework.
+Basic containers
+----------------
 
-For documentation about the Arrow format, see the `docs/source/format`
-directory.
+.. doxygenclass:: arrow::Buffer
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::MutableBuffer
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::ResizableBuffer
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::BufferBuilder
+   :project: arrow_cpp
+   :members:
+
+Memory Pools
+------------
+
+.. doxygenfunction:: arrow::default_memory_pool
+   :project: arrow_cpp
+   :outline:
+
+.. doxygenclass:: arrow::MemoryPool
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::LoggingMemoryPool
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::ProxyMemoryPool
+   :project: arrow_cpp
+   :members:
