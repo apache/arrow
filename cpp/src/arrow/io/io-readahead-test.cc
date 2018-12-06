@@ -59,9 +59,8 @@ static void busy_wait(double seconds, std::function<bool()> predicate) {
 
 std::shared_ptr<BufferReader> DataReader(const std::string& data) {
   std::shared_ptr<Buffer> buffer;
-  ABORT_NOT_OK(AllocateBuffer(data.length(), &buffer));
-  memcpy(buffer->mutable_data(), data.data(), data.length());
-  return std::make_shared<BufferReader>(std::move(buffer));
+  ABORT_NOT_OK(Buffer::FromString(data, &buffer));
+  return std::make_shared<BufferReader>(buffer);
 }
 
 static int64_t WaitForPosition(const RandomAccessFile& file, int64_t expected,

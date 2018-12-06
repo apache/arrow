@@ -289,7 +289,7 @@ class TestTableReader : public ::testing::Test {
 
     ASSERT_OK(stream_->Finish(&output_));
 
-    std::shared_ptr<io::BufferReader> buffer(new io::BufferReader(output_));
+    auto buffer = std::make_shared<io::BufferReader>(output_);
     ASSERT_OK(TableReader::Open(buffer, &reader_));
   }
 
@@ -364,7 +364,7 @@ class TestTableWriter : public ::testing::Test {
 
     ASSERT_OK(stream_->Finish(&output_));
 
-    std::shared_ptr<io::BufferReader> buffer(new io::BufferReader(output_));
+    auto buffer = std::make_shared<io::BufferReader>(output_);
     ASSERT_OK(TableReader::Open(buffer, &reader_));
   }
 

@@ -25,6 +25,7 @@
 
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -132,6 +133,12 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
   explicit BufferReader(const Buffer& buffer);
   BufferReader(const uint8_t* data, int64_t size);
+
+  /// \brief Instantiate from std::string or arrow::util::string_view. Does not
+  /// own data
+  explicit BufferReader(const util::string_view& data)
+      : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
+                     static_cast<int64_t>(data.size())) {}
 
   Status Close() override;
   bool closed() const override;
