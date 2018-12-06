@@ -18,8 +18,8 @@
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
-use array::{BinaryArray, PrimitiveArray};
-use datatypes::{DataType, Schema};
+use array::*;
+use datatypes::DataType;
 use record_batch::RecordBatch;
 
 pub struct Writer {
@@ -31,7 +31,7 @@ macro_rules! write_primitive_array {
         let array = $BATCH
             .column($COL_INDEX)
             .as_any()
-            .downcast_ref::<PrimitiveArray<$TY>>()
+            .downcast_ref::<$TY>()
             .unwrap();
         $WRITER
             .write(format!("{}", array.value($ROW_INDEX)).as_bytes())
@@ -54,37 +54,37 @@ impl Writer {
                 }
                 match batch.schema().field(col_index).data_type() {
                     &DataType::Boolean => {
-                        write_primitive_array!(self.w, batch, row_index, col_index, bool)
+                        write_primitive_array!(self.w, batch, row_index, col_index, BooleanArray)
                     }
                     &DataType::Int8 => {
-                        write_primitive_array!(self.w, batch, row_index, col_index, i8)
+                        write_primitive_array!(self.w, batch, row_index, col_index, Int8Array)
                     }
                     &DataType::Int16 => {
-                        write_primitive_array!(self.w, batch, row_index, col_index, i16)
+                        write_primitive_array!(self.w, batch, row_index, col_index, Int16Array)
                     }
                     &DataType::Int32 => {
-                        write_primitive_array!(self.w, batch, row_index, col_index, i32)
+                        write_primitive_array!(self.w, batch, row_index, col_index, Int32Array)
                     }
                     &DataType::Int64 => {
-                        write_primitive_array!(self.w, batch, row_index, col_index, i64)
+                        write_primitive_array!(self.w, batch, row_index, col_index, Int64Array)
                     }
                     &DataType::UInt8 => {
-                        write_primitive_array!(self.w, batch, row_index, col_index, u8)
+                        write_primitive_array!(self.w, batch, row_index, col_index, UInt8Array)
                     }
                     &DataType::UInt16 => {
-                        write_primitive_array!(self.w, batch, row_index, col_index, u16)
+                        write_primitive_array!(self.w, batch, row_index, col_index, UInt16Array)
                     }
                     &DataType::UInt32 => {
-                        write_primitive_array!(self.w, batch, row_index, col_index, u32)
+                        write_primitive_array!(self.w, batch, row_index, col_index, UInt32Array)
                     }
                     &DataType::UInt64 => {
-                        write_primitive_array!(self.w, batch, row_index, col_index, u64)
+                        write_primitive_array!(self.w, batch, row_index, col_index, UInt64Array)
                     }
                     &DataType::Float32 => {
-                        write_primitive_array!(self.w, batch, row_index, col_index, f32)
+                        write_primitive_array!(self.w, batch, row_index, col_index, Float32Array)
                     }
                     &DataType::Float64 => {
-                        write_primitive_array!(self.w, batch, row_index, col_index, f64)
+                        write_primitive_array!(self.w, batch, row_index, col_index, Float64Array)
                     }
                     &DataType::Utf8 => {
                         let array = batch
@@ -107,7 +107,7 @@ impl Writer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use datatypes::Field;
+    use datatypes::{Field, Schema};
     use std::sync::Arc;
 
     #[test]
