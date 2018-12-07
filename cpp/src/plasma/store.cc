@@ -787,7 +787,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
           SendCreateReply(client->fd, object_id, &object, error_code, mmap_size),
           client->fd);
       if (error_code == PlasmaError::OK && device_num == 0 &&
-            client->used_fds.find(object.store_fd) == client->used_fds.end()) {
+          client->used_fds.find(object.store_fd) == client->used_fds.end()) {
         WarnIfSigpipe(send_fd(client->fd, object.store_fd), client->fd);
         client->used_fds.emplace(object.store_fd);
       }
