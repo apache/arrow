@@ -64,7 +64,6 @@ set(FBS_SRC
   ${CMAKE_SOURCE_DIR}/../format/File.fbs
   ${CMAKE_SOURCE_DIR}/../format/Schema.fbs
   ${CMAKE_SOURCE_DIR}/../format/Tensor.fbs
-  ${CMAKE_SOURCE_DIR}/../format/SparseTensor.fbs
   ${CMAKE_CURRENT_SOURCE_DIR}/feather.fbs)
 
 foreach(FIL ${FBS_SRC})

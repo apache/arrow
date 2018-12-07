@@ -17,7 +17,6 @@
 
 include "Schema.fbs";
 include "Tensor.fbs";
-include "SparseTensor.fbs";
 
 namespace org.apache.arrow.flatbuf;
 
