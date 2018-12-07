@@ -152,6 +152,8 @@ struct PlasmaClientConfig {
 };
 
 struct ClientMmapTableEntry {
+  /// The associated file descriptor on the client
+  int fd;
   /// The result of mmap for this file descriptor.
   uint8_t* pointer;
   /// The length of the memory-mapped file.
@@ -322,6 +324,7 @@ uint8_t* PlasmaClient::Impl::LookupOrMmap(int fd, int store_fd_val, int64_t map_
     close(fd);  // Closing this fd has an effect on performance.
 
     ClientMmapTableEntry& entry = mmap_table_[store_fd_val];
+    entry.fd = fd;
     entry.pointer = result;
     entry.length = map_size;
     entry.count = 0;
@@ -397,8 +400,15 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
   // If the CreateReply included an error, then the store will not send a file
   // descriptor.
   if (device_num == 0) {
-    int fd = recv_fd(store_conn_);
-    ARROW_CHECK(fd >= 0) << "recv not successful";
+    int fd = -1;
+    auto entry = mmap_table_.find(store_fd);
+    if (entry == mmap_table_.end()) {
+      ARROW_LOG(WARNING) << "trying to receive store_fd = " << store_fd;
+      fd = recv_fd(store_conn_);
+      ARROW_CHECK(fd >= 0) << "recv not successful";
+    } else {
+      fd = entry->second.fd;
+    }
     ARROW_CHECK(object.data_size == data_size);
     ARROW_CHECK(object.metadata_size == metadata_size);
     // The metadata should come right after the data.
@@ -535,7 +545,13 @@ Status PlasmaClient::Impl::GetBuffers(
   // in the subsequent loop based on just the store file descriptor and without
   // having to know the relevant file descriptor received from recv_fd.
   for (size_t i = 0; i < store_fds.size(); i++) {
-    int fd = recv_fd(store_conn_);
+    int fd = -1;
+    auto entry = mmap_table_.find(store_fds[i]);
+    if (entry == mmap_table_.end()) {
+      fd = recv_fd(store_conn_);
+    } else {
+      fd = entry->second.fd;
+    }
     ARROW_CHECK(fd >= 0);
     LookupOrMmap(fd, store_fds[i], mmap_sizes[i]);
   }
@@ -626,21 +642,6 @@ Status PlasmaClient::Impl::UnmapObject(const ObjectID& object_id) {
   int fd = object_entry->second->object.store_fd;
   auto entry = mmap_table_.find(fd);
   ARROW_CHECK(entry != mmap_table_.end());
-  ARROW_CHECK(entry->second.count >= 1);
-  if (entry->second.count == 1) {
-    // If no other objects are being used, then unmap the file.
-    // We subtract kMmapRegionsGap from the length that was added
-    // in fake_mmap in malloc.h, to make the size page-aligned again.
-    int err = munmap(entry->second.pointer, entry->second.length - kMmapRegionsGap);
-    if (err == -1) {
-      return Status::IOError("Error during munmap");
-    }
-    // Remove the corresponding entry from the hash table.
-    mmap_table_.erase(fd);
-  } else {
-    // If there are other objects being used, decrement the reference count.
-    entry->second.count -= 1;
-  }
   // Update the in_use_object_bytes_.
   in_use_object_bytes_ -= (object_entry->second->object.data_size +
                            object_entry->second->object.metadata_size);
