@@ -332,10 +332,6 @@ after_failure:
       fi
       ls -la ~/Library/Logs/DiagnosticReports/
       cat ~/Library/Logs/DiagnosticReports/*.crash
-      if [[ -f brew.log ]]; then
-        echo "Homebrew log"
-        cat brew.log
-      fi
     else
       COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
       if [[ -f "$COREFILE" ]]; then

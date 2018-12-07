@@ -17,13 +17,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set -x
 set -e
 
 if [ "$ARROW_CI_RUBY_AFFECTED" = "1" ]; then
     brew_log_path=brew.log
     function run_brew() {
         echo brew "$@" >> ${brew_log_path}
-        brew "$@" >> ${brew_log_path} 2>&1
+        if ! gtimeout --signal=KILL 5m brew "$@" >> ${brew_log_path} 2>&1; then
+            cat ${brew_log_path}
+            rm ${brew_log_path}
+            false
+        fi
     }
     run_brew update
     run_brew upgrade python
