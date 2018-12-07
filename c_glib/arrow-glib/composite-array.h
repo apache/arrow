@@ -123,7 +123,7 @@ GType garrow_struct_array_get_type(void) G_GNUC_CONST;
 
 GArrowStructArray *garrow_struct_array_new(GArrowDataType *data_type,
                                            gint64 length,
-                                           GList *children,
+                                           GList *fields,
                                            GArrowBuffer *null_bitmap,
                                            gint64 n_nulls);
 
@@ -135,6 +135,56 @@ GList *garrow_struct_array_get_fields(GArrowStructArray *array);
 
 GARROW_AVAILABLE_IN_0_10
 GList *garrow_struct_array_flatten(GArrowStructArray *array, GError **error);
+
+
+#define GARROW_TYPE_UNION_ARRAY (garrow_union_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowUnionArray,
+                         garrow_union_array,
+                         GARROW,
+                         UNION_ARRAY,
+                         GArrowArray)
+struct _GArrowUnionArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GArrowArray *
+garrow_union_array_get_field(GArrowUnionArray *array,
+                             gint i);
+
+#define GARROW_TYPE_SPARSE_UNION_ARRAY (garrow_sparse_union_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSparseUnionArray,
+                         garrow_sparse_union_array,
+                         GARROW,
+                         SPARSE_UNION_ARRAY,
+                         GArrowUnionArray)
+struct _GArrowSparseUnionArrayClass
+{
+  GArrowUnionArrayClass parent_class;
+};
+
+GArrowSparseUnionArray *
+garrow_sparse_union_array_new(GArrowInt8Array *type_ids,
+                              GList *fields,
+                              GError **error);
+
+
+#define GARROW_TYPE_DENSE_UNION_ARRAY (garrow_dense_union_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDenseUnionArray,
+                         garrow_dense_union_array,
+                         GARROW,
+                         DENSE_UNION_ARRAY,
+                         GArrowUnionArray)
+struct _GArrowDenseUnionArrayClass
+{
+  GArrowUnionArrayClass parent_class;
+};
+
+GArrowDenseUnionArray *
+garrow_dense_union_array_new(GArrowInt8Array *type_ids,
+                             GArrowInt32Array *value_offsets,
+                             GList *fields,
+                             GError **error);
 
 
 #define GARROW_TYPE_DICTIONARY_ARRAY (garrow_dictionary_array_get_type())
