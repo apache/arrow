@@ -201,7 +201,8 @@ ggandiva_expression_new(GGandivaNode *root_node,
  * ggandiva_expression_to_string:
  * @expression: A #GGandivaExpression.
  *
- * Returns: The string representation of the node in the expression tree.
+ * Returns: (transfer full): The string representation of the node in the expression tree.
+ *
  *   It should be freed with g_free() when no longer needed.
  *
  * Since: 0.12.0

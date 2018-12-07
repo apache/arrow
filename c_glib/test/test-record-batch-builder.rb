@@ -61,6 +61,7 @@ class TestRecordBatchBuilder < Test::Unit::TestCase
   end
 
   def test_flush
+    require_gi_bindings(3, 3, 1)
     arrays = {
       "visible" => build_boolean_array([true, false, true]),
       "point"   => build_int32_array([1, -1, 0]),
