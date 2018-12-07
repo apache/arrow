@@ -23,12 +23,12 @@ use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
 
-use array::*;
-use array_data::ArrayData;
-use buffer::{Buffer, MutableBuffer};
-use datatypes::*;
-use error::{ArrowError, Result};
-use util::bit_util;
+use crate::array::*;
+use crate::array_data::ArrayData;
+use crate::buffer::{Buffer, MutableBuffer};
+use crate::datatypes::*;
+use crate::error::{ArrowError, Result};
+use crate::util::bit_util;
 
 /// Buffer builder with zero-copy build method
 pub struct BufferBuilder<T: ArrowPrimitiveType> {
@@ -456,7 +456,7 @@ impl BinaryArrayBuilder {
 
 #[cfg(test)]
 mod tests {
-    use array::Array;
+    use crate::array::Array;
 
     use super::*;
 
@@ -825,7 +825,7 @@ mod tests {
 
     #[test]
     fn test_binary_array_builder() {
-        use array::BinaryArray;
+        use crate::array::BinaryArray;
         let mut builder = BinaryArrayBuilder::new(20);
 
         builder.push(b'h').unwrap();
@@ -860,7 +860,7 @@ mod tests {
 
     #[test]
     fn test_binary_array_builder_push_string() {
-        use array::BinaryArray;
+        use crate::array::BinaryArray;
         let mut builder = BinaryArrayBuilder::new(20);
 
         let var = "hello".to_owned();

@@ -16,7 +16,7 @@
 // under the License.
 
 use super::buffer::Buffer;
-use util::bit_util;
+use crate::util::bit_util;
 
 #[derive(PartialEq, Debug)]
 pub struct Bitmap {

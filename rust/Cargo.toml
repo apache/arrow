@@ -28,7 +28,7 @@ include = [
     "src/**/*.rs",
     "Cargo.toml",
 ]
-#edition = "2018"
+edition = "2018"
 
 [lib]
 name = "arrow"
