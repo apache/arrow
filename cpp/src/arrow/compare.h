@@ -29,11 +29,15 @@ namespace arrow {
 class Array;
 class DataType;
 class Tensor;
+class SparseTensorBase;
 
 /// Returns true if the arrays are exactly equal
 bool ARROW_EXPORT ArrayEquals(const Array& left, const Array& right);
 
 bool ARROW_EXPORT TensorEquals(const Tensor& left, const Tensor& right);
+
+bool ARROW_EXPORT SparseTensorEquals(const SparseTensorBase& left,
+                                     const SparseTensorBase& right);
 
 /// Returns true if the arrays are approximately equal. For non-floating point
 /// types, this is equivalent to ArrayEquals(left, right)

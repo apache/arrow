@@ -885,7 +885,7 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
       checked_cast<const SparseCOOIndex&>(*result->sparse_index());
   ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
   ASSERT_EQ(result->data()->size(), data_length);
-  // TODO ASSERT_TRUE(sparse_tensor.Equals(*result));
+  ASSERT_TRUE(result->Equals(*result));
 }
 
 template <>
@@ -919,7 +919,7 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCSRIndex>(
   ASSERT_EQ(resulted_sparse_index.indptr()->data()->size(), indptr_length);
   ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
   ASSERT_EQ(result->data()->size(), data_length);
-  // TODO ASSERT_TRUE(sparse_tensor.Equals(*result));
+  ASSERT_TRUE(result->Equals(*result));
 }
 
 TEST_F(TestSparseTensorRoundTrip, WithSparseCOOIndex) {

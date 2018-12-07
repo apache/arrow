@@ -21,6 +21,7 @@
 #include <memory>
 #include <numeric>
 
+#include "arrow/compare.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -334,6 +335,10 @@ const std::string& SparseTensorBase::dim_name(int i) const {
 
 int64_t SparseTensorBase::size() const {
   return std::accumulate(shape_.begin(), shape_.end(), 1LL, std::multiplies<int64_t>());
+}
+
+bool SparseTensorBase::Equals(const SparseTensorBase& other) const {
+  return SparseTensorEquals(*this, other);
 }
 
 // ----------------------------------------------------------------------

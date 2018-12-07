@@ -70,6 +70,10 @@ class ARROW_EXPORT SparseCOOIndex : public SparseIndexBase<SparseCOOIndex> {
 
   std::string ToString() const override;
 
+  bool Equals(const SparseCOOIndex& other) const {
+    return indices()->Equals(*other.indices());
+  }
+
  protected:
   std::shared_ptr<CoordsTensor> coords_;
 };
@@ -91,6 +95,10 @@ class ARROW_EXPORT SparseCSRIndex : public SparseIndexBase<SparseCSRIndex> {
   const std::shared_ptr<IndexTensor>& indices() const { return indices_; }
 
   std::string ToString() const override;
+
+  bool Equals(const SparseCSRIndex& other) const {
+    return indptr()->Equals(*other.indptr()) && indices()->Equals(*other.indices());
+  }
 
  protected:
   std::shared_ptr<IndexTensor> indptr_;
@@ -128,6 +136,8 @@ class ARROW_EXPORT SparseTensorBase {
 
   /// Total number of non-zero cells in the sparse tensor
   virtual int64_t length() const = 0;
+
+  bool Equals(const SparseTensorBase& other) const;
 
  protected:
   // Constructor with all attributes
