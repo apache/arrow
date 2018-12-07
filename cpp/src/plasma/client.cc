@@ -152,7 +152,7 @@ struct PlasmaClientConfig {
 };
 
 struct ClientMmapTableEntry {
-  /// The associated file descriptor on the client
+  /// The associated file descriptor on the client.
   int fd;
   /// The result of mmap for this file descriptor.
   uint8_t* pointer;
