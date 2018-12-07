@@ -22,8 +22,8 @@
 #include <string>
 #include <vector>
 
-#include "arrow/tensor.h"
 #include "arrow/sparse_tensor_format.h"
+#include "arrow/tensor.h"
 
 namespace arrow {
 
@@ -131,8 +131,9 @@ class ARROW_EXPORT SparseTensorBase {
 
  protected:
   // Constructor with all attributes
-  SparseTensorBase(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-                   const std::vector<int64_t>& shape, const std::shared_ptr<SparseIndex>& sparse_index,
+  SparseTensorBase(const std::shared_ptr<DataType>& type,
+                   const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
+                   const std::shared_ptr<SparseIndex>& sparse_index,
                    const std::vector<std::string>& dim_names);
 
   std::shared_ptr<DataType> type_;
@@ -142,7 +143,6 @@ class ARROW_EXPORT SparseTensorBase {
 
   /// These names are optional
   std::vector<std::string> dim_names_;
-
 };
 
 // ----------------------------------------------------------------------
@@ -171,7 +171,9 @@ class ARROW_EXPORT SparseTensor : public SparseTensorBase {
   // Constructor with a dense tensor
   explicit SparseTensor(const Tensor& tensor);
 
-  SparseTensorFormat::type sparse_tensor_format_id() const { return SparseIndexType::format_id; }
+  SparseTensorFormat::type sparse_tensor_format_id() const {
+    return SparseIndexType::format_id;
+  }
 
   /// Total number of non-zero cells in the sparse tensor
   int64_t length() const { return sparse_index_ ? sparse_index_->length() : 0; }

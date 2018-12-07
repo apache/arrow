@@ -19,10 +19,7 @@
 #define ARROW_SPARSE_TENSOR_FORMAT_H
 
 struct SparseTensorFormat {
-  enum type {
-    COO,
-    CSR
-  };
+  enum type { COO, CSR };
 };
 
 #endif  // ARROW_SPARSE_TENSOR_FORMAT_H

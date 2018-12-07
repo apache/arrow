@@ -35,9 +35,7 @@ class SparseTensorConverter {
  public:
   explicit SparseTensorConverter(const NumericTensor<TYPE>&) {}
 
-  Status Convert() {
-    return Status::Invalid("Unsupported sparse index");
-  }
+  Status Convert() { return Status::Invalid("Unsupported sparse index"); }
 };
 
 // ----------------------------------------------------------------------
@@ -366,47 +364,47 @@ SparseTensor<SparseIndexType>::SparseTensor(const Tensor& tensor)
   switch (tensor.type()->id()) {
     case Type::UINT8:
       MakeSparseTensorFromTensor<UInt8Type, SparseIndexType>(tensor, &sparse_index_,
-                                                                &data_);
+                                                             &data_);
       return;
     case Type::INT8:
       MakeSparseTensorFromTensor<Int8Type, SparseIndexType>(tensor, &sparse_index_,
-                                                               &data_);
+                                                            &data_);
       return;
     case Type::UINT16:
       MakeSparseTensorFromTensor<UInt16Type, SparseIndexType>(tensor, &sparse_index_,
-                                                                 &data_);
+                                                              &data_);
       return;
     case Type::INT16:
       MakeSparseTensorFromTensor<Int16Type, SparseIndexType>(tensor, &sparse_index_,
-                                                                &data_);
+                                                             &data_);
       return;
     case Type::UINT32:
       MakeSparseTensorFromTensor<UInt32Type, SparseIndexType>(tensor, &sparse_index_,
-                                                                 &data_);
+                                                              &data_);
       return;
     case Type::INT32:
       MakeSparseTensorFromTensor<Int32Type, SparseIndexType>(tensor, &sparse_index_,
-                                                                &data_);
+                                                             &data_);
       return;
     case Type::UINT64:
       MakeSparseTensorFromTensor<UInt64Type, SparseIndexType>(tensor, &sparse_index_,
-                                                                 &data_);
+                                                              &data_);
       return;
     case Type::INT64:
       MakeSparseTensorFromTensor<Int64Type, SparseIndexType>(tensor, &sparse_index_,
-                                                                &data_);
+                                                             &data_);
       return;
     case Type::HALF_FLOAT:
-      MakeSparseTensorFromTensor<HalfFloatType, SparseIndexType>(
-          tensor, &sparse_index_, &data_);
+      MakeSparseTensorFromTensor<HalfFloatType, SparseIndexType>(tensor, &sparse_index_,
+                                                                 &data_);
       return;
     case Type::FLOAT:
       MakeSparseTensorFromTensor<FloatType, SparseIndexType>(tensor, &sparse_index_,
-                                                                &data_);
+                                                             &data_);
       return;
     case Type::DOUBLE:
       MakeSparseTensorFromTensor<DoubleType, SparseIndexType>(tensor, &sparse_index_,
-                                                                 &data_);
+                                                              &data_);
       return;
     default:
       break;

@@ -92,7 +92,8 @@ TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
     ASSERT_EQ(i + 11, ptr[i + 6]);
   }
 
-  std::shared_ptr<SparseCOOIndex> si = std::dynamic_pointer_cast<SparseCOOIndex>(st1.sparse_index());
+  std::shared_ptr<SparseCOOIndex> si =
+      std::dynamic_pointer_cast<SparseCOOIndex>(st1.sparse_index());
   std::shared_ptr<SparseCOOIndex::CoordsTensor> sidx = si->indices();
   ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
   ASSERT_TRUE(sidx->is_column_major());
@@ -153,7 +154,8 @@ TEST(TestSparseCOOTensor, CreationFromTensor) {
     ASSERT_EQ(i + 11, ptr[i + 6]);
   }
 
-  std::shared_ptr<SparseCOOIndex> si = std::dynamic_pointer_cast<SparseCOOIndex>(st1.sparse_index());
+  std::shared_ptr<SparseCOOIndex> si =
+      std::dynamic_pointer_cast<SparseCOOIndex>(st1.sparse_index());
   std::shared_ptr<SparseCOOIndex::CoordsTensor> sidx = si->indices();
   ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
   ASSERT_TRUE(sidx->is_column_major());
@@ -217,7 +219,8 @@ TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
     ASSERT_EQ(i + 11, ptr[i + 6]);
   }
 
-  std::shared_ptr<SparseCSRIndex> si = std::dynamic_pointer_cast<SparseCSRIndex>(st1.sparse_index());
+  std::shared_ptr<SparseCSRIndex> si =
+      std::dynamic_pointer_cast<SparseCSRIndex>(st1.sparse_index());
 
   ASSERT_EQ(1, si->indptr()->ndim());
   ASSERT_EQ(1, si->indices()->ndim());
