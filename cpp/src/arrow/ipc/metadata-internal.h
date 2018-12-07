@@ -105,8 +105,8 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
                          std::vector<int64_t>* shape, std::vector<int64_t>* strides,
                          std::vector<std::string>* dim_names);
 
-Status GetSparseTensorMetadata(const Buffer& metadata,
-                               std::shared_ptr<DataType>* type, std::vector<int64_t>* shape,
+Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
+                               std::vector<int64_t>* shape,
                                std::vector<std::string>* dim_names, int64_t* length,
                                SparseTensorFormat::type* sparse_tensor_format_id);
 
@@ -144,7 +144,8 @@ Status WriteRecordBatchMessage(const int64_t length, const int64_t body_length,
 Status WriteTensorMessage(const Tensor& tensor, const int64_t buffer_start_offset,
                           std::shared_ptr<Buffer>* out);
 
-Status WriteSparseTensorMessage(const SparseTensorBase& sparse_tensor, int64_t body_length,
+Status WriteSparseTensorMessage(const SparseTensorBase& sparse_tensor,
+                                int64_t body_length,
                                 const std::vector<BufferMetadata>& buffers,
                                 std::shared_ptr<Buffer>* out);
 

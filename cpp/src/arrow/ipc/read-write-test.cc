@@ -38,9 +38,9 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
-#include "arrow/sparse_tensor.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
@@ -859,7 +859,6 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
 template <>
 void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
     const SparseTensor<SparseCOOIndex>& tensor) {
-
   const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
   const int elem_size = type.bit_width() / 8;
 
@@ -868,7 +867,8 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
 
   ASSERT_OK(mmap_->Seek(0));
 
-  ASSERT_OK(WriteSparseTensor(tensor, mmap_.get(), &metadata_length, &body_length, default_memory_pool()));
+  ASSERT_OK(WriteSparseTensor(tensor, mmap_.get(), &metadata_length, &body_length,
+                              default_memory_pool()));
 
   const auto& sparse_index = checked_cast<const SparseCOOIndex&>(*tensor.sparse_index());
   const int64_t indices_length = elem_size * sparse_index.indices()->size();
@@ -881,7 +881,8 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
   std::shared_ptr<SparseTensorBase> result;
   ASSERT_OK(ReadSparseTensor(mmap_.get(), &result));
 
-  const auto& resulted_sparse_index = checked_cast<const SparseCOOIndex&>(*result->sparse_index());
+  const auto& resulted_sparse_index =
+      checked_cast<const SparseCOOIndex&>(*result->sparse_index());
   ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
   ASSERT_EQ(result->data()->size(), data_length);
   // TODO ASSERT_TRUE(sparse_tensor.Equals(*result));
@@ -890,7 +891,6 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
 template <>
 void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCSRIndex>(
     const SparseTensor<SparseCSRIndex>& tensor) {
-
   const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
   const int elem_size = type.bit_width() / 8;
 
@@ -899,7 +899,8 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCSRIndex>(
 
   ASSERT_OK(mmap_->Seek(0));
 
-  ASSERT_OK(WriteSparseTensor(tensor, mmap_.get(), &metadata_length, &body_length, default_memory_pool()));
+  ASSERT_OK(WriteSparseTensor(tensor, mmap_.get(), &metadata_length, &body_length,
+                              default_memory_pool()));
 
   const auto& sparse_index = checked_cast<const SparseCSRIndex&>(*tensor.sparse_index());
   const int64_t indptr_length = elem_size * sparse_index.indptr()->size();
@@ -913,7 +914,8 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCSRIndex>(
   std::shared_ptr<SparseTensorBase> result;
   ASSERT_OK(ReadSparseTensor(mmap_.get(), &result));
 
-  const auto& resulted_sparse_index = checked_cast<const SparseCSRIndex&>(*result->sparse_index());
+  const auto& resulted_sparse_index =
+      checked_cast<const SparseCSRIndex&>(*result->sparse_index());
   ASSERT_EQ(resulted_sparse_index.indptr()->data()->size(), indptr_length);
   ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
   ASSERT_EQ(result->data()->size(), data_length);

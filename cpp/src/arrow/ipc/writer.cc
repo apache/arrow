@@ -34,10 +34,10 @@
 #include "arrow/ipc/util.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
-#include "arrow/sparse_tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
@@ -678,19 +678,20 @@ namespace internal {
 class SparseTensorSerializer {
  public:
   SparseTensorSerializer(int64_t buffer_start_offset, IpcPayload* out)
-      : out_(out),
-        buffer_start_offset_(buffer_start_offset) {}
+      : out_(out), buffer_start_offset_(buffer_start_offset) {}
 
   ~SparseTensorSerializer() = default;
 
   Status VisitSparseIndex(const SparseIndex& sparse_index) {
     switch (sparse_index.format_id()) {
       case SparseTensorFormat::COO:
-        RETURN_NOT_OK(VisitSparseCOOIndex(checked_cast<const SparseCOOIndex&>(sparse_index)));
+        RETURN_NOT_OK(
+            VisitSparseCOOIndex(checked_cast<const SparseCOOIndex&>(sparse_index)));
         break;
 
       case SparseTensorFormat::CSR:
-        RETURN_NOT_OK(VisitSparseCSRIndex(checked_cast<const SparseCSRIndex&>(sparse_index)));
+        RETURN_NOT_OK(
+            VisitSparseCSRIndex(checked_cast<const SparseCSRIndex&>(sparse_index)));
         break;
 
       default:
@@ -752,7 +753,6 @@ class SparseTensorSerializer {
   int64_t buffer_start_offset_;
 };
 
-
 Status GetSparseTensorPayload(const SparseTensorBase& sparse_tensor, MemoryPool* pool,
                               IpcPayload* out) {
   SparseTensorSerializer writer(0, out);
@@ -761,9 +761,9 @@ Status GetSparseTensorPayload(const SparseTensorBase& sparse_tensor, MemoryPool*
 
 }  // namespace internal
 
-Status WriteSparseTensor(const SparseTensorBase& sparse_tensor,
-                         io::OutputStream* dst, int32_t* metadata_length,
-                         int64_t* body_length, MemoryPool* pool) {
+Status WriteSparseTensor(const SparseTensorBase& sparse_tensor, io::OutputStream* dst,
+                         int32_t* metadata_length, int64_t* body_length,
+                         MemoryPool* pool) {
   internal::IpcPayload payload;
   internal::SparseTensorSerializer writer(0, &payload);
   RETURN_NOT_OK(writer.Assemble(sparse_tensor));

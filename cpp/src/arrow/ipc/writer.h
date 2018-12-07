@@ -280,9 +280,9 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
 // \param[out] metadata_length the actual metadata length, including padding
 // \param[out] body_length the actual message body length
 ARROW_EXPORT
-Status WriteSparseTensor(const SparseTensorBase& sparse_tensor,
-                         io::OutputStream* dst, int32_t* metadata_length,
-                         int64_t* body_length, MemoryPool* pool);
+Status WriteSparseTensor(const SparseTensorBase& sparse_tensor, io::OutputStream* dst,
+                         int32_t* metadata_length, int64_t* body_length,
+                         MemoryPool* pool);
 
 namespace internal {
 
