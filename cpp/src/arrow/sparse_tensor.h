@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/tensor.h"
+#include "arrow/sparse_tensor_format.h"
 
 namespace arrow {
 
@@ -31,23 +32,18 @@ namespace arrow {
 
 class ARROW_EXPORT SparseIndex {
  public:
-  enum format_type {
-    COO,
-    CSR
-  };
-
-  explicit SparseIndex(format_type format_type_id, int64_t length)
-      : format_type_id_(format_type_id), length_(length) {}
+  explicit SparseIndex(SparseTensorFormat::type format_id, int64_t length)
+      : format_id_(format_id), length_(length) {}
 
   virtual ~SparseIndex() = default;
 
-  format_type format_type_id() const { return format_type_id_; }
+  SparseTensorFormat::type format_id() const { return format_id_; }
   int64_t length() const { return length_; }
 
   virtual std::string ToString() const = 0;
 
  protected:
-  format_type format_type_id_;
+  SparseTensorFormat::type format_id_;
   int64_t length_;
 };
 
@@ -55,7 +51,7 @@ template <typename SparseIndexType>
 class SparseIndexBase : public SparseIndex {
  public:
   explicit SparseIndexBase(int64_t length)
-      : SparseIndex(SparseIndexType::format_type_id, length) {}
+      : SparseIndex(SparseIndexType::format_id, length) {}
 };
 
 // ----------------------------------------------------------------------
@@ -65,7 +61,7 @@ class ARROW_EXPORT SparseCOOIndex : public SparseIndexBase<SparseCOOIndex> {
  public:
   using CoordsTensor = NumericTensor<Int64Type>;
 
-  static constexpr SparseIndex::format_type format_type_id = SparseIndex::COO;
+  static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::COO;
 
   // Constructor with a column-major NumericTensor
   explicit SparseCOOIndex(const std::shared_ptr<CoordsTensor>& coords);
@@ -85,7 +81,7 @@ class ARROW_EXPORT SparseCSRIndex : public SparseIndexBase<SparseCSRIndex> {
  public:
   using IndexTensor = NumericTensor<Int64Type>;
 
-  static constexpr SparseIndex::format_type format_type_id = SparseIndex::CSR;
+  static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSR;
 
   // Constructor with two index vectors
   explicit SparseCSRIndex(const std::shared_ptr<IndexTensor>& indptr,
@@ -108,7 +104,7 @@ class ARROW_EXPORT SparseTensorBase {
  public:
   virtual ~SparseTensorBase() = default;
 
-  virtual SparseIndex::format_type sparse_index_format_type_id() const = 0;
+  virtual SparseTensorFormat::type sparse_tensor_format_id() const = 0;
 
   std::shared_ptr<DataType> type() const { return type_; }
   std::shared_ptr<Buffer> data() const { return data_; }
@@ -146,6 +142,7 @@ class ARROW_EXPORT SparseTensorBase {
 
   /// These names are optional
   std::vector<std::string> dim_names_;
+
 };
 
 // ----------------------------------------------------------------------
@@ -174,7 +171,7 @@ class ARROW_EXPORT SparseTensor : public SparseTensorBase {
   // Constructor with a dense tensor
   explicit SparseTensor(const Tensor& tensor);
 
-  SparseIndex::format_type sparse_index_format_type_id() const { return SparseIndexType::format_type_id; }
+  SparseTensorFormat::type sparse_tensor_format_id() const { return SparseIndexType::format_id; }
 
   /// Total number of non-zero cells in the sparse tensor
   int64_t length() const { return sparse_index_ ? sparse_index_->length() : 0; }

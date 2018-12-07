@@ -32,10 +32,10 @@
 
 namespace arrow {
 
-static inline void CheckSparseIndexFormatType(SparseIndex::format_type expected,
+static inline void CheckSparseIndexFormatType(SparseTensorFormat::type expected,
                                               const SparseTensorBase& sparse_tensor) {
-  ASSERT_EQ(expected, sparse_tensor.sparse_index_format_type_id());
-  ASSERT_EQ(expected, sparse_tensor.sparse_index()->format_type_id());
+  ASSERT_EQ(expected, sparse_tensor.sparse_tensor_format_id());
+  ASSERT_EQ(expected, sparse_tensor.sparse_index()->format_id());
 }
 
 TEST(TestSparseCOOTensor, CreationEmptyTensor) {
@@ -71,7 +71,7 @@ TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
   SparseTensor<SparseCOOIndex> st1(tensor1);
   SparseTensor<SparseCOOIndex> st2(tensor2);
 
-  CheckSparseIndexFormatType(SparseIndex::COO, st1);
+  CheckSparseIndexFormatType(SparseTensorFormat::COO, st1);
 
   ASSERT_EQ(12, st1.length());
   ASSERT_TRUE(st1.is_mutable());
@@ -196,7 +196,7 @@ TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   SparseTensor<SparseCSRIndex> st1(tensor1);
   SparseTensor<SparseCSRIndex> st2(tensor2);
 
-  CheckSparseIndexFormatType(SparseIndex::CSR, st1);
+  CheckSparseIndexFormatType(SparseTensorFormat::CSR, st1);
 
   ASSERT_EQ(12, st1.length());
   ASSERT_TRUE(st1.is_mutable());
