@@ -91,40 +91,33 @@ static vector<T> slice(const vector<T>& values, int start, int end) {
 }
 
 static inline vector<bool> flip_coins_seed(int n, double p, uint32_t seed) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::bernoulli_distribution d(p);
 
-  vector<bool> draws;
+  vector<bool> draws(n);
   for (int i = 0; i < n; ++i) {
-    draws.push_back(d(gen));
+    draws[i] = d(gen);
   }
   return draws;
 }
 
 static inline vector<bool> flip_coins(int n, double p) {
   uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  std::mt19937 gen(static_cast<uint32_t>(seed));
-
-  std::bernoulli_distribution d(p);
-
-  vector<bool> draws;
-  for (int i = 0; i < n; ++i) {
-    draws.push_back(d(gen));
-  }
-  return draws;
+  return flip_coins_seed(n, p, static_cast<uint32_t>(seed));
 }
 
 void random_bytes(int n, uint32_t seed, std::vector<uint8_t>* out) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_int_distribution<int> d(0, 255);
 
+  out->resize(n);
   for (int i = 0; i < n; ++i) {
-    out->push_back(static_cast<uint8_t>(d(gen) & 0xFF));
+    (*out)[i] = static_cast<uint8_t>(d(gen));
   }
 }
 
 void random_bools(int n, double p, uint32_t seed, bool* out) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::bernoulli_distribution d(p);
   for (int i = 0; i < n; ++i) {
     out[i] = d(gen);
@@ -133,7 +126,7 @@ void random_bools(int n, double p, uint32_t seed, bool* out) {
 
 template <typename T>
 void random_numbers(int n, uint32_t seed, T min_value, T max_value, T* out) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_int_distribution<T> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
     out[i] = d(gen);
@@ -142,7 +135,7 @@ void random_numbers(int n, uint32_t seed, T min_value, T max_value, T* out) {
 
 template <>
 void random_numbers(int n, uint32_t seed, float min_value, float max_value, float* out) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_real_distribution<float> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
     out[i] = d(gen);
@@ -152,7 +145,7 @@ void random_numbers(int n, uint32_t seed, float min_value, float max_value, floa
 template <>
 void random_numbers(int n, uint32_t seed, double min_value, double max_value,
                     double* out) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_real_distribution<double> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
     out[i] = d(gen);
@@ -161,7 +154,7 @@ void random_numbers(int n, uint32_t seed, double min_value, double max_value,
 
 void random_Int96_numbers(int n, uint32_t seed, int32_t min_value, int32_t max_value,
                           Int96* out) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_int_distribution<int32_t> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
     out[i].value[0] = d(gen);
@@ -171,12 +164,12 @@ void random_Int96_numbers(int n, uint32_t seed, int32_t min_value, int32_t max_v
 }
 
 void random_fixed_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* out) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_int_distribution<int> d(0, 255);
   for (int i = 0; i < n; ++i) {
     out[i].ptr = buf;
     for (int j = 0; j < len; ++j) {
-      buf[j] = static_cast<uint8_t>(d(gen) & 0xFF);
+      buf[j] = static_cast<uint8_t>(d(gen));
     }
     buf += len;
   }
@@ -184,7 +177,7 @@ void random_fixed_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* 
 
 void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int min_size,
                        int max_size) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_int_distribution<int> d1(min_size, max_size);
   std::uniform_int_distribution<int> d2(0, 255);
   for (int i = 0; i < n; ++i) {
@@ -192,7 +185,7 @@ void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int m
     out[i].len = len;
     out[i].ptr = buf;
     for (int j = 0; j < len; ++j) {
-      buf[j] = static_cast<uint8_t>(d2(gen) & 0xFF);
+      buf[j] = static_cast<uint8_t>(d2(gen));
     }
     buf += len;
   }
