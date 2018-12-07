@@ -1184,6 +1184,17 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::STRUCT:
     type = GARROW_TYPE_STRUCT_DATA_TYPE;
     break;
+  case arrow::Type::type::UNION:
+    {
+      auto arrow_union_data_type =
+        std::static_pointer_cast<arrow::UnionType>(*arrow_data_type);
+      if (arrow_union_data_type->mode() == arrow::UnionMode::SPARSE) {
+        type = GARROW_TYPE_SPARSE_UNION_DATA_TYPE;
+      } else {
+        type = GARROW_TYPE_DENSE_UNION_DATA_TYPE;
+      }
+    }
+    break;
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_DATA_TYPE;
     break;
