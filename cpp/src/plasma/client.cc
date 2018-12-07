@@ -228,6 +228,13 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   bool IsInUse(const ObjectID& object_id);
 
  private:
+  /// Check if store_fd has already been received from the store. If yes,
+  /// return it. Otherwise, receive it from the store.
+  ///
+  /// @param store_fd File descriptor to fetch from the store.
+  /// @return Client file descriptor corresponding to store_fd.
+  int GetStoreFd(int store_fd);
+
   /// This is a helper method for unmapping objects for which all references have
   /// gone out of scope, either by calling Release or Abort.
   ///
@@ -345,6 +352,17 @@ bool PlasmaClient::Impl::IsInUse(const ObjectID& object_id) {
   return (elem != objects_in_use_.end());
 }
 
+int PlasmaClient::Impl::GetStoreFd(int store_fd) {
+  auto entry = mmap_table_.find(store_fd);
+  if (entry == mmap_table_.end()) {
+    int fd = recv_fd(store_conn_);
+    ARROW_CHECK(fd >= 0) << "recv not successful";
+    return fd;
+  } else {
+    return entry->second.fd;
+  }
+}
+
 void PlasmaClient::Impl::IncrementObjectCount(const ObjectID& object_id,
                                               PlasmaObject* object, bool is_sealed) {
   // Increment the count of the object to track the fact that it is being used.
@@ -400,15 +418,7 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
   // If the CreateReply included an error, then the store will not send a file
   // descriptor.
   if (device_num == 0) {
-    int fd = -1;
-    auto entry = mmap_table_.find(store_fd);
-    if (entry == mmap_table_.end()) {
-      ARROW_LOG(WARNING) << "trying to receive store_fd = " << store_fd;
-      fd = recv_fd(store_conn_);
-      ARROW_CHECK(fd >= 0) << "recv not successful";
-    } else {
-      fd = entry->second.fd;
-    }
+    int fd = GetStoreFd(store_fd);
     ARROW_CHECK(object.data_size == data_size);
     ARROW_CHECK(object.metadata_size == metadata_size);
     // The metadata should come right after the data.
@@ -545,14 +555,7 @@ Status PlasmaClient::Impl::GetBuffers(
   // in the subsequent loop based on just the store file descriptor and without
   // having to know the relevant file descriptor received from recv_fd.
   for (size_t i = 0; i < store_fds.size(); i++) {
-    int fd = -1;
-    auto entry = mmap_table_.find(store_fds[i]);
-    if (entry == mmap_table_.end()) {
-      fd = recv_fd(store_conn_);
-    } else {
-      fd = entry->second.fd;
-    }
-    ARROW_CHECK(fd >= 0);
+    int fd = GetStoreFd(store_fds[i]);
     LookupOrMmap(fd, store_fds[i], mmap_sizes[i]);
   }
 
