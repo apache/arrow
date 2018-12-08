@@ -20,9 +20,9 @@ use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
 use std::sync::Arc;
 
-use error::Result;
-use memory;
-use util::bit_util;
+use crate::error::Result;
+use crate::memory;
+use crate::util::bit_util;
 
 /// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
 /// boundary. Buffer is immutable.
@@ -314,9 +314,9 @@ unsafe impl Send for MutableBuffer {}
 
 #[cfg(test)]
 mod tests {
+    use crate::util::bit_util;
     use std::ptr::null_mut;
     use std::thread;
-    use util::bit_util;
 
     use super::*;
 

@@ -19,7 +19,7 @@ use libc;
 use std::cmp;
 use std::mem;
 
-use super::error::{ArrowError, Result};
+use crate::error::{ArrowError, Result};
 
 const ALIGNMENT: usize = 64;
 
