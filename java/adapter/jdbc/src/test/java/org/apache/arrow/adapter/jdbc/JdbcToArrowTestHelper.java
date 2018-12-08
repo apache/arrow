@@ -39,6 +39,8 @@ import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.Field;
 
 /**
  * This is a Helper class which has functionalities to read and assert the values from the given FieldVector object.
@@ -163,6 +165,17 @@ public class JdbcToArrowTestHelper {
 
     for (int j = 0; j < vector.getValueCount(); j++) {
       assertTrue(vector.isNull(j));
+    }
+  }
+
+  public static void assertFieldMetadataIsEmpty(VectorSchemaRoot schema) {
+    assertNotNull(schema);
+    assertNotNull(schema.getSchema());
+    assertNotNull(schema.getSchema().getFields());
+
+    for (Field field : schema.getSchema().getFields()) {
+      assertNotNull(field.getMetadata());
+      assertEquals(0, field.getMetadata().size());
     }
   }
 

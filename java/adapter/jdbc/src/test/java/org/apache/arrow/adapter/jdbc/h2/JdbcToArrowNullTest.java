@@ -28,6 +28,7 @@ import java.util.Collection;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
 import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -116,6 +117,8 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
    * @param root VectorSchemaRoot for test
    */
   public void testDataSets(VectorSchemaRoot root) {
+    JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
+
     switch (table.getType()) {
       case NULL:
         sqlToArrowTestNullValues(table.getVectors(), root, table.getRowCount());

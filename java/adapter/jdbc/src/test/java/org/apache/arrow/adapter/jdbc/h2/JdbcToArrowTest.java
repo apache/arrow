@@ -49,6 +49,7 @@ import java.util.Collection;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
 import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -149,6 +150,8 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    * @param root VectorSchemaRoot for test
    */
   public void testDataSets(VectorSchemaRoot root) {
+    JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
+
     assertBigIntVectorValues((BigIntVector) root.getVector(BIGINT), table.getRowCount(),
             getLongValues(table.getValues(), BIGINT));
 
