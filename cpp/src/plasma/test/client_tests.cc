@@ -82,8 +82,7 @@ class TestPlasmaStore : public ::testing::Test {
 
   void CreateObject(PlasmaClient& client, const ObjectID& object_id,
                     const std::vector<uint8_t>& metadata,
-                    const std::vector<uint8_t>& data,
-                    bool release = true) {
+                    const std::vector<uint8_t>& data, bool release = true) {
     std::shared_ptr<Buffer> data_buffer;
     ARROW_CHECK_OK(client.Create(object_id, data.size(), &metadata[0], metadata.size(),
                                  &data_buffer));
