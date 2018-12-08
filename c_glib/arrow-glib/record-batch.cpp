@@ -331,7 +331,8 @@ garrow_record_batch_slice(GArrowRecordBatch *record_batch,
  * @record_batch: A #GArrowRecordBatch.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable): The formatted record batch content or %NULL on error.
+ * Returns: (nullable) (transfer full):
+ *   The formatted record batch content or %NULL on error.
  *
  *   The returned string should be freed when with g_free() when no
  *   longer needed.

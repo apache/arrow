@@ -496,7 +496,8 @@ garrow_array_slice(GArrowArray *array,
  * @array: A #GArrowArray.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable): The formatted array content or %NULL on error.
+ * Returns: (nullable) (transfer full):
+ *   The formatted array content or %NULL on error.
  *
  *   The returned string should be freed when with g_free() when no
  *   longer needed.
@@ -766,7 +767,8 @@ garrow_boolean_array_get_value(GArrowBooleanArray *array,
  * @array: A #GArrowBooleanArray.
  * @length: (out): The number of values.
  *
- * Returns: (array length=length): The raw boolean values.
+ * Returns: (array length=length) (transfer full):
+ *   The raw boolean values.
  *
  *   It should be freed with g_free() when no longer needed.
  */
@@ -2146,10 +2148,10 @@ garrow_decimal128_array_class_init(GArrowDecimal128ArrayClass *klass)
  * @array: A #GArrowDecimal128Array.
  * @i: The index of the target value.
  *
- * Returns: The formatted i-th value.
+ * Returns: (transfer full): The formatted i-th value.
  *
- * The returned string should be freed with g_free() when no longer
- * needed.
+ *   The returned string should be freed with g_free() when no longer
+ *   needed.
  *
  * Since: 0.10.0
  */

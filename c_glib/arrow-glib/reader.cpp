@@ -645,9 +645,11 @@ garrow_feather_file_reader_new(GArrowSeekableInputStream *file,
  * garrow_feather_file_reader_get_description:
  * @reader: A #GArrowFeatherFileReader.
  *
- * Returns: (nullable): The description of the file if it exists,
+ * Returns: (nullable) (transfer full):
+ *   The description of the file if it exists,
  *   %NULL otherwise. You can confirm whether description exists or not by
  *   garrow_feather_file_reader_has_description().
+ *
  *   It should be freed with g_free() when no longer needed.
  *
  * Since: 0.4.0
@@ -730,7 +732,8 @@ garrow_feather_file_reader_get_n_columns(GArrowFeatherFileReader *reader)
  * @reader: A #GArrowFeatherFileReader.
  * @i: The index of the target column.
  *
- * Returns: The i-th column name in the file.
+ * Returns: (transfer full): The i-th column name in the file.
+ *
  *   It should be freed with g_free() when no longer needed.
  *
  * Since: 0.4.0
