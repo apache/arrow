@@ -20,8 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"os"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
@@ -30,11 +28,17 @@ import (
 )
 
 func Example() {
-	f, err := os.Open("testdata/simple.csv")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
+	raw := bytes.NewReader([]byte(`0;0;str-0
+1;1;str-1
+2;2;str-2
+3;3;str-3
+4;4;str-4
+5;5;str-5
+6;6;str-6
+7;7;str-7
+8;8;str-8
+9;9;str-9
+`))
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
@@ -44,7 +48,7 @@ func Example() {
 		},
 		nil,
 	)
-	r := csv.NewReader(f, schema, csv.WithComment('#'), csv.WithComma(';'))
+	r := csv.NewReader(raw, schema, csv.WithComment('#'), csv.WithComma(';'))
 	defer r.Release()
 
 	n := 0
@@ -90,11 +94,17 @@ func Example() {
 }
 
 func Example_withChunk() {
-	f, err := os.Open("testdata/simple.csv")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
+	raw := bytes.NewReader([]byte(`0;0;str-0
+1;1;str-1
+2;2;str-2
+3;3;str-3
+4;4;str-4
+5;5;str-5
+6;6;str-6
+7;7;str-7
+8;8;str-8
+9;9;str-9
+`))
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
@@ -105,7 +115,7 @@ func Example_withChunk() {
 		nil,
 	)
 	r := csv.NewReader(
-		f, schema,
+		raw, schema,
 		csv.WithComment('#'), csv.WithComma(';'),
 		csv.WithChunk(3),
 	)
