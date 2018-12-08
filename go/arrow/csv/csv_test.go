@@ -19,6 +19,7 @@ package csv_test
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"testing"
 
@@ -151,11 +152,6 @@ func TestCSVReader(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	raw, err := ioutil.ReadFile("testdata/types.csv")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	schema := arrow.NewSchema(
 		[]arrow.Field{
 			arrow.Field{Name: "bool", Type: arrow.FixedWidthTypes.Boolean},
@@ -173,35 +169,24 @@ func TestCSVReader(t *testing.T) {
 		},
 		nil,
 	)
-	r := csv.NewReader(bytes.NewReader(raw), schema,
-		csv.WithAllocator(mem),
-		csv.WithComment('#'), csv.WithComma(';'),
-	)
-	defer r.Release()
-
-	r.Retain()
-	r.Release()
-
-	if got, want := r.Schema(), schema; !got.Equal(want) {
-		t.Fatalf("invalid schema: got=%v, want=%v", got, want)
-	}
-
-	out := new(bytes.Buffer)
-
-	n := 0
-	for r.Next() {
-		rec := r.Record()
-		for i, col := range rec.Columns() {
-			fmt.Fprintf(out, "rec[%d][%q]: %v\n", i, rec.ColumnName(i), col)
-		}
-		n++
-	}
-
-	if got, want := n, 2; got != want {
-		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
-	}
-
-	want := `rec[0]["bool"]: [true]
+	for _, tc := range []struct {
+		name    string
+		csv     io.Reader
+		opts    []csv.Option
+		records int
+		want    string
+	}{
+		{
+			name: "without-null-values",
+			csv: bytes.NewBufferString(`## a simple set of data which contains all supported types
+true;-1;-1;-1;-1;1;1;1;1;1.1;1.1;str-1
+false;-2;-2;-2;-2;2;2;2;2;2.2;2.2;str-2
+`),
+			opts: []csv.Option{
+				csv.WithAllocator(mem), csv.WithComment('#'), csv.WithComma(';'),
+			},
+			records: 2,
+			want: `rec[0]["bool"]: [true]
 rec[1]["i8"]: [-1]
 rec[2]["i16"]: [-1]
 rec[3]["i32"]: [-1]
@@ -225,19 +210,87 @@ rec[8]["u64"]: [2]
 rec[9]["f32"]: [2.2]
 rec[10]["f64"]: [2.2]
 rec[11]["str"]: ["str-2"]
-`
+`,
+		},
+		{
+			name: "with-null-values",
+			csv: bytes.NewBufferString(`## a simple set of data which contains all supported types
+true;-1;-1;-1;-1;1;1;1;1;1.1;1.1;str-1
+;;;;;;;;;;;
+`),
+			opts: []csv.Option{
+				csv.WithAllocator(mem), csv.WithComment('#'), csv.WithComma(';'),
+			},
+			records: 2,
+			want: `rec[0]["bool"]: [true]
+rec[1]["i8"]: [-1]
+rec[2]["i16"]: [-1]
+rec[3]["i32"]: [-1]
+rec[4]["i64"]: [-1]
+rec[5]["u8"]: [1]
+rec[6]["u16"]: [1]
+rec[7]["u32"]: [1]
+rec[8]["u64"]: [1]
+rec[9]["f32"]: [1.1]
+rec[10]["f64"]: [1.1]
+rec[11]["str"]: ["str-1"]
+rec[0]["bool"]: [(null)]
+rec[1]["i8"]: [(null)]
+rec[2]["i16"]: [(null)]
+rec[3]["i32"]: [(null)]
+rec[4]["i64"]: [(null)]
+rec[5]["u8"]: [(null)]
+rec[6]["u16"]: [(null)]
+rec[7]["u32"]: [(null)]
+rec[8]["u64"]: [(null)]
+rec[9]["f32"]: [(null)]
+rec[10]["f64"]: [(null)]
+rec[11]["str"]: [""]
+`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := csv.NewReader(tc.csv, schema, tc.opts...)
+			defer r.Release()
 
-	if got, want := out.String(), want; got != want {
-		t.Fatalf("invalid output:\ngot= %s\nwant=%s\n", got, want)
-	}
+			r.Retain()
+			r.Release()
 
-	if r.Err() != nil {
-		t.Fatalf("unexpected error: %v", r.Err())
+			if got, want := r.Schema(), schema; !got.Equal(want) {
+				t.Fatalf("invalid schema: got=%v, want=%v", got, want)
+			}
+
+			out := new(bytes.Buffer)
+			n := 0
+			for r.Next() {
+				rec := r.Record()
+				for i, col := range rec.Columns() {
+					fmt.Fprintf(out, "rec[%d][%q]: %v\n", i, rec.ColumnName(i), col)
+				}
+				n++
+			}
+
+			if got, want := n, tc.records; got != want {
+				t.Fatalf("invalid number of records: got=%d, want=%d", got, want)
+			}
+
+			if got, want := out.String(), tc.want; got != want {
+				t.Fatalf("invalid output:\ngot:\n%s\nwant:\n%s\n", got, want)
+			}
+
+			if r.Err() != nil {
+				t.Fatalf("unexpected error: %v", r.Err())
+			}
+		})
 	}
 
 	// test error modes
 	{
-		r := csv.NewReader(bytes.NewReader(raw), schema,
+		f := bytes.NewBufferString(`## a simple set of data which contains all supported types
+true;-1;-1;-1;-1;1;1;1;1;1.1;1.1;str-1
+false;-2;-2;-2;-2;2;2;2;2;2.2;2.2;str-2
+`)
+		r := csv.NewReader(f, schema,
 			csv.WithAllocator(mem),
 			csv.WithComment('#'), csv.WithComma(';'),
 		)

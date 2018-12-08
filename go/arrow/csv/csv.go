@@ -142,6 +142,7 @@ func (r *Reader) Next() bool {
 	}
 
 	if r.err != nil || r.done {
+		debug.Assert(r.err == nil, r.err)
 		return false
 	}
 
@@ -237,6 +238,15 @@ func (r *Reader) validate(recs []string) {
 
 func (r *Reader) read(recs []string) {
 	for i, str := range recs {
+		if str == "" {
+			if _, ok := r.schema.Field(i).Type.(*arrow.StringType); ok {
+				r.bld.Field(i).(*array.StringBuilder).Append("")
+			} else {
+				r.bld.Field(i).AppendNull()
+			}
+			continue
+		}
+
 		switch r.schema.Field(i).Type.(type) {
 		case *arrow.BooleanType:
 			var v bool
