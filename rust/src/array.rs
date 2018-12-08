@@ -22,12 +22,12 @@ use std::io::Write;
 use std::mem;
 use std::sync::Arc;
 
-use array_data::{ArrayData, ArrayDataRef};
-use buffer::{Buffer, MutableBuffer};
-use builder::*;
-use datatypes::*;
-use memory;
-use util::bit_util;
+use crate::array_data::{ArrayData, ArrayDataRef};
+use crate::buffer::{Buffer, MutableBuffer};
+use crate::builder::*;
+use crate::datatypes::*;
+use crate::memory;
+use crate::util::bit_util;
 
 /// Trait for dealing with different types of array at runtime when the type of the
 /// array is not known in advance
@@ -692,14 +692,13 @@ impl From<Vec<(Field, ArrayRef)>> for StructArray {
 
 #[cfg(test)]
 mod tests {
-    use std::thread;
-
     use super::*;
-    use array_data::ArrayData;
-    use buffer::Buffer;
-    use datatypes::{DataType, Field, ToByteSlice};
-    use memory;
+    use crate::array_data::ArrayData;
+    use crate::buffer::Buffer;
+    use crate::datatypes::{DataType, Field, ToByteSlice};
+    use crate::memory;
     use std::sync::Arc;
+    use std::thread;
 
     #[test]
     fn test_primitive_array_from_vec() {
