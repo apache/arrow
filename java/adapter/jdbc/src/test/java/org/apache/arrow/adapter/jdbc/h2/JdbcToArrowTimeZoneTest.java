@@ -22,6 +22,7 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTimeStam
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTimeVectorValues;
 
 import java.io.IOException;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -32,12 +33,14 @@ import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowUtils;
 import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -118,6 +121,15 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
         new JdbcToArrowConfig(
             new RootAllocator(Integer.MAX_VALUE),
             Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))));
+  }
+
+  @Test
+  public void testJdbcSchemaMetadata() throws SQLException {
+    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()));
+    JdbcToArrowConfig config = new JdbcToArrowConfig(new RootAllocator(0), calendar, true);
+    ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
+    Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
+    JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);
   }
 
   /**

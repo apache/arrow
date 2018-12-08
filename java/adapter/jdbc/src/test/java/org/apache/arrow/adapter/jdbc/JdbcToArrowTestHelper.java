@@ -24,6 +24,10 @@ import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BigIntVector;
@@ -41,6 +45,7 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
  * This is a Helper class which has functionalities to read and assert the values from the given FieldVector object.
@@ -176,6 +181,30 @@ public class JdbcToArrowTestHelper {
     for (Field field : schema.getSchema().getFields()) {
       assertNotNull(field.getMetadata());
       assertEquals(0, field.getMetadata().size());
+    }
+  }
+
+  public static void assertFieldMetadataMatchesResultSetMetadata(ResultSetMetaData rsmd, Schema schema)
+      throws SQLException {
+    assertNotNull(schema);
+    assertNotNull(schema.getFields());
+    assertNotNull(rsmd);
+
+    List<Field> fields = schema.getFields();
+
+    assertEquals(rsmd.getColumnCount(), fields.size());
+
+    // Vector columns are created in the same order as ResultSet columns.
+    for (int i = 0; i < rsmd.getColumnCount(); ++i) {
+      Map<String, String> metadata = fields.get(i).getMetadata();
+
+      assertNotNull(metadata);
+      assertEquals(4, metadata.size());
+
+      assertEquals(rsmd.getCatalogName(i + 1), metadata.get(Constants.SQL_CATALOG_NAME_KEY));
+      assertEquals(rsmd.getTableName(i + 1), metadata.get(Constants.SQL_TABLE_NAME_KEY));
+      assertEquals(rsmd.getColumnName(i + 1), metadata.get(Constants.SQL_COLUMN_NAME_KEY));
+      assertEquals(rsmd.getColumnTypeName(i + 1), metadata.get(Constants.SQL_TYPE_KEY));
     }
   }
 

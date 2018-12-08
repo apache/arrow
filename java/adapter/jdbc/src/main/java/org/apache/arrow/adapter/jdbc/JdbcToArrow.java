@@ -68,11 +68,6 @@ import com.google.common.base.Preconditions;
  */
 public class JdbcToArrow {
 
-  public static final String SQL_CATALOG_NAME_KEY = "SQL_CATALOG_NAME";
-  public static final String SQL_TABLE_NAME_KEY = "SQL_TABLE_NAME";
-  public static final String SQL_COLUMN_NAME_KEY = "SQL_COLUMN_NAME";
-  public static final String SQL_TYPE_KEY = "SQL_TYPE";
-
   /**
    * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
    * This method uses the default Calendar instance with default TimeZone and Locale as returned by the JVM.

@@ -157,10 +157,10 @@ public class JdbcToArrowUtils {
       final Map<String, String> metadata;
       if (config.getIncludeMetadata()) {
         metadata = new HashMap<String, String>();
-        metadata.put(JdbcToArrow.SQL_CATALOG_NAME_KEY, rsmd.getCatalogName(i));
-        metadata.put(JdbcToArrow.SQL_TABLE_NAME_KEY, rsmd.getTableName(i));
-        metadata.put(JdbcToArrow.SQL_COLUMN_NAME_KEY, columnName);
-        metadata.put(JdbcToArrow.SQL_TYPE_KEY, rsmd.getColumnTypeName(i));
+        metadata.put(Constants.SQL_CATALOG_NAME_KEY, rsmd.getCatalogName(i));
+        metadata.put(Constants.SQL_TABLE_NAME_KEY, rsmd.getTableName(i));
+        metadata.put(Constants.SQL_COLUMN_NAME_KEY, columnName);
+        metadata.put(Constants.SQL_TYPE_KEY, rsmd.getColumnTypeName(i));
 
       } else {
         metadata = null;
