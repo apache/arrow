@@ -869,7 +869,7 @@ def field(name, type, bint nullable=True, dict metadata=None):
     cdef:
         shared_ptr[CKeyValueMetadata] c_meta
         Field result = Field.__new__(Field)
-        DataType _type = _as_type(type)
+        DataType _type = ensure_type(type, allow_none=False)
 
     if metadata is not None:
         convert_metadata(metadata, &c_meta)
@@ -1479,20 +1479,15 @@ def type_for_alias(name):
     return alias()
 
 
-def _as_type(typ):
-    if isinstance(typ, DataType):
-        return typ
-    elif isinstance(typ, six.string_types):
-        return type_for_alias(typ)
-    else:
-        raise TypeError("data type expected, got '%r'" % (type(typ),))
-
-
-cdef DataType ensure_type(object type, c_bool allow_none=False):
-    if allow_none and type is None:
+cdef DataType ensure_type(object ty, c_bool allow_none=False):
+    if allow_none and ty is None:
         return None
+    elif isinstance(ty, DataType):
+        return ty
+    elif isinstance(ty, six.string_types):
+        return type_for_alias(ty)
     else:
-        return _as_type(type)
+        raise TypeError('DataType expected, got {!r}'.format(type(ty)))
 
 
 def schema(fields, dict metadata=None):

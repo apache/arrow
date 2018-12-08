@@ -19,8 +19,7 @@
 
 from pyarrow.lib import (is_boolean_value,  # noqa
                          is_integer_value,
-                         is_float_value,
-                         _as_type)
+                         is_float_value)
 
 import pyarrow.lib as lib
 
