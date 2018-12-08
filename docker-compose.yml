@@ -196,7 +196,7 @@ services:
     build:
       context: .
       dockerfile: docs/Dockerfile
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   ######################### Integration Tests #################################
 

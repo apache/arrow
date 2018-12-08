@@ -21,6 +21,7 @@ ADD ci/conda_env_sphinx.yml /arrow/ci/
 RUN conda install -c conda-forge \
         --file arrow/ci/conda_env_sphinx.yml && \
     conda clean --all
+
 CMD arrow/ci/docker_build_cpp.sh && \
     arrow/ci/docker_build_python.sh && \
     arrow/ci/docker_build_sphinx.sh
