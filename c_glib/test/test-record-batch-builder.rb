@@ -17,6 +17,7 @@
 
 class TestRecordBatchBuilder < Test::Unit::TestCase
   include Helper::Buildable
+  include Helper::Omittable
 
   def setup
     @fields = [
