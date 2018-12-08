@@ -44,13 +44,15 @@ use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
 
+use csv as csv_crate;
+
 use crate::array::{ArrayRef, BinaryArray};
 use crate::builder::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
 
-use csv_crate::{StringRecord, StringRecordsIntoIter};
+use self::csv_crate::{StringRecord, StringRecordsIntoIter};
 
 /// CSV file reader
 pub struct Reader {
