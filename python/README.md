@@ -80,7 +80,7 @@ and look for the "custom options" section.
 
 ```bash
 pip install -r ../docs/requirements.txt
-python setup.py build_sphinx -s ../doc/source
+python setup.py build_sphinx -s ../docs/source
 ```
 
 [2]: https://github.com/apache/arrow/blob/master/python/doc/source/development.rst
