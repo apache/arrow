@@ -224,8 +224,8 @@ public class JdbcToArrow {
     Preconditions.checkArgument(config.isValid(), "The configuration must be valid");
 
     VectorSchemaRoot root = VectorSchemaRoot.create(
-            JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), config.getCalendar()), config.getAllocator());
-    JdbcToArrowUtils.jdbcToArrowVectors(resultSet, root, config.getCalendar());
+            JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), config), config.getAllocator());
+    JdbcToArrowUtils.jdbcToArrowVectors(resultSet, root, config);
     return root;
   }
 }
