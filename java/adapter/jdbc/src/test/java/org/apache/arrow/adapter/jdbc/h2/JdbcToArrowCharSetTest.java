@@ -31,6 +31,7 @@ import java.util.Collection;
 
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VarCharVector;
@@ -116,6 +117,13 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
         new RootAllocator(Integer.MAX_VALUE)));
     testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
         Calendar.getInstance()));
+    testDataSets(JdbcToArrow.sqlToArrow(
+        conn.createStatement().executeQuery(table.getQuery()),
+        new JdbcToArrowConfig(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())));
+    testDataSets(JdbcToArrow.sqlToArrow(
+        conn,
+        table.getQuery(),
+        new JdbcToArrowConfig(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())));
   }
 
   /**
