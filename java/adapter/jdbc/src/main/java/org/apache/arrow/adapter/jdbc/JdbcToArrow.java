@@ -120,6 +120,18 @@ public class JdbcToArrow {
     return sqlToArrow(connection, query, new JdbcToArrowConfig(allocator, calendar));
   }
 
+  /**
+   * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * @param connection Database connection to be used. This method will not close the passed connection object.
+   *                   Since the caller has passed the connection object it's the responsibility of the caller
+   *                   to close or return the connection to the pool.
+   * @param query      The DB Query to fetch the data.
+   * @param config     Configuration
+   * @return Arrow Data Objects {@link VectorSchemaRoot}
+   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as
+   *                      ResultSet and Statement objects.
+   */
   public static VectorSchemaRoot sqlToArrow(Connection connection, String query, JdbcToArrowConfig config)
       throws SQLException, IOException {
     Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
