@@ -277,7 +277,6 @@ TEST_F(TestPlasmaStore, GetTest) {
   // First create object.
   std::vector<uint8_t> data = {3, 5, 6, 7, 9};
   CreateObject(client_, object_id, {42}, data);
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_FALSE(client_.IsInUse(object_id));
 
   object_buffers.clear();
@@ -291,11 +290,9 @@ TEST_F(TestPlasmaStore, GetTest) {
     auto metadata = object_buffers[0].metadata;
     object_buffers.clear();
     ::arrow::AssertBufferEqual(*metadata, std::string{42});
-    ARROW_CHECK_OK(client_.FlushReleaseHistory());
     EXPECT_TRUE(client_.IsInUse(object_id));
   }
   // Object is automatically released
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_FALSE(client_.IsInUse(object_id));
 }
 
@@ -314,17 +311,14 @@ TEST_F(TestPlasmaStore, LegacyGetTest) {
     // First create object.
     std::vector<uint8_t> data = {3, 5, 6, 7, 9};
     CreateObject(client_, object_id, {42}, data);
-    ARROW_CHECK_OK(client_.FlushReleaseHistory());
     EXPECT_FALSE(client_.IsInUse(object_id));
 
     ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
     AssertObjectBufferEqual(object_buffer, {42}, {3, 5, 6, 7, 9});
   }
   // Object needs releasing manually
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_TRUE(client_.IsInUse(object_id));
   ARROW_CHECK_OK(client_.Release(object_id));
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_FALSE(client_.IsInUse(object_id));
 }
 
@@ -377,11 +371,9 @@ TEST_F(TestPlasmaStore, AbortTest) {
   ASSERT_TRUE(status.IsInvalid());
   // Release, then abort.
   ARROW_CHECK_OK(client_.Release(object_id));
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_TRUE(client_.IsInUse(object_id));
 
   ARROW_CHECK_OK(client_.Abort(object_id));
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_FALSE(client_.IsInUse(object_id));
 
   // Test for object non-existence after the abort.
