@@ -56,6 +56,15 @@ public final class JdbcToArrowConfig {
     this.includeMetadata = false;
   }
 
+  /**
+   * Constructs a new configuration from the provided allocator and calendar.  The <code>allocator</code>
+   * is used when constructing the Arrow vectors from the ResultSet, and the calendar is used to define
+   * Arrow Timestamp fields, and to read time-based fields from the JDBC <code>ResultSet</code>. 
+   *
+   * @param allocator       The memory allocator to construct the Arrow vectors with.
+   * @param calendar        The calendar to use when constructing Timestamp fields and reading time-based results.
+   * @param includeMetadata Whether to include JDBC field metadata in the Arrow Schema Field metadata.
+   */
   public JdbcToArrowConfig(BaseAllocator allocator, Calendar calendar, boolean includeMetadata) {
     this(allocator, calendar);
     this.includeMetadata = includeMetadata;
@@ -75,6 +84,7 @@ public final class JdbcToArrowConfig {
    * Arrow schema, and reading time-based fields from the JDBC <code>ResultSet</code>.
    *
    * @param calendar the calendar to set.
+   * @return This instance of the <code>JdbcToArrowConfig</code>, for chaining.
    * @exception NullPointerExeption if <code>calendar</code> is <code>null</code>.
    */
   public JdbcToArrowConfig setCalendar(Calendar calendar) {
@@ -95,6 +105,7 @@ public final class JdbcToArrowConfig {
    * Sets the memory allocator to use when construting the Arrow vectors from the ResultSet.
    *
    * @param allocator the allocator to set.
+   * @return This instance of the <code>JdbcToArrowConfig</code>, for chaining.
    * @exception NullPointerException if <code>allocator</code> is null.
    */
   public JdbcToArrowConfig setAllocator(BaseAllocator allocator) {
@@ -103,8 +114,24 @@ public final class JdbcToArrowConfig {
     return this;
   }
 
-  public boolean includeMetadata() {
+  /**
+   * Whether to include JDBC ResultSet field metadata in the Arrow Schema field metadata.
+   *
+   * @return <code>true</code> to include field metadata, <code>false</code> to exclude it.
+   */
+  public boolean getIncludeMetadata() {
     return includeMetadata;
+  }
+
+  /**
+   * Sets whether to include JDBC ResultSet field metadata in the Arrow Schema field metadata.
+   *
+   * @param includeMetadata Whether to include or exclude JDBC metadata in the Arrow Schema field metadata.
+   * @return This instance of the <code>JdbcToArrowConfig</code>, for chaining.
+   */
+  public JdbcToArrowConfig setIncludeMetadata(boolean includeMetadata) {
+    this.includeMetadata = includeMetadata;
+    return this;
   }
 
   /**
