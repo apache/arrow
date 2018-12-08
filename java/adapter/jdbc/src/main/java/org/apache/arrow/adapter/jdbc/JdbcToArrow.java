@@ -197,6 +197,14 @@ public class JdbcToArrow {
     return sqlToArrow(resultSet, new JdbcToArrowConfig(allocator, calendar));
   }
 
+  /**
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * @param resultSet ResultSet to use to fetch the data from underlying database
+   * @param config    Configuration of the conversion from JDBC to Arrow.
+   * @return Arrow Data Objects {@link VectorSchemaRoot}
+   * @throws SQLException on error
+   */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, JdbcToArrowConfig config)
       throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
