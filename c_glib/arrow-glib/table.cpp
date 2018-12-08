@@ -313,7 +313,8 @@ garrow_table_replace_column(GArrowTable *table,
  * @table: A #GArrowTable.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable): The formatted table content or %NULL on error.
+ * Returns: (nullable) (transfer full):
+ *   The formatted table content or %NULL on error.
  *
  *   The returned string should be freed when with g_free() when no
  *   longer needed.

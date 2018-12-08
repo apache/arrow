@@ -372,7 +372,8 @@ garrow_column_get_data(GArrowColumn *column)
  * @column: A #GArrowColumn.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable): The formatted column content or %NULL on error.
+ * Returns: (nullable) (transfer full):
+ *   The formatted column content or %NULL on error.
  *
  *   The returned string should be freed when with g_free() when no
  *   longer needed.
