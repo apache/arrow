@@ -25,11 +25,27 @@ import com.google.common.base.Preconditions;
 
 /**
  * This class configures the JDBC-to-Arrow conversion process.
+ * <p>
+ * The allocator is used to construct the {@link org.apache.arrow.vector.VectorSchemaRoot},
+ * and the calendar is used to define the time zone of any {@link org.apahe.arrow.vector.pojo.ArrowType.Timestamp}
+ * fields that are created during the conversion.
+ * </p>
+ * <p>
+ * Neither field may be <code>null</code>.
+ * </p>
  */
 public final class JdbcToArrowConfig {
   private Calendar calendar;
   private BaseAllocator allocator;
 
+  /**
+   * Constructs a new configuration from the provided allocator and calendar.  The <code>allocator</code>
+   * is used when constructing the Arrow vectors from the ResultSet, and the calendar is used to define
+   * Arrow Timestamp fields, and to read time-based fields from the JDBC <code>ResultSet</code>. 
+   *
+   * @param allocator The memory allocator to construct the Arrow vectors with.
+   * @param calendar The calendar to use when constructing Timestamp fields and reading time-based results.
+   */
   public JdbcToArrowConfig(BaseAllocator allocator, Calendar calendar) {
     Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
     Preconditions.checkNotNull(calendar, "Calendar object can not be null");
@@ -48,10 +64,16 @@ public final class JdbcToArrowConfig {
   }
 
   /**
+   * Sets the {@link Calendar} to use when constructing timestamp fields in the
+   * Arrow schema, and reading time-based fields from the JDBC <code>ResultSet</code>.
+   *
    * @param calendar the calendar to set.
+   * @exception NullPointerExeption if <code>calendar</code> is <code>null</code>.
    */
-  public void setCalendar(Calendar calendar) {
+  public JdbcToArrowConfig setCalendar(Calendar calendar) {
+    Preconditions.checkNotNull(calendar, "Calendar object can not be null");
     this.calendar = calendar;
+    return this;
   }
 
   /**
@@ -63,13 +85,27 @@ public final class JdbcToArrowConfig {
   }
 
   /**
+   * Sets the memory allocator to use when construting the Arrow vectors from the ResultSet.
+   *
    * @param allocator the allocator to set.
+   * @exception NullPointerException if <code>allocator</code> is null.
    */
-  public void setAllocator(BaseAllocator allocator) {
+  public JdbcToArrowConfig setAllocator(BaseAllocator allocator) {
+    Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
     this.allocator = allocator;
+    return this;
   }
 
+  /**
+   * Whether this configuration is valid.  The configuration is valid when:
+   * <ul>
+   *   <li>A memory allocator is provided.</li>
+   *   <li>A calendar is provided.</li>
+   * </ul>
+   *
+   * @return Whether this configuration is valid.
+   */
   public boolean isValid() {
-    return (calendar != null) || (allocator != null);
+    return (calendar != null) && (allocator != null);
   }
 }
