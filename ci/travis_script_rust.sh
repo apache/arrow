@@ -29,8 +29,12 @@ rustup show
 # check code formatting only for Rust nightly
 if [ $RUSTUP_TOOLCHAIN == "stable" ]
 then
-  # we use the stable version of rustfmt even when compiling with nightly
   rustup component add rustfmt
+else
+  # we use the stable version of rustfmt even when compiling with nightly
+  rustup default stable
+  rustup component add rustfmt
+  rustup default nightly
 fi
 
 # raises on any formatting errors
