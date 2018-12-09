@@ -30,17 +30,17 @@ install(FILES
   ${ARROW_CSV_HEADERS}
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/csv")
 
-if (ARROW_BUILD_STATIC)
-  set(ARROW_LIB arrow_static)
-  set(GFLAGS_LIB gflags_static)
-else()
-  set(ARROW_LIB arrow_shared)
-  set(GFLAGS_LIB gflags_shared)
+if (ARROW_BUILD_UTILITIES)
+  if (ARROW_BUILD_STATIC)
+    set(ARROW_LIB arrow_static)
+    set(GFLAGS_LIB gflags_static)
+  else()
+    set(ARROW_LIB arrow_shared)
+    set(GFLAGS_LIB gflags_shared)
+  endif()
+  set(CLI_LINK_LIBS
+    ${ARROW_LIB}
+    ${GFLAGS_LIB})
+  add_executable(csv-to-arrow csv-to-arrow.cc)
+  target_link_libraries(csv-to-arrow ${CLI_LINK_LIBS})
 endif()
-
-set(CLI_LINK_LIBS
-  ${ARROW_LIB}
-  ${GFLAGS_LIB})
-
-add_executable(csv-to-arrow csv-to-arrow.cc)
-target_link_libraries(csv-to-arrow ${CLI_LINK_LIBS})
