@@ -2,13 +2,16 @@
 % Please edit documentation in R/RecordBatch.R
 \name{record_batch}
 \alias{record_batch}
-\title{Create an arrow::RecordBatch from a data frame}
+\title{Create an \link[=arrow__RecordBatch]{arrow::RecordBatch} from a data frame}
 \usage{
 record_batch(.data)
 }
 \arguments{
 \item{.data}{a data frame}
 }
+\value{
+a \link[=arrow__RecordBatch]{arrow::RecordBatch}
+}
 \description{
-Create an arrow::RecordBatch from a data frame
+Create an \link[=arrow__RecordBatch]{arrow::RecordBatch} from a data frame
 }

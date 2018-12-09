@@ -16,6 +16,8 @@
 
 #include <string.h>
 
+#include "arrow/util/logging.h"
+
 void init_msg(struct msghdr* msg, struct iovec* iov, char* buf, size_t buf_len) {
   iov->iov_base = buf;
   iov->iov_len = 1;
@@ -46,11 +48,32 @@ int send_fd(int conn, int fd) {
   memcpy(CMSG_DATA(header), reinterpret_cast<void*>(&fd), sizeof(int));
 
   // Send file descriptor.
-  ssize_t r = sendmsg(conn, &msg, 0);
-  if (r >= 0) {
-    return 0;
-  } else {
-    return static_cast<int>(r);
+  while (true) {
+    ssize_t r = sendmsg(conn, &msg, 0);
+    if (r < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+        continue;
+      } else if (errno == EMSGSIZE) {
+        ARROW_LOG(WARNING) << "Failed to send file descriptor"
+                           << " (errno = EMSGSIZE), retrying.";
+        // If we failed to send the file descriptor, loop until we have sent it
+        // successfully. TODO(rkn): This is problematic for two reasons. First
+        // of all, sending the file descriptor should just succeed without any
+        // errors, but sometimes I see a "Message too long" error number.
+        // Second, looping like this allows a client to potentially block the
+        // plasma store event loop which should never happen.
+        continue;
+      } else {
+        ARROW_LOG(INFO) << "Error in send_fd (errno = " << errno << ")";
+        return static_cast<int>(r);
+      }
+    } else if (r == 0) {
+      ARROW_LOG(INFO) << "Encountered unexpected EOF";
+      return 0;
+    } else {
+      ARROW_CHECK(r > 0);
+      return static_cast<int>(r);
+    }
   }
 }
 
@@ -60,7 +83,19 @@ int recv_fd(int conn) {
   char buf[CMSG_SPACE(sizeof(int))];
   init_msg(&msg, &iov, buf, sizeof(buf));
 
-  if (recvmsg(conn, &msg, 0) == -1) return -1;
+  while (true) {
+    ssize_t r = recvmsg(conn, &msg, 0);
+    if (r == -1) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+        continue;
+      } else {
+        ARROW_LOG(INFO) << "Error in recv_fd (errno = " << errno << ")";
+        return -1;
+      }
+    } else {
+      break;
+    }
+  }
 
   int found_fd = -1;
   int oh_noes = 0;

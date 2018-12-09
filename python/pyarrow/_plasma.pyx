@@ -32,11 +32,13 @@ from cpython.pycapsule cimport *
 import collections
 import pyarrow
 import random
+import socket
 
 from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
+from pyarrow import compat
 
 PLASMA_WAIT_TIMEOUT = 2 ** 30
 
@@ -130,6 +132,10 @@ cdef extern from "plasma/client.h" nogil:
         CStatus List(CObjectTable* objects)
 
         CStatus Subscribe(int* fd)
+
+        CStatus DecodeNotification(const uint8_t* buffer,
+                                   CUniqueID* object_id, int64_t* data_size,
+                                   int64_t* metadata_size)
 
         CStatus GetNotification(int fd, CUniqueID* object_id,
                                 int64_t* data_size, int64_t* metadata_size)
@@ -728,6 +734,38 @@ cdef class PlasmaClient:
         """Subscribe to notifications about sealed objects."""
         with nogil:
             check_status(self.client.get().Subscribe(&self.notification_fd))
+
+    def get_notification_socket(self):
+        """
+        Get the notification socket.
+        """
+        return compat.get_socket_from_fd(self.notification_fd,
+                                         family=socket.AF_UNIX,
+                                         type=socket.SOCK_STREAM)
+
+    def decode_notification(self, const uint8_t* buf):
+        """
+        Get the notification from the buffer.
+
+        Returns
+        -------
+        ObjectID
+            The object ID of the object that was stored.
+        int
+            The data size of the object that was stored.
+        int
+            The metadata size of the object that was stored.
+        """
+        cdef CUniqueID object_id
+        cdef int64_t data_size
+        cdef int64_t metadata_size
+        with nogil:
+            check_status(self.client.get()
+                         .DecodeNotification(buf,
+                                             &object_id,
+                                             &data_size,
+                                             &metadata_size))
+        return ObjectID(object_id.binary()), data_size, metadata_size
 
     def get_next_notification(self):
         """

@@ -1,0 +1,6 @@
+breathe
+ipython
+matplotlib
+numpydoc
+sphinx
+sphinx_rtd_theme

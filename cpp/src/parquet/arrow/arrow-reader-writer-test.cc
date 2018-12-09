@@ -29,6 +29,11 @@
 #include <sstream>
 #include <vector>
 
+#include "arrow/api.h"
+#include "arrow/test-util.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
+
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
 
@@ -36,15 +41,8 @@
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/test-util.h"
 #include "parquet/arrow/writer.h"
-
 #include "parquet/file_writer.h"
-
 #include "parquet/util/test-common.h"
-
-#include "arrow/api.h"
-#include "arrow/test-util.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/decimal.h"
 
 using arrow::Array;
 using arrow::ArrayVisitor;
@@ -1712,6 +1710,7 @@ TEST(TestArrowReadWrite, ReadColumnSubset) {
 TEST(TestArrowReadWrite, ListLargeRecords) {
   // PARQUET-1308: This test passed on Linux when num_rows was smaller
   const int num_rows = 2000;
+  const int row_group_size = 100;
 
   std::shared_ptr<Array> list_array;
   std::shared_ptr<::DataType> list_type;
@@ -1723,8 +1722,8 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
   std::shared_ptr<Table> table = Table::Make(schema, {list_array});
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(
-      WriteTableToBuffer(table, 100, default_arrow_writer_properties(), &buffer));
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
 
   std::unique_ptr<FileReader> reader;
   ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
@@ -1736,7 +1735,7 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
   ASSERT_OK_NO_THROW(reader->ReadTable(&result));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 
-  // Read chunked
+  // Read 1 record at a time
   ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
                               ::arrow::default_memory_pool(),
                               ::parquet::default_reader_properties(), nullptr, &reader));
@@ -2263,7 +2262,7 @@ TEST_P(TestNestedSchemaRead, DeepNestedSchemaRead) {
   const int num_trees = 3;
   const int depth = 3;
 #else
-  const int num_trees = 10;
+  const int num_trees = 5;
   const int depth = 5;
 #endif
   const int num_children = 3;

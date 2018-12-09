@@ -20,8 +20,8 @@
 
 #include <string>
 
+#include "arrow/python/visibility.h"
 #include "arrow/type.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -38,21 +38,21 @@ class OwnedRef;
 namespace internal {
 
 // \brief Import the Python Decimal type
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status ImportDecimalType(OwnedRef* decimal_type);
 
 // \brief Convert a Python Decimal object to a C++ string
 // \param[in] python_decimal A Python decimal.Decimal instance
 // \param[out] The string representation of the Python Decimal instance
 // \return The status of the operation
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status PythonDecimalToString(PyObject* python_decimal, std::string* out);
 
 // \brief Convert a C++ std::string to a Python Decimal instance
 // \param[in] decimal_constructor The decimal type object
 // \param[in] decimal_string A decimal string
 // \return An instance of decimal.Decimal
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 PyObject* DecimalFromString(PyObject* decimal_constructor,
                             const std::string& decimal_string);
 
@@ -61,21 +61,21 @@ PyObject* DecimalFromString(PyObject* decimal_constructor,
 // \param[in] arrow_type An instance of arrow::DecimalType
 // \param[out] out A pointer to a Decimal128
 // \return The status of the operation
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
                                 Decimal128* out);
 
 // \brief Check whether obj is an instance of Decimal
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 bool PyDecimal_Check(PyObject* obj);
 
 // \brief Check whether obj is nan. This function will abort the program if the argument
 // is not a Decimal instance
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 bool PyDecimal_ISNAN(PyObject* obj);
 
 // \brief Helper class to track and update the precision and scale of a decimal
-class ARROW_EXPORT DecimalMetadata {
+class ARROW_PYTHON_EXPORT DecimalMetadata {
  public:
   DecimalMetadata();
   DecimalMetadata(int32_t precision, int32_t scale);

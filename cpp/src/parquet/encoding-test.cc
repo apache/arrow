@@ -155,7 +155,7 @@ class TestEncodingBase : public ::testing::Test {
     allocator_ = default_memory_pool();
   }
 
-  void TearDown() { pool_.FreeAll(); }
+  void TearDown() {}
 
   void InitData(int nvalues, int repeats) {
     num_values_ = nvalues * repeats;
@@ -181,7 +181,6 @@ class TestEncodingBase : public ::testing::Test {
   }
 
  protected:
-  ChunkedAllocator pool_;
   MemoryPool* allocator_;
 
   int num_values_;
@@ -199,7 +198,6 @@ class TestEncodingBase : public ::testing::Test {
 // Member variables are not visible to templated subclasses. Possibly figure
 // out an alternative to this class layering at some point
 #define USING_BASE_MEMBERS()                    \
-  using TestEncodingBase<Type>::pool_;          \
   using TestEncodingBase<Type>::allocator_;     \
   using TestEncodingBase<Type>::descr_;         \
   using TestEncodingBase<Type>::num_values_;    \
@@ -253,14 +251,14 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
 
   void CheckRoundtrip() {
     std::vector<uint8_t> valid_bits(BitUtil::BytesForBits(num_values_) + 1, 255);
-    DictEncoder<Type> encoder(descr_.get(), &pool_);
+    DictEncoder<Type> encoder(descr_.get());
 
     ASSERT_NO_THROW(encoder.Put(draws_, num_values_));
     dict_buffer_ = AllocateBuffer(default_memory_pool(), encoder.dict_encoded_size());
     encoder.WriteDict(dict_buffer_->mutable_data());
     std::shared_ptr<Buffer> indices = encoder.FlushValues();
 
-    DictEncoder<Type> spaced_encoder(descr_.get(), &pool_);
+    DictEncoder<Type> spaced_encoder(descr_.get());
     // PutSpaced should lead to the same results
     ASSERT_NO_THROW(spaced_encoder.PutSpaced(draws_, num_values_, valid_bits.data(), 0));
     std::shared_ptr<Buffer> indices_from_spaced = spaced_encoder.FlushValues();

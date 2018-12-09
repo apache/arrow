@@ -21,7 +21,7 @@
 #include "arrow/python/platform.h"
 
 #include "arrow/python/numpy_interop.h"
-#include "arrow/util/visibility.h"
+#include "arrow/python/visibility.h"
 
 #if PY_MAJOR_VERSION >= 3
 #define PyString_Check PyUnicode_Check
@@ -30,10 +30,10 @@
 namespace arrow {
 namespace py {
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 extern PyObject* numpy_nan;
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 void set_numpy_nan(PyObject* obj);
 
 }  // namespace py

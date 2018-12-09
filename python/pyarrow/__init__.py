@@ -192,7 +192,7 @@ def get_libraries():
     Return list of library names to include in the `libraries` argument for C
     or Cython extensions using pyarrow
     """
-    return ['arrow_python']
+    return ['arrow', 'arrow_python']
 
 
 def get_library_dirs():

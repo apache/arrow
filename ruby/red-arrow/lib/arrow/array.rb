@@ -20,11 +20,13 @@ module Arrow
     include Enumerable
 
     class << self
-      def new(values)
+      def new(*args)
+        return super if args.size != 1
+
         builder_class_name = "#{name}Builder"
         if const_defined?(builder_class_name)
           builder_class = const_get(builder_class_name)
-          builder_class.build(values)
+          builder_class.build(*args)
         else
           super
         end

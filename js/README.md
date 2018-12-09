@@ -94,26 +94,14 @@ console.log(table.toString());
 ### Create a Table from JavaScript arrays
 
 ```es6
-const fields = [{
-        name: 'precipitation',
-        type: { name: 'floatingpoint', precision: 'SINGLE'},
-        nullable: false, children: []
-    }, {
-        name: 'date',
-        type: { name: 'date', unit: 'MILLISECOND' },
-        nullable: false, children: []
-    }];
-const rainAmounts = Array.from({length: LENGTH}, () => Number((Math.random() * 20).toFixed(1)));
-const rainDates = Array.from({length: LENGTH}, (_, i) => Date.now() - 1000 * 60 * 60 * 24 * i);
-
 const LENGTH = 2000;
-const rainfall = arrow.Table.from({
-  schema: { fields: fields },
-  batches: [{
-    count: LENGTH,
-    columns: [
-      {name: "precipitation", count: LENGTH, VALIDITY: [], DATA: rainAmounts },
-      {name: "date",          count: LENGTH, VALIDITY: [], DATA: rainDates } ] }] })
+const rainAmounts = Float32Array.from({length: LENGTH}, () => Number((Math.random() * 20).toFixed(1)));
+const rainDates = Array.from({length: LENGTH}, (_, i) => new Date(Date.now() - 1000 * 60 * 60 * 24 * i));
+
+const rainfall = arrow.Table.fromVectors(
+  [FloatVector.from(rainAmounts), DateVector.from(rainDates)],
+  ['precipitation', 'date']
+);
 ```
 
 ### Load data with `fetch`

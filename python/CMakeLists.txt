@@ -17,9 +17,6 @@
 #
 # Includes code assembled from BSD/MIT/Apache-licensed code from some 3rd-party
 # projects, including Kudu, Impala, and libdynd. See python/LICENSE.txt
-#
-# TODO(ARROW-3209): rename arrow_gpu to arrow_cuda
-#
 
 cmake_minimum_required(VERSION 2.7)
 project(pyarrow)
@@ -393,13 +390,13 @@ if (PYARROW_BUILD_CUDA)
       endif()
     endif()
     if (MSVC)
-      ADD_THIRDPARTY_LIB(arrow_gpu
+      ADD_THIRDPARTY_LIB(arrow_cuda
         SHARED_LIB ${ARROW_CUDA_SHARED_IMP_LIB})
     else()
-      ADD_THIRDPARTY_LIB(arrow_gpu
+      ADD_THIRDPARTY_LIB(arrow_cuda
         SHARED_LIB ${ARROW_CUDA_SHARED_LIB})
     endif()
-    set(LINK_LIBS ${LINK_LIBS} arrow_gpu_shared)
+    set(LINK_LIBS ${LINK_LIBS} arrow_cuda_shared)
     set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
   endif()
 endif()

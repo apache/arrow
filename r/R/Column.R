@@ -17,11 +17,26 @@
 
 #' @include R6.R
 
+#' @title class arrow::Column
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__Column
+#' @name arrow__Column
 `arrow::Column` <- R6Class("arrow::Column", inherit = `arrow::Object`,
   public = list(
     length = function() Column__length(self),
-    null_count = function() Column__null_count(self),
-    type = function() `arrow::DataType`$dispatch(Column__type(self)),
     data = function() shared_ptr(`arrow::ChunkedArray`, Column__data(self))
+  ),
+
+  active = list(
+    null_count = function() Column__null_count(self),
+    type = function() `arrow::DataType`$dispatch(Column__type(self))
   )
 )

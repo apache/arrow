@@ -45,6 +45,22 @@ mvn install -P gandiva -pl gandiva -am -Dgandiva.cpp.build.dir=../../debug
 This library is still in Alpha stages, and subject to API changes without
 deprecation warnings.
 
+## Java Code Style Guide
+
+Arrow Java follows the Google style guide [here][3] with the following
+differences:
+
+* Imports are grouped, from top to bottom, in this order: static imports,
+standard Java, org.\*, com.\*
+* Line length can be up to 120 characters
+* Operators for line wrapping are at end-of-line
+* Naming rules for methods, parameters, etc. have been relaxed
+* Disabled `NoFinalizer`, `OverloadMethodsDeclarationOrder`, and
+`VariableDeclarationUsageDistance` due to the existing code base. These rules
+should be followed when possible.
+
+Refer to `java/dev/checkstyle/checkstyle.xml for rule specifics.
+
 ## Test Logging Configuration
 
 When running tests, Arrow Java uses the Logback logger with SLF4J. By default,
@@ -65,3 +81,4 @@ See [Logback Configuration][1] for more details.
 
 [1]: https://logback.qos.ch/manual/configuration.html
 [2]: https://github.com/apache/arrow/blob/master/cpp/README.md
+[3]: http://google.github.io/styleguide/javaguide.html

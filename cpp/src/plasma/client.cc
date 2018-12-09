@@ -53,13 +53,13 @@
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"
 
-using arrow::gpu::CudaBuffer;
-using arrow::gpu::CudaBufferWriter;
-using arrow::gpu::CudaContext;
-using arrow::gpu::CudaDeviceManager;
+using arrow::cuda::CudaBuffer;
+using arrow::cuda::CudaBufferWriter;
+using arrow::cuda::CudaContext;
+using arrow::cuda::CudaDeviceManager;
 #endif
 
 #define XXH_INLINE_ALL 1
@@ -89,7 +89,7 @@ constexpr int64_t kL3CacheSizeBytes = 100000000;
 // ----------------------------------------------------------------------
 // GPU support
 
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
 struct GpuProcessHandle {
   /// Pointer to CUDA buffer that is backing this GPU object.
   std::shared_ptr<CudaBuffer> ptr;
@@ -202,6 +202,9 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Subscribe(int* fd);
 
+  Status DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
+                            int64_t* data_size, int64_t* metadata_size);
+
   Status GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
                          int64_t* metadata_size);
 
@@ -283,16 +286,16 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   /// A hash set to record the ids that users want to delete but still in use.
   std::unordered_set<ObjectID> deletion_cache_;
 
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   /// Cuda Device Manager.
-  arrow::gpu::CudaDeviceManager* manager_;
+  arrow::cuda::CudaDeviceManager* manager_;
 #endif
 };
 
 PlasmaBuffer::~PlasmaBuffer() { ARROW_UNUSED(client_->Release(object_id_)); }
 
 PlasmaClient::Impl::Impl() {
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
 }
@@ -410,7 +413,7 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
       memcpy((*data)->mutable_data() + object.data_size, metadata, metadata_size);
     }
   } else {
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
     std::lock_guard<std::mutex> lock(gpu_mutex);
     std::shared_ptr<CudaContext> context;
     RETURN_NOT_OK(manager_->GetContext(device_num - 1, &context));
@@ -494,7 +497,7 @@ Status PlasmaClient::Impl::GetBuffers(
         physical_buf = std::make_shared<Buffer>(
             data + object->data_offset, object->data_size + object->metadata_size);
       } else {
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
         physical_buf = gpu_object_map.find(object_ids[i])->second->ptr;
 #else
         ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";
@@ -557,7 +560,7 @@ Status PlasmaClient::Impl::GetBuffers(
         physical_buf = std::make_shared<Buffer>(
             data + object->data_offset, object->data_size + object->metadata_size);
       } else {
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
         std::lock_guard<std::mutex> lock(gpu_mutex);
         auto handle = gpu_object_map.find(object_ids[i]);
         if (handle == gpu_object_map.end()) {
@@ -943,13 +946,10 @@ Status PlasmaClient::Impl::Subscribe(int* fd) {
   return Status::OK();
 }
 
-Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
-                                           int64_t* data_size, int64_t* metadata_size) {
-  auto notification = ReadMessageAsync(fd);
-  if (notification == NULL) {
-    return Status::IOError("Failed to read object notification from Plasma socket");
-  }
-  auto object_info = flatbuffers::GetRoot<fb::ObjectInfo>(notification.get());
+Status PlasmaClient::Impl::DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
+                                              int64_t* data_size,
+                                              int64_t* metadata_size) {
+  auto object_info = flatbuffers::GetRoot<fb::ObjectInfo>(buffer);
   ARROW_CHECK(object_info->object_id()->size() == sizeof(ObjectID));
   memcpy(object_id, object_info->object_id()->data(), sizeof(ObjectID));
   if (object_info->is_deletion()) {
@@ -960,6 +960,15 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
     *metadata_size = object_info->metadata_size();
   }
   return Status::OK();
+}
+
+Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
+                                           int64_t* data_size, int64_t* metadata_size) {
+  auto notification = ReadMessageAsync(fd);
+  if (notification == NULL) {
+    return Status::IOError("Failed to read object notification from Plasma socket");
+  }
+  return DecodeNotification(notification.get(), object_id, data_size, metadata_size);
 }
 
 Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
@@ -1136,6 +1145,11 @@ Status PlasmaClient::Subscribe(int* fd) { return impl_->Subscribe(fd); }
 Status PlasmaClient::GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
                                      int64_t* metadata_size) {
   return impl_->GetNotification(fd, object_id, data_size, metadata_size);
+}
+
+Status PlasmaClient::DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
+                                        int64_t* data_size, int64_t* metadata_size) {
+  return impl_->DecodeNotification(buffer, object_id, data_size, metadata_size);
 }
 
 Status PlasmaClient::Disconnect() { return impl_->Disconnect(); }

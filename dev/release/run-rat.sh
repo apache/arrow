@@ -18,10 +18,14 @@
 # under the License.
 #
 
-# download apache rat
-curl -s https://repo1.maven.org/maven2/org/apache/rat/apache-rat/0.12/apache-rat-0.12.jar > apache-rat-0.12.jar
+RAT_VERSION=0.12
 
-RAT="java -jar apache-rat-0.12.jar -x "
+# download apache rat
+if [ ! -f apache-rat-${RAT_VERSION}.jar ]; then
+  curl -s https://repo1.maven.org/maven2/org/apache/rat/apache-rat/${RAT_VERSION}/apache-rat-${RAT_VERSION}.jar > apache-rat-${RAT_VERSION}.jar
+fi
+
+RAT="java -jar apache-rat-${RAT_VERSION}.jar -x "
 
 RELEASE_DIR=$(cd "$(dirname "$BASH_SOURCE")"; pwd)
 

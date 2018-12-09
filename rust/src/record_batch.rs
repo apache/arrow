@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::array::*;
-use super::datatypes::*;
+use crate::array::*;
+use crate::datatypes::*;
 use std::sync::Arc;
 
 /// A batch of column-oriented data
@@ -67,8 +67,8 @@ unsafe impl Sync for RecordBatch {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use array_data::*;
-    use buffer::*;
+    use crate::array_data::*;
+    use crate::buffer::*;
 
     #[test]
     fn create_record_batch() {

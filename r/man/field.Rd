@@ -2,7 +2,7 @@
 % Please edit documentation in R/Field.R
 \name{field}
 \alias{field}
-\title{Factor for a \code{arrow::Field}}
+\title{Factory for a \code{arrow::Field}}
 \usage{
 field(name, type, metadata)
 }
@@ -14,7 +14,7 @@ field(name, type, metadata)
 \item{metadata}{currently ignored}
 }
 \description{
-Factor for a \code{arrow::Field}
+Factory for a \code{arrow::Field}
 }
 \examples{
 field("x", int32())
