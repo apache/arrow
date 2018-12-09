@@ -27,15 +27,14 @@ pushd $RUST_DIR
 rustup show
 
 # check code formatting only for Rust nightly
-if [ $RUSTUP_TOOLCHAIN == "nightly" ]
+if [ $RUSTUP_TOOLCHAIN == "stable" ]
 then
-  # this is a pain but rustfmt is sometimes broken on nightly toolchain so use the stable version
-  rustup default stable
+  # we use the stable version of rustfmt even when compiling with nightly
   rustup component add rustfmt
-  rustup default nightly
-  # raises on any formatting errors
-  cargo +stable fmt --all -- --check
 fi
+
+# raises on any formatting errors
+cargo +stable fmt --all -- --check
 
 # raises on any warnings
 cargo rustc -- -D warnings
