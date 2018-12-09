@@ -112,9 +112,13 @@ install(FILES
   expression.h
   expression_registry.h
   filter.h
+  func_descriptor.h
   function_signature.h
   gandiva_aliases.h
+  literal_holder.h
   logging.h
+  node.h
+  node_visitor.h
   projector.h
   selection_vector.h
   tree_expr_builder.h
