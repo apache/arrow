@@ -29,7 +29,13 @@
 
 #include <gflags/gflags.h>
 
-// CLI options
+// CLI options and utilities
+
+static bool CheckPositive(const char* flagname, gflags::int32 value) {
+  if (value > 0) return true;
+  std::cerr << "ERROR: -" << flagname << " must be > 0!" << std::endl;
+  return false;
+}
 
 // Parsing options
 DEFINE_string(delimiter, ",", "Field delimiter");
@@ -44,6 +50,7 @@ DEFINE_bool(ignore_empty_lines, true, "Ignore empty lines");
 DEFINE_int32(
     header_rows, 1,
     "Number of header rows to skip (including the first row containing column names)");
+DEFINE_validator(header_rows, &CheckPositive);
 
 // Conversion options
 DEFINE_bool(check_utf8, true, "Check UTF8 validity of string columns");
@@ -51,6 +58,7 @@ DEFINE_bool(check_utf8, true, "Check UTF8 validity of string columns");
 // Read options
 DEFINE_bool(use_threads, true, "Use the global CPU thread pool");
 DEFINE_int32(block_size, 1 << 20, "Block size");
+DEFINE_validator(block_size, &CheckPositive);
 
 // Tool options
 DEFINE_bool(verbose, true, "Verbose output");
@@ -83,14 +91,13 @@ static Status InitReadOptions(ReadOptions& options) {
 }
 
 static Status Run(int argc, char** argv) {
+  // Instantiate and handle options
   gflags::SetUsageMessage("csv-to-arrow [FLAGS] input.csv  > output.arrow");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   if (argc != 2) {
     std::cerr << "Usage: " << gflags::ProgramUsage() << std::endl;
     return Status::Invalid("Input filename missing");
   }
-
-  // Instantiate and handle options
   auto parse_options = ParseOptions::Defaults();
   ARROW_RETURN_NOT_OK(InitParseOptions(parse_options));
   auto read_options = ReadOptions::Defaults();
@@ -139,7 +146,7 @@ static Status Run(int argc, char** argv) {
 int main(int argc, char** argv) {
   arrow::Status status = arrow::csv::Run(argc, argv);
   if (!status.ok()) {
-    std::cerr << "Could not convert to file: " << status.ToString() << std::endl;
+    std::cerr << "ERROR! " << status.ToString() << std::endl;
   }
   return 0;
 }
