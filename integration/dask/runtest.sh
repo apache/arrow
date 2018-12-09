@@ -24,7 +24,7 @@ set -e
 python -c "import pyarrow.orc"
 python -c "import pyarrow.parquet"
 
-# pytest arrow/python/testing/dask_tests
+# TODO(kszucs): the following tests are also uses pyarrow
 # pytest -sv --pyargs dask.bytes.tests.test_s3
 # pytest -sv --pyargs dask.bytes.tests.test_hdfs
 # pytest -sv --pyargs dask.bytes.tests.test_local
