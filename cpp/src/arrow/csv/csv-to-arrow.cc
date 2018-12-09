@@ -37,6 +37,12 @@ static bool CheckPositive(const char* flagname, gflags::int32 value) {
   return false;
 }
 
+static bool CheckCharacter(const char* flagname, const std::string& value) {
+  if (value.length() == 1) return true;
+  std::cerr << "ERROR: -" << flagname << " must be a character!" << std::endl;
+  return false;
+}
+
 // Parsing options
 DEFINE_string(delimiter, ",", "Field delimiter");
 DEFINE_bool(quoting, true, "Use quoting");
@@ -50,6 +56,10 @@ DEFINE_bool(ignore_empty_lines, true, "Ignore empty lines");
 DEFINE_int32(
     header_rows, 1,
     "Number of header rows to skip (including the first row containing column names)");
+
+DEFINE_validator(delimiter, &CheckCharacter);
+DEFINE_validator(quote_char, &CheckCharacter);
+DEFINE_validator(escape_char, &CheckCharacter);
 DEFINE_validator(header_rows, &CheckPositive);
 
 // Conversion options
