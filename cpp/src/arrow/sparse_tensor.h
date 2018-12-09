@@ -112,7 +112,7 @@ class ARROW_EXPORT SparseTensorBase {
  public:
   virtual ~SparseTensorBase() = default;
 
-  virtual SparseTensorFormat::type sparse_tensor_format_id() const = 0;
+  SparseTensorFormat::type sparse_tensor_format_id() const { return sparse_index_->format_id(); }
 
   std::shared_ptr<DataType> type() const { return type_; }
   std::shared_ptr<Buffer> data() const { return data_; }
@@ -135,7 +135,7 @@ class ARROW_EXPORT SparseTensorBase {
   bool is_mutable() const { return data_->is_mutable(); }
 
   /// Total number of non-zero cells in the sparse tensor
-  virtual int64_t length() const = 0;
+  int64_t length() const { return sparse_index_ ? sparse_index_->length() : 0; }
 
   bool Equals(const SparseTensorBase& other) const;
 
@@ -180,13 +180,6 @@ class ARROW_EXPORT SparseTensor : public SparseTensorBase {
 
   // Constructor with a dense tensor
   explicit SparseTensor(const Tensor& tensor);
-
-  SparseTensorFormat::type sparse_tensor_format_id() const {
-    return SparseIndexType::format_id;
-  }
-
-  /// Total number of non-zero cells in the sparse tensor
-  int64_t length() const { return sparse_index_ ? sparse_index_->length() : 0; }
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(SparseTensor);
