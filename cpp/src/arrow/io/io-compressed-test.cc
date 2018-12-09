@@ -180,7 +180,7 @@ TEST_P(CompressedInputStreamTest, TruncatedData) {
 
 TEST_P(CompressedInputStreamTest, InvalidData) {
   auto codec = MakeCodec();
-  auto compressed_data = MakeRandomData(10000);
+  auto compressed_data = MakeRandomData(100);
 
   auto buffer_reader = std::make_shared<BufferReader>(Buffer::Wrap(compressed_data));
   std::shared_ptr<CompressedInputStream> stream;

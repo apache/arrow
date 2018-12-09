@@ -55,15 +55,15 @@ AM_CFLAGS =					\
 GTKDOC_LIBS =						\
 	$(top_builddir)/arrow-glib/libarrow-glib.la
 
-if HAVE_ARROW_GPU
+if HAVE_ARROW_CUDA
 DOC_SOURCE_DIR +=				\
-	$(top_srcdir)/arrow-gpu-glib
+	$(top_srcdir)/arrow-cuda-glib
 HFILE_GLOB +=					\
-	$(top_srcdir)/arrow-gpu-glib/*.h
+	$(top_srcdir)/arrow-cuda-glib/*.h
 CFILE_GLOB +=					\
-	$(top_srcdir)/arrow-gpu-glib/*.cpp
+	$(top_srcdir)/arrow-cuda-glib/*.cpp
 GTKDOC_LIBS +=							\
-	$(top_builddir)/arrow-gpu-glib/libarrow-gpu-glib.la
+	$(top_builddir)/arrow-cuda-glib/libarrow-cuda-glib.la
 endif
 
 include $(top_srcdir)/gtk-doc.make

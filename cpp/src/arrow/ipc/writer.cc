@@ -949,6 +949,10 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl
   }
 
   Status Close() override {
+    // Write the schema if not already written
+    // User is responsible for closing the OutputStream
+    RETURN_NOT_OK(CheckStarted());
+
     // Write metadata
     RETURN_NOT_OK(UpdatePosition());
 

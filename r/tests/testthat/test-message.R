@@ -19,16 +19,12 @@ context("arrow::ipc::Message")
 
 test_that("read_message can read from input stream", {
   batch <- record_batch(tibble::tibble(x = 1:10))
-  bytes <- write_record_batch(batch, raw())
-  stream <- buffer_reader(bytes)
+  bytes <- batch$serialize()
+  stream <- BufferReader(bytes)
 
   message <- read_message(stream)
-  expect_equal(message$type(), MessageType$SCHEMA)
-  expect_is(message$body, "arrow::Buffer")
-  expect_is(message$metadata, "arrow::Buffer")
-
-  message <- read_message(stream)
-  expect_equal(message$type(), MessageType$RECORD_BATCH)
+  expect_is(message, "arrow::ipc::Message")
+  expect_equal(message$type, MessageType$RECORD_BATCH)
   expect_is(message$body, "arrow::Buffer")
   expect_is(message$metadata, "arrow::Buffer")
 

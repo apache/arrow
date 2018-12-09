@@ -17,19 +17,34 @@
 
 #' @include R6.R
 
+#' @title class arrow::Field
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__Field
+#' @name arrow__Field
 `arrow::Field` <- R6Class("arrow::Field", inherit = `arrow::Object`,
   public = list(
     ToString = function() {
       Field__ToString(self)
     },
+    Equals = function(other) {
+      inherits(other, "arrow::Field") && Field__Equals(self, other)
+    }
+  ),
+
+  active = list(
     name = function() {
       Field__name(self)
     },
     nullable = function() {
       Field__nullable(self)
-    },
-    Equals = function(other) {
-      inherits(other, "arrow::Field") && Field__Equals(self, other)
     },
     type = function() {
       `arrow::DataType`$dispatch(Field__type(self))

@@ -639,3 +639,19 @@ def read_file(source):
     reader = pa.open_file(source)
     return [reader.get_batch(i)
             for i in range(reader.num_record_batches)]
+
+
+def test_write_empty_ipc_file():
+    # ARROW-3894: IPC file was not being properly initialized when no record
+    # batches are being written
+    schema = pa.schema([('field', pa.int64())])
+
+    sink = pa.BufferOutputStream()
+    writer = pa.RecordBatchFileWriter(sink, schema)
+    writer.close()
+
+    buf = sink.getvalue()
+    reader = pa.RecordBatchFileReader(pa.BufferReader(buf))
+    table = reader.read_all()
+    assert len(table) == 0
+    assert table.schema.equals(schema)

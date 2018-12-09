@@ -16,13 +16,20 @@
 // under the License.
 
 import '../jest-extensions';
+import { TextEncoder } from 'text-encoding-utf-8';
 
 import Arrow, { vector, RecordBatch } from '../Arrow';
 
 const { predicate, Table } = Arrow;
 
+const { DictionaryVector, IntVector, FloatVector, Utf8Vector } = Arrow.vector;
+const { Dictionary, Utf8, Int } = Arrow.type;
+
 const { col, lit, custom, and, or, And, Or } = predicate;
 
+const utf8Encoder = new TextEncoder('utf-8');
+
+const NAMES = ['f32', 'i32', 'dictionary'];
 const F32 = 0, I32 = 1, DICT = 2;
 const test_data = [
     {
@@ -336,338 +343,69 @@ function leftPad(str: string, fill: string, n: number) {
     return (new Array(n + 1).join(fill) + str).slice(-1 * n);
 }
 
+function makeUtf8Vector(values) {
+    const n = values.length;
+    let offset = 0;
+    const offsets = Uint32Array.of(0, ...values.map((d) => { offset += d.length; return offset; }));
+    return new Utf8Vector(new Arrow.data.FlatListData(new Utf8(), n, null, offsets, utf8Encoder.encode(values.join(''))));
+}
+
+function getTestVectors(f32Values, i32Values, dictionaryValues) {
+    const f32Vec = FloatVector.from(
+        Float32Array.from(f32Values)
+    );
+
+    const i32Vec = IntVector.from(
+        Int32Array.from(i32Values)
+    );
+
+    const dictionaryVec = new DictionaryVector(
+        new Arrow.data.DictionaryData(
+            new Dictionary(new Utf8(), new Int(true, 8)),
+            makeUtf8Vector(['a', 'b', 'c']),
+            IntVector.from(Int8Array.from(dictionaryValues)).data
+        )
+    );
+
+    return [f32Vec, i32Vec, dictionaryVec];
+}
+
 export function getSingleRecordBatchTable() {
-    return Table.from({
-        'schema': {
-            'fields': [
-                {
-                    'name': 'f32',
-                    'type': {
-                        'name': 'floatingpoint',
-                        'precision': 'SINGLE'
-                    },
-                    'nullable': false,
-                    'children': [],
-                },
-                {
-                    'name': 'i32',
-                    'type': {
-                        'name': 'int',
-                        'isSigned': true,
-                        'bitWidth': 32
-                    },
-                    'nullable': false,
-                    'children': [],
-                },
-                {
-                    'name': 'dictionary',
-                    'type': {
-                        'name': 'utf8'
-                    },
-                    'nullable': false,
-                    'children': [],
-                    'dictionary': {
-                        'id': 0,
-                        'indexType': {
-                            'name': 'int',
-                            'isSigned': true,
-                            'bitWidth': 8
-                        },
-                        'isOrdered': false
-                    }
-                }
-            ]
-        },
-        'dictionaries': [{
-            'id': 0,
-            'data': {
-                'count': 3,
-                'columns': [
-                    {
-                        'name': 'DICT0',
-                        'count': 3,
-                        'VALIDITY': [],
-                        'OFFSET': [
-                            0,
-                            1,
-                            2,
-                            3
-                        ],
-                        'DATA': [
-                            'a',
-                            'b',
-                            'c',
-                        ]
-                    }
-                ]
-            }
-        }],
-        'batches': [{
-            'count': 7,
-            'columns': [
-                {
-                    'name': 'f32',
-                    'count': 7,
-                    'VALIDITY': [],
-                    'DATA': [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3]
-                },
-                {
-                    'name': 'i32',
-                    'count': 7,
-                    'VALIDITY': [],
-                    'DATA': [-1, 1, -1, 1, -1, 1, -1]
-                },
-                {
-                    'name': 'dictionary',
-                    'count': 7,
-                    'VALIDITY': [],
-                    'DATA': [0, 1, 2, 0, 1, 2, 0]
-                }
-            ]
-        }]
-    });
+    const vectors = getTestVectors(
+        [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3],
+        [-1, 1, -1, 1, -1, 1, -1],
+        [0, 1, 2, 0, 1, 2, 0]
+    );
+
+    return Table.fromVectors(
+        vectors,
+        NAMES
+    );
 }
 
 function getMultipleRecordBatchesTable() {
-    return Table.from({
-        'schema': {
-            'fields': [
-                {
-                    'name': 'f32',
-                    'type': {
-                        'name': 'floatingpoint',
-                        'precision': 'SINGLE'
-                    },
-                    'nullable': false,
-                    'children': [],
-                },
-                {
-                    'name': 'i32',
-                    'type': {
-                        'name': 'int',
-                        'isSigned': true,
-                        'bitWidth': 32
-                    },
-                    'nullable': false,
-                    'children': [],
-                },
-                {
-                    'name': 'dictionary',
-                    'type': {
-                        'name': 'utf8'
-                    },
-                    'nullable': false,
-                    'children': [],
-                    'dictionary': {
-                        'id': 0,
-                        'indexType': {
-                            'name': 'int',
-                            'isSigned': true,
-                            'bitWidth': 8
-                        },
-                        'isOrdered': false
-                    }
-                }
-            ]
-        },
-        'dictionaries': [{
-            'id': 0,
-            'data': {
-                'count': 3,
-                'columns': [
-                    {
-                        'name': 'DICT0',
-                        'count': 3,
-                        'VALIDITY': [],
-                        'OFFSET': [
-                            0,
-                            1,
-                            2,
-                            3
-                        ],
-                        'DATA': [
-                            'a',
-                            'b',
-                            'c',
-                        ]
-                    }
-                ]
-            }
-        }],
-        'batches': [{
-            'count': 3,
-            'columns': [
-                {
-                    'name': 'f32',
-                    'count': 3,
-                    'VALIDITY': [],
-                    'DATA': [-0.3, -0.2, -0.1]
-                },
-                {
-                    'name': 'i32',
-                    'count': 3,
-                    'VALIDITY': [],
-                    'DATA': [-1, 1, -1]
-                },
-                {
-                    'name': 'dictionary',
-                    'count': 3,
-                    'VALIDITY': [],
-                    'DATA': [0, 1, 2]
-                }
-            ]
-        }, {
-            'count': 3,
-            'columns': [
-                {
-                    'name': 'f32',
-                    'count': 3,
-                    'VALIDITY': [],
-                    'DATA': [0, 0.1, 0.2]
-                },
-                {
-                    'name': 'i32',
-                    'count': 3,
-                    'VALIDITY': [],
-                    'DATA': [1, -1, 1]
-                },
-                {
-                    'name': 'dictionary',
-                    'count': 3,
-                    'VALIDITY': [],
-                    'DATA': [0, 1, 2]
-                }
-            ]
-        }, {
-            'count': 3,
-            'columns': [
-                {
-                    'name': 'f32',
-                    'count': 3,
-                    'VALIDITY': [],
-                    'DATA': [0.3, 0.2, 0.1]
-                },
-                {
-                    'name': 'i32',
-                    'count': 3,
-                    'VALIDITY': [],
-                    'DATA': [-1, 1, -1]
-                },
-                {
-                    'name': 'dictionary',
-                    'count': 3,
-                    'VALIDITY': [],
-                    'DATA': [0, 1, 2]
-                }
-            ]
-        }]
-    });
+    const b1 = Arrow.RecordBatch.from(getTestVectors(
+        [-0.3, -0.2, -0.1],
+        [-1, 1, -1],
+        [0, 1, 2]
+    ), NAMES);
+
+    const b2 = Arrow.RecordBatch.from(getTestVectors(
+        [0, 0.1, 0.2],
+        [1, -1, 1],
+        [0, 1, 2]
+    ), NAMES);
+
+    const b3 = Arrow.RecordBatch.from(getTestVectors(
+        [0.3, 0.2, 0.1],
+        [-1, 1, -1],
+        [0, 1, 2]
+    ), NAMES);
+
+    return new Table([b1, b2, b3])
 }
 
 function getStructTable() {
-    return Table.from({
-        'schema': {
-            'fields': [
-                {
-                    'name': 'struct',
-                    'type': {
-                        'name': 'struct'
-                    },
-                    'nullable': false,
-                    'children': [
-                        {
-                            'name': 'f32',
-                            'type': {
-                                'name': 'floatingpoint',
-                                'precision': 'SINGLE'
-                            },
-                            'nullable': false,
-                            'children': [],
-                        },
-                        {
-                            'name': 'i32',
-                            'type': {
-                                'name': 'int',
-                                'isSigned': true,
-                                'bitWidth': 32
-                            },
-                            'nullable': false,
-                            'children': [],
-                        },
-                        {
-                            'name': 'dictionary',
-                            'type': {
-                                'name': 'utf8'
-                            },
-                            'nullable': false,
-                            'children': [],
-                            'dictionary': {
-                                'id': 0,
-                                'indexType': {
-                                    'name': 'int',
-                                    'isSigned': true,
-                                    'bitWidth': 8
-                                },
-                                'isOrdered': false
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-        'dictionaries': [{
-            'id': 0,
-            'data': {
-                'count': 3,
-                'columns': [
-                    {
-                        'name': 'DICT0',
-                        'count': 3,
-                        'VALIDITY': [],
-                        'OFFSET': [
-                            0,
-                            1,
-                            2,
-                            3
-                        ],
-                        'DATA': [
-                            'a',
-                            'b',
-                            'c',
-                        ]
-                    }
-                ]
-            }
-        }],
-        'batches': [{
-            'count': 7,
-            'columns': [
-                {
-                    'name': 'struct',
-                    'count': 7,
-                    'VALIDITY': [],
-                    'children': [
-                        {
-                            'name': 'f32',
-                            'count': 7,
-                            'VALIDITY': [],
-                            'DATA': [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3]
-                        },
-                        {
-                            'name': 'i32',
-                            'count': 7,
-                            'VALIDITY': [],
-                            'DATA': [-1, 1, -1, 1, -1, 1, -1]
-                        },
-                        {
-                            'name': 'dictionary',
-                            'count': 7,
-                            'VALIDITY': [],
-                            'DATA': [0, 1, 2, 0, 1, 2, 0]
-                        }
-                    ]
-                }
-            ]
-        }]
-    });
+    const structVec = getSingleRecordBatchTable().batchesUnion
+    return Table.fromVectors([structVec], ['struct'])
 }

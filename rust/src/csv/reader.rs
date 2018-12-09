@@ -44,11 +44,11 @@ use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
 
-use array::{ArrayRef, BinaryArray};
-use builder::*;
-use datatypes::*;
-use error::{ArrowError, Result};
-use record_batch::RecordBatch;
+use crate::array::{ArrayRef, BinaryArray};
+use crate::builder::*;
+use crate::datatypes::*;
+use crate::error::{ArrowError, Result};
+use crate::record_batch::RecordBatch;
 
 use csv_crate::{StringRecord, StringRecordsIntoIter};
 
@@ -161,7 +161,7 @@ impl Reader {
                     &DataType::Float32 => build_primitive_array::<Float32Type>(rows, i),
                     &DataType::Float64 => build_primitive_array::<Float64Type>(rows, i),
                     &DataType::Utf8 => {
-                        let mut values_builder: UInt8Builder = UInt8Builder::new(rows.len() as i64);
+                        let values_builder: UInt8Builder = UInt8Builder::new(rows.len() as i64);
                         let mut list_builder = ListArrayBuilder::new(values_builder);
                         for row_index in 0..rows.len() {
                             match rows[row_index].get(*i) {
@@ -195,8 +195,8 @@ impl Reader {
 mod tests {
 
     use super::*;
-    use array::*;
-    use datatypes::Field;
+    use crate::array::*;
+    use crate::datatypes::Field;
 
     #[test]
     fn test_csv() {

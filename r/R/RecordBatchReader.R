@@ -17,179 +17,127 @@
 
 #' @include R6.R
 
+#' @title class arrow::RecordBatchReader
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__RecordBatchReader
+#' @name arrow__RecordBatchReader
 `arrow::RecordBatchReader` <- R6Class("arrow::RecordBatchReader", inherit = `arrow::Object`,
   public = list(
-    schema = function() shared_ptr(`arrow::Schema`, RecordBatchReader__schema(self)),
-    ReadNext = function() {
+    read_next_batch = function() {
       shared_ptr(`arrow::RecordBatch`, RecordBatchReader__ReadNext(self))
     }
+  ),
+  active = list(
+    schema = function() shared_ptr(`arrow::Schema`, RecordBatchReader__schema(self))
   )
 )
 
-`arrow::ipc::RecordBatchStreamReader` <- R6Class("arrow::ipc::RecordBatchStreamReader", inherit = `arrow::RecordBatchReader`)
+#' @title class arrow::ipc::RecordBatchStreamReader
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__ipc__RecordBatchStreamReader
+#' @name arrow__ipc__RecordBatchStreamReader
+`arrow::ipc::RecordBatchStreamReader` <- R6Class("arrow::ipc::RecordBatchStreamReader", inherit = `arrow::RecordBatchReader`,
+  public = list(
+    batches = function() map(ipc___RecordBatchStreamReader__batches(self), shared_ptr, class = `arrow::RecordBatch`)
+  )
+)
 
+#' @title class arrow::ipc::RecordBatchFileReader
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__ipc__RecordBatchFileReader
+#' @name arrow__ipc__RecordBatchFileReader
 `arrow::ipc::RecordBatchFileReader` <- R6Class("arrow::ipc::RecordBatchFileReader", inherit = `arrow::Object`,
   public = list(
-    schema = function() shared_ptr(`arrow::Schema`, ipc___RecordBatchFileReader__schema(self)),
+    get_batch = function(i) shared_ptr(`arrow::RecordBatch`, ipc___RecordBatchFileReader__ReadRecordBatch(self, i)),
+
+    batches = function() map(ipc___RecordBatchFileReader__batches(self), shared_ptr, class = `arrow::RecordBatch`)
+  ),
+  active = list(
     num_record_batches = function() ipc___RecordBatchFileReader__num_record_batches(self),
-    ReadRecordBatch = function(i) shared_ptr(`arrow::RecordBatch`, ipc___RecordBatchFileReader__ReadRecordBatch(self, i))
+    schema = function() shared_ptr(`arrow::Schema`, ipc___RecordBatchFileReader__schema(self))
   )
 )
 
-
-#' Create a `arrow::ipc::RecordBatchStreamReader` from an input stream
+#' Create a [arrow::ipc::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader] from an input stream
 #'
-#' @param stream input stream
+#' @param stream input stream, an [arrow::io::InputStream][arrow__io__InputStream] or a raw vector
+#'
 #' @export
-record_batch_stream_reader <- function(stream){
-  UseMethod("record_batch_stream_reader")
+RecordBatchStreamReader <- function(stream){
+  UseMethod("RecordBatchStreamReader")
 }
 
 #' @export
-`record_batch_stream_reader.arrow::io::InputStream` <- function(stream) {
+`RecordBatchStreamReader.arrow::io::InputStream` <- function(stream) {
   shared_ptr(`arrow::ipc::RecordBatchStreamReader`, ipc___RecordBatchStreamReader__Open(stream))
 }
 
 #' @export
-`record_batch_stream_reader.raw` <- function(stream) {
-  record_batch_stream_reader(buffer_reader(stream))
-}
-
-
-#' Create an `arrow::ipc::RecordBatchFileReader` from a file
-#'
-#' @param file The file to read from
-#'
-#' @export
-record_batch_file_reader <- function(file) {
-  UseMethod("record_batch_file_reader")
+`RecordBatchStreamReader.raw` <- function(stream) {
+  RecordBatchStreamReader(BufferReader(stream))
 }
 
 #' @export
-`record_batch_file_reader.arrow::io::RandomAccessFile` <- function(file) {
+`RecordBatchStreamReader.arrow::Buffer` <- function(stream) {
+  RecordBatchStreamReader(BufferReader(stream))
+}
+
+
+#' Create an [arrow::ipc::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader] from a file
+#'
+#' @param file The file to read from. A file path, or an [arrow::io::RandomAccessFile][arrow__ipc__RecordBatchFileReader]
+#'
+#' @export
+RecordBatchFileReader <- function(file) {
+  UseMethod("RecordBatchFileReader")
+}
+
+#' @export
+`RecordBatchFileReader.arrow::io::RandomAccessFile` <- function(file) {
   shared_ptr(`arrow::ipc::RecordBatchFileReader`, ipc___RecordBatchFileReader__Open(file))
 }
 
 #' @export
-`record_batch_file_reader.character` <- function(file) {
+`RecordBatchFileReader.character` <- function(file) {
   assert_that(length(file) == 1L)
-  record_batch_file_reader(fs::path_abs(file))
+  RecordBatchFileReader(fs::path_abs(file))
 }
 
 #' @export
-`record_batch_file_reader.fs_path` <- function(file) {
-  record_batch_file_reader(file_open(file))
-}
-
-#-------- read_record_batch
-
-#' Read a single record batch from a stream
-#'
-#' @param stream input stream
-#' @param ... additional parameters
-#'
-#' @details `stream` can be a `arrow::io::RandomAccessFile` stream as created by [file_open()] or [mmap_open()] or a path.
-#'
-#' @export
-read_record_batch <- function(stream, ...){
-  UseMethod("read_record_batch")
+`RecordBatchFileReader.fs_path` <- function(file) {
+  RecordBatchFileReader(ReadableFile(file))
 }
 
 #' @export
-read_record_batch.character <- function(stream, ...){
-  assert_that(length(stream) == 1L)
-  read_record_batch(fs::path_abs(stream))
+`RecordBatchFileReader.arrow::Buffer` <- function(file) {
+  RecordBatchFileReader(BufferReader(file))
 }
 
 #' @export
-read_record_batch.fs_path <- function(stream, ...){
-  stream <- close_on_exit(file_open(stream))
-  read_record_batch(stream)
+`RecordBatchFileReader.raw` <- function(file) {
+  RecordBatchFileReader(BufferReader(file))
 }
-
-#' @export
-`read_record_batch.arrow::io::RandomAccessFile` <- function(stream, ...){
-  reader <- record_batch_file_reader(stream)
-  reader$ReadRecordBatch(0)
-}
-
-#' @export
-`read_record_batch.arrow::io::BufferReader` <- function(stream, ...){
-  reader <- record_batch_stream_reader(stream)
-  reader$ReadNext()
-}
-
-#' @export
-read_record_batch.raw <- function(stream, ...){
-  stream <- close_on_exit(buffer_reader(stream))
-  read_record_batch(stream)
-}
-
-#' @export
-`read_record_batch.arrow::ipc::RecordBatchStreamReader` <- function(stream, ...) {
-  stream$ReadNext()
-}
-
-#' @export
-`read_record_batch.arrow::ipc::RecordBatchFileReader` <- function(stream, i = 0, ...) {
-  stream$ReadRecordBatch(i)
-}
-
-#' @export
-`read_record_batch.arrow::ipc::Message` <- function(stream, schema, ...) {
-  assert_that(inherits(schema, "arrow::Schema"))
-  shared_ptr(`arrow::RecordBatch`, ipc___ReadRecordBatch__Message__Schema(stream, schema))
-}
-
-
-#--------- read_table
-
-#' Read an arrow::Table from a stream
-#'
-#' @param stream stream. Either a stream created by [file_open()] or [mmap_open()] or a file path.
-#'
-#' @export
-read_table <- function(stream){
-  UseMethod("read_table")
-}
-
-#' @export
-read_table.character <- function(stream){
-  assert_that(length(stream) == 1L)
-  read_table(fs::path_abs(stream))
-}
-
-#' @export
-read_table.fs_path <- function(stream) {
-  stream <- close_on_exit(file_open(stream))
-  read_table(stream)
-}
-
-#' @export
-`read_table.arrow::io::RandomAccessFile` <- function(stream) {
-  reader <- record_batch_file_reader(stream)
-  read_table(reader)
-}
-
-#' @export
-`read_table.arrow::ipc::RecordBatchFileReader` <- function(stream) {
-  shared_ptr(`arrow::Table`, Table__from_RecordBatchFileReader(stream))
-}
-
-#' @export
-`read_table.arrow::ipc::RecordBatchStreamReader` <- function(stream) {
-  shared_ptr(`arrow::Table`, Table__from_RecordBatchStreamReader(stream))
-}
-
-#' @export
-`read_table.arrow::io::BufferReader` <- function(stream) {
-  reader <- record_batch_stream_reader(stream)
-  read_table(reader)
-}
-
-#' @export
-`read_table.raw` <- function(stream) {
-  stream <- close_on_exit(buffer_reader(stream))
-  read_table(stream)
-}
-

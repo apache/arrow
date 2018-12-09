@@ -27,7 +27,7 @@
 #include <string>
 
 #include "arrow/buffer.h"
-#include "arrow/util/visibility.h"
+#include "arrow/python/visibility.h"
 
 namespace arrow {
 
@@ -38,7 +38,7 @@ class Tensor;
 
 namespace py {
 
-class ARROW_EXPORT NumPyBuffer : public Buffer {
+class ARROW_PYTHON_EXPORT NumPyBuffer : public Buffer {
  public:
   explicit NumPyBuffer(PyObject* arr);
   virtual ~NumPyBuffer();
@@ -48,25 +48,25 @@ class ARROW_EXPORT NumPyBuffer : public Buffer {
 };
 
 // Handle misbehaved types like LONGLONG and ULONGLONG
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 int cast_npy_type_compat(int type_num);
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 bool is_contiguous(PyObject* array);
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out);
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out);
 
 Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out);
 Status GetNumPyType(const DataType& type, int* type_num);
 
-ARROW_EXPORT Status NdarrayToTensor(MemoryPool* pool, PyObject* ao,
-                                    std::shared_ptr<Tensor>* out);
+ARROW_PYTHON_EXPORT Status NdarrayToTensor(MemoryPool* pool, PyObject* ao,
+                                           std::shared_ptr<Tensor>* out);
 
-ARROW_EXPORT Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor, PyObject* base,
-                                    PyObject** out);
+ARROW_PYTHON_EXPORT Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor,
+                                           PyObject* base, PyObject** out);
 
 }  // namespace py
 }  // namespace arrow

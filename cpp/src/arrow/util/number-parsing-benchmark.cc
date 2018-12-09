@@ -43,7 +43,7 @@ static std::vector<std::string> MakeIntStrings(int32_t num_items) {
   for (int32_t i = 0; i < num_items; ++i) {
     strings.push_back(base_strings[i % base_strings.size()]);
   }
-  return base_strings;
+  return strings;
 }
 
 static std::vector<std::string> MakeFloatStrings(int32_t num_items) {
@@ -54,7 +54,18 @@ static std::vector<std::string> MakeFloatStrings(int32_t num_items) {
   for (int32_t i = 0; i < num_items; ++i) {
     strings.push_back(base_strings[i % base_strings.size()]);
   }
-  return base_strings;
+  return strings;
+}
+
+static std::vector<std::string> MakeTimestampStrings(int32_t num_items) {
+  std::vector<std::string> base_strings = {"2018-11-13 17:11:10", "2018-11-13 11:22:33",
+                                           "2016-02-29 11:22:33"};
+
+  std::vector<std::string> strings;
+  for (int32_t i = 0; i < num_items; ++i) {
+    strings.push_back(base_strings[i % base_strings.size()]);
+  }
+  return strings;
 }
 
 template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
@@ -97,6 +108,29 @@ static void BM_FloatParsing(benchmark::State& state) {  // NOLINT non-const refe
   state.SetItemsProcessed(state.iterations() * strings.size());
 }
 
+template <TimeUnit::type UNIT>
+static void BM_TimestampParsing(benchmark::State& state) {  // NOLINT non-const reference
+  using c_type = TimestampType::c_type;
+
+  auto strings = MakeTimestampStrings(1000);
+  auto type = timestamp(UNIT);
+  StringConverter<TimestampType> converter(type);
+
+  while (state.KeepRunning()) {
+    c_type total = 0;
+    for (const auto& s : strings) {
+      c_type value;
+      if (!converter(s.data(), s.length(), &value)) {
+        std::cerr << "Conversion failed for '" << s << "'";
+        std::abort();
+      }
+      total += value;
+    }
+    benchmark::DoNotOptimize(total);
+  }
+  state.SetItemsProcessed(state.iterations() * strings.size());
+}
+
 BENCHMARK_TEMPLATE(BM_IntegerParsing, Int8Type);
 BENCHMARK_TEMPLATE(BM_IntegerParsing, Int16Type);
 BENCHMARK_TEMPLATE(BM_IntegerParsing, Int32Type);
@@ -108,6 +142,11 @@ BENCHMARK_TEMPLATE(BM_IntegerParsing, UInt64Type);
 
 BENCHMARK_TEMPLATE(BM_FloatParsing, FloatType);
 BENCHMARK_TEMPLATE(BM_FloatParsing, DoubleType);
+
+BENCHMARK_TEMPLATE(BM_TimestampParsing, TimeUnit::SECOND);
+BENCHMARK_TEMPLATE(BM_TimestampParsing, TimeUnit::MILLI);
+BENCHMARK_TEMPLATE(BM_TimestampParsing, TimeUnit::MICRO);
+BENCHMARK_TEMPLATE(BM_TimestampParsing, TimeUnit::NANO);
 
 }  // namespace internal
 }  // namespace arrow

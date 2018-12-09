@@ -19,23 +19,23 @@
 set -e
 set -o xtrace
 
-# Arrow specific environment variables
-export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
-export ARROW_HOME=$CONDA_PREFIX
-export PARQUET_HOME=$CONDA_PREFIX
+source_dir=${1:-/arrow/cpp}
+build_dir=${2:-/build/cpp}
+install_dir=${3:-${ARROW_HOME:-/usr/local}}
 
 # https://arrow.apache.org/docs/python/development.html#known-issues
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 
-mkdir -p /build/cpp
-pushd /build/cpp
+mkdir -p ${build_dir}
+pushd ${build_dir}
 
 cmake -GNinja \
       -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-debug} \
-      -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-      -DARROW_ORC=ON \
-      -DARROW_PLASMA=ON \
-      -DARROW_PARQUET=ON \
+      -DCMAKE_INSTALL_PREFIX=${install_dir} \
+      -DCMAKE_INSTALL_LIBDIR=lib \
+      -DARROW_ORC=${ARROW_ORC:-ON} \
+      -DARROW_PLASMA=${ARROW_PLASMA:-ON} \
+      -DARROW_PARQUET=${ARROW_PARQUET:-ON} \
       -DARROW_HDFS=${ARROW_HDFS:-OFF} \
       -DARROW_PYTHON=${ARROW_PYTHON:-OFF} \
       -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS:-OFF} \
@@ -43,7 +43,7 @@ cmake -GNinja \
       -DARROW_INSTALL_NAME_RPATH=${ARROW_INSTALL_NAME_RPATH:-ON} \
       -DARROW_EXTRA_ERROR_CONTEXT=ON \
       -DCMAKE_CXX_FLAGS=$CXXFLAGS \
-      /arrow/cpp
+      ${source_dir}
 ninja
 ninja install
 

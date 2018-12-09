@@ -25,6 +25,7 @@ import os
 import pytest
 import random
 import signal
+import struct
 import subprocess
 import sys
 import time
@@ -738,6 +739,34 @@ class TestPlasmaClient(object):
             for j in range(i):
                 notification_info = self.plasma_client.get_next_notification()
                 recv_objid, recv_dsize, recv_msize = notification_info
+                assert object_ids[j] == recv_objid
+                assert data_sizes[j] == recv_dsize
+                assert metadata_sizes[j] == recv_msize
+
+    def test_subscribe_socket(self):
+        # Subscribe to notifications from the Plasma Store.
+        self.plasma_client.subscribe()
+        rsock = self.plasma_client.get_notification_socket()
+        for i in self.SUBSCRIBE_TEST_SIZES:
+            # Get notification from socket.
+            object_ids = [random_object_id() for _ in range(i)]
+            metadata_sizes = [np.random.randint(1000) for _ in range(i)]
+            data_sizes = [np.random.randint(1000) for _ in range(i)]
+
+            for j in range(i):
+                self.plasma_client.create(
+                    object_ids[j], data_sizes[j],
+                    metadata=bytearray(np.random.bytes(metadata_sizes[j])))
+                self.plasma_client.seal(object_ids[j])
+
+            # Check that we received notifications for all of the objects.
+            for j in range(i):
+                # Assume the plasma store will not be full,
+                # so we always get the data size instead of -1.
+                msg_len, = struct.unpack('L', rsock.recv(8))
+                content = rsock.recv(msg_len)
+                recv_objid, recv_dsize, recv_msize = (
+                    self.plasma_client.decode_notification(content))
                 assert object_ids[j] == recv_objid
                 assert data_sizes[j] == recv_dsize
                 assert metadata_sizes[j] == recv_msize

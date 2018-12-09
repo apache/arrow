@@ -504,7 +504,7 @@ Status ArrowColumnWriter::WriteNullableBatch(
   using ParquetCType = typename ParquetType::c_type;
 
   ParquetCType* buffer;
-  RETURN_NOT_OK(ctx_->GetScratchData<ParquetCType>(num_levels, &buffer));
+  RETURN_NOT_OK(ctx_->GetScratchData<ParquetCType>(num_values, &buffer));
   for (int i = 0; i < num_values; i++) {
     buffer[i] = static_cast<ParquetCType>(values[i]);
   }

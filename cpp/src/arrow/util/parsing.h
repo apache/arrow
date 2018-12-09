@@ -419,8 +419,9 @@ class StringConverter<TimestampType> {
         *out = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
         return true;
     }
-    // Unreachable
+    // Unreachable, but suppress compiler warning
     assert(0);
+    *out = 0;
     return true;
   }
 

@@ -21,26 +21,26 @@ test_that("arrow::Buffer can be created from raw vector", {
   vec <- raw(123)
   buf <- buffer(vec)
   expect_is(buf, "arrow::Buffer")
-  expect_equal(buf$size(), 123)
+  expect_equal(buf$size, 123)
 })
 
 test_that("arrow::Buffer can be created from integer vector", {
   vec <- integer(17)
   buf <- buffer(vec)
   expect_is(buf, "arrow::Buffer")
-  expect_equal(buf$size(), 17 * 4)
+  expect_equal(buf$size, 17 * 4)
 })
 
 test_that("arrow::Buffer can be created from numeric vector", {
   vec <- numeric(17)
   buf <- buffer(vec)
   expect_is(buf, "arrow::Buffer")
-  expect_equal(buf$size(), 17 * 8)
+  expect_equal(buf$size, 17 * 8)
 })
 
 test_that("arrow::Buffer can be created from complex vector", {
   vec <- complex(3)
   buf <- buffer(vec)
   expect_is(buf, "arrow::Buffer")
-  expect_equal(buf$size(), 3 * 16)
+  expect_equal(buf$size, 3 * 16)
 })

@@ -238,6 +238,7 @@ try {
 // set them via string indexers to save them from the mangler
 Schema['from'] = Schema.from;
 Table['from'] = Table.from;
+Table['fromVectors'] = Table.fromVectors;
 Table['fromAsync'] = Table.fromAsync;
 Table['fromStruct'] = Table.fromStruct;
 Table['empty'] = Table.empty;

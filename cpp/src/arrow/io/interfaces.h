@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -120,6 +121,13 @@ class ARROW_EXPORT InputStream : virtual public FileInterface, virtual public Re
   /// \param[in] nbytes the number to move forward
   /// \return Status
   Status Advance(int64_t nbytes);
+
+  /// \brief Return string_view to any buffered bytes, up to the indicated
+  /// number. View becomes invalid after any operation on file. If the
+  /// InputStream is unbuffered, returns 0-length string_view
+  /// \param[in] nbytes the maximum number of bytes to see
+  /// \return arrow::util::string_view
+  virtual util::string_view Peek(int64_t nbytes) const;
 
   /// \brief Return true if InputStream is capable of zero copy Buffer reads
   virtual bool supports_zero_copy() const;

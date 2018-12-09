@@ -41,6 +41,8 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string.h"
+#include "arrow/util/utf8.h"
 #include "arrow/visitor_inline.h"
 
 #include "arrow/compute/context.h"
@@ -634,30 +636,48 @@ Status AppendUTF32(const char* data, int itemsize, int byteorder,
 }  // namespace
 
 Status NumPyConverter::Visit(const StringType& type) {
+  util::InitializeUTF8();
+
   StringBuilder builder(pool_);
 
-  auto data = reinterpret_cast<const char*>(PyArray_DATA(arr_));
+  auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
 
-  char numpy_byteorder = PyArray_DESCR(arr_)->byteorder;
+  char numpy_byteorder = dtype_->byteorder;
 
   // For Python C API, -1 is little-endian, 1 is big-endian
   int byteorder = numpy_byteorder == '>' ? 1 : -1;
 
   PyAcquireGIL gil_lock;
 
+  const bool is_binary_type = dtype_->type_num == NPY_STRING;
+
+  auto AppendNonNullValue = [&](const uint8_t* data) {
+    if (is_binary_type) {
+      if (ARROW_PREDICT_TRUE(util::ValidateUTF8(data, itemsize_))) {
+        return builder.Append(data, itemsize_);
+      } else {
+        std::stringstream ss;
+        ss << "Encountered non-UTF8 binary value: " << HexEncode(data, itemsize_);
+        return Status::Invalid(ss.str());
+      }
+    } else {
+      return AppendUTF32(reinterpret_cast<const char*>(data), itemsize_, byteorder,
+                         &builder);
+    }
+  };
   if (mask_ != nullptr) {
     Ndarray1DIndexer<uint8_t> mask_values(mask_);
     for (int64_t i = 0; i < length_; ++i) {
       if (mask_values[i]) {
         RETURN_NOT_OK(builder.AppendNull());
       } else {
-        RETURN_NOT_OK(AppendUTF32(data, itemsize_, byteorder, &builder));
+        RETURN_NOT_OK(AppendNonNullValue(data));
       }
       data += stride_;
     }
   } else {
     for (int64_t i = 0; i < length_; ++i) {
-      RETURN_NOT_OK(AppendUTF32(data, itemsize_, byteorder, &builder));
+      RETURN_NOT_OK(AppendNonNullValue(data));
       data += stride_;
     }
   }

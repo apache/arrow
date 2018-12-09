@@ -152,6 +152,7 @@ using LogicalVector_ = Rcpp::Vector<LGLSXP, Rcpp::NoProtectStorage>;
 using StringVector_ = Rcpp::Vector<STRSXP, Rcpp::NoProtectStorage>;
 using CharacterVector_ = StringVector_;
 using RawVector_ = Rcpp::Vector<RAWSXP, Rcpp::NoProtectStorage>;
+using List_ = Rcpp::Vector<VECSXP, Rcpp::NoProtectStorage>;
 
 template <int RTYPE>
 inline typename Rcpp::Vector<RTYPE>::stored_type default_value() {
@@ -171,17 +172,6 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame 
 
 namespace arrow {
 namespace r {
-
-template <typename T>
-inline const T* GetValuesSafely(const std::shared_ptr<ArrayData>& data, int i,
-                                int64_t offset) {
-  auto buffer = data->buffers[i];
-  if (!buffer) {
-    return nullptr;
-  } else {
-    return reinterpret_cast<const T*>(buffer->data()) + offset;
-  }
-}
 
 template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
 class RBuffer : public MutableBuffer {

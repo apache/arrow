@@ -19,16 +19,13 @@ context("arrow::ipc::MessageReader")
 
 test_that("MessageReader can be created from raw vectors", {
   batch <- record_batch(tibble::tibble(x = 1:10))
-  bytes <- write_record_batch(batch, raw())
+  bytes <- batch$serialize()
 
-  reader <- message_reader(bytes)
-  message <- reader$ReadNextMessage()
-  expect_equal(message$type(), MessageType$SCHEMA)
-  expect_is(message$body, "arrow::Buffer")
-  expect_is(message$metadata, "arrow::Buffer")
+  reader <- MessageReader(bytes)
 
   message <- reader$ReadNextMessage()
-  expect_equal(message$type(), MessageType$RECORD_BATCH)
+  expect_is(message, "arrow::ipc::Message")
+  expect_equal(message$type, MessageType$RECORD_BATCH)
   expect_is(message$body, "arrow::Buffer")
   expect_is(message$metadata, "arrow::Buffer")
 
@@ -38,17 +35,17 @@ test_that("MessageReader can be created from raw vectors", {
 
 test_that("MessageReader can be created from input stream", {
   batch <- record_batch(tibble::tibble(x = 1:10))
-  bytes <- write_record_batch(batch, raw())
-  stream <- buffer_reader(bytes)
+  bytes <- batch$serialize()
 
-  reader <- message_reader(stream)
-  message <- reader$ReadNextMessage()
-  expect_equal(message$type(), MessageType$SCHEMA)
-  expect_is(message$body, "arrow::Buffer")
-  expect_is(message$metadata, "arrow::Buffer")
+  stream <- BufferReader(bytes)
+  expect_is(stream, "arrow::io::BufferReader")
+
+  reader <- MessageReader(stream)
+  expect_is(reader, "arrow::ipc::MessageReader")
 
   message <- reader$ReadNextMessage()
-  expect_equal(message$type(), MessageType$RECORD_BATCH)
+  expect_is(message, "arrow::ipc::Message")
+  expect_equal(message$type, MessageType$RECORD_BATCH)
   expect_is(message$body, "arrow::Buffer")
   expect_is(message$metadata, "arrow::Buffer")
 
