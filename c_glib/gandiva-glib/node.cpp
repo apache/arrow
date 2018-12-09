@@ -1674,17 +1674,21 @@ ggandiva_binary_literal_node_class_init(GGandivaBinaryLiteralNodeClass *klass)
 
 /**
  * ggandiva_binary_literal_node_new:
- * @value: The value of the binary literal.
+ * @value: (array length=size): The value of the binary literal.
+ * @size: The number of bytes of the value.
  *
  * Returns: A newly created #GGandivaBinaryLiteralNode.
  *
  * Since: 0.12.0
  */
 GGandivaBinaryLiteralNode *
-ggandiva_binary_literal_node_new(const gchar *value)
+ggandiva_binary_literal_node_new(const guint8 *value,
+                                 gsize size)
 {
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeBinaryLiteral(value);
-  return ggandiva_binary_literal_node_new_raw(&gandiva_node, value);
+  auto gandiva_node =
+    gandiva::TreeExprBuilder::MakeBinaryLiteral(std::string(reinterpret_cast<const char*>(value),
+                                                            static_cast<size_t>(size)));
+  return ggandiva_binary_literal_node_new_raw(&gandiva_node);
 }
 
 G_END_DECLS
@@ -1860,12 +1864,10 @@ ggandiva_string_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_nod
 }
 
 GGandivaBinaryLiteralNode *
-ggandiva_binary_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                     const gchar *value)
+ggandiva_binary_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto binary_literal_node = g_object_new(GGANDIVA_TYPE_BINARY_LITERAL_NODE,
                                           "node", gandiva_node,
-                                          "value", value,
                                           NULL);
   return GGANDIVA_BINARY_LITERAL_NODE(binary_literal_node);
 }

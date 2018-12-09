@@ -71,5 +71,4 @@ GGandivaStringLiteralNode *
 ggandiva_string_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                                      const gchar *value);
 GGandivaBinaryLiteralNode *
-ggandiva_binary_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                     const gchar *value);
+ggandiva_binary_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);

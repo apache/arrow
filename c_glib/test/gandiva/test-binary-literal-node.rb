@@ -21,7 +21,7 @@ class TestGandivaBinaryLiteralNode < Test::Unit::TestCase
   end
 
   def test_value
-    value = "\x01\x02"
+    value = "\x00\x01\x02\x03\x04"
     literal_node = Gandiva::BinaryLiteralNode.new(value)
     assert_equal(value, literal_node.value)
   end
