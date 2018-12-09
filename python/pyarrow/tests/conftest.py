@@ -15,12 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 import pytest
+import hypothesis as h
 
 try:
     import pathlib
 except ImportError:
     import pathlib2 as pathlib  # py2 compat
+
+
+# setup hypothesis profiles
+h.settings.register_profile('ci', max_examples=1000)
+h.settings.register_profile('dev', max_examples=10)
+h.settings.register_profile('debug', max_examples=10,
+                            verbosity=h.Verbosity.verbose)
+
+# load default hypothesis profile, either set HYPOTHESIS_PROFILE environment
+# variable or pass --hypothesis-profile option to pytest, to see the generated
+# examples try: pytest pyarrow -sv --only-hypothesis --hypothesis-profile=debug
+h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'default'))
 
 
 groups = [
