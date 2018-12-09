@@ -23,16 +23,13 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/util/io-util.h"
 
 #include <iostream>
 
 #include <gflags/gflags.h>
 
 // CLI options
-
-// File Options
-DEFINE_string(in_file, "", "Input: CSV filename");
-DEFINE_string(out_file, "", "Output: Arrow file");
 
 // Parsing options
 DEFINE_string(delimiter, ",", "Field delimiter");
@@ -61,17 +58,6 @@ DEFINE_bool(verbose, true, "Verbose output");
 namespace arrow {
 namespace csv {
 
-struct ARROW_EXPORT FileOptions {
-  std::string input_file = FLAGS_in_file;
-  std::string output_file = FLAGS_out_file;
-};
-
-static Status InitFileOptions(FileOptions& options) {
-  options.input_file = FLAGS_quoting;
-  options.output_file = FLAGS_quoting;
-  return Status::OK();
-}
-
 static Status InitParseOptions(ParseOptions& options) {
   options.delimiter = FLAGS_delimiter.at(0);
   options.quoting = FLAGS_quoting;
@@ -97,8 +83,12 @@ static Status InitReadOptions(ReadOptions& options) {
 }
 
 static Status Run(int argc, char** argv) {
-  gflags::SetUsageMessage("CSV to Arrow Parser");
+  gflags::SetUsageMessage("csv-to-arrow [FLAGS] input.csv  > output.arrow");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+  if (argc != 2) {
+    std::cerr << "Usage: " << gflags::ProgramUsage() << std::endl;
+    return Status::Invalid("Input filename missing");
+  }
 
   // Instantiate and handle options
   auto parse_options = ParseOptions::Defaults();
@@ -107,30 +97,25 @@ static Status Run(int argc, char** argv) {
   ARROW_RETURN_NOT_OK(InitReadOptions(read_options));
   auto convert_options = ConvertOptions::Defaults();
   ARROW_RETURN_NOT_OK(InitConvertOptions(convert_options));
-  FileOptions file_options;
-  ARROW_RETURN_NOT_OK(InitFileOptions(file_options));
 
   // Instantiate reading
+  std::string input_filename(argv[1]);
+  std::shared_ptr<io::ReadableFile> input_file;
+  ARROW_RETURN_NOT_OK(io::ReadableFile::Open(input_filename, &input_file));
   auto pool = default_memory_pool();
   std::shared_ptr<TableReader> reader;
-  std::shared_ptr<io::ReadableFile> input_file;
-  ARROW_RETURN_NOT_OK(io::ReadableFile::Open(file_options.input_file, &input_file));
   ARROW_RETURN_NOT_OK(TableReader::Make(pool, input_file, read_options, parse_options,
                                         convert_options, &reader));
 
-  // Instantiate writing
-  std::shared_ptr<io::FileOutputStream> output_file;
-  ARROW_RETURN_NOT_OK(io::FileOutputStream::Open(file_options.output_file, &output_file));
+  // Instantiate writing, read from input and write to output
+  io::StdoutStream stdout;
   std::shared_ptr<ipc::RecordBatchWriter> writer;
-
-  // Read from input and write to output
-  bool writer_is_open = false;
+  bool schema_written = false;
   std::shared_ptr<arrow::Table> table;
   while (!reader->Read(&table).IsInvalid()) {
-    if (!writer_is_open) {
-      RETURN_NOT_OK(
-          ipc::RecordBatchFileWriter::Open(output_file.get(), table->schema(), &writer));
-      writer_is_open = true;
+    if (!schema_written) {
+      RETURN_NOT_OK(ipc::RecordBatchFileWriter::Open(&stdout, table->schema(), &writer));
+      schema_written = true;
     }
     std::shared_ptr<RecordBatch> batch_out;
     TableBatchReader table_reader(*table);
@@ -152,5 +137,9 @@ static Status Run(int argc, char** argv) {
 }  // namespace arrow
 
 int main(int argc, char** argv) {
-  return static_cast<int>(arrow::csv::Run(argc, argv).code());
+  arrow::Status status = arrow::csv::Run(argc, argv);
+  if (!status.ok()) {
+    std::cerr << "Could not convert to file: " << status.ToString() << std::endl;
+  }
+  return 0;
 }
