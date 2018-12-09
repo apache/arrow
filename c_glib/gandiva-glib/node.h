@@ -96,62 +96,62 @@ ggandiva_boolean_literal_node_new(gboolean value);
 
 
 #define GGANDIVA_TYPE_UINT8_LITERAL_NODE (ggandiva_uint8_literal_node_get_type())
-G_DECLARE_DERIVABLE_TYPE(GGandivaUint8LiteralNode,
+G_DECLARE_DERIVABLE_TYPE(GGandivaUInt8LiteralNode,
                          ggandiva_uint8_literal_node,
                          GGANDIVA,
                          UINT8_LITERAL_NODE,
                          GGandivaLiteralNode)
-struct _GGandivaUint8LiteralNodeClass
+struct _GGandivaUInt8LiteralNodeClass
 {
   GGandivaLiteralNodeClass parent_class;
 };
 
-GGandivaUint8LiteralNode *
+GGandivaUInt8LiteralNode *
 ggandiva_uint8_literal_node_new(guint8 value);
 
 
 #define GGANDIVA_TYPE_UINT16_LITERAL_NODE (ggandiva_uint16_literal_node_get_type())
-G_DECLARE_DERIVABLE_TYPE(GGandivaUint16LiteralNode,
+G_DECLARE_DERIVABLE_TYPE(GGandivaUInt16LiteralNode,
                          ggandiva_uint16_literal_node,
                          GGANDIVA,
                          UINT16_LITERAL_NODE,
                          GGandivaLiteralNode)
-struct _GGandivaUint16LiteralNodeClass
+struct _GGandivaUInt16LiteralNodeClass
 {
   GGandivaLiteralNodeClass parent_class;
 };
 
-GGandivaUint16LiteralNode *
+GGandivaUInt16LiteralNode *
 ggandiva_uint16_literal_node_new(guint16 value);
 
 
 #define GGANDIVA_TYPE_UINT32_LITERAL_NODE (ggandiva_uint32_literal_node_get_type())
-G_DECLARE_DERIVABLE_TYPE(GGandivaUint32LiteralNode,
+G_DECLARE_DERIVABLE_TYPE(GGandivaUInt32LiteralNode,
                          ggandiva_uint32_literal_node,
                          GGANDIVA,
                          UINT32_LITERAL_NODE,
                          GGandivaLiteralNode)
-struct _GGandivaUint32LiteralNodeClass
+struct _GGandivaUInt32LiteralNodeClass
 {
   GGandivaLiteralNodeClass parent_class;
 };
 
-GGandivaUint32LiteralNode *
+GGandivaUInt32LiteralNode *
 ggandiva_uint32_literal_node_new(guint32 value);
 
 
 #define GGANDIVA_TYPE_UINT64_LITERAL_NODE (ggandiva_uint64_literal_node_get_type())
-G_DECLARE_DERIVABLE_TYPE(GGandivaUint64LiteralNode,
+G_DECLARE_DERIVABLE_TYPE(GGandivaUInt64LiteralNode,
                          ggandiva_uint64_literal_node,
                          GGANDIVA,
                          UINT64_LITERAL_NODE,
                          GGandivaLiteralNode)
-struct _GGandivaUint64LiteralNodeClass
+struct _GGandivaUInt64LiteralNodeClass
 {
   GGandivaLiteralNodeClass parent_class;
 };
 
-GGandivaUint64LiteralNode *
+GGandivaUInt64LiteralNode *
 ggandiva_uint64_literal_node_new(guint64 value);
 
 

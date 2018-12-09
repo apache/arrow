@@ -36,13 +36,13 @@ ggandiva_function_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                                GArrowDataType *return_type);
 GGandivaBooleanLiteralNode *
 ggandiva_boolean_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
-GGandivaUint8LiteralNode *
+GGandivaUInt8LiteralNode *
 ggandiva_uint8_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
-GGandivaUint16LiteralNode *
+GGandivaUInt16LiteralNode *
 ggandiva_uint16_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
-GGandivaUint32LiteralNode *
+GGandivaUInt32LiteralNode *
 ggandiva_uint32_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
-GGandivaUint64LiteralNode *
+GGandivaUInt64LiteralNode *
 ggandiva_uint64_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaInt8LiteralNode *
 ggandiva_int8_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);

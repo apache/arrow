@@ -15,14 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestGandivaUint16LiteralNode < Test::Unit::TestCase
+class TestGandivaUInt16LiteralNode < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
   end
 
   def test_new
     assert_nothing_raised do
-      Gandiva::Uint16LiteralNode.new(3)
+      Gandiva::UInt16LiteralNode.new(3)
     end
   end
 end
