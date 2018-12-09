@@ -27,6 +27,7 @@
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
 
@@ -128,6 +129,10 @@ class ARROW_EXPORT Decimal128 {
   /// precision and scale if they're passed in and not null.
   static Status FromString(const std::string& s, Decimal128* out,
                            int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
+  static Status FromString(const util::string_view& s, Decimal128* out,
+                           int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
+  static Status FromString(const char* s, Decimal128* out, int32_t* precision = NULLPTR,
+                           int32_t* scale = NULLPTR);
 
   /// \brief Convert from a big endian byte representation. The length must be
   ///        between 1 and 16
