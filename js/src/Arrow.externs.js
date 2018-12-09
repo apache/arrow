@@ -32,6 +32,8 @@ var Table = function() {};
 /** @type {?} */
 Table.from = function() {};
 /** @type {?} */
+Table.fromVectors = function() {};
+/** @type {?} */
 Table.fromAsync = function() {};
 /** @type {?} */
 Table.fromStruct = function() {};

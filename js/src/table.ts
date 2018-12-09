@@ -38,6 +38,9 @@ export interface DataFrame<T extends StructData = StructData> {
 
 export class Table<T extends StructData = StructData> implements DataFrame {
     static empty<R extends StructData = StructData>() { return new Table<R>(new Schema([]), []); }
+    static fromVectors<R extends StructData = StructData>(vectors: Vector[], names?: string[]) {
+       return new Table<R>([RecordBatch.from<R>(vectors, names)])
+    }
     static from<R extends StructData = StructData>(sources?: Iterable<Uint8Array | Buffer | string> | object | string) {
         if (sources) {
             let schema: Schema | undefined;
@@ -198,6 +201,10 @@ export class Table<T extends StructData = StructData> implements DataFrame {
         return new PipeIterator(tableRowsToString(this, separator), 'utf8');
     }
 }
+
+// protect batches, batchesUnion from es2015/umd mangler
+(<any> Table.prototype).batches = Object.freeze([]);
+(<any> Table.prototype).batchesUnion = Object.freeze([]);
 
 class FilteredDataFrame<T extends StructData = StructData> implements DataFrame<T> {
     private predicate: Predicate;

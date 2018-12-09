@@ -19,8 +19,8 @@
 use std::marker::PhantomData;
 use std::mem;
 
-use buffer::Buffer;
-use datatypes::*;
+use crate::buffer::Buffer;
+use crate::datatypes::*;
 
 /// Computes the strides required assuming a row major memory layout
 fn compute_row_major_strides<T: ArrowPrimitiveType>(shape: &Vec<i64>) -> Vec<i64> {
@@ -216,8 +216,8 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use buffer::Buffer;
-    use builder::*;
+    use crate::buffer::Buffer;
+    use crate::builder::*;
 
     #[test]
     fn test_compute_row_major_strides() {

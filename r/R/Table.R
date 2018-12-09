@@ -16,12 +16,21 @@
 # under the License.
 
 #' @include R6.R
-
+#'
+#' @title class arrow::Table
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__Table
+#' @name arrow__Table
 `arrow::Table` <- R6Class("arrow::Table", inherit = `arrow::Object`,
   public = list(
-    num_columns = function() Table__num_columns(self),
-    num_rows = function() Table__num_rows(self),
-    schema = function() shared_ptr(`arrow::Schema`, Table__schema(self)),
     column = function(i) shared_ptr(`arrow::Column`, Table__column(self, i)),
 
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
@@ -29,9 +38,16 @@
     cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
       assert_that(inherits(target_schema, "arrow::Schema"))
       assert_that(inherits(options, "arrow::compute::CastOptions"))
-      assert_that(identical(self$schema()$names, target_schema$names), msg = "incompatible schemas")
+      assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
       shared_ptr(`arrow::Table`, Table__cast(self, target_schema, options))
     }
+  ),
+
+  active = list(
+    num_columns = function() Table__num_columns(self),
+    num_rows = function() Table__num_rows(self),
+    schema = function() shared_ptr(`arrow::Schema`, Table__schema(self)),
+    columns = function() map(Table__columns(self), shared_ptr, class = `arrow::Column`)
   )
 )
 
@@ -47,15 +63,4 @@ table <- function(.data){
 #' @export
 `as_tibble.arrow::Table` <- function(x, ...){
   Table__to_dataframe(x)
-}
-
-#' Read an tibble from an arrow::Table on disk
-#'
-#' @param stream input stream
-#'
-#' @return a [tibble::tibble]
-#'
-#' @export
-read_arrow <- function(stream){
-  as_tibble(read_table(stream))
 }

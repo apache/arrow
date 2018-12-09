@@ -150,8 +150,8 @@ Pass multiple labels by dividing with semicolons")
     "Build the Arrow IPC extensions"
     ON)
 
-  option(ARROW_GPU
-    "Build the Arrow GPU extensions (requires CUDA installation)"
+  option(ARROW_CUDA
+    "Build the Arrow CUDA extensions (requires CUDA toolkit)"
     OFF)
 
   option(ARROW_ORC
@@ -803,7 +803,9 @@ endif()
 if(ARROW_PARQUET)
   add_subdirectory(src/parquet)
   add_subdirectory(tools/parquet)
-  add_subdirectory(examples/parquet/low-level-api)
+  if (PARQUET_BUILD_EXAMPLES)
+    add_subdirectory(examples/parquet)
+  endif()
 endif()
 
 if(ARROW_GANDIVA)

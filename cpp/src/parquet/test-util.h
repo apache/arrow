@@ -19,8 +19,7 @@
 // Parquet column chunk within a row group. It could be extended in the future
 // to iterate through all data pages in all chunks in a file.
 
-#ifndef PARQUET_COLUMN_TEST_UTIL_H
-#define PARQUET_COLUMN_TEST_UTIL_H
+#pragma once
 
 #include <algorithm>
 #include <limits>
@@ -247,10 +246,10 @@ class DictionaryPageBuilder {
   // This class writes data and metadata to the passed inputs
   explicit DictionaryPageBuilder(const ColumnDescriptor* d)
       : num_dict_values_(0), have_values_(false) {
-    encoder_.reset(new DictEncoder<TYPE>(d, &pool_));
+    encoder_.reset(new DictEncoder<TYPE>(d));
   }
 
-  ~DictionaryPageBuilder() { pool_.FreeAll(); }
+  ~DictionaryPageBuilder() {}
 
   shared_ptr<Buffer> AppendValues(const vector<TC>& values) {
     int num_values = static_cast<int>(values.size());
@@ -271,7 +270,6 @@ class DictionaryPageBuilder {
   int32_t num_values() const { return num_dict_values_; }
 
  private:
-  ChunkedAllocator pool_;
   shared_ptr<DictEncoder<TYPE>> encoder_;
   int32_t num_dict_values_;
   bool have_values_;
@@ -443,5 +441,3 @@ static int MakePages(const ColumnDescriptor* d, int num_pages, int levels_per_pa
 }  // namespace test
 
 }  // namespace parquet
-
-#endif  // PARQUET_COLUMN_TEST_UTIL_H

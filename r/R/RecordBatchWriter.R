@@ -17,175 +17,174 @@
 
 #' @include R6.R
 
+#' @title class arrow::ipc::RecordBatchWriter
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' - `$write_batch(batch)`: Write record batch to stream
+#' - `$write_table(table)`: write Table to stream
+#' - `$close()`: close stream
+#'
+#' @section Derived classes:
+#'
+#' - [arrow::ipc::RecordBatchStreamWriter][arrow__ipc__RecordBatchStreamWriter] implements the streaming binary format
+#' - [arrow::ipc::RecordBatchFileWriter][arrow__ipc__RecordBatchFileWriter] implements the binary file format
+#'
+#' @rdname arrow__ipc__RecordBatchWriter
+#' @name arrow__ipc__RecordBatchWriter
 `arrow::ipc::RecordBatchWriter` <- R6Class("arrow::ipc::RecordBatchWriter", inherit = `arrow::Object`,
   public = list(
-    WriteRecordBatch = function(batch, allow_64bit) ipc___RecordBatchWriter__WriteRecordBatch(self, batch, allow_64bit),
-    WriteTable = function(table) ipc___RecordBatchWriter__WriteTable(self, table),
-    Close = function() ipc___RecordBatchWriter__Close(self)
+    write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
+    write_table = function(table) ipc___RecordBatchWriter__WriteTable(self, table),
+
+    write = function(x) {
+      if (inherits(x, "arrow::RecordBatch")) {
+        self$write_batch(x)
+      } else if(inherits(x, "arrow::Table")) {
+        self$write_table(x)
+      } else if (inherits(x, "data.frame")) {
+        self$write_table(table(x))
+      } else {
+        abort("unexpected type for RecordBatchWriter$write(), must be an arrow::RecordBatch or an arrow::Table")
+      }
+    },
+
+    close = function() ipc___RecordBatchWriter__Close(self)
   )
 )
 
+#' @title class arrow::ipc::RecordBatchStreamWriter
+#'
+#' Writer for the Arrow streaming binary format
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section usage:
+#'
+#' ```
+#' writer <- RecordBatchStreamWriter(sink, schema)
+#'
+#' writer$write_batch(batch)
+#' writer$write_table(table)
+#' writer$close()
+#' ```
+#'
+#' @section Factory:
+#'
+#' The [RecordBatchStreamWriter()] function creates a record batch stream writer.
+#'
+#' @section Methods:
+#' inherited from [arrow::ipc::RecordBatchWriter][arrow__ipc__RecordBatchWriter]
+#'
+#' - `$write_batch(batch)`: Write record batch to stream
+#' - `$write_table(table)`: write Table to stream
+#' - `$close()`: close stream
+#'
+#' @rdname arrow__ipc__RecordBatchStreamWriter
+#' @name arrow__ipc__RecordBatchStreamWriter
 `arrow::ipc::RecordBatchStreamWriter` <- R6Class("arrow::ipc::RecordBatchStreamWriter", inherit = `arrow::ipc::RecordBatchWriter`)
+
+#' Writer for the Arrow streaming binary format
+#'
+#' @param sink Where to write. Can either be:
+#'
+#' - A string, meant as a file path, passed to [fs::path_abs()]
+#' - a [file path][fs::path_abs()]
+#' - [arrow::io::OutputStream][arrow__io__OutputStream]
+#'
+#' @param schema The [arrow::Schema][arrow__Schema] for data to be written.
+#'
+#' @return a [arrow::ipc::RecordBatchStreamWriter][arrow__ipc__RecordBatchStreamWriter]
+#'
+#' @export
+RecordBatchStreamWriter <- function(sink, schema) {
+  UseMethod("RecordBatchStreamWriter")
+}
+
+#' @export
+RecordBatchStreamWriter.character <- function(sink, schema){
+  RecordBatchStreamWriter(fs::path_abs(sink), schema)
+}
+
+#' @export
+RecordBatchStreamWriter.fs_path <- function(sink, schema){
+  RecordBatchStreamWriter(FileOutputStream(sink), schema)
+}
+
+#' @export
+`RecordBatchStreamWriter.arrow::io::OutputStream` <- function(sink, schema){
+  assert_that(inherits(schema, "arrow::Schema"))
+  shared_ptr(`arrow::ipc::RecordBatchStreamWriter`, ipc___RecordBatchStreamWriter__Open(sink, schema))
+}
+
+#' @title class arrow::ipc::RecordBatchFileWriter
+#'
+#' Writer for the Arrow binary file format
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section usage:
+#'
+#' ```
+#' writer <- RecordBatchFileWriter(sink, schema)
+#'
+#' writer$write_batch(batch)
+#' writer$write_table(table)
+#' writer$close()
+#' ```
+#'
+#' @section Factory:
+#'
+#' The [RecordBatchFileWriter()] function creates a record batch stream writer.
+#'
+#' @section Methods:
+#' inherited from [arrow::ipc::RecordBatchWriter][arrow__ipc__RecordBatchWriter]
+#'
+#' - `$write_batch(batch)`: Write record batch to stream
+#' - `$write_table(table)`: write Table to stream
+#' - `$close()`: close stream
+#'
+#' @rdname arrow__ipc__RecordBatchFileWriter
+#' @name arrow__ipc__RecordBatchFileWriter
 `arrow::ipc::RecordBatchFileWriter` <- R6Class("arrow::ipc::RecordBatchFileWriter", inherit = `arrow::ipc::RecordBatchStreamWriter`)
 
 #' Create a record batch file writer from a stream
 #'
-#' @param stream a stream
-#' @param schema the schema of the batches
+#' @param sink Where to write. Can either be:
+#'
+#' - character vector of length one
+#' - a [file path][fs::path_abs()]
+#' - [arrow::io::OutputStream][arrow__io__OutputStream]
+#'
+#' @param schema The [arrow::Schema][arrow__Schema] for data to be written.
 #'
 #' @return an `arrow::ipc::RecordBatchWriter` object
 #'
 #' @export
-record_batch_file_writer <- function(stream, schema) {
-  assert_that(
-    inherits(stream, "arrow::io::OutputStream"),
-    inherits(schema, "arrow::Schema")
-  )
-  shared_ptr(`arrow::ipc::RecordBatchFileWriter`, ipc___RecordBatchFileWriter__Open(stream, schema))
-}
-
-#' Create a record batch stream writer
-#'
-#' @param stream a stream
-#' @param schema a schema
-#'
-#' @export
-record_batch_stream_writer <- function(stream, schema) {
-  assert_that(
-    inherits(stream, "arrow::io::OutputStream"),
-    inherits(schema, "arrow::Schema")
-  )
-  shared_ptr(`arrow::ipc::RecordBatchStreamWriter`, ipc___RecordBatchStreamWriter__Open(stream, schema))
-}
-
-#-------- write_record_batch
-
-#' write a record batch
-#'
-#' @param x a `arrow::RecordBatch`
-#' @param stream where to stream the record batch
-#' @param ... extra parameters
-#'
-#' @export
-write_record_batch <- function(x, stream, ...){
-  UseMethod("write_record_batch", stream)
+RecordBatchFileWriter <- function(sink, schema) {
+  UseMethod("RecordBatchFileWriter")
 }
 
 #' @export
-`write_record_batch.arrow::io::OutputStream` <- function(x, stream, ...) {
-  stream_writer <- close_on_exit(record_batch_stream_writer(stream, x$schema()))
-  write_record_batch(x, stream_writer)
+RecordBatchFileWriter.character <- function(sink, schema){
+  RecordBatchFileWriter(fs::path_abs(sink), schema)
 }
 
 #' @export
-`write_record_batch.arrow::ipc::RecordBatchWriter` <- function(x, stream, allow_64bit = TRUE, ...){
-  stream$WriteRecordBatch(x, allow_64bit)
+RecordBatchFileWriter.fs_path <- function(sink, schema){
+  RecordBatchFileWriter(FileOutputStream(sink), schema)
 }
 
 #' @export
-`write_record_batch.character` <- function(x, stream, ...) {
-  assert_that(length(stream) == 1L)
-  write_record_batch(x, fs::path_abs(stream), ...)
-}
-
-#' @export
-`write_record_batch.fs_path` <- function(x, stream, ...) {
-  assert_that(length(stream) == 1L)
-  file_stream <- close_on_exit(file_output_stream(stream))
-  file_writer <- close_on_exit(record_batch_file_writer(file_stream, x$schema()))
-  write_record_batch(x, file_writer, ...)
-}
-
-#' @export
-`write_record_batch.raw` <- function(x, stream, ...) {
-  # how many bytes do we need
-  mock <- mock_output_stream()
-  write_record_batch(x, mock)
-  n <- mock$GetExtentBytesWritten()
-
-  bytes <- raw(n)
-  buffer <- buffer(bytes)
-  buffer_writer <- fixed_size_buffer_writer(buffer)
-  write_record_batch(x, buffer_writer)
-
-  bytes
-}
-
-#-------- stream Table
-
-#' write an arrow::Table
-#'
-#' @param x an `arrow::Table`
-#' @param stream where to stream the record batch
-#' @param ... extra parameters
-#'
-#' @export
-write_table <- function(x, stream, ...) {
-  UseMethod("write_table", stream)
-}
-
-#' @export
-`write_table.arrow::io::OutputStream` <- function(x, stream, ...) {
-  stream_writer <- close_on_exit(record_batch_stream_writer(stream, x$schema()))
-  write_table(x, stream_writer)
-}
-
-#' @export
-`write_table.arrow::ipc::RecordBatchWriter` <- function(x, stream, ...){
-  stream$WriteTable(x)
-}
-
-#' @export
-`write_table.character` <- function(x, stream, ...) {
-  assert_that(length(stream) == 1L)
-  write_table(x, fs::path_abs(stream), ...)
-}
-
-#' @export
-`write_table.fs_path` <- function(x, stream, ...) {
-  assert_that(length(stream) == 1L)
-  file_stream <- close_on_exit(file_output_stream(stream))
-  file_writer <- close_on_exit(record_batch_file_writer(file_stream, x$schema()))
-  write_table(x, file_writer, ...)
-}
-
-#' @export
-`write_table.raw` <- function(x, stream, ...) {
-  # how many bytes do we need
-  mock <- mock_output_stream()
-  write_table(x, mock)
-  n <- mock$GetExtentBytesWritten()
-
-  bytes <- raw(n)
-  buffer <- buffer(bytes)
-  buffer_writer <- fixed_size_buffer_writer(buffer)
-  write_table(x, buffer_writer)
-
-  bytes
-}
-
-#' Write an object to a stream
-#'
-#' @param x An object to stream
-#' @param stream A stream
-#' @param ... additional parameters
-#'
-#' @export
-write_arrow <- function(x, stream, ...){
-  UseMethod("write_arrow")
-}
-
-#' @export
-`write_arrow.arrow::RecordBatch` <- function(x, stream, ...) {
-  write_record_batch(x, stream, ...)
-}
-
-#' @export
-`write_arrow.arrow::Table` <- function(x, stream, ...) {
-  write_table(x, stream, ...)
-}
-
-#' @export
-`write_arrow.data.frame` <- function(x, stream, ...) {
-  write_record_batch(record_batch(x), stream, ...)
+`RecordBatchFileWriter.arrow::io::OutputStream` <- function(sink, schema){
+  assert_that(inherits(schema, "arrow::Schema"))
+  shared_ptr(`arrow::ipc::RecordBatchFileWriter`, ipc___RecordBatchFileWriter__Open(sink, schema))
 }

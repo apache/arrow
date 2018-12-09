@@ -47,8 +47,8 @@ function generateDictionaryMap(fields: Field[]) {
 }
 
 export class Schema {
-    public static from(vectors: Vector[]) {
-        return new Schema(vectors.map((v, i) => new Field('' + i, v.type)));
+    public static from(vectors: Vector[], names?: string[]) {
+        return new Schema(vectors.map((v, i) => new Field(names ? names[i] : ('' + i), v.type)));
     }
     // @ts-ignore
     protected _bodyLength: number;

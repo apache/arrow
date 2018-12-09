@@ -100,7 +100,7 @@ write_feather_RecordBatch <- function(data, stream) {
 #' @export
 #' @method write_feather_RecordBatch fs_path
 `write_feather_RecordBatch.fs_path` <- function(data, stream) {
-  file_stream <- close_on_exit(file_output_stream(stream))
+  file_stream <- close_on_exit(FileOutputStream(stream))
   `write_feather_RecordBatch.arrow::io::OutputStream`(data, file_stream)
 }
 
@@ -133,7 +133,7 @@ feather_table_reader.character <- function(file, mmap = TRUE, ...) {
 
 #' @export
 feather_table_reader.fs_path <- function(file, mmap = TRUE, ...) {
-  stream <- if(isTRUE(mmap)) mmap_open(file, ...) else file_open(file, ...)
+  stream <- if(isTRUE(mmap)) mmap_open(file, ...) else ReadableFile(file, ...)
   feather_table_reader(stream)
 }
 

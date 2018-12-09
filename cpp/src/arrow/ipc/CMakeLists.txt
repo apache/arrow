@@ -33,8 +33,7 @@ if (NOT ARROW_BOOST_HEADER_ONLY)
         set_target_properties(json-integration-test
           PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
       else()
-        target_link_libraries(json-integration-test
-          pthread)
+        target_link_libraries(json-integration-test PRIVATE pthread)
       endif()
     endif()
   endif()

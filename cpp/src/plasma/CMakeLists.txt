@@ -83,10 +83,10 @@ set(PLASMA_SRCS
 set(PLASMA_LINK_LIBS arrow_shared)
 set(PLASMA_STATIC_LINK_LIBS arrow_static)
 
-if (ARROW_GPU)
-  set(PLASMA_LINK_LIBS ${PLASMA_LINK_LIBS} arrow_gpu_shared)
-  set(PLASMA_STATIC_LINK_LIBS arrow_gpu_static ${PLASMA_STATIC_LINK_LIBS})
-  add_definitions(-DPLASMA_GPU)
+if (ARROW_CUDA)
+  set(PLASMA_LINK_LIBS ${PLASMA_LINK_LIBS} arrow_cuda_shared)
+  set(PLASMA_STATIC_LINK_LIBS arrow_cuda_static ${PLASMA_STATIC_LINK_LIBS})
+  add_definitions(-DPLASMA_CUDA)
 endif()
 
 ADD_ARROW_LIB(plasma

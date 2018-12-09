@@ -100,10 +100,6 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   static Status Create(std::shared_ptr<InputStream> raw, int64_t buffer_size,
                        MemoryPool* pool, std::shared_ptr<BufferedInputStream>* out);
 
-  /// \brief Return string_view to buffered bytes, up to the indicated
-  /// number. View becomes invalid after any operation on file
-  util::string_view Peek(int64_t nbytes) const;
-
   /// \brief Resize internal read buffer; calls to Read(...) will read at least
   /// \param[in] new_buffer_size the new read buffer size
   /// \return Status
@@ -124,6 +120,7 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   std::shared_ptr<InputStream> raw() const;
 
   // InputStream APIs
+  util::string_view Peek(int64_t nbytes) const override;
   Status Close() override;
   bool closed() const override;
 

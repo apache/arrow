@@ -487,10 +487,10 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
   }
 }
 
-#ifdef PLASMA_GPU
-using arrow::gpu::CudaBuffer;
-using arrow::gpu::CudaBufferReader;
-using arrow::gpu::CudaBufferWriter;
+#ifdef PLASMA_CUDA
+using arrow::cuda::CudaBuffer;
+using arrow::cuda::CudaBufferReader;
+using arrow::cuda::CudaBufferWriter;
 
 namespace {
 
@@ -590,7 +590,7 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   AssertCudaRead(object_buffers[0].metadata, {5});
 }
 
-#endif  // PLASMA_GPU
+#endif  // PLASMA_CUDA
 
 }  // namespace plasma
 

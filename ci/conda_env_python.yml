@@ -21,5 +21,6 @@ numpy
 pandas
 pytest
 python
+rsync
 setuptools
 setuptools_scm

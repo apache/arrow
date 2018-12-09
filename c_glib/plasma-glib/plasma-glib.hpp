@@ -22,3 +22,4 @@
 #include <plasma-glib/plasma-glib.h>
 
 #include <plasma-glib/client.hpp>
+#include <plasma-glib/object.hpp>

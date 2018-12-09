@@ -36,11 +36,15 @@
     </releaseinfo>
   </bookinfo>
 
-  <part id="plasma-client">
-    <title>PlasmaClient</title>
+  <part id="client-side">
+    <title>Client side</title>
     <chapter id="client">
       <title>Client</title>
       <xi:include href="xml/client.xml"/>
+    </chapter>
+    <chapter id="object">
+      <title>Object</title>
+      <xi:include href="xml/object.xml"/>
     </chapter>
   </part>
 

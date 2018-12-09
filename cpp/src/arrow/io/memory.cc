@@ -287,6 +287,12 @@ Status BufferReader::Tell(int64_t* position) const {
   return Status::OK();
 }
 
+util::string_view BufferReader::Peek(int64_t nbytes) const {
+  const int64_t bytes_available = std::min(nbytes, size_ - position_);
+  return util::string_view(reinterpret_cast<const char*>(data_) + position_,
+                           static_cast<size_t>(bytes_available));
+}
+
 bool BufferReader::supports_zero_copy() const { return true; }
 
 Status BufferReader::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
