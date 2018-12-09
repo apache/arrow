@@ -29,9 +29,12 @@ rustup show
 # check code formatting only for Rust nightly
 if [ $RUSTUP_TOOLCHAIN == "nightly" ]
 then
+  # this is a pain but rustfmt is sometimes broken on nightly toolchain so use the stable version
+  cargo default stable
+  rustup component add rustfmt
+  cargo default nightly
   # raises on any formatting errors
-  rustup component add rustfmt-preview
-  cargo fmt --all -- --check
+  cargo +stable fmt --all -- --check
 fi
 
 # raises on any warnings
