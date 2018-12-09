@@ -31,6 +31,7 @@ groups:
     - docker-python-3.6-alpine
     - docker-java
     - docker-js
+    - docker-docs
     - docker-lint
     - docker-iwyu
     - docker-clang-format
