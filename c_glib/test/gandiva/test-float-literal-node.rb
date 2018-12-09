@@ -20,9 +20,9 @@ class TestGandivaFloatLiteralNode < Test::Unit::TestCase
     omit("Gandiva is required") unless defined?(::Gandiva)
   end
 
-  def test_value
-    value = 1.5 
-    literal_node = Gandiva::FloatLiteralNode.new(value)
-    assert_equal(value, literal_node.value)
+  def test_new
+    assert_nothing_raised do
+      Gandiva::FloatLiteralNode.new(1.5)
+    end
   end
 end

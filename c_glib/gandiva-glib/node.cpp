@@ -450,58 +450,9 @@ ggandiva_literal_node_class_init(GGandivaLiteralNodeClass *klass)
 }
 
 
-typedef struct GGandivaBooleanLiteralNodePrivate_ {
-  gboolean value;
-} GGandivaBooleanLiteralNodePrivate;
-
-enum {
-  PROP_IS_TRUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaBooleanLiteralNode,
-                           ggandiva_boolean_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_BOOLEAN_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaBooleanLiteralNodePrivate *>(                     \
-    ggandiva_boolean_literal_node_get_instance_private(                 \
-      GGANDIVA_BOOLEAN_LITERAL_NODE(object)))
-
-static void
-ggandiva_boolean_literal_node_set_property(GObject *object,
-                                           guint prop_id,
-                                           const GValue *value,
-                                           GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_BOOLEAN_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_IS_TRUE:
-    priv->value = g_value_get_boolean(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_boolean_literal_node_get_property(GObject *object,
-                                           guint prop_id,
-                                           GValue *value,
-                                           GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_BOOLEAN_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_IS_TRUE:
-    g_value_set_boolean(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaBooleanLiteralNode,
+              ggandiva_boolean_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_boolean_literal_node_init(GGandivaBooleanLiteralNode *boolean_literal_node)
@@ -511,19 +462,6 @@ ggandiva_boolean_literal_node_init(GGandivaBooleanLiteralNode *boolean_literal_n
 static void
 ggandiva_boolean_literal_node_class_init(GGandivaBooleanLiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->set_property = ggandiva_boolean_literal_node_set_property;
-  gobject_class->get_property = ggandiva_boolean_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_boolean("value",
-                              "Value",
-                              "The value of the boolean literal",
-                              FALSE,
-                              static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_IS_TRUE, spec);
 }
 
 /**
@@ -538,62 +476,13 @@ GGandivaBooleanLiteralNode *
 ggandiva_boolean_literal_node_new(gboolean value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return ggandiva_boolean_literal_node_new_raw(&gandiva_node, value);
+  return ggandiva_boolean_literal_node_new_raw(&gandiva_node);
 }
 
 
-typedef struct GGandivaUint8LiteralNodePrivate_ {
-  guint8 value;
-} GGandivaUint8LiteralNodePrivate;
-
-enum {
-  PROP_UINT8_VALUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaUint8LiteralNode,
-                           ggandiva_uint8_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_UINT8_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaUint8LiteralNodePrivate *>(                     \
-    ggandiva_uint8_literal_node_get_instance_private(                 \
-      GGANDIVA_UINT8_LITERAL_NODE(object)))
-
-static void
-ggandiva_uint8_literal_node_set_property(GObject *object,
-                                         guint prop_id,
-                                         const GValue *value,
-                                         GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_UINT8_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_UINT8_VALUE:
-    priv->value = g_value_get_uint(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_uint8_literal_node_get_property(GObject *object,
-                                         guint prop_id,
-                                         GValue *value,
-                                         GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_UINT8_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_UINT8_VALUE:
-    g_value_set_uint(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaUint8LiteralNode,
+              ggandiva_uint8_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_uint8_literal_node_init(GGandivaUint8LiteralNode *uint8_literal_node)
@@ -603,21 +492,6 @@ ggandiva_uint8_literal_node_init(GGandivaUint8LiteralNode *uint8_literal_node)
 static void
 ggandiva_uint8_literal_node_class_init(GGandivaUint8LiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->set_property = ggandiva_uint8_literal_node_set_property;
-  gobject_class->get_property = ggandiva_uint8_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_uint("value",
-                           "Value",
-                           "The value of the uint8 literal",
-                           0,
-                           G_MAXUINT,
-                           0,
-                           static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                    G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_UINT8_VALUE, spec);
 }
 
 /**
@@ -632,62 +506,13 @@ GGandivaUint8LiteralNode *
 ggandiva_uint8_literal_node_new(guint8 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return ggandiva_uint8_literal_node_new_raw(&gandiva_node, value);
+  return ggandiva_uint8_literal_node_new_raw(&gandiva_node);
 }
 
 
-typedef struct GGandivaUint16LiteralNodePrivate_ {
-  guint16 value;
-} GGandivaUint16LiteralNodePrivate;
-
-enum {
-  PROP_UINT16_VALUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaUint16LiteralNode,
-                           ggandiva_uint16_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_UINT16_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaUint16LiteralNodePrivate *>(                     \
-    ggandiva_uint16_literal_node_get_instance_private(                 \
-      GGANDIVA_UINT16_LITERAL_NODE(object)))
-
-static void
-ggandiva_uint16_literal_node_set_property(GObject *object,
-                                          guint prop_id,
-                                          const GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_UINT16_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_UINT16_VALUE:
-    priv->value = g_value_get_uint(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_uint16_literal_node_get_property(GObject *object,
-                                          guint prop_id,
-                                          GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_UINT16_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_UINT16_VALUE:
-    g_value_set_uint(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaUint16LiteralNode,
+              ggandiva_uint16_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_uint16_literal_node_init(GGandivaUint16LiteralNode *uint16_literal_node)
@@ -697,21 +522,6 @@ ggandiva_uint16_literal_node_init(GGandivaUint16LiteralNode *uint16_literal_node
 static void
 ggandiva_uint16_literal_node_class_init(GGandivaUint16LiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->set_property = ggandiva_uint16_literal_node_set_property;
-  gobject_class->get_property = ggandiva_uint16_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_uint("value",
-                           "Value",
-                           "The value of the uint16 literal",
-                           0,
-                           G_MAXUINT16,
-                           0,
-                           static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                    G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_UINT16_VALUE, spec);
 }
 
 /**
@@ -726,62 +536,13 @@ GGandivaUint16LiteralNode *
 ggandiva_uint16_literal_node_new(guint16 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return ggandiva_uint16_literal_node_new_raw(&gandiva_node, value);
+  return ggandiva_uint16_literal_node_new_raw(&gandiva_node);
 }
 
 
-typedef struct GGandivaUint32LiteralNodePrivate_ {
-  guint32 value;
-} GGandivaUint32LiteralNodePrivate;
-
-enum {
-  PROP_UINT32_VALUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaUint32LiteralNode,
-                           ggandiva_uint32_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_UINT32_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaUint32LiteralNodePrivate *>(                     \
-    ggandiva_uint32_literal_node_get_instance_private(                 \
-      GGANDIVA_UINT32_LITERAL_NODE(object)))
-
-static void
-ggandiva_uint32_literal_node_set_property(GObject *object,
-                                          guint prop_id,
-                                          const GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_UINT32_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_UINT32_VALUE:
-    priv->value = g_value_get_uint(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_uint32_literal_node_get_property(GObject *object,
-                                          guint prop_id,
-                                          GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_UINT32_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_UINT32_VALUE:
-    g_value_set_uint(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaUint32LiteralNode,
+              ggandiva_uint32_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_uint32_literal_node_init(GGandivaUint32LiteralNode *uint32_literal_node)
@@ -791,21 +552,6 @@ ggandiva_uint32_literal_node_init(GGandivaUint32LiteralNode *uint32_literal_node
 static void
 ggandiva_uint32_literal_node_class_init(GGandivaUint32LiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->set_property = ggandiva_uint32_literal_node_set_property;
-  gobject_class->get_property = ggandiva_uint32_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_uint("value",
-                           "Value",
-                           "The value of the uint32 literal",
-                           0,
-                           G_MAXUINT32,
-                           0,
-                           static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                    G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_UINT32_VALUE, spec);
 }
 
 /**
@@ -820,62 +566,13 @@ GGandivaUint32LiteralNode *
 ggandiva_uint32_literal_node_new(guint32 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return ggandiva_uint32_literal_node_new_raw(&gandiva_node, value);
+  return ggandiva_uint32_literal_node_new_raw(&gandiva_node);
 }
 
 
-typedef struct GGandivaUint64LiteralNodePrivate_ {
-  guint64 value;
-} GGandivaUint64LiteralNodePrivate;
-
-enum {
-  PROP_UINT64_VALUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaUint64LiteralNode,
-                           ggandiva_uint64_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_UINT64_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaUint64LiteralNodePrivate *>(                     \
-    ggandiva_uint64_literal_node_get_instance_private(                 \
-      GGANDIVA_UINT64_LITERAL_NODE(object)))
-
-static void
-ggandiva_uint64_literal_node_set_property(GObject *object,
-                                          guint prop_id,
-                                          const GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_UINT64_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_UINT64_VALUE:
-    priv->value = g_value_get_uint64(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_uint64_literal_node_get_property(GObject *object,
-                                          guint prop_id,
-                                          GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_UINT64_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_UINT64_VALUE:
-    g_value_set_uint64(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaUint64LiteralNode,
+              ggandiva_uint64_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_uint64_literal_node_init(GGandivaUint64LiteralNode *uint64_literal_node)
@@ -885,21 +582,6 @@ ggandiva_uint64_literal_node_init(GGandivaUint64LiteralNode *uint64_literal_node
 static void
 ggandiva_uint64_literal_node_class_init(GGandivaUint64LiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->set_property = ggandiva_uint64_literal_node_set_property;
-  gobject_class->get_property = ggandiva_uint64_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_uint64("value",
-                             "Value",
-                             "The value of the uint64 literal",
-                             0,
-                             G_MAXUINT64,
-                             0,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_UINT64_VALUE, spec);
 }
 
 /**
@@ -914,62 +596,13 @@ GGandivaUint64LiteralNode *
 ggandiva_uint64_literal_node_new(guint64 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return ggandiva_uint64_literal_node_new_raw(&gandiva_node, value);
+  return ggandiva_uint64_literal_node_new_raw(&gandiva_node);
 }
 
 
-typedef struct GGandivaInt8LiteralNodePrivate_ {
-  gint8 value;
-} GGandivaInt8LiteralNodePrivate;
-
-enum {
-  PROP_INT8_VALUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaInt8LiteralNode,
-                           ggandiva_int8_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_INT8_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaInt8LiteralNodePrivate *>(                     \
-    ggandiva_int8_literal_node_get_instance_private(                 \
-      GGANDIVA_INT8_LITERAL_NODE(object)))
-
-static void
-ggandiva_int8_literal_node_set_property(GObject *object,
-                                        guint prop_id,
-                                        const GValue *value,
-                                        GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_INT8_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_INT8_VALUE:
-    priv->value = g_value_get_int(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_int8_literal_node_get_property(GObject *object,
-                                        guint prop_id,
-                                        GValue *value,
-                                        GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_INT8_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_INT8_VALUE:
-    g_value_set_int(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaInt8LiteralNode,
+              ggandiva_int8_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_int8_literal_node_init(GGandivaInt8LiteralNode *int8_literal_node)
@@ -979,21 +612,6 @@ ggandiva_int8_literal_node_init(GGandivaInt8LiteralNode *int8_literal_node)
 static void
 ggandiva_int8_literal_node_class_init(GGandivaInt8LiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->set_property = ggandiva_int8_literal_node_set_property;
-  gobject_class->get_property = ggandiva_int8_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_int("value",
-                          "Value",
-                          "The value of the int8 literal",
-                          G_MININT,
-                          G_MAXINT,
-                          0,
-                          static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                   G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_INT8_VALUE, spec);
 }
 
 /**
@@ -1008,62 +626,13 @@ GGandivaInt8LiteralNode *
 ggandiva_int8_literal_node_new(gint8 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return ggandiva_int8_literal_node_new_raw(&gandiva_node, value);
+  return ggandiva_int8_literal_node_new_raw(&gandiva_node);
 }
 
 
-typedef struct GGandivaInt16LiteralNodePrivate_ {
-  gint16 value;
-} GGandivaInt16LiteralNodePrivate;
-
-enum {
-  PROP_INT16_VALUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaInt16LiteralNode,
-                           ggandiva_int16_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_INT16_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaInt16LiteralNodePrivate *>(                     \
-    ggandiva_int16_literal_node_get_instance_private(                 \
-      GGANDIVA_INT16_LITERAL_NODE(object)))
-
-static void
-ggandiva_int16_literal_node_set_property(GObject *object,
-                                         guint prop_id,
-                                         const GValue *value,
-                                         GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_INT16_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_INT16_VALUE:
-    priv->value = g_value_get_int(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_int16_literal_node_get_property(GObject *object,
-                                         guint prop_id,
-                                         GValue *value,
-                                         GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_INT16_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_INT16_VALUE:
-    g_value_set_int(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaInt16LiteralNode,
+              ggandiva_int16_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_int16_literal_node_init(GGandivaInt16LiteralNode *int16_literal_node)
@@ -1073,21 +642,6 @@ ggandiva_int16_literal_node_init(GGandivaInt16LiteralNode *int16_literal_node)
 static void
 ggandiva_int16_literal_node_class_init(GGandivaInt16LiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->set_property = ggandiva_int16_literal_node_set_property;
-  gobject_class->get_property = ggandiva_int16_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_int("value",
-                          "Value",
-                          "The value of the int16 literal",
-                          G_MININT16,
-                          G_MAXINT16,
-                          0,
-                          static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                   G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_INT16_VALUE, spec);
 }
 
 /**
@@ -1102,62 +656,13 @@ GGandivaInt16LiteralNode *
 ggandiva_int16_literal_node_new(gint16 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return ggandiva_int16_literal_node_new_raw(&gandiva_node, value);
+  return ggandiva_int16_literal_node_new_raw(&gandiva_node);
 }
 
 
-typedef struct GGandivaInt32LiteralNodePrivate_ {
-  gint32 value;
-} GGandivaInt32LiteralNodePrivate;
-
-enum {
-  PROP_INT32_VALUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaInt32LiteralNode,
-                           ggandiva_int32_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_INT32_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaInt32LiteralNodePrivate *>(                     \
-    ggandiva_int32_literal_node_get_instance_private(                 \
-      GGANDIVA_INT32_LITERAL_NODE(object)))
-
-static void
-ggandiva_int32_literal_node_set_property(GObject *object,
-                                         guint prop_id,
-                                         const GValue *value,
-                                         GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_INT32_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_INT32_VALUE:
-    priv->value = g_value_get_int(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_int32_literal_node_get_property(GObject *object,
-                                         guint prop_id,
-                                         GValue *value,
-                                         GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_INT32_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_INT32_VALUE:
-    g_value_set_int(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaInt32LiteralNode,
+              ggandiva_int32_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_int32_literal_node_init(GGandivaInt32LiteralNode *int32_literal_node)
@@ -1167,21 +672,6 @@ ggandiva_int32_literal_node_init(GGandivaInt32LiteralNode *int32_literal_node)
 static void
 ggandiva_int32_literal_node_class_init(GGandivaInt32LiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->set_property = ggandiva_int32_literal_node_set_property;
-  gobject_class->get_property = ggandiva_int32_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_int("value",
-                          "Value",
-                          "The value of the int32 literal",
-                          G_MININT32,
-                          G_MAXINT32,
-                          0,
-                          static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                   G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_INT32_VALUE, spec);
 }
 
 /**
@@ -1196,62 +686,13 @@ GGandivaInt32LiteralNode *
 ggandiva_int32_literal_node_new(gint32 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return ggandiva_int32_literal_node_new_raw(&gandiva_node, value);
+  return ggandiva_int32_literal_node_new_raw(&gandiva_node);
 }
 
 
-typedef struct GGandivaInt64LiteralNodePrivate_ {
-  gint64 value;
-} GGandivaInt64LiteralNodePrivate;
-
-enum {
-  PROP_INT64_VALUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaInt64LiteralNode,
-                           ggandiva_int64_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_INT64_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaInt64LiteralNodePrivate *>(                     \
-    ggandiva_int64_literal_node_get_instance_private(                 \
-      GGANDIVA_INT64_LITERAL_NODE(object)))
-
-static void
-ggandiva_int64_literal_node_set_property(GObject *object,
-                                         guint prop_id,
-                                         const GValue *value,
-                                         GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_INT64_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_INT64_VALUE:
-    priv->value = g_value_get_int64(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_int64_literal_node_get_property(GObject *object,
-                                         guint prop_id,
-                                         GValue *value,
-                                         GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_INT64_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_INT64_VALUE:
-    g_value_set_int64(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaInt64LiteralNode,
+              ggandiva_int64_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_int64_literal_node_init(GGandivaInt64LiteralNode *int64_literal_node)
@@ -1261,21 +702,6 @@ ggandiva_int64_literal_node_init(GGandivaInt64LiteralNode *int64_literal_node)
 static void
 ggandiva_int64_literal_node_class_init(GGandivaInt64LiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->set_property = ggandiva_int64_literal_node_set_property;
-  gobject_class->get_property = ggandiva_int64_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_int64("value",
-                            "Value",
-                            "The value of the int64 literal",
-                            G_MININT64,
-                            G_MAXINT64,
-                            0,
-                            static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                     G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_INT64_VALUE, spec);
 }
 
 /**
@@ -1290,62 +716,13 @@ GGandivaInt64LiteralNode *
 ggandiva_int64_literal_node_new(gint64 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return ggandiva_int64_literal_node_new_raw(&gandiva_node, value);
+  return ggandiva_int64_literal_node_new_raw(&gandiva_node);
 }
 
 
-typedef struct GGandivaFloatLiteralNodePrivate_ {
-  gfloat value;
-} GGandivaFloatLiteralNodePrivate;
-
-enum {
-  PROP_FLOAT_VALUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaFloatLiteralNode,
-                           ggandiva_float_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_FLOAT_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaFloatLiteralNodePrivate *>(                     \
-    ggandiva_float_literal_node_get_instance_private(                 \
-      GGANDIVA_FLOAT_LITERAL_NODE(object)))
-
-static void
-ggandiva_float_literal_node_set_property(GObject *object,
-                                         guint prop_id,
-                                         const GValue *value,
-                                         GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_FLOAT_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_FLOAT_VALUE:
-    priv->value = g_value_get_float(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_float_literal_node_get_property(GObject *object,
-                                         guint prop_id,
-                                         GValue *value,
-                                         GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_FLOAT_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_FLOAT_VALUE:
-    g_value_set_float(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaFloatLiteralNode,
+              ggandiva_float_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_float_literal_node_init(GGandivaFloatLiteralNode *float_literal_node)
@@ -1355,21 +732,6 @@ ggandiva_float_literal_node_init(GGandivaFloatLiteralNode *float_literal_node)
 static void
 ggandiva_float_literal_node_class_init(GGandivaFloatLiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->set_property = ggandiva_float_literal_node_set_property;
-  gobject_class->get_property = ggandiva_float_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_float("value",
-                            "Value",
-                            "The value of the float literal",
-                            -G_MAXFLOAT,
-                            G_MAXFLOAT,
-                            0.0,
-                            static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                     G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_FLOAT_VALUE, spec);
 }
 
 /**
@@ -1384,62 +746,13 @@ GGandivaFloatLiteralNode *
 ggandiva_float_literal_node_new(gfloat value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return ggandiva_float_literal_node_new_raw(&gandiva_node, value);
+  return ggandiva_float_literal_node_new_raw(&gandiva_node);
 }
 
 
-typedef struct GGandivaDoubleLiteralNodePrivate_ {
-  gdouble value;
-} GGandivaDoubleLiteralNodePrivate;
-
-enum {
-  PROP_DOUBLE_VALUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaDoubleLiteralNode,
-                           ggandiva_double_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_DOUBLE_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaDoubleLiteralNodePrivate *>(                     \
-    ggandiva_double_literal_node_get_instance_private(                 \
-      GGANDIVA_DOUBLE_LITERAL_NODE(object)))
-
-static void
-ggandiva_double_literal_node_set_property(GObject *object,
-                                          guint prop_id,
-                                          const GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_DOUBLE_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_DOUBLE_VALUE:
-    priv->value = g_value_get_double(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_double_literal_node_get_property(GObject *object,
-                                          guint prop_id,
-                                          GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_DOUBLE_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_DOUBLE_VALUE:
-    g_value_set_double(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaDoubleLiteralNode,
+              ggandiva_double_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_double_literal_node_init(GGandivaDoubleLiteralNode *double_literal_node)
@@ -1449,21 +762,6 @@ ggandiva_double_literal_node_init(GGandivaDoubleLiteralNode *double_literal_node
 static void
 ggandiva_double_literal_node_class_init(GGandivaDoubleLiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->set_property = ggandiva_double_literal_node_set_property;
-  gobject_class->get_property = ggandiva_double_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_double("value",
-                             "Value",
-                             "The value of the double literal",
-                             -G_MAXDOUBLE,
-                             G_MAXDOUBLE,
-                             0.0,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_DOUBLE_VALUE, spec);
 }
 
 /**
@@ -1478,72 +776,13 @@ GGandivaDoubleLiteralNode *
 ggandiva_double_literal_node_new(gdouble value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return ggandiva_double_literal_node_new_raw(&gandiva_node, value);
+  return ggandiva_double_literal_node_new_raw(&gandiva_node);
 }
 
 
-typedef struct GGandivaStringLiteralNodePrivate_ {
-  gchar *value;
-} GGandivaStringLiteralNodePrivate;
-
-enum {
-  PROP_STRING_VALUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaStringLiteralNode,
-                           ggandiva_string_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_STRING_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaStringLiteralNodePrivate *>(                     \
-    ggandiva_string_literal_node_get_instance_private(                 \
-      GGANDIVA_STRING_LITERAL_NODE(object)))
-
-static void
-ggandiva_string_literal_node_finalize(GObject *object)
-{
-  auto priv = GGANDIVA_STRING_LITERAL_NODE_GET_PRIVATE(object);
-
-  g_free(priv->value);
-
-  G_OBJECT_CLASS(ggandiva_string_literal_node_parent_class)->finalize(object);
-}
-
-static void
-ggandiva_string_literal_node_set_property(GObject *object,
-                                          guint prop_id,
-                                          const GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_STRING_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_STRING_VALUE:
-    priv->value = g_value_dup_string(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_string_literal_node_get_property(GObject *object,
-                                          guint prop_id,
-                                          GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_STRING_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_STRING_VALUE:
-    g_value_set_string(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaStringLiteralNode,
+              ggandiva_string_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_string_literal_node_init(GGandivaStringLiteralNode *string_literal_node)
@@ -1553,20 +792,6 @@ ggandiva_string_literal_node_init(GGandivaStringLiteralNode *string_literal_node
 static void
 ggandiva_string_literal_node_class_init(GGandivaStringLiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->finalize     = ggandiva_string_literal_node_finalize;
-  gobject_class->set_property = ggandiva_string_literal_node_set_property;
-  gobject_class->get_property = ggandiva_string_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_string("value",
-                             "Value",
-                             "The value of the string literal",
-                             nullptr,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_STRING_VALUE, spec);
 }
 
 /**
@@ -1581,72 +806,13 @@ GGandivaStringLiteralNode *
 ggandiva_string_literal_node_new(const gchar *value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeStringLiteral(value);
-  return ggandiva_string_literal_node_new_raw(&gandiva_node, value);
+  return ggandiva_string_literal_node_new_raw(&gandiva_node);
 }
 
 
-typedef struct GGandivaBinaryLiteralNodePrivate_ {
-  gchar *value;
-} GGandivaBinaryLiteralNodePrivate;
-
-enum {
-  PROP_BINARY_VALUE = 1
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaBinaryLiteralNode,
-                           ggandiva_binary_literal_node,
-                           GGANDIVA_TYPE_LITERAL_NODE)
-
-#define GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(object)               \
-  static_cast<GGandivaBinaryLiteralNodePrivate *>(                     \
-    ggandiva_binary_literal_node_get_instance_private(                 \
-      GGANDIVA_BINARY_LITERAL_NODE(object)))
-
-static void
-ggandiva_binary_literal_node_finalize(GObject *object)
-{
-  auto priv = GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(object);
-
-  g_free(priv->value);
-
-  G_OBJECT_CLASS(ggandiva_binary_literal_node_parent_class)->finalize(object);
-}
-
-static void
-ggandiva_binary_literal_node_set_property(GObject *object,
-                                          guint prop_id,
-                                          const GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_BINARY_VALUE:
-    priv->value = g_value_dup_string(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-ggandiva_binary_literal_node_get_property(GObject *object,
-                                          guint prop_id,
-                                          GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_BINARY_VALUE:
-    g_value_set_string(value, priv->value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
+G_DEFINE_TYPE(GGandivaBinaryLiteralNode,
+              ggandiva_binary_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
 ggandiva_binary_literal_node_init(GGandivaBinaryLiteralNode *binary_literal_node)
@@ -1656,20 +822,6 @@ ggandiva_binary_literal_node_init(GGandivaBinaryLiteralNode *binary_literal_node
 static void
 ggandiva_binary_literal_node_class_init(GGandivaBinaryLiteralNodeClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->finalize     = ggandiva_binary_literal_node_finalize;
-  gobject_class->set_property = ggandiva_binary_literal_node_set_property;
-  gobject_class->get_property = ggandiva_binary_literal_node_get_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_string("value",
-                             "Value",
-                             "The value of the binary literal",
-                             nullptr,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_BINARY_VALUE, spec);
 }
 
 /**
@@ -1732,133 +884,109 @@ ggandiva_function_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
 }
 
 GGandivaBooleanLiteralNode *
-ggandiva_boolean_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                      gboolean value)
+ggandiva_boolean_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto boolean_literal_node = g_object_new(GGANDIVA_TYPE_BOOLEAN_LITERAL_NODE,
                                            "node", gandiva_node,
-                                           "value", value,
                                            NULL);
   return GGANDIVA_BOOLEAN_LITERAL_NODE(boolean_literal_node);
 }
 
 GGandivaUint8LiteralNode *
-ggandiva_uint8_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                    guint8 value)
+ggandiva_uint8_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto uint8_literal_node = g_object_new(GGANDIVA_TYPE_UINT8_LITERAL_NODE,
                                          "node", gandiva_node,
-                                         "value", value,
                                          NULL);
   return GGANDIVA_UINT8_LITERAL_NODE(uint8_literal_node);
 }
 
 GGandivaUint16LiteralNode *
-ggandiva_uint16_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                     guint16 value)
+ggandiva_uint16_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto uint16_literal_node = g_object_new(GGANDIVA_TYPE_UINT16_LITERAL_NODE,
                                           "node", gandiva_node,
-                                          "value", value,
                                           NULL);
   return GGANDIVA_UINT16_LITERAL_NODE(uint16_literal_node);
 }
 
 GGandivaUint32LiteralNode *
-ggandiva_uint32_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                     guint32 value)
+ggandiva_uint32_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto uint32_literal_node = g_object_new(GGANDIVA_TYPE_UINT32_LITERAL_NODE,
                                           "node", gandiva_node,
-                                          "value", value,
                                           NULL);
   return GGANDIVA_UINT32_LITERAL_NODE(uint32_literal_node);
 }
 
 GGandivaUint64LiteralNode *
-ggandiva_uint64_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                     guint64 value)
+ggandiva_uint64_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto uint64_literal_node = g_object_new(GGANDIVA_TYPE_UINT64_LITERAL_NODE,
                                           "node", gandiva_node,
-                                          "value", value,
                                           NULL);
   return GGANDIVA_UINT64_LITERAL_NODE(uint64_literal_node);
 }
 
 GGandivaInt8LiteralNode *
-ggandiva_int8_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                   gint8 value)
+ggandiva_int8_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto int8_literal_node = g_object_new(GGANDIVA_TYPE_INT8_LITERAL_NODE,
                                         "node", gandiva_node,
-                                        "value", value,
                                         NULL);
   return GGANDIVA_INT8_LITERAL_NODE(int8_literal_node);
 }
 
 GGandivaInt16LiteralNode *
-ggandiva_int16_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                    gint16 value)
+ggandiva_int16_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto int16_literal_node = g_object_new(GGANDIVA_TYPE_INT16_LITERAL_NODE,
                                          "node", gandiva_node,
-                                         "value", value,
                                          NULL);
   return GGANDIVA_INT16_LITERAL_NODE(int16_literal_node);
 }
 
 GGandivaInt32LiteralNode *
-ggandiva_int32_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                    gint32 value)
+ggandiva_int32_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto int32_literal_node = g_object_new(GGANDIVA_TYPE_INT32_LITERAL_NODE,
                                          "node", gandiva_node,
-                                         "value", value,
                                          NULL);
   return GGANDIVA_INT32_LITERAL_NODE(int32_literal_node);
 }
 
 GGandivaInt64LiteralNode *
-ggandiva_int64_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                    gint64 value)
+ggandiva_int64_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto int64_literal_node = g_object_new(GGANDIVA_TYPE_INT64_LITERAL_NODE,
                                          "node", gandiva_node,
-                                         "value", value,
                                          NULL);
   return GGANDIVA_INT64_LITERAL_NODE(int64_literal_node);
 }
 
 GGandivaFloatLiteralNode *
-ggandiva_float_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                    gfloat value)
+ggandiva_float_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto float_literal_node = g_object_new(GGANDIVA_TYPE_FLOAT_LITERAL_NODE,
                                          "node", gandiva_node,
-                                         "value", value,
                                          NULL);
   return GGANDIVA_FLOAT_LITERAL_NODE(float_literal_node);
 }
 
 GGandivaDoubleLiteralNode *
-ggandiva_double_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                     gdouble value)
+ggandiva_double_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto double_literal_node = g_object_new(GGANDIVA_TYPE_DOUBLE_LITERAL_NODE,
                                           "node", gandiva_node,
-                                          "value", value,
                                           NULL);
   return GGANDIVA_DOUBLE_LITERAL_NODE(double_literal_node);
 }
 
 GGandivaStringLiteralNode *
-ggandiva_string_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                     const gchar *value)
+ggandiva_string_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   auto string_literal_node = g_object_new(GGANDIVA_TYPE_STRING_LITERAL_NODE,
                                           "node", gandiva_node,
-                                          "value", value,
                                           NULL);
   return GGANDIVA_STRING_LITERAL_NODE(string_literal_node);
 }

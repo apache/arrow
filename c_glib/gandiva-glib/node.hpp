@@ -35,40 +35,28 @@ ggandiva_function_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                                GList *parameters,
                                GArrowDataType *return_type);
 GGandivaBooleanLiteralNode *
-ggandiva_boolean_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                      gboolean value);
+ggandiva_boolean_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaUint8LiteralNode *
-ggandiva_uint8_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                    guint8 value);
+ggandiva_uint8_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaUint16LiteralNode *
-ggandiva_uint16_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                     guint16 value);
+ggandiva_uint16_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaUint32LiteralNode *
-ggandiva_uint32_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                     guint32 value);
+ggandiva_uint32_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaUint64LiteralNode *
-ggandiva_uint64_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                     guint64 value);
+ggandiva_uint64_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaInt8LiteralNode *
-ggandiva_int8_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                   gint8 value);
+ggandiva_int8_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaInt16LiteralNode *
-ggandiva_int16_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                    gint16 value);
+ggandiva_int16_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaInt32LiteralNode *
-ggandiva_int32_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                    gint32 value);
+ggandiva_int32_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaInt64LiteralNode *
-ggandiva_int64_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                    gint64 value);
+ggandiva_int64_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaFloatLiteralNode *
-ggandiva_float_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                    gfloat value);
+ggandiva_float_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaDoubleLiteralNode *
-ggandiva_double_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                     gdouble value);
+ggandiva_double_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaStringLiteralNode *
-ggandiva_string_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
-                                     const gchar *value);
+ggandiva_string_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
 GGandivaBinaryLiteralNode *
 ggandiva_binary_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
