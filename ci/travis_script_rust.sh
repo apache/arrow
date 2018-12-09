@@ -30,9 +30,9 @@ rustup show
 if [ $RUSTUP_TOOLCHAIN == "nightly" ]
 then
   # this is a pain but rustfmt is sometimes broken on nightly toolchain so use the stable version
-  cargo default stable
+  rustup default stable
   rustup component add rustfmt
-  cargo default nightly
+  rustup default nightly
   # raises on any formatting errors
   cargo +stable fmt --all -- --check
 fi
