@@ -225,8 +225,7 @@ TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   ASSERT_EQ(1, si.indptr()->ndim());
   ASSERT_EQ(1, si.indices()->ndim());
 
-  const int64_t* indptr_begin =
-      reinterpret_cast<const int64_t*>(si.indptr()->raw_data());
+  const int64_t* indptr_begin = reinterpret_cast<const int64_t*>(si.indptr()->raw_data());
   std::vector<int64_t> indptr_values(indptr_begin,
                                      indptr_begin + si.indptr()->shape()[0]);
 

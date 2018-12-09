@@ -112,7 +112,9 @@ class ARROW_EXPORT SparseTensorBase {
  public:
   virtual ~SparseTensorBase() = default;
 
-  SparseTensorFormat::type sparse_tensor_format_id() const { return sparse_index_->format_id(); }
+  SparseTensorFormat::type sparse_tensor_format_id() const {
+    return sparse_index_->format_id();
+  }
 
   std::shared_ptr<DataType> type() const { return type_; }
   std::shared_ptr<Buffer> data() const { return data_; }
