@@ -125,8 +125,12 @@ dependencies will be automatically built by Arrow's third-party toolchain.
                           libboost-filesystem-dev \
                           libboost-system-dev \
                           libboost-regex-dev \
+                          python-dev \
+                          autoconf \
                           flex \
                           bison
+
+If you are building Arrow for Python 3, install ``python3-dev`` instead of ``python-dev``.
 
 On Arch Linux, you can get these dependencies via pacman.
 
@@ -185,6 +189,12 @@ Now build and install the Arrow C++ libraries:
 
 If you don't want to build and install the Plasma in-memory object store,
 you can omit the ``-DARROW_PLASMA=on`` flag.
+Also, if multiple versions of Python are installed in your environment,
+you may have to pass additional parameters to cmake so that
+it can find the right executable, headers and libraries.
+For example, specifying `-DPYTHON_EXECUTABLE=$VIRTUAL_ENV/bin/python`
+(assuming that you're in virtualenv) enables cmake to choose
+the python executable which you are using.
 
 .. note::
 
@@ -227,6 +237,7 @@ libraries), one can set ``--bundle-arrow-cpp``:
 
 .. code-block:: shell
 
+   pip install wheel  # if not installed
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
           --with-parquet --with-plasma --bundle-arrow-cpp bdist_wheel
 
