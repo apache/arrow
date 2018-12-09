@@ -22,7 +22,7 @@ pushd /arrow/cpp/apidoc
 doxygen
 popd
 
-sphinx-build /arrow/docs/source /arrow/docs/_build
+sphinx-build -b html /arrow/docs/source /arrow/docs/_build/html
 
 mkdir -p /arrow/site/asf-site/docs/latest
 rsync -r /arrow/docs/_build/html/ /arrow/site/asf-site/docs/latest/
