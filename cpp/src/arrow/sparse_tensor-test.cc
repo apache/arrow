@@ -92,9 +92,10 @@ TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
     ASSERT_EQ(i + 11, ptr[i + 6]);
   }
 
-  std::shared_ptr<SparseCOOIndex> si =
-      std::dynamic_pointer_cast<SparseCOOIndex>(st1.sparse_index());
-  std::shared_ptr<SparseCOOIndex::CoordsTensor> sidx = si->indices();
+  const auto& si = internal::checked_cast<const SparseCOOIndex&>(*st1.sparse_index());
+  ASSERT_EQ(std::string("SparseCOOIndex"), si.ToString());
+
+  std::shared_ptr<SparseCOOIndex::CoordsTensor> sidx = si.indices();
   ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
   ASSERT_TRUE(sidx->is_column_major());
 
@@ -154,9 +155,8 @@ TEST(TestSparseCOOTensor, CreationFromTensor) {
     ASSERT_EQ(i + 11, ptr[i + 6]);
   }
 
-  std::shared_ptr<SparseCOOIndex> si =
-      std::dynamic_pointer_cast<SparseCOOIndex>(st1.sparse_index());
-  std::shared_ptr<SparseCOOIndex::CoordsTensor> sidx = si->indices();
+  const auto& si = internal::checked_cast<const SparseCOOIndex&>(*st1.sparse_index());
+  std::shared_ptr<SparseCOOIndex::CoordsTensor> sidx = si.indices();
   ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
   ASSERT_TRUE(sidx->is_column_major());
 
@@ -219,24 +219,24 @@ TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
     ASSERT_EQ(i + 11, ptr[i + 6]);
   }
 
-  std::shared_ptr<SparseCSRIndex> si =
-      std::dynamic_pointer_cast<SparseCSRIndex>(st1.sparse_index());
+  const auto& si = internal::checked_cast<const SparseCSRIndex&>(*st1.sparse_index());
 
-  ASSERT_EQ(1, si->indptr()->ndim());
-  ASSERT_EQ(1, si->indices()->ndim());
+  ASSERT_EQ(std::string("SparseCSRIndex"), si.ToString());
+  ASSERT_EQ(1, si.indptr()->ndim());
+  ASSERT_EQ(1, si.indices()->ndim());
 
   const int64_t* indptr_begin =
-      reinterpret_cast<const int64_t*>(si->indptr()->raw_data());
+      reinterpret_cast<const int64_t*>(si.indptr()->raw_data());
   std::vector<int64_t> indptr_values(indptr_begin,
-                                     indptr_begin + si->indptr()->shape()[0]);
+                                     indptr_begin + si.indptr()->shape()[0]);
 
   ASSERT_EQ(7, indptr_values.size());
   ASSERT_EQ(std::vector<int64_t>({0, 2, 4, 6, 8, 10, 12}), indptr_values);
 
   const int64_t* indices_begin =
-      reinterpret_cast<const int64_t*>(si->indices()->raw_data());
+      reinterpret_cast<const int64_t*>(si.indices()->raw_data());
   std::vector<int64_t> indices_values(indices_begin,
-                                      indices_begin + si->indices()->shape()[0]);
+                                      indices_begin + si.indices()->shape()[0]);
 
   ASSERT_EQ(12, indices_values.size());
   ASSERT_EQ(std::vector<int64_t>({0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3}), indices_values);

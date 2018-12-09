@@ -304,7 +304,7 @@ SparseCSRIndex::SparseCSRIndex(const std::shared_ptr<IndexTensor>& indptr,
   DCHECK_EQ(1, indices_->ndim());
 }
 
-std::string SparseCSRIndex::ToString() const { return std::string("SparseCOOIndex"); }
+std::string SparseCSRIndex::ToString() const { return std::string("SparseCSRIndex"); }
 
 // ----------------------------------------------------------------------
 // SparseTensorBase
