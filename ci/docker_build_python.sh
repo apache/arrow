@@ -35,6 +35,8 @@ export PYARROW_WITH_PLASMA=${PYARROW_WITH_PLASMA:-1}
 # Build pyarrow
 pushd ${source_dir}
 
-python setup.py build_ext --build-temp=${build_dir} install
+python setup.py build --build-temp=${build_dir} \
+                install --single-version-externally-managed \
+                        --record=/build/python/record.txt
 
 popd

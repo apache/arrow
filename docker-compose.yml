@@ -245,7 +245,17 @@ services:
     command: hdfs namenode
     hostname: hdfs-namenode
 
-  hdfs-datanode:
+  hdfs-datanode-1:
+    image: gelog/hadoop
+    command: hdfs datanode
+    ports:
+      # The host port is randomly assigned by Docker, to allow scaling
+      # to multiple DataNodes on the same host
+      - "50075"
+    links:
+      - hdfs-namenode:hdfs-namenode
+
+  hdfs-datanode-2:
     image: gelog/hadoop
     command: hdfs datanode
     ports:
@@ -265,7 +275,8 @@ services:
     #   docker-compose run hdfs-integration
     links:
       - hdfs-namenode:hdfs-namenode
-      - hdfs-datanode:hdfs-datanode
+      - hdfs-datanode-1:hdfs-datanode-1
+      - hdfs-datanode-2:hdfs-datanode-2
     environment:
       - ARROW_HDFS_TEST_HOST=hdfs-namenode
       - ARROW_HDFS_TEST_PORT=9000

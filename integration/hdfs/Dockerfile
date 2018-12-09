@@ -37,6 +37,7 @@ RUN apt-get update -y && \
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
+    ARROW_ORC=ON \
     ARROW_HDFS=ON \
     ARROW_PYTHON=ON \
     ARROW_BUILD_TESTS=ON

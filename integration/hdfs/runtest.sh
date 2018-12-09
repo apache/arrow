@@ -20,11 +20,14 @@
 set -e
 
 export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
-export LIBHDFS3_CONF=$(dirname $0)/libhdfs3.xml
-# export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HADOOP_HOME}/lib/native"
+# export LIBHDFS3_CONF=/arrow/integration/hdfs/libhdfs3.xml
 
 pushd /build/cpp
   debug/io-hdfs-test
 popd
 
-pytest -v --pyargs pyarrow
+# cannot use --pyargs with custom arguments like --hdfs or --only-hdfs, because
+# pytest ignores them, see https://github.com/pytest-dev/pytest/issues/3517
+export PYARROW_TEST_ONLY_HDFS=ON
+
+pytest -v --pyargs pyarrow.tests.test_hdfs
