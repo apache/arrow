@@ -20,6 +20,7 @@
 
 ADD_ARROW_TEST(feather-test)
 ADD_ARROW_TEST(ipc-read-write-test)
+ADD_ARROW_TEST(ipc-json-simple-test)
 ADD_ARROW_TEST(ipc-json-test)
 
 if (NOT ARROW_BOOST_HEADER_ONLY)
@@ -84,6 +85,7 @@ install(FILES
   dictionary.h
   feather.h
   json.h
+  json-simple.h
   message.h
   reader.h
   writer.h

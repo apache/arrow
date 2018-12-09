@@ -169,6 +169,12 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
   return Status::OK();
 }
 
+template <typename T>
+inline void BitmapFromVector(const std::vector<T>& is_valid,
+                             std::shared_ptr<Buffer>* out) {
+  ASSERT_OK(GetBitmapFromVector(is_valid, out));
+}
+
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
 // and the rest to non-zero (true) values.
 ARROW_EXPORT void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes);
@@ -246,6 +252,12 @@ Status MakeRandomBuffer(int64_t length, MemoryPool* pool,
   *out = result;
   return Status::OK();
 }
+
+// ArrayFromJSON: construct an Array from a simple JSON representation
+
+ARROW_EXPORT
+std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
+                                     const std::string& json);
 
 // ArrayFromVector: construct an Array from vectors of C values
 

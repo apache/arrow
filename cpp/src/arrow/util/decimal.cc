@@ -337,8 +337,8 @@ bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) 
 
 }  // namespace
 
-Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* precision,
-                              int32_t* scale) {
+Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
+                              int32_t* precision, int32_t* scale) {
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to decimal");
   }
@@ -391,6 +391,16 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* pr
   }
 
   return Status::OK();
+}
+
+Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* precision,
+                              int32_t* scale) {
+  return FromString(util::string_view(s), out, precision, scale);
+}
+
+Status Decimal128::FromString(const char* s, Decimal128* out, int32_t* precision,
+                              int32_t* scale) {
+  return FromString(util::string_view(s), out, precision, scale);
 }
 
 Decimal128& Decimal128::Negate() {

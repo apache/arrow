@@ -41,6 +41,7 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/ipc/json-simple.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
@@ -51,12 +52,14 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
-void sleep_for(double seconds) {
-  std::this_thread::sleep_for(
-      std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
-}
-
 namespace arrow {
+
+std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                     const std::string& json) {
+  std::shared_ptr<Array> out;
+  ABORT_NOT_OK(ipc::internal::json::ArrayFromJSON(type, json, &out));
+  return out;
+}
 
 void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
   const int random_seed = 0;

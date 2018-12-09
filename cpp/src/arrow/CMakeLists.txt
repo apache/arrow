@@ -142,6 +142,7 @@ if (ARROW_IPC)
     ipc/feather.cc
     ipc/json.cc
     ipc/json-internal.cc
+    ipc/json-simple.cc
     ipc/message.cc
     ipc/metadata-internal.cc
     ipc/reader.cc

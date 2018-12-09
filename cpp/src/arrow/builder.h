@@ -20,6 +20,7 @@
 
 #include <algorithm>  // IWYU pragma: keep
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
@@ -234,6 +235,8 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
     ++length_;
     return Status::OK();
   }
+
+  Status Append(std::nullptr_t value) { return AppendNull(); }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 };
