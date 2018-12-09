@@ -22,14 +22,14 @@ RUN conda install -y -c conda-forge hdfs3 libhdfs3=2.2.31 && \
     conda clean --all
 
 # installing libhdfs (JNI)
-ARG HADOOP_VERSION=2.6.0
+ARG HADOOP_VERSION=2.9.2
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
     HADOOP_HOME=/usr/local/hadoop \
     HADOOP_OPTS=-Djava.library.path=/usr/local/hadoop/lib/native \
     PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
 RUN apt-get update -y && \
     apt-get install -y openjdk-8-jdk && \
-    wget http://archive.apache.org/dist/hadoop/core/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz && \
+    wget -q -O hadoop-$HADOOP_VERSION.tar.gz "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=hadoop/common/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz" && \
     tar -zxf /hadoop-$HADOOP_VERSION.tar.gz && \
     rm /hadoop-$HADOOP_VERSION.tar.gz && \
     mv hadoop-$HADOOP_VERSION /usr/local/hadoop
