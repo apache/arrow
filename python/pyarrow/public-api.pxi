@@ -24,11 +24,11 @@ from pyarrow.includes.libarrow cimport (CArray, CColumn, CDataType, CField,
 # methods don't use Status to indicate a successful operation.
 
 
-cdef public api bint pyarrow_is_buffer(object buffer):
+cdef api bint pyarrow_is_buffer(object buffer):
     return isinstance(buffer, Buffer)
 
 
-cdef public api shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer):
+cdef api shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer):
     cdef Buffer buf
     if pyarrow_is_buffer(buffer):
         buf = <Buffer>(buffer)
@@ -37,24 +37,24 @@ cdef public api shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer):
     return shared_ptr[CBuffer]()
 
 
-cdef public api object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf):
+cdef api object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf):
     cdef Buffer result = Buffer.__new__(Buffer)
     result.init(buf)
     return result
 
 
-cdef public api object pyarrow_wrap_resizable_buffer(
+cdef api object pyarrow_wrap_resizable_buffer(
         const shared_ptr[CResizableBuffer]& buf):
     cdef ResizableBuffer result = ResizableBuffer.__new__(ResizableBuffer)
     result.init_rz(buf)
     return result
 
 
-cdef public api bint pyarrow_is_data_type(object type_):
+cdef api bint pyarrow_is_data_type(object type_):
     return isinstance(type_, DataType)
 
 
-cdef public api shared_ptr[CDataType] pyarrow_unwrap_data_type(
+cdef api shared_ptr[CDataType] pyarrow_unwrap_data_type(
         object data_type):
     cdef DataType type_
     if pyarrow_is_data_type(data_type):
@@ -64,7 +64,7 @@ cdef public api shared_ptr[CDataType] pyarrow_unwrap_data_type(
     return shared_ptr[CDataType]()
 
 
-cdef public api object pyarrow_wrap_data_type(
+cdef api object pyarrow_wrap_data_type(
         const shared_ptr[CDataType]& type):
     cdef DataType out
 
@@ -117,11 +117,11 @@ cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta):
     return shared_ptr[CKeyValueMetadata]()
 
 
-cdef public api bint pyarrow_is_field(object field):
+cdef api bint pyarrow_is_field(object field):
     return isinstance(field, Field)
 
 
-cdef public api shared_ptr[CField] pyarrow_unwrap_field(object field):
+cdef api shared_ptr[CField] pyarrow_unwrap_field(object field):
     cdef Field field_
     if pyarrow_is_field(field):
         field_ = <Field>(field)
@@ -130,7 +130,7 @@ cdef public api shared_ptr[CField] pyarrow_unwrap_field(object field):
     return shared_ptr[CField]()
 
 
-cdef public api object pyarrow_wrap_field(const shared_ptr[CField]& field):
+cdef api object pyarrow_wrap_field(const shared_ptr[CField]& field):
     if field.get() == NULL:
         return None
     cdef Field out = Field.__new__(Field)
@@ -138,11 +138,11 @@ cdef public api object pyarrow_wrap_field(const shared_ptr[CField]& field):
     return out
 
 
-cdef public api bint pyarrow_is_schema(object schema):
+cdef api bint pyarrow_is_schema(object schema):
     return isinstance(schema, Schema)
 
 
-cdef public api shared_ptr[CSchema] pyarrow_unwrap_schema(object schema):
+cdef api shared_ptr[CSchema] pyarrow_unwrap_schema(object schema):
     cdef Schema sch
     if pyarrow_is_schema(schema):
         sch = <Schema>(schema)
@@ -151,17 +151,17 @@ cdef public api shared_ptr[CSchema] pyarrow_unwrap_schema(object schema):
     return shared_ptr[CSchema]()
 
 
-cdef public api object pyarrow_wrap_schema(const shared_ptr[CSchema]& schema):
+cdef api object pyarrow_wrap_schema(const shared_ptr[CSchema]& schema):
     cdef Schema out = Schema.__new__(Schema)
     out.init_schema(schema)
     return out
 
 
-cdef public api bint pyarrow_is_array(object array):
+cdef api bint pyarrow_is_array(object array):
     return isinstance(array, Array)
 
 
-cdef public api shared_ptr[CArray] pyarrow_unwrap_array(object array):
+cdef api shared_ptr[CArray] pyarrow_unwrap_array(object array):
     cdef Array arr
     if pyarrow_is_array(array):
         arr = <Array>(array)
@@ -170,7 +170,7 @@ cdef public api shared_ptr[CArray] pyarrow_unwrap_array(object array):
     return shared_ptr[CArray]()
 
 
-cdef public api object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array):
+cdef api object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array):
     if sp_array.get() == NULL:
         raise ValueError('Array was NULL')
 
@@ -186,7 +186,7 @@ cdef public api object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array):
     return arr
 
 
-cdef public api object pyarrow_wrap_chunked_array(
+cdef api object pyarrow_wrap_chunked_array(
         const shared_ptr[CChunkedArray]& sp_array):
     if sp_array.get() == NULL:
         raise ValueError('ChunkedArray was NULL')
@@ -201,11 +201,11 @@ cdef public api object pyarrow_wrap_chunked_array(
     return arr
 
 
-cdef public api bint pyarrow_is_tensor(object tensor):
+cdef api bint pyarrow_is_tensor(object tensor):
     return isinstance(tensor, Tensor)
 
 
-cdef public api shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor):
+cdef api shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor):
     cdef Tensor ten
     if pyarrow_is_tensor(tensor):
         ten = <Tensor>(tensor)
@@ -214,7 +214,7 @@ cdef public api shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor):
     return shared_ptr[CTensor]()
 
 
-cdef public api object pyarrow_wrap_tensor(
+cdef api object pyarrow_wrap_tensor(
         const shared_ptr[CTensor]& sp_tensor):
     if sp_tensor.get() == NULL:
         raise ValueError('Tensor was NULL')
@@ -224,11 +224,11 @@ cdef public api object pyarrow_wrap_tensor(
     return tensor
 
 
-cdef public api bint pyarrow_is_column(object column):
+cdef api bint pyarrow_is_column(object column):
     return isinstance(column, Column)
 
 
-cdef public api shared_ptr[CColumn] pyarrow_unwrap_column(object column):
+cdef api shared_ptr[CColumn] pyarrow_unwrap_column(object column):
     cdef Column col
     if pyarrow_is_column(column):
         col = <Column>(column)
@@ -237,17 +237,17 @@ cdef public api shared_ptr[CColumn] pyarrow_unwrap_column(object column):
     return shared_ptr[CColumn]()
 
 
-cdef public api object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn):
+cdef api object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn):
     cdef Column column = Column.__new__(Column)
     column.init(ccolumn)
     return column
 
 
-cdef public api bint pyarrow_is_table(object table):
+cdef api bint pyarrow_is_table(object table):
     return isinstance(table, Table)
 
 
-cdef public api shared_ptr[CTable] pyarrow_unwrap_table(object table):
+cdef api shared_ptr[CTable] pyarrow_unwrap_table(object table):
     cdef Table tab
     if pyarrow_is_table(table):
         tab = <Table>(table)
@@ -256,17 +256,17 @@ cdef public api shared_ptr[CTable] pyarrow_unwrap_table(object table):
     return shared_ptr[CTable]()
 
 
-cdef public api object pyarrow_wrap_table(const shared_ptr[CTable]& ctable):
+cdef api object pyarrow_wrap_table(const shared_ptr[CTable]& ctable):
     cdef Table table = Table.__new__(Table)
     table.init(ctable)
     return table
 
 
-cdef public api bint pyarrow_is_batch(object batch):
+cdef api bint pyarrow_is_batch(object batch):
     return isinstance(batch, RecordBatch)
 
 
-cdef public api shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch):
+cdef api shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch):
     cdef RecordBatch bat
     if pyarrow_is_batch(batch):
         bat = <RecordBatch>(batch)
@@ -275,7 +275,7 @@ cdef public api shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch):
     return shared_ptr[CRecordBatch]()
 
 
-cdef public api object pyarrow_wrap_batch(
+cdef api object pyarrow_wrap_batch(
         const shared_ptr[CRecordBatch]& cbatch):
     cdef RecordBatch batch = RecordBatch.__new__(RecordBatch)
     batch.init(cbatch)
