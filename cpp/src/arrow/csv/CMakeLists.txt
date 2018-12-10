@@ -15,13 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ADD_ARROW_TEST(csv-chunker-test)
-ADD_ARROW_TEST(csv-column-builder-test)
-ADD_ARROW_TEST(csv-converter-test)
-ADD_ARROW_TEST(csv-parser-test)
+ADD_ARROW_TEST(chunker-test
+  PREFIX "arrow-csv")
+ADD_ARROW_TEST(column-builder-test
+  PREFIX "arrow-csv")
+ADD_ARROW_TEST(converter-test
+  PREFIX "arrow-csv")
+ADD_ARROW_TEST(parser-test
+  PREFIX "arrow-csv")
 
-ADD_ARROW_BENCHMARK(csv-converter-benchmark)
-ADD_ARROW_BENCHMARK(csv-parser-benchmark)
+ADD_ARROW_BENCHMARK(converter-benchmark
+  PREFIX "arrow-csv")
+ADD_ARROW_BENCHMARK(parser-benchmark
+  PREFIX "arrow-csv")
 
 # Headers: top level
 file(GLOB_RECURSE ARROW_CSV_HEADERS "*.h")

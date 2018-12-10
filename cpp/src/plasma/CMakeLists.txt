@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.2)
+add_custom_target(plasma)
 
 # For the moment, Plasma is versioned like Arrow
 project(plasma VERSION "${ARROW_BASE_VERSION}")
@@ -198,8 +198,20 @@ endif()
 # Unit tests
 #######################################
 
-ADD_ARROW_TEST(test/serialization_tests
+# Adding unit tests part of the "arrow" portion of the test suite
+function(ADD_PLASMA_TEST REL_TEST_NAME)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  ADD_TEST_CASE(${REL_TEST_NAME}
+    PREFIX "plasma"
+    LABELS "unittest;plasma"
+    ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
+ADD_PLASMA_TEST(test/serialization_tests
   EXTRA_LINK_LIBS plasma_shared ${PLASMA_LINK_LIBS})
-ADD_ARROW_TEST(test/client_tests
+ADD_PLASMA_TEST(test/client_tests
   EXTRA_LINK_LIBS plasma_shared ${PLASMA_LINK_LIBS}
   EXTRA_DEPENDENCIES plasma_store_server)

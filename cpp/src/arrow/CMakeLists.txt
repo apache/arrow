@@ -15,6 +15,42 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(arrow)
+
+# Adding unit tests part of the "arrow" portion of the test suite
+function(ADD_ARROW_TEST REL_TEST_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+
+  if (ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "arrow")
+  endif()
+  ADD_TEST_CASE(${REL_TEST_NAME}
+    PREFIX ${PREFIX}
+    LABELS "unittest;arrow"
+    ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
+function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if (ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "arrow")
+  endif()
+  ADD_BENCHMARK(${REL_TEST_NAME}
+    PREFIX ${PREFIX}
+    LABELS "benchmark;arrow"
+    ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
 set(ARROW_SRCS
   array.cc
   buffer.cc
@@ -263,3 +299,15 @@ ADD_ARROW_BENCHMARK(column-benchmark)
 add_subdirectory(csv)
 add_subdirectory(io)
 add_subdirectory(util)
+
+if(ARROW_FLIGHT)
+  add_subdirectory(flight)
+endif()
+
+if(ARROW_PYTHON)
+  add_subdirectory(python)
+endif()
+
+if(ARROW_HIVESERVER2)
+  add_subdirectory(dbi/hiveserver2)
+endif()
