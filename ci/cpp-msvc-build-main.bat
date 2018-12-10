@@ -55,7 +55,7 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       ..  || exit /B
 cmake --build . --target install --config %CONFIGURATION%  || exit /B
 
-@rem Needed so python-test.exe works
+@rem Needed so arrow-python-test.exe works
 set OLD_PYTHONHOME=%PYTHONHOME%
 set PYTHONHOME=%CONDA_PREFIX%
 
