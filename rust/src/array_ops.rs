@@ -105,6 +105,46 @@ where
     Ok(b.finish())
 }
 
+/// Returns the minimum value in the array, according to the natural order.
+pub fn min<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
+where
+    T: ArrowNumericType,
+{
+    min_max_helper(array, |a, b| a < b)
+}
+
+/// Returns the maximum value in the array, according to the natural order.
+pub fn max<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
+where
+    T: ArrowNumericType,
+{
+    min_max_helper(array, |a, b| a > b)
+}
+
+fn min_max_helper<T, F>(array: &PrimitiveArray<T>, cmp: F) -> Option<T::Native>
+where
+    T: ArrowNumericType,
+    F: Fn(T::Native, T::Native) -> bool,
+{
+    let mut n: Option<T::Native> = None;
+    let data = array.data();
+    for i in 0..data.len() {
+        if data.is_null(i) {
+            continue;
+        }
+        let m = array.value(i as i64);
+        match n {
+            None => n = Some(m),
+            Some(nn) => {
+                if cmp(m, nn) {
+                    n = Some(m)
+                }
+            }
+        }
+    }
+    n
+}
+
 pub fn eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
@@ -359,6 +399,20 @@ mod tests {
         assert_eq!(true, c.value(2));
         assert_eq!(false, c.value(3));
         assert_eq!(false, c.value(4));
+    }
+
+    #[test]
+    fn test_buffer_array_min_max() {
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
+        assert_eq!(5, min(&a).unwrap());
+        assert_eq!(9, max(&a).unwrap());
+    }
+
+    #[test]
+    fn test_buffer_array_min_max_with_nulls() {
+        let a = Int32Array::from(vec![Some(5), None, None, Some(8), Some(9)]);
+        assert_eq!(5, min(&a).unwrap());
+        assert_eq!(9, max(&a).unwrap());
     }
 
 }
