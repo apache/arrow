@@ -47,6 +47,17 @@ const ApplicationVersion& ApplicationVersion::PARQUET_CPP_FIXED_STATS_VERSION() 
   return version;
 }
 
+std::string ParquetVersionToString(ParquetVersion::type ver) {
+  switch (ver) {
+    case ParquetVersion::PARQUET_1_0:
+      return "1.0";
+    case ParquetVersion::PARQUET_2_0:
+      return "2.0";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 template <typename DType>
 static std::shared_ptr<RowGroupStatistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
