@@ -47,27 +47,27 @@ pub trait Array: Send + Sync {
     }
 
     /// Returns the length (i.e., number of elements) of this array
-    fn len(&self) -> i64 {
+    fn len(&self) -> usize {
         self.data().len()
     }
 
     /// Returns the offset of this array
-    fn offset(&self) -> i64 {
+    fn offset(&self) -> usize {
         self.data().offset()
     }
 
     /// Returns whether the element at index `i` is null
-    fn is_null(&self, i: i64) -> bool {
+    fn is_null(&self, i: usize) -> bool {
         self.data().is_null(i)
     }
 
     /// Returns whether the element at index `i` is not null
-    fn is_valid(&self, i: i64) -> bool {
+    fn is_valid(&self, i: usize) -> bool {
         self.data().is_valid(i)
     }
 
     /// Returns the total number of nulls in this array
-    fn null_count(&self) -> i64 {
+    fn null_count(&self) -> usize {
         self.data().null_count()
     }
 }
@@ -158,7 +158,7 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
 /// Implementation for primitive arrays with numeric types.
 /// Boolean arrays are bit-packed and so implemented separately.
 impl<T: ArrowNumericType> PrimitiveArray<T> {
-    pub fn new(length: i64, values: Buffer, null_count: i64, offset: i64) -> Self {
+    pub fn new(length: usize, values: Buffer, null_count: usize, offset: usize) -> Self {
         let array_data = ArrayData::builder(T::get_data_type())
             .len(length)
             .add_buffer(values)
@@ -176,7 +176,7 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     }
 
     /// Returns the length of this array
-    pub fn len(&self) -> i64 {
+    pub fn len(&self) -> usize {
         self.data.len()
     }
 
@@ -188,16 +188,16 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     /// Returns the primitive value at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
-    pub fn value(&self, i: i64) -> T::Native {
+    pub fn value(&self, i: usize) -> T::Native {
         unsafe { *(self.raw_values().offset(i as isize)) }
     }
 
     /// Returns a slice for the given offset and length
     ///
     /// Note this doesn't do any bound checking, for performance reason.
-    pub fn value_slice(&self, offset: i64, len: i64) -> &[T::Native] {
-        let raw = unsafe { std::slice::from_raw_parts(self.raw_values(), self.len() as usize) };
-        &raw[offset as usize..offset as usize + len as usize]
+    pub fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
+        let raw = unsafe { std::slice::from_raw_parts(self.raw_values(), self.len()) };
+        &raw[offset..offset + len]
     }
 
     /// Returns the minimum value in the array, according to the natural order.
@@ -220,7 +220,7 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
             if data.is_null(i) {
                 continue;
             }
-            let m = self.value(i as i64);
+            let m = self.value(i);
             match n {
                 None => n = Some(m),
                 Some(nn) => {
@@ -234,14 +234,14 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     }
 
     // Returns a new primitive array builder
-    pub fn builder(capacity: i64) -> PrimitiveArrayBuilder<T> {
+    pub fn builder(capacity: usize) -> PrimitiveArrayBuilder<T> {
         PrimitiveArrayBuilder::<T>::new(capacity)
     }
 }
 
 /// Specific implementation for Boolean arrays due to bit-packing
 impl PrimitiveArray<BooleanType> {
-    pub fn new(length: i64, values: Buffer, null_count: i64, offset: i64) -> Self {
+    pub fn new(length: usize, values: Buffer, null_count: usize, offset: usize) -> Self {
         let array_data = ArrayData::builder(DataType::Boolean)
             .len(length)
             .add_buffer(values)
@@ -259,14 +259,14 @@ impl PrimitiveArray<BooleanType> {
     }
 
     /// Returns the boolean value at index `i`.
-    pub fn value(&self, i: i64) -> bool {
+    pub fn value(&self, i: usize) -> bool {
         let offset = i + self.offset();
         assert!(offset < self.data.len());
-        unsafe { bit_util::get_bit_raw(self.raw_values.get() as *const u8, offset as usize) }
+        unsafe { bit_util::get_bit_raw(self.raw_values.get() as *const u8, offset) }
     }
 
     // Returns a new primitive array builder
-    pub fn builder(capacity: i64) -> BooleanBuilder {
+    pub fn builder(capacity: usize) -> BooleanBuilder {
         BooleanBuilder::new(capacity)
     }
 }
@@ -279,7 +279,7 @@ macro_rules! def_numeric_from_vec {
         impl From<Vec<$native_ty>> for PrimitiveArray<$ty> {
             fn from(data: Vec<$native_ty>) -> Self {
                 let array_data = ArrayData::builder($ty_id)
-                    .len(data.len() as i64)
+                    .len(data.len())
                     .add_buffer(Buffer::from(data.to_byte_slice()))
                     .build();
                 PrimitiveArray::from(array_data)
@@ -290,7 +290,7 @@ macro_rules! def_numeric_from_vec {
         impl From<Vec<Option<$native_ty>>> for PrimitiveArray<$ty> {
             fn from(data: Vec<Option<$native_ty>>) -> Self {
                 let data_len = data.len();
-                let num_bytes = bit_util::ceil(data_len as i64, 8) as usize;
+                let num_bytes = bit_util::ceil(data_len, 8);
                 let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
                 let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<$native_ty>());
 
@@ -310,7 +310,7 @@ macro_rules! def_numeric_from_vec {
                 }
 
                 let array_data = ArrayData::builder($ty_id)
-                    .len(data_len as i64)
+                    .len(data_len)
                     .add_buffer(val_buf.freeze())
                     .null_bit_buffer(null_buf.freeze())
                     .build();
@@ -334,7 +334,7 @@ def_numeric_from_vec!(Float64Type, f64, DataType::Float64);
 /// Constructs a boolean array from a vector. Should only be used for testing.
 impl From<Vec<bool>> for BooleanArray {
     fn from(data: Vec<bool>) -> Self {
-        let num_byte = bit_util::ceil(data.len() as i64, 8) as usize;
+        let num_byte = bit_util::ceil(data.len(), 8);
         let mut mut_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
         {
             let mut_slice = mut_buf.data_mut();
@@ -345,7 +345,7 @@ impl From<Vec<bool>> for BooleanArray {
             }
         }
         let array_data = ArrayData::builder(DataType::Boolean)
-            .len(data.len() as i64)
+            .len(data.len())
             .add_buffer(mut_buf.freeze())
             .build();
         BooleanArray::from(array_data)
@@ -354,8 +354,8 @@ impl From<Vec<bool>> for BooleanArray {
 
 impl From<Vec<Option<bool>>> for BooleanArray {
     fn from(data: Vec<Option<bool>>) -> Self {
-        let data_len = data.len() as i64;
-        let num_byte = bit_util::ceil(data_len, 8) as usize;
+        let data_len = data.len();
+        let num_byte = bit_util::ceil(data_len, 8);
         let mut null_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
         let mut val_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
 
@@ -425,7 +425,7 @@ impl ListArray {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     #[inline]
-    pub fn value_offset(&self, i: i64) -> i32 {
+    pub fn value_offset(&self, i: usize) -> i32 {
         self.value_offset_at(self.data.offset() + i)
     }
 
@@ -433,13 +433,13 @@ impl ListArray {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     #[inline]
-    pub fn value_length(&self, mut i: i64) -> i32 {
+    pub fn value_length(&self, mut i: usize) -> i32 {
         i += self.data.offset();
         self.value_offset_at(i + 1) - self.value_offset_at(i)
     }
 
     #[inline]
-    fn value_offset_at(&self, i: i64) -> i32 {
+    fn value_offset_at(&self, i: usize) -> i32 {
         unsafe { *self.value_offsets.get().offset(i as isize) }
     }
 }
@@ -503,11 +503,8 @@ pub struct BinaryArray {
 
 impl BinaryArray {
     /// Returns the element at index `i` as a byte slice.
-    pub fn get_value(&self, i: i64) -> &[u8] {
-        assert!(
-            i >= 0 && i < self.data.len(),
-            "BinaryArray out of bounds access"
-        );
+    pub fn get_value(&self, i: usize) -> &[u8] {
+        assert!(i < self.data.len(), "BinaryArray out of bounds access");
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
@@ -521,7 +518,7 @@ impl BinaryArray {
     /// Returns the element at index `i` as a string.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
-    pub fn get_string(&self, i: i64) -> String {
+    pub fn get_string(&self, i: usize) -> String {
         let slice = self.get_value(i);
         unsafe { String::from_utf8_unchecked(Vec::from(slice)) }
     }
@@ -530,7 +527,7 @@ impl BinaryArray {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     #[inline]
-    pub fn value_offset(&self, i: i64) -> i32 {
+    pub fn value_offset(&self, i: usize) -> i32 {
         self.value_offset_at(self.data.offset() + i)
     }
 
@@ -538,13 +535,13 @@ impl BinaryArray {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     #[inline]
-    pub fn value_length(&self, mut i: i64) -> i32 {
+    pub fn value_length(&self, mut i: usize) -> i32 {
         i += self.data.offset();
         self.value_offset_at(i + 1) - self.value_offset_at(i)
     }
 
     #[inline]
-    fn value_offset_at(&self, i: i64) -> i32 {
+    fn value_offset_at(&self, i: usize) -> i32 {
         unsafe { *self.value_offsets.get().offset(i as isize) }
     }
 }
@@ -582,7 +579,7 @@ impl<'a> From<Vec<&'a str>> for BinaryArray {
             values.extend_from_slice(s.as_bytes());
         }
         let array_data = ArrayData::builder(DataType::Utf8)
-            .len(v.len() as i64)
+            .len(v.len())
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
             .build();
@@ -664,7 +661,7 @@ impl Array for StructArray {
     }
 
     /// Returns the length (i.e., number of elements) of this array
-    fn len(&self) -> i64 {
+    fn len(&self) -> usize {
         self.boxed_fields[0].len()
     }
 }
@@ -876,8 +873,8 @@ mod tests {
         assert_eq!(6, list_array.value_offset(2));
         assert_eq!(2, list_array.value_length(2));
         for i in 0..3 {
-            assert!(list_array.is_valid(i as i64));
-            assert!(!list_array.is_null(i as i64));
+            assert!(list_array.is_valid(i));
+            assert!(!list_array.is_null(i));
         }
 
         // Now test with a non-zero offset
@@ -991,8 +988,8 @@ mod tests {
         assert_eq!(5, binary_array.value_offset(2));
         assert_eq!(7, binary_array.value_length(2));
         for i in 0..3 {
-            assert!(binary_array.is_valid(i as i64));
-            assert!(!binary_array.is_null(i as i64));
+            assert!(binary_array.is_valid(i));
+            assert!(!binary_array.is_null(i));
         }
 
         // Test binary array with offset

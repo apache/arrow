@@ -52,7 +52,7 @@ impl RecordBatch {
         self.columns.len()
     }
 
-    pub fn num_rows(&self) -> i64 {
+    pub fn num_rows(&self) -> usize {
         self.columns[0].data().len()
     }
 

@@ -23,30 +23,30 @@ use crate::buffer::Buffer;
 use crate::datatypes::*;
 
 /// Computes the strides required assuming a row major memory layout
-fn compute_row_major_strides<T: ArrowPrimitiveType>(shape: &Vec<i64>) -> Vec<i64> {
+fn compute_row_major_strides<T: ArrowPrimitiveType>(shape: &Vec<usize>) -> Vec<usize> {
     let mut remaining_bytes = mem::size_of::<T::Native>();
     for i in shape {
         remaining_bytes = remaining_bytes
-            .checked_mul(*i as usize)
+            .checked_mul(*i)
             .expect("Overflow occurred when computing row major strides.");
     }
 
-    let mut strides = Vec::<i64>::new();
+    let mut strides = Vec::<usize>::new();
     for i in shape {
-        remaining_bytes /= *i as usize;
-        strides.push(remaining_bytes as i64);
+        remaining_bytes /= *i;
+        strides.push(remaining_bytes);
     }
     strides
 }
 
 /// Computes the strides required assuming a column major memory layout
-fn compute_column_major_strides<T: ArrowPrimitiveType>(shape: &Vec<i64>) -> Vec<i64> {
+fn compute_column_major_strides<T: ArrowPrimitiveType>(shape: &Vec<usize>) -> Vec<usize> {
     let mut remaining_bytes = mem::size_of::<T::Native>();
-    let mut strides = Vec::<i64>::new();
+    let mut strides = Vec::<usize>::new();
     for i in shape {
-        strides.push(remaining_bytes as i64);
+        strides.push(remaining_bytes);
         remaining_bytes = remaining_bytes
-            .checked_mul(*i as usize)
+            .checked_mul(*i)
             .expect("Overflow occurred when computing column major strides.");
     }
     strides
@@ -56,8 +56,8 @@ fn compute_column_major_strides<T: ArrowPrimitiveType>(shape: &Vec<i64>) -> Vec<
 pub struct Tensor<'a, T: ArrowPrimitiveType> {
     data_type: DataType,
     buffer: Buffer,
-    shape: Option<Vec<i64>>,
-    strides: Option<Vec<i64>>,
+    shape: Option<Vec<usize>>,
+    strides: Option<Vec<usize>>,
     names: Option<Vec<&'a str>>,
     _marker: PhantomData<T>,
 }
@@ -78,8 +78,8 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
     /// Creates a new `Tensor`
     pub fn new(
         buffer: Buffer,
-        shape: Option<Vec<i64>>,
-        strides: Option<Vec<i64>>,
+        shape: Option<Vec<usize>>,
+        strides: Option<Vec<usize>>,
         names: Option<Vec<&'a str>>,
     ) -> Self {
         match &shape {
@@ -122,7 +122,7 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
     /// Creates a new Tensor using row major memory layout
     pub fn new_row_major(
         buffer: Buffer,
-        shape: Option<Vec<i64>>,
+        shape: Option<Vec<usize>>,
         names: Option<Vec<&'a str>>,
     ) -> Self {
         let strides = match &shape {
@@ -135,7 +135,7 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
     /// Creates a new Tensor using column major memory layout
     pub fn new_column_major(
         buffer: Buffer,
-        shape: Option<Vec<i64>>,
+        shape: Option<Vec<usize>>,
         names: Option<Vec<&'a str>>,
     ) -> Self {
         let strides = match &shape {
@@ -151,7 +151,7 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
     }
 
     /// The sizes of the dimensions
-    pub fn shape(&self) -> Option<&Vec<i64>> {
+    pub fn shape(&self) -> Option<&Vec<usize>> {
         self.shape.as_ref()
     }
 
@@ -161,7 +161,7 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
     }
 
     /// The number of bytes between elements in each dimension
-    pub fn strides(&self) -> Option<&Vec<i64>> {
+    pub fn strides(&self) -> Option<&Vec<usize>> {
         self.strides.as_ref()
     }
 
@@ -171,24 +171,24 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
     }
 
     /// The number of dimensions
-    pub fn ndim(&self) -> i64 {
+    pub fn ndim(&self) -> usize {
         match &self.shape {
             None => 0,
-            Some(v) => v.len() as i64,
+            Some(v) => v.len(),
         }
     }
 
     /// The name of dimension i
-    pub fn dim_name(&self, i: i64) -> Option<&'a str> {
+    pub fn dim_name(&self, i: usize) -> Option<&'a str> {
         match &self.names {
             None => None,
-            Some(ref names) => Some(&names[i as usize]),
+            Some(ref names) => Some(&names[i]),
         }
     }
 
     /// The total number of elements in the `Tensor`
-    pub fn size(&self) -> i64 {
-        (self.buffer.len() / mem::size_of::<T::Native>()) as i64
+    pub fn size(&self) -> usize {
+        (self.buffer.len() / mem::size_of::<T::Native>())
     }
 
     /// Indicates if the data is laid out contiguously in memory
@@ -223,15 +223,15 @@ mod tests {
     fn test_compute_row_major_strides() {
         assert_eq!(
             vec![48, 8],
-            compute_row_major_strides::<Int64Type>(&vec![4_i64, 6])
+            compute_row_major_strides::<Int64Type>(&vec![4_usize, 6])
         );
         assert_eq!(
             vec![24, 4],
-            compute_row_major_strides::<Int32Type>(&vec![4_i64, 6])
+            compute_row_major_strides::<Int32Type>(&vec![4_usize, 6])
         );
         assert_eq!(
             vec![6, 1],
-            compute_row_major_strides::<Int8Type>(&vec![4_i64, 6])
+            compute_row_major_strides::<Int8Type>(&vec![4_usize, 6])
         );
     }
 
@@ -239,15 +239,15 @@ mod tests {
     fn test_compute_column_major_strides() {
         assert_eq!(
             vec![8, 32],
-            compute_column_major_strides::<Int64Type>(&vec![4_i64, 6])
+            compute_column_major_strides::<Int64Type>(&vec![4_usize, 6])
         );
         assert_eq!(
             vec![4, 16],
-            compute_column_major_strides::<Int32Type>(&vec![4_i64, 6])
+            compute_column_major_strides::<Int32Type>(&vec![4_usize, 6])
         );
         assert_eq!(
             vec![1, 4],
-            compute_column_major_strides::<Int8Type>(&vec![4_i64, 6])
+            compute_column_major_strides::<Int8Type>(&vec![4_usize, 6])
         );
     }
 
@@ -283,7 +283,7 @@ mod tests {
         let buf = builder.finish();
         let tensor = Int32Tensor::new(buf, Some(vec![2, 8]), None, None);
         assert_eq!(16, tensor.size());
-        assert_eq!(Some(vec![2_i64, 8]).as_ref(), tensor.shape());
+        assert_eq!(Some(vec![2_usize, 8]).as_ref(), tensor.shape());
         assert_eq!(None, tensor.strides());
         assert_eq!(2, tensor.ndim());
         assert_eq!(None, tensor.names());
@@ -298,8 +298,8 @@ mod tests {
         let buf = builder.finish();
         let tensor = Int32Tensor::new_row_major(buf, Some(vec![2, 8]), None);
         assert_eq!(16, tensor.size());
-        assert_eq!(Some(vec![2_i64, 8]).as_ref(), tensor.shape());
-        assert_eq!(Some(vec![32_i64, 4]).as_ref(), tensor.strides());
+        assert_eq!(Some(vec![2_usize, 8]).as_ref(), tensor.shape());
+        assert_eq!(Some(vec![32_usize, 4]).as_ref(), tensor.strides());
         assert_eq!(None, tensor.names());
         assert_eq!(2, tensor.ndim());
         assert_eq!(true, tensor.is_row_major());
@@ -316,8 +316,8 @@ mod tests {
         let buf = builder.finish();
         let tensor = Int32Tensor::new_column_major(buf, Some(vec![2, 8]), None);
         assert_eq!(16, tensor.size());
-        assert_eq!(Some(vec![2_i64, 8]).as_ref(), tensor.shape());
-        assert_eq!(Some(vec![4_i64, 8]).as_ref(), tensor.strides());
+        assert_eq!(Some(vec![2_usize, 8]).as_ref(), tensor.shape());
+        assert_eq!(Some(vec![4_usize, 8]).as_ref(), tensor.strides());
         assert_eq!(None, tensor.names());
         assert_eq!(2, tensor.ndim());
         assert_eq!(false, tensor.is_row_major());
@@ -335,8 +335,8 @@ mod tests {
         let names = vec!["Dim 1", "Dim 2"];
         let tensor = Int64Tensor::new_column_major(buf, Some(vec![2, 4]), Some(names));
         assert_eq!(8, tensor.size());
-        assert_eq!(Some(vec![2_i64, 4]).as_ref(), tensor.shape());
-        assert_eq!(Some(vec![8_i64, 16]).as_ref(), tensor.strides());
+        assert_eq!(Some(vec![2_usize, 4]).as_ref(), tensor.shape());
+        assert_eq!(Some(vec![8_usize, 16]).as_ref(), tensor.strides());
         assert_eq!("Dim 1", tensor.dim_name(0).unwrap());
         assert_eq!("Dim 2", tensor.dim_name(1).unwrap());
         assert_eq!(2, tensor.ndim());
