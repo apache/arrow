@@ -19,12 +19,13 @@ use std::ops::{Add, Div, Mul, Sub};
 
 use num::Zero;
 
-use crate::array::{Array, PrimitiveArray};
+use crate::array::{Array, BooleanArray, PrimitiveArray};
 use crate::builder::{ArrayBuilder, PrimitiveArrayBuilder};
 use crate::datatypes;
+use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
 
-fn add<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
+pub fn add<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
     T::Native: Add<Output = T::Native>
@@ -36,7 +37,7 @@ where
     math_op(left, right, |a, b| Ok(a + b))
 }
 
-fn subtract<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
+pub fn subtract<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
     T::Native: Add<Output = T::Native>
@@ -48,7 +49,7 @@ where
     math_op(left, right, |a, b| Ok(a - b))
 }
 
-fn multiply<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
+pub fn multiply<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
     T::Native: Add<Output = T::Native>
@@ -60,7 +61,7 @@ where
     math_op(left, right, |a, b| Ok(a * b))
 }
 
-fn divide<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
+pub fn divide<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
     T::Native: Add<Output = T::Native>
@@ -100,6 +101,92 @@ where
         } else {
             b.push(op(left.value(index), right.value(index))?).unwrap();
         }
+    }
+    Ok(b.finish())
+}
+
+pub fn eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+{
+    bool_op(left, right, |a, b| a == b)
+}
+
+pub fn neq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+{
+    bool_op(left, right, |a, b| a != b)
+}
+
+pub fn lt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+{
+    bool_op(left, right, |a, b| match (a, b) {
+        (None, _) => true,
+        (_, None) => false,
+        (Some(aa), Some(bb)) => aa < bb,
+    })
+}
+
+pub fn lt_eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+{
+    bool_op(left, right, |a, b| match (a, b) {
+        (None, _) => true,
+        (_, None) => false,
+        (Some(aa), Some(bb)) => aa <= bb,
+    })
+}
+
+pub fn gt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+{
+    bool_op(left, right, |a, b| match (a, b) {
+        (None, _) => false,
+        (_, None) => true,
+        (Some(aa), Some(bb)) => aa > bb,
+    })
+}
+
+pub fn gt_eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+{
+    bool_op(left, right, |a, b| match (a, b) {
+        (None, _) => false,
+        (_, None) => true,
+        (Some(aa), Some(bb)) => aa >= bb,
+    })
+}
+
+fn bool_op<T, F>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>, op: F) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+    F: Fn(Option<T::Native>, Option<T::Native>) -> bool,
+{
+    if left.len() != right.len() {
+        return Err(ArrowError::MathError(
+            "Cannot perform math operation on two batches of different length".to_string(),
+        ));
+    }
+    let mut b = BooleanArray::builder(left.len());
+    for i in 0..left.len() {
+        let index = i as i64;
+        let l = if left.is_null(i) {
+            None
+        } else {
+            Some(left.value(index))
+        };
+        let r = if right.is_null(i) {
+            None
+        } else {
+            Some(right.value(index))
+        };
+        b.push(op(l, r)).unwrap();
     }
     Ok(b.finish())
 }
@@ -201,4 +288,77 @@ mod tests {
         assert_eq!(true, c.is_null(3));
         assert_eq!(13, c.value(2));
     }
+
+    #[test]
+    fn test_primitive_array_eq() {
+        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
+        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let c = eq(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(true, c.value(2));
+        assert_eq!(false, c.value(3));
+        assert_eq!(false, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_neq() {
+        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
+        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let c = neq(&a, &b).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(true, c.value(3));
+        assert_eq!(true, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_lt() {
+        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
+        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let c = lt(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(true, c.value(3));
+        assert_eq!(true, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_lt_eq() {
+        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
+        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let c = lt_eq(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(true, c.value(2));
+        assert_eq!(true, c.value(3));
+        assert_eq!(true, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_gt() {
+        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
+        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let c = gt(&a, &b).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(false, c.value(3));
+        assert_eq!(false, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_gt_eq() {
+        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
+        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let c = gt_eq(&a, &b).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(true, c.value(2));
+        assert_eq!(false, c.value(3));
+        assert_eq!(false, c.value(4));
+    }
+
 }
