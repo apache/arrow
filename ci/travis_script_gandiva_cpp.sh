@@ -23,10 +23,7 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 pushd $CPP_BUILD_DIR
 
-PATH=$ARROW_BUILD_TYPE:$PATH ctest -j2 --output-on-failure -L gandiva,unittest
-
-# not running in parallel, since some of them are benchmarks
-PATH=$ARROW_BUILD_TYPE:$PATH ctest -VV -L gandiva,integ
+PATH=$ARROW_BUILD_TYPE:$PATH ctest -j2 --output-on-failure -L gandiva
 
 popd
 
