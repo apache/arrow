@@ -123,6 +123,7 @@ int32 mem_compare(const char* left, int32 left_len, const char* right, int32 rig
 int32 mod_int64_int32(int64 left, int32 right);
 
 int64 divide_int64_int64(int64 context, int64 in1, int64 in2);
+float64 divide_float64_float64(float64 in1, float64 in2);
 
 float64 cbrt_int32(int32);
 float64 cbrt_int64(int64);
@@ -146,7 +147,7 @@ float64 log10_float64(float64);
 
 float64 power_float64_float64(float64, float64);
 
-float64 log_int32_int32(int64 context, int32 base, int32 value);
+float64 log_int32_int32(int32 base, int32 value);
 
 bool starts_with_utf8_utf8(const char* data, int32 data_len, const char* prefix,
                            int32 prefix_len);

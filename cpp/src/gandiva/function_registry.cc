@@ -72,6 +72,10 @@ using std::vector;
   NativeFunction(#NAME, DataTypeVector{IN_TYPE1(), IN_TYPE2()}, OUT_TYPE(),  \
                  kResultNullIfNull, STRINGIFY(NAME##_##IN_TYPE1##_##IN_TYPE2))
 
+// Same as BINARY_GENERIC_SAFE_NULL_IF_NULL, but the input types are same.
+#define BINARY_SAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE) \
+  BINARY_GENERIC_SAFE_NULL_IF_NULL(NAME, IN_TYPE, IN_TYPE, OUT_TYPE)
+
 // Binary functions that :
 // - have the same input type
 // - output type is boolean
@@ -157,11 +161,16 @@ using std::vector;
   NativeFunction(#NAME, DataTypeVector{TYPE(), int64()}, int64(), kResultNullNever, \
                  STRINGIFY(NAME##WithSeed_##TYPE))
 
+// Iterate the inner macro over all integer types
+#define INT_TYPES(INNER, NAME)                                                   \
+  INNER(NAME, int8), INNER(NAME, int16), INNER(NAME, int32), INNER(NAME, int64), \
+      INNER(NAME, uint8), INNER(NAME, uint16), INNER(NAME, uint32), INNER(NAME, uint64)
+
+// Iterate the inner macro over all float types
+#define FLOAT_TYPES(INNER, NAME) INNER(NAME, float32), INNER(NAME, float64)
+
 // Iterate the inner macro over all numeric types
-#define NUMERIC_TYPES(INNER, NAME)                                                       \
-  INNER(NAME, int8), INNER(NAME, int16), INNER(NAME, int32), INNER(NAME, int64),         \
-      INNER(NAME, uint8), INNER(NAME, uint16), INNER(NAME, uint32), INNER(NAME, uint64), \
-      INNER(NAME, float32), INNER(NAME, float64)
+#define NUMERIC_TYPES(INNER, NAME) INT_TYPES(INNER, NAME), FLOAT_TYPES(INNER, NAME)
 
 // Iterate the inner macro over numeric and date/time types
 #define NUMERIC_DATE_TYPES(INNER, NAME) \
@@ -190,7 +199,8 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, add),
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, subtract),
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, multiply),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide),
+    INT_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide),
+    FLOAT_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, divide),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int32, int32),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int64, int64),
     NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
@@ -239,12 +249,12 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     UNARY_SAFE_NULL_IF_NULL(log10, float32, float64),
     UNARY_SAFE_NULL_IF_NULL(log10, float64, float64),
 
-    BINARY_UNSAFE_NULL_IF_NULL(log, int32, float64),
-    BINARY_UNSAFE_NULL_IF_NULL(log, int64, float64),
-    BINARY_UNSAFE_NULL_IF_NULL(log, uint32, float64),
-    BINARY_UNSAFE_NULL_IF_NULL(log, uint64, float64),
-    BINARY_UNSAFE_NULL_IF_NULL(log, float32, float64),
-    BINARY_UNSAFE_NULL_IF_NULL(log, float64, float64),
+    BINARY_SAFE_NULL_IF_NULL(log, int32, float64),
+    BINARY_SAFE_NULL_IF_NULL(log, int64, float64),
+    BINARY_SAFE_NULL_IF_NULL(log, uint32, float64),
+    BINARY_SAFE_NULL_IF_NULL(log, uint64, float64),
+    BINARY_SAFE_NULL_IF_NULL(log, float32, float64),
+    BINARY_SAFE_NULL_IF_NULL(log, float64, float64),
 
     BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(power, float64),
 

@@ -44,6 +44,8 @@ TEST(TestArithmeticOps, TestDivide) {
   context.Reset();
   EXPECT_EQ(divide_int64_int64(reinterpret_cast<int64>(&context), 10, 2), 5);
   EXPECT_EQ(context.has_error(), false);
+
+  EXPECT_EQ(divide_float64_float64(10, 0), std::numeric_limits<double>::infinity());
 }
 
 }  // namespace gandiva

@@ -60,26 +60,11 @@ ENUMERIC_TYPES_UNARY(LOG, float64)
 
 ENUMERIC_TYPES_UNARY(LOG10, float64)
 
-FORCE_INLINE
-void set_error_for_logbase(int64_t execution_context, double base) {
-  char const* prefix = "divide by zero error with log of base";
-  int size = static_cast<int>(strlen(prefix)) + 64;
-  char* error = reinterpret_cast<char*>(malloc(size));
-  snprintf(error, size, "%s %f", prefix, base);
-  gdv_fn_context_set_error_msg(execution_context, error);
-  free(static_cast<char*>(error));
-}
-
 // log with base
-#define LOG_WITH_BASE(IN_TYPE1, IN_TYPE2, OUT_TYPE)                                    \
-  FORCE_INLINE                                                                         \
-  OUT_TYPE log_##IN_TYPE1##_##IN_TYPE2(int64 context, IN_TYPE1 base, IN_TYPE2 value) { \
-    OUT_TYPE log_of_base = static_cast<float64>(logl(base));                           \
-    if (log_of_base == 0) {                                                            \
-      set_error_for_logbase(context, static_cast<float64>(base));                      \
-      return 0;                                                                        \
-    }                                                                                  \
-    return static_cast<float64>(logl(value) / logl(base));                             \
+#define LOG_WITH_BASE(IN_TYPE1, IN_TYPE2, OUT_TYPE)                     \
+  FORCE_INLINE                                                          \
+  OUT_TYPE log_##IN_TYPE1##_##IN_TYPE2(IN_TYPE1 base, IN_TYPE2 value) { \
+    return static_cast<float64>(logl(value) / logl(base));              \
   }
 
 LOG_WITH_BASE(int32, int32, float64)

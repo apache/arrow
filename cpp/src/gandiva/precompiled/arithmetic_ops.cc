@@ -101,17 +101,23 @@ NUMERIC_BOOL_DATE_TYPES(VALIDITY_OP, isnull, !)
 NUMERIC_BOOL_DATE_TYPES(VALIDITY_OP, isnotnull, +)
 NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
 
-#define NUMERIC_FUNCTION(INNER) \
-  INNER(int8)                   \
-  INNER(int16)                  \
-  INNER(int32)                  \
-  INNER(int64)                  \
-  INNER(uint8)                  \
-  INNER(uint16)                 \
-  INNER(uint32)                 \
-  INNER(uint64)                 \
-  INNER(float32)                \
+#define INT_FUNCTION(INNER) \
+  INNER(int8)               \
+  INNER(int16)              \
+  INNER(int32)              \
+  INNER(int64)              \
+  INNER(uint8)              \
+  INNER(uint16)             \
+  INNER(uint32)             \
+  INNER(uint64)
+
+#define FLOAT_FUNCTION(INNER) \
+  INNER(float32)              \
   INNER(float64)
+
+#define NUMERIC_FUNCTION(INNER) \
+  INT_FUNCTION(INNER)           \
+  FLOAT_FUNCTION(INNER)
 
 #define DATE_FUNCTION(INNER) \
   INNER(date64)              \
@@ -157,7 +163,7 @@ boolean not_boolean(boolean in) { return !in; }
 NUMERIC_BOOL_DATE_FUNCTION(IS_DISTINCT_FROM)
 NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
 
-#define DIVIDE(TYPE)                                               \
+#define DIVIDE_UNSAFE(TYPE)                                        \
   FORCE_INLINE                                                     \
   TYPE divide_##TYPE##_##TYPE(int64 context, TYPE in1, TYPE in2) { \
     if (in2 == 0) {                                                \
@@ -168,6 +174,13 @@ NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
     return static_cast<TYPE>(in1 / in2);                           \
   }
 
-NUMERIC_FUNCTION(DIVIDE)
+INT_FUNCTION(DIVIDE_UNSAFE)
+
+// floating point division doesn't cause arithmetic exceptions.
+#define DIVIDE_SAFE(TYPE) \
+  FORCE_INLINE            \
+  TYPE divide_##TYPE##_##TYPE(TYPE in1, TYPE in2) { return static_cast<TYPE>(in1 / in2); }
+
+FLOAT_FUNCTION(DIVIDE_SAFE)
 
 }  // extern "C"
