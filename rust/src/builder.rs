@@ -33,7 +33,7 @@ use crate::util::bit_util;
 /// Buffer builder with zero-copy build method
 pub struct BufferBuilder<T: ArrowPrimitiveType> {
     buffer: MutableBuffer,
-    len: i64,
+    len: usize,
     _marker: PhantomData<T>,
 }
 
@@ -53,11 +53,11 @@ pub type Float64BufferBuilder = BufferBuilder<Float64Type>;
 // numeric types and boolean types, while still be able to call methods on buffer builder
 // with generic primitive type.
 pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
-    fn new(capacity: i64) -> Self;
-    fn len(&self) -> i64;
-    fn capacity(&self) -> i64;
-    fn advance(&mut self, i: i64) -> Result<()>;
-    fn reserve(&mut self, n: i64) -> Result<()>;
+    fn new(capacity: usize) -> Self;
+    fn len(&self) -> usize;
+    fn capacity(&self) -> usize;
+    fn advance(&mut self, i: usize) -> Result<()>;
+    fn reserve(&mut self, n: usize) -> Result<()>;
     fn push(&mut self, v: T::Native) -> Result<()>;
     fn push_slice(&mut self, slice: &[T::Native]) -> Result<()>;
     fn finish(self) -> Buffer;
@@ -65,8 +65,8 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
 
 impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     /// Creates a builder with a fixed initial capacity
-    default fn new(capacity: i64) -> Self {
-        let buffer = MutableBuffer::new(capacity as usize * mem::size_of::<T::Native>());
+    default fn new(capacity: usize) -> Self {
+        let buffer = MutableBuffer::new(capacity * mem::size_of::<T::Native>());
         Self {
             buffer,
             len: 0,
@@ -75,28 +75,28 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     }
 
     /// Returns the number of array elements (slots) in the builder
-    fn len(&self) -> i64 {
+    fn len(&self) -> usize {
         self.len
     }
 
     /// Returns the current capacity of the builder (number of elements)
-    fn capacity(&self) -> i64 {
+    fn capacity(&self) -> usize {
         let bit_capacity = self.buffer.capacity() * 8;
-        (bit_capacity / T::get_bit_width()) as i64
+        (bit_capacity / T::get_bit_width())
     }
 
     // Advances the `len` of the underlying `Buffer` by `i` slots of type T
-    default fn advance(&mut self, i: i64) -> Result<()> {
-        let new_buffer_len = (self.len + i) as usize * mem::size_of::<T::Native>();
+    default fn advance(&mut self, i: usize) -> Result<()> {
+        let new_buffer_len = (self.len + i) * mem::size_of::<T::Native>();
         self.buffer.resize(new_buffer_len)?;
         self.len += i;
         Ok(())
     }
 
     /// Reserves memory for `n` elements of type `T`.
-    default fn reserve(&mut self, n: i64) -> Result<()> {
+    default fn reserve(&mut self, n: usize) -> Result<()> {
         let new_capacity = self.len + n;
-        let byte_capacity = mem::size_of::<T::Native>() * new_capacity as usize;
+        let byte_capacity = mem::size_of::<T::Native>() * new_capacity;
         self.buffer.reserve(byte_capacity)?;
         Ok(())
     }
@@ -109,7 +109,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
 
     /// Pushes a slice of type `T`, growing the internal buffer as needed.
     default fn push_slice(&mut self, slice: &[T::Native]) -> Result<()> {
-        let array_slots = slice.len() as i64;
+        let array_slots = slice.len();
         self.reserve(array_slots)?;
         self.write_bytes(slice.to_byte_slice(), array_slots)
     }
@@ -124,7 +124,7 @@ impl<T: ArrowPrimitiveType> BufferBuilder<T> {
     /// Writes a byte slice to the underlying buffer and updates the `len`, i.e. the number array
     /// elements in the builder.  Also, converts the `io::Result` required by the `Write` trait
     /// to the Arrow `Result` type.
-    fn write_bytes(&mut self, bytes: &[u8], len_added: i64) -> Result<()> {
+    fn write_bytes(&mut self, bytes: &[u8], len_added: usize) -> Result<()> {
         let write_result = self.buffer.write(bytes);
         // `io::Result` has many options one of which we use, so pattern matching is overkill here
         if write_result.is_err() {
@@ -140,9 +140,9 @@ impl<T: ArrowPrimitiveType> BufferBuilder<T> {
 
 impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
     /// Creates a builder with a fixed initial capacity.
-    fn new(capacity: i64) -> Self {
+    fn new(capacity: usize) -> Self {
         let byte_capacity = bit_util::ceil(capacity, 8);
-        let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity) as usize;
+        let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
         let mut buffer = MutableBuffer::new(actual_capacity);
         buffer.set_null_bits(0, actual_capacity);
         Self {
@@ -153,9 +153,9 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
     }
 
     // Advances the `len` of the underlying `Buffer` by `i` slots of type T
-    fn advance(&mut self, i: i64) -> Result<()> {
+    fn advance(&mut self, i: usize) -> Result<()> {
         let new_buffer_len = bit_util::ceil(self.len + i, 8);
-        self.buffer.resize(new_buffer_len as usize)?;
+        self.buffer.resize(new_buffer_len)?;
         self.len += i;
         Ok(())
     }
@@ -167,7 +167,7 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
             // For performance the `len` of the buffer is not updated on each push but
             // is updated in the `freeze` method instead.
             unsafe {
-                bit_util::set_bit_raw(self.buffer.raw_data() as *mut u8, (self.len) as usize);
+                bit_util::set_bit_raw(self.buffer.raw_data() as *mut u8, self.len);
             }
         }
         self.len += 1;
@@ -184,10 +184,10 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
     }
 
     /// Reserves memory for `n` elements of type `T`.
-    fn reserve(&mut self, n: i64) -> Result<()> {
+    fn reserve(&mut self, n: usize) -> Result<()> {
         let new_capacity = self.len + n;
         if new_capacity > self.capacity() {
-            let new_byte_capacity = bit_util::ceil(new_capacity, 8) as usize;
+            let new_byte_capacity = bit_util::ceil(new_capacity, 8);
             let existing_capacity = self.buffer.capacity();
             let new_capacity = self.buffer.reserve(new_byte_capacity)?;
             self.buffer
@@ -199,7 +199,7 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
     /// Consumes this and returns an immutable `Buffer`.
     fn finish(mut self) -> Buffer {
         // `push` does not update the buffer's `len` so do it before `freeze` is called.
-        let new_buffer_len = bit_util::ceil(self.len, 8) as usize;
+        let new_buffer_len = bit_util::ceil(self.len, 8);
         debug_assert!(new_buffer_len >= self.buffer.len());
         self.buffer.resize(new_buffer_len).unwrap();
         self.buffer.freeze()
@@ -216,7 +216,7 @@ pub trait ArrayBuilder {
     fn into_any(self) -> Box<Any>;
 
     /// Returns the number of array slots in the builder
-    fn len(&self) -> i64;
+    fn len(&self) -> usize;
 
     /// Builds the array
     fn finish(self) -> Self::ArrayType;
@@ -250,7 +250,7 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveArrayBuilder<T> {
     }
 
     /// Returns the number of array slots in the builder
-    fn len(&self) -> i64 {
+    fn len(&self) -> usize {
         self.values_builder.len
     }
 
@@ -270,7 +270,7 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveArrayBuilder<T> {
 
 impl<T: ArrowPrimitiveType> PrimitiveArrayBuilder<T> {
     /// Creates a new primitive array builder
-    pub fn new(capacity: i64) -> Self {
+    pub fn new(capacity: usize) -> Self {
         Self {
             values_builder: BufferBuilder::<T>::new(capacity),
             bitmap_builder: BooleanBufferBuilder::new(capacity),
@@ -278,7 +278,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArrayBuilder<T> {
     }
 
     /// Returns the capacity of this builder measured in slots of type `T`
-    pub fn capacity(&self) -> i64 {
+    pub fn capacity(&self) -> usize {
         self.values_builder.capacity()
     }
 
@@ -318,7 +318,7 @@ pub struct ListArrayBuilder<T: ArrayBuilder> {
     offsets_builder: Int32BufferBuilder,
     bitmap_builder: BooleanBufferBuilder,
     values_builder: T,
-    len: i64,
+    len: usize,
 }
 
 impl<T: ArrayBuilder> ListArrayBuilder<T> {
@@ -348,7 +348,7 @@ where
     }
 
     /// Returns the number of array slots in the builder
-    fn len(&self) -> i64 {
+    fn len(&self) -> usize {
         self.len
     }
 
@@ -410,7 +410,7 @@ impl ArrayBuilder for BinaryArrayBuilder {
     }
 
     /// Returns the number of array slots in the builder
-    fn len(&self) -> i64 {
+    fn len(&self) -> usize {
         self.builder.len()
     }
 
@@ -422,7 +422,7 @@ impl ArrayBuilder for BinaryArrayBuilder {
 
 impl BinaryArrayBuilder {
     /// Creates a new `BinaryArrayBuilder`, `capacity` is the number of bytes in the values array
-    pub fn new(capacity: i64) -> Self {
+    pub fn new(capacity: usize) -> Self {
         let values_builder = UInt8Builder::new(capacity);
         Self {
             builder: ListArrayBuilder::new(values_builder),
@@ -736,8 +736,8 @@ mod tests {
         assert_eq!(6, list_array.value_offset(2));
         assert_eq!(2, list_array.value_length(2));
         for i in 0..3 {
-            assert!(list_array.is_valid(i as i64));
-            assert!(!list_array.is_null(i as i64));
+            assert!(list_array.is_valid(i));
+            assert!(!list_array.is_null(i));
         }
     }
 
