@@ -107,7 +107,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
 
-    echo "=== (${PYTHON}) Test the existence of optional modules ==="
+    echo "=== (${PYTHON}) Ensure the existence of mandatory modules ==="
     $PIP install -r requirements.txt
 
     echo "=== (${PYTHON}) Tag the wheel with manylinux1 ==="
@@ -121,6 +121,9 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.orc"
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"
+
+    echo "=== (${PYTHON}) Install modules required for testing ==="
+    pip install -r requirements-test.txt
 
     # The TensorFlow test will be skipped here, since TensorFlow is not
     # manylinux1 compatible; however, the wheels will support TensorFlow on

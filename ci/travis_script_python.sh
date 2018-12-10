@@ -51,13 +51,11 @@ if [ $ARROW_TRAVIS_PYTHON_JVM == "1" ]; then
   CONDA_JVM_DEPS="jpype1"
 fi
 
-conda install -y -q pip \
-      nomkl \
-      cloudpickle \
+conda install -y -q \
+      --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
+      pip \
       numpy=1.13.1 \
-      ${CONDA_JVM_DEPS} \
-      pandas \
-      cython
+      ${CONDA_JVM_DEPS}
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Install documentation dependencies

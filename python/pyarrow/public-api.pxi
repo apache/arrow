@@ -92,6 +92,31 @@ cdef public api object pyarrow_wrap_data_type(
     return out
 
 
+cdef object pyarrow_wrap_metadata(
+        const shared_ptr[const CKeyValueMetadata]& meta):
+    cdef const CKeyValueMetadata* cmeta = meta.get()
+
+    if cmeta == nullptr:
+        return None
+
+    result = OrderedDict()
+    for i in range(cmeta.size()):
+        result[cmeta.key(i)] = cmeta.value(i)
+
+    return result
+
+
+cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta):
+    cdef vector[c_string] keys, values
+
+    if isinstance(meta, dict):
+        keys = map(tobytes, meta.keys())
+        values = map(tobytes, meta.values())
+        return make_shared[CKeyValueMetadata](keys, values)
+
+    return shared_ptr[CKeyValueMetadata]()
+
+
 cdef public api bint pyarrow_is_field(object field):
     return isinstance(field, Field)
 
