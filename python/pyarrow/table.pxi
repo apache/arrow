@@ -634,26 +634,22 @@ cdef class Column:
         return pyarrow_wrap_chunked_array(self.column.data())
 
 
-cdef shared_ptr[const CKeyValueMetadata] unbox_metadata(dict metadata):
-    if metadata is None:
-        return <shared_ptr[const CKeyValueMetadata]> nullptr
-    cdef:
-        unordered_map[c_string, c_string] unordered_metadata = metadata
-    return (<shared_ptr[const CKeyValueMetadata]>
-            make_shared[CKeyValueMetadata](unordered_metadata))
-
-
-cdef _schema_from_arrays(arrays, names, dict metadata,
-                         shared_ptr[CSchema]* schema):
+cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     cdef:
         Column col
         c_string c_name
         vector[shared_ptr[CField]] fields
         shared_ptr[CDataType] type_
         Py_ssize_t K = len(arrays)
+        shared_ptr[CKeyValueMetadata] c_meta
+
+    if metadata is not None:
+        if not isinstance(metadata, dict):
+            raise TypeError('Metadata must be an instance of dict')
+        c_meta = pyarrow_unwrap_metadata(metadata)
 
     if K == 0:
-        schema.reset(new CSchema(fields, unbox_metadata(metadata)))
+        schema.reset(new CSchema(fields, c_meta))
         return
 
     fields.resize(K)
@@ -684,7 +680,7 @@ cdef _schema_from_arrays(arrays, names, dict metadata,
                 c_name = tobytes(names[i])
             fields[i].reset(new CField(c_name, type_, True))
 
-    schema.reset(new CSchema(fields, unbox_metadata(metadata)))
+    schema.reset(new CSchema(fields, c_meta))
 
 
 cdef class RecordBatch:
@@ -715,7 +711,7 @@ cdef class RecordBatch:
     def __len__(self):
         return self.batch.num_rows()
 
-    def replace_schema_metadata(self, dict metadata=None):
+    def replace_schema_metadata(self, metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of record batch by replacing schema
         key-value metadata with the indicated new metadata (which may be None,
@@ -729,15 +725,19 @@ cdef class RecordBatch:
         -------
         shallow_copy : RecordBatch
         """
-        cdef shared_ptr[CKeyValueMetadata] c_meta
+        cdef:
+            shared_ptr[CKeyValueMetadata] c_meta
+            shared_ptr[CRecordBatch] c_batch
+
         if metadata is not None:
-            convert_metadata(metadata, &c_meta)
+            if not isinstance(metadata, dict):
+                raise TypeError('Metadata must be an instance of dict')
+            c_meta = pyarrow_unwrap_metadata(metadata)
 
-        cdef shared_ptr[CRecordBatch] new_batch
         with nogil:
-            new_batch = self.batch.ReplaceSchemaMetadata(c_meta)
+            c_batch = self.batch.ReplaceSchemaMetadata(c_meta)
 
-        return pyarrow_wrap_batch(new_batch)
+        return pyarrow_wrap_batch(c_batch)
 
     @property
     def num_columns(self):
@@ -953,7 +953,7 @@ cdef class RecordBatch:
         return cls.from_arrays(arrays, names, metadata)
 
     @staticmethod
-    def from_arrays(list arrays, names, dict metadata=None):
+    def from_arrays(list arrays, names, metadata=None):
         """
         Construct a RecordBatch from multiple pyarrow.Arrays
 
@@ -1062,7 +1062,7 @@ cdef class Table:
         columns = [col.data for col in self.columns]
         return _reconstruct_table, (columns, self.schema)
 
-    def replace_schema_metadata(self, dict metadata=None):
+    def replace_schema_metadata(self, metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of table by replacing schema
         key-value metadata with the indicated new metadata (which may be None,
@@ -1076,15 +1076,19 @@ cdef class Table:
         -------
         shallow_copy : Table
         """
-        cdef shared_ptr[CKeyValueMetadata] c_meta
+        cdef:
+            shared_ptr[CKeyValueMetadata] c_meta
+            shared_ptr[CTable] c_table
+
         if metadata is not None:
-            convert_metadata(metadata, &c_meta)
+            if not isinstance(metadata, dict):
+                raise TypeError('Metadata must be an instance of dict')
+            c_meta = pyarrow_unwrap_metadata(metadata)
 
-        cdef shared_ptr[CTable] new_table
         with nogil:
-            new_table = self.table.ReplaceSchemaMetadata(c_meta)
+            c_table = self.table.ReplaceSchemaMetadata(c_meta)
 
-        return pyarrow_wrap_table(new_table)
+        return pyarrow_wrap_table(c_table)
 
     def flatten(self, MemoryPool memory_pool=None):
         """
@@ -1225,7 +1229,7 @@ cdef class Table:
         return cls.from_arrays(arrays, names=names, metadata=metadata)
 
     @staticmethod
-    def from_arrays(arrays, names=None, schema=None, dict metadata=None):
+    def from_arrays(arrays, names=None, schema=None, metadata=None):
         """
         Construct a Table from Arrow arrays or columns
 
@@ -1236,6 +1240,8 @@ cdef class Table:
         names: list of str, optional
             Names for the table columns. If Columns passed, will be
             inferred. If Arrays passed, this argument is required
+        schema : Schema, default None
+            If not passed, will be inferred from the arrays
 
         Returns
         -------

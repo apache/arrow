@@ -112,6 +112,6 @@ pip install %WHEEL_PATH% || exit /B
 python -c "import pyarrow" || exit /B
 python -c "import pyarrow.parquet" || exit /B
 
-pip install pandas pickle5 pytest pytest-faulthandler || exit /B
+pip install pandas pickle5 pytest pytest-faulthandler hypothesis || exit /B
 
 py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B

@@ -384,10 +384,12 @@ cdef get_reader(object source, c_bool use_memory_map,
                 shared_ptr[RandomAccessFile]* reader)
 cdef get_writer(object source, shared_ptr[OutputStream]* writer)
 
-cdef dict box_metadata(const CKeyValueMetadata* sp_metadata)
-
 # Default is allow_none=False
 cdef DataType ensure_type(object type, c_bool allow_none=*)
+
+cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta)
+cdef object pyarrow_wrap_metadata(
+    const shared_ptr[const CKeyValueMetadata]& meta)
 
 #
 # Public Cython API for 3rd party code

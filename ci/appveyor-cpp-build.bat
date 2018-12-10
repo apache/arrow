@@ -91,7 +91,7 @@ if "%JOB%" == "Build_Debug" (
 
 conda create -n arrow -q -y ^
       python=%PYTHON% ^
-      six pytest setuptools numpy pandas cython ^
+      six pytest setuptools numpy pandas cython hypothesis ^
       thrift-cpp=0.11.0 boost-cpp ^
       -c conda-forge
 
