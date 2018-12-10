@@ -73,6 +73,9 @@ class ARROW_EXPORT BlockParser {
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(BlockParser);
+  
+  template <unsigned Flags, typename Handler>
+  Status DoParse(Handler& handler, const char* data, uint32_t size, uint32_t* out_size);
 
   MemoryPool* pool_;
   const ParseOptions options_;

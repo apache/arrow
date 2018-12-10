@@ -43,7 +43,7 @@ class ARROW_EXPORT TableReader {
 
   // XXX pass optional schema?
   static Status Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-                     const ReadOptions&, const ParseOptions&, const ConvertOptions&,
+                     const ReadOptions&, const ParseOptions&,
                      std::shared_ptr<TableReader>* out);
 };
 
