@@ -17,10 +17,10 @@
 
 use std::sync::Arc;
 
-use bitmap::Bitmap;
-use buffer::Buffer;
-use datatypes::DataType;
-use util::bit_util;
+use crate::bitmap::Bitmap;
+use crate::buffer::Buffer;
+use crate::datatypes::DataType;
+use crate::util::bit_util;
 
 /// An generic representation of Arrow array data which encapsulates common attributes and
 /// operations for Arrow array. Specific operations for different arrays types (e.g.,
@@ -225,8 +225,8 @@ mod tests {
     use std::sync::Arc;
 
     use super::{ArrayData, DataType};
-    use buffer::Buffer;
-    use util::bit_util;
+    use crate::buffer::Buffer;
+    use crate::util::bit_util;
 
     #[test]
     fn test_new() {

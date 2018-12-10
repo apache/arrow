@@ -163,16 +163,7 @@ TEST_F(TestPrettyPrint, StructTypeBasic) {
   auto simple_2 = field("two", int32());
   auto simple_struct = struct_({simple_1, simple_2});
 
-  auto int_builder_1 = std::make_shared<Int32Builder>();
-  auto int_builder_2 = std::make_shared<Int32Builder>();
-  StructBuilder builder(simple_struct, default_memory_pool(),
-                        {int_builder_1, int_builder_2});
-  ASSERT_OK(builder.Append());
-  ASSERT_OK(int_builder_1->Append(11));
-  ASSERT_OK(int_builder_2->Append(22));
-
-  std::shared_ptr<Array> array;
-  ASSERT_OK(builder.Finish(&array));
+  auto array = ArrayFromJSON(simple_struct, "[[11, 22]]");
 
   static const char* ex = R"expected(-- is_valid: all not null
 -- child 0 type: int32
@@ -202,22 +193,7 @@ TEST_F(TestPrettyPrint, StructTypeAdvanced) {
   auto simple_2 = field("two", int32());
   auto simple_struct = struct_({simple_1, simple_2});
 
-  auto int_builder_1 = std::make_shared<Int32Builder>();
-  auto int_builder_2 = std::make_shared<Int32Builder>();
-  StructBuilder builder(simple_struct, default_memory_pool(),
-                        {int_builder_1, int_builder_2});
-  ASSERT_OK(builder.Append());
-  ASSERT_OK(int_builder_1->Append(11));
-  ASSERT_OK(int_builder_2->Append(22));
-  ASSERT_OK(builder.AppendNull());
-  ASSERT_OK(int_builder_1->AppendNull());
-  ASSERT_OK(int_builder_2->AppendNull());
-  ASSERT_OK(builder.Append());
-  ASSERT_OK(int_builder_1->AppendNull());
-  ASSERT_OK(int_builder_2->Append(33));
-
-  std::shared_ptr<Array> array;
-  ASSERT_OK(builder.Finish(&array));
+  auto array = ArrayFromJSON(simple_struct, "[[11, 22], null, [null, 33]]");
 
   static const char* ex = R"expected(-- is_valid:
   [
@@ -251,24 +227,9 @@ TEST_F(TestPrettyPrint, BinaryType) {
 }
 
 TEST_F(TestPrettyPrint, ListType) {
-  Int64Builder* int_builder = new Int64Builder();
-  ListBuilder list_builder(default_memory_pool(),
-                           std::unique_ptr<ArrayBuilder>(int_builder));
+  auto list_type = list(int64());
+  auto array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
 
-  ASSERT_OK(list_builder.Append());
-  ASSERT_OK(int_builder->AppendNull());
-  ASSERT_OK(list_builder.Append());
-  ASSERT_OK(list_builder.Append(false));
-  ASSERT_OK(list_builder.Append());
-  ASSERT_OK(int_builder->Append(4));
-  ASSERT_OK(int_builder->Append(6));
-  ASSERT_OK(int_builder->Append(7));
-  ASSERT_OK(list_builder.Append());
-  ASSERT_OK(int_builder->Append(2));
-  ASSERT_OK(int_builder->Append(3));
-
-  std::shared_ptr<Array> array;
-  ASSERT_OK(list_builder.Finish(&array));
   static const char* ex = R"expected([
   [
     null
@@ -340,19 +301,7 @@ TEST_F(TestPrettyPrint, Decimal128Type) {
   int32_t s = 4;
 
   auto type = decimal(p, s);
-
-  Decimal128Builder builder(type);
-  Decimal128 val;
-
-  ASSERT_OK(Decimal128::FromString("123.4567", &val));
-  ASSERT_OK(builder.Append(val));
-
-  ASSERT_OK(Decimal128::FromString("456.7891", &val));
-  ASSERT_OK(builder.Append(val));
-  ASSERT_OK(builder.AppendNull());
-
-  std::shared_ptr<Array> array;
-  ASSERT_OK(builder.Finish(&array));
+  auto array = ArrayFromJSON(type, "[\"123.4567\", \"456.7891\", null]");
 
   static const char* ex = "[\n  123.4567,\n  456.7891,\n  null\n]";
   CheckArray(*array, {0}, ex);
@@ -392,10 +341,7 @@ TEST_F(TestPrettyPrint, DictionaryType) {
 }
 
 TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
-  std::vector<bool> is_valid = {true, true, false, true, false};
-  std::vector<int32_t> values = {0, 1, 2, 3, 4};
-  std::shared_ptr<Array> array;
-  ArrayFromVector<Int32Type, int32_t>(is_valid, values, &array);
+  auto array = ArrayFromJSON(int32(), "[0, 1, null, 3, null]");
   ChunkedArray chunked_array({array});
 
   static const char* expected = R"expected([
@@ -432,11 +378,8 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
 }
 
 TEST_F(TestPrettyPrint, ColumnPrimitiveType) {
-  std::vector<bool> is_valid = {true, true, false, true, false};
-  std::vector<int32_t> values = {0, 1, 2, 3, 4};
-  std::shared_ptr<Array> array;
-  ArrayFromVector<Int32Type, int32_t>(is_valid, values, &array);
   std::shared_ptr<Field> int_field = field("column", int32());
+  auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");
   Column column(int_field, ArrayVector({array}));
 
   static const char* expected = R"expected(column: int32
@@ -475,11 +418,8 @@ TEST_F(TestPrettyPrint, ColumnPrimitiveType) {
 }
 
 TEST_F(TestPrettyPrint, TablePrimitive) {
-  std::vector<bool> is_valid = {true, true, false, true, false};
-  std::vector<int32_t> values = {0, 1, 2, 3, 4};
-  std::shared_ptr<Array> array;
-  ArrayFromVector<Int32Type, int32_t>(is_valid, values, &array);
   std::shared_ptr<Field> int_field = field("column", int32());
+  auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");
   std::shared_ptr<Column> column =
       std::make_shared<Column>(int_field, ArrayVector({array}));
   std::shared_ptr<Schema> table_schema = schema({int_field});

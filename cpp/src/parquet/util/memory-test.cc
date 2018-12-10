@@ -99,9 +99,8 @@ TEST(TestBufferedInputStream, Basics) {
 
 TEST(TestArrowInputFile, ReadAt) {
   std::string data = "this is the data";
-  auto data_buffer = reinterpret_cast<const uint8_t*>(data.c_str());
 
-  auto file = std::make_shared<::arrow::io::BufferReader>(data_buffer, data.size());
+  auto file = std::make_shared<::arrow::io::BufferReader>(data);
   auto source = std::make_shared<ArrowInputFile>(file);
 
   ASSERT_EQ(0, source->Tell());
@@ -119,7 +118,7 @@ TEST(TestArrowInputFile, Read) {
   std::string data = "this is the data";
   auto data_buffer = reinterpret_cast<const uint8_t*>(data.c_str());
 
-  auto file = std::make_shared<::arrow::io::BufferReader>(data_buffer, data.size());
+  auto file = std::make_shared<::arrow::io::BufferReader>(data);
   auto source = std::make_shared<ArrowInputFile>(file);
 
   ASSERT_EQ(0, source->Tell());

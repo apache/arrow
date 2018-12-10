@@ -24,8 +24,8 @@
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/error.hpp>
 
-#ifdef HAVE_ARROW_GPU
-#  include <arrow-gpu-glib/cuda.hpp>
+#ifdef HAVE_ARROW_CUDA
+#  include <arrow-cuda-glib/cuda.hpp>
 #endif
 
 #include <plasma-glib/client.hpp>
@@ -311,11 +311,11 @@ gplasma_client_create(GPlasmaClient *client,
     raw_metadata = options_priv->metadata;
     raw_metadata_size = options_priv->metadata_size;
     if (options_priv->gpu_device >= 0) {
-#ifndef HAVE_ARROW_GPU
+#ifndef HAVE_ARROW_CUDA
       g_set_error(error,
                   GARROW_ERROR,
                   GARROW_ERROR_INVALID,
-                  "%s Arrow GPU GLib is needed to use GPU",
+                  "%s Arrow CUDA GLib is needed to use GPU",
                   context);
       return NULL;
 #endif
@@ -335,11 +335,11 @@ gplasma_client_create(GPlasmaClient *client,
       auto plasma_mutable_data =
         std::static_pointer_cast<arrow::MutableBuffer>(plasma_data);
       data = GARROW_BUFFER(garrow_mutable_buffer_new_raw(&plasma_mutable_data));
-#ifdef HAVE_ARROW_GPU
+#ifdef HAVE_ARROW_CUDA
     } else {
       auto plasma_cuda_data =
-        std::static_pointer_cast<arrow::gpu::CudaBuffer>(plasma_data);
-      data = GARROW_BUFFER(garrow_gpu_cuda_buffer_new_raw(&plasma_cuda_data));
+        std::static_pointer_cast<arrow::cuda::CudaBuffer>(plasma_data);
+      data = GARROW_BUFFER(garrow_cuda_buffer_new_raw(&plasma_cuda_data));
 #endif
     }
     GArrowBuffer *metadata = nullptr;
@@ -392,28 +392,28 @@ gplasma_client_refer_object(GPlasmaClient *client,
     GArrowBuffer *data = nullptr;
     GArrowBuffer *metadata = nullptr;
     if (plasma_object_buffer.device_num > 0) {
-#ifdef HAVE_ARROW_GPU
-      std::shared_ptr<arrow::gpu::CudaBuffer> plasma_cuda_data;
-      status = arrow::gpu::CudaBuffer::FromBuffer(plasma_data,
-                                                  &plasma_cuda_data);
+#ifdef HAVE_ARROW_CUDA
+      std::shared_ptr<arrow::cuda::CudaBuffer> plasma_cuda_data;
+      status = arrow::cuda::CudaBuffer::FromBuffer(plasma_data,
+                                                   &plasma_cuda_data);
       if (!garrow_error_check(error, status, context)) {
         return NULL;
       }
-      std::shared_ptr<arrow::gpu::CudaBuffer> plasma_cuda_metadata;
-      status = arrow::gpu::CudaBuffer::FromBuffer(plasma_metadata,
+      std::shared_ptr<arrow::cuda::CudaBuffer> plasma_cuda_metadata;
+      status = arrow::cuda::CudaBuffer::FromBuffer(plasma_metadata,
                                                   &plasma_cuda_metadata);
       if (!garrow_error_check(error, status, context)) {
         return NULL;
       }
 
-      data = GARROW_BUFFER(garrow_gpu_cuda_buffer_new_raw(&plasma_cuda_data));
+      data = GARROW_BUFFER(garrow_cuda_buffer_new_raw(&plasma_cuda_data));
       metadata =
-        GARROW_BUFFER(garrow_gpu_cuda_buffer_new_raw(&plasma_cuda_metadata));
+        GARROW_BUFFER(garrow_cuda_buffer_new_raw(&plasma_cuda_metadata));
 #else
       g_set_error(error,
                   GARROW_ERROR,
                   GARROW_ERROR_INVALID,
-                  "%s Arrow GPU GLib is needed to use GPU",
+                  "%s Arrow CUDA GLib is needed to use GPU",
                   context);
       return NULL;
 #endif

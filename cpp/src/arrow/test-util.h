@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TEST_UTIL_H_
-#define ARROW_TEST_UTIL_H_
+#pragma once
 
 #ifndef _WIN32
 #include <sys/stat.h>
@@ -120,7 +119,7 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
 template <typename T, typename U>
 void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
   const int random_seed = 0;
-  std::mt19937 gen(random_seed);
+  std::default_random_engine gen(random_seed);
   std::uniform_int_distribution<T> d(lower, upper);
   out->resize(N, static_cast<T>(0));
   std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
@@ -129,7 +128,7 @@ void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
 template <typename T, typename U>
 void random_real(int64_t n, uint32_t seed, T min_value, T max_value,
                  std::vector<U>* out) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_real_distribution<T> d(min_value, max_value);
   out->resize(n, static_cast<T>(0));
   std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
@@ -168,6 +167,12 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
 
   *result = buffer;
   return Status::OK();
+}
+
+template <typename T>
+inline void BitmapFromVector(const std::vector<T>& is_valid,
+                             std::shared_ptr<Buffer>* out) {
+  ASSERT_OK(GetBitmapFromVector(is_valid, out));
 }
 
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
@@ -221,7 +226,7 @@ void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {
 template <typename T, typename U>
 void rand_uniform_int(int64_t n, uint32_t seed, T min_value, T max_value, U* out) {
   DCHECK(out || (n == 0));
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_int_distribution<T> d(min_value, max_value);
   std::generate(out, out + n, [&d, &gen] { return static_cast<U>(d(gen)); });
 }
@@ -247,6 +252,12 @@ Status MakeRandomBuffer(int64_t length, MemoryPool* pool,
   *out = result;
   return Status::OK();
 }
+
+// ArrayFromJSON: construct an Array from a simple JSON representation
+
+ARROW_EXPORT
+std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
+                                     const std::string& json);
 
 // ArrayFromVector: construct an Array from vectors of C values
 
@@ -409,5 +420,3 @@ class BatchIterator : public RecordBatchReader {
 };
 
 }  // namespace arrow
-
-#endif  // ARROW_TEST_UTIL_H_

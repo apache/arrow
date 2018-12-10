@@ -20,6 +20,7 @@
 
 ADD_ARROW_TEST(feather-test)
 ADD_ARROW_TEST(ipc-read-write-test)
+ADD_ARROW_TEST(ipc-json-simple-test)
 ADD_ARROW_TEST(ipc-json-test)
 
 if (NOT ARROW_BOOST_HEADER_ONLY)
@@ -33,8 +34,7 @@ if (NOT ARROW_BOOST_HEADER_ONLY)
         set_target_properties(json-integration-test
           PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
       else()
-        target_link_libraries(json-integration-test
-          pthread)
+        target_link_libraries(json-integration-test PRIVATE pthread)
       endif()
     endif()
   endif()
@@ -85,6 +85,7 @@ install(FILES
   dictionary.h
   feather.h
   json.h
+  json-simple.h
   message.h
   reader.h
   writer.h

@@ -34,7 +34,7 @@ override_dh_auto_configure:
 	  -DARROW_PROTOBUF_USE_SHARED=ON \
 	  -DPythonInterp_FIND_VERSION=ON \
 	  -DPythonInterp_FIND_VERSION_MAJOR=3 \
-	  -DARROW_GPU=ON
+	  -DARROW_CUDA=ON
 	dh_auto_configure \
 	  --sourcedirectory=c_glib \
 	  --builddirectory=c_glib_build \

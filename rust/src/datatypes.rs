@@ -26,7 +26,7 @@ use std::mem::size_of;
 use std::slice::from_raw_parts;
 use std::str::FromStr;
 
-use error::{ArrowError, Result};
+use crate::error::{ArrowError, Result};
 use serde_json::Value;
 
 /// The possible relative types that are supported.

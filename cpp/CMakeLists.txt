@@ -150,8 +150,8 @@ Pass multiple labels by dividing with semicolons")
     "Build the Arrow IPC extensions"
     ON)
 
-  option(ARROW_GPU
-    "Build the Arrow GPU extensions (requires CUDA installation)"
+  option(ARROW_CUDA
+    "Build the Arrow CUDA extensions (requires CUDA toolkit)"
     OFF)
 
   option(ARROW_ORC
@@ -414,6 +414,11 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_WITH_SNAPPY ON)
   set(ARROW_WITH_ZLIB ON)
   set(ARROW_WITH_ZSTD ON)
+endif()
+
+if(ARROW_BUILD_TESTS)
+  # JSON parsing of arrays is required for Arrow unit tests
+  set(ARROW_IPC ON)
 endif()
 
 if(PARQUET_BUILD_EXAMPLES OR PARQUET_BUILD_EXECUTABLES)

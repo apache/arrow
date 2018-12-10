@@ -20,7 +20,7 @@
 test_dir="$(cd $(dirname $0); pwd)"
 build_dir="$(cd .; pwd)"
 
-modules="arrow-glib arrow-gpu-glib gandiva-glib parquet-glib plasma-glib"
+modules="arrow-glib arrow-cuda-glib gandiva-glib parquet-glib plasma-glib"
 
 for module in ${modules}; do
   module_build_dir="${build_dir}/${module}"

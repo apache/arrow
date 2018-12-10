@@ -146,7 +146,7 @@ def test_convert_options():
     opts.column_types = [('x', pa.binary())]
     assert opts.column_types == {'x': pa.binary()}
 
-    with pytest.raises(TypeError, match='data type expected'):
+    with pytest.raises(TypeError, match='DataType expected'):
         opts.column_types = {'a': None}
     with pytest.raises(TypeError):
         opts.column_types = 0

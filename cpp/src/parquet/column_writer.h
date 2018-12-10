@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_COLUMN_WRITER_H
-#define PARQUET_COLUMN_WRITER_H
+#pragma once
 
 #include <memory>
 #include <vector>
@@ -330,5 +329,3 @@ PARQUET_EXTERN_TEMPLATE TypedColumnWriter<ByteArrayType>;
 PARQUET_EXTERN_TEMPLATE TypedColumnWriter<FLBAType>;
 
 }  // namespace parquet
-
-#endif  // PARQUET_COLUMN_READER_H

@@ -223,8 +223,8 @@ class PlasmaStore {
   std::unordered_map<int, std::unique_ptr<Client>> connected_clients_;
 
   std::unordered_set<ObjectID> deletion_cache_;
-#ifdef PLASMA_GPU
-  arrow::gpu::CudaDeviceManager* manager_;
+#ifdef PLASMA_CUDA
+  arrow::cuda::CudaDeviceManager* manager_;
 #endif
 };
 

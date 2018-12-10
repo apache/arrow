@@ -131,7 +131,7 @@ gplasma_object_id_to_binary(GPlasmaObjectID *id,
  * gplasma_object_id_to_hex:
  * @id: A #GPlasmaObjectID.
  *
- * Returns: The hex representation of the object ID.
+ * Returns: (transfer full): The hex representation of the object ID.
  *
  *   It should be freed with g_free() when no longer needed.
  *

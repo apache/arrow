@@ -31,32 +31,29 @@ AM_CFLAGS =					\
 	$(GARROW_CFLAGS)			\
 	$(GPLASMA_CFLAGS)
 
-PLASMA_ARROW_GPU_LIBS =
-PLASMA_ARROW_GPU_GLIB_PKG_CONFIG_PATH =
-PLASMA_INTROSPECTION_COMPILER_ARROW_GPU_ARGS =
-PLASMA_GIR_ARROW_GPU_PACKAGE =
-PLASMA_GIR_ARROW_GPU_SCANNER_ADD_INCLUDE_PATH =
-PLASMA_GIR_ARROW_GPU_LIBS_MACOS =
-PLASMA_GIR_ARROW_GPU_SCANNER_LIBRARY_PATH_MACOS =
-PLASMA_GIR_ARROW_GPU_LIBS =
-if HAVE_ARROW_GPU
-PLASMA_ARROW_GPU_LIBS +=			\
-	$(ARROW_GPU_LIBS)			\
-	../arrow-gpu-glib/libarrow-gpu-glib.la
-PLASMA_ARROW_GPU_GLIB_PKG_CONFIG_PATH +=	\
-	:${abs_top_builddir}/arrow-gpu-glib
-PLASMA_INTROSPECTION_COMPILER_ARROW_GPU_ARGS +=	\
-	--includedir=$(abs_top_builddir)/arrow-gpu-glib
-PLASMA_GIR_ARROW_GPU_PACKAGE +=			\
-	arrow-gpu-glib
-PLASMA_GIR_ARROW_GPU_SCANNER_ADD_INCLUDE_PATH +=		\
-	--add-include-path=$(abs_top_builddir)/arrow-gpu-glib
-PLASMA_GIR_ARROW_GPU_LIBS_MACOS +=			\
-	arrow-gpu-glib
-PLASMA_GIR_ARROW_GPU_SCANNER_LIBRARY_PATH_MACOS +=		\
-	--library-path=$(abs_top_builddir)/arrow-gpu-glib/.libs
-PLASMA_GIR_ARROW_GPU_LIBS +=					\
-	$(abs_top_builddir)/arrow-gpu-glib/libarrow-gpu-glib.la
+PLASMA_ARROW_CUDA_LIBS =
+PLASMA_INTROSPECTION_COMPILER_ARROW_CUDA_ARGS =
+PLASMA_GIR_ARROW_CUDA_PACKAGE =
+PLASMA_GIR_ARROW_CUDA_SCANNER_ADD_INCLUDE_PATH =
+PLASMA_GIR_ARROW_CUDA_LIBS_MACOS =
+PLASMA_GIR_ARROW_CUDA_SCANNER_LIBRARY_PATH_MACOS =
+PLASMA_GIR_ARROW_CUDA_LIBS =
+if HAVE_ARROW_CUDA
+PLASMA_ARROW_CUDA_LIBS +=				\
+	$(ARROW_CUDA_LIBS)				\
+	../arrow-cuda-glib/libarrow-cuda-glib.la
+PLASMA_INTROSPECTION_COMPILER_ARROW_CUDA_ARGS +=		\
+	--includedir=$(abs_top_builddir)/arrow-cuda-glib
+PLASMA_GIR_ARROW_CUDA_PACKAGE +=		\
+	arrow-cuda-glib
+PLASMA_GIR_ARROW_CUDA_SCANNER_ADD_INCLUDE_PATH +=		\
+	--add-include-path=$(abs_top_builddir)/arrow-cuda-glib
+PLASMA_GIR_ARROW_CUDA_LIBS_MACOS +=		\
+	arrow-cuda-glib
+PLASMA_GIR_ARROW_CUDA_SCANNER_LIBRARY_PATH_MACOS +=			\
+	--library-path=$(abs_top_builddir)/arrow-cuda-glib/.libs
+PLASMA_GIR_ARROW_CUDA_LIBS +=						\
+	$(abs_top_builddir)/arrow-cuda-glib/libarrow-cuda-glib.la
 endif
 
 if HAVE_PLASMA
@@ -79,7 +76,7 @@ libplasma_glib_la_LIBADD =			\
 	$(ARROW_LIBS)				\
 	$(PLASMA_LIBS)				\
 	../arrow-glib/libarrow-glib.la		\
-	$(PLASMA_ARROW_GPU_LIBS)
+	$(PLASMA_ARROW_CUDA_LIBS)
 
 libplasma_glib_la_headers =			\
 	client.h				\
@@ -117,19 +114,19 @@ INTROSPECTION_SCANNER_ARGS =
 INTROSPECTION_SCANNER_ENV =
 if USE_ARROW_BUILD_DIR
 INTROSPECTION_SCANNER_ENV +=			\
-	PKG_CONFIG_PATH=${abs_top_builddir}/arrow-glib$(PLASMA_ARROW_GPU_GLIB_PKG_CONFIG_PATH):$(ARROW_BUILD_DIR)/src/arrow:$${PKG_CONFIG_PATH}
+	PKG_CONFIG_PATH=$(abs_top_builddir)/arrow-glib$(PLASMA_ARROW_CUDA_PKG_CONFIG_PATH):$(ARROW_BUILD_DIR)/src/arrow:$${PKG_CONFIG_PATH}
 else
 INTROSPECTION_SCANNER_ENV +=			\
-	PKG_CONFIG_PATH=${abs_top_builddir}/arrow-glib$(PLASMA_ARROW_GPU_GLIB_PKG_CONFIG_PATH):$${PKG_CONFIG_PATH}
+	PKG_CONFIG_PATH=$(abs_top_builddir)/arrow-glib$(PLASMA_ARROW_CUDA_PKG_CONFIG_PATH):$${PKG_CONFIG_PATH}
 endif
 INTROSPECTION_COMPILER_ARGS =					\
 	--includedir=$(abs_top_builddir)/arrow-glib		\
-	$(PLASMA_INTROSPECTION_COMPILER_ARROW_GPU_INCLUDEDIR)
+	$(PLASMA_INTROSPECTION_COMPILER_ARROW_CUDA_INCLUDEDIR)
 
 Plasma-1.0.gir: libplasma-glib.la
 Plasma_1_0_gir_PACKAGES =			\
 	arrow-glib				\
-	$(PLASMA_GIR_ARROW_GPU_PACKAGE)
+	$(PLASMA_GIR_ARROW_CUDA_PACKAGE)
 Plasma_1_0_gir_EXPORT_PACKAGES =		\
 	plasma-glib
 Plasma_1_0_gir_INCLUDES =			\
@@ -140,7 +137,7 @@ Plasma_1_0_gir_LIBS =
 Plasma_1_0_gir_FILES = $(libplasma_glib_la_sources)
 Plasma_1_0_gir_SCANNERFLAGS =					\
 	--add-include-path=$(abs_top_builddir)/arrow-glib	\
-	$(PLASMA_GIR_ARROW_GPU_SCANNER_ADD_INCLUDE_PATH)	\
+	$(PLASMA_GIR_ARROW_CUDA_SCANNER_ADD_INCLUDE_PATH)	\
 	--library-path=$(ARROW_LIB_DIR)				\
 	--warn-all						\
 	--identifier-prefix=GPlasma				\
@@ -148,17 +145,17 @@ Plasma_1_0_gir_SCANNERFLAGS =					\
 if OS_MACOS
 Plasma_1_0_gir_LIBS +=				\
 	arrow-glib				\
-	$(PLASMA_GIR_ARROW_GPU_LIBS_MACOS)	\
+	$(PLASMA_GIR_ARROW_CUDA_LIBS_MACOS)	\
 	plasma-glib
 Plasma_1_0_gir_SCANNERFLAGS +=					\
 	--no-libtool						\
 	--library-path=$(abs_top_builddir)/arrow-glib/.libs	\
-	$(PLASMA_GIR_ARROW_GPU_SCANNER_LIBRARY_PATH_MACOS)	\
+	$(PLASMA_GIR_ARROW_CUDA_SCANNER_LIBRARY_PATH_MACOS)	\
 	--library-path=$(abs_builddir)/.libs
 else
 Plasma_1_0_gir_LIBS +=					\
 	$(abs_top_builddir)/arrow-glib/libarrow-glib.la	\
-	$(PLASMA_GIR_ARROW_GPU_LIBS)			\
+	$(PLASMA_GIR_ARROW_CUDA_LIBS)			\
 	libplasma-glib.la
 endif
 INTROSPECTION_GIRS += Plasma-1.0.gir

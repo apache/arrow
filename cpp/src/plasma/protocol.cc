@@ -25,7 +25,7 @@
 #include "plasma/common.h"
 #include "plasma/io.h"
 
-#ifdef ARROW_GPU
+#ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"
 #endif
 
@@ -129,7 +129,7 @@ Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
                                  object->metadata_offset, object->metadata_size,
                                  object->device_num);
   auto object_string = fbb.CreateString(object_id.binary());
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   flatbuffers::Offset<fb::CudaHandle> ipc_handle;
   if (object->device_num != 0) {
     std::shared_ptr<arrow::Buffer> handle;
@@ -145,7 +145,7 @@ Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
   crb.add_store_fd(object->store_fd);
   crb.add_mmap_size(mmap_size);
   if (object->device_num != 0) {
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
     crb.add_ipc_handle(ipc_handle);
 #else
     ARROW_LOG(FATAL) << "This should be unreachable.";
@@ -171,7 +171,7 @@ Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
   *mmap_size = message->mmap_size();
 
   object->device_num = message->plasma_object()->device_num();
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   if (object->device_num != 0) {
     RETURN_NOT_OK(CudaIpcMemHandle::FromBuffer(message->ipc_handle()->handle()->data(),
                                                &object->ipc_handle));
@@ -588,7 +588,7 @@ Status SendGetReply(int sock, ObjectID object_ids[],
     objects.push_back(PlasmaObjectSpec(object.store_fd, object.data_offset,
                                        object.data_size, object.metadata_offset,
                                        object.metadata_size, object.device_num));
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
     if (object.device_num != 0) {
       std::shared_ptr<arrow::Buffer> handle;
       RETURN_NOT_OK(object.ipc_handle->Serialize(arrow::default_memory_pool(), &handle));
@@ -609,7 +609,7 @@ Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
                     std::vector<int>& store_fds, std::vector<int64_t>& mmap_sizes) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaGetReply>(data);
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   int handle_pos = 0;
 #endif
   DCHECK(VerifyFlatbuffer(message, data, size));
@@ -624,7 +624,7 @@ Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
     plasma_objects[i].metadata_offset = object->metadata_offset();
     plasma_objects[i].metadata_size = object->metadata_size();
     plasma_objects[i].device_num = object->device_num();
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
     if (object->device_num() != 0) {
       const void* ipc_handle = message->handles()->Get(handle_pos)->handle()->data();
       RETURN_NOT_OK(

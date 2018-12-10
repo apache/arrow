@@ -717,7 +717,7 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
 
 template <typename DType>
 inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(
-    int64_t num_values, const int16_t* def_levels, const int16_t* rep_levels,
+    int64_t num_levels, const int16_t* def_levels, const int16_t* rep_levels,
     const uint8_t* valid_bits, int64_t valid_bits_offset, const T* values,
     int64_t* num_spaced_written) {
   int64_t values_to_write = 0;
@@ -729,7 +729,7 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(
     if (descr_->schema_node()->is_optional()) {
       min_spaced_def_level--;
     }
-    for (int64_t i = 0; i < num_values; ++i) {
+    for (int64_t i = 0; i < num_levels; ++i) {
       if (def_levels[i] == descr_->max_definition_level()) {
         ++values_to_write;
       }
@@ -738,27 +738,27 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(
       }
     }
 
-    WriteDefinitionLevels(num_values, def_levels);
+    WriteDefinitionLevels(num_levels, def_levels);
   } else {
     // Required field, write all values
-    values_to_write = num_values;
-    spaced_values_to_write = num_values;
+    values_to_write = num_levels;
+    spaced_values_to_write = num_levels;
   }
 
   // Not present for non-repeated fields
   if (descr_->max_repetition_level() > 0) {
     // A row could include more than one value
     // Count the occasions where we start a new row
-    for (int64_t i = 0; i < num_values; ++i) {
+    for (int64_t i = 0; i < num_levels; ++i) {
       if (rep_levels[i] == 0) {
         rows_written_++;
       }
     }
 
-    WriteRepetitionLevels(num_values, rep_levels);
+    WriteRepetitionLevels(num_levels, rep_levels);
   } else {
     // Each value is exactly one row
-    rows_written_ += static_cast<int>(num_values);
+    rows_written_ += static_cast<int>(num_levels);
   }
 
   if (descr_->schema_node()->is_optional()) {
@@ -770,10 +770,10 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(
 
   if (page_statistics_ != nullptr) {
     page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset, values_to_write,
-                                   num_values - values_to_write);
+                                   spaced_values_to_write - values_to_write);
   }
 
-  num_buffered_values_ += num_values;
+  num_buffered_values_ += num_levels;
   num_buffered_encoded_values_ += values_to_write;
 
   if (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {

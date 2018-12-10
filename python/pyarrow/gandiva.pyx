@@ -28,10 +28,9 @@ from libc.stdint cimport int64_t, int32_t, uint8_t, uintptr_t
 
 from pyarrow.includes.libarrow cimport *
 from pyarrow.compat import frombytes
-from pyarrow.types import _as_type
 from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
                           Schema, check_status, pyarrow_wrap_array,
-                          pyarrow_wrap_data_type)
+                          pyarrow_wrap_data_type, ensure_type)
 
 from pyarrow.includes.libgandiva cimport (
     CCondition, CExpression,
@@ -173,8 +172,10 @@ cdef class Filter:
         return self
 
     def evaluate(self, RecordBatch batch, MemoryPool pool, dtype='int32'):
-        cdef shared_ptr[CSelectionVector] selection
-        cdef DataType type = _as_type(dtype)
+        cdef:
+            DataType type = ensure_type(dtype)
+            shared_ptr[CSelectionVector] selection
+
         if type.id == _Type_INT16:
             check_status(SelectionVector_MakeInt16(
                 batch.num_rows, pool.pool, &selection))
@@ -187,6 +188,7 @@ cdef class Filter:
         else:
             raise ValueError("'dtype' of the selection vector should be "
                              "one of 'int16', 'int32' and 'int64'.")
+
         check_status(self.filter.get().Evaluate(
             batch.sp_batch.get()[0], selection))
         return SelectionVector.create(selection)
@@ -195,8 +197,10 @@ cdef class Filter:
 cdef class TreeExprBuilder:
 
     def make_literal(self, value, dtype):
-        cdef shared_ptr[CNode] r
-        cdef DataType type = _as_type(dtype)
+        cdef:
+            DataType type = ensure_type(dtype)
+            shared_ptr[CNode] r
+
         if type.id == _Type_BOOL:
             r = TreeExprBuilder_MakeBoolLiteral(value)
         elif type.id == _Type_UINT8:
@@ -225,6 +229,7 @@ cdef class TreeExprBuilder:
             r = TreeExprBuilder_MakeBinaryLiteral(value)
         else:
             raise TypeError("Didn't recognize dtype " + str(dtype))
+
         return Node.create(r)
 
     def make_expression(self, Node root_node, Field return_field):
@@ -353,7 +358,8 @@ cdef class TreeExprBuilder:
         return Node.create(r)
 
     def make_in_expression(self, Node node, values, dtype):
-        cdef DataType type = _as_type(dtype)
+        cdef DataType type = ensure_type(dtype)
+
         if type.id == _Type_INT32:
             return self._make_in_expression_int32(node, values)
         elif type.id == _Type_INT64:

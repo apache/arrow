@@ -20,8 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"os"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
@@ -30,17 +28,24 @@ import (
 )
 
 func Example() {
-	f, err := os.Open("testdata/simple.csv")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
+	f := bytes.NewBufferString(`## a simple set of data: int64;float64;string
+0;0;str-0
+1;1;str-1
+2;2;str-2
+3;3;str-3
+4;4;str-4
+5;5;str-5
+6;6;str-6
+7;7;str-7
+8;8;str-8
+9;9;str-9
+`)
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
-			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
-			arrow.Field{Name: "str", Type: arrow.BinaryTypes.String},
+			{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
+			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "str", Type: arrow.BinaryTypes.String},
 		},
 		nil,
 	)
@@ -90,17 +95,24 @@ func Example() {
 }
 
 func Example_withChunk() {
-	f, err := os.Open("testdata/simple.csv")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
+	f := bytes.NewBufferString(`## a simple set of data: int64;float64;string
+0;0;str-0
+1;1;str-1
+2;2;str-2
+3;3;str-3
+4;4;str-4
+5;5;str-5
+6;6;str-6
+7;7;str-7
+8;8;str-8
+9;9;str-9
+`)
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
-			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
-			arrow.Field{Name: "str", Type: arrow.BinaryTypes.String},
+			{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
+			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "str", Type: arrow.BinaryTypes.String},
 		},
 		nil,
 	)
@@ -483,5 +495,71 @@ rec[2]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5" "str-6" "str-7" 
 				t.Fatalf("unexpected error: %v", r.Err())
 			}
 		})
+	}
+}
+
+func BenchmarkRead(b *testing.B) {
+	gen := func(rows, cols int) []byte {
+		buf := new(bytes.Buffer)
+		for i := 0; i < rows; i++ {
+			for j := 0; j < cols; j++ {
+				if j > 0 {
+					fmt.Fprintf(buf, ";")
+				}
+				fmt.Fprintf(buf, "%d;%f;str-%d", i, float64(i), i)
+			}
+			fmt.Fprintf(buf, "\n")
+		}
+		return buf.Bytes()
+	}
+
+	for _, rows := range []int{10, 1e2, 1e3, 1e4, 1e5} {
+		for _, cols := range []int{1, 10, 100, 1000} {
+			raw := gen(rows, cols)
+			for _, chunks := range []int{-1, 0, 10, 100, 1000} {
+				b.Run(fmt.Sprintf("rows=%d cols=%d chunks=%d", rows, cols, chunks), func(b *testing.B) {
+					benchRead(b, raw, rows, cols, chunks)
+				})
+			}
+		}
+	}
+}
+
+func benchRead(b *testing.B, raw []byte, rows, cols, chunks int) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(b, 0)
+
+	var fields []arrow.Field
+	for i := 0; i < cols; i++ {
+		fields = append(fields, []arrow.Field{
+			arrow.Field{Name: fmt.Sprintf("i64-%d", i), Type: arrow.PrimitiveTypes.Int64},
+			arrow.Field{Name: fmt.Sprintf("f64-%d", i), Type: arrow.PrimitiveTypes.Float64},
+			arrow.Field{Name: fmt.Sprintf("str-%d", i), Type: arrow.BinaryTypes.String},
+		}...)
+	}
+
+	schema := arrow.NewSchema(fields, nil)
+	chunk := 0
+	if chunks != 0 {
+		chunk = rows / chunks
+	}
+	opts := []csv.Option{
+		csv.WithAllocator(mem), csv.WithComment('#'), csv.WithComma(';'),
+		csv.WithChunk(chunk),
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		r := csv.NewReader(bytes.NewReader(raw), schema, opts...)
+
+		n := int64(0)
+		for r.Next() {
+			n += r.Record().NumRows()
+		}
+
+		r.Release()
+		if n != int64(rows) {
+			b.Fatalf("invalid number of rows. want=%d, got=%d", n, rows)
+		}
 	}
 }

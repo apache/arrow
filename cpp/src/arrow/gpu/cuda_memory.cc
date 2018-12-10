@@ -34,7 +34,7 @@
 #include "arrow/gpu/cuda_context.h"
 
 namespace arrow {
-namespace gpu {
+namespace cuda {
 
 // ----------------------------------------------------------------------
 // CUDA IPC memory handle
@@ -365,5 +365,5 @@ Status AllocateCudaHostBuffer(int device_number, const int64_t size,
   return manager->AllocateHost(device_number, size, out);
 }
 
-}  // namespace gpu
+}  // namespace cuda
 }  // namespace arrow

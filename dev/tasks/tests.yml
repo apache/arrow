@@ -31,6 +31,7 @@ groups:
     - docker-python-3.6-alpine
     - docker-java
     - docker-js
+    - docker-docs
     - docker-lint
     - docker-iwyu
     - docker-clang-format
@@ -173,6 +174,20 @@ tasks:
         - docker-compose build cpp-alpine
         - docker-compose build python-alpine
         - docker-compose run python-alpine
+
+  ###################### Documentation building tests #########################
+
+  docker-docs:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build docs
+        - docker-compose run docs
 
   ############################## Linter tests #################################
 
