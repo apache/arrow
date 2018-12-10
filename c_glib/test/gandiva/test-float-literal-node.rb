@@ -25,4 +25,10 @@ class TestGandivaFloatLiteralNode < Test::Unit::TestCase
       Gandiva::FloatLiteralNode.new(1.5)
     end
   end
+
+  def test_value
+    value = 1.5
+    literal_node = Gandiva::FloatLiteralNode.new(value)
+    assert_equal(value, literal_node.value)
+  end
 end

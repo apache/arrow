@@ -20,9 +20,9 @@ class TestGandivaBinaryLiteralNode < Test::Unit::TestCase
     omit("Gandiva is required") unless defined?(::Gandiva)
   end
 
-  def test_new
-    assert_nothing_raised do
-      Gandiva::BinaryLiteralNode.new("\x00\x01\x02\x03\x04")
-    end
+  def test_value
+    value = "\x00\x01\x02\x03\x04"
+    literal_node = Gandiva::BinaryLiteralNode.new(value)
+    assert_equal(value, literal_node.value.pack("C*"))
   end
 end

@@ -20,9 +20,9 @@ class TestGandivaUInt8LiteralNode < Test::Unit::TestCase
     omit("Gandiva is required") unless defined?(::Gandiva)
   end
 
-  def test_new
-    assert_nothing_raised do
-      Gandiva::UInt8LiteralNode.new(3)
-    end
+  def test_value
+    value = 3
+    literal_node = Gandiva::UInt8LiteralNode.new(value)
+    assert_equal(value, literal_node.value)
   end
 end

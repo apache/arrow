@@ -21,6 +21,7 @@
 
 #include <memory>
 
+#include <gandiva/node.h>
 #include <gandiva/tree_expr_builder.h>
 
 #include <gandiva-glib/node.h>

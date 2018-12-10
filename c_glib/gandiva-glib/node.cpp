@@ -26,6 +26,15 @@
 
 #include <gandiva-glib/node.hpp>
 
+template <typename Type>
+Type
+ggandiva_literal_node_get(GGandivaLiteralNode *node)
+{
+  auto gandiva_literal_node =
+    dynamic_cast<gandiva::LiteralNode*>(ggandiva_node_get_raw(GGANDIVA_NODE(node)).get());
+  return boost::get<Type>(gandiva_literal_node->holder());
+}
+
 G_BEGIN_DECLS
 
 /**
@@ -475,8 +484,23 @@ ggandiva_boolean_literal_node_class_init(GGandivaBooleanLiteralNodeClass *klass)
 GGandivaBooleanLiteralNode *
 ggandiva_boolean_literal_node_new(gboolean value)
 {
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(static_cast<bool>(value));
   return ggandiva_boolean_literal_node_new_raw(&gandiva_node);
+}
+
+/**
+ * ggandiva_boolean_literal_node_get_value:
+ * @node: A #GGandivaBooleanLiteralNode.
+ *
+ * Returns: The value of the boolean literal.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+ggandiva_boolean_literal_node_get_value(GGandivaBooleanLiteralNode *node)
+{
+  auto value = ggandiva_literal_node_get<bool>(GGANDIVA_LITERAL_NODE(node));
+  return static_cast<gboolean>(value);
 }
 
 
@@ -509,6 +533,21 @@ ggandiva_uint8_literal_node_new(guint8 value)
   return ggandiva_uint8_literal_node_new_raw(&gandiva_node);
 }
 
+/**
+ * ggandiva_uint8_literal_node_get_value:
+ * @node: A #GGandivaUInt8LiteralNode.
+ *
+ * Returns: The value of the uint8 literal.
+ *
+ * Since: 0.12.0
+ */
+guint8
+ggandiva_uint8_literal_node_get_value(GGandivaUInt8LiteralNode *node)
+{
+  auto value = ggandiva_literal_node_get<uint8_t>(GGANDIVA_LITERAL_NODE(node));
+  return static_cast<guint8>(value);
+}
+
 
 G_DEFINE_TYPE(GGandivaUInt16LiteralNode,
               ggandiva_uint16_literal_node,
@@ -537,6 +576,21 @@ ggandiva_uint16_literal_node_new(guint16 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
   return ggandiva_uint16_literal_node_new_raw(&gandiva_node);
+}
+
+/**
+ * ggandiva_uint16_literal_node_get_value:
+ * @node: A #GGandivaUInt16LiteralNode.
+ *
+ * Returns: The value of the uint16 literal.
+ *
+ * Since: 0.12.0
+ */
+guint16
+ggandiva_uint16_literal_node_get_value(GGandivaUInt16LiteralNode *node)
+{
+  auto value = ggandiva_literal_node_get<uint16_t>(GGANDIVA_LITERAL_NODE(node));
+  return static_cast<guint16>(value);
 }
 
 
@@ -569,6 +623,21 @@ ggandiva_uint32_literal_node_new(guint32 value)
   return ggandiva_uint32_literal_node_new_raw(&gandiva_node);
 }
 
+/**
+ * ggandiva_uint32_literal_node_get_value:
+ * @node: A #GGandivaUInt32LiteralNode.
+ *
+ * Returns: The value of the uint32 literal.
+ *
+ * Since: 0.12.0
+ */
+guint32
+ggandiva_uint32_literal_node_get_value(GGandivaUInt32LiteralNode *node)
+{
+  auto value = ggandiva_literal_node_get<uint32_t>(GGANDIVA_LITERAL_NODE(node));
+  return static_cast<guint32>(value);
+}
+
 
 G_DEFINE_TYPE(GGandivaUInt64LiteralNode,
               ggandiva_uint64_literal_node,
@@ -597,6 +666,21 @@ ggandiva_uint64_literal_node_new(guint64 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
   return ggandiva_uint64_literal_node_new_raw(&gandiva_node);
+}
+
+/**
+ * ggandiva_uint64_literal_node_get_value:
+ * @node: A #GGandivaUInt64LiteralNode.
+ *
+ * Returns: The value of the uint64 literal.
+ *
+ * Since: 0.12.0
+ */
+guint64
+ggandiva_uint64_literal_node_get_value(GGandivaUInt64LiteralNode *node)
+{
+  auto value = ggandiva_literal_node_get<uint64_t>(GGANDIVA_LITERAL_NODE(node));
+  return static_cast<guint64>(value);
 }
 
 
@@ -629,6 +713,21 @@ ggandiva_int8_literal_node_new(gint8 value)
   return ggandiva_int8_literal_node_new_raw(&gandiva_node);
 }
 
+/**
+ * ggandiva_int8_literal_node_get_value:
+ * @node: A #GGandivaInt8LiteralNode.
+ *
+ * Returns: The value of the int8 literal.
+ *
+ * Since: 0.12.0
+ */
+gint8
+ggandiva_int8_literal_node_get_value(GGandivaInt8LiteralNode *node)
+{
+  auto value = ggandiva_literal_node_get<int8_t>(GGANDIVA_LITERAL_NODE(node));
+  return static_cast<gint8>(value);
+}
+
 
 G_DEFINE_TYPE(GGandivaInt16LiteralNode,
               ggandiva_int16_literal_node,
@@ -657,6 +756,21 @@ ggandiva_int16_literal_node_new(gint16 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
   return ggandiva_int16_literal_node_new_raw(&gandiva_node);
+}
+
+/**
+ * ggandiva_int16_literal_node_get_value:
+ * @node: A #GGandivaInt16LiteralNode.
+ *
+ * Returns: The value of the int16 literal.
+ *
+ * Since: 0.12.0
+ */
+gint16
+ggandiva_int16_literal_node_get_value(GGandivaInt16LiteralNode *node)
+{
+  auto value = ggandiva_literal_node_get<int16_t>(GGANDIVA_LITERAL_NODE(node));
+  return static_cast<gint16>(value);
 }
 
 
@@ -689,6 +803,21 @@ ggandiva_int32_literal_node_new(gint32 value)
   return ggandiva_int32_literal_node_new_raw(&gandiva_node);
 }
 
+/**
+ * ggandiva_int32_literal_node_get_value:
+ * @node: A #GGandivaInt32LiteralNode.
+ *
+ * Returns: The value of the int32 literal.
+ *
+ * Since: 0.12.0
+ */
+gint32
+ggandiva_int32_literal_node_get_value(GGandivaInt32LiteralNode *node)
+{
+  auto value = ggandiva_literal_node_get<int32_t>(GGANDIVA_LITERAL_NODE(node));
+  return static_cast<gint32>(value);
+}
+
 
 G_DEFINE_TYPE(GGandivaInt64LiteralNode,
               ggandiva_int64_literal_node,
@@ -717,6 +846,21 @@ ggandiva_int64_literal_node_new(gint64 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
   return ggandiva_int64_literal_node_new_raw(&gandiva_node);
+}
+
+/**
+ * ggandiva_int64_literal_node_get_value:
+ * @node: A #GGandivaInt64LiteralNode.
+ *
+ * Returns: The value of the int64 literal.
+ *
+ * Since: 0.12.0
+ */
+gint64
+ggandiva_int64_literal_node_get_value(GGandivaInt64LiteralNode *node)
+{
+  auto value = ggandiva_literal_node_get<int64_t>(GGANDIVA_LITERAL_NODE(node));
+  return static_cast<gint64>(value);
 }
 
 
@@ -749,6 +893,21 @@ ggandiva_float_literal_node_new(gfloat value)
   return ggandiva_float_literal_node_new_raw(&gandiva_node);
 }
 
+/**
+ * ggandiva_float_literal_node_get_value:
+ * @node: A #GGandivaFloatLiteralNode.
+ *
+ * Returns: The value of the float literal.
+ *
+ * Since: 0.12.0
+ */
+gfloat
+ggandiva_float_literal_node_get_value(GGandivaFloatLiteralNode *node)
+{
+  auto value = ggandiva_literal_node_get<float>(GGANDIVA_LITERAL_NODE(node));
+  return static_cast<gfloat>(value);
+}
+
 
 G_DEFINE_TYPE(GGandivaDoubleLiteralNode,
               ggandiva_double_literal_node,
@@ -779,6 +938,21 @@ ggandiva_double_literal_node_new(gdouble value)
   return ggandiva_double_literal_node_new_raw(&gandiva_node);
 }
 
+/**
+ * ggandiva_double_literal_node_get_value:
+ * @node: A #GGandivaDoubleLiteralNode.
+ *
+ * Returns: The value of the double literal.
+ *
+ * Since: 0.12.0
+ */
+gdouble
+ggandiva_double_literal_node_get_value(GGandivaDoubleLiteralNode *node)
+{
+  auto value = ggandiva_literal_node_get<double>(GGANDIVA_LITERAL_NODE(node));
+  return static_cast<gdouble>(value);
+}
+
 
 G_DEFINE_TYPE(GGandivaStringLiteralNode,
               ggandiva_string_literal_node,
@@ -807,6 +981,23 @@ ggandiva_string_literal_node_new(const gchar *value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeStringLiteral(value);
   return ggandiva_string_literal_node_new_raw(&gandiva_node);
+}
+
+/**
+ * ggandiva_string_literal_node_get_value:
+ * @node: A #GGandivaStringLiteralNode.
+ *
+ * Returns: (transfer full): The value of the string literal.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 0.12.0
+ */
+gchar *
+ggandiva_string_literal_node_get_value(GGandivaStringLiteralNode *node)
+{
+  auto value = ggandiva_literal_node_get<std::string>(GGANDIVA_LITERAL_NODE(node));
+  return g_strndup(value.data(), value.size());
 }
 
 
@@ -841,6 +1032,27 @@ ggandiva_binary_literal_node_new(const guint8 *value,
     gandiva::TreeExprBuilder::MakeBinaryLiteral(std::string(reinterpret_cast<const char*>(value),
                                                             static_cast<size_t>(size)));
   return ggandiva_binary_literal_node_new_raw(&gandiva_node);
+}
+
+/**
+ * ggandiva_binary_literal_node_get_value:
+ * @node: A #GGandivaBinaryLiteralNode.
+ * @size: (nullable) (out):
+ *   The number of bytes of the value of the binary literal.
+ *
+ * Returns: (array length=size): The value of the binary literal.
+ *
+ * Since: 0.12.0
+ */
+const guint8 *
+ggandiva_binary_literal_node_get_value(GGandivaBinaryLiteralNode *node,
+                                       gsize *size)
+{
+  auto value = ggandiva_literal_node_get<std::string>(GGANDIVA_LITERAL_NODE(node));
+  if (size) {
+    *size = value.size();
+  }
+  return reinterpret_cast<const uint8_t*>(value.data());
 }
 
 G_END_DECLS
