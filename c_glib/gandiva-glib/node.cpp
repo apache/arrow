@@ -547,8 +547,7 @@ ggandiva_uint8_literal_node_new(guint8 value)
 guint8
 ggandiva_uint8_literal_node_get_value(GGandivaUInt8LiteralNode *node)
 {
-  auto value = ggandiva_literal_node_get<uint8_t>(GGANDIVA_LITERAL_NODE(node));
-  return static_cast<guint8>(value);
+  return ggandiva_literal_node_get<uint8_t>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
@@ -592,8 +591,7 @@ ggandiva_uint16_literal_node_new(guint16 value)
 guint16
 ggandiva_uint16_literal_node_get_value(GGandivaUInt16LiteralNode *node)
 {
-  auto value = ggandiva_literal_node_get<uint16_t>(GGANDIVA_LITERAL_NODE(node));
-  return static_cast<guint16>(value);
+  return ggandiva_literal_node_get<uint16_t>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
@@ -637,8 +635,7 @@ ggandiva_uint32_literal_node_new(guint32 value)
 guint32
 ggandiva_uint32_literal_node_get_value(GGandivaUInt32LiteralNode *node)
 {
-  auto value = ggandiva_literal_node_get<uint32_t>(GGANDIVA_LITERAL_NODE(node));
-  return static_cast<guint32>(value);
+  return ggandiva_literal_node_get<uint32_t>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
@@ -682,8 +679,7 @@ ggandiva_uint64_literal_node_new(guint64 value)
 guint64
 ggandiva_uint64_literal_node_get_value(GGandivaUInt64LiteralNode *node)
 {
-  auto value = ggandiva_literal_node_get<uint64_t>(GGANDIVA_LITERAL_NODE(node));
-  return static_cast<guint64>(value);
+  return ggandiva_literal_node_get<uint64_t>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
@@ -727,8 +723,7 @@ ggandiva_int8_literal_node_new(gint8 value)
 gint8
 ggandiva_int8_literal_node_get_value(GGandivaInt8LiteralNode *node)
 {
-  auto value = ggandiva_literal_node_get<int8_t>(GGANDIVA_LITERAL_NODE(node));
-  return static_cast<gint8>(value);
+  return ggandiva_literal_node_get<int8_t>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
@@ -772,8 +767,7 @@ ggandiva_int16_literal_node_new(gint16 value)
 gint16
 ggandiva_int16_literal_node_get_value(GGandivaInt16LiteralNode *node)
 {
-  auto value = ggandiva_literal_node_get<int16_t>(GGANDIVA_LITERAL_NODE(node));
-  return static_cast<gint16>(value);
+  return ggandiva_literal_node_get<int16_t>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
@@ -817,8 +811,7 @@ ggandiva_int32_literal_node_new(gint32 value)
 gint32
 ggandiva_int32_literal_node_get_value(GGandivaInt32LiteralNode *node)
 {
-  auto value = ggandiva_literal_node_get<int32_t>(GGANDIVA_LITERAL_NODE(node));
-  return static_cast<gint32>(value);
+  return ggandiva_literal_node_get<int32_t>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
@@ -862,8 +855,7 @@ ggandiva_int64_literal_node_new(gint64 value)
 gint64
 ggandiva_int64_literal_node_get_value(GGandivaInt64LiteralNode *node)
 {
-  auto value = ggandiva_literal_node_get<int64_t>(GGANDIVA_LITERAL_NODE(node));
-  return static_cast<gint64>(value);
+  return ggandiva_literal_node_get<int64_t>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
@@ -907,8 +899,7 @@ ggandiva_float_literal_node_new(gfloat value)
 gfloat
 ggandiva_float_literal_node_get_value(GGandivaFloatLiteralNode *node)
 {
-  auto value = ggandiva_literal_node_get<float>(GGANDIVA_LITERAL_NODE(node));
-  return static_cast<gfloat>(value);
+  return ggandiva_literal_node_get<float>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
@@ -952,8 +943,7 @@ ggandiva_double_literal_node_new(gdouble value)
 gdouble
 ggandiva_double_literal_node_get_value(GGandivaDoubleLiteralNode *node)
 {
-  auto value = ggandiva_literal_node_get<double>(GGANDIVA_LITERAL_NODE(node));
-  return static_cast<gdouble>(value);
+  return ggandiva_literal_node_get<double>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
