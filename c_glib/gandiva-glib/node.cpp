@@ -1040,7 +1040,7 @@ ggandiva_binary_literal_node_new(const guint8 *value,
 /**
  * ggandiva_binary_literal_node_get_value:
  * @node: A #GGandivaBinaryLiteralNode.
- * @size: (nullable) (out):
+ * @size: (out):
  *   The number of bytes of the value of the binary literal.
  *
  * Returns: (array length=size): The value of the binary literal.
@@ -1052,9 +1052,7 @@ ggandiva_binary_literal_node_get_value(GGandivaBinaryLiteralNode *node,
                                        gsize *size)
 {
   auto value = ggandiva_literal_node_get<std::string>(GGANDIVA_LITERAL_NODE(node));
-  if (size) {
-    *size = value.size();
-  }
+  *size = value.size();
   return reinterpret_cast<const uint8_t*>(value.data());
 }
 
