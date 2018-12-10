@@ -44,13 +44,15 @@ use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
 
+use csv as csv_crate;
+
 use crate::array::{ArrayRef, BinaryArray};
 use crate::builder::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
 
-use csv_crate::{StringRecord, StringRecordsIntoIter};
+use self::csv_crate::{StringRecord, StringRecordsIntoIter};
 
 /// CSV file reader
 pub struct Reader {
@@ -91,7 +93,7 @@ fn build_primitive_array<T: ArrowPrimitiveType>(
     rows: &[StringRecord],
     col_idx: &usize,
 ) -> Result<ArrayRef> {
-    let mut builder = PrimitiveArrayBuilder::<T>::new(rows.len() as i64);
+    let mut builder = PrimitiveArrayBuilder::<T>::new(rows.len());
     for row_index in 0..rows.len() {
         match rows[row_index].get(*col_idx) {
             Some(s) if s.len() > 0 => match s.parse::<T::Native>() {
@@ -161,7 +163,7 @@ impl Reader {
                     &DataType::Float32 => build_primitive_array::<Float32Type>(rows, i),
                     &DataType::Float64 => build_primitive_array::<Float64Type>(rows, i),
                     &DataType::Utf8 => {
-                        let values_builder: UInt8Builder = UInt8Builder::new(rows.len() as i64);
+                        let values_builder: UInt8Builder = UInt8Builder::new(rows.len());
                         let mut list_builder = ListArrayBuilder::new(values_builder);
                         for row_index in 0..rows.len() {
                             match rows[row_index].get(*i) {

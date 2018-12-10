@@ -45,9 +45,9 @@ impl Bitmap {
         self.bits.len()
     }
 
-    pub fn is_set(&self, i: i64) -> bool {
-        assert!(i < (self.bits.len() << 3) as i64);
-        unsafe { bit_util::get_bit_raw(self.bits.raw_data(), i as usize) }
+    pub fn is_set(&self, i: usize) -> bool {
+        assert!(i < (self.bits.len() << 3));
+        unsafe { bit_util::get_bit_raw(self.bits.raw_data(), i) }
     }
 }
 
