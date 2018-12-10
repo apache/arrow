@@ -15,6 +15,7 @@ knitr::opts_chunk$set(
   comment = "#>"
 )
 library(arrow, warn.conflicts = FALSE)
+library(tibble)
 ```
 
 # Install arrow
@@ -284,7 +285,7 @@ Now `buf` contains the complete stream as an in-memory byte buffer. We can read 
 ```{r}
 reader <- RecordBatchStreamReader(buf)
 # TODO change to reader$schema after #3104 is merged
-reader$schema()
+reader$schema
 
 batches <- reader$batches()
 length(batches)
