@@ -72,16 +72,9 @@ impl ArrayData {
                 } else {
                     0
                 }
-            },
-            Some(null_count) => null_count
+            }
+            Some(null_count) => null_count,
         };
-//        if null_count < 0 {
-//            null_count = if let Some(ref buf) = null_bit_buffer {
-//                len - bit_util::count_set_bits_offset(buf.data(), offset)
-//            } else {
-//                0
-//            };
-//        }
         let null_bitmap = null_bit_buffer.map(Bitmap::from);
         Self {
             data_type,

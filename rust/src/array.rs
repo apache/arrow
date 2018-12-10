@@ -504,10 +504,7 @@ pub struct BinaryArray {
 impl BinaryArray {
     /// Returns the element at index `i` as a byte slice.
     pub fn get_value(&self, i: usize) -> &[u8] {
-        assert!(
-            i < self.data.len(),
-            "BinaryArray out of bounds access"
-        );
+        assert!(i < self.data.len(), "BinaryArray out of bounds access");
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);

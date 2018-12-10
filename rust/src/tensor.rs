@@ -105,8 +105,7 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
                             i.len(),
                             "number of dimensions and number of dimension names differ"
                         )
-                    })
-                    .next();
+                    }).next();
             }
         };
         Self {
