@@ -145,6 +145,8 @@ pub type UInt64Array = PrimitiveArray<UInt64Type>;
 pub type Float32Array = PrimitiveArray<Float32Type>;
 pub type Float64Array = PrimitiveArray<Float64Type>;
 
+pub type BooleanArrayBuilder = PrimitiveArrayBuilder<BooleanType>;
+
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
     fn as_any(&self) -> &Any {
         self
@@ -294,15 +296,15 @@ where
         Ok(b.finish())
     }
 
-    pub fn eq(self, other: &PrimitiveArray<T>) -> Result<PrimitiveArray<BooleanType>> {
+    pub fn eq(self, other: &PrimitiveArray<T>) -> Result<BooleanArray> {
         self.bool_op(other, |a, b| a == b)
     }
 
-    pub fn neq(self, other: &PrimitiveArray<T>) -> Result<PrimitiveArray<BooleanType>> {
+    pub fn neq(self, other: &PrimitiveArray<T>) -> Result<BooleanArray> {
         self.bool_op(other, |a, b| a != b)
     }
 
-    pub fn lt(self, other: &PrimitiveArray<T>) -> Result<PrimitiveArray<BooleanType>> {
+    pub fn lt(self, other: &PrimitiveArray<T>) -> Result<BooleanArray> {
         self.bool_op(other, |a, b| match (a, b) {
             (None, _) => true,
             (_, None) => false,
@@ -310,7 +312,7 @@ where
         })
     }
 
-    pub fn lt_eq(self, other: &PrimitiveArray<T>) -> Result<PrimitiveArray<BooleanType>> {
+    pub fn lt_eq(self, other: &PrimitiveArray<T>) -> Result<BooleanArray> {
         self.bool_op(other, |a, b| match (a, b) {
             (None, _) => true,
             (_, None) => false,
@@ -318,7 +320,7 @@ where
         })
     }
 
-    pub fn gt(self, other: &PrimitiveArray<T>) -> Result<PrimitiveArray<BooleanType>> {
+    pub fn gt(self, other: &PrimitiveArray<T>) -> Result<BooleanArray> {
         self.bool_op(other, |a, b| match (a, b) {
             (None, _) => false,
             (_, None) => true,
@@ -326,7 +328,7 @@ where
         })
     }
 
-    pub fn gt_eq(self, other: &PrimitiveArray<T>) -> Result<PrimitiveArray<BooleanType>> {
+    pub fn gt_eq(self, other: &PrimitiveArray<T>) -> Result<BooleanArray> {
         self.bool_op(other, |a, b| match (a, b) {
             (None, _) => false,
             (_, None) => true,
@@ -334,7 +336,7 @@ where
         })
     }
 
-    fn bool_op<F>(self, other: &PrimitiveArray<T>, op: F) -> Result<PrimitiveArray<BooleanType>>
+    fn bool_op<F>(self, other: &PrimitiveArray<T>, op: F) -> Result<BooleanArray>
     where
         F: Fn(Option<T::Native>, Option<T::Native>) -> bool,
     {
@@ -343,7 +345,7 @@ where
                 "Cannot perform math operation on two batches of different length".to_string(),
             ));
         }
-        let mut b = PrimitiveArrayBuilder::<BooleanType>::new(self.len());
+        let mut b = BooleanArrayBuilder::new(self.len());
         for i in 0..self.data.len() {
             let index = i as i64;
             let l = if self.is_null(i) {
