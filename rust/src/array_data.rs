@@ -68,7 +68,7 @@ impl ArrayData {
         let null_count = match null_count {
             None => {
                 if let Some(ref buf) = null_bit_buffer {
-                    len - bit_util::count_set_bits_offset(buf.data(), offset)
+                    len.checked_sub(bit_util::count_set_bits_offset(buf.data(), offset)).unwrap()
                 } else {
                     0
                 }
