@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ADD_ARROW_TEST(json-basic-test)
+ADD_ARROW_TEST(json-parser-test)
 
 # Headers: top level
 file(GLOB_RECURSE ARROW_JSON_HEADERS "*.h")
