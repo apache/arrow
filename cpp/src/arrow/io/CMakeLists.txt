@@ -18,19 +18,27 @@
 # ----------------------------------------------------------------------
 # arrow_io : Arrow IO interfaces
 
-ADD_ARROW_TEST(io-buffered-test)
-ADD_ARROW_TEST(io-compressed-test)
-ADD_ARROW_TEST(io-file-test)
+ADD_ARROW_TEST(buffered-test
+  PREFIX "arrow-io")
+ADD_ARROW_TEST(compressed-test
+  PREFIX "arrow-io")
+ADD_ARROW_TEST(file-test
+  PREFIX "arrow-io")
 
 if (ARROW_HDFS AND NOT ARROW_BOOST_HEADER_ONLY)
-  ADD_ARROW_TEST(io-hdfs-test NO_VALGRIND)
+  ADD_ARROW_TEST(hdfs-test NO_VALGRIND
+    PREFIX "arrow-io")
 endif()
 
-ADD_ARROW_TEST(io-memory-test)
-ADD_ARROW_TEST(io-readahead-test)
+ADD_ARROW_TEST(memory-test
+  PREFIX "arrow-io")
+ADD_ARROW_TEST(readahead-test
+  PREFIX "arrow-io")
 
-ADD_ARROW_BENCHMARK(io-file-benchmark)
-ADD_ARROW_BENCHMARK(io-memory-benchmark)
+ADD_ARROW_BENCHMARK(file-benchmark
+  PREFIX "arrow-io")
+ADD_ARROW_BENCHMARK(memory-benchmark
+  PREFIX "arrow-io")
 
 # Headers: top level
 install(FILES

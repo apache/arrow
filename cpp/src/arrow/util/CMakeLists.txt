@@ -68,16 +68,16 @@ if (ARROW_BUILD_BENCHMARKS)
   add_library(arrow_benchmark_main benchmark_main.cc)
   if (APPLE)
     target_link_libraries(arrow_benchmark_main
-      benchmark_static
+      gbenchmark_static
     )
   elseif(MSVC)
     target_link_libraries(arrow_benchmark_main
-      benchmark_static
+      gbenchmark_static
       Shlwapi.lib
   )
   else()
     target_link_libraries(arrow_benchmark_main
-      benchmark_static
+      gbenchmark_static
       pthread
     )
   endif()

@@ -19,9 +19,12 @@
 # Messaging and interprocess communication
 
 ADD_ARROW_TEST(feather-test)
-ADD_ARROW_TEST(ipc-read-write-test)
-ADD_ARROW_TEST(ipc-json-simple-test)
-ADD_ARROW_TEST(ipc-json-test)
+ADD_ARROW_TEST(read-write-test
+  PREFIX "arrow-ipc")
+ADD_ARROW_TEST(json-simple-test
+  PREFIX "arrow-ipc")
+ADD_ARROW_TEST(json-test
+  PREFIX "arrow-ipc")
 
 if (NOT ARROW_BOOST_HEADER_ONLY)
   ADD_ARROW_TEST(json-integration-test
@@ -116,6 +119,6 @@ if (ARROW_BUILD_UTILITIES)
   target_link_libraries(stream-to-file ${UTIL_LINK_LIBS})
 endif()
 
-ADD_ARROW_BENCHMARK(ipc-read-write-benchmark)
-
+ADD_ARROW_BENCHMARK(read-write-benchmark
+  PREFIX "arrow-ipc")
 ADD_ARROW_FUZZING(ipc-fuzzing-test)

@@ -38,12 +38,12 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
   if (ARG_USE_STATIC_LINKING)
-    ADD_ARROW_TEST(${REL_TEST_NAME}
+    ADD_TEST_CASE(${REL_TEST_NAME}
       STATIC_LINK_LIBS ${PARQUET_STATIC_TEST_LINK_LIBS}
       PREFIX "parquet"
       LABELS "unittest;parquet")
   else()
-    ADD_ARROW_TEST(${REL_TEST_NAME}
+    ADD_TEST_CASE(${REL_TEST_NAME}
       STATIC_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS}
       PREFIX "parquet"
       LABELS "unittest;parquet")
