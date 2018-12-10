@@ -17,6 +17,7 @@
 
 apache-rat-*.jar
 arrow-src.tar
+arrow-src.tar.gz
 
 # Compiled source
 *.a
@@ -36,10 +37,18 @@ MANIFEST
 *.sln
 *.iml
 
+# Linux perf sample data
+perf.data
+perf.data.old
+
 cpp/.idea/
 cpp/apidoc/xml/
+docs/example.gz
+docs/example1.dat
+docs/example3.dat
 python/.eggs/
 python/doc/
+
 .vscode
 .idea/
 .pytest_cache/

@@ -15,15 +15,16 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-*************
-API Reference
-*************
+.. default-domain:: cpp
+.. highlight:: cpp
+
+Getting Started
+===============
 
 .. toctree::
-   :maxdepth: 3
 
-   api/support
-   api/memory
-   api/datatype
-   api/array
-   api/builder
+   overview
+   conventions
+   arrays
+   datatypes
+
