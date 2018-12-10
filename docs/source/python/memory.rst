@@ -35,8 +35,8 @@ Referencing and Allocating Memory
 pyarrow.Buffer
 --------------
 
-The :class:`~pyarrow.Buffer` object wraps the C++ ``arrow::Buffer`` type and is
-the primary tool for memory management in Apache Arrow in C++. It permits
+The :class:`Buffer` object wraps the C++ :cpp:class:`arrow::Buffer` type
+which is the primary tool for memory management in Apache Arrow in C++. It permits
 higher-level array classes to safely interact with memory which they may or may
 not own. ``arrow::Buffer`` can be zero-copy sliced to permit Buffers to cheaply
 reference other Buffers, while preserving memory lifetime and clean
@@ -46,8 +46,9 @@ There are many implementations of ``arrow::Buffer``, but they all provide a
 standard interface: a data pointer and length. This is similar to Python's
 built-in `buffer protocol` and ``memoryview`` objects.
 
-A :class:`~pyarrow.Buffer` can be created from any Python object which
-implements the buffer protocol. Let's consider a bytes object:
+A :class:`Buffer` can be created from any Python object implementing
+the buffer protocol by calling the :func:`py_buffer` function. Let's consider
+a bytes object:
 
 .. ipython:: python
 
@@ -61,18 +62,22 @@ implements the buffer protocol. Let's consider a bytes object:
 Creating a Buffer in this way does not allocate any memory; it is a zero-copy
 view on the memory exported from the ``data`` bytes object.
 
-The Buffer's ``to_pybytes`` method can convert to a Python byte string:
-
-.. ipython:: python
-
-   buf.to_pybytes()
+External memory, under the form of a raw pointer and size, can also be
+referenced using the :func:`foreign_buffer` function.
 
 Buffers can be used in circumstances where a Python buffer or memoryview is
-required, and such conversions are also zero-copy:
+required, and such conversions are zero-copy:
 
 .. ipython:: python
 
    memoryview(buf)
+
+The Buffer's :meth:`~Buffer.to_pybytes` method converts the Buffer's data to a
+Python bytestring (thus making a copy of the data):
+
+.. ipython:: python
+
+   buf.to_pybytes()
 
 Memory Pools
 ------------
