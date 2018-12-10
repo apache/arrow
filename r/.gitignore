@@ -1,5 +1,6 @@
 Meta
 doc
+docs
 inst/doc
 *.o
 *.o-*
