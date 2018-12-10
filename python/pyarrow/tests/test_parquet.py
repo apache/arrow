@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import OrderedDict
 import datetime
 import decimal
 import io
@@ -2224,6 +2225,34 @@ def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
 
 def test_writing_empty_lists():
     # ARROW-2591: [Python] Segmentation fault issue in pq.write_table
-    arr = pa.array([[], []], pa.list_(pa.int32()))
-    table = pa.Table.from_arrays([arr], ['test'])
+    arr1 = pa.array([[], []], pa.list_(pa.int32()))
+    table = pa.Table.from_arrays([arr1], ['list(int32)'])
     _check_roundtrip(table)
+
+
+def test_write_nested_zero_length_array_chunk_failure():
+    # Bug report in ARROW-3792
+    cols = OrderedDict(
+        int32=pa.int32(),
+        list_string=pa.list_(pa.string())
+    )
+    data = [[], [OrderedDict(int32=1, list_string=('G',)), ]]
+
+    # This produces a table with a column like
+    # <Column name='list_string' type=ListType(list<item: string>)>
+    # [
+    #   [],
+    #   [
+    #     [
+    #       "G"
+    #     ]
+    #   ]
+    # ]
+    #
+    # Each column is a ChunkedArray with 2 elements
+    my_arrays = [pa.array(batch, type=pa.struct(cols)).flatten()
+                 for batch in data]
+    my_batches = [pa.RecordBatch.from_arrays(batch, pa.schema(cols))
+                  for batch in my_arrays]
+    tbl = pa.Table.from_batches(my_batches, pa.schema(cols))
+    _check_roundtrip(tbl)
