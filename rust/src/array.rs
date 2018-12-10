@@ -141,8 +141,6 @@ pub type UInt64Array = PrimitiveArray<UInt64Type>;
 pub type Float32Array = PrimitiveArray<Float32Type>;
 pub type Float64Array = PrimitiveArray<Float64Type>;
 
-pub type BooleanArrayBuilder = PrimitiveArrayBuilder<BooleanType>;
-
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
     fn as_any(&self) -> &Any {
         self

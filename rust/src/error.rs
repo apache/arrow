@@ -19,7 +19,7 @@
 pub enum ArrowError {
     MemoryError(String),
     ParseError(String),
-    MathError(String),
+    ComputeError(String),
     DivideByZero,
 }
 

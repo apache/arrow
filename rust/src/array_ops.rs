@@ -89,7 +89,7 @@ where
     F: Fn(T::Native, T::Native) -> Result<T::Native>,
 {
     if left.len() != right.len() {
-        return Err(ArrowError::MathError(
+        return Err(ArrowError::ComputeError(
             "Cannot perform math operation on two batches of different length".to_string(),
         ));
     }
@@ -169,7 +169,7 @@ where
     F: Fn(Option<T::Native>, Option<T::Native>) -> bool,
 {
     if left.len() != right.len() {
-        return Err(ArrowError::MathError(
+        return Err(ArrowError::ComputeError(
             "Cannot perform math operation on two batches of different length".to_string(),
         ));
     }
@@ -216,7 +216,7 @@ mod tests {
             .err()
             .expect("should have failed due to different lengths");
         assert_eq!(
-            "MathError(\"Cannot perform math operation on two batches of different length\")",
+            "ComputeError(\"Cannot perform math operation on two batches of different length\")",
             format!("{:?}", e)
         );
     }
