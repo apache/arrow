@@ -58,7 +58,7 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
         1 * MILLION, 16 * THOUSAND,
         4);
     System.out.println("Time taken for projecting 1m records of add3 is " + timeTaken + "ms");
-    Assert.assertTrue(timeTaken <= 10 * toleranceRatio);
+    Assert.assertTrue(timeTaken <= 13 * toleranceRatio);
   }
 
   @Test
