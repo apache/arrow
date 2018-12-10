@@ -52,6 +52,9 @@ G_BEGIN_DECLS
  * #GGandivaLiteralNode is a base class for a node in the expression tree,
  * representing a literal.
  *
+ * #GGandivaBooleanLiteralNode is a class for a node in the expression tree,
+ * representing a boolean literal.
+ *
  * #GGandivaUInt8LiteralNode is a class for a node in the expression tree,
  * representing a 8-bit unsigned integer literal.
  *
@@ -520,7 +523,7 @@ ggandiva_uint8_literal_node_class_init(GGandivaUInt8LiteralNodeClass *klass)
 
 /**
  * ggandiva_uint8_literal_node_new:
- * @value: The value of the uint8 literal.
+ * @value: The value of the 8-bit unsigned integer literal.
  *
  * Returns: A newly created #GGandivaUInt8LiteralNode.
  *
@@ -537,7 +540,7 @@ ggandiva_uint8_literal_node_new(guint8 value)
  * ggandiva_uint8_literal_node_get_value:
  * @node: A #GGandivaUInt8LiteralNode.
  *
- * Returns: The value of the uint8 literal.
+ * Returns: The value of the 8-bit unsigned integer literal.
  *
  * Since: 0.12.0
  */
@@ -565,7 +568,7 @@ ggandiva_uint16_literal_node_class_init(GGandivaUInt16LiteralNodeClass *klass)
 
 /**
  * ggandiva_uint16_literal_node_new:
- * @value: The value of the uint16 literal.
+ * @value: The value of the 16-bit unsigned integer literal.
  *
  * Returns: A newly created #GGandivaUInt16LiteralNode.
  *
@@ -582,7 +585,7 @@ ggandiva_uint16_literal_node_new(guint16 value)
  * ggandiva_uint16_literal_node_get_value:
  * @node: A #GGandivaUInt16LiteralNode.
  *
- * Returns: The value of the uint16 literal.
+ * Returns: The value of the 16-bit unsigned integer literal.
  *
  * Since: 0.12.0
  */
@@ -610,7 +613,7 @@ ggandiva_uint32_literal_node_class_init(GGandivaUInt32LiteralNodeClass *klass)
 
 /**
  * ggandiva_uint32_literal_node_new:
- * @value: The value of the uint32 literal.
+ * @value: The value of the 32-bit unsigned integer literal.
  *
  * Returns: A newly created #GGandivaUInt32LiteralNode.
  *
@@ -627,7 +630,7 @@ ggandiva_uint32_literal_node_new(guint32 value)
  * ggandiva_uint32_literal_node_get_value:
  * @node: A #GGandivaUInt32LiteralNode.
  *
- * Returns: The value of the uint32 literal.
+ * Returns: The value of the 32-bit unsigned integer literal.
  *
  * Since: 0.12.0
  */
@@ -655,7 +658,7 @@ ggandiva_uint64_literal_node_class_init(GGandivaUInt64LiteralNodeClass *klass)
 
 /**
  * ggandiva_uint64_literal_node_new:
- * @value: The value of the uint64 literal.
+ * @value: The value of the 64-bit unsigned integer literal.
  *
  * Returns: A newly created #GGandivaUInt64LiteralNode.
  *
@@ -672,7 +675,7 @@ ggandiva_uint64_literal_node_new(guint64 value)
  * ggandiva_uint64_literal_node_get_value:
  * @node: A #GGandivaUInt64LiteralNode.
  *
- * Returns: The value of the uint64 literal.
+ * Returns: The value of the 64-bit unsigned integer literal.
  *
  * Since: 0.12.0
  */
@@ -700,7 +703,7 @@ ggandiva_int8_literal_node_class_init(GGandivaInt8LiteralNodeClass *klass)
 
 /**
  * ggandiva_int8_literal_node_new:
- * @value: The value of the int8 literal.
+ * @value: The value of the 8-bit integer literal.
  *
  * Returns: A newly created #GGandivaInt8LiteralNode.
  *
@@ -717,7 +720,7 @@ ggandiva_int8_literal_node_new(gint8 value)
  * ggandiva_int8_literal_node_get_value:
  * @node: A #GGandivaInt8LiteralNode.
  *
- * Returns: The value of the int8 literal.
+ * Returns: The value of the 8-bit integer literal.
  *
  * Since: 0.12.0
  */
@@ -745,7 +748,7 @@ ggandiva_int16_literal_node_class_init(GGandivaInt16LiteralNodeClass *klass)
 
 /**
  * ggandiva_int16_literal_node_new:
- * @value: The value of the int16 literal.
+ * @value: The value of the 16-bit integer literal.
  *
  * Returns: A newly created #GGandivaInt16LiteralNode.
  *
@@ -762,7 +765,7 @@ ggandiva_int16_literal_node_new(gint16 value)
  * ggandiva_int16_literal_node_get_value:
  * @node: A #GGandivaInt16LiteralNode.
  *
- * Returns: The value of the int16 literal.
+ * Returns: The value of the 16-bit integer literal.
  *
  * Since: 0.12.0
  */
@@ -790,7 +793,7 @@ ggandiva_int32_literal_node_class_init(GGandivaInt32LiteralNodeClass *klass)
 
 /**
  * ggandiva_int32_literal_node_new:
- * @value: The value of the int32 literal.
+ * @value: The value of the 32-bit integer literal.
  *
  * Returns: A newly created #GGandivaInt32LiteralNode.
  *
@@ -807,7 +810,7 @@ ggandiva_int32_literal_node_new(gint32 value)
  * ggandiva_int32_literal_node_get_value:
  * @node: A #GGandivaInt32LiteralNode.
  *
- * Returns: The value of the int32 literal.
+ * Returns: The value of the 32-bit integer literal.
  *
  * Since: 0.12.0
  */
@@ -835,7 +838,7 @@ ggandiva_int64_literal_node_class_init(GGandivaInt64LiteralNodeClass *klass)
 
 /**
  * ggandiva_int64_literal_node_new:
- * @value: The value of the int64 literal.
+ * @value: The value of the 64-bit integer literal.
  *
  * Returns: A newly created #GGandivaInt64LiteralNode.
  *
@@ -852,7 +855,7 @@ ggandiva_int64_literal_node_new(gint64 value)
  * ggandiva_int64_literal_node_get_value:
  * @node: A #GGandivaInt64LiteralNode.
  *
- * Returns: The value of the int64 literal.
+ * Returns: The value of the 64-bit integer literal.
  *
  * Since: 0.12.0
  */
@@ -880,7 +883,7 @@ ggandiva_float_literal_node_class_init(GGandivaFloatLiteralNodeClass *klass)
 
 /**
  * ggandiva_float_literal_node_new:
- * @value: The value of the float literal.
+ * @value: The value of the 32-bit floating point literal.
  *
  * Returns: A newly created #GGandivaFloatLiteralNode.
  *
@@ -897,7 +900,7 @@ ggandiva_float_literal_node_new(gfloat value)
  * ggandiva_float_literal_node_get_value:
  * @node: A #GGandivaFloatLiteralNode.
  *
- * Returns: The value of the float literal.
+ * Returns: The value of the 32-bit floating point literal.
  *
  * Since: 0.12.0
  */
@@ -925,7 +928,7 @@ ggandiva_double_literal_node_class_init(GGandivaDoubleLiteralNodeClass *klass)
 
 /**
  * ggandiva_double_literal_node_new:
- * @value: The value of the double literal.
+ * @value: The value of the 64-bit floating point literal.
  *
  * Returns: A newly created #GGandivaDoubleLiteralNode.
  *
@@ -942,7 +945,7 @@ ggandiva_double_literal_node_new(gdouble value)
  * ggandiva_double_literal_node_get_value:
  * @node: A #GGandivaDoubleLiteralNode.
  *
- * Returns: The value of the double literal.
+ * Returns: The value of the 64-bit floating point literal.
  *
  * Since: 0.12.0
  */
@@ -970,7 +973,7 @@ ggandiva_string_literal_node_class_init(GGandivaStringLiteralNodeClass *klass)
 
 /**
  * ggandiva_string_literal_node_new:
- * @value: The value of the string literal.
+ * @value: The value of the UTF-8 encoded string literal.
  *
  * Returns: A newly created #GGandivaStringLiteralNode.
  *
@@ -987,7 +990,7 @@ ggandiva_string_literal_node_new(const gchar *value)
  * ggandiva_string_literal_node_get_value:
  * @node: A #GGandivaStringLiteralNode.
  *
- * Returns: (transfer full): The value of the string literal.
+ * Returns: (transfer full): The value of the UTF-8 encoded string literal.
  *
  *   It should be freed with g_free() when no longer needed.
  *
