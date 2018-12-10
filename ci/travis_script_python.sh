@@ -38,7 +38,7 @@ conda activate $CONDA_ENV_DIR
 # We should use zlib in the target Python directory to avoid loading
 # wrong libpython on macOS at run-time. If we use zlib in
 # $ARROW_BUILD_TOOLCHAIN and libpython3.6m.dylib exists in both
-# $ARROW_BUILD_TOOLCHAIN and $CONDA_ENV_DIR, python-test uses
+# $ARROW_BUILD_TOOLCHAIN and $CONDA_ENV_DIR, arrow-python-test uses
 # libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN not $CONDA_ENV_DIR.
 # libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN doesn't have NumPy. So
 # python-test fails.
@@ -113,7 +113,7 @@ ninja install
 popd
 
 # python-test isn't run by travis_script_cpp.sh, exercise it here
-$ARROW_CPP_BUILD_DIR/$ARROW_BUILD_TYPE/python-test
+$ARROW_CPP_BUILD_DIR/$ARROW_BUILD_TYPE/arrow-python-test
 
 pushd $ARROW_PYTHON_DIR
 
