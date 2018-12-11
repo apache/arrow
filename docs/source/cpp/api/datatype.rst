@@ -133,3 +133,16 @@ Dictionary-encoded
 
 .. doxygenclass:: arrow::DictionaryType
    :members:
+
+Fields and Schemas
+==================
+
+.. doxygengroup:: schema-factories
+   :project: arrow_cpp
+   :content-only:
+
+.. doxygenclass:: arrow::Field
+   :members:
+
+.. doxygenclass:: arrow::Schema
+   :members:
