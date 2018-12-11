@@ -298,8 +298,10 @@ struct _GGandivaBinaryLiteralNodeClass
 GGandivaBinaryLiteralNode *
 ggandiva_binary_literal_node_new(const guint8 *value,
                                  gsize size);
+GBytes *
+ggandiva_binary_literal_node_get_value(GGandivaBinaryLiteralNode *node);
 const guint8 *
-ggandiva_binary_literal_node_get_value(GGandivaBinaryLiteralNode *node,
-                                       gsize *size);
+ggandiva_binary_literal_node_get_value_raw(GGandivaBinaryLiteralNode *node,
+                                           gsize *size);
 
 G_END_DECLS

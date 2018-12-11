@@ -23,6 +23,12 @@ class TestGandivaBinaryLiteralNode < Test::Unit::TestCase
   def test_value
     value = "\x00\x01\x02\x03\x04"
     literal_node = Gandiva::BinaryLiteralNode.new(value)
-    assert_equal(value, literal_node.value.pack("C*"))
+    assert_equal(value, literal_node.value.to_s)
+  end
+
+  def test_value_raw
+    value = [0, 1, 2, 3, 4]
+    literal_node = Gandiva::BinaryLiteralNode.new(value.pack("C*"))
+    assert_equal(value, literal_node.value_raw)
   end
 end
