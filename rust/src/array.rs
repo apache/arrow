@@ -200,39 +200,6 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
         &raw[offset..offset + len]
     }
 
-    /// Returns the minimum value in the array, according to the natural order.
-    pub fn min(&self) -> Option<T::Native> {
-        self.min_max_helper(|a, b| a < b)
-    }
-
-    /// Returns the maximum value in the array, according to the natural order.
-    pub fn max(&self) -> Option<T::Native> {
-        self.min_max_helper(|a, b| a > b)
-    }
-
-    fn min_max_helper<F>(&self, cmp: F) -> Option<T::Native>
-    where
-        F: Fn(T::Native, T::Native) -> bool,
-    {
-        let mut n: Option<T::Native> = None;
-        let data = self.data();
-        for i in 0..data.len() {
-            if data.is_null(i) {
-                continue;
-            }
-            let m = self.value(i);
-            match n {
-                None => n = Some(m),
-                Some(nn) => {
-                    if cmp(m, nn) {
-                        n = Some(m)
-                    }
-                }
-            }
-        }
-        n
-    }
-
     // Returns a new primitive array builder
     pub fn builder(capacity: usize) -> PrimitiveArrayBuilder<T> {
         PrimitiveArrayBuilder::<T>::new(capacity)
@@ -1216,20 +1183,6 @@ mod tests {
             .add_buffer(Buffer::from(&values[..]))
             .build();
         BinaryArray::from(array_data);
-    }
-
-    #[test]
-    fn test_buffer_array_min_max() {
-        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
-        assert_eq!(5, a.min().unwrap());
-        assert_eq!(9, a.max().unwrap());
-    }
-
-    #[test]
-    fn test_buffer_array_min_max_with_nulls() {
-        let a = Int32Array::from(vec![Some(5), None, None, Some(8), Some(9)]);
-        assert_eq!(5, a.min().unwrap());
-        assert_eq!(9, a.max().unwrap());
     }
 
     #[test]
