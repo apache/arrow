@@ -29,21 +29,19 @@ in-source and out-of-source builds with the latter one being preferred.
 
 Building Arrow requires:
 
-* A C++11-enabled compiler. On Linux, gcc 4.8 + g++ and higher should be sufficient.
-* autoconf
+* A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be sufficient.
 * CMake
 * Boost
-* Jemalloc
 
 On Ubuntu/Debian you can install the requirements with:
 
 ```shell
-sudo apt-get install cmake \
+sudo apt-get install build-essential\
+     cmake \
      libboost-dev \
      libboost-filesystem-dev \
      libboost-system-dev \
-     libjemalloc-dev \
-     autotools-dev
+     libboost-regex-dev
 ```
 
 On macOS, you can use [Homebrew][1]:
