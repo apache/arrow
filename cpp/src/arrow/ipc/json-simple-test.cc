@@ -34,6 +34,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
 
 #if defined(_MSC_VER)
 // "warning C4307: '+': integral constant overflow"

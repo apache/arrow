@@ -32,6 +32,7 @@ namespace arrow {
 class Array;
 struct ArrayData;
 class Status;
+class Table;
 
 /// \class RecordBatch
 /// \brief Collection of equal-length arrays matching a particular Schema

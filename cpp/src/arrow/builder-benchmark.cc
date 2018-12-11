@@ -177,6 +177,25 @@ static void BM_BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const 
   state.SetBytesProcessed(state.iterations() * iterations * value.size());
 }
 
+static void BM_BuildChunkedBinaryArray(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const int64_t iterations = 1 << 20;
+
+  std::string value = "1234567890";
+  while (state.KeepRunning()) {
+    // 1MB chunks
+    const int32_t chunksize = 1 << 20;
+    internal::ChunkedBinaryBuilder builder(chunksize);
+    for (int64_t i = 0; i < iterations; i++) {
+      ABORT_NOT_OK(builder.Append(reinterpret_cast<const uint8_t*>(value.data()),
+                                  static_cast<int32_t>(value.size())));
+    }
+    ArrayVector out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+  state.SetBytesProcessed(state.iterations() * iterations * value.size());
+}
+
 static void BM_BuildFixedSizeBinaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
   const int64_t iterations = 1 << 20;
@@ -372,6 +391,9 @@ BENCHMARK(BM_BuildAdaptiveUIntNoNullsScalarAppend)
     ->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_BuildBinaryArray)->Repetitions(kRepetitions)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildChunkedBinaryArray)
+    ->Repetitions(kRepetitions)
+    ->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildFixedSizeBinaryArray)
     ->Repetitions(kRepetitions)
     ->Unit(benchmark::kMicrosecond);

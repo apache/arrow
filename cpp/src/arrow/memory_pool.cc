@@ -17,18 +17,16 @@
 
 #include "arrow/memory_pool.h"
 
-#include <algorithm>
-#include <atomic>
-#include <cerrno>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
+#include <algorithm>  // IWYU pragma: keep
+#include <cstdlib>    // IWYU pragma: keep
+#include <cstring>    // IWYU pragma: keep
+#include <iostream>   // IWYU pragma: keep
 #include <limits>
 #include <memory>
 #include <sstream>  // IWYU pragma: keep
 
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging.h"  // IWYU pragma: keep
 
 #ifdef ARROW_JEMALLOC
 // Needed to support jemalloc 3 and 4

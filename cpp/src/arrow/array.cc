@@ -18,6 +18,7 @@
 #include "arrow/array.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <sstream>

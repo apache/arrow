@@ -1387,6 +1387,7 @@ Status PrimitiveImpl::NextBatch(int64_t records_to_read, std::shared_ptr<Array>*
     return ::arrow::Status::IOError(e.what());
   }
 
+  Datum result;
   switch (field_->type()->id()) {
     TRANSFER_CASE(BOOL, ::arrow::BooleanType, BooleanType)
     TRANSFER_CASE(UINT8, ::arrow::UInt8Type, Int32Type)

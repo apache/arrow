@@ -18,7 +18,6 @@
 #ifndef ARROW_ARRAY_H
 #define ARROW_ARRAY_H
 
-#include <cstddef>
 #include <cstdint>
 #include <iosfwd>
 #include <memory>
