@@ -30,6 +30,11 @@ if [ "$ARROW_CI_RUBY_AFFECTED" = "1" ]; then
             false
         fi
     }
+    # ARROW-3976 Old versions of git can cause failures when Homebrew prints a
+    # donation solicitation. Attempt to update git
+    git --version
+    run_brew install git
+
     run_brew update
     run_brew upgrade python
     run_brew uninstall postgis
