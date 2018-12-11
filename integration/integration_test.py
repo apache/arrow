@@ -1053,7 +1053,7 @@ class CPPTester(Tester):
         'ARROW_CPP_EXE_PATH',
         os.path.join(ARROW_HOME, 'cpp/build/debug'))
 
-    CPP_INTEGRATION_EXE = os.path.join(EXE_PATH, 'json-integration-test')
+    CPP_INTEGRATION_EXE = os.path.join(EXE_PATH, 'arrow-json-integration-test')
     STREAM_TO_FILE = os.path.join(EXE_PATH, 'stream-to-file')
     FILE_TO_STREAM = os.path.join(EXE_PATH, 'file-to-stream')
 
