@@ -34,25 +34,66 @@ test_that("feather read/write round trip", {
   expect_true(fs::file_exists(tf3))
 
   tab1 <- read_feather(tf1)
-  expect_is(tab1, "arrow::Table")
+  expect_is(tab1, "data.frame")
 
   tab2 <- read_feather(tf2)
-  expect_is(tab2, "arrow::Table")
+  expect_is(tab2, "data.frame")
 
   tab3 <- read_feather(tf3)
-  expect_is(tab3, "arrow::Table")
+  expect_is(tab3, "data.frame")
 
   # reading directly from arrow::io::MemoryMappedFile
   tab4 <- read_feather(mmap_open(tf3))
-  expect_is(tab4, "arrow::Table")
+  expect_is(tab4, "data.frame")
 
   # reading directly from arrow::io::ReadableFile
   tab5 <- read_feather(ReadableFile(tf3))
-  expect_is(tab5, "arrow::Table")
+  expect_is(tab5, "data.frame")
+
+  expect_equal(tib, tab1)
+  expect_equal(tib, tab2)
+  expect_equal(tib, tab3)
+  expect_equal(tib, tab4)
+  expect_equal(tib, tab5)
+})
+
+test_that("feather handles columns = <names>", {
+  tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
+
+  tf1 <- local_tempfile()
+  write_feather(tib, tf1)
+  expect_true(fs::file_exists(tf1))
+
+  tab1 <- read_feather(tf1, columns = c("x", "y"))
+  expect_is(tab1, "data.frame")
+
+  expect_equal(tib[, c("x", "y")], as_tibble(tab1))
+})
+
+test_that("feather handles columns = <integer>", {
+  tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
+
+  tf1 <- local_tempfile()
+  write_feather(tib, tf1)
+  expect_true(fs::file_exists(tf1))
+
+  tab1 <- read_feather(tf1, columns = 1:2)
+  expect_is(tab1, "data.frame")
+
+  expect_equal(tib[, c("x", "y")], as_tibble(tab1))
+})
+
+test_that("feather read/write round trip", {
+  tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
+
+  tf1 <- local_tempfile()
+  write_feather(tib, tf1)
+  expect_true(fs::file_exists(tf1))
+
+  tab1 <- read_feather(tf1, as_tibble = FALSE)
+  expect_is(tab1, "arrow::Table")
 
   expect_equal(tib, as_tibble(tab1))
-  expect_equal(tib, as_tibble(tab2))
-  expect_equal(tib, as_tibble(tab3))
-  expect_equal(tib, as_tibble(tab4))
-  expect_equal(tib, as_tibble(tab5))
 })
+
+

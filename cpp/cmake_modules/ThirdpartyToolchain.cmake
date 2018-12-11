@@ -627,7 +627,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  add_custom_target(runbenchmark ctest -L benchmark)
+  add_custom_target(benchmark ctest -L benchmark)
 
   if("$ENV{GBENCHMARK_HOME}" STREQUAL "")
     if(NOT MSVC)
@@ -664,11 +664,11 @@ if(ARROW_BUILD_BENCHMARKS)
   message(STATUS "GBenchmark include dir: ${GBENCHMARK_INCLUDE_DIR}")
   message(STATUS "GBenchmark static library: ${GBENCHMARK_STATIC_LIB}")
   include_directories(SYSTEM ${GBENCHMARK_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(benchmark
+  ADD_THIRDPARTY_LIB(gbenchmark
     STATIC_LIB ${GBENCHMARK_STATIC_LIB})
 
   if(GBENCHMARK_VENDORED)
-    add_dependencies(benchmark_static gbenchmark_ep)
+    add_dependencies(gbenchmark_static gbenchmark_ep)
   endif()
 endif()
 

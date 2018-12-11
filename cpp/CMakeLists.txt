@@ -793,18 +793,6 @@ endif()
 
 add_subdirectory(src/arrow)
 
-if(ARROW_FLIGHT)
-  add_subdirectory(src/arrow/flight)
-endif()
-
-if(ARROW_PYTHON)
-  add_subdirectory(src/arrow/python)
-endif()
-
-if(ARROW_HIVESERVER2)
-  add_subdirectory(src/arrow/dbi/hiveserver2)
-endif()
-
 if(ARROW_PARQUET)
   add_subdirectory(src/parquet)
   add_subdirectory(tools/parquet)

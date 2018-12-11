@@ -64,9 +64,6 @@ set(SRC_FILES annotator.cc
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS
   arrow_shared
-  ${BOOST_REGEX_LIBRARY}
-  ${BOOST_SYSTEM_LIBRARY}
-  ${BOOST_FILESYSTEM_LIBRARY}
   LLVM::LLVM_INTERFACE
   ${RE2_LIBRARY})
 
@@ -156,11 +153,11 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
   if (ARG_USE_STATIC_LINKING)
-    ADD_ARROW_TEST(${REL_TEST_NAME}
+    ADD_TEST_CASE(${REL_TEST_NAME}
       ${TEST_ARGUMENTS}
       STATIC_LINK_LIBS ${GANDIVA_STATIC_TEST_LINK_LIBS})
   else()
-    ADD_ARROW_TEST(${REL_TEST_NAME}
+    ADD_TEST_CASE(${REL_TEST_NAME}
       ${TEST_ARGUMENTS}
       STATIC_LINK_LIBS ${GANDIVA_SHARED_TEST_LINK_LIBS})
   endif()

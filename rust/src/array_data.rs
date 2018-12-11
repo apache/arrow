@@ -31,13 +31,13 @@ pub struct ArrayData {
     data_type: DataType,
 
     /// The number of elements in this array data
-    len: i64,
+    len: usize,
 
     /// The number of null elements in this array data
-    null_count: i64,
+    null_count: usize,
 
     /// The offset into this array data
-    offset: i64,
+    offset: usize,
 
     /// The buffers for this array data. Note that depending on the array types, this
     /// could hold different kinds of buffers (e.g., value buffer, value offset buffer)
@@ -54,25 +54,28 @@ pub struct ArrayData {
 }
 
 pub type ArrayDataRef = Arc<ArrayData>;
-pub const UNKNOWN_NULL_COUNT: i64 = -1;
 
 impl ArrayData {
     pub fn new(
         data_type: DataType,
-        len: i64,
-        mut null_count: i64,
+        len: usize,
+        null_count: Option<usize>,
         null_bit_buffer: Option<Buffer>,
-        offset: i64,
+        offset: usize,
         buffers: Vec<Buffer>,
         child_data: Vec<ArrayDataRef>,
     ) -> Self {
-        if null_count < 0 {
-            null_count = if let Some(ref buf) = null_bit_buffer {
-                len - bit_util::count_set_bits_offset(buf.data(), offset as usize)
-            } else {
-                0
-            };
-        }
+        let null_count = match null_count {
+            None => {
+                if let Some(ref buf) = null_bit_buffer {
+                    len.checked_sub(bit_util::count_set_bits_offset(buf.data(), offset))
+                        .unwrap()
+                } else {
+                    0
+                }
+            }
+            Some(null_count) => null_count,
+        };
         let null_bitmap = null_bit_buffer.map(Bitmap::from);
         Self {
             data_type,
@@ -106,7 +109,7 @@ impl ArrayData {
     }
 
     /// Returns whether the element at index `i` is null
-    pub fn is_null(&self, i: i64) -> bool {
+    pub fn is_null(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
             return !b.is_set(i);
         }
@@ -119,7 +122,7 @@ impl ArrayData {
     }
 
     /// Returns whether the element at index `i` is not null
-    pub fn is_valid(&self, i: i64) -> bool {
+    pub fn is_valid(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
             return b.is_set(i);
         }
@@ -127,17 +130,17 @@ impl ArrayData {
     }
 
     /// Returns the length (i.e., number of elements) of this array
-    pub fn len(&self) -> i64 {
+    pub fn len(&self) -> usize {
         self.len
     }
 
     /// Returns the offset of this array
-    pub fn offset(&self) -> i64 {
+    pub fn offset(&self) -> usize {
         self.offset
     }
 
     /// Returns the total number of nulls in this array
-    pub fn null_count(&self) -> i64 {
+    pub fn null_count(&self) -> usize {
         self.null_count
     }
 }
@@ -145,10 +148,10 @@ impl ArrayData {
 /// Builder for `ArrayData` type
 pub struct ArrayDataBuilder {
     data_type: DataType,
-    len: i64,
-    null_count: i64,
+    len: usize,
+    null_count: Option<usize>,
     null_bit_buffer: Option<Buffer>,
-    offset: i64,
+    offset: usize,
     buffers: Vec<Buffer>,
     child_data: Vec<ArrayDataRef>,
 }
@@ -158,7 +161,7 @@ impl ArrayDataBuilder {
         Self {
             data_type,
             len: 0,
-            null_count: UNKNOWN_NULL_COUNT,
+            null_count: None,
             null_bit_buffer: None,
             offset: 0,
             buffers: vec![],
@@ -166,13 +169,13 @@ impl ArrayDataBuilder {
         }
     }
 
-    pub fn len(mut self, n: i64) -> Self {
+    pub fn len(mut self, n: usize) -> Self {
         self.len = n;
         self
     }
 
-    pub fn null_count(mut self, n: i64) -> Self {
-        self.null_count = n;
+    pub fn null_count(mut self, n: usize) -> Self {
+        self.null_count = Some(n);
         self
     }
 
@@ -181,7 +184,7 @@ impl ArrayDataBuilder {
         self
     }
 
-    pub fn offset(mut self, n: i64) -> Self {
+    pub fn offset(mut self, n: usize) -> Self {
         self.offset = n;
         self
     }
@@ -230,7 +233,7 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let arr_data = ArrayData::new(DataType::Boolean, 10, 1, None, 2, vec![], vec![]);
+        let arr_data = ArrayData::new(DataType::Boolean, 10, Some(1), None, 2, vec![], vec![]);
         assert_eq!(10, arr_data.len());
         assert_eq!(1, arr_data.null_count());
         assert_eq!(2, arr_data.offset());
@@ -244,7 +247,7 @@ mod tests {
         let child_arr_data = Arc::new(ArrayData::new(
             DataType::Int32,
             10,
-            0,
+            Some(0),
             None,
             0,
             vec![],

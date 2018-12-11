@@ -95,7 +95,7 @@ where
     }
     let mut b = PrimitiveArrayBuilder::<T>::new(left.len());
     for i in 0..left.len() {
-        let index = i as i64;
+        let index = i;
         if left.is_null(i) || right.is_null(i) {
             b.push_null().unwrap();
         } else {
@@ -132,7 +132,7 @@ where
         if data.is_null(i) {
             continue;
         }
-        let m = array.value(i as i64);
+        let m = array.value(i);
         match n {
             None => n = Some(m),
             Some(nn) => {
@@ -215,7 +215,7 @@ where
     }
     let mut b = BooleanArray::builder(left.len());
     for i in 0..left.len() {
-        let index = i as i64;
+        let index = i;
         let l = if left.is_null(i) {
             None
         } else {

@@ -76,6 +76,15 @@ if [ "$#" -eq 2 ]; then
   git commit -m "[Release] Update .deb package names for $nextVersion"
   cd -
 
+  echo "prepare release ${version} in Rust crate"
+
+  cd "${SOURCE_DIR}/../../rust"
+  sed -i.bak -r -e "s/version = \"$version\"/version = \"$nextVersion\"/g" Cargo.toml
+  rm -f Cargo.toml.bak
+  git add Cargo.toml
+  git commit -m "[Release] Update Rust Cargo.toml version for $nextVersion"
+  cd -
+
   echo "Finish staging binary artifacts by running: sh dev/release/01-perform.sh"
 
 else

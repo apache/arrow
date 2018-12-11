@@ -98,7 +98,7 @@ class ConcreteConverter : public Converter {
 // ------------------------------------------------------------------------
 // Converter for null arrays
 
-class NullConverter : public ConcreteConverter<NullConverter> {
+class NullConverter final : public ConcreteConverter<NullConverter> {
  public:
   explicit NullConverter(const std::shared_ptr<DataType>& type) {
     type_ = type;
@@ -109,7 +109,7 @@ class NullConverter : public ConcreteConverter<NullConverter> {
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return builder_->AppendNull();
+      return AppendNull();
     }
     return JSONTypeError("null", json_obj.GetType());
   }
@@ -123,7 +123,7 @@ class NullConverter : public ConcreteConverter<NullConverter> {
 // ------------------------------------------------------------------------
 // Converter for boolean arrays
 
-class BooleanConverter : public ConcreteConverter<BooleanConverter> {
+class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
  public:
   explicit BooleanConverter(const std::shared_ptr<DataType>& type) {
     type_ = type;
@@ -134,7 +134,7 @@ class BooleanConverter : public ConcreteConverter<BooleanConverter> {
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return builder_->AppendNull();
+      return AppendNull();
     }
     if (json_obj.IsBool()) {
       return builder_->Append(json_obj.GetBool());
@@ -152,7 +152,7 @@ class BooleanConverter : public ConcreteConverter<BooleanConverter> {
 // Converter for int arrays
 
 template <typename Type>
-class IntegerConverter : public ConcreteConverter<IntegerConverter<Type>> {
+class IntegerConverter final : public ConcreteConverter<IntegerConverter<Type>> {
   using c_type = typename Type::c_type;
   static constexpr auto is_signed = std::is_signed<c_type>::value;
 
@@ -166,7 +166,7 @@ class IntegerConverter : public ConcreteConverter<IntegerConverter<Type>> {
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return builder_->AppendNull();
+      return AppendNull();
     }
     return AppendNumber(json_obj);
   }
@@ -220,7 +220,7 @@ class IntegerConverter : public ConcreteConverter<IntegerConverter<Type>> {
 // Converter for float arrays
 
 template <typename Type>
-class FloatConverter : public ConcreteConverter<FloatConverter<Type>> {
+class FloatConverter final : public ConcreteConverter<FloatConverter<Type>> {
   using c_type = typename Type::c_type;
 
  public:
@@ -233,7 +233,7 @@ class FloatConverter : public ConcreteConverter<FloatConverter<Type>> {
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return builder_->AppendNull();
+      return AppendNull();
     }
     if (json_obj.IsNumber()) {
       c_type v = static_cast<c_type>(json_obj.GetDouble());
@@ -252,7 +252,7 @@ class FloatConverter : public ConcreteConverter<FloatConverter<Type>> {
 // ------------------------------------------------------------------------
 // Converter for decimal arrays
 
-class DecimalConverter : public ConcreteConverter<DecimalConverter> {
+class DecimalConverter final : public ConcreteConverter<DecimalConverter> {
  public:
   explicit DecimalConverter(const std::shared_ptr<DataType>& type) {
     this->type_ = type;
@@ -264,7 +264,7 @@ class DecimalConverter : public ConcreteConverter<DecimalConverter> {
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return builder_->AppendNull();
+      return AppendNull();
     }
     if (json_obj.IsString()) {
       int32_t precision, scale;
@@ -292,7 +292,7 @@ class DecimalConverter : public ConcreteConverter<DecimalConverter> {
 // ------------------------------------------------------------------------
 // Converter for string arrays
 
-class StringConverter : public ConcreteConverter<StringConverter> {
+class StringConverter final : public ConcreteConverter<StringConverter> {
  public:
   explicit StringConverter(const std::shared_ptr<DataType>& type) {
     this->type_ = type;
@@ -303,7 +303,7 @@ class StringConverter : public ConcreteConverter<StringConverter> {
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return builder_->AppendNull();
+      return AppendNull();
     }
     if (json_obj.IsString()) {
       auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
@@ -322,7 +322,7 @@ class StringConverter : public ConcreteConverter<StringConverter> {
 // ------------------------------------------------------------------------
 // Converter for list arrays
 
-class ListConverter : public ConcreteConverter<ListConverter> {
+class ListConverter final : public ConcreteConverter<ListConverter> {
  public:
   explicit ListConverter(const std::shared_ptr<DataType>& type) { type_ = type; }
 
@@ -338,7 +338,7 @@ class ListConverter : public ConcreteConverter<ListConverter> {
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return builder_->AppendNull();
+      return AppendNull();
     }
     RETURN_NOT_OK(builder_->Append());
     // Extend the child converter with this JSON array
@@ -355,7 +355,7 @@ class ListConverter : public ConcreteConverter<ListConverter> {
 // ------------------------------------------------------------------------
 // Converter for struct arrays
 
-class StructConverter : public ConcreteConverter<StructConverter> {
+class StructConverter final : public ConcreteConverter<StructConverter> {
  public:
   explicit StructConverter(const std::shared_ptr<DataType>& type) { type_ = type; }
 

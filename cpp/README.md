@@ -82,7 +82,18 @@ environment variable (which requires the `locales` package or equivalent):
 export LC_ALL="en_US.UTF-8"
 ```
 
-## Building and Developing Parquet Libraries
+## Modular Build Targets
+
+Since there are several major parts of the C++ project, we have provided
+modular CMake targets for building each component along with its dependencies,
+unit tests, and benchmarks (if enabled):
+
+* `make arrow` for Arrow core libraries
+* `make parquet` for Parquet libraries
+* `make gandiva` for Gandiva (LLVM expression compiler) libraries
+* `make plasma` for Plasma libraries, server
+
+## Parquet Development Notes
 
 To build the C++ libraries for Apache Parquet, add the flag
 `-DARROW_PARQUET=ON` when invoking CMake. The Parquet libraries and unit tests
@@ -120,7 +131,7 @@ with the `--ARROW_BUILD_BENCHMARKS` parameter set correctly:
     cmake -DARROW_BUILD_BENCHMARKS=ON ..
 
 and instead of make unittest run either `make; ctest` to run both unit tests
-and benchmarks or `make runbenchmark` to run only the benchmark tests.
+and benchmarks or `make benchmark` to run only the benchmark tests.
 
 Benchmark logs will be placed in the build directory under `build/benchmark-logs`.
 

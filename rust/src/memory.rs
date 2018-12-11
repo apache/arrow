@@ -31,7 +31,7 @@ extern "C" {
 }
 
 #[cfg(windows)]
-pub fn allocate_aligned(size: i64) -> Result<*mut u8> {
+pub fn allocate_aligned(size: usize) -> Result<*mut u8> {
     let page = unsafe { _aligned_malloc(size as libc::size_t, ALIGNMENT as libc::size_t) };
     match page {
         0 => Err(ArrowError::MemoryError(
@@ -42,10 +42,10 @@ pub fn allocate_aligned(size: i64) -> Result<*mut u8> {
 }
 
 #[cfg(not(windows))]
-pub fn allocate_aligned(size: i64) -> Result<*mut u8> {
+pub fn allocate_aligned(size: usize) -> Result<*mut u8> {
     unsafe {
         let mut page: *mut libc::c_void = mem::uninitialized();
-        let result = libc::posix_memalign(&mut page, ALIGNMENT, size as usize);
+        let result = libc::posix_memalign(&mut page, ALIGNMENT, size);
         match result {
             0 => Ok(mem::transmute::<*mut libc::c_void, *mut u8>(page)),
             _ => Err(ArrowError::MemoryError(
@@ -72,7 +72,7 @@ pub fn free_aligned(p: *const u8) {
 pub fn reallocate(old_size: usize, new_size: usize, pointer: *const u8) -> Result<*const u8> {
     unsafe {
         let old_src = mem::transmute::<*const u8, *mut libc::c_void>(pointer);
-        let result = allocate_aligned(new_size as i64)?;
+        let result = allocate_aligned(new_size)?;
         let dst = mem::transmute::<*const u8, *mut libc::c_void>(result);
         libc::memcpy(dst, old_src, cmp::min(old_size, new_size));
         free_aligned(pointer);

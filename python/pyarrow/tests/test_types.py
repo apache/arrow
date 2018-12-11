@@ -19,11 +19,14 @@ from collections import OrderedDict
 
 import pickle
 import pytest
+import hypothesis as h
+import hypothesis.strategies as st
 
 import pandas as pd
 import numpy as np
 import pyarrow as pa
 import pyarrow.types as types
+import pyarrow.tests.strategies as past
 
 
 def get_many_types():
@@ -466,14 +469,26 @@ def test_field_metadata():
 
 
 def test_field_add_remove_metadata():
+    import collections
+
     f0 = pa.field('foo', pa.int32())
 
     assert f0.metadata is None
 
     metadata = {b'foo': b'bar', b'pandas': b'badger'}
+    metadata2 = collections.OrderedDict([
+        (b'a', b'alpha'),
+        (b'b', b'beta')
+    ])
 
     f1 = f0.add_metadata(metadata)
     assert f1.metadata == metadata
+
+    f2 = f0.add_metadata(metadata2)
+    assert f2.metadata == metadata2
+
+    with pytest.raises(TypeError):
+        f0.add_metadata([1, 2, 3])
 
     f3 = f1.remove_metadata()
     assert f3.metadata is None
@@ -533,3 +548,38 @@ def test_schema_from_pandas(data):
     schema = pa.Schema.from_pandas(df)
     expected = pa.Table.from_pandas(df).schema
     assert schema == expected
+
+
+@h.given(
+    past.all_types |
+    past.all_fields |
+    past.all_schemas
+)
+@h.example(
+    pa.field(name='', type=pa.null(), metadata={'0': '', '': ''})
+)
+def test_pickling(field):
+    data = pickle.dumps(field)
+    assert pickle.loads(data) == field
+
+
+@h.given(
+    st.lists(past.all_types) |
+    st.lists(past.all_fields) |
+    st.lists(past.all_schemas)
+)
+def test_hashing(items):
+    h.assume(
+        # well, this is still O(n^2), but makes the input unique
+        all(not a.equals(b) for i, a in enumerate(items) for b in items[:i])
+    )
+
+    container = {}
+    for i, item in enumerate(items):
+        assert hash(item) == hash(item)
+        container[item] = i
+
+    assert len(container) == len(items)
+
+    for i, item in enumerate(items):
+        assert container[item] == i

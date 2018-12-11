@@ -115,7 +115,7 @@ if (ARROW_BUILD_TESTS)
     STATIC_LINK_LIBS "${ARROW_HIVESERVER2_TEST_LINK_LIBS}"
     LABELS "arrow_hiveserver2"
   )
-  set_property(TARGET hiveserver2-test
+  set_property(TARGET arrow-hiveserver2-test
     APPEND_STRING PROPERTY COMPILE_FLAGS
     " -Wno-shadow-field")
 endif(ARROW_BUILD_TESTS)

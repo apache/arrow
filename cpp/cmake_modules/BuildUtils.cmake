@@ -290,7 +290,7 @@ endfunction()
 ############################################################
 # Add a new micro benchmark, with or without an executable that should be built.
 # If benchmarks are enabled then they will be run along side unit tests with ctest.
-# 'make runbenchmark' and 'make unittest' to build/run only benchmark or unittests,
+# 'make benchmark' and 'make unittest' to build/run only benchmark or unittests,
 # respectively.
 #
 # REL_BENCHMARK_NAME is the name of the benchmark app. It may be a single component
@@ -306,10 +306,10 @@ endfunction()
 # \arg PREFIX a string to append to the name of the benchmark executable. For
 # example, if you have src/arrow/foo/bar-benchmark.cc, then PREFIX "foo" will
 # create test executable foo-bar-benchmark
-function(ADD_ARROW_BENCHMARK REL_BENCHMARK_NAME)
+function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(options)
   set(one_value_args)
-  set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX)
+  set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX LABELS)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -329,7 +329,7 @@ function(ADD_ARROW_BENCHMARK REL_BENCHMARK_NAME)
     set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
     add_executable(${BENCHMARK_NAME} "${REL_BENCHMARK_NAME}.cc")
     target_link_libraries(${BENCHMARK_NAME} ${ARROW_BENCHMARK_LINK_LIBS})
-    add_dependencies(runbenchmark ${BENCHMARK_NAME})
+    add_dependencies(benchmark ${BENCHMARK_NAME})
     set(NO_COLOR "--color_print=false")
 
     if (ARG_EXTRA_LINK_LIBS)
@@ -345,9 +345,21 @@ function(ADD_ARROW_BENCHMARK REL_BENCHMARK_NAME)
     add_dependencies(${BENCHMARK_NAME} ${ARG_DEPENDENCIES})
   endif()
 
+  if (ARG_LABELS)
+    set(ARG_LABELS "${ARG_LABELS}")
+  else()
+    set(ARG_LABELS benchmark)
+  endif()
+
+  foreach (TEST_LABEL ${ARG_LABELS})
+    add_dependencies(${TEST_LABEL} ${BENCHMARK_NAME})
+  endforeach()
+
   add_test(${BENCHMARK_NAME}
     ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} benchmark ${BENCHMARK_PATH} ${NO_COLOR})
-  set_tests_properties(${BENCHMARK_NAME} PROPERTIES LABELS "benchmark")
+  set_property(TEST ${BENCHMARK_NAME}
+    APPEND PROPERTY
+    LABELS ${ARG_LABELS})
 endfunction()
 
 ############################################################
@@ -377,7 +389,7 @@ endfunction()
 # multiple unit tests in some subgroup, you can assign a test to multiple
 # groups using the syntax unittest;GROUP2;GROUP3. Custom targets for the group
 # names must exist
-function(ADD_ARROW_TEST REL_TEST_NAME)
+function(ADD_TEST_CASE REL_TEST_NAME)
   set(options NO_VALGRIND ENABLED)
   set(one_value_args)
   set(multi_value_args SOURCES STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES
