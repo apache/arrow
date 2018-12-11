@@ -980,17 +980,15 @@ ggandiva_string_literal_node_new(const gchar *value)
  * ggandiva_string_literal_node_get_value:
  * @node: A #GGandivaStringLiteralNode.
  *
- * Returns: (transfer full): The value of the UTF-8 encoded string literal.
- *
- *   It should be freed with g_free() when no longer needed.
+ * Returns: The value of the UTF-8 encoded string literal.
  *
  * Since: 0.12.0
  */
-gchar *
+const gchar *
 ggandiva_string_literal_node_get_value(GGandivaStringLiteralNode *node)
 {
   auto value = ggandiva_literal_node_get<std::string>(GGANDIVA_LITERAL_NODE(node));
-  return g_strndup(value.data(), value.size());
+  return value.c_str();
 }
 
 

@@ -280,7 +280,7 @@ struct _GGandivaStringLiteralNodeClass
 
 GGandivaStringLiteralNode *
 ggandiva_string_literal_node_new(const gchar *value);
-gchar *
+const gchar *
 ggandiva_string_literal_node_get_value(GGandivaStringLiteralNode *node);
 
 
