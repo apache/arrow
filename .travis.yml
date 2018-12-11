@@ -50,8 +50,8 @@ matrix:
   - jdk: oraclejdk9
   - language: r
   include:
-  # Lint C++, Python, R
-  - os: linux
+  - name: "Lint C++, Python, R"
+    os: linux
     language: python
     python: "3.6"
     env:
@@ -62,8 +62,8 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
-  # C++ & Python w/ gcc 4.9
-  - compiler: gcc
+  - name: "C++ & Python w/ gcc 4.9"
+    compiler: gcc
     language: cpp
     os: linux
     jdk: openjdk8
@@ -102,8 +102,8 @@ matrix:
     - export PLASMA_VALGRIND=1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
-  # Gandiva C++ w/ gcc 4.9 and Java
-  - compiler: gcc
+  - name: "Gandiva C++ w/ gcc 4.9 and Java"
+    compiler: gcc
     language: cpp
     os: linux
     jdk: openjdk8
@@ -123,8 +123,8 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
-  # [OS X] C++ & Python w/ XCode 6.4
-  - compiler: clang
+  - name: "[OS X] C++ & Python w/ XCode 6.4"
+    compiler: clang
     language: cpp
     osx_image: xcode6.4
     os: osx
@@ -145,8 +145,8 @@ matrix:
     - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
-  # [OS X] Gandiva C++ w/ XCode 8.3 & Java
-  - compiler: clang
+  - name: "[OS X] Gandiva C++ w/ XCode 8.3 & Java"
+    compiler: clang
     language: cpp
     # xcode 7.3 has a bug in strptime.
     osx_image: xcode8.3
@@ -164,14 +164,14 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
-  # [manylinux1] Python
-  - language: cpp
+  - name: "[manylinux1] Python"
+    language: cpp
     before_script:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest; fi
     script:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh; fi
-  # Java w/ OpenJDK 8
-  - language: java
+  - name: "Java w/ OpenJDK 8"
+    language: java
     os: linux
     jdk: openjdk8
     before_script:
@@ -180,8 +180,8 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_javadoc.sh
-  # Java w/ Oracle JDK 9
-  - language: java
+  - name: "Java w/ Oracle JDK 9"
+    language: java
     os: linux
     jdk: oraclejdk9
     before_script:
@@ -192,8 +192,8 @@ matrix:
       apt:
         packages:
           - oracle-java9-installer
-  # Integration w/ OpenJDK 8
-  - language: java
+  - name: "Integration w/ OpenJDK 8"
+    language: java
     os: linux
     env: ARROW_TEST_GROUP=integration
     jdk: openjdk8
@@ -212,8 +212,8 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_plasma_java_client.sh
-  # NodeJS
-  - language: node_js
+  - name: "NodeJS"
+    language: node_js
     os: linux
     node_js:
     - '10.1'
@@ -223,8 +223,8 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
-  # C++ & GLib & Ruby w/ gcc 4.9
-  - compiler: gcc
+  - name: "C++ & GLib & Ruby w/ gcc 4.9"
+    compiler: gcc
     language: cpp
     os: linux
     env:
@@ -245,8 +245,8 @@ matrix:
     script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
     - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
-  # [OS X] C++ & GLib & Ruby w/ XCode 8.3 & homebrew
-  - compiler: clang
+  - name: "[OS X] C++ & GLib & Ruby w/ XCode 8.3 & homebrew"
+    compiler: clang
     osx_image: xcode8.3
     os: osx
     env:
@@ -266,8 +266,8 @@ matrix:
     script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
     - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
-  # Rust
-  - language: rust
+  - name: Rust
+    language: rust
     cache: cargo
     addons:
       apt:
@@ -289,8 +289,8 @@ matrix:
     - mkdir -p target/kcov
     - RUST_BACKTRACE=1 RUSTUP_TOOLCHAIN=stable cargo coverage --verbose
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
-  # Go
-  - language: go
+  - name: Go
+    language: go
     go_import_path: github.com/apache/arrow
     os: linux
     go:
@@ -302,8 +302,8 @@ matrix:
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/go/arrow
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
-  # R
-  - language: r
+  - name: R
+    language: r
     cache: packages
     latex: false
     before_install:
