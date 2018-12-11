@@ -1086,6 +1086,12 @@ ggandiva_binary_literal_node_new_bytes(GBytes *value)
 GBytes *
 ggandiva_binary_literal_node_get_value(GGandivaBinaryLiteralNode *node)
 {
+  auto priv = GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(node);
+  if (priv->value) {
+    g_bytes_ref(priv->value);
+    return priv->value;
+  }
+
   auto value = ggandiva_literal_node_get<std::string>(GGANDIVA_LITERAL_NODE(node));
   return g_bytes_new(value.data(), value.size());
 }
