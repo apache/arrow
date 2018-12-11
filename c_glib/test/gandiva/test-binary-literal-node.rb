@@ -18,17 +18,17 @@
 class TestGandivaBinaryLiteralNode < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
+    @value = "\x00\x01\x02\x03\x04"
   end
 
-  def test_value
-    value = "\x00\x01\x02\x03\x04"
-    literal_node = Gandiva::BinaryLiteralNode.new(value)
-    assert_equal(value, literal_node.value.to_s)
+  def test_new
+    literal_node = Gandiva::BinaryLiteralNode.new(@value)
+    assert_equal(@value, literal_node.value.to_s)
   end
 
-  def test_value_raw
-    value = [0, 1, 2, 3, 4]
-    literal_node = Gandiva::BinaryLiteralNode.new(value.pack("C*"))
-    assert_equal(value, literal_node.value_raw)
+  def test_new_bytes
+    bytes_value = GLib::Bytes.new(@value)
+    literal_node = Gandiva::BinaryLiteralNode.new(bytes_value)
+    assert_equal(@value, literal_node.value.to_s)
   end
 end

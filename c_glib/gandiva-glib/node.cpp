@@ -992,9 +992,71 @@ ggandiva_string_literal_node_get_value(GGandivaStringLiteralNode *node)
 }
 
 
-G_DEFINE_TYPE(GGandivaBinaryLiteralNode,
-              ggandiva_binary_literal_node,
-              GGANDIVA_TYPE_LITERAL_NODE)
+typedef struct GGandivaBinaryLiteralNodePrivate_ {
+  GBytes *value;
+} GGandivaBinaryLiteralNodePrivate;
+
+enum {
+  PROP_VALUE = 1
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GGandivaBinaryLiteralNode,
+                           ggandiva_binary_literal_node,
+                           GGANDIVA_TYPE_LITERAL_NODE)
+
+#define GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(object)                \
+  static_cast<GGandivaBinaryLiteralNodePrivate *>(                      \
+    ggandiva_binary_literal_node_get_instance_private(                  \
+      GGANDIVA_BINARY_LITERAL_NODE(object)))
+
+static void
+ggandiva_binary_literal_node_dispose(GObject *object)
+{
+  auto priv = GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(object);
+
+  if (priv->value) {
+    g_bytes_unref(priv->value);
+    priv->value = nullptr;
+  }
+
+  G_OBJECT_CLASS(ggandiva_binary_literal_node_parent_class)->dispose(object);
+}
+
+static void
+ggandiva_binary_literal_node_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto priv = GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_VALUE:
+    priv->value = static_cast<GBytes *>(g_value_dup_boxed(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+ggandiva_binary_literal_node_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto priv = GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_VALUE:
+    g_value_set_boxed(value, priv->value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 ggandiva_binary_literal_node_init(GGandivaBinaryLiteralNode *binary_literal_node)
@@ -1004,6 +1066,20 @@ ggandiva_binary_literal_node_init(GGandivaBinaryLiteralNode *binary_literal_node
 static void
 ggandiva_binary_literal_node_class_init(GGandivaBinaryLiteralNodeClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose      = ggandiva_binary_literal_node_dispose;
+  gobject_class->set_property = ggandiva_binary_literal_node_set_property;
+  gobject_class->get_property = ggandiva_binary_literal_node_get_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_boxed("value",
+                            "Value",
+                            "The value of the binary literal",
+                            G_TYPE_BYTES,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                     G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_VALUE, spec);
 }
 
 /**
@@ -1020,8 +1096,27 @@ ggandiva_binary_literal_node_new(const guint8 *value,
                                  gsize size)
 {
   auto gandiva_node =
-    gandiva::TreeExprBuilder::MakeBinaryLiteral(std::string(reinterpret_cast<const char*>(value),
-                                                            static_cast<size_t>(size)));
+    gandiva::TreeExprBuilder::MakeBinaryLiteral(std::string(reinterpret_cast<const char *>(value),
+                                                            size));
+  return GGANDIVA_BINARY_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+}
+
+/**
+ * ggandiva_binary_literal_node_new_bytes:
+ * @value: The value of the binary literal.
+ *
+ * Returns: A newly created #GGandivaBinaryLiteralNode.
+ *
+ * Since: 0.12.0
+ */
+GGandivaBinaryLiteralNode *
+ggandiva_binary_literal_node_new_bytes(GBytes *value)
+{
+  size_t value_size;
+  auto raw_value = g_bytes_get_data(value, &value_size);
+  auto gandiva_node =
+    gandiva::TreeExprBuilder::MakeBinaryLiteral(std::string(reinterpret_cast<const char *>(raw_value),
+                                                            value_size));
   return GGANDIVA_BINARY_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
 }
 
@@ -1038,25 +1133,6 @@ ggandiva_binary_literal_node_get_value(GGandivaBinaryLiteralNode *node)
 {
   auto value = ggandiva_literal_node_get<std::string>(GGANDIVA_LITERAL_NODE(node));
   return g_bytes_new(value.data(), value.size());
-}
-
-/**
- * ggandiva_binary_literal_node_get_value_raw:
- * @node: A #GGandivaBinaryLiteralNode.
- * @size: (out):
- *   The number of bytes of the value of the binary literal.
- *
- * Returns: (array length=size): The raw value of the binary literal.
- *
- * Since: 0.12.0
- */
-const guint8 *
-ggandiva_binary_literal_node_get_value_raw(GGandivaBinaryLiteralNode *node,
-                                           gsize *size)
-{
-  auto value = ggandiva_literal_node_get<std::string>(GGANDIVA_LITERAL_NODE(node));
-  *size = value.size();
-  return reinterpret_cast<const uint8_t *>(value.data());
 }
 
 G_END_DECLS
