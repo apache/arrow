@@ -27,7 +27,7 @@ use std::slice::from_raw_parts;
 use std::str::FromStr;
 
 use serde_derive::{Deserialize, Serialize};
-use serde_json::*;
+use serde_json::{json, Value};
 
 use crate::error::{ArrowError, Result};
 
