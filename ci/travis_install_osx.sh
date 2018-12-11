@@ -24,7 +24,7 @@ if [ "$ARROW_CI_RUBY_AFFECTED" = "1" ]; then
     brew_log_path=brew.log
     function run_brew() {
         echo brew "$@" >> ${brew_log_path}
-        if ! gtimeout --signal=KILL 5m brew "$@" >> ${brew_log_path} 2>&1; then
+        if ! gtimeout --signal=KILL 29m brew "$@" >> ${brew_log_path} 2>&1; then
             cat ${brew_log_path}
             rm ${brew_log_path}
             false
@@ -33,7 +33,7 @@ if [ "$ARROW_CI_RUBY_AFFECTED" = "1" ]; then
     # ARROW-3976 Old versions of git can cause failures when Homebrew prints a
     # donation solicitation. Attempt to update git
     git --version
-    run_brew install git
+    run_brew upgrade git
 
     run_brew update
     run_brew upgrade python
