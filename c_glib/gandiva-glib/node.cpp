@@ -31,7 +31,7 @@ Type
 ggandiva_literal_node_get(GGandivaLiteralNode *node)
 {
   auto gandiva_literal_node =
-    dynamic_cast<gandiva::LiteralNode*>(ggandiva_node_get_raw(GGANDIVA_NODE(node)).get());
+    std::static_pointer_cast<gandiva::LiteralNode>(ggandiva_node_get_raw(GGANDIVA_NODE(node)));
   return boost::get<Type>(gandiva_literal_node->holder());
 }
 
