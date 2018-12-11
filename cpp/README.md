@@ -60,7 +60,7 @@ Simple debug build:
     cd arrow/cpp
     mkdir debug
     cd debug
-    cmake ..
+    cmake -DARROW_BUILD_TESTS=ON ..
     make unittest
 
 Simple release build:
@@ -69,10 +69,14 @@ Simple release build:
     cd arrow/cpp
     mkdir release
     cd release
-    cmake .. -DCMAKE_BUILD_TYPE=Release
+    cmake -DARROW_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release ..
     make unittest
 
-Detailed unit test logs will be placed in the build directory under `build/test-logs`.
+If you do not need to build the test suite, you can omit the
+`ARROW_BUILD_TESTS` option (the default is not to build the unit tests).
+
+Detailed unit test logs will be placed in the build directory under
+`build/test-logs`.
 
 On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the
@@ -128,7 +132,7 @@ not use the macro.
 Follow the directions for simple build except run cmake
 with the `--ARROW_BUILD_BENCHMARKS` parameter set correctly:
 
-    cmake -DARROW_BUILD_BENCHMARKS=ON ..
+    cmake -DARROW_BUILD_TESTS=ON -DARROW_BUILD_BENCHMARKS=ON ..
 
 and instead of make unittest run either `make; ctest` to run both unit tests
 and benchmarks or `make benchmark` to run only the benchmark tests.
@@ -261,7 +265,7 @@ The optional `gandiva` libraries and tests can be built by passing
 `-DARROW_GANDIVA=on`.
 
 ```shell
-cmake .. -DARROW_GANDIVA=on
+cmake .. -DARROW_GANDIVA=ON -DARROW_BUILD_TESTS=ON
 make
 ctest -L gandiva
 ```

@@ -34,6 +34,7 @@ if "%JOB%" == "Static_Crt_Build" (
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
+        -DARROW_BUILD_TESTS=ON ^
         -DCMAKE_BUILD_TYPE=Debug ^
         -DARROW_TEST_LINKAGE=static ^
         -DARROW_CXXFLAGS="/MP" ^
@@ -51,6 +52,7 @@ if "%JOB%" == "Static_Crt_Build" (
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
+        -DARROW_BUILD_TESTS=ON ^
         -DCMAKE_BUILD_TYPE=Release ^
         -DARROW_TEST_LINKAGE=static ^
         -DCMAKE_CXX_FLAGS_RELEASE="/MT %CMAKE_CXX_FLAGS_RELEASE%" ^
@@ -76,6 +78,7 @@ if "%JOB%" == "Build_Debug" (
   cmake -G "%GENERATOR%" ^
         -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
         -DARROW_BOOST_USE_SHARED=OFF ^
+        -DARROW_BUILD_TESTS=ON ^
         -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
         -DARROW_BUILD_STATIC=OFF ^
         -DARROW_CXXFLAGS="/MP" ^
