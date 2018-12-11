@@ -39,7 +39,14 @@ class Status;
 /// as one large array
 class ARROW_EXPORT ChunkedArray {
  public:
+  /// \brief Construct a chunked array from a vector of arrays
+  ///
+  /// The vector should be non-empty and all its elements should have the same
+  /// data type.
   explicit ChunkedArray(const ArrayVector& chunks);
+  /// \brief Construct a chunked array from a vector of arrays and a data type
+  ///
+  /// As the data type is passed explicitly, the vector may be empty.
   ChunkedArray(const ArrayVector& chunks, const std::shared_ptr<DataType>& type);
 
   /// \return the total length of the chunked array; computed on construction

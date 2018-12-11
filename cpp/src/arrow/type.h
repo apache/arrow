@@ -40,11 +40,11 @@ namespace arrow {
 class Array;
 class Field;
 
-/// \brief Main data type enumeration
-///
-/// This enumeration provides a quick way to interrogate the category
-/// of a DataType instance.
 struct Type {
+  /// \brief Main data type enumeration
+  ///
+  /// This enumeration provides a quick way to interrogate the category
+  /// of a DataType instance.
   enum type {
     /// A NULL type having no physical storage
     NA,
@@ -143,7 +143,7 @@ struct Type {
 /// nested type consisting of other data types, or another data type (e.g. a
 /// timestamp encoded as an int64).
 ///
-/// Simple datatypes may be entirely described by their Type id, but
+/// Simple datatypes may be entirely described by their Type::type id, but
 /// complex datatypes are usually parametric.
 class ARROW_EXPORT DataType {
  public:
@@ -624,6 +624,7 @@ class ARROW_EXPORT Date64Type : public DateType {
 };
 
 struct TimeUnit {
+  /// The unit for a time or timestamp DataType
   enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
 };
 
@@ -837,6 +838,9 @@ class ARROW_EXPORT Schema {
 // Parametric factory functions
 // Other factory functions are in type_fwd.h
 
+/// \addtogroup type-factories
+/// @{
+
 /// \brief Create a FixedSizeBinaryType instance
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
@@ -889,6 +893,8 @@ union_(const std::vector<std::shared_ptr<Array>>& children,
 std::shared_ptr<DataType> ARROW_EXPORT
 dictionary(const std::shared_ptr<DataType>& index_type,
            const std::shared_ptr<Array>& values, bool ordered = false);
+
+/// @}
 
 /// \brief Create a Field instance
 ///

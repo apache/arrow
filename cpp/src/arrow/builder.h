@@ -262,6 +262,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  /// \brief Append a single null element
   Status AppendNull() {
     ARROW_RETURN_NOT_OK(Reserve(1));
     memset(raw_data_ + length_, 0, sizeof(value_type));
@@ -343,12 +344,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  /// \brief Append a sequence of elements in one shot, with a specified nullmap
-  /// \param[in] values_begin InputIterator to the beginning of the values
-  /// \param[in] values_end InputIterator pointing to the end of the values
-  /// \param[in] valid_begin uint8_t* indication valid(1) or null(0) values.
-  ///  nullptr indicates all values are valid.
-  /// \return Status
+  // Same as above, with a pointer type ValidIter
   template <typename ValuesIter, typename ValidIter>
   typename std::enable_if<std::is_pointer<ValidIter>::value, Status>::type AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
@@ -719,12 +715,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  /// \brief Append a sequence of elements in one shot, with a specified nullmap
-  /// \param[in] values_begin InputIterator to the beginning of the values
-  /// \param[in] values_end InputIterator pointing to the end of the values
-  /// \param[in] valid_begin uint8_t* indication valid(1) or null(0) values.
-  ///  nullptr indicates all values are valid.
-  /// \return Status
+  // Same as above, for a pointer type ValidIter
   template <typename ValuesIter, typename ValidIter>
   typename std::enable_if<std::is_pointer<ValidIter>::value, Status>::type AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {

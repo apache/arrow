@@ -15,15 +15,45 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-*************
-API Reference
-*************
+==============
+Array Builders
+==============
 
-.. toctree::
-   :maxdepth: 3
+.. doxygenclass:: arrow::ArrayBuilder
+   :members:
 
-   api/support
-   api/memory
-   api/datatype
-   api/array
-   api/builder
+Concrete builder subclasses
+===========================
+
+.. doxygenclass:: arrow::NullBuilder
+   :members:
+
+.. doxygenclass:: arrow::BooleanBuilder
+   :members:
+
+.. doxygenclass:: arrow::PrimitiveBuilder
+   :members:
+
+.. doxygenclass:: arrow::NumericBuilder
+   :members:
+
+.. doxygenclass:: arrow::BinaryBuilder
+   :members:
+
+.. doxygenclass:: arrow::StringBuilder
+   :members:
+
+.. doxygenclass:: arrow::FixedSizeBinaryBuilder
+   :members:
+
+.. doxygenclass:: arrow::Decimal128Builder
+   :members:
+
+.. doxygenclass:: arrow::ListBuilder
+   :members:
+
+.. doxygenclass:: arrow::StructBuilder
+   :members:
+
+.. doxygenclass:: arrow::DictionaryBuilder
+   :members:

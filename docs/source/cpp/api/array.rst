@@ -15,19 +15,23 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Array types
-=============
+======
+Arrays
+======
 
 .. doxygenclass:: arrow::Array
    :project: arrow_cpp
    :members:
 
+Concrete array subclasses
+=========================
+
 .. doxygenclass:: arrow::DictionaryArray
    :project: arrow_cpp
    :members:
 
-non-nested array types
-----------------------
+Non-nested
+----------
 
 .. doxygenclass:: arrow::FlatArray
    :project: arrow_cpp
@@ -65,8 +69,8 @@ non-nested array types
    :project: arrow_cpp
    :members:
 
-nested array types
-------------------
+Nested
+------
 
 .. doxygenclass:: arrow::UnionArray
    :project: arrow_cpp
@@ -77,5 +81,12 @@ nested array types
    :members:
 
 .. doxygenclass:: arrow::StructArray
+   :project: arrow_cpp
+   :members:
+
+Chunked Arrays
+==============
+
+.. doxygenclass:: arrow::ChunkedArray
    :project: arrow_cpp
    :members:
