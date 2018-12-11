@@ -15,15 +15,15 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-*************
-API Reference
-*************
+Programming Support
+===================
 
-.. toctree::
-   :maxdepth: 3
+Error return and reporting
+--------------------------
 
-   api/support
-   api/memory
-   api/datatype
-   api/array
-   api/builder
+.. doxygenclass:: arrow::Status
+   :project: arrow_cpp
+   :members:
+
+.. doxygendefine:: ARROW_RETURN_NOT_OK
+

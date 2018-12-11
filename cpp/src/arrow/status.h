@@ -29,6 +29,7 @@
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
+/// \brief Propagate any non-successful Status to the caller
 #define ARROW_RETURN_NOT_OK(s)                                                      \
   do {                                                                              \
     ::arrow::Status _s = (s);                                                       \
@@ -41,6 +42,7 @@
 
 #else
 
+/// \brief Propagate any non-successful Status to the caller
 #define ARROW_RETURN_NOT_OK(s)           \
   do {                                   \
     ::arrow::Status _s = (s);            \
@@ -107,6 +109,14 @@ enum class StatusCode : char {
 class ARROW_MUST_USE_RESULT ARROW_EXPORT Status;
 #endif
 
+/// \brief Status outcome object (success or error)
+///
+/// The Status object is an object holding the outcome of an operation.
+/// The outcome is represented as a StatusCode, either success
+/// (StatusCode::OK) or an error (any other of the StatusCode enumeration values).
+///
+/// Additionally, if an error occurred, a specific error message is generally
+/// attached.
 class ARROW_EXPORT Status {
  public:
   // Create a success status.
@@ -135,45 +145,54 @@ class ARROW_EXPORT Status {
   Status& operator&=(const Status& s) noexcept;
   Status& operator&=(Status&& s) noexcept;
 
-  // Return a success status.
+  /// Return a success status
   static Status OK() { return Status(); }
 
-  // Return a success status with extra info
+  /// Return a success status with a specific message
   static Status OK(const std::string& msg) { return Status(StatusCode::OK, msg); }
 
-  // Return error status of an appropriate type.
+  /// Return an error status for out-of-memory conditions
   static Status OutOfMemory(const std::string& msg) {
     return Status(StatusCode::OutOfMemory, msg);
   }
 
+  /// Return an error status for failed key lookups (e.g. column name in a table)
   static Status KeyError(const std::string& msg) {
     return Status(StatusCode::KeyError, msg);
   }
 
+  /// Return an error status for type errors (such as mismatching data types)
   static Status TypeError(const std::string& msg) {
     return Status(StatusCode::TypeError, msg);
   }
 
+  /// Return an error status for unknown errors
   static Status UnknownError(const std::string& msg) {
     return Status(StatusCode::UnknownError, msg);
   }
 
+  /// Return an error status when an operation or a combination of operation and
+  /// data types is unimplemented
   static Status NotImplemented(const std::string& msg) {
     return Status(StatusCode::NotImplemented, msg);
   }
 
+  /// Return an error status for invalid data (for example a string that fails parsing)
   static Status Invalid(const std::string& msg) {
     return Status(StatusCode::Invalid, msg);
   }
 
+  /// Return an error status when a container's capacity would exceed its limits
   static Status CapacityError(const std::string& msg) {
     return Status(StatusCode::CapacityError, msg);
   }
 
+  /// Return an error status when some IO-related operation failed
   static Status IOError(const std::string& msg) {
     return Status(StatusCode::IOError, msg);
   }
 
+  /// Return an error status when some (de)serialization operation failed
   static Status SerializationError(const std::string& msg) {
     return Status(StatusCode::SerializationError, msg);
   }
@@ -198,7 +217,6 @@ class ARROW_EXPORT Status {
 
   static Status StillExecuting() { return Status(StatusCode::StillExecuting, ""); }
 
-  // Return error status of an appropriate type.
   static Status CodeGenError(const std::string& msg) {
     return Status(StatusCode::CodeGenError, msg);
   }
@@ -211,34 +229,42 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::ExecutionError, msg);
   }
 
-  // Returns true iff the status indicates success.
+  /// Return true iff the status indicates success.
   bool ok() const { return (state_ == NULL); }
 
+  /// Return true iff the status indicates an out-of-memory error.
   bool IsOutOfMemory() const { return code() == StatusCode::OutOfMemory; }
+  /// Return true iff the status indicates a key lookup error.
   bool IsKeyError() const { return code() == StatusCode::KeyError; }
+  /// Return true iff the status indicates invalid data.
   bool IsInvalid() const { return code() == StatusCode::Invalid; }
+  /// Return true iff the status indicates an IO-related failure.
   bool IsIOError() const { return code() == StatusCode::IOError; }
+  /// Return true iff the status indicates a container reaching capacity limits.
   bool IsCapacityError() const { return code() == StatusCode::CapacityError; }
+  /// Return true iff the status indicates a type error.
   bool IsTypeError() const { return code() == StatusCode::TypeError; }
+  /// Return true iff the status indicates an unknown error.
   bool IsUnknownError() const { return code() == StatusCode::UnknownError; }
+  /// Return true iff the status indicates an unimplemented operation.
   bool IsNotImplemented() const { return code() == StatusCode::NotImplemented; }
-  // An object could not be serialized or deserialized.
+  /// Return true iff the status indicates a (de)serialization failure
   bool IsSerializationError() const { return code() == StatusCode::SerializationError; }
-  // An error from R
+  /// Return true iff the status indicates a R-originated error.
   bool IsRError() const { return code() == StatusCode::RError; }
-  // An error is propagated from a nested Python function.
+  /// Return true iff the status indicates a Python-originated error.
   bool IsPythonError() const { return code() == StatusCode::PythonError; }
-  // An object with this object ID already exists in the plasma store.
+  /// Return true iff the status indicates an already existing Plasma object.
   bool IsPlasmaObjectExists() const { return code() == StatusCode::PlasmaObjectExists; }
-  // An object was requested that doesn't exist in the plasma store.
+  /// Return true iff the status indicates a non-existent Plasma object.
   bool IsPlasmaObjectNonexistent() const {
     return code() == StatusCode::PlasmaObjectNonexistent;
   }
-  // An already sealed object is tried to be sealed again.
+  /// Return true iff the status indicates an already sealed Plasma object.
   bool IsPlasmaObjectAlreadySealed() const {
     return code() == StatusCode::PlasmaObjectAlreadySealed;
   }
-  // An object is too large to fit into the plasma store.
+  /// Return true iff the status indicates the Plasma store reached its capacity limit.
   bool IsPlasmaStoreFull() const { return code() == StatusCode::PlasmaStoreFull; }
 
   bool IsStillExecuting() const { return code() == StatusCode::StillExecuting; }
@@ -251,16 +277,19 @@ class ARROW_EXPORT Status {
 
   bool IsExecutionError() const { return code() == StatusCode::ExecutionError; }
 
-  // Return a string representation of this status suitable for printing.
-  // Returns the string "OK" for success.
+  /// \brief Return a string representation of this status suitable for printing.
+  ///
+  /// The string "OK" is returned for success.
   std::string ToString() const;
 
-  // Return a string representation of the status code, without the message
-  // text or posix code information.
+  /// \brief Return a string representation of the status code, without the message
+  /// text or POSIX code information.
   std::string CodeAsString() const;
 
+  /// \brief Return the StatusCode value attached to this status.
   StatusCode code() const { return ok() ? StatusCode::OK : state_->code; }
 
+  /// \brief Return the specific error message attached to this status.
   std::string message() const { return ok() ? "" : state_->msg; }
 
  private:

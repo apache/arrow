@@ -18,8 +18,8 @@
 Memory (management)
 ===================
 
-Basic containers
-----------------
+Buffers
+-------
 
 .. doxygenclass:: arrow::Buffer
    :project: arrow_cpp
