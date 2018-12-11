@@ -55,29 +55,29 @@ G_BEGIN_DECLS
  * #GGandivaBooleanLiteralNode is a class for a node in the expression tree,
  * representing a boolean literal.
  *
- * #GGandivaUInt8LiteralNode is a class for a node in the expression tree,
- * representing a 8-bit unsigned integer literal.
- *
  * #GGandivaInt8LiteralNode is a class for a node in the expression tree,
  * representing a 8-bit integer literal.
  *
- * #GGandivaUInt16LiteralNode is a class for a node in the expression tree,
- * representing a 16-bit unsigned integer literal.
+ * #GGandivaUInt8LiteralNode is a class for a node in the expression tree,
+ * representing a 8-bit unsigned integer literal.
  *
  * #GGandivaInt16LiteralNode is a class for a node in the expression tree,
  * representing a 16-bit integer literal.
  *
- * #GGandivaUInt32LiteralNode is a class for a node in the expression tree,
- * representing a 32-bit unsigned integer literal.
+ * #GGandivaUInt16LiteralNode is a class for a node in the expression tree,
+ * representing a 16-bit unsigned integer literal.
  *
  * #GGandivaInt32LiteralNode is a class for a node in the expression tree,
  * representing a 32-bit integer literal.
  *
- * #GGandivaUInt64LiteralNode is a class for a node in the expression tree,
- * representing a 64-bit unsigned integer literal.
+ * #GGandivaUInt32LiteralNode is a class for a node in the expression tree,
+ * representing a 32-bit unsigned integer literal.
  *
  * #GGandivaInt64LiteralNode is a class for a node in the expression tree,
  * representing a 64-bit integer literal.
+ *
+ * #GGandivaUInt64LiteralNode is a class for a node in the expression tree,
+ * representing a 64-bit unsigned integer literal.
  *
  * #GGandivaFloatLiteralNode is a class for a node in the expression tree,
  * representing a 32-bit floating point literal.
@@ -507,50 +507,6 @@ ggandiva_boolean_literal_node_get_value(GGandivaBooleanLiteralNode *node)
 }
 
 
-G_DEFINE_TYPE(GGandivaUInt8LiteralNode,
-              ggandiva_uint8_literal_node,
-              GGANDIVA_TYPE_LITERAL_NODE)
-
-static void
-ggandiva_uint8_literal_node_init(GGandivaUInt8LiteralNode *uint8_literal_node)
-{
-}
-
-static void
-ggandiva_uint8_literal_node_class_init(GGandivaUInt8LiteralNodeClass *klass)
-{
-}
-
-/**
- * ggandiva_uint8_literal_node_new:
- * @value: The value of the 8-bit unsigned integer literal.
- *
- * Returns: A newly created #GGandivaUInt8LiteralNode.
- *
- * Since: 0.12.0
- */
-GGandivaUInt8LiteralNode *
-ggandiva_uint8_literal_node_new(guint8 value)
-{
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_UINT8_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
-}
-
-/**
- * ggandiva_uint8_literal_node_get_value:
- * @node: A #GGandivaUInt8LiteralNode.
- *
- * Returns: The value of the 8-bit unsigned integer literal.
- *
- * Since: 0.12.0
- */
-guint8
-ggandiva_uint8_literal_node_get_value(GGandivaUInt8LiteralNode *node)
-{
-  return ggandiva_literal_node_get<uint8_t>(GGANDIVA_LITERAL_NODE(node));
-}
-
-
 G_DEFINE_TYPE(GGandivaInt8LiteralNode,
               ggandiva_int8_literal_node,
               GGANDIVA_TYPE_LITERAL_NODE)
@@ -595,47 +551,47 @@ ggandiva_int8_literal_node_get_value(GGandivaInt8LiteralNode *node)
 }
 
 
-G_DEFINE_TYPE(GGandivaUInt16LiteralNode,
-              ggandiva_uint16_literal_node,
+G_DEFINE_TYPE(GGandivaUInt8LiteralNode,
+              ggandiva_uint8_literal_node,
               GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
-ggandiva_uint16_literal_node_init(GGandivaUInt16LiteralNode *uint16_literal_node)
+ggandiva_uint8_literal_node_init(GGandivaUInt8LiteralNode *uint8_literal_node)
 {
 }
 
 static void
-ggandiva_uint16_literal_node_class_init(GGandivaUInt16LiteralNodeClass *klass)
+ggandiva_uint8_literal_node_class_init(GGandivaUInt8LiteralNodeClass *klass)
 {
 }
 
 /**
- * ggandiva_uint16_literal_node_new:
- * @value: The value of the 16-bit unsigned integer literal.
+ * ggandiva_uint8_literal_node_new:
+ * @value: The value of the 8-bit unsigned integer literal.
  *
- * Returns: A newly created #GGandivaUInt16LiteralNode.
+ * Returns: A newly created #GGandivaUInt8LiteralNode.
  *
  * Since: 0.12.0
  */
-GGandivaUInt16LiteralNode *
-ggandiva_uint16_literal_node_new(guint16 value)
+GGandivaUInt8LiteralNode *
+ggandiva_uint8_literal_node_new(guint8 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_UINT16_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_UINT8_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
 }
 
 /**
- * ggandiva_uint16_literal_node_get_value:
- * @node: A #GGandivaUInt16LiteralNode.
+ * ggandiva_uint8_literal_node_get_value:
+ * @node: A #GGandivaUInt8LiteralNode.
  *
- * Returns: The value of the 16-bit unsigned integer literal.
+ * Returns: The value of the 8-bit unsigned integer literal.
  *
  * Since: 0.12.0
  */
-guint16
-ggandiva_uint16_literal_node_get_value(GGandivaUInt16LiteralNode *node)
+guint8
+ggandiva_uint8_literal_node_get_value(GGandivaUInt8LiteralNode *node)
 {
-  return ggandiva_literal_node_get<uint16_t>(GGANDIVA_LITERAL_NODE(node));
+  return ggandiva_literal_node_get<uint8_t>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
@@ -683,47 +639,47 @@ ggandiva_int16_literal_node_get_value(GGandivaInt16LiteralNode *node)
 }
 
 
-G_DEFINE_TYPE(GGandivaUInt32LiteralNode,
-              ggandiva_uint32_literal_node,
+G_DEFINE_TYPE(GGandivaUInt16LiteralNode,
+              ggandiva_uint16_literal_node,
               GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
-ggandiva_uint32_literal_node_init(GGandivaUInt32LiteralNode *uint32_literal_node)
+ggandiva_uint16_literal_node_init(GGandivaUInt16LiteralNode *uint16_literal_node)
 {
 }
 
 static void
-ggandiva_uint32_literal_node_class_init(GGandivaUInt32LiteralNodeClass *klass)
+ggandiva_uint16_literal_node_class_init(GGandivaUInt16LiteralNodeClass *klass)
 {
 }
 
 /**
- * ggandiva_uint32_literal_node_new:
- * @value: The value of the 32-bit unsigned integer literal.
+ * ggandiva_uint16_literal_node_new:
+ * @value: The value of the 16-bit unsigned integer literal.
  *
- * Returns: A newly created #GGandivaUInt32LiteralNode.
+ * Returns: A newly created #GGandivaUInt16LiteralNode.
  *
  * Since: 0.12.0
  */
-GGandivaUInt32LiteralNode *
-ggandiva_uint32_literal_node_new(guint32 value)
+GGandivaUInt16LiteralNode *
+ggandiva_uint16_literal_node_new(guint16 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_UINT32_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_UINT16_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
 }
 
 /**
- * ggandiva_uint32_literal_node_get_value:
- * @node: A #GGandivaUInt32LiteralNode.
+ * ggandiva_uint16_literal_node_get_value:
+ * @node: A #GGandivaUInt16LiteralNode.
  *
- * Returns: The value of the 32-bit unsigned integer literal.
+ * Returns: The value of the 16-bit unsigned integer literal.
  *
  * Since: 0.12.0
  */
-guint32
-ggandiva_uint32_literal_node_get_value(GGandivaUInt32LiteralNode *node)
+guint16
+ggandiva_uint16_literal_node_get_value(GGandivaUInt16LiteralNode *node)
 {
-  return ggandiva_literal_node_get<uint32_t>(GGANDIVA_LITERAL_NODE(node));
+  return ggandiva_literal_node_get<uint16_t>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
@@ -771,47 +727,47 @@ ggandiva_int32_literal_node_get_value(GGandivaInt32LiteralNode *node)
 }
 
 
-G_DEFINE_TYPE(GGandivaUInt64LiteralNode,
-              ggandiva_uint64_literal_node,
+G_DEFINE_TYPE(GGandivaUInt32LiteralNode,
+              ggandiva_uint32_literal_node,
               GGANDIVA_TYPE_LITERAL_NODE)
 
 static void
-ggandiva_uint64_literal_node_init(GGandivaUInt64LiteralNode *uint64_literal_node)
+ggandiva_uint32_literal_node_init(GGandivaUInt32LiteralNode *uint32_literal_node)
 {
 }
 
 static void
-ggandiva_uint64_literal_node_class_init(GGandivaUInt64LiteralNodeClass *klass)
+ggandiva_uint32_literal_node_class_init(GGandivaUInt32LiteralNodeClass *klass)
 {
 }
 
 /**
- * ggandiva_uint64_literal_node_new:
- * @value: The value of the 64-bit unsigned integer literal.
+ * ggandiva_uint32_literal_node_new:
+ * @value: The value of the 32-bit unsigned integer literal.
  *
- * Returns: A newly created #GGandivaUInt64LiteralNode.
+ * Returns: A newly created #GGandivaUInt32LiteralNode.
  *
  * Since: 0.12.0
  */
-GGandivaUInt64LiteralNode *
-ggandiva_uint64_literal_node_new(guint64 value)
+GGandivaUInt32LiteralNode *
+ggandiva_uint32_literal_node_new(guint32 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_UINT64_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_UINT32_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
 }
 
 /**
- * ggandiva_uint64_literal_node_get_value:
- * @node: A #GGandivaUInt64LiteralNode.
+ * ggandiva_uint32_literal_node_get_value:
+ * @node: A #GGandivaUInt32LiteralNode.
  *
- * Returns: The value of the 64-bit unsigned integer literal.
+ * Returns: The value of the 32-bit unsigned integer literal.
  *
  * Since: 0.12.0
  */
-guint64
-ggandiva_uint64_literal_node_get_value(GGandivaUInt64LiteralNode *node)
+guint32
+ggandiva_uint32_literal_node_get_value(GGandivaUInt32LiteralNode *node)
 {
-  return ggandiva_literal_node_get<uint64_t>(GGANDIVA_LITERAL_NODE(node));
+  return ggandiva_literal_node_get<uint32_t>(GGANDIVA_LITERAL_NODE(node));
 }
 
 
@@ -856,6 +812,50 @@ gint64
 ggandiva_int64_literal_node_get_value(GGandivaInt64LiteralNode *node)
 {
   return ggandiva_literal_node_get<int64_t>(GGANDIVA_LITERAL_NODE(node));
+}
+
+
+G_DEFINE_TYPE(GGandivaUInt64LiteralNode,
+              ggandiva_uint64_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
+
+static void
+ggandiva_uint64_literal_node_init(GGandivaUInt64LiteralNode *uint64_literal_node)
+{
+}
+
+static void
+ggandiva_uint64_literal_node_class_init(GGandivaUInt64LiteralNodeClass *klass)
+{
+}
+
+/**
+ * ggandiva_uint64_literal_node_new:
+ * @value: The value of the 64-bit unsigned integer literal.
+ *
+ * Returns: A newly created #GGandivaUInt64LiteralNode.
+ *
+ * Since: 0.12.0
+ */
+GGandivaUInt64LiteralNode *
+ggandiva_uint64_literal_node_new(guint64 value)
+{
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
+  return GGANDIVA_UINT64_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+}
+
+/**
+ * ggandiva_uint64_literal_node_get_value:
+ * @node: A #GGandivaUInt64LiteralNode.
+ *
+ * Returns: The value of the 64-bit unsigned integer literal.
+ *
+ * Since: 0.12.0
+ */
+guint64
+ggandiva_uint64_literal_node_get_value(GGandivaUInt64LiteralNode *node)
+{
+  return ggandiva_literal_node_get<uint64_t>(GGANDIVA_LITERAL_NODE(node));
 }
 
 

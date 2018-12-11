@@ -97,23 +97,6 @@ gboolean
 ggandiva_boolean_literal_node_get_value(GGandivaBooleanLiteralNode *node);
 
 
-#define GGANDIVA_TYPE_UINT8_LITERAL_NODE (ggandiva_uint8_literal_node_get_type())
-G_DECLARE_DERIVABLE_TYPE(GGandivaUInt8LiteralNode,
-                         ggandiva_uint8_literal_node,
-                         GGANDIVA,
-                         UINT8_LITERAL_NODE,
-                         GGandivaLiteralNode)
-struct _GGandivaUInt8LiteralNodeClass
-{
-  GGandivaLiteralNodeClass parent_class;
-};
-
-GGandivaUInt8LiteralNode *
-ggandiva_uint8_literal_node_new(guint8 value);
-guint8
-ggandiva_uint8_literal_node_get_value(GGandivaUInt8LiteralNode *node);
-
-
 #define GGANDIVA_TYPE_INT8_LITERAL_NODE (ggandiva_int8_literal_node_get_type())
 G_DECLARE_DERIVABLE_TYPE(GGandivaInt8LiteralNode,
                          ggandiva_int8_literal_node,
@@ -131,21 +114,21 @@ gint8
 ggandiva_int8_literal_node_get_value(GGandivaInt8LiteralNode *node);
 
 
-#define GGANDIVA_TYPE_UINT16_LITERAL_NODE (ggandiva_uint16_literal_node_get_type())
-G_DECLARE_DERIVABLE_TYPE(GGandivaUInt16LiteralNode,
-                         ggandiva_uint16_literal_node,
+#define GGANDIVA_TYPE_UINT8_LITERAL_NODE (ggandiva_uint8_literal_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaUInt8LiteralNode,
+                         ggandiva_uint8_literal_node,
                          GGANDIVA,
-                         UINT16_LITERAL_NODE,
+                         UINT8_LITERAL_NODE,
                          GGandivaLiteralNode)
-struct _GGandivaUInt16LiteralNodeClass
+struct _GGandivaUInt8LiteralNodeClass
 {
   GGandivaLiteralNodeClass parent_class;
 };
 
-GGandivaUInt16LiteralNode *
-ggandiva_uint16_literal_node_new(guint16 value);
-guint16
-ggandiva_uint16_literal_node_get_value(GGandivaUInt16LiteralNode *node);
+GGandivaUInt8LiteralNode *
+ggandiva_uint8_literal_node_new(guint8 value);
+guint8
+ggandiva_uint8_literal_node_get_value(GGandivaUInt8LiteralNode *node);
 
 
 #define GGANDIVA_TYPE_INT16_LITERAL_NODE (ggandiva_int16_literal_node_get_type())
@@ -165,21 +148,21 @@ gint16
 ggandiva_int16_literal_node_get_value(GGandivaInt16LiteralNode *node);
 
 
-#define GGANDIVA_TYPE_UINT32_LITERAL_NODE (ggandiva_uint32_literal_node_get_type())
-G_DECLARE_DERIVABLE_TYPE(GGandivaUInt32LiteralNode,
-                         ggandiva_uint32_literal_node,
+#define GGANDIVA_TYPE_UINT16_LITERAL_NODE (ggandiva_uint16_literal_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaUInt16LiteralNode,
+                         ggandiva_uint16_literal_node,
                          GGANDIVA,
-                         UINT32_LITERAL_NODE,
+                         UINT16_LITERAL_NODE,
                          GGandivaLiteralNode)
-struct _GGandivaUInt32LiteralNodeClass
+struct _GGandivaUInt16LiteralNodeClass
 {
   GGandivaLiteralNodeClass parent_class;
 };
 
-GGandivaUInt32LiteralNode *
-ggandiva_uint32_literal_node_new(guint32 value);
-guint32
-ggandiva_uint32_literal_node_get_value(GGandivaUInt32LiteralNode *node);
+GGandivaUInt16LiteralNode *
+ggandiva_uint16_literal_node_new(guint16 value);
+guint16
+ggandiva_uint16_literal_node_get_value(GGandivaUInt16LiteralNode *node);
 
 
 #define GGANDIVA_TYPE_INT32_LITERAL_NODE (ggandiva_int32_literal_node_get_type())
@@ -199,21 +182,21 @@ gint32
 ggandiva_int32_literal_node_get_value(GGandivaInt32LiteralNode *node);
 
 
-#define GGANDIVA_TYPE_UINT64_LITERAL_NODE (ggandiva_uint64_literal_node_get_type())
-G_DECLARE_DERIVABLE_TYPE(GGandivaUInt64LiteralNode,
-                         ggandiva_uint64_literal_node,
+#define GGANDIVA_TYPE_UINT32_LITERAL_NODE (ggandiva_uint32_literal_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaUInt32LiteralNode,
+                         ggandiva_uint32_literal_node,
                          GGANDIVA,
-                         UINT64_LITERAL_NODE,
+                         UINT32_LITERAL_NODE,
                          GGandivaLiteralNode)
-struct _GGandivaUInt64LiteralNodeClass
+struct _GGandivaUInt32LiteralNodeClass
 {
   GGandivaLiteralNodeClass parent_class;
 };
 
-GGandivaUInt64LiteralNode *
-ggandiva_uint64_literal_node_new(guint64 value);
-guint64
-ggandiva_uint64_literal_node_get_value(GGandivaUInt64LiteralNode *node);
+GGandivaUInt32LiteralNode *
+ggandiva_uint32_literal_node_new(guint32 value);
+guint32
+ggandiva_uint32_literal_node_get_value(GGandivaUInt32LiteralNode *node);
 
 
 #define GGANDIVA_TYPE_INT64_LITERAL_NODE (ggandiva_int64_literal_node_get_type())
@@ -231,6 +214,23 @@ GGandivaInt64LiteralNode *
 ggandiva_int64_literal_node_new(gint64 value);
 gint64
 ggandiva_int64_literal_node_get_value(GGandivaInt64LiteralNode *node);
+
+
+#define GGANDIVA_TYPE_UINT64_LITERAL_NODE (ggandiva_uint64_literal_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaUInt64LiteralNode,
+                         ggandiva_uint64_literal_node,
+                         GGANDIVA,
+                         UINT64_LITERAL_NODE,
+                         GGandivaLiteralNode)
+struct _GGandivaUInt64LiteralNodeClass
+{
+  GGandivaLiteralNodeClass parent_class;
+};
+
+GGandivaUInt64LiteralNode *
+ggandiva_uint64_literal_node_new(guint64 value);
+guint64
+ggandiva_uint64_literal_node_get_value(GGandivaUInt64LiteralNode *node);
 
 
 #define GGANDIVA_TYPE_FLOAT_LITERAL_NODE (ggandiva_float_literal_node_get_type())
