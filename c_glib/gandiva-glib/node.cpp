@@ -1019,8 +1019,9 @@ ggandiva_binary_literal_node_new_bytes(GBytes *value)
   size_t value_size;
   auto raw_value = g_bytes_get_data(value, &value_size);
   auto gandiva_node =
-    gandiva::TreeExprBuilder::MakeBinaryLiteral(std::string(reinterpret_cast<const char *>(raw_value),
-                                                            value_size));
+    gandiva::TreeExprBuilder::MakeBinaryLiteral(
+      std::string(reinterpret_cast<const char *>(raw_value),
+                  value_size));
   auto literal_node =
     ggandiva_literal_node_new_raw(&gandiva_node);
   auto priv = GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(literal_node);
