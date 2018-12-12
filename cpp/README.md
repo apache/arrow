@@ -36,9 +36,13 @@ Building Arrow requires:
 On Ubuntu/Debian you can install the requirements with:
 
 ```shell
-sudo apt-get install cmake \
+sudo apt-get install \
+     autoconf \
+     build-essential \
+     cmake \
      libboost-dev \
      libboost-filesystem-dev \
+     libboost-regex-dev \
      libboost-system-dev
 ```
 
