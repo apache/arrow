@@ -36,6 +36,7 @@ if (NOT ARROW_BOOST_HEADER_ONLY)
 
   # Test is being built
   if (TARGET arrow-json-integration-test)
+    add_dependencies(integration arrow-json-integration-test)
     if (UNIX)
       if (APPLE)
         set_target_properties(arrow-json-integration-test
@@ -45,8 +46,6 @@ if (NOT ARROW_BOOST_HEADER_ONLY)
       endif()
     endif()
   endif()
-
-  add_dependencies(integration arrow-json-integration-test)
 endif()
 
 # make clean will delete the generated file
