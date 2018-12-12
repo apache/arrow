@@ -118,7 +118,8 @@ class ARROW_EXPORT ArrayBuilder {
   virtual Status FinishInternal(std::shared_ptr<ArrayData>* out) = 0;
 
   /// \brief Return result of builder as an Array object.
-  ///        Resets the builder except for DictionaryBuilder
+  ///
+  /// The builder is reset except for DictionaryBuilder.
   ///
   /// \param[out] out the finalized Array object
   /// \return Status

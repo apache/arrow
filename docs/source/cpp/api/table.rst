@@ -15,17 +15,38 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-C++ Implementation
-==================
+========================
+Two-dimensional Datasets
+========================
 
-.. toctree::
-   :maxdepth: 2
+Columns
+=======
 
-   getting_started
-   api
+.. doxygenclass:: arrow::Column
+   :project: arrow_cpp
+   :members:
 
-.. TODO add "topics" chapter
-.. - nested arrays
-.. - dictionary encoding
+Tables
+======
 
-.. TODO add "building" or "development" chapter
+.. doxygenclass:: arrow::Table
+   :project: arrow_cpp
+   :members:
+
+.. doxygenfunction:: arrow::ConcatenateTables
+   :project: arrow_cpp
+
+Record Batches
+==============
+
+.. doxygenclass:: arrow::RecordBatch
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::RecordBatchReader
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::TableBatchReader
+   :project: arrow_cpp
+   :members:

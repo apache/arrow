@@ -25,6 +25,7 @@ Getting Started
 
    overview
    conventions
+   memory
    arrays
    datatypes
-
+   tables

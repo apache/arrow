@@ -142,6 +142,7 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
   std::unique_ptr<ProxyMemoryPoolImpl> impl_;
 };
 
+/// Return the process-wide default memory pool.
 ARROW_EXPORT MemoryPool* default_memory_pool();
 
 #ifdef ARROW_NO_DEFAULT_MEMORY_POOL
