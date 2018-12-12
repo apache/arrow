@@ -122,6 +122,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow micro benchmarks, default OFF"
     OFF)
 
+  option(ARROW_BUILD_EXAMPLES
+    "Build the Arrow examples, default OFF"
+    OFF)
+
   set(ARROW_TEST_LINKAGE "shared" CACHE STRING
     "Linkage of Arrow libraries with unit tests executables. \
 static|shared (default shared)")
@@ -447,6 +451,10 @@ if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
 endif()
 
+if(NOT ARROW_BUILD_EXAMPLES)
+  set(NO_EXAMPLES 1)
+endif()
+
 if (NOT ARROW_FUZZING)
   set(NO_FUZZING 1)
 endif()
@@ -735,12 +743,14 @@ pass ARROW_BUILD_SHARED=on")
   endif()
   # Use shared linking for unit tests if it's available
   set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_EXAMPLE_LINK_LIBS arrow_shared)
 else()
   if (NOT ARROW_BUILD_STATIC)
     message(FATAL_ERROR "If using static linkage for unit tests, must also \
 pass ARROW_BUILD_STATIC=on")
   endif()
   set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_EXAMPLE_LINK_LIBS arrow_static)
 endif()
 
 if (ARROW_BUILD_BENCHMARKS)
@@ -803,6 +813,11 @@ endif()
 
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
+endif()
+
+if(ARROW_BUILD_EXAMPLES)
+  add_custom_target(runexample ctest -L example)
+  add_subdirectory(examples/arrow)
 endif()
 
 include(CMakePackageConfigHelpers)
