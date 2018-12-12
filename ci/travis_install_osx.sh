@@ -23,13 +23,25 @@ set -e
 if [ "$ARROW_CI_RUBY_AFFECTED" = "1" ]; then
     brew_log_path=brew.log
     function run_brew() {
-        echo brew "$@" >> ${brew_log_path}
-        if ! gtimeout --signal=KILL 5m brew "$@" >> ${brew_log_path} 2>&1; then
-            cat ${brew_log_path}
-            rm ${brew_log_path}
-            false
-        fi
+        local i=0
+        local n_tries=3
+        while [[ $((i++)) < ${n_tries} ]]; do
+            echo "${i}: brew" "$@" >> ${brew_log_path}
+            if gtimeout --signal=KILL 9m brew "$@" >> ${brew_log_path} 2>&1; then
+                break
+            elif [[ ${i} == ${n_tries} ]]; then
+                cat ${brew_log_path}
+                rm ${brew_log_path}
+                false
+            fi
+        done
     }
+
+    # ARROW-3976 Old versions of git can cause failures when Homebrew prints a
+    # donation solicitation. Attempt to update git
+    git --version
+    run_brew upgrade git
+
     run_brew update
     run_brew upgrade python
     run_brew uninstall postgis
