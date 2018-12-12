@@ -578,6 +578,14 @@ def test_table_basics():
 
     assert table.columns == columns
 
+    # Added to test https://issues.apache.org/jira/browse/ARROW-3866
+    columns = []
+    for col in table.itercolumns():
+        new_field = col.field.add_metadata({"a": "A", "b": "B"})
+        columns.append(pa.column(new_field, col.data))
+    table = pa.Table.from_arrays(columns)
+    assert b"a" in table.column(0).field.metadata
+
 
 def test_table_from_arrays_invalid_names():
     data = [
