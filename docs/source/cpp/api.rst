@@ -27,3 +27,4 @@ API Reference
    api/datatype
    api/array
    api/builder
+   api/table

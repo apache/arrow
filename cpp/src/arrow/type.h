@@ -150,11 +150,12 @@ class ARROW_EXPORT DataType {
   explicit DataType(Type::type id) : id_(id) {}
   virtual ~DataType();
 
-  // Return whether the types are equal
-  //
-  // Types that are logically convertible from one to another (e.g. List<UInt8>
-  // and Binary) are NOT equal.
+  /// \brief Return whether the types are equal
+  ///
+  /// Types that are logically convertible from one to another (e.g. List<UInt8>
+  /// and Binary) are NOT equal.
   virtual bool Equals(const DataType& other) const;
+  /// \brief Return whether the types are equal
   bool Equals(const std::shared_ptr<DataType>& other) const;
 
   std::shared_ptr<Field> child(int i) const { return children_[i]; }
@@ -174,6 +175,7 @@ class ARROW_EXPORT DataType {
   /// \since 0.7.0
   virtual std::string name() const = 0;
 
+  /// \brief Return the type category
   Type::type id() const { return id_; }
 
  protected:
@@ -248,12 +250,16 @@ class ARROW_EXPORT Field {
         const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR)
       : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
 
+  /// \brief Return the field's attached metadata
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
+  /// \brief Return whether the field has non-empty metadata
   bool HasMetadata() const;
 
+  /// \brief Return a copy of this field with the given metadata attached to it
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+  /// \brief Return a copy of this field without any metadata attached to it
   std::shared_ptr<Field> RemoveMetadata() const;
 
   std::vector<std::shared_ptr<Field>> Flatten() const;
@@ -261,10 +267,14 @@ class ARROW_EXPORT Field {
   bool Equals(const Field& other) const;
   bool Equals(const std::shared_ptr<Field>& other) const;
 
+  /// \brief Return a string representation ot the field
   std::string ToString() const;
 
+  /// \brief Return the field name
   const std::string& name() const { return name_; }
+  /// \brief Return the field data type
   std::shared_ptr<DataType> type() const { return type_; }
+  /// \brief Return whether the field is nullable
   bool nullable() const { return nullable_; }
 
  private:
@@ -896,6 +906,11 @@ dictionary(const std::shared_ptr<DataType>& index_type,
 
 /// @}
 
+/// \defgroup schema-factories Factory functions for fields and schemas
+///
+/// Factory functions for fields and schemas
+/// @{
+
 /// \brief Create a Field instance
 ///
 /// \param name the field name
@@ -925,6 +940,8 @@ ARROW_EXPORT
 std::shared_ptr<Schema> schema(
     std::vector<std::shared_ptr<Field>>&& fields,
     const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
+
+/// @}
 
 }  // namespace arrow
 
