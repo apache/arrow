@@ -15,26 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Gandiva
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("Gandiva", Gandiva)
-      end
-    end
+class TestGandivaInt32LiteralNode < Test::Unit::TestCase
+  def setup
+    omit("Gandiva is required") unless defined?(::Gandiva)
+  end
 
-    private
-    def load_method_info(info, klass, method_name)
-      case klass.name
-      when "Gandiva::BooleanLiteralNode"
-        case method_name
-        when "value?"
-          method_name = "value"
-        end
-        super(info, klass, method_name)
-      else
-        super
-      end
-    end
+  def test_value
+    value = -3
+    literal_node = Gandiva::Int32LiteralNode.new(value)
+    assert_equal(value, literal_node.value)
   end
 end
