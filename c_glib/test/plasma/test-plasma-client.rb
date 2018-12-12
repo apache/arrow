@@ -24,6 +24,8 @@ class TestPlasmaClient < Test::Unit::TestCase
     @store = Helper::PlasmaStore.new
     @store.start
     @client = Plasma::Client.new(@store.socket_path)
+    @id = Plasma::ObjectID.new("Hello")
+    @data = "World"
   end
 
   def teardown
@@ -34,8 +36,6 @@ class TestPlasmaClient < Test::Unit::TestCase
     def setup
       super
 
-      @id = Plasma::ObjectID.new("Hello")
-      @data = "World"
       @metadata = "Metadata"
       @options = Plasma::ClientCreateOptions.new
     end
@@ -82,6 +82,14 @@ class TestPlasmaClient < Test::Unit::TestCase
                      object.data.copy_to_host(0, @data.bytesize).to_s,
                      object.metadata.copy_to_host(0, @metadata.bytesize).to_s,
                    ])
+    end
+  end
+
+  test("#disconnect") do
+    @client.disconnect
+    message = "[plasma][client][create]: IOError: Bad file descriptor"
+    assert_raise(Arrow::Error::Io.new(message)) do
+      @client.create(@id, @data.bytesize)
     end
   end
 end

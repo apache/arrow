@@ -431,6 +431,24 @@ gplasma_client_refer_object(GPlasmaClient *client,
   }
 }
 
+/**
+ * gplasma_client_disconnect:
+ * @client: A #GPlasmaClient.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+gplasma_client_disconnect(GPlasmaClient *client,
+                          GError **error)
+{
+  auto plasma_client = gplasma_client_get_raw(client);
+  auto status = plasma_client->Disconnect();
+  return garrow_error_check(error, status, "[plasma][client][disconnect]");
+}
+
 G_END_DECLS
 
 GPlasmaClient *
