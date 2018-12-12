@@ -25,4 +25,4 @@ Description: C API for Apache Arrow Plasma based on GLib
 Version: @VERSION@
 Libs: -L${libdir} -lplasma-glib
 Cflags: -I${includedir}
-Requires: plasma arrow-glib @ARROW_GPU_GLIB_PACKAGE@
+Requires: plasma arrow-glib @ARROW_CUDA_GLIB_PACKAGE@
