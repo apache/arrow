@@ -17,14 +17,6 @@
 
 #![feature(specialization)]
 
-extern crate csv as csv_crate;
-
-#[macro_use]
-extern crate serde_derive;
-
-#[macro_use]
-extern crate serde_json;
-
 pub mod array;
 pub mod array_data;
 pub mod array_ops;
