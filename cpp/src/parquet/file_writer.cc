@@ -252,7 +252,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
   void Close() override {
     if (is_open_) {
       is_open_ = false;
-      
+
       if (row_group_writer_) {
         num_rows_ += row_group_writer_->num_rows();
         row_group_writer_->Close();
