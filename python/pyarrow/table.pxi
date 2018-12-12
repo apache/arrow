@@ -636,6 +636,7 @@ cdef class Column:
 
 cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     cdef:
+        bint nullable
         Column col
         c_string c_name
         vector[shared_ptr[CField]] fields
@@ -659,7 +660,9 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
             col = arrays[i]
             type_ = col.sp_column.get().type()
             c_name = tobytes(col.name)
-            fields[i].reset(new CField(c_name, type_, True))
+            nullable = col.field.nullable.__bool__()
+            c_meta = pyarrow_unwrap_metadata(col.field.metadata)
+            fields[i].reset(new CField(c_name, type_, nullable, c_meta))
     else:
         if names is None:
             raise ValueError('Must pass names when constructing '
