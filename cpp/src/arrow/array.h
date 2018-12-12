@@ -422,6 +422,9 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
 
   value_type Value(int64_t i) const { return raw_values()[i]; }
 
+  // For API compatibility with BinaryArray etc.
+  value_type GetView(int64_t i) const { return Value(i); }
+
  protected:
   using PrimitiveArray::PrimitiveArray;
 };
@@ -441,6 +444,8 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
     return BitUtil::GetBit(reinterpret_cast<const uint8_t*>(raw_values_),
                            i + data_->offset);
   }
+
+  bool GetView(int64_t i) const { return Value(i); }
 
  protected:
   using PrimitiveArray::PrimitiveArray;
@@ -802,13 +807,30 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// This function does the validation of the indices and input type. It checks if
   /// all indices are non-negative and smaller than the size of the dictionary
   ///
-  /// \param[in] type a data type containing a dictionary
+  /// \param[in] type a dictionary type
   /// \param[in] indices an array of non-negative signed
   /// integers smaller than the size of the dictionary
   /// \param[out] out the resulting DictionaryArray instance
   static Status FromArrays(const std::shared_ptr<DataType>& type,
                            const std::shared_ptr<Array>& indices,
                            std::shared_ptr<Array>* out);
+
+  /// \brief Transpose this DictionaryArray
+  ///
+  /// This method constructs a new dictionary array with the given dictionary type,
+  /// transposing indices using the transpose map.
+  /// The type and the transpose map are typically computed using
+  /// DictionaryType::Unify.
+  ///
+  /// \param[in] pool a pool to allocate the array data from
+  /// \param[in] type a dictionary type
+  /// \param[in] transpose_map a vector transposing this array's indices
+  /// into the target array's indices
+  /// \param[out] out the resulting DictionaryArray instance
+  Status Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                   const std::vector<int32_t>& transpose_map,
+                   std::shared_ptr<Array>* out) const;
+  // XXX Do we also want an unsafe in-place Transpose?
 
   std::shared_ptr<Array> indices() const;
   std::shared_ptr<Array> dictionary() const;

@@ -19,6 +19,9 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
+#include <sstream>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -30,10 +33,116 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+
+// ----------------------------------------------------------------------
+// DictionaryType unification
+
+struct UnifyDictionaryValues {
+  MemoryPool* pool_;
+  std::shared_ptr<DataType> value_type_;
+  const std::vector<const DictionaryType*>& types_;
+  std::shared_ptr<Array>* out_values_;
+  std::vector<std::vector<int32_t>>* out_transpose_maps_;
+
+  Status Visit(const DataType&, void* = nullptr) {
+    // Default implementation for non-dictionary-supported datatypes
+    std::stringstream ss;
+    ss << "Unification of " << value_type_->ToString()
+       << " dictionaries is not implemented";
+    return Status::NotImplemented(ss.str());
+  }
+
+  template <typename T>
+  Status Visit(const T&,
+               typename internal::DictionaryTraits<T>::MemoTableType* = nullptr) {
+    using ArrayType = typename TypeTraits<T>::ArrayType;
+    using DictTraits = typename internal::DictionaryTraits<T>;
+    using MemoTableType = typename DictTraits::MemoTableType;
+
+    MemoTableType memo_table;
+    if (out_transpose_maps_ != nullptr) {
+      out_transpose_maps_->clear();
+      out_transpose_maps_->reserve(types_.size());
+    }
+    // Build up the unified dictionary values and the transpose maps
+    for (const auto& type : types_) {
+      const ArrayType& values = checked_cast<const ArrayType&>(*type->dictionary());
+      if (out_transpose_maps_ != nullptr) {
+        std::vector<int32_t> transpose_map;
+        transpose_map.reserve(values.length());
+        for (int64_t i = 0; i < values.length(); ++i) {
+          int32_t dict_index = memo_table.GetOrInsert(values.GetView(i));
+          transpose_map.push_back(dict_index);
+        }
+        out_transpose_maps_->push_back(std::move(transpose_map));
+      } else {
+        for (int64_t i = 0; i < values.length(); ++i) {
+          memo_table.GetOrInsert(values.GetView(i));
+        }
+      }
+    }
+    // Build unified dictionary array
+    std::shared_ptr<ArrayData> data;
+    RETURN_NOT_OK(DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table,
+                                                     0 /* start_offset */, &data));
+    *out_values_ = MakeArray(data);
+    return Status::OK();
+  }
+};
+
+Status DictionaryType::Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
+                             std::shared_ptr<DataType>* out_type,
+                             std::vector<std::vector<int32_t>>* out_transpose_maps) {
+  if (types.size() == 0) {
+    return Status::Invalid("need at least one input type");
+  }
+  std::vector<const DictionaryType*> dict_types;
+  dict_types.reserve(types.size());
+  for (const auto& type : types) {
+    if (type->id() != Type::DICTIONARY) {
+      return Status::TypeError("input types must be dictionary types");
+    }
+    dict_types.push_back(checked_cast<const DictionaryType*>(type));
+  }
+
+  // XXX Should we check the ordered flag?
+  auto value_type = dict_types[0]->dictionary()->type();
+  for (const auto& type : dict_types) {
+    auto values = type->dictionary();
+    if (!values->type()->Equals(value_type)) {
+      return Status::TypeError("input types have different value types");
+    }
+    if (values->null_count() != 0) {
+      return Status::TypeError("input types have null values");
+    }
+  }
+
+  std::shared_ptr<Array> values;
+  {
+    UnifyDictionaryValues visitor{pool, value_type, dict_types, &values,
+                                  out_transpose_maps};
+    RETURN_NOT_OK(VisitTypeInline(*value_type, &visitor));
+  }
+
+  // Build unified dictionary type with the right index type
+  std::shared_ptr<DataType> index_type;
+  if (values->length() <= std::numeric_limits<int8_t>::max()) {
+    index_type = int8();
+  } else if (values->length() <= std::numeric_limits<int16_t>::max()) {
+    index_type = int16();
+  } else if (values->length() <= std::numeric_limits<int32_t>::max()) {
+    index_type = int32();
+  } else {
+    index_type = int64();
+  }
+  *out_type = arrow::dictionary(index_type, values);
+  return Status::OK();
+}
 
 // ----------------------------------------------------------------------
 // DictionaryBuilder
@@ -118,12 +227,31 @@ Status DictionaryBuilder<NullType>::AppendNull() { return values_builder_.Append
 
 template <typename T>
 Status DictionaryBuilder<T>::AppendArray(const Array& array) {
-  const auto& numeric_array = checked_cast<const NumericArray<T>&>(array);
+  using ArrayType = typename TypeTraits<T>::ArrayType;
+
+  const auto& concrete_array = checked_cast<const ArrayType&>(array);
   for (int64_t i = 0; i < array.length(); i++) {
     if (array.IsNull(i)) {
       RETURN_NOT_OK(AppendNull());
     } else {
-      RETURN_NOT_OK(Append(numeric_array.Value(i)));
+      RETURN_NOT_OK(Append(concrete_array.GetView(i)));
+    }
+  }
+  return Status::OK();
+}
+
+template <>
+Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
+  if (!type_->Equals(*array.type())) {
+    return Status::Invalid("Cannot append FixedSizeBinary array with non-matching type");
+  }
+
+  const auto& typed_array = checked_cast<const FixedSizeBinaryArray&>(array);
+  for (int64_t i = 0; i < array.length(); i++) {
+    if (array.IsNull(i)) {
+      RETURN_NOT_OK(AppendNull());
+    } else {
+      RETURN_NOT_OK(Append(typed_array.GetValue(i)));
     }
   }
   return Status::OK();
@@ -165,46 +293,6 @@ Status DictionaryBuilder<NullType>::FinishInternal(std::shared_ptr<ArrayData>* o
   RETURN_NOT_OK(values_builder_.FinishInternal(out));
   (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
 
-  return Status::OK();
-}
-
-//
-// StringType and BinaryType specializations
-//
-
-#define BINARY_DICTIONARY_SPECIALIZATIONS(Type)                            \
-                                                                           \
-  template <>                                                              \
-  Status DictionaryBuilder<Type>::AppendArray(const Array& array) {        \
-    using ArrayType = typename TypeTraits<Type>::ArrayType;                \
-    const ArrayType& binary_array = checked_cast<const ArrayType&>(array); \
-    for (int64_t i = 0; i < array.length(); i++) {                         \
-      if (array.IsNull(i)) {                                               \
-        RETURN_NOT_OK(AppendNull());                                       \
-      } else {                                                             \
-        RETURN_NOT_OK(Append(binary_array.GetView(i)));                    \
-      }                                                                    \
-    }                                                                      \
-    return Status::OK();                                                   \
-  }
-
-BINARY_DICTIONARY_SPECIALIZATIONS(StringType);
-BINARY_DICTIONARY_SPECIALIZATIONS(BinaryType);
-
-template <>
-Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
-  if (!type_->Equals(*array.type())) {
-    return Status::Invalid("Cannot append FixedSizeBinary array with non-matching type");
-  }
-
-  const auto& typed_array = checked_cast<const FixedSizeBinaryArray&>(array);
-  for (int64_t i = 0; i < array.length(); i++) {
-    if (array.IsNull(i)) {
-      RETURN_NOT_OK(AppendNull());
-    } else {
-      RETURN_NOT_OK(Append(typed_array.GetValue(i)));
-    }
-  }
   return Status::OK();
 }
 

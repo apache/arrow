@@ -24,6 +24,8 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/memory_pool.h"
+#include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 
@@ -478,6 +480,132 @@ TEST(TestStructType, GetChildIndex) {
   ASSERT_EQ(2, struct_type.GetChildIndex(f2->name()));
   ASSERT_EQ(3, struct_type.GetChildIndex(f3->name()));
   ASSERT_EQ(-1, struct_type.GetChildIndex("not-found"));
+}
+
+TEST(TestDictionaryType, Equals) {
+  auto t1 = dictionary(int8(), ArrayFromJSON(int32(), "[3, 4, 5, 6]"));
+  auto t2 = dictionary(int8(), ArrayFromJSON(int32(), "[3, 4, 5, 6]"));
+  auto t3 = dictionary(int16(), ArrayFromJSON(int32(), "[3, 4, 5, 6]"));
+  auto t4 = dictionary(int8(), ArrayFromJSON(int16(), "[3, 4, 5, 6]"));
+  auto t5 = dictionary(int8(), ArrayFromJSON(int32(), "[3, 4, 7, 6]"));
+
+  ASSERT_TRUE(t1->Equals(t2));
+  // Different index type
+  ASSERT_FALSE(t1->Equals(t3));
+  // Different value type
+  ASSERT_FALSE(t1->Equals(t4));
+  // Different values
+  ASSERT_FALSE(t1->Equals(t5));
+}
+
+TEST(TestDictionaryType, UnifyNumeric) {
+  auto t1 = dictionary(int8(), ArrayFromJSON(int64(), "[3, 4, 7]"));
+  auto t2 = dictionary(int8(), ArrayFromJSON(int64(), "[1, 7, 4, 8]"));
+  auto t3 = dictionary(int8(), ArrayFromJSON(int64(), "[1, -200]"));
+
+  auto expected = dictionary(int8(), ArrayFromJSON(int64(), "[3, 4, 7, 1, 8, -200]"));
+
+  std::shared_ptr<DataType> dict_type;
+  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get(), t3.get()},
+                                  &dict_type));
+  ASSERT_TRUE(dict_type->Equals(expected));
+
+  std::vector<std::vector<int32_t>> transpose_maps;
+  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get(), t3.get()},
+                                  &dict_type, &transpose_maps));
+  ASSERT_TRUE(dict_type->Equals(expected));
+  ASSERT_EQ(transpose_maps.size(), 3);
+  ASSERT_EQ(transpose_maps[0], std::vector<int32_t>({0, 1, 2}));
+  ASSERT_EQ(transpose_maps[1], std::vector<int32_t>({3, 2, 1, 4}));
+  ASSERT_EQ(transpose_maps[2], std::vector<int32_t>({3, 5}));
+}
+
+TEST(TestDictionaryType, UnifyString) {
+  auto t1 = dictionary(int16(), ArrayFromJSON(utf8(), "[\"foo\", \"bar\"]"));
+  auto t2 = dictionary(int32(), ArrayFromJSON(utf8(), "[\"quux\", \"foo\"]"));
+
+  auto expected =
+      dictionary(int8(), ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"quux\"]"));
+
+  std::shared_ptr<DataType> dict_type;
+  ASSERT_OK(
+      DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type));
+  ASSERT_TRUE(dict_type->Equals(expected));
+
+  std::vector<std::vector<int32_t>> transpose_maps;
+  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type,
+                                  &transpose_maps));
+  ASSERT_TRUE(dict_type->Equals(expected));
+
+  ASSERT_EQ(transpose_maps.size(), 2);
+  ASSERT_EQ(transpose_maps[0], std::vector<int32_t>({0, 1}));
+  ASSERT_EQ(transpose_maps[1], std::vector<int32_t>({2, 0}));
+}
+
+TEST(TestDictionaryType, UnifyFixedSizeBinary) {
+  auto type = fixed_size_binary(3);
+
+  std::string data = "foobarbazqux";
+  auto buf = std::make_shared<Buffer>(data);
+  // ["foo", "bar"]
+  auto dict1 = std::make_shared<FixedSizeBinaryArray>(type, 2, SliceBuffer(buf, 0, 6));
+  auto t1 = dictionary(int16(), dict1);
+  // ["bar", "baz", "qux"]
+  auto dict2 = std::make_shared<FixedSizeBinaryArray>(type, 3, SliceBuffer(buf, 3, 9));
+  auto t2 = dictionary(int16(), dict2);
+
+  // ["foo", "bar", "baz", "qux"]
+  auto expected_dict = std::make_shared<FixedSizeBinaryArray>(type, 4, buf);
+  auto expected = dictionary(int8(), expected_dict);
+
+  std::shared_ptr<DataType> dict_type;
+  ASSERT_OK(
+      DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type));
+  ASSERT_TRUE(dict_type->Equals(expected));
+
+  std::vector<std::vector<int32_t>> transpose_maps;
+  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type,
+                                  &transpose_maps));
+  ASSERT_TRUE(dict_type->Equals(expected));
+  ASSERT_EQ(transpose_maps.size(), 2);
+  ASSERT_EQ(transpose_maps[0], std::vector<int32_t>({0, 1}));
+  ASSERT_EQ(transpose_maps[1], std::vector<int32_t>({1, 2, 3}));
+}
+
+TEST(TestDictionaryType, UnifyLarge) {
+  // Unifying "large" dictionary types should choose the right index type
+  std::shared_ptr<Array> dict1, dict2, expected_dict;
+
+  Int32Builder builder;
+  ASSERT_OK(builder.Reserve(120));
+  for (int32_t i = 0; i < 120; ++i) {
+    builder.UnsafeAppend(i);
+  }
+  ASSERT_OK(builder.Finish(&dict1));
+  ASSERT_EQ(dict1->length(), 120);
+  auto t1 = dictionary(int8(), dict1);
+
+  ASSERT_OK(builder.Reserve(30));
+  for (int32_t i = 110; i < 140; ++i) {
+    builder.UnsafeAppend(i);
+  }
+  ASSERT_OK(builder.Finish(&dict2));
+  ASSERT_EQ(dict2->length(), 30);
+  auto t2 = dictionary(int8(), dict2);
+
+  ASSERT_OK(builder.Reserve(140));
+  for (int32_t i = 0; i < 140; ++i) {
+    builder.UnsafeAppend(i);
+  }
+  ASSERT_OK(builder.Finish(&expected_dict));
+  ASSERT_EQ(expected_dict->length(), 140);
+  // int8 would be too narrow to hold all possible index values
+  auto expected = dictionary(int16(), expected_dict);
+
+  std::shared_ptr<DataType> dict_type;
+  ASSERT_OK(
+      DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type));
+  ASSERT_TRUE(dict_type->Equals(expected));
 }
 
 TEST(TypesTest, TestDecimal128Small) {

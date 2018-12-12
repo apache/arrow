@@ -402,5 +402,45 @@ void DowncastUInts(const uint64_t* source, uint64_t* dest, int64_t length) {
   memcpy(dest, source, length * sizeof(int64_t));
 }
 
+template <typename InputInt, typename OutputInt>
+void TransposeInts(const InputInt* src, OutputInt* dest, int64_t length,
+                   const int32_t* transpose_map) {
+  while (length >= 4) {
+    dest[0] = static_cast<OutputInt>(transpose_map[src[0]]);
+    dest[1] = static_cast<OutputInt>(transpose_map[src[1]]);
+    dest[2] = static_cast<OutputInt>(transpose_map[src[2]]);
+    dest[3] = static_cast<OutputInt>(transpose_map[src[3]]);
+    length -= 4;
+    src += 4;
+    dest += 4;
+  }
+  while (length > 0) {
+    *dest++ = static_cast<OutputInt>(transpose_map[*src++]);
+    --length;
+  }
+}
+
+#define INSTANTIATE(SRC, DEST)              \
+  template ARROW_EXPORT void TransposeInts( \
+      const SRC* source, DEST* dest, int64_t length, const int32_t* transpose_map);
+
+#define INSTANTIATE_ALL_DEST(DEST) \
+  INSTANTIATE(int8_t, DEST)        \
+  INSTANTIATE(int16_t, DEST)       \
+  INSTANTIATE(int32_t, DEST)       \
+  INSTANTIATE(int64_t, DEST)
+
+#define INSTANTIATE_ALL()       \
+  INSTANTIATE_ALL_DEST(int8_t)  \
+  INSTANTIATE_ALL_DEST(int16_t) \
+  INSTANTIATE_ALL_DEST(int32_t) \
+  INSTANTIATE_ALL_DEST(int64_t)
+
+INSTANTIATE_ALL()
+
+#undef INSTANTIATE
+#undef INSTANTIATE_ALL
+#undef INSTANTIATE_ALL_DEST
+
 }  // namespace internal
 }  // namespace arrow

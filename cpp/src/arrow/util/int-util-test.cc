@@ -373,5 +373,14 @@ TEST(IntWidth, NullsMany) {
   }
 }
 
+TEST(TransposeInts, Int8ToInt64) {
+  std::vector<int8_t> src = {1, 3, 5, 0, 3, 2};
+  std::vector<int32_t> transpose_map = {1111, 2222, 3333, 4444, 5555, 6666, 7777};
+  std::vector<int64_t> dest(src.size());
+
+  TransposeInts(src.data(), dest.data(), 6, transpose_map.data());
+  ASSERT_EQ(dest, std::vector<int64_t>({2222, 4444, 6666, 1111, 4444, 3333}));
+}
+
 }  // namespace internal
 }  // namespace arrow
