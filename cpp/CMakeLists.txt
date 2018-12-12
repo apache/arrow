@@ -115,8 +115,12 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     OFF)
 
   option(ARROW_BUILD_TESTS
-    "Build the Arrow googletest unit tests"
-    ON)
+    "Build the Arrow googletest unit tests, default OFF"
+    OFF)
+
+  option(ARROW_BUILD_BENCHMARKS
+    "Build the Arrow micro benchmarks, default OFF"
+    OFF)
 
   set(ARROW_TEST_LINKAGE "shared" CACHE STRING
     "Linkage of Arrow libraries with unit tests executables. \
@@ -125,10 +129,6 @@ static|shared (default shared)")
   set(ARROW_TEST_INCLUDE_LABELS "" CACHE STRING
     "Only build unit tests having the indicated label or labels. \
 Pass multiple labels by dividing with semicolons")
-
-  option(ARROW_BUILD_BENCHMARKS
-    "Build the Arrow micro benchmarks"
-    OFF)
 
   option(ARROW_NO_DEPRECATED_API
     "Exclude deprecated APIs from build"
@@ -322,7 +322,7 @@ Always OFF if building binaries"
 
   option(ARROW_GANDIVA_BUILD_TESTS
     "Build the Gandiva googletest unit tests"
-    ON)
+    OFF)
 
 endif()
 

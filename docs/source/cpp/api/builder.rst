@@ -31,9 +31,6 @@ Concrete builder subclasses
 .. doxygenclass:: arrow::BooleanBuilder
    :members:
 
-.. doxygenclass:: arrow::PrimitiveBuilder
-   :members:
-
 .. doxygenclass:: arrow::NumericBuilder
    :members:
 
