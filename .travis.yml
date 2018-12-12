@@ -256,7 +256,6 @@ matrix:
     - ARROW_TRAVIS_PLASMA=1
     cache:
     addons:
-    rvm: 2.2
     before_script:
     - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_osx.sh
