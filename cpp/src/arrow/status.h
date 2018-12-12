@@ -36,7 +36,7 @@
     if (ARROW_PREDICT_FALSE(!_s.ok())) {                                            \
       std::stringstream ss;                                                         \
       ss << __FILE__ << ":" << __LINE__ << " code: " << #s << "\n" << _s.message(); \
-      return Status(_s.code(), ss.str());                                           \
+      return ::arrow::Status(_s.code(), ss.str());                                  \
     }                                                                               \
   } while (0)
 
@@ -69,7 +69,7 @@
       std::stringstream ss;                                                              \
       ss << __FILE__ << ":" << __LINE__ << " code: " << _status.CodeAsString() << " \n " \
          << _status.message();                                                           \
-      return Status(_status.code(), ss.str());                                           \
+      return ::arrow::Status(_status.code(), ss.str());                                  \
     }                                                                                    \
   } while (0)
 
