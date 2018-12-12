@@ -37,6 +37,8 @@ type (
 	Time32    int32
 	Time64    int64
 	TimeUnit  int
+	Date32    int32
+	Date64    int64
 )
 
 const (
@@ -79,6 +81,24 @@ type Time64Type struct {
 func (*Time64Type) ID() Type      { return TIME64 }
 func (*Time64Type) Name() string  { return "time64" }
 func (*Time64Type) BitWidth() int { return 64 }
+
+// Date32Type is encoded as a 32-bit signed integer, representing days since the UNIX epoch.
+type Date32Type struct {
+	Unit TimeUnit
+}
+
+func (*Date32Type) ID() Type      { return DATE32 }
+func (*Date32Type) Name() string  { return "date32" }
+func (*Date32Type) BitWidth() int { return 32 }
+
+// Date64Type is encoded as a 64-bit signed integer, representing milliseconds since the UNIX epoch.
+type Date64Type struct {
+	Unit TimeUnit
+}
+
+func (*Date64Type) ID() Type      { return DATE64 }
+func (*Date64Type) Name() string  { return "date64" }
+func (*Date64Type) BitWidth() int { return 64 }
 
 var (
 	FixedWidthTypes = struct {
