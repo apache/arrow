@@ -265,7 +265,7 @@ The optional `gandiva` libraries and tests can be built by passing
 `-DARROW_GANDIVA=on`.
 
 ```shell
-cmake .. -DARROW_GANDIVA=ON -DARROW_BUILD_TESTS=ON
+cmake .. -DARROW_GANDIVA=ON -DARROW_GANDIVA_BUILD_TESTS=ON
 make
 ctest -L gandiva
 ```
