@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# LLVM/Clang is required by multiple subdirs.
-cmake_minimum_required(VERSION 3.11)
-
 project(gandiva)
 
 find_package(LLVM)
