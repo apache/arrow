@@ -86,9 +86,10 @@ class TestPlasmaClient < Test::Unit::TestCase
   end
 
   test("#disconnect") do
+    require_gi(1, 42, 0)
+
     @client.disconnect
-    message = "[plasma][client][create]: IOError: Bad file descriptor"
-    assert_raise(Arrow::Error::Io.new(message)) do
+    assert_raise(Arrow::Error::Io) do
       @client.create(@id, @data.bytesize)
     end
   end
