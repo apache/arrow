@@ -893,8 +893,8 @@ def generate_dictionary_case():
                           dictionaries=[dict1, dict2])
 
 
-def get_generated_json_files():
-    temp_dir = tempfile.mkdtemp()
+def get_generated_json_files(tempdir=None):
+    tempdir = tempdir or tempfile.mkdtemp()
 
     def _temp_path():
         return
@@ -910,7 +910,7 @@ def get_generated_json_files():
 
     generated_paths = []
     for file_obj in file_objs:
-        out_path = os.path.join(temp_dir, 'generated_' +
+        out_path = os.path.join(tempdir, 'generated_' +
                                 file_obj.name + '.json')
         file_obj.write(out_path)
         generated_paths.append(out_path)
@@ -924,10 +924,10 @@ def get_generated_json_files():
 
 class IntegrationRunner(object):
 
-    def __init__(self, json_files, testers, debug=False):
+    def __init__(self, json_files, testers, tempdir=None, debug=False):
         self.json_files = json_files
         self.testers = testers
-        self.temp_dir = tempfile.mkdtemp()
+        self.temp_dir = tempdir or tempfile.mkdtemp()
         self.debug = debug
 
     def run(self):
@@ -950,10 +950,12 @@ class IntegrationRunner(object):
 
             name = os.path.splitext(os.path.basename(json_path))[0]
 
+            file_id = guid()[:8]
+
             # Make the random access file
             print('-- Creating binary inputs')
-            producer_file_path = os.path.join(self.temp_dir, guid() + '_' +
-                                              name + '.json_to_arrow')
+            producer_file_path = os.path.join(self.temp_dir, file_id + '_' +
+                                              name + '.json_as_file')
             producer.json_to_file(json_path, producer_file_path)
 
             # Validate the file
@@ -961,10 +963,12 @@ class IntegrationRunner(object):
             consumer.validate(json_path, producer_file_path)
 
             print('-- Validating stream')
-            producer_stream_path = os.path.join(self.temp_dir, guid() + '_' +
-                                                name + '.arrow_to_stream')
-            consumer_file_path = os.path.join(self.temp_dir, guid() + '_' +
-                                              name + '.stream_to_arrow')
+            producer_stream_path = os.path.join(self.temp_dir, file_id + '_' +
+                                                name +
+                                                '.producer_file_as_stream')
+            consumer_file_path = os.path.join(self.temp_dir, file_id + '_' +
+                                              name +
+                                              '.consumer_stream_as_file')
             producer.file_to_stream(producer_file_path,
                                     producer_stream_path)
             consumer.stream_to_file(producer_stream_path,
@@ -1054,8 +1058,8 @@ class CPPTester(Tester):
         os.path.join(ARROW_HOME, 'cpp/build/debug'))
 
     CPP_INTEGRATION_EXE = os.path.join(EXE_PATH, 'arrow-json-integration-test')
-    STREAM_TO_FILE = os.path.join(EXE_PATH, 'stream-to-file')
-    FILE_TO_STREAM = os.path.join(EXE_PATH, 'file-to-stream')
+    STREAM_TO_FILE = os.path.join(EXE_PATH, 'arrow-stream-to-file')
+    FILE_TO_STREAM = os.path.join(EXE_PATH, 'arrow-file-to-stream')
 
     name = 'C++'
 
@@ -1162,15 +1166,16 @@ def get_static_json_files():
     return glob.glob(glob_pattern)
 
 
-def run_all_tests(debug=False):
+def run_all_tests(debug=False, tempdir=None):
     testers = [CPPTester(debug=debug),
                JavaTester(debug=debug),
                JSTester(debug=debug)]
     static_json_files = get_static_json_files()
-    generated_json_files = get_generated_json_files()
+    generated_json_files = get_generated_json_files(tempdir=tempdir)
     json_files = static_json_files + generated_json_files
 
-    runner = IntegrationRunner(json_files, testers, debug=debug)
+    runner = IntegrationRunner(json_files, testers,
+                               tempdir=tempdir, debug=debug)
     runner.run()
     print('-- All tests passed!')
 
@@ -1195,6 +1200,10 @@ if __name__ == '__main__':
     parser.add_argument('--debug', dest='debug', action='store_true',
                         default=False,
                         help='Run executables in debug mode as relevant')
+    parser.add_argument('--tempdir', dest='tempdir',
+                        default=tempfile.mkdtemp(),
+                        help=('Directory to use for writing '
+                              'integration test temporary files'))
     args = parser.parse_args()
     if args.generated_json_path:
         try:
@@ -1204,4 +1213,4 @@ if __name__ == '__main__':
                 raise
         write_js_test_json(args.generated_json_path)
     else:
-        run_all_tests(debug=args.debug)
+        run_all_tests(debug=args.debug, tempdir=args.tempdir)
