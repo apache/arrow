@@ -36,12 +36,14 @@ Building Arrow requires:
 On Ubuntu/Debian you can install the requirements with:
 
 ```shell
-sudo apt-get install build-essential\
+sudo apt-get install \
+     autoconf \
+     build-essential \
      cmake \
      libboost-dev \
      libboost-filesystem-dev \
-     libboost-system-dev \
-     libboost-regex-dev
+     libboost-regex-dev \
+     libboost-system-dev
 ```
 
 On macOS, you can use [Homebrew][1]:
