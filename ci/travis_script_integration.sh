@@ -52,7 +52,12 @@ conda install -y nomkl
 # Expensive dependencies install from Continuum package repo
 conda install -y pip numpy six
 
-python integration_test.py --debug
+# ARROW-4008: Create a directory to write temporary files since /tmp can be
+# unstable in Travis CI
+INTEGRATION_TEMPDIR=$TRAVIS_BUILD_DIR/integration_temp
+mkdir -p $INTEGRATION_TEMPDIR
+
+python integration_test.py --debug --tempdir=$INTEGRATION_TEMPDIR
 
 popd
 
