@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Targets required for protocol integration testing
+add_custom_target(integration)
+
 #######################################
 # Messaging and interprocess communication
 
@@ -31,16 +34,18 @@ if (NOT ARROW_BOOST_HEADER_ONLY)
     EXTRA_LINK_LIBS gflags_static)
 
   # Test is being built
-  if (TARGET json-integration-test)
+  if (TARGET arrow-json-integration-test)
     if (UNIX)
       if (APPLE)
-        set_target_properties(json-integration-test
+        set_target_properties(arrow-json-integration-test
           PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
       else()
-        target_link_libraries(json-integration-test PRIVATE pthread)
+        target_link_libraries(arrow-json-integration-test PRIVATE pthread)
       endif()
     endif()
   endif()
+
+  add_dependencies(integration arrow-json-integration-test)
 endif()
 
 # make clean will delete the generated file
@@ -113,10 +118,13 @@ if(NOT WIN32)
 endif()
 
 if (ARROW_BUILD_UTILITIES)
-  add_executable(file-to-stream file-to-stream.cc)
-  target_link_libraries(file-to-stream ${UTIL_LINK_LIBS})
-  add_executable(stream-to-file stream-to-file.cc)
-  target_link_libraries(stream-to-file ${UTIL_LINK_LIBS})
+  add_executable(arrow-file-to-stream file-to-stream.cc)
+  target_link_libraries(arrow-file-to-stream ${UTIL_LINK_LIBS})
+  add_executable(arrow-stream-to-file stream-to-file.cc)
+  target_link_libraries(arrow-stream-to-file ${UTIL_LINK_LIBS})
+
+  add_dependencies(integration arrow-file-to-stream)
+  add_dependencies(integration arrow-stream-to-file)
 endif()
 
 ADD_ARROW_BENCHMARK(read-write-benchmark
