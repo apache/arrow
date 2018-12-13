@@ -26,6 +26,7 @@ class TestPlasmaClient < Test::Unit::TestCase
     @client = Plasma::Client.new(@store.socket_path)
     @id = Plasma::ObjectID.new("Hello")
     @data = "World"
+    @options = Plasma::ClientCreateOptions.new
   end
 
   def teardown
@@ -37,7 +38,6 @@ class TestPlasmaClient < Test::Unit::TestCase
       super
 
       @metadata = "Metadata"
-      @options = Plasma::ClientCreateOptions.new
     end
 
     test("no options") do
@@ -86,11 +86,9 @@ class TestPlasmaClient < Test::Unit::TestCase
   end
 
   test("#disconnect") do
-    require_gi(1, 42, 0)
-
     @client.disconnect
     assert_raise(Arrow::Error::Io) do
-      @client.create(@id, @data.bytesize)
+      @client.create(@id, @data.bytesize, @options)
     end
   end
 end
