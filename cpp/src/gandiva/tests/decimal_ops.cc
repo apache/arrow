@@ -108,7 +108,6 @@ void TestDecimalOps::AddAndVerify(const Decimal128Full& x, const Decimal128Full&
 }
 
 TEST_F(TestDecimalOps, TestAdd) {
-#if 0
   // fast-path
   AddAndVerify(decimal_literal("201", 30, 3),   // x
                decimal_literal("301", 30, 3),   // y
@@ -134,13 +133,11 @@ TEST_F(TestDecimalOps, TestAdd) {
   AddAndVerify(decimal_literal("201", 38, 3),    // x
                decimal_literal("301", 38, 4),    // y
                decimal_literal("2311", 38, 4));  // expected
-#endif
 
   AddAndVerify(decimal_literal("201", 38, 3),      // x
                decimal_literal("301", 38, 7),      // y
                decimal_literal("201030", 38, 6));  // expected
 
-#if 0
   AddAndVerify(decimal_literal("1201", 38, 3),   // x
                decimal_literal("1801", 38, 3),   // y
                decimal_literal("3002", 38, 3));  // carry-over from fractional
@@ -213,6 +210,5 @@ TEST_F(TestDecimalOps, TestAdd) {
   AddAndVerify(decimal_literal("-1000999", 38, 6),   // x
                decimal_literal("-10000992", 38, 7),  // y
                decimal_literal("-2001098", 38, 6));
-#endif
 }
 }  // namespace gandiva
