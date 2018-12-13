@@ -71,5 +71,7 @@ gplasma_client_refer_object(GPlasmaClient *client,
                             GPlasmaObjectID *id,
                             gint64 timeout_ms,
                             GError **error);
+gboolean gplasma_client_disconnect(GPlasmaClient *client,
+                                   GError **error);
 
 G_END_DECLS
