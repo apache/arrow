@@ -67,7 +67,7 @@ class FileTestFixture : public ::testing::Test {
 
   void EnsureFileDeleted() {
     if (FileExists(path_)) {
-      std::remove(path_.c_str());
+      ARROW_UNUSED(std::remove(path_.c_str()));
     }
   }
 

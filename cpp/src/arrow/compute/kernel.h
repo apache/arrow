@@ -19,6 +19,7 @@
 #define ARROW_COMPUTE_KERNEL_H
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
@@ -77,6 +78,14 @@ struct ARROW_EXPORT Datum {
   ~Datum() {}
 
   Datum(const Datum& other) noexcept { this->value = other.value; }
+
+  // Define move constructor and move assignment, for better performance
+  Datum(Datum&& other) noexcept : value(std::move(other.value)) {}
+
+  Datum& operator=(Datum&& other) noexcept {
+    value = std::move(other.value);
+    return *this;
+  }
 
   Datum::type kind() const {
     switch (this->value.which()) {
