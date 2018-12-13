@@ -30,10 +30,11 @@ from cython.operator cimport dereference as deref, preincrement as inc
 from cpython.pycapsule cimport *
 
 import collections
-import pyarrow
 import random
 import socket
+import warnings
 
+import pyarrow
 from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
@@ -872,7 +873,7 @@ cdef class PlasmaClient:
         return result
 
 
-def connect(store_socket_name, manager_socket_name, int release_delay,
+def connect(store_socket_name, manager_socket_name, int release_delay=0,
             int num_retries=-1):
     """
     Return a new PlasmaClient that is connected a plasma store and
@@ -885,8 +886,7 @@ def connect(store_socket_name, manager_socket_name, int release_delay,
     manager_socket_name : str
         Name of the socket the plasma manager is listening at.
     release_delay : int
-        The maximum number of objects that the client will keep and
-        delay releasing (for caching reasons).
+        This parameter is deprecated and has no effect.
     num_retries : int, default -1
         Number of times to try to connect to plasma store. Default value of -1
         uses the default (50)
@@ -894,6 +894,9 @@ def connect(store_socket_name, manager_socket_name, int release_delay,
     cdef PlasmaClient result = PlasmaClient()
     result.store_socket_name = store_socket_name.encode()
     result.manager_socket_name = manager_socket_name.encode()
+    if release_delay != 0:
+        warnings.warn("release_delay in PlasmaClient.connect is deprecated",
+                      FutureWarning)
     with nogil:
         check_status(result.client.get()
                      .Connect(result.store_socket_name,
