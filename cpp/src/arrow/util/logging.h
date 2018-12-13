@@ -22,6 +22,7 @@
 #include <memory>
 #include <string>
 
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -155,6 +156,8 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   static void InstallFailureSignalHandler();
 
  private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ArrowLog);
+
   // Hide the implementation of log provider by void *.
   // Otherwise, lib user may define the same macro to use the correct header file.
   void* logging_provider_;

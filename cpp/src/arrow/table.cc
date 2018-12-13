@@ -392,7 +392,7 @@ class SimpleTable : public Table {
   std::vector<std::shared_ptr<Column>> columns_;
 };
 
-Table::Table() {}
+Table::Table() : num_rows_(0) {}
 
 std::shared_ptr<Table> Table::Make(const std::shared_ptr<Schema>& schema,
                                    const std::vector<std::shared_ptr<Column>>& columns,
