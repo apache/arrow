@@ -62,11 +62,6 @@ cdef extern from "plasma/common.h" nogil:
         @staticmethod
         int64_t size()
 
-    cdef struct CObjectRequest" plasma::ObjectRequest":
-        CUniqueID object_id
-        int type
-        int location
-
     cdef enum CObjectState" plasma::ObjectState":
         PLASMA_CREATED" plasma::ObjectState::PLASMA_CREATED"
         PLASMA_SEALED" plasma::ObjectState::PLASMA_SEALED"
@@ -90,14 +85,6 @@ cdef extern from "plasma/common.h" nogil:
 
 cdef extern from "plasma/common.h":
     cdef int64_t kDigestSize" plasma::kDigestSize"
-
-    cdef enum ObjectRequestType:
-        PLASMA_QUERY_LOCAL"plasma::ObjectRequestType::PLASMA_QUERY_LOCAL",
-        PLASMA_QUERY_ANYWHERE"plasma::ObjectRequestType::PLASMA_QUERY_ANYWHERE"
-
-    cdef enum ObjectLocation:
-        ObjectStatusLocal"plasma::ObjectLocation::Local"
-        ObjectStatusRemote"plasma::ObjectLocation::Remote"
 
 cdef extern from "plasma/client.h" nogil:
 
@@ -141,16 +128,6 @@ cdef extern from "plasma/client.h" nogil:
                                 int64_t* data_size, int64_t* metadata_size)
 
         CStatus Disconnect()
-
-        CStatus Fetch(int num_object_ids, const CUniqueID* object_ids)
-
-        CStatus Wait(int64_t num_object_requests,
-                     CObjectRequest* object_requests,
-                     int num_ready_objects, int64_t timeout_ms,
-                     int* num_objects_ready)
-
-        CStatus Transfer(const char* addr, int port,
-                         const CUniqueID& object_id)
 
         CStatus Delete(const c_vector[CUniqueID] object_ids)
 
@@ -640,95 +617,6 @@ cdef class PlasmaClient:
         with nogil:
             check_status(self.client.get().Evict(num_bytes, num_bytes_evicted))
         return num_bytes_evicted
-
-    def transfer(self, address, int port, ObjectID object_id):
-        """
-        Transfer local object with id object_id to another plasma instance
-
-        Parameters
-        ----------
-        addr : str
-            IPv4 address of the plasma instance the object is sent to.
-        port : int
-            Port number of the plasma instance the object is sent to.
-        object_id : str
-            A string used to identify an object.
-        """
-        cdef c_string addr = address.encode()
-        with nogil:
-            check_status(self.client.get()
-                         .Transfer(addr.c_str(), port, object_id.data))
-
-    def fetch(self, object_ids):
-        """
-        Fetch the objects with the given IDs from other plasma managers.
-
-        Parameters
-        ----------
-        object_ids : list
-            A list of strings used to identify the objects.
-        """
-        cdef c_vector[CUniqueID] ids
-        cdef ObjectID object_id
-        for object_id in object_ids:
-            ids.push_back(object_id.data)
-        with nogil:
-            check_status(self.client.get().Fetch(ids.size(), ids.data()))
-
-    def wait(self, object_ids, int64_t timeout=PLASMA_WAIT_TIMEOUT,
-             int num_returns=1):
-        """
-        Wait until num_returns objects in object_ids are ready.
-        Currently, the object ID arguments to wait must be unique.
-
-        Parameters
-        ----------
-        object_ids : list
-            List of object IDs to wait for.
-        timeout :int
-            Return to the caller after timeout milliseconds.
-        num_returns : int
-            We are waiting for this number of objects to be ready.
-
-        Returns
-        -------
-        list
-            List of object IDs that are ready.
-        list
-            List of object IDs we might still wait on.
-        """
-        # Check that the object ID arguments are unique. The plasma manager
-        # currently crashes if given duplicate object IDs.
-        if len(object_ids) != len(set(object_ids)):
-            raise Exception("Wait requires a list of unique object IDs.")
-        cdef int64_t num_object_requests = len(object_ids)
-        cdef c_vector[CObjectRequest] object_requests = (
-            c_vector[CObjectRequest](num_object_requests))
-        cdef int num_objects_ready = 0
-        cdef ObjectID object_id
-        for i, object_id in enumerate(object_ids):
-            object_requests[i].object_id = object_id.data
-            object_requests[i].type = PLASMA_QUERY_ANYWHERE
-        with nogil:
-            check_status(self.client.get().Wait(num_object_requests,
-                                                object_requests.data(),
-                                                num_returns, timeout,
-                                                &num_objects_ready))
-        cdef int num_to_return = min(num_objects_ready, num_returns)
-        ready_ids = []
-        waiting_ids = set(object_ids)
-        cdef int num_returned = 0
-        for i in range(len(object_ids)):
-            if num_returned == num_to_return:
-                break
-            if (object_requests[i].location == ObjectStatusLocal or
-                    object_requests[i].location == ObjectStatusRemote):
-                ready_ids.append(
-                    ObjectID(object_requests[i].object_id.binary()))
-                waiting_ids.discard(
-                    ObjectID(object_requests[i].object_id.binary()))
-                num_returned += 1
-        return ready_ids, list(waiting_ids)
 
     def subscribe(self):
         """Subscribe to notifications about sealed objects."""
