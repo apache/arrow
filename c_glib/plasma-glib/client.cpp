@@ -185,7 +185,7 @@ gplasma_client_create_options_get_metadata(GPlasmaClientCreateOptions *options,
 
 typedef struct GPlasmaClientPrivate_ {
   plasma::PlasmaClient *client;
-  gboolean disconnected;
+  bool disconnected;
 } GPlasmaClientPrivate;
 
 enum {
