@@ -30,11 +30,11 @@ from cython.operator cimport dereference as deref, preincrement as inc
 from cpython.pycapsule cimport *
 
 import collections
-import pyarrow
 import random
-import warnings
 import socket
+import warnings
 
+import pyarrow
 from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
