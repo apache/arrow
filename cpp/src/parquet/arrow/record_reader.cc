@@ -381,7 +381,7 @@ class RecordReader::RecordReaderImpl {
 
   virtual void DebugPrintState() = 0;
 
-  virtual std::vector<std::shared_ptr<Array>> GetChunks() = 0;
+  virtual std::vector<std::shared_ptr<Array>> GetBuilderChunks() = 0;
 
  protected:
   virtual bool ReadNewPage() = 0;
@@ -558,7 +558,7 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
     std::cout << std::endl;
   }
 
-  virtual std::vector<std::shared_ptr<Array>> GetChunks() override {
+  std::vector<std::shared_ptr<Array>> GetBuilderChunks() override {
     throw ParquetException("GetChunks only implemented for binary types");
   }
 
@@ -591,14 +591,14 @@ template <>
 void TypedRecordReader<FLBAType>::DebugPrintState() {}
 
 template <>
-::arrow::ArrayVector TypedRecordReader<ByteArrayType>::GetChunks() {
+::arrow::ArrayVector TypedRecordReader<ByteArrayType>::GetBuilderChunks() {
   ::arrow::ArrayVector chunks;
   PARQUET_THROW_NOT_OK(builder_->Finish(&chunks));
   return chunks;
 }
 
 template <>
-::arrow::ArrayVector TypedRecordReader<FLBAType>::GetChunks() {
+::arrow::ArrayVector TypedRecordReader<FLBAType>::GetBuilderChunks() {
   std::shared_ptr<Array> chunk;
   PARQUET_THROW_NOT_OK(builder_->Finish(&chunk));
   return ::arrow::ArrayVector({chunk});

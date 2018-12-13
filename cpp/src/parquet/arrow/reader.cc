@@ -28,7 +28,6 @@
 #include <vector>
 
 #include "arrow/api.h"
-#include "arrow/api.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread-pool.h"
@@ -92,6 +91,19 @@ static inline int64_t impala_timestamp_to_nanoseconds(const Int96& impala_timest
 
 template <typename ArrowType>
 using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
+
+namespace internal {
+
+Status GetSingleChunk(const ChunkedArray& chunked, std::shared_ptr<Array>* out) {
+  DCHECK_GT(chunked.num_chunks(), 0);
+  if (chunked.num_chunks() > 1) {
+    return Status::Invalid("Function call returned a chunked array");
+  }
+  *out = chunked.chunk(0);
+  return Status::OK();
+}
+
+}  // namespace internal
 
 // ----------------------------------------------------------------------
 // Iteration utilities
@@ -295,8 +307,7 @@ class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::ColumnReaderImpl {
     NextRowGroup();
   }
 
-  Status NextBatch(int64_t records_to_read,
-                   std::shared_ptr<ChunkedArray>* out) override;
+  Status NextBatch(int64_t records_to_read, std::shared_ptr<ChunkedArray>* out) override;
 
   template <typename ParquetType>
   Status WrapIntoListArray(Datum* inout_array);
@@ -327,8 +338,7 @@ class PARQUET_NO_EXPORT StructImpl : public ColumnReader::ColumnReaderImpl {
     InitField(node, children);
   }
 
-  Status NextBatch(int64_t records_to_read,
-                   std::shared_ptr<ChunkedArray>* out) override;
+  Status NextBatch(int64_t records_to_read, std::shared_ptr<ChunkedArray>* out) override;
   Status GetDefLevels(const int16_t** data, size_t* length) override;
   Status GetRepLevels(const int16_t** data, size_t* length) override;
   const std::shared_ptr<Field> field() override { return field_; }
@@ -658,6 +668,18 @@ Status FileReader::ReadSchemaField(int i, std::shared_ptr<ChunkedArray>* out) {
   }
 }
 
+Status FileReader::ReadColumn(int i, std::shared_ptr<Array>* out) {
+  std::shared_ptr<ChunkedArray> chunked_out;
+  RETURN_NOT_OK(ReadColumn(i, &chunked_out));
+  return GetSingleChunk(*chunked_out, out);
+}
+
+Status FileReader::ReadSchemaField(int i, std::shared_ptr<Array>* out) {
+  std::shared_ptr<ChunkedArray> chunked_out;
+  RETURN_NOT_OK(ReadSchemaField(i, &chunked_out));
+  return GetSingleChunk(*chunked_out, out);
+}
+
 Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                         std::shared_ptr<RecordBatchReader>* out) {
   std::vector<int> indices(impl_->num_columns());
@@ -774,6 +796,27 @@ const ParquetFileReader* FileReader::parquet_reader() const {
 
 template <typename ParquetType>
 Status PrimitiveImpl::WrapIntoListArray(Datum* inout_array) {
+  if (descr_->max_repetition_level() == 0) {
+    // Flat, no action
+    return Status::OK();
+  }
+
+  std::shared_ptr<Array> flat_array;
+
+  // ARROW-3762(wesm): If inout_array is a chunked array, we reject as this is
+  // not yet implemented
+  if (inout_array->kind() == Datum::CHUNKED_ARRAY) {
+    if (inout_array->chunked_array()->num_chunks() > 1) {
+      return Status::NotImplemented(
+          "Nested data conversions not implemented for "
+          "chunked array outputs");
+    }
+    flat_array = inout_array->chunked_array()->chunk(0);
+  } else {
+    DCHECK_EQ(Datum::ARRAY, inout_array->kind());
+    flat_array = inout_array->array();
+  }
+
   const int16_t* def_levels = record_reader_->def_levels();
   const int16_t* rep_levels = record_reader_->rep_levels();
   const int64_t total_levels_read = record_reader_->levels_position();
@@ -784,110 +827,106 @@ Status PrimitiveImpl::WrapIntoListArray(Datum* inout_array) {
                                   &arrow_schema));
   std::shared_ptr<Field> current_field = arrow_schema->field(0);
 
-  if (descr_->max_repetition_level() > 0) {
-    // Walk downwards to extract nullability
-    std::vector<bool> nullable;
-    std::vector<std::shared_ptr<::arrow::Int32Builder>> offset_builders;
-    std::vector<std::shared_ptr<::arrow::BooleanBuilder>> valid_bits_builders;
+  // Walk downwards to extract nullability
+  std::vector<bool> nullable;
+  std::vector<std::shared_ptr<::arrow::Int32Builder>> offset_builders;
+  std::vector<std::shared_ptr<::arrow::BooleanBuilder>> valid_bits_builders;
+  nullable.push_back(current_field->nullable());
+  while (current_field->type()->num_children() > 0) {
+    if (current_field->type()->num_children() > 1) {
+      return Status::NotImplemented("Fields with more than one child are not supported.");
+    } else {
+      if (current_field->type()->id() != ::arrow::Type::LIST) {
+        return Status::NotImplemented("Currently only nesting with Lists is supported.");
+      }
+      current_field = current_field->type()->child(0);
+    }
+    offset_builders.emplace_back(
+        std::make_shared<::arrow::Int32Builder>(::arrow::int32(), pool_));
+    valid_bits_builders.emplace_back(
+        std::make_shared<::arrow::BooleanBuilder>(::arrow::boolean(), pool_));
     nullable.push_back(current_field->nullable());
-    while (current_field->type()->num_children() > 0) {
-      if (current_field->type()->num_children() > 1) {
-        return Status::NotImplemented(
-            "Fields with more than one child are not supported.");
-      } else {
-        if (current_field->type()->id() != ::arrow::Type::LIST) {
-          return Status::NotImplemented(
-              "Currently only nesting with Lists is supported.");
-        }
-        current_field = current_field->type()->child(0);
-      }
-      offset_builders.emplace_back(
-          std::make_shared<::arrow::Int32Builder>(::arrow::int32(), pool_));
-      valid_bits_builders.emplace_back(
-          std::make_shared<::arrow::BooleanBuilder>(::arrow::boolean(), pool_));
-      nullable.push_back(current_field->nullable());
-    }
+  }
 
-    int64_t list_depth = offset_builders.size();
-    // This describes the minimal definition that describes a level that
-    // reflects a value in the primitive values array.
-    int16_t values_def_level = descr_->max_definition_level();
-    if (nullable[nullable.size() - 1]) {
-      values_def_level--;
-    }
+  int64_t list_depth = offset_builders.size();
+  // This describes the minimal definition that describes a level that
+  // reflects a value in the primitive values array.
+  int16_t values_def_level = descr_->max_definition_level();
+  if (nullable[nullable.size() - 1]) {
+    values_def_level--;
+  }
 
-    // The definition levels that are needed so that a list is declared
-    // as empty and not null.
-    std::vector<int16_t> empty_def_level(list_depth);
-    int def_level = 0;
-    for (int i = 0; i < list_depth; i++) {
-      if (nullable[i]) {
-        def_level++;
-      }
-      empty_def_level[i] = static_cast<int16_t>(def_level);
+  // The definition levels that are needed so that a list is declared
+  // as empty and not null.
+  std::vector<int16_t> empty_def_level(list_depth);
+  int def_level = 0;
+  for (int i = 0; i < list_depth; i++) {
+    if (nullable[i]) {
       def_level++;
     }
+    empty_def_level[i] = static_cast<int16_t>(def_level);
+    def_level++;
+  }
 
-    int32_t values_offset = 0;
-    std::vector<int64_t> null_counts(list_depth, 0);
-    for (int64_t i = 0; i < total_levels_read; i++) {
-      int16_t rep_level = rep_levels[i];
-      if (rep_level < descr_->max_repetition_level()) {
-        for (int64_t j = rep_level; j < list_depth; j++) {
-          if (j == (list_depth - 1)) {
-            RETURN_NOT_OK(offset_builders[j]->Append(values_offset));
-          } else {
-            RETURN_NOT_OK(offset_builders[j]->Append(
-                static_cast<int32_t>(offset_builders[j + 1]->length())));
-          }
+  int32_t values_offset = 0;
+  std::vector<int64_t> null_counts(list_depth, 0);
+  for (int64_t i = 0; i < total_levels_read; i++) {
+    int16_t rep_level = rep_levels[i];
+    if (rep_level < descr_->max_repetition_level()) {
+      for (int64_t j = rep_level; j < list_depth; j++) {
+        if (j == (list_depth - 1)) {
+          RETURN_NOT_OK(offset_builders[j]->Append(values_offset));
+        } else {
+          RETURN_NOT_OK(offset_builders[j]->Append(
+              static_cast<int32_t>(offset_builders[j + 1]->length())));
+        }
 
-          if (((empty_def_level[j] - 1) == def_levels[i]) && (nullable[j])) {
-            RETURN_NOT_OK(valid_bits_builders[j]->Append(false));
-            null_counts[j]++;
+        if (((empty_def_level[j] - 1) == def_levels[i]) && (nullable[j])) {
+          RETURN_NOT_OK(valid_bits_builders[j]->Append(false));
+          null_counts[j]++;
+          break;
+        } else {
+          RETURN_NOT_OK(valid_bits_builders[j]->Append(true));
+          if (empty_def_level[j] == def_levels[i]) {
             break;
-          } else {
-            RETURN_NOT_OK(valid_bits_builders[j]->Append(true));
-            if (empty_def_level[j] == def_levels[i]) {
-              break;
-            }
           }
         }
       }
-      if (def_levels[i] >= values_def_level) {
-        values_offset++;
-      }
     }
-    // Add the final offset to all lists
-    for (int64_t j = 0; j < list_depth; j++) {
-      if (j == (list_depth - 1)) {
-        RETURN_NOT_OK(offset_builders[j]->Append(values_offset));
-      } else {
-        RETURN_NOT_OK(offset_builders[j]->Append(
-            static_cast<int32_t>(offset_builders[j + 1]->length())));
-      }
+    if (def_levels[i] >= values_def_level) {
+      values_offset++;
     }
-
-    std::vector<std::shared_ptr<Buffer>> offsets;
-    std::vector<std::shared_ptr<Buffer>> valid_bits;
-    std::vector<int64_t> list_lengths;
-    for (int64_t j = 0; j < list_depth; j++) {
-      list_lengths.push_back(offset_builders[j]->length() - 1);
-      std::shared_ptr<Array> array;
-      RETURN_NOT_OK(offset_builders[j]->Finish(&array));
-      offsets.emplace_back(std::static_pointer_cast<Int32Array>(array)->values());
-      RETURN_NOT_OK(valid_bits_builders[j]->Finish(&array));
-      valid_bits.emplace_back(std::static_pointer_cast<BooleanArray>(array)->values());
-    }
-
-    std::shared_ptr<Array> output(*array);
-    for (int64_t j = list_depth - 1; j >= 0; j--) {
-      auto list_type =
-          ::arrow::list(::arrow::field("item", output->type(), nullable[j + 1]));
-      output = std::make_shared<::arrow::ListArray>(
-          list_type, list_lengths[j], offsets[j], output, valid_bits[j], null_counts[j]);
-    }
-    *array = output;
   }
+  // Add the final offset to all lists
+  for (int64_t j = 0; j < list_depth; j++) {
+    if (j == (list_depth - 1)) {
+      RETURN_NOT_OK(offset_builders[j]->Append(values_offset));
+    } else {
+      RETURN_NOT_OK(offset_builders[j]->Append(
+          static_cast<int32_t>(offset_builders[j + 1]->length())));
+    }
+  }
+
+  std::vector<std::shared_ptr<Buffer>> offsets;
+  std::vector<std::shared_ptr<Buffer>> valid_bits;
+  std::vector<int64_t> list_lengths;
+  for (int64_t j = 0; j < list_depth; j++) {
+    list_lengths.push_back(offset_builders[j]->length() - 1);
+    std::shared_ptr<Array> array;
+    RETURN_NOT_OK(offset_builders[j]->Finish(&array));
+    offsets.emplace_back(std::static_pointer_cast<Int32Array>(array)->values());
+    RETURN_NOT_OK(valid_bits_builders[j]->Finish(&array));
+    valid_bits.emplace_back(std::static_pointer_cast<BooleanArray>(array)->values());
+  }
+
+  std::shared_ptr<Array> output(*flat_array);
+  for (int64_t j = list_depth - 1; j >= 0; j--) {
+    auto list_type =
+        ::arrow::list(::arrow::field("item", output->type(), nullable[j + 1]));
+    output = std::make_shared<::arrow::ListArray>(list_type, list_lengths[j], offsets[j],
+                                                  output, valid_bits[j], null_counts[j]);
+  }
+  *inout_array = output;
   return Status::OK();
 }
 
@@ -918,8 +957,7 @@ struct TransferFunctor {
   using ParquetCType = typename ParquetType::c_type;
 
   Status operator()(RecordReader* reader, MemoryPool* pool,
-                    const std::shared_ptr<::arrow::DataType>& type,
-                    Datum* out) {
+                    const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     static_assert(!std::is_same<ArrowType, ::arrow::Int32Type>::value,
                   "The fast path transfer functor should be used "
                   "for primitive values");
@@ -947,8 +985,7 @@ template <typename ArrowType, typename ParquetType>
 struct TransferFunctor<ArrowType, ParquetType,
                        supports_fast_path<ArrowType, ParquetType>> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
-                    const std::shared_ptr<::arrow::DataType>& type,
-                    Datum* out) {
+                    const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     int64_t length = reader->values_written();
     std::shared_ptr<ResizableBuffer> values = reader->ReleaseValues();
 
@@ -966,8 +1003,7 @@ struct TransferFunctor<ArrowType, ParquetType,
 template <>
 struct TransferFunctor<::arrow::BooleanType, BooleanType> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
-                    const std::shared_ptr<::arrow::DataType>& type,
-                    Datum* out) {
+                    const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     int64_t length = reader->values_written();
     std::shared_ptr<Buffer> data;
 
@@ -1000,8 +1036,7 @@ struct TransferFunctor<::arrow::BooleanType, BooleanType> {
 template <>
 struct TransferFunctor<::arrow::TimestampType, Int96Type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
-                    const std::shared_ptr<::arrow::DataType>& type,
-                    Datum* out) {
+                    const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     int64_t length = reader->values_written();
     auto values = reinterpret_cast<const Int96*>(reader->values());
 
@@ -1028,8 +1063,7 @@ struct TransferFunctor<::arrow::TimestampType, Int96Type> {
 template <>
 struct TransferFunctor<::arrow::Date64Type, Int32Type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
-                    const std::shared_ptr<::arrow::DataType>& type,
-                    Datum* out) {
+                    const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     int64_t length = reader->values_written();
     auto values = reinterpret_cast<const int32_t*>(reader->values());
 
@@ -1058,16 +1092,18 @@ struct TransferFunctor<
     typename std::enable_if<std::is_same<ParquetType, ByteArrayType>::value ||
                             std::is_same<ParquetType, FLBAType>::value>::type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
-                    const std::shared_ptr<::arrow::DataType>& type,
-                    Datum* out) {
-    RETURN_NOT_OK(reader->builder()->Finish(out));
+                    const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
+    std::vector<std::shared_ptr<Array>> chunks = reader->GetBuilderChunks();
 
     if (type->id() == ::arrow::Type::STRING) {
       // Convert from BINARY type to STRING
-      auto new_data = (*out)->data()->Copy();
-      new_data->type = type;
-      *out = ::arrow::MakeArray(new_data);
+      for (size_t i = 0; i < chunks.size(); ++i) {
+        auto new_data = chunks[i]->data()->Copy();
+        new_data->type = type;
+        chunks[i] = ::arrow::MakeArray(new_data);
+      }
     }
+    *out = std::make_shared<ChunkedArray>(chunks);
     return Status::OK();
   }
 };
@@ -1175,66 +1211,99 @@ static inline void RawBytesToDecimalBytes(const uint8_t* value, int32_t byte_wid
   BytesToIntegerPair(value, byte_width, high, low);
 }
 
-/// \brief Convert an array of FixedLenByteArrays to an arrow::Decimal128Array
-/// We do this by:
-/// 1. Creating a arrow::FixedSizeBinaryArray from the RecordReader's builder
-/// 2. Allocating a buffer for the arrow::Decimal128Array
-/// 3. Converting the big-endian bytes in the FixedSizeBinaryArray to two integers
-///    representing the high and low bits of each decimal value.
+// ----------------------------------------------------------------------
+// BYTE_ARRAY / FIXED_LEN_BYTE_ARRAY -> Decimal128
+
 template <>
-struct TransferFunctor<::arrow::Decimal128Type, FLBAType> {
-  Status operator()(RecordReader* reader, MemoryPool* pool,
-                    const std::shared_ptr<::arrow::DataType>& type,
-                    Datum* out) {
-    DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
+Status ConvertToDecimal128<FLBAType>(const Array& array,
+                                     const std::shared_ptr<::arrow::DataType>& type,
+                                     MemoryPool* pool, std::shared_ptr<Array>* out) {
+  const auto& fixed_size_binary_array =
+      static_cast<const ::arrow::FixedSizeBinaryArray&>(array);
 
-    // Finish the built data into a temporary array
-    std::shared_ptr<Array> array;
-    RETURN_NOT_OK(reader->builder()->Finish(&array));
-    const auto& fixed_size_binary_array =
-        static_cast<const ::arrow::FixedSizeBinaryArray&>(*array);
+  // The byte width of each decimal value
+  const int32_t type_length =
+      static_cast<const ::arrow::Decimal128Type&>(*type).byte_width();
 
-    // Get the byte width of the values in the FixedSizeBinaryArray. Most of the time
-    // this will be different from the decimal array width because we write the minimum
-    // number of bytes necessary to represent a given precision
-    const int32_t byte_width =
-        static_cast<const ::arrow::FixedSizeBinaryType&>(*fixed_size_binary_array.type())
-            .byte_width();
+  // number of elements in the entire array
+  const int64_t length = fixed_size_binary_array.length();
 
-    // The byte width of each decimal value
-    const int32_t type_length =
-        static_cast<const ::arrow::Decimal128Type&>(*type).byte_width();
+  // Get the byte width of the values in the FixedSizeBinaryArray. Most of the time
+  // this will be different from the decimal array width because we write the minimum
+  // number of bytes necessary to represent a given precision
+  const int32_t byte_width =
+      static_cast<const ::arrow::FixedSizeBinaryType&>(*fixed_size_binary_array.type())
+          .byte_width();
 
-    // number of elements in the entire array
-    const int64_t length = fixed_size_binary_array.length();
+  // allocate memory for the decimal array
+  std::shared_ptr<Buffer> data;
+  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * type_length, &data));
 
-    // allocate memory for the decimal array
-    std::shared_ptr<Buffer> data;
-    RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * type_length, &data));
+  // raw bytes that we can write to
+  uint8_t* out_ptr = data->mutable_data();
 
-    // raw bytes that we can write to
-    uint8_t* out_ptr = data->mutable_data();
-
-    // convert each FixedSizeBinary value to valid decimal bytes
-    const int64_t null_count = fixed_size_binary_array.null_count();
-    if (null_count > 0) {
-      for (int64_t i = 0; i < length; ++i, out_ptr += type_length) {
-        if (!fixed_size_binary_array.IsNull(i)) {
-          RawBytesToDecimalBytes(fixed_size_binary_array.GetValue(i), byte_width,
-                                 out_ptr);
-        }
-      }
-    } else {
-      for (int64_t i = 0; i < length; ++i, out_ptr += type_length) {
+  // convert each FixedSizeBinary value to valid decimal bytes
+  const int64_t null_count = fixed_size_binary_array.null_count();
+  if (null_count > 0) {
+    for (int64_t i = 0; i < length; ++i, out_ptr += type_length) {
+      if (!fixed_size_binary_array.IsNull(i)) {
         RawBytesToDecimalBytes(fixed_size_binary_array.GetValue(i), byte_width, out_ptr);
       }
     }
-
-    *out = std::make_shared<::arrow::Decimal128Array>(
-        type, length, data, fixed_size_binary_array.null_bitmap(), null_count);
-    return Status::OK();
+  } else {
+    for (int64_t i = 0; i < length; ++i, out_ptr += type_length) {
+      RawBytesToDecimalBytes(fixed_size_binary_array.GetValue(i), byte_width, out_ptr);
+    }
   }
-};
+
+  *out = std::make_shared<::arrow::Decimal128Array>(
+      type, length, data, fixed_size_binary_array.null_bitmap(), null_count);
+
+  return Status::OK();
+}
+
+template <>
+    static Status ConvertToDecimal128 <
+    ByteArrayType(const Array& array, const std::shared_ptr<::arrow::DataType>& type,
+                  std::shared_ptr<Array>* out) {
+  const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*array);
+  const int64_t length = binary_array.length();
+
+  const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
+  const int64_t type_length = decimal_type.byte_width();
+
+  std::shared_ptr<Buffer> data;
+  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * type_length, &data));
+
+  // raw bytes that we can write to
+  uint8_t* out_ptr = data->mutable_data();
+
+  const int64_t null_count = binary_array.null_count();
+
+  // convert each BinaryArray value to valid decimal bytes
+  for (int64_t i = 0; i < length; i++, out_ptr += type_length) {
+    int32_t record_len = 0;
+    const uint8_t* record_loc = binary_array.GetValue(i, &record_len);
+
+    if ((record_len < 0) || (record_len > type_length)) {
+      return Status::Invalid("Invalid BYTE_ARRAY size");
+    }
+
+    auto out_ptr_view = reinterpret_cast<uint64_t*>(out_ptr);
+    out_ptr_view[0] = 0;
+    out_ptr_view[1] = 0;
+
+    // only convert rows that are not null if there are nulls, or
+    // all rows, if there are not
+    if (((null_count > 0) && !binary_array.IsNull(i)) || (null_count <= 0)) {
+      RawBytesToDecimalBytes(record_loc, record_len, out_ptr);
+    }
+  }
+
+  *out = std::make_shared<::arrow::Decimal128Array>(
+      type, length, data, binary_array.null_bitmap(), null_count);
+  return Status::OK();
+}
 
 /// \brief Convert an arrow::BinaryArray to an arrow::Decimal128Array
 /// We do this by:
@@ -1242,54 +1311,26 @@ struct TransferFunctor<::arrow::Decimal128Type, FLBAType> {
 /// 2. Allocating a buffer for the arrow::Decimal128Array
 /// 3. Converting the big-endian bytes in each BinaryArray entry to two integers
 ///    representing the high and low bits of each decimal value.
-template <>
-struct TransferFunctor<::arrow::Decimal128Type, ByteArrayType> {
+struct TransferFunctor<
+    ArrowType, ParquetType,
+    typename std::enable_if<std::is_same<ArrowType, ::arrow::Decimal128Type> &&
+                            (std::is_same<ParquetType, ByteArrayType>::value ||
+                             std::is_same<ParquetType, FLBAType>::value)>::type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
-                    const std::shared_ptr<::arrow::DataType>& type,
-                    Datum* out) {
+                    const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
 
-    // Finish the built data into a temporary array
-    std::shared_ptr<Array> array;
-    RETURN_NOT_OK(reader->builder()->Finish(&array));
-    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*array);
+    ::arrow::ArrayVector chunks = reader->GetBuilderChunks();
 
-    const int64_t length = binary_array.length();
+    for (size_t i = 0; i < chunks.size(); ++i) {
+      std::shared_ptr<Array> chunk_as_decimal;
+      RETURN_NOT_OK(
+          ConvertToDecimal128<ParquetType>(*chunks[i], type, pool, &chunk_as_decimal));
 
-    const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
-    const int64_t type_length = decimal_type.byte_width();
-
-    std::shared_ptr<Buffer> data;
-    RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * type_length, &data));
-
-    // raw bytes that we can write to
-    uint8_t* out_ptr = data->mutable_data();
-
-    const int64_t null_count = binary_array.null_count();
-
-    // convert each BinaryArray value to valid decimal bytes
-    for (int64_t i = 0; i < length; i++, out_ptr += type_length) {
-      int32_t record_len = 0;
-      const uint8_t* record_loc = binary_array.GetValue(i, &record_len);
-
-      if ((record_len < 0) || (record_len > type_length)) {
-        return Status::Invalid("Invalid BYTE_ARRAY size");
-      }
-
-      auto out_ptr_view = reinterpret_cast<uint64_t*>(out_ptr);
-      out_ptr_view[0] = 0;
-      out_ptr_view[1] = 0;
-
-      // only convert rows that are not null if there are nulls, or
-      // all rows, if there are not
-      if (((null_count > 0) && !binary_array.IsNull(i)) || (null_count <= 0)) {
-        RawBytesToDecimalBytes(record_loc, record_len, out_ptr);
-      }
+      // Replace the chunk, which will hopefully also free memory as we go
+      chunks[i] = chunk_as_decimal;
     }
-
-    *out = std::make_shared<::arrow::Decimal128Array>(
-        type, length, data, binary_array.null_bitmap(), null_count);
-
+    *out = std::make_shared<ChunkedArray>(chunks);
     return Status::OK();
   }
 };
@@ -1351,8 +1392,7 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
 template <>
 struct TransferFunctor<::arrow::Decimal128Type, Int32Type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
-                    const std::shared_ptr<::arrow::DataType>& type,
-                    Datum* out) {
+                    const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     return DecimalIntegerTransfer<Int32Type>(reader, pool, type, out);
   }
 };
@@ -1360,14 +1400,13 @@ struct TransferFunctor<::arrow::Decimal128Type, Int32Type> {
 template <>
 struct TransferFunctor<::arrow::Decimal128Type, Int64Type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
-                    const std::shared_ptr<::arrow::DataType>& type,
-                    Datum* out) {
+                    const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     return DecimalIntegerTransfer<Int64Type>(reader, pool, type, out);
   }
 };
 
-#define TRANSFER_DATA(ArrowType, ParquetType)                           \
-  TransferFunctor<ArrowType, ParquetType> func;                         \
+#define TRANSFER_DATA(ArrowType, ParquetType)                                \
+  TransferFunctor<ArrowType, ParquetType> func;                              \
   RETURN_NOT_OK(func(record_reader_.get(), pool_, field_->type(), &result)); \
   RETURN_NOT_OK(WrapIntoListArray<ParquetType>(out))
 
@@ -1463,6 +1502,15 @@ Status PrimitiveImpl::NextBatch(int64_t records_to_read,
       return Status::NotImplemented(ss.str());
   }
 
+  DCHECK_NE(result.kind(), Datum::NONE);
+
+  if (result.kind() == Datum::ARRAY) {
+    *out = std::make_shared<ChunkedArray>(result.array());
+  } else if (result.kind() == Datum::CHUNKED_ARRAY) {
+    *out = result.chunked_array();
+  } else {
+    DCHECK(false) << "Should be impossible";
+  }
   return Status::OK();
 }
 
@@ -1488,8 +1536,15 @@ ColumnReader::ColumnReader(std::unique_ptr<ColumnReaderImpl> impl)
 
 ColumnReader::~ColumnReader() {}
 
-Status ColumnReader::NextBatch(int64_t records_to_read, std::shared_ptr<Array>* out) {
+Status ColumnReader::NextBatch(int64_t records_to_read,
+                               std::shared_ptr<ChunkedArray>* out) {
   return impl_->NextBatch(records_to_read, out);
+}
+
+Status ColumnReader::NextBatch(int64_t records_to_read, std::shared_ptr<Array>* out) {
+  std::make_shared<ChunkedArray> chunked_out;
+  RETURN_NOT_OK(impl_->NextBatch(records_to_read, &chunked_out));
+  return GetSingleChunk(*chunked_out, out);
 }
 
 // StructImpl methods
@@ -1576,17 +1631,21 @@ Status StructImpl::GetRepLevels(const int16_t** data, size_t* length) {
   return Status::NotImplemented("GetRepLevels is not implemented for struct");
 }
 
-Status StructImpl::NextBatch(int64_t records_to_read, std::shared_ptr<Array>* out) {
+Status StructImpl::NextBatch(int64_t records_to_read,
+                             std::shared_ptr<ChunkedArray>* out) {
   std::vector<std::shared_ptr<Array>> children_arrays;
   std::shared_ptr<Buffer> null_bitmap;
   int64_t null_count;
 
   // Gather children arrays and def levels
   for (auto& child : children_) {
-    std::shared_ptr<Array> child_array;
+    std::shared_ptr<ChunkedArray> field;
+    RETURN_NOT_OK(child->NextBatch(records_to_read, &field));
 
-    RETURN_NOT_OK(child->NextBatch(records_to_read, &child_array));
-    children_arrays.push_back(child_array);
+    if (field->num_chunks() > 1) {
+      return Status::Invalid("Chunked field reads not yet supported with StructArray");
+    }
+    children_arrays.push_back(field->chunk(0));
   }
 
   RETURN_NOT_OK(DefLevelsToNullArray(&null_bitmap, &null_count));
@@ -1600,8 +1659,9 @@ Status StructImpl::NextBatch(int64_t records_to_read, std::shared_ptr<Array>* ou
     }
   }
 
-  *out = std::make_shared<StructArray>(field()->type(), struct_length, children_arrays,
-                                       null_bitmap, null_count);
+  auto result = std::make_shared<StructArray>(field()->type(), struct_length,
+                                              children_arrays, null_bitmap, null_count);
+  *out = std::make_shared<ChunkedArray>(result);
   return Status::OK();
 }
 
@@ -1631,11 +1691,7 @@ Status ColumnChunkReader::Read(std::shared_ptr<::arrow::ChunkedArray>* out) {
 Status ColumnChunkReader::Read(std::shared_ptr<::arrow::Array>* out) {
   std::make_shared<ChunkedArray> chunked_out;
   RETURN_NOT_OK(impl_->ReadColumnChunk(column_index_, row_group_index_, &chunked_out));
-  DCHECK_GT(chunked_out->num_chunks(), 0);
-  if (chunked_out->num_chunks() > 1) {
-    return Status::Invalid("ColumnChunk result is a chunked array");
-  }
-  return chunked_out->chunk(0);
+  return GetSingleChunk(*chunked_out, out);
 }
 
 ColumnChunkReader::~ColumnChunkReader() {}

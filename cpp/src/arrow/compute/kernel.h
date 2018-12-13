@@ -61,19 +61,20 @@ struct ARROW_EXPORT Datum {
   /// \brief Empty datum, to be populated elsewhere
   Datum() : value(NULLPTR) {}
 
-  explicit Datum(const std::shared_ptr<Scalar>& value) : value(value) {}
-
-  explicit Datum(const std::shared_ptr<ArrayData>& value) : value(value) {}
-
-  explicit Datum(const std::shared_ptr<Array>& value) : Datum(value->data()) {}
-
-  explicit Datum(const std::shared_ptr<ChunkedArray>& value) : value(value) {}
-
-  explicit Datum(const std::shared_ptr<RecordBatch>& value) : value(value) {}
-
-  explicit Datum(const std::shared_ptr<Table>& value) : value(value) {}
-
-  explicit Datum(const std::vector<Datum>& value) : value(value) {}
+  Datum(const std::shared_ptr<Scalar>& value)  // NOLINT implicit conversion
+      : value(value) {}
+  Datum(const std::shared_ptr<ArrayData>& value)  // NOLINT implicit conversion
+      : value(value) {}
+  Datum(const std::shared_ptr<Array>& value)  // NOLINT implicit conversion
+      : Datum(value ? value->data() : NULLPTR) {}
+  Datum(const std::shared_ptr<ChunkedArray>& value)  // NOLINT implicit conversion
+      : value(value) {}
+  Datum(const std::shared_ptr<RecordBatch>& value)  // NOLINT implicit conversion
+      : value(value) {}
+  Datum(const std::shared_ptr<Table>& value)  // NOLINT implicit conversion
+      : value(value) {}
+  Datum(const std::vector<Datum>& value)  // NOLINT implicit conversion
+      : value(value) {}
 
   ~Datum() {}
 

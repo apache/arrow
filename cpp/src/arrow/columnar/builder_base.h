@@ -50,7 +50,6 @@ struct ArrayData;
 constexpr int64_t kMinBuilderCapacity = 1 << 5;
 constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1;
 
-
 /// Base class for all data array builders.
 ///
 /// This class provides a facilities for incrementally building the null bitmap

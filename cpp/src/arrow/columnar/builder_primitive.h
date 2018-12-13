@@ -42,7 +42,6 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 };
 
-
 template <typename Type>
 class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
  public:
@@ -236,7 +235,6 @@ using Date64Builder = NumericBuilder<Date64Type>;
 using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
 using FloatBuilder = NumericBuilder<FloatType>;
 using DoubleBuilder = NumericBuilder<DoubleType>;
-
 
 class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:
