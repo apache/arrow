@@ -282,6 +282,8 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   std::unique_ptr<FileMetaDataBuilderImpl> impl_;
 };
 
+PARQUET_EXPORT std::string ParquetVersionToString(ParquetVersion::type ver);
+
 }  // namespace parquet
 
 #endif  // PARQUET_FILE_METADATA_H
