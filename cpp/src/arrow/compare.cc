@@ -800,7 +800,7 @@ struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
                       const SparseTensor<SparseIndexType>& right) {
     DCHECK(left.type()->id() == right.type()->id());
     DCHECK(left.shape() == right.shape());
-    DCHECK(left.length() == right.length());
+    DCHECK(left.non_zero_length() == right.non_zero_length());
 
     const auto& left_index = checked_cast<const SparseIndexType&>(*left.sparse_index());
     const auto& right_index = checked_cast<const SparseIndexType&>(*right.sparse_index());
@@ -816,7 +816,7 @@ struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
     const uint8_t* left_data = left.data()->data();
     const uint8_t* right_data = right.data()->data();
 
-    return memcmp(left_data, right_data, static_cast<size_t>(byte_width * left.length()));
+    return memcmp(left_data, right_data, static_cast<size_t>(byte_width * left.non_zero_length()));
   }
 };
 
@@ -852,7 +852,7 @@ bool SparseTensorEquals(const SparseTensorBase& left, const SparseTensorBase& ri
     return true;
   } else if (left.shape() != right.shape()) {
     return false;
-  } else if (left.length() != right.length()) {
+  } else if (left.non_zero_length() != right.non_zero_length()) {
     return false;
   }
 

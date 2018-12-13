@@ -45,8 +45,8 @@ TEST(TestSparseCOOTensor, CreationEmptyTensor) {
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   SparseTensor<SparseCOOIndex> st2(int64(), shape, dim_names);
 
-  ASSERT_EQ(0, st1.length());
-  ASSERT_EQ(0, st2.length());
+  ASSERT_EQ(0, st1.non_zero_length());
+  ASSERT_EQ(0, st2.non_zero_length());
 
   ASSERT_EQ(24, st1.size());
   ASSERT_EQ(24, st2.size());
@@ -73,7 +73,7 @@ TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
 
   CheckSparseIndexFormatType(SparseTensorFormat::COO, st1);
 
-  ASSERT_EQ(12, st1.length());
+  ASSERT_EQ(12, st1.non_zero_length());
   ASSERT_TRUE(st1.is_mutable());
 
   ASSERT_EQ("foo", st2.dim_name(0));
@@ -136,7 +136,7 @@ TEST(TestSparseCOOTensor, CreationFromTensor) {
   SparseTensor<SparseCOOIndex> st1(tensor1);
   SparseTensor<SparseCOOIndex> st2(tensor2);
 
-  ASSERT_EQ(12, st1.length());
+  ASSERT_EQ(12, st1.non_zero_length());
   ASSERT_TRUE(st1.is_mutable());
 
   ASSERT_EQ("foo", st2.dim_name(0));
@@ -200,7 +200,7 @@ TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
 
   CheckSparseIndexFormatType(SparseTensorFormat::CSR, st1);
 
-  ASSERT_EQ(12, st1.length());
+  ASSERT_EQ(12, st1.non_zero_length());
   ASSERT_TRUE(st1.is_mutable());
 
   ASSERT_EQ("foo", st2.dim_name(0));

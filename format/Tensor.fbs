@@ -134,7 +134,7 @@ table SparseTensor {
   shape: [TensorDim];
 
   /// The number of non-zero values in a sparse tensor.
-  length: long;
+  non_zero_length: long;
 
   /// Sparse tensor index
   sparseIndex: SparseTensorIndex;

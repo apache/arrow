@@ -872,7 +872,7 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
 
   const auto& sparse_index = checked_cast<const SparseCOOIndex&>(*tensor.sparse_index());
   const int64_t indices_length = elem_size * sparse_index.indices()->size();
-  const int64_t data_length = elem_size * tensor.length();
+  const int64_t data_length = elem_size * tensor.non_zero_length();
   const int64_t expected_body_length = indices_length + data_length;
   ASSERT_EQ(expected_body_length, body_length);
 
@@ -905,7 +905,7 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCSRIndex>(
   const auto& sparse_index = checked_cast<const SparseCSRIndex&>(*tensor.sparse_index());
   const int64_t indptr_length = elem_size * sparse_index.indptr()->size();
   const int64_t indices_length = elem_size * sparse_index.indices()->size();
-  const int64_t data_length = elem_size * tensor.length();
+  const int64_t data_length = elem_size * tensor.non_zero_length();
   const int64_t expected_body_length = indptr_length + indices_length + data_length;
   ASSERT_EQ(expected_body_length, body_length);
 

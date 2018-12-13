@@ -32,26 +32,26 @@ namespace arrow {
 
 class ARROW_EXPORT SparseIndex {
  public:
-  explicit SparseIndex(SparseTensorFormat::type format_id, int64_t length)
-      : format_id_(format_id), length_(length) {}
+  explicit SparseIndex(SparseTensorFormat::type format_id, int64_t non_zero_length)
+      : format_id_(format_id), non_zero_length_(non_zero_length) {}
 
   virtual ~SparseIndex() = default;
 
   SparseTensorFormat::type format_id() const { return format_id_; }
-  int64_t length() const { return length_; }
+  int64_t non_zero_length() const { return non_zero_length_; }
 
   virtual std::string ToString() const = 0;
 
  protected:
   SparseTensorFormat::type format_id_;
-  int64_t length_;
+  int64_t non_zero_length_;
 };
 
 template <typename SparseIndexType>
 class SparseIndexBase : public SparseIndex {
  public:
-  explicit SparseIndexBase(int64_t length)
-      : SparseIndex(SparseIndexType::format_id, length) {}
+  explicit SparseIndexBase(int64_t non_zero_length)
+      : SparseIndex(SparseIndexType::format_id, non_zero_length) {}
 };
 
 // ----------------------------------------------------------------------
@@ -137,7 +137,7 @@ class ARROW_EXPORT SparseTensorBase {
   bool is_mutable() const { return data_->is_mutable(); }
 
   /// Total number of non-zero cells in the sparse tensor
-  int64_t length() const { return sparse_index_ ? sparse_index_->length() : 0; }
+  int64_t non_zero_length() const { return sparse_index_ ? sparse_index_->non_zero_length() : 0; }
 
   bool Equals(const SparseTensorBase& other) const;
 
