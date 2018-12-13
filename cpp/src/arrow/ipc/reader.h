@@ -236,7 +236,7 @@ Status ReadTensor(io::InputStream* file, std::shared_ptr<Tensor>* out);
 ARROW_EXPORT
 Status ReadTensor(const Message& message, std::shared_ptr<Tensor>* out);
 
-/// \brief Read arrow::SparseTensor as encapsulated IPC message in file
+/// \brief EXPERIMETNAL: Read arrow::SparseTensor as encapsulated IPC message in file
 ///
 /// \param[in] file an InputStream pointed at the start of the message
 /// \param[out] out the read sparse tensor
