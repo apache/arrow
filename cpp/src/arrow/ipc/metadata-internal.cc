@@ -1041,7 +1041,7 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
                                SparseTensorFormat::type* sparse_tensor_format_id) {
   auto message = flatbuf::GetMessage(metadata.data());
   if (message->header_type() != flatbuf::MessageHeader_SparseTensor) {
-    DCHECK_EQ(message->header_type(), flatbuf::MessageHeader_SparseTensor);
+    return Status::IOError("Header of flatbuffer-encoded Message is not SparseTensor.");
   }
   if (message->header() == nullptr) {
     return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");
