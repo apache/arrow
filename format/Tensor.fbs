@@ -72,7 +72,7 @@ table SparseTensorIndexCOO {
   ///   X[0, 1, 2, 1] := 5
   ///   X[1, 2, 0, 4] := 6
   ///
-  /// In COO format, the index matrix of X is the following 4x10 matrix:
+  /// In COO format, the index matrix of X is the following 4x6 matrix:
   ///
   ///   [[0, 0, 0, 0, 1, 1],
   ///    [1, 1, 1, 2, 1, 2],
