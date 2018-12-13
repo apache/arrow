@@ -1979,7 +1979,9 @@ def test_binary_array_overflow_to_chunked():
 
     col0_data = read_tbl[0].data
     assert isinstance(col0_data, pa.ChunkedArray)
-    assert col0_data.num_chunks == 2
+
+    # Split up into 16MB chunks. 128 * 16 = 2048, so 129
+    assert col0_data.num_chunks == 129
 
     assert tbl.equals(read_tbl)
 

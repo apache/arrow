@@ -21,7 +21,9 @@ ADD_PARQUET_TEST(arrow-reader-writer-test)
 ADD_BENCHMARK(reader-writer-benchmark
   PREFIX "parquet-arrow"
   EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
-add_dependencies(parquet parquet-arrow-reader-writer-benchmark)
+if (TARGET parquet-arrow-reader-writer-benchmark)
+  add_dependencies(parquet parquet-arrow-reader-writer-benchmark)
+endif()
 
 # Headers: top level
 install(FILES

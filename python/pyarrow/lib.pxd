@@ -396,6 +396,8 @@ cdef object pyarrow_wrap_metadata(
 #
 
 cdef public object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array)
+cdef public object pyarrow_wrap_chunked_array(
+    const shared_ptr[CChunkedArray]& sp_array)
 # XXX pyarrow.h calls it `wrap_record_batch`
 cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
 cdef public object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf)
