@@ -185,6 +185,7 @@ gplasma_client_create_options_get_metadata(GPlasmaClientCreateOptions *options,
 
 typedef struct GPlasmaClientPrivate_ {
   plasma::PlasmaClient *client;
+  bool disconnected;
 } GPlasmaClientPrivate;
 
 enum {
@@ -205,10 +206,12 @@ gplasma_client_finalize(GObject *object)
 {
   auto priv = GPLASMA_CLIENT_GET_PRIVATE(object);
 
-  auto status = priv->client->Disconnect();
-  if (!status.ok()) {
-    g_warning("[plasma][client][finalize] Failed to disconnect: %s",
-              status.ToString().c_str());
+  if (!priv->disconnected) {
+    auto status = priv->client->Disconnect();
+    if (!status.ok()) {
+      g_warning("[plasma][client][finalize] Failed to disconnect: %s",
+                status.ToString().c_str());
+    }
   }
   delete priv->client;
 
@@ -428,6 +431,29 @@ gplasma_client_refer_object(GPlasmaClient *client,
                                            plasma_object_buffer.device_num - 1);
   } else {
     return NULL;
+  }
+}
+
+/**
+ * gplasma_client_disconnect:
+ * @client: A #GPlasmaClient.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+gplasma_client_disconnect(GPlasmaClient *client,
+                          GError **error)
+{
+  auto priv = GPLASMA_CLIENT_GET_PRIVATE(client);
+  auto status = priv->client->Disconnect();
+  if (garrow_error_check(error, status, "[plasma][client][disconnect]")) {
+    priv->disconnected = true;
+    return TRUE;
+  } else {
+    return FALSE;
   }
 }
 
