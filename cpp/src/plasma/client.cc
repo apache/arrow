@@ -290,7 +290,6 @@ PlasmaClient::Impl::~Impl() {}
 uint8_t* PlasmaClient::Impl::LookupOrMmap(int fd, int store_fd_val, int64_t map_size) {
   auto entry = mmap_table_.find(store_fd_val);
   if (entry != mmap_table_.end()) {
-    close(fd);
     return entry->second.pointer;
   } else {
     // We subtract kMmapRegionsGap from the length that was added
