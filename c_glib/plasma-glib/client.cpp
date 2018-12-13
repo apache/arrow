@@ -185,6 +185,7 @@ gplasma_client_create_options_get_metadata(GPlasmaClientCreateOptions *options,
 
 typedef struct GPlasmaClientPrivate_ {
   plasma::PlasmaClient *client;
+  gboolean disconnected;
 } GPlasmaClientPrivate;
 
 enum {
@@ -205,10 +206,12 @@ gplasma_client_finalize(GObject *object)
 {
   auto priv = GPLASMA_CLIENT_GET_PRIVATE(object);
 
-  auto status = priv->client->Disconnect();
-  if (!status.ok()) {
-    g_warning("[plasma][client][finalize] Failed to disconnect: %s",
-              status.ToString().c_str());
+  if (!priv->disconnected) {
+    auto status = priv->client->Disconnect();
+    if (!status.ok()) {
+      g_warning("[plasma][client][finalize] Failed to disconnect: %s",
+                status.ToString().c_str());
+    }
   }
   delete priv->client;
 
@@ -444,9 +447,14 @@ gboolean
 gplasma_client_disconnect(GPlasmaClient *client,
                           GError **error)
 {
-  auto plasma_client = gplasma_client_get_raw(client);
-  auto status = plasma_client->Disconnect();
-  return garrow_error_check(error, status, "[plasma][client][disconnect]");
+  auto priv = GPLASMA_CLIENT_GET_PRIVATE(client);
+  auto status = priv->client->Disconnect();
+  if (garrow_error_check(error, status, "[plasma][client][disconnect]")) {
+    priv->disconnected = true;
+    return TRUE;
+  } else {
+    return FALSE;
+  }
 }
 
 G_END_DECLS
