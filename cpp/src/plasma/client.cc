@@ -223,7 +223,7 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   /// This is a helper method for marking an object as unused by this client.
   ///
   /// \param object_id The object ID we mark unused.
-  /// \param The return status.
+  /// \return The return status.
   Status MarkObjectUnused(const ObjectID& object_id);
 
   /// Common helper for Get() variants
