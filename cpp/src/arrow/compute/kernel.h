@@ -65,8 +65,10 @@ struct ARROW_EXPORT Datum {
       : value(value) {}
   Datum(const std::shared_ptr<ArrayData>& value)  // NOLINT implicit conversion
       : value(value) {}
+
   Datum(const std::shared_ptr<Array>& value)  // NOLINT implicit conversion
       : Datum(value ? value->data() : NULLPTR) {}
+
   Datum(const std::shared_ptr<ChunkedArray>& value)  // NOLINT implicit conversion
       : value(value) {}
   Datum(const std::shared_ptr<RecordBatch>& value)  // NOLINT implicit conversion
@@ -75,6 +77,13 @@ struct ARROW_EXPORT Datum {
       : value(value) {}
   Datum(const std::vector<Datum>& value)  // NOLINT implicit conversion
       : value(value) {}
+
+  // Cast from subtypes of Array to Datum
+  template <typename T,
+            typename = typename std::enable_if<std::is_base_of<Array, T>::value,
+                                               void>::type>
+  Datum(const std::shared_ptr<T>& value)  // NOLINT implicit conversion
+      : Datum(std::shared_ptr<Array>(value)) {}
 
   ~Datum() {}
 

@@ -46,7 +46,8 @@ class ARROW_EXPORT ChunkedArray {
   explicit ChunkedArray(const ArrayVector& chunks);
 
   /// \brief Construct a chunked array from a single Array
-  explicit ChunkedArray(const std::shared_ptr<Array>& chunk) : ChunkedArray({chunk}) {}
+  explicit ChunkedArray(const std::shared_ptr<Array>& chunk)
+      : ChunkedArray(ArrayVector({chunk})) {}
 
   /// \brief Construct a chunked array from a vector of arrays and a data type
   ///

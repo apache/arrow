@@ -92,7 +92,7 @@ static inline int64_t impala_timestamp_to_nanoseconds(const Int96& impala_timest
 template <typename ArrowType>
 using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
 
-namespace internal {
+namespace {
 
 Status GetSingleChunk(const ChunkedArray& chunked, std::shared_ptr<Array>* out) {
   DCHECK_GT(chunked.num_chunks(), 0);
@@ -103,7 +103,7 @@ Status GetSingleChunk(const ChunkedArray& chunked, std::shared_ptr<Array>* out) 
   return Status::OK();
 }
 
-}  // namespace internal
+}  // namespace
 
 // ----------------------------------------------------------------------
 // Iteration utilities
@@ -814,7 +814,7 @@ Status PrimitiveImpl::WrapIntoListArray(Datum* inout_array) {
     flat_array = inout_array->chunked_array()->chunk(0);
   } else {
     DCHECK_EQ(Datum::ARRAY, inout_array->kind());
-    flat_array = inout_array->array();
+    flat_array = inout_array->make_array();
   }
 
   const int16_t* def_levels = record_reader_->def_levels();
@@ -919,7 +919,7 @@ Status PrimitiveImpl::WrapIntoListArray(Datum* inout_array) {
     valid_bits.emplace_back(std::static_pointer_cast<BooleanArray>(array)->values());
   }
 
-  std::shared_ptr<Array> output(*flat_array);
+  std::shared_ptr<Array> output = flat_array;
   for (int64_t j = list_depth - 1; j >= 0; j--) {
     auto list_type =
         ::arrow::list(::arrow::field("item", output->type(), nullable[j + 1]));
@@ -1089,8 +1089,11 @@ struct TransferFunctor<::arrow::Date64Type, Int32Type> {
 template <typename ArrowType, typename ParquetType>
 struct TransferFunctor<
     ArrowType, ParquetType,
-    typename std::enable_if<std::is_same<ParquetType, ByteArrayType>::value ||
-                            std::is_same<ParquetType, FLBAType>::value>::type> {
+    typename std::enable_if<
+        (std::is_base_of<::arrow::BinaryType, ArrowType>::value ||
+         std::is_same<::arrow::FixedSizeBinaryType, ArrowType>::value) &&
+        (std::is_same<ParquetType, ByteArrayType>::value ||
+         std::is_same<ParquetType, FLBAType>::value)>::type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     std::vector<std::shared_ptr<Array>> chunks = reader->GetBuilderChunks();
@@ -1214,6 +1217,12 @@ static inline void RawBytesToDecimalBytes(const uint8_t* value, int32_t byte_wid
 // ----------------------------------------------------------------------
 // BYTE_ARRAY / FIXED_LEN_BYTE_ARRAY -> Decimal128
 
+template <typename T>
+Status ConvertToDecimal128(const Array& array, const std::shared_ptr<::arrow::DataType>&,
+                           MemoryPool* pool, std::shared_ptr<Array>*) {
+  return Status::NotImplemented("not implemented");
+}
+
 template <>
 Status ConvertToDecimal128<FLBAType>(const Array& array,
                                      const std::shared_ptr<::arrow::DataType>& type,
@@ -1263,10 +1272,10 @@ Status ConvertToDecimal128<FLBAType>(const Array& array,
 }
 
 template <>
-    static Status ConvertToDecimal128 <
-    ByteArrayType(const Array& array, const std::shared_ptr<::arrow::DataType>& type,
-                  std::shared_ptr<Array>* out) {
-  const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*array);
+Status ConvertToDecimal128<ByteArrayType>(const Array& array,
+                                          const std::shared_ptr<::arrow::DataType>& type,
+                                          MemoryPool* pool, std::shared_ptr<Array>* out) {
+  const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(array);
   const int64_t length = binary_array.length();
 
   const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
@@ -1311,9 +1320,10 @@ template <>
 /// 2. Allocating a buffer for the arrow::Decimal128Array
 /// 3. Converting the big-endian bytes in each BinaryArray entry to two integers
 ///    representing the high and low bits of each decimal value.
+template <typename ArrowType, typename ParquetType>
 struct TransferFunctor<
     ArrowType, ParquetType,
-    typename std::enable_if<std::is_same<ArrowType, ::arrow::Decimal128Type> &&
+    typename std::enable_if<std::is_same<ArrowType, ::arrow::Decimal128Type>::value &&
                             (std::is_same<ParquetType, ByteArrayType>::value ||
                              std::is_same<ParquetType, FLBAType>::value)>::type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
@@ -1408,7 +1418,7 @@ struct TransferFunctor<::arrow::Decimal128Type, Int64Type> {
 #define TRANSFER_DATA(ArrowType, ParquetType)                                \
   TransferFunctor<ArrowType, ParquetType> func;                              \
   RETURN_NOT_OK(func(record_reader_.get(), pool_, field_->type(), &result)); \
-  RETURN_NOT_OK(WrapIntoListArray<ParquetType>(out))
+  RETURN_NOT_OK(WrapIntoListArray<ParquetType>(&result))
 
 #define TRANSFER_CASE(ENUM, ArrowType, ParquetType) \
   case ::arrow::Type::ENUM: {                       \
@@ -1505,7 +1515,7 @@ Status PrimitiveImpl::NextBatch(int64_t records_to_read,
   DCHECK_NE(result.kind(), Datum::NONE);
 
   if (result.kind() == Datum::ARRAY) {
-    *out = std::make_shared<ChunkedArray>(result.array());
+    *out = std::make_shared<ChunkedArray>(result.make_array());
   } else if (result.kind() == Datum::CHUNKED_ARRAY) {
     *out = result.chunked_array();
   } else {
@@ -1542,7 +1552,7 @@ Status ColumnReader::NextBatch(int64_t records_to_read,
 }
 
 Status ColumnReader::NextBatch(int64_t records_to_read, std::shared_ptr<Array>* out) {
-  std::make_shared<ChunkedArray> chunked_out;
+  std::shared_ptr<ChunkedArray> chunked_out;
   RETURN_NOT_OK(impl_->NextBatch(records_to_read, &chunked_out));
   return GetSingleChunk(*chunked_out, out);
 }
@@ -1689,7 +1699,7 @@ Status ColumnChunkReader::Read(std::shared_ptr<::arrow::ChunkedArray>* out) {
 }
 
 Status ColumnChunkReader::Read(std::shared_ptr<::arrow::Array>* out) {
-  std::make_shared<ChunkedArray> chunked_out;
+  std::shared_ptr<ChunkedArray> chunked_out;
   RETURN_NOT_OK(impl_->ReadColumnChunk(column_index_, row_group_index_, &chunked_out));
   return GetSingleChunk(*chunked_out, out);
 }

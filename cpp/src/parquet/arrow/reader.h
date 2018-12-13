@@ -128,7 +128,8 @@ class PARQUET_EXPORT FileReader {
   // Read column as a whole into an Array.
   ::arrow::Status ReadColumn(int i, std::shared_ptr<::arrow::ChunkedArray>* out);
 
-  PARQUET_DEPRECATED("Use version with ChunkedArray output")
+  /// \note Deprecated since 0.12
+  ARROW_DEPRECATED("Use version with ChunkedArray output")
   ::arrow::Status ReadColumn(int i, std::shared_ptr<::arrow::Array>* out);
 
   // NOTE: Experimental API
@@ -145,7 +146,8 @@ class PARQUET_EXPORT FileReader {
   // i=0 will read the entire foo struct, i=1 the foo2 primitive column etc
   ::arrow::Status ReadSchemaField(int i, std::shared_ptr<::arrow::ChunkedArray>* out);
 
-  PARQUET_DEPRECATED("Use version with ChunkedArray output")
+  /// \note Deprecated since 0.12
+  ARROW_DEPRECATED("Use version with ChunkedArray output")
   ::arrow::Status ReadSchemaField(int i, std::shared_ptr<::arrow::Array>* out);
 
   /// \brief Return a RecordBatchReader of row groups selected from row_group_indices, the
@@ -237,7 +239,8 @@ class PARQUET_EXPORT ColumnChunkReader {
  public:
   ::arrow::Status Read(std::shared_ptr<::arrow::ChunkedArray>* out);
 
-  PARQUET_DEPRECATED("Use version with ChunkedArray output")
+  /// \note Deprecated since 0.12
+  ARROW_DEPRECATED("Use version with ChunkedArray output")
   ::arrow::Status Read(std::shared_ptr<::arrow::Array>* out);
 
   virtual ~ColumnChunkReader();
@@ -274,7 +277,8 @@ class PARQUET_EXPORT ColumnReader {
   ::arrow::Status NextBatch(int64_t batch_size,
                             std::shared_ptr<::arrow::ChunkedArray>* out);
 
-  PARQUET_DEPRECATED("Use version with ChunkedArray output")
+  /// \note Deprecated since 0.12
+  ARROW_DEPRECATED("Use version with ChunkedArray output")
   ::arrow::Status NextBatch(int64_t batch_size, std::shared_ptr<::arrow::Array>* out);
 
  private:
