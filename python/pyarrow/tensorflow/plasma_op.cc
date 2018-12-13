@@ -77,7 +77,7 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
     if (!connected_) {
       VLOG(1) << "Connecting to Plasma...";
       ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_,
-                                     plasma_manager_socket_name_, 0));
+                                     plasma_manager_socket_name_));
       VLOG(1) << "Connected!";
       connected_ = true;
     }
@@ -249,7 +249,7 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
     if (!connected_) {
       VLOG(1) << "Connecting to Plasma...";
       ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_,
-                                     plasma_manager_socket_name_, 0));
+                                     plasma_manager_socket_name_));
       VLOG(1) << "Connected!";
       connected_ = true;
     }

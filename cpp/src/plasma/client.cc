@@ -213,15 +213,17 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
  private:
   /// Check if store_fd has already been received from the store. If yes,
-  /// return it. Otherwise, receive it from the store.
+  /// return it. Otherwise, receive it from the store (see analogous logic
+  /// in store.cc).
   ///
-  /// @param store_fd File descriptor to fetch from the store.
-  /// @return Client file descriptor corresponding to store_fd.
+  /// \param store_fd File descriptor to fetch from the store.
+  /// \return Client file descriptor corresponding to store_fd.
   int GetStoreFd(int store_fd);
 
   /// This is a helper method for marking an object as unused by this client.
   ///
-  /// @param object_id The object ID we mark unused.
+  /// \param object_id The object ID we mark unused.
+  /// \param The return status.
   Status MarkObjectUnused(const ObjectID& object_id);
 
   /// Common helper for Get() variants
@@ -257,10 +259,6 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   /// A hash table of the object IDs that are currently being used by this
   /// client.
   std::unordered_map<ObjectID, std::unique_ptr<ObjectInUseEntry>> objects_in_use_;
-  /// The number of bytes in the combined objects that are held in the release
-  /// history doubly-linked list. If this is too large then the client starts
-  /// releasing objects.
-  int64_t in_use_object_bytes_;
   /// The amount of memory available to the Plasma store. The client needs this
   /// information to make sure that it does not delay in releasing so much
   /// memory that the store is unable to evict enough objects to free up space.
@@ -349,11 +347,6 @@ void PlasmaClient::Impl::IncrementObjectCount(const ObjectID& object_id,
     objects_in_use_[object_id]->count = 0;
     objects_in_use_[object_id]->is_sealed = is_sealed;
     object_entry = objects_in_use_[object_id].get();
-    if (object->device_num == 0) {
-      // Update the in_use_object_bytes_.
-      in_use_object_bytes_ +=
-          (object_entry->object.data_size + object_entry->object.metadata_size);
-    }
   } else {
     object_entry = elem->second.get();
     ARROW_CHECK(object_entry->count > 0);
@@ -602,11 +595,6 @@ Status PlasmaClient::Impl::MarkObjectUnused(const ObjectID& object_id) {
   auto object_entry = objects_in_use_.find(object_id);
   ARROW_CHECK(object_entry != objects_in_use_.end());
   ARROW_CHECK(object_entry->second->count == 0);
-
-  // Update the in_use_object_bytes_.
-  in_use_object_bytes_ -= (object_entry->second->object.data_size +
-                           object_entry->second->object.metadata_size);
-  DCHECK_GE(in_use_object_bytes_, 0);
 
   // Remove the entry from the hash table of objects currently in use.
   objects_in_use_.erase(object_id);
@@ -889,7 +877,10 @@ Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
   } else {
     manager_conn_ = -1;
   }
-  in_use_object_bytes_ = 0;
+  if (release_delay != 0) {
+    ARROW_LOG(WARNING) << "The release_delay parameter in PlasmaClient::Connect "
+                       << "is deprecated";
+  }
   // Send a ConnectRequest to the store to get its memory capacity.
   RETURN_NOT_OK(SendConnectRequest(store_conn_));
   std::vector<uint8_t> buffer;
