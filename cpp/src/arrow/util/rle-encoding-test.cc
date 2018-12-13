@@ -193,7 +193,7 @@ void ValidateRle(const vector<int>& values, int bit_width, uint8_t* expected_enc
     EXPECT_EQ(encoded_len, expected_len);
   }
   if (expected_encoding != NULL) {
-    EXPECT_EQ(memcmp(buffer, expected_encoding, expected_len), 0);
+    EXPECT_EQ(memcmp(buffer, expected_encoding, encoded_len), 0);
   }
 
   // Verify read

@@ -262,7 +262,7 @@ class TestJSONIntegration : public ::testing::Test {
 
   void TearDown() {
     for (const std::string path : tmp_paths_) {
-      std::remove(path.c_str());
+      ARROW_UNUSED(std::remove(path.c_str()));
     }
   }
 

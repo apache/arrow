@@ -87,7 +87,7 @@ class Status;
 /// input array and replace them with newly-allocated data, changing the output
 /// data type as well.
 struct ARROW_EXPORT ArrayData {
-  ArrayData() : length(0) {}
+  ArrayData() : length(0), null_count(0), offset(0) {}
 
   ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
@@ -311,7 +311,7 @@ class ARROW_EXPORT Array {
   std::string ToString() const;
 
  protected:
-  Array() {}
+  Array() : null_bitmap_data_(NULLPTR) {}
 
   std::shared_ptr<ArrayData> data_;
   const uint8_t* null_bitmap_data_;
@@ -382,7 +382,7 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
   std::shared_ptr<Buffer> values() const { return data_->buffers[1]; }
 
  protected:
-  PrimitiveArray() {}
+  PrimitiveArray() : raw_values_(NULLPTR) {}
 
   inline void SetData(const std::shared_ptr<ArrayData>& data) {
     auto values = data->buffers[1];
@@ -565,7 +565,7 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
 
  protected:
   // For subclasses
-  BinaryArray() {}
+  BinaryArray() : raw_value_offsets_(NULLPTR), raw_data_(NULLPTR) {}
 
   /// Protected method for constructors
   void SetData(const std::shared_ptr<ArrayData>& data);
