@@ -123,6 +123,58 @@ TEST_F(TestDecimal, TestSimple) {
   EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
 }
 
+TEST_F(TestDecimal, TestLiteral) {
+  // schema for input fields
+  constexpr int32_t precision = 36;
+  constexpr int32_t scale = 18;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+  auto field_a = field("a", decimal_type);
+  auto schema = arrow::schema({
+      field_a,
+  });
+
+  Decimal128TypePtr add2_type;
+  auto status = DecimalTypeSql::GetResultType(DecimalTypeSql::kOpAdd,
+                                              {decimal_type, decimal_type}, &add2_type);
+
+  // output fields
+  auto res = field("res0", add2_type);
+
+  // build expression : a + b + c
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  static std::string decimal_point_six = "6";
+  Decimal128Full literal(decimal_point_six, 2, 1);
+  auto node_b = TreeExprBuilder::MakeDecimalLiteral(literal);
+  auto add2 = TreeExprBuilder::MakeFunction("add", {node_a, node_b}, add2_type);
+  auto expr = TreeExprBuilder::MakeExpression(add2, res);
+
+  // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_a =
+      MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"1", "2", "3", "4"}, scale),
+                            {false, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  auto expected = MakeArrowArrayDecimal(
+      add2_type, MakeDecimalVector({"1.6", "2.6", "3.6", "4.6"}, scale),
+      {false, true, true, true});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
+}
+
 TEST_F(TestDecimal, TestIfElse) {
   // schema for input fields
   constexpr int32_t precision = 36;

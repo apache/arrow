@@ -19,6 +19,7 @@
 #define DECIMAL_FULL_H
 
 #include <cstdint>
+#include <iostream>
 #include <string>
 #include "arrow/util/decimal.h"
 
@@ -54,6 +55,11 @@ class Decimal128Full {
   uint32_t precision() const { return precision_; }
 
   const arrow::Decimal128& value() const { return value_; }
+
+  friend std::ostream& operator<<(std::ostream& os, const Decimal128Full& dec) {
+    os << dec.ToString();
+    return os;
+  }
 
  private:
   Decimal128 value_;

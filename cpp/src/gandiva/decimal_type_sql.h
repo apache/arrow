@@ -23,7 +23,6 @@
 #include <algorithm>
 #include <memory>
 
-#include "arrow/type.h"
 #include "gandiva/arrow.h"
 
 namespace gandiva {

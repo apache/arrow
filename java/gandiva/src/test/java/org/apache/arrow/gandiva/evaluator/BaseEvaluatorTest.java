@@ -232,15 +232,15 @@ class BaseEvaluatorTest {
     return buffer;
   }
 
-  DecimalVector decimalVector(int[] intValues, int precision, int scale) {
+  DecimalVector decimalVector(String[] values, int precision, int scale) {
     DecimalVector vector = new DecimalVector("decimal" + Math.random(), allocator, precision, scale);
     vector.allocateNew();
-    for (int i = 0; i < intValues.length; i++) {
-      BigDecimal decimal = new BigDecimal(BigInteger.valueOf(intValues[i]), scale);
+    for (int i = 0; i < values.length; i++) {
+      BigDecimal decimal = new BigDecimal(values[i]);
       vector.setSafe(i, decimal);
     }
 
-    vector.setValueCount(intValues.length);
+    vector.setValueCount(values.length);
     return vector;
   }
 

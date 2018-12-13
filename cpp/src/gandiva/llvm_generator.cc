@@ -600,6 +600,19 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
       value = types->i64_constant(boost::get<int64_t>(dex.holder()));
       break;
 
+    case arrow::Type::DECIMAL: {
+      // build code for struct
+      auto decimal_value = boost::get<Decimal128Full>(dex.holder());
+      auto int_value =
+          llvm::ConstantInt::get(llvm::Type::getInt128Ty(*generator_->context()),
+                                 decimal_value.value().ToIntegerString(), 10);
+      auto type = arrow::decimal(decimal_value.precision(), decimal_value.scale());
+      auto lvalue = generator_->BuildLValueDecimal(int_value, type);
+      // set it as the l-value and return.
+      result_ = lvalue;
+      return;
+    }
+
     default:
       DCHECK(0);
   }
