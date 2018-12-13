@@ -219,7 +219,7 @@ class ARROW_EXPORT ArrayBuilder {
   int64_t capacity_;
 
   // Child value array builders. These are owned by this class
-  std::vector<std::unique_ptr<ArrayBuilder>> children_;
+  std::vector<std::shared_ptr<ArrayBuilder>> children_;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);

@@ -28,9 +28,13 @@
 #include <vector>
 
 #include "arrow/api.h"
+#include "arrow/api.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread-pool.h"
+
+// XXX(wesm): For arrow::compute::Datum. This should perhaps be promoted
+#include "arrow/compute/kernel.h"
 
 #include "parquet/arrow/record_reader.h"
 #include "parquet/arrow/schema.h"
@@ -46,6 +50,7 @@
 
 using arrow::Array;
 using arrow::BooleanArray;
+using arrow::ChunkedArray;
 using arrow::Column;
 using arrow::Field;
 using arrow::Int32Array;
@@ -56,6 +61,9 @@ using arrow::Status;
 using arrow::StructArray;
 using arrow::Table;
 using arrow::TimestampArray;
+
+// For Array/ChunkedArray variant
+using arrow::compute::Datum;
 
 using parquet::schema::Node;
 
@@ -223,15 +231,18 @@ class FileReader::Impl {
   virtual ~Impl() {}
 
   Status GetColumn(int i, std::unique_ptr<ColumnReader>* out);
-  Status ReadSchemaField(int i, std::shared_ptr<Array>* out);
+
+  Status ReadSchemaField(int i, std::shared_ptr<ChunkedArray>* out);
   Status ReadSchemaField(int i, const std::vector<int>& indices,
-                         std::shared_ptr<Array>* out);
+                         std::shared_ptr<ChunkedArray>* out);
+  Status ReadColumn(int i, std::shared_ptr<ChunkedArray>* out);
+  Status ReadColumnChunk(int column_index, int row_group_index,
+                         std::shared_ptr<ChunkedArray>* out);
+
   Status GetReaderForNode(int index, const Node* node, const std::vector<int>& indices,
                           int16_t def_level,
                           std::unique_ptr<ColumnReader::ColumnReaderImpl>* out);
-  Status ReadColumn(int i, std::shared_ptr<Array>* out);
-  Status ReadColumnChunk(int column_index, int row_group_index,
-                         std::shared_ptr<Array>* out);
+
   Status GetSchema(std::shared_ptr<::arrow::Schema>* out);
   Status GetSchema(const std::vector<int>& indices,
                    std::shared_ptr<::arrow::Schema>* out);
@@ -267,7 +278,8 @@ class FileReader::Impl {
 class ColumnReader::ColumnReaderImpl {
  public:
   virtual ~ColumnReaderImpl() {}
-  virtual Status NextBatch(int64_t records_to_read, std::shared_ptr<Array>* out) = 0;
+  virtual Status NextBatch(int64_t records_to_read,
+                           std::shared_ptr<ChunkedArray>* out) = 0;
   virtual Status GetDefLevels(const int16_t** data, size_t* length) = 0;
   virtual Status GetRepLevels(const int16_t** data, size_t* length) = 0;
   virtual const std::shared_ptr<Field> field() = 0;
@@ -283,10 +295,11 @@ class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::ColumnReaderImpl {
     NextRowGroup();
   }
 
-  Status NextBatch(int64_t records_to_read, std::shared_ptr<Array>* out) override;
+  Status NextBatch(int64_t records_to_read,
+                   std::shared_ptr<ChunkedArray>* out) override;
 
   template <typename ParquetType>
-  Status WrapIntoListArray(std::shared_ptr<Array>* array);
+  Status WrapIntoListArray(Datum* inout_array);
 
   Status GetDefLevels(const int16_t** data, size_t* length) override;
   Status GetRepLevels(const int16_t** data, size_t* length) override;
@@ -314,7 +327,8 @@ class PARQUET_NO_EXPORT StructImpl : public ColumnReader::ColumnReaderImpl {
     InitField(node, children);
   }
 
-  Status NextBatch(int64_t records_to_read, std::shared_ptr<Array>* out) override;
+  Status NextBatch(int64_t records_to_read,
+                   std::shared_ptr<ChunkedArray>* out) override;
   Status GetDefLevels(const int16_t** data, size_t* length) override;
   Status GetRepLevels(const int16_t** data, size_t* length) override;
   const std::shared_ptr<Field> field() override { return field_; }
@@ -395,7 +409,7 @@ Status FileReader::Impl::GetReaderForNode(
   return Status::OK();
 }
 
-Status FileReader::Impl::ReadSchemaField(int i, std::shared_ptr<Array>* out) {
+Status FileReader::Impl::ReadSchemaField(int i, std::shared_ptr<ChunkedArray>* out) {
   std::vector<int> indices(reader_->metadata()->num_columns());
 
   for (size_t j = 0; j < indices.size(); ++j) {
@@ -406,7 +420,7 @@ Status FileReader::Impl::ReadSchemaField(int i, std::shared_ptr<Array>* out) {
 }
 
 Status FileReader::Impl::ReadSchemaField(int i, const std::vector<int>& indices,
-                                         std::shared_ptr<Array>* out) {
+                                         std::shared_ptr<ChunkedArray>* out) {
   auto parquet_schema = reader_->metadata()->schema();
 
   auto node = parquet_schema->group_node()->field(i).get();
@@ -432,7 +446,7 @@ Status FileReader::Impl::ReadSchemaField(int i, const std::vector<int>& indices,
   return reader->NextBatch(records_to_read, out);
 }
 
-Status FileReader::Impl::ReadColumn(int i, std::shared_ptr<Array>* out) {
+Status FileReader::Impl::ReadColumn(int i, std::shared_ptr<ChunkedArray>* out) {
   std::unique_ptr<ColumnReader> flat_column_reader;
   RETURN_NOT_OK(GetColumn(i, &flat_column_reader));
 
@@ -452,7 +466,7 @@ Status FileReader::Impl::GetSchema(const std::vector<int>& indices,
 }
 
 Status FileReader::Impl::ReadColumnChunk(int column_index, int row_group_index,
-                                         std::shared_ptr<Array>* out) {
+                                         std::shared_ptr<ChunkedArray>* out) {
   auto rg_metadata = reader_->metadata()->RowGroup(row_group_index);
   int64_t records_to_read = rg_metadata->ColumnChunk(column_index)->num_values();
 
@@ -463,10 +477,7 @@ Status FileReader::Impl::ReadColumnChunk(int column_index, int row_group_index,
       new PrimitiveImpl(pool_, std::move(input)));
   ColumnReader flat_column_reader(std::move(impl));
 
-  std::shared_ptr<Array> array;
-  RETURN_NOT_OK(flat_column_reader.NextBatch(records_to_read, &array));
-  *out = array;
-  return Status::OK();
+  return flat_column_reader.NextBatch(records_to_read, out);
 }
 
 Status FileReader::Impl::ReadRowGroup(int row_group_index,
@@ -485,7 +496,7 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
   auto ReadColumnFunc = [&indices, &row_group_index, &schema, &columns, this](int i) {
     int column_index = indices[i];
 
-    std::shared_ptr<Array> array;
+    std::shared_ptr<ChunkedArray> array;
     RETURN_NOT_OK(ReadColumnChunk(column_index, row_group_index, &array));
     columns[i] = std::make_shared<Column>(schema->field(i), array);
     return Status::OK();
@@ -532,7 +543,7 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
   std::vector<std::shared_ptr<Column>> columns(num_fields);
 
   auto ReadColumnFunc = [&indices, &field_indices, &schema, &columns, this](int i) {
-    std::shared_ptr<Array> array;
+    std::shared_ptr<ChunkedArray> array;
     RETURN_NOT_OK(ReadSchemaField(field_indices[i], indices, &array));
     columns[i] = std::make_shared<Column>(schema->field(i), array);
     return Status::OK();
@@ -576,8 +587,6 @@ Status FileReader::Impl::ReadTable(std::shared_ptr<Table>* table) {
 Status FileReader::Impl::ReadRowGroups(const std::vector<int>& row_groups,
                                        const std::vector<int>& indices,
                                        std::shared_ptr<Table>* table) {
-  // TODO(PARQUET-1393): Modify the record readers to already read this into a single,
-  // continuous array.
   std::vector<std::shared_ptr<Table>> tables(row_groups.size(), nullptr);
 
   for (size_t i = 0; i < row_groups.size(); ++i) {
@@ -633,7 +642,7 @@ Status FileReader::GetSchema(const std::vector<int>& indices,
   return impl_->GetSchema(indices, out);
 }
 
-Status FileReader::ReadColumn(int i, std::shared_ptr<Array>* out) {
+Status FileReader::ReadColumn(int i, std::shared_ptr<ChunkedArray>* out) {
   try {
     return impl_->ReadColumn(i, out);
   } catch (const ::parquet::ParquetException& e) {
@@ -641,7 +650,7 @@ Status FileReader::ReadColumn(int i, std::shared_ptr<Array>* out) {
   }
 }
 
-Status FileReader::ReadSchemaField(int i, std::shared_ptr<Array>* out) {
+Status FileReader::ReadSchemaField(int i, std::shared_ptr<ChunkedArray>* out) {
   try {
     return impl_->ReadSchemaField(i, out);
   } catch (const ::parquet::ParquetException& e) {
@@ -764,7 +773,7 @@ const ParquetFileReader* FileReader::parquet_reader() const {
 }
 
 template <typename ParquetType>
-Status PrimitiveImpl::WrapIntoListArray(std::shared_ptr<Array>* array) {
+Status PrimitiveImpl::WrapIntoListArray(Datum* inout_array) {
   const int16_t* def_levels = record_reader_->def_levels();
   const int16_t* rep_levels = record_reader_->rep_levels();
   const int64_t total_levels_read = record_reader_->levels_position();
@@ -910,7 +919,7 @@ struct TransferFunctor {
 
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type,
-                    std::shared_ptr<Array>* out) {
+                    Datum* out) {
     static_assert(!std::is_same<ArrowType, ::arrow::Int32Type>::value,
                   "The fast path transfer functor should be used "
                   "for primitive values");
@@ -939,7 +948,7 @@ struct TransferFunctor<ArrowType, ParquetType,
                        supports_fast_path<ArrowType, ParquetType>> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type,
-                    std::shared_ptr<Array>* out) {
+                    Datum* out) {
     int64_t length = reader->values_written();
     std::shared_ptr<ResizableBuffer> values = reader->ReleaseValues();
 
@@ -958,7 +967,7 @@ template <>
 struct TransferFunctor<::arrow::BooleanType, BooleanType> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type,
-                    std::shared_ptr<Array>* out) {
+                    Datum* out) {
     int64_t length = reader->values_written();
     std::shared_ptr<Buffer> data;
 
@@ -992,7 +1001,7 @@ template <>
 struct TransferFunctor<::arrow::TimestampType, Int96Type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type,
-                    std::shared_ptr<Array>* out) {
+                    Datum* out) {
     int64_t length = reader->values_written();
     auto values = reinterpret_cast<const Int96*>(reader->values());
 
@@ -1020,7 +1029,7 @@ template <>
 struct TransferFunctor<::arrow::Date64Type, Int32Type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type,
-                    std::shared_ptr<Array>* out) {
+                    Datum* out) {
     int64_t length = reader->values_written();
     auto values = reinterpret_cast<const int32_t*>(reader->values());
 
@@ -1050,7 +1059,7 @@ struct TransferFunctor<
                             std::is_same<ParquetType, FLBAType>::value>::type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type,
-                    std::shared_ptr<Array>* out) {
+                    Datum* out) {
     RETURN_NOT_OK(reader->builder()->Finish(out));
 
     if (type->id() == ::arrow::Type::STRING) {
@@ -1176,7 +1185,7 @@ template <>
 struct TransferFunctor<::arrow::Decimal128Type, FLBAType> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type,
-                    std::shared_ptr<Array>* out) {
+                    Datum* out) {
     DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
 
     // Finish the built data into a temporary array
@@ -1237,7 +1246,7 @@ template <>
 struct TransferFunctor<::arrow::Decimal128Type, ByteArrayType> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type,
-                    std::shared_ptr<Array>* out) {
+                    Datum* out) {
     DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
 
     // Finish the built data into a temporary array
@@ -1295,7 +1304,7 @@ template <typename ParquetIntegerType,
               std::is_same<ParquetIntegerType, Int64Type>::value>::type>
 static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
                                      const std::shared_ptr<::arrow::DataType>& type,
-                                     std::shared_ptr<Array>* out) {
+                                     Datum* out) {
   DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
 
   const int64_t length = reader->values_written();
@@ -1343,7 +1352,7 @@ template <>
 struct TransferFunctor<::arrow::Decimal128Type, Int32Type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type,
-                    std::shared_ptr<Array>* out) {
+                    Datum* out) {
     return DecimalIntegerTransfer<Int32Type>(reader, pool, type, out);
   }
 };
@@ -1352,14 +1361,14 @@ template <>
 struct TransferFunctor<::arrow::Decimal128Type, Int64Type> {
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type,
-                    std::shared_ptr<Array>* out) {
+                    Datum* out) {
     return DecimalIntegerTransfer<Int64Type>(reader, pool, type, out);
   }
 };
 
-#define TRANSFER_DATA(ArrowType, ParquetType)                            \
-  TransferFunctor<ArrowType, ParquetType> func;                          \
-  RETURN_NOT_OK(func(record_reader_.get(), pool_, field_->type(), out)); \
+#define TRANSFER_DATA(ArrowType, ParquetType)                           \
+  TransferFunctor<ArrowType, ParquetType> func;                         \
+  RETURN_NOT_OK(func(record_reader_.get(), pool_, field_->type(), &result)); \
   RETURN_NOT_OK(WrapIntoListArray<ParquetType>(out))
 
 #define TRANSFER_CASE(ENUM, ArrowType, ParquetType) \
@@ -1367,7 +1376,8 @@ struct TransferFunctor<::arrow::Decimal128Type, Int64Type> {
     TRANSFER_DATA(ArrowType, ParquetType);          \
   } break;
 
-Status PrimitiveImpl::NextBatch(int64_t records_to_read, std::shared_ptr<Array>* out) {
+Status PrimitiveImpl::NextBatch(int64_t records_to_read,
+                                std::shared_ptr<ChunkedArray>* out) {
   try {
     // Pre-allocation gives much better performance for flat columns
     record_reader_->Reserve(records_to_read);
@@ -1406,8 +1416,8 @@ Status PrimitiveImpl::NextBatch(int64_t records_to_read, std::shared_ptr<Array>*
     TRANSFER_CASE(DATE64, ::arrow::Date64Type, Int32Type)
     TRANSFER_CASE(FIXED_SIZE_BINARY, ::arrow::FixedSizeBinaryType, FLBAType)
     case ::arrow::Type::NA: {
-      *out = std::make_shared<::arrow::NullArray>(record_reader_->values_written());
-      RETURN_NOT_OK(WrapIntoListArray<Int32Type>(out));
+      result = std::make_shared<::arrow::NullArray>(record_reader_->values_written());
+      RETURN_NOT_OK(WrapIntoListArray<Int32Type>(&result));
       break;
     }
     case ::arrow::Type::DECIMAL: {
@@ -1614,8 +1624,18 @@ RowGroupReader::~RowGroupReader() {}
 RowGroupReader::RowGroupReader(FileReader::Impl* impl, int row_group_index)
     : impl_(impl), row_group_index_(row_group_index) {}
 
-Status ColumnChunkReader::Read(std::shared_ptr<::arrow::Array>* out) {
+Status ColumnChunkReader::Read(std::shared_ptr<::arrow::ChunkedArray>* out) {
   return impl_->ReadColumnChunk(column_index_, row_group_index_, out);
+}
+
+Status ColumnChunkReader::Read(std::shared_ptr<::arrow::Array>* out) {
+  std::make_shared<ChunkedArray> chunked_out;
+  RETURN_NOT_OK(impl_->ReadColumnChunk(column_index_, row_group_index_, &chunked_out));
+  DCHECK_GT(chunked_out->num_chunks(), 0);
+  if (chunked_out->num_chunks() > 1) {
+    return Status::Invalid("ColumnChunk result is a chunked array");
+  }
+  return chunked_out->chunk(0);
 }
 
 ColumnChunkReader::~ColumnChunkReader() {}

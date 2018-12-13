@@ -248,6 +248,8 @@ class PARQUET_EXPORT RowGroupReader {
 
 class PARQUET_EXPORT ColumnChunkReader {
  public:
+  ::arrow::Status Read(std::shared_ptr<::arrow::ChunkedArray>* out);
+
   ::arrow::Status Read(std::shared_ptr<::arrow::Array>* out);
 
   virtual ~ColumnChunkReader();
