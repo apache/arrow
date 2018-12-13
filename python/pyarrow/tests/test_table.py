@@ -578,13 +578,20 @@ def test_table_basics():
 
     assert table.columns == columns
 
+
+def test_table_from_arrays_preserves_column_metadata():
     # Added to test https://issues.apache.org/jira/browse/ARROW-3866
-    columns = []
-    for col in table.itercolumns():
-        new_field = col.field.add_metadata({"a": "A", "b": "B"})
-        columns.append(pa.column(new_field, col.data))
+    arr0 = pa.array([1, 2])
+    arr1 = pa.array([3, 4])
+    field0 = pa.field('field1', pa.int64(), metadata=dict(a="A", b="B"))
+    field1 = pa.field('field2', pa.int64(), nullable=False)
+    columns = [
+        pa.column(field0, arr0),
+        pa.column(field1, arr1)
+    ]
     table = pa.Table.from_arrays(columns)
     assert b"a" in table.column(0).field.metadata
+    assert table.column(1).field.nullable is False
 
 
 def test_table_from_arrays_invalid_names():
