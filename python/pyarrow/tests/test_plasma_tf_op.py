@@ -94,7 +94,7 @@ def test_plasma_tf_op(use_gpu=False):
         pytest.skip("TensorFlow Op not found")
 
     with plasma.start_plasma_store(10**8) as (plasma_store_name, p):
-        client = plasma.connect(plasma_store_name, "", 0)
+        client = plasma.connect(plasma_store_name, "")
         for dtype in [np.float32, np.float64,
                       np.int8, np.int16, np.int32, np.int64]:
             run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name,

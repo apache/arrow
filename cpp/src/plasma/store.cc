@@ -327,7 +327,12 @@ void PlasmaStore::ReturnFromGet(GetRequest* get_req) {
   if (s.ok()) {
     // Send all of the file descriptors for the present objects.
     for (int store_fd : store_fds) {
-      WarnIfSigpipe(send_fd(get_req->client->fd, store_fd), get_req->client->fd);
+      // Only send the file descriptor if it hasn't been sent (see analogous
+      // logic in GetStoreFd in client.cc).
+      if (get_req->client->used_fds.find(store_fd) == get_req->client->used_fds.end()) {
+        WarnIfSigpipe(send_fd(get_req->client->fd, store_fd), get_req->client->fd);
+        get_req->client->used_fds.insert(store_fd);
+      }
     }
   }
 
@@ -783,8 +788,12 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       HANDLE_SIGPIPE(
           SendCreateReply(client->fd, object_id, &object, error_code, mmap_size),
           client->fd);
-      if (error_code == PlasmaError::OK && device_num == 0) {
+      // Only send the file descriptor if it hasn't been sent (see analogous
+      // logic in GetStoreFd in client.cc). Similar in ReturnFromGet.
+      if (error_code == PlasmaError::OK && device_num == 0 &&
+          client->used_fds.find(object.store_fd) == client->used_fds.end()) {
         WarnIfSigpipe(send_fd(client->fd, object.store_fd), client->fd);
+        client->used_fds.insert(object.store_fd);
       }
     } break;
     case fb::MessageType::PlasmaCreateAndSealRequest: {
