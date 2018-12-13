@@ -53,9 +53,10 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
       return "1.0";
     case ParquetVersion::PARQUET_2_0:
       return "2.0";
-    default:
-      return "UNKNOWN";
   }
+
+  // This should be unreachable
+  return "UNKNOWN";
 }
 
 template <typename DType>
