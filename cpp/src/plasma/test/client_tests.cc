@@ -187,7 +187,6 @@ TEST_F(TestPlasmaStore, DeleteTest) {
   ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
   ASSERT_TRUE(has_object);
 
-  // Avoid race condition of Plasma Manager waiting for notification.
   ARROW_CHECK_OK(client_.Release(object_id));
   // object_id is marked as to-be-deleted, when it is not in use, it will be deleted.
   ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
@@ -251,7 +250,6 @@ TEST_F(TestPlasmaStore, ContainsTest) {
   // First create object.
   std::vector<uint8_t> data(100, 0);
   CreateObject(client_, object_id, {42}, data);
-  // Avoid race condition of Plasma Manager waiting for notification.
   std::vector<ObjectBuffer> object_buffers;
   ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
   ARROW_CHECK_OK(client_.Contains(object_id, &has_object));

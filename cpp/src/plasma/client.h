@@ -49,19 +49,20 @@ class ARROW_EXPORT PlasmaClient {
   PlasmaClient();
   ~PlasmaClient();
 
-  /// Connect to the local plasma store and plasma manager. Return
-  /// the resulting connection.
+  /// Connect to the local plasma store. Return the resulting connection.
   ///
   /// \param store_socket_name The name of the UNIX domain socket to use to
   ///        connect to the Plasma store.
   /// \param manager_socket_name The name of the UNIX domain socket to use to
   ///        connect to the local Plasma manager. If this is "", then this
   ///        function will not connect to a manager.
+  ///        Note that plasma manager is no longer supported, this function
+  ///        will return failure if this is not "".
   /// \param release_delay Deprecated (not used).
   /// \param num_retries number of attempts to connect to IPC socket, default 50
   /// \return The return status.
   Status Connect(const std::string& store_socket_name,
-                 const std::string& manager_socket_name, int release_delay = 0,
+                 const std::string& manager_socket_name = "", int release_delay = 0,
                  int num_retries = -1);
 
   /// Create an object in the Plasma Store. Any metadata for this object must be
@@ -248,99 +249,6 @@ class ARROW_EXPORT PlasmaClient {
   ///
   /// \return The return status.
   Status Disconnect();
-
-  /// Attempt to initiate the transfer of some objects from remote Plasma
-  /// Stores.
-  /// This method does not guarantee that the fetched objects will arrive
-  /// locally.
-  ///
-  /// For an object that is available in the local Plasma Store, this method
-  /// will
-  /// not do anything. For an object that is not available locally, it will
-  /// check
-  /// if the object are already being fetched. If so, it will not do anything.
-  /// If
-  /// not, it will query the object table for a list of Plasma Managers that
-  /// have
-  /// the object. The object table will return a non-empty list, and this Plasma
-  /// Manager will attempt to initiate transfers from one of those Plasma
-  /// Managers.
-  ///
-  /// This function is non-blocking.
-  ///
-  /// This method is idempotent in the sense that it is ok to call it multiple
-  /// times.
-  ///
-  /// \param num_object_ids The number of object IDs fetch is being called on.
-  /// \param object_ids The IDs of the objects that fetch is being called on.
-  /// \return The return status.
-  Status Fetch(int num_object_ids, const ObjectID* object_ids);
-
-  /// Wait for (1) a specified number of objects to be available (sealed) in the
-  /// local Plasma Store or in a remote Plasma Store, or (2) for a timeout to
-  /// expire. This is a blocking call.
-  ///
-  /// \param num_object_requests Size of the object_requests array.
-  /// \param object_requests Object event array. Each element contains a request
-  ///        for a particular object_id. The type of request is specified in the
-  ///        "type" field.
-  ///        - A PLASMA_QUERY_LOCAL request is satisfied when object_id becomes
-  ///          available in the local Plasma Store. In this case, this function
-  ///          sets the "status" field to ObjectStatus::Local. Note, if the
-  ///          status
-  ///          is not ObjectStatus::Local, it will be ObjectStatus::Nonexistent,
-  ///          but it may exist elsewhere in the system.
-  ///        - A PLASMA_QUERY_ANYWHERE request is satisfied when object_id
-  ///        becomes
-  ///          available either at the local Plasma Store or on a remote Plasma
-  ///          Store. In this case, the functions sets the "status" field to
-  ///          ObjectStatus::Local or ObjectStatus::Remote.
-  /// \param num_ready_objects The number of requests in object_requests array
-  /// that
-  ///        must be satisfied before the function returns, unless it timeouts.
-  ///        The num_ready_objects should be no larger than num_object_requests.
-  /// \param timeout_ms Timeout value in milliseconds. If this timeout expires
-  ///        before min_num_ready_objects of requests are satisfied, the
-  ///        function
-  ///        returns.
-  /// \param num_objects_ready Out parameter for number of satisfied requests in
-  ///        the object_requests list. If the returned number is less than
-  ///        min_num_ready_objects this means that timeout expired.
-  /// \return The return status.
-  Status Wait(int64_t num_object_requests, ObjectRequest* object_requests,
-              int num_ready_objects, int64_t timeout_ms, int* num_objects_ready);
-
-  /// Transfer local object to a different plasma manager.
-  ///
-  /// \param addr IP address of the plasma manager we are transfering to.
-  /// \param port Port of the plasma manager we are transfering to.
-  /// \param object_id ObjectID of the object we are transfering.
-  /// \return The return status.
-  Status Transfer(const char* addr, int port, const ObjectID& object_id);
-
-  /// Return the status of a given object. This method may query the object
-  /// table.
-  ///
-  /// \param object_id The ID of the object whose status we query.
-  /// \param object_status Out parameter for object status. Can take the
-  ///         following values.
-  ///         - PLASMA_CLIENT_LOCAL, if object is stored in the local Plasma
-  ///         Store.
-  ///           has been already scheduled by the Plasma Manager.
-  ///         - PLASMA_CLIENT_TRANSFER, if the object is either currently being
-  ///           transferred or just scheduled.
-  ///         - PLASMA_CLIENT_REMOTE, if the object is stored at a remote
-  ///           Plasma Store.
-  ///         - PLASMA_CLIENT_DOES_NOT_EXIST, if the object doesn’t exist in the
-  ///           system.
-  /// \return The return status.
-  Status Info(const ObjectID& object_id, int* object_status);
-
-  /// Get the file descriptor for the socket connection to the plasma manager.
-  ///
-  /// \return The file descriptor for the manager connection. If there is no
-  ///         connection to the manager, this is -1.
-  int get_manager_fd() const;
 
  private:
   friend class PlasmaBuffer;
