@@ -69,15 +69,11 @@ Status BinaryBuilder::ReserveData(int64_t elements) {
   return Status::OK();
 }
 
-Status BinaryBuilder::AppendNextOffset() {
-  const int64_t num_bytes = value_data_builder_.length();
-  if (ARROW_PREDICT_FALSE(num_bytes > kBinaryMemoryLimit)) {
-    std::stringstream ss;
-    ss << "BinaryArray cannot contain more than " << kBinaryMemoryLimit << " bytes, have "
-       << num_bytes;
-    return Status::CapacityError(ss.str());
-  }
-  return offsets_builder_.Append(static_cast<int32_t>(num_bytes));
+Status BinaryBuilder::AppendOverflow(int32_t num_bytes) {
+  std::stringstream ss;
+  ss << "BinaryArray cannot contain more than " << kBinaryMemoryLimit << " bytes, have "
+     << num_bytes;
+  return Status::CapacityError(ss.str());
 }
 
 Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {

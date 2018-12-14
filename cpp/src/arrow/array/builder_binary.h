@@ -19,6 +19,7 @@
 
 #include <limits>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -120,7 +121,15 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   TypedBufferBuilder<int32_t> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
-  Status AppendNextOffset();
+  Status AppendOverflow(int32_t num_bytes);
+
+  Status AppendNextOffset() {
+    const int64_t num_bytes = value_data_builder_.length();
+    if (ARROW_PREDICT_FALSE(num_bytes > kBinaryMemoryLimit)) {
+      return AppendOverflow(num_bytes);
+    }
+    return offsets_builder_.Append(static_cast<int32_t>(num_bytes));
+  }
 
   void UnsafeAppendNextOffset() {
     const int64_t num_bytes = value_data_builder_.length();
