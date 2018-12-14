@@ -424,8 +424,7 @@ func TestDate32SliceData(t *testing.T) {
 		sub = vs[beg:end]
 	)
 
-	dtype := &arrow.Date32Type{}
-	b := array.NewDate32Builder(pool, dtype)
+	b := array.NewDate32Builder(pool)
 	defer b.Release()
 
 	for _, v := range vs {
@@ -470,8 +469,7 @@ func TestDate32SliceDataWithNull(t *testing.T) {
 		sub    = vs[beg:end]
 	)
 
-	dtype := &arrow.Date32Type{}
-	b := array.NewDate32Builder(pool, dtype)
+	b := array.NewDate32Builder(pool)
 	defer b.Release()
 
 	b.AppendValues(vs, valids)
@@ -536,8 +534,7 @@ func TestDate64SliceData(t *testing.T) {
 		sub = vs[beg:end]
 	)
 
-	dtype := &arrow.Date64Type{}
-	b := array.NewDate64Builder(pool, dtype)
+	b := array.NewDate64Builder(pool)
 	defer b.Release()
 
 	for _, v := range vs {
@@ -582,8 +579,7 @@ func TestDate64SliceDataWithNull(t *testing.T) {
 		sub    = vs[beg:end]
 	)
 
-	dtype := &arrow.Date64Type{}
-	b := array.NewDate64Builder(pool, dtype)
+	b := array.NewDate64Builder(pool)
 	defer b.Release()
 
 	b.AppendValues(vs, valids)

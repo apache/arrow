@@ -367,8 +367,7 @@ func TestNewDate32Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	dtype := &arrow.Date32Type{}
-	ab := array.NewDate32Builder(mem, dtype)
+	ab := array.NewDate32Builder(mem)
 
 	ab.Append(1)
 	ab.Append(2)
@@ -416,8 +415,7 @@ func TestDate32Builder_AppendValues(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	dtype := &arrow.Date32Type{}
-	ab := array.NewDate32Builder(mem, dtype)
+	ab := array.NewDate32Builder(mem)
 
 	exp := []arrow.Date32{1, 2, 3, 4}
 	ab.AppendValues(exp, nil)
@@ -432,8 +430,7 @@ func TestDate32Builder_Empty(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	dtype := &arrow.Date32Type{}
-	ab := array.NewDate32Builder(mem, dtype)
+	ab := array.NewDate32Builder(mem)
 
 	exp := []arrow.Date32{1, 2, 3, 4}
 	ab.AppendValues(exp, nil)
@@ -452,8 +449,7 @@ func TestDate32Builder_Resize(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	dtype := &arrow.Date32Type{}
-	ab := array.NewDate32Builder(mem, dtype)
+	ab := array.NewDate32Builder(mem)
 
 	assert.Equal(t, 0, ab.Cap())
 	assert.Equal(t, 0, ab.Len())
@@ -481,8 +477,7 @@ func TestNewDate64Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	dtype := &arrow.Date64Type{}
-	ab := array.NewDate64Builder(mem, dtype)
+	ab := array.NewDate64Builder(mem)
 
 	ab.Append(1)
 	ab.Append(2)
@@ -530,8 +525,7 @@ func TestDate64Builder_AppendValues(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	dtype := &arrow.Date64Type{}
-	ab := array.NewDate64Builder(mem, dtype)
+	ab := array.NewDate64Builder(mem)
 
 	exp := []arrow.Date64{1, 2, 3, 4}
 	ab.AppendValues(exp, nil)
@@ -546,8 +540,7 @@ func TestDate64Builder_Empty(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	dtype := &arrow.Date64Type{}
-	ab := array.NewDate64Builder(mem, dtype)
+	ab := array.NewDate64Builder(mem)
 
 	exp := []arrow.Date64{1, 2, 3, 4}
 	ab.AppendValues(exp, nil)
@@ -566,8 +559,7 @@ func TestDate64Builder_Resize(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	dtype := &arrow.Date64Type{}
-	ab := array.NewDate64Builder(mem, dtype)
+	ab := array.NewDate64Builder(mem)
 
 	assert.Equal(t, 0, ab.Cap())
 	assert.Equal(t, 0, ab.Len())

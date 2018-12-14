@@ -1775,13 +1775,12 @@ func (b *Time64Builder) newData() (data *Data) {
 type Date32Builder struct {
 	builder
 
-	dtype   *arrow.Date32Type
 	data    *memory.Buffer
 	rawData []arrow.Date32
 }
 
-func NewDate32Builder(mem memory.Allocator, dtype *arrow.Date32Type) *Date32Builder {
-	return &Date32Builder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
+func NewDate32Builder(mem memory.Allocator) *Date32Builder {
+	return &Date32Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
 // Release decreases the reference count by 1.
@@ -1895,7 +1894,7 @@ func (b *Date32Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
+	data = NewData(arrow.PrimitiveTypes.Date32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {
@@ -1910,13 +1909,12 @@ func (b *Date32Builder) newData() (data *Data) {
 type Date64Builder struct {
 	builder
 
-	dtype   *arrow.Date64Type
 	data    *memory.Buffer
 	rawData []arrow.Date64
 }
 
-func NewDate64Builder(mem memory.Allocator, dtype *arrow.Date64Type) *Date64Builder {
-	return &Date64Builder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
+func NewDate64Builder(mem memory.Allocator) *Date64Builder {
+	return &Date64Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
 // Release decreases the reference count by 1.
@@ -2030,7 +2028,7 @@ func (b *Date64Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
+	data = NewData(arrow.PrimitiveTypes.Date64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {
