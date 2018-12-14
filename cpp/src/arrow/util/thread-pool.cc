@@ -294,9 +294,14 @@ std::shared_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
   return pool;
 }
 
+ThreadPool* arrow_global_thread_pool = nullptr;
+
 ThreadPool* GetCpuThreadPool() {
-  static std::shared_ptr<ThreadPool> singleton = ThreadPool::MakeCpuThreadPool();
-  return singleton.get();
+  if (!arrow_global_thread_pool) {
+    arrow_global_thread_pool = new ThreadPool();
+    DCHECK_OK(arrow_global_thread_pool->SetCapacity(ThreadPool::DefaultCapacity()));
+  }
+  return arrow_global_thread_pool;
 }
 
 }  // namespace internal
