@@ -341,9 +341,9 @@ Pass multiple labels by dividing with semicolons")
     OFF)
 
   option(ARROW_OPTIONAL_INSTALL
-    "If enabled install ONLY targets that have already been built. Please be "
-    "advised that if this is enabled 'install' will fail silently on components "
-    "that have not been built"
+    "If enabled install ONLY targets that have already been built. Please be \
+advised that if this is enabled 'install' will fail silently on components \
+that have not been built"
     OFF)
 endif()
 
