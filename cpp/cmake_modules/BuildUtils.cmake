@@ -575,9 +575,11 @@ endfunction()
 ###################################################
 
 function(ARROW_INSTALL_ALL_HEADERS PATH)
+  set(options)
+  set(one_value_args)
   set(multi_value_args PATTERN)
-  cmake_parse_arguments(ARG "" "" "${multi_value_args}" ${ARGN})
-  if (NOT ${ARG_PATTERN})
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if (NOT ARG_PATTERN)
     set(ARG_PATTERN "*.h")
   endif()
   file(GLOB_RECURSE CURRENT_DIRECTORY_HEADERS ${ARG_PATTERN})
