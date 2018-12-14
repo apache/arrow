@@ -140,11 +140,14 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
       STATIC_LINK_LIBS ${GANDIVA_SHARED_TEST_LINK_LIBS})
   endif()
 
-  if(${REL_TEST_NAME} MATCHES "llvm" OR
-     ${REL_TEST_NAME} MATCHES "expression_registry")
+  set(TARGET_NAME gandiva-${REL_TEST_NAME})
+
+  if((TARGET ${TARGET_NAME}) AND
+      (${REL_TEST_NAME} MATCHES "llvm" OR
+       ${REL_TEST_NAME} MATCHES "expression_registry"))
     # If the unit test has llvm in its name, include llvm.
-    add_dependencies(gandiva-${REL_TEST_NAME} LLVM::LLVM_INTERFACE)
-    target_link_libraries(gandiva-${REL_TEST_NAME} PRIVATE LLVM::LLVM_INTERFACE)
+    add_dependencies(${TARGET_NAME} LLVM::LLVM_INTERFACE)
+    target_link_libraries(${TARGET_NAME} PRIVATE LLVM::LLVM_INTERFACE)
   endif()
 endfunction()
 
