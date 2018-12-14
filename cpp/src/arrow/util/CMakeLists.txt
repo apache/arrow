@@ -20,45 +20,7 @@
 #######################################
 
 # Headers: top level
-install(FILES
-  bit-stream-utils.h
-  bit-util.h
-  bpacking.h
-  checked_cast.h
-  compiler-util.h
-  compression.h
-  compression_brotli.h
-  compression_bz2.h
-  compression_lz4.h
-  compression_snappy.h
-  compression_zlib.h
-  compression_zstd.h
-  cpu-info.h
-  date.h
-  decimal.h
-  hash-util.h
-  hashing.h
-  io-util.h
-  key_value_metadata.h
-  lazy.h
-  logging.h
-  macros.h
-  memory.h
-  neon-util.h
-  parallel.h
-  rle-encoding.h
-  sse-util.h
-  stl.h
-  stopwatch.h
-  string.h
-  string_view.h
-  thread-pool.h
-  type_traits.h
-  utf8.h
-  variant.h
-  visibility.h
-  windows_compatibility.h
-  DESTINATION include/arrow/util)
+ARROW_INSTALL_ALL_HEADERS("arrow/util")
 
 #######################################
 # arrow_test_main

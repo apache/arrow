@@ -101,6 +101,19 @@ unit tests, and benchmarks (if enabled):
 * `make gandiva` for Gandiva (LLVM expression compiler) libraries
 * `make plasma` for Plasma libraries, server
 
+If you wish to only build and install one or more project subcomponents, we
+have provided the CMake option `ARROW_OPTIONAL_INSTALL` to only install targets
+that have been built. For example, if you only wish to build the Parquet
+libraries, its tests, and its dependencies, you can run:
+
+```
+cmake .. -DARROW_PARQUET=ON -DARROW_OPTIONAL_INSTALL=ON -DARROW_BUILD_TESTS=ON
+make parquet
+make install
+```
+
+If you omit an explicit target when invoking `make`, all targets will be built.
+
 ## Parquet Development Notes
 
 To build the C++ libraries for Apache Parquet, add the flag
@@ -269,7 +282,7 @@ The optional `gandiva` libraries and tests can be built by passing
 `-DARROW_GANDIVA=on`.
 
 ```shell
-cmake .. -DARROW_GANDIVA=ON -DARROW_GANDIVA_BUILD_TESTS=ON
+cmake .. -DARROW_GANDIVA=ON -DARROW_BUILD_TESTS=ON
 make
 ctest -L gandiva
 ```

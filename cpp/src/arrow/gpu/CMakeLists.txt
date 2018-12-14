@@ -63,12 +63,7 @@ install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/cuda_version.h"
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
 
-install(FILES
-  cuda_api.h
-  cuda_arrow_ipc.h
-  cuda_context.h
-  cuda_memory.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
+ARROW_INSTALL_ALL_HEADERS("arrow/gpu")
 
 # pkg-config support
 configure_file(arrow-cuda.pc.in
