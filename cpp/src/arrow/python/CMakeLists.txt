@@ -52,6 +52,7 @@ endif()
 set(ARROW_PYTHON_SHARED_LINK_LIBS
   arrow_shared
   ${PYTHON_OTHER_LIBS}
+  ${BOOST_THREAD_LIBRARY}
 )
 
 if (WIN32)
