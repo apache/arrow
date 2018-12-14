@@ -64,15 +64,7 @@ install(FILES
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
 
 ARROW_INSTALL_ALL_HEADERS("arrow/gpu")
-
-# pkg-config support
-configure_file(arrow-cuda.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow-cuda.pc"
-  @ONLY)
-
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-cuda.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("arrow-cuda")
 
 set(ARROW_CUDA_TEST_LINK_LIBS
   arrow_cuda_shared

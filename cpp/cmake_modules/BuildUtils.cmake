@@ -583,7 +583,23 @@ function(ARROW_INSTALL_ALL_HEADERS PATH)
     set(ARG_PATTERN "*.h")
   endif()
   file(GLOB CURRENT_DIRECTORY_HEADERS ${ARG_PATTERN})
+
+  set(PUBLIC_HEADERS)
+  foreach(HEADER ${CURRENT_DIRECTORY_HEADERS})
+    if (NOT ((HEADER MATCHES "internal")))
+      LIST(APPEND PUBLIC_HEADERS ${HEADER})
+    endif()
+  endforeach()
   install(FILES
-    ${CURRENT_DIRECTORY_HEADERS}
+    ${PUBLIC_HEADERS}
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PATH}")
+endfunction()
+
+function(ARROW_ADD_PKG_CONFIG MODULE)
+  configure_file(${MODULE}.pc.in
+    "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
+    @ONLY)
+  install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 endfunction()

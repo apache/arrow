@@ -19,10 +19,4 @@
 # arrow_util_variant
 #######################################
 
-install(FILES
-  optional.h
-  recursive_wrapper.h
-  variant_cast.h
-  variant_io.h
-  variant_visitor.h
-  DESTINATION include/arrow/util/variant)
+ARROW_INSTALL_ALL_HEADERS("arrow/util/variant")

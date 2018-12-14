@@ -313,6 +313,12 @@ which use the default pool without explicitly passing it. You can disable these
 constructors in your application (so that you are accounting properly for all
 memory allocations) by defining `ARROW_NO_DEFAULT_MEMORY_POOL`.
 
+### Header files
+
+We use the `.h` extension for C++ header files. Any header file name not
+containing `internal` is considered to be a public header, and will be
+automatically installed by the build.
+
 ### Error Handling and Exceptions
 
 For error handling, we use `arrow::Status` values instead of throwing C++
