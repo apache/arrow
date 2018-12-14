@@ -407,6 +407,13 @@ else()
     # disable autolinking in boost
     add_definitions(-DBOOST_ALL_NO_LIB)
   endif()
+
+  if (DEFINED ENV{BOOST_ROOT} OR DEFINED BOOST_ROOT)
+    # In older versions of CMake (such as 3.2), the system paths for Boost will
+    # be looked in first even if we set $BOOST_ROOT or pass -DBOOST_ROOT
+    set(Boost_NO_SYSTEM_PATHS ON)
+  endif()
+
   if (ARROW_BOOST_USE_SHARED)
     # Find shared Boost libraries.
     set(Boost_USE_STATIC_LIBS OFF)
@@ -629,8 +636,11 @@ if(ARROW_BUILD_TESTS OR ARROW_GANDIVA_BUILD_TESTS
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-
   if("$ENV{GBENCHMARK_HOME}" STREQUAL "")
+    if(CMAKE_VERSION VERSION_LESS 3.6)
+      message(FATAL_ERROR "Building gbenchmark from source requires at least CMake 3.6")
+    endif()
+
     if(NOT MSVC)
       set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC -std=c++11 ${EP_CXX_FLAGS}")
     endif()
@@ -1093,6 +1103,11 @@ if (ARROW_WITH_ZSTD)
       set(ZSTD_CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
           "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
           "-DCMAKE_C_FLAGS=${EP_C_FLAGS}")
+    endif()
+
+    if(CMAKE_VERSION VERSION_LESS 3.7)
+      message(FATAL_ERROR "Building zstd using ExternalProject requires \
+at least CMake 3.7")
     endif()
 
     ExternalProject_Add(zstd_ep
