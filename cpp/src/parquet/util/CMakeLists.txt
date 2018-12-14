@@ -16,12 +16,7 @@
 # under the License.
 
 # Headers: util
-install(FILES
-  comparison.h
-  macros.h
-  memory.h
-  visibility.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/util")
+ARROW_INSTALL_ALL_HEADERS("parquet/util")
 
 ADD_PARQUET_TEST(comparison-test)
 ADD_PARQUET_TEST(memory-test)

@@ -238,26 +238,7 @@ add_subdirectory(api)
 add_subdirectory(arrow)
 add_subdirectory(util)
 
-# Headers: top level
-install(FILES
-  bloom_filter.h
-  column_reader.h
-  column_page.h
-  column_scanner.h
-  column_writer.h
-  encoding.h
-  exception.h
-  file_reader.h
-  file_writer.h
-  hasher.h
-  metadata.h
-  murmur3.h
-  printer.h
-  properties.h
-  schema.h
-  statistics.h
-  types.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
+ARROW_INSTALL_ALL_HEADERS("parquet")
 
 configure_file(parquet_version.h.in
   "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"

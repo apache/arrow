@@ -226,6 +226,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     install(TARGETS ${LIB_NAME}_shared
+      ${INSTALL_IS_OPTIONAL}
       EXPORT ${PROJECT_NAME}-targets
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -272,6 +273,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       LINK_PUBLIC ${ARG_STATIC_LINK_LIBS})
 
     install(TARGETS ${LIB_NAME}_static
+      ${INSTALL_IS_OPTIONAL}
       EXPORT ${PROJECT_NAME}-targets
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -401,7 +403,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
 
   if (NOT "${ARROW_TEST_INCLUDE_LABELS}" STREQUAL "")
     set(_SKIP_TEST TRUE)
-    foreach (_INCLUDED_LABEL ${ARG_LABELS})
+    foreach (_INCLUDED_LABEL ${ARROW_TEST_INCLUDE_LABELS})
       if ("${ARG_LABELS}" MATCHES "${_INCLUDED_LABEL}")
         set(_SKIP_TEST FALSE)
       endif()
@@ -568,4 +570,20 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
   set_target_properties(${REL_FUZZING_NAME}
       PROPERTIES
       LINK_FLAGS "-fsanitize=fuzzer")
+endfunction()
+
+###################################################
+
+function(ARROW_INSTALL_ALL_HEADERS PATH)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args PATTERN)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if (NOT ARG_PATTERN)
+    set(ARG_PATTERN "*.h")
+  endif()
+  file(GLOB CURRENT_DIRECTORY_HEADERS ${ARG_PATTERN})
+  install(FILES
+    ${CURRENT_DIRECTORY_HEADERS}
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PATH}")
 endfunction()
