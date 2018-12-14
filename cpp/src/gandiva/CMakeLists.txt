@@ -118,6 +118,10 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(multi_value_args)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
+  if (NO_TESTS)
+    return()
+  endif()
+
   set(TEST_ARGUMENTS
     ENABLED
     PREFIX "gandiva"
