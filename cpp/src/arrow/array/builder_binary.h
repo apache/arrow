@@ -121,7 +121,7 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   TypedBufferBuilder<int32_t> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
-  Status AppendOverflow(int32_t num_bytes);
+  Status AppendOverflow(int64_t num_bytes);
 
   Status AppendNextOffset() {
     const int64_t num_bytes = value_data_builder_.length();

@@ -69,7 +69,7 @@ Status BinaryBuilder::ReserveData(int64_t elements) {
   return Status::OK();
 }
 
-Status BinaryBuilder::AppendOverflow(int32_t num_bytes) {
+Status BinaryBuilder::AppendOverflow(int64_t num_bytes) {
   std::stringstream ss;
   ss << "BinaryArray cannot contain more than " << kBinaryMemoryLimit << " bytes, have "
      << num_bytes;
