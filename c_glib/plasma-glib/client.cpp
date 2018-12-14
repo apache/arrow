@@ -41,8 +41,7 @@ G_BEGIN_DECLS
  *
  * #GPlasmaClientCreateOptions is a class for customizing object creation.
  *
- * #GPlasmaClient is a class for an interface with a plasma store
- * and a plasma manager.
+ * #GPlasmaClient is a class for an interface with a plasma store.
  *
  * Since: 0.12.0
  */

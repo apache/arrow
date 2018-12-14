@@ -231,10 +231,6 @@ table PlasmaDeleteReply {
   errors: [PlasmaError];
 }
 
-// PlasmaContains is a subset of PlasmaStatus which does not
-// involve the plasma manager, only the store. We should consider
-// unifying them in the future and deprecating PlasmaContains.
-
 table PlasmaContainsRequest {
   // ID of the object we are querying.
   object_id: string;

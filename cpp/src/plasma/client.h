@@ -49,8 +49,7 @@ class ARROW_EXPORT PlasmaClient {
   PlasmaClient();
   ~PlasmaClient();
 
-  /// Connect to the local plasma store and plasma manager. Return
-  /// the resulting connection.
+  /// Connect to the local plasma store. Return the resulting connection.
   ///
   /// \param store_socket_name The name of the UNIX domain socket to use to
   ///        connect to the Plasma store.
