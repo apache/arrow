@@ -34,11 +34,6 @@ using arrow::Status;
 
 namespace plasma {
 
-/// We keep a queue of unreleased objects cached in the client until we start
-/// sending release requests to the store. This is to avoid frequently mapping
-/// and unmapping objects and evicting data from processor caches.
-constexpr int64_t kPlasmaDefaultReleaseDelay = 64;
-
 /// Object buffer data structure.
 struct ObjectBuffer {
   /// The data buffer.
@@ -64,13 +59,12 @@ class ARROW_EXPORT PlasmaClient {
   ///        function will not connect to a manager.
   ///        Note that plasma manager is no longer supported, this function
   ///        will return failure if this is not "".
-  /// \param release_delay Number of released objects that are kept around
-  ///        and not evicted to avoid too many munmaps.
+  /// \param release_delay Deprecated (not used).
   /// \param num_retries number of attempts to connect to IPC socket, default 50
   /// \return The return status.
   Status Connect(const std::string& store_socket_name,
-                 const std::string& manager_socket_name,
-                 int release_delay = kPlasmaDefaultReleaseDelay, int num_retries = -1);
+                 const std::string& manager_socket_name, int release_delay = 0,
+                 int num_retries = -1);
 
   /// Create an object in the Plasma Store. Any metadata for this object must be
   /// be passed in when the object is created.
@@ -262,10 +256,6 @@ class ARROW_EXPORT PlasmaClient {
   FRIEND_TEST(TestPlasmaStore, GetTest);
   FRIEND_TEST(TestPlasmaStore, LegacyGetTest);
   FRIEND_TEST(TestPlasmaStore, AbortTest);
-
-  /// This is a helper method that flushes all pending release calls to the
-  /// store.
-  Status FlushReleaseHistory();
 
   bool IsInUse(const ObjectID& object_id);
 

@@ -82,7 +82,7 @@ class TestPlasmaStore : public ::testing::Test {
 
   void CreateObject(PlasmaClient& client, const ObjectID& object_id,
                     const std::vector<uint8_t>& metadata,
-                    const std::vector<uint8_t>& data) {
+                    const std::vector<uint8_t>& data, bool release = true) {
     std::shared_ptr<Buffer> data_buffer;
     ARROW_CHECK_OK(client.Create(object_id, data.size(), &metadata[0], metadata.size(),
                                  &data_buffer));
@@ -90,7 +90,9 @@ class TestPlasmaStore : public ::testing::Test {
       data_buffer->mutable_data()[i] = data[i];
     }
     ARROW_CHECK_OK(client.Seal(object_id));
-    ARROW_CHECK_OK(client.Release(object_id));
+    if (release) {
+      ARROW_CHECK_OK(client.Release(object_id));
+    }
   }
 
   const std::string& GetStoreSocketName() const { return store_socket_name_; }
@@ -155,11 +157,12 @@ TEST_F(TestPlasmaStore, SealErrorsTest) {
 
   // Create object.
   std::vector<uint8_t> data(100, 0);
-  CreateObject(client_, object_id, {42}, data);
+  CreateObject(client_, object_id, {42}, data, false);
 
   // Trying to seal it again.
   result = client_.Seal(object_id);
   ASSERT_TRUE(result.IsPlasmaObjectAlreadySealed());
+  ARROW_CHECK_OK(client_.Release(object_id));
 }
 
 TEST_F(TestPlasmaStore, DeleteTest) {
@@ -228,13 +231,7 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   // client2_ won't send the release request immediately because the trigger
   // condition is not reached. The release is only added to release cache.
   object_buffers.clear();
-  // The reference count went to zero, but the objects are still in the release
-  // cache.
-  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
-  ASSERT_TRUE(has_object);
-  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
-  ASSERT_TRUE(has_object);
-  // The Delete call will flush release cache and send the Delete request.
+  // Delete the objects.
   result = client2_.Delete(std::vector<ObjectID>{object_id1, object_id2});
   ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
   ASSERT_FALSE(has_object);
@@ -277,7 +274,6 @@ TEST_F(TestPlasmaStore, GetTest) {
   // First create object.
   std::vector<uint8_t> data = {3, 5, 6, 7, 9};
   CreateObject(client_, object_id, {42}, data);
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_FALSE(client_.IsInUse(object_id));
 
   object_buffers.clear();
@@ -291,11 +287,9 @@ TEST_F(TestPlasmaStore, GetTest) {
     auto metadata = object_buffers[0].metadata;
     object_buffers.clear();
     ::arrow::AssertBufferEqual(*metadata, std::string{42});
-    ARROW_CHECK_OK(client_.FlushReleaseHistory());
     EXPECT_TRUE(client_.IsInUse(object_id));
   }
   // Object is automatically released
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_FALSE(client_.IsInUse(object_id));
 }
 
@@ -314,17 +308,14 @@ TEST_F(TestPlasmaStore, LegacyGetTest) {
     // First create object.
     std::vector<uint8_t> data = {3, 5, 6, 7, 9};
     CreateObject(client_, object_id, {42}, data);
-    ARROW_CHECK_OK(client_.FlushReleaseHistory());
     EXPECT_FALSE(client_.IsInUse(object_id));
 
     ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
     AssertObjectBufferEqual(object_buffer, {42}, {3, 5, 6, 7, 9});
   }
   // Object needs releasing manually
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_TRUE(client_.IsInUse(object_id));
   ARROW_CHECK_OK(client_.Release(object_id));
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_FALSE(client_.IsInUse(object_id));
 }
 
@@ -377,11 +368,9 @@ TEST_F(TestPlasmaStore, AbortTest) {
   ASSERT_TRUE(status.IsInvalid());
   // Release, then abort.
   ARROW_CHECK_OK(client_.Release(object_id));
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_TRUE(client_.IsInUse(object_id));
 
   ARROW_CHECK_OK(client_.Abort(object_id));
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_FALSE(client_.IsInUse(object_id));
 
   // Test for object non-existence after the abort.
@@ -394,7 +383,6 @@ TEST_F(TestPlasmaStore, AbortTest) {
   // Test that we can get the object.
   ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
   AssertObjectBufferEqual(object_buffers[0], {42, 43}, {1, 2, 3, 4, 5});
-  ARROW_CHECK_OK(client_.Release(object_id));
 }
 
 TEST_F(TestPlasmaStore, MultipleClientTest) {
