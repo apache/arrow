@@ -98,6 +98,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   set(ARROW_CXXFLAGS "" CACHE STRING
     "Compiler flags to append when compiling Arrow")
 
+  option(ARROW_OPTIONAL_INSTALL
+    "If enabled install targets that have already been built"
+    OFF)
+
   option(ARROW_ONLY_LINT
     "Only define the lint and check-format targets"
     OFF)
@@ -323,13 +327,14 @@ Always OFF if building binaries"
   option(ARROW_GANDIVA_JAVA
     "Build the Gandiva JNI wrappers"
     ON)
-
-  option(ARROW_GANDIVA_BUILD_TESTS
-    "Build the Gandiva googletest unit tests"
-    OFF)
-
 endif()
 
+if (ARROW_OPTIONAL_INSTALL)
+  # Don't make the "install" target depend on the "all" target
+  set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
+
+  set(INSTALL_IS_OPTIONAL OPTIONAL)
+endif()
 
 ############################################################
 # "make lint" target

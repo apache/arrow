@@ -69,7 +69,7 @@ function(add_precompiled_unit_test REL_TEST_NAME)
 endfunction(add_precompiled_unit_test REL_TEST_NAME)
 
 # testing
-if (ARROW_GANDIVA_BUILD_TESTS)
+if (ARROW_BUILD_TESTS)
   add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
   add_precompiled_unit_test(epoch_time_point_test.cc)
   add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc ../context_helper.cc)

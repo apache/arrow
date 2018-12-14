@@ -109,6 +109,8 @@ matrix:
     jdk: openjdk8
     env:
     - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_OPTIONAL_INSTALL=1
+    - ARROW_CPP_BUILD_TARGETS="gandiva"
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     # ARROW-3979 temporarily disabled.
     - ARROW_TRAVIS_VALGRIND=0
@@ -155,6 +157,8 @@ matrix:
     addons:
     env:
     - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_OPTIONAL_INSTALL=1
+    - ARROW_CPP_BUILD_TARGETS="gandiva"
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     before_script:

@@ -18,15 +18,7 @@
 add_custom_target(arrow_hiveserver2)
 
 # Headers: top level
-install(FILES
-  api.h
-  columnar-row-set.h
-  operation.h
-  service.h
-  session.h
-  types.h
-  util.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/dbi/hiveserver2")
+ARROW_INSTALL_ALL_HEADERS("arrow/dbi/hiveserver2")
 
 set(ARROW_HIVESERVER2_SRCS
   columnar-row-set.cc

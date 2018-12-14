@@ -213,8 +213,7 @@ if (ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()
 
-if (ARROW_BUILD_TESTS OR ARROW_GANDIVA_BUILD_TESTS
-    OR ARROW_BUILD_BENCHMARKS)
+if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   # that depend on gtest
   ADD_ARROW_LIB(arrow_testing
     SOURCES test-util.cc
@@ -244,28 +243,7 @@ foreach(LIB_TARGET ${ARROW_LIBRARIES})
 endforeach()
 
 # Headers: top level
-install(FILES
-  allocator.h
-  api.h
-  array.h
-  buffer.h
-  builder.h
-  compare.h
-  memory_pool.h
-  pretty_print.h
-  record_batch.h
-  status.h
-  stl.h
-  table.h
-  table_builder.h
-  tensor.h
-  type.h
-  type_fwd.h
-  type_traits.h
-  test-util.h
-  visitor.h
-  visitor_inline.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow")
+ARROW_INSTALL_ALL_HEADERS("arrow")
 
 # pkg-config support
 configure_file(arrow.pc.in

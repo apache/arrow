@@ -92,31 +92,8 @@ add_dependencies(gandiva ${GANDIVA_LIBRARIES})
 # install for gandiva
 include(GNUInstallDirs)
 
-# install libgandiva
-install(
-  TARGETS gandiva_shared gandiva_static
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-
 # install the header files.
-install(FILES
-  arrow.h
-  condition.h
-  configuration.h
-  expression.h
-  expression_registry.h
-  filter.h
-  func_descriptor.h
-  function_signature.h
-  gandiva_aliases.h
-  literal_holder.h
-  logging.h
-  node.h
-  node_visitor.h
-  projector.h
-  selection_vector.h
-  tree_expr_builder.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/gandiva")
+ARROW_INSTALL_ALL_HEADERS("gandiva")
 
 # pkg-config support
 configure_file(gandiva.pc.in
@@ -167,31 +144,24 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   endif()
 endfunction()
 
-if (ARROW_GANDIVA_BUILD_TESTS)
-  ADD_GANDIVA_TEST(bitmap_accumulator_test)
-  ADD_GANDIVA_TEST(engine_llvm_test)
-  ADD_GANDIVA_TEST(function_signature_test)
-  ADD_GANDIVA_TEST(function_registry_test)
-  ADD_GANDIVA_TEST(llvm_types_test)
-  ADD_GANDIVA_TEST(llvm_generator_test)
-  ADD_GANDIVA_TEST(annotator_test)
-  ADD_GANDIVA_TEST(tree_expr_test)
-  ADD_GANDIVA_TEST(expr_decomposer_test)
-  ADD_GANDIVA_TEST(expression_registry_test)
-  ADD_GANDIVA_TEST(selection_vector_test)
-  ADD_GANDIVA_TEST(lru_cache_test)
-  ADD_GANDIVA_TEST(to_date_holder_test)
-  ADD_GANDIVA_TEST(simple_arena_test)
-endif()
+ADD_GANDIVA_TEST(bitmap_accumulator_test)
+ADD_GANDIVA_TEST(engine_llvm_test)
+ADD_GANDIVA_TEST(function_signature_test)
+ADD_GANDIVA_TEST(function_registry_test)
+ADD_GANDIVA_TEST(llvm_types_test)
+ADD_GANDIVA_TEST(llvm_generator_test)
+ADD_GANDIVA_TEST(annotator_test)
+ADD_GANDIVA_TEST(tree_expr_test)
+ADD_GANDIVA_TEST(expr_decomposer_test)
+ADD_GANDIVA_TEST(expression_registry_test)
+ADD_GANDIVA_TEST(selection_vector_test)
+ADD_GANDIVA_TEST(lru_cache_test)
+ADD_GANDIVA_TEST(to_date_holder_test)
+ADD_GANDIVA_TEST(simple_arena_test)
 
 if (ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)
 endif()
+
 add_subdirectory(precompiled)
-
-if (ARROW_GANDIVA_BUILD_TESTS)
-  include(CTest)
-  enable_testing()
-
-  add_subdirectory(tests)
-endif()
+add_subdirectory(tests)

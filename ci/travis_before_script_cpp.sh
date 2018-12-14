@@ -119,6 +119,10 @@ if [ $ARROW_TRAVIS_USE_VENDORED_BOOST == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_BOOST_VENDORED=ON"
 fi
 
+if [ $ARROW_TRAVIS_OPTIONAL_INSTALL == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_OPTIONAL_INSTALL=ON"
+fi
+
 if [ $TRAVIS_OS_NAME == "linux" ]; then
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_LINUX_FLAGS \
@@ -139,8 +143,9 @@ else
           $ARROW_CPP_DIR
 fi
 
-# Build and install libraries
-$TRAVIS_MAKE -j4
+# Build and install libraries. Configure ARROW_CPP_BUILD_TARGETS environment
+# variable to only build certain targets
+$TRAVIS_MAKE -j4 $ARROW_CPP_BUILD_TARGETS
 $TRAVIS_MAKE install
 
 popd

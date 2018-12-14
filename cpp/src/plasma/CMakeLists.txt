@@ -138,7 +138,6 @@ if (ARROW_RPATH_ORIGIN)
       INSTALL_RPATH ${_lib_install_rpath})
 endif()
 
-# Headers: top level
 install(FILES
   common.h
   compat.h
@@ -149,7 +148,9 @@ install(FILES
 
 # Plasma store
 set_target_properties(plasma_store_server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-install(TARGETS plasma_store_server DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS plasma_store_server
+  ${INSTALL_IS_OPTIONAL}
+  DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # pkg-config support
 configure_file(plasma.pc.in
