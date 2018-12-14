@@ -22,7 +22,7 @@ target_include_directories(parquet-low-level-example2 PRIVATE low-level-api/)
 target_link_libraries(parquet-low-level-example parquet_static)
 target_link_libraries(parquet-low-level-example2 parquet_static)
 
-add_executable(parquet-arrow-example parquet-arrow/src/reader-writer.cc)
+add_executable(parquet-arrow-example parquet-arrow/reader-writer.cc)
 target_link_libraries(parquet-arrow-example parquet_shared)
 
 add_dependencies(parquet

@@ -100,7 +100,7 @@ void read_single_column() {
   std::unique_ptr<parquet::arrow::FileReader> reader;
   PARQUET_THROW_NOT_OK(
       parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
-  std::shared_ptr<arrow::Array> array;
+  std::shared_ptr<arrow::ChunkedArray> array;
   PARQUET_THROW_NOT_OK(reader->ReadColumn(0, &array));
   PARQUET_THROW_NOT_OK(arrow::PrettyPrint(*array, 4, &std::cout));
   std::cout << std::endl;
@@ -119,7 +119,7 @@ void read_single_column_chunk() {
   std::unique_ptr<parquet::arrow::FileReader> reader;
   PARQUET_THROW_NOT_OK(
       parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
-  std::shared_ptr<arrow::Array> array;
+  std::shared_ptr<arrow::ChunkedArray> array;
   PARQUET_THROW_NOT_OK(reader->RowGroup(0)->Column(0)->Read(&array));
   PARQUET_THROW_NOT_OK(arrow::PrettyPrint(*array, 4, &std::cout));
   std::cout << std::endl;

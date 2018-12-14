@@ -15,10 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,12 +24,12 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
-#include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/status.h"
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 

@@ -464,7 +464,11 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_OK_NO_THROW(file_reader->GetColumn(0, &column_reader));
     ASSERT_NE(nullptr, column_reader.get());
 
-    ASSERT_OK(column_reader->NextBatch(SMALL_SIZE, out));
+    std::shared_ptr<ChunkedArray> chunked_out;
+    ASSERT_OK(column_reader->NextBatch(SMALL_SIZE, &chunked_out));
+
+    ASSERT_EQ(1, chunked_out->num_chunks());
+    *out = chunked_out->chunk(0);
     ASSERT_NE(nullptr, out->get());
   }
 
@@ -1745,10 +1749,11 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
 
   std::vector<std::shared_ptr<Array>> pieces;
   for (int i = 0; i < num_rows; ++i) {
-    std::shared_ptr<Array> piece;
-    ASSERT_OK(col_reader->NextBatch(1, &piece));
-    ASSERT_EQ(1, piece->length());
-    pieces.push_back(piece);
+    std::shared_ptr<ChunkedArray> chunked_piece;
+    ASSERT_OK(col_reader->NextBatch(1, &chunked_piece));
+    ASSERT_EQ(1, chunked_piece->length());
+    ASSERT_EQ(1, chunked_piece->num_chunks());
+    pieces.push_back(chunked_piece->chunk(0));
   }
   auto chunked = std::make_shared<::arrow::ChunkedArray>(pieces);
 

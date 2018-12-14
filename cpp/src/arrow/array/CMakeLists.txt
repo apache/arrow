@@ -15,14 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ADD_PARQUET_TEST(arrow-schema-test)
-ADD_PARQUET_TEST(arrow-reader-writer-test)
-
-ADD_BENCHMARK(reader-writer-benchmark
-  PREFIX "parquet-arrow"
-  EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
-if (TARGET parquet-arrow-reader-writer-benchmark)
-  add_dependencies(parquet parquet-arrow-reader-writer-benchmark)
-endif()
-
-ARROW_INSTALL_ALL_HEADERS("parquet/arrow")
+# Headers: top level
+install(FILES
+  builder_adaptive.h
+  builder_base.h
+  builder_binary.h
+  builder_decimal.h
+  builder_dict.h
+  builder_nested.h
+  builder_primitive.h
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/array")

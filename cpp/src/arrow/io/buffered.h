@@ -29,6 +29,7 @@
 
 namespace arrow {
 
+class Buffer;
 class MemoryPool;
 class Status;
 

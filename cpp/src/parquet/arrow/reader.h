@@ -30,6 +30,7 @@
 namespace arrow {
 
 class Array;
+class ChunkedArray;
 class MemoryPool;
 class RecordBatchReader;
 class Schema;
@@ -125,6 +126,10 @@ class PARQUET_EXPORT FileReader {
                             std::shared_ptr<::arrow::Schema>* out);
 
   // Read column as a whole into an Array.
+  ::arrow::Status ReadColumn(int i, std::shared_ptr<::arrow::ChunkedArray>* out);
+
+  /// \note Deprecated since 0.12
+  ARROW_DEPRECATED("Use version with ChunkedArray output")
   ::arrow::Status ReadColumn(int i, std::shared_ptr<::arrow::Array>* out);
 
   // NOTE: Experimental API
@@ -139,27 +144,11 @@ class PARQUET_EXPORT FileReader {
   // 2 foo3
   //
   // i=0 will read the entire foo struct, i=1 the foo2 primitive column etc
-  ::arrow::Status ReadSchemaField(int i, std::shared_ptr<::arrow::Array>* out);
+  ::arrow::Status ReadSchemaField(int i, std::shared_ptr<::arrow::ChunkedArray>* out);
 
-  // NOTE: Experimental API
-  // Reads a specific top level schema field into an Array, while keeping only chosen
-  // leaf columns.
-  // The index i refers the index of the top level schema field, which may
-  // be nested or flat, and indices vector refers to the leaf column indices - e.g.
-  //
-  // i  indices
-  // 0  0        foo.bar
-  // 0  1        foo.bar.baz
-  // 0  2        foo.qux
-  // 1  3        foo2
-  // 2  4        foo3
-  //
-  // i=0 indices={0,2} will read a partial struct with foo.bar and foo.quox columns
-  // i=1 indices={3} will read foo2 column
-  // i=1 indices={2} will result in out=nullptr
-  // leaf indices which are unrelated to the schema field are ignored
-  ::arrow::Status ReadSchemaField(int i, const std::vector<int>& indices,
-                                  std::shared_ptr<::arrow::Array>* out);
+  /// \note Deprecated since 0.12
+  ARROW_DEPRECATED("Use version with ChunkedArray output")
+  ::arrow::Status ReadSchemaField(int i, std::shared_ptr<::arrow::Array>* out);
 
   /// \brief Return a RecordBatchReader of row groups selected from row_group_indices, the
   ///    ordering in row_group_indices matters.
@@ -248,6 +237,10 @@ class PARQUET_EXPORT RowGroupReader {
 
 class PARQUET_EXPORT ColumnChunkReader {
  public:
+  ::arrow::Status Read(std::shared_ptr<::arrow::ChunkedArray>* out);
+
+  /// \note Deprecated since 0.12
+  ARROW_DEPRECATED("Use version with ChunkedArray output")
   ::arrow::Status Read(std::shared_ptr<::arrow::Array>* out);
 
   virtual ~ColumnChunkReader();
@@ -281,6 +274,11 @@ class PARQUET_EXPORT ColumnReader {
   //
   // Returns Status::OK on a successful read, including if you have exhausted
   // the data available in the file.
+  ::arrow::Status NextBatch(int64_t batch_size,
+                            std::shared_ptr<::arrow::ChunkedArray>* out);
+
+  /// \note Deprecated since 0.12
+  ARROW_DEPRECATED("Use version with ChunkedArray output")
   ::arrow::Status NextBatch(int64_t batch_size, std::shared_ptr<::arrow::Array>* out);
 
  private:
