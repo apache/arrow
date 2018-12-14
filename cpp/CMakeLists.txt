@@ -98,10 +98,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   set(ARROW_CXXFLAGS "" CACHE STRING
     "Compiler flags to append when compiling Arrow")
 
-  option(ARROW_OPTIONAL_INSTALL
-    "If enabled install ONLY targets that have already been built"
-    OFF)
-
   option(ARROW_ONLY_LINT
     "Only define the lint and check-format targets"
     OFF)
@@ -134,10 +130,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Linkage of Arrow libraries with unit tests executables. \
 static|shared (default shared)")
 
-  set(ARROW_TEST_INCLUDE_LABELS "" CACHE STRING
-    "Only build unit tests having the indicated label or labels. \
-Pass multiple labels by dividing with semicolons")
-
   option(ARROW_NO_DEPRECATED_API
     "Exclude deprecated APIs from build"
     OFF)
@@ -146,12 +138,16 @@ Pass multiple labels by dividing with semicolons")
     "Build the Arrow Compute Modules"
     ON)
 
-  option(ARROW_EXTRA_ERROR_CONTEXT
-    "Compile with extra error context (line numbers, code)"
-    OFF)
-
   option(ARROW_FLIGHT
     "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)"
+    OFF)
+
+  option(ARROW_GANDIVA
+    "Build the Gandiva libraries"
+    OFF)
+
+  option(ARROW_PARQUET
+    "Build the Parquet libraries"
     OFF)
 
   option(ARROW_IPC
@@ -177,18 +173,6 @@ Pass multiple labels by dividing with semicolons")
   option(ARROW_HDFS
     "Build the Arrow HDFS bridge"
     ON)
-
-  option(ARROW_BOOST_USE_SHARED
-    "Rely on boost shared libraries where relevant"
-    ON)
-
-  option(ARROW_BOOST_VENDORED
-    "Use vendored Boost instead of existing Boost"
-    OFF)
-
-  option(ARROW_PROTOBUF_USE_SHARED
-    "Rely on Protocol Buffers shared libraries where relevant"
-    OFF)
 
   option(ARROW_PYTHON
     "Build the Arrow CPython extensions"
@@ -231,6 +215,56 @@ Pass multiple labels by dividing with semicolons")
     "Build the plasma object store java client"
     OFF)
 
+  option(ARROW_GENERATE_COVERAGE
+    "Build with C++ code coverage enabled"
+    OFF)
+
+  option(ARROW_VERBOSE_LINT
+    "If off, 'quiet' flags will be passed to linting tools"
+    OFF)
+
+  if (MSVC)
+    option(ARROW_USE_CLCACHE
+      "Use clcache if available"
+      ON)
+
+    set(BROTLI_MSVC_STATIC_LIB_SUFFIX "-static" CACHE STRING
+      "Brotli static lib suffix used on Windows with MSVC (default -static)")
+    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
+      "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
+    set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
+      "Lz4 static lib suffix used on Windows with MSVC (default _static)")
+    set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
+      "ZStd static lib suffix used on Windows with MSVC (default _static)")
+
+    option(ARROW_USE_STATIC_CRT
+      "Build Arrow with statically linked CRT"
+      OFF)
+  endif()
+
+  #----------------------------------------------------------------------
+  # Thirdparty toolchain options
+
+  option(ARROW_VERBOSE_THIRDPARTY_BUILD
+    "If off, output from ExternalProjects will be logged to files rather than shown"
+    OFF)
+
+  option(ARROW_BOOST_USE_SHARED
+    "Rely on boost shared libraries where relevant"
+    ON)
+
+  option(ARROW_BOOST_VENDORED
+    "Use vendored Boost instead of existing Boost"
+    OFF)
+
+  option(ARROW_PROTOBUF_USE_SHARED
+    "Rely on Protocol Buffers shared libraries where relevant"
+    OFF)
+
+  option(ARROW_USE_GLOG
+    "Build libraries with glog support for pluggable logging"
+    ON)
+
   option(ARROW_WITH_BROTLI
     "Build with Brotli compression"
     ON)
@@ -261,45 +295,8 @@ Pass multiple labels by dividing with semicolons")
     "Build with zstd compression"
     ${ARROW_WITH_ZSTD_DEFAULT})
 
-  option(ARROW_GENERATE_COVERAGE
-    "Build with C++ code coverage enabled"
-    OFF)
-
-  option(ARROW_VERBOSE_THIRDPARTY_BUILD
-    "If off, output from ExternalProjects will be logged to files rather than shown"
-    OFF)
-
-  option(ARROW_VERBOSE_LINT
-    "If off, 'quiet' flags will be passed to linting tools"
-    OFF)
-
-  option(ARROW_USE_GLOG
-    "Build libraries with glog support for pluggable logging"
-    ON)
-
-  if (MSVC)
-    option(ARROW_USE_CLCACHE
-      "Use clcache if available"
-      ON)
-
-    set(BROTLI_MSVC_STATIC_LIB_SUFFIX "-static" CACHE STRING
-      "Brotli static lib suffix used on Windows with MSVC (default -static)")
-    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
-      "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
-    set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
-      "Lz4 static lib suffix used on Windows with MSVC (default _static)")
-    set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
-      "ZStd static lib suffix used on Windows with MSVC (default _static)")
-
-    option(ARROW_USE_STATIC_CRT
-      "Build Arrow with statically linked CRT"
-      OFF)
-  endif()
-
-  # Parquet-related build options
-  option(ARROW_PARQUET
-    "Build the Parquet libraries"
-    OFF)
+  #----------------------------------------------------------------------
+  # Parquet build options
 
   option(PARQUET_MINIMAL_DEPENDENCY
     "Depend only on Thirdparty headers to build libparquet. \
@@ -314,9 +311,11 @@ Always OFF if building binaries"
     "Build the Parquet examples. Requires static libraries to be built."
     OFF)
 
-  # Gandiva related build options
-  option(ARROW_GANDIVA
-    "Build the Gandiva libraries"
+  #----------------------------------------------------------------------
+  # Gandiva build options
+
+  option(ARROW_GANDIVA_JAVA
+    "Build the Gandiva JNI wrappers"
     OFF)
 
   # ARROW-3860: Temporary workaround
@@ -324,8 +323,21 @@ Always OFF if building binaries"
     "Include -static-libstdc++ -static-libgcc when linking with Gandiva static libraries"
     OFF)
 
-  option(ARROW_GANDIVA_JAVA
-    "Build the Gandiva JNI wrappers"
+  #----------------------------------------------------------------------
+  # Advanced developer options
+
+  set(ARROW_TEST_INCLUDE_LABELS "" CACHE STRING
+    "Only build unit tests having the indicated label or labels. \
+Pass multiple labels by dividing with semicolons")
+
+  option(ARROW_EXTRA_ERROR_CONTEXT
+    "Compile with extra error context (line numbers, code)"
+    OFF)
+
+  option(ARROW_OPTIONAL_INSTALL
+    "If enabled install ONLY targets that have already been built. Please be "
+    "advised that if this is enabled 'install' will fail silently on components "
+    "that have not been built"
     OFF)
 endif()
 
