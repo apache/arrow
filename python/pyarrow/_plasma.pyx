@@ -262,13 +262,11 @@ cdef class PlasmaClient:
         shared_ptr[CPlasmaClient] client
         int notification_fd
         c_string store_socket_name
-        c_string manager_socket_name
 
     def __cinit__(self):
         self.client.reset(new CPlasmaClient())
         self.notification_fd = -1
         self.store_socket_name = b""
-        self.manager_socket_name = b""
 
     cdef _get_object_buffers(self, object_ids, int64_t timeout_ms,
                              c_vector[CObjectBuffer]* result):
@@ -291,10 +289,6 @@ cdef class PlasmaClient:
     @property
     def store_socket_name(self):
         return self.store_socket_name.decode()
-
-    @property
-    def manager_socket_name(self):
-        return self.manager_socket_name.decode()
 
     def create(self, ObjectID object_id, int64_t data_size,
                c_string metadata=b""):
@@ -785,13 +779,11 @@ def connect(store_socket_name, manager_socket_name=None, int release_delay=0,
             FutureWarning)
     cdef PlasmaClient result = PlasmaClient()
     result.store_socket_name = store_socket_name.encode()
-    result.manager_socket_name = manager_socket_name.encode()
     if release_delay != 0:
         warnings.warn("release_delay in PlasmaClient.connect is deprecated",
                       FutureWarning)
     with nogil:
         check_status(result.client.get()
-                     .Connect(result.store_socket_name,
-                              result.manager_socket_name,
+                     .Connect(result.store_socket_name, b"",
                               release_delay, num_retries))
     return result
