@@ -306,6 +306,15 @@ class build_ext(_build_ext):
                         "{}_system".format(self.boost_namespace))
                     move_shared_libs(
                         build_prefix, build_lib,
+                        "{}_thread".format(self.boost_namespace))
+                    move_shared_libs(
+                        build_prefix, build_lib,
+                        "{}_atomic".format(self.boost_namespace))
+                    move_shared_libs(
+                        build_prefix, build_lib,
+                        "{}_chrono".format(self.boost_namespace))
+                    move_shared_libs(
+                        build_prefix, build_lib,
                         "{}_regex".format(self.boost_namespace))
                 if sys.platform == 'win32':
                     # zlib uses zlib.dll for Windows
