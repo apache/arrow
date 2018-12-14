@@ -19,8 +19,8 @@
 
 #include <memory>
 
-#include "arrow/columnar/builder_base.h"
-#include "arrow/columnar/builder_binary.h"
+#include "arrow/array/builder_base.h"
+#include "arrow/array/builder_binary.h"
 
 namespace arrow {
 

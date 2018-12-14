@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/columnar/builder_dict.h"
+#include "arrow/array/builder_dict.h"
 
 #include <algorithm>
 #include <cstdint>

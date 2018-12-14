@@ -24,4 +24,4 @@ install(FILES
   builder_dict.h
   builder_nested.h
   builder_primitive.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/columnar")
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/array")

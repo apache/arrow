@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/columnar/builder_adaptive.h"
+#include "arrow/array/builder_adaptive.h"
 
 #include <algorithm>
 #include <cstddef>

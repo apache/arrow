@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/columnar/builder_base.h"
+#include "arrow/array/builder_base.h"
 
 #include <algorithm>  // IWYU pragma: keep
 #include <array>

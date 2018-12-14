@@ -21,7 +21,7 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/columnar/builder_base.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/type.h"
 
 namespace arrow {

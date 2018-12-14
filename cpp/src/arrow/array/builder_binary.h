@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/columnar/builder_base.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"

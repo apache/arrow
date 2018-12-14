@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/columnar/builder_binary.h"
+#include "arrow/array/builder_binary.h"
 
 #include <algorithm>
 #include <cstddef>
