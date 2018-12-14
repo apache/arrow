@@ -121,8 +121,8 @@ class TestPlasmaClient(object):
             use_one_memory_mapped_file=use_one_memory_mapped_file)
         self.plasma_store_name, self.p = self.plasma_store_ctx.__enter__()
         # Connect to Plasma.
-        self.plasma_client = plasma.connect(self.plasma_store_name, "", 64)
-        self.plasma_client2 = plasma.connect(self.plasma_store_name, "", 0)
+        self.plasma_client = plasma.connect(self.plasma_store_name, "")
+        self.plasma_client2 = plasma.connect(self.plasma_store_name, "")
 
     def teardown_method(self, test_method):
         try:
@@ -948,7 +948,7 @@ def test_use_huge_pages():
             plasma_store_memory=2*10**9,
             plasma_directory="/mnt/hugepages",
             use_hugepages=True) as (plasma_store_name, p):
-        plasma_client = plasma.connect(plasma_store_name, "", 64)
+        plasma_client = plasma.connect(plasma_store_name, "")
         create_object(plasma_client, 10**8)
 
 
@@ -962,7 +962,7 @@ def test_plasma_client_sharing():
     with plasma.start_plasma_store(
             plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY) \
             as (plasma_store_name, p):
-        plasma_client = plasma.connect(plasma_store_name, "", 64)
+        plasma_client = plasma.connect(plasma_store_name, "")
         object_id = plasma_client.put(np.zeros(3))
         buf = plasma_client.get(object_id)
         del plasma_client

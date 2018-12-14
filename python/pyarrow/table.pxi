@@ -636,12 +636,12 @@ cdef class Column:
 
 cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     cdef:
-        Column col
-        c_string c_name
-        vector[shared_ptr[CField]] fields
-        shared_ptr[CDataType] type_
         Py_ssize_t K = len(arrays)
+        c_string c_name
+        CColumn* c_column
+        shared_ptr[CDataType] c_type
         shared_ptr[CKeyValueMetadata] c_meta
+        vector[shared_ptr[CField]] c_fields
 
     if metadata is not None:
         if not isinstance(metadata, dict):
@@ -649,17 +649,15 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
         c_meta = pyarrow_unwrap_metadata(metadata)
 
     if K == 0:
-        schema.reset(new CSchema(fields, c_meta))
+        schema.reset(new CSchema(c_fields, c_meta))
         return
 
-    fields.resize(K)
+    c_fields.resize(K)
 
     if isinstance(arrays[0], Column):
         for i in range(K):
-            col = arrays[i]
-            type_ = col.sp_column.get().type()
-            c_name = tobytes(col.name)
-            fields[i].reset(new CField(c_name, type_, True))
+            c_column = (<Column>arrays[i]).column
+            c_fields[i] = c_column.field()
     else:
         if names is None:
             raise ValueError('Must pass names when constructing '
@@ -670,7 +668,7 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
         for i in range(K):
             val = arrays[i]
             if isinstance(val, (Array, ChunkedArray)):
-                type_ = (<DataType> val.type).sp_type
+                c_type = (<DataType> val.type).sp_type
             else:
                 raise TypeError(type(val))
 
@@ -678,9 +676,9 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
                 c_name = tobytes(u'None')
             else:
                 c_name = tobytes(names[i])
-            fields[i].reset(new CField(c_name, type_, True))
+            c_fields[i].reset(new CField(c_name, c_type, True))
 
-    schema.reset(new CSchema(fields, c_meta))
+    schema.reset(new CSchema(c_fields, c_meta))
 
 
 cdef class RecordBatch:

@@ -436,6 +436,7 @@ bool RleDecoder::NextCounts() {
     literal_count_ = (indicator_value >> 1) * 8;
   } else {
     repeat_count_ = indicator_value >> 1;
+    // XXX (ARROW-4018) this is not big-endian compatible
     bool result =
         bit_reader_.GetAligned<T>(static_cast<int>(BitUtil::CeilDiv(bit_width_, 8)),
                                   reinterpret_cast<T*>(&current_value_));

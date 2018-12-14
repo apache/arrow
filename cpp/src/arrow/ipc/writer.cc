@@ -772,7 +772,10 @@ class SchemaWriter : public StreamBookKeeper {
  public:
   SchemaWriter(const Schema& schema, DictionaryMemo* dictionary_memo, MemoryPool* pool,
                io::OutputStream* sink)
-      : StreamBookKeeper(sink), schema_(schema), dictionary_memo_(dictionary_memo) {}
+      : StreamBookKeeper(sink),
+        pool_(pool),
+        schema_(schema),
+        dictionary_memo_(dictionary_memo) {}
 
   Status WriteSchema() {
 #ifndef NDEBUG

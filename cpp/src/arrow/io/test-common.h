@@ -118,7 +118,7 @@ class MemoryMapFixture {
  public:
   void TearDown() {
     for (auto path : tmp_files_) {
-      std::remove(path.c_str());
+      ARROW_UNUSED(std::remove(path.c_str()));
     }
   }
 
