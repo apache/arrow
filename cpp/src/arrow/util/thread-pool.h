@@ -24,7 +24,6 @@
 
 #include <cstdlib>
 #include <functional>
-#include <future>
 #include <iostream>
 #include <list>
 #include <memory>
@@ -32,6 +31,10 @@
 #include <thread>
 #include <type_traits>
 #include <utility>
+
+#define BOOST_THREAD_PROVIDES_FUTURE
+#include <boost/thread.hpp>
+#include <boost/thread/future.hpp>
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
@@ -64,7 +67,7 @@ namespace detail {
 // to std::function.
 template <typename R, typename... Args>
 struct packaged_task_wrapper {
-  using PackagedTask = std::packaged_task<R(Args...)>;
+  using PackagedTask = boost::packaged_task<R>;
 
   explicit packaged_task_wrapper(PackagedTask&& task)
       : task_(std::make_shared<PackagedTask>(std::forward<PackagedTask>(task))) {}
@@ -118,10 +121,10 @@ class ARROW_EXPORT ThreadPool {
   // only occurs if the ThreadPool is shutting down).
   template <typename Function, typename... Args,
             typename Result = typename std::result_of<Function && (Args && ...)>::type>
-  std::future<Result> Submit(Function&& func, Args&&... args) {
+  boost::future<Result> Submit(Function&& func, Args&&... args) {
     // Trying to templatize std::packaged_task with Function doesn't seem
     // to work, so go through std::bind to simplify the packaged signature
-    using PackagedTask = std::packaged_task<Result()>;
+    using PackagedTask = boost::packaged_task<Result>;
     auto task = PackagedTask(std::bind(std::forward<Function>(func), args...));
     auto fut = task.get_future();
 

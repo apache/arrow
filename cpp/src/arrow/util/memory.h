@@ -60,7 +60,7 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
   // Each thread gets a "chunk" of k blocks.
 
   // Start all parallel memcpy tasks and handle leftovers while threads run.
-  std::vector<std::future<void*>> futures;
+  std::vector<boost::future<void*>> futures;
 
   for (int i = 0; i < num_threads; i++) {
     futures.emplace_back(pool->Submit(wrap_memcpy, dst + prefix + i * chunk_size,
