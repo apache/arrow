@@ -760,7 +760,7 @@ cdef class PlasmaClient:
         return result
 
 
-def connect(store_socket_name, manager_socket_name, int release_delay,
+def connect(store_socket_name, manager_socket_name=None, int release_delay=0,
             int num_retries=-1):
     """
     Return a new PlasmaClient that is connected a plasma store and
@@ -772,13 +772,16 @@ def connect(store_socket_name, manager_socket_name, int release_delay,
         Name of the socket the plasma store is listening at.
     manager_socket_name : str
         Name of the socket the plasma manager is listening at.
-    release_delay : int
+        This parameter has already been deprecated.
+    release_delay : int, default 0
         The maximum number of objects that the client will keep and
         delay releasing (for caching reasons).
     num_retries : int, default -1
         Number of times to try to connect to plasma store. Default value of -1
         uses the default (50)
     """
+    if manager_socket_name is not None:
+        print("warning: manager_socket_name parameter for connect() is already deprecated.")
     cdef PlasmaClient result = PlasmaClient()
     result.store_socket_name = store_socket_name.encode()
     result.manager_socket_name = manager_socket_name.encode()
