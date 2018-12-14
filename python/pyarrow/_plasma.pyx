@@ -780,8 +780,9 @@ def connect(store_socket_name, manager_socket_name=None, int release_delay=0,
         uses the default (50)
     """
     if manager_socket_name is not None:
-        warnings.warn("manager_socket_name in PlasmaClient.connect is deprecated",
-                      FutureWarning)
+        warnings.warn(
+            "manager_socket_name in PlasmaClient.connect is deprecated",
+            FutureWarning)
     cdef PlasmaClient result = PlasmaClient()
     result.store_socket_name = store_socket_name.encode()
     result.manager_socket_name = manager_socket_name.encode()
