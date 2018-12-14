@@ -134,6 +134,42 @@ static|shared (default shared)")
     "Exclude deprecated APIs from build"
     OFF)
 
+  option(ARROW_FUZZING
+    "Build Arrow Fuzzing executables"
+    OFF)
+
+  # Disable this option to exercise non-SIMD fallbacks
+  option(ARROW_USE_SIMD
+    "Build with SIMD optimizations"
+    ON)
+
+  option(ARROW_ALTIVEC
+    "Build Arrow with Altivec"
+    ON)
+
+  option(ARROW_BUILD_UTILITIES
+    "Build Arrow commandline utilities"
+    ON)
+
+  option(ARROW_RPATH_ORIGIN
+    "Build Arrow libraries with RATH set to \$ORIGIN"
+    OFF)
+
+  option(ARROW_INSTALL_NAME_RPATH
+    "Build Arrow libraries with install_name set to @rpath"
+    ON)
+
+  option(ARROW_GENERATE_COVERAGE
+    "Build with C++ code coverage enabled"
+    OFF)
+
+  option(ARROW_VERBOSE_LINT
+    "If off, 'quiet' flags will be passed to linting tools"
+    OFF)
+
+  #----------------------------------------------------------------------
+  # Project components to enable / disable building
+
   option(ARROW_COMPUTE
     "Build the Arrow Compute Modules"
     ON)
@@ -178,31 +214,6 @@ static|shared (default shared)")
     "Build the Arrow CPython extensions"
     OFF)
 
-  option(ARROW_FUZZING
-    "Build Arrow Fuzzing executables"
-    OFF)
-
-  # Disable this option to exercise non-SIMD fallbacks
-  option(ARROW_USE_SIMD
-    "Build with SIMD optimizations"
-    ON)
-
-  option(ARROW_ALTIVEC
-    "Build Arrow with Altivec"
-    ON)
-
-  option(ARROW_BUILD_UTILITIES
-    "Build Arrow commandline utilities"
-    ON)
-
-  option(ARROW_RPATH_ORIGIN
-    "Build Arrow libraries with RATH set to \$ORIGIN"
-    OFF)
-
-  option(ARROW_INSTALL_NAME_RPATH
-    "Build Arrow libraries with install_name set to @rpath"
-    ON)
-
   option(ARROW_HIVESERVER2
     "Build the HiveServer2 client and Arrow adapter"
     OFF)
@@ -214,33 +225,6 @@ static|shared (default shared)")
   option(ARROW_PLASMA_JAVA_CLIENT
     "Build the plasma object store java client"
     OFF)
-
-  option(ARROW_GENERATE_COVERAGE
-    "Build with C++ code coverage enabled"
-    OFF)
-
-  option(ARROW_VERBOSE_LINT
-    "If off, 'quiet' flags will be passed to linting tools"
-    OFF)
-
-  if (MSVC)
-    option(ARROW_USE_CLCACHE
-      "Use clcache if available"
-      ON)
-
-    set(BROTLI_MSVC_STATIC_LIB_SUFFIX "-static" CACHE STRING
-      "Brotli static lib suffix used on Windows with MSVC (default -static)")
-    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
-      "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
-    set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
-      "Lz4 static lib suffix used on Windows with MSVC (default _static)")
-    set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
-      "ZStd static lib suffix used on Windows with MSVC (default _static)")
-
-    option(ARROW_USE_STATIC_CRT
-      "Build Arrow with statically linked CRT"
-      OFF)
-  endif()
 
   #----------------------------------------------------------------------
   # Thirdparty toolchain options
@@ -294,6 +278,28 @@ static|shared (default shared)")
   option(ARROW_WITH_ZSTD
     "Build with zstd compression"
     ${ARROW_WITH_ZSTD_DEFAULT})
+
+  #----------------------------------------------------------------------
+  # Windows options
+
+  if (MSVC)
+    option(ARROW_USE_CLCACHE
+      "Use clcache if available"
+      ON)
+
+    set(BROTLI_MSVC_STATIC_LIB_SUFFIX "-static" CACHE STRING
+      "Brotli static lib suffix used on Windows with MSVC (default -static)")
+    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
+      "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
+    set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
+      "Lz4 static lib suffix used on Windows with MSVC (default _static)")
+    set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
+      "ZStd static lib suffix used on Windows with MSVC (default _static)")
+
+    option(ARROW_USE_STATIC_CRT
+      "Build Arrow with statically linked CRT"
+      OFF)
+  endif()
 
   #----------------------------------------------------------------------
   # Parquet build options
