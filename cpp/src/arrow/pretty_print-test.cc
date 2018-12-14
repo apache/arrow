@@ -340,7 +340,7 @@ TEST_F(TestPrettyPrint, DictionaryType) {
 
 TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
   auto array = ArrayFromJSON(int32(), "[0, 1, null, 3, null]");
-  ChunkedArray chunked_array({array});
+  ChunkedArray chunked_array(array);
 
   static const char* expected = R"expected([
   [
