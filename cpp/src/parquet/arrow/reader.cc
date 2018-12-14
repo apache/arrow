@@ -32,7 +32,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/thread-pool.h"
 
-// XXX(wesm): For arrow::compute::Datum. This should perhaps be promoted
+// For arrow::compute::Datum. This should perhaps be promoted. See ARROW-4022
 #include "arrow/compute/kernel.h"
 
 #include "parquet/arrow/record_reader.h"

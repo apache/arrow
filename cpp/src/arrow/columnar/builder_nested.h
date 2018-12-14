@@ -113,12 +113,9 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
   void Reset() override;
 
-  ArrayBuilder* field_builder(int i) const { return field_builders_[i].get(); }
+  ArrayBuilder* field_builder(int i) const { return children_[i].get(); }
 
-  int num_fields() const { return static_cast<int>(field_builders_.size()); }
-
- protected:
-  std::vector<std::shared_ptr<ArrayBuilder>> field_builders_;
+  int num_fields() const { return static_cast<int>(children_.size()); }
 };
 
 }  // namespace arrow

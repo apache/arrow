@@ -305,17 +305,13 @@ Status ChunkedBinaryBuilder::NextChunk() {
 }
 
 Status ChunkedStringBuilder::Finish(ArrayVector* out) {
-  ArrayVector temp;
-  RETURN_NOT_OK(ChunkedBinaryBuilder::Finish(&temp));
+  RETURN_NOT_OK(ChunkedBinaryBuilder::Finish(out));
 
-  out->clear();
-  out->reserve(temp.size());
-
-  // XXX: Change data type to string/utf8
-  for (const auto& chunk : temp) {
-    std::shared_ptr<ArrayData> data = chunk->data();
+  // Change data type to string/utf8
+  for (size_t i = 0; i < out->size(); ++i) {
+    std::shared_ptr<ArrayData> data = (*out)[i]->data();
     data->type = ::arrow::utf8();
-    out->emplace_back(std::make_shared<StringArray>(data));
+    (*out)[i] = std::make_shared<StringArray>(data);
   }
   return Status::OK();
 }

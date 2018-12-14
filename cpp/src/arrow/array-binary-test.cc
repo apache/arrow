@@ -754,6 +754,14 @@ TEST_F(TestChunkedBinaryBuilder, LargeElements) {
   ArrayVector chunks;
   ASSERT_OK(builder_->Finish(&chunks));
   ASSERT_EQ(iterations, static_cast<int>(chunks.size()));
+
+  int64_t total_data_size = 0;
+  for (auto chunk : chunks) {
+    ASSERT_EQ(1, chunk->length());
+    total_data_size +=
+        static_cast<int64_t>(static_cast<const BinaryArray&>(*chunk).GetView(0).size());
+  }
+  ASSERT_EQ(iterations * bufsize, total_data_size);
 }
 
 TEST(TestChunkedStringBuilder, BasicOperation) {
