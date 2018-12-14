@@ -326,7 +326,7 @@ Always OFF if building binaries"
 
   option(ARROW_GANDIVA_JAVA
     "Build the Gandiva JNI wrappers"
-    ON)
+    OFF)
 endif()
 
 if (ARROW_OPTIONAL_INSTALL)
