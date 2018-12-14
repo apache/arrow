@@ -71,13 +71,10 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
   explicit TensorToPlasmaOp(tf::OpKernelConstruction* context) : tf::AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("plasma_store_socket_name",
                                              &plasma_store_socket_name_));
-    OP_REQUIRES_OK(context, context->GetAttr("plasma_manager_socket_name",
-                                             &plasma_manager_socket_name_));
     tf::mutex_lock lock(mu_);
     if (!connected_) {
       VLOG(1) << "Connecting to Plasma...";
-      ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_,
-                                     plasma_manager_socket_name_));
+      ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_));
       VLOG(1) << "Connected!";
       connected_ = true;
     }
@@ -226,7 +223,6 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
 
  private:
   std::string plasma_store_socket_name_;
-  std::string plasma_manager_socket_name_;
 
   tf::mutex mu_;
   bool connected_ = false;
@@ -243,13 +239,10 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
   explicit PlasmaToTensorOp(tf::OpKernelConstruction* context) : tf::AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("plasma_store_socket_name",
                                              &plasma_store_socket_name_));
-    OP_REQUIRES_OK(context, context->GetAttr("plasma_manager_socket_name",
-                                             &plasma_manager_socket_name_));
     tf::mutex_lock lock(mu_);
     if (!connected_) {
       VLOG(1) << "Connecting to Plasma...";
-      ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_,
-                                     plasma_manager_socket_name_));
+      ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_));
       VLOG(1) << "Connected!";
       connected_ = true;
     }
@@ -364,7 +357,6 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
 
  private:
   std::string plasma_store_socket_name_;
-  std::string plasma_manager_socket_name_;
 
   tf::mutex mu_;
   bool connected_ = false;
@@ -375,8 +367,7 @@ REGISTER_OP("TensorToPlasma")
     .Input("input_tensor: dtypes")
     .Input("plasma_object_id: string")
     .Attr("dtypes: list(type)")
-    .Attr("plasma_store_socket_name: string")
-    .Attr("plasma_manager_socket_name: string");
+    .Attr("plasma_store_socket_name: string");
 
 REGISTER_KERNEL_BUILDER(Name("TensorToPlasma").Device(tf::DEVICE_CPU),
                         TensorToPlasmaOp<CPUDevice>);
@@ -389,8 +380,7 @@ REGISTER_OP("PlasmaToTensor")
     .Input("plasma_object_id: string")
     .Output("tensor: dtype")
     .Attr("dtype: type")
-    .Attr("plasma_store_socket_name: string")
-    .Attr("plasma_manager_socket_name: string");
+    .Attr("plasma_store_socket_name: string");
 
 REGISTER_KERNEL_BUILDER(Name("PlasmaToTensor").Device(tf::DEVICE_CPU),
                         PlasmaToTensorOp<CPUDevice>);

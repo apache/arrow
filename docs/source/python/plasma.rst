@@ -60,7 +60,7 @@ socket name:
 .. code-block:: python
 
   import pyarrow.plasma as plasma
-  client = plasma.connect("/tmp/plasma", "")
+  client = plasma.connect("/tmp/plasma")
 
 If the following error occurs from running the above Python code, that
 means that either the socket given is incorrect, or the ``./plasma_store`` is
@@ -68,7 +68,7 @@ not currently running. Check to see if the Plasma store is still running.
 
 .. code-block:: shell
 
-  >>> client = plasma.connect("/tmp/plasma", "")
+  >>> client = plasma.connect("/tmp/plasma")
   Connection to socket failed for pathname /tmp/plasma
   Could not connect to socket /tmp/plasma
 
@@ -179,7 +179,7 @@ the object buffer.
 
   # Create a different client. Note that this second client could be
   # created in the same or in a separate, concurrent Python session.
-  client2 = plasma.connect("/tmp/plasma", "")
+  client2 = plasma.connect("/tmp/plasma")
 
   # Get the object in the second client. This blocks until the object has been sealed.
   object_id2 = plasma.ObjectID(20 * b"a")
@@ -221,7 +221,7 @@ of the object info might change in the future):
   import pyarrow.plasma as plasma
   import time
 
-  client = plasma.connect("/tmp/plasma", "")
+  client = plasma.connect("/tmp/plasma")
 
   client.put("hello, world")
   # Sleep a little so we get different creation times
@@ -452,7 +452,7 @@ You can test this with the following script:
   import pyarrow.plasma as plasma
   import time
 
-  client = plasma.connect("/tmp/plasma", "")
+  client = plasma.connect("/tmp/plasma")
 
   data = np.random.randn(100000000)
   tensor = pa.Tensor.from_numpy(data)

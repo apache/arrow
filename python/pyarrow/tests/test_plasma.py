@@ -121,8 +121,8 @@ class TestPlasmaClient(object):
             use_one_memory_mapped_file=use_one_memory_mapped_file)
         self.plasma_store_name, self.p = self.plasma_store_ctx.__enter__()
         # Connect to Plasma.
-        self.plasma_client = plasma.connect(self.plasma_store_name, "")
-        self.plasma_client2 = plasma.connect(self.plasma_store_name, "")
+        self.plasma_client = plasma.connect(self.plasma_store_name)
+        self.plasma_client2 = plasma.connect(self.plasma_store_name)
 
     def teardown_method(self, test_method):
         try:
@@ -147,7 +147,7 @@ class TestPlasmaClient(object):
         import pyarrow.plasma as plasma
         # ARROW-1264
         with pytest.raises(IOError):
-            plasma.connect('unknown-store-name', '', 0, 1)
+            plasma.connect('unknown-store-name', num_retries=1)
 
     def test_create(self):
         # Create an object id string.
@@ -860,7 +860,7 @@ class TestPlasmaClient(object):
         object_id = random_object_id()
 
         def client_blocked_in_get(plasma_store_name):
-            client = plasma.connect(self.plasma_store_name, "", 0)
+            client = plasma.connect(self.plasma_store_name)
             # Try to get an object ID that doesn't exist. This should block.
             client.get([object_id])
 
@@ -889,7 +889,7 @@ class TestPlasmaClient(object):
         object_ids = [random_object_id() for _ in range(10)]
 
         def client_get_multiple(plasma_store_name):
-            client = plasma.connect(self.plasma_store_name, "", 0)
+            client = plasma.connect(self.plasma_store_name)
             # Try to get an object ID that doesn't exist. This should block.
             client.get(object_ids)
 
@@ -948,7 +948,7 @@ def test_use_huge_pages():
             plasma_store_memory=2*10**9,
             plasma_directory="/mnt/hugepages",
             use_hugepages=True) as (plasma_store_name, p):
-        plasma_client = plasma.connect(plasma_store_name, "")
+        plasma_client = plasma.connect(plasma_store_name)
         create_object(plasma_client, 10**8)
 
 
@@ -962,7 +962,7 @@ def test_plasma_client_sharing():
     with plasma.start_plasma_store(
             plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY) \
             as (plasma_store_name, p):
-        plasma_client = plasma.connect(plasma_store_name, "")
+        plasma_client = plasma.connect(plasma_store_name)
         object_id = plasma_client.put(np.zeros(3))
         buf = plasma_client.get(object_id)
         del plasma_client
@@ -977,7 +977,7 @@ def test_plasma_list():
     with plasma.start_plasma_store(
             plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY) \
             as (plasma_store_name, p):
-        plasma_client = plasma.connect(plasma_store_name, "", 0)
+        plasma_client = plasma.connect(plasma_store_name)
 
         # Test sizes
         u, _, _ = create_object(plasma_client, 11, metadata_size=7, seal=False)

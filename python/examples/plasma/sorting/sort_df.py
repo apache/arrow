@@ -49,7 +49,7 @@ column_to_sort = column_names[0]
 # Connect to clients
 def connect():
     global client
-    client = plasma.connect('/tmp/store', '', 0)
+    client = plasma.connect('/tmp/store')
     np.random.seed(int(time.time() * 10e7) % 10000000)
 
 

@@ -105,7 +105,7 @@ The `inputs` variable will be a list of Object IDs in their raw byte string form
 import pyarrow as pa
 import pyarrow.plasma as plasma
 
-plasma_client = plasma.connect('/tmp/plasma', '', 0)
+plasma_client = plasma.connect('/tmp/plasma')
 
 # inputs: a list of object ids
 inputs = [20 * b'1']

@@ -68,9 +68,6 @@ constexpr int64_t kBlockSize = 64;
 
 struct Client;
 
-/// Mapping from object IDs to type and status of the request.
-typedef std::unordered_map<ObjectID, ObjectRequest> ObjectRequestMap;
-
 // TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
 struct PlasmaObject {
 #ifdef PLASMA_CUDA
