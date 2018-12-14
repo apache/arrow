@@ -53,11 +53,17 @@ endfunction()
 
 set(ARROW_SRCS
   array.cc
-  buffer.cc
+
   builder.cc
-  builder-adaptive.cc
-  builder-binary.cc
-  builder-dict.cc
+  array/builder_adaptive.cc
+  array/builder_base.cc
+  array/builder_binary.cc
+  array/builder_decimal.cc
+  array/builder_dict.cc
+  array/builder_nested.cc
+  array/builder_primitive.cc
+
+  buffer.cc
   compare.cc
   memory_pool.cc
   pretty_print.cc
@@ -275,6 +281,7 @@ ADD_ARROW_TEST(tensor-test)
 ADD_ARROW_BENCHMARK(builder-benchmark)
 ADD_ARROW_BENCHMARK(column-benchmark)
 
+add_subdirectory(array)
 add_subdirectory(csv)
 add_subdirectory(io)
 add_subdirectory(util)

@@ -71,6 +71,27 @@ shared_ptr<Array> _MakeArray(const shared_ptr<DataType>& type, const vector<T>& 
 }
 
 // ----------------------------------------------------------------------
+// Datum
+
+template <typename T>
+void CheckImplicitConstructor(enum Datum::type expected_kind) {
+  std::shared_ptr<T> value;
+  Datum datum = value;
+  ASSERT_EQ(expected_kind, datum.kind());
+}
+
+TEST(TestDatum, ImplicitConstructors) {
+  CheckImplicitConstructor<Array>(Datum::ARRAY);
+
+  // Instantiate from array subclass
+  CheckImplicitConstructor<BinaryArray>(Datum::ARRAY);
+
+  CheckImplicitConstructor<ChunkedArray>(Datum::CHUNKED_ARRAY);
+  CheckImplicitConstructor<RecordBatch>(Datum::RECORD_BATCH);
+  CheckImplicitConstructor<Table>(Datum::TABLE);
+}
+
+// ----------------------------------------------------------------------
 // Cast
 
 static void AssertBufferSame(const Array& left, const Array& right, int buffer_index) {
@@ -781,7 +802,7 @@ TEST_F(TestCast, ChunkedArray) {
   CastOptions options;
 
   Datum out;
-  ASSERT_OK(Cast(&this->ctx_, Datum(carr), out_type, options, &out));
+  ASSERT_OK(Cast(&this->ctx_, carr, out_type, options, &out));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, out.kind());
 
   auto out_carr = out.chunked_array();
@@ -869,7 +890,7 @@ TEST_F(TestCast, PreallocatedMemory) {
   out_data->buffers.push_back(out_values);
 
   Datum out(out_data);
-  ASSERT_OK(kernel->Call(&this->ctx_, Datum(arr), &out));
+  ASSERT_OK(kernel->Call(&this->ctx_, arr, &out));
 
   // Buffer address unchanged
   ASSERT_EQ(out_values.get(), out_data->buffers[1].get());
@@ -912,8 +933,8 @@ void CheckOffsetOutputCase(FunctionContext* ctx, const std::shared_ptr<DataType>
   Datum out_second(out_second_data);
 
   // Cast each bit
-  ASSERT_OK(kernel->Call(ctx, Datum(arr->Slice(0, first_half)), &out_first));
-  ASSERT_OK(kernel->Call(ctx, Datum(arr->Slice(first_half)), &out_second));
+  ASSERT_OK(kernel->Call(ctx, arr->Slice(0, first_half), &out_first));
+  ASSERT_OK(kernel->Call(ctx, arr->Slice(first_half), &out_second));
 
   shared_ptr<Array> result = MakeArray(out_data);
 
@@ -1105,7 +1126,7 @@ TYPED_TEST(TestDictionaryCast, Basic) {
       TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
 
   Datum out;
-  ASSERT_OK(DictionaryEncode(&this->ctx_, Datum(plain_array->data()), &out));
+  ASSERT_OK(DictionaryEncode(&this->ctx_, plain_array->data(), &out));
 
   this->CheckPass(*MakeArray(out.array()), *plain_array, plain_array->type(), options);
 }
@@ -1201,7 +1222,7 @@ void CheckUnique(FunctionContext* ctx, const shared_ptr<DataType>& type,
   shared_ptr<Array> expected = _MakeArray<Type, T>(type, out_values, out_is_valid);
 
   shared_ptr<Array> result;
-  ASSERT_OK(Unique(ctx, Datum(input), &result));
+  ASSERT_OK(Unique(ctx, input, &result));
   ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
 
@@ -1218,7 +1239,7 @@ void CheckDictEncode(FunctionContext* ctx, const shared_ptr<DataType>& type,
   DictionaryArray expected(dictionary(int32(), ex_dict), ex_indices);
 
   Datum datum_out;
-  ASSERT_OK(DictionaryEncode(ctx, Datum(input), &datum_out));
+  ASSERT_OK(DictionaryEncode(ctx, input, &datum_out));
   shared_ptr<Array> result = MakeArray(datum_out.array());
 
   ASSERT_ARRAYS_EQUAL(expected, *result);
@@ -1461,7 +1482,7 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
 
   // Unique
   shared_ptr<Array> result;
-  ASSERT_OK(Unique(&this->ctx_, Datum(carr), &result));
+  ASSERT_OK(Unique(&this->ctx_, carr, &result));
   ASSERT_ARRAYS_EQUAL(*ex_dict, *result);
 
   // Dictionary encode
@@ -1475,7 +1496,7 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   auto dict_carr = std::make_shared<ChunkedArray>(dict_arrays);
 
   Datum encoded_out;
-  ASSERT_OK(DictionaryEncode(&this->ctx_, Datum(carr), &encoded_out));
+  ASSERT_OK(DictionaryEncode(&this->ctx_, carr, &encoded_out));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
 
   AssertChunkedEqual(*dict_carr, *encoded_out.chunked_array());
@@ -1490,7 +1511,7 @@ class TestBooleanKernel : public ComputeFixture, public TestBase {
                        const std::shared_ptr<Array>& right,
                        const std::shared_ptr<Array>& expected) {
     Datum result;
-    ASSERT_OK(kernel(&this->ctx_, Datum(left), Datum(right), &result));
+    ASSERT_OK(kernel(&this->ctx_, left, right, &result));
     ASSERT_EQ(Datum::ARRAY, result.kind());
     std::shared_ptr<Array> result_array = result.make_array();
     ASSERT_TRUE(result_array->Equals(expected));
@@ -1502,7 +1523,7 @@ class TestBooleanKernel : public ComputeFixture, public TestBase {
                               const std::shared_ptr<ChunkedArray>& expected) {
     Datum result;
     std::shared_ptr<Array> result_array;
-    ASSERT_OK(kernel(&this->ctx_, Datum(left), Datum(right), &result));
+    ASSERT_OK(kernel(&this->ctx_, left, right, &result));
     ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
     std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
     ASSERT_TRUE(result_ca->Equals(expected));
@@ -1552,13 +1573,13 @@ TEST_F(TestBooleanKernel, Invert) {
 
   // Plain array
   Datum result;
-  ASSERT_OK(Invert(&this->ctx_, Datum(a1), &result));
+  ASSERT_OK(Invert(&this->ctx_, a1, &result));
   ASSERT_EQ(Datum::ARRAY, result.kind());
   std::shared_ptr<Array> result_array = result.make_array();
   ASSERT_TRUE(result_array->Equals(a2));
 
   // Array with offset
-  ASSERT_OK(Invert(&this->ctx_, Datum(a1->Slice(1)), &result));
+  ASSERT_OK(Invert(&this->ctx_, a1->Slice(1), &result));
   ASSERT_EQ(Datum::ARRAY, result.kind());
   result_array = result.make_array();
   ASSERT_TRUE(result_array->Equals(a2->Slice(1)));
@@ -1568,7 +1589,7 @@ TEST_F(TestBooleanKernel, Invert) {
   auto ca1 = std::make_shared<ChunkedArray>(ca1_arrs);
   std::vector<std::shared_ptr<Array>> ca2_arrs = {a2, a2->Slice(1)};
   auto ca2 = std::make_shared<ChunkedArray>(ca2_arrs);
-  ASSERT_OK(Invert(&this->ctx_, Datum(ca1), &result));
+  ASSERT_OK(Invert(&this->ctx_, ca1, &result));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
   std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
   ASSERT_TRUE(result_ca->Equals(ca2));
@@ -1618,14 +1639,14 @@ TEST_F(TestInvokeBinaryKernel, Exceptions) {
   auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
 
   // Left is not an array-like
-  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(
-                             &this->ctx_, &kernel, Datum(table), Datum(a2), &outputs));
+  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, table, a2,
+                                                         &outputs));
   // Right is not an array-like
-  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, Datum(a1),
-                                                         Datum(table), &outputs));
+  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, a1, table,
+                                                         &outputs));
   // Different sized inputs
-  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, Datum(a1),
-                                                         Datum(a1->Slice(1)), &outputs));
+  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, a1,
+                                                         a1->Slice(1), &outputs));
 }
 
 }  // namespace compute

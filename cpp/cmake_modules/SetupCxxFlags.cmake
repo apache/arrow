@@ -25,6 +25,9 @@ CHECK_CXX_COMPILER_FLAG("-maltivec" CXX_SUPPORTS_ALTIVEC)
 # Arm64 compiler flags
 CHECK_CXX_COMPILER_FLAG("-march=armv8-a+crc" CXX_SUPPORTS_ARMCRC)
 
+# Support C11
+set(CMAKE_C_STANDARD 11)
+
 # This ensures that things like gnu++11 get passed correctly
 set(CMAKE_CXX_STANDARD 11)
 

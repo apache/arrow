@@ -17,14 +17,12 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <memory>
 #include <random>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-#include "arrow/test-util.h"
 #include "arrow/util/int-util.h"
 
 namespace arrow {

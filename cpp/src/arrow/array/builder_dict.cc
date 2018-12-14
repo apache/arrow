@@ -15,13 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/array/builder_dict.h"
+
+#include <algorithm>
 #include <cstdint>
 #include <utility>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/builder.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

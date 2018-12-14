@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/array/builder_binary.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -27,7 +29,6 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/builder.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -68,32 +69,11 @@ Status BinaryBuilder::ReserveData(int64_t elements) {
   return Status::OK();
 }
 
-Status BinaryBuilder::AppendNextOffset() {
-  const int64_t num_bytes = value_data_builder_.length();
-  if (ARROW_PREDICT_FALSE(num_bytes > kBinaryMemoryLimit)) {
-    std::stringstream ss;
-    ss << "BinaryArray cannot contain more than " << kBinaryMemoryLimit << " bytes, have "
-       << num_bytes;
-    return Status::CapacityError(ss.str());
-  }
-  return offsets_builder_.Append(static_cast<int32_t>(num_bytes));
-}
-
-Status BinaryBuilder::Append(const uint8_t* value, int32_t length) {
-  RETURN_NOT_OK(Reserve(1));
-  RETURN_NOT_OK(AppendNextOffset());
-  RETURN_NOT_OK(value_data_builder_.Append(value, length));
-
-  UnsafeAppendToBitmap(true);
-  return Status::OK();
-}
-
-Status BinaryBuilder::AppendNull() {
-  RETURN_NOT_OK(AppendNextOffset());
-  RETURN_NOT_OK(Reserve(1));
-
-  UnsafeAppendToBitmap(false);
-  return Status::OK();
+Status BinaryBuilder::AppendOverflow(int64_t num_bytes) {
+  std::stringstream ss;
+  ss << "BinaryArray cannot contain more than " << kBinaryMemoryLimit << " bytes, have "
+     << num_bytes;
+  return Status::CapacityError(ss.str());
 }
 
 Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
@@ -292,24 +272,46 @@ util::string_view FixedSizeBinaryBuilder::GetView(int64_t i) const {
 }
 
 // ----------------------------------------------------------------------
-// Decimal128Builder
+// ChunkedArray builders
 
-Decimal128Builder::Decimal128Builder(const std::shared_ptr<DataType>& type,
-                                     MemoryPool* pool)
-    : FixedSizeBinaryBuilder(type, pool) {}
+namespace internal {
 
-Status Decimal128Builder::Append(const Decimal128& value) {
-  RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
-  return FixedSizeBinaryBuilder::Append(value.ToBytes());
-}
+ChunkedBinaryBuilder::ChunkedBinaryBuilder(int32_t max_chunk_size, MemoryPool* pool)
+    : max_chunk_size_(max_chunk_size),
+      chunk_data_size_(0),
+      builder_(new BinaryBuilder(pool)) {}
 
-Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(byte_builder_.Finish(&data));
-
-  *out = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_);
-
+Status ChunkedBinaryBuilder::Finish(ArrayVector* out) {
+  if (builder_->length() > 0 || chunks_.size() == 0) {
+    std::shared_ptr<Array> chunk;
+    RETURN_NOT_OK(builder_->Finish(&chunk));
+    chunks_.emplace_back(std::move(chunk));
+  }
+  *out = std::move(chunks_);
   return Status::OK();
 }
+
+Status ChunkedBinaryBuilder::NextChunk() {
+  std::shared_ptr<Array> chunk;
+  RETURN_NOT_OK(builder_->Finish(&chunk));
+  chunks_.emplace_back(std::move(chunk));
+
+  chunk_data_size_ = 0;
+  return Status::OK();
+}
+
+Status ChunkedStringBuilder::Finish(ArrayVector* out) {
+  RETURN_NOT_OK(ChunkedBinaryBuilder::Finish(out));
+
+  // Change data type to string/utf8
+  for (size_t i = 0; i < out->size(); ++i) {
+    std::shared_ptr<ArrayData> data = (*out)[i]->data();
+    data->type = ::arrow::utf8();
+    (*out)[i] = std::make_shared<StringArray>(data);
+  }
+  return Status::OK();
+}
+
+}  // namespace internal
 
 }  // namespace arrow

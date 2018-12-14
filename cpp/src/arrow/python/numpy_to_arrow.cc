@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <sstream>
@@ -539,33 +540,27 @@ Status NumPyConverter::Visit(const BinaryType& type) {
 
   auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
 
-  int item_length = 0;
+  auto AppendNotNull = [&builder, this](const uint8_t* data) {
+    // This is annoying. NumPy allows strings to have nul-terminators, so
+    // we must check for them here
+    const size_t item_size =
+        strnlen(reinterpret_cast<const char*>(data), static_cast<size_t>(itemsize_));
+    return builder.Append(data, static_cast<int32_t>(item_size));
+  };
+
   if (mask_ != nullptr) {
     Ndarray1DIndexer<uint8_t> mask_values(mask_);
     for (int64_t i = 0; i < length_; ++i) {
       if (mask_values[i]) {
         RETURN_NOT_OK(builder.AppendNull());
       } else {
-        // This is annoying. NumPy allows strings to have nul-terminators, so
-        // we must check for them here
-        for (item_length = 0; item_length < itemsize_; ++item_length) {
-          if (data[item_length] == 0) {
-            break;
-          }
-        }
-        RETURN_NOT_OK(builder.Append(data, item_length));
+        RETURN_NOT_OK(AppendNotNull(data));
       }
       data += stride_;
     }
   } else {
     for (int64_t i = 0; i < length_; ++i) {
-      for (item_length = 0; item_length < itemsize_; ++item_length) {
-        // Look for nul-terminator
-        if (data[item_length] == 0) {
-          break;
-        }
-      }
-      RETURN_NOT_OK(builder.Append(data, item_length));
+      RETURN_NOT_OK(AppendNotNull(data));
       data += stride_;
     }
   }

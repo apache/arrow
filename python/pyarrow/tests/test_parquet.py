@@ -1959,6 +1959,33 @@ def test_large_table_int32_overflow():
     _write_table(table, f)
 
 
+@pytest.mark.large_memory
+def test_binary_array_overflow_to_chunked():
+    # ARROW-3762
+
+    # 2^31 + 1 bytes
+    values = [b'x'] + [
+        b'x' * (1 << 20)
+    ] * 2 * (1 << 10)
+    df = pd.DataFrame({'byte_col': values})
+
+    tbl = pa.Table.from_pandas(df, preserve_index=False)
+
+    buf = io.BytesIO()
+    _write_table(tbl, buf)
+    buf.seek(0)
+    read_tbl = _read_table(buf)
+    buf = None
+
+    col0_data = read_tbl[0].data
+    assert isinstance(col0_data, pa.ChunkedArray)
+
+    # Split up into 16MB chunks. 128 * 16 = 2048, so 129
+    assert col0_data.num_chunks == 129
+
+    assert tbl.equals(read_tbl)
+
+
 def test_index_column_name_duplicate(tempdir):
     data = {
         'close': {

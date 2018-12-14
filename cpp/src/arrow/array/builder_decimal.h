@@ -15,17 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_STRING_VIEW_H
-#define ARROW_UTIL_STRING_VIEW_H
+#pragma once
 
-#include "arrow/util/string_view/string_view.hpp"  // IWYU pragma: export
+#include <memory>
+
+#include "arrow/array/builder_base.h"
+#include "arrow/array/builder_binary.h"
 
 namespace arrow {
-namespace util {
 
-using nonstd::string_view;
+class Decimal128;
 
-}  // namespace util
+class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
+ public:
+  explicit Decimal128Builder(const std::shared_ptr<DataType>& type,
+                             MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+
+  using FixedSizeBinaryBuilder::Append;
+  using FixedSizeBinaryBuilder::AppendValues;
+  using FixedSizeBinaryBuilder::Reset;
+
+  Status Append(const Decimal128& val);
+
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+};
+
+using DecimalBuilder = Decimal128Builder;
+
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_STRING_VIEW_H

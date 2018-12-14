@@ -23,7 +23,6 @@
 #include <limits>
 #include <memory>
 #include <numeric>
-#include <ostream>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -40,7 +39,6 @@
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"

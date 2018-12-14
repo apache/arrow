@@ -18,6 +18,7 @@
 #include "arrow/util/compression_lz4.h"
 
 #include <cstdint>
+#include <cstring>
 #include <sstream>
 
 #include <lz4.h>
