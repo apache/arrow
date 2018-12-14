@@ -109,6 +109,7 @@ matrix:
     jdk: openjdk8
     env:
     - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_GANDIVA_TESTS=1
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
     - ARROW_CPP_BUILD_TARGETS="gandiva"
     # TODO(wesm): Remove this after ARROW-4026
@@ -159,6 +160,7 @@ matrix:
     addons:
     env:
     - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_GANDIVA_TESTS=1
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
     - ARROW_CPP_BUILD_TARGETS="gandiva"
     # TODO(wesm): Remove this after ARROW-4026
