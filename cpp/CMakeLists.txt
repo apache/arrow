@@ -99,7 +99,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Compiler flags to append when compiling Arrow")
 
   option(ARROW_OPTIONAL_INSTALL
-    "If enabled install targets that have already been built"
+    "If enabled install ONLY targets that have already been built"
     OFF)
 
   option(ARROW_ONLY_LINT
