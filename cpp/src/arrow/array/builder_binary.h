@@ -283,9 +283,6 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
   virtual Status Finish(ArrayVector* out);
 
  protected:
-  ChunkedBinaryBuilder(const std::shared_ptr<DataType>& type, int32_t max_chunk_size,
-                       MemoryPool* pool);
-
   Status NextChunk();
 
   int32_t max_chunk_size_;
