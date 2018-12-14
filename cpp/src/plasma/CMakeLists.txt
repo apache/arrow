@@ -127,6 +127,7 @@ endif()
 # be copied around and used in different locations.
 add_executable(plasma_store_server store.cc)
 target_link_libraries(plasma_store_server plasma_static ${PLASMA_STATIC_LINK_LIBS})
+add_dependencies(plasma plasma_store_server)
 
 if (ARROW_RPATH_ORIGIN)
   if (APPLE)
