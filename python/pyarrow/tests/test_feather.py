@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import io
 import os
 import sys
 import tempfile
@@ -535,3 +536,20 @@ class TestFeatherReader(unittest.TestCase):
     def test_large_dataframe(self):
         df = pd.DataFrame({'A': np.arange(400000000)})
         self._check_pandas_roundtrip(df)
+
+
+@pytest.mark.large_memory
+def test_chunked_binary_error_message():
+    # ARROW-3058: As Feather does not yet support chunked columns, we at least
+    # make sure it's clear to the user what is going on
+
+    # 2^31 + 1 bytes
+    values = [b'x'] + [
+        b'x' * (1 << 20)
+    ] * 2 * (1 << 10)
+    df = pd.DataFrame({'byte_col': values})
+
+    with pytest.raises(ValueError, match="'byte_col' exceeds 2GB maximum "
+                       "capacity of a Feather binary column. This restriction "
+                       "may be lifted in the future"):
+        write_feather(df, io.BytesIO())
