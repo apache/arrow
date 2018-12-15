@@ -18,8 +18,8 @@
 Memory (management)
 ===================
 
-Basic containers
-----------------
+Buffers
+-------
 
 .. doxygenclass:: arrow::Buffer
    :project: arrow_cpp
@@ -33,16 +33,11 @@ Basic containers
    :project: arrow_cpp
    :members:
 
-.. doxygenclass:: arrow::BufferBuilder
-   :project: arrow_cpp
-   :members:
-
 Memory Pools
 ------------
 
 .. doxygenfunction:: arrow::default_memory_pool
    :project: arrow_cpp
-   :outline:
 
 .. doxygenclass:: arrow::MemoryPool
    :project: arrow_cpp
@@ -53,5 +48,43 @@ Memory Pools
    :members:
 
 .. doxygenclass:: arrow::ProxyMemoryPool
+   :project: arrow_cpp
+   :members:
+
+Allocation Functions
+--------------------
+
+These functions allocate a buffer from a particular memory pool.
+
+.. doxygengroup:: buffer-allocation-functions
+   :project: arrow_cpp
+   :content-only:
+
+Slicing
+-------
+
+.. doxygengroup:: buffer-slicing-functions
+   :project: arrow_cpp
+   :content-only:
+
+Buffer Builders
+---------------
+
+.. doxygenclass:: arrow::BufferBuilder
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::TypedBufferBuilder
+   :project: arrow_cpp
+   :members:
+
+STL Integration
+---------------
+
+.. doxygenclass:: arrow::stl_allocator
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::STLMemoryPool
    :project: arrow_cpp
    :members:

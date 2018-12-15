@@ -35,7 +35,7 @@ from pyarrow._parquet import (ParquetReader, RowGroupStatistics,  # noqa
 from pyarrow.compat import guid
 from pyarrow.filesystem import (LocalFileSystem, _ensure_filesystem,
                                 _get_fs_from_path)
-from pyarrow.util import _is_path_like, _stringify_path, _deprecate_nthreads
+from pyarrow.util import _is_path_like, _stringify_path
 
 
 def _check_contains_null(val):
@@ -135,8 +135,8 @@ class ParquetFile(object):
     def num_row_groups(self):
         return self.reader.num_row_groups
 
-    def read_row_group(self, i, columns=None, nthreads=None,
-                       use_threads=True, use_pandas_metadata=False):
+    def read_row_group(self, i, columns=None, use_threads=True,
+                       use_pandas_metadata=False):
         """
         Read a single row group from a Parquet file
 
@@ -157,7 +157,6 @@ class ParquetFile(object):
         pyarrow.table.Table
             Content of the row group as a table (of columns)
         """
-        use_threads = _deprecate_nthreads(use_threads, nthreads)
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
         return self.reader.read_row_group(i, column_indices=column_indices,
@@ -1071,9 +1070,7 @@ Returns
 
 
 def read_table(source, columns=None, use_threads=True, metadata=None,
-               use_pandas_metadata=False, memory_map=True,
-               nthreads=None):
-    use_threads = _deprecate_nthreads(use_threads, nthreads)
+               use_pandas_metadata=False, memory_map=True):
     if _is_path_like(source):
         fs = _get_fs_from_path(source)
         return fs.read_parquet(source, columns=columns,
@@ -1094,8 +1091,8 @@ read_table.__doc__ = _read_table_docstring.format(
     Content of the file as a table (of columns)""")
 
 
-def read_pandas(source, columns=None, use_threads=True,
-                memory_map=True, nthreads=None, metadata=None):
+def read_pandas(source, columns=None, use_threads=True, memory_map=True,
+                metadata=None):
     return read_table(source, columns=columns,
                       use_threads=use_threads,
                       metadata=metadata, memory_map=True,

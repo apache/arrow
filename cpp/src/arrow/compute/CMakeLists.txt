@@ -15,12 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: top level
-install(FILES
-  api.h
-  context.h
-  kernel.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/compute")
+ARROW_INSTALL_ALL_HEADERS("arrow/compute")
 
 # pkg-config support
 configure_file(arrow-compute.pc.in

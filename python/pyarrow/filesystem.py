@@ -148,8 +148,7 @@ class FileSystem(object):
         raise NotImplementedError
 
     def read_parquet(self, path, columns=None, metadata=None, schema=None,
-                     use_threads=True, nthreads=None,
-                     use_pandas_metadata=False):
+                     use_threads=True, use_pandas_metadata=False):
         """
         Read Parquet data from path in file system. Can read from a single file
         or a directory of files
@@ -176,8 +175,6 @@ class FileSystem(object):
         table : pyarrow.Table
         """
         from pyarrow.parquet import ParquetDataset
-        from pyarrow.util import _deprecate_nthreads
-        use_threads = _deprecate_nthreads(use_threads, nthreads)
         dataset = ParquetDataset(path, schema=schema, metadata=metadata,
                                  filesystem=self)
         return dataset.read(columns=columns, use_threads=use_threads,

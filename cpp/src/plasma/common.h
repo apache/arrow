@@ -66,30 +66,6 @@ typedef UniqueID ObjectID;
 /// Size of object hash digests.
 constexpr int64_t kDigestSize = sizeof(uint64_t);
 
-enum class ObjectRequestType : int {
-  /// Query for object in the local plasma store.
-  PLASMA_QUERY_LOCAL = 1,
-  /// Query for object in the local plasma store or in a remote plasma store.
-  PLASMA_QUERY_ANYWHERE
-};
-
-/// Object request data structure. Used for Wait.
-struct ObjectRequest {
-  /// The ID of the requested object. If ID_NIL request any object.
-  ObjectID object_id;
-  /// Request associated to the object. It can take one of the following values:
-  ///  - PLASMA_QUERY_LOCAL: return if or when the object is available in the
-  ///    local Plasma Store.
-  ///  - PLASMA_QUERY_ANYWHERE: return if or when the object is available in
-  ///    the system (i.e., either in the local or a remote Plasma Store).
-  ObjectRequestType type;
-  /// Object location. This can be
-  ///  - ObjectLocation::Local: object is ready at the local Plasma Store.
-  ///  - ObjectLocation::Remote: object is ready at a remote Plasma Store.
-  ///  - ObjectLocation::Nonexistent: object does not exist in the system.
-  ObjectLocation location;
-};
-
 enum class ObjectState : int {
   /// Object was created but not sealed in the local Plasma Store.
   PLASMA_CREATED = 1,

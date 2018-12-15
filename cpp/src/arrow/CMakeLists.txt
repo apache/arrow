@@ -15,13 +15,55 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(arrow)
+
+# Adding unit tests part of the "arrow" portion of the test suite
+function(ADD_ARROW_TEST REL_TEST_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+
+  if (ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "arrow")
+  endif()
+  ADD_TEST_CASE(${REL_TEST_NAME}
+    PREFIX ${PREFIX}
+    LABELS "unittest;arrow"
+    ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
+function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if (ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "arrow")
+  endif()
+  ADD_BENCHMARK(${REL_TEST_NAME}
+    PREFIX ${PREFIX}
+    LABELS "benchmark;arrow"
+    ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
 set(ARROW_SRCS
   array.cc
-  buffer.cc
+
   builder.cc
-  builder-adaptive.cc
-  builder-binary.cc
-  builder-dict.cc
+  array/builder_adaptive.cc
+  array/builder_base.cc
+  array/builder_binary.cc
+  array/builder_decimal.cc
+  array/builder_dict.cc
+  array/builder_nested.cc
+  array/builder_primitive.cc
+
+  buffer.cc
   compare.cc
   memory_pool.cc
   pretty_print.cc
@@ -142,6 +184,7 @@ if (ARROW_IPC)
     ipc/feather.cc
     ipc/json.cc
     ipc/json-internal.cc
+    ipc/json-simple.cc
     ipc/message.cc
     ipc/metadata-internal.cc
     ipc/reader.cc
@@ -206,28 +249,7 @@ foreach(LIB_TARGET ${ARROW_LIBRARIES})
 endforeach()
 
 # Headers: top level
-install(FILES
-  allocator.h
-  api.h
-  array.h
-  buffer.h
-  builder.h
-  compare.h
-  memory_pool.h
-  pretty_print.h
-  record_batch.h
-  status.h
-  stl.h
-  table.h
-  table_builder.h
-  tensor.h
-  type.h
-  type_fwd.h
-  type_traits.h
-  test-util.h
-  visitor.h
-  visitor_inline.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow")
+ARROW_INSTALL_ALL_HEADERS("arrow")
 
 # pkg-config support
 configure_file(arrow.pc.in
@@ -259,6 +281,19 @@ ADD_ARROW_TEST(tensor-test)
 ADD_ARROW_BENCHMARK(builder-benchmark)
 ADD_ARROW_BENCHMARK(column-benchmark)
 
+add_subdirectory(array)
 add_subdirectory(csv)
 add_subdirectory(io)
 add_subdirectory(util)
+
+if(ARROW_FLIGHT)
+  add_subdirectory(flight)
+endif()
+
+if(ARROW_PYTHON)
+  add_subdirectory(python)
+endif()
+
+if(ARROW_HIVESERVER2)
+  add_subdirectory(dbi/hiveserver2)
+endif()

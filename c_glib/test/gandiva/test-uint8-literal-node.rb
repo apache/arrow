@@ -15,29 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Pretty-printing and other formatting utilities for Arrow data structures
+class TestGandivaUInt8LiteralNode < Test::Unit::TestCase
+  def setup
+    omit("Gandiva is required") unless defined?(::Gandiva)
+  end
 
-import pyarrow.lib as lib
-import warnings
-
-try:
-    from textwrap import indent
-except ImportError:
-    def indent(text, prefix):
-        return ''.join(prefix + line for line in text.splitlines(True))
-
-
-def array_format(arr, window=10):
-    warnings.warn("array_format is deprecated, use Array.format() instead",
-                  FutureWarning)
-    return arr.format(window=window)
-
-
-def value_format(x, indent_level=0):
-    warnings.warn("value_format is deprecated",
-                  FutureWarning)
-    if isinstance(x, lib.ListValue):
-        contents = ',\n'.join(value_format(item) for item in x)
-        return '[{0}]'.format(indent(contents, ' ').strip())
-    else:
-        return repr(x)
+  def test_value
+    value = 3
+    literal_node = Gandiva::UInt8LiteralNode.new(value)
+    assert_equal(value, literal_node.value)
+  end
+end

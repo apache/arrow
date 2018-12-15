@@ -266,6 +266,8 @@ detail for each type below): ::
     buffer 10: field 5 offsets <int32_t*>
     buffer 11: field 5 data <uint8_t*>
 
+.. _spec-logical-types:
+
 Logical types
 -------------
 

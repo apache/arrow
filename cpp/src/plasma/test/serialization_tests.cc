@@ -254,44 +254,6 @@ TEST(PlasmaSerialization, DeleteReply) {
   close(fd);
 }
 
-TEST(PlasmaSerialization, StatusRequest) {
-  int fd = create_temp_file();
-  constexpr int64_t num_objects = 2;
-  ObjectID object_ids[num_objects];
-  object_ids[0] = random_object_id();
-  object_ids[1] = random_object_id();
-  ARROW_CHECK_OK(SendStatusRequest(fd, object_ids, num_objects));
-  std::vector<uint8_t> data =
-      read_message_from_file(fd, MessageType::PlasmaStatusRequest);
-  ObjectID object_ids_read[num_objects];
-  ARROW_CHECK_OK(
-      ReadStatusRequest(data.data(), data.size(), object_ids_read, num_objects));
-  ASSERT_EQ(object_ids[0], object_ids_read[0]);
-  ASSERT_EQ(object_ids[1], object_ids_read[1]);
-  close(fd);
-}
-
-TEST(PlasmaSerialization, StatusReply) {
-  int fd = create_temp_file();
-  ObjectID object_ids[2];
-  object_ids[0] = random_object_id();
-  object_ids[1] = random_object_id();
-  int object_statuses[2] = {42, 43};
-  ARROW_CHECK_OK(SendStatusReply(fd, object_ids, object_statuses, 2));
-  std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaStatusReply);
-  int64_t num_objects = ReadStatusReply_num_objects(data.data(), data.size());
-
-  std::vector<ObjectID> object_ids_read(num_objects);
-  std::vector<int> object_statuses_read(num_objects);
-  ARROW_CHECK_OK(ReadStatusReply(data.data(), data.size(), object_ids_read.data(),
-                                 object_statuses_read.data(), num_objects));
-  ASSERT_EQ(object_ids[0], object_ids_read[0]);
-  ASSERT_EQ(object_ids[1], object_ids_read[1]);
-  ASSERT_EQ(object_statuses[0], object_statuses_read[0]);
-  ASSERT_EQ(object_statuses[1], object_statuses_read[1]);
-  close(fd);
-}
-
 TEST(PlasmaSerialization, EvictRequest) {
   int fd = create_temp_file();
   int64_t num_bytes = 111;
@@ -311,84 +273,6 @@ TEST(PlasmaSerialization, EvictReply) {
   int64_t num_bytes_received;
   ARROW_CHECK_OK(ReadEvictReply(data.data(), data.size(), num_bytes_received));
   ASSERT_EQ(num_bytes, num_bytes_received);
-  close(fd);
-}
-
-TEST(PlasmaSerialization, FetchRequest) {
-  int fd = create_temp_file();
-  ObjectID object_ids[2];
-  object_ids[0] = random_object_id();
-  object_ids[1] = random_object_id();
-  ARROW_CHECK_OK(SendFetchRequest(fd, object_ids, 2));
-  std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaFetchRequest);
-  std::vector<ObjectID> object_ids_read;
-  ARROW_CHECK_OK(ReadFetchRequest(data.data(), data.size(), object_ids_read));
-  ASSERT_EQ(object_ids[0], object_ids_read[0]);
-  ASSERT_EQ(object_ids[1], object_ids_read[1]);
-  close(fd);
-}
-
-TEST(PlasmaSerialization, WaitRequest) {
-  int fd = create_temp_file();
-  const int num_objects_in = 2;
-  ObjectRequest object_requests_in[num_objects_in] = {
-      ObjectRequest({random_object_id(), ObjectRequestType::PLASMA_QUERY_ANYWHERE,
-                     ObjectLocation::Local}),
-      ObjectRequest({random_object_id(), ObjectRequestType::PLASMA_QUERY_LOCAL,
-                     ObjectLocation::Local})};
-  const int num_ready_objects_in = 1;
-  int64_t timeout_ms = 1000;
-
-  ARROW_CHECK_OK(SendWaitRequest(fd, &object_requests_in[0], num_objects_in,
-                                 num_ready_objects_in, timeout_ms));
-  /* Read message back. */
-  std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaWaitRequest);
-  int num_ready_objects_out;
-  int64_t timeout_ms_read;
-  ObjectRequestMap object_requests_out;
-  ARROW_CHECK_OK(ReadWaitRequest(data.data(), data.size(), object_requests_out,
-                                 &timeout_ms_read, &num_ready_objects_out));
-  ASSERT_EQ(num_objects_in, object_requests_out.size());
-  ASSERT_EQ(num_ready_objects_out, num_ready_objects_in);
-  for (int i = 0; i < num_objects_in; i++) {
-    const ObjectID& object_id = object_requests_in[i].object_id;
-    ASSERT_EQ(1, object_requests_out.count(object_id));
-    const auto& entry = object_requests_out.find(object_id);
-    ASSERT_TRUE(entry != object_requests_out.end());
-    ASSERT_EQ(entry->second.object_id, object_requests_in[i].object_id);
-    ASSERT_EQ(entry->second.type, object_requests_in[i].type);
-  }
-  close(fd);
-}
-
-TEST(PlasmaSerialization, WaitReply) {
-  int fd = create_temp_file();
-  const int num_objects_in = 2;
-  /* Create a map with two ObjectRequests in it. */
-  ObjectRequestMap objects_in(num_objects_in);
-  ObjectID id1 = random_object_id();
-  objects_in[id1] =
-      ObjectRequest({id1, ObjectRequestType::PLASMA_QUERY_LOCAL, ObjectLocation::Local});
-  ObjectID id2 = random_object_id();
-  objects_in[id2] = ObjectRequest(
-      {id2, ObjectRequestType::PLASMA_QUERY_LOCAL, ObjectLocation::Nonexistent});
-
-  ARROW_CHECK_OK(SendWaitReply(fd, objects_in, num_objects_in));
-  /* Read message back. */
-  std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaWaitReply);
-  ObjectRequest objects_out[2];
-  int num_objects_out;
-  ARROW_CHECK_OK(
-      ReadWaitReply(data.data(), data.size(), &objects_out[0], &num_objects_out));
-  ASSERT_EQ(num_objects_in, num_objects_out);
-  for (int i = 0; i < num_objects_out; i++) {
-    /* Each object request must appear exactly once. */
-    ASSERT_EQ(objects_in.count(objects_out[i].object_id), 1);
-    const auto& entry = objects_in.find(objects_out[i].object_id);
-    ASSERT_TRUE(entry != objects_in.end());
-    ASSERT_EQ(entry->second.object_id, objects_out[i].object_id);
-    ASSERT_EQ(entry->second.location, objects_out[i].location);
-  }
   close(fd);
 }
 

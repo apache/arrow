@@ -17,23 +17,17 @@
 
 #pragma once
 
-#ifndef _WIN32
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#endif
-
 #include <algorithm>
-#include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <memory>
 #include <random>
 #include <sstream>
 #include <string>
-#include <thread>
+#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -43,13 +37,13 @@
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 #define STRINGIFY(x) #x
@@ -101,6 +95,10 @@
   } while (false);
 
 namespace arrow {
+
+class ChunkedArray;
+class Column;
+class Table;
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
@@ -167,6 +165,12 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
 
   *result = buffer;
   return Status::OK();
+}
+
+template <typename T>
+inline void BitmapFromVector(const std::vector<T>& is_valid,
+                             std::shared_ptr<Buffer>* out) {
+  ASSERT_OK(GetBitmapFromVector(is_valid, out));
 }
 
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
@@ -246,6 +250,12 @@ Status MakeRandomBuffer(int64_t length, MemoryPool* pool,
   *out = result;
   return Status::OK();
 }
+
+// ArrayFromJSON: construct an Array from a simple JSON representation
+
+ARROW_EXPORT
+std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
+                                     const std::string& json);
 
 // ArrayFromVector: construct an Array from vectors of C values
 

@@ -525,9 +525,11 @@ message(STATUS "double-conversion static library: ${DOUBLE_CONVERSION_STATIC_LIB
 # ----------------------------------------------------------------------
 # Google gtest & gflags
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
-  add_custom_target(unittest ctest -L unittest)
+add_custom_target(unittest ctest -L unittest)
+add_custom_target(benchmark ctest -L benchmark)
 
+if(ARROW_BUILD_TESTS OR ARROW_GANDIVA_BUILD_TESTS
+   OR ARROW_BUILD_BENCHMARKS)
   if("${GTEST_HOME}" STREQUAL "")
     if(APPLE)
       set(GTEST_CMAKE_CXX_FLAGS "-fPIC -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes")
@@ -627,7 +629,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  add_custom_target(runbenchmark ctest -L benchmark)
 
   if("$ENV{GBENCHMARK_HOME}" STREQUAL "")
     if(NOT MSVC)
@@ -664,11 +665,11 @@ if(ARROW_BUILD_BENCHMARKS)
   message(STATUS "GBenchmark include dir: ${GBENCHMARK_INCLUDE_DIR}")
   message(STATUS "GBenchmark static library: ${GBENCHMARK_STATIC_LIB}")
   include_directories(SYSTEM ${GBENCHMARK_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(benchmark
+  ADD_THIRDPARTY_LIB(gbenchmark
     STATIC_LIB ${GBENCHMARK_STATIC_LIB})
 
   if(GBENCHMARK_VENDORED)
-    add_dependencies(benchmark_static gbenchmark_ep)
+    add_dependencies(gbenchmark_static gbenchmark_ep)
   endif()
 endif()
 

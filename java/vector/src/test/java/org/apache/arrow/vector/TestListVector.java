@@ -774,13 +774,13 @@ public class TestListVector {
       vector.setInitialCapacity(512);
       vector.allocateNew();
       assertEquals(512, vector.getValueCapacity());
-      assertEquals(4096, vector.getDataVector().getValueCapacity());
+      assertTrue(vector.getDataVector().getValueCapacity() >= 512 * 5);
 
       /* use density as 4 */
       vector.setInitialCapacity(512, 4);
       vector.allocateNew();
       assertEquals(512, vector.getValueCapacity());
-      assertEquals(512 * 4, vector.getDataVector().getValueCapacity());
+      assertTrue(vector.getDataVector().getValueCapacity() >= 512 * 4);
 
       /**
        * inner value capacity we pass to data vector is 512 * 0.1 => 51
@@ -793,7 +793,7 @@ public class TestListVector {
       vector.setInitialCapacity(512, 0.1);
       vector.allocateNew();
       assertEquals(512, vector.getValueCapacity());
-      assertEquals(64, vector.getDataVector().getValueCapacity());
+      assertTrue(vector.getDataVector().getValueCapacity() >= 51);
 
       /**
        * inner value capacity we pass to data vector is 512 * 0.01 => 5
@@ -806,7 +806,7 @@ public class TestListVector {
       vector.setInitialCapacity(512, 0.01);
       vector.allocateNew();
       assertEquals(512, vector.getValueCapacity());
-      assertEquals(8, vector.getDataVector().getValueCapacity());
+      assertTrue(vector.getDataVector().getValueCapacity() >= 5);
 
       /**
        * inner value capacity we pass to data vector is 5 * 0.1 => 0
@@ -822,7 +822,7 @@ public class TestListVector {
       vector.setInitialCapacity(5, 0.1);
       vector.allocateNew();
       assertEquals(7, vector.getValueCapacity());
-      assertEquals(1, vector.getDataVector().getValueCapacity());
+      assertTrue(vector.getDataVector().getValueCapacity() >= 1);
     }
   }
 

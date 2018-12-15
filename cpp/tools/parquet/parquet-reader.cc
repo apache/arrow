@@ -23,7 +23,7 @@
 
 int main(int argc, char** argv) {
   if (argc > 5 || argc < 2) {
-    std::cerr << "Usage: parquet_reader [--only-metadata] [--no-memory-map] [--json]"
+    std::cerr << "Usage: parquet-reader [--only-metadata] [--no-memory-map] [--json]"
                  "[--print-key-value-metadata] [--columns=...] <file>"
               << std::endl;
     return -1;

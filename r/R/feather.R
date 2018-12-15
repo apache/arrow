@@ -35,7 +35,9 @@
     num_columns = function() ipc___feather___TableReader__num_columns(self),
     GetColumnName = function(i) ipc___feather___TableReader__GetColumnName(self, i),
     GetColumn = function(i) shared_ptr(`arrow::Column`, ipc___feather___TableReader__GetColumn(self, i)),
-    Read = function() shared_ptr(`arrow::Table`, ipc___feather___TableReader__Read(self))
+    Read = function(columns) {
+      shared_ptr(`arrow::Table`, ipc___feather___TableReader__Read(self, columns))
+    }
   )
 )
 
@@ -44,12 +46,12 @@
 #' @param stream an OutputStream
 #'
 #' @export
-feather_table_writer <- function(stream) {
-  UseMethod("feather_table_writer")
+FeatherTableWriter <- function(stream) {
+  UseMethod("FeatherTableWriter")
 }
 
 #' @export
-`feather_table_writer.arrow::io::OutputStream` <- function(stream){
+`FeatherTableWriter.arrow::io::OutputStream` <- function(stream){
   unique_ptr(`arrow::ipc::feather::TableWriter`, ipc___feather___TableWriter__Open(stream))
 }
 
@@ -107,7 +109,7 @@ write_feather_RecordBatch <- function(data, stream) {
 #' @export
 #' @method write_feather_RecordBatch arrow::io::OutputStream
 `write_feather_RecordBatch.arrow::io::OutputStream` <- function(data, stream) {
-  ipc___TableWriter__RecordBatch__WriteFeather(feather_table_writer(stream), data)
+  ipc___TableWriter__RecordBatch__WriteFeather(FeatherTableWriter(stream), data)
 }
 
 #' A arrow::ipc::feather::TableReader to read from a file
@@ -117,44 +119,50 @@ write_feather_RecordBatch <- function(data, stream) {
 #' @param ... extra parameters
 #'
 #' @export
-feather_table_reader <- function(file, mmap = TRUE, ...){
-  UseMethod("feather_table_reader")
+FeatherTableReader <- function(file, mmap = TRUE, ...){
+  UseMethod("FeatherTableReader")
 }
 
 #' @export
-feather_table_reader.default <- function(file, mmap = TRUE, ...) {
+FeatherTableReader.default <- function(file, mmap = TRUE, ...) {
   stop("unsupported")
 }
 
 #' @export
-feather_table_reader.character <- function(file, mmap = TRUE, ...) {
-  feather_table_reader(fs::path_abs(file), mmap = mmap, ...)
+FeatherTableReader.character <- function(file, mmap = TRUE, ...) {
+  FeatherTableReader(fs::path_abs(file), mmap = mmap, ...)
 }
 
 #' @export
-feather_table_reader.fs_path <- function(file, mmap = TRUE, ...) {
+FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
   stream <- if(isTRUE(mmap)) mmap_open(file, ...) else ReadableFile(file, ...)
-  feather_table_reader(stream)
+  FeatherTableReader(stream)
 }
 
 #' @export
-`feather_table_reader.arrow::io::RandomAccessFile` <- function(file, mmap = TRUE, ...){
+`FeatherTableReader.arrow::io::RandomAccessFile` <- function(file, mmap = TRUE, ...){
   unique_ptr(`arrow::ipc::feather::TableReader`, ipc___feather___TableReader__Open(file))
 }
 
 #' @export
-`feather_table_reader.arrow::ipc::feather::TableReader` <- function(file, mmap = TRUE, ...){
+`FeatherTableReader.arrow::ipc::feather::TableReader` <- function(file, mmap = TRUE, ...){
   file
 }
 
 #' Read a feather file
 #'
-#' @param file a arrow::ipc::feather::TableReader or whatever the [feather_table_reader()] function can handle
+#' @param file a arrow::ipc::feather::TableReader or whatever the [FeatherTableReader()] function can handle
+#' @param columns names if the columns to read. The default `NULL` means all columns
+#' @param as_tibble should the [arrow::Table][arrow__Table] be converted to a tibble.
 #' @param ... additional parameters
 #'
-#' @return an arrow::Table
+#' @return a data frame if `as_tibble` is `TRUE` (the default), or a [arrow::Table][arrow__Table] otherwise
 #'
 #' @export
-read_feather <- function(file, ...){
-  feather_table_reader(file, ...)$Read()
+read_feather <- function(file, columns = NULL, as_tibble = TRUE, ...){
+  out <- FeatherTableReader(file, ...)$Read(columns)
+  if (isTRUE(as_tibble)) {
+    out <- as_tibble(out)
+  }
+  out
 }

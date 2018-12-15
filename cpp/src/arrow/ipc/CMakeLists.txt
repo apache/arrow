@@ -15,25 +15,34 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Targets required for protocol integration testing
+add_custom_target(integration)
+add_dependencies(arrow integration)
+
 #######################################
 # Messaging and interprocess communication
 
 ADD_ARROW_TEST(feather-test)
-ADD_ARROW_TEST(ipc-read-write-test)
-ADD_ARROW_TEST(ipc-json-test)
+ADD_ARROW_TEST(read-write-test
+  PREFIX "arrow-ipc")
+ADD_ARROW_TEST(json-simple-test
+  PREFIX "arrow-ipc")
+ADD_ARROW_TEST(json-test
+  PREFIX "arrow-ipc")
 
 if (NOT ARROW_BOOST_HEADER_ONLY)
   ADD_ARROW_TEST(json-integration-test
     EXTRA_LINK_LIBS gflags_static)
 
   # Test is being built
-  if (TARGET json-integration-test)
+  if (TARGET arrow-json-integration-test)
+    add_dependencies(integration arrow-json-integration-test)
     if (UNIX)
       if (APPLE)
-        set_target_properties(json-integration-test
+        set_target_properties(arrow-json-integration-test
           PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
       else()
-        target_link_libraries(json-integration-test PRIVATE pthread)
+        target_link_libraries(arrow-json-integration-test PRIVATE pthread)
       endif()
     endif()
   endif()
@@ -79,15 +88,7 @@ add_custom_command(
 add_custom_target(metadata_fbs DEPENDS ${FBS_OUTPUT_FILES})
 
 # Headers: top level
-install(FILES
-  api.h
-  dictionary.h
-  feather.h
-  json.h
-  message.h
-  reader.h
-  writer.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/ipc")
+ARROW_INSTALL_ALL_HEADERS("arrow/ipc")
 
 if (ARROW_BUILD_STATIC)
   set(ARROW_UTIL_LIB arrow_static)
@@ -108,12 +109,15 @@ if(NOT WIN32)
 endif()
 
 if (ARROW_BUILD_UTILITIES)
-  add_executable(file-to-stream file-to-stream.cc)
-  target_link_libraries(file-to-stream ${UTIL_LINK_LIBS})
-  add_executable(stream-to-file stream-to-file.cc)
-  target_link_libraries(stream-to-file ${UTIL_LINK_LIBS})
+  add_executable(arrow-file-to-stream file-to-stream.cc)
+  target_link_libraries(arrow-file-to-stream ${UTIL_LINK_LIBS})
+  add_executable(arrow-stream-to-file stream-to-file.cc)
+  target_link_libraries(arrow-stream-to-file ${UTIL_LINK_LIBS})
+
+  add_dependencies(integration arrow-file-to-stream)
+  add_dependencies(integration arrow-stream-to-file)
 endif()
 
-ADD_ARROW_BENCHMARK(ipc-read-write-benchmark)
-
+ADD_ARROW_BENCHMARK(read-write-benchmark
+  PREFIX "arrow-ipc")
 ADD_ARROW_FUZZING(ipc-fuzzing-test)

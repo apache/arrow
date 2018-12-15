@@ -22,9 +22,7 @@ pushd /arrow/cpp/apidoc
 doxygen
 popd
 
-pushd /arrow/python
-python setup.py build_sphinx -s ../docs/source --build-dir ../docs/_build
-popd
+sphinx-build -b html /arrow/docs/source /arrow/docs/_build/html
 
 mkdir -p /arrow/site/asf-site/docs/latest
 rsync -r /arrow/docs/_build/html/ /arrow/site/asf-site/docs/latest/

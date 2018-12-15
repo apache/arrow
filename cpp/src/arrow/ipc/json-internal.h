@@ -36,6 +36,7 @@
 
 #include "rapidjson/document.h"      // IWYU pragma: export
 #include "rapidjson/encodings.h"     // IWYU pragma: export
+#include "rapidjson/error/en.h"      // IWYU pragma: export
 #include "rapidjson/stringbuffer.h"  // IWYU pragma: export
 #include "rapidjson/writer.h"        // IWYU pragma: export
 

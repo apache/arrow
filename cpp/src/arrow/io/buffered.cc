@@ -21,10 +21,10 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
-#include <string>
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"

@@ -38,7 +38,7 @@ conda activate $CONDA_ENV_DIR
 # We should use zlib in the target Python directory to avoid loading
 # wrong libpython on macOS at run-time. If we use zlib in
 # $ARROW_BUILD_TOOLCHAIN and libpython3.6m.dylib exists in both
-# $ARROW_BUILD_TOOLCHAIN and $CONDA_ENV_DIR, python-test uses
+# $ARROW_BUILD_TOOLCHAIN and $CONDA_ENV_DIR, arrow-python-test uses
 # libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN not $CONDA_ENV_DIR.
 # libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN doesn't have NumPy. So
 # python-test fails.
@@ -51,13 +51,11 @@ if [ $ARROW_TRAVIS_PYTHON_JVM == "1" ]; then
   CONDA_JVM_DEPS="jpype1"
 fi
 
-conda install -y -q pip \
-      nomkl \
-      cloudpickle \
+conda install -y -q \
+      --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
+      pip \
       numpy=1.13.1 \
-      ${CONDA_JVM_DEPS} \
-      pandas \
-      cython
+      ${CONDA_JVM_DEPS}
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Install documentation dependencies
@@ -88,19 +86,23 @@ rm -rf *
 # XXX Can we simply reuse CMAKE_COMMON_FLAGS from travis_before_script_cpp.sh?
 CMAKE_COMMON_FLAGS="-DARROW_EXTRA_ERROR_CONTEXT=ON"
 
+PYTHON_CPP_BUILD_TARGETS="arrow_python plasma"
+
 if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GENERATE_COVERAGE=ON"
 fi
 
 if [ $ARROW_TRAVIS_PYTHON_GANDIVA == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA=ON -DARROW_GANDIVA_BUILD_TESTS=OFF"
+  PYTHON_CPP_BUILD_TARGETS="$PYTHON_CPP_BUILD_TARGETS gandiva"
 fi
 
 cmake -GNinja \
       $CMAKE_COMMON_FLAGS \
-      -DARROW_BUILD_TESTS=on \
+      -DARROW_BUILD_TESTS=ON \
       -DARROW_TEST_INCLUDE_LABELS=python \
-      -DARROW_BUILD_UTILITIES=off \
+      -DARROW_BUILD_UTILITIES=OFF \
+      -DARROW_OPTIONAL_INSTALL=ON \
       -DARROW_PLASMA=on \
       -DARROW_TENSORFLOW=on \
       -DARROW_PYTHON=on \
@@ -109,13 +111,13 @@ cmake -GNinja \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       $ARROW_CPP_DIR
 
-ninja
+ninja $PYTHON_CPP_BUILD_TARGETS
 ninja install
 
 popd
 
 # python-test isn't run by travis_script_cpp.sh, exercise it here
-$ARROW_CPP_BUILD_DIR/$ARROW_BUILD_TYPE/python-test
+$ARROW_CPP_BUILD_DIR/$ARROW_BUILD_TYPE/arrow-python-test
 
 pushd $ARROW_PYTHON_DIR
 

@@ -86,14 +86,6 @@ class RecordReader::RecordReaderImpl {
     valid_bits_ = AllocateBuffer(pool);
     def_levels_ = AllocateBuffer(pool);
     rep_levels_ = AllocateBuffer(pool);
-
-    if (descr->physical_type() == Type::BYTE_ARRAY) {
-      builder_.reset(new ::arrow::BinaryBuilder(pool));
-    } else if (descr->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
-      int byte_width = descr->type_length();
-      std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
-      builder_.reset(new ::arrow::FixedSizeBinaryBuilder(type, pool));
-    }
     Reset();
   }
 
@@ -228,8 +220,6 @@ class RecordReader::RecordReaderImpl {
     valid_bits_ = AllocateBuffer(pool_);
     return result;
   }
-
-  ::arrow::ArrayBuilder* builder() { return builder_.get(); }
 
   // Process written repetition/definition levels to reach the end of
   // records. Process no more levels than necessary to delimit the indicated
@@ -375,7 +365,7 @@ class RecordReader::RecordReaderImpl {
 
     records_read_ = 0;
 
-    // Calling Finish on the builders also resets them
+    // Call Finish on the binary builders to reset them
   }
 
   void ResetValues() {
@@ -390,6 +380,8 @@ class RecordReader::RecordReaderImpl {
   }
 
   virtual void DebugPrintState() = 0;
+
+  virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
 
  protected:
   virtual bool ReadNewPage() = 0;
@@ -434,9 +426,6 @@ class RecordReader::RecordReaderImpl {
   int64_t levels_position_;
   int64_t levels_capacity_;
 
-  // TODO(wesm): ByteArray / FixedLenByteArray types
-  std::unique_ptr<::arrow::ArrayBuilder> builder_;
-
   std::shared_ptr<::arrow::ResizableBuffer> values_;
 
   template <typename T>
@@ -450,12 +439,31 @@ class RecordReader::RecordReaderImpl {
 };
 
 template <typename DType>
+struct RecordReaderTraits {
+  using BuilderType = ::arrow::ArrayBuilder;
+};
+
+template <>
+struct RecordReaderTraits<ByteArrayType> {
+  using BuilderType = ::arrow::internal::ChunkedBinaryBuilder;
+};
+
+template <>
+struct RecordReaderTraits<FLBAType> {
+  using BuilderType = ::arrow::FixedSizeBinaryBuilder;
+};
+
+template <typename DType>
 class TypedRecordReader : public RecordReader::RecordReaderImpl {
  public:
-  typedef typename DType::c_type T;
+  using T = typename DType::c_type;
 
-  TypedRecordReader(const ColumnDescriptor* schema, ::arrow::MemoryPool* pool)
-      : RecordReader::RecordReaderImpl(schema, pool), current_decoder_(nullptr) {}
+  using BuilderType = typename RecordReaderTraits<DType>::BuilderType;
+
+  TypedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
+      : RecordReader::RecordReaderImpl(descr, pool), current_decoder_(nullptr) {
+    InitializeBuilder();
+  }
 
   void ResetDecoders() override { decoders_.clear(); }
 
@@ -546,6 +554,10 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
     std::cout << std::endl;
   }
 
+  std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() override {
+    throw ParquetException("GetChunks only implemented for binary types");
+  }
+
  private:
   typedef Decoder<DType> DecoderType;
 
@@ -554,10 +566,14 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
   // plain-encoded data.
   std::unordered_map<int, std::shared_ptr<DecoderType>> decoders_;
 
+  std::unique_ptr<BuilderType> builder_;
+
   DecoderType* current_decoder_;
 
   // Advance to the next data page
   bool ReadNewPage() override;
+
+  void InitializeBuilder() {}
 
   void ConfigureDictionary(const DictionaryPage* page);
 };
@@ -573,16 +589,45 @@ template <>
 void TypedRecordReader<FLBAType>::DebugPrintState() {}
 
 template <>
+void TypedRecordReader<ByteArrayType>::InitializeBuilder() {
+  // Maximum of 16MB chunks
+  constexpr int32_t kBinaryChunksize = 1 << 24;
+  DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
+  builder_.reset(new ::arrow::internal::ChunkedBinaryBuilder(kBinaryChunksize, pool_));
+}
+
+template <>
+void TypedRecordReader<FLBAType>::InitializeBuilder() {
+  DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
+  int byte_width = descr_->type_length();
+  std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
+  builder_.reset(new ::arrow::FixedSizeBinaryBuilder(type, pool_));
+}
+
+template <>
+::arrow::ArrayVector TypedRecordReader<ByteArrayType>::GetBuilderChunks() {
+  ::arrow::ArrayVector chunks;
+  PARQUET_THROW_NOT_OK(builder_->Finish(&chunks));
+  return chunks;
+}
+
+template <>
+::arrow::ArrayVector TypedRecordReader<FLBAType>::GetBuilderChunks() {
+  std::shared_ptr<::arrow::Array> chunk;
+  PARQUET_THROW_NOT_OK(builder_->Finish(&chunk));
+  return ::arrow::ArrayVector({chunk});
+}
+
+template <>
 inline void TypedRecordReader<ByteArrayType>::ReadValuesDense(int64_t values_to_read) {
   auto values = ValuesHead<ByteArray>();
   int64_t num_decoded =
       current_decoder_->Decode(values, static_cast<int>(values_to_read));
   DCHECK_EQ(num_decoded, values_to_read);
 
-  auto builder = static_cast<::arrow::BinaryBuilder*>(builder_.get());
   for (int64_t i = 0; i < num_decoded; i++) {
     PARQUET_THROW_NOT_OK(
-        builder->Append(values[i].ptr, static_cast<int32_t>(values[i].len)));
+        builder_->Append(values[i].ptr, static_cast<int32_t>(values[i].len)));
   }
   ResetValues();
 }
@@ -594,9 +639,8 @@ inline void TypedRecordReader<FLBAType>::ReadValuesDense(int64_t values_to_read)
       current_decoder_->Decode(values, static_cast<int>(values_to_read));
   DCHECK_EQ(num_decoded, values_to_read);
 
-  auto builder = static_cast<::arrow::FixedSizeBinaryBuilder*>(builder_.get());
   for (int64_t i = 0; i < num_decoded; i++) {
-    PARQUET_THROW_NOT_OK(builder->Append(values[i].ptr));
+    PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
   }
   ResetValues();
 }
@@ -613,14 +657,12 @@ inline void TypedRecordReader<ByteArrayType>::ReadValuesSpaced(int64_t values_to
       valid_bits_offset);
   DCHECK_EQ(num_decoded, values_to_read);
 
-  auto builder = static_cast<::arrow::BinaryBuilder*>(builder_.get());
-
   for (int64_t i = 0; i < num_decoded; i++) {
     if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
       PARQUET_THROW_NOT_OK(
-          builder->Append(values[i].ptr, static_cast<int32_t>(values[i].len)));
+          builder_->Append(values[i].ptr, static_cast<int32_t>(values[i].len)));
     } else {
-      PARQUET_THROW_NOT_OK(builder->AppendNull());
+      PARQUET_THROW_NOT_OK(builder_->AppendNull());
     }
   }
   ResetValues();
@@ -638,12 +680,11 @@ inline void TypedRecordReader<FLBAType>::ReadValuesSpaced(int64_t values_to_read
       valid_bits_offset);
   DCHECK_EQ(num_decoded, values_to_read);
 
-  auto builder = static_cast<::arrow::FixedSizeBinaryBuilder*>(builder_.get());
   for (int64_t i = 0; i < num_decoded; i++) {
     if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
-      PARQUET_THROW_NOT_OK(builder->Append(values[i].ptr));
+      PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
     } else {
-      PARQUET_THROW_NOT_OK(builder->AppendNull());
+      PARQUET_THROW_NOT_OK(builder_->AppendNull());
     }
   }
   ResetValues();
@@ -845,8 +886,6 @@ std::shared_ptr<ResizableBuffer> RecordReader::ReleaseIsValid() {
   return impl_->ReleaseIsValid();
 }
 
-::arrow::ArrayBuilder* RecordReader::builder() { return impl_->builder(); }
-
 int64_t RecordReader::values_written() const { return impl_->values_written(); }
 
 int64_t RecordReader::levels_position() const { return impl_->levels_position(); }
@@ -861,6 +900,10 @@ bool RecordReader::HasMoreData() const { return impl_->HasMoreData(); }
 
 void RecordReader::SetPageReader(std::unique_ptr<PageReader> reader) {
   impl_->SetPageReader(std::move(reader));
+}
+
+::arrow::ArrayVector RecordReader::GetBuilderChunks() {
+  return impl_->GetBuilderChunks();
 }
 
 void RecordReader::DebugPrintState() { impl_->DebugPrintState(); }

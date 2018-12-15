@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import OrderedDict
 import datetime
 import decimal
 import io
@@ -1958,6 +1959,33 @@ def test_large_table_int32_overflow():
     _write_table(table, f)
 
 
+@pytest.mark.large_memory
+def test_binary_array_overflow_to_chunked():
+    # ARROW-3762
+
+    # 2^31 + 1 bytes
+    values = [b'x'] + [
+        b'x' * (1 << 20)
+    ] * 2 * (1 << 10)
+    df = pd.DataFrame({'byte_col': values})
+
+    tbl = pa.Table.from_pandas(df, preserve_index=False)
+
+    buf = io.BytesIO()
+    _write_table(tbl, buf)
+    buf.seek(0)
+    read_tbl = _read_table(buf)
+    buf = None
+
+    col0_data = read_tbl[0].data
+    assert isinstance(col0_data, pa.ChunkedArray)
+
+    # Split up into 16MB chunks. 128 * 16 = 2048, so 129
+    assert col0_data.num_chunks == 129
+
+    assert tbl.equals(read_tbl)
+
+
 def test_index_column_name_duplicate(tempdir):
     data = {
         'close': {
@@ -2224,6 +2252,34 @@ def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
 
 def test_writing_empty_lists():
     # ARROW-2591: [Python] Segmentation fault issue in pq.write_table
-    arr = pa.array([[], []], pa.list_(pa.int32()))
-    table = pa.Table.from_arrays([arr], ['test'])
+    arr1 = pa.array([[], []], pa.list_(pa.int32()))
+    table = pa.Table.from_arrays([arr1], ['list(int32)'])
     _check_roundtrip(table)
+
+
+def test_write_nested_zero_length_array_chunk_failure():
+    # Bug report in ARROW-3792
+    cols = OrderedDict(
+        int32=pa.int32(),
+        list_string=pa.list_(pa.string())
+    )
+    data = [[], [OrderedDict(int32=1, list_string=('G',)), ]]
+
+    # This produces a table with a column like
+    # <Column name='list_string' type=ListType(list<item: string>)>
+    # [
+    #   [],
+    #   [
+    #     [
+    #       "G"
+    #     ]
+    #   ]
+    # ]
+    #
+    # Each column is a ChunkedArray with 2 elements
+    my_arrays = [pa.array(batch, type=pa.struct(cols)).flatten()
+                 for batch in data]
+    my_batches = [pa.RecordBatch.from_arrays(batch, pa.schema(cols))
+                  for batch in my_arrays]
+    tbl = pa.Table.from_batches(my_batches, pa.schema(cols))
+    _check_roundtrip(tbl)

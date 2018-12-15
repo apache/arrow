@@ -40,15 +40,14 @@ public class TestBufferOwnershipTransfer {
     IntVector v1 = new IntVector("v1", childAllocator1);
     v1.allocateNew();
     v1.setValueCount(4095);
+    long totalAllocatedMemory = childAllocator1.getAllocatedMemory();
 
     IntVector v2 = new IntVector("v2", childAllocator2);
 
     v1.makeTransferPair(v2).transfer();
 
     assertEquals(0, childAllocator1.getAllocatedMemory());
-    int expectedBitVector = 512;
-    int expectedValueVector = 4096 * 4;
-    assertEquals(expectedBitVector + expectedValueVector, childAllocator2.getAllocatedMemory());
+    assertEquals(totalAllocatedMemory, childAllocator2.getAllocatedMemory());
   }
 
   @Test

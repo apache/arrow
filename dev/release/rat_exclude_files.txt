@@ -129,6 +129,7 @@ python/MANIFEST.in
 python/pyarrow/includes/__init__.pxd
 python/pyarrow/tests/__init__.py
 python/requirements.txt
+python/requirements-test.txt
 pax_global_header
 MANIFEST.in
 __init__.pxd

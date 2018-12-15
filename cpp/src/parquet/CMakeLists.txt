@@ -38,12 +38,12 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
   if (ARG_USE_STATIC_LINKING)
-    ADD_ARROW_TEST(${REL_TEST_NAME}
+    ADD_TEST_CASE(${REL_TEST_NAME}
       STATIC_LINK_LIBS ${PARQUET_STATIC_TEST_LINK_LIBS}
       PREFIX "parquet"
       LABELS "unittest;parquet")
   else()
-    ADD_ARROW_TEST(${REL_TEST_NAME}
+    ADD_TEST_CASE(${REL_TEST_NAME}
       STATIC_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS}
       PREFIX "parquet"
       LABELS "unittest;parquet")
@@ -238,26 +238,7 @@ add_subdirectory(api)
 add_subdirectory(arrow)
 add_subdirectory(util)
 
-# Headers: top level
-install(FILES
-  bloom_filter.h
-  column_reader.h
-  column_page.h
-  column_scanner.h
-  column_writer.h
-  encoding.h
-  exception.h
-  file_reader.h
-  file_writer.h
-  hasher.h
-  metadata.h
-  murmur3.h
-  printer.h
-  properties.h
-  schema.h
-  statistics.h
-  types.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
+ARROW_INSTALL_ALL_HEADERS("parquet")
 
 configure_file(parquet_version.h.in
   "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"

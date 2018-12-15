@@ -80,16 +80,6 @@ public interface ObjectStoreLink {
   List<ObjectStoreData> get(byte[][] objectIds, int timeoutMs);
 
   /**
-   * Wait until <tt>numReturns</tt> objects in <tt>objectIds</tt> are ready.
-   *
-   * @param objectIds List of object IDs to wait for.
-   * @param timeoutMs Return to the caller after <tt>timeoutMs</tt> milliseconds.
-   * @param numReturns We are waiting for this number of objects to be ready.
-   * @return List of object IDs that are ready
-   */
-  List<byte[]> wait(byte[][] objectIds, int timeoutMs, int numReturns);
-
-  /**
    * Compute the hash of an object in the object store.
    *
    * @param objectId The object ID used to identify the object.
@@ -97,23 +87,6 @@ public interface ObjectStoreLink {
    *         isn't in the object store.
    */
   byte[] hash(byte[] objectId);
-
-  /**
-   * Fetch the object with the given ID from other plasma manager instances.
-   *
-   * @param objectId The object ID used to identify the object.
-   */
-  default void fetch(byte[] objectId) {
-    byte[][] objectIds = {objectId};
-    fetch(objectIds);
-  }
-
-  /**
-   * Fetch the objects with the given IDs from other plasma manager instances.
-   *
-   * @param objectIds List of object IDs used to identify the objects.
-   */
-  void fetch(byte[][] objectIds);
 
   /**
    * Evict some objects to recover given count of bytes.

@@ -32,7 +32,7 @@ class SimplePlasmaThroughput(object):
         self.plasma_store_ctx = plasma.start_plasma_store(
             plasma_store_memory=10**9)
         plasma_store_name, p = self.plasma_store_ctx.__enter__()
-        self.plasma_client = plasma.connect(plasma_store_name, "", 64)
+        self.plasma_client = plasma.connect(plasma_store_name)
 
         self.data = np.random.randn(size // 8)
 
@@ -52,7 +52,7 @@ class SimplePlasmaLatency(object):
         self.plasma_store_ctx = plasma.start_plasma_store(
             plasma_store_memory=10**9)
         plasma_store_name, p = self.plasma_store_ctx.__enter__()
-        self.plasma_client = plasma.connect(plasma_store_name, "", 64)
+        self.plasma_client = plasma.connect(plasma_store_name)
 
     def teardown(self):
         self.plasma_store_ctx.__exit__(None, None, None)

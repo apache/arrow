@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# LLVM/Clang is required by multiple subdirs.
-cmake_minimum_required(VERSION 3.11)
-
 project(gandiva)
 
 find_package(LLVM)
@@ -64,9 +61,6 @@ set(SRC_FILES annotator.cc
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS
   arrow_shared
-  ${BOOST_REGEX_LIBRARY}
-  ${BOOST_SYSTEM_LIBRARY}
-  ${BOOST_FILESYSTEM_LIBRARY}
   LLVM::LLVM_INTERFACE
   ${RE2_LIBRARY})
 
@@ -98,27 +92,8 @@ add_dependencies(gandiva ${GANDIVA_LIBRARIES})
 # install for gandiva
 include(GNUInstallDirs)
 
-# install libgandiva
-install(
-  TARGETS gandiva_shared gandiva_static
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-
 # install the header files.
-install(FILES
-  arrow.h
-  condition.h
-  configuration.h
-  expression.h
-  expression_registry.h
-  filter.h
-  function_signature.h
-  gandiva_aliases.h
-  logging.h
-  projector.h
-  selection_vector.h
-  tree_expr_builder.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/gandiva")
+ARROW_INSTALL_ALL_HEADERS("gandiva")
 
 # pkg-config support
 configure_file(gandiva.pc.in
@@ -143,6 +118,10 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(multi_value_args)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
+  if (NO_TESTS)
+    return()
+  endif()
+
   set(TEST_ARGUMENTS
     ENABLED
     PREFIX "gandiva"
@@ -152,48 +131,44 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
   if (ARG_USE_STATIC_LINKING)
-    ADD_ARROW_TEST(${REL_TEST_NAME}
+    ADD_TEST_CASE(${REL_TEST_NAME}
       ${TEST_ARGUMENTS}
       STATIC_LINK_LIBS ${GANDIVA_STATIC_TEST_LINK_LIBS})
   else()
-    ADD_ARROW_TEST(${REL_TEST_NAME}
+    ADD_TEST_CASE(${REL_TEST_NAME}
       ${TEST_ARGUMENTS}
       STATIC_LINK_LIBS ${GANDIVA_SHARED_TEST_LINK_LIBS})
   endif()
 
-  if(${REL_TEST_NAME} MATCHES "llvm" OR
-     ${REL_TEST_NAME} MATCHES "expression_registry")
+  set(TARGET_NAME gandiva-${REL_TEST_NAME})
+
+  if((TARGET ${TARGET_NAME}) AND
+      (${REL_TEST_NAME} MATCHES "llvm" OR
+       ${REL_TEST_NAME} MATCHES "expression_registry"))
     # If the unit test has llvm in its name, include llvm.
-    add_dependencies(gandiva-${REL_TEST_NAME} LLVM::LLVM_INTERFACE)
-    target_link_libraries(gandiva-${REL_TEST_NAME} PRIVATE LLVM::LLVM_INTERFACE)
+    add_dependencies(${TARGET_NAME} LLVM::LLVM_INTERFACE)
+    target_link_libraries(${TARGET_NAME} PRIVATE LLVM::LLVM_INTERFACE)
   endif()
 endfunction()
 
-if (ARROW_GANDIVA_BUILD_TESTS)
-  ADD_GANDIVA_TEST(bitmap_accumulator_test)
-  ADD_GANDIVA_TEST(engine_llvm_test)
-  ADD_GANDIVA_TEST(function_signature_test)
-  ADD_GANDIVA_TEST(function_registry_test)
-  ADD_GANDIVA_TEST(llvm_types_test)
-  ADD_GANDIVA_TEST(llvm_generator_test)
-  ADD_GANDIVA_TEST(annotator_test)
-  ADD_GANDIVA_TEST(tree_expr_test)
-  ADD_GANDIVA_TEST(expr_decomposer_test)
-  ADD_GANDIVA_TEST(expression_registry_test)
-  ADD_GANDIVA_TEST(selection_vector_test)
-  ADD_GANDIVA_TEST(lru_cache_test)
-  ADD_GANDIVA_TEST(to_date_holder_test)
-  ADD_GANDIVA_TEST(simple_arena_test)
-endif()
+ADD_GANDIVA_TEST(bitmap_accumulator_test)
+ADD_GANDIVA_TEST(engine_llvm_test)
+ADD_GANDIVA_TEST(function_signature_test)
+ADD_GANDIVA_TEST(function_registry_test)
+ADD_GANDIVA_TEST(llvm_types_test)
+ADD_GANDIVA_TEST(llvm_generator_test)
+ADD_GANDIVA_TEST(annotator_test)
+ADD_GANDIVA_TEST(tree_expr_test)
+ADD_GANDIVA_TEST(expr_decomposer_test)
+ADD_GANDIVA_TEST(expression_registry_test)
+ADD_GANDIVA_TEST(selection_vector_test)
+ADD_GANDIVA_TEST(lru_cache_test)
+ADD_GANDIVA_TEST(to_date_holder_test)
+ADD_GANDIVA_TEST(simple_arena_test)
 
 if (ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)
 endif()
+
 add_subdirectory(precompiled)
-
-if (ARROW_GANDIVA_BUILD_TESTS)
-  include(CTest)
-  enable_testing()
-
-  add_subdirectory(tests)
-endif()
+add_subdirectory(tests)

@@ -20,8 +20,11 @@ API Reference
 *************
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Getting Started
+   :maxdepth: 3
 
-   api/array
+   api/support
    api/memory
+   api/datatype
+   api/array
+   api/builder
+   api/table

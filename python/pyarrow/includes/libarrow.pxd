@@ -23,9 +23,15 @@ cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
         CKeyValueMetadata()
         CKeyValueMetadata(const unordered_map[c_string, c_string]&)
+        CKeyValueMetadata(const vector[c_string]& keys,
+                          const vector[c_string]& values)
+
+        void reserve(int64_t n)
+        int64_t size() const
+        c_string key(int64_t i) const
+        c_string value(int64_t i) const
 
         c_bool Equals(const CKeyValueMetadata& other)
-
         void Append(const c_string& key, const c_string& value)
         void ToUnorderedMap(unordered_map[c_string, c_string]*) const
 

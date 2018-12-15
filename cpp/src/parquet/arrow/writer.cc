@@ -861,6 +861,11 @@ Status ArrowColumnWriter::TypedWriteBatch<FLBAType, ::arrow::Decimal128Type>(
 }
 
 Status ArrowColumnWriter::Write(const Array& data) {
+  if (data.length() == 0) {
+    // Write nothing when length is 0
+    return Status::OK();
+  }
+
   ::arrow::Type::type values_type;
   RETURN_NOT_OK(GetLeafType(*data.type(), &values_type));
 
