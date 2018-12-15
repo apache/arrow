@@ -150,12 +150,7 @@ install(TARGETS plasma_store_server
   DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # pkg-config support
-configure_file(plasma.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/plasma.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/plasma.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("plasma")
 
 if(ARROW_PLASMA_JAVA_CLIENT)
   # Plasma java client support

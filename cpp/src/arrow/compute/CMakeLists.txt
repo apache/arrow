@@ -18,12 +18,7 @@
 ARROW_INSTALL_ALL_HEADERS("arrow/compute")
 
 # pkg-config support
-configure_file(arrow-compute.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow-compute.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-compute.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("arrow-compute")
 
 #######################################
 # Unit tests

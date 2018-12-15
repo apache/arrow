@@ -17,4 +17,4 @@
 
 install(FILES
   string_view.hpp
-  DESTINATION include/arrow/util/string_view)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util/string_view")

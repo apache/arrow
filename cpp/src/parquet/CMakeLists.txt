@@ -249,13 +249,7 @@ install(FILES
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
 # pkg-config support
-configure_file(parquet.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/parquet.pc"
-  @ONLY)
-
-install(FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/parquet.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("parquet")
 
 ADD_PARQUET_TEST(bloom_filter-test)
 ADD_PARQUET_TEST(column_reader-test)
