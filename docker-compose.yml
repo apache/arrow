@@ -57,6 +57,22 @@ services:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
+  cpp-cmake32:
+    # Usage:
+    #   docker-compose build cpp-cmake32
+    #   docker-compose run cpp-cmake32
+    image: arrow:cpp-cmake32
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile
+      args:
+        EXTRA_CONDA_PKGS: cmake=3.2
+    environment:
+      ARROW_ORC: "OFF"
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-volumes
+
   cpp-alpine:
     # Usage:
     #   docker-compose build cpp-alpine

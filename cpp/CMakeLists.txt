@@ -16,6 +16,7 @@
 # under the License.
 
 cmake_minimum_required(VERSION 3.2)
+message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
 # Extract Arrow version number
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../java/pom.xml" POM_XML)
@@ -436,11 +437,12 @@ endif()
 ############################################################
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  # Currently the compression tests require at least these libraries; bz2 and
+  # zstd are optional. See ARROW-3984
   set(ARROW_WITH_BROTLI ON)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
   set(ARROW_WITH_ZLIB ON)
-  set(ARROW_WITH_ZSTD ON)
 endif()
 
 if(ARROW_BUILD_TESTS)
