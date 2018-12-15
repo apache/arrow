@@ -50,6 +50,7 @@ On Alpine Linux:
 
 ```shell
 apk add autoconf \
+        bash \
         boost-dev \
         cmake \
         g++ \
