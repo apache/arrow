@@ -94,12 +94,7 @@ endif()
 ARROW_INSTALL_ALL_HEADERS("arrow/python")
 
 # pkg-config support
-configure_file(arrow-python.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow-python.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-python.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("arrow-python")
 
 # ----------------------------------------------------------------------
 

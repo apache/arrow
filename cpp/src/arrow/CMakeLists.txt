@@ -252,12 +252,7 @@ endforeach()
 ARROW_INSTALL_ALL_HEADERS("arrow")
 
 # pkg-config support
-configure_file(arrow.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("arrow")
 
 #######################################
 # Unit tests

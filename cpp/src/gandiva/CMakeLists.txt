@@ -96,12 +96,7 @@ include(GNUInstallDirs)
 ARROW_INSTALL_ALL_HEADERS("gandiva")
 
 # pkg-config support
-configure_file(gandiva.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("gandiva")
 
 set(GANDIVA_STATIC_TEST_LINK_LIBS
   gandiva_static
