@@ -492,18 +492,12 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
   };
 
   if (use_threads_) {
-    std::vector<std::future<Status>> futures;
     auto pool = ::arrow::internal::GetCpuThreadPool();
     for (int i = 0; i < num_columns; i++) {
-      futures.push_back(pool->Submit([ReadColumnFunc, i] { return ReadColumnFunc(i); }));
+      pool->Submit([ReadColumnFunc, i] { return ReadColumnFunc(i); });
     }
     Status final_status = Status::OK();
-    for (auto& fut : futures) {
-      Status st = fut.get();
-      if (!st.ok()) {
-        final_status = std::move(st);
-      }
-    }
+    pool->Wait();
     RETURN_NOT_OK(final_status);
   } else {
     for (int i = 0; i < num_columns; i++) {
@@ -539,18 +533,12 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
   };
 
   if (use_threads_) {
-    std::vector<std::future<Status>> futures;
     auto pool = ::arrow::internal::GetCpuThreadPool();
     for (int i = 0; i < num_fields; i++) {
-      futures.push_back(pool->Submit([ReadColumnFunc, i]{ return ReadColumnFunc(i); }));
+      pool->Submit([ReadColumnFunc, i]{ return ReadColumnFunc(i); });
     }
     Status final_status = Status::OK();
-    for (auto& fut : futures) {
-      Status st = fut.get();
-      if (!st.ok()) {
-        final_status = std::move(st);
-      }
-    }
+    pool->Wait();
     RETURN_NOT_OK(final_status);
   } else {
     for (int i = 0; i < num_fields; i++) {

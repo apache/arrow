@@ -63,20 +63,17 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
   // Each thread gets a "chunk" of k blocks.
 
   // Start all parallel memcpy tasks and handle leftovers while threads run.
-  std::vector<std::future<Status>> futures;
 
   for (int i = 0; i < num_threads; i++) {
-    futures.emplace_back(pool->Submit([dst, prefix, i, chunk_size, left] {
+    pool->Submit([dst, prefix, i, chunk_size, left] {
       return wrap_memcpy(dst + prefix + i * chunk_size,
                          left + i * chunk_size, chunk_size);
-    }));
+    });
   }
   memcpy(dst, src, prefix);
   memcpy(dst + prefix + num_threads * chunk_size, right, suffix);
 
-  for (auto& fut : futures) {
-    ARROW_CHECK_OK(fut.get());
-  }
+  pool->Wait();
 }
 
 }  // namespace internal

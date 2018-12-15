@@ -676,19 +676,16 @@ bool PlasmaClient::Impl::ComputeObjectHashParallel(XXH64_state_t* hash_state,
   // | num_threads * chunk_size | suffix |, where chunk_size = k * block_size.
   // Each thread gets a "chunk" of k blocks, except the suffix thread.
 
-  std::vector<std::future<Status>> futures;
   for (int i = 0; i < num_threads; i++) {
-    futures.push_back(pool->Submit([data_address, i, chunk_size, &threadhash] {
+    pool->Submit([data_address, i, chunk_size, &threadhash] {
         return ComputeBlockHash(reinterpret_cast<uint8_t*>(data_address) + i * chunk_size,
                                 chunk_size, &threadhash[i]);
-    }));
+    });
   }
   ARROW_CHECK_OK(ComputeBlockHash(reinterpret_cast<uint8_t*>(right_address), suffix,
                                   &threadhash[num_threads]));
 
-  for (auto& fut : futures) {
-    ARROW_CHECK_OK(fut.get());
-  }
+  pool->Wait();
 
   XXH64_update(hash_state, reinterpret_cast<unsigned char*>(threadhash),
                sizeof(threadhash));

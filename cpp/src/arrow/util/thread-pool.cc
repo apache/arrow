@@ -145,6 +145,11 @@ Status ThreadPool::Shutdown(bool wait) {
   return Status::OK();
 }
 
+void ThreadPool::Wait() {
+  std::unique_lock<std::mutex> lock(state_->mutex_);
+  state_->cv_.wait(lock, [this] { return state_->pending_tasks_.empty(); });
+}
+
 void ThreadPool::CollectFinishedWorkersUnlocked() {
   for (auto& thread : state_->finished_workers_) {
     // Make sure OS thread has exited

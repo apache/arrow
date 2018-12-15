@@ -94,18 +94,16 @@ class ARROW_EXPORT ThreadPool {
   }
 
   // Submit a callable for execution.
-  std::future<Status> Submit(std::function<Status()> func) {
-    using PackagedTask = std::packaged_task<Status()>;
-    auto task = PackagedTask(func);
-    auto fut = task.get_future();
+  void Submit(std::function<Status()> func) {
     Status st = SpawnReal(std::move(func));
     if (!st.ok()) {
       // This happens when Submit() is called after Shutdown()
       std::cerr << st.ToString() << std::endl;
       std::abort();
     }
-    return fut;
   }
+
+  void Wait();
 
  protected:
   FRIEND_TEST(TestThreadPool, SetCapacity);
