@@ -175,6 +175,19 @@ struct FixedLenByteArray {
 
 using FLBA = FixedLenByteArray;
 
+// Julian day at unix epoch.
+//
+// The Julian Day Number (JDN) is the integer assigned to a whole solar day in
+// the Julian day count starting from noon Universal time, with Julian day
+// number 0 assigned to the day starting at noon on Monday, January 1, 4713 BC,
+// proleptic Julian calendar (November 24, 4714 BC, in the proleptic Gregorian
+// calendar),
+constexpr int64_t kJulianToUnixEpochDays = INT64_C(2440588);
+constexpr int64_t kSecondsPerDay = INT64_C(60 * 60 * 24);
+constexpr int64_t kMillisecondsPerDay = kSecondsPerDay * INT64_C(1000);
+constexpr int64_t kMicrosecondsPerDay = kMillisecondsPerDay * INT64_C(1000);
+constexpr int64_t kNanosecondsPerDay = kMicrosecondsPerDay * INT64_C(1000);
+
 MANUALLY_ALIGNED_STRUCT(1) Int96 { uint32_t value[3]; };
 STRUCT_END(Int96, 12);
 
@@ -190,6 +203,14 @@ static inline std::string ByteArrayToString(const ByteArray& a) {
 
 static inline void Int96SetNanoSeconds(parquet::Int96& i96, int64_t nanoseconds) {
   std::memcpy(&i96.value, &nanoseconds, sizeof(nanoseconds));
+}
+
+static inline int64_t Int96GetNanoSeconds(const parquet::Int96& i96) {
+  int64_t days_since_epoch = i96.value[2] - kJulianToUnixEpochDays;
+  int64_t nanoseconds = 0;
+
+  memcpy(&nanoseconds, &i96.value, sizeof(int64_t));
+  return days_since_epoch * kNanosecondsPerDay + nanoseconds;
 }
 
 static inline std::string Int96ToString(const Int96& a) {
