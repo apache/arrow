@@ -33,10 +33,7 @@ uint8_t* pointer_logical_and(const uint8_t* address, uintptr_t bits) {
 
 // This function is just for avoiding MinGW-w64 32bit crash.
 // See also: https://sourceforge.net/p/mingw-w64/bugs/767/
-Status wrap_memcpy(void* dst, const void* src, size_t n) {
-  memcpy(dst, src, n);
-  return Status::OK();
-}
+void* wrap_memcpy(void* dst, const void* src, size_t n) { return memcpy(dst, src, n); }
 
 // A helper function for doing memcpy with multiple threads. This is required
 // to saturate the memory bandwidth of modern cpus.
@@ -63,17 +60,18 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
   // Each thread gets a "chunk" of k blocks.
 
   // Start all parallel memcpy tasks and handle leftovers while threads run.
+  std::vector<Future<void*>> futures;
 
   for (int i = 0; i < num_threads; i++) {
-    pool->Submit([dst, prefix, i, chunk_size, left] {
-      return wrap_memcpy(dst + prefix + i * chunk_size,
-                         left + i * chunk_size, chunk_size);
-    });
+    futures.emplace_back(pool->Submit(wrap_memcpy, dst + prefix + i * chunk_size,
+                                      left + i * chunk_size, chunk_size));
   }
   memcpy(dst, src, prefix);
   memcpy(dst + prefix + num_threads * chunk_size, right, suffix);
 
-  pool->Wait();
+  for (auto& fut : futures) {
+    fut.get();
+  }
 }
 
 }  // namespace internal

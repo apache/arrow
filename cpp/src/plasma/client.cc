@@ -650,12 +650,11 @@ Status PlasmaClient::Impl::List(ObjectTable* objects) {
   return ReadListReply(buffer.data(), buffer.size(), objects);
 }
 
-static Status ComputeBlockHash(const unsigned char* data, int64_t nbytes, uint64_t* hash) {
+static void ComputeBlockHash(const unsigned char* data, int64_t nbytes, uint64_t* hash) {
   XXH64_state_t hash_state;
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
   XXH64_update(&hash_state, data, nbytes);
   *hash = XXH64_digest(&hash_state);
-  return Status::OK();
 }
 
 bool PlasmaClient::Impl::ComputeObjectHashParallel(XXH64_state_t* hash_state,
@@ -676,16 +675,18 @@ bool PlasmaClient::Impl::ComputeObjectHashParallel(XXH64_state_t* hash_state,
   // | num_threads * chunk_size | suffix |, where chunk_size = k * block_size.
   // Each thread gets a "chunk" of k blocks, except the suffix thread.
 
+  std::vector<arrow::Future<void>> futures;
   for (int i = 0; i < num_threads; i++) {
-    pool->Submit([data_address, i, chunk_size, &threadhash] {
-        return ComputeBlockHash(reinterpret_cast<uint8_t*>(data_address) + i * chunk_size,
-                                chunk_size, &threadhash[i]);
-    });
+    futures.push_back(pool->Submit(
+        ComputeBlockHash, reinterpret_cast<uint8_t*>(data_address) + i * chunk_size,
+        chunk_size, &threadhash[i]));
   }
-  ARROW_CHECK_OK(ComputeBlockHash(reinterpret_cast<uint8_t*>(right_address), suffix,
-                                  &threadhash[num_threads]));
+  ComputeBlockHash(reinterpret_cast<uint8_t*>(right_address), suffix,
+                   &threadhash[num_threads]);
 
-  pool->Wait();
+  for (auto& fut : futures) {
+    fut.get();
+  }
 
   XXH64_update(hash_state, reinterpret_cast<unsigned char*>(threadhash),
                sizeof(threadhash));

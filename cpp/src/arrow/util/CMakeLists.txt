@@ -99,7 +99,7 @@ ADD_ARROW_TEST(parsing-util-test)
 ADD_ARROW_TEST(rle-encoding-test)
 ADD_ARROW_TEST(stl-util-test)
 ADD_ARROW_TEST(task-group-test)
-# ADD_ARROW_TEST(thread-pool-test)
+ADD_ARROW_TEST(thread-pool-test)
 ADD_ARROW_TEST(utf8-util-test)
 
 ADD_ARROW_BENCHMARK(bit-util-benchmark)

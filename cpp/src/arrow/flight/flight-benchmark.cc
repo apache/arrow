@@ -146,7 +146,7 @@ Status RunPerformanceTest(const int port) {
 
   std::shared_ptr<ThreadPool> pool;
   RETURN_NOT_OK(ThreadPool::Make(FLAGS_num_threads, &pool));
-  std::vector<boost::future<Status>> tasks;
+  std::vector<arrow::Future<Status>> tasks;
   for (const auto& endpoint : plan->endpoints()) {
     tasks.emplace_back(pool->Submit(ConsumeStream, endpoint));
   }

@@ -24,20 +24,36 @@
 
 #include <cstdlib>
 #include <functional>
+#include <future>
 #include <iostream>
 #include <list>
 #include <memory>
 #include <string>
 #include <thread>
-#include <future>
 #include <type_traits>
 #include <utility>
+
+#define ARROW_USE_BOOST_FUTURE
+
+#ifdef ARROW_USE_BOOST_FUTURE
+#define BOOST_THREAD_PROVIDES_FUTURE
+#include <boost/thread.hpp>
+#include <boost/thread/future.hpp>
+#endif
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+#ifndef ARROW_USE_BOOST_FUTURE
+  template<class R>
+  using Future = std::future<R>;
+#else
+  template<class R>
+  using Future = boost::future<R>;
+#endif
 
 /// \brief Get the capacity of the global thread pool
 ///
@@ -57,6 +73,23 @@ ARROW_EXPORT int GetCpuThreadPoolCapacity();
 ARROW_EXPORT Status SetCpuThreadPoolCapacity(int threads);
 
 namespace internal {
+
+namespace detail {
+// Needed because std::packaged_task is not copyable and hence not convertible
+// to std::function.
+template <typename R, typename... Args>
+struct packaged_task_wrapper {
+#ifndef ARROW_USE_BOOST_FUTURE
+  using PackagedTask = std::packaged_task<R(Args...)>;
+#else
+  using PackagedTask = boost::packaged_task<R>;
+#endif
+   explicit packaged_task_wrapper(PackagedTask&& task)
+      : task_(std::make_shared<PackagedTask>(std::forward<PackagedTask>(task))) {}
+   void operator()(Args&&... args) { return (*task_)(std::forward<Args>(args)...); }
+  std::shared_ptr<PackagedTask> task_;
+};
+}  // namespace detail
 
 class ARROW_EXPORT ThreadPool {
  public:
@@ -93,17 +126,33 @@ class ARROW_EXPORT ThreadPool {
     return SpawnReal(std::forward<Function>(func));
   }
 
-  // Submit a callable for execution.
-  void Submit(std::function<Status()> func) {
-    Status st = SpawnReal(std::move(func));
+  // Submit a callable and arguments for execution.  Return a future that
+  // will return the callable's result value once.
+  // The callable's arguments are copied before execution.
+  // Since the function is variadic and needs to return a result (the future),
+  // an exception is raised if the task fails spawning (which currently
+  // only occurs if the ThreadPool is shutting down).
+  template <typename Function, typename... Args,
+            typename Result = typename std::result_of<Function && (Args && ...)>::type>
+  Future<Result> Submit(Function&& func, Args&&... args) {
+    // Trying to templatize std::packaged_task with Function doesn't seem
+    // to work, so go through std::bind to simplify the packaged signature
+#ifndef ARROW_USE_BOOST_FUTURE
+    using PackagedTask = std::packaged_task<Result()>;
+#else
+    using PackagedTask = boost::packaged_task<Result>;
+#endif
+    auto task = PackagedTask(std::bind(std::forward<Function>(func), args...));
+    auto fut = task.get_future();
+
+    Status st = SpawnReal(detail::packaged_task_wrapper<Result>(std::move(task)));
     if (!st.ok()) {
       // This happens when Submit() is called after Shutdown()
       std::cerr << st.ToString() << std::endl;
       std::abort();
     }
+    return fut;
   }
-
-  void Wait();
 
  protected:
   FRIEND_TEST(TestThreadPool, SetCapacity);
