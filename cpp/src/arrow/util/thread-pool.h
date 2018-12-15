@@ -75,6 +75,7 @@ ARROW_EXPORT Status SetCpuThreadPoolCapacity(int threads);
 namespace internal {
 
 namespace detail {
+
 // Needed because std::packaged_task is not copyable and hence not convertible
 // to std::function.
 template <typename R, typename... Args>
@@ -89,6 +90,7 @@ struct packaged_task_wrapper {
    void operator()(Args&&... args) { return (*task_)(std::forward<Args>(args)...); }
   std::shared_ptr<PackagedTask> task_;
 };
+
 }  // namespace detail
 
 class ARROW_EXPORT ThreadPool {
