@@ -77,6 +77,8 @@ ARROW_EXPORT void CheckUTF8Initialized() {
 
 void InitializeUTF8() {
   // std::call_once(utf8_initialized, internal::InitializeLargeTable);
+  // How should we do this? Maybe use
+  // https://en.wikibooks.org/wiki/More_C%2B%2B_Idioms/Nifty_Counter
   internal::InitializeLargeTable();
 }
 
