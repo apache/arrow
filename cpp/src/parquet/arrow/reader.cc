@@ -492,10 +492,10 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
   };
 
   if (use_threads_) {
-    std::vector<boost::future<Status>> futures;
+    std::vector<std::future<Status>> futures;
     auto pool = ::arrow::internal::GetCpuThreadPool();
     for (int i = 0; i < num_columns; i++) {
-      futures.push_back(pool->Submit(ReadColumnFunc, i));
+      futures.push_back(pool->Submit([ReadColumnFunc, i] { return ReadColumnFunc(i); }));
     }
     Status final_status = Status::OK();
     for (auto& fut : futures) {
@@ -539,10 +539,10 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
   };
 
   if (use_threads_) {
-    std::vector<boost::future<Status>> futures;
+    std::vector<std::future<Status>> futures;
     auto pool = ::arrow::internal::GetCpuThreadPool();
     for (int i = 0; i < num_fields; i++) {
-      futures.push_back(pool->Submit(ReadColumnFunc, i));
+      futures.push_back(pool->Submit([ReadColumnFunc, i]{ return ReadColumnFunc(i); }));
     }
     Status final_status = Status::OK();
     for (auto& fut : futures) {
