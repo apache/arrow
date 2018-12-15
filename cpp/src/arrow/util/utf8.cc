@@ -73,10 +73,11 @@ ARROW_EXPORT void CheckUTF8Initialized() {
 
 }  // namespace internal
 
-static std::once_flag utf8_initialized;
+// static std::once_flag utf8_initialized;
 
 void InitializeUTF8() {
-  std::call_once(utf8_initialized, internal::InitializeLargeTable);
+  // std::call_once(utf8_initialized, internal::InitializeLargeTable);
+  internal::InitializeLargeTable();
 }
 
 }  // namespace util
