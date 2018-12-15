@@ -211,8 +211,6 @@ test_glib() {
     gem install bundler
   fi
 
-  # Workaround for 0.11.0. 0.11.0 doesn't include c_glib/Gemfile.
-  wget https://raw.githubusercontent.com/apache/arrow/master/c_glib/Gemfile
   bundle install --path vendor/bundle
   bundle exec ruby test/run-test.rb
 
