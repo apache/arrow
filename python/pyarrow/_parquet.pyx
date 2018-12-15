@@ -32,8 +32,8 @@ from pyarrow.lib cimport (Array, Schema,
                           NativeFile, get_reader, get_writer)
 
 from pyarrow.compat import tobytes, frombytes
-from pyarrow.formatting import indent
 from pyarrow.lib import ArrowException, NativeFile, _stringify_path
+from pyarrow.util import indent
 
 import six
 import warnings
