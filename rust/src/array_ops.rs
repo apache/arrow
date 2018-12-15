@@ -90,16 +90,16 @@ where
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on two batches of different length".to_string(),
+            "Cannot perform math operation on two arrays of different length".to_string(),
         ));
     }
     let mut b = PrimitiveArrayBuilder::<T>::new(left.len());
     for i in 0..left.len() {
         let index = i;
         if left.is_null(i) || right.is_null(i) {
-            b.push_null().unwrap();
+            b.push_null()?;
         } else {
-            b.push(op(left.value(index), right.value(index))?).unwrap();
+            b.push(op(left.value(index), right.value(index))?)?;
         }
     }
     Ok(b.finish())
@@ -210,7 +210,7 @@ where
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on two batches of different length".to_string(),
+            "Cannot perform math operation on two arrays of different length".to_string(),
         ));
     }
     let mut b = BooleanArray::builder(left.len());
@@ -226,7 +226,53 @@ where
         } else {
             Some(right.value(index))
         };
-        b.push(op(l, r)).unwrap();
+        b.push(op(l, r))?;
+    }
+    Ok(b.finish())
+}
+
+pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform boolean operation on two arrays of different length".to_string(),
+        ));
+    }
+    let mut b = BooleanArray::builder(left.len());
+    for i in 0..left.len() {
+        if left.is_null(i) || right.is_null(i) {
+            b.push_null()?;
+        } else {
+            b.push(left.value(i) && right.value(i))?;
+        }
+    }
+    Ok(b.finish())
+}
+
+pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform boolean operation on two arrays of different length".to_string(),
+        ));
+    }
+    let mut b = BooleanArray::builder(left.len());
+    for i in 0..left.len() {
+        if left.is_null(i) || right.is_null(i) {
+            b.push_null()?;
+        } else {
+            b.push(left.value(i) || right.value(i))?;
+        }
+    }
+    Ok(b.finish())
+}
+
+pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
+    let mut b = BooleanArray::builder(left.len());
+    for i in 0..left.len() {
+        if left.is_null(i) {
+            b.push_null()?;
+        } else {
+            b.push(!left.value(i))?;
+        }
     }
     Ok(b.finish())
 }
@@ -256,7 +302,7 @@ mod tests {
             .err()
             .expect("should have failed due to different lengths");
         assert_eq!(
-            "ComputeError(\"Cannot perform math operation on two batches of different length\")",
+            "ComputeError(\"Cannot perform math operation on two arrays of different length\")",
             format!("{:?}", e)
         );
     }
@@ -413,6 +459,38 @@ mod tests {
         let a = Int32Array::from(vec![Some(5), None, None, Some(8), Some(9)]);
         assert_eq!(5, min(&a).unwrap());
         assert_eq!(9, max(&a).unwrap());
+    }
+
+    #[test]
+    fn test_bool_array_and() {
+        let a = BooleanArray::from(vec![false, false, true, true]);
+        let b = BooleanArray::from(vec![false, true, false, true]);
+        let c = and(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(true, c.value(3));
+    }
+
+    #[test]
+    fn test_bool_array_or() {
+        let a = BooleanArray::from(vec![false, false, true, true]);
+        let b = BooleanArray::from(vec![false, true, false, true]);
+        let c = or(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(true, c.value(2));
+        assert_eq!(true, c.value(3));
+    }
+
+    #[test]
+    fn test_bool_array_not() {
+        let a = BooleanArray::from(vec![false, false, true, true]);
+        let c = not(&a).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(false, c.value(3));
     }
 
 }
