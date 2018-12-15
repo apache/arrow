@@ -32,7 +32,7 @@ PYARROW_PYTEST_FLAGS=" -r sxX --durations=15 --parquet"
 PYTHON_VERSION=$1
 CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 
-conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION cmake curl
+conda create -y -q -p $CONDA_ENV_DIR cmake curl
 conda activate $CONDA_ENV_DIR
 
 # We should use zlib in the target Python directory to avoid loading
@@ -44,9 +44,6 @@ conda activate $CONDA_ENV_DIR
 # python-test fails.
 export ZLIB_HOME=$CONDA_ENV_DIR
 
-python --version
-which python
-
 if [ $ARROW_TRAVIS_PYTHON_JVM == "1" ]; then
   CONDA_JVM_DEPS="jpype1"
 fi
@@ -55,7 +52,11 @@ conda install -y -q \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
       pip \
       numpy=1.13.1 \
+      python=${PYTHON_VERSION} \
       ${CONDA_JVM_DEPS}
+
+python --version
+which python
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Install documentation dependencies
