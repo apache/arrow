@@ -99,9 +99,8 @@ function build_wheel {
     # build will also work with newer NumPy versions.
     export ARROW_HOME=`pwd`/arrow-dist
     export PARQUET_HOME=`pwd`/arrow-dist
-    if [ -n "$BUILD_DEPENDS" ]; then
-        pip install $(pip_opts) $BUILD_DEPENDS
-    fi
+
+    pip install $(pip_opts) -r requirements.txt $PINNED_BUILD_DEPENDENCIES
 
     pushd cpp
     mkdir build
@@ -162,9 +161,8 @@ function install_run {
     wheelhouse="$PWD/python/dist"
 
     # Install test dependencies and built wheel
-    if [ -n "$TEST_DEPENDS" ]; then
-        pip install $(pip_opts) $TEST_DEPENDS
-    fi
+    pip install $(pip_opts) -r requirements.txt $PINNED_TEST_DEPENDENCIES
+
     # Install compatible wheel
     pip install $(pip_opts) \
         $(python $multibuild_dir/supported_wheels.py $wheelhouse/*.whl)
