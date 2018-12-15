@@ -280,6 +280,7 @@ add_subdirectory(array)
 add_subdirectory(csv)
 add_subdirectory(io)
 add_subdirectory(util)
+add_subdirectory(vendored)
 
 if(ARROW_FLIGHT)
   add_subdirectory(flight)

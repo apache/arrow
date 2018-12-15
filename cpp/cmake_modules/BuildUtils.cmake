@@ -580,7 +580,8 @@ function(ARROW_INSTALL_ALL_HEADERS PATH)
   set(multi_value_args PATTERN)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if (NOT ARG_PATTERN)
-    set(ARG_PATTERN "*.h")
+    # The .hpp extension is used by some vendored libraries
+    set(ARG_PATTERN "*.h" "*.hpp")
   endif()
   file(GLOB CURRENT_DIRECTORY_HEADERS ${ARG_PATTERN})
 

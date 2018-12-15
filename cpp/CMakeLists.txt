@@ -373,12 +373,8 @@ if (UNIX)
     IF(NOT ((item MATCHES "_generated.h") OR
             (item MATCHES "pyarrow_api.h") OR
             (item MATCHES "pyarrow_lib.h") OR
-            (item MATCHES "xxhash.h") OR
-            (item MATCHES "xxhash.cc") OR
             (item MATCHES "config.h") OR
-            (item MATCHES "util/date.h") OR
-            (item MATCHES "util/string_view/") OR
-            (item MATCHES "util/variant") OR
+            (item MATCHES "vendored/") OR
             (item MATCHES "zmalloc.h") OR
             (item MATCHES "ae.h")))
       LIST(APPEND FILTERED_LINT_FILES ${item})

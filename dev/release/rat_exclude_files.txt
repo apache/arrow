@@ -13,15 +13,7 @@ cpp/src/arrow/io/mman.h
 cpp/src/arrow/util/random.h
 cpp/src/arrow/status.cc
 cpp/src/arrow/status.h
-cpp/src/arrow/util/string_view/string_view.hpp
-cpp/src/arrow/util/variant.h
-cpp/src/arrow/util/variant/optional.h
-cpp/src/arrow/util/variant/recursive_wrapper.h
-cpp/src/arrow/util/variant/variant_cast.h
-cpp/src/arrow/util/variant/variant_io.h
-cpp/src/arrow/util/variant/variant_visitor.h
-cpp/src/arrow/util/xxhash/xxhash.c
-cpp/src/arrow/util/xxhash/xxhash.h
+cpp/src/arrow/vendored/*
 cpp/build-support/asan_symbolize.py
 cpp/build-support/cpplint.py
 cpp/build-support/clang_format_exclusions.txt

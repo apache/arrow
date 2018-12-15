@@ -15,6 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-install(FILES
-  string_view.hpp
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util/string_view")
+ARROW_INSTALL_ALL_HEADERS("arrow/vendored")
+
+add_subdirectory(variant)
