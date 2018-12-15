@@ -20,7 +20,6 @@ import os
 
 import six
 import pandas as pd
-import warnings
 
 from pyarrow.compat import pdapi
 from pyarrow.lib import FeatherError  # noqa
@@ -43,11 +42,6 @@ class FeatherReader(ext.FeatherReader):
     def __init__(self, source):
         self.source = source
         self.open(source)
-
-    def read(self, *args, **kwargs):
-        warnings.warn("read has been deprecated. Use read_pandas instead.",
-                      FutureWarning, stacklevel=2)
-        return self.read_pandas(*args, **kwargs)
 
     def read_table(self, columns=None):
         if columns is None:
