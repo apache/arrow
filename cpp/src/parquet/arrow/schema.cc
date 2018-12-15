@@ -423,45 +423,66 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
   return Status::OK();
 }
 
+static LogicalType::type LogicalTypeFromArrowTimeUnit(::arrow::TimeUnit::type time_unit) {
+  switch (time_unit) {
+    case ::arrow::TimeUnit::MILLI:
+      return LogicalType::TIMESTAMP_MILLIS;
+    case ::arrow::TimeUnit::MICRO:
+      return LogicalType::TIMESTAMP_MICROS;
+    case ::arrow::TimeUnit::SECOND:
+    case ::arrow::TimeUnit::NANO:
+      // No equivalent parquet logical type.
+      break;
+  }
+
+  return LogicalType::NONE;
+}
+
 static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
                                    const ArrowWriterProperties& properties,
                                    ParquetType::type* physical_type,
                                    LogicalType::type* logical_type) {
-  auto unit = type.unit();
-  *physical_type = ParquetType::INT64;
+  const bool coerce = properties.coerce_timestamps_enabled();
+  const auto unit = coerce ? properties.coerce_timestamps_unit() : type.unit();
 
-  if (properties.coerce_timestamps_enabled()) {
-    auto coerce_unit = properties.coerce_timestamps_unit();
-    if (coerce_unit == ::arrow::TimeUnit::MILLI) {
-      *logical_type = LogicalType::TIMESTAMP_MILLIS;
-    } else if (coerce_unit == ::arrow::TimeUnit::MICRO) {
-      *logical_type = LogicalType::TIMESTAMP_MICROS;
-    } else {
-      return Status::NotImplemented(
-          "Can only coerce Arrow timestamps to milliseconds"
-          " or microseconds");
-    }
+  // The user is explicitly asking for Impala int96 encoding, there is no
+  // logical type.
+  if (properties.support_deprecated_int96_timestamps()) {
+    *physical_type = ParquetType::INT96;
     return Status::OK();
   }
 
-  if (unit == ::arrow::TimeUnit::MILLI) {
-    *logical_type = LogicalType::TIMESTAMP_MILLIS;
-  } else if (unit == ::arrow::TimeUnit::MICRO) {
-    *logical_type = LogicalType::TIMESTAMP_MICROS;
-  } else if (unit == ::arrow::TimeUnit::NANO) {
-    if (properties.support_deprecated_int96_timestamps()) {
-      *physical_type = ParquetType::INT96;
-      // No corresponding logical type
-    } else {
-      *logical_type = LogicalType::TIMESTAMP_MICROS;
+  *physical_type = ParquetType::INT64;
+  *logical_type = LogicalTypeFromArrowTimeUnit(unit);
+
+  // The user is requesting that all timestamp columns are casted to a specific
+  // type. Only 2 TimeUnit are supported by arrow-parquet.
+  if (coerce) {
+    switch (unit) {
+      case ::arrow::TimeUnit::MILLI:
+      case ::arrow::TimeUnit::MICRO:
+        break;
+      case ::arrow::TimeUnit::NANO:
+      case ::arrow::TimeUnit::SECOND:
+        return Status::NotImplemented(
+            "Can only coerce Arrow timestamps to milliseconds"
+            " or microseconds");
     }
-  } else {
+
+    return Status::OK();
+  }
+
+  // Until ARROW-3729 is resolved, nanoseconds are explicitly converted to
+  // int64 microseconds when deprecated int96 is not requested.
+  if (type.unit() == ::arrow::TimeUnit::NANO)
+    *logical_type = LogicalType::TIMESTAMP_MICROS;
+  else if (type.unit() == ::arrow::TimeUnit::SECOND)
     return Status::NotImplemented(
         "Only MILLI, MICRO, and NANOS units supported for Arrow timestamps with "
         "Parquet.");
-  }
+
   return Status::OK();
-}
+}  // namespace arrow
 
 Status FieldToNode(const std::shared_ptr<Field>& field,
                    const WriterProperties& properties,
@@ -698,7 +719,7 @@ int32_t DecimalSize(int32_t precision) {
   }
   DCHECK(false);
   return -1;
-}
+}  // namespace arrow
 
 }  // namespace arrow
 }  // namespace parquet

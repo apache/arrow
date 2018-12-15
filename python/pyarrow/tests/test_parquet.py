@@ -844,7 +844,7 @@ def test_date_time_types():
     a2 = pa.array(data2, type=t2)
 
     t3 = pa.timestamp('us')
-    start = pd.Timestamp('2000-01-01').value / 1000
+    start = pd.Timestamp('2001-01-01').value / 1000
     data3 = np.array([start, start + 1, start + 2], dtype='int64')
     a3 = pa.array(data3, type=t3)
 
@@ -892,8 +892,9 @@ def test_date_time_types():
 
     # date64 as date32
     # time32[s] to time32[ms]
+    # 'timestamp[ms]' is saved as INT96 timestamp
     # 'timestamp[ns]' is saved as INT96 timestamp
-    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6, a7],
+    expected = pa.Table.from_arrays([a1, a1, a7, a4, a5, ex_a6, a7],
                                     ['date32', 'date64', 'timestamp[us]',
                                      'time32[s]', 'time64[us]',
                                      'time32_from64[s]',

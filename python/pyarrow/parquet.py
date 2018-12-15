@@ -284,8 +284,8 @@ use_dictionary : bool or list
     Specify if we should use dictionary encoding in general or only for
     some columns.
 use_deprecated_int96_timestamps : boolean, default None
-    Write nanosecond resolution timestamps to INT96 Parquet
-    format. Defaults to False unless enabled by flavor argument
+    Write timestamps to INT96 Parquet format. Defaults to False unless enabled
+    by flavor argument. This take priority over the coerce_timestamps option.
 coerce_timestamps : string, default None
     Cast timestamps a particular resolution.
     Valid values: {None, 'ms', 'us'}
