@@ -118,7 +118,7 @@ def test_chunked_array_equals():
         assert x.equals(y)
         assert y.equals(x)
         assert x == y
-        assert (x == str(y)) is False
+        assert x != str(y)
 
     def ne(xarrs, yarrs):
         if isinstance(xarrs, pa.ChunkedArray):
@@ -229,7 +229,7 @@ def test_column_basics():
     assert column.to_pylist() == [-10, -5, 0, 5, 10]
     assert column == pa.Column.from_array("a", column.data)
     assert column != pa.Column.from_array("b", column.data)
-    assert (column == column.data) is False
+    assert column != column.data
 
 
 def test_column_factory_function():
@@ -585,7 +585,7 @@ def test_table_basics():
     assert table.columns == columns
     assert table == pa.Table.from_arrays(columns)
     assert table != pa.Table.from_arrays(columns[1:])
-    assert (table == columns) is False
+    assert table != columns
 
 
 def test_table_from_arrays_preserves_column_metadata():

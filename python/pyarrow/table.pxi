@@ -120,7 +120,7 @@ cdef class ChunkedArray:
     def __eq__(self, other):
         try:
             return self.equals(other)
-        except (TypeError, ValueError):
+        except TypeError:
             return NotImplemented
 
     def equals(self, ChunkedArray other):
@@ -541,7 +541,7 @@ cdef class Column:
     def __eq__(self, other):
         try:
             return self.equals(other)
-        except (TypeError, ValueError):
+        except TypeError:
             return NotImplemented
 
     def equals(self, Column other):
@@ -1118,7 +1118,7 @@ cdef class Table:
     def __eq__(self, other):
         try:
             return self.equals(other)
-        except (TypeError, ValueError):
+        except TypeError:
             return NotImplemented
 
     def equals(self, Table other):
