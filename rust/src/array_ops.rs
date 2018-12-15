@@ -90,7 +90,7 @@ where
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on two arrays of different length".to_string(),
+            "Cannot perform math operation on arrays of different length".to_string(),
         ));
     }
     let mut b = PrimitiveArrayBuilder::<T>::new(left.len());
@@ -210,7 +210,7 @@ where
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on two arrays of different length".to_string(),
+            "Cannot perform math operation on arrays of different length".to_string(),
         ));
     }
     let mut b = BooleanArray::builder(left.len());
@@ -234,7 +234,7 @@ where
 pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform boolean operation on two arrays of different length".to_string(),
+            "Cannot perform boolean operation on arrays of different length".to_string(),
         ));
     }
     let mut b = BooleanArray::builder(left.len());
@@ -251,7 +251,7 @@ pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
 pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform boolean operation on two arrays of different length".to_string(),
+            "Cannot perform boolean operation on arrays of different length".to_string(),
         ));
     }
     let mut b = BooleanArray::builder(left.len());
@@ -302,7 +302,7 @@ mod tests {
             .err()
             .expect("should have failed due to different lengths");
         assert_eq!(
-            "ComputeError(\"Cannot perform math operation on two arrays of different length\")",
+            "ComputeError(\"Cannot perform math operation on arrays of different length\")",
             format!("{:?}", e)
         );
     }
