@@ -25,13 +25,13 @@ mkdir /arrow_boost
 pushd /boost_${BOOST_VERSION_UNDERSCORE}
 ./bootstrap.sh
 ./b2 tools/bcp
-./dist/bin/bcp --namespace=arrow_boost --namespace-alias filesystem date_time system thread atomic chrono regex build algorithm locale format variant /arrow_boost
+./dist/bin/bcp --namespace=arrow_boost --namespace-alias filesystem date_time system regex build algorithm locale format variant /arrow_boost
 popd
 
 pushd /arrow_boost
 ls -l
 ./bootstrap.sh
-./bjam dll-path="'\$ORIGIN/'" cxxflags='-std=c++11 -fPIC' cflags=-fPIC linkflags="-std=c++11" variant=release link=shared --prefix=/arrow_boost_dist --with-filesystem --with-date_time --with-system --with-thread --with-atomic --with-chrono --with-regex install
+./bjam dll-path="'\$ORIGIN/'" cxxflags='-std=c++11 -fPIC' cflags=-fPIC linkflags="-std=c++11" variant=release link=shared --prefix=/arrow_boost_dist --with-filesystem --with-date_time --with-system --with-regex install
 popd
 rm -rf boost_${BOOST_VERSION_UNDERSCORE}.tar.gz boost_${BOOST_VERSION_UNDERSCORE} arrow_boost
 # Boost always install header-only parts but they also take up quite some space.

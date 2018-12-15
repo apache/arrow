@@ -29,12 +29,9 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <future>
 #include <type_traits>
 #include <utility>
-
-#define BOOST_THREAD_PROVIDES_FUTURE
-#include <boost/thread.hpp>
-#include <boost/thread/future.hpp>
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
@@ -60,23 +57,6 @@ ARROW_EXPORT int GetCpuThreadPoolCapacity();
 ARROW_EXPORT Status SetCpuThreadPoolCapacity(int threads);
 
 namespace internal {
-
-namespace detail {
-
-// Needed because std::packaged_task is not copyable and hence not convertible
-// to std::function.
-template <typename R, typename... Args>
-struct packaged_task_wrapper {
-  using PackagedTask = boost::packaged_task<R>;
-
-  explicit packaged_task_wrapper(PackagedTask&& task)
-      : task_(std::make_shared<PackagedTask>(std::forward<PackagedTask>(task))) {}
-
-  void operator()(Args&&... args) { return (*task_)(std::forward<Args>(args)...); }
-  std::shared_ptr<PackagedTask> task_;
-};
-
-}  // namespace detail
 
 class ARROW_EXPORT ThreadPool {
  public:
@@ -113,22 +93,12 @@ class ARROW_EXPORT ThreadPool {
     return SpawnReal(std::forward<Function>(func));
   }
 
-  // Submit a callable and arguments for execution.  Return a future that
-  // will return the callable's result value once.
-  // The callable's arguments are copied before execution.
-  // Since the function is variadic and needs to return a result (the future),
-  // an exception is raised if the task fails spawning (which currently
-  // only occurs if the ThreadPool is shutting down).
-  template <typename Function, typename... Args,
-            typename Result = typename std::result_of<Function && (Args && ...)>::type>
-  boost::future<Result> Submit(Function&& func, Args&&... args) {
-    // Trying to templatize std::packaged_task with Function doesn't seem
-    // to work, so go through std::bind to simplify the packaged signature
-    using PackagedTask = boost::packaged_task<Result>;
-    auto task = PackagedTask(std::bind(std::forward<Function>(func), args...));
+  // Submit a callable for execution.
+  std::future<Status> Submit(std::function<Status()> func) {
+    using PackagedTask = std::packaged_task<Status()>;
+    auto task = PackagedTask(func);
     auto fut = task.get_future();
-
-    Status st = SpawnReal(detail::packaged_task_wrapper<Result>(std::move(task)));
+    Status st = SpawnReal(std::move(func));
     if (!st.ok()) {
       // This happens when Submit() is called after Shutdown()
       std::cerr << st.ToString() << std::endl;

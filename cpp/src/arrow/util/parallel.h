@@ -35,10 +35,10 @@ namespace internal {
 template <class FUNCTION>
 Status ParallelFor(int num_tasks, FUNCTION&& func) {
   auto pool = internal::GetCpuThreadPool();
-  std::vector<boost::future<Status>> futures(num_tasks);
+  std::vector<std::future<Status>> futures(num_tasks);
 
   for (int i = 0; i < num_tasks; ++i) {
-    futures[i] = pool->Submit(func, i);
+    futures[i] = pool->Submit([func, i]{ return func(i); });
   }
   auto st = Status::OK();
   for (auto& fut : futures) {
