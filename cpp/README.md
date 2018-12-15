@@ -30,7 +30,7 @@ in-source and out-of-source builds with the latter one being preferred.
 Building Arrow requires:
 
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be sufficient.
-* CMake
+* CMake 3.2 or higher
 * Boost
 
 On Ubuntu/Debian you can install the requirements with:
@@ -458,6 +458,14 @@ travis-CI (but still surface the potential warnings in `make clang-tidy`). Ideal
 both of these options would be used rarely. Current known uses-cases when they are required:
 
 *  Parameterized tests in google test.
+
+## CMake version requirements
+
+We support CMake 3.2 and higher. Some features require a newer version of CMake:
+
+* Building the benchmarks requires 3.6 or higher
+* Building zstd from source requires 3.7 or higher
+* Building Gandiva JNI bindings requires 3.11 or higher
 
 [1]: https://brew.sh/
 [2]: https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md
