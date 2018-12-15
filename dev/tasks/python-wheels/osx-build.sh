@@ -100,7 +100,9 @@ function build_wheel {
     export ARROW_HOME=`pwd`/arrow-dist
     export PARQUET_HOME=`pwd`/arrow-dist
 
+    pushd python
     pip install $(pip_opts) -r requirements.txt $PINNED_BUILD_DEPENDENCIES
+    popd
 
     pushd cpp
     mkdir build
@@ -160,9 +162,6 @@ function install_run {
 
     wheelhouse="$PWD/python/dist"
 
-    # Install test dependencies and built wheel
-    pip install $(pip_opts) -r requirements.txt $PINNED_TEST_DEPENDENCIES
-
     # Install compatible wheel
     pip install $(pip_opts) \
         $(python $multibuild_dir/supported_wheels.py $wheelhouse/*.whl)
@@ -177,7 +176,13 @@ function install_run {
     python -c "import pyarrow.plasma"
 
     # Run pyarrow tests
-    pip install pytest pytest-faulthandler
+    # Install test dependencies and built wheel
+    pushd python
+    pip install $(pip_opts) -r requirements-test.txt \
+        pytest-faulthandler \
+        $PINNED_TEST_DEPENDENCIES
+    popd
+
     py.test --pyargs pyarrow
 
     popd
