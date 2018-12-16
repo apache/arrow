@@ -32,9 +32,6 @@ PYARROW_PYTEST_FLAGS=" -r sxX --durations=15 --parquet"
 PYTHON_VERSION=$1
 CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 
-conda create -y -q -p $CONDA_ENV_DIR cmake curl
-conda activate $CONDA_ENV_DIR
-
 # We should use zlib in the target Python directory to avoid loading
 # wrong libpython on macOS at run-time. If we use zlib in
 # $ARROW_BUILD_TOOLCHAIN and libpython3.6m.dylib exists in both
@@ -48,12 +45,16 @@ if [ $ARROW_TRAVIS_PYTHON_JVM == "1" ]; then
   CONDA_JVM_DEPS="jpype1"
 fi
 
-conda install -y -q \
+conda create -y -q -p $CONDA_ENV_DIR \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
+      cmake \
+      curl \
       pip \
       numpy=1.13.1 \
       python=${PYTHON_VERSION} \
       ${CONDA_JVM_DEPS}
+
+conda activate $CONDA_ENV_DIR
 
 python --version
 which python
