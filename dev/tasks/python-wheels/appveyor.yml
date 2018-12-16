@@ -20,7 +20,7 @@ os: Visual Studio 2015
 environment:
   ARCH: "64"
   GENERATOR: Visual Studio 14 2015 Win64
-  NUMPY: "{{ numpy_version }}"
+  NUMPY: "1.14.5"
   PYTHON: "{{ python_version }}"
   MSVC_DEFAULT_OPTIONS: ON
   ARROW_SRC: C:\apache-arrow
