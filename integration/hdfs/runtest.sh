@@ -23,7 +23,7 @@ export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
 # export LIBHDFS3_CONF=/arrow/integration/hdfs/libhdfs3.xml
 
 pushd /build/cpp
-  debug/io-hdfs-test
+  debug/arrow-io-hdfs-test
 popd
 
 # cannot use --pyargs with custom arguments like --hdfs or --only-hdfs, because
