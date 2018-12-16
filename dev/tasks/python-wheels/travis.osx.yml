@@ -29,8 +29,6 @@ env:
     - PYARROW_VERSION={{ arrow.version }}
     - PYARROW_BUILD_VERBOSE=1
     - MB_PYTHON_VERSION={{ python_version }}
-    - PINNED_BUILD_DEPENDENCIES="cython==0.27.3 wheel=={{ wheel_version }} numpy=={{ numpy_version }}"
-    - PINNED_TEST_DEPENDENCIES="numpy=={{ numpy_version }} pandas=={{ pandas_version }}"
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild # TODO pin it

@@ -1,0 +1,4 @@
+wheel==0.31.1
+six>=1.0.0
+numpy==1.14.5
+futures; python_version < "3.2"

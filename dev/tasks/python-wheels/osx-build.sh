@@ -100,9 +100,7 @@ function build_wheel {
     export ARROW_HOME=`pwd`/arrow-dist
     export PARQUET_HOME=`pwd`/arrow-dist
 
-    pushd python
-    pip install $(pip_opts) -r requirements.txt $PINNED_BUILD_DEPENDENCIES
-    popd
+    pip install $(pip_opts) -r python/requirements-wheel.txt
 
     pushd cpp
     mkdir build
@@ -176,12 +174,7 @@ function install_run {
     python -c "import pyarrow.plasma"
 
     # Run pyarrow tests
-    # Install test dependencies and built wheel
-    pushd python
-    pip install $(pip_opts) -r requirements-test.txt \
-        pytest-faulthandler \
-        $PINNED_TEST_DEPENDENCIES
-    popd
+    pip install $(pip_opts) -r requirements-test.txt
 
     py.test --pyargs pyarrow
 
