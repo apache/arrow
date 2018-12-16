@@ -713,6 +713,7 @@ endif()
 
 if (ARROW_USE_GLOG)
   SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
+  add_definitions("-DARROW_USE_GLOG")
 endif()
 
 if (ARROW_STATIC_LINK_LIBS)
