@@ -226,7 +226,6 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      pandas_version: 0.23.0
       python_version: 3.7
     artifacts:
       - pyarrow-{version}-cp37-cp37m-macosx_10_6_intel.whl
