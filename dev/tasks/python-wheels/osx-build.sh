@@ -100,7 +100,7 @@ function build_wheel {
     export ARROW_HOME=`pwd`/arrow-dist
     export PARQUET_HOME=`pwd`/arrow-dist
 
-    pip install $(pip_opts) -r python/requirements-wheel.txt
+    pip install $(pip_opts) -r python/requirements-wheel.txt cython
 
     pushd cpp
     mkdir build
