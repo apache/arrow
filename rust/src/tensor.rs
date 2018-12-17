@@ -216,6 +216,7 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use crate::buffer::Buffer;
     use crate::builder::*;
 

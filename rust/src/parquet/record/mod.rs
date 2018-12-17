@@ -15,24 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#![feature(type_ascription)]
-#![feature(rustc_private)]
-#![feature(specialization)]
-#![feature(try_from)]
-#![allow(dead_code)]
-#![allow(non_camel_case_types)]
+//! Contains record-based API for reading Parquet files.
 
-pub mod array;
-pub mod array_data;
-pub mod array_ops;
-pub mod bitmap;
-pub mod buffer;
-pub mod builder;
-pub mod csv;
-pub mod datatypes;
-pub mod error;
-pub mod memory;
-pub mod parquet;
-pub mod record_batch;
-pub mod tensor;
-pub mod util;
+mod api;
+pub mod reader;
+mod triplet;
+
+pub use self::api::{List, ListAccessor, Map, MapAccessor, Row, RowAccessor};
