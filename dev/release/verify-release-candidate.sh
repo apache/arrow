@@ -189,7 +189,7 @@ test_and_install_cpp() {
 test_python() {
   pushd python
 
-  pip install -r requirements.txt
+  pip install -r requirements.txt -r requirements-test.txt
 
   python setup.py build_ext --inplace --with-parquet --with-plasma
   py.test pyarrow -v --pdb
@@ -211,8 +211,6 @@ test_glib() {
     gem install bundler
   fi
 
-  # Workaround for 0.11.0. 0.11.0 doesn't include c_glib/Gemfile.
-  wget https://raw.githubusercontent.com/apache/arrow/master/c_glib/Gemfile
   bundle install --path vendor/bundle
   bundle exec ruby test/run-test.rb
 
@@ -268,10 +266,14 @@ test_rust() {
   # build and test rust
   pushd rust
 
-  # raises on any formatting errors (disabled, because RC1 has a couple)
-  # rustup component add rustfmt-preview
-  # cargo fmt --all -- --check
+  # we are targeting Rust nightly for releases
+  rustup default nightly
+
+  # raises on any formatting errors
+  rustup component add rustfmt-preview
+  cargo fmt --all -- --check
   # raises on any warnings
+
   cargo rustc -- -D warnings
 
   cargo build

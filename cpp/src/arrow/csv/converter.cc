@@ -20,6 +20,7 @@
 #include <cstring>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 #include "arrow/builder.h"
 #include "arrow/csv/parser.h"
@@ -344,7 +345,7 @@ class TimestampConverter : public ConcreteConverter {
     StringConverter<TimestampType> converter(type_);
 
     auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      value_type value;
+      value_type value = 0;
       if (IsNull(data, size, quoted)) {
         builder.UnsafeAppendNull();
         return Status::OK();

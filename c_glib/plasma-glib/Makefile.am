@@ -23,12 +23,38 @@ EXTRA_DIST =					\
 
 AM_CPPFLAGS =					\
 	-I$(top_builddir)			\
-	-I$(top_srcdir)
+	-I$(top_srcdir)				\
+	-DG_LOG_DOMAIN=\"Plasma\"
 
 AM_CFLAGS =					\
 	$(GLIB_CFLAGS)				\
 	$(GARROW_CFLAGS)			\
 	$(GPLASMA_CFLAGS)
+
+PLASMA_ARROW_CUDA_LIBS =
+PLASMA_INTROSPECTION_COMPILER_ARROW_CUDA_ARGS =
+PLASMA_GIR_ARROW_CUDA_PACKAGE =
+PLASMA_GIR_ARROW_CUDA_SCANNER_ADD_INCLUDE_PATH =
+PLASMA_GIR_ARROW_CUDA_LIBS_MACOS =
+PLASMA_GIR_ARROW_CUDA_SCANNER_LIBRARY_PATH_MACOS =
+PLASMA_GIR_ARROW_CUDA_LIBS =
+if HAVE_ARROW_CUDA
+PLASMA_ARROW_CUDA_LIBS +=				\
+	$(ARROW_CUDA_LIBS)				\
+	../arrow-cuda-glib/libarrow-cuda-glib.la
+PLASMA_INTROSPECTION_COMPILER_ARROW_CUDA_ARGS +=		\
+	--includedir=$(abs_top_builddir)/arrow-cuda-glib
+PLASMA_GIR_ARROW_CUDA_PACKAGE +=		\
+	arrow-cuda-glib
+PLASMA_GIR_ARROW_CUDA_SCANNER_ADD_INCLUDE_PATH +=		\
+	--add-include-path=$(abs_top_builddir)/arrow-cuda-glib
+PLASMA_GIR_ARROW_CUDA_LIBS_MACOS +=		\
+	arrow-cuda-glib
+PLASMA_GIR_ARROW_CUDA_SCANNER_LIBRARY_PATH_MACOS +=			\
+	--library-path=$(abs_top_builddir)/arrow-cuda-glib/.libs
+PLASMA_GIR_ARROW_CUDA_LIBS +=						\
+	$(abs_top_builddir)/arrow-cuda-glib/libarrow-cuda-glib.la
+endif
 
 if HAVE_PLASMA
 lib_LTLIBRARIES =				\
@@ -49,18 +75,22 @@ libplasma_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
 	$(ARROW_LIBS)				\
 	$(PLASMA_LIBS)				\
-	../arrow-glib/libarrow-glib.la
+	../arrow-glib/libarrow-glib.la		\
+	$(PLASMA_ARROW_CUDA_LIBS)
 
 libplasma_glib_la_headers =			\
 	client.h				\
+	object.h				\
 	plasma-glib.h
 
 libplasma_glib_la_sources =			\
 	client.cpp				\
+	object.cpp				\
 	$(libplasma_glib_la_headers)
 
-libplasma_glib_la_cpp_headers =		\
+libplasma_glib_la_cpp_headers =			\
 	client.hpp				\
+	object.hpp				\
 	plasma-glib.hpp
 
 libplasma_glib_la_SOURCES =			\
@@ -68,7 +98,7 @@ libplasma_glib_la_SOURCES =			\
 	$(libplasma_glib_la_cpp_headers)
 
 plasma_glib_includedir = $(includedir)/plasma-glib
-plasma_glib_include_HEADERS =				\
+plasma_glib_include_HEADERS =			\
 	$(libplasma_glib_la_headers)		\
 	$(libplasma_glib_la_cpp_headers)
 
@@ -84,17 +114,19 @@ INTROSPECTION_SCANNER_ARGS =
 INTROSPECTION_SCANNER_ENV =
 if USE_ARROW_BUILD_DIR
 INTROSPECTION_SCANNER_ENV +=			\
-	PKG_CONFIG_PATH=${abs_top_builddir}/arrow-glib:$(ARROW_BUILD_DIR)/src/arrow:$${PKG_CONFIG_PATH}
+	PKG_CONFIG_PATH=$(abs_top_builddir)/arrow-glib$(PLASMA_ARROW_CUDA_PKG_CONFIG_PATH):$(ARROW_BUILD_DIR)/src/arrow:$${PKG_CONFIG_PATH}
 else
 INTROSPECTION_SCANNER_ENV +=			\
-	PKG_CONFIG_PATH=${abs_top_builddir}/arrow-glib:$${PKG_CONFIG_PATH}
+	PKG_CONFIG_PATH=$(abs_top_builddir)/arrow-glib$(PLASMA_ARROW_CUDA_PKG_CONFIG_PATH):$${PKG_CONFIG_PATH}
 endif
-INTROSPECTION_COMPILER_ARGS =				\
-	--includedir=$(abs_top_builddir)/arrow-glib
+INTROSPECTION_COMPILER_ARGS =					\
+	--includedir=$(abs_top_builddir)/arrow-glib		\
+	$(PLASMA_INTROSPECTION_COMPILER_ARROW_CUDA_INCLUDEDIR)
 
 Plasma-1.0.gir: libplasma-glib.la
 Plasma_1_0_gir_PACKAGES =			\
-	arrow-glib
+	arrow-glib				\
+	$(PLASMA_GIR_ARROW_CUDA_PACKAGE)
 Plasma_1_0_gir_EXPORT_PACKAGES =		\
 	plasma-glib
 Plasma_1_0_gir_INCLUDES =			\
@@ -103,8 +135,9 @@ Plasma_1_0_gir_CFLAGS =			\
 	$(AM_CPPFLAGS)
 Plasma_1_0_gir_LIBS =
 Plasma_1_0_gir_FILES = $(libplasma_glib_la_sources)
-Plasma_1_0_gir_SCANNERFLAGS =						\
+Plasma_1_0_gir_SCANNERFLAGS =					\
 	--add-include-path=$(abs_top_builddir)/arrow-glib	\
+	$(PLASMA_GIR_ARROW_CUDA_SCANNER_ADD_INCLUDE_PATH)	\
 	--library-path=$(ARROW_LIB_DIR)				\
 	--warn-all						\
 	--identifier-prefix=GPlasma				\
@@ -112,14 +145,17 @@ Plasma_1_0_gir_SCANNERFLAGS =						\
 if OS_MACOS
 Plasma_1_0_gir_LIBS +=				\
 	arrow-glib				\
+	$(PLASMA_GIR_ARROW_CUDA_LIBS_MACOS)	\
 	plasma-glib
 Plasma_1_0_gir_SCANNERFLAGS +=					\
 	--no-libtool						\
 	--library-path=$(abs_top_builddir)/arrow-glib/.libs	\
+	$(PLASMA_GIR_ARROW_CUDA_SCANNER_LIBRARY_PATH_MACOS)	\
 	--library-path=$(abs_builddir)/.libs
 else
 Plasma_1_0_gir_LIBS +=					\
 	$(abs_top_builddir)/arrow-glib/libarrow-glib.la	\
+	$(PLASMA_GIR_ARROW_CUDA_LIBS)			\
 	libplasma-glib.la
 endif
 INTROSPECTION_GIRS += Plasma-1.0.gir

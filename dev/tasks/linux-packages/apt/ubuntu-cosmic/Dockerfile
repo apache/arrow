@@ -26,10 +26,12 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     autoconf-archive \
+    bison \
     build-essential \
     cmake \
     debhelper\
     devscripts \
+    flex \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \

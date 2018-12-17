@@ -25,7 +25,7 @@ import static org.junit.Assert.assertNull;
 import org.junit.Test;
 
 /**
- * To test simplified implementation of IdentityHashMap
+ * To test simplified implementation of IdentityHashMap.
  */
 public class TestLowCostIdentityHashMap {
 

@@ -56,6 +56,9 @@ dependencies = [
   arrow_glib,
   plasma_glib,
 ]
+if arrow_cuda.found()
+  dependencies += [arrow_cuda_glib]
+endif
 ignore_headers = []
 gnome.gtkdoc(project_name,
              main_xml: project_name + '-docs.xml',

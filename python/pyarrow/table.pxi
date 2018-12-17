@@ -117,6 +117,12 @@ cdef class ChunkedArray:
             else:
                 index -= self.chunked_array.chunk(j).get().length()
 
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
     def equals(self, ChunkedArray other):
         """
         Return whether the contents of two chunked arrays are equal
@@ -411,14 +417,6 @@ cdef class Column:
 
         return result.getvalue()
 
-    def __richcmp__(Column self, Column other, int op):
-        if op == cp.Py_EQ:
-            return self.equals(other)
-        elif op == cp.Py_NE:
-            return not self.equals(other)
-        else:
-            raise TypeError('Invalid comparison')
-
     def __getitem__(self, key):
         return self.data[key]
 
@@ -540,6 +538,12 @@ cdef class Column:
     def __array__(self, dtype=None):
         return self.data.__array__(dtype=dtype)
 
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
     def equals(self, Column other):
         """
         Check if contents of two columns are equal
@@ -634,36 +638,30 @@ cdef class Column:
         return pyarrow_wrap_chunked_array(self.column.data())
 
 
-cdef shared_ptr[const CKeyValueMetadata] unbox_metadata(dict metadata):
-    if metadata is None:
-        return <shared_ptr[const CKeyValueMetadata]> nullptr
+cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     cdef:
-        unordered_map[c_string, c_string] unordered_metadata = metadata
-    return (<shared_ptr[const CKeyValueMetadata]>
-            make_shared[CKeyValueMetadata](unordered_metadata))
-
-
-cdef _schema_from_arrays(arrays, names, dict metadata,
-                         shared_ptr[CSchema]* schema):
-    cdef:
-        Column col
-        c_string c_name
-        vector[shared_ptr[CField]] fields
-        shared_ptr[CDataType] type_
         Py_ssize_t K = len(arrays)
+        c_string c_name
+        CColumn* c_column
+        shared_ptr[CDataType] c_type
+        shared_ptr[CKeyValueMetadata] c_meta
+        vector[shared_ptr[CField]] c_fields
+
+    if metadata is not None:
+        if not isinstance(metadata, dict):
+            raise TypeError('Metadata must be an instance of dict')
+        c_meta = pyarrow_unwrap_metadata(metadata)
 
     if K == 0:
-        schema.reset(new CSchema(fields, unbox_metadata(metadata)))
+        schema.reset(new CSchema(c_fields, c_meta))
         return
 
-    fields.resize(K)
+    c_fields.resize(K)
 
     if isinstance(arrays[0], Column):
         for i in range(K):
-            col = arrays[i]
-            type_ = col.sp_column.get().type()
-            c_name = tobytes(col.name)
-            fields[i].reset(new CField(c_name, type_, True))
+            c_column = (<Column>arrays[i]).column
+            c_fields[i] = c_column.field()
     else:
         if names is None:
             raise ValueError('Must pass names when constructing '
@@ -674,7 +672,7 @@ cdef _schema_from_arrays(arrays, names, dict metadata,
         for i in range(K):
             val = arrays[i]
             if isinstance(val, (Array, ChunkedArray)):
-                type_ = (<DataType> val.type).sp_type
+                c_type = (<DataType> val.type).sp_type
             else:
                 raise TypeError(type(val))
 
@@ -682,9 +680,9 @@ cdef _schema_from_arrays(arrays, names, dict metadata,
                 c_name = tobytes(u'None')
             else:
                 c_name = tobytes(names[i])
-            fields[i].reset(new CField(c_name, type_, True))
+            c_fields[i].reset(new CField(c_name, c_type, True))
 
-    schema.reset(new CSchema(fields, unbox_metadata(metadata)))
+    schema.reset(new CSchema(c_fields, c_meta))
 
 
 cdef class RecordBatch:
@@ -715,7 +713,7 @@ cdef class RecordBatch:
     def __len__(self):
         return self.batch.num_rows()
 
-    def replace_schema_metadata(self, dict metadata=None):
+    def replace_schema_metadata(self, metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of record batch by replacing schema
         key-value metadata with the indicated new metadata (which may be None,
@@ -729,15 +727,19 @@ cdef class RecordBatch:
         -------
         shallow_copy : RecordBatch
         """
-        cdef shared_ptr[CKeyValueMetadata] c_meta
+        cdef:
+            shared_ptr[CKeyValueMetadata] c_meta
+            shared_ptr[CRecordBatch] c_batch
+
         if metadata is not None:
-            convert_metadata(metadata, &c_meta)
+            if not isinstance(metadata, dict):
+                raise TypeError('Metadata must be an instance of dict')
+            c_meta = pyarrow_unwrap_metadata(metadata)
 
-        cdef shared_ptr[CRecordBatch] new_batch
         with nogil:
-            new_batch = self.batch.ReplaceSchemaMetadata(c_meta)
+            c_batch = self.batch.ReplaceSchemaMetadata(c_meta)
 
-        return pyarrow_wrap_batch(new_batch)
+        return pyarrow_wrap_batch(c_batch)
 
     @property
     def num_columns(self):
@@ -953,7 +955,7 @@ cdef class RecordBatch:
         return cls.from_arrays(arrays, names, metadata)
 
     @staticmethod
-    def from_arrays(list arrays, names, dict metadata=None):
+    def from_arrays(list arrays, names, metadata=None):
         """
         Construct a RecordBatch from multiple pyarrow.Arrays
 
@@ -1062,7 +1064,7 @@ cdef class Table:
         columns = [col.data for col in self.columns]
         return _reconstruct_table, (columns, self.schema)
 
-    def replace_schema_metadata(self, dict metadata=None):
+    def replace_schema_metadata(self, metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of table by replacing schema
         key-value metadata with the indicated new metadata (which may be None,
@@ -1076,15 +1078,19 @@ cdef class Table:
         -------
         shallow_copy : Table
         """
-        cdef shared_ptr[CKeyValueMetadata] c_meta
+        cdef:
+            shared_ptr[CKeyValueMetadata] c_meta
+            shared_ptr[CTable] c_table
+
         if metadata is not None:
-            convert_metadata(metadata, &c_meta)
+            if not isinstance(metadata, dict):
+                raise TypeError('Metadata must be an instance of dict')
+            c_meta = pyarrow_unwrap_metadata(metadata)
 
-        cdef shared_ptr[CTable] new_table
         with nogil:
-            new_table = self.table.ReplaceSchemaMetadata(c_meta)
+            c_table = self.table.ReplaceSchemaMetadata(c_meta)
 
-        return pyarrow_wrap_table(new_table)
+        return pyarrow_wrap_table(c_table)
 
     def flatten(self, MemoryPool memory_pool=None):
         """
@@ -1108,6 +1114,12 @@ cdef class Table:
             check_status(self.table.Flatten(pool, &flattened))
 
         return pyarrow_wrap_table(flattened)
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
 
     def equals(self, Table other):
         """
@@ -1225,7 +1237,7 @@ cdef class Table:
         return cls.from_arrays(arrays, names=names, metadata=metadata)
 
     @staticmethod
-    def from_arrays(arrays, names=None, schema=None, dict metadata=None):
+    def from_arrays(arrays, names=None, schema=None, metadata=None):
         """
         Construct a Table from Arrow arrays or columns
 
@@ -1236,6 +1248,8 @@ cdef class Table:
         names: list of str, optional
             Names for the table columns. If Columns passed, will be
             inferred. If Arrays passed, this argument is required
+        schema : Schema, default None
+            If not passed, will be inferred from the arrays
 
         Returns
         -------

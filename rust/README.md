@@ -24,20 +24,19 @@
 
 ## Status
 
-This is a starting point for a native Rust implementation of Arrow.
+This is a native Rust implementation of Apache Arrow. The current status is:
 
-The current code demonstrates arrays of primitive types and structs.
+- [x] Primitive Arrays
+- [x] List Arrays
+- [x] Struct Arrays
+- [x] CSV Reader
+- [ ] CSV Writer
+- [ ] Parquet Reader
+- [ ] Parquet Writer
+- [ ] Arrow IPC
+- [ ] Interop tests with other implementations
 
-## Creating an Array from a Vec
-
-```rust
-// create a memory-aligned Arrow array from an existing Vec
-let array = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
-
-println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
-```
-
-## Run Examples
+## Examples
 
 The examples folder shows how to construct some different types of Arrow
 arrays, including dynamic arrays created at runtime.

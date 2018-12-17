@@ -26,7 +26,7 @@ import java.util.List;
 /**
  * The PlasmaClient is used to interface with a plasma store and manager.
  *
- * The PlasmaClient can ask the PlasmaStore to allocate a new buffer, seal a buffer, and get a
+ * <p>The PlasmaClient can ask the PlasmaStore to allocate a new buffer, seal a buffer, and get a
  * buffer. Buffers are referred to by object IDs.
  */
 public class PlasmaClient implements ObjectStoreLink {
@@ -82,31 +82,8 @@ public class PlasmaClient implements ObjectStoreLink {
   }
 
   @Override
-  public List<byte[]> wait(byte[][] objectIds, int timeoutMs, int numReturns) {
-    byte[][] readys = PlasmaClientJNI.wait(conn, objectIds, timeoutMs, numReturns);
-
-    List<byte[]> ret = new ArrayList<>();
-    for (byte[] ready : readys) {
-      for (byte[] id : objectIds) {
-        if (Arrays.equals(ready, id)) {
-          ret.add(id);
-          break;
-        }
-      }
-    }
-
-    assert (ret.size() == readys.length);
-    return ret;
-  }
-
-  @Override
   public byte[] hash(byte[] objectId) {
     return PlasmaClientJNI.hash(conn, objectId);
-  }
-
-  @Override
-  public void fetch(byte[][] objectIds) {
-    PlasmaClientJNI.fetch(conn, objectIds);
   }
 
   @Override

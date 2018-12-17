@@ -37,6 +37,7 @@ public class VarBinaryVector extends BaseVariableWidthVector {
   /**
    * Instantiate a VarBinaryVector. This doesn't allocate any memory for
    * the data in vector.
+   *
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
@@ -47,6 +48,7 @@ public class VarBinaryVector extends BaseVariableWidthVector {
   /**
    * Instantiate a VarBinaryVector. This doesn't allocate any memory for
    * the data in vector.
+   *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
@@ -57,7 +59,8 @@ public class VarBinaryVector extends BaseVariableWidthVector {
   }
 
   /**
-   * Get a reader that supports reading values from this vector
+   * Get a reader that supports reading values from this vector.
+   *
    * @return Field Reader for this vector
    */
   @Override
@@ -68,6 +71,7 @@ public class VarBinaryVector extends BaseVariableWidthVector {
   /**
    * Get minor type for this vector. The vector holds values belonging
    * to a particular type.
+   *
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
@@ -76,11 +80,11 @@ public class VarBinaryVector extends BaseVariableWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value getter methods                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value retrieval methods                        |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
@@ -138,16 +142,17 @@ public class VarBinaryVector extends BaseVariableWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value setter methods                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value setter methods                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
    * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector
+   * position in this vector.
+   *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
@@ -168,6 +173,7 @@ public class VarBinaryVector extends BaseVariableWidthVector {
    * Same as {@link #copyFrom(int, int, VarBinaryVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
+   *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
@@ -187,7 +193,7 @@ public class VarBinaryVector extends BaseVariableWidthVector {
 
   /**
    * Set the variable length element at the specified index to the data
-   * buffer supplied in the holder
+   * buffer supplied in the holder.
    *
    * @param index   position of the element to set
    * @param holder  holder that carries data buffer.
@@ -225,7 +231,7 @@ public class VarBinaryVector extends BaseVariableWidthVector {
 
   /**
    * Set the variable length element at the specified index to the data
-   * buffer supplied in the holder
+   * buffer supplied in the holder.
    *
    * @param index   position of the element to set
    * @param holder  holder that carries data buffer.
@@ -262,15 +268,16 @@ public class VarBinaryVector extends BaseVariableWidthVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *                      vector transfer                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |                      vector transfer                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
   /**
    * Construct a TransferPair comprising of this and and a target vector of
    * the same type.
+   *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
    * @return {@link TransferPair}
@@ -282,6 +289,7 @@ public class VarBinaryVector extends BaseVariableWidthVector {
 
   /**
    * Construct a TransferPair with a desired target vector of the same type.
+   *
    * @param to target vector
    * @return {@link TransferPair}
    */

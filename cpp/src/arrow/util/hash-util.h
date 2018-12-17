@@ -25,22 +25,55 @@
 
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/neon-util.h"
 #include "arrow/util/sse-util.h"
+
+static inline uint32_t HW_crc32_u8(uint32_t crc, uint8_t v) {
+  DCHECK(false) << "Hardware CRC support is not enabled";
+  return 0;
+}
+
+static inline uint32_t HW_crc32_u16(uint32_t crc, uint16_t v) {
+  DCHECK(false) << "Hardware CRC support is not enabled";
+  return 0;
+}
+
+static inline uint32_t HW_crc32_u32(uint32_t crc, uint32_t v) {
+  DCHECK(false) << "Hardware CRC support is not enabled";
+  return 0;
+}
+
+static inline uint32_t HW_crc32_u64(uint32_t crc, uint64_t v) {
+  DCHECK(false) << "Hardware CRC support is not enabled";
+  return 0;
+}
+
+#ifdef ARROW_HAVE_SSE4_2
+#define HW_crc32_u8 SSE4_crc32_u8
+#define HW_crc32_u16 SSE4_crc32_u16
+#define HW_crc32_u32 SSE4_crc32_u32
+#define HW_crc32_u64 SSE4_crc32_u64
+#elif defined(ARROW_HAVE_ARM_CRC)
+#define HW_crc32_u8 ARMCE_crc32_u8
+#define HW_crc32_u16 ARMCE_crc32_u16
+#define HW_crc32_u32 ARMCE_crc32_u32
+#define HW_crc32_u64 ARMCE_crc32_u64
+#endif
 
 namespace arrow {
 
 /// Utility class to compute hash values.
 class HashUtil {
  public:
-#ifdef ARROW_HAVE_SSE4_2
+#if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_ARM_CRC)
   static constexpr bool have_hardware_crc32 = true;
 #else
   static constexpr bool have_hardware_crc32 = false;
 #endif
 
-  /// Compute the Crc32 hash for data using SSE4 instructions.  The input hash
+  /// Compute the Crc32 hash for data using SSE4/ArmCRC instructions.  The input hash
   /// parameter is the current hash/seed value.
-  /// This should only be called if SSE is supported.
+  /// This should only be called if SSE/ArmCRC is supported.
   /// This is ~4x faster than Fnv/Boost Hash.
   /// TODO: crc32 hashes with different seeds do not result in different hash functions.
   /// The resulting hashes are correlated.
@@ -49,15 +82,15 @@ class HashUtil {
     const uint8_t* end = p + nbytes;
 
     while (p <= end - 8) {
-      hash = SSE4_crc32_u64(hash, *reinterpret_cast<const uint64_t*>(p));
+      hash = HW_crc32_u64(hash, *reinterpret_cast<const uint64_t*>(p));
       p += 8;
     }
     while (p <= end - 4) {
-      hash = SSE4_crc32_u32(hash, *reinterpret_cast<const uint32_t*>(p));
+      hash = HW_crc32_u32(hash, *reinterpret_cast<const uint32_t*>(p));
       p += 4;
     }
     while (p < end) {
-      hash = SSE4_crc32_u8(hash, *p);
+      hash = HW_crc32_u8(hash, *p);
       ++p;
     }
 
@@ -81,30 +114,30 @@ class HashUtil {
     uint32_t h2 = static_cast<uint32_t>(hash);
 
     while (nbytes >= 16) {
-      h1 = SSE4_crc32_u64(h1, *reinterpret_cast<const uint64_t*>(p));
-      h2 = SSE4_crc32_u64(h2, *reinterpret_cast<const uint64_t*>(p + 8));
+      h1 = HW_crc32_u64(h1, *reinterpret_cast<const uint64_t*>(p));
+      h2 = HW_crc32_u64(h2, *reinterpret_cast<const uint64_t*>(p + 8));
       nbytes -= 16;
       p += 16;
     }
     if (nbytes >= 8) {
-      h1 = SSE4_crc32_u32(h1, *reinterpret_cast<const uint32_t*>(p));
-      h2 = SSE4_crc32_u32(h2, *reinterpret_cast<const uint32_t*>(p + 4));
+      h1 = HW_crc32_u32(h1, *reinterpret_cast<const uint32_t*>(p));
+      h2 = HW_crc32_u32(h2, *reinterpret_cast<const uint32_t*>(p + 4));
       nbytes -= 8;
       p += 8;
     }
     if (nbytes >= 4) {
-      h1 = SSE4_crc32_u16(h1, *reinterpret_cast<const uint16_t*>(p));
-      h2 = SSE4_crc32_u16(h2, *reinterpret_cast<const uint16_t*>(p + 2));
+      h1 = HW_crc32_u16(h1, *reinterpret_cast<const uint16_t*>(p));
+      h2 = HW_crc32_u16(h2, *reinterpret_cast<const uint16_t*>(p + 2));
       nbytes -= 4;
       p += 4;
     }
     switch (nbytes) {
       case 3:
-        h1 = SSE4_crc32_u8(h1, p[3]);
+        h1 = HW_crc32_u8(h1, p[3]);
       case 2:
-        h2 = SSE4_crc32_u8(h2, p[2]);
+        h2 = HW_crc32_u8(h2, p[2]);
       case 1:
-        h1 = SSE4_crc32_u8(h1, p[1]);
+        h1 = HW_crc32_u8(h1, p[1]);
       case 0:
         break;
       default:
@@ -118,7 +151,7 @@ class HashUtil {
   /// CrcHash() specialized for 1-byte data
   static inline uint32_t CrcHash1(const void* v, uint32_t hash) {
     const uint8_t* s = reinterpret_cast<const uint8_t*>(v);
-    hash = SSE4_crc32_u8(hash, *s);
+    hash = HW_crc32_u8(hash, *s);
     hash = (hash << 16) | (hash >> 16);
     return hash;
   }
@@ -126,7 +159,7 @@ class HashUtil {
   /// CrcHash() specialized for 2-byte data
   static inline uint32_t CrcHash2(const void* v, uint32_t hash) {
     const uint16_t* s = reinterpret_cast<const uint16_t*>(v);
-    hash = SSE4_crc32_u16(hash, *s);
+    hash = HW_crc32_u16(hash, *s);
     hash = (hash << 16) | (hash >> 16);
     return hash;
   }
@@ -134,7 +167,7 @@ class HashUtil {
   /// CrcHash() specialized for 4-byte data
   static inline uint32_t CrcHash4(const void* v, uint32_t hash) {
     const uint32_t* p = reinterpret_cast<const uint32_t*>(v);
-    hash = SSE4_crc32_u32(hash, *p);
+    hash = HW_crc32_u32(hash, *p);
     hash = (hash << 16) | (hash >> 16);
     return hash;
   }
@@ -142,7 +175,7 @@ class HashUtil {
   /// CrcHash() specialized for 8-byte data
   static inline uint32_t CrcHash8(const void* v, uint32_t hash) {
     const uint64_t* p = reinterpret_cast<const uint64_t*>(v);
-    hash = SSE4_crc32_u64(hash, *p);
+    hash = HW_crc32_u64(hash, *p);
     hash = (hash << 16) | (hash >> 16);
     return hash;
   }
@@ -150,9 +183,9 @@ class HashUtil {
   /// CrcHash() specialized for 12-byte data
   static inline uint32_t CrcHash12(const void* v, uint32_t hash) {
     const uint64_t* p = reinterpret_cast<const uint64_t*>(v);
-    hash = SSE4_crc32_u64(hash, *p);
+    hash = HW_crc32_u64(hash, *p);
     ++p;
-    hash = SSE4_crc32_u32(hash, *reinterpret_cast<const uint32_t*>(p));
+    hash = HW_crc32_u32(hash, *reinterpret_cast<const uint32_t*>(p));
     hash = (hash << 16) | (hash >> 16);
     return hash;
   }
@@ -160,9 +193,9 @@ class HashUtil {
   /// CrcHash() specialized for 16-byte data
   static inline uint32_t CrcHash16(const void* v, uint32_t hash) {
     const uint64_t* p = reinterpret_cast<const uint64_t*>(v);
-    hash = SSE4_crc32_u64(hash, *p);
+    hash = HW_crc32_u64(hash, *p);
     ++p;
-    hash = SSE4_crc32_u64(hash, *p);
+    hash = HW_crc32_u64(hash, *p);
     hash = (hash << 16) | (hash >> 16);
     return hash;
   }
@@ -251,8 +284,8 @@ class HashUtil {
     return static_cast<uint32_t>((hash_u64 >> 32) ^ (hash_u64 & 0xFFFFFFFF));
   }
 
-  // With sse4.2
-  template <bool use_sse42 = true>
+  // Hash template
+  template <bool hw>
   static inline int Hash(const void* data, int32_t bytes, uint32_t seed);
 
   /// The magic number (used in hash_combine()) 0x9e3779b9 = 2^32 / (golden ratio).
@@ -288,13 +321,21 @@ class HashUtil {
   }
 };
 
-// With sse4.2
+// HW Hash
 template <>
 inline int HashUtil::Hash<true>(const void* data, int32_t bytes, uint32_t seed) {
-  return static_cast<int>(HashUtil::CrcHash(data, bytes, seed));
+#ifdef ARROW_HAVE_ARM_CRC
+  // Need run time check for Arm
+  // if not support, fall back to Murmur
+  if (!crc32c_runtime_check())
+    return static_cast<int>(HashUtil::MurmurHash2_64(data, bytes, seed));
+  else
+#endif
+    // Double CRC
+    return static_cast<int>(HashUtil::DoubleCrcHash(data, bytes, seed));
 }
 
-// Non-sse4 hash
+// Murmur Hash
 template <>
 inline int HashUtil::Hash<false>(const void* data, int32_t bytes, uint32_t seed) {
   return static_cast<int>(HashUtil::MurmurHash2_64(data, bytes, seed));

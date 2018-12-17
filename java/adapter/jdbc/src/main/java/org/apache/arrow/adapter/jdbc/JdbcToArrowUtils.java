@@ -92,10 +92,10 @@ public class JdbcToArrowUtils {
 
   /**
    * Create Arrow {@link Schema} object for the given JDBC {@link ResultSetMetaData}.
-   * <p>
-   * This method currently performs following type mapping for JDBC SQL data types to corresponding Arrow data types.
-   * <p>
-   * CHAR --> ArrowType.Utf8
+   *
+   * <p>This method currently performs following type mapping for JDBC SQL data types to corresponding Arrow data types.
+   *
+   * <p>CHAR --> ArrowType.Utf8
    * NCHAR --> ArrowType.Utf8
    * VARCHAR --> ArrowType.Utf8
    * NVARCHAR --> ArrowType.Utf8
@@ -122,7 +122,7 @@ public class JdbcToArrowUtils {
    *
    * @param rsmd ResultSetMetaData
    * @return {@link Schema}
-   * @throws SQLException
+   * @throws SQLException on error
    */
   public static Schema jdbcToArrowSchema(ResultSetMetaData rsmd, Calendar calendar) throws SQLException {
 
@@ -224,7 +224,7 @@ public class JdbcToArrowUtils {
    *
    * @param rs   ResultSet to use to fetch the data from underlying database
    * @param root Arrow {@link VectorSchemaRoot} object to populate
-   * @throws SQLException
+   * @throws SQLException on error
    */
   public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root, Calendar calendar)
       throws SQLException, IOException {

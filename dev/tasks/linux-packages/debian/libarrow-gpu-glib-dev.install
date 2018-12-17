@@ -1,5 +1,0 @@
-usr/include/arrow-gpu-glib/
-usr/lib/*/libarrow-gpu-glib.a
-usr/lib/*/libarrow-gpu-glib.so
-usr/lib/*/pkgconfig/arrow-gpu-glib.pc
-usr/share/gir-1.0/ArrowGPU-1.0.gir

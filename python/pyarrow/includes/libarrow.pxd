@@ -23,9 +23,15 @@ cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
         CKeyValueMetadata()
         CKeyValueMetadata(const unordered_map[c_string, c_string]&)
+        CKeyValueMetadata(const vector[c_string]& keys,
+                          const vector[c_string]& values)
+
+        void reserve(int64_t n)
+        int64_t size() const
+        c_string key(int64_t i) const
+        c_string value(int64_t i) const
 
         c_bool Equals(const CKeyValueMetadata& other)
-
         void Append(const c_string& key, const c_string& value)
         void ToUnorderedMap(unordered_map[c_string, c_string]*) const
 
@@ -533,10 +539,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CTable] ReplaceSchemaMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
 
-    cdef cppclass RecordBatchReader:
-        CStatus ReadNext(shared_ptr[CRecordBatch]* out)
+    cdef cppclass CRecordBatchReader" arrow::RecordBatchReader":
+        shared_ptr[CSchema] schema()
+        CStatus ReadNext(shared_ptr[CRecordBatch]* batch)
+        CStatus ReadAll(shared_ptr[CTable]* out)
 
-    cdef cppclass TableBatchReader(RecordBatchReader):
+    cdef cppclass TableBatchReader(CRecordBatchReader):
         TableBatchReader(const CTable& table)
         void set_chunksize(int64_t chunksize)
 
@@ -824,10 +832,6 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CStatus WriteRecordBatch(const CRecordBatch& batch,
                                  c_bool allow_64bit)
         CStatus WriteTable(const CTable& table, int64_t max_chunksize)
-
-    cdef cppclass CRecordBatchReader" arrow::ipc::RecordBatchReader":
-        shared_ptr[CSchema] schema()
-        CStatus ReadNext(shared_ptr[CRecordBatch]* batch)
 
     cdef cppclass CRecordBatchStreamReader \
             " arrow::ipc::RecordBatchStreamReader"(CRecordBatchReader):

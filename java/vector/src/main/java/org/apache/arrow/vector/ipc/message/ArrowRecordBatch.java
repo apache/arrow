@@ -37,12 +37,12 @@ public class ArrowRecordBatch implements ArrowMessage {
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowRecordBatch.class);
 
   /**
-   * number of records
+   * Number of records.
    */
   private final int length;
 
   /**
-   * Nodes correspond to the pre-ordered flattened logical schema
+   * Nodes correspond to the pre-ordered flattened logical schema.
    */
   private final List<ArrowFieldNode> nodes;
 
@@ -57,6 +57,8 @@ public class ArrowRecordBatch implements ArrowMessage {
   }
 
   /**
+   * Construct a record batch from nodes.
+   *
    * @param length  how many rows in this batch
    * @param nodes   field level info
    * @param buffers will be retained until this recordBatch is closed
@@ -102,6 +104,8 @@ public class ArrowRecordBatch implements ArrowMessage {
   }
 
   /**
+   * Get the nodes in this record batch.
+   *
    * @return the FieldNodes corresponding to the schema
    */
   public List<ArrowFieldNode> getNodes() {
@@ -109,6 +113,8 @@ public class ArrowRecordBatch implements ArrowMessage {
   }
 
   /**
+   * Get the record batch buffers.
+   *
    * @return the buffers containing the data
    */
   public List<ArrowBuf> getBuffers() {
@@ -122,7 +128,7 @@ public class ArrowRecordBatch implements ArrowMessage {
    * Create a new ArrowRecordBatch which has the same information as this batch but whose buffers
    * are owned by that Allocator.
    *
-   * This will also close this record batch and make it no longer useful.
+   * <p>This will also close this record batch and make it no longer useful.
    *
    * @return A cloned ArrowRecordBatch
    */
@@ -135,6 +141,8 @@ public class ArrowRecordBatch implements ArrowMessage {
   }
 
   /**
+   * Get the serialized layout.
+   *
    * @return the serialized layout if we send the buffers on the wire
    */
   public List<ArrowBuffer> getBuffersLayout() {
@@ -160,7 +168,7 @@ public class ArrowRecordBatch implements ArrowMessage {
   }
 
   /**
-   * releases the buffers
+   * Releases the buffers.
    */
   @Override
   public void close() {

@@ -26,13 +26,14 @@ from pyarrow.lib cimport (Array, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
                           Table,
+                          pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
                           pyarrow_wrap_table,
                           NativeFile, get_reader, get_writer)
 
 from pyarrow.compat import tobytes, frombytes
-from pyarrow.formatting import indent
 from pyarrow.lib import ArrowException, NativeFile, _stringify_path
+from pyarrow.util import indent
 
 import six
 import warnings
@@ -770,28 +771,18 @@ cdef class ParquetReader:
         return self._column_idx_map[tobytes(column_name)]
 
     def read_column(self, int column_index):
-        cdef:
-            Array array = Array()
-            shared_ptr[CArray] carray
-
+        cdef shared_ptr[CChunkedArray] out
         with nogil:
             check_status(self.reader.get()
-                         .ReadColumn(column_index, &carray))
-
-        array.init(carray)
-        return array
+                         .ReadColumn(column_index, &out))
+        return pyarrow_wrap_chunked_array(out)
 
     def read_schema_field(self, int field_index):
-        cdef:
-            Array array = Array()
-            shared_ptr[CArray] carray
-
+        cdef shared_ptr[CChunkedArray] out
         with nogil:
             check_status(self.reader.get()
-                         .ReadSchemaField(field_index, &carray))
-
-        array.init(carray)
-        return array
+                         .ReadSchemaField(field_index, &out))
+        return pyarrow_wrap_chunked_array(out)
 
 
 cdef class ParquetWriter:

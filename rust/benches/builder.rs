@@ -35,13 +35,14 @@ fn bench_primitive(c: &mut Criterion) {
         "bench_primitive",
         Benchmark::new("bench_primitive", move |b| {
             b.iter(|| {
-                let mut builder = PrimitiveArrayBuilder::<i64>::new(64);
+                let mut builder = Int64Builder::new(64);
                 for _ in 0..NUM_BATCHES {
-                    black_box(builder.push_slice(&data[..]));
+                    let _ = black_box(builder.push_slice(&data[..]));
                 }
                 black_box(builder.finish());
             })
-        }).throughput(Throughput::Bytes(
+        })
+        .throughput(Throughput::Bytes(
             (data.len() * NUM_BATCHES * size_of::<i64>()) as u32,
         )),
     );
@@ -57,13 +58,14 @@ fn bench_bool(c: &mut Criterion) {
         "bench_bool",
         Benchmark::new("bench_bool", move |b| {
             b.iter(|| {
-                let mut builder = PrimitiveArrayBuilder::<bool>::new(64);
+                let mut builder = BooleanBuilder::new(64);
                 for _ in 0..NUM_BATCHES {
-                    black_box(builder.push_slice(&data[..]));
+                    let _ = black_box(builder.push_slice(&data[..]));
                 }
                 black_box(builder.finish());
             })
-        }).throughput(Throughput::Bytes(
+        })
+        .throughput(Throughput::Bytes(
             (data_len * NUM_BATCHES * size_of::<bool>()) as u32,
         )),
     );

@@ -40,6 +40,7 @@ public class TimeStampSecTZVector extends TimeStampVector {
   /**
    * Instantiate a TimeStampSecTZVector. This doesn't allocate any memory for
    * the data in vector.
+   *
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
@@ -50,6 +51,7 @@ public class TimeStampSecTZVector extends TimeStampVector {
   /**
    * Instantiate a TimeStampSecTZVector. This doesn't allocate any memory for
    * the data in vector.
+   *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
@@ -62,7 +64,8 @@ public class TimeStampSecTZVector extends TimeStampVector {
   }
 
   /**
-   * Get a reader that supports reading values from this vector
+   * Get a reader that supports reading values from this vector.
+   *
    * @return Field Reader for this vector
    */
   @Override
@@ -73,6 +76,7 @@ public class TimeStampSecTZVector extends TimeStampVector {
   /**
    * Get minor type for this vector. The vector holds values belonging
    * to a particular type.
+   *
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
@@ -81,11 +85,11 @@ public class TimeStampSecTZVector extends TimeStampVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value retrieval methods                        *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value retrieval methods                        |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
@@ -119,11 +123,11 @@ public class TimeStampSecTZVector extends TimeStampVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          vector value setter methods                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          vector value setter methods                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
@@ -183,15 +187,16 @@ public class TimeStampSecTZVector extends TimeStampVector {
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *                      vector transfer                           *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |                      vector transfer                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
   /**
    * Construct a TransferPair comprising of this and and a target vector of
    * the same type.
+   *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
    * @return {@link TransferPair}
@@ -205,6 +210,7 @@ public class TimeStampSecTZVector extends TimeStampVector {
 
   /**
    * Construct a TransferPair with a desired target vector of the same type.
+   *
    * @param to target vector
    * @return {@link TransferPair}
    */

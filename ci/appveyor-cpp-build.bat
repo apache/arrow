@@ -34,6 +34,8 @@ if "%JOB%" == "Static_Crt_Build" (
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
+        -DARROW_BUILD_TESTS=ON ^
+        -DARROW_BUILD_EXAMPLES=ON ^
         -DCMAKE_BUILD_TYPE=Debug ^
         -DARROW_TEST_LINKAGE=static ^
         -DARROW_CXXFLAGS="/MP" ^
@@ -51,6 +53,8 @@ if "%JOB%" == "Static_Crt_Build" (
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
+        -DARROW_BUILD_TESTS=ON ^
+        -DARROW_BUILD_EXAMPLES=ON ^
         -DCMAKE_BUILD_TYPE=Release ^
         -DARROW_TEST_LINKAGE=static ^
         -DCMAKE_CXX_FLAGS_RELEASE="/MT %CMAKE_CXX_FLAGS_RELEASE%" ^
@@ -76,6 +80,8 @@ if "%JOB%" == "Build_Debug" (
   cmake -G "%GENERATOR%" ^
         -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
         -DARROW_BOOST_USE_SHARED=OFF ^
+        -DARROW_BUILD_TESTS=ON ^
+        -DARROW_BUILD_EXAMPLES=ON ^
         -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
         -DARROW_BUILD_STATIC=OFF ^
         -DARROW_CXXFLAGS="/MP" ^
@@ -91,7 +97,7 @@ if "%JOB%" == "Build_Debug" (
 
 conda create -n arrow -q -y ^
       python=%PYTHON% ^
-      six pytest setuptools numpy pandas cython ^
+      six pytest setuptools numpy pandas cython hypothesis ^
       thrift-cpp=0.11.0 boost-cpp ^
       -c conda-forge
 

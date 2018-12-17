@@ -51,11 +51,30 @@ add_custom_command(
 
 add_custom_target(precompiled ALL DEPENDS ${GANDIVA_BC_OUTPUT_PATH})
 
+# Add a unittest executable for a precompiled file (used to generate IR)
+function(add_precompiled_unit_test REL_TEST_NAME)
+  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
+
+  set(TEST_NAME "gandiva-precompiled-${TEST_NAME}")
+
+  add_executable(${TEST_NAME} ${REL_TEST_NAME} ${ARGN})
+  add_dependencies(gandiva ${TEST_NAME})
+  target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+  target_link_libraries(${TEST_NAME}
+    PRIVATE ${ARROW_TEST_LINK_LIBS} ${RE2_LIBRARY}
+  )
+  target_compile_definitions(${TEST_NAME} PRIVATE GANDIVA_UNIT_TEST=1)
+  add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+  set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva;unittest ${TEST_NAME})
+endfunction(add_precompiled_unit_test REL_TEST_NAME)
+
 # testing
-add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
-add_precompiled_unit_test(epoch_time_point_test.cc)
-add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc ../context_helper.cc)
-add_precompiled_unit_test(hash_test.cc hash.cc)
-add_precompiled_unit_test(string_ops_test.cc string_ops.cc ../context_helper.cc)
-add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)
-add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc ../context_helper.cc)
+if (ARROW_BUILD_TESTS)
+  add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
+  add_precompiled_unit_test(epoch_time_point_test.cc)
+  add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc ../context_helper.cc)
+  add_precompiled_unit_test(hash_test.cc hash.cc)
+  add_precompiled_unit_test(string_ops_test.cc string_ops.cc ../context_helper.cc)
+  add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)
+  add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc ../context_helper.cc)
+endif()

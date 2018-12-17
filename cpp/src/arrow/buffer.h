@@ -40,13 +40,15 @@ namespace arrow {
 
 /// \class Buffer
 /// \brief Object containing a pointer to a piece of contiguous memory with a
-/// particular size. Base class does not own its memory
+/// particular size.
 ///
 /// Buffers have two related notions of length: size and capacity. Size is
 /// the number of bytes that might have valid data. Capacity is the number
-/// of bytes that where allocated for the buffer in total.
+/// of bytes that were allocated for the buffer in total.
 ///
-/// The following invariant is always true: Size < Capacity
+/// The Buffer base class does not own its memory, but subclasses often do.
+///
+/// The following invariant is always true: Size <= Capacity
 class ARROW_EXPORT Buffer {
  public:
   /// \brief Construct from buffer and size without copying memory
@@ -158,9 +160,12 @@ class ARROW_EXPORT Buffer {
   /// \note Can throw std::bad_alloc if buffer is large
   std::string ToString() const;
 
-  int64_t capacity() const { return capacity_; }
+  /// \brief Return a pointer to the buffer's data
   const uint8_t* data() const { return data_; }
-
+  /// \brief Return a writable pointer to the buffer's data
+  ///
+  /// The buffer has to be mutable.  Otherwise, an assertion may be thrown
+  /// or a null pointer may be returned.
   uint8_t* mutable_data() {
 #ifndef NDEBUG
     CheckMutable();
@@ -168,7 +173,11 @@ class ARROW_EXPORT Buffer {
     return mutable_data_;
   }
 
+  /// \brief Return the buffer's size in bytes
   int64_t size() const { return size_; }
+
+  /// \brief Return the buffer's capacity (number of allocated bytes)
+  int64_t capacity() const { return capacity_; }
 
   std::shared_ptr<Buffer> parent() const { return parent_; }
 
@@ -188,25 +197,37 @@ class ARROW_EXPORT Buffer {
   ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
 
-/// Construct a view on passed buffer at the indicated offset and length. This
-/// function cannot fail and does not error checking (except in debug builds)
+/// \defgroup buffer-slicing-functions Functions for slicing buffers
+///
+/// @{
+
+/// \brief Construct a view on a buffer at the given offset and length.
+///
+/// This function cannot fail and does not check for errors (except in debug builds)
 static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>& buffer,
                                                   const int64_t offset,
                                                   const int64_t length) {
   return std::make_shared<Buffer>(buffer, offset, length);
 }
 
+/// \brief Construct a view on a buffer at the given offset, up to the buffer's end.
+///
+/// This function cannot fail and does not check for errors (except in debug builds)
 static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>& buffer,
                                                   const int64_t offset) {
   int64_t length = buffer->size() - offset;
   return SliceBuffer(buffer, offset, length);
 }
 
-/// Construct a mutable buffer slice. If the parent buffer is not mutable, this
-/// will abort in debug builds
+/// \brief Like SliceBuffer, but construct a mutable buffer slice.
+///
+/// If the parent buffer is not mutable, behavior is undefined (it may abort
+/// in debug builds).
 ARROW_EXPORT
 std::shared_ptr<Buffer> SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer,
                                            const int64_t offset, const int64_t length);
+
+/// @}
 
 /// \class MutableBuffer
 /// \brief A Buffer whose contents can be mutated. May or may not own its data.
@@ -265,6 +286,10 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
  protected:
   ResizableBuffer(uint8_t* data, int64_t size) : MutableBuffer(data, size) {}
 };
+
+/// \defgroup buffer-allocation-functions Functions for allocating buffers
+///
+/// @{
 
 /// \brief Allocate a fixed size mutable buffer from a memory pool, zero its padding.
 ///
@@ -364,6 +389,8 @@ Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
 ARROW_EXPORT
 Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out);
 
+/// @}
+
 // ----------------------------------------------------------------------
 // Buffer builder classes
 
@@ -374,13 +401,13 @@ class ARROW_EXPORT BufferBuilder {
   explicit BufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
       : pool_(pool), data_(NULLPTR), capacity_(0), size_(0) {}
 
-  /// \brief Resizes the buffer to the nearest multiple of 64 bytes
+  /// \brief Resize the buffer to the nearest multiple of 64 bytes
   ///
   /// \param elements the new capacity of the of the builder. Will be rounded
   /// up to a multiple of 64 bytes for padding
-  /// \param shrink_to_fit if new capacity smaller than existing size,
+  /// \param shrink_to_fit if new capacity is smaller than the existing size,
   /// reallocate internal buffer. Set to false to avoid reallocations when
-  /// shrinking the builder
+  /// shrinking the builder.
   /// \return Status
   Status Resize(const int64_t elements, bool shrink_to_fit = true) {
     // Resize(0) is a no-op
@@ -409,6 +436,9 @@ class ARROW_EXPORT BufferBuilder {
   /// \return Status
   Status Reserve(const int64_t size) { return Resize(size_ + size, false); }
 
+  /// \brief Append the given data to the buffer
+  ///
+  /// The buffer is automatically expanded if necessary.
   Status Append(const void* data, int64_t length) {
     if (capacity_ < length + size_) {
       int64_t new_capacity = BitUtil::NextPower2(length + size_);
@@ -418,6 +448,9 @@ class ARROW_EXPORT BufferBuilder {
     return Status::OK();
   }
 
+  /// \brief Append the given data to the buffer
+  ///
+  /// The buffer is automatically expanded if necessary.
   template <size_t NBYTES>
   Status Append(const std::array<uint8_t, NBYTES>& data) {
     constexpr auto nbytes = static_cast<int64_t>(NBYTES);
@@ -448,6 +481,15 @@ class ARROW_EXPORT BufferBuilder {
     size_ += length;
   }
 
+  /// \brief Return result of builder as a Buffer object.
+  ///
+  /// The builder is reset and can be reused afterwards.
+  ///
+  /// \param[out] out the finalized Buffer object
+  /// \param shrink_to_fit if the buffer size is smaller than its capacity,
+  /// reallocate to fit more tightly in memory. Set to false to avoid
+  /// a reallocation, at the expense of potentially more memory consumption.
+  /// \return Status
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
     ARROW_RETURN_NOT_OK(Resize(size_, shrink_to_fit));
     *out = buffer_;
@@ -472,6 +514,7 @@ class ARROW_EXPORT BufferBuilder {
   int64_t size_;
 };
 
+/// \brief A BufferBuilder subclass with convenience methods to append typed data
 template <typename T>
 class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
  public:

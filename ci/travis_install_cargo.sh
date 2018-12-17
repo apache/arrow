@@ -21,6 +21,7 @@ set -e
 
 # ensure that both toolchains are installed
 rustup install stable
+rustup component add rustfmt
 rustup install nightly
 
 pip install 'travis-cargo<0.2' --user

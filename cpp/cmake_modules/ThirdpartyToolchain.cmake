@@ -152,7 +152,7 @@ endif()
 file(STRINGS "${THIRDPARTY_DIR}/versions.txt" TOOLCHAIN_VERSIONS_TXT)
 foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
   # Exclude comments
-  if(_VERSION_ENTRY MATCHES "#.*")
+  if(NOT _VERSION_ENTRY MATCHES "^[^#][A-Za-z0-9-_]+_VERSION=")
     continue()
   endif()
 
@@ -407,6 +407,13 @@ else()
     # disable autolinking in boost
     add_definitions(-DBOOST_ALL_NO_LIB)
   endif()
+
+  if (DEFINED ENV{BOOST_ROOT} OR DEFINED BOOST_ROOT)
+    # In older versions of CMake (such as 3.2), the system paths for Boost will
+    # be looked in first even if we set $BOOST_ROOT or pass -DBOOST_ROOT
+    set(Boost_NO_SYSTEM_PATHS ON)
+  endif()
+
   if (ARROW_BOOST_USE_SHARED)
     # Find shared Boost libraries.
     set(Boost_USE_STATIC_LIBS OFF)
@@ -525,9 +532,11 @@ message(STATUS "double-conversion static library: ${DOUBLE_CONVERSION_STATIC_LIB
 # ----------------------------------------------------------------------
 # Google gtest & gflags
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
-  add_custom_target(unittest ctest -L unittest)
+add_custom_target(unittest ctest -L unittest)
+add_custom_target(benchmark ctest -L benchmark)
 
+if(ARROW_BUILD_TESTS OR ARROW_GANDIVA_BUILD_TESTS
+   OR ARROW_BUILD_BENCHMARKS)
   if("${GTEST_HOME}" STREQUAL "")
     if(APPLE)
       set(GTEST_CMAKE_CXX_FLAGS "-fPIC -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes")
@@ -627,9 +636,11 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  add_custom_target(runbenchmark ctest -L benchmark)
-
   if("$ENV{GBENCHMARK_HOME}" STREQUAL "")
+    if(CMAKE_VERSION VERSION_LESS 3.6)
+      message(FATAL_ERROR "Building gbenchmark from source requires at least CMake 3.6")
+    endif()
+
     if(NOT MSVC)
       set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC -std=c++11 ${EP_CXX_FLAGS}")
     endif()
@@ -664,11 +675,11 @@ if(ARROW_BUILD_BENCHMARKS)
   message(STATUS "GBenchmark include dir: ${GBENCHMARK_INCLUDE_DIR}")
   message(STATUS "GBenchmark static library: ${GBENCHMARK_STATIC_LIB}")
   include_directories(SYSTEM ${GBENCHMARK_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(benchmark
+  ADD_THIRDPARTY_LIB(gbenchmark
     STATIC_LIB ${GBENCHMARK_STATIC_LIB})
 
   if(GBENCHMARK_VENDORED)
-    add_dependencies(benchmark_static gbenchmark_ep)
+    add_dependencies(gbenchmark_static gbenchmark_ep)
   endif()
 endif()
 
@@ -1092,6 +1103,11 @@ if (ARROW_WITH_ZSTD)
       set(ZSTD_CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
           "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
           "-DCMAKE_C_FLAGS=${EP_C_FLAGS}")
+    endif()
+
+    if(CMAKE_VERSION VERSION_LESS 3.7)
+      message(FATAL_ERROR "Building zstd using ExternalProject requires \
+at least CMake 3.7")
     endif()
 
     ExternalProject_Add(zstd_ep

@@ -32,6 +32,7 @@ namespace arrow {
 class Array;
 struct ArrayData;
 class Status;
+class Table;
 
 /// \class RecordBatch
 /// \brief Collection of equal-length arrays matching a particular Schema
@@ -170,12 +171,18 @@ class ARROW_EXPORT RecordBatchReader {
   /// \return the shared schema of the record batches in the stream
   virtual std::shared_ptr<Schema> schema() const = 0;
 
-  /// Read the next record batch in the stream. Return null for batch when
-  /// reaching end of stream
+  /// \brief Read the next record batch in the stream. Return null for batch
+  /// when reaching end of stream
   ///
   /// \param[out] batch the next loaded batch, null at end of stream
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
+
+  /// \brief Consume entire stream as a vector of record batches
+  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
+
+  /// \brief Read all batches and concatenate as arrow::Table
+  Status ReadAll(std::shared_ptr<Table>* table);
 };
 
 }  // namespace arrow

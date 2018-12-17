@@ -50,7 +50,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 /**
  * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with null values for
- * H2 database
+ * H2 database.
  */
 @RunWith(Parameterized.class)
 public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
@@ -64,21 +64,21 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
   };
 
   /**
-   * Constructor which populate table object for each test iteration
+   * Constructor which populate table object for each test iteration.
    *
-   * @param table
+   * @param table Table object
    */
   public JdbcToArrowNullTest(Table table) {
     this.table = table;
   }
 
   /**
-   * This method returns collection of Table object for each test iteration
+   * Get the test data as a collection of Table objects for each test iteration.
    *
-   * @return
-   * @throws SQLException
-   * @throws ClassNotFoundException
-   * @throws IOException
+   * @return Collection of Table objects
+   * @throws SQLException on error
+   * @throws ClassNotFoundException on error
+   * @throws IOException on error
    */
   @Parameters
   public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
@@ -86,7 +86,7 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
   }
 
   /**
-   * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with null values
+   * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with null values.
    */
   @Test
   public void testJdbcToArroValues() throws SQLException, IOException {
@@ -103,9 +103,9 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
 
 
   /**
-   * This method calls the assert methods for various DataSets
+   * This method calls the assert methods for various DataSets.
    *
-   * @param root
+   * @param root VectorSchemaRoot for test
    */
   public void testDataSets(VectorSchemaRoot root) {
     switch (table.getType()) {
@@ -122,11 +122,11 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
   }
 
   /**
-   * This method assert tests null values in vectors for all the datatypes
+   * This method assert tests null values in vectors for all the datatypes.
    *
-   * @param vectors
-   * @param root
-   * @param rowCount
+   * @param vectors Vectors to test
+   * @param root VectorSchemaRoot for test
+   * @param rowCount number of rows
    */
   public void sqlToArrowTestNullValues(String[] vectors, VectorSchemaRoot root, int rowCount) {
     assertNullValues((IntVector) root.getVector(vectors[0]), rowCount);
@@ -149,11 +149,11 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
   }
 
   /**
-   * This method assert tests null values in vectors for some selected datatypes
+   * This method assert tests null values in vectors for some selected datatypes.
    *
-   * @param vectors
-   * @param root
-   * @param rowCount
+   * @param vectors Vectors to test
+   * @param root VectorSchemaRoot for test
+   * @param rowCount number of rows
    */
   public void sqlToArrowTestSelectedNullColumnsValues(String[] vectors, VectorSchemaRoot root, int rowCount) {
     assertNullValues((BigIntVector) root.getVector(vectors[0]), rowCount);

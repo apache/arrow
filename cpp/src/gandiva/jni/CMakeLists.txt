@@ -17,6 +17,10 @@
 
 project(gandiva_jni)
 
+if(CMAKE_VERSION VERSION_LESS 3.11)
+  message(FATAL_ERROR "Building the Gandiva JNI bindings requires CMake version >= 3.11")
+endif()
+
 # Find JNI
 find_package(JNI REQUIRED)
 
@@ -61,6 +65,7 @@ set(GANDIVA_JNI_SOURCES config_builder.cc
 #   cpp/src
 ADD_ARROW_LIB(gandiva_jni
   SOURCES ${GANDIVA_JNI_SOURCES}
+  OUTPUTS GANDIVA_JNI_LIBRARIES
   SHARED_PRIVATE_LINK_LIBS ${GANDIVA_LINK_LIBS}
   STATIC_LINK_LIBS ${GANDIVA_LINK_LIBS}
   DEPENDENCIES gandiva_java gandiva_jni_proto
@@ -68,6 +73,8 @@ ADD_ARROW_LIB(gandiva_jni
   $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
   ${JNI_HEADERS_DIR}
   PRIVATE_INCLUDES ${JNI_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR})
+
+add_dependencies(gandiva ${GANDIVA_JNI_LIBRARIES})
 
 # filter out everything that is not needed for the jni bridge
 # statically linked stdc++ has conflicts with stdc++ loaded by other libraries.

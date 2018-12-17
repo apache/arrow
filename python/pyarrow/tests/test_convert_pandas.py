@@ -176,6 +176,16 @@ class TestConvertMetadata(object):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_multiindex_doesnt_warn(self):
+        # ARROW-3953: pandas 0.24 rename of MultiIndex labels to codes
+        columns = pd.MultiIndex.from_arrays([['one', 'two'], ['X', 'Y']])
+        df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
+
+        with pytest.warns(None) as record:
+            _check_pandas_roundtrip(df, preserve_index=True)
+
+        assert len(record) == 0
+
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
         _check_pandas_roundtrip(df, preserve_index=True)
@@ -1361,6 +1371,13 @@ class TestConvertStringLikeTypes(object):
         tm.assert_frame_equal(result3, expected_cat, check_dtype=True)
         result4 = table.to_pandas(categories=tuple())
         tm.assert_frame_equal(result4, expected_str, check_dtype=True)
+
+    def test_to_pandas_categorical_zero_length(self):
+        # ARROW-3586
+        array = pa.array([], type=pa.int32())
+        table = pa.Table.from_arrays(arrays=[array], names=['col'])
+        # This would segfault under 0.11.0
+        table.to_pandas(categories=['col'])
 
     def test_table_str_to_categorical_without_na(self):
         values = ['a', 'a', 'b', 'b', 'c']

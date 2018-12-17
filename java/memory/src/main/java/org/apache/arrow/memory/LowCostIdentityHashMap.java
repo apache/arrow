@@ -22,11 +22,13 @@ import org.apache.arrow.util.VisibleForTesting;
 
 /**
  * Highly specialized IdentityHashMap that implements only partial
- * Map APIs
- * It incurs low initial cost (just two elements by default)
+ * Map APIs.
+ * It incurs low initial cost (just two elements by default).
  * It assumes Value includes the Key - Implements @ValueWithKeyIncluded iface
- * that provides "getKey" method
- * @param <V>
+ * that provides "getKey" method.
+ *
+ * @param <K> Key type
+ * @param <V> Value type
  */
 public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
 
@@ -87,7 +89,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   }
 
   /**
-   * Create a new element array
+   * Create a new element array.
    *
    * @param s
    *            the number of elements
@@ -147,8 +149,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   /**
    * Returns the value of the mapping with the specified key.
    *
-   * @param key
-   *            the key.
+   * @param key the key.
    * @return the value of the mapping with the specified key.
    */
   public V get(K key) {
@@ -190,8 +191,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   /**
    * Maps the specified key to the specified value.
    *
-   * @param value
-   *            the value.
+   * @param value the value.
    * @return the value of any previous mapping with the specified key or
    *         {@code null} if there was no such mapping.
    */
@@ -246,8 +246,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   /**
    * Removes the mapping with the specified key from this map.
    *
-   * @param key
-   *            the key of the mapping to remove.
+   * @param key the key of the mapping to remove.
    * @return the value of the removed mapping, or {@code null} if no mapping
    *         for the specified key was found.
    */
@@ -322,7 +321,8 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   }
 
   /**
-   * Special API to return next value - substitute of regular Map.values.iterator().next()
+   * Special API to return next value - substitute of regular Map.values.iterator().next().
+   *
    * @return next available value or null if none available
    */
   public V getNextValue() {

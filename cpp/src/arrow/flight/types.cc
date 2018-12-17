@@ -36,8 +36,7 @@ Status FlightInfo::GetSchema(std::shared_ptr<Schema>* out) const {
   }
   /// XXX(wesm): arrow::ipc::ReadSchema in its current form will not suffice
   /// for reading schemas with dictionaries. See ARROW-3144
-  io::BufferReader schema_reader(reinterpret_cast<const uint8_t*>(data_.schema.c_str()),
-                                 static_cast<int64_t>(data_.schema.size()));
+  io::BufferReader schema_reader(data_.schema);
   RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, &schema_));
   reconstructed_schema_ = true;
   *out = schema_;

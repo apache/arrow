@@ -37,6 +37,8 @@ type (
 	Time32    int32
 	Time64    int64
 	TimeUnit  int
+	Date32    int32
+	Date64    int64
 )
 
 const (

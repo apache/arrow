@@ -34,7 +34,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/date.h"
+#include "arrow/vendored/date.h"
 
 namespace arrow {
 namespace internal {
@@ -419,8 +419,9 @@ class StringConverter<TimestampType> {
         *out = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
         return true;
     }
-    // Unreachable
+    // Unreachable, but suppress compiler warning
     assert(0);
+    *out = 0;
     return true;
   }
 

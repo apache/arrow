@@ -681,7 +681,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 --------------------------------------------------------------------------------
-The file cpp/src/arrow/util/date.h has the following license (MIT)
+The file cpp/src/arrow/vendored/date.h has the following license (MIT)
 
 The MIT License (MIT)
 Copyright (c) 2015, 2016, 2017 Howard Hinnant
@@ -736,7 +736,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-The file cpp/src/util/string_view/string_view.hpp has the following license
+The file cpp/src/arrow/vendored/string_view.hpp has the following license
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -764,7 +764,7 @@ DEALINGS IN THE SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-The files in cpp/src/arrow/util/xxhash/ have the following license
+The files in cpp/src/arrow/vendored/xxhash/ have the following license
 (BSD 2-Clause License)
 
 xxHash Library

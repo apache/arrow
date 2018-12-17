@@ -1173,10 +1173,14 @@ def py_buffer(object obj):
     return pyarrow_wrap_buffer(buf)
 
 
-def foreign_buffer(address, size, base):
+def foreign_buffer(address, size, base=None):
     """
     Construct an Arrow buffer with the given *address* and *size*,
-    backed by the Python *base* object.
+    optionally backed by the Python *base* object.
+
+    The *base* object, if given, will be kept alive as long as this buffer
+    is alive, including accross language boundaries (for example if the
+    buffer is referenced by C++ code).
     """
     cdef:
         intptr_t c_addr = address

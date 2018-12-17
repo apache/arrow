@@ -17,7 +17,7 @@
 
 #include "arrow/util/logging.h"
 
-#ifndef _WIN32
+#ifdef ARROW_WITH_BACKTRACE
 #include <execinfo.h>
 #endif
 #include <cstdlib>

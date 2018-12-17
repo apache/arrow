@@ -362,3 +362,223 @@ func TestTime64Builder_Resize(t *testing.T) {
 
 	ab.Release()
 }
+
+func TestNewDate32Builder(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewDate32Builder(mem)
+
+	ab.Append(1)
+	ab.Append(2)
+	ab.Append(3)
+	ab.AppendNull()
+	ab.Append(5)
+	ab.Append(6)
+	ab.AppendNull()
+	ab.Append(8)
+	ab.Append(9)
+	ab.Append(10)
+
+	// check state of builder before NewDate32Array
+	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
+
+	a := ab.NewDate32Array()
+
+	// check state of builder after NewDate32Array
+	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewDate32Array did not reset state")
+	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewDate32Array did not reset state")
+	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewDate32Array did not reset state")
+
+	// check state of array
+	assert.Equal(t, 2, a.NullN(), "unexpected null count")
+	assert.Equal(t, []arrow.Date32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Date32Values(), "unexpected Date32Values")
+	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
+	assert.Len(t, a.Date32Values(), 10, "unexpected length of Date32Values")
+
+	a.Release()
+
+	ab.Append(7)
+	ab.Append(8)
+
+	a = ab.NewDate32Array()
+
+	assert.Equal(t, 0, a.NullN())
+	assert.Equal(t, []arrow.Date32{7, 8}, a.Date32Values())
+	assert.Len(t, a.Date32Values(), 2)
+
+	a.Release()
+}
+
+func TestDate32Builder_AppendValues(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewDate32Builder(mem)
+
+	exp := []arrow.Date32{1, 2, 3, 4}
+	ab.AppendValues(exp, nil)
+	a := ab.NewDate32Array()
+	assert.Equal(t, exp, a.Date32Values())
+
+	a.Release()
+	ab.Release()
+}
+
+func TestDate32Builder_Empty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewDate32Builder(mem)
+
+	exp := []arrow.Date32{1, 2, 3, 4}
+	ab.AppendValues(exp, nil)
+	a := ab.NewDate32Array()
+	assert.Equal(t, exp, a.Date32Values())
+	a.Release()
+
+	a = ab.NewDate32Array()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.Release()
+}
+
+func TestDate32Builder_Resize(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewDate32Builder(mem)
+
+	assert.Equal(t, 0, ab.Cap())
+	assert.Equal(t, 0, ab.Len())
+
+	ab.Reserve(63)
+	assert.Equal(t, 64, ab.Cap())
+	assert.Equal(t, 0, ab.Len())
+
+	for i := 0; i < 63; i++ {
+		ab.Append(0)
+	}
+	assert.Equal(t, 64, ab.Cap())
+	assert.Equal(t, 63, ab.Len())
+
+	ab.Resize(5)
+	assert.Equal(t, 5, ab.Len())
+
+	ab.Resize(32)
+	assert.Equal(t, 5, ab.Len())
+
+	ab.Release()
+}
+
+func TestNewDate64Builder(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewDate64Builder(mem)
+
+	ab.Append(1)
+	ab.Append(2)
+	ab.Append(3)
+	ab.AppendNull()
+	ab.Append(5)
+	ab.Append(6)
+	ab.AppendNull()
+	ab.Append(8)
+	ab.Append(9)
+	ab.Append(10)
+
+	// check state of builder before NewDate64Array
+	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
+
+	a := ab.NewDate64Array()
+
+	// check state of builder after NewDate64Array
+	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewDate64Array did not reset state")
+	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewDate64Array did not reset state")
+	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewDate64Array did not reset state")
+
+	// check state of array
+	assert.Equal(t, 2, a.NullN(), "unexpected null count")
+	assert.Equal(t, []arrow.Date64{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Date64Values(), "unexpected Date64Values")
+	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
+	assert.Len(t, a.Date64Values(), 10, "unexpected length of Date64Values")
+
+	a.Release()
+
+	ab.Append(7)
+	ab.Append(8)
+
+	a = ab.NewDate64Array()
+
+	assert.Equal(t, 0, a.NullN())
+	assert.Equal(t, []arrow.Date64{7, 8}, a.Date64Values())
+	assert.Len(t, a.Date64Values(), 2)
+
+	a.Release()
+}
+
+func TestDate64Builder_AppendValues(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewDate64Builder(mem)
+
+	exp := []arrow.Date64{1, 2, 3, 4}
+	ab.AppendValues(exp, nil)
+	a := ab.NewDate64Array()
+	assert.Equal(t, exp, a.Date64Values())
+
+	a.Release()
+	ab.Release()
+}
+
+func TestDate64Builder_Empty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewDate64Builder(mem)
+
+	exp := []arrow.Date64{1, 2, 3, 4}
+	ab.AppendValues(exp, nil)
+	a := ab.NewDate64Array()
+	assert.Equal(t, exp, a.Date64Values())
+	a.Release()
+
+	a = ab.NewDate64Array()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.Release()
+}
+
+func TestDate64Builder_Resize(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewDate64Builder(mem)
+
+	assert.Equal(t, 0, ab.Cap())
+	assert.Equal(t, 0, ab.Len())
+
+	ab.Reserve(63)
+	assert.Equal(t, 64, ab.Cap())
+	assert.Equal(t, 0, ab.Len())
+
+	for i := 0; i < 63; i++ {
+		ab.Append(0)
+	}
+	assert.Equal(t, 64, ab.Cap())
+	assert.Equal(t, 63, ab.Len())
+
+	ab.Resize(5)
+	assert.Equal(t, 5, ab.Len())
+
+	ab.Resize(32)
+	assert.Equal(t, 5, ab.Len())
+
+	ab.Release()
+}

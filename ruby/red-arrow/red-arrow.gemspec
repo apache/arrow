@@ -52,4 +52,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency("bundler")
   spec.add_development_dependency("rake")
   spec.add_development_dependency("test-unit")
+
+  spec.metadata["msys2_mingw_dependencies"] = "apache-arrow"
 end

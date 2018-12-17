@@ -128,21 +128,6 @@ Status SendDeleteReply(int sock, const std::vector<ObjectID>& object_ids,
 Status ReadDeleteReply(uint8_t* data, size_t size, std::vector<ObjectID>* object_ids,
                        std::vector<PlasmaError>* errors);
 
-/* Satus messages. */
-
-Status SendStatusRequest(int sock, const ObjectID* object_ids, int64_t num_objects);
-
-Status ReadStatusRequest(uint8_t* data, size_t size, ObjectID object_ids[],
-                         int64_t num_objects);
-
-Status SendStatusReply(int sock, ObjectID object_ids[], int object_status[],
-                       int64_t num_objects);
-
-int64_t ReadStatusReply_num_objects(uint8_t* data, size_t size);
-
-Status ReadStatusReply(uint8_t* data, size_t size, ObjectID object_ids[],
-                       int object_status[], int64_t num_objects);
-
 /* Plasma Constains message functions. */
 
 Status SendContainsRequest(int sock, ObjectID object_id);
@@ -183,26 +168,6 @@ Status ReadEvictRequest(uint8_t* data, size_t size, int64_t* num_bytes);
 Status SendEvictReply(int sock, int64_t num_bytes);
 
 Status ReadEvictReply(uint8_t* data, size_t size, int64_t& num_bytes);
-
-/* Plasma Fetch Remote message functions. */
-
-Status SendFetchRequest(int sock, const ObjectID* object_ids, int64_t num_objects);
-
-Status ReadFetchRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_ids);
-
-/* Plasma Wait message functions. */
-
-Status SendWaitRequest(int sock, ObjectRequest object_requests[], int64_t num_requests,
-                       int num_ready_objects, int64_t timeout_ms);
-
-Status ReadWaitRequest(uint8_t* data, size_t size, ObjectRequestMap& object_requests,
-                       int64_t* timeout_ms, int* num_ready_objects);
-
-Status SendWaitReply(int sock, const ObjectRequestMap& object_requests,
-                     int num_ready_objects);
-
-Status ReadWaitReply(uint8_t* data, size_t size, ObjectRequest object_requests[],
-                     int* num_ready_objects);
 
 /* Plasma Subscribe message functions. */
 

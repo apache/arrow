@@ -20,7 +20,7 @@ package org.apache.arrow.plasma;
 import java.nio.ByteBuffer;
 
 /**
- * JNI static methods for PlasmaClient
+ * JNI static methods for PlasmaClient.
  */
 public class PlasmaClientJNI {
 

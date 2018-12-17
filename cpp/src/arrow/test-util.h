@@ -15,26 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TEST_UTIL_H_
-#define ARROW_TEST_UTIL_H_
-
-#ifndef _WIN32
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#endif
+#pragma once
 
 #include <algorithm>
-#include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <memory>
 #include <random>
 #include <sstream>
 #include <string>
-#include <thread>
+#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -44,13 +37,13 @@
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 #define STRINGIFY(x) #x
@@ -63,6 +56,17 @@
                     ENUM) ", but got "                                    \
              << s.ToString();                                             \
     }                                                                     \
+  } while (false)
+
+#define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                   \
+  do {                                                                    \
+    ::arrow::Status s = (expr);                                           \
+    if (!s.Is##ENUM()) {                                                  \
+      FAIL() << "Expected '" STRINGIFY(expr) "' to fail with " STRINGIFY( \
+                    ENUM) ", but got "                                    \
+             << s.ToString();                                             \
+    }                                                                     \
+    ASSERT_EQ((message), s.ToString());                                   \
   } while (false)
 
 #define ASSERT_OK(expr)                                               \
@@ -92,6 +96,10 @@
 
 namespace arrow {
 
+class ChunkedArray;
+class Column;
+class Table;
+
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
 #define ASSERT_ARRAYS_EQUAL(LEFT, RIGHT)                                               \
@@ -109,7 +117,7 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
 template <typename T, typename U>
 void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
   const int random_seed = 0;
-  std::mt19937 gen(random_seed);
+  std::default_random_engine gen(random_seed);
   std::uniform_int_distribution<T> d(lower, upper);
   out->resize(N, static_cast<T>(0));
   std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
@@ -118,7 +126,7 @@ void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
 template <typename T, typename U>
 void random_real(int64_t n, uint32_t seed, T min_value, T max_value,
                  std::vector<U>* out) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_real_distribution<T> d(min_value, max_value);
   out->resize(n, static_cast<T>(0));
   std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
@@ -159,6 +167,12 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
   return Status::OK();
 }
 
+template <typename T>
+inline void BitmapFromVector(const std::vector<T>& is_valid,
+                             std::shared_ptr<Buffer>* out) {
+  ASSERT_OK(GetBitmapFromVector(is_valid, out));
+}
+
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
 // and the rest to non-zero (true) values.
 ARROW_EXPORT void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes);
@@ -192,10 +206,25 @@ ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
 
 ARROW_EXPORT void CompareBatch(const RecordBatch& left, const RecordBatch& right);
 
+// Check if the padding of the buffers of the array is zero.
+// Also cause valgrind warnings if the padding bytes are uninitialized.
+ARROW_EXPORT void AssertZeroPadded(const Array& array);
+
+// Check if the valid buffer bytes are initialized
+// and cause valgrind warnings otherwise.
+ARROW_EXPORT void TestInitialized(const Array& array);
+
+template <typename BuilderType>
+void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {
+  ASSERT_OK(builder->Finish(out));
+  AssertZeroPadded(**out);
+  TestInitialized(**out);
+}
+
 template <typename T, typename U>
 void rand_uniform_int(int64_t n, uint32_t seed, T min_value, T max_value, U* out) {
   DCHECK(out || (n == 0));
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_int_distribution<T> d(min_value, max_value);
   std::generate(out, out + n, [&d, &gen] { return static_cast<U>(d(gen)); });
 }
@@ -221,6 +250,12 @@ Status MakeRandomBuffer(int64_t length, MemoryPool* pool,
   *out = result;
   return Status::OK();
 }
+
+// ArrayFromJSON: construct an Array from a simple JSON representation
+
+ARROW_EXPORT
+std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
+                                     const std::string& json);
 
 // ArrayFromVector: construct an Array from vectors of C values
 
@@ -383,5 +418,3 @@ class BatchIterator : public RecordBatchReader {
 };
 
 }  // namespace arrow
-
-#endif  // ARROW_TEST_UTIL_H_

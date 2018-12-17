@@ -97,7 +97,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         listRoot.clear();
         break;
       default:
-        throw new RuntimeException("Unexpected mode:" + mode);
+        break;
     }
   }
 
@@ -111,7 +111,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         listRoot.setValueCount(count);
         break;
       default:
-        throw new RuntimeException("Unexpected mode:" + mode);
+        break;
     }
   }
 
@@ -126,7 +126,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         listRoot.setPosition(index);
         break;
       default:
-        throw new RuntimeException("Unexpected mode:" + mode);
+        break;
     }
   }
 

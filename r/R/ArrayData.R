@@ -17,6 +17,30 @@
 
 #' @include R6.R
 
+#' @title class arrow::ArrayData
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Usage:
+#'
+#' ```
+#' data <- array(...)$data()
+#'
+#' data$type()
+#' data$length()
+#' data$null_count()
+#' data$offset()
+#' data$buffers()
+#' ```
+#'
+#' @section Methods:
+#'
+#' ...
+#'
+#' @rdname arrow__ArrayData
+#' @name arrow__ArrayData
 `arrow::ArrayData` <- R6Class("arrow::ArrayData",
   inherit = `arrow::Object`,
   active = list(

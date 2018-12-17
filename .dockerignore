@@ -17,6 +17,7 @@
 
 .git
 docker_cache
+docs/_build
 
 # IDE
 .vscode
@@ -49,7 +50,6 @@ python/dist
 python/*.egg-info
 python/*.egg
 python/*.pyc
-python/doc/_build
 __pycache__/
 */__pycache__/
 */*/__pycache__/

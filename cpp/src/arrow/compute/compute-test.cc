@@ -71,6 +71,27 @@ shared_ptr<Array> _MakeArray(const shared_ptr<DataType>& type, const vector<T>& 
 }
 
 // ----------------------------------------------------------------------
+// Datum
+
+template <typename T>
+void CheckImplicitConstructor(enum Datum::type expected_kind) {
+  std::shared_ptr<T> value;
+  Datum datum = value;
+  ASSERT_EQ(expected_kind, datum.kind());
+}
+
+TEST(TestDatum, ImplicitConstructors) {
+  CheckImplicitConstructor<Array>(Datum::ARRAY);
+
+  // Instantiate from array subclass
+  CheckImplicitConstructor<BinaryArray>(Datum::ARRAY);
+
+  CheckImplicitConstructor<ChunkedArray>(Datum::CHUNKED_ARRAY);
+  CheckImplicitConstructor<RecordBatch>(Datum::RECORD_BATCH);
+  CheckImplicitConstructor<Table>(Datum::TABLE);
+}
+
+// ----------------------------------------------------------------------
 // Cast
 
 static void AssertBufferSame(const Array& left, const Array& right, int buffer_index) {
@@ -111,8 +132,10 @@ class TestCast : public ComputeFixture, public TestBase {
   void CheckCase(const shared_ptr<DataType>& in_type, const vector<I_TYPE>& in_values,
                  const vector<bool>& is_valid, const shared_ptr<DataType>& out_type,
                  const vector<O_TYPE>& out_values, const CastOptions& options) {
+    DCHECK_EQ(in_values.size(), out_values.size());
     shared_ptr<Array> input, expected;
     if (is_valid.size() > 0) {
+      DCHECK_EQ(is_valid.size(), out_values.size());
       ArrayFromVector<InType, I_TYPE>(in_type, is_valid, in_values, &input);
       ArrayFromVector<OutType, O_TYPE>(out_type, is_valid, out_values, &expected);
     } else {
@@ -236,6 +259,76 @@ TEST_F(TestCast, ToIntDowncastSafe) {
   // underflow
   vector<int32_t> v6 = {0, 1000, 2000, -70000, 0};
   CheckFails<Int32Type>(int32(), v6, is_valid, int16(), options);
+
+  vector<int32_t> v7 = {0, 1000, 2000, -70000, 0};
+  CheckFails<Int32Type>(int32(), v7, is_valid, uint8(), options);
+}
+
+template <typename O, typename I>
+std::vector<O> UnsafeVectorCast(const std::vector<I>& v) {
+  size_t n_elems = v.size();
+  std::vector<O> result(n_elems);
+
+  for (size_t i = 0; i < v.size(); i++) result[i] = static_cast<O>(v[i]);
+
+  return std::move(result);
+}
+
+TEST_F(TestCast, IntegerSignedToUnsigned) {
+  CastOptions options;
+  options.allow_int_overflow = false;
+
+  vector<bool> is_valid = {true, false, true, true, true};
+
+  vector<int32_t> v1 = {INT32_MIN, 100, -1, UINT16_MAX, INT32_MAX};
+
+  // Same width
+  CheckFails<Int32Type>(int32(), v1, is_valid, uint32(), options);
+  // Wider
+  CheckFails<Int32Type>(int32(), v1, is_valid, uint64(), options);
+  // Narrower
+  CheckFails<Int32Type>(int32(), v1, is_valid, uint16(), options);
+  // Fail because of overflow (instead of underflow).
+  vector<int32_t> over = {0, -11, 0, UINT16_MAX + 1, INT32_MAX};
+  CheckFails<Int32Type>(int32(), over, is_valid, uint16(), options);
+
+  options.allow_int_overflow = true;
+
+  CheckCase<Int32Type, int32_t, UInt32Type, uint32_t>(
+      int32(), v1, is_valid, uint32(), UnsafeVectorCast<uint32_t, int32_t>(v1), options);
+  CheckCase<Int32Type, int32_t, UInt64Type, uint64_t>(
+      int32(), v1, is_valid, uint64(), UnsafeVectorCast<uint64_t, int32_t>(v1), options);
+  CheckCase<Int32Type, int32_t, UInt16Type, uint16_t>(
+      int32(), v1, is_valid, uint16(), UnsafeVectorCast<uint16_t, int32_t>(v1), options);
+  CheckCase<Int32Type, int32_t, UInt16Type, uint16_t>(
+      int32(), over, is_valid, uint16(), UnsafeVectorCast<uint16_t, int32_t>(over),
+      options);
+}
+
+TEST_F(TestCast, IntegerUnsignedToSigned) {
+  CastOptions options;
+  options.allow_int_overflow = false;
+
+  vector<bool> is_valid = {true, true, true};
+
+  vector<uint32_t> v1 = {0, INT16_MAX + 1, UINT32_MAX};
+  vector<uint32_t> v2 = {0, INT16_MAX + 1, 2};
+  // Same width
+  CheckFails<UInt32Type>(uint32(), v1, is_valid, int32(), options);
+  // Narrower
+  CheckFails<UInt32Type>(uint32(), v1, is_valid, int16(), options);
+  CheckFails<UInt32Type>(uint32(), v2, is_valid, int16(), options);
+
+  options.allow_int_overflow = true;
+
+  CheckCase<UInt32Type, uint32_t, Int32Type, int32_t>(
+      uint32(), v1, is_valid, int32(), UnsafeVectorCast<int32_t, uint32_t>(v1), options);
+  CheckCase<UInt32Type, uint32_t, Int64Type, int64_t>(
+      uint32(), v1, is_valid, int64(), UnsafeVectorCast<int64_t, uint32_t>(v1), options);
+  CheckCase<UInt32Type, uint32_t, Int16Type, int16_t>(
+      uint32(), v1, is_valid, int16(), UnsafeVectorCast<int16_t, uint32_t>(v1), options);
+  CheckCase<UInt32Type, uint32_t, Int16Type, int16_t>(
+      uint32(), v2, is_valid, int16(), UnsafeVectorCast<int16_t, uint32_t>(v2), options);
 }
 
 TEST_F(TestCast, ToIntDowncastUnsafe) {
@@ -340,6 +433,21 @@ TEST_F(TestCast, FloatingPointToInt) {
   CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v5, is_valid, int64(), e5,
                                                     options);
   CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v5, all_valid, int64(), e5,
+                                                    options);
+}
+
+TEST_F(TestCast, IntToFloatingPoint) {
+  auto options = CastOptions::Safe();
+
+  vector<bool> all_valid = {true, true, true, true, true};
+  vector<bool> all_invalid = {false, false, false, false, false};
+
+  vector<int64_t> v1 = {INT64_MIN, INT64_MIN + 1, 0, INT64_MAX - 1, INT64_MAX};
+  CheckFails<Int64Type>(int64(), v1, all_valid, float32(), options);
+
+  // While it's not safe to convert, all values are null.
+  CheckCase<Int64Type, int64_t, DoubleType, double>(int64(), v1, all_invalid, float64(),
+                                                    UnsafeVectorCast<double, int64_t>(v1),
                                                     options);
 }
 
@@ -583,6 +691,36 @@ TEST_F(TestCast, TimeToCompatible) {
                          options);
 }
 
+TEST_F(TestCast, PrimitiveZeroCopy) {
+  shared_ptr<Array> arr;
+
+  ArrayFromVector<UInt8Type, uint8_t>(uint8(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, uint8());
+  ArrayFromVector<Int8Type, int8_t>(int8(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, int8());
+
+  ArrayFromVector<UInt16Type, uint16_t>(uint16(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, uint16());
+  ArrayFromVector<Int16Type, int8_t>(int16(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, int16());
+
+  ArrayFromVector<UInt32Type, uint32_t>(uint32(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, uint32());
+  ArrayFromVector<Int32Type, int8_t>(int32(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, int32());
+
+  ArrayFromVector<UInt64Type, uint64_t>(uint64(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, uint64());
+  ArrayFromVector<Int64Type, int8_t>(int64(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, int64());
+
+  ArrayFromVector<FloatType, float>(float32(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, float32());
+
+  ArrayFromVector<DoubleType, double>(float64(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
+  CheckZeroCopy(*arr, float64());
+}
+
 TEST_F(TestCast, DateToCompatible) {
   CastOptions options;
 
@@ -664,7 +802,7 @@ TEST_F(TestCast, ChunkedArray) {
   CastOptions options;
 
   Datum out;
-  ASSERT_OK(Cast(&this->ctx_, Datum(carr), out_type, options, &out));
+  ASSERT_OK(Cast(&this->ctx_, carr, out_type, options, &out));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, out.kind());
 
   auto out_carr = out.chunked_array();
@@ -752,7 +890,7 @@ TEST_F(TestCast, PreallocatedMemory) {
   out_data->buffers.push_back(out_values);
 
   Datum out(out_data);
-  ASSERT_OK(kernel->Call(&this->ctx_, Datum(arr), &out));
+  ASSERT_OK(kernel->Call(&this->ctx_, arr, &out));
 
   // Buffer address unchanged
   ASSERT_EQ(out_values.get(), out_data->buffers[1].get());
@@ -795,8 +933,8 @@ void CheckOffsetOutputCase(FunctionContext* ctx, const std::shared_ptr<DataType>
   Datum out_second(out_second_data);
 
   // Cast each bit
-  ASSERT_OK(kernel->Call(ctx, Datum(arr->Slice(0, first_half)), &out_first));
-  ASSERT_OK(kernel->Call(ctx, Datum(arr->Slice(first_half)), &out_second));
+  ASSERT_OK(kernel->Call(ctx, arr->Slice(0, first_half), &out_first));
+  ASSERT_OK(kernel->Call(ctx, arr->Slice(first_half), &out_second));
 
   shared_ptr<Array> result = MakeArray(out_data);
 
@@ -941,6 +1079,37 @@ TEST_F(TestCast, StringToNumberErrors) {
   CheckFails<StringType, std::string>(utf8(), {"z"}, is_valid, float32(), options);
 }
 
+TEST_F(TestCast, StringToTimestamp) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true, false, true};
+  vector<std::string> strings = {"1970-01-01", "xxx", "2000-02-29"};
+
+  auto type = timestamp(TimeUnit::SECOND);
+  vector<int64_t> e = {0, 0, 951782400};
+  CheckCase<StringType, std::string, TimestampType, int64_t>(utf8(), strings, is_valid,
+                                                             type, e, options);
+
+  type = timestamp(TimeUnit::MICRO);
+  e = {0, 0, 951782400000000LL};
+  CheckCase<StringType, std::string, TimestampType, int64_t>(utf8(), strings, is_valid,
+                                                             type, e, options);
+
+  // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
+}
+
+TEST_F(TestCast, StringToTimestampErrors) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true};
+
+  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
+    auto type = timestamp(unit);
+    CheckFails<StringType, std::string>(utf8(), {""}, is_valid, type, options);
+    CheckFails<StringType, std::string>(utf8(), {"xxx"}, is_valid, type, options);
+  }
+}
+
 template <typename TestType>
 class TestDictionaryCast : public TestCast {};
 
@@ -957,7 +1126,7 @@ TYPED_TEST(TestDictionaryCast, Basic) {
       TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
 
   Datum out;
-  ASSERT_OK(DictionaryEncode(&this->ctx_, Datum(plain_array->data()), &out));
+  ASSERT_OK(DictionaryEncode(&this->ctx_, plain_array->data(), &out));
 
   this->CheckPass(*MakeArray(out.array()), *plain_array, plain_array->type(), options);
 }
@@ -1053,7 +1222,7 @@ void CheckUnique(FunctionContext* ctx, const shared_ptr<DataType>& type,
   shared_ptr<Array> expected = _MakeArray<Type, T>(type, out_values, out_is_valid);
 
   shared_ptr<Array> result;
-  ASSERT_OK(Unique(ctx, Datum(input), &result));
+  ASSERT_OK(Unique(ctx, input, &result));
   ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
 
@@ -1070,7 +1239,7 @@ void CheckDictEncode(FunctionContext* ctx, const shared_ptr<DataType>& type,
   DictionaryArray expected(dictionary(int32(), ex_dict), ex_indices);
 
   Datum datum_out;
-  ASSERT_OK(DictionaryEncode(ctx, Datum(input), &datum_out));
+  ASSERT_OK(DictionaryEncode(ctx, input, &datum_out));
   shared_ptr<Array> result = MakeArray(datum_out.array());
 
   ASSERT_ARRAYS_EQUAL(expected, *result);
@@ -1313,7 +1482,7 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
 
   // Unique
   shared_ptr<Array> result;
-  ASSERT_OK(Unique(&this->ctx_, Datum(carr), &result));
+  ASSERT_OK(Unique(&this->ctx_, carr, &result));
   ASSERT_ARRAYS_EQUAL(*ex_dict, *result);
 
   // Dictionary encode
@@ -1327,7 +1496,7 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   auto dict_carr = std::make_shared<ChunkedArray>(dict_arrays);
 
   Datum encoded_out;
-  ASSERT_OK(DictionaryEncode(&this->ctx_, Datum(carr), &encoded_out));
+  ASSERT_OK(DictionaryEncode(&this->ctx_, carr, &encoded_out));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
 
   AssertChunkedEqual(*dict_carr, *encoded_out.chunked_array());
@@ -1342,7 +1511,7 @@ class TestBooleanKernel : public ComputeFixture, public TestBase {
                        const std::shared_ptr<Array>& right,
                        const std::shared_ptr<Array>& expected) {
     Datum result;
-    ASSERT_OK(kernel(&this->ctx_, Datum(left), Datum(right), &result));
+    ASSERT_OK(kernel(&this->ctx_, left, right, &result));
     ASSERT_EQ(Datum::ARRAY, result.kind());
     std::shared_ptr<Array> result_array = result.make_array();
     ASSERT_TRUE(result_array->Equals(expected));
@@ -1354,7 +1523,7 @@ class TestBooleanKernel : public ComputeFixture, public TestBase {
                               const std::shared_ptr<ChunkedArray>& expected) {
     Datum result;
     std::shared_ptr<Array> result_array;
-    ASSERT_OK(kernel(&this->ctx_, Datum(left), Datum(right), &result));
+    ASSERT_OK(kernel(&this->ctx_, left, right, &result));
     ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
     std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
     ASSERT_TRUE(result_ca->Equals(expected));
@@ -1404,13 +1573,13 @@ TEST_F(TestBooleanKernel, Invert) {
 
   // Plain array
   Datum result;
-  ASSERT_OK(Invert(&this->ctx_, Datum(a1), &result));
+  ASSERT_OK(Invert(&this->ctx_, a1, &result));
   ASSERT_EQ(Datum::ARRAY, result.kind());
   std::shared_ptr<Array> result_array = result.make_array();
   ASSERT_TRUE(result_array->Equals(a2));
 
   // Array with offset
-  ASSERT_OK(Invert(&this->ctx_, Datum(a1->Slice(1)), &result));
+  ASSERT_OK(Invert(&this->ctx_, a1->Slice(1), &result));
   ASSERT_EQ(Datum::ARRAY, result.kind());
   result_array = result.make_array();
   ASSERT_TRUE(result_array->Equals(a2->Slice(1)));
@@ -1420,7 +1589,7 @@ TEST_F(TestBooleanKernel, Invert) {
   auto ca1 = std::make_shared<ChunkedArray>(ca1_arrs);
   std::vector<std::shared_ptr<Array>> ca2_arrs = {a2, a2->Slice(1)};
   auto ca2 = std::make_shared<ChunkedArray>(ca2_arrs);
-  ASSERT_OK(Invert(&this->ctx_, Datum(ca1), &result));
+  ASSERT_OK(Invert(&this->ctx_, ca1, &result));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
   std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
   ASSERT_TRUE(result_ca->Equals(ca2));
@@ -1470,14 +1639,14 @@ TEST_F(TestInvokeBinaryKernel, Exceptions) {
   auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
 
   // Left is not an array-like
-  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(
-                             &this->ctx_, &kernel, Datum(table), Datum(a2), &outputs));
+  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, table, a2,
+                                                         &outputs));
   // Right is not an array-like
-  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, Datum(a1),
-                                                         Datum(table), &outputs));
+  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, a1, table,
+                                                         &outputs));
   // Different sized inputs
-  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, Datum(a1),
-                                                         Datum(a1->Slice(1)), &outputs));
+  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, a1,
+                                                         a1->Slice(1), &outputs));
 }
 
 }  // namespace compute

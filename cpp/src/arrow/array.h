@@ -18,7 +18,6 @@
 #ifndef ARROW_ARRAY_H
 #define ARROW_ARRAY_H
 
-#include <cstddef>
 #include <cstdint>
 #include <iosfwd>
 #include <memory>
@@ -87,7 +86,7 @@ class Status;
 /// input array and replace them with newly-allocated data, changing the output
 /// data type as well.
 struct ARROW_EXPORT ArrayData {
-  ArrayData() : length(0) {}
+  ArrayData() : length(0), null_count(0), offset(0) {}
 
   ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
@@ -170,22 +169,32 @@ struct ARROW_EXPORT ArrayData {
 
   // Access a buffer's data as a typed C pointer
   template <typename T>
-  inline const T* GetValues(int i) const {
+  inline const T* GetValues(int i, int64_t absolute_offset) const {
     if (buffers[i]) {
-      return reinterpret_cast<const T*>(buffers[i]->data()) + offset;
+      return reinterpret_cast<const T*>(buffers[i]->data()) + absolute_offset;
     } else {
       return NULLPTR;
     }
   }
 
+  template <typename T>
+  inline const T* GetValues(int i) const {
+    return GetValues<T>(i, offset);
+  }
+
   // Access a buffer's data as a typed C pointer
   template <typename T>
-  inline T* GetMutableValues(int i) {
+  inline T* GetMutableValues(int i, int64_t absolute_offset) {
     if (buffers[i]) {
-      return reinterpret_cast<T*>(buffers[i]->mutable_data()) + offset;
+      return reinterpret_cast<T*>(buffers[i]->mutable_data()) + absolute_offset;
     } else {
       return NULLPTR;
     }
+  }
+
+  template <typename T>
+  inline T* GetMutableValues(int i) {
+    return GetMutableValues<T>(i, offset);
   }
 
   std::shared_ptr<DataType> type;
@@ -301,7 +310,7 @@ class ARROW_EXPORT Array {
   std::string ToString() const;
 
  protected:
-  Array() {}
+  Array() : null_bitmap_data_(NULLPTR) {}
 
   std::shared_ptr<ArrayData> data_;
   const uint8_t* null_bitmap_data_;
@@ -372,7 +381,7 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
   std::shared_ptr<Buffer> values() const { return data_->buffers[1]; }
 
  protected:
-  PrimitiveArray() {}
+  PrimitiveArray() : raw_values_(NULLPTR) {}
 
   inline void SetData(const std::shared_ptr<ArrayData>& data) {
     auto values = data->buffers[1];
@@ -387,6 +396,7 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
   const uint8_t* raw_values_;
 };
 
+/// Concrete Array class for numeric data.
 template <typename TYPE>
 class ARROW_EXPORT NumericArray : public PrimitiveArray {
  public:
@@ -554,7 +564,7 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
 
  protected:
   // For subclasses
-  BinaryArray() {}
+  BinaryArray() : raw_value_offsets_(NULLPTR), raw_data_(NULLPTR) {}
 
   /// Protected method for constructors
   void SetData(const std::shared_ptr<ArrayData>& data);

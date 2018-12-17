@@ -38,7 +38,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
   const FileMetaData* file_metadata = fileReader->metadata().get();
 
   stream << "File Name: " << filename << "\n";
-  stream << "Version: " << file_metadata->version() << "\n";
+  stream << "Version: " << ParquetVersionToString(file_metadata->version()) << "\n";
   stream << "Created By: " << file_metadata->created_by() << "\n";
   stream << "Total rows: " << file_metadata->num_rows() << "\n";
 

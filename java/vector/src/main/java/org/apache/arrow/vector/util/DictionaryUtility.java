@@ -36,9 +36,9 @@ public class DictionaryUtility {
 
   /**
    * Convert field and child fields that have a dictionary encoding to message format, so fields
-   * have the dictionary type
+   * have the dictionary type.
    *
-   * NOTE: in the message format, fields have the dictionary type
+   * <p>NOTE: in the message format, fields have the dictionary type
    * in the memory format, they have the index type
    */
   public static Field toMessageFormat(Field field, DictionaryProvider provider, Set<Long> dictionaryIdsUsed) {
@@ -74,7 +74,7 @@ public class DictionaryUtility {
 
   /**
    * Convert field and child fields that have a dictionary encoding to memory format, so fields
-   * have the index type
+   * have the index type.
    */
   public static Field toMemoryFormat(Field field, BufferAllocator allocator, Map<Long, Dictionary> dictionaries) {
     DictionaryEncoding encoding = field.getDictionary();

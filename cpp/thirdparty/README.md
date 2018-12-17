@@ -68,6 +68,7 @@ bash-style environment variable statements at the end to use for your build
 script:
 
 ```shell
+# Download tarballs into `$HOME/arrow-thirdparty-deps`
 $ ./thirdparty/download_dependencies $HOME/arrow-thirdparty-deps
 # some output omitted
 
@@ -87,3 +88,13 @@ export ARROW_PROTOBUF_URL=$HOME/arrow-thirdparty-deps/protobuf.tar.gz
 export ARROW_GRPC_URL=$HOME/arrow-thirdparty-deps/grpc.tar.gz
 export ARROW_ORC_URL=$HOME/arrow-thirdparty-deps/orc.tar.gz
 ```
+
+This can be automated by using inline source/eval:
+
+```shell
+$ source <(./thirdparty/download_dependencies $HOME/arrow-thirdparty-deps)
+```
+
+You can then invoke CMake to create the build directory and it will use the
+declared environment variable pointing to downloaded archives instead of
+downloading them (one for each build dir!).

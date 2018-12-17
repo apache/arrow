@@ -84,7 +84,7 @@ public class ArrowStreamReader extends ArrowReader {
   /**
    * Closes the underlying read source.
    *
-   * @throws IOException
+   * @throws IOException on error
    */
   @Override
   protected void closeReadSource() throws IOException {
@@ -95,7 +95,7 @@ public class ArrowStreamReader extends ArrowReader {
    * Load the next ArrowRecordBatch to the vector schema root if available.
    *
    * @return true if a batch was read, false on EOS
-   * @throws IOException
+   * @throws IOException on error
    */
   public boolean loadNextBatch() throws IOException {
     prepareLoadNextBatch();
@@ -147,7 +147,7 @@ public class ArrowStreamReader extends ArrowReader {
    * batches are read.
    *
    * @return the deserialized dictionary batch
-   * @throws IOException
+   * @throws IOException on error
    */
   @Override
   protected ArrowDictionaryBatch readDictionary() throws IOException {
