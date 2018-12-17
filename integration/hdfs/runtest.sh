@@ -22,6 +22,7 @@ set -e
 export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
 export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 export LIBHDFS3_CONF=$HADOOP_CONF_DIR/hdfs-site.xml
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HADOOP_HOME/lib/native/
 
 # execute cpp tests
 pushd /build/cpp
