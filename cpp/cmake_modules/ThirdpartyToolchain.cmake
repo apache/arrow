@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(toolchain)
+
 # ----------------------------------------------------------------------
 # Toolchain linkage options
 
@@ -401,7 +403,7 @@ if (ARROW_BOOST_VENDORED)
     ${EP_LOG_OPTIONS})
   set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
   set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
-  add_dependencies(arrow_dependencies boost_ep)
+  add_dependencies(toolchain boost_ep)
 else()
   if (MSVC)
     # disable autolinking in boost
@@ -506,15 +508,14 @@ if("${DOUBLE_CONVERSION_HOME}" STREQUAL "")
     CMAKE_ARGS ${DOUBLE_CONVERSION_CMAKE_ARGS}
     BUILD_BYPRODUCTS "${DOUBLE_CONVERSION_STATIC_LIB}")
   set(DOUBLE_CONVERSION_VENDORED 1)
+  add_dependencies(toolchain double-conversion_ep)
 else()
   find_package(double-conversion REQUIRED
     PATHS "${DOUBLE_CONVERSION_HOME}")
   set(DOUBLE_CONVERSION_VENDORED 0)
 endif()
 
-if (DOUBLE_CONVERSION_VENDORED)
-  add_dependencies(arrow_dependencies double-conversion_ep)
-else()
+if (NOT DOUBLE_CONVERSION_VENDORED)
   get_property(DOUBLE_CONVERSION_STATIC_LIB TARGET double-conversion::double-conversion
     PROPERTY LOCATION)
   get_property(DOUBLE_CONVERSION_INCLUDE_DIR TARGET double-conversion::double-conversion
@@ -531,9 +532,6 @@ message(STATUS "double-conversion static library: ${DOUBLE_CONVERSION_STATIC_LIB
 
 # ----------------------------------------------------------------------
 # Google gtest & gflags
-
-add_custom_target(unittest ctest -L unittest)
-add_custom_target(benchmark ctest -L benchmark)
 
 if(ARROW_BUILD_TESTS OR ARROW_GANDIVA_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS)
@@ -699,16 +697,13 @@ if (ARROW_IPC)
     ExternalProject_Get_Property(rapidjson_ep SOURCE_DIR)
     set(RAPIDJSON_INCLUDE_DIR "${SOURCE_DIR}/include")
     set(RAPIDJSON_VENDORED 1)
+    add_dependencies(toolchain rapidjson_ep)
   else()
     set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_HOME}/include")
     set(RAPIDJSON_VENDORED 0)
   endif()
   message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
   include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
-
-  if(RAPIDJSON_VENDORED)
-    add_dependencies(arrow_dependencies rapidjson_ep)
-  endif()
 
   ## Flatbuffers
   if("${FLATBUFFERS_HOME}" STREQUAL "")
@@ -733,13 +728,10 @@ if (ARROW_IPC)
     set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
     set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
     set(FLATBUFFERS_VENDORED 1)
+    add_dependencies(toolchain flatbuffers_ep)
   else()
     find_package(Flatbuffers REQUIRED)
     set(FLATBUFFERS_VENDORED 0)
-  endif()
-
-  if(FLATBUFFERS_VENDORED)
-    add_dependencies(arrow_dependencies flatbuffers_ep)
   endif()
 
   message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
@@ -1155,6 +1147,7 @@ if (ARROW_GANDIVA)
       CMAKE_ARGS ${RE2_CMAKE_ARGS}
       BUILD_BYPRODUCTS "${RE2_STATIC_LIB}")
     set (RE2_VENDORED 1)
+    add_dependencies(toolchain re2_ep)
   else ()
     find_package (RE2 REQUIRED)
     set (RE2_VENDORED 0)
@@ -1171,10 +1164,6 @@ if (ARROW_GANDIVA)
       STATIC_LIB ${RE2_STATIC_LIB})
     set(RE2_LIBRARY re2_static)
   endif()
-
-  if (RE2_VENDORED)
-    add_dependencies (arrow_dependencies re2_ep)
-  endif ()
 endif ()
 
 
@@ -1317,6 +1306,8 @@ if (ARROW_ORC)
       CMAKE_ARGS ${ORC_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
 
+    add_dependencies(toolchain orc_ep)
+
     set(ORC_VENDORED 1)
     add_dependencies(orc_ep ${ZLIB_LIBRARY})
     if (LZ4_VENDORED)
@@ -1342,7 +1333,6 @@ if (ARROW_ORC)
   if (ORC_VENDORED)
     add_dependencies(orc_static orc_ep)
   endif()
-
 endif()
 
 # ----------------------------------------------------------------------

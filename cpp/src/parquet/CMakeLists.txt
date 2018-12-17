@@ -15,15 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(parquet-all)
+add_custom_target(parquet)
+add_custom_target(parquet-benchmarks)
+add_custom_target(parquet-tests)
+add_dependencies(parquet-all parquet parquet-tests parquet-benchmarks)
+
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/.parquetcppversion" PARQUET_VERSION)
 string(REPLACE "\n" "" PARQUET_VERSION "${PARQUET_VERSION}")
 string(REGEX MATCH "^([0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?)" VERSION ${PARQUET_VERSION})
 if(NOT VERSION)
   message(FATAL_ERROR "invalid .parquetcppversion")
 endif()
-
-# For "make parquet" to build everything Parquet-related
-add_custom_target(parquet)
 
 function(ADD_PARQUET_TEST REL_TEST_NAME)
   set(options USE_STATIC_LINKING)
@@ -34,19 +37,21 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
+  set(TEST_ARGUMENTS
+    PREFIX "parquet"
+    LABELS "parquet-tests")
+
   # By default we prefer shared linking with libparquet, as it's faster
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
   if (ARG_USE_STATIC_LINKING)
     ADD_TEST_CASE(${REL_TEST_NAME}
       STATIC_LINK_LIBS ${PARQUET_STATIC_TEST_LINK_LIBS}
-      PREFIX "parquet"
-      LABELS "unittest;parquet")
+      ${TEST_ARGUMENTS})
   else()
     ADD_TEST_CASE(${REL_TEST_NAME}
       STATIC_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS}
-      PREFIX "parquet"
-      LABELS "unittest;parquet")
+      ${TEST_ARGUMENTS})
   endif()
 endfunction()
 
@@ -217,6 +222,8 @@ ADD_ARROW_LIB(parquet
   STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS}
 )
 
+add_dependencies(parquet ${PARQUET_LIBRARIES})
+
 # Thrift requires these definitions for some types that we use
 foreach(LIB_TARGET ${PARQUET_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
@@ -231,8 +238,6 @@ foreach(LIB_TARGET ${PARQUET_LIBRARIES})
       PRIVATE HAVE_NETINET_IN_H)
   endif()
 endforeach()
-
-add_dependencies(parquet ${PARQUET_LIBRARIES})
 
 add_subdirectory(api)
 add_subdirectory(arrow)
@@ -271,7 +276,9 @@ ADD_PARQUET_TEST(schema-test USE_STATIC_LINKING)
 
 ADD_ARROW_BENCHMARK(column-io-benchmark
   PREFIX "parquet"
+  LABELS "parquet-benchmarks"
   EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
 ADD_ARROW_BENCHMARK(encoding-benchmark
   PREFIX "parquet"
+  LABELS "parquet-benchmarks"
   EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})

@@ -15,7 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(plasma-all)
 add_custom_target(plasma)
+add_custom_target(plasma-benchmarks)
+add_custom_target(plasma-tests)
+add_dependencies(plasma-all plasma plasma-tests plasma-benchmarks)
 
 # For the moment, Plasma is versioned like Arrow
 project(plasma VERSION "${ARROW_BASE_VERSION}")
@@ -199,7 +203,7 @@ function(ADD_PLASMA_TEST REL_TEST_NAME)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   ADD_TEST_CASE(${REL_TEST_NAME}
     PREFIX "plasma"
-    LABELS "unittest;plasma"
+    LABELS "plasma-tests"
     ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
