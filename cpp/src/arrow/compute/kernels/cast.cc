@@ -120,7 +120,7 @@ template <typename O, typename I>
 struct CastFunctor<O, I, typename std::enable_if<is_zero_copy_cast<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    CopyData(input, output);
+    ZeroCopyData(input, output);
   }
 };
 
@@ -532,7 +532,7 @@ struct CastFunctor<TimestampType, TimestampType> {
     const auto& out_type = checked_cast<const TimestampType&>(*output->type);
 
     if (in_type.unit() == out_type.unit()) {
-      CopyData(input, output);
+      ZeroCopyData(input, output);
       return;
     }
 
@@ -625,7 +625,7 @@ struct CastFunctor<O, I,
     const auto& out_type = checked_cast<const O&>(*output->type);
 
     if (in_type.unit() == out_type.unit()) {
-      CopyData(input, output);
+      ZeroCopyData(input, output);
       return;
     }
 
