@@ -15,21 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from io import BytesIO
-from os.path import join as pjoin
 import os
 import pickle
+import pytest
 import random
 import unittest
+import pandas.util.testing as pdt
+
+from io import BytesIO
+from os.path import join as pjoin
 
 import numpy as np
-import pandas.util.testing as pdt
-import pytest
+import pyarrow as pa
+import pyarrow.tests.test_parquet as test_parquet
 
 from pyarrow.compat import guid
-import pyarrow as pa
 
-import pyarrow.tests.test_parquet as test_parquet
 
 # ----------------------------------------------------------------------
 # HDFS tests
@@ -406,3 +407,25 @@ def _get_hdfs_uri(path):
     uri = "hdfs://{}:{}{}".format(host, port, path)
 
     return uri
+
+
+@pytest.mark.parquet
+@pytest.mark.fastparquet
+@pytest.mark.parametrize('client', ['libhdfs', 'libhdfs3'])
+def test_fastparquet_read_with_hdfs(client):
+    import pyarrow.parquet as pq
+    fastparquet = pytest.importorskip('fastparquet')
+
+    fs = hdfs_test_client(client)
+
+    df = pdt.makeDataFrame()
+    table = pa.Table.from_pandas(df)
+
+    path = '/tmp/testing.parquet'
+    with fs.open(path, 'wb') as f:
+        pq.write_table(table, f)
+
+    parquet_file = fastparquet.ParquetFile(path, open_with=fs.open)
+
+    result = parquet_file.to_pandas()
+    pdt.assert_frame_equal(result, df)

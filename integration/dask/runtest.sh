@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -18,25 +19,16 @@
 
 set -e
 
-source_dir=${1:-/arrow/python}
-build_dir=${2:-/build/python}
+# check that optional pyarrow modules are available
+# because pytest would just skip the dask tests
+python -c "import pyarrow.orc"
+python -c "import pyarrow.parquet"
 
-# For newer GCC per https://arrow.apache.org/docs/python/development.html#known-issues
-export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
-export PYARROW_CXXFLAGS=$CXXFLAGS
-export PYARROW_CMAKE_GENERATOR=Ninja
-export PYARROW_BUILD_TYPE=${PYARROW_BUILD_TYPE:-debug}
+# TODO(kszucs): the following tests are also uses pyarrow
+# pytest -sv --pyargs dask.bytes.tests.test_s3
+# pytest -sv --pyargs dask.bytes.tests.test_hdfs
+# pytest -sv --pyargs dask.bytes.tests.test_local
 
-# Feature flags
-export PYARROW_WITH_ORC=${PYARROW_WITH_ORC:-1}
-export PYARROW_WITH_PARQUET=${PYARROW_WITH_PARQUET:-1}
-export PYARROW_WITH_PLASMA=${PYARROW_WITH_PLASMA:-1}
-
-# Build pyarrow
-pushd ${source_dir}
-
-python setup.py build --build-temp=${build_dir} \
-                install --single-version-externally-managed \
-                        --record=/build/python/record.txt
-
-popd
+pytest -v --pyargs dask.dataframe.io.tests.test_orc
+pytest -v --pyargs dask.dataframe.io.tests.test_parquet
+pytest -v --pyargs dask.dataframe.tests.test_dataframe

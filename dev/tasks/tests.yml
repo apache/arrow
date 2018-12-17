@@ -36,12 +36,14 @@ groups:
     - docker-lint
     - docker-iwyu
     - docker-clang-format
-    - docker-hdfs-integration
     - docker-pandas-master
+    - docker-hdfs-integration
+    - docker-dask-integration
 
   integration:
-    - docker-hdfs-integration
     - docker-pandas-master
+    - docker-dask-integration
+    - docker-hdfs-integration
 
   cpp-python:
     - docker-cpp
@@ -239,11 +241,27 @@ tasks:
 
   ############################## Integration tests ############################
 
+  docker-dask-integration:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build dask-integration
+        - docker-compose run dask-integration
+
   docker-hdfs-integration:
     platform: linux
     template: docker-tests/travis.linux.yml
     params:
+      environment:
+        PYTHON_VERSION: 3.6
       commands:
+        - docker-compose build cpp
+        - docker-compose build python
         - docker-compose build hdfs-integration
         - docker-compose run hdfs-integration
 

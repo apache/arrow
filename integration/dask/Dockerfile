@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,9 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+FROM arrow:python-3.6
 
-docker build -t arrow-hdfs-test -f hdfs/Dockerfile .
-bash hdfs/restart_docker_container.sh
-docker exec -it arrow-hdfs /io/hdfs/run_tests.sh
-docker stop arrow-hdfs
+# setup /etc/localtime
+RUN DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y -q tzdata
+
+# install dask release from conda
+RUN conda install -c conda-forge dask pytest=3 && \
+    conda clean --all
+
+# build and test
+CMD arrow/ci/docker_build_cpp.sh && \
+    arrow/ci/docker_build_python.sh && \
+    arrow/integration/dask/runtest.sh
