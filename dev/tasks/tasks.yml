@@ -146,7 +146,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 2.7
       unicode_width: 16
       test_docker_images: []
@@ -157,7 +156,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 2.7
       unicode_width: 32
       test_docker_images:
@@ -169,7 +167,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 3.5
       unicode_width: 16
       test_docker_images:
@@ -181,7 +178,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 3.6
       unicode_width: 16
       test_docker_images:
@@ -193,7 +189,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 3.7
       unicode_width: 16
       test_docker_images:
@@ -207,10 +202,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14.5
-      pandas_version: 0.23.0
       python_version: 2.7
-      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp27-cp27m-macosx_10_6_intel.whl
 
@@ -218,10 +210,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14.5
-      pandas_version: 0.23.0
       python_version: 3.5
-      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp35-cp35m-macosx_10_6_intel.whl
 
@@ -229,10 +218,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14.5
-      pandas_version: 0.23.0
       python_version: 3.6
-      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp36-cp36m-macosx_10_6_intel.whl
 
@@ -240,10 +226,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14.5
-      pandas_version: 0.23.0
       python_version: 3.7
-      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp37-cp37m-macosx_10_6_intel.whl
 
@@ -253,7 +236,6 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.14.5
       python_version: 3.5
     artifacts:
       - pyarrow-{version}-cp35-cp35m-win_amd64.whl
@@ -262,7 +244,6 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.14.5
       python_version: 3.6
     artifacts:
       - pyarrow-{version}-cp36-cp36m-win_amd64.whl
@@ -271,7 +252,6 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.14.5
       python_version: 3.7
     artifacts:
       - pyarrow-{version}-cp37-cp37m-win_amd64.whl

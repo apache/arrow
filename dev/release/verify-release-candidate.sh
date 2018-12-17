@@ -189,7 +189,7 @@ test_and_install_cpp() {
 test_python() {
   pushd python
 
-  pip install -r requirements-test.txt
+  pip install -r requirements.txt -r requirements-test.txt
 
   python setup.py build_ext --inplace --with-parquet --with-plasma
   py.test pyarrow -v --pdb

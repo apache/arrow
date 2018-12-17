@@ -64,11 +64,6 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
       fi
     fi
 
-    # pin wheel, because auditwheel is not compatible with wheel=0.32
-    # pin after installing tensorflow, because it updates to wheel=0.32
-    # TODO(kszucs): remove after auditwheel properly supports wheel>0.31
-    $PIP install "wheel==${WHEEL_VERSION:-0.31.1}"
-
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
     ARROW_BUILD_DIR=/tmp/build-PY${PYTHON}-${U_WIDTH}
     mkdir -p "${ARROW_BUILD_DIR}"
@@ -96,6 +91,9 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     # Check that we don't expose any unwanted symbols
     /io/scripts/check_arrow_visibility.sh
 
+    echo "=== (${PYTHON}) Install the wheel build dependencies ==="
+    $PIP install -r requirements-wheel.txt
+
     # Clear output directory
     rm -rf dist/
     echo "=== (${PYTHON}) Building wheel ==="
@@ -106,9 +104,6 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
         --boost-namespace=arrow_boost
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
-
-    echo "=== (${PYTHON}) Ensure the existence of mandatory modules ==="
-    $PIP install -r requirements.txt
 
     echo "=== (${PYTHON}) Tag the wheel with manylinux1 ==="
     mkdir -p repaired_wheels/
