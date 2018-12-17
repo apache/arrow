@@ -16,20 +16,19 @@
 # under the License.
 
 module Arrow
-  class Field
+  class FileOutputStream
     alias_method :initialize_raw, :initialize
     private :initialize_raw
-    def initialize(name, data_type)
-      case data_type
-      when String, Symbol
-        data_type_name = data_type.to_s.capitalize.gsub(/\AUint/, "UInt")
-        data_type_class_name = "#{data_type_name}DataType"
-        if Arrow.const_defined?(data_type_class_name)
-          data_type_class = Arrow.const_get(data_type_class_name)
-          data_type = data_type_class.new
-        end
+    def initialize(path, options={})
+      append = nil
+      case options
+      when true, false
+        append = options
+      when Hash
+        append = options[:append]
       end
-      initialize_raw(name, data_type)
+      append = false if append.nil?
+      initialize_raw(path, append)
     end
   end
 end
