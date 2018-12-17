@@ -109,7 +109,8 @@ def pytest_addoption(parser):
         elif value in {'0', 'false', 'off', 'no', 'n'}:
             return False
         else:
-            raise ValueError('`{}` is not parsable as boolean'.format(input))
+            raise ValueError('{}={} is not parsable as boolean'
+                             .format(name.upper(), value))
 
     for group in groups:
         for flag, envvar in [('--{}', 'PYARROW_TEST_{}'),
