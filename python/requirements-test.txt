@@ -1,4 +1,3 @@
--r requirements.txt
 pandas
 pytest
 hypothesis

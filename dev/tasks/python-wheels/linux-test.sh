@@ -30,5 +30,5 @@ python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
 
 # Run pyarrow tests
-pip install pytest pandas
+pip install -r /arrow/python/requirements-test.txt
 pytest --pyargs pyarrow
