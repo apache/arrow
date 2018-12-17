@@ -25,7 +25,7 @@ add_dependencies(arrow-all arrow arrow-tests arrow-benchmarks)
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
-  set(multi_value_args)
+  set(multi_value_args LABELS)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
   if (ARG_PREFIX)
@@ -33,9 +33,16 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
   else()
     set(PREFIX "arrow")
   endif()
+
+  if (ARG_LABELS)
+    set(LABELS ${ARG_LABELS})
+  else()
+    set(LABELS "arrow-tests")
+  endif()
+
   ADD_TEST_CASE(${REL_TEST_NAME}
     PREFIX ${PREFIX}
-    LABELS "arrow-tests"
+    LABELS ${LABELS}
     ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 

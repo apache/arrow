@@ -675,13 +675,6 @@ set(ARROW_LINK_LIBS)
 # Libraries to link statically with libarrow.so
 set(ARROW_STATIC_LINK_LIBS double-conversion_static)
 
-add_custom_target(arrow_dependencies)
-add_dependencies(arrow_dependencies toolchain)
-
-if (ARROW_STATIC_LINK_LIBS)
-  add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
-endif()
-
 if (ARROW_WITH_BROTLI)
   SET(ARROW_STATIC_LINK_LIBS
     brotli_dec_static
@@ -719,6 +712,13 @@ endif()
 if (ARROW_USE_GLOG)
   SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
   add_definitions("-DARROW_USE_GLOG")
+endif()
+
+add_custom_target(arrow_dependencies)
+add_dependencies(arrow_dependencies toolchain)
+
+if (ARROW_STATIC_LINK_LIBS)
+  add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
