@@ -20,6 +20,10 @@ import six
 import decimal
 import json
 import multiprocessing as mp
+import hypothesis as h
+import hypothesis.strategies as st
+import hypothesis.extra.pytz as tzst
+
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
 
@@ -839,6 +843,12 @@ class TestConvertDateTimeLikeTypes(object):
             values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
             df = pd.DataFrame({'datetime': values})
             _check_pandas_roundtrip(df)
+
+    @h.given(st.none() | tzst.timezones())
+    def test_python_datetime_with_pytz_timezone(self, tz):
+        values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
+        df = pd.DataFrame({'datetime': values})
+        _check_pandas_roundtrip(df)
 
     @pytest.mark.skipif(six.PY2, reason='datetime.timezone is available since '
                                         'python version 3.2')
