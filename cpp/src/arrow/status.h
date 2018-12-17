@@ -18,6 +18,7 @@
 #include <cstring>
 #include <iosfwd>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
@@ -80,7 +81,7 @@
 
 namespace arrow {
 
-enum class StatusCode : char {
+enum class StatusCode : int32_t {
   OK = 0,
   OutOfMemory = 1,
   KeyError = 2,
@@ -109,6 +110,31 @@ enum class StatusCode : char {
 class ARROW_MUST_USE_RESULT ARROW_EXPORT Status;
 #endif
 
+class ARROW_EXPORT StatusRange {
+ public:
+  StatusRange(const char* name, uint64_t range_id, int32_t num_codes, const char** messages);
+  // range_id will be deduced from name
+  StatusRange(const char* name, int32_t num_codes, const char** messages);
+
+  const char* name() const { return name_; }
+
+  int32_t num_codes() const { return num_codes_; }
+
+  uint64_t range_id() const { return range_id_; }
+
+  std::string CodeAsString(int32_t code) const;
+
+ protected:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(StatusRange);
+
+  static uint64_t RangeIdFromName(const char* name);
+
+  const char* name_;
+  const uint64_t range_id_;
+  const int32_t num_codes_;
+  const char** messages_;
+};
+
 /// \brief Status outcome object (success or error)
 ///
 /// The Status object is an object holding the outcome of an operation.
@@ -130,6 +156,7 @@ class ARROW_EXPORT Status {
   }
 
   Status(StatusCode code, const std::string& msg);
+  Status(uint64_t range_id, int32_t code, const std::string& msg);
 
   // Copy the specified status.
   Status(const Status& s);
@@ -286,20 +313,30 @@ class ARROW_EXPORT Status {
   /// text or POSIX code information.
   std::string CodeAsString() const;
 
-  /// \brief Return the StatusCode value attached to this status.
-  StatusCode code() const { return ok() ? StatusCode::OK : state_->code; }
+  /// \brief Return the status code enum value attached to this status.
+  template <typename T = StatusCode>
+  T code(T* = nullptr) const {
+    return static_cast<T>(ok() ? 0 : state_->code);
+  }
+
+  const StatusRange* status_range() const;
 
   /// \brief Return the specific error message attached to this status.
   std::string message() const { return ok() ? "" : state_->msg; }
 
+  static void RegisterStatusRange(const StatusRange* status_range);
+
  private:
   struct State {
-    StatusCode code;
+    uint64_t range_id;
+    int32_t code;
     std::string msg;
   };
   // OK status has a `NULL` state_.  Otherwise, `state_` points to
   // a `State` structure containing the error code and message(s)
   State* state_;
+
+  static std::unordered_map<uint64_t, const StatusRange*> ranges_;
 
   void DeleteState() {
     delete state_;
