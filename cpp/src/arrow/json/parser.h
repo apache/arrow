@@ -36,6 +36,47 @@ class RecordBatch;
 
 namespace json {
 
+/// \class AdaptiveArrayBuilder
+/// \brief Base class for array builders in contexts where the
+///        final type is unknown
+class AdaptiveArrayBuilder {
+ public:
+  AdaptiveArrayBuilder(std::shared_ptr<DataType> type) : type_(type) {}
+
+  virtual ~AdaptiveArrayBuilder() = default;
+
+  /// Complete the built array
+  virtual Status Finish(std::shared_ptr<Array>* out) = 0;
+
+  /// If necessary, promote this builder to accommodate the given type.
+  /// It is not guaranteed that type() == type after this method is called.
+  /// It is possible that a new builder must be constructed
+  /// in order to accomodate this fallback. If this occurs,
+  /// *out will point to the new builder and the object against
+  /// which this method was called should be considered moved from.
+  virtual Status MaybePromoteTo(std::shared_ptr<DataType> type,
+                                std::unique_ptr<AdaptiveArrayBuilder>* out) = 0;
+
+  /// The current type of this builder
+  ///
+  /// \warning this property may be lazily updated, it is only guaranteed
+  /// to be accurate after a call to UpdateType()
+  std::shared_ptr<DataType> type() { return type_; }
+
+  int64_t length() { return length_; }
+
+  /// Force update of built type. If an implementation of AdaptiveArrayBuilder updates
+  /// type lazily, UpdateType() must be overridden. Implementations may not require that
+  /// it be called before Finish() or MaybePromoteTo()
+  virtual Status UpdateType() { return Status::OK(); }
+
+ protected:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(AdaptiveArrayBuilder);
+
+  int64_t length_ = 0;
+  std::shared_ptr<DataType> type_;
+};
+
 constexpr int32_t kMaxParserNumRows = 100000;
 
 /// \class BlockParser
@@ -73,7 +114,7 @@ class ARROW_EXPORT BlockParser {
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(BlockParser);
-  
+
   template <unsigned Flags, typename Handler>
   Status DoParse(Handler& handler, const char* data, uint32_t size, uint32_t* out_size);
 
@@ -87,7 +128,12 @@ class ARROW_EXPORT BlockParser {
   int32_t max_num_rows_;
   /// The total size in bytes of parsed data
   int32_t parsed_size_;
+  /// In the case of a known schema, the RecordBatch for a chunk can be finalized
+  /// as soon as the chunk has been parsed
   std::shared_ptr<RecordBatch> parsed_;
+  /// In the case of type inference, we can't finish until all blocks have been
+  /// examined. (For example, another block might define a column not present here)
+  std::unique_ptr<AdaptiveArrayBuilder> adaptive_builder_;
 };
 
 }  // namespace json

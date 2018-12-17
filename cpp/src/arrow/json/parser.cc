@@ -26,20 +26,22 @@
 #include <rapidjson/reader.h>
 
 #include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/builder.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace json {
 
 using internal::checked_cast;
 using internal::StringConverter;
+using util::string_view;
 
 struct ParseError {
   ParseError() { ss_ << "JSON parse error: "; }
@@ -210,8 +212,7 @@ class TypedHandler
       // efficient to use CountLeadingZeros() to find the indices of the few
       // null fields
       if (null) {
-        status_ = VisitBuilder(parent->field_builder(field_index),
-                               AppendNullVisitor{});
+        status_ = VisitBuilder(parent->field_builder(field_index), AppendNullVisitor{});
         if (!status_.ok()) return false;
       }
       ++field_index;
@@ -264,10 +265,10 @@ class TypedHandler
     Status Visit(FixedSizeBinaryBuilder* b) { return b->AppendNull(); }
     Status Visit(ListBuilder* b) { return b->AppendNull(); }
     Status Visit(StructBuilder* b) {
-      ARROW_RETURN_NOT_OK(b->AppendNull());
+      RETURN_NOT_OK(b->AppendNull());
       for (int i = 0; i != b->num_fields(); ++i) {
         auto field_builder = b->field_builder(i);
-        ARROW_RETURN_NOT_OK(VisitBuilder(field_builder, AppendNullVisitor()));
+        RETURN_NOT_OK(VisitBuilder(field_builder, AppendNullVisitor()));
       }
       return Status::OK();
     }
@@ -290,7 +291,7 @@ class TypedHandler
     Status Visit(Date64Builder* b) { return Append<Int64Type>(b); }
     Status Visit(Decimal128Builder* b) {
       int64_t value;
-      ARROW_RETURN_NOT_OK(ConvertTo<Int64Type>(&value));
+      RETURN_NOT_OK(ConvertTo<Int64Type>(&value));
       return b->Append(Decimal128(value));
     }
     Status Visit(ArrayBuilder*) { return ConversionError(); }
@@ -305,7 +306,7 @@ class TypedHandler
     template <typename Repr, typename Logical>
     Status Append(NumericBuilder<Logical>* b) {
       typename StringConverter<Repr>::value_type value;
-      ARROW_RETURN_NOT_OK(ConvertTo<Repr>(&value));
+      RETURN_NOT_OK(ConvertTo<Repr>(&value));
       return b->Append(value);
     }
     const char* data_;
@@ -341,6 +342,31 @@ class TypedHandler
   int skip_depth_ = std::numeric_limits<int>::max();
 };
 
+/// template <typename B>
+/// concept JsonAdaptiveArrayBuilder = DerivedFrom<B, AdaptiveArrayBuilder> && requires
+/// {
+///   // each builder defines a value_type
+///   typename B::value_type;
+///
+///   // builders begin at a known type when constructed
+///   { B::initial_type() }
+///   -> std::shared_ptr<DataType>
+///
+///   // each builder has a factory taking a memory pool and a leading null count
+///   requires(MemoryPool * pool, int64_t leading_nulls) {
+///     { B::Make(pool, leading_nulls) }
+///     ->Status;
+///   }
+///
+///   // builders have uniformly named append methods for null and otherwise
+///   requires(B b, typename B::value_type value) {
+///     { b.AppendNull() }
+///     ->Status;
+///     { b.Append(value) }
+///     ->Status;
+///   }
+/// };
+
 class AdaptiveNullBuilder;
 class AdaptiveBooleanBuilder;
 class Int64OrDoubleBuilder;
@@ -348,326 +374,648 @@ class TimestampOrStringBuilder;
 class AdaptiveStructBuilder;
 class AdaptiveListBuilder;
 
-template <typename Visitor>
-Status VisitAdaptiveBuilder(ArrayBuilder* builder, Visitor&& visitor) {
-  switch (builder->type()->id()) {
-    case Type::NA:
-      return visitor.Visit(static_cast<AdaptiveNullBuilder*>(builder));
-    case Type::BOOL:
-      return visitor.Visit(static_cast<AdaptiveBooleanBuilder*>(builder));
-    case Type::INT64:
-    case Type::DOUBLE:
-      return visitor.Visit(static_cast<Int64OrDoubleBuilder*>(builder));
-    case Type::STRING:
-    case Type::TIMESTAMP:
-      return visitor.Visit(static_cast<TimestampOrStringBuilder*>(builder));
-    case Type::LIST:
-      return visitor.Visit(static_cast<AdaptiveListBuilder*>(builder));
-    case Type::STRUCT:
-      return visitor.Visit(static_cast<AdaptiveStructBuilder*>(builder));
-    default:
-      return Status::NotImplemented("Not a custom builder");
-  }
+template <typename T, typename... A>
+std::unique_ptr<T> make_unique(A&&... args) {
+  return std::unique_ptr<T>(new T(std::forward<A>(args)...));
 }
 
-struct UpdateTypeVisitor {
-  Status Visit(AdaptiveStructBuilder*);
-  Status Visit(AdaptiveListBuilder*);
-  Status Visit(ArrayBuilder*) {
+class AdaptiveNullBuilder : public AdaptiveArrayBuilder {
+ public:
+  struct value_type {};
+
+  AdaptiveNullBuilder(MemoryPool* pool)
+      : AdaptiveArrayBuilder(initial_type()), pool_(pool) {}
+
+  Status Append(value_type) { return AppendNull(); }
+
+  Status AppendNull() {
+    ++length_;
     return Status::OK();
   }
-};
 
-class AdaptiveNullBuilder : public NullBuilder {
- public:
-  using NullBuilder::NullBuilder;
-
-  Status SetLeadingNulls(int64_t leading_nulls) {
-    ARROW_CHECK(length_ == 0);
-    null_count_ = leading_nulls;
-    length_ = leading_nulls;
+  Status Finish(std::shared_ptr<Array>* out) override {
+    *out = std::make_shared<NullArray>(length_);
     return Status::OK();
   }
+
+  Status MaybePromoteTo(std::shared_ptr<DataType> type,
+                        std::unique_ptr<AdaptiveArrayBuilder>* out) override;
+
+  static std::shared_ptr<DataType> initial_type() { return null(); }
+
+  static Status Make(MemoryPool* pool, int64_t leading_nulls,
+                     std::unique_ptr<AdaptiveArrayBuilder>* out) {
+    *out = make_unique<AdaptiveNullBuilder>(pool);
+    auto builder = static_cast<AdaptiveNullBuilder*>(out->get());
+    builder->length_ = leading_nulls;
+    return Status::OK();
+  }
+
+ private:
+  MemoryPool* pool_;
 };
 
-class AdaptiveBooleanBuilder : public BooleanBuilder {
+class AdaptiveBooleanBuilder : public AdaptiveArrayBuilder {
  public:
-  using BooleanBuilder::BooleanBuilder;
+  using value_type = bool;
 
-  Status SetLeadingNulls(int64_t leading_nulls) {
-    ARROW_CHECK(length_ == 0);
-    null_count_ = leading_nulls;
-    length_ = leading_nulls;
-    return Resize(leading_nulls);
+  AdaptiveBooleanBuilder(MemoryPool* pool)
+      : AdaptiveArrayBuilder(initial_type()), boolean_builder_(pool) {}
+
+  Status Append(bool value) {
+    ++length_;
+    return boolean_builder_.Append(value);
   }
+
+  Status AppendNull() {
+    ++length_;
+    return boolean_builder_.AppendNull();
+  }
+
+  Status Finish(std::shared_ptr<Array>* out) override {
+    return boolean_builder_.Finish(out);
+  }
+
+  Status MaybePromoteTo(std::shared_ptr<DataType> type,
+                        std::unique_ptr<AdaptiveArrayBuilder>*) override {
+    if (type->Equals(type_)) return Status::OK();
+    return ConversionError();
+  }
+
+  static std::shared_ptr<DataType> initial_type() { return boolean(); }
+
+  static Status Make(MemoryPool* pool, int64_t leading_nulls,
+                     std::unique_ptr<AdaptiveArrayBuilder>* out) {
+    *out = make_unique<AdaptiveBooleanBuilder>(pool);
+    auto builder = static_cast<AdaptiveBooleanBuilder*>(out->get());
+    builder->length_ = leading_nulls;
+    return builder->boolean_builder_.SetLeadingNulls(leading_nulls);
+  }
+
+ private:
+  struct WrappedBuilder : BooleanBuilder {
+    using BooleanBuilder::BooleanBuilder;
+
+    Status SetLeadingNulls(int64_t leading_nulls) {
+      ARROW_CHECK(length_ == 0);
+      null_count_ = leading_nulls;
+      length_ = leading_nulls;
+      return Resize(leading_nulls);
+    }
+  } boolean_builder_;
 };
 
-class Int64OrDoubleBuilder : public FixedSizeBinaryBuilder {
+class Int64OrDoubleBuilder : public AdaptiveArrayBuilder {
  public:
-  explicit Int64OrDoubleBuilder(MemoryPool* pool)
-      : FixedSizeBinaryBuilder(fixed_size_binary(sizeof(int64_t)), pool) {
-    type_ = int64();
-  }
+  using value_type = string_view;
 
-  Status SetLeadingNulls(int64_t leading_nulls) {
-    ARROW_CHECK(length_ == 0);
-    null_count_ = leading_nulls;
-    length_ = leading_nulls;
-    ARROW_RETURN_NOT_OK(byte_builder_.Advance(sizeof(int64_t) * leading_nulls));
-    return Resize(leading_nulls);
-  }
+  Int64OrDoubleBuilder(MemoryPool* pool)
+      : AdaptiveArrayBuilder(initial_type()), bytes_builder_(pool) {}
 
-  using FixedSizeBinaryBuilder::AppendNull;
-
-  Status Append(util::string_view repr) {
+  Status Append(string_view repr) {
+    ++length_;
     if (failed_conversion_to_int_ < 0) {
       StringConverter<Int64Type> converter;
       int64_t value;
       if (converter(repr.data(), repr.size(), &value)) {
-        return FixedSizeBinaryBuilder::Append(
-            reinterpret_cast<const char*>(&value));
+        return bytes_builder_.Append(reinterpret_cast<const char*>(&value));
       }
-      failed_conversion_to_int_ = length_;
-      type_ = float64();
+      PromoteToDouble();
     }
     StringConverter<DoubleType> converter;
     double value;
     if (converter(repr.data(), repr.size(), &value)) {
-      return FixedSizeBinaryBuilder::Append(
-          reinterpret_cast<const char*>(&value));
+      return bytes_builder_.Append(reinterpret_cast<const char*>(&value));
     }
     return ConversionError();
   }
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    std::shared_ptr<Buffer> data;
-    ARROW_RETURN_NOT_OK(byte_builder_.Finish(&data));
+  Status AppendNull() {
+    ++length_;
+    return bytes_builder_.AppendNull();
+  }
 
-    if (failed_conversion_to_int_ > 0) {
-      // cast preceding ints to double
-      auto doubles = reinterpret_cast<double*>(data->mutable_data());
-      auto ints = reinterpret_cast<const int64_t*>(data->data());
-      for (int64_t i = 0; i != failed_conversion_to_int_; ++i) {
+  Status Finish(std::shared_ptr<Array>* out) override {
+    std::shared_ptr<Array> bytes_array;
+    RETURN_NOT_OK(bytes_builder_.Finish(&bytes_array));
+    auto data = bytes_array->data()->Copy();
+    if (failed_conversion_to_int_ > leading_nulls_) {
+      // convert any ints to double
+      auto doubles = data->GetMutableValues<double>(1);
+      auto ints = data->GetValues<int64_t>(1);
+      for (int64_t i = leading_nulls_; i != failed_conversion_to_int_; ++i) {
         doubles[i] = static_cast<double>(ints[i]);
       }
     }
+    data->type = type_;
+    *out = MakeArray(data);
+    return Status::OK();
+  }
 
-    *out = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_);
+  Status MaybePromoteTo(std::shared_ptr<DataType> type,
+                        std::unique_ptr<AdaptiveArrayBuilder>*) override {
+    if (type->Equals(type_)) return Status::OK();
+    if (type->id() == Type::DOUBLE) {
+      PromoteToDouble();
+      return Status::OK();
+    }
+    return ConversionError();
+  }
+
+  void PromoteToDouble() {
+    if (failed_conversion_to_int_ < 0) {
+      failed_conversion_to_int_ = bytes_builder_.length();
+      type_ = float64();
+    }
+  }
+
+  static std::shared_ptr<DataType> initial_type() { return int64(); }
+
+  static Status Make(MemoryPool* pool, int64_t leading_nulls,
+                     std::unique_ptr<AdaptiveArrayBuilder>* out) {
+    *out = make_unique<Int64OrDoubleBuilder>(pool);
+    auto builder = static_cast<Int64OrDoubleBuilder*>(out->get());
+    builder->leading_nulls_ = leading_nulls;
+    builder->length_ = leading_nulls;
+    return builder->bytes_builder_.SetLeadingNulls(leading_nulls);
+  }
+
+ private:
+  struct WrappedBuilder : public FixedSizeBinaryBuilder {
+    WrappedBuilder(MemoryPool* pool)
+        : FixedSizeBinaryBuilder(fixed_size_binary(sizeof(int64_t)), pool) {}
+
+    Status SetLeadingNulls(int64_t leading_nulls) {
+      ARROW_CHECK(length_ == 0);
+      null_count_ = leading_nulls;
+      length_ = leading_nulls;
+      RETURN_NOT_OK(byte_builder_.Advance(sizeof(int64_t) * leading_nulls));
+      return Resize(leading_nulls);
+    }
+
+  } bytes_builder_;
+  int64_t failed_conversion_to_int_ = -1;
+  int64_t leading_nulls_ = 0;
+};
+
+class TimestampOrStringBuilder : public AdaptiveArrayBuilder {
+ public:
+  using value_type = string_view;
+
+  TimestampOrStringBuilder(MemoryPool* pool)
+      : AdaptiveArrayBuilder(initial_type()),
+        string_builder_(pool),
+        timestamp_builder_(pool) {}
+
+  Status Append(string_view str) {
+    ++length_;
+    if (all_timestamps_) {
+      StringConverter<TimestampType> converter(type_);
+      int64_t value;
+      if (converter(str.data(), str.size(), &value)) {
+        RETURN_NOT_OK(timestamp_builder_.Append(value));
+      } else
+        PromoteToString();
+    }
+    return string_builder_.Append(str);
+  }
+
+  Status AppendNull() {
+    ++length_;
+    if (all_timestamps_) {
+      RETURN_NOT_OK(timestamp_builder_.Append(0));
+    }
+    return string_builder_.AppendNull();
+  }
+
+  Status Finish(std::shared_ptr<Array>* out) override {
+    std::shared_ptr<Array> strings_array;
+    RETURN_NOT_OK(string_builder_.Finish(&strings_array));
+    if (!all_timestamps_) {
+      *out = strings_array;
+      return Status::OK();
+    }
+    std::shared_ptr<Buffer> timestamps;
+    RETURN_NOT_OK(timestamp_builder_.Finish(&timestamps));
+    auto data = strings_array->data()->Copy();
+    data->type = type_;
+    data->buffers = {data->buffers[0], timestamps};
+    *out = MakeArray(data);
+    return Status::OK();
+  }
+
+  Status MaybePromoteTo(std::shared_ptr<DataType> type,
+                        std::unique_ptr<AdaptiveArrayBuilder>*) override {
+    if (type->Equals(type_)) return Status::OK();
+    if (all_timestamps_ && type->id() == Type::STRING) {
+      PromoteToString();
+      return Status::OK();
+    }
+    return ConversionError();
+  }
+
+  void PromoteToString() {
+    all_timestamps_ = false;
+    type_ = utf8();
+    timestamp_builder_.Reset();  // we don't need to store timestamps now
+  }
+
+  static std::shared_ptr<DataType> initial_type() { return timestamp(TimeUnit::SECOND); }
+
+  static Status Make(MemoryPool* pool, int64_t leading_nulls,
+                     std::unique_ptr<AdaptiveArrayBuilder>* out) {
+    *out = make_unique<TimestampOrStringBuilder>(pool);
+    auto builder = static_cast<TimestampOrStringBuilder*>(out->get());
+    builder->length_ = leading_nulls;
+    RETURN_NOT_OK(builder->string_builder_.SetLeadingNulls(leading_nulls));
+    RETURN_NOT_OK(builder->timestamp_builder_.Resize(sizeof(int64_t) * leading_nulls));
     return Status::OK();
   }
 
  private:
-  int64_t failed_conversion_to_int_ = -1;
+  struct WrappedBuilder : public StringBuilder {
+    WrappedBuilder(MemoryPool* pool) : StringBuilder(pool) {}
+
+    Status SetLeadingNulls(int64_t leading_nulls) {
+      ARROW_CHECK(length_ == 0);
+      null_count_ = leading_nulls;
+      length_ = leading_nulls;
+      return Resize(leading_nulls);
+    }
+
+  } string_builder_;
+  TypedBufferBuilder<int64_t> timestamp_builder_;
+  bool all_timestamps_ = true;
 };
 
-class TimestampOrStringBuilder : public BinaryBuilder {
+class AdaptiveStructBuilder : public AdaptiveArrayBuilder {
  public:
-  TimestampOrStringBuilder(MemoryPool* pool)
-      : BinaryBuilder(timestamp(TimeUnit::SECOND), pool),
-      timestamp_builder_(pool) {}
+  struct value_type {};
 
-  Status SetLeadingNulls(int64_t leading_nulls) {
-    ARROW_CHECK(length_ == 0);
-    null_count_ = leading_nulls;
-    length_ = leading_nulls;
-    ARROW_RETURN_NOT_OK(timestamp_builder_.Resize(sizeof(int64_t) * leading_nulls));
-    return Resize(leading_nulls);
+  AdaptiveStructBuilder(MemoryPool* pool)
+      : AdaptiveArrayBuilder(initial_type()), bitmap_builder_(pool), pool_(pool) {}
+
+  Status Append(value_type) {
+    ++length_;
+    return bitmap_builder_.AppendToBitmap(true);
   }
 
   Status AppendNull() {
-    if (type_->id() == Type::TIMESTAMP) {
-      ARROW_RETURN_NOT_OK(timestamp_builder_.Append(0));
-    }
-    return BinaryBuilder::AppendNull();
+    ++length_;
+    return bitmap_builder_.AppendToBitmap(false);
   }
 
-  Status Append(util::string_view repr) {
-    if (type_->id() == Type::TIMESTAMP) {
-      StringConverter<TimestampType> converter(type_);
-      int64_t value;
-      if (converter(repr.data(), repr.size(), &value)) {
-        ARROW_RETURN_NOT_OK(timestamp_builder_.Append(value));
-      } else {
-        type_ = utf8();
-        timestamp_builder_.Reset(); // we don't need to store these timestamps now
+  Status UpdateType() override {
+    RETURN_NOT_OK(SortFieldsByName());
+    return SetTypeFromFieldBuilders();
+  }
+
+  Status Finish(std::shared_ptr<Array>* out) override {
+    RETURN_NOT_OK(UpdateType());
+    std::shared_ptr<ArrayData> data;
+    RETURN_NOT_OK(bitmap_builder_.FinishInternal(&data));
+    data->type = type_;
+    for (auto&& builder : field_builders_) {
+      std::shared_ptr<Array> field_array;
+      RETURN_NOT_OK(builder->Finish(&field_array));
+      data->child_data.push_back(field_array->data());
+    }
+    *out = MakeArray(data);
+    return Status::OK();
+  }
+
+  Status MaybePromoteTo(std::shared_ptr<DataType> type,
+                        std::unique_ptr<AdaptiveArrayBuilder>*) override {
+    RETURN_NOT_OK(UpdateType());
+    if (type->Equals(type_)) return Status::OK();
+    if (type->id() != Type::STRUCT) return ConversionError();
+    using field_ref = const std::shared_ptr<Field>&;
+    ARROW_CHECK(
+        std::is_sorted(type->children().begin(), type->children().end(),
+                       [](field_ref l, field_ref r) { return l->name() < r->name(); }));
+    for (const auto& other_field : type->children()) {
+      auto index = GetFieldIndex(other_field->name(), false);
+      std::unique_ptr<AdaptiveArrayBuilder> replacement;
+      RETURN_NOT_OK(
+          field_builders_[index]->MaybePromoteTo(other_field->type(), &replacement));
+      if (replacement) {
+        SetFieldBuilder(index, std::move(replacement));
       }
     }
-    return BinaryBuilder::Append(repr);
+    return UpdateType();
   }
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    if (type_->id() == Type::TIMESTAMP) {
-      std::shared_ptr<Buffer> timestamps;
-      ARROW_RETURN_NOT_OK(timestamp_builder_.Finish(&timestamps));
-      *out = ArrayData::Make(type_, length_, {null_bitmap_, timestamps}, null_count_);
-      return Status::OK();
+  // If a field with this name does not yet exist insert an AdaptiveNullBuilder,
+  // constructed with length equal to this struct builder's or one less if the
+  // child builder will be appended to next
+  int GetFieldIndex(const std::string& name, bool will_append) {
+    auto it = name_to_index_.find(name);
+    if (it != name_to_index_.end()) {
+      return it->second;
     }
-    return BinaryBuilder::FinishInternal(out);
+    auto index = static_cast<int>(field_builders_.size());
+    name_to_index_[name] = index;
+    std::unique_ptr<AdaptiveArrayBuilder> null_builder;
+    auto leading_nulls = will_append ? length_ - 1 : length_;
+    ARROW_IGNORE_EXPR(AdaptiveNullBuilder::Make(pool_, leading_nulls, &null_builder));
+    field_builders_.push_back(std::move(null_builder));
+    return index;
+  }
+
+  // Assumes that new builder is initialized with the correct element count
+  void SetFieldBuilder(int index, std::unique_ptr<AdaptiveArrayBuilder> builder) {
+    field_builders_[index] = std::move(builder);
+  }
+
+  AdaptiveArrayBuilder* field_builder(int index) { return field_builders_[index].get(); }
+
+  int num_fields() { return static_cast<int>(field_builders_.size()); }
+
+  static std::shared_ptr<DataType> initial_type() { return struct_({}); }
+
+  static Status Make(MemoryPool* pool, int64_t leading_nulls,
+                     std::unique_ptr<AdaptiveArrayBuilder>* out) {
+    *out = make_unique<AdaptiveStructBuilder>(pool);
+    auto builder = static_cast<AdaptiveStructBuilder*>(out->get());
+    builder->length_ = leading_nulls;
+    return builder->bitmap_builder_.SetLeadingNulls(leading_nulls);
   }
 
  private:
-  TypedBufferBuilder<int64_t> timestamp_builder_;
-};
-
-class AdaptiveStructBuilder : public StructBuilder {
- public:
-  explicit AdaptiveStructBuilder(MemoryPool* pool)
-      : StructBuilder(struct_({}), pool, {}) {}
-
-  Status SetLeadingNulls(int64_t leading_nulls) {
-    ARROW_CHECK(length_ == 0);
-    ARROW_CHECK(num_fields() == 0);
-    null_count_ = leading_nulls;
-    length_ = leading_nulls;
-    return Resize(leading_nulls);
+  Status SortFieldsByName() {
+    struct zip_t {
+      std::unique_ptr<AdaptiveArrayBuilder> builder;
+      std::string name;
+    };
+    std::vector<zip_t> fields_and_builders;
+    fields_and_builders.reserve(num_fields());
+    for (auto&& name_index : name_to_index_) {
+      auto builder = std::move(field_builders_[name_index.second]);
+      fields_and_builders.push_back({std::move(builder), name_index.first});
+    }
+    std::sort(fields_and_builders.begin(), fields_and_builders.end(),
+              [](const zip_t& l, const zip_t& r) { return l.name < r.name; });
+    int index = 0;
+    for (auto&& zip : fields_and_builders) {
+      field_builders_[index] = std::move(zip.builder);
+      name_to_index_[zip.name] = index;
+      ++index;
+    }
+    return Status::OK();
   }
 
-  Status AddField(const std::string& name) {
-    name_to_index_[name] = static_cast<int>(field_builders_.size());
-    auto null_builder = std::make_shared<AdaptiveNullBuilder>(pool_);
-    field_builders_.push_back(null_builder);
-    return null_builder->SetLeadingNulls(length_ - 1);
-  }
-
-  // assumes that new builder is initialized with the correct element count
-  void SetFieldBuilder(int index, std::shared_ptr<ArrayBuilder> builder) {
-    field_builders_[index] = builder;
-  }
-
-  int GetFieldIndex(const std::string& name) {
-    auto it = name_to_index_.find(name);
-    if (it == name_to_index_.end())
-      return -1;
-    return it->second;
-  }
-
-  Status UpdateType() {
+  Status SetTypeFromFieldBuilders() {
     std::vector<std::shared_ptr<Field>> fields(field_builders_.size());
-    for (auto &&name_index : name_to_index_) {
-      auto builder = field_builders_[name_index.second].get();
-      ARROW_RETURN_NOT_OK(VisitAdaptiveBuilder(builder, UpdateTypeVisitor{}));
+    for (auto&& name_index : name_to_index_) {
+      auto builder = field_builder(name_index.second);
+      RETURN_NOT_OK(builder->UpdateType());
       fields[name_index.second] = field(name_index.first, builder->type());
     }
     type_ = struct_(std::move(fields));
     return Status::OK();
   }
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    ARROW_RETURN_NOT_OK(UpdateType());
-    return StructBuilder::FinishInternal(out);
-  }
+  // FIXME replace this with TypedBufferBuilder<bool>
+  struct WrappedBuilder : public ArrayBuilder {
+    WrappedBuilder(MemoryPool* pool) : ArrayBuilder(null(), pool) {}
 
- private:
+    Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+      *out = ArrayData::Make(type_, length_, {null_bitmap_}, null_count_);
+      null_bitmap_ = nullptr;
+      capacity_ = length_ = null_count_ = 0;
+      return Status::OK();
+    }
+
+    using ArrayBuilder::AppendToBitmap;
+
+    Status SetLeadingNulls(int64_t leading_nulls) {
+      ARROW_CHECK(length_ == 0);
+      null_count_ = leading_nulls;
+      length_ = leading_nulls;
+      return Resize(leading_nulls);
+    }
+
+  } bitmap_builder_;
+  MemoryPool* pool_;
+  std::vector<std::unique_ptr<AdaptiveArrayBuilder>> field_builders_;
   std::unordered_map<std::string, int> name_to_index_;
 };
 
-class AdaptiveListBuilder : public ListBuilder {
+class AdaptiveListBuilder : public AdaptiveArrayBuilder {
  public:
-  explicit AdaptiveListBuilder(MemoryPool* pool)
-      : ListBuilder(pool, std::make_shared<NullBuilder>(pool)) {}
+  struct value_type {};
 
-  Status SetLeadingNulls(int64_t leading_nulls) {
-    ARROW_CHECK(length_ == 0);
-    null_count_ = leading_nulls;
-    length_ = leading_nulls;
-    ARROW_RETURN_NOT_OK(offsets_builder_.Resize(sizeof(int32_t) * leading_nulls));
-    return Resize(leading_nulls);
+  AdaptiveListBuilder(MemoryPool* pool)
+      : AdaptiveArrayBuilder(initial_type()),
+        bitmap_builder_(pool),
+        offsets_builder_(pool) {}
+
+  Status Append(value_type) {
+    RETURN_NOT_OK(bitmap_builder_.AppendToBitmap(true));
+    return AppendNextOffset();
   }
 
-  Status UpdateType() {
-    ARROW_RETURN_NOT_OK(VisitAdaptiveBuilder(value_builder_.get(), UpdateTypeVisitor{}));
+  Status AppendNull() {
+    RETURN_NOT_OK(bitmap_builder_.AppendToBitmap(false));
+    return AppendNextOffset();
+  }
+
+  Status UpdateType() override {
+    RETURN_NOT_OK(value_builder_->UpdateType());
     type_ = list(value_builder_->type());
     return Status::OK();
   }
 
-  // assumes that existing offsets are correct within the new builder
-  void SetValueBuilder(std::shared_ptr<ArrayBuilder> builder) {
-    value_builder_ = builder;
+  Status Finish(std::shared_ptr<Array>* out) override {
+    RETURN_NOT_OK(AppendNextOffset());
+    RETURN_NOT_OK(UpdateType());
+    std::shared_ptr<ArrayData> data;
+    RETURN_NOT_OK(bitmap_builder_.FinishInternal(&data));
+    data->type = type_;
+    std::shared_ptr<Buffer> offsets;
+    RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
+    data->buffers.push_back(offsets);
+    std::shared_ptr<Array> values_array;
+    RETURN_NOT_OK(value_builder_->Finish(&values_array));
+    data->child_data = {values_array->data()};
+    *out = MakeArray(data);
+    return Status::OK();
   }
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    ARROW_RETURN_NOT_OK(UpdateType());
-    return ListBuilder::FinishInternal(out);
+  Status MaybePromoteTo(std::shared_ptr<DataType> type,
+                        std::unique_ptr<AdaptiveArrayBuilder>*) override {
+    RETURN_NOT_OK(UpdateType());
+    if (type->Equals(type_)) return Status::OK();
+    if (type->id() != Type::LIST) return ConversionError();
+    auto list_type = std::static_pointer_cast<ListType>(type);
+    std::unique_ptr<AdaptiveArrayBuilder> replacement;
+    RETURN_NOT_OK(value_builder_->MaybePromoteTo(list_type->value_type(), &replacement));
+    if (replacement) {
+      SetValueBuilder(std::move(replacement));
+    }
+    return UpdateType();
   }
+
+  AdaptiveArrayBuilder* value_builder() { return value_builder_.get(); }
+
+  // Assumes that new builder is initialized with the correct element count
+  void SetValueBuilder(std::unique_ptr<AdaptiveArrayBuilder> builder) {
+    value_builder_ = std::move(builder);
+  }
+
+  static std::shared_ptr<DataType> initial_type() { return list(null()); }
+
+  static Status Make(MemoryPool* pool, int64_t leading_nulls,
+                     std::unique_ptr<AdaptiveArrayBuilder>* out) {
+    *out = make_unique<AdaptiveListBuilder>(pool);
+    auto builder = static_cast<AdaptiveListBuilder*>(out->get());
+    builder->length_ = leading_nulls;
+    RETURN_NOT_OK(AdaptiveNullBuilder::Make(pool, 0, &builder->value_builder_));
+    RETURN_NOT_OK(builder->offsets_builder_.Resize(leading_nulls));
+    return builder->bitmap_builder_.SetLeadingNulls(leading_nulls);
+  }
+
+ private:
+  Status AppendNextOffset() {
+    ++length_;
+    int64_t num_values = value_builder_->length();
+    if (ARROW_PREDICT_FALSE(num_values > kListMaximumElements)) {
+      std::stringstream ss;
+      ss << "ListArray cannot contain more than INT32_MAX - 1 child elements,"
+         << " but " << num_values << " were inserted";
+      return Status::CapacityError(ss.str());
+    }
+    return offsets_builder_.Append(static_cast<int32_t>(num_values));
+  }
+
+  // FIXME replace this with TypedBufferBuilder<bool>
+  struct WrappedBuilder : public ArrayBuilder {
+    WrappedBuilder(MemoryPool* pool) : ArrayBuilder(null(), pool) {}
+
+    Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+      *out = ArrayData::Make(type_, length_, {null_bitmap_}, null_count_);
+      null_bitmap_ = nullptr;
+      capacity_ = length_ = null_count_ = 0;
+      return Status::OK();
+    }
+
+    using ArrayBuilder::AppendToBitmap;
+
+    Status SetLeadingNulls(int64_t leading_nulls) {
+      ARROW_CHECK(length_ == 0);
+      null_count_ = leading_nulls;
+      length_ = leading_nulls;
+      return Resize(leading_nulls);
+    }
+
+  } bitmap_builder_;
+
+  TypedBufferBuilder<int32_t> offsets_builder_;
+  std::unique_ptr<AdaptiveArrayBuilder> value_builder_;
+  std::unordered_map<std::string, int> name_to_index_;
 };
 
-Status UpdateTypeVisitor::Visit(AdaptiveStructBuilder* b) { return b->UpdateType(); }
-Status UpdateTypeVisitor::Visit(AdaptiveListBuilder* b) { return b->UpdateType(); }
+Status AdaptiveNullBuilder::MaybePromoteTo(std::shared_ptr<DataType> type,
+                                           std::unique_ptr<AdaptiveArrayBuilder>* out) {
+  struct {
+    Status Visit(const NullType&) { return Status::OK(); }
+    Status Visit(const BooleanType&) {
+      return AdaptiveBooleanBuilder::Make(pool_, length_, out);
+    }
+    Status Visit(const Int64Type&) {
+      return Int64OrDoubleBuilder::Make(pool_, length_, out);
+    }
+    Status Visit(const DoubleType&) {
+      RETURN_NOT_OK(Int64OrDoubleBuilder::Make(pool_, length_, out));
+      static_cast<Int64OrDoubleBuilder*>(out->get())->PromoteToDouble();
+      return Status::OK();
+    }
+    Status Visit(const TimestampType&) {
+      return TimestampOrStringBuilder::Make(pool_, length_, out);
+    }
+    Status Visit(const StringType&) {
+      RETURN_NOT_OK(TimestampOrStringBuilder::Make(pool_, length_, out));
+      static_cast<TimestampOrStringBuilder*>(out->get())->PromoteToString();
+      return Status::OK();
+    }
+    Status Visit(const StructType&) {
+      return AdaptiveStructBuilder::Make(pool_, length_, out);
+    }
+    Status Visit(const ListType&) {
+      return AdaptiveListBuilder::Make(pool_, length_, out);
+    }
+    Status Visit(const DataType&) {
+      ARROW_LOG(FATAL) << "How did we get here";
+      return Status::Invalid("How did we get here");
+    }
+
+    MemoryPool* pool_;
+    int64_t length_;
+    std::unique_ptr<AdaptiveArrayBuilder>* out;
+  } visitor{pool_, length_, out};
+
+  return VisitTypeInline(*type, &visitor);
+}
 
 class InferringHandler
     : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, InferringHandler> {
  public:
-  InferringHandler(MemoryPool* pool, AdaptiveStructBuilder* root_builder) : pool_(pool), builder_(root_builder) {}
+  InferringHandler(AdaptiveStructBuilder* root_builder) : builder_(root_builder) {}
 
   bool Null() {
-    status_ = VisitAdaptiveBuilder(builder_, AppendNullVisitor{});
+    status_ = VisitBuilder(builder_, AppendNullVisitor{});
     return status_.ok();
   }
 
   bool Bool(bool value) {
-    if (!UpgradeIfNull<AdaptiveBooleanBuilder>()) return false;
-    if (builder_->type()->id() == Type::BOOL) {
-      status_ = static_cast<BooleanBuilder*>(builder_)->Append(value);
-    } else {
-      status_ = ConversionError();
-    }
+    status_ = VisitBuilder(builder_, AppendVisitor<AdaptiveBooleanBuilder>{this, value});
     return status_.ok();
   }
 
   bool RawNumber(const char* data, rapidjson::SizeType size, bool) {
-    if (!UpgradeIfNull<Int64OrDoubleBuilder>()) return false;
-    status_ = VisitAdaptiveBuilder(builder_, AppendNumberVisitor{data, size});
+    string_view value(data, size);
+    status_ = VisitBuilder(builder_, AppendVisitor<Int64OrDoubleBuilder>{this, value});
     return status_.ok();
   }
 
   bool String(const char* data, rapidjson::SizeType size, bool) {
-    if (!UpgradeIfNull<TimestampOrStringBuilder>()) return false;
-    status_ = VisitAdaptiveBuilder(builder_, AppendStringVisitor{data, size});
+    string_view value(data, size);
+    status_ =
+        VisitBuilder(builder_, AppendVisitor<TimestampOrStringBuilder>{this, value});
     return status_.ok();
   }
 
   bool StartObject() {
-    if (!UpgradeIfNull<AdaptiveStructBuilder>()) return false;
-    if (builder_->type()->id() == Type::STRUCT) {
-      auto struct_builder = static_cast<StructBuilder*>(builder_);
-      auto num_fields = struct_builder->num_fields();
-      builder_stack_.push_back(builder_);
-      absent_fields_.push_back(std::vector<bool>(num_fields, true));
-      field_index_stack_.push_back(-1);
-      status_ = struct_builder->Append();
-    } else {
-      status_ = ConversionError();
-    }
-    return status_.ok();
+    status_ = VisitBuilder(builder_, AppendVisitor<AdaptiveStructBuilder>{this, {}});
+    if (!status_.ok()) return false;
+    auto parent = static_cast<AdaptiveStructBuilder*>(builder_);
+    builder_stack_.push_back(builder_);
+    absent_fields_.push_back(std::vector<bool>(parent->num_fields(), true));
+    field_index_stack_.push_back(-1);  // overwritten in Key()
+    return true;
   }
 
   bool Key(const char* key, rapidjson::SizeType len, bool) {
     auto parent = static_cast<AdaptiveStructBuilder*>(builder_stack_.back());
     std::string name(key, len);
-    int field_index = parent->GetFieldIndex(name);
-    if (field_index == -1) {
-      // add this field to the parent
-      field_index = parent->num_fields();
-      absent_fields_.back().push_back(false);
-      status_ = parent->AddField(name);
-      if (!status_.ok()) return false;
-    }
+    int field_index = parent->GetFieldIndex(name, true);
     field_index_stack_.back() = field_index;
-    absent_fields_.back()[field_index] = false;
+    if (field_index < absent_fields_.back().size()) {
+      absent_fields_.back()[field_index] = false;
+    }
     builder_ = parent->field_builder(field_index);
     return true;
   }
 
-  bool EndObject(rapidjson::SizeType) {
+  bool EndObject(...) {
     int field_index = 0;
-    auto parent = static_cast<StructBuilder*>(builder_stack_.back());
+    auto parent = static_cast<AdaptiveStructBuilder*>(builder_stack_.back());
     for (bool null : absent_fields_.back()) {
       // TODO since this is expected to be sparse, it would probably be more
       // efficient to use CountLeadingZeros() to find the indices of the few
       // null fields
       if (null) {
-        status_ = VisitAdaptiveBuilder(parent->field_builder(field_index),
-                               AppendNullVisitor{});
+        status_ = VisitBuilder(parent->field_builder(field_index), AppendNullVisitor{});
         if (!status_.ok()) return false;
       }
       ++field_index;
@@ -680,20 +1028,16 @@ class InferringHandler
   }
 
   bool StartArray() {
-    if (!UpgradeIfNull<AdaptiveListBuilder>()) return false;
-    if (builder_->type()->id() == Type::LIST) {
-      auto list_builder = static_cast<ListBuilder*>(builder_);
-      builder_stack_.push_back(builder_);
-      builder_ = list_builder->value_builder();
-      field_index_stack_.push_back(-1);
-      status_ = list_builder->Append();
-    } else {
-      status_ = ConversionError();
-    }
-    return status_.ok();
+    status_ = VisitBuilder(builder_, AppendVisitor<AdaptiveListBuilder>{this, {}});
+    if (!status_.ok()) return false;
+    auto parent = static_cast<AdaptiveListBuilder*>(builder_);
+    builder_stack_.push_back(builder_);
+    builder_ = parent->value_builder();
+    field_index_stack_.push_back(-1);
+    return true;
   }
 
-  bool EndArray(rapidjson::SizeType) {
+  bool EndArray(...) {
     builder_ = builder_stack_.back();
     builder_stack_.pop_back();
     field_index_stack_.pop_back();
@@ -703,68 +1047,96 @@ class InferringHandler
   Status Error() { return status_; }
 
  private:
-  template <typename Builder>
-  bool UpgradeIfNull() {
-    if (ARROW_PREDICT_TRUE(builder_->type()->id() != Type::NA))
-      return true;
-    auto null_count = builder_->null_count();
-    int field_index = field_index_stack_.back();
-    std::shared_ptr<Builder> new_builder;
-    new_builder.reset(new Builder(pool_));
-    builder_ = new_builder.get();
-    if (field_index == -1) {
-      auto parent = static_cast<AdaptiveListBuilder*>(builder_stack_.back());
-      parent->SetValueBuilder(new_builder);
-    } else {
-      auto parent = static_cast<AdaptiveStructBuilder*>(builder_stack_.back());
-      parent->SetFieldBuilder(field_index, new_builder);
+  struct AppendNullVisitor {
+    template <typename Builder>
+    Status Visit(Builder* b, ...) {
+      return b->AppendNull();
     }
-    status_ = new_builder->SetLeadingNulls(null_count);
-    return status_.ok();
+  };
+
+  template <typename Builder>
+  struct AppendVisitor {
+    using value_type = typename Builder::value_type;
+
+    // visiting the specified builder class; we know how to append value_
+    Status Visit(Builder* b, std::unique_ptr<AdaptiveArrayBuilder>*) {
+      return b->Append(value_);
+    }
+
+    // anything else -> try promotion
+    // it's alright that MaybePromoteTo is virtual here; we'll hit this seldom
+    Status Visit(AdaptiveArrayBuilder* b, std::unique_ptr<AdaptiveArrayBuilder>* new_b) {
+      RETURN_NOT_OK(b->MaybePromoteTo(Builder::initial_type(), new_b));
+      auto target = *new_b ? new_b->get()  // promotion has moved builder from b to new_b
+                           : b;  // promotion handled internally; b is still valid
+      return this_->VisitBuilder(target, *this);
+    }
+
+    InferringHandler* this_;
+    value_type value_;
+  };
+
+  template <typename Visitor>
+  Status VisitBuilder(AdaptiveArrayBuilder* builder, Visitor&& visitor) {
+    std::unique_ptr<AdaptiveArrayBuilder> replacement;
+    switch (builder->type()->id()) {
+      case Type::NA:
+        RETURN_NOT_OK(
+            visitor.Visit(static_cast<AdaptiveNullBuilder*>(builder), &replacement));
+        break;
+      case Type::BOOL:
+        RETURN_NOT_OK(
+            visitor.Visit(static_cast<AdaptiveBooleanBuilder*>(builder), &replacement));
+        break;
+      case Type::INT64:
+      case Type::DOUBLE:
+        RETURN_NOT_OK(
+            visitor.Visit(static_cast<Int64OrDoubleBuilder*>(builder), &replacement));
+        break;
+      case Type::TIMESTAMP:
+      case Type::STRING:
+        RETURN_NOT_OK(
+            visitor.Visit(static_cast<TimestampOrStringBuilder*>(builder), &replacement));
+        break;
+      case Type::STRUCT:
+        RETURN_NOT_OK(
+            visitor.Visit(static_cast<AdaptiveStructBuilder*>(builder), &replacement));
+        break;
+      case Type::LIST:
+        RETURN_NOT_OK(
+            visitor.Visit(static_cast<AdaptiveListBuilder*>(builder), &replacement));
+        break;
+      default:
+        ARROW_LOG(FATAL) << "How did we get here";
+        return Status::Invalid("How did we get here");
+    };
+
+    if (replacement) {
+      builder_ = replacement.get();
+      int field_index = field_index_stack_.back();
+      if (field_index == -1) {
+        auto parent = static_cast<AdaptiveListBuilder*>(builder_stack_.back());
+        parent->SetValueBuilder(std::move(replacement));
+      } else {
+        auto parent = static_cast<AdaptiveStructBuilder*>(builder_stack_.back());
+        parent->SetFieldBuilder(field_index, std::move(replacement));
+      }
+    }
+
+    return Status::OK();
   }
 
-  struct AppendNullVisitor {
-    Status Visit(NullBuilder* b) { return b->AppendNull(); }
-    Status Visit(BooleanBuilder* b) { return b->AppendNull(); }
-    Status Visit(Int64OrDoubleBuilder* b) { return b->AppendNull(); }
-    Status Visit(TimestampOrStringBuilder* b) { return b->AppendNull(); }
-    Status Visit(ListBuilder* b) { return b->AppendNull(); }
-    Status Visit(StructBuilder* b) {
-      ARROW_RETURN_NOT_OK(b->AppendNull());
-      for (int i = 0; i != b->num_fields(); ++i) {
-        auto field_builder = b->field_builder(i);
-        ARROW_RETURN_NOT_OK(VisitAdaptiveBuilder(field_builder, AppendNullVisitor()));
-      }
-      return Status::OK();
-    }
-  };
-
-  struct AppendNumberVisitor {
-    Status Visit(ArrayBuilder* b) { return ConversionError(); }
-    Status Visit(Int64OrDoubleBuilder* b) { return b->Append(util::string_view(data_, size_)); }
-    const char* data_;
-    rapidjson::SizeType size_;
-  };
-
-  struct AppendStringVisitor {
-    Status Visit(ArrayBuilder* b) { return ConversionError(); }
-    Status Visit(TimestampOrStringBuilder* b) { return b->Append(util::string_view(data_, size_)); }
-    const char* data_;
-    rapidjson::SizeType size_;
-  };
-
-  MemoryPool* pool_;
-  ArrayBuilder* builder_;
+  AdaptiveArrayBuilder* builder_;
   Status status_;
-  std::vector<ArrayBuilder*> builder_stack_;
+  std::vector<AdaptiveArrayBuilder*> builder_stack_;
   std::vector<std::vector<bool>> absent_fields_;
   std::vector<int> field_index_stack_;
 };
 
 template <unsigned Flags, typename Handler>
-Status BlockParser::DoParse(Handler& handler, const char* data, uint32_t size, uint32_t* out_size) {
-  rapidjson::GenericInsituStringStream<rapidjson::UTF8<>> ss(
-      const_cast<char*>(data));
+Status BlockParser::DoParse(Handler& handler, const char* data, uint32_t size,
+                            uint32_t* out_size) {
+  rapidjson::GenericInsituStringStream<rapidjson::UTF8<>> ss(const_cast<char*>(data));
   rapidjson::Reader reader;
 
   for (num_rows_ = 0; num_rows_ != max_num_rows_; ++num_rows_) {
@@ -795,27 +1167,28 @@ Status BlockParser::Parse(const char* data, uint32_t size, uint32_t* out_size) {
       rapidjson::kParseInsituFlag | rapidjson::kParseIterativeFlag |
       rapidjson::kParseStopWhenDoneFlag | rapidjson::kParseNumbersAsStringsFlag;
 
-  std::unique_ptr<ArrayBuilder> root_builder;
+  std::shared_ptr<Array> array;
   if (options_.explicit_schema) {
     auto struct_type = struct_(options_.explicit_schema->fields());
-    ARROW_RETURN_NOT_OK(MakeBuilder(pool_, struct_type, &root_builder));
+    std::unique_ptr<ArrayBuilder> root_builder;
+    RETURN_NOT_OK(MakeBuilder(pool_, struct_type, &root_builder));
     TypedHandler handler(static_cast<StructBuilder*>(root_builder.get()));
-    ARROW_RETURN_NOT_OK(DoParse<parse_flags>(handler, data, size, out_size));
+    RETURN_NOT_OK(DoParse<parse_flags>(handler, data, size, out_size));
+    RETURN_NOT_OK(root_builder->Finish(&array));
   } else {
-    root_builder.reset(new AdaptiveStructBuilder(pool_));
-    InferringHandler handler(pool_, static_cast<AdaptiveStructBuilder*>(root_builder.get()));
-    ARROW_RETURN_NOT_OK(DoParse<parse_flags>(handler, data, size, out_size));
+    auto root_builder = make_unique<AdaptiveStructBuilder>(pool_);
+    InferringHandler handler(root_builder.get());
+    RETURN_NOT_OK(DoParse<parse_flags>(handler, data, size, out_size));
+    RETURN_NOT_OK(root_builder->Finish(&array));
   }
 
-  std::shared_ptr<Array> array;
-  ARROW_RETURN_NOT_OK(root_builder->Finish(&array));
   auto struct_array = std::static_pointer_cast<StructArray>(array);
-  
+
   std::shared_ptr<Schema> root_schema;
   if (options_.explicit_schema) {
     root_schema = options_.explicit_schema;
   } else {
-    root_schema = schema(root_builder->type()->children());
+    root_schema = schema(array->type()->children());
   }
 
   std::vector<std::shared_ptr<Array>> columns;
@@ -826,15 +1199,11 @@ Status BlockParser::Parse(const char* data, uint32_t size, uint32_t* out_size) {
   return Status::OK();
 }
 
-BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
-                         int32_t num_cols, int32_t max_num_rows)
-    : pool_(pool),
-      options_(options),
-      num_cols_(num_cols),
-      max_num_rows_(max_num_rows) {}
-
-BlockParser::BlockParser(ParseOptions options, int32_t num_cols,
+BlockParser::BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols,
                          int32_t max_num_rows)
+    : pool_(pool), options_(options), num_cols_(num_cols), max_num_rows_(max_num_rows) {}
+
+BlockParser::BlockParser(ParseOptions options, int32_t num_cols, int32_t max_num_rows)
     : BlockParser(default_memory_pool(), options, num_cols, max_num_rows) {}
 
 }  // namespace json
