@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export FLATBUFFERS_VERSION=1.9.0
+export FLATBUFFERS_VERSION=1.10.0
 curl -sL https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz \
     -o flatbuffers-${FLATBUFFERS_VERSION}.tar.gz
 tar xf flatbuffers-${FLATBUFFERS_VERSION}.tar.gz
