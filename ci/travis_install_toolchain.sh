@@ -31,7 +31,6 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
         --file=$TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
         ${CONDA_LLVM} \
         ccache \
-        curl \
         ninja \
         nomkl \
         python=3.6
