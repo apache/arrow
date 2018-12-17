@@ -16,11 +16,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-curl -sL https://github.com/google/googletest/archive/release-1.7.0.tar.gz -o googletest-release-1.7.0.tar.gz
-tar xf googletest-release-1.7.0.tar.gz
+GTEST_VERSION=1.8.1
+
+curl -sL https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz -o googletest-release-${GTEST_VERSION}.tar.gz
+tar xf googletest-release-${GTEST_VERSION}.tar.gz
 ls -l
-pushd googletest-release-1.7.0
-cmake -DCMAKE_CXX_FLAGS='-fPIC' -Dgtest_force_shared_crt=ON .
-make -j5
+pushd googletest-release-${GTEST_VERSION}
+
+mkdir build_so
+pushd build_so
+cmake -DCMAKE_CXX_FLAGS='-fPIC' -Dgtest_force_shared_crt=ON -DBUILD_SHARED_LIBS=ON -DBUILD_GMOCK=OFF -GNinja -DCMAKE_INSTALL_PREFIX=/usr ..
+ninja install
 popd
-rm -rf googletest-release-1.7.0.tar.gz
+
+mkdir build_a
+pushd build_a
+cmake -DCMAKE_CXX_FLAGS='-fPIC' -Dgtest_force_shared_crt=ON -DBUILD_SHARED_LIBS=OFF -DBUILD_GMOCK=OFF -GNinja -DCMAKE_INSTALL_PREFIX=/usr ..
+ninja install
+popd
+
+popd
+rm -rf googletest-release-${GTEST_VERSION}.tar.gz
