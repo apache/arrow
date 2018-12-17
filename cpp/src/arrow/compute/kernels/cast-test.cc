@@ -34,15 +34,16 @@
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/test-util.h"
-#include "arrow/compute/kernels/hash.h"
 #include "arrow/compute/kernels/cast.h"
+#include "arrow/compute/kernels/hash.h"
 #include "arrow/compute/kernels/util-internal.h"
+#include "arrow/compute/test-util.h"
 
 using std::shared_ptr;
 using std::vector;
@@ -1064,6 +1065,31 @@ TEST_F(TestCast, StringToTimestampErrors) {
     CheckFails<StringType, std::string>(utf8(), {""}, is_valid, type, options);
     CheckFails<StringType, std::string>(utf8(), {"xxx"}, is_valid, type, options);
   }
+}
+
+constexpr const char* kInvalidUtf8 = "\xa0\xa1";
+
+TEST_F(TestCast, BinaryToString) {
+  CastOptions options;
+
+  // All valid except the last one
+  vector<bool> all = {1, 1, 1, 1, 1};
+  vector<bool> valid = {1, 1, 1, 1, 0};
+  vector<std::string> strings = {"Hi", "olá mundo", "你好世界", "", kInvalidUtf8};
+
+  std::shared_ptr<Array> array;
+
+  // Should accept when invalid but null.
+  ArrayFromVector<BinaryType, std::string>(binary(), valid, strings, &array);
+  CheckZeroCopy(*array, utf8());
+
+  // Should refuse due to invalid utf8 payload
+  CheckFails<BinaryType, std::string>(binary(), strings, all, utf8(), options);
+
+  // Should accept due to option override
+  options.allow_invalid_utf8 = true;
+  CheckCase<BinaryType, std::string, StringType, std::string>(binary(), strings, all,
+                                                              utf8(), strings, options);
 }
 
 template <typename TestType>
