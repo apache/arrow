@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-project(gandiva_jni)
-
 if(CMAKE_VERSION VERSION_LESS 3.11)
   message(FATAL_ERROR "Building the Gandiva JNI bindings requires CMake version >= 3.11")
 endif()

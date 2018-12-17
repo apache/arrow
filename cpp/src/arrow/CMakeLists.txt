@@ -15,7 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(arrow-all)
 add_custom_target(arrow)
+add_custom_target(arrow-benchmarks)
+add_custom_target(arrow-tests)
+add_dependencies(arrow-all arrow arrow-tests arrow-benchmarks)
 
 # Adding unit tests part of the "arrow" portion of the test suite
 function(ADD_ARROW_TEST REL_TEST_NAME)
@@ -31,7 +35,7 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
   endif()
   ADD_TEST_CASE(${REL_TEST_NAME}
     PREFIX ${PREFIX}
-    LABELS "unittest;arrow"
+    LABELS "arrow-tests"
     ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
@@ -47,7 +51,7 @@ function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
   endif()
   ADD_BENCHMARK(${REL_TEST_NAME}
     PREFIX ${PREFIX}
-    LABELS "benchmark;arrow"
+    LABELS "arrow-benchmarks"
     ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
@@ -214,6 +218,8 @@ ADD_ARROW_LIB(arrow
   SHARED_LINK_LIBS ${ARROW_LINK_LIBS}
   SHARED_PRIVATE_LINK_LIBS ${ARROW_SHARED_PRIVATE_LINK_LIBS}
   STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
+
+add_dependencies(arrow ${ARROW_LIBRARIES})
 
 if (ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)

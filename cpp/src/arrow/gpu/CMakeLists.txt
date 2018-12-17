@@ -19,6 +19,12 @@
 # arrow_cuda
 #######################################
 
+add_custom_target(arrow_cuda-all)
+add_custom_target(arrow_cuda)
+add_custom_target(arrow_cuda-benchmarks)
+add_custom_target(arrow_cuda-tests)
+add_dependencies(arrow_cuda-all arrow_cuda arrow_cuda-tests arrow_cuda-benchmarks)
+
 if (DEFINED ENV{CUDA_HOME})
   set(CUDA_TOOLKIT_ROOT_DIR "$ENV{CUDA_HOME}")
 endif()
@@ -49,6 +55,8 @@ ADD_ARROW_LIB(arrow_cuda
   STATIC_LINK_LIBS ${ARROW_CUDA_SHARED_LINK_LIBS}
 )
 
+add_dependencies(arrow_cuda ${ARROW_CUDA_LIBRARIES})
+
 foreach(LIB_TARGET ${ARROW_CUDA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
     PRIVATE ARROW_EXPORTING)
@@ -77,9 +85,10 @@ if (ARROW_BUILD_TESTS)
 endif()
 
 if (ARROW_BUILD_BENCHMARKS)
-  cuda_add_executable(cuda-benchmark cuda-benchmark.cc)
-  target_link_libraries(cuda-benchmark
+  cuda_add_executable(arrow-cuda-benchmark cuda-benchmark.cc)
+  target_link_libraries(arrow-cuda-benchmark
     arrow_cuda_shared
     gtest_static
     ${ARROW_BENCHMARK_LINK_LIBS})
+  add_dependencies(arrow_cuda-benchmarks arrow-cuda-benchmark)
 endif()

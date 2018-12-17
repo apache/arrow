@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(toolchain)
+
 # ----------------------------------------------------------------------
 # Toolchain linkage options
 
@@ -401,7 +403,7 @@ if (ARROW_BOOST_VENDORED)
     ${EP_LOG_OPTIONS})
   set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
   set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
-  add_dependencies(arrow_dependencies boost_ep)
+  add_dependencies(toolchain boost_ep)
 else()
   if (MSVC)
     # disable autolinking in boost
@@ -513,7 +515,7 @@ else()
 endif()
 
 if (DOUBLE_CONVERSION_VENDORED)
-  add_dependencies(arrow_dependencies double-conversion_ep)
+  add_dependencies(toolchain double-conversion_ep)
 else()
   get_property(DOUBLE_CONVERSION_STATIC_LIB TARGET double-conversion::double-conversion
     PROPERTY LOCATION)
@@ -531,9 +533,6 @@ message(STATUS "double-conversion static library: ${DOUBLE_CONVERSION_STATIC_LIB
 
 # ----------------------------------------------------------------------
 # Google gtest & gflags
-
-add_custom_target(unittest ctest -L unittest)
-add_custom_target(benchmark ctest -L benchmark)
 
 if(ARROW_BUILD_TESTS OR ARROW_GANDIVA_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS)
@@ -707,7 +706,7 @@ if (ARROW_IPC)
   include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
 
   if(RAPIDJSON_VENDORED)
-    add_dependencies(arrow_dependencies rapidjson_ep)
+    add_dependencies(toolchain rapidjson_ep)
   endif()
 
   ## Flatbuffers
@@ -739,7 +738,7 @@ if (ARROW_IPC)
   endif()
 
   if(FLATBUFFERS_VENDORED)
-    add_dependencies(arrow_dependencies flatbuffers_ep)
+    add_dependencies(toolchain flatbuffers_ep)
   endif()
 
   message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
@@ -1173,7 +1172,7 @@ if (ARROW_GANDIVA)
   endif()
 
   if (RE2_VENDORED)
-    add_dependencies (arrow_dependencies re2_ep)
+    add_dependencies (toolchain re2_ep)
   endif ()
 endif ()
 
