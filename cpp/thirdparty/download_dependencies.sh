@@ -30,7 +30,7 @@ else
   DESTDIR=$1
 fi
 
-DESTDIR=$(realpath "${DESTDIR}")
+DESTDIR=$(readlink -f "${DESTDIR}")
 
 download_dependency() {
   local url=$1
