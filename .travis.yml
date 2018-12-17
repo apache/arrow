@@ -62,38 +62,55 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
-  - name: "C++ & Python w/ gcc 4.9"
+  - name: "C++ unit tests, code coverage with gcc 4.8"
     compiler: gcc
     language: cpp
     os: linux
     jdk: openjdk8
     env:
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_VALGRIND=1
+    - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_COVERAGE=1
     - ARROW_TRAVIS_PARQUET=1
-    - ARROW_TRAVIS_PYTHON_DOCS=1
+    - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_GANDIVA_JAVA=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - ARROW_TRAVIS_PYTHON_JVM=1
-    - ARROW_TRAVIS_JAVA_BUILD_ONLY=1
-    - ARROW_TRAVIS_PYTHON_GANDIVA=1
-    # ARROW-2999 Benchmarks are disabled in Travis CI for the time being
-    # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
-    - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
     before_script:
-    # (ARROW_CI_CPP_AFFECTED implies ARROW_CI_PYTHON_AFFECTED)
-    - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
+    - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
-    # All test steps are required for accurate C++ coverage info
-    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
-    # Build Arrow Java to test the pyarrow<->JVM in-process bridge
+    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh || travis_terminate 1
+    - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh || travis_terminate 1
+  - name: "Python 2.7 and 3.6 unit tests, coverage with gcc 4.8"
+    compiler: gcc
+    language: cpp
+    os: linux
+    jdk: openjdk8
+    env:
+    # Valgrind is needed for the Plasma store tests
+    - ARROW_TRAVIS_VALGRIND=1
+    - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - ARROW_TRAVIS_COVERAGE=1
+    - ARROW_TRAVIS_PYTHON_DOCS=1
+    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    - ARROW_TRAVIS_PYTHON_JVM=1
+    - ARROW_TRAVIS_PYTHON_GANDIVA=1
+    - ARROW_TRAVIS_OPTIONAL_INSTALL=1
+    # TODO(wesm): Run the benchmarks outside of Travis
+    # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
+    before_script:
+    - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
+    script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
     # Only run Plasma tests with valgrind in one of the Python builds because
     # they are slow
@@ -102,34 +119,10 @@ matrix:
     - export PLASMA_VALGRIND=1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
-  - name: "Gandiva C++ w/ gcc 4.9 and Java"
-    compiler: gcc
-    language: cpp
-    os: linux
-    jdk: openjdk8
-    env:
-    - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_GANDIVA_JAVA=1
-    - ARROW_TRAVIS_GANDIVA_TESTS=1
-    - ARROW_TRAVIS_OPTIONAL_INSTALL=1
-    - ARROW_CPP_BUILD_TARGETS="gandiva-all"
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - ARROW_TRAVIS_VALGRIND=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
-    before_script:
-    # Run if something changed in CPP or Java.
-    - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
-  - name: "[OS X] C++ & Python w/ XCode 6.4"
+  - name: "[OS X] C++ w/ XCode 8.3"
     compiler: clang
     language: cpp
-    osx_image: xcode6.4
+    osx_image: xcode8.3
     os: osx
     cache:
     addons:
@@ -138,39 +131,41 @@ matrix:
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_PARQUET=1
+    - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_GANDIVA_JAVA=1
+    - ARROW_TRAVIS_OPTIONAL_INSTALL=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    # ARROW-3803: The Xcode 8.3 image has Boost libraries in /usr/local/lib
+    # which can get loaded before the toolchain Boost libraries. These seem to
+    # get loaded even though we are modifying LD_LIBRARY_PATH. We build our own
+    # Boost and statically link to get around the issue until this can be
+    # investigated further
+    - ARROW_TRAVIS_VENDORED_BOOST=1
     before_script:
-    - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
+    - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
-    - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
-  - name: "[OS X] Gandiva C++ w/ XCode 8.3 & Java"
+    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
+  - name: "[OS X] Python w/ XCode 6.4"
     compiler: clang
     language: cpp
-    # xcode 7.3 has a bug in strptime.
-    osx_image: xcode8.3
+    osx_image: xcode6.4
     os: osx
     cache:
     addons:
     env:
-    - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_GANDIVA_JAVA=1
-    - ARROW_TRAVIS_GANDIVA_TESTS=1
-    - ARROW_TRAVIS_OPTIONAL_INSTALL=1
-    - ARROW_CPP_BUILD_TARGETS="gandiva-all"
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    - ARROW_TRAVIS_OPTIONAL_INSTALL=1
     before_script:
-    # Run if something changed in CPP or Java.
-    - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
+    - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
+    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
   - name: "[manylinux1] Python"
     language: cpp
     before_script:

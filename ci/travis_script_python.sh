@@ -87,7 +87,7 @@ rm -rf *
 # XXX Can we simply reuse CMAKE_COMMON_FLAGS from travis_before_script_cpp.sh?
 CMAKE_COMMON_FLAGS="-DARROW_EXTRA_ERROR_CONTEXT=ON"
 
-PYTHON_CPP_BUILD_TARGETS="arrow_python-all plasma"
+PYTHON_CPP_BUILD_TARGETS="arrow_python-all plasma parquet"
 
 if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GENERATE_COVERAGE=ON"
@@ -103,6 +103,7 @@ cmake -GNinja \
       -DARROW_BUILD_TESTS=ON \
       -DARROW_BUILD_UTILITIES=OFF \
       -DARROW_OPTIONAL_INSTALL=ON \
+      -DARROW_PARQUET=on \
       -DARROW_PLASMA=on \
       -DARROW_TENSORFLOW=on \
       -DARROW_PYTHON=on \
@@ -176,12 +177,11 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     coverage report -i --include="*/_parquet.pyx"
     # Generate XML file for CodeCov
     coverage xml -i -o $TRAVIS_BUILD_DIR/coverage.xml
-    # Capture C++ coverage info and combine with previous coverage file
+    # Capture C++ coverage info
     pushd $TRAVIS_BUILD_DIR
     lcov --quiet --directory . --capture --no-external --output-file coverage-python-tests.info \
         2>&1 | grep -v "WARNING: no data found for /usr/include"
     lcov --add-tracefile coverage-python-tests.info \
-        --add-tracefile $ARROW_CPP_COVERAGE_FILE \
         --output-file $ARROW_CPP_COVERAGE_FILE
     rm coverage-python-tests.info
     popd   # $TRAVIS_BUILD_DIR

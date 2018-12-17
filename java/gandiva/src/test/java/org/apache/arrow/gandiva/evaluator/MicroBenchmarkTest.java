@@ -26,10 +26,12 @@ import org.apache.arrow.gandiva.expression.TreeNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.collect.Lists;
 
+@Ignore
 public class MicroBenchmarkTest extends BaseEvaluatorTest {
 
   private double toleranceRatio = 4.0;
