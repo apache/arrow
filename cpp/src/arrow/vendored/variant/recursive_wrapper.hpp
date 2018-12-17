@@ -1,7 +1,9 @@
-#ifndef ARROW_UTIL_VARIANT_RECURSIVE_WRAPPER_H
-#define ARROW_UTIL_VARIANT_RECURSIVE_WRAPPER_H
+// Vendored from https://github.com/mapbox/variant at tag v1.1.5
 
-// Based on variant/recursive_wrapper.h from boost.
+#ifndef MAPBOX_UTIL_RECURSIVE_WRAPPER_HPP
+#define MAPBOX_UTIL_RECURSIVE_WRAPPER_HPP
+
+// Based on variant/recursive_wrapper.hpp from boost.
 //
 // Original license:
 //
@@ -15,7 +17,7 @@
 #include <cassert>
 #include <utility>
 
-namespace arrow {
+namespace mapbox {
 namespace util {
 
 template <typename T>
@@ -117,6 +119,6 @@ inline void swap(recursive_wrapper<T>& lhs, recursive_wrapper<T>& rhs) noexcept
     lhs.swap(rhs);
 }
 } // namespace util
-} // namespace arrow
+} // namespace mapbox
 
-#endif // ARROW_UTIL_VARIANT_RECURSIVE_WRAPPER_H
+#endif // MAPBOX_UTIL_RECURSIVE_WRAPPER_HPP

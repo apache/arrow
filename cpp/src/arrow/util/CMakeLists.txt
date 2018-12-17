@@ -72,6 +72,3 @@ ADD_ARROW_BENCHMARK(int-util-benchmark)
 ADD_ARROW_BENCHMARK(lazy-benchmark)
 ADD_ARROW_BENCHMARK(number-parsing-benchmark)
 ADD_ARROW_BENCHMARK(utf8-util-benchmark)
-
-add_subdirectory(string_view)
-add_subdirectory(variant)

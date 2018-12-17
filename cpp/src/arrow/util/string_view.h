@@ -18,7 +18,7 @@
 #ifndef ARROW_UTIL_STRING_VIEW_H
 #define ARROW_UTIL_STRING_VIEW_H
 
-#include "arrow/util/string_view/string_view.hpp"  // IWYU pragma: export
+#include "arrow/vendored/string_view.hpp"  // IWYU pragma: export
 
 namespace arrow {
 namespace util {

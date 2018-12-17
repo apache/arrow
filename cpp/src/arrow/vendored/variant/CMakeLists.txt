@@ -15,8 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
-# arrow_util_variant
-#######################################
-
-ARROW_INSTALL_ALL_HEADERS("arrow/util/variant")
+ARROW_INSTALL_ALL_HEADERS("arrow/vendored/variant")
