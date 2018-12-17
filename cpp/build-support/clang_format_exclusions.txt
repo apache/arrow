@@ -4,11 +4,6 @@
 *pyarrow_lib.h
 *python/config.h
 *python/platform.h
-*util/date.h
-*util/string_view/*
-*util/variant.h
-*util/variant/*
 *thirdparty/ae/*
-*xxhash.cc
-*xxhash.h
+*vendored/*
 *RcppExports.cpp*
