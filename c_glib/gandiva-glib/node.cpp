@@ -293,12 +293,10 @@ ggandiva_field_node_new(GArrowField *field)
 typedef struct GGandivaFunctionNodePrivate_ {
   gchar *name;
   GList *parameters;
-  GArrowDataType *return_type;
 } GGandivaFunctionNodePrivate;
 
 enum {
-  PROP_NAME = 1,
-  PROP_RETURN_TYPE
+  PROP_NAME = 1
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GGandivaFunctionNode,
@@ -322,11 +320,6 @@ ggandiva_function_node_dispose(GObject *object)
     }
     g_list_free(priv->parameters);
     priv->parameters = nullptr;
-  }
-
-  if (priv->return_type) {
-    g_object_unref(priv->return_type);
-    priv->return_type = nullptr;
   }
 
   G_OBJECT_CLASS(ggandiva_function_node_parent_class)->dispose(object);
@@ -354,9 +347,6 @@ ggandiva_function_node_set_property(GObject *object,
   case PROP_NAME:
     priv->name = g_value_dup_string(value);
     break;
-  case PROP_RETURN_TYPE:
-    priv->return_type = GARROW_DATA_TYPE(g_value_dup_object(value));
-    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -374,9 +364,6 @@ ggandiva_function_node_get_property(GObject *object,
   switch (prop_id) {
   case PROP_NAME:
     g_value_set_string(value, priv->name);
-    break;
-  case PROP_RETURN_TYPE:
-    g_value_set_object(value, priv->return_type);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -409,14 +396,6 @@ ggandiva_function_node_class_init(GGandivaFunctionNodeClass *klass)
                              static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_NAME, spec);
-
-  spec = g_param_spec_object("return-type",
-                             "Return type",
-                             "The return type of the function",
-                             GARROW_TYPE_DATA_TYPE,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_RETURN_TYPE, spec);
 }
 
 /**
@@ -445,8 +424,7 @@ ggandiva_function_node_new(const gchar *name,
                                                              arrow_return_type);
   return ggandiva_function_node_new_raw(&gandiva_node,
                                         name,
-                                        parameters,
-                                        return_type);
+                                        parameters);
 }
 
 /**
@@ -1167,13 +1145,11 @@ ggandiva_field_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
 GGandivaFunctionNode *
 ggandiva_function_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                                const gchar *name,
-                               GList *parameters,
-                               GArrowDataType *return_type)
+                               GList *parameters)
 {
   auto function_node = g_object_new(GGANDIVA_TYPE_FUNCTION_NODE,
                                     "node", gandiva_node,
                                     "name", name,
-                                    "return-type", return_type,
                                     NULL);
   auto priv = GGANDIVA_FUNCTION_NODE_GET_PRIVATE(function_node);
   for (auto node = parameters; node; node = g_list_next(node)) {
