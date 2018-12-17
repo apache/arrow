@@ -46,6 +46,18 @@ sudo apt-get install \
      libboost-system-dev
 ```
 
+On Alpine Linux:
+
+```shell
+apk add autoconf \
+        bash \
+        boost-dev \
+        cmake \
+        g++ \
+        gcc \
+        make
+```
+
 On macOS, you can use [Homebrew][1]:
 
 ```shell
