@@ -174,7 +174,7 @@ function install_run {
     python -c "import pyarrow.plasma"
 
     # Run pyarrow tests
-    pip install $(pip_opts) -r requirements-test.txt
+    pip install $(pip_opts) -r python/requirements-test.txt
 
     py.test --pyargs pyarrow
 
