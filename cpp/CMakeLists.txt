@@ -333,10 +333,6 @@ Always OFF if building binaries"
   #----------------------------------------------------------------------
   # Advanced developer options
 
-  set(ARROW_TEST_INCLUDE_LABELS "" CACHE STRING
-    "Only build unit tests having the indicated label or labels. \
-Pass multiple labels by dividing with semicolons")
-
   option(ARROW_EXTRA_ERROR_CONTEXT
     "Compile with extra error context (line numbers, code)"
     OFF)
@@ -466,10 +462,18 @@ endif()
 
 if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
+else()
+  add_custom_target(all-tests)
+  add_custom_target(unittest ctest -L unittest)
+  add_dependencies(unittest all-tests)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
+else()
+  add_custom_target(all-benchmarks)
+  add_custom_target(benchmark ctest -L benchmark)
+  add_dependencies(benchmark all-benchmarks)
 endif()
 
 if(NOT ARROW_BUILD_EXAMPLES)
@@ -515,8 +519,6 @@ include(SetupCxxFlags)
 ############################################################
 # Dependencies
 ############################################################
-
-add_custom_target(arrow_dependencies)
 
 include(BuildUtils)
 enable_testing()
@@ -711,6 +713,9 @@ if (ARROW_USE_GLOG)
   SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
   add_definitions("-DARROW_USE_GLOG")
 endif()
+
+add_custom_target(arrow_dependencies)
+add_dependencies(arrow_dependencies toolchain)
 
 if (ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})

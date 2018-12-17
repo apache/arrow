@@ -22,7 +22,10 @@
 find_package(PythonLibsNew REQUIRED)
 find_package(NumPy REQUIRED)
 
+add_custom_target(arrow_python-all)
 add_custom_target(arrow_python)
+add_custom_target(arrow_python-tests)
+add_dependencies(arrow_python-all arrow_python arrow_python-tests)
 
 set(ARROW_PYTHON_SRCS
   arrow_to_pandas.cc
@@ -130,6 +133,6 @@ if (ARROW_BUILD_TESTS)
     STATIC_LINK_LIBS "${ARROW_PYTHON_TEST_LINK_LIBS}"
     EXTRA_LINK_LIBS ${PYTHON_LIBRARIES}
     EXTRA_INCLUDES "${ARROW_PYTHON_INCLUDES}"
-    LABELS "arrow_python"
+    LABELS "arrow_python-tests"
     NO_VALGRIND)
 endif()

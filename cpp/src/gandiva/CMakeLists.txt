@@ -15,12 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-project(gandiva)
+# For "make gandiva" to build everything Gandiva-related
+add_custom_target(gandiva-all)
+add_custom_target(gandiva)
+add_custom_target(gandiva-tests)
+add_custom_target(gandiva-benchmarks)
+
+add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
 find_package(LLVM)
-
-# For "make gandiva" to build everything Gandiva-related
-add_custom_target(gandiva)
 
 # Set the path where the byte-code files will be installed.
 set(GANDIVA_BC_INSTALL_DIR
@@ -80,7 +83,7 @@ endif()
 ADD_ARROW_LIB(gandiva
   SOURCES ${SRC_FILES}
   OUTPUTS GANDIVA_LIBRARIES
-  DEPENDENCIES arrow_dependencies precompiled
+  DEPENDENCIES precompiled
   EXTRA_INCLUDES
   $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
   SHARED_LINK_LIBS arrow_shared
@@ -120,7 +123,7 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(TEST_ARGUMENTS
     ENABLED
     PREFIX "gandiva"
-    LABELS "unittest;gandiva"
+    LABELS "gandiva-tests"
     ${ARG_UNPARSED_ARGUMENTS})
 
   # and uses less disk space, but in some cases we need to force static

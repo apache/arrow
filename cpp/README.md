@@ -105,13 +105,17 @@ export LC_ALL="en_US.UTF-8"
 ## Modular Build Targets
 
 Since there are several major parts of the C++ project, we have provided
-modular CMake targets for building each component along with its dependencies,
-unit tests, and benchmarks (if enabled):
+modular CMake targets for building each library component, group of unit tests
+and benchmarks, and their dependencies:
 
 * `make arrow` for Arrow core libraries
 * `make parquet` for Parquet libraries
 * `make gandiva` for Gandiva (LLVM expression compiler) libraries
 * `make plasma` for Plasma libraries, server
+
+To build the unit tests or benchmarks, add `-tests` or `-benchmarks` to the
+target name. So `make arrow-tests` will build the Arrow core unit tests. Using
+the `-all` target, e.g. `parquet-all`, will build everything.
 
 If you wish to only build and install one or more project subcomponents, we
 have provided the CMake option `ARROW_OPTIONAL_INSTALL` to only install targets
