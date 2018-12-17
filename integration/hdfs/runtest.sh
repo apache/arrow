@@ -20,8 +20,10 @@
 set -e
 
 export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
-# export LIBHDFS3_CONF=/arrow/integration/hdfs/libhdfs3.xml
+export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
+export LIBHDFS3_CONF=$HADOOP_CONF_DIR/hdfs-site.xml
 
+# execute cpp tests
 pushd /build/cpp
   debug/arrow-io-hdfs-test
 popd

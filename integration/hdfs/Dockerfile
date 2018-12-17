@@ -33,7 +33,7 @@ RUN apt-get update -y && \
     tar -zxf /hadoop-$HADOOP_VERSION.tar.gz && \
     rm /hadoop-$HADOOP_VERSION.tar.gz && \
     mv hadoop-$HADOOP_VERSION /usr/local/hadoop
-COPY integration/hdfs/conf $HADOOP_HOME/etc/hadoop/
+ADD integration/hdfs/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
 
 # build cpp with tests
 ENV CC=gcc \

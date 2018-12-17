@@ -37,4 +37,8 @@
 		<name>dfs.namenode.datanode.registration.ip-hostname-check</name>
 		<value>false</value>
 	</property>
+	<property>
+		<name>dfs.default.replica</name>
+		<value>1</value>
+  </property>
 </configuration>
