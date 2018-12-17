@@ -35,6 +35,9 @@ struct _GGandivaNodeClass
   GObjectClass parent_class;
 };
 
+GArrowDataType *
+ggandiva_node_get_return_type(GGandivaNode *node);
+
 
 #define GGANDIVA_TYPE_FIELD_NODE (ggandiva_field_node_get_type())
 G_DECLARE_DERIVABLE_TYPE(GGandivaFieldNode,

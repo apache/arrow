@@ -166,6 +166,22 @@ ggandiva_node_class_init(GGandivaNodeClass *klass)
   g_object_class_install_property(gobject_class, PROP_NODE, spec);
 }
 
+/**
+ * ggandiva_node_get_return_type:
+ * @node: A #GGandivaNode.
+ *
+ * Returns: (transfer full): The return type of the node.
+ *
+ * Since: 0.12.0
+ */
+GArrowDataType *
+ggandiva_node_get_return_type(GGandivaNode *node)
+{
+  auto gandiva_node = ggandiva_node_get_raw(node);
+  auto arrow_data_type = gandiva_node->return_type();
+  return garrow_data_type_new_raw(&arrow_data_type);
+}
+
 
 typedef struct GGandivaFieldNodePrivate_ {
   GArrowField *field;
