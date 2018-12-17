@@ -221,7 +221,6 @@ TEST(BlockParser, Basics) {
   AssertArraysEqual(*yo, *GetColumn(*parsed, "yo"));
 }
 
-
 TEST(BlockParser, FailOnInconvertible) {
   auto options = ParseOptions::Defaults();
   BlockParser parser(options);
