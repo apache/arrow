@@ -394,3 +394,223 @@ func TestTime64SliceDataWithNull(t *testing.T) {
 		t.Fatalf("got=%v, want=%v", got, want)
 	}
 }
+
+func TestNewDate32Data(t *testing.T) {
+	exp := []arrow.Date32{1, 2, 4, 8, 16}
+
+	dtype := &arrow.Date32Type{}
+	ad := array.NewData(
+		dtype, len(exp),
+		[]*memory.Buffer{nil, memory.NewBufferBytes(arrow.Date32Traits.CastToBytes(exp))},
+		nil, 0, 0,
+	)
+	fa := array.NewDate32Data(ad)
+
+	assert.Equal(t, len(exp), fa.Len(), "unexpected Len()")
+	assert.Equal(t, exp, fa.Date32Values(), "unexpected Date32Values()")
+}
+
+func TestDate32SliceData(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	const (
+		beg = 2
+		end = 4
+	)
+
+	var (
+		vs  = []arrow.Date32{1, 2, 3, 4, 5}
+		sub = vs[beg:end]
+	)
+
+	b := array.NewDate32Builder(pool)
+	defer b.Release()
+
+	for _, v := range vs {
+		b.Append(v)
+	}
+
+	arr := b.NewArray().(*array.Date32)
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(vs); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.Date32Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	slice := array.NewSlice(arr, beg, end).(*array.Date32)
+	defer slice.Release()
+
+	if got, want := slice.Len(), len(sub); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Date32Values(), sub; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+}
+
+func TestDate32SliceDataWithNull(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	const (
+		beg = 2
+		end = 5
+	)
+
+	var (
+		valids = []bool{true, true, true, false, true, true}
+		vs     = []arrow.Date32{1, 2, 3, 0, 4, 5}
+		sub    = vs[beg:end]
+	)
+
+	b := array.NewDate32Builder(pool)
+	defer b.Release()
+
+	b.AppendValues(vs, valids)
+
+	arr := b.NewArray().(*array.Date32)
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(valids); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.NullN(), 1; got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.Date32Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	slice := array.NewSlice(arr, beg, end).(*array.Date32)
+	defer slice.Release()
+
+	if got, want := slice.NullN(), 1; got != want {
+		t.Errorf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Len(), len(sub); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Date32Values(), sub; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+}
+
+func TestNewDate64Data(t *testing.T) {
+	exp := []arrow.Date64{1, 2, 4, 8, 16}
+
+	dtype := &arrow.Date64Type{}
+	ad := array.NewData(
+		dtype, len(exp),
+		[]*memory.Buffer{nil, memory.NewBufferBytes(arrow.Date64Traits.CastToBytes(exp))},
+		nil, 0, 0,
+	)
+	fa := array.NewDate64Data(ad)
+
+	assert.Equal(t, len(exp), fa.Len(), "unexpected Len()")
+	assert.Equal(t, exp, fa.Date64Values(), "unexpected Date64Values()")
+}
+
+func TestDate64SliceData(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	const (
+		beg = 2
+		end = 4
+	)
+
+	var (
+		vs  = []arrow.Date64{1, 2, 3, 4, 5}
+		sub = vs[beg:end]
+	)
+
+	b := array.NewDate64Builder(pool)
+	defer b.Release()
+
+	for _, v := range vs {
+		b.Append(v)
+	}
+
+	arr := b.NewArray().(*array.Date64)
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(vs); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.Date64Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	slice := array.NewSlice(arr, beg, end).(*array.Date64)
+	defer slice.Release()
+
+	if got, want := slice.Len(), len(sub); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Date64Values(), sub; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+}
+
+func TestDate64SliceDataWithNull(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	const (
+		beg = 2
+		end = 5
+	)
+
+	var (
+		valids = []bool{true, true, true, false, true, true}
+		vs     = []arrow.Date64{1, 2, 3, 0, 4, 5}
+		sub    = vs[beg:end]
+	)
+
+	b := array.NewDate64Builder(pool)
+	defer b.Release()
+
+	b.AppendValues(vs, valids)
+
+	arr := b.NewArray().(*array.Date64)
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(valids); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.NullN(), 1; got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.Date64Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	slice := array.NewSlice(arr, beg, end).(*array.Date64)
+	defer slice.Release()
+
+	if got, want := slice.NullN(), 1; got != want {
+		t.Errorf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Len(), len(sub); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Date64Values(), sub; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+}

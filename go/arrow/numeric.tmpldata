@@ -107,5 +107,23 @@
     "Opt": {
       "Parametric": true
     }
+  },
+  {
+    "Name": "Date32",
+    "name": "date32",
+    "Type": "Date32",
+    "QualifiedType": "arrow.Date32",
+    "InternalType": "int32",
+    "Default": "0",
+    "Size": "4"
+  },
+  {
+    "Name": "Date64",
+    "name": "date64",
+    "Type": "Date64",
+    "QualifiedType": "arrow.Date64",
+    "InternalType": "int64",
+    "Default": "0",
+    "Size": "8"
   }
 ]
