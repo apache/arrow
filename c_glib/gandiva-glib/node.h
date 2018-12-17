@@ -84,6 +84,21 @@ struct _GGandivaLiteralNodeClass
 };
 
 
+#define GGANDIVA_TYPE_NULL_LITERAL_NODE (ggandiva_null_literal_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaNullLiteralNode,
+                         ggandiva_null_literal_node,
+                         GGANDIVA,
+                         NULL_LITERAL_NODE,
+                         GGandivaLiteralNode)
+struct _GGandivaNullLiteralNodeClass
+{
+  GGandivaLiteralNodeClass parent_class;
+};
+
+GGandivaNullLiteralNode *
+ggandiva_null_literal_node_new(GArrowDataType *data_type);
+
+
 #define GGANDIVA_TYPE_BOOLEAN_LITERAL_NODE (ggandiva_boolean_literal_node_get_type())
 G_DECLARE_DERIVABLE_TYPE(GGandivaBooleanLiteralNode,
                          ggandiva_boolean_literal_node,
@@ -306,20 +321,5 @@ GGandivaStringLiteralNode *
 ggandiva_string_literal_node_new(const gchar *value);
 const gchar *
 ggandiva_string_literal_node_get_value(GGandivaStringLiteralNode *node);
-
-
-#define GGANDIVA_TYPE_NULL_LITERAL_NODE (ggandiva_null_literal_node_get_type())
-G_DECLARE_DERIVABLE_TYPE(GGandivaNullLiteralNode,
-                         ggandiva_null_literal_node,
-                         GGANDIVA,
-                         NULL_LITERAL_NODE,
-                         GGandivaLiteralNode)
-struct _GGandivaNullLiteralNodeClass
-{
-  GGandivaLiteralNodeClass parent_class;
-};
-
-GGandivaNullLiteralNode *
-ggandiva_null_literal_node_new(GArrowDataType *data_type);
 
 G_END_DECLS

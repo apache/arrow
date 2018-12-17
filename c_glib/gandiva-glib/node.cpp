@@ -459,6 +459,37 @@ ggandiva_literal_node_class_init(GGandivaLiteralNodeClass *klass)
 }
 
 
+G_DEFINE_TYPE(GGandivaNullLiteralNode,
+              ggandiva_null_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
+
+static void
+ggandiva_null_literal_node_init(GGandivaNullLiteralNode *null_literal_node)
+{
+}
+
+static void
+ggandiva_null_literal_node_class_init(GGandivaNullLiteralNodeClass *klass)
+{
+}
+
+/**
+ * ggandiva_null_literal_node_new:
+ * @return_type: A #GArrowDataType.
+ *
+ * Returns: A newly created #GGandivaNullLiteralNode.
+ *
+ * Since: 0.12.0
+ */
+GGandivaNullLiteralNode *
+ggandiva_null_literal_node_new(GArrowDataType *return_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(return_type);
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeNull(arrow_data_type);
+  return GGANDIVA_NULL_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+}
+
+
 G_DEFINE_TYPE(GGandivaBooleanLiteralNode,
               ggandiva_boolean_literal_node,
               GGANDIVA_TYPE_LITERAL_NODE)
@@ -1089,37 +1120,6 @@ ggandiva_string_literal_node_get_value(GGandivaStringLiteralNode *node)
 {
   auto value = ggandiva_literal_node_get<std::string>(GGANDIVA_LITERAL_NODE(node));
   return value.c_str();
-}
-
-
-G_DEFINE_TYPE(GGandivaNullLiteralNode,
-              ggandiva_null_literal_node,
-              GGANDIVA_TYPE_LITERAL_NODE)
-
-static void
-ggandiva_null_literal_node_init(GGandivaNullLiteralNode *null_literal_node)
-{
-}
-
-static void
-ggandiva_null_literal_node_class_init(GGandivaNullLiteralNodeClass *klass)
-{
-}
-
-/**
- * ggandiva_null_literal_node_new:
- * @return_type: A #GArrowDataType.
- *
- * Returns: A newly created #GGandivaNullLiteralNode.
- *
- * Since: 0.12.0
- */
-GGandivaNullLiteralNode *
-ggandiva_null_literal_node_new(GArrowDataType *return_type)
-{
-  auto arrow_data_type = garrow_data_type_get_raw(return_type);
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeNull(arrow_data_type);
-  return GGANDIVA_NULL_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
 }
 
 G_END_DECLS
