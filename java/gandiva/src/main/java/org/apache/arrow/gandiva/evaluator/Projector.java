@@ -46,12 +46,14 @@ public class Projector {
   private static final org.slf4j.Logger logger =
           org.slf4j.LoggerFactory.getLogger(Projector.class);
 
+  private JniWrapper wrapper;
   private final long moduleId;
   private final Schema schema;
   private final int numExprs;
   private boolean closed;
 
-  private Projector(long moduleId, Schema schema, int numExprs) {
+  private Projector(JniWrapper wrapper, long moduleId, Schema schema, int numExprs) {
+    this.wrapper = wrapper;
     this.moduleId = moduleId;
     this.schema = schema;
     this.numExprs = numExprs;
@@ -71,7 +73,7 @@ public class Projector {
    */
   public static Projector make(Schema schema, List<ExpressionTree> exprs)
           throws GandivaException {
-    return make(schema, exprs, ConfigurationBuilder.getDefaultConfiguration());
+    return make(schema, exprs, JniLoader.getDefaultConfiguration());
   }
 
   /**
@@ -96,11 +98,11 @@ public class Projector {
 
     // Invoke the JNI layer to create the LLVM module representing the expressions
     GandivaTypes.Schema schemaBuf = ArrowTypeHelper.arrowSchemaToProtobuf(schema);
-    JniWrapper gandivaBridge = JniWrapper.getInstance();
-    long moduleId = gandivaBridge.buildProjector(schemaBuf.toByteArray(), builder.build()
-            .toByteArray(), configurationId);
+    JniWrapper wrapper = JniLoader.getInstance().getWrapper();
+    long moduleId = wrapper.buildProjector(schemaBuf.toByteArray(),
+        builder.build().toByteArray(), configurationId);
     logger.info("Created module for the projector with id {}", moduleId);
-    return new Projector(moduleId, schema, exprs.size());
+    return new Projector(wrapper, moduleId, schema, exprs.size());
   }
 
   /**
@@ -175,9 +177,7 @@ public class Projector {
       valueVector.setValueCount(numRows);
     }
 
-    JniWrapper.getInstance().evaluateProjector(this.moduleId, numRows,
-            bufAddrs, bufSizes,
-            outAddrs, outSizes);
+    wrapper.evaluateProjector(this.moduleId, numRows, bufAddrs, bufSizes, outAddrs, outSizes);
   }
 
   /**
@@ -188,7 +188,7 @@ public class Projector {
       return;
     }
 
-    JniWrapper.getInstance().closeProjector(this.moduleId);
+    wrapper.closeProjector(this.moduleId);
     this.closed = true;
   }
 }

@@ -70,7 +70,7 @@ public class ExpressionRegistry {
       synchronized (ExpressionRegistry.class) {
         if (INSTANCE == null) {
           // ensure library is setup.
-          JniWrapper.getInstance();
+          JniLoader.getInstance();
           Set<ArrowType> typesFromGandiva = getSupportedTypesFromGandiva();
           Set<FunctionSignature> functionsFromGandiva = getSupportedFunctionsFromGandiva();
           INSTANCE = new ExpressionRegistry(typesFromGandiva, functionsFromGandiva);
