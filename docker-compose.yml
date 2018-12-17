@@ -152,6 +152,8 @@ services:
     build:
       context: .
       dockerfile: rust/Dockerfile
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
   r:
