@@ -29,17 +29,24 @@ offline builds.
 To set up your own specific build toolchain, here are the relevant environment
 variables
 
+* brotli: `BROTLI_HOME`, can be disabled with `-DARROW_WITH_BROTLI=off`
 * Boost: `BOOST_ROOT`
+* double-conversion: `DOUBLE_CONVERSION_HOME`
 * Googletest: `GTEST_HOME` (only required to build the unit tests)
 * gflags: `GFLAGS_HOME` (only required to build the unit tests)
+* glog: `GLOG_HOME` (only required if `ARROW_USE_GLOG=ON`)
 * Google Benchmark: `GBENCHMARK_HOME` (only required if building benchmarks)
 * Flatbuffers: `FLATBUFFERS_HOME` (only required for -DARROW_IPC=on, which is
   the default)
 * Hadoop: `HADOOP_HOME` (only required for the HDFS I/O extensions)
 * jemalloc: `JEMALLOC_HOME`
-* brotli: `BROTLI_HOME`, can be disabled with `-DARROW_WITH_BROTLI=off`
 * lz4: `LZ4_HOME`, can be disabled with `-DARROW_WITH_LZ4=off`
+* Apache ORC: `ORC_HOME`
+* protobuf: `PROTOBUF_HOME`
+* rapidjson: `RAPIDJSON_HOME`
+* re2: `RE2_HOME` (only required to build Gandiva currently)
 * snappy: `SNAPPY_HOME`, can be disabled with `-DARROW_WITH_SNAPPY=off`
+* thrift: `THRIFT_HOME`
 * zlib: `ZLIB_HOME`, can be disabled with `-DARROW_WITH_ZLIB=off`
 * zstd: `ZSTD_HOME`, can be disabled with `-DARROW_WITH_ZSTD=off`
 
@@ -69,24 +76,26 @@ script:
 
 ```shell
 # Download tarballs into `$HOME/arrow-thirdparty-deps`
-$ ./thirdparty/download_dependencies $HOME/arrow-thirdparty-deps
-# some output omitted
-
+$ ./thirdparty/download_dependencies $HOME/arrow-thirdparty
 # Environment variables for offline Arrow build
-export ARROW_BOOST_URL=$HOME/arrow-thirdparty-deps/boost.tar.gz
-export ARROW_GTEST_URL=$HOME/arrow-thirdparty-deps/gtest.tar.gz
-export ARROW_GFLAGS_URL=$HOME/arrow-thirdparty-deps/gflags.tar.gz
-export ARROW_GBENCHMARK_URL=$HOME/arrow-thirdparty-deps/gbenchmark.tar.gz
-export ARROW_FLATBUFFERS_URL=$HOME/arrow-thirdparty-deps/flatbuffers.tar.gz
-export ARROW_RAPIDJSON_URL=$HOME/arrow-thirdparty-deps/rapidjson.tar.gz
-export ARROW_SNAPPY_URL=$HOME/arrow-thirdparty-deps/snappy.tar.gz
-export ARROW_BROTLI_URL=$HOME/arrow-thirdparty-deps/brotli.tar.gz
-export ARROW_LZ4_URL=$HOME/arrow-thirdparty-deps/lz4.tar.gz
-export ARROW_ZLIB_URL=$HOME/arrow-thirdparty-deps/zlib.tar.gz
-export ARROW_ZSTD_URL=$HOME/arrow-thirdparty-deps/zstd.tar.gz
-export ARROW_PROTOBUF_URL=$HOME/arrow-thirdparty-deps/protobuf.tar.gz
-export ARROW_GRPC_URL=$HOME/arrow-thirdparty-deps/grpc.tar.gz
-export ARROW_ORC_URL=$HOME/arrow-thirdparty-deps/orc.tar.gz
+export ARROW_BOOST_URL=$HOME/arrow-thirdparty/boost-1.67.0.tar.gz
+export ARROW_BROTLI_URL=$HOME/arrow-thirdparty/brotli-v0.6.0.tar.gz
+export ARROW_DOUBLE_CONVERSION_URL=$HOME/arrow-thirdparty/double-conversion-v3.1.1.tar.gz
+export ARROW_FLATBUFFERS_URL=$HOME/arrow-thirdparty/flatbuffers-02a7807dd8d26f5668ffbbec0360dc107bbfabd5.tar.gz
+export ARROW_GBENCHMARK_URL=$HOME/arrow-thirdparty/gbenchmark-v1.4.1.tar.gz
+export ARROW_GFLAGS_URL=$HOME/arrow-thirdparty/gflags-v2.2.0.tar.gz
+export ARROW_GLOG_URL=$HOME/arrow-thirdparty/glog-v0.3.5.tar.gz
+export ARROW_GRPC_URL=$HOME/arrow-thirdparty/grpc-v1.14.1.tar.gz
+export ARROW_GTEST_URL=$HOME/arrow-thirdparty/gtest-1.8.0.tar.gz
+export ARROW_LZ4_URL=$HOME/arrow-thirdparty/lz4-v1.7.5.tar.gz
+export ARROW_ORC_URL=$HOME/arrow-thirdparty/orc-1.5.1.tar.gz
+export ARROW_PROTOBUF_URL=$HOME/arrow-thirdparty/protobuf-v3.6.1.tar.gz
+export ARROW_RAPIDJSON_URL=$HOME/arrow-thirdparty/rapidjson-v1.1.0.tar.gz
+export ARROW_RE2_URL=$HOME/arrow-thirdparty/re2-2018-10-01.tar.gz
+export ARROW_SNAPPY_URL=$HOME/arrow-thirdparty/snappy-1.1.3.tar.gz
+export ARROW_THRIFT_URL=$HOME/arrow-thirdparty/thrift-0.11.0.tar.gz
+export ARROW_ZLIB_URL=$HOME/arrow-thirdparty/zlib-1.2.8.tar.gz
+export ARROW_ZSTD_URL=$HOME/arrow-thirdparty/zstd-v1.3.7.tar.gz
 ```
 
 This can be automated by using inline source/eval:
