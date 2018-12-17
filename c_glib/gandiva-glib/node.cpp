@@ -52,6 +52,9 @@ G_BEGIN_DECLS
  * #GGandivaLiteralNode is a base class for a node in the expression tree,
  * representing a literal.
  *
+ * #GGandivaNullLiteralNode is a class for a node in the expression tree,
+ * representing a null literal.
+ *
  * #GGandivaBooleanLiteralNode is a class for a node in the expression tree,
  * representing a boolean literal.
  *
@@ -1094,6 +1097,37 @@ ggandiva_string_literal_node_get_value(GGandivaStringLiteralNode *node)
   return value.c_str();
 }
 
+
+G_DEFINE_TYPE(GGandivaNullLiteralNode,
+              ggandiva_null_literal_node,
+              GGANDIVA_TYPE_LITERAL_NODE)
+
+static void
+ggandiva_null_literal_node_init(GGandivaNullLiteralNode *null_literal_node)
+{
+}
+
+static void
+ggandiva_null_literal_node_class_init(GGandivaNullLiteralNodeClass *klass)
+{
+}
+
+/**
+ * ggandiva_null_literal_node_new:
+ * @return_type: A #GArrowDataType.
+ *
+ * Returns: A newly created #GGandivaNullLiteralNode.
+ *
+ * Since: 0.12.0
+ */
+GGandivaNullLiteralNode *
+ggandiva_null_literal_node_new(GArrowDataType *return_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(return_type);
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeNull(arrow_data_type);
+  return GGANDIVA_NULL_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+}
+
 G_END_DECLS
 
 std::shared_ptr<gandiva::Node>
@@ -1139,49 +1173,56 @@ ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
 {
   GType type;
 
-  switch ((*gandiva_node)->return_type()->id()) {
-  case arrow::Type::BOOL:
-    type = GGANDIVA_TYPE_BOOLEAN_LITERAL_NODE;
-    break;
-  case arrow::Type::type::UINT8:
-    type = GGANDIVA_TYPE_UINT8_LITERAL_NODE;
-    break;
-  case arrow::Type::type::UINT16:
-    type = GGANDIVA_TYPE_UINT16_LITERAL_NODE;
-    break;
-  case arrow::Type::type::UINT32:
-    type = GGANDIVA_TYPE_UINT32_LITERAL_NODE;
-    break;
-  case arrow::Type::type::UINT64:
-    type = GGANDIVA_TYPE_UINT64_LITERAL_NODE;
-    break;
-  case arrow::Type::type::INT8:
-    type = GGANDIVA_TYPE_INT8_LITERAL_NODE;
-    break;
-  case arrow::Type::type::INT16:
-    type = GGANDIVA_TYPE_INT16_LITERAL_NODE;
-    break;
-  case arrow::Type::type::INT32:
-    type = GGANDIVA_TYPE_INT32_LITERAL_NODE;
-    break;
-  case arrow::Type::type::INT64:
-    type = GGANDIVA_TYPE_INT64_LITERAL_NODE;
-    break;
-  case arrow::Type::type::FLOAT:
-    type = GGANDIVA_TYPE_FLOAT_LITERAL_NODE;
-    break;
-  case arrow::Type::type::DOUBLE:
-    type = GGANDIVA_TYPE_DOUBLE_LITERAL_NODE;
-    break;
-  case arrow::Type::type::STRING:
-    type = GGANDIVA_TYPE_STRING_LITERAL_NODE;
-    break;
-  case arrow::Type::type::BINARY:
-    type = GGANDIVA_TYPE_BINARY_LITERAL_NODE;
-    break;
-  default:
-    type = GGANDIVA_TYPE_LITERAL_NODE;
-    break;
+  auto gandiva_literal_node =
+    std::static_pointer_cast<gandiva::LiteralNode>(*gandiva_node);
+
+  if (gandiva_literal_node->is_null()) {
+    type = GGANDIVA_TYPE_NULL_LITERAL_NODE;
+  } else {
+    switch ((*gandiva_node)->return_type()->id()) {
+    case arrow::Type::BOOL:
+      type = GGANDIVA_TYPE_BOOLEAN_LITERAL_NODE;
+      break;
+    case arrow::Type::type::UINT8:
+      type = GGANDIVA_TYPE_UINT8_LITERAL_NODE;
+      break;
+    case arrow::Type::type::UINT16:
+      type = GGANDIVA_TYPE_UINT16_LITERAL_NODE;
+      break;
+    case arrow::Type::type::UINT32:
+      type = GGANDIVA_TYPE_UINT32_LITERAL_NODE;
+      break;
+    case arrow::Type::type::UINT64:
+      type = GGANDIVA_TYPE_UINT64_LITERAL_NODE;
+      break;
+    case arrow::Type::type::INT8:
+      type = GGANDIVA_TYPE_INT8_LITERAL_NODE;
+      break;
+    case arrow::Type::type::INT16:
+      type = GGANDIVA_TYPE_INT16_LITERAL_NODE;
+      break;
+    case arrow::Type::type::INT32:
+      type = GGANDIVA_TYPE_INT32_LITERAL_NODE;
+      break;
+    case arrow::Type::type::INT64:
+      type = GGANDIVA_TYPE_INT64_LITERAL_NODE;
+      break;
+    case arrow::Type::type::FLOAT:
+      type = GGANDIVA_TYPE_FLOAT_LITERAL_NODE;
+      break;
+    case arrow::Type::type::DOUBLE:
+      type = GGANDIVA_TYPE_DOUBLE_LITERAL_NODE;
+      break;
+    case arrow::Type::type::STRING:
+      type = GGANDIVA_TYPE_STRING_LITERAL_NODE;
+      break;
+    case arrow::Type::type::BINARY:
+      type = GGANDIVA_TYPE_BINARY_LITERAL_NODE;
+      break;
+    default:
+      type = GGANDIVA_TYPE_LITERAL_NODE;
+      break;
+    }
   }
   auto literal_node = GGANDIVA_LITERAL_NODE(g_object_new(type,
                                                          "node", gandiva_node,
