@@ -267,6 +267,26 @@ we recommend the following:
 #. Add ``-DARROW_ORC=on`` to the CMake flags.
 #. Add ``--with-orc`` to the ``setup.py`` flags.
 
+
+Building documentation
+----------------------
+
+To build the documentation:
+
+#. build the doxigen cpp api
+
+   .. code-block:: shell
+
+      cd arrow/cpp/apidoc
+      doxygen
+
+#. build the complete documentation using sphinx
+
+   .. code-block:: shell
+      cd arrow/docs
+      make html
+
+
 Known issues
 ------------
 
