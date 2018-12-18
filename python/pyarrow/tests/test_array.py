@@ -725,6 +725,26 @@ def test_cast_date32_to_int():
     assert result2.equals(arr)
 
 
+def test_cast_binary_to_utf8():
+    binary_arr = pa.array([b'foo', b'bar', b'baz'], type=pa.binary())
+    utf8_arr = binary_arr.cast(pa.utf8())
+    expected = pa.array(['foo', 'bar', 'baz'], type=pa.utf8())
+
+    assert utf8_arr.equals(expected)
+
+    non_utf8_values = [(u'mañana').encode('utf-16-le')]
+    non_utf8_binary = pa.array(non_utf8_values)
+    assert non_utf8_binary.type == pa.binary()
+    with pytest.raises(ValueError):
+        non_utf8_binary.cast(pa.string())
+
+    non_utf8_all_null = pa.array(non_utf8_values, mask=np.array([True]),
+                                 type=pa.binary())
+    # No error
+    casted = non_utf8_all_null.cast(pa.string())
+    assert casted.null_count == 1
+
+
 def test_cast_date64_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int64'),
                    type=pa.date64())
