@@ -24,7 +24,8 @@
 
 ## Status
 
-This is a native Rust implementation of Apache Arrow. The current status is:
+This is a native Rust implementation of Apache Arrow. Currently the project
+is developed and tested against nightly Rust.  The current status is:
 
 - [x] Primitive Arrays
 - [x] List Arrays
@@ -35,6 +36,13 @@ This is a native Rust implementation of Apache Arrow. The current status is:
 - [ ] Parquet Writer
 - [ ] Arrow IPC
 - [ ] Interop tests with other implementations
+
+## Dependencies
+
+Parquet support for Apache Arrow requires LLVM.  Our windows CI image
+includes LLVM but to build the libraries locally windows users will have
+to install LLVM. Follow [this](https://github.com/appveyor/ci/issues/2651)
+link for info.
 
 ## Examples
 
@@ -51,8 +59,24 @@ cargo run --example read_csv
 
 ## Run Tests
 
+Parquet support in Arrow requires data to test against, this data is in a
+git submodule.  To pull down this data run the following:
+
 ```bash
-cargo test
+git submodule update --init
+```
+
+The data can then be found in `cpp/submodules/parquet_testing/data`.
+Create a new environment variable called `PARQUET_TEST_DATA` to point
+to this location and then `cargo test` as usual.
+
+Our CI uses `rustfmt` to check code formatting.  Although the project is
+built and tested against nightly rust we use the stable version of
+`rustfmt`.  So before submitting a PR be sure to run the following
+and check for lint issues:
+
+```bash
+cargo +stable fmt --all -- --check
 ```
 
 # Publishing to crates.io
