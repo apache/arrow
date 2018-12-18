@@ -41,13 +41,4 @@ ADD_ARROW_BENCHMARK(memory-benchmark
   PREFIX "arrow-io")
 
 # Headers: top level
-install(FILES
-  api.h
-  buffered.h
-  compressed.h
-  file.h
-  hdfs.h
-  interfaces.h
-  memory.h
-  readahead.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/io")
+ARROW_INSTALL_ALL_HEADERS("arrow/io")

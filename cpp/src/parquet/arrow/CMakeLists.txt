@@ -18,13 +18,9 @@
 ADD_PARQUET_TEST(arrow-schema-test)
 ADD_PARQUET_TEST(arrow-reader-writer-test)
 
-ADD_ARROW_BENCHMARK(reader-writer-benchmark
+ADD_BENCHMARK(reader-writer-benchmark
   PREFIX "parquet-arrow"
+  LABELS "parquet-benchmarks"
   EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
 
-# Headers: top level
-install(FILES
-  reader.h
-  schema.h
-  writer.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/arrow")
+ARROW_INSTALL_ALL_HEADERS("parquet/arrow")

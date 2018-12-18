@@ -15,13 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(arrow-all)
 add_custom_target(arrow)
+add_custom_target(arrow-benchmarks)
+add_custom_target(arrow-tests)
+add_dependencies(arrow-all arrow arrow-tests arrow-benchmarks)
 
 # Adding unit tests part of the "arrow" portion of the test suite
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
-  set(multi_value_args)
+  set(multi_value_args LABELS)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
   if (ARG_PREFIX)
@@ -29,9 +33,16 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
   else()
     set(PREFIX "arrow")
   endif()
+
+  if (ARG_LABELS)
+    set(LABELS ${ARG_LABELS})
+  else()
+    set(LABELS "arrow-tests")
+  endif()
+
   ADD_TEST_CASE(${REL_TEST_NAME}
     PREFIX ${PREFIX}
-    LABELS "unittest;arrow"
+    LABELS ${LABELS}
     ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
@@ -47,17 +58,23 @@ function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
   endif()
   ADD_BENCHMARK(${REL_TEST_NAME}
     PREFIX ${PREFIX}
-    LABELS "benchmark;arrow"
+    LABELS "arrow-benchmarks"
     ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 set(ARROW_SRCS
   array.cc
-  buffer.cc
+
   builder.cc
-  builder-adaptive.cc
-  builder-binary.cc
-  builder-dict.cc
+  array/builder_adaptive.cc
+  array/builder_base.cc
+  array/builder_binary.cc
+  array/builder_decimal.cc
+  array/builder_dict.cc
+  array/builder_nested.cc
+  array/builder_primitive.cc
+
+  buffer.cc
   compare.cc
   memory_pool.cc
   pretty_print.cc
@@ -209,12 +226,13 @@ ADD_ARROW_LIB(arrow
   SHARED_PRIVATE_LINK_LIBS ${ARROW_SHARED_PRIVATE_LINK_LIBS}
   STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
+add_dependencies(arrow ${ARROW_LIBRARIES})
+
 if (ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()
 
-if (ARROW_BUILD_TESTS OR ARROW_GANDIVA_BUILD_TESTS
-    OR ARROW_BUILD_BENCHMARKS)
+if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   # that depend on gtest
   ADD_ARROW_LIB(arrow_testing
     SOURCES test-util.cc
@@ -244,36 +262,10 @@ foreach(LIB_TARGET ${ARROW_LIBRARIES})
 endforeach()
 
 # Headers: top level
-install(FILES
-  allocator.h
-  api.h
-  array.h
-  buffer.h
-  builder.h
-  compare.h
-  memory_pool.h
-  pretty_print.h
-  record_batch.h
-  status.h
-  stl.h
-  table.h
-  table_builder.h
-  tensor.h
-  type.h
-  type_fwd.h
-  type_traits.h
-  test-util.h
-  visitor.h
-  visitor_inline.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow")
+ARROW_INSTALL_ALL_HEADERS("arrow")
 
 # pkg-config support
-configure_file(arrow.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("arrow")
 
 #######################################
 # Unit tests
@@ -297,9 +289,11 @@ ADD_ARROW_TEST(tensor-test)
 ADD_ARROW_BENCHMARK(builder-benchmark)
 ADD_ARROW_BENCHMARK(column-benchmark)
 
+add_subdirectory(array)
 add_subdirectory(csv)
 add_subdirectory(io)
 add_subdirectory(util)
+add_subdirectory(vendored)
 
 if(ARROW_FLIGHT)
   add_subdirectory(flight)

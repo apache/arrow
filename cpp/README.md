@@ -30,7 +30,7 @@ in-source and out-of-source builds with the latter one being preferred.
 Building Arrow requires:
 
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be sufficient.
-* CMake
+* CMake 3.2 or higher
 * Boost
 
 On Ubuntu/Debian you can install the requirements with:
@@ -44,6 +44,18 @@ sudo apt-get install \
      libboost-filesystem-dev \
      libboost-regex-dev \
      libboost-system-dev
+```
+
+On Alpine Linux:
+
+```shell
+apk add autoconf \
+        bash \
+        boost-dev \
+        cmake \
+        g++ \
+        gcc \
+        make
 ```
 
 On macOS, you can use [Homebrew][1]:
@@ -93,13 +105,30 @@ export LC_ALL="en_US.UTF-8"
 ## Modular Build Targets
 
 Since there are several major parts of the C++ project, we have provided
-modular CMake targets for building each component along with its dependencies,
-unit tests, and benchmarks (if enabled):
+modular CMake targets for building each library component, group of unit tests
+and benchmarks, and their dependencies:
 
 * `make arrow` for Arrow core libraries
 * `make parquet` for Parquet libraries
 * `make gandiva` for Gandiva (LLVM expression compiler) libraries
 * `make plasma` for Plasma libraries, server
+
+To build the unit tests or benchmarks, add `-tests` or `-benchmarks` to the
+target name. So `make arrow-tests` will build the Arrow core unit tests. Using
+the `-all` target, e.g. `parquet-all`, will build everything.
+
+If you wish to only build and install one or more project subcomponents, we
+have provided the CMake option `ARROW_OPTIONAL_INSTALL` to only install targets
+that have been built. For example, if you only wish to build the Parquet
+libraries, its tests, and its dependencies, you can run:
+
+```
+cmake .. -DARROW_PARQUET=ON -DARROW_OPTIONAL_INSTALL=ON -DARROW_BUILD_TESTS=ON
+make parquet
+make install
+```
+
+If you omit an explicit target when invoking `make`, all targets will be built.
 
 ## Parquet Development Notes
 
@@ -269,7 +298,7 @@ The optional `gandiva` libraries and tests can be built by passing
 `-DARROW_GANDIVA=on`.
 
 ```shell
-cmake .. -DARROW_GANDIVA=ON -DARROW_GANDIVA_BUILD_TESTS=ON
+cmake .. -DARROW_GANDIVA=ON -DARROW_BUILD_TESTS=ON
 make
 ctest -L gandiva
 ```
@@ -299,6 +328,12 @@ matter of convenience, some of the array builder classes have constructors
 which use the default pool without explicitly passing it. You can disable these
 constructors in your application (so that you are accounting properly for all
 memory allocations) by defining `ARROW_NO_DEFAULT_MEMORY_POOL`.
+
+### Header files
+
+We use the `.h` extension for C++ header files. Any header file name not
+containing `internal` is considered to be a public header, and will be
+automatically installed by the build.
 
 ### Error Handling and Exceptions
 
@@ -445,6 +480,14 @@ travis-CI (but still surface the potential warnings in `make clang-tidy`). Ideal
 both of these options would be used rarely. Current known uses-cases when they are required:
 
 *  Parameterized tests in google test.
+
+## CMake version requirements
+
+We support CMake 3.2 and higher. Some features require a newer version of CMake:
+
+* Building the benchmarks requires 3.6 or higher
+* Building zstd from source requires 3.7 or higher
+* Building Gandiva JNI bindings requires 3.11 or higher
 
 [1]: https://brew.sh/
 [2]: https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md

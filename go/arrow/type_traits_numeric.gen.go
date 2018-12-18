@@ -38,6 +38,8 @@ var (
 	TimestampTraits timestampTraits
 	Time32Traits    time32Traits
 	Time64Traits    time64Traits
+	Date32Traits    date32Traits
+	Date64Traits    date64Traits
 )
 
 // Int64 traits
@@ -663,3 +665,99 @@ func (time64Traits) CastToBytes(b []Time64) []byte {
 
 // Copy copies src to dst.
 func (time64Traits) Copy(dst, src []Time64) { copy(dst, src) }
+
+// Date32 traits
+
+const (
+	// Date32SizeBytes specifies the number of bytes required to store a single Date32 in memory
+	Date32SizeBytes = int(unsafe.Sizeof(Date32(0)))
+)
+
+type date32Traits struct{}
+
+// BytesRequired returns the number of bytes required to store n elements in memory.
+func (date32Traits) BytesRequired(n int) int { return Date32SizeBytes * n }
+
+// PutValue
+func (date32Traits) PutValue(b []byte, v Date32) {
+	binary.LittleEndian.PutUint32(b, uint32(v))
+}
+
+// CastFromBytes reinterprets the slice b to a slice of type Date32.
+//
+// NOTE: len(b) must be a multiple of Date32SizeBytes.
+func (date32Traits) CastFromBytes(b []byte) []Date32 {
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []Date32
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len / Date32SizeBytes
+	s.Cap = h.Cap / Date32SizeBytes
+
+	return res
+}
+
+// CastToBytes reinterprets the slice b to a slice of bytes.
+func (date32Traits) CastToBytes(b []Date32) []byte {
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []byte
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len * Date32SizeBytes
+	s.Cap = h.Cap * Date32SizeBytes
+
+	return res
+}
+
+// Copy copies src to dst.
+func (date32Traits) Copy(dst, src []Date32) { copy(dst, src) }
+
+// Date64 traits
+
+const (
+	// Date64SizeBytes specifies the number of bytes required to store a single Date64 in memory
+	Date64SizeBytes = int(unsafe.Sizeof(Date64(0)))
+)
+
+type date64Traits struct{}
+
+// BytesRequired returns the number of bytes required to store n elements in memory.
+func (date64Traits) BytesRequired(n int) int { return Date64SizeBytes * n }
+
+// PutValue
+func (date64Traits) PutValue(b []byte, v Date64) {
+	binary.LittleEndian.PutUint64(b, uint64(v))
+}
+
+// CastFromBytes reinterprets the slice b to a slice of type Date64.
+//
+// NOTE: len(b) must be a multiple of Date64SizeBytes.
+func (date64Traits) CastFromBytes(b []byte) []Date64 {
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []Date64
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len / Date64SizeBytes
+	s.Cap = h.Cap / Date64SizeBytes
+
+	return res
+}
+
+// CastToBytes reinterprets the slice b to a slice of bytes.
+func (date64Traits) CastToBytes(b []Date64) []byte {
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []byte
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len * Date64SizeBytes
+	s.Cap = h.Cap * Date64SizeBytes
+
+	return res
+}
+
+// Copy copies src to dst.
+func (date64Traits) Copy(dst, src []Date64) { copy(dst, src) }

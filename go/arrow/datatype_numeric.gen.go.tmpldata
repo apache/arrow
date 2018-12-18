@@ -48,5 +48,15 @@
     "Name": "Float64",
     "Type": "float64",
     "Size": 64
+  },
+  {
+    "Name": "Date32",
+    "Type": "date32",
+    "Size": 32
+  },
+  {
+    "Name": "Date64",
+    "Type": "date64",
+    "Size": 64
   }
 ]

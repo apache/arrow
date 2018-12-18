@@ -117,6 +117,12 @@ cdef class ChunkedArray:
             else:
                 index -= self.chunked_array.chunk(j).get().length()
 
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
     def equals(self, ChunkedArray other):
         """
         Return whether the contents of two chunked arrays are equal
@@ -411,14 +417,6 @@ cdef class Column:
 
         return result.getvalue()
 
-    def __richcmp__(Column self, Column other, int op):
-        if op == cp.Py_EQ:
-            return self.equals(other)
-        elif op == cp.Py_NE:
-            return not self.equals(other)
-        else:
-            raise TypeError('Invalid comparison')
-
     def __getitem__(self, key):
         return self.data[key]
 
@@ -539,6 +537,12 @@ cdef class Column:
 
     def __array__(self, dtype=None):
         return self.data.__array__(dtype=dtype)
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
 
     def equals(self, Column other):
         """
@@ -1110,6 +1114,12 @@ cdef class Table:
             check_status(self.table.Flatten(pool, &flattened))
 
         return pyarrow_wrap_table(flattened)
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
 
     def equals(self, Table other):
         """

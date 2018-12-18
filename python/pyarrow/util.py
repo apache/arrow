@@ -21,6 +21,12 @@ import six
 import warnings
 
 try:
+    from textwrap import indent
+except ImportError:
+    def indent(text, prefix):
+        return ''.join(prefix + line for line in text.splitlines(True))
+
+try:
     # pathlib might not be available
     try:
         import pathlib
@@ -72,13 +78,3 @@ def _stringify_path(path):
             return str(path)
 
     raise TypeError("not a path-like object")
-
-
-def _deprecate_nthreads(use_threads, nthreads):
-    if nthreads is not None:
-        warnings.warn("`nthreads` argument is deprecated, "
-                      "pass `use_threads` instead", FutureWarning,
-                      stacklevel=3)
-        if nthreads > 1:
-            use_threads = True
-    return use_threads

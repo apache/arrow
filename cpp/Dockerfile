@@ -30,6 +30,7 @@ RUN apt-get update -y -q && \
         wget
 
 # install conda and required packages
+ARG EXTRA_CONDA_PKGS
 ENV PATH=/opt/conda/bin:$PATH \
     CONDA_PREFIX=/opt/conda
 ADD ci/docker_install_conda.sh \
@@ -39,7 +40,8 @@ ADD ci/docker_install_conda.sh \
 RUN arrow/ci/docker_install_conda.sh && \
     conda install -c conda-forge \
         --file arrow/ci/conda_env_cpp.yml \
-        --file arrow/ci/conda_env_unix.yml && \
+        --file arrow/ci/conda_env_unix.yml \
+        $EXTRA_CONDA_PKGS && \
     conda clean --all
 
 ENV CC=gcc \

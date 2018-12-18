@@ -29,16 +29,16 @@
 //! use std::sync::Arc;
 //!
 //! let schema = Schema::new(vec![
-//!   Field::new("city", DataType::Utf8, false),
-//!   Field::new("lat", DataType::Float64, false),
-//!   Field::new("lng", DataType::Float64, false),
+//!     Field::new("city", DataType::Utf8, false),
+//!     Field::new("lat", DataType::Float64, false),
+//!     Field::new("lng", DataType::Float64, false),
 //! ]);
 //!
 //! let file = File::open("test/data/uk_cities.csv").unwrap();
 //!
 //! let mut csv = csv::Reader::new(file, Arc::new(schema), false, 1024, None);
 //! let batch = csv.next().unwrap().unwrap();
-//!```
+//! ```
 
 use std::fs::File;
 use std::io::BufReader;
@@ -195,8 +195,8 @@ impl Reader {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
+
     use crate::array::*;
     use crate::datatypes::Field;
 

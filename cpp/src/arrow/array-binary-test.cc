@@ -15,10 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -28,10 +26,14 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 
@@ -675,5 +677,113 @@ TEST_F(TestBinaryArray, TestSliceEquality) { CheckSliceEquality<BinaryType>(); }
 TEST_F(TestStringArray, TestSliceEquality) { CheckSliceEquality<BinaryType>(); }
 
 TEST_F(TestBinaryArray, LengthZeroCtor) { BinaryArray array(0, nullptr, nullptr); }
+
+// ----------------------------------------------------------------------
+// ChunkedBinaryBuilder tests
+
+class TestChunkedBinaryBuilder : public ::testing::Test {
+ public:
+  void SetUp() {}
+
+  void Init(int32_t chunksize) {
+    builder_.reset(new internal::ChunkedBinaryBuilder(chunksize));
+  }
+
+ protected:
+  std::unique_ptr<internal::ChunkedBinaryBuilder> builder_;
+};
+
+TEST_F(TestChunkedBinaryBuilder, BasicOperation) {
+  const int32_t chunksize = 1000;
+  Init(chunksize);
+
+  const int elem_size = 10;
+  uint8_t buf[elem_size];
+
+  BinaryBuilder unchunked_builder;
+
+  const int iterations = 1000;
+  for (int i = 0; i < iterations; ++i) {
+    random_bytes(elem_size, i, buf);
+
+    ASSERT_OK(unchunked_builder.Append(buf, elem_size));
+    ASSERT_OK(builder_->Append(buf, elem_size));
+  }
+
+  std::shared_ptr<Array> unchunked;
+  ASSERT_OK(unchunked_builder.Finish(&unchunked));
+
+  ArrayVector chunks;
+  ASSERT_OK(builder_->Finish(&chunks));
+
+  // This assumes that everything is evenly divisible
+  ArrayVector expected_chunks;
+  const int elems_per_chunk = chunksize / elem_size;
+  for (int i = 0; i < iterations / elems_per_chunk; ++i) {
+    expected_chunks.emplace_back(unchunked->Slice(i * elems_per_chunk, elems_per_chunk));
+  }
+
+  ASSERT_EQ(expected_chunks.size(), chunks.size());
+  for (size_t i = 0; i < chunks.size(); ++i) {
+    AssertArraysEqual(*expected_chunks[i], *chunks[i]);
+  }
+}
+
+TEST_F(TestChunkedBinaryBuilder, NoData) {
+  Init(1000);
+
+  ArrayVector chunks;
+  ASSERT_OK(builder_->Finish(&chunks));
+
+  ASSERT_EQ(1, chunks.size());
+  ASSERT_EQ(0, chunks[0]->length());
+}
+
+TEST_F(TestChunkedBinaryBuilder, LargeElements) {
+  Init(100);
+
+  const int bufsize = 101;
+  uint8_t buf[bufsize];
+
+  const int iterations = 100;
+  for (int i = 0; i < iterations; ++i) {
+    random_bytes(bufsize, i, buf);
+    ASSERT_OK(builder_->Append(buf, bufsize));
+  }
+
+  ArrayVector chunks;
+  ASSERT_OK(builder_->Finish(&chunks));
+  ASSERT_EQ(iterations, static_cast<int>(chunks.size()));
+
+  int64_t total_data_size = 0;
+  for (auto chunk : chunks) {
+    ASSERT_EQ(1, chunk->length());
+    total_data_size +=
+        static_cast<int64_t>(static_cast<const BinaryArray&>(*chunk).GetView(0).size());
+  }
+  ASSERT_EQ(iterations * bufsize, total_data_size);
+}
+
+TEST(TestChunkedStringBuilder, BasicOperation) {
+  const int chunksize = 100;
+  internal::ChunkedStringBuilder builder(chunksize);
+
+  std::string value = "0123456789";
+
+  const int iterations = 100;
+  for (int i = 0; i < iterations; ++i) {
+    ASSERT_OK(builder.Append(value));
+  }
+
+  ArrayVector chunks;
+  ASSERT_OK(builder.Finish(&chunks));
+
+  ASSERT_EQ(10, chunks.size());
+
+  // Type is correct
+  for (auto chunk : chunks) {
+    ASSERT_TRUE(chunk->type()->Equals(*::arrow::utf8()));
+  }
+}
 
 }  // namespace arrow

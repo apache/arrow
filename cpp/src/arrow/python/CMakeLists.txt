@@ -22,7 +22,10 @@
 find_package(PythonLibsNew REQUIRED)
 find_package(NumPy REQUIRED)
 
+add_custom_target(arrow_python-all)
 add_custom_target(arrow_python)
+add_custom_target(arrow_python-tests)
+add_dependencies(arrow_python-all arrow_python arrow_python-tests)
 
 set(ARROW_PYTHON_SRCS
   arrow_to_pandas.cc
@@ -91,37 +94,10 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
     COMPILE_FLAGS -Wno-parentheses-equality)
 endif()
 
-install(FILES
-  api.h
-  arrow_to_pandas.h
-  benchmark.h
-  common.h
-  config.h
-  decimal.h
-  deserialize.h
-  helpers.h
-  inference.h
-  init.h
-  io.h
-  iterators.h
-  numpy_convert.h
-  numpy_interop.h
-  numpy_to_arrow.h
-  python_to_arrow.h
-  platform.h
-  pyarrow.h
-  serialize.h
-  type_traits.h
-  visibility.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
+ARROW_INSTALL_ALL_HEADERS("arrow/python")
 
 # pkg-config support
-configure_file(arrow-python.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow-python.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-python.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("arrow-python")
 
 # ----------------------------------------------------------------------
 
@@ -157,6 +133,6 @@ if (ARROW_BUILD_TESTS)
     STATIC_LINK_LIBS "${ARROW_PYTHON_TEST_LINK_LIBS}"
     EXTRA_LINK_LIBS ${PYTHON_LIBRARIES}
     EXTRA_INCLUDES "${ARROW_PYTHON_INCLUDES}"
-    LABELS "arrow_python"
+    LABELS "arrow_python-tests"
     NO_VALGRIND)
 endif()

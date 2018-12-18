@@ -19,6 +19,8 @@
 
 set -e
 
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
 RUST_DIR=${TRAVIS_BUILD_DIR}/rust
 
 pushd $RUST_DIR

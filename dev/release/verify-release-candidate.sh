@@ -189,7 +189,7 @@ test_and_install_cpp() {
 test_python() {
   pushd python
 
-  pip install -r requirements-test.txt
+  pip install -r requirements.txt -r requirements-test.txt
 
   python setup.py build_ext --inplace --with-parquet --with-plasma
   py.test pyarrow -v --pdb
@@ -211,8 +211,6 @@ test_glib() {
     gem install bundler
   fi
 
-  # Workaround for 0.11.0. 0.11.0 doesn't include c_glib/Gemfile.
-  wget https://raw.githubusercontent.com/apache/arrow/master/c_glib/Gemfile
   bundle install --path vendor/bundle
   bundle exec ruby test/run-test.rb
 

@@ -32,7 +32,9 @@ namespace compute {
 
 class FunctionContext;
 
-static inline void CopyData(const ArrayData& input, ArrayData* output) {
+// \brief Make a copy of the buffers into a destination array without carrying
+// the type.
+static inline void ZeroCopyData(const ArrayData& input, ArrayData* output) {
   output->length = input.length;
   output->null_count = input.null_count;
   output->buffers = input.buffers;

@@ -226,6 +226,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     install(TARGETS ${LIB_NAME}_shared
+      ${INSTALL_IS_OPTIONAL}
       EXPORT ${PROJECT_NAME}-targets
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -272,6 +273,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       LINK_PUBLIC ${ARG_STATIC_LINK_LIBS})
 
     install(TARGETS ${LIB_NAME}_static
+      ${INSTALL_IS_OPTIONAL}
       EXPORT ${PROJECT_NAME}-targets
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -306,6 +308,9 @@ endfunction()
 # \arg PREFIX a string to append to the name of the benchmark executable. For
 # example, if you have src/arrow/foo/bar-benchmark.cc, then PREFIX "foo" will
 # create test executable foo-bar-benchmark
+# \arg LABELS the benchmark label or labels to assign the unit tests to. By
+# default, benchmarks will go in the "benchmark" group. Custom targets for the
+# group names must exist
 function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(options)
   set(one_value_args)
@@ -341,19 +346,21 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(NO_COLOR "")
   endif()
 
+  # Add test as dependency of relevant label targets
+  add_dependencies(all-benchmarks ${BENCHMARK_NAME})
+  foreach (TARGET ${ARG_LABELS})
+    add_dependencies(${TARGET} ${BENCHMARK_NAME})
+  endforeach()
+
   if (ARG_DEPENDENCIES)
     add_dependencies(${BENCHMARK_NAME} ${ARG_DEPENDENCIES})
   endif()
 
   if (ARG_LABELS)
-    set(ARG_LABELS "${ARG_LABELS}")
+    set(ARG_LABELS "benchmark;${ARG_LABELS}")
   else()
     set(ARG_LABELS benchmark)
   endif()
-
-  foreach (TEST_LABEL ${ARG_LABELS})
-    add_dependencies(${TEST_LABEL} ${BENCHMARK_NAME})
-  endforeach()
 
   add_test(${BENCHMARK_NAME}
     ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} benchmark ${BENCHMARK_PATH} ${NO_COLOR})
@@ -387,7 +394,7 @@ endfunction()
 # \arg LABELS the unit test label or labels to assign the unit tests
 # to. By default, unit tests will go in the "unittest" group, but if we have
 # multiple unit tests in some subgroup, you can assign a test to multiple
-# groups using the syntax unittest;GROUP2;GROUP3. Custom targets for the group
+# groups use the syntax unittest;GROUP2;GROUP3. Custom targets for the group
 # names must exist
 function(ADD_TEST_CASE REL_TEST_NAME)
   set(options NO_VALGRIND ENABLED)
@@ -399,18 +406,6 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  if (NOT "${ARROW_TEST_INCLUDE_LABELS}" STREQUAL "")
-    set(_SKIP_TEST TRUE)
-    foreach (_INCLUDED_LABEL ${ARG_LABELS})
-      if ("${ARG_LABELS}" MATCHES "${_INCLUDED_LABEL}")
-        set(_SKIP_TEST FALSE)
-      endif()
-    endforeach()
-    if (_SKIP_TEST)
-      return()
-    endif()
-  endif()
-
   if (NO_TESTS AND NOT ARG_ENABLED)
     return()
   endif()
@@ -418,12 +413,6 @@ function(ADD_TEST_CASE REL_TEST_NAME)
 
   if(ARG_PREFIX)
     set(TEST_NAME "${ARG_PREFIX}-${TEST_NAME}")
-  endif()
-
-  if (ARG_LABELS)
-    set(ARG_LABELS "${ARG_LABELS}")
-  else()
-    set(ARG_LABELS unittest)
   endif()
 
   if (ARG_SOURCES)
@@ -456,10 +445,6 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
   endif()
 
-  foreach (TEST_LABEL ${ARG_LABELS})
-    add_dependencies(${TEST_LABEL} ${TEST_NAME})
-  endforeach()
-
   if (ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)
     SET_PROPERTY(TARGET ${TEST_NAME}
       APPEND_STRING PROPERTY
@@ -473,6 +458,18 @@ function(ADD_TEST_CASE REL_TEST_NAME)
   else()
     add_test(${TEST_NAME}
       ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} test ${TEST_PATH})
+  endif()
+
+  # Add test as dependency of relevant targets
+  add_dependencies(all-tests ${TEST_NAME})
+  foreach (TARGET ${ARG_LABELS})
+    add_dependencies(${TARGET} ${TEST_NAME})
+  endforeach()
+
+  if (ARG_LABELS)
+    set(ARG_LABELS "unittest;${ARG_LABELS}")
+  else()
+    set(ARG_LABELS unittest)
   endif()
 
   set_property(TEST ${TEST_NAME}
@@ -535,7 +532,6 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
     add_dependencies(${EXAMPLE_NAME} ${ARG_DEPENDENCIES})
   endif()
 
-
   add_test(${EXAMPLE_NAME} ${EXAMPLE_PATH})
   set_tests_properties(${EXAMPLE_NAME} PROPERTIES LABELS "example")
 endfunction()
@@ -568,4 +564,37 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
   set_target_properties(${REL_FUZZING_NAME}
       PROPERTIES
       LINK_FLAGS "-fsanitize=fuzzer")
+endfunction()
+
+###################################################
+
+function(ARROW_INSTALL_ALL_HEADERS PATH)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args PATTERN)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if (NOT ARG_PATTERN)
+    # The .hpp extension is used by some vendored libraries
+    set(ARG_PATTERN "*.h" "*.hpp")
+  endif()
+  file(GLOB CURRENT_DIRECTORY_HEADERS ${ARG_PATTERN})
+
+  set(PUBLIC_HEADERS)
+  foreach(HEADER ${CURRENT_DIRECTORY_HEADERS})
+    if (NOT ((HEADER MATCHES "internal")))
+      LIST(APPEND PUBLIC_HEADERS ${HEADER})
+    endif()
+  endforeach()
+  install(FILES
+    ${PUBLIC_HEADERS}
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PATH}")
+endfunction()
+
+function(ARROW_ADD_PKG_CONFIG MODULE)
+  configure_file(${MODULE}.pc.in
+    "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
+    @ONLY)
+  install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 endfunction()

@@ -29,9 +29,4 @@ ADD_ARROW_BENCHMARK(converter-benchmark
 ADD_ARROW_BENCHMARK(parser-benchmark
   PREFIX "arrow-csv")
 
-# Headers: top level
-file(GLOB_RECURSE ARROW_CSV_HEADERS "*.h")
-
-install(FILES
-  ${ARROW_CSV_HEADERS}
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/csv")
+ARROW_INSTALL_ALL_HEADERS("arrow/csv")

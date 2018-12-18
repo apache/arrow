@@ -18,6 +18,7 @@
 #ifndef ARROW_CSV_PARSER_H
 #define ARROW_CSV_PARSER_H
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <vector>

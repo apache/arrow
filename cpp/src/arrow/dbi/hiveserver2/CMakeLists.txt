@@ -16,17 +16,10 @@
 # under the License.
 
 add_custom_target(arrow_hiveserver2)
+add_custom_target(arrow_hiveserver2-tests)
 
 # Headers: top level
-install(FILES
-  api.h
-  columnar-row-set.h
-  operation.h
-  service.h
-  session.h
-  types.h
-  util.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/dbi/hiveserver2")
+ARROW_INSTALL_ALL_HEADERS("arrow/dbi/hiveserver2")
 
 set(ARROW_HIVESERVER2_SRCS
   columnar-row-set.cc
@@ -111,11 +104,13 @@ set(ARROW_HIVESERVER2_TEST_LINK_LIBS
   thriftstatic)
 
 if (ARROW_BUILD_TESTS)
-  ADD_ARROW_TEST(hiveserver2-test
+  ADD_TEST_CASE(hiveserver2-test
     STATIC_LINK_LIBS "${ARROW_HIVESERVER2_TEST_LINK_LIBS}"
-    LABELS "arrow_hiveserver2"
+    LABELS "arrow_hiveserver2-tests"
   )
-  set_property(TARGET arrow-hiveserver2-test
-    APPEND_STRING PROPERTY COMPILE_FLAGS
-    " -Wno-shadow-field")
+  if (TARGET arrow-hiveserver2-test)
+    set_property(TARGET arrow-hiveserver2-test
+      APPEND_STRING PROPERTY COMPILE_FLAGS
+      " -Wno-shadow-field")
+  endif()
 endif(ARROW_BUILD_TESTS)

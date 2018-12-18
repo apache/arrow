@@ -98,8 +98,8 @@ fi
 
 if [ $ARROW_TRAVIS_GANDIVA == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA=ON"
-  if [ $only_library_mode == "no" ]; then
-    CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA_BUILD_TESTS=ON"
+  if [ $ARROW_TRAVIS_GANDIVA_JAVA == "1" ]; then
+      CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA_JAVA=ON"
   fi
 fi
 
@@ -117,6 +117,10 @@ fi
 
 if [ $ARROW_TRAVIS_USE_VENDORED_BOOST == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_BOOST_VENDORED=ON"
+fi
+
+if [ $ARROW_TRAVIS_OPTIONAL_INSTALL == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_OPTIONAL_INSTALL=ON"
 fi
 
 if [ $TRAVIS_OS_NAME == "linux" ]; then
@@ -139,8 +143,10 @@ else
           $ARROW_CPP_DIR
 fi
 
-# Build and install libraries
-$TRAVIS_MAKE -j4
+# Build and install libraries. Configure ARROW_CPP_BUILD_TARGETS environment
+# variable to only build certain targets. If you use this, you must also set
+# the environment variable ARROW_TRAVIS_OPTIONAL_INSTALL=1
+$TRAVIS_MAKE -j4 $ARROW_CPP_BUILD_TARGETS
 $TRAVIS_MAKE install
 
 popd

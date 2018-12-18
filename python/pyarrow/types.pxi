@@ -1002,7 +1002,9 @@ def tzinfo_to_string(tz):
             raise ValueError('Offset must represent whole number of minutes')
         return '{}{:02d}:{:02d}'.format(sign, hours, minutes)
 
-    if isinstance(tz, pytz.tzinfo.BaseTzInfo):
+    if tz is pytz.utc:
+        return tz.zone  # ARROW-4055
+    elif isinstance(tz, pytz.tzinfo.BaseTzInfo):
         return tz.zone
     elif isinstance(tz, pytz._FixedOffset):
         return fixed_offset_to_string(tz)

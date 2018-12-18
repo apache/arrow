@@ -844,7 +844,7 @@ def test_date_time_types():
     a2 = pa.array(data2, type=t2)
 
     t3 = pa.timestamp('us')
-    start = pd.Timestamp('2000-01-01').value / 1000
+    start = pd.Timestamp('2001-01-01').value / 1000
     data3 = np.array([start, start + 1, start + 2], dtype='int64')
     a3 = pa.array(data3, type=t3)
 
@@ -892,8 +892,9 @@ def test_date_time_types():
 
     # date64 as date32
     # time32[s] to time32[ms]
+    # 'timestamp[ms]' is saved as INT96 timestamp
     # 'timestamp[ns]' is saved as INT96 timestamp
-    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6, a7],
+    expected = pa.Table.from_arrays([a1, a1, a7, a4, a5, ex_a6, a7],
                                     ['date32', 'date64', 'timestamp[us]',
                                      'time32[s]', 'time64[us]',
                                      'time32_from64[s]',
@@ -1957,6 +1958,33 @@ def test_large_table_int32_overflow():
     table = pa.Table.from_arrays([parr], names=['one'])
     f = io.BytesIO()
     _write_table(table, f)
+
+
+@pytest.mark.large_memory
+def test_binary_array_overflow_to_chunked():
+    # ARROW-3762
+
+    # 2^31 + 1 bytes
+    values = [b'x'] + [
+        b'x' * (1 << 20)
+    ] * 2 * (1 << 10)
+    df = pd.DataFrame({'byte_col': values})
+
+    tbl = pa.Table.from_pandas(df, preserve_index=False)
+
+    buf = io.BytesIO()
+    _write_table(tbl, buf)
+    buf.seek(0)
+    read_tbl = _read_table(buf)
+    buf = None
+
+    col0_data = read_tbl[0].data
+    assert isinstance(col0_data, pa.ChunkedArray)
+
+    # Split up into 16MB chunks. 128 * 16 = 2048, so 129
+    assert col0_data.num_chunks == 129
+
+    assert tbl.equals(read_tbl)
 
 
 def test_index_column_name_duplicate(tempdir):

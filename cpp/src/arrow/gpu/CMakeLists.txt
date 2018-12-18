@@ -19,6 +19,12 @@
 # arrow_cuda
 #######################################
 
+add_custom_target(arrow_cuda-all)
+add_custom_target(arrow_cuda)
+add_custom_target(arrow_cuda-benchmarks)
+add_custom_target(arrow_cuda-tests)
+add_dependencies(arrow_cuda-all arrow_cuda arrow_cuda-tests arrow_cuda-benchmarks)
+
 if (DEFINED ENV{CUDA_HOME})
   set(CUDA_TOOLKIT_ROOT_DIR "$ENV{CUDA_HOME}")
 endif()
@@ -49,6 +55,8 @@ ADD_ARROW_LIB(arrow_cuda
   STATIC_LINK_LIBS ${ARROW_CUDA_SHARED_LINK_LIBS}
 )
 
+add_dependencies(arrow_cuda ${ARROW_CUDA_LIBRARIES})
+
 foreach(LIB_TARGET ${ARROW_CUDA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
     PRIVATE ARROW_EXPORTING)
@@ -63,21 +71,8 @@ install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/cuda_version.h"
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
 
-install(FILES
-  cuda_api.h
-  cuda_arrow_ipc.h
-  cuda_context.h
-  cuda_memory.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
-
-# pkg-config support
-configure_file(arrow-cuda.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow-cuda.pc"
-  @ONLY)
-
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-cuda.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_INSTALL_ALL_HEADERS("arrow/gpu")
+ARROW_ADD_PKG_CONFIG("arrow-cuda")
 
 set(ARROW_CUDA_TEST_LINK_LIBS
   arrow_cuda_shared
@@ -90,9 +85,10 @@ if (ARROW_BUILD_TESTS)
 endif()
 
 if (ARROW_BUILD_BENCHMARKS)
-  cuda_add_executable(cuda-benchmark cuda-benchmark.cc)
-  target_link_libraries(cuda-benchmark
+  cuda_add_executable(arrow-cuda-benchmark cuda-benchmark.cc)
+  target_link_libraries(arrow-cuda-benchmark
     arrow_cuda_shared
     gtest_static
     ${ARROW_BENCHMARK_LINK_LIBS})
+  add_dependencies(arrow_cuda-benchmarks arrow-cuda-benchmark)
 endif()

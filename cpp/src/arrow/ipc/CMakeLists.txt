@@ -17,7 +17,7 @@
 
 # Targets required for protocol integration testing
 add_custom_target(integration)
-add_dependencies(arrow integration)
+add_dependencies(arrow-tests integration)
 
 #######################################
 # Messaging and interprocess communication
@@ -88,16 +88,7 @@ add_custom_command(
 add_custom_target(metadata_fbs DEPENDS ${FBS_OUTPUT_FILES})
 
 # Headers: top level
-install(FILES
-  api.h
-  dictionary.h
-  feather.h
-  json.h
-  json-simple.h
-  message.h
-  reader.h
-  writer.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/ipc")
+ARROW_INSTALL_ALL_HEADERS("arrow/ipc")
 
 if (ARROW_BUILD_STATIC)
   set(ARROW_UTIL_LIB arrow_static)

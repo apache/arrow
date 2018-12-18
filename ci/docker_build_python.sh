@@ -26,12 +26,17 @@ export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export PYARROW_CXXFLAGS=$CXXFLAGS
 export PYARROW_CMAKE_GENERATOR=Ninja
 export PYARROW_BUILD_TYPE=${PYARROW_BUILD_TYPE:-debug}
+
+# Feature flags
+export PYARROW_WITH_ORC=${PYARROW_WITH_ORC:-1}
 export PYARROW_WITH_PARQUET=${PYARROW_WITH_PARQUET:-1}
 export PYARROW_WITH_PLASMA=${PYARROW_WITH_PLASMA:-1}
 
 # Build pyarrow
 pushd ${source_dir}
 
-python setup.py build_ext --build-temp=${build_dir} install
+python setup.py build --build-temp=${build_dir} \
+                install --single-version-externally-managed \
+                        --record=/build/python/record.txt
 
 popd

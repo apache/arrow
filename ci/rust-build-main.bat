@@ -17,6 +17,9 @@
 
 @rem The "main" Rust build script for Windows CI
 
+@rem Retrieve git submodules, configure env var for Parquet unit tests
+git submodule update --init || exit /B
+set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 pushd rust
 
 @echo ===================================

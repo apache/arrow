@@ -34,7 +34,7 @@ RUN /install_cmake.sh
 
 ADD scripts/build_gtest.sh /
 RUN /build_gtest.sh
-ENV GTEST_HOME /googletest-release-1.7.0
+ENV GTEST_HOME /usr
 
 ADD scripts/build_flatbuffers.sh /
 RUN /build_flatbuffers.sh

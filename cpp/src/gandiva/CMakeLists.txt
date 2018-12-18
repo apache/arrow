@@ -15,12 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-project(gandiva)
+# For "make gandiva" to build everything Gandiva-related
+add_custom_target(gandiva-all)
+add_custom_target(gandiva)
+add_custom_target(gandiva-tests)
+add_custom_target(gandiva-benchmarks)
+
+add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
 find_package(LLVM)
-
-# For "make gandiva" to build everything Gandiva-related
-add_custom_target(gandiva)
 
 # Set the path where the byte-code files will be installed.
 set(GANDIVA_BC_INSTALL_DIR
@@ -92,39 +95,11 @@ add_dependencies(gandiva ${GANDIVA_LIBRARIES})
 # install for gandiva
 include(GNUInstallDirs)
 
-# install libgandiva
-install(
-  TARGETS gandiva_shared gandiva_static
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-
 # install the header files.
-install(FILES
-  arrow.h
-  condition.h
-  configuration.h
-  expression.h
-  expression_registry.h
-  filter.h
-  func_descriptor.h
-  function_signature.h
-  gandiva_aliases.h
-  literal_holder.h
-  logging.h
-  node.h
-  node_visitor.h
-  projector.h
-  selection_vector.h
-  tree_expr_builder.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/gandiva")
+ARROW_INSTALL_ALL_HEADERS("gandiva")
 
 # pkg-config support
-configure_file(gandiva.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("gandiva")
 
 set(GANDIVA_STATIC_TEST_LINK_LIBS
   gandiva_static
@@ -141,10 +116,14 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(multi_value_args)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
+  if (NO_TESTS)
+    return()
+  endif()
+
   set(TEST_ARGUMENTS
     ENABLED
     PREFIX "gandiva"
-    LABELS "unittest;gandiva"
+    LABELS "gandiva-tests"
     ${ARG_UNPARSED_ARGUMENTS})
 
   # and uses less disk space, but in some cases we need to force static
@@ -159,39 +138,35 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
       STATIC_LINK_LIBS ${GANDIVA_SHARED_TEST_LINK_LIBS})
   endif()
 
-  if(${REL_TEST_NAME} MATCHES "llvm" OR
-     ${REL_TEST_NAME} MATCHES "expression_registry")
+  set(TARGET_NAME gandiva-${REL_TEST_NAME})
+
+  if((TARGET ${TARGET_NAME}) AND
+      (${REL_TEST_NAME} MATCHES "llvm" OR
+       ${REL_TEST_NAME} MATCHES "expression_registry"))
     # If the unit test has llvm in its name, include llvm.
-    add_dependencies(gandiva-${REL_TEST_NAME} LLVM::LLVM_INTERFACE)
-    target_link_libraries(gandiva-${REL_TEST_NAME} PRIVATE LLVM::LLVM_INTERFACE)
+    add_dependencies(${TARGET_NAME} LLVM::LLVM_INTERFACE)
+    target_link_libraries(${TARGET_NAME} PRIVATE LLVM::LLVM_INTERFACE)
   endif()
 endfunction()
 
-if (ARROW_GANDIVA_BUILD_TESTS)
-  ADD_GANDIVA_TEST(bitmap_accumulator_test)
-  ADD_GANDIVA_TEST(engine_llvm_test)
-  ADD_GANDIVA_TEST(function_signature_test)
-  ADD_GANDIVA_TEST(function_registry_test)
-  ADD_GANDIVA_TEST(llvm_types_test)
-  ADD_GANDIVA_TEST(llvm_generator_test)
-  ADD_GANDIVA_TEST(annotator_test)
-  ADD_GANDIVA_TEST(tree_expr_test)
-  ADD_GANDIVA_TEST(expr_decomposer_test)
-  ADD_GANDIVA_TEST(expression_registry_test)
-  ADD_GANDIVA_TEST(selection_vector_test)
-  ADD_GANDIVA_TEST(lru_cache_test)
-  ADD_GANDIVA_TEST(to_date_holder_test)
-  ADD_GANDIVA_TEST(simple_arena_test)
-endif()
+ADD_GANDIVA_TEST(bitmap_accumulator_test)
+ADD_GANDIVA_TEST(engine_llvm_test)
+ADD_GANDIVA_TEST(function_signature_test)
+ADD_GANDIVA_TEST(function_registry_test)
+ADD_GANDIVA_TEST(llvm_types_test)
+ADD_GANDIVA_TEST(llvm_generator_test)
+ADD_GANDIVA_TEST(annotator_test)
+ADD_GANDIVA_TEST(tree_expr_test)
+ADD_GANDIVA_TEST(expr_decomposer_test)
+ADD_GANDIVA_TEST(expression_registry_test)
+ADD_GANDIVA_TEST(selection_vector_test)
+ADD_GANDIVA_TEST(lru_cache_test)
+ADD_GANDIVA_TEST(to_date_holder_test)
+ADD_GANDIVA_TEST(simple_arena_test)
 
 if (ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)
 endif()
+
 add_subdirectory(precompiled)
-
-if (ARROW_GANDIVA_BUILD_TESTS)
-  include(CTest)
-  enable_testing()
-
-  add_subdirectory(tests)
-endif()
+add_subdirectory(tests)
