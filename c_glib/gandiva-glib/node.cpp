@@ -1219,15 +1219,12 @@ ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
 
   auto gandiva_literal_node =
     std::static_pointer_cast<gandiva::LiteralNode>(*gandiva_node);
-  auto arrow_data_type = (*gandiva_node)->return_type();
-  if (!return_type) {
-    return_type = garrow_data_type_new_raw(&arrow_data_type);
-  }
+  auto arrow_return_type = (*gandiva_node)->return_type();
 
   if (gandiva_literal_node->is_null()) {
     type = GGANDIVA_TYPE_NULL_LITERAL_NODE;
   } else {
-    switch (arrow_data_type->id()) {
+    switch (arrow_return_type->id()) {
     case arrow::Type::BOOL:
       type = GGANDIVA_TYPE_BOOLEAN_LITERAL_NODE;
       break;
@@ -1271,11 +1268,16 @@ ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
       type = GGANDIVA_TYPE_LITERAL_NODE;
       break;
     }
+
+    return_type = garrow_data_type_new_raw(&arrow_return_type);
   }
   auto literal_node =
     GGANDIVA_LITERAL_NODE(g_object_new(type,
                                        "node", gandiva_node,
                                        "return-type", return_type,
                                        NULL));
+  if (!gandiva_literal_node->is_null()) {
+    g_object_unref(return_type);
+  }
   return literal_node;
 }
