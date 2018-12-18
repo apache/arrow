@@ -78,6 +78,20 @@ namespace compute {
 
 constexpr int64_t kMillisecondsInDay = 86400000;
 
+template <typename O, typename I, typename Enable = void>
+struct is_binary_to_string {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_binary_to_string<
+    O, I,
+    typename std::enable_if<std::is_same<BinaryType, I>::value &&
+                            std::is_base_of<StringType, O>::value>::type> {
+  static constexpr bool value = true;
+};
+
+
 // ----------------------------------------------------------------------
 // Zero copy casts
 
@@ -119,21 +133,7 @@ template <typename O, typename I>
 struct is_zero_copy_cast<
     O, I,
     typename std::enable_if<!std::is_same<I, O>::value &&
-                            (std::is_base_of<BinaryType, I>::value &&
-                             std::is_base_of<StringType, O>::value)>::type> {
-  static constexpr bool value = true;
-};
-
-template <typename O, typename I, typename Enable = void>
-struct is_binary_to_string {
-  static constexpr bool value = false;
-};
-
-template <typename O, typename I>
-struct is_binary_to_string<
-    O, I,
-    typename std::enable_if<std::is_same<BinaryType, I>::value &&
-                            std::is_base_of<StringType, O>::value>::type> {
+                            is_binary_to_string<O, I>::value>::type> {
   static constexpr bool value = true;
 };
 
@@ -1056,7 +1056,6 @@ struct CastFunctor<
       return;
     }
 
-    // TODO(fsaintjacques): This is not the most optimal place to put this.
     util::InitializeUTF8();
 
     if (binary.null_count() != 0) {
@@ -1067,7 +1066,7 @@ struct CastFunctor<
 
         const auto str = binary.GetView(i);
         if (ARROW_PREDICT_FALSE(!arrow::util::ValidateUTF8(str))) {
-          ctx->SetStatus(Status::Invalid("Invalid UTF8 payload "));
+          ctx->SetStatus(Status::Invalid("Invalid UTF8 payload"));
           return;
         }
       }
@@ -1076,7 +1075,7 @@ struct CastFunctor<
       for (int64_t i = 0; i < input.length; i++) {
         const auto str = binary.GetView(i);
         if (ARROW_PREDICT_FALSE(!arrow::util::ValidateUTF8(str))) {
-          ctx->SetStatus(Status::Invalid("Invalid UTF8 payload "));
+          ctx->SetStatus(Status::Invalid("Invalid UTF8 payload"));
           return;
         }
       }

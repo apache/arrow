@@ -27,9 +27,9 @@
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/test-util.h"
 #include "arrow/compute/kernels/boolean.h"
 #include "arrow/compute/kernels/util-internal.h"
+#include "arrow/compute/test-util.h"
 
 using std::shared_ptr;
 using std::vector;
@@ -98,8 +98,6 @@ class TestBooleanKernel : public ComputeFixture, public TestBase {
   }
 };
 
-
-
 TEST_F(TestBooleanKernel, Invert) {
   vector<bool> values1 = {true, false, true};
   vector<bool> values2 = {false, true, false};
@@ -155,6 +153,5 @@ TEST_F(TestBooleanKernel, Xor) {
   TestBinaryKernel(Xor, values1, values2, values3, values3_nulls);
 }
 
-
-}
-}
+}  // namespace compute
+}  // namespace arrow
