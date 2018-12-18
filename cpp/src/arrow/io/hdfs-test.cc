@@ -257,6 +257,23 @@ TYPED_TEST(TestHadoopFileSystem, GetPathInfo) {
   ASSERT_EQ(size, info.size);
 }
 
+TYPED_TEST(TestHadoopFileSystem, GetPathInfoNotExist) {
+  // ARROW-2919: Test that the error message is reasonable
+  SKIP_IF_NO_DRIVER();
+
+  ASSERT_OK(this->MakeScratchDir());
+  auto path = this->ScratchPath("path-does-not-exist");
+
+  HdfsPathInfo info;
+  Status s = this->client_->GetPathInfo(path, &info);
+  ASSERT_TRUE(s.IsIOError());
+
+  const std::string error_message = s.ToString();
+
+  // Check that the file path is found in the error message
+  ASSERT_LT(error_message.find(path), std::string::npos);
+}
+
 TYPED_TEST(TestHadoopFileSystem, AppendToFile) {
   SKIP_IF_NO_DRIVER();
 
@@ -376,6 +393,8 @@ TYPED_TEST(TestHadoopFileSystem, LargeFile) {
 
   std::shared_ptr<HdfsReadableFile> file;
   ASSERT_OK(this->client_->OpenReadable(path, &file));
+
+  ASSERT_FALSE(file->closed());
 
   std::shared_ptr<Buffer> buffer;
   ASSERT_OK(AllocateBuffer(nullptr, size, &buffer));

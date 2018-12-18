@@ -433,6 +433,9 @@ cdef class HadoopFileSystem:
 
             out.set_random_access_file(
                 <shared_ptr[RandomAccessFile]> rd_handle)
+            out.is_readable = True
+
+        assert not out.closed
 
         if c_buffer_size == 0:
             c_buffer_size = 2 ** 16

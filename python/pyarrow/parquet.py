@@ -18,6 +18,7 @@
 from collections import defaultdict
 from concurrent import futures
 
+from six.moves.urllib.parse import urlparse
 import json
 import numpy as np
 import os
@@ -34,8 +35,22 @@ from pyarrow._parquet import (ParquetReader, RowGroupStatistics,  # noqa
                               ParquetSchema, ColumnSchema)
 from pyarrow.compat import guid
 from pyarrow.filesystem import (LocalFileSystem, _ensure_filesystem,
-                                _get_fs_from_path)
+                                get_filesystem_from_uri)
 from pyarrow.util import _is_path_like, _stringify_path
+
+
+def _parse_uri(path):
+    path = _stringify_path(path)
+    return urlparse(path).path
+
+
+def _get_filesystem_and_path(passed_filesystem, path):
+    if passed_filesystem is None:
+        return get_filesystem_from_uri(path)
+    else:
+        passed_filesystem = _ensure_filesystem(passed_filesystem)
+        parsed_path = _parse_uri(path)
+        return passed_filesystem, parsed_path
 
 
 def _check_contains_null(val):
@@ -316,7 +331,8 @@ schema : arrow Schema
                  version='1.0',
                  use_dictionary=True,
                  compression='snappy',
-                 use_deprecated_int96_timestamps=None, **options):
+                 use_deprecated_int96_timestamps=None,
+                 filesystem=None, **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
             if flavor is not None and 'spark' in flavor:
@@ -338,8 +354,8 @@ schema : arrow Schema
         self.file_handle = None
 
         if _is_path_like(where):
-            fs = _get_fs_from_path(where)
-            sink = self.file_handle = fs.open(where, 'wb')
+            fs, path = _get_filesystem_and_path(filesystem, where)
+            sink = self.file_handle = fs.open(path, 'wb')
         else:
             sink = where
 
@@ -681,7 +697,8 @@ class ParquetManifest(object):
     """
     def __init__(self, dirpath, filesystem=None, pathsep='/',
                  partition_scheme='hive', metadata_nthreads=1):
-        self.filesystem = filesystem or _get_fs_from_path(dirpath)
+        filesystem, dirpath = _get_filesystem_and_path(filesystem, dirpath)
+        self.filesystem = filesystem
         self.pathsep = pathsep
         self.dirpath = _stringify_path(dirpath)
         self.partition_scheme = partition_scheme
@@ -845,15 +862,15 @@ class ParquetDataset(object):
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1):
-        if filesystem is None:
-            a_path = path_or_paths
-            if isinstance(a_path, list):
-                a_path = a_path[0]
-            self.fs = _get_fs_from_path(a_path)
-        else:
-            self.fs = _ensure_filesystem(filesystem)
+        a_path = path_or_paths
+        if isinstance(a_path, list):
+            a_path = a_path[0]
 
-        self.paths = path_or_paths
+        self.fs, _ = _get_filesystem_and_path(filesystem, a_path)
+        if isinstance(path_or_paths, list):
+            self.paths = [_parse_uri(path) for path in path_or_paths]
+        else:
+            self.paths = _parse_uri(path_or_paths)
 
         (self.pieces,
          self.partitions,
@@ -1070,10 +1087,11 @@ Returns
 
 
 def read_table(source, columns=None, use_threads=True, metadata=None,
-               use_pandas_metadata=False, memory_map=True):
+               use_pandas_metadata=False, memory_map=True,
+               filesystem=None):
     if _is_path_like(source):
-        fs = _get_fs_from_path(source)
-        return fs.read_parquet(source, columns=columns,
+        fs, path = _get_filesystem_and_path(filesystem, source)
+        return fs.read_parquet(path, columns=columns,
                                use_threads=use_threads, metadata=metadata,
                                use_pandas_metadata=use_pandas_metadata)
 
@@ -1113,12 +1131,13 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_deprecated_int96_timestamps=None,
                 coerce_timestamps=None,
                 allow_truncated_timestamps=False,
-                flavor=None, **kwargs):
+                flavor=None, filesystem=None, **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
     try:
         with ParquetWriter(
                 where, table.schema,
+                filesystem=filesystem,
                 version=version,
                 flavor=flavor,
                 use_dictionary=use_dictionary,
@@ -1192,10 +1211,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         Parameter for instantiating Table; preserve pandas index or not.
     **kwargs : dict, kwargs for write_table function.
     """
-    if filesystem is None:
-        fs = _get_fs_from_path(root_path)
-    else:
-        fs = _ensure_filesystem(filesystem)
+    fs, root_path = _get_filesystem_and_path(filesystem, root_path)
 
     _mkdir_if_not_exists(fs, root_path)
 
