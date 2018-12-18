@@ -43,14 +43,27 @@ using std::size_t;
 namespace arrow {
 namespace io {
 
-#define CHECK_FAILURE(RETURN_VALUE, WHAT)                                             \
-  do {                                                                                \
-    if (RETURN_VALUE == -1) {                                                         \
-      std::stringstream ss;                                                           \
-      ss << "HDFS " << WHAT << " failed, errno: " << errno << " (" << strerror(errno) \
-         << ")";                                                                      \
-      return Status::IOError(ss.str());                                               \
-    }                                                                                 \
+namespace {
+
+std::string TranslateErrno(int error_code) {
+  std::stringstream ss;
+  ss << error_code << " (" << strerror(error_code) << ")";
+  if (error_code == 255) {
+    // Unknown error can occur if the host is correct but the port is not
+    ss << " Please check that you are connecting to the correct HDFS RPC port";
+  }
+  return ss.str();
+}
+
+}  // namespace
+
+#define CHECK_FAILURE(RETURN_VALUE, WHAT)                                   \
+  do {                                                                      \
+    if (RETURN_VALUE == -1) {                                               \
+      std::stringstream ss;                                                 \
+      ss << "HDFS " << WHAT << " failed, errno: " << TranslateErrno(errno); \
+      return Status::IOError(ss.str());                                     \
+    }                                                                       \
   } while (0)
 
 static constexpr int kDefaultHdfsBufferSize = 1 << 16;
@@ -98,6 +111,16 @@ class HdfsAnyFileImpl {
 
   bool is_open_;
 };
+
+namespace {
+
+Status GetPathInfoFailed(const std::string& path) {
+  std::stringstream ss;
+  ss << "Calling GetPathInfo for " << path << " failed. errno: " << TranslateErrno(errno);
+  return Status::IOError(ss.str());
+}
+
+}  // namespace
 
 // Private implementation for read-only files
 class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
@@ -180,7 +203,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   Status GetSize(int64_t* size) {
     hdfsFileInfo* entry = driver_->GetPathInfo(fs_, path_.c_str());
     if (entry == nullptr) {
-      return Status::IOError("HDFS: GetPathInfo failed");
+      return GetPathInfoFailed(path_);
     }
 
     *size = entry->mSize;
@@ -204,7 +227,7 @@ HdfsReadableFile::HdfsReadableFile(MemoryPool* pool) {
   impl_.reset(new HdfsReadableFileImpl(pool));
 }
 
-HdfsReadableFile::~HdfsReadableFile() { DCHECK(impl_->Close().ok()); }
+HdfsReadableFile::~HdfsReadableFile() { DCHECK_OK(impl_->Close()); }
 
 Status HdfsReadableFile::Close() { return impl_->Close(); }
 
@@ -272,7 +295,7 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
 
 HdfsOutputStream::HdfsOutputStream() { impl_.reset(new HdfsOutputStreamImpl()); }
 
-HdfsOutputStream::~HdfsOutputStream() { DCHECK(impl_->Close().ok()); }
+HdfsOutputStream::~HdfsOutputStream() { DCHECK_OK(impl_->Close()); }
 
 Status HdfsOutputStream::Close() { return impl_->Close(); }
 
@@ -399,7 +422,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     hdfsFileInfo* entry = driver_->GetPathInfo(fs_, path.c_str());
 
     if (entry == nullptr) {
-      return Status::IOError("HDFS: GetPathInfo failed");
+      return GetPathInfoFailed(path);
     }
 
     SetPathInfo(entry, info);
@@ -444,8 +467,8 @@ class HadoopFileSystem::HadoopFileSystemImpl {
         num_entries = 0;
       } else {
         std::stringstream ss;
-        ss << "HDFS list directory failed, errno: " << errno << " (" << strerror(errno)
-           << ")";
+        ss << "HDFS list directory of " << path
+           << " failed, errno: " << TranslateErrno(errno);
         return Status::IOError(ss.str());
       }
     }
