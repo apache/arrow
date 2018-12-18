@@ -257,6 +257,22 @@ TYPED_TEST(TestHadoopFileSystem, GetPathInfo) {
   ASSERT_EQ(size, info.size);
 }
 
+TYPED_TEST(TestHadoopFileSystem, GetPathInfoNotExist) {
+  // ARROW-2919: Test that the error message is reasonable
+  SKIP_IF_NO_DRIVER();
+
+  ASSERT_OK(this->MakeScratchDir());
+  auto path = this->ScratchPath("path-does-not-exist");
+
+  HdfsPathInfo info;
+  Status s = this->client_->GetPathInfo(path, &info);
+
+  const std::string error_message = s.ToString();
+
+  // Check that the file path is found in the error message
+  ASSERT_LT(error_message.find(path), std::string::npos);
+}
+
 TYPED_TEST(TestHadoopFileSystem, AppendToFile) {
   SKIP_IF_NO_DRIVER();
 
