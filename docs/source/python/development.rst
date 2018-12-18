@@ -273,18 +273,28 @@ Building documentation
 
 To build the documentation:
 
-#. build the doxigen cpp api
+#. install the Sphinx+doxygen packages
 
    .. code-block:: shell
 
-      cd arrow/cpp/apidoc
-      doxygen
+          conda install --file ci/conda_env_sphinx.yml
 
-#. build the complete documentation using sphinx
+
+#. process the C++ API using Doxygen
 
    .. code-block:: shell
-      cd arrow/docs
-      make html
+
+      pushd cpp/apidoc
+        doxygen
+        popd
+
+#. build the complete documentation using Sphinx
+
+   .. code-block:: shell
+
+      pushd docs
+        make html
+        popd
 
 
 Known issues
