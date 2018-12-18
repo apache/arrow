@@ -15,11 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ADD_ARROW_TEST(json-parser-test)
+ADD_ARROW_TEST(parser-test
+  PREFIX "arrow-json")
 
-# Headers: top level
-file(GLOB_RECURSE ARROW_JSON_HEADERS "*.h")
+ADD_ARROW_BENCHMARK(parser-benchmark
+  PREFIX "arrow-json")
 
-install(FILES
-  ${ARROW_JSON_HEADERS}
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/json")
+ARROW_INSTALL_ALL_HEADERS("arrow/json")

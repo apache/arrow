@@ -1134,9 +1134,9 @@ class InferringHandler
 };
 
 template <unsigned Flags, typename Handler>
-Status BlockParser::DoParse(Handler& handler, const char* data, uint32_t size,
-                            uint32_t* out_size) {
-  rapidjson::GenericInsituStringStream<rapidjson::UTF8<>> ss(const_cast<char*>(data));
+Status BlockParser::DoParse(Handler& handler, string_view json) {
+  rapidjson::GenericInsituStringStream<rapidjson::UTF8<>> ss(
+      const_cast<char*>(json.data()));
   rapidjson::Reader reader;
 
   for (num_rows_ = 0; num_rows_ != max_num_rows_; ++num_rows_) {
@@ -1148,7 +1148,6 @@ Status BlockParser::DoParse(Handler& handler, const char* data, uint32_t size,
         continue;
       case rapidjson::kParseErrorDocumentEmpty: {
         // parsed all objects, finish
-        *out_size = static_cast<uint32_t>(ss.Tell());
         return Status::OK();
       }
       case rapidjson::kParseErrorTermination:
@@ -1162,7 +1161,7 @@ Status BlockParser::DoParse(Handler& handler, const char* data, uint32_t size,
   return Status::Invalid("Exceeded maximum rows");
 }
 
-Status BlockParser::Parse(const char* data, uint32_t size, uint32_t* out_size) {
+Status BlockParser::Parse(string_view json) {
   constexpr unsigned parse_flags =
       rapidjson::kParseInsituFlag | rapidjson::kParseIterativeFlag |
       rapidjson::kParseStopWhenDoneFlag | rapidjson::kParseNumbersAsStringsFlag;
@@ -1173,12 +1172,12 @@ Status BlockParser::Parse(const char* data, uint32_t size, uint32_t* out_size) {
     std::unique_ptr<ArrayBuilder> root_builder;
     RETURN_NOT_OK(MakeBuilder(pool_, struct_type, &root_builder));
     TypedHandler handler(static_cast<StructBuilder*>(root_builder.get()));
-    RETURN_NOT_OK(DoParse<parse_flags>(handler, data, size, out_size));
+    RETURN_NOT_OK(DoParse<parse_flags>(handler, json));
     RETURN_NOT_OK(root_builder->Finish(&array));
   } else {
     auto root_builder = make_unique<AdaptiveStructBuilder>(pool_);
     InferringHandler handler(root_builder.get());
-    RETURN_NOT_OK(DoParse<parse_flags>(handler, data, size, out_size));
+    RETURN_NOT_OK(DoParse<parse_flags>(handler, json));
     RETURN_NOT_OK(root_builder->Finish(&array));
   }
 

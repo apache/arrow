@@ -27,6 +27,7 @@
 #include "arrow/json/options.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -97,7 +98,7 @@ class ARROW_EXPORT BlockParser {
   ///
   /// Parse a block of JSON data, ingesting up to max_num_rows rows.
   /// The number of bytes actually parsed is returned in out_size.
-  Status Parse(const char* data, uint32_t size, uint32_t* out_size);
+  Status Parse(util::string_view json);
 
   /// \brief Extract parsed data as a RecordBatch
   Status Finish(std::shared_ptr<RecordBatch>* parsed) {
@@ -116,7 +117,7 @@ class ARROW_EXPORT BlockParser {
   ARROW_DISALLOW_COPY_AND_ASSIGN(BlockParser);
 
   template <unsigned Flags, typename Handler>
-  Status DoParse(Handler& handler, const char* data, uint32_t size, uint32_t* out_size);
+  Status DoParse(Handler& handler, util::string_view json);
 
   MemoryPool* pool_;
   const ParseOptions options_;
