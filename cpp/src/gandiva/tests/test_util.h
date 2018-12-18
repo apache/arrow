@@ -21,6 +21,7 @@
 #include <vector>
 #include "arrow/test-util.h"
 #include "gandiva/arrow.h"
+#include "gandiva/configuration.h"
 
 #ifndef GANDIVA_TEST_UTIL_H
 #define GANDIVA_TEST_UTIL_H
@@ -81,6 +82,10 @@ static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>& type,
 #define EXPECT_ARROW_ARRAY_EQUALS(a, b)                                \
   EXPECT_TRUE((a)->Equals(b)) << "expected array: " << (a)->ToString() \
                               << " actual array: " << (b)->ToString();
+
+#define EXPECT_ARROW_TYPE_EQUALS(a, b)                                \
+  EXPECT_TRUE((a)->Equals(b)) << "expected type: " << (a)->ToString() \
+                              << " actual type: " << (b)->ToString();
 
 std::shared_ptr<Configuration> TestConfiguration() {
   auto builder = ConfigurationBuilder();

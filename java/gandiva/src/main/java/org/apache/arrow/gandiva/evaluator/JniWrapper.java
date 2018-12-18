@@ -21,10 +21,9 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
 
 /**
  * This class is implemented in JNI. This provides the Java interface
- * to invoke functions in JNI
- *
- * This file is used to generated the .h files required for jni. Avoid all external dependencies in
- * this file.
+ * to invoke functions in JNI.
+ * This file is used to generated the .h files required for jni. Avoid all
+ * external dependencies in this file.
  */
 public class JniWrapper {
 

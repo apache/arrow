@@ -28,6 +28,7 @@ set(PRECOMPILED_SRCS
     string_ops.cc
     time.cc
     timestamp_arithmetic.cc
+    ../../arrow/status.cc
     ../../arrow/util/decimal.cc)
 
 # Create bitcode for each of the source files.

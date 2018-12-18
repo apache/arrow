@@ -272,8 +272,8 @@ Status DecimalIR::BuildAdd() {
   std::string function_name = "add_decimal128_decimal128";
   auto function = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage,
                                          function_name, module());
-  ARROW_RETURN_FAILURE_IF_FALSE((function != nullptr),
-                                Status::CodeGenError("Error creating function."));
+  ARROW_RETURN_IF((function == nullptr),
+                  Status::CodeGenError("Error creating function."));
   // Name the arguments
   llvm::Function::arg_iterator args = function->arg_begin();
   llvm::Value* x_value = &*args;
