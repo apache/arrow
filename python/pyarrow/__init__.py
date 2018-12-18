@@ -231,4 +231,8 @@ def get_library_dirs():
         if _os.path.exists(_os.path.join(library_lib, 'arrow.lib')):
             library_dirs.append(library_lib)
 
+    # ARROW-4074: Allow for ARROW_HOME to be set to some other directory
+    if 'ARROW_HOME' in _os.environ:
+        library_dirs.append(_os.path.join(_os.environ['ARROW_HOME'], 'lib'))
+
     return library_dirs
