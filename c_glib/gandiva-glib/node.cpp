@@ -514,8 +514,8 @@ ggandiva_null_literal_node_class_init(GGandivaNullLiteralNodeClass *klass)
 GGandivaNullLiteralNode *
 ggandiva_null_literal_node_new(GArrowDataType *return_type)
 {
-  auto arrow_data_type = garrow_data_type_get_raw(return_type);
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeNull(arrow_data_type);
+  auto arrow_return_type = garrow_data_type_get_raw(return_type);
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeNull(arrow_return_type);
   if (gandiva_node) {
     return GGANDIVA_NULL_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
                                                                     return_type));
