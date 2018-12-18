@@ -39,9 +39,9 @@
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/test-util.h"
 #include "arrow/compute/kernels/hash.h"
 #include "arrow/compute/kernels/util-internal.h"
+#include "arrow/compute/test-util.h"
 
 using std::shared_ptr;
 using std::vector;
@@ -339,7 +339,6 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
 
   AssertChunkedEqual(*dict_carr, *encoded_out.chunked_array());
 }
-
 
 }  // namespace compute
 }  // namespace arrow

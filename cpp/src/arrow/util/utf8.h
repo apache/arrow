@@ -159,7 +159,7 @@ inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
 }
 
 inline bool ValidateUTF8(const util::string_view& str) {
-  const uint8_t *data = reinterpret_cast<const uint8_t *>(str.data());
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
   const size_t length = str.size();
 
   return ValidateUTF8(data, length);

@@ -91,7 +91,6 @@ struct is_binary_to_string<
   static constexpr bool value = true;
 };
 
-
 // ----------------------------------------------------------------------
 // Zero copy casts
 

@@ -39,8 +39,8 @@
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/test-util.h"
 #include "arrow/compute/kernels/util-internal.h"
+#include "arrow/compute/test-util.h"
 
 using std::shared_ptr;
 using std::vector;
