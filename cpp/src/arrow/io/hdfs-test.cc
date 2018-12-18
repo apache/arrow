@@ -377,6 +377,8 @@ TYPED_TEST(TestHadoopFileSystem, LargeFile) {
   std::shared_ptr<HdfsReadableFile> file;
   ASSERT_OK(this->client_->OpenReadable(path, &file));
 
+  ASSERT_FALSE(file->closed());
+
   std::shared_ptr<Buffer> buffer;
   ASSERT_OK(AllocateBuffer(nullptr, size, &buffer));
 
