@@ -20,13 +20,13 @@ import six
 import decimal
 import json
 import multiprocessing as mp
-import hypothesis as h
-import hypothesis.strategies as st
-import hypothesis.extra.pytz as tzst
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
 
+import hypothesis as h
+import hypothesis.extra.pytz as tzst
+import hypothesis.strategies as st
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
@@ -35,9 +35,6 @@ import pytest
 import pytz
 
 import pyarrow as pa
-import pyarrow.types as patypes
-from pyarrow.compat import PY2
-
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
 
@@ -98,7 +95,7 @@ def _check_series_roundtrip(s, type_=None, expected_pa_type=None):
         assert arr.type == expected_pa_type
 
     result = pd.Series(arr.to_pandas(), name=s.name)
-    if patypes.is_timestamp(arr.type) and arr.type.tz is not None:
+    if pa.types.is_timestamp(arr.type) and arr.type.tz is not None:
         result = (result.dt.tz_localize('utc')
                   .dt.tz_convert(arr.type.tz))
 
@@ -259,12 +256,14 @@ class TestConvertMetadata(object):
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] == 'stringz'
         assert column_indexes['name'] == column_indexes['field_name']
-        assert column_indexes['pandas_type'] == ('bytes' if PY2 else 'unicode')
         assert column_indexes['numpy_type'] == 'object'
+        assert column_indexes['pandas_type'] == (
+            'bytes' if six.PY2 else 'unicode'
+        )
 
         md = column_indexes['metadata']
 
-        if not PY2:
+        if not six.PY2:
             assert len(md) == 1
             assert md['encoding'] == 'UTF-8'
         else:
