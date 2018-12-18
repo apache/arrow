@@ -16,3 +16,7 @@
 # under the License.
 
 ARROW_INSTALL_ALL_HEADERS("arrow/compute/kernels")
+
+ADD_ARROW_TEST(boolean-test PREFIX "arrow-compute")
+ADD_ARROW_TEST(cast-test PREFIX "arrow-compute")
+ADD_ARROW_TEST(hash-test PREFIX "arrow-compute")
