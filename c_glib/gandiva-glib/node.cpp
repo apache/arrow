@@ -1184,10 +1184,14 @@ GGandivaFieldNode *
 ggandiva_field_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                             GArrowField *field)
 {
+  auto arrow_return_type = (*gandiva_node)->return_type();
+  auto return_type = garrow_data_type_new_raw(&arrow_return_type);
   auto field_node = g_object_new(GGANDIVA_TYPE_FIELD_NODE,
                                  "node", gandiva_node,
                                  "field", field,
+                                 "return-type", return_type,
                                  NULL);
+  g_object_unref(return_type);
   return GGANDIVA_FIELD_NODE(field_node);
 }
 
