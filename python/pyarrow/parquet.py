@@ -867,12 +867,10 @@ class ParquetDataset(object):
             a_path = a_path[0]
 
         self.fs, _ = _get_filesystem_and_path(filesystem, a_path)
-        self.paths = path_or_paths
-
-        if isinstance(self.paths, list):
-            self.paths = [_parse_uri(path) for path in self.paths]
+        if isinstance(path_or_paths, list):
+            self.paths = [_parse_uri(path) for path in path_or_paths]
         else:
-            self.paths = _parse_uri(self.paths)
+            self.paths = _parse_uri(path_or_paths)
 
         (self.pieces,
          self.partitions,

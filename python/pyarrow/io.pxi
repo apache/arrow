@@ -128,18 +128,15 @@ cdef class NativeFile:
     cdef set_random_access_file(self, shared_ptr[RandomAccessFile] handle):
         self.input_stream = <shared_ptr[InputStream]> handle
         self.random_access = handle
-        self.is_readable = True
         self.is_seekable = True
 
     cdef set_input_stream(self, shared_ptr[InputStream] handle):
         self.input_stream = handle
         self.random_access.reset()
-        self.is_readable = True
         self.is_seekable = False
 
     cdef set_output_stream(self, shared_ptr[OutputStream] handle):
         self.output_stream = handle
-        self.is_writable = True
 
     cdef shared_ptr[RandomAccessFile] get_random_access_file(self) except *:
         self._assert_readable()

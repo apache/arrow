@@ -266,6 +266,7 @@ TYPED_TEST(TestHadoopFileSystem, GetPathInfoNotExist) {
 
   HdfsPathInfo info;
   Status s = this->client_->GetPathInfo(path, &info);
+  ASSERT_TRUE(s.IsIOError());
 
   const std::string error_message = s.ToString();
 

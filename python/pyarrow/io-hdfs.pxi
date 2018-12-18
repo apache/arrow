@@ -425,6 +425,7 @@ cdef class HadoopFileSystem:
                                   &wr_handle))
 
             out.set_output_stream(<shared_ptr[OutputStream]> wr_handle)
+            out.is_writable = True
         else:
             with nogil:
                 check_status(self.client.get()
@@ -432,6 +433,7 @@ cdef class HadoopFileSystem:
 
             out.set_random_access_file(
                 <shared_ptr[RandomAccessFile]> rd_handle)
+            out.is_readable = True
 
         assert not out.closed
 
