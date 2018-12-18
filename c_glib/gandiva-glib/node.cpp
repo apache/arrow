@@ -517,7 +517,8 @@ ggandiva_null_literal_node_new(GArrowDataType *return_type)
   auto arrow_data_type = garrow_data_type_get_raw(return_type);
   auto gandiva_node = gandiva::TreeExprBuilder::MakeNull(arrow_data_type);
   if (gandiva_node) {
-    return GGANDIVA_NULL_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+    return GGANDIVA_NULL_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    return_type));
   } else {
     return NULL;
   }
@@ -550,7 +551,8 @@ GGandivaBooleanLiteralNode *
 ggandiva_boolean_literal_node_new(gboolean value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(static_cast<bool>(value));
-  return GGANDIVA_BOOLEAN_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_BOOLEAN_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                     NULL));
 }
 
 /**
@@ -595,7 +597,8 @@ GGandivaInt8LiteralNode *
 ggandiva_int8_literal_node_new(gint8 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_INT8_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_INT8_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                  NULL));
 }
 
 /**
@@ -639,7 +642,8 @@ GGandivaUInt8LiteralNode *
 ggandiva_uint8_literal_node_new(guint8 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_UINT8_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_UINT8_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                   NULL));
 }
 
 /**
@@ -683,7 +687,8 @@ GGandivaInt16LiteralNode *
 ggandiva_int16_literal_node_new(gint16 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_INT16_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_INT16_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                   NULL));
 }
 
 /**
@@ -727,7 +732,8 @@ GGandivaUInt16LiteralNode *
 ggandiva_uint16_literal_node_new(guint16 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_UINT16_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_UINT16_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    NULL));
 }
 
 /**
@@ -771,7 +777,8 @@ GGandivaInt32LiteralNode *
 ggandiva_int32_literal_node_new(gint32 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_INT32_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_INT32_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                   NULL));
 }
 
 /**
@@ -815,7 +822,8 @@ GGandivaUInt32LiteralNode *
 ggandiva_uint32_literal_node_new(guint32 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_UINT32_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_UINT32_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    NULL));
 }
 
 /**
@@ -859,7 +867,8 @@ GGandivaInt64LiteralNode *
 ggandiva_int64_literal_node_new(gint64 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_INT64_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_INT64_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                   NULL));
 }
 
 /**
@@ -903,7 +912,8 @@ GGandivaUInt64LiteralNode *
 ggandiva_uint64_literal_node_new(guint64 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_UINT64_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_UINT64_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    NULL));
 }
 
 /**
@@ -947,7 +957,8 @@ GGandivaFloatLiteralNode *
 ggandiva_float_literal_node_new(gfloat value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_FLOAT_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_FLOAT_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                   NULL));
 }
 
 /**
@@ -991,7 +1002,8 @@ GGandivaDoubleLiteralNode *
 ggandiva_double_literal_node_new(gdouble value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_DOUBLE_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_DOUBLE_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    NULL));
 }
 
 /**
@@ -1064,7 +1076,8 @@ ggandiva_binary_literal_node_new(const guint8 *value,
   auto gandiva_node =
     gandiva::TreeExprBuilder::MakeBinaryLiteral(std::string(reinterpret_cast<const char *>(value),
                                                             size));
-  return GGANDIVA_BINARY_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_BINARY_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    NULL));
 }
 
 /**
@@ -1084,7 +1097,8 @@ ggandiva_binary_literal_node_new_bytes(GBytes *value)
     gandiva::TreeExprBuilder::MakeBinaryLiteral(
       std::string(reinterpret_cast<const char *>(raw_value),
                   value_size));
-  auto literal_node = ggandiva_literal_node_new_raw(&gandiva_node);
+  auto literal_node = ggandiva_literal_node_new_raw(&gandiva_node,
+                                                    NULL);
   auto priv = GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(literal_node);
   priv->value = value;
   g_bytes_ref(priv->value);
@@ -1138,7 +1152,8 @@ GGandivaStringLiteralNode *
 ggandiva_string_literal_node_new(const gchar *value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeStringLiteral(value);
-  return GGANDIVA_STRING_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node));
+  return GGANDIVA_STRING_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    NULL));
 }
 
 /**
@@ -1197,13 +1212,17 @@ ggandiva_function_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
 }
 
 GGandivaLiteralNode *
-ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
+ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
+                              GArrowDataType *return_type)
 {
   GType type;
 
   auto gandiva_literal_node =
     std::static_pointer_cast<gandiva::LiteralNode>(*gandiva_node);
   auto arrow_data_type = (*gandiva_node)->return_type();
+  if (!return_type) {
+    return_type = garrow_data_type_new_raw(&arrow_data_type);
+  }
 
   if (gandiva_literal_node->is_null()) {
     type = GGANDIVA_TYPE_NULL_LITERAL_NODE;
@@ -1253,11 +1272,10 @@ ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node)
       break;
     }
   }
-  auto data_type = garrow_data_type_new_raw(&arrow_data_type);
   auto literal_node =
     GGANDIVA_LITERAL_NODE(g_object_new(type,
                                        "node", gandiva_node,
-                                       "return-type", data_type,
+                                       "return-type", return_type,
                                        NULL));
   return literal_node;
 }
