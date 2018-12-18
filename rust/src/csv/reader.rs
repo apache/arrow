@@ -88,39 +88,7 @@ impl Reader {
             batch_size,
         }
     }
-}
 
-fn build_primitive_array<T: ArrowPrimitiveType>(
-    rows: &[StringRecord],
-    col_idx: &usize,
-) -> Result<ArrayRef> {
-    let mut builder = PrimitiveArrayBuilder::<T>::new(rows.len());
-    for row_index in 0..rows.len() {
-        let is_boolean_type = TypeId::of::<T>() == TypeId::of::<BooleanType>();
-        match rows[row_index].get(*col_idx) {
-            Some(s) if s.len() > 0 => {
-                let mut ss = s.to_string();
-                if is_boolean_type {
-                    ss = s.to_lowercase();
-                }
-                match ss.parse::<T::Native>() {
-                    Ok(v) => builder.push(v)?,
-                    Err(_) => {
-                        // TODO: we should surface the underlying error here.
-                        return Err(ArrowError::ParseError(format!(
-                            "Error while parsing value {}",
-                            s
-                        )));
-                    }
-                }
-            }
-            _ => builder.push_null().unwrap(),
-        }
-    }
-    Ok(Arc::new(builder.finish()) as ArrayRef)
-}
-
-impl Reader {
     /// Read the next batch of rows
     pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         // read a batch of rows into memory
@@ -199,6 +167,37 @@ impl Reader {
             Err(e) => Err(e),
         }
     }
+}
+
+fn build_primitive_array<T: ArrowPrimitiveType>(
+    rows: &[StringRecord],
+    col_idx: &usize,
+) -> Result<ArrayRef> {
+    let mut builder = PrimitiveArrayBuilder::<T>::new(rows.len());
+    let is_boolean_type = TypeId::of::<T>() == TypeId::of::<BooleanType>();
+    for row_index in 0..rows.len() {
+        match rows[row_index].get(*col_idx) {
+            Some(s) if s.len() > 0 => {
+                let t = if is_boolean_type {
+                    s.to_lowercase().parse::<T::Native>()
+                } else {
+                    s.parse::<T::Native>()
+                };
+                match t {
+                    Ok(v) => builder.push(v)?,
+                    Err(_) => {
+                        // TODO: we should surface the underlying error here.
+                        return Err(ArrowError::ParseError(format!(
+                            "Error while parsing value {}",
+                            s
+                        )));
+                    }
+                }
+            }
+            _ => builder.push_null()?,
+        }
+    }
+    Ok(Arc::new(builder.finish()) as ArrayRef)
 }
 
 #[cfg(test)]
