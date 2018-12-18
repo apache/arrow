@@ -40,6 +40,7 @@
 //! let batch = csv.next().unwrap().unwrap();
 //! ```
 
+use std::any::TypeId;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
@@ -95,17 +96,24 @@ fn build_primitive_array<T: ArrowPrimitiveType>(
 ) -> Result<ArrayRef> {
     let mut builder = PrimitiveArrayBuilder::<T>::new(rows.len());
     for row_index in 0..rows.len() {
+        let is_boolean_type = TypeId::of::<T>() == TypeId::of::<BooleanType>();
         match rows[row_index].get(*col_idx) {
-            Some(s) if s.len() > 0 => match s.parse::<T::Native>() {
-                Ok(v) => builder.push(v)?,
-                Err(_) => {
-                    // TODO: we should surface the underlying error here.
-                    return Err(ArrowError::ParseError(format!(
-                        "Error while parsing value {}",
-                        s
-                    )));
+            Some(s) if s.len() > 0 => {
+                let mut ss = s.to_string();
+                if is_boolean_type {
+                    ss = s.to_lowercase();
                 }
-            },
+                match ss.parse::<T::Native>() {
+                    Ok(v) => builder.push(v)?,
+                    Err(_) => {
+                        // TODO: we should surface the underlying error here.
+                        return Err(ArrowError::ParseError(format!(
+                            "Error while parsing value {}",
+                            s
+                        )));
+                    }
+                }
+            }
             _ => builder.push_null().unwrap(),
         }
     }
