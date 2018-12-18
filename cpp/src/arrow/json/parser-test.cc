@@ -81,9 +81,8 @@ TEST(BlockParserWithSchema, Basics) {
   options.explicit_schema =
       schema({field("hello", float64()), field("world", boolean()), field("yo", utf8())});
   BlockParser parser(options);
-  uint32_t out_size;
   std::string src(scalars_only_src);
-  ASSERT_OK(parser.Parse(src.data(), static_cast<uint32_t>(src.size()), &out_size));
+  ASSERT_OK(parser.Parse(src));
   std::shared_ptr<RecordBatch> parsed;
   ASSERT_OK(parser.Finish(&parsed));
 
@@ -103,8 +102,7 @@ TEST(BlockParserWithSchema, Empty) {
   options.explicit_schema =
       schema({field("hello", float64()), field("world", boolean()), field("yo", utf8())});
   BlockParser parser(options);
-  uint32_t out_size;
-  ASSERT_OK(parser.Parse("", 0, &out_size));
+  ASSERT_OK(parser.Parse({"", 0}));
   std::shared_ptr<RecordBatch> parsed;
   ASSERT_OK(parser.Finish(&parsed));
 
@@ -122,9 +120,8 @@ TEST(BlockParserWithSchema, SkipFieldsOutsideSchema) {
   auto options = ParseOptions::Defaults();
   options.explicit_schema = schema({field("hello", float64()), field("yo", utf8())});
   BlockParser parser(options);
-  uint32_t out_size;
   std::string src(scalars_only_src);
-  ASSERT_OK(parser.Parse(src.data(), static_cast<uint32_t>(src.size()), &out_size));
+  ASSERT_OK(parser.Parse(src));
   std::shared_ptr<RecordBatch> parsed;
   ASSERT_OK(parser.Finish(&parsed));
 
@@ -141,9 +138,8 @@ TEST(BlockParserWithSchema, FailOnInconvertible) {
   auto options = ParseOptions::Defaults();
   options.explicit_schema = schema({field("a", int32())});
   BlockParser parser(options);
-  uint32_t out_size;
-  char a_changes_type[] = "{\"a\":0}\n{\"a\":true}";
-  ASSERT_RAISES(Invalid, parser.Parse(a_changes_type, sizeof(a_changes_type), &out_size));
+  std::string a_changes_type = "{\"a\":0}\n{\"a\":true}";
+  ASSERT_RAISES(Invalid, parser.Parse(a_changes_type));
 }
 
 TEST(BlockParserWithSchema, Nested) {
@@ -153,9 +149,8 @@ TEST(BlockParserWithSchema, Nested) {
   options.explicit_schema =
       schema({field("yo", utf8()), field("arr", arr_type), field("nuf", nuf_type)});
   BlockParser parser(options);
-  uint32_t out_size;
   std::string src(nested_src);
-  ASSERT_OK(parser.Parse(src.data(), static_cast<uint32_t>(src.size()), &out_size));
+  ASSERT_OK(parser.Parse(src));
   std::shared_ptr<RecordBatch> parsed;
   ASSERT_OK(parser.Finish(&parsed));
 
@@ -196,17 +191,15 @@ TEST(BlockParserWithSchema, FailOnIncompleteJson) {
   auto options = ParseOptions::Defaults();
   options.explicit_schema = schema({field("a", int32())});
   BlockParser parser(options);
-  uint32_t out_size;
-  char incomplete[] = "{\"a\":0, \"b\"";
-  ASSERT_RAISES(Invalid, parser.Parse(incomplete, sizeof(incomplete), &out_size));
+  std::string incomplete = "{\"a\":0, \"b\"";
+  ASSERT_RAISES(Invalid, parser.Parse(incomplete));
 }
 
 TEST(BlockParser, Basics) {
   auto options = ParseOptions::Defaults();
   BlockParser parser(options);
-  uint32_t out_size;
   std::string src(scalars_only_src);
-  ASSERT_OK(parser.Parse(src.data(), static_cast<uint32_t>(src.size()), &out_size));
+  ASSERT_OK(parser.Parse(src));
   std::shared_ptr<RecordBatch> parsed;
   ASSERT_OK(parser.Finish(&parsed));
 
@@ -224,18 +217,16 @@ TEST(BlockParser, Basics) {
 TEST(BlockParser, FailOnInconvertible) {
   auto options = ParseOptions::Defaults();
   BlockParser parser(options);
-  uint32_t out_size;
-  char a_changes_type[] = "{\"a\":0}\n{\"a\":true}";
-  ASSERT_RAISES(Invalid, parser.Parse(a_changes_type, sizeof(a_changes_type), &out_size));
+  std::string a_changes_type = "{\"a\":0}\n{\"a\":true}";
+  ASSERT_RAISES(Invalid, parser.Parse(a_changes_type));
 }
 
 TEST(BlockParser, Nested) {
   auto options = ParseOptions::Defaults();
   auto nuf_type = struct_({field("ps", int64())});
   BlockParser parser(options);
-  uint32_t out_size;
   std::string src(nested_src);
-  ASSERT_OK(parser.Parse(src.data(), static_cast<uint32_t>(src.size()), &out_size));
+  ASSERT_OK(parser.Parse(src));
   std::shared_ptr<RecordBatch> parsed;
   ASSERT_OK(parser.Finish(&parsed));
 
