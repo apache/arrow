@@ -263,5 +263,36 @@ TEST(BlockParser, Nested) {
   AssertArraysEqual(*nuf_expected, *GetColumn(*parsed, "nuf"));
 }
 
+TEST(BlockParser, NegativeZeroConsistency) {
+  auto options = ParseOptions::Defaults();
+
+  DoubleBuilder double_builder;
+  ASSERT_OK(double_builder.AppendValues({0, -0.0, 0}));
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(double_builder.Finish(&expected));
+
+  std::shared_ptr<Array> after_float;
+  {
+    BlockParser parser(options);
+    std::string src = "{\"a\":0.0}\n{\"a\":-0}\n{\"a\":0}";
+    ASSERT_OK(parser.Parse(src));
+    std::shared_ptr<RecordBatch> parsed;
+    ASSERT_OK(parser.Finish(&parsed));
+    after_float = GetColumn(*parsed, "a");
+    AssertArraysEqual(*expected, *after_float);
+  }
+
+  std::shared_ptr<Array> before_float;
+  {
+    BlockParser parser(options);
+    std::string src = "{\"a\":0}\n{\"a\":-0}\n{\"a\":0.0}";
+    ASSERT_OK(parser.Parse(src));
+    std::shared_ptr<RecordBatch> parsed;
+    ASSERT_OK(parser.Finish(&parsed));
+    before_float = GetColumn(*parsed, "a");
+    AssertArraysEqual(*expected, *before_float);
+  }
+}
+
 }  // namespace json
 }  // namespace arrow
