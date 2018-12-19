@@ -15,7 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-boost-cpp
+# ARROW-4056: The conda-forge boost 1.69.0 seems to break the Parquet unit
+# tests with Xcode 8.3. Root cause not yet determined
+boost-cpp=1.68.0
 brotli
 bzip2
 cmake
