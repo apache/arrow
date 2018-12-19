@@ -890,7 +890,7 @@ cdef class RecordBatch:
     def to_pandas(self, MemoryPool memory_pool=None, categories=None,
                   bint strings_to_categorical=False, bint zero_copy_only=False,
                   bint integer_object_nulls=False, bint date_as_object=False,
-                  bint use_threads=True):
+                  bint use_threads=True, bint ignore_metadata=False):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
 
@@ -911,6 +911,9 @@ cdef class RecordBatch:
             Cast dates to objects
         use_threads: boolean, default True
             Whether to parallelize the conversion using multiple threads
+        ignore_metadata : boolean, default False
+            If True, do not use the 'pandas' metadata to reconstruct the
+            DataFrame index, if present
 
         Returns
         -------
@@ -921,7 +924,8 @@ cdef class RecordBatch:
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
             integer_object_nulls=integer_object_nulls,
-            date_as_object=date_as_object, use_threads=use_threads
+            date_as_object=date_as_object, use_threads=use_threads,
+            ignore_metadata=ignore_metadata
         )
 
     @classmethod
@@ -1385,7 +1389,7 @@ cdef class Table:
     def to_pandas(self, MemoryPool memory_pool=None, categories=None,
                   bint strings_to_categorical=False, bint zero_copy_only=False,
                   bint integer_object_nulls=False, bint date_as_object=False,
-                  bint use_threads=True):
+                  bint use_threads=True, bint ignore_metadata=False):
         """
         Convert the arrow::Table to a pandas DataFrame
 
@@ -1406,6 +1410,9 @@ cdef class Table:
             Cast dates to objects
         use_threads: boolean, default True
             Whether to parallelize the conversion using multiple threads
+        ignore_metadata : boolean, default False
+            If True, do not use the 'pandas' metadata to reconstruct the
+            DataFrame index, if present
 
         Returns
         -------
@@ -1422,7 +1429,8 @@ cdef class Table:
             use_threads=use_threads)
 
         mgr = pdcompat.table_to_blockmanager(options, self, memory_pool,
-                                             categories)
+                                             categories,
+                                             ignore_metadata=ignore_metadata)
         return pd.DataFrame(mgr)
 
     def to_pydict(self):
