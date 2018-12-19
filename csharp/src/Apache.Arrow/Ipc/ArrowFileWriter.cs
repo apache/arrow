@@ -81,6 +81,7 @@ namespace Apache.Arrow.Ipc
         {
             try
             {
+                // TODO: Bad idea...
                 CloseAsync().GetAwaiter().GetResult();
             }
             catch(Exception ex)
@@ -144,10 +145,12 @@ namespace Apache.Arrow.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            Buffers.RentReturn(4, (buffer) =>
+            await Buffers.RentReturnAsync(4, (buffer) =>
             {
                 BinaryPrimitives.WriteInt32LittleEndian(buffer,
                     Convert.ToInt32(BaseStream.Position - offset));
+
+                return BaseStream.WriteAsync(buffer, 0, 4, cancellationToken);
             });
 
             // Write magic
