@@ -213,17 +213,31 @@ cdef class StructType(DataType):
         DataType.init(self, type)
         self.struct_type = <const CStructType*> type.get()
 
-    cdef Field child_by_name(self, name):
+    cpdef Field field(self, int i):
+        """
+        Alias for child(i)
+        """
+        return self.child(i)
+
+    cpdef Field field_by_name(self, name):
         """
         Access a child field by its name rather than the column index.
         """
         cdef shared_ptr[CField] field
 
-        field = self.struct_type.GetChildByName(tobytes(name))
+        field = self.struct_type.GetFieldByName(tobytes(name))
         if field == nullptr:
             raise KeyError(name)
 
         return pyarrow_wrap_field(field)
+
+    cpdef Field child_by_name(self, name):
+        """
+        Deprecated since 0.12
+        """
+        warnings.warn("child_by_name is deprecated, use field_by_name",
+                      FutureWarning)
+        return self.field_by_name(name)
 
     def __len__(self):
         return self.type.num_children()
@@ -234,7 +248,7 @@ cdef class StructType(DataType):
 
     def __getitem__(self, i):
         if isinstance(i, six.string_types):
-            return self.child_by_name(i)
+            return self.field_by_name(i)
         elif isinstance(i, six.integer_types):
             return self.child(i)
         else:

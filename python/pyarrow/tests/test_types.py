@@ -243,8 +243,10 @@ def test_struct_type():
     with pytest.raises(IndexError):
         assert ty[3]
 
-    assert ty['a'] == ty[1]
     assert ty['b'] == ty[2]
+    with pytest.raises(KeyError):
+        ty['a']
+
     with pytest.raises(KeyError):
         ty['c']
 
@@ -274,6 +276,19 @@ def test_struct_type():
     # Invalid args
     with pytest.raises(TypeError):
         pa.struct([('a', None)])
+
+
+def test_struct_type_field_by_name():
+    typ = pa.struct([pa.field('a', pa.int64()),
+                     pa.field('b', pa.int32()),
+                     pa.field('c', pa.int32()),
+                     # Duplicate on purpose
+                     pa.field('c', pa.int32())])
+
+    assert typ.field_by_name('b') == typ[1]
+
+    with pytest.raises(KeyError):
+        typ.field_by_name('c')
 
 
 def test_union_type():

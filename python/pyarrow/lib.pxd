@@ -65,7 +65,9 @@ cdef class StructType(DataType):
     cdef:
         const CStructType* struct_type
 
-    cdef Field child_by_name(self, name)
+    cpdef Field child_by_name(self, name)
+    cpdef Field field(self, int i)
+    cpdef Field field_by_name(self, name)
 
 
 cdef class DictionaryType(DataType):
