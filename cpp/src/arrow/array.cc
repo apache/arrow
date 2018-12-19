@@ -33,6 +33,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/visitor.h"
@@ -661,6 +662,66 @@ std::shared_ptr<Array> DictionaryArray::indices() const { return indices_; }
 
 std::shared_ptr<Array> DictionaryArray::dictionary() const {
   return dict_type_->dictionary();
+}
+
+template <typename InType, typename OutType>
+static Status TransposeDictIndices(MemoryPool* pool, const ArrayData& in_data,
+                                   const std::shared_ptr<DataType>& type,
+                                   const std::vector<int32_t>& transpose_map,
+                                   std::shared_ptr<Array>* out) {
+  using in_c_type = typename InType::c_type;
+  using out_c_type = typename OutType::c_type;
+
+  std::shared_ptr<Buffer> out_buffer;
+  RETURN_NOT_OK(AllocateBuffer(pool, in_data.length * sizeof(out_c_type), &out_buffer));
+  // Null bitmap is unchanged
+  auto out_data = ArrayData::Make(type, in_data.length, {in_data.buffers[0], out_buffer},
+                                  in_data.null_count);
+  internal::TransposeInts(in_data.GetValues<in_c_type>(1),
+                          out_data->GetMutableValues<out_c_type>(1), in_data.length,
+                          transpose_map.data());
+  *out = MakeArray(out_data);
+  return Status::OK();
+}
+
+Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                                  const std::vector<int32_t>& transpose_map,
+                                  std::shared_ptr<Array>* out) const {
+  DCHECK_EQ(type->id(), Type::DICTIONARY);
+  const auto& out_dict_type = checked_cast<const DictionaryType&>(*type);
+
+  // XXX We'll probably want to make this operation a kernel when we
+  // implement dictionary-to-dictionary casting.
+  auto in_type_id = dict_type_->index_type()->id();
+  auto out_type_id = out_dict_type.index_type()->id();
+
+#define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)                        \
+  case OUT_INDEX_TYPE::type_id:                                                     \
+    return TransposeDictIndices<IN_INDEX_TYPE, OUT_INDEX_TYPE>(pool, *data(), type, \
+                                                               transpose_map, out);
+
+#define TRANSPOSE_IN_CASE(IN_INDEX_TYPE)                        \
+  case IN_INDEX_TYPE::type_id:                                  \
+    switch (out_type_id) {                                      \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int8Type)            \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int16Type)           \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int32Type)           \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int64Type)           \
+      default:                                                  \
+        return Status::NotImplemented("unexpected index type"); \
+    }
+
+  switch (in_type_id) {
+    TRANSPOSE_IN_CASE(Int8Type)
+    TRANSPOSE_IN_CASE(Int16Type)
+    TRANSPOSE_IN_CASE(Int32Type)
+    TRANSPOSE_IN_CASE(Int64Type)
+    default:
+      return Status::NotImplemented("unexpected index type");
+  }
+
+#undef TRANSPOSE_IN_OUT_CASE
+#undef TRANSPOSE_IN_CASE
 }
 
 // ----------------------------------------------------------------------
