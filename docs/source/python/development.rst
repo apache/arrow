@@ -99,7 +99,6 @@ On Windows:
 
    activate pyarrow-dev
 
-
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
 
@@ -110,7 +109,6 @@ about our build toolchain:
    export ARROW_HOME=$CONDA_PREFIX
    export PARQUET_HOME=$CONDA_PREFIX
    export BOOST_HOME=$CONDA_PREFIX
-
 
 Using pip
 ~~~~~~~~~
@@ -273,7 +271,6 @@ we recommend the following:
 
 #. Add ``-DARROW_ORC=on`` to the CMake flags.
 #. Add ``--with-orc`` to the ``setup.py`` flags.
-
 
 Known issues
 ------------
