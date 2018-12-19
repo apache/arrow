@@ -103,12 +103,11 @@ Status Engine::LoadPreCompiledIRFiles(const std::string& byte_code_file_path) {
   /// Read from file into memory buffer.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =
       llvm::MemoryBuffer::getFile(byte_code_file_path);
-  if (!buffer_or_error) {
-    std::stringstream ss;
-    ss << "Could not load module from IR " << byte_code_file_path << ": "
-       << buffer_or_error.getError().message();
-    return Status::CodeGenError(ss.str());
-  }
+  ARROW_RETURN_IF(
+      !buffer_or_error,
+      Status::CodeGenError("Could not load module from IR ", byte_code_file_path, ": ",
+                           buffer_or_error.getError().message()));
+
   std::unique_ptr<llvm::MemoryBuffer> buffer = move(buffer_or_error.get());
 
   /// Parse the IR module.
@@ -123,15 +122,11 @@ Status Engine::LoadPreCompiledIRFiles(const std::string& byte_code_file_path) {
   }
   std::unique_ptr<llvm::Module> ir_module = move(module_or_error.get());
 
-  /// Verify the IR module
-  if (llvm::verifyModule(*ir_module, &llvm::errs())) {
-    return Status::CodeGenError("verify of IR Module failed");
-  }
+  ARROW_RETURN_IF(llvm::verifyModule(*ir_module, &llvm::errs()),
+                  Status::CodeGenError("verify of IR Module failed"));
+  ARROW_RETURN_IF(llvm::Linker::linkModules(*module_, move(ir_module)),
+                  Status::CodeGenError("failed to link IR Modules"));
 
-  // Link this to the primary module.
-  if (llvm::Linker::linkModules(*module_, move(ir_module))) {
-    return Status::CodeGenError("failed to link IR Modules");
-  }
   return Status::OK();
 }
 
@@ -197,13 +192,13 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
     }
   }
 
-  if (llvm::verifyModule(*module_, &llvm::errs())) {
-    return Status::CodeGenError("verify of module failed after optimisation passes");
-  }
+  ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
+                  Status::CodeGenError("Module verification failed after optimizer"));
 
   // do the compilation
   execution_engine_->finalizeObject();
   module_finalized_ = true;
+
   return Status::OK();
 }
 

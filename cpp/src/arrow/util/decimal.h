@@ -149,9 +149,8 @@ class ARROW_EXPORT Decimal128 {
     constexpr auto max_value = std::numeric_limits<T>::max();
     const auto& self = *this;
     if (self < min_value || self > max_value) {
-      std::stringstream buf;
-      buf << "Invalid cast from Decimal128 to " << sizeof(T) << " byte integer";
-      return Status::Invalid(buf.str());
+      return Status::Invalid("Invalid cast from Decimal128 to ", sizeof(T),
+                             " byte integer");
     }
     *out = static_cast<T>(low_bits_);
     return Status::OK();

@@ -192,7 +192,7 @@ TEST_F(TestProjector, TestIfNotMatchingReturnType) {
   Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
   std::string expected_error = "Return type of if bool and then int32 not matching.";
-  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+  EXPECT_EQ(status.message(), expected_error);
 }
 
 TEST_F(TestProjector, TestElseNotMatchingReturnType) {
@@ -219,7 +219,7 @@ TEST_F(TestProjector, TestElseNotMatchingReturnType) {
   Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
   std::string expected_error = "Return type of if int32 and else bool not matching.";
-  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+  EXPECT_EQ(status.message(), expected_error);
 }
 
 TEST_F(TestProjector, TestElseNotSupportedType) {
@@ -267,7 +267,7 @@ TEST_F(TestProjector, TestAndMinChildren) {
   Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
   std::string expected_error = "Boolean expression has 1 children, expected atleast two";
-  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+  EXPECT_EQ(status.message(), expected_error);
 }
 
 TEST_F(TestProjector, TestAndBooleanArgType) {
@@ -292,7 +292,7 @@ TEST_F(TestProjector, TestAndBooleanArgType) {
   std::string expected_error =
       "Boolean expression has a child with return type int32, expected return type "
       "boolean";
-  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+  EXPECT_EQ(status.message(), expected_error);
 }
 
 }  // namespace gandiva

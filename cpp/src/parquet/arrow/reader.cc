@@ -690,10 +690,8 @@ Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indice
   int max_num = num_row_groups();
   for (auto row_group_index : row_group_indices) {
     if (row_group_index < 0 || row_group_index >= max_num) {
-      std::ostringstream ss;
-      ss << "Some index in row_group_indices is " << row_group_index
-         << ", which is either < 0 or >= num_row_groups(" << max_num << ")";
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Some index in row_group_indices is ", row_group_index,
+                             ", which is either < 0 or >= num_row_groups(", max_num, ")");
     }
   }
 
@@ -1495,9 +1493,8 @@ Status PrimitiveImpl::NextBatch(int64_t records_to_read,
       TRANSFER_CASE(TIME32, ::arrow::Time32Type, Int32Type)
       TRANSFER_CASE(TIME64, ::arrow::Time64Type, Int64Type)
     default:
-      std::stringstream ss;
-      ss << "No support for reading columns of type " << field_->type()->ToString();
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("No support for reading columns of type ",
+                                    field_->type()->ToString());
   }
 
   DCHECK_NE(result.kind(), Datum::NONE);

@@ -44,10 +44,10 @@ LLVMGenerator::LLVMGenerator()
 Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
                            std::unique_ptr<LLVMGenerator>* llvm_generator) {
   std::unique_ptr<LLVMGenerator> llvmgen_obj(new LLVMGenerator());
-  Status status = Engine::Make(config, &(llvmgen_obj->engine_));
-  ARROW_RETURN_NOT_OK(status);
 
+  ARROW_RETURN_NOT_OK(Engine::Make(config, &(llvmgen_obj->engine_)));
   *llvm_generator = std::move(llvmgen_obj);
+
   return Status::OK();
 }
 
@@ -57,33 +57,29 @@ Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr out
   // decompose the expression to separate out value and validities.
   ExprDecomposer decomposer(function_registry_, annotator_);
   ValueValidityPairPtr value_validity;
-  auto status = decomposer.Decompose(*expr->root(), &value_validity);
-  ARROW_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(decomposer.Decompose(*expr->root(), &value_validity));
 
   // Generate the IR function for the decomposed expression.
   llvm::Function* ir_function = nullptr;
-  status = CodeGenExprValue(value_validity->value_expr(), output, idx, &ir_function);
-  ARROW_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(
+      CodeGenExprValue(value_validity->value_expr(), output, idx, &ir_function));
 
   std::unique_ptr<CompiledExpr> compiled_expr(
       new CompiledExpr(value_validity, output, ir_function));
   compiled_exprs_.push_back(std::move(compiled_expr));
+
   return Status::OK();
 }
 
 /// Build and optimise module for projection expression.
 Status LLVMGenerator::Build(const ExpressionVector& exprs) {
-  Status status;
-
   for (auto& expr : exprs) {
     auto output = annotator_.AddOutputFieldDescriptor(expr->result());
-    status = Add(expr, output);
-    ARROW_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(Add(expr, output));
   }
 
-  // optimise, compile and finalize the module
-  status = engine_->FinalizeModule(optimise_ir_, dump_ir_);
-  ARROW_RETURN_NOT_OK(status);
+  // Optimize, compile and finalize the module
+  ARROW_RETURN_NOT_OK(engine_->FinalizeModule(optimise_ir_, dump_ir_));
 
   // setup the jit functions for each expression.
   for (auto& compiled_expr : compiled_exprs_) {
@@ -91,6 +87,7 @@ Status LLVMGenerator::Build(const ExpressionVector& exprs) {
     EvalFunc fn = reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_func));
     compiled_expr->set_jit_function(fn);
   }
+
   return Status::OK();
 }
 
@@ -107,13 +104,15 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
     EvalFunc jit_function = compiled_expr->jit_function();
     jit_function(eval_batch->GetBufferArray(), eval_batch->GetLocalBitMapArray(),
                  (int64_t)eval_batch->GetExecutionContext(), record_batch.num_rows());
-    // check for execution errors
-    if (eval_batch->GetExecutionContext()->has_error()) {
-      return Status::ExecutionError(eval_batch->GetExecutionContext()->get_error());
-    }
+
+    ARROW_RETURN_IF(
+        eval_batch->GetExecutionContext()->has_error(),
+        Status::ExecutionError(eval_batch->GetExecutionContext()->get_error()));
+
     // generate validity vectors.
     ComputeBitMapsForExpr(*compiled_expr, *eval_batch);
   }
+
   return Status::OK();
 }
 
@@ -233,8 +232,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
   engine_->AddFunctionToCompile(func_name);
   *fn = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, func_name,
                                module());
-  ARROW_RETURN_FAILURE_IF_FALSE((*fn != nullptr),
-                                Status::CodeGenError("Error creating function."));
+  ARROW_RETURN_IF((*fn == nullptr), Status::CodeGenError("Error creating function."));
+
   // Name the arguments
   llvm::Function::arg_iterator args = (*fn)->arg_begin();
   llvm::Value* arg_addrs = &*args;
@@ -396,6 +395,7 @@ llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
     value = ir_builder()->CreateCall(fn, args, full_name);
     DCHECK(value->getType() == ret_type);
   }
+
   return value;
 }
 

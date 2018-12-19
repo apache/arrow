@@ -283,9 +283,8 @@ class NumPyConverter {
   }
 
   Status TypeNotImplemented(std::string type_name) {
-    std::stringstream ss;
-    ss << "NumPyConverter doesn't implement <" << type_name << "> conversion. ";
-    return Status::NotImplemented(ss.str());
+    return Status::NotImplemented("NumPyConverter doesn't implement <", type_name,
+                                  "> conversion. ");
   }
 
   MemoryPool* pool_;
@@ -574,9 +573,8 @@ Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {
   auto byte_width = type.byte_width();
 
   if (itemsize_ != byte_width) {
-    std::stringstream ss;
-    ss << "Got bytestring of length " << itemsize_ << " (expected " << byte_width << ")";
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Got bytestring of length ", itemsize_, " (expected ",
+                           byte_width, ")");
   }
 
   FixedSizeBinaryBuilder builder(::arrow::fixed_size_binary(byte_width), pool_);
@@ -651,9 +649,8 @@ Status NumPyConverter::Visit(const StringType& type) {
       if (ARROW_PREDICT_TRUE(util::ValidateUTF8(data, itemsize_))) {
         return builder.Append(data, itemsize_);
       } else {
-        std::stringstream ss;
-        ss << "Encountered non-UTF8 binary value: " << HexEncode(data, itemsize_);
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Encountered non-UTF8 binary value: ",
+                               HexEncode(data, itemsize_));
       }
     } else {
       return AppendUTF32(reinterpret_cast<const char*>(data), itemsize_, byteorder,
@@ -697,9 +694,7 @@ Status NumPyConverter::Visit(const StructType& type) {
     for (auto field : type.children()) {
       PyObject* tup = PyDict_GetItemString(dtype_->fields, field->name().c_str());
       if (tup == NULL) {
-        std::stringstream ss;
-        ss << "Missing field '" << field->name() << "' in struct array";
-        return Status::TypeError(ss.str());
+        return Status::TypeError("Missing field '", field->name(), "' in struct array");
       }
       PyArray_Descr* sub_dtype =
           reinterpret_cast<PyArray_Descr*>(PyTuple_GET_ITEM(tup, 0));

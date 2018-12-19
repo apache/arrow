@@ -30,9 +30,7 @@ namespace arrow {
 namespace csv {
 
 static Status ParseError(const char* message) {
-  std::stringstream ss;
-  ss << "CSV parse error: " << message;
-  return Status::Invalid(ss.str());
+  return Status::Invalid("CSV parse error: ", message);
 }
 
 static Status MismatchingColumns(int32_t expected, int32_t actual) {
