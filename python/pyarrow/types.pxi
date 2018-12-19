@@ -213,13 +213,13 @@ cdef class StructType(DataType):
         DataType.init(self, type)
         self.struct_type = <const CStructType*> type.get()
 
-    cpdef Field field(self, int i):
+    cdef Field field(self, int i):
         """
         Alias for child(i)
         """
         return self.child(i)
 
-    cpdef Field field_by_name(self, name):
+    cdef Field field_by_name(self, name):
         """
         Access a child field by its name rather than the column index.
         """
@@ -230,14 +230,6 @@ cdef class StructType(DataType):
             raise KeyError(name)
 
         return pyarrow_wrap_field(field)
-
-    cpdef Field child_by_name(self, name):
-        """
-        Deprecated since 0.12
-        """
-        warnings.warn("child_by_name is deprecated, use field_by_name",
-                      FutureWarning)
-        return self.field_by_name(name)
 
     def __len__(self):
         return self.type.num_children()

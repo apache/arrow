@@ -231,9 +231,12 @@ def test_list_type():
 
 
 def test_struct_type():
-    fields = [pa.field('a', pa.int64()),
-              pa.field('a', pa.int32()),
-              pa.field('b', pa.int32())]
+    fields = [
+        # Duplicate field name on purpose
+        pa.field('a', pa.int64()),
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.int32())
+    ]
     ty = pa.struct(fields)
 
     assert len(ty) == ty.num_children == 3
@@ -244,12 +247,16 @@ def test_struct_type():
         assert ty[3]
 
     assert ty['b'] == ty[2]
+
+    # Duplicate
     with pytest.raises(KeyError):
         ty['a']
 
+    # Not found
     with pytest.raises(KeyError):
         ty['c']
 
+    # Neither integer nor string
     with pytest.raises(TypeError):
         ty[None]
 
@@ -276,19 +283,6 @@ def test_struct_type():
     # Invalid args
     with pytest.raises(TypeError):
         pa.struct([('a', None)])
-
-
-def test_struct_type_field_by_name():
-    typ = pa.struct([pa.field('a', pa.int64()),
-                     pa.field('b', pa.int32()),
-                     pa.field('c', pa.int32()),
-                     # Duplicate on purpose
-                     pa.field('c', pa.int32())])
-
-    assert typ.field_by_name('b') == typ[1]
-
-    with pytest.raises(KeyError):
-        typ.field_by_name('c')
 
 
 def test_union_type():
