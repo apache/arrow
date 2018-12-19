@@ -22,6 +22,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "arrow/util/visibility.h"
 
@@ -66,6 +67,8 @@ struct ARROW_EXPORT ConvertOptions {
   bool check_utf8 = true;
   // Optional per-column types (disabling type inference on those columns)
   std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
+  // Recognized spellings for null values
+  std::vector<std::string> null_values;
 
   static ConvertOptions Defaults();
 };

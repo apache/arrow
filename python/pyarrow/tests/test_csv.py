@@ -151,9 +151,17 @@ def test_convert_options():
     with pytest.raises(TypeError):
         opts.column_types = 0
 
-    opts = cls(check_utf8=False, column_types={'a': pa.null()})
+    assert isinstance(opts.null_values, list)
+    assert '' in opts.null_values
+    assert 'N/A' in opts.null_values
+    opts.null_values = ['xxx', 'yyy']
+    assert opts.null_values == ['xxx', 'yyy']
+
+    opts = cls(check_utf8=False, column_types={'a': pa.null()},
+               null_values=['xxx', 'yyy'])
     assert opts.check_utf8 is False
     assert opts.column_types == {'a': pa.null()}
+    assert opts.null_values == ['xxx', 'yyy']
 
 
 class BaseTestCSVRead:
@@ -231,6 +239,34 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'a': [1970, 1989],
             'b': [datetime(1970, 1, 1), datetime(1989, 7, 14)],
+            }
+
+    def test_custom_nulls(self):
+        # Infer nulls with custom values
+        opts = ConvertOptions(null_values=['Xxx', 'Zzz'])
+        rows = b"a,b,c,d\nZzz,Xxx,1,2\nXxx,#N/A,,Zzz\n"
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.null()),
+                            ('b', pa.string()),
+                            ('c', pa.string()),
+                            ('d', pa.int64())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [None, None],
+            'b': [u"Xxx", u"#N/A"],
+            'c': [u"1", u""],
+            'd': [2, None],
+            }
+
+        opts = ConvertOptions(null_values=[])
+        rows = b"a,b\n#N/A,\n"
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.string()),
+                            ('b', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [u"#N/A"],
+            'b': [u""],
             }
 
     def test_column_types(self):
