@@ -18,21 +18,22 @@
 Python bindings
 ===============
 
-The Arrow Python bindings have first-class integration with NumPy, pandas, and
-built-in Python objects. They are based on the C++ implementation of Arrow.
-
 This is the documentation of the Python API of Apache Arrow. For more details
-on the format and other language bindings see the parent documentation.
-Here will we only detail the usage of the Python API for Arrow and the leaf
+on the Arrow format and other language bindings see the
+:doc:`parent documentation <../index>`.
+
+The Arrow Python bindings (also named "PyArrow") have first-class integration
+with NumPy, pandas, and built-in Python objects. They are based on the C++
+implementation of Arrow.
+
+Here will we detail the usage of the Python API for Arrow and the leaf
 libraries that add additional functionality such as reading Apache Parquet
 files into Arrow structures.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Getting Started
 
    install
-   development
    memory
    data
    ipc
@@ -44,5 +45,5 @@ files into Arrow structures.
    parquet
    extending
    api
+   development
    getting_involved
-
