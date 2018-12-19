@@ -27,6 +27,6 @@ class TestGandivaStringLiteralNode < Test::Unit::TestCase
   end
 
   def test_return_type
-    assert_equal(Arrow::Int16DataType.new, @node.return_type)
+    assert_equal(Arrow::StringDataType.new, @node.return_type)
   end
 end
