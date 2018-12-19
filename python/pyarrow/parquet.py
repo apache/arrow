@@ -40,6 +40,7 @@ from pyarrow.util import _is_path_like, _stringify_path
 
 _URI_STRIP_SCHEMES = ('hdfs',)
 
+
 def _parse_uri(path):
     path = _stringify_path(path)
     parsed_uri = urlparse(path)
