@@ -428,6 +428,12 @@ You may find the required packages at http://releases.llvm.org/download.html
 or use the Debian/Ubuntu APT repositories on https://apt.llvm.org/. On macOS
 with [Homebrew][1] you can get it via `brew install llvm@6`.
 
+Depending on how you installed clang-format, the build system may not be able
+to find it. You can provide an explicit path to your LLVM installation (or the
+root path for the clang tools) with the environment variable
+`$CLANG_TOOLS_PATH` or by passing `-DClangTools_PATH=$PATH_TO_CLANG_TOOLS` when
+invoking CMake.
+
 ## Checking for ABI and API stability
 
 To build ABI compliance reports, you need to install the two tools
