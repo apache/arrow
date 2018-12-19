@@ -276,8 +276,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CStructType" arrow::StructType"(CDataType):
         CStructType(const vector[shared_ptr[CField]]& fields)
 
-        shared_ptr[CField] GetChildByName(const c_string& name)
-        int GetChildIndex(const c_string& name)
+        shared_ptr[CField] GetFieldByName(const c_string& name)
+        int GetFieldIndex(const c_string& name)
 
     cdef cppclass CUnionType" arrow::UnionType"(CDataType):
         CUnionType(const vector[shared_ptr[CField]]& fields,

@@ -470,7 +470,7 @@ cdef class StructValue(ArrayValue):
             int index
 
         type = <CStructType*> self.type.type
-        index = type.GetChildIndex(tobytes(key))
+        index = type.GetFieldIndex(tobytes(key))
 
         if index < 0:
             raise KeyError(key)

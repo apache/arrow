@@ -232,15 +232,34 @@ std::string StructType::ToString() const {
   return s.str();
 }
 
-std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
-  int i = GetChildIndex(name);
+std::shared_ptr<Field> StructType::GetFieldByName(const std::string& name) const {
+  int i = GetFieldIndex(name);
   return i == -1 ? nullptr : children_[i];
 }
 
-int StructType::GetChildIndex(const std::string& name) const {
+int StructType::GetFieldIndex(const std::string& name) const {
   if (children_.size() > 0 && name_to_index_.size() == 0) {
     for (size_t i = 0; i < children_.size(); ++i) {
       name_to_index_[children_[i]->name()] = static_cast<int>(i);
+    }
+  }
+
+  if (name_to_index_.size() < children_.size()) {
+    // There are duplicate field names. Refuse to guess
+    int counts = 0;
+    int last_observed_index = -1;
+    for (size_t i = 0; i < children_.size(); ++i) {
+      if (children_[i]->name() == name) {
+        ++counts;
+        last_observed_index = static_cast<int>(i);
+      }
+    }
+
+    if (counts == 1) {
+      return last_observed_index;
+    } else {
+      // Duplicate or not found
+      return -1;
     }
   }
 
@@ -250,6 +269,14 @@ int StructType::GetChildIndex(const std::string& name) const {
   } else {
     return it->second;
   }
+}
+
+std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
+  return GetFieldByName(name);
+}
+
+int StructType::GetChildIndex(const std::string& name) const {
+  return GetFieldIndex(name);
 }
 
 // ----------------------------------------------------------------------

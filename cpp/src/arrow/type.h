@@ -516,9 +516,16 @@ class ARROW_EXPORT StructType : public NestedType {
   std::string name() const override { return "struct"; }
 
   /// Returns null if name not found
+  std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
+
+  /// Returns -1 if name not found or if there are multiple fields having the
+  /// same name
+  int GetFieldIndex(const std::string& name) const;
+
+  ARROW_DEPRECATED("Use GetFieldByName")
   std::shared_ptr<Field> GetChildByName(const std::string& name) const;
 
-  /// Returns -1 if name not found
+  ARROW_DEPRECATED("Use GetChildIndex")
   int GetChildIndex(const std::string& name) const;
 
  private:
