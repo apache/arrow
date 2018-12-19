@@ -87,32 +87,7 @@ impl Reader {
             batch_size,
         }
     }
-}
 
-fn build_primitive_array<T: ArrowPrimitiveType>(
-    rows: &[StringRecord],
-    col_idx: &usize,
-) -> Result<ArrayRef> {
-    let mut builder = PrimitiveArrayBuilder::<T>::new(rows.len());
-    for row_index in 0..rows.len() {
-        match rows[row_index].get(*col_idx) {
-            Some(s) if s.len() > 0 => match s.parse::<T::Native>() {
-                Ok(v) => builder.push(v)?,
-                Err(_) => {
-                    // TODO: we should surface the underlying error here.
-                    return Err(ArrowError::ParseError(format!(
-                        "Error while parsing value {}",
-                        s
-                    )));
-                }
-            },
-            _ => builder.push_null().unwrap(),
-        }
-    }
-    Ok(Arc::new(builder.finish()) as ArrayRef)
-}
-
-impl Reader {
     /// Read the next batch of rows
     pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         // read a batch of rows into memory
@@ -151,17 +126,17 @@ impl Reader {
             .map(|i| {
                 let field = self.schema.field(*i);
                 match field.data_type() {
-                    &DataType::Boolean => build_primitive_array::<BooleanType>(rows, i),
-                    &DataType::Int8 => build_primitive_array::<Int8Type>(rows, i),
-                    &DataType::Int16 => build_primitive_array::<Int16Type>(rows, i),
-                    &DataType::Int32 => build_primitive_array::<Int32Type>(rows, i),
-                    &DataType::Int64 => build_primitive_array::<Int64Type>(rows, i),
-                    &DataType::UInt8 => build_primitive_array::<UInt8Type>(rows, i),
-                    &DataType::UInt16 => build_primitive_array::<UInt16Type>(rows, i),
-                    &DataType::UInt32 => build_primitive_array::<UInt32Type>(rows, i),
-                    &DataType::UInt64 => build_primitive_array::<UInt64Type>(rows, i),
-                    &DataType::Float32 => build_primitive_array::<Float32Type>(rows, i),
-                    &DataType::Float64 => build_primitive_array::<Float64Type>(rows, i),
+                    &DataType::Boolean => self.build_primitive_array::<BooleanType>(rows, i),
+                    &DataType::Int8 => self.build_primitive_array::<Int8Type>(rows, i),
+                    &DataType::Int16 => self.build_primitive_array::<Int16Type>(rows, i),
+                    &DataType::Int32 => self.build_primitive_array::<Int32Type>(rows, i),
+                    &DataType::Int64 => self.build_primitive_array::<Int64Type>(rows, i),
+                    &DataType::UInt8 => self.build_primitive_array::<UInt8Type>(rows, i),
+                    &DataType::UInt16 => self.build_primitive_array::<UInt16Type>(rows, i),
+                    &DataType::UInt32 => self.build_primitive_array::<UInt32Type>(rows, i),
+                    &DataType::UInt64 => self.build_primitive_array::<UInt64Type>(rows, i),
+                    &DataType::Float32 => self.build_primitive_array::<Float32Type>(rows, i),
+                    &DataType::Float64 => self.build_primitive_array::<Float64Type>(rows, i),
                     &DataType::Utf8 => {
                         let values_builder: UInt8Builder = UInt8Builder::new(rows.len());
                         let mut list_builder = ListArrayBuilder::new(values_builder);
@@ -190,6 +165,38 @@ impl Reader {
             Ok(arr) => Ok(Some(RecordBatch::new(self.schema.clone(), arr))),
             Err(e) => Err(e),
         }
+    }
+
+    fn build_primitive_array<T: ArrowPrimitiveType>(
+        &self,
+        rows: &[StringRecord],
+        col_idx: &usize,
+    ) -> Result<ArrayRef> {
+        let mut builder = PrimitiveArrayBuilder::<T>::new(rows.len());
+        let is_boolean_type = *self.schema.field(*col_idx).data_type() == DataType::Boolean;
+        for row_index in 0..rows.len() {
+            match rows[row_index].get(*col_idx) {
+                Some(s) if s.len() > 0 => {
+                    let t = if is_boolean_type {
+                        s.to_lowercase().parse::<T::Native>()
+                    } else {
+                        s.parse::<T::Native>()
+                    };
+                    match t {
+                        Ok(v) => builder.push(v)?,
+                        Err(_) => {
+                            // TODO: we should surface the underlying error here.
+                            return Err(ArrowError::ParseError(format!(
+                                "Error while parsing value {}",
+                                s
+                            )));
+                        }
+                    }
+                }
+                _ => builder.push_null()?,
+            }
+        }
+        Ok(Arc::new(builder.finish()) as ArrayRef)
     }
 }
 
