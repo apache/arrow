@@ -19,6 +19,7 @@
 #define ARROW_UTIL_STRING_BUILDER_H
 
 #include <sstream>
+#include <string>
 
 namespace arrow {
 namespace util {
