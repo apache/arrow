@@ -22,6 +22,7 @@
 #endif
 
 #include <arrow-glib/data-type.hpp>
+#include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
 
 #include <gandiva-glib/node.hpp>
@@ -506,22 +507,30 @@ ggandiva_null_literal_node_class_init(GGandivaNullLiteralNodeClass *klass)
 /**
  * ggandiva_null_literal_node_new:
  * @return_type: A #GArrowDataType.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable): A newly created #GGandivaNullLiteralNode.
+ * Returns: (nullable): A newly created #GGandivaNullLiteralNode for
+ *   the type or %NULL on error.
  *
  * Since: 0.12.0
  */
 GGandivaNullLiteralNode *
-ggandiva_null_literal_node_new(GArrowDataType *return_type)
+ggandiva_null_literal_node_new(GArrowDataType *return_type,
+                               GError **error)
 {
   auto arrow_return_type = garrow_data_type_get_raw(return_type);
   auto gandiva_node = gandiva::TreeExprBuilder::MakeNull(arrow_return_type);
-  if (gandiva_node) {
-    return GGANDIVA_NULL_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
-                                                                    return_type));
-  } else {
+  if (!gandiva_node) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "[gandiva][null-literal-node][new] "
+                "failed to create: <%s>",
+                arrow_return_type->ToString().c_str());
     return NULL;
   }
+  return GGANDIVA_NULL_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                  return_type));
 }
 
 

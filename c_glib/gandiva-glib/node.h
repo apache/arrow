@@ -93,7 +93,8 @@ struct _GGandivaNullLiteralNodeClass
 };
 
 GGandivaNullLiteralNode *
-ggandiva_null_literal_node_new(GArrowDataType *data_type);
+ggandiva_null_literal_node_new(GArrowDataType *return_type,
+                               GError **error);
 
 
 #define GGANDIVA_TYPE_BOOLEAN_LITERAL_NODE (ggandiva_boolean_literal_node_get_type())

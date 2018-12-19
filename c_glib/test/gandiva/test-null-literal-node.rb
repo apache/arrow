@@ -20,6 +20,16 @@ class TestGandivaNullLiteralNode < Test::Unit::TestCase
     omit("Gandiva is required") unless defined?(::Gandiva)
   end
 
+  def test_invalid_type
+    return_type = Arrow::NullDataType.new
+    message =
+      "[gandiva][null-literal-node][new] " +
+      "failed to create: <#{return_type}>"
+    assert_raise(Arrow::Error::Invalid.new(message)) do
+      Gandiva::NullLiteralNode.new(return_type)
+    end
+  end
+
   def test_return_type
     return_type = Arrow::BooleanDataType.new
     literal_node = Gandiva::NullLiteralNode.new(return_type)
