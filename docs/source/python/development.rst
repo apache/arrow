@@ -373,7 +373,7 @@ If you're using Conda, the required software can be installed in a single line:
 
    conda install -c conda-forge --file ci/conda_env_sphinx.yml
 
-Otherwise, you'll first need install `Doxygen <http://www.doxygen.nl/>`_
+Otherwise, you'll first need to install `Doxygen <http://www.doxygen.nl/>`_
 yourself (for example from your distribution's official repositories, if
 using Linux).  Then you can install the Python-based requirements with the
 following command:
