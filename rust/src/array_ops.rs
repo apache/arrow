@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Defines primitive computations on arrays
+
 use std::ops::{Add, Div, Mul, Sub};
 
 use num::Zero;
@@ -25,6 +27,7 @@ use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
 
+/// Perform `left + right` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn add<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
@@ -37,6 +40,7 @@ where
     math_op(left, right, |a, b| Ok(a + b))
 }
 
+/// Perform `left - right` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn subtract<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
@@ -49,6 +53,7 @@ where
     math_op(left, right, |a, b| Ok(a - b))
 }
 
+/// Perform `left * right` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn multiply<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
@@ -61,6 +66,8 @@ where
     math_op(left, right, |a, b| Ok(a * b))
 }
 
+/// Perform `left / right` operation on two arrays. If either left or right value is null then the result is also null.
+/// If any right hand value is zero then the result of this operation will be `Err(ArrowError::DivideByZero)`.
 pub fn divide<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
@@ -79,6 +86,8 @@ where
     })
 }
 
+/// Helper function to perform math lambda function on values from two arrays. If either left or
+/// right value is null then the output value is also null, so `1 + null` is `null`.
 fn math_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -121,6 +130,7 @@ where
     min_max_helper(array, |a, b| a > b)
 }
 
+/// Helper function to perform min/max lambda function on values from a numeric array.
 fn min_max_helper<T, F>(array: &PrimitiveArray<T>, cmp: F) -> Option<T::Native>
 where
     T: ArrowNumericType,
@@ -145,6 +155,7 @@ where
     n
 }
 
+/// Perform `left == right` operation on two arrays.
 pub fn eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
@@ -152,6 +163,7 @@ where
     bool_op(left, right, |a, b| a == b)
 }
 
+/// Perform `left != right` operation on two arrays.
 pub fn neq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
@@ -159,50 +171,59 @@ where
     bool_op(left, right, |a, b| a != b)
 }
 
+/// Perform `left < right` operation on two arrays. Null values are less than non-null values.
 pub fn lt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
 {
     bool_op(left, right, |a, b| match (a, b) {
+        (None, None) => false,
         (None, _) => true,
         (_, None) => false,
         (Some(aa), Some(bb)) => aa < bb,
     })
 }
 
+/// Perform `left <= right` operation on two arrays. Null values are less than non-null values.
 pub fn lt_eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
 {
     bool_op(left, right, |a, b| match (a, b) {
+        (None, None) => true,
         (None, _) => true,
         (_, None) => false,
         (Some(aa), Some(bb)) => aa <= bb,
     })
 }
 
+/// Perform `left > right` operation on two arrays. Non-null values are greater than null values.
 pub fn gt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
 {
     bool_op(left, right, |a, b| match (a, b) {
+        (None, None) => false,
         (None, _) => false,
         (_, None) => true,
         (Some(aa), Some(bb)) => aa > bb,
     })
 }
 
+/// Perform `left >= right` operation on two arrays. Non-null values are greater than null values.
 pub fn gt_eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
 {
     bool_op(left, right, |a, b| match (a, b) {
+        (None, None) => false,
         (None, _) => false,
         (_, None) => true,
         (Some(aa), Some(bb)) => aa >= bb,
     })
 }
 
+/// Helper function to perform boolean lambda function on values from two arrays.
 fn bool_op<T, F>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>, op: F) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
@@ -231,6 +252,7 @@ where
     Ok(b.finish())
 }
 
+/// Perform `AND` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
@@ -248,6 +270,7 @@ pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     Ok(b.finish())
 }
 
+/// Perform `OR` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
@@ -265,6 +288,7 @@ pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     Ok(b.finish())
 }
 
+/// Perform unary `NOT` operation on an arrays. If value is null then the result is also null.
 pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
     let mut b = BooleanArray::builder(left.len());
     for i in 0..left.len() {
