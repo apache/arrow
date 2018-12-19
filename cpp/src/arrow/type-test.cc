@@ -465,7 +465,7 @@ TEST(TestStructType, GetChildByName) {
   ASSERT_EQ(result, nullptr);
 }
 
-TEST(TestStructType, GetChildIndex) {
+TEST(TestStructType, GetFieldIndex) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
@@ -473,21 +473,21 @@ TEST(TestStructType, GetChildIndex) {
 
   StructType struct_type({f0, f1, f2, f3});
 
-  ASSERT_EQ(0, struct_type.GetChildIndex(f0->name()));
-  ASSERT_EQ(1, struct_type.GetChildIndex(f1->name()));
-  ASSERT_EQ(2, struct_type.GetChildIndex(f2->name()));
-  ASSERT_EQ(3, struct_type.GetChildIndex(f3->name()));
-  ASSERT_EQ(-1, struct_type.GetChildIndex("not-found"));
+  ASSERT_EQ(0, struct_type.GetFieldIndex(f0->name()));
+  ASSERT_EQ(1, struct_type.GetFieldIndex(f1->name()));
+  ASSERT_EQ(2, struct_type.GetFieldIndex(f2->name()));
+  ASSERT_EQ(3, struct_type.GetFieldIndex(f3->name()));
+  ASSERT_EQ(-1, struct_type.GetFieldIndex("not-found"));
 }
 
-TEST(TestStructType, GetChildIndexDuplicates) {
+TEST(TestStructType, GetFieldIndexDuplicates) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", int64());
   auto f2 = field("f1", utf8());
   StructType struct_type({f0, f1, f2});
 
-  ASSERT_EQ(0, struct_type.GetChildIndex("f0"));
-  ASSERT_EQ(-1, struct_type.GetChildIndex("f1"));
+  ASSERT_EQ(0, struct_type.GetFieldIndex("f0"));
+  ASSERT_EQ(-1, struct_type.GetFieldIndex("f1"));
 }
 
 TEST(TypesTest, TestDecimal128Small) {
