@@ -1228,15 +1228,20 @@ GGandivaLiteralNode *
 ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                               GArrowDataType *return_type)
 {
-  GType type;
-
   auto gandiva_literal_node =
     std::static_pointer_cast<gandiva::LiteralNode>(*gandiva_node);
-  auto arrow_return_type = (*gandiva_node)->return_type();
 
+  GGandivaLiteralNode *literal_node;
   if (gandiva_literal_node->is_null()) {
-    type = GGANDIVA_TYPE_NULL_LITERAL_NODE;
+    literal_node =
+      GGANDIVA_LITERAL_NODE(g_object_new(GGANDIVA_TYPE_NULL_LITERAL_NODE,
+                                         "node", gandiva_node,
+                                         "return-type", return_type,
+                                         NULL));
   } else {
+    GType type;
+
+    auto arrow_return_type = gandiva_literal_node->return_type();
     switch (arrow_return_type->id()) {
     case arrow::Type::BOOL:
       type = GGANDIVA_TYPE_BOOLEAN_LITERAL_NODE;
@@ -1282,15 +1287,22 @@ ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
       break;
     }
 
-    return_type = garrow_data_type_new_raw(&arrow_return_type);
+    if (return_type) {
+      literal_node =
+        GGANDIVA_LITERAL_NODE(g_object_new(type,
+                                           "node", gandiva_node,
+                                           "return-type", return_type,
+                                           NULL));
+    } else {
+      return_type = garrow_data_type_new_raw(&arrow_return_type);
+      literal_node =
+        GGANDIVA_LITERAL_NODE(g_object_new(type,
+                                           "node", gandiva_node,
+                                           "return-type", return_type,
+                                           NULL));
+      g_object_unref(return_type);
+    }
   }
-  auto literal_node =
-    GGANDIVA_LITERAL_NODE(g_object_new(type,
-                                       "node", gandiva_node,
-                                       "return-type", return_type,
-                                       NULL));
-  if (!gandiva_literal_node->is_null()) {
-    g_object_unref(return_type);
-  }
+
   return literal_node;
 }
