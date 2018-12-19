@@ -86,6 +86,8 @@ On Linux and OSX:
         --file arrow/ci/conda_env_python.yml \
         python=3.6
 
+   source activate pyarrow-dev
+
 On Windows:
 
 .. code-block:: shell
@@ -95,16 +97,20 @@ On Windows:
         --file arrow\ci\conda_env_python.yml ^
         python=3.6
 
+   activate pyarrow-dev
+
+
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
 
 .. code-block:: shell
 
    export ARROW_BUILD_TYPE=release
-
    export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
    export ARROW_HOME=$CONDA_PREFIX
    export PARQUET_HOME=$CONDA_PREFIX
+   export BOOST_HOME=$CONDA_PREFIX
+
 
 Using pip
 ~~~~~~~~~
@@ -207,9 +213,10 @@ Now, build pyarrow:
 
 .. code-block:: shell
 
-   cd arrow/python
+   pushd arrow/python
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
           --with-parquet --with-plasma --inplace
+   popd
 
 If you did not build with plasma, you can omit ``--with-plasma``.
 
@@ -277,7 +284,7 @@ To build the documentation:
 
    .. code-block:: shell
 
-          conda install --file ci/conda_env_sphinx.yml
+      conda install -c conda-forge --file ci/conda_env_sphinx.yml
 
 
 #. process the C++ API using Doxygen
