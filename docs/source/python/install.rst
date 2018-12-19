@@ -15,8 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Install PyArrow
-===============
+Installing PyArrow
+==================
 
 Conda
 -----

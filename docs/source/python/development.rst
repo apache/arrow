@@ -86,6 +86,8 @@ On Linux and OSX:
         --file arrow/ci/conda_env_python.yml \
         python=3.6
 
+   source activate pyarrow-dev
+
 On Windows:
 
 .. code-block:: shell
@@ -95,16 +97,18 @@ On Windows:
         --file arrow\ci\conda_env_python.yml ^
         python=3.6
 
+   activate pyarrow-dev
+
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
 
 .. code-block:: shell
 
    export ARROW_BUILD_TYPE=release
-
    export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
    export ARROW_HOME=$CONDA_PREFIX
    export PARQUET_HOME=$CONDA_PREFIX
+   export BOOST_HOME=$CONDA_PREFIX
 
 Using pip
 ~~~~~~~~~
@@ -207,9 +211,10 @@ Now, build pyarrow:
 
 .. code-block:: shell
 
-   cd arrow/python
+   pushd arrow/python
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
           --with-parquet --with-plasma --inplace
+   popd
 
 If you did not build with plasma, you can omit ``--with-plasma``.
 
@@ -352,3 +357,53 @@ Getting ``python-test.exe`` to run is a bit tricky because your
    set PYTHONHOME=%CONDA_PREFIX%
 
 Now ``python-test.exe`` or simply ``ctest`` (to run all tests) should work.
+
+Building the Documentation
+==========================
+
+Prerequisites
+-------------
+
+The documentation build process uses `Doxygen <http://www.doxygen.nl/>`_ and
+`Sphinx <http://www.sphinx-doc.org/>`_ along with a few extensions.
+
+If you're using Conda, the required software can be installed in a single line:
+
+.. code-block:: shell
+
+   conda install -c conda-forge --file ci/conda_env_sphinx.yml
+
+Otherwise, you'll first need to install `Doxygen <http://www.doxygen.nl/>`_
+yourself (for example from your distribution's official repositories, if
+using Linux).  Then you can install the Python-based requirements with the
+following command:
+
+.. code-block:: shell
+
+   pip install -r docs/requirements.txt
+
+Building
+--------
+
+These two steps are mandatory and must be executed in order.
+
+#. Process the C++ API using Doxygen
+
+   .. code-block:: shell
+
+      pushd cpp/apidoc
+      doxygen
+      popd
+
+#. Build the complete documentation using Sphinx
+
+   .. code-block:: shell
+
+      pushd docs
+      make html
+      popd
+
+After these steps are completed, the documentation is rendered in HTML
+format in ``docs/_build/html``.  In particular, you can point your browser
+at ``docs/_build/html/index.html`` to read the docs and review any changes
+you made.
