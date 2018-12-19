@@ -25,4 +25,11 @@ class TestGandivaFieldNode < Test::Unit::TestCase
     field_node = Gandiva::FieldNode.new(field)
     assert_equal(field, field_node.field)
   end
+
+  def test_return_type
+    data_type = Arrow::BooleanDataType.new
+    field = Arrow::Field.new("valid", data_type)
+    field_node = Gandiva::FieldNode.new(field)
+    assert_equal(data_type, field_node.return_type)
+  end
 end
