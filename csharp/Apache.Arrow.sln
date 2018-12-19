@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.168
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow", "src\Apache.Arrow\Apache.Arrow.csproj", "{44A252F8-C9FB-488B-83C7-A629DABDE626}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow.Tests", "test\Apache.Arrow.Tests\Apache.Arrow.Tests.csproj", "{42F4A8B8-069A-4F28-BC7F-BAF0F48BCD89}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C1D19143-8FDA-4C4F-BD89-341920D37EE0}"
+	ProjectSection(SolutionItems) = preProject
+		build\Common.props = build\Common.props
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{44A252F8-C9FB-488B-83C7-A629DABDE626}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44A252F8-C9FB-488B-83C7-A629DABDE626}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44A252F8-C9FB-488B-83C7-A629DABDE626}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44A252F8-C9FB-488B-83C7-A629DABDE626}.Release|Any CPU.Build.0 = Release|Any CPU
+		{42F4A8B8-069A-4F28-BC7F-BAF0F48BCD89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{42F4A8B8-069A-4F28-BC7F-BAF0F48BCD89}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{42F4A8B8-069A-4F28-BC7F-BAF0F48BCD89}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{42F4A8B8-069A-4F28-BC7F-BAF0F48BCD89}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B87DB100-62CA-420B-ADE6-5388C2C12894}
+	EndGlobalSection
+EndGlobal
