@@ -35,6 +35,7 @@ struct _GGandivaNodeClass
   GObjectClass parent_class;
 };
 
+
 #define GGANDIVA_TYPE_FIELD_NODE (ggandiva_field_node_get_type())
 G_DECLARE_DERIVABLE_TYPE(GGandivaFieldNode,
                          ggandiva_field_node,
@@ -78,6 +79,22 @@ struct _GGandivaLiteralNodeClass
 {
   GGandivaNodeClass parent_class;
 };
+
+
+#define GGANDIVA_TYPE_NULL_LITERAL_NODE (ggandiva_null_literal_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaNullLiteralNode,
+                         ggandiva_null_literal_node,
+                         GGANDIVA,
+                         NULL_LITERAL_NODE,
+                         GGandivaLiteralNode)
+struct _GGandivaNullLiteralNodeClass
+{
+  GGandivaLiteralNodeClass parent_class;
+};
+
+GGandivaNullLiteralNode *
+ggandiva_null_literal_node_new(GArrowDataType *return_type,
+                               GError **error);
 
 
 #define GGANDIVA_TYPE_BOOLEAN_LITERAL_NODE (ggandiva_boolean_literal_node_get_type())

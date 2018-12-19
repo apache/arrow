@@ -18,11 +18,15 @@
 class TestGandivaUInt32LiteralNode < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
+    @value = 2 ** 32 - 1
+    @node = Gandiva::UInt32LiteralNode.new(@value)
   end
 
   def test_value
-    value = 3
-    literal_node = Gandiva::UInt32LiteralNode.new(value)
-    assert_equal(value, literal_node.value)
+    assert_equal(@value, @node.value)
+  end
+
+  def test_return_type
+    assert_equal(Arrow::UInt32DataType.new, @node.return_type)
   end
 end
