@@ -21,14 +21,27 @@ class TestGandivaBinaryLiteralNode < Test::Unit::TestCase
     @value = "\x00\x01\x02\x03\x04"
   end
 
-  def test_new
-    literal_node = Gandiva::BinaryLiteralNode.new(@value)
-    assert_equal(@value, literal_node.value.to_s)
+  sub_test_case(".new") do
+    def test_string
+      node = Gandiva::BinaryLiteralNode.new(@value)
+      assert_equal(@value, node.value.to_s)
+    end
+
+    def test_bytes
+      bytes_value = GLib::Bytes.new(@value)
+      node = Gandiva::BinaryLiteralNode.new(bytes_value)
+      assert_equal(@value, node.value.to_s)
+    end
   end
 
-  def test_new_bytes
-    bytes_value = GLib::Bytes.new(@value)
-    literal_node = Gandiva::BinaryLiteralNode.new(bytes_value)
-    assert_equal(@value, literal_node.value.to_s)
+  sub_test_case("instance methods") do
+    def setup
+      super
+      @node = Gandiva::BinaryLiteralNode.new(@value)
+    end
+
+    def test_return_type
+      assert_equal(Arrow::BinaryDataType.new, @node.return_type)
+    end
   end
 end
