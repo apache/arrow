@@ -376,6 +376,9 @@ class TestConvertMetadata(object):
         assert data_column['pandas_type'] == 'bytes'
         assert data_column['numpy_type'] == 'object'
 
+    def test_ignore_metadata(self):
+        pass
+
     def test_list_metadata(self):
         df = pd.DataFrame({'data': [[1], [2, 3, 4], [5] * 7]})
         schema = pa.schema([pa.field('data', type=pa.list_(pa.int64()))])
