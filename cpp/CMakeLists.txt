@@ -239,7 +239,8 @@ static|shared (default shared)")
     ON)
 
   option(ARROW_BOOST_VENDORED
-    "Use vendored Boost instead of existing Boost"
+    "Use vendored Boost instead of existing Boost. \
+Note that this requires linking Boost statically"
     OFF)
 
   option(ARROW_PROTOBUF_USE_SHARED
