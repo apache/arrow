@@ -493,14 +493,15 @@ TEST_F(TestProjector, TestZeroCopy) {
 
   // allocate output buffers
   int64_t bitmap_sz = arrow::BitUtil::BytesForBits(num_records);
-  std::unique_ptr<uint8_t[]> bitmap(new uint8_t[bitmap_sz]);
+  int64_t bitmap_capacity = arrow::BitUtil::RoundUpToMultipleOf64(bitmap_sz);
+  std::vector<uint8_t> bitmap(bitmap_capacity);
   std::shared_ptr<arrow::MutableBuffer> bitmap_buf =
-      std::make_shared<arrow::MutableBuffer>(bitmap.get(), bitmap_sz);
+      std::make_shared<arrow::MutableBuffer>(&bitmap[0], bitmap_capacity);
 
   int64_t data_sz = sizeof(float) * num_records;
-  std::unique_ptr<uint8_t[]> data(new uint8_t[data_sz]);
+  std::vector<uint8_t> data(bitmap_capacity);
   std::shared_ptr<arrow::MutableBuffer> data_buf =
-      std::make_shared<arrow::MutableBuffer>(data.get(), data_sz);
+      std::make_shared<arrow::MutableBuffer>(&data[0], data_sz);
 
   auto array_data =
       arrow::ArrayData::Make(float32(), num_records, {bitmap_buf, data_buf});

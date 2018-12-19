@@ -114,8 +114,7 @@ matrix:
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
     - ARROW_CPP_BUILD_TARGETS="gandiva-all"
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    # ARROW-3979 temporarily disabled.
-    - ARROW_TRAVIS_VALGRIND=0
+    - ARROW_TRAVIS_VALGRIND=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
     before_script:
@@ -123,7 +122,7 @@ matrix:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
