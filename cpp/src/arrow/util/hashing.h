@@ -651,25 +651,6 @@ template <typename T>
 struct HashTraits<T, enable_if_8bit_int<T>> {
   using c_type = typename T::c_type;
   using MemoTableType = SmallScalarMemoTable<typename T::c_type>;
-
-  static Status GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
-    std::shared_ptr<Buffer> dict_buffer;
-    auto dict_length = static_cast<int64_t>(memo_table.size()) - start_offset;
-    // This makes a copy, but we assume a dictionary array is usually small
-    // compared to the size of the dictionary-using array.
-    // (also, copying the dictionary values is cheap compared to the cost
-    //  of building the memo table)
-    RETURN_NOT_OK(
-        AllocateBuffer(pool, TypeTraits<T>::bytes_required(dict_length), &dict_buffer));
-    memo_table.CopyValues(static_cast<int32_t>(start_offset),
-                          reinterpret_cast<c_type*>(dict_buffer->mutable_data()));
-    *out = ArrayData::Make(type, dict_length, {nullptr, dict_buffer}, 0 /* null_count */);
-    return Status::OK();
-  }
 };
 
 template <typename T>
@@ -677,25 +658,6 @@ struct HashTraits<
     T, typename std::enable_if<has_c_type<T>::value && !is_8bit_int<T>::value>::type> {
   using c_type = typename T::c_type;
   using MemoTableType = ScalarMemoTable<c_type, HashTable>;
-
-  static Status GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
-    std::shared_ptr<Buffer> dict_buffer;
-    auto dict_length = static_cast<int64_t>(memo_table.size()) - start_offset;
-    // This makes a copy, but we assume a dictionary array is usually small
-    // compared to the size of the dictionary-using array.
-    // (also, copying the dictionary values is cheap compared to the cost
-    //  of building the memo table)
-    RETURN_NOT_OK(
-        AllocateBuffer(pool, TypeTraits<T>::bytes_required(dict_length), &dict_buffer));
-    memo_table.CopyValues(static_cast<int32_t>(start_offset),
-                          reinterpret_cast<c_type*>(dict_buffer->mutable_data()));
-    *out = ArrayData::Make(type, dict_length, {nullptr, dict_buffer}, 0 /* null_count */);
-    return Status::OK();
-  }
 };
 
 template <typename T>

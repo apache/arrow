@@ -260,7 +260,12 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
     : FixedWidthType(Type::DICTIONARY),
       index_type_(index_type),
       dictionary_(dictionary),
-      ordered_(ordered) {}
+      ordered_(ordered) {
+#ifndef NDEBUG
+  const auto& int_type = checked_cast<const Integer&>(*index_type);
+  DCHECK_EQ(int_type.is_signed(), true) << "dictionary index type should be signed";
+#endif
+}
 
 int DictionaryType::bit_width() const {
   return checked_cast<const FixedWidthType&>(*index_type_).bit_width();

@@ -303,8 +303,8 @@ def test_dictionary_type():
     assert ty0.dictionary.to_pylist() == ['a', 'b', 'c']
     assert ty0.ordered is False
 
-    ty1 = pa.dictionary(pa.float32(), pa.array([1.0, 2.0]), ordered=True)
-    assert ty1.index_type == pa.float32()
+    ty1 = pa.dictionary(pa.int8(), pa.array([1.0, 2.0]), ordered=True)
+    assert ty1.index_type == pa.int8()
     assert isinstance(ty0.dictionary, pa.Array)
     assert ty1.dictionary.to_pylist() == [1.0, 2.0]
     assert ty1.ordered is True
