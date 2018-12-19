@@ -18,6 +18,7 @@
 package org.apache.arrow.memory;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -140,6 +141,46 @@ public class TestBaseAllocator {
       rootAllocator.verify();
 
       transferOwnership.buffer.release();
+      childAllocator2.close();
+    }
+  }
+
+  @Test
+  public void testAllocator_toSummaryString() throws Exception {
+    try (final RootAllocator rootAllocator =
+        new RootAllocator(MAX_ALLOCATION)) {
+      final BufferAllocator childAllocator1 =
+          rootAllocator.newChildAllocator("child1", 0, MAX_ALLOCATION);
+      assertEquals(rootAllocator.getRoot(), rootAllocator);
+
+      final BufferAllocator childAllocator2 =
+          rootAllocator.newChildAllocator("child2", 0, MAX_ALLOCATION);
+      assertEquals(childAllocator1.getRoot(), rootAllocator);
+
+      final BufferAllocator grandChildAllocator =
+          childAllocator1.newChildAllocator("grand-child", 0, MAX_ALLOCATION);
+      assertEquals(grandChildAllocator.getRoot(), rootAllocator);
+
+      String summary = rootAllocator.getRoot().toSummaryString(1);
+      assertTrue(summary.contains("ROOT"));
+      assertFalse(summary.contains("child1"));
+      assertFalse(summary.contains("grand-child"));
+
+      summary = rootAllocator.getRoot().toSummaryString(2);
+      assertTrue(summary.contains("ROOT"));
+      assertTrue(summary.contains("child1"));
+      assertFalse(summary.contains("grand-child"));
+
+      summary = rootAllocator.getRoot().toSummaryString(3);
+      assertTrue(summary.contains("ROOT"));
+      assertTrue(summary.contains("child1"));
+      assertTrue(summary.contains("grand-child"));
+
+      String l4Summary = rootAllocator.getRoot().toSummaryString(4);
+      assertEquals(l4Summary, summary);
+
+      grandChildAllocator.close();
+      childAllocator1.close();
       childAllocator2.close();
     }
   }

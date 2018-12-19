@@ -135,6 +135,13 @@ public interface BufferAllocator extends AutoCloseable {
   public long getHeadroom();
 
   /**
+   * Returns the root allocator.
+   *
+   * @return root allocator
+   */
+  public BufferAllocator getRoot();
+
+  /**
    * Create an allocation reservation. A reservation is a way of building up
    * a request for a buffer whose size is not known in advance. See
    *
@@ -180,6 +187,16 @@ public interface BufferAllocator extends AutoCloseable {
    * @return A very verbose description of the allocator hierarchy.
    */
   public String toVerboseString();
+
+  /**
+   * Return a summary string for the allocators and it's child allocators up to the specified
+   * number of levels.
+   *
+   * @param numLevels The number of levels to include in the summary.
+   *
+   * @return summary of the allocator hierarchy.
+   */
+  public String toSummaryString(int maxLevels);
 
   /**
    * Asserts (using java assertions) that the provided allocator is currently open. If assertions

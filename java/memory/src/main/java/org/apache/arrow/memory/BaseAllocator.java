@@ -105,6 +105,11 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   }
 
+  @Override
+  public BufferAllocator getRoot() {
+    return root;
+  }
+
   private static String createErrorMsg(final BufferAllocator allocator, final int rounded, final int requested) {
     if (rounded != requested) {
       return String.format(
@@ -468,6 +473,19 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     return sb.toString();
   }
 
+  /**
+   * Provide a summary string of the current allocator state. Includes the state of this
+   * allocator and it's child allocators, up to 'maxLevels - 1' below this allocator.
+   *
+   * @return A summary string of current allocator state, along with it's child allocators.
+   */
+  @Override
+  public String toSummaryString(int maxLevels) {
+    final StringBuilder sb = new StringBuilder();
+    printSummary(sb, 0, maxLevels);
+    return sb.toString();
+  }
+
   private void hist(String noteFormat, Object... args) {
     historicalLog.recordEvent(noteFormat, args);
   }
@@ -659,6 +677,31 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     }
 
+  }
+
+  private void printSummary(StringBuilder sb, int currentLevel, int maxLevels) {
+    if (currentLevel >= maxLevels) {
+      return;
+    }
+    indent(sb, currentLevel)
+        .append("Allocator(")
+        .append(name)
+        .append(") ")
+        .append(reservation)
+        .append('/')
+        .append(getAllocatedMemory())
+        .append('/')
+        .append(getPeakMemoryAllocation())
+        .append('/')
+        .append(getLimit())
+        .append(" (res/actual/peak/limit)")
+        .append(" child allocators: ")
+        .append(childAllocators.size())
+        .append('\n');
+
+    for (BaseAllocator child : childAllocators.keySet()) {
+      child.printSummary(sb, currentLevel + 1, maxLevels);
+    }
   }
 
   private void dumpBuffers(final StringBuilder sb, final Set<BufferLedger> ledgerSet) {
