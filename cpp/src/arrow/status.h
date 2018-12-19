@@ -31,14 +31,14 @@
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
 /// \brief Return with given status if condition is met.
-#define ARROW_RETURN_IF(condition, status)                                          \
-  do {                                                                              \
-    if (ARROW_PREDICT_FALSE(condition)) {                                           \
-      ::arrow::Status _s = (status);                                                \
-      std::stringstream ss;                                                         \
-      ss << __FILE__ << ":" << __LINE__ << " code: " << #s << "\n" << _s.message(); \
-      return ::arrow::Status(_s.code(), ss.str());                                  \
-    }                                                                               \
+#define ARROW_RETURN_IF(condition, status)                        \
+  do {                                                            \
+    if (ARROW_PREDICT_FALSE(condition)) {                         \
+      ::arrow::Status _s = (status);                              \
+      std::stringstream ss;                                       \
+      ss << __FILE__ << ":" << __LINE__ << " : " << _s.message(); \
+      return ::arrow::Status(_s.code(), ss.str());                \
+    }                                                             \
   } while (0)
 
 #else
