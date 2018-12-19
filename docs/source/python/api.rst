@@ -282,20 +282,7 @@ Serialization and IPC
    SerializedPyObject
    SerializationContext
 
-.. _api.feather:
-
-Feather Format
-~~~~~~~~~~~~~~
-
-.. currentmodule:: pyarrow.feather
-
 .. _api.memory_pool:
-
-.. autosummary::
-   :toctree: generated/
-
-   read_feather
-   write_feather
 
 Memory Pools
 ------------
@@ -329,8 +316,8 @@ Type Classes
 
 .. _api.plasma:
 
-In-Memory Object Store
-----------------------
+Plasma In-Memory Object Store
+-----------------------------
 
 .. autosummary::
    :toctree: generated/
@@ -354,12 +341,27 @@ CSV Files
    ConvertOptions
    read_csv
 
-.. currentmodule:: pyarrow.parquet
+.. _api.feather:
+
+Feather Files
+-------------
+
+.. currentmodule:: pyarrow.feather
+
+.. autosummary::
+   :toctree: generated/
+
+   read_feather
+   write_feather
+
+.. currentmodule:: pyarrow
 
 .. _api.parquet:
 
-Apache Parquet
---------------
+Parquet Files
+-------------
+
+.. currentmodule:: pyarrow.parquet
 
 .. autosummary::
    :toctree: generated/
@@ -376,6 +378,15 @@ Apache Parquet
    write_to_dataset
 
 .. currentmodule:: pyarrow
+
+Multi-Threading
+---------------
+
+.. autosummary::
+   :toctree: generated/
+
+   cpu_count
+   set_cpu_count
 
 Using with C extensions
 -----------------------
