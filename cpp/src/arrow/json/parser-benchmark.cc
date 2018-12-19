@@ -130,7 +130,7 @@ static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const r
                                  ParseOptions options) {
   BlockParser parser(options, -1, num_rows + 1);
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     ABORT_NOT_OK(parser.Parse(std::string(json)));
     if (parser.num_rows() != num_rows) {
       std::cerr << "Parsing incomplete\n";
