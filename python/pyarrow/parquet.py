@@ -38,10 +38,18 @@ from pyarrow.filesystem import (LocalFileSystem, _ensure_filesystem,
                                 get_filesystem_from_uri)
 from pyarrow.util import _is_path_like, _stringify_path
 
+_URI_STRIP_SCHEMES = ('hdfs',)
+
 
 def _parse_uri(path):
     path = _stringify_path(path)
-    return urlparse(path).path
+    parsed_uri = urlparse(path)
+    if parsed_uri.scheme in _URI_STRIP_SCHEMES:
+        return parsed_uri.path
+    else:
+        # ARROW-4073: On Windows returning the path with the scheme
+        # stripped removes the drive letter, if any
+        return path
 
 
 def _get_filesystem_and_path(passed_filesystem, path):
