@@ -1237,6 +1237,13 @@ def string():
     return primitive_type(_Type_STRING)
 
 
+def utf8():
+    """
+    Alias for string()
+    """
+    return string()
+
+
 def binary(int length=-1):
     """
     Create variable-length binary type
