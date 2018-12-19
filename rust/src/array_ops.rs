@@ -216,7 +216,7 @@ where
     T: ArrowNumericType,
 {
     bool_op(left, right, |a, b| match (a, b) {
-        (None, None) => false,
+        (None, None) => true,
         (None, _) => false,
         (_, None) => true,
         (Some(aa), Some(bb)) => aa >= bb,
@@ -436,6 +436,16 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_lt_nulls() {
+        let a = Int32Array::from(vec![None, None, Some(1)]);
+        let b = Int32Array::from(vec![None, Some(1), None]);
+        let c = lt(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
+    }
+
+    #[test]
     fn test_primitive_array_lt_eq() {
         let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
         let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
@@ -445,6 +455,16 @@ mod tests {
         assert_eq!(true, c.value(2));
         assert_eq!(true, c.value(3));
         assert_eq!(true, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_lt_eq_nulls() {
+        let a = Int32Array::from(vec![None, None, Some(1)]);
+        let b = Int32Array::from(vec![None, Some(1), None]);
+        let c = lt_eq(&a, &b).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
     }
 
     #[test]
@@ -460,6 +480,16 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_gt_nulls() {
+        let a = Int32Array::from(vec![None, None, Some(1)]);
+        let b = Int32Array::from(vec![None, Some(1), None]);
+        let c = gt(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(true, c.value(2));
+    }
+
+    #[test]
     fn test_primitive_array_gt_eq() {
         let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
         let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
@@ -469,6 +499,16 @@ mod tests {
         assert_eq!(true, c.value(2));
         assert_eq!(false, c.value(3));
         assert_eq!(false, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_gt_eq_nulls() {
+        let a = Int32Array::from(vec![None, None, Some(1)]);
+        let b = Int32Array::from(vec![None, Some(1), None]);
+        let c = gt_eq(&a, &b).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(true, c.value(2));
     }
 
     #[test]
@@ -508,6 +548,17 @@ mod tests {
     }
 
     #[test]
+    fn test_bool_array_or_nulls() {
+        let a = BooleanArray::from(vec![None, Some(false), None, Some(false)]);
+        let b = BooleanArray::from(vec![None, None, Some(false), Some(false)]);
+        let c = or(&a, &b).unwrap();
+        assert_eq!(true, c.is_null(0));
+        assert_eq!(true, c.is_null(1));
+        assert_eq!(true, c.is_null(2));
+        assert_eq!(false, c.is_null(3));
+    }
+
+    #[test]
     fn test_bool_array_not() {
         let a = BooleanArray::from(vec![false, false, true, true]);
         let c = not(&a).unwrap();
@@ -517,4 +568,14 @@ mod tests {
         assert_eq!(false, c.value(3));
     }
 
+    #[test]
+    fn test_bool_array_and_nulls() {
+        let a = BooleanArray::from(vec![None, Some(false), None, Some(false)]);
+        let b = BooleanArray::from(vec![None, None, Some(false), Some(false)]);
+        let c = and(&a, &b).unwrap();
+        assert_eq!(true, c.is_null(0));
+        assert_eq!(true, c.is_null(1));
+        assert_eq!(true, c.is_null(2));
+        assert_eq!(false, c.is_null(3));
+    }
 }
