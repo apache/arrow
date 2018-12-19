@@ -161,7 +161,7 @@ static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const r
 
 static void BM_ParseJSONQuotedBlock(
     benchmark::State& state) {  // NOLINT non-const reference
-  const int32_t num_rows = 64;
+  const int32_t num_rows = 5000;
   auto schm = schema({field("int", int32()), field("str", utf8())});
   std::mt19937_64 engine;
   std::stringstream json;
