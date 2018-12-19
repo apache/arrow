@@ -36,4 +36,5 @@ ggandiva_function_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                                GList *parameters,
                                GArrowDataType *return_type);
 GGandivaLiteralNode *
-ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node);
+ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
+                              GArrowDataType *return_type);

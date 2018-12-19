@@ -15,18 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestGandivaDoubleLiteralNode < Test::Unit::TestCase
+class TestGandivaNullLiteralNode < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
-    @value = 1.5
-    @node = Gandiva::DoubleLiteralNode.new(@value)
   end
 
-  def test_value
-    assert_equal(@value, @node.value)
+  def test_invalid_type
+    return_type = Arrow::NullDataType.new
+    message =
+      "[gandiva][null-literal-node][new] " +
+      "failed to create: <#{return_type}>"
+    assert_raise(Arrow::Error::Invalid.new(message)) do
+      Gandiva::NullLiteralNode.new(return_type)
+    end
   end
 
   def test_return_type
-    assert_equal(Arrow::DoubleDataType.new, @node.return_type)
+    return_type = Arrow::BooleanDataType.new
+    literal_node = Gandiva::NullLiteralNode.new(return_type)
+    assert_equal(return_type, literal_node.return_type)
   end
 end
