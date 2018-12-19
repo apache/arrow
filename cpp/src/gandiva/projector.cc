@@ -123,7 +123,8 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* p
   for (auto& field : output_fields_) {
     ArrayDataPtr output_data;
 
-    ARROW_RETURN_NOT_OK(AllocArrayData(field->type(), batch.num_rows(), pool, &output_data));
+    ARROW_RETURN_NOT_OK(
+        AllocArrayData(field->type(), batch.num_rows(), pool, &output_data));
     output_data_vecs.push_back(output_data);
   }
 

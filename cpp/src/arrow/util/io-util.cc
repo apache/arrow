@@ -235,11 +235,11 @@ Status CreatePipe(int fd[2]) {
   return Status::OK();
 }
 
-static Status StatusFromErrno(const char *prefix) {
+static Status StatusFromErrno(const char* prefix) {
 #ifdef _WIN32
-    errno = __map_mman_error(GetLastError(), EPERM);
+  errno = __map_mman_error(GetLastError(), EPERM);
 #endif
-    return Status::IOError(prefix, std::strerror(errno));
+  return Status::IOError(prefix, std::strerror(errno));
 }
 
 //

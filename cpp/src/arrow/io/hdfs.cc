@@ -464,7 +464,8 @@ class HadoopFileSystem::HadoopFileSystemImpl {
       if ((errno == 0) || (errno == ENOENT && Exists(path))) {
         num_entries = 0;
       } else {
-        return Status::IOError("HDFS list directory failed, errno: ", TranslateErrno(errno));
+        return Status::IOError("HDFS list directory failed, errno: ",
+                               TranslateErrno(errno));
       }
     }
 
