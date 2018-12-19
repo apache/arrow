@@ -292,16 +292,16 @@ To build the documentation:
    .. code-block:: shell
 
       pushd cpp/apidoc
-        doxygen
-        popd
+      doxygen
+      popd
 
 #. build the complete documentation using Sphinx
 
    .. code-block:: shell
 
       pushd docs
-        make html
-        popd
+      make html
+      popd
 
 
 Known issues
