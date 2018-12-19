@@ -32,9 +32,8 @@ class TestBitMapAccumulator : public ::testing::Test {
                                 int nrecords);
 };
 
-void TestBitMapAccumulator::FillBitMap(uint8_t* bmap, int nrecords) {
-  int nbytes = nrecords / 8;
-  unsigned int cur;
+void TestBitMapAccumulator::FillBitMap(uint8_t* bmap, int nbytes) {
+  unsigned int cur = 0;
 
   for (int i = 0; i < nbytes; ++i) {
     rand_r(&cur);
@@ -62,7 +61,7 @@ TEST_F(TestBitMapAccumulator, TestIntersectBitMaps) {
   uint8_t expected_bitmap[length];
 
   for (int i = 0; i < 4; i++) {
-    FillBitMap(src_bitmaps[i], nrecords);
+    FillBitMap(src_bitmaps[i], length);
   }
 
   for (int i = 0; i < 4; i++) {

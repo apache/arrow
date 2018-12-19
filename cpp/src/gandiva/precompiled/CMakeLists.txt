@@ -65,7 +65,7 @@ function(add_precompiled_unit_test REL_TEST_NAME)
   )
   target_compile_definitions(${TEST_NAME} PRIVATE GANDIVA_UNIT_TEST=1)
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-  set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva;unittest ${TEST_NAME})
+  set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva-tests {TEST_NAME})
 endfunction(add_precompiled_unit_test REL_TEST_NAME)
 
 # testing

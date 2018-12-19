@@ -175,6 +175,12 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   astatus = arrow::AllocateBuffer(pool, data_len, &data);
   ARROW_RETURN_NOT_OK(astatus);
 
+  // Valgrind detects unitialized memory at byte level. Boolean types use bits
+  // and can leave buffer memory uninitialized in the last byte.
+  if (type->id() == arrow::Type::BOOL) {
+    data->mutable_data()[data_len - 1] = 0;
+  }
+
   *array_data = arrow::ArrayData::Make(type, num_records, {null_bitmap, data});
   return Status::OK();
 }
