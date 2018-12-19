@@ -213,13 +213,19 @@ cdef class StructType(DataType):
         DataType.init(self, type)
         self.struct_type = <const CStructType*> type.get()
 
-    cdef Field child_by_name(self, name):
+    cdef Field field(self, int i):
+        """
+        Alias for child(i)
+        """
+        return self.child(i)
+
+    cdef Field field_by_name(self, name):
         """
         Access a child field by its name rather than the column index.
         """
         cdef shared_ptr[CField] field
 
-        field = self.struct_type.GetChildByName(tobytes(name))
+        field = self.struct_type.GetFieldByName(tobytes(name))
         if field == nullptr:
             raise KeyError(name)
 
@@ -234,7 +240,7 @@ cdef class StructType(DataType):
 
     def __getitem__(self, i):
         if isinstance(i, six.string_types):
-            return self.child_by_name(i)
+            return self.field_by_name(i)
         elif isinstance(i, six.integer_types):
             return self.child(i)
         else:

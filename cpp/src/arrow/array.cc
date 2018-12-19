@@ -395,7 +395,7 @@ std::shared_ptr<Array> StructArray::field(int i) const {
 }
 
 std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) const {
-  int i = struct_type()->GetChildIndex(name);
+  int i = struct_type()->GetFieldIndex(name);
   return i == -1 ? nullptr : field(i);
 }
 
