@@ -23,32 +23,12 @@ set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 pushd rust
 
 @echo ===================================
-@echo Build with stable toolchain
-@echo ===================================
-
-rustup default stable
-rustup show
-cargo build --target %TARGET%
-cargo build --target %TARGET% --release
-@echo Test (debug)
-@echo ------------
-cargo test --target %TARGET%
-@echo
-@echo Test (release)
-@echo --------------
-cargo test --target %TARGET% --release
-
-@echo ===================================
 @echo Build with nightly toolchain
 @echo ===================================
 
 rustup default nightly
 rustup show
-cargo build --target %TARGET% || exit /B
 cargo build --target %TARGET% --release || exit /B
-@echo Test (debug)
-@echo ------------
-cargo test --target %TARGET% || exit /B
 @echo
 @echo Test (release)
 @echo --------------
