@@ -74,6 +74,7 @@ static void BM_HashIntegers(benchmark::State& state) {  // NOLINT non-const refe
     benchmark::DoNotOptimize(total);
   }
   state.SetBytesProcessed(2 * state.iterations() * values.size() * sizeof(int64_t));
+  state.SetItemsProcessed(2 * state.iterations() * values.size());
 }
 
 static void BenchmarkStringHashing(benchmark::State& state,  // NOLINT non-const reference
@@ -92,6 +93,7 @@ static void BenchmarkStringHashing(benchmark::State& state,  // NOLINT non-const
     benchmark::DoNotOptimize(total);
   }
   state.SetBytesProcessed(2 * state.iterations() * total_size);
+  state.SetItemsProcessed(2 * state.iterations() * values.size());
 }
 
 static void BM_HashSmallStrings(benchmark::State& state) {  // NOLINT non-const reference

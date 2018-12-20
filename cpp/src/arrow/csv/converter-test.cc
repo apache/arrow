@@ -176,11 +176,28 @@ TEST(IntegerConversion, Basics) {
 }
 
 TEST(IntegerConversion, Nulls) {
-  AssertConversion<Int8Type, int8_t>(int8(), {"12,34\n", ",-128\n"},
-                                     {{12, 0}, {34, -128}},
-                                     {{true, false}, {true, true}});
+  AssertConversion<Int8Type, int8_t>(int8(), {"12,N/A\n", ",-128\n"},
+                                     {{12, 0}, {0, -128}},
+                                     {{true, false}, {false, true}});
 
   AssertConversionAllNulls<Int8Type, int8_t>(int8());
+}
+
+TEST(IntegerConversion, CustomNulls) {
+  auto options = ConvertOptions::Defaults();
+  options.null_values = {"xxx", "zzz"};
+
+  AssertConversion<Int8Type, int8_t>(int8(), {"12,xxx\n", "zzz,-128\n"},
+                                     {{12, 0}, {0, -128}}, {{true, false}, {false, true}},
+                                     options);
+
+  AssertConversionError(int8(), {",xxx,N/A\n"}, {0, 2}, options);
+
+  // Duplicate nulls allowed
+  options.null_values = {"xxx", "zzz", "xxx"};
+  AssertConversion<Int8Type, int8_t>(int8(), {"12,xxx\n", "zzz,-128\n"},
+                                     {{12, 0}, {0, -128}}, {{true, false}, {false, true}},
+                                     options);
 }
 
 TEST(IntegerConversion, Whitespace) {
@@ -203,6 +220,15 @@ TEST(FloatingPointConversion, Nulls) {
   AssertConversionAllNulls<DoubleType, double>(float64());
 }
 
+TEST(FloatingPointConversion, CustomNulls) {
+  auto options = ConvertOptions::Defaults();
+  options.null_values = {"xxx", "zzz"};
+
+  AssertConversion<FloatType, float>(float32(), {"1.5,xxx\n", "zzz,-1e10\n"},
+                                     {{1.5, 0.}, {0., -1e10f}},
+                                     {{true, false}, {false, true}}, options);
+}
+
 TEST(FloatingPointConversion, Whitespace) {
   AssertConversion<DoubleType, double>(float64(), {" 12,34.5\n", " 0 ,-1e100 \n"},
                                        {{12., 0.}, {34.5, -1e100}});
@@ -218,6 +244,15 @@ TEST(BooleanConversion, Nulls) {
   AssertConversion<BooleanType, bool>(boolean(), {"true,\n", "1,0\n"},
                                       {{true, true}, {false, false}},
                                       {{true, true}, {false, true}});
+}
+
+TEST(BooleanConversion, CustomNulls) {
+  auto options = ConvertOptions::Defaults();
+  options.null_values = {"xxx", "zzz"};
+
+  AssertConversion<BooleanType, bool>(boolean(), {"true,xxx\n", "zzz,0\n"},
+                                      {{true, false}, {false, false}},
+                                      {{true, false}, {false, true}}, options);
 }
 
 TEST(TimestampConversion, Basics) {
@@ -241,6 +276,16 @@ TEST(TimestampConversion, Nulls) {
   AssertConversion<TimestampType, int64_t>(type, {"1970-01-01 00:01:00,,N/A\n"},
                                            {{60000}, {0}, {0}},
                                            {{true}, {false}, {false}});
+}
+
+TEST(TimestampConversion, CustomNulls) {
+  auto options = ConvertOptions::Defaults();
+  options.null_values = {"xxx", "zzz"};
+
+  auto type = timestamp(TimeUnit::MILLI);
+  AssertConversion<TimestampType, int64_t>(type, {"1970-01-01 00:01:00,xxx,zzz\n"},
+                                           {{60000}, {0}, {0}},
+                                           {{true}, {false}, {false}}, options);
 }
 
 TEST(DecimalConversion, NotImplemented) {
