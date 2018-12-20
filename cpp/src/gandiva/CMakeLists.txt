@@ -38,6 +38,7 @@ install(FILES
 
 set(BC_FILE_PATH_CC "${CMAKE_CURRENT_BINARY_DIR}/bc_file_path.cc")
 configure_file(bc_file_path.cc.in ${BC_FILE_PATH_CC})
+add_definitions(-DGANDIVA_BYTE_COMPILE_FILE_PATH="${GANDIVA_BC_OUTPUT_PATH}")
 
 set(SRC_FILES annotator.cc
       bitmap_accumulator.cc
@@ -141,9 +142,6 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   endif()
 
   set(TARGET_NAME gandiva-${REL_TEST_NAME})
-
-  target_compile_definitions(${TARGET_NAME}
-    PRIVATE GANDIVA_BYTE_COMPILE_FILE_PATH="${GANDIVA_BC_OUTPUT_PATH}")
 
   if((TARGET ${TARGET_NAME}) AND
       (${REL_TEST_NAME} MATCHES "llvm" OR
