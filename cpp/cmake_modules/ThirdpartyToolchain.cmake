@@ -534,56 +534,11 @@ message(STATUS "double-conversion include dir: ${DOUBLE_CONVERSION_INCLUDE_DIR}"
 message(STATUS "double-conversion static library: ${DOUBLE_CONVERSION_STATIC_LIB}")
 
 # ----------------------------------------------------------------------
-# Google gtest & gflags
+# gflags
 
-if(ARROW_BUILD_TESTS OR ARROW_GANDIVA_BUILD_TESTS
-   OR ARROW_BUILD_BENCHMARKS)
-  if("${GTEST_HOME}" STREQUAL "")
-    if(APPLE)
-      set(GTEST_CMAKE_CXX_FLAGS "-fPIC -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes")
-    elseif(NOT MSVC)
-      set(GTEST_CMAKE_CXX_FLAGS "-fPIC")
-    endif()
-    string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
-    set(GTEST_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}} ${GTEST_CMAKE_CXX_FLAGS}")
-
-    set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
-    set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
-    set(GTEST_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GTEST_MAIN_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GTEST_VENDORED 1)
-    set(GTEST_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                         -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
-                         -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
-    if (MSVC AND NOT ARROW_USE_STATIC_CRT)
-      set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
-    endif()
-
-    ExternalProject_Add(googletest_ep
-      URL ${GTEST_SOURCE_URL}
-      BUILD_BYPRODUCTS ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB}
-      CMAKE_ARGS ${GTEST_CMAKE_ARGS}
-      ${EP_LOG_OPTIONS})
-  else()
-    find_package(GTest REQUIRED)
-    set(GTEST_VENDORED 0)
-  endif()
-
-  message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
-  message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
-  include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(gtest
-    STATIC_LIB ${GTEST_STATIC_LIB})
-  ADD_THIRDPARTY_LIB(gtest_main
-    STATIC_LIB ${GTEST_MAIN_STATIC_LIB})
-
-  if(GTEST_VENDORED)
-    add_dependencies(gtest_static googletest_ep)
-    add_dependencies(gtest_main_static googletest_ep)
-  endif()
-
+if(ARROW_BUILD_TESTS OR
+   ARROW_BUILD_BENCHMARKS OR
+   (ARROW_USE_GLOG AND GLOG_HOME))
   # gflags (formerly Googleflags) command line parsing
   if("${GFLAGS_HOME}" STREQUAL "")
     set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
@@ -633,6 +588,57 @@ if(ARROW_BUILD_TESTS OR ARROW_GANDIVA_BUILD_TESTS
 
   if(GFLAGS_VENDORED)
     add_dependencies(gflags_static gflags_ep)
+  endif()
+endif()
+
+# ----------------------------------------------------------------------
+# Google gtest
+
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  if("${GTEST_HOME}" STREQUAL "")
+    if(APPLE)
+      set(GTEST_CMAKE_CXX_FLAGS "-fPIC -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes")
+    elseif(NOT MSVC)
+      set(GTEST_CMAKE_CXX_FLAGS "-fPIC")
+    endif()
+    string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
+    set(GTEST_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}} ${GTEST_CMAKE_CXX_FLAGS}")
+
+    set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
+    set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
+    set(GTEST_STATIC_LIB
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GTEST_MAIN_STATIC_LIB
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GTEST_VENDORED 1)
+    set(GTEST_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                         -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
+                         -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
+    if (MSVC AND NOT ARROW_USE_STATIC_CRT)
+      set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
+    endif()
+
+    ExternalProject_Add(googletest_ep
+      URL ${GTEST_SOURCE_URL}
+      BUILD_BYPRODUCTS ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB}
+      CMAKE_ARGS ${GTEST_CMAKE_ARGS}
+      ${EP_LOG_OPTIONS})
+  else()
+    find_package(GTest REQUIRED)
+    set(GTEST_VENDORED 0)
+  endif()
+
+  message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
+  message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
+  include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(gtest
+    STATIC_LIB ${GTEST_STATIC_LIB})
+  ADD_THIRDPARTY_LIB(gtest_main
+    STATIC_LIB ${GTEST_MAIN_STATIC_LIB})
+
+  if(GTEST_VENDORED)
+    add_dependencies(gtest_static googletest_ep)
+    add_dependencies(gtest_main_static googletest_ep)
   endif()
 endif()
 
@@ -1506,10 +1512,14 @@ if (ARROW_USE_GLOG)
   message(STATUS "Glog static library: ${GLOG_STATIC_LIB}")
 
   include_directories(SYSTEM ${GLOG_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(glog
-    STATIC_LIB ${GLOG_STATIC_LIB})
 
   if (GLOG_VENDORED)
+    ADD_THIRDPARTY_LIB(glog
+      STATIC_LIB ${GLOG_STATIC_LIB})
     add_dependencies(glog_static glog_ep)
+  else()
+    ADD_THIRDPARTY_LIB(glog
+      STATIC_LIB ${GLOG_STATIC_LIB}
+      DEPS gflags_static)
   endif()
 endif()
