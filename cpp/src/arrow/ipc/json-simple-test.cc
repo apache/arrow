@@ -289,6 +289,7 @@ TEST(TestDouble, Errors) {
 }
 
 TEST(TestString, Basics) {
+  // String type
   std::shared_ptr<DataType> type = utf8();
   std::shared_ptr<Array> expected, actual;
 
@@ -300,6 +301,20 @@ TEST(TestString, Basics) {
   s += '\x00';
   s += "char";
   AssertJSONArray<StringType, std::string>(type, "[\"\", \"some\\u0000char\"]", {"", s});
+  // UTF8 sequence in string
+  AssertJSONArray<StringType, std::string>(type, "[\"\xc3\xa9\"]", {"\xc3\xa9"});
+
+  // Binary type
+  type = binary();
+  AssertJSONArray<BinaryType, std::string>(type, "[\"\", \"foo\", null]",
+                                           {true, true, false}, {"", "foo", ""});
+  // Arbitrary binary (non-UTF8) sequence in string
+  s = "\xff\x9f";
+  AssertJSONArray<BinaryType, std::string>(type, "[\"" + s + "\"]", {s});
+  // Bytes < 0x20 can be represented as JSON unicode escapes
+  s = '\x00';
+  s += "\x1f";
+  AssertJSONArray<BinaryType, std::string>(type, "[\"\\u0000\\u001f\"]", {s});
 }
 
 TEST(TestString, Errors) {
@@ -308,6 +323,31 @@ TEST(TestString, Errors) {
 
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]", &array));
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[]]", &array));
+}
+
+TEST(TestFixedSizeBinary, Basics) {
+  std::shared_ptr<DataType> type = fixed_size_binary(3);
+  std::shared_ptr<Array> expected, actual;
+
+  AssertJSONArray<FixedSizeBinaryType, std::string>(type, "[]", {});
+  AssertJSONArray<FixedSizeBinaryType, std::string>(type, "[\"foo\", \"bar\"]",
+                                                    {"foo", "bar"});
+  AssertJSONArray<FixedSizeBinaryType, std::string>(type, "[null, \"foo\"]",
+                                                    {false, true}, {"", "foo"});
+  // Arbitrary binary (non-UTF8) sequence in string
+  std::string s = "\xff\x9f\xcc";
+  AssertJSONArray<FixedSizeBinaryType, std::string>(type, "[\"" + s + "\"]", {s});
+}
+
+TEST(TestFixedSizeBinary, Errors) {
+  std::shared_ptr<DataType> type = fixed_size_binary(3);
+  std::shared_ptr<Array> array;
+
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[]]", &array));
+  // Invalid length
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"\"]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"abcd\"]", &array));
 }
 
 TEST(TestDecimal, Basics) {
