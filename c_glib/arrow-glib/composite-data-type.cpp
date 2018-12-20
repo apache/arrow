@@ -230,7 +230,7 @@ garrow_struct_data_type_get_field_by_name(GArrowStructDataType *data_type,
   auto arrow_struct_data_type =
     std::static_pointer_cast<arrow::StructType>(arrow_data_type);
 
-  auto arrow_field = arrow_struct_data_type->GetChildByName(name);
+  auto arrow_field = arrow_struct_data_type->GetFieldByName(name);
   if (arrow_field) {
     return garrow_field_new_raw(&arrow_field);
   } else {
@@ -256,7 +256,7 @@ garrow_struct_data_type_get_field_index(GArrowStructDataType *data_type,
   auto arrow_struct_data_type =
     std::static_pointer_cast<arrow::StructType>(arrow_data_type);
 
-  return arrow_struct_data_type->GetChildIndex(name);
+  return arrow_struct_data_type->GetFieldIndex(name);
 }
 
 
