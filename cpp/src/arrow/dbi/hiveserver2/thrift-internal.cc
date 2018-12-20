@@ -204,11 +204,7 @@ Status TStatusToStatus(const hs2::TStatus& tstatus) {
       return Status::IOError(tstatus.errorMessage);
     case hs2::TStatusCode::INVALID_HANDLE_STATUS:
       return Status::Invalid("Invalid handle");
-    default: {
-      std::stringstream ss;
-      ss << "Unknown TStatusCode " << tstatus.statusCode;
-      return Status::UnknownError(ss.str());
-    }
+    default: { return Status::UnknownError("Unknown TStatusCode ", tstatus.statusCode); }
   }
 }
 

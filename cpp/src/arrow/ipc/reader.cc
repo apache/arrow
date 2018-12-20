@@ -225,9 +225,7 @@ class ArrayLoader {
 
     const int num_children = type.num_children();
     if (num_children != 1) {
-      std::stringstream ss;
-      ss << "Wrong number of children: " << num_children;
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Wrong number of children: ", num_children);
     }
 
     return LoadChildren(type.children());
@@ -343,9 +341,7 @@ Status ReadDictionary(const Buffer& metadata, const DictionaryTypeMap& dictionar
   int64_t id = *dictionary_id = dictionary_batch->id();
   auto it = dictionary_types.find(id);
   if (it == dictionary_types.end()) {
-    std::stringstream ss;
-    ss << "Do not have type metadata for dictionary with id: " << id;
-    return Status::KeyError(ss.str());
+    return Status::KeyError("Do not have type metadata for dictionary with id: ", id);
   }
 
   std::vector<std::shared_ptr<Field>> fields = {it->second};
@@ -372,10 +368,8 @@ static Status ReadMessageAndValidate(MessageReader* reader, Message::Type expect
   RETURN_NOT_OK(reader->ReadNextMessage(message));
 
   if (!(*message) && !allow_null) {
-    std::stringstream ss;
-    ss << "Expected " << FormatMessageType(expected_type)
-       << " message in stream, was null or length 0";
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Expected ", FormatMessageType(expected_type),
+                           " message in stream, was null or length 0");
   }
 
   if ((*message) == nullptr) {
@@ -383,10 +377,9 @@ static Status ReadMessageAndValidate(MessageReader* reader, Message::Type expect
   }
 
   if ((*message)->type() != expected_type) {
-    std::stringstream ss;
-    ss << "Message not expected type: " << FormatMessageType(expected_type)
-       << ", was: " << (*message)->type();
-    return Status::IOError(ss.str());
+    return Status::IOError(
+        "Message not expected type: ", FormatMessageType(expected_type),
+        ", was: ", (*message)->type());
   }
   return Status::OK();
 }
@@ -512,9 +505,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     int magic_size = static_cast<int>(strlen(kArrowMagicBytes));
 
     if (footer_offset_ <= magic_size * 2 + 4) {
-      std::stringstream ss;
-      ss << "File is too small: " << footer_offset_;
-      return Status::Invalid(ss.str());
+      return Status::Invalid("File is too small: ", footer_offset_);
     }
 
     std::shared_ptr<Buffer> buffer;
@@ -523,9 +514,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
 
     const int64_t expected_footer_size = magic_size + sizeof(int32_t);
     if (buffer->size() < expected_footer_size) {
-      std::stringstream ss;
-      ss << "Unable to read " << expected_footer_size << "from end of file";
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Unable to read ", expected_footer_size, "from end of file");
     }
 
     if (memcmp(buffer->data() + sizeof(int32_t), kArrowMagicBytes, magic_size)) {

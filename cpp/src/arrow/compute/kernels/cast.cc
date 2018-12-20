@@ -508,11 +508,9 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
         out_data[i] = static_cast<out_type>(in_data[i] / factor);
       }
     } else {
-#define RAISE_INVALID_CAST(VAL)                                                         \
-  std::stringstream ss;                                                                 \
-  ss << "Casting from " << input.type->ToString() << " to " << output->type->ToString() \
-     << " would lose data: " << VAL;                                                    \
-  ctx->SetStatus(Status::Invalid(ss.str()));
+#define RAISE_INVALID_CAST(VAL)                                                   \
+  ctx->SetStatus(Status::Invalid("Casting from ", input.type->ToString(), " to ", \
+                                 output->type->ToString(), " would lose data: ", VAL));
 
       if (input.null_count != 0) {
         internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
@@ -795,9 +793,8 @@ struct CastFunctor<
         UnpackFixedSizeBinaryDictionary<Int64Type>(ctx, indices, dictionary, output);
         break;
       default:
-        std::stringstream ss;
-        ss << "Invalid index type: " << indices.type()->ToString();
-        ctx->SetStatus(Status::Invalid(ss.str()));
+        ctx->SetStatus(
+            Status::Invalid("Invalid index type: ", indices.type()->ToString()));
         return;
     }
   }
@@ -874,9 +871,8 @@ struct CastFunctor<T, DictionaryType,
             (UnpackBinaryDictionary<Int64Type>(ctx, indices, dictionary, output)));
         break;
       default:
-        std::stringstream ss;
-        ss << "Invalid index type: " << indices.type()->ToString();
-        ctx->SetStatus(Status::Invalid(ss.str()));
+        ctx->SetStatus(
+            Status::Invalid("Invalid index type: ", indices.type()->ToString()));
         return;
     }
   }
@@ -932,9 +928,8 @@ struct CastFunctor<T, DictionaryType,
         UnpackPrimitiveDictionary<Int64Type, c_type>(indices, dictionary, out);
         break;
       default:
-        std::stringstream ss;
-        ss << "Invalid index type: " << indices.type()->ToString();
-        ctx->SetStatus(Status::Invalid(ss.str()));
+        ctx->SetStatus(
+            Status::Invalid("Invalid index type: ", indices.type()->ToString()));
         return;
     }
   }
@@ -960,9 +955,8 @@ struct CastFunctor<O, StringType, enable_if_number<O>> {
 
       auto str = input_array.GetView(i);
       if (!converter(str.data(), str.length(), out_data)) {
-        std::stringstream ss;
-        ss << "Failed to cast String '" << str << "' into " << output->type->ToString();
-        ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
+        ctx->SetStatus(Status::Invalid("Failed to cast String '", str, "' into ",
+                                       output->type->ToString()));
         return;
       }
     }
@@ -991,10 +985,9 @@ struct CastFunctor<O, StringType,
       bool value;
       auto str = input_array.GetView(i);
       if (!converter(str.data(), str.length(), &value)) {
-        std::stringstream ss;
-        ss << "Failed to cast String '" << input_array.GetString(i) << "' into "
-           << output->type->ToString();
-        ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
+        ctx->SetStatus(Status::Invalid("Failed to cast String '",
+                                       input_array.GetString(i), "' into ",
+                                       output->type->ToString()));
         return;
       }
 
@@ -1029,9 +1022,8 @@ struct CastFunctor<TimestampType, StringType> {
 
       const auto str = input_array.GetView(i);
       if (!converter(str.data(), str.length(), out_data)) {
-        std::stringstream ss;
-        ss << "Failed to cast String '" << str << "' into " << output->type->ToString();
-        ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
+        ctx->SetStatus(Status::Invalid("Failed to cast String '", str, "' into ",
+                                       output->type->ToString()));
         return;
       }
     }
@@ -1123,9 +1115,8 @@ static Status AllocateIfNotPreallocated(FunctionContext* ctx, const ArrayData& i
 
     if (!(is_primitive(type_id) || type_id == Type::FIXED_SIZE_BINARY ||
           type_id == Type::DECIMAL)) {
-      std::stringstream ss;
-      ss << "Cannot pre-allocate memory for type: " << out->type->ToString();
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Cannot pre-allocate memory for type: ",
+                                    out->type->ToString());
     }
 
     if (type_id != Type::NA) {
@@ -1400,10 +1391,8 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
       break;
   }
   if (*kernel == nullptr) {
-    std::stringstream ss;
-    ss << "No cast implemented from " << in_type.ToString() << " to "
-       << out_type->ToString();
-    return Status::NotImplemented(ss.str());
+    return Status::NotImplemented("No cast implemented from ", in_type.ToString(), " to ",
+                                  out_type->ToString());
   }
   return Status::OK();
 }

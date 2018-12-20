@@ -82,9 +82,8 @@ Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
   RETURN_NOT_OK(AllocateBuffer(pool, message_length, &metadata));
   RETURN_NOT_OK(reader->Read(message_length, &bytes_read, metadata->mutable_data()));
   if (bytes_read != message_length) {
-    std::stringstream ss;
-    ss << "Expected " << message_length << " metadata bytes, but only got " << bytes_read;
-    return Status::IOError(ss.str());
+    return Status::IOError("Expected ", message_length, " metadata bytes, but only got ",
+                           bytes_read);
   }
 
   return ipc::Message::ReadFrom(metadata, reader, out);

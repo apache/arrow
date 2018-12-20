@@ -199,9 +199,7 @@ static inline Status PyTime_convert_int(int64_t val, const TimeUnit::type unit,
   switch (unit) {
     case TimeUnit::NANO:
       if (val % 1000 != 0) {
-        std::stringstream ss;
-        ss << "Value " << val << " has non-zero nanoseconds";
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Value ", val, " has non-zero nanoseconds");
       }
       val /= 1000;
     // fall through

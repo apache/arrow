@@ -57,13 +57,11 @@ std::string TranslateErrno(int error_code) {
 
 }  // namespace
 
-#define CHECK_FAILURE(RETURN_VALUE, WHAT)                                   \
-  do {                                                                      \
-    if (RETURN_VALUE == -1) {                                               \
-      std::stringstream ss;                                                 \
-      ss << "HDFS " << WHAT << " failed, errno: " << TranslateErrno(errno); \
-      return Status::IOError(ss.str());                                     \
-    }                                                                       \
+#define CHECK_FAILURE(RETURN_VALUE, WHAT)                                               \
+  do {                                                                                  \
+    if (RETURN_VALUE == -1) {                                                           \
+      return Status::IOError("HDFS ", WHAT, " failed, errno: ", TranslateErrno(errno)); \
+    }                                                                                   \
   } while (0)
 
 static constexpr int kDefaultHdfsBufferSize = 1 << 16;
@@ -466,10 +464,8 @@ class HadoopFileSystem::HadoopFileSystemImpl {
       if ((errno == 0) || (errno == ENOENT && Exists(path))) {
         num_entries = 0;
       } else {
-        std::stringstream ss;
-        ss << "HDFS list directory of " << path
-           << " failed, errno: " << TranslateErrno(errno);
-        return Status::IOError(ss.str());
+        return Status::IOError("HDFS list directory failed, errno: ",
+                               TranslateErrno(errno));
       }
     }
 
@@ -492,14 +488,9 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     hdfsFile handle = driver_->OpenFile(fs_, path.c_str(), O_RDONLY, buffer_size, 0, 0);
 
     if (handle == nullptr) {
-      std::stringstream ss;
-      if (!Exists(path)) {
-        ss << "HDFS file does not exist: " << path;
-      } else {
-        // TODO(wesm): determine other causes of failure
-        ss << "HDFS path exists, but opening file failed: " << path;
-      }
-      return Status::IOError(ss.str());
+      const char* msg = !Exists(path) ? "HDFS file does not exist: "
+                                      : "HDFS path exists, but opening file failed: ";
+      return Status::IOError(msg, path);
     }
 
     // std::make_shared does not work with private ctors
@@ -521,10 +512,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
                           static_cast<tSize>(default_block_size));
 
     if (handle == nullptr) {
-      // TODO(wesm): determine cause of failure
-      std::stringstream ss;
-      ss << "Unable to open file " << path;
-      return Status::IOError(ss.str());
+      return Status::IOError("Unable to open file ", path);
     }
 
     // std::make_shared does not work with private ctors

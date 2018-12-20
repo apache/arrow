@@ -443,9 +443,7 @@ static Status TypeToFlatbuffer(FBB& fbb, const DataType& type,
       return UnionToFlatBuffer(fbb, *value_type, children, dictionary_memo, offset);
     default:
       *out_type = flatbuf::Type_NONE;  // Make clang-tidy happy
-      std::stringstream ss;
-      ss << "Unable to convert type: " << type.ToString() << std::endl;
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Unable to convert type: ", type.ToString());
   }
   return Status::OK();
 }
@@ -483,9 +481,7 @@ static Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type,
       break;
     default:
       *out_type = flatbuf::Type_NONE;  // Make clang-tidy happy
-      std::stringstream ss;
-      ss << "Unable to convert type: " << type.ToString() << std::endl;
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Unable to convert type: ", type.ToString());
   }
   return Status::OK();
 }

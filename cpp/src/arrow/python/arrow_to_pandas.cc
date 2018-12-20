@@ -414,9 +414,7 @@ inline Status ConvertBinaryLike(PandasOptions options, const ChunkedArray& data,
         *out_values = WrapBytes<ArrayType>::Wrap(view.data(), view.length());
         if (*out_values == nullptr) {
           PyErr_Clear();
-          std::stringstream ss;
-          ss << "Wrapping " << view << " failed";
-          return Status::UnknownError(ss.str());
+          return Status::UnknownError("Wrapping ", view, " failed");
         }
       }
       ++out_values;
@@ -773,18 +771,16 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(ListType, LIST)
         CONVERTLISTSLIKE_CASE(NullType, NA)
         default: {
-          std::stringstream ss;
-          ss << "Not implemented type for conversion from List to Pandas ObjectBlock: "
-             << list_type->value_type()->ToString();
-          return Status::NotImplemented(ss.str());
+          return Status::NotImplemented(
+              "Not implemented type for conversion from List to Pandas ObjectBlock: ",
+              list_type->value_type()->ToString());
         }
       }
     } else if (type == Type::STRUCT) {
       RETURN_NOT_OK(ConvertStruct(options_, data, out_buffer));
     } else {
-      std::stringstream ss;
-      ss << "Unsupported type for object array output: " << col->type()->ToString();
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Unsupported type for object array output: ",
+                                    col->type()->ToString());
     }
 
     placement_data_[rel_placement] = abs_placement;
@@ -810,10 +806,9 @@ class IntBlock : public PandasBlock {
     const ChunkedArray& data = *col->data().get();
 
     if (type != ARROW_TYPE) {
-      std::stringstream ss;
-      ss << "Cannot write Arrow data of type " << col->type()->ToString();
-      ss << " to a Pandas int" << sizeof(C_TYPE) << " block.";
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Cannot write Arrow data of type ",
+                                    col->type()->ToString(), " to a Pandas int",
+                                    sizeof(C_TYPE), " block");
     }
 
     ConvertIntegerNoNullsSameType<C_TYPE>(options_, data, out_buffer);
@@ -841,10 +836,9 @@ class Float16Block : public PandasBlock {
     Type::type type = col->type()->id();
 
     if (type != Type::HALF_FLOAT) {
-      std::stringstream ss;
-      ss << "Cannot write Arrow data of type " << col->type()->ToString();
-      ss << " to a Pandas float16 block.";
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Cannot write Arrow data of type ",
+                                    col->type()->ToString(),
+                                    " to a Pandas float16 block");
     }
 
     npy_half* out_buffer =
@@ -866,10 +860,9 @@ class Float32Block : public PandasBlock {
     Type::type type = col->type()->id();
 
     if (type != Type::FLOAT) {
-      std::stringstream ss;
-      ss << "Cannot write Arrow data of type " << col->type()->ToString();
-      ss << " to a Pandas float32 block.";
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Cannot write Arrow data of type ",
+                                    col->type()->ToString(),
+                                    " to a Pandas float32 block");
     }
 
     float* out_buffer = reinterpret_cast<float*>(block_data_) + rel_placement * num_rows_;
@@ -922,10 +915,9 @@ class Float64Block : public PandasBlock {
         ConvertNumericNullable<double>(data, NAN, out_buffer);
         break;
       default:
-        std::stringstream ss;
-        ss << "Cannot write Arrow data of type " << col->type()->ToString();
-        ss << " to a Pandas float64 block.";
-        return Status::NotImplemented(ss.str());
+        return Status::NotImplemented("Cannot write Arrow data of type ",
+                                      col->type()->ToString(),
+                                      " to a Pandas float64 block");
     }
 
 #undef INTEGER_CASE
@@ -945,10 +937,9 @@ class BoolBlock : public PandasBlock {
     Type::type type = col->type()->id();
 
     if (type != Type::BOOL) {
-      std::stringstream ss;
-      ss << "Cannot write Arrow data of type " << col->type()->ToString();
-      ss << " to a Pandas boolean block.";
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Cannot write Arrow data of type ",
+                                    col->type()->ToString(),
+                                    " to a Pandas boolean block");
     }
 
     uint8_t* out_buffer =
@@ -1006,10 +997,9 @@ class DatetimeBlock : public PandasBlock {
         return Status::NotImplemented("Unsupported time unit");
       }
     } else {
-      std::stringstream ss;
-      ss << "Cannot write Arrow data of type " << col->type()->ToString();
-      ss << " to a Pandas datetime block.";
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Cannot write Arrow data of type ",
+                                    col->type()->ToString(),
+                                    " to a Pandas datetime block.");
     }
 
     placement_data_[rel_placement] = abs_placement;
@@ -1075,9 +1065,8 @@ class CategoricalBlock : public PandasBlock {
       const T* values = arr.raw_values();
       for (int64_t i = 0; i < arr.length(); ++i) {
         if (arr.IsValid(i) && (values[i] < 0 || values[i] >= dict_length)) {
-          std::stringstream ss;
-          ss << "Out of bounds dictionary index: " << static_cast<int64_t>(values[i]);
-          return Status::Invalid(ss.str());
+          return Status::Invalid("Out of bounds dictionary index: ",
+                                 static_cast<int64_t>(values[i]));
         }
       }
       return Status::OK();
@@ -1088,16 +1077,15 @@ class CategoricalBlock : public PandasBlock {
       RETURN_NOT_OK(AllocateNDArrayFromIndices<T>(npy_type, indices_first));
     } else {
       if (options_.zero_copy_only) {
-        std::stringstream ss;
         if (needs_copy_) {
-          ss << "Need to allocate categorical memory, "
-             << "but only zero-copy conversions allowed.";
-        } else {
-          ss << "Needed to copy " << data.num_chunks() << " chunks with "
-             << indices_first->null_count()
-             << " indices nulls, but zero_copy_only was True";
+          return Status::Invalid("Need to allocate categorical memory, but ",
+                                 "only zero-copy conversions "
+                                 "allowed");
         }
-        return Status::Invalid(ss.str());
+
+        return Status::Invalid("Needed to copy ", data.num_chunks(), " chunks with ",
+                               indices_first->null_count(),
+                               " indices nulls, but zero_copy_only was True");
       }
       RETURN_NOT_OK(AllocateNDArray(npy_type, 1));
 
@@ -1155,10 +1143,8 @@ class CategoricalBlock : public PandasBlock {
         RETURN_NOT_OK(WriteIndices<Int64Type>(converted_col));
         break;
       default: {
-        std::stringstream ss;
-        ss << "Categorical index type not supported: "
-           << dict_type.index_type()->ToString();
-        return Status::NotImplemented(ss.str());
+        return Status::NotImplemented("Categorical index type not supported: ",
+                                      dict_type.index_type()->ToString());
       }
     }
 
@@ -1349,10 +1335,8 @@ static Status GetPandasBlockType(const Column& col, const PandasOptions& options
     case Type::LIST: {
       auto list_type = std::static_pointer_cast<ListType>(col.type());
       if (!ListTypeSupported(*list_type->value_type())) {
-        std::stringstream ss;
-        ss << "Not implemented type for list in DataFrameBlock: "
-           << list_type->value_type()->ToString();
-        return Status::NotImplemented(ss.str());
+        return Status::NotImplemented("Not implemented type for list in DataFrameBlock: ",
+                                      list_type->value_type()->ToString());
       }
       *output_type = PandasBlock::OBJECT;
     } break;
@@ -1360,10 +1344,9 @@ static Status GetPandasBlockType(const Column& col, const PandasOptions& options
       *output_type = PandasBlock::CATEGORICAL;
       break;
     default:
-      std::stringstream ss;
-      ss << "No known equivalent Pandas block for Arrow data of type ";
-      ss << col.type()->ToString() << " is known.";
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented(
+          "No known equivalent Pandas block for Arrow data of type ",
+          col.type()->ToString(), " is known.");
   }
   return Status::OK();
 }
@@ -1657,10 +1640,8 @@ class ArrowDeserializer {
     if (data_.num_chunks() == 1 && data_.null_count() == 0) {
       return ConvertValuesZeroCopy<TYPE>(options_, npy_type, data_.chunk(0));
     } else if (options_.zero_copy_only) {
-      std::stringstream ss;
-      ss << "Needed to copy " << data_.num_chunks() << " chunks with "
-         << data_.null_count() << " nulls, but zero_copy_only was True";
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Needed to copy ", data_.num_chunks(), " chunks with ",
+                             data_.null_count(), " nulls, but zero_copy_only was True");
     }
 
     RETURN_NOT_OK(AllocateOutput(npy_type));
@@ -1751,10 +1732,8 @@ class ArrowDeserializer {
     if (data_.num_chunks() == 1 && data_.null_count() == 0) {
       return ConvertValuesZeroCopy<TYPE>(options_, traits::npy_type, data_.chunk(0));
     } else if (options_.zero_copy_only) {
-      std::stringstream ss;
-      ss << "Needed to copy " << data_.num_chunks() << " chunks with "
-         << data_.null_count() << " nulls, but zero_copy_only was True";
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Needed to copy ", data_.num_chunks(), " chunks with ",
+                             data_.null_count(), " nulls, but zero_copy_only was True");
     }
 
     if (data_.null_count() > 0) {
@@ -1854,9 +1833,8 @@ class ArrowDeserializer {
       CONVERTVALUES_LISTSLIKE_CASE(Decimal128Type, DECIMAL)
       CONVERTVALUES_LISTSLIKE_CASE(ListType, LIST)
       default: {
-        std::stringstream ss;
-        ss << "Not implemented type for lists: " << list_type->value_type()->ToString();
-        return Status::NotImplemented(ss.str());
+        return Status::NotImplemented("Not implemented type for lists: ",
+                                      list_type->value_type()->ToString());
       }
     }
 #undef CONVERTVALUES_LISTSLIKE_CASE

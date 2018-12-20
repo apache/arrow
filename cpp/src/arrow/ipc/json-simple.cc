@@ -41,9 +41,7 @@ using ::arrow::internal::checked_cast;
 static constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
 
 static Status JSONTypeError(const char* expected_type, rj::Type json_type) {
-  std::stringstream ss;
-  ss << "Expected " << expected_type << " or null, got type " << json_type;
-  return Status::Invalid(ss.str());
+  return Status::Invalid("Expected ", expected_type, " or null, got type ", json_type);
 }
 
 class Converter {
@@ -184,9 +182,8 @@ class IntegerConverter final : public ConcreteConverter<IntegerConverter<Type>> 
       if (v == v64) {
         return builder_->Append(v);
       } else {
-        std::stringstream ss;
-        ss << "Value " << v64 << " out of bounds for " << this->type_->ToString();
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Value ", v64, " out of bounds for ",
+                               this->type_->ToString());
       }
     } else {
       return JSONTypeError("signed int", json_obj.GetType());
@@ -203,9 +200,8 @@ class IntegerConverter final : public ConcreteConverter<IntegerConverter<Type>> 
       if (v == v64) {
         return builder_->Append(v);
       } else {
-        std::stringstream ss;
-        ss << "Value " << v64 << " out of bounds for " << this->type_->ToString();
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Value ", v64, " out of bounds for ",
+                               this->type_->ToString());
       }
       return builder_->Append(v);
     } else {
@@ -272,10 +268,8 @@ class DecimalConverter final : public ConcreteConverter<DecimalConverter> {
       auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
       RETURN_NOT_OK(Decimal128::FromString(view, &d, &precision, &scale));
       if (scale != decimal_type_->scale()) {
-        std::stringstream ss;
-        ss << "Invalid scale for decimal: expected " << decimal_type_->scale() << ", got "
-           << scale;
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Invalid scale for decimal: expected ",
+                               decimal_type_->scale(), ", got ", scale);
       }
       return builder_->Append(d);
     }
@@ -390,10 +384,8 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
       auto size = json_obj.Size();
       auto expected_size = static_cast<uint32_t>(type_->num_children());
       if (size != expected_size) {
-        std::stringstream ss;
-        ss << "Expected array of size " << expected_size << ", got array of size "
-           << size;
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Expected array of size ", expected_size,
+                               ", got array of size ", size);
       }
       for (uint32_t i = 0; i < size; ++i) {
         RETURN_NOT_OK(child_converters_[i]->AppendValue(json_obj[i]));
@@ -414,9 +406,8 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
         }
       }
       if (remaining > 0) {
-        std::stringstream ss;
-        ss << "Unexpected members in JSON object for type " << type_->ToString();
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Unexpected members in JSON object for type ",
+                               type_->ToString());
       }
       return builder_->Append();
     }
@@ -460,9 +451,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::STRING, StringConverter)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
     default: {
-      std::stringstream ss;
-      ss << "JSON conversion to " << type->ToString() << " not implemented";
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("JSON conversion to ", type->ToString(),
+                                    " not implemented");
     }
   }
 
@@ -481,10 +471,8 @@ Status ArrayFromJSON(const std::shared_ptr<DataType>& type,
   rj::Document json_doc;
   json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
   if (json_doc.HasParseError()) {
-    std::stringstream ss;
-    ss << "JSON parse error at offset " << json_doc.GetErrorOffset() << ": "
-       << GetParseError_En(json_doc.GetParseError());
-    return Status::Invalid(ss.str());
+    return Status::Invalid("JSON parse error at offset ", json_doc.GetErrorOffset(), ": ",
+                           GetParseError_En(json_doc.GetParseError()));
   }
 
   // The JSON document should be an array, append it

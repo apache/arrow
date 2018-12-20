@@ -38,20 +38,16 @@ Status RegexUtil::SqlLikePatternToPcre(const std::string& sql_pattern, char esca
     if (cur == escape_char) {
       // escape char must be followed by '_', '%' or the escape char itself.
       ++idx;
-      if (idx == sql_pattern.size()) {
-        std::stringstream msg;
-        msg << "unexpected escape char at the end of pattern " << sql_pattern;
-        return Status::Invalid(msg.str());
-      }
+      ARROW_RETURN_IF(
+          idx == sql_pattern.size(),
+          Status::Invalid("Unexpected escape char at the end of pattern ", sql_pattern));
 
       cur = sql_pattern.at(idx);
       if (cur == '_' || cur == '%' || cur == escape_char) {
         pcre_pattern += cur;
       } else {
-        std::stringstream msg;
-        msg << "invalid escape sequence in pattern " << sql_pattern << " at offset "
-            << idx;
-        return Status::Invalid(msg.str());
+        return Status::Invalid("Invalid escape sequence in pattern ", sql_pattern,
+                               " at offset ", idx);
       }
     } else if (cur == '_') {
       pcre_pattern += '.';

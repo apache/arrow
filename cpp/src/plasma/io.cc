@@ -49,7 +49,7 @@ Status WriteBytes(int fd, uint8_t* cursor, size_t length) {
       if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
         continue;
       }
-      return Status::IOError(std::string(strerror(errno)));
+      return Status::IOError(strerror(errno));
     } else if (nbytes == 0) {
       return Status::IOError("Encountered unexpected EOF");
     }
@@ -80,7 +80,7 @@ Status ReadBytes(int fd, uint8_t* cursor, size_t length) {
       if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
         continue;
       }
-      return Status::IOError(std::string(strerror(errno)));
+      return Status::IOError(strerror(errno));
     } else if (0 == nbytes) {
       return Status::IOError("Encountered unexpected EOF");
     }
@@ -171,12 +171,12 @@ Status ConnectIpcSocketRetry(const std::string& pathname, int num_retries,
     *fd = ConnectIpcSock(pathname);
     --num_retries;
   }
+
   // If we could not connect to the socket, exit.
   if (*fd == -1) {
-    std::stringstream ss;
-    ss << "Could not connect to socket " << pathname;
-    return Status::IOError(ss.str());
+    return Status::IOError("Could not connect to socket ", pathname);
   }
+
   return Status::OK();
 }
 

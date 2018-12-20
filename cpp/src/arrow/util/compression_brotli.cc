@@ -81,9 +81,7 @@ class BrotliDecompressor : public Decompressor {
   Status BrotliError(const char* msg) { return Status::IOError(msg); }
 
   Status BrotliError(BrotliDecoderErrorCode code, const char* prefix_msg) {
-    std::stringstream ss;
-    ss << prefix_msg << BrotliDecoderErrorString(code);
-    return Status::IOError(ss.str());
+    return Status::IOError(prefix_msg, BrotliDecoderErrorString(code));
   }
 
   BrotliDecoderState* state_ = nullptr;

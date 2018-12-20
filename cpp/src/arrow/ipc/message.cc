@@ -153,10 +153,8 @@ Status Message::ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStrea
   std::shared_ptr<Buffer> body;
   RETURN_NOT_OK(stream->Read(body_length, &body));
   if (body->size() < body_length) {
-    std::stringstream ss;
-    ss << "Expected to be able to read " << body_length << " bytes for message body, got "
-       << body->size();
-    return Status::IOError(ss.str());
+    return Status::IOError("Expected to be able to read ", body_length,
+                           " bytes for message body, got ", body->size());
   }
 
   return Message::Open(metadata, body, out);
@@ -171,10 +169,8 @@ Status Message::ReadFrom(const int64_t offset, const std::shared_ptr<Buffer>& me
   std::shared_ptr<Buffer> body;
   RETURN_NOT_OK(file->ReadAt(offset, body_length, &body));
   if (body->size() < body_length) {
-    std::stringstream ss;
-    ss << "Expected to be able to read " << body_length << " bytes for message body, got "
-       << body->size();
-    return Status::IOError(ss.str());
+    return Status::IOError("Expected to be able to read ", body_length,
+                           " bytes for message body, got ", body->size());
   }
 
   return Message::Open(metadata, body, out);
@@ -238,19 +234,16 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
   RETURN_NOT_OK(file->ReadAt(offset, metadata_length, &buffer));
 
   if (buffer->size() < metadata_length) {
-    std::stringstream ss;
-    ss << "Expected to read " << metadata_length << " metadata bytes but got "
-       << buffer->size();
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Expected to read ", metadata_length,
+                           " metadata bytes but got ", buffer->size());
   }
 
   int32_t flatbuffer_size = *reinterpret_cast<const int32_t*>(buffer->data());
 
   if (flatbuffer_size + static_cast<int>(sizeof(int32_t)) > metadata_length) {
-    std::stringstream ss;
-    ss << "flatbuffer size " << metadata_length << " invalid. File offset: " << offset
-       << ", metadata length: " << metadata_length;
-    return Status::Invalid(ss.str());
+    return Status::Invalid("flatbuffer size ", metadata_length,
+                           " invalid. File offset: ", offset,
+                           ", metadata length: ", metadata_length);
   }
 
   auto metadata = SliceBuffer(buffer, 4, buffer->size() - 4);
@@ -303,10 +296,8 @@ Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
   std::shared_ptr<Buffer> metadata;
   RETURN_NOT_OK(file->Read(message_length, &metadata));
   if (metadata->size() != message_length) {
-    std::stringstream ss;
-    ss << "Expected to read " << message_length << " metadata bytes, but "
-       << "only read " << metadata->size();
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Expected to read ", message_length, " metadata bytes, but ",
+                           "only read ", metadata->size());
   }
 
   return Message::ReadFrom(metadata, file, message);
