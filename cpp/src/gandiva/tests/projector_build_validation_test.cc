@@ -191,8 +191,6 @@ TEST_F(TestProjector, TestIfNotMatchingReturnType) {
   std::shared_ptr<Projector> projector;
   Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
-  std::string expected_error = "Return type of if bool and then int32 not matching.";
-  EXPECT_EQ(status.message(), expected_error);
 }
 
 TEST_F(TestProjector, TestElseNotMatchingReturnType) {
