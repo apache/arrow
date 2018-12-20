@@ -50,14 +50,17 @@ TEST_F(TestProjector, TestProjectCache) {
   auto sub_expr =
       TreeExprBuilder::MakeExpression("subtract", {field0, field1}, field_sub);
 
+  auto configuration = TestConfiguration();
+
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {sum_expr, sub_expr}, &projector);
+  auto status = Projector::Make(schema, {sum_expr, sub_expr}, configuration, &projector);
   EXPECT_TRUE(status.ok());
 
   // everything is same, should return the same projector.
   auto schema_same = arrow::schema({field0, field1});
   std::shared_ptr<Projector> cached_projector;
-  status = Projector::Make(schema_same, {sum_expr, sub_expr}, &cached_projector);
+  status = Projector::Make(schema_same, {sum_expr, sub_expr}, configuration,
+                           &cached_projector);
   EXPECT_TRUE(status.ok());
   EXPECT_TRUE(cached_projector.get() == projector.get());
 
@@ -65,14 +68,14 @@ TEST_F(TestProjector, TestProjectCache) {
   auto field2 = field("f2", int32());
   auto different_schema = arrow::schema({field0, field1, field2});
   std::shared_ptr<Projector> should_be_new_projector;
-  status =
-      Projector::Make(different_schema, {sum_expr, sub_expr}, &should_be_new_projector);
+  status = Projector::Make(different_schema, {sum_expr, sub_expr}, configuration,
+                           &should_be_new_projector);
   EXPECT_TRUE(status.ok());
   EXPECT_TRUE(cached_projector.get() != should_be_new_projector.get());
 
   // expression list is different should return a new projector.
   std::shared_ptr<Projector> should_be_new_projector1;
-  status = Projector::Make(schema, {sum_expr}, &should_be_new_projector1);
+  status = Projector::Make(schema, {sum_expr}, configuration, &should_be_new_projector1);
   EXPECT_TRUE(status.ok());
   EXPECT_TRUE(cached_projector.get() != should_be_new_projector1.get());
 }
@@ -90,12 +93,13 @@ TEST_F(TestProjector, TestProjectCacheFieldNames) {
 
   auto sum_expr_01 = TreeExprBuilder::MakeExpression("add", {field0, field1}, sum_01);
   std::shared_ptr<Projector> projector_01;
-  Status status = Projector::Make(schema, {sum_expr_01}, &projector_01);
+  auto status =
+      Projector::Make(schema, {sum_expr_01}, TestConfiguration(), &projector_01);
   EXPECT_TRUE(status.ok());
 
   auto sum_expr_12 = TreeExprBuilder::MakeExpression("add", {field1, field2}, sum_12);
   std::shared_ptr<Projector> projector_12;
-  status = Projector::Make(schema, {sum_expr_12}, &projector_12);
+  status = Projector::Make(schema, {sum_expr_12}, TestConfiguration(), &projector_12);
   EXPECT_TRUE(status.ok());
 
   // add(f0, f1) != add(f1, f2)
@@ -111,14 +115,16 @@ TEST_F(TestProjector, TestProjectCacheDouble) {
 
   auto literal0 = TreeExprBuilder::MakeLiteral(d0);
   auto expr0 = TreeExprBuilder::MakeExpression(literal0, res);
+  auto configuration = TestConfiguration();
+
   std::shared_ptr<Projector> projector0;
-  auto status = Projector::Make(schema, {expr0}, &projector0);
+  auto status = Projector::Make(schema, {expr0}, configuration, &projector0);
   EXPECT_TRUE(status.ok()) << status.message();
 
   auto literal1 = TreeExprBuilder::MakeLiteral(d1);
   auto expr1 = TreeExprBuilder::MakeExpression(literal1, res);
   std::shared_ptr<Projector> projector1;
-  status = Projector::Make(schema, {expr1}, &projector1);
+  status = Projector::Make(schema, {expr1}, configuration, &projector1);
   EXPECT_TRUE(status.ok()) << status.message();
 
   EXPECT_TRUE(projector0.get() != projector1.get());
@@ -134,13 +140,13 @@ TEST_F(TestProjector, TestProjectCacheFloat) {
   auto literal0 = TreeExprBuilder::MakeLiteral(f0);
   auto expr0 = TreeExprBuilder::MakeExpression(literal0, res);
   std::shared_ptr<Projector> projector0;
-  auto status = Projector::Make(schema, {expr0}, &projector0);
+  auto status = Projector::Make(schema, {expr0}, TestConfiguration(), &projector0);
   EXPECT_TRUE(status.ok()) << status.message();
 
   auto literal1 = TreeExprBuilder::MakeLiteral(f1);
   auto expr1 = TreeExprBuilder::MakeExpression(literal1, res);
   std::shared_ptr<Projector> projector1;
-  status = Projector::Make(schema, {expr1}, &projector1);
+  status = Projector::Make(schema, {expr1}, TestConfiguration(), &projector1);
   EXPECT_TRUE(status.ok()) << status.message();
 
   EXPECT_TRUE(projector0.get() != projector1.get());
@@ -162,50 +168,8 @@ TEST_F(TestProjector, TestIntSumSub) {
       TreeExprBuilder::MakeExpression("subtract", {field0, field1}, field_sub);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {sum_expr, sub_expr}, &projector);
-  EXPECT_TRUE(status.ok());
-
-  // Create a row-batch with some sample data
-  int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, false});
-  auto array1 = MakeArrowArrayInt32({11, 13, 15, 17}, {true, true, false, true});
-  // expected output
-  auto exp_sum = MakeArrowArrayInt32({12, 15, 0, 0}, {true, true, false, false});
-  auto exp_sub = MakeArrowArrayInt32({-10, -11, 0, 0}, {true, true, false, false});
-
-  // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
-
-  // Evaluate expression
-  arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok());
-
-  // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
-  EXPECT_ARROW_ARRAY_EQUALS(exp_sub, outputs.at(1));
-}
-
-TEST_F(TestProjector, TestIntSumSubCustomConfig) {
-  // schema for input fields
-  auto field0 = field("f0", int32());
-  auto field1 = field("f2", int32());
-  auto schema = arrow::schema({field0, field1});
-
-  // output fields
-  auto field_sum = field("add", int32());
-  auto field_sub = field("subtract", int32());
-
-  // Build expression
-  auto sum_expr = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
-  auto sub_expr =
-      TreeExprBuilder::MakeExpression("subtract", {field0, field1}, field_sub);
-
-  std::shared_ptr<Projector> projector;
-  ConfigurationBuilder config_builder;
-  std::shared_ptr<Configuration> config = config_builder.build();
-
-  Status status = Projector::Make(schema, {sum_expr, sub_expr}, config, &projector);
+  auto status =
+      Projector::Make(schema, {sum_expr, sub_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -257,8 +221,9 @@ static void TestArithmeticOpsForType(arrow::MemoryPool* pool) {
   auto lt_expr = TreeExprBuilder::MakeExpression("less_than", {field0, field1}, field_lt);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(
-      schema, {sum_expr, sub_expr, mul_expr, div_expr, eq_expr, lt_expr}, &projector);
+  auto status =
+      Projector::Make(schema, {sum_expr, sub_expr, mul_expr, div_expr, eq_expr, lt_expr},
+                      TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -344,9 +309,9 @@ TEST_F(TestProjector, TestExtendedMath) {
       TreeExprBuilder::MakeExpression("power", {field0, field1}, field_power);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(
+  auto status = Projector::Make(
       schema, {cbrt_expr, exp_expr, log_expr, log10_expr, logb_expr, power_expr},
-      &projector);
+      TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -412,7 +377,7 @@ TEST_F(TestProjector, TestFloatLessThan) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {lt_expr}, &projector);
+  auto status = Projector::Make(schema, {lt_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -447,7 +412,7 @@ TEST_F(TestProjector, TestIsNotNull) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {myexpr}, &projector);
+  auto status = Projector::Make(schema, {myexpr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -480,7 +445,7 @@ TEST_F(TestProjector, TestZeroCopy) {
   auto cast_expr = TreeExprBuilder::MakeExpression("castFLOAT4", {field0}, res);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {cast_expr}, &projector);
+  auto status = Projector::Make(schema, {cast_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -527,7 +492,7 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
   auto cast_expr = TreeExprBuilder::MakeExpression("castFLOAT4", {field0}, res);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {cast_expr}, &projector);
+  auto status = Projector::Make(schema, {cast_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -597,7 +562,7 @@ TEST_F(TestProjector, TestDivideZero) {
   auto div_expr = TreeExprBuilder::MakeExpression("divide", {field0, field1}, field_div);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {div_expr}, &projector);
+  auto status = Projector::Make(schema, {div_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -646,7 +611,7 @@ TEST_F(TestProjector, TestModZero) {
   auto mod_expr = TreeExprBuilder::MakeExpression("mod", {field0, field1}, field_div);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {mod_expr}, &projector);
+  auto status = Projector::Make(schema, {mod_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data

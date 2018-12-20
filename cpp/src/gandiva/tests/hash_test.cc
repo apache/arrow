@@ -61,7 +61,8 @@ TEST_F(TestHash, TestSimple) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr_0, expr_1}, &projector);
+  auto status =
+      Projector::Make(schema, {expr_0, expr_1}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -113,7 +114,8 @@ TEST_F(TestHash, TestBuf) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr_0, expr_1}, &projector);
+  auto status =
+      Projector::Make(schema, {expr_0, expr_1}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data

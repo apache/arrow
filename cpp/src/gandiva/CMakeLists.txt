@@ -27,11 +27,14 @@ find_package(LLVM)
 
 # Set the path where the byte-code files will be installed.
 set(GANDIVA_BC_INSTALL_DIR
-  ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/gandiva)
+  ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/gandiva)
 
 set(GANDIVA_BC_FILE_NAME irhelpers.bc)
 set(GANDIVA_BC_INSTALL_PATH ${GANDIVA_BC_INSTALL_DIR}/${GANDIVA_BC_FILE_NAME})
 set(GANDIVA_BC_OUTPUT_PATH ${BUILD_OUTPUT_ROOT_DIRECTORY}/${GANDIVA_BC_FILE_NAME})
+install(FILES
+  ${GANDIVA_BC_OUTPUT_PATH}
+  DESTINATION ${GANDIVA_BC_INSTALL_DIR})
 
 set(BC_FILE_PATH_CC "${CMAKE_CURRENT_BINARY_DIR}/bc_file_path.cc")
 configure_file(bc_file_path.cc.in ${BC_FILE_PATH_CC})
@@ -59,7 +62,6 @@ set(SRC_FILES annotator.cc
       selection_vector.cc
       tree_expr_builder.cc
       to_date_holder.cc
-      ${SHARED_HELPER_FILES}
       ${BC_FILE_PATH_CC})
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS
@@ -139,6 +141,9 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   endif()
 
   set(TARGET_NAME gandiva-${REL_TEST_NAME})
+
+  target_compile_definitions(${TARGET_NAME}
+    PRIVATE GANDIVA_BYTE_COMPILE_FILE_PATH="${GANDIVA_BC_OUTPUT_PATH}")
 
   if((TARGET ${TARGET_NAME}) AND
       (${REL_TEST_NAME} MATCHES "llvm" OR
