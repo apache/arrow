@@ -80,10 +80,9 @@ static Status FromFLBA(const PrimitiveNode& node, std::shared_ptr<ArrowType>* ou
       *out = MakeDecimal128Type(node);
       break;
     default:
-      std::stringstream ss;
-      ss << "Unhandled logical type " << LogicalTypeToString(node.logical_type())
-         << " for fixed-length binary array";
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Unhandled logical type ",
+                                    LogicalTypeToString(node.logical_type()),
+                                    " for fixed-length binary array");
   }
 
   return Status::OK();
@@ -122,10 +121,9 @@ static Status FromInt32(const PrimitiveNode& node, std::shared_ptr<ArrowType>* o
       *out = MakeDecimal128Type(node);
       break;
     default:
-      std::stringstream ss;
-      ss << "Unhandled logical type " << LogicalTypeToString(node.logical_type())
-         << " for INT32";
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Unhandled logical type ",
+                                    LogicalTypeToString(node.logical_type()),
+                                    " for INT32");
   }
   return Status::OK();
 }
@@ -154,10 +152,9 @@ static Status FromInt64(const PrimitiveNode& node, std::shared_ptr<ArrowType>* o
       *out = ::arrow::time64(::arrow::TimeUnit::MICRO);
       break;
     default:
-      std::stringstream ss;
-      ss << "Unhandled logical type " << LogicalTypeToString(node.logical_type())
-         << " for INT64";
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Unhandled logical type ",
+                                    LogicalTypeToString(node.logical_type()),
+                                    " for INT64");
   }
   return Status::OK();
 }
@@ -613,10 +610,9 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
     }
     default: {
       // TODO: DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL_TEXT, VARCHAR
-      std::stringstream ss;
-      ss << "Unhandled type for Arrow to Parquet schema conversion: ";
-      ss << field->type()->ToString();
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented(
+          "Unhandled type for Arrow to Parquet schema conversion: ",
+          field->type()->ToString());
     }
   }
   PARQUET_CATCH_NOT_OK(*out =

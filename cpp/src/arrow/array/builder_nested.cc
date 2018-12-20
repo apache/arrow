@@ -58,13 +58,11 @@ Status ListBuilder::AppendValues(const int32_t* offsets, int64_t length,
 }
 
 Status ListBuilder::AppendNextOffset() {
-  int64_t num_values = value_builder_->length();
-  if (ARROW_PREDICT_FALSE(num_values > kListMaximumElements)) {
-    std::stringstream ss;
-    ss << "ListArray cannot contain more then INT32_MAX - 1 child elements,"
-       << " have " << num_values;
-    return Status::CapacityError(ss.str());
-  }
+  const int64_t num_values = value_builder_->length();
+  ARROW_RETURN_IF(
+      num_values > kListMaximumElements,
+      Status::CapacityError("ListArray cannot contain more then 2^31 - 1 child elements,",
+                            " have ", num_values));
   return offsets_builder_.Append(static_cast<int32_t>(num_values));
 }
 

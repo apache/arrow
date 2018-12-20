@@ -93,9 +93,8 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     }
 
     default: {
-      std::stringstream ss;
-      ss << "MakeBuilder: cannot construct builder for type " << type->ToString();
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("MakeBuilder: cannot construct builder for type ",
+                                    type->ToString());
     }
   }
 }

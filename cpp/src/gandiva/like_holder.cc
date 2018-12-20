@@ -50,39 +50,40 @@ const FunctionNode LikeHolder::TryOptimize(const FunctionNode& node) {
     }
   }
 
-  // didn't hit any of the optimisation paths. return original.
+  // Could not optimize, return original node.
   return node;
 }
 
+static bool IsArrowStringLiteral(arrow::Type::type type) {
+  return type == arrow::Type::STRING || type == arrow::Type::BINARY;
+}
+
 Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* holder) {
-  if (node.children().size() != 2) {
-    return Status::Invalid("'like' function requires two parameters");
-  }
+  ARROW_RETURN_IF(node.children().size() != 2,
+                  Status::Invalid("'like' function requires two parameters"));
 
   auto literal = dynamic_cast<LiteralNode*>(node.children().at(1).get());
-  if (literal == nullptr) {
-    return Status::Invalid("'like' function requires a literal as the second parameter");
-  }
+  ARROW_RETURN_IF(
+      literal == nullptr,
+      Status::Invalid("'like' function requires a literal as the second parameter"));
 
   auto literal_type = literal->return_type()->id();
-  if (literal_type != arrow::Type::STRING && literal_type != arrow::Type::BINARY) {
-    return Status::Invalid(
-        "'like' function requires a string literal as the second parameter");
-  }
-  auto pattern = boost::get<std::string>(literal->holder());
-  return Make(pattern, holder);
+  ARROW_RETURN_IF(
+      !IsArrowStringLiteral(literal_type),
+      Status::Invalid(
+          "'like' function requires a string literal as the second parameter"));
+
+  return Make(boost::get<std::string>(literal->holder()), holder);
 }
 
 Status LikeHolder::Make(const std::string& sql_pattern,
                         std::shared_ptr<LikeHolder>* holder) {
   std::string pcre_pattern;
-  auto status = RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern);
-  ARROW_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
 
   auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
-  if (!lholder->regex_.ok()) {
-    return Status::Invalid("building re2 regex failed for pattern " + pcre_pattern);
-  }
+  ARROW_RETURN_IF(!lholder->regex_.ok(),
+                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
 
   *holder = lholder;
   return Status::OK();

@@ -676,10 +676,8 @@ Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_
   auto DivideBy = [&](const int64_t factor) {
     for (int64_t i = 0; i < array.length(); i++) {
       if (!truncated_timestamps_allowed && !data.IsNull(i) && (values[i] % factor != 0)) {
-        std::stringstream ss;
-        ss << "Casting from " << type.ToString() << " to " << target_type->ToString()
-           << " would lose data: " << values[i];
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Casting from ", type.ToString(), " to ",
+                               target_type->ToString(), " would lose data: ", values[i]);
       }
       buffer[i] = values[i] / factor;
     }
@@ -950,9 +948,8 @@ Status ArrowColumnWriter::Write(const Array& data) {
     default:
       break;
   }
-  std::stringstream ss;
-  ss << "Data type not supported as list value: " << values_array->type()->ToString();
-  return Status::NotImplemented(ss.str());
+  return Status::NotImplemented("Data type not supported as list value: ",
+                                values_array->type()->ToString());
 }
 
 }  // namespace

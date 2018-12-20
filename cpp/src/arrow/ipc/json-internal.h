@@ -49,56 +49,39 @@ using RjWriter = rj::Writer<rj::StringBuffer>;
 using RjArray = rj::Value::ConstArray;
 using RjObject = rj::Value::ConstObject;
 
-#define RETURN_NOT_FOUND(TOK, NAME, PARENT) \
-  if (NAME == (PARENT).MemberEnd()) {       \
-    std::stringstream ss;                   \
-    ss << "field " << TOK << " not found";  \
-    return Status::Invalid(ss.str());       \
+#define RETURN_NOT_FOUND(TOK, NAME, PARENT)              \
+  if (NAME == (PARENT).MemberEnd()) {                    \
+    return Status::Invalid("field ", TOK, " not found"); \
   }
 
-#define RETURN_NOT_STRING(TOK, NAME, PARENT) \
-  RETURN_NOT_FOUND(TOK, NAME, PARENT);       \
-  if (!NAME->value.IsString()) {             \
-    std::stringstream ss;                    \
-    ss << "field was not a string"           \
-       << " line " << __LINE__;              \
-    return Status::Invalid(ss.str());        \
+#define RETURN_NOT_STRING(TOK, NAME, PARENT)                          \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);                                \
+  if (!NAME->value.IsString()) {                                      \
+    return Status::Invalid("field was not a string line ", __LINE__); \
   }
 
-#define RETURN_NOT_BOOL(TOK, NAME, PARENT) \
-  RETURN_NOT_FOUND(TOK, NAME, PARENT);     \
-  if (!NAME->value.IsBool()) {             \
-    std::stringstream ss;                  \
-    ss << "field was not a boolean"        \
-       << " line " << __LINE__;            \
-    return Status::Invalid(ss.str());      \
+#define RETURN_NOT_BOOL(TOK, NAME, PARENT)                             \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);                                 \
+  if (!NAME->value.IsBool()) {                                         \
+    return Status::Invalid("field was not a boolean line ", __LINE__); \
   }
 
-#define RETURN_NOT_INT(TOK, NAME, PARENT) \
-  RETURN_NOT_FOUND(TOK, NAME, PARENT);    \
-  if (!NAME->value.IsInt()) {             \
-    std::stringstream ss;                 \
-    ss << "field was not an int"          \
-       << " line " << __LINE__;           \
-    return Status::Invalid(ss.str());     \
+#define RETURN_NOT_INT(TOK, NAME, PARENT)                           \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);                              \
+  if (!NAME->value.IsInt()) {                                       \
+    return Status::Invalid("field was not an int line ", __LINE__); \
   }
 
-#define RETURN_NOT_ARRAY(TOK, NAME, PARENT) \
-  RETURN_NOT_FOUND(TOK, NAME, PARENT);      \
-  if (!NAME->value.IsArray()) {             \
-    std::stringstream ss;                   \
-    ss << "field was not an array"          \
-       << " line " << __LINE__;             \
-    return Status::Invalid(ss.str());       \
+#define RETURN_NOT_ARRAY(TOK, NAME, PARENT)                           \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);                                \
+  if (!NAME->value.IsArray()) {                                       \
+    return Status::Invalid("field was not an array line ", __LINE__); \
   }
 
-#define RETURN_NOT_OBJECT(TOK, NAME, PARENT) \
-  RETURN_NOT_FOUND(TOK, NAME, PARENT);       \
-  if (!NAME->value.IsObject()) {             \
-    std::stringstream ss;                    \
-    ss << "field was not an object"          \
-       << " line " << __LINE__;              \
-    return Status::Invalid(ss.str());        \
+#define RETURN_NOT_OBJECT(TOK, NAME, PARENT)                           \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);                                 \
+  if (!NAME->value.IsObject()) {                                       \
+    return Status::Invalid("field was not an object line ", __LINE__); \
   }
 
 namespace arrow {

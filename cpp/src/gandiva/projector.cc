@@ -45,12 +45,10 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
                        std::shared_ptr<Configuration> configuration,
                        std::shared_ptr<Projector>* projector) {
-  ARROW_RETURN_FAILURE_IF_FALSE(schema != nullptr,
-                                Status::Invalid("schema cannot be null"));
-  ARROW_RETURN_FAILURE_IF_FALSE(!exprs.empty(),
-                                Status::Invalid("expressions need to be non-empty"));
-  ARROW_RETURN_FAILURE_IF_FALSE(configuration != nullptr,
-                                Status::Invalid("configuration cannot be null"));
+  ARROW_RETURN_IF(schema == nullptr, Status::Invalid("Schema cannot be null"));
+  ARROW_RETURN_IF(exprs.empty(), Status::Invalid("Expressions cannot be empty"));
+  ARROW_RETURN_IF(configuration == nullptr,
+                  Status::Invalid("Configuration cannot be null"));
 
   // see if equivalent projector was already built
   static Cache<ProjectorCacheKey, std::shared_ptr<Projector>> cache;
@@ -63,23 +61,21 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;
-  Status status = LLVMGenerator::Make(configuration, &llvm_gen);
-  ARROW_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(LLVMGenerator::Make(configuration, &llvm_gen));
 
   // Run the validation on the expressions.
   // Return if any of the expression is invalid since
   // we will not be able to process further.
   ExprValidator expr_validator(llvm_gen->types(), schema);
   for (auto& expr : exprs) {
-    status = expr_validator.Validate(expr);
-    ARROW_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
   }
 
-  status = llvm_gen->Build(exprs);
-  ARROW_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs));
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;
+  output_fields.reserve(exprs.size());
   for (auto& expr : exprs) {
     output_fields.push_back(expr->result());
   }
@@ -94,86 +90,70 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 
 Status Projector::Evaluate(const arrow::RecordBatch& batch,
                            const ArrayDataVector& output_data_vecs) {
-  Status status = ValidateEvaluateArgsCommon(batch);
-  ARROW_RETURN_NOT_OK(status);
-
-  if (output_data_vecs.size() != output_fields_.size()) {
-    std::stringstream ss;
-    ss << "number of buffers for output_data_vecs is " << output_data_vecs.size()
-       << ", expected " << output_fields_.size();
-    return Status::Invalid(ss.str());
-  }
+  ARROW_RETURN_NOT_OK(ValidateEvaluateArgsCommon(batch));
+  ARROW_RETURN_IF(
+      output_data_vecs.size() != output_fields_.size(),
+      Status::Invalid("Number of output buffers must match number of fields"));
 
   int idx = 0;
   for (auto& array_data : output_data_vecs) {
+    const auto output_field = output_fields_[idx];
     if (array_data == nullptr) {
-      std::stringstream ss;
-      ss << "array for output field " << output_fields_[idx]->name() << "is null.";
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Output array for field ", output_field->name(),
+                             " should not be null");
     }
 
-    Status status =
-        ValidateArrayDataCapacity(*array_data, *(output_fields_[idx]), batch.num_rows());
-    ARROW_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(
+        ValidateArrayDataCapacity(*array_data, *output_field, batch.num_rows()));
     ++idx;
   }
+
   return llvm_generator_->Execute(batch, output_data_vecs);
 }
 
 Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* pool,
                            arrow::ArrayVector* output) {
-  Status status = ValidateEvaluateArgsCommon(batch);
-  ARROW_RETURN_NOT_OK(status);
-
-  if (output == nullptr) {
-    return Status::Invalid("output must be non-null.");
-  }
-
-  if (pool == nullptr) {
-    return Status::Invalid("memory pool must be non-null.");
-  }
+  ARROW_RETURN_NOT_OK(ValidateEvaluateArgsCommon(batch));
+  ARROW_RETURN_IF(output == nullptr, Status::Invalid("Output must be non-null."));
+  ARROW_RETURN_IF(pool == nullptr, Status::Invalid("Memory pool must be non-null."));
 
   // Allocate the output data vecs.
   ArrayDataVector output_data_vecs;
+  output_data_vecs.reserve(output_fields_.size());
   for (auto& field : output_fields_) {
     ArrayDataPtr output_data;
 
-    status = AllocArrayData(field->type(), batch.num_rows(), pool, &output_data);
-    ARROW_RETURN_NOT_OK(status);
-
+    ARROW_RETURN_NOT_OK(
+        AllocArrayData(field->type(), batch.num_rows(), pool, &output_data));
     output_data_vecs.push_back(output_data);
   }
 
   // Execute the expression(s).
-  status = llvm_generator_->Execute(batch, output_data_vecs);
-  ARROW_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(llvm_generator_->Execute(batch, output_data_vecs));
 
   // Create and return array arrays.
   output->clear();
   for (auto& array_data : output_data_vecs) {
     output->push_back(arrow::MakeArray(array_data));
   }
+
   return Status::OK();
 }
 
 // TODO : handle variable-len vectors
 Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
                                  arrow::MemoryPool* pool, ArrayDataPtr* array_data) {
-  if (!arrow::is_primitive(type->id())) {
-    return Status::Invalid("Unsupported output data type " + type->ToString());
-  }
+  ARROW_RETURN_IF(!arrow::is_primitive(type->id()),
+                  Status::Invalid("Unsupported output data type ", type));
 
-  arrow::Status astatus;
   std::shared_ptr<arrow::Buffer> null_bitmap;
-  int64_t size = arrow::BitUtil::BytesForBits(num_records);
-  astatus = arrow::AllocateBuffer(pool, size, &null_bitmap);
-  ARROW_RETURN_NOT_OK(astatus);
+  int64_t bitmap_bytes = arrow::BitUtil::BytesForBits(num_records);
+  ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, bitmap_bytes, &null_bitmap));
 
   std::shared_ptr<arrow::Buffer> data;
   const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
   int64_t data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
-  astatus = arrow::AllocateBuffer(pool, data_len, &data);
-  ARROW_RETURN_NOT_OK(astatus);
+  ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, data_len, &data));
 
   // Valgrind detects unitialized memory at byte level. Boolean types use bits
   // and can leave buffer memory uninitialized in the last byte.
@@ -186,47 +166,33 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
 }
 
 Status Projector::ValidateEvaluateArgsCommon(const arrow::RecordBatch& batch) {
-  if (!batch.schema()->Equals(*schema_)) {
-    return Status::Invalid("Schema in RecordBatch must match the schema in Make()");
-  }
-  if (batch.num_rows() == 0) {
-    return Status::Invalid("RecordBatch must be non-empty.");
-  }
+  ARROW_RETURN_IF(!batch.schema()->Equals(*schema_),
+                  Status::Invalid("Schema in RecordBatch must match schema in Make()"));
+  ARROW_RETURN_IF(batch.num_rows() == 0,
+                  Status::Invalid("RecordBatch must be non-empty."));
+
   return Status::OK();
 }
 
 Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
                                             const arrow::Field& field,
                                             int64_t num_records) {
-  // verify that there are atleast two buffers (validity and data).
-  if (array_data.buffers.size() < 2) {
-    std::stringstream ss;
-    ss << "number of buffers for output field " << field.name() << "is "
-       << array_data.buffers.size() << ", must have minimum 2.";
-    return Status::Invalid(ss.str());
-  }
+  ARROW_RETURN_IF(array_data.buffers.size() < 2,
+                  Status::Invalid("ArrayData must have at least 2 buffers"));
 
-  // verify size of bitmap buffer.
   int64_t min_bitmap_len = arrow::BitUtil::BytesForBits(num_records);
   int64_t bitmap_len = array_data.buffers[0]->capacity();
-  if (bitmap_len < min_bitmap_len) {
-    std::stringstream ss;
-    ss << "bitmap buffer for output field " << field.name() << "has size " << bitmap_len
-       << ", must have minimum size " << min_bitmap_len;
-    return Status::Invalid(ss.str());
-  }
+  ARROW_RETURN_IF(bitmap_len < min_bitmap_len,
+                  Status::Invalid("Bitmap buffer too small for ", field.name()));
 
   // verify size of data buffer.
   // TODO : handle variable-len vectors
   const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*field.type());
   int64_t min_data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
   int64_t data_len = array_data.buffers[1]->capacity();
-  if (data_len < min_data_len) {
-    std::stringstream ss;
-    ss << "data buffer for output field " << field.name() << " has size " << data_len
-       << ", must have minimum size " << min_data_len;
-    return Status::Invalid(ss.str());
-  }
+  ARROW_RETURN_IF(data_len < min_data_len,
+                  Status::Invalid("Data buffer too small for ", field.name()));
+
   return Status::OK();
 }
 

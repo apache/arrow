@@ -460,9 +460,7 @@ class MyMemoryPool : public MemoryPool {
     *ptr = reinterpret_cast<uint8_t*>(std::realloc(*ptr, new_size));
 
     if (*ptr == NULL) {
-      std::stringstream ss;
-      ss << "realloc of size " << new_size << " failed";
-      return Status::OutOfMemory(ss.str());
+      return Status::OutOfMemory("realloc of size ", new_size, " failed");
     }
 
     return Status::OK();

@@ -97,10 +97,8 @@ Status Wait(const std::unique_ptr<Operation>& op,
   if (op_state == state) {
     return Status::OK();
   } else {
-    std::stringstream ss;
-    ss << "Failed to reach state '" << OperationStateToString(state) << "' after "
-       << retries << " retries.";
-    return Status::IOError(ss.str());
+    return Status::IOError("Failed to reach state '", OperationStateToString(state),
+                           "' after ", retries, " retries");
   }
 }
 

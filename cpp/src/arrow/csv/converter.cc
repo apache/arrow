@@ -40,10 +40,9 @@ namespace {
 
 Status GenericConversionError(const std::shared_ptr<DataType>& type, const uint8_t* data,
                               uint32_t size) {
-  std::stringstream ss;
-  ss << "CSV conversion error to " << type->ToString() << ": invalid value '"
-     << std::string(reinterpret_cast<const char*>(data), size) << "'";
-  return Status::Invalid(ss.str());
+  return Status::Invalid("CSV conversion error to ", type->ToString(),
+                         ": invalid value '",
+                         std::string(reinterpret_cast<const char*>(data), size), "'");
 }
 
 inline bool IsWhitespace(uint8_t c) {
@@ -214,9 +213,8 @@ class VarSizeBinaryConverter : public ConcreteConverter {
 
     auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
       if (CheckUTF8 && ARROW_PREDICT_FALSE(!util::ValidateUTF8(data, size))) {
-        std::stringstream ss;
-        ss << "CSV conversion error to " << type_->ToString() << ": invalid UTF8 data";
-        return Status::Invalid(ss.str());
+        return Status::Invalid("CSV conversion error to ", type_->ToString(),
+                               ": invalid UTF8 data");
       }
       builder.UnsafeAppend(data, size);
       return Status::OK();
@@ -256,10 +254,8 @@ Status FixedSizeBinaryConverter::Convert(const BlockParser& parser, int32_t col_
 
   auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
     if (ARROW_PREDICT_FALSE(size != byte_width)) {
-      std::stringstream ss;
-      ss << "CSV conversion error to " << type_->ToString() << ": got a " << size
-         << "-byte long string";
-      return Status::Invalid(ss.str());
+      return Status::Invalid("CSV conversion error to ", type_->ToString(), ": got a ",
+                             size, "-byte long string");
     }
     return builder.Append(data);
   };
@@ -410,9 +406,8 @@ Status Converter::Make(const std::shared_ptr<DataType>& type,
       break;
 
     default: {
-      std::stringstream ss;
-      ss << "CSV conversion to " << type->ToString() << " is not supported";
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("CSV conversion to ", type->ToString(),
+                                    " is not supported");
     }
 
 #undef CONVERTER_CASE

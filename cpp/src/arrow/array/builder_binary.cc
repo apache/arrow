@@ -59,21 +59,18 @@ Status BinaryBuilder::Resize(int64_t capacity) {
 }
 
 Status BinaryBuilder::ReserveData(int64_t elements) {
-  if (value_data_length() + elements > value_data_capacity()) {
-    if (value_data_length() + elements > kBinaryMemoryLimit) {
-      return Status::CapacityError(
-          "Cannot reserve capacity larger than 2^31 - 1 for binary");
-    }
-    RETURN_NOT_OK(value_data_builder_.Reserve(elements));
-  }
-  return Status::OK();
+  const int64_t size = value_data_length() + elements;
+  ARROW_RETURN_IF(
+      size > kBinaryMemoryLimit,
+      Status::CapacityError("Cannot reserve capacity larger than 2^31 - 1 for binary"));
+
+  return (size > value_data_capacity()) ? value_data_builder_.Reserve(elements)
+                                        : Status::OK();
 }
 
 Status BinaryBuilder::AppendOverflow(int64_t num_bytes) {
-  std::stringstream ss;
-  ss << "BinaryArray cannot contain more than " << kBinaryMemoryLimit << " bytes, have "
-     << num_bytes;
-  return Status::CapacityError(ss.str());
+  return Status::CapacityError("BinaryArray cannot contain more than ",
+                               kBinaryMemoryLimit, " bytes, have ", num_bytes);
 }
 
 Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {

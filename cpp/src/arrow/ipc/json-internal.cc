@@ -633,9 +633,7 @@ static Status GetInteger(const rj::Value::ConstObject& json_type,
       *type = is_signed ? int64() : uint64();
       break;
     default:
-      std::stringstream ss;
-      ss << "Invalid bit width: " << bit_width;
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Invalid bit width: ", bit_width);
   }
   return Status::OK();
 }
@@ -654,9 +652,7 @@ static Status GetFloatingPoint(const RjObject& json_type,
   } else if (precision == "HALF") {
     *type = float16();
   } else {
-    std::stringstream ss;
-    ss << "Invalid precision: " << precision;
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Invalid precision: ", precision);
   }
   return Status::OK();
 }
@@ -693,9 +689,7 @@ static Status GetDate(const RjObject& json_type, std::shared_ptr<DataType>* type
   } else if (unit_str == "MILLISECOND") {
     *type = date64();
   } else {
-    std::stringstream ss;
-    ss << "Invalid date unit: " << unit_str;
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Invalid date unit: ", unit_str);
   }
   return Status::OK();
 }
@@ -718,9 +712,7 @@ static Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type
   } else if (unit_str == "NANOSECOND") {
     *type = time64(TimeUnit::NANO);
   } else {
-    std::stringstream ss;
-    ss << "Invalid time unit: " << unit_str;
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Invalid time unit: ", unit_str);
   }
 
   const auto& fw_type = checked_cast<const FixedWidthType&>(**type);
@@ -749,9 +741,7 @@ static Status GetTimestamp(const RjObject& json_type, std::shared_ptr<DataType>*
   } else if (unit_str == "NANOSECOND") {
     unit = TimeUnit::NANO;
   } else {
-    std::stringstream ss;
-    ss << "Invalid time unit: " << unit_str;
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Invalid time unit: ", unit_str);
   }
 
   const auto& it_tz = json_type.FindMember("timezone");
@@ -778,9 +768,7 @@ static Status GetUnion(const RjObject& json_type,
   } else if (mode_str == "DENSE") {
     mode = UnionMode::DENSE;
   } else {
-    std::stringstream ss;
-    ss << "Invalid union mode: " << mode_str;
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Invalid union mode: ", mode_str);
   }
 
   const auto& it_type_codes = json_type.FindMember("typeIds");
@@ -838,9 +826,7 @@ static Status GetType(const RjObject& json_type,
   } else if (type_name == "union") {
     return GetUnion(json_type, children, type);
   } else {
-    std::stringstream ss;
-    ss << "Unrecognized type name: " << type_name;
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Unrecognized type name: ", type_name);
   }
   return Status::OK();
 }
@@ -1235,10 +1221,8 @@ class ArrayReader {
     const auto& json_children_arr = json_children->value.GetArray();
 
     if (type.num_children() != static_cast<int>(json_children_arr.Size())) {
-      std::stringstream ss;
-      ss << "Expected " << type.num_children() << " children, but got "
-         << json_children_arr.Size();
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Expected ", type.num_children(), " children, but got ",
+                             json_children_arr.Size());
     }
 
     for (int i = 0; i < static_cast<int>(json_children_arr.Size()); ++i) {
@@ -1342,9 +1326,7 @@ static Status ReadDictionary(const RjObject& obj, const DictionaryTypeMap& id_to
 
   auto it = id_to_field.find(id);
   if (it == id_to_field.end()) {
-    std::stringstream ss;
-    ss << "No dictionary with id " << id;
-    return Status::Invalid(ss.str());
+    return Status::Invalid("No dictionary with id ", id);
   }
   std::vector<std::shared_ptr<Field>> fields = {it->second};
 
@@ -1489,9 +1471,7 @@ Status ReadArray(MemoryPool* pool, const rj::Value& json_array, const Schema& sc
   }
 
   if (result == nullptr) {
-    std::stringstream ss;
-    ss << "Field named " << name << " not found in schema";
-    return Status::KeyError(ss.str());
+    return Status::KeyError("Field named ", name, " not found in schema");
   }
 
   return ReadArray(pool, json_array, result->type(), array);

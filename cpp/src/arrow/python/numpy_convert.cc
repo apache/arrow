@@ -92,9 +92,7 @@ Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
     TO_ARROW_TYPE_CASE(FLOAT32, float32);
     TO_ARROW_TYPE_CASE(FLOAT64, float64);
     default: {
-      std::stringstream ss;
-      ss << "Unsupported numpy type " << descr->type_num << std::endl;
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Unsupported numpy type ", descr->type_num);
     }
   }
   return Status::OK();
@@ -119,9 +117,7 @@ Status GetNumPyType(const DataType& type, int* type_num) {
     NUMPY_TYPE_CASE(FLOAT, FLOAT32);
     NUMPY_TYPE_CASE(DOUBLE, FLOAT64);
     default: {
-      std::stringstream ss;
-      ss << "Unsupported tensor type: " << type.ToString() << std::endl;
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Unsupported tensor type: ", type.ToString());
     }
   }
 #undef NUMPY_TYPE_CASE
@@ -181,9 +177,7 @@ Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
       }
     } break;
     default: {
-      std::stringstream ss;
-      ss << "Unsupported numpy type " << descr->type_num << std::endl;
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Unsupported numpy type ", descr->type_num);
     }
   }
 
