@@ -218,8 +218,6 @@ TEST_F(TestProjector, TestElseNotMatchingReturnType) {
   std::shared_ptr<Projector> projector;
   Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
-  std::string expected_error = "Return type of if int32 and else bool not matching.";
-  EXPECT_EQ(status.message(), expected_error);
 }
 
 TEST_F(TestProjector, TestElseNotSupportedType) {
@@ -245,8 +243,7 @@ TEST_F(TestProjector, TestElseNotSupportedType) {
   std::shared_ptr<Projector> projector;
   Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
-  std::string expected_error = "Field c has unsupported data type list";
-  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+  EXPECT_EQ(status.code(), StatusCode::ExpressionValidationError);
 }
 
 TEST_F(TestProjector, TestAndMinChildren) {
@@ -266,8 +263,6 @@ TEST_F(TestProjector, TestAndMinChildren) {
   std::shared_ptr<Projector> projector;
   Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
-  std::string expected_error = "Boolean expression has 1 children, expected atleast two";
-  EXPECT_EQ(status.message(), expected_error);
 }
 
 TEST_F(TestProjector, TestAndBooleanArgType) {
@@ -289,10 +284,6 @@ TEST_F(TestProjector, TestAndBooleanArgType) {
   std::shared_ptr<Projector> projector;
   Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
-  std::string expected_error =
-      "Boolean expression has a child with return type int32, expected return type "
-      "boolean";
-  EXPECT_EQ(status.message(), expected_error);
 }
 
 }  // namespace gandiva
