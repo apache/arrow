@@ -69,12 +69,12 @@
     ASSERT_EQ((message), s.ToString());                                   \
   } while (false)
 
-#define ASSERT_OK(expr)                                               \
-  do {                                                                \
-    ::arrow::Status s = (expr);                                       \
-    if (!s.ok()) {                                                    \
-      FAIL() << "'" STRINGIFY(expr) "' failed with " << s.ToString(); \
-    }                                                                 \
+#define ASSERT_OK(expr)                                                \
+  do {                                                                 \
+    ::arrow::Status _s = (expr);                                       \
+    if (!_s.ok()) {                                                    \
+      FAIL() << "'" STRINGIFY(expr) "' failed with " << _s.ToString(); \
+    }                                                                  \
   } while (false)
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))

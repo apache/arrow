@@ -110,6 +110,7 @@ set(ARROW_SRCS
   util/key_value_metadata.cc
   util/task-group.cc
   util/thread-pool.cc
+  util/trie.cc
   util/utf8.cc
 )
 
