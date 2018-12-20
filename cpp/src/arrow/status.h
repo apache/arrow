@@ -146,105 +146,118 @@ class ARROW_EXPORT Status {
 
   /// Return a success status with a specific message
   template <typename... Args>
-  static Status OK(Args... args) {
-    return Status(StatusCode::OK, util::StringBuilder(args...));
+  static Status OK(Args&&... args) {
+    return Status(StatusCode::OK, util::StringBuilder(std::forward<Args>(args)...));
   }
 
   /// Return an error status for out-of-memory conditions
   template <typename... Args>
-  static Status OutOfMemory(Args... args) {
-    return Status(StatusCode::OutOfMemory, util::StringBuilder(args...));
+  static Status OutOfMemory(Args&&... args) {
+    return Status(StatusCode::OutOfMemory,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   /// Return an error status for failed key lookups (e.g. column name in a table)
   template <typename... Args>
-  static Status KeyError(Args... args) {
-    return Status(StatusCode::KeyError, util::StringBuilder(args...));
+  static Status KeyError(Args&&... args) {
+    return Status(StatusCode::KeyError, util::StringBuilder(std::forward<Args>(args)...));
   }
 
   /// Return an error status for type errors (such as mismatching data types)
   template <typename... Args>
-  static Status TypeError(Args... args) {
-    return Status(StatusCode::TypeError, util::StringBuilder(args...));
+  static Status TypeError(Args&&... args) {
+    return Status(StatusCode::TypeError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   /// Return an error status for unknown errors
   template <typename... Args>
-  static Status UnknownError(Args... args) {
-    return Status(StatusCode::UnknownError, util::StringBuilder(args...));
+  static Status UnknownError(Args&&... args) {
+    return Status(StatusCode::UnknownError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   /// Return an error status when an operation or a combination of operation and
   /// data types is unimplemented
   template <typename... Args>
-  static Status NotImplemented(Args... args) {
-    return Status(StatusCode::NotImplemented, util::StringBuilder(args...));
+  static Status NotImplemented(Args&&... args) {
+    return Status(StatusCode::NotImplemented,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   /// Return an error status for invalid data (for example a string that fails parsing)
   template <typename... Args>
-  static Status Invalid(Args... args) {
-    return Status(StatusCode::Invalid, util::StringBuilder(args...));
+  static Status Invalid(Args&&... args) {
+    return Status(StatusCode::Invalid, util::StringBuilder(std::forward<Args>(args)...));
   }
 
   /// Return an error status when a container's capacity would exceed its limits
   template <typename... Args>
-  static Status CapacityError(Args... args) {
-    return Status(StatusCode::CapacityError, util::StringBuilder(args...));
+  static Status CapacityError(Args&&... args) {
+    return Status(StatusCode::CapacityError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   /// Return an error status when some IO-related operation failed
   template <typename... Args>
-  static Status IOError(Args... args) {
-    return Status(StatusCode::IOError, util::StringBuilder(args...));
+  static Status IOError(Args&&... args) {
+    return Status(StatusCode::IOError, util::StringBuilder(std::forward<Args>(args)...));
   }
 
   /// Return an error status when some (de)serialization operation failed
   template <typename... Args>
-  static Status SerializationError(Args... args) {
-    return Status(StatusCode::SerializationError, util::StringBuilder(args...));
+  static Status SerializationError(Args&&... args) {
+    return Status(StatusCode::SerializationError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   template <typename... Args>
-  static Status RError(Args... args) {
-    return Status(StatusCode::RError, util::StringBuilder(args...));
+  static Status RError(Args&&... args) {
+    return Status(StatusCode::RError, util::StringBuilder(std::forward<Args>(args)...));
   }
 
   template <typename... Args>
-  static Status PlasmaObjectExists(Args... args) {
-    return Status(StatusCode::PlasmaObjectExists, util::StringBuilder(args...));
+  static Status PlasmaObjectExists(Args&&... args) {
+    return Status(StatusCode::PlasmaObjectExists,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   template <typename... Args>
-  static Status PlasmaObjectNonexistent(Args... args) {
-    return Status(StatusCode::PlasmaObjectNonexistent, util::StringBuilder(args...));
+  static Status PlasmaObjectNonexistent(Args&&... args) {
+    return Status(StatusCode::PlasmaObjectNonexistent,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   template <typename... Args>
-  static Status PlasmaObjectAlreadySealed(Args... args) {
-    return Status(StatusCode::PlasmaObjectAlreadySealed, util::StringBuilder(args...));
+  static Status PlasmaObjectAlreadySealed(Args&&... args) {
+    return Status(StatusCode::PlasmaObjectAlreadySealed,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   template <typename... Args>
-  static Status PlasmaStoreFull(Args... args) {
-    return Status(StatusCode::PlasmaStoreFull, util::StringBuilder(args...));
+  static Status PlasmaStoreFull(Args&&... args) {
+    return Status(StatusCode::PlasmaStoreFull,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   static Status StillExecuting() { return Status(StatusCode::StillExecuting, ""); }
 
   template <typename... Args>
-  static Status CodeGenError(Args... args) {
-    return Status(StatusCode::CodeGenError, util::StringBuilder(args...));
+  static Status CodeGenError(Args&&... args) {
+    return Status(StatusCode::CodeGenError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   template <typename... Args>
-  static Status ExpressionValidationError(Args... args) {
-    return Status(StatusCode::ExpressionValidationError, util::StringBuilder(args...));
+  static Status ExpressionValidationError(Args&&... args) {
+    return Status(StatusCode::ExpressionValidationError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   template <typename... Args>
-  static Status ExecutionError(Args... args) {
-    return Status(StatusCode::ExecutionError, util::StringBuilder(args...));
+  static Status ExecutionError(Args&&... args) {
+    return Status(StatusCode::ExecutionError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   /// Return true iff the status indicates success.
