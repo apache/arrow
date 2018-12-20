@@ -514,43 +514,132 @@ class ARROW_EXPORT BufferBuilder {
   int64_t size_;
 };
 
-/// \brief A BufferBuilder subclass with convenience methods to append typed data
+/// \brief A BufferBuilder with convenience methods to append typed data
+template <typename T, typename Enable = void>
+class ARROW_EXPORT TypedBufferBuilder;
+
+/// \brief Specialization for arithmetic data
 template <typename T>
-class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
+class ARROW_EXPORT
+    TypedBufferBuilder<T, typename std::enable_if_t<std::is_arithmetic<T>::value>::type> {
+ public:
+  explicit TypedBufferBuilder(MemoryPool* pool) : buffer_builder_(pool) {}
+
+  Status Append(T value) {
+    return buffer_builder_.Append(reinterpret_cast<uint8_t*>(&value), sizeof(T));
+  }
+
+  Status Append(const T* values, int64_t num_elements) {
+    return buffer_builder_.Append(reinterpret_cast<const uint8_t*>(values),
+                                  num_elements * sizeof(T));
+  }
+
+  void UnsafeAppend(T value) {
+    buffer_builder_.UnsafeAppend(reinterpret_cast<uint8_t*>(&value), sizeof(T));
+  }
+
+  void UnsafeAppend(const T* values, int64_t num_elements) {
+    buffer_builder_.UnsafeAppend(reinterpret_cast<const uint8_t*>(values),
+                                 num_elements * sizeof(T));
+  }
+
+  Status Resize(const int64_t elements, bool shrink_to_fit = true) {
+    return buffer_builder_.Resize(elements * sizeof(T), shrink_to_fit);
+  }
+
+  Status Reserve(const int64_t size) { return buffer_builder_.Reserve(size * sizeof(T)); }
+
+  Status Advance(const int64_t length) {
+    return buffer_builder_.Advance(length * sizeof(T));
+  }
+
+  Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
+    return buffer_builder_.Finish(out, shrink_to_fit);
+  }
+
+  void Reset() { buffer_builder_.Reset(); }
+
+  const T* data() const { return reinterpret_cast<const T*>(buffer_builder_.data()); }
+  int64_t length() const { return buffer_builder_.length() / sizeof(T); }
+  int64_t capacity() const { return buffer_builder_.capacity() / sizeof(T); }
+
+ private:
+  BufferBuilder buffer_builder_;
+};
+
+/*
+/// \brief A BufferBuilder subclass with convenience methods to append bool
+template <>
+class ARROW_EXPORT TypedBufferBuilder<bool> : public BufferBuilder {
  public:
   explicit TypedBufferBuilder(MemoryPool* pool) : BufferBuilder(pool) {}
 
-  Status Append(T arithmetic_value) {
-    static_assert(std::is_arithmetic<T>::value,
-                  "Convenience buffer append only supports arithmetic types");
+  Status Append(bool value) {
     return BufferBuilder::Append(reinterpret_cast<uint8_t*>(&arithmetic_value),
                                  sizeof(T));
   }
 
-  Status Append(const T* arithmetic_values, int64_t num_elements) {
-    static_assert(std::is_arithmetic<T>::value,
-                  "Convenience buffer append only supports arithmetic types");
+  Status Append(const uint8_t* valid_bytes, int64_t num_elements) {
     return BufferBuilder::Append(reinterpret_cast<const uint8_t*>(arithmetic_values),
                                  num_elements * sizeof(T));
   }
 
-  void UnsafeAppend(T arithmetic_value) {
-    static_assert(std::is_arithmetic<T>::value,
-                  "Convenience buffer append only supports arithmetic types");
-    BufferBuilder::UnsafeAppend(reinterpret_cast<uint8_t*>(&arithmetic_value), sizeof(T));
+  void UnsafeAppend(bool value) {
+    if (value) {
+      BitUtil::SetBit(data_, bit_length_);
+    }
+    ++bit_length_;
+    size_ = BitUtil::BytesForBits(bit_length_);
   }
 
-  void UnsafeAppend(const T* arithmetic_values, int64_t num_elements) {
-    static_assert(std::is_arithmetic<T>::value,
-                  "Convenience buffer append only supports arithmetic types");
-    BufferBuilder::UnsafeAppend(reinterpret_cast<const uint8_t*>(arithmetic_values),
-                                num_elements * sizeof(T));
+  void UnsafeAppend(const uint8_t* bytes, int64_t num_elements) {
+    int64_t byte_offset = length_ / 8;
+    int64_t bit_offset = length_ % 8;
+    uint8_t bitset = data_[byte_offset];
+
+    auto end = bytes + num_elements;
+    for (auto iter = bytes; iter != end; ++iter) {
+      if (bit_offset == 8) {
+        bit_offset = 0;
+        data_[byte_offset] = bitset;
+        byte_offset++;
+        // TODO: Except for the last byte, this shouldn't be needed
+        bitset = data_[byte_offset];
+      }
+
+      if (*iter) {
+        bitset |= BitUtil::kBitmask[bit_offset];
+      } else {
+        bitset &= BitUtil::kFlippedBitmask[bit_offset];
+        ++null_count_;
+      }
+
+      bit_offset++;
+    }
+
+    if (bit_offset != 0) {
+      data_[byte_offset] = bitset;
+    }
+
+    bit_length_ += num_elements;
+    // FIXME handle size
   }
 
-  const T* data() const { return reinterpret_cast<const T*>(data_); }
-  int64_t length() const { return size_ / sizeof(T); }
-  int64_t capacity() const { return capacity_ / sizeof(T); }
+  Status ReserveBits(int64_t bit_length) {
+    const int64_t new_bit_length = bit_length + bit_length_;
+    const int64_t new_capacity = BitUtil::BytesForBits(new_bit_length);
+    ARROW_RETURN_NOT_OK(Reserve(new_capacity));
+    bit_length_ += bit_length;
+    return Status::OK();
+  }
+
+  int64_t length() const { return bit_length_; }
+  int64_t capacity() const { return capacity_ * 8; }
+
+ private:
+  int64_t bit_length_ = 0;
 };
+*/
 
 }  // namespace arrow
 

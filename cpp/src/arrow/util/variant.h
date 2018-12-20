@@ -26,6 +26,7 @@ namespace util {
 using mapbox::util::apply_visitor;  // seems akin to std::visit
 using mapbox::util::bad_variant_access;
 using mapbox::util::get;
+using mapbox::util::recursive_wrapper;
 using mapbox::util::variant;
 
 }  // namespace util

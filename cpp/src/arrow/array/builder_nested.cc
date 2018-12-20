@@ -77,7 +77,7 @@ Status ListBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
 
   // one more then requested for offsets
-  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int32_t)));
+  RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
   return ArrayBuilder::Resize(capacity);
 }
 
