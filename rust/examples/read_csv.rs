@@ -22,6 +22,7 @@ use std::sync::Arc;
 
 use arrow::array::{BinaryArray, Float64Array};
 use arrow::csv;
+use arrow::datasource::DataSource;
 use arrow::datatypes::{DataType, Field, Schema};
 
 fn main() {

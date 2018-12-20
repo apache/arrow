@@ -30,5 +30,6 @@ pub mod column;
 pub mod compression;
 mod encodings;
 pub mod file;
+pub mod reader;
 pub mod record;
 pub mod schema;

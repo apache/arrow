@@ -18,6 +18,7 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum ArrowError {
     MemoryError(String),
+    IOError(String),
     ParseError(String),
     ComputeError(String),
     DivideByZero,

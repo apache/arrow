@@ -24,6 +24,7 @@
 //!
 //! ```
 //! use arrow::csv;
+//! use arrow::datasource::DataSource;
 //! use arrow::datatypes::{DataType, Field, Schema};
 //! use std::fs::File;
 //! use std::sync::Arc;
@@ -48,6 +49,7 @@ use csv as csv_crate;
 
 use crate::array::{ArrayRef, BinaryArray};
 use crate::builder::*;
+use crate::datasource::DataSource;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
@@ -88,8 +90,43 @@ impl Reader {
         }
     }
 
+    fn build_primitive_array<T: ArrowPrimitiveType>(
+        &self,
+        rows: &[StringRecord],
+        col_idx: &usize,
+    ) -> Result<ArrayRef> {
+        let mut builder = PrimitiveArrayBuilder::<T>::new(rows.len());
+        let is_boolean_type = *self.schema.field(*col_idx).data_type() == DataType::Boolean;
+        for row_index in 0..rows.len() {
+            match rows[row_index].get(*col_idx) {
+                Some(s) if s.len() > 0 => {
+                    let t = if is_boolean_type {
+                        s.to_lowercase().parse::<T::Native>()
+                    } else {
+                        s.parse::<T::Native>()
+                    };
+                    match t {
+                        Ok(v) => builder.push(v)?,
+                        Err(_) => {
+                            // TODO: we should surface the underlying error here.
+                            return Err(ArrowError::ParseError(format!(
+                                "Error while parsing value {}",
+                                s
+                            )));
+                        }
+                    }
+                }
+                _ => builder.push_null()?,
+            }
+        }
+        Ok(Arc::new(builder.finish()) as ArrayRef)
+    }
+}
+
+impl DataSource for Reader {
+
     /// Read the next batch of rows
-    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next(&mut self) -> Result<Option<RecordBatch>> {
         // read a batch of rows into memory
         let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
         for _ in 0..self.batch_size {
@@ -167,37 +204,6 @@ impl Reader {
         }
     }
 
-    fn build_primitive_array<T: ArrowPrimitiveType>(
-        &self,
-        rows: &[StringRecord],
-        col_idx: &usize,
-    ) -> Result<ArrayRef> {
-        let mut builder = PrimitiveArrayBuilder::<T>::new(rows.len());
-        let is_boolean_type = *self.schema.field(*col_idx).data_type() == DataType::Boolean;
-        for row_index in 0..rows.len() {
-            match rows[row_index].get(*col_idx) {
-                Some(s) if s.len() > 0 => {
-                    let t = if is_boolean_type {
-                        s.to_lowercase().parse::<T::Native>()
-                    } else {
-                        s.parse::<T::Native>()
-                    };
-                    match t {
-                        Ok(v) => builder.push(v)?,
-                        Err(_) => {
-                            // TODO: we should surface the underlying error here.
-                            return Err(ArrowError::ParseError(format!(
-                                "Error while parsing value {}",
-                                s
-                            )));
-                        }
-                    }
-                }
-                _ => builder.push_null()?,
-            }
-        }
-        Ok(Arc::new(builder.finish()) as ArrayRef)
-    }
 }
 
 #[cfg(test)]
