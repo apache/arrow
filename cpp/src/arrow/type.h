@@ -525,7 +525,7 @@ class ARROW_EXPORT StructType : public NestedType {
   ARROW_DEPRECATED("Use GetFieldByName")
   std::shared_ptr<Field> GetChildByName(const std::string& name) const;
 
-  ARROW_DEPRECATED("Use GetChildIndex")
+  ARROW_DEPRECATED("Use GetFieldIndex")
   int GetChildIndex(const std::string& name) const;
 
  private:
