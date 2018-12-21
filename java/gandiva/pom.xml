@@ -135,7 +135,7 @@
             <resource>
                 <directory>${gandiva.cpp.build.dir}</directory>
                 <includes>
-                    <include>src/gandiva/irhelpers.bc</include>
+                    <include>../src/gandiva/irhelpers.bc</include>
                 </includes>
             </resource>
         </resources>
