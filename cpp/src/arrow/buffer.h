@@ -396,7 +396,7 @@ Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out);
 
 /// \class BufferBuilder
 /// \brief A class for incrementally building a contiguous chunk of in-memory data
-class ARROW_EXPORT BufferBuilder {
+class BufferBuilder {
  public:
   explicit BufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
       : pool_(pool), data_(NULLPTR), capacity_(0), size_(0) {}
@@ -439,11 +439,8 @@ class ARROW_EXPORT BufferBuilder {
   /// \brief Append the given data to the buffer
   ///
   /// The buffer is automatically expanded if necessary.
-  Status Append(const void* data, int64_t length) {
-    if (capacity_ < length + size_) {
-      int64_t new_capacity = BitUtil::NextPower2(length + size_);
-      ARROW_RETURN_NOT_OK(Resize(new_capacity));
-    }
+  Status Append(const void* data, const int64_t length) {
+    ARROW_RETURN_NOT_OK(ReserveWithGrowthFactor(length));
     UnsafeAppend(data, length);
     return Status::OK();
   }
@@ -454,11 +451,7 @@ class ARROW_EXPORT BufferBuilder {
   template <size_t NBYTES>
   Status Append(const std::array<uint8_t, NBYTES>& data) {
     constexpr auto nbytes = static_cast<int64_t>(NBYTES);
-    if (capacity_ < nbytes + size_) {
-      int64_t new_capacity = BitUtil::NextPower2(nbytes + size_);
-      ARROW_RETURN_NOT_OK(Resize(new_capacity));
-    }
-
+    ARROW_RETURN_NOT_OK(ReserveWithGrowthFactor(nbytes));
     std::copy(data.cbegin(), data.cend(), data_ + size_);
     size_ += nbytes;
     return Status::OK();
@@ -466,17 +459,14 @@ class ARROW_EXPORT BufferBuilder {
 
   // Advance pointer and zero out memory
   Status Advance(const int64_t length) {
-    if (capacity_ < length + size_) {
-      int64_t new_capacity = BitUtil::NextPower2(length + size_);
-      ARROW_RETURN_NOT_OK(Resize(new_capacity));
-    }
+    ARROW_RETURN_NOT_OK(ReserveWithGrowthFactor(length));
     memset(data_ + size_, 0, static_cast<size_t>(length));
     size_ += length;
     return Status::OK();
   }
 
   // Unsafe methods don't check existing size
-  void UnsafeAppend(const void* data, int64_t length) {
+  void UnsafeAppend(const void* data, const int64_t length) {
     memcpy(data_ + size_, data, static_cast<size_t>(length));
     size_ += length;
   }
@@ -506,7 +496,13 @@ class ARROW_EXPORT BufferBuilder {
   int64_t length() const { return size_; }
   const uint8_t* data() const { return data_; }
 
- protected:
+ private:
+  Status ReserveWithGrowthFactor(const int64_t length) {
+    if (capacity_ >= length + size_) return Status::OK();
+    int64_t new_capacity = BitUtil::NextPower2(length + size_);
+    return Resize(new_capacity, false);
+  }
+
   std::shared_ptr<ResizableBuffer> buffer_;
   MemoryPool* pool_;
   uint8_t* data_;
@@ -514,16 +510,15 @@ class ARROW_EXPORT BufferBuilder {
   int64_t size_;
 };
 
-/// \brief A BufferBuilder with convenience methods to append typed data
 template <typename T, typename Enable = void>
-class ARROW_EXPORT TypedBufferBuilder;
+class TypedBufferBuilder;
 
-/// \brief Specialization for arithmetic data
+/// \brief A BufferBuilder for building a buffer of arithmetic elements
 template <typename T>
-class ARROW_EXPORT
-    TypedBufferBuilder<T, typename std::enable_if_t<std::is_arithmetic<T>::value>::type> {
+class TypedBufferBuilder<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
  public:
-  explicit TypedBufferBuilder(MemoryPool* pool) : buffer_builder_(pool) {}
+  explicit TypedBufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+      : buffer_builder_(pool) {}
 
   Status Append(T value) {
     return buffer_builder_.Append(reinterpret_cast<uint8_t*>(&value), sizeof(T));
@@ -567,79 +562,94 @@ class ARROW_EXPORT
   BufferBuilder buffer_builder_;
 };
 
-/*
-/// \brief A BufferBuilder subclass with convenience methods to append bool
+/// \brief A BufferBuilder for building a buffer containing a bitmap
 template <>
-class ARROW_EXPORT TypedBufferBuilder<bool> : public BufferBuilder {
+class TypedBufferBuilder<bool> {
  public:
-  explicit TypedBufferBuilder(MemoryPool* pool) : BufferBuilder(pool) {}
+  explicit TypedBufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+      : buffer_builder_(pool) {}
 
   Status Append(bool value) {
-    return BufferBuilder::Append(reinterpret_cast<uint8_t*>(&arithmetic_value),
-                                 sizeof(T));
+    ARROW_RETURN_NOT_OK(ReserveWithGrowthFactor(1));
+    UnsafeAppend(value);
+    return Status::OK();
   }
 
   Status Append(const uint8_t* valid_bytes, int64_t num_elements) {
-    return BufferBuilder::Append(reinterpret_cast<const uint8_t*>(arithmetic_values),
-                                 num_elements * sizeof(T));
+    ARROW_RETURN_NOT_OK(ReserveWithGrowthFactor(num_elements));
+    UnsafeAppend(valid_bytes, num_elements);
+    return Status::OK();
   }
 
   void UnsafeAppend(bool value) {
     if (value) {
-      BitUtil::SetBit(data_, bit_length_);
+      BitUtil::SetBit(mutable_data(), bit_length_);
+    } else {
+      ++false_count_;
     }
     ++bit_length_;
-    size_ = BitUtil::BytesForBits(bit_length_);
   }
 
   void UnsafeAppend(const uint8_t* bytes, int64_t num_elements) {
-    int64_t byte_offset = length_ / 8;
-    int64_t bit_offset = length_ % 8;
-    uint8_t bitset = data_[byte_offset];
-
-    auto end = bytes + num_elements;
-    for (auto iter = bytes; iter != end; ++iter) {
-      if (bit_offset == 8) {
-        bit_offset = 0;
-        data_[byte_offset] = bitset;
-        byte_offset++;
-        // TODO: Except for the last byte, this shouldn't be needed
-        bitset = data_[byte_offset];
-      }
-
-      if (*iter) {
-        bitset |= BitUtil::kBitmask[bit_offset];
+    internal::FirstTimeBitmapWriter writer(mutable_data(), bit_length_, num_elements);
+    for (int64_t i = 0; i != num_elements; ++i) {
+      if (bytes[i]) {
+        writer.Set();
       } else {
-        bitset &= BitUtil::kFlippedBitmask[bit_offset];
-        ++null_count_;
+        writer.Clear();
+        ++false_count_;
       }
-
-      bit_offset++;
+      writer.Next();
     }
-
-    if (bit_offset != 0) {
-      data_[byte_offset] = bitset;
-    }
-
+    writer.Finish();
     bit_length_ += num_elements;
-    // FIXME handle size
   }
 
-  Status ReserveBits(int64_t bit_length) {
-    const int64_t new_bit_length = bit_length + bit_length_;
-    const int64_t new_capacity = BitUtil::BytesForBits(new_bit_length);
-    ARROW_RETURN_NOT_OK(Reserve(new_capacity));
-    bit_length_ += bit_length;
+  Status Resize(const int64_t elements, bool shrink_to_fit = true) {
+    const int64_t old_byte_capacity = buffer_builder_.capacity();
+    const int64_t new_byte_capacity = BitUtil::BytesForBits(elements);
+    ARROW_RETURN_NOT_OK(buffer_builder_.Resize(new_byte_capacity, shrink_to_fit));
+    if (new_byte_capacity > old_byte_capacity) {
+      memset(mutable_data() + old_byte_capacity, 0,
+             static_cast<size_t>(new_byte_capacity - old_byte_capacity));
+    }
     return Status::OK();
   }
 
+  Status Reserve(const int64_t elements) { return Resize(bit_length_ + elements, false); }
+
+  Status Advance(const int64_t length) {
+    ARROW_RETURN_NOT_OK(ReserveWithGrowthFactor(length));
+    bit_length_ += length;
+    return Status::OK();
+  }
+
+  Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
+    return buffer_builder_.Finish(out, shrink_to_fit);
+  }
+
+  void Reset() {
+    buffer_builder_.Reset();
+    bit_length_ = 0;
+  }
+
   int64_t length() const { return bit_length_; }
-  int64_t capacity() const { return capacity_ * 8; }
+  int64_t capacity() const { return buffer_builder_.capacity() * 8; }
+  const uint8_t* data() const { return buffer_builder_.data(); }
+  int64_t false_count() const { return false_count_; }
 
  private:
+  Status ReserveWithGrowthFactor(const int64_t length) {
+    if (capacity() >= length + bit_length_) return Status::OK();
+    int64_t new_capacity = BitUtil::NextPower2(length + bit_length_);
+    return Resize(new_capacity, false);
+  }
+
+  uint8_t* mutable_data() { return const_cast<uint8_t*>(data()); }
+  BufferBuilder buffer_builder_;
   int64_t bit_length_ = 0;
+  int64_t false_count_ = 0;
 };
-*/
 
 }  // namespace arrow
 
