@@ -73,6 +73,12 @@ static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>& type,
   EXPECT_TRUE((a)->Equals(b)) << "expected array: " << (a)->ToString() \
                               << " actual array: " << (b)->ToString();
 
+std::shared_ptr<Configuration> TestConfiguration() {
+  auto builder = ConfigurationBuilder();
+  builder.set_byte_code_file_path(GANDIVA_BYTE_COMPILE_FILE_PATH);
+  return builder.build();
+}
+
 }  // namespace gandiva
 
 #endif  // GANDIVA_TEST_UTIL_H
