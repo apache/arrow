@@ -534,8 +534,11 @@ inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* d
   return Status::OK();
 }
 
+// Create 16MB chunks for binary data
+constexpr int32_t kBinaryChunksize = 1 << 24;
+
 Status NumPyConverter::Visit(const BinaryType& type) {
-  BinaryBuilder builder(pool_);
+  ::arrow::internal::ChunkedBinaryBuilder builder(kBinaryChunksize, pool_);
 
   auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
 
@@ -564,9 +567,12 @@ Status NumPyConverter::Visit(const BinaryType& type) {
     }
   }
 
-  std::shared_ptr<Array> result;
+  ArrayVector result;
   RETURN_NOT_OK(builder.Finish(&result));
-  return PushArray(result->data());
+  for (auto arr : result) {
+    RETURN_NOT_OK(PushArray(arr->data()));
+  }
+  return Status::OK();
 }
 
 Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {

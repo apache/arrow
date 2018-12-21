@@ -77,6 +77,8 @@ ADD_ARROW_LIB(arrow_python
   EXTRA_INCLUDES "${ARROW_PYTHON_INCLUDES}"
 )
 
+add_dependencies(arrow_python ${ARROW_PYTHON_LIBRARIES})
+
 foreach(LIB_TARGET ${ARROW_PYTHON_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
     PRIVATE ARROW_PYTHON_EXPORTING)
