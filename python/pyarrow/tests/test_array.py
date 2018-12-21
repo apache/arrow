@@ -1268,3 +1268,29 @@ def test_array_from_numpy_str_utf8():
 
     with pytest.raises(ValueError):
         pa.array(vec, pa.string(), mask=np.array([False]))
+
+
+@pytest.mark.large_memory
+def test_numpy_string_overflow_to_chunked():
+    # ARROW-3762
+
+    # 2^31 + 1 bytes
+    values = [b'x'] + [
+        b'x' * (1 << 20)
+    ] * 2 * (1 << 10)
+
+    arr = np.array(values)
+
+    arrow_arr = pa.array(arr)
+
+    assert isinstance(arrow_arr, pa.ChunkedArray)
+
+    # Split up into 16MB chunks. 128 * 16 = 2048, so 129
+    assert arrow_arr.num_chunks == 129
+
+    value_index = 0
+    for i in range(arrow_arr.num_chunks):
+        chunk = arrow_arr.chunk(i)
+        for val in chunk:
+            assert val.as_py() == values[value_index]
+            value_index += 1
