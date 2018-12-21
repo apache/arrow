@@ -1275,12 +1275,16 @@ def test_numpy_string_overflow_to_chunked():
     # ARROW-3762
 
     # 2^31 + 1 bytes
-    values = [b'x'] + [
-        b'x' * (1 << 20)
-    ] * 2 * (1 << 10)
+    values = [b'x']
+
+    # Make 10 unique 1MB strings then repeat then 2048 times
+    unique_strings = {
+        i: b'x' * ((1 << 20) - 1) + str(i % 10).encode('utf8')
+        for i in range(10)
+    }
+    values += [unique_strings[i % 10] for i in range(1 << 11)]
 
     arr = np.array(values)
-
     arrow_arr = pa.array(arr)
 
     assert isinstance(arrow_arr, pa.ChunkedArray)
