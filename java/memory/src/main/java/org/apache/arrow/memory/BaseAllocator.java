@@ -17,8 +17,10 @@
 
 package org.apache.arrow.memory;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -89,15 +91,14 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     this.name = name;
 
     this.thisAsByteBufAllocator = new ArrowByteBufAllocator(this);
+    this.childAllocators = new IdentityHashMap<>();
 
     if (DEBUG) {
-      childAllocators = new IdentityHashMap<>();
       reservations = new IdentityHashMap<>();
       childLedgers = new IdentityHashMap<>();
       historicalLog = new HistoricalLog(DEBUG_LOG_LENGTH, "allocator[%s]", name);
       hist("created by \"%s\", owned = %d", name, this.getAllocatedMemory());
     } else {
-      childAllocators = null;
       reservations = null;
       historicalLog = null;
       childLedgers = null;
@@ -106,8 +107,15 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   @Override
-  public BufferAllocator getRoot() {
-    return root;
+  public BufferAllocator getParentAllocator() {
+    return parentAllocator;
+  }
+
+  @Override
+  public List<BufferAllocator> getChildAllocators() {
+    synchronized (childAllocators) {
+      return new ArrayList<>(childAllocators.keySet());
+    }
   }
 
   private static String createErrorMsg(final BufferAllocator allocator, final int rounded, final int requested) {
@@ -246,6 +254,10 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
             "] not found in parent allocator[" + name + "]'s childAllocators");
         }
       }
+    } else {
+      synchronized (childAllocators) {
+        childAllocators.remove(childAllocator);
+      }
     }
     listener.onChildRemoved(this, childAllocator);
   }
@@ -362,6 +374,10 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         historicalLog.recordEvent("allocator[%s] created new child allocator[%s]", name,
             childAllocator.name);
       }
+    } else {
+      synchronized (this.childAllocators) {
+        childAllocators.put(childAllocator, childAllocator);
+      }
     }
     this.listener.onChildAdded(this, childAllocator);
 
@@ -470,19 +486,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   public String toVerboseString() {
     final StringBuilder sb = new StringBuilder();
     print(sb, 0, Verbosity.LOG_WITH_STACKTRACE);
-    return sb.toString();
-  }
-
-  /**
-   * Provide a summary string of the current allocator state. Includes the state of this
-   * allocator and it's child allocators, up to 'maxLevels - 1' below this allocator.
-   *
-   * @return A summary string of current allocator state, along with it's child allocators.
-   */
-  @Override
-  public String toSummaryString(int maxLevels) {
-    final StringBuilder sb = new StringBuilder();
-    printSummary(sb, 0, maxLevels);
     return sb.toString();
   }
 
@@ -677,31 +680,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     }
 
-  }
-
-  private void printSummary(StringBuilder sb, int currentLevel, int maxLevels) {
-    if (currentLevel >= maxLevels) {
-      return;
-    }
-    indent(sb, currentLevel)
-        .append("Allocator(")
-        .append(name)
-        .append(") ")
-        .append(reservation)
-        .append('/')
-        .append(getAllocatedMemory())
-        .append('/')
-        .append(getPeakMemoryAllocation())
-        .append('/')
-        .append(getLimit())
-        .append(" (res/actual/peak/limit)")
-        .append(" child allocators: ")
-        .append(childAllocators.size())
-        .append('\n');
-
-    for (BaseAllocator child : childAllocators.keySet()) {
-      child.printSummary(sb, currentLevel + 1, maxLevels);
-    }
   }
 
   private void dumpBuffers(final StringBuilder sb, final Set<BufferLedger> ledgerSet) {

@@ -18,11 +18,13 @@
 package org.apache.arrow.memory;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+
+import java.util.Arrays;
+import java.util.Collections;
 
 import org.junit.Ignore;
 import org.junit.Test;
@@ -151,37 +153,28 @@ public class TestBaseAllocator {
         new RootAllocator(MAX_ALLOCATION)) {
       final BufferAllocator childAllocator1 =
           rootAllocator.newChildAllocator("child1", 0, MAX_ALLOCATION);
-      assertEquals(rootAllocator.getRoot(), rootAllocator);
+      assertEquals(rootAllocator.getParentAllocator(), null);
+      assertEquals(rootAllocator.getChildAllocators(), Arrays.asList(childAllocator1));
+      assertEquals(childAllocator1.getParentAllocator(), rootAllocator);
 
       final BufferAllocator childAllocator2 =
           rootAllocator.newChildAllocator("child2", 0, MAX_ALLOCATION);
-      assertEquals(childAllocator1.getRoot(), rootAllocator);
+      assertEquals(childAllocator2.getParentAllocator(), rootAllocator);
+      assertEquals(
+          rootAllocator.getChildAllocators(), Arrays.asList(childAllocator1, childAllocator2));
 
       final BufferAllocator grandChildAllocator =
           childAllocator1.newChildAllocator("grand-child", 0, MAX_ALLOCATION);
-      assertEquals(grandChildAllocator.getRoot(), rootAllocator);
-
-      String summary = rootAllocator.getRoot().toSummaryString(1);
-      assertTrue(summary.contains("ROOT"));
-      assertFalse(summary.contains("child1"));
-      assertFalse(summary.contains("grand-child"));
-
-      summary = rootAllocator.getRoot().toSummaryString(2);
-      assertTrue(summary.contains("ROOT"));
-      assertTrue(summary.contains("child1"));
-      assertFalse(summary.contains("grand-child"));
-
-      summary = rootAllocator.getRoot().toSummaryString(3);
-      assertTrue(summary.contains("ROOT"));
-      assertTrue(summary.contains("child1"));
-      assertTrue(summary.contains("grand-child"));
-
-      String l4Summary = rootAllocator.getRoot().toSummaryString(4);
-      assertEquals(l4Summary, summary);
-
+      assertEquals(grandChildAllocator.getParentAllocator(), childAllocator1);
+      assertEquals(childAllocator1.getChildAllocators(), Arrays.asList(grandChildAllocator));
       grandChildAllocator.close();
+      assertEquals(childAllocator1.getChildAllocators(), Collections.EMPTY_LIST);
+
       childAllocator1.close();
+      assertEquals(rootAllocator.getChildAllocators(), Arrays.asList(childAllocator2));
+
       childAllocator2.close();
+      assertEquals(rootAllocator.getChildAllocators(), Collections.EMPTY_LIST);
     }
   }
 

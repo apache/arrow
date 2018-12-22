@@ -17,6 +17,8 @@
 
 package org.apache.arrow.memory;
 
+import java.util.List;
+
 import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.ByteBufAllocator;
 
@@ -135,11 +137,18 @@ public interface BufferAllocator extends AutoCloseable {
   public long getHeadroom();
 
   /**
-   * Returns the root allocator.
+   * Returns the parent allocator.
    *
-   * @return root allocator
+   * @return parent allocator
    */
-  public BufferAllocator getRoot();
+  public BufferAllocator getParentAllocator();
+
+  /**
+   * Returns the list of child allocators.
+   *
+   * @return list of child allocators
+   */
+  public List<BufferAllocator> getChildAllocators();
 
   /**
    * Create an allocation reservation. A reservation is a way of building up
@@ -187,16 +196,6 @@ public interface BufferAllocator extends AutoCloseable {
    * @return A very verbose description of the allocator hierarchy.
    */
   public String toVerboseString();
-
-  /**
-   * Return a summary string for the allocators and it's child allocators up to the specified
-   * number of levels.
-   *
-   * @param numLevels The number of levels to include in the summary.
-   *
-   * @return summary of the allocator hierarchy.
-   */
-  public String toSummaryString(int maxLevels);
 
   /**
    * Asserts (using java assertions) that the provided allocator is currently open. If assertions
