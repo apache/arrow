@@ -755,27 +755,24 @@ def test_cast_date64_to_int():
     assert result.equals(expected)
 
 
-id_fixtures = {
-    "bool": [True, False, True],
-    "uint8": range(0, 255),
-    "int8": range(0, 128),
-    "uint16": range(0, 1024),
-    "int16": range(0, 1024),
-    "uint32": range(0, 1024),
-    "int32": range(0, 1024),
-    "uint64": range(0, 1024),
-    "int64": range(0, 1024),
-    "float": [0.0, 0.1, 0.2],
-    "double": [0.0, 0.1, 0.2],
-    "string": ["a", "b", "c"],
-    "binary": [b'a', b'b', b'c'],
-}
-
-
-def test_cast_identities():
-    for t, fixture in id_fixtures.items():
-        arr = pa.array(fixture, type=t)
-        assert(arr.cast(t).equals(arr))
+@pytest.mark.parametrize(('ty', 'values'), [
+    ('bool', [True, False, True]),
+    ('uint8', range(0, 255)),
+    ('int8', range(0, 128)),
+    ('uint16', range(0, 10)),
+    ('int16', range(0, 10)),
+    ('uint32', range(0, 10)),
+    ('int32', range(0, 10)),
+    ('uint64', range(0, 10)),
+    ('int64', range(0, 10)),
+    ('float', [0.0, 0.1, 0.2]),
+    ('double', [0.0, 0.1, 0.2]),
+    ('string', ['a', 'b', 'c']),
+    ('binary', [b'a', b'b', b'c'])
+])
+def test_cast_identities(ty, values):
+    arr = pa.array(values, type=ty)
+    assert arr.cast(ty).equals(arr)
 
 
 pickle_test_parametrize = pytest.mark.parametrize(
