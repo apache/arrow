@@ -47,3 +47,4 @@ files into Arrow structures.
    api
    development
    getting_involved
+   benchmarks
