@@ -103,6 +103,18 @@ struct ScalarHelper<Scalar, AlgNum,
 };
 
 template <typename Scalar, uint64_t AlgNum>
+struct ScalarHelper<
+    Scalar, AlgNum,
+    typename std::enable_if<std::is_same<util::string_view, Scalar>::value>::type>
+    : public ScalarHelperBase<Scalar, AlgNum> {
+  // ScalarHelper specialization for util::string_view
+
+  static hash_t ComputeHash(const util::string_view& value) {
+    return ComputeStringHash<AlgNum>(value.data(), static_cast<int64_t>(value.size()));
+  }
+};
+
+template <typename Scalar, uint64_t AlgNum>
 struct ScalarHelper<Scalar, AlgNum,
                     typename std::enable_if<std::is_floating_point<Scalar>::value>::type>
     : public ScalarHelperBase<Scalar, AlgNum> {
@@ -332,7 +344,7 @@ class ScalarMemoTable {
   explicit ScalarMemoTable(int64_t entries = 0)
       : hash_table_(static_cast<uint64_t>(entries)) {}
 
-  int32_t Get(const Scalar value) const {
+  int32_t Get(const Scalar& value) const {
     auto cmp_func = [value](const Payload* payload) -> bool {
       return ScalarHelper<Scalar, 0>::CompareScalars(payload->value, value);
     };
@@ -346,7 +358,7 @@ class ScalarMemoTable {
   }
 
   template <typename Func1, typename Func2>
-  int32_t GetOrInsert(const Scalar value, Func1&& on_found, Func2&& on_not_found) {
+  int32_t GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found) {
     auto cmp_func = [value](const Payload* payload) -> bool {
       return ScalarHelper<Scalar, 0>::CompareScalars(value, payload->value);
     };
@@ -364,7 +376,7 @@ class ScalarMemoTable {
     return memo_index;
   }
 
-  int32_t GetOrInsert(const Scalar value) {
+  int32_t GetOrInsert(const Scalar& value) {
     return GetOrInsert(value, [](int32_t i) {}, [](int32_t i) {});
   }
 
@@ -389,6 +401,7 @@ class ScalarMemoTable {
     Scalar value;
     int32_t memo_index;
   };
+
   using HashTableType = HashTableTemplateType<Payload>;
   using HashTableEntry = typename HashTableType::Entry;
   HashTableType hash_table_;
@@ -621,9 +634,11 @@ class BinaryMemoTable {
   struct Payload {
     int32_t memo_index;
   };
+
   using HashTableType = HashTable<Payload>;
   using HashTableEntry = typename HashTable<Payload>::Entry;
   HashTableType hash_table_;
+
   std::vector<int32_t> offsets_;
   std::string values_;
 

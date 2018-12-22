@@ -613,6 +613,7 @@ class ARROW_EXPORT Date32Type : public DateType {
   static constexpr Type::type type_id = Type::DATE32;
 
   using c_type = int32_t;
+  constexpr DateUnit Unit = DateUnit::DAY;
 
   Date32Type();
 
@@ -630,6 +631,7 @@ class ARROW_EXPORT Date64Type : public DateType {
   static constexpr Type::type type_id = Type::DATE64;
 
   using c_type = int64_t;
+  constexpr DateUnit Unit = DateUnit::MILLI;
 
   Date64Type();
 
