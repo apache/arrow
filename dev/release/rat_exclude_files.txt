@@ -179,3 +179,4 @@ r/README.Rmd
 r/man/*.Rd
 .gitattributes
 rust/test/data/*.csv
+rust/rust-toolchain
