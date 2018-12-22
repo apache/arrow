@@ -53,6 +53,7 @@ matrix:
   include:
   - name: "Lint C++, Python, R"
     os: linux
+    cache:  # disable it
     language: python
     python: "3.6"
     env:
