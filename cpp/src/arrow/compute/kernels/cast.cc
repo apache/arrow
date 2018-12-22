@@ -1258,7 +1258,9 @@ class CastKernel : public UnaryKernel {
   FN(TimestampType, Date64Type);     \
   FN(TimestampType, Int64Type);
 
-#define BINARY_CASES(FN, IN_TYPE) FN(BinaryType, StringType);
+#define BINARY_CASES(FN, IN_TYPE) \
+  FN(BinaryType, BinaryType);     \
+  FN(BinaryType, StringType);
 
 #define STRING_CASES(FN, IN_TYPE) \
   FN(StringType, StringType);     \
