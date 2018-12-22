@@ -60,7 +60,7 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     fn reserve(&mut self, n: usize) -> Result<()>;
     fn push(&mut self, v: T::Native) -> Result<()>;
     fn push_slice(&mut self, slice: &[T::Native]) -> Result<()>;
-    fn finish(self) -> Buffer;
+    fn finish(&mut self) -> Buffer;
 }
 
 impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
@@ -114,9 +114,11 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         self.write_bytes(slice.to_byte_slice(), array_slots)
     }
 
-    /// Consumes this builder and returns an immutable `Buffer`.
-    default fn finish(self) -> Buffer {
-        self.buffer.freeze()
+    /// Reset this builder and returns an immutable `Buffer`.
+    default fn finish(&mut self) -> Buffer {
+        let buf = ::std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
+        self.len = 0;
+        buf.freeze()
     }
 }
 
@@ -196,13 +198,15 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
         Ok(())
     }
 
-    /// Consumes this and returns an immutable `Buffer`.
-    fn finish(mut self) -> Buffer {
+    /// Reset this builder and returns an immutable `Buffer`.
+    fn finish(&mut self) -> Buffer {
         // `push` does not update the buffer's `len` so do it before `freeze` is called.
         let new_buffer_len = bit_util::ceil(self.len, 8);
         debug_assert!(new_buffer_len >= self.buffer.len());
-        self.buffer.resize(new_buffer_len).unwrap();
-        self.buffer.freeze()
+        let mut buf = ::std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
+        self.len = 0;
+        buf.resize(new_buffer_len).unwrap();
+        buf.freeze()
     }
 }
 
@@ -211,15 +215,25 @@ pub trait ArrayBuilder {
     /// The type of array that this builder creates
     type ArrayType: Array;
 
-    /// Returns the builder as an owned `Any` type so that it can be `downcast` to a specific
-    /// implementation before calling it's `finish` method
-    fn into_any(self) -> Box<Any>;
-
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize;
 
     /// Builds the array
-    fn finish(self) -> Self::ArrayType;
+    fn finish(&mut self) -> Self::ArrayType;
+
+    /// Returns the builder as an non-mutable `Any` reference.
+    ///
+    /// This is most useful when one wants to call non-mutable APIs on a specific builder
+    /// type. In this case, one can first cast this into a `Any`, and then use
+    /// `downcast_ref` to get a reference on the specific builder.
+    fn as_any(&self) -> &Any;
+
+    /// Returns the builder as an mutable `Any` reference.
+    ///
+    /// This is most useful when one wants to call mutable APIs on a specific builder
+    /// type. In this case, one can first cast this into a `Any`, and then use
+    /// `downcast_mut` to get a reference on the specific builder.
+    fn as_any_mut(&mut self) -> &mut Any;
 }
 
 ///  Array builder for fixed-width primitive types
@@ -243,10 +257,14 @@ pub type Float64Builder = PrimitiveArrayBuilder<Float64Type>;
 impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveArrayBuilder<T> {
     type ArrayType = PrimitiveArray<T>;
 
-    /// Returns the builder as an owned `Any` type so that it can be `downcast` to a specific
-    /// implementation before calling it's `finish` method
-    fn into_any(self) -> Box<Any> {
-        Box::new(self)
+    /// Returns the builder as an non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as an mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
     }
 
     /// Returns the number of array slots in the builder
@@ -254,8 +272,8 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveArrayBuilder<T> {
         self.values_builder.len
     }
 
-    /// Builds the PrimitiveArray
-    fn finish(self) -> PrimitiveArray<T> {
+    /// Builds the `PrimitiveArray` and reset this builder.
+    fn finish(&mut self) -> PrimitiveArray<T> {
         let len = self.len();
         let null_bit_buffer = self.bitmap_builder.finish();
         let data = ArrayData::builder(T::get_data_type())
@@ -341,10 +359,14 @@ where
 {
     type ArrayType = ListArray;
 
-    /// Returns the builder as an owned `Any` type so that it can be `downcast` to a specific
-    /// implementation before calling it's `finish` method.
-    fn into_any(self) -> Box<Any> {
-        Box::new(self)
+    /// Returns the builder as an non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as an mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
     }
 
     /// Returns the number of array slots in the builder
@@ -352,22 +374,25 @@ where
         self.len
     }
 
-    /// Builds the `ListArray`
-    fn finish(self) -> ListArray {
+    /// Builds the `ListArray` and reset this builder.
+    fn finish(&mut self) -> ListArray {
         let len = self.len();
+        self.len = 0;
         let values_arr = self
             .values_builder
-            .into_any()
-            .downcast::<T>()
+            .as_any_mut()
+            .downcast_mut::<T>()
             .unwrap()
             .finish();
         let values_data = values_arr.data();
 
+        let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
+        self.offsets_builder.push(0).unwrap();
         let data = ArrayData::builder(DataType::List(Box::new(values_data.data_type().clone())))
             .len(len)
             .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
-            .add_buffer(self.offsets_builder.finish())
+            .add_buffer(offset_buffer)
             .add_child_data(values_data)
             .null_bit_buffer(null_bit_buffer)
             .build();
@@ -403,10 +428,14 @@ pub struct BinaryArrayBuilder {
 impl ArrayBuilder for BinaryArrayBuilder {
     type ArrayType = BinaryArray;
 
-    /// Returns the builder as an owned `Any` type so that it can be `downcast` to a specific
-    /// implementation before calling it's `finish` method.
-    fn into_any(self) -> Box<Any> {
-        Box::new(self)
+    /// Returns the builder as an non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as an mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
     }
 
     /// Returns the number of array slots in the builder
@@ -414,8 +443,8 @@ impl ArrayBuilder for BinaryArrayBuilder {
         self.builder.len()
     }
 
-    /// Builds the `BinaryArray`
-    fn finish(self) -> BinaryArray {
+    /// Builds the `BinaryArray` and reset this builder.
+    fn finish(&mut self) -> BinaryArray {
         BinaryArray::from(self.builder.finish())
     }
 }
@@ -462,7 +491,7 @@ mod tests {
 
     #[test]
     fn test_builder_i32_empty() {
-        let b = Int32BufferBuilder::new(5);
+        let mut b = Int32BufferBuilder::new(5);
         assert_eq!(0, b.len());
         assert_eq!(16, b.capacity());
         let a = b.finish();
@@ -497,6 +526,27 @@ mod tests {
         }
         assert_eq!(32, b.capacity());
         let a = b.finish();
+        assert_eq!(80, a.len());
+    }
+
+    #[test]
+    fn test_builder_finish() {
+        let mut b = Int32BufferBuilder::new(5);
+        assert_eq!(16, b.capacity());
+        for i in 0..10 {
+            b.push(i).unwrap();
+        }
+        let mut a = b.finish();
+        assert_eq!(40, a.len());
+        assert_eq!(0, b.len());
+        assert_eq!(0, b.capacity());
+
+        // Try build another buffer after cleaning up.
+        for i in 0..20 {
+            b.push(i).unwrap()
+        }
+        assert_eq!(32, b.capacity());
+        a = b.finish();
         assert_eq!(80, a.len());
     }
 
@@ -703,6 +753,20 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_builder_finish() {
+        let mut builder = Int32Builder::new(5);
+        builder.push_slice(&[2, 4, 6, 8]).unwrap();
+        let mut arr = builder.finish();
+        assert_eq!(4, arr.len());
+        assert_eq!(0, builder.len());
+
+        builder.push_slice(&[1, 3, 5, 7, 9]).unwrap();
+        arr = builder.finish();
+        assert_eq!(5, arr.len());
+        assert_eq!(0, builder.len());
+    }
+
+    #[test]
     fn test_list_array_builder() {
         let values_builder = Int32Builder::new(10);
         let mut builder = ListArrayBuilder::new(values_builder);
@@ -766,6 +830,27 @@ mod tests {
         assert_eq!(1, list_array.null_count());
         assert_eq!(3, list_array.value_offset(2));
         assert_eq!(3, list_array.value_length(2));
+    }
+
+    #[test]
+    fn test_list_array_builder_finish() {
+        let values_builder = Int32Array::builder(5);
+        let mut builder = ListArrayBuilder::new(values_builder);
+
+        builder.values().push_slice(&[1, 2, 3]).unwrap();
+        builder.append(true).unwrap();
+        builder.values().push_slice(&[4, 5, 6]).unwrap();
+        builder.append(true).unwrap();
+
+        let mut arr = builder.finish();
+        assert_eq!(2, arr.len());
+        assert_eq!(0, builder.len());
+
+        builder.values().push_slice(&[7, 8, 9]).unwrap();
+        builder.append(true).unwrap();
+        arr = builder.finish();
+        assert_eq!(1, arr.len());
+        assert_eq!(0, builder.len());
     }
 
     #[test]
@@ -855,6 +940,23 @@ mod tests {
         assert_eq!("world", binary_array.get_string(2));
         assert_eq!(5, binary_array.value_offset(2));
         assert_eq!(5, binary_array.value_length(2));
+    }
+
+    #[test]
+    fn test_binary_array_builder_finish() {
+        let mut builder = BinaryArrayBuilder::new(10);
+
+        builder.push_string("hello").unwrap();
+        builder.push_string("world").unwrap();
+
+        let mut arr = builder.finish();
+        assert_eq!(2, arr.len());
+        assert_eq!(0, builder.len());
+
+        builder.push_string("arrow").unwrap();
+        arr = builder.finish();
+        assert_eq!(1, arr.len());
+        assert_eq!(0, builder.len());
     }
 
     #[test]
