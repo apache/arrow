@@ -107,6 +107,7 @@ matrix:
     - ARROW_TRAVIS_PYTHON_JVM=1
     - ARROW_TRAVIS_PYTHON_GANDIVA=1
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
+    - ARROW_TRAVIS_JAVA_BUILD_ONLY=1
     # TODO(wesm): Run the benchmarks outside of Travis
     # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     before_script:
@@ -115,6 +116,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
     script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh || travis_terminate 1
     # Only run Plasma tests with valgrind in one of the Python builds because
     # they are slow
     - export PLASMA_VALGRIND=0
