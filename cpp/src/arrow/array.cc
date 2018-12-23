@@ -209,20 +209,20 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
     return Status::Invalid("List offsets must have non-zero length");
   }
 
-  if (offsets.type_id() != Type::INT32) {
-    return Status::Invalid("List offsets must be signed int32");
+  if (offsets.type_id() != Type::INT64) {
+    return Status::Invalid("List offsets must be signed int64");
   }
 
   BufferVector buffers = {};
 
-  const auto& typed_offsets = checked_cast<const Int32Array&>(offsets);
+  const auto& typed_offsets = checked_cast<const Int64Array&>(offsets);
 
   const int64_t num_offsets = offsets.length();
 
   if (offsets.null_count() > 0) {
     std::shared_ptr<Buffer> clean_offsets, clean_valid_bits;
 
-    RETURN_NOT_OK(AllocateBuffer(pool, num_offsets * sizeof(int32_t), &clean_offsets));
+    RETURN_NOT_OK(AllocateBuffer(pool, num_offsets * sizeof(int64_t), &clean_offsets));
 
     // Copy valid bits, zero out the bit for the final offset
     RETURN_NOT_OK(offsets.null_bitmap()->Copy(0, BitUtil::BytesForBits(num_offsets - 1),
@@ -230,12 +230,12 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
     BitUtil::ClearBit(clean_valid_bits->mutable_data(), num_offsets);
     buffers.emplace_back(std::move(clean_valid_bits));
 
-    const int32_t* raw_offsets = typed_offsets.raw_values();
-    auto clean_raw_offsets = reinterpret_cast<int32_t*>(clean_offsets->mutable_data());
+    const int64_t* raw_offsets = typed_offsets.raw_values();
+    auto clean_raw_offsets = reinterpret_cast<int64_t*>(clean_offsets->mutable_data());
 
     // Must work backwards so we can tell how many values were in the last non-null value
     DCHECK(offsets.IsValid(num_offsets - 1));
-    int32_t current_offset = raw_offsets[num_offsets - 1];
+    int64_t current_offset = raw_offsets[num_offsets - 1];
     for (int64_t i = num_offsets - 1; i >= 0; --i) {
       if (offsets.IsValid(i)) {
         current_offset = raw_offsets[i];
@@ -490,8 +490,8 @@ Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
     return Status::Invalid("UnionArray offsets must have non-zero length");
   }
 
-  if (value_offsets.type_id() != Type::INT32) {
-    return Status::Invalid("UnionArray offsets must be signed int32");
+  if (value_offsets.type_id() != Type::INT64) {
+    return Status::Invalid("UnionArray offsets must be signed int64");
   }
 
   if (type_ids.type_id() != Type::INT8) {
@@ -773,7 +773,7 @@ struct ValidateVisitor {
     if (array.length() && !value_offsets) {
       return Status::Invalid("value_offsets_ was null");
     }
-    if (value_offsets->size() / static_cast<int>(sizeof(int32_t)) < array.length()) {
+    if (value_offsets->size() / static_cast<int>(sizeof(int64_t)) < array.length()) {
       return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
                              " isn't large enough for length: ", array.length());
     }

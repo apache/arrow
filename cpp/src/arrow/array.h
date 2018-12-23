@@ -475,7 +475,7 @@ class ARROW_EXPORT ListArray : public Array {
   /// are assumed to be well-formed
   ///
   /// \param[in] offsets Array containing n + 1 offsets encoding length and
-  /// size. Must be of int32 type
+  /// size. Must be of int64 type
   /// \param[in] values Array containing
   /// \param[in] pool MemoryPool in case new offsets array needs to be
   /// allocated because of null values
@@ -717,7 +717,7 @@ class ARROW_EXPORT UnionArray : public Array {
   ///
   /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
   /// 0 corresponding to each type.
-  /// \param[in] value_offsets An array of signed int32 values indicating the
+  /// \param[in] value_offsets An array of signed int64 values indicating the
   /// relative offset into the respective child array for the type in a given slot.
   /// The respective offsets for each child value array must be in order / increasing.
   /// \param[in] children Vector of children Arrays containing the data for each type.
