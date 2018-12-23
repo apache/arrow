@@ -30,6 +30,7 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
     conda create -y -q -p $CPP_TOOLCHAIN \
         --file=$TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
         ${CONDA_LLVM} \
+        ccache \
         ninja \
         nomkl \
         python=3.6

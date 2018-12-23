@@ -26,9 +26,6 @@ cache:
   directories:
     - $HOME/.m2  # Maven
     - $HOME/.conda_packages  # Conda
-    - $TRAVIS_BUILD_DIR/cpp-build/orc_ep-prefix
-    - $TRAVIS_BUILD_DIR/cpp-build/jemalloc_ep-prefix
-    - $TRAVIS_BUILD_DIR/cpp-build/gbenchmark_ep-prefix
 
 git:
   # ARROW-3083: We use a higher clone depth to also have the latest tag in the cloned history.
