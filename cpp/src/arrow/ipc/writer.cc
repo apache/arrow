@@ -228,13 +228,13 @@ class RecordBatchSerializer : public ArrayVisitor {
       // b) slice the values array accordingly
 
       std::shared_ptr<Buffer> shifted_offsets;
-      RETURN_NOT_OK(AllocateBuffer(pool_, sizeof(int32_t) * (array.length() + 1),
+      RETURN_NOT_OK(AllocateBuffer(pool_, sizeof(int64_t) * (array.length() + 1),
                                    &shifted_offsets));
 
-      int32_t* dest_offsets = reinterpret_cast<int32_t*>(shifted_offsets->mutable_data());
-      const int32_t start_offset = array.value_offset(0);
+      int64_t* dest_offsets = reinterpret_cast<int64_t*>(shifted_offsets->mutable_data());
+      const int64_t start_offset = array.value_offset(0);
 
-      for (int i = 0; i < array.length(); ++i) {
+      for (int64_t i = 0; i < array.length(); ++i) {
         dest_offsets[i] = array.value_offset(i) - start_offset;
       }
       // Final offset
@@ -317,8 +317,8 @@ class RecordBatchSerializer : public ArrayVisitor {
     --max_recursion_depth_;
     std::shared_ptr<Array> values = array.values();
 
-    int32_t values_offset = 0;
-    int32_t values_length = 0;
+    int64_t values_offset = 0;
+    int64_t values_length = 0;
     if (value_offsets) {
       values_offset = array.value_offset(0);
       values_length = array.value_offset(array.length()) - values_offset;
@@ -371,7 +371,7 @@ class RecordBatchSerializer : public ArrayVisitor {
       // Allocate an array of child offsets. Set all to -1 to indicate that we
       // haven't observed a first occurrence of a particular child yet
       std::vector<int64_t> child_offsets(max_code + 1, -1);
-      std::vector<int32_t> child_lengths(max_code + 1, 0);
+      std::vector<int64_t> child_lengths(max_code + 1, 0);
 
       if (offset != 0) {
         // This is an unpleasant case. Because the offsets are different for
@@ -384,9 +384,9 @@ class RecordBatchSerializer : public ArrayVisitor {
         // Allocate the shifted offsets
         std::shared_ptr<Buffer> shifted_offsets_buffer;
         RETURN_NOT_OK(
-            AllocateBuffer(pool_, length * sizeof(int32_t), &shifted_offsets_buffer));
-        int32_t* shifted_offsets =
-            reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
+            AllocateBuffer(pool_, length * sizeof(int64_t), &shifted_offsets_buffer));
+        int64_t* shifted_offsets =
+            reinterpret_cast<int64_t*>(shifted_offsets_buffer->mutable_data());
 
         // Offsets may not be ascending, so we need to find out the start offset
         // for each child
