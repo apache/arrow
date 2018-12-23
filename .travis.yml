@@ -115,7 +115,6 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh || travis_terminate 1
     # Only run Plasma tests with valgrind in one of the Python builds because
     # they are slow
     - export PLASMA_VALGRIND=0
