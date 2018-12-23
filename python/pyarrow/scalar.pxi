@@ -360,7 +360,7 @@ cdef class BinaryValue(ArrayValue):
         """
         cdef:
             const uint8_t* ptr
-            int32_t length
+            int64_t length
             CBinaryArray* ap = <CBinaryArray*> self.sp_array.get()
 
         ptr = ap.GetValue(self.index, &length)

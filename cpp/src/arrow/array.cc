@@ -782,7 +782,7 @@ struct ValidateVisitor {
       return Status::Invalid("values was null");
     }
 
-    const int32_t last_offset = array.value_offset(array.length());
+    const int64_t last_offset = array.value_offset(array.length());
     if (array.values()->length() != last_offset) {
       return Status::Invalid("Final offset invariant not equal to values length: ",
                              last_offset, "!=", array.values()->length());
@@ -793,12 +793,12 @@ struct ValidateVisitor {
       return Status::Invalid("Child array invalid: ", child_valid.ToString());
     }
 
-    int32_t prev_offset = array.value_offset(0);
+    int64_t prev_offset = array.value_offset(0);
     if (prev_offset != 0) {
       return Status::Invalid("The first offset wasn't zero");
     }
     for (int64_t i = 1; i <= array.length(); ++i) {
-      int32_t current_offset = array.value_offset(i);
+      int64_t current_offset = array.value_offset(i);
       if (array.IsNull(i - 1) && current_offset != prev_offset) {
         return Status::Invalid("Offset invariant failure at: ", i,
                                " inconsistent value_offsets for null slot",
