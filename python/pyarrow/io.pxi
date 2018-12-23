@@ -1291,19 +1291,16 @@ cdef CompressionType _get_compression_type(object name) except *:
         raise ValueError('Unrecognized compression type: {}'.format(name))
 
 
-def _detect_compression(str path):
-    if path is None:
-        return None
-    elif path.endswith('.bz2'):
-        return 'bz2'
-    elif path.endswith('.gz'):
-        return 'gzip'
-    elif path.endswith('.lz4'):
-        return 'lz4'
-    elif path.endswith('.zst'):
-        return 'zstd'
-    else:
-        return None
+def _detect_compression(path):
+    if isinstance(path, six.string_types):
+        if path.endswith('.bz2'):
+            return 'bz2'
+        elif path.endswith('.gz'):
+            return 'gzip'
+        elif path.endswith('.lz4'):
+            return 'lz4'
+        elif path.endswith('.zst'):
+            return 'zstd'
 
 
 def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
