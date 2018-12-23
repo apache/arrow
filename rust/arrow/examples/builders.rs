@@ -18,7 +18,7 @@
 ///! Many builders are available to easily create different types of arrow arrays
 extern crate arrow;
 
-use arrow::builder::{ArrayBuilder, Int32Builder};
+use arrow::builder::Int32Builder;
 
 fn main() {
     // Primitive Arrays
