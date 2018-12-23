@@ -22,7 +22,7 @@ services:
   - docker
 
 cache:
-  # ccache: true
+  ccache: true
   directories:
     - $HOME/.m2  # Maven
     - $HOME/.conda_packages  # Conda
