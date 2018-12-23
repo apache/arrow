@@ -447,13 +447,13 @@ inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArra
   return Status::OK();
 }
 
-template <typename T>
+template <typename Type>
 static Status ConvertIntegerObjects(const PandasOptions& options,
                                     const ChunkedArray& data, PyObject** out_values) {
-  auto WrapValue = [](int64_t value, PyObject** out) {
-    constexpr bool is_signed = std::is_signed<T>::value;
-    *out = is_signed ? PyLong_FromLongLong(in_values[i])
-    : PyLong_FromUnsignedLongLong(in_values[i]);
+  using T = typename Type::c_type;
+  auto WrapValue = [](T value, PyObject** out) {
+    *out = std::is_signed<T>::value ? PyLong_FromLongLong(value)
+                                    : PyLong_FromUnsignedLongLong(value);
     RETURN_IF_PYERROR();
     return Status::OK();
   };
@@ -659,47 +659,34 @@ inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) 
 template <typename Type>
 static Status ConvertDates(const PandasOptions& options, const ChunkedArray& data,
                            PyObject** out_values) {
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-  using T = typename
-
-  PyAcquireGIL lock;
-  PyDateTime_IMPORT;
-
-  auto WrapValue = [](T value, PyObject** out) {
-    return PyDate_from_int(value, Type::Unit, out);
+  {
+    PyAcquireGIL lock;
+    PyDateTime_IMPORT;
+  }
+  auto WrapValue = [](typename Type::c_type value, PyObject** out) {
+    RETURN_NOT_OK(PyDate_from_int(value, Type::UNIT, out));
+    RETURN_IF_PYERROR();
+    return Status::OK();
   };
   return ConvertAsPyObjects<Type>(options, data, WrapValue, out_values);
 }
 
-template <typename TYPE>
+template <typename Type>
 static Status ConvertTimes(const PandasOptions& options, const ChunkedArray& data,
                            PyObject** out_values) {
-  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
-
-  PyAcquireGIL lock;
-  OwnedRef time_ref;
-
-  PyDateTime_IMPORT;
-
-  for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = checked_cast<const ArrayType&>(*data.chunk(c));
-    auto type = std::dynamic_pointer_cast<TYPE>(arr.type());
-    DCHECK(type);
-
-    const TimeUnit::type unit = type->unit();
-
-    for (int64_t i = 0; i < arr.length(); ++i) {
-      if (arr.IsNull(i)) {
-        Py_INCREF(Py_None);
-        *out_values++ = Py_None;
-      } else {
-        RETURN_NOT_OK(PyTime_from_int(arr.Value(i), unit, out_values++));
-        RETURN_IF_PYERROR();
-      }
-    }
+  {
+    PyAcquireGIL lock;
+    PyDateTime_IMPORT;
   }
 
-  return Status::OK();
+  const TimeUnit::type unit = checked_cast<const Type&>(*data.type()).unit();
+
+  auto WrapValue = [unit](typename Type::c_type value, PyObject** out) {
+    RETURN_NOT_OK(PyTime_from_int(value, unit, out));
+    RETURN_IF_PYERROR();
+    return Status::OK();
+  };
+  return ConvertAsPyObjects<Type>(options, data, WrapValue, out_values);
 }
 
 static Status ConvertDecimals(const PandasOptions& options, const ChunkedArray& data,
@@ -751,21 +738,21 @@ class ObjectBlock : public PandasBlock {
     if (type == Type::BOOL) {
       RETURN_NOT_OK(ConvertBooleanWithNulls(options_, data, out_buffer));
     } else if (type == Type::UINT8) {
-      RETURN_NOT_OK(ConvertIntegerObjects<uint8_t>(options_, data, out_buffer));
+      RETURN_NOT_OK(ConvertIntegerObjects<UInt8Type>(options_, data, out_buffer));
     } else if (type == Type::INT8) {
-      RETURN_NOT_OK(ConvertIntegerObjects<int8_t>(options_, data, out_buffer));
+      RETURN_NOT_OK(ConvertIntegerObjects<Int8Type>(options_, data, out_buffer));
     } else if (type == Type::UINT16) {
-      RETURN_NOT_OK(ConvertIntegerObjects<uint16_t>(options_, data, out_buffer));
+      RETURN_NOT_OK(ConvertIntegerObjects<UInt16Type>(options_, data, out_buffer));
     } else if (type == Type::INT16) {
-      RETURN_NOT_OK(ConvertIntegerObjects<int16_t>(options_, data, out_buffer));
+      RETURN_NOT_OK(ConvertIntegerObjects<Int16Type>(options_, data, out_buffer));
     } else if (type == Type::UINT32) {
-      RETURN_NOT_OK(ConvertIntegerObjects<uint32_t>(options_, data, out_buffer));
+      RETURN_NOT_OK(ConvertIntegerObjects<UInt32Type>(options_, data, out_buffer));
     } else if (type == Type::INT32) {
-      RETURN_NOT_OK(ConvertIntegerObjects<int32_t>(options_, data, out_buffer));
+      RETURN_NOT_OK(ConvertIntegerObjects<Int32Type>(options_, data, out_buffer));
     } else if (type == Type::UINT64) {
-      RETURN_NOT_OK(ConvertIntegerObjects<uint64_t>(options_, data, out_buffer));
+      RETURN_NOT_OK(ConvertIntegerObjects<UInt64Type>(options_, data, out_buffer));
     } else if (type == Type::INT64) {
-      RETURN_NOT_OK(ConvertIntegerObjects<int64_t>(options_, data, out_buffer));
+      RETURN_NOT_OK(ConvertIntegerObjects<Int64Type>(options_, data, out_buffer));
     } else if (type == Type::BINARY) {
       RETURN_NOT_OK(ConvertBinaryLike<BinaryType>(options_, data, out_buffer));
     } else if (type == Type::STRING) {
@@ -1776,9 +1763,7 @@ class ArrowDeserializer {
 
     if (data_.null_count() > 0) {
       if (options_.integer_object_nulls) {
-        using c_type = typename Type::c_type;
-
-        return VisitObjects(ConvertIntegerObjects<c_type>);
+        return VisitObjects(ConvertIntegerObjects<Type>);
       } else {
         RETURN_NOT_OK(AllocateOutput(NPY_FLOAT64));
         auto out_values = reinterpret_cast<double*>(PyArray_DATA(arr_));
