@@ -41,12 +41,12 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
 
   /// \brief Create a buffered output stream wrapping the given output stream.
   /// \param[in] raw another OutputStream
-  /// \param[in] buffer_size the size of the temporary buffer. Allocates from
-  /// the default memory pool
+  /// \param[in] buffer_size the size of the temporary write buffer
+  /// \param[in] pool a MemoryPool to use for allocations
   /// \param[out] out the created BufferedOutputStream
   /// \return Status
   static Status Create(std::shared_ptr<OutputStream> raw, int64_t buffer_size,
-                       std::shared_ptr<BufferedOutputStream>* out);
+                       MemoryPool* pool, std::shared_ptr<BufferedOutputStream>* out);
 
   /// \brief Resize internal buffer
   /// \param[in] new_buffer_size the new buffer size
@@ -79,7 +79,7 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   std::shared_ptr<OutputStream> raw() const;
 
  private:
-  explicit BufferedOutputStream(std::shared_ptr<OutputStream> raw);
+  explicit BufferedOutputStream(std::shared_ptr<OutputStream> raw, MemoryPool* pool);
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
@@ -138,8 +138,8 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
  private:
   explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool);
 
-  class ARROW_NO_EXPORT BufferedInputStreamImpl;
-  std::unique_ptr<BufferedInputStreamImpl> impl_;
+  class ARROW_NO_EXPORT Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace io

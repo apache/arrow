@@ -1064,32 +1064,6 @@ cdef class BufferReader(NativeFile):
         self.is_readable = True
 
 
-cdef shared_ptr[InputStream] _make_compressed_input_stream(
-        shared_ptr[InputStream] stream,
-        CompressionType compression_type) except *:
-    cdef:
-        shared_ptr[CCompressedInputStream] compressed_stream
-        unique_ptr[CCodec] codec
-
-    check_status(CCodec.Create(compression_type, &codec))
-    check_status(CCompressedInputStream.Make(codec.get(), stream,
-                                             &compressed_stream))
-    return <shared_ptr[InputStream]> compressed_stream
-
-
-cdef shared_ptr[OutputStream] _make_compressed_output_stream(
-        shared_ptr[OutputStream] stream,
-        CompressionType compression_type) except *:
-    cdef:
-        shared_ptr[CCompressedOutputStream] compressed_stream
-        unique_ptr[CCodec] codec
-
-    check_status(CCodec.Create(compression_type, &codec))
-    check_status(CCompressedOutputStream.Make(codec.get(), stream,
-                                              &compressed_stream))
-    return <shared_ptr[OutputStream]> compressed_stream
-
-
 cdef class CompressedInputStream(NativeFile):
     """
     An input stream wrapper which decompresses data on the fly.
@@ -1104,26 +1078,19 @@ cdef class CompressedInputStream(NativeFile):
     def __init__(self, NativeFile stream, compression):
         cdef:
             CompressionType compression_type
+            unique_ptr[CCodec] codec
+            shared_ptr[CCompressedInputStream] compressed_stream
 
         compression_type = _get_compression_type(compression)
         if compression_type == CompressionType_UNCOMPRESSED:
-            raise ValueError("Invalid value for compression: %r"
-                             % (compression,))
-        self._init(stream, compression_type)
+            raise ValueError('Invalid value for compression: {!r}'
+                             .format(compression))
 
-    @staticmethod
-    cdef create(NativeFile stream, CompressionType compression_type):
-        cdef:
-            CompressedInputStream self
+        check_status(CCodec.Create(compression_type, &codec))
+        check_status(CCompressedInputStream.Make(
+            codec.get(), stream.get_input_stream(), &compressed_stream))
 
-        self = CompressedInputStream.__new__(CompressedInputStream)
-        self._init(stream, compression_type)
-        return self
-
-    cdef _init(self, NativeFile stream, CompressionType compression_type):
-        self.set_input_stream(
-            _make_compressed_input_stream(stream.get_input_stream(),
-                                          compression_type))
+        self.set_input_stream(<shared_ptr[InputStream]> compressed_stream)
         self.is_readable = True
 
 
@@ -1138,29 +1105,52 @@ cdef class CompressedOutputStream(NativeFile):
         The compression type ("bz2", "brotli", "gzip", "lz4", "snappy"
         or "zstd")
     """
+
     def __init__(self, NativeFile stream, compression):
         cdef:
             CompressionType compression_type
+            unique_ptr[CCodec] codec
+            shared_ptr[CCompressedOutputStream] compressed_stream
 
         compression_type = _get_compression_type(compression)
         if compression_type == CompressionType_UNCOMPRESSED:
-            raise ValueError("Invalid value for compression: %r"
-                             % (compression,))
-        self._init(stream, compression_type)
+            raise ValueError('Invalid value for compression: {!r}'
+                             .format(compression))
 
-    @staticmethod
-    cdef create(NativeFile stream, CompressionType compression_type):
-        cdef:
-            CompressedOutputStream self
+        check_status(CCodec.Create(compression_type, &codec))
+        check_status(CCompressedOutputStream.Make(
+            codec.get(), stream.get_output_stream(), &compressed_stream))
 
-        self = CompressedOutputStream.__new__(CompressedOutputStream)
-        self._init(stream, compression_type)
-        return self
+        self.set_output_stream(<shared_ptr[OutputStream]> compressed_stream)
+        self.is_writable = True
 
-    cdef _init(self, NativeFile stream, CompressionType compression_type):
-        self.set_output_stream(
-            _make_compressed_output_stream(stream.get_output_stream(),
-                                           compression_type))
+
+cdef class BufferedInputStream(NativeFile):
+
+    def __init__(self, NativeFile stream, int buffer_size,
+                 MemoryPool memory_pool=None):
+        cdef shared_ptr[CBufferedInputStream] buffered_stream
+
+        check_status(CBufferedInputStream.Create(
+            stream.get_input_stream(), buffer_size,
+            maybe_unbox_memory_pool(memory_pool), &buffered_stream))
+
+        self.set_input_stream(<shared_ptr[InputStream]> buffered_stream)
+        self.is_writable = True
+
+
+cdef class BufferedOutputStream(NativeFile):
+
+    def __init__(self, NativeFile stream, int buffer_size,
+                 MemoryPool memory_pool=None):
+        cdef shared_ptr[CBufferedOutputStream] buffered_stream
+
+        # TODO test and validate buffer_size
+        check_status(CBufferedOutputStream.Create(
+            stream.get_output_stream(), buffer_size,
+            maybe_unbox_memory_pool(memory_pool), &buffered_stream))
+
+        self.set_output_stream(<shared_ptr[OutputStream]> buffered_stream)
         self.is_writable = True
 
 
@@ -1232,10 +1222,10 @@ cdef get_input_stream(object source, c_bool use_memory_map,
     """
     cdef:
         NativeFile nf
+        unique_ptr[CCodec] codec
         shared_ptr[InputStream] input_stream
         shared_ptr[CCompressedInputStream] compressed_stream
         CompressionType compression_type = CompressionType_UNCOMPRESSED
-        unique_ptr[CCodec] codec
 
     try:
         source_path = _stringify_path(source)
@@ -1248,8 +1238,10 @@ cdef get_input_stream(object source, c_bool use_memory_map,
     input_stream = nf.get_input_stream()
 
     if compression_type != CompressionType_UNCOMPRESSED:
-        input_stream = _make_compressed_input_stream(input_stream,
-                                                     compression_type)
+        check_status(CCodec.Create(compression_type, &codec))
+        check_status(CCompressedInputStream.Make(codec.get(), input_stream,
+                                                 &compressed_stream))
+        input_stream = <shared_ptr[InputStream]> compressed_stream
 
     out[0] = input_stream
 
@@ -1438,7 +1430,7 @@ cdef CompressionType _stream_compression_argument(
         return _get_compression_type(compression)
 
 
-def input_stream(source, compression='detect'):
+def input_stream(source, compression='detect', buffer_size=None):
     """
     Create an Arrow input stream.
 
@@ -1452,6 +1444,9 @@ def input_stream(source, compression='detect'):
         chosen based on the file extension.
         If None, no compression will be applied.
         Otherwise, a well-known algorithm name must be supplied (e.g. "gzip")
+    buffer_size: int, default None
+        If None, no buffering will happen.
+        Otherwise the size of the temporary read buffer.
     """
     cdef:
         CompressionType compression_type
@@ -1480,12 +1475,14 @@ def input_stream(source, compression='detect'):
                         .format(source.__class__))
 
     if compression_type != CompressionType_UNCOMPRESSED:
-        stream = CompressedInputStream.create(stream, compression_type)
+        stream = CompressedInputStream(stream, compression_type)
+    if buffer_size is not None:
+        stream = BufferedInputStream(stream, buffer_size)
 
     return stream
 
 
-def output_stream(source, compression='detect'):
+def output_stream(source, compression='detect', buffer_size=None):
     """
     Create an Arrow output stream.
 
@@ -1499,6 +1496,9 @@ def output_stream(source, compression='detect'):
         chosen based on the file extension.
         If None, no compression will be applied.
         Otherwise, a well-known algorithm name must be supplied (e.g. "gzip")
+    buffer_size: int, default None
+        If None, no buffering will happen.
+        Otherwise the size of the temporary write buffer.
     """
     cdef:
         CompressionType compression_type
@@ -1527,6 +1527,8 @@ def output_stream(source, compression='detect'):
                         .format(source.__class__))
 
     if compression_type != CompressionType_UNCOMPRESSED:
-        stream = CompressedOutputStream.create(stream, compression_type)
+        stream = CompressedOutputStream(stream, compression_type)
+    if buffer_size is not None:
+        stream = BufferedOutputStream(stream, buffer_size)
 
     return stream

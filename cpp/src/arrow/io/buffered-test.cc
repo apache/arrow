@@ -105,7 +105,8 @@ class TestBufferedOutputStream : public FileTestFixture<BufferedOutputStream> {
       lseek(fd_, 0, SEEK_END);
 #endif
     }
-    ASSERT_OK(BufferedOutputStream::Create(file, buffer_size, &buffered_));
+    ASSERT_OK(BufferedOutputStream::Create(file, buffer_size, default_memory_pool(),
+                                           &buffered_));
   }
 
   void WriteChunkwise(const std::string& datastr, const std::valarray<int64_t>& sizes) {
