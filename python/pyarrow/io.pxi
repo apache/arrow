@@ -1131,12 +1131,14 @@ cdef class BufferedInputStream(NativeFile):
                  MemoryPool memory_pool=None):
         cdef shared_ptr[CBufferedInputStream] buffered_stream
 
+        if buffer_size <= 0:
+            raise ValueError('Buffer size must be larger than zero')
         check_status(CBufferedInputStream.Create(
             stream.get_input_stream(), buffer_size,
             maybe_unbox_memory_pool(memory_pool), &buffered_stream))
 
         self.set_input_stream(<shared_ptr[InputStream]> buffered_stream)
-        self.is_writable = True
+        self.is_readable = True
 
 
 cdef class BufferedOutputStream(NativeFile):
@@ -1145,7 +1147,8 @@ cdef class BufferedOutputStream(NativeFile):
                  MemoryPool memory_pool=None):
         cdef shared_ptr[CBufferedOutputStream] buffered_stream
 
-        # TODO test and validate buffer_size
+        if buffer_size <= 0:
+            raise ValueError('Buffer size must be larger than zero')
         check_status(CBufferedOutputStream.Create(
             stream.get_output_stream(), buffer_size,
             maybe_unbox_memory_pool(memory_pool), &buffered_stream))
@@ -1303,15 +1306,6 @@ def _detect_compression(str path):
         return None
 
 
-def _validate_compression(str compression, str path):
-    if compression == 'detect':
-        return _detect_compression(path)
-
-    # raise if unrecognized
-    _get_compression_type(compression)
-    return compression
-
-
 def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
     """
     Compress pyarrow.Buffer or Python object supporting the buffer (memoryview)
@@ -1455,8 +1449,6 @@ def input_stream(source, compression='detect', buffer_size=None):
     except TypeError:
         source_path = None
 
-    compression = _validate_compression(compression, source_path)
-
     if isinstance(source, NativeFile):
         stream = source
     elif source_path is not None:
@@ -1472,8 +1464,12 @@ def input_stream(source, compression='detect', buffer_size=None):
         raise TypeError("pa.input_stream() called with instance of '{}'"
                         .format(source.__class__))
 
+    if compression == 'detect':
+        compression = _detect_compression(source_path)
+
     if compression is not None:
         stream = CompressedInputStream(stream, compression)
+
     if buffer_size is not None:
         stream = BufferedInputStream(stream, buffer_size)
 
@@ -1505,8 +1501,6 @@ def output_stream(source, compression='detect', buffer_size=None):
     except TypeError:
         source_path = None
 
-    compression = _validate_compression(compression, source_path)
-
     if isinstance(source, NativeFile):
         stream = source
     elif source_path is not None:
@@ -1522,8 +1516,12 @@ def output_stream(source, compression='detect', buffer_size=None):
         raise TypeError("pa.output_stream() called with instance of '{}'"
                         .format(source.__class__))
 
+    if compression == 'detect':
+        compression = _detect_compression(source_path)
+
     if compression is not None:
         stream = CompressedOutputStream(stream, compression)
+
     if buffer_size is not None:
         stream = BufferedOutputStream(stream, buffer_size)
 
