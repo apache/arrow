@@ -94,8 +94,8 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
   // Create list offsets
   const int max_list_size = 10;
 
-  std::vector<int32_t> list_sizes(num_lists, 0);
-  std::vector<int32_t> offsets(
+  std::vector<int64_t> list_sizes(num_lists, 0);
+  std::vector<int64_t> offsets(
       num_lists + 1, 0);  // +1 so we can shift for nulls. See partial sum below.
   const uint32_t seed = static_cast<uint32_t>(child_array->length());
 
@@ -104,18 +104,18 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
     // make sure sizes are consistent with null
     std::transform(list_sizes.begin(), list_sizes.end(), valid_lists.begin(),
                    list_sizes.begin(),
-                   [](int32_t size, int32_t valid) { return valid == 0 ? 0 : size; });
+                   [](int64_t size, int64_t valid) { return valid == 0 ? 0 : size; });
     std::partial_sum(list_sizes.begin(), list_sizes.end(), ++offsets.begin());
 
     // Force invariants
-    const int32_t child_length = static_cast<int32_t>(child_array->length());
+    const int64_t child_length = child_array->length();
     offsets[0] = 0;
     std::replace_if(offsets.begin(), offsets.end(),
-                    [child_length](int32_t offset) { return offset > child_length; },
+                    [child_length](int64_t offset) { return offset > child_length; },
                     child_length);
   }
 
-  offsets[num_lists] = static_cast<int32_t>(child_array->length());
+  offsets[num_lists] = child_array->length();
 
   /// TODO(wesm): Implement support for nulls in ListArray::FromArrays
   std::shared_ptr<Buffer> null_bitmap, offsets_buffer;
@@ -420,7 +420,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<UInt8Type, uint8_t>(u1_values, &dense_children[1]);
 
   std::shared_ptr<Buffer> offsets_buffer;
-  std::vector<int32_t> offsets = {0, 0, 1, 2, 1, 2, 3};
+  std::vector<int64_t> offsets = {0, 0, 1, 2, 1, 2, 3};
   RETURN_NOT_OK(CopyBufferFromVector(offsets, default_memory_pool(), &offsets_buffer));
 
   std::vector<uint8_t> null_bytes(length, 1);
@@ -476,9 +476,9 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   // List of dictionary-encoded string
   auto f3_type = list(f1_type);
 
-  std::vector<int32_t> list_offsets = {0, 0, 2, 2, 5, 6, 9};
+  std::vector<int64_t> list_offsets = {0, 0, 2, 2, 5, 6, 9};
   std::shared_ptr<Array> offsets, indices3;
-  ArrayFromVector<Int32Type, int32_t>(std::vector<bool>(list_offsets.size(), true),
+  ArrayFromVector<Int64Type, int64_t>(std::vector<bool>(list_offsets.size(), true),
                                       list_offsets, &offsets);
 
   std::vector<int8_t> indices3_values = {0, 1, 2, 0, 1, 2, 0, 1, 2};
@@ -497,8 +497,8 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
 
   std::shared_ptr<Array> offsets4, values4, indices4;
 
-  std::vector<int32_t> list_offsets4 = {0, 2, 2, 3};
-  ArrayFromVector<Int32Type, int32_t>(std::vector<bool>(4, true), list_offsets4,
+  std::vector<int64_t> list_offsets4 = {0, 2, 2, 3};
+  ArrayFromVector<Int64Type, int64_t>(std::vector<bool>(4, true), list_offsets4,
                                       &offsets4);
 
   std::vector<int8_t> list_values4 = {0, 1, 2};

@@ -86,10 +86,10 @@ class RangeEqualsVisitor {
         return false;
       }
       if (is_null) continue;
-      const int32_t begin_offset = left.value_offset(i);
-      const int32_t end_offset = left.value_offset(i + 1);
-      const int32_t right_begin_offset = right.value_offset(o_i);
-      const int32_t right_end_offset = right.value_offset(o_i + 1);
+      const int64_t begin_offset = left.value_offset(i);
+      const int64_t end_offset = left.value_offset(i + 1);
+      const int64_t right_begin_offset = right.value_offset(o_i);
+      const int64_t right_end_offset = right.value_offset(o_i + 1);
       // Underlying can't be equal if the size isn't equal
       if (end_offset - begin_offset != right_end_offset - right_begin_offset) {
         return false;
@@ -118,10 +118,10 @@ class RangeEqualsVisitor {
         return false;
       }
       if (is_null) continue;
-      const int32_t begin_offset = left.value_offset(i);
-      const int32_t end_offset = left.value_offset(i + 1);
-      const int32_t right_begin_offset = right.value_offset(o_i);
-      const int32_t right_end_offset = right.value_offset(o_i + 1);
+      const int64_t begin_offset = left.value_offset(i);
+      const int64_t end_offset = left.value_offset(i + 1);
+      const int64_t right_begin_offset = right.value_offset(o_i);
+      const int64_t right_end_offset = right.value_offset(o_i + 1);
       // Underlying can't be equal if the size isn't equal
       if (end_offset - begin_offset != right_end_offset - right_begin_offset) {
         return false;
@@ -392,7 +392,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
 
     if (left.offset() == 0 && right.offset() == 0) {
       return left.value_offsets()->Equals(*right.value_offsets(),
-                                          (left.length() + 1) * sizeof(int32_t));
+                                          (left.length() + 1) * sizeof(int64_t));
     } else {
       // One of the arrays is sliced; logic is more complicated because the
       // value offsets are not both 0-based
