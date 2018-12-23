@@ -233,7 +233,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
   ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * 6, result_->value_data()->size());
 
-  int32_t length;
+  int64_t length;
   int32_t pos = 0;
   for (int i = 0; i < N * reps; ++i) {
     if (is_null[i % N]) {
@@ -266,7 +266,7 @@ TEST_F(TestStringBuilder, TestAppendVector) {
   ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * 6, result_->value_data()->size());
 
-  int32_t length;
+  int64_t length;
   int32_t pos = 0;
   for (int i = 0; i < N * reps; ++i) {
     if (valid_bytes[i % N]) {
@@ -299,7 +299,7 @@ TEST_F(TestStringBuilder, TestAppendCStringsWithValidBytes) {
   ASSERT_EQ(reps * 3, result_->null_count());
   ASSERT_EQ(reps * 3, result_->value_data()->size());
 
-  int32_t length;
+  int64_t length;
   int32_t pos = 0;
   for (int i = 0; i < N * reps; ++i) {
     auto string = strings[i % N];
@@ -332,7 +332,7 @@ TEST_F(TestStringBuilder, TestAppendCStringsWithoutValidBytes) {
   ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * 6, result_->value_data()->size());
 
-  int32_t length;
+  int64_t length;
   int32_t pos = 0;
   for (int i = 0; i < N * reps; ++i) {
     if (strings[i % N]) {
@@ -522,7 +522,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * 6, result_->value_data()->size());
 
-  int32_t length;
+  int64_t length;
   for (int i = 0; i < N * reps; ++i) {
     if (is_null[i % N]) {
       ASSERT_TRUE(result_->IsNull(i));
@@ -563,7 +563,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
   ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * total_length, result_->value_data()->size());
 
-  int32_t length;
+  int64_t length;
   for (int i = 0; i < N * reps; ++i) {
     if (is_null[i % N]) {
       ASSERT_TRUE(result_->IsNull(i));

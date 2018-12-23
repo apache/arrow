@@ -90,7 +90,7 @@ class LevelBuilder {
     array_offsets_.push_back(static_cast<int32_t>(array.offset()));
     valid_bitmaps_.push_back(array.null_bitmap_data());
     null_counts_.push_back(array.null_count());
-    offsets_.push_back(array.raw_value_offsets());
+    offsets_.push_back(static_cast<int32_t>(array.raw_value_offsets()));
 
     min_offset_idx_ = array.value_offset(min_offset_idx_);
     max_offset_idx_ = array.value_offset(max_offset_idx_);

@@ -424,7 +424,7 @@ class ArrayWriter {
   typename std::enable_if<std::is_base_of<BinaryArray, T>::value, void>::type
   WriteDataValues(const T& arr) {
     for (int64_t i = 0; i < arr.length(); ++i) {
-      int32_t length;
+      int64_t length;
       const uint8_t* buf = arr.GetValue(i, &length);
 
       if (std::is_base_of<StringArray, T>::value) {

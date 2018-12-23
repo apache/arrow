@@ -526,7 +526,7 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
 
   /// Return the pointer to the given elements bytes
   // XXX should GetValue(int64_t i) return a string_view?
-  const uint8_t* GetValue(int64_t i, int32_t* out_length) const {
+  const uint8_t* GetValue(int64_t i, int64_t* out_length) const {
     // Account for base offset
     i += data_->offset;
     const int64_t pos = raw_value_offsets_[i];
@@ -561,8 +561,8 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
   const int64_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
 
   // Neither of these functions will perform boundschecking
-  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
-  int32_t value_length(int64_t i) const {
+  int64_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
+  int64_t value_length(int64_t i) const {
     i += data_->offset;
     return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
   }
@@ -745,7 +745,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[2]; }
 
-  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
+  int64_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
 
   const type_id_t* raw_type_ids() const { return raw_type_ids_ + data_->offset; }
   const int64_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
