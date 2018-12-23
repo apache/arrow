@@ -35,6 +35,7 @@ cd /arrow/python
 
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
+export PYARROW_CMAKE_GENERATOR='Ninja'
 export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
