@@ -58,6 +58,7 @@ TEST(TestField, Equals) {
   ASSERT_TRUE(f0.Equals(f0_other));
   ASSERT_FALSE(f0.Equals(f0_nn));
   ASSERT_FALSE(f0.Equals(f0_with_meta));
+  ASSERT_TRUE(f0.Equals(f0_with_meta, false));
 }
 
 TEST(TestField, TestMetadataConstruction) {
@@ -200,28 +201,31 @@ TEST_F(TestSchema, GetFieldIndex) {
 }
 
 TEST_F(TestSchema, TestMetadataConstruction) {
-  auto f0 = field("f0", int32());
-  auto f1 = field("f1", uint8(), false);
-  auto f2 = field("f2", utf8());
   auto metadata0 = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});
   auto metadata1 = key_value_metadata({{"foo", "baz"}});
 
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8(), true);
+  auto f3 = field("f2", utf8(), true, metadata1->Copy());
+
   auto schema0 = ::arrow::schema({f0, f1, f2}, metadata0);
-  ASSERT_TRUE(metadata0->Equals(*schema0->metadata()));
-
   auto schema1 = ::arrow::schema({f0, f1, f2}, metadata1);
-  ASSERT_TRUE(metadata1->Equals(*schema1->metadata()));
-
   auto schema2 = ::arrow::schema({f0, f1, f2}, metadata0->Copy());
-  ASSERT_TRUE(metadata0->Equals(*schema2->metadata()));
+  auto schema3 = ::arrow::schema({f0, f1, f3}, metadata0->Copy());
 
+  ASSERT_TRUE(metadata0->Equals(*schema0->metadata()));
+  ASSERT_TRUE(metadata1->Equals(*schema1->metadata()));
+  ASSERT_TRUE(metadata0->Equals(*schema2->metadata()));
   ASSERT_TRUE(schema0->Equals(*schema2));
   ASSERT_FALSE(schema0->Equals(*schema1));
   ASSERT_FALSE(schema2->Equals(*schema1));
+  ASSERT_FALSE(schema2->Equals(*schema3));
 
   // don't check metadata
   ASSERT_TRUE(schema0->Equals(*schema1, false));
   ASSERT_TRUE(schema2->Equals(*schema1, false));
+  ASSERT_TRUE(schema2->Equals(*schema3, false));
 }
 
 TEST_F(TestSchema, TestAddMetadata) {
