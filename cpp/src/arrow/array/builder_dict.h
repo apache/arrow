@@ -109,7 +109,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   class MemoTableImpl;
   std::unique_ptr<MemoTableImpl> memo_table_;
 
-  int32_t delta_offset_;
+  int64_t delta_offset_;
   // Only used for FixedSizeBinaryType
   int32_t byte_width_;
 

@@ -381,7 +381,7 @@ class TestBinaryArray : public ::testing::Test {
   }
 
  protected:
-  vector<int32_t> offsets_;
+  vector<int64_t> offsets_;
   vector<char> chars_;
   vector<uint8_t> valid_bytes_;
 

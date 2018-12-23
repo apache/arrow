@@ -54,7 +54,7 @@ Status BinaryBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
 
   // one more then requested for offsets
-  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int32_t)));
+  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int64_t)));
   return ArrayBuilder::Resize(capacity);
 }
 
@@ -94,11 +94,11 @@ void BinaryBuilder::Reset() {
   value_data_builder_.Reset();
 }
 
-const uint8_t* BinaryBuilder::GetValue(int64_t i, int32_t* out_length) const {
-  const int32_t* offsets = offsets_builder_.data();
-  int32_t offset = offsets[i];
+const uint8_t* BinaryBuilder::GetValue(int64_t i, int64_t* out_length) const {
+  const int64_t* offsets = offsets_builder_.data();
+  int64_t offset = offsets[i];
   if (i == (length_ - 1)) {
-    *out_length = static_cast<int32_t>(value_data_builder_.length()) - offset;
+    *out_length = value_data_builder_.length() - offset;
   } else {
     *out_length = offsets[i + 1] - offset;
   }
@@ -106,11 +106,11 @@ const uint8_t* BinaryBuilder::GetValue(int64_t i, int32_t* out_length) const {
 }
 
 util::string_view BinaryBuilder::GetView(int64_t i) const {
-  const int32_t* offsets = offsets_builder_.data();
-  int32_t offset = offsets[i];
-  int32_t value_length;
+  const int64_t* offsets = offsets_builder_.data();
+  int64_t offset = offsets[i];
+  int64_t value_length;
   if (i == (length_ - 1)) {
-    value_length = static_cast<int32_t>(value_data_builder_.length()) - offset;
+    value_length = value_data_builder_.length() - offset;
   } else {
     value_length = offsets[i + 1] - offset;
   }

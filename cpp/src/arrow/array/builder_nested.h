@@ -55,7 +55,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   ///
   /// If passed, valid_bytes is of equal length to values, and any zero byte
   /// will be considered as a null for that slot
-  Status AppendValues(const int32_t* offsets, int64_t length,
+  Status AppendValues(const int64_t* offsets, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
 
   /// \brief Start a new variable-length list slot
@@ -69,7 +69,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   ArrayBuilder* value_builder() const;
 
  protected:
-  TypedBufferBuilder<int32_t> offsets_builder_;
+  TypedBufferBuilder<int64_t> offsets_builder_;
   std::shared_ptr<ArrayBuilder> value_builder_;
   std::shared_ptr<Array> values_;
 

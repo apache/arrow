@@ -49,7 +49,7 @@ ListBuilder::ListBuilder(MemoryPool* pool,
       offsets_builder_(pool),
       value_builder_(value_builder) {}
 
-Status ListBuilder::AppendValues(const int32_t* offsets, int64_t length,
+Status ListBuilder::AppendValues(const int64_t* offsets, int64_t length,
                                  const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
@@ -59,11 +59,7 @@ Status ListBuilder::AppendValues(const int32_t* offsets, int64_t length,
 
 Status ListBuilder::AppendNextOffset() {
   const int64_t num_values = value_builder_->length();
-  ARROW_RETURN_IF(
-      num_values > kListMaximumElements,
-      Status::CapacityError("ListArray cannot contain more then 2^31 - 1 child elements,",
-                            " have ", num_values));
-  return offsets_builder_.Append(static_cast<int32_t>(num_values));
+  return offsets_builder_.Append(num_values);
 }
 
 Status ListBuilder::Append(bool is_valid) {
@@ -77,7 +73,7 @@ Status ListBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
 
   // one more then requested for offsets
-  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int32_t)));
+  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int64_t)));
   return ArrayBuilder::Resize(capacity);
 }
 

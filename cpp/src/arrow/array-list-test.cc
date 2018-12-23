@@ -73,9 +73,9 @@ TEST_F(TestListArray, Equality) {
   Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
 
   std::shared_ptr<Array> array, equal_array, unequal_array;
-  vector<int32_t> equal_offsets = {0, 1, 2, 5, 6, 7, 8, 10};
+  vector<int64_t> equal_offsets = {0, 1, 2, 5, 6, 7, 8, 10};
   vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2, 5, 6};
-  vector<int32_t> unequal_offsets = {0, 1, 4, 7};
+  vector<int64_t> unequal_offsets = {0, 1, 4, 7};
   vector<int32_t> unequal_values = {1, 2, 2, 2, 3, 4, 5};
 
   // setup two equal arrays
@@ -138,17 +138,17 @@ TEST_F(TestListArray, TestFromArrays) {
 
   std::vector<bool> values_is_valid = {true, false, true, true, true, true};
 
-  std::vector<int32_t> offset1_values = {0, 2, 2, 6};
-  std::vector<int32_t> offset2_values = {0, 2, 6, 6};
+  std::vector<int64_t> offset1_values = {0, 2, 2, 6};
+  std::vector<int64_t> offset2_values = {0, 2, 6, 6};
 
   std::vector<int8_t> values_values = {0, 1, 2, 3, 4, 5};
   const int length = 3;
 
-  ArrayFromVector<Int32Type, int32_t>(offset1_values, &offsets1);
-  ArrayFromVector<Int32Type, int32_t>(offset2_values, &offsets2);
+  ArrayFromVector<Int64Type, int64_t>(offset1_values, &offsets1);
+  ArrayFromVector<Int64Type, int64_t>(offset2_values, &offsets2);
 
-  ArrayFromVector<Int32Type, int32_t>(offsets_is_valid3, offset1_values, &offsets3);
-  ArrayFromVector<Int32Type, int32_t>(offsets_is_valid4, offset2_values, &offsets4);
+  ArrayFromVector<Int64Type, int64_t>(offsets_is_valid3, offset1_values, &offsets3);
+  ArrayFromVector<Int64Type, int64_t>(offsets_is_valid4, offset2_values, &offsets4);
 
   ArrayFromVector<Int8Type, int8_t>(values_is_valid, values_values, &values);
 
@@ -183,7 +183,7 @@ TEST_F(TestListArray, TestFromArrays) {
   ASSERT_RAISES(Invalid,
                 ListArray::FromArrays(*offsets1->Slice(0, 0), *values, pool_, &tmp));
 
-  // Offsets not int32
+  // Offsets not int64
   ASSERT_RAISES(Invalid, ListArray::FromArrays(*values, *offsets1, pool_, &tmp));
 }
 
@@ -214,7 +214,7 @@ void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& valu
   ASSERT_EQ(0, result->values()->null_count());
 
   ASSERT_EQ(3, result->length());
-  vector<int32_t> ex_offsets = {0, 3, 3, 7};
+  vector<int64_t> ex_offsets = {0, 3, 3, 7};
   for (size_t i = 0; i < ex_offsets.size(); ++i) {
     ASSERT_EQ(ex_offsets[i], result->value_offset(i));
   }
@@ -257,7 +257,7 @@ TEST_F(TestListArray, BulkAppend) {
   vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
   vector<int> lengths = {3, 0, 4};
   vector<uint8_t> is_valid = {1, 0, 1};
-  vector<int32_t> offsets = {0, 3, 3};
+  vector<int64_t> offsets = {0, 3, 3};
 
   Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
   ASSERT_OK(vb->Reserve(values.size()));
@@ -275,7 +275,7 @@ TEST_F(TestListArray, BulkAppendInvalid) {
   vector<int> lengths = {3, 0, 4};
   vector<uint8_t> is_null = {0, 1, 0};
   vector<uint8_t> is_valid = {1, 0, 1};
-  vector<int32_t> offsets = {0, 2, 4};  // should be 0, 3, 3 given the is_null array
+  vector<int64_t> offsets = {0, 2, 4};  // should be 0, 3, 3 given the is_null array
 
   Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
   ASSERT_OK(vb->Reserve(values.size()));

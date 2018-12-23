@@ -46,7 +46,7 @@ void ValidateBasicStructArray(const StructArray* result,
                               const vector<char>& list_values,
                               const vector<uint8_t>& list_is_valid,
                               const vector<int>& list_lengths,
-                              const vector<int>& list_offsets,
+                              const vector<int64_t>& list_offsets,
                               const vector<int32_t>& int_values) {
   ASSERT_EQ(4, result->length());
   ASSERT_OK(ValidateArray(*result));
@@ -156,7 +156,7 @@ TEST_F(TestStructBuilder, TestBasics) {
   vector<int32_t> int_values = {1, 2, 3, 4};
   vector<char> list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'};
   vector<int> list_lengths = {3, 0, 3, 4};
-  vector<int> list_offsets = {0, 3, 3, 6, 10};
+  vector<int64_t> list_offsets = {0, 3, 3, 6, 10};
   vector<uint8_t> list_is_valid = {1, 0, 1, 1};
   vector<uint8_t> struct_is_valid = {1, 1, 1, 1};
 
@@ -192,7 +192,7 @@ TEST_F(TestStructBuilder, BulkAppend) {
   vector<int32_t> int_values = {1, 2, 3, 4};
   vector<char> list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'};
   vector<int> list_lengths = {3, 0, 3, 4};
-  vector<int> list_offsets = {0, 3, 3, 6};
+  vector<int64_t> list_offsets = {0, 3, 3, 6};
   vector<uint8_t> list_is_valid = {1, 0, 1, 1};
   vector<uint8_t> struct_is_valid = {1, 1, 1, 1};
 
@@ -224,7 +224,7 @@ TEST_F(TestStructBuilder, BulkAppendInvalid) {
   vector<int32_t> int_values = {1, 2, 3, 4};
   vector<char> list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'};
   vector<int> list_lengths = {3, 0, 3, 4};
-  vector<int> list_offsets = {0, 3, 3, 6};
+  vector<int64_t> list_offsets = {0, 3, 3, 6};
   vector<uint8_t> list_is_valid = {1, 0, 1, 1};
   vector<uint8_t> struct_is_valid = {1, 0, 1, 1};  // should be 1, 1, 1, 1
 
@@ -260,13 +260,13 @@ TEST_F(TestStructBuilder, TestEquality) {
   vector<int32_t> int_values = {101, 102, 103, 104};
   vector<char> list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'};
   vector<int> list_lengths = {3, 0, 3, 4};
-  vector<int> list_offsets = {0, 3, 3, 6};
+  vector<int64_t> list_offsets = {0, 3, 3, 6};
   vector<uint8_t> list_is_valid = {1, 0, 1, 1};
   vector<uint8_t> struct_is_valid = {1, 1, 1, 1};
 
   vector<int32_t> unequal_int_values = {104, 102, 103, 101};
   vector<char> unequal_list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'l', 'u', 'c', 'y'};
-  vector<int> unequal_list_offsets = {0, 3, 4, 6};
+  vector<int64_t> unequal_list_offsets = {0, 3, 4, 6};
   vector<uint8_t> unequal_list_is_valid = {1, 1, 1, 1};
   vector<uint8_t> unequal_struct_is_valid = {1, 0, 0, 1};
 
@@ -395,7 +395,7 @@ TEST_F(TestStructBuilder, TestSlice) {
   vector<int32_t> int_values = {101, 102, 103, 104};
   vector<char> list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'};
   vector<int> list_lengths = {3, 0, 3, 4};
-  vector<int> list_offsets = {0, 3, 3, 6};
+  vector<int64_t> list_offsets = {0, 3, 3, 6};
   vector<uint8_t> list_is_valid = {1, 0, 1, 1};
   vector<uint8_t> struct_is_valid = {1, 1, 1, 1};
 

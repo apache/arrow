@@ -110,7 +110,7 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   /// Temporary access to a value.
   ///
   /// This pointer becomes invalid on the next modifying operation.
-  const uint8_t* GetValue(int64_t i, int32_t* out_length) const;
+  const uint8_t* GetValue(int64_t i, int64_t* out_length) const;
 
   /// Temporary access to a value.
   ///
@@ -118,7 +118,7 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   util::string_view GetView(int64_t i) const;
 
  protected:
-  TypedBufferBuilder<int32_t> offsets_builder_;
+  TypedBufferBuilder<int64_t> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
   Status AppendOverflow(int64_t num_bytes);
@@ -128,12 +128,12 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
     if (ARROW_PREDICT_FALSE(num_bytes > kBinaryMemoryLimit)) {
       return AppendOverflow(num_bytes);
     }
-    return offsets_builder_.Append(static_cast<int32_t>(num_bytes));
+    return offsets_builder_.Append(num_bytes);
   }
 
   void UnsafeAppendNextOffset() {
     const int64_t num_bytes = value_data_builder_.length();
-    offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_bytes));
+    offsets_builder_.UnsafeAppend(num_bytes);
   }
 };
 
