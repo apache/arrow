@@ -1225,15 +1225,16 @@ cdef get_input_stream(object source, c_bool use_memory_map,
         unique_ptr[CCodec] codec
         shared_ptr[InputStream] input_stream
         shared_ptr[CCompressedInputStream] compressed_stream
-        CompressionType compression_type = CompressionType_UNCOMPRESSED
+        CompressionType compression_type
 
     try:
         source_path = _stringify_path(source)
     except TypeError:
-        pass
+        compression = None
     else:
-        compression_type = _get_compression_type_by_filename(source_path)
+        compression = _detect_compression(source_path)
 
+    compression_type = _get_compression_type(compression)
     nf = _get_native_file(source, use_memory_map)
     input_stream = nf.get_input_stream()
 
@@ -1284,21 +1285,31 @@ cdef CompressionType _get_compression_type(object name) except *:
     elif name == 'zstd':
         return CompressionType_ZSTD
     else:
-        raise ValueError("Unrecognized compression type: {0}"
-                         .format(str(name)))
+        raise ValueError('Unrecognized compression type: {}'.format(name))
 
 
-cdef CompressionType _get_compression_type_by_filename(filename) except *:
-    if filename.endswith('.bz2'):
-        return CompressionType_BZ2
-    elif filename.endswith('.gz'):
-        return CompressionType_GZIP
-    elif filename.endswith('.lz4'):
-        return CompressionType_LZ4
-    elif filename.endswith('.zst'):
-        return CompressionType_ZSTD
+def _detect_compression(str path):
+    if path is None:
+        return None
+    elif path.endswith('.bz2'):
+        return 'bz2'
+    elif path.endswith('.gz'):
+        return 'gzip'
+    elif path.endswith('.lz4'):
+        return 'lz4'
+    elif path.endswith('.zst'):
+        return 'zstd'
     else:
-        return CompressionType_UNCOMPRESSED
+        return None
+
+
+def _validate_compression(str compression, str path):
+    if compression == 'detect':
+        return _detect_compression(path)
+
+    # raise if unrecognized
+    _get_compression_type(compression)
+    return compression
 
 
 def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
@@ -1419,17 +1430,6 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
     return pybuf if asbytes else out_buf
 
 
-cdef CompressionType _stream_compression_argument(
-        compression, source_path) except *:
-    if compression == 'detect':
-        if source_path is not None:
-            return _get_compression_type_by_filename(source_path)
-        else:
-            return CompressionType_UNCOMPRESSED
-    else:
-        return _get_compression_type(compression)
-
-
 def input_stream(source, compression='detect', buffer_size=None):
     """
     Create an Arrow input stream.
@@ -1448,16 +1448,14 @@ def input_stream(source, compression='detect', buffer_size=None):
         If None, no buffering will happen.
         Otherwise the size of the temporary read buffer.
     """
-    cdef:
-        CompressionType compression_type
-        NativeFile stream
+    cdef NativeFile stream
 
     try:
         source_path = _stringify_path(source)
     except TypeError:
         source_path = None
 
-    compression_type = _stream_compression_argument(compression, source_path)
+    compression = _validate_compression(compression, source_path)
 
     if isinstance(source, NativeFile):
         stream = source
@@ -1474,8 +1472,8 @@ def input_stream(source, compression='detect', buffer_size=None):
         raise TypeError("pa.input_stream() called with instance of '{}'"
                         .format(source.__class__))
 
-    if compression_type != CompressionType_UNCOMPRESSED:
-        stream = CompressedInputStream(stream, compression_type)
+    if compression is not None:
+        stream = CompressedInputStream(stream, compression)
     if buffer_size is not None:
         stream = BufferedInputStream(stream, buffer_size)
 
@@ -1500,16 +1498,14 @@ def output_stream(source, compression='detect', buffer_size=None):
         If None, no buffering will happen.
         Otherwise the size of the temporary write buffer.
     """
-    cdef:
-        CompressionType compression_type
-        NativeFile stream
+    cdef NativeFile stream
 
     try:
         source_path = _stringify_path(source)
     except TypeError:
         source_path = None
 
-    compression_type = _stream_compression_argument(compression, source_path)
+    compression = _validate_compression(compression, source_path)
 
     if isinstance(source, NativeFile):
         stream = source
@@ -1526,8 +1522,8 @@ def output_stream(source, compression='detect', buffer_size=None):
         raise TypeError("pa.output_stream() called with instance of '{}'"
                         .format(source.__class__))
 
-    if compression_type != CompressionType_UNCOMPRESSED:
-        stream = CompressedOutputStream(stream, compression_type)
+    if compression is not None:
+        stream = CompressedOutputStream(stream, compression)
     if buffer_size is not None:
         stream = BufferedOutputStream(stream, buffer_size)
 
