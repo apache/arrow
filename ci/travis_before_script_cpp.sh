@@ -131,29 +131,29 @@ if [ $ARROW_TRAVIS_OPTIONAL_INSTALL == "1" ]; then
 fi
 
 if [ $TRAVIS_OS_NAME == "linux" ]; then
-    cmake $CMAKE_COMMON_FLAGS \
-          $CMAKE_LINUX_FLAGS \
-          -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-          -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
-          $ARROW_CPP_DIR
+  cmake $CMAKE_COMMON_FLAGS \
+        $CMAKE_LINUX_FLAGS \
+        -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
+        -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
+        $ARROW_CPP_DIR
 else
-    if [ "$using_homebrew" = "yes" ]; then
-	# build against homebrew's boost if we're using it
-	export BOOST_ROOT=$(brew --prefix boost)
-	export LLVM_DIR=$(brew --prefix llvm@6)/lib/cmake/llvm
-	export THRIFT_HOME=$(brew --prefix thrift)
-    fi
-    cmake $CMAKE_COMMON_FLAGS \
-          $CMAKE_OSX_FLAGS \
-          -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-          -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
-          $ARROW_CPP_DIR
+  if [ "$using_homebrew" = "yes" ]; then
+    # build against homebrew's boost if we're using it
+    export BOOST_ROOT=$(brew --prefix boost)
+    export LLVM_DIR=$(brew --prefix llvm@6)/lib/cmake/llvm
+    export THRIFT_HOME=$(brew --prefix thrift)
+  fi
+  cmake $CMAKE_COMMON_FLAGS \
+        $CMAKE_OSX_FLAGS \
+        -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
+        -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
+        $ARROW_CPP_DIR
 fi
 
 # Build and install libraries. Configure ARROW_CPP_BUILD_TARGETS environment
 # variable to only build certain targets. If you use this, you must also set
 # the environment variable ARROW_TRAVIS_OPTIONAL_INSTALL=1
-$TRAVIS_MAKE -j4 $ARROW_CPP_BUILD_TARGETS
+$TRAVIS_MAKE $ARROW_CPP_BUILD_TARGETS
 $TRAVIS_MAKE install
 
 popd
