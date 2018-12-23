@@ -44,6 +44,7 @@ requirements:
     - rapidjson
     - zlib
     - glog
+    - gflags
     - snappy
     - brotli
     - zstd
