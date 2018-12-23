@@ -23,6 +23,7 @@ set -e
 cd /apache-arrow
 
 # Activate our pyarrow-dev conda env
+. /opt/conda/etc/profile.d/conda.sh
 conda activate pyarrow-dev
 
 export ARROW_HOME=$(pwd)/arrow
@@ -57,7 +58,7 @@ echo "Using Arrow version $ARROW_VERSION"
 popd
 
 # Build Spark with Arrow
-SPARK_REPO=git://git.apache.org/spark.git
+SPARK_REPO=https://github.com/apache/spark.git
 SPARK_BRANCH=master
 
 # Get the Spark repo if not in image already
@@ -79,13 +80,25 @@ echo "Building Spark with Arrow $ARROW_VERSION"
 build/mvn -DskipTests clean package
 
 # Run Arrow related Scala tests only, NOTE: -Dtest=_NonExist_ is to enable surefire test discovery without running any tests so that Scalatest can run
-SPARK_SCALA_TESTS="org.apache.spark.sql.execution.arrow,org.apache.spark.sql.execution.vectorized.ColumnarBatchSuite,org.apache.spark.sql.execution.vectorized.ArrowColumnVectorSuite"
-echo "Testing Spark: $SPARK_SCALA_TESTS"
+SPARK_SCALA_TESTS=(
+    "org.apache.spark.sql.execution.arrow"
+    "org.apache.spark.sql.execution.vectorized.ColumnarBatchSuite"
+    "org.apache.spark.sql.execution.vectorized.ArrowColumnVectorSuite")
+
+(echo "Testing Spark:"; IFS=$'\n'; echo "${SPARK_SCALA_TESTS[*]}")
+
 # TODO: should be able to only build spark-sql tests with adding "-pl sql/core" but not currently working
-build/mvn -Dtest=none -DwildcardSuites="$SPARK_SCALA_TESTS" test
+build/mvn -Dtest=none -DwildcardSuites=$(IFS=,; echo "${SPARK_SCALA_TESTS[*]}") test
 
 # Run pyarrow related Python tests only
-SPARK_PYTHON_TESTS="ArrowTests PandasUDFTests ScalarPandasUDFTests GroupedMapPandasUDFTests GroupedAggPandasUDFTests WindowPandasUDFTests"
-echo "Testing PySpark: $SPARK_PYTHON_TESTS"
-SPARK_TESTING=1 bin/pyspark pyspark.sql.tests $SPARK_PYTHON_TESTS
+SPARK_PYTHON_TESTS=(
+    "pyspark.sql.tests.test_arrow ArrowTests"
+    "pyspark.sql.tests.test_pandas_udf PandasUDFTests"
+    "pyspark.sql.tests.test_pandas_udf_scalar ScalarPandasUDFTests"
+    "pyspark.sql.tests.test_pandas_udf_grouped_map GroupedMapPandasUDFTests"
+    "pyspark.sql.tests.test_pandas_udf_grouped_agg GroupedAggPandasUDFTests"
+    "pyspark.sql.tests.test_pandas_udf_window WindowPandasUDFTests")
+
+(echo "Testing PySpark:"; IFS=$'\n'; echo "${SPARK_PYTHON_TESTS[*]}")
+python/run-tests --testnames "$(IFS=,; echo "${SPARK_PYTHON_TESTS[*]}")"
 popd

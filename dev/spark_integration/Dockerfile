@@ -56,6 +56,9 @@ RUN conda create -y -q -c conda-forge -n pyarrow-dev \
       zstd \
       setuptools \
       setuptools_scm \
+      double-conversion \
+      glog \
+      autoconf \
  && conda clean --all
 
 ADD . /apache-arrow
