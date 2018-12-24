@@ -27,6 +27,7 @@ namespace gandiva {
 
 using Decimal128 = arrow::Decimal128;
 
+/// Represents a 128-bit decimal value along with it's precision and scale.
 class Decimal128Full {
  public:
   Decimal128Full(int64_t high_bits, uint64_t low_bits, int32_t precision, int32_t scale)

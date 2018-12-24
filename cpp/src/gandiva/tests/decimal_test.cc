@@ -91,7 +91,7 @@ TEST_F(TestDecimal, TestSimple) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  status = Projector::Make(schema, {expr}, &projector);
+  status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -150,7 +150,7 @@ TEST_F(TestDecimal, TestLiteral) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  status = Projector::Make(schema, {expr}, &projector);
+  status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -202,7 +202,7 @@ TEST_F(TestDecimal, TestIfElse) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
+  Status status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data

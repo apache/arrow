@@ -81,7 +81,7 @@ void TestDecimalOps::AddAndVerify(const Decimal128Full& x, const Decimal128Full&
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  status = Projector::Make(schema, {expr}, &projector);
+  status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data

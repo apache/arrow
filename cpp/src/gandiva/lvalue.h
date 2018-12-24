@@ -38,10 +38,7 @@ class LValue {
   llvm::Value* length() { return length_; }
   llvm::Value* validity() { return validity_; }
 
-  void set_data(llvm::Value* data) {
-    DCHECK_EQ(data_, NULLPTR);
-    data_ = data;
-  }
+  void set_data(llvm::Value* data) { data_ = data; }
 
   // Append the params required when passing this as a function parameter.
   virtual void AppendFunctionParams(std::vector<llvm::Value*>* params) {

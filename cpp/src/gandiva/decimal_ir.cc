@@ -23,7 +23,6 @@
 #include "gandiva/decimal_type_sql.h"
 
 // Algorithms adapted from Apache Impala
-// The equivalent C++ code (with int64_t) is present in decimal_sample.cc
 
 namespace gandiva {
 
@@ -111,7 +110,7 @@ llvm::Value* DecimalIR::IncreaseScale(llvm::Value* in_value,
 }
 
 // CPP: return (increase_scale_by <= 0)  ?
-//              in_value : in_value * GetScaleMultiplier(increase_scale_by)
+//              {in_value,false} : {in_value * GetScaleMultiplier(increase_scale_by),true}
 //
 // The return value also indicates if there was an overflow while increasing the scale.
 DecimalIR::ValueWithOverflow DecimalIR::IncreaseScaleWithOverflowCheck(
@@ -218,6 +217,7 @@ DecimalIR::ValueWithOverflow DecimalIR::AddWithOverflowCheck(llvm::Value* x_valu
   return ValueWithOverflow(sum_descaled, overflow);
 }
 
+// This is pretty complex, so use CPP fns.
 llvm::Value* DecimalIR::AddLarge(llvm::Value* x_value, llvm::Value* x_precision,
                                  llvm::Value* x_scale, llvm::Value* y_value,
                                  llvm::Value* y_precision, llvm::Value* y_scale,

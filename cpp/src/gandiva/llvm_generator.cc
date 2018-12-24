@@ -278,15 +278,11 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
 
   // save the value in the output vector.
   builder->SetInsertPoint(loop_body_tail);
-  switch (output->Type()->id()) {
-    case arrow::Type::BOOL:
-      SetPackedBitValue(output_ref, loop_var, output_value->data());
-      break;
-
-    default:
-      auto slot_offset = builder->CreateGEP(output_ref, loop_var);
-      builder->CreateStore(output_value->data(), slot_offset);
-      break;
+  if (output->Type()->id() == arrow::Type::BOOL) {
+    SetPackedBitValue(output_ref, loop_var, output_value->data());
+  } else {
+    llvm::Value* slot_offset = builder->CreateGEP(output_ref, loop_var);
+    builder->CreateStore(output_value->data(), slot_offset);
   }
   ADD_TRACE("saving result " + output->Name() + " value %T", output_value->data());
 

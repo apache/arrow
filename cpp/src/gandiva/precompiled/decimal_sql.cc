@@ -165,12 +165,10 @@ inline int32_t MinLeadingZerosAfterScaling(int32_t num_lz, int32_t scale_by) {
 
 // Returns the maximum possible number of bits required to represent num * 10^scale_by.
 inline int32_t MaxBitsRequiredAfterScaling(const Decimal128Full& num, int32_t scale_by) {
-  // TODO: We are doing a lot of these abs() operations on int128_t in many places in our
-  // decimal math code. It might make sense to do this upfront, then do the calculations
-  // in unsigned math and adjust the sign at the end.
   auto value = num.value();
-  value.Abs();
-  int32_t num_occupied = 128 - value.Abs().CountLeadingZeros();
+  auto value_abs = value.Abs();
+
+  int32_t num_occupied = 128 - value_abs.CountLeadingZeros();
   DCHECK_GE(scale_by, 0);
   DCHECK_LE(scale_by, 76);
   return num_occupied + MaxBitsRequiredIncreaseAfterScaling(scale_by);
@@ -179,10 +177,14 @@ inline int32_t MaxBitsRequiredAfterScaling(const Decimal128Full& num, int32_t sc
 // Returns the minimum number of leading zero x or y would have after one of them gets
 // scaled up to match the scale of the other one.
 inline int32_t MinLeadingZeros(const Decimal128Full& x, const Decimal128Full& y) {
-  Decimal128 x_value = x.value();
-  Decimal128 y_value = y.value();
-  int32_t x_lz = x_value.Abs().CountLeadingZeros();
-  int32_t y_lz = y_value.Abs().CountLeadingZeros();
+  auto x_value = x.value();
+  auto x_value_abs = x_value.Abs();
+
+  auto y_value = y.value();
+  auto y_value_abs = y_value.Abs();
+
+  int32_t x_lz = x_value_abs.CountLeadingZeros();
+  int32_t y_lz = y_value_abs.CountLeadingZeros();
   if (x.scale() < y.scale()) {
     x_lz = MinLeadingZerosAfterScaling(x_lz, y.scale() - x.scale());
   } else if (x.scale() > y.scale()) {

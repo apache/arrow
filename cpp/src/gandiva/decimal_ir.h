@@ -42,7 +42,7 @@ class DecimalIR : public FunctionIRBuilder {
   /// using these.
   static const bool kUseOverflowIntrinsics = false;
 
-  // Holder for an i128 value, and a bit indicating overflow.
+  // Holder for an i128 value, and a boolean indicating overflow.
   class ValueWithOverflow {
    public:
     ValueWithOverflow(llvm::Value* value, llvm::Value* overflow)
@@ -62,7 +62,7 @@ class DecimalIR : public FunctionIRBuilder {
     llvm::Value* overflow_;
   };
 
-  // Holder for an i128 value, split into two i64s
+  // Holder for an i128 value that is split into two i64s
   class ValueSplit {
    public:
     ValueSplit(llvm::Value* high, llvm::Value* low) : high_(high), low_(low) {}

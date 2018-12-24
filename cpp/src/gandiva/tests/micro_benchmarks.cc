@@ -306,7 +306,7 @@ static void DoDecimalAdd3(benchmark::State& state, int32_t precision, int32_t sc
   auto sum_expr = TreeExprBuilder::MakeExpression(sum, field_sum);
 
   std::shared_ptr<Projector> projector;
-  status = Projector::Make(schema, {sum_expr}, &projector);
+  status = Projector::Make(schema, {sum_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   Decimal128DataGenerator data_generator;
@@ -336,7 +336,7 @@ static void DoDecimalAdd2(benchmark::State& state, int32_t precision, int32_t sc
   auto sum = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
 
   std::shared_ptr<Projector> projector;
-  status = Projector::Make(schema, {sum}, &projector);
+  status = Projector::Make(schema, {sum}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   Decimal128DataGenerator data_generator;
