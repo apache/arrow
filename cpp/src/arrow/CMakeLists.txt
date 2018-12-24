@@ -15,10 +15,66 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(arrow-all)
+add_custom_target(arrow)
+add_custom_target(arrow-benchmarks)
+add_custom_target(arrow-tests)
+add_dependencies(arrow-all arrow arrow-tests arrow-benchmarks)
+
+# Adding unit tests part of the "arrow" portion of the test suite
+function(ADD_ARROW_TEST REL_TEST_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args LABELS)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+
+  if (ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "arrow")
+  endif()
+
+  if (ARG_LABELS)
+    set(LABELS ${ARG_LABELS})
+  else()
+    set(LABELS "arrow-tests")
+  endif()
+
+  ADD_TEST_CASE(${REL_TEST_NAME}
+    PREFIX ${PREFIX}
+    LABELS ${LABELS}
+    ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
+function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if (ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "arrow")
+  endif()
+  ADD_BENCHMARK(${REL_TEST_NAME}
+    PREFIX ${PREFIX}
+    LABELS "arrow-benchmarks"
+    ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
 set(ARROW_SRCS
   array.cc
-  buffer.cc
+
   builder.cc
+  array/builder_adaptive.cc
+  array/builder_base.cc
+  array/builder_binary.cc
+  array/builder_decimal.cc
+  array/builder_dict.cc
+  array/builder_nested.cc
+  array/builder_primitive.cc
+
+  buffer.cc
   compare.cc
   memory_pool.cc
   pretty_print.cc
@@ -48,12 +104,13 @@ set(ARROW_SRCS
   util/compression.cc
   util/cpu-info.cc
   util/decimal.cc
-  util/hash.cc
+  util/int-util.cc
   util/io-util.cc
   util/logging.cc
   util/key_value_metadata.cc
   util/task-group.cc
   util/thread-pool.cc
+  util/trie.cc
   util/utf8.cc
 )
 
@@ -75,8 +132,8 @@ if (ARROW_COMPUTE)
   )
 endif()
 
-if (ARROW_GPU)
-  # IPC extensions required to build the GPU library
+if (ARROW_CUDA)
+  # IPC extensions required to build the CUDA library
   set(ARROW_IPC ON)
   add_subdirectory(gpu)
 endif()
@@ -139,6 +196,7 @@ if (ARROW_IPC)
     ipc/feather.cc
     ipc/json.cc
     ipc/json-internal.cc
+    ipc/json-simple.cc
     ipc/message.cc
     ipc/metadata-internal.cc
     ipc/reader.cc
@@ -169,6 +227,30 @@ ADD_ARROW_LIB(arrow
   SHARED_PRIVATE_LINK_LIBS ${ARROW_SHARED_PRIVATE_LINK_LIBS}
   STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
+add_dependencies(arrow ${ARROW_LIBRARIES})
+
+if (ARROW_BUILD_STATIC AND WIN32)
+  target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
+endif()
+
+if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  # that depend on gtest
+  ADD_ARROW_LIB(arrow_testing
+    SOURCES test-util.cc
+    OUTPUTS ARROW_TESTING_LIBRARIES
+    DEPENDENCIES gtest_static
+    SHARED_LINK_LIBS arrow_shared gtest_static
+    STATIC_LINK_LIBS arrow_static)
+
+  if (ARROW_BUILD_STATIC AND WIN32)
+    target_compile_definitions(arrow_testing_static PUBLIC ARROW_STATIC)
+  endif()
+
+  set(ARROW_LIBRARIES
+    ${ARROW_LIBRARIES}
+    ${ARROW_TESTING_LIBRARIES})
+endif()
+
 find_package(Backtrace)
 
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
@@ -180,48 +262,20 @@ foreach(LIB_TARGET ${ARROW_LIBRARIES})
   endif()
 endforeach()
 
-if (ARROW_BUILD_STATIC AND WIN32)
-  target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
-endif()
-
 # Headers: top level
-install(FILES
-  allocator.h
-  api.h
-  array.h
-  buffer.h
-  builder.h
-  compare.h
-  memory_pool.h
-  pretty_print.h
-  record_batch.h
-  status.h
-  stl.h
-  table.h
-  table_builder.h
-  tensor.h
-  type.h
-  type_fwd.h
-  type_traits.h
-  test-util.h
-  visitor.h
-  visitor_inline.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow")
+ARROW_INSTALL_ALL_HEADERS("arrow")
 
 # pkg-config support
-configure_file(arrow.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("arrow")
 
 #######################################
 # Unit tests
 #######################################
 
 ADD_ARROW_TEST(allocator-test)
-ADD_ARROW_TEST(array-test)
+ADD_ARROW_TEST(array-test
+  SOURCES array-test.cc array-binary-test.cc array-dict-test.cc
+          array-list-test.cc array-struct-test.cc)
 ADD_ARROW_TEST(buffer-test)
 ADD_ARROW_TEST(memory_pool-test)
 ADD_ARROW_TEST(pretty_print-test)
@@ -236,6 +290,20 @@ ADD_ARROW_TEST(tensor-test)
 ADD_ARROW_BENCHMARK(builder-benchmark)
 ADD_ARROW_BENCHMARK(column-benchmark)
 
+add_subdirectory(array)
 add_subdirectory(csv)
 add_subdirectory(io)
 add_subdirectory(util)
+add_subdirectory(vendored)
+
+if(ARROW_FLIGHT)
+  add_subdirectory(flight)
+endif()
+
+if(ARROW_PYTHON)
+  add_subdirectory(python)
+endif()
+
+if(ARROW_HIVESERVER2)
+  add_subdirectory(dbi/hiveserver2)
+endif()

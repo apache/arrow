@@ -1,0 +1,3 @@
+usr/lib/*/libplasma.a
+usr/lib/*/libplasma.so
+usr/lib/*/pkgconfig/plasma.pc

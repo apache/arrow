@@ -19,6 +19,8 @@
 pub enum ArrowError {
     MemoryError(String),
     ParseError(String),
+    ComputeError(String),
+    DivideByZero,
 }
 
 pub type Result<T> = ::std::result::Result<T, ArrowError>;

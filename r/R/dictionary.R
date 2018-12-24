@@ -17,15 +17,27 @@
 
 #' @include R6.R
 
+#' @title class arrow::DictionaryType
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' TODO
+#'
+#' @rdname arrow__DictionaryType
+#' @name arrow__DictionaryType
 `arrow::DictionaryType` <- R6Class("arrow::DictionaryType",
   inherit = `arrow::FixedWidthType`,
-  public = list(
+
+  active = list(
     index_type = function() `arrow::DataType`$dispatch(DictionaryType__index_type(self)),
-    name = function() DictionaryType__name(self),
     dictionary = function() shared_ptr(`arrow::Array`, DictionaryType__dictionary(self)),
+    name = function() DictionaryType__name(self),
     ordered = function() DictionaryType__ordered(self)
   )
-
 )
 
 #' dictionary type factory
@@ -33,6 +45,8 @@
 #' @param type indices type, e.g. [int32()]
 #' @param values values array, typically an arrow array of strings
 #' @param ordered Is this an ordered dictionary
+#'
+#' @return a [arrow::DictionaryType][arrow__DictionaryType]
 #'
 #' @export
 dictionary <- function(type, values, ordered = FALSE) {

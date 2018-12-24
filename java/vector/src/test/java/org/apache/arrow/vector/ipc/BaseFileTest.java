@@ -75,7 +75,7 @@ import org.slf4j.LoggerFactory;
 import io.netty.buffer.ArrowBuf;
 
 /**
- * Helps testing the file formats
+ * Helps testing the file formats.
  */
 public class BaseFileTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(BaseFileTest.class);

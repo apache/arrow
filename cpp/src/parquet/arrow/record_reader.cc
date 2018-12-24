@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <unordered_map>
@@ -59,6 +60,10 @@ static bool IsDictionaryIndexEncoding(const Encoding::type& e) {
   return e == Encoding::RLE_DICTIONARY || e == Encoding::PLAIN_DICTIONARY;
 }
 
+// The minimum number of repetition/definition levels to decode at a time, for
+// better vectorized performance when doing many smaller record reads
+constexpr int64_t kMinLevelBatchSize = 1024;
+
 class RecordReader::RecordReaderImpl {
  public:
   RecordReaderImpl(const ColumnDescriptor* descr, MemoryPool* pool)
@@ -81,20 +86,93 @@ class RecordReader::RecordReaderImpl {
     valid_bits_ = AllocateBuffer(pool);
     def_levels_ = AllocateBuffer(pool);
     rep_levels_ = AllocateBuffer(pool);
-
-    if (descr->physical_type() == Type::BYTE_ARRAY) {
-      builder_.reset(new ::arrow::BinaryBuilder(pool));
-    } else if (descr->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
-      int byte_width = descr->type_length();
-      std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
-      builder_.reset(new ::arrow::FixedSizeBinaryBuilder(type, pool));
-    }
     Reset();
   }
 
   virtual ~RecordReaderImpl() = default;
 
-  virtual int64_t ReadRecords(int64_t num_records) = 0;
+  virtual int64_t ReadRecordData(const int64_t num_records) = 0;
+
+  // Returns true if there are still values in this column.
+  bool HasNext() {
+    // Either there is no data page available yet, or the data page has been
+    // exhausted
+    if (num_buffered_values_ == 0 || num_decoded_values_ == num_buffered_values_) {
+      if (!ReadNewPage() || num_buffered_values_ == 0) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  int64_t ReadRecords(int64_t num_records) {
+    // Delimit records, then read values at the end
+    int64_t records_read = 0;
+
+    if (levels_position_ < levels_written_) {
+      records_read += ReadRecordData(num_records);
+    }
+
+    int64_t level_batch_size = std::max(kMinLevelBatchSize, num_records);
+
+    // If we are in the middle of a record, we continue until reaching the
+    // desired number of records or the end of the current record if we've found
+    // enough records
+    while (!at_record_start_ || records_read < num_records) {
+      // Is there more data to read in this row group?
+      if (!HasNext()) {
+        if (!at_record_start_) {
+          // We ended the row group while inside a record that we haven't seen
+          // the end of yet. So increment the record count for the last record in
+          // the row group
+          ++records_read;
+          at_record_start_ = true;
+        }
+        break;
+      }
+
+      /// We perform multiple batch reads until we either exhaust the row group
+      /// or observe the desired number of records
+      int64_t batch_size = std::min(level_batch_size, available_values_current_page());
+
+      // No more data in column
+      if (batch_size == 0) {
+        break;
+      }
+
+      if (max_def_level_ > 0) {
+        ReserveLevels(batch_size);
+
+        int16_t* def_levels = this->def_levels() + levels_written_;
+        int16_t* rep_levels = this->rep_levels() + levels_written_;
+
+        // Not present for non-repeated fields
+        int64_t levels_read = 0;
+        if (max_rep_level_ > 0) {
+          levels_read = ReadDefinitionLevels(batch_size, def_levels);
+          if (ReadRepetitionLevels(batch_size, rep_levels) != levels_read) {
+            throw ParquetException("Number of decoded rep / def levels did not match");
+          }
+        } else if (max_def_level_ > 0) {
+          levels_read = ReadDefinitionLevels(batch_size, def_levels);
+        }
+
+        // Exhausted column chunk
+        if (levels_read == 0) {
+          break;
+        }
+
+        levels_written_ += levels_read;
+        records_read += ReadRecordData(num_records - records_read);
+      } else {
+        // No repetition or definition levels
+        batch_size = std::min(num_records - records_read, batch_size);
+        records_read += ReadRecordData(batch_size);
+      }
+    }
+
+    return records_read;
+  }
 
   // Dictionary decoders must be reset when advancing row groups
   virtual void ResetDecoders() = 0;
@@ -142,8 +220,6 @@ class RecordReader::RecordReaderImpl {
     valid_bits_ = AllocateBuffer(pool_);
     return result;
   }
-
-  ::arrow::ArrayBuilder* builder() { return builder_.get(); }
 
   // Process written repetition/definition levels to reach the end of
   // records. Process no more levels than necessary to delimit the indicated
@@ -289,7 +365,7 @@ class RecordReader::RecordReaderImpl {
 
     records_read_ = 0;
 
-    // Calling Finish on the builders also resets them
+    // Call Finish on the binary builders to reset them
   }
 
   void ResetValues() {
@@ -303,7 +379,13 @@ class RecordReader::RecordReaderImpl {
     }
   }
 
+  virtual void DebugPrintState() = 0;
+
+  virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
+
  protected:
+  virtual bool ReadNewPage() = 0;
+
   const ColumnDescriptor* descr_;
   ::arrow::MemoryPool* pool_;
 
@@ -344,9 +426,6 @@ class RecordReader::RecordReaderImpl {
   int64_t levels_position_;
   int64_t levels_capacity_;
 
-  // TODO(wesm): ByteArray / FixedLenByteArray types
-  std::unique_ptr<::arrow::ArrayBuilder> builder_;
-
   std::shared_ptr<::arrow::ResizableBuffer> values_;
 
   template <typename T>
@@ -359,17 +438,32 @@ class RecordReader::RecordReaderImpl {
   std::shared_ptr<::arrow::ResizableBuffer> rep_levels_;
 };
 
-// The minimum number of repetition/definition levels to decode at a time, for
-// better vectorized performance when doing many smaller record reads
-constexpr int64_t kMinLevelBatchSize = 1024;
+template <typename DType>
+struct RecordReaderTraits {
+  using BuilderType = ::arrow::ArrayBuilder;
+};
+
+template <>
+struct RecordReaderTraits<ByteArrayType> {
+  using BuilderType = ::arrow::internal::ChunkedBinaryBuilder;
+};
+
+template <>
+struct RecordReaderTraits<FLBAType> {
+  using BuilderType = ::arrow::FixedSizeBinaryBuilder;
+};
 
 template <typename DType>
 class TypedRecordReader : public RecordReader::RecordReaderImpl {
  public:
-  typedef typename DType::c_type T;
+  using T = typename DType::c_type;
 
-  TypedRecordReader(const ColumnDescriptor* schema, ::arrow::MemoryPool* pool)
-      : RecordReader::RecordReaderImpl(schema, pool), current_decoder_(nullptr) {}
+  using BuilderType = typename RecordReaderTraits<DType>::BuilderType;
+
+  TypedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
+      : RecordReader::RecordReaderImpl(descr, pool), current_decoder_(nullptr) {
+    InitializeBuilder();
+  }
 
   void ResetDecoders() override { decoders_.clear(); }
 
@@ -390,7 +484,7 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
   }
 
   // Return number of logical records read
-  int64_t ReadRecordData(const int64_t num_records) {
+  int64_t ReadRecordData(const int64_t num_records) override {
     // Conservative upper bound
     const int64_t possible_num_values =
         std::max(num_records, levels_written_ - levels_position_);
@@ -434,85 +528,34 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
     return records_read;
   }
 
-  // Returns true if there are still values in this column.
-  bool HasNext() {
-    // Either there is no data page available yet, or the data page has been
-    // exhausted
-    if (num_buffered_values_ == 0 || num_decoded_values_ == num_buffered_values_) {
-      if (!ReadNewPage() || num_buffered_values_ == 0) {
-        return false;
-      }
+  void DebugPrintState() override {
+    const int16_t* def_levels = this->def_levels();
+    const int16_t* rep_levels = this->rep_levels();
+    const int64_t total_levels_read = levels_position_;
+
+    const T* values = reinterpret_cast<const T*>(this->values());
+
+    std::cout << "def levels: ";
+    for (int64_t i = 0; i < total_levels_read; ++i) {
+      std::cout << def_levels[i] << " ";
     }
-    return true;
+    std::cout << std::endl;
+
+    std::cout << "rep levels: ";
+    for (int64_t i = 0; i < total_levels_read; ++i) {
+      std::cout << rep_levels[i] << " ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "values: ";
+    for (int64_t i = 0; i < this->values_written(); ++i) {
+      std::cout << values[i] << " ";
+    }
+    std::cout << std::endl;
   }
 
-  int64_t ReadRecords(int64_t num_records) override {
-    // Delimit records, then read values at the end
-    int64_t records_read = 0;
-
-    if (levels_position_ < levels_written_) {
-      records_read += ReadRecordData(num_records);
-    }
-
-    int64_t level_batch_size = std::max(kMinLevelBatchSize, num_records);
-
-    // If we are in the middle of a record, we continue until reaching the
-    // desired number of records or the end of the current record if we've found
-    // enough records
-    while (!at_record_start_ || records_read < num_records) {
-      // Is there more data to read in this row group?
-      if (!HasNext()) {
-        if (!at_record_start_) {
-          // We ended the row group while inside a record that we haven't seen
-          // the end of yet. So increment the record count for the last record in
-          // the row group
-          ++records_read;
-          at_record_start_ = true;
-        }
-        break;
-      }
-
-      /// We perform multiple batch reads until we either exhaust the row group
-      /// or observe the desired number of records
-      int64_t batch_size = std::min(level_batch_size, available_values_current_page());
-
-      // No more data in column
-      if (batch_size == 0) {
-        break;
-      }
-
-      if (max_def_level_ > 0) {
-        ReserveLevels(batch_size);
-
-        int16_t* def_levels = this->def_levels() + levels_written_;
-        int16_t* rep_levels = this->rep_levels() + levels_written_;
-
-        // Not present for non-repeated fields
-        int64_t levels_read = 0;
-        if (max_rep_level_ > 0) {
-          levels_read = ReadDefinitionLevels(batch_size, def_levels);
-          if (ReadRepetitionLevels(batch_size, rep_levels) != levels_read) {
-            throw ParquetException("Number of decoded rep / def levels did not match");
-          }
-        } else if (max_def_level_ > 0) {
-          levels_read = ReadDefinitionLevels(batch_size, def_levels);
-        }
-
-        // Exhausted column chunk
-        if (levels_read == 0) {
-          break;
-        }
-
-        levels_written_ += levels_read;
-        records_read += ReadRecordData(num_records - records_read);
-      } else {
-        // No repetition or definition levels
-        batch_size = std::min(num_records - records_read, batch_size);
-        records_read += ReadRecordData(batch_size);
-      }
-    }
-
-    return records_read;
+  std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() override {
+    throw ParquetException("GetChunks only implemented for binary types");
   }
 
  private:
@@ -523,13 +566,57 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
   // plain-encoded data.
   std::unordered_map<int, std::shared_ptr<DecoderType>> decoders_;
 
+  std::unique_ptr<BuilderType> builder_;
+
   DecoderType* current_decoder_;
 
   // Advance to the next data page
-  bool ReadNewPage();
+  bool ReadNewPage() override;
+
+  void InitializeBuilder() {}
 
   void ConfigureDictionary(const DictionaryPage* page);
 };
+
+// TODO(wesm): Implement these to some satisfaction
+template <>
+void TypedRecordReader<Int96Type>::DebugPrintState() {}
+
+template <>
+void TypedRecordReader<ByteArrayType>::DebugPrintState() {}
+
+template <>
+void TypedRecordReader<FLBAType>::DebugPrintState() {}
+
+template <>
+void TypedRecordReader<ByteArrayType>::InitializeBuilder() {
+  // Maximum of 16MB chunks
+  constexpr int32_t kBinaryChunksize = 1 << 24;
+  DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
+  builder_.reset(new ::arrow::internal::ChunkedBinaryBuilder(kBinaryChunksize, pool_));
+}
+
+template <>
+void TypedRecordReader<FLBAType>::InitializeBuilder() {
+  DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
+  int byte_width = descr_->type_length();
+  std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
+  builder_.reset(new ::arrow::FixedSizeBinaryBuilder(type, pool_));
+}
+
+template <>
+::arrow::ArrayVector TypedRecordReader<ByteArrayType>::GetBuilderChunks() {
+  ::arrow::ArrayVector chunks;
+  PARQUET_THROW_NOT_OK(builder_->Finish(&chunks));
+  return chunks;
+}
+
+template <>
+::arrow::ArrayVector TypedRecordReader<FLBAType>::GetBuilderChunks() {
+  std::shared_ptr<::arrow::Array> chunk;
+  PARQUET_THROW_NOT_OK(builder_->Finish(&chunk));
+  return ::arrow::ArrayVector({chunk});
+}
 
 template <>
 inline void TypedRecordReader<ByteArrayType>::ReadValuesDense(int64_t values_to_read) {
@@ -538,10 +625,9 @@ inline void TypedRecordReader<ByteArrayType>::ReadValuesDense(int64_t values_to_
       current_decoder_->Decode(values, static_cast<int>(values_to_read));
   DCHECK_EQ(num_decoded, values_to_read);
 
-  auto builder = static_cast<::arrow::BinaryBuilder*>(builder_.get());
   for (int64_t i = 0; i < num_decoded; i++) {
     PARQUET_THROW_NOT_OK(
-        builder->Append(values[i].ptr, static_cast<int32_t>(values[i].len)));
+        builder_->Append(values[i].ptr, static_cast<int32_t>(values[i].len)));
   }
   ResetValues();
 }
@@ -553,9 +639,8 @@ inline void TypedRecordReader<FLBAType>::ReadValuesDense(int64_t values_to_read)
       current_decoder_->Decode(values, static_cast<int>(values_to_read));
   DCHECK_EQ(num_decoded, values_to_read);
 
-  auto builder = static_cast<::arrow::FixedSizeBinaryBuilder*>(builder_.get());
   for (int64_t i = 0; i < num_decoded; i++) {
-    PARQUET_THROW_NOT_OK(builder->Append(values[i].ptr));
+    PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
   }
   ResetValues();
 }
@@ -572,14 +657,12 @@ inline void TypedRecordReader<ByteArrayType>::ReadValuesSpaced(int64_t values_to
       valid_bits_offset);
   DCHECK_EQ(num_decoded, values_to_read);
 
-  auto builder = static_cast<::arrow::BinaryBuilder*>(builder_.get());
-
   for (int64_t i = 0; i < num_decoded; i++) {
     if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
       PARQUET_THROW_NOT_OK(
-          builder->Append(values[i].ptr, static_cast<int32_t>(values[i].len)));
+          builder_->Append(values[i].ptr, static_cast<int32_t>(values[i].len)));
     } else {
-      PARQUET_THROW_NOT_OK(builder->AppendNull());
+      PARQUET_THROW_NOT_OK(builder_->AppendNull());
     }
   }
   ResetValues();
@@ -597,12 +680,11 @@ inline void TypedRecordReader<FLBAType>::ReadValuesSpaced(int64_t values_to_read
       valid_bits_offset);
   DCHECK_EQ(num_decoded, values_to_read);
 
-  auto builder = static_cast<::arrow::FixedSizeBinaryBuilder*>(builder_.get());
   for (int64_t i = 0; i < num_decoded; i++) {
     if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
-      PARQUET_THROW_NOT_OK(builder->Append(values[i].ptr));
+      PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
     } else {
-      PARQUET_THROW_NOT_OK(builder->AppendNull());
+      PARQUET_THROW_NOT_OK(builder_->AppendNull());
     }
   }
   ResetValues();
@@ -804,8 +886,6 @@ std::shared_ptr<ResizableBuffer> RecordReader::ReleaseIsValid() {
   return impl_->ReleaseIsValid();
 }
 
-::arrow::ArrayBuilder* RecordReader::builder() { return impl_->builder(); }
-
 int64_t RecordReader::values_written() const { return impl_->values_written(); }
 
 int64_t RecordReader::levels_position() const { return impl_->levels_position(); }
@@ -821,6 +901,12 @@ bool RecordReader::HasMoreData() const { return impl_->HasMoreData(); }
 void RecordReader::SetPageReader(std::unique_ptr<PageReader> reader) {
   impl_->SetPageReader(std::move(reader));
 }
+
+::arrow::ArrayVector RecordReader::GetBuilderChunks() {
+  return impl_->GetBuilderChunks();
+}
+
+void RecordReader::DebugPrintState() { impl_->DebugPrintState(); }
 
 }  // namespace internal
 }  // namespace parquet

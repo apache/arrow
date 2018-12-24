@@ -19,6 +19,8 @@
 
 set -e
 
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
 RUST_DIR=${TRAVIS_BUILD_DIR}/rust
 
 pushd $RUST_DIR
@@ -27,8 +29,7 @@ pushd $RUST_DIR
 rustup show
 
 # raises on any formatting errors
-rustup component add rustfmt-preview
-cargo fmt --all -- --check
+cargo +stable fmt --all -- --check
 
 # raises on any warnings
 cargo rustc -- -D warnings
@@ -38,5 +39,6 @@ cargo test
 cargo bench
 cargo run --example builders
 cargo run --example dynamic_types
+cargo run --example read_csv
 
 popd

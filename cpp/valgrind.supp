@@ -21,4 +21,15 @@
     Memcheck:Cond
     fun:*CastFunctor*BooleanType*
 }
-
+{
+    <re2>:Conditional jump or move depends on uninitialised value(s)
+    Memcheck:Cond
+    ...
+    fun:_ZN3re23RE2C1E*
+}
+{
+    <re2>:Use of uninitialised value of size 8
+    Memcheck:Value8
+    ...
+    fun:_ZN3re23RE2C1E*
+}

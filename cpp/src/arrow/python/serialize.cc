@@ -407,10 +407,9 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
                           PyObject** result) {
   *result = NULL;
   if (context == Py_None) {
-    std::stringstream ss;
-    ss << "error while calling callback on " << internal::PyObject_StdStringRepr(elem)
-       << ": handler not registered";
-    return Status::SerializationError(ss.str());
+    return Status::SerializationError("error while calling callback on ",
+                                      internal::PyObject_StdStringRepr(elem),
+                                      ": handler not registered");
   } else {
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
     return PassPyError();
@@ -752,23 +751,23 @@ Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject
   return Status::OK();
 }
 
-Status SerializeTensor(std::shared_ptr<Tensor> tensor, SerializedPyObject* out) {
+Status SerializeNdarray(std::shared_ptr<Tensor> tensor, SerializedPyObject* out) {
   std::shared_ptr<Array> array;
   SequenceBuilder builder;
-  RETURN_NOT_OK(builder.AppendTensor(static_cast<int32_t>(out->tensors.size())));
-  out->tensors.push_back(tensor);
+  RETURN_NOT_OK(builder.AppendNdarray(static_cast<int32_t>(out->ndarrays.size())));
+  out->ndarrays.push_back(tensor);
   RETURN_NOT_OK(builder.Finish(nullptr, nullptr, nullptr, nullptr, &array));
   out->batch = MakeBatch(array);
   return Status::OK();
 }
 
-Status WriteTensorHeader(std::shared_ptr<DataType> dtype,
-                         const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
-                         io::OutputStream* dst) {
+Status WriteNdarrayHeader(std::shared_ptr<DataType> dtype,
+                          const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
+                          io::OutputStream* dst) {
   auto empty_tensor = std::make_shared<Tensor>(
       dtype, std::make_shared<Buffer>(nullptr, tensor_num_bytes), shape);
   SerializedPyObject serialized_tensor;
-  RETURN_NOT_OK(SerializeTensor(empty_tensor, &serialized_tensor));
+  RETURN_NOT_OK(SerializeNdarray(empty_tensor, &serialized_tensor));
   return serialized_tensor.WriteTo(dst);
 }
 

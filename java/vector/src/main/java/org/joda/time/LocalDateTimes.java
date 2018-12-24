@@ -18,7 +18,7 @@
 package org.joda.time;
 
 /**
- * Workaround to access package protected fields in JODA
+ * Workaround to access package protected fields in JODA.
  */
 public class LocalDateTimes {
 

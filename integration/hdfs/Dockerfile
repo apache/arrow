@@ -15,63 +15,35 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM gelog/hadoop
+FROM arrow:python-3.6
 
-RUN apt-get update && \
-    apt-get install -y \
-        autoconf \
-        automake \
-        make \
-        gcc \
-        g++ \
-        git \
-        wget \
-        pkg-config \
-        ninja-build
-
-ENV CC=gcc \
-    CXX=g++ \
-    PATH=/opt/conda/bin:$PATH \
-    CONDA_PREFIX=/opt/conda
-
-# install dependencies
-ARG PYTHON_VERSION=3.6
-ADD ci/docker_install_conda.sh \
-    ci/conda_env_cpp.yml \
-    ci/conda_env_python.yml \
-    /arrow/ci/
-RUN arrow/ci/docker_install_conda.sh && \
-    conda install -c conda-forge \
-        --file arrow/ci/conda_env_cpp.yml \
-        --file arrow/ci/conda_env_python.yml \
-        python=$PYTHON_VERSION && \
-    conda clean --all
-
-# installing in the previous step boost=1.60 and boost-cpp=1.67 gets installed,
-# cmake finds 1.60 and parquet fails to compile
-# installing it in a separate step, boost=1.60 and boost-cpp=1.64 gets
-# installed, cmake finds 1.64
-# libhdfs3 needs to be pinned, see ARROW-1465 and ARROW-1445
+# installing libhdfs3, it needs to be pinned, see ARROW-1465 and ARROW-1445
 RUN conda install -y -c conda-forge hdfs3 libhdfs3=2.2.31 && \
     conda clean --all
 
+# installing libhdfs (JNI)
+ARG HADOOP_VERSION=2.6.5
+ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
+    HADOOP_HOME=/usr/local/hadoop \
+    HADOOP_OPTS=-Djava.library.path=/usr/local/hadoop/lib/native \
+    PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
+RUN apt-get update -y && \
+    apt-get install -y openjdk-8-jdk && \
+    wget -q -O hadoop-$HADOOP_VERSION.tar.gz "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=hadoop/common/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz" && \
+    tar -zxf /hadoop-$HADOOP_VERSION.tar.gz && \
+    rm /hadoop-$HADOOP_VERSION.tar.gz && \
+    mv hadoop-$HADOOP_VERSION /usr/local/hadoop
+ADD integration/hdfs/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
+
 # build cpp with tests
-ENV ARROW_HDFS=ON \
+ENV CC=gcc \
+    CXX=g++ \
+    ARROW_ORC=ON \
+    ARROW_HDFS=ON \
     ARROW_PYTHON=ON \
-    ARROW_BUILD_TESTS=ON \
-    LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HADOOP_HOME}/lib/native"
-ADD ci/docker_build_cpp.sh /arrow/ci/
-ADD cpp /arrow/cpp
-ADD format /arrow/format
-ADD java/pom.xml /arrow/java/pom.xml
-RUN arrow/ci/docker_build_cpp.sh
+    ARROW_BUILD_TESTS=ON
 
-# build python
-ADD ci/docker_build_python.sh /arrow/ci/
-ADD python /arrow/python
-RUN arrow/ci/docker_build_python.sh
-
-# execute integration tests
-ENV LIBHDFS3_CONF=/arrow/integration/hdfs/libhdfs3.xml
-ADD integration /arrow/integration
-CMD arrow/integration/hdfs/runtest.sh
+# build and test
+CMD arrow/ci/docker_build_cpp.sh && \
+    arrow/ci/docker_build_python.sh && \
+    arrow/integration/hdfs/runtest.sh

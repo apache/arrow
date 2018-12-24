@@ -30,13 +30,13 @@ static POPCOUNT_TABLE: [u8; 256] = [
 
 /// Returns the nearest number that is `>=` than `num` and is a multiple of 64
 #[inline]
-pub fn round_upto_multiple_of_64(num: i64) -> i64 {
+pub fn round_upto_multiple_of_64(num: usize) -> usize {
     round_upto_power_of_2(num, 64)
 }
 
 /// Returns the nearest multiple of `factor` that is `>=` than `num`. Here `factor` must
 /// be a power of 2.
-fn round_upto_power_of_2(num: i64, factor: i64) -> i64 {
+fn round_upto_power_of_2(num: usize, factor: usize) -> usize {
     debug_assert!(factor > 0 && (factor & (factor - 1)) == 0);
     (num + (factor - 1)) & !(factor - 1)
 }
@@ -73,20 +73,20 @@ pub unsafe fn set_bit_raw(data: *mut u8, i: usize) {
 
 /// Returns the number of 1-bits in `data`
 #[inline]
-pub fn count_set_bits(data: &[u8]) -> i64 {
-    let mut count: i64 = 0;
+pub fn count_set_bits(data: &[u8]) -> usize {
+    let mut count: usize = 0;
     for u in data {
-        count += POPCOUNT_TABLE[*u as usize] as i64;
+        count += POPCOUNT_TABLE[*u as usize] as usize;
     }
     count
 }
 
 /// Returns the number of 1-bits in `data`, starting from `offset`.
 #[inline]
-pub fn count_set_bits_offset(data: &[u8], offset: usize) -> i64 {
+pub fn count_set_bits_offset(data: &[u8], offset: usize) -> usize {
     debug_assert!(offset <= (data.len() << 3));
 
-    let start_byte_pos = (offset >> 3) as usize;
+    let start_byte_pos = offset >> 3;
     let start_bit_pos = offset & 7;
 
     if start_bit_pos == 0 {
@@ -95,7 +95,7 @@ pub fn count_set_bits_offset(data: &[u8], offset: usize) -> i64 {
         let mut result = 0;
         result += count_set_bits(&data[start_byte_pos + 1..]);
         for i in start_bit_pos..8 {
-            if get_bit(&data[start_byte_pos..start_byte_pos + 1], i as usize) {
+            if get_bit(&data[start_byte_pos..start_byte_pos + 1], i) {
                 result += 1;
             }
         }
@@ -105,7 +105,7 @@ pub fn count_set_bits_offset(data: &[u8], offset: usize) -> i64 {
 
 /// Returns the ceil of `value`/`divisor`
 #[inline]
-pub fn ceil(value: i64, divisor: i64) -> i64 {
+pub fn ceil(value: usize, divisor: usize) -> usize {
     let mut result = value / divisor;
     if value % divisor != 0 {
         result += 1

@@ -20,7 +20,7 @@ package org.apache.arrow.plasma;
 import java.util.List;
 
 /**
- * Object store interface, which provides the capabilities to put and get raw byte array, and serves
+ * Object store interface, which provides the capabilities to put and get raw byte array, and serves.
  */
 public interface ObjectStoreLink {
 
@@ -49,7 +49,7 @@ public interface ObjectStoreLink {
    *
    * @param objectId The object ID used to identify the object.
    * @param timeoutMs The number of milliseconds that the get call should block before timing out
-   * and returning. Pass -1 if the call should block and 0 if the call should return immediately.
+   *                  and returning. Pass -1 if the call should block and 0 if the call should return immediately.
    * @param isMetadata false if get data, otherwise get metadata.
    * @return A PlasmaBuffer wrapping the object.
    */
@@ -63,7 +63,7 @@ public interface ObjectStoreLink {
    *
    * @param objectIds List of object IDs used to identify some objects.
    * @param timeoutMs The number of milliseconds that the get call should block before timing out
-   * and returning. Pass -1 if the call should block and 0 if the call should return immediately.
+   *                  and returning. Pass -1 if the call should block and 0 if the call should return immediately.
    * @param isMetadata false if get data, otherwise get metadata.
    * @return List of PlasmaBuffers wrapping objects.
    */
@@ -74,46 +74,19 @@ public interface ObjectStoreLink {
    *
    * @param objectIds List of object IDs used to identify some objects.
    * @param timeoutMs The number of milliseconds that the get call should block before timing out
-   * and returning. Pass -1 if the call should block and 0 if the call should return immediately.
+   *                  and returning. Pass -1 if the call should block and 0 if the call should return immediately.
    * @return List of Pairs of PlasmaBuffer wrapping objects and its metadata.
    */
   List<ObjectStoreData> get(byte[][] objectIds, int timeoutMs);
-
-  /**
-   * Wait until <tt>numReturns</tt> objects in <tt>objectIds</tt> are ready.
-   *
-   * @param objectIds List of object IDs to wait for.
-   * @param timeoutMs Return to the caller after <tt>timeoutMs</tt> milliseconds.
-   * @param numReturns We are waiting for this number of objects to be ready.
-   * @return List of object IDs that are ready
-   */
-  List<byte[]> wait(byte[][] objectIds, int timeoutMs, int numReturns);
 
   /**
    * Compute the hash of an object in the object store.
    *
    * @param objectId The object ID used to identify the object.
    * @return A digest byte array contains object's SHA256 hash. <tt>null</tt> means that the object
-   * isn't in the object store.
+   *         isn't in the object store.
    */
   byte[] hash(byte[] objectId);
-
-  /**
-   * Fetch the object with the given ID from other plasma manager instances.
-   *
-   * @param objectId The object ID used to identify the object.
-   */
-  default void fetch(byte[] objectId) {
-    byte[][] objectIds = {objectId};
-    fetch(objectIds);
-  }
-
-  /**
-   * Fetch the objects with the given IDs from other plasma manager instances.
-   *
-   * @param objectIds List of object IDs used to identify the objects.
-   */
-  void fetch(byte[][] objectIds);
 
   /**
    * Evict some objects to recover given count of bytes.
@@ -129,6 +102,13 @@ public interface ObjectStoreLink {
    * @param objectId The object ID used to release the reference of the object.
    */
   void release(byte[] objectId);
+
+  /**
+   * Removes object with given objectId from plasma store.
+   *
+   * @param objectId used to identify an object.
+   */
+  void delete(byte[] objectId);
 
   /**
    * Check if the object is present and has been sealed in the PlasmaStore.

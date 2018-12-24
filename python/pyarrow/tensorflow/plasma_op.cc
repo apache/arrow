@@ -71,14 +71,10 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
   explicit TensorToPlasmaOp(tf::OpKernelConstruction* context) : tf::AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("plasma_store_socket_name",
                                              &plasma_store_socket_name_));
-    OP_REQUIRES_OK(context, context->GetAttr("plasma_manager_socket_name",
-                                             &plasma_manager_socket_name_));
     tf::mutex_lock lock(mu_);
     if (!connected_) {
       VLOG(1) << "Connecting to Plasma...";
-      ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_,
-                                     plasma_manager_socket_name_,
-                                     plasma::kPlasmaDefaultReleaseDelay));
+      ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_));
       VLOG(1) << "Connected!";
       connected_ = true;
     }
@@ -141,7 +137,7 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
     std::vector<int64_t> shape = {total_bytes / byte_width};
 
     arrow::io::MockOutputStream mock;
-    ARROW_CHECK_OK(arrow::py::WriteTensorHeader(arrow_dtype, shape, 0, &mock));
+    ARROW_CHECK_OK(arrow::py::WriteNdarrayHeader(arrow_dtype, shape, 0, &mock));
     int64_t header_size = mock.GetExtentBytesWritten();
 
     std::shared_ptr<Buffer> data_buffer;
@@ -153,15 +149,21 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
 
     int64_t offset;
     arrow::io::FixedSizeBufferWriter buf(data_buffer);
-    ARROW_CHECK_OK(arrow::py::WriteTensorHeader(arrow_dtype, shape, total_bytes, &buf));
+    ARROW_CHECK_OK(arrow::py::WriteNdarrayHeader(arrow_dtype, shape, total_bytes, &buf));
     ARROW_CHECK_OK(buf.Tell(&offset));
 
     uint8_t* data = reinterpret_cast<uint8_t*>(data_buffer->mutable_data() + offset);
 
-    auto wrapped_callback = [this, context, done, data_buffer, object_id]() {
+    auto wrapped_callback = [this, context, done, data_buffer, data, object_id]() {
       {
         tf::mutex_lock lock(mu_);
         ARROW_CHECK_OK(client_.Seal(object_id));
+        ARROW_CHECK_OK(client_.Release(object_id));
+#ifdef GOOGLE_CUDA
+        auto orig_stream = context->op_device_context()->stream();
+        auto stream_executor = orig_stream->parent();
+        CHECK(stream_executor->HostMemoryUnregister(static_cast<void*>(data)));
+#endif
       }
       context->SetStatus(tensorflow::Status::OK());
       done();
@@ -221,7 +223,6 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
 
  private:
   std::string plasma_store_socket_name_;
-  std::string plasma_manager_socket_name_;
 
   tf::mutex mu_;
   bool connected_ = false;
@@ -238,14 +239,10 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
   explicit PlasmaToTensorOp(tf::OpKernelConstruction* context) : tf::AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("plasma_store_socket_name",
                                              &plasma_store_socket_name_));
-    OP_REQUIRES_OK(context, context->GetAttr("plasma_manager_socket_name",
-                                             &plasma_manager_socket_name_));
     tf::mutex_lock lock(mu_);
     if (!connected_) {
       VLOG(1) << "Connecting to Plasma...";
-      ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_,
-                                     plasma_manager_socket_name_,
-                                     plasma::kPlasmaDefaultReleaseDelay));
+      ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_));
       VLOG(1) << "Connected!";
       connected_ = true;
     }
@@ -284,25 +281,39 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
                                  /*timeout_ms=*/-1, &object_buffer));
     }
 
-    std::shared_ptr<arrow::Tensor> tensor;
-    ARROW_CHECK_OK(arrow::py::ReadTensor(object_buffer.data, &tensor));
+    std::shared_ptr<arrow::Tensor> ndarray;
+    ARROW_CHECK_OK(arrow::py::NdarrayFromBuffer(object_buffer.data, &ndarray));
 
-    int64_t byte_width = get_byte_width(*tensor->type());
-    const int64_t size_in_bytes = tensor->data()->size();
+    int64_t byte_width = get_byte_width(*ndarray->type());
+    const int64_t size_in_bytes = ndarray->data()->size();
 
     tf::TensorShape shape({static_cast<int64_t>(size_in_bytes / byte_width)});
 
-    const float* plasma_data = reinterpret_cast<const float*>(tensor->raw_data());
+    const float* plasma_data = reinterpret_cast<const float*>(ndarray->raw_data());
 
     tf::Tensor* output_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(context, context->allocate_output(0, shape, &output_tensor),
                          done);
 
+    auto wrapped_callback = [this, context, done, plasma_data, object_id]() {
+      {
+        tf::mutex_lock lock(mu_);
+        ARROW_CHECK_OK(client_.Release(object_id));
+#ifdef GOOGLE_CUDA
+        auto orig_stream = context->op_device_context()->stream();
+        auto stream_executor = orig_stream->parent();
+        CHECK(stream_executor->HostMemoryUnregister(
+            const_cast<void*>(static_cast<const void*>(plasma_data))));
+#endif
+      }
+      done();
+    };
+
     if (std::is_same<Device, CPUDevice>::value) {
       std::memcpy(
           reinterpret_cast<void*>(const_cast<char*>(output_tensor->tensor_data().data())),
           plasma_data, size_in_bytes);
-      done();
+      wrapped_callback();
     } else {
 #ifdef GOOGLE_CUDA
       auto orig_stream = context->op_device_context()->stream();
@@ -319,8 +330,6 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
       }
 
       // Important.  See note in T2P op.
-      // We don't check the return status since the host memory might've been
-      // already registered (e.g., the TensorToPlasmaOp might've been run).
       CHECK(stream_executor->HostMemoryRegister(
           const_cast<void*>(static_cast<const void*>(plasma_data)),
           static_cast<tf::uint64>(size_in_bytes)));
@@ -341,14 +350,13 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
       CHECK(orig_stream->ThenWaitFor(h2d_stream).ok());
 
       context->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(
-          h2d_stream, std::move(done));
+          h2d_stream, std::move(wrapped_callback));
 #endif
     }
   }
 
  private:
   std::string plasma_store_socket_name_;
-  std::string plasma_manager_socket_name_;
 
   tf::mutex mu_;
   bool connected_ = false;
@@ -359,8 +367,7 @@ REGISTER_OP("TensorToPlasma")
     .Input("input_tensor: dtypes")
     .Input("plasma_object_id: string")
     .Attr("dtypes: list(type)")
-    .Attr("plasma_store_socket_name: string")
-    .Attr("plasma_manager_socket_name: string");
+    .Attr("plasma_store_socket_name: string");
 
 REGISTER_KERNEL_BUILDER(Name("TensorToPlasma").Device(tf::DEVICE_CPU),
                         TensorToPlasmaOp<CPUDevice>);
@@ -373,8 +380,7 @@ REGISTER_OP("PlasmaToTensor")
     .Input("plasma_object_id: string")
     .Output("tensor: dtype")
     .Attr("dtype: type")
-    .Attr("plasma_store_socket_name: string")
-    .Attr("plasma_manager_socket_name: string");
+    .Attr("plasma_store_socket_name: string");
 
 REGISTER_KERNEL_BUILDER(Name("PlasmaToTensor").Device(tf::DEVICE_CPU),
                         PlasmaToTensorOp<CPUDevice>);

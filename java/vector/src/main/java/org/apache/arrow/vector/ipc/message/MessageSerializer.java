@@ -45,9 +45,9 @@ import io.netty.buffer.ArrowBuf;
  * body and the type of the message.
  * 3. Serialized message.
  *
- * For schema messages, the serialization is simply the FB serialized Schema.
+ * <p>For schema messages, the serialization is simply the FB serialized Schema.
  *
- * For RecordBatch messages the serialization is:
+ * <p>For RecordBatch messages the serialization is:
  * 1. 4 byte little endian batch metadata header
  * 2. FB serialized RowBatch
  * 3. Padding to align to 8 byte boundary.
@@ -91,7 +91,7 @@ public class MessageSerializer {
    * @param messageBuffer Message metadata buffer to be written, this does not include any
    *                      message body data which should be subsequently written to the Channel
    * @return Number of bytes written
-   * @throws IOException
+   * @throws IOException on error
    */
   public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer)
       throws IOException {
@@ -207,7 +207,7 @@ public class MessageSerializer {
    * @param out the output channel to write the buffers to
    * @param batch an ArrowRecordBatch containing buffers to be written
    * @return the number of bytes written
-   * @throws IOException
+   * @throws IOException on error
    */
   public static long writeBatchBuffers(WriteChannel out, ArrowRecordBatch batch) throws IOException {
     long bufferStart = out.getCurrentPosition();
@@ -252,7 +252,7 @@ public class MessageSerializer {
    * @param in Channel to read a RecordBatch message and data from
    * @param allocator BufferAllocator to allocate an Arrow buffer to read message body data
    * @return the deserialized ArrowRecordBatch
-   * @throws IOException
+   * @throws IOException on error
    */
   public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, BufferAllocator allocator) throws IOException {
     MessageMetadataResult result = readMessage(in);
@@ -310,7 +310,7 @@ public class MessageSerializer {
    * @param recordBatchFB Deserialized FlatBuffer record batch
    * @param body Read body of the record batch
    * @return ArrowRecordBatch from metadata and in-memory body
-   * @throws IOException
+   * @throws IOException on error
    */
   public static ArrowRecordBatch deserializeRecordBatch(RecordBatch recordBatchFB, ArrowBuf body) throws IOException {
     // Now read the body
@@ -403,7 +403,7 @@ public class MessageSerializer {
    * @param in Channel to read a DictionaryBatch message and data from
    * @param allocator BufferAllocator to allocate an Arrow buffer to read message body data
    * @return the deserialized ArrowDictionaryBatch
-   * @throws IOException
+   * @throws IOException on error
    */
   public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in, BufferAllocator allocator)
       throws IOException {
@@ -530,8 +530,8 @@ public class MessageSerializer {
    *
    * @param in ReadChannel to read messages from
    * @return MessageMetadataResult with deserialized Message metadata and message information if
-   * a valid Message was read, or null if end-of-stream
-   * @throws IOException
+   *         a valid Message was read, or null if end-of-stream
+   * @throws IOException on error
    */
   public static MessageMetadataResult readMessage(ReadChannel in) throws IOException {
 
@@ -567,7 +567,7 @@ public class MessageSerializer {
    * @param bodyLength Length in bytes of the message body to read
    * @param allocator Allocate the ArrowBuf to contain message body data
    * @return an ArrowBuf containing the message body data
-   * @throws IOException
+   * @throws IOException on error
    */
   public static ArrowBuf readMessageBody(ReadChannel in, int bodyLength, BufferAllocator allocator) throws IOException {
     ArrowBuf bodyBuffer = allocator.buffer(bodyLength);

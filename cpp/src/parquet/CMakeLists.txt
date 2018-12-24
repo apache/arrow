@@ -15,15 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(parquet-all)
+add_custom_target(parquet)
+add_custom_target(parquet-benchmarks)
+add_custom_target(parquet-tests)
+add_dependencies(parquet-all parquet parquet-tests parquet-benchmarks)
+
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/.parquetcppversion" PARQUET_VERSION)
 string(REPLACE "\n" "" PARQUET_VERSION "${PARQUET_VERSION}")
 string(REGEX MATCH "^([0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?)" VERSION ${PARQUET_VERSION})
 if(NOT VERSION)
   message(FATAL_ERROR "invalid .parquetcppversion")
 endif()
-
-# For "make parquet" to build everything Parquet-related
-add_custom_target(parquet)
 
 function(ADD_PARQUET_TEST REL_TEST_NAME)
   set(options USE_STATIC_LINKING)
@@ -34,19 +37,21 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
+  set(TEST_ARGUMENTS
+    PREFIX "parquet"
+    LABELS "parquet-tests")
+
   # By default we prefer shared linking with libparquet, as it's faster
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
   if (ARG_USE_STATIC_LINKING)
-    ADD_ARROW_TEST(${REL_TEST_NAME}
+    ADD_TEST_CASE(${REL_TEST_NAME}
       STATIC_LINK_LIBS ${PARQUET_STATIC_TEST_LINK_LIBS}
-      PREFIX "parquet"
-      LABELS "unittest;parquet")
+      ${TEST_ARGUMENTS})
   else()
-    ADD_ARROW_TEST(${REL_TEST_NAME}
+    ADD_TEST_CASE(${REL_TEST_NAME}
       STATIC_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS}
-      PREFIX "parquet"
-      LABELS "unittest;parquet")
+      ${TEST_ARGUMENTS})
   endif()
 endfunction()
 
@@ -58,9 +63,13 @@ endfunction()
 if (ARROW_BUILD_STATIC)
   set(PARQUET_STATIC_LINK_LIBS
     arrow_static)
-  set(ARROW_LIBRARY_TESTING arrow_static)
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS
+    arrow_testing_static
+    arrow_static)
 else()
-  set(ARROW_LIBRARY_TESTING arrow_shared)
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS
+    arrow_testing_shared
+    arrow_shared)
 endif()
 
 set(PARQUET_BOOST_LINK_LIBS
@@ -87,14 +96,19 @@ elseif(NOT MSVC)
 endif()
 
 set(PARQUET_SHARED_TEST_LINK_LIBS
+  arrow_testing_shared
   ${PARQUET_MIN_TEST_LIBS}
   parquet_shared
   thriftstatic)
 
 set(PARQUET_STATIC_TEST_LINK_LIBS
   ${PARQUET_MIN_TEST_LIBS}
-  ${ARROW_LIBRARY_TESTING}
+  ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
   parquet_static)
+
+set(PARQUET_BENCHMARK_LINK_LIBRARIES
+  arrow_benchmark_main
+  parquet_shared)
 
 ############################################################
 # Generated Thrift sources
@@ -208,6 +222,8 @@ ADD_ARROW_LIB(parquet
   STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS}
 )
 
+add_dependencies(parquet ${PARQUET_LIBRARIES})
+
 # Thrift requires these definitions for some types that we use
 foreach(LIB_TARGET ${PARQUET_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
@@ -223,32 +239,11 @@ foreach(LIB_TARGET ${PARQUET_LIBRARIES})
   endif()
 endforeach()
 
-add_dependencies(parquet ${PARQUET_LIBRARIES})
-
 add_subdirectory(api)
 add_subdirectory(arrow)
 add_subdirectory(util)
 
-# Headers: top level
-install(FILES
-  bloom_filter.h
-  column_reader.h
-  column_page.h
-  column_scanner.h
-  column_writer.h
-  encoding.h
-  exception.h
-  file_reader.h
-  file_writer.h
-  hasher.h
-  metadata.h
-  murmur3.h
-  printer.h
-  properties.h
-  schema.h
-  statistics.h
-  types.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
+ARROW_INSTALL_ALL_HEADERS("parquet")
 
 configure_file(parquet_version.h.in
   "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
@@ -259,13 +254,7 @@ install(FILES
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
 # pkg-config support
-configure_file(parquet.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/parquet.pc"
-  @ONLY)
-
-install(FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/parquet.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("parquet")
 
 ADD_PARQUET_TEST(bloom_filter-test)
 ADD_PARQUET_TEST(column_reader-test)
@@ -285,17 +274,11 @@ ADD_PARQUET_TEST(reader-test)
 ADD_PARQUET_TEST(file-deserialize-test USE_STATIC_LINKING)
 ADD_PARQUET_TEST(schema-test USE_STATIC_LINKING)
 
-#############################################################
-# Benchmark linking
-
-set(PARQUET_BENCHMARK_LINK_LIBRARIES
-  arrow_benchmark_main
-  parquet_static)
-
-ADD_ARROW_BENCHMARK(column-io-benchmark)
-ARROW_BENCHMARK_LINK_LIBRARIES(column-io-benchmark
-  ${PARQUET_BENCHMARK_LINK_LIBRARIES})
-
-ADD_ARROW_BENCHMARK(encoding-benchmark)
-ARROW_BENCHMARK_LINK_LIBRARIES(encoding-benchmark
-  ${PARQUET_BENCHMARK_LINK_LIBRARIES})
+ADD_ARROW_BENCHMARK(column-io-benchmark
+  PREFIX "parquet"
+  LABELS "parquet-benchmarks"
+  EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
+ADD_ARROW_BENCHMARK(encoding-benchmark
+  PREFIX "parquet"
+  LABELS "parquet-benchmarks"
+  EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})

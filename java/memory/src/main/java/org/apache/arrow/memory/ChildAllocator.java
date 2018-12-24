@@ -22,7 +22,7 @@ package org.apache.arrow.memory;
  * Child allocator class. Only slightly different from the {@see RootAllocator},
  * in that these can't be created directly, but must be obtained from
  * {@see BufferAllocator#newChildAllocator(AllocatorOwner, long, long, int)}.
- * <p>
+ *
  * <p>Child allocators can only be created by the root, or other children, so
  * this class is package private.</p>
  */

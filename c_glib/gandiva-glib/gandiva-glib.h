@@ -20,4 +20,5 @@
 #pragma once
 
 #include <gandiva-glib/expression.h>
+#include <gandiva-glib/node.h>
 #include <gandiva-glib/projector.h>

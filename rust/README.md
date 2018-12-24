@@ -24,20 +24,27 @@
 
 ## Status
 
-This is a starting point for a native Rust implementation of Arrow.
+This is a native Rust implementation of Apache Arrow. Currently the project
+is developed and tested against nightly Rust.  The current status is:
 
-The current code demonstrates arrays of primitive types and structs.
+- [x] Primitive Arrays
+- [x] List Arrays
+- [x] Struct Arrays
+- [x] CSV Reader
+- [ ] CSV Writer
+- [ ] Parquet Reader
+- [ ] Parquet Writer
+- [ ] Arrow IPC
+- [ ] Interop tests with other implementations
 
-## Creating an Array from a Vec
+## Dependencies
 
-```rust
-// create a memory-aligned Arrow array from an existing Vec
-let array = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
+Parquet support for Apache Arrow requires LLVM.  Our windows CI image
+includes LLVM but to build the libraries locally windows users will have
+to install LLVM. Follow [this](https://github.com/appveyor/ci/issues/2651)
+link for info.
 
-println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
-```
-
-## Run Examples
+## Examples
 
 The examples folder shows how to construct some different types of Arrow
 arrays, including dynamic arrays created at runtime.
@@ -47,12 +54,29 @@ Examples can be run using the `cargo run --example` command. For example:
 ```bash
 cargo run --example builders
 cargo run --example dynamic_types
+cargo run --example read_csv
 ```
 
 ## Run Tests
 
+Parquet support in Arrow requires data to test against, this data is in a
+git submodule.  To pull down this data run the following:
+
 ```bash
-cargo test
+git submodule update --init
+```
+
+The data can then be found in `cpp/submodules/parquet_testing/data`.
+Create a new environment variable called `PARQUET_TEST_DATA` to point
+to this location and then `cargo test` as usual.
+
+Our CI uses `rustfmt` to check code formatting.  Although the project is
+built and tested against nightly rust we use the stable version of
+`rustfmt`.  So before submitting a PR be sure to run the following
+and check for lint issues:
+
+```bash
+cargo +stable fmt --all -- --check
 ```
 
 # Publishing to crates.io

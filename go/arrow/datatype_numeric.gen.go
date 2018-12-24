@@ -78,6 +78,18 @@ func (t *Float64Type) ID() Type      { return FLOAT64 }
 func (t *Float64Type) Name() string  { return "float64" }
 func (t *Float64Type) BitWidth() int { return 64 }
 
+type Date32Type struct{}
+
+func (t *Date32Type) ID() Type      { return DATE32 }
+func (t *Date32Type) Name() string  { return "date32" }
+func (t *Date32Type) BitWidth() int { return 32 }
+
+type Date64Type struct{}
+
+func (t *Date64Type) ID() Type      { return DATE64 }
+func (t *Date64Type) Name() string  { return "date64" }
+func (t *Date64Type) BitWidth() int { return 64 }
+
 var (
 	PrimitiveTypes = struct {
 		Int8    DataType
@@ -90,6 +102,8 @@ var (
 		Uint64  DataType
 		Float32 DataType
 		Float64 DataType
+		Date32  DataType
+		Date64  DataType
 	}{
 
 		Int8:    &Int8Type{},
@@ -102,5 +116,7 @@ var (
 		Uint64:  &Uint64Type{},
 		Float32: &Float32Type{},
 		Float64: &Float64Type{},
+		Date32:  &Date32Type{},
+		Date64:  &Date64Type{},
 	}
 )

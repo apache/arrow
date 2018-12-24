@@ -18,6 +18,7 @@
 module Arrow
   class Field
     alias_method :initialize_raw, :initialize
+    private :initialize_raw
     def initialize(name, data_type)
       case data_type
       when String, Symbol

@@ -18,6 +18,7 @@
 #ifndef GANDIVA_EXPORTED_FUNCS_REGISTRY_H
 #define GANDIVA_EXPORTED_FUNCS_REGISTRY_H
 
+#include <memory>
 #include <vector>
 
 #include <gandiva/engine.h>
@@ -30,12 +31,12 @@ class ExportedFuncsBase;
 /// LLVM/IR code.
 class ExportedFuncsRegistry {
  public:
-  using list_type = std::vector<ExportedFuncsBase*>;
+  using list_type = std::vector<std::shared_ptr<ExportedFuncsBase>>;
 
   // Add functions from all the registered classes to the engine.
   static void AddMappings(Engine* engine);
 
-  static bool Register(ExportedFuncsBase* entry) {
+  static bool Register(std::shared_ptr<ExportedFuncsBase> entry) {
     registered().push_back(entry);
     return true;
   }
@@ -48,7 +49,8 @@ class ExportedFuncsRegistry {
 };
 
 #define REGISTER_EXPORTED_FUNCS(classname) \
-  static bool _registered_##classname = ExportedFuncsRegistry::Register(new classname)
+  static bool _registered_##classname =    \
+      ExportedFuncsRegistry::Register(std::make_shared<classname>())
 
 }  // namespace gandiva
 

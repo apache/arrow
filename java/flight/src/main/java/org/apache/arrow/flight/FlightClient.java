@@ -64,7 +64,9 @@ public class FlightClient implements AutoCloseable {
   private final MethodDescriptor<Flight.Ticket, ArrowMessage> doGetDescriptor;
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
 
-  /** Construct client for accessing RouteGuide server using the existing channel. */
+  /**
+   * Construct client for accessing RouteGuide server using the existing channel.
+   */
   public FlightClient(BufferAllocator incomingAllocator, Location location) {
     final ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress(location.getHost(),
         location.getPort()).maxTraceEvents(0).usePlaintext();
@@ -77,9 +79,9 @@ public class FlightClient implements AutoCloseable {
   }
 
   /**
-   * Get a list of available flights
-   * @param criteria
-   * @return
+   * Get a list of available flights.
+   * @param criteria Critera for selecting flights
+   * @return FlightInfo Iterable
    */
   public Iterable<FlightInfo> listFlights(Criteria criteria) {
     return ImmutableList.copyOf(blockingStub.listFlights(criteria.asCriteria()))
@@ -111,9 +113,9 @@ public class FlightClient implements AutoCloseable {
 
   /**
    * Create or append a descriptor with another stream.
-   * @param descriptor
-   * @param root
-   * @return
+   * @param descriptor FlightDescriptor
+   * @param root VectorSchemaRoot
+   * @return ClientStreamListener
    */
   public ClientStreamListener startPut(FlightDescriptor descriptor, VectorSchemaRoot root) {
     Preconditions.checkNotNull(descriptor);

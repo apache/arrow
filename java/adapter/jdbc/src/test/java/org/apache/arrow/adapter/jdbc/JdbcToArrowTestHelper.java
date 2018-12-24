@@ -41,7 +41,7 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 
 /**
- * This is a Helper class which has functionalities to read and assert the values from the given FieldVector object
+ * This is a Helper class which has functionalities to read and assert the values from the given FieldVector object.
  */
 public class JdbcToArrowTestHelper {
 

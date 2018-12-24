@@ -16,9 +16,4 @@
 # under the License.
 
 # Headers: public api
-install(FILES
-  io.h
-  reader.h
-  writer.h
-  schema.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/api")
+ARROW_INSTALL_ALL_HEADERS("parquet/api")

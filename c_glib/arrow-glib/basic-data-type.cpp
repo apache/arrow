@@ -101,10 +101,10 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowDataType,
                                     garrow_data_type,
                                     G_TYPE_OBJECT)
 
-#define GARROW_DATA_TYPE_GET_PRIVATE(obj)               \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                   \
-                               GARROW_TYPE_DATA_TYPE,   \
-                               GArrowDataTypePrivate))
+#define GARROW_DATA_TYPE_GET_PRIVATE(obj)         \
+  static_cast<GArrowDataTypePrivate *>(           \
+     garrow_data_type_get_instance_private(       \
+       GARROW_DATA_TYPE(obj)))
 
 static void
 garrow_data_type_finalize(GObject *object)
@@ -198,8 +198,8 @@ garrow_data_type_equal(GArrowDataType *data_type,
  * garrow_data_type_to_string:
  * @data_type: A #GArrowDataType.
  *
- * Returns: The string representation of the data type. The caller
- *   must free it by g_free() when the caller doesn't need it anymore.
+ * Returns: (transfer full): The string representation of the data type.
+ *   The caller must free it by g_free() when the caller doesn't need it anymore.
  */
 gchar *
 garrow_data_type_to_string(GArrowDataType *data_type)
@@ -222,8 +222,8 @@ garrow_data_type_get_id(GArrowDataType *data_type)
 }
 
 
-G_DEFINE_ABSTRACT_TYPE(GArrowFixedWidthDataType,                 \
-                       garrow_fixed_width_data_type,             \
+G_DEFINE_ABSTRACT_TYPE(GArrowFixedWidthDataType,
+                       garrow_fixed_width_data_type,
                        GARROW_TYPE_DATA_TYPE)
 
 static void
@@ -253,8 +253,8 @@ garrow_fixed_width_data_type_get_bit_width(GArrowFixedWidthDataType *data_type)
 }
 
 
-G_DEFINE_TYPE(GArrowNullDataType,                \
-              garrow_null_data_type,             \
+G_DEFINE_TYPE(GArrowNullDataType,
+              garrow_null_data_type,
               GARROW_TYPE_DATA_TYPE)
 
 static void
@@ -285,8 +285,8 @@ garrow_null_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowBooleanDataType,                \
-              garrow_boolean_data_type,             \
+G_DEFINE_TYPE(GArrowBooleanDataType,
+              garrow_boolean_data_type,
               GARROW_TYPE_FIXED_WIDTH_DATA_TYPE)
 
 static void
@@ -317,8 +317,8 @@ garrow_boolean_data_type_new(void)
 }
 
 
-G_DEFINE_ABSTRACT_TYPE(GArrowNumericDataType,                    \
-                       garrow_numeric_data_type,                 \
+G_DEFINE_ABSTRACT_TYPE(GArrowNumericDataType,
+                       garrow_numeric_data_type,
                        GARROW_TYPE_FIXED_WIDTH_DATA_TYPE)
 
 static void
@@ -332,8 +332,8 @@ garrow_numeric_data_type_class_init(GArrowNumericDataTypeClass *klass)
 }
 
 
-G_DEFINE_ABSTRACT_TYPE(GArrowIntegerDataType,                    \
-                       garrow_integer_data_type,                 \
+G_DEFINE_ABSTRACT_TYPE(GArrowIntegerDataType,
+                       garrow_integer_data_type,
                        GARROW_TYPE_NUMERIC_DATA_TYPE)
 
 static void
@@ -347,8 +347,8 @@ garrow_integer_data_type_class_init(GArrowIntegerDataTypeClass *klass)
 }
 
 
-G_DEFINE_TYPE(GArrowInt8DataType,                \
-              garrow_int8_data_type,             \
+G_DEFINE_TYPE(GArrowInt8DataType,
+              garrow_int8_data_type,
               GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
@@ -379,8 +379,8 @@ garrow_int8_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowUInt8DataType,                \
-              garrow_uint8_data_type,             \
+G_DEFINE_TYPE(GArrowUInt8DataType,
+              garrow_uint8_data_type,
               GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
@@ -411,8 +411,8 @@ garrow_uint8_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowInt16DataType,                \
-              garrow_int16_data_type,             \
+G_DEFINE_TYPE(GArrowInt16DataType,
+              garrow_int16_data_type,
               GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
@@ -443,8 +443,8 @@ garrow_int16_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowUInt16DataType,                \
-              garrow_uint16_data_type,             \
+G_DEFINE_TYPE(GArrowUInt16DataType,
+              garrow_uint16_data_type,
               GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
@@ -475,8 +475,8 @@ garrow_uint16_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowInt32DataType,                \
-              garrow_int32_data_type,             \
+G_DEFINE_TYPE(GArrowInt32DataType,
+              garrow_int32_data_type,
               GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
@@ -507,8 +507,8 @@ garrow_int32_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowUInt32DataType,                \
-              garrow_uint32_data_type,             \
+G_DEFINE_TYPE(GArrowUInt32DataType,
+              garrow_uint32_data_type,
               GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
@@ -539,8 +539,8 @@ garrow_uint32_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowInt64DataType,                \
-              garrow_int64_data_type,             \
+G_DEFINE_TYPE(GArrowInt64DataType,
+              garrow_int64_data_type,
               GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
@@ -571,8 +571,8 @@ garrow_int64_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowUInt64DataType,                \
-              garrow_uint64_data_type,             \
+G_DEFINE_TYPE(GArrowUInt64DataType,
+              garrow_uint64_data_type,
               GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
@@ -603,8 +603,8 @@ garrow_uint64_data_type_new(void)
 }
 
 
-G_DEFINE_ABSTRACT_TYPE(GArrowFloatingPointDataType,                    \
-                       garrow_floating_point_data_type,                \
+G_DEFINE_ABSTRACT_TYPE(GArrowFloatingPointDataType,
+                       garrow_floating_point_data_type,
                        GARROW_TYPE_NUMERIC_DATA_TYPE)
 
 static void
@@ -618,8 +618,8 @@ garrow_floating_point_data_type_class_init(GArrowFloatingPointDataTypeClass *kla
 }
 
 
-G_DEFINE_TYPE(GArrowFloatDataType,                \
-              garrow_float_data_type,             \
+G_DEFINE_TYPE(GArrowFloatDataType,
+              garrow_float_data_type,
               GARROW_TYPE_FLOATING_POINT_DATA_TYPE)
 
 static void
@@ -650,8 +650,8 @@ garrow_float_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowDoubleDataType,                \
-              garrow_double_data_type,             \
+G_DEFINE_TYPE(GArrowDoubleDataType,
+              garrow_double_data_type,
               GARROW_TYPE_FLOATING_POINT_DATA_TYPE)
 
 static void
@@ -682,8 +682,8 @@ garrow_double_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowBinaryDataType,                \
-              garrow_binary_data_type,             \
+G_DEFINE_TYPE(GArrowBinaryDataType,
+              garrow_binary_data_type,
               GARROW_TYPE_DATA_TYPE)
 
 static void
@@ -714,8 +714,8 @@ garrow_binary_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowStringDataType,                \
-              garrow_string_data_type,             \
+G_DEFINE_TYPE(GArrowStringDataType,
+              garrow_string_data_type,
               GARROW_TYPE_DATA_TYPE)
 
 static void
@@ -746,8 +746,8 @@ garrow_string_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowDate32DataType,                \
-              garrow_date32_data_type,             \
+G_DEFINE_TYPE(GArrowDate32DataType,
+              garrow_date32_data_type,
               GARROW_TYPE_DATA_TYPE)
 
 static void
@@ -781,8 +781,8 @@ garrow_date32_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowDate64DataType,                \
-              garrow_date64_data_type,             \
+G_DEFINE_TYPE(GArrowDate64DataType,
+              garrow_date64_data_type,
               GARROW_TYPE_DATA_TYPE)
 
 static void
@@ -816,8 +816,8 @@ garrow_date64_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowTimestampDataType,                \
-              garrow_timestamp_data_type,             \
+G_DEFINE_TYPE(GArrowTimestampDataType,
+              garrow_timestamp_data_type,
               GARROW_TYPE_DATA_TYPE)
 
 static void
@@ -871,8 +871,8 @@ garrow_timestamp_data_type_get_unit(GArrowTimestampDataType *timestamp_data_type
 }
 
 
-G_DEFINE_TYPE(GArrowTimeDataType,               \
-              garrow_time_data_type,            \
+G_DEFINE_TYPE(GArrowTimeDataType,
+              garrow_time_data_type,
               GARROW_TYPE_DATA_TYPE)
 
 static void
@@ -904,8 +904,8 @@ garrow_time_data_type_get_unit(GArrowTimeDataType *time_data_type)
 }
 
 
-G_DEFINE_TYPE(GArrowTime32DataType,                \
-              garrow_time32_data_type,             \
+G_DEFINE_TYPE(GArrowTime32DataType,
+              garrow_time32_data_type,
               GARROW_TYPE_TIME_DATA_TYPE)
 
 static void
@@ -972,8 +972,8 @@ garrow_time32_data_type_new(GArrowTimeUnit unit, GError **error)
 }
 
 
-G_DEFINE_TYPE(GArrowTime64DataType,                \
-              garrow_time64_data_type,             \
+G_DEFINE_TYPE(GArrowTime64DataType,
+              garrow_time64_data_type,
               GARROW_TYPE_TIME_DATA_TYPE)
 
 static void
@@ -1040,8 +1040,8 @@ garrow_time64_data_type_new(GArrowTimeUnit unit, GError **error)
 }
 
 
-G_DEFINE_TYPE(GArrowDecimalDataType,                \
-              garrow_decimal_data_type,             \
+G_DEFINE_TYPE(GArrowDecimalDataType,
+              garrow_decimal_data_type,
               GARROW_TYPE_DATA_TYPE)
 
 static void
@@ -1183,6 +1183,17 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     break;
   case arrow::Type::type::STRUCT:
     type = GARROW_TYPE_STRUCT_DATA_TYPE;
+    break;
+  case arrow::Type::type::UNION:
+    {
+      auto arrow_union_data_type =
+        std::static_pointer_cast<arrow::UnionType>(*arrow_data_type);
+      if (arrow_union_data_type->mode() == arrow::UnionMode::SPARSE) {
+        type = GARROW_TYPE_SPARSE_UNION_DATA_TYPE;
+      } else {
+        type = GARROW_TYPE_DENSE_UNION_DATA_TYPE;
+      }
+    }
     break;
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_DATA_TYPE;

@@ -310,8 +310,8 @@ gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
     return NULL;
   }
 
-  std::shared_ptr<arrow::Array> arrow_array;
-  status = parquet_arrow_file_reader->ReadColumn(column_index, &arrow_array);
+  std::shared_ptr<arrow::ChunkedArray> arrow_chunked_array;
+  status = parquet_arrow_file_reader->ReadColumn(column_index, &arrow_chunked_array);
   if (!garrow_error_check(error,
                           status,
                           "[parquet][arrow][file-reader][read-column]")) {
@@ -319,7 +319,7 @@ gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
   }
 
   auto arrow_field = arrow_schema->field(0);
-  auto arrow_column = std::make_shared<arrow::Column>(arrow_field, arrow_array);
+  auto arrow_column = std::make_shared<arrow::Column>(arrow_field, arrow_chunked_array);
   return garrow_column_new_raw(&arrow_column);
 }
 

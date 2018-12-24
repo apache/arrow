@@ -19,7 +19,7 @@ package org.apache.arrow.memory;
 
 /**
  * Helper Iface to generify a value to be included in the map where
- * key is part of the value
+ * key is part of the value.
  */
 public interface ValueWithKeyIncluded<K> {
   K getKey();

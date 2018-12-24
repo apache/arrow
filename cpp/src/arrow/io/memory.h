@@ -25,6 +25,7 @@
 
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -133,6 +134,12 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   explicit BufferReader(const Buffer& buffer);
   BufferReader(const uint8_t* data, int64_t size);
 
+  /// \brief Instantiate from std::string or arrow::util::string_view. Does not
+  /// own data
+  explicit BufferReader(const util::string_view& data)
+      : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
+                     static_cast<int64_t>(data.size())) {}
+
   Status Close() override;
   bool closed() const override;
   Status Tell(int64_t* position) const override;
@@ -140,14 +147,16 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   // Zero copy read
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
+  util::string_view Peek(int64_t nbytes) const override;
+
+  bool supports_zero_copy() const override;
+
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                 void* out) override;
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   Status GetSize(int64_t* size) override;
   Status Seek(int64_t position) override;
-
-  bool supports_zero_copy() const override;
 
   std::shared_ptr<Buffer> buffer() const { return buffer_; }
 

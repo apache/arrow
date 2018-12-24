@@ -17,20 +17,47 @@
 
 #' @include R6.R
 
+#' @title class arrow::Schema
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Usage:
+#'
+#' ```
+#' s <- schema(...)
+#'
+#' s$ToString()
+#' s$num_fields()
+#' s$field(i)
+#' ```
+#'
+#' @section Methods:
+#'
+#' - `$ToString()`: convert to a string
+#' - `$num_fields()`: returns the number of fields
+#' - `$field(i)`: returns the field at index `i` (0-based)
+#'
+#' @rdname arrow__Schema
+#' @name arrow__Schema
 `arrow::Schema` <- R6Class("arrow::Schema",
   inherit = `arrow::Object`,
   public = list(
     ToString = function() Schema__ToString(self),
     num_fields = function() Schema__num_fields(self),
     field = function(i) shared_ptr(`arrow::Field`, Schema__field(self, i))
+  ),
+  active = list(
+    names = function() Schema__names(self)
   )
 )
 
-#' Schema functions
+#' Schema factory
 #'
 #' @param ... named list of data types
 #'
-#' @return a Schema
+#' @return a [schema][arrow__Schema]
 #'
 #' @export
 schema <- function(...){
@@ -48,21 +75,18 @@ read_schema <- function(stream, ...) {
 }
 
 #' @export
-read_schema.default <- function(stream, ...) {
-  stop("unsupported")
-}
-
-#' @export
 `read_schema.arrow::io::InputStream` <- function(stream, ...) {
   shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
 }
 
 #' @export
 `read_schema.arrow::Buffer` <- function(stream, ...) {
-  read_schema(buffer_reader(stream), ...)
+  stream <- close_on_exit(BufferReader(stream))
+  shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
 }
 
 #' @export
 `read_schema.raw` <- function(stream, ...) {
-  read_schema(buffer(stream), ...)
+  stream <- close_on_exit(BufferReader(stream))
+  shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
 }

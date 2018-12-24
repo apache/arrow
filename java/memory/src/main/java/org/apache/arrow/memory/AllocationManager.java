@@ -22,11 +22,8 @@ import static org.apache.arrow.memory.BaseAllocator.indent;
 import java.util.IdentityHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
-import org.apache.arrow.memory.util.AutoCloseableLock;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
 
@@ -42,12 +39,12 @@ import io.netty.buffer.UnsafeDirectLittleEndian;
  * This class is also responsible for managing when memory is allocated and returned to the
  * Netty-based
  * PooledByteBufAllocatorL.
- * <p>
- * The only reason that this isn't package private is we're forced to put ArrowBuf in Netty's
+ *
+ * <p>The only reason that this isn't package private is we're forced to put ArrowBuf in Netty's
  * package which need access
  * to these objects or methods.
- * <p>
- * Threading: AllocationManager manages thread-safety internally. Operations within the context
+ *
+ * <p>Threading: AllocationManager manages thread-safety internally. Operations within the context
  * of a single BufferLedger
  * are lockless in nature and can be leveraged by multiple threads. Operations that cross the
  * context of two ledgers
@@ -73,9 +70,6 @@ public class AllocationManager {
   // ARROW-1627 Trying to minimize memory overhead caused by previously used IdentityHashMap
   // see JIRA for details
   private final LowCostIdentityHashMap<BaseAllocator, BufferLedger> map = new LowCostIdentityHashMap<>();
-  private final ReadWriteLock lock = new ReentrantReadWriteLock();
-  private final AutoCloseableLock readLock = new AutoCloseableLock(lock.readLock());
-  private final AutoCloseableLock writeLock = new AutoCloseableLock(lock.writeLock());
   private final long amCreationTime = System.nanoTime();
 
   private volatile BufferLedger owningLedger;
@@ -115,9 +109,8 @@ public class AllocationManager {
           "A buffer can only be associated between two allocators that share the same root.");
     }
 
-    try (AutoCloseableLock read = readLock.open()) {
-
-      final BufferLedger ledger = map.get(allocator);
+    synchronized (this) {
+      BufferLedger ledger = map.get(allocator);
       if (ledger != null) {
         if (retain) {
           ledger.inc();
@@ -125,20 +118,7 @@ public class AllocationManager {
         return ledger;
       }
 
-    }
-    try (AutoCloseableLock write = writeLock.open()) {
-      // we have to recheck existing ledger since a second reader => writer could be competing
-      // with us.
-
-      final BufferLedger existingLedger = map.get(allocator);
-      if (existingLedger != null) {
-        if (retain) {
-          existingLedger.inc();
-        }
-        return existingLedger;
-      }
-
-      final BufferLedger ledger = new BufferLedger(allocator);
+      ledger = new BufferLedger(allocator);
       if (retain) {
         ledger.inc();
       }
@@ -153,7 +133,7 @@ public class AllocationManager {
    * The way that a particular BufferLedger communicates back to the AllocationManager that it
    * now longer needs to hold
    * a reference to particular piece of memory.
-   * Can only be called when you already hold the writeLock.
+   * Can only be called when you already hold the lock.
    */
   private void release(final BufferLedger ledger) {
     final BaseAllocator allocator = ledger.getAllocator();
@@ -215,7 +195,7 @@ public class AllocationManager {
     }
 
     /**
-     * Get the allocator for this ledger
+     * Get the allocator for this ledger.
      * @return allocator
      */
     private BaseAllocator getAllocator() {
@@ -250,7 +230,7 @@ public class AllocationManager {
       // since two balance transfers out from the allocator manager could cause incorrect
       // accounting, we need to ensure
       // that this won't happen by synchronizing on the allocator manager instance.
-      try (AutoCloseableLock write = writeLock.open()) {
+      synchronized (this) {
         if (owningLedger != this) {
           return true;
         }
@@ -330,7 +310,7 @@ public class AllocationManager {
       allocator.assertOpen();
 
       final int outcome;
-      try (AutoCloseableLock write = writeLock.open()) {
+      synchronized (this) {
         outcome = bufRefCnt.addAndGet(-decrement);
         if (outcome == 0) {
           lDestructionTime = System.nanoTime();
@@ -368,8 +348,7 @@ public class AllocationManager {
      *
      * @param offset The offset in bytes to start this new ArrowBuf.
      * @param length The length in bytes that this ArrowBuf will provide access to.
-     * @return A new ArrowBuf that shares references with all ArrowBufs associated with this
-     * BufferLedger
+     * @return A new ArrowBuf that shares references with all ArrowBufs associated with this BufferLedger
      */
     public ArrowBuf newArrowBuf(int offset, int length) {
       allocator.assertOpen();
@@ -383,8 +362,7 @@ public class AllocationManager {
      * @param length  The length in bytes that this ArrowBuf will provide access to.
      * @param manager An optional BufferManager argument that can be used to manage expansion of
      *                this ArrowBuf
-     * @return A new ArrowBuf that shares references with all ArrowBufs associated with this
-     * BufferLedger
+     * @return A new ArrowBuf that shares references with all ArrowBufs associated with this BufferLedger
      */
     public ArrowBuf newArrowBuf(int offset, int length, BufferManager manager) {
       allocator.assertOpen();
@@ -433,7 +411,7 @@ public class AllocationManager {
      * @return Amount of accounted(owned) memory associated with this ledger.
      */
     public int getAccountedSize() {
-      try (AutoCloseableLock read = readLock.open()) {
+      synchronized (this) {
         if (owningLedger == this) {
           return size;
         } else {

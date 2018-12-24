@@ -19,7 +19,7 @@
 
 # Generating Arrow Flatbuffers code in Rust
 
-I compiled flatbuffers locally from commit 21591916afea4f50bb448fd071c3fccbc1d8034f and ran these commands to generate the source files:
+I compiled flatbuffers locally from commit 87704e987eb51dbd9852d7cae4e8013d47ad6eef and ran these commands to generate the source files:
 
 ```bash
 flatc --rust ../../../format/File.fbs
@@ -28,6 +28,11 @@ flatc --rust ../../../format/Message.fbs
 flatc --rust ../../../format/Tensor.fbs
 ```
 
-There seems to be a bug in the current Flatbuffers code in the Rust implementation, so I had to manually search and replace to change `type__type` to `type_type`.
+There seems to be a bug ([Issue #5052](https://github.com/google/flatbuffers/issues/5052))in the current Flatbuffers code in the Rust implementation, so I had to manually search and replace to change `type__type` to `type_type`.
 
-I also removed the generated namespace `org::apache::arrow::ipc` and had to manually add imports at the top of each file.
+I also had to manually add some imports in the generated files so that they could reference types from the other generated files. Here's an example.
+
+```rust
+// MANUALLY ADDED
+use crate::ipc::Schema_generated::org::apache::arrow::flatbuf::*;
+```

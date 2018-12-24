@@ -19,12 +19,26 @@
 # instruction sets that would boost performance.
 include(CheckCXXCompilerFlag)
 # x86/amd64 compiler flags
-CHECK_CXX_COMPILER_FLAG("-msse3" CXX_SUPPORTS_SSE3)
+CHECK_CXX_COMPILER_FLAG("-msse4.2" CXX_SUPPORTS_SSE4_2)
 # power compiler flags
 CHECK_CXX_COMPILER_FLAG("-maltivec" CXX_SUPPORTS_ALTIVEC)
+# Arm64 compiler flags
+CHECK_CXX_COMPILER_FLAG("-march=armv8-a+crc" CXX_SUPPORTS_ARMCRC)
+
+# Support C11
+set(CMAKE_C_STANDARD 11)
+
+# This ensures that things like gnu++11 get passed correctly
+set(CMAKE_CXX_STANDARD 11)
+
+# We require a C++11 compliant compiler
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Build with -fPIC so that can static link our libraries into other people's
+# shared libraries
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # compiler flags that are common across debug/release builds
-
 if (WIN32)
   # TODO(wesm): Change usages of C runtime functions that MSVC says are
   # insecure, like std::getenv
@@ -80,10 +94,6 @@ if (NOT BUILD_WARNING_LEVEL)
 endif(NOT BUILD_WARNING_LEVEL)
 
 string(TOUPPER ${BUILD_WARNING_LEVEL} UPPERCASE_BUILD_WARNING_LEVEL)
-
-if (NOT ("${COMPILER_FAMILY}" STREQUAL "msvc"))
-  set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -std=c++11")
-endif()
 
 if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   # Pre-checkin builds
@@ -207,16 +217,20 @@ if (BUILD_WARNING_FLAGS)
 endif(BUILD_WARNING_FLAGS)
 
 # Only enable additional instruction sets if they are supported
-if (CXX_SUPPORTS_SSE3 AND ARROW_SSE3)
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse3")
+if (CXX_SUPPORTS_SSE4_2)
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse4.2")
 endif()
 
 if (CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -maltivec")
 endif()
 
-if (ARROW_USE_SSE)
-  add_definitions(-DARROW_USE_SSE)
+if (CXX_SUPPORTS_ARMCRC)
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc")
+endif()
+
+if (ARROW_USE_SIMD)
+  add_definitions(-DARROW_USE_SIMD)
 endif()
 
 if (APPLE)
@@ -351,6 +365,7 @@ message("Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")
+elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_FASTDEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_FASTDEBUG}")

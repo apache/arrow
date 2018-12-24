@@ -226,6 +226,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     install(TARGETS ${LIB_NAME}_shared
+      ${INSTALL_IS_OPTIONAL}
       EXPORT ${PROJECT_NAME}-targets
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -259,6 +260,10 @@ function(ADD_ARROW_LIB LIB_NAME)
       set(LIB_NAME_STATIC ${LIB_NAME})
     endif()
 
+    if (ARROW_BUILD_STATIC AND WIN32)
+      target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_STATIC)
+    endif()
+
     set_target_properties(${LIB_NAME}_static
       PROPERTIES
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
@@ -268,6 +273,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       LINK_PUBLIC ${ARG_STATIC_LINK_LIBS})
 
     install(TARGETS ${LIB_NAME}_static
+      ${INSTALL_IS_OPTIONAL}
       EXPORT ${PROJECT_NAME}-targets
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -286,7 +292,7 @@ endfunction()
 ############################################################
 # Add a new micro benchmark, with or without an executable that should be built.
 # If benchmarks are enabled then they will be run along side unit tests with ctest.
-# 'make runbenchmark' and 'make unittest' to build/run only benchmark or unittests,
+# 'make benchmark' and 'make unittest' to build/run only benchmark or unittests,
 # respectively.
 #
 # REL_BENCHMARK_NAME is the name of the benchmark app. It may be a single component
@@ -298,53 +304,70 @@ endfunction()
 # of 'benchmark'.
 #
 # Arguments after the test name will be passed to set_tests_properties().
-function(ADD_ARROW_BENCHMARK REL_BENCHMARK_NAME)
+#
+# \arg PREFIX a string to append to the name of the benchmark executable. For
+# example, if you have src/arrow/foo/bar-benchmark.cc, then PREFIX "foo" will
+# create test executable foo-bar-benchmark
+# \arg LABELS the benchmark label or labels to assign the unit tests to. By
+# default, benchmarks will go in the "benchmark" group. Custom targets for the
+# group names must exist
+function(ADD_BENCHMARK REL_BENCHMARK_NAME)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX LABELS)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
   if(NO_BENCHMARKS)
     return()
   endif()
   get_filename_component(BENCHMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
+
+  if(ARG_PREFIX)
+    set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
+  endif()
 
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
     # This benchmark has a corresponding .cc file, set it up as an executable.
     set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
     add_executable(${BENCHMARK_NAME} "${REL_BENCHMARK_NAME}.cc")
     target_link_libraries(${BENCHMARK_NAME} ${ARROW_BENCHMARK_LINK_LIBS})
-    add_dependencies(runbenchmark ${BENCHMARK_NAME})
+    add_dependencies(benchmark ${BENCHMARK_NAME})
     set(NO_COLOR "--color_print=false")
+
+    if (ARG_EXTRA_LINK_LIBS)
+      target_link_libraries(${BENCHMARK_NAME} ${ARG_EXTRA_LINK_LIBS})
+    endif()
   else()
     # No executable, just invoke the benchmark (probably a script) directly.
     set(BENCHMARK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME})
     set(NO_COLOR "")
   endif()
 
+  # Add test as dependency of relevant label targets
+  add_dependencies(all-benchmarks ${BENCHMARK_NAME})
+  foreach (TARGET ${ARG_LABELS})
+    add_dependencies(${TARGET} ${BENCHMARK_NAME})
+  endforeach()
+
+  if (ARG_DEPENDENCIES)
+    add_dependencies(${BENCHMARK_NAME} ${ARG_DEPENDENCIES})
+  endif()
+
+  if (ARG_LABELS)
+    set(ARG_LABELS "benchmark;${ARG_LABELS}")
+  else()
+    set(ARG_LABELS benchmark)
+  endif()
+
   add_test(${BENCHMARK_NAME}
     ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} benchmark ${BENCHMARK_PATH} ${NO_COLOR})
-  set_tests_properties(${BENCHMARK_NAME} PROPERTIES LABELS "benchmark")
-  if(ARGN)
-    set_tests_properties(${BENCHMARK_NAME} PROPERTIES ${ARGN})
-  endif()
+  set_property(TEST ${BENCHMARK_NAME}
+    APPEND PROPERTY
+    LABELS ${ARG_LABELS})
 endfunction()
-
-# A wrapper for add_dependencies() that is compatible with NO_BENCHMARKS.
-function(ADD_ARROW_BENCHMARK_DEPENDENCIES REL_BENCHMARK_NAME)
-  if(NO_BENCHMARKS)
-    return()
-  endif()
-  get_filename_component(BENCMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
-
-  add_dependencies(${BENCHMARK_NAME} ${ARGN})
-endfunction()
-
-# A wrapper for target_link_libraries() that is compatible with NO_BENCHMARKS.
-function(ARROW_BENCHMARK_LINK_LIBRARIES REL_BENCHMARK_NAME)
-    if(NO_BENCHMARKS)
-    return()
-  endif()
-  get_filename_component(BENCHMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
-
-  target_link_libraries(${BENCHMARK_NAME} ${ARGN})
-endfunction()
-
 
 ############################################################
 # Testing
@@ -356,42 +379,34 @@ endfunction()
 # net/net_util-test). Either way, the last component must be a globally
 # unique name.
 #
+# If given, SOURCES is the list of C++ source files to compile into the test
+# executable.  Otherwise, "REL_TEST_NAME.cc" is used.
+#
 # The unit test is added with a label of "unittest" to support filtering with
 # ctest.
 #
 # Arguments after the test name will be passed to set_tests_properties().
 #
+# \arg ENABLED if passed, add this unit test even if ARROW_BUILD_TESTS is off
 # \arg PREFIX a string to append to the name of the test executable. For
 # example, if you have src/arrow/foo/bar-test.cc, then PREFIX "foo" will create
 # test executable foo-bar-test
 # \arg LABELS the unit test label or labels to assign the unit tests
 # to. By default, unit tests will go in the "unittest" group, but if we have
 # multiple unit tests in some subgroup, you can assign a test to multiple
-# groups using the syntax unittest;GROUP2;GROUP3. Custom targets for the group
+# groups use the syntax unittest;GROUP2;GROUP3. Custom targets for the group
 # names must exist
-function(ADD_ARROW_TEST REL_TEST_NAME)
-  set(options NO_VALGRIND)
+function(ADD_TEST_CASE REL_TEST_NAME)
+  set(options NO_VALGRIND ENABLED)
   set(one_value_args)
-  set(multi_value_args STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES EXTRA_DEPENDENCIES
-    LABELS PREFIX)
+  set(multi_value_args SOURCES STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES
+      EXTRA_DEPENDENCIES LABELS PREFIX)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  if (NOT "${ARROW_TEST_INCLUDE_LABELS}" STREQUAL "")
-    set(_SKIP_TEST TRUE)
-    foreach (_INCLUDED_LABEL ${ARG_LABELS})
-      if ("${ARG_LABELS}" MATCHES "${_INCLUDED_LABEL}")
-        set(_SKIP_TEST FALSE)
-      endif()
-    endforeach()
-    if (_SKIP_TEST)
-      return()
-    endif()
-  endif()
-
-  if (NO_TESTS)
+  if (NO_TESTS AND NOT ARG_ENABLED)
     return()
   endif()
   get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
@@ -400,44 +415,34 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     set(TEST_NAME "${ARG_PREFIX}-${TEST_NAME}")
   endif()
 
-  if (ARG_LABELS)
-    set(ARG_LABELS "${ARG_LABELS}")
+  if (ARG_SOURCES)
+    set(SOURCES ${ARG_SOURCES})
   else()
-    set(ARG_LABELS unittest)
+    set(SOURCES "${REL_TEST_NAME}.cc")
   endif()
 
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME}.cc)
-    # This test has a corresponding .cc file, set it up as an executable.
-    set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
-    add_executable(${TEST_NAME} "${REL_TEST_NAME}.cc")
+  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
+  add_executable(${TEST_NAME} ${SOURCES})
 
-    if (ARG_STATIC_LINK_LIBS)
-      # Customize link libraries
-      target_link_libraries(${TEST_NAME} ${ARG_STATIC_LINK_LIBS})
-    else()
-      target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
-    endif()
-
-    if (ARG_EXTRA_LINK_LIBS)
-      target_link_libraries(${TEST_NAME} ${ARG_EXTRA_LINK_LIBS})
-    endif()
-
-    if (ARG_EXTRA_INCLUDES)
-      target_include_directories(${TEST_NAME} SYSTEM PUBLIC
-        ${ARG_EXTRA_INCLUDES}
-        )
-    endif()
-
-    if (ARG_EXTRA_DEPENDENCIES)
-      add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
-    endif()
-
-    foreach (TEST_LABEL ${ARG_LABELS})
-      add_dependencies(${TEST_LABEL} ${TEST_NAME})
-    endforeach()
+  if (ARG_STATIC_LINK_LIBS)
+    # Customize link libraries
+    target_link_libraries(${TEST_NAME} PRIVATE ${ARG_STATIC_LINK_LIBS})
   else()
-    # No executable, just invoke the test (probably a script) directly.
-    set(TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME})
+    target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS})
+  endif()
+
+  if (ARG_EXTRA_LINK_LIBS)
+    target_link_libraries(${TEST_NAME} PRIVATE ${ARG_EXTRA_LINK_LIBS})
+  endif()
+
+  if (ARG_EXTRA_INCLUDES)
+    target_include_directories(${TEST_NAME} SYSTEM PUBLIC
+      ${ARG_EXTRA_INCLUDES}
+      )
+  endif()
+
+  if (ARG_EXTRA_DEPENDENCIES)
+    add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
   endif()
 
   if (ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)
@@ -455,29 +460,80 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
       ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} test ${TEST_PATH})
   endif()
 
+  # Add test as dependency of relevant targets
+  add_dependencies(all-tests ${TEST_NAME})
+  foreach (TARGET ${ARG_LABELS})
+    add_dependencies(${TARGET} ${TEST_NAME})
+  endforeach()
+
+  if (ARG_LABELS)
+    set(ARG_LABELS "unittest;${ARG_LABELS}")
+  else()
+    set(ARG_LABELS unittest)
+  endif()
+
   set_property(TEST ${TEST_NAME}
     APPEND PROPERTY
     LABELS ${ARG_LABELS})
 endfunction()
 
-# A wrapper for add_dependencies() that is compatible with NO_TESTS.
-function(ADD_ARROW_TEST_DEPENDENCIES REL_TEST_NAME)
-  if(NO_TESTS)
+############################################################
+# Examples
+############################################################
+# Add a new example, with or without an executable that should be built.
+# If examples are enabled then they will be run along side unit tests with ctest.
+# 'make runexample' to build/run only examples.
+#
+# REL_EXAMPLE_NAME is the name of the example app. It may be a single component
+# (e.g. monotime-example) or contain additional components (e.g.
+# net/net_util-example). Either way, the last component must be a globally
+# unique name.
+
+# The example will registered as unit test with ctest with a label
+# of 'example'.
+#
+# Arguments after the test name will be passed to set_tests_properties().
+#
+# \arg PREFIX a string to append to the name of the example executable. For
+# example, if you have src/arrow/foo/bar-example.cc, then PREFIX "foo" will
+# create test executable foo-bar-example
+function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
+  if(NO_EXAMPLES)
     return()
   endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
+  get_filename_component(EXAMPLE_NAME ${REL_EXAMPLE_NAME} NAME_WE)
 
-  add_dependencies(${TEST_NAME} ${ARGN})
-endfunction()
-
-# A wrapper for target_link_libraries() that is compatible with NO_TESTS.
-function(ARROW_TEST_LINK_LIBRARIES REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
+  if(ARG_PREFIX)
+    set(EXAMPLE_NAME "${ARG_PREFIX}-${EXAMPLE_NAME}")
   endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
 
-  target_link_libraries(${TEST_NAME} ${ARGN})
+  if(EXISTS ${CMAKE_SOURCE_DIR}/examples/arrow/${REL_EXAMPLE_NAME}.cc)
+    # This example has a corresponding .cc file, set it up as an executable.
+    set(EXAMPLE_PATH "${EXECUTABLE_OUTPUT_PATH}/${EXAMPLE_NAME}")
+    add_executable(${EXAMPLE_NAME} "${REL_EXAMPLE_NAME}.cc")
+    target_link_libraries(${EXAMPLE_NAME} ${ARROW_EXAMPLE_LINK_LIBS})
+    add_dependencies(runexample ${EXAMPLE_NAME})
+    set(NO_COLOR "--color_print=false")
+
+    if (ARG_EXTRA_LINK_LIBS)
+      target_link_libraries(${EXAMPLE_NAME} ${ARG_EXTRA_LINK_LIBS})
+    endif()
+  endif()
+
+  if (ARG_DEPENDENCIES)
+    add_dependencies(${EXAMPLE_NAME} ${ARG_DEPENDENCIES})
+  endif()
+
+  add_test(${EXAMPLE_NAME} ${EXAMPLE_PATH})
+  set_tests_properties(${EXAMPLE_NAME} PROPERTIES LABELS "example")
 endfunction()
 
 ############################################################
@@ -508,4 +564,37 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
   set_target_properties(${REL_FUZZING_NAME}
       PROPERTIES
       LINK_FLAGS "-fsanitize=fuzzer")
+endfunction()
+
+###################################################
+
+function(ARROW_INSTALL_ALL_HEADERS PATH)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args PATTERN)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if (NOT ARG_PATTERN)
+    # The .hpp extension is used by some vendored libraries
+    set(ARG_PATTERN "*.h" "*.hpp")
+  endif()
+  file(GLOB CURRENT_DIRECTORY_HEADERS ${ARG_PATTERN})
+
+  set(PUBLIC_HEADERS)
+  foreach(HEADER ${CURRENT_DIRECTORY_HEADERS})
+    if (NOT ((HEADER MATCHES "internal")))
+      LIST(APPEND PUBLIC_HEADERS ${HEADER})
+    endif()
+  endforeach()
+  install(FILES
+    ${PUBLIC_HEADERS}
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PATH}")
+endfunction()
+
+function(ARROW_ADD_PKG_CONFIG MODULE)
+  configure_file(${MODULE}.pc.in
+    "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
+    @ONLY)
+  install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 endfunction()

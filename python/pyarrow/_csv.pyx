@@ -252,6 +252,9 @@ cdef class ConvertOptions:
     column_types: dict, optional
         Map column names to column types
         (disabling type inference on those columns).
+    null_values: list, optional
+        A sequence of strings that denote nulls in the data
+        (defaults are appropriate in most cases).
     """
     cdef:
         CCSVConvertOptions options
@@ -259,12 +262,14 @@ cdef class ConvertOptions:
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, check_utf8=None, column_types=None):
+    def __init__(self, check_utf8=None, column_types=None, null_values=None):
         self.options = CCSVConvertOptions.Defaults()
         if check_utf8 is not None:
             self.check_utf8 = check_utf8
         if column_types is not None:
             self.column_types = column_types
+        if null_values is not None:
+            self.null_values = null_values
 
     @property
     def check_utf8(self):
@@ -305,6 +310,17 @@ cdef class ConvertOptions:
             typ = pyarrow_unwrap_data_type(ensure_type(v))
             assert typ != NULL
             self.options.column_types[tobytes(k)] = typ
+
+    @property
+    def null_values(self):
+        """
+        A sequence of strings that denote nulls in the data.
+        """
+        return [frombytes(x) for x in self.options.null_values]
+
+    @null_values.setter
+    def null_values(self, value):
+        self.options.null_values = [tobytes(x) for x in value]
 
 
 cdef _get_reader(input_file, shared_ptr[InputStream]* out):

@@ -54,16 +54,19 @@ libgandiva_glib_la_LIBADD =			\
 libgandiva_glib_la_headers =			\
 	expression.h				\
 	gandiva-glib.h				\
+	node.h					\
 	projector.h
 
 libgandiva_glib_la_sources =			\
 	expression.cpp				\
+	node.cpp				\
 	projector.cpp				\
 	$(libgandiva_glib_la_headers)
 
 libgandiva_glib_la_cpp_headers =		\
 	expression.hpp				\
 	gandiva-glib.hpp			\
+	node.hpp				\
 	projector.hpp
 
 libgandiva_glib_la_SOURCES =			\

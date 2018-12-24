@@ -49,10 +49,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowDecimal128,
                            garrow_decimal128,
                            G_TYPE_OBJECT)
 
-#define GARROW_DECIMAL128_GET_PRIVATE(obj)                 \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                      \
-                               GARROW_TYPE_DECIMAL128,     \
-                               GArrowDecimal128Private))
+#define GARROW_DECIMAL128_GET_PRIVATE(obj)         \
+  static_cast<GArrowDecimal128Private *>(          \
+     garrow_decimal128_get_instance_private(       \
+       GARROW_DECIMAL128(obj)))
 
 static void
 garrow_decimal128_finalize(GObject *object)
@@ -141,9 +141,9 @@ garrow_decimal128_new_integer(const gint64 data)
  * @decimal: A #GArrowDecimal128.
  * @scale: The scale of the decimal.
  *
- * Returns: The string representation of the decimal.
+ * Returns: (transfer full): The string representation of the decimal.
  *
- * It should be freed with g_free() when no longer needed.
+ *   It should be freed with g_free() when no longer needed.
  *
  * Since: 0.10.0
  */
@@ -159,9 +159,9 @@ garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal, gint32 scale)
  * garrow_decimal128_to_string:
  * @decimal: A #GArrowDecimal128.
  *
- * Returns: The string representation of the decimal.
+ * Returns: (transfer full): The string representation of the decimal.
  *
- * It should be freed with g_free() when no longer needed.
+ *   It should be freed with g_free() when no longer needed.
  *
  * Since: 0.10.0
  */

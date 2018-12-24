@@ -51,7 +51,7 @@ import org.junit.Test;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 /**
- * Test conversion between Flatbuf and Pojo field representations
+ * Test conversion between Flatbuf and Pojo field representations.
  */
 public class TestConvert {
 

@@ -16,13 +16,10 @@
 # under the License.
 
 cmake_minimum_required(VERSION 3.2)
+message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-# Extract Arrow version number
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../java/pom.xml" POM_XML)
-string(REGEX MATCHALL
-  "\n  <version>[^<]+</version>" ARROW_VERSION_TAG "${POM_XML}")
-string(REGEX REPLACE
-  "(\n  <version>|</version>)" "" ARROW_VERSION "${ARROW_VERSION_TAG}")
+set(ARROW_VERSION "0.12.0-SNAPSHOT")
+
 string(REGEX MATCH
   "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -56,12 +53,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_mo
 include(CMakeParseArguments)
 include(ExternalProject)
 include(FindPkgConfig)
-
-# This ensures that things like gnu++11 get passed correctly
-set(CMAKE_CXX_STANDARD 11)
-
-# We require a C++11 compliant compiler
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(GNUInstallDirs)
 
@@ -121,79 +112,32 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     OFF)
 
   option(ARROW_BUILD_TESTS
-    "Build the Arrow googletest unit tests"
-    ON)
-
-  set(ARROW_TEST_INCLUDE_LABELS "" CACHE STRING
-    "Only build unit tests having the indicated label or labels. \
-Pass multiple labels by dividing with semicolons")
+    "Build the Arrow googletest unit tests, default OFF"
+    OFF)
 
   option(ARROW_BUILD_BENCHMARKS
-    "Build the Arrow micro benchmarks"
+    "Build the Arrow micro benchmarks, default OFF"
     OFF)
+
+  option(ARROW_BUILD_EXAMPLES
+    "Build the Arrow examples, default OFF"
+    OFF)
+
+  set(ARROW_TEST_LINKAGE "shared" CACHE STRING
+    "Linkage of Arrow libraries with unit tests executables. \
+static|shared (default shared)")
 
   option(ARROW_NO_DEPRECATED_API
     "Exclude deprecated APIs from build"
-    OFF)
-
-  option(ARROW_COMPUTE
-    "Build the Arrow Compute Modules"
-    ON)
-
-  option(ARROW_EXTRA_ERROR_CONTEXT
-    "Compile with extra error context (line numbers, code)"
-    OFF)
-
-  option(ARROW_FLIGHT
-    "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)"
-    OFF)
-
-  option(ARROW_IPC
-    "Build the Arrow IPC extensions"
-    ON)
-
-  option(ARROW_GPU
-    "Build the Arrow GPU extensions (requires CUDA installation)"
-    OFF)
-
-  option(ARROW_ORC
-    "Build the Arrow ORC adapter"
-    OFF)
-
-  option(ARROW_TENSORFLOW
-    "Build Arrow with TensorFlow support enabled"
-    OFF)
-
-  option(ARROW_JEMALLOC
-    "Build the Arrow jemalloc-based allocator"
-    ON)
-
-  option(ARROW_HDFS
-    "Build the Arrow HDFS bridge"
-    ON)
-
-  option(ARROW_BOOST_USE_SHARED
-    "Rely on boost shared libraries where relevant"
-    ON)
-
-  option(ARROW_BOOST_VENDORED
-    "Use vendored Boost instead of existing Boost"
-    OFF)
-
-  option(ARROW_PROTOBUF_USE_SHARED
-    "Rely on Protocol Buffers shared libraries where relevant"
-    OFF)
-
-  option(ARROW_PYTHON
-    "Build the Arrow CPython extensions"
     OFF)
 
   option(ARROW_FUZZING
     "Build Arrow Fuzzing executables"
     OFF)
 
-  option(ARROW_SSE3
-    "Build Arrow with SSE3"
+  # Disable this option to exercise non-SIMD fallbacks
+  option(ARROW_USE_SIMD
+    "Build with SIMD optimizations"
     ON)
 
   option(ARROW_ALTIVEC
@@ -212,6 +156,61 @@ Pass multiple labels by dividing with semicolons")
     "Build Arrow libraries with install_name set to @rpath"
     ON)
 
+  option(ARROW_GENERATE_COVERAGE
+    "Build with C++ code coverage enabled"
+    OFF)
+
+  option(ARROW_VERBOSE_LINT
+    "If off, 'quiet' flags will be passed to linting tools"
+    OFF)
+
+  #----------------------------------------------------------------------
+  # Project components to enable / disable building
+
+  option(ARROW_COMPUTE
+    "Build the Arrow Compute Modules"
+    ON)
+
+  option(ARROW_FLIGHT
+    "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)"
+    OFF)
+
+  option(ARROW_GANDIVA
+    "Build the Gandiva libraries"
+    OFF)
+
+  option(ARROW_PARQUET
+    "Build the Parquet libraries"
+    OFF)
+
+  option(ARROW_IPC
+    "Build the Arrow IPC extensions"
+    ON)
+
+  option(ARROW_CUDA
+    "Build the Arrow CUDA extensions (requires CUDA toolkit)"
+    OFF)
+
+  option(ARROW_ORC
+    "Build the Arrow ORC adapter"
+    OFF)
+
+  option(ARROW_TENSORFLOW
+    "Build Arrow with TensorFlow support enabled"
+    OFF)
+
+  option(ARROW_JEMALLOC
+    "Build the Arrow jemalloc-based allocator"
+    ON)
+
+  option(ARROW_HDFS
+    "Build the Arrow HDFS bridge"
+    ON)
+
+  option(ARROW_PYTHON
+    "Build the Arrow CPython extensions"
+    OFF)
+
   option(ARROW_HIVESERVER2
     "Build the HiveServer2 client and Arrow adapter"
     OFF)
@@ -224,9 +223,29 @@ Pass multiple labels by dividing with semicolons")
     "Build the plasma object store java client"
     OFF)
 
-  option(ARROW_USE_SSE
-    "Build with SSE4 optimizations"
+  #----------------------------------------------------------------------
+  # Thirdparty toolchain options
+
+  option(ARROW_VERBOSE_THIRDPARTY_BUILD
+    "If off, output from ExternalProjects will be logged to files rather than shown"
     OFF)
+
+  option(ARROW_BOOST_USE_SHARED
+    "Rely on boost shared libraries where relevant"
+    ON)
+
+  option(ARROW_BOOST_VENDORED
+    "Use vendored Boost instead of existing Boost. \
+Note that this requires linking Boost statically"
+    OFF)
+
+  option(ARROW_PROTOBUF_USE_SHARED
+    "Rely on Protocol Buffers shared libraries where relevant"
+    OFF)
+
+  option(ARROW_USE_GLOG
+    "Build libraries with glog support for pluggable logging"
+    ON)
 
   option(ARROW_WITH_BROTLI
     "Build with Brotli compression"
@@ -258,21 +277,8 @@ Pass multiple labels by dividing with semicolons")
     "Build with zstd compression"
     ${ARROW_WITH_ZSTD_DEFAULT})
 
-  option(ARROW_GENERATE_COVERAGE
-    "Build with C++ code coverage enabled"
-    OFF)
-
-  option(ARROW_VERBOSE_THIRDPARTY_BUILD
-    "If off, output from ExternalProjects will be logged to files rather than shown"
-    OFF)
-
-  option(ARROW_VERBOSE_LINT
-    "If off, 'quiet' flags will be passed to linting tools"
-    OFF)
-
-  option(ARROW_USE_GLOG
-    "Build libraries with glog support for pluggable logging"
-    ON)
+  #----------------------------------------------------------------------
+  # Windows options
 
   if (MSVC)
     option(ARROW_USE_CLCACHE
@@ -293,10 +299,8 @@ Pass multiple labels by dividing with semicolons")
       OFF)
   endif()
 
-  # Parquet-related build options
-  option(ARROW_PARQUET
-    "Build the Parquet libraries"
-    OFF)
+  #----------------------------------------------------------------------
+  # Parquet build options
 
   option(PARQUET_MINIMAL_DEPENDENCY
     "Depend only on Thirdparty headers to build libparquet. \
@@ -311,21 +315,38 @@ Always OFF if building binaries"
     "Build the Parquet examples. Requires static libraries to be built."
     OFF)
 
-  # Gandiva related build options
-  option(ARROW_GANDIVA
-    "Build the Gandiva libraries"
-    OFF)
+  #----------------------------------------------------------------------
+  # Gandiva build options
 
   option(ARROW_GANDIVA_JAVA
     "Build the Gandiva JNI wrappers"
-    ON)
+    OFF)
 
-  option(ARROW_GANDIVA_BUILD_TESTS
-    "Build the Gandiva googletest unit tests"
-    ON)
+  # ARROW-3860: Temporary workaround
+  option(ARROW_GANDIVA_STATIC_LIBSTDCPP
+    "Include -static-libstdc++ -static-libgcc when linking with Gandiva static libraries"
+    OFF)
 
+  #----------------------------------------------------------------------
+  # Advanced developer options
+
+  option(ARROW_EXTRA_ERROR_CONTEXT
+    "Compile with extra error context (line numbers, code)"
+    OFF)
+
+  option(ARROW_OPTIONAL_INSTALL
+    "If enabled install ONLY targets that have already been built. Please be \
+advised that if this is enabled 'install' will fail silently on components \
+that have not been built"
+    OFF)
 endif()
 
+if (ARROW_OPTIONAL_INSTALL)
+  # Don't make the "install" target depend on the "all" target
+  set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
+
+  set(INSTALL_IS_OPTIONAL OPTIONAL)
+endif()
 
 ############################################################
 # "make lint" target
@@ -345,13 +366,9 @@ if (UNIX)
     IF(NOT ((item MATCHES "_generated.h") OR
             (item MATCHES "pyarrow_api.h") OR
             (item MATCHES "pyarrow_lib.h") OR
-            (item MATCHES "xxhash.h") OR
-            (item MATCHES "xxhash.cc") OR
             (item MATCHES "config.h") OR
-            (item MATCHES "util/string_view/") OR
-            (item MATCHES "util/variant") OR
+            (item MATCHES "vendored/") OR
             (item MATCHES "zmalloc.h") OR
-            (item MATCHES "gandiva/precompiled/date.h") OR
             (item MATCHES "ae.h")))
       LIST(APPEND FILTERED_LINT_FILES ${item})
     ENDIF()
@@ -409,11 +426,17 @@ endif()
 ############################################################
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  # Currently the compression tests require at least these libraries; bz2 and
+  # zstd are optional. See ARROW-3984
   set(ARROW_WITH_BROTLI ON)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
   set(ARROW_WITH_ZLIB ON)
-  set(ARROW_WITH_ZSTD ON)
+endif()
+
+if(ARROW_BUILD_TESTS)
+  # JSON parsing of arrays is required for Arrow unit tests
+  set(ARROW_IPC ON)
 endif()
 
 if(PARQUET_BUILD_EXAMPLES OR PARQUET_BUILD_EXECUTABLES)
@@ -437,11 +460,21 @@ endif()
 if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
 else()
-  set(ARROW_BUILD_SHARED ON)
+  add_custom_target(all-tests)
+  add_custom_target(unittest ctest -L unittest)
+  add_dependencies(unittest all-tests)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
+else()
+  add_custom_target(all-benchmarks)
+  add_custom_target(benchmark ctest -L benchmark)
+  add_dependencies(benchmark all-benchmarks)
+endif()
+
+if(NOT ARROW_BUILD_EXAMPLES)
+  set(NO_EXAMPLES 1)
 endif()
 
 if (NOT ARROW_FUZZING)
@@ -483,8 +516,6 @@ include(SetupCxxFlags)
 ############################################################
 # Dependencies
 ############################################################
-
-add_custom_target(arrow_dependencies)
 
 include(BuildUtils)
 enable_testing()
@@ -677,17 +708,14 @@ endif()
 
 if (ARROW_USE_GLOG)
   SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
+  add_definitions("-DARROW_USE_GLOG")
 endif()
+
+add_custom_target(arrow_dependencies)
+add_dependencies(arrow_dependencies toolchain)
 
 if (ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
-endif()
-
-if (ARROW_BUILD_BENCHMARKS)
-  set(ARROW_BENCHMARK_LINK_LIBS
-    arrow_benchmark_main
-    arrow_static
-    gtest_static)
 endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
@@ -708,30 +736,52 @@ if (NOT MSVC)
     ${CMAKE_DL_LIBS})
 endif()
 
-if (ARROW_BUILD_STATIC)
-  set(ARROW_MIN_TEST_LIBS
-    arrow_static
-    gtest_main_static
-    gtest_static)
-else ()
-  set(ARROW_MIN_TEST_LIBS
-    arrow_shared
-    ${ARROW_LINK_LIBS}
-    double-conversion_static
-    ${BOOST_SYSTEM_LIBRARY}
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_REGEX_LIBRARY}
-    gtest_main_static
-    gtest_static)
-endif()
+set(ARROW_TEST_STATIC_LINK_LIBS
+  arrow_testing_static
+  arrow_static
+  ${ARROW_LINK_LIBS}
+  gtest_main_static
+  gtest_static)
+
+set(ARROW_TEST_SHARED_LINK_LIBS
+  arrow_testing_shared
+  arrow_shared
+  ${ARROW_LINK_LIBS}
+  double-conversion_static
+  ${BOOST_SYSTEM_LIBRARY}
+  ${BOOST_FILESYSTEM_LIBRARY}
+  ${BOOST_REGEX_LIBRARY}
+  gtest_main_static
+  gtest_static)
 
 if(NOT MSVC)
-  set(ARROW_MIN_TEST_LIBS
-    ${ARROW_MIN_TEST_LIBS}
+  set(ARROW_TEST_SHARED_LINK_LIBS
+    ${ARROW_TEST_SHARED_LINK_LIBS}
     ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
+if ("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
+  if (NOT ARROW_BUILD_SHARED)
+    message(FATAL_ERROR "If using shared linkage for unit tests, must also \
+pass ARROW_BUILD_SHARED=on")
+  endif()
+  # Use shared linking for unit tests if it's available
+  set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_EXAMPLE_LINK_LIBS arrow_shared)
+else()
+  if (NOT ARROW_BUILD_STATIC)
+    message(FATAL_ERROR "If using static linkage for unit tests, must also \
+pass ARROW_BUILD_STATIC=on")
+  endif()
+  set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_EXAMPLE_LINK_LIBS arrow_static)
+endif()
+
+if (ARROW_BUILD_BENCHMARKS)
+  set(ARROW_BENCHMARK_LINK_LIBS
+    arrow_benchmark_main
+    ${ARROW_TEST_LINK_LIBS})
+endif()
 
 if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
@@ -777,26 +827,21 @@ endif()
 
 add_subdirectory(src/arrow)
 
-if(ARROW_FLIGHT)
-  add_subdirectory(src/arrow/flight)
-endif()
-
-if(ARROW_PYTHON)
-  add_subdirectory(src/arrow/python)
-endif()
-
-if(ARROW_HIVESERVER2)
-  add_subdirectory(src/arrow/dbi/hiveserver2)
-endif()
-
 if(ARROW_PARQUET)
   add_subdirectory(src/parquet)
   add_subdirectory(tools/parquet)
-  add_subdirectory(examples/parquet/low-level-api)
+  if (PARQUET_BUILD_EXAMPLES)
+    add_subdirectory(examples/parquet)
+  endif()
 endif()
 
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
+endif()
+
+if(ARROW_BUILD_EXAMPLES)
+  add_custom_target(runexample ctest -L example)
+  add_subdirectory(examples/arrow)
 endif()
 
 include(CMakePackageConfigHelpers)

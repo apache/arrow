@@ -54,6 +54,9 @@ struct Client {
   /// Object ids that are used by this client.
   std::unordered_set<ObjectID> object_ids;
 
+  /// File descriptors that are used by this client.
+  std::unordered_set<int> used_fds;
+
   /// The file descriptor used to push notifications to client. This is only valid
   /// if client subscribes to plasma store. -1 indicates invalid.
   int notification_fd;
@@ -223,8 +226,8 @@ class PlasmaStore {
   std::unordered_map<int, std::unique_ptr<Client>> connected_clients_;
 
   std::unordered_set<ObjectID> deletion_cache_;
-#ifdef PLASMA_GPU
-  arrow::gpu::CudaDeviceManager* manager_;
+#ifdef PLASMA_CUDA
+  arrow::cuda::CudaDeviceManager* manager_;
 #endif
 };
 

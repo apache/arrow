@@ -58,12 +58,12 @@
 #include "plasma/io.h"
 #include "plasma/malloc.h"
 
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"
 
-using arrow::gpu::CudaBuffer;
-using arrow::gpu::CudaContext;
-using arrow::gpu::CudaDeviceManager;
+using arrow::cuda::CudaBuffer;
+using arrow::cuda::CudaContext;
+using arrow::cuda::CudaDeviceManager;
 #endif
 
 using arrow::util::ArrowLog;
@@ -117,7 +117,7 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string dir
   store_info_.memory_capacity = system_memory;
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
 }
@@ -162,7 +162,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   }
   // Try to evict objects until there is enough space.
   uint8_t* pointer = nullptr;
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   std::shared_ptr<CudaBuffer> gpu_handle;
   std::shared_ptr<CudaContext> context_;
   if (device_num != 0) {
@@ -195,7 +195,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
         break;
       }
     } else {
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
       DCHECK_OK(context_->Allocate(data_size + metadata_size, &gpu_handle));
       break;
 #endif
@@ -220,7 +220,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   entry->device_num = device_num;
   entry->create_time = std::time(nullptr);
   entry->construct_duration = -1;
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   if (device_num != 0) {
     DCHECK_OK(gpu_handle->ExportForIpc(&entry->ipc_handle));
     result->ipc_handle = entry->ipc_handle;
@@ -246,7 +246,7 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
   DCHECK(object != nullptr);
   DCHECK(entry != nullptr);
   DCHECK(entry->state == ObjectState::PLASMA_SEALED);
-#ifdef PLASMA_GPU
+#ifdef PLASMA_CUDA
   if (entry->device_num != 0) {
     object->ipc_handle = entry->ipc_handle;
   }
@@ -327,21 +327,11 @@ void PlasmaStore::ReturnFromGet(GetRequest* get_req) {
   if (s.ok()) {
     // Send all of the file descriptors for the present objects.
     for (int store_fd : store_fds) {
-      int error_code = send_fd(get_req->client->fd, store_fd);
-      // If we failed to send the file descriptor, loop until we have sent it
-      // successfully. TODO(rkn): This is problematic for two reasons. First
-      // of all, sending the file descriptor should just succeed without any
-      // errors, but sometimes I see a "Message too long" error number.
-      // Second, looping like this allows a client to potentially block the
-      // plasma store event loop which should never happen.
-      while (error_code < 0) {
-        if (errno == EMSGSIZE) {
-          ARROW_LOG(WARNING) << "Failed to send file descriptor, retrying.";
-          error_code = send_fd(get_req->client->fd, store_fd);
-          continue;
-        }
-        WarnIfSigpipe(error_code, get_req->client->fd);
-        break;
+      // Only send the file descriptor if it hasn't been sent (see analogous
+      // logic in GetStoreFd in client.cc).
+      if (get_req->client->used_fds.find(store_fd) == get_req->client->used_fds.end()) {
+        WarnIfSigpipe(send_fd(get_req->client->fd, store_fd), get_req->client->fd);
+        get_req->client->used_fds.insert(store_fd);
       }
     }
   }
@@ -798,8 +788,12 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       HANDLE_SIGPIPE(
           SendCreateReply(client->fd, object_id, &object, error_code, mmap_size),
           client->fd);
-      if (error_code == PlasmaError::OK && device_num == 0) {
+      // Only send the file descriptor if it hasn't been sent (see analogous
+      // logic in GetStoreFd in client.cc). Similar in ReturnFromGet.
+      if (error_code == PlasmaError::OK && device_num == 0 &&
+          client->used_fds.find(object.store_fd) == client->used_fds.end()) {
         WarnIfSigpipe(send_fd(client->fd, object.store_fd), client->fd);
+        client->used_fds.insert(object.store_fd);
       }
     } break;
     case fb::MessageType::PlasmaCreateAndSealRequest: {

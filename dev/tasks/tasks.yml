@@ -146,7 +146,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 2.7
       unicode_width: 16
       test_docker_images: []
@@ -157,7 +156,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 2.7
       unicode_width: 32
       test_docker_images:
@@ -169,7 +167,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 3.5
       unicode_width: 16
       test_docker_images:
@@ -181,7 +178,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 3.6
       unicode_width: 16
       test_docker_images:
@@ -193,7 +189,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 3.7
       unicode_width: 16
       test_docker_images:
@@ -207,10 +202,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14.5
-      pandas_version: 0.23.0
       python_version: 2.7
-      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp27-cp27m-macosx_10_6_intel.whl
 
@@ -218,10 +210,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14.5
-      pandas_version: 0.23.0
       python_version: 3.5
-      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp35-cp35m-macosx_10_6_intel.whl
 
@@ -229,10 +218,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14.5
-      pandas_version: 0.23.0
       python_version: 3.6
-      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp36-cp36m-macosx_10_6_intel.whl
 
@@ -240,10 +226,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14.5
-      pandas_version: 0.23.0
       python_version: 3.7
-      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp37-cp37m-macosx_10_6_intel.whl
 
@@ -253,7 +236,6 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.14.5
       python_version: 3.5
     artifacts:
       - pyarrow-{version}-cp35-cp35m-win_amd64.whl
@@ -262,7 +244,6 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.14.5
       python_version: 3.6
     artifacts:
       - pyarrow-{version}-cp36-cp36m-win_amd64.whl
@@ -271,7 +252,6 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.14.5
       python_version: 3.7
     artifacts:
       - pyarrow-{version}-cp37-cp37m-win_amd64.whl
@@ -293,19 +273,20 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
       - libarrow-glib12-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib12-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu12-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda12_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
@@ -318,6 +299,13 @@ tasks:
       - libparquet-glib12_{no_rc_version}-1_amd64.deb
       - libparquet12-dbgsym_{no_rc_version}-1_amd64.deb
       - libparquet12_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma-glib12_{no_rc_version}-1_amd64.deb
+      - libplasma12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma12_{no_rc_version}-1_amd64.deb
 
   ubuntu-trusty:
     platform: linux
@@ -335,6 +323,7 @@ tasks:
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
@@ -345,6 +334,11 @@ tasks:
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
       - libparquet-glib12_{no_rc_version}-1_amd64.deb
       - libparquet12_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib12_{no_rc_version}-1_amd64.deb
+      - libplasma12_{no_rc_version}-1_amd64.deb
 
   ubuntu-xenial:
     platform: linux
@@ -361,16 +355,17 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
       - libarrow-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda12_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
@@ -379,6 +374,11 @@ tasks:
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
       - libparquet-glib12_{no_rc_version}-1_amd64.deb
       - libparquet12_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib12_{no_rc_version}-1_amd64.deb
+      - libplasma12_{no_rc_version}-1_amd64.deb
 
   ubuntu-bionic:
     platform: linux
@@ -395,16 +395,17 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
       - libarrow-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda12_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
@@ -413,6 +414,11 @@ tasks:
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
       - libparquet-glib12_{no_rc_version}-1_amd64.deb
       - libparquet12_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib12_{no_rc_version}-1_amd64.deb
+      - libplasma12_{no_rc_version}-1_amd64.deb
 
   ubuntu-cosmic:
     platform: linux
@@ -429,16 +435,17 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
       - libarrow-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu-glib12_{no_rc_version}-1_amd64.deb
-      - libarrow-gpu12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib12_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda12_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
@@ -447,6 +454,11 @@ tasks:
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
       - libparquet-glib12_{no_rc_version}-1_amd64.deb
       - libparquet12_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib12_{no_rc_version}-1_amd64.deb
+      - libplasma12_{no_rc_version}-1_amd64.deb
 
   centos-6:
     platform: linux
@@ -462,6 +474,8 @@ tasks:
       - arrow-libs-{no_rc_version}-1.el6.x86_64.rpm
       - arrow-python-devel-{no_rc_version}-1.el6.x86_64.rpm
       - arrow-python-libs-{no_rc_version}-1.el6.x86_64.rpm
+      - plasma-devel-{no_rc_version}-1.el6.x86_64.rpm
+      - plasma-libs-{no_rc_version}-1.el6.x86_64.rpm
 
   centos-7:
     platform: linux
@@ -485,6 +499,11 @@ tasks:
       - parquet-glib-doc-{no_rc_version}-1.el7.x86_64.rpm
       - parquet-glib-libs-{no_rc_version}-1.el7.x86_64.rpm
       - parquet-libs-{no_rc_version}-1.el7.x86_64.rpm
+      - plasma-devel-{no_rc_version}-1.el7.x86_64.rpm
+      - plasma-glib-devel-{no_rc_version}-1.el7.x86_64.rpm
+      - plasma-glib-doc-{no_rc_version}-1.el7.x86_64.rpm
+      - plasma-glib-libs-{no_rc_version}-1.el7.x86_64.rpm
+      - plasma-libs-{no_rc_version}-1.el7.x86_64.rpm
 
   ############################## Gandiva Tasks ################################
 

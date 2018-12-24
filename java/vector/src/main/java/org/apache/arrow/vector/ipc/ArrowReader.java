@@ -93,7 +93,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
    * Load the next ArrowRecordBatch to the vector schema root if available.
    *
    * @return true if a batch was read, false on EOS
-   * @throws IOException
+   * @throws IOException on error
    */
   public abstract boolean loadNextBatch() throws IOException;
 
@@ -108,7 +108,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
    * Close resources, including vector schema root and dictionary vectors, and the
    * underlying read source.
    *
-   * @throws IOException
+   * @throws IOException on error
    */
   @Override
   public void close() throws IOException {
@@ -120,7 +120,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
    * closeReadChannel is true then close the underlying read source, otherwise leave it open.
    *
    * @param closeReadSource Flag to control if closing the underlying read source
-   * @throws IOException
+   * @throws IOException on error
    */
   public void close(boolean closeReadSource) throws IOException {
     if (initialized) {
@@ -138,7 +138,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   /**
    * Close the underlying read source.
    *
-   * @throws IOException
+   * @throws IOException on error
    */
   protected abstract void closeReadSource() throws IOException;
 
@@ -146,7 +146,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
    * Read the Schema from the source, will be invoked at the beginning the initialization.
    *
    * @return the read Schema
-   * @throws IOException
+   * @throws IOException on error
    */
   protected abstract Schema readSchema() throws IOException;
 
@@ -155,14 +155,14 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
    * called N times, where N is the number of dictionaries indicated by the schema Fields.
    *
    * @return the read ArrowDictionaryBatch
-   * @throws IOException
+   * @throws IOException on error
    */
   protected abstract ArrowDictionaryBatch readDictionary() throws IOException;
 
   /**
    * Initialize if not done previously.
    *
-   * @throws IOException
+   * @throws IOException on error
    */
   protected void ensureInitialized() throws IOException {
     if (!initialized) {
@@ -172,7 +172,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   }
 
   /**
-   * Reads the schema and initializes the vectors
+   * Reads the schema and initializes the vectors.
    */
   private void initialize() throws IOException {
     Schema originalSchema = readSchema();
@@ -202,7 +202,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   /**
    * Ensure the reader has been initialized and reset the VectorSchemaRoot row count to 0.
    *
-   * @throws IOException
+   * @throws IOException on error
    */
   protected void prepareLoadNextBatch() throws IOException {
     ensureInitialized();
@@ -225,7 +225,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   /**
    * Load an ArrowDictionaryBatch to the readers dictionary vectors.
    *
-   * @param dictionaryBatch
+   * @param dictionaryBatch dictionary batch to load
    */
   protected void loadDictionary(ArrowDictionaryBatch dictionaryBatch) {
     long id = dictionaryBatch.getDictionaryId();

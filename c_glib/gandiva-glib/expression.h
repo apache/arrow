@@ -21,6 +21,8 @@
 
 #include <arrow-glib/arrow-glib.h>
 
+#include <gandiva-glib/node.h>
+
 G_BEGIN_DECLS
 
 #define GGANDIVA_TYPE_EXPRESSION (ggandiva_expression_get_type())
@@ -35,9 +37,8 @@ struct _GGandivaExpressionClass
   GObjectClass parent_class;
 };
 
-GGandivaExpression *ggandiva_expression_new(const gchar *function,
-                                            GList *input_fields,
-                                            GArrowField *output_field);
+GGandivaExpression *ggandiva_expression_new(GGandivaNode *root_node,
+                                            GArrowField *result_field);
 gchar *ggandiva_expression_to_string(GGandivaExpression *expression);
 
 G_END_DECLS

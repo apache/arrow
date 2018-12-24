@@ -199,6 +199,8 @@ public final class AutoCloseables {
   };
 
   /**
+   * Get an AutoCloseable that does nothing.
+   *
    * @return A do-nothing autocloseable
    */
   public static AutoCloseable noop() {

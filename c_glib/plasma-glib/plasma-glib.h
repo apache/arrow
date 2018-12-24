@@ -20,3 +20,4 @@
 #pragma once
 
 #include <plasma-glib/client.h>
+#include <plasma-glib/object.h>

@@ -222,7 +222,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
   /**
-   * Same as {@link #close()}
+   * Same as {@link #close()}.
    */
   @Override
   public void clear() {
@@ -270,7 +270,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     long curAllocationSizeValue = valueAllocationSizeInBytes;
     long curAllocationSizeValidity = validityAllocationSizeInBytes;
 
-    if (curAllocationSizeValue > MAX_ALLOCATION_SIZE) {
+    if (align(curAllocationSizeValue) + curAllocationSizeValidity > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory exceeds limit");
     }
 
@@ -292,7 +292,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * elements in the vector. This method must be called prior to using the ValueVector.
    *
    * @param valueCount the desired number of elements in the vector
-   * @throws org.apache.arrow.memory.OutOfMemoryException
+   * @throws org.apache.arrow.memory.OutOfMemoryException on error
    */
   public void allocateNew(int valueCount) {
     long valueBufferSize = valueCount * typeWidth;
@@ -302,7 +302,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
       valueBufferSize = validityBufferSize;
     }
 
-    if (valueBufferSize > MAX_ALLOCATION_SIZE) {
+    if (align(valueBufferSize) + validityBufferSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
 
@@ -317,6 +317,13 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     }
   }
 
+  /*
+   * align to a 8-byte value.
+   */
+  private long align(long size) {
+    return ((size + 7) / 8) * 8;
+  }
+
   /**
    * Actual memory allocation is done by this function. All the calculations
    * and knowledge about what size to allocate is upto the callers of this
@@ -327,14 +334,24 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * conditions.
    */
   private void allocateBytes(final long valueBufferSize, final long validityBufferSize) {
-    /* allocate data buffer */
-    int curSize = (int) valueBufferSize;
-    valueBuffer = allocator.buffer(curSize);
+    int valueBufferSlice = (int)align(valueBufferSize);
+    int validityBufferSlice = (int)validityBufferSize;
+
+    /* allocate combined buffer */
+    ArrowBuf buffer = allocator.buffer(valueBufferSlice + validityBufferSlice);
+
+    valueAllocationSizeInBytes = valueBufferSlice;
+    valueBuffer = buffer.slice(0, valueBufferSlice);
+    valueBuffer.retain();
     valueBuffer.readerIndex(0);
-    valueAllocationSizeInBytes = curSize;
-    /* allocate validity buffer */
-    allocateValidityBuffer((int) validityBufferSize);
+
+    validityAllocationSizeInBytes = validityBufferSlice;
+    validityBuffer = buffer.slice(valueBufferSlice, validityBufferSlice);
+    validityBuffer.retain();
+    validityBuffer.readerIndex(0);
     zeroVector();
+
+    buffer.release();
   }
 
   /**
@@ -365,7 +382,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
 
   /**
    * Get the size (number of bytes) of underlying buffers used by this
-   * vector
+   * vector.
    * @return size of underlying buffers.
    */
   @Override
@@ -422,43 +439,50 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public void reAlloc() {
-    valueBuffer = reallocBufferHelper(valueBuffer, true);
-    validityBuffer = reallocBufferHelper(validityBuffer, false);
-  }
+    int valueBaseSize = Integer.max(valueBuffer.capacity(), valueAllocationSizeInBytes);
+    long newValueBufferSlice = align(valueBaseSize * 2L);
+    long newValidityBufferSlice;
+    if (typeWidth > 0) {
+      long targetValueBufferSize = align(BaseAllocator.nextPowerOfTwo(newValueBufferSlice));
+      long targetValueCount = targetValueBufferSize / typeWidth;
+      targetValueBufferSize -= getValidityBufferSizeFromCount((int) targetValueCount);
+      if (newValueBufferSlice < targetValueBufferSize) {
+        newValueBufferSlice = targetValueBufferSize;
+      }
 
-  /**
-   * Helper method for reallocating a particular internal buffer
-   * Returns the new buffer.
-   */
-  private ArrowBuf reallocBufferHelper(ArrowBuf buffer, final boolean dataBuffer) {
-    final int currentBufferCapacity = buffer.capacity();
-    long baseSize = (dataBuffer ? valueAllocationSizeInBytes
-            : validityAllocationSizeInBytes);
-
-    if (baseSize < (long) currentBufferCapacity) {
-      baseSize = (long) currentBufferCapacity;
+      newValidityBufferSlice = getValidityBufferSizeFromCount((int)(newValueBufferSlice / typeWidth));
+    } else {
+      newValidityBufferSlice = newValueBufferSlice;
     }
 
-    long newAllocationSize = baseSize * 2L;
-    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    long newAllocationSize = newValueBufferSlice + newValidityBufferSlice;
     assert newAllocationSize >= 1;
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer");
     }
 
-    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
-    newBuf.setBytes(0, buffer, 0, currentBufferCapacity);
-    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
-    buffer.release(1);
-    buffer = newBuf;
-    if (dataBuffer) {
-      valueAllocationSizeInBytes = (int) newAllocationSize;
-    } else {
-      validityAllocationSizeInBytes = (int) newAllocationSize;
-    }
+    final ArrowBuf newBuffer = allocator.buffer((int) newAllocationSize);
+    final ArrowBuf newValueBuffer = newBuffer.slice(0, (int)newValueBufferSlice);
+    newValueBuffer.setBytes(0, valueBuffer, 0, valueBuffer.capacity());
+    newValueBuffer.setZero(valueBuffer.capacity(), (int)newValueBufferSlice - valueBuffer.capacity());
+    newValueBuffer.retain();
+    newValueBuffer.readerIndex(0);
+    valueBuffer.release();
+    valueBuffer = newValueBuffer;
+    valueAllocationSizeInBytes = (int)newValueBufferSlice;
 
-    return buffer;
+    final ArrowBuf newValidityBuffer = newBuffer.slice((int)newValueBufferSlice,
+        (int)newValidityBufferSlice);
+    newValidityBuffer.setBytes(0, validityBuffer, 0, validityBuffer.capacity());
+    newValidityBuffer.setZero(validityBuffer.capacity(), (int)newValidityBufferSlice - validityBuffer.capacity());
+    newValidityBuffer.retain();
+    newValidityBuffer.readerIndex(0);
+    validityBuffer.release();
+    validityBuffer = newValidityBuffer;
+    validityAllocationSizeInBytes = (int)newValidityBufferSlice;
+
+    newBuffer.release();
   }
 
   @Override
@@ -482,8 +506,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
 
   /**
    * Get the inner child vectors.
-   * @return list of child vectors for complex types, empty list for scalar vector
-   * types
+   * @return list of child vectors for complex types, empty list for scalar vector types
    */
   @Override
   public List<FieldVector> getChildrenFromFields() {
@@ -554,7 +577,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * Construct a transfer pair of this vector and another vector of same type.
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
-   * @param callBack
+   * @param callBack not used
    * @return TransferPair
    */
   @Override
@@ -685,15 +708,15 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *          common getters and setters                            *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          common getters and setters                            |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   /**
-   * Get the number of elements that are null in the vector
+   * Get the number of elements that are null in the vector.
    *
    * @return the number of null elements.
    */
@@ -763,7 +786,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
 
   /**
    * Check if the given index is within the current value capacity
-   * of the vector
+   * of the vector.
    *
    * @param index  position to check
    * @return true if index is within the current value capacity
@@ -793,7 +816,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     final int byteIndex = index >> 3;
     final byte b = validityBuffer.getByte(byteIndex);
     final int bitIndex = index & 7;
-    return Long.bitCount(b & (1L << bitIndex));
+    return (b >> bitIndex) & 0x01;
   }
 
   /**
@@ -824,11 +847,11 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
 
-  /******************************************************************
-   *                                                                *
-   *                helper methods for setters                      *
-   *                                                                *
-   ******************************************************************/
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |                helper methods for setters                      |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
 
   protected void handleSafe(int index) {

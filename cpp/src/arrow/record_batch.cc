@@ -26,6 +26,7 @@
 
 #include "arrow/array.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
@@ -94,16 +95,13 @@ class SimpleRecordBatch : public RecordBatch {
     DCHECK(column != nullptr);
 
     if (!field->type()->Equals(column->type())) {
-      std::stringstream ss;
-      ss << "Column data type " << field->type()->name()
-         << " does not match field data type " << column->type()->name();
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Column data type ", field->type()->name(),
+                             " does not match field data type ", column->type()->name());
     }
     if (column->length() != num_rows_) {
-      std::stringstream ss;
-      ss << "Added column's length must match record batch's length. Expected length "
-         << num_rows_ << " but got length " << column->length();
-      return Status::Invalid(ss.str());
+      return Status::Invalid(
+          "Added column's length must match record batch's length. Expected length ",
+          num_rows_, " but got length ", column->length());
     }
 
     std::shared_ptr<Schema> new_schema;
@@ -228,17 +226,14 @@ Status RecordBatch::Validate() const {
     auto arr_shared = this->column_data(i);
     const ArrayData& arr = *arr_shared;
     if (arr.length != num_rows_) {
-      std::stringstream ss;
-      ss << "Number of rows in column " << i << " did not match batch: " << arr.length
-         << " vs " << num_rows_;
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Number of rows in column ", i,
+                             " did not match batch: ", arr.length, " vs ", num_rows_);
     }
     const auto& schema_type = *schema_->field(i)->type();
     if (!arr.type->Equals(schema_type)) {
-      std::stringstream ss;
-      ss << "Column " << i << " type not match schema: " << arr.type->ToString() << " vs "
-         << schema_type.ToString();
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Column ", i,
+                             " type not match schema: ", arr.type->ToString(), " vs ",
+                             schema_type.ToString());
     }
   }
   return Status::OK();
@@ -248,5 +243,23 @@ Status RecordBatch::Validate() const {
 // Base record batch reader
 
 RecordBatchReader::~RecordBatchReader() {}
+
+Status RecordBatchReader::ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches) {
+  while (true) {
+    std::shared_ptr<RecordBatch> batch;
+    RETURN_NOT_OK(ReadNext(&batch));
+    if (!batch) {
+      break;
+    }
+    batches->emplace_back(std::move(batch));
+  }
+  return Status::OK();
+}
+
+Status RecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  RETURN_NOT_OK(ReadAll(&batches));
+  return Table::FromRecordBatches(schema(), batches, table);
+}
 
 }  // namespace arrow

@@ -32,7 +32,7 @@ import org.apache.arrow.util.Preconditions;
 class Accountant implements AutoCloseable {
 
   /**
-   * The parent allocator
+   * The parent allocator.
    */
   protected final Accountant parent;
 
@@ -53,7 +53,7 @@ class Accountant implements AutoCloseable {
   private final AtomicLong allocationLimit = new AtomicLong();
 
   /**
-   * Currently allocated amount of memory;
+   * Currently allocated amount of memory.
    */
   private final AtomicLong locallyHeldMemory = new AtomicLong();
 
@@ -87,8 +87,8 @@ class Accountant implements AutoCloseable {
    * Attempt to allocate the requested amount of memory. Either completely succeeds or completely
    * fails. Constructs a a
    * log of delta
-   * <p>
-   * If it fails, no changes are made to accounting.
+   *
+   * <p>If it fails, no changes are made to accounting.
    *
    * @param size The amount of memory to reserve in bytes.
    * @return True if the allocation was successful, false if the allocation failed.

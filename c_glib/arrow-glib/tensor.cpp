@@ -51,8 +51,10 @@ enum {
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowTensor, garrow_tensor, G_TYPE_OBJECT)
 
-#define GARROW_TENSOR_GET_PRIVATE(obj)                                   \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj), GARROW_TYPE_TENSOR, GArrowTensorPrivate))
+#define GARROW_TENSOR_GET_PRIVATE(obj)         \
+  static_cast<GArrowTensorPrivate *>(          \
+     garrow_tensor_get_instance_private(       \
+       GARROW_TENSOR(obj)))
 
 static void
 garrow_tensor_dispose(GObject *object)
@@ -279,7 +281,9 @@ garrow_tensor_get_buffer(GArrowTensor *tensor)
  * @tensor: A #GArrowTensor.
  * @n_dimensions: (out): The number of dimensions.
  *
- * Returns: (array length=n_dimensions): The shape of the tensor.
+ * Returns: (array length=n_dimensions) (transfer full):
+ *   The shape of the tensor.
+ *
  *   It should be freed with g_free() when no longer needed.
  *
  * Since: 0.3.0
@@ -304,7 +308,9 @@ garrow_tensor_get_shape(GArrowTensor *tensor, gint *n_dimensions)
  * @tensor: A #GArrowTensor.
  * @n_strides: (out): The number of strides.
  *
- * Returns: (array length=n_strides): The strides of the tensor.
+ * Returns: (array length=n_strides) (transfer full):
+ *   The strides of the tensor.
+ *
  *   It should be freed with g_free() when no longer needed.
  *
  * Since: 0.3.0

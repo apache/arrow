@@ -31,7 +31,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
- * Utility class for validating arrow data structures
+ * Utility class for validating arrow data structures.
  */
 public class Validator {
 
@@ -49,7 +49,7 @@ public class Validator {
   }
 
   /**
-   * Validate two Dictionary encodings and dictionaries with id's from the encodings
+   * Validate two Dictionary encodings and dictionaries with id's from the encodings.
    */
   public static void compareDictionaries(
       List<DictionaryEncoding> encodings1,

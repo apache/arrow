@@ -13,9 +13,13 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
-// under the License.pub mod file;
+// under the License.
 
-pub mod file;
-pub mod message;
-pub mod schema;
-pub mod tensor;
+///! Generated code
+
+#[allow(non_snake_case)]
+
+pub mod File_generated;
+pub mod Message_generated;
+pub mod Schema_generated;
+pub mod Tensor_generated;

@@ -17,18 +17,16 @@
 
 #include "arrow/memory_pool.h"
 
-#include <algorithm>
-#include <atomic>
-#include <cerrno>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
+#include <algorithm>  // IWYU pragma: keep
+#include <cstdlib>    // IWYU pragma: keep
+#include <cstring>    // IWYU pragma: keep
+#include <iostream>   // IWYU pragma: keep
 #include <limits>
 #include <memory>
 #include <sstream>  // IWYU pragma: keep
 
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging.h"  // IWYU pragma: keep
 
 #ifdef ARROW_JEMALLOC
 // Needed to support jemalloc 3 and 4
@@ -57,31 +55,23 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
   *out =
       reinterpret_cast<uint8_t*>(_aligned_malloc(static_cast<size_t>(size), kAlignment));
   if (!*out) {
-    std::stringstream ss;
-    ss << "malloc of size " << size << " failed";
-    return Status::OutOfMemory(ss.str());
+    return Status::OutOfMemory("malloc of size ", size, " failed");
   }
 #elif defined(ARROW_JEMALLOC)
   *out = reinterpret_cast<uint8_t*>(mallocx(
       std::max(static_cast<size_t>(size), kAlignment), MALLOCX_ALIGN(kAlignment)));
   if (*out == NULL) {
-    std::stringstream ss;
-    ss << "malloc of size " << size << " failed";
-    return Status::OutOfMemory(ss.str());
+    return Status::OutOfMemory("malloc of size ", size, " failed");
   }
 #else
   const int result = posix_memalign(reinterpret_cast<void**>(out), kAlignment,
                                     static_cast<size_t>(size));
   if (result == ENOMEM) {
-    std::stringstream ss;
-    ss << "malloc of size " << size << " failed";
-    return Status::OutOfMemory(ss.str());
+    return Status::OutOfMemory("malloc of size ", size, " failed");
   }
 
   if (result == EINVAL) {
-    std::stringstream ss;
-    ss << "invalid alignment parameter: " << kAlignment;
-    return Status::Invalid(ss.str());
+    return Status::Invalid("invalid alignment parameter: ", kAlignment);
   }
 #endif
   return Status::OK();
@@ -120,10 +110,8 @@ class DefaultMemoryPool : public MemoryPool {
     *ptr = reinterpret_cast<uint8_t*>(
         rallocx(*ptr, static_cast<size_t>(new_size), MALLOCX_ALIGN(kAlignment)));
     if (*ptr == NULL) {
-      std::stringstream ss;
-      ss << "realloc of size " << new_size << " failed";
       *ptr = previous_ptr;
-      return Status::OutOfMemory(ss.str());
+      return Status::OutOfMemory("realloc of size ", new_size, " failed");
     }
 #else
     // Note: We cannot use realloc() here as it doesn't guarantee alignment.
@@ -164,6 +152,10 @@ class DefaultMemoryPool : public MemoryPool {
  private:
   internal::MemoryPoolStats stats_;
 };
+
+std::unique_ptr<MemoryPool> MemoryPool::CreateDefault() {
+  return std::unique_ptr<MemoryPool>(new DefaultMemoryPool);
+}
 
 MemoryPool* default_memory_pool() {
   static DefaultMemoryPool default_memory_pool_;

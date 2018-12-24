@@ -1,6 +1,6 @@
 Package: arrow
 Title: R Integration to 'Apache' 'Arrow'
-Version: 0.0.0.9000
+Version: 0.12.0-SNAPSHOT
 Authors@R: c(
     person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")),
     person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("ctb")),
@@ -54,12 +54,16 @@ Collate:
     'Table.R'
     'array.R'
     'buffer.R'
+    'compute.R'
     'dictionary.R'
     'feather.R'
     'io.R'
     'memory_pool.R'
     'message.R'
     'on_exit.R'
+    'read_record_batch.R'
+    'read_table.R'
     'reexports-bit64.R'
     'reexports-tibble.R'
+    'write_arrow.R'
     'zzz.R'

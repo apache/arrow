@@ -79,6 +79,14 @@ void CheckCodecRoundtrip(Compression::type ctype, const vector<uint8_t>& data) {
 
   ASSERT_EQ(data, decompressed);
 
+  // decompress with size with c2
+  int64_t actual_decompressed_size;
+  ASSERT_OK(c2->Decompress(compressed.size(), compressed.data(), decompressed.size(),
+                           decompressed.data(), &actual_decompressed_size));
+
+  ASSERT_EQ(data, decompressed);
+  ASSERT_EQ(data.size(), actual_decompressed_size);
+
   // compress with c2
   int64_t actual_size2;
   ASSERT_OK(c2->Compress(data.size(), data.data(), max_compressed_len, compressed.data(),
@@ -90,6 +98,14 @@ void CheckCodecRoundtrip(Compression::type ctype, const vector<uint8_t>& data) {
                            decompressed.data()));
 
   ASSERT_EQ(data, decompressed);
+
+  // decompress with size with c1
+  int64_t actual_decompressed_size2;
+  ASSERT_OK(c1->Decompress(compressed.size(), compressed.data(), decompressed.size(),
+                           decompressed.data(), &actual_decompressed_size2));
+
+  ASSERT_EQ(data, decompressed);
+  ASSERT_EQ(data.size(), actual_decompressed_size2);
 }
 
 // Check the streaming compressor against one-shot decompression
@@ -329,6 +345,35 @@ TEST_P(CodecTest, CodecRoundtrip) {
   }
 }
 
+TEST_P(CodecTest, OutputBufferIsSmall) {
+  auto type = GetCompression();
+  if (type != Compression::SNAPPY) {
+    return;
+  }
+
+  std::unique_ptr<Codec> codec;
+  ASSERT_OK(Codec::Create(type, &codec));
+
+  vector<uint8_t> data = MakeRandomData(10);
+  auto max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
+  std::vector<uint8_t> compressed(max_compressed_len);
+  std::vector<uint8_t> decompressed(data.size() - 1);
+
+  int64_t actual_size;
+  ASSERT_OK(codec->Compress(data.size(), data.data(), max_compressed_len,
+                            compressed.data(), &actual_size));
+  compressed.resize(actual_size);
+
+  int64_t actual_decompressed_size;
+  std::stringstream ss;
+  ss << "Invalid: Output buffer size (" << decompressed.size() << ") must be "
+     << data.size() << " or larger.";
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, ss.str(),
+      codec->Decompress(compressed.size(), compressed.data(), decompressed.size(),
+                        decompressed.data(), &actual_decompressed_size));
+}
+
 TEST_P(CodecTest, StreamingCompressor) {
   if (GetCompression() == Compression::SNAPPY) {
     // SKIP: snappy doesn't support streaming compression
@@ -403,16 +448,21 @@ TEST_P(CodecTest, StreamingRoundtrip) {
 
 INSTANTIATE_TEST_CASE_P(TestGZip, CodecTest, ::testing::Values(Compression::GZIP));
 
-INSTANTIATE_TEST_CASE_P(TestZSTD, CodecTest, ::testing::Values(Compression::ZSTD));
-
 INSTANTIATE_TEST_CASE_P(TestSnappy, CodecTest, ::testing::Values(Compression::SNAPPY));
 
 INSTANTIATE_TEST_CASE_P(TestLZ4, CodecTest, ::testing::Values(Compression::LZ4));
 
 INSTANTIATE_TEST_CASE_P(TestBrotli, CodecTest, ::testing::Values(Compression::BROTLI));
 
+// bz2 requires a binary installation, there is no ExternalProject
 #if ARROW_WITH_BZ2
 INSTANTIATE_TEST_CASE_P(TestBZ2, CodecTest, ::testing::Values(Compression::BZ2));
+#endif
+
+// The ExternalProject for zstd does not build on CMake < 3.7, so we do not
+// require it here
+#ifdef ARROW_WITH_ZSTD
+INSTANTIATE_TEST_CASE_P(TestZSTD, CodecTest, ::testing::Values(Compression::ZSTD));
 #endif
 
 }  // namespace util

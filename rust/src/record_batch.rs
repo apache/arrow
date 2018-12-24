@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::array::*;
-use super::datatypes::*;
 use std::sync::Arc;
+
+use crate::array::*;
+use crate::datatypes::*;
 
 /// A batch of column-oriented data
 pub struct RecordBatch {
@@ -52,7 +53,7 @@ impl RecordBatch {
         self.columns.len()
     }
 
-    pub fn num_rows(&self) -> i64 {
+    pub fn num_rows(&self) -> usize {
         self.columns[0].data().len()
     }
 
@@ -67,8 +68,9 @@ unsafe impl Sync for RecordBatch {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use array_data::*;
-    use buffer::*;
+
+    use crate::array_data::*;
+    use crate::buffer::*;
 
     #[test]
     fn create_record_batch() {
@@ -82,14 +84,14 @@ mod tests {
             .len(5)
             .add_buffer(Buffer::from(v.to_byte_slice()))
             .build();
-        let a = PrimitiveArray::<i32>::from(array_data);
+        let a = Int32Array::from(array_data);
 
         let v = vec![b'a', b'b', b'c', b'd', b'e'];
         let offset_data = vec![0, 1, 2, 3, 4, 5, 6];
         let array_data = ArrayData::builder(DataType::Utf8)
             .len(5)
-            .add_buffer(Buffer::from(v.to_byte_slice()))
             .add_buffer(Buffer::from(offset_data.to_byte_slice()))
+            .add_buffer(Buffer::from(v.to_byte_slice()))
             .build();
         let b = BinaryArray::from(array_data);
 

@@ -30,16 +30,32 @@ in-source and out-of-source builds with the latter one being preferred.
 Building Arrow requires:
 
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be sufficient.
-* CMake
+* CMake 3.2 or higher
 * Boost
 
 On Ubuntu/Debian you can install the requirements with:
 
 ```shell
-sudo apt-get install cmake \
+sudo apt-get install \
+     autoconf \
+     build-essential \
+     cmake \
      libboost-dev \
      libboost-filesystem-dev \
+     libboost-regex-dev \
      libboost-system-dev
+```
+
+On Alpine Linux:
+
+```shell
+apk add autoconf \
+        bash \
+        boost-dev \
+        cmake \
+        g++ \
+        gcc \
+        make
 ```
 
 On macOS, you can use [Homebrew][1]:
@@ -60,7 +76,7 @@ Simple debug build:
     cd arrow/cpp
     mkdir debug
     cd debug
-    cmake ..
+    cmake -DARROW_BUILD_TESTS=ON ..
     make unittest
 
 Simple release build:
@@ -69,10 +85,14 @@ Simple release build:
     cd arrow/cpp
     mkdir release
     cd release
-    cmake .. -DCMAKE_BUILD_TYPE=Release
+    cmake -DARROW_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release ..
     make unittest
 
-Detailed unit test logs will be placed in the build directory under `build/test-logs`.
+If you do not need to build the test suite, you can omit the
+`ARROW_BUILD_TESTS` option (the default is not to build the unit tests).
+
+Detailed unit test logs will be placed in the build directory under
+`build/test-logs`.
 
 On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the
@@ -82,7 +102,35 @@ environment variable (which requires the `locales` package or equivalent):
 export LC_ALL="en_US.UTF-8"
 ```
 
-## Building and Developing Parquet Libraries
+## Modular Build Targets
+
+Since there are several major parts of the C++ project, we have provided
+modular CMake targets for building each library component, group of unit tests
+and benchmarks, and their dependencies:
+
+* `make arrow` for Arrow core libraries
+* `make parquet` for Parquet libraries
+* `make gandiva` for Gandiva (LLVM expression compiler) libraries
+* `make plasma` for Plasma libraries, server
+
+To build the unit tests or benchmarks, add `-tests` or `-benchmarks` to the
+target name. So `make arrow-tests` will build the Arrow core unit tests. Using
+the `-all` target, e.g. `parquet-all`, will build everything.
+
+If you wish to only build and install one or more project subcomponents, we
+have provided the CMake option `ARROW_OPTIONAL_INSTALL` to only install targets
+that have been built. For example, if you only wish to build the Parquet
+libraries, its tests, and its dependencies, you can run:
+
+```
+cmake .. -DARROW_PARQUET=ON -DARROW_OPTIONAL_INSTALL=ON -DARROW_BUILD_TESTS=ON
+make parquet
+make install
+```
+
+If you omit an explicit target when invoking `make`, all targets will be built.
+
+## Parquet Development Notes
 
 To build the C++ libraries for Apache Parquet, add the flag
 `-DARROW_PARQUET=ON` when invoking CMake. The Parquet libraries and unit tests
@@ -117,10 +165,10 @@ not use the macro.
 Follow the directions for simple build except run cmake
 with the `--ARROW_BUILD_BENCHMARKS` parameter set correctly:
 
-    cmake -DARROW_BUILD_BENCHMARKS=ON ..
+    cmake -DARROW_BUILD_TESTS=ON -DARROW_BUILD_BENCHMARKS=ON ..
 
 and instead of make unittest run either `make; ctest` to run both unit tests
-and benchmarks or `make runbenchmark` to run only the benchmark tests.
+and benchmarks or `make benchmark` to run only the benchmark tests.
 
 Benchmark logs will be placed in the build directory under `build/benchmark-logs`.
 
@@ -204,13 +252,11 @@ The Python library must be built against the same Python version for which you
 are building pyarrow, e.g. Python 2.7 or Python 3.6. NumPy must also be
 installed.
 
-### Building GPU extension library (optional)
+### Building CUDA extension library (optional)
 
-The optional `arrow_gpu` shared library can be built by passing
-`-DARROW_GPU=on`. This requires a CUDA installation to build, and to use many
-of the functions you must have a functioning GPU. Currently only CUDA
-functionality is supported, though if there is demand we can also add OpenCL
-interfaces in this library as needed.
+The optional `arrow_cuda` shared library can be built by passing
+`-DARROW_CUDA=on`. This requires a CUDA installation to build, and to use many
+of the functions you must have a functioning CUDA-compatible GPU.
 
 The CUDA toolchain used to build the library can be customized by using the
 `$CUDA_HOME` environment variable.
@@ -252,7 +298,7 @@ The optional `gandiva` libraries and tests can be built by passing
 `-DARROW_GANDIVA=on`.
 
 ```shell
-cmake .. -DARROW_GANDIVA=on
+cmake .. -DARROW_GANDIVA=ON -DARROW_BUILD_TESTS=ON
 make
 ctest -L gandiva
 ```
@@ -282,6 +328,12 @@ matter of convenience, some of the array builder classes have constructors
 which use the default pool without explicitly passing it. You can disable these
 constructors in your application (so that you are accounting properly for all
 memory allocations) by defining `ARROW_NO_DEFAULT_MEMORY_POOL`.
+
+### Header files
+
+We use the `.h` extension for C++ header files. Any header file name not
+containing `internal` is considered to be a public header, and will be
+automatically installed by the build.
 
 ### Error Handling and Exceptions
 
@@ -376,6 +428,12 @@ You may find the required packages at http://releases.llvm.org/download.html
 or use the Debian/Ubuntu APT repositories on https://apt.llvm.org/. On macOS
 with [Homebrew][1] you can get it via `brew install llvm@6`.
 
+Depending on how you installed clang-format, the build system may not be able
+to find it. You can provide an explicit path to your LLVM installation (or the
+root path for the clang tools) with the environment variable
+`$CLANG_TOOLS_PATH` or by passing `-DClangTools_PATH=$PATH_TO_CLANG_TOOLS` when
+invoking CMake.
+
 ## Checking for ABI and API stability
 
 To build ABI compliance reports, you need to install the two tools
@@ -428,6 +486,14 @@ travis-CI (but still surface the potential warnings in `make clang-tidy`). Ideal
 both of these options would be used rarely. Current known uses-cases when they are required:
 
 *  Parameterized tests in google test.
+
+## CMake version requirements
+
+We support CMake 3.2 and higher. Some features require a newer version of CMake:
+
+* Building the benchmarks requires 3.6 or higher
+* Building zstd from source requires 3.7 or higher
+* Building Gandiva JNI bindings requires 3.11 or higher
 
 [1]: https://brew.sh/
 [2]: https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md

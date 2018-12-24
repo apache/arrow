@@ -61,7 +61,7 @@ TEST_F(TestBinary, TestSimple) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data

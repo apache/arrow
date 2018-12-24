@@ -42,7 +42,6 @@ script:
   - docker run --shm-size=2g
       -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.version }}
       -e PYTHON_VERSIONS="{{ python_version }},{{ unicode_width }}"
-      -e WHEEL_VERSION={{ wheel_version }}
       -v $PWD:/io
       -v $PWD/../../:/arrow
       quay.io/xhochy/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh

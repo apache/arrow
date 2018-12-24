@@ -58,10 +58,9 @@ class NumPyDtypeUnifier {
   NumPyDtypeUnifier() : current_type_num_(-1), current_dtype_(NULLPTR) {}
 
   Status InvalidMix(int new_dtype) {
-    std::stringstream ss;
-    ss << "Cannot mix NumPy dtypes " << GetNumPyTypeName(current_type_num_) << " and "
-       << GetNumPyTypeName(new_dtype);
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Cannot mix NumPy dtypes ",
+                           GetNumPyTypeName(current_type_num_), " and ",
+                           GetNumPyTypeName(new_dtype));
   }
 
   int Observe_BOOL(PyArray_Descr* descr, int dtype) { return INVALID; }
@@ -250,9 +249,7 @@ class NumPyDtypeUnifier {
         action = Observe_DATETIME(descr);
         break;
       default:
-        std::stringstream ss;
-        ss << "Unsupported numpy type " << GetNumPyTypeName(dtype) << std::endl;
-        return Status::NotImplemented(ss.str());
+        return Status::NotImplemented("Unsupported numpy type ", GetNumPyTypeName(dtype));
     }
 
     if (action == INVALID) {
@@ -480,10 +477,8 @@ class TypeInferrer {
       } else if (PyBytes_Check(key_obj)) {
         key = internal::PyBytes_AsStdString(key_obj);
       } else {
-        std::stringstream ss;
-        ss << "Expected dict key of type str or bytes, got '" << Py_TYPE(key_obj)->tp_name
-           << "'";
-        return Status::TypeError(ss.str());
+        return Status::TypeError("Expected dict key of type str or bytes, got '",
+                                 Py_TYPE(key_obj)->tp_name, "'");
       }
       // Get or create visitor for this key
       auto it = struct_inferrers_.find(key);
@@ -583,13 +578,13 @@ Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
   return Status::OK();
 }
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 bool IsPyBool(PyObject* obj) { return internal::PyBoolScalar_Check(obj); }
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 bool IsPyInt(PyObject* obj) { return internal::PyIntScalar_Check(obj); }
 
-ARROW_EXPORT
+ARROW_PYTHON_EXPORT
 bool IsPyFloat(PyObject* obj) { return internal::PyFloatScalar_Check(obj); }
 
 }  // namespace py

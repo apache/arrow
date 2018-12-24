@@ -402,10 +402,7 @@ class TimestampConverter : public TypedConverter<TimestampType, TimestampConvert
       std::shared_ptr<DataType> type;
       RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &type));
       if (type->id() != Type::TIMESTAMP) {
-        std::ostringstream ss;
-        ss << "Expected np.datetime64 but got: ";
-        ss << type->ToString();
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Expected np.datetime64 but got: ", type->ToString());
       }
       const TimestampType& ttype = checked_cast<const TimestampType&>(*type);
       if (unit_ != ttype.unit()) {
@@ -705,10 +702,7 @@ Status ListConverter::AppendNdarrayItem(PyObject* obj) {
       return value_converter_->AppendSingleVirtual(obj);
     }
     default: {
-      std::stringstream ss;
-      ss << "Unknown list item type: ";
-      ss << value_type_->ToString();
-      return Status::TypeError(ss.str());
+      return Status::TypeError("Unknown list item type: ", value_type_->ToString());
     }
   }
 }
@@ -911,9 +905,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
           new StructConverter(from_pandas, strict_conversions));
       break;
     default:
-      std::stringstream ss;
-      ss << "Sequence converter for type " << type->ToString() << " not implemented";
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Sequence converter for type ", type->ToString(),
+                                    " not implemented");
   }
   return Status::OK();
 }

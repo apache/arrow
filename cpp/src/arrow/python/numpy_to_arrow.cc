@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <sstream>
@@ -41,6 +42,8 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string.h"
+#include "arrow/util/utf8.h"
 #include "arrow/visitor_inline.h"
 
 #include "arrow/compute/context.h"
@@ -280,9 +283,8 @@ class NumPyConverter {
   }
 
   Status TypeNotImplemented(std::string type_name) {
-    std::stringstream ss;
-    ss << "NumPyConverter doesn't implement <" << type_name << "> conversion. ";
-    return Status::NotImplemented(ss.str());
+    return Status::NotImplemented("NumPyConverter doesn't implement <", type_name,
+                                  "> conversion. ");
   }
 
   MemoryPool* pool_;
@@ -532,54 +534,53 @@ inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* d
   return Status::OK();
 }
 
+// Create 16MB chunks for binary data
+constexpr int32_t kBinaryChunksize = 1 << 24;
+
 Status NumPyConverter::Visit(const BinaryType& type) {
-  BinaryBuilder builder(pool_);
+  ::arrow::internal::ChunkedBinaryBuilder builder(kBinaryChunksize, pool_);
 
   auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
 
-  int item_length = 0;
+  auto AppendNotNull = [&builder, this](const uint8_t* data) {
+    // This is annoying. NumPy allows strings to have nul-terminators, so
+    // we must check for them here
+    const size_t item_size =
+        strnlen(reinterpret_cast<const char*>(data), static_cast<size_t>(itemsize_));
+    return builder.Append(data, static_cast<int32_t>(item_size));
+  };
+
   if (mask_ != nullptr) {
     Ndarray1DIndexer<uint8_t> mask_values(mask_);
     for (int64_t i = 0; i < length_; ++i) {
       if (mask_values[i]) {
         RETURN_NOT_OK(builder.AppendNull());
       } else {
-        // This is annoying. NumPy allows strings to have nul-terminators, so
-        // we must check for them here
-        for (item_length = 0; item_length < itemsize_; ++item_length) {
-          if (data[item_length] == 0) {
-            break;
-          }
-        }
-        RETURN_NOT_OK(builder.Append(data, item_length));
+        RETURN_NOT_OK(AppendNotNull(data));
       }
       data += stride_;
     }
   } else {
     for (int64_t i = 0; i < length_; ++i) {
-      for (item_length = 0; item_length < itemsize_; ++item_length) {
-        // Look for nul-terminator
-        if (data[item_length] == 0) {
-          break;
-        }
-      }
-      RETURN_NOT_OK(builder.Append(data, item_length));
+      RETURN_NOT_OK(AppendNotNull(data));
       data += stride_;
     }
   }
 
-  std::shared_ptr<Array> result;
+  ArrayVector result;
   RETURN_NOT_OK(builder.Finish(&result));
-  return PushArray(result->data());
+  for (auto arr : result) {
+    RETURN_NOT_OK(PushArray(arr->data()));
+  }
+  return Status::OK();
 }
 
 Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {
   auto byte_width = type.byte_width();
 
   if (itemsize_ != byte_width) {
-    std::stringstream ss;
-    ss << "Got bytestring of length " << itemsize_ << " (expected " << byte_width << ")";
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Got bytestring of length ", itemsize_, " (expected ",
+                           byte_width, ")");
   }
 
   FixedSizeBinaryBuilder builder(::arrow::fixed_size_binary(byte_width), pool_);
@@ -634,30 +635,47 @@ Status AppendUTF32(const char* data, int itemsize, int byteorder,
 }  // namespace
 
 Status NumPyConverter::Visit(const StringType& type) {
+  util::InitializeUTF8();
+
   StringBuilder builder(pool_);
 
-  auto data = reinterpret_cast<const char*>(PyArray_DATA(arr_));
+  auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
 
-  char numpy_byteorder = PyArray_DESCR(arr_)->byteorder;
+  char numpy_byteorder = dtype_->byteorder;
 
   // For Python C API, -1 is little-endian, 1 is big-endian
   int byteorder = numpy_byteorder == '>' ? 1 : -1;
 
   PyAcquireGIL gil_lock;
 
+  const bool is_binary_type = dtype_->type_num == NPY_STRING;
+
+  auto AppendNonNullValue = [&](const uint8_t* data) {
+    if (is_binary_type) {
+      if (ARROW_PREDICT_TRUE(util::ValidateUTF8(data, itemsize_))) {
+        return builder.Append(data, itemsize_);
+      } else {
+        return Status::Invalid("Encountered non-UTF8 binary value: ",
+                               HexEncode(data, itemsize_));
+      }
+    } else {
+      return AppendUTF32(reinterpret_cast<const char*>(data), itemsize_, byteorder,
+                         &builder);
+    }
+  };
   if (mask_ != nullptr) {
     Ndarray1DIndexer<uint8_t> mask_values(mask_);
     for (int64_t i = 0; i < length_; ++i) {
       if (mask_values[i]) {
         RETURN_NOT_OK(builder.AppendNull());
       } else {
-        RETURN_NOT_OK(AppendUTF32(data, itemsize_, byteorder, &builder));
+        RETURN_NOT_OK(AppendNonNullValue(data));
       }
       data += stride_;
     }
   } else {
     for (int64_t i = 0; i < length_; ++i) {
-      RETURN_NOT_OK(AppendUTF32(data, itemsize_, byteorder, &builder));
+      RETURN_NOT_OK(AppendNonNullValue(data));
       data += stride_;
     }
   }
@@ -682,9 +700,7 @@ Status NumPyConverter::Visit(const StructType& type) {
     for (auto field : type.children()) {
       PyObject* tup = PyDict_GetItemString(dtype_->fields, field->name().c_str());
       if (tup == NULL) {
-        std::stringstream ss;
-        ss << "Missing field '" << field->name() << "' in struct array";
-        return Status::TypeError(ss.str());
+        return Status::TypeError("Missing field '", field->name(), "' in struct array");
       }
       PyArray_Descr* sub_dtype =
           reinterpret_cast<PyArray_Descr*>(PyTuple_GET_ITEM(tup, 0));

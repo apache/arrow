@@ -31,14 +31,14 @@ import org.apache.arrow.vector.types.pojo.Field;
 import io.netty.buffer.ArrowBuf;
 
 /**
- * Loads buffers into vectors
+ * Loads buffers into vectors.
  */
 public class VectorLoader {
 
   private final VectorSchemaRoot root;
 
   /**
-   * will create children in root based on schema
+   * Construct with a root to load and will create children in root based on schema.
    *
    * @param root the root to add vectors to based on schema
    */
@@ -47,7 +47,7 @@ public class VectorLoader {
   }
 
   /**
-   * Loads the record batch in the vectors
+   * Loads the record batch in the vectors.
    * will not close the record batch
    *
    * @param recordBatch the batch to load

@@ -19,11 +19,13 @@ extern crate arrow;
 extern crate criterion;
 extern crate rand;
 
-use arrow::builder::*;
+use std::mem::size_of;
+
 use criterion::*;
 use rand::distributions::Standard;
 use rand::{thread_rng, Rng};
-use std::mem::size_of;
+
+use arrow::builder::*;
 
 // Build arrays with 512k elements.
 const BATCH_SIZE: usize = 8 << 10;
@@ -35,13 +37,14 @@ fn bench_primitive(c: &mut Criterion) {
         "bench_primitive",
         Benchmark::new("bench_primitive", move |b| {
             b.iter(|| {
-                let mut builder = PrimitiveArrayBuilder::<i64>::new(64);
+                let mut builder = Int64Builder::new(64);
                 for _ in 0..NUM_BATCHES {
-                    black_box(builder.push_slice(&data[..]));
+                    let _ = black_box(builder.push_slice(&data[..]));
                 }
                 black_box(builder.finish());
             })
-        }).throughput(Throughput::Bytes(
+        })
+        .throughput(Throughput::Bytes(
             (data.len() * NUM_BATCHES * size_of::<i64>()) as u32,
         )),
     );
@@ -57,13 +60,14 @@ fn bench_bool(c: &mut Criterion) {
         "bench_bool",
         Benchmark::new("bench_bool", move |b| {
             b.iter(|| {
-                let mut builder = PrimitiveArrayBuilder::<bool>::new(64);
+                let mut builder = BooleanBuilder::new(64);
                 for _ in 0..NUM_BATCHES {
-                    black_box(builder.push_slice(&data[..]));
+                    let _ = black_box(builder.push_slice(&data[..]));
                 }
                 black_box(builder.finish());
             })
-        }).throughput(Throughput::Bytes(
+        })
+        .throughput(Throughput::Bytes(
             (data_len * NUM_BATCHES * size_of::<bool>()) as u32,
         )),
     );

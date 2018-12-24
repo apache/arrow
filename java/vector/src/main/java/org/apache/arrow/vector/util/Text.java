@@ -123,6 +123,8 @@ public class Text {
   }
 
   /**
+   * Get the number of bytes in the byte array.
+   *
    * @return the number of bytes in the byte array
    */
   public int getLength() {
@@ -132,11 +134,11 @@ public class Text {
   /**
    * Returns the Unicode Scalar Value (32-bit integer value) for the character at
    * <code>position</code>. Note that this method avoids using the converter or doing String
-   * instantiation
+   * instantiation.
    *
    * @param position the index of the char we want to retrieve
    * @return the Unicode scalar value at position or -1 if the position is invalid or points to a
-   * trailing byte
+   *         trailing byte
    */
   public int charAt(int position) {
     if (position > this.length) {
@@ -163,7 +165,7 @@ public class Text {
    * @param what  the string to search for
    * @param start where to start from
    * @return byte position of the first occurrence of the search string in the UTF-8 buffer or -1
-   * if not found
+   *         if not found
    */
   public int find(String what, int start) {
     try {
@@ -221,7 +223,7 @@ public class Text {
   }
 
   /**
-   * Set to a utf8 byte array
+   * Set to a utf8 byte array.
    *
    * @param utf8 the byte array to initialize from
    */
@@ -239,7 +241,7 @@ public class Text {
   }
 
   /**
-   * Set the Text to range of bytes
+   * Set the Text to range of bytes.
    *
    * @param utf8  the data to copy from
    * @param start the first position of the new string
@@ -252,7 +254,7 @@ public class Text {
   }
 
   /**
-   * Append a range of bytes to the end of the given text
+   * Append a range of bytes to the end of the given text.
    *
    * @param utf8  the data to copy from
    * @param start the first position to append from utf8
@@ -344,7 +346,7 @@ public class Text {
   }
 
   /**
-   * Copied from Arrays.hashCode so we don't have to copy the byte array
+   * Copied from Arrays.hashCode so we don't have to copy the byte array.
    *
    * @return hashCode
    */
@@ -465,7 +467,7 @@ public class Text {
   private static final int TRAIL_BYTE = 2;
 
   /**
-   * Check if a byte array contains valid utf-8
+   * Check if a byte array contains valid utf-8.
    *
    * @param utf8 byte array
    * @throws MalformedInputException if the byte array contains invalid utf-8
@@ -475,7 +477,7 @@ public class Text {
   }
 
   /**
-   * Check to see if a byte array is valid utf-8
+   * Check to see if a byte array is valid utf-8.
    *
    * @param utf8  the array of bytes
    * @param start the offset of the first byte in the array

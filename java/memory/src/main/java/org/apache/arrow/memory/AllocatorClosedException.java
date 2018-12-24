@@ -25,6 +25,8 @@ package org.apache.arrow.memory;
 public class AllocatorClosedException extends RuntimeException {
 
   /**
+   * Constructs a new allocator closed exception with a given message.
+   *
    * @param message string associated with the cause
    */
   public AllocatorClosedException(String message) {

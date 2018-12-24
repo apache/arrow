@@ -279,7 +279,7 @@ void CpuInfo::VerifyCpuRequirements() {
 }
 
 bool CpuInfo::CanUseSSE4_2() const {
-#ifdef ARROW_USE_SSE
+#ifdef ARROW_USE_SIMD
   return IsSupported(CpuInfo::SSE4_2);
 #else
   return false;

@@ -26,7 +26,7 @@ conda install -n arrow -q -y -c conda-forge ^
       git flatbuffers rapidjson ^
       cmake ^
       boost-cpp thrift-cpp ^
-      gflags snappy zlib brotli zstd lz4-c
+      gflags snappy zlib brotli zstd lz4-c double-conversion
 
 call activate arrow
 
@@ -82,7 +82,7 @@ popd
 @rem test the wheel
 call deactivate
 conda create -n wheel-test -q -y python=%PYTHON% ^
-      numpy=%NUMPY% pandas pytest
+      numpy=%NUMPY% pandas pytest hypothesis
 call activate wheel-test
 
 pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow

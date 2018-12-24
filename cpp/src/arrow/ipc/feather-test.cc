@@ -30,6 +30,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -289,7 +290,7 @@ class TestTableReader : public ::testing::Test {
 
     ASSERT_OK(stream_->Finish(&output_));
 
-    std::shared_ptr<io::BufferReader> buffer(new io::BufferReader(output_));
+    auto buffer = std::make_shared<io::BufferReader>(output_);
     ASSERT_OK(TableReader::Open(buffer, &reader_));
   }
 
@@ -364,7 +365,7 @@ class TestTableWriter : public ::testing::Test {
 
     ASSERT_OK(stream_->Finish(&output_));
 
-    std::shared_ptr<io::BufferReader> buffer(new io::BufferReader(output_));
+    auto buffer = std::make_shared<io::BufferReader>(output_);
     ASSERT_OK(TableReader::Open(buffer, &reader_));
   }
 

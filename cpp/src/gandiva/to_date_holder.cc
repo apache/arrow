@@ -18,10 +18,11 @@
 #include <algorithm>
 #include <string>
 
+#include "arrow/vendored/date.h"
+
 #include "gandiva/date_utils.h"
 #include "gandiva/execution_context.h"
 #include "gandiva/node.h"
-#include "gandiva/precompiled/date.h"
 #include "gandiva/to_date_holder.h"
 
 namespace gandiva {

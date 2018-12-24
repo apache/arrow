@@ -744,7 +744,7 @@ TEST(BitUtil, RoundUpToPowerOf2) {
 }
 
 static void TestZigZag(int32_t v) {
-  uint8_t buffer[BitUtil::BitReader::MAX_VLQ_BYTE_LEN];
+  uint8_t buffer[BitUtil::BitReader::MAX_VLQ_BYTE_LEN] = {};
   BitUtil::BitWriter writer(buffer, sizeof(buffer));
   BitUtil::BitReader reader(buffer, sizeof(buffer));
   writer.PutZigZagVlqInt(v);

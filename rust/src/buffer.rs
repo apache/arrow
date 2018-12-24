@@ -20,9 +20,9 @@ use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
 use std::sync::Arc;
 
-use error::Result;
-use memory;
-use util::bit_util;
+use crate::error::Result;
+use crate::memory;
+use crate::util::bit_util;
 
 /// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
 /// boundary. Buffer is immutable.
@@ -49,7 +49,7 @@ impl PartialEq for BufferData {
         if self.len != other.len {
             return false;
         }
-        unsafe { memory::memcmp(self.ptr, other.ptr, self.len as usize) == 0 }
+        unsafe { memory::memcmp(self.ptr, other.ptr, self.len) == 0 }
     }
 }
 
@@ -73,7 +73,7 @@ impl Buffer {
 
     /// Returns the number of bytes in the buffer
     pub fn len(&self) -> usize {
-        self.data.len - self.offset as usize
+        self.data.len - self.offset
     }
 
     /// Returns whether the buffer is empty.
@@ -128,7 +128,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         // allocate aligned memory buffer
         let slice = p.as_ref();
         let len = slice.len() * mem::size_of::<u8>();
-        let buffer = memory::allocate_aligned((len) as i64).unwrap();
+        let buffer = memory::allocate_aligned(len).unwrap();
         unsafe {
             memory::memcpy(buffer, slice.as_ptr(), len);
         }
@@ -151,12 +151,12 @@ pub struct MutableBuffer {
 impl MutableBuffer {
     /// Allocate a new mutable buffer with initial capacity to be `capacity`.
     pub fn new(capacity: usize) -> Self {
-        let new_capacity = bit_util::round_upto_multiple_of_64(capacity as i64);
+        let new_capacity = bit_util::round_upto_multiple_of_64(capacity);
         let ptr = memory::allocate_aligned(new_capacity).unwrap();
         Self {
             data: ptr,
             len: 0,
-            capacity: new_capacity as usize,
+            capacity: new_capacity,
         }
     }
 
@@ -193,8 +193,8 @@ impl MutableBuffer {
     /// Returns the new capacity for this buffer.
     pub fn reserve(&mut self, capacity: usize) -> Result<usize> {
         if capacity > self.capacity {
-            let new_capacity = bit_util::round_upto_multiple_of_64(capacity as i64);
-            let new_capacity = cmp::max(new_capacity, self.capacity as i64 * 2) as usize;
+            let new_capacity = bit_util::round_upto_multiple_of_64(capacity);
+            let new_capacity = cmp::max(new_capacity, self.capacity * 2);
             let new_data = memory::reallocate(self.capacity, new_capacity, self.data)?;
             self.data = new_data as *mut u8;
             self.capacity = new_capacity;
@@ -213,7 +213,7 @@ impl MutableBuffer {
         if new_len > self.len {
             self.reserve(new_len)?;
         } else {
-            let new_capacity = bit_util::round_upto_multiple_of_64(new_len as i64) as usize;
+            let new_capacity = bit_util::round_upto_multiple_of_64(new_len);
             if new_capacity < self.capacity {
                 let new_data = memory::reallocate(self.capacity, new_capacity, self.data)?;
                 self.data = new_data as *mut u8;
@@ -287,7 +287,7 @@ impl PartialEq for MutableBuffer {
         if self.len != other.len {
             return false;
         }
-        unsafe { memory::memcmp(self.data, other.data, self.len as usize) == 0 }
+        unsafe { memory::memcmp(self.data, other.data, self.len) == 0 }
     }
 }
 
@@ -314,9 +314,9 @@ unsafe impl Send for MutableBuffer {}
 
 #[cfg(test)]
 mod tests {
+    use crate::util::bit_util;
     use std::ptr::null_mut;
     use std::thread;
-    use util::bit_util;
 
     use super::*;
 
@@ -523,7 +523,8 @@ mod tests {
         let buffer_copy = thread::spawn(move || {
             // access buffer in another thread.
             buffer.clone()
-        }).join();
+        })
+        .join();
 
         assert!(buffer_copy.is_ok());
         assert_eq!(buffer2, buffer_copy.ok().unwrap());

@@ -39,12 +39,13 @@ namespace arrow {
 
 class Array;
 class Field;
+class MemoryPool;
 
-/// \brief Main data type enumeration
-///
-/// This enumeration provides a quick way to interrogate the category
-/// of a DataType instance.
 struct Type {
+  /// \brief Main data type enumeration
+  ///
+  /// This enumeration provides a quick way to interrogate the category
+  /// of a DataType instance.
   enum type {
     /// A NULL type having no physical storage
     NA,
@@ -143,18 +144,19 @@ struct Type {
 /// nested type consisting of other data types, or another data type (e.g. a
 /// timestamp encoded as an int64).
 ///
-/// Simple datatypes may be entirely described by their Type id, but
+/// Simple datatypes may be entirely described by their Type::type id, but
 /// complex datatypes are usually parametric.
 class ARROW_EXPORT DataType {
  public:
   explicit DataType(Type::type id) : id_(id) {}
   virtual ~DataType();
 
-  // Return whether the types are equal
-  //
-  // Types that are logically convertible from one to another (e.g. List<UInt8>
-  // and Binary) are NOT equal.
+  /// \brief Return whether the types are equal
+  ///
+  /// Types that are logically convertible from one to another (e.g. List<UInt8>
+  /// and Binary) are NOT equal.
   virtual bool Equals(const DataType& other) const;
+  /// \brief Return whether the types are equal
   bool Equals(const std::shared_ptr<DataType>& other) const;
 
   std::shared_ptr<Field> child(int i) const { return children_[i]; }
@@ -174,6 +176,7 @@ class ARROW_EXPORT DataType {
   /// \since 0.7.0
   virtual std::string name() const = 0;
 
+  /// \brief Return the type category
   Type::type id() const { return id_; }
 
  protected:
@@ -248,12 +251,16 @@ class ARROW_EXPORT Field {
         const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR)
       : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
 
+  /// \brief Return the field's attached metadata
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
+  /// \brief Return whether the field has non-empty metadata
   bool HasMetadata() const;
 
+  /// \brief Return a copy of this field with the given metadata attached to it
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+  /// \brief Return a copy of this field without any metadata attached to it
   std::shared_ptr<Field> RemoveMetadata() const;
 
   std::vector<std::shared_ptr<Field>> Flatten() const;
@@ -261,10 +268,14 @@ class ARROW_EXPORT Field {
   bool Equals(const Field& other) const;
   bool Equals(const std::shared_ptr<Field>& other) const;
 
+  /// \brief Return a string representation ot the field
   std::string ToString() const;
 
+  /// \brief Return the field name
   const std::string& name() const { return name_; }
+  /// \brief Return the field data type
   std::shared_ptr<DataType> type() const { return type_; }
+  /// \brief Return whether the field is nullable
   bool nullable() const { return nullable_; }
 
  private:
@@ -505,9 +516,16 @@ class ARROW_EXPORT StructType : public NestedType {
   std::string name() const override { return "struct"; }
 
   /// Returns null if name not found
+  std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
+
+  /// Returns -1 if name not found or if there are multiple fields having the
+  /// same name
+  int GetFieldIndex(const std::string& name) const;
+
+  ARROW_DEPRECATED("Use GetFieldByName")
   std::shared_ptr<Field> GetChildByName(const std::string& name) const;
 
-  /// Returns -1 if name not found
+  ARROW_DEPRECATED("Use GetFieldIndex")
   int GetChildIndex(const std::string& name) const;
 
  private:
@@ -624,6 +642,7 @@ class ARROW_EXPORT Date64Type : public DateType {
 };
 
 struct TimeUnit {
+  /// The unit for a time or timestamp DataType
   enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
 };
 
@@ -757,6 +776,23 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
   bool ordered() const { return ordered_; }
 
+  /// \brief Unify several dictionary types
+  ///
+  /// Compute a resulting dictionary that will allow the union of values
+  /// of all input dictionary types.  The input types must all have the
+  /// same value type.
+  /// \param[in] pool Memory pool to allocate dictionary values from
+  /// \param[in] types A sequence of input dictionary types
+  /// \param[out] out_type The unified dictionary type
+  /// \param[out] out_transpose_maps (optionally) A sequence of integer vectors,
+  ///     one per input type.  Each integer vector represents the transposition
+  ///     of input type indices into unified type indices.
+  // XXX Should we return something special (an empty transpose map?) when
+  // the transposition is the identity function?
+  static Status Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
+                      std::shared_ptr<DataType>* out_type,
+                      std::vector<std::vector<int32_t>>* out_transpose_maps = NULLPTR);
+
  private:
   // Must be an integer type (not currently checked)
   std::shared_ptr<DataType> index_type_;
@@ -837,6 +873,9 @@ class ARROW_EXPORT Schema {
 // Parametric factory functions
 // Other factory functions are in type_fwd.h
 
+/// \addtogroup type-factories
+/// @{
+
 /// \brief Create a FixedSizeBinaryType instance
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
@@ -890,6 +929,13 @@ std::shared_ptr<DataType> ARROW_EXPORT
 dictionary(const std::shared_ptr<DataType>& index_type,
            const std::shared_ptr<Array>& values, bool ordered = false);
 
+/// @}
+
+/// \defgroup schema-factories Factory functions for fields and schemas
+///
+/// Factory functions for fields and schemas
+/// @{
+
 /// \brief Create a Field instance
 ///
 /// \param name the field name
@@ -919,6 +965,8 @@ ARROW_EXPORT
 std::shared_ptr<Schema> schema(
     std::vector<std::shared_ptr<Field>>&& fields,
     const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
+
+/// @}
 
 }  // namespace arrow
 

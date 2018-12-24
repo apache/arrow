@@ -19,7 +19,6 @@
 
 #include <gtest/gtest.h>
 #include "../execution_context.h"
-#include "gandiva/precompiled/date.h"
 #include "gandiva/precompiled/types.h"
 
 namespace gandiva {

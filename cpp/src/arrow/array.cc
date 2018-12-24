@@ -18,6 +18,7 @@
 #include "arrow/array.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <sstream>
@@ -32,6 +33,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/visitor.h"
@@ -393,7 +395,7 @@ std::shared_ptr<Array> StructArray::field(int i) const {
 }
 
 std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) const {
-  int i = struct_type()->GetChildIndex(name);
+  int i = struct_type()->GetFieldIndex(name);
   return i == -1 ? nullptr : field(i);
 }
 
@@ -636,9 +638,8 @@ Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
       is_valid = ValidateDictionaryIndices<Int64Type>(indices, upper_bound);
       break;
     default:
-      std::stringstream ss;
-      ss << "Categorical index type not supported: " << indices->type()->ToString();
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Categorical index type not supported: ",
+                                    indices->type()->ToString());
   }
 
   if (!is_valid.ok()) {
@@ -662,6 +663,66 @@ std::shared_ptr<Array> DictionaryArray::dictionary() const {
   return dict_type_->dictionary();
 }
 
+template <typename InType, typename OutType>
+static Status TransposeDictIndices(MemoryPool* pool, const ArrayData& in_data,
+                                   const std::shared_ptr<DataType>& type,
+                                   const std::vector<int32_t>& transpose_map,
+                                   std::shared_ptr<Array>* out) {
+  using in_c_type = typename InType::c_type;
+  using out_c_type = typename OutType::c_type;
+
+  std::shared_ptr<Buffer> out_buffer;
+  RETURN_NOT_OK(AllocateBuffer(pool, in_data.length * sizeof(out_c_type), &out_buffer));
+  // Null bitmap is unchanged
+  auto out_data = ArrayData::Make(type, in_data.length, {in_data.buffers[0], out_buffer},
+                                  in_data.null_count);
+  internal::TransposeInts(in_data.GetValues<in_c_type>(1),
+                          out_data->GetMutableValues<out_c_type>(1), in_data.length,
+                          transpose_map.data());
+  *out = MakeArray(out_data);
+  return Status::OK();
+}
+
+Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                                  const std::vector<int32_t>& transpose_map,
+                                  std::shared_ptr<Array>* out) const {
+  DCHECK_EQ(type->id(), Type::DICTIONARY);
+  const auto& out_dict_type = checked_cast<const DictionaryType&>(*type);
+
+  // XXX We'll probably want to make this operation a kernel when we
+  // implement dictionary-to-dictionary casting.
+  auto in_type_id = dict_type_->index_type()->id();
+  auto out_type_id = out_dict_type.index_type()->id();
+
+#define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)                        \
+  case OUT_INDEX_TYPE::type_id:                                                     \
+    return TransposeDictIndices<IN_INDEX_TYPE, OUT_INDEX_TYPE>(pool, *data(), type, \
+                                                               transpose_map, out);
+
+#define TRANSPOSE_IN_CASE(IN_INDEX_TYPE)                        \
+  case IN_INDEX_TYPE::type_id:                                  \
+    switch (out_type_id) {                                      \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int8Type)            \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int16Type)           \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int32Type)           \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int64Type)           \
+      default:                                                  \
+        return Status::NotImplemented("unexpected index type"); \
+    }
+
+  switch (in_type_id) {
+    TRANSPOSE_IN_CASE(Int8Type)
+    TRANSPOSE_IN_CASE(Int16Type)
+    TRANSPOSE_IN_CASE(Int32Type)
+    TRANSPOSE_IN_CASE(Int64Type)
+    default:
+      return Status::NotImplemented("unexpected index type");
+  }
+
+#undef TRANSPOSE_IN_OUT_CASE
+#undef TRANSPOSE_IN_CASE
+}
+
 // ----------------------------------------------------------------------
 // Implement Array::Accept as inline visitor
 
@@ -678,12 +739,11 @@ struct ValidateVisitor {
   Status Visit(const NullArray&) { return Status::OK(); }
 
   Status Visit(const PrimitiveArray& array) {
-    if (array.data()->buffers.size() != 2) {
-      return Status::Invalid("number of buffers was != 2");
-    }
-    if (array.values() == nullptr) {
-      return Status::Invalid("values was null");
-    }
+    ARROW_RETURN_IF(array.data()->buffers.size() != 2,
+                    Status::Invalid("number of buffers was != 2"));
+
+    ARROW_RETURN_IF(array.values() == nullptr, Status::Invalid("values was null"));
+
     return Status::OK();
   }
 
@@ -714,10 +774,8 @@ struct ValidateVisitor {
       return Status::Invalid("value_offsets_ was null");
     }
     if (value_offsets->size() / static_cast<int>(sizeof(int32_t)) < array.length()) {
-      std::stringstream ss;
-      ss << "offset buffer size (bytes): " << value_offsets->size()
-         << " isn't large enough for length: " << array.length();
-      return Status::Invalid(ss.str());
+      return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
+                             " isn't large enough for length: ", array.length());
     }
 
     if (!array.values()) {
@@ -726,17 +784,13 @@ struct ValidateVisitor {
 
     const int32_t last_offset = array.value_offset(array.length());
     if (array.values()->length() != last_offset) {
-      std::stringstream ss;
-      ss << "Final offset invariant not equal to values length: " << last_offset
-         << "!=" << array.values()->length();
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Final offset invariant not equal to values length: ",
+                             last_offset, "!=", array.values()->length());
     }
 
     const Status child_valid = ValidateArray(*array.values());
     if (!child_valid.ok()) {
-      std::stringstream ss;
-      ss << "Child array invalid: " << child_valid.ToString();
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Child array invalid: ", child_valid.ToString());
     }
 
     int32_t prev_offset = array.value_offset(0);
@@ -746,18 +800,14 @@ struct ValidateVisitor {
     for (int64_t i = 1; i <= array.length(); ++i) {
       int32_t current_offset = array.value_offset(i);
       if (array.IsNull(i - 1) && current_offset != prev_offset) {
-        std::stringstream ss;
-        ss << "Offset invariant failure at: " << i
-           << " inconsistent value_offsets for null slot" << current_offset
-           << "!=" << prev_offset;
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Offset invariant failure at: ", i,
+                               " inconsistent value_offsets for null slot",
+                               current_offset, "!=", prev_offset);
       }
       if (current_offset < prev_offset) {
-        std::stringstream ss;
-        ss << "Offset invariant failure: " << i
-           << " inconsistent offset for non-null slot: " << current_offset << "<"
-           << prev_offset;
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Offset invariant failure: ", i,
+                               " inconsistent offset for non-null slot: ", current_offset,
+                               "<", prev_offset);
       }
       prev_offset = current_offset;
     }
@@ -780,18 +830,14 @@ struct ValidateVisitor {
       for (int i = 0; i < array.num_fields(); ++i) {
         auto it = array.field(i);
         if (it->length() != array_length) {
-          std::stringstream ss;
-          ss << "Length is not equal from field " << it->type()->ToString()
-             << " at position {" << idx << "}";
-          return Status::Invalid(ss.str());
+          return Status::Invalid("Length is not equal from field ",
+                                 it->type()->ToString(), " at position [", idx, "]");
         }
 
         const Status child_valid = ValidateArray(*it);
         if (!child_valid.ok()) {
-          std::stringstream ss;
-          ss << "Child array invalid: " << child_valid.ToString() << " at position {"
-             << idx << "}";
-          return Status::Invalid(ss.str());
+          return Status::Invalid("Child array invalid: ", child_valid.ToString(),
+                                 " at position [", idx, "}");
         }
         ++idx;
       }
