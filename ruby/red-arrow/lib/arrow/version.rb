@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,13 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import os
-import re
+module Arrow
+  VERSION = "0.12.0-SNAPSHOT"
 
-root = os.environ.get("MESON_SOURCE_ROOT", ".")
-pom_xml = os.path.join(root, "..", "java", "pom.xml")
-with open(pom_xml) as pom:
-    version_tag = re.search('^  <version>(.+)</version>',
-                            pom.read(),
-                            re.MULTILINE)
-    print(version_tag.group(1))
+  module Version
+    numbers, TAG = VERSION.split("-")
+    MAJOR, MINOR, MICRO = numbers.split(".").collect(&:to_i)
+    STRING = VERSION
+  end
+end

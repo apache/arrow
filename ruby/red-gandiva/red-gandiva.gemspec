@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "version"
+require_relative "lib/gandiva/version"
 
 Gem::Specification.new do |spec|
   spec.name = "red-gandiva"
@@ -25,9 +25,9 @@ Gem::Specification.new do |spec|
     Gandiva::Version::MAJOR.to_s,
     Gandiva::Version::MINOR.to_s,
     Gandiva::Version::MICRO.to_s,
-    # "beta1",
+    Gandiva::Version::TAG,
   ]
-  spec.version = version_components.join(".")
+  spec.version = version_components.compact.join(".")
   spec.homepage = "https://arrow.apache.org/"
   spec.authors = ["Apache Arrow Developers"]
   spec.email = ["dev@arrow.apache.org"]

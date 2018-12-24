@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set(GANDIVA_VERSION "${ARROW_VERSION}")
+
 # For "make gandiva" to build everything Gandiva-related
 add_custom_target(gandiva-all)
 add_custom_target(gandiva)

@@ -483,39 +483,15 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
+default_version = '0.12.0-SNAPSHOT'
 if (not os.path.exists('../.git')
         and not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     if os.path.exists('PKG-INFO'):
         # We're probably in a Python sdist, setuptools_scm will handle fine
         pass
-    elif os.path.exists('../java/pom.xml'):
-        # We're probably in a git archive
-        import xml.etree.ElementTree as ET
-        tree = ET.parse('../java/pom.xml')
-        version_tag = list(tree.getroot().findall(
-            '{http://maven.apache.org/POM/4.0.0}version'))[0]
-        use_setuptools_scm = False
-        os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
-            version_tag.text.replace("-SNAPSHOT", "a0")
     else:
-        raise RuntimeError("""\
-            No reliable source available to get Arrow version.
-
-            This is either because you copied the python/ directory yourself
-            outside of a git clone or source archive, or because you ran
-            `pip install` on the python/ directory.
-
-            * Recommended workaround: first run `python sdist`, then
-              `pip install` the resulting source distribution.
-
-            * If you're looking for an editable (in-place) install,
-              `python setup.py develop` should work fine in place of
-              `pip install -e .`.
-
-            * If you really want to `pip install` the python/ directory,
-              set the SETUPTOOLS_SCM_PRETEND_VERSION environment variable
-              to force the Arrow version to the given value.
-            """)
+        os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
+            default_version.replace('-SNAPSHOT', 'a0')
 
 
 def parse_git(root, **kwargs):
