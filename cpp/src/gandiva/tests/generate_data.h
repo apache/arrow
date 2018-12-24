@@ -83,15 +83,19 @@ class Int64DataGenerator : public DataGenerator<int64_t> {
 
 class Decimal128DataGenerator : public DataGenerator<arrow::Decimal128> {
  public:
-  Decimal128DataGenerator() {}
+  explicit Decimal128DataGenerator(bool large) : large_(large) {}
 
   arrow::Decimal128 GenerateData() {
-    auto low = random_.next();
-    auto high = random_.next();
+    uint64_t low = random_.next();
+    int64_t high = random_.next();
+    if (large_) {
+      high += (1ull << 62);
+    }
     return arrow::Decimal128(high, low);
   }
 
  protected:
+  bool large_;
   Random random_;
 };
 

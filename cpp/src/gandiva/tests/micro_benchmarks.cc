@@ -277,7 +277,8 @@ static void TimedTestInExpr(benchmark::State& state) {
   ASSERT_OK(status);
 }
 
-static void DoDecimalAdd3(benchmark::State& state, int32_t precision, int32_t scale) {
+static void DoDecimalAdd3(benchmark::State& state, int32_t precision, int32_t scale,
+                          bool large = false) {
   // schema for input fields
   auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
   auto field0 = field("f0", decimal_type);
@@ -309,7 +310,7 @@ static void DoDecimalAdd3(benchmark::State& state, int32_t precision, int32_t sc
   status = Projector::Make(schema, {sum_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
-  Decimal128DataGenerator data_generator;
+  Decimal128DataGenerator data_generator(large);
   ProjectEvaluator evaluator(projector);
 
   status = TimedEvaluate<arrow::Decimal128Type, arrow::Decimal128>(
@@ -318,7 +319,8 @@ static void DoDecimalAdd3(benchmark::State& state, int32_t precision, int32_t sc
   ASSERT_OK(status);
 }
 
-static void DoDecimalAdd2(benchmark::State& state, int32_t precision, int32_t scale) {
+static void DoDecimalAdd2(benchmark::State& state, int32_t precision, int32_t scale,
+                          bool large = false) {
   // schema for input fields
   auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
   auto field0 = field("f0", decimal_type);
@@ -339,7 +341,7 @@ static void DoDecimalAdd2(benchmark::State& state, int32_t precision, int32_t sc
   status = Projector::Make(schema, {sum}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
-  Decimal128DataGenerator data_generator;
+  Decimal128DataGenerator data_generator(large);
   ProjectEvaluator evaluator(projector);
 
   status = TimedEvaluate<arrow::Decimal128Type, arrow::Decimal128>(
@@ -358,9 +360,14 @@ static void DecimalAdd2LeadingZeroes(benchmark::State& state) {
   DoDecimalAdd2(state, DecimalTypeSql::kMaxPrecision, 6);
 }
 
-static void DecimalAdd2Large(benchmark::State& state) {
+static void DecimalAdd2LeadingZeroesWithDiv(benchmark::State& state) {
   // use max precision to test the large-integer-path
   DoDecimalAdd2(state, DecimalTypeSql::kMaxPrecision, 18);
+}
+
+static void DecimalAdd2Large(benchmark::State& state) {
+  // use max precision to test the large-integer-path
+  DoDecimalAdd2(state, DecimalTypeSql::kMaxPrecision, 18, true);
 }
 
 static void DecimalAdd3Fast(benchmark::State& state) {
@@ -373,9 +380,14 @@ static void DecimalAdd3LeadingZeroes(benchmark::State& state) {
   DoDecimalAdd3(state, DecimalTypeSql::kMaxPrecision, 6);
 }
 
-static void DecimalAdd3Large(benchmark::State& state) {
+static void DecimalAdd3LeadingZeroesWithDiv(benchmark::State& state) {
   // use max precision to test the large-integer-path
   DoDecimalAdd3(state, DecimalTypeSql::kMaxPrecision, 18);
+}
+
+static void DecimalAdd3Large(benchmark::State& state) {
+  // use max precision to test the large-integer-path
+  DoDecimalAdd3(state, DecimalTypeSql::kMaxPrecision, 18, true);
 }
 
 BENCHMARK(TimedTestAdd3)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
@@ -389,9 +401,11 @@ BENCHMARK(TimedTestMultiOr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestInExpr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd2Fast)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd2LeadingZeroes)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd2LeadingZeroesWithDiv)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd2Large)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd3Fast)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd3LeadingZeroes)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd3LeadingZeroesWithDiv)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd3Large)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 
 }  // namespace gandiva
