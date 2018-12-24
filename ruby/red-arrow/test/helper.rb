@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "../version"
-
 require "arrow"
 
 require "pathname"

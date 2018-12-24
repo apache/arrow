@@ -17,12 +17,7 @@
 
 AC_PREREQ(2.65)
 
-m4_define([arrow_glib_version],
-           m4_esyscmd(grep "^  <version>" "$(dirname $0)/../java/pom.xml" | \
-                        sed -E \
-                            -e 's/(^  <version>)//g' \
-                            -e 's/(<\/version>$)//g' | \
-                        tr -d '\n'))
+m4_define([arrow_glib_version], 0.12.0-SNAPSHOT)
 AC_INIT([arrow-glib],
         arrow_glib_version,
         [https://issues.apache.org/jira/browse/ARROW],
@@ -283,7 +278,6 @@ AC_CONFIG_FILES([
   doc/plasma-glib/entities.xml
   example/Makefile
   example/lua/Makefile
-  tool/Makefile
 ])
 
 AC_OUTPUT

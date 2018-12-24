@@ -24,8 +24,7 @@ SUBDIRS =					\
 	parquet-glib				\
 	plasma-glib				\
 	doc					\
-	example					\
-	tool
+	example
 
 EXTRA_DIST =					\
 	Gemfile					\

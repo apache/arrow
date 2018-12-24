@@ -57,6 +57,10 @@
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
   </index>
+  <index id="api-index-0-12-0" role="0.12.0">
+    <title>Index of new symbols in 0.12.0</title>
+    <xi:include href="xml/api-index-0.12.0.xml"><xi:fallback /></xi:include>
+  </index>
   <index id="api-index-0-11-0" role="0.11.0">
     <title>Index of new symbols in 0.11.0</title>
     <xi:include href="xml/api-index-0.11.0.xml"><xi:fallback /></xi:include>

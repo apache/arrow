@@ -23,6 +23,7 @@ add_dependencies(plasma-all plasma plasma-tests plasma-benchmarks)
 
 # For the moment, Plasma is versioned like Arrow
 project(plasma VERSION "${ARROW_BASE_VERSION}")
+set(PLASMA_VERSION "${ARROW_VERSION}")
 
 find_package(Threads)
 

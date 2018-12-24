@@ -23,8 +23,7 @@ project('arrow-glib', 'c', 'cpp',
           'cpp_std=c++11',
         ])
 
-python = find_program('python', 'python3', 'python2')
-version = run_command(python, 'tool/get-version.py').stdout().strip()
+version = '0.12.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')
   version_numbers = version.split('-')[0].split('.')
   version_tag = version.split('-')[1]
