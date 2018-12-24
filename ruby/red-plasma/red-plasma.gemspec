@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "version"
+require_relative "lib/plasma/version"
 
 Gem::Specification.new do |spec|
   spec.name = "red-plasma"
@@ -25,9 +25,9 @@ Gem::Specification.new do |spec|
     Plasma::Version::MAJOR.to_s,
     Plasma::Version::MINOR.to_s,
     Plasma::Version::MICRO.to_s,
-    # "beta1",
+    Plasma::Version::TAG,
   ]
-  spec.version = version_components.join(".")
+  spec.version = version_components.compact.join(".")
   spec.homepage = "https://arrow.apache.org/"
   spec.authors = ["Apache Arrow Developers"]
   spec.email = ["dev@arrow.apache.org"]

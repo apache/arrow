@@ -15,5 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-EXTRA_DIST =					\
-	get-version.py
+module ArrowCUDA
+  VERSION = "0.12.0-SNAPSHOT"
+
+  module Version
+    numbers, TAG = VERSION.split("-")
+    MAJOR, MINOR, MICRO = numbers.split(".").collect(&:to_i)
+    STRING = VERSION
+  end
+end

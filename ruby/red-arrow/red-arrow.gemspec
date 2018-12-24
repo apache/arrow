@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "version"
+require_relative "lib/arrow/version"
 
 Gem::Specification.new do |spec|
   spec.name = "red-arrow"
@@ -25,9 +25,9 @@ Gem::Specification.new do |spec|
     Arrow::Version::MAJOR.to_s,
     Arrow::Version::MINOR.to_s,
     Arrow::Version::MICRO.to_s,
-    # "beta1",
+    Arrow::Version::TAG,
   ]
-  spec.version = version_components.join(".")
+  spec.version = version_components.compact.join(".")
   spec.homepage = "https://arrow.apache.org/"
   spec.authors = ["Apache Arrow Developers"]
   spec.email = ["dev@arrow.apache.org"]

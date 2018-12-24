@@ -18,7 +18,11 @@
 cmake_minimum_required(VERSION 3.2)
 set(CMAKE_CXX_STANDARD 11)
 
-project(mlarrow)
+set(MLARROW_VERSION "0.12.0-SNAPSHOT")
+string(REGEX MATCH
+  "^[0-9]+\\.[0-9]+\\.[0-9]+" MLARROW_BASE_VERSION "${MLARROW_VERSION}")
+
+project(mlarrow VERSION "${MLARROW_BASE_VERSION}")
 
 # Grab CMAKE Modules from the CPP interface
 set(CPP_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/../cpp/cmake_modules")
