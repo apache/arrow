@@ -33,6 +33,10 @@ Building Arrow requires:
 * CMake 3.2 or higher
 * Boost
 
+Testing arrow with ctest requires:
+
+* python
+
 On Ubuntu/Debian you can install the requirements with:
 
 ```shell
@@ -43,7 +47,8 @@ sudo apt-get install \
      libboost-dev \
      libboost-filesystem-dev \
      libboost-regex-dev \
-     libboost-system-dev
+     libboost-system-dev \
+     python
 ```
 
 On Alpine Linux:
