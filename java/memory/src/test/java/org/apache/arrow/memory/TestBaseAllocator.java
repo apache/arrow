@@ -25,6 +25,7 @@ import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 
 import org.junit.Ignore;
 import org.junit.Test;
@@ -148,33 +149,32 @@ public class TestBaseAllocator {
   }
 
   @Test
-  public void testAllocator_toSummaryString() throws Exception {
+  public void testAllocator_getParentAndChild() throws Exception {
     try (final RootAllocator rootAllocator =
         new RootAllocator(MAX_ALLOCATION)) {
       final BufferAllocator childAllocator1 =
           rootAllocator.newChildAllocator("child1", 0, MAX_ALLOCATION);
       assertEquals(rootAllocator.getParentAllocator(), null);
-      assertEquals(rootAllocator.getChildAllocators(), Arrays.asList(childAllocator1));
+      assertEquals(rootAllocator.getChildAllocators(), new HashSet<>(Arrays.asList(childAllocator1)));
       assertEquals(childAllocator1.getParentAllocator(), rootAllocator);
 
       final BufferAllocator childAllocator2 =
           rootAllocator.newChildAllocator("child2", 0, MAX_ALLOCATION);
       assertEquals(childAllocator2.getParentAllocator(), rootAllocator);
-      assertEquals(
-          rootAllocator.getChildAllocators(), Arrays.asList(childAllocator1, childAllocator2));
+      assertEquals(rootAllocator.getChildAllocators(), new HashSet<>(Arrays.asList(childAllocator1, childAllocator2)));
 
       final BufferAllocator grandChildAllocator =
           childAllocator1.newChildAllocator("grand-child", 0, MAX_ALLOCATION);
       assertEquals(grandChildAllocator.getParentAllocator(), childAllocator1);
-      assertEquals(childAllocator1.getChildAllocators(), Arrays.asList(grandChildAllocator));
+      assertEquals(childAllocator1.getChildAllocators(), new HashSet<>(Arrays.asList(grandChildAllocator)));
       grandChildAllocator.close();
-      assertEquals(childAllocator1.getChildAllocators(), Collections.EMPTY_LIST);
+      assertEquals(childAllocator1.getChildAllocators(), Collections.EMPTY_SET);
 
       childAllocator1.close();
-      assertEquals(rootAllocator.getChildAllocators(), Arrays.asList(childAllocator2));
+      assertEquals(rootAllocator.getChildAllocators(), new HashSet<>(Arrays.asList(childAllocator2)));
 
       childAllocator2.close();
-      assertEquals(rootAllocator.getChildAllocators(), Collections.EMPTY_LIST);
+      assertEquals(rootAllocator.getChildAllocators(), Collections.EMPTY_SET);
     }
   }
 

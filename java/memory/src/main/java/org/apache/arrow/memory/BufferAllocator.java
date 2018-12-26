@@ -17,7 +17,7 @@
 
 package org.apache.arrow.memory;
 
-import java.util.List;
+import java.util.Set;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -144,11 +144,11 @@ public interface BufferAllocator extends AutoCloseable {
   public BufferAllocator getParentAllocator();
 
   /**
-   * Returns the list of child allocators.
+   * Returns the set of child allocators.
    *
-   * @return list of child allocators
+   * @return set of child allocators
    */
-  public List<BufferAllocator> getChildAllocators();
+  public Set<BufferAllocator> getChildAllocators();
 
   /**
    * Create an allocation reservation. A reservation is a way of building up

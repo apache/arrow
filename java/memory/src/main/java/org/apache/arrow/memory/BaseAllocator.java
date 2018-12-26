@@ -17,10 +17,9 @@
 
 package org.apache.arrow.memory;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -112,9 +111,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   @Override
-  public List<BufferAllocator> getChildAllocators() {
+  public Set<BufferAllocator> getChildAllocators() {
     synchronized (childAllocators) {
-      return new ArrayList<>(childAllocators.keySet());
+      return new HashSet<>(childAllocators.keySet());
     }
   }
 
