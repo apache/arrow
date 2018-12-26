@@ -84,6 +84,16 @@ TEST_F(TestLikeHolder, TestRegexEscape) {
   EXPECT_EQ(res, "%hello_abc.def#");
 }
 
+TEST_F(TestLikeHolder, TestDot) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  auto status = LikeHolder::Make("abc.", &like_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+  EXPECT_FALSE(like("abcd"));
+}
+
 TEST_F(TestLikeHolder, TestOptimise) {
   // optimise for 'starts_with'
   auto fnode = LikeHolder::TryOptimize(BuildLike("xy 123z%"));

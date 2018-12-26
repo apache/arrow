@@ -20,7 +20,7 @@
 namespace gandiva {
 
 const std::set<char> RegexUtil::pcre_regex_specials_ = {
-    '[', ']', '(', ')', '|', '^', '-', '+', '*', '?', '{', '}', '$', '\\'};
+    '[', ']', '(', ')', '|', '^', '-', '+', '*', '?', '{', '}', '$', '\\', '.'};
 
 Status RegexUtil::SqlLikePatternToPcre(const std::string& sql_pattern, char escape_char,
                                        std::string& pcre_pattern) {

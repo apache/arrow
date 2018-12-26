@@ -168,6 +168,7 @@ ADD_GANDIVA_TEST(selection_vector_test)
 ADD_GANDIVA_TEST(lru_cache_test)
 ADD_GANDIVA_TEST(to_date_holder_test)
 ADD_GANDIVA_TEST(simple_arena_test)
+ADD_GANDIVA_TEST(like_holder_test)
 
 if (ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)
