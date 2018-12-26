@@ -25,11 +25,23 @@
     <re2>:Conditional jump or move depends on uninitialised value(s)
     Memcheck:Cond
     ...
-    fun:_ZN3re23RE2C1E*
+    fun:*re2*RE2*
 }
 {
     <re2>:Use of uninitialised value of size 8
     Memcheck:Value8
     ...
-    fun:_ZN3re23RE2C1E*
+    fun:*re2*RE2*
+}
+{
+    <re2>:Conditional jump or move depends on uninitialised value(s)
+    Memcheck:Cond
+    ...
+    fun:*re2*Prog*
+}
+{
+    <re2>:Use of uninitialised value of size 8
+    Memcheck:Value8
+    ...
+    fun:*re2*Prog*
 }
