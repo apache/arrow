@@ -41,6 +41,11 @@ def assert_does_not_leak(f, iterations=10, check_interval=1, tolerance=5):
             if diff > tolerance:
                 raise Exception("Memory increased by {0} megabytes after {1} "
                                 "iterations".format(diff, i + 1))
+    gc.collect()
+    usage = memory_profiler.memory_usage()[0]
+    diff = usage - baseline
+    print("\nMemory increased by {0} megabytes after {1} "
+          "iterations".format(diff, iterations))
 
 
 def test_leak1():
@@ -76,10 +81,8 @@ def test_leak2():
 def test_leak3():
     import pyarrow.parquet as pq
 
-    df = pd.DataFrame({'a': [1, 2, 3, 4],
-                       'b': ['foo', 'bar', 'baz', 'qux'],
-                       'c': [True, False, None, True]})
-
+    df = pd.DataFrame({'a{0}'.format(i): [1, 2, 3, 4]
+                       for i in range(50)})
     table = pa.Table.from_pandas(df, preserve_index=False)
 
     writer = pq.ParquetWriter('leak_test_' + tm.rands(5) + '.parquet',
@@ -88,8 +91,10 @@ def test_leak3():
     def func():
         writer.write_table(table, row_group_size=len(table))
 
-    assert_does_not_leak(func, iterations=2000,
-                         check_interval=50, tolerance=5)
+    # This does not "leak" per se but we do want to have this use as little
+    # memory as possible
+    assert_does_not_leak(func, iterations=500,
+                         check_interval=50, tolerance=20)
 
 
 if __name__ == '__main__':
