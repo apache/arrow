@@ -227,10 +227,11 @@ static void TestArithmeticOpsForType(arrow::MemoryPool* pool) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 4;
-  std::vector<C_TYPE> input0 = {1, 2, 53, 84};
-  std::vector<C_TYPE> input1 = {10, 15, 23, 84};
-  std::vector<bool> validity = {true, true, true, true};
+  int num_records = 12;
+  std::vector<C_TYPE> input0 = {1, 2, 53, 84, 5, 15, 0, 1, 52, 83, 4, 120};
+  std::vector<C_TYPE> input1 = {10, 15, 23, 84, 4, 51, 68, 9, 16, 18, 19, 37};
+  std::vector<bool> validity = {true, true, true, true, true, true,
+                                true, true, true, true, true, true};
 
   auto array0 = MakeArrowArray<TYPE, C_TYPE>(input0, validity);
   auto array1 = MakeArrowArray<TYPE, C_TYPE>(input1, validity);
