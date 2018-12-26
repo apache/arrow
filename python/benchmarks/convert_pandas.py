@@ -54,20 +54,21 @@ class PandasConversionsFromArrow(PandasConversionsBase):
 
 class ToPandasStrings(object):
 
-    params = ((100, 10000, 100000, 500000),)
+    param_names = ('uniqueness', 'total')
+    params = ((0.001, 0.01, 0.1, 0.5), (1000000,))
     string_length = 25
-    num_elements = 1000 * 1000
 
-    def setup(self, nunique):
+    def setup(self, uniqueness, total):
+        nunique = int(total * uniqueness)
         unique_values = [tm.rands(self.string_length) for i in range(nunique)]
-        values = unique_values * (self.num_elements // nunique)
+        values = unique_values * (total // nunique)
         self.arr = pa.array(values, type=pa.string())
         self.table = pa.Table.from_arrays([self.arr], ['f0'])
 
-    def time_to_pandas_dedup(self, nunique):
+    def time_to_pandas_dedup(self, *args):
         self.arr.to_pandas()
 
-    def time_to_pandas_no_dedup(self, nunique):
+    def time_to_pandas_no_dedup(self, *args):
         self.arr.to_pandas(deduplicate_objects=False)
 
 
