@@ -24,8 +24,14 @@ import sys
 import tempfile
 import time
 
-from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
-                             PlasmaBuffer, PlasmaClient, connect)
+
+try:
+    from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
+                                 PlasmaBuffer, PlasmaClient, connect)
+except ImportError:
+    # TODO(wesm): These are not asv benchmarks, so we can just fail
+    # silently here
+    pass
 
 
 # The Plasma TensorFlow Operator needs to be compiled on the end user's
