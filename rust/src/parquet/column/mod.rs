@@ -35,7 +35,7 @@
 //! The example uses column writer and reader APIs to write raw values, definition and
 //! repetition levels and read them to verify write/read correctness.
 //!
-//! ```rust
+//! ```rust,no_run
 //! use std::{fs, path::Path, rc::Rc};
 //!
 //! use arrow::parquet::{
@@ -48,7 +48,7 @@
 //!     schema::parser::parse_message_type,
 //! };
 //!
-//! let path = Path::new("target/debug/examples/column_sample.parquet");
+//! let path = Path::new("/path/to/column_sample.parquet");
 //!
 //! // Writing data using column writer API.
 //!

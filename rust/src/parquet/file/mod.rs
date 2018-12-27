@@ -26,7 +26,7 @@
 //!
 //! # Example of writing a new file
 //!
-//! ```rust
+//! ```rust,no_run
 //! use std::{fs, path::Path, rc::Rc};
 //!
 //! use arrow::parquet::{
@@ -37,7 +37,7 @@
 //!     schema::parser::parse_message_type,
 //! };
 //!
-//! let path = Path::new("target/debug/examples/sample.parquet");
+//! let path = Path::new("/path/to/sample.parquet");
 //!
 //! let message_type = "
 //!   message schema {
@@ -61,11 +61,11 @@
 //! ```
 //! # Example of reading an existing file
 //!
-//! ```rust
+//! ```rust,no_run
 //! use arrow::parquet::file::reader::{FileReader, SerializedFileReader};
 //! use std::{fs::File, path::Path};
 //!
-//! let path = Path::new("target/debug/examples/sample.parquet");
+//! let path = Path::new("/path/to/sample.parquet");
 //! if let Ok(file) = File::open(&path) {
 //!     let file = File::open(&path).unwrap();
 //!     let reader = SerializedFileReader::new(file).unwrap();
