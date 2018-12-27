@@ -110,7 +110,12 @@ class BitReader {
     memcpy(&buffered_values_, buffer_ + byte_offset_, num_bytes);
   }
 
-  BitReader() : buffer_(NULL), max_bytes_(0) {}
+  BitReader()
+      : buffer_(NULL),
+        max_bytes_(0),
+        buffered_values_(0),
+        byte_offset_(0),
+        bit_offset_(0) {}
 
   void Reset(const uint8_t* buffer, int buffer_len) {
     buffer_ = buffer;

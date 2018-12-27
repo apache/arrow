@@ -1064,7 +1064,10 @@ class CategoricalBlock : public PandasBlock {
  public:
   explicit CategoricalBlock(const PandasOptions& options, MemoryPool* pool,
                             int64_t num_rows)
-      : PandasBlock(options, num_rows, 1), pool_(pool), needs_copy_(false) {}
+      : PandasBlock(options, num_rows, 1),
+        pool_(pool),
+        ordered_(false),
+        needs_copy_(false) {}
 
   Status Allocate() override {
     return Status::NotImplemented(
