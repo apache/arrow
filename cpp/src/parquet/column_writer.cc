@@ -141,6 +141,7 @@ class SerializedPageWriter : public PageWriter {
         total_uncompressed_size_(0),
         total_compressed_size_(0) {
     compressor_ = GetCodecFromArrow(codec);
+    thrift_serializer_.reset(new ThriftSerializer);
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -171,8 +172,7 @@ class SerializedPageWriter : public PageWriter {
     if (dictionary_page_offset_ == 0) {
       dictionary_page_offset_ = start_pos;
     }
-    int64_t header_size =
-        SerializeThriftMsg(&page_header, sizeof(format::PageHeader), sink_);
+    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_);
     sink_->Write(compressed_data->data(), compressed_data->size());
 
     total_uncompressed_size_ += uncompressed_size + header_size;
@@ -237,8 +237,7 @@ class SerializedPageWriter : public PageWriter {
       data_page_offset_ = start_pos;
     }
 
-    int64_t header_size =
-        SerializeThriftMsg(&page_header, sizeof(format::PageHeader), sink_);
+    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_);
     sink_->Write(compressed_data->data(), compressed_data->size());
 
     total_uncompressed_size_ += uncompressed_size + header_size;
@@ -269,6 +268,8 @@ class SerializedPageWriter : public PageWriter {
   int64_t data_page_offset_;
   int64_t total_uncompressed_size_;
   int64_t total_compressed_size_;
+
+  std::unique_ptr<ThriftSerializer> thrift_serializer_;
 
   // Compression codec to use.
   std::unique_ptr<::arrow::util::Codec> compressor_;

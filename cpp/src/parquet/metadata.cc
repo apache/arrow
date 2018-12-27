@@ -365,7 +365,8 @@ class FileMetaData::FileMetaDataImpl {
   const ApplicationVersion& writer_version() const { return writer_version_; }
 
   void WriteTo(OutputStream* dst) const {
-    SerializeThriftMsg(metadata_.get(), 1024, dst);
+    ThriftSerializer serializer;
+    serializer.Serialize(metadata_.get(), dst);
   }
 
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) {
@@ -677,7 +678,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   }
 
   void WriteTo(OutputStream* sink) {
-    SerializeThriftMsg(column_chunk_, sizeof(format::ColumnChunk), sink);
+    ThriftSerializer serializer;
+    serializer.Serialize(column_chunk_, sink);
   }
 
   const ColumnDescriptor* descr() const { return column_; }
