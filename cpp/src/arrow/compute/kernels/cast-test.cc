@@ -51,6 +51,10 @@ using std::vector;
 namespace arrow {
 namespace compute {
 
+static std::vector<std::shared_ptr<DataType>> kNumericTypes = {
+    uint8(), int8(),   uint16(), int16(),   uint32(),
+    int32(), uint64(), int64(),  float32(), float64()};
+
 static void AssertBufferSame(const Array& left, const Array& right, int buffer_index) {
   ASSERT_EQ(left.data()->buffers[buffer_index].get(),
             right.data()->buffers[buffer_index].get());
@@ -81,8 +85,10 @@ class TestCast : public ComputeFixture, public TestBase {
   void CheckZeroCopy(const Array& input, const shared_ptr<DataType>& out_type) {
     shared_ptr<Array> result;
     ASSERT_OK(Cast(&ctx_, input, out_type, {}, &result));
-    AssertBufferSame(input, *result, 0);
-    AssertBufferSame(input, *result, 1);
+    ASSERT_EQ(input.data()->buffers.size(), result->data()->buffers.size());
+    for (size_t i = 0; i < input.data()->buffers.size(); ++i) {
+      AssertBufferSame(input, *result, static_cast<int>(i));
+    }
   }
 
   template <typename InType, typename I_TYPE, typename OutType, typename O_TYPE>
@@ -106,15 +112,25 @@ class TestCast : public ComputeFixture, public TestBase {
       CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options);
     }
   }
+
+  void CheckCaseJSON(const shared_ptr<DataType>& in_type,
+                     const shared_ptr<DataType>& out_type, const std::string& in_json,
+                     const std::string& expected_json,
+                     const CastOptions& options = CastOptions()) {
+    shared_ptr<Array> input = ArrayFromJSON(in_type, in_json);
+    shared_ptr<Array> expected = ArrayFromJSON(out_type, expected_json);
+    DCHECK_EQ(input->length(), expected->length());
+    CheckPass(*input, *expected, out_type, options);
+
+    // Check a sliced variant
+    if (input->length() > 1) {
+      CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options);
+    }
+  }
 };
 
 TEST_F(TestCast, SameTypeZeroCopy) {
-  vector<bool> is_valid = {true, false, true, true, true};
-  vector<int32_t> v1 = {0, 1, 2, 3, 4};
-
-  shared_ptr<Array> arr;
-  ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
-
+  shared_ptr<Array> arr = ArrayFromJSON(int32(), "[0, null, 2, 3, 4]");
   shared_ptr<Array> result;
   ASSERT_OK(Cast(&this->ctx_, *arr, int32(), {}, &result));
 
@@ -124,20 +140,16 @@ TEST_F(TestCast, SameTypeZeroCopy) {
 
 TEST_F(TestCast, ToBoolean) {
   CastOptions options;
+  for (auto type : kNumericTypes) {
+    CheckCaseJSON(type, boolean(), "[0, null, 127, 1, 0]",
+                  "[false, null, true, true, false]");
+  }
 
-  vector<bool> is_valid = {true, false, true, true, true};
-
-  // int8, should suffice for other integers
-  vector<int8_t> v1 = {0, 1, 127, -1, 0};
-  vector<bool> e1 = {false, true, true, true, false};
-  CheckCase<Int8Type, int8_t, BooleanType, bool>(int8(), v1, is_valid, boolean(), e1,
-                                                 options);
-
-  // floating point
-  vector<double> v2 = {1.0, 0, 0, -1.0, 5.0};
-  vector<bool> e2 = {true, false, false, true, true};
-  CheckCase<DoubleType, double, BooleanType, bool>(float64(), v2, is_valid, boolean(), e2,
-                                                   options);
+  // Check negative numbers
+  CheckCaseJSON(int8(), boolean(), "[0, null, 127, -1, 0]",
+                "[false, null, true, true, false]");
+  CheckCaseJSON(float64(), boolean(), "[0, null, 127, -1, 0]",
+                "[false, null, true, true, false]");
 }
 
 TEST_F(TestCast, ToIntUpcast) {
@@ -646,36 +658,6 @@ TEST_F(TestCast, TimeToCompatible) {
                          options);
   CheckFails<Time64Type>(time64(TimeUnit::NANO), v10, is_valid, time32(TimeUnit::SECOND),
                          options);
-}
-
-TEST_F(TestCast, PrimitiveZeroCopy) {
-  shared_ptr<Array> arr;
-
-  ArrayFromVector<UInt8Type, uint8_t>(uint8(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
-  CheckZeroCopy(*arr, uint8());
-  ArrayFromVector<Int8Type, int8_t>(int8(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
-  CheckZeroCopy(*arr, int8());
-
-  ArrayFromVector<UInt16Type, uint16_t>(uint16(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
-  CheckZeroCopy(*arr, uint16());
-  ArrayFromVector<Int16Type, int8_t>(int16(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
-  CheckZeroCopy(*arr, int16());
-
-  ArrayFromVector<UInt32Type, uint32_t>(uint32(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
-  CheckZeroCopy(*arr, uint32());
-  ArrayFromVector<Int32Type, int8_t>(int32(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
-  CheckZeroCopy(*arr, int32());
-
-  ArrayFromVector<UInt64Type, uint64_t>(uint64(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
-  CheckZeroCopy(*arr, uint64());
-  ArrayFromVector<Int64Type, int8_t>(int64(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
-  CheckZeroCopy(*arr, int64());
-
-  ArrayFromVector<FloatType, float>(float32(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
-  CheckZeroCopy(*arr, float32());
-
-  ArrayFromVector<DoubleType, double>(float64(), {1, 1, 1, 1}, {1, 2, 3, 4}, &arr);
-  CheckZeroCopy(*arr, float64());
 }
 
 TEST_F(TestCast, DateToCompatible) {
@@ -1191,6 +1173,40 @@ TEST_F(TestCast, ListToList) {
   options.allow_float_truncate = true;
   CheckPass(*float64_list_array, *int32_list_array, int32_list_array->type(), options);
   CheckPass(*float64_list_array, *int64_list_array, int64_list_array->type(), options);
+}
+
+TEST_F(TestCast, IdentityCasts) {
+  // ARROW-4102
+  auto CheckIdentityCast = [this](std::shared_ptr<DataType> type,
+                                  const std::string& json) {
+    auto arr = ArrayFromJSON(type, json);
+    CheckZeroCopy(*arr, type);
+  };
+
+  CheckIdentityCast(null(), "[null, null, null]");
+  CheckIdentityCast(boolean(), "[false, true, null, false]");
+
+  for (auto type : kNumericTypes) {
+    CheckIdentityCast(type, "[1, 2, null, 4]");
+  }
+  CheckIdentityCast(binary(), "[\"foo\", \"bar\"]");
+  CheckIdentityCast(utf8(), "[\"foo\", \"bar\"]");
+  CheckIdentityCast(fixed_size_binary(3), "[\"foo\", \"bar\"]");
+
+  CheckIdentityCast(list(int8()), "[[1, 2], [null], [], [3]]");
+
+  CheckIdentityCast(time32(TimeUnit::MILLI), "[1, 2, 3, 4]");
+  CheckIdentityCast(time64(TimeUnit::MICRO), "[1, 2, 3, 4]");
+  CheckIdentityCast(date32(), "[1, 2, 3, 4]");
+  CheckIdentityCast(date64(), "[86400000, 0]");
+  CheckIdentityCast(timestamp(TimeUnit::SECOND), "[1, 2, 3, 4]");
+
+  {
+    auto dict_type = dictionary(int8(), ArrayFromJSON(int8(), "[1, 2, 3]"));
+    auto dict_indices = ArrayFromJSON(int8(), "[0, 1, 2, 0, null, 2]");
+    auto dict_array = std::make_shared<DictionaryArray>(dict_type, dict_indices);
+    CheckZeroCopy(*dict_array, dict_type);
+  }
 }
 
 }  // namespace compute
