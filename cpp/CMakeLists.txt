@@ -355,35 +355,38 @@ if (NOT ARROW_VERBOSE_LINT)
   set(ARROW_LINT_QUIET "--quiet")
 endif()
 
-file(GLOB_RECURSE LINT_FILES
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
-  )
+if (UNIX)
 
-FOREACH(item ${LINT_FILES})
-  IF(NOT ((item MATCHES "_generated.h") OR
-          (item MATCHES "pyarrow_api.h") OR
-          (item MATCHES "pyarrow_lib.h") OR
-          (item MATCHES "config.h") OR
-          (item MATCHES "vendored/") OR
-          (item MATCHES "zmalloc.h") OR
-          (item MATCHES "ae.h")))
-    LIST(APPEND FILTERED_LINT_FILES ${item})
-  ENDIF()
-ENDFOREACH(item ${LINT_FILES})
+  file(GLOB_RECURSE LINT_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
+    )
 
-find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
-message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
+  FOREACH(item ${LINT_FILES})
+    IF(NOT ((item MATCHES "_generated.h") OR
+            (item MATCHES "pyarrow_api.h") OR
+            (item MATCHES "pyarrow_lib.h") OR
+            (item MATCHES "config.h") OR
+            (item MATCHES "vendored/") OR
+            (item MATCHES "zmalloc.h") OR
+            (item MATCHES "ae.h")))
+      LIST(APPEND FILTERED_LINT_FILES ${item})
+    ENDIF()
+  ENDFOREACH(item ${LINT_FILES})
 
-# Full lint
-# Balancing act: cpplint.py takes a non-trivial time to launch,
-# so process 12 files per invocation, while still ensuring parallelism
-add_custom_target(lint echo ${FILTERED_LINT_FILES} | xargs -n12 -P8
+  find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
+  message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
+
+  # Full lint
+  # Balancing act: cpplint.py takes a non-trivial time to launch,
+  # so process 12 files per invocation, while still ensuring parallelism
+  add_custom_target(lint echo ${FILTERED_LINT_FILES} | xargs -n12 -P8
   ${CPPLINT_BIN}
   --verbose=2 ${ARROW_LINT_QUIET}
   --linelength=90
   --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order
-)
+  )
+endif (UNIX)
 
 ############################################################
 # "make format" and "make check-format" targets
