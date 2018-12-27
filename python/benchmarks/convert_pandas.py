@@ -17,6 +17,8 @@
 
 import numpy as np
 import pandas as pd
+import pandas.util.testing as tm
+
 import pyarrow as pa
 
 
@@ -48,6 +50,26 @@ class PandasConversionsFromArrow(PandasConversionsBase):
 
     def time_to_series(self, n, dtype):
         self.arrow_data.to_pandas()
+
+
+class ToPandasStrings(object):
+
+    param_names = ('uniqueness', 'total')
+    params = ((0.001, 0.01, 0.1, 0.5), (1000000,))
+    string_length = 25
+
+    def setup(self, uniqueness, total):
+        nunique = int(total * uniqueness)
+        unique_values = [tm.rands(self.string_length) for i in range(nunique)]
+        values = unique_values * (total // nunique)
+        self.arr = pa.array(values, type=pa.string())
+        self.table = pa.Table.from_arrays([self.arr], ['f0'])
+
+    def time_to_pandas_dedup(self, *args):
+        self.arr.to_pandas()
+
+    def time_to_pandas_no_dedup(self, *args):
+        self.arr.to_pandas(deduplicate_objects=False)
 
 
 class ZeroCopyPandasRead(object):
