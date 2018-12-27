@@ -851,23 +851,19 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
   }
 
   RowGroupMetaDataBuilder* AppendRowGroup() {
-    row_groups_.emplace_back(new format::RowGroup);
+    row_groups_.emplace_back();
     current_row_group_builder_ =
-        RowGroupMetaDataBuilder::Make(properties_, schema_, row_groups_.back().get());
+        RowGroupMetaDataBuilder::Make(properties_, schema_, &row_groups_.back());
     return current_row_group_builder_.get();
   }
 
   std::unique_ptr<FileMetaData> Finish() {
     int64_t total_rows = 0;
-    std::vector<format::RowGroup> row_groups;
-    for (auto row_group = row_groups_.begin(); row_group != row_groups_.end();
-         row_group++) {
-      auto rowgroup = *((*row_group).get());
-      row_groups.push_back(rowgroup);
-      total_rows += rowgroup.num_rows;
+    for (auto row_group : row_groups_) {
+      total_rows += row_group.num_rows;
     }
     metadata_->__set_num_rows(total_rows);
-    metadata_->__set_row_groups(row_groups);
+    metadata_->__set_row_groups(row_groups_);
 
     if (key_value_metadata_) {
       metadata_->key_value_metadata.clear();
@@ -922,7 +918,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
 
  private:
   const std::shared_ptr<WriterProperties> properties_;
-  std::vector<std::unique_ptr<format::RowGroup>> row_groups_;
+  std::vector<format::RowGroup> row_groups_;
 
   std::unique_ptr<RowGroupMetaDataBuilder> current_row_group_builder_;
   const SchemaDescriptor* schema_;
