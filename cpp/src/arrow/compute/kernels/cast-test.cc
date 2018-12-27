@@ -85,8 +85,10 @@ class TestCast : public ComputeFixture, public TestBase {
   void CheckZeroCopy(const Array& input, const shared_ptr<DataType>& out_type) {
     shared_ptr<Array> result;
     ASSERT_OK(Cast(&ctx_, input, out_type, {}, &result));
-    AssertBufferSame(input, *result, 0);
-    AssertBufferSame(input, *result, 1);
+    ASSERT_EQ(input.data()->buffers.size(), result->data()->buffers.size());
+    for (size_t i = 0; i < input.data()->buffers.size(); ++i) {
+      AssertBufferSame(input, *result, static_cast<int>(i));
+    }
   }
 
   template <typename InType, typename I_TYPE, typename OutType, typename O_TYPE>
