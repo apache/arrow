@@ -137,12 +137,11 @@ std::string FixedSizeBinaryType::ToString() const {
 // ----------------------------------------------------------------------
 // Date types
 
-DateType::DateType(Type::type type_id, DateUnit unit)
-    : FixedWidthType(type_id), unit_(unit) {}
+DateType::DateType(Type::type type_id) : FixedWidthType(type_id) {}
 
-Date32Type::Date32Type() : DateType(Type::DATE32, DateUnit::DAY) {}
+Date32Type::Date32Type() : DateType(Type::DATE32) {}
 
-Date64Type::Date64Type() : DateType(Type::DATE64, DateUnit::MILLI) {}
+Date64Type::Date64Type() : DateType(Type::DATE64) {}
 
 std::string Date64Type::ToString() const { return std::string("date64[ms]"); }
 

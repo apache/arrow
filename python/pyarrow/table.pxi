@@ -28,7 +28,7 @@ else:
     import pyarrow.pandas_compat as pdcompat
 
 
-cdef class ChunkedArray:
+cdef class ChunkedArray(_PandasConvertible):
     """
     Array backed via one or more memory chunks.
 
@@ -145,43 +145,14 @@ cdef class ChunkedArray:
 
         return result
 
-    def to_pandas(self, bint strings_to_categorical=False,
-                  bint zero_copy_only=False, bint integer_object_nulls=False,
-                  bint date_as_object=False):
-        """
-        Convert the arrow::ChunkedArray to an array object suitable for use
-        in pandas
-
-        Parameters
-        ----------
-        strings_to_categorical : boolean, default False
-            Encode string (UTF8) and binary types to pandas.Categorical
-        zero_copy_only : boolean, default False
-            Raise an ArrowException if this function call would require copying
-            the underlying data
-        integer_object_nulls : boolean, default False
-            Cast integers with nulls to objects
-        date_as_object : boolean, default False
-            Cast dates to objects
-
-        See also
-        --------
-        Column.to_pandas
-        """
+    def _to_pandas(self, options, **kwargs):
         cdef:
             PyObject* out
-            PandasOptions options
-
-        options = PandasOptions(
-            strings_to_categorical=strings_to_categorical,
-            zero_copy_only=zero_copy_only,
-            integer_object_nulls=integer_object_nulls,
-            date_as_object=date_as_object,
-            use_threads=False)
+            PandasOptions c_options = options
 
         with nogil:
             check_status(libarrow.ConvertChunkedArrayToPandas(
-                options,
+                c_options,
                 self.sp_chunked_array,
                 self, &out))
 
@@ -385,7 +356,7 @@ def column(object field_or_name, arr):
     return pyarrow_wrap_column(sp_column)
 
 
-cdef class Column:
+cdef class Column(_PandasConvertible):
     """
     Named vector of elements of equal type.
 
@@ -497,33 +468,8 @@ cdef class Column:
 
         return [pyarrow_wrap_column(col) for col in flattened]
 
-    def to_pandas(self, bint strings_to_categorical=False,
-                  bint zero_copy_only=False, bint integer_object_nulls=False,
-                  bint date_as_object=False):
-        """
-        Convert the arrow::Column to a pandas.Series
-
-        Parameters
-        ----------
-        strings_to_categorical : boolean, default False
-            Encode string (UTF8) and binary types to pandas.Categorical
-        zero_copy_only : boolean, default False
-            Raise an ArrowException if this function call would require copying
-            the underlying data
-        integer_object_nulls : boolean, default False
-            Cast integers with nulls to objects
-        date_as_object : boolean, default False
-            Cast dates to objects
-
-        Returns
-        -------
-        pandas.Series
-        """
-        values = self.data.to_pandas(
-            strings_to_categorical=strings_to_categorical,
-            zero_copy_only=zero_copy_only,
-            date_as_object=date_as_object,
-            integer_object_nulls=integer_object_nulls)
+    def _to_pandas(self, options, **kwargs):
+        values = self.data._to_pandas(options)
         result = pd.Series(values, name=self.name)
 
         if isinstance(self.type, TimestampType):
@@ -685,7 +631,7 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     schema.reset(new CSchema(c_fields, c_meta))
 
 
-cdef class RecordBatch:
+cdef class RecordBatch(_PandasConvertible):
     """
     Batch of rows of columns of equal length
 
@@ -887,46 +833,8 @@ cdef class RecordBatch:
             entries.append((name, column))
         return OrderedDict(entries)
 
-    def to_pandas(self, MemoryPool memory_pool=None, categories=None,
-                  bint strings_to_categorical=False, bint zero_copy_only=False,
-                  bint integer_object_nulls=False, bint date_as_object=False,
-                  bint use_threads=True, bint ignore_metadata=False):
-        """
-        Convert the arrow::RecordBatch to a pandas DataFrame
-
-        Parameters
-        ----------
-        memory_pool: MemoryPool, optional
-            Specific memory pool to use to allocate casted columns
-        categories: list, default empty
-            List of columns that should be returned as pandas.Categorical
-        strings_to_categorical : boolean, default False
-            Encode string (UTF8) and binary types to pandas.Categorical
-        zero_copy_only : boolean, default False
-            Raise an ArrowException if this function call would require copying
-            the underlying data
-        integer_object_nulls : boolean, default False
-            Cast integers with nulls to objects
-        date_as_object : boolean, default False
-            Cast dates to objects
-        use_threads: boolean, default True
-            Whether to parallelize the conversion using multiple threads
-        ignore_metadata : boolean, default False
-            If True, do not use the 'pandas' metadata to reconstruct the
-            DataFrame index, if present
-
-        Returns
-        -------
-        pandas.DataFrame
-        """
-        return Table.from_batches([self]).to_pandas(
-            memory_pool=memory_pool, categories=categories,
-            strings_to_categorical=strings_to_categorical,
-            zero_copy_only=zero_copy_only,
-            integer_object_nulls=integer_object_nulls,
-            date_as_object=date_as_object, use_threads=use_threads,
-            ignore_metadata=ignore_metadata
-        )
+    def _to_pandas(self, options, **kwargs):
+        return Table.from_batches([self])._to_pandas(options, **kwargs)
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
@@ -1031,7 +939,7 @@ def table_to_blocks(PandasOptions options, Table table,
     return PyObject_to_object(result_obj)
 
 
-cdef class Table:
+cdef class Table(_PandasConvertible):
     """
     A collection of top-level named, equal length Arrow arrays.
 
@@ -1386,50 +1294,8 @@ cdef class Table:
 
         return result
 
-    def to_pandas(self, MemoryPool memory_pool=None, categories=None,
-                  bint strings_to_categorical=False, bint zero_copy_only=False,
-                  bint integer_object_nulls=False, bint date_as_object=False,
-                  bint use_threads=True, bint ignore_metadata=False):
-        """
-        Convert the arrow::Table to a pandas DataFrame
-
-        Parameters
-        ----------
-        memory_pool: MemoryPool, optional
-            Specific memory pool to use to allocate casted columns
-        categories: list, default empty
-            List of columns that should be returned as pandas.Categorical
-        strings_to_categorical : boolean, default False
-            Encode string (UTF8) and binary types to pandas.Categorical
-        zero_copy_only : boolean, default False
-            Raise an ArrowException if this function call would require copying
-            the underlying data
-        integer_object_nulls : boolean, default False
-            Cast integers with nulls to objects
-        date_as_object : boolean, default False
-            Cast dates to objects
-        use_threads: boolean, default True
-            Whether to parallelize the conversion using multiple threads
-        ignore_metadata : boolean, default False
-            If True, do not use the 'pandas' metadata to reconstruct the
-            DataFrame index, if present
-
-        Returns
-        -------
-        pandas.DataFrame
-        """
-        cdef:
-            PandasOptions options
-
-        options = PandasOptions(
-            strings_to_categorical=strings_to_categorical,
-            zero_copy_only=zero_copy_only,
-            integer_object_nulls=integer_object_nulls,
-            date_as_object=date_as_object,
-            use_threads=use_threads)
-
-        mgr = pdcompat.table_to_blockmanager(options, self, memory_pool,
-                                             categories,
+    def _to_pandas(self, options, categories=None, ignore_metadata=False):
+        mgr = pdcompat.table_to_blockmanager(options, self, categories,
                                              ignore_metadata=ignore_metadata)
         return pd.DataFrame(mgr)
 

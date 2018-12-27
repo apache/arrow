@@ -2316,6 +2316,91 @@ def test_convert_unsupported_type_error_message():
         pa.Table.from_pandas(df)
 
 
+# ----------------------------------------------------------------------
+# Test object deduplication in to_pandas
+
+
+def _generate_dedup_example(nunique, repeats):
+    unique_values = [tm.rands(10) for i in range(nunique)]
+    return unique_values * repeats
+
+
+def _assert_nunique(obj, expected):
+    assert len({id(x) for x in obj}) == expected
+
+
+def test_to_pandas_deduplicate_strings_array_types():
+    nunique = 100
+    repeats = 10
+    values = _generate_dedup_example(nunique, repeats)
+
+    for arr in [pa.array(values, type=pa.binary()),
+                pa.array(values, type=pa.utf8()),
+                pa.chunked_array([values, values]),
+                pa.column('foo', [values, values])]:
+        _assert_nunique(arr.to_pandas(), nunique)
+        _assert_nunique(arr.to_pandas(deduplicate_objects=False), len(arr))
+
+
+def test_to_pandas_deduplicate_strings_table_types():
+    nunique = 100
+    repeats = 10
+    values = _generate_dedup_example(nunique, repeats)
+
+    arr = pa.array(values)
+    rb = pa.RecordBatch.from_arrays([arr], ['foo'])
+    tbl = pa.Table.from_batches([rb])
+
+    for obj in [rb, tbl]:
+        _assert_nunique(obj.to_pandas()['foo'], nunique)
+        _assert_nunique(obj.to_pandas(deduplicate_objects=False)['foo'],
+                        len(obj))
+
+
+def test_to_pandas_deduplicate_integers_as_objects():
+    nunique = 100
+    repeats = 10
+
+    # Python automatically interns smaller integers
+    unique_values = list(np.random.randint(10000000, 1000000000, size=nunique))
+    unique_values[nunique // 2] = None
+
+    arr = pa.array(unique_values * repeats)
+
+    _assert_nunique(arr.to_pandas(integer_object_nulls=True), nunique)
+    _assert_nunique(arr.to_pandas(integer_object_nulls=True,
+                                  deduplicate_objects=False),
+                    # Account for None
+                    (nunique - 1) * repeats + 1)
+
+
+def test_to_pandas_deduplicate_date_time():
+    nunique = 100
+    repeats = 10
+
+    unique_values = list(range(nunique))
+
+    cases = [
+        # raw type, array type, to_pandas options
+        ('int32', 'date32', {'date_as_object': True}),
+        ('int64', 'date64', {'date_as_object': True}),
+        ('int32', 'time32[ms]', {}),
+        ('int64', 'time64[us]', {})
+    ]
+
+    for raw_type, array_type, pandas_options in cases:
+        raw_arr = pa.array(unique_values * repeats, type=raw_type)
+        casted_arr = raw_arr.cast(array_type)
+
+        _assert_nunique(casted_arr.to_pandas(**pandas_options),
+                        nunique)
+        _assert_nunique(casted_arr.to_pandas(deduplicate_objects=False,
+                                             **pandas_options),
+                        len(casted_arr))
+
+
+# ---------------------------------------------------------------------
+
 def test_table_from_pandas_keeps_column_order_of_dataframe():
     df1 = pd.DataFrame(OrderedDict([
         ('partition', [0, 0, 1, 1]),
