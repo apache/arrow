@@ -72,6 +72,7 @@ dev/tasks/linux-packages/debian/compat
 dev/tasks/linux-packages/debian/control
 dev/tasks/linux-packages/debian/gir1.2-arrow-1.0.install
 dev/tasks/linux-packages/debian/gir1.2-arrow-cuda-1.0.install
+dev/tasks/linux-packages/debian/gir1.2-gandiva-1.0.install
 dev/tasks/linux-packages/debian/gir1.2-parquet-1.0.install
 dev/tasks/linux-packages/debian/gir1.2-plasma-1.0.install
 dev/tasks/linux-packages/debian/libarrow-dev.install
@@ -87,6 +88,13 @@ dev/tasks/linux-packages/debian/libarrow-cuda12.install
 dev/tasks/linux-packages/debian/libarrow-python-dev.install
 dev/tasks/linux-packages/debian/libarrow-python12.install
 dev/tasks/linux-packages/debian/libarrow12.install
+dev/tasks/linux-packages/debian/libgandiva-dev.install
+dev/tasks/linux-packages/debian/libgandiva-glib-dev.install
+dev/tasks/linux-packages/debian/libgandiva-glib-doc.doc-base
+dev/tasks/linux-packages/debian/libgandiva-glib-doc.install
+dev/tasks/linux-packages/debian/libgandiva-glib-doc.links
+dev/tasks/linux-packages/debian/libgandiva-glib12.install
+dev/tasks/linux-packages/debian/libgandiva12.install
 dev/tasks/linux-packages/debian/libparquet-dev.install
 dev/tasks/linux-packages/debian/libparquet-glib-dev.install
 dev/tasks/linux-packages/debian/libparquet-glib-doc.doc-base

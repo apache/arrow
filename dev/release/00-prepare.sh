@@ -136,7 +136,7 @@ if [ "$#" -eq 2 ]; then
       ${target} \
       $(echo $target | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
   done
-  deb_lib_suffix_substitute_pattern="s/(lib(arrow|parquet)[-a-z]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
+  deb_lib_suffix_substitute_pattern="s/(lib(arrow|gandiva|parquet|plasma)[-a-z]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
   sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" debian*/control
   rm -f debian*/control.bak
   git add debian*/control

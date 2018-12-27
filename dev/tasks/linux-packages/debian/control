@@ -5,6 +5,7 @@ Maintainer: Kouhei Sutou <kou@clear-code.com>
 Build-Depends:
   autoconf-archive,
   bison,
+  clang-6.0,
   cmake,
   debhelper (>= 9.20160115),
   dh-autoreconf,
@@ -101,6 +102,33 @@ Depends:
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for CUDA support.
+
+Package: libgandiva12
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow12 (= ${binary:Version})
+Description: Gandiva is a toolset for compiling and evaluating expressions
+ on Arrow Data.
+ .
+ This package provides C++ library files.
+
+Package: libgandiva-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-dev (= ${binary:Version}),
+  libgandiva12 (= ${binary:Version})
+Description: Gandiva is a toolset for compiling and evaluating expressions
+ on Arrow Data.
+ .
+ This package provides C++ header files.
 
 Package: libplasma12
 Section: libs
@@ -251,6 +279,60 @@ Depends:
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based header files for CUDA support.
+
+Package: libgandiva-glib12
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow-glib12 (= ${binary:Version}),
+  libgandiva12 (= ${binary:Version})
+Description: Gandiva is a toolset for compiling and evaluating expressions
+ on Arrow Data.
+ .
+ This package provides GLib based library files.
+
+Package: gir1.2-gandiva-1.0
+Section: introspection
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${gir:Depends},
+  ${misc:Depends}
+Description: Gandiva is a toolset for compiling and evaluating expressions
+ on Arrow Data.
+ .
+ This package provides GObject Introspection typelib files.
+
+Package: libgandiva-glib-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libgandiva-dev (= ${binary:Version}),
+  libarrow-glib-dev (= ${binary:Version}),
+  libgandiva-glib12 (= ${binary:Version}),
+  gir1.2-gandiva-1.0 (= ${binary:Version})
+Description: Gandiva is a toolset for compiling and evaluating expressions
+ on Arrow Data.
+ .
+ This package provides GLib based header files.
+
+Package: libgandiva-glib-doc
+Section: doc
+Architecture: all
+Multi-Arch: foreign
+Depends:
+  ${misc:Depends}
+Recommends: libglib2.0-doc
+Description: Gandiva is a toolset for compiling and evaluating expressions
+ on Arrow Data.
+ .
+ This package provides documentations.
 
 Package: libplasma-glib12
 Section: libs

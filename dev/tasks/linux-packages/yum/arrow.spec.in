@@ -75,8 +75,7 @@ cd cpp/build
 %if %{use_parquet}
   -DARROW_PARQUET=ON \
 %endif
-  -DARROW_PLASMA=ON \
-  -DARROW_BUILD_TESTS=OFF
+  -DARROW_PLASMA=ON
 make %{?_smp_mflags}
 cd -
 
