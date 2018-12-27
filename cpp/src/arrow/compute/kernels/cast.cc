@@ -99,6 +99,8 @@ struct is_zero_copy_cast {
   static constexpr bool value = false;
 };
 
+// TODO(wesm): ARROW-4110; this is no longer needed, but may be useful if we
+// ever _do_ want to generate identity cast kernels at compile time
 template <typename O, typename I>
 struct is_zero_copy_cast<
     O, I,
@@ -1143,6 +1145,17 @@ static Status AllocateIfNotPreallocated(FunctionContext* ctx, const ArrayData& i
   return Status::OK();
 }
 
+class IdentityCast : public UnaryKernel {
+ public:
+  IdentityCast() {}
+
+  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
+    DCHECK_EQ(input.kind(), Datum::ARRAY);
+    out->value = input.array()->Copy();
+    return Status::OK();
+  }
+};
+
 class CastKernel : public UnaryKernel {
  public:
   CastKernel(const CastOptions& options, const CastFunction& func, bool is_zero_copy,
@@ -1187,6 +1200,8 @@ class CastKernel : public UnaryKernel {
   bool can_pre_allocate_values_;
   std::shared_ptr<DataType> out_type_;
 };
+
+// TODO(wesm): ARROW-4110 Do not generate cases that could return IdentityCast
 
 #define CAST_CASE(InType, OutType)                                                      \
   case OutType::type_id:                                                                \
@@ -1233,12 +1248,10 @@ class CastKernel : public UnaryKernel {
   FN(Int64Type, Date64Type);
 
 #define DATE32_CASES(FN, IN_TYPE) \
-  FN(Date32Type, Date32Type);     \
   FN(Date32Type, Date64Type);     \
   FN(Date32Type, Int32Type);
 
 #define DATE64_CASES(FN, IN_TYPE) \
-  FN(Date64Type, Date64Type);     \
   FN(Date64Type, Date32Type);     \
   FN(Date64Type, Int64Type);
 
@@ -1258,12 +1271,9 @@ class CastKernel : public UnaryKernel {
   FN(TimestampType, Date64Type);     \
   FN(TimestampType, Int64Type);
 
-#define BINARY_CASES(FN, IN_TYPE) \
-  FN(BinaryType, BinaryType);     \
-  FN(BinaryType, StringType);
+#define BINARY_CASES(FN, IN_TYPE) FN(BinaryType, StringType);
 
 #define STRING_CASES(FN, IN_TYPE) \
-  FN(StringType, StringType);     \
   FN(StringType, BooleanType);    \
   FN(StringType, UInt8Type);      \
   FN(StringType, Int8Type);       \
@@ -1365,6 +1375,11 @@ Status GetListCastFunc(const DataType& in_type, const std::shared_ptr<DataType>&
 
 Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>& out_type,
                        const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
+  if (in_type.Equals(out_type)) {
+    *kernel = std::unique_ptr<UnaryKernel>(new IdentityCast);
+    return Status::OK();
+  }
+
   switch (in_type.id()) {
     CAST_FUNCTION_CASE(NullType);
     CAST_FUNCTION_CASE(BooleanType);

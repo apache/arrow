@@ -768,7 +768,8 @@ def test_cast_date64_to_int():
     ('float', [0.0, 0.1, 0.2]),
     ('double', [0.0, 0.1, 0.2]),
     ('string', ['a', 'b', 'c']),
-    ('binary', [b'a', b'b', b'c'])
+    ('binary', [b'a', b'b', b'c']),
+    (pa.binary(3), [b'abc', b'bcd', b'cde'])
 ])
 def test_cast_identities(ty, values):
     arr = pa.array(values, type=ty)
