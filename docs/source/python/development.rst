@@ -113,6 +113,13 @@ about our build toolchain:
 Using pip
 ~~~~~~~~~
 
+.. warning::
+
+   If you installed Python using the Anaconda distribution or `Miniconda
+   <https://conda.io/miniconda.html>`_, you cannot currently use ``virtualenv``
+   to manage your development. Please follow the conda-based development
+   instructions instead.
+
 On macOS, install all dependencies through Homebrew that are required for
 building Arrow C++:
 
