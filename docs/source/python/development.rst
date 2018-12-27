@@ -389,6 +389,8 @@ following command:
 
    pip install -r docs/requirements.txt
 
+Alternatively you can build the documentation using docker.
+
 Building
 --------
 
@@ -414,3 +416,20 @@ After these steps are completed, the documentation is rendered in HTML
 format in ``docs/_build/html``.  In particular, you can point your browser
 at ``docs/_build/html/index.html`` to read the docs and review any changes
 you made.
+
+
+Building with Docker
+--------------------
+
+You can use Docker to build the documentation:
+
+   .. code-block:: shell
+
+        docker-compose build cpp 
+        docker-compose build python 
+        docker-compose run docs 
+
+The final output is located under::
+
+     site/asf-site/docs/latest
+
