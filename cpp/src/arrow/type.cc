@@ -65,13 +65,15 @@ std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   return flattened;
 }
 
-bool Field::Equals(const Field& other) const {
+bool Field::Equals(const Field& other, bool check_metadata) const {
   if (this == &other) {
     return true;
   }
   if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
       this->type_->Equals(*other.type_.get())) {
-    if (this->HasMetadata() && other.HasMetadata()) {
+    if (!check_metadata) {
+      return true;
+    } else if (this->HasMetadata() && other.HasMetadata()) {
       return metadata_->Equals(*other.metadata_);
     } else if (!this->HasMetadata() && !other.HasMetadata()) {
       return true;
@@ -82,8 +84,8 @@ bool Field::Equals(const Field& other) const {
   return false;
 }
 
-bool Field::Equals(const std::shared_ptr<Field>& other) const {
-  return Equals(*other.get());
+bool Field::Equals(const std::shared_ptr<Field>& other, bool check_metadata) const {
+  return Equals(*other.get(), check_metadata);
 }
 
 std::string Field::ToString() const {
@@ -333,7 +335,7 @@ bool Schema::Equals(const Schema& other, bool check_metadata) const {
     return false;
   }
   for (int i = 0; i < num_fields(); ++i) {
-    if (!field(i)->Equals(*other.field(i).get())) {
+    if (!field(i)->Equals(*other.field(i).get(), check_metadata)) {
       return false;
     }
   }
