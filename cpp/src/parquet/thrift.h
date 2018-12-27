@@ -27,6 +27,7 @@
 #else
 #include <memory>
 #endif
+#include <string>
 
 // TCompactProtocol requires some #defines to work right.
 #define SIGNED_RIGHT_SHIFT_IS 1
@@ -134,7 +135,7 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
 /// to treat it as a string.
 class ThriftSerializer {
  public:
-  ThriftSerializer(int initial_buffer_size = 1024)
+  explicit ThriftSerializer(int initial_buffer_size = 1024)
       : mem_buffer_(new ThriftBuffer(initial_buffer_size)) {
     apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> factory;
     protocol_ = factory.getProtocol(mem_buffer_);
@@ -153,7 +154,6 @@ class ThriftSerializer {
   void SerializeToString(const T* obj, std::string* result) {
     SerializeObject(obj);
     *result = mem_buffer_->getBufferAsString();
-    return Status::OK();
   }
 
   template <class T>
