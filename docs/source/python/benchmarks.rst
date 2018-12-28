@@ -50,4 +50,4 @@ Compatibility
 We only expect the benchmarking setup to work with Python 3.6 or later,
 on a Unix-like system.
 
-.. asv:: https://asv.readthedocs.org/
+.. _asv: https://asv.readthedocs.org/
