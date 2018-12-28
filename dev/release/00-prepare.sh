@@ -22,7 +22,20 @@ set -e
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 update_versions() {
-  local version=$1
+  local base_version=$1
+  local next_version=$2
+  local type=$3
+
+  case ${type} in
+    release)
+      version=${base_version}
+      r_version=${base_version}
+      ;;
+    snapshot)
+      version=${next_version}-SNAPSHOT
+      r_version=${base_version}.9000
+      ;;
+  esac
 
   cd "${SOURCE_DIR}/../../cpp"
   sed -i.bak -r -e \
@@ -70,7 +83,7 @@ update_versions() {
 
   cd "${SOURCE_DIR}/../../r"
   sed -i.bak -r -e \
-    "s/^Version: .+/Version: ${version}/" \
+    "s/^Version: .+/Version: ${r_version}/" \
     DESCRIPTION
   rm -f DESCRIPTION.bak
   git add DESCRIPTION
@@ -95,8 +108,8 @@ update_versions() {
 
 if [ "$#" -eq 2 ]; then
   version=$1
-  nextVersion=$2
-  nextVersionSNAPSHOT=${nextVersion}-SNAPSHOT
+  next_version=$2
+  next_version_snapshot=${next_version}-SNAPSHOT
   tag=apache-arrow-${version}
 
   echo "Updating changelog for $version"
@@ -113,23 +126,23 @@ if [ "$#" -eq 2 ]; then
   git commit -m "[Release] Update .deb/.rpm changelogs for $version"
   cd -
 
-  echo "prepare release ${version} on tag ${tag} then reset to version ${nextVersionSNAPSHOT}"
+  echo "prepare release ${version} on tag ${tag} then reset to version ${next_version_snapshot}"
 
-  update_versions "${version}"
+  update_versions "${version}" "${next_version}" "release"
   git commit -m "[Release] Update versions for ${version}"
 
   cd "${SOURCE_DIR}/../../java"
   mvn release:clean
-  mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${nextVersionSNAPSHOT}
+  mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${next_version_snapshot}
   cd -
 
-  echo "Updating versions for ${nextVersionSNAPSHOT}"
-  update_versions "${nextVersionSNAPSHOT}"
-  git commit -m "[Release] Update versions for ${nextVersionSNAPSHOT}"
+  echo "Updating versions for ${next_version_snapshot}"
+  update_versions "${version}" "${next_version}" "snapshot"
+  git commit -m "[Release] Update versions for ${next_version_snapshot}"
 
-  echo "Updating .deb package names for ${nextVersion}"
+  echo "Updating .deb package names for ${next_version}"
   deb_lib_suffix=$(echo $version | sed -r -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
-  next_deb_lib_suffix=$(echo $nextVersion | sed -r -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
+  next_deb_lib_suffix=$(echo $next_version | sed -r -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
   cd $SOURCE_DIR/../tasks/linux-packages/
   for target in debian*/lib*${deb_lib_suffix}.install; do
     git mv \
@@ -150,12 +163,12 @@ if [ "$#" -eq 2 ]; then
   sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" rat_exclude_files.txt
   rm -f rat_exclude_files.txt.bak
   git add rat_exclude_files.txt
-  git commit -m "[Release] Update .deb package names for $nextVersion"
+  git commit -m "[Release] Update .deb package names for $next_version"
   cd -
 
   echo "Finish staging binary artifacts by running: sh dev/release/01-perform.sh"
 
 else
-  echo "Usage: $0 <version> <nextVersion>"
+  echo "Usage: $0 <version> <next_version>"
   exit
 fi
