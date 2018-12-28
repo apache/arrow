@@ -2251,6 +2251,24 @@ def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
     writer.write_table(table2)
 
 
+def test_empty_row_groups(tempdir):
+    # ARROW-3020
+    table = pa.Table.from_arrays([pa.array([], type='int32')], ['f0'])
+
+    path = tempdir / 'empty_row_groups.parquet'
+
+    num_groups = 3
+    with pq.ParquetWriter(path, table.schema) as writer:
+        for i in range(num_groups):
+            writer.write_table(table)
+
+    reader = pq.ParquetFile(path)
+    assert reader.metadata.num_row_groups == num_groups
+
+    for i in range(num_groups):
+        assert reader.read_row_group(i).equals(table)
+
+
 def test_writing_empty_lists():
     # ARROW-2591: [Python] Segmentation fault issue in pq.write_table
     arr1 = pa.array([[], []], pa.list_(pa.int32()))
