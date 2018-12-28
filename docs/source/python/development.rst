@@ -423,13 +423,14 @@ Building with Docker
 
 You can use Docker to build the documentation:
 
-   .. code-block:: shell
+.. code-block:: shell
 
-        docker-compose build cpp 
-        docker-compose build python 
-        docker-compose run docs 
+  docker-compose build cpp 
+  docker-compose build python 
+  docker-compose run docs 
+
 
 The final output is located under::
 
-     site/asf-site/docs/latest
+  site/asf-site/docs/latest/index.html
 
