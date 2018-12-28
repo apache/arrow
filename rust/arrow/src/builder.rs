@@ -18,11 +18,11 @@
 //! Defines a `BufferBuilder` capable of creating a `Buffer` which can be used as an internal
 //! buffer in an `ArrayData` object.
 
-use std::sync::Arc;
 use std::any::Any;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
+use std::sync::Arc;
 
 use crate::array::*;
 use crate::array_data::ArrayData;
@@ -366,7 +366,10 @@ impl<T: ArrayBuilder> ListArrayBuilder<T> {
     }
 }
 
-impl<T: ArrayBuilder> ArrayBuilder for ListArrayBuilder<T> where T: 'static {
+impl<T: ArrayBuilder> ArrayBuilder for ListArrayBuilder<T>
+where
+    T: 'static,
+{
     /// Returns the builder as an non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
@@ -393,7 +396,10 @@ impl<T: ArrayBuilder> ArrayBuilder for ListArrayBuilder<T> where T: 'static {
     }
 }
 
-impl<T: ArrayBuilder> ListArrayBuilder<T> where T: 'static {
+impl<T: ArrayBuilder> ListArrayBuilder<T>
+where
+    T: 'static,
+{
     /// Returns the child array builder as a mutable reference.
     ///
     /// This mutable reference can be used to push values into the child array builder,
@@ -1130,18 +1136,26 @@ mod tests {
         let mut builder = StructArrayBuilder::new(fields, field_builders);
         assert_eq!(2, builder.num_fields());
 
-        let int_builder = builder.field_builder::<Int32Builder>(0)
+        let int_builder = builder
+            .field_builder::<Int32Builder>(0)
             .expect("builder at field 0 should be integer builder");
-        int_builder.push_slice(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).unwrap();
-        let boolean_builder = builder.field_builder::<BooleanBuilder>(1)
+        int_builder
+            .push_slice(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+            .unwrap();
+        let boolean_builder = builder
+            .field_builder::<BooleanBuilder>(1)
             .expect("builder at field 1 should be boolean builder");
-        boolean_builder.push_slice(
-            &[false, true, false, true, false, true, false, true, false, true]).unwrap();
+        boolean_builder
+            .push_slice(&[
+                false, true, false, true, false, true, false, true, false, true,
+            ])
+            .unwrap();
 
         let arr = builder.finish();
         let expected_int_arr = Int32Array::from(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-        let expected_boolean_arr = BooleanArray::from(
-            vec![false, true, false, true, false, true, false, true, false, true]);
+        let expected_boolean_arr = BooleanArray::from(vec![
+            false, true, false, true, false, true, false, true, false, true,
+        ]);
         assert_eq!(expected_int_arr.data(), arr.column(0).data());
         assert_eq!(expected_boolean_arr.data(), arr.column(1).data());
     }
@@ -1159,19 +1173,33 @@ mod tests {
         field_builders.push(Box::new(bool_builder) as Box<ArrayBuilder>);
 
         let mut builder = StructArrayBuilder::new(fields, field_builders);
-        builder.field_builder::<Int32Builder>(0).unwrap().push_slice(
-            &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).unwrap();
-        builder.field_builder::<BooleanBuilder>(1).unwrap().push_slice(
-            &[false, true, false, true, false, true, false, true, false, true]).unwrap();
+        builder
+            .field_builder::<Int32Builder>(0)
+            .unwrap()
+            .push_slice(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+            .unwrap();
+        builder
+            .field_builder::<BooleanBuilder>(1)
+            .unwrap()
+            .push_slice(&[
+                false, true, false, true, false, true, false, true, false, true,
+            ])
+            .unwrap();
 
         let arr = builder.finish();
         assert_eq!(10, arr.len());
         assert_eq!(0, builder.len());
 
-        builder.field_builder::<Int32Builder>(0).unwrap().push_slice(
-            &[1, 3, 5, 7, 9]).unwrap();
-        builder.field_builder::<BooleanBuilder>(1).unwrap().push_slice(
-            &[false, true, false, true, false]).unwrap();
+        builder
+            .field_builder::<Int32Builder>(0)
+            .unwrap()
+            .push_slice(&[1, 3, 5, 7, 9])
+            .unwrap();
+        builder
+            .field_builder::<BooleanBuilder>(1)
+            .unwrap()
+            .push_slice(&[false, true, false, true, false])
+            .unwrap();
 
         let arr = builder.finish();
         assert_eq!(5, arr.len());
