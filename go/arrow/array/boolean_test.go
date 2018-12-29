@@ -44,10 +44,9 @@ func TestBooleanSliceData(t *testing.T) {
 		t.Fatalf("got=%d, want=%d", got, want)
 	}
 
-	l := arr.Len()
-	vs := make([]bool, l)
+	vs := make([]bool, arr.Len())
 
-	for i := 0; i < l; i++ {
+	for i := range vs {
 		vs[i] = arr.Value(i)
 	}
 
@@ -91,10 +90,9 @@ func TestBooleanSliceData(t *testing.T) {
 				t.Fatalf("got=%d, want=%d", got, want)
 			}
 
-			l = slice.Len()
-			vs = vs[:l]
+			vs := make([]bool, slice.Len())
 
-			for i := 0; i < l; i++ {
+			for i := range vs {
 				vs[i] = slice.Value(i)
 			}
 
@@ -128,10 +126,9 @@ func TestBooleanSliceDataWithNull(t *testing.T) {
 		t.Fatalf("got=%d, want=%d", got, want)
 	}
 
-	l := arr.Len()
-	vs := make([]bool, l)
+	vs := make([]bool, arr.Len())
 
-	for i := 0; i < l; i++ {
+	for i := range vs {
 		vs[i] = arr.Value(i)
 	}
 
@@ -180,10 +177,9 @@ func TestBooleanSliceDataWithNull(t *testing.T) {
 				t.Fatalf("got=%d, want=%d", got, want)
 			}
 
-			l = slice.Len()
-			vs = make([]bool, l)
+			vs := make([]bool, slice.Len())
 
-			for i := 0; i < l; i++ {
+			for i := range vs {
 				vs[i] = slice.Value(i)
 			}
 
