@@ -725,6 +725,10 @@ class ListCastKernel : public UnaryKernel {
     return Status::OK();
   }
 
+  Status ComputeOutputShape(const Datum& input, Datum* output_shape) {
+    return Status::NotImplemented("Implementation pending");
+  }
+
  private:
   std::unique_ptr<UnaryKernel> child_caster_;
   std::shared_ptr<DataType> out_type_;
@@ -1192,6 +1196,10 @@ class CastKernel : public UnaryKernel {
 
     RETURN_IF_ERROR(ctx);
     return Status::OK();
+  }
+
+  Status ComputeOutputShape(const Datum& input, Datum* output_shape) {
+    return Status::NotImplemented("TODO(ARROW-1185)");
   }
 
  private:

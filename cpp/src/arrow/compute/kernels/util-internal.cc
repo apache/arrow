@@ -27,6 +27,7 @@
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 
 namespace arrow {
@@ -160,6 +161,35 @@ Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums) {
     DCHECK(false) << "unhandled datum kind";
     return Datum();
   }
+}
+
+PrimitiveAllocatingUnaryKernel::PrimitiveAllocatingUnaryKernel(
+    std::unique_ptr<UnaryKernel> delegate)
+    : delegate_(std::move(delegate)) {}
+
+Status PrimitiveAllocatingUnaryKernel::Call(FunctionContext* ctx, const Datum& input,
+                                            Datum* out) {
+  std::vector<std::shared_ptr<Buffer>> data_buffers;
+  const ArrayData& in_data = *input.array();
+  MemoryPool* pool = ctx->memory_pool();
+
+  // Handle the validity buffer.
+  if (in_data.offset == 0) {
+    // Validity bitmap will be zero copied
+    data_buffers.emplace_back();
+  } else {
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(AllocateBitmap(pool, in_data.length, &buffer));
+    data_buffers.push_back(buffer);
+  }
+  // Allocate the boolean value buffer.
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(AllocateBitmap(pool, in_data.length, &buffer));
+  data_buffers.push_back(buffer);
+
+  out->value = ArrayData::Make(null(), in_data.length, data_buffers);
+
+  return delegate_->Call(ctx, input, out);
 }
 
 }  // namespace detail

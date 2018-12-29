@@ -47,6 +47,11 @@ using BufferVector = std::vector<std::shared_ptr<Buffer>>;
 // to -1 (any negative number will do). When Array::null_count is called the
 // first time, the null count will be computed. See ARROW-33
 constexpr int64_t kUnknownNullCount = -1;
+// When applying Kernels to array it might not be possible determine the length
+// of array without executing the kernel. This constant is used with ArrayData
+// so the structure of a result can still be communicated even if the length
+// is not known.
+constexpr int64_t kUnknownLength = -1;
 
 class MemoryPool;
 class Status;
@@ -88,7 +93,7 @@ class Status;
 struct ARROW_EXPORT ArrayData {
   ArrayData() : length(0), null_count(0), offset(0) {}
 
-  ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
+  ArrayData(const std::shared_ptr<DataType>& type, int64_t length = kUnknownLength,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
       : type(type), length(length), null_count(null_count), offset(offset) {}
 
