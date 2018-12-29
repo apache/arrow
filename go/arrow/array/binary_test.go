@@ -134,7 +134,7 @@ func TestBinarySliceData(t *testing.T) {
 				t.Fatalf("got=%d, want=%d", got, want)
 			}
 
-			vs = vs[:slice.Len()]
+			vs := make([]string, slice.Len())
 
 			for i := range vs {
 				vs[i] = slice.ValueString(i)
@@ -226,7 +226,7 @@ func TestBinarySliceDataWithNull(t *testing.T) {
 				t.Errorf("got=%d, want=%d", got, want)
 			}
 
-			vs = vs[:slice.Len()]
+			vs := make([]string, slice.Len())
 
 			for i := range vs {
 				vs[i] = slice.ValueString(i)
