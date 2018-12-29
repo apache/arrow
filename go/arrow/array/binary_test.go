@@ -84,10 +84,9 @@ func TestBinarySliceData(t *testing.T) {
 		t.Fatalf("got=%d, want=%d", got, want)
 	}
 
-	l := arr.Len()
-	vs := make([]string, l)
+	vs := make([]string, arr.Len())
 
-	for i := 0; i < l; i++ {
+	for i := range vs {
 		vs[i] = arr.ValueString(i)
 	}
 
@@ -135,10 +134,9 @@ func TestBinarySliceData(t *testing.T) {
 				t.Fatalf("got=%d, want=%d", got, want)
 			}
 
-			l = slice.Len()
-			vs = vs[:l]
+			vs = vs[:slice.Len()]
 
-			for i := 0; i < l; i++ {
+			for i := range vs {
 				vs[i] = slice.ValueString(i)
 			}
 
@@ -172,10 +170,9 @@ func TestBinarySliceDataWithNull(t *testing.T) {
 		t.Fatalf("got=%d, want=%d", got, want)
 	}
 
-	l := arr.Len()
-	vs := make([]string, l)
+	vs := make([]string, arr.Len())
 
-	for i := 0; i < l; i++ {
+	for i := range vs {
 		vs[i] = arr.ValueString(i)
 	}
 
@@ -229,11 +226,10 @@ func TestBinarySliceDataWithNull(t *testing.T) {
 				t.Errorf("got=%d, want=%d", got, want)
 			}
 
-			l = slice.Len()
-			vs = vs[:0]
+			vs = vs[:slice.Len()]
 
-			for i := 0; i < l; i++ {
-				vs = append(vs, slice.ValueString(i))
+			for i := range vs {
+				vs[i] = slice.ValueString(i)
 			}
 
 			if got, want := vs, tc.want; !reflect.DeepEqual(got, want) {
