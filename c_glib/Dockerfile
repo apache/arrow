@@ -17,9 +17,7 @@
 
 FROM arrow:cpp
 
-ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get -q install --no-install-recommends -y \
-        tzdata \
         ruby-dev \
         pkg-config \
         autoconf-archive \
