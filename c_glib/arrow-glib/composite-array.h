@@ -130,8 +130,10 @@ GArrowStructArray *garrow_struct_array_new(GArrowDataType *data_type,
 GArrowArray *garrow_struct_array_get_field(GArrowStructArray *array,
                                            gint i);
 
+#ifndef GARROW_DISABLE_DEPRECATED
 GARROW_DEPRECATED_IN_0_10_FOR(garrow_struct_array_flatten)
 GList *garrow_struct_array_get_fields(GArrowStructArray *array);
+#endif
 
 GARROW_AVAILABLE_IN_0_10
 GList *garrow_struct_array_flatten(GArrowStructArray *array, GError **error);
