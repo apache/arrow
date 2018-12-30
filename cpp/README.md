@@ -324,7 +324,6 @@ This requires [Doxygen](http://www.doxygen.org) to be installed.
 
 This project follows [Google's C++ Style Guide][3] with minor exceptions: 
   
-  *  We do not encourage anonymous namespaces 
   *  We relax the line length restriction to 90 characters.
   *  We use the NULLPTR macro defined in `src/arrow/util/macros.h` to
      support building C++/CLI (ARROW-1134)
