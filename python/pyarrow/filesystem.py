@@ -319,7 +319,7 @@ class S3FSWrapper(DaskFileSystem):
 
     @implements(FileSystem.isdir)
     def isdir(self, path):
-        path = _stringify_path(path)
+        path = _sanitize_s3(_stringify_path(path))
         try:
             contents = self.fs.ls(path)
             if len(contents) == 1 and contents[0] == path:
@@ -331,7 +331,7 @@ class S3FSWrapper(DaskFileSystem):
 
     @implements(FileSystem.isfile)
     def isfile(self, path):
-        path = _stringify_path(path)
+        path = _sanitize_s3(_stringify_path(path))
         try:
             contents = self.fs.ls(path)
             return len(contents) == 1 and contents[0] == path
@@ -345,7 +345,7 @@ class S3FSWrapper(DaskFileSystem):
         Generator version of what is in s3fs, which yields a flattened list of
         files
         """
-        path = _stringify_path(path).replace('s3://', '')
+        path = _sanitize_s3(_stringify_path(path))
         directories = set()
         files = set()
 
@@ -369,6 +369,13 @@ class S3FSWrapper(DaskFileSystem):
         for directory in directories:
             for tup in self.walk(directory, refresh=refresh):
                 yield tup
+
+
+def _sanitize_s3(path):
+    if path.startswith('s3://'):
+        return path.replace('s3://', '')
+    else:
+        return path
 
 
 def _ensure_filesystem(fs):
