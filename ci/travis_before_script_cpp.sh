@@ -40,23 +40,25 @@ if [ "$only_library_mode" == "no" ]; then
   source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 fi
 
+if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
+  # Set up C++ toolchain from conda-forge packages for faster builds
+  source $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
+fi
+
+mkdir -p $ARROW_CPP_BUILD_DIR
+pushd $ARROW_CPP_BUILD_DIR
+
 CMAKE_COMMON_FLAGS="\
 -DCMAKE_INSTALL_PREFIX=$ARROW_CPP_INSTALL \
--DARROW_TEST_INCLUDE_LABELS=$ARROW_TRAVIS_CPP_TEST_INCLUDE_LABELS \
 -DARROW_NO_DEPRECATED_API=ON \
 -DARROW_EXTRA_ERROR_CONTEXT=ON"
 CMAKE_LINUX_FLAGS=""
 CMAKE_OSX_FLAGS=""
 
 if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
-  # Set up C++ toolchain from conda-forge packages for faster builds
-  source $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
   CMAKE_COMMON_FLAGS="${CMAKE_COMMON_FLAGS} -DARROW_JEMALLOC=ON"
   CMAKE_COMMON_FLAGS="${CMAKE_COMMON_FLAGS} -DARROW_WITH_BZ2=ON"
 fi
-
-mkdir -p $ARROW_CPP_BUILD_DIR
-pushd $ARROW_CPP_BUILD_DIR
 
 if [ $only_library_mode == "yes" ]; then
   CMAKE_COMMON_FLAGS="\
@@ -102,9 +104,6 @@ if [ $ARROW_TRAVIS_GANDIVA == "1" ]; then
   if [ $ARROW_TRAVIS_GANDIVA_JAVA == "1" ]; then
       CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA_JAVA=ON"
   fi
-  if [ $ARROW_TRAVIS_GANDIVA_TESTS == "1" ]; then
-    CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_BUILD_TESTS=ON"
-  fi
 fi
 
 if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
@@ -119,8 +118,12 @@ if [ $ARROW_TRAVIS_VERBOSE == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_VERBOSE_THIRDPARTY_BUILD=ON"
 fi
 
-if [ $ARROW_TRAVIS_USE_VENDORED_BOOST == "1" ]; then
+if [ $ARROW_TRAVIS_VENDORED_BOOST == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_BOOST_VENDORED=ON"
+fi
+
+if [ $ARROW_TRAVIS_STATIC_BOOST == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_BOOST_USE_SHARED=OFF"
 fi
 
 if [ $ARROW_TRAVIS_OPTIONAL_INSTALL == "1" ]; then

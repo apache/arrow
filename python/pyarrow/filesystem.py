@@ -390,7 +390,7 @@ def _ensure_filesystem(fs):
         return fs
 
 
-def _get_fs_from_path(path):
+def get_filesystem_from_uri(path):
     """
     return filesystem from path which could be an HDFS URI
     """
@@ -411,4 +411,4 @@ def _get_fs_from_path(path):
     else:
         fs = LocalFileSystem.get_instance()
 
-    return fs
+    return fs, parsed_uri.path

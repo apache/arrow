@@ -182,7 +182,7 @@ was written by the `Create` command.
 int64_t data_size = 100;
 // The address of the buffer allocated by the Plasma store will be written at
 // this address.
-uint8_t* data;
+std::shared_ptr<Buffer> data;
 // Create a Plasma object by specifying its ID and size.
 ARROW_CHECK_OK(client.Create(object_id, data_size, NULL, 0, &data));
 ```
@@ -194,7 +194,7 @@ metadata (as raw bytes) and the fourth argument is the size of the metadata.
 // Create a Plasma object with metadata.
 int64_t data_size = 100;
 std::string metadata = "{'author': 'john'}";
-uint8_t* data;
+std::shared_ptr<Buffer> data;
 client.Create(object_id, data_size, (uint8_t*) metadata.data(), metadata.size(), &data);
 ```
 

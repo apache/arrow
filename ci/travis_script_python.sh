@@ -32,9 +32,6 @@ PYARROW_PYTEST_FLAGS=" -r sxX --durations=15 --parquet"
 PYTHON_VERSION=$1
 CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 
-conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION cmake curl
-conda activate $CONDA_ENV_DIR
-
 # We should use zlib in the target Python directory to avoid loading
 # wrong libpython on macOS at run-time. If we use zlib in
 # $ARROW_BUILD_TOOLCHAIN and libpython3.6m.dylib exists in both
@@ -44,18 +41,22 @@ conda activate $CONDA_ENV_DIR
 # python-test fails.
 export ZLIB_HOME=$CONDA_ENV_DIR
 
-python --version
-which python
-
 if [ $ARROW_TRAVIS_PYTHON_JVM == "1" ]; then
   CONDA_JVM_DEPS="jpype1"
 fi
 
-conda install -y -q \
+conda create -y -q -p $CONDA_ENV_DIR \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
+      cmake \
       pip \
       numpy=1.13.1 \
+      python=${PYTHON_VERSION} \
       ${CONDA_JVM_DEPS}
+
+conda activate $CONDA_ENV_DIR
+
+python --version
+which python
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Install documentation dependencies
@@ -86,23 +87,23 @@ rm -rf *
 # XXX Can we simply reuse CMAKE_COMMON_FLAGS from travis_before_script_cpp.sh?
 CMAKE_COMMON_FLAGS="-DARROW_EXTRA_ERROR_CONTEXT=ON"
 
-PYTHON_CPP_BUILD_TARGETS="arrow_python plasma"
+PYTHON_CPP_BUILD_TARGETS="arrow_python-all plasma parquet"
 
 if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GENERATE_COVERAGE=ON"
 fi
 
 if [ $ARROW_TRAVIS_PYTHON_GANDIVA == "1" ]; then
-  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA=ON -DARROW_GANDIVA_BUILD_TESTS=OFF"
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA=ON"
   PYTHON_CPP_BUILD_TARGETS="$PYTHON_CPP_BUILD_TARGETS gandiva"
 fi
 
 cmake -GNinja \
       $CMAKE_COMMON_FLAGS \
       -DARROW_BUILD_TESTS=ON \
-      -DARROW_TEST_INCLUDE_LABELS=python \
       -DARROW_BUILD_UTILITIES=OFF \
       -DARROW_OPTIONAL_INSTALL=ON \
+      -DARROW_PARQUET=on \
       -DARROW_PLASMA=on \
       -DARROW_TENSORFLOW=on \
       -DARROW_PYTHON=on \
@@ -176,12 +177,11 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     coverage report -i --include="*/_parquet.pyx"
     # Generate XML file for CodeCov
     coverage xml -i -o $TRAVIS_BUILD_DIR/coverage.xml
-    # Capture C++ coverage info and combine with previous coverage file
+    # Capture C++ coverage info
     pushd $TRAVIS_BUILD_DIR
     lcov --quiet --directory . --capture --no-external --output-file coverage-python-tests.info \
         2>&1 | grep -v "WARNING: no data found for /usr/include"
     lcov --add-tracefile coverage-python-tests.info \
-        --add-tracefile $ARROW_CPP_COVERAGE_FILE \
         --output-file $ARROW_CPP_COVERAGE_FILE
     rm coverage-python-tests.info
     popd   # $TRAVIS_BUILD_DIR

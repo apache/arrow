@@ -657,12 +657,14 @@ impl From<Vec<(Field, ArrayRef)>> for StructArray {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::array_data::ArrayData;
-    use crate::buffer::Buffer;
-    use crate::datatypes::{DataType, Field, ToByteSlice};
-    use crate::memory;
+
     use std::sync::Arc;
     use std::thread;
+
+    use crate::array_data::ArrayData;
+    use crate::buffer::Buffer;
+    use crate::datatypes::{DataType, Field};
+    use crate::memory;
 
     #[test]
     fn test_primitive_array_from_vec() {

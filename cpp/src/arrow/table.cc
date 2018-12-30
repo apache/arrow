@@ -234,10 +234,8 @@ Status Column::ValidateData() {
   for (int i = 0; i < data_->num_chunks(); ++i) {
     std::shared_ptr<DataType> type = data_->chunk(i)->type();
     if (!this->type()->Equals(type)) {
-      std::stringstream ss;
-      ss << "In chunk " << i << " expected type " << this->type()->ToString()
-         << " but saw " << type->ToString();
-      return Status::Invalid(ss.str());
+      return Status::Invalid("In chunk ", i, " expected type ", this->type()->ToString(),
+                             " but saw ", type->ToString());
     }
   }
   return Status::OK();
@@ -301,10 +299,9 @@ class SimpleTable : public Table {
     DCHECK(col != nullptr);
 
     if (col->length() != num_rows_) {
-      std::stringstream ss;
-      ss << "Added column's length must match table's length. Expected length "
-         << num_rows_ << " but got length " << col->length();
-      return Status::Invalid(ss.str());
+      return Status::Invalid(
+          "Added column's length must match table's length. Expected length ", num_rows_,
+          " but got length ", col->length());
     }
 
     std::shared_ptr<Schema> new_schema;
@@ -319,10 +316,9 @@ class SimpleTable : public Table {
     DCHECK(col != nullptr);
 
     if (col->length() != num_rows_) {
-      std::stringstream ss;
-      ss << "Added column's length must match table's length. Expected length "
-         << num_rows_ << " but got length " << col->length();
-      return Status::Invalid(ss.str());
+      return Status::Invalid(
+          "Added column's length must match table's length. Expected length ", num_rows_,
+          " but got length ", col->length());
     }
 
     std::shared_ptr<Schema> new_schema;
@@ -363,15 +359,11 @@ class SimpleTable : public Table {
     for (int i = 0; i < num_columns(); ++i) {
       const Column* col = columns_[i].get();
       if (col == nullptr) {
-        std::stringstream ss;
-        ss << "Column " << i << " was null";
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Column ", i, " was null");
       }
       if (!col->field()->Equals(*schema_->field(i))) {
-        std::stringstream ss;
-        ss << "Column field " << i << " named " << col->name()
-           << " is inconsistent with schema";
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Column field ", i, " named ", col->name(),
+                               " is inconsistent with schema");
       }
     }
 
@@ -379,10 +371,8 @@ class SimpleTable : public Table {
     for (int i = 0; i < num_columns(); ++i) {
       const Column* col = columns_[i].get();
       if (col->length() != num_rows_) {
-        std::stringstream ss;
-        ss << "Column " << i << " named " << col->name() << " expected length "
-           << num_rows_ << " but got length " << col->length();
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Column ", i, " named ", col->name(), " expected length ",
+                               num_rows_, " but got length ", col->length());
       }
     }
     return Status::OK();
@@ -414,11 +404,9 @@ Status Table::FromRecordBatches(const std::shared_ptr<Schema>& schema,
 
   for (int i = 0; i < nbatches; ++i) {
     if (!batches[i]->schema()->Equals(*schema, false)) {
-      std::stringstream ss;
-      ss << "Schema at index " << static_cast<int>(i) << " was different: \n"
-         << schema->ToString() << "\nvs\n"
-         << batches[i]->schema()->ToString();
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Schema at index ", static_cast<int>(i),
+                             " was different: \n", schema->ToString(), "\nvs\n",
+                             batches[i]->schema()->ToString());
     }
   }
 
@@ -458,11 +446,9 @@ Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
 
   for (int i = 1; i < ntables; ++i) {
     if (!tables[i]->schema()->Equals(*schema, false)) {
-      std::stringstream ss;
-      ss << "Schema at index " << static_cast<int>(i) << " was different: \n"
-         << schema->ToString() << "\nvs\n"
-         << tables[i]->schema()->ToString();
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Schema at index ", static_cast<int>(i),
+                             " was different: \n", schema->ToString(), "\nvs\n",
+                             tables[i]->schema()->ToString());
     }
   }
 

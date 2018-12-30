@@ -16,13 +16,10 @@
 # under the License.
 
 cmake_minimum_required(VERSION 3.2)
+message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-# Extract Arrow version number
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../java/pom.xml" POM_XML)
-string(REGEX MATCHALL
-  "\n  <version>[^<]+</version>" ARROW_VERSION_TAG "${POM_XML}")
-string(REGEX REPLACE
-  "(\n  <version>|</version>)" "" ARROW_VERSION "${ARROW_VERSION_TAG}")
+set(ARROW_VERSION "0.12.0-SNAPSHOT")
+
 string(REGEX MATCH
   "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -238,7 +235,8 @@ static|shared (default shared)")
     ON)
 
   option(ARROW_BOOST_VENDORED
-    "Use vendored Boost instead of existing Boost"
+    "Use vendored Boost instead of existing Boost. \
+Note that this requires linking Boost statically"
     OFF)
 
   option(ARROW_PROTOBUF_USE_SHARED
@@ -332,10 +330,6 @@ Always OFF if building binaries"
   #----------------------------------------------------------------------
   # Advanced developer options
 
-  set(ARROW_TEST_INCLUDE_LABELS "" CACHE STRING
-    "Only build unit tests having the indicated label or labels. \
-Pass multiple labels by dividing with semicolons")
-
   option(ARROW_EXTRA_ERROR_CONTEXT
     "Compile with extra error context (line numbers, code)"
     OFF)
@@ -372,12 +366,8 @@ if (UNIX)
     IF(NOT ((item MATCHES "_generated.h") OR
             (item MATCHES "pyarrow_api.h") OR
             (item MATCHES "pyarrow_lib.h") OR
-            (item MATCHES "xxhash.h") OR
-            (item MATCHES "xxhash.cc") OR
             (item MATCHES "config.h") OR
-            (item MATCHES "util/date.h") OR
-            (item MATCHES "util/string_view/") OR
-            (item MATCHES "util/variant") OR
+            (item MATCHES "vendored/") OR
             (item MATCHES "zmalloc.h") OR
             (item MATCHES "ae.h")))
       LIST(APPEND FILTERED_LINT_FILES ${item})
@@ -436,11 +426,12 @@ endif()
 ############################################################
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  # Currently the compression tests require at least these libraries; bz2 and
+  # zstd are optional. See ARROW-3984
   set(ARROW_WITH_BROTLI ON)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
   set(ARROW_WITH_ZLIB ON)
-  set(ARROW_WITH_ZSTD ON)
 endif()
 
 if(ARROW_BUILD_TESTS)
@@ -468,10 +459,18 @@ endif()
 
 if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
+else()
+  add_custom_target(all-tests)
+  add_custom_target(unittest ctest -L unittest)
+  add_dependencies(unittest all-tests)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
+else()
+  add_custom_target(all-benchmarks)
+  add_custom_target(benchmark ctest -L benchmark)
+  add_dependencies(benchmark all-benchmarks)
 endif()
 
 if(NOT ARROW_BUILD_EXAMPLES)
@@ -517,8 +516,6 @@ include(SetupCxxFlags)
 ############################################################
 # Dependencies
 ############################################################
-
-add_custom_target(arrow_dependencies)
 
 include(BuildUtils)
 enable_testing()
@@ -711,7 +708,11 @@ endif()
 
 if (ARROW_USE_GLOG)
   SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
+  add_definitions("-DARROW_USE_GLOG")
 endif()
+
+add_custom_target(arrow_dependencies)
+add_dependencies(arrow_dependencies toolchain)
 
 if (ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})

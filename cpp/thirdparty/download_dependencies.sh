@@ -30,7 +30,7 @@ else
   DESTDIR=$1
 fi
 
-DESTDIR=$(realpath "${DESTDIR}")
+DESTDIR=$(readlink -f "${DESTDIR}")
 
 download_dependency() {
   local url=$1
@@ -38,7 +38,7 @@ download_dependency() {
 
   # --show-progress will not output to stdout, it is safe to pipe the result of
   # the script into eval.
-  wget --quiet --show-progress --continue --output-document="${out}" "${url}"
+  wget --quiet --continue --output-document="${out}" "${url}"
 }
 
 main() {

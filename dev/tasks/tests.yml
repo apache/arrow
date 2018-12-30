@@ -22,6 +22,7 @@ groups:
     - docker-rust
     - docker-cpp
     - docker-cpp-alpine
+    - docker-cpp-cmake32
     - docker-c_glib
     - docker-go
     - docker-python-2.7
@@ -35,16 +36,19 @@ groups:
     - docker-lint
     - docker-iwyu
     - docker-clang-format
-    - docker-hdfs-integration
     - docker-pandas-master
+    - docker-hdfs-integration
+    - docker-dask-integration
 
   integration:
-    - docker-hdfs-integration
     - docker-pandas-master
+    - docker-dask-integration
+    - docker-hdfs-integration
 
   cpp-python:
     - docker-cpp
     - docker-cpp-alpine
+    - docker-cpp-cmake32
     - docker-python-2.7
     - docker-python-2.7-alpine
     - docker-python-3.6
@@ -86,6 +90,14 @@ tasks:
       commands:
         - docker-compose build cpp-alpine
         - docker-compose run cpp-alpine
+
+  docker-cpp-cmake32:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp-cmake32
+        - docker-compose run cpp-cmake32
 
   docker-c_glib:
     platform: linux
@@ -229,11 +241,27 @@ tasks:
 
   ############################## Integration tests ############################
 
+  docker-dask-integration:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build dask-integration
+        - docker-compose run dask-integration
+
   docker-hdfs-integration:
     platform: linux
     template: docker-tests/travis.linux.yml
     params:
+      environment:
+        PYTHON_VERSION: 3.6
       commands:
+        - docker-compose build cpp
+        - docker-compose build python
         - docker-compose build hdfs-integration
         - docker-compose run hdfs-integration
 

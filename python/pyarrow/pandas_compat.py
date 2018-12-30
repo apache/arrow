@@ -548,7 +548,8 @@ def _make_datetimetz(tz):
 # Converting pyarrow.Table efficiently to pandas.DataFrame
 
 
-def table_to_blockmanager(options, table, memory_pool, categories=None):
+def table_to_blockmanager(options, table, categories=None,
+                          ignore_metadata=False):
     from pyarrow.compat import DatetimeTZDtype
 
     index_columns = []
@@ -560,7 +561,8 @@ def table_to_blockmanager(options, table, memory_pool, categories=None):
     row_count = table.num_rows
     metadata = schema.metadata
 
-    has_pandas_metadata = metadata is not None and b'pandas' in metadata
+    has_pandas_metadata = (not ignore_metadata and metadata is not None
+                           and b'pandas' in metadata)
 
     if has_pandas_metadata:
         pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
@@ -622,7 +624,8 @@ def table_to_blockmanager(options, table, memory_pool, categories=None):
                 block_table.schema.get_field_index(raw_name)
             )
 
-    blocks = _table_to_blocks(options, block_table, memory_pool, categories)
+    blocks = _table_to_blocks(options, block_table, pa.default_memory_pool(),
+                              categories)
 
     # Construct the row index
     if len(index_arrays) > 1:
@@ -726,6 +729,14 @@ def _pandas_type_to_numpy_type(pandas_type):
         return np.dtype(pandas_type)
 
 
+def _get_multiindex_codes(mi):
+    # compat for pandas < 0.24 (MI labels renamed to codes).
+    if isinstance(mi, pd.MultiIndex):
+        return mi.codes if hasattr(mi, 'codes') else mi.labels
+    else:
+        return None
+
+
 def _reconstruct_columns_from_metadata(columns, column_indexes):
     """Construct a pandas MultiIndex from `columns` and column index metadata
     in `column_indexes`.
@@ -752,7 +763,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     # Get levels and labels, and provide sane defaults if the index has a
     # single level to avoid if/else spaghetti.
     levels = getattr(columns, 'levels', None) or [columns]
-    labels = getattr(columns, 'labels', None) or [
+    labels = _get_multiindex_codes(columns) or [
         pd.RangeIndex(len(level)) for level in levels
     ]
 
@@ -779,7 +790,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
 
         new_levels.append(level)
 
-    return pd.MultiIndex(levels=new_levels, labels=labels, names=columns.names)
+    return pd.MultiIndex(new_levels, labels, names=columns.names)
 
 
 def _table_to_blocks(options, block_table, memory_pool, categories):
@@ -796,7 +807,7 @@ def _table_to_blocks(options, block_table, memory_pool, categories):
 def _flatten_single_level_multiindex(index):
     if isinstance(index, pd.MultiIndex) and index.nlevels == 1:
         levels, = index.levels
-        labels, = index.labels
+        labels, = _get_multiindex_codes(index)
 
         # Cheaply check that we do not somehow have duplicate column names
         if not index.is_unique:

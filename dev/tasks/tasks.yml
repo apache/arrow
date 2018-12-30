@@ -146,7 +146,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 2.7
       unicode_width: 16
       test_docker_images: []
@@ -157,7 +156,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 2.7
       unicode_width: 32
       test_docker_images:
@@ -169,7 +167,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 3.5
       unicode_width: 16
       test_docker_images:
@@ -181,7 +178,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 3.6
       unicode_width: 16
       test_docker_images:
@@ -193,7 +189,6 @@ tasks:
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
-      wheel_version: 0.31.1
       python_version: 3.7
       unicode_width: 16
       test_docker_images:
@@ -207,10 +202,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14.5
-      pandas_version: 0.23.0
       python_version: 2.7
-      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp27-cp27m-macosx_10_6_intel.whl
 
@@ -218,10 +210,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14.5
-      pandas_version: 0.23.0
       python_version: 3.5
-      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp35-cp35m-macosx_10_6_intel.whl
 
@@ -229,10 +218,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14.5
-      pandas_version: 0.23.0
       python_version: 3.6
-      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp36-cp36m-macosx_10_6_intel.whl
 
@@ -240,10 +226,7 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.14.5
-      pandas_version: 0.23.0
       python_version: 3.7
-      wheel_version: 0.31.1
     artifacts:
       - pyarrow-{version}-cp37-cp37m-macosx_10_6_intel.whl
 
@@ -253,7 +236,6 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.14.5
       python_version: 3.5
     artifacts:
       - pyarrow-{version}-cp35-cp35m-win_amd64.whl
@@ -262,7 +244,6 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.14.5
       python_version: 3.6
     artifacts:
       - pyarrow-{version}-cp36-cp36m-win_amd64.whl
@@ -271,7 +252,6 @@ tasks:
     platform: win
     template: python-wheels/appveyor.yml
     params:
-      numpy_version: 1.14.5
       python_version: 3.7
     artifacts:
       - pyarrow-{version}-cp37-cp37m-win_amd64.whl
@@ -294,6 +274,7 @@ tasks:
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
@@ -312,6 +293,13 @@ tasks:
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
+      - libgandiva-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib12_{no_rc_version}-1_amd64.deb
+      - libgandiva12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva12_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
@@ -376,6 +364,7 @@ tasks:
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
@@ -389,6 +378,11 @@ tasks:
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
+      - libgandiva-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib12_{no_rc_version}-1_amd64.deb
+      - libgandiva12_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
@@ -416,6 +410,7 @@ tasks:
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
@@ -429,6 +424,11 @@ tasks:
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
+      - libgandiva-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib12_{no_rc_version}-1_amd64.deb
+      - libgandiva12_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
@@ -456,6 +456,7 @@ tasks:
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
@@ -469,6 +470,11 @@ tasks:
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
+      - libgandiva-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib12_{no_rc_version}-1_amd64.deb
+      - libgandiva12_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb

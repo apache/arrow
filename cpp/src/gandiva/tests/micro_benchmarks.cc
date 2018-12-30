@@ -56,7 +56,7 @@ static void TimedTestAdd3(benchmark::State& state) {
   auto sum_expr = TreeExprBuilder::MakeExpression(sum, field_sum);
 
   std::shared_ptr<Projector> projector;
-  ASSERT_OK(Projector::Make(schema, {sum_expr}, &projector));
+  ASSERT_OK(Projector::Make(schema, {sum_expr}, TestConfiguration(), &projector));
 
   Int64DataGenerator data_generator;
   ProjectEvaluator evaluator(projector);
@@ -99,7 +99,7 @@ static void TimedTestBigNested(benchmark::State& state) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  ASSERT_OK(Projector::Make(schema, {expr}, &projector));
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
 
   BoundedInt32DataGenerator data_generator(250);
   ProjectEvaluator evaluator(projector);
@@ -122,7 +122,7 @@ static void TimedTestExtractYear(benchmark::State& state) {
   auto expr = TreeExprBuilder::MakeExpression("extractYear", {field0}, field_res);
 
   std::shared_ptr<Projector> projector;
-  ASSERT_OK(Projector::Make(schema, {expr}, &projector));
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
 
   Int64DataGenerator data_generator;
   ProjectEvaluator evaluator(projector);
@@ -149,7 +149,7 @@ static void TimedTestFilterAdd2(benchmark::State& state) {
   auto condition = TreeExprBuilder::MakeCondition(less_than);
 
   std::shared_ptr<Filter> filter;
-  ASSERT_OK(Filter::Make(schema, condition, &filter));
+  ASSERT_OK(Filter::Make(schema, condition, TestConfiguration(), &filter));
 
   Int64DataGenerator data_generator;
   FilterEvaluator evaluator(filter);
@@ -173,7 +173,7 @@ static void TimedTestFilterLike(benchmark::State& state) {
   auto condition = TreeExprBuilder::MakeCondition(like_yellow);
 
   std::shared_ptr<Filter> filter;
-  ASSERT_OK(Filter::Make(schema, condition, &filter));
+  ASSERT_OK(Filter::Make(schema, condition, TestConfiguration(), &filter));
 
   FastUtf8DataGenerator data_generator(32);
   FilterEvaluator evaluator(filter);
@@ -199,7 +199,7 @@ static void TimedTestAllocs(benchmark::State& state) {
   auto expr = TreeExprBuilder::MakeExpression(length, field_res);
 
   std::shared_ptr<Projector> projector;
-  ASSERT_OK(Projector::Make(schema, {expr}, &projector));
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
 
   FastUtf8DataGenerator data_generator(64);
   ProjectEvaluator evaluator(projector);
@@ -237,7 +237,7 @@ static void TimedTestMultiOr(benchmark::State& state) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  ASSERT_OK(Projector::Make(schema, {expr}, &projector));
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
 
   FastUtf8DataGenerator data_generator(250);
   ProjectEvaluator evaluator(projector);
@@ -269,7 +269,7 @@ static void TimedTestInExpr(benchmark::State& state) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  ASSERT_OK(Projector::Make(schema, {expr}, &projector));
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
 
   FastUtf8DataGenerator data_generator(250);
   ProjectEvaluator evaluator(projector);

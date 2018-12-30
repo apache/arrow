@@ -99,19 +99,36 @@ def pytest_configure(config):
 
 
 def pytest_addoption(parser):
+    def bool_env(name, default=None):
+        value = os.environ.get(name.upper())
+        if value is None:
+            return default
+        value = value.lower()
+        if value in {'1', 'true', 'on', 'yes', 'y'}:
+            return True
+        elif value in {'0', 'false', 'off', 'no', 'n'}:
+            return False
+        else:
+            raise ValueError('{}={} is not parsable as boolean'
+                             .format(name.upper(), value))
+
     for group in groups:
-        for flag in ['--{0}', '--enable-{0}']:
-            parser.addoption(flag.format(group), action='store_true',
-                             default=defaults[group],
-                             help=('Enable the {0} test group'.format(group)))
+        for flag, envvar in [('--{}', 'PYARROW_TEST_{}'),
+                             ('--enable-{}', 'PYARROW_TEST_ENABLE_{}')]:
+            default = bool_env(envvar.format(group), defaults[group])
+            parser.addoption(flag.format(group),
+                             action='store_true', default=default,
+                             help=('Enable the {} test group'.format(group)))
 
-        parser.addoption('--disable-{0}'.format(group), action='store_true',
-                         default=False,
-                         help=('Disable the {0} test group'.format(group)))
+        default = bool_env('PYARROW_TEST_DISABLE_{}'.format(group), False)
+        parser.addoption('--disable-{}'.format(group),
+                         action='store_true', default=default,
+                         help=('Disable the {} test group'.format(group)))
 
-        parser.addoption('--only-{0}'.format(group), action='store_true',
-                         default=False,
-                         help=('Run only the {0} test group'.format(group)))
+        default = bool_env('PYARROW_TEST_ONLY_{}'.format(group), False)
+        parser.addoption('--only-{}'.format(group),
+                         action='store_true', default=default,
+                         help=('Run only the {} test group'.format(group)))
 
     parser.addoption('--runslow', action='store_true',
                      default=False, help='run slow tests')

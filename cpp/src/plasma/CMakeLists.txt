@@ -15,21 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(plasma-all)
 add_custom_target(plasma)
+add_custom_target(plasma-benchmarks)
+add_custom_target(plasma-tests)
+add_dependencies(plasma-all plasma plasma-tests plasma-benchmarks)
 
 # For the moment, Plasma is versioned like Arrow
 project(plasma VERSION "${ARROW_BASE_VERSION}")
+set(PLASMA_VERSION "${ARROW_VERSION}")
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../python/cmake_modules")
-
-find_package(PythonLibsNew REQUIRED)
 find_package(Threads)
 
 # The SO version is also the ABI version
 set(PLASMA_SO_VERSION "${ARROW_SO_VERSION}")
 set(PLASMA_FULL_SO_VERSION "${ARROW_FULL_SO_VERSION}")
 
-include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS})
 include_directories("${FLATBUFFERS_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/" "${CMAKE_CURRENT_LIST_DIR}/thirdparty/" "${CMAKE_CURRENT_LIST_DIR}/../")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_XOPEN_SOURCE=500 -D_POSIX_C_SOURCE=200809L")
@@ -96,6 +97,8 @@ ADD_ARROW_LIB(plasma
   SHARED_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS}
   STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_STATIC_LINK_LIBS})
 
+add_dependencies(plasma ${PLASMA_LIBRARIES})
+
 foreach(LIB_TARGET ${PLASMA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
     PRIVATE ARROW_EXPORTING)
@@ -154,12 +157,7 @@ install(TARGETS plasma_store_server
   DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # pkg-config support
-configure_file(plasma.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/plasma.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/plasma.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("plasma")
 
 if(ARROW_PLASMA_JAVA_CLIENT)
   # Plasma java client support
@@ -208,7 +206,7 @@ function(ADD_PLASMA_TEST REL_TEST_NAME)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   ADD_TEST_CASE(${REL_TEST_NAME}
     PREFIX "plasma"
-    LABELS "unittest;plasma"
+    LABELS "plasma-tests"
     ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 

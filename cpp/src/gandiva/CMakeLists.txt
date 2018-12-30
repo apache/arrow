@@ -15,23 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-project(gandiva)
+set(GANDIVA_VERSION "${ARROW_VERSION}")
+
+# For "make gandiva" to build everything Gandiva-related
+add_custom_target(gandiva-all)
+add_custom_target(gandiva)
+add_custom_target(gandiva-tests)
+add_custom_target(gandiva-benchmarks)
+
+add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
 find_package(LLVM)
 
-# For "make gandiva" to build everything Gandiva-related
-add_custom_target(gandiva)
-
 # Set the path where the byte-code files will be installed.
 set(GANDIVA_BC_INSTALL_DIR
-  ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/gandiva)
+  ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/gandiva)
 
 set(GANDIVA_BC_FILE_NAME irhelpers.bc)
 set(GANDIVA_BC_INSTALL_PATH ${GANDIVA_BC_INSTALL_DIR}/${GANDIVA_BC_FILE_NAME})
-set(GANDIVA_BC_OUTPUT_PATH ${BUILD_OUTPUT_ROOT_DIRECTORY}/${GANDIVA_BC_FILE_NAME})
+set(GANDIVA_BC_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/${GANDIVA_BC_FILE_NAME})
+install(FILES
+  ${GANDIVA_BC_OUTPUT_PATH}
+  DESTINATION ${GANDIVA_BC_INSTALL_DIR})
 
 set(BC_FILE_PATH_CC "${CMAKE_CURRENT_BINARY_DIR}/bc_file_path.cc")
 configure_file(bc_file_path.cc.in ${BC_FILE_PATH_CC})
+add_definitions(-DGANDIVA_BYTE_COMPILE_FILE_PATH="${GANDIVA_BC_OUTPUT_PATH}")
 
 set(SRC_FILES annotator.cc
       bitmap_accumulator.cc
@@ -56,7 +65,6 @@ set(SRC_FILES annotator.cc
       selection_vector.cc
       tree_expr_builder.cc
       to_date_holder.cc
-      ${SHARED_HELPER_FILES}
       ${BC_FILE_PATH_CC})
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS
@@ -96,12 +104,7 @@ include(GNUInstallDirs)
 ARROW_INSTALL_ALL_HEADERS("gandiva")
 
 # pkg-config support
-configure_file(gandiva.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/gandiva.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("gandiva")
 
 set(GANDIVA_STATIC_TEST_LINK_LIBS
   gandiva_static
@@ -125,7 +128,7 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(TEST_ARGUMENTS
     ENABLED
     PREFIX "gandiva"
-    LABELS "unittest;gandiva"
+    LABELS "gandiva-tests"
     ${ARG_UNPARSED_ARGUMENTS})
 
   # and uses less disk space, but in some cases we need to force static
@@ -165,6 +168,7 @@ ADD_GANDIVA_TEST(selection_vector_test)
 ADD_GANDIVA_TEST(lru_cache_test)
 ADD_GANDIVA_TEST(to_date_holder_test)
 ADD_GANDIVA_TEST(simple_arena_test)
+ADD_GANDIVA_TEST(like_holder_test)
 
 if (ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)

@@ -36,9 +36,7 @@ namespace util {
 constexpr int kZSTDDefaultCompressionLevel = 1;
 
 static Status ZSTDError(size_t ret, const char* prefix_msg) {
-  std::stringstream ss;
-  ss << prefix_msg << ZSTD_getErrorName(ret);
-  return Status::IOError(ss.str());
+  return Status::IOError(prefix_msg, ZSTD_getErrorName(ret));
 }
 
 // ----------------------------------------------------------------------

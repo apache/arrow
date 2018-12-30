@@ -73,7 +73,8 @@ TEST_F(TestProjector, TestIsNull) {
   auto isnotnull_expr = TreeExprBuilder::MakeExpression("isnotnull", {t0}, b0);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {isnull_expr, isnotnull_expr}, &projector);
+  auto status = Projector::Make(schema, {isnull_expr, isnotnull_expr},
+                                TestConfiguration(), &projector);
   ASSERT_TRUE(status.ok());
 
   int num_records = 4;
@@ -126,8 +127,9 @@ TEST_F(TestProjector, TestDateTime) {
   auto ts2day_expr = TreeExprBuilder::MakeExpression("extractDay", {field2}, field_day);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(
-      schema, {date2year_expr, date2month_expr, ts2month_expr, ts2day_expr}, &projector);
+  auto status = Projector::Make(
+      schema, {date2year_expr, date2month_expr, ts2month_expr, ts2day_expr},
+      TestConfiguration(), &projector);
   ASSERT_TRUE(status.ok());
 
   struct tm y1970;
@@ -196,7 +198,8 @@ TEST_F(TestProjector, TestTime) {
       TreeExprBuilder::MakeExpression("extractHour", {field0}, field_hour);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {time2min_expr, time2hour_expr}, &projector);
+  auto status = Projector::Make(schema, {time2min_expr, time2hour_expr},
+                                TestConfiguration(), &projector);
   ASSERT_TRUE(status.ok());
 
   // create input data
@@ -264,7 +267,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
   std::shared_ptr<Projector> projector;
   auto exprs = {diff_secs_expr,  diff_mins_expr,   diff_hours_expr,    diff_days_expr,
                 diff_weeks_expr, diff_months_expr, diff_quarters_expr, diff_years_expr};
-  Status status = Projector::Make(schema, exprs, &projector);
+  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
   ASSERT_TRUE(status.ok());
 
   struct tm y1970;
@@ -337,7 +340,8 @@ TEST_F(TestProjector, TestMonthsBetween) {
       TreeExprBuilder::MakeExpression("months_between", {f0, f1}, output);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {months_between_expr}, &projector);
+  auto status =
+      Projector::Make(schema, {months_between_expr}, TestConfiguration(), &projector);
   std::cout << status.message();
   ASSERT_TRUE(status.ok());
 

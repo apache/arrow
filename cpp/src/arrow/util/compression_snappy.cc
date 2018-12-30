@@ -57,10 +57,8 @@ Status SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
     return Status::IOError("Corrupt snappy compressed data.");
   }
   if (output_buffer_len < static_cast<int64_t>(decompressed_size)) {
-    std::stringstream ss;
-    ss << "Output buffer size (" << output_buffer_len << ") must be " << decompressed_size
-       << " or larger.";
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Output buffer size (", output_buffer_len, ") must be ",
+                           decompressed_size, " or larger.");
   }
   if (output_len) {
     *output_len = static_cast<int64_t>(decompressed_size);

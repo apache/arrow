@@ -18,11 +18,15 @@
 class TestGandivaStringLiteralNode < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
+    @value = "Hello"
+    @node = Gandiva::StringLiteralNode.new(@value)
   end
 
   def test_value
-    value = "Hello"
-    literal_node = Gandiva::StringLiteralNode.new(value)
-    assert_equal(value, literal_node.value)
+    assert_equal(@value, @node.value)
+  end
+
+  def test_return_type
+    assert_equal(Arrow::StringDataType.new, @node.return_type)
   end
 end

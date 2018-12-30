@@ -909,17 +909,16 @@ cdef class ParquetWriter:
                 check_status(self.sink.get().Close())
 
     def write_table(self, Table table, row_group_size=None):
-        cdef CTable* ctable = table.table
+        cdef:
+            CTable* ctable = table.table
+            int64_t c_row_group_size
 
         if row_group_size is None or row_group_size == -1:
-            if ctable.num_rows() > 0:
-                row_group_size = ctable.num_rows()
-            else:
-                row_group_size = 1
+            c_row_group_size = ctable.num_rows()
         elif row_group_size == 0:
             raise ValueError('Row group size cannot be 0')
-
-        cdef int64_t c_row_group_size = row_group_size
+        else:
+            c_row_group_size = row_group_size
 
         with nogil:
             check_status(self.writer.get()

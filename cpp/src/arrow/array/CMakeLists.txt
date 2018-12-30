@@ -16,12 +16,4 @@
 # under the License.
 
 # Headers: top level
-install(FILES
-  builder_adaptive.h
-  builder_base.h
-  builder_binary.h
-  builder_decimal.h
-  builder_dict.h
-  builder_nested.h
-  builder_primitive.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/array")
+ARROW_INSTALL_ALL_HEADERS("arrow/array")

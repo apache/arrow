@@ -18,11 +18,15 @@
 class TestGandivaDoubleLiteralNode < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
+    @value = 1.5
+    @node = Gandiva::DoubleLiteralNode.new(@value)
   end
 
   def test_value
-    value = 1.5
-    literal_node = Gandiva::DoubleLiteralNode.new(value)
-    assert_equal(value, literal_node.value)
+    assert_equal(@value, @node.value)
+  end
+
+  def test_return_type
+    assert_equal(Arrow::DoubleDataType.new, @node.return_type)
   end
 end

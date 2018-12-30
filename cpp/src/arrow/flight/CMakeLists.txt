@@ -18,12 +18,7 @@
 add_custom_target(arrow_flight)
 
 # Header files
-install(FILES
-  api.h
-  client.h
-  server.h
-  types.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/flight")
+ARROW_INSTALL_ALL_HEADERS("arrow/flight")
 
 SET(ARROW_FLIGHT_STATIC_LINK_LIBS
   grpc_grpcpp
@@ -80,7 +75,6 @@ set(ARROW_FLIGHT_SRCS
 
 ADD_ARROW_LIB(arrow_flight
   SOURCES ${ARROW_FLIGHT_SRCS}
-  DEPENDENCIES arrow_dependencies
   SHARED_LINK_LIBS arrow_shared ${ARROW_FLIGHT_STATIC_LINK_LIBS}
   STATIC_LINK_LIBS arrow_static ${ARROW_FLIGHT_STATIC_LINK_LIBS})
 

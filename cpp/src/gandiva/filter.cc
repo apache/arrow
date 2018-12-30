@@ -40,32 +40,28 @@ Filter::Filter(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
 Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
                     std::shared_ptr<Configuration> configuration,
                     std::shared_ptr<Filter>* filter) {
-  ARROW_RETURN_FAILURE_IF_FALSE(schema != nullptr,
-                                Status::Invalid("schema cannot be null"));
-  ARROW_RETURN_FAILURE_IF_FALSE(condition != nullptr,
-                                Status::Invalid("condition cannot be null"));
-  ARROW_RETURN_FAILURE_IF_FALSE(configuration != nullptr,
-                                Status::Invalid("configuration cannot be null"));
+  ARROW_RETURN_IF(schema == nullptr, Status::Invalid("Schema cannot be null"));
+  ARROW_RETURN_IF(condition == nullptr, Status::Invalid("Condition cannot be null"));
+  ARROW_RETURN_IF(configuration == nullptr,
+                  Status::Invalid("Configuration cannot be null"));
+
   static Cache<FilterCacheKey, std::shared_ptr<Filter>> cache;
   FilterCacheKey cache_key(schema, configuration, *(condition.get()));
-  std::shared_ptr<Filter> cachedFilter = cache.GetModule(cache_key);
+  auto cachedFilter = cache.GetModule(cache_key);
   if (cachedFilter != nullptr) {
     *filter = cachedFilter;
     return Status::OK();
   }
+
   // Build LLVM generator, and generate code for the specified expression
   std::unique_ptr<LLVMGenerator> llvm_gen;
-  Status status = LLVMGenerator::Make(configuration, &llvm_gen);
-  ARROW_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(LLVMGenerator::Make(configuration, &llvm_gen));
 
   // Run the validation on the expression.
   // Return if the expression is invalid since we will not be able to process further.
   ExprValidator expr_validator(llvm_gen->types(), schema);
-  status = expr_validator.Validate(condition);
-  ARROW_RETURN_NOT_OK(status);
-
-  status = llvm_gen->Build({condition});
-  ARROW_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
+  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}));
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
@@ -76,42 +72,33 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
 Status Filter::Evaluate(const arrow::RecordBatch& batch,
                         std::shared_ptr<SelectionVector> out_selection) {
-  if (!batch.schema()->Equals(*schema_)) {
-    return Status::Invalid("Schema in RecordBatch must match the schema in Make()");
-  }
-  if (batch.num_rows() == 0) {
-    return Status::Invalid("RecordBatch must be non-empty.");
-  }
-  if (out_selection == nullptr) {
-    return Status::Invalid("out_selection must be non-null.");
-  }
-  if (out_selection->GetMaxSlots() < batch.num_rows()) {
-    std::stringstream ss;
-    ss << "out_selection has " << out_selection->GetMaxSlots()
-       << " slots, which is less than the batch size " << batch.num_rows();
-    return Status::Invalid(ss.str());
-  }
+  const auto num_rows = batch.num_rows();
+  ARROW_RETURN_IF(!batch.schema()->Equals(*schema_),
+                  Status::Invalid("RecordBatch schema must expected filter schema"));
+  ARROW_RETURN_IF(num_rows == 0, Status::Invalid("RecordBatch must be non-empty."));
+  ARROW_RETURN_IF(out_selection == nullptr,
+                  Status::Invalid("out_selection must be non-null."));
+  ARROW_RETURN_IF(out_selection->GetMaxSlots() < num_rows,
+                  Status::Invalid("Output selection vector capacity too small"));
 
   // Allocate three local_bitmaps (one for output, one for validity, one to compute the
   // intersection).
-  LocalBitMapsHolder bitmaps(batch.num_rows(), 3 /*local_bitmaps*/);
+  LocalBitMapsHolder bitmaps(num_rows, 3 /*local_bitmaps*/);
   int64_t bitmap_size = bitmaps.GetLocalBitMapSize();
 
   auto validity = std::make_shared<arrow::Buffer>(bitmaps.GetLocalBitMap(0), bitmap_size);
   auto value = std::make_shared<arrow::Buffer>(bitmaps.GetLocalBitMap(1), bitmap_size);
-  auto array_data =
-      arrow::ArrayData::Make(arrow::boolean(), batch.num_rows(), {validity, value});
+  auto array_data = arrow::ArrayData::Make(arrow::boolean(), num_rows, {validity, value});
 
   // Execute the expression(s).
-  auto status = llvm_generator_->Execute(batch, {array_data});
-  ARROW_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(llvm_generator_->Execute(batch, {array_data}));
 
   // Compute the intersection of the value and validity.
   auto result = bitmaps.GetLocalBitMap(2);
   BitMapAccumulator::IntersectBitMaps(
-      result, {bitmaps.GetLocalBitMap(0), bitmaps.GetLocalBitMap((1))}, batch.num_rows());
+      result, {bitmaps.GetLocalBitMap(0), bitmaps.GetLocalBitMap((1))}, num_rows);
 
-  return out_selection->PopulateFromBitMap(result, bitmap_size, batch.num_rows() - 1);
+  return out_selection->PopulateFromBitMap(result, bitmap_size, num_rows - 1);
 }
 
 }  // namespace gandiva

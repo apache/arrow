@@ -80,7 +80,7 @@ class FileFormatFixture(IpcFixture):
         _, batches = self.write_batches(as_table=as_table)
         file_contents = pa.BufferReader(self.get_source())
 
-        reader = pa.open_file(file_contents)
+        reader = pa.ipc.open_file(file_contents)
 
         assert reader.num_record_batches == len(batches)
 
@@ -121,7 +121,7 @@ def stream_fixture():
 def test_empty_file():
     buf = b''
     with pytest.raises(pa.ArrowInvalid):
-        pa.open_file(pa.BufferReader(buf))
+        pa.ipc.open_file(pa.BufferReader(buf))
 
 
 def test_file_simple_roundtrip(file_fixture):
@@ -142,7 +142,7 @@ def test_file_read_all(sink_factory):
     _, batches = fixture.write_batches()
     file_contents = pa.BufferReader(fixture.get_source())
 
-    reader = pa.open_file(file_contents)
+    reader = pa.ipc.open_file(file_contents)
 
     result = reader.read_all()
     expected = pa.Table.from_batches(batches)
@@ -154,8 +154,8 @@ def test_open_file_from_buffer(file_fixture):
     _, batches = file_fixture.write_batches()
     source = file_fixture.get_source()
 
-    reader1 = pa.open_file(source)
-    reader2 = pa.open_file(pa.BufferReader(source))
+    reader1 = pa.ipc.open_file(source)
+    reader2 = pa.ipc.open_file(pa.BufferReader(source))
     reader3 = pa.RecordBatchFileReader(source)
 
     result1 = reader1.read_all()
@@ -170,7 +170,7 @@ def test_file_read_pandas(file_fixture):
     frames, _ = file_fixture.write_batches()
 
     file_contents = pa.BufferReader(file_fixture.get_source())
-    reader = pa.open_file(file_contents)
+    reader = pa.ipc.open_file(file_contents)
     result = reader.read_pandas()
 
     expected = pd.concat(frames)
@@ -189,8 +189,8 @@ def test_file_pathlib(file_fixture, tmpdir):
     with open(path, 'wb') as f:
         f.write(source)
 
-    t1 = pa.open_file(pathlib.Path(path)).read_all()
-    t2 = pa.open_file(pa.OSFile(path)).read_all()
+    t1 = pa.ipc.open_file(pathlib.Path(path)).read_all()
+    t2 = pa.ipc.open_file(pa.OSFile(path)).read_all()
 
     assert t1.equals(t2)
 
@@ -198,7 +198,7 @@ def test_file_pathlib(file_fixture, tmpdir):
 def test_empty_stream():
     buf = io.BytesIO(b'')
     with pytest.raises(pa.ArrowInvalid):
-        pa.open_stream(buf)
+        pa.ipc.open_stream(buf)
 
 
 def test_stream_categorical_roundtrip(stream_fixture):
@@ -213,7 +213,7 @@ def test_stream_categorical_roundtrip(stream_fixture):
     writer.write_batch(pa.RecordBatch.from_pandas(df))
     writer.close()
 
-    table = (pa.open_stream(pa.BufferReader(stream_fixture.get_source()))
+    table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
              .read_all())
     assert_frame_equal(table.to_pandas(), df)
 
@@ -223,8 +223,8 @@ def test_open_stream_from_buffer(stream_fixture):
     _, batches = stream_fixture.write_batches()
     source = stream_fixture.get_source()
 
-    reader1 = pa.open_stream(source)
-    reader2 = pa.open_stream(pa.BufferReader(source))
+    reader1 = pa.ipc.open_stream(source)
+    reader2 = pa.ipc.open_stream(pa.BufferReader(source))
     reader3 = pa.RecordBatchStreamReader(source)
 
     result1 = reader1.read_all()
@@ -250,7 +250,7 @@ def test_stream_write_dispatch(stream_fixture):
     writer.write(batch)
     writer.close()
 
-    table = (pa.open_stream(pa.BufferReader(stream_fixture.get_source()))
+    table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
              .read_all())
     assert_frame_equal(table.to_pandas(),
                        pd.concat([df, df], ignore_index=True))
@@ -271,7 +271,7 @@ def test_stream_write_table_batches(stream_fixture):
     writer.write_table(table, chunksize=15)
     writer.close()
 
-    batches = list(pa.open_stream(stream_fixture.get_source()))
+    batches = list(pa.ipc.open_stream(stream_fixture.get_source()))
 
     assert list(map(len, batches)) == [10, 15, 5, 10]
     result_table = pa.Table.from_batches(batches)
@@ -283,7 +283,7 @@ def test_stream_write_table_batches(stream_fixture):
 def test_stream_simple_roundtrip(stream_fixture):
     _, batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
-    reader = pa.open_stream(file_contents)
+    reader = pa.ipc.open_stream(file_contents)
 
     assert reader.schema.equals(batches[0].schema)
 
@@ -301,7 +301,7 @@ def test_stream_simple_roundtrip(stream_fixture):
 def test_stream_read_all(stream_fixture):
     _, batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
-    reader = pa.open_stream(file_contents)
+    reader = pa.ipc.open_stream(file_contents)
 
     result = reader.read_all()
     expected = pa.Table.from_batches(batches)
@@ -311,7 +311,7 @@ def test_stream_read_all(stream_fixture):
 def test_stream_read_pandas(stream_fixture):
     frames, _ = stream_fixture.write_batches()
     file_contents = stream_fixture.get_source()
-    reader = pa.open_stream(file_contents)
+    reader = pa.ipc.open_stream(file_contents)
     result = reader.read_pandas()
 
     expected = pd.concat(frames)
@@ -393,7 +393,7 @@ class StreamReaderServer(threading.Thread):
         connection, client_address = self._sock.accept()
         try:
             source = connection.makefile(mode='rb')
-            reader = pa.open_stream(source)
+            reader = pa.ipc.open_stream(source)
             self._schema = reader.schema
             if self._do_read_all:
                 self._table = reader.read_all()
@@ -494,7 +494,7 @@ def test_ipc_stream_no_batches():
     writer.close()
 
     source = sink.getvalue()
-    reader = pa.open_stream(source)
+    reader = pa.ipc.open_stream(source)
     result = reader.read_all()
 
     assert result.schema.equals(table.schema)
@@ -636,7 +636,7 @@ def write_file(batch, sink):
 
 
 def read_file(source):
-    reader = pa.open_file(source)
+    reader = pa.ipc.open_file(source)
     return [reader.get_batch(i)
             for i in range(reader.num_record_batches)]
 

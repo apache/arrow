@@ -31,12 +31,15 @@
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 
 namespace arrow {
 
 using std::string;
 using std::vector;
+
+using internal::checked_cast;
 
 // ----------------------------------------------------------------------
 // Dictionary tests
@@ -738,6 +741,65 @@ TEST(TestDictionary, FromArray) {
   ASSERT_RAISES(Invalid, DictionaryArray::FromArrays(dict_type, indices2, &arr2));
   ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices3, &arr3));
   ASSERT_RAISES(Invalid, DictionaryArray::FromArrays(dict_type, indices4, &arr4));
+}
+
+TEST(TestDictionary, TransposeBasic) {
+  std::shared_ptr<Array> arr, out, expected;
+
+  auto dict = ArrayFromJSON(utf8(), "[\"A\", \"B\", \"C\"]");
+  auto dict_type = dictionary(int16(), dict);
+  auto indices = ArrayFromJSON(int16(), "[1, 2, 0, 0]");
+  // ["B", "C", "A", "A"]
+  ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices, &arr));
+
+  // Transpose to same index type
+  {
+    auto out_dict = ArrayFromJSON(utf8(), "[\"Z\", \"A\", \"C\", \"B\"]");
+    auto out_dict_type = dictionary(int16(), out_dict);
+
+    const std::vector<int32_t> transpose_map{1, 3, 2};
+    ASSERT_OK(internal::checked_cast<const DictionaryArray&>(*arr).Transpose(
+        default_memory_pool(), out_dict_type, transpose_map, &out));
+
+    auto expected_indices = ArrayFromJSON(int16(), "[3, 2, 1, 1]");
+    ASSERT_OK(DictionaryArray::FromArrays(out_dict_type, expected_indices, &expected));
+    AssertArraysEqual(*out, *expected);
+  }
+
+  // Transpose to other type
+  {
+    auto out_dict = ArrayFromJSON(utf8(), "[\"Z\", \"A\", \"C\", \"B\"]");
+    auto out_dict_type = dictionary(int8(), out_dict);
+
+    const std::vector<int32_t> transpose_map{1, 3, 2};
+    ASSERT_OK(internal::checked_cast<const DictionaryArray&>(*arr).Transpose(
+        default_memory_pool(), out_dict_type, transpose_map, &out));
+
+    auto expected_indices = ArrayFromJSON(int8(), "[3, 2, 1, 1]");
+    ASSERT_OK(DictionaryArray::FromArrays(out_dict_type, expected_indices, &expected));
+    AssertArraysEqual(*expected, *out);
+  }
+}
+
+TEST(TestDictionary, TransposeNulls) {
+  std::shared_ptr<Array> arr, out, expected;
+
+  auto dict = ArrayFromJSON(utf8(), "[\"A\", \"B\", \"C\"]");
+  auto dict_type = dictionary(int16(), dict);
+  auto indices = ArrayFromJSON(int16(), "[1, 2, null, 0]");
+  // ["B", "C", null, "A"]
+  ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices, &arr));
+
+  auto out_dict = ArrayFromJSON(utf8(), "[\"Z\", \"A\", \"C\", \"B\"]");
+  auto out_dict_type = dictionary(int16(), out_dict);
+
+  const std::vector<int32_t> transpose_map{1, 3, 2};
+  ASSERT_OK(internal::checked_cast<const DictionaryArray&>(*arr).Transpose(
+      default_memory_pool(), out_dict_type, transpose_map, &out));
+
+  auto expected_indices = ArrayFromJSON(int16(), "[3, 2, null, 1]");
+  ASSERT_OK(DictionaryArray::FromArrays(out_dict_type, expected_indices, &expected));
+  AssertArraysEqual(*expected, *out);
 }
 
 }  // namespace arrow

@@ -17,11 +17,12 @@
 
 extern crate arrow;
 
+use std::fs::File;
+use std::sync::Arc;
+
 use arrow::array::{BinaryArray, Float64Array};
 use arrow::csv;
 use arrow::datatypes::{DataType, Field, Schema};
-use std::fs::File;
-use std::sync::Arc;
 
 fn main() {
     let schema = Schema::new(vec![

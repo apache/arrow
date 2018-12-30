@@ -34,9 +34,7 @@ Status DictionaryMemo::GetDictionary(int64_t id,
                                      std::shared_ptr<Array>* dictionary) const {
   auto it = id_to_dictionary_.find(id);
   if (it == id_to_dictionary_.end()) {
-    std::stringstream ss;
-    ss << "Dictionary with id " << id << " not found";
-    return Status::KeyError(ss.str());
+    return Status::KeyError("Dictionary with id ", id, " not found");
   }
   *dictionary = it->second;
   return Status::OK();
@@ -70,9 +68,7 @@ bool DictionaryMemo::HasDictionaryId(int64_t id) const {
 Status DictionaryMemo::AddDictionary(int64_t id,
                                      const std::shared_ptr<Array>& dictionary) {
   if (HasDictionaryId(id)) {
-    std::stringstream ss;
-    ss << "Dictionary with id " << id << " already exists";
-    return Status::KeyError(ss.str());
+    return Status::KeyError("Dictionary with id ", id, " already exists");
   }
   intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
   id_to_dictionary_[id] = dictionary;

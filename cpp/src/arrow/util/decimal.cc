@@ -345,9 +345,7 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
 
   DecimalComponents dec;
   if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
-    std::stringstream ss;
-    ss << "The string '" << s << "' is not a valid decimal number";
-    return Status::Invalid(ss.str());
+    return Status::Invalid("The string '", s, "' is not a valid decimal number");
   }
   std::string exponent_value = dec.exponent_sign + dec.exponent_digits;
 
@@ -878,11 +876,9 @@ Status Decimal128::Rescale(int32_t original_scale, int32_t new_scale,
 
   // Fail if we overflow or truncate
   if (ARROW_PREDICT_FALSE(rescale_would_cause_data_loss)) {
-    std::stringstream buf;
-    buf << "Rescaling decimal value " << ToString(original_scale)
-        << " from original scale of " << original_scale << " to new scale of "
-        << new_scale << " would cause data loss";
-    return Status::Invalid(buf.str());
+    return Status::Invalid("Rescaling decimal value ", ToString(original_scale),
+                           " from original scale of ", original_scale,
+                           " to new scale of ", new_scale, " would cause data loss");
   }
 
   return Status::OK();
@@ -909,11 +905,9 @@ Status Decimal128::FromBigEndian(const uint8_t* bytes, int32_t length, Decimal12
   int64_t high, low;
 
   if (length < kMinDecimalBytes || length > kMaxDecimalBytes) {
-    std::ostringstream stream;
-    stream << "Length of byte array passed to Decimal128::FromBigEndian ";
-    stream << "was " << length << ", but must be between ";
-    stream << kMinDecimalBytes << " and " << kMaxDecimalBytes;
-    return Status::Invalid(stream.str());
+    return Status::Invalid("Length of byte array passed to Decimal128::FromBigEndian ",
+                           "was ", length, ", but must be between ", kMinDecimalBytes,
+                           " and ", kMaxDecimalBytes);
   }
 
   // Bytes are coming in big-endian, so the first byte is the MSB and therefore holds the

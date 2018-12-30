@@ -23,7 +23,7 @@ import pandas as pd
 
 from pyarrow.compat import pdapi
 from pyarrow.lib import FeatherError  # noqa
-from pyarrow.lib import RecordBatch, concat_tables
+from pyarrow.lib import Table, concat_tables
 import pyarrow.lib as ext
 
 
@@ -62,6 +62,21 @@ class FeatherReader(ext.FeatherReader):
             use_threads=use_threads)
 
 
+def check_chunked_overflow(col):
+    if col.data.num_chunks == 1:
+        return
+
+    if col.type in (ext.binary(), ext.string()):
+        raise ValueError("Column '{0}' exceeds 2GB maximum capacity of "
+                         "a Feather binary column. This restriction may be "
+                         "lifted in the future".format(col.name))
+    else:
+        # TODO(wesm): Not sure when else this might be reached
+        raise ValueError("Column '{0}' of type {1} was chunked on conversion "
+                         "to Arrow and cannot be currently written to "
+                         "Feather format".format(col.name, str(col.type)))
+
+
 class FeatherWriter(object):
 
     def __init__(self, dest):
@@ -78,10 +93,11 @@ class FeatherWriter(object):
 
         # TODO(wesm): Remove this length check, see ARROW-1732
         if len(df.columns) > 0:
-            batch = RecordBatch.from_pandas(df, preserve_index=False)
-            for i, name in enumerate(batch.schema.names):
-                col = batch[i]
-                self.writer.write_array(name, col)
+            table = Table.from_pandas(df, preserve_index=False)
+            for i, name in enumerate(table.schema.names):
+                col = table[i]
+                check_chunked_overflow(col)
+                self.writer.write_array(name, col.data.chunk(0))
 
         self.writer.close()
 

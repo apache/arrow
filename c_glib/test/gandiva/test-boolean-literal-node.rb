@@ -18,11 +18,15 @@
 class TestGandivaBooleanLiteralNode < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
+    @value = true
+    @node = Gandiva::BooleanLiteralNode.new(@value)
   end
 
   def test_value
-    value = true
-    literal_node = Gandiva::BooleanLiteralNode.new(value)
-    assert_equal(value, literal_node.value?)
+    assert_equal(@value, @node.value?)
+  end
+
+  def test_return_type
+    assert_equal(Arrow::BooleanDataType.new, @node.return_type)
   end
 end

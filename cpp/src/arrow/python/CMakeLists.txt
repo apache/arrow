@@ -22,7 +22,10 @@
 find_package(PythonLibsNew REQUIRED)
 find_package(NumPy REQUIRED)
 
+add_custom_target(arrow_python-all)
 add_custom_target(arrow_python)
+add_custom_target(arrow_python-tests)
+add_dependencies(arrow_python-all arrow_python arrow_python-tests)
 
 set(ARROW_PYTHON_SRCS
   arrow_to_pandas.cc
@@ -74,6 +77,8 @@ ADD_ARROW_LIB(arrow_python
   EXTRA_INCLUDES "${ARROW_PYTHON_INCLUDES}"
 )
 
+add_dependencies(arrow_python ${ARROW_PYTHON_LIBRARIES})
+
 foreach(LIB_TARGET ${ARROW_PYTHON_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
     PRIVATE ARROW_PYTHON_EXPORTING)
@@ -94,12 +99,7 @@ endif()
 ARROW_INSTALL_ALL_HEADERS("arrow/python")
 
 # pkg-config support
-configure_file(arrow-python.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow-python.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-python.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("arrow-python")
 
 # ----------------------------------------------------------------------
 
@@ -135,6 +135,6 @@ if (ARROW_BUILD_TESTS)
     STATIC_LINK_LIBS "${ARROW_PYTHON_TEST_LINK_LIBS}"
     EXTRA_LINK_LIBS ${PYTHON_LIBRARIES}
     EXTRA_INCLUDES "${ARROW_PYTHON_INCLUDES}"
-    LABELS "arrow_python"
+    LABELS "arrow_python-tests"
     NO_VALGRIND)
 endif()

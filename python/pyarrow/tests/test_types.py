@@ -231,9 +231,12 @@ def test_list_type():
 
 
 def test_struct_type():
-    fields = [pa.field('a', pa.int64()),
-              pa.field('a', pa.int32()),
-              pa.field('b', pa.int32())]
+    fields = [
+        # Duplicate field name on purpose
+        pa.field('a', pa.int64()),
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.int32())
+    ]
     ty = pa.struct(fields)
 
     assert len(ty) == ty.num_children == 3
@@ -243,11 +246,17 @@ def test_struct_type():
     with pytest.raises(IndexError):
         assert ty[3]
 
-    assert ty['a'] == ty[1]
     assert ty['b'] == ty[2]
+
+    # Duplicate
+    with pytest.raises(KeyError):
+        ty['a']
+
+    # Not found
     with pytest.raises(KeyError):
         ty['c']
 
+    # Neither integer nor string
     with pytest.raises(TypeError):
         ty[None]
 
@@ -303,8 +312,8 @@ def test_dictionary_type():
     assert ty0.dictionary.to_pylist() == ['a', 'b', 'c']
     assert ty0.ordered is False
 
-    ty1 = pa.dictionary(pa.float32(), pa.array([1.0, 2.0]), ordered=True)
-    assert ty1.index_type == pa.float32()
+    ty1 = pa.dictionary(pa.int8(), pa.array([1.0, 2.0]), ordered=True)
+    assert ty1.index_type == pa.int8()
     assert isinstance(ty0.dictionary, pa.Array)
     assert ty1.dictionary.to_pylist() == [1.0, 2.0]
     assert ty1.ordered is True

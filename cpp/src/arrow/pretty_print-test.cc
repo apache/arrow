@@ -277,18 +277,11 @@ TEST_F(TestPrettyPrint, ListType) {
 
 TEST_F(TestPrettyPrint, FixedSizeBinaryType) {
   std::vector<bool> is_valid = {true, true, false, true, false};
-  std::vector<std::string> values = {"foo", "bar", "baz"};
 
-  std::shared_ptr<Array> array;
   auto type = fixed_size_binary(3);
-  FixedSizeBinaryBuilder builder(type);
+  auto array = ArrayFromJSON(type, "[\"foo\", \"bar\", null, \"baz\"]");
 
-  ASSERT_OK(builder.Append(values[0]));
-  ASSERT_OK(builder.Append(values[1]));
-  ASSERT_OK(builder.Append(values[2]));
-  ASSERT_OK(builder.Finish(&array));
-
-  static const char* ex = "[\n  666F6F,\n  626172,\n  62617A\n]";
+  static const char* ex = "[\n  666F6F,\n  626172,\n  null,\n  62617A\n]";
   CheckArray(*array, {0, 10}, ex);
   static const char* ex_2 = "  [\n    666F6F,\n    ...\n    62617A\n  ]";
   CheckArray(*array, {2, 1}, ex_2);

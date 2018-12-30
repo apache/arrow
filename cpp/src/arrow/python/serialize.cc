@@ -407,10 +407,9 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
                           PyObject** result) {
   *result = NULL;
   if (context == Py_None) {
-    std::stringstream ss;
-    ss << "error while calling callback on " << internal::PyObject_StdStringRepr(elem)
-       << ": handler not registered";
-    return Status::SerializationError(ss.str());
+    return Status::SerializationError("error while calling callback on ",
+                                      internal::PyObject_StdStringRepr(elem),
+                                      ": handler not registered");
   } else {
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
     return PassPyError();

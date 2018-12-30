@@ -39,6 +39,7 @@ namespace arrow {
 
 class Array;
 class Field;
+class MemoryPool;
 
 struct Type {
   /// \brief Main data type enumeration
@@ -264,8 +265,8 @@ class ARROW_EXPORT Field {
 
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
-  bool Equals(const Field& other) const;
-  bool Equals(const std::shared_ptr<Field>& other) const;
+  bool Equals(const Field& other, bool check_metadata = true) const;
+  bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = true) const;
 
   /// \brief Return a string representation ot the field
   std::string ToString() const;
@@ -515,9 +516,16 @@ class ARROW_EXPORT StructType : public NestedType {
   std::string name() const override { return "struct"; }
 
   /// Returns null if name not found
+  std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
+
+  /// Returns -1 if name not found or if there are multiple fields having the
+  /// same name
+  int GetFieldIndex(const std::string& name) const;
+
+  ARROW_DEPRECATED("Use GetFieldByName")
   std::shared_ptr<Field> GetChildByName(const std::string& name) const;
 
-  /// Returns -1 if name not found
+  ARROW_DEPRECATED("Use GetFieldIndex")
   int GetChildIndex(const std::string& name) const;
 
  private:
@@ -592,17 +600,17 @@ enum class DateUnit : char { DAY = 0, MILLI = 1 };
 /// \brief Base type class for date data
 class ARROW_EXPORT DateType : public FixedWidthType {
  public:
-  DateUnit unit() const { return unit_; }
+  virtual DateUnit unit() const = 0;
 
  protected:
-  DateType(Type::type type_id, DateUnit unit);
-  DateUnit unit_;
+  explicit DateType(Type::type type_id);
 };
 
 /// Concrete type class for 32-bit date data (as number of days since UNIX epoch)
 class ARROW_EXPORT Date32Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE32;
+  static constexpr DateUnit UNIT = DateUnit::DAY;
 
   using c_type = int32_t;
 
@@ -614,12 +622,14 @@ class ARROW_EXPORT Date32Type : public DateType {
   std::string ToString() const override;
 
   std::string name() const override { return "date32"; }
+  DateUnit unit() const override { return UNIT; }
 };
 
 /// Concrete type class for 64-bit date data (as number of milliseconds since UNIX epoch)
 class ARROW_EXPORT Date64Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE64;
+  static constexpr DateUnit UNIT = DateUnit::MILLI;
 
   using c_type = int64_t;
 
@@ -631,6 +641,7 @@ class ARROW_EXPORT Date64Type : public DateType {
   std::string ToString() const override;
 
   std::string name() const override { return "date64"; }
+  DateUnit unit() const override { return UNIT; }
 };
 
 struct TimeUnit {
@@ -767,6 +778,23 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   std::string name() const override { return "dictionary"; }
 
   bool ordered() const { return ordered_; }
+
+  /// \brief Unify several dictionary types
+  ///
+  /// Compute a resulting dictionary that will allow the union of values
+  /// of all input dictionary types.  The input types must all have the
+  /// same value type.
+  /// \param[in] pool Memory pool to allocate dictionary values from
+  /// \param[in] types A sequence of input dictionary types
+  /// \param[out] out_type The unified dictionary type
+  /// \param[out] out_transpose_maps (optionally) A sequence of integer vectors,
+  ///     one per input type.  Each integer vector represents the transposition
+  ///     of input type indices into unified type indices.
+  // XXX Should we return something special (an empty transpose map?) when
+  // the transposition is the identity function?
+  static Status Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
+                      std::shared_ptr<DataType>* out_type,
+                      std::vector<std::vector<int32_t>>* out_transpose_maps = NULLPTR);
 
  private:
   // Must be an integer type (not currently checked)

@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::sync::Arc;
+
 use crate::array::*;
 use crate::datatypes::*;
-use std::sync::Arc;
 
 /// A batch of column-oriented data
 pub struct RecordBatch {
@@ -67,6 +68,7 @@ unsafe impl Sync for RecordBatch {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use crate::array_data::*;
     use crate::buffer::*;
 

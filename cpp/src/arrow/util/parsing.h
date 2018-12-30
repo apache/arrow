@@ -34,7 +34,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/date.h"
+#include "arrow/vendored/date.h"
 
 namespace arrow {
 namespace internal {

@@ -20,7 +20,7 @@
 # Variables used by this module, they can change the default behaviour and need
 # to be set before calling find_package:
 #
-#  ClangToolsBin_HOME -
+#  ClangTools_PATH -
 #   When set, this path is inspected instead of standard library binary locations
 #   to find clang-tidy and clang-format
 #
@@ -75,10 +75,11 @@ if (CLANG_FORMAT_VERSION)
     )
 
     # If not found yet, search alternative locations
-    if (("${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND") AND APPLE)
+    if ("${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND")
+      STRING(REGEX REPLACE "^([0-9]+)\\.[0-9]+" "\\1" CLANG_FORMAT_MAJOR_VERSION "${CLANG_FORMAT_VERSION}")
+      STRING(REGEX REPLACE "^[0-9]+\\.([0-9]+)" "\\1" CLANG_FORMAT_MINOR_VERSION "${CLANG_FORMAT_VERSION}")
+      if (APPLE)
         # Homebrew ships older LLVM versions in /usr/local/opt/llvm@version/
-        STRING(REGEX REPLACE "^([0-9]+)\\.[0-9]+" "\\1" CLANG_FORMAT_MAJOR_VERSION "${CLANG_FORMAT_VERSION}")
-        STRING(REGEX REPLACE "^[0-9]+\\.([0-9]+)" "\\1" CLANG_FORMAT_MINOR_VERSION "${CLANG_FORMAT_VERSION}")
         if ("${CLANG_FORMAT_MINOR_VERSION}" STREQUAL "0")
             find_program(CLANG_FORMAT_BIN
               NAMES clang-format
@@ -102,7 +103,27 @@ if (CLANG_FORMAT_VERSION)
                   NO_DEFAULT_PATH
           )
         endif()
+      else()
+        # try searching for "clang-format" and check the version
+        find_program(CLANG_FORMAT_BIN
+          NAMES clang-format
+          PATHS
+                ${ClangTools_PATH}
+                $ENV{CLANG_TOOLS_PATH}
+                /usr/local/bin /usr/bin
+                NO_DEFAULT_PATH
+        )
+        if (NOT ("${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND"))
+          execute_process(COMMAND ${CLANG_FORMAT_BIN} "-version"
+            OUTPUT_VARIABLE CLANG_FORMAT_FOUND_VERSION_MESSAGE
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+          if (NOT ("${CLANG_FORMAT_FOUND_VERSION_MESSAGE}" MATCHES "^clang-format version ${CLANG_FORMAT_MAJOR_VERSION}\\.${CLANG_FORMAT_MINOR_VERSION}.*"))
+            set(CLANG_FORMAT_BIN "CLANG_FORMAT_BIN-NOTFOUND")
+          endif()
+        endif()
+      endif()
     endif()
+
 else()
     find_program(CLANG_FORMAT_BIN
       NAMES clang-format-4.0

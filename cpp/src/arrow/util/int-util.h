@@ -63,6 +63,10 @@ void DowncastUInts(const uint64_t* source, uint32_t* dest, int64_t length);
 ARROW_EXPORT
 void DowncastUInts(const uint64_t* source, uint64_t* dest, int64_t length);
 
+template <typename InputInt, typename OutputInt>
+ARROW_EXPORT void TransposeInts(const InputInt* source, OutputInt* dest, int64_t length,
+                                const int32_t* transpose_map);
+
 }  // namespace internal
 }  // namespace arrow
 

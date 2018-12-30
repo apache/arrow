@@ -59,7 +59,6 @@ TEST(Metadata, TestBuildAccess) {
 
   auto f_builder = FileMetaDataBuilder::Make(&schema, props);
   auto rg1_builder = f_builder->AppendRowGroup();
-  auto rg2_builder = f_builder->AppendRowGroup();
 
   // Write the metadata
   // rowgroup1 metadata
@@ -75,6 +74,7 @@ TEST(Metadata, TestBuildAccess) {
   rg1_builder->Finish(1024);
 
   // rowgroup2 metadata
+  auto rg2_builder = f_builder->AppendRowGroup();
   col1_builder = rg2_builder->NextColumnChunk();
   col2_builder = rg2_builder->NextColumnChunk();
   // column metadata

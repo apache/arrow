@@ -58,7 +58,7 @@ Gio = GI.load("Gio")
 Arrow = GI.load("Arrow")
 ArrowCUDA = GI.load("ArrowCUDA")
 
-manager = ArrowCUDA::ADeviceManager.new
+manager = ArrowCUDA::DeviceManager.new
 context = manager.get_context(0)
 serialized_handle = #{serialized_handle.to_s.dump}
 handle = ArrowCUDA::IPCMemoryHandle.new(serialized_handle)

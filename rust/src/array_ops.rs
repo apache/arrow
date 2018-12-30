@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Defines primitive computations on arrays
+
 use std::ops::{Add, Div, Mul, Sub};
 
 use num::Zero;
@@ -25,6 +27,7 @@ use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
 
+/// Perform `left + right` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn add<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
@@ -37,6 +40,7 @@ where
     math_op(left, right, |a, b| Ok(a + b))
 }
 
+/// Perform `left - right` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn subtract<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
@@ -49,6 +53,7 @@ where
     math_op(left, right, |a, b| Ok(a - b))
 }
 
+/// Perform `left * right` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn multiply<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
@@ -61,6 +66,8 @@ where
     math_op(left, right, |a, b| Ok(a * b))
 }
 
+/// Perform `left / right` operation on two arrays. If either left or right value is null then the result is also null.
+/// If any right hand value is zero then the result of this operation will be `Err(ArrowError::DivideByZero)`.
 pub fn divide<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
@@ -79,6 +86,8 @@ where
     })
 }
 
+/// Helper function to perform math lambda function on values from two arrays. If either left or
+/// right value is null then the output value is also null, so `1 + null` is `null`.
 fn math_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -90,16 +99,16 @@ where
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on two batches of different length".to_string(),
+            "Cannot perform math operation on arrays of different length".to_string(),
         ));
     }
     let mut b = PrimitiveArrayBuilder::<T>::new(left.len());
     for i in 0..left.len() {
         let index = i;
         if left.is_null(i) || right.is_null(i) {
-            b.push_null().unwrap();
+            b.push_null()?;
         } else {
-            b.push(op(left.value(index), right.value(index))?).unwrap();
+            b.push(op(left.value(index), right.value(index))?)?;
         }
     }
     Ok(b.finish())
@@ -121,6 +130,7 @@ where
     min_max_helper(array, |a, b| a > b)
 }
 
+/// Helper function to perform min/max lambda function on values from a numeric array.
 fn min_max_helper<T, F>(array: &PrimitiveArray<T>, cmp: F) -> Option<T::Native>
 where
     T: ArrowNumericType,
@@ -145,6 +155,7 @@ where
     n
 }
 
+/// Perform `left == right` operation on two arrays.
 pub fn eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
@@ -152,6 +163,7 @@ where
     bool_op(left, right, |a, b| a == b)
 }
 
+/// Perform `left != right` operation on two arrays.
 pub fn neq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
@@ -159,50 +171,59 @@ where
     bool_op(left, right, |a, b| a != b)
 }
 
+/// Perform `left < right` operation on two arrays. Null values are less than non-null values.
 pub fn lt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
 {
     bool_op(left, right, |a, b| match (a, b) {
+        (None, None) => false,
         (None, _) => true,
         (_, None) => false,
         (Some(aa), Some(bb)) => aa < bb,
     })
 }
 
+/// Perform `left <= right` operation on two arrays. Null values are less than non-null values.
 pub fn lt_eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
 {
     bool_op(left, right, |a, b| match (a, b) {
+        (None, None) => true,
         (None, _) => true,
         (_, None) => false,
         (Some(aa), Some(bb)) => aa <= bb,
     })
 }
 
+/// Perform `left > right` operation on two arrays. Non-null values are greater than null values.
 pub fn gt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
 {
     bool_op(left, right, |a, b| match (a, b) {
+        (None, None) => false,
         (None, _) => false,
         (_, None) => true,
         (Some(aa), Some(bb)) => aa > bb,
     })
 }
 
+/// Perform `left >= right` operation on two arrays. Non-null values are greater than null values.
 pub fn gt_eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
 {
     bool_op(left, right, |a, b| match (a, b) {
+        (None, None) => true,
         (None, _) => false,
         (_, None) => true,
         (Some(aa), Some(bb)) => aa >= bb,
     })
 }
 
+/// Helper function to perform boolean lambda function on values from two arrays.
 fn bool_op<T, F>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>, op: F) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
@@ -210,7 +231,7 @@ where
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on two batches of different length".to_string(),
+            "Cannot perform math operation on arrays of different length".to_string(),
         ));
     }
     let mut b = BooleanArray::builder(left.len());
@@ -226,7 +247,56 @@ where
         } else {
             Some(right.value(index))
         };
-        b.push(op(l, r)).unwrap();
+        b.push(op(l, r))?;
+    }
+    Ok(b.finish())
+}
+
+/// Perform `AND` operation on two arrays. If either left or right value is null then the result is also null.
+pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform boolean operation on arrays of different length".to_string(),
+        ));
+    }
+    let mut b = BooleanArray::builder(left.len());
+    for i in 0..left.len() {
+        if left.is_null(i) || right.is_null(i) {
+            b.push_null()?;
+        } else {
+            b.push(left.value(i) && right.value(i))?;
+        }
+    }
+    Ok(b.finish())
+}
+
+/// Perform `OR` operation on two arrays. If either left or right value is null then the result is also null.
+pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform boolean operation on arrays of different length".to_string(),
+        ));
+    }
+    let mut b = BooleanArray::builder(left.len());
+    for i in 0..left.len() {
+        if left.is_null(i) || right.is_null(i) {
+            b.push_null()?;
+        } else {
+            b.push(left.value(i) || right.value(i))?;
+        }
+    }
+    Ok(b.finish())
+}
+
+/// Perform unary `NOT` operation on an arrays. If value is null then the result is also null.
+pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
+    let mut b = BooleanArray::builder(left.len());
+    for i in 0..left.len() {
+        if left.is_null(i) {
+            b.push_null()?;
+        } else {
+            b.push(!left.value(i))?;
+        }
     }
     Ok(b.finish())
 }
@@ -256,7 +326,7 @@ mod tests {
             .err()
             .expect("should have failed due to different lengths");
         assert_eq!(
-            "ComputeError(\"Cannot perform math operation on two batches of different length\")",
+            "ComputeError(\"Cannot perform math operation on arrays of different length\")",
             format!("{:?}", e)
         );
     }
@@ -366,6 +436,16 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_lt_nulls() {
+        let a = Int32Array::from(vec![None, None, Some(1)]);
+        let b = Int32Array::from(vec![None, Some(1), None]);
+        let c = lt(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
+    }
+
+    #[test]
     fn test_primitive_array_lt_eq() {
         let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
         let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
@@ -375,6 +455,16 @@ mod tests {
         assert_eq!(true, c.value(2));
         assert_eq!(true, c.value(3));
         assert_eq!(true, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_lt_eq_nulls() {
+        let a = Int32Array::from(vec![None, None, Some(1)]);
+        let b = Int32Array::from(vec![None, Some(1), None]);
+        let c = lt_eq(&a, &b).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
     }
 
     #[test]
@@ -390,6 +480,16 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_gt_nulls() {
+        let a = Int32Array::from(vec![None, None, Some(1)]);
+        let b = Int32Array::from(vec![None, Some(1), None]);
+        let c = gt(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(true, c.value(2));
+    }
+
+    #[test]
     fn test_primitive_array_gt_eq() {
         let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
         let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
@@ -399,6 +499,16 @@ mod tests {
         assert_eq!(true, c.value(2));
         assert_eq!(false, c.value(3));
         assert_eq!(false, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_gt_eq_nulls() {
+        let a = Int32Array::from(vec![None, None, Some(1)]);
+        let b = Int32Array::from(vec![None, Some(1), None]);
+        let c = gt_eq(&a, &b).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(true, c.value(2));
     }
 
     #[test]
@@ -415,4 +525,57 @@ mod tests {
         assert_eq!(9, max(&a).unwrap());
     }
 
+    #[test]
+    fn test_bool_array_and() {
+        let a = BooleanArray::from(vec![false, false, true, true]);
+        let b = BooleanArray::from(vec![false, true, false, true]);
+        let c = and(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(true, c.value(3));
+    }
+
+    #[test]
+    fn test_bool_array_or() {
+        let a = BooleanArray::from(vec![false, false, true, true]);
+        let b = BooleanArray::from(vec![false, true, false, true]);
+        let c = or(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(true, c.value(2));
+        assert_eq!(true, c.value(3));
+    }
+
+    #[test]
+    fn test_bool_array_or_nulls() {
+        let a = BooleanArray::from(vec![None, Some(false), None, Some(false)]);
+        let b = BooleanArray::from(vec![None, None, Some(false), Some(false)]);
+        let c = or(&a, &b).unwrap();
+        assert_eq!(true, c.is_null(0));
+        assert_eq!(true, c.is_null(1));
+        assert_eq!(true, c.is_null(2));
+        assert_eq!(false, c.is_null(3));
+    }
+
+    #[test]
+    fn test_bool_array_not() {
+        let a = BooleanArray::from(vec![false, false, true, true]);
+        let c = not(&a).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(false, c.value(3));
+    }
+
+    #[test]
+    fn test_bool_array_and_nulls() {
+        let a = BooleanArray::from(vec![None, Some(false), None, Some(false)]);
+        let b = BooleanArray::from(vec![None, None, Some(false), Some(false)]);
+        let c = and(&a, &b).unwrap();
+        assert_eq!(true, c.is_null(0));
+        assert_eq!(true, c.is_null(1));
+        assert_eq!(true, c.is_null(2));
+        assert_eq!(false, c.is_null(3));
+    }
 }

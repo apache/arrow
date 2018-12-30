@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(toolchain)
+
 # ----------------------------------------------------------------------
 # Toolchain linkage options
 
@@ -344,6 +346,8 @@ if (MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 set(Boost_ADDITIONAL_VERSIONS
+  "1.70.0" "1.70"
+  "1.69.0" "1.69"
   "1.68.0" "1.68"
   "1.67.0" "1.67"
   "1.66.0" "1.66"
@@ -367,15 +371,16 @@ if (ARROW_BOOST_VENDORED)
   set(BOOST_SYSTEM_LIBRARY boost_system_static)
   set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
   set(BOOST_REGEX_LIBRARY boost_regex_static)
+
   if (ARROW_BOOST_HEADER_ONLY)
     set(BOOST_BUILD_PRODUCTS)
     set(BOOST_CONFIGURE_COMMAND "")
     set(BOOST_BUILD_COMMAND "")
   else()
     set(BOOST_BUILD_PRODUCTS
-      ${BOOST_SYSTEM_LIBRARY}
-      ${BOOST_FILESYSTEM_LIBRARY}
-      ${BOOST_REGEX_LIBRARY})
+      ${BOOST_STATIC_SYSTEM_LIBRARY}
+      ${BOOST_STATIC_FILESYSTEM_LIBRARY}
+      ${BOOST_STATIC_REGEX_LIBRARY})
     set(BOOST_CONFIGURE_COMMAND
       "./bootstrap.sh"
       "--prefix=${BOOST_PREFIX}"
@@ -401,12 +406,19 @@ if (ARROW_BOOST_VENDORED)
     ${EP_LOG_OPTIONS})
   set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
   set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
-  add_dependencies(arrow_dependencies boost_ep)
+  add_dependencies(toolchain boost_ep)
 else()
   if (MSVC)
     # disable autolinking in boost
     add_definitions(-DBOOST_ALL_NO_LIB)
   endif()
+
+  if (DEFINED ENV{BOOST_ROOT} OR DEFINED BOOST_ROOT)
+    # In older versions of CMake (such as 3.2), the system paths for Boost will
+    # be looked in first even if we set $BOOST_ROOT or pass -DBOOST_ROOT
+    set(Boost_NO_SYSTEM_PATHS ON)
+  endif()
+
   if (ARROW_BOOST_USE_SHARED)
     # Find shared Boost libraries.
     set(Boost_USE_STATIC_LIBS OFF)
@@ -499,15 +511,14 @@ if("${DOUBLE_CONVERSION_HOME}" STREQUAL "")
     CMAKE_ARGS ${DOUBLE_CONVERSION_CMAKE_ARGS}
     BUILD_BYPRODUCTS "${DOUBLE_CONVERSION_STATIC_LIB}")
   set(DOUBLE_CONVERSION_VENDORED 1)
+  add_dependencies(toolchain double-conversion_ep)
 else()
   find_package(double-conversion REQUIRED
     PATHS "${DOUBLE_CONVERSION_HOME}")
   set(DOUBLE_CONVERSION_VENDORED 0)
 endif()
 
-if (DOUBLE_CONVERSION_VENDORED)
-  add_dependencies(arrow_dependencies double-conversion_ep)
-else()
+if (NOT DOUBLE_CONVERSION_VENDORED)
   get_property(DOUBLE_CONVERSION_STATIC_LIB TARGET double-conversion::double-conversion
     PROPERTY LOCATION)
   get_property(DOUBLE_CONVERSION_INCLUDE_DIR TARGET double-conversion::double-conversion
@@ -523,59 +534,11 @@ message(STATUS "double-conversion include dir: ${DOUBLE_CONVERSION_INCLUDE_DIR}"
 message(STATUS "double-conversion static library: ${DOUBLE_CONVERSION_STATIC_LIB}")
 
 # ----------------------------------------------------------------------
-# Google gtest & gflags
+# gflags
 
-add_custom_target(unittest ctest -L unittest)
-add_custom_target(benchmark ctest -L benchmark)
-
-if(ARROW_BUILD_TESTS OR ARROW_GANDIVA_BUILD_TESTS
-   OR ARROW_BUILD_BENCHMARKS)
-  if("${GTEST_HOME}" STREQUAL "")
-    if(APPLE)
-      set(GTEST_CMAKE_CXX_FLAGS "-fPIC -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes")
-    elseif(NOT MSVC)
-      set(GTEST_CMAKE_CXX_FLAGS "-fPIC")
-    endif()
-    string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
-    set(GTEST_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}} ${GTEST_CMAKE_CXX_FLAGS}")
-
-    set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
-    set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
-    set(GTEST_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GTEST_MAIN_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GTEST_VENDORED 1)
-    set(GTEST_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                         -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
-                         -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
-    if (MSVC AND NOT ARROW_USE_STATIC_CRT)
-      set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
-    endif()
-
-    ExternalProject_Add(googletest_ep
-      URL ${GTEST_SOURCE_URL}
-      BUILD_BYPRODUCTS ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB}
-      CMAKE_ARGS ${GTEST_CMAKE_ARGS}
-      ${EP_LOG_OPTIONS})
-  else()
-    find_package(GTest REQUIRED)
-    set(GTEST_VENDORED 0)
-  endif()
-
-  message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
-  message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
-  include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(gtest
-    STATIC_LIB ${GTEST_STATIC_LIB})
-  ADD_THIRDPARTY_LIB(gtest_main
-    STATIC_LIB ${GTEST_MAIN_STATIC_LIB})
-
-  if(GTEST_VENDORED)
-    add_dependencies(gtest_static googletest_ep)
-    add_dependencies(gtest_main_static googletest_ep)
-  endif()
-
+if(ARROW_BUILD_TESTS OR
+   ARROW_BUILD_BENCHMARKS OR
+   (ARROW_USE_GLOG AND GLOG_HOME))
   # gflags (formerly Googleflags) command line parsing
   if("${GFLAGS_HOME}" STREQUAL "")
     set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
@@ -628,9 +591,63 @@ if(ARROW_BUILD_TESTS OR ARROW_GANDIVA_BUILD_TESTS
   endif()
 endif()
 
-if(ARROW_BUILD_BENCHMARKS)
+# ----------------------------------------------------------------------
+# Google gtest
 
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  if("${GTEST_HOME}" STREQUAL "")
+    if(APPLE)
+      set(GTEST_CMAKE_CXX_FLAGS "-fPIC -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes")
+    elseif(NOT MSVC)
+      set(GTEST_CMAKE_CXX_FLAGS "-fPIC")
+    endif()
+    string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
+    set(GTEST_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}} ${GTEST_CMAKE_CXX_FLAGS}")
+
+    set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
+    set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
+    set(GTEST_STATIC_LIB
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GTEST_MAIN_STATIC_LIB
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GTEST_VENDORED 1)
+    set(GTEST_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                         -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
+                         -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
+    if (MSVC AND NOT ARROW_USE_STATIC_CRT)
+      set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
+    endif()
+
+    ExternalProject_Add(googletest_ep
+      URL ${GTEST_SOURCE_URL}
+      BUILD_BYPRODUCTS ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB}
+      CMAKE_ARGS ${GTEST_CMAKE_ARGS}
+      ${EP_LOG_OPTIONS})
+  else()
+    find_package(GTest REQUIRED)
+    set(GTEST_VENDORED 0)
+  endif()
+
+  message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
+  message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
+  include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(gtest
+    STATIC_LIB ${GTEST_STATIC_LIB})
+  ADD_THIRDPARTY_LIB(gtest_main
+    STATIC_LIB ${GTEST_MAIN_STATIC_LIB})
+
+  if(GTEST_VENDORED)
+    add_dependencies(gtest_static googletest_ep)
+    add_dependencies(gtest_main_static googletest_ep)
+  endif()
+endif()
+
+if(ARROW_BUILD_BENCHMARKS)
   if("$ENV{GBENCHMARK_HOME}" STREQUAL "")
+    if(CMAKE_VERSION VERSION_LESS 3.6)
+      message(FATAL_ERROR "Building gbenchmark from source requires at least CMake 3.6")
+    endif()
+
     if(NOT MSVC)
       set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC -std=c++11 ${EP_CXX_FLAGS}")
     endif()
@@ -689,16 +706,13 @@ if (ARROW_IPC)
     ExternalProject_Get_Property(rapidjson_ep SOURCE_DIR)
     set(RAPIDJSON_INCLUDE_DIR "${SOURCE_DIR}/include")
     set(RAPIDJSON_VENDORED 1)
+    add_dependencies(toolchain rapidjson_ep)
   else()
     set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_HOME}/include")
     set(RAPIDJSON_VENDORED 0)
   endif()
   message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
   include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
-
-  if(RAPIDJSON_VENDORED)
-    add_dependencies(arrow_dependencies rapidjson_ep)
-  endif()
 
   ## Flatbuffers
   if("${FLATBUFFERS_HOME}" STREQUAL "")
@@ -723,13 +737,10 @@ if (ARROW_IPC)
     set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
     set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
     set(FLATBUFFERS_VENDORED 1)
+    add_dependencies(toolchain flatbuffers_ep)
   else()
     find_package(Flatbuffers REQUIRED)
     set(FLATBUFFERS_VENDORED 0)
-  endif()
-
-  if(FLATBUFFERS_VENDORED)
-    add_dependencies(arrow_dependencies flatbuffers_ep)
   endif()
 
   message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
@@ -1095,6 +1106,11 @@ if (ARROW_WITH_ZSTD)
           "-DCMAKE_C_FLAGS=${EP_C_FLAGS}")
     endif()
 
+    if(CMAKE_VERSION VERSION_LESS 3.7)
+      message(FATAL_ERROR "Building zstd using ExternalProject requires \
+at least CMake 3.7")
+    endif()
+
     ExternalProject_Add(zstd_ep
       ${EP_LOG_OPTIONS}
       CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
@@ -1140,6 +1156,7 @@ if (ARROW_GANDIVA)
       CMAKE_ARGS ${RE2_CMAKE_ARGS}
       BUILD_BYPRODUCTS "${RE2_STATIC_LIB}")
     set (RE2_VENDORED 1)
+    add_dependencies(toolchain re2_ep)
   else ()
     find_package (RE2 REQUIRED)
     set (RE2_VENDORED 0)
@@ -1156,10 +1173,6 @@ if (ARROW_GANDIVA)
       STATIC_LIB ${RE2_STATIC_LIB})
     set(RE2_LIBRARY re2_static)
   endif()
-
-  if (RE2_VENDORED)
-    add_dependencies (arrow_dependencies re2_ep)
-  endif ()
 endif ()
 
 
@@ -1302,6 +1315,8 @@ if (ARROW_ORC)
       CMAKE_ARGS ${ORC_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
 
+    add_dependencies(toolchain orc_ep)
+
     set(ORC_VENDORED 1)
     add_dependencies(orc_ep ${ZLIB_LIBRARY})
     if (LZ4_VENDORED)
@@ -1327,7 +1342,6 @@ if (ARROW_ORC)
   if (ORC_VENDORED)
     add_dependencies(orc_static orc_ep)
   endif()
-
 endif()
 
 # ----------------------------------------------------------------------
@@ -1498,10 +1512,14 @@ if (ARROW_USE_GLOG)
   message(STATUS "Glog static library: ${GLOG_STATIC_LIB}")
 
   include_directories(SYSTEM ${GLOG_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(glog
-    STATIC_LIB ${GLOG_STATIC_LIB})
 
   if (GLOG_VENDORED)
+    ADD_THIRDPARTY_LIB(glog
+      STATIC_LIB ${GLOG_STATIC_LIB})
     add_dependencies(glog_static glog_ep)
+  else()
+    ADD_THIRDPARTY_LIB(glog
+      STATIC_LIB ${GLOG_STATIC_LIB}
+      DEPS gflags_static)
   endif()
 endif()

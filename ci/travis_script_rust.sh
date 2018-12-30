@@ -19,6 +19,8 @@
 
 set -e
 
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
 RUST_DIR=${TRAVIS_BUILD_DIR}/rust
 
 pushd $RUST_DIR
@@ -34,7 +36,6 @@ cargo rustc -- -D warnings
 
 cargo build
 cargo test
-cargo bench
 cargo run --example builders
 cargo run --example dynamic_types
 cargo run --example read_csv

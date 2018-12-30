@@ -355,10 +355,8 @@ class ThreadedTableReader : public BaseTableReader {
                                       chunk_size, &parsed_size));
           if (parsed_size != chunk_size) {
             DCHECK_EQ(parsed_size, chunk_size);
-            std::stringstream ss;
-            ss << "Chunker and parser disagree on block size: " << chunk_size << " vs "
-               << parsed_size;
-            return Status::Invalid(ss.str());
+            return Status::Invalid("Chunker and parser disagree on block size: ",
+                                   chunk_size, " vs ", parsed_size);
           }
           RETURN_NOT_OK(ProcessData(parser, chunk_index));
           // Keep chunk buffer alive within closure and release it at the end

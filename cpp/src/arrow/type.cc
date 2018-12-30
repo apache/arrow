@@ -65,13 +65,15 @@ std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   return flattened;
 }
 
-bool Field::Equals(const Field& other) const {
+bool Field::Equals(const Field& other, bool check_metadata) const {
   if (this == &other) {
     return true;
   }
   if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
       this->type_->Equals(*other.type_.get())) {
-    if (this->HasMetadata() && other.HasMetadata()) {
+    if (!check_metadata) {
+      return true;
+    } else if (this->HasMetadata() && other.HasMetadata()) {
       return metadata_->Equals(*other.metadata_);
     } else if (!this->HasMetadata() && !other.HasMetadata()) {
       return true;
@@ -82,8 +84,8 @@ bool Field::Equals(const Field& other) const {
   return false;
 }
 
-bool Field::Equals(const std::shared_ptr<Field>& other) const {
-  return Equals(*other.get());
+bool Field::Equals(const std::shared_ptr<Field>& other, bool check_metadata) const {
+  return Equals(*other.get(), check_metadata);
 }
 
 std::string Field::ToString() const {
@@ -135,12 +137,11 @@ std::string FixedSizeBinaryType::ToString() const {
 // ----------------------------------------------------------------------
 // Date types
 
-DateType::DateType(Type::type type_id, DateUnit unit)
-    : FixedWidthType(type_id), unit_(unit) {}
+DateType::DateType(Type::type type_id) : FixedWidthType(type_id) {}
 
-Date32Type::Date32Type() : DateType(Type::DATE32, DateUnit::DAY) {}
+Date32Type::Date32Type() : DateType(Type::DATE32) {}
 
-Date64Type::Date64Type() : DateType(Type::DATE64, DateUnit::MILLI) {}
+Date64Type::Date64Type() : DateType(Type::DATE64) {}
 
 std::string Date64Type::ToString() const { return std::string("date64[ms]"); }
 
@@ -232,15 +233,34 @@ std::string StructType::ToString() const {
   return s.str();
 }
 
-std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
-  int i = GetChildIndex(name);
+std::shared_ptr<Field> StructType::GetFieldByName(const std::string& name) const {
+  int i = GetFieldIndex(name);
   return i == -1 ? nullptr : children_[i];
 }
 
-int StructType::GetChildIndex(const std::string& name) const {
+int StructType::GetFieldIndex(const std::string& name) const {
   if (children_.size() > 0 && name_to_index_.size() == 0) {
     for (size_t i = 0; i < children_.size(); ++i) {
       name_to_index_[children_[i]->name()] = static_cast<int>(i);
+    }
+  }
+
+  if (name_to_index_.size() < children_.size()) {
+    // There are duplicate field names. Refuse to guess
+    int counts = 0;
+    int last_observed_index = -1;
+    for (size_t i = 0; i < children_.size(); ++i) {
+      if (children_[i]->name() == name) {
+        ++counts;
+        last_observed_index = static_cast<int>(i);
+      }
+    }
+
+    if (counts == 1) {
+      return last_observed_index;
+    } else {
+      // Duplicate or not found
+      return -1;
     }
   }
 
@@ -252,6 +272,14 @@ int StructType::GetChildIndex(const std::string& name) const {
   }
 }
 
+std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
+  return GetFieldByName(name);
+}
+
+int StructType::GetChildIndex(const std::string& name) const {
+  return GetFieldIndex(name);
+}
+
 // ----------------------------------------------------------------------
 // DictionaryType
 
@@ -260,7 +288,12 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
     : FixedWidthType(Type::DICTIONARY),
       index_type_(index_type),
       dictionary_(dictionary),
-      ordered_(ordered) {}
+      ordered_(ordered) {
+#ifndef NDEBUG
+  const auto& int_type = checked_cast<const Integer&>(*index_type);
+  DCHECK_EQ(int_type.is_signed(), true) << "dictionary index type should be signed";
+#endif
+}
 
 int DictionaryType::bit_width() const {
   return checked_cast<const FixedWidthType&>(*index_type_).bit_width();
@@ -301,7 +334,7 @@ bool Schema::Equals(const Schema& other, bool check_metadata) const {
     return false;
   }
   for (int i = 0; i < num_fields(); ++i) {
-    if (!field(i)->Equals(*other.field(i).get())) {
+    if (!field(i)->Equals(*other.field(i).get(), check_metadata)) {
       return false;
     }
   }

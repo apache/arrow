@@ -26,7 +26,7 @@ import subprocess
 
 perr = functools.partial(print, file=sys.stderr)
 
-LANGUAGE_TOPICS = ['c_glib', 'cpp', 'go', 'java', 'js', 'python',
+LANGUAGE_TOPICS = ['c_glib', 'cpp', 'docs', 'go', 'java', 'js', 'python',
                    'r', 'ruby', 'rust']
 
 ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'site', 'dev']

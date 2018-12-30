@@ -17,7 +17,7 @@
 
 # Targets required for protocol integration testing
 add_custom_target(integration)
-add_dependencies(arrow integration)
+add_dependencies(arrow-tests integration)
 
 #######################################
 # Messaging and interprocess communication

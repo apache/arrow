@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 #include "gandiva/llvm_types.h"
+#include "gandiva/tests/test_util.h"
 
 namespace gandiva {
 
@@ -100,7 +101,7 @@ llvm::Function* TestEngine::BuildVecAdd(Engine* engine, LLVMTypes* types) {
 
 TEST_F(TestEngine, TestAddUnoptimised) {
   std::unique_ptr<Engine> engine;
-  Status status = Engine::Make(ConfigurationBuilder::DefaultConfiguration(), &engine);
+  auto status = Engine::Make(TestConfiguration(), &engine);
   EXPECT_TRUE(status.ok()) << status.message();
   LLVMTypes types(*engine->context());
   llvm::Function* ir_func = BuildVecAdd(engine.get(), &types);
@@ -115,7 +116,7 @@ TEST_F(TestEngine, TestAddUnoptimised) {
 
 TEST_F(TestEngine, TestAddOptimised) {
   std::unique_ptr<Engine> engine;
-  Status status = Engine::Make(ConfigurationBuilder::DefaultConfiguration(), &engine);
+  auto status = Engine::Make(TestConfiguration(), &engine);
   EXPECT_TRUE(status.ok()) << status.message();
   LLVMTypes types(*engine->context());
   llvm::Function* ir_func = BuildVecAdd(engine.get(), &types);

@@ -84,11 +84,11 @@ particular stream. Now we can do:
 
 Now ``buf`` contains the complete stream as an in-memory byte buffer. We can
 read such a stream with :class:`~pyarrow.RecordBatchStreamReader` or the
-convenience function ``pyarrow.open_stream``:
+convenience function ``pyarrow.ipc.open_stream``:
 
 .. ipython:: python
 
-   reader = pa.open_stream(buf)
+   reader = pa.ipc.open_stream(buf)
    reader.schema
 
    batches = [b for b in reader]
@@ -125,11 +125,11 @@ The :class:`~pyarrow.RecordBatchFileWriter` has the same API as
 The difference between :class:`~pyarrow.RecordBatchFileReader` and
 :class:`~pyarrow.RecordBatchStreamReader` is that the input source must have a
 ``seek`` method for random access. The stream reader only requires read
-operations. We can also use the ``pyarrow.open_file`` method to open a file:
+operations. We can also use the ``pyarrow.ipc.open_file`` method to open a file:
 
 .. ipython:: python
 
-   reader = pa.open_file(buf)
+   reader = pa.ipc.open_file(buf)
 
 Because we have access to the entire payload, we know the number of record
 batches in the file, and can read any at random:
@@ -149,7 +149,7 @@ DataFrame output:
 
 .. ipython:: python
 
-   df = pa.open_file(buf).read_pandas()
+   df = pa.ipc.open_file(buf).read_pandas()
    df[:5]
 
 Arbitrary Object Serialization
