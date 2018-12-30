@@ -26,6 +26,7 @@ import org.apache.arrow.gandiva.exceptions.UnsupportedTypeException;
 import org.apache.arrow.gandiva.expression.ArrowTypeHelper;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
+import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
 import org.apache.arrow.vector.FixedWidthVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ipc.message.ArrowBuffer;
@@ -113,8 +114,10 @@ public class Projector {
    */
   public void evaluate(ArrowRecordBatch recordBatch, List<ValueVector> outColumns)
           throws GandivaException {
-    evaluate(recordBatch.getLength(), recordBatch.getBuffers(), recordBatch.getBuffersLayout(),
-        outColumns);
+    evaluate(recordBatch.getLength(), recordBatch.getBuffers(),
+             recordBatch.getBuffersLayout(),
+             SelectionVectorType.SV_NONE.getNumber(), recordBatch.getLength(),
+             0, 0, outColumns);
   }
 
   /**
@@ -134,10 +137,54 @@ public class Projector {
       buffersLayout.add(new ArrowBuffer(offset, size));
       offset += size;
     }
-    evaluate(numRows, buffers, buffersLayout, outColumns);
+    evaluate(numRows, buffers, buffersLayout,
+             SelectionVectorType.SV_NONE.getNumber(),
+             numRows, 0, 0, outColumns);
+  }
+
+  public void evaluate(ArrowRecordBatch recordBatch,
+                     SelectionVector selectionVector, List<ValueVector> outColumns)
+        throws GandivaException {
+    evaluate(recordBatch.getLength(), recordBatch.getBuffers(),
+        recordBatch.getBuffersLayout(),
+        selectionVector.getType().getNumber(),
+        selectionVector.getRecordCount(),
+        selectionVector.getBuffer().memoryAddress(),
+        selectionVector.getBuffer().capacity(),
+        outColumns);
+  }
+
+  /**
+ * Invoke this function to evaluate a set of expressions against a set of arrow buffers
+ * on the selected positions.
+ * (this is an optimised version that skips taking references).
+ *
+ * @param numRows number of rows.
+ * @param buffers List of input arrow buffers
+ * @param selectionVector Selection vector which stores the selected rows.
+ * @param outColumns Result of applying the project on the data
+ */
+  public void evaluate(int numRows, List<ArrowBuf> buffers,
+                     SelectionVector selectionVector,
+                     List<ValueVector> outColumns) throws GandivaException {
+    List<ArrowBuffer> buffersLayout = new ArrayList<>();
+    long offset = 0;
+    for (ArrowBuf arrowBuf : buffers) {
+      long size = arrowBuf.readableBytes();
+      buffersLayout.add(new ArrowBuffer(offset, size));
+      offset += size;
+    }
+    evaluate(numRows, buffers, buffersLayout,
+        selectionVector.getType().getNumber(),
+        selectionVector.getRecordCount(),
+        selectionVector.getBuffer().memoryAddress(),
+        selectionVector.getBuffer().capacity(),
+        outColumns);
   }
 
   private void evaluate(int numRows, List<ArrowBuf> buffers, List<ArrowBuffer> buffersLayout,
+                       int selectionVectorType, int selectionVectorRecordCount,
+                       long selectionVectorAddr, long selectionVectorSize,
                        List<ValueVector> outColumns) throws GandivaException {
     if (this.closed) {
       throw new EvaluatorClosedException();
@@ -174,10 +221,13 @@ public class Projector {
       outAddrs[idx] = valueVector.getDataBuffer().memoryAddress();
       outSizes[idx++] = valueVector.getDataBuffer().capacity();
 
-      valueVector.setValueCount(numRows);
+      valueVector.setValueCount(selectionVectorRecordCount);
     }
 
-    wrapper.evaluateProjector(this.moduleId, numRows, bufAddrs, bufSizes, outAddrs, outSizes);
+    wrapper.evaluateProjector(this.moduleId, numRows, bufAddrs, bufSizes,
+            selectionVectorType, selectionVectorRecordCount,
+            selectionVectorAddr, selectionVectorSize, 
+            outAddrs, outSizes);
   }
 
   /**

@@ -28,6 +28,8 @@
 
 namespace gandiva {
 
+constexpr SelectionVector::Mode SelectionVector::kAllModes[kNumModes];
+
 Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap_size,
                                            int64_t max_bitmap_index) {
   const uint64_t max_idx = static_cast<uint64_t>(max_bitmap_index);
@@ -88,7 +90,6 @@ Status SelectionVector::MakeInt16(int64_t max_slots,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   ARROW_RETURN_NOT_OK(SelectionVectorInt16::ValidateBuffer(max_slots, buffer));
   *selection_vector = std::make_shared<SelectionVectorInt16>(max_slots, buffer);
-
   return Status::OK();
 }
 
@@ -97,7 +98,14 @@ Status SelectionVector::MakeInt16(int64_t max_slots, arrow::MemoryPool* pool,
   std::shared_ptr<arrow::Buffer> buffer;
   ARROW_RETURN_NOT_OK(SelectionVectorInt16::AllocateBuffer(max_slots, pool, &buffer));
   *selection_vector = std::make_shared<SelectionVectorInt16>(max_slots, buffer);
+  return Status::OK();
+}
 
+Status SelectionVector::MakeImmutableInt16(
+    int64_t num_slots, std::shared_ptr<arrow::Buffer> buffer,
+    std::shared_ptr<SelectionVector>* selection_vector) {
+  *selection_vector =
+      std::make_shared<SelectionVectorInt16>(num_slots, num_slots, buffer);
   return Status::OK();
 }
 
@@ -119,6 +127,14 @@ Status SelectionVector::MakeInt32(int64_t max_slots, arrow::MemoryPool* pool,
   return Status::OK();
 }
 
+Status SelectionVector::MakeImmutableInt32(
+    int64_t num_slots, std::shared_ptr<arrow::Buffer> buffer,
+    std::shared_ptr<SelectionVector>* selection_vector) {
+  *selection_vector =
+      std::make_shared<SelectionVectorInt32>(num_slots, num_slots, buffer);
+  return Status::OK();
+}
+
 Status SelectionVector::MakeInt64(int64_t max_slots,
                                   std::shared_ptr<arrow::Buffer> buffer,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
@@ -137,8 +153,8 @@ Status SelectionVector::MakeInt64(int64_t max_slots, arrow::MemoryPool* pool,
   return Status::OK();
 }
 
-template <typename C_TYPE, typename A_TYPE>
-Status SelectionVectorImpl<C_TYPE, A_TYPE>::AllocateBuffer(
+template <typename C_TYPE, typename A_TYPE, SelectionVector::Mode mode>
+Status SelectionVectorImpl<C_TYPE, A_TYPE, mode>::AllocateBuffer(
     int64_t max_slots, arrow::MemoryPool* pool, std::shared_ptr<arrow::Buffer>* buffer) {
   auto buffer_len = max_slots * sizeof(C_TYPE);
   ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, buffer_len, buffer));
@@ -146,8 +162,8 @@ Status SelectionVectorImpl<C_TYPE, A_TYPE>::AllocateBuffer(
   return Status::OK();
 }
 
-template <typename C_TYPE, typename A_TYPE>
-Status SelectionVectorImpl<C_TYPE, A_TYPE>::ValidateBuffer(
+template <typename C_TYPE, typename A_TYPE, SelectionVector::Mode mode>
+Status SelectionVectorImpl<C_TYPE, A_TYPE, mode>::ValidateBuffer(
     int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer) {
   ARROW_RETURN_IF(!buffer->is_mutable(),
                   Status::Invalid("buffer for selection vector must be mutable"));
