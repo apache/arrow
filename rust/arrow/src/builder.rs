@@ -565,14 +565,14 @@ impl ArrayBuilder for StructArrayBuilder {
 }
 
 impl StructArrayBuilder {
-    pub fn new(fnames: Vec<Field>, fields: Vec<Box<ArrayBuilder>>) -> Self {
-        let mut field_anys = Vec::with_capacity(fields.len());
-        let mut field_builders = Vec::with_capacity(fields.len());
+    pub fn new(fields: Vec<Field>, builders: Vec<Box<ArrayBuilder>>) -> Self {
+        let mut field_anys = Vec::with_capacity(builders.len());
+        let mut field_builders = Vec::with_capacity(builders.len());
 
         // Create and maintain two references for each of the input builder. We need the
         // extra `Any` reference because we need to cast the builder to a specific type
         // in `field_builder()` by calling `downcast_mut`.
-        for f in fields.into_iter() {
+        for f in builders.into_iter() {
             let raw_f = Box::into_raw(f);
             let raw_f_copy = raw_f;
             unsafe {
@@ -581,9 +581,40 @@ impl StructArrayBuilder {
             }
         }
         Self {
-            fields: fnames,
+            fields,
             field_anys,
             field_builders,
+        }
+    }
+
+    pub fn from_schema(schema: Schema, capacity: usize) -> Self {
+        let fields = schema.fields();
+        let mut builders = Vec::with_capacity(fields.len());
+        for f in schema.fields() {
+            builders.push(Self::from_field(f.clone(), capacity));
+        }
+        Self::new(schema.fields, builders)
+    }
+
+    fn from_field(f: Field, capacity: usize) -> Box<ArrayBuilder> {
+        match f.data_type() {
+            DataType::Boolean => Box::new(BooleanBuilder::new(capacity)),
+            DataType::Int8 => Box::new(Int8Builder::new(capacity)),
+            DataType::Int16 => Box::new(Int16Builder::new(capacity)),
+            DataType::Int32 => Box::new(Int32Builder::new(capacity)),
+            DataType::Int64 => Box::new(Int64Builder::new(capacity)),
+            DataType::UInt8 => Box::new(UInt8Builder::new(capacity)),
+            DataType::UInt16 => Box::new(UInt16Builder::new(capacity)),
+            DataType::UInt32 => Box::new(UInt32Builder::new(capacity)),
+            DataType::UInt64 => Box::new(UInt64Builder::new(capacity)),
+            DataType::Float32 => Box::new(Float32Builder::new(capacity)),
+            DataType::Float64 => Box::new(Float64Builder::new(capacity)),
+            DataType::Utf8 => Box::new(BinaryArrayBuilder::new(capacity)),
+            DataType::Struct(fields) => {
+                let schema = Schema::new(fields.clone());
+                Box::new(Self::from_schema(schema, capacity))
+            },
+            t @ _ => panic!("Data type {:?} is not currently supported", t),
         }
     }
 
@@ -1207,6 +1238,35 @@ mod tests {
     }
 
     #[test]
+    fn test_struct_array_builder_from_schema() {
+        let mut fields = Vec::new();
+        fields.push(Field::new("f1", DataType::Float32, false));
+        fields.push(Field::new("f2", DataType::Utf8, false));
+        let mut sub_fields = Vec::new();
+        sub_fields.push(Field::new("g1", DataType::Int32, false));
+        sub_fields.push(Field::new("g2", DataType::Boolean, false));
+        let struct_type = DataType::Struct(sub_fields);
+        fields.push(Field::new("f3", struct_type, false));
+
+        let mut builder = StructArrayBuilder::from_schema(Schema::new(fields), 5);
+        assert_eq!(3, builder.num_fields());
+        assert!(builder.field_builder::<Float32Builder>(0).is_some());
+        assert!(builder.field_builder::<BinaryArrayBuilder>(1).is_some());
+        assert!(builder.field_builder::<StructArrayBuilder>(2).is_some());
+    }
+
+    #[test]
+    #[should_panic(expected = "Data type List(Int64) is not currently supported")]
+    fn test_struct_array_builder_from_schema_unsupported_type() {
+        let mut fields = Vec::new();
+        fields.push(Field::new("f1", DataType::Int16, false));
+        let list_type = DataType::List(Box::new(DataType::Int64));
+        fields.push(Field::new("f2", list_type, false));
+
+        let _ = StructArrayBuilder::from_schema(Schema::new(fields), 5);
+    }
+
+    #[test]
     fn test_struct_array_builder_field_builder_type_mismatch() {
         let int_builder = Int32Builder::new(10);
 
@@ -1218,5 +1278,6 @@ mod tests {
         let mut builder = StructArrayBuilder::new(fields, field_builders);
         assert!(builder.field_builder::<BinaryArrayBuilder>(0).is_none());
     }
+
 
 }
