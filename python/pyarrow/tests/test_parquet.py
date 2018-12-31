@@ -921,6 +921,14 @@ def test_date_time_types():
     _assert_unsupported(a7)
 
 
+def test_list_of_datetime_time_roundtrip():
+    # ARROW-4135
+    times = pd.to_datetime(['09:00', '09:30', '10:00', '10:30', '11:00',
+                            '11:30', '12:00'])
+    df = pd.DataFrame({'time': [times.time]})
+    _roundtrip_pandas_dataframe(df, write_kwargs={})
+
+
 def test_large_list_records():
     # This was fixed in PARQUET-1100
 
