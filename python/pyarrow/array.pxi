@@ -343,10 +343,8 @@ cdef class _PandasConvertible:
 
     def to_pandas(self, categories=None, bint strings_to_categorical=False,
                   bint zero_copy_only=False, bint integer_object_nulls=False,
-                  bint date_as_object=False,
-                  bint use_threads=True,
-                  bint deduplicate_objects=True,
-                  bint ignore_metadata=False):
+                  bint date_as_object=True, bint use_threads=True,
+                  bint deduplicate_objects=True, bint ignore_metadata=False):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
 
