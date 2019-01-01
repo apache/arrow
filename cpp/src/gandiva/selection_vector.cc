@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/util/bit-util.h"
+
 #include "gandiva/selection_vector_impl.h"
 
 namespace gandiva {
@@ -48,8 +50,18 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap
     uint64_t current_word = bitmap_64[bitmap_idx];
 
     while (current_word != 0) {
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4146)
+#endif
+      // MSVC warns about negating an unsigned type. We suppress it for now
       uint64_t highest_only = current_word & -current_word;
-      int pos_in_word = __builtin_ctzl(highest_only);
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
+
+      int pos_in_word = arrow::BitUtil::CountTrailingZeros(highest_only);
 
       int64_t pos_in_bitmap = bitmap_idx * 64 + pos_in_word;
       if (pos_in_bitmap > max_bitmap_index) {

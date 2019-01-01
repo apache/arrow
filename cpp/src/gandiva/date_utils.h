@@ -23,12 +23,22 @@
 #include <unordered_map>
 #include <vector>
 
+#if defined(_MSC_VER)
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+#endif
+
+#include "arrow/util/macros.h"
+#include "arrow/vendored/date.h"
+
 #include "gandiva/arrow.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Utility class for converting sql date patterns to internal date patterns.
-class DateUtils {
+class GANDIVA_EXPORT DateUtils {
  public:
   static Status ToInternalFormat(const std::string& format,
                                  std::shared_ptr<std::string>* internal_format);
@@ -47,6 +57,54 @@ class DateUtils {
   static std::vector<std::string> GetExactMatches(const std::string& pattern);
 };
 
+namespace internal {
+
+/// \brief Returns seconds since the UNIX epoch
+static inline bool ParseTimestamp(const char* buf, const char* format,
+                                  bool ignoreTimeInDay, int64_t* out) {
+#if defined(_MSC_VER)
+  static std::locale lc_all(setlocale(LC_ALL, NULLPTR));
+  std::istringstream stream(buf);
+  stream.imbue(lc_all);
+
+  // TODO: date::parse fails parsing when the hour value is 0.
+  // eg.1886-12-01 00:00:00
+  date::sys_seconds seconds;
+  if (ignoreTimeInDay) {
+    date::sys_days days;
+    stream >> date::parse(format, days);
+    if (stream.fail()) {
+      return false;
+    }
+    seconds = days;
+  } else {
+    stream >> date::parse(format, seconds);
+    if (stream.fail()) {
+      return false;
+    }
+  }
+  auto seconds_in_epoch = seconds.time_since_epoch().count();
+  *out = seconds_in_epoch;
+  return true;
+#else
+  struct tm result;
+  char* ret = strptime(buf, format, &result);
+  if (ret == NULLPTR) {
+    return false;
+  }
+  // ignore the time part
+  date::sys_seconds secs = date::sys_days(date::year(result.tm_year + 1900) /
+                                          (result.tm_mon + 1) / result.tm_mday);
+  if (!ignoreTimeInDay) {
+    secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
+             std::chrono::seconds(result.tm_sec));
+  }
+  *out = secs.time_since_epoch().count();
+  return true;
+#endif
+}
+
+}  // namespace internal
 }  // namespace gandiva
 
 #endif  // TO_DATE_HELPER_H

@@ -21,11 +21,12 @@
 #include <vector>
 
 #include "gandiva/gandiva_aliases.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// Pair of vector/validities generated after decomposing an expression tree/subtree.
-class ValueValidityPair {
+class GANDIVA_EXPORT ValueValidityPair {
  public:
   ValueValidityPair(const DexVector& validity_exprs, DexPtr value_expr)
       : validity_exprs_(validity_exprs), value_expr_(value_expr) {}

@@ -20,10 +20,12 @@
 
 #include <memory>
 
+#include "gandiva/visibility.h"
+
 namespace gandiva {
 
 /// Holder for a function that can be invoked from LLVM.
-class FunctionHolder {
+class GANDIVA_EXPORT FunctionHolder {
  public:
   virtual ~FunctionHolder() = default;
 };

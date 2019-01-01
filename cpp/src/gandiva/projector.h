@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_PROJECTOR_H
-#define GANDIVA_EXPR_PROJECTOR_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -28,6 +27,7 @@
 #include "gandiva/arrow.h"
 #include "gandiva/configuration.h"
 #include "gandiva/expression.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
@@ -37,8 +37,12 @@ class LLVMGenerator;
 ///
 /// A projector is built for a specific schema and vector of expressions.
 /// Once the projector is built, it can be used to evaluate many row batches.
-class Projector {
+class GANDIVA_EXPORT Projector {
  public:
+  // Inline dtor will attempt to resolve the destructor for
+  // LLVMGenerator on MSVC, so we compile the dtor in the object code
+  ~Projector();
+
   /// Build a default projector for the given schema to evaluate
   /// the vector of expressions.
   ///
@@ -99,5 +103,3 @@ class Projector {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_PROJECTOR_H

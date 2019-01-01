@@ -23,24 +23,21 @@
 #include <string>
 #include <vector>
 
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 
 #include "gandiva/configuration.h"
+#include "gandiva/llvm_includes.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/logging.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 class FunctionIRBuilder;
 
 /// \brief LLVM Execution engine wrapper.
-class Engine {
+class GANDIVA_EXPORT Engine {
  public:
   llvm::LLVMContext* context() { return context_.get(); }
   llvm::IRBuilder<>* ir_builder() { return ir_builder_.get(); }

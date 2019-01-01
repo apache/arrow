@@ -23,11 +23,12 @@
 #include <string>
 
 #include "gandiva/arrow.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Utility class for converting sql patterns to pcre patterns.
-class RegexUtil {
+class GANDIVA_EXPORT RegexUtil {
  public:
   // Convert an sql pattern to a pcre pattern
   static Status SqlLikePatternToPcre(const std::string& like_pattern, char escape_char,

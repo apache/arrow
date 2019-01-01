@@ -788,6 +788,30 @@ TEST(BitUtil, CountLeadingZeros) {
   EXPECT_EQ(BitUtil::CountLeadingZeros(U64(ULLONG_MAX)), 0);
 }
 
+TEST(BitUtil, CountTrailingZeros) {
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(0)), 32);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(1) << 31), 31);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(1) << 30), 30);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(1) << 29), 29);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(1) << 28), 28);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(8)), 3);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(4)), 2);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(2)), 1);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(1)), 0);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(ULONG_MAX)), 0);
+
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(0)), 64);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(1) << 63), 63);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(1) << 62), 62);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(1) << 61), 61);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(1) << 60), 60);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(8)), 3);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(4)), 2);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(2)), 1);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(1)), 0);
+  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(ULLONG_MAX)), 0);
+}
+
 #undef U32
 #undef U64
 

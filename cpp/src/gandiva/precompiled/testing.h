@@ -15,35 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_EXPRESSION_H
-#define GANDIVA_EXPR_EXPRESSION_H
+#pragma once
 
-#include <string>
+#include <ctime>
 
-#include "gandiva/arrow.h"
-#include "gandiva/gandiva_aliases.h"
-#include "gandiva/visibility.h"
+#include <gtest/gtest.h>
+
+#include "arrow/util/logging.h"
+
+#include "gandiva/date_utils.h"
+#include "gandiva/precompiled/types.h"
 
 namespace gandiva {
 
-/// \brief An expression tree with a root node, and a result field.
-class GANDIVA_EXPORT Expression {
- public:
-  Expression(const NodePtr root, const FieldPtr result) : root_(root), result_(result) {}
-
-  virtual ~Expression() = default;
-
-  const NodePtr& root() const { return root_; }
-
-  const FieldPtr& result() const { return result_; }
-
-  std::string ToString();
-
- private:
-  const NodePtr root_;
-  const FieldPtr result_;
-};
+timestamp StringToTimestamp(const char* buf) {
+  int64_t out = 0;
+  DCHECK(internal::ParseTimestamp(buf, "%Y-%m-%d %H:%M:%S", false, &out));
+  return out * 1000;
+}
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_EXPRESSION_H
