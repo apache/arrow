@@ -865,9 +865,7 @@ mod tests {
 
     use std::{mem, rc::Rc};
 
-    use crate::schema::types::{
-        ColumnDescPtr, ColumnDescriptor, ColumnPath, Type as SchemaType,
-    };
+    use crate::schema::types::{ColumnDescPtr, ColumnDescriptor, ColumnPath, Type as SchemaType};
     use crate::util::{bit_util::set_array_bit, memory::MemTracker, test_common::RandGen};
 
     #[test]

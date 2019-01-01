@@ -989,9 +989,7 @@ mod tests {
     use std::rc::Rc;
 
     use crate::decoding::{get_decoder, Decoder, DictDecoder, PlainDecoder};
-    use crate::schema::types::{
-        ColumnDescPtr, ColumnDescriptor, ColumnPath, Type as SchemaType,
-    };
+    use crate::schema::types::{ColumnDescPtr, ColumnDescriptor, ColumnPath, Type as SchemaType};
     use crate::util::{memory::MemTracker, test_common::RandGen};
 
     const TEST_SET_SIZE: usize = 1024;

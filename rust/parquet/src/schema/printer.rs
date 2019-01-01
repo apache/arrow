@@ -46,9 +46,7 @@
 use std::{fmt, io};
 
 use crate::basic::{LogicalType, Type as PhysicalType};
-use crate::file::metadata::{
-    ColumnChunkMetaData, FileMetaData, ParquetMetaData, RowGroupMetaData,
-};
+use crate::file::metadata::{ColumnChunkMetaData, FileMetaData, ParquetMetaData, RowGroupMetaData};
 use crate::schema::types::Type;
 
 /// Prints Parquet metadata [`ParquetMetaData`](`::file::metadata::ParquetMetaData`)
