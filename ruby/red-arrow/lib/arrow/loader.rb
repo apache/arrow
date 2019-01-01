@@ -45,6 +45,7 @@ module Arrow
       require "arrow/date64-array-builder"
       require "arrow/field"
       require "arrow/file-output-stream"
+      require "arrow/list-data-type"
       require "arrow/path-extension"
       require "arrow/record"
       require "arrow/record-batch"

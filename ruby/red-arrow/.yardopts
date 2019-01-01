@@ -1,0 +1,6 @@
+--output-dir doc/reference
+--markup markdown
+--no-private
+lib/**/*.rb
+-
+doc/text/*
