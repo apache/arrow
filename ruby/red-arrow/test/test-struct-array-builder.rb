@@ -157,4 +157,24 @@ class StructArrayBuilderTest < Test::Unit::TestCase
                    ])
     end
   end
+
+  sub_test_case("#append") do
+    test("backward compatibility") do
+      @builder.append
+      @builder.get_field_builder(0).append(true)
+      @builder.get_field_builder(1).append(1)
+      @builder.append
+      @builder.get_field_builder(0).append(false)
+      @builder.get_field_builder(1).append(2)
+      array = @builder.finish
+      assert_equal([
+                     [true, 1],
+                     [false, 2],
+                   ],
+                   [
+                     array.get_value(0).values,
+                     array.get_value(1).values,
+                   ])
+    end
+  end
 end

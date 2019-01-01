@@ -54,6 +54,7 @@ module Arrow
       require "arrow/path-extension"
       require "arrow/record"
       require "arrow/record-batch"
+      require "arrow/record-batch-builder"
       require "arrow/record-batch-file-reader"
       require "arrow/record-batch-stream-reader"
       require "arrow/rolling-window"
@@ -89,6 +90,13 @@ module Arrow
 
     def load_method_info(info, klass, method_name)
       case klass.name
+      when /Builder\z/
+        case method_name
+        when "append"
+          return
+        else
+          super
+        end
       when "Arrow::StringArray"
         case method_name
         when "get_value"

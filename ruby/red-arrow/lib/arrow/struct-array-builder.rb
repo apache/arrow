@@ -119,6 +119,16 @@ module Arrow
       end
     end
 
+    # @since 0.12.0
+    def append(*values)
+      if values.empty?
+        # For backward compatibility
+        append_value_raw
+      else
+        super
+      end
+    end
+
     private
     def cached_field_builders
       @field_builders ||= field_builders
