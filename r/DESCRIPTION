@@ -61,6 +61,7 @@ Collate:
     'memory_pool.R'
     'message.R'
     'on_exit.R'
+    'parquet.R'
     'read_record_batch.R'
     'read_table.R'
     'reexports-bit64.R'
