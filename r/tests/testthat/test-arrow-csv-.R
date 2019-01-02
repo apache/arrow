@@ -21,9 +21,9 @@ test_that("Can read csv file", {
   tf <- local_tempfile()
   write.csv(iris, tf, row.names = FALSE, quote = FALSE)
 
-  tab1 <- csv_read(tf)
-  tab2 <- csv_read(mmap_open(tf))
-  tab3 <- csv_read(ReadableFile(tf))
+  tab1 <- read_csv_arrow(tf)
+  tab2 <- read_csv_arrow(mmap_open(tf))
+  tab3 <- read_csv_arrow(ReadableFile(tf))
 
   iris$Species <- as.character(iris$Species)
   tab0 <- table(iris)

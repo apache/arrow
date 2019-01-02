@@ -176,7 +176,7 @@ csv_table_reader.default <- function(file,
 #'
 #' @param ... Used to construct an arrow::csv::TableReader
 #' @export
-csv_read <- function(...) {
+read_csv_arrow <- function(...) {
   csv_table_reader(...)$Read()
 }
 
