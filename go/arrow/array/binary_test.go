@@ -283,11 +283,13 @@ func TestBinarySliceOutOfBounds(t *testing.T) {
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
 
+			var val string
+
 			if tc.panic {
 				defer func() {
 					e := recover()
 					if e == nil {
-						t.Fatalf("this should have panicked, but did not")
+						t.Fatalf("this should have panicked, but did not; slice value %q", val)
 					}
 					if got, want := e.(string), "arrow/array: index out of range"; got != want {
 						t.Fatalf("invalid error. got=%q, want=%q", got, want)
@@ -301,7 +303,7 @@ func TestBinarySliceOutOfBounds(t *testing.T) {
 				}()
 			}
 
-			slice.ValueString(tc.index)
+			val = slice.ValueString(tc.index)
 		})
 	}
 }
