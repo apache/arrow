@@ -16,15 +16,14 @@
 // under the License.
 
 #include "gandiva/function_registry_hash.h"
-#include <utility>
-#include <vector>
+#include "gandiva/function_registry_common.h"
 
 namespace gandiva {
 
-void FunctionRegistryHash::GetHashFnSignature(SignatureMap* map) {
+std::vector<NativeFunction> FunctionRegistryHash::GetFunctionRegistry() {
   // list of registered native functions.
 
-  static NativeFunction hash_fn_registry_[] = {
+  static std::vector<NativeFunction> hash_fn_registry_ = {
       // hash functions
       NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SAFE_NULL_NEVER, hash),
       NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SAFE_NULL_NEVER, hash32),
@@ -37,15 +36,7 @@ void FunctionRegistryHash::GetHashFnSignature(SignatureMap* map) {
       NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SEED_SAFE_NULL_NEVER, hash64),
       NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SEED_SAFE_NULL_NEVER, hash64AsDouble)};
 
-  const int num_entries =
-      static_cast<int>(sizeof(hash_fn_registry_) / sizeof(NativeFunction));
-  for (int i = 0; i < num_entries; i++) {
-    const NativeFunction* entry = &hash_fn_registry_[i];
-
-    DCHECK(map->find(&entry->signature()) == map->end());
-    map->insert(std::pair<const FunctionSignature*, const NativeFunction*>(
-        &entry->signature(), entry));
-  }
+  return hash_fn_registry_;
 }
 
 }  // namespace gandiva

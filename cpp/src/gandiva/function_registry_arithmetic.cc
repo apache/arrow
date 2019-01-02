@@ -16,20 +16,15 @@
 // under the License.
 
 #include "gandiva/function_registry_arithmetic.h"
-#include <utility>
-#include <vector>
 #include "gandiva/function_registry_common.h"
 
 namespace gandiva {
 
-void FunctionRegistryArithmetic::GetArithmeticFnSignature(SignatureMap* map) {
+std::vector<NativeFunction> FunctionRegistryArithmetic::GetFunctionRegistry() {
   // list of registered native functions.
-
-  static NativeFunction arithmetic_fn_registry_[] = {
-      // Arithmetic operations
+  static std::vector<NativeFunction> arithmetic_fn_registry_ = {
       UNARY_SAFE_NULL_IF_NULL(not, boolean, boolean),
 
-      // cast operations
       UNARY_SAFE_NULL_IF_NULL(castBIGINT, int32, int64),
       UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int32, float32),
       UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int64, float32),
@@ -60,15 +55,7 @@ void FunctionRegistryArithmetic::GetArithmeticFnSignature(SignatureMap* map) {
       UNARY_UNSAFE_NULL_IF_NULL(length, utf8, int32),
       UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, binary, int32)};
 
-  const int num_entries =
-      static_cast<int>(sizeof(arithmetic_fn_registry_) / sizeof(NativeFunction));
-  for (int i = 0; i < num_entries; i++) {
-    const NativeFunction* entry = &arithmetic_fn_registry_[i];
-
-    DCHECK(map->find(&entry->signature()) == map->end());
-    map->insert(std::pair<const FunctionSignature*, const NativeFunction*>(
-        &entry->signature(), entry));
-  }
+  return arithmetic_fn_registry_;
 }
 
 }  // namespace gandiva

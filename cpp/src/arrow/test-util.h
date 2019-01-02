@@ -46,8 +46,6 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-#define STRINGIFY(x) #x
-
 #define ASSERT_RAISES(ENUM, expr)                                         \
   do {                                                                    \
     ::arrow::Status s = (expr);                                           \

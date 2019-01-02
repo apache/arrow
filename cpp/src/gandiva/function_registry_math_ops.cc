@@ -16,15 +16,13 @@
 // under the License.
 
 #include "gandiva/function_registry_math_ops.h"
-#include <utility>
-#include <vector>
+#include "gandiva/function_registry_common.h"
 
 namespace gandiva {
 
-void FunctionRegistryMathOps::GetMathOpsFnSignature(SignatureMap* map) {
+std::vector<NativeFunction> FunctionRegistryMathOps::GetFunctionRegistry() {
   // list of registered native functions.
-
-  static NativeFunction math_fn_registry_[] = {
+  static std::vector<NativeFunction> math_fn_registry_ = {
       // extended math ops
       UNARY_SAFE_NULL_IF_NULL(cbrt, int32, float64),
       UNARY_SAFE_NULL_IF_NULL(cbrt, int64, float64),
@@ -72,15 +70,7 @@ void FunctionRegistryMathOps::GetMathOpsFnSignature(SignatureMap* map) {
       NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, is_distinct_from),
       NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, is_not_distinct_from)};
 
-  const int num_entries =
-      static_cast<int>(sizeof(math_fn_registry_) / sizeof(NativeFunction));
-  for (int i = 0; i < num_entries; i++) {
-    const NativeFunction* entry = &math_fn_registry_[i];
-
-    DCHECK(map->find(&entry->signature()) == map->end());
-    map->insert(std::pair<const FunctionSignature*, const NativeFunction*>(
-        &entry->signature(), entry));
-  }
+  return math_fn_registry_;
 }
 
 }  // namespace gandiva

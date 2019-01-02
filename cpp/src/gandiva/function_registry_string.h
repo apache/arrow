@@ -18,9 +18,7 @@
 #ifndef GANDIVA_FUNCTION_REGISTRY_STRING_H
 #define GANDIVA_FUNCTION_REGISTRY_STRING_H
 
-#include <unordered_map>
-
-#include "gandiva/function_registry_common.h"
+#include <vector>
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"
 
@@ -29,14 +27,7 @@ namespace gandiva {
 ///\brief Registry of pre-compiled IR functions.
 class FunctionRegistryString {
  public:
-  static void GetStringFnSignature(SignatureMap* map);
-
- private:
-  static DataTypePtr time32() { return arrow::time32(arrow::TimeUnit::MILLI); }
-
-  static DataTypePtr time64() { return arrow::time64(arrow::TimeUnit::MICRO); }
-
-  static DataTypePtr timestamp() { return arrow::timestamp(arrow::TimeUnit::MILLI); }
+  static std::vector<NativeFunction> GetFunctionRegistry();
 };
 
 }  // namespace gandiva

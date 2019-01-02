@@ -16,15 +16,13 @@
 // under the License.
 
 #include "gandiva/function_registry_timestamp_arithmetic.h"
-#include <utility>
-#include <vector>
+#include "gandiva/function_registry_common.h"
 
 namespace gandiva {
 
-void FunctionRegistryDateTimeArithmetic::GetDateTimeArithmeticFnSignature(
-    SignatureMap* map) {
+std::vector<NativeFunction> FunctionRegistryDateTimeArithmetic::GetFunctionRegistry() {
   // list of registered native functions.
-  static NativeFunction datetime_fn_registry_[] = {
+  static std::vector<NativeFunction> datetime_fn_registry_ = {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, date64, date64, float64),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, timestamp, timestamp, float64),
 
@@ -118,15 +116,7 @@ void FunctionRegistryDateTimeArithmetic::GetDateTimeArithmeticFnSignature(
       BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, timestamp, int64, date64),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, timestamp, int64, date64)};
 
-  const int num_entries =
-      static_cast<int>(sizeof(datetime_fn_registry_) / sizeof(NativeFunction));
-  for (int i = 0; i < num_entries; i++) {
-    const NativeFunction* entry = &datetime_fn_registry_[i];
-
-    DCHECK(map->find(&entry->signature()) == map->end());
-    map->insert(std::pair<const FunctionSignature*, const NativeFunction*>(
-        &entry->signature(), entry));
-  }
+  return datetime_fn_registry_;
 }
 
 }  // namespace gandiva

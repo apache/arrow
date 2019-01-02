@@ -39,15 +39,8 @@ class FunctionRegistry {
   iterator end() const;
 
  private:
-  static DataTypePtr time32() { return arrow::time32(arrow::TimeUnit::MILLI); }
-
-  static DataTypePtr time64() { return arrow::time64(arrow::TimeUnit::MICRO); }
-
-  static DataTypePtr timestamp() { return arrow::timestamp(arrow::TimeUnit::MILLI); }
-
   static SignatureMap InitPCMap();
 
-  // static NativeFunction pc_registry_[];
   static std::vector<NativeFunction> pc_registry_;
   static SignatureMap pc_registry_map_;
 };

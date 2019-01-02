@@ -45,6 +45,12 @@ using arrow::uint8;
 using arrow::utf8;
 using std::vector;
 
+inline DataTypePtr time32() { return arrow::time32(arrow::TimeUnit::MILLI); }
+
+inline DataTypePtr time64() { return arrow::time64(arrow::TimeUnit::MICRO); }
+
+inline DataTypePtr timestamp() { return arrow::timestamp(arrow::TimeUnit::MILLI); }
+
 struct KeyHash {
   std::size_t operator()(const FunctionSignature* k) const { return k->Hash(); }
 };
@@ -58,8 +64,6 @@ struct KeyEquals {
 typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyHash,
                            KeyEquals>
     SignatureMap;
-
-#define STRINGIFY(a) #a
 
 // Binary functions that :
 // - have the same input type for both params
@@ -205,6 +209,11 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 // Iterate the inner macro over all numeric types, date types, bool and varlen types
 #define NUMERIC_BOOL_DATE_VAR_LEN_TYPES(INNER, NAME) \
   NUMERIC_BOOL_DATE_TYPES(INNER, NAME), VAR_LEN_TYPES(INNER, NAME)
+
+#define POPULATEREGVECTOR(ARR, COUNT, VEC) \
+  for (int i = 0; i < COUNT; i++) {        \
+    VEC.push_back(ARR[i]);                 \
+  }
 
 }  // namespace gandiva
 

@@ -16,15 +16,14 @@
 // under the License.
 
 #include "gandiva/function_registry_string.h"
-#include <utility>
-#include <vector>
+#include "gandiva/function_registry_common.h"
 
 namespace gandiva {
 
-void FunctionRegistryString::GetStringFnSignature(SignatureMap* map) {
+std::vector<NativeFunction> FunctionRegistryString::GetFunctionRegistry() {
   // list of registered native functions.
 
-  static NativeFunction string_fn_registry_[] = {
+  static std::vector<NativeFunction> string_fn_registry_ = {
       VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
       VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
       VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
@@ -41,15 +40,7 @@ void FunctionRegistryString::GetStringFnSignature(SignatureMap* map) {
       NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), kResultNullIfNull,
                      "gdv_fn_like_utf8_utf8", NativeFunction::kNeedsFunctionHolder)};
 
-  const int num_entries =
-      static_cast<int>(sizeof(string_fn_registry_) / sizeof(NativeFunction));
-  for (int i = 0; i < num_entries; i++) {
-    const NativeFunction* entry = &string_fn_registry_[i];
-
-    DCHECK(map->find(&entry->signature()) == map->end());
-    map->insert(std::pair<const FunctionSignature*, const NativeFunction*>(
-        &entry->signature(), entry));
-  }
+  return string_fn_registry_;
 }
 
 }  // namespace gandiva

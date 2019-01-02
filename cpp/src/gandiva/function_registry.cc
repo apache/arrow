@@ -24,6 +24,7 @@
 #include "gandiva/function_registry_timestamp_arithmetic.h"
 
 #include <iterator>
+#include <utility>
 #include <vector>
 
 namespace gandiva {
@@ -45,8 +46,6 @@ using arrow::utf8;
 using std::iterator;
 using std::vector;
 
-#define STRINGIFY(a) #a
-
 FunctionRegistry::iterator FunctionRegistry::begin() const {
   return &(*pc_registry_.begin());
 }
@@ -62,26 +61,27 @@ SignatureMap FunctionRegistry::pc_registry_map_ = InitPCMap();
 SignatureMap FunctionRegistry::InitPCMap() {
   SignatureMap map;
 
-#if 0
-  int num_entries = static_cast<int>(sizeof(pc_registry_) / sizeof(NativeFunction));
-  for (int i = 0; i < num_entries; i++) {
-    const NativeFunction* entry = &pc_registry_[i];
+  auto v1 = FunctionRegistryArithmetic::GetFunctionRegistry();
+  pc_registry_.insert(std::end(pc_registry_), v1.begin(), v1.end());
 
-    DCHECK(map.find(&entry->signature()) == map.end());
-    map[&entry->signature()] = entry;
-    // printf("%s -> %s\n", entry->signature().ToString().c_str(),
-    //      entry->pc_name().c_str());
+  auto v2 = FunctionRegistryDateTime::GetFunctionRegistry();
+  pc_registry_.insert(std::end(pc_registry_), v2.begin(), v2.end());
+
+  auto v3 = FunctionRegistryHash::GetFunctionRegistry();
+  pc_registry_.insert(std::end(pc_registry_), v3.begin(), v3.end());
+
+  auto v4 = FunctionRegistryMathOps::GetFunctionRegistry();
+  pc_registry_.insert(std::end(pc_registry_), v4.begin(), v4.end());
+
+  auto v5 = FunctionRegistryString::GetFunctionRegistry();
+  pc_registry_.insert(std::end(pc_registry_), v5.begin(), v5.end());
+
+  auto v6 = FunctionRegistryDateTimeArithmetic::GetFunctionRegistry();
+  pc_registry_.insert(std::end(pc_registry_), v6.begin(), v6.end());
+
+  for (auto& elem : pc_registry_) {
+    map.insert(std::make_pair(&(elem.signature()), &elem));
   }
-#endif
-
-  FunctionRegistryArithmetic::GetArithmeticFnSignature(&map);
-  FunctionRegistryDateTime::GetDateTimeFnSignature(&map);
-  FunctionRegistryHash::GetHashFnSignature(&map);
-  FunctionRegistryMathOps::GetMathOpsFnSignature(&map);
-  FunctionRegistryString::GetStringFnSignature(&map);
-  FunctionRegistryDateTimeArithmetic::GetDateTimeArithmeticFnSignature(&map);
-
-  for (auto elem : map) pc_registry_.push_back(*elem.second);
 
   return map;
 }
