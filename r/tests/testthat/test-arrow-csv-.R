@@ -19,7 +19,7 @@ context("arrow::csv::TableReader")
 
 test_that("Can read csv file", {
   tf <- local_tempfile()
-  readr::write_csv(iris, tf)
+  write.csv(iris, tf, row.names = FALSE, quote = FALSE)
 
   tab1 <- csv_read(tf)
   tab2 <- csv_read(mmap_open(tf))
