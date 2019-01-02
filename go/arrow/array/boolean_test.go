@@ -234,11 +234,13 @@ func TestBooleanSliceOutOfBounds(t *testing.T) {
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
 
+			var val bool
+
 			if tc.panic {
 				defer func() {
 					e := recover()
 					if e == nil {
-						t.Fatalf("this should have panicked, but did not")
+						t.Fatalf("this should have panicked, but did not; slice value %v", val)
 					}
 					if got, want := e.(string), "arrow/array: index out of range"; got != want {
 						t.Fatalf("invalid error. got=%q, want=%q", got, want)
@@ -252,7 +254,7 @@ func TestBooleanSliceOutOfBounds(t *testing.T) {
 				}()
 			}
 
-			slice.Value(tc.index)
+			val = slice.Value(tc.index)
 		})
 	}
 }
