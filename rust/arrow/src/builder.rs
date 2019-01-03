@@ -509,6 +509,11 @@ impl BinaryArrayBuilder {
         self.builder.append(is_valid)
     }
 
+    /// Append a null value to the array.
+    pub fn append_null(&mut self) -> Result<()> {
+        self.append(false)
+    }
+
     /// Builds the `BinaryArray` and reset this builder.
     pub fn finish(&mut self) -> BinaryArray {
         BinaryArray::from(self.builder.finish())
@@ -523,6 +528,8 @@ pub struct StructArrayBuilder {
     fields: Vec<Field>,
     field_anys: Vec<Box<Any>>,
     field_builders: Vec<Box<ArrayBuilder>>,
+    bitmap_builder: BooleanBufferBuilder,
+    len: usize,
 }
 
 impl ArrayBuilder for StructArrayBuilder {
@@ -532,7 +539,7 @@ impl ArrayBuilder for StructArrayBuilder {
     /// the caller's responsibility to maintain the consistency that all the child field
     /// builder should have the equal number of elements.
     fn len(&self) -> usize {
-        self.field_builders[0].len()
+        self.len
     }
 
     /// Builds the array.
@@ -580,10 +587,13 @@ impl StructArrayBuilder {
                 field_builders.push(Box::from_raw(raw_f_copy));
             }
         }
+
         Self {
             fields,
             field_anys,
             field_builders,
+            bitmap_builder: BooleanBufferBuilder::new(0),
+            len: 0,
         }
     }
 
@@ -613,7 +623,7 @@ impl StructArrayBuilder {
             DataType::Struct(fields) => {
                 let schema = Schema::new(fields.clone());
                 Box::new(Self::from_schema(schema, capacity))
-            },
+            }
             t @ _ => panic!("Data type {:?} is not currently supported", t),
         }
     }
@@ -630,16 +640,38 @@ impl StructArrayBuilder {
         self.field_builders.len()
     }
 
+    /// Appends an element (either null or non-null) to the struct. The actual elements
+    /// should be appended for each child sub-array in a consistent way.
+    pub fn append(&mut self, is_valid: bool) -> Result<()> {
+        self.bitmap_builder.push(is_valid)?;
+        self.len += 1;
+        Ok(())
+    }
+
+    /// Appends a null element to the struct.
+    pub fn append_null(&mut self) -> Result<()> {
+        self.append(false)
+    }
+
     /// Builds the `StructArray` and reset this builder.
     pub fn finish(&mut self) -> StructArray {
-        let mut f_arrays: Vec<ArrayRef> = Vec::with_capacity(self.field_builders.len());
+        let mut child_data = Vec::with_capacity(self.field_builders.len());
         for f in &mut self.field_builders {
-            f_arrays.push(f.finish());
+            let arr = f.finish();
+            child_data.push(arr.data());
         }
-        let fields_clone: Vec<Field> = self.fields.iter().map(|f| f.clone()).collect();
-        let zipped: Vec<(Field, ArrayRef)> =
-            fields_clone.into_iter().zip(f_arrays.into_iter()).collect();
-        StructArray::from(zipped)
+
+        let null_bit_buffer = self.bitmap_builder.finish();
+        let null_count = self.len - bit_util::count_set_bits(null_bit_buffer.data());
+        let mut builder = ArrayData::builder(DataType::Struct(self.fields.clone()))
+            .len(self.len)
+            .child_data(child_data);
+        if null_count > 0 {
+            builder = builder
+                .null_count(null_count)
+                .null_bit_buffer(null_bit_buffer);
+        }
+        StructArray::from(builder.build())
     }
 }
 
@@ -656,6 +688,7 @@ mod tests {
     use super::*;
 
     use crate::array::Array;
+    use crate::bitmap::Bitmap;
 
     #[test]
     fn test_builder_i32_empty() {
@@ -1154,41 +1187,87 @@ mod tests {
 
     #[test]
     fn test_struct_array_builder() {
-        let int_builder = Int32Builder::new(10);
-        let bool_builder = BooleanBuilder::new(10);
+        let string_builder = BinaryArrayBuilder::new(4);
+        let int_builder = Int32Builder::new(4);
 
         let mut fields = Vec::new();
         let mut field_builders = Vec::new();
-        fields.push(Field::new("f1", DataType::Int32, false));
+        fields.push(Field::new("f1", DataType::Utf8, false));
+        field_builders.push(Box::new(string_builder) as Box<ArrayBuilder>);
+        fields.push(Field::new("f2", DataType::Int32, false));
         field_builders.push(Box::new(int_builder) as Box<ArrayBuilder>);
-        fields.push(Field::new("f2", DataType::Boolean, false));
-        field_builders.push(Box::new(bool_builder) as Box<ArrayBuilder>);
 
         let mut builder = StructArrayBuilder::new(fields, field_builders);
         assert_eq!(2, builder.num_fields());
 
+        let string_builder = builder
+            .field_builder::<BinaryArrayBuilder>(0)
+            .expect("builder at field 0 should be binary builder");
+        string_builder.push_string("joe").unwrap();
+        string_builder.append_null().unwrap();
+        string_builder.append_null().unwrap();
+        string_builder.push_string("mark").unwrap();
+
         let int_builder = builder
-            .field_builder::<Int32Builder>(0)
-            .expect("builder at field 0 should be integer builder");
-        int_builder
-            .push_slice(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-            .unwrap();
-        let boolean_builder = builder
-            .field_builder::<BooleanBuilder>(1)
-            .expect("builder at field 1 should be boolean builder");
-        boolean_builder
-            .push_slice(&[
-                false, true, false, true, false, true, false, true, false, true,
-            ])
-            .unwrap();
+            .field_builder::<Int32Builder>(1)
+            .expect("builder at field 1 should be int builder");
+        int_builder.push(1).unwrap();
+        int_builder.push(2).unwrap();
+        int_builder.push_null().unwrap();
+        int_builder.push(4).unwrap();
+
+        builder.append(true).unwrap();
+        builder.append(true).unwrap();
+        builder.append_null().unwrap();
+        builder.append(true).unwrap();
 
         let arr = builder.finish();
-        let expected_int_arr = Int32Array::from(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-        let expected_boolean_arr = BooleanArray::from(vec![
-            false, true, false, true, false, true, false, true, false, true,
-        ]);
-        assert_eq!(expected_int_arr.data(), arr.column(0).data());
-        assert_eq!(expected_boolean_arr.data(), arr.column(1).data());
+
+        let struct_data = arr.data();
+        assert_eq!(4, struct_data.len());
+        assert_eq!(1, struct_data.null_count());
+        assert_eq!(
+            &Some(Bitmap::from(Buffer::from(&[11_u8]))),
+            struct_data.null_bitmap()
+        );
+
+        let expected_string_data = ArrayData::builder(DataType::Utf8)
+            .len(4)
+            .null_count(2)
+            .null_bit_buffer(Buffer::from(&[9_u8]))
+            .add_buffer(Buffer::from(&[0, 3, 3, 3, 7].to_byte_slice()))
+            .add_buffer(Buffer::from("joemark".as_bytes()))
+            .build();
+
+        let expected_int_data = ArrayData::builder(DataType::Int32)
+            .len(4)
+            .null_count(1)
+            .null_bit_buffer(Buffer::from(&[11_u8]))
+            .add_buffer(Buffer::from(&[1, 2, 0, 4].to_byte_slice()))
+            .build();
+
+        assert_eq!(expected_string_data, arr.column(0).data());
+
+        // TODO: implement equality for ArrayData
+        assert_eq!(expected_int_data.len(), arr.column(1).data().len());
+        assert_eq!(
+            expected_int_data.null_count(),
+            arr.column(1).data().null_count()
+        );
+        assert_eq!(
+            expected_int_data.null_bitmap(),
+            arr.column(1).data().null_bitmap()
+        );
+        let expected_value_buf = expected_int_data.buffers()[0].clone();
+        let actual_value_buf = arr.column(1).data().buffers()[0].clone();
+        for i in 0..expected_int_data.len() {
+            if !expected_int_data.is_null(i) {
+                assert_eq!(
+                    expected_value_buf.data()[i * 4..(i + 1) * 4],
+                    actual_value_buf.data()[i * 4..(i + 1) * 4]
+                );
+            }
+        }
     }
 
     #[test]
@@ -1278,6 +1357,5 @@ mod tests {
         let mut builder = StructArrayBuilder::new(fields, field_builders);
         assert!(builder.field_builder::<BinaryArrayBuilder>(0).is_none());
     }
-
 
 }

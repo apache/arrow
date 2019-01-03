@@ -568,11 +568,17 @@ impl From<ListArray> for BinaryArray {
             "BinaryArray can only be created from List<u8> arrays, mismatched data types."
         );
 
-        let data = ArrayData::builder(DataType::Utf8)
+        let mut builder = ArrayData::builder(DataType::Utf8)
             .len(v.len())
             .add_buffer(v.data().buffers()[0].clone())
-            .add_buffer(v.data().child_data()[0].buffers()[0].clone())
-            .build();
+            .add_buffer(v.data().child_data()[0].buffers()[0].clone());
+        if let Some(bitmap) = v.data().null_bitmap() {
+            builder = builder
+                .null_count(v.data().null_count())
+                .null_bit_buffer(bitmap.bits.clone())
+        }
+
+        let data = builder.build();
         Self::from(data)
     }
 }
