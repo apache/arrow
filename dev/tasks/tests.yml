@@ -84,7 +84,7 @@ tasks:
     template: docker-tests/travis.linux.yml
     params:
       commands:
-        - docker-compose build rust
+        - docker-compose build -q rust
         - docker-compose run rust
 
   docker-cpp:
@@ -92,7 +92,7 @@ tasks:
     template: docker-tests/travis.linux.yml
     params:
       commands:
-        - docker-compose build cpp
+        - docker-compose build -q cpp
         - docker-compose run cpp
 
   docker-cpp-alpine:
@@ -100,7 +100,7 @@ tasks:
     template: docker-tests/travis.linux.yml
     params:
       commands:
-        - docker-compose build cpp-alpine
+        - docker-compose build -q cpp-alpine
         - docker-compose run cpp-alpine
 
   docker-cpp-cmake32:
@@ -108,7 +108,7 @@ tasks:
     template: docker-tests/travis.linux.yml
     params:
       commands:
-        - docker-compose build cpp-cmake32
+        - docker-compose build -q cpp-cmake32
         - docker-compose run cpp-cmake32
 
   docker-c_glib:
@@ -116,8 +116,8 @@ tasks:
     template: docker-tests/travis.linux.yml
     params:
       commands:
-        - docker-compose build cpp
-        - docker-compose build c_glib
+        - docker-compose build -q cpp
+        - docker-compose build -q c_glib
         - docker-compose run cpp
 
   docker-go:
@@ -125,7 +125,7 @@ tasks:
     template: docker-tests/travis.linux.yml
     params:
       commands:
-        - docker-compose build go
+        - docker-compose build -q go
         - docker-compose run go
 
   docker-js:
@@ -133,7 +133,7 @@ tasks:
     template: docker-tests/travis.linux.yml
     params:
       commands:
-        - docker-compose build js
+        - docker-compose build -q js
         - docker-compose run js
 
   docker-java:
@@ -141,7 +141,7 @@ tasks:
     template: docker-tests/travis.linux.yml
     params:
       commands:
-        - docker-compose build java
+        - docker-compose build -q java
         - docker-compose run java
 
   docker-python-2.7:
@@ -151,8 +151,8 @@ tasks:
       environment:
         PYTHON_VERSION: 2.7
       commands:
-        - docker-compose build cpp
-        - docker-compose build python
+        - docker-compose build -q cpp
+        - docker-compose build -q python
         - docker-compose run python
 
   docker-python-3.6:
@@ -162,8 +162,8 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
-        - docker-compose build cpp
-        - docker-compose build python
+        - docker-compose build -q cpp
+        - docker-compose build -q python
         - docker-compose run python
 
   docker-python-3.7:
@@ -173,8 +173,8 @@ tasks:
       environment:
         PYTHON_VERSION: 3.7
       commands:
-        - docker-compose build cpp
-        - docker-compose build python
+        - docker-compose build -q cpp
+        - docker-compose build -q python
         - docker-compose run python
 
   docker-python-2.7-alpine:
@@ -184,8 +184,8 @@ tasks:
       environment:
         PYTHON_VERSION: 2.7
       commands:
-        - docker-compose build cpp-alpine
-        - docker-compose build python-alpine
+        - docker-compose build -q cpp-alpine
+        - docker-compose build -q python-alpine
         - docker-compose run python-alpine
 
   docker-python-3.6-alpine:
@@ -195,8 +195,8 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
-        - docker-compose build cpp-alpine
-        - docker-compose build python-alpine
+        - docker-compose build -q cpp-alpine
+        - docker-compose build -q python-alpine
         - docker-compose run python-alpine
 
   ###################### Documentation building tests #########################
@@ -208,9 +208,9 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build docs
+        - docker-compose build -q cpp
+        - docker-compose build -q python
+        - docker-compose build -q docs
         - docker-compose run docs
 
   ############################## Linter tests #################################
@@ -222,9 +222,9 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build lint
+        - docker-compose build -q cpp
+        - docker-compose build -q python
+        - docker-compose build -q lint
         - docker-compose run lint
 
   docker-iwyu:
@@ -234,9 +234,9 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build lint
+        - docker-compose build -q cpp
+        - docker-compose build -q python
+        - docker-compose build -q lint
         - docker-compose run iwyu
 
   docker-clang-format:
@@ -246,9 +246,9 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build lint
+        - docker-compose build -q cpp
+        - docker-compose build -q python
+        - docker-compose build -q lint
         - docker-compose run clang-format
 
   ############################## Integration tests ############################
@@ -260,9 +260,9 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build dask-integration
+        - docker-compose build -q cpp
+        - docker-compose build -q python
+        - docker-compose build -q dask-integration
         - docker-compose run dask-integration
 
   docker-hdfs-integration:
@@ -272,9 +272,9 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build hdfs-integration
+        - docker-compose build -q cpp
+        - docker-compose build -q python
+        - docker-compose build -q hdfs-integration
         - docker-compose run hdfs-integration
 
   docker-spark-integration:
@@ -284,9 +284,9 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build spark-integration
+        - docker-compose build -q cpp
+        - docker-compose build -q python
+        - docker-compose build -q spark-integration
         - docker-compose run spark-integration
 
   docker-pandas-master:
@@ -296,7 +296,7 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build --no-cache pandas-master
+        - docker-compose build -q cpp
+        - docker-compose build -q python
+        - docker-compose build -q --no-cache pandas-master
         - docker-compose run pandas-master
