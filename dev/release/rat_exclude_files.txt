@@ -186,5 +186,6 @@ r/README.md
 r/README.Rmd
 r/man/*.Rd
 .gitattributes
+ruby/red-arrow/.yardopts
 rust/test/data/*.csv
 rust/rust-toolchain

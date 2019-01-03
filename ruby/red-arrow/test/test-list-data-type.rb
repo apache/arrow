@@ -1,5 +1,3 @@
-# -*- ruby -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,27 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "rubygems"
-require "bundler/gem_helper"
-require "yard"
+class ListDataTypeTest < Test::Unit::TestCase
+  sub_test_case(".new") do
+    test("Arrow::Field") do
+      field = Arrow::Field.new(:tag, :string)
+      assert_equal("list<tag: string>",
+                   Arrow::ListDataType.new(field).to_s)
+    end
 
-base_dir = File.join(__dir__)
+    test("Hash") do
+      assert_equal("list<tag: string>",
+                   Arrow::ListDataType.new(name: "tag", type: :string).to_s)
+    end
 
-helper = Bundler::GemHelper.new(base_dir)
-helper.install
+    test("field: Arrow::Field") do
+      field = Arrow::Field.new(:tag, :string)
+      assert_equal("list<tag: string>",
+                   Arrow::ListDataType.new(field: field).to_s)
+    end
 
-release_task = Rake::Task["release"]
-release_task.prerequisites.replace(["build", "release:rubygem_push"])
-
-desc "Run tests"
-task :test do
-  cd("dependency-check") do
-    ruby("-S", "rake")
+    test("field: Hash") do
+      field_description = {name: "tag", type: :string}
+      assert_equal("list<tag: string>",
+                   Arrow::ListDataType.new(field: field_description).to_s)
+    end
   end
-  ruby("test/run-test.rb")
-end
-
-task default: :test
-
-YARD::Rake::YardocTask.new do |task|
 end

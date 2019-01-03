@@ -39,7 +39,7 @@ Note that the Apache Arrow GLib packages are "unofficial". "Official" packages w
 
 Install Red Arrow after you install Apache Arrow GLib:
 
-```text
+```console
 % gem install red-arrow
 ```
 
