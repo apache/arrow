@@ -16,45 +16,30 @@
 # under the License.
 
 [package]
-name = "arrow"
+name = "parquet"
 version = "0.12.0-SNAPSHOT"
-description = "Rust implementation of Apache Arrow"
-homepage = "https://github.com/apache/arrow"
-repository = "https://github.com/apache/arrow"
-authors = ["Apache Arrow <dev@arrow.apache.org>"]
 license = "Apache-2.0"
-keywords = [ "arrow" ]
-include = [
-    "src/**/*.rs",
-    "Cargo.toml",
-]
+description = "Apache Parquet implementation in Rust"
+authors = ["Apache Arrow <dev@arrow.apache.org>"]
+keywords = [ "arrow", "parquet", "hadoop" ]
+readme = "README.md"
+build = "build.rs"
 edition = "2018"
 
-[lib]
-name = "arrow"
-path = "src/lib.rs"
-
 [dependencies]
-bytes = "0.4"
-libc = "0.2"
-serde = { version = "1.0.80", features = ["alloc", "rc"] }
-serde_derive = "1.0.80"
-serde_json = "1.0.13"
-rand = "0.5"
-csv = "1.0.0"
-num = "0.2"
+parquet-format = "2.5.0"
+quick-error = "1.2.2"
+byteorder = "1"
+thrift = "0.0.4"
+snap = "0.2"
+brotli = "2.5"
+flate2 = "1.0.2"
+lz4 = "1.23"
+zstd = "0.4"
+chrono = "0.4"
+num-bigint = "0.2"
+arrow = { path = ".." }
 
 [dev-dependencies]
-criterion = "0.2"
 lazy_static = "1"
-
-[[bench]]
-name = "array_from_vec"
-harness = false
-
-[[bench]]
-name = "builder"
-harness = false
-
-[workspace]
-members = ["parquet"]
+rand = "0.5"

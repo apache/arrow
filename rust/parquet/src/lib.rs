@@ -22,16 +22,20 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 
-pub mod array;
-pub mod array_data;
-pub mod array_ops;
-pub mod bitmap;
-pub mod buffer;
-pub mod builder;
-pub mod csv;
-pub mod datatypes;
-pub mod error;
-pub mod memory;
-pub mod record_batch;
-pub mod tensor;
-pub mod util;
+#[macro_use]
+pub mod errors;
+pub mod basic;
+pub mod data_type;
+
+// Exported for external use, such as benchmarks
+pub use self::encodings::{decoding, encoding};
+pub use self::util::memory;
+
+#[macro_use]
+mod util;
+pub mod column;
+pub mod compression;
+mod encodings;
+pub mod file;
+pub mod record;
+pub mod schema;
