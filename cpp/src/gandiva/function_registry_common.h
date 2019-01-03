@@ -84,8 +84,8 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 // - can return error.
 //
 // The pre-compiled fn name includes the base name & input type names. eg. add_int32_int32
-#define BINARY_UNSAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                  \
-  NativeFunction(#NAME, DataTypeVector{IN_TYPE(), IN_TYPE()}, OUT_TYPE(),    \
+#define BINARY_UNSAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                        \
+  NativeFunction(#NAME, DataTypeVector{IN_TYPE(), IN_TYPE()}, OUT_TYPE(),          \
                  kResultNullIfNull, ARROW_STRINGIFY(NAME##_##IN_TYPE##_##IN_TYPE), \
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
@@ -134,7 +134,7 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 // The pre-compiled fn name includes the base name & input type name. eg. castFloat_int32
 #define UNARY_UNSAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE)                        \
   NativeFunction(#NAME, DataTypeVector{IN_TYPE()}, OUT_TYPE(), kResultNullIfNull, \
-                 ARROW_STRINGIFY(NAME##_##IN_TYPE),                                     \
+                 ARROW_STRINGIFY(NAME##_##IN_TYPE),                               \
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
 // Binary functions that :
