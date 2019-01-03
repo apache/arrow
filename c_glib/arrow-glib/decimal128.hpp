@@ -23,7 +23,7 @@
 
 #include <arrow/util/decimal.h>
 
-#include <arrow-glib/decimal.h>
+#include <arrow-glib/decimal128.h>
 
 GArrowDecimal128 *garrow_decimal128_new_raw(std::shared_ptr<arrow::Decimal128> *arrow_decimal128);
 std::shared_ptr<arrow::Decimal128> garrow_decimal128_get_raw(GArrowDecimal128 *decimal);

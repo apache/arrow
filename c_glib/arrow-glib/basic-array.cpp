@@ -22,12 +22,12 @@
 #endif
 
 #include <arrow-glib/array.hpp>
+#include <arrow-glib/basic-data-type.hpp>
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/compute.hpp>
-#include <arrow-glib/basic-data-type.hpp>
+#include <arrow-glib/decimal128.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/type.hpp>
-#include <arrow-glib/decimal.hpp>
 
 #include <sstream>
 

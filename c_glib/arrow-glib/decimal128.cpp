@@ -21,7 +21,7 @@
 #  include <config.h>
 #endif
 
-#include <arrow-glib/decimal.hpp>
+#include <arrow-glib/decimal128.hpp>
 #include <arrow-glib/error.hpp>
 
 G_BEGIN_DECLS

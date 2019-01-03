@@ -15,23 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestDecimalArray < Test::Unit::TestCase
-  def test_format_value
-    data_type = Arrow::DecimalDataType.new(8,2)
-    builder = Arrow::Decimal128ArrayBuilder.new(data_type)
-    decimal = Arrow::Decimal128.new("23423445")
-    builder.append_value(decimal)
-    array = builder.finish
-    assert_equal("234234.45", array.format_value(0))
+class TestDecimal128DataType < Test::Unit::TestCase
+  def test_type
+    data_type = Arrow::Decimal128DataType.new(2, 0)
+    assert_equal(Arrow::Type::DECIMAL, data_type.id)
   end
 
-  def test_value
-    data_type = Arrow::DecimalDataType.new(8,2)
-    builder = Arrow::Decimal128ArrayBuilder.new(data_type)
-    decimal = Arrow::Decimal128.new("23423445")
-    builder.append_value(decimal)
-    array = builder.finish
-    assert_equal("234234.45",
-                 array.get_value(0).to_string_scale(array.value_data_type.scale))
+  def test_to_s
+    data_type = Arrow::Decimal128DataType.new(2, 0)
+    assert_equal("decimal(2, 0)", data_type.to_s)
+  end
+
+  def test_precision
+    data_type = Arrow::Decimal128DataType.new(8, 2)
+    assert_equal(8, data_type.precision)
+  end
+
+  def test_scale
+    data_type = Arrow::Decimal128DataType.new(8, 2)
+    assert_equal(2, data_type.scale)
   end
 end
