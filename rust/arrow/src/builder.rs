@@ -234,7 +234,7 @@ pub trait ArrayBuilder: Any {
     fn as_any_mut(&mut self) -> &mut Any;
 
     /// Returns the boxed builder as a box of `Any`.
-    fn to_any(self: Box<Self>) -> Box<Any>;
+    fn into_box_any(self: Box<Self>) -> Box<Any>;
 }
 
 ///  Array builder for fixed-width primitive types
@@ -267,7 +267,7 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveArrayBuilder<T> {
     }
 
     /// Returns the boxed builder as a box of `Any`.
-    fn to_any(self: Box<Self>) -> Box<Any> {
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
         self
     }
 
@@ -381,7 +381,7 @@ where
     }
 
     /// Returns the boxed builder as a box of `Any`.
-    fn to_any(self: Box<Self>) -> Box<Any> {
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
         self
     }
 
@@ -461,7 +461,7 @@ impl ArrayBuilder for BinaryArrayBuilder {
     }
 
     /// Returns the boxed builder as a box of `Any`.
-    fn to_any(self: Box<Self>) -> Box<Any> {
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
         self
     }
 
@@ -566,7 +566,7 @@ impl ArrayBuilder for StructArrayBuilder {
     }
 
     /// Returns the boxed builder as a box of `Any`.
-    fn to_any(self: Box<Self>) -> Box<Any> {
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
         self
     }
 }
@@ -583,7 +583,7 @@ impl StructArrayBuilder {
             let raw_f = Box::into_raw(f);
             let raw_f_copy = raw_f;
             unsafe {
-                field_anys.push(Box::from_raw(raw_f).to_any());
+                field_anys.push(Box::from_raw(raw_f).into_box_any());
                 field_builders.push(Box::from_raw(raw_f_copy));
             }
         }
