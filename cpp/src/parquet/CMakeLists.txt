@@ -282,3 +282,8 @@ ADD_ARROW_BENCHMARK(encoding-benchmark
   PREFIX "parquet"
   LABELS "parquet-benchmarks"
   EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
+
+# Required for tests, the ExternalProject for zstd does not build on CMake < 3.7
+if (ARROW_WITH_ZSTD)
+  add_definitions(-DARROW_WITH_ZSTD)
+endif()
