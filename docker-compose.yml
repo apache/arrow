@@ -17,21 +17,19 @@
 
 # Development containers for Arrow
 
-# TODO(kszucs) document passing CLI build arguments like PYTHON_VERSION
-
 version: '3.5'
 
 x-ubuntu-volumes:
   &ubuntu-volumes
   - .:/arrow:delegated
-  - $HOME/.m2:/root/.m2:delegated  # TODO: remove it from here?
-  - ${ARROW_DOCKER_CACHE_DIR:-/tmp/arrow/docker_cache}/ubuntu:/build:delegated
+  - $HOME/.m2:/root/.m2:delegated
+  - ${ARROW_DOCKER_CACHE_DIR:./docker_cache}/ubuntu:/build:delegated
 
 x-alpine-volumes:
   &alpine-volumes
   - .:/arrow:delegated
-  - $HOME/.m2:/root/.m2:delegated  # TODO: remove it from here?
-  - ${ARROW_DOCKER_CACHE_DIR:-/tmp/arrow/docker_cache}/alpine:/build:delegated
+  - $HOME/.m2:/root/.m2:delegated
+  - ${ARROW_DOCKER_CACHE_DIR:./docker_cache}/alpine:/build:delegated
 
 services:
 
