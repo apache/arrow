@@ -58,13 +58,13 @@ class TestStructArray < Test::Unit::TestCase
     data_type = Arrow::StructDataType.new(fields)
     builder = Arrow::StructArrayBuilder.new(data_type)
 
-    builder.append
-    builder.get_field_builder(0).append(-29)
-    builder.get_field_builder(1).append(true)
+    builder.append_value
+    builder.get_field_builder(0).append_value(-29)
+    builder.get_field_builder(1).append_value(true)
 
-    builder.append
-    builder.field_builders[0].append(2)
-    builder.field_builders[1].append(false)
+    builder.append_value
+    builder.field_builders[0].append_value(2)
+    builder.field_builders[1].append_value(false)
 
     array = builder.finish
     values = array.length.times.collect do |i|

@@ -20,7 +20,7 @@ class TestDecimalArray < Test::Unit::TestCase
     data_type = Arrow::DecimalDataType.new(8,2)
     builder = Arrow::Decimal128ArrayBuilder.new(data_type)
     decimal = Arrow::Decimal128.new("23423445")
-    builder.append(decimal)
+    builder.append_value(decimal)
     array = builder.finish
     assert_equal("234234.45", array.format_value(0))
   end
@@ -29,7 +29,7 @@ class TestDecimalArray < Test::Unit::TestCase
     data_type = Arrow::DecimalDataType.new(8,2)
     builder = Arrow::Decimal128ArrayBuilder.new(data_type)
     decimal = Arrow::Decimal128.new("23423445")
-    builder.append(decimal)
+    builder.append_value(decimal)
     array = builder.finish
     assert_equal("234234.45",
                  array.get_value(0).to_string_scale(array.value_data_type.scale))
