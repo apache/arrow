@@ -22,7 +22,7 @@
 #include "arrow/status.h"
 #include "arrow/util/decimal.h"
 
-#include "gandiva/decimal_type_sql.h"
+#include "gandiva/decimal_type_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -51,7 +51,7 @@ std::vector<Decimal128> TestDecimal::MakeDecimalVector(std::vector<std::string> 
     int32_t str_scale;
 
     auto status = Decimal128::FromString(str, &str_value, &str_precision, &str_scale);
-    EXPECT_TRUE(status.ok()) << status.message();
+    DCHECK_OK(status);
 
     Decimal128 scaled_value;
     status = str_value.Rescale(str_scale, scale, &scaled_value);
@@ -71,12 +71,12 @@ TEST_F(TestDecimal, TestSimple) {
   auto schema = arrow::schema({field_a, field_b, field_c});
 
   Decimal128TypePtr add2_type;
-  auto status = DecimalTypeSql::GetResultType(DecimalTypeSql::kOpAdd,
-                                              {decimal_type, decimal_type}, &add2_type);
+  auto status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
+                                               {decimal_type, decimal_type}, &add2_type);
 
   Decimal128TypePtr output_type;
-  status = DecimalTypeSql::GetResultType(DecimalTypeSql::kOpAdd,
-                                         {add2_type, decimal_type}, &output_type);
+  status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
+                                          {add2_type, decimal_type}, &output_type);
 
   // output fields
   auto res = field("res0", output_type);
@@ -92,7 +92,7 @@ TEST_F(TestDecimal, TestSimple) {
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
   status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok()) << status.message();
+  DCHECK_OK(status);
 
   // Create a row-batch with some sample data
   int num_records = 4;
@@ -117,7 +117,7 @@ TEST_F(TestDecimal, TestSimple) {
   // Evaluate expression
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok()) << status.message();
+  DCHECK_OK(status);
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
@@ -134,8 +134,8 @@ TEST_F(TestDecimal, TestLiteral) {
   });
 
   Decimal128TypePtr add2_type;
-  auto status = DecimalTypeSql::GetResultType(DecimalTypeSql::kOpAdd,
-                                              {decimal_type, decimal_type}, &add2_type);
+  auto status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
+                                               {decimal_type, decimal_type}, &add2_type);
 
   // output fields
   auto res = field("res0", add2_type);
@@ -151,7 +151,7 @@ TEST_F(TestDecimal, TestLiteral) {
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
   status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok()) << status.message();
+  DCHECK_OK(status);
 
   // Create a row-batch with some sample data
   int num_records = 4;
@@ -169,7 +169,7 @@ TEST_F(TestDecimal, TestLiteral) {
   // Evaluate expression
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok()) << status.message();
+  DCHECK_OK(status);
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
@@ -203,7 +203,7 @@ TEST_F(TestDecimal, TestIfElse) {
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
   Status status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok()) << status.message();
+  DCHECK_OK(status);
 
   // Create a row-batch with some sample data
   int num_records = 4;
@@ -228,7 +228,7 @@ TEST_F(TestDecimal, TestIfElse) {
   // Evaluate expression
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok()) << status.message();
+  DCHECK_OK(status);
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));

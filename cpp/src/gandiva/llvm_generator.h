@@ -185,8 +185,8 @@ class LLVMGenerator {
   void ClearPackedBitValueIfFalse(llvm::Value* bitmap, llvm::Value* position,
                                   llvm::Value* value);
 
-  // Generate code to build a LValueDecimal with specified value/precision/scale.
-  std::shared_ptr<LValueDecimal> BuildLValueDecimal(llvm::Value* value,
+  // Generate code to build a DecimalLValue with specified value/precision/scale.
+  std::shared_ptr<DecimalLValue> BuildDecimalLValue(llvm::Value* value,
                                                     DataTypePtr arrow_type);
 
   /// Generate code to make a function call (to a pre-compiled IR function) which takes

@@ -22,7 +22,7 @@
 #include "arrow/status.h"
 
 #include "gandiva/decimal_full.h"
-#include "gandiva/decimal_type_sql.h"
+#include "gandiva/decimal_type_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -31,10 +31,10 @@ using arrow::Decimal128;
 
 namespace gandiva {
 
-#define EXPECT_DECIMAL_SUM_EQUALS(x, y, expected, actual) \
-  EXPECT_TRUE((expected).Equals(actual))                  \
-      << (x).ToString() << " + " << (y).ToString()        \
-      << " expected : " << (expected).ToString() << " actual : " << (actual).ToString();
+#define EXPECT_DECIMAL_SUM_EQUALS(x, y, expected, actual)                  \
+  EXPECT_EQ(expected, actual) << (x).ToString() << " + " << (y).ToString() \
+                              << " expected : " << (expected).ToString()   \
+                              << " actual : " << (actual).ToString();
 
 Decimal128Full decimal_literal(const char* value, int precision, int scale) {
   std::string value_string = std::string(value);
@@ -71,8 +71,10 @@ void TestDecimalOps::AddAndVerify(const Decimal128Full& x, const Decimal128Full&
   auto schema = arrow::schema({field_x, field_y});
 
   Decimal128TypePtr output_type;
-  auto status = DecimalTypeSql::GetResultType(DecimalTypeSql::kOpAdd, {x_type, y_type},
-                                              &output_type);
+  auto status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd, {x_type, y_type},
+                                               &output_type);
+  EXPECT_OK(status);
+
   // output fields
   auto res = field("res", output_type);
 
@@ -82,7 +84,7 @@ void TestDecimalOps::AddAndVerify(const Decimal128Full& x, const Decimal128Full&
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
   status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok()) << status.message();
+  EXPECT_OK(status);
 
   // Create a row-batch with some sample data
   auto array_a = MakeDecimalVector(x);
@@ -94,7 +96,7 @@ void TestDecimalOps::AddAndVerify(const Decimal128Full& x, const Decimal128Full&
   // Evaluate expression
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok()) << status.message();
+  EXPECT_OK(status);
 
   // Validate results
   auto out_array = dynamic_cast<arrow::Decimal128Array*>(outputs[0].get());
@@ -199,12 +201,20 @@ TEST_F(TestDecimalOps, TestAdd) {
                decimal_literal("2001099", 38, 6));
 
   AddAndVerify(decimal_literal("1000999", 38, 6),   // x
+               decimal_literal("10000995", 38, 7),  // y
+               decimal_literal("2001099", 38, 6));
+
+  AddAndVerify(decimal_literal("1000999", 38, 6),   // x
                decimal_literal("10000992", 38, 7),  // y
                decimal_literal("2001098", 38, 6));
 
   // rounding -ve
   AddAndVerify(decimal_literal("-1000999", 38, 6),   // x
                decimal_literal("-10000999", 38, 7),  // y
+               decimal_literal("-2001099", 38, 6));
+
+  AddAndVerify(decimal_literal("-1000999", 38, 6),   // x
+               decimal_literal("-10000995", 38, 7),  // y
                decimal_literal("-2001099", 38, 6));
 
   AddAndVerify(decimal_literal("-1000999", 38, 6),   // x

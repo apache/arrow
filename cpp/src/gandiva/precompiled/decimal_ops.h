@@ -23,12 +23,15 @@
 #include "gandiva/decimal_full.h"
 
 namespace gandiva {
-namespace decimalsql {
+namespace decimalops {
 
+/// Return the sum of 'x' and 'y'.
+/// out_precision and out_scale are passed along for efficiency, they must match
+/// the rules in DecimalTypeSql::GetResultType.
 Decimal128 Add(const Decimal128Full& x, const Decimal128Full& y, int32_t out_precision,
                int32_t out_scale);
 
-}  // namespace decimalsql
+}  // namespace decimalops
 }  // namespace gandiva
 
 #endif  // DECIMAL_SQL_H

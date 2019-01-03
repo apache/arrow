@@ -21,7 +21,7 @@ set(PRECOMPILED_SRCS
     arithmetic_ops.cc
     bitmap.cc
     decimal_ops.cc
-    decimal_sql.cc
+    decimal_wrapper.cc
     extended_math_ops.cc
     hash.cc
     print.cc
@@ -84,5 +84,5 @@ if (ARROW_BUILD_TESTS)
   add_precompiled_unit_test(string_ops_test.cc string_ops.cc ../context_helper.cc)
   add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)
   add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc ../context_helper.cc)
-  add_precompiled_unit_test(decimal_sql_test.cc decimal_sql.cc ../decimal_type_sql.cc)
+  add_precompiled_unit_test(decimal_ops_test.cc decimal_ops.cc ../decimal_type_util.cc)
 endif()

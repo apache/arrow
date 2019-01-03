@@ -46,17 +46,18 @@ class FunctionIRBuilder {
                            std::function<llvm::Value*()> then_func,
                            std::function<llvm::Value*()> else_func);
 
+  struct NamedArg {
+    std::string name;
+    llvm::Type* type;
+  };
+
+  /// Build llvm fn.
+  llvm::Function* BuildFunction(const std::string& function_name, llvm::Type* return_type,
+                                std::vector<NamedArg> in_args);
+
  private:
   Engine* engine_;
 };
-
-// TODO
-#define DCHECK_IR_GE(v1, v2)
-#define DCHECK_IR_LE(v1, v2)
-#define DCHECK_IR_GT(v1, v2)
-#define DCHECK_IR_LT(v1, v2)
-#define DCHECK_IR_EQ(v1, v2)
-#define DCHECK_IR_NE(v1, v2)
 
 }  // namespace gandiva
 

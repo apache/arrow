@@ -497,6 +497,37 @@ TEST(Decimal128Test, GetWholeAndFraction) {
   ASSERT_EQ(123456, out);
 }
 
+TEST(Decimal128Test, GetWholeAndFractionNegative) {
+  Decimal128 value("-123456");
+  Decimal128 whole;
+  Decimal128 fraction;
+  int32_t out;
+
+  value.GetWholeAndFraction(0, &whole, &fraction);
+  ASSERT_OK(whole.ToInteger(&out));
+  ASSERT_EQ(-123456, out);
+  ASSERT_OK(fraction.ToInteger(&out));
+  ASSERT_EQ(0, out);
+
+  value.GetWholeAndFraction(1, &whole, &fraction);
+  ASSERT_OK(whole.ToInteger(&out));
+  ASSERT_EQ(-12345, out);
+  ASSERT_OK(fraction.ToInteger(&out));
+  ASSERT_EQ(-6, out);
+
+  value.GetWholeAndFraction(5, &whole, &fraction);
+  ASSERT_OK(whole.ToInteger(&out));
+  ASSERT_EQ(-1, out);
+  ASSERT_OK(fraction.ToInteger(&out));
+  ASSERT_EQ(-23456, out);
+
+  value.GetWholeAndFraction(7, &whole, &fraction);
+  ASSERT_OK(whole.ToInteger(&out));
+  ASSERT_EQ(0, out);
+  ASSERT_OK(fraction.ToInteger(&out));
+  ASSERT_EQ(-123456, out);
+}
+
 TEST(Decimal128Test, IncreaseScale) {
   Decimal128 result;
   int32_t out;
@@ -533,6 +564,10 @@ TEST(Decimal128Test, ReduceScaleAndRound) {
   result = Decimal128("-123749").ReduceScaleBy(2, true);
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(-1237, out);
+
+  result = Decimal128("-123750").ReduceScaleBy(2, true);
+  ASSERT_OK(result.ToInteger(&out));
+  ASSERT_EQ(-1238, out);
 }
 
 }  // namespace arrow

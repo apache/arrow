@@ -927,11 +927,17 @@ Status Decimal128::Rescale(int32_t original_scale, int32_t new_scale,
 
 void Decimal128::GetWholeAndFraction(int scale, Decimal128* whole,
                                      Decimal128* fraction) const {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, 38);
+
   Decimal128 multiplier(ScaleMultipliers[scale]);
   DCHECK_OK(Divide(multiplier, whole, fraction));
 }
 
 const Decimal128& Decimal128::GetScaleMultiplier(int32_t scale) {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, 38);
+
   return ScaleMultipliers[scale];
 }
 
@@ -963,7 +969,7 @@ Decimal128 Decimal128::ReduceScaleBy(int32_t reduce_by, bool round) const {
   return result;
 }
 
-int32_t Decimal128::CountLeadingZeros() const {
+int32_t Decimal128::CountLeadingBinaryZeros() const {
   DCHECK_GE(*this, Decimal128(0));
 
   if (high_bits_ == 0) {

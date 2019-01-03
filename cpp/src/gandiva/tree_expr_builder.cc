@@ -19,7 +19,7 @@
 
 #include <utility>
 
-#include "gandiva/decimal_type_sql.h"
+#include "gandiva/decimal_type_util.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/node.h"
 

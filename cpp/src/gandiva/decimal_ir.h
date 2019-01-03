@@ -42,6 +42,22 @@ class DecimalIR : public FunctionIRBuilder {
   /// using these.
   static const bool kUseOverflowIntrinsics = false;
 
+  // Holder for an i128 value, along with its with scale and precision.
+  class ValueFull {
+   public:
+    ValueFull(llvm::Value* value, llvm::Value* precision, llvm::Value* scale)
+        : value_(value), precision_(precision), scale_(scale) {}
+
+    llvm::Value* value() const { return value_; }
+    llvm::Value* precision() const { return precision_; }
+    llvm::Value* scale() const { return scale_; }
+
+   private:
+    llvm::Value* value_;
+    llvm::Value* precision_;
+    llvm::Value* scale_;
+  };
+
   // Holder for an i128 value, and a boolean indicating overflow.
   class ValueWithOverflow {
    public:
@@ -49,10 +65,10 @@ class DecimalIR : public FunctionIRBuilder {
         : value_(value), overflow_(overflow) {}
 
     // Make from IR struct
-    static ValueWithOverflow MakeFromIR(DecimalIR* decimal_ir, llvm::Value* dstruct);
+    static ValueWithOverflow MakeFromStruct(DecimalIR* decimal_ir, llvm::Value* dstruct);
 
     // Build a corresponding IR struct
-    llvm::Value* BuildIRStruct(DecimalIR* decimal_ir) const;
+    llvm::Value* AsStruct(DecimalIR* decimal_ir) const;
 
     llvm::Value* value() const { return value_; }
     llvm::Value* overflow() const { return overflow_; }
@@ -68,13 +84,13 @@ class DecimalIR : public FunctionIRBuilder {
     ValueSplit(llvm::Value* high, llvm::Value* low) : high_(high), low_(low) {}
 
     // Make from i128 value
-    static ValueSplit Make(DecimalIR* decimal_ir, llvm::Value* in);
+    static ValueSplit MakeFromInt128(DecimalIR* decimal_ir, llvm::Value* in);
 
     // Make from IR struct
-    static ValueSplit MakeFromIR(DecimalIR* decimal_ir, llvm::Value* dstruct);
+    static ValueSplit MakeFromStruct(DecimalIR* decimal_ir, llvm::Value* dstruct);
 
     // Combine the two parts into an i128
-    llvm::Value* Combine(DecimalIR* decimal_ir) const;
+    llvm::Value* AsInt128(DecimalIR* decimal_ir) const;
 
     llvm::Value* high() const { return high_; }
     llvm::Value* low() const { return low_; }
@@ -87,8 +103,8 @@ class DecimalIR : public FunctionIRBuilder {
   // Add global variables to the module.
   static void AddGlobals(Engine* engine);
 
-  // Get intrinsic functions that are used by decimal operations.
-  void GetIntrinsics();
+  // Initialize intrinsic functions that are used by decimal operations.
+  void InitializeIntrinsics();
 
   // Create IR builder for decimal add function.
   static Status MakeAdd(Engine* engine, std::shared_ptr<FunctionIRBuilder>* out);
@@ -112,19 +128,14 @@ class DecimalIR : public FunctionIRBuilder {
   llvm::Value* ReduceScale(llvm::Value* in_value, llvm::Value* reduce_scale_by);
 
   // Fast path of add: guaranteed no overflow
-  llvm::Value* AddFastPath(llvm::Value* x_value, llvm::Value* x_scale,
-                           llvm::Value* y_value, llvm::Value* y_scale);
+  llvm::Value* AddFastPath(const ValueFull& x, const ValueFull& y);
 
   // Similar to AddFastPath, but check if there's an overflow.
-  ValueWithOverflow AddWithOverflowCheck(llvm::Value* x_value, llvm::Value* x_scale,
-                                         llvm::Value* y_value, llvm::Value* y_scale,
-                                         llvm::Value* out_scale);
+  ValueWithOverflow AddWithOverflowCheck(const ValueFull& x, const ValueFull& y,
+                                         const ValueFull& out);
 
   // Do addition of large integers (both positive and negative).
-  llvm::Value* AddLarge(llvm::Value* x_value, llvm::Value* x_precision,
-                        llvm::Value* x_scale, llvm::Value* y_value,
-                        llvm::Value* y_precision, llvm::Value* y_scale,
-                        llvm::Value* out_precision, llvm::Value* out_scale);
+  llvm::Value* AddLarge(const ValueFull& x, const ValueFull& y, const ValueFull& out);
 
   // Get the combined overflow (logical or).
   llvm::Value* GetCombinedOverflow(std::vector<ValueWithOverflow> values);
@@ -142,7 +153,7 @@ class DecimalIR : public FunctionIRBuilder {
   void AddTrace128(const std::string& msg, llvm::Value* value);
 
   // name of the global variable having the array of scale multipliers.
-  static const char kScaleMultipliersName[];
+  static const char* kScaleMultipliersName;
 
   // Intrinsic functions
   llvm::Function* sadd_with_overflow_fn_;
@@ -153,10 +164,6 @@ class DecimalIR : public FunctionIRBuilder {
 
   // if set to true, ir traces are enabled. Useful for debugging.
   bool enable_ir_traces_;
-
-  // trace strings - these need to be kept around since the execution happens much
-  // after the code build.
-  std::vector<std::unique_ptr<uint8_t>> trace_strings_;
 };
 
 }  // namespace gandiva

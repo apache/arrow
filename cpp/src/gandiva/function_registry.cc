@@ -72,7 +72,7 @@ SignatureMap FunctionRegistry::InitPCMap() {
 const NativeFunction* FunctionRegistry::LookupSignature(
     const FunctionSignature& signature) const {
   auto got = pc_registry_map_.find(&signature);
-  return got == pc_registry_map_.end() ? NULL : got->second;
+  return got == pc_registry_map_.end() ? nullptr : got->second;
 }
 
 }  // namespace gandiva

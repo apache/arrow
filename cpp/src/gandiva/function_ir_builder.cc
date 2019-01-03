@@ -58,4 +58,24 @@ llvm::Value* FunctionIRBuilder::BuildIfElse(llvm::Value* condition,
   return result_value;
 }
 
+llvm::Function* FunctionIRBuilder::BuildFunction(const std::string& function_name,
+                                                 llvm::Type* return_type,
+                                                 std::vector<NamedArg> in_args) {
+  std::vector<llvm::Type*> arg_types;
+  for (auto& arg : in_args) {
+    arg_types.push_back(arg.type);
+  }
+  auto prototype = llvm::FunctionType::get(return_type, arg_types, false /*isVarArg*/);
+  auto function = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage,
+                                         function_name, module());
+
+  uint32_t i = 0;
+  for (auto& fn_arg : function->args()) {
+    DCHECK_LT(i, in_args.size());
+    fn_arg.setName(in_args[i].name);
+    ++i;
+  }
+  return function;
+}
+
 }  // namespace gandiva

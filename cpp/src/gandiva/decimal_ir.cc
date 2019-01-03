@@ -20,7 +20,7 @@
 
 #include "arrow/status.h"
 #include "gandiva/decimal_ir.h"
-#include "gandiva/decimal_type_sql.h"
+#include "gandiva/decimal_type_util.h"
 
 // Algorithms adapted from Apache Impala
 
@@ -35,7 +35,7 @@ namespace gandiva {
     AddTrace128(msg, value);      \
   }
 
-const char DecimalIR::kScaleMultipliersName[] = "kScaleMultipliers";
+const char* DecimalIR::kScaleMultipliersName = "gandivaScaleMultipliers";
 
 /// Populate globals required by decimal IR.
 /// TODO: can this be done just once ?
@@ -45,7 +45,7 @@ void DecimalIR::AddGlobals(Engine* engine) {
   // populate vector : [ 1, 10, 100, 1000, ..]
   std::string value = "1";
   std::vector<llvm::Constant*> scale_multipliers;
-  for (int i = 0; i < DecimalTypeSql::kMaxPrecision + 1; ++i) {
+  for (int i = 0; i < DecimalTypeUtil::kMaxPrecision + 1; ++i) {
     auto multiplier =
         llvm::ConstantInt::get(llvm::Type::getInt128Ty(*engine->context()), value, 10);
     scale_multipliers.push_back(multiplier);
@@ -53,7 +53,7 @@ void DecimalIR::AddGlobals(Engine* engine) {
   }
 
   auto array_type =
-      llvm::ArrayType::get(types->i128_type(), DecimalTypeSql::kMaxPrecision + 1);
+      llvm::ArrayType::get(types->i128_type(), DecimalTypeUtil::kMaxPrecision + 1);
   auto initializer = llvm::ConstantArray::get(
       array_type, llvm::ArrayRef<llvm::Constant*>(scale_multipliers));
 
@@ -64,7 +64,7 @@ void DecimalIR::AddGlobals(Engine* engine) {
 }
 
 // Lookup intrinsic functions
-void DecimalIR::GetIntrinsics() {
+void DecimalIR::InitializeIntrinsics() {
   sadd_with_overflow_fn_ = llvm::Intrinsic::getDeclaration(
       module(), llvm::Intrinsic::sadd_with_overflow, types()->i128_type());
   DCHECK_NE(sadd_with_overflow_fn_, nullptr);
@@ -87,8 +87,7 @@ llvm::Value* DecimalIR::GetScaleMultiplier(llvm::Value* scale) {
 // CPP:  x <= y ? y : x
 llvm::Value* DecimalIR::GetHigherScale(llvm::Value* x_scale, llvm::Value* y_scale) {
   llvm::Value* le = ir_builder()->CreateICmpSLE(x_scale, y_scale);
-  return BuildIfElse(le, types()->i32_type(), [&] { return y_scale; },
-                     [&] { return x_scale; });
+  return ir_builder()->CreateSelect(le, y_scale, x_scale);
 }
 
 // CPP: return (increase_scale_by <= 0)  ?
@@ -121,7 +120,7 @@ DecimalIR::ValueWithOverflow DecimalIR::IncreaseScaleWithOverflowCheck(
   // then block
   auto then_lambda = [&] {
     ValueWithOverflow ret{in_value, types()->false_constant()};
-    return ret.BuildIRStruct(this);
+    return ret.AsStruct(this);
   };
 
   // else block
@@ -132,7 +131,7 @@ DecimalIR::ValueWithOverflow DecimalIR::IncreaseScaleWithOverflowCheck(
 
   auto ir_struct =
       BuildIfElse(le_zero, i128_with_overflow_struct_type_, then_lambda, else_lambda);
-  return ValueWithOverflow::MakeFromIR(this, ir_struct);
+  return ValueWithOverflow::MakeFromStruct(this, ir_struct);
 }
 
 // CPP: return (reduce_scale_by <= 0)  ?
@@ -156,49 +155,48 @@ llvm::Value* DecimalIR::ReduceScale(llvm::Value* in_value, llvm::Value* reduce_s
 
 /// @brief Fast-path for add
 /// Adjust x and y to the same scale, and add them.
-llvm::Value* DecimalIR::AddFastPath(llvm::Value* x_value, llvm::Value* x_scale,
-                                    llvm::Value* y_value, llvm::Value* y_scale) {
-  auto higher_scale = GetHigherScale(x_scale, y_scale);
+llvm::Value* DecimalIR::AddFastPath(const ValueFull& x, const ValueFull& y) {
+  auto higher_scale = GetHigherScale(x.scale(), y.scale());
   ADD_TRACE_32("AddFastPath : higher_scale", higher_scale);
 
   // CPP : x_scaled = IncreaseScale(x_value, higher_scale - x_scale)
-  auto x_delta = ir_builder()->CreateSub(higher_scale, x_scale);
-  auto x_scaled = IncreaseScale(x_value, x_delta);
+  auto x_delta = ir_builder()->CreateSub(higher_scale, x.scale());
+  auto x_scaled = IncreaseScale(x.value(), x_delta);
   ADD_TRACE_128("AddFastPath : x_scaled", x_scaled);
 
   // CPP : y_scaled = IncreaseScale(y_value, higher_scale - y_scale)
-  auto y_delta = ir_builder()->CreateSub(higher_scale, y_scale);
-  auto y_scaled = IncreaseScale(y_value, y_delta);
+  auto y_delta = ir_builder()->CreateSub(higher_scale, y.scale());
+  auto y_scaled = IncreaseScale(y.value(), y_delta);
   ADD_TRACE_128("AddFastPath : y_scaled", y_scaled);
 
-  return ir_builder()->CreateAdd(x_scaled, y_scaled);
+  auto sum = ir_builder()->CreateAdd(x_scaled, y_scaled);
+  ADD_TRACE_128("AddFastPath : sum", sum);
+  return sum;
 }
 
 // @brief Add with overflow check.
 /// Adjust x and y to the same scale, add them, and reduce sum to output scale.
 /// If there is an overflow, the sum is set to 0.
-DecimalIR::ValueWithOverflow DecimalIR::AddWithOverflowCheck(llvm::Value* x_value,
-                                                             llvm::Value* x_scale,
-                                                             llvm::Value* y_value,
-                                                             llvm::Value* y_scale,
-                                                             llvm::Value* out_scale) {
-  auto higher_scale = GetHigherScale(x_scale, y_scale);
+DecimalIR::ValueWithOverflow DecimalIR::AddWithOverflowCheck(const ValueFull& x,
+                                                             const ValueFull& y,
+                                                             const ValueFull& out) {
+  auto higher_scale = GetHigherScale(x.scale(), y.scale());
   ADD_TRACE_32("AddWithOverflowCheck : higher_scale", higher_scale);
 
-  // CPP : x_scaled = IncreaseScale(x_value, higher_scale - x_scale)
-  auto x_delta = ir_builder()->CreateSub(higher_scale, x_scale);
-  auto x_scaled = IncreaseScaleWithOverflowCheck(x_value, x_delta);
+  // CPP : x_scaled = IncreaseScale(x_value, higher_scale - x.scale())
+  auto x_delta = ir_builder()->CreateSub(higher_scale, x.scale());
+  auto x_scaled = IncreaseScaleWithOverflowCheck(x.value(), x_delta);
   ADD_TRACE_128("AddWithOverflowCheck : x_scaled", x_scaled.value());
 
   // CPP : y_scaled = IncreaseScale(y_value, higher_scale - y_scale)
-  auto y_delta = ir_builder()->CreateSub(higher_scale, y_scale);
-  auto y_scaled = IncreaseScaleWithOverflowCheck(y_value, y_delta);
+  auto y_delta = ir_builder()->CreateSub(higher_scale, y.scale());
+  auto y_scaled = IncreaseScaleWithOverflowCheck(y.value(), y_delta);
   ADD_TRACE_128("AddWithOverflowCheck : y_scaled", y_scaled.value());
 
   // CPP : sum = x_scaled + y_scaled
   auto sum_ir_struct = ir_builder()->CreateCall(sadd_with_overflow_fn_,
                                                 {x_scaled.value(), y_scaled.value()});
-  auto sum = ValueWithOverflow::MakeFromIR(this, sum_ir_struct);
+  auto sum = ValueWithOverflow::MakeFromStruct(this, sum_ir_struct);
   ADD_TRACE_128("AddWithOverflowCheck : sum", sum.value());
 
   // CPP : overflow ? 0 : sum / GetScaleMultiplier(max_scale - out_scale)
@@ -209,7 +207,7 @@ DecimalIR::ValueWithOverflow DecimalIR::AddWithOverflowCheck(llvm::Value* x_valu
     return types()->i128_constant(0);
   };
   auto else_lambda = [&] {
-    auto reduce_scale_by = ir_builder()->CreateSub(higher_scale, out_scale);
+    auto reduce_scale_by = ir_builder()->CreateSub(higher_scale, out.scale());
     return ReduceScale(sum.value(), reduce_scale_by);
   };
   auto sum_descaled =
@@ -218,31 +216,29 @@ DecimalIR::ValueWithOverflow DecimalIR::AddWithOverflowCheck(llvm::Value* x_valu
 }
 
 // This is pretty complex, so use CPP fns.
-llvm::Value* DecimalIR::AddLarge(llvm::Value* x_value, llvm::Value* x_precision,
-                                 llvm::Value* x_scale, llvm::Value* y_value,
-                                 llvm::Value* y_precision, llvm::Value* y_scale,
-                                 llvm::Value* out_precision, llvm::Value* out_scale) {
+llvm::Value* DecimalIR::AddLarge(const ValueFull& x, const ValueFull& y,
+                                 const ValueFull& out) {
   std::vector<llvm::Value*> args;
 
-  auto x_split = ValueSplit::Make(this, x_value);
+  auto x_split = ValueSplit::MakeFromInt128(this, x.value());
   args.push_back(x_split.high());
   args.push_back(x_split.low());
-  args.push_back(x_precision);
-  args.push_back(x_scale);
+  args.push_back(x.precision());
+  args.push_back(x.scale());
 
-  auto y_split = ValueSplit::Make(this, y_value);
+  auto y_split = ValueSplit::MakeFromInt128(this, y.value());
   args.push_back(y_split.high());
   args.push_back(y_split.low());
-  args.push_back(y_precision);
-  args.push_back(y_scale);
+  args.push_back(y.precision());
+  args.push_back(y.scale());
 
-  args.push_back(out_precision);
-  args.push_back(out_scale);
+  args.push_back(out.precision());
+  args.push_back(out.scale());
 
   auto split = ir_builder()->CreateCall(
       module()->getFunction("add_large_decimal128_decimal128"), args);
 
-  auto sum = ValueSplit::MakeFromIR(this, split).Combine(this);
+  auto sum = ValueSplit::MakeFromStruct(this, split).AsInt128(this);
   ADD_TRACE_128("AddLarge : sum", sum);
   return sum;
 }
@@ -256,54 +252,26 @@ Status DecimalIR::BuildAdd() {
   // add_decimal128_decimal128(int128_t x_value, int32_t x_precision, int32_t x_scale,
   //                           int128_t y_value, int32_t y_precision, int32_t y_scale
   //                           int32_t out_precision, int32_t out_scale)
-  std::vector<llvm::Type*> arguments;
-  arguments.push_back(types()->i128_type());
-  arguments.push_back(types()->i32_type());
-  arguments.push_back(types()->i32_type());
-  arguments.push_back(types()->i128_type());
-  arguments.push_back(types()->i32_type());
-  arguments.push_back(types()->i32_type());
-  arguments.push_back(types()->i32_type());
-  arguments.push_back(types()->i32_type());
-  llvm::FunctionType* prototype =
-      llvm::FunctionType::get(types()->i128_type(), arguments, false /*isVarArg*/);
+  auto i32 = types()->i32_type();
+  auto i128 = types()->i128_type();
+  auto function = BuildFunction("add_decimal128_decimal128", i128,
+                                {
+                                    {"x_value", i128},
+                                    {"x_precision", i32},
+                                    {"x_scale", i32},
+                                    {"y_value", i128},
+                                    {"y_precision", i32},
+                                    {"y_scale", i32},
+                                    {"out_precision", i32},
+                                    {"out_scale", i32},
+                                });
 
-  // Create fn
-  std::string function_name = "add_decimal128_decimal128";
-  auto function = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage,
-                                         function_name, module());
-  ARROW_RETURN_IF((function == nullptr),
-                  Status::CodeGenError("Error creating function."));
-  // Name the arguments
-  llvm::Function::arg_iterator args = function->arg_begin();
-  llvm::Value* x_value = &*args;
-  x_value->setName("x_value");
-  ++args;
-  llvm::Value* x_precision = &*args;
-  x_precision->setName("x_precision");
-  ++args;
-  llvm::Value* x_scale = &*args;
-  x_scale->setName("x_scale");
-  ++args;
-  llvm::Value* y_value = &*args;
-  y_value->setName("y_value");
-  ++args;
-  llvm::Value* y_precision = &*args;
-  y_precision->setName("y_precision");
-  ++args;
-  llvm::Value* y_scale = &*args;
-  y_scale->setName("y_scale");
-  ++args;
-  llvm::Value* out_precision = &*args;
-  out_precision->setName("out_precision");
-  ++args;
-  llvm::Value* out_scale = &*args;
-  out_scale->setName("out_scale");
-  ++args;
+  auto arg_iter = function->arg_begin();
+  ValueFull x(&arg_iter[0], &arg_iter[1], &arg_iter[2]);
+  ValueFull y(&arg_iter[3], &arg_iter[4], &arg_iter[5]);
+  ValueFull out(nullptr, &arg_iter[6], &arg_iter[7]);
 
-  llvm::BasicBlock* entry = llvm::BasicBlock::Create(*context(), "entry", function);
-  llvm::BasicBlock* exit = llvm::BasicBlock::Create(*context(), "exit", function);
-
+  auto entry = llvm::BasicBlock::Create(*context(), "entry", function);
   ir_builder()->SetInsertPoint(entry);
 
   // CPP :
@@ -317,36 +285,28 @@ Status DecimalIR::BuildAdd() {
   //     return ret.value;
   // }
   llvm::Value* lt_max_precision = ir_builder()->CreateICmpSLT(
-      out_precision, types()->i32_constant(DecimalTypeSql::kMaxPrecision));
+      out.precision(), types()->i32_constant(DecimalTypeUtil::kMaxPrecision));
   auto then_lambda = [&] {
     // fast-path add
-    return AddFastPath(x_value, x_scale, y_value, y_scale);
+    return AddFastPath(x, y);
   };
   auto else_lambda = [&] {
     if (kUseOverflowIntrinsics) {
       // do the add and check if there was overflow
-      auto ret = AddWithOverflowCheck(x_value, x_scale, y_value, y_scale, out_scale);
+      auto ret = AddWithOverflowCheck(x, y, out);
 
       // if there is an overflow, switch to the AddLarge codepath.
       return BuildIfElse(ret.overflow(), types()->i128_type(),
-                         [&] {
-                           return AddLarge(x_value, x_precision, x_scale, y_value,
-                                           y_precision, y_scale, out_precision,
-                                           out_scale);
-                         },
+                         [&] { return AddLarge(x, y, out); },
                          [&] { return ret.value(); });
     } else {
-      return AddLarge(x_value, x_precision, x_scale, y_value, y_precision, y_scale,
-                      out_precision, out_scale);
+      return AddLarge(x, y, out);
     }
   };
   auto value =
       BuildIfElse(lt_max_precision, types()->i128_type(), then_lambda, else_lambda);
 
   // store result to out
-  ir_builder()->CreateBr(exit);
-
-  ir_builder()->SetInsertPoint(exit);
   ir_builder()->CreateRet(value);
   return Status::OK();
 }
@@ -358,14 +318,10 @@ Status DecimalIR::AddFunctions(Engine* engine) {
   decimal_ir->AddGlobals(engine);
 
   // Lookup intrinsic functions
-  decimal_ir->GetIntrinsics();
+  decimal_ir->InitializeIntrinsics();
 
   // build "add"
-  auto status = decimal_ir->BuildAdd();
-  ARROW_RETURN_NOT_OK(status);
-
-  engine->AddFunctionIRBuilder(decimal_ir);
-  return Status::OK();
+  return decimal_ir->BuildAdd();
 }
 
 // Do an bitwise-or of all the overflow bits.
@@ -378,8 +334,8 @@ llvm::Value* DecimalIR::GetCombinedOverflow(
   return res;
 }
 
-DecimalIR::ValueSplit DecimalIR::ValueSplit::Make(DecimalIR* decimal_ir,
-                                                  llvm::Value* in) {
+DecimalIR::ValueSplit DecimalIR::ValueSplit::MakeFromInt128(DecimalIR* decimal_ir,
+                                                            llvm::Value* in) {
   auto builder = decimal_ir->ir_builder();
   auto types = decimal_ir->types();
 
@@ -390,15 +346,15 @@ DecimalIR::ValueSplit DecimalIR::ValueSplit::Make(DecimalIR* decimal_ir,
 }
 
 /// Convert IR struct {%i64, %i64} to cpp class ValueSplit
-DecimalIR::ValueSplit DecimalIR::ValueSplit::MakeFromIR(DecimalIR* decimal_ir,
-                                                        llvm::Value* dstruct) {
+DecimalIR::ValueSplit DecimalIR::ValueSplit::MakeFromStruct(DecimalIR* decimal_ir,
+                                                            llvm::Value* dstruct) {
   auto builder = decimal_ir->ir_builder();
   auto high = builder->CreateExtractValue(dstruct, 0);
   auto low = builder->CreateExtractValue(dstruct, 1);
   return DecimalIR::ValueSplit(high, low);
 }
 
-llvm::Value* DecimalIR::ValueSplit::Combine(DecimalIR* decimal_ir) const {
+llvm::Value* DecimalIR::ValueSplit::AsInt128(DecimalIR* decimal_ir) const {
   auto builder = decimal_ir->ir_builder();
   auto types = decimal_ir->types();
 
@@ -409,7 +365,7 @@ llvm::Value* DecimalIR::ValueSplit::Combine(DecimalIR* decimal_ir) const {
 }
 
 /// Convert IR struct {%i128, %i1} to cpp class ValueWithOverflow
-DecimalIR::ValueWithOverflow DecimalIR::ValueWithOverflow::MakeFromIR(
+DecimalIR::ValueWithOverflow DecimalIR::ValueWithOverflow::MakeFromStruct(
     DecimalIR* decimal_ir, llvm::Value* dstruct) {
   auto builder = decimal_ir->ir_builder();
   auto value = builder->CreateExtractValue(dstruct, 0);
@@ -418,7 +374,7 @@ DecimalIR::ValueWithOverflow DecimalIR::ValueWithOverflow::MakeFromIR(
 }
 
 /// Convert to IR struct {%i128, %i1}
-llvm::Value* DecimalIR::ValueWithOverflow::BuildIRStruct(DecimalIR* decimal_ir) const {
+llvm::Value* DecimalIR::ValueWithOverflow::AsStruct(DecimalIR* decimal_ir) const {
   auto builder = decimal_ir->ir_builder();
 
   auto undef = llvm::UndefValue::get(decimal_ir->i128_with_overflow_struct_type_);
@@ -430,20 +386,8 @@ llvm::Value* DecimalIR::ValueWithOverflow::BuildIRStruct(DecimalIR* decimal_ir) 
 void DecimalIR::AddTrace(const std::string& fmt, std::vector<llvm::Value*> args) {
   DCHECK(enable_ir_traces_);
 
-  // The string needs to be saved for later execution.
-  std::unique_ptr<uint8_t> data_ptr(new uint8_t[fmt.size() + 1]);
-  uint8_t* data = data_ptr.get();
-  trace_strings_.push_back(std::move(data_ptr));
-
-  memcpy(data, fmt.data(), fmt.size());
-  data[fmt.size()] = '\0';
-
-  // cast this to an llvm pointer.
-  llvm::Constant* str_int_cast = types()->i64_constant(reinterpret_cast<int64_t>(data));
-  llvm::Constant* str_ptr_cast =
-      llvm::ConstantExpr::getIntToPtr(str_int_cast, types()->i8_ptr_type());
-
-  args.insert(args.begin(), str_ptr_cast);
+  auto ir_str = ir_builder()->CreateGlobalStringPtr(fmt);
+  args.insert(args.begin(), ir_str);
   ir_builder()->CreateCall(module()->getFunction("printf"), args, "trace");
 }
 
@@ -453,8 +397,8 @@ void DecimalIR::AddTrace32(const std::string& msg, llvm::Value* value) {
 
 void DecimalIR::AddTrace128(const std::string& msg, llvm::Value* value) {
   // convert i128 into two i64s for printing
-  auto split = ValueSplit::Make(this, value);
-  AddTrace("DECIMAL_IR_TRACE:: " + msg + " %llx:%llx (%lld:%lld)\n",
+  auto split = ValueSplit::MakeFromInt128(this, value);
+  AddTrace("DECIMAL_IR_TRACE:: " + msg + " %llx:%llx (%lld:%llu)\n",
            {split.high(), split.low(), split.high(), split.low()});
 }
 

@@ -27,7 +27,7 @@ namespace gandiva {
 
 using Decimal128 = arrow::Decimal128;
 
-/// Represents a 128-bit decimal value along with it's precision and scale.
+/// Represents a 128-bit decimal value along with its precision and scale.
 class Decimal128Full {
  public:
   Decimal128Full(int64_t high_bits, uint64_t low_bits, int32_t precision, int32_t scale)
@@ -42,20 +42,16 @@ class Decimal128Full {
   Decimal128Full(int32_t precision, int32_t scale)
       : value_(0), precision_(precision), scale_(scale) {}
 
-  inline bool Equals(const Decimal128Full& o) const {
-    return value_ == o.value_ && precision_ == o.precision_ && scale_ == o.scale_;
-  }
-
-  inline std::string ToString() const {
-    return value_.ToString(0) + "," + std::to_string(precision_) + "," +
-           std::to_string(scale_);
-  }
-
   uint32_t scale() const { return scale_; }
 
   uint32_t precision() const { return precision_; }
 
   const arrow::Decimal128& value() const { return value_; }
+
+  inline std::string ToString() const {
+    return value_.ToString(0) + "," + std::to_string(precision_) + "," +
+           std::to_string(scale_);
+  }
 
   friend std::ostream& operator<<(std::ostream& os, const Decimal128Full& dec) {
     os << dec.ToString();
@@ -68,6 +64,11 @@ class Decimal128Full {
   int32_t precision_;
   int32_t scale_;
 };
+
+inline bool operator==(const Decimal128Full& left, const Decimal128Full& right) {
+  return left.value() == right.value() && left.precision() == right.precision() &&
+         left.scale() == right.scale();
+}
 
 }  // namespace gandiva
 

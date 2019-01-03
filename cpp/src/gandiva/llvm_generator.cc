@@ -399,13 +399,13 @@ llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
   return value;
 }
 
-std::shared_ptr<LValueDecimal> LLVMGenerator::BuildLValueDecimal(llvm::Value* value,
+std::shared_ptr<DecimalLValue> LLVMGenerator::BuildDecimalLValue(llvm::Value* value,
                                                                  DataTypePtr arrow_type) {
   // only decimals of size 128-bit supported.
   DCHECK(is_decimal_128(arrow_type));
   auto decimal_type =
       arrow::internal::checked_cast<arrow::DecimalType*>(arrow_type.get());
-  return std::make_shared<LValueDecimal>(value, nullptr,
+  return std::make_shared<DecimalLValue>(value, nullptr,
                                          types()->i32_constant(decimal_type->precision()),
                                          types()->i32_constant(decimal_type->scale()));
 }
@@ -446,7 +446,7 @@ void LLVMGenerator::Visitor::Visit(const VectorReadFixedLenValueDex& dex) {
     case arrow::Type::DECIMAL: {
       auto slot_offset = builder->CreateGEP(slot_ref, loop_var_);
       slot_value = builder->CreateLoad(slot_offset, dex.FieldName());
-      lvalue = generator_->BuildLValueDecimal(slot_value, dex.FieldType());
+      lvalue = generator_->BuildDecimalLValue(slot_value, dex.FieldType());
       break;
     }
 
@@ -603,7 +603,7 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
           llvm::ConstantInt::get(llvm::Type::getInt128Ty(*generator_->context()),
                                  decimal_value.value().ToIntegerString(), 10);
       auto type = arrow::decimal(decimal_value.precision(), decimal_value.scale());
-      auto lvalue = generator_->BuildLValueDecimal(int_value, type);
+      auto lvalue = generator_->BuildDecimalLValue(int_value, type);
       // set it as the l-value and return.
       result_ = lvalue;
       return;
@@ -991,7 +991,7 @@ LValuePtr LLVMGenerator::Visitor::BuildIfElse(llvm::Value* condition,
     }
 
     case arrow::Type::DECIMAL:
-      ret = generator_->BuildLValueDecimal(result_value, result_type);
+      ret = generator_->BuildDecimalLValue(result_value, result_type);
       break;
 
     default:
@@ -1030,7 +1030,7 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
     //     out = add_decimal(v1, p1, s1, v2, p2, s2, out_p, out_s)
 
     // Append the out_precision and out_scale
-    auto ret_lvalue = generator_->BuildLValueDecimal(nullptr, arrow_return_type);
+    auto ret_lvalue = generator_->BuildDecimalLValue(nullptr, arrow_return_type);
     params->push_back(ret_lvalue->precision());
     params->push_back(ret_lvalue->scale());
 

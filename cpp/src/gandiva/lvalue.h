@@ -54,9 +54,9 @@ class LValue {
   llvm::Value* validity_;
 };
 
-class LValueDecimal : public LValue {
+class DecimalLValue : public LValue {
  public:
-  LValueDecimal(llvm::Value* data, llvm::Value* validity, llvm::Value* precision,
+  DecimalLValue(llvm::Value* data, llvm::Value* validity, llvm::Value* precision,
                 llvm::Value* scale)
       : LValue(data, NULLPTR, validity), precision_(precision), scale_(scale) {}
 

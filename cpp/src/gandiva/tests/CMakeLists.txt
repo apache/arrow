@@ -28,14 +28,14 @@ ADD_GANDIVA_TEST(hash_test)
 ADD_GANDIVA_TEST(in_expr_test)
 ADD_GANDIVA_TEST(null_validity_test)
 ADD_GANDIVA_TEST(decimal_test)
-ADD_GANDIVA_TEST(decimal_ops)
+ADD_GANDIVA_TEST(decimal_single_test)
 
 ADD_GANDIVA_TEST(projector_test_static
   SOURCES projector_test.cc
   USE_STATIC_LINKING)
 
-ADD_GANDIVA_TEST(decimal_ops_static
-  SOURCES decimal_ops.cc
+ADD_GANDIVA_TEST(decimal_single_test_static
+  SOURCES decimal_single_test.cc
   USE_STATIC_LINKING)
 
 ADD_ARROW_BENCHMARK(micro_benchmarks

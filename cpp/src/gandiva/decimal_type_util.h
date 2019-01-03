@@ -29,7 +29,7 @@ namespace gandiva {
 
 /// @brief Handles conversion of scale/precision for operations on decimal types.
 /// TODO : do validations for all of these.
-class DecimalTypeSql {
+class DecimalTypeUtil {
  public:
   enum Op {
     kOpAdd,
@@ -62,18 +62,20 @@ class DecimalTypeSql {
   static Status GetResultType(Op op, const Decimal128TypeVector& in_types,
                               Decimal128TypePtr* out_type);
 
- private:
   static Decimal128TypePtr MakeType(int32_t precision, int32_t scale);
+
+ private:
   static Decimal128TypePtr MakeAdjustedType(int32_t precision, int32_t scale);
 };
 
-inline Decimal128TypePtr DecimalTypeSql::MakeType(int32_t precision, int32_t scale) {
-  return std::make_shared<arrow::Decimal128Type>(precision, scale);
+inline Decimal128TypePtr DecimalTypeUtil::MakeType(int32_t precision, int32_t scale) {
+  return std::dynamic_pointer_cast<arrow::Decimal128Type>(
+      arrow::decimal(precision, scale));
 }
 
 // Reduce the scale if possible so that precision stays <= kMaxPrecision
-inline Decimal128TypePtr DecimalTypeSql::MakeAdjustedType(int32_t precision,
-                                                          int32_t scale) {
+inline Decimal128TypePtr DecimalTypeUtil::MakeAdjustedType(int32_t precision,
+                                                           int32_t scale) {
   if (precision > kMaxPrecision) {
     int32_t min_scale = std::min(scale, kMinAdjustedScale);
     int32_t delta = precision - kMaxPrecision;
@@ -81,47 +83,6 @@ inline Decimal128TypePtr DecimalTypeSql::MakeAdjustedType(int32_t precision,
     scale = std::max(scale - delta, min_scale);
   }
   return MakeType(precision, scale);
-}
-
-// Implementation of decimal rules.
-inline Status DecimalTypeSql::GetResultType(Op op, const Decimal128TypeVector& in_types,
-                                            Decimal128TypePtr* out_type) {
-  // TODO : validations
-  *out_type = NULL;
-  auto t1 = in_types[0];
-  auto t2 = in_types[1];
-
-  int32_t s1 = t1->scale();
-  int32_t s2 = t2->scale();
-  int32_t p1 = t1->precision();
-  int32_t p2 = t2->precision();
-  int32_t result_scale;
-  int32_t result_precision;
-
-  switch (op) {
-    case kOpAdd:
-    case kOpSubtract:
-      result_scale = std::max(s1, s2);
-      result_precision = std::max(p1 - s1, p2 - s2) + result_scale + 1;
-      break;
-
-    case kOpMultiply:
-      result_scale = s1 + s2;
-      result_precision = p1 + p2 + 1;
-      break;
-
-    case kOpDivide:
-      result_scale = std::max(kMinAdjustedScale, s1 + p2 + 1);
-      result_precision = p1 - s1 + s2 + result_scale;
-      break;
-
-    case kOpMod:
-      result_scale = std::max(s1, s2);
-      result_precision = std::min(p1 - s1, p2 - s2) + result_scale;
-      break;
-  }
-  *out_type = MakeAdjustedType(result_precision, result_scale);
-  return Status::OK();
 }
 
 }  // namespace gandiva

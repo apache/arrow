@@ -19,7 +19,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "benchmark/benchmark.h"
-#include "gandiva/decimal_type_sql.h"
+#include "gandiva/decimal_type_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tests/timed_evaluate.h"
@@ -287,12 +287,12 @@ static void DoDecimalAdd3(benchmark::State& state, int32_t precision, int32_t sc
   auto schema = arrow::schema({field0, field1, field2});
 
   Decimal128TypePtr add2_type;
-  auto status = DecimalTypeSql::GetResultType(DecimalTypeSql::kOpAdd,
-                                              {decimal_type, decimal_type}, &add2_type);
+  auto status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
+                                               {decimal_type, decimal_type}, &add2_type);
 
   Decimal128TypePtr output_type;
-  status = DecimalTypeSql::GetResultType(DecimalTypeSql::kOpAdd,
-                                         {add2_type, decimal_type}, &output_type);
+  status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
+                                          {add2_type, decimal_type}, &output_type);
 
   // output field
   auto field_sum = field("add", output_type);
@@ -328,8 +328,8 @@ static void DoDecimalAdd2(benchmark::State& state, int32_t precision, int32_t sc
   auto schema = arrow::schema({field0, field1});
 
   Decimal128TypePtr output_type;
-  auto status = DecimalTypeSql::GetResultType(DecimalTypeSql::kOpAdd,
-                                              {decimal_type, decimal_type}, &output_type);
+  auto status = DecimalTypeUtil::GetResultType(
+      DecimalTypeUtil::kOpAdd, {decimal_type, decimal_type}, &output_type);
 
   // output field
   auto field_sum = field("add", output_type);
@@ -352,42 +352,42 @@ static void DoDecimalAdd2(benchmark::State& state, int32_t precision, int32_t sc
 
 static void DecimalAdd2Fast(benchmark::State& state) {
   // use lesser precision to test the fast-path
-  DoDecimalAdd2(state, DecimalTypeSql::kMaxPrecision - 6, 18);
+  DoDecimalAdd2(state, DecimalTypeUtil::kMaxPrecision - 6, 18);
 }
 
 static void DecimalAdd2LeadingZeroes(benchmark::State& state) {
   // use max precision to test the large-integer-path
-  DoDecimalAdd2(state, DecimalTypeSql::kMaxPrecision, 6);
+  DoDecimalAdd2(state, DecimalTypeUtil::kMaxPrecision, 6);
 }
 
 static void DecimalAdd2LeadingZeroesWithDiv(benchmark::State& state) {
   // use max precision to test the large-integer-path
-  DoDecimalAdd2(state, DecimalTypeSql::kMaxPrecision, 18);
+  DoDecimalAdd2(state, DecimalTypeUtil::kMaxPrecision, 18);
 }
 
 static void DecimalAdd2Large(benchmark::State& state) {
   // use max precision to test the large-integer-path
-  DoDecimalAdd2(state, DecimalTypeSql::kMaxPrecision, 18, true);
+  DoDecimalAdd2(state, DecimalTypeUtil::kMaxPrecision, 18, true);
 }
 
 static void DecimalAdd3Fast(benchmark::State& state) {
   // use lesser precision to test the fast-path
-  DoDecimalAdd3(state, DecimalTypeSql::kMaxPrecision - 6, 18);
+  DoDecimalAdd3(state, DecimalTypeUtil::kMaxPrecision - 6, 18);
 }
 
 static void DecimalAdd3LeadingZeroes(benchmark::State& state) {
   // use max precision to test the large-integer-path
-  DoDecimalAdd3(state, DecimalTypeSql::kMaxPrecision, 6);
+  DoDecimalAdd3(state, DecimalTypeUtil::kMaxPrecision, 6);
 }
 
 static void DecimalAdd3LeadingZeroesWithDiv(benchmark::State& state) {
   // use max precision to test the large-integer-path
-  DoDecimalAdd3(state, DecimalTypeSql::kMaxPrecision, 18);
+  DoDecimalAdd3(state, DecimalTypeUtil::kMaxPrecision, 18);
 }
 
 static void DecimalAdd3Large(benchmark::State& state) {
   // use max precision to test the large-integer-path
-  DoDecimalAdd3(state, DecimalTypeSql::kMaxPrecision, 18, true);
+  DoDecimalAdd3(state, DecimalTypeUtil::kMaxPrecision, 18, true);
 }
 
 BENCHMARK(TimedTestAdd3)->MinTime(1.0)->Unit(benchmark::kMicrosecond);

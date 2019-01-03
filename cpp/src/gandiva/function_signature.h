@@ -58,21 +58,17 @@ class FunctionSignature {
  private:
   bool DataTypeEquals(const DataTypePtr left, const DataTypePtr right) const {
     if (left->id() == right->id()) {
-      bool match;
-
       switch (left->id()) {
         case arrow::Type::DECIMAL: {
           // For decimal types, the precision/scale isn't part of the signature.
           auto dleft = arrow::internal::checked_cast<arrow::DecimalType*>(left.get());
           auto dright = arrow::internal::checked_cast<arrow::DecimalType*>(right.get());
-          match = (dleft != NULL) && (dright != NULL) &&
-                  (dleft->byte_width() == dright->byte_width());
-          break;
+          return (dleft != NULL) && (dright != NULL) &&
+                 (dleft->byte_width() == dright->byte_width());
         }
         default:
-          match = left->Equals(right);
+          return left->Equals(right);
       }
-      return match;
     } else {
       return false;
     }

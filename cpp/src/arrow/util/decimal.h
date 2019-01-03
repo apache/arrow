@@ -151,11 +151,15 @@ class ARROW_EXPORT Decimal128 {
   /// \brief Scale up.
   Decimal128 IncreaseScaleBy(int32_t increase_by) const;
 
-  /// \brief Scale down and round.
+  /// \brief Scale down.
+  /// - If 'round' is true, the right-most digits are dropped and the result value is
+  ///   rounded up (+1 for +ve, -1 for -ve) based on the value of the dropped digits
+  ///   (>= 10^reduce_by / 2).
+  /// - If 'round' is false, the right-most digits are simply dropped.
   Decimal128 ReduceScaleBy(int32_t reduce_by, bool round = true) const;
 
-  /// \brief count the number of leading zeroes.
-  int32_t CountLeadingZeros() const;
+  /// \brief count the number of leading binary zeroes.
+  int32_t CountLeadingBinaryZeros() const;
 
   /// \brief Convert to a signed integer
   template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
