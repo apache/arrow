@@ -2219,6 +2219,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// GetCpuThreadPoolCapacity
+int GetCpuThreadPoolCapacity();
+RcppExport SEXP _arrow_GetCpuThreadPoolCapacity() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(GetCpuThreadPoolCapacity());
+    return rcpp_result_gen;
+END_RCPP
+}
+// SetCpuThreadPoolCapacity
+void SetCpuThreadPoolCapacity(int threads);
+RcppExport SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
+    SetCpuThreadPoolCapacity(threads);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 1},
@@ -2419,6 +2439,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 1},
     {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
     {"_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1},
+    {"_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0},
+    {"_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1},
     {NULL, NULL, 0}
 };
 
