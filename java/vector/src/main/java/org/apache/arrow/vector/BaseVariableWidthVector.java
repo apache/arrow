@@ -38,10 +38,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
         implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
-
-  private int valueAllocationSizeInBytes;
-  private int validityAllocationSizeInBytes;
-  private int offsetAllocationSizeInBytes;
+  private int initialValueAllocation;
+  private int initialValueAllocationSizeInBytes;
 
   /* protected members */
   public static final int OFFSET_WIDTH = 4; /* 4 byte unsigned int to track offsets */
@@ -57,9 +55,9 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   public BaseVariableWidthVector(final String name, final BufferAllocator allocator,
                                          FieldType fieldType) {
     super(name, allocator);
-    valueAllocationSizeInBytes = INITIAL_BYTE_COUNT;
-    validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
-    offsetAllocationSizeInBytes = (INITIAL_VALUE_ALLOCATION) * OFFSET_WIDTH;
+    initialValueAllocationSizeInBytes = INITIAL_BYTE_COUNT;
+    // -1 because we require one extra slot for the offset array.
+    initialValueAllocation = INITIAL_VALUE_ALLOCATION - 1;
     field = new Field(name, fieldType, null);
     valueCount = 0;
     lastSet = -1;
@@ -158,12 +156,15 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     if (size > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
-    valueAllocationSizeInBytes = (int) size;
-    validityAllocationSizeInBytes = getValidityBufferSizeFromCount(valueCount);
+
     /* to track the end offset of last data element in vector, we need
      * an additional slot in offset buffer.
      */
-    offsetAllocationSizeInBytes = (valueCount + 1) * OFFSET_WIDTH;
+    if (computeCombinedBufferSize(valueCount + 1, OFFSET_WIDTH) > MAX_ALLOCATION_SIZE) {
+      throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
+    }
+    initialValueAllocationSizeInBytes = (int) size;
+    initialValueAllocation = valueCount;
   }
 
   /**
@@ -180,12 +181,14 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
 
-    valueAllocationSizeInBytes = (int) size;
-    validityAllocationSizeInBytes = getValidityBufferSizeFromCount(valueCount);
     /* to track the end offset of last data element in vector, we need
      * an additional slot in offset buffer.
      */
-    offsetAllocationSizeInBytes = (valueCount + 1) * OFFSET_WIDTH;
+    if (computeCombinedBufferSize(valueCount + 1, OFFSET_WIDTH) > MAX_ALLOCATION_SIZE) {
+      throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
+    }
+    initialValueAllocationSizeInBytes = (int) size;
+    initialValueAllocation = valueCount;
   }
 
   /**
@@ -376,12 +379,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   @Override
   public boolean allocateNewSafe() {
-    long curAllocationSizeValue = valueAllocationSizeInBytes;
-    long curAllocationSizeValidity = validityAllocationSizeInBytes;
-    long curAllocationSizeOffset = offsetAllocationSizeInBytes;
-
-    if (curAllocationSizeValue > MAX_ALLOCATION_SIZE ||
-            curAllocationSizeOffset > MAX_ALLOCATION_SIZE) {
+    if (initialValueAllocationSizeInBytes > MAX_ALLOCATION_SIZE ||
+        computeCombinedBufferSize(initialValueAllocation + 1, OFFSET_WIDTH) > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory exceeds limit");
     }
 
@@ -389,7 +388,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     clear();
 
     try {
-      allocateBytes(curAllocationSizeValue, curAllocationSizeValidity, curAllocationSizeOffset);
+      allocateBytes(initialValueAllocationSizeInBytes, initialValueAllocation);
     } catch (Exception e) {
       clear();
       return false;
@@ -409,11 +408,9 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   @Override
   public void allocateNew(int totalBytes, int valueCount) {
     assert totalBytes >= 0;
-    final int offsetBufferSize = (valueCount + 1) * OFFSET_WIDTH;
-    final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
 
     if (totalBytes > MAX_ALLOCATION_SIZE ||
-            offsetBufferSize > MAX_ALLOCATION_SIZE) {
+        computeCombinedBufferSize(valueCount + 1, OFFSET_WIDTH) > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory exceeds limit");
     }
 
@@ -421,7 +418,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     clear();
 
     try {
-      allocateBytes(totalBytes, validityBufferSize, offsetBufferSize);
+      allocateBytes(totalBytes, valueCount);
     } catch (Exception e) {
       clear();
       throw e;
@@ -429,15 +426,18 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /* allocate the inner buffers */
-  private void allocateBytes(final long valueBufferSize, final long validityBufferSize,
-                             final long offsetBufferSize) {
+  private void allocateBytes(final int valueBufferSize, final int valueCount) {
     /* allocate data buffer */
-    int curSize = (int) valueBufferSize;
+    int curSize = valueBufferSize;
     valueBuffer = allocator.buffer(curSize);
     valueBuffer.readerIndex(0);
-    valueAllocationSizeInBytes = curSize;
-    allocateValidityBuffer(validityBufferSize);
-    allocateOffsetBuffer(offsetBufferSize);
+
+    /* allocate offset buffer and validity buffer */
+    ArrowBuf[] buffers = allocDataAndValidityBufs(valueCount + 1, OFFSET_WIDTH);
+    offsetBuffer = buffers[0];
+    validityBuffer = buffers[1];
+    initOffsetBuffer();
+    initValidityBuffer();
   }
 
   /* allocate offset buffer */
@@ -445,7 +445,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     final int curSize = (int) size;
     offsetBuffer = allocator.buffer(curSize);
     offsetBuffer.readerIndex(0);
-    offsetAllocationSizeInBytes = curSize;
     initOffsetBuffer();
   }
 
@@ -454,7 +453,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     final int curSize = (int) size;
     validityBuffer = allocator.buffer(curSize);
     validityBuffer.readerIndex(0);
-    validityAllocationSizeInBytes = curSize;
     initValidityBuffer();
   }
 
@@ -476,7 +474,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @throws OutOfMemoryException if the internal memory allocation fails
    */
   public void reallocDataBuffer() {
-    long baseSize = valueAllocationSizeInBytes;
+    long baseSize = initialValueAllocationSizeInBytes;
     final int currentBufferCapacity = valueBuffer.capacity();
 
     if (baseSize < (long) currentBufferCapacity) {
@@ -495,7 +493,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     newBuf.setBytes(0, valueBuffer, 0, currentBufferCapacity);
     valueBuffer.release();
     valueBuffer = newBuf;
-    valueAllocationSizeInBytes = (int) newAllocationSize;
   }
 
   /**
@@ -522,40 +519,30 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @throws OutOfMemoryException if the internal memory allocation fails
    */
   public void reallocValidityAndOffsetBuffers() {
-    offsetBuffer = reallocBufferHelper(offsetBuffer, true);
-    validityBuffer = reallocBufferHelper(validityBuffer, false);
-  }
-
-  /* helper method to realloc a particular buffer. returns the allocated buffer */
-  private ArrowBuf reallocBufferHelper(ArrowBuf buffer, final boolean offsetBuffer) {
-    final int currentBufferCapacity = buffer.capacity();
-    long baseSize = (offsetBuffer ? offsetAllocationSizeInBytes
-            : validityAllocationSizeInBytes);
-
-    if (baseSize < (long) currentBufferCapacity) {
-      baseSize = (long) currentBufferCapacity;
+    int targetOffsetCount = (offsetBuffer.capacity() / OFFSET_WIDTH)  * 2;
+    if (targetOffsetCount == 0) {
+      if (initialValueAllocation > 0) {
+        targetOffsetCount = 2 * (initialValueAllocation + 1);
+      } else {
+        targetOffsetCount = 2 * (INITIAL_VALUE_ALLOCATION + 1);
+      }
     }
-
-    long newAllocationSize = baseSize * 2L;
-    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
-    assert newAllocationSize >= 1;
-
-    if (newAllocationSize > MAX_ALLOCATION_SIZE) {
+    if (computeCombinedBufferSize(targetOffsetCount, OFFSET_WIDTH) > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer");
     }
 
-    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
-    newBuf.setBytes(0, buffer, 0, currentBufferCapacity);
-    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
-    buffer.release(1);
-    buffer = newBuf;
-    if (offsetBuffer) {
-      offsetAllocationSizeInBytes = (int) newAllocationSize;
-    } else {
-      validityAllocationSizeInBytes = (int) newAllocationSize;
-    }
+    ArrowBuf[] buffers = allocDataAndValidityBufs(targetOffsetCount, OFFSET_WIDTH);
+    final ArrowBuf newOffsetBuffer = buffers[0];
+    newOffsetBuffer.setBytes(0, offsetBuffer, 0, offsetBuffer.capacity());
+    newOffsetBuffer.setZero(offsetBuffer.capacity(), newOffsetBuffer.capacity() - offsetBuffer.capacity());
+    offsetBuffer.release();
+    offsetBuffer = newOffsetBuffer;
 
-    return buffer;
+    final ArrowBuf newValidityBuffer = buffers[1];
+    newValidityBuffer.setBytes(0, validityBuffer, 0, validityBuffer.capacity());
+    newValidityBuffer.setZero(validityBuffer.capacity(), newValidityBuffer.capacity() - validityBuffer.capacity());
+    validityBuffer.release();
+    validityBuffer = newValidityBuffer;
   }
 
   /**
@@ -919,7 +906,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   @Override
   public void setIndexDefined(int index) {
     while (index >= getValidityBufferValueCapacity()) {
-      validityBuffer = reallocBufferHelper(validityBuffer, false);
+      reallocValidityAndOffsetBuffers();
     }
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
   }
@@ -1072,7 +1059,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   public void setNull(int index) {
     while (index >= getValidityBufferValueCapacity()) {
-      validityBuffer = reallocBufferHelper(validityBuffer, false);
+      reallocValidityAndOffsetBuffers();
     }
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }

@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import java.util.Collections;
 import java.util.Iterator;
 
+import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.util.TransferPair;
@@ -33,7 +34,13 @@ public abstract class BaseValueVector implements ValueVector {
 
   public static final String MAX_ALLOCATION_SIZE_PROPERTY = "arrow.vector.max_allocation_bytes";
   public static final int MAX_ALLOCATION_SIZE = Integer.getInteger(MAX_ALLOCATION_SIZE_PROPERTY, Integer.MAX_VALUE);
-  public static final int INITIAL_VALUE_ALLOCATION = 4096;
+  /*
+   * For all fixed width vectors, the value and validity buffers are sliced from a single buffer.
+   * Similarly, for variable width vectors, the offsets and validity buffers are sliced from a
+   * single buffer. To ensure the single buffer is power-of-2 size, the initial value allocation
+   * should be ~(4096 - 128) (512 bytes for the bitmap).
+   */
+  public static final int INITIAL_VALUE_ALLOCATION = 3970;
 
   protected final BufferAllocator allocator;
   protected final String name;
@@ -97,6 +104,68 @@ public abstract class BaseValueVector implements ValueVector {
   /* number of bytes for the validity buffer for the given valueCount */
   protected static int getValidityBufferSizeFromCount(final int valueCount) {
     return (int) Math.ceil(valueCount / 8.0);
+  }
+
+  /* round up to the next multiple of 8 */
+  private static long roundUp8(long size) {
+    return ((size + 7) / 8) * 8;
+  }
+
+  protected long computeCombinedBufferSize(int valueCount, int typeWidth) {
+    // compute size of validity buffer.
+    long bufferSize = roundUp8(getValidityBufferSizeFromCount(valueCount));
+
+    // add the size of the value buffer.
+    if (typeWidth == 0) {
+      // for boolean type, value-buffer and validity-buffer are of same size.
+      bufferSize *= 2;
+    } else {
+      bufferSize += roundUp8(valueCount * typeWidth);
+    }
+    return BaseAllocator.nextPowerOfTwo(bufferSize);
+  }
+
+  protected ArrowBuf[] allocDataAndValidityBufs(int valueCount, int typeWidth) {
+    long bufferSize = computeCombinedBufferSize(valueCount, typeWidth);
+    assert bufferSize < MAX_ALLOCATION_SIZE;
+
+    int validityBufferSize;
+    int dataBufferSize;
+    if (typeWidth == 0) {
+      validityBufferSize = dataBufferSize = (int)(bufferSize / 2);
+    } else {
+      // Due to roundup to power-of-2 allocation, the bufferSize could be greater than the
+      // requested size. Utilize the allocated buffer fully.;
+      int actualCount = (int)((bufferSize * 8.0) / (8 * typeWidth + 1));
+      do {
+        validityBufferSize = (int)roundUp8(getValidityBufferSizeFromCount(actualCount));
+        dataBufferSize = (int)roundUp8(actualCount * typeWidth);
+        if (validityBufferSize + dataBufferSize <= bufferSize) {
+          break;
+        }
+        --actualCount;
+      } while (true);
+    }
+
+
+    /* allocate combined buffer */
+    ArrowBuf combinedBuffer = allocator.buffer((int)bufferSize);
+
+    /* slice into requested lengths */
+    ArrowBuf[] retBuffers = new ArrowBuf[2];
+    int bufferOffset = 0;
+    for (int numBuffers = 0; numBuffers < 2; ++numBuffers) {
+      int len = (numBuffers == 0 ? dataBufferSize : validityBufferSize);
+      ArrowBuf buf = combinedBuffer.slice(bufferOffset, len);
+      buf.retain();
+      buf.readerIndex(0);
+      buf.writerIndex(0);
+
+      bufferOffset += len;
+      retBuffers[numBuffers] = buf;
+    }
+    combinedBuffer.release();
+    return retBuffers;
   }
 }
 
