@@ -61,8 +61,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
-  - name: "C++ unit tests w/ Valgrind, gcc 4.8"
-    compiler: gcc
+  - name: "C++ unit tests w/ Valgrind, clang 6.0"
     language: cpp
     os: linux
     env:
@@ -73,6 +72,8 @@ matrix:
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_GANDIVA=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    - CC="clang-6.0"
+    - CXX="clang++-6.0"
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
