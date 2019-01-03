@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 #include "parquet/exception.h"
 #include "parquet/hasher.h"

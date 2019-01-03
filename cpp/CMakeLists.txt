@@ -111,6 +111,14 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Run the test suite using valgrind --tool=memcheck"
     OFF)
 
+  option(ARROW_USE_ASAN
+    "Enable Address Sanitizer checks"
+    OFF)
+
+  option(ARROW_USE_TSAN
+    "Enable Thread Sanitizer checks"
+    OFF)
+
   option(ARROW_BUILD_TESTS
     "Build the Arrow googletest unit tests, default OFF"
     OFF)

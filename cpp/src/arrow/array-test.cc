@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/buffer-builder.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/test-common.h"
@@ -761,22 +762,22 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
   auto& draws = this->draws_;
   auto& valid_bytes = this->valid_bytes_;
 
-  auto doubler = [&draws](int64_t index) { return draws[index] * 2; };
-  auto lazy_iter = internal::MakeLazyRange(doubler, size);
+  auto halve = [&draws](int64_t index) { return draws[index] / 2; };
+  auto lazy_iter = internal::MakeLazyRange(halve, size);
 
   ASSERT_OK(this->builder_->AppendValues(lazy_iter.begin(), lazy_iter.end(),
                                          valid_bytes.begin()));
 
-  std::vector<T> doubled;
-  transform(draws.begin(), draws.end(), back_inserter(doubled),
-            [](T in) { return in * 2; });
+  std::vector<T> halved;
+  transform(draws.begin(), draws.end(), back_inserter(halved),
+            [](T in) { return in / 2; });
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(this->builder_.get(), &result);
 
   std::shared_ptr<Array> expected;
   ASSERT_OK(
-      this->builder_->AppendValues(doubled.data(), doubled.size(), valid_bytes.data()));
+      this->builder_->AppendValues(halved.data(), halved.size(), valid_bytes.data()));
   FinishAndCheckPadding(this->builder_.get(), &expected);
 
   ASSERT_TRUE(expected->Equals(result));
