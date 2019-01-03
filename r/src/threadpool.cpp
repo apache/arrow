@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
 #include <arrow/util/parallel.h>
+#include "arrow_types.h"
 
 //' Get the capacity of the global thread pool
 //'
@@ -28,9 +28,7 @@
 //'
 //' @export
 // [[Rcpp::export]]
-int GetCpuThreadPoolCapacity(){
-  return arrow::GetCpuThreadPoolCapacity();
-}
+int GetCpuThreadPoolCapacity() { return arrow::GetCpuThreadPoolCapacity(); }
 
 //' Set the capacity of the global thread pool
 //'
