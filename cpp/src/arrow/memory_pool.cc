@@ -42,7 +42,7 @@ constexpr size_t kAlignment = 64;
 namespace {
 
 #ifdef ARROW_JEMALLOC
-static size_t FixAllocationSize(int64_t size) {
+inline size_t FixAllocationSize(int64_t size) {
   // mallocx() and rallocx() don't support 0-sized allocations
   return std::max(static_cast<size_t>(size), kAlignment);
 }
