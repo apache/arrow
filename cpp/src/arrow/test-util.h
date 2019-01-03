@@ -50,7 +50,7 @@
   do {                                                                    \
     ::arrow::Status s = (expr);                                           \
     if (!s.Is##ENUM()) {                                                  \
-      FAIL() << "Expected '" STRINGIFY(expr) "' to fail with " STRINGIFY( \
+      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
                     ENUM) ", but got "                                    \
              << s.ToString();                                             \
     }                                                                     \
@@ -60,7 +60,7 @@
   do {                                                                    \
     ::arrow::Status s = (expr);                                           \
     if (!s.Is##ENUM()) {                                                  \
-      FAIL() << "Expected '" STRINGIFY(expr) "' to fail with " STRINGIFY( \
+      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
                     ENUM) ", but got "                                    \
              << s.ToString();                                             \
     }                                                                     \
@@ -71,7 +71,7 @@
   do {                                                                 \
     ::arrow::Status _s = (expr);                                       \
     if (!_s.ok()) {                                                    \
-      FAIL() << "'" STRINGIFY(expr) "' failed with " << _s.ToString(); \
+      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _s.ToString(); \
     }                                                                  \
   } while (false)
 
