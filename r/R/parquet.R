@@ -17,11 +17,17 @@
 
 #' Read parquet file from disk
 #'
-#' @param files a vector of filenames
+#' @param file a file path
+#' @param as_tibble should the [arrow::Table][arrow__Table] be converted to a tibble.
+#' @param ... currently ignored
 #'
-#' @importFrom purrr map_dfr
+#' @return a [arrow::Table][arrow__Table], or a data frame if `as_tibble` is `TRUE`.
 #'
 #' @export
-read_parquet <- function(files) {
-  map_dfr(files, ~as_tibble(shared_ptr(`arrow::Table`, read_parquet_file(f))))
+read_parquet <- function(file, as_tibble = TRUE, ...) {
+  tab <- shared_ptr(`arrow::Table`, read_parquet_file(f))
+  if (isTRUE(as_tibble)) {
+    tab <- as_tibble(tab)
+  }
+  tab
 }

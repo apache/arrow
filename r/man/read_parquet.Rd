@@ -4,10 +4,17 @@
 \alias{read_parquet}
 \title{Read parquet file from disk}
 \usage{
-read_parquet(files)
+read_parquet(file, as_tibble = TRUE, ...)
 }
 \arguments{
-\item{files}{a vector of filenames}
+\item{file}{a file path}
+
+\item{as_tibble}{should the \link[=arrow__Table]{arrow::Table} be converted to a tibble.}
+
+\item{...}{currently ignored}
+}
+\value{
+a \link[=arrow__Table]{arrow::Table}, or a data frame if \code{as_tibble} is \code{TRUE}.
 }
 \description{
 Read parquet file from disk
