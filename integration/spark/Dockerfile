@@ -22,8 +22,8 @@ ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
     MAVEN_HOME=/usr/local/maven \
     M2_HOME=/root/.m2 \
     PATH=/root/.m2/bin:/usr/local/maven/bin:$PATH
-RUN apt-get update -y && \
-    apt-get install -y openjdk-8-jdk && \
+RUN apt-get update -q -y && \
+    apt-get install -q -y openjdk-8-jdk && \
     wget -q -O maven-$MAVEN_VERSION.tar.gz "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz" && \
     tar -zxf /maven-$MAVEN_VERSION.tar.gz && \
     rm /maven-$MAVEN_VERSION.tar.gz && \

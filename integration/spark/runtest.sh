@@ -32,8 +32,9 @@ spark_dir="$cache_dir/spark-$SPARK_VERSION"
 # spark_dir="/spark"
 
 if [ ! -d $spark_dir ]; then
+  echo "Downloading Spark source archive to $cache_dir..."
   mkdir -p $cache_dir
-  wget -O /tmp/spark.tar.gz https://github.com/apache/spark/archive/v$SPARK_VERSION.tar.gz
+  wget -q -O /tmp/spark.tar.gz https://github.com/apache/spark/archive/v$SPARK_VERSION.tar.gz
   tar -xzf /tmp/spark.tar.gz -C $cache_dir
   rm /tmp/spark.tar.gz
 fi
