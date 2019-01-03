@@ -30,9 +30,13 @@ RUN export PYTHON_MAJOR=${PYTHON_VERSION:0:1} && \
 ADD python/requirements.txt \
     python/requirements-test.txt \
     /arrow/python/
-RUN pip install -r /arrow/python/requirements-test.txt cython
+RUN pip install \
+    -r /arrow/python/requirements.txt \
+    -r /arrow/python/requirements-test.txt \
+    cython
 
 ENV ARROW_PYTHON=ON \
+    PYARROW_WITH_ORC=0 \
     PYARROW_WITH_PARQUET=0
 
 # build and test
