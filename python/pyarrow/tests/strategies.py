@@ -15,8 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pyarrow as pa
+import pytz
+import hypothesis as h
 import hypothesis.strategies as st
+import hypothesis.extra.numpy as npst
+import hypothesis.extra.pytz as tzst
+import numpy as np
+
+import pyarrow as pa
 
 
 # TODO(kszucs): alphanum_text, surrogate_text
@@ -69,12 +75,11 @@ time_types = st.sampled_from([
     pa.time64('us'),
     pa.time64('ns')
 ])
-timestamp_types = st.sampled_from([
-    pa.timestamp('s'),
-    pa.timestamp('ms'),
-    pa.timestamp('us'),
-    pa.timestamp('ns')
-])
+timestamp_types = st.builds(
+    pa.timestamp,
+    unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
+    tz=tzst.timezones()
+)
 temporal_types = st.one_of(date_types, time_types, timestamp_types)
 
 primitive_types = st.one_of(
@@ -128,3 +133,60 @@ complex_schemas = schemas(complex_types())
 all_types = st.one_of(primitive_types, complex_types(), nested_complex_types())
 all_fields = fields(all_types)
 all_schemas = schemas(all_types)
+
+
+@st.composite
+def arrays(draw, type, size):
+    if isinstance(type, st.SearchStrategy):
+        type = draw(type)
+    if isinstance(size, st.SearchStrategy):
+        size = draw(size)
+
+    if not isinstance(type, pa.DataType):
+        raise TypeError('Type must be a pyarrow DataType')
+    if not isinstance(size, int):
+        raise TypeError('Size must be an integer')
+
+    shape = (size,)
+
+    if pa.types.is_list(type):
+        offsets = draw(npst.arrays(np.uint8(), shape=shape)).cumsum() // 20
+        offsets = np.insert(offsets, 0, 0, axis=0)  # prepend with zero
+        values = draw(arrays(type.value_type, size=int(offsets.sum())))
+        return pa.ListArray.from_arrays(offsets, values)
+
+    if pa.types.is_struct(type):
+        h.assume(len(type) > 0)  # TODO issue pa.struct([])
+        names, child_arrays = [], []
+        for field in type:
+            names.append(field.name)
+            child_arrays.append(draw(arrays(field.type, size=size)))
+        return pa.StructArray.from_arrays(child_arrays, names=names)
+
+    if (pa.types.is_boolean(type) or pa.types.is_integer(type) or
+            pa.types.is_floating(type)):
+        values = npst.arrays(type.to_pandas_dtype(), shape=(size,))
+        return pa.array(draw(values), type=type)
+
+    if pa.types.is_null(type):
+        value = st.none()
+    elif pa.types.is_time(type):
+        value = st.times()
+    elif pa.types.is_date(type):
+        value = st.dates()
+    elif pa.types.is_timestamp(type):
+        tz = pytz.timezone(type.tz) if type.tz is not None else None
+        value = st.datetimes(timezones=st.just(tz))
+    elif pa.types.is_binary(type):
+        value = st.binary()
+    elif pa.types.is_string(type):
+        value = st.text()
+    elif pa.types.is_decimal(type):
+        # FIXME(kszucs): properly limit the precision
+        value = st.decimals(places=type.scale, allow_infinity=False)
+        type = None  # We let arrow infer it from the values
+    else:
+        raise NotImplementedError(type)
+
+    values = st.lists(value, min_size=size, max_size=size)
+    return pa.array(draw(values), type=type)
