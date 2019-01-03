@@ -18,9 +18,7 @@
 #ifndef GANDIVA_FUNCTION_REGISTRY_H
 #define GANDIVA_FUNCTION_REGISTRY_H
 
-#include <unordered_map>
 #include <vector>
-
 #include "gandiva/function_registry_common.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"

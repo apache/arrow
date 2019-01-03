@@ -20,101 +20,60 @@
 
 namespace gandiva {
 
+#define TIMESTAMP_ADD_FNS(name)                                            \
+  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, int32, timestamp),     \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, date64, int32, date64),       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, int64, timestamp), \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, date64, int64, date64)
+
+#define TIMESTAMP_DIFF_FN(name) \
+  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, timestamp, int32)
+
+#define DATE_ADD_FNS(name)                                                 \
+  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, date64, int32, date64),           \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, int32, timestamp), \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, date64, int64, date64),       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, int64, timestamp), \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int32, date64, date64),       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int32, timestamp, timestamp), \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int64, date64, date64),       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int64, timestamp, timestamp)
+
+#define DATE_DIFF_FNS(name)                                             \
+  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, date64, int32, date64),        \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, int32, date64), \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, date64, int64, date64),    \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, int64, date64)
+
 std::vector<NativeFunction> FunctionRegistryDateTimeArithmetic::GetFunctionRegistry() {
-  // list of registered native functions.
   static std::vector<NativeFunction> datetime_fn_registry_ = {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, date64, date64, float64),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, timestamp, timestamp, float64),
 
-      // timestamp diff operations
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffSecond, timestamp, timestamp, int32),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffMinute, timestamp, timestamp, int32),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffHour, timestamp, timestamp, int32),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffDay, timestamp, timestamp, int32),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffWeek, timestamp, timestamp, int32),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffMonth, timestamp, timestamp, int32),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffQuarter, timestamp, timestamp, int32),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffYear, timestamp, timestamp, int32),
+      TIMESTAMP_DIFF_FN(timestampdiffSecond),
+      TIMESTAMP_DIFF_FN(timestampdiffMinute),
+      TIMESTAMP_DIFF_FN(timestampdiffHour),
+      TIMESTAMP_DIFF_FN(timestampdiffDay),
+      TIMESTAMP_DIFF_FN(timestampdiffWeek),
+      TIMESTAMP_DIFF_FN(timestampdiffMonth),
+      TIMESTAMP_DIFF_FN(timestampdiffQuarter),
+      TIMESTAMP_DIFF_FN(timestampdiffYear),
 
-      // timestamp add int32 operations
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddSecond, timestamp, int32, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMinute, timestamp, int32, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddHour, timestamp, int32, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddDay, timestamp, int32, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddWeek, timestamp, int32, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMonth, timestamp, int32, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddQuarter, timestamp, int32, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddYear, timestamp, int32, timestamp),
-      // date add int32 operations
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddSecond, date64, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMinute, date64, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddHour, date64, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddDay, date64, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddWeek, date64, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMonth, date64, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddQuarter, date64, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddYear, date64, int32, date64),
+      TIMESTAMP_ADD_FNS(timestampaddSecond),
+      TIMESTAMP_ADD_FNS(timestampaddMinute),
+      TIMESTAMP_ADD_FNS(timestampaddHour),
+      TIMESTAMP_ADD_FNS(timestampaddDay),
+      TIMESTAMP_ADD_FNS(timestampaddWeek),
+      TIMESTAMP_ADD_FNS(timestampaddMonth),
+      TIMESTAMP_ADD_FNS(timestampaddQuarter),
+      TIMESTAMP_ADD_FNS(timestampaddYear),
 
-      // timestamp add int64 operations
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddSecond, timestamp, int64, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMinute, timestamp, int64, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddHour, timestamp, int64, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddDay, timestamp, int64, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddWeek, timestamp, int64, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMonth, timestamp, int64, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddQuarter, timestamp, int64, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddYear, timestamp, int64, timestamp),
-      // date add int64 operations
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddSecond, date64, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMinute, date64, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddHour, date64, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddDay, date64, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddWeek, date64, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMonth, date64, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddQuarter, date64, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddYear, date64, int64, date64),
+      DATE_ADD_FNS(date_add),
+      DATE_ADD_FNS(add),
 
-      // date_add(date64, int32), date_add(timestamp, int32)
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, date64, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(add, date64, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, timestamp, int32, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(add, timestamp, int32, timestamp),
-
-      // date_add(date64, int64), date_add(timestamp, int64)
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, date64, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(add, date64, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, timestamp, int64, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(add, timestamp, int64, timestamp),
-
-      // date_add(int32, date64), date_add(int32, timestamp)
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, int32, date64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(add, int32, date64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, int32, timestamp, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(add, int32, timestamp, timestamp),
-
-      // date_add(int64, date64), date_add(int64, timestamp)
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, int64, date64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(add, int64, date64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, int64, timestamp, timestamp),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(add, int64, timestamp, timestamp),
-
-      // date_sub(date64, int32), subtract and date_diff
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_sub, date64, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, date64, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, date64, int32, date64),
-      // date_sub(timestamp, int32), subtract and date_diff
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_sub, timestamp, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, timestamp, int32, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, timestamp, int32, date64),
-
-      // date_sub(date64, int64), subtract and date_diff
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_sub, date64, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, date64, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, date64, int64, date64),
-      // date_sub(timestamp, int64), subtract and date_diff
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_sub, timestamp, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, timestamp, int64, date64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, timestamp, int64, date64)};
+      DATE_DIFF_FNS(date_sub),
+      DATE_DIFF_FNS(subtract),
+      DATE_DIFF_FNS(date_diff)};
 
   return datetime_fn_registry_;
 }

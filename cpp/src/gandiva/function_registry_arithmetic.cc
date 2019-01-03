@@ -20,37 +20,54 @@
 
 namespace gandiva {
 
+#define BINARY_SYMMETRIC_FN(name) NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, name)
+
+#define BINARY_RELATIONAL_BOOL_FN(name) \
+  NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, name)
+
+#define BINARY_RELATIONAL_BOOL_DATE_FN(name) \
+  NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, name)
+
+#define UNARY_OCTET_LEN_FN(name) \
+  UNARY_SAFE_NULL_IF_NULL(name, utf8, int32), UNARY_SAFE_NULL_IF_NULL(name, binary, int32)
+
+#define UNARY_CAST_TO_FLOAT64(name) UNARY_SAFE_NULL_IF_NULL(castFLOAT8, name, float64)
+
+#define UNARY_CAST_TO_FLOAT32(name) UNARY_SAFE_NULL_IF_NULL(castFLOAT4, name, float32)
+
 std::vector<NativeFunction> FunctionRegistryArithmetic::GetFunctionRegistry() {
-  // list of registered native functions.
   static std::vector<NativeFunction> arithmetic_fn_registry_ = {
       UNARY_SAFE_NULL_IF_NULL(not, boolean, boolean),
-
       UNARY_SAFE_NULL_IF_NULL(castBIGINT, int32, int64),
-      UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int32, float32),
-      UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int64, float32),
-      UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int32, float64),
-      UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int64, float64),
-      UNARY_SAFE_NULL_IF_NULL(castFLOAT8, float32, float64),
+
+      UNARY_CAST_TO_FLOAT32(int32),
+      UNARY_CAST_TO_FLOAT32(int64),
+
+      UNARY_CAST_TO_FLOAT64(int32),
+      UNARY_CAST_TO_FLOAT64(int64),
+      UNARY_CAST_TO_FLOAT64(float32),
+
       UNARY_SAFE_NULL_IF_NULL(castDATE, int64, date64),
 
-      NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, add),
-      NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, subtract),
-      NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, multiply),
+      BINARY_SYMMETRIC_FN(add),
+      BINARY_SYMMETRIC_FN(subtract),
+      BINARY_SYMMETRIC_FN(multiply),
+
       NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int32, int32),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int64, int64),
-      NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
-      NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
-      NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
-      NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
-      NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
-      NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
 
-      // utf8/binary operations
-      UNARY_SAFE_NULL_IF_NULL(octet_length, utf8, int32),
-      UNARY_SAFE_NULL_IF_NULL(octet_length, binary, int32),
-      UNARY_SAFE_NULL_IF_NULL(bit_length, utf8, int32),
-      UNARY_SAFE_NULL_IF_NULL(bit_length, binary, int32),
+      BINARY_RELATIONAL_BOOL_FN(equal),
+      BINARY_RELATIONAL_BOOL_FN(not_equal),
+
+      BINARY_RELATIONAL_BOOL_DATE_FN(less_than),
+      BINARY_RELATIONAL_BOOL_DATE_FN(less_than_or_equal_to),
+      BINARY_RELATIONAL_BOOL_DATE_FN(greater_than),
+      BINARY_RELATIONAL_BOOL_DATE_FN(greater_than_or_equal_to),
+
+      UNARY_OCTET_LEN_FN(octet_length),
+      UNARY_OCTET_LEN_FN(bit_length),
+
       UNARY_UNSAFE_NULL_IF_NULL(char_length, utf8, int32),
       UNARY_UNSAFE_NULL_IF_NULL(length, utf8, int32),
       UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, binary, int32)};

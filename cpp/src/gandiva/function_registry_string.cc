@@ -20,19 +20,23 @@
 
 namespace gandiva {
 
+#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(name) \
+  VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, name)
+
+#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(name) \
+  BINARY_RELATIONAL_SAFE_NULL_IF_NULL(name, utf8)
+
 std::vector<NativeFunction> FunctionRegistryString::GetFunctionRegistry() {
-  // list of registered native functions.
-
   static std::vector<NativeFunction> string_fn_registry_ = {
-      VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
-      VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
-      VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
-      VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
-      VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
-      VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(equal),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(not_equal),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(less_than),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(less_than_or_equal_to),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(greater_than),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(greater_than_or_equal_to),
 
-      BINARY_RELATIONAL_SAFE_NULL_IF_NULL(starts_with, utf8),
-      BINARY_RELATIONAL_SAFE_NULL_IF_NULL(ends_with, utf8),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(starts_with),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(ends_with),
 
       NativeFunction("upper", DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "upper_utf8", NativeFunction::kNeedsContext),

@@ -210,11 +210,6 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 #define NUMERIC_BOOL_DATE_VAR_LEN_TYPES(INNER, NAME) \
   NUMERIC_BOOL_DATE_TYPES(INNER, NAME), VAR_LEN_TYPES(INNER, NAME)
 
-#define POPULATEREGVECTOR(ARR, COUNT, VEC) \
-  for (int i = 0; i < COUNT; i++) {        \
-    VEC.push_back(ARR[i]);                 \
-  }
-
 }  // namespace gandiva
 
 #endif

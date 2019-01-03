@@ -20,42 +20,34 @@
 
 namespace gandiva {
 
+#define DATE_EXTRACTION_FNS(name)                           \
+  DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Millennium),  \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Century), \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Decade),  \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Year),    \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Quarter), \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Month),   \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Week),    \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Day),     \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Hour),    \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute),  \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second)
+
+#define TIME_EXTRACTION_FNS(name)                          \
+  TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Hour),       \
+      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute), \
+      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second)
+
 std::vector<NativeFunction> FunctionRegistryDateTime::GetFunctionRegistry() {
-  // list of registered native functions.
   static std::vector<NativeFunction> date_time_fn_registry_ = {
-      // date/timestamp operations
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMillennium),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractCentury),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDecade),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractYear),
+      DATE_EXTRACTION_FNS(extract),
+      DATE_EXTRACTION_FNS(date_trunc_),
+
       DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDoy),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractQuarter),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMonth),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractWeek),
       DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDow),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDay),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractSecond),
       DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractEpoch),
 
-      // date_trunc operations on date/timestamp
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Millennium),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Century),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Decade),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Year),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Quarter),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Month),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Week),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Day),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Hour),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Minute),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Second),
-
-      // time operations
-      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
-      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
-      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractSecond),
+      TIME_EXTRACTION_FNS(extract),
 
       NativeFunction("castDATE", DataTypeVector{utf8()}, date64(), kResultNullIfNull,
                      "castDATE_utf8",

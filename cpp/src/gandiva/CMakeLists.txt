@@ -57,10 +57,10 @@ set(SRC_FILES annotator.cc
       function_registry.cc
       function_registry_arithmetic.cc
       function_registry_datetime.cc
-	  	function_registry_hash.cc
-	  	function_registry_math_ops.cc
-	  	function_registry_string.cc
-	  	function_registry_timestamp_arithmetic.cc
+      function_registry_hash.cc
+      function_registry_math_ops.cc
+      function_registry_string.cc
+      function_registry_timestamp_arithmetic.cc
       function_signature.cc
       gdv_function_stubs.cc
       llvm_generator.cc

@@ -20,55 +20,46 @@
 
 namespace gandiva {
 
+#define MATH_UNARY_OPS(name)                           \
+  UNARY_SAFE_NULL_IF_NULL(name, int32, float64),       \
+      UNARY_SAFE_NULL_IF_NULL(name, int64, float64),   \
+      UNARY_SAFE_NULL_IF_NULL(name, uint32, float64),  \
+      UNARY_SAFE_NULL_IF_NULL(name, uint64, float64),  \
+      UNARY_SAFE_NULL_IF_NULL(name, float32, float64), \
+      UNARY_SAFE_NULL_IF_NULL(name, float64, float64)
+
+#define MATH_BINARY_UNSAFE(name)                          \
+  BINARY_UNSAFE_NULL_IF_NULL(name, int32, float64),       \
+      BINARY_UNSAFE_NULL_IF_NULL(name, int64, float64),   \
+      BINARY_UNSAFE_NULL_IF_NULL(name, uint32, float64),  \
+      BINARY_UNSAFE_NULL_IF_NULL(name, uint64, float64),  \
+      BINARY_UNSAFE_NULL_IF_NULL(name, float32, float64), \
+      BINARY_UNSAFE_NULL_IF_NULL(name, float64, float64)
+
+#define UNARY_SAFE_NULL_NEVER_BOOL_FN(name) \
+  NUMERIC_BOOL_DATE_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, name)
+
+#define BINARY_SAFE_NULL_NEVER_BOOL_FN(name) \
+  NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, name)
+
 std::vector<NativeFunction> FunctionRegistryMathOps::GetFunctionRegistry() {
-  // list of registered native functions.
   static std::vector<NativeFunction> math_fn_registry_ = {
-      // extended math ops
-      UNARY_SAFE_NULL_IF_NULL(cbrt, int32, float64),
-      UNARY_SAFE_NULL_IF_NULL(cbrt, int64, float64),
-      UNARY_SAFE_NULL_IF_NULL(cbrt, uint32, float64),
-      UNARY_SAFE_NULL_IF_NULL(cbrt, uint64, float64),
-      UNARY_SAFE_NULL_IF_NULL(cbrt, float32, float64),
-      UNARY_SAFE_NULL_IF_NULL(cbrt, float64, float64),
+      MATH_UNARY_OPS(cbrt),
+      MATH_UNARY_OPS(exp),
+      MATH_UNARY_OPS(log),
+      MATH_UNARY_OPS(log10),
 
-      UNARY_SAFE_NULL_IF_NULL(exp, int32, float64),
-      UNARY_SAFE_NULL_IF_NULL(exp, int64, float64),
-      UNARY_SAFE_NULL_IF_NULL(exp, uint32, float64),
-      UNARY_SAFE_NULL_IF_NULL(exp, uint64, float64),
-      UNARY_SAFE_NULL_IF_NULL(exp, float32, float64),
-      UNARY_SAFE_NULL_IF_NULL(exp, float64, float64),
-
-      UNARY_SAFE_NULL_IF_NULL(log, int32, float64),
-      UNARY_SAFE_NULL_IF_NULL(log, int64, float64),
-      UNARY_SAFE_NULL_IF_NULL(log, uint32, float64),
-      UNARY_SAFE_NULL_IF_NULL(log, uint64, float64),
-      UNARY_SAFE_NULL_IF_NULL(log, float32, float64),
-      UNARY_SAFE_NULL_IF_NULL(log, float64, float64),
-
-      UNARY_SAFE_NULL_IF_NULL(log10, int32, float64),
-      UNARY_SAFE_NULL_IF_NULL(log10, int64, float64),
-      UNARY_SAFE_NULL_IF_NULL(log10, uint32, float64),
-      UNARY_SAFE_NULL_IF_NULL(log10, uint64, float64),
-      UNARY_SAFE_NULL_IF_NULL(log10, float32, float64),
-      UNARY_SAFE_NULL_IF_NULL(log10, float64, float64),
-
-      BINARY_UNSAFE_NULL_IF_NULL(log, int32, float64),
-      BINARY_UNSAFE_NULL_IF_NULL(log, int64, float64),
-      BINARY_UNSAFE_NULL_IF_NULL(log, uint32, float64),
-      BINARY_UNSAFE_NULL_IF_NULL(log, uint64, float64),
-      BINARY_UNSAFE_NULL_IF_NULL(log, float32, float64),
-      BINARY_UNSAFE_NULL_IF_NULL(log, float64, float64),
+      MATH_BINARY_UNSAFE(log),
 
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(power, float64),
 
-      // nullable never operations
-      NUMERIC_BOOL_DATE_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnull),
-      NUMERIC_BOOL_DATE_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnotnull),
+      UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull),
+      UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull),
+
       NUMERIC_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric),
 
-      // nullable never binary operations
-      NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, is_distinct_from),
-      NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, is_not_distinct_from)};
+      BINARY_SAFE_NULL_NEVER_BOOL_FN(is_distinct_from),
+      BINARY_SAFE_NULL_NEVER_BOOL_FN(is_not_distinct_from)};
 
   return math_fn_registry_;
 }
