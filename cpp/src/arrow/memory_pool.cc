@@ -40,6 +40,14 @@ namespace arrow {
 constexpr size_t kAlignment = 64;
 
 namespace {
+
+#ifdef ARROW_JEMALLOC
+inline size_t FixAllocationSize(int64_t size) {
+  // mallocx() and rallocx() don't support 0-sized allocations
+  return std::max(static_cast<size_t>(size), kAlignment);
+}
+#endif
+
 // Allocate memory according to the alignment requirements for Arrow
 // (as of May 2016 64 bytes)
 Status AllocateAligned(int64_t size, uint8_t** out) {
@@ -58,8 +66,8 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
     return Status::OutOfMemory("malloc of size ", size, " failed");
   }
 #elif defined(ARROW_JEMALLOC)
-  *out = reinterpret_cast<uint8_t*>(mallocx(
-      std::max(static_cast<size_t>(size), kAlignment), MALLOCX_ALIGN(kAlignment)));
+  *out = reinterpret_cast<uint8_t*>(
+      mallocx(FixAllocationSize(size), MALLOCX_ALIGN(kAlignment)));
   if (*out == NULL) {
     return Status::OutOfMemory("malloc of size ", size, " failed");
   }
@@ -76,6 +84,42 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
 #endif
   return Status::OK();
 }
+
+Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+#ifdef ARROW_JEMALLOC
+  uint8_t* previous_ptr = *ptr;
+  if (new_size < 0) {
+    return Status::Invalid("negative realloc size");
+  }
+  if (static_cast<uint64_t>(new_size) >= std::numeric_limits<size_t>::max()) {
+    return Status::CapacityError("realloc overflows size_t");
+  }
+  *ptr = reinterpret_cast<uint8_t*>(
+      rallocx(*ptr, FixAllocationSize(new_size), MALLOCX_ALIGN(kAlignment)));
+  if (*ptr == NULL) {
+    *ptr = previous_ptr;
+    return Status::OutOfMemory("realloc of size ", new_size, " failed");
+  }
+#else
+  // Note: We cannot use realloc() here as it doesn't guarantee alignment.
+
+  // Allocate new chunk
+  uint8_t* out = nullptr;
+  RETURN_NOT_OK(AllocateAligned(new_size, &out));
+  DCHECK(out);
+  // Copy contents and release old memory chunk
+  memcpy(out, *ptr, static_cast<size_t>(std::min(new_size, old_size)));
+#ifdef _WIN32
+  _aligned_free(*ptr);
+#else
+  std::free(*ptr);
+#endif  // defined(_MSC_VER)
+  *ptr = out;
+#endif  // defined(ARROW_JEMALLOC)
+
+  return Status::OK();
+}
+
 }  // namespace
 
 MemoryPool::MemoryPool() {}
@@ -99,36 +143,7 @@ class DefaultMemoryPool : public MemoryPool {
   }
 
   Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
-#ifdef ARROW_JEMALLOC
-    uint8_t* previous_ptr = *ptr;
-    if (new_size < 0) {
-      return Status::Invalid("negative realloc size");
-    }
-    if (static_cast<uint64_t>(new_size) >= std::numeric_limits<size_t>::max()) {
-      return Status::CapacityError("realloc overflows size_t");
-    }
-    *ptr = reinterpret_cast<uint8_t*>(
-        rallocx(*ptr, static_cast<size_t>(new_size), MALLOCX_ALIGN(kAlignment)));
-    if (*ptr == NULL) {
-      *ptr = previous_ptr;
-      return Status::OutOfMemory("realloc of size ", new_size, " failed");
-    }
-#else
-    // Note: We cannot use realloc() here as it doesn't guarantee alignment.
-
-    // Allocate new chunk
-    uint8_t* out = nullptr;
-    RETURN_NOT_OK(AllocateAligned(new_size, &out));
-    DCHECK(out);
-    // Copy contents and release old memory chunk
-    memcpy(out, *ptr, static_cast<size_t>(std::min(new_size, old_size)));
-#ifdef _WIN32
-    _aligned_free(*ptr);
-#else
-    std::free(*ptr);
-#endif  // defined(_MSC_VER)
-    *ptr = out;
-#endif  // defined(ARROW_JEMALLOC)
+    RETURN_NOT_OK(ReallocateAligned(old_size, new_size, ptr));
 
     stats_.UpdateAllocatedBytes(new_size - old_size);
     return Status::OK();

@@ -26,6 +26,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/buffer-builder.h"
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
