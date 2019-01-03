@@ -18,8 +18,6 @@
 # exit on any error
 set -e
 
-#export ARROW_HOME=$(pwd)/arrow
-#export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m"
 
 SPARK_VERSION=${SPARK_VERSION:-2.4.0}
@@ -29,7 +27,6 @@ popd
 
 cache_dir="/build/spark"
 spark_dir="$cache_dir/spark-$SPARK_VERSION"
-# spark_dir="/spark"
 
 if [ ! -d $spark_dir ]; then
   echo "Downloading Spark source archive to $cache_dir..."
