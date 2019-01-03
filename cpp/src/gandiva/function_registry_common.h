@@ -27,6 +27,9 @@
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"
 
+/* This is a private file, intended for internal use by gandiva & must not be included
+ * directly.
+ */
 namespace gandiva {
 
 using arrow::binary;
