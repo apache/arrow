@@ -33,6 +33,7 @@ ADD python/requirements.txt \
 RUN pip install -r /arrow/python/requirements-test.txt cython
 
 ENV ARROW_PYTHON=ON \
+    PYARROW_WITH_ORC=0 \
     PYARROW_WITH_PARQUET=0
 
 # build and test
