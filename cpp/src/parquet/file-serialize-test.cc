@@ -301,9 +301,11 @@ TYPED_TEST(TestSerialize, SmallFileLz4) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::LZ4));
 }
 
+#ifdef ARROW_WITH_ZSTD
 TYPED_TEST(TestSerialize, SmallFileZstd) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::ZSTD));
 }
+#endif
 
 }  // namespace test
 

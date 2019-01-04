@@ -349,11 +349,6 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithLz4Compression) {
                                  LARGE_SIZE);
 }
 
-TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithZstdCompression) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::ZSTD, false, false,
-                                 LARGE_SIZE);
-}
-
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStats) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::UNCOMPRESSED, false, true,
                                  LARGE_SIZE);
@@ -379,10 +374,19 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndLz4Compression) {
                                  LARGE_SIZE);
 }
 
+// The ExternalProject for zstd does not build on CMake < 3.7, so we do not
+// require it here
+#ifdef ARROW_WITH_ZSTD
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithZstdCompression) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::ZSTD, false, false,
+                                 LARGE_SIZE);
+}
+
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndZstdCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::ZSTD, false, true,
                                  LARGE_SIZE);
 }
+#endif
 
 TYPED_TEST(TestPrimitiveWriter, Optional) {
   // Optional and non-repeated, with definition levels
