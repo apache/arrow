@@ -44,7 +44,7 @@ namespace io {
 class CompressedOutputStream::Impl {
  public:
   Impl(MemoryPool* pool, Codec* codec, const std::shared_ptr<OutputStream>& raw)
-      : pool_(pool), raw_(raw), codec_(codec), is_open_(true) {}
+      : pool_(pool), raw_(raw), codec_(codec), is_open_(true), compressed_pos_(0) {}
 
   ~Impl() { DCHECK(Close().ok()); }
 

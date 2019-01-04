@@ -180,6 +180,7 @@ ColumnBuilder::ColumnBuilder(TableBuilder* parent, const std::string& name)
   fbb_ = &parent->fbb();
   name_ = name;
   type_ = ColumnType::PRIMITIVE;
+  meta_time_.unit = TimeUnit::SECOND;
 }
 
 flatbuffers::Offset<void> ColumnBuilder::CreateColumnMetadata() {
