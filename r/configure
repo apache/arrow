@@ -32,7 +32,7 @@ PKG_RPM_NAME="arrow"
 PKG_CSW_NAME="arrow"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
-PKG_LIBS="-larrow"
+PKG_LIBS="-larrow -lparquet"
 
 # Use pkg-config if available
 pkg-config --version >/dev/null 2>&1
@@ -49,8 +49,7 @@ if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
 elif [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
   echo "Found pkg-config cflags and libs!"
   PKG_CFLAGS=${PKGCONFIG_CFLAGS}
-  #PKG_LIBS=${PKGCONFIG_LIBS}
-  PKG_LIBS="-larrow -lparquet" # hard coded! what is the right way to do this?
+  PKG_LIBS=${PKGCONFIG_LIBS}
 elif [[ "$OSTYPE" == "darwin"* ]]; then
   if [ "$(command -v brew)" ]; then
     BREWDIR=$(brew --prefix)
