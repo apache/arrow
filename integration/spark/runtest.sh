@@ -18,7 +18,7 @@
 # exit on any error
 set -e
 
-export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m"
+export MAVEN_OPTS="-q -Xmx2g -XX:ReservedCodeCacheSize=512m"
 
 SPARK_VERSION=${SPARK_VERSION:-2.4.0}
 pushd arrow/java
