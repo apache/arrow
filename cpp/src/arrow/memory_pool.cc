@@ -41,12 +41,9 @@ constexpr size_t kAlignment = 64;
 
 namespace {
 
-#ifdef ARROW_JEMALLOC
-inline size_t FixAllocationSize(int64_t size) {
-  // mallocx() and rallocx() don't support 0-sized allocations
-  return std::max(static_cast<size_t>(size), kAlignment);
-}
-#endif
+// A static piece of memory for 0-size allocations, so as to return
+// an aligned non-null pointer.
+alignas(kAlignment) static uint8_t zero_size_area[1];
 
 // Allocate memory according to the alignment requirements for Arrow
 // (as of May 2016 64 bytes)
@@ -54,6 +51,10 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
   // TODO(emkornfield) find something compatible with windows
   if (size < 0) {
     return Status::Invalid("negative malloc size");
+  }
+  if (size == 0) {
+    *out = zero_size_area;
+    return Status::OK();
   }
   if (static_cast<uint64_t>(size) >= std::numeric_limits<size_t>::max()) {
     return Status::CapacityError("malloc size overflows size_t");
@@ -67,7 +68,7 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
   }
 #elif defined(ARROW_JEMALLOC)
   *out = reinterpret_cast<uint8_t*>(
-      mallocx(FixAllocationSize(size), MALLOCX_ALIGN(kAlignment)));
+      mallocx(static_cast<size_t>(size), MALLOCX_ALIGN(kAlignment)));
   if (*out == NULL) {
     return Status::OutOfMemory("malloc of size ", size, " failed");
   }
@@ -85,9 +86,32 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
   return Status::OK();
 }
 
+void DeallocateAligned(uint8_t* ptr, int64_t size) {
+  if (ptr == zero_size_area) {
+    DCHECK_EQ(size, 0);
+  } else {
+#ifdef _WIN32
+    _aligned_free(ptr);
+#elif defined(ARROW_JEMALLOC)
+    dallocx(ptr, MALLOCX_ALIGN(kAlignment));
+#else
+    std::free(ptr);
+#endif
+  }
+}
+
 Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
-#ifdef ARROW_JEMALLOC
   uint8_t* previous_ptr = *ptr;
+  if (previous_ptr == zero_size_area) {
+    DCHECK_EQ(old_size, 0);
+    return AllocateAligned(new_size, ptr);
+  }
+  if (new_size == 0) {
+    DeallocateAligned(previous_ptr, old_size);
+    *ptr = zero_size_area;
+    return Status::OK();
+  }
+#ifdef ARROW_JEMALLOC
   if (new_size < 0) {
     return Status::Invalid("negative realloc size");
   }
@@ -95,7 +119,7 @@ Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     return Status::CapacityError("realloc overflows size_t");
   }
   *ptr = reinterpret_cast<uint8_t*>(
-      rallocx(*ptr, FixAllocationSize(new_size), MALLOCX_ALIGN(kAlignment)));
+      rallocx(*ptr, static_cast<size_t>(new_size), MALLOCX_ALIGN(kAlignment)));
   if (*ptr == NULL) {
     *ptr = previous_ptr;
     return Status::OutOfMemory("realloc of size ", new_size, " failed");
@@ -152,13 +176,8 @@ class DefaultMemoryPool : public MemoryPool {
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
 
   void Free(uint8_t* buffer, int64_t size) override {
-#ifdef _WIN32
-    _aligned_free(buffer);
-#elif defined(ARROW_JEMALLOC)
-    dallocx(buffer, MALLOCX_ALIGN(kAlignment));
-#else
-    std::free(buffer);
-#endif
+    DeallocateAligned(buffer, size);
+
     stats_.UpdateAllocatedBytes(-size);
   }
 
