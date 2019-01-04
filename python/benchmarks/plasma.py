@@ -25,6 +25,7 @@ except ImportError:
     # silently here
     pass
 
+
 class SimplePlasmaThroughput(object):
     """Benchmark plasma store throughput with a single client."""
 
