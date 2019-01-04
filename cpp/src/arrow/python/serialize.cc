@@ -55,8 +55,8 @@ using internal::checked_cast;
 
 namespace py {
 
-/// A Sequence is a heterogeneous collections of elements. It can contain
-/// scalar Python types, lists, tuples, dictionaries and tensors.
+// A Sequence is a heterogeneous collections of elements. It can contain
+// scalar Python types, lists, tuples, dictionaries and tensors.
 class SequenceBuilder {
  public:
   explicit SequenceBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
@@ -81,7 +81,7 @@ class SequenceBuilder {
         dict_offsets_({0}),
         set_offsets_({0}) {}
 
-  /// Appending a none to the sequence
+  // Appending a none to the sequence
   Status AppendNone() {
     RETURN_NOT_OK(offsets_.Append(0));
     RETURN_NOT_OK(types_.Append(0));
@@ -106,90 +106,90 @@ class SequenceBuilder {
     return out->Append(val);
   }
 
-  /// Appending a boolean to the sequence
+  // Appending a boolean to the sequence
   Status AppendBool(const bool data) {
     return AppendPrimitive(data, &bool_tag_, &bools_);
   }
 
-  /// Appending a python 2 int64_t to the sequence
+  // Appending a python 2 int64_t to the sequence
   Status AppendPy2Int64(const int64_t data) {
     return AppendPrimitive(data, &py2_int_tag_, &py2_ints_);
   }
 
-  /// Appending an int64_t to the sequence
+  // Appending an int64_t to the sequence
   Status AppendInt64(const int64_t data) {
     return AppendPrimitive(data, &int_tag_, &ints_);
   }
 
-  /// Append a list of bytes to the sequence
+  // Append a list of bytes to the sequence
   Status AppendBytes(const uint8_t* data, int32_t length) {
     RETURN_NOT_OK(Update(bytes_.length(), &bytes_tag_));
     return bytes_.Append(data, length);
   }
 
-  /// Appending a string to the sequence
+  // Appending a string to the sequence
   Status AppendString(const char* data, int32_t length) {
     RETURN_NOT_OK(Update(strings_.length(), &string_tag_));
     return strings_.Append(data, length);
   }
 
-  /// Appending a half_float to the sequence
+  // Appending a half_float to the sequence
   Status AppendHalfFloat(const npy_half data) {
     return AppendPrimitive(data, &half_float_tag_, &half_floats_);
   }
 
-  /// Appending a float to the sequence
+  // Appending a float to the sequence
   Status AppendFloat(const float data) {
     return AppendPrimitive(data, &float_tag_, &floats_);
   }
 
-  /// Appending a double to the sequence
+  // Appending a double to the sequence
   Status AppendDouble(const double data) {
     return AppendPrimitive(data, &double_tag_, &doubles_);
   }
 
-  /// Appending a Date64 timestamp to the sequence
+  // Appending a Date64 timestamp to the sequence
   Status AppendDate64(const int64_t timestamp) {
     return AppendPrimitive(timestamp, &date64_tag_, &date64s_);
   }
 
-  /// Appending a tensor to the sequence
-  ///
-  /// \param tensor_index Index of the tensor in the object.
+  // Appending a tensor to the sequence
+  //
+  // \param tensor_index Index of the tensor in the object.
   Status AppendTensor(const int32_t tensor_index) {
     RETURN_NOT_OK(Update(tensor_indices_.length(), &tensor_tag_));
     return tensor_indices_.Append(tensor_index);
   }
 
-  /// Appending a numpy ndarray to the sequence
-  ///
-  /// \param tensor_index Index of the tensor in the object.
+  // Appending a numpy ndarray to the sequence
+  //
+  // \param tensor_index Index of the tensor in the object.
   Status AppendNdarray(const int32_t ndarray_index) {
     RETURN_NOT_OK(Update(ndarray_indices_.length(), &ndarray_tag_));
     return ndarray_indices_.Append(ndarray_index);
   }
 
-  /// Appending a buffer to the sequence
-  ///
-  /// \param buffer_index Indes of the buffer in the object.
+  // Appending a buffer to the sequence
+  //
+  // \param buffer_index Indes of the buffer in the object.
   Status AppendBuffer(const int32_t buffer_index) {
     RETURN_NOT_OK(Update(buffer_indices_.length(), &buffer_tag_));
     return buffer_indices_.Append(buffer_index);
   }
 
-  /// Add a sublist to the sequence. The data contained in the sublist will be
-  /// specified in the "Finish" method.
-  ///
-  /// To construct l = [[11, 22], 33, [44, 55]] you would for example run
-  /// list = ListBuilder();
-  /// list.AppendList(2);
-  /// list.Append(33);
-  /// list.AppendList(2);
-  /// list.Finish([11, 22, 44, 55]);
-  /// list.Finish();
+  // Add a sublist to the sequence. The data contained in the sublist will be
+  // specified in the "Finish" method.
+  //
+  // To construct l = [[11, 22], 33, [44, 55]] you would for example run
+  // list = ListBuilder();
+  // list.AppendList(2);
+  // list.Append(33);
+  // list.AppendList(2);
+  // list.Finish([11, 22, 44, 55]);
+  // list.Finish();
 
-  /// \param size
-  /// The size of the sublist
+  // \param size
+  // The size of the sublist
   Status AppendList(Py_ssize_t size) {
     int32_t offset;
     RETURN_NOT_OK(internal::CastSize(list_offsets_.back() + size, &offset));
@@ -256,8 +256,8 @@ class SequenceBuilder {
     return Status::OK();
   }
 
-  /// Finish building the sequence and return the result.
-  /// Input arrays may be nullptr
+  // Finish building the sequence and return the result.
+  // Input arrays may be nullptr
   Status Finish(const Array* list_data, const Array* tuple_data, const Array* dict_data,
                 const Array* set_data, std::shared_ptr<Array>* out) {
     fields_.resize(num_tags_);
@@ -356,28 +356,28 @@ class SequenceBuilder {
   std::vector<uint8_t> type_ids_;
 };
 
-/// Constructing dictionaries of key/value pairs. Sequences of
-/// keys and values are built separately using a pair of
-/// SequenceBuilders. The resulting Arrow representation
-/// can be obtained via the Finish method.
+// Constructing dictionaries of key/value pairs. Sequences of
+// keys and values are built separately using a pair of
+// SequenceBuilders. The resulting Arrow representation
+// can be obtained via the Finish method.
 class DictBuilder {
  public:
   explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {}
 
-  /// Builder for the keys of the dictionary
+  // Builder for the keys of the dictionary
   SequenceBuilder& keys() { return keys_; }
-  /// Builder for the values of the dictionary
+  // Builder for the values of the dictionary
   SequenceBuilder& vals() { return vals_; }
 
-  /// Construct an Arrow StructArray representing the dictionary.
-  /// Contains a field "keys" for the keys and "vals" for the values.
-  /// \param val_list_data
-  ///    List containing the data from nested lists in the value
-  ///   list of the dictionary
-  ///
-  /// \param val_dict_data
-  ///   List containing the data from nested dictionaries in the
-  ///   value list of the dictionary
+  // Construct an Arrow StructArray representing the dictionary.
+  // Contains a field "keys" for the keys and "vals" for the values.
+  // \param val_list_data
+  //    List containing the data from nested lists in the value
+  //   list of the dictionary
+  //
+  // \param val_dict_data
+  //   List containing the data from nested dictionaries in the
+  //   value list of the dictionary
   Status Finish(const Array* key_tuple_data, const Array* key_dict_data,
                 const Array* val_list_data, const Array* val_tuple_data,
                 const Array* val_dict_data, const Array* val_set_data,
