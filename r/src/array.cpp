@@ -515,7 +515,7 @@ SEXP ArrayVector_To_Vector(int64_t n, const ArrayVector& arrays, Args... args) {
   R_xlen_t k = 0;
   for (const auto& array : arrays) {
     auto n_chunk = array->length();
-    converter.Ingest(array, k, n_chunk);
+    STOP_IF_NOT_OK(converter.Ingest(array, k, n_chunk));
     k += n_chunk;
   }
   return converter.data;
@@ -527,7 +527,7 @@ struct Converter_SimpleArray {
 
   Converter_SimpleArray(R_xlen_t n) : data(no_init(n)) {}
 
-  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
     using value_type = typename Vector::stored_type;
     auto null_count = array->null_count();
 
@@ -552,6 +552,7 @@ struct Converter_SimpleArray {
         }
       }
     }
+    return Status::OK();
   }
 
   Vector data;
@@ -566,7 +567,7 @@ struct Converter_Date32 : public Converter_SimpleArray<INTSXP> {
 struct Converter_String {
   Converter_String(R_xlen_t n) : data(n) {}
 
-  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
     auto null_count = array->null_count();
 
     if (null_count == n) {
@@ -579,7 +580,7 @@ struct Converter_String {
         // There is an offset buffer, but the data buffer is null
         // There is at least one value in the array and not all the values are null
         // That means all values are empty strings so there is nothing to do
-        return;
+        return Status::OK();
       }
 
       if (null_count) {
@@ -606,6 +607,7 @@ struct Converter_String {
         }
       }
     }
+    return Status::OK();
   }
 
   CharacterVector data;
@@ -614,7 +616,7 @@ struct Converter_String {
 struct Converter_Boolean {
   Converter_Boolean(R_xlen_t n) : data(n) {}
 
-  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
     auto null_count = array->null_count();
 
     if (n == null_count) {
@@ -640,6 +642,7 @@ struct Converter_Boolean {
         }
       }
     }
+    return Status::OK();
   }
 
   LogicalVector data;
@@ -676,7 +679,7 @@ struct Converter_Dictionary {
     }
   }
 
-  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
     DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
     auto indices = dict_array->indices();
     switch (indices->type_id()) {
@@ -698,6 +701,7 @@ struct Converter_Dictionary {
       default:
         break;
     }
+    return Status::OK();
   }
 
   template <typename Type>
@@ -738,7 +742,7 @@ struct Converter_Date64 {
     data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
   }
 
-  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
     auto null_count = array->null_count();
     if (null_count == n) {
       std::fill_n(data.begin() + start, n, NA_REAL);
@@ -760,6 +764,7 @@ struct Converter_Date64 {
         std::transform(p_values, p_values + n, p_vec, seconds);
       }
     }
+    return Status::OK();
   }
 
   NumericVector data;
@@ -772,7 +777,7 @@ struct Converter_Promotion {
 
   Converter_Promotion(R_xlen_t n) : data(no_init(n)) {}
 
-  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
     auto null_count = array->null_count();
     if (null_count == n) {
       std::fill_n(data.begin() + start, n, default_value<RTYPE>());
@@ -794,6 +799,7 @@ struct Converter_Promotion {
         std::transform(p_values, p_values + n, data.begin(), value_convert);
       }
     }
+    return Status::OK();
   }
 
   Rcpp::Vector<RTYPE> data;
@@ -812,7 +818,7 @@ struct Converter_Time {
     data.attr("units") = "secs";
   }
 
-  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
     auto null_count = array->null_count();
     if (n == null_count) {
       std::fill_n(data.begin() + start, n, NA_REAL);
@@ -833,6 +839,7 @@ struct Converter_Time {
         std::transform(p_values, p_values + n, p_vec, convert);
       }
     }
+    return Status::OK();
   }
 
   NumericVector data;
@@ -849,7 +856,7 @@ struct Converter_TimeStamp : Converter_Time<value_type> {
 struct Converter_Int64 {
   Converter_Int64(R_xlen_t n) : data(no_init(n)) { data.attr("class") = "integer64"; }
 
-  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
     auto null_count = array->null_count();
     if (null_count == n) {
       std::fill_n(reinterpret_cast<int64_t*>(data.begin()) + start, n, NA_INT64);
@@ -868,6 +875,7 @@ struct Converter_Int64 {
         std::copy_n(p_values, n, p_vec);
       }
     }
+    return Status::OK();
   }
 
   NumericVector data;
@@ -876,7 +884,7 @@ struct Converter_Int64 {
 struct Converter_Decimal {
   Converter_Decimal(R_xlen_t n) : data(no_init(n)) {}
 
-  void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
     auto null_count = array->null_count();
     if (n == null_count) {
       std::fill_n(data.begin() + start, n, NA_REAL);
@@ -900,6 +908,7 @@ struct Converter_Decimal {
         }
       }
     }
+    return Status::OK();
   }
 
   NumericVector data;
