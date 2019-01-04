@@ -174,6 +174,9 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame 
 namespace arrow {
 namespace r {
 
+// the integer64 sentinel
+constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
+
 template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
 class RBuffer : public MutableBuffer {
  public:

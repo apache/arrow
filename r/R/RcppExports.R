@@ -5,14 +5,6 @@ Array__from_vector <- function(x) {
     .Call(`_arrow_Array__from_vector`, x)
 }
 
-Array__as_vector <- function(array) {
-    .Call(`_arrow_Array__as_vector`, array)
-}
-
-ChunkedArray__as_vector <- function(chunked_array) {
-    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
-}
-
 Array__Slice1 <- function(array, offset) {
     .Call(`_arrow_Array__Slice1`, array, offset)
 }
@@ -79,6 +71,14 @@ DictionaryArray__indices <- function(array) {
 
 DictionaryArray__dictionary <- function(array) {
     .Call(`_arrow_DictionaryArray__dictionary`, array)
+}
+
+Array__as_vector <- function(array) {
+    .Call(`_arrow_Array__as_vector`, array)
+}
+
+ChunkedArray__as_vector <- function(chunked_array) {
+    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
 }
 
 ArrayData__get_type <- function(x) {
