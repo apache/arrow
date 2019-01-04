@@ -32,19 +32,10 @@ arrow_c_glib_run_test()
   export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$arrow_c_glib_lib_dir/pkgconfig
 
   pushd example/lua
-  if [ "$BUILD_TORCH_EXAMPLE" = "yes" ]; then
-    . ~/torch/install/bin/torch-activate
-    luajit write-batch.lua
-    luajit read-batch.lua
-    luajit write-stream.lua
-    luajit read-stream.lua
-    luajit stream-to-torch-tensor.lua
-  else
-    lua write-batch.lua
-    lua read-batch.lua
-    lua write-stream.lua
-    lua read-stream.lua
-  fi
+  lua write-batch.lua
+  lua read-batch.lua
+  lua write-stream.lua
+  lua read-stream.lua
   popd
 }
 

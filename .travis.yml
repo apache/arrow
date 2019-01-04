@@ -256,7 +256,6 @@ matrix:
     - ARROW_TRAVIS_USE_VENDORED_BOOST=1
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_PLASMA=1
-    - BUILD_TORCH_EXAMPLE=no
     - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
     before_script:
     - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
