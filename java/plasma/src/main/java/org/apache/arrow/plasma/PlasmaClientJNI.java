@@ -17,6 +17,9 @@
 
 package org.apache.arrow.plasma;
 
+import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
+import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
+
 import java.nio.ByteBuffer;
 
 /**
@@ -28,7 +31,8 @@ public class PlasmaClientJNI {
 
   public static native void disconnect(long conn);
 
-  public static native ByteBuffer create(long conn, byte[] objectId, int size, byte[] metadata);
+  public static native ByteBuffer create(long conn, byte[] objectId, int size, byte[] metadata)
+          throws DuplicateObjectException, PlasmaOutOfMemoryException;
 
   public static native byte[] hash(long conn, byte[] objectId);
 
