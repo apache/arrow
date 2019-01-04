@@ -177,6 +177,65 @@ TEST(TestBuffer, SliceMutableBuffer) {
   ASSERT_TRUE(slice->Equals(expected));
 }
 
+template <typename AllocateFunction>
+void TestZeroSizeAllocateBuffer(MemoryPool* pool, AllocateFunction&& allocate_func) {
+  auto allocated_bytes = pool->bytes_allocated();
+  {
+    std::shared_ptr<Buffer> buffer;
+
+    ASSERT_OK(allocate_func(pool, 0, &buffer));
+    ASSERT_EQ(buffer->size(), 0);
+    // Even 0-sized buffers should not have a null data pointer
+    ASSERT_NE(buffer->data(), nullptr);
+    ASSERT_EQ(buffer->mutable_data(), buffer->data());
+
+    ASSERT_GE(pool->bytes_allocated(), allocated_bytes);
+  }
+  ASSERT_EQ(pool->bytes_allocated(), allocated_bytes);
+}
+
+TEST(TestAllocateBuffer, ZeroSize) {
+  MemoryPool* pool = default_memory_pool();
+  auto allocate_func = [](MemoryPool* pool, int64_t size, std::shared_ptr<Buffer>* out) {
+    return AllocateBuffer(pool, size, out);
+  };
+  TestZeroSizeAllocateBuffer(pool, allocate_func);
+}
+
+TEST(TestAllocateResizableBuffer, ZeroSize) {
+  MemoryPool* pool = default_memory_pool();
+  auto allocate_func = [](MemoryPool* pool, int64_t size, std::shared_ptr<Buffer>* out) {
+    std::shared_ptr<ResizableBuffer> res;
+    RETURN_NOT_OK(AllocateResizableBuffer(pool, size, &res));
+    *out = res;
+    return Status::OK();
+  };
+  TestZeroSizeAllocateBuffer(pool, allocate_func);
+}
+
+TEST(TestAllocateResizableBuffer, ZeroResize) {
+  MemoryPool* pool = default_memory_pool();
+  auto allocated_bytes = pool->bytes_allocated();
+  {
+    std::shared_ptr<ResizableBuffer> buffer;
+
+    ASSERT_OK(AllocateResizableBuffer(pool, 1000, &buffer));
+    ASSERT_EQ(buffer->size(), 1000);
+    ASSERT_NE(buffer->data(), nullptr);
+    ASSERT_EQ(buffer->mutable_data(), buffer->data());
+
+    ASSERT_GE(pool->bytes_allocated(), allocated_bytes + 1000);
+
+    ASSERT_OK(buffer->Resize(0));
+    ASSERT_NE(buffer->data(), nullptr);
+    ASSERT_EQ(buffer->mutable_data(), buffer->data());
+
+    ASSERT_GE(pool->bytes_allocated(), allocated_bytes);
+    ASSERT_LT(pool->bytes_allocated(), allocated_bytes + 1000);
+  }
+  ASSERT_EQ(pool->bytes_allocated(), allocated_bytes);
+}
+
 TEST(TestBufferBuilder, ResizeReserve) {
   const std::string data = "some data";
   auto data_ptr = data.c_str();
