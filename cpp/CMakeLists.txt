@@ -81,12 +81,6 @@ if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR INFER_FOUND)
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
-find_program(CCACHE_FOUND ccache)
-if(CCACHE_FOUND)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_FOUND})
-endif(CCACHE_FOUND)
-
 # ----------------------------------------------------------------------
 # cmake options
 
@@ -114,6 +108,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_USE_ASAN
     "Enable Address Sanitizer checks"
     OFF)
+
+  option(ARROW_USE_CCACHE
+    "Use ccache when compiling (if available)"
+    ON)
 
   option(ARROW_USE_TSAN
     "Enable Thread Sanitizer checks"
@@ -347,6 +345,14 @@ Always OFF if building binaries"
 advised that if this is enabled 'install' will fail silently on components \
 that have not been built"
     OFF)
+endif()
+
+if (ARROW_USE_CCACHE)
+  find_program(CCACHE_FOUND ccache)
+  if(CCACHE_FOUND)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_FOUND})
+  endif(CCACHE_FOUND)
 endif()
 
 if (ARROW_OPTIONAL_INSTALL)

@@ -37,23 +37,23 @@ class ARROW_EXPORT CudaDeviceManager {
   static Status GetInstance(CudaDeviceManager** manager);
 
   /// \brief Get the CUDA driver context for a particular device
-  /// \param[in] device_number
+  /// \param[in] device_number the CUDA device
   /// \param[out] out cached context
-  Status GetContext(int gpu_number, std::shared_ptr<CudaContext>* ctx);
+  Status GetContext(int device_number, std::shared_ptr<CudaContext>* out);
 
   /// \brief Get the shared CUDA driver context for a particular device
-  /// \param[in] device_number
+  /// \param[in] device_number the CUDA device
   /// \param[in] handle CUDA context handler created by another library
   /// \param[out] out shared context
   Status GetSharedContext(int device_number, void* handle,
                           std::shared_ptr<CudaContext>* out);
 
   /// \brief Allocate host memory with fast access to given GPU device
-  /// \param[in] device_number
+  /// \param[in] device_number the CUDA device
   /// \param[in] nbytes number of bytes
   /// \param[out] out the allocated buffer
   Status AllocateHost(int device_number, int64_t nbytes,
-                      std::shared_ptr<CudaHostBuffer>* buffer);
+                      std::shared_ptr<CudaHostBuffer>* out);
 
   Status FreeHost(void* data, int64_t nbytes);
 
@@ -98,15 +98,15 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
 
   /// \brief Open existing CUDA IPC memory handle
   /// \param[in] ipc_handle opaque pointer to CUipcMemHandle (driver API)
-  /// \param[out] buffer a CudaBuffer referencing
+  /// \param[out] out a CudaBuffer referencing the IPC segment
   /// \return Status
   Status OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
-                       std::shared_ptr<CudaBuffer>* buffer);
+                       std::shared_ptr<CudaBuffer>* out);
 
   /// \brief Close memory mapped with IPC buffer
   /// \param[in] buffer a CudaBuffer referencing
   /// \return Status
-  Status CloseIpcBuffer(CudaBuffer* buf);
+  Status CloseIpcBuffer(CudaBuffer* buffer);
 
   /// \brief Block until the all device tasks are completed.
   Status Synchronize(void);

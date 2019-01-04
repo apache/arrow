@@ -207,7 +207,7 @@ class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
 };
 
 /// \brief Allocate CUDA-accessible memory on CPU host
-/// \param[in] device_number
+/// \param[in] device_number device to expose host memory
 /// \param[in] size number of bytes
 /// \param[out] out the allocated buffer
 /// \return Status
