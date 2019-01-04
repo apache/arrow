@@ -24,8 +24,17 @@
 # This utility assumes you already have a local Arrow git clone and that you
 # have added remotes corresponding to both (i) the Github Apache Arrow mirror
 # and (ii) the apache git repo.
+#
+# There are several pieces of authorization possibly needed via environment
+# variables
+#
+# JIRA_USERNAME: your Apache JIRA id
+# JIRA_PASSWORD: your Apache JIRA password
+# ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests (to avoid
+# rate limiting)
 
 import os
+import pprint
 import re
 import subprocess
 import sys
@@ -48,11 +57,9 @@ except ImportError:
 BRANCH_PREFIX = "PR_TOOL"
 JIRA_API_BASE = "https://issues.apache.org/jira"
 
-
-def get_json(url):
-    req = requests.get(url)
+def get_json(url, headers=None):
+    req = requests.get(url, headers=headers)
     return req.json()
-
 
 def run_cmd(cmd):
     if isinstance(cmd, six.string_types):
@@ -192,8 +199,15 @@ class GitHubAPI(object):
         self.github_api = ("https://api.github.com/repos/apache/{0}"
                            .format(project_name))
 
+        token = os.environ.get('ARROW_GITHUB_API_TOKEN', None)
+        if token:
+            self.headers = {'Authorization': 'token {0}'.format(token)}
+        else:
+            self.headers = None
+
     def get_pr_data(self, number):
-        return get_json("%s/pulls/%s" % (self.github_api, number))
+        return get_json("%s/pulls/%s" % (self.github_api, number),
+                        headers=self.headers)
 
 
 class CommandInput(object):
@@ -225,13 +239,16 @@ class PullRequest(object):
         self.con = jira_con
         self.number = number
         self._pr_data = github_api.get_pr_data(number)
-        self.url = self._pr_data["url"]
-        self.title = self._pr_data["title"]
-
-        self.body = self._pr_data["body"]
-        self.target_ref = self._pr_data["base"]["ref"]
-        self.user_login = self._pr_data["user"]["login"]
-        self.base_ref = self._pr_data["head"]["ref"]
+        try:
+            self.url = self._pr_data["url"]
+            self.title = self._pr_data["title"]
+            self.body = self._pr_data["body"]
+            self.target_ref = self._pr_data["base"]["ref"]
+            self.user_login = self._pr_data["user"]["login"]
+            self.base_ref = self._pr_data["head"]["ref"]
+        except KeyError:
+            pprint.pprint(self._pr_data)
+            raise
         self.description = "%s/%s" % (self.user_login, self.base_ref)
 
         self.jira_issue = self._get_jira()
@@ -435,4 +452,4 @@ if __name__ == '__main__':
     try:
         cli()
     except Exception as e:
-        print(e.args[0])
+        raise
