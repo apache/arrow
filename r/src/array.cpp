@@ -557,6 +557,12 @@ struct Converter_SimpleArray {
   Vector data;
 };
 
+struct Converter_Date32 : public Converter_SimpleArray<INTSXP> {
+  Converter_Date32(R_xlen_t n) : Converter_SimpleArray<INTSXP>(n) {
+    data.attr("class") = "Date";
+  }
+};
+
 struct Converter_String {
   Converter_String(R_xlen_t n) : data(n) {}
 
@@ -860,13 +866,6 @@ SEXP DictionaryArrays_to_Vector(int64_t n, const ArrayVector& arrays) {
   return R_NilValue;
 }
 
-SEXP Date32ArrayVector_to_Vector(int64_t n, const ArrayVector& arrays) {
-  IntegerVector out(
-      arrow::r::ArrayVector_To_Vector<Converter_SimpleArray<INTSXP>>(n, arrays));
-  out.attr("class") = "Date";
-  return out;
-}
-
 struct Converter_Decimal {
   Converter_Decimal(R_xlen_t n) : data(no_init(n)) {}
 
@@ -925,7 +924,7 @@ SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
       return DictionaryArrays_to_Vector(n, arrays);
 
     case Type::DATE32:
-      return Date32ArrayVector_to_Vector(n, arrays);
+      return ArrayVector_To_Vector<Converter_Date32>(n, arrays);
     case Type::DATE64:
       return ArrayVector_To_Vector<Converter_Date64>(n, arrays);
 
