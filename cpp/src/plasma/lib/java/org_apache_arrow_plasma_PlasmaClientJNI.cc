@@ -112,7 +112,7 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_create(
   if (s.IsPlasmaStoreFull()) {
     jclass Exception = env->FindClass(
           "org/apache/arrow/plasma/exceptions/PlasmaOutOfMemoryException");
-        env->ThrowNew(Exception, oid.hex().c_str());
+        env->ThrowNew(Exception, "");
     return nullptr;
   }
   ARROW_CHECK(s.ok());

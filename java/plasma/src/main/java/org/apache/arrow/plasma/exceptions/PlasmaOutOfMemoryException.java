@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.plasma.exceptions;
 
 public class PlasmaOutOfMemoryException extends RuntimeException {
 
-  public PlasmaOutOfMemoryException () {
-    super("The plasma store ran out of memory and could not create object with ID.");
+  public PlasmaOutOfMemoryException() {
+    super("The plasma store ran out of memory.");
   }
 
-  public PlasmaOutOfMemoryException (Throwable t) {
-    super("The plasma store ran out of memory and could not create object with ID.", t);
+  public PlasmaOutOfMemoryException(Throwable t) {
+    super("The plasma store ran out of memory.", t);
   }
-
 }

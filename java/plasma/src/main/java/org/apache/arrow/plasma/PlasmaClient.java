@@ -17,13 +17,14 @@
 
 package org.apache.arrow.plasma;
 
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
 import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+
 
 
 /**
@@ -50,7 +51,7 @@ public class PlasmaClient implements ObjectStoreLink {
   @Override
   public void put(byte[] objectId, byte[] value, byte[] metadata)
           throws DuplicateObjectException, PlasmaOutOfMemoryException {
-    ByteBuffer buf = PlasmaClientJNI.create(threadConn.get(), objectId, value.length, metadata);
+    ByteBuffer buf = PlasmaClientJNI.create(conn, objectId, value.length, metadata);
     buf.put(value);
     PlasmaClientJNI.seal(conn, objectId);
     PlasmaClientJNI.release(conn, objectId);

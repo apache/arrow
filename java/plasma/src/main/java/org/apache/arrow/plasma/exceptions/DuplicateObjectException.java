@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.plasma.exceptions;
 
 public class DuplicateObjectException extends RuntimeException {
 
-  public DuplicateObjectException (String objectId) {
+  public DuplicateObjectException(String objectId) {
     super("An object with ID " + objectId + " already exists in the plasma store.");
   }
 
-  public DuplicateObjectException (String objectId, Throwable t) {
+  public DuplicateObjectException(String objectId, Throwable t) {
     super("An object with ID " + objectId + " already exists in the plasma store.", t);
   }
-
 }

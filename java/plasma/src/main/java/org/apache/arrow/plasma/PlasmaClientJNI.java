@@ -17,10 +17,10 @@
 
 package org.apache.arrow.plasma;
 
+import java.nio.ByteBuffer;
+
 import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
 import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
-
-import java.nio.ByteBuffer;
 
 /**
  * JNI static methods for PlasmaClient.
