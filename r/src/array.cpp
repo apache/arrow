@@ -535,7 +535,9 @@ struct Converter_SimpleArray {
       std::fill_n(data.begin() + start, n, default_value<RTYPE>());
     } else {
       auto p_values = array->data()->GetValues<value_type>(1);
-      STOP_IF_NULL(p_values);
+      if (!p_values) {
+        return Status::Invalid("Invalid data buffer");
+      }
 
       // first copy all the data
       std::copy_n(p_values, n, data.begin() + start);
@@ -574,7 +576,9 @@ struct Converter_String {
       std::fill_n(data.begin(), n, NA_STRING);
     } else {
       auto p_offset = array->data()->GetValues<int32_t>(1);
-      STOP_IF_NULL(p_offset);
+      if (!p_offset) {
+        return Status::Invalid("Invalid offset buffer");
+      }
       auto p_data = array->data()->GetValues<char>(2, *p_offset);
       if (!p_data) {
         // There is an offset buffer, but the data buffer is null
@@ -624,7 +628,9 @@ struct Converter_Boolean {
     } else {
       // process the data
       auto p_data = array->data()->GetValues<uint8_t>(1, 0);
-      STOP_IF_NULL(p_data);
+      if (!p_data) {
+        return Status::Invalid("Invalid data buffer");
+      }
 
       arrow::internal::BitmapReader data_reader(p_data, array->offset(), n);
       for (size_t i = 0; i < n; i++, data_reader.Next()) {
@@ -684,20 +690,15 @@ struct Converter_Dictionary {
     auto indices = dict_array->indices();
     switch (indices->type_id()) {
       case Type::UINT8:
-        Ingest_Impl<arrow::UInt8Type>(array, start, n);
-        break;
+        return Ingest_Impl<arrow::UInt8Type>(array, start, n);
       case Type::INT8:
-        Ingest_Impl<arrow::Int8Type>(array, start, n);
-        break;
+        return Ingest_Impl<arrow::Int8Type>(array, start, n);
       case Type::UINT16:
-        Ingest_Impl<arrow::UInt16Type>(array, start, n);
-        break;
+        return Ingest_Impl<arrow::UInt16Type>(array, start, n);
       case Type::INT16:
-        Ingest_Impl<arrow::Int16Type>(array, start, n);
-        break;
+        return Ingest_Impl<arrow::Int16Type>(array, start, n);
       case Type::INT32:
-        Ingest_Impl<arrow::Int32Type>(array, start, n);
-        break;
+        return Ingest_Impl<arrow::Int32Type>(array, start, n);
       default:
         break;
     }
@@ -705,8 +706,8 @@ struct Converter_Dictionary {
   }
 
   template <typename Type>
-  void Ingest_Impl(const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n) {
+  Status Ingest_Impl(const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+                     R_xlen_t n) {
     DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
     using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
     auto null_count = array->null_count();
@@ -716,8 +717,9 @@ struct Converter_Dictionary {
     } else {
       std::shared_ptr<Array> indices = dict_array->indices();
       auto p_array = indices->data()->GetValues<value_type>(1);
-      STOP_IF_NULL(p_array);
-
+      if (!p_array) {
+        return Status::Invalid("invalid data buffer");
+      }
       if (array->null_count()) {
         arrow::internal::BitmapReader bitmap_reader(indices->null_bitmap()->data(),
                                                     indices->offset(), n);
@@ -731,6 +733,7 @@ struct Converter_Dictionary {
             [](const value_type value) { return static_cast<int>(value) + 1; });
       }
     }
+    return Status::OK();
   }
 
   // factors are always integer vectors
@@ -783,7 +786,9 @@ struct Converter_Promotion {
       std::fill_n(data.begin() + start, n, default_value<RTYPE>());
     } else {
       auto p_values = array->data()->GetValues<value_type>(1);
-      STOP_IF_NULL(p_values);
+      if (!p_values) {
+        return Status::Invalid("Invalid values buffer");
+      }
 
       auto value_convert = [](value_type value) {
         return static_cast<r_stored_type>(value);
@@ -824,7 +829,10 @@ struct Converter_Time {
       std::fill_n(data.begin() + start, n, NA_REAL);
     } else {
       auto p_values = array->data()->GetValues<value_type>(1);
-      STOP_IF_NULL(p_values);
+      if (!p_values) {
+        return Status::Invalid("Invalid data buffer");
+      }
+
       auto p_vec = data.begin() + start;
       auto convert = [this](value_type value) {
         return static_cast<double>(value) / multiplier_;
@@ -862,7 +870,10 @@ struct Converter_Int64 {
       std::fill_n(reinterpret_cast<int64_t*>(data.begin()) + start, n, NA_INT64);
     } else {
       auto p_values = array->data()->GetValues<int64_t>(1);
-      STOP_IF_NULL(p_values);
+      if (!p_values) {
+        return Status::Invalid("Invalid data buffer");
+      }
+
       auto p_vec = reinterpret_cast<int64_t*>(data.begin()) + start;
 
       if (array->null_count()) {
