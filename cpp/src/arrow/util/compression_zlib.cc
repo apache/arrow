@@ -85,7 +85,7 @@ static Status ZlibErrorPrefix(const char* prefix_msg, const char* msg) {
 
 class GZipDecompressor : public Decompressor {
  public:
-  GZipDecompressor() : initialized_(false) {}
+  GZipDecompressor() : initialized_(false), finished_(false) {}
 
   ~GZipDecompressor() override {
     if (initialized_) {

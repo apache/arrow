@@ -336,7 +336,7 @@ static void SetPathInfo(const hdfsFileInfo* input, HdfsPathInfo* out) {
 // Private implementation
 class HadoopFileSystem::HadoopFileSystemImpl {
  public:
-  HadoopFileSystemImpl() {}
+  HadoopFileSystemImpl() : driver_(NULLPTR), port_(0), fs_(NULLPTR) {}
 
   Status Connect(const HdfsConnectionConfig* config) {
     if (config->driver == HdfsDriver::LIBHDFS3) {

@@ -499,7 +499,9 @@ Status RecordBatchStreamReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
 
 class RecordBatchFileReader::RecordBatchFileReaderImpl {
  public:
-  RecordBatchFileReaderImpl() { dictionary_memo_ = std::make_shared<DictionaryMemo>(); }
+  RecordBatchFileReaderImpl() : file_(NULLPTR), footer_offset_(0), footer_(NULLPTR) {
+    dictionary_memo_ = std::make_shared<DictionaryMemo>();
+  }
 
   Status ReadFooter() {
     int magic_size = static_cast<int>(strlen(kArrowMagicBytes));
