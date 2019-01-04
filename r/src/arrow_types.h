@@ -22,6 +22,7 @@
 #undef Free
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
+#include <arrow/csv/reader.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/feather.h>
