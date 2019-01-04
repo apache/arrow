@@ -364,3 +364,8 @@ Getting ``python-test.exe`` to run is a bit tricky because your
    set PYTHONHOME=%CONDA_PREFIX%
 
 Now ``python-test.exe`` or simply ``ctest`` (to run all tests) should work.
+
+Building the Documentation
+==========================
+
+See :ref:`building-docs` for instructions to build the HTML documentation.
