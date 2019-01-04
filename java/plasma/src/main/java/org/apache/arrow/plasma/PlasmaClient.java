@@ -24,9 +24,6 @@ import java.util.List;
 import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
 import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
 
-
-
-
 /**
  * The PlasmaClient is used to interface with a plasma store and manager.
  *

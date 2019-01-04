@@ -22,7 +22,6 @@ import java.util.List;
 import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
 import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
 
-
 /**
  * Object store interface, which provides the capabilities to put and get raw byte array, and serves.
  */
