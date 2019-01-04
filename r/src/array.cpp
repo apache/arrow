@@ -645,11 +645,29 @@ struct Converter_Boolean {
   LogicalVector data;
 };
 
-template <typename Type>
-struct Converter_Dictionary_Int32Indices {
-  Converter_Dictionary_Int32Indices(R_xlen_t n, const std::shared_ptr<arrow::Array>& dict,
-                                    bool ordered)
-      : data(no_init(n)) {
+struct Converter_Dictionary {
+  Converter_Dictionary(R_xlen_t n, const ArrayVector& arrays) : data(n) {
+    auto dict_array = static_cast<DictionaryArray*>(arrays[0].get());
+    auto dict = dict_array->dictionary();
+    auto indices = dict_array->indices();
+    switch (indices->type_id()) {
+      case Type::UINT8:
+      case Type::INT8:
+      case Type::UINT16:
+      case Type::INT16:
+      case Type::INT32:
+        break;
+      default:
+        stop("Cannot convert Dictionary Array of type `%s` to R",
+             dict_array->type()->ToString());
+    }
+
+    if (dict->type_id() != Type::STRING) {
+      stop("Cannot convert Dictionary Array of type `%s` to R",
+           dict_array->type()->ToString());
+    }
+    bool ordered = dict_array->dict_type()->ordered();
+
     data.attr("levels") = ArrayVector_To_Vector<Converter_String>(dict->length(), {dict});
     if (ordered) {
       data.attr("class") = CharacterVector::create("ordered", "factor");
@@ -659,6 +677,32 @@ struct Converter_Dictionary_Int32Indices {
   }
 
   void Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
+    auto indices = dict_array->indices();
+    switch (indices->type_id()) {
+      case Type::UINT8:
+        Ingest_Impl<arrow::UInt8Type>(array, start, n);
+        break;
+      case Type::INT8:
+        Ingest_Impl<arrow::Int8Type>(array, start, n);
+        break;
+      case Type::UINT16:
+        Ingest_Impl<arrow::UInt16Type>(array, start, n);
+        break;
+      case Type::INT16:
+        Ingest_Impl<arrow::Int16Type>(array, start, n);
+        break;
+      case Type::INT32:
+        Ingest_Impl<arrow::Int32Type>(array, start, n);
+        break;
+      default:
+        break;
+    }
+  }
+
+  template <typename Type>
+  void Ingest_Impl(const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+                   R_xlen_t n) {
     DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
     using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
     auto null_count = array->null_count();
@@ -685,6 +729,7 @@ struct Converter_Dictionary_Int32Indices {
     }
   }
 
+  // factors are always integer vectors
   IntegerVector data;
 };
 
@@ -828,44 +873,6 @@ struct Converter_Int64 {
   NumericVector data;
 };
 
-SEXP DictionaryArrays_to_Vector(int64_t n, const ArrayVector& arrays) {
-  DictionaryArray* dict_array = static_cast<DictionaryArray*>(arrays[0].get());
-  auto dict = dict_array->dictionary();
-  auto indices = dict_array->indices();
-
-  if (dict->type_id() != Type::STRING) {
-    stop("Cannot convert Dictionary Array of type `%s` to R",
-         dict_array->type()->ToString());
-  }
-  bool ordered = dict_array->dict_type()->ordered();
-  switch (indices->type_id()) {
-    case Type::UINT8:
-      return ArrayVector_To_Vector<Converter_Dictionary_Int32Indices<arrow::UInt8Type>>(
-          n, arrays, dict, ordered);
-
-    case Type::INT8:
-      return ArrayVector_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int8Type>>(
-          n, arrays, dict, ordered);
-
-    case Type::UINT16:
-      return ArrayVector_To_Vector<Converter_Dictionary_Int32Indices<arrow::UInt16Type>>(
-          n, arrays, dict, ordered);
-
-    case Type::INT16:
-      return ArrayVector_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int16Type>>(
-          n, arrays, dict, ordered);
-
-    case Type::INT32:
-      return ArrayVector_To_Vector<Converter_Dictionary_Int32Indices<arrow::Int32Type>>(
-          n, arrays, dict, ordered);
-
-    default:
-      stop("Cannot convert Dictionary Array of type `%s` to R",
-           dict_array->type()->ToString());
-  }
-  return R_NilValue;
-}
-
 struct Converter_Decimal {
   Converter_Decimal(R_xlen_t n) : data(no_init(n)) {}
 
@@ -921,7 +928,7 @@ SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
     case Type::STRING:
       return ArrayVector_To_Vector<Converter_String>(n, arrays);
     case Type::DICTIONARY:
-      return DictionaryArrays_to_Vector(n, arrays);
+      return ArrayVector_To_Vector<Converter_Dictionary>(n, arrays, arrays);
 
     case Type::DATE32:
       return ArrayVector_To_Vector<Converter_Date32>(n, arrays);
