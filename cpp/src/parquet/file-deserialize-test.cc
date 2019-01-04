@@ -85,8 +85,8 @@ class TestPageSerde : public ::testing::Test {
     page_header_.compressed_page_size = compressed_size;
     page_header_.type = format::PageType::DATA_PAGE;
 
-    ASSERT_NO_THROW(
-        SerializeThriftMsg(&page_header_, max_serialized_len, out_stream_.get()));
+    ThriftSerializer serializer;
+    ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
   }
 
   void ResetStream() { out_stream_.reset(new InMemoryOutputStream); }
