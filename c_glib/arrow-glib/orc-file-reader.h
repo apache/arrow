@@ -45,6 +45,7 @@ garrow_orc_file_reader_set_field_indexes(GArrowORCFileReader *reader,
                                          const gint *field_indexes,
                                          guint n_field_indexes);
 #endif
+GARROW_AVAILABLE_IN_0_12
 void
 garrow_orc_file_reader_set_field_indices(GArrowORCFileReader *reader,
                                          const gint *field_indices,
@@ -55,6 +56,7 @@ const gint *
 garrow_orc_file_reader_get_field_indexes(GArrowORCFileReader *reader,
                                          guint *n_field_indexes);
 #endif
+GARROW_AVAILABLE_IN_0_12
 const gint *
 garrow_orc_file_reader_get_field_indices(GArrowORCFileReader *reader,
                                          guint *n_field_indices);
