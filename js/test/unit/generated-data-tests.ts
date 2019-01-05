@@ -76,7 +76,7 @@ interface GeneratedRecordBatch {
     rows: () => any[][];
     cols: () => any[][];
     keys: () => ArrayLike<number>[];
-};
+}
 
 interface GeneratedVector {
     vector: Vector;
