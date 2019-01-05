@@ -159,7 +159,7 @@ where
 pub fn sum<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
-    T::Native: Add<Output = T::Native>
+    T::Native: Add<Output = T::Native>,
 {
     let mut n: T::Native = T::default_value();
     let data = array.data();
