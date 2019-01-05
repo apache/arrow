@@ -20,8 +20,7 @@
 #pragma once
 
 #include <arrow-glib/array.h>
-#include <arrow-glib/gobject-type.h>
-#include <arrow-glib/decimal.h>
+#include <arrow-glib/decimal128.h>
 
 G_BEGIN_DECLS
 
@@ -1475,7 +1474,7 @@ struct _GArrowDecimal128ArrayBuilderClass
   GArrowArrayBuilderClass parent_class;
 };
 
-GArrowDecimal128ArrayBuilder *garrow_decimal128_array_builder_new(GArrowDecimalDataType *data_type);
+GArrowDecimal128ArrayBuilder *garrow_decimal128_array_builder_new(GArrowDecimal128DataType *data_type);
 
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_DEPRECATED_IN_0_12_FOR(garrow_decimal128_array_builder_append_value)

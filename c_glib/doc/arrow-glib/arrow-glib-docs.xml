@@ -53,7 +53,7 @@
     </chapter>
     <chapter id="decimal">
       <title>Decimal</title>
-      <xi:include href="xml/decimal.xml"/>
+      <xi:include href="xml/decimal128.xml"/>
     </chapter>
     <chapter id="tensor">
       <title>Tensor</title>

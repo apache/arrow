@@ -23,9 +23,9 @@
 
 #include <arrow-glib/array-builder.hpp>
 #include <arrow-glib/data-type.hpp>
+#include <arrow-glib/decimal128.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/type.hpp>
-#include <arrow-glib/decimal.hpp>
 
 template <typename BUILDER, typename VALUE>
 gboolean
@@ -3803,14 +3803,14 @@ garrow_decimal128_array_builder_class_init(GArrowDecimal128ArrayBuilderClass *kl
 
 /**
  * garrow_decimal128_array_builder_new:
- * @data_type: #GArrowDecimalDataType for the decimal.
+ * @data_type: #GArrowDecimal128DataType for the decimal.
  *
  * Returns: A newly created #GArrowDecimal128ArrayBuilder.
  *
  * Since: 0.10.0
  */
 GArrowDecimal128ArrayBuilder *
-garrow_decimal128_array_builder_new(GArrowDecimalDataType *data_type)
+garrow_decimal128_array_builder_new(GArrowDecimal128DataType *data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   auto builder = garrow_array_builder_new(arrow_data_type,
