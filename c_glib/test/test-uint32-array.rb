@@ -29,16 +29,16 @@ class TestUInt32Array < Test::Unit::TestCase
 
   def test_buffer
     builder = Arrow::UInt32ArrayBuilder.new
-    builder.append(1)
-    builder.append(2)
-    builder.append(4)
+    builder.append_value(1)
+    builder.append_value(2)
+    builder.append_value(4)
     array = builder.finish
     assert_equal([1, 2, 4].pack("L*"), array.buffer.data.to_s)
   end
 
   def test_value
     builder = Arrow::UInt32ArrayBuilder.new
-    builder.append(1)
+    builder.append_value(1)
     array = builder.finish
     assert_equal(1, array.get_value(0))
   end
@@ -46,9 +46,9 @@ class TestUInt32Array < Test::Unit::TestCase
   def test_values
     require_gi_bindings(3, 1, 7)
     builder = Arrow::UInt32ArrayBuilder.new
-    builder.append(1)
-    builder.append(2)
-    builder.append(4)
+    builder.append_value(1)
+    builder.append_value(2)
+    builder.append_value(4)
     array = builder.finish
     assert_equal([1, 2, 4], array.values)
   end

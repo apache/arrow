@@ -31,15 +31,15 @@ class TestStringArray < Test::Unit::TestCase
 
   def test_value
     builder = Arrow::StringArrayBuilder.new
-    builder.append("Hello")
+    builder.append_value("Hello")
     array = builder.finish
     assert_equal("Hello", array.get_string(0))
   end
 
   def test_buffer
     builder = Arrow::StringArrayBuilder.new
-    builder.append("Hello")
-    builder.append("World")
+    builder.append_value("Hello")
+    builder.append_value("World")
     array = builder.finish
     assert_equal("HelloWorld", array.buffer.data.to_s)
   end

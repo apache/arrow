@@ -29,16 +29,16 @@ class TestDoubleArray < Test::Unit::TestCase
 
   def test_buffer
     builder = Arrow::DoubleArrayBuilder.new
-    builder.append(-1.1)
-    builder.append(2.2)
-    builder.append(-4.4)
+    builder.append_value(-1.1)
+    builder.append_value(2.2)
+    builder.append_value(-4.4)
     array = builder.finish
     assert_equal([-1.1, 2.2, -4.4].pack("d*"), array.buffer.data.to_s)
   end
 
   def test_value
     builder = Arrow::DoubleArrayBuilder.new
-    builder.append(1.5)
+    builder.append_value(1.5)
     array = builder.finish
     assert_in_delta(1.5, array.get_value(0))
   end
@@ -46,9 +46,9 @@ class TestDoubleArray < Test::Unit::TestCase
   def test_values
     require_gi_bindings(3, 1, 7)
     builder = Arrow::DoubleArrayBuilder.new
-    builder.append(1.5)
-    builder.append(3)
-    builder.append(4.5)
+    builder.append_value(1.5)
+    builder.append_value(3)
+    builder.append_value(4.5)
     array = builder.finish
     assert_equal([1.5, 3.0, 4.5], array.values)
   end
