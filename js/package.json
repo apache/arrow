@@ -8,10 +8,10 @@
   },
   "scripts": {
     "lerna": "lerna",
-    "test": "gulp test",
-    "build": "gulp build",
-    "clean": "gulp clean",
-    "debug": "gulp debug",
+    "test": "NODE_NO_WARNINGS=1 gulp test",
+    "build": "NODE_NO_WARNINGS=1 gulp build",
+    "clean": "NODE_NO_WARNINGS=1 gulp clean",
+    "debug": "NODE_NO_WARNINGS=1 gulp debug",
     "perf": "node ./perf/index.js",
     "test:integration": "node ./bin/integration.js --mode validate",
     "create:perfdata": "python ./test/data/tables/generate.py ./test/data/tables/tracks.arrow",
@@ -19,11 +19,14 @@
     "clean:all": "run-p clean clean:testdata",
     "clean:testdata": "gulp clean:testdata",
     "create:testdata": "gulp create:testdata",
-    "test:coverage": "gulp test -t ts --coverage",
-    "doc": "shx rm -rf ./doc && typedoc --mode file --out doc src/Arrow.ts",
-    "lint": "run-p lint:*",
+    "test:coverage": "gulp test -t src --coverage",
+    "doc": "shx rm -rf ./doc && typedoc --tsconfig tsconfig.json --target ES5 --module commonjs --mode modules --ignoreCompilerErrors --out doc src",
+    "lint": "run-p lint:src lint:test",
+    "lint:ci": "run-p lint:src:ci lint:test:ci",
     "lint:src": "tslint --fix --project -p tsconfig.json -c tslint.json \"src/**/*.ts\"",
     "lint:test": "tslint --fix --project -p test/tsconfig.json -c tslint.json \"test/**/*.ts\"",
+    "lint:src:ci": "tslint --project -p tsconfig.json -c tslint.json \"src/**/*.ts\"",
+    "lint:test:ci": "tslint --project -p test/tsconfig.json -c tslint.json \"test/**/*.ts\"",
     "prepublishOnly": "echo \"Error: do 'npm run release' instead of 'npm publish'\" && exit 1",
     "version": "npm install && npm run clean:all"
   },
@@ -53,99 +56,60 @@
     "npm-release.sh"
   ],
   "dependencies": {
-    "@types/flatbuffers": "1.9.0",
-    "@types/node": "10.12.0",
-    "@types/text-encoding-utf-8": "1.0.1",
+    "@types/flatbuffers": "^1.9.0",
+    "@types/node": "^10.12.18",
+    "@types/text-encoding-utf-8": "^1.0.1",
     "command-line-args": "5.0.2",
     "command-line-usage": "5.0.5",
-    "flatbuffers": "1.10.2",
+    "flatbuffers": "^1.10.2",
     "json-bignum": "0.0.3",
+    "pad-left": "2.1.0",
     "text-encoding-utf-8": "1.0.2",
-    "tslib": "1.9.3"
+    "tslib": "^1.9.3"
   },
   "devDependencies": {
-    "@std/esm": "0.26.0",
+    "@mattiasbuelens/web-streams-polyfill": "0.2.1",
     "@types/glob": "7.1.1",
-    "@types/jest": "23.3.5",
+    "@types/jest": "23.3.10",
+    "async-done": "1.3.1",
     "benchmark": "2.1.4",
     "coveralls": "3.0.2",
     "del": "3.0.0",
+    "esm": "3.0.84",
     "glob": "7.1.3",
-    "google-closure-compiler": "20181008.0.0",
+    "google-closure-compiler": "20181210.0.0",
     "gulp": "4.0.0",
-    "gulp-json-transform": "0.4.5",
+    "gulp-json-transform": "0.4.6",
     "gulp-rename": "1.4.0",
     "gulp-sourcemaps": "2.6.4",
-    "gulp-typescript": "5.0.0-alpha.3",
-    "ix": "2.3.5",
+    "gulp-typescript": "5.0.0",
+    "ix": "2.4.3",
     "jest": "23.6.0",
     "jest-environment-node-debug": "2.0.0",
+    "jest-silent-reporter": "0.1.1",
     "json": "9.0.6",
-    "lerna": "3.4.3",
-    "lint-staged": "7.3.0",
-    "merge2": "1.2.3",
+    "lerna": "3.8.0",
+    "memfs": "2.14.2",
     "mkdirp": "0.5.1",
+    "multistream": "2.1.1",
     "npm-run-all": "4.1.5",
-    "pump": "3.0.0",
+    "randomatic": "3.1.1",
     "rimraf": "2.6.2",
     "rxjs": "5.5.11",
     "shx": "0.3.2",
     "source-map-loader": "0.2.4",
-    "terser-webpack-plugin": "1.1.0",
+    "terser-webpack-plugin": "1.2.1",
     "trash": "4.3.0",
-    "ts-jest": "22.4.6",
+    "ts-jest": "23.10.5",
     "ts-node": "7.0.1",
-    "tslint": "5.11.0",
-    "typedoc": "0.12",
-    "typescript": "3.0.3",
-    "webpack": "4.23.1",
+    "tslint": "5.12.0",
+    "typedoc": "0.13.0",
+    "typescript": "3.2.2",
+    "web-stream-tools": "0.0.1",
+    "webpack": "4.28.3",
     "xml2js": "0.4.19"
   },
   "engines": {
-    "node": ">=10.0"
-  },
-  "@std/esm": {
-    "warnings": false
-  },
-  "lint-staged": {
-    "*.@(ts)": [
-      "tslint --fix",
-      "git add"
-    ]
-  },
-  "jest": {
-    "verbose": false,
-    "testEnvironment": "node",
-    "globals": {
-      "ts-jest": {
-        "skipBabel": true,
-        "tsConfigFile": "test/tsconfig.json"
-      }
-    },
-    "roots": [
-      "<rootDir>/test/"
-    ],
-    "moduleFileExtensions": [
-      "js",
-      "ts",
-      "tsx"
-    ],
-    "coverageReporters": [
-      "lcov"
-    ],
-    "coveragePathIgnorePatterns": [
-      "fb\\/(File|Message|Schema|Tensor)_generated\\.(js|ts)$",
-      "test\\/.*\\.(ts|tsx|js)$",
-      "/node_modules/"
-    ],
-    "transform": {
-      ".(ts|tsx)": "./node_modules/ts-jest/preprocessor.js",
-      ".(js|jsx)": "./node_modules/babel-jest/build/index.js"
-    },
-    "transformIgnorePatterns": [
-      "/node_modules/",
-      "/(es2015|esnext)/umd/"
-    ],
-    "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|tsx|js)$"
+    "node": ">=11.0"
   }
 }

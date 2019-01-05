@@ -1,0 +1,169 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug Gulp Build",
+            "program": "${workspaceFolder}/node_modules/gulp/bin/gulp.js",
+            "args": [
+                "build",
+                // Specify we want to debug the "src" target, which won't clean or build -- essentially a "dry-run" of the gulp build
+                "--target", "src"
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug Unit Tests",
+            "cwd": "${workspaceRoot}",
+            "program": "${workspaceFolder}/node_modules/.bin/jest",
+            "skipFiles": [
+                "<node_internals>/**/*.js",
+                "${workspaceFolder}/node_modules/**/*.js"
+            ],
+            "env": {
+                "NODE_NO_WARNINGS": "1",
+                "READABLE_STREAM": "disable",
+                "TEST_DOM_STREAMS": "true",
+                "TEST_NODE_STREAMS": "true",
+                // Modify these environment variables to run tests on a specific compilation target + module format combo
+                "TEST_TS_SOURCE": "true",
+                // "TEST_TS_SOURCE": "false",
+                // "TEST_TARGET": "es5",
+                // "TEST_MODULE": "umd"
+            },
+            "args": [
+                // "-i",
+                "test/unit/",
+
+                // Uncomment any of these to run individual test suites
+                // "test/unit/int-tests.ts",
+                // "test/unit/table-tests.ts",
+                // "test/unit/generated-data-tests.ts",
+
+                // "test/unit/vector/vector-tests.ts",
+                // "test/unit/vector/bool-vector-tests.ts",
+                // "test/unit/vector/date-vector-tests.ts",
+                // "test/unit/vector/float16-vector-tests.ts",
+                // "test/unit/vector/numeric-vector-tests.ts",
+
+                // "test/unit/visitor-tests.ts",
+
+                // "test/unit/ipc/message-reader-tests.ts",
+                // "test/unit/ipc/reader/file-reader-tests.ts",
+                // "test/unit/ipc/reader/json-reader-tests.ts",
+                // "test/unit/ipc/reader/from-inference-tests.ts",
+                // "test/unit/ipc/reader/stream-reader-tests.ts",
+                // "test/unit/ipc/reader/streams-dom-tests.ts",
+                // "test/unit/ipc/reader/streams-node-tests.ts",
+                // "test/unit/ipc/writer/file-writer-tests.ts",
+                // "test/unit/ipc/writer/json-writer-tests.ts",
+                // "test/unit/ipc/writer/stream-writer-tests.ts",
+                // "test/unit/ipc/writer/streams-dom-tests.ts",
+                // "test/unit/ipc/writer/streams-node-tests.ts",
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug Integration Tests",
+            "cwd": "${workspaceRoot}",
+            "program": "${workspaceFolder}/bin/integration.js",
+            "skipFiles": [
+                "<node_internals>/**/*.js",
+                "${workspaceFolder}/node_modules/**/*.js"
+            ],
+            "env": {
+                "NODE_NO_WARNINGS": "1",
+                "READABLE_STREAM": "disable"
+            },
+            "args": [
+                "--mode", "VALIDATE"
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug bin/arrow2csv",
+            "env": { "ARROW_JS_DEBUG": "src", "TS_NODE_CACHE": "false" },
+            "runtimeArgs": ["-r", "ts-node/register"],
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**/*.js",
+                "${workspaceFolder}/node_modules/**/*.js"
+            ],
+            "args": [
+                "${workspaceFolder}/src/bin/arrow2csv.ts",
+                "-f", "./test/data/cpp/stream/simple.arrow"
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug bin/file-to-stream",
+            "env": { "ARROW_JS_DEBUG": "src", "TS_NODE_CACHE": "false" },
+            "runtimeArgs": ["-r", "ts-node/register"],
+            "skipFiles": [
+                "<node_internals>/**/*.js",
+                "${workspaceFolder}/node_modules/**/*.js"
+            ],
+            "args": [
+                "${workspaceFolder}/bin/file-to-stream.js",
+                "./test/data/cpp/file/struct_example.arrow",
+                "./struct_example-stream-out.arrow",
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug bin/stream-to-file",
+            "env": { "ARROW_JS_DEBUG": "src", "TS_NODE_CACHE": "false" },
+            "runtimeArgs": ["-r", "ts-node/register"],
+            "skipFiles": [
+                "<node_internals>/**/*.js",
+                "${workspaceFolder}/node_modules/**/*.js"
+            ],
+            "args": [
+                "${workspaceFolder}/bin/stream-to-file.js",
+                "./test/data/cpp/stream/struct_example.arrow",
+                "./struct_example-file-out.arrow",
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug bin/json-to-arrow",
+            "env": { "ARROW_JS_DEBUG": "src", "TS_NODE_CACHE": "false" },
+            "runtimeArgs": ["-r", "ts-node/register"],
+            "skipFiles": [
+                "<node_internals>/**/*.js",
+                "${workspaceFolder}/node_modules/**/*.js"
+            ],
+            "args": [
+                "${workspaceFolder}/bin/json-to-arrow.js",
+                "-j", "./test/data/json/struct_example.json",
+                "-a", "./struct_example-stream-out.arrow",
+                "-f", "stream"
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug bin/print-buffer-alignment",
+            "env": { "ARROW_JS_DEBUG": "src", "TS_NODE_CACHE": "false" },
+            "runtimeArgs": ["-r", "ts-node/register"],
+            "skipFiles": [
+                "<node_internals>/**/*.js",
+                "${workspaceFolder}/node_modules/**/*.js"
+            ],
+            "args": [
+                "${workspaceFolder}/bin/print-buffer-alignment.js",
+                "./test/data/cpp/stream/struct_example.arrow"
+            ]
+        }
+    ]
+}
