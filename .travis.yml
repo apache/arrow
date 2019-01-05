@@ -326,6 +326,8 @@ matrix:
     language: r
     cache: packages
     latex: false
+    env:
+    - ARROW_TRAVIS_PARQUET=1
     before_install:
     # Have to copy-paste this here because of how R's build steps work
     - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`

@@ -26,13 +26,13 @@
 # R CMD INSTALL --configure-vars='INCLUDE_DIR=/.../include LIB_DIR=/.../lib'
 
 # Library settings
-PKG_CONFIG_NAME="arrow"
+PKG_CONFIG_NAME="arrow parquet"
 PKG_DEB_NAME="arrow"
 PKG_RPM_NAME="arrow"
 PKG_CSW_NAME="arrow"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
-PKG_LIBS="-larrow"
+PKG_LIBS="-larrow -lparquet"
 
 # Use pkg-config if available
 pkg-config --version >/dev/null 2>&1
