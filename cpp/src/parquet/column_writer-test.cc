@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/test-util.h>
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <arrow/test-util.h>
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -157,19 +157,20 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     if (this->type_num() == Type::BOOLEAN) {
       // Dictionary encoding is not allowed for boolean type
       // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case
-      ASSERT_THAT(encodings, testing::ElementsAre(Encoding::PLAIN, Encoding::RLE));
+      std::vector<Encoding::type> expected({Encoding::PLAIN, Encoding::RLE});
+      ASSERT_EQ(encodings, expected);
     } else if (version == ParquetVersion::PARQUET_1_0) {
       // There are 4 encodings (PLAIN_DICTIONARY, PLAIN, RLE, PLAIN) in a fallback case
       // for version 1.0
-      ASSERT_THAT(encodings,
-                  testing::ElementsAre(Encoding::PLAIN_DICTIONARY, Encoding::PLAIN,
-                                       Encoding::RLE, Encoding::PLAIN));
+      std::vector<Encoding::type> expected(
+          {Encoding::PLAIN_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
+      ASSERT_EQ(encodings, expected);
     } else {
       // There are 4 encodings (RLE_DICTIONARY, PLAIN, RLE, PLAIN) in a fallback case for
       // version 2.0
-      ASSERT_THAT(encodings,
-                  testing::ElementsAre(Encoding::RLE_DICTIONARY, Encoding::PLAIN,
-                                       Encoding::RLE, Encoding::PLAIN));
+      std::vector<Encoding::type> expected(
+          {Encoding::RLE_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
+      ASSERT_EQ(encodings, expected);
     }
   }
 
