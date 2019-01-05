@@ -637,6 +637,10 @@ ipc___ReadMessage <- function(stream) {
     .Call(`_arrow_ipc___ReadMessage`, stream)
 }
 
+read_parquet_file <- function(filename) {
+    .Call(`_arrow_read_parquet_file`, filename)
+}
+
 RecordBatch__num_columns <- function(x) {
     .Call(`_arrow_RecordBatch__num_columns`, x)
 }

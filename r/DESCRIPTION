@@ -4,6 +4,7 @@ Version: 0.11.0.9000
 Authors@R: c(
     person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")),
     person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("ctb")),
+    person("Jeffrey", "Wong", email = "jeffreyw@netflix.com", role = c("ctb")),
     person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
   )
 Description: R Integration to 'Apache' 'Arrow'.
@@ -62,6 +63,7 @@ Collate:
     'memory_pool.R'
     'message.R'
     'on_exit.R'
+    'parquet.R'
     'read_record_batch.R'
     'read_table.R'
     'reexports-bit64.R'

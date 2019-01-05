@@ -25,7 +25,7 @@ git clone https://github.com/apache/arrow.git
 cd arrow/cpp && mkdir release && cd release
 
 # It is important to statically link to boost libraries
-cmake .. -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:BOOL=Off
+cmake .. -DARROW_PARQUET=ON -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:BOOL=Off
 make install
 ```
 

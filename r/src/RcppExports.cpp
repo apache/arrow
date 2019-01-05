@@ -1779,6 +1779,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// read_parquet_file
+std::shared_ptr<arrow::Table> read_parquet_file(std::string filename);
+RcppExport SEXP _arrow_read_parquet_file(SEXP filenameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type filename(filenameSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_parquet_file(filename));
+    return rcpp_result_gen;
+END_RCPP
+}
 // RecordBatch__num_columns
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
 RcppExport SEXP _arrow_RecordBatch__num_columns(SEXP xSEXP) {
@@ -2369,6 +2380,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___MessageReader__Open", (DL_FUNC) &_arrow_ipc___MessageReader__Open, 1},
     {"_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1},
     {"_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1},
+    {"_arrow_read_parquet_file", (DL_FUNC) &_arrow_read_parquet_file, 1},
     {"_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
     {"_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
