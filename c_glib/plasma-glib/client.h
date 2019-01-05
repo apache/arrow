@@ -23,6 +23,26 @@
 
 G_BEGIN_DECLS
 
+#define GPLASMA_TYPE_CLIENT_OPTIONS (gplasma_client_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GPlasmaClientOptions,
+                         gplasma_client_options,
+                         GPLASMA,
+                         CLIENT_OPTIONS,
+                         GObject)
+
+struct _GPlasmaClientOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GPlasmaClientOptions *gplasma_client_options_new(void);
+void
+gplasma_client_options_set_n_retries(GPlasmaClientOptions *options,
+                                     gint n_retries);
+gint
+gplasma_client_options_get_n_retries(GPlasmaClientOptions *options);
+
+
 #define GPLASMA_TYPE_CLIENT_CREATE_OPTIONS      \
   (gplasma_client_create_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GPlasmaClientCreateOptions,
@@ -59,6 +79,7 @@ struct _GPlasmaClientClass
 };
 
 GPlasmaClient *gplasma_client_new(const gchar *store_socket_name,
+                                  GPlasmaClientOptions *options,
                                   GError **error);
 GPlasmaCreatedObject *
 gplasma_client_create(GPlasmaClient *client,
