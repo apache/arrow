@@ -129,8 +129,9 @@ const defaultUnionChildren = [
     new Field('union[2]', new Map_(defaultStructChildren))
 ];
 
-type GeneratedTestData<T extends DataType> = {
+export type GeneratedTestData<T extends DataType> = {
     vector: VType<T>;
+    keys?: ArrayLike<number>;
     values: () => (T['TValue'] | null)[];
 };
 
@@ -138,25 +139,30 @@ export const table = (lengths = [100], schema: Schema = new Schema(defaultRecord
     const generated = lengths.map((length) => recordBatch(length, schema));
     const rowBatches = generated.map(({ rows }) => rows);
     const colBatches = generated.map(({ cols }) => cols);
+    const keyBatches = generated.map(({ keys }) => keys);
     const rows = memoize(() => rowBatches.reduce((rows: any[][], batch) => [...rows, ...batch()], []));
+    const keys = memoize(() => keyBatches.reduce((keys: any[][], batch) => (
+        !keys.length ? batch() : keys.map((idxs, i) => [...(idxs || []), ...(batch()[i] || [])])
+    ), []));
     const cols = memoize(() => colBatches.reduce((cols: any[][], batch) => (
         !cols.length ? batch() : cols.map((vals, i) => [...vals, ...batch()[i]])
     ), []));
 
-    return { rows, cols, rowBatches, colBatches, table: new Table(schema, generated.map(({ recordBatch }) => recordBatch)) };
+    return { rows, cols, keys, rowBatches, colBatches, keyBatches, table: new Table(schema, generated.map(({ recordBatch }) => recordBatch)) };
 };
 export const recordBatch = (length = 100, schema: Schema = new Schema(defaultRecordBatchChildren.slice())) => {
 
     const generated = schema.fields.map((f) => vectorGenerator.visit(f.type, length));
     const vecs = generated.map(({ vector }) => vector);
 
+    const keys = memoize(() => generated.map(({ keys }) => keys));
     const cols = memoize(() => generated.map(({ values }) => values()));
     const rows = ((_cols: () => any[][]) => memoize((rows: any[][] = [], cols: any[][] = _cols()) => {
         for (let i = -1; ++i < length; rows[i] = cols.map((vals) => vals[i]));
         return rows;
     }))(cols);
 
-    return { rows, cols, recordBatch: new RecordBatch(schema, length, vecs) };
+    return { rows, cols, keys, recordBatch: new RecordBatch(schema, length, vecs) };
 };
 export const null_ = (length = 100) => vectorGenerator.visit(new Null(), length);
 export const bool = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new Bool(), length, nullCount);
@@ -410,7 +416,7 @@ function generateDictionary<T extends Dictionary>(this: TestDataVectorGenerator,
     type.dictionaryVector = dict;
     (<any> type).dictVals = vals;
 
-    return { values, vector: Vector.new(Data.Dictionary(type, 0, length, nullCount, nullBitmap, keys)) };
+    return { values, keys, vector: Vector.new(Data.Dictionary(type, 0, length, nullCount, nullBitmap, keys)) };
 }
 
 function generateUnion<T extends Union>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = length * 0.2 | 0, children?: GeneratedTestData<any>[]): GeneratedTestData<T> {
@@ -519,7 +525,7 @@ const randomString = ((opts) =>
     (length: number) => randomatic('?', length, opts)
 )({ chars: `abcdefghijklmnopqrstuvwxyz0123456789_` });
 
-const memoize = (fn: () => any) => () => ((x?: any) => x || (x = fn()))();
+const memoize = (fn: () => any) => ((x?: any) => () => x || (x = fn()))();
 
 const encodeUtf8 = ((encoder) =>
     encoder.encode.bind(encoder) as (input?: string, options?: { stream?: boolean }) => Uint8Array

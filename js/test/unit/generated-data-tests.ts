@@ -61,31 +61,62 @@ describe('Generated Test Data', () => {
     describe('MapVector',                  () => validateVector(generate.map()));
 });
 
-function validateTable({ rows, cols, rowBatches, colBatches, table }: { rows: () => any[][], cols: () => any[][], rowBatches: (() => any[][])[], colBatches: (() => any[][])[], table: Table }) {
+interface GeneratedTable {
+    table: Table;
+    rows: () => any[][];
+    cols: () => any[][];
+    keys: () => ArrayLike<number>[];
+    rowBatches: (() => any[][])[];
+    colBatches: (() => any[][])[];
+    keyBatches: (() => ArrayLike<number>[])[];
+}
+
+interface GeneratedRecordBatch {
+    recordBatch: RecordBatch;
+    rows: () => any[][];
+    cols: () => any[][];
+    keys: () => ArrayLike<number>[];
+};
+
+interface GeneratedVector {
+    vector: Vector;
+    values: () => any[];
+    keys?: ArrayLike<number>;
+}
+
+function validateTable({ keys, rows, cols, rowBatches, colBatches, keyBatches, table }: GeneratedTable) {
 
     validateVector({ values: rows, vector: table });
 
     table.chunks.forEach((recordBatch, i) => {
         describe(`recordBatch ${i}`, () => {
-            validateRecordBatch({ rows: rowBatches[i], cols: colBatches[i], recordBatch });
+            validateRecordBatch({ keys: keyBatches[i], rows: rowBatches[i], cols: colBatches[i], recordBatch });
         });
     });
 
     table.schema.fields.forEach((field, i) => {
-        describe(`column ${i}: ${field}`, () => validateVector({ values: () => cols()[i], vector: table.getColumnAt(i)! }));
+        describe(`column ${i}: ${field}`, () => validateVector({
+            keys: keys()[i],
+            values: () => cols()[i],
+            vector: table.getColumnAt(i)!
+        }));
     });
 }
 
-function validateRecordBatch({ rows, cols, recordBatch }: { rows: () => any[][], cols: () => any[][], recordBatch: RecordBatch }) {
+function validateRecordBatch({ rows, cols, keys, recordBatch }: GeneratedRecordBatch) {
 
     validateVector({ values: rows, vector: recordBatch });
 
     recordBatch.schema.fields.forEach((field, i) => {
-        describe(`${field}`, () => validateVector({ values: () => cols()[i], vector: recordBatch.getChildAt(i)! }));
+        describe(`${field}`, () => validateVector({
+            keys: keys()[i],
+            values: () => cols()[i],
+            vector: recordBatch.getChildAt(i)!
+        }));
     });
 }
 
-function validateVector({ values: createValues, vector }: { values: () => any[], vector: Vector }) {
+function validateVector({ values: createValues, vector, keys }: GeneratedVector) {
 
     const values = createValues();
 
@@ -100,6 +131,21 @@ function validateVector({ values: createValues, vector }: { values: () => any[],
             }
         } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
     });
+
+    if (keys && keys.length > 0) {
+        test(`dictionary indices should match`, () => {
+            expect.hasAssertions();
+            let indices = (vector as any).indices;
+            let i = -1, n = indices.length;
+            try {
+                while (++i < n) {
+                    indices.isValid(i)
+                        ? expect(indices.get(i)).toBe(keys[i])
+                        : expect(indices.get(i)).toBe(null);
+                }
+            } catch (e) { throw new Error(`${indices}[${i}]: ${e}`); }
+        });
+    }
 
     test(`sets expected values`, () => {
         expect.hasAssertions();

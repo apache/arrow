@@ -18,9 +18,13 @@
 import { Data } from '../data';
 import { Field } from '../schema';
 import { Vector } from '../vector';
-import { DataType } from '../type';
 import { clampRange } from '../util/vector';
+import { DataType, Dictionary } from '../type';
 import { Clonable, Sliceable, Applicative } from '../vector';
+import { DictionaryVector } from './dictionary';
+
+type ChunkedDict<T extends DataType> = T extends Dictionary ? T['dictionaryVector'] : null | never;
+type ChunkedKeys<T extends DataType> = T extends Dictionary ? Vector<T['indices']> | Chunked<T['indices']> : null | never;
 
 /** @ignore */
 type SearchContinuation<T extends Chunked> = (column: T, chunkIndex: number, valueIndex: number) => any;
@@ -78,6 +82,26 @@ export class Chunked<T extends DataType = any>
             this._nullCount = nullCount = this._chunks.reduce((x, { nullCount }) => x + nullCount, 0);
         }
         return nullCount;
+    }
+
+    protected _indices?: ChunkedKeys<T>;
+    public get indices(): ChunkedKeys<T> | null {
+        if (DataType.isDictionary(this._type)) {
+            if (!this._indices) {
+                const chunks = (<any> this._chunks) as DictionaryVector<T, any>[];
+                this._indices = (chunks.length === 1
+                    ? chunks[0].indices
+                    : Chunked.concat(...chunks.map((x) => x.indices))) as ChunkedKeys<T>;
+            }
+            return this._indices;
+        }
+        return null;
+    }
+    public get dictionary(): ChunkedDict<T> | null {
+        if (DataType.isDictionary(this._type)) {
+            return (<any> this._type.dictionaryVector) as ChunkedDict<T>;
+        }
+        return null;
     }
 
     public *[Symbol.iterator](): IterableIterator<T['TValue'] | null> {
