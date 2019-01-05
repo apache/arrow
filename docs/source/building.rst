@@ -87,6 +87,4 @@ You can use Docker to build the documentation:
   docker-compose build docs
   docker-compose run docs
 
-The final output is located under [#]_::
-
-  docs/_build/html
+The final output is located under ``docs/_build/html``.
