@@ -648,7 +648,7 @@ garrow_cuda_ipc_memory_handle_new(const guint8 *data,
  *
  * Returns: (transfer full): A newly created #GArrowBuffer on success,
  *   %NULL on error. The buffer has serialized @handle. The serialized
- *   @handle can be deserialized by garrow_gpu_cuda_ipc_memory_handle_new()
+ *   @handle can be deserialized by garrow_cuda_ipc_memory_handle_new()
  *   in other process.
  *
  * Since: 0.8.0

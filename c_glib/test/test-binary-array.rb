@@ -32,7 +32,7 @@ class TestBinaryArray < Test::Unit::TestCase
   def test_value
     data = "\x00\x01\x02"
     builder = Arrow::BinaryArrayBuilder.new
-    builder.append(data)
+    builder.append_value(data)
     array = builder.finish
     assert_equal(data, array.get_value(0).to_s)
   end
@@ -41,8 +41,8 @@ class TestBinaryArray < Test::Unit::TestCase
     data1 = "\x00\x01\x02"
     data2 = "\x03\x04\x05"
     builder = Arrow::BinaryArrayBuilder.new
-    builder.append(data1)
-    builder.append(data2)
+    builder.append_value(data1)
+    builder.append_value(data2)
     array = builder.finish
     assert_equal(data1 + data2, array.buffer.data.to_s)
   end
@@ -51,8 +51,8 @@ class TestBinaryArray < Test::Unit::TestCase
     data1 = "\x00\x01"
     data2 = "\x02\x03\x04"
     builder = Arrow::BinaryArrayBuilder.new
-    builder.append(data1)
-    builder.append(data2)
+    builder.append_value(data1)
+    builder.append_value(data2)
     array = builder.finish
     byte_per_offset = 4
     assert_equal([0, 2, 5].pack("l*"),
