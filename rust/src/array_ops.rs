@@ -178,9 +178,10 @@ where
         n = n + m;
     }
     if all_nulls {
-        return None;
+        None
+    } else {
+        Some(n)
     }
-    Some(n)
 }
 
 /// Perform `left == right` operation on two arrays.
