@@ -196,3 +196,46 @@ message FunctionSignature {
   optional ExtGandivaType returnType = 2;
   repeated ExtGandivaType paramTypes = 3;
 }
+
+/* Logical data source that has been registered with Arrow prior to execution of a query plan */
+message DataSource {
+  required string name = 1;
+}
+
+message Projection {
+  required ExpressionList exprList = 1;
+  optional LogicalPlan input = 2;
+}
+
+message Selection {
+  required ExpressionRoot expr = 1;
+  required LogicalPlan input = 2;
+}
+
+enum SortOrder {
+  ASC = 1;
+  DESC = 2;
+}
+
+message SortExpression {
+  required ExpressionRoot expr = 1;
+  required SortOrder sortOrder = 2;
+}
+
+message Sort {
+  repeated SortExpression sortExpr = 1;
+  required LogicalPlan input = 3;
+}
+
+message Limit {
+  required int32 limit = 1;
+  required LogicalPlan input = 3;
+}
+
+message LogicalPlan {
+  optional DataSource dataSource = 1;
+  optional Projection projection = 2;
+  optional Selection selection = 3;
+  optional Sort sort = 4;
+  optional Limit limit = 5;
+}
