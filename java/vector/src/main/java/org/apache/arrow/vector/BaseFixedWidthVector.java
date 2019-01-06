@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -151,10 +150,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public void setInitialCapacity(int valueCount) {
-    final long size = computeCombinedBufferSize(valueCount, typeWidth);
-    if (size > MAX_ALLOCATION_SIZE) {
-      throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
-    }
+    computeAndCheckBufferSize(valueCount);
     initialValueAllocation = valueCount;
   }
 
@@ -258,9 +254,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public boolean allocateNewSafe() {
-    if (computeCombinedBufferSize(initialValueAllocation, typeWidth) > MAX_ALLOCATION_SIZE) {
-      throw new OversizedAllocationException("Requested amount of memory exceeds limit");
-    }
+    computeAndCheckBufferSize(initialValueAllocation);
 
     /* we are doing a new allocation -- release the current buffers */
     clear();
@@ -283,9 +277,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @throws org.apache.arrow.memory.OutOfMemoryException on error
    */
   public void allocateNew(int valueCount) {
-    if (computeCombinedBufferSize(valueCount, typeWidth) > MAX_ALLOCATION_SIZE) {
-      throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
-    }
+    computeAndCheckBufferSize(valueCount);
 
     /* we are doing a new allocation -- release the current buffers */
     clear();
@@ -298,6 +290,19 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     }
   }
 
+  /*
+   * Compute the buffer size required for 'valueCount', and check if it's within bounds.
+   */
+  private long computeAndCheckBufferSize(int valueCount) {
+    final long size = computeCombinedBufferSize(valueCount, typeWidth);
+    if (size > MAX_ALLOCATION_SIZE) {
+      throw new OversizedAllocationException("Memory required for vector capacity " +
+          valueCount +
+          " is (" + size + "), which is more than max allowed (" + MAX_ALLOCATION_SIZE + ")");
+    }
+    return size;
+  }
+
   /**
    * Actual memory allocation is done by this function. All the calculations
    * and knowledge about what size to allocate is upto the callers of this
@@ -308,9 +313,9 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * conditions.
    */
   private void allocateBytes(int valueCount) {
-    ArrowBuf[] buffers = allocDataAndValidityBufs(valueCount, typeWidth);
-    valueBuffer = buffers[0];
-    validityBuffer = buffers[1];
+    DataAndValidityBuffers buffers = allocFixedDataAndValidityBufs(valueCount, typeWidth);
+    valueBuffer = buffers.getDataBuf();
+    validityBuffer = buffers.getValidityBuf();
     zeroVector();
   }
 
@@ -406,18 +411,16 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
         targetValueCount = INITIAL_VALUE_ALLOCATION * 2;
       }
     }
-    if (computeCombinedBufferSize(targetValueCount, typeWidth) > MAX_ALLOCATION_SIZE) {
-      throw new OversizedAllocationException("Unable to expand the buffer");
-    }
+    computeAndCheckBufferSize(targetValueCount);
 
-    ArrowBuf[] buffers = allocDataAndValidityBufs(targetValueCount, typeWidth);
-    final ArrowBuf newValueBuffer = buffers[0];
+    DataAndValidityBuffers buffers = allocFixedDataAndValidityBufs(targetValueCount, typeWidth);
+    final ArrowBuf newValueBuffer = buffers.getDataBuf();
     newValueBuffer.setBytes(0, valueBuffer, 0, valueBuffer.capacity());
     newValueBuffer.setZero(valueBuffer.capacity(), newValueBuffer.capacity() - valueBuffer.capacity());
     valueBuffer.release();
     valueBuffer = newValueBuffer;
 
-    final ArrowBuf newValidityBuffer = buffers[1];
+    final ArrowBuf newValidityBuffer = buffers.getValidityBuf();
     newValidityBuffer.setBytes(0, validityBuffer, 0, validityBuffer.capacity());
     newValidityBuffer.setZero(validityBuffer.capacity(), newValidityBuffer.capacity() - validityBuffer.capacity());
     validityBuffer.release();

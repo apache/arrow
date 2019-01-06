@@ -112,6 +112,10 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   protected long computeCombinedBufferSize(int valueCount, int typeWidth) {
+    Preconditions.checkArgument(valueCount > 0, "valueCount must be positive");
+    Preconditions.checkArgument(typeWidth >= 0, "typeWidth must be >= 0");
+    Preconditions.checkArgument(typeWidth <= 16, "typeWidth must be <= 16");
+
     // compute size of validity buffer.
     long bufferSize = roundUp8(getValidityBufferSizeFromCount(valueCount));
 
@@ -125,21 +129,40 @@ public abstract class BaseValueVector implements ValueVector {
     return BaseAllocator.nextPowerOfTwo(bufferSize);
   }
 
-  protected ArrowBuf[] allocDataAndValidityBufs(int valueCount, int typeWidth) {
+  class DataAndValidityBuffers {
+    private ArrowBuf dataBuf;
+    private ArrowBuf validityBuf;
+
+    DataAndValidityBuffers(ArrowBuf dataBuf, ArrowBuf validityBuf) {
+      this.dataBuf = dataBuf;
+      this.validityBuf = validityBuf;
+    }
+
+    public ArrowBuf getDataBuf() {
+      return dataBuf;
+    }
+
+    public ArrowBuf getValidityBuf() {
+      return validityBuf;
+    }
+
+  }
+
+  protected DataAndValidityBuffers allocFixedDataAndValidityBufs(int valueCount, int typeWidth) {
     long bufferSize = computeCombinedBufferSize(valueCount, typeWidth);
     assert bufferSize < MAX_ALLOCATION_SIZE;
 
     int validityBufferSize;
     int dataBufferSize;
     if (typeWidth == 0) {
-      validityBufferSize = dataBufferSize = (int)(bufferSize / 2);
+      validityBufferSize = dataBufferSize = (int) (bufferSize / 2);
     } else {
       // Due to roundup to power-of-2 allocation, the bufferSize could be greater than the
       // requested size. Utilize the allocated buffer fully.;
-      int actualCount = (int)((bufferSize * 8.0) / (8 * typeWidth + 1));
+      int actualCount = (int) ((bufferSize * 8.0) / (8 * typeWidth + 1));
       do {
-        validityBufferSize = (int)roundUp8(getValidityBufferSizeFromCount(actualCount));
-        dataBufferSize = (int)roundUp8(actualCount * typeWidth);
+        validityBufferSize = (int) roundUp8(getValidityBufferSizeFromCount(actualCount));
+        dataBufferSize = (int) roundUp8(actualCount * typeWidth);
         if (validityBufferSize + dataBufferSize <= bufferSize) {
           break;
         }
@@ -149,10 +172,11 @@ public abstract class BaseValueVector implements ValueVector {
 
 
     /* allocate combined buffer */
-    ArrowBuf combinedBuffer = allocator.buffer((int)bufferSize);
+    ArrowBuf combinedBuffer = allocator.buffer((int) bufferSize);
 
     /* slice into requested lengths */
-    ArrowBuf[] retBuffers = new ArrowBuf[2];
+    ArrowBuf dataBuf = null;
+    ArrowBuf validityBuf = null;
     int bufferOffset = 0;
     for (int numBuffers = 0; numBuffers < 2; ++numBuffers) {
       int len = (numBuffers == 0 ? dataBufferSize : validityBufferSize);
@@ -162,10 +186,14 @@ public abstract class BaseValueVector implements ValueVector {
       buf.writerIndex(0);
 
       bufferOffset += len;
-      retBuffers[numBuffers] = buf;
+      if (numBuffers == 0) {
+        dataBuf = buf;
+      } else {
+        validityBuf = buf;
+      }
     }
     combinedBuffer.release();
-    return retBuffers;
+    return new DataAndValidityBuffers(dataBuf, validityBuf);
   }
 }
 
