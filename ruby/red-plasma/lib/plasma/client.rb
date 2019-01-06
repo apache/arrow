@@ -18,9 +18,18 @@
 module Plasma
   class Client
     alias_method :initialize_raw, :initialize
-    def initialize(socket_path)
+    private :initialize_raw
+    def initialize(socket_path, options=nil)
       socket_path = socket_path.to_path if socket_path.respond_to?(:to_path)
-      initialize_raw(socket_path)
+      if options
+        options_raw = options
+        options = ClientOptions.new
+        options_raw.each do |key, value|
+          setter = "#{key}="
+          options.__send__(setter, value) if options.respond_to?(setter)
+        end
+      end
+      initialize_raw(socket_path, options)
     end
   end
 end

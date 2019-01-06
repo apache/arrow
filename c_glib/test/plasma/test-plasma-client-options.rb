@@ -15,37 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestPlasmaReferredObject < Test::Unit::TestCase
+class TestPlasmaClientOptions < Test::Unit::TestCase
+  include Helper::Omittable
+
   def setup
-    @store = nil
     omit("Plasma is required") unless defined?(::Plasma)
-    @store = Helper::PlasmaStore.new
-    @store.start
-    @client = Plasma::Client.new(@store.socket_path, nil)
-
-    @id = Plasma::ObjectID.new("Hello")
-    @data = "World"
-    @metadata = "Metadata"
-    @options = Plasma::ClientCreateOptions.new
-    @options.metadata = @metadata
-    object = @client.create(@id, @data.bytesize, @options)
-    object.data.set_data(0, @data)
-    object.seal
-    @object = @client.refer_object(@id, -1)
+    @options = Plasma::ClientOptions.new
   end
 
-  def teardown
-    @store.stop if @store
-  end
-
-  test("#release") do
-    @object.release
-
-    message = "[plasma][referred-object][release]: "
-    message << "Can't process released object: <#{@id.to_hex}>"
-    error = Arrow::Error::Invalid.new(message)
-    assert_raise(error) do
-      @object.release
-    end
+  test("n_retries") do
+    assert_equal(-1, @options.n_retries)
+    @options.n_retries = 10
+    assert_equal(10, @options.n_retries)
   end
 end

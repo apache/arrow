@@ -39,12 +39,140 @@ G_BEGIN_DECLS
  * @title: Client related classes
  * @include: plasma-glib/plasma-glib.h
  *
+ * #GPlasmaClientOptions is a class for customizing plasma store
+ * connection.
+ *
  * #GPlasmaClientCreateOptions is a class for customizing object creation.
  *
  * #GPlasmaClient is a class for an interface with a plasma store.
  *
  * Since: 0.12.0
  */
+
+typedef struct GPlasmaClientCreatePrivate_ {
+  gint n_retries;
+} GPlasmaClientOptionsPrivate;
+
+enum {
+  PROP_N_RETRIES = 1
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GPlasmaClientOptions,
+                           gplasma_client_options,
+                           G_TYPE_OBJECT)
+
+#define GPLASMA_CLIENT_OPTIONS_GET_PRIVATE(object)      \
+  static_cast<GPlasmaClientOptionsPrivate *>(           \
+    gplasma_client_options_get_instance_private(        \
+      GPLASMA_CLIENT_OPTIONS(object)))
+
+static void
+gplasma_client_options_set_property(GObject *object,
+                                    guint prop_id,
+                                    const GValue *value,
+                                    GParamSpec *pspec)
+{
+  auto priv = GPLASMA_CLIENT_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_N_RETRIES:
+    priv->n_retries = g_value_get_int(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gplasma_client_options_get_property(GObject *object,
+                                    guint prop_id,
+                                    GValue *value,
+                                    GParamSpec *pspec)
+{
+  auto priv = GPLASMA_CLIENT_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_N_RETRIES:
+    g_value_set_int(value, priv->n_retries);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gplasma_client_options_init(GPlasmaClientOptions *object)
+{
+}
+
+static void
+gplasma_client_options_class_init(GPlasmaClientOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = gplasma_client_options_set_property;
+  gobject_class->get_property = gplasma_client_options_get_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_int("n-retries",
+                          "N retries",
+                          "The number of retries to connect plasma store. "
+                          "-1 means that the system default value is used.",
+                          -1,
+                          G_MAXINT,
+                          -1,
+                          static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                   G_PARAM_CONSTRUCT));
+  g_object_class_install_property(gobject_class, PROP_N_RETRIES, spec);
+}
+
+/**
+ * gplasma_client_options_new:
+ *
+ * Returns: A newly created #GPlasmaClientOptions.
+ *
+ * Since: 0.12.0
+ */
+GPlasmaClientOptions *
+gplasma_client_options_new(void)
+{
+  auto options = g_object_new(GPLASMA_TYPE_CLIENT_OPTIONS,
+                              NULL);
+  return GPLASMA_CLIENT_OPTIONS(options);
+}
+
+/**
+ * gplasma_client_options_set_n_retries:
+ * @options: A #GPlasmaClientOptions.
+ * @n_retries: The number of retires on connect.
+ *
+ * Since: 0.12.0
+ */
+void
+gplasma_client_options_set_n_retries(GPlasmaClientOptions *options,
+                                     gint n_retries)
+{
+  auto priv = GPLASMA_CLIENT_OPTIONS_GET_PRIVATE(options);
+  priv->n_retries = n_retries;
+}
+
+/**
+ * gplasma_client_options_get_n_retries:
+ * @options: A #GPlasmaClientOptions.
+ *
+ * Returns: The number of retries on connect.
+ *
+ * Since: 0.12.0
+ */
+gint
+gplasma_client_options_get_n_retries(GPlasmaClientOptions *options)
+{
+  auto priv = GPLASMA_CLIENT_OPTIONS_GET_PRIVATE(options);
+  return priv->n_retries;
+}
+
 
 typedef struct GPlasmaClientCreateOptionsPrivate_ {
   guint8 *metadata;
@@ -182,6 +310,7 @@ gplasma_client_create_options_get_metadata(GPlasmaClientCreateOptions *options,
   return priv->metadata;
 }
 
+
 typedef struct GPlasmaClientPrivate_ {
   plasma::PlasmaClient *client;
   bool disconnected;
@@ -262,6 +391,7 @@ gplasma_client_class_init(GPlasmaClientClass *klass)
 /**
  * gplasma_client_new:
  * @store_socket_name: The name of the UNIX domain socket.
+ * @options: (nullable): The options to custom how to connect to plasma store.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GPlasmaClient on success,
@@ -271,10 +401,15 @@ gplasma_client_class_init(GPlasmaClientClass *klass)
  */
 GPlasmaClient *
 gplasma_client_new(const gchar *store_socket_name,
+                   GPlasmaClientOptions *options,
                    GError **error)
 {
   auto plasma_client = new plasma::PlasmaClient();
-  auto status = plasma_client->Connect(store_socket_name, "");
+  int n_retries = -1;
+  if (options) {
+    n_retries = gplasma_client_options_get_n_retries(options);
+  }
+  auto status = plasma_client->Connect(store_socket_name, "", 0, n_retries);
   if (garrow_error_check(error, status, "[plasma][client][new]")) {
     return gplasma_client_new_raw(plasma_client);
   } else {
