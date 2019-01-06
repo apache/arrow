@@ -322,7 +322,8 @@ garrow_column_get_field(GArrowColumn *column)
   } else {
     const auto arrow_column = garrow_column_get_raw(column);
     auto arrow_field = arrow_column->field();
-    return garrow_field_new_raw(&arrow_field);
+    return garrow_field_new_raw(&arrow_field,
+                                garrow_column_get_data_type(column));
   }
 }
 

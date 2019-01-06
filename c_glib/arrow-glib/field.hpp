@@ -23,5 +23,6 @@
 
 #include <arrow-glib/field.h>
 
-GArrowField *garrow_field_new_raw(std::shared_ptr<arrow::Field> *arrow_field);
+GArrowField *garrow_field_new_raw(std::shared_ptr<arrow::Field> *arrow_field,
+                                  GArrowDataType *data_type);
 std::shared_ptr<arrow::Field> garrow_field_get_raw(GArrowField *field);
