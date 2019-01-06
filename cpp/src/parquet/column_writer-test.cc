@@ -47,7 +47,7 @@ const int VERY_LARGE_SIZE = 40000;
 // Larger size to test some corner cases, only used in some specific cases.
 const int LARGE_SIZE = 100000;
 // Very large size to test dictionary fallback.
-const int VERY_LARGE_SIZE = 400000;
+const int VERY_LARGE_SIZE = 800000;
 #endif
 
 template <typename TestType>
