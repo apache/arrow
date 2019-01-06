@@ -659,6 +659,6 @@ Apache Drill Documentation - `Value Vectors`_
 .. _least-significant bit (LSB) numbering: https://en.wikipedia.org/wiki/Bit_numbering
 .. _Intel performance guide: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
-.. _SIMD: https://software.intel.com/en-us/node/600110
+.. _SIMD: https://software.intel.com/en-us/cpp-compiler-developer-guide-and-reference-introduction-to-the-simd-data-layout-templates
 .. _Parquet: https://parquet.apache.org/documentation/latest/
 .. _Value Vectors: https://drill.apache.org/docs/value-vectors/
