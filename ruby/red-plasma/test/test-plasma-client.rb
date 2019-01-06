@@ -20,15 +20,31 @@ class TestPlasmaClient < Test::Unit::TestCase
     @store = nil
     @store = Helper::PlasmaStore.new
     @store.start
+    @id = Plasma::ObjectID.new("Hello")
+    @data = "World"
   end
 
   def teardown
     @store.stop if @store
   end
 
-  def test_new
-    assert_nothing_raised do
-      Plasma::Client.new(Pathname(@store.socket_path))
-    end
+  def test_new_pathname
+    client = Plasma::Client.new(Pathname(@store.socket_path))
+    object = client.create(@id, @data.bytesize, nil)
+    object.data.set_data(0, @data)
+    object.seal
+
+    object = client.refer_object(@id, -1)
+    assert_equal(@data, object.data.data.to_s)
+  end
+
+  def test_new_options
+    client = Plasma::Client.new(@store.socket_path, n_retries: 1)
+    object = client.create(@id, @data.bytesize, nil)
+    object.data.set_data(0, @data)
+    object.seal
+
+    object = client.refer_object(@id, -1)
+    assert_equal(@data, object.data.data.to_s)
   end
 end
