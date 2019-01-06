@@ -20,6 +20,8 @@
 
 extern "C" {
 
+/// TODO : Passing around structs in IR can be fragile due to c-abi compatibility issues.
+/// This seems to work for now, but will need to revisit if we hit issues.
 struct DecimalSplit {
   int64_t high_bits;
   uint64_t low_bits;
