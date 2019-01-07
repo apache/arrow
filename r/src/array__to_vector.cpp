@@ -23,9 +23,9 @@ using namespace arrow;
 namespace arrow {
 namespace r {
 
-template <typename Converter, typename... Args>
-SEXP ArrayVector_To_Vector(int64_t n, const ArrayVector& arrays, Args... args) {
-  Shield<SEXP> data(Converter::Allocate(n, std::forward<Args>(args)...));
+template <typename Converter>
+SEXP ArrayVector_To_Vector(int64_t n, const ArrayVector& arrays) {
+  Shield<SEXP> data(Converter::Allocate(n, arrays));
 
   R_xlen_t k = 0;
   for (const auto& array : arrays) {
@@ -41,7 +41,7 @@ template <int RTYPE>
 struct Converter_SimpleArray {
   using Vector = Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage>;
 
-  static SEXP Allocate(R_xlen_t n) { return Vector(no_init(n)); }
+  static SEXP Allocate(R_xlen_t n, const ArrayVector&) { return Vector(no_init(n)); }
 
   static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
                        R_xlen_t start, R_xlen_t n) {
@@ -77,7 +77,7 @@ struct Converter_SimpleArray {
 };
 
 struct Converter_Date32 {
-  static SEXP Allocate(R_xlen_t n) {
+  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     IntegerVector data(no_init(n));
     data.attr("class") = "Date";
     return data;
@@ -90,7 +90,9 @@ struct Converter_Date32 {
 };
 
 struct Converter_String {
-  static SEXP Allocate(R_xlen_t n) { return StringVector_(no_init(n)); }
+  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
+    return StringVector_(no_init(n));
+  }
 
   static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
                        R_xlen_t start, R_xlen_t n) {
@@ -141,7 +143,9 @@ struct Converter_String {
 };
 
 struct Converter_Boolean {
-  static SEXP Allocate(R_xlen_t n) { return LogicalVector_(no_init(n)); }
+  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
+    return LogicalVector_(no_init(n));
+  }
 
   static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
                        R_xlen_t start, R_xlen_t n) {
@@ -266,7 +270,7 @@ struct Converter_Dictionary {
 };
 
 struct Converter_Date64 {
-  static SEXP Allocate(R_xlen_t n) {
+  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     NumericVector data(no_init(n));
     data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
     return data;
@@ -305,7 +309,9 @@ struct Converter_Promotion {
   using r_stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
   using value_type = typename TypeTraits<Type>::ArrayType::value_type;
 
-  static SEXP Allocate(R_xlen_t n) { return Rcpp::Vector<RTYPE>(no_init(n)); }
+  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
+    return Rcpp::Vector<RTYPE>(no_init(n));
+  }
 
   static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
                        R_xlen_t start, R_xlen_t n) {
@@ -339,7 +345,7 @@ struct Converter_Promotion {
 
 template <typename value_type, int32_t multiplier>
 struct Converter_Time {
-  static SEXP Allocate(R_xlen_t n) {
+  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     NumericVector data(no_init(n));
     data.attr("class") = CharacterVector::create("hms", "difftime");
     data.attr("units") = CharacterVector::create("secs");
@@ -379,20 +385,20 @@ struct Converter_Time {
 
 template <typename value_type, int32_t multiplier>
 struct Converter_Timestamp {
-  static SEXP Allocate(R_xlen_t n) {
+  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     NumericVector data(no_init(n));
     data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
     return data;
   }
 
   static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-    R_xlen_t start, R_xlen_t n) {
+                       R_xlen_t start, R_xlen_t n) {
     return Converter_Time<value_type, multiplier>::Ingest(data_, array, start, n);
   }
 };
 
 struct Converter_Int64 {
-  static SEXP Allocate(R_xlen_t n) {
+  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     NumericVector data(no_init(n));
     data.attr("class") = "integer64";
     return data;
@@ -427,7 +433,9 @@ struct Converter_Int64 {
 };
 
 struct Converter_Decimal {
-  static SEXP Allocate(R_xlen_t n) { return NumericVector_(no_init(n)); }
+  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
+    return NumericVector_(no_init(n));
+  }
 
   static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
                        R_xlen_t start, R_xlen_t n) {
@@ -494,7 +502,7 @@ SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
     case Type::STRING:
       return ArrayVector_To_Vector<Converter_String>(n, arrays);
     case Type::DICTIONARY:
-      return ArrayVector_To_Vector<Converter_Dictionary>(n, arrays, arrays);
+      return ArrayVector_To_Vector<Converter_Dictionary>(n, arrays);
 
     case Type::DATE32:
       return ArrayVector_To_Vector<Converter_Date32>(n, arrays);
@@ -544,8 +552,7 @@ SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
       if (static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::MICRO) {
         return ArrayVector_To_Vector<Converter_Timestamp<int64_t, 1000000>>(n, arrays);
       } else {
-        return ArrayVector_To_Vector<Converter_Timestamp<int64_t, 1000000000>>(
-            n, arrays);
+        return ArrayVector_To_Vector<Converter_Timestamp<int64_t, 1000000000>>(n, arrays);
       }
     }
 
