@@ -81,8 +81,8 @@ ChunkedArray__as_vector <- function(chunked_array) {
     .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
 }
 
-RecordBatch__to_dataframe <- function(batch) {
-    .Call(`_arrow_RecordBatch__to_dataframe`, batch)
+RecordBatch__to_dataframe <- function(batch, use_threads) {
+    .Call(`_arrow_RecordBatch__to_dataframe`, batch, use_threads)
 }
 
 ArrayData__get_type <- function(x) {

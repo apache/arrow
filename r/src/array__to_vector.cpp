@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/util/parallel.h>
+#include <arrow/util/task-group.h>
 #include "arrow_types.h"
 
 using namespace Rcpp;
@@ -481,6 +483,18 @@ struct Converter_Decimal {
   }
 };
 
+struct Converter_NotHandled {
+  static SEXP Allocate(R_xlen_t n, const ArrayVector& arrays) {
+    stop(tfm::format("cannot handle Array of type %s", arrays[0]->type()->name()));
+    return R_NilValue;
+  }
+
+  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
+                       R_xlen_t start, R_xlen_t n) {
+    return Status::RError("Not handled");
+  }
+};
+
 // Most converter can ingest in parallel
 template <typename Converter>
 constexpr bool parallel_ingest() {
@@ -493,97 +507,170 @@ constexpr bool parallel_ingest<Converter_String>() {
   return false;
 }
 
-}  // namespace r
-}  // namespace arrow
-
-SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
+template <typename What, typename... Args>
+auto ArrayVector__Dispatch(const ArrayVector& arrays, Args... args) ->
+    typename What::OUT {
   using namespace arrow::r;
 
   switch (arrays[0]->type_id()) {
     // direct support
     case Type::INT8:
-      return ArrayVector_To_Vector<Converter_SimpleArray<RAWSXP>>(n, arrays);
+      return What::template Do<Converter_SimpleArray<RAWSXP>>(
+          arrays, std::forward<Args>(args)...);
+
     case Type::INT32:
-      return ArrayVector_To_Vector<Converter_SimpleArray<INTSXP>>(n, arrays);
+      return What::template Do<Converter_SimpleArray<INTSXP>>(
+          arrays, std::forward<Args>(args)...);
+
     case Type::DOUBLE:
-      return ArrayVector_To_Vector<Converter_SimpleArray<REALSXP>>(n, arrays);
+      return What::template Do<Converter_SimpleArray<REALSXP>>(
+          arrays, std::forward<Args>(args)...);
 
       // need to handle 1-bit case
     case Type::BOOL:
-      return ArrayVector_To_Vector<Converter_Boolean>(n, arrays);
+      return What::template Do<Converter_Boolean>(arrays, std::forward<Args>(args)...);
 
-      // handle memory dense strings
+    // handle memory dense strings
     case Type::STRING:
-      return ArrayVector_To_Vector<Converter_String>(n, arrays);
+      return What::template Do<Converter_String>(arrays, std::forward<Args>(args)...);
+
     case Type::DICTIONARY:
-      return ArrayVector_To_Vector<Converter_Dictionary>(n, arrays);
+      return What::template Do<Converter_Dictionary>(arrays, std::forward<Args>(args)...);
 
     case Type::DATE32:
-      return ArrayVector_To_Vector<Converter_Date32>(n, arrays);
+      return What::template Do<Converter_Date32>(arrays, std::forward<Args>(args)...);
+
     case Type::DATE64:
-      return ArrayVector_To_Vector<Converter_Date64>(n, arrays);
+      return What::template Do<Converter_Date64>(arrays, std::forward<Args>(args)...);
 
       // promotions to integer vector
     case Type::UINT8:
-      return ArrayVector_To_Vector<Converter_Promotion<INTSXP, arrow::UInt8Type>>(n,
-                                                                                  arrays);
+      return What::template Do<Converter_Promotion<INTSXP, arrow::UInt8Type>>(
+          arrays, std::forward<Args>(args)...);
+
     case Type::INT16:
-      return ArrayVector_To_Vector<Converter_Promotion<INTSXP, arrow::Int16Type>>(n,
-                                                                                  arrays);
+      return What::template Do<Converter_Promotion<INTSXP, arrow::Int16Type>>(
+          arrays, std::forward<Args>(args)...);
+
     case Type::UINT16:
-      return ArrayVector_To_Vector<Converter_Promotion<INTSXP, arrow::UInt16Type>>(
-          n, arrays);
+      return What::template Do<Converter_Promotion<INTSXP, arrow::UInt16Type>>(
+          arrays, std::forward<Args>(args)...);
 
       // promotions to numeric vector
     case Type::UINT32:
-      return ArrayVector_To_Vector<Converter_Promotion<REALSXP, arrow::UInt32Type>>(
-          n, arrays);
+      return What::template Do<Converter_Promotion<REALSXP, arrow::UInt32Type>>(
+          arrays, std::forward<Args>(args)...);
+
     case Type::HALF_FLOAT:
-      return ArrayVector_To_Vector<Converter_Promotion<REALSXP, arrow::HalfFloatType>>(
-          n, arrays);
+      return What::template Do<Converter_Promotion<REALSXP, arrow::HalfFloatType>>(
+          arrays, std::forward<Args>(args)...);
+
     case Type::FLOAT:
-      return ArrayVector_To_Vector<Converter_Promotion<REALSXP, arrow::FloatType>>(
-          n, arrays);
+      return What::template Do<Converter_Promotion<REALSXP, arrow::FloatType>>(
+          arrays, std::forward<Args>(args)...);
 
       // time32 ane time64
     case Type::TIME32:
-      return ArrayVector_To_Vector<Converter_Time<int32_t>>(n, arrays);
+      return What::template Do<Converter_Time<int32_t>>(arrays,
+                                                        std::forward<Args>(args)...);
 
     case Type::TIME64:
-      return ArrayVector_To_Vector<Converter_Time<int64_t>>(n, arrays);
+      return What::template Do<Converter_Time<int64_t>>(arrays,
+                                                        std::forward<Args>(args)...);
 
     case Type::TIMESTAMP:
-      return ArrayVector_To_Vector<Converter_Timestamp<int64_t>>(n, arrays);
+      return What::template Do<Converter_Timestamp<int64_t>>(arrays,
+                                                             std::forward<Args>(args)...);
 
     case Type::INT64:
-      return ArrayVector_To_Vector<Converter_Int64>(n, arrays);
+      return What::template Do<Converter_Int64>(arrays, std::forward<Args>(args)...);
+
     case Type::DECIMAL:
-      return ArrayVector_To_Vector<Converter_Decimal>(n, arrays);
+      return What::template Do<Converter_Decimal>(arrays, std::forward<Args>(args)...);
 
     default:
       break;
   }
 
-  stop(tfm::format("cannot handle Array of type %s", arrays[0]->type()->name()));
-  return R_NilValue;
+  return What::template Do<Converter_NotHandled>(arrays, std::forward<Args>(args)...);
 }
+
+struct Allocator {
+  using OUT = SEXP;
+
+  template <typename Converter>
+  static SEXP Do(const ArrayVector& arrays, R_xlen_t n) {
+    return Converter::Allocate(n, arrays);
+  }
+};
+
+struct Ingester {
+  using OUT = Status;
+
+  template <typename Converter>
+  static Status Do(const ArrayVector& arrays, SEXP data) {
+    R_xlen_t k = 0;
+    for (const auto& array : arrays) {
+      auto n_chunk = array->length();
+      RETURN_NOT_OK(Converter::Ingest(data, array, k, n_chunk));
+      k += n_chunk;
+    }
+    return Status::OK();
+  }
+};
+
+struct CanParallel {
+  using OUT = bool;
+
+  template <typename Converter>
+  static bool Do(const ArrayVector& arrays) {
+    return parallel_ingest<Converter>();
+  }
+};
+
+// Only allocate an R vector to host the arrays
+SEXP ArrayVector__Allocate(R_xlen_t n, const ArrayVector& arrays) {
+  return ArrayVector__Dispatch<arrow::r::Allocator, R_xlen_t>(arrays, n);
+}
+
+// Ingest data from arrays to previously allocated R vector
+// For most vector types, this can be done in a task
+// in some other thread
+Status ArrayVector__Ingest(SEXP data, const ArrayVector& arrays) {
+  return ArrayVector__Dispatch<arrow::r::Ingester, SEXP>(arrays, data);
+}
+
+bool ArrayVector__Parallel(const ArrayVector& arrays) {
+  return ArrayVector__Dispatch<arrow::r::CanParallel>(arrays);
+}
+
+// Allocate + Ingest
+SEXP ArrayVector__as_vector(R_xlen_t n, const ArrayVector& arrays) {
+  Shield<SEXP> data(ArrayVector__Allocate(n, arrays));
+  STOP_IF_NOT_OK(ArrayVector__Ingest(data, arrays));
+  return data;
+}
+
+}  // namespace r
+}  // namespace arrow
 
 // [[Rcpp::export]]
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
-  return ArrayVector__as_vector(array->length(), {array});
+  return arrow::r::ArrayVector__as_vector(array->length(), {array});
 }
 
 // [[Rcpp::export]]
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return ArrayVector__as_vector(chunked_array->length(), chunked_array->chunks());
+  return arrow::r::ArrayVector__as_vector(chunked_array->length(),
+                                          chunked_array->chunks());
 }
 
-// [[Rcpp::export]]
-List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch) {
+List RecordBatch__to_dataframe_serial(const std::shared_ptr<arrow::RecordBatch>& batch) {
   auto nc = batch->num_columns();
   auto nr = batch->num_rows();
   List tbl(nc);
   CharacterVector names(nc);
+
   for (int i = 0; i < nc; i++) {
     tbl[i] = Array__as_vector(batch->column(i));
     names[i] = batch->column_name(i);
@@ -592,4 +679,63 @@ List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch)
   tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
   tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
   return tbl;
+}
+
+List RecordBatch__to_dataframe_parallel(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
+  auto nc = batch->num_columns();
+  auto nr = batch->num_rows();
+  List tbl(nc);
+  CharacterVector names(nc);
+
+  // task group to ingest data in parallel
+  auto tg = arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
+
+  // allocate and start ingesting immediately the columns that
+  // can be ingested in parallel, i.e. when ingestion no longer
+  // need to happen on the main thread
+  for (int i = 0; i < nc; i++) {
+    ArrayVector arrays{batch->column(i)};
+    // allocate data for column i
+    SEXP column = tbl[i] = arrow::r::ArrayVector__Allocate(nr, arrays);
+
+    // add a task to ingest data of that column if that can be done in parallel
+    if (arrow::r::ArrayVector__Parallel(arrays)) {
+      tg->Append([=] { return arrow::r::ArrayVector__Ingest(column, arrays); });
+    }
+  }
+
+  arrow::Status status = arrow::Status::OK();
+
+  // ingest the other columns
+  for (int i = 0; i < nc; i++) {
+    // ingest if cannot ingest in parallel
+    ArrayVector arrays{batch->column(i)};
+    if (!arrow::r::ArrayVector__Parallel(arrays)) {
+      status &= arrow::r::ArrayVector__Ingest(tbl[i], arrays);
+    }
+
+    names[i] = batch->column_name(i);
+  }
+
+  // wait for the ingestion to be finished
+  status &= tg->Finish();
+
+  STOP_IF_NOT_OK(status);
+
+  tbl.attr("names") = names;
+  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
+  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
+
+  return tbl;
+}
+
+// [[Rcpp::export]]
+List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch,
+                               bool use_threads) {
+  if (use_threads) {
+    return RecordBatch__to_dataframe_parallel(batch);
+  } else {
+    return RecordBatch__to_dataframe_serial(batch);
+  }
 }
