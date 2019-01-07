@@ -51,7 +51,7 @@ pushd $spark_dir
   echo "Building Spark with Arrow $ARROW_VERSION"
   mvn versions:set-property -Dproperty=arrow.version -DnewVersion=$ARROW_VERSION
 
-  build/mvn -q -T 1C -DskipTests package #-pl sql/core -am
+  build/mvn -q -DskipTests package -pl sql/core -pl assembly -am
 
   SPARK_SCALA_TESTS=(
     "org.apache.spark.sql.execution.arrow"
@@ -61,9 +61,9 @@ pushd $spark_dir
   (echo "Testing Spark:"; IFS=$'\n'; echo "${SPARK_SCALA_TESTS[*]}")
 
   # TODO: should be able to only build spark-sql tests with adding "-pl sql/core" but not currently working
-  build/mvn -q -T 1C -Dtest=none -DwildcardSuites=$(IFS=,; echo "${SPARK_SCALA_TESTS[*]}") test
+  build/mvn -Dtest=none -DwildcardSuites=$(IFS=,; echo "${SPARK_SCALA_TESTS[*]}") test
 
   # Run pyarrow related Python tests only
   echo "Testing PySpark:"
-  python/run-tests --testnames pyspark-sql
+  python/run-tests --modules pyspark-sql
 popd
