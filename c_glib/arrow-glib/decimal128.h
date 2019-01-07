@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-glib/gobject-type.h>
+#include <arrow-glib/version.h>
 
 G_BEGIN_DECLS
 
@@ -37,6 +38,9 @@ struct _GArrowDecimal128Class
 
 GArrowDecimal128 *garrow_decimal128_new_string(const gchar *data);
 GArrowDecimal128 *garrow_decimal128_new_integer(const gint64 data);
+GARROW_AVAILABLE_IN_0_12
+gboolean garrow_decimal128_equal(GArrowDecimal128 *decimal,
+                                 GArrowDecimal128 *other_decimal);
 gchar *garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal,
                                          gint32 scale);
 gchar *garrow_decimal128_to_string(GArrowDecimal128 *decimal);

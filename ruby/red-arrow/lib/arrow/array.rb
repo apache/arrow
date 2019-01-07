@@ -21,12 +21,14 @@ module Arrow
 
     class << self
       def new(*args)
-        return super if args.size != 1
-
         builder_class_name = "#{name}Builder"
         if const_defined?(builder_class_name)
           builder_class = const_get(builder_class_name)
-          builder_class.build(*args)
+          if args.size == builder_class.method(:build).arity
+            builder_class.build(*args)
+          else
+            super
+          end
         else
           super
         end

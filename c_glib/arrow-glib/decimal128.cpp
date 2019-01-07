@@ -137,6 +137,24 @@ garrow_decimal128_new_integer(const gint64 data)
 }
 
 /**
+ * garrow_decimal128_equal:
+ * @decimal: A #GArrowDecimal128.
+ * @other_decimal: A #GArrowDecimal128 to be compared.
+ *
+ * Returns: %TRUE if both of them is the same value, %FALSE otherwise.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+garrow_decimal128_equal(GArrowDecimal128 *decimal,
+                        GArrowDecimal128 *other_decimal)
+{
+  const auto arrow_decimal = garrow_decimal128_get_raw(decimal);
+  const auto arrow_other_decimal = garrow_decimal128_get_raw(other_decimal);
+  return *arrow_decimal == *arrow_other_decimal;
+}
+
+/**
  * garrow_decimal128_to_string_scale:
  * @decimal: A #GArrowDecimal128.
  * @scale: The scale of the decimal.
