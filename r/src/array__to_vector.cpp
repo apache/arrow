@@ -244,6 +244,11 @@ struct Converter_Dictionary {
 
     DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
     using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
+
+    // convert the 0-based indices from the arrow Array
+    // to 1-based indices used in R factors
+    auto to_r_index = [](value_type value){ return static_cast<int>(value) + 1;};
+
     auto null_count = array->null_count();
 
     if (n == null_count) {
@@ -254,17 +259,16 @@ struct Converter_Dictionary {
       if (!p_array) {
         return Status::Invalid("invalid data buffer");
       }
-      if (array->null_count()) {
+
+      if (null_count) {
         arrow::internal::BitmapReader bitmap_reader(indices->null_bitmap()->data(),
                                                     indices->offset(), n);
-        for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_array) {
-          data[start + i] =
-              bitmap_reader.IsNotSet() ? NA_INTEGER : (static_cast<int>(*p_array) + 1);
+        auto p_data = data.begin() + start;
+        for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_array, ++p_data) {
+          *p_data = bitmap_reader.IsSet() ? to_r_index(*p_array) : NA_INTEGER ;
         }
       } else {
-        std::transform(
-            p_array, p_array + n, data.begin() + start,
-            [](const value_type value) { return static_cast<int>(value) + 1; });
+        std::transform(p_array, p_array + n, data.begin() + start, to_r_index);
       }
     }
     return Status::OK();
