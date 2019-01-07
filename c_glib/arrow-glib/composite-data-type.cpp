@@ -92,14 +92,15 @@ garrow_list_data_type_new(GArrowField *field)
 GArrowField *
 garrow_list_data_type_get_value_field(GArrowListDataType *list_data_type)
 {
+  auto data_type = GARROW_DATA_TYPE(list_data_type);
   auto arrow_data_type =
-    garrow_data_type_get_raw(GARROW_DATA_TYPE(list_data_type));
+    garrow_data_type_get_raw(data_type);
   auto arrow_list_data_type =
     static_cast<arrow::ListType *>(arrow_data_type.get());
 
   auto arrow_field = arrow_list_data_type->value_field();
   auto field = garrow_field_new_raw(&arrow_field,
-                                    GARROW_DATA_TYPE(list_data_type));
+                                    data_type);
 
   return field;
 }
@@ -159,7 +160,7 @@ garrow_struct_data_type_get_n_fields(GArrowStructDataType *data_type)
 
 /**
  * garrow_struct_data_type_get_fields:
- * @data_type: A #GArrowStructDataType.
+ * @struct_data_type: A #GArrowStructDataType.
  *
  * Returns: (transfer full) (element-type GArrowField):
  *   The fields of the struct data type.
@@ -167,23 +168,24 @@ garrow_struct_data_type_get_n_fields(GArrowStructDataType *data_type)
  * Since: 0.12.0
  */
 GList *
-garrow_struct_data_type_get_fields(GArrowStructDataType *data_type)
+garrow_struct_data_type_get_fields(GArrowStructDataType *struct_data_type)
 {
-  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto data_type = GARROW_DATA_TYPE(struct_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
   auto arrow_fields = arrow_data_type->children();
 
   GList *fields = NULL;
   for (auto arrow_field : arrow_fields) {
     fields = g_list_prepend(fields,
                             garrow_field_new_raw(&arrow_field,
-                                                 GARROW_DATA_TYPE(data_type)));
+                                                 data_type));
   }
   return g_list_reverse(fields);
 }
 
 /**
  * garrow_struct_data_type_get_field:
- * @data_type: A #GArrowStructDataType.
+ * @struct_data_type: A #GArrowStructDataType.
  * @i: The index of the target field.
  *
  * Returns: (transfer full) (nullable):
@@ -192,10 +194,11 @@ garrow_struct_data_type_get_fields(GArrowStructDataType *data_type)
  * Since: 0.12.0
  */
 GArrowField *
-garrow_struct_data_type_get_field(GArrowStructDataType *data_type,
+garrow_struct_data_type_get_field(GArrowStructDataType *struct_data_type,
                                   gint i)
 {
-  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto data_type = GARROW_DATA_TYPE(struct_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
 
   if (i < 0) {
     i += arrow_data_type->num_children();
@@ -210,7 +213,7 @@ garrow_struct_data_type_get_field(GArrowStructDataType *data_type,
   auto arrow_field = arrow_data_type->child(i);
   if (arrow_field) {
     return garrow_field_new_raw(&arrow_field,
-                                GARROW_DATA_TYPE(data_type));
+                                data_type);
   } else {
     return NULL;
   }
@@ -218,7 +221,7 @@ garrow_struct_data_type_get_field(GArrowStructDataType *data_type,
 
 /**
  * garrow_struct_data_type_get_field_by_name:
- * @data_type: A #GArrowStructDataType.
+ * @struct_data_type: A #GArrowStructDataType.
  * @name: The name of the target field.
  *
  * Returns: (transfer full) (nullable):
@@ -227,17 +230,18 @@ garrow_struct_data_type_get_field(GArrowStructDataType *data_type,
  * Since: 0.12.0
  */
 GArrowField *
-garrow_struct_data_type_get_field_by_name(GArrowStructDataType *data_type,
+garrow_struct_data_type_get_field_by_name(GArrowStructDataType *struct_data_type,
                                           const gchar *name)
 {
-  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto data_type = GARROW_DATA_TYPE(struct_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
   auto arrow_struct_data_type =
     std::static_pointer_cast<arrow::StructType>(arrow_data_type);
 
   auto arrow_field = arrow_struct_data_type->GetFieldByName(name);
   if (arrow_field) {
     return garrow_field_new_raw(&arrow_field,
-                                GARROW_DATA_TYPE(data_type));
+                                data_type);
   } else {
     return NULL;
   }
@@ -296,7 +300,7 @@ garrow_union_data_type_get_n_fields(GArrowUnionDataType *data_type)
 
 /**
  * garrow_union_data_type_get_fields:
- * @data_type: A #GArrowUnionDataType.
+ * @union_data_type: A #GArrowUnionDataType.
  *
  * Returns: (transfer full) (element-type GArrowField):
  *   The fields of the union data type.
@@ -304,23 +308,24 @@ garrow_union_data_type_get_n_fields(GArrowUnionDataType *data_type)
  * Since: 0.12.0
  */
 GList *
-garrow_union_data_type_get_fields(GArrowUnionDataType *data_type)
+garrow_union_data_type_get_fields(GArrowUnionDataType *union_data_type)
 {
-  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto data_type = GARROW_DATA_TYPE(union_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
   auto arrow_fields = arrow_data_type->children();
 
   GList *fields = NULL;
   for (auto arrow_field : arrow_fields) {
     fields = g_list_prepend(fields,
                             garrow_field_new_raw(&arrow_field,
-                                                 GARROW_DATA_TYPE(data_type)));
+                                                 data_type));
   }
   return g_list_reverse(fields);
 }
 
 /**
  * garrow_union_data_type_get_field:
- * @data_type: A #GArrowUnionDataType.
+ * @union_data_type: A #GArrowUnionDataType.
  * @i: The index of the target field.
  *
  * Returns: (transfer full) (nullable):
@@ -329,10 +334,11 @@ garrow_union_data_type_get_fields(GArrowUnionDataType *data_type)
  * Since: 0.12.0
  */
 GArrowField *
-garrow_union_data_type_get_field(GArrowUnionDataType *data_type,
-                                  gint i)
+garrow_union_data_type_get_field(GArrowUnionDataType *union_data_type,
+                                 gint i)
 {
-  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto data_type = GARROW_DATA_TYPE(union_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
 
   if (i < 0) {
     i += arrow_data_type->num_children();
@@ -347,7 +353,7 @@ garrow_union_data_type_get_field(GArrowUnionDataType *data_type,
   auto arrow_field = arrow_data_type->child(i);
   if (arrow_field) {
     return garrow_field_new_raw(&arrow_field,
-                                GARROW_DATA_TYPE(data_type));
+                                data_type);
   } else {
     return NULL;
   }

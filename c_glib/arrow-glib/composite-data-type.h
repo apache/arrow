@@ -85,12 +85,12 @@ GArrowStructDataType *garrow_struct_data_type_new      (GList *fields);
 gint
 garrow_struct_data_type_get_n_fields(GArrowStructDataType *data_type);
 GList *
-garrow_struct_data_type_get_fields(GArrowStructDataType *data_type);
+garrow_struct_data_type_get_fields(GArrowStructDataType *struct_data_type);
 GArrowField *
-garrow_struct_data_type_get_field(GArrowStructDataType *data_type,
+garrow_struct_data_type_get_field(GArrowStructDataType *struct_data_type,
                                   gint i);
 GArrowField *
-garrow_struct_data_type_get_field_by_name(GArrowStructDataType *data_type,
+garrow_struct_data_type_get_field_by_name(GArrowStructDataType *struct_data_type,
                                           const gchar *name);
 gint
 garrow_struct_data_type_get_field_index(GArrowStructDataType *data_type,
@@ -111,9 +111,9 @@ struct _GArrowUnionDataTypeClass
 gint
 garrow_union_data_type_get_n_fields(GArrowUnionDataType *data_type);
 GList *
-garrow_union_data_type_get_fields(GArrowUnionDataType *data_type);
+garrow_union_data_type_get_fields(GArrowUnionDataType *union_data_type);
 GArrowField *
-garrow_union_data_type_get_field(GArrowUnionDataType *data_type,
+garrow_union_data_type_get_field(GArrowUnionDataType *union_data_type,
                                  gint i);
 guint8 *
 garrow_union_data_type_get_type_codes(GArrowUnionDataType *data_type,
