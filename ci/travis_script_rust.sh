@@ -31,11 +31,11 @@ rustup show
 # raises on any formatting errors
 cargo +stable fmt --all -- --check
 
-# raises on any warnings
-cargo rustc -- -D warnings
-
-cargo build
+RUSTFLAGS="-D warnings" cargo build
 cargo test
+
+# run examples
+cd arrow
 cargo run --example builders
 cargo run --example dynamic_types
 cargo run --example read_csv
