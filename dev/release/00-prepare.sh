@@ -100,9 +100,9 @@ update_versions() {
   cd "${SOURCE_DIR}/../../rust"
   sed -i.bak -r -e \
     "s/^version = \".+\"/version = \"${version}\"/g" \
-    Cargo.toml parquet/Cargo.toml
-  rm -f Cargo.toml.bak parquet/Cargo.toml.bak
-  git add Cargo.toml parquet/Cargo.toml
+    arrow/Cargo.toml parquet/Cargo.toml
+  rm -f arrow/Cargo.toml.bak parquet/Cargo.toml.bak
+  git add arrow/Cargo.toml parquet/Cargo.toml
   cd -
 }
 
