@@ -59,7 +59,7 @@ garrow_field_dispose(GObject *object)
 {
   auto priv = GARROW_FIELD_GET_PRIVATE(object);
 
-   if (priv->data_type) {
+  if (priv->data_type) {
     g_object_unref(priv->data_type);
     priv->data_type = nullptr;
   }
