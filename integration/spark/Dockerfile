@@ -29,12 +29,6 @@ RUN apt-get update -q -y && \
     rm /maven-$MAVEN_VERSION.tar.gz && \
     mv /apache-maven-$MAVEN_VERSION /usr/local/maven
 
-# ARG SPARK_VERSION=2.4.0
-# RUN wget -q -O spark-$SPARK_VERSION.tar.gz https://github.com/apache/spark/archive/v$SPARK_VERSION.tar.gz && \
-#     tar -xzf /spark-$SPARK_VERSION.tar.gz && \
-#     rm /spark-$SPARK_VERSION.tar.gz && \
-#     mv /spark-$SPARK_VERSION /spark
-
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
