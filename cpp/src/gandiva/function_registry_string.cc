@@ -26,7 +26,7 @@ namespace gandiva {
 #define BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(name) \
   BINARY_RELATIONAL_SAFE_NULL_IF_NULL(name, utf8)
 
-std::vector<NativeFunction> FunctionRegistryString::GetFunctionRegistry() {
+std::vector<NativeFunction> GetStringFunctionRegistry() {
   static std::vector<NativeFunction> string_fn_registry_ = {
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(equal),
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(not_equal),

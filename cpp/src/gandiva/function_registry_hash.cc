@@ -32,7 +32,7 @@ namespace gandiva {
 #define HASH64_SEED_SAFE_NULL_NEVER_FN(name) \
   NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SEED_SAFE_NULL_NEVER, name)
 
-std::vector<NativeFunction> FunctionRegistryHash::GetFunctionRegistry() {
+std::vector<NativeFunction> GetHashFunctionRegistry() {
   static std::vector<NativeFunction> hash_fn_registry_ = {
       HASH32_SAFE_NULL_NEVER_FN(hash),
       HASH32_SAFE_NULL_NEVER_FN(hash32),

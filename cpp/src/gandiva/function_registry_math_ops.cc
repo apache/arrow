@@ -42,7 +42,7 @@ namespace gandiva {
 #define BINARY_SAFE_NULL_NEVER_BOOL_FN(name) \
   NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, name)
 
-std::vector<NativeFunction> FunctionRegistryMathOps::GetFunctionRegistry() {
+std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
   static std::vector<NativeFunction> math_fn_registry_ = {
       MATH_UNARY_OPS(cbrt),
       MATH_UNARY_OPS(exp),

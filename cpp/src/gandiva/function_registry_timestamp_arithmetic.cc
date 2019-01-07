@@ -45,7 +45,7 @@ namespace gandiva {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, date64, int64, date64),    \
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, int64, date64)
 
-std::vector<NativeFunction> FunctionRegistryDateTimeArithmetic::GetFunctionRegistry() {
+std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> datetime_fn_registry_ = {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, date64, date64, float64),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, timestamp, timestamp, float64),

@@ -19,16 +19,11 @@
 #define GANDIVA_FUNCTION_REGISTRY_DATE_TIME_H
 
 #include <vector>
-#include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"
 
 namespace gandiva {
 
-///\brief Registry of pre-compiled IR functions.
-class FunctionRegistryDateTime {
- public:
-  static std::vector<NativeFunction> GetFunctionRegistry();
-};
+std::vector<NativeFunction> GetDateTimeFunctionRegistry();
 
 }  // namespace gandiva
 

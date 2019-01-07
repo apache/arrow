@@ -38,7 +38,7 @@ namespace gandiva {
       TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute), \
       TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second)
 
-std::vector<NativeFunction> FunctionRegistryDateTime::GetFunctionRegistry() {
+std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
   static std::vector<NativeFunction> date_time_fn_registry_ = {
       DATE_EXTRACTION_FNS(extract),
       DATE_EXTRACTION_FNS(date_trunc_),

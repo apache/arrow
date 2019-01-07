@@ -35,7 +35,7 @@ namespace gandiva {
 
 #define UNARY_CAST_TO_FLOAT32(name) UNARY_SAFE_NULL_IF_NULL(castFLOAT4, name, float32)
 
-std::vector<NativeFunction> FunctionRegistryArithmetic::GetFunctionRegistry() {
+std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> arithmetic_fn_registry_ = {
       UNARY_SAFE_NULL_IF_NULL(not, boolean, boolean),
       UNARY_SAFE_NULL_IF_NULL(castBIGINT, int32, int64),
