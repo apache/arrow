@@ -159,11 +159,11 @@ using RawVector_ = Rcpp::Vector<RAWSXP, Rcpp::NoProtectStorage>;
 using List_ = Rcpp::Vector<VECSXP, Rcpp::NoProtectStorage>;
 
 template <int RTYPE>
-inline typename Rcpp::Vector<RTYPE>::stored_type default_value() {
+inline constexpr typename Rcpp::Vector<RTYPE>::stored_type default_value() {
   return Rcpp::Vector<RTYPE>::get_na();
 }
 template <>
-inline Rbyte default_value<RAWSXP>() {
+inline constexpr Rbyte default_value<RAWSXP>() {
   return 0;
 }
 
