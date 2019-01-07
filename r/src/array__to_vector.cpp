@@ -740,10 +740,7 @@ List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch,
   }
 }
 
-
-
-List Table__to_dataframe_parallel(
-    const std::shared_ptr<arrow::Table>& table) {
+List Table__to_dataframe_parallel(const std::shared_ptr<arrow::Table>& table) {
   auto nc = table->num_columns();
   auto nr = table->num_rows();
   List tbl(nc);
@@ -790,8 +787,6 @@ List Table__to_dataframe_parallel(
 
   return tbl;
 }
-
-
 
 List Table__to_dataframe_serial(const std::shared_ptr<arrow::Table>& table) {
   int nc = table->num_columns();
