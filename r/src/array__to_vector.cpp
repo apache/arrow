@@ -343,7 +343,20 @@ struct Converter_Promotion {
   }
 };
 
-template <typename value_type, int32_t multiplier>
+static int TimeUnit_multiplier(const std::shared_ptr<Array>& array) {
+  switch (static_cast<TimeType*>(array->type().get())->unit()) {
+    case TimeUnit::SECOND:
+      return 1;
+    case TimeUnit::MILLI:
+      return 1000;
+    case TimeUnit::MICRO:
+      return 1000000;
+    case TimeUnit::NANO:
+      return 1000000000;
+  }
+}
+
+template <typename value_type>
 struct Converter_Time {
   static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     NumericVector data(no_init(n));
@@ -366,7 +379,8 @@ struct Converter_Time {
       }
 
       auto p_vec = data.begin() + start;
-      auto convert = [](value_type value) {
+      int multiplier = TimeUnit_multiplier(array);
+      auto convert = [=](value_type value) {
         return static_cast<double>(value) / multiplier;
       };
       if (null_count) {
@@ -383,7 +397,7 @@ struct Converter_Time {
   }
 };
 
-template <typename value_type, int32_t multiplier>
+template <typename value_type>
 struct Converter_Timestamp {
   static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     NumericVector data(no_init(n));
@@ -393,7 +407,7 @@ struct Converter_Timestamp {
 
   static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
                        R_xlen_t start, R_xlen_t n) {
-    return Converter_Time<value_type, multiplier>::Ingest(data_, array, start, n);
+    return Converter_Time<value_type>::Ingest(data_, array, start, n);
   }
 };
 
@@ -532,29 +546,14 @@ SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
           n, arrays);
 
       // time32 ane time64
-    case Type::TIME32: {
-      if (static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::SECOND) {
-        return ArrayVector_To_Vector<Converter_Time<int32_t, 1>>(n, arrays);
-      } else {
-        return ArrayVector_To_Vector<Converter_Time<int32_t, 1000>>(n, arrays);
-      }
-    }
+    case Type::TIME32:
+      return ArrayVector_To_Vector<Converter_Time<int32_t>>(n, arrays);
 
-    case Type::TIME64: {
-      if (static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::MICRO) {
-        return ArrayVector_To_Vector<Converter_Time<int64_t, 1000000>>(n, arrays);
-      } else {
-        return ArrayVector_To_Vector<Converter_Time<int64_t, 1000000000>>(n, arrays);
-      }
-    }
+    case Type::TIME64:
+      return ArrayVector_To_Vector<Converter_Time<int64_t>>(n, arrays);
 
-    case Type::TIMESTAMP: {
-      if (static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::MICRO) {
-        return ArrayVector_To_Vector<Converter_Timestamp<int64_t, 1000000>>(n, arrays);
-      } else {
-        return ArrayVector_To_Vector<Converter_Timestamp<int64_t, 1000000000>>(n, arrays);
-      }
-    }
+    case Type::TIMESTAMP:
+      return ArrayVector_To_Vector<Converter_Timestamp<int64_t>>(n, arrays);
 
     case Type::INT64:
       return ArrayVector_To_Vector<Converter_Int64>(n, arrays);
