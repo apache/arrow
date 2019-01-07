@@ -52,6 +52,8 @@ namespace r {
 struct symbols {
   static SEXP units;
   static SEXP xp;
+  static SEXP dot_Internal;
+  static SEXP inspect;
 };
 }  // namespace r
 }  // namespace arrow
@@ -148,6 +150,7 @@ inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_unique_ptr_tag) {
 }  // namespace Rcpp
 
 namespace Rcpp {
+using NumericVector_ = Rcpp::Vector<REALSXP, Rcpp::NoProtectStorage>;
 using IntegerVector_ = Rcpp::Vector<INTSXP, Rcpp::NoProtectStorage>;
 using LogicalVector_ = Rcpp::Vector<LGLSXP, Rcpp::NoProtectStorage>;
 using StringVector_ = Rcpp::Vector<STRSXP, Rcpp::NoProtectStorage>;
@@ -173,6 +176,8 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame 
 
 namespace arrow {
 namespace r {
+
+void inspect(SEXP obj);
 
 // the integer64 sentinel
 constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
