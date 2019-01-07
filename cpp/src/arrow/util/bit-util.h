@@ -84,11 +84,11 @@ namespace BitUtil {
 //
 
 // Returns the ceil of value/divisor
-static inline int64_t CeilDiv(int64_t value, int64_t divisor) {
+constexpr int64_t CeilDiv(int64_t value, int64_t divisor) {
   return value / divisor + (value % divisor != 0);
 }
 
-static inline int64_t BytesForBits(int64_t bits) { return (bits + 7) >> 3; }
+constexpr int64_t BytesForBits(int64_t bits) { return (bits + 7) >> 3; }
 
 // Returns the smallest power of two that contains v.  If v is already a
 // power of two, it is returned as is.
@@ -106,12 +106,12 @@ static inline int64_t NextPower2(int64_t n) {
   return n;
 }
 
-static inline bool IsMultipleOf64(int64_t n) { return (n & 63) == 0; }
+constexpr bool IsMultipleOf64(int64_t n) { return (n & 63) == 0; }
 
-static inline bool IsMultipleOf8(int64_t n) { return (n & 7) == 0; }
+constexpr bool IsMultipleOf8(int64_t n) { return (n & 7) == 0; }
 
 // Returns 'value' rounded up to the nearest multiple of 'factor'
-static inline int64_t RoundUp(int64_t value, int64_t factor) {
+constexpr int64_t RoundUp(int64_t value, int64_t factor) {
   return (value + (factor - 1)) / factor * factor;
 }
 
@@ -119,16 +119,14 @@ static inline int64_t RoundUp(int64_t value, int64_t factor) {
 // is a power of two.
 // The result is undefined on overflow, i.e. if `value > 2**64 - factor`,
 // since we cannot return the correct result which would be 2**64.
-static inline int64_t RoundUpToPowerOf2(int64_t value, int64_t factor) {
+constexpr int64_t RoundUpToPowerOf2(int64_t value, int64_t factor) {
   // DCHECK((factor > 0) && ((factor & (factor - 1)) == 0));
   return (value + (factor - 1)) & ~(factor - 1);
 }
 
-static inline int64_t RoundUpToMultipleOf8(int64_t num) {
-  return RoundUpToPowerOf2(num, 8);
-}
+constexpr int64_t RoundUpToMultipleOf8(int64_t num) { return RoundUpToPowerOf2(num, 8); }
 
-static inline int64_t RoundUpToMultipleOf64(int64_t num) {
+constexpr int64_t RoundUpToMultipleOf64(int64_t num) {
   return RoundUpToPowerOf2(num, 64);
 }
 
@@ -327,6 +325,30 @@ static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
   // uninitialized memory
   bits[i / 8] ^= static_cast<uint8_t>(-static_cast<uint8_t>(bit_is_set) ^ bits[i / 8]) &
                  kBitmask[i % 8];
+}
+
+static inline void SetBitsTo(uint8_t* bits, int64_t i_begin, int64_t i_end,
+                             bool bits_are_set) {
+  if (i_begin == i_end) return;
+
+  auto bytes_begin = i_begin / 8;
+  auto bytes_end = CeilDiv(i_end, 8);
+
+  auto first_byte = bits[bytes_begin];
+  auto last_byte = bits[bytes_end - 1];
+
+  std::memset(bits + bytes_begin, bits_are_set ? 0xFF : 0x00,
+              static_cast<size_t>(bytes_end - bytes_begin));
+
+  auto first_byte_mask = kPrecedingBitmask[i_begin % 8];
+  bits[bytes_begin] &= ~first_byte_mask;
+  bits[bytes_begin] |= first_byte & first_byte_mask;
+
+  if (i_end % 8 == 0) return;
+
+  auto last_byte_mask = kTrailingBitmask[i_end % 8];
+  bits[bytes_end - 1] &= ~last_byte_mask;
+  bits[bytes_end - 1] |= last_byte & last_byte_mask;
 }
 
 /// \brief Convert vector of bytes to bitmap buffer

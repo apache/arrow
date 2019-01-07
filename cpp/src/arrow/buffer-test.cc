@@ -260,6 +260,23 @@ TEST(TestBufferBuilder, BasicBoolBufferBuilderUsage) {
   }
 }
 
+TEST(TestBufferBuilder, BoolBufferBuilderAppendCopies) {
+  TypedBufferBuilder<bool> builder;
+
+  ASSERT_OK(builder.Append(13, true));
+  ASSERT_OK(builder.Append(17, false));
+  ASSERT_EQ(builder.length(), 13 + 17);
+  ASSERT_EQ(builder.capacity(), 64 * 8);
+  ASSERT_EQ(builder.false_count(), 17);
+
+  std::shared_ptr<Buffer> built;
+  ASSERT_OK(builder.Finish(&built));
+
+  for (int i = 0; i != 13 + 17; ++i) {
+    EXPECT_EQ(BitUtil::GetBit(built->data(), i), i < 13) << i;
+  }
+}
+
 template <typename T>
 class TypedTestBuffer : public ::testing::Test {};
 

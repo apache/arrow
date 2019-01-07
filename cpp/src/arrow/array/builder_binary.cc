@@ -78,12 +78,13 @@ Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(AppendNextOffset());
 
   // These buffers' padding zeroed by BufferBuilder
-  std::shared_ptr<Buffer> offsets, value_data;
+  std::shared_ptr<Buffer> offsets, value_data, null_bitmap;
   RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
   RETURN_NOT_OK(value_data_builder_.Finish(&value_data));
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
 
-  *out = ArrayData::Make(type_, length_, {null_bitmap_, offsets, value_data}, null_count_,
-                         0);
+  *out =
+      ArrayData::Make(type_, length_, {null_bitmap, offsets, value_data}, null_count_, 0);
   Reset();
   return Status::OK();
 }
@@ -250,9 +251,10 @@ Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
 
-  *out = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_);
+  std::shared_ptr<Buffer> null_bitmap;
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+  *out = ArrayData::Make(type_, length_, {null_bitmap, data}, null_count_);
 
-  null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
   return Status::OK();
 }
