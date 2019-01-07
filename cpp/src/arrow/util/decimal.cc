@@ -29,10 +29,14 @@
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
+
+using internal::SafeLeftShift;
+using internal::SafeSignedAdd;
 
 static const Decimal128 ScaleMultipliers[] = {
     Decimal128(0LL),
@@ -405,7 +409,7 @@ Decimal128& Decimal128::Negate() {
   low_bits_ = ~low_bits_ + 1;
   high_bits_ = ~high_bits_;
   if (low_bits_ == 0) {
-    ++high_bits_;
+    high_bits_ = SafeSignedAdd<int64_t>(high_bits_, 1);
   }
   return *this;
 }
@@ -414,9 +418,9 @@ Decimal128& Decimal128::Abs() { return *this < 0 ? Negate() : *this; }
 
 Decimal128& Decimal128::operator+=(const Decimal128& right) {
   const uint64_t sum = low_bits_ + right.low_bits_;
-  high_bits_ += right.high_bits_;
+  high_bits_ = SafeSignedAdd<int64_t>(high_bits_, right.high_bits_);
   if (sum < low_bits_) {
-    ++high_bits_;
+    high_bits_ = SafeSignedAdd<int64_t>(high_bits_, 1);
   }
   low_bits_ = sum;
   return *this;
@@ -454,7 +458,7 @@ Decimal128& Decimal128::operator&=(const Decimal128& right) {
 Decimal128& Decimal128::operator<<=(uint32_t bits) {
   if (bits != 0) {
     if (bits < 64) {
-      high_bits_ <<= bits;
+      high_bits_ = SafeLeftShift(high_bits_, bits);
       high_bits_ |= (low_bits_ >> (64 - bits));
       low_bits_ <<= bits;
     } else if (bits < 128) {
@@ -925,7 +929,7 @@ Status Decimal128::FromBigEndian(const uint8_t* bytes, int32_t length, Decimal12
   } else {
     high = -1 * (is_negative && length < kMaxDecimalBytes);
     // Shift left enough bits to make room for the incoming int64_t
-    high <<= high_bits_offset * CHAR_BIT;
+    high = SafeLeftShift(high, high_bits_offset * CHAR_BIT);
     // Preserve the upper bits by inplace OR-ing the int64_t
     high |= high_bits;
   }
@@ -943,7 +947,7 @@ Status Decimal128::FromBigEndian(const uint8_t* bytes, int32_t length, Decimal12
     // Sign extend the low bits if necessary
     low = -1 * (is_negative && length < 8);
     // Shift left enough bits to make room for the incoming int64_t
-    low <<= low_bits_offset * CHAR_BIT;
+    low = SafeLeftShift(low, low_bits_offset * CHAR_BIT);
     // Preserve the upper bits by inplace OR-ing the int64_t
     low |= low_bits;
   }

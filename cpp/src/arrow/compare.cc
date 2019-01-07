@@ -324,7 +324,15 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
     right_data = right.values()->data() + right.offset() * byte_width;
   }
 
-  if (left.null_count() > 0) {
+  if (byte_width == 0) {
+    // Special case 0-width data, as the data pointers may be null
+    for (int64_t i = 0; i < left.length(); ++i) {
+      if (left.IsNull(i) != right.IsNull(i)) {
+        return false;
+      }
+    }
+    return true;
+  } else if (left.null_count() > 0) {
     for (int64_t i = 0; i < left.length(); ++i) {
       const bool left_null = left.IsNull(i);
       const bool right_null = right.IsNull(i);

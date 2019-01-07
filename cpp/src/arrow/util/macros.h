@@ -114,6 +114,15 @@
 #endif  // !defined(MANUALLY_ALIGNED_STRUCT)
 
 // ----------------------------------------------------------------------
+// Convenience macro disabling a particular UBSan check in a function
+
+#if defined(__clang__)
+#define ARROW_DISABLE_UBSAN(feature) __attribute__((no_sanitize(feature)))
+#else
+#define ARROW_DISABLE_UBSAN(feature)
+#endif
+
+// ----------------------------------------------------------------------
 // From googletest
 // (also in parquet-cpp)
 

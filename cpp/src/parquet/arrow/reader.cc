@@ -29,6 +29,7 @@
 
 #include "arrow/api.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/int-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread-pool.h"
 
@@ -76,6 +77,8 @@ namespace parquet {
 namespace arrow {
 
 using ::arrow::BitUtil::BytesForBits;
+using ::arrow::BitUtil::FromBigEndian;
+using ::arrow::internal::SafeLeftShift;
 
 template <typename ArrowType>
 using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
@@ -1098,8 +1101,6 @@ struct TransferFunctor<
 };
 
 static uint64_t BytesToInteger(const uint8_t* bytes, int32_t start, int32_t stop) {
-  using ::arrow::BitUtil::FromBigEndian;
-
   const int32_t length = stop - start;
 
   DCHECK_GE(length, 0);
@@ -1155,37 +1156,54 @@ static constexpr int32_t kMaxDecimalBytes = 16;
 
 /// \brief Convert a sequence of big-endian bytes to one int64_t (high bits) and one
 /// uint64_t (low bits).
-static void BytesToIntegerPair(const uint8_t* bytes,
-                               const int32_t total_number_of_bytes_used, int64_t* high,
-                               uint64_t* low) {
-  DCHECK_GE(total_number_of_bytes_used, kMinDecimalBytes);
-  DCHECK_LE(total_number_of_bytes_used, kMaxDecimalBytes);
+static void BytesToIntegerPair(const uint8_t* bytes, const int32_t length,
+                               int64_t* out_high, uint64_t* out_low) {
+  DCHECK_GE(length, kMinDecimalBytes);
+  DCHECK_LE(length, kMaxDecimalBytes);
 
-  /// Bytes are coming in big-endian, so the first byte is the MSB and therefore holds the
-  /// sign bit.
+  // XXX This code is copied from Decimal::FromBigEndian
+
+  int64_t high, low;
+
+  // Bytes are coming in big-endian, so the first byte is the MSB and therefore holds the
+  // sign bit.
   const bool is_negative = static_cast<int8_t>(bytes[0]) < 0;
 
-  /// Sign extend the low bits if necessary
-  *low = UINT64_MAX * (is_negative && total_number_of_bytes_used < 8);
-  *high = -1 * (is_negative && total_number_of_bytes_used < kMaxDecimalBytes);
+  // 1. Extract the high bytes
+  // Stop byte of the high bytes
+  const int32_t high_bits_offset = std::max(0, length - 8);
+  const auto high_bits = BytesToInteger(bytes, 0, high_bits_offset);
 
-  /// Stop byte of the high bytes
-  const int32_t high_bits_offset = std::max(0, total_number_of_bytes_used - 8);
+  if (high_bits_offset == 8) {
+    // Avoid undefined shift by 64 below
+    high = high_bits;
+  } else {
+    high = -1 * (is_negative && length < kMaxDecimalBytes);
+    // Shift left enough bits to make room for the incoming int64_t
+    high = SafeLeftShift(high, high_bits_offset * CHAR_BIT);
+    // Preserve the upper bits by inplace OR-ing the int64_t
+    high |= high_bits;
+  }
 
-  /// Shift left enough bits to make room for the incoming int64_t
-  *high <<= high_bits_offset * CHAR_BIT;
+  // 2. Extract the low bytes
+  // Stop byte of the low bytes
+  const int32_t low_bits_offset = std::min(length, 8);
+  const auto low_bits = BytesToInteger(bytes, high_bits_offset, length);
 
-  /// Preserve the upper bits by inplace OR-ing the int64_t
-  *high |= BytesToInteger(bytes, 0, high_bits_offset);
+  if (low_bits_offset == 8) {
+    // Avoid undefined shift by 64 below
+    low = low_bits;
+  } else {
+    // Sign extend the low bits if necessary
+    low = -1 * (is_negative && length < 8);
+    // Shift left enough bits to make room for the incoming int64_t
+    low = SafeLeftShift(low, low_bits_offset * CHAR_BIT);
+    // Preserve the upper bits by inplace OR-ing the int64_t
+    low |= low_bits;
+  }
 
-  /// Stop byte of the low bytes
-  const int32_t low_bits_offset = std::min(total_number_of_bytes_used, 8);
-
-  /// Shift left enough bits to make room for the incoming uint64_t
-  *low <<= low_bits_offset * CHAR_BIT;
-
-  /// Preserve the upper bits by inplace OR-ing the uint64_t
-  *low |= BytesToInteger(bytes, high_bits_offset, total_number_of_bytes_used);
+  *out_high = high;
+  *out_low = static_cast<uint64_t>(low);
 }
 
 static inline void RawBytesToDecimalBytes(const uint8_t* value, int32_t byte_width,
