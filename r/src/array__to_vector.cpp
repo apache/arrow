@@ -438,7 +438,7 @@ struct Converter_Int64 {
 
       auto p_vec = reinterpret_cast<int64_t*>(data.begin()) + start;
 
-      if (array->null_count()) {
+      if (null_count) {
         internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
                                              array->offset(), n);
         for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
@@ -468,7 +468,7 @@ struct Converter_Decimal {
       const auto& decimals_arr =
           internal::checked_cast<const arrow::Decimal128Array&>(*array);
 
-      if (array->null_count()) {
+      if (null_count) {
         internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
                                              array->offset(), n);
 
