@@ -46,35 +46,33 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-#define STRINGIFY(x) #x
-
-#define ASSERT_RAISES(ENUM, expr)                                         \
-  do {                                                                    \
-    ::arrow::Status s = (expr);                                           \
-    if (!s.Is##ENUM()) {                                                  \
-      FAIL() << "Expected '" STRINGIFY(expr) "' to fail with " STRINGIFY( \
-                    ENUM) ", but got "                                    \
-             << s.ToString();                                             \
-    }                                                                     \
+#define ASSERT_RAISES(ENUM, expr)                                                     \
+  do {                                                                                \
+    ::arrow::Status s = (expr);                                                       \
+    if (!s.Is##ENUM()) {                                                              \
+      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
+                    ENUM) ", but got "                                                \
+             << s.ToString();                                                         \
+    }                                                                                 \
   } while (false)
 
-#define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                   \
-  do {                                                                    \
-    ::arrow::Status s = (expr);                                           \
-    if (!s.Is##ENUM()) {                                                  \
-      FAIL() << "Expected '" STRINGIFY(expr) "' to fail with " STRINGIFY( \
-                    ENUM) ", but got "                                    \
-             << s.ToString();                                             \
-    }                                                                     \
-    ASSERT_EQ((message), s.ToString());                                   \
+#define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                               \
+  do {                                                                                \
+    ::arrow::Status s = (expr);                                                       \
+    if (!s.Is##ENUM()) {                                                              \
+      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
+                    ENUM) ", but got "                                                \
+             << s.ToString();                                                         \
+    }                                                                                 \
+    ASSERT_EQ((message), s.ToString());                                               \
   } while (false)
 
-#define ASSERT_OK(expr)                                                \
-  do {                                                                 \
-    ::arrow::Status _s = (expr);                                       \
-    if (!_s.ok()) {                                                    \
-      FAIL() << "'" STRINGIFY(expr) "' failed with " << _s.ToString(); \
-    }                                                                  \
+#define ASSERT_OK(expr)                                                      \
+  do {                                                                       \
+    ::arrow::Status _s = (expr);                                             \
+    if (!_s.ok()) {                                                          \
+      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _s.ToString(); \
+    }                                                                        \
   } while (false)
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))

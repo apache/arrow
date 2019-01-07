@@ -15,34 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCTION_REGISTRY_H
-#define GANDIVA_FUNCTION_REGISTRY_H
+#ifndef GANDIVA_FUNCTION_REGISTRY_ARITHMETIC_H
+#define GANDIVA_FUNCTION_REGISTRY_ARITHMETIC_H
 
 #include <vector>
-#include "gandiva/function_registry_common.h"
-#include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"
 
 namespace gandiva {
 
-///\brief Registry of pre-compiled IR functions.
-class FunctionRegistry {
- public:
-  using iterator = const NativeFunction*;
-
-  /// Lookup a pre-compiled function by its signature.
-  const NativeFunction* LookupSignature(const FunctionSignature& signature) const;
-
-  iterator begin() const;
-  iterator end() const;
-
- private:
-  static SignatureMap InitPCMap();
-
-  static std::vector<NativeFunction> pc_registry_;
-  static SignatureMap pc_registry_map_;
-};
+std::vector<NativeFunction> GetArithmeticFunctionRegistry();
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_FUNCTION_REGISTRY_H
+#endif  // GANDIVA_FUNCTION_REGISTRY_ARITHMETIC_H
