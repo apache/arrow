@@ -53,7 +53,7 @@ table Tensor {
 root_type Tensor;
 
 /// ----------------------------------------------------------------------
-/// Data structures for sparse tensors
+/// EXPERIMENTAL: Data structures for sparse tensors
 
 /// Coodinate format of sparse tensor index.
 table SparseTensorIndexCOO {

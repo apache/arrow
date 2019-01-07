@@ -270,7 +270,7 @@ ARROW_EXPORT
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length);
 
-// \brief EXPERIMETNAL: Write arrow::SparseTensor as a contiguous mesasge. The metadata,
+// \brief EXPERIMENTAL: Write arrow::SparseTensor as a contiguous mesasge. The metadata,
 // sparse index, and body are written assuming 64-byte alignment. It is the
 // user's responsibility to ensure that the OutputStream has been aligned
 // to a 64-byte multiple before writing the message.

@@ -18,6 +18,7 @@
 #ifndef ARROW_SPARSE_TENSOR_FORMAT_H
 #define ARROW_SPARSE_TENSOR_FORMAT_H
 
+/// \brief EXPERIMENTAL: Sparse tensor format enumeration
 struct SparseTensorFormat {
   enum type { COO, CSR };
 };

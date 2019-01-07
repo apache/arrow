@@ -30,6 +30,8 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // SparseIndex class
 
+/// \brief EXPERIMENTAL: The base class for representing index of non-zero
+/// values in sparse tensor
 class ARROW_EXPORT SparseIndex {
  public:
   explicit SparseIndex(SparseTensorFormat::type format_id, int64_t non_zero_length)
@@ -57,6 +59,7 @@ class SparseIndexBase : public SparseIndex {
 // ----------------------------------------------------------------------
 // SparseCOOIndex class
 
+/// \brief EXPERIMENTAL: The index data for COO sparse tensor
 class ARROW_EXPORT SparseCOOIndex : public SparseIndexBase<SparseCOOIndex> {
  public:
   using CoordsTensor = NumericTensor<Int64Type>;
@@ -81,6 +84,7 @@ class ARROW_EXPORT SparseCOOIndex : public SparseIndexBase<SparseCOOIndex> {
 // ----------------------------------------------------------------------
 // SparseCSRIndex class
 
+/// \brief EXPERIMENTAL: The index data for CSR sparse matrix
 class ARROW_EXPORT SparseCSRIndex : public SparseIndexBase<SparseCSRIndex> {
  public:
   using IndexTensor = NumericTensor<Int64Type>;
@@ -108,6 +112,7 @@ class ARROW_EXPORT SparseCSRIndex : public SparseIndexBase<SparseCSRIndex> {
 // ----------------------------------------------------------------------
 // SparseTensorBase class
 
+/// \brief EXPERIMENTAL: The base class of sparse tensor container
 class ARROW_EXPORT SparseTensorBase {
  public:
   virtual ~SparseTensorBase() = default;
@@ -160,6 +165,7 @@ class ARROW_EXPORT SparseTensorBase {
 // ----------------------------------------------------------------------
 // SparseTensor class
 
+/// \brief EXPERIMENTAL: Concrete sparse tensor classes with sparse index type
 template <typename SparseIndexType>
 class ARROW_EXPORT SparseTensor : public SparseTensorBase {
  public:

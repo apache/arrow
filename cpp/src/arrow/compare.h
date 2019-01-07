@@ -36,6 +36,7 @@ bool ARROW_EXPORT ArrayEquals(const Array& left, const Array& right);
 
 bool ARROW_EXPORT TensorEquals(const Tensor& left, const Tensor& right);
 
+/// EXPERIMENTAL: Returns true if the given sparse tensors are exactly equal
 bool ARROW_EXPORT SparseTensorEquals(const SparseTensorBase& left,
                                      const SparseTensorBase& right);
 
