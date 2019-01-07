@@ -1,0 +1,13 @@
+diff --git a/pom.xml b/pom.xml
+index f0e5ed9c56..b30d4d61d6 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -2090,6 +2090,8 @@
+               <arg>-feature</arg>
+               <arg>-explaintypes</arg>
+               <arg>-Yno-adapted-args</arg>
++              <arg>-Xmax-classfile-name</arg>
++              <arg>128</arg>
+             </args>
+             <jvmArgs>
+               <jvmArg>-Xms1024m</jvmArg>
