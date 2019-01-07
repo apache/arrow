@@ -56,7 +56,7 @@ module Arrow
         when ::Array
           append_value_raw
           @value_builder ||= value_builder
-          @value_builder.append_values(value)
+          @value_builder.append_values(value, nil)
         else
           message = "list value must be nil or Array: #{value.inspect}"
           raise ArgumentError, message
