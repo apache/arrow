@@ -22,7 +22,7 @@ export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m"
 
 SPARK_VERSION=${SPARK_VERSION:-2.4.0}
 pushd arrow/java
-  ARROW_VERSION=`mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | sed -n -e '/^\[.*\]/ !{ /^[0-9]/ { p; q } }'`
+  ARROW_VERSION=`mvn -q org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | sed -n -e '/^\[.*\]/ !{ /^[0-9]/ { p; q } }'`
 popd
 
 cache_dir="/build/spark"
@@ -49,9 +49,9 @@ fi
 pushd $spark_dir
   # update Spark pom with the Arrow version just installed and build Spark, need package phase for pyspark
   echo "Building Spark with Arrow $ARROW_VERSION"
-  mvn versions:set-property -Dproperty=arrow.version -DnewVersion=$ARROW_VERSION
+  mvn -q versions:set-property -Dproperty=arrow.version -DnewVersion=$ARROW_VERSION
 
-  build/mvn -q -DskipTests package -pl sql/core -pl assembly -am
+  build/mvn -DskipTests package -pl sql/core -pl assembly -am
 
   SPARK_SCALA_TESTS=(
     "org.apache.spark.sql.execution.arrow"
