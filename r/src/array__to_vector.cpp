@@ -739,3 +739,94 @@ List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch,
     return RecordBatch__to_dataframe_serial(batch);
   }
 }
+
+
+
+List Table__to_dataframe_parallel(
+    const std::shared_ptr<arrow::Table>& table) {
+  auto nc = table->num_columns();
+  auto nr = table->num_rows();
+  List tbl(nc);
+  CharacterVector names(nc);
+
+  // task group to ingest data in parallel
+  auto tg = arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
+
+  // allocate and start ingesting immediately the columns that
+  // can be ingested in parallel, i.e. when ingestion no longer
+  // need to happen on the main thread
+  for (int i = 0; i < nc; i++) {
+    const ArrayVector& arrays = table->column(i)->data()->chunks();
+    // allocate data for column i
+    SEXP column = tbl[i] = arrow::r::ArrayVector__Allocate(nr, arrays);
+
+    // add a task to ingest data of that column if that can be done in parallel
+    if (arrow::r::ArrayVector__Parallel(arrays)) {
+      tg->Append([=] { return arrow::r::ArrayVector__Ingest(column, arrays); });
+    }
+  }
+
+  arrow::Status status = arrow::Status::OK();
+
+  // ingest the other columns
+  for (int i = 0; i < nc; i++) {
+    // ingest if cannot ingest in parallel
+    const ArrayVector& arrays = table->column(i)->data()->chunks();
+    if (!arrow::r::ArrayVector__Parallel(arrays)) {
+      status &= arrow::r::ArrayVector__Ingest(tbl[i], arrays);
+    }
+
+    names[i] = table->column(i)->name();
+  }
+
+  // wait for the ingestion to be finished
+  status &= tg->Finish();
+
+  STOP_IF_NOT_OK(status);
+
+  tbl.attr("names") = names;
+  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
+  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
+
+  return tbl;
+}
+
+
+
+List Table__to_dataframe_serial(const std::shared_ptr<arrow::Table>& table) {
+  int nc = table->num_columns();
+  int nr = table->num_rows();
+  List tbl(nc);
+  CharacterVector names(nc);
+  for (int i = 0; i < nc; i++) {
+    auto column = table->column(i);
+    tbl[i] = ChunkedArray__as_vector(column->data());
+    names[i] = column->name();
+  }
+  tbl.attr("names") = names;
+  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
+  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
+  return tbl;
+}
+
+// [[Rcpp::export]]
+List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads) {
+  if (use_threads) {
+    return Table__to_dataframe_parallel(table);
+  } else {
+    return Table__to_dataframe_serial(table);
+  }
+  int nc = table->num_columns();
+  int nr = table->num_rows();
+  List tbl(nc);
+  CharacterVector names(nc);
+  for (int i = 0; i < nc; i++) {
+    auto column = table->column(i);
+    tbl[i] = ChunkedArray__as_vector(column->data());
+    names[i] = column->name();
+  }
+  tbl.attr("names") = names;
+  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
+  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
+  return tbl;
+}

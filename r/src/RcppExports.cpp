@@ -249,6 +249,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Table__to_dataframe
+List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads);
+RcppExport SEXP _arrow_Table__to_dataframe(SEXP tableSEXP, SEXP use_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
+    Rcpp::traits::input_parameter< bool >::type use_threads(use_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__to_dataframe(table, use_threads));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ArrayData__get_type
 std::shared_ptr<arrow::DataType> ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData__get_type(SEXP xSEXP) {
@@ -2186,17 +2198,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Table__to_dataframe
-List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table);
-RcppExport SEXP _arrow_Table__to_dataframe(SEXP tableSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table__to_dataframe(table));
-    return rcpp_result_gen;
-END_RCPP
-}
 // Table__column
 std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table, int i);
 RcppExport SEXP _arrow_Table__column(SEXP tableSEXP, SEXP iSEXP) {
@@ -2263,6 +2264,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1},
     {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
     {"_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2},
+    {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2},
     {"_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
     {"_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},
     {"_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1},
@@ -2437,7 +2439,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1},
     {"_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1},
     {"_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
-    {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 1},
     {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
     {"_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1},
     {"_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0},

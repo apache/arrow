@@ -85,6 +85,10 @@ RecordBatch__to_dataframe <- function(batch, use_threads) {
     .Call(`_arrow_RecordBatch__to_dataframe`, batch, use_threads)
 }
 
+Table__to_dataframe <- function(table, use_threads) {
+    .Call(`_arrow_Table__to_dataframe`, table, use_threads)
+}
+
 ArrayData__get_type <- function(x) {
     .Call(`_arrow_ArrayData__get_type`, x)
 }
@@ -779,10 +783,6 @@ Table__num_rows <- function(x) {
 
 Table__schema <- function(x) {
     .Call(`_arrow_Table__schema`, x)
-}
-
-Table__to_dataframe <- function(table) {
-    .Call(`_arrow_Table__to_dataframe`, table)
 }
 
 Table__column <- function(table, i) {
