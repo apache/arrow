@@ -1486,5 +1486,8 @@ GARROW_AVAILABLE_IN_0_12
 gboolean garrow_decimal128_array_builder_append_value(GArrowDecimal128ArrayBuilder *builder,
                                                       GArrowDecimal128 *value,
                                                       GError **error);
+GARROW_AVAILABLE_IN_0_12
+gboolean garrow_decimal128_array_builder_append_null(GArrowDecimal128ArrayBuilder *builder,
+                                                     GError **error);
 
 G_END_DECLS

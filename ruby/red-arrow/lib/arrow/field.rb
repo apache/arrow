@@ -108,7 +108,7 @@ module Arrow
         name = args[0]
         data_type = DataType.resolve(args[1])
       else
-        message = "wrong number of arguments (given, #{n_args}, expected 1..2)"
+        message = "wrong number of arguments (given #{n_args}, expected 1..2)"
         raise ArgumentError, message
       end
 

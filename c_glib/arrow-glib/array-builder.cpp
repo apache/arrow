@@ -3863,6 +3863,27 @@ garrow_decimal128_array_builder_append_value(GArrowDecimal128ArrayBuilder *build
      "[decimal128-array-builder][append-value]");
 }
 
+/**
+ * garrow_decimal128_array_builder_append_null:
+ * @builder: A #GArrowDecimal128ArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * It appends a new NULL element.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+garrow_decimal128_array_builder_append_null(GArrowDecimal128ArrayBuilder *builder,
+                                            GError **error)
+{
+  return garrow_array_builder_append_null<arrow::Decimal128Builder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[decimal128-array-builder][append-null]");
+}
+
 G_END_DECLS
 
 GArrowArrayBuilder *
