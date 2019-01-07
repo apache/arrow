@@ -25,24 +25,28 @@ namespace r {
 
 template <typename Converter, typename... Args>
 SEXP ArrayVector_To_Vector(int64_t n, const ArrayVector& arrays, Args... args) {
-  Converter converter(n, std::forward<Args>(args)...);
+  Shield<SEXP> data(Converter::Allocate(n, std::forward<Args>(args)...));
 
   R_xlen_t k = 0;
   for (const auto& array : arrays) {
     auto n_chunk = array->length();
-    STOP_IF_NOT_OK(converter.Ingest(array, k, n_chunk));
+    STOP_IF_NOT_OK(Converter::Ingest(data, array, k, n_chunk));
     k += n_chunk;
   }
-  return converter.data;
+
+  return data;
 }
 
 template <int RTYPE>
 struct Converter_SimpleArray {
-  using Vector = Rcpp::Vector<RTYPE>;
+  using Vector = Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage>;
 
-  Converter_SimpleArray(R_xlen_t n) : data(no_init(n)) {}
+  static SEXP Allocate(R_xlen_t n) {
+    return Vector(no_init(n));
+  }
 
-  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    Vector data(data_);
     using value_type = typename Vector::stored_type;
     auto null_count = array->null_count();
 
@@ -71,20 +75,28 @@ struct Converter_SimpleArray {
     }
     return Status::OK();
   }
-
-  Vector data;
 };
 
-struct Converter_Date32 : public Converter_SimpleArray<INTSXP> {
-  Converter_Date32(R_xlen_t n) : Converter_SimpleArray<INTSXP>(n) {
+struct Converter_Date32 {
+  static SEXP Allocate(R_xlen_t n) {
+    IntegerVector data(no_init(n));
     data.attr("class") = "Date";
+    return data;
   }
+
+  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    return Converter_SimpleArray<INTSXP>::Ingest(data_, array, start, n);
+  }
+
 };
 
 struct Converter_String {
-  Converter_String(R_xlen_t n) : data(n) {}
+  static SEXP Allocate(R_xlen_t n) {
+    return StringVector_(no_init(n));
+  }
 
-  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    StringVector_ data(data_);
     auto null_count = array->null_count();
 
     if (null_count == n) {
@@ -129,13 +141,16 @@ struct Converter_String {
     return Status::OK();
   }
 
-  CharacterVector data;
 };
 
 struct Converter_Boolean {
-  Converter_Boolean(R_xlen_t n) : data(n) {}
 
-  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  static SEXP Allocate(R_xlen_t n) {
+    return LogicalVector_(no_init(n));
+  }
+
+  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    LogicalVector_ data(data_);
     auto null_count = array->null_count();
 
     if (n == null_count) {
@@ -166,11 +181,12 @@ struct Converter_Boolean {
     return Status::OK();
   }
 
-  LogicalVector data;
 };
 
 struct Converter_Dictionary {
-  Converter_Dictionary(R_xlen_t n, const ArrayVector& arrays) : data(n) {
+
+  static SEXP Allocate(R_xlen_t n, const ArrayVector& arrays) {
+    IntegerVector data(no_init(n));
     auto dict_array = static_cast<DictionaryArray*>(arrays[0].get());
     auto dict = dict_array->dictionary();
     auto indices = dict_array->indices();
@@ -198,22 +214,23 @@ struct Converter_Dictionary {
     } else {
       data.attr("class") = "factor";
     }
+    return data;
   }
 
-  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
     DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
     auto indices = dict_array->indices();
     switch (indices->type_id()) {
     case Type::UINT8:
-      return Ingest_Impl<arrow::UInt8Type>(array, start, n);
+      return Ingest_Impl<arrow::UInt8Type>(data_, array, start, n);
     case Type::INT8:
-      return Ingest_Impl<arrow::Int8Type>(array, start, n);
+      return Ingest_Impl<arrow::Int8Type>(data_, array, start, n);
     case Type::UINT16:
-      return Ingest_Impl<arrow::UInt16Type>(array, start, n);
+      return Ingest_Impl<arrow::UInt16Type>(data_, array, start, n);
     case Type::INT16:
-      return Ingest_Impl<arrow::Int16Type>(array, start, n);
+      return Ingest_Impl<arrow::Int16Type>(data_, array, start, n);
     case Type::INT32:
-      return Ingest_Impl<arrow::Int32Type>(array, start, n);
+      return Ingest_Impl<arrow::Int32Type>(data_, array, start, n);
     default:
       break;
     }
@@ -221,8 +238,10 @@ struct Converter_Dictionary {
   }
 
   template <typename Type>
-  Status Ingest_Impl(const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+  static Status Ingest_Impl(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
     R_xlen_t n) {
+    IntegerVector_ data(data_);
+
     DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
     using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
     auto null_count = array->null_count();
@@ -251,16 +270,18 @@ struct Converter_Dictionary {
     return Status::OK();
   }
 
-  // factors are always integer vectors
-  IntegerVector data;
 };
 
 struct Converter_Date64 {
-  Converter_Date64(R_xlen_t n) : data(n) {
+
+  static SEXP Allocate(R_xlen_t n) {
+    NumericVector data(no_init(n));
     data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
+    return data;
   }
 
-  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    NumericVector_ data(data_);
     auto null_count = array->null_count();
     if (null_count == n) {
       std::fill_n(data.begin() + start, n, NA_REAL);
@@ -285,7 +306,7 @@ struct Converter_Date64 {
     return Status::OK();
   }
 
-  NumericVector data;
+
 };
 
 template <int RTYPE, typename Type>
@@ -293,9 +314,12 @@ struct Converter_Promotion {
   using r_stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
   using value_type = typename TypeTraits<Type>::ArrayType::value_type;
 
-  Converter_Promotion(R_xlen_t n) : data(no_init(n)) {}
+  static SEXP Allocate(R_xlen_t n){
+    return Rcpp::Vector<RTYPE>(no_init(n));
+  }
 
-  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    Rcpp::Vector<RTYPE, NoProtectStorage> data(data_);
     auto null_count = array->null_count();
     if (null_count == n) {
       std::fill_n(data.begin() + start, n, default_value<RTYPE>());
@@ -322,23 +346,26 @@ struct Converter_Promotion {
     return Status::OK();
   }
 
-  Rcpp::Vector<RTYPE> data;
 };
 
-template <typename value_type>
+template <typename value_type, int32_t multiplier>
 struct Converter_Time {
-  Converter_Time(int64_t n, int32_t multiplier, CharacterVector classes)
-    : data(no_init(n)), multiplier_(multiplier) {
-    data.attr("class") = classes;
+
+  static SEXP Allocate(R_xlen_t n, SEXP classes, SEXP units){
+    NumericVector data(no_init(n));
+    if (!Rf_isNull(classes)) {
+      data.attr("class") = classes;
+    }
+
+    if (!Rf_isNull(units)) {
+      data.attr("units") = units;
+    }
+    return data;
   }
 
-  Converter_Time(int64_t n, int32_t multiplier)
-    : data(no_init(n)), multiplier_(multiplier) {
-    data.attr("class") = CharacterVector::create("hms", "difftime");
-    data.attr("units") = "secs";
-  }
+  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    NumericVector_ data(data_);
 
-  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
     auto null_count = array->null_count();
     if (n == null_count) {
       std::fill_n(data.begin() + start, n, NA_REAL);
@@ -349,8 +376,8 @@ struct Converter_Time {
       }
 
       auto p_vec = data.begin() + start;
-      auto convert = [this](value_type value) {
-        return static_cast<double>(value) / multiplier_;
+      auto convert = [](value_type value) {
+        return static_cast<double>(value) / multiplier;
       };
       if (null_count) {
         arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
@@ -365,21 +392,18 @@ struct Converter_Time {
     return Status::OK();
   }
 
-  NumericVector data;
-  int32_t multiplier_;
-};
-
-template <typename value_type>
-struct Converter_TimeStamp : Converter_Time<value_type> {
-  Converter_TimeStamp(int64_t n, int32_t multiplier)
-    : Converter_Time<value_type>(n, multiplier,
-      CharacterVector::create("POSIXct", "POSIXt")) {}
 };
 
 struct Converter_Int64 {
-  Converter_Int64(R_xlen_t n) : data(no_init(n)) { data.attr("class") = "integer64"; }
 
-  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  static SEXP Allocate(R_xlen_t n) {
+    NumericVector data(no_init(n));
+    data.attr("class") = "integer64";
+    return data;
+  }
+
+  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    NumericVector_ data(data_);
     auto null_count = array->null_count();
     if (null_count == n) {
       std::fill_n(reinterpret_cast<int64_t*>(data.begin()) + start, n, NA_INT64);
@@ -404,13 +428,16 @@ struct Converter_Int64 {
     return Status::OK();
   }
 
-  NumericVector data;
 };
 
 struct Converter_Decimal {
-  Converter_Decimal(R_xlen_t n) : data(no_init(n)) {}
 
-  Status Ingest(const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+  static SEXP Allocate(R_xlen_t n) {
+    return NumericVector_(no_init(n));
+  }
+
+  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start, R_xlen_t n) {
+    NumericVector_ data(data_);
     auto null_count = array->null_count();
     if (n == null_count) {
       std::fill_n(data.begin() + start, n, NA_REAL);
@@ -437,7 +464,6 @@ struct Converter_Decimal {
     return Status::OK();
   }
 
-  NumericVector data;
 };
 
 }  // namespace r
@@ -494,25 +520,38 @@ SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
 
     // time32 ane time64
   case Type::TIME32:
-    return ArrayVector_To_Vector<Converter_Time<int32_t>>(
-      n, arrays,
-      static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::SECOND
-    ? 1
-    : 1000);
+    {
+      CharacterVector classes(CharacterVector::create("hms", "difftime"));
+      CharacterVector units(CharacterVector::create("secs"));
+      if(static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::SECOND) {
+        return ArrayVector_To_Vector<Converter_Time<int32_t, 1>>(n, arrays, classes, units);
+      } else {
+        return ArrayVector_To_Vector<Converter_Time<int32_t, 1000>>(n, arrays, classes, units);
+      }
+
+    }
 
   case Type::TIME64:
-    return ArrayVector_To_Vector<Converter_Time<int64_t>>(
-      n, arrays,
-      static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::MICRO
-    ? 1000000
-    : 1000000000);
+    {
+      CharacterVector classes(CharacterVector::create("hms", "difftime"));
+      CharacterVector units(CharacterVector::create("secs"));
+      if(static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::MICRO) {
+        return ArrayVector_To_Vector<Converter_Time<int64_t, 1000000>>(n, arrays, classes, units);
+      } else {
+        return ArrayVector_To_Vector<Converter_Time<int64_t, 1000000000>>(n, arrays, classes, units);
+      }
+    }
 
   case Type::TIMESTAMP:
-    return ArrayVector_To_Vector<Converter_TimeStamp<int64_t>>(
-      n, arrays,
-      static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::MICRO
-    ? 1000000
-    : 1000000000);
+  {
+    CharacterVector classes(CharacterVector::create("POSIXct", "POSIXt"));
+    if(static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::MICRO) {
+      return ArrayVector_To_Vector<Converter_Time<int64_t, 1000000>>(n, arrays, classes, R_NilValue);
+    } else {
+      return ArrayVector_To_Vector<Converter_Time<int64_t, 1000000000>>(n, arrays, classes, R_NilValue);
+    }
+
+  }
 
   case Type::INT64:
     return ArrayVector_To_Vector<Converter_Int64>(n, arrays);
@@ -535,4 +574,20 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
 // [[Rcpp::export]]
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return ArrayVector__as_vector(chunked_array->length(), chunked_array->chunks());
+}
+
+// [[Rcpp::export]]
+List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch) {
+  auto nc = batch->num_columns();
+  auto nr = batch->num_rows();
+  List tbl(nc);
+  CharacterVector names(nc);
+  for (int i = 0; i < nc; i++) {
+    tbl[i] = Array__as_vector(batch->column(i));
+    names[i] = batch->column_name(i);
+  }
+  tbl.attr("names") = names;
+  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
+  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
+  return tbl;
 }

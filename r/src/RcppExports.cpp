@@ -237,6 +237,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// RecordBatch__to_dataframe
+List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch);
+RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batchSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__to_dataframe(batch));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ArrayData__get_type
 std::shared_ptr<arrow::DataType> ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData__get_type(SEXP xSEXP) {
@@ -1846,17 +1857,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// RecordBatch__to_dataframe
-List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch);
-RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batchSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch__to_dataframe(batch));
-    return rcpp_result_gen;
-END_RCPP
-}
 // RecordBatch__from_dataframe
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl);
 RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tblSEXP) {
@@ -2261,6 +2261,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_DictionaryArray__dictionary", (DL_FUNC) &_arrow_DictionaryArray__dictionary, 1},
     {"_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1},
     {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
+    {"_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 1},
     {"_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
     {"_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},
     {"_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1},
@@ -2406,7 +2407,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
     {"_arrow_RecordBatch__columns", (DL_FUNC) &_arrow_RecordBatch__columns, 1},
     {"_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2},
-    {"_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 1},
     {"_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1},
     {"_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 2},
     {"_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2},

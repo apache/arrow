@@ -81,6 +81,10 @@ ChunkedArray__as_vector <- function(chunked_array) {
     .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
 }
 
+RecordBatch__to_dataframe <- function(batch) {
+    .Call(`_arrow_RecordBatch__to_dataframe`, batch)
+}
+
 ArrayData__get_type <- function(x) {
     .Call(`_arrow_ArrayData__get_type`, x)
 }
@@ -659,10 +663,6 @@ RecordBatch__columns <- function(batch) {
 
 RecordBatch__column <- function(batch, i) {
     .Call(`_arrow_RecordBatch__column`, batch, i)
-}
-
-RecordBatch__to_dataframe <- function(batch) {
-    .Call(`_arrow_RecordBatch__to_dataframe`, batch)
 }
 
 RecordBatch__from_dataframe <- function(tbl) {
