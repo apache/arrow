@@ -339,15 +339,10 @@ struct Converter_Promotion {
 
 template <typename value_type, int32_t multiplier>
 struct Converter_Time {
-  static SEXP Allocate(R_xlen_t n, SEXP classes, SEXP units) {
+  static SEXP Allocate(R_xlen_t n) {
     NumericVector data(no_init(n));
-    if (!Rf_isNull(classes)) {
-      data.attr("class") = classes;
-    }
-
-    if (!Rf_isNull(units)) {
-      data.attr("units") = units;
-    }
+    data.attr("class") = CharacterVector::create("hms", "difftime");
+    data.attr("units") = CharacterVector::create("secs");
     return data;
   }
 
@@ -379,6 +374,20 @@ struct Converter_Time {
       }
     }
     return Status::OK();
+  }
+};
+
+template <typename value_type, int32_t multiplier>
+struct Converter_Timestamp {
+  static SEXP Allocate(R_xlen_t n) {
+    NumericVector data(no_init(n));
+    data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
+    return data;
+  }
+
+  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
+    R_xlen_t start, R_xlen_t n) {
+    return Converter_Time<value_type, multiplier>::Ingest(data_, array, start, n);
   }
 };
 
@@ -516,37 +525,27 @@ SEXP ArrayVector__as_vector(int64_t n, const ArrayVector& arrays) {
 
       // time32 ane time64
     case Type::TIME32: {
-      CharacterVector classes(CharacterVector::create("hms", "difftime"));
-      CharacterVector units(CharacterVector::create("secs"));
       if (static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::SECOND) {
-        return ArrayVector_To_Vector<Converter_Time<int32_t, 1>>(n, arrays, classes,
-                                                                 units);
+        return ArrayVector_To_Vector<Converter_Time<int32_t, 1>>(n, arrays);
       } else {
-        return ArrayVector_To_Vector<Converter_Time<int32_t, 1000>>(n, arrays, classes,
-                                                                    units);
+        return ArrayVector_To_Vector<Converter_Time<int32_t, 1000>>(n, arrays);
       }
     }
 
     case Type::TIME64: {
-      CharacterVector classes(CharacterVector::create("hms", "difftime"));
-      CharacterVector units(CharacterVector::create("secs"));
       if (static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::MICRO) {
-        return ArrayVector_To_Vector<Converter_Time<int64_t, 1000000>>(n, arrays, classes,
-                                                                       units);
+        return ArrayVector_To_Vector<Converter_Time<int64_t, 1000000>>(n, arrays);
       } else {
-        return ArrayVector_To_Vector<Converter_Time<int64_t, 1000000000>>(n, arrays,
-                                                                          classes, units);
+        return ArrayVector_To_Vector<Converter_Time<int64_t, 1000000000>>(n, arrays);
       }
     }
 
     case Type::TIMESTAMP: {
-      CharacterVector classes(CharacterVector::create("POSIXct", "POSIXt"));
       if (static_cast<TimeType*>(arrays[0]->type().get())->unit() == TimeUnit::MICRO) {
-        return ArrayVector_To_Vector<Converter_Time<int64_t, 1000000>>(n, arrays, classes,
-                                                                       R_NilValue);
+        return ArrayVector_To_Vector<Converter_Timestamp<int64_t, 1000000>>(n, arrays);
       } else {
-        return ArrayVector_To_Vector<Converter_Time<int64_t, 1000000000>>(
-            n, arrays, classes, R_NilValue);
+        return ArrayVector_To_Vector<Converter_Timestamp<int64_t, 1000000000>>(
+            n, arrays);
       }
     }
 
