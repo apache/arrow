@@ -41,7 +41,8 @@ using ::arrow::internal::checked_cast;
 static constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
 
 static Status JSONTypeError(const char* expected_type, rj::Type json_type) {
-  return Status::Invalid("Expected ", expected_type, " or null, got type ", json_type);
+  return Status::Invalid("Expected ", expected_type, " or null, got JSON type ",
+                         json_type);
 }
 
 class Converter {
@@ -91,7 +92,6 @@ class ConcreteConverter : public Converter {
 };
 
 // TODO : dates and times?
-// TODO : binary / fixed size binary?
 
 // ------------------------------------------------------------------------
 // Converter for null arrays
@@ -284,7 +284,7 @@ class DecimalConverter final : public ConcreteConverter<DecimalConverter> {
 };
 
 // ------------------------------------------------------------------------
-// Converter for string arrays
+// Converter for binary and string arrays
 
 class StringConverter final : public ConcreteConverter<StringConverter> {
  public:
@@ -311,6 +311,43 @@ class StringConverter final : public ConcreteConverter<StringConverter> {
 
  protected:
   std::shared_ptr<BinaryBuilder> builder_;
+};
+
+// ------------------------------------------------------------------------
+// Converter for fixed-size binary arrays
+
+class FixedSizeBinaryConverter final
+    : public ConcreteConverter<FixedSizeBinaryConverter> {
+ public:
+  explicit FixedSizeBinaryConverter(const std::shared_ptr<DataType>& type) {
+    this->type_ = type;
+    builder_ = std::make_shared<FixedSizeBinaryBuilder>(type, default_memory_pool());
+  }
+
+  Status AppendNull() override { return builder_->AppendNull(); }
+
+  Status AppendValue(const rj::Value& json_obj) override {
+    if (json_obj.IsNull()) {
+      return AppendNull();
+    }
+    if (json_obj.IsString()) {
+      auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
+      if (view.length() != static_cast<size_t>(builder_->byte_width())) {
+        std::stringstream ss;
+        ss << "Invalid string length " << view.length() << " in JSON input for "
+           << this->type_->ToString();
+        return Status::Invalid(ss.str());
+      }
+      return builder_->Append(view);
+    } else {
+      return JSONTypeError("string", json_obj.GetType());
+    }
+  }
+
+  std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
+
+ protected:
+  std::shared_ptr<FixedSizeBinaryBuilder> builder_;
 };
 
 // ------------------------------------------------------------------------
@@ -437,7 +474,12 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::INT8, IntegerConverter<Int8Type>)
     SIMPLE_CONVERTER_CASE(Type::INT16, IntegerConverter<Int16Type>)
     SIMPLE_CONVERTER_CASE(Type::INT32, IntegerConverter<Int32Type>)
+    SIMPLE_CONVERTER_CASE(Type::TIME32, IntegerConverter<Int32Type>)
+    SIMPLE_CONVERTER_CASE(Type::DATE32, IntegerConverter<Date32Type>)
     SIMPLE_CONVERTER_CASE(Type::INT64, IntegerConverter<Int64Type>)
+    SIMPLE_CONVERTER_CASE(Type::TIME64, IntegerConverter<Int64Type>)
+    SIMPLE_CONVERTER_CASE(Type::TIMESTAMP, IntegerConverter<Int64Type>)
+    SIMPLE_CONVERTER_CASE(Type::DATE64, IntegerConverter<Date64Type>)
     SIMPLE_CONVERTER_CASE(Type::UINT8, IntegerConverter<UInt8Type>)
     SIMPLE_CONVERTER_CASE(Type::UINT16, IntegerConverter<UInt16Type>)
     SIMPLE_CONVERTER_CASE(Type::UINT32, IntegerConverter<UInt32Type>)
@@ -449,6 +491,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::LIST, ListConverter)
     SIMPLE_CONVERTER_CASE(Type::STRUCT, StructConverter)
     SIMPLE_CONVERTER_CASE(Type::STRING, StringConverter)
+    SIMPLE_CONVERTER_CASE(Type::BINARY, StringConverter)
+    SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
     default: {
       return Status::NotImplemented("JSON conversion to ", type->ToString(),

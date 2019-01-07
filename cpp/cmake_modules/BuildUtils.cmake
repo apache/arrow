@@ -119,9 +119,11 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(BUILD_STATIC ${ARROW_BUILD_STATIC})
   endif()
 
-  if(MSVC)
+  if(MSVC OR (CMAKE_GENERATOR STREQUAL Xcode))
     # MSVC needs to compile C++ separately for each library kind (shared and static)
     # because of dllexport declarations
+    # The Xcode generator doesn't reliably work with Xcode as target names are not
+    # guessed correctly.
     set(LIB_DEPS ${ARG_SOURCES})
     set(EXTRA_DEPS ${ARG_DEPENDENCIES})
 

@@ -265,8 +265,8 @@ class ARROW_EXPORT Field {
 
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
-  bool Equals(const Field& other) const;
-  bool Equals(const std::shared_ptr<Field>& other) const;
+  bool Equals(const Field& other, bool check_metadata = true) const;
+  bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = true) const;
 
   /// \brief Return a string representation ot the field
   std::string ToString() const;
@@ -525,7 +525,7 @@ class ARROW_EXPORT StructType : public NestedType {
   ARROW_DEPRECATED("Use GetFieldByName")
   std::shared_ptr<Field> GetChildByName(const std::string& name) const;
 
-  ARROW_DEPRECATED("Use GetChildIndex")
+  ARROW_DEPRECATED("Use GetFieldIndex")
   int GetChildIndex(const std::string& name) const;
 
  private:
@@ -600,17 +600,17 @@ enum class DateUnit : char { DAY = 0, MILLI = 1 };
 /// \brief Base type class for date data
 class ARROW_EXPORT DateType : public FixedWidthType {
  public:
-  DateUnit unit() const { return unit_; }
+  virtual DateUnit unit() const = 0;
 
  protected:
-  DateType(Type::type type_id, DateUnit unit);
-  DateUnit unit_;
+  explicit DateType(Type::type type_id);
 };
 
 /// Concrete type class for 32-bit date data (as number of days since UNIX epoch)
 class ARROW_EXPORT Date32Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE32;
+  static constexpr DateUnit UNIT = DateUnit::DAY;
 
   using c_type = int32_t;
 
@@ -622,12 +622,14 @@ class ARROW_EXPORT Date32Type : public DateType {
   std::string ToString() const override;
 
   std::string name() const override { return "date32"; }
+  DateUnit unit() const override { return UNIT; }
 };
 
 /// Concrete type class for 64-bit date data (as number of milliseconds since UNIX epoch)
 class ARROW_EXPORT Date64Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE64;
+  static constexpr DateUnit UNIT = DateUnit::MILLI;
 
   using c_type = int64_t;
 
@@ -639,6 +641,7 @@ class ARROW_EXPORT Date64Type : public DateType {
   std::string ToString() const override;
 
   std::string name() const override { return "date64"; }
+  DateUnit unit() const override { return UNIT; }
 };
 
 struct TimeUnit {

@@ -48,7 +48,6 @@ matrix:
   fast_finish: true
   allow_failures:
   - jdk: oraclejdk9
-  - language: r
   include:
   - name: "Lint C++, Python, R"
     os: linux
@@ -62,13 +61,35 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
-  - name: "C++ unit tests, code coverage with gcc 4.8"
+  - name: "C++ unit tests w/ Valgrind, clang 6.0"
+    language: cpp
+    os: linux
+    env:
+    - ARROW_TRAVIS_VALGRIND=1
+    - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - ARROW_TRAVIS_PLASMA=1
+    - ARROW_TRAVIS_ORC=1
+    - ARROW_TRAVIS_PARQUET=1
+    - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    - CC="clang-6.0"
+    - CXX="clang++-6.0"
+    before_script:
+    - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    # If either C++ or Python changed, we must install the C++ libraries
+    - git submodule update --init
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
+  # Separating Valgrind and C++ coverage makes individual jobs shorter
+  - name: "C++ unit tests w/ gcc 4.8, coverage"
     compiler: gcc
     language: cpp
     os: linux
     jdk: openjdk8
     env:
-    - ARROW_TRAVIS_VALGRIND=1
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_ORC=1
@@ -88,7 +109,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh || travis_terminate 1
-  - name: "Python 2.7 and 3.6 unit tests, coverage with gcc 4.8"
+  - name: "Python 2.7 and 3.6 unit tests w/ Valgrind, gcc 4.8, coverage"
     compiler: gcc
     language: cpp
     os: linux
@@ -99,14 +120,14 @@ matrix:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_COVERAGE=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - ARROW_TRAVIS_PYTHON_JVM=1
     - ARROW_TRAVIS_PYTHON_GANDIVA=1
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
+    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     # TODO(wesm): Run the benchmarks outside of Travis
     # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     before_script:
-    - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
+    - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ] && [ $ARROW_CI_DOCS_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
@@ -235,7 +256,6 @@ matrix:
     - ARROW_TRAVIS_USE_VENDORED_BOOST=1
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_PLASMA=1
-    - BUILD_TORCH_EXAMPLE=no
     - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
     before_script:
     - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
@@ -282,7 +302,6 @@ matrix:
     - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_cargo.sh
     script:
-    - RUSTUP_TOOLCHAIN=stable $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh || true
     - RUSTUP_TOOLCHAIN=nightly $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/rust
@@ -307,6 +326,8 @@ matrix:
     language: r
     cache: packages
     latex: false
+    env:
+    - ARROW_TRAVIS_PARQUET=1
     before_install:
     # Have to copy-paste this here because of how R's build steps work
     - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`

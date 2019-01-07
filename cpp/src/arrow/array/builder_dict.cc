@@ -161,7 +161,7 @@ DictionaryBuilder<T>::~DictionaryBuilder() {}
 template <typename T>
 DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
                                         MemoryPool* pool)
-    : ArrayBuilder(type, pool), byte_width_(-1), values_builder_(pool) {
+    : ArrayBuilder(type, pool), delta_offset_(0), byte_width_(-1), values_builder_(pool) {
   DCHECK_EQ(T::type_id, type->id()) << "inconsistent type passed to DictionaryBuilder";
 }
 
@@ -175,6 +175,7 @@ template <>
 DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
     const std::shared_ptr<DataType>& type, MemoryPool* pool)
     : ArrayBuilder(type, pool),
+      delta_offset_(0),
       byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()) {}
 
 template <typename T>

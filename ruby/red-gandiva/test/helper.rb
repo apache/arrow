@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "../../red-arrow/version"
-require_relative "../version"
-
 require "gandiva"
 
 require "test-unit"

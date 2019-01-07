@@ -155,6 +155,35 @@ where
     n
 }
 
+/// Returns the sum of values in the array.
+///
+/// Returns `None` if the array is empty or only contains null values.
+pub fn sum<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
+where
+    T: ArrowNumericType,
+    T::Native: Add<Output = T::Native>,
+{
+    let mut n: T::Native = T::default_value();
+    // iteratively track whether all values are null (or array is empty)
+    let mut all_nulls = true;
+    let data = array.data();
+    for i in 0..data.len() {
+        if data.is_null(i) {
+            continue;
+        }
+        if all_nulls {
+            all_nulls = false;
+        }
+        let m = array.value(i);
+        n = n + m;
+    }
+    if all_nulls {
+        None
+    } else {
+        Some(n)
+    }
+}
+
 /// Perform `left == right` operation on two arrays.
 pub fn eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
@@ -397,6 +426,30 @@ mod tests {
         assert_eq!(false, c.is_null(2));
         assert_eq!(true, c.is_null(3));
         assert_eq!(13, c.value(2));
+    }
+
+    #[test]
+    fn test_primitive_array_sum() {
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+        assert_eq!(15, sum(&a).unwrap());
+    }
+
+    #[test]
+    fn test_primitive_array_float_sum() {
+        let a = Float64Array::from(vec![1.1, 2.2, 3.3, 4.4, 5.5]);
+        assert_eq!(16.5, sum(&a).unwrap());
+    }
+
+    #[test]
+    fn test_primitive_array_sum_with_nulls() {
+        let a = Int32Array::from(vec![None, Some(2), Some(3), None, Some(5)]);
+        assert_eq!(10, sum(&a).unwrap());
+    }
+
+    #[test]
+    fn test_primitive_array_sum_all_nulls() {
+        let a = Int32Array::from(vec![None, None, None]);
+        assert_eq!(None, sum(&a));
     }
 
     #[test]

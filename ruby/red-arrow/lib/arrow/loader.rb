@@ -43,8 +43,14 @@ module Arrow
       require "arrow/date32-array-builder"
       require "arrow/date64-array"
       require "arrow/date64-array-builder"
+      require "arrow/decimal128-array-builder"
+      require "arrow/decimal128-data-type"
+      require "arrow/dense-union-data-type"
+      require "arrow/dictionary-data-type"
       require "arrow/field"
       require "arrow/file-output-stream"
+      require "arrow/list-array-builder"
+      require "arrow/list-data-type"
       require "arrow/path-extension"
       require "arrow/record"
       require "arrow/record-batch"
@@ -53,7 +59,9 @@ module Arrow
       require "arrow/rolling-window"
       require "arrow/schema"
       require "arrow/slicer"
+      require "arrow/sparse-union-data-type"
       require "arrow/struct-array"
+      require "arrow/struct-array-builder"
       require "arrow/struct-data-type"
       require "arrow/table"
       require "arrow/table-formatter"
@@ -62,8 +70,11 @@ module Arrow
       require "arrow/table-loader"
       require "arrow/table-saver"
       require "arrow/tensor"
+      require "arrow/time32-data-type"
+      require "arrow/time64-data-type"
       require "arrow/timestamp-array"
       require "arrow/timestamp-array-builder"
+      require "arrow/timestamp-data-type"
       require "arrow/writable"
     end
 
@@ -93,7 +104,7 @@ module Arrow
         end
         super(info, klass, method_name)
       else
-       super
+        super
       end
     end
   end

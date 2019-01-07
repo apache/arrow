@@ -14,7 +14,7 @@ git clone https://github.com/apache/arrow.git
 cd arrow/cpp && mkdir release && cd release
 
 # It is important to statically link to boost libraries
-cmake .. -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:BOOL=Off
+cmake .. -DARROW_PARQUET=ON -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:BOOL=Off
 make install
 ```
 
@@ -38,48 +38,19 @@ tf <- tempfile()
 #> # A tibble: 10 x 2
 #>        x       y
 #>    <int>   <dbl>
-#>  1     1 -0.255
-#>  2     2 -0.162
-#>  3     3 -0.614
-#>  4     4 -0.322
-#>  5     5  0.0693
-#>  6     6 -0.920
-#>  7     7 -1.08
-#>  8     8  0.658
-#>  9     9  0.821
-#> 10    10  0.539
-arrow::write_arrow(tib, tf)
+#>  1     1  0.0855
+#>  2     2 -1.68  
+#>  3     3 -0.0294
+#>  4     4 -0.124 
+#>  5     5  0.0675
+#>  6     6  1.64  
+#>  7     7  1.54  
+#>  8     8 -0.0209
+#>  9     9 -0.982 
+#> 10    10  0.349
+# arrow::write_arrow(tib, tf)
 
-# read it back with pyarrow
-pa <- import("pyarrow")
-as_tibble(pa$open_file(tf)$read_pandas())
-#> # A tibble: 10 x 2
-#>        x       y
-#>    <int>   <dbl>
-#>  1     1 -0.255
-#>  2     2 -0.162
-#>  3     3 -0.614
-#>  4     4 -0.322
-#>  5     5  0.0693
-#>  6     6 -0.920
-#>  7     7 -1.08
-#>  8     8  0.658
-#>  9     9  0.821
-#> 10    10  0.539
-```
-
-## Development
-
-### Code style
-
-We use Google C++ style in our C++ code. Check for style errors with
-
-```
-./lint.sh
-```
-
-You can fix the style issues with
-
-```
-./lint.sh --fix
+# # read it back with pyarrow
+# pa <- import("pyarrow")
+# as_tibble(pa$open_file(tf)$read_pandas())
 ```

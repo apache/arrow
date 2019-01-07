@@ -65,13 +65,15 @@ std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   return flattened;
 }
 
-bool Field::Equals(const Field& other) const {
+bool Field::Equals(const Field& other, bool check_metadata) const {
   if (this == &other) {
     return true;
   }
   if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
       this->type_->Equals(*other.type_.get())) {
-    if (this->HasMetadata() && other.HasMetadata()) {
+    if (!check_metadata) {
+      return true;
+    } else if (this->HasMetadata() && other.HasMetadata()) {
       return metadata_->Equals(*other.metadata_);
     } else if (!this->HasMetadata() && !other.HasMetadata()) {
       return true;
@@ -82,8 +84,8 @@ bool Field::Equals(const Field& other) const {
   return false;
 }
 
-bool Field::Equals(const std::shared_ptr<Field>& other) const {
-  return Equals(*other.get());
+bool Field::Equals(const std::shared_ptr<Field>& other, bool check_metadata) const {
+  return Equals(*other.get(), check_metadata);
 }
 
 std::string Field::ToString() const {
@@ -135,12 +137,11 @@ std::string FixedSizeBinaryType::ToString() const {
 // ----------------------------------------------------------------------
 // Date types
 
-DateType::DateType(Type::type type_id, DateUnit unit)
-    : FixedWidthType(type_id), unit_(unit) {}
+DateType::DateType(Type::type type_id) : FixedWidthType(type_id) {}
 
-Date32Type::Date32Type() : DateType(Type::DATE32, DateUnit::DAY) {}
+Date32Type::Date32Type() : DateType(Type::DATE32) {}
 
-Date64Type::Date64Type() : DateType(Type::DATE64, DateUnit::MILLI) {}
+Date64Type::Date64Type() : DateType(Type::DATE64) {}
 
 std::string Date64Type::ToString() const { return std::string("date64[ms]"); }
 
@@ -333,7 +334,7 @@ bool Schema::Equals(const Schema& other, bool check_metadata) const {
     return false;
   }
   for (int i = 0; i < num_fields(); ++i) {
-    if (!field(i)->Equals(*other.field(i).get())) {
+    if (!field(i)->Equals(*other.field(i).get(), check_metadata)) {
       return false;
     }
   }

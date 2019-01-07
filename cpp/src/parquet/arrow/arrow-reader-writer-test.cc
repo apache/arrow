@@ -2291,21 +2291,34 @@ TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
   ASSERT_EQ(expected, calculated);
 }
 
-TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
-  // PARQUET-995
+void TryReadDataFile(const std::string& testing_file_path, bool should_succeed = true) {
   std::string dir_string(test::get_data_dir());
   std::stringstream ss;
-  ss << dir_string << "/"
-     << "alltypes_plain.parquet";
+  ss << dir_string << "/" << testing_file_path;
   auto path = ss.str();
 
   auto pool = ::arrow::default_memory_pool();
 
   std::unique_ptr<FileReader> arrow_reader;
-  ASSERT_NO_THROW(
-      arrow_reader.reset(new FileReader(pool, ParquetFileReader::OpenFile(path, false))));
-  std::shared_ptr<::arrow::Table> table;
-  ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
+  try {
+    arrow_reader.reset(new FileReader(pool, ParquetFileReader::OpenFile(path, false)));
+    std::shared_ptr<::arrow::Table> table;
+    ASSERT_OK(arrow_reader->ReadTable(&table));
+  } catch (const ParquetException& e) {
+    if (should_succeed) {
+      FAIL() << "Exception thrown when reading file: " << e.what();
+    }
+  }
+}
+
+TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
+  // PARQUET-995
+  TryReadDataFile("alltypes_plain.parquet");
+}
+
+TEST(TestArrowReaderAdHoc, CorruptedSchema) {
+  // PARQUET-1481
+  TryReadDataFile("bad_data/PARQUET-1481.parquet", false /* should_succeed */);
 }
 
 class TestArrowReaderAdHocSparkAndHvr

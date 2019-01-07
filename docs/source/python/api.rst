@@ -259,14 +259,14 @@ Serialization and IPC
 .. autosummary::
    :toctree: generated/
 
+   ipc.open_file
+   ipc.open_stream
    Message
    MessageReader
    RecordBatchFileReader
    RecordBatchFileWriter
    RecordBatchStreamReader
    RecordBatchStreamWriter
-   open_file
-   open_stream
    read_message
    read_record_batch
    get_record_batch_size

@@ -29,7 +29,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "arrow/buffer.h"
+#include "arrow/buffer-builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/type.h"

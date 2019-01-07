@@ -755,6 +755,27 @@ def test_cast_date64_to_int():
     assert result.equals(expected)
 
 
+@pytest.mark.parametrize(('ty', 'values'), [
+    ('bool', [True, False, True]),
+    ('uint8', range(0, 255)),
+    ('int8', range(0, 128)),
+    ('uint16', range(0, 10)),
+    ('int16', range(0, 10)),
+    ('uint32', range(0, 10)),
+    ('int32', range(0, 10)),
+    ('uint64', range(0, 10)),
+    ('int64', range(0, 10)),
+    ('float', [0.0, 0.1, 0.2]),
+    ('double', [0.0, 0.1, 0.2]),
+    ('string', ['a', 'b', 'c']),
+    ('binary', [b'a', b'b', b'c']),
+    (pa.binary(3), [b'abc', b'bcd', b'cde'])
+])
+def test_cast_identities(ty, values):
+    arr = pa.array(values, type=ty)
+    assert arr.cast(ty).equals(arr)
+
+
 pickle_test_parametrize = pytest.mark.parametrize(
     ('data', 'typ'),
     [
@@ -1268,3 +1289,33 @@ def test_array_from_numpy_str_utf8():
 
     with pytest.raises(ValueError):
         pa.array(vec, pa.string(), mask=np.array([False]))
+
+
+@pytest.mark.large_memory
+def test_numpy_string_overflow_to_chunked():
+    # ARROW-3762
+
+    # 2^31 + 1 bytes
+    values = [b'x']
+
+    # Make 10 unique 1MB strings then repeat then 2048 times
+    unique_strings = {
+        i: b'x' * ((1 << 20) - 1) + str(i % 10).encode('utf8')
+        for i in range(10)
+    }
+    values += [unique_strings[i % 10] for i in range(1 << 11)]
+
+    arr = np.array(values)
+    arrow_arr = pa.array(arr)
+
+    assert isinstance(arrow_arr, pa.ChunkedArray)
+
+    # Split up into 16MB chunks. 128 * 16 = 2048, so 129
+    assert arrow_arr.num_chunks == 129
+
+    value_index = 0
+    for i in range(arrow_arr.num_chunks):
+        chunk = arrow_arr.chunk(i)
+        for val in chunk:
+            assert val.as_py() == values[value_index]
+            value_index += 1

@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set(GANDIVA_VERSION "${ARROW_VERSION}")
+
 # For "make gandiva" to build everything Gandiva-related
 add_custom_target(gandiva-all)
 add_custom_target(gandiva)
@@ -27,14 +29,18 @@ find_package(LLVM)
 
 # Set the path where the byte-code files will be installed.
 set(GANDIVA_BC_INSTALL_DIR
-  ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/gandiva)
+  ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/gandiva)
 
 set(GANDIVA_BC_FILE_NAME irhelpers.bc)
 set(GANDIVA_BC_INSTALL_PATH ${GANDIVA_BC_INSTALL_DIR}/${GANDIVA_BC_FILE_NAME})
-set(GANDIVA_BC_OUTPUT_PATH ${BUILD_OUTPUT_ROOT_DIRECTORY}/${GANDIVA_BC_FILE_NAME})
+set(GANDIVA_BC_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/${GANDIVA_BC_FILE_NAME})
+install(FILES
+  ${GANDIVA_BC_OUTPUT_PATH}
+  DESTINATION ${GANDIVA_BC_INSTALL_DIR})
 
 set(BC_FILE_PATH_CC "${CMAKE_CURRENT_BINARY_DIR}/bc_file_path.cc")
 configure_file(bc_file_path.cc.in ${BC_FILE_PATH_CC})
+add_definitions(-DGANDIVA_BYTE_COMPILE_FILE_PATH="${GANDIVA_BC_OUTPUT_PATH}")
 
 set(SRC_FILES annotator.cc
       bitmap_accumulator.cc
@@ -49,6 +55,12 @@ set(SRC_FILES annotator.cc
       exported_funcs_registry.cc
       filter.cc
       function_registry.cc
+      function_registry_arithmetic.cc
+      function_registry_datetime.cc
+      function_registry_hash.cc
+      function_registry_math_ops.cc
+      function_registry_string.cc
+      function_registry_timestamp_arithmetic.cc
       function_signature.cc
       gdv_function_stubs.cc
       llvm_generator.cc
@@ -59,7 +71,6 @@ set(SRC_FILES annotator.cc
       selection_vector.cc
       tree_expr_builder.cc
       to_date_holder.cc
-      ${SHARED_HELPER_FILES}
       ${BC_FILE_PATH_CC})
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS
@@ -163,6 +174,7 @@ ADD_GANDIVA_TEST(selection_vector_test)
 ADD_GANDIVA_TEST(lru_cache_test)
 ADD_GANDIVA_TEST(to_date_holder_test)
 ADD_GANDIVA_TEST(simple_arena_test)
+ADD_GANDIVA_TEST(like_holder_test)
 
 if (ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)

@@ -18,6 +18,8 @@
 #ifndef ARROW_UTIL_MACROS_H
 #define ARROW_UTIL_MACROS_H
 
+#define ARROW_STRINGIFY(x) #x
+
 // From Google gutil
 #ifndef ARROW_DISALLOW_COPY_AND_ASSIGN
 #define ARROW_DISALLOW_COPY_AND_ASSIGN(TypeName) \

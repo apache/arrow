@@ -179,7 +179,11 @@ cdef class FixedSizeBinaryValue(ArrayValue):
     pass
 
 
-cdef class Array:
+cdef class _PandasConvertible:
+    pass
+
+
+cdef class Array(_PandasConvertible):
     cdef:
         shared_ptr[CArray] sp_array
         CArray* ap
@@ -306,7 +310,7 @@ cdef object box_scalar(DataType type,
                        int64_t index)
 
 
-cdef class ChunkedArray:
+cdef class ChunkedArray(_PandasConvertible):
     cdef:
         shared_ptr[CChunkedArray] sp_chunked_array
         CChunkedArray* chunked_array
@@ -315,7 +319,7 @@ cdef class ChunkedArray:
     cdef getitem(self, int64_t i)
 
 
-cdef class Column:
+cdef class Column(_PandasConvertible):
     cdef:
         shared_ptr[CColumn] sp_column
         CColumn* column
@@ -323,7 +327,7 @@ cdef class Column:
     cdef void init(self, const shared_ptr[CColumn]& column)
 
 
-cdef class Table:
+cdef class Table(_PandasConvertible):
     cdef:
         shared_ptr[CTable] sp_table
         CTable* table
@@ -331,7 +335,7 @@ cdef class Table:
     cdef void init(self, const shared_ptr[CTable]& table)
 
 
-cdef class RecordBatch:
+cdef class RecordBatch(_PandasConvertible):
     cdef:
         shared_ptr[CRecordBatch] sp_batch
         CRecordBatch* batch

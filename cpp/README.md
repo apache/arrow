@@ -33,6 +33,10 @@ Building Arrow requires:
 * CMake 3.2 or higher
 * Boost
 
+Testing arrow with ctest requires:
+
+* python
+
 On Ubuntu/Debian you can install the requirements with:
 
 ```shell
@@ -43,7 +47,8 @@ sudo apt-get install \
      libboost-dev \
      libboost-filesystem-dev \
      libboost-regex-dev \
-     libboost-system-dev
+     libboost-system-dev \
+     python
 ```
 
 On Alpine Linux:
@@ -317,9 +322,13 @@ This requires [Doxygen](http://www.doxygen.org) to be installed.
 
 ## Development
 
-This project follows [Google's C++ Style Guide][3] with minor exceptions. We do
-not encourage anonymous namespaces and we relax the line length restriction to
-90 characters.
+This project follows [Google's C++ Style Guide][3] with minor exceptions: 
+  
+  *  We relax the line length restriction to 90 characters.
+  *  We use the NULLPTR macro defined in `src/arrow/util/macros.h` to
+     support building C++/CLI (ARROW-1134)
+  *  We use doxygen style comments ("///") instead of line comments ("//")
+     in header files.
 
 ### Memory Pools
 

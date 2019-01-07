@@ -334,6 +334,20 @@ def test_schema_equals():
     assert not sch1.equals(sch3)
 
 
+def test_schema_equals_propagates_check_metadata():
+    # ARROW-4088
+    schema1 = pa.schema([
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string())
+    ])
+    schema2 = pa.schema([
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string(), metadata={'a': 'alpha'}),
+    ])
+    assert not schema1.equals(schema2)
+    assert schema1.equals(schema2, check_metadata=False)
+
+
 def test_schema_equality_operators():
     fields = [
         pa.field('foo', pa.int32()),

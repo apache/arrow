@@ -113,6 +113,13 @@ about our build toolchain:
 Using pip
 ~~~~~~~~~
 
+.. warning::
+
+   If you installed Python using the Anaconda distribution or `Miniconda
+   <https://conda.io/miniconda.html>`_, you cannot currently use ``virtualenv``
+   to manage your development. Please follow the conda-based development
+   instructions instead.
+
 On macOS, install all dependencies through Homebrew that are required for
 building Arrow C++:
 
@@ -361,49 +368,4 @@ Now ``python-test.exe`` or simply ``ctest`` (to run all tests) should work.
 Building the Documentation
 ==========================
 
-Prerequisites
--------------
-
-The documentation build process uses `Doxygen <http://www.doxygen.nl/>`_ and
-`Sphinx <http://www.sphinx-doc.org/>`_ along with a few extensions.
-
-If you're using Conda, the required software can be installed in a single line:
-
-.. code-block:: shell
-
-   conda install -c conda-forge --file ci/conda_env_sphinx.yml
-
-Otherwise, you'll first need to install `Doxygen <http://www.doxygen.nl/>`_
-yourself (for example from your distribution's official repositories, if
-using Linux).  Then you can install the Python-based requirements with the
-following command:
-
-.. code-block:: shell
-
-   pip install -r docs/requirements.txt
-
-Building
---------
-
-These two steps are mandatory and must be executed in order.
-
-#. Process the C++ API using Doxygen
-
-   .. code-block:: shell
-
-      pushd cpp/apidoc
-      doxygen
-      popd
-
-#. Build the complete documentation using Sphinx
-
-   .. code-block:: shell
-
-      pushd docs
-      make html
-      popd
-
-After these steps are completed, the documentation is rendered in HTML
-format in ``docs/_build/html``.  In particular, you can point your browser
-at ``docs/_build/html/index.html`` to read the docs and review any changes
-you made.
+See :ref:`building-docs` for instructions to build the HTML documentation.

@@ -1200,7 +1200,6 @@ ggandiva_field_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                                  "field", field,
                                  "return-type", return_type,
                                  NULL);
-  g_object_unref(return_type);
   return GGANDIVA_FIELD_NODE(field_node);
 }
 

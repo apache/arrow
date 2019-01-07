@@ -22,7 +22,14 @@ namespace csv {
 
 ParseOptions ParseOptions::Defaults() { return ParseOptions(); }
 
-ConvertOptions ConvertOptions::Defaults() { return ConvertOptions(); }
+ConvertOptions ConvertOptions::Defaults() {
+  auto options = ConvertOptions();
+  // The default list of possible null spellings is taken from Pandas' read_csv().
+  options.null_values = {"",     "#N/A", "#N/A N/A", "#NA",     "-1.#IND", "-1.#QNAN",
+                         "-NaN", "-nan", "1.#IND",   "1.#QNAN", "N/A",     "NA",
+                         "NULL", "NaN",  "n/a",      "nan",     "null"};
+  return options;
+}
 
 ReadOptions ReadOptions::Defaults() { return ReadOptions(); }
 

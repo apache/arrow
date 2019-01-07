@@ -38,14 +38,14 @@ class TestListArray < Test::Unit::TestCase
     builder = Arrow::ListArrayBuilder.new(data_type)
     value_builder = builder.value_builder
 
-    builder.append
-    value_builder.append(-29)
-    value_builder.append(29)
+    builder.append_value
+    value_builder.append_value(-29)
+    value_builder.append_value(29)
 
-    builder.append
-    value_builder.append(-1)
-    value_builder.append(0)
-    value_builder.append(1)
+    builder.append_value
+    value_builder.append_value(-1)
+    value_builder.append_value(0)
+    value_builder.append_value(1)
 
     array = builder.finish
     value = array.get_value(1)

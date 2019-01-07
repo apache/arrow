@@ -32,7 +32,6 @@ pub mod csv;
 pub mod datatypes;
 pub mod error;
 pub mod memory;
-pub mod parquet;
 pub mod record_batch;
 pub mod tensor;
 pub mod util;

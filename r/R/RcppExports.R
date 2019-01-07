@@ -193,6 +193,26 @@ Table__cast <- function(table, schema, options) {
     .Call(`_arrow_Table__cast`, table, schema, options)
 }
 
+csv___ReadOptions__initialize <- function(options) {
+    .Call(`_arrow_csv___ReadOptions__initialize`, options)
+}
+
+csv___ParseOptions__initialize <- function(options) {
+    .Call(`_arrow_csv___ParseOptions__initialize`, options)
+}
+
+csv___ConvertOptions__initialize <- function(options) {
+    .Call(`_arrow_csv___ConvertOptions__initialize`, options)
+}
+
+csv___TableReader__Make <- function(input, read_options, parse_options, convert_options) {
+    .Call(`_arrow_csv___TableReader__Make`, input, read_options, parse_options, convert_options)
+}
+
+csv___TableReader__Read <- function(table_reader) {
+    .Call(`_arrow_csv___TableReader__Read`, table_reader)
+}
+
 shared_ptr_is_null <- function(xp) {
     .Call(`_arrow_shared_ptr_is_null`, xp)
 }
@@ -615,6 +635,10 @@ ipc___MessageReader__ReadNextMessage <- function(reader) {
 
 ipc___ReadMessage <- function(stream) {
     .Call(`_arrow_ipc___ReadMessage`, stream)
+}
+
+read_parquet_file <- function(filename) {
+    .Call(`_arrow_read_parquet_file`, filename)
 }
 
 RecordBatch__num_columns <- function(x) {

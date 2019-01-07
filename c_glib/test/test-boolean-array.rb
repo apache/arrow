@@ -29,16 +29,16 @@ class TestBooleanArray < Test::Unit::TestCase
 
   def test_buffer
     builder = Arrow::BooleanArrayBuilder.new
-    builder.append(true)
-    builder.append(false)
-    builder.append(true)
+    builder.append_value(true)
+    builder.append_value(false)
+    builder.append_value(true)
     array = builder.finish
     assert_equal([0b101].pack("C*"), array.buffer.data.to_s)
   end
 
   def test_value
     builder = Arrow::BooleanArrayBuilder.new
-    builder.append(true)
+    builder.append_value(true)
     array = builder.finish
     assert_equal(true, array.get_value(0))
   end
@@ -46,9 +46,9 @@ class TestBooleanArray < Test::Unit::TestCase
   def test_values
     require_gi_bindings(3, 3, 1)
     builder = Arrow::BooleanArrayBuilder.new
-    builder.append(true)
-    builder.append(false)
-    builder.append(true)
+    builder.append_value(true)
+    builder.append_value(false)
+    builder.append_value(true)
     array = builder.finish
     assert_equal([true, false, true], array.values)
   end

@@ -17,7 +17,7 @@
 
 [package]
 name = "arrow"
-version = "0.11.0"
+version = "0.12.0-SNAPSHOT"
 description = "Rust implementation of Apache Arrow"
 homepage = "https://github.com/apache/arrow"
 repository = "https://github.com/apache/arrow"
@@ -42,17 +42,6 @@ serde_derive = "1.0.80"
 serde_json = "1.0.13"
 rand = "0.5"
 csv = "1.0.0"
-parquet-format = "2.5.0"
-quick-error = "1.2.2"
-byteorder = "1"
-thrift = "0.0.4"
-snap = "0.2"
-brotli = "2.5"
-flate2 = "1.0.2"
-lz4 = "1.23"
-zstd = "0.4"
-chrono = "0.4"
-num-bigint = "0.2"
 num = "0.2"
 
 [dev-dependencies]
@@ -66,3 +55,6 @@ harness = false
 [[bench]]
 name = "builder"
 harness = false
+
+[workspace]
+members = ["parquet"]

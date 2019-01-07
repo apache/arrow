@@ -51,7 +51,7 @@ TEST_F(TestIn, TestInSimple) {
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -88,7 +88,7 @@ TEST_F(TestIn, TestInString) {
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -125,7 +125,7 @@ TEST_F(TestIn, TestInStringValidationError) {
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
 
   EXPECT_TRUE(status.IsExpressionValidationError());
   std::string expected_error = "Evaluation expression for IN clause returns ";

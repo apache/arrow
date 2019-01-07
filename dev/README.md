@@ -28,17 +28,22 @@ https://gitbox.apache.org/setup/ to be able to push to GitHub as the main
 remote.
 
 * How to merge a Pull request:
-have an apache and apache-github remote setup
+
 ```
-git remote add apache-github https://github.com/apache/arrow.git
 git remote add apache git@github.com:apache/arrow.git
 ```
+
 run the following command
+
 ```
 dev/merge_arrow_pr.py
 ```
 
+This uses the GitHub REST API; if you encounter rate limit issues, you may set
+a `ARROW_GITHUB_API_TOKEN` environment variable to use a Personal Access Token.
+
 Note:
+
 * The directory name of your Arrow git clone must be called arrow
 * Without jira-python installed you'll have to close the JIRA manually
 

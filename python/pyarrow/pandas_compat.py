@@ -548,7 +548,8 @@ def _make_datetimetz(tz):
 # Converting pyarrow.Table efficiently to pandas.DataFrame
 
 
-def table_to_blockmanager(options, table, memory_pool, categories=None):
+def table_to_blockmanager(options, table, categories=None,
+                          ignore_metadata=False):
     from pyarrow.compat import DatetimeTZDtype
 
     index_columns = []
@@ -560,7 +561,8 @@ def table_to_blockmanager(options, table, memory_pool, categories=None):
     row_count = table.num_rows
     metadata = schema.metadata
 
-    has_pandas_metadata = metadata is not None and b'pandas' in metadata
+    has_pandas_metadata = (not ignore_metadata and metadata is not None
+                           and b'pandas' in metadata)
 
     if has_pandas_metadata:
         pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
@@ -622,7 +624,8 @@ def table_to_blockmanager(options, table, memory_pool, categories=None):
                 block_table.schema.get_field_index(raw_name)
             )
 
-    blocks = _table_to_blocks(options, block_table, memory_pool, categories)
+    blocks = _table_to_blocks(options, block_table, pa.default_memory_pool(),
+                              categories)
 
     # Construct the row index
     if len(index_arrays) > 1:

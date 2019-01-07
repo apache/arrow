@@ -558,6 +558,64 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// csv___ReadOptions__initialize
+std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(List_ options);
+RcppExport SEXP _arrow_csv___ReadOptions__initialize(SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List_ >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(csv___ReadOptions__initialize(options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csv___ParseOptions__initialize
+std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(List_ options);
+RcppExport SEXP _arrow_csv___ParseOptions__initialize(SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List_ >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(csv___ParseOptions__initialize(options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csv___ConvertOptions__initialize
+std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(List_ options);
+RcppExport SEXP _arrow_csv___ConvertOptions__initialize(SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List_ >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(csv___ConvertOptions__initialize(options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csv___TableReader__Make
+std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(const std::shared_ptr<arrow::io::InputStream>& input, const std::shared_ptr<arrow::csv::ReadOptions>& read_options, const std::shared_ptr<arrow::csv::ParseOptions>& parse_options, const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options);
+RcppExport SEXP _arrow_csv___TableReader__Make(SEXP inputSEXP, SEXP read_optionsSEXP, SEXP parse_optionsSEXP, SEXP convert_optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::InputStream>& >::type input(inputSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::csv::ReadOptions>& >::type read_options(read_optionsSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::csv::ParseOptions>& >::type parse_options(parse_optionsSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::csv::ConvertOptions>& >::type convert_options(convert_optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(csv___TableReader__Make(input, read_options, parse_options, convert_options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csv___TableReader__Read
+std::shared_ptr<arrow::Table> csv___TableReader__Read(const std::shared_ptr<arrow::csv::TableReader>& table_reader);
+RcppExport SEXP _arrow_csv___TableReader__Read(SEXP table_readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::csv::TableReader>& >::type table_reader(table_readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(csv___TableReader__Read(table_reader));
+    return rcpp_result_gen;
+END_RCPP
+}
 // shared_ptr_is_null
 bool shared_ptr_is_null(SEXP xp);
 RcppExport SEXP _arrow_shared_ptr_is_null(SEXP xpSEXP) {
@@ -1721,6 +1779,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// read_parquet_file
+std::shared_ptr<arrow::Table> read_parquet_file(std::string filename);
+RcppExport SEXP _arrow_read_parquet_file(SEXP filenameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type filename(filenameSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_parquet_file(filename));
+    return rcpp_result_gen;
+END_RCPP
+}
 // RecordBatch__num_columns
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
 RcppExport SEXP _arrow_RecordBatch__num_columns(SEXP xSEXP) {
@@ -2200,6 +2269,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ChunkedArray__cast", (DL_FUNC) &_arrow_ChunkedArray__cast, 3},
     {"_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3},
     {"_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3},
+    {"_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1},
+    {"_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1},
+    {"_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1},
+    {"_arrow_csv___TableReader__Make", (DL_FUNC) &_arrow_csv___TableReader__Make, 4},
+    {"_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1},
     {"_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1},
     {"_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1},
     {"_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0},
@@ -2306,6 +2380,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___MessageReader__Open", (DL_FUNC) &_arrow_ipc___MessageReader__Open, 1},
     {"_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1},
     {"_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1},
+    {"_arrow_read_parquet_file", (DL_FUNC) &_arrow_read_parquet_file, 1},
     {"_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
     {"_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},

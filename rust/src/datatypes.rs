@@ -83,10 +83,15 @@ pub trait ArrowPrimitiveType: 'static {
 
     /// Returns the bit width of this primitive type.
     fn get_bit_width() -> usize;
+
+    /// Returns a default value of this primitive type.
+    ///
+    /// This is useful for aggregate array ops like `sum()`, `mean()`.
+    fn default_value() -> Self::Native;
 }
 
 macro_rules! make_type {
-    ($name:ident, $native_ty:ty, $data_ty:path, $bit_width:expr) => {
+    ($name:ident, $native_ty:ty, $data_ty:path, $bit_width:expr, $default_val:expr) => {
         impl ArrowNativeType for $native_ty {}
 
         pub struct $name {}
@@ -101,21 +106,25 @@ macro_rules! make_type {
             fn get_bit_width() -> usize {
                 $bit_width
             }
+
+            fn default_value() -> Self::Native {
+                $default_val
+            }
         }
     };
 }
 
-make_type!(BooleanType, bool, DataType::Boolean, 1);
-make_type!(Int8Type, i8, DataType::Int8, 8);
-make_type!(Int16Type, i16, DataType::Int16, 16);
-make_type!(Int32Type, i32, DataType::Int32, 32);
-make_type!(Int64Type, i64, DataType::Int64, 64);
-make_type!(UInt8Type, u8, DataType::UInt8, 8);
-make_type!(UInt16Type, u16, DataType::UInt16, 16);
-make_type!(UInt32Type, u32, DataType::UInt32, 32);
-make_type!(UInt64Type, u64, DataType::UInt64, 64);
-make_type!(Float32Type, f32, DataType::Float32, 32);
-make_type!(Float64Type, f64, DataType::Float64, 64);
+make_type!(BooleanType, bool, DataType::Boolean, 1, false);
+make_type!(Int8Type, i8, DataType::Int8, 8, 0i8);
+make_type!(Int16Type, i16, DataType::Int16, 16, 0i16);
+make_type!(Int32Type, i32, DataType::Int32, 32, 0i32);
+make_type!(Int64Type, i64, DataType::Int64, 64, 0i64);
+make_type!(UInt8Type, u8, DataType::UInt8, 8, 0u8);
+make_type!(UInt16Type, u16, DataType::UInt16, 16, 0u16);
+make_type!(UInt32Type, u32, DataType::UInt32, 32, 0u32);
+make_type!(UInt64Type, u64, DataType::UInt64, 64, 0u64);
+make_type!(Float32Type, f32, DataType::Float32, 32, 0.0f32);
+make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
 
 /// A subtype of primitive type that represents numeric values.
 pub trait ArrowNumericType: ArrowPrimitiveType {}

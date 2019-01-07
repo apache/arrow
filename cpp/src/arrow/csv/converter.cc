@@ -21,6 +21,7 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "arrow/builder.h"
 #include "arrow/csv/parser.h"
@@ -29,12 +30,15 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
+#include "arrow/util/trie.h"
 #include "arrow/util/utf8.h"
 
 namespace arrow {
 namespace csv {
 
 using internal::StringConverter;
+using internal::Trie;
+using internal::TrieBuilder;
 
 namespace {
 
@@ -57,115 +61,28 @@ class ConcreteConverter : public Converter {
   using Converter::Converter;
 
  protected:
-  Status Initialize() override { return Status::OK(); }
+  Status Initialize() override;
   inline bool IsNull(const uint8_t* data, uint32_t size, bool quoted);
+
+  Trie null_trie_;
 };
 
-// Recognize various spellings of null values.  The list of possible spellings
-// is taken from Pandas read_csv() documentation.
+Status ConcreteConverter::Initialize() {
+  // TODO no need to build a separate Trie for each Converter instance
+  TrieBuilder builder;
+  for (const auto& s : options_.null_values) {
+    RETURN_NOT_OK(builder.Append(s, true /* allow_duplicates */));
+  }
+  null_trie_ = builder.Finish();
+  return Status::OK();
+}
+
 bool ConcreteConverter::IsNull(const uint8_t* data, uint32_t size, bool quoted) {
   if (quoted) {
     return false;
   }
-  if (size == 0) {
-    return true;
-  }
-  // No 1-character null value exists
-  if (size == 1) {
-    return false;
-  }
-
-  // XXX if the CSV parser guaranteed enough excess bytes at the end of the
-  // parsed area, we wouldn't need to always check size before comparing characters.
-
-  auto chars = reinterpret_cast<const char*>(data);
-  auto first = chars[0];
-  auto second = chars[1];
-  switch (first) {
-    case 'N': {
-      // "NA", "N/A", "NaN", "NULL"
-      if (size == 2) {
-        return second == 'A';
-      }
-      auto third = chars[2];
-      if (size == 3) {
-        return (second == '/' && third == 'A') || (second == 'a' && third == 'N');
-      }
-      if (size == 4) {
-        return (second == 'U' && third == 'L' && chars[3] == 'L');
-      }
-      return false;
-    }
-    case 'n': {
-      // "n/a", "nan", "null"
-      if (size == 2) {
-        return false;
-      }
-      auto third = chars[2];
-      if (size == 3) {
-        return (second == '/' && third == 'a') || (second == 'a' && third == 'n');
-      }
-      if (size == 4) {
-        return (second == 'u' && third == 'l' && chars[3] == 'l');
-      }
-      return false;
-    }
-    case '1': {
-      // '1.#IND', '1.#QNAN'
-      if (size == 6) {
-        // '#' is the most unlikely char here, check it first
-        return (chars[2] == '#' && chars[1] == '.' && chars[3] == 'I' &&
-                chars[4] == 'N' && chars[5] == 'D');
-      }
-      if (size == 7) {
-        return (chars[2] == '#' && chars[1] == '.' && chars[3] == 'Q' &&
-                chars[4] == 'N' && chars[5] == 'A' && chars[6] == 'N');
-      }
-      return false;
-    }
-    case '-': {
-      switch (second) {
-        case 'N':
-          // "-NaN"
-          return (size == 4 && chars[2] == 'a' && chars[3] == 'N');
-        case 'n':
-          // "-nan"
-          return (size == 4 && chars[2] == 'a' && chars[3] == 'n');
-        case '1':
-          // "-1.#IND", "-1.#QNAN"
-          if (size == 7) {
-            return (chars[3] == '#' && chars[2] == '.' && chars[4] == 'I' &&
-                    chars[5] == 'N' && chars[6] == 'D');
-          }
-          if (size == 8) {
-            return (chars[3] == '#' && chars[2] == '.' && chars[4] == 'Q' &&
-                    chars[5] == 'N' && chars[6] == 'A' && chars[7] == 'N');
-          }
-          return false;
-        default:
-          return false;
-      }
-    }
-    case '#': {
-      // "#N/A", "#N/A N/A", "#NA"
-      if (size < 3 || chars[1] != 'N') {
-        return false;
-      }
-      auto third = chars[2];
-      if (size == 3) {
-        return third == 'A';
-      }
-      if (size == 4) {
-        return third == '/' && chars[3] == 'A';
-      }
-      if (size == 8) {
-        return std::memcmp(data + 2, "/A N/A", 5) == 0;
-      }
-      return false;
-    }
-    default:
-      return false;
-  }
+  return null_trie_.Find(util::string_view(reinterpret_cast<const char*>(data), size)) >=
+         0;
 }
 
 /////////////////////////////////////////////////////////////////////////

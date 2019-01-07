@@ -18,12 +18,8 @@
 cmake_minimum_required(VERSION 3.2)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-# Extract Arrow version number
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../java/pom.xml" POM_XML)
-string(REGEX MATCHALL
-  "\n  <version>[^<]+</version>" ARROW_VERSION_TAG "${POM_XML}")
-string(REGEX REPLACE
-  "(\n  <version>|</version>)" "" ARROW_VERSION "${ARROW_VERSION_TAG}")
+set(ARROW_VERSION "0.12.0-SNAPSHOT")
+
 string(REGEX MATCH
   "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -85,12 +81,6 @@ if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR INFER_FOUND)
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
-find_program(CCACHE_FOUND ccache)
-if(CCACHE_FOUND)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_FOUND})
-endif(CCACHE_FOUND)
-
 # ----------------------------------------------------------------------
 # cmake options
 
@@ -113,6 +103,18 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_TEST_MEMCHECK
     "Run the test suite using valgrind --tool=memcheck"
+    OFF)
+
+  option(ARROW_USE_ASAN
+    "Enable Address Sanitizer checks"
+    OFF)
+
+  option(ARROW_USE_CCACHE
+    "Use ccache when compiling (if available)"
+    ON)
+
+  option(ARROW_USE_TSAN
+    "Enable Thread Sanitizer checks"
     OFF)
 
   option(ARROW_BUILD_TESTS
@@ -343,6 +345,14 @@ Always OFF if building binaries"
 advised that if this is enabled 'install' will fail silently on components \
 that have not been built"
     OFF)
+endif()
+
+if (ARROW_USE_CCACHE)
+  find_program(CCACHE_FOUND ccache)
+  if(CCACHE_FOUND)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_FOUND})
+  endif(CCACHE_FOUND)
 endif()
 
 if (ARROW_OPTIONAL_INSTALL)

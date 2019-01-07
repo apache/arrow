@@ -850,8 +850,12 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::shared_ptr<RecordReader>(
           new RecordReader(new TypedRecordReader<FLBAType>(descr, pool)));
-    default:
-      DCHECK(false);
+    default: {
+      // PARQUET-1481: This can occur if the file is corrupt
+      std::stringstream ss;
+      ss << "Invalid physical column type: " << static_cast<int>(descr->physical_type());
+      throw ParquetException(ss.str());
+    }
   }
   // Unreachable code, but supress compiler warning
   return nullptr;

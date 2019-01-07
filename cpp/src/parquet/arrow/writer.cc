@@ -312,6 +312,10 @@ class ArrowColumnWriter {
   Status Write(const Array& data);
 
   Status Write(const ChunkedArray& data, int64_t offset, const int64_t size) {
+    if (data.length() == 0) {
+      return Status::OK();
+    }
+
     int64_t absolute_position = 0;
     int chunk_index = 0;
     int64_t chunk_offset = 0;
@@ -1134,22 +1138,32 @@ Status WriteFileMetaData(const FileMetaData& file_metadata,
 namespace {}  // namespace
 
 Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
-  if (chunk_size <= 0) {
+  if (chunk_size <= 0 && table.num_rows() > 0) {
     return Status::Invalid("chunk size per row_group must be greater than 0");
   } else if (chunk_size > impl_->properties().max_row_group_length()) {
     chunk_size = impl_->properties().max_row_group_length();
   }
 
-  for (int chunk = 0; chunk * chunk_size < table.num_rows(); chunk++) {
-    int64_t offset = chunk * chunk_size;
-    int64_t size = std::min(chunk_size, table.num_rows() - offset);
-
-    RETURN_NOT_OK_ELSE(NewRowGroup(size), PARQUET_IGNORE_NOT_OK(Close()));
+  auto WriteRowGroup = [&](int64_t offset, int64_t size) {
+    RETURN_NOT_OK(NewRowGroup(size));
     for (int i = 0; i < table.num_columns(); i++) {
       auto chunked_data = table.column(i)->data();
-      RETURN_NOT_OK_ELSE(WriteColumnChunk(chunked_data, offset, size),
-                         PARQUET_IGNORE_NOT_OK(Close()));
+      RETURN_NOT_OK(WriteColumnChunk(chunked_data, offset, size));
     }
+    return Status::OK();
+  };
+
+  if (table.num_rows() == 0) {
+    // Append a row group with 0 rows
+    RETURN_NOT_OK_ELSE(WriteRowGroup(0, 0), PARQUET_IGNORE_NOT_OK(Close()));
+    return Status::OK();
+  }
+
+  for (int chunk = 0; chunk * chunk_size < table.num_rows(); chunk++) {
+    int64_t offset = chunk * chunk_size;
+    RETURN_NOT_OK_ELSE(
+        WriteRowGroup(offset, std::min(chunk_size, table.num_rows() - offset)),
+        PARQUET_IGNORE_NOT_OK(Close()));
   }
   return Status::OK();
 }

@@ -16,6 +16,27 @@
 # under the License.
 
 class StructArrayTest < Test::Unit::TestCase
+  sub_test_case(".new") do
+    test("build") do
+      data_type = Arrow::StructDataType.new(visible: :boolean,
+                                            count: :uint64)
+      values = [
+        [true, 1],
+        nil,
+        [false, 2],
+      ]
+      array = Arrow::StructArray.new(data_type, values)
+      assert_equal([
+                     [true, nil, false],
+                     [1, nil, 2],
+                   ],
+                   [
+                     array[0].to_a,
+                     array[1].to_a,
+                   ])
+    end
+  end
+
   test("#[]") do
     type = Arrow::StructDataType.new([
       Arrow::Field.new("field1", :boolean),

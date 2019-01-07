@@ -921,6 +921,14 @@ def test_date_time_types():
     _assert_unsupported(a7)
 
 
+def test_list_of_datetime_time_roundtrip():
+    # ARROW-4135
+    times = pd.to_datetime(['09:00', '09:30', '10:00', '10:30', '11:00',
+                            '11:30', '12:00'])
+    df = pd.DataFrame({'time': [times.time]})
+    _roundtrip_pandas_dataframe(df, write_kwargs={})
+
+
 def test_large_list_records():
     # This was fixed in PARQUET-1100
 
@@ -2249,6 +2257,24 @@ def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
     writer = pq.ParquetWriter(tempdir / 'merged.parquet', schema=schema)
     writer.write_table(table1)
     writer.write_table(table2)
+
+
+def test_empty_row_groups(tempdir):
+    # ARROW-3020
+    table = pa.Table.from_arrays([pa.array([], type='int32')], ['f0'])
+
+    path = tempdir / 'empty_row_groups.parquet'
+
+    num_groups = 3
+    with pq.ParquetWriter(path, table.schema) as writer:
+        for i in range(num_groups):
+            writer.write_table(table)
+
+    reader = pq.ParquetFile(path)
+    assert reader.metadata.num_row_groups == num_groups
+
+    for i in range(num_groups):
+        assert reader.read_row_group(i).equals(table)
 
 
 def test_writing_empty_lists():

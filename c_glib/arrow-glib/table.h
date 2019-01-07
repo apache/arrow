@@ -20,7 +20,9 @@
 #pragma once
 
 #include <arrow-glib/column.h>
+#include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.h>
+#include <arrow-glib/version.h>
 
 G_BEGIN_DECLS
 
@@ -35,8 +37,35 @@ struct _GArrowTableClass
   GObjectClass parent_class;
 };
 
-GArrowTable    *garrow_table_new           (GArrowSchema *schema,
-                                            GList *columns);
+#ifndef GARROW_DISABLE_DEPRECATED
+GARROW_DEPRECATED_IN_0_12_FOR(garrow_table_new_values)
+GArrowTable *
+garrow_table_new(GArrowSchema *schema,
+                 GList *columns);
+#endif
+GARROW_AVAILABLE_IN_0_12
+GArrowTable *
+garrow_table_new_values(GArrowSchema *schema,
+                        GList *values,
+                        GError **error);
+GARROW_AVAILABLE_IN_0_12
+GArrowTable *
+garrow_table_new_columns(GArrowSchema *schema,
+                         GArrowColumn **columns,
+                         gsize n_columns,
+                         GError **error);
+GARROW_AVAILABLE_IN_0_12
+GArrowTable *
+garrow_table_new_arrays(GArrowSchema *schema,
+                        GArrowArray **arrays,
+                        gsize n_arrays,
+                        GError **error);
+GARROW_AVAILABLE_IN_0_12
+GArrowTable *
+garrow_table_new_record_batches(GArrowSchema *schema,
+                                GArrowRecordBatch **record_batches,
+                                gsize n_record_batches,
+                                GError **error);
 
 gboolean        garrow_table_equal         (GArrowTable *table,
                                             GArrowTable *other_table);

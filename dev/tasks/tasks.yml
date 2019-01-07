@@ -274,6 +274,7 @@ tasks:
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
@@ -292,6 +293,13 @@ tasks:
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
+      - libgandiva-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib12_{no_rc_version}-1_amd64.deb
+      - libgandiva12-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva12_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
@@ -356,6 +364,7 @@ tasks:
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
@@ -369,6 +378,11 @@ tasks:
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
+      - libgandiva-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib12_{no_rc_version}-1_amd64.deb
+      - libgandiva12_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
@@ -396,6 +410,7 @@ tasks:
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
@@ -409,6 +424,11 @@ tasks:
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
+      - libgandiva-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib12_{no_rc_version}-1_amd64.deb
+      - libgandiva12_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
@@ -436,6 +456,7 @@ tasks:
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
@@ -449,6 +470,11 @@ tasks:
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python12_{no_rc_version}-1_amd64.deb
       - libarrow12_{no_rc_version}-1_amd64.deb
+      - libgandiva-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib12_{no_rc_version}-1_amd64.deb
+      - libgandiva12_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb

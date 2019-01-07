@@ -21,7 +21,7 @@ class TestPlasmaCreatedObject < Test::Unit::TestCase
     omit("Plasma is required") unless defined?(::Plasma)
     @store = Helper::PlasmaStore.new
     @store.start
-    @client = Plasma::Client.new(@store.socket_path)
+    @client = Plasma::Client.new(@store.socket_path, nil)
 
     @id = Plasma::ObjectID.new("Hello")
     @data = "World"

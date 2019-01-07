@@ -26,6 +26,7 @@
 #include "gandiva/expression.h"
 #include "gandiva/func_descriptor.h"
 #include "gandiva/function_registry.h"
+#include "gandiva/tests/test_util.h"
 
 namespace gandiva {
 
@@ -39,8 +40,7 @@ class TestLLVMGenerator : public ::testing::Test {
 // Verify that a valid pc function exists for every function in the registry.
 TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
   std::unique_ptr<LLVMGenerator> generator;
-  Status status =
-      LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(), &generator);
+  auto status = LLVMGenerator::Make(TestConfiguration(), &generator);
   EXPECT_TRUE(status.ok()) << status.message();
 
   llvm::Module* module = generator->module();
@@ -54,8 +54,7 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
 TEST_F(TestLLVMGenerator, TestAdd) {
   // Setup LLVM generator to do an arithmetic add of two vectors
   std::unique_ptr<LLVMGenerator> generator;
-  Status status =
-      LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(), &generator);
+  auto status = LLVMGenerator::Make(TestConfiguration(), &generator);
   EXPECT_TRUE(status.ok());
   Annotator annotator;
 
