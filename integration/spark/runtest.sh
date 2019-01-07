@@ -18,11 +18,11 @@
 # exit on any error
 set -e
 
-export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m"
+export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
 
 SPARK_VERSION=${SPARK_VERSION:-2.4.0}
 pushd arrow/java
-  ARROW_VERSION=`mvn -q org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | sed -n -e '/^\[.*\]/ !{ /^[0-9]/ { p; q } }'`
+  ARROW_VERSION=`mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | sed -n -e '/^\[.*\]/ !{ /^[0-9]/ { p; q } }'`
 popd
 
 cache_dir="/build/spark"
