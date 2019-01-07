@@ -47,8 +47,8 @@ import six
 try:
     import jira.client
 except ImportError:
-    print("Could not find jira-python library. "
-          "Run 'sudo pip install jira-python' to install.")
+    print("Could not find jira library. "
+          "Run 'sudo pip install jira' to install.")
     print("Exiting without trying to close the associated JIRA.")
     sys.exit(1)
 
