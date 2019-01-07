@@ -865,8 +865,9 @@ Status MakeSparseTensor(FBB& fbb, const SparseTensorBase& sparse_tensor,
 
   const int64_t non_zero_length = sparse_tensor.non_zero_length();
 
-  *offset = flatbuf::CreateSparseTensor(fbb, fb_type_type, fb_type, fb_shape, non_zero_length,
-                                        fb_sparse_index_type, fb_sparse_index, &data);
+  *offset =
+      flatbuf::CreateSparseTensor(fbb, fb_type_type, fb_type, fb_shape, non_zero_length,
+                                  fb_sparse_index_type, fb_sparse_index, &data);
 
   return Status::OK();
 }
@@ -1037,7 +1038,8 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
 
 Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
                                std::vector<int64_t>* shape,
-                               std::vector<std::string>* dim_names, int64_t* non_zero_length,
+                               std::vector<std::string>* dim_names,
+                               int64_t* non_zero_length,
                                SparseTensorFormat::type* sparse_tensor_format_id) {
   auto message = flatbuf::GetMessage(metadata.data());
   if (message->header_type() != flatbuf::MessageHeader_SparseTensor) {

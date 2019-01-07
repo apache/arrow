@@ -142,7 +142,9 @@ class ARROW_EXPORT SparseTensorBase {
   bool is_mutable() const { return data_->is_mutable(); }
 
   /// Total number of non-zero cells in the sparse tensor
-  int64_t non_zero_length() const { return sparse_index_ ? sparse_index_->non_zero_length() : 0; }
+  int64_t non_zero_length() const {
+    return sparse_index_ ? sparse_index_->non_zero_length() : 0;
+  }
 
   bool Equals(const SparseTensorBase& other) const;
 

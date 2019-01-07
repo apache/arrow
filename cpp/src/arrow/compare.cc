@@ -816,7 +816,8 @@ struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
     const uint8_t* left_data = left.data()->data();
     const uint8_t* right_data = right.data()->data();
 
-    return memcmp(left_data, right_data, static_cast<size_t>(byte_width * left.non_zero_length()));
+    return memcmp(left_data, right_data,
+                  static_cast<size_t>(byte_width * left.non_zero_length()));
   }
 };
 
