@@ -83,17 +83,17 @@ struct _GArrowStructDataTypeClass
 
 GArrowStructDataType *garrow_struct_data_type_new      (GList *fields);
 gint
-garrow_struct_data_type_get_n_fields(GArrowStructDataType *data_type);
+garrow_struct_data_type_get_n_fields(GArrowStructDataType *struct_data_type);
 GList *
-garrow_struct_data_type_get_fields(GArrowStructDataType *data_type);
+garrow_struct_data_type_get_fields(GArrowStructDataType *struct_data_type);
 GArrowField *
-garrow_struct_data_type_get_field(GArrowStructDataType *data_type,
+garrow_struct_data_type_get_field(GArrowStructDataType *struct_data_type,
                                   gint i);
 GArrowField *
-garrow_struct_data_type_get_field_by_name(GArrowStructDataType *data_type,
+garrow_struct_data_type_get_field_by_name(GArrowStructDataType *struct_data_type,
                                           const gchar *name);
 gint
-garrow_struct_data_type_get_field_index(GArrowStructDataType *data_type,
+garrow_struct_data_type_get_field_index(GArrowStructDataType *struct_data_type,
                                         const gchar *name);
 
 
@@ -109,14 +109,14 @@ struct _GArrowUnionDataTypeClass
 };
 
 gint
-garrow_union_data_type_get_n_fields(GArrowUnionDataType *data_type);
+garrow_union_data_type_get_n_fields(GArrowUnionDataType *union_data_type);
 GList *
-garrow_union_data_type_get_fields(GArrowUnionDataType *data_type);
+garrow_union_data_type_get_fields(GArrowUnionDataType *union_data_type);
 GArrowField *
-garrow_union_data_type_get_field(GArrowUnionDataType *data_type,
+garrow_union_data_type_get_field(GArrowUnionDataType *union_data_type,
                                  gint i);
 guint8 *
-garrow_union_data_type_get_type_codes(GArrowUnionDataType *data_type,
+garrow_union_data_type_get_type_codes(GArrowUnionDataType *union_data_type,
                                       gsize *n_type_codes);
 
 
@@ -172,11 +172,11 @@ garrow_dictionary_data_type_new(GArrowDataType *index_data_type,
                                 GArrowArray *dictionary,
                                 gboolean ordered);
 GArrowDataType *
-garrow_dictionary_data_type_get_index_data_type(GArrowDictionaryDataType *data_type);
+garrow_dictionary_data_type_get_index_data_type(GArrowDictionaryDataType *dictionary_data_type);
 GArrowArray *
-garrow_dictionary_data_type_get_dictionary(GArrowDictionaryDataType *data_type);
+garrow_dictionary_data_type_get_dictionary(GArrowDictionaryDataType *dictionary_data_type);
 gboolean
-garrow_dictionary_data_type_is_ordered(GArrowDictionaryDataType *data_type);
+garrow_dictionary_data_type_is_ordered(GArrowDictionaryDataType *dictionary_data_type);
 
 
 G_END_DECLS

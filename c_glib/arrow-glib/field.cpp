@@ -37,11 +37,12 @@ G_BEGIN_DECLS
 
 typedef struct GArrowFieldPrivate_ {
   std::shared_ptr<arrow::Field> field;
+  GArrowDataType *data_type;
 } GArrowFieldPrivate;
 
 enum {
-  PROP_0,
-  PROP_FIELD
+  PROP_FIELD = 1,
+  PROP_DATA_TYPE
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowField,
@@ -54,11 +55,22 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowField,
        GARROW_FIELD(obj)))
 
 static void
+garrow_field_dispose(GObject *object)
+{
+  auto priv = GARROW_FIELD_GET_PRIVATE(object);
+
+  if (priv->data_type) {
+    g_object_unref(priv->data_type);
+    priv->data_type = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_field_parent_class)->dispose(object);
+}
+
+static void
 garrow_field_finalize(GObject *object)
 {
-  GArrowFieldPrivate *priv;
-
-  priv = GARROW_FIELD_GET_PRIVATE(object);
+  auto priv = GARROW_FIELD_GET_PRIVATE(object);
 
   priv->field = nullptr;
 
@@ -80,19 +92,9 @@ garrow_field_set_property(GObject *object,
     priv->field =
       *static_cast<std::shared_ptr<arrow::Field> *>(g_value_get_pointer(value));
     break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+  case PROP_DATA_TYPE:
+    priv->data_type = GARROW_DATA_TYPE(g_value_dup_object(value));
     break;
-  }
-}
-
-static void
-garrow_field_get_property(GObject *object,
-                          guint prop_id,
-                          GValue *value,
-                          GParamSpec *pspec)
-{
-  switch (prop_id) {
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -107,21 +109,27 @@ garrow_field_init(GArrowField *object)
 static void
 garrow_field_class_init(GArrowFieldClass *klass)
 {
-  GObjectClass *gobject_class;
-  GParamSpec *spec;
+  auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class = G_OBJECT_CLASS(klass);
-
+  gobject_class->dispose      = garrow_field_dispose;
   gobject_class->finalize     = garrow_field_finalize;
   gobject_class->set_property = garrow_field_set_property;
-  gobject_class->get_property = garrow_field_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_pointer("field",
                               "Field",
                               "The raw std::shared<arrow::Field> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_FIELD, spec);
+
+  spec = g_param_spec_object("data-type",
+                             "Data type",
+                             "The data type",
+                             GARROW_TYPE_DATA_TYPE,
+                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_DATA_TYPE, spec);
 }
 
 /**
@@ -137,7 +145,7 @@ garrow_field_new(const gchar *name,
 {
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
   auto arrow_field = std::make_shared<arrow::Field>(name, arrow_data_type);
-  return garrow_field_new_raw(&arrow_field);
+  return garrow_field_new_raw(&arrow_field, data_type);
 }
 
 /**
@@ -157,7 +165,7 @@ garrow_field_new_full(const gchar *name,
     std::make_shared<arrow::Field>(name,
                                    garrow_data_type_get_raw(data_type),
                                    nullable);
-  return garrow_field_new_raw(&arrow_field);
+  return garrow_field_new_raw(&arrow_field, data_type);
 }
 
 /**
@@ -177,14 +185,13 @@ garrow_field_get_name(GArrowField *field)
  * garrow_field_get_data_type:
  * @field: A #GArrowField.
  *
- * Returns: (transfer full): The data type of the field.
+ * Returns: (transfer none): The data type of the field.
  */
 GArrowDataType *
 garrow_field_get_data_type(GArrowField *field)
 {
-  const auto arrow_field = garrow_field_get_raw(field);
-  auto type = arrow_field->type();
-  return garrow_data_type_new_raw(&type);
+  auto priv = GARROW_FIELD_GET_PRIVATE(field);
+  return priv->data_type;
 }
 
 /**
@@ -233,10 +240,12 @@ garrow_field_to_string(GArrowField *field)
 G_END_DECLS
 
 GArrowField *
-garrow_field_new_raw(std::shared_ptr<arrow::Field> *arrow_field)
+garrow_field_new_raw(std::shared_ptr<arrow::Field> *arrow_field,
+                     GArrowDataType *data_type)
 {
   auto field = GARROW_FIELD(g_object_new(GARROW_TYPE_FIELD,
                                          "field", arrow_field,
+                                         "data-type", data_type,
                                          NULL));
   return field;
 }
