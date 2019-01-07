@@ -28,3 +28,81 @@ The following example converts an array of structs to a :class:`arrow::Table`
 instance, and then converts it back to the original array of structs.
 
 .. literalinclude:: ../../../cpp/examples/arrow/row-wise-conversion-example.cc
+
+Conversion of range of ``std::tuple``-like to ``Table`` instances
+-----------------------------------------------------------------
+
+While the above example shows a quite manual approach of a row to columnar
+conversion, Arrow also provides some template logic to convert ranges of
+``std::tuple<..>``-like objects to tables.
+
+In the most simple case, you only need to provide the input data and the
+type conversion is then inferred at compile time.
+
+.. code::
+
+   std::vector<std::tuple<double, std::string>> rows = ..
+   std::shared_ptr<Table> table;
+
+   if (!arrow::stl::TableFromTupleRange(
+         arrow::default_memory_pool(),
+         rows, names, &table).ok()
+   ) {
+     // Error handling code should go here.
+   }
+
+In reverse, you can use ``TupleRangeFromTable`` to fill an already
+pre-allocated range with the data from a ``Table`` instance.
+
+.. code::
+
+    // An important aspect here is that the table columns need to be in the
+    // same order as the columns will later appear in the tuple. As the tuple
+    // is unnamed, matching is done on positions.
+    std::shared_ptr<Table> table = ..
+
+    // The range needs to be pre-allocated to the respective amount of rows.
+    // This allows us to pass in an arbitrary range object, not only
+    // `std::vector`.
+    std::vector<std::tuple<double, std::string>> rows(2);
+    if (!arrow::stl::TupleRangeFromTable(*table, &rows).ok()) {
+      // Error handling code should go here.
+    }
+
+Arrow itself already supports some C(++) data types for this conversion. If you
+want to support additional data types, you need to implement a specialization
+of ``arrow::stl::ConversionTraits<T>``.
+
+
+.. code::
+
+    namespace arrow { namespace stl {
+
+    template <>
+    struct ConversionTraits<boost::posix_time::ptime> {
+      constexpr static bool nullable = false;
+
+      using ArrowType = ::arrow::TimestampType;
+
+      static std::shared_ptr<::arrow::DataType> arrow_type() {
+        return ::arrow::timestamp(::arrow::TimeUnit::MICRO);
+      }
+
+      // This is the specialization to load a scalar value into an Arrow builder.
+      static Status AppendRow(
+            typename TypeTraits<TimestampType>::BuilderType& builder,
+            boost::posix_time::ptime cell) {
+        boost::posix_time::ptime const epoch({1970, 1, 1}, {0, 0, 0, 0});
+        return builder.Append((cell - epoch).total_microseconds());
+      }
+
+      // Specify how we can fill the tuple from the values stored in the Arrow
+      // array.
+      static boost::posix_time::ptime GetEntry(
+            const TimestampArray& array, size_t j) {
+        return psapp::arrow::internal::timestamp_epoch
+            + boost::posix_time::time_duration(0, 0, 0, array.Value(j));
+      }
+    };
+
+    }}
