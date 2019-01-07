@@ -16,16 +16,16 @@
 # under the License.
 
 class RecordBatchTest < Test::Unit::TestCase
-  sub_test_case(".each") do
-    setup do
-      fields = [
-        Arrow::Field.new("count", :uint32),
-      ]
-      @schema = Arrow::Schema.new(fields)
-      @counts = Arrow::UInt32Array.new([1, 2, 4, 8])
-      @record_batch = Arrow::RecordBatch.new(@schema, @counts.length, [@counts])
-    end
+  setup do
+    fields = [
+      Arrow::Field.new("count", :uint32),
+    ]
+    @schema = Arrow::Schema.new(fields)
+    @counts = Arrow::UInt32Array.new([1, 2, 4, 8])
+    @record_batch = Arrow::RecordBatch.new(@schema, @counts.length, [@counts])
+  end
 
+  sub_test_case(".each") do
     test("default") do
       records = []
       @record_batch.each do |record|
@@ -53,5 +53,10 @@ class RecordBatchTest < Test::Unit::TestCase
                    ],
                    records.collect {|record, i| [record.index, i]})
     end
+  end
+
+  test("#to_table") do
+    assert_equal(Arrow::Table.new(@schema, [@counts]),
+                 @record_batch.to_table)
   end
 end
