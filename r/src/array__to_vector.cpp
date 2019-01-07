@@ -39,8 +39,20 @@ SEXP ArrayVector_To_Vector(int64_t n, const ArrayVector& arrays) {
   return data;
 }
 
+struct ParallelConverter {
+  static constexpr bool Parallel() {
+    return true;
+  }
+};
+
+struct SerialConverter {
+  static constexpr bool Parallel() {
+    return false;
+  }
+};
+
 template <int RTYPE>
-struct Converter_SimpleArray {
+struct Converter_SimpleArray : public ParallelConverter {
   using Vector = Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage>;
 
   static SEXP Allocate(R_xlen_t n, const ArrayVector&) { return Vector(no_init(n)); }
@@ -78,7 +90,7 @@ struct Converter_SimpleArray {
   }
 };
 
-struct Converter_Date32 {
+struct Converter_Date32 : public ParallelConverter {
   static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     IntegerVector data(no_init(n));
     data.attr("class") = "Date";
@@ -91,7 +103,7 @@ struct Converter_Date32 {
   }
 };
 
-struct Converter_String {
+struct Converter_String : public SerialConverter {
   static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     return StringVector_(no_init(n));
   }
@@ -144,7 +156,7 @@ struct Converter_String {
   }
 };
 
-struct Converter_Boolean {
+struct Converter_Boolean : public ParallelConverter {
   static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     return LogicalVector_(no_init(n));
   }
@@ -183,7 +195,7 @@ struct Converter_Boolean {
   }
 };
 
-struct Converter_Dictionary {
+struct Converter_Dictionary : public ParallelConverter {
   static SEXP Allocate(R_xlen_t n, const ArrayVector& arrays) {
     IntegerVector data(no_init(n));
     auto dict_array = static_cast<DictionaryArray*>(arrays[0].get());
@@ -275,7 +287,7 @@ struct Converter_Dictionary {
   }
 };
 
-struct Converter_Date64 {
+struct Converter_Date64 : public ParallelConverter {
   static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     NumericVector data(no_init(n));
     data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
@@ -311,7 +323,7 @@ struct Converter_Date64 {
 };
 
 template <int RTYPE, typename Type>
-struct Converter_Promotion {
+struct Converter_Promotion : public ParallelConverter {
   using r_stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
   using value_type = typename TypeTraits<Type>::ArrayType::value_type;
 
@@ -363,7 +375,7 @@ static int TimeUnit_multiplier(const std::shared_ptr<Array>& array) {
 }
 
 template <typename value_type>
-struct Converter_Time {
+struct Converter_Time : public ParallelConverter {
   static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     NumericVector data(no_init(n));
     data.attr("class") = CharacterVector::create("hms", "difftime");
@@ -404,7 +416,7 @@ struct Converter_Time {
 };
 
 template <typename value_type>
-struct Converter_Timestamp {
+struct Converter_Timestamp : public ParallelConverter {
   static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     NumericVector data(no_init(n));
     data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
@@ -417,7 +429,7 @@ struct Converter_Timestamp {
   }
 };
 
-struct Converter_Int64 {
+struct Converter_Int64 : public ParallelConverter {
   static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     NumericVector data(no_init(n));
     data.attr("class") = "integer64";
@@ -452,7 +464,7 @@ struct Converter_Int64 {
   }
 };
 
-struct Converter_Decimal {
+struct Converter_Decimal : public ParallelConverter {
   static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
     return NumericVector_(no_init(n));
   }
@@ -487,7 +499,7 @@ struct Converter_Decimal {
   }
 };
 
-struct Converter_NotHandled {
+struct Converter_NotHandled : public ParallelConverter {
   static SEXP Allocate(R_xlen_t n, const ArrayVector& arrays) {
     stop(tfm::format("cannot handle Array of type %s", arrays[0]->type()->name()));
     return R_NilValue;
@@ -497,19 +509,8 @@ struct Converter_NotHandled {
                        R_xlen_t start, R_xlen_t n) {
     return Status::RError("Not handled");
   }
+
 };
-
-// Most converter can ingest in parallel
-template <typename Converter>
-constexpr bool parallel_ingest() {
-  return true;
-}
-
-// but not the string converter
-template <>
-constexpr bool parallel_ingest<Converter_String>() {
-  return false;
-}
 
 template <typename What, typename... Args>
 auto ArrayVector__Dispatch(const ArrayVector& arrays, Args... args) ->
@@ -628,7 +629,7 @@ struct CanParallel {
 
   template <typename Converter>
   static bool Do(const ArrayVector& arrays) {
-    return parallel_ingest<Converter>();
+    return Converter::Parallel();
   }
 };
 
