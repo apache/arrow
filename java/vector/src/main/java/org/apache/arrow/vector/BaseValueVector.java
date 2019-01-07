@@ -112,7 +112,7 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   protected long computeCombinedBufferSize(int valueCount, int typeWidth) {
-    Preconditions.checkArgument(valueCount > 0, "valueCount must be positive");
+    Preconditions.checkArgument(valueCount >= 0, "valueCount must be >= 0");
     Preconditions.checkArgument(typeWidth >= 0, "typeWidth must be >= 0");
 
     // compute size of validity buffer.
