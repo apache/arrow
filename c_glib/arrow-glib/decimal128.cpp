@@ -141,7 +141,8 @@ garrow_decimal128_new_integer(const gint64 data)
  * @decimal: A #GArrowDecimal128.
  * @other_decimal: A #GArrowDecimal128 to be compared.
  *
- * Returns: %TRUE if both of them is the same value, %FALSE otherwise.
+ * Returns: %TRUE if the decimal is equal to the other decimal, %FALSE
+ *   otherwise.
  *
  * Since: 0.12.0
  */
@@ -159,7 +160,8 @@ garrow_decimal128_equal(GArrowDecimal128 *decimal,
  * @decimal: A #GArrowDecimal128.
  * @other_decimal: A #GArrowDecimal128 to be compared.
  *
- * Returns: %TRUE if they is the different value, %FALSE otherwise.
+ * Returns: %TRUE if the decimal isn't equal to the other decimal,
+ *   %FALSE otherwise.
  *
  * Since: 0.12.0
  */
@@ -177,7 +179,8 @@ garrow_decimal128_not_equal(GArrowDecimal128 *decimal,
  * @decimal: A #GArrowDecimal128.
  * @other_decimal: A #GArrowDecimal128 to be compared.
  *
- * Returns: %TRUE if the decimal is less than the other decimal, %FALSE otherwise.
+ * Returns: %TRUE if the decimal is less than the other decimal,
+ *   %FALSE otherwise.
  *
  * Since: 0.12.0
  */
@@ -214,7 +217,8 @@ garrow_decimal128_less_than_or_equal(GArrowDecimal128 *decimal,
  * @decimal: A #GArrowDecimal128.
  * @other_decimal: A #GArrowDecimal128 to be compared.
  *
- * Returns: %TRUE if the decimal is greater than the other decimal, %FALSE otherwise.
+ * Returns: %TRUE if the decimal is greater than the other decimal,
+ *   %FALSE otherwise.
  *
  * Since: 0.12.0
  */
