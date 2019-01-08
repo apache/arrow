@@ -51,11 +51,11 @@ GARROW_AVAILABLE_IN_0_12
 gboolean garrow_decimal128_less_than_or_equal(GArrowDecimal128 *decimal,
                                               GArrowDecimal128 *other_decimal);
 GARROW_AVAILABLE_IN_0_12
-gboolean garrow_decimal128_more_than(GArrowDecimal128 *decimal,
-                                     GArrowDecimal128 *other_decimal);
+gboolean garrow_decimal128_greater_than(GArrowDecimal128 *decimal,
+                                        GArrowDecimal128 *other_decimal);
 GARROW_AVAILABLE_IN_0_12
-gboolean garrow_decimal128_more_than_or_equal(GArrowDecimal128 *decimal,
-                                              GArrowDecimal128 *other_decimal);
+gboolean garrow_decimal128_greater_than_or_equal(GArrowDecimal128 *decimal,
+                                                 GArrowDecimal128 *other_decimal);
 gchar *garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal,
                                          gint32 scale);
 gchar *garrow_decimal128_to_string(GArrowDecimal128 *decimal);

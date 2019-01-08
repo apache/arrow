@@ -210,17 +210,17 @@ garrow_decimal128_less_than_or_equal(GArrowDecimal128 *decimal,
 }
 
 /**
- * garrow_decimal128_more_than:
+ * garrow_decimal128_greater_than:
  * @decimal: A #GArrowDecimal128.
  * @other_decimal: A #GArrowDecimal128 to be compared.
  *
- * Returns: %TRUE if the decimal is more than the other decimal, %FALSE otherwise.
+ * Returns: %TRUE if the decimal is greater than the other decimal, %FALSE otherwise.
  *
  * Since: 0.12.0
  */
 gboolean
-garrow_decimal128_more_than(GArrowDecimal128 *decimal,
-                            GArrowDecimal128 *other_decimal)
+garrow_decimal128_greater_than(GArrowDecimal128 *decimal,
+                               GArrowDecimal128 *other_decimal)
 {
   const auto arrow_decimal = garrow_decimal128_get_raw(decimal);
   const auto arrow_other_decimal = garrow_decimal128_get_raw(other_decimal);
@@ -228,18 +228,18 @@ garrow_decimal128_more_than(GArrowDecimal128 *decimal,
 }
 
 /**
- * garrow_decimal128_more_than_or_equal:
+ * garrow_decimal128_greater_than_or_equal:
  * @decimal: A #GArrowDecimal128.
  * @other_decimal: A #GArrowDecimal128 to be compared.
  *
- * Returns: %TRUE if the decimal is more than the other decimal
+ * Returns: %TRUE if the decimal is greater than the other decimal
  *   or equal to the other decimal, %FALSE otherwise.
  *
  * Since: 0.12.0
  */
 gboolean
-garrow_decimal128_more_than_or_equal(GArrowDecimal128 *decimal,
-                                     GArrowDecimal128 *other_decimal)
+garrow_decimal128_greater_than_or_equal(GArrowDecimal128 *decimal,
+                                        GArrowDecimal128 *other_decimal)
 {
   const auto arrow_decimal = garrow_decimal128_get_raw(decimal);
   const auto arrow_other_decimal = garrow_decimal128_get_raw(other_decimal);
