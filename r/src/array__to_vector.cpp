@@ -172,10 +172,11 @@ struct Converter_String : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n) const {
-    const int32_t* p_offset;
-    const char* p_strings;
-    RETURN_NOT_OK(CheckBuffers(array, p_offset, p_strings));
-
+    auto p_offset = array->data()->GetValues<int32_t>(1);
+    if (!p_offset) {
+      return Status::Invalid("Invalid offset buffer");
+    }
+    auto p_strings = array->data()->GetValues<char>(2, *p_offset);
     if (!p_strings) {
       // There is an offset buffer, but the data buffer is null
       // There is at least one value in the array and not all the values are null
@@ -215,17 +216,6 @@ struct Converter_String : public Converter {
       }
     }
 
-    return Status::OK();
-  }
-
- private:
-  Status CheckBuffers(const std::shared_ptr<arrow::Array>& array,
-                      const int32_t*& p_offset, const char*& p_strings) const {
-    p_offset = array->data()->GetValues<int32_t>(1);
-    if (!p_offset) {
-      return Status::Invalid("Invalid offset buffer");
-    }
-    p_strings = array->data()->GetValues<char>(2, *p_offset);
     return Status::OK();
   }
 
