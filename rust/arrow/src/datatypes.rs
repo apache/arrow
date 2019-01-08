@@ -351,7 +351,7 @@ impl DataType {
                 DateUnit::Millisecond => "MILLISECOND",
             }}),
             DataType::Timestamp(unit) => {
-                json!({"name": "timestamp", "precision": "DOUBLE", "unit": match unit {
+                json!({"name": "timestamp", "unit": match unit {
                     TimestampUnit::Second => "SECOND",
                     TimestampUnit::Millisecond => "MILLISECOND",
                     TimestampUnit::Microsecond => "MICROSECOND",
