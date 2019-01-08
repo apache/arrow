@@ -350,7 +350,7 @@ impl fmt::Display for Field {
 /// layout.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Schema {
-    fields: Vec<Field>,
+    pub(crate) fields: Vec<Field>,
 }
 
 impl Schema {
