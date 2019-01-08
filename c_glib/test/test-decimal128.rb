@@ -107,6 +107,12 @@ class TestDecimal128 < Test::Unit::TestCase
     end
   end
 
+  def test_equal
+    decimal = Arrow::Decimal128.new(10)
+    other_decimal = Arrow::Decimal128.new(10)
+    assert_equal(decimal, other_decimal)
+  end
+
   def test_not_equal
     decimal = Arrow::Decimal128.new(10)
     other_decimal = Arrow::Decimal128.new(11)
