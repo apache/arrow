@@ -155,11 +155,13 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   static uint32_t OptimalNumOfBits(uint32_t ndv, double fpp) {
     DCHECK(fpp > 0.0 && fpp < 1.0);
     const double m = -8.0 * ndv / log(1 - pow(fpp, 1.0 / 8));
-    uint32_t num_bits = static_cast<uint32_t>(m);
+    uint32_t num_bits;
 
     // Handle overflow.
     if (m < 0 || m > kMaximumBloomFilterBytes << 3) {
       num_bits = static_cast<uint32_t>(kMaximumBloomFilterBytes << 3);
+    } else {
+      num_bits = static_cast<uint32_t>(m);
     }
 
     // Round up to lower bound

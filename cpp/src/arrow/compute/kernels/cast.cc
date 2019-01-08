@@ -404,6 +404,7 @@ struct is_float_truncate<
 
 template <typename O, typename I>
 struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>::type> {
+  ARROW_DISABLE_UBSAN("float-cast-overflow")
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;

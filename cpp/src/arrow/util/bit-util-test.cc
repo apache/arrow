@@ -756,7 +756,9 @@ static void TestZigZag(int32_t v) {
 TEST(BitStreamUtil, ZigZag) {
   TestZigZag(0);
   TestZigZag(1);
+  TestZigZag(1234);
   TestZigZag(-1);
+  TestZigZag(-1234);
   TestZigZag(std::numeric_limits<int32_t>::max());
   TestZigZag(-std::numeric_limits<int32_t>::max());
 }

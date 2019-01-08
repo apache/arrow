@@ -298,7 +298,8 @@ TEST_F(TestThreadPool, Submit) {
 
 // Test fork safety on Unix
 
-#if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
+#if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
+      defined(THREAD_SANITIZER))
 TEST_F(TestThreadPool, ForkSafety) {
   pid_t child_pid;
   int child_status;

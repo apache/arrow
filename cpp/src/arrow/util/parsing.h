@@ -335,7 +335,10 @@ class StringToSignedIntConverterMixin {
       if (ARROW_PREDICT_FALSE(unsigned_value > max_negative)) {
         return false;
       }
-      *out = static_cast<value_type>(-static_cast<value_type>(unsigned_value));
+      // To avoid both compiler warnings (with unsigned negation)
+      // and undefined behaviour (with signed negation overflow),
+      // use the expanded formula for 2's complement negation.
+      *out = static_cast<value_type>(~unsigned_value + 1);
     } else {
       if (ARROW_PREDICT_FALSE(unsigned_value > max_positive)) {
         return false;

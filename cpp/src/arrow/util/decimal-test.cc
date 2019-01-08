@@ -417,8 +417,8 @@ TEST(Decimal128Test, TestFromBigEndian) {
       auto negated = -value;
       little_endian = negated.ToBytes();
       std::reverse(little_endian.begin(), little_endian.end());
-      // Convert all of the bytes since we have to include the sign bit
-      ASSERT_OK(Decimal128::FromBigEndian(little_endian.data(), 16, &out));
+      // The sign bit is looked up in the MSB
+      ASSERT_OK(Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1, &out));
       ASSERT_EQ(negated, out);
 
       // Take the complement and convert to big endian

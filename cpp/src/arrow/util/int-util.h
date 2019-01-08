@@ -19,6 +19,7 @@
 #define ARROW_UTIL_INT_UTIL_H
 
 #include <cstdint>
+#include <type_traits>
 
 #include "arrow/util/visibility.h"
 
@@ -66,6 +67,21 @@ void DowncastUInts(const uint64_t* source, uint64_t* dest, int64_t length);
 template <typename InputInt, typename OutputInt>
 ARROW_EXPORT void TransposeInts(const InputInt* source, OutputInt* dest, int64_t length,
                                 const int32_t* transpose_map);
+
+/// Signed addition with well-defined behaviour on overflow (as unsigned)
+template <typename SignedInt>
+SignedInt SafeSignedAdd(SignedInt u, SignedInt v) {
+  using UnsignedInt = typename std::make_unsigned<SignedInt>::type;
+  return static_cast<SignedInt>(static_cast<UnsignedInt>(u) +
+                                static_cast<UnsignedInt>(v));
+}
+
+/// Signed left shift with well-defined behaviour on negative numbers or overflow
+template <typename SignedInt, typename Shift>
+SignedInt SafeLeftShift(SignedInt u, Shift shift) {
+  using UnsignedInt = typename std::make_unsigned<SignedInt>::type;
+  return static_cast<SignedInt>(static_cast<UnsignedInt>(u) << shift);
+}
 
 }  // namespace internal
 }  // namespace arrow
