@@ -253,6 +253,10 @@ Note that this requires linking Boost statically"
     "Rely on Protocol Buffers shared libraries where relevant"
     OFF)
 
+  option(ARROW_WITH_BACKTRACE
+    "Build with backtrace support"
+    ON)
+
   option(ARROW_USE_GLOG
     "Build libraries with glog support for pluggable logging"
     ON)
