@@ -221,7 +221,6 @@ struct Converter_String : public Converter {
   inline SEXP r_string(const arrow::util::string_view& view) const {
     return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
   }
-
 };
 
 class Converter_Boolean : public Converter {
