@@ -40,5 +40,6 @@ cd arrow
 cargo run --example builders --target %TARGET% --release || exit /B
 cargo run --example dynamic_types --target %TARGET% --release || exit /B
 cargo run --example read_csv --target %TARGET% --release || exit /B
+cargo run --example read_csv_infer_schema --target %TARGET% --release || exit /B
 
 popd

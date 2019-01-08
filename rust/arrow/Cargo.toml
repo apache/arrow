@@ -43,6 +43,8 @@ serde_json = "1.0.13"
 rand = "0.5"
 csv = "1.0.0"
 num = "0.2"
+regex = "1.1"
+lazy_static = "1.2"
 
 [dev-dependencies]
 criterion = "0.2"
