@@ -20,7 +20,7 @@ use crate::util::bit_util;
 
 #[derive(PartialEq, Debug)]
 pub struct Bitmap {
-    bits: Buffer,
+    pub(crate) bits: Buffer,
 }
 
 impl Bitmap {

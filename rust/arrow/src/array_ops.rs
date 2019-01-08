@@ -22,7 +22,7 @@ use std::ops::{Add, Div, Mul, Sub};
 use num::Zero;
 
 use crate::array::{Array, BooleanArray, PrimitiveArray};
-use crate::builder::{ArrayBuilder, PrimitiveArrayBuilder};
+use crate::builder::PrimitiveArrayBuilder;
 use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};

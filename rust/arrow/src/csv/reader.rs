@@ -46,7 +46,7 @@ use std::sync::Arc;
 
 use csv as csv_crate;
 
-use crate::array::{ArrayRef, BinaryArray};
+use crate::array::ArrayRef;
 use crate::builder::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
@@ -138,20 +138,14 @@ impl Reader {
                     &DataType::Float32 => self.build_primitive_array::<Float32Type>(rows, i),
                     &DataType::Float64 => self.build_primitive_array::<Float64Type>(rows, i),
                     &DataType::Utf8 => {
-                        let values_builder: UInt8Builder = UInt8Builder::new(rows.len());
-                        let mut list_builder = ListArrayBuilder::new(values_builder);
+                        let mut builder = BinaryArrayBuilder::new(rows.len());
                         for row_index in 0..rows.len() {
                             match rows[row_index].get(*i) {
-                                Some(s) => {
-                                    list_builder.values().push_slice(s.as_bytes()).unwrap();
-                                    list_builder.append(true).unwrap();
-                                }
-                                _ => {
-                                    list_builder.append(false).unwrap();
-                                }
+                                Some(s) => builder.push_string(s).unwrap(),
+                                _ => builder.append(false).unwrap(),
                             }
                         }
-                        Ok(Arc::new(BinaryArray::from(list_builder.finish())) as ArrayRef)
+                        Ok(Arc::new(builder.finish()) as ArrayRef)
                     }
                     other => Err(ArrowError::ParseError(format!(
                         "Unsupported data type {:?}",
@@ -196,7 +190,7 @@ impl Reader {
                 _ => builder.push_null()?,
             }
         }
-        Ok(Arc::new(builder.finish()) as ArrayRef)
+        Ok(Arc::new(builder.finish()))
     }
 }
 
