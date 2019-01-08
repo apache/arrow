@@ -114,6 +114,8 @@ set(ARROW_SRCS
   util/thread-pool.cc
   util/trie.cc
   util/utf8.cc
+
+  vendored/datetime/tz.cpp
 )
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
