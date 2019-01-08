@@ -15,28 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#![feature(type_ascription)]
-#![feature(rustc_private)]
-#![feature(specialization)]
-#![feature(try_from)]
-#![allow(dead_code)]
-#![allow(non_camel_case_types)]
+//! [Apache Arrow](http://arrow.apache.org/) is a cross-language development platform for
+//! in-memory data.
+//!
+//! This mod provides API for converting between arrow and parquet.
 
-#[macro_use]
-pub mod errors;
-pub mod basic;
-pub mod data_type;
-
-// Exported for external use, such as benchmarks
-pub use self::encodings::{decoding, encoding};
-pub use self::util::memory;
-
-#[macro_use]
-mod util;
-pub mod column;
-pub mod compression;
-mod encodings;
-pub mod file;
-pub mod reader;
-pub mod record;
 pub mod schema;
+
+pub use self::schema::{parquet_to_arrow_schema, parquet_to_arrow_schema_by_columns};
