@@ -170,6 +170,10 @@ static|shared (default shared)")
     "If off, 'quiet' flags will be passed to linting tools"
     OFF)
 
+  option(ARROW_GGDB_DEBUG
+    "Pass -ggdb flag to debug builds"
+    OFF)
+
   #----------------------------------------------------------------------
   # Project components to enable / disable building
 

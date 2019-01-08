@@ -182,7 +182,7 @@ function(ADD_ARROW_LIB LIB_NAME)
         ${ARG_PRIVATE_INCLUDES})
     endif()
 
-    if(APPLE)
+    if(APPLE AND NOT $ENV{EMSCRIPTEN_ROOT})
       # On OS X, you can avoid linking at library load time and instead
       # expecting that the symbols have been loaded separately. This happens
       # with libpython* where there can be conflicts between system Python and
