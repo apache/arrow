@@ -106,4 +106,81 @@ class TestDecimal128 < Test::Unit::TestCase
       decimal1.divide(decimal2)
     end
   end
+
+  def test_not_equal
+    decimal = Arrow::Decimal128.new(10)
+    other_decimal = Arrow::Decimal128.new(11)
+    assert_equal([
+                   true,
+                   false
+                 ],
+                 [
+                   decimal.not_equal(other_decimal),
+                   decimal.not_equal(decimal)
+                 ])
+  end
+
+  def test_less_than
+    decimal = Arrow::Decimal128.new(10)
+    other_decimal1 = Arrow::Decimal128.new(11)
+    other_decimal2 = Arrow::Decimal128.new(9)
+    assert_equal([
+                   true,
+                   false,
+                   false
+                 ],
+                 [
+                   decimal.less_than(other_decimal1),
+                   decimal.less_than(other_decimal2),
+                   decimal.less_than(decimal),
+                 ])
+  end
+
+  def test_less_than_or_equal
+    decimal = Arrow::Decimal128.new(10)
+    other_decimal1 = Arrow::Decimal128.new(11)
+    other_decimal2 = Arrow::Decimal128.new(9)
+    assert_equal([
+                   true,
+                   false,
+                   true
+                 ],
+                 [
+                   decimal.less_than_or_equal(other_decimal1),
+                   decimal.less_than_or_equal(other_decimal2),
+                   decimal.less_than_or_equal(decimal)
+                 ])
+  end
+
+  def test_more_than
+    decimal = Arrow::Decimal128.new(10)
+    other_decimal1 = Arrow::Decimal128.new(11)
+    other_decimal2 = Arrow::Decimal128.new(9)
+    assert_equal([
+                   false,
+                   true,
+                   false
+                 ],
+                 [
+                   decimal.more_than(other_decimal1),
+                   decimal.more_than(other_decimal2),
+                   decimal.more_than(decimal)
+                 ])
+  end
+
+  def test_more_than_or_equal
+    decimal = Arrow::Decimal128.new(10)
+    other_decimal1 = Arrow::Decimal128.new(11)
+    other_decimal2 = Arrow::Decimal128.new(9)
+    assert_equal([
+                   false,
+                   true,
+                   true
+                 ],
+                 [
+                   decimal.more_than_or_equal(other_decimal1),
+                   decimal.more_than_or_equal(other_decimal2),
+                   decimal.more_than_or_equal(decimal)
+                 ])
+  end
 end

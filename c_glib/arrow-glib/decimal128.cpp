@@ -155,6 +155,98 @@ garrow_decimal128_equal(GArrowDecimal128 *decimal,
 }
 
 /**
+ * garrow_decimal128_not_equal:
+ * @decimal: A #GArrowDecimal128.
+ * @other_decimal: A #GArrowDecimal128 to be compared.
+ *
+ * Returns: %TRUE if they is the different value, %FALSE otherwise.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+garrow_decimal128_not_equal(GArrowDecimal128 *decimal,
+                            GArrowDecimal128 *other_decimal)
+{
+  const auto arrow_decimal = garrow_decimal128_get_raw(decimal);
+  const auto arrow_other_decimal = garrow_decimal128_get_raw(other_decimal);
+  return *arrow_decimal != *arrow_other_decimal;
+}
+
+/**
+ * garrow_decimal128_less_than:
+ * @decimal: A #GArrowDecimal128.
+ * @other_decimal: A #GArrowDecimal128 to be compared.
+ *
+ * Returns: %TRUE if the decimal is less than the other decimal, %FALSE otherwise.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+garrow_decimal128_less_than(GArrowDecimal128 *decimal,
+                            GArrowDecimal128 *other_decimal)
+{
+  const auto arrow_decimal = garrow_decimal128_get_raw(decimal);
+  const auto arrow_other_decimal = garrow_decimal128_get_raw(other_decimal);
+  return *arrow_decimal < *arrow_other_decimal;
+}
+
+/**
+ * garrow_decimal128_less_than_or_equal:
+ * @decimal: A #GArrowDecimal128.
+ * @other_decimal: A #GArrowDecimal128 to be compared.
+ *
+ * Returns: %TRUE if the decimal is less than the other decimal
+ *   or equal to the other decimal, %FALSE otherwise.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+garrow_decimal128_less_than_or_equal(GArrowDecimal128 *decimal,
+                                     GArrowDecimal128 *other_decimal)
+{
+  const auto arrow_decimal = garrow_decimal128_get_raw(decimal);
+  const auto arrow_other_decimal = garrow_decimal128_get_raw(other_decimal);
+  return *arrow_decimal <= *arrow_other_decimal;
+}
+
+/**
+ * garrow_decimal128_more_than:
+ * @decimal: A #GArrowDecimal128.
+ * @other_decimal: A #GArrowDecimal128 to be compared.
+ *
+ * Returns: %TRUE if the decimal is more than the other decimal, %FALSE otherwise.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+garrow_decimal128_more_than(GArrowDecimal128 *decimal,
+                            GArrowDecimal128 *other_decimal)
+{
+  const auto arrow_decimal = garrow_decimal128_get_raw(decimal);
+  const auto arrow_other_decimal = garrow_decimal128_get_raw(other_decimal);
+  return *arrow_decimal > *arrow_other_decimal;
+}
+
+/**
+ * garrow_decimal128_more_than_or_equal:
+ * @decimal: A #GArrowDecimal128.
+ * @other_decimal: A #GArrowDecimal128 to be compared.
+ *
+ * Returns: %TRUE if the decimal is more than the other decimal
+ *   or equal to the other decimal, %FALSE otherwise.
+ *
+ * Since: 0.12.0
+ */
+gboolean
+garrow_decimal128_more_than_or_equal(GArrowDecimal128 *decimal,
+                                     GArrowDecimal128 *other_decimal)
+{
+  const auto arrow_decimal = garrow_decimal128_get_raw(decimal);
+  const auto arrow_other_decimal = garrow_decimal128_get_raw(other_decimal);
+  return *arrow_decimal >= *arrow_other_decimal;
+}
+
+/**
  * garrow_decimal128_to_string_scale:
  * @decimal: A #GArrowDecimal128.
  * @scale: The scale of the decimal.
