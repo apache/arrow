@@ -56,9 +56,42 @@ pub enum DataType {
     Float16,
     Float32,
     Float64,
+    Timestamp(TimestampUnit),
+    Date(DateUnit),
+    Time32(TimeUnit),
+    Time64(TimeUnit),
+    Interval(IntervalUnit),
     Utf8,
     List(Box<DataType>),
     Struct(Vec<Field>),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum TimestampUnit {
+    Second,
+    Millisecond,
+    Microsecond,
+    Nanosecond,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum DateUnit {
+    Day,
+    Millisecond,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum TimeUnit {
+    Second,
+    Millisecond,
+    Microsecond,
+    Nanosecond,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum IntervalUnit {
+    YearMonth,
+    DayTime,
 }
 
 /// Contains the meta-data for a single relative type.
@@ -175,6 +208,53 @@ impl DataType {
                         "floatingpoint precision missing or invalid".to_string(),
                     )),
                 },
+                Some(s) if s == "timestamp" => match map.get("unit") {
+                    Some(p) if p == "SECOND" => Ok(DataType::Timestamp(TimestampUnit::Second)),
+                    Some(p) if p == "MILLISECOND" => {
+                        Ok(DataType::Timestamp(TimestampUnit::Millisecond))
+                    }
+                    Some(p) if p == "MICROSECOND" => {
+                        Ok(DataType::Timestamp(TimestampUnit::Microsecond))
+                    }
+                    Some(p) if p == "NANOSECOND" => {
+                        Ok(DataType::Timestamp(TimestampUnit::Nanosecond))
+                    }
+                    _ => Err(ArrowError::ParseError(
+                        "timestamp unit missing or invalid".to_string(),
+                    )),
+                },
+                Some(s) if s == "date" => match map.get("unit") {
+                    Some(p) if p == "DAY" => Ok(DataType::Date(DateUnit::Day)),
+                    Some(p) if p == "MILLISECOND" => Ok(DataType::Date(DateUnit::Millisecond)),
+                    _ => Err(ArrowError::ParseError(
+                        "date unit missing or invalid".to_string(),
+                    )),
+                },
+                Some(s) if s == "time" => {
+                    let unit = match map.get("unit") {
+                        Some(p) if p == "SECOND" => Ok(TimeUnit::Second),
+                        Some(p) if p == "MILLISECOND" => Ok(TimeUnit::Millisecond),
+                        Some(p) if p == "MICROSECOND" => Ok(TimeUnit::Microsecond),
+                        Some(p) if p == "NANOSECOND" => Ok(TimeUnit::Nanosecond),
+                        _ => Err(ArrowError::ParseError(
+                            "time unit missing or invalid".to_string(),
+                        )),
+                    };
+                    match map.get("bitWidth") {
+                        Some(p) if p == "32" => Ok(DataType::Time32(unit?)),
+                        Some(p) if p == "64" => Ok(DataType::Time32(unit?)),
+                        _ => Err(ArrowError::ParseError(
+                            "time bitWidth missing or invalid".to_string(),
+                        )),
+                    }
+                }
+                Some(s) if s == "interval" => match map.get("unit") {
+                    Some(p) if p == "DAY" => Ok(DataType::Date(DateUnit::Day)),
+                    Some(p) if p == "MILLISECOND" => Ok(DataType::Date(DateUnit::Millisecond)),
+                    _ => Err(ArrowError::ParseError(
+                        "date unit missing or invalid".to_string(),
+                    )),
+                },
                 Some(s) if s == "int" => match map.get("isSigned") {
                     Some(&Value::Bool(true)) => match map.get("bitWidth") {
                         Some(&Value::Number(ref n)) => match n.as_u64() {
@@ -231,7 +311,7 @@ impl DataType {
 
     /// Generate a JSON representation of the data type
     pub fn to_json(&self) -> Value {
-        match *self {
+        match self {
             DataType::Boolean => json!({"name": "bool"}),
             DataType::Int8 => json!({"name": "int", "bitWidth": 8, "isSigned": true}),
             DataType::Int16 => json!({"name": "int", "bitWidth": 16, "isSigned": true}),
@@ -254,6 +334,34 @@ impl DataType {
                 let child_json = t.to_json();
                 json!({ "name": "list", "children": child_json })
             }
+            DataType::Time32(unit) => json!({"name": "time", "bitWidth": "32", "unit": match unit {
+                TimeUnit::Second => "SECOND",
+                TimeUnit::Millisecond => "MILLISECOND",
+                TimeUnit::Microsecond => "MICROSECOND",
+                TimeUnit::Nanosecond => "NANOSECOND",
+            }}),
+            DataType::Time64(unit) => json!({"name": "time", "bitWidth": "64", "unit": match unit {
+                TimeUnit::Second => "SECOND",
+                TimeUnit::Millisecond => "MILLISECOND",
+                TimeUnit::Microsecond => "MICROSECOND",
+                TimeUnit::Nanosecond => "NANOSECOND",
+            }}),
+            DataType::Date(unit) => json!({"name": "date", "unit": match unit {
+                DateUnit::Day => "DAY",
+                DateUnit::Millisecond => "MILLISECOND",
+            }}),
+            DataType::Timestamp(unit) => {
+                json!({"name": "timestamp", "precision": "DOUBLE", "unit": match unit {
+                    TimestampUnit::Second => "SECOND",
+                    TimestampUnit::Millisecond => "MILLISECOND",
+                    TimestampUnit::Microsecond => "MICROSECOND",
+                    TimestampUnit::Nanosecond => "NANOSECOND",
+                }})
+            }
+            DataType::Interval(unit) => json!({"name": "interval", "unit": match unit {
+                IntervalUnit::YearMonth => "YEAR_MONTH",
+                IntervalUnit::DayTime => "DAY_TIME",
+            }}),
         }
     }
 }
