@@ -114,19 +114,14 @@ class TestDecimal128 < Test::Unit::TestCase
   end
 
   def test_not_equal
+    require_gi_bindings(3, 3, 1)
     decimal = Arrow::Decimal128.new(10)
     other_decimal = Arrow::Decimal128.new(11)
-    assert_equal([
-                   true,
-                   false
-                 ],
-                 [
-                   decimal.not_equal(other_decimal),
-                   decimal.not_equal(decimal)
-                 ])
+    assert_not_equal(decimal, other_decimal)
   end
 
   def test_less_than
+    require_gi_bindings(3, 3, 1)
     decimal = Arrow::Decimal128.new(10)
     other_decimal1 = Arrow::Decimal128.new(11)
     other_decimal2 = Arrow::Decimal128.new(9)
@@ -136,13 +131,14 @@ class TestDecimal128 < Test::Unit::TestCase
                    false
                  ],
                  [
-                   decimal.less_than(other_decimal1),
-                   decimal.less_than(other_decimal2),
-                   decimal.less_than(decimal),
+                   decimal < other_decimal1,
+                   decimal < other_decimal2,
+                   decimal < decimal,
                  ])
   end
 
   def test_less_than_or_equal
+    require_gi_bindings(3, 3, 1)
     decimal = Arrow::Decimal128.new(10)
     other_decimal1 = Arrow::Decimal128.new(11)
     other_decimal2 = Arrow::Decimal128.new(9)
@@ -152,13 +148,14 @@ class TestDecimal128 < Test::Unit::TestCase
                    true
                  ],
                  [
-                   decimal.less_than_or_equal(other_decimal1),
-                   decimal.less_than_or_equal(other_decimal2),
-                   decimal.less_than_or_equal(decimal)
+                   decimal <= other_decimal1,
+                   decimal <= other_decimal2,
+                   decimal <= decimal
                  ])
   end
 
-  def test_more_than
+  def test_greater_than
+    require_gi_bindings(3, 3, 1)
     decimal = Arrow::Decimal128.new(10)
     other_decimal1 = Arrow::Decimal128.new(11)
     other_decimal2 = Arrow::Decimal128.new(9)
@@ -168,13 +165,14 @@ class TestDecimal128 < Test::Unit::TestCase
                    false
                  ],
                  [
-                   decimal.more_than(other_decimal1),
-                   decimal.more_than(other_decimal2),
-                   decimal.more_than(decimal)
+                   decimal > other_decimal1,
+                   decimal > other_decimal2,
+                   decimal > decimal
                  ])
   end
 
-  def test_more_than_or_equal
+  def test_greater_than_or_equal
+    require_gi_bindings(3, 3, 1)
     decimal = Arrow::Decimal128.new(10)
     other_decimal1 = Arrow::Decimal128.new(11)
     other_decimal2 = Arrow::Decimal128.new(9)
@@ -184,9 +182,9 @@ class TestDecimal128 < Test::Unit::TestCase
                    true
                  ],
                  [
-                   decimal.more_than_or_equal(other_decimal1),
-                   decimal.more_than_or_equal(other_decimal2),
-                   decimal.more_than_or_equal(decimal)
+                   decimal >= other_decimal1,
+                   decimal >= other_decimal2,
+                   decimal >= decimal
                  ])
   end
 end
