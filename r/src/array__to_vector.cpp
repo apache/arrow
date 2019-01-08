@@ -40,15 +40,11 @@ SEXP ArrayVector_To_Vector(int64_t n, const ArrayVector& arrays) {
 }
 
 struct ParallelConverter {
-  static constexpr bool Parallel() {
-    return true;
-  }
+  static constexpr bool Parallel() { return true; }
 };
 
 struct SerialConverter {
-  static constexpr bool Parallel() {
-    return false;
-  }
+  static constexpr bool Parallel() { return false; }
 };
 
 template <int RTYPE>
@@ -259,7 +255,7 @@ struct Converter_Dictionary : public ParallelConverter {
 
     // convert the 0-based indices from the arrow Array
     // to 1-based indices used in R factors
-    auto to_r_index = [](value_type value){ return static_cast<int>(value) + 1;};
+    auto to_r_index = [](value_type value) { return static_cast<int>(value) + 1; };
 
     auto null_count = array->null_count();
 
@@ -277,7 +273,7 @@ struct Converter_Dictionary : public ParallelConverter {
                                                     indices->offset(), n);
         auto p_data = data.begin() + start;
         for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_array, ++p_data) {
-          *p_data = bitmap_reader.IsSet() ? to_r_index(*p_array) : NA_INTEGER ;
+          *p_data = bitmap_reader.IsSet() ? to_r_index(*p_array) : NA_INTEGER;
         }
       } else {
         std::transform(p_array, p_array + n, data.begin() + start, to_r_index);
@@ -509,7 +505,6 @@ struct Converter_NotHandled : public ParallelConverter {
                        R_xlen_t start, R_xlen_t n) {
     return Status::RError("Not handled");
   }
-
 };
 
 template <typename What, typename... Args>
