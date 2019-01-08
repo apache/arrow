@@ -1224,30 +1224,51 @@ def write_to_dataset(table, root_path, partition_cols=None,
     _mkdir_if_not_exists(fs, root_path)
 
     if partition_cols is not None and len(partition_cols) > 0:
-        df = table.to_pandas()
-        partition_keys = [df[col] for col in partition_cols]
-        data_df = df.drop(partition_cols, axis='columns')
-        data_cols = df.columns.drop(partition_cols)
-        if len(data_cols) == 0:
+        if len(partition_cols) >= table.num_columns:
             raise ValueError('No data left to save outside partition columns')
 
         subschema = table.schema
         # ARROW-2891: Ensure the output_schema is preserved when writing a
         # partitioned dataset
         for col in table.schema.names:
-            if (col.startswith('__index_level_') or col in partition_cols):
+            if (not preserve_index and col.startswith('__index_level_')) or \
+                    col in partition_cols:
                 subschema = subschema.remove(subschema.get_field_index(col))
+        partition_indices_list = []
+        for col in partition_cols:
+            dict_col = table.column(col).dictionary_encode()
+            partition_col_indices = []
+            for chunk in dict_col.data.iterchunks():
+                partition_col_indices.extend(chunk.indices.to_pylist())
+            partition_indices_list.append(
+                np.array(partition_col_indices).astype(int).astype(str)
+            )
+        encoded_col = pa.Column.from_array(
+            "concat_partition_cols",
+            pa.array(["_".join(x) for x in zip(*partition_indices_list)])
+        ).dictionary_encode()
 
-        for keys, subgroup in data_df.groupby(partition_keys):
-            if not isinstance(keys, tuple):
-                keys = (keys,)
+        encoded_col_indices = []
+        for chunk in encoded_col.data.iterchunks():
+            encoded_col_indices.extend(chunk.indices.to_pylist())
+        num_concat_dict = len(chunk.dictionary)
+
+        for idx in range(num_concat_dict):
+            _idx, = np.where(np.array(encoded_col_indices, copy=False) == idx)
+            grouped_data = []
+            for col in subschema.names:
+                _col = table.column(col)
+                grouped_data.append(
+                    pa.array([_col[i].as_py() for i in _idx.tolist()],
+                             type=table.column(col).type)
+                )
+
+            subtable = pa.Table.from_arrays(grouped_data, schema=subschema)
             subdir = '/'.join(
-                ['{colname}={value}'.format(colname=name, value=val)
-                 for name, val in zip(partition_cols, keys)])
-            subtable = pa.Table.from_pandas(subgroup,
-                                            preserve_index=preserve_index,
-                                            schema=subschema,
-                                            safe=False)
+                ['{colname}={value}'.format(
+                     colname=name,
+                     value=table.column(name)[_idx.item(0)]
+                 ) for name in partition_cols])
             prefix = '/'.join([root_path, subdir])
             _mkdir_if_not_exists(fs, prefix)
             outfile = guid() + '.parquet'
