@@ -457,6 +457,141 @@ impl ReaderBuilder {
     }
 }
 
+/// CSV file reader builder
+pub struct ReaderBuilder {
+    /// Optional schema for the CSV file
+    ///
+    /// If the schema is not supplied, the reader will try to infer the schema
+    /// based on the CSV structure.
+    schema: Option<Arc<Schema>>,
+    /// Whether the file has headers or not
+    ///
+    /// If schema inference is run on a file with no headers, default column names
+    /// are created.
+    has_headers: bool,
+    /// An optional column delimiter. Defauits to `b','`
+    delimiter: Option<u8>,
+    /// Optional maximum number of records to read during schema inference
+    ///
+    /// If a number is not provided, all the records are read.
+    max_records: Option<usize>,
+    /// Batch size (number of records to load each time)
+    ///
+    /// The default batch size when using the `ReaderBuilder` is 1024 records
+    batch_size: usize,
+    /// Optional projection for which columns to load (zero-based column indices)
+    projection: Option<Vec<usize>>,
+}
+
+impl Default for ReaderBuilder {
+    fn default() -> ReaderBuilder {
+        ReaderBuilder {
+            schema: None,
+            has_headers: false,
+            delimiter: None,
+            max_records: None,
+            batch_size: 1024,
+            projection: None,
+        }
+    }
+}
+
+impl ReaderBuilder {
+    /// Create a new builder for configuring CSV parsing options.
+    ///
+    /// To convert a builder into a reader, call `Reader::from_builder`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// extern crate arrow;
+    ///
+    /// use arrow::csv;
+    /// use std::fs::File;
+    ///
+    /// fn example() -> csv::Reader {
+    ///     let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
+    ///
+    ///     // create a builder, inferring the schema with the first 100 records
+    ///     let builder = csv::ReaderBuilder::new().infer_schema(Some(100));
+    ///
+    ///     let reader = builder.build(file).unwrap();
+    ///
+    ///     reader
+    /// }
+    /// ```
+    pub fn new() -> ReaderBuilder {
+        ReaderBuilder::default()
+    }
+
+    /// Set the CSV file's schema
+    pub fn with_schema(mut self, schema: Arc<Schema>) -> Self {
+        self.schema = Some(schema);
+        self
+    }
+
+    /// Set whether the CSV file has headers
+    pub fn has_headers(mut self, has_headers: bool) -> Self {
+        self.has_headers = has_headers;
+        self
+    }
+
+    /// Set the CSV file's column delimiter as a byte character
+    pub fn with_delimiter(mut self, delimiter: u8) -> Self {
+        self.delimiter = Some(delimiter);
+        self
+    }
+
+    /// Set the CSV reader to infer the schema of the file
+    pub fn infer_schema(mut self, max_records: Option<usize>) -> Self {
+        // remove any schema that is set
+        self.schema = None;
+        self.max_records = max_records;
+        self
+    }
+
+    /// Set the batch size (number of records to load at one time)
+    pub fn with_batch_size(mut self, batch_size: usize) -> Self {
+        self.batch_size = batch_size;
+        self
+    }
+
+    /// Set the reader's column projection
+    pub fn with_projection(mut self, projection: Vec<usize>) -> Self {
+        self.projection = Some(projection);
+        self
+    }
+
+    /// Create a new `Reader` from the `ReaderBuilder`
+    pub fn build(self, file: File) -> Result<Reader> {
+        // check if schema should be inferred
+        let schema = match self.schema {
+            Some(schema) => schema,
+            None => {
+                let inferred_schema = infer_file_schema(
+                    file.try_clone().unwrap(),
+                    self.delimiter.unwrap_or(b','),
+                    self.max_records,
+                    self.has_headers,
+                )?;
+
+                Arc::new(inferred_schema)
+            }
+        };
+        let csv_reader = csv::ReaderBuilder::new()
+            .delimiter(self.delimiter.unwrap_or(b','))
+            .has_headers(self.has_headers)
+            .from_reader(BufReader::new(file));
+        let record_iter = csv_reader.into_records();
+        Ok(Reader {
+            schema,
+            projection: self.projection.clone(),
+            record_iter,
+            batch_size: self.batch_size,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -564,6 +699,75 @@ mod tests {
             .unwrap();
 
         let city_name: String = String::from_utf8(city.value(13).to_vec()).unwrap();
+
+        assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
+    }
+
+    #[test]
+    fn test_csv_with_schema_inference() {
+        let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
+
+        let builder = ReaderBuilder::new().has_headers(true).infer_schema(None);
+
+        let mut csv = builder.build(file).unwrap();
+        let batch = csv.next().unwrap().unwrap();
+        assert_eq!(37, batch.num_rows());
+        assert_eq!(3, batch.num_columns());
+
+        // access data from a primitive array
+        let lat = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        assert_eq!(57.653484, lat.value(0));
+
+        // access data from a string array (ListArray<u8>)
+        let city = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<BinaryArray>()
+            .unwrap();
+
+        let city_name: String = String::from_utf8(city.get_value(13).to_vec()).unwrap();
+
+        assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
+    }
+
+    #[test]
+    fn test_csv_with_schema_inference_no_headers() {
+        let file = File::open("test/data/uk_cities.csv").unwrap();
+
+        let builder = ReaderBuilder::new().infer_schema(None);
+
+        let mut csv = builder.build(file).unwrap();
+        let batch = csv.next().unwrap().unwrap();
+
+        // csv field names should be 'column_{number}'
+        let schema = batch.schema();
+        assert_eq!("column_1", schema.field(0).name());
+        assert_eq!("column_2", schema.field(1).name());
+        assert_eq!("column_3", schema.field(2).name());
+
+        assert_eq!(37, batch.num_rows());
+        assert_eq!(3, batch.num_columns());
+
+        // access data from a primitive array
+        let lat = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        assert_eq!(57.653484, lat.value(0));
+
+        // access data from a string array (ListArray<u8>)
+        let city = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<BinaryArray>()
+            .unwrap();
+
+        let city_name: String = String::from_utf8(city.get_value(13).to_vec()).unwrap();
 
         assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
     }
