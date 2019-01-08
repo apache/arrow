@@ -31,13 +31,31 @@ class Converter {
 
   virtual ~Converter() {}
 
+  // Allocate a vector of the right R type for this converter
   virtual SEXP Allocate(R_xlen_t n) const = 0;
-  virtual Status IngestOne(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const = 0;
 
+  // data[ start:(start + n) ] = NA
+  virtual Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const = 0;
+
+  // ingest the values from the array into data[ start : (start + n)]
+  virtual Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                                   R_xlen_t start, R_xlen_t n) const = 0;
+
+  // ingest one array
+  Status IngestOne(SEXP data, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+                   R_xlen_t n) const {
+    if (array->null_count() == n) {
+      return Ingest_all_nulls(data, start, n);
+    } else {
+      return Ingest_some_nulls(data, array, start, n);
+    }
+  }
+
+  // can this run in parallel ?
   virtual bool Parallel() const { return true; }
 
-  Status Ingest(SEXP data) {
+  // Ingest all the arrays serially
+  Status IngestSerial(SEXP data) {
     R_xlen_t k = 0;
     for (const auto& array : arrays_) {
       auto n_chunk = array->length();
@@ -47,6 +65,11 @@ class Converter {
     return Status::OK();
   }
 
+  // ingest the arrays in parallel
+  //
+  // for each array, add a task to the task group
+  //
+  // The task group is Finish() iun the caller
   void IngestParallel(SEXP data, const std::shared_ptr<arrow::internal::TaskGroup>& tg) {
     R_xlen_t k = 0;
     for (const auto& array : arrays_) {
@@ -56,65 +79,73 @@ class Converter {
     }
   }
 
-  SEXP Convert(R_xlen_t n) {
-    Shield<SEXP> column(Allocate(n));
-    STOP_IF_NOT_OK(Ingest(column));
-    return column;
-  }
-
+  // Converter factory
   static std::shared_ptr<Converter> Make(const ArrayVector& arrays);
 
  protected:
   const ArrayVector& arrays_;
 };
 
+// data[start:(start+n)] = NA
+template <int RTYPE>
+Status AllNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n) {
+  auto p_data = Rcpp::internal::r_vector_start<RTYPE>(data) + start;
+  std::fill_n(p_data, n, default_value<RTYPE>());
+  return Status::OK();
+}
+
+// ingest the data from `array` into a slice of `data`
+//
+// each element goes through `lambda` when some conversion is needed
+template <int RTYPE, typename array_value_type, typename Lambda>
+Status SomeNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n,
+                       const array_value_type* p_values,
+                       const std::shared_ptr<arrow::Array>& array, Lambda lambda) {
+  if (!p_values) {
+    return Status::Invalid("Invalid data buffer");
+  }
+  auto p_data = Rcpp::internal::r_vector_start<RTYPE>(data) + start;
+
+  if (array->null_count()) {
+    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                                array->offset(), n);
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data, ++p_values) {
+      *p_data = bitmap_reader.IsSet() ? lambda(*p_values) : default_value<RTYPE>();
+    }
+  } else {
+    std::transform(p_values, p_values + n, p_data, lambda);
+  }
+
+  return Status::OK();
+}
+
 // Allocate + Ingest
 SEXP ArrayVector__as_vector(R_xlen_t n, const ArrayVector& arrays) {
   auto converter = Converter::Make(arrays);
   Shield<SEXP> data(converter->Allocate(n));
-  STOP_IF_NOT_OK(converter->Ingest(data));
+  STOP_IF_NOT_OK(converter->IngestSerial(data));
   return data;
 }
 
 template <int RTYPE>
 class Converter_SimpleArray : public Converter {
   using Vector = Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage>;
+  using value_type = typename Vector::stored_type;
 
  public:
   Converter_SimpleArray(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const { return Vector(no_init(n)); }
 
-  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n) const {
-    Vector data(data_);
-    using value_type = typename Vector::stored_type;
-    auto null_count = array->null_count();
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return AllNull_Ingest<RTYPE>(data, start, n);
+  }
 
-    if (n == null_count) {
-      std::fill_n(data.begin() + start, n, default_value<RTYPE>());
-    } else {
-      auto p_values = array->data()->GetValues<value_type>(1);
-      if (!p_values) {
-        return Status::Invalid("Invalid data buffer");
-      }
-
-      // first copy all the data
-      std::copy_n(p_values, n, data.begin() + start);
-
-      if (null_count) {
-        // then set the sentinel NA
-        arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                                    array->offset(), n);
-
-        for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
-          if (bitmap_reader.IsNotSet()) {
-            data[i + start] = default_value<RTYPE>();
-          }
-        }
-      }
-    }
-    return Status::OK();
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    auto p_values = array->data()->GetValues<value_type>(1);
+    auto echo = [](value_type value) { return value; };
+    return SomeNull_Ingest<RTYPE, value_type>(data, start, n, p_values, array, echo);
   }
 };
 
@@ -135,50 +166,66 @@ struct Converter_String : public Converter {
 
   SEXP Allocate(R_xlen_t n) const { return StringVector_(no_init(n)); }
 
-  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n) const {
-    StringVector_ data(data_);
-    auto null_count = array->null_count();
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return AllNull_Ingest<STRSXP>(data, start, n);
+  }
 
-    if (null_count == n) {
-      std::fill_n(data.begin(), n, NA_STRING);
-    } else {
-      auto p_offset = array->data()->GetValues<int32_t>(1);
-      if (!p_offset) {
-        return Status::Invalid("Invalid offset buffer");
-      }
-      auto p_data = array->data()->GetValues<char>(2, *p_offset);
-      if (!p_data) {
-        // There is an offset buffer, but the data buffer is null
-        // There is at least one value in the array and not all the values are null
-        // That means all values are empty strings so there is nothing to do
-        return Status::OK();
-      }
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    const int32_t* p_offset;
+    const char* p_strings;
+    RETURN_NOT_OK(CheckBuffers(array, p_offset, p_strings));
 
-      if (null_count) {
-        // need to watch for nulls
+    if (!p_strings) {
+      // There is an offset buffer, but the data buffer is null
+      // There is at least one value in the array and not all the values are null
+      // That means all values are either empty strings or nulls so there is nothing to do
+
+      if (array->null_count()) {
         arrow::internal::BitmapReader null_reader(array->null_bitmap_data(),
                                                   array->offset(), n);
         for (int i = 0; i < n; i++, null_reader.Next()) {
-          if (null_reader.IsSet()) {
-            auto diff = p_offset[i + 1] - p_offset[i];
-            SET_STRING_ELT(data, start + i, Rf_mkCharLenCE(p_data, diff, CE_UTF8));
-            p_data += diff;
-          } else {
+          if (null_reader.IsNotSet()) {
             SET_STRING_ELT(data, start + i, NA_STRING);
           }
         }
+      }
+      return Status::OK();
+    }
 
-      } else {
-        // no need to check for nulls
-        // TODO: altrep mark this as no na
-        for (int i = 0; i < n; i++) {
+    if (array->null_count()) {
+      // need to watch for nulls
+      arrow::internal::BitmapReader null_reader(array->null_bitmap_data(),
+                                                array->offset(), n);
+      for (int i = 0; i < n; i++, null_reader.Next()) {
+        if (null_reader.IsSet()) {
           auto diff = p_offset[i + 1] - p_offset[i];
-          SET_STRING_ELT(data, start + i, Rf_mkCharLenCE(p_data, diff, CE_UTF8));
-          p_data += diff;
+          SET_STRING_ELT(data, start + i, Rf_mkCharLenCE(p_strings, diff, CE_UTF8));
+          p_strings += diff;
+        } else {
+          SET_STRING_ELT(data, start + i, NA_STRING);
         }
       }
+
+    } else {
+      for (int i = 0; i < n; i++) {
+        auto diff = p_offset[i + 1] - p_offset[i];
+        SET_STRING_ELT(data, start + i, Rf_mkCharLenCE(p_strings, diff, CE_UTF8));
+        p_strings += diff;
+      }
     }
+
+    return Status::OK();
+  }
+
+ private:
+  Status CheckBuffers(const std::shared_ptr<arrow::Array>& array,
+                      const int32_t*& p_offset, const char*& p_strings) const {
+    p_offset = array->data()->GetValues<int32_t>(1);
+    if (!p_offset) {
+      return Status::Invalid("Invalid offset buffer");
+    }
+    p_strings = array->data()->GetValues<char>(2, *p_offset);
     return Status::OK();
   }
 
@@ -191,36 +238,32 @@ class Converter_Boolean : public Converter {
 
   SEXP Allocate(R_xlen_t n) const { return LogicalVector_(no_init(n)); }
 
-  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n) const {
-    LogicalVector_ data(data_);
-    auto null_count = array->null_count();
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return AllNull_Ingest<LGLSXP>(data, start, n);
+  }
 
-    if (n == null_count) {
-      std::fill_n(data.begin() + start, n, NA_LOGICAL);
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    auto p_data = Rcpp::internal::r_vector_start<LGLSXP>(data) + start;
+    auto p_bools = array->data()->GetValues<uint8_t>(1, 0);
+    if (!p_bools) {
+      return Status::Invalid("Invalid data buffer");
+    }
+
+    arrow::internal::BitmapReader data_reader(p_bools, array->offset(), n);
+    if (array->null_count()) {
+      arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
+                                                array->offset(), n);
+
+      for (size_t i = 0; i < n; i++, data_reader.Next(), null_reader.Next(), ++p_data) {
+        *p_data = null_reader.IsSet() ? data_reader.IsSet() : NA_LOGICAL;
+      }
     } else {
-      // process the data
-      auto p_data = array->data()->GetValues<uint8_t>(1, 0);
-      if (!p_data) {
-        return Status::Invalid("Invalid data buffer");
-      }
-
-      arrow::internal::BitmapReader data_reader(p_data, array->offset(), n);
-      for (size_t i = 0; i < n; i++, data_reader.Next()) {
-        data[start + i] = data_reader.IsSet();
-      }
-
-      // then the null bitmap if needed
-      if (null_count) {
-        arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
-                                                  array->offset(), n);
-        for (size_t i = 0; i < n; i++, null_reader.Next()) {
-          if (null_reader.IsNotSet()) {
-            data[start + i] = NA_LOGICAL;
-          }
-        }
+      for (size_t i = 0; i < n; i++, data_reader.Next(), ++p_data) {
+        *p_data = data_reader.IsSet();
       }
     }
+
     return Status::OK();
   }
 };
@@ -261,21 +304,25 @@ class Converter_Dictionary : public Converter {
     return data;
   }
 
-  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n) const {
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return AllNull_Ingest<INTSXP>(data, start, n);
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
     DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
     auto indices = dict_array->indices();
     switch (indices->type_id()) {
       case Type::UINT8:
-        return Ingest_Impl<arrow::UInt8Type>(data_, array, start, n);
+        return Ingest_some_nulls_Impl<arrow::UInt8Type>(data, array, start, n);
       case Type::INT8:
-        return Ingest_Impl<arrow::Int8Type>(data_, array, start, n);
+        return Ingest_some_nulls_Impl<arrow::Int8Type>(data, array, start, n);
       case Type::UINT16:
-        return Ingest_Impl<arrow::UInt16Type>(data_, array, start, n);
+        return Ingest_some_nulls_Impl<arrow::UInt16Type>(data, array, start, n);
       case Type::INT16:
-        return Ingest_Impl<arrow::Int16Type>(data_, array, start, n);
+        return Ingest_some_nulls_Impl<arrow::Int16Type>(data, array, start, n);
       case Type::INT32:
-        return Ingest_Impl<arrow::Int32Type>(data_, array, start, n);
+        return Ingest_some_nulls_Impl<arrow::Int32Type>(data, array, start, n);
       default:
         break;
     }
@@ -284,42 +331,23 @@ class Converter_Dictionary : public Converter {
 
  private:
   template <typename Type>
-  Status Ingest_Impl(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                     R_xlen_t start, R_xlen_t n) const {
-    IntegerVector_ data(data_);
-
-    DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
+  Status Ingest_some_nulls_Impl(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                                R_xlen_t start, R_xlen_t n) const {
     using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
+
+    std::shared_ptr<Array> indices =
+        static_cast<DictionaryArray*>(array.get())->indices();
 
     // convert the 0-based indices from the arrow Array
     // to 1-based indices used in R factors
     auto to_r_index = [](value_type value) { return static_cast<int>(value) + 1; };
 
-    auto null_count = array->null_count();
-
-    if (n == null_count) {
-      std::fill_n(data.begin() + start, n, NA_INTEGER);
-    } else {
-      std::shared_ptr<Array> indices = dict_array->indices();
-      auto p_array = indices->data()->GetValues<value_type>(1);
-      if (!p_array) {
-        return Status::Invalid("invalid data buffer");
-      }
-
-      if (null_count) {
-        arrow::internal::BitmapReader bitmap_reader(indices->null_bitmap()->data(),
-                                                    indices->offset(), n);
-        auto p_data = data.begin() + start;
-        for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_array, ++p_data) {
-          *p_data = bitmap_reader.IsSet() ? to_r_index(*p_array) : NA_INTEGER;
-        }
-      } else {
-        std::transform(p_array, p_array + n, data.begin() + start, to_r_index);
-      }
-    }
-    return Status::OK();
+    return SomeNull_Ingest<INTSXP, value_type>(
+        data, start, n, indices->data()->GetValues<value_type>(1), indices, to_r_index);
   }
 };
+
+double ms_to_seconds(int64_t ms) { return static_cast<double>(ms / 1000); }
 
 class Converter_Date64 : public Converter {
  public:
@@ -331,31 +359,15 @@ class Converter_Date64 : public Converter {
     return data;
   }
 
-  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n) const {
-    NumericVector_ data(data_);
-    auto null_count = array->null_count();
-    if (null_count == n) {
-      std::fill_n(data.begin() + start, n, NA_REAL);
-    } else {
-      auto p_values = array->data()->GetValues<int64_t>(1);
-      STOP_IF_NULL(p_values);
-      auto p_vec = data.begin() + start;
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return AllNull_Ingest<REALSXP>(data, start, n);
+  }
 
-      // convert DATE64 milliseconds to R seconds (stored as double)
-      auto seconds = [](int64_t ms) { return static_cast<double>(ms / 1000); };
-
-      if (null_count) {
-        arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                                    array->offset(), n);
-        for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_vec, ++p_values) {
-          *p_vec = bitmap_reader.IsSet() ? seconds(*p_values) : NA_REAL;
-        }
-      } else {
-        std::transform(p_values, p_values + n, p_vec, seconds);
-      }
-    }
-    return Status::OK();
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    auto convert = [](int64_t ms) { return static_cast<double>(ms / 1000); };
+    return SomeNull_Ingest<REALSXP, int64_t>(
+        data, start, n, array->data()->GetValues<int64_t>(1), array, convert);
   }
 };
 
@@ -367,35 +379,24 @@ class Converter_Promotion : public Converter {
  public:
   Converter_Promotion(const ArrayVector& arrays) : Converter(arrays) {}
 
-  SEXP Allocate(R_xlen_t n) const { return Rcpp::Vector<RTYPE>(no_init(n)); }
+  SEXP Allocate(R_xlen_t n) const {
+    return Rcpp::Vector<RTYPE, NoProtectStorage>(no_init(n));
+  }
 
-  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n) const {
-    Rcpp::Vector<RTYPE, NoProtectStorage> data(data_);
-    auto null_count = array->null_count();
-    if (null_count == n) {
-      std::fill_n(data.begin() + start, n, default_value<RTYPE>());
-    } else {
-      auto p_values = array->data()->GetValues<value_type>(1);
-      if (!p_values) {
-        return Status::Invalid("Invalid values buffer");
-      }
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return AllNull_Ingest<RTYPE>(data, start, n);
+  }
 
-      auto value_convert = [](value_type value) {
-        return static_cast<r_stored_type>(value);
-      };
-      if (null_count) {
-        internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                             array->offset(), n);
-        for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
-          data[start + i] = bitmap_reader.IsNotSet() ? Rcpp::Vector<RTYPE>::get_na()
-                                                     : value_convert(p_values[i]);
-        }
-      } else {
-        std::transform(p_values, p_values + n, data.begin(), value_convert);
-      }
-    }
-    return Status::OK();
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    auto convert = [](value_type value) { return static_cast<r_stored_type>(value); };
+    return SomeNull_Ingest<RTYPE, value_type>(
+        data, start, n, array->data()->GetValues<value_type>(1), array, convert);
+  }
+
+ private:
+  static r_stored_type value_convert(value_type value) {
+    return static_cast<r_stored_type>(value);
   }
 };
 
@@ -411,35 +412,18 @@ class Converter_Time : public Converter {
     return data;
   }
 
-  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n) const {
-    NumericVector_ data(data_);
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return AllNull_Ingest<REALSXP>(data, start, n);
+  }
 
-    auto null_count = array->null_count();
-    if (n == null_count) {
-      std::fill_n(data.begin() + start, n, NA_REAL);
-    } else {
-      auto p_values = array->data()->GetValues<value_type>(1);
-      if (!p_values) {
-        return Status::Invalid("Invalid data buffer");
-      }
-
-      auto p_vec = data.begin() + start;
-      int multiplier = TimeUnit_multiplier(array);
-      auto convert = [=](value_type value) {
-        return static_cast<double>(value) / multiplier;
-      };
-      if (null_count) {
-        arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                                    array->offset(), n);
-        for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_vec, ++p_values) {
-          *p_vec = bitmap_reader.IsSet() ? convert(*p_values) : NA_REAL;
-        }
-      } else {
-        std::transform(p_values, p_values + n, p_vec, convert);
-      }
-    }
-    return Status::OK();
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    int multiplier = TimeUnit_multiplier(array);
+    auto convert = [=](value_type value) {
+      return static_cast<double>(value) / multiplier;
+    };
+    return SomeNull_Ingest<REALSXP, value_type>(
+        data, start, n, array->data()->GetValues<value_type>(1), array, convert);
   }
 
  private:
@@ -469,6 +453,34 @@ class Converter_Timestamp : public Converter_Time<value_type> {
   }
 };
 
+class Converter_Decimal : public Converter {
+ public:
+  Converter_Decimal(const ArrayVector& arrays) : Converter(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const { return NumericVector_(no_init(n)); }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return AllNull_Ingest<REALSXP>(data, start, n);
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    auto p_data = Rcpp::internal::r_vector_start<REALSXP>(data) + start;
+    const auto& decimals_arr =
+        internal::checked_cast<const arrow::Decimal128Array&>(*array);
+
+    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                         n);
+
+    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
+      *p_data = bitmap_reader.IsSet() ? std::stod(decimals_arr.FormatValue(i).c_str())
+                                      : NA_REAL;
+    }
+
+    return Status::OK();
+  }
+};
+
 class Converter_Int64 : public Converter {
  public:
   Converter_Int64(const ArrayVector& arrays) : Converter(arrays) {}
@@ -479,66 +491,31 @@ class Converter_Int64 : public Converter {
     return data;
   }
 
-  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n) const {
-    NumericVector_ data(data_);
-    auto null_count = array->null_count();
-    if (null_count == n) {
-      std::fill_n(reinterpret_cast<int64_t*>(data.begin()) + start, n, NA_INT64);
-    } else {
-      auto p_values = array->data()->GetValues<int64_t>(1);
-      if (!p_values) {
-        return Status::Invalid("Invalid data buffer");
-      }
-
-      auto p_vec = reinterpret_cast<int64_t*>(data.begin()) + start;
-
-      if (null_count) {
-        internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                             array->offset(), n);
-        for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
-          p_vec[i] = bitmap_reader.IsNotSet() ? NA_INT64 : p_values[i];
-        }
-      } else {
-        std::copy_n(p_values, n, p_vec);
-      }
-    }
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    auto p_data = reinterpret_cast<int64_t*>(REAL(data)) + start;
+    std::fill_n(p_data, n, NA_INT64);
     return Status::OK();
   }
-};
 
-class Converter_Decimal : public Converter {
- public:
-  Converter_Decimal(const ArrayVector& arrays) : Converter(arrays) {}
-
-  SEXP Allocate(R_xlen_t n) const { return NumericVector_(no_init(n)); }
-
-  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n) const {
-    NumericVector_ data(data_);
-    auto null_count = array->null_count();
-    if (n == null_count) {
-      std::fill_n(data.begin() + start, n, NA_REAL);
-    } else {
-      auto p_vec = reinterpret_cast<double*>(data.begin()) + start;
-      const auto& decimals_arr =
-          internal::checked_cast<const arrow::Decimal128Array&>(*array);
-
-      if (null_count) {
-        internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                             array->offset(), n);
-
-        for (size_t i = 0; i < n; i++, bitmap_reader.Next()) {
-          p_vec[i] = bitmap_reader.IsNotSet()
-                         ? NA_REAL
-                         : std::stod(decimals_arr.FormatValue(i).c_str());
-        }
-      } else {
-        for (size_t i = 0; i < n; i++) {
-          p_vec[i] = std::stod(decimals_arr.FormatValue(i).c_str());
-        }
-      }
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    auto p_values = array->data()->GetValues<int64_t>(1);
+    if (!p_values) {
+      return Status::Invalid("Invalid data buffer");
     }
+
+    auto p_data = reinterpret_cast<int64_t*>(REAL(data)) + start;
+
+    if (array->null_count()) {
+      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                           n);
+      for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
+        *p_data = bitmap_reader.IsSet() ? p_values[i] : NA_INT64;
+      }
+    } else {
+      std::copy_n(p_values, n, p_data);
+    }
+
     return Status::OK();
   }
 };
@@ -623,7 +600,8 @@ List to_dataframe_serial(int64_t nr, int64_t nc, const CharacterVector& names,
   List tbl(nc);
 
   for (int i = 0; i < nc; i++) {
-    tbl[i] = converters[i]->Convert(nr);
+    SEXP column = tbl[i] = converters[i]->Allocate(nr);
+    STOP_IF_NOT_OK(converters[i]->IngestSerial(column));
   }
   tbl.attr("names") = names;
   tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
@@ -656,7 +634,7 @@ List to_dataframe_parallel(int64_t nr, int64_t nc, const CharacterVector& names,
   // ingest the columns that cannot be dealt with in parallel
   for (int i = 0; i < nc; i++) {
     if (!converters[i]->Parallel()) {
-      status &= converters[i]->Ingest(tbl[i]);
+      status &= converters[i]->IngestSerial(tbl[i]);
     }
   }
 
