@@ -194,15 +194,14 @@ struct Converter_String : public Converter {
       return Status::OK();
     }
 
+    arrow::StringArray* string_array = static_cast<arrow::StringArray*>(array.get());
     if (array->null_count()) {
       // need to watch for nulls
       arrow::internal::BitmapReader null_reader(array->null_bitmap_data(),
                                                 array->offset(), n);
       for (int i = 0; i < n; i++, null_reader.Next()) {
         if (null_reader.IsSet()) {
-          auto diff = p_offset[i + 1] - p_offset[i];
-          SET_STRING_ELT(data, start + i, Rf_mkCharLenCE(p_strings, diff, CE_UTF8));
-          p_strings += diff;
+          SET_STRING_ELT(data, start + i, r_string(string_array->GetString(i)));
         } else {
           SET_STRING_ELT(data, start + i, NA_STRING);
         }
@@ -210,9 +209,7 @@ struct Converter_String : public Converter {
 
     } else {
       for (int i = 0; i < n; i++) {
-        auto diff = p_offset[i + 1] - p_offset[i];
-        SET_STRING_ELT(data, start + i, Rf_mkCharLenCE(p_strings, diff, CE_UTF8));
-        p_strings += diff;
+        SET_STRING_ELT(data, start + i, r_string(string_array->GetString(i)));
       }
     }
 
@@ -220,6 +217,11 @@ struct Converter_String : public Converter {
   }
 
   bool Parallel() const { return false; }
+
+  inline SEXP r_string(const arrow::util::string_view& view) const {
+    return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
+  }
+
 };
 
 class Converter_Boolean : public Converter {
