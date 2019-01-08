@@ -470,7 +470,7 @@ pub struct BinaryArray {
 
 impl BinaryArray {
     /// Returns the element at index `i` as a byte slice.
-    pub fn get_value(&self, i: usize) -> &[u8] {
+    pub fn value(&self, i: usize) -> &[u8] {
         assert!(i < self.data.len(), "BinaryArray out of bounds access");
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
@@ -486,7 +486,7 @@ impl BinaryArray {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn get_string(&self, i: usize) -> String {
-        let slice = self.get_value(i);
+        let slice = self.value(i);
         unsafe { String::from_utf8_unchecked(Vec::from(slice)) }
     }
 
@@ -951,13 +951,13 @@ mod tests {
         let binary_array = BinaryArray::from(array_data);
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());
-        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.get_value(0));
+        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
         assert_eq!("hello", binary_array.get_string(0));
-        assert_eq!([] as [u8; 0], binary_array.get_value(1));
+        assert_eq!([] as [u8; 0], binary_array.value(1));
         assert_eq!("", binary_array.get_string(1));
         assert_eq!(
             [b'p', b'a', b'r', b'q', b'u', b'e', b't'],
-            binary_array.get_value(2)
+            binary_array.value(2)
         );
         assert_eq!("parquet", binary_array.get_string(2));
         assert_eq!(5, binary_array.value_offset(2));
@@ -977,7 +977,7 @@ mod tests {
         let binary_array = BinaryArray::from(array_data);
         assert_eq!(
             [b'p', b'a', b'r', b'q', b'u', b'e', b't'],
-            binary_array.get_value(1)
+            binary_array.value(1)
         );
         assert_eq!("parquet", binary_array.get_string(1));
         assert_eq!(5, binary_array.value_offset(0));
@@ -1019,7 +1019,7 @@ mod tests {
         assert_eq!(binary_array1.len(), binary_array2.len());
         assert_eq!(binary_array1.null_count(), binary_array2.null_count());
         for i in 0..binary_array1.len() {
-            assert_eq!(binary_array1.get_value(i), binary_array2.get_value(i));
+            assert_eq!(binary_array1.value(i), binary_array2.value(i));
             assert_eq!(binary_array1.get_string(i), binary_array2.get_string(i));
             assert_eq!(binary_array1.value_offset(i), binary_array2.value_offset(i));
             assert_eq!(binary_array1.value_length(i), binary_array2.value_length(i));
@@ -1082,7 +1082,7 @@ mod tests {
             .add_buffer(Buffer::from(&values[..]))
             .build();
         let binary_array = BinaryArray::from(array_data);
-        binary_array.get_value(4);
+        binary_array.value(4);
     }
 
     #[test]
