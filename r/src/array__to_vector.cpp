@@ -25,36 +25,68 @@ using namespace arrow;
 namespace arrow {
 namespace r {
 
-template <typename Converter>
-SEXP ArrayVector_To_Vector(int64_t n, const ArrayVector& arrays) {
-  Shield<SEXP> data(Converter::Allocate(n, arrays));
+class Converter {
+ public:
+  Converter(const ArrayVector& arrays) : arrays_(arrays) {}
 
-  R_xlen_t k = 0;
-  for (const auto& array : arrays) {
-    auto n_chunk = array->length();
-    STOP_IF_NOT_OK(Converter::Ingest(data, array, k, n_chunk));
-    k += n_chunk;
+  virtual ~Converter() {}
+
+  virtual SEXP Allocate(R_xlen_t n) const = 0;
+  virtual Status IngestOne(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const = 0;
+
+  virtual bool Parallel() const { return true; }
+
+  Status Ingest(SEXP data) {
+    R_xlen_t k = 0;
+    for (const auto& array : arrays_) {
+      auto n_chunk = array->length();
+      RETURN_NOT_OK(IngestOne(data, array, k, n_chunk));
+      k += n_chunk;
+    }
+    return Status::OK();
   }
 
+  void IngestParallel(SEXP data, const std::shared_ptr<arrow::internal::TaskGroup>& tg) {
+    R_xlen_t k = 0;
+    for (const auto& array : arrays_) {
+      auto n_chunk = array->length();
+      tg->Append([=] { return IngestOne(data, array, k, n_chunk); });
+      k += n_chunk;
+    }
+  }
+
+  SEXP Convert(R_xlen_t n) {
+    Shield<SEXP> column(Allocate(n));
+    STOP_IF_NOT_OK(Ingest(column));
+    return column;
+  }
+
+  static std::shared_ptr<Converter> Make(const ArrayVector& arrays);
+
+ protected:
+  const ArrayVector& arrays_;
+};
+
+// Allocate + Ingest
+SEXP ArrayVector__as_vector(R_xlen_t n, const ArrayVector& arrays) {
+  auto converter = Converter::Make(arrays);
+  Shield<SEXP> data(converter->Allocate(n));
+  STOP_IF_NOT_OK(converter->Ingest(data));
   return data;
 }
 
-struct ParallelConverter {
-  static constexpr bool Parallel() { return true; }
-};
-
-struct SerialConverter {
-  static constexpr bool Parallel() { return false; }
-};
-
 template <int RTYPE>
-struct Converter_SimpleArray : public ParallelConverter {
+class Converter_SimpleArray : public Converter {
   using Vector = Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage>;
 
-  static SEXP Allocate(R_xlen_t n, const ArrayVector&) { return Vector(no_init(n)); }
+ public:
+  Converter_SimpleArray(const ArrayVector& arrays) : Converter(arrays) {}
 
-  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                       R_xlen_t start, R_xlen_t n) {
+  SEXP Allocate(R_xlen_t n) const { return Vector(no_init(n)); }
+
+  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+                   R_xlen_t n) const {
     Vector data(data_);
     using value_type = typename Vector::stored_type;
     auto null_count = array->null_count();
@@ -86,26 +118,25 @@ struct Converter_SimpleArray : public ParallelConverter {
   }
 };
 
-struct Converter_Date32 : public ParallelConverter {
-  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
+class Converter_Date32 : public Converter_SimpleArray<INTSXP> {
+ public:
+  Converter_Date32(const ArrayVector& arrays) : Converter_SimpleArray<INTSXP>(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const {
     IntegerVector data(no_init(n));
     data.attr("class") = "Date";
     return data;
   }
-
-  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                       R_xlen_t start, R_xlen_t n) {
-    return Converter_SimpleArray<INTSXP>::Ingest(data_, array, start, n);
-  }
 };
 
-struct Converter_String : public SerialConverter {
-  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
-    return StringVector_(no_init(n));
-  }
+struct Converter_String : public Converter {
+ public:
+  Converter_String(const ArrayVector& arrays) : Converter(arrays) {}
 
-  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                       R_xlen_t start, R_xlen_t n) {
+  SEXP Allocate(R_xlen_t n) const { return StringVector_(no_init(n)); }
+
+  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+                   R_xlen_t n) const {
     StringVector_ data(data_);
     auto null_count = array->null_count();
 
@@ -150,15 +181,18 @@ struct Converter_String : public SerialConverter {
     }
     return Status::OK();
   }
+
+  bool Parallel() const { return false; }
 };
 
-struct Converter_Boolean : public ParallelConverter {
-  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
-    return LogicalVector_(no_init(n));
-  }
+class Converter_Boolean : public Converter {
+ public:
+  Converter_Boolean(const ArrayVector& arrays) : Converter(arrays) {}
 
-  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                       R_xlen_t start, R_xlen_t n) {
+  SEXP Allocate(R_xlen_t n) const { return LogicalVector_(no_init(n)); }
+
+  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+                   R_xlen_t n) const {
     LogicalVector_ data(data_);
     auto null_count = array->null_count();
 
@@ -191,10 +225,13 @@ struct Converter_Boolean : public ParallelConverter {
   }
 };
 
-struct Converter_Dictionary : public ParallelConverter {
-  static SEXP Allocate(R_xlen_t n, const ArrayVector& arrays) {
+class Converter_Dictionary : public Converter {
+ public:
+  Converter_Dictionary(const ArrayVector& arrays) : Converter(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const {
     IntegerVector data(no_init(n));
-    auto dict_array = static_cast<DictionaryArray*>(arrays[0].get());
+    auto dict_array = static_cast<DictionaryArray*>(Converter::arrays_[0].get());
     auto dict = dict_array->dictionary();
     auto indices = dict_array->indices();
     switch (indices->type_id()) {
@@ -215,7 +252,7 @@ struct Converter_Dictionary : public ParallelConverter {
     }
     bool ordered = dict_array->dict_type()->ordered();
 
-    data.attr("levels") = ArrayVector_To_Vector<Converter_String>(dict->length(), {dict});
+    data.attr("levels") = ArrayVector__as_vector(dict->length(), {dict});
     if (ordered) {
       data.attr("class") = CharacterVector::create("ordered", "factor");
     } else {
@@ -224,8 +261,8 @@ struct Converter_Dictionary : public ParallelConverter {
     return data;
   }
 
-  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                       R_xlen_t start, R_xlen_t n) {
+  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+                   R_xlen_t n) const {
     DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
     auto indices = dict_array->indices();
     switch (indices->type_id()) {
@@ -245,9 +282,10 @@ struct Converter_Dictionary : public ParallelConverter {
     return Status::OK();
   }
 
+ private:
   template <typename Type>
-  static Status Ingest_Impl(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                            R_xlen_t start, R_xlen_t n) {
+  Status Ingest_Impl(SEXP data_, const std::shared_ptr<arrow::Array>& array,
+                     R_xlen_t start, R_xlen_t n) const {
     IntegerVector_ data(data_);
 
     DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
@@ -283,15 +321,18 @@ struct Converter_Dictionary : public ParallelConverter {
   }
 };
 
-struct Converter_Date64 : public ParallelConverter {
-  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
+class Converter_Date64 : public Converter {
+ public:
+  Converter_Date64(const ArrayVector& arrays) : Converter(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const {
     NumericVector data(no_init(n));
     data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
     return data;
   }
 
-  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                       R_xlen_t start, R_xlen_t n) {
+  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+                   R_xlen_t n) const {
     NumericVector_ data(data_);
     auto null_count = array->null_count();
     if (null_count == n) {
@@ -319,16 +360,17 @@ struct Converter_Date64 : public ParallelConverter {
 };
 
 template <int RTYPE, typename Type>
-struct Converter_Promotion : public ParallelConverter {
+class Converter_Promotion : public Converter {
   using r_stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
   using value_type = typename TypeTraits<Type>::ArrayType::value_type;
 
-  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
-    return Rcpp::Vector<RTYPE>(no_init(n));
-  }
+ public:
+  Converter_Promotion(const ArrayVector& arrays) : Converter(arrays) {}
 
-  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                       R_xlen_t start, R_xlen_t n) {
+  SEXP Allocate(R_xlen_t n) const { return Rcpp::Vector<RTYPE>(no_init(n)); }
+
+  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+                   R_xlen_t n) const {
     Rcpp::Vector<RTYPE, NoProtectStorage> data(data_);
     auto null_count = array->null_count();
     if (null_count == n) {
@@ -357,30 +399,20 @@ struct Converter_Promotion : public ParallelConverter {
   }
 };
 
-static int TimeUnit_multiplier(const std::shared_ptr<Array>& array) {
-  switch (static_cast<TimeType*>(array->type().get())->unit()) {
-    case TimeUnit::SECOND:
-      return 1;
-    case TimeUnit::MILLI:
-      return 1000;
-    case TimeUnit::MICRO:
-      return 1000000;
-    case TimeUnit::NANO:
-      return 1000000000;
-  }
-}
-
 template <typename value_type>
-struct Converter_Time : public ParallelConverter {
-  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
+class Converter_Time : public Converter {
+ public:
+  Converter_Time(const ArrayVector& arrays) : Converter(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const {
     NumericVector data(no_init(n));
     data.attr("class") = CharacterVector::create("hms", "difftime");
     data.attr("units") = CharacterVector::create("secs");
     return data;
   }
 
-  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                       R_xlen_t start, R_xlen_t n) {
+  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+                   R_xlen_t n) const {
     NumericVector_ data(data_);
 
     auto null_count = array->null_count();
@@ -409,31 +441,46 @@ struct Converter_Time : public ParallelConverter {
     }
     return Status::OK();
   }
+
+ private:
+  int TimeUnit_multiplier(const std::shared_ptr<Array>& array) const {
+    switch (static_cast<TimeType*>(array->type().get())->unit()) {
+      case TimeUnit::SECOND:
+        return 1;
+      case TimeUnit::MILLI:
+        return 1000;
+      case TimeUnit::MICRO:
+        return 1000000;
+      case TimeUnit::NANO:
+        return 1000000000;
+    }
+  }
 };
 
 template <typename value_type>
-struct Converter_Timestamp : public ParallelConverter {
-  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
+class Converter_Timestamp : public Converter_Time<value_type> {
+ public:
+  Converter_Timestamp(const ArrayVector& arrays) : Converter_Time<value_type>(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const {
     NumericVector data(no_init(n));
     data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
     return data;
   }
-
-  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                       R_xlen_t start, R_xlen_t n) {
-    return Converter_Time<value_type>::Ingest(data_, array, start, n);
-  }
 };
 
-struct Converter_Int64 : public ParallelConverter {
-  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
+class Converter_Int64 : public Converter {
+ public:
+  Converter_Int64(const ArrayVector& arrays) : Converter(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const {
     NumericVector data(no_init(n));
     data.attr("class") = "integer64";
     return data;
   }
 
-  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                       R_xlen_t start, R_xlen_t n) {
+  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+                   R_xlen_t n) const {
     NumericVector_ data(data_);
     auto null_count = array->null_count();
     if (null_count == n) {
@@ -460,13 +507,14 @@ struct Converter_Int64 : public ParallelConverter {
   }
 };
 
-struct Converter_Decimal : public ParallelConverter {
-  static SEXP Allocate(R_xlen_t n, const ArrayVector&) {
-    return NumericVector_(no_init(n));
-  }
+class Converter_Decimal : public Converter {
+ public:
+  Converter_Decimal(const ArrayVector& arrays) : Converter(arrays) {}
 
-  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                       R_xlen_t start, R_xlen_t n) {
+  SEXP Allocate(R_xlen_t n) const { return NumericVector_(no_init(n)); }
+
+  Status IngestOne(SEXP data_, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
+                   R_xlen_t n) const {
     NumericVector_ data(data_);
     auto null_count = array->null_count();
     if (n == null_count) {
@@ -495,160 +543,133 @@ struct Converter_Decimal : public ParallelConverter {
   }
 };
 
-struct Converter_NotHandled : public ParallelConverter {
-  static SEXP Allocate(R_xlen_t n, const ArrayVector& arrays) {
-    stop(tfm::format("cannot handle Array of type %s", arrays[0]->type()->name()));
-    return R_NilValue;
-  }
-
-  static Status Ingest(SEXP data_, const std::shared_ptr<arrow::Array>& array,
-                       R_xlen_t start, R_xlen_t n) {
-    return Status::RError("Not handled");
-  }
-};
-
-template <typename What, typename... Args>
-auto ArrayVector__Dispatch(const ArrayVector& arrays, Args... args) ->
-    typename What::OUT {
+std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
   using namespace arrow::r;
 
   switch (arrays[0]->type_id()) {
     // direct support
     case Type::INT8:
-      return What::template Do<Converter_SimpleArray<RAWSXP>>(
-          arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_SimpleArray<RAWSXP>>(arrays);
 
     case Type::INT32:
-      return What::template Do<Converter_SimpleArray<INTSXP>>(
-          arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_SimpleArray<INTSXP>>(arrays);
 
     case Type::DOUBLE:
-      return What::template Do<Converter_SimpleArray<REALSXP>>(
-          arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_SimpleArray<REALSXP>>(arrays);
 
       // need to handle 1-bit case
     case Type::BOOL:
-      return What::template Do<Converter_Boolean>(arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_Boolean>(arrays);
 
-    // handle memory dense strings
+      // handle memory dense strings
     case Type::STRING:
-      return What::template Do<Converter_String>(arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_String>(arrays);
 
     case Type::DICTIONARY:
-      return What::template Do<Converter_Dictionary>(arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_Dictionary>(arrays);
 
     case Type::DATE32:
-      return What::template Do<Converter_Date32>(arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_Date32>(arrays);
 
     case Type::DATE64:
-      return What::template Do<Converter_Date64>(arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_Date64>(arrays);
 
       // promotions to integer vector
     case Type::UINT8:
-      return What::template Do<Converter_Promotion<INTSXP, arrow::UInt8Type>>(
-          arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_Promotion<INTSXP, arrow::UInt8Type>>(arrays);
 
     case Type::INT16:
-      return What::template Do<Converter_Promotion<INTSXP, arrow::Int16Type>>(
-          arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_Promotion<INTSXP, arrow::Int16Type>>(arrays);
 
     case Type::UINT16:
-      return What::template Do<Converter_Promotion<INTSXP, arrow::UInt16Type>>(
-          arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_Promotion<INTSXP, arrow::UInt16Type>>(arrays);
 
       // promotions to numeric vector
     case Type::UINT32:
-      return What::template Do<Converter_Promotion<REALSXP, arrow::UInt32Type>>(
-          arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_Promotion<REALSXP, arrow::UInt32Type>>(arrays);
 
     case Type::HALF_FLOAT:
-      return What::template Do<Converter_Promotion<REALSXP, arrow::HalfFloatType>>(
-          arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_Promotion<REALSXP, arrow::HalfFloatType>>(arrays);
 
     case Type::FLOAT:
-      return What::template Do<Converter_Promotion<REALSXP, arrow::FloatType>>(
-          arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_Promotion<REALSXP, arrow::FloatType>>(arrays);
 
       // time32 ane time64
     case Type::TIME32:
-      return What::template Do<Converter_Time<int32_t>>(arrays,
-                                                        std::forward<Args>(args)...);
+      return std::make_shared<Converter_Time<int32_t>>(arrays);
 
     case Type::TIME64:
-      return What::template Do<Converter_Time<int64_t>>(arrays,
-                                                        std::forward<Args>(args)...);
+      return std::make_shared<Converter_Time<int64_t>>(arrays);
 
     case Type::TIMESTAMP:
-      return What::template Do<Converter_Timestamp<int64_t>>(arrays,
-                                                             std::forward<Args>(args)...);
+      return std::make_shared<Converter_Timestamp<int64_t>>(arrays);
 
     case Type::INT64:
-      return What::template Do<Converter_Int64>(arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_Int64>(arrays);
 
     case Type::DECIMAL:
-      return What::template Do<Converter_Decimal>(arrays, std::forward<Args>(args)...);
+      return std::make_shared<Converter_Decimal>(arrays);
 
     default:
       break;
   }
 
-  return What::template Do<Converter_NotHandled>(arrays, std::forward<Args>(args)...);
+  stop(tfm::format("cannot handle Array of type %s", arrays[0]->type()->name()));
+  return nullptr;
 }
 
-struct Allocator {
-  using OUT = SEXP;
+List to_dataframe_serial(int64_t nr, int64_t nc, const CharacterVector& names,
+                         const std::vector<std::shared_ptr<Converter>>& converters) {
+  List tbl(nc);
 
-  template <typename Converter>
-  static SEXP Do(const ArrayVector& arrays, R_xlen_t n) {
-    return Converter::Allocate(n, arrays);
+  for (int i = 0; i < nc; i++) {
+    tbl[i] = converters[i]->Convert(nr);
   }
-};
+  tbl.attr("names") = names;
+  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
+  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
+  return tbl;
+}
 
-struct Ingester {
-  using OUT = Status;
+List to_dataframe_parallel(int64_t nr, int64_t nc, const CharacterVector& names,
+                           const std::vector<std::shared_ptr<Converter>>& converters) {
+  List tbl(nc);
 
-  template <typename Converter>
-  static Status Do(const ArrayVector& arrays, SEXP data) {
-    R_xlen_t k = 0;
-    for (const auto& array : arrays) {
-      auto n_chunk = array->length();
-      RETURN_NOT_OK(Converter::Ingest(data, array, k, n_chunk));
-      k += n_chunk;
+  // task group to ingest data in parallel
+  auto tg = arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
+
+  // allocate and start ingesting immediately the columns that
+  // can be ingested in parallel, i.e. when ingestion no longer
+  // need to happen on the main thread
+  for (int i = 0; i < nc; i++) {
+    // allocate data for column i
+    SEXP column = tbl[i] = converters[i]->Allocate(nr);
+
+    // add a task to ingest data of that column if that can be done in parallel
+    if (converters[i]->Parallel()) {
+      converters[i]->IngestParallel(column, tg);
     }
-    return Status::OK();
   }
-};
 
-struct CanParallel {
-  using OUT = bool;
+  arrow::Status status = arrow::Status::OK();
 
-  template <typename Converter>
-  static bool Do(const ArrayVector& arrays) {
-    return Converter::Parallel();
+  // ingest the columns that cannot be dealt with in parallel
+  for (int i = 0; i < nc; i++) {
+    if (!converters[i]->Parallel()) {
+      status &= converters[i]->Ingest(tbl[i]);
+    }
   }
-};
 
-// Only allocate an R vector to host the arrays
-SEXP ArrayVector__Allocate(R_xlen_t n, const ArrayVector& arrays) {
-  return ArrayVector__Dispatch<arrow::r::Allocator, R_xlen_t>(arrays, n);
-}
+  // wait for the ingestion to be finished
+  status &= tg->Finish();
 
-// Ingest data from arrays to previously allocated R vector
-// For most vector types, this can be done in a task
-// in some other thread
-Status ArrayVector__Ingest(SEXP data, const ArrayVector& arrays) {
-  return ArrayVector__Dispatch<arrow::r::Ingester, SEXP>(arrays, data);
-}
+  STOP_IF_NOT_OK(status);
 
-bool ArrayVector__Parallel(const ArrayVector& arrays) {
-  return ArrayVector__Dispatch<arrow::r::CanParallel>(arrays);
-}
+  tbl.attr("names") = names;
+  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
+  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
 
-// Allocate + Ingest
-SEXP ArrayVector__as_vector(R_xlen_t n, const ArrayVector& arrays) {
-  Shield<SEXP> data(ArrayVector__Allocate(n, arrays));
-  STOP_IF_NOT_OK(ArrayVector__Ingest(data, arrays));
-  return data;
+  return tbl;
 }
 
 }  // namespace r
@@ -665,163 +686,43 @@ SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked
                                           chunked_array->chunks());
 }
 
-List RecordBatch__to_dataframe_serial(const std::shared_ptr<arrow::RecordBatch>& batch) {
-  auto nc = batch->num_columns();
-  auto nr = batch->num_rows();
-  List tbl(nc);
-  CharacterVector names(nc);
-
-  for (int i = 0; i < nc; i++) {
-    tbl[i] = Array__as_vector(batch->column(i));
-    names[i] = batch->column_name(i);
-  }
-  tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
-  return tbl;
-}
-
-List RecordBatch__to_dataframe_parallel(
-    const std::shared_ptr<arrow::RecordBatch>& batch) {
-  auto nc = batch->num_columns();
-  auto nr = batch->num_rows();
-  List tbl(nc);
-  CharacterVector names(nc);
-
-  // task group to ingest data in parallel
-  auto tg = arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
-
-  // allocate and start ingesting immediately the columns that
-  // can be ingested in parallel, i.e. when ingestion no longer
-  // need to happen on the main thread
-  for (int i = 0; i < nc; i++) {
-    ArrayVector arrays{batch->column(i)};
-    // allocate data for column i
-    SEXP column = tbl[i] = arrow::r::ArrayVector__Allocate(nr, arrays);
-
-    // add a task to ingest data of that column if that can be done in parallel
-    if (arrow::r::ArrayVector__Parallel(arrays)) {
-      tg->Append([=] { return arrow::r::ArrayVector__Ingest(column, arrays); });
-    }
-  }
-
-  arrow::Status status = arrow::Status::OK();
-
-  // ingest the other columns
-  for (int i = 0; i < nc; i++) {
-    // ingest if cannot ingest in parallel
-    ArrayVector arrays{batch->column(i)};
-    if (!arrow::r::ArrayVector__Parallel(arrays)) {
-      status &= arrow::r::ArrayVector__Ingest(tbl[i], arrays);
-    }
-
-    names[i] = batch->column_name(i);
-  }
-
-  // wait for the ingestion to be finished
-  status &= tg->Finish();
-
-  STOP_IF_NOT_OK(status);
-
-  tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
-
-  return tbl;
-}
-
 // [[Rcpp::export]]
 List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch,
                                bool use_threads) {
+  int64_t nc = batch->num_columns();
+  int64_t nr = batch->num_rows();
+  CharacterVector names(nc);
+  std::vector<ArrayVector> arrays(nc);
+  std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
+
+  for (int64_t i = 0; i < nc; i++) {
+    names[i] = batch->column_name(i);
+    arrays[i] = {batch->column(i)};
+    converters[i] = arrow::r::Converter::Make(arrays[i]);
+  }
+
   if (use_threads) {
-    return RecordBatch__to_dataframe_parallel(batch);
+    return arrow::r::to_dataframe_parallel(nr, nc, names, converters);
   } else {
-    return RecordBatch__to_dataframe_serial(batch);
+    return arrow::r::to_dataframe_serial(nr, nc, names, converters);
   }
-}
-
-List Table__to_dataframe_parallel(const std::shared_ptr<arrow::Table>& table) {
-  auto nc = table->num_columns();
-  auto nr = table->num_rows();
-  List tbl(nc);
-  CharacterVector names(nc);
-
-  // task group to ingest data in parallel
-  auto tg = arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
-
-  // allocate and start ingesting immediately the columns that
-  // can be ingested in parallel, i.e. when ingestion no longer
-  // need to happen on the main thread
-  for (int i = 0; i < nc; i++) {
-    const ArrayVector& arrays = table->column(i)->data()->chunks();
-    // allocate data for column i
-    SEXP column = tbl[i] = arrow::r::ArrayVector__Allocate(nr, arrays);
-
-    // add a task to ingest data of that column if that can be done in parallel
-    if (arrow::r::ArrayVector__Parallel(arrays)) {
-      tg->Append([=] { return arrow::r::ArrayVector__Ingest(column, arrays); });
-    }
-  }
-
-  arrow::Status status = arrow::Status::OK();
-
-  // ingest the other columns
-  for (int i = 0; i < nc; i++) {
-    // ingest if cannot ingest in parallel
-    const ArrayVector& arrays = table->column(i)->data()->chunks();
-    if (!arrow::r::ArrayVector__Parallel(arrays)) {
-      status &= arrow::r::ArrayVector__Ingest(tbl[i], arrays);
-    }
-
-    names[i] = table->column(i)->name();
-  }
-
-  // wait for the ingestion to be finished
-  status &= tg->Finish();
-
-  STOP_IF_NOT_OK(status);
-
-  tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
-
-  return tbl;
-}
-
-List Table__to_dataframe_serial(const std::shared_ptr<arrow::Table>& table) {
-  int nc = table->num_columns();
-  int nr = table->num_rows();
-  List tbl(nc);
-  CharacterVector names(nc);
-  for (int i = 0; i < nc; i++) {
-    auto column = table->column(i);
-    tbl[i] = ChunkedArray__as_vector(column->data());
-    names[i] = column->name();
-  }
-  tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
-  return tbl;
 }
 
 // [[Rcpp::export]]
 List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads) {
-  if (use_threads) {
-    return Table__to_dataframe_parallel(table);
-  } else {
-    return Table__to_dataframe_serial(table);
-  }
-  int nc = table->num_columns();
-  int nr = table->num_rows();
-  List tbl(nc);
+  int64_t nc = table->num_columns();
+  int64_t nr = table->num_rows();
   CharacterVector names(nc);
-  for (int i = 0; i < nc; i++) {
-    auto column = table->column(i);
-    tbl[i] = ChunkedArray__as_vector(column->data());
-    names[i] = column->name();
+  std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
+
+  for (int64_t i = 0; i < nc; i++) {
+    converters[i] = arrow::r::Converter::Make(table->column(i)->data()->chunks());
+    names[i] = table->column(i)->name();
   }
-  tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
-  return tbl;
+
+  if (use_threads) {
+    return arrow::r::to_dataframe_parallel(nr, nc, names, converters);
+  } else {
+    return arrow::r::to_dataframe_serial(nr, nc, names, converters);
+  }
 }
