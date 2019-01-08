@@ -21,7 +21,6 @@
 #include <functional>
 #include <limits>
 #include <memory>
-#include <valarray>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -167,33 +166,40 @@ TEST(BitmapReader, DoesNotReadOutOfBounds) {
 }
 
 TEST(BitmapWriter, NormalOperation) {
-  {
-    uint8_t bitmap[] = {0, 0, 0, 0};
-    auto writer = internal::BitmapWriter(bitmap, 0, 12);
-    WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
-    //                      {0b00110110, 0b1010, 0, 0}
-    ASSERT_BYTES_EQ(bitmap, {0x36, 0x0a, 0, 0});
-  }
-  {
-    uint8_t bitmap[] = {0xff, 0xff, 0xff, 0xff};
-    auto writer = internal::BitmapWriter(bitmap, 0, 12);
-    WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
-    //                      {0b00110110, 0b11111010, 0xff, 0xff}
-    ASSERT_BYTES_EQ(bitmap, {0x36, 0xfa, 0xff, 0xff});
-  }
-  {
-    uint8_t bitmap[] = {0, 0, 0, 0};
-    auto writer = internal::BitmapWriter(bitmap, 3, 12);
-    WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
-    //                      {0b10110000, 0b01010001, 0, 0}
-    ASSERT_BYTES_EQ(bitmap, {0xb0, 0x51, 0, 0});
-  }
-  {
-    uint8_t bitmap[] = {0, 0, 0, 0};
-    auto writer = internal::BitmapWriter(bitmap, 20, 12);
-    WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
-    //                      {0, 0, 0b01100000, 0b10100011}
-    ASSERT_BYTES_EQ(bitmap, {0, 0, 0x60, 0xa3});
+  for (const auto fill_byte_int : {0x00, 0xff}) {
+    const uint8_t fill_byte = static_cast<uint8_t>(fill_byte_int);
+    {
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      auto writer = internal::BitmapWriter(bitmap, 0, 12);
+      WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
+      //                      {0b00110110, 0b....1010, ........, ........}
+      ASSERT_BYTES_EQ(bitmap, {0x36, static_cast<uint8_t>(0x0a | (fill_byte & 0xf0)),
+                               fill_byte, fill_byte});
+    }
+    {
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      auto writer = internal::BitmapWriter(bitmap, 3, 12);
+      WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
+      //                      {0b10110..., 0b.1010001, ........, ........}
+      ASSERT_BYTES_EQ(bitmap, {static_cast<uint8_t>(0xb0 | (fill_byte & 0x07)),
+                               static_cast<uint8_t>(0x51 | (fill_byte & 0x80)), fill_byte,
+                               fill_byte});
+    }
+    {
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      auto writer = internal::BitmapWriter(bitmap, 20, 12);
+      WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
+      //                      {........, ........, 0b0110...., 0b10100011}
+      ASSERT_BYTES_EQ(bitmap, {fill_byte, fill_byte,
+                               static_cast<uint8_t>(0x60 | (fill_byte & 0x0f)), 0xa3});
+    }
+    // 0-length writes
+    for (int64_t pos = 0; pos < 32; ++pos) {
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      auto writer = internal::BitmapWriter(bitmap, pos, 0);
+      WriteVectorToWriter(writer, {});
+      ASSERT_BYTES_EQ(bitmap, {fill_byte, fill_byte, fill_byte, fill_byte});
+    }
   }
 }
 
@@ -267,12 +273,20 @@ TEST(FirstTimeBitmapWriter, NormalOperation) {
     {
       uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
       {
+        auto writer = internal::FirstTimeBitmapWriter(bitmap, 4, 0);
+        WriteVectorToWriter(writer, {});
+      }
+      {
         auto writer = internal::FirstTimeBitmapWriter(bitmap, 4, 6);
         WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1});
       }
       {
         auto writer = internal::FirstTimeBitmapWriter(bitmap, 10, 3);
         WriteVectorToWriter(writer, {0, 0, 0});
+      }
+      {
+        auto writer = internal::FirstTimeBitmapWriter(bitmap, 13, 0);
+        WriteVectorToWriter(writer, {});
       }
       {
         auto writer = internal::FirstTimeBitmapWriter(bitmap, 13, 3);
@@ -319,8 +333,8 @@ TYPED_TEST(TestGenerateBits, NormalOperation) {
   for (const int64_t start_offset : start_offsets) {
     for (const int64_t length : lengths) {
       for (const uint8_t fill_byte : fill_bytes) {
-        uint8_t bitmap[kSourceSize];
-        memset(bitmap, fill_byte, kSourceSize);
+        uint8_t bitmap[kSourceSize + 1];
+        memset(bitmap, fill_byte, kSourceSize + 1);
         // First call GenerateBits
         {
           int64_t ncalled = 0;
@@ -344,7 +358,7 @@ TYPED_TEST(TestGenerateBits, NormalOperation) {
             result_reader.Next();
           }
         }
-        // Check bits preceding and following generated contents weren't clobbered
+        // Check bits preceding generated contents weren't clobbered
         {
           internal::BitmapReader reader_before(bitmap, 0, start_offset);
           for (int64_t i = 0; i < start_offset; ++i) {
@@ -352,6 +366,9 @@ TYPED_TEST(TestGenerateBits, NormalOperation) {
                 << "mismatch at preceding bit #" << start_offset - i;
           }
         }
+        // Check the byte following generated contents wasn't clobbered
+        auto byte_after = bitmap[BitUtil::CeilDiv(start_offset + length, 8)];
+        ASSERT_EQ(byte_after, fill_byte);
       }
     }
   }
