@@ -59,8 +59,8 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     fn capacity(&self) -> usize;
     fn advance(&mut self, i: usize) -> Result<()>;
     fn reserve(&mut self, n: usize) -> Result<()>;
-    fn push(&mut self, v: T::Native) -> Result<()>;
-    fn push_slice(&mut self, slice: &[T::Native]) -> Result<()>;
+    fn append(&mut self, v: T::Native) -> Result<()>;
+    fn append_slice(&mut self, slice: &[T::Native]) -> Result<()>;
     fn finish(&mut self) -> Buffer;
 }
 
@@ -102,14 +102,14 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         Ok(())
     }
 
-    /// Pushes a value into the builder, growing the internal buffer as needed.
-    default fn push(&mut self, v: T::Native) -> Result<()> {
+    /// Appends a value into the builder, growing the internal buffer as needed.
+    default fn append(&mut self, v: T::Native) -> Result<()> {
         self.reserve(1)?;
         self.write_bytes(v.to_byte_slice(), 1)
     }
 
-    /// Pushes a slice of type `T`, growing the internal buffer as needed.
-    default fn push_slice(&mut self, slice: &[T::Native]) -> Result<()> {
+    /// Appends a slice of type `T`, growing the internal buffer as needed.
+    default fn append_slice(&mut self, slice: &[T::Native]) -> Result<()> {
         let array_slots = slice.len();
         self.reserve(array_slots)?;
         self.write_bytes(slice.to_byte_slice(), array_slots)
@@ -163,11 +163,11 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
         Ok(())
     }
 
-    /// Pushes a value into the builder, growing the internal buffer as needed.
-    fn push(&mut self, v: bool) -> Result<()> {
+    /// Appends a value into the builder, growing the internal buffer as needed.
+    fn append(&mut self, v: bool) -> Result<()> {
         self.reserve(1)?;
         if v {
-            // For performance the `len` of the buffer is not updated on each push but
+            // For performance the `len` of the buffer is not updated on each append but
             // is updated in the `freeze` method instead.
             unsafe {
                 bit_util::set_bit_raw(self.buffer.raw_data() as *mut u8, self.len);
@@ -177,11 +177,11 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
         Ok(())
     }
 
-    /// Pushes a slice of type `T`, growing the internal buffer as needed.
-    fn push_slice(&mut self, slice: &[bool]) -> Result<()> {
+    /// Appends a slice of type `T`, growing the internal buffer as needed.
+    fn append_slice(&mut self, slice: &[bool]) -> Result<()> {
         let array_slots = slice.len();
         for i in 0..array_slots {
-            self.push(slice[i])?;
+            self.append(slice[i])?;
         }
         Ok(())
     }
@@ -201,7 +201,7 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
 
     /// Reset this builder and returns an immutable `Buffer`.
     fn finish(&mut self) -> Buffer {
-        // `push` does not update the buffer's `len` so do it before `freeze` is called.
+        // `append` does not update the buffer's `len` so do it before `freeze` is called.
         let new_buffer_len = bit_util::ceil(self.len, 8);
         debug_assert!(new_buffer_len >= self.buffer.len());
         let mut buf = ::std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
@@ -238,24 +238,24 @@ pub trait ArrayBuilder: Any {
 }
 
 ///  Array builder for fixed-width primitive types
-pub struct PrimitiveArrayBuilder<T: ArrowPrimitiveType> {
+pub struct PrimitiveBuilder<T: ArrowPrimitiveType> {
     values_builder: BufferBuilder<T>,
     bitmap_builder: BooleanBufferBuilder,
 }
 
-pub type BooleanBuilder = PrimitiveArrayBuilder<BooleanType>;
-pub type Int8Builder = PrimitiveArrayBuilder<Int8Type>;
-pub type Int16Builder = PrimitiveArrayBuilder<Int16Type>;
-pub type Int32Builder = PrimitiveArrayBuilder<Int32Type>;
-pub type Int64Builder = PrimitiveArrayBuilder<Int64Type>;
-pub type UInt8Builder = PrimitiveArrayBuilder<UInt8Type>;
-pub type UInt16Builder = PrimitiveArrayBuilder<UInt16Type>;
-pub type UInt32Builder = PrimitiveArrayBuilder<UInt32Type>;
-pub type UInt64Builder = PrimitiveArrayBuilder<UInt64Type>;
-pub type Float32Builder = PrimitiveArrayBuilder<Float32Type>;
-pub type Float64Builder = PrimitiveArrayBuilder<Float64Type>;
+pub type BooleanBuilder = PrimitiveBuilder<BooleanType>;
+pub type Int8Builder = PrimitiveBuilder<Int8Type>;
+pub type Int16Builder = PrimitiveBuilder<Int16Type>;
+pub type Int32Builder = PrimitiveBuilder<Int32Type>;
+pub type Int64Builder = PrimitiveBuilder<Int64Type>;
+pub type UInt8Builder = PrimitiveBuilder<UInt8Type>;
+pub type UInt16Builder = PrimitiveBuilder<UInt16Type>;
+pub type UInt32Builder = PrimitiveBuilder<UInt32Type>;
+pub type UInt64Builder = PrimitiveBuilder<UInt64Type>;
+pub type Float32Builder = PrimitiveBuilder<Float32Type>;
+pub type Float64Builder = PrimitiveBuilder<Float64Type>;
 
-impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveArrayBuilder<T> {
+impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
     /// Returns the builder as an non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
@@ -282,7 +282,7 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveArrayBuilder<T> {
     }
 }
 
-impl<T: ArrowPrimitiveType> PrimitiveArrayBuilder<T> {
+impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
     /// Creates a new primitive array builder
     pub fn new(capacity: usize) -> Self {
         Self {
@@ -296,33 +296,33 @@ impl<T: ArrowPrimitiveType> PrimitiveArrayBuilder<T> {
         self.values_builder.capacity()
     }
 
-    /// Pushes a value of type `T` into the builder
-    pub fn push(&mut self, v: T::Native) -> Result<()> {
-        self.bitmap_builder.push(true)?;
-        self.values_builder.push(v)?;
+    /// Appends a value of type `T` into the builder
+    pub fn append_value(&mut self, v: T::Native) -> Result<()> {
+        self.bitmap_builder.append(true)?;
+        self.values_builder.append(v)?;
         Ok(())
     }
 
-    /// Pushes a null slot into the builder
-    pub fn push_null(&mut self) -> Result<()> {
-        self.bitmap_builder.push(false)?;
+    /// Appends a null slot into the builder
+    pub fn append_null(&mut self) -> Result<()> {
+        self.bitmap_builder.append(false)?;
         self.values_builder.advance(1)?;
         Ok(())
     }
 
-    /// Pushes an `Option<T>` into the builder
-    pub fn push_option(&mut self, v: Option<T::Native>) -> Result<()> {
+    /// Appends an `Option<T>` into the builder
+    pub fn append_option(&mut self, v: Option<T::Native>) -> Result<()> {
         match v {
-            None => self.push_null()?,
-            Some(v) => self.push(v)?,
+            None => self.append_null()?,
+            Some(v) => self.append_value(v)?,
         };
         Ok(())
     }
 
-    /// Pushes a slice of type `T` into the builder
-    pub fn push_slice(&mut self, v: &[T::Native]) -> Result<()> {
-        self.bitmap_builder.push_slice(&vec![true; v.len()][..])?;
-        self.values_builder.push_slice(v)?;
+    /// Appends a slice of type `T` into the builder
+    pub fn append_slice(&mut self, v: &[T::Native]) -> Result<()> {
+        self.bitmap_builder.append_slice(&vec![true; v.len()][..])?;
+        self.values_builder.append_slice(v)?;
         Ok(())
     }
 
@@ -345,18 +345,18 @@ impl<T: ArrowPrimitiveType> PrimitiveArrayBuilder<T> {
 }
 
 ///  Array builder for `ListArray`
-pub struct ListArrayBuilder<T: ArrayBuilder> {
+pub struct ListBuilder<T: ArrayBuilder> {
     offsets_builder: Int32BufferBuilder,
     bitmap_builder: BooleanBufferBuilder,
     values_builder: T,
     len: usize,
 }
 
-impl<T: ArrayBuilder> ListArrayBuilder<T> {
+impl<T: ArrayBuilder> ListBuilder<T> {
     /// Creates a new `ListArrayBuilder` from a given values array builder
     pub fn new(values_builder: T) -> Self {
         let mut offsets_builder = Int32BufferBuilder::new(values_builder.len() + 1);
-        offsets_builder.push(0).unwrap();
+        offsets_builder.append(0).unwrap();
         Self {
             offsets_builder,
             bitmap_builder: BooleanBufferBuilder::new(values_builder.len()),
@@ -366,7 +366,7 @@ impl<T: ArrayBuilder> ListArrayBuilder<T> {
     }
 }
 
-impl<T: ArrayBuilder> ArrayBuilder for ListArrayBuilder<T>
+impl<T: ArrayBuilder> ArrayBuilder for ListBuilder<T>
 where
     T: 'static,
 {
@@ -396,13 +396,13 @@ where
     }
 }
 
-impl<T: ArrayBuilder> ListArrayBuilder<T>
+impl<T: ArrayBuilder> ListBuilder<T>
 where
     T: 'static,
 {
     /// Returns the child array builder as a mutable reference.
     ///
-    /// This mutable reference can be used to push values into the child array builder,
+    /// This mutable reference can be used to append values into the child array builder,
     /// but you must call `append` to delimit each distinct list value.
     pub fn values(&mut self) -> &mut T {
         &mut self.values_builder
@@ -411,8 +411,8 @@ where
     /// Finish the current variable-length list array slot
     pub fn append(&mut self, is_valid: bool) -> Result<()> {
         self.offsets_builder
-            .push(self.values_builder.len() as i32)?;
-        self.bitmap_builder.push(is_valid)?;
+            .append(self.values_builder.len() as i32)?;
+        self.bitmap_builder.append(is_valid)?;
         self.len += 1;
         Ok(())
     }
@@ -431,7 +431,7 @@ where
 
         let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
-        self.offsets_builder.push(0).unwrap();
+        self.offsets_builder.append(0).unwrap();
         let data = ArrayData::builder(DataType::List(Box::new(values_data.data_type().clone())))
             .len(len)
             .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
@@ -445,11 +445,11 @@ where
 }
 
 ///  Array builder for `BinaryArray`
-pub struct BinaryArrayBuilder {
-    builder: ListArrayBuilder<UInt8Builder>,
+pub struct BinaryBuilder {
+    builder: ListBuilder<UInt8Builder>,
 }
 
-impl ArrayBuilder for BinaryArrayBuilder {
+impl ArrayBuilder for BinaryBuilder {
     /// Returns the builder as an non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
@@ -476,30 +476,30 @@ impl ArrayBuilder for BinaryArrayBuilder {
     }
 }
 
-impl BinaryArrayBuilder {
-    /// Creates a new `BinaryArrayBuilder`, `capacity` is the number of bytes in the values array
+impl BinaryBuilder {
+    /// Creates a new `BinaryBuilder`, `capacity` is the number of bytes in the values array
     pub fn new(capacity: usize) -> Self {
         let values_builder = UInt8Builder::new(capacity);
         Self {
-            builder: ListArrayBuilder::new(values_builder),
+            builder: ListBuilder::new(values_builder),
         }
     }
 
-    /// Pushes a single byte value into the builder's values array.
+    /// Appends a single byte value into the builder's values array.
     ///
-    /// Note, when pushing individual byte values you must call `append` to delimit each
+    /// Note, when appending individual byte values you must call `append` to delimit each
     /// distinct list value.
-    pub fn push(&mut self, value: u8) -> Result<()> {
-        self.builder.values().push(value)?;
+    pub fn append_value(&mut self, value: u8) -> Result<()> {
+        self.builder.values().append_value(value)?;
         Ok(())
     }
 
-    /// Pushes a `&String` or `&str` into the builder.
+    /// Appends a `&String` or `&str` into the builder.
     ///
-    /// Automatically calls the `append` method to delimit the string pushed in as a distinct
-    /// array element.
-    pub fn push_string(&mut self, value: &str) -> Result<()> {
-        self.builder.values().push_slice(value.as_bytes())?;
+    /// Automatically calls the `append` method to delimit the string appended in as a
+    /// distinct array element.
+    pub fn append_string(&mut self, value: &str) -> Result<()> {
+        self.builder.values().append_slice(value.as_bytes())?;
         self.builder.append(true)?;
         Ok(())
     }
@@ -524,7 +524,7 @@ impl BinaryArrayBuilder {
 ///
 /// Note that callers should make sure that methods of all the child field builders are
 /// properly called to maintain the consistency of the data structure.
-pub struct StructArrayBuilder {
+pub struct StructBuilder {
     fields: Vec<Field>,
     field_anys: Vec<Box<Any>>,
     field_builders: Vec<Box<ArrayBuilder>>,
@@ -532,7 +532,7 @@ pub struct StructArrayBuilder {
     len: usize,
 }
 
-impl ArrayBuilder for StructArrayBuilder {
+impl ArrayBuilder for StructBuilder {
     /// Returns the number of array slots in the builder.
     ///
     /// Note that this always return the first child field builder's length, and it is
@@ -571,7 +571,7 @@ impl ArrayBuilder for StructArrayBuilder {
     }
 }
 
-impl StructArrayBuilder {
+impl StructBuilder {
     pub fn new(fields: Vec<Field>, builders: Vec<Box<ArrayBuilder>>) -> Self {
         let mut field_anys = Vec::with_capacity(builders.len());
         let mut field_builders = Vec::with_capacity(builders.len());
@@ -619,7 +619,7 @@ impl StructArrayBuilder {
             DataType::UInt64 => Box::new(UInt64Builder::new(capacity)),
             DataType::Float32 => Box::new(Float32Builder::new(capacity)),
             DataType::Float64 => Box::new(Float64Builder::new(capacity)),
-            DataType::Utf8 => Box::new(BinaryArrayBuilder::new(capacity)),
+            DataType::Utf8 => Box::new(BinaryBuilder::new(capacity)),
             DataType::Struct(fields) => {
                 let schema = Schema::new(fields.clone());
                 Box::new(Self::from_schema(schema, capacity))
@@ -643,7 +643,7 @@ impl StructArrayBuilder {
     /// Appends an element (either null or non-null) to the struct. The actual elements
     /// should be appended for each child sub-array in a consistent way.
     pub fn append(&mut self, is_valid: bool) -> Result<()> {
-        self.bitmap_builder.push(is_valid)?;
+        self.bitmap_builder.append(is_valid)?;
         self.len += 1;
         Ok(())
     }
@@ -675,7 +675,7 @@ impl StructArrayBuilder {
     }
 }
 
-impl Drop for StructArrayBuilder {
+impl Drop for StructBuilder {
     fn drop(&mut self) {
         // To avoid double drop on the field array builders.
         let builders = ::std::mem::replace(&mut self.field_builders, Vec::new());
@@ -702,7 +702,7 @@ mod tests {
     #[test]
     fn test_builder_i32_alloc_zero_bytes() {
         let mut b = Int32BufferBuilder::new(0);
-        b.push(123).unwrap();
+        b.append(123).unwrap();
         let a = b.finish();
         assert_eq!(4, a.len());
     }
@@ -711,7 +711,7 @@ mod tests {
     fn test_builder_i32() {
         let mut b = Int32BufferBuilder::new(5);
         for i in 0..5 {
-            b.push(i).unwrap();
+            b.append(i).unwrap();
         }
         assert_eq!(16, b.capacity());
         let a = b.finish();
@@ -723,7 +723,7 @@ mod tests {
         let mut b = Int32BufferBuilder::new(2);
         assert_eq!(16, b.capacity());
         for i in 0..20 {
-            b.push(i).unwrap();
+            b.append(i).unwrap();
         }
         assert_eq!(32, b.capacity());
         let a = b.finish();
@@ -735,7 +735,7 @@ mod tests {
         let mut b = Int32BufferBuilder::new(5);
         assert_eq!(16, b.capacity());
         for i in 0..10 {
-            b.push(i).unwrap();
+            b.append(i).unwrap();
         }
         let mut a = b.finish();
         assert_eq!(40, a.len());
@@ -744,7 +744,7 @@ mod tests {
 
         // Try build another buffer after cleaning up.
         for i in 0..20 {
-            b.push(i).unwrap()
+            b.append(i).unwrap()
         }
         assert_eq!(32, b.capacity());
         a = b.finish();
@@ -769,15 +769,15 @@ mod tests {
     }
 
     #[test]
-    fn test_push_slice() {
+    fn test_append_slice() {
         let mut b = UInt8BufferBuilder::new(0);
-        b.push_slice("Hello, ".as_bytes()).unwrap();
-        b.push_slice("World!".as_bytes()).unwrap();
+        b.append_slice("Hello, ".as_bytes()).unwrap();
+        b.append_slice("World!".as_bytes()).unwrap();
         let buffer = b.finish();
         assert_eq!(13, buffer.len());
 
         let mut b = Int32BufferBuilder::new(0);
-        b.push_slice(&[32, 54]).unwrap();
+        b.append_slice(&[32, 54]).unwrap();
         let buffer = b.finish();
         assert_eq!(8, buffer.len());
     }
@@ -785,17 +785,17 @@ mod tests {
     #[test]
     fn test_write_bytes() {
         let mut b = BooleanBufferBuilder::new(4);
-        b.push(false).unwrap();
-        b.push(true).unwrap();
-        b.push(false).unwrap();
-        b.push(true).unwrap();
+        b.append(false).unwrap();
+        b.append(true).unwrap();
+        b.append(false).unwrap();
+        b.append(true).unwrap();
         assert_eq!(4, b.len());
         assert_eq!(512, b.capacity());
         let buffer = b.finish();
         assert_eq!(1, buffer.len());
 
         let mut b = BooleanBufferBuilder::new(4);
-        b.push_slice(&[false, true, false, true]).unwrap();
+        b.append_slice(&[false, true, false, true]).unwrap();
         assert_eq!(4, b.len());
         assert_eq!(512, b.capacity());
         let buffer = b.finish();
@@ -829,9 +829,9 @@ mod tests {
 
         for i in 0..10 {
             if i == 3 || i == 6 || i == 9 {
-                builder.push(true).unwrap();
+                builder.append(true).unwrap();
             } else {
-                builder.push(false).unwrap();
+                builder.append(false).unwrap();
             }
         }
         let buf2 = builder.finish();
@@ -844,7 +844,7 @@ mod tests {
     fn test_primitive_array_builder_i32() {
         let mut builder = Int32Array::builder(5);
         for i in 0..5 {
-            builder.push(i).unwrap();
+            builder.append_value(i).unwrap();
         }
         let arr = builder.finish();
         assert_eq!(5, arr.len());
@@ -864,9 +864,9 @@ mod tests {
         let mut builder = BooleanArray::builder(10);
         for i in 0..10 {
             if i == 3 || i == 6 || i == 9 {
-                builder.push(true).unwrap();
+                builder.append_value(true).unwrap();
             } else {
-                builder.push(false).unwrap();
+                builder.append_value(false).unwrap();
             }
         }
 
@@ -883,15 +883,15 @@ mod tests {
     }
 
     #[test]
-    fn test_primitive_array_builder_push_option() {
+    fn test_primitive_array_builder_append_option() {
         let arr1 = Int32Array::from(vec![Some(0), None, Some(2), None, Some(4)]);
 
         let mut builder = Int32Array::builder(5);
-        builder.push_option(Some(0)).unwrap();
-        builder.push_option(None).unwrap();
-        builder.push_option(Some(2)).unwrap();
-        builder.push_option(None).unwrap();
-        builder.push_option(Some(4)).unwrap();
+        builder.append_option(Some(0)).unwrap();
+        builder.append_option(None).unwrap();
+        builder.append_option(Some(2)).unwrap();
+        builder.append_option(None).unwrap();
+        builder.append_option(Some(4)).unwrap();
         let arr2 = builder.finish();
 
         assert_eq!(arr1.len(), arr2.len());
@@ -907,15 +907,15 @@ mod tests {
     }
 
     #[test]
-    fn test_primitive_array_builder_push_null() {
+    fn test_primitive_array_builder_append_null() {
         let arr1 = Int32Array::from(vec![Some(0), Some(2), None, None, Some(4)]);
 
         let mut builder = Int32Array::builder(5);
-        builder.push(0).unwrap();
-        builder.push(2).unwrap();
-        builder.push_null().unwrap();
-        builder.push_null().unwrap();
-        builder.push(4).unwrap();
+        builder.append_value(0).unwrap();
+        builder.append_value(2).unwrap();
+        builder.append_null().unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(4).unwrap();
         let arr2 = builder.finish();
 
         assert_eq!(arr1.len(), arr2.len());
@@ -931,14 +931,14 @@ mod tests {
     }
 
     #[test]
-    fn test_primitive_array_builder_push_slice() {
+    fn test_primitive_array_builder_append_slice() {
         let arr1 = Int32Array::from(vec![Some(0), Some(2), None, None, Some(4)]);
 
         let mut builder = Int32Array::builder(5);
-        builder.push_slice(&[0, 2]).unwrap();
-        builder.push_null().unwrap();
-        builder.push_null().unwrap();
-        builder.push(4).unwrap();
+        builder.append_slice(&[0, 2]).unwrap();
+        builder.append_null().unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(4).unwrap();
         let arr2 = builder.finish();
 
         assert_eq!(arr1.len(), arr2.len());
@@ -956,12 +956,12 @@ mod tests {
     #[test]
     fn test_primitive_array_builder_finish() {
         let mut builder = Int32Builder::new(5);
-        builder.push_slice(&[2, 4, 6, 8]).unwrap();
+        builder.append_slice(&[2, 4, 6, 8]).unwrap();
         let mut arr = builder.finish();
         assert_eq!(4, arr.len());
         assert_eq!(0, builder.len());
 
-        builder.push_slice(&[1, 3, 5, 7, 9]).unwrap();
+        builder.append_slice(&[1, 3, 5, 7, 9]).unwrap();
         arr = builder.finish();
         assert_eq!(5, arr.len());
         assert_eq!(0, builder.len());
@@ -970,19 +970,19 @@ mod tests {
     #[test]
     fn test_list_array_builder() {
         let values_builder = Int32Builder::new(10);
-        let mut builder = ListArrayBuilder::new(values_builder);
+        let mut builder = ListBuilder::new(values_builder);
 
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
-        builder.values().push(0).unwrap();
-        builder.values().push(1).unwrap();
-        builder.values().push(2).unwrap();
+        builder.values().append_value(0).unwrap();
+        builder.values().append_value(1).unwrap();
+        builder.values().append_value(2).unwrap();
         builder.append(true).unwrap();
-        builder.values().push(3).unwrap();
-        builder.values().push(4).unwrap();
-        builder.values().push(5).unwrap();
+        builder.values().append_value(3).unwrap();
+        builder.values().append_value(4).unwrap();
+        builder.values().append_value(5).unwrap();
         builder.append(true).unwrap();
-        builder.values().push(6).unwrap();
-        builder.values().push(7).unwrap();
+        builder.values().append_value(6).unwrap();
+        builder.values().append_value(7).unwrap();
         builder.append(true).unwrap();
         let list_array = builder.finish();
 
@@ -1009,20 +1009,20 @@ mod tests {
     #[test]
     fn test_list_array_builder_nulls() {
         let values_builder = Int32Builder::new(10);
-        let mut builder = ListArrayBuilder::new(values_builder);
+        let mut builder = ListBuilder::new(values_builder);
 
         //  [[0, 1, 2], null, [3, null, 5], [6, 7]]
-        builder.values().push(0).unwrap();
-        builder.values().push(1).unwrap();
-        builder.values().push(2).unwrap();
+        builder.values().append_value(0).unwrap();
+        builder.values().append_value(1).unwrap();
+        builder.values().append_value(2).unwrap();
         builder.append(true).unwrap();
         builder.append(false).unwrap();
-        builder.values().push(3).unwrap();
-        builder.values().push_null().unwrap();
-        builder.values().push(5).unwrap();
+        builder.values().append_value(3).unwrap();
+        builder.values().append_null().unwrap();
+        builder.values().append_value(5).unwrap();
         builder.append(true).unwrap();
-        builder.values().push(6).unwrap();
-        builder.values().push(7).unwrap();
+        builder.values().append_value(6).unwrap();
+        builder.values().append_value(7).unwrap();
         builder.append(true).unwrap();
         let list_array = builder.finish();
 
@@ -1036,18 +1036,18 @@ mod tests {
     #[test]
     fn test_list_array_builder_finish() {
         let values_builder = Int32Array::builder(5);
-        let mut builder = ListArrayBuilder::new(values_builder);
+        let mut builder = ListBuilder::new(values_builder);
 
-        builder.values().push_slice(&[1, 2, 3]).unwrap();
+        builder.values().append_slice(&[1, 2, 3]).unwrap();
         builder.append(true).unwrap();
-        builder.values().push_slice(&[4, 5, 6]).unwrap();
+        builder.values().append_slice(&[4, 5, 6]).unwrap();
         builder.append(true).unwrap();
 
         let mut arr = builder.finish();
         assert_eq!(2, arr.len());
         assert_eq!(0, builder.len());
 
-        builder.values().push_slice(&[7, 8, 9]).unwrap();
+        builder.values().append_slice(&[7, 8, 9]).unwrap();
         builder.append(true).unwrap();
         arr = builder.finish();
         assert_eq!(1, arr.len());
@@ -1057,31 +1057,31 @@ mod tests {
     #[test]
     fn test_list_list_array_builder() {
         let primitive_builder = Int32Builder::new(10);
-        let values_builder = ListArrayBuilder::new(primitive_builder);
-        let mut builder = ListArrayBuilder::new(values_builder);
+        let values_builder = ListBuilder::new(primitive_builder);
+        let mut builder = ListBuilder::new(values_builder);
 
         //  [[[1, 2], [3, 4]], [[5, 6, 7], null, [8]], null, [[9, 10]]]
-        builder.values().values().push(1).unwrap();
-        builder.values().values().push(2).unwrap();
+        builder.values().values().append_value(1).unwrap();
+        builder.values().values().append_value(2).unwrap();
         builder.values().append(true).unwrap();
-        builder.values().values().push(3).unwrap();
-        builder.values().values().push(4).unwrap();
+        builder.values().values().append_value(3).unwrap();
+        builder.values().values().append_value(4).unwrap();
         builder.values().append(true).unwrap();
         builder.append(true).unwrap();
 
-        builder.values().values().push(5).unwrap();
-        builder.values().values().push(6).unwrap();
-        builder.values().values().push(7).unwrap();
+        builder.values().values().append_value(5).unwrap();
+        builder.values().values().append_value(6).unwrap();
+        builder.values().values().append_value(7).unwrap();
         builder.values().append(true).unwrap();
         builder.values().append(false).unwrap();
-        builder.values().values().push(8).unwrap();
+        builder.values().values().append_value(8).unwrap();
         builder.values().append(true).unwrap();
         builder.append(true).unwrap();
 
         builder.append(false).unwrap();
 
-        builder.values().values().push(9).unwrap();
-        builder.values().values().push(10).unwrap();
+        builder.values().values().append_value(9).unwrap();
+        builder.values().values().append_value(10).unwrap();
         builder.values().append(true).unwrap();
         builder.append(true).unwrap();
 
@@ -1111,20 +1111,20 @@ mod tests {
 
     #[test]
     fn test_binary_array_builder() {
-        let mut builder = BinaryArrayBuilder::new(20);
+        let mut builder = BinaryBuilder::new(20);
 
-        builder.push(b'h').unwrap();
-        builder.push(b'e').unwrap();
-        builder.push(b'l').unwrap();
-        builder.push(b'l').unwrap();
-        builder.push(b'o').unwrap();
+        builder.append_value(b'h').unwrap();
+        builder.append_value(b'e').unwrap();
+        builder.append_value(b'l').unwrap();
+        builder.append_value(b'l').unwrap();
+        builder.append_value(b'o').unwrap();
         builder.append(true).unwrap();
         builder.append(true).unwrap();
-        builder.push(b'w').unwrap();
-        builder.push(b'o').unwrap();
-        builder.push(b'r').unwrap();
-        builder.push(b'l').unwrap();
-        builder.push(b'd').unwrap();
+        builder.append_value(b'w').unwrap();
+        builder.append_value(b'o').unwrap();
+        builder.append_value(b'r').unwrap();
+        builder.append_value(b'l').unwrap();
+        builder.append_value(b'd').unwrap();
         builder.append(true).unwrap();
 
         let array = builder.finish();
@@ -1145,29 +1145,29 @@ mod tests {
 
     #[test]
     fn test_binary_array_builder_finish() {
-        let mut builder = BinaryArrayBuilder::new(10);
+        let mut builder = BinaryBuilder::new(10);
 
-        builder.push_string("hello").unwrap();
-        builder.push_string("world").unwrap();
+        builder.append_string("hello").unwrap();
+        builder.append_string("world").unwrap();
 
         let mut arr = builder.finish();
         assert_eq!(2, arr.len());
         assert_eq!(0, builder.len());
 
-        builder.push_string("arrow").unwrap();
+        builder.append_string("arrow").unwrap();
         arr = builder.finish();
         assert_eq!(1, arr.len());
         assert_eq!(0, builder.len());
     }
 
     #[test]
-    fn test_binary_array_builder_push_string() {
-        let mut builder = BinaryArrayBuilder::new(20);
+    fn test_binary_array_builder_append_string() {
+        let mut builder = BinaryBuilder::new(20);
 
         let var = "hello".to_owned();
-        builder.push_string(&var).unwrap();
+        builder.append_string(&var).unwrap();
         builder.append(true).unwrap();
-        builder.push_string("world").unwrap();
+        builder.append_string("world").unwrap();
 
         let array = builder.finish();
 
@@ -1187,7 +1187,7 @@ mod tests {
 
     #[test]
     fn test_struct_array_builder() {
-        let string_builder = BinaryArrayBuilder::new(4);
+        let string_builder = BinaryBuilder::new(4);
         let int_builder = Int32Builder::new(4);
 
         let mut fields = Vec::new();
@@ -1197,24 +1197,24 @@ mod tests {
         fields.push(Field::new("f2", DataType::Int32, false));
         field_builders.push(Box::new(int_builder) as Box<ArrayBuilder>);
 
-        let mut builder = StructArrayBuilder::new(fields, field_builders);
+        let mut builder = StructBuilder::new(fields, field_builders);
         assert_eq!(2, builder.num_fields());
 
         let string_builder = builder
-            .field_builder::<BinaryArrayBuilder>(0)
+            .field_builder::<BinaryBuilder>(0)
             .expect("builder at field 0 should be binary builder");
-        string_builder.push_string("joe").unwrap();
+        string_builder.append_string("joe").unwrap();
         string_builder.append_null().unwrap();
         string_builder.append_null().unwrap();
-        string_builder.push_string("mark").unwrap();
+        string_builder.append_string("mark").unwrap();
 
         let int_builder = builder
             .field_builder::<Int32Builder>(1)
             .expect("builder at field 1 should be int builder");
-        int_builder.push(1).unwrap();
-        int_builder.push(2).unwrap();
-        int_builder.push_null().unwrap();
-        int_builder.push(4).unwrap();
+        int_builder.append_value(1).unwrap();
+        int_builder.append_value(2).unwrap();
+        int_builder.append_null().unwrap();
+        int_builder.append_value(4).unwrap();
 
         builder.append(true).unwrap();
         builder.append(true).unwrap();
@@ -1282,16 +1282,16 @@ mod tests {
         fields.push(Field::new("f2", DataType::Boolean, false));
         field_builders.push(Box::new(bool_builder) as Box<ArrayBuilder>);
 
-        let mut builder = StructArrayBuilder::new(fields, field_builders);
+        let mut builder = StructBuilder::new(fields, field_builders);
         builder
             .field_builder::<Int32Builder>(0)
             .unwrap()
-            .push_slice(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+            .append_slice(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
             .unwrap();
         builder
             .field_builder::<BooleanBuilder>(1)
             .unwrap()
-            .push_slice(&[
+            .append_slice(&[
                 false, true, false, true, false, true, false, true, false, true,
             ])
             .unwrap();
@@ -1303,12 +1303,12 @@ mod tests {
         builder
             .field_builder::<Int32Builder>(0)
             .unwrap()
-            .push_slice(&[1, 3, 5, 7, 9])
+            .append_slice(&[1, 3, 5, 7, 9])
             .unwrap();
         builder
             .field_builder::<BooleanBuilder>(1)
             .unwrap()
-            .push_slice(&[false, true, false, true, false])
+            .append_slice(&[false, true, false, true, false])
             .unwrap();
 
         let arr = builder.finish();
@@ -1327,11 +1327,11 @@ mod tests {
         let struct_type = DataType::Struct(sub_fields);
         fields.push(Field::new("f3", struct_type, false));
 
-        let mut builder = StructArrayBuilder::from_schema(Schema::new(fields), 5);
+        let mut builder = StructBuilder::from_schema(Schema::new(fields), 5);
         assert_eq!(3, builder.num_fields());
         assert!(builder.field_builder::<Float32Builder>(0).is_some());
-        assert!(builder.field_builder::<BinaryArrayBuilder>(1).is_some());
-        assert!(builder.field_builder::<StructArrayBuilder>(2).is_some());
+        assert!(builder.field_builder::<BinaryBuilder>(1).is_some());
+        assert!(builder.field_builder::<StructBuilder>(2).is_some());
     }
 
     #[test]
@@ -1342,7 +1342,7 @@ mod tests {
         let list_type = DataType::List(Box::new(DataType::Int64));
         fields.push(Field::new("f2", list_type, false));
 
-        let _ = StructArrayBuilder::from_schema(Schema::new(fields), 5);
+        let _ = StructBuilder::from_schema(Schema::new(fields), 5);
     }
 
     #[test]
@@ -1354,8 +1354,8 @@ mod tests {
         fields.push(Field::new("f1", DataType::Int32, false));
         field_builders.push(Box::new(int_builder) as Box<ArrayBuilder>);
 
-        let mut builder = StructArrayBuilder::new(fields, field_builders);
-        assert!(builder.field_builder::<BinaryArrayBuilder>(0).is_none());
+        let mut builder = StructBuilder::new(fields, field_builders);
+        assert!(builder.field_builder::<BinaryBuilder>(0).is_none());
     }
 
 }

@@ -29,14 +29,14 @@ fn main() {
     // Create a new builder with a capacity of 100
     let mut primitive_array_builder = Int32Builder::new(100);
 
-    // Push an individual primitive value
-    primitive_array_builder.push(55).unwrap();
+    // Append an individual primitive value
+    primitive_array_builder.append_value(55).unwrap();
 
-    // Push a null value
-    primitive_array_builder.push_null().unwrap();
+    // Append a null value
+    primitive_array_builder.append_null().unwrap();
 
-    // Push a slice of primitive values
-    primitive_array_builder.push_slice(&[39, 89, 12]).unwrap();
+    // Append a slice of primitive values
+    primitive_array_builder.append_slice(&[39, 89, 12]).unwrap();
 
     // Build the `PrimitiveArray`
     let _primitive_array = primitive_array_builder.finish();
