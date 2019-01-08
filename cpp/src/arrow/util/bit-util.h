@@ -409,7 +409,7 @@ class BitmapWriter {
 
   void Finish() {
     // Store current byte if we didn't went past bitmap storage
-    if (bit_mask_ != 0x01 || position_ < length_) {
+    if (length_ > 0 && (bit_mask_ != 0x01 || position_ < length_)) {
       bitmap_[byte_offset_] = current_byte_;
     }
   }
@@ -461,7 +461,7 @@ class FirstTimeBitmapWriter {
 
   void Finish() {
     // Store current byte if we didn't went past bitmap storage
-    if (bit_mask_ != 0x01 || position_ < length_) {
+    if (length_ > 0 && (bit_mask_ != 0x01 || position_ < length_)) {
       bitmap_[byte_offset_] = current_byte_;
     }
   }
