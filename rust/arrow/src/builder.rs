@@ -1133,11 +1133,11 @@ mod tests {
 
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());
-        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.get_value(0));
+        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
         assert_eq!("hello", binary_array.get_string(0));
-        assert_eq!([] as [u8; 0], binary_array.get_value(1));
+        assert_eq!([] as [u8; 0], binary_array.value(1));
         assert_eq!("", binary_array.get_string(1));
-        assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.get_value(2));
+        assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.value(2));
         assert_eq!("world", binary_array.get_string(2));
         assert_eq!(5, binary_array.value_offset(2));
         assert_eq!(5, binary_array.value_length(2));
@@ -1175,11 +1175,11 @@ mod tests {
 
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());
-        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.get_value(0));
+        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
         assert_eq!("hello", binary_array.get_string(0));
-        assert_eq!([] as [u8; 0], binary_array.get_value(1));
+        assert_eq!([] as [u8; 0], binary_array.value(1));
         assert_eq!("", binary_array.get_string(1));
-        assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.get_value(2));
+        assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.value(2));
         assert_eq!("world", binary_array.get_string(2));
         assert_eq!(5, binary_array.value_offset(2));
         assert_eq!(5, binary_array.value_length(2));

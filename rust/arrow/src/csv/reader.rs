@@ -231,7 +231,7 @@ mod tests {
             .downcast_ref::<BinaryArray>()
             .unwrap();
 
-        let city_name: String = String::from_utf8(city.get_value(13).to_vec()).unwrap();
+        let city_name: String = String::from_utf8(city.value(13).to_vec()).unwrap();
 
         assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
     }
