@@ -15,22 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_LITERAL_HOLDER
-#define GANDIVA_LITERAL_HOLDER
+#ifndef DECIMAL_SQL_H
+#define DECIMAL_SQL_H
 
+#include <cstdint>
 #include <string>
-
-#include <boost/variant.hpp>
-
-#include <arrow/type.h>
 #include "gandiva/decimal_full.h"
 
 namespace gandiva {
+namespace decimalops {
 
-using LiteralHolder =
-    boost::variant<bool, float, double, int8_t, int16_t, int32_t, int64_t, uint8_t,
-                   uint16_t, uint32_t, uint64_t, std::string, Decimal128Full>;
+/// Return the sum of 'x' and 'y'.
+/// out_precision and out_scale are passed along for efficiency, they must match
+/// the rules in DecimalTypeSql::GetResultType.
+Decimal128 Add(const Decimal128Full& x, const Decimal128Full& y, int32_t out_precision,
+               int32_t out_scale);
 
+}  // namespace decimalops
 }  // namespace gandiva
 
-#endif  // GANDIVA_LITERAL_HOLDER
+#endif  // DECIMAL_SQL_H

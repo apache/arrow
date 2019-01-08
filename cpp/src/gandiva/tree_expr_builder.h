@@ -23,7 +23,9 @@
 #include <unordered_set>
 #include <vector>
 
+#include "arrow/type.h"
 #include "gandiva/condition.h"
+#include "gandiva/decimal_full.h"
 #include "gandiva/expression.h"
 
 namespace gandiva {
@@ -45,6 +47,7 @@ class TreeExprBuilder {
   static NodePtr MakeLiteral(double value);
   static NodePtr MakeStringLiteral(const std::string& value);
   static NodePtr MakeBinaryLiteral(const std::string& value);
+  static NodePtr MakeDecimalLiteral(const Decimal128Full& value);
 
   /// \brief create a node on a null literal.
   /// returns null if data_type is null or if it's not a supported datatype.

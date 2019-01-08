@@ -46,6 +46,8 @@ set(SRC_FILES annotator.cc
       bitmap_accumulator.cc
       configuration.cc
       context_helper.cc
+      decimal_ir.cc
+      decimal_type_util.cc
       engine.cc
       date_utils.cc
       expr_decomposer.cc
@@ -54,6 +56,7 @@ set(SRC_FILES annotator.cc
       expression_registry.cc
       exported_funcs_registry.cc
       filter.cc
+      function_ir_builder.cc
       function_registry.cc
       function_registry_arithmetic.cc
       function_registry_datetime.cc
@@ -175,6 +178,7 @@ ADD_GANDIVA_TEST(lru_cache_test)
 ADD_GANDIVA_TEST(to_date_holder_test)
 ADD_GANDIVA_TEST(simple_arena_test)
 ADD_GANDIVA_TEST(like_holder_test)
+ADD_GANDIVA_TEST(decimal_type_util_test)
 
 if (ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)

@@ -121,7 +121,6 @@ matrix:
     - ARROW_TRAVIS_COVERAGE=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
     - ARROW_TRAVIS_PYTHON_JVM=1
-    - ARROW_TRAVIS_PYTHON_GANDIVA=1
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     # TODO(wesm): Run the benchmarks outside of Travis
@@ -138,6 +137,8 @@ matrix:
     - export PLASMA_VALGRIND=0
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7 || travis_terminate 1
     - export PLASMA_VALGRIND=1
+    # Gandiva tests are not enabled with python 2.7
+    - ARROW_TRAVIS_PYTHON_GANDIVA=1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6 || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
   - name: "[OS X] C++ w/ XCode 8.3"

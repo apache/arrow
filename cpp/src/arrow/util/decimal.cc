@@ -39,7 +39,7 @@ using internal::SafeLeftShift;
 using internal::SafeSignedAdd;
 
 static const Decimal128 ScaleMultipliers[] = {
-    Decimal128(0LL),
+    Decimal128(1LL),
     Decimal128(10LL),
     Decimal128(100LL),
     Decimal128(1000LL),
@@ -78,6 +78,47 @@ static const Decimal128 ScaleMultipliers[] = {
     Decimal128(54210108624275221LL, 12919594847110692864ULL),
     Decimal128(542101086242752217LL, 68739955140067328ULL),
     Decimal128(5421010862427522170LL, 687399551400673280ULL)};
+
+static const Decimal128 ScaleMultipliersHalf[] = {
+    Decimal128(0ULL),
+    Decimal128(5ULL),
+    Decimal128(50ULL),
+    Decimal128(500ULL),
+    Decimal128(5000ULL),
+    Decimal128(50000ULL),
+    Decimal128(500000ULL),
+    Decimal128(5000000ULL),
+    Decimal128(50000000ULL),
+    Decimal128(500000000ULL),
+    Decimal128(5000000000ULL),
+    Decimal128(50000000000ULL),
+    Decimal128(500000000000ULL),
+    Decimal128(5000000000000ULL),
+    Decimal128(50000000000000ULL),
+    Decimal128(500000000000000ULL),
+    Decimal128(5000000000000000ULL),
+    Decimal128(50000000000000000ULL),
+    Decimal128(500000000000000000ULL),
+    Decimal128(5000000000000000000ULL),
+    Decimal128(2LL, 13106511852580896768ULL),
+    Decimal128(27LL, 1937910009842106368ULL),
+    Decimal128(271LL, 932356024711512064ULL),
+    Decimal128(2710LL, 9323560247115120640ULL),
+    Decimal128(27105LL, 1001882102603448320ULL),
+    Decimal128(271050LL, 10018821026034483200ULL),
+    Decimal128(2710505LL, 7954489891797073920ULL),
+    Decimal128(27105054LL, 5757922623132532736ULL),
+    Decimal128(271050543LL, 2238994010196672512ULL),
+    Decimal128(2710505431LL, 3943196028257173504ULL),
+    Decimal128(27105054312LL, 2538472135152631808ULL),
+    Decimal128(271050543121LL, 6937977277816766464ULL),
+    Decimal128(2710505431213LL, 14039540557039009792ULL),
+    Decimal128(27105054312137LL, 11268197054423236608ULL),
+    Decimal128(271050543121376LL, 2001506101975056384ULL),
+    Decimal128(2710505431213761LL, 1568316946041012224ULL),
+    Decimal128(27105054312137610LL, 15683169460410122240ULL),
+    Decimal128(271050543121376108LL, 9257742014424809472ULL),
+    Decimal128(2710505431213761085LL, 343699775700336640ULL)};
 
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
@@ -886,6 +927,60 @@ Status Decimal128::Rescale(int32_t original_scale, int32_t new_scale,
   }
 
   return Status::OK();
+}
+
+void Decimal128::GetWholeAndFraction(int scale, Decimal128* whole,
+                                     Decimal128* fraction) const {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, 38);
+
+  Decimal128 multiplier(ScaleMultipliers[scale]);
+  DCHECK_OK(Divide(multiplier, whole, fraction));
+}
+
+const Decimal128& Decimal128::GetScaleMultiplier(int32_t scale) {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, 38);
+
+  return ScaleMultipliers[scale];
+}
+
+Decimal128 Decimal128::IncreaseScaleBy(int32_t increase_by) const {
+  DCHECK_GE(increase_by, 0);
+  DCHECK_LE(increase_by, 38);
+
+  return (*this) * ScaleMultipliers[increase_by];
+}
+
+Decimal128 Decimal128::ReduceScaleBy(int32_t reduce_by, bool round) const {
+  DCHECK_GE(reduce_by, 0);
+  DCHECK_LE(reduce_by, 38);
+
+  Decimal128 divisor(ScaleMultipliers[reduce_by]);
+  Decimal128 result;
+  Decimal128 remainder;
+  DCHECK_OK(Divide(divisor, &result, &remainder));
+  if (round) {
+    auto divisor_half = ScaleMultipliersHalf[reduce_by];
+    if (remainder.Abs() >= divisor_half) {
+      if (result > 0) {
+        result += 1;
+      } else {
+        result -= 1;
+      }
+    }
+  }
+  return result;
+}
+
+int32_t Decimal128::CountLeadingBinaryZeros() const {
+  DCHECK_GE(*this, Decimal128(0));
+
+  if (high_bits_ == 0) {
+    return BitUtil::CountLeadingZeros(low_bits_) + 64;
+  } else {
+    return BitUtil::CountLeadingZeros(static_cast<uint64_t>(high_bits_));
+  }
 }
 
 // Helper function used by Decimal128::FromBigEndian

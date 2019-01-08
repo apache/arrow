@@ -22,6 +22,12 @@
     fun:*CastFunctor*BooleanType*
 }
 {
+    <llvm>:Conditional jump or move depends on uninitialised value(s)
+    Memcheck:Cond
+    ...
+    fun:*llvm*PassManager*
+}
+{
     <re2>:Conditional jump or move depends on uninitialised value(s)
     Memcheck:Cond
     ...

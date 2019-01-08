@@ -27,11 +27,17 @@ ADD_GANDIVA_TEST(to_string_test)
 ADD_GANDIVA_TEST(hash_test)
 ADD_GANDIVA_TEST(in_expr_test)
 ADD_GANDIVA_TEST(null_validity_test)
+ADD_GANDIVA_TEST(decimal_test)
+ADD_GANDIVA_TEST(decimal_single_test)
 
 ADD_GANDIVA_TEST(projector_test_static
   SOURCES projector_test.cc
   USE_STATIC_LINKING)
 
-ADD_BENCHMARK(micro_benchmarks
+ADD_GANDIVA_TEST(decimal_single_test_static
+  SOURCES decimal_single_test.cc
+  USE_STATIC_LINKING)
+
+ADD_ARROW_BENCHMARK(micro_benchmarks
   PREFIX "gandiva"
   EXTRA_LINK_LIBS gandiva_static)

@@ -78,5 +78,5 @@ add_dependencies(gandiva ${GANDIVA_JNI_LIBRARIES})
 # statically linked stdc++ has conflicts with stdc++ loaded by other libraries.
 if (NOT APPLE)
   set_target_properties(gandiva_jni_shared PROPERTIES
-    LINK_FLAGS "-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/gandiva/jni/symbols.map")
+    LINK_FLAGS "-Wl,--no-as-needed -Wl,--version-script=${CMAKE_SOURCE_DIR}/src/gandiva/jni/symbols.map")
 endif()
