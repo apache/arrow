@@ -22,14 +22,19 @@ version: '3.5'
 x-ubuntu-volumes:
   &ubuntu-volumes
   - .:/arrow:delegated
-  - $HOME/.m2:/root/.m2:delegated
-  - ${ARROW_DOCKER_CACHE_DIR:-./docker_cache}/ubuntu:/build:delegated
+  - maven-cache:/root/.m2:delegated
+  - ubuntu-cache:/build:delegated
 
 x-alpine-volumes:
   &alpine-volumes
   - .:/arrow:delegated
-  - $HOME/.m2:/root/.m2:delegated
-  - ${ARROW_DOCKER_CACHE_DIR:-./docker_cache}/alpine:/build:delegated
+  - maven-cache:/root/.m2:delegated
+  - alpine-cache:/build:delegated
+
+volumes:
+  maven-cache:
+  ubuntu-cache:
+  alpine-cache:
 
 services:
 
@@ -320,4 +325,3 @@ services:
     volumes: *ubuntu-volumes
 
   # TODO(kszucs): hive-integration
-  # TODO(kszucs): spark-integration
