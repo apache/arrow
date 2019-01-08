@@ -350,14 +350,12 @@ impl DataType {
                 DateUnit::Day => "DAY",
                 DateUnit::Millisecond => "MILLISECOND",
             }}),
-            DataType::Timestamp(unit) => {
-                json!({"name": "timestamp", "unit": match unit {
-                    TimestampUnit::Second => "SECOND",
-                    TimestampUnit::Millisecond => "MILLISECOND",
-                    TimestampUnit::Microsecond => "MICROSECOND",
-                    TimestampUnit::Nanosecond => "NANOSECOND",
-                }})
-            }
+            DataType::Timestamp(unit) => json!({"name": "timestamp", "unit": match unit {
+                TimestampUnit::Second => "SECOND",
+                TimestampUnit::Millisecond => "MILLISECOND",
+                TimestampUnit::Microsecond => "MICROSECOND",
+                TimestampUnit::Nanosecond => "NANOSECOND",
+            }}),
             DataType::Interval(unit) => json!({"name": "interval", "unit": match unit {
                 IntervalUnit::YearMonth => "YEAR_MONTH",
                 IntervalUnit::DayTime => "DAY_TIME",
@@ -639,18 +637,41 @@ mod tests {
     #[test]
     fn create_schema_string() {
         let _person = Schema::new(vec![
-            Field::new("first_name", DataType::Utf8, false),
-            Field::new("last_name", DataType::Utf8, false),
+            Field::new("c1", DataType::Utf8, false),
+            Field::new("c2", DataType::Date(DateUnit::Day), false),
+            Field::new("c3", DataType::Date(DateUnit::Millisecond), false),
+            Field::new("c7", DataType::Time32(TimeUnit::Second), false),
+            Field::new("c8", DataType::Time32(TimeUnit::Millisecond), false),
+            Field::new("c9", DataType::Time32(TimeUnit::Microsecond), false),
+            Field::new("c10", DataType::Time32(TimeUnit::Nanosecond), false),
+            Field::new("c11", DataType::Time64(TimeUnit::Second), false),
+            Field::new("c12", DataType::Time64(TimeUnit::Millisecond), false),
+            Field::new("c13", DataType::Time64(TimeUnit::Microsecond), false),
+            Field::new("c14", DataType::Time64(TimeUnit::Nanosecond), false),
+            Field::new("c15", DataType::Timestamp(TimestampUnit::Second), false),
             Field::new(
-                "address",
+                "c16",
+                DataType::Timestamp(TimestampUnit::Millisecond),
+                false,
+            ),
+            Field::new(
+                "c17",
+                DataType::Timestamp(TimestampUnit::Microsecond),
+                false,
+            ),
+            Field::new("c18", DataType::Timestamp(TimestampUnit::Nanosecond), false),
+            Field::new("c19", DataType::Interval(IntervalUnit::DayTime), false),
+            Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
+            Field::new(
+                "c21",
                 DataType::Struct(vec![
-                    Field::new("street", DataType::Utf8, false),
-                    Field::new("zip", DataType::UInt16, false),
+                    Field::new("a", DataType::Utf8, false),
+                    Field::new("b", DataType::UInt16, false),
                 ]),
                 false,
             ),
         ]);
-        assert_eq!(_person.to_string(), "first_name: Utf8, last_name: Utf8, address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false }, Field { name: \"zip\", data_type: UInt16, nullable: false }])")
+        assert_eq!(_person.to_string(), "c1: Utf8, c2: Date(Day), c3: Date(Millisecond), c7: Time32(Second), c8: Time32(Millisecond), c9: Time32(Microsecond), c10: Time32(Nanosecond), c11: Time64(Second), c12: Time64(Millisecond), c13: Time64(Microsecond), c14: Time64(Nanosecond), c15: Timestamp(Second), c16: Timestamp(Millisecond), c17: Timestamp(Microsecond), c18: Timestamp(Nanosecond), c19: Interval(DayTime), c20: Interval(YearMonth), c21: Struct([Field { name: \"a\", data_type: Utf8, nullable: false }, Field { name: \"b\", data_type: UInt16, nullable: false }])")
     }
 
     #[test]
