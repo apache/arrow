@@ -22,19 +22,18 @@ version: '3.5'
 x-ubuntu-volumes:
   &ubuntu-volumes
   - .:/arrow:delegated
-  - maven-cache:/root/.m2:delegated
   - ubuntu-cache:/build:delegated
 
 x-alpine-volumes:
   &alpine-volumes
   - .:/arrow:delegated
-  - maven-cache:/root/.m2:delegated
   - alpine-cache:/build:delegated
 
 volumes:
-  maven-cache:
   ubuntu-cache:
   alpine-cache:
+  maven-cache:
+  spark-cache:
 
 services:
 
@@ -111,7 +110,9 @@ services:
     build:
       context: .
       dockerfile: java/Dockerfile
-    volumes: *ubuntu-volumes
+    volumes:
+      - .:/arrow:delegated
+      - maven-cache:/root/.m2:delegated
 
   js:
     image: arrow:js
@@ -322,6 +323,10 @@ services:
     build:
       context: .
       dockerfile: integration/spark/Dockerfile
-    volumes: *ubuntu-volumes
+    volumes:
+      - .:/arrow:delegated
+      - ubuntu-cache:/build:delegated
+      - maven-cache:/root/.m2:delegated
+      - spark-cache:/spark:delegated
 
   # TODO(kszucs): hive-integration

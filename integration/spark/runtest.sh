@@ -25,28 +25,8 @@ pushd arrow/java
   ARROW_VERSION=`mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | sed -n -e '/^\[.*\]/ !{ /^[0-9]/ { p; q } }'`
 popd
 
-cache_dir="/build/spark"
-spark_dir="${cache_dir}/spark-${SPARK_VERSION}"
-
-if [ ! -d $spark_dir ]; then
-  echo "Downloading Spark source archive to $cache_dir..."
-  mkdir -p $cache_dir
-  wget -q -O /tmp/spark.tar.gz https://github.com/apache/spark/archive/v$SPARK_VERSION.tar.gz
-  tar -xzf /tmp/spark.tar.gz -C $cache_dir
-  rm /tmp/spark.tar.gz
-
-  # - avoid too long filenames error https://issues.apache.org/jira/browse/SPARK-4820
-  # - fix python compatibility issues in pyspark testing suite
-  spark_patch="/arrow/integration/spark/${SPARK_VERSION}.patch"
-  if [ -f $spark_patch ]; then
-    pushd $spark_dir
-      patch -p1 < $spark_patch
-    popd
-  fi
-fi
-
 # build Spark with Arrow
-pushd $spark_dir
+pushd /spark
   # update Spark pom with the Arrow version just installed and build Spark, need package phase for pyspark
   echo "Building Spark with Arrow $ARROW_VERSION"
   mvn -q versions:set-property -Dproperty=arrow.version -DnewVersion=$ARROW_VERSION
