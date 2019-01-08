@@ -38,7 +38,8 @@ public abstract class BaseValueVector implements ValueVector {
    * For all fixed width vectors, the value and validity buffers are sliced from a single buffer.
    * Similarly, for variable width vectors, the offsets and validity buffers are sliced from a
    * single buffer. To ensure the single buffer is power-of-2 size, the initial value allocation
-   * should be ~(4096 - 128) (512 bytes for the bitmap).
+   * should be less than power-of-2. For IntVectors, this comes to 3970*4 (15880) for the data
+   * buffer and 504 bytes for the validity buffer, totalling to 16384 (2^16).
    */
   public static final int INITIAL_VALUE_ALLOCATION = 3970;
 

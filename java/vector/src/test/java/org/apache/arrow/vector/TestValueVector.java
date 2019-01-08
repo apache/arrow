@@ -1932,4 +1932,61 @@ public class TestValueVector {
       assertEquals(2, vector.getDataBuffer().capacity());
     }
   }
+
+  @Test
+  public void testDefaultAllocNewAll() {
+    int defaultCapacity = BaseFixedWidthVector.INITIAL_VALUE_ALLOCATION;
+    int expectedSize;
+    long beforeSize;
+    try (BufferAllocator childAllocator = allocator.newChildAllocator("defaultAllocs", 0, Long.MAX_VALUE);
+        final IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, childAllocator);
+        final BigIntVector bigIntVector = new BigIntVector(EMPTY_SCHEMA_PATH, childAllocator);
+        final BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, childAllocator);
+        final DecimalVector decimalVector = new DecimalVector(EMPTY_SCHEMA_PATH, childAllocator, 38, 6);
+        final VarCharVector varCharVector = new VarCharVector(EMPTY_SCHEMA_PATH, childAllocator)) {
+
+      // verify that the wastage is within bounds for IntVector.
+      beforeSize = childAllocator.getAllocatedMemory();
+      intVector.allocateNew();
+      assertTrue(intVector.getValueCapacity() >= defaultCapacity);
+      expectedSize = (defaultCapacity * IntVector.TYPE_WIDTH) +
+          BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity);
+      assertTrue(childAllocator.getAllocatedMemory() - beforeSize <= expectedSize * 1.05);
+
+      // verify that the wastage is within bounds for BigIntVector.
+      beforeSize = childAllocator.getAllocatedMemory();
+      bigIntVector.allocateNew();
+      assertTrue(bigIntVector.getValueCapacity() >= defaultCapacity);
+      expectedSize = (defaultCapacity * bigIntVector.TYPE_WIDTH) +
+          BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity);
+      assertTrue(childAllocator.getAllocatedMemory() - beforeSize <= expectedSize * 1.05);
+
+      // verify that the wastage is within bounds for DecimalVector.
+      beforeSize = childAllocator.getAllocatedMemory();
+      decimalVector.allocateNew();
+      assertTrue(decimalVector.getValueCapacity() >= defaultCapacity);
+      expectedSize = (defaultCapacity * decimalVector.TYPE_WIDTH) +
+          BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity);
+      assertTrue(childAllocator.getAllocatedMemory() - beforeSize <= expectedSize * 1.05);
+
+      // verify that the wastage is within bounds for VarCharVector.
+      // var char vector have an offsets array that is 1 less than defaultCapacity
+      beforeSize = childAllocator.getAllocatedMemory();
+      varCharVector.allocateNew();
+      assertTrue(varCharVector.getValueCapacity() >= defaultCapacity - 1);
+      expectedSize = (defaultCapacity * VarCharVector.OFFSET_WIDTH) +
+          BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity) +
+          defaultCapacity * 8;
+      // wastage should be less than 5%.
+      assertTrue(childAllocator.getAllocatedMemory() - beforeSize <= expectedSize * 1.05);
+
+      // verify that the wastage is within bounds for BitVector.
+      beforeSize = childAllocator.getAllocatedMemory();
+      bitVector.allocateNew();
+      assertTrue(bitVector.getValueCapacity() >= defaultCapacity);
+      expectedSize = BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity) * 2;
+      assertTrue(childAllocator.getAllocatedMemory() - beforeSize <= expectedSize * 1.05);
+
+    }
+  }
 }
