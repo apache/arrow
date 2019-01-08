@@ -24,12 +24,11 @@
 
 use std::{collections::HashSet, rc::Rc};
 
-use crate::parquet::basic::{LogicalType, Repetition, Type as PhysicalType};
-use crate::parquet::schema::types::{SchemaDescPtr, Type, TypePtr};
+use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
+use crate::errors::{ParquetError::ArrowError, Result};
+use crate::schema::types::{SchemaDescPtr, Type, TypePtr};
 
-use crate::datatypes::{DataType, Field, Schema};
-
-use crate::parquet::errors::{ParquetError::ArrowError, Result};
+use arrow::datatypes::{DataType, Field, Schema};
 
 /// Convert parquet schema to arrow schema.
 pub fn parquet_to_arrow_schema(parquet_schema: SchemaDescPtr) -> Result<Schema> {
@@ -324,9 +323,9 @@ impl ParquetTypeConverter {
 mod tests {
     use std::rc::Rc;
 
-    use crate::parquet::schema::{parser::parse_message_type, types::SchemaDescriptor};
+    use crate::schema::{parser::parse_message_type, types::SchemaDescriptor};
 
-    use crate::datatypes::{DataType, Field};
+    use arrow::datatypes::{DataType, Field};
 
     use super::{parquet_to_arrow_schema, parquet_to_arrow_schema_by_columns};
 
