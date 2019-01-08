@@ -121,10 +121,15 @@ void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType* gandiva_data_type)
     case arrow::Type::type::NA:
       gandiva_data_type->set_type(types::GandivaType::NONE);
       break;
+    case arrow::Type::type::DECIMAL: {
+      gandiva_data_type->set_type(types::GandivaType::DECIMAL);
+      gandiva_data_type->set_precision(0);
+      gandiva_data_type->set_scale(0);
+      break;
+    }
     case arrow::Type::type::FIXED_SIZE_BINARY:
     case arrow::Type::type::MAP:
     case arrow::Type::type::INTERVAL:
-    case arrow::Type::type::DECIMAL:
     case arrow::Type::type::LIST:
     case arrow::Type::type::STRUCT:
     case arrow::Type::type::UNION:

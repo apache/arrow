@@ -139,8 +139,27 @@ class ARROW_EXPORT Decimal128 {
   /// \return error status if the length is an invalid value
   static Status FromBigEndian(const uint8_t* data, int32_t length, Decimal128* out);
 
+  /// \brief seperate the integer and fractional parts for the given scale.
+  void GetWholeAndFraction(int32_t scale, Decimal128* whole, Decimal128* fraction) const;
+
+  /// \brief Scale multiplier for given scale value.
+  static const Decimal128& GetScaleMultiplier(int32_t scale);
+
   /// \brief Convert Decimal128 from one scale to another
   Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const;
+
+  /// \brief Scale up.
+  Decimal128 IncreaseScaleBy(int32_t increase_by) const;
+
+  /// \brief Scale down.
+  /// - If 'round' is true, the right-most digits are dropped and the result value is
+  ///   rounded up (+1 for +ve, -1 for -ve) based on the value of the dropped digits
+  ///   (>= 10^reduce_by / 2).
+  /// - If 'round' is false, the right-most digits are simply dropped.
+  Decimal128 ReduceScaleBy(int32_t reduce_by, bool round = true) const;
+
+  /// \brief count the number of leading binary zeroes.
+  int32_t CountLeadingBinaryZeros() const;
 
   /// \brief Convert to a signed integer
   template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>

@@ -397,7 +397,8 @@ inline bool BitReader::GetVlqInt(int32_t* v) {
 }
 
 inline bool BitWriter::PutZigZagVlqInt(int32_t v) {
-  uint32_t u = (v << 1) ^ (v >> 31);
+  // Note negative left shift is undefined
+  uint32_t u = (static_cast<uint32_t>(v) << 1) ^ (v >> 31);
   return PutVlqInt(u);
 }
 

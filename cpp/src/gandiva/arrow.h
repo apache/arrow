@@ -35,6 +35,9 @@ using ArrayPtr = std::shared_ptr<arrow::Array>;
 using DataTypePtr = std::shared_ptr<arrow::DataType>;
 using DataTypeVector = std::vector<DataTypePtr>;
 
+using Decimal128TypePtr = std::shared_ptr<arrow::Decimal128Type>;
+using Decimal128TypeVector = std::vector<Decimal128TypePtr>;
+
 using FieldPtr = std::shared_ptr<arrow::Field>;
 using FieldVector = std::vector<FieldPtr>;
 
@@ -48,6 +51,14 @@ using ArrayDataVector = std::vector<ArrayDataPtr>;
 using Status = arrow::Status;
 using StatusCode = arrow::StatusCode;
 
+static inline bool is_decimal_128(DataTypePtr type) {
+  if (type->id() == arrow::Type::DECIMAL) {
+    auto decimal_type = arrow::internal::checked_cast<arrow::DecimalType*>(type.get());
+    return decimal_type->byte_width() == 16;
+  } else {
+    return false;
+  }
+}
 }  // namespace gandiva
 
 #endif  // GANDIVA_EXPR_ARROW_H

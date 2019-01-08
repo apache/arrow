@@ -230,7 +230,7 @@ public class AllocationManager {
       // since two balance transfers out from the allocator manager could cause incorrect
       // accounting, we need to ensure
       // that this won't happen by synchronizing on the allocator manager instance.
-      synchronized (this) {
+      synchronized (AllocationManager.this) {
         if (owningLedger != this) {
           return true;
         }
@@ -310,7 +310,7 @@ public class AllocationManager {
       allocator.assertOpen();
 
       final int outcome;
-      synchronized (this) {
+      synchronized (AllocationManager.this) {
         outcome = bufRefCnt.addAndGet(-decrement);
         if (outcome == 0) {
           lDestructionTime = System.nanoTime();
@@ -411,7 +411,7 @@ public class AllocationManager {
      * @return Amount of accounted(owned) memory associated with this ledger.
      */
     public int getAccountedSize() {
-      synchronized (this) {
+      synchronized (AllocationManager.this) {
         if (owningLedger == this) {
           return size;
         } else {

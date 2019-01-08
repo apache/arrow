@@ -468,10 +468,10 @@ class MyMemoryPool : public MemoryPool {
 
   int64_t bytes_allocated() const override { return -1; }
 
-  int64_t num_allocations() const { return num_allocations_; }
+  int64_t num_allocations() const { return num_allocations_.load(); }
 
  private:
-  int64_t num_allocations_;
+  std::atomic<int64_t> num_allocations_;
 };
 
 TEST_F(TestReadableFile, CustomMemoryPool) {

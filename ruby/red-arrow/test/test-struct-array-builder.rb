@@ -31,8 +31,8 @@ class StructArrayBuilderTest < Test::Unit::TestCase
                      [nil],
                    ],
                    [
-                     array[0].to_a,
-                     array[1].to_a,
+                     array.find_field(0).to_a,
+                     array.find_field(1).to_a,
                    ])
     end
 
@@ -44,8 +44,23 @@ class StructArrayBuilderTest < Test::Unit::TestCase
                      [1],
                    ],
                    [
-                     array[0].to_a,
-                     array[1].to_a,
+                     array.find_field(0).to_a,
+                     array.find_field(1).to_a,
+                   ])
+    end
+
+    test("Arrow::Struct") do
+      source_array = Arrow::StructArray.new(@data_type, [[true, 1]])
+      struct = source_array.get_value(0)
+      @builder.append_value(struct)
+      array = @builder.finish
+      assert_equal([
+                     [true],
+                     [1],
+                   ],
+                   [
+                     array.find_field(0).to_a,
+                     array.find_field(1).to_a,
                    ])
     end
 
@@ -57,8 +72,8 @@ class StructArrayBuilderTest < Test::Unit::TestCase
                      [1],
                    ],
                    [
-                     array[0].to_a,
-                     array[1].to_a,
+                     array.find_field(0).to_a,
+                     array.find_field(1).to_a,
                    ])
     end
   end
@@ -72,8 +87,8 @@ class StructArrayBuilderTest < Test::Unit::TestCase
                      [nil],
                    ],
                    [
-                     array[0].to_a,
-                     array[1].to_a,
+                     array.find_field(0).to_a,
+                     array.find_field(1).to_a,
                    ])
     end
 
@@ -85,8 +100,8 @@ class StructArrayBuilderTest < Test::Unit::TestCase
                      [1],
                    ],
                    [
-                     array[0].to_a,
-                     array[1].to_a,
+                     array.find_field(0).to_a,
+                     array.find_field(1).to_a,
                    ])
     end
 
@@ -98,8 +113,8 @@ class StructArrayBuilderTest < Test::Unit::TestCase
                      [1],
                    ],
                    [
-                     array[0].to_a,
-                     array[1].to_a,
+                     array.find_field(0).to_a,
+                     array.find_field(1).to_a,
                    ])
     end
 
@@ -115,8 +130,8 @@ class StructArrayBuilderTest < Test::Unit::TestCase
                      [nil, 1, 2],
                    ],
                    [
-                     array[0].to_a,
-                     array[1].to_a,
+                     array.find_field(0).to_a,
+                     array.find_field(1).to_a,
                    ])
     end
 
@@ -137,8 +152,8 @@ class StructArrayBuilderTest < Test::Unit::TestCase
                      [1, nil, 3],
                    ],
                    [
-                     array[0].to_a,
-                     array[1].to_a,
+                     array.find_field(0).to_a,
+                     array.find_field(1).to_a,
                    ])
     end
   end

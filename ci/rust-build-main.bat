@@ -36,6 +36,7 @@ cargo test --target %TARGET% --release || exit /B
 @echo
 @echo Run example (release)
 @echo ---------------------
+cd arrow
 cargo run --example builders --target %TARGET% --release || exit /B
 cargo run --example dynamic_types --target %TARGET% --release || exit /B
 cargo run --example read_csv --target %TARGET% --release || exit /B

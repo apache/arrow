@@ -43,11 +43,13 @@ public class Filter {
 
   private static final Logger logger = LoggerFactory.getLogger(Filter.class);
 
+  private final JniWrapper wrapper;
   private final long moduleId;
   private final Schema schema;
   private boolean closed;
 
-  private Filter(long moduleId, Schema schema) {
+  private Filter(JniWrapper wrapper, long moduleId, Schema schema) {
+    this.wrapper = wrapper;
     this.moduleId = moduleId;
     this.schema = schema;
     this.closed = false;
@@ -63,7 +65,7 @@ public class Filter {
    * @return A native filter object that can be used to invoke on a RecordBatch
    */
   public static Filter make(Schema schema, Condition condition) throws GandivaException {
-    return make(schema, condition, ConfigurationBuilder.getDefaultConfiguration());
+    return make(schema, condition, JniLoader.getDefaultConfiguration());
   }
 
   /**
@@ -81,11 +83,11 @@ public class Filter {
     // Invoke the JNI layer to create the LLVM module representing the filter.
     GandivaTypes.Condition conditionBuf = condition.toProtobuf();
     GandivaTypes.Schema schemaBuf = ArrowTypeHelper.arrowSchemaToProtobuf(schema);
-    JniWrapper gandivaBridge = JniWrapper.getInstance();
-    long moduleId = gandivaBridge.buildFilter(schemaBuf.toByteArray(),
+    JniWrapper wrapper = JniLoader.getInstance().getWrapper();
+    long moduleId = wrapper.buildFilter(schemaBuf.toByteArray(),
         conditionBuf.toByteArray(), configurationId);
     logger.info("Created module for the projector with id {}", moduleId);
-    return new Filter(moduleId, schema);
+    return new Filter(wrapper, moduleId, schema);
   }
 
   /**
@@ -144,7 +146,7 @@ public class Filter {
       bufSizes[idx++] = bufLayout.getSize();
     }
 
-    int numRecords = JniWrapper.getInstance().evaluateFilter(this.moduleId, numRows,
+    int numRecords = wrapper.evaluateFilter(this.moduleId, numRows,
         bufAddrs, bufSizes,
         selectionVector.getType().getNumber(),
         selectionVector.getBuffer().memoryAddress(), selectionVector.getBuffer().capacity());
@@ -161,7 +163,7 @@ public class Filter {
       return;
     }
 
-    JniWrapper.getInstance().closeFilter(this.moduleId);
+    wrapper.closeFilter(this.moduleId);
     this.closed = true;
   }
 }

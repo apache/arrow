@@ -143,7 +143,8 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* p
 // TODO : handle variable-len vectors
 Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
                                  arrow::MemoryPool* pool, ArrayDataPtr* array_data) {
-  ARROW_RETURN_IF(!arrow::is_primitive(type->id()),
+  const auto* fw_type = dynamic_cast<const arrow::FixedWidthType*>(type.get());
+  ARROW_RETURN_IF(fw_type == nullptr,
                   Status::Invalid("Unsupported output data type ", type));
 
   std::shared_ptr<arrow::Buffer> null_bitmap;
@@ -151,8 +152,7 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, bitmap_bytes, &null_bitmap));
 
   std::shared_ptr<arrow::Buffer> data;
-  const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
-  int64_t data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
+  int64_t data_len = arrow::BitUtil::BytesForBits(num_records * fw_type->bit_width());
   ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, data_len, &data));
 
   // This is not strictly required but valgrind gets confused and detects this

@@ -80,6 +80,10 @@ function setup_sanitizers() {
   TSAN_OPTIONS="$TSAN_OPTIONS history_size=7"
   export TSAN_OPTIONS
 
+  UBSAN_OPTIONS="$UBSAN_OPTIONS print_stacktrace=1"
+  UBSAN_OPTIONS="$UBSAN_OPTIONS suppressions=$ROOT/build-support/ubsan-suppressions.txt"
+  export UBSAN_OPTIONS
+
   # Enable leak detection even under LLVM 3.4, where it was disabled by default.
   # This flag only takes effect when running an ASAN build.
   # ASAN_OPTIONS="$ASAN_OPTIONS detect_leaks=1"
