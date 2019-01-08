@@ -104,7 +104,8 @@ static void BM_ThreadPoolSpawn(benchmark::State& state) {
     state.ResumeTiming();
 
     for (int32_t i = 0; i < nspawns; ++i) {
-      ABORT_NOT_OK(pool->Spawn([&]() { workload(); }));
+      // Pass the task by reference to avoid copying it around
+      ABORT_NOT_OK(pool->Spawn(std::ref(workload)));
     }
 
     // Wait for all tasks to finish
@@ -127,7 +128,8 @@ static void BM_SerialTaskGroup(benchmark::State& state) {
   for (auto _ : state) {
     auto task_group = TaskGroup::MakeSerial();
     for (int32_t i = 0; i < nspawns; ++i) {
-      task_group->Append(task);
+      // Pass the task by reference to avoid copying it around
+      task_group->Append(std::ref(task));
     }
     ABORT_NOT_OK(task_group->Finish());
   }
@@ -149,6 +151,7 @@ static void BM_ThreadedTaskGroup(benchmark::State& state) {
   for (auto _ : state) {
     auto task_group = TaskGroup::MakeThreaded(pool.get());
     for (int32_t i = 0; i < nspawns; ++i) {
+      // Pass the task by reference to avoid copying it around
       task_group->Append(std::ref(task));
     }
     ABORT_NOT_OK(task_group->Finish());
