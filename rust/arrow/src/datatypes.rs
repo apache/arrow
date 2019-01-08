@@ -249,10 +249,10 @@ impl DataType {
                     }
                 }
                 Some(s) if s == "interval" => match map.get("unit") {
-                    Some(p) if p == "DAY" => Ok(DataType::Date(DateUnit::Day)),
-                    Some(p) if p == "MILLISECOND" => Ok(DataType::Date(DateUnit::Millisecond)),
+                    Some(p) if p == "DAY_TIME" => Ok(DataType::Interval(IntervalUnit::DayTime)),
+                    Some(p) if p == "YEAR_MONTH" => Ok(DataType::Interval(IntervalUnit::YearMonth)),
                     _ => Err(ArrowError::ParseError(
-                        "date unit missing or invalid".to_string(),
+                        "interval unit missing or invalid".to_string(),
                     )),
                 },
                 Some(s) if s == "int" => match map.get("isSigned") {
@@ -500,6 +500,13 @@ impl Schema {
             .enumerate()
             .find(|&(_, c)| c.name == name)
     }
+
+    /// Generate a JSON representation of the `Field`
+    pub fn to_json(&self) -> Value {
+        json!({
+            "fields": self.fields.iter().map(|field| field.to_json()).collect::<Vec<Value>>(),
+        })
+    }
 }
 
 impl fmt::Display for Schema {
@@ -635,8 +642,8 @@ mod tests {
     }
 
     #[test]
-    fn create_schema_string() {
-        let _person = Schema::new(vec![
+    fn schema_json() {
+        let schema = Schema::new(vec![
             Field::new("c1", DataType::Utf8, false),
             Field::new("c2", DataType::Date(DateUnit::Day), false),
             Field::new("c3", DataType::Date(DateUnit::Millisecond), false),
@@ -671,7 +678,37 @@ mod tests {
                 false,
             ),
         ]);
-        assert_eq!(_person.to_string(), "c1: Utf8, c2: Date(Day), c3: Date(Millisecond), c7: Time32(Second), c8: Time32(Millisecond), c9: Time32(Microsecond), c10: Time32(Nanosecond), c11: Time64(Second), c12: Time64(Millisecond), c13: Time64(Microsecond), c14: Time64(Nanosecond), c15: Timestamp(Second), c16: Timestamp(Millisecond), c17: Timestamp(Microsecond), c18: Timestamp(Nanosecond), c19: Interval(DayTime), c20: Interval(YearMonth), c21: Struct([Field { name: \"a\", data_type: Utf8, nullable: false }, Field { name: \"b\", data_type: UInt16, nullable: false }])")
+
+        let json = schema.to_json().to_string();
+        assert_eq!(json, "{\"fields\":[{\"name\":\"c1\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},{\"name\":\"c2\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"DAY\"}},{\"name\":\"c3\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"MILLISECOND\"}},{\"name\":\"c7\",\"nullable\":false,\"type\":{\"bitWidth\":\"32\",\"name\":\"time\",\"unit\":\"SECOND\"}},{\"name\":\"c8\",\"nullable\":false,\"type\":{\"bitWidth\":\"32\",\"name\":\"time\",\"unit\":\"MILLISECOND\"}},{\"name\":\"c9\",\"nullable\":false,\"type\":{\"bitWidth\":\"32\",\"name\":\"time\",\"unit\":\"MICROSECOND\"}},{\"name\":\"c10\",\"nullable\":false,\"type\":{\"bitWidth\":\"32\",\"name\":\"time\",\"unit\":\"NANOSECOND\"}},{\"name\":\"c11\",\"nullable\":false,\"type\":{\"bitWidth\":\"64\",\"name\":\"time\",\"unit\":\"SECOND\"}},{\"name\":\"c12\",\"nullable\":false,\"type\":{\"bitWidth\":\"64\",\"name\":\"time\",\"unit\":\"MILLISECOND\"}},{\"name\":\"c13\",\"nullable\":false,\"type\":{\"bitWidth\":\"64\",\"name\":\"time\",\"unit\":\"MICROSECOND\"}},{\"name\":\"c14\",\"nullable\":false,\"type\":{\"bitWidth\":\"64\",\"name\":\"time\",\"unit\":\"NANOSECOND\"}},{\"name\":\"c15\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"SECOND\"}},{\"name\":\"c16\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MILLISECOND\"}},{\"name\":\"c17\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MICROSECOND\"}},{\"name\":\"c18\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"NANOSECOND\"}},{\"name\":\"c19\",\"nullable\":false,\"type\":{\"name\":\"interval\",\"unit\":\"DAY_TIME\"}},{\"name\":\"c20\",\"nullable\":false,\"type\":{\"name\":\"interval\",\"unit\":\"YEAR_MONTH\"}},{\"name\":\"c21\",\"nullable\":false,\"type\":{\"fields\":[{\"name\":\"a\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},{\"name\":\"b\",\"nullable\":false,\"type\":{\"bitWidth\":16,\"isSigned\":false,\"name\":\"int\"}}]}}]}");
+
+        // convert back to a schema
+        let value: Value = serde_json::from_str(&json).unwrap();
+        let schema2 = DataType::from(&value).unwrap();
+
+        match schema2 {
+            DataType::Struct(fields) => {
+                assert_eq!(schema.fields().len(), fields.len());
+            }
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn create_schema_string() {
+        let _person = Schema::new(vec![
+            Field::new("first_name", DataType::Utf8, false),
+            Field::new("last_name", DataType::Utf8, false),
+            Field::new(
+                "address",
+                DataType::Struct(vec![
+                    Field::new("street", DataType::Utf8, false),
+                    Field::new("zip", DataType::UInt16, false),
+                ]),
+                false,
+            ),
+        ]);
+        assert_eq!(_person.to_string(), "first_name: Utf8, last_name: Utf8, address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false }, Field { name: \"zip\", data_type: UInt16, nullable: false }])")
     }
 
     #[test]
