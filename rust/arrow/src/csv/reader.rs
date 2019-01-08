@@ -266,10 +266,10 @@ impl Reader {
                     &DataType::Float32 => self.build_primitive_array::<Float32Type>(rows, i),
                     &DataType::Float64 => self.build_primitive_array::<Float64Type>(rows, i),
                     &DataType::Utf8 => {
-                        let mut builder = BinaryArrayBuilder::new(rows.len());
+                        let mut builder = BinaryBuilder::new(rows.len());
                         for row_index in 0..rows.len() {
                             match rows[row_index].get(*i) {
-                                Some(s) => builder.push_string(s).unwrap(),
+                                Some(s) => builder.append_string(s).unwrap(),
                                 _ => builder.append(false).unwrap(),
                             }
                         }
@@ -294,7 +294,7 @@ impl Reader {
         rows: &[StringRecord],
         col_idx: &usize,
     ) -> Result<ArrayRef> {
-        let mut builder = PrimitiveArrayBuilder::<T>::new(rows.len());
+        let mut builder = PrimitiveBuilder::<T>::new(rows.len());
         let is_boolean_type = *self.schema.field(*col_idx).data_type() == DataType::Boolean;
         for row_index in 0..rows.len() {
             match rows[row_index].get(*col_idx) {
@@ -305,7 +305,7 @@ impl Reader {
                         s.parse::<T::Native>()
                     };
                     match t {
-                        Ok(v) => builder.push(v)?,
+                        Ok(v) => builder.append_value(v)?,
                         Err(_) => {
                             // TODO: we should surface the underlying error here.
                             return Err(ArrowError::ParseError(format!(
@@ -315,7 +315,7 @@ impl Reader {
                         }
                     }
                 }
-                _ => builder.push_null()?,
+                _ => builder.append_null()?,
             }
         }
         Ok(Arc::new(builder.finish()))

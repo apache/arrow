@@ -22,7 +22,7 @@ use std::ops::{Add, Div, Mul, Sub};
 use num::Zero;
 
 use crate::array::{Array, BooleanArray, PrimitiveArray};
-use crate::builder::PrimitiveArrayBuilder;
+use crate::builder::PrimitiveBuilder;
 use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
@@ -102,13 +102,13 @@ where
             "Cannot perform math operation on arrays of different length".to_string(),
         ));
     }
-    let mut b = PrimitiveArrayBuilder::<T>::new(left.len());
+    let mut b = PrimitiveBuilder::<T>::new(left.len());
     for i in 0..left.len() {
         let index = i;
         if left.is_null(i) || right.is_null(i) {
-            b.push_null()?;
+            b.append_null()?;
         } else {
-            b.push(op(left.value(index), right.value(index))?)?;
+            b.append_value(op(left.value(index), right.value(index))?)?;
         }
     }
     Ok(b.finish())
@@ -276,7 +276,7 @@ where
         } else {
             Some(right.value(index))
         };
-        b.push(op(l, r))?;
+        b.append_value(op(l, r))?;
     }
     Ok(b.finish())
 }
@@ -291,9 +291,9 @@ pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     let mut b = BooleanArray::builder(left.len());
     for i in 0..left.len() {
         if left.is_null(i) || right.is_null(i) {
-            b.push_null()?;
+            b.append_null()?;
         } else {
-            b.push(left.value(i) && right.value(i))?;
+            b.append_value(left.value(i) && right.value(i))?;
         }
     }
     Ok(b.finish())
@@ -309,9 +309,9 @@ pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     let mut b = BooleanArray::builder(left.len());
     for i in 0..left.len() {
         if left.is_null(i) || right.is_null(i) {
-            b.push_null()?;
+            b.append_null()?;
         } else {
-            b.push(left.value(i) || right.value(i))?;
+            b.append_value(left.value(i) || right.value(i))?;
         }
     }
     Ok(b.finish())
@@ -322,9 +322,9 @@ pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
     let mut b = BooleanArray::builder(left.len());
     for i in 0..left.len() {
         if left.is_null(i) {
-            b.push_null()?;
+            b.append_null()?;
         } else {
-            b.push(!left.value(i))?;
+            b.append_value(!left.value(i))?;
         }
     }
     Ok(b.finish())

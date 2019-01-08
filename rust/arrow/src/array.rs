@@ -201,8 +201,8 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     }
 
     // Returns a new primitive array builder
-    pub fn builder(capacity: usize) -> PrimitiveArrayBuilder<T> {
-        PrimitiveArrayBuilder::<T>::new(capacity)
+    pub fn builder(capacity: usize) -> PrimitiveBuilder<T> {
+        PrimitiveBuilder::<T>::new(capacity)
     }
 }
 
