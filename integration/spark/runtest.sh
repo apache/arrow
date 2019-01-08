@@ -26,7 +26,7 @@ pushd arrow/java
 popd
 
 # build Spark with Arrow
-pushd /spark
+pushd /spark/spark-${SPARK_VERSION}
   # update Spark pom with the Arrow version just installed and build Spark, need package phase for pyspark
   echo "Building Spark with Arrow $ARROW_VERSION"
   mvn -q versions:set-property -Dproperty=arrow.version -DnewVersion=$ARROW_VERSION

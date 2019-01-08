@@ -34,11 +34,13 @@ RUN apt-get update -q -y && \
 # - fix python compatibility issues in pyspark testing suite
 ARG SPARK_VERSION=2.4.0
 ADD integration/spark/$SPARK_VERSION.patch /arrow/integration/spark/$SPARK_VERSION.patch
-RUN wget -q -O spark.tar.gz https://github.com/apache/spark/archive/v$SPARK_VERSION.tar.gz && \
+RUN mkdir /spark && \
+    cd /spark && \
+    wget -q -O spark.tar.gz https://github.com/apache/spark/archive/v$SPARK_VERSION.tar.gz && \
     tar -xzf spark.tar.gz && \
     rm spark.tar.gz && \
-    mv spark-$SPARK_VERSION spark && \
-    patch -d /spark -p1 < /arrow/integration/spark/$SPARK_VERSION.patch
+    cd spark-$SPARK_VERSION && \
+    patch -p1 < /arrow/integration/spark/$SPARK_VERSION.patch
 
 # build cpp with tests
 ENV CC=gcc \

@@ -20,6 +20,9 @@ set -e
 
 pushd /arrow/java
 
-mvn -DskipTests -Drat.skip=true install
+mvn -DskipTests \
+    -Drat.skip=true \
+    -Ddocker.build.dir=/build/java \
+    install
 
 popd
