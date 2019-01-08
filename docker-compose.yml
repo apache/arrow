@@ -21,12 +21,12 @@ version: '3.5'
 
 x-ubuntu-volumes:
   &ubuntu-volumes
-  - .:/arrow:delegated
+  - .:/arrow:ro  # ensures that docker won't contaminate the host directory
   - ubuntu-cache:/build:delegated
 
 x-alpine-volumes:
   &alpine-volumes
-  - .:/arrow:delegated
+  - .:/arrow:ro  # ensures that docker won't contaminate the host directory
   - alpine-cache:/build:delegated
 
 volumes:
@@ -111,7 +111,7 @@ services:
       context: .
       dockerfile: java/Dockerfile
     volumes:
-      - .:/arrow:delegated
+      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
       - maven-cache:/root/.m2:delegated
 
   js:
@@ -324,7 +324,7 @@ services:
       context: .
       dockerfile: integration/spark/Dockerfile
     volumes:
-      - .:/arrow:delegated
+      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
       - ubuntu-cache:/build:delegated
       - maven-cache:/root/.m2:delegated
       - spark-cache:/spark:delegated

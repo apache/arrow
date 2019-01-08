@@ -18,11 +18,12 @@
 
 set -e
 
-pushd /arrow/java
+# /arrow/java is read-only
+mkdir -p /build/java
+rsync -a /arrow/header /build/java
+rsync -a /arrow/java /build/java
+rsync -a /arrow/format /build/java
 
-mvn -DskipTests \
-    -Drat.skip=true \
-    -Ddocker.build.dir=/build/java \
-    install
-
+pushd /build/java/java
+  mvn -DskipTests -Drat.skip=true install
 popd

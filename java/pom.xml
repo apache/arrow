@@ -658,18 +658,6 @@
         <module>gandiva</module>
       </modules>
     </profile>
-
-    <profile>
-      <id>dockerBuildDir</id>
-      <activation>
-        <property>
-          <name>docker.build.dir</name>
-        </property>
-      </activation>
-      <build>
-        <directory>${docker.build.dir}</directory>
-      </build>
-    </profile>
   </profiles>
 
 </project>
