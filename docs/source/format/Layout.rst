@@ -614,13 +614,13 @@ Dictionary encoding
 -------------------
 
 When a field is dictionary encoded, the values are represented by an array of
-Int32 representing the index of the value in the dictionary.  The Dictionary is
-received as one or more DictionaryBatches with the id referenced by a
-dictionary attribute defined in the metadata (Message.fbs) in the Field
-table.  The dictionary has the same layout as the type of the field would
-dictate. Each entry in the dictionary can be accessed by its index in the
-DictionaryBatches.  When a Schema references a Dictionary id, it must send at
-least one DictionaryBatch for this id.
+signed integers representing the index of the value in the dictionary.
+The Dictionary is received as one or more DictionaryBatches with the id
+referenced by a dictionary attribute defined in the metadata (Message.fbs)
+in the Field table.  The dictionary has the same layout as the type of the
+field would dictate. Each entry in the dictionary can be accessed by its
+index in the DictionaryBatches.  When a Schema references a Dictionary id,
+it must send at least one DictionaryBatch for this id.
 
 As an example, you could have the following data: ::
 
@@ -640,16 +640,17 @@ As an example, you could have the following data: ::
 In dictionary-encoded form, this could appear as: ::
 
     data List<String> (dictionary-encoded, dictionary id i)
-    indices: [0, 0, 0, 1, 1, 1, 0]
+       type: Int32
+       values:
+       [0, 0, 0, 1, 1, 1, 0]
 
     dictionary i
-
-    type: List<String>
-
-    [
-     ['a', 'b'],
-     ['c', 'd', 'e'],
-    ]
+       type: List<String>
+       values:
+       [
+        ['a', 'b'],
+        ['c', 'd', 'e'],
+       ]
 
 References
 ----------
