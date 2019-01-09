@@ -27,8 +27,8 @@
 G_BEGIN_DECLS
 
 /**
- * SECTION: decimal
- * @title: Decimal classes
+ * SECTION: decimal128
+ * @title: 128-bit decimal class
  * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowDecimal128 is a 128-bit decimal class.
