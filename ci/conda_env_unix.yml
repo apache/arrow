@@ -18,3 +18,4 @@
 # conda package dependencies specific to Unix-like environments (Linux and macOS)
 
 autoconf
+rsync
