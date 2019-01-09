@@ -29,6 +29,15 @@ module Arrow
       @columns ||= columns_raw
     end
 
+    # Converts the record batch to {Arrow::Table}.
+    #
+    # @return [Arrow::Table]
+    #
+    # @since 0.12.0
+    def to_table
+      Table.new(schema, [self])
+    end
+
     def respond_to_missing?(name, include_private)
       return true if find_column(name)
       super
