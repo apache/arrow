@@ -32,6 +32,7 @@ export interface Sliceable<R extends Vector> {
 /** @ignore */
 export interface Applicative<T extends DataType, R extends Chunked> {
     concat(...others: Vector<T>[]): R;
+    readonly [Symbol.isConcatSpreadable]: boolean;
 }
 
 export interface Vector<T extends DataType = any>

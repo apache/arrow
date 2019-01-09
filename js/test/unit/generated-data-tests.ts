@@ -65,23 +65,23 @@ interface GeneratedTable {
     table: Table;
     rows: () => any[][];
     cols: () => any[][];
-    keys: () => ArrayLike<number>[];
+    keys: () => number[][];
     rowBatches: (() => any[][])[];
     colBatches: (() => any[][])[];
-    keyBatches: (() => ArrayLike<number>[])[];
+    keyBatches: (() => number[][])[];
 }
 
 interface GeneratedRecordBatch {
     recordBatch: RecordBatch;
     rows: () => any[][];
     cols: () => any[][];
-    keys: () => ArrayLike<number>[];
+    keys: () => number[][];
 }
 
 interface GeneratedVector {
     vector: Vector;
     values: () => any[];
-    keys?: ArrayLike<number>;
+    keys?: number[];
 }
 
 function validateTable({ keys, rows, cols, rowBatches, colBatches, keyBatches, table }: GeneratedTable) {
@@ -116,79 +116,113 @@ function validateRecordBatch({ rows, cols, keys, recordBatch }: GeneratedRecordB
     });
 }
 
-function validateVector({ values: createValues, vector, keys }: GeneratedVector) {
+function validateVector({ values: createTestValues, vector, keys }: GeneratedVector, sliced = false) {
 
-    const values = createValues();
+    const values = createTestValues();
 
-    test(`gets expected values`, () => {
-        expect.hasAssertions();
-        let i = -1, n = vector.length, actual, expected;
-        try {
-            while (++i < n) {
-                actual = vector.get(i);
-                expected = values[i];
-                expect(actual).toArrowCompare(expected);
-            }
-        } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
-    });
+    describe(`Validate ${vector.type} (sliced=${sliced})`, () => {
 
-    if (keys && keys.length > 0) {
-        test(`dictionary indices should match`, () => {
+        test(`length is correct`, () => {
+            expect(vector.length).toBe(values.length);
+        });
+
+        test(`gets expected values`, () => {
             expect.hasAssertions();
-            let indices = (vector as any).indices;
-            let i = -1, n = indices.length;
+            let i = -1, n = vector.length, actual, expected;
             try {
                 while (++i < n) {
-                    indices.isValid(i)
-                        ? expect(indices.get(i)).toBe(keys[i])
-                        : expect(indices.get(i)).toBe(null);
+                    actual = vector.get(i);
+                    expected = values[i];
+                    expect(actual).toArrowCompare(expected);
                 }
-            } catch (e) { throw new Error(`${indices}[${i}]: ${e}`); }
+            } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
         });
+
+        if (keys && keys.length > 0) {
+            test(`dictionary indices should match`, () => {
+                expect.hasAssertions();
+                let indices = (vector as any).indices;
+                let i = -1, n = indices.length;
+                try {
+                    while (++i < n) {
+                        indices.isValid(i)
+                            ? expect(indices.get(i)).toBe(keys[i])
+                            : expect(indices.get(i)).toBe(null);
+                    }
+                } catch (e) { throw new Error(`${indices}[${i}]: ${e}`); }
+            });
+        }
+
+        test(`sets expected values`, () => {
+            expect.hasAssertions();
+            let i = -1, n = vector.length, actual, expected;
+            try {
+                while (++i < n) {
+                    expected = vector.get(i);
+                    vector.set(i, expected);
+                    actual = vector.get(i);
+                    expect(actual).toArrowCompare(expected);
+                }
+            } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
+        });
+
+        test(`iterates expected values`, () => {
+            expect.hasAssertions();
+            let i = -1, actual, expected;
+            try {
+                for (actual of vector) {
+                    expected = values[++i];
+                    expect(actual).toArrowCompare(expected);
+                }
+            } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
+        });
+
+        test(`indexOf returns expected values`, () => {
+            expect.hasAssertions();
+            let i = -1, n = vector.length;
+            const shuffled = shuffle(values);
+            let value: any, actual, expected;
+            try {
+                while (++i < n) {
+                    value = shuffled[i];
+                    actual = vector.indexOf(value);
+                    expected = values.findIndex(compare(value));
+                    expect(actual).toBe(expected);
+                }
+                // I would be pretty surprised if randomatic ever generates these values
+                expect(vector.indexOf('purple elephants')).toBe(-1);
+                expect(vector.indexOf('whistling wombats')).toBe(-1);
+                expect(vector.indexOf('carnivorous novices')).toBe(-1);
+            } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
+        });
+    });
+
+    if (!sliced) {
+
+        const begin = (values.length * .25) | 0;
+        const end = (values.length * .75) | 0;
+
+        // test slice with no args
+        validateVector({
+            vector: vector.slice(),
+            values: () => values.slice(),
+            keys: keys ? keys.slice() : undefined
+        }, true);
+
+        // test slicing half the array
+        validateVector({
+            vector: vector.slice(begin, end),
+            values: () => values.slice(begin, end),
+            keys: keys ? keys.slice(begin, end) : undefined
+        }, true);
+
+        // test concat each end together
+        validateVector({
+            vector: vector.slice(0, begin).concat(vector.slice(end)),
+            values: () => values.slice(0, begin).concat(values.slice(end)),
+            keys: keys ? [...keys.slice(0, begin), ...keys.slice(end)] : undefined
+        }, true);
     }
-
-    test(`sets expected values`, () => {
-        expect.hasAssertions();
-        let i = -1, n = vector.length, actual, expected;
-        try {
-            while (++i < n) {
-                expected = vector.get(i);
-                vector.set(i, expected);
-                actual = vector.get(i);
-                expect(actual).toArrowCompare(expected);
-            }
-        } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
-    });
-
-    test(`iterates expected values`, () => {
-        expect.hasAssertions();
-        let i = -1, actual, expected;
-        try {
-            for (actual of vector) {
-                expected = values[++i];
-                expect(actual).toArrowCompare(expected);
-            }
-        } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
-    });
-
-    test(`indexOf returns expected values`, () => {
-        expect.hasAssertions();
-        let i = -1, n = vector.length;
-        const shuffled = shuffle(values);
-        let value: any, actual, expected;
-        try {
-            while (++i < n) {
-                value = shuffled[i];
-                actual = vector.indexOf(value);
-                expected = values.findIndex(compare(value));
-                expect(actual).toBe(expected);
-            }
-            // I would be pretty surprised if randomatic ever generates these values
-            expect(vector.indexOf('purple elephants')).toBe(-1);
-            expect(vector.indexOf('whistling wombats')).toBe(-1);
-            expect(vector.indexOf('carnivorous novices')).toBe(-1);
-        } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
-    });
 }
 
 function shuffle(input: any[]) {

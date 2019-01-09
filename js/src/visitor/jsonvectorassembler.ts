@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { BN } from '../util/bn';
 import { Column } from '../column';
 import { Vector } from '../vector';
 import { Visitor } from '../visitor';
@@ -72,8 +73,8 @@ export class JSONVectorAssembler extends Visitor {
     public visit<T extends Column>(column: T) {
         const { data, name, length } = column;
         const { offset, nullCount, nullBitmap } = data;
-        const buffers = { ...data.buffers, [BufferType.VALIDITY]: undefined };
         const type = DataType.isDictionary(column.type) ? column.type.indices : column.type;
+        const buffers = Object.assign([], data.buffers, { [BufferType.VALIDITY]: undefined });
         return {
             'name': name,
             'count': length,
@@ -175,28 +176,6 @@ function* binaryToString(vector: Vector<Binary> | Vector<FixedSizeBinary>) {
 /** @ignore */
 function* bigNumsToStrings(values: Uint32Array | Int32Array, stride: number) {
     for (let i = -1, n = values.length / stride; ++i < n;) {
-        yield bignumToString(values.subarray((i + 0) * stride, (i + 1) * stride));
+        yield `${BN.new(values.subarray((i + 0) * stride, (i + 1) * stride))}`;
     }
-}
-
-/** @ignore */
-function bignumToString({ buffer, byteOffset, length }: Uint32Array | Int32Array) {
-
-    let digits = '', i = -1;
-    let r = new Uint32Array(2);
-    let a = new Uint16Array(buffer, byteOffset, length * 2);
-    let b = new Uint32Array((a = new Uint16Array(a).reverse()).buffer);
-    let n = a.length - 1;
-
-    do {
-        for (r[0] = a[i = 0]; i < n;) {
-            a[i++] = r[1] = r[0] / 10;
-            r[0] = ((r[0] - r[1] * 10) << 16) + a[i];
-        }
-        a[i] = r[1] = r[0] / 10;
-        r[0] = r[0] - r[1] * 10;
-        digits = `${r[0]}${digits}`;
-    } while (b[0] || b[1] || b[2] || b[3]);
-
-    return digits ? digits : `0`;
 }

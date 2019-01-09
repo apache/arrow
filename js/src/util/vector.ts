@@ -17,6 +17,7 @@
 
 import { Vector } from '../vector';
 import { Row } from '../vector/row';
+import { compareArrayLike } from '../util/buffer';
 
 /** @ignore */
 type RangeLike = { length: number; stride?: number };
@@ -69,8 +70,11 @@ export function createElementComparator(search: any) {
         const valueOfSearch = search.valueOf();
         return (value: any) => value instanceof Date ? (value.valueOf() === valueOfSearch) : false;
     }
+    if (ArrayBuffer.isView(search)) {
+        return (value: any) => value ? compareArrayLike(search, value) : false;
+    }
     // Compare Array-likes
-    if (Array.isArray(search) || ArrayBuffer.isView(search)) {
+    if (Array.isArray(search)) {
         const n = (search as any).length;
         const fns = [] as ((x: any) => boolean)[];
         for (let i = -1; ++i < n;) {

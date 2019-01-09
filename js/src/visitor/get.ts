@@ -16,6 +16,7 @@
 // under the License.
 
 import { Data } from '../data';
+import { BN } from '../util/bn';
 import { Visitor } from '../visitor';
 import { Vector } from '../interfaces';
 import { decodeUtf8 } from '../util/utf8';
@@ -91,8 +92,6 @@ export class GetVisitor extends Visitor {}
 
 /** @ignore */const epochMillisecondsToDate = (epochMs: number) => new Date(epochMs);
 /** @ignore */const epochDaysToDate = (data: Int32Array, index: number) => epochMillisecondsToDate(epochDaysToMs(data, index));
-// /** @ignore */ const epochSecondsToDate = (data: Int32Array, index: number) => epochMillisecondsToDate(epochSecondsToMs(data, index));
-// /** @ignore */ const epochNanosecondsLongToDate = (data: Int32Array, index: number) => epochMillisecondsToDate(epochNanosecondsLongToMs(data, index));
 /** @ignore */const epochMillisecondsLongToDate = (data: Int32Array, index: number) => epochMillisecondsToDate(epochMillisecondsLongToMs(data, index));
 
 /** @ignore */
@@ -124,7 +123,7 @@ const getNumeric         = <T extends Numeric1X>      ({ stride, values }: Vecto
 /** @ignore */
 const getFloat16         = <T extends Float16>        ({ stride, values }: Vector<T>, index: number): T['TValue'] => (values[stride * index] - 32767) / 32767;
 /** @ignore */
-const getNumericX2       = <T extends Numeric2X>      ({ stride, values }: Vector<T>, index: number): T['TValue'] => values.subarray(stride * index, stride * (index + 1));
+const getBigInts         = <T extends Numeric2X>({ stride, values, type }: Vector<T>, index: number): T['TValue'] => BN.new(values.subarray(stride * index, stride * (index + 1)), type.isSigned);
 /** @ignore */
 const getFixedSizeBinary = <T extends FixedSizeBinary>({ stride, values }: Vector<T>, index: number): T['TValue'] => values.subarray(stride * index, stride * (index + 1));
 
@@ -141,7 +140,7 @@ const getUtf8 = <T extends Utf8>({ values, valueOffsets }: Vector<T>, index: num
 const getInt = <T extends Int>(vector: Vector<T>, index: number): T['TValue'] => (
     vector.type.bitWidth < 64
         ? getNumeric(<any> vector, index)
-        : getNumericX2(<any> vector, index)
+        : getBigInts(<any> vector, index)
 );
 
 /* istanbul ignore next */
@@ -184,9 +183,9 @@ const getTimeSecond      = <T extends TimeSecond>     ({ values, stride }: Vecto
 /** @ignore */
 const getTimeMillisecond = <T extends TimeMillisecond>({ values, stride }: Vector<T>, index: number): T['TValue'] => values[stride * index];
 /** @ignore */
-const getTimeMicrosecond = <T extends TimeMicrosecond>({ values         }: Vector<T>, index: number): T['TValue'] => values.subarray(2 * index, 2 * (index + 1));
+const getTimeMicrosecond = <T extends TimeMicrosecond>({ values         }: Vector<T>, index: number): T['TValue'] => BN.new(values.subarray(2 * index, 2 * (index + 1)), true);
 /** @ignore */
-const getTimeNanosecond  = <T extends TimeNanosecond> ({ values         }: Vector<T>, index: number): T['TValue'] => values.subarray(2 * index, 2 * (index + 1));
+const getTimeNanosecond  = <T extends TimeNanosecond> ({ values         }: Vector<T>, index: number): T['TValue'] => BN.new(values.subarray(2 * index, 2 * (index + 1)), true);
 /* istanbul ignore next */
 /** @ignore */
 const getTime            = <T extends Time>(vector: Vector<T>, index: number): T['TValue'] => {
@@ -199,7 +198,7 @@ const getTime            = <T extends Time>(vector: Vector<T>, index: number): T
 };
 
 /** @ignore */
-const getDecimal = <T extends Decimal>({ values }: Vector<T>, index: number): T['TValue'] => values.subarray(4 * index, 4 * (index + 1));
+const getDecimal = <T extends Decimal>({ values }: Vector<T>, index: number): T['TValue'] => BN.new(values.subarray(4 * index, 4 * (index + 1)), false);
 
 /** @ignore */
 const getList = <T extends List>(vector: Vector<T>, index: number): T['TValue'] => {
@@ -275,11 +274,11 @@ GetVisitor.prototype.visitInt                  =                  getInt;
 GetVisitor.prototype.visitInt8                 =              getNumeric;
 GetVisitor.prototype.visitInt16                =              getNumeric;
 GetVisitor.prototype.visitInt32                =              getNumeric;
-GetVisitor.prototype.visitInt64                =            getNumericX2;
+GetVisitor.prototype.visitInt64                =              getBigInts;
 GetVisitor.prototype.visitUint8                =              getNumeric;
 GetVisitor.prototype.visitUint16               =              getNumeric;
 GetVisitor.prototype.visitUint32               =              getNumeric;
-GetVisitor.prototype.visitUint64               =            getNumericX2;
+GetVisitor.prototype.visitUint64               =              getBigInts;
 GetVisitor.prototype.visitFloat                =                getFloat;
 GetVisitor.prototype.visitFloat16              =              getFloat16;
 GetVisitor.prototype.visitFloat32              =              getNumeric;

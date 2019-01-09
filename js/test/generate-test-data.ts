@@ -130,8 +130,8 @@ const defaultUnionChildren = [
 ];
 
 export type GeneratedTestData<T extends DataType> = {
+    keys?: number[];
     vector: VType<T>;
-    keys?: ArrayLike<number>;
     values: () => (T['TValue'] | null)[];
 };
 
@@ -397,7 +397,7 @@ function generateDictionary<T extends Dictionary>(this: TestDataVectorGenerator,
     const vals = type.dictionaryVector ? (<any> type).dictVals : dictionary.values;
 
     const maxIdx = dict.length - 1;
-    const keys = new type.indices.ArrayType(length);
+    const keys = new type.indices.ArrayType(length) as any;
     const nullBitmap = createBitmap(length, nullCount);
 
     const values = memoize(() => {
@@ -450,7 +450,7 @@ function generateUnion<T extends Union>(this: TestDataVectorGenerator, type: T, 
         iterateBitmap(length, nullBitmap, (i, valid) => {
             typeIdsBuffer[i] = !valid ? 0 : typeIds[rand() * numChildren | 0];
         });
-        return { values, vector: Vector.new(Data.Union(type, 0, length, nullCount, nullBitmap, typeIdsBuffer, vecs)) };
+        return { values, vector: Vector.new(Data.Union(type as SparseUnion, 0, length, nullCount, nullBitmap, typeIdsBuffer, vecs)) } as GeneratedTestData<T>;
     }
 
     const offsets = new Int32Array(length);
@@ -472,7 +472,7 @@ function generateUnion<T extends Union>(this: TestDataVectorGenerator, type: T, 
             typeIdsBuffer[i] = typeIds[colIdx];
         }
     });
-    return { values, vector: Vector.new(Data.Union(type, 0, length, nullCount, nullBitmap, typeIdsBuffer, offsets, vecs)) };
+    return { values, vector: Vector.new(Data.Union(type as DenseUnion, 0, length, nullCount, nullBitmap, typeIdsBuffer, offsets, vecs)) } as GeneratedTestData<T>;
 }
 
 function generateStruct<T extends Struct>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = length * 0.2 | 0, children = type.children.map((f) => this.visit(f.type, length))): GeneratedTestData<T> {

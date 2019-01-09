@@ -16,10 +16,10 @@
 // under the License.
 
 // Use the ES5 UMD target as perf baseline
-// const { predicate, Table, read: readBatches } = require('../targets/es5/umd');
-// const { predicate, Table, read: readBatches } = require('../targets/es5/cjs');
-// const { predicate, Table, read: readBatches } = require('../targets/es2015/umd');
-const { predicate, Table, read: readBatches } = require('../targets/es2015/cjs');
+// const { predicate, Table, RecordBatchReader } = require('../targets/es5/umd');
+// const { predicate, Table, RecordBatchReader } = require('../targets/es5/cjs');
+// const { predicate, Table, RecordBatchReader } = require('../targets/es2015/umd');
+const { predicate, Table, RecordBatchReader } = require('../targets/es2015/cjs');
 const { col } = predicate;
 
 const Benchmark = require('benchmark');
@@ -91,7 +91,7 @@ function createReadBatchesTest(name, buffers) {
     return {
         async: true,
         name: `readBatches\n`,
-        fn() { for (recordBatch of readBatches(buffers)) {} }
+        fn() { for (recordBatch of RecordBatchReader.from(buffers)) {} }
     };
 }
 
@@ -139,34 +139,36 @@ function createDataFrameDirectCountTest(table, column, test, value) {
     let sum, colidx = table.schema.fields.findIndex((c)=>c.name === column);
 
     if (test == 'gt') {
-        op = function () {
+        op = () => {
             sum = 0;
-            let batches = table.batches;
+            let batches = table.chunks;
             let numBatches = batches.length;
             for (let batchIndex = -1; ++batchIndex < numBatches;) {
                 // load batches
                 const batch = batches[batchIndex];
                 const vector = batch.getChildAt(colidx);
                 // yield all indices
-                for (let index = -1; ++index < batch.length;) {
+                for (let index = -1, length = batch.length; ++index < length;) {
                     sum += (vector.get(index) >= value);
                 }
             }
+            return sum;
         }
     } else if (test == 'eq') {
-        op = function() {
+        op = () => {
             sum = 0;
-            let batches = table.batches;
+            let batches = table.chunks;
             let numBatches = batches.length;
             for (let batchIndex = -1; ++batchIndex < numBatches;) {
                 // load batches
                 const batch = batches[batchIndex];
                 const vector = batch.getChildAt(colidx);
                 // yield all indices
-                for (let index = -1; ++index < batch.length;) {
+                for (let index = -1, length = batch.length; ++index < length;) {
                     sum += (vector.get(index) === value);
                 }
             }
+            return sum;
         }
     } else {
         throw new Error(`Unrecognized test "${test}"`);
