@@ -20,10 +20,13 @@ set -e
 
 # /arrow/java is read-only
 mkdir -p /build/java
-rsync -a /arrow/header /build/java
-rsync -a /arrow/java /build/java
-rsync -a /arrow/format /build/java
 
-pushd /build/java/java
+arrow_src=/build/java/arrow
+
+pushd /arrow
+  rsync -a header java format integration $arrow_src
+popd
+
+pushd $arrow_src/java
   mvn -DskipTests -Drat.skip=true install
 popd

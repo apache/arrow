@@ -22,4 +22,5 @@ FROM maven:3.5.2-jdk-8-slim
 RUN apt-get update -y && apt-get install -y rsync
 
 CMD arrow/ci/docker_build_java.sh && \
-    cd /build/java && mvn test
+    cd /build/java/arrow/java && \
+    mvn test
