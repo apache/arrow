@@ -18,8 +18,8 @@
 import { Field } from './schema';
 import { Vector } from './vector';
 import { DataType } from './type';
-import { Chunked } from './vector/chunked';
 import { Clonable, Sliceable, Applicative } from './vector';
+import { Chunked, SearchContinuation } from './vector/chunked';
 
 export interface Column<T extends DataType = any> {
     typeId: T['TType'];
@@ -35,8 +35,12 @@ export class Column<T extends DataType = any>
                Applicative<T, Column<T>> {
 
     constructor(field: Field<T>, vectors: Vector<T>[] = [], offsets?: Uint32Array) {
-        super(field.type, Chunked.flatten(...vectors), offsets);
+        vectors = Chunked.flatten(...vectors);
+        super(field.type, vectors, offsets);
         this._field = field;
+        if (vectors.length === 1 && !(this instanceof SingleChunkColumn)) {
+            return new SingleChunkColumn(field, vectors[0], this._chunkOffsets);
+        }
     }
 
     protected _field: Field<T>;
@@ -67,5 +71,30 @@ export class Column<T extends DataType = any>
         }
 
         return null;
+    }
+}
+
+class SingleChunkColumn<T extends DataType = any> extends Column<T> {
+    protected _chunk: Vector<T>;
+    constructor(field: Field<T>, vector: Vector<T>, offsets?: Uint32Array) {
+        super(field, [vector], offsets);
+        this._chunk = vector;
+    }
+    public search(index: number): [number, number] | null;
+    public search<N extends SearchContinuation<Chunked<T>>>(index: number, then?: N): ReturnType<N>;
+    public search<N extends SearchContinuation<Chunked<T>>>(index: number, then?: N) {
+        return then ? then(this, 0, index) : [0, index];
+    }
+    public isValid(index: number): boolean {
+        return this._chunk.isValid(index);
+    }
+    public get(index: number): T['TValue'] | null {
+        return this._chunk.get(index);
+    }
+    public set(index: number, value: T['TValue'] | null): void {
+        this._chunk.set(index, value);
+    }
+    public indexOf(element: T['TValue'], offset?: number): number {
+        return this._chunk.indexOf(element, offset);
     }
 }
