@@ -72,13 +72,13 @@ export interface BN<T extends BigNumArray> extends TypedArrayLike<T> {
     readonly signed: boolean;
 
     [Symbol.toStringTag]:
-        "Int8Array"         |
-        "Int16Array"        |
-        "Int32Array"        |
-        "Uint8Array"        |
-        "Uint16Array"       |
-        "Uint32Array"       |
-        "Uint8ClampedArray"
+        'Int8Array'         |
+        'Int16Array'        |
+        'Int32Array'        |
+        'Uint8Array'        |
+        'Uint16Array'       |
+        'Uint32Array'       |
+        'Uint8ClampedArray';
 
     /**
      * Convert the bytes to their (positive) decimal representation for printing
@@ -92,7 +92,7 @@ export interface BN<T extends BigNumArray> extends TypedArrayLike<T> {
     valueOf(): number;
     /**
      * Return the JSON representation of the bytes. Must be wrapped in double-quotes,
-     * so it's compatible with JSON.stringify(). 
+     * so it's compatible with JSON.stringify().
      */
     toJSON(): string;
     [Symbol.iterator](): IterableIterator<BN<T>>;

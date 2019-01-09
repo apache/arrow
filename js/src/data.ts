@@ -69,7 +69,7 @@ export class Data<T extends DataType = DataType> {
     public readonly nullBitmap: Buffers<T>[BufferType.VALIDITY];
     // @ts-ignore
     public readonly valueOffsets: Buffers<T>[BufferType.OFFSET];
-    
+
     public get ArrayType() { return this.type.ArrayType; }
     public get typeId(): T['TType'] { return this.type.typeId; }
     public get buffers() {

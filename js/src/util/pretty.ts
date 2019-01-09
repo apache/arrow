@@ -19,8 +19,8 @@
 
 /** @ignore */
 export function valueToString(x: any) {
-    if (x === null) return 'null';
-    if (x === undf) return 'undefined';
+    if (x === null) { return 'null'; }
+    if (x === undf) { return 'undefined'; }
     if (typeof x === 'string') { return `"${x}"`; }
     // If [Symbol.toPrimitive] is implemented (like in BN)
     // use it instead of JSON.stringify(). This ensures we
