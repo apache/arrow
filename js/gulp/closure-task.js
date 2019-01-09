@@ -126,13 +126,9 @@ function generateUMDExportAssignnent(src, exportedImports) {
 function generateExternsFile(exportedImports) {
     return [
         externsHeader(),
-        ...exportedImports.reduce((externBodies, { publicModulePath, exports_ }) => {
-            const body = exports_.map(externBody).filter(Boolean);
-            return [
-                ...externBodies,
-                ...(body.length ? [`// Exported from ${publicModulePath}`, ...body]: [])
-            ];
-        }, [])
+        ...exportedImports.reduce((externBodies, { exports_ }) => [
+            ...externBodies, ...exports_.map(externBody)
+        ], []).filter(Boolean)
     ].join('\n');
 }
 
