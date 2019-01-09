@@ -244,14 +244,6 @@ Status ReadTensor(const Message& message, std::shared_ptr<Tensor>* out);
 ARROW_EXPORT
 Status ReadSparseTensor(io::InputStream* file, std::shared_ptr<SparseTensorBase>* out);
 
-/// \brief EXPERIMENTAL: Read arrow::Tensor from IPC message
-///
-/// \param[in] message a Message containing the tensor metadata and body
-/// \param[out] out the read tensor
-/// \return Status
-ARROW_EXPORT
-Status ReadTensor(const Message& message, std::shared_ptr<SparseTensorBase>* out);
-
 /// \brief EXPERIMENTAL: Read arrow::SparseTensor from IPC message
 ///
 /// \param[in] message a Message containing the tensor metadata and body
