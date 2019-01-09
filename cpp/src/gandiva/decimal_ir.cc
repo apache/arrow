@@ -218,27 +218,23 @@ DecimalIR::ValueWithOverflow DecimalIR::AddWithOverflowCheck(const ValueFull& x,
 // This is pretty complex, so use CPP fns.
 llvm::Value* DecimalIR::AddLarge(const ValueFull& x, const ValueFull& y,
                                  const ValueFull& out) {
-  std::vector<llvm::Value*> args;
-
+  auto block = ir_builder()->GetInsertBlock();
+  auto out_high_ptr = new llvm::AllocaInst(types()->i64_type(), 0, "out_hi", block);
+  auto out_low_ptr = new llvm::AllocaInst(types()->i64_type(), 0, "out_low", block);
   auto x_split = ValueSplit::MakeFromInt128(this, x.value());
-  args.push_back(x_split.high());
-  args.push_back(x_split.low());
-  args.push_back(x.precision());
-  args.push_back(x.scale());
-
   auto y_split = ValueSplit::MakeFromInt128(this, y.value());
-  args.push_back(y_split.high());
-  args.push_back(y_split.low());
-  args.push_back(y.precision());
-  args.push_back(y.scale());
 
-  args.push_back(out.precision());
-  args.push_back(out.scale());
+  std::vector<llvm::Value*> args = {
+      x_split.high(),  x_split.low(), x.precision(), x.scale(),
+      y_split.high(),  y_split.low(), y.precision(), y.scale(),
+      out.precision(), out.scale(),   out_high_ptr,  out_low_ptr,
+  };
+  ir_builder()->CreateCall(module()->getFunction("add_large_decimal128_decimal128"),
+                           args);
 
-  auto split = ir_builder()->CreateCall(
-      module()->getFunction("add_large_decimal128_decimal128"), args);
-
-  auto sum = ValueSplit::MakeFromStruct(this, split).AsInt128(this);
+  auto out_high = ir_builder()->CreateLoad(out_high_ptr);
+  auto out_low = ir_builder()->CreateLoad(out_low_ptr);
+  auto sum = ValueSplit(out_high, out_low).AsInt128(this);
   ADD_TRACE_128("AddLarge : sum", sum);
   return sum;
 }
