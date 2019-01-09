@@ -44,9 +44,6 @@ else()
   set(PROTO_DEPENDS ${FLIGHT_PROTO})
 endif()
 
-# Get location of grpc_cpp_plugin so we can pass it to protoc
-get_property(GRPC_CPP_PLUGIN TARGET gRPC::grpc_cpp_plugin PROPERTY LOCATION)
-
 add_custom_command(
   OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
   COMMAND ${PROTOBUF_EXECUTABLE}

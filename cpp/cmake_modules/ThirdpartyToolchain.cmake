@@ -1245,29 +1245,50 @@ if (ARROW_FLIGHT)
       ${EP_LOG_OPTIONS})
     include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
   else()
-    find_package(gRPC CONFIG REQUIRED)
+    find_package(gRPC CONFIG)
     set(GRPC_VENDORED 0)
   endif()
 
-  get_property(GPR_STATIC_LIB TARGET gRPC::gpr PROPERTY LOCATION)
+  if (GRPC_VENDORED OR gRPC_FOUND)
+    get_property(GPR_STATIC_LIB TARGET gRPC::gpr PROPERTY LOCATION)
+    get_property(GRPC_STATIC_LIB TARGET gRPC::grpc_unsecure PROPERTY LOCATION)
+    get_property(GRPCPP_STATIC_LIB TARGET gRPC::grpc++_unsecure PROPERTY LOCATION)
+    get_property(GRPC_ADDRESS_SORTING_STATIC_LIB
+      TARGET gRPC::address_sorting PROPERTY LOCATION)
+    # XXX(wesm): relying on vendored c-ares provided by gRPC for the time being
+    get_property(CARES_STATIC_LIB TARGET c-ares::cares_static PROPERTY LOCATION)
+    # Get location of grpc_cpp_plugin so we can pass it to protoc
+    get_property(GRPC_CPP_PLUGIN TARGET gRPC::grpc_cpp_plugin PROPERTY LOCATION)
+  else()
+    # This is a non-CMake installation of gRPC
+    set(GPR_STATIC_LIB "${GRPC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_STATIC_LIB "${GRPC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPCPP_STATIC_LIB "${GRPC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_ADDRESS_SORTING_STATIC_LIB "${GRPC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+    if ("${GRPC_CPP_PLUGIN}" STREQUAL "")
+      message(SEND_ERROR "Please set GRPC_CPP_PLUGIN.")
+    endif()
+
+    # If gRPC is built with CMake, it installs its own c-ares, so use
+    # that; otherwise, see if the user provided a c-ares installation
+    if (NOT "${CARES_HOME}" STREQUAL "")
+      set(CARES_STATIC_LIB "${CARES_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cares${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    endif()
+  endif()
+
   ADD_THIRDPARTY_LIB(grpc_gpr
     STATIC_LIB ${GPR_STATIC_LIB})
 
-  get_property(GRPC_STATIC_LIB TARGET gRPC::grpc_unsecure PROPERTY LOCATION)
   ADD_THIRDPARTY_LIB(grpc_grpc
     STATIC_LIB ${GRPC_STATIC_LIB})
 
-  get_property(GRPCPP_STATIC_LIB TARGET gRPC::grpc++_unsecure PROPERTY LOCATION)
   ADD_THIRDPARTY_LIB(grpc_grpcpp
     STATIC_LIB ${GRPCPP_STATIC_LIB})
 
-  get_property(GRPC_ADDRESS_SORTING_STATIC_LIB
-    TARGET gRPC::address_sorting PROPERTY LOCATION)
   ADD_THIRDPARTY_LIB(grpc_address_sorting
     STATIC_LIB ${GRPC_ADDRESS_SORTING_STATIC_LIB})
 
-  # XXX(wesm): relying on vendored c-ares provided by gRPC for the time being
-  get_property(CARES_STATIC_LIB TARGET c-ares::cares_static PROPERTY LOCATION)
   ADD_THIRDPARTY_LIB(cares
     STATIC_LIB ${CARES_STATIC_LIB})
 endif()
