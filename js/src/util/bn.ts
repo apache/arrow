@@ -22,9 +22,9 @@ type IntArray = Int8Array | Int16Array | Int32Array;
 type UintArray = Uint8Array | Uint16Array | Uint32Array | Uint8ClampedArray;
 
 const BigNumNMixin = {
-    toJSON(this: BN<BigNumArray>, ) { return `"${this[Symbol.toPrimitive]('string')}"`; },
-    valueOf(this: BN<BigNumArray>, ) { return this[Symbol.toPrimitive]('number') as number; },
-    toString(this: BN<BigNumArray>, ) { return this[Symbol.toPrimitive]('string') as string; },
+    toJSON(this: BN<BigNumArray>, ) { return `"${bignumToString(this)}"`; },
+    valueOf(this: BN<BigNumArray>, ) { return bignumToNumber(this); },
+    toString(this: BN<BigNumArray>, ) { return bignumToString(this); },
     [Symbol.toPrimitive]<T extends BN<BigNumArray>>(this: T, hint: 'string' | 'number' | 'default') {
         if (hint === 'number') { return bignumToNumber(this); }
         /** @suppress {missingRequire} */
@@ -95,7 +95,6 @@ export interface BN<T extends BigNumArray> extends TypedArrayLike<T> {
      * so it's compatible with JSON.stringify().
      */
     toJSON(): string;
-    [Symbol.iterator](): IterableIterator<BN<T>>;
     [Symbol.toPrimitive](hint: any): number | string | bigint;
 }
 

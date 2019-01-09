@@ -158,6 +158,8 @@ function externsHeader() {
 /** @type {symbol} */
 Symbol.iterator;
 /** @type {symbol} */
+Symbol.toPrimitive;
+/** @type {symbol} */
 Symbol.asyncIterator;
 `);
 }
