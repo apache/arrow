@@ -22,13 +22,17 @@
 #include <string>
 #include <vector>
 
-#include "arrow/sparse_tensor_format.h"
 #include "arrow/tensor.h"
 
 namespace arrow {
 
 // ----------------------------------------------------------------------
 // SparseIndex class
+
+/// \brief EXPERIMENTAL: Sparse tensor format enumeration
+struct SparseTensorFormat {
+  enum type { COO, CSR };
+};
 
 /// \brief EXPERIMENTAL: The base class for representing index of non-zero
 /// values in sparse tensor

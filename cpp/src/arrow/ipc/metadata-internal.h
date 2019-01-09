@@ -33,7 +33,7 @@
 #include "arrow/ipc/dictionary.h"  // IYWU pragma: keep
 #include "arrow/ipc/message.h"
 #include "arrow/memory_pool.h"
-#include "arrow/sparse_tensor_format.h"
+#include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 
 namespace arrow {
