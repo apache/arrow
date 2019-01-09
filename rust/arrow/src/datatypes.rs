@@ -66,13 +66,13 @@ pub enum DataType {
     Struct(Vec<Field>),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DateUnit {
     Day,
     Millisecond,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TimeUnit {
     Second,
     Millisecond,
@@ -80,7 +80,7 @@ pub enum TimeUnit {
     Nanosecond,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum IntervalUnit {
     YearMonth,
     DayTime,
