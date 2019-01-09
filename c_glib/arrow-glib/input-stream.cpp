@@ -330,22 +330,20 @@ garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
  * @input_stream: A #GArrowSeekableInputStream.
  * @n_bytes: The number of bytes to be peeked.
  *
- * Returns: (transfer full): The string representation of any buffered bytes,
- *   up to the indicated number.
+ * Returns: (transfer full): The data of the buffer, up to the indicated number.
  *
- *   It should be freed with g_free() when no longer needed.
+ *   You should not free or modify the data.
  *
  * Since: 0.12.0
  */
-const gchar *
+GBytes *
 garrow_seekable_input_stream_peek(GArrowSeekableInputStream *input_stream,
                                   gint64 n_bytes)
 {
   auto arrow_random_access_file =
     garrow_seekable_input_stream_get_raw(input_stream);
   auto string_view = arrow_random_access_file->Peek(n_bytes);
-  auto string = string_view.to_string();
-  return g_strndup(string.data(), string.size());
+  return g_bytes_new_static(string_view.data(), string_view.size());
 }
 
 

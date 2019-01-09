@@ -66,8 +66,8 @@ GArrowBuffer *garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *in
                                                    gint64 position,
                                                    gint64 n_bytes,
                                                    GError **error);
-const gchar *garrow_seekable_input_stream_peek(GArrowSeekableInputStream *input_stream,
-                                               gint64 n_bytes);
+GBytes *garrow_seekable_input_stream_peek(GArrowSeekableInputStream *input_stream,
+                                          gint64 n_bytes);
 
 
 #define GARROW_TYPE_BUFFER_INPUT_STREAM         \

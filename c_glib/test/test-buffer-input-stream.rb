@@ -45,6 +45,6 @@ class TestBufferInputStream < Test::Unit::TestCase
     buffer_input_stream = Arrow::BufferInputStream.new(buffer)
     peeked_data = buffer_input_stream.peek(5)
     assert_equal(buffer_input_stream.read(5).data.to_s,
-                 peeked_data)
+                 peeked_data.to_s)
   end
 end
