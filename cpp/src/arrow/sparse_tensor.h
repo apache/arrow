@@ -117,7 +117,7 @@ class ARROW_EXPORT SparseTensor {
  public:
   virtual ~SparseTensor() = default;
 
-  SparseTensorFormat::type sparse_tensor_format_id() const {
+  SparseTensorFormat::type format_id() const {
     return sparse_index_->format_id();
   }
 

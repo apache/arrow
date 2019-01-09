@@ -824,7 +824,7 @@ struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
 template <typename SparseIndexType>
 inline bool SparseTensorEqualsImplDispatch(const SparseTensorImpl<SparseIndexType>& left,
                                            const SparseTensor& right) {
-  switch (right.sparse_tensor_format_id()) {
+  switch (right.format_id()) {
     case SparseTensorFormat::COO: {
       const auto& right_coo = checked_cast<const SparseTensorImpl<SparseCOOIndex>&>(right);
       return SparseTensorEqualsImpl<SparseIndexType, SparseCOOIndex>::Compare(left,
@@ -857,7 +857,7 @@ bool SparseTensorEquals(const SparseTensor& left, const SparseTensor& right) {
     return false;
   }
 
-  switch (left.sparse_tensor_format_id()) {
+  switch (left.format_id()) {
     case SparseTensorFormat::COO: {
       const auto& left_coo = checked_cast<const SparseTensorImpl<SparseCOOIndex>&>(left);
       return SparseTensorEqualsImplDispatch(left_coo, right);

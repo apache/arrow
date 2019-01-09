@@ -34,7 +34,7 @@ namespace arrow {
 
 static inline void CheckSparseIndexFormatType(SparseTensorFormat::type expected,
                                               const SparseTensor& sparse_tensor) {
-  ASSERT_EQ(expected, sparse_tensor.sparse_tensor_format_id());
+  ASSERT_EQ(expected, sparse_tensor.format_id());
   ASSERT_EQ(expected, sparse_tensor.sparse_index()->format_id());
 }
 
