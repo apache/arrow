@@ -195,6 +195,13 @@ class ARROW_EXPORT SparseTensorImpl : public SparseTensor {
   ARROW_DISALLOW_COPY_AND_ASSIGN(SparseTensorImpl);
 };
 
+/// \brief EXPERIMENTAL: Type alias for COO sparse tensor
+using SparseTensorCOO = SparseTensorImpl<SparseCOOIndex>;
+
+/// \brief EXPERIMENTAL: Type alias for CSR sparse matrix
+using SparseTensorCSR = SparseTensorImpl<SparseCSRIndex>;
+using SparseMatrixCSR = SparseTensorImpl<SparseCSRIndex>;
+
 }  // namespace arrow
 
 #endif  // ARROW_SPARSE_TENSOR_H
