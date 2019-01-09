@@ -1244,12 +1244,7 @@ if (ARROW_FLIGHT)
       CMAKE_ARGS ${GRPC_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
     include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
-  else()
-    find_package(gRPC CONFIG)
-    set(GRPC_VENDORED 0)
-  endif()
 
-  if (GRPC_VENDORED OR gRPC_FOUND)
     get_property(GPR_STATIC_LIB TARGET gRPC::gpr PROPERTY LOCATION)
     get_property(GRPC_STATIC_LIB TARGET gRPC::grpc_unsecure PROPERTY LOCATION)
     get_property(GRPCPP_STATIC_LIB TARGET gRPC::grpc++_unsecure PROPERTY LOCATION)
@@ -1260,21 +1255,18 @@ if (ARROW_FLIGHT)
     # Get location of grpc_cpp_plugin so we can pass it to protoc
     get_property(GRPC_CPP_PLUGIN TARGET gRPC::grpc_cpp_plugin PROPERTY LOCATION)
   else()
-    # This is a non-CMake installation of gRPC
-    set(GPR_STATIC_LIB "${GRPC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GRPC_STATIC_LIB "${GRPC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GRPCPP_STATIC_LIB "${GRPC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GRPC_ADDRESS_SORTING_STATIC_LIB "${GRPC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}")
-
-    if ("${GRPC_CPP_PLUGIN}" STREQUAL "")
-      message(SEND_ERROR "Please set GRPC_CPP_PLUGIN.")
-    endif()
+    find_package(gRPC REQUIRED)
+    set(GRPC_VENDORED 0)
 
     # If gRPC is built with CMake, it installs its own c-ares, so use
     # that; otherwise, see if the user provided a c-ares installation
     if (NOT "${CARES_HOME}" STREQUAL "")
       set(CARES_STATIC_LIB "${CARES_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cares${CMAKE_STATIC_LIBRARY_SUFFIX}")
     endif()
+  endif()
+
+  if ("${GRPC_CPP_PLUGIN}" STREQUAL "")
+    message(SEND_ERROR "Please set GRPC_CPP_PLUGIN.")
   endif()
 
   ADD_THIRDPARTY_LIB(grpc_gpr
