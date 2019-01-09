@@ -15,7 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/** @ignore */ const undf = void (0);
+
 /** @ignore */
 export function valueToString(x: any) {
-    return typeof x === 'string' ? `"${x}"` : ArrayBuffer.isView(x) ? `[${x}]` : JSON.stringify(x);
+    if (x === null) return 'null';
+    if (x === undf) return 'undefined';
+    if (typeof x === 'string') { return `"${x}"`; }
+    // If [Symbol.toPrimitive] is implemented (like in BN)
+    // use it instead of JSON.stringify(). This ensures we
+    // print BigInts, Decimals, and Binary in their native
+    // representation
+    if (typeof x[Symbol.toPrimitive] === 'function') {
+        return x[Symbol.toPrimitive]('string');
+    }
+    return ArrayBuffer.isView(x) ? `[${x}]` : JSON.stringify(x);
 }
