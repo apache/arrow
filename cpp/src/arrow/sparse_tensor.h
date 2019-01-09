@@ -121,9 +121,7 @@ class ARROW_EXPORT SparseTensor {
  public:
   virtual ~SparseTensor() = default;
 
-  SparseTensorFormat::type format_id() const {
-    return sparse_index_->format_id();
-  }
+  SparseTensorFormat::type format_id() const { return sparse_index_->format_id(); }
 
   std::shared_ptr<DataType> type() const { return type_; }
   std::shared_ptr<Buffer> data() const { return data_; }
@@ -154,8 +152,8 @@ class ARROW_EXPORT SparseTensor {
 
  protected:
   // Constructor with all attributes
-  SparseTensor(const std::shared_ptr<DataType>& type,
-               const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
+  SparseTensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
+               const std::vector<int64_t>& shape,
                const std::shared_ptr<SparseIndex>& sparse_index,
                const std::vector<std::string>& dim_names);
 
@@ -171,7 +169,8 @@ class ARROW_EXPORT SparseTensor {
 // ----------------------------------------------------------------------
 // SparseTensorImpl class
 
-/// \brief EXPERIMENTAL: Concrete sparse tensor implementation classes with sparse index type
+/// \brief EXPERIMENTAL: Concrete sparse tensor implementation classes with sparse index
+/// type
 template <typename SparseIndexType>
 class ARROW_EXPORT SparseTensorImpl : public SparseTensor {
  public:
@@ -179,13 +178,14 @@ class ARROW_EXPORT SparseTensorImpl : public SparseTensor {
 
   // Constructor with all attributes
   SparseTensorImpl(const std::shared_ptr<SparseIndexType>& sparse_index,
-                   const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-                   const std::vector<int64_t>& shape,
+                   const std::shared_ptr<DataType>& type,
+                   const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
                    const std::vector<std::string>& dim_names)
       : SparseTensor(type, data, shape, sparse_index, dim_names) {}
 
   // Constructor for empty sparse tensor
-  SparseTensorImpl(const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
+  SparseTensorImpl(const std::shared_ptr<DataType>& type,
+                   const std::vector<int64_t>& shape,
                    const std::vector<std::string>& dim_names = {});
 
   // Constructor with a dense numeric tensor

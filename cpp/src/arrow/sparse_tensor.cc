@@ -311,10 +311,10 @@ std::string SparseCSRIndex::ToString() const { return std::string("SparseCSRInde
 
 // Constructor with all attributes
 SparseTensor::SparseTensor(const std::shared_ptr<DataType>& type,
-                                   const std::shared_ptr<Buffer>& data,
-                                   const std::vector<int64_t>& shape,
-                                   const std::shared_ptr<SparseIndex>& sparse_index,
-                                   const std::vector<std::string>& dim_names)
+                           const std::shared_ptr<Buffer>& data,
+                           const std::vector<int64_t>& shape,
+                           const std::shared_ptr<SparseIndex>& sparse_index,
+                           const std::vector<std::string>& dim_names)
     : type_(type),
       data_(data),
       shape_(shape),
@@ -346,16 +346,17 @@ bool SparseTensor::Equals(const SparseTensor& other) const {
 
 // Constructor with a dense tensor
 template <typename SparseIndexType>
-SparseTensorImpl<SparseIndexType>::SparseTensorImpl(const std::shared_ptr<DataType>& type,
-                                                    const std::vector<int64_t>& shape,
-                                                    const std::vector<std::string>& dim_names)
+SparseTensorImpl<SparseIndexType>::SparseTensorImpl(
+    const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
+    const std::vector<std::string>& dim_names)
     : SparseTensorImpl(nullptr, type, nullptr, shape, dim_names) {}
 
 // Constructor with a dense tensor
 template <typename SparseIndexType>
 template <typename TYPE>
 SparseTensorImpl<SparseIndexType>::SparseTensorImpl(const NumericTensor<TYPE>& tensor)
-    : SparseTensorImpl(nullptr, tensor.type(), nullptr, tensor.shape(), tensor.dim_names_) {
+    : SparseTensorImpl(nullptr, tensor.type(), nullptr, tensor.shape(),
+                       tensor.dim_names_) {
   SparseTensorConverter<TYPE, SparseIndexType> converter(tensor);
   DCHECK_OK(converter.Convert());
   sparse_index_ = converter.sparse_index;
@@ -365,7 +366,8 @@ SparseTensorImpl<SparseIndexType>::SparseTensorImpl(const NumericTensor<TYPE>& t
 // Constructor with a dense tensor
 template <typename SparseIndexType>
 SparseTensorImpl<SparseIndexType>::SparseTensorImpl(const Tensor& tensor)
-    : SparseTensorImpl(nullptr, tensor.type(), nullptr, tensor.shape(), tensor.dim_names_) {
+    : SparseTensorImpl(nullptr, tensor.type(), nullptr, tensor.shape(),
+                       tensor.dim_names_) {
   switch (tensor.type()->id()) {
     case Type::UINT8:
       MakeSparseTensorFromTensor<UInt8Type, SparseIndexType>(tensor, &sparse_index_,
@@ -419,29 +421,29 @@ SparseTensorImpl<SparseIndexType>::SparseTensorImpl(const Tensor& tensor)
 // ----------------------------------------------------------------------
 // Instantiate templates
 
-#define INSTANTIATE_SPARSE_TENSOR(IndexType)                    \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorImpl<IndexType>; \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl(  \
-      const NumericTensor<UInt8Type>&);                         \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl(  \
-      const NumericTensor<UInt16Type>&);                        \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl(  \
-      const NumericTensor<UInt32Type>&);                        \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl(  \
-      const NumericTensor<UInt64Type>&);                        \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl(  \
-      const NumericTensor<Int8Type>&);                          \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl(  \
-      const NumericTensor<Int16Type>&);                         \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl(  \
-      const NumericTensor<Int32Type>&);                         \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl(  \
-      const NumericTensor<Int64Type>&);                         \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl(  \
-      const NumericTensor<HalfFloatType>&);                     \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl(  \
-      const NumericTensor<FloatType>&);                         \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl(  \
+#define INSTANTIATE_SPARSE_TENSOR(IndexType)                           \
+  template class ARROW_TEMPLATE_EXPORT SparseTensorImpl<IndexType>;    \
+  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
+      const NumericTensor<UInt8Type>&);                                \
+  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
+      const NumericTensor<UInt16Type>&);                               \
+  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
+      const NumericTensor<UInt32Type>&);                               \
+  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
+      const NumericTensor<UInt64Type>&);                               \
+  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
+      const NumericTensor<Int8Type>&);                                 \
+  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
+      const NumericTensor<Int16Type>&);                                \
+  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
+      const NumericTensor<Int32Type>&);                                \
+  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
+      const NumericTensor<Int64Type>&);                                \
+  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
+      const NumericTensor<HalfFloatType>&);                            \
+  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
+      const NumericTensor<FloatType>&);                                \
+  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
       const NumericTensor<DoubleType>&)
 
 INSTANTIATE_SPARSE_TENSOR(SparseCOOIndex);

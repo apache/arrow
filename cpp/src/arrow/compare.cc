@@ -826,15 +826,17 @@ inline bool SparseTensorEqualsImplDispatch(const SparseTensorImpl<SparseIndexTyp
                                            const SparseTensor& right) {
   switch (right.format_id()) {
     case SparseTensorFormat::COO: {
-      const auto& right_coo = checked_cast<const SparseTensorImpl<SparseCOOIndex>&>(right);
+      const auto& right_coo =
+          checked_cast<const SparseTensorImpl<SparseCOOIndex>&>(right);
       return SparseTensorEqualsImpl<SparseIndexType, SparseCOOIndex>::Compare(left,
-                                                                               right_coo);
+                                                                              right_coo);
     }
 
     case SparseTensorFormat::CSR: {
-      const auto& right_csr = checked_cast<const SparseTensorImpl<SparseCSRIndex>&>(right);
+      const auto& right_csr =
+          checked_cast<const SparseTensorImpl<SparseCSRIndex>&>(right);
       return SparseTensorEqualsImpl<SparseIndexType, SparseCSRIndex>::Compare(left,
-                                                                               right_csr);
+                                                                              right_csr);
     }
 
     default:

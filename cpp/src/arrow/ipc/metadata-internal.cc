@@ -836,8 +836,8 @@ Status MakeSparseTensorIndex(FBB& fbb, const SparseIndex& sparse_index,
   return Status::OK();
 }
 
-Status MakeSparseTensor(FBB& fbb, const SparseTensor& sparse_tensor,
-                        int64_t body_length, const std::vector<BufferMetadata>& buffers,
+Status MakeSparseTensor(FBB& fbb, const SparseTensor& sparse_tensor, int64_t body_length,
+                        const std::vector<BufferMetadata>& buffers,
                         SparseTensorOffset* offset) {
   flatbuf::Type fb_type_type;
   Offset fb_type;
@@ -872,8 +872,7 @@ Status MakeSparseTensor(FBB& fbb, const SparseTensor& sparse_tensor,
   return Status::OK();
 }
 
-Status WriteSparseTensorMessage(const SparseTensor& sparse_tensor,
-                                int64_t body_length,
+Status WriteSparseTensorMessage(const SparseTensor& sparse_tensor, int64_t body_length,
                                 const std::vector<BufferMetadata>& buffers,
                                 std::shared_ptr<Buffer>* out) {
   FBB fbb;
