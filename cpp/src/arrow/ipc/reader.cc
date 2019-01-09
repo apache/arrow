@@ -773,9 +773,7 @@ Status MakeSparseTensorWithSparseCOOIndex(
     const std::vector<std::string>& dim_names,
     const std::shared_ptr<SparseCOOIndex>& sparse_index, int64_t non_zero_length,
     const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensorBase>* out) {
-  auto* sparse_tensor =
-      new SparseTensor<SparseCOOIndex>(sparse_index, type, data, shape, dim_names);
-  *out = std::shared_ptr<SparseTensorBase>(sparse_tensor);
+  *out = std::make_shared<SparseTensor<SparseCOOIndex>>(sparse_index, type, data, shape, dim_names);
   return Status::OK();
 }
 
@@ -784,9 +782,7 @@ Status MakeSparseTensorWithSparseCSRIndex(
     const std::vector<std::string>& dim_names,
     const std::shared_ptr<SparseCSRIndex>& sparse_index, int64_t non_zero_length,
     const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensorBase>* out) {
-  auto* sparse_tensor =
-      new SparseTensor<SparseCSRIndex>(sparse_index, type, data, shape, dim_names);
-  *out = std::shared_ptr<SparseTensorBase>(sparse_tensor);
+  *out = std::make_shared<SparseTensor<SparseCSRIndex>>(sparse_index, type, data, shape, dim_names);
   return Status::OK();
 }
 
