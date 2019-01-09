@@ -21,11 +21,11 @@ add_custom_target(arrow_flight)
 ARROW_INSTALL_ALL_HEADERS("arrow/flight")
 
 SET(ARROW_FLIGHT_STATIC_LINK_LIBS
-  grpc_grpcpp
-  grpc_grpc
-  grpc_gpr
-  grpc_address_sorting
-  cares)
+  grpc_grpcpp_static
+  grpc_grpc_static
+  grpc_gpr_static
+  grpc_address_sorting_static
+  cares_static)
 
 # TODO(wesm): Protobuf shared vs static linking
 
