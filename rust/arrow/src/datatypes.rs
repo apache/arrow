@@ -56,9 +56,34 @@ pub enum DataType {
     Float16,
     Float32,
     Float64,
+    Timestamp(TimeUnit),
+    Date(DateUnit),
+    Time32(TimeUnit),
+    Time64(TimeUnit),
+    Interval(IntervalUnit),
     Utf8,
     List(Box<DataType>),
     Struct(Vec<Field>),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DateUnit {
+    Day,
+    Millisecond,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TimeUnit {
+    Second,
+    Millisecond,
+    Microsecond,
+    Nanosecond,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum IntervalUnit {
+    YearMonth,
+    DayTime,
 }
 
 /// Contains the meta-data for a single relative type.
@@ -175,6 +200,47 @@ impl DataType {
                         "floatingpoint precision missing or invalid".to_string(),
                     )),
                 },
+                Some(s) if s == "timestamp" => match map.get("unit") {
+                    Some(p) if p == "SECOND" => Ok(DataType::Timestamp(TimeUnit::Second)),
+                    Some(p) if p == "MILLISECOND" => Ok(DataType::Timestamp(TimeUnit::Millisecond)),
+                    Some(p) if p == "MICROSECOND" => Ok(DataType::Timestamp(TimeUnit::Microsecond)),
+                    Some(p) if p == "NANOSECOND" => Ok(DataType::Timestamp(TimeUnit::Nanosecond)),
+                    _ => Err(ArrowError::ParseError(
+                        "timestamp unit missing or invalid".to_string(),
+                    )),
+                },
+                Some(s) if s == "date" => match map.get("unit") {
+                    Some(p) if p == "DAY" => Ok(DataType::Date(DateUnit::Day)),
+                    Some(p) if p == "MILLISECOND" => Ok(DataType::Date(DateUnit::Millisecond)),
+                    _ => Err(ArrowError::ParseError(
+                        "date unit missing or invalid".to_string(),
+                    )),
+                },
+                Some(s) if s == "time" => {
+                    let unit = match map.get("unit") {
+                        Some(p) if p == "SECOND" => Ok(TimeUnit::Second),
+                        Some(p) if p == "MILLISECOND" => Ok(TimeUnit::Millisecond),
+                        Some(p) if p == "MICROSECOND" => Ok(TimeUnit::Microsecond),
+                        Some(p) if p == "NANOSECOND" => Ok(TimeUnit::Nanosecond),
+                        _ => Err(ArrowError::ParseError(
+                            "time unit missing or invalid".to_string(),
+                        )),
+                    };
+                    match map.get("bitWidth") {
+                        Some(p) if p == "32" => Ok(DataType::Time32(unit?)),
+                        Some(p) if p == "64" => Ok(DataType::Time32(unit?)),
+                        _ => Err(ArrowError::ParseError(
+                            "time bitWidth missing or invalid".to_string(),
+                        )),
+                    }
+                }
+                Some(s) if s == "interval" => match map.get("unit") {
+                    Some(p) if p == "DAY_TIME" => Ok(DataType::Interval(IntervalUnit::DayTime)),
+                    Some(p) if p == "YEAR_MONTH" => Ok(DataType::Interval(IntervalUnit::YearMonth)),
+                    _ => Err(ArrowError::ParseError(
+                        "interval unit missing or invalid".to_string(),
+                    )),
+                },
                 Some(s) if s == "int" => match map.get("isSigned") {
                     Some(&Value::Bool(true)) => match map.get("bitWidth") {
                         Some(&Value::Number(ref n)) => match n.as_u64() {
@@ -231,7 +297,7 @@ impl DataType {
 
     /// Generate a JSON representation of the data type
     pub fn to_json(&self) -> Value {
-        match *self {
+        match self {
             DataType::Boolean => json!({"name": "bool"}),
             DataType::Int8 => json!({"name": "int", "bitWidth": 8, "isSigned": true}),
             DataType::Int16 => json!({"name": "int", "bitWidth": 16, "isSigned": true}),
@@ -254,6 +320,32 @@ impl DataType {
                 let child_json = t.to_json();
                 json!({ "name": "list", "children": child_json })
             }
+            DataType::Time32(unit) => json!({"name": "time", "bitWidth": "32", "unit": match unit {
+                TimeUnit::Second => "SECOND",
+                TimeUnit::Millisecond => "MILLISECOND",
+                TimeUnit::Microsecond => "MICROSECOND",
+                TimeUnit::Nanosecond => "NANOSECOND",
+            }}),
+            DataType::Time64(unit) => json!({"name": "time", "bitWidth": "64", "unit": match unit {
+                TimeUnit::Second => "SECOND",
+                TimeUnit::Millisecond => "MILLISECOND",
+                TimeUnit::Microsecond => "MICROSECOND",
+                TimeUnit::Nanosecond => "NANOSECOND",
+            }}),
+            DataType::Date(unit) => json!({"name": "date", "unit": match unit {
+                DateUnit::Day => "DAY",
+                DateUnit::Millisecond => "MILLISECOND",
+            }}),
+            DataType::Timestamp(unit) => json!({"name": "timestamp", "unit": match unit {
+                TimeUnit::Second => "SECOND",
+                TimeUnit::Millisecond => "MILLISECOND",
+                TimeUnit::Microsecond => "MICROSECOND",
+                TimeUnit::Nanosecond => "NANOSECOND",
+            }}),
+            DataType::Interval(unit) => json!({"name": "interval", "unit": match unit {
+                IntervalUnit::YearMonth => "YEAR_MONTH",
+                IntervalUnit::DayTime => "DAY_TIME",
+            }}),
         }
     }
 }
@@ -394,6 +486,13 @@ impl Schema {
             .enumerate()
             .find(|&(_, c)| c.name == name)
     }
+
+    /// Generate a JSON representation of the `Field`
+    pub fn to_json(&self) -> Value {
+        json!({
+            "fields": self.fields.iter().map(|field| field.to_json()).collect::<Vec<Value>>(),
+        })
+    }
 }
 
 impl fmt::Display for Schema {
@@ -526,6 +625,51 @@ mod tests {
         let value: Value = serde_json::from_str(json).unwrap();
         let dt = DataType::from(&value).unwrap();
         assert_eq!(DataType::Int32, dt);
+    }
+
+    #[test]
+    fn schema_json() {
+        let schema = Schema::new(vec![
+            Field::new("c1", DataType::Utf8, false),
+            Field::new("c2", DataType::Date(DateUnit::Day), false),
+            Field::new("c3", DataType::Date(DateUnit::Millisecond), false),
+            Field::new("c7", DataType::Time32(TimeUnit::Second), false),
+            Field::new("c8", DataType::Time32(TimeUnit::Millisecond), false),
+            Field::new("c9", DataType::Time32(TimeUnit::Microsecond), false),
+            Field::new("c10", DataType::Time32(TimeUnit::Nanosecond), false),
+            Field::new("c11", DataType::Time64(TimeUnit::Second), false),
+            Field::new("c12", DataType::Time64(TimeUnit::Millisecond), false),
+            Field::new("c13", DataType::Time64(TimeUnit::Microsecond), false),
+            Field::new("c14", DataType::Time64(TimeUnit::Nanosecond), false),
+            Field::new("c15", DataType::Timestamp(TimeUnit::Second), false),
+            Field::new("c16", DataType::Timestamp(TimeUnit::Millisecond), false),
+            Field::new("c17", DataType::Timestamp(TimeUnit::Microsecond), false),
+            Field::new("c18", DataType::Timestamp(TimeUnit::Nanosecond), false),
+            Field::new("c19", DataType::Interval(IntervalUnit::DayTime), false),
+            Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
+            Field::new(
+                "c21",
+                DataType::Struct(vec![
+                    Field::new("a", DataType::Utf8, false),
+                    Field::new("b", DataType::UInt16, false),
+                ]),
+                false,
+            ),
+        ]);
+
+        let json = schema.to_json().to_string();
+        assert_eq!(json, "{\"fields\":[{\"name\":\"c1\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},{\"name\":\"c2\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"DAY\"}},{\"name\":\"c3\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"MILLISECOND\"}},{\"name\":\"c7\",\"nullable\":false,\"type\":{\"bitWidth\":\"32\",\"name\":\"time\",\"unit\":\"SECOND\"}},{\"name\":\"c8\",\"nullable\":false,\"type\":{\"bitWidth\":\"32\",\"name\":\"time\",\"unit\":\"MILLISECOND\"}},{\"name\":\"c9\",\"nullable\":false,\"type\":{\"bitWidth\":\"32\",\"name\":\"time\",\"unit\":\"MICROSECOND\"}},{\"name\":\"c10\",\"nullable\":false,\"type\":{\"bitWidth\":\"32\",\"name\":\"time\",\"unit\":\"NANOSECOND\"}},{\"name\":\"c11\",\"nullable\":false,\"type\":{\"bitWidth\":\"64\",\"name\":\"time\",\"unit\":\"SECOND\"}},{\"name\":\"c12\",\"nullable\":false,\"type\":{\"bitWidth\":\"64\",\"name\":\"time\",\"unit\":\"MILLISECOND\"}},{\"name\":\"c13\",\"nullable\":false,\"type\":{\"bitWidth\":\"64\",\"name\":\"time\",\"unit\":\"MICROSECOND\"}},{\"name\":\"c14\",\"nullable\":false,\"type\":{\"bitWidth\":\"64\",\"name\":\"time\",\"unit\":\"NANOSECOND\"}},{\"name\":\"c15\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"SECOND\"}},{\"name\":\"c16\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MILLISECOND\"}},{\"name\":\"c17\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MICROSECOND\"}},{\"name\":\"c18\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"NANOSECOND\"}},{\"name\":\"c19\",\"nullable\":false,\"type\":{\"name\":\"interval\",\"unit\":\"DAY_TIME\"}},{\"name\":\"c20\",\"nullable\":false,\"type\":{\"name\":\"interval\",\"unit\":\"YEAR_MONTH\"}},{\"name\":\"c21\",\"nullable\":false,\"type\":{\"fields\":[{\"name\":\"a\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},{\"name\":\"b\",\"nullable\":false,\"type\":{\"bitWidth\":16,\"isSigned\":false,\"name\":\"int\"}}]}}]}");
+
+        // convert back to a schema
+        let value: Value = serde_json::from_str(&json).unwrap();
+        let schema2 = DataType::from(&value).unwrap();
+
+        match schema2 {
+            DataType::Struct(fields) => {
+                assert_eq!(schema.fields().len(), fields.len());
+            }
+            _ => panic!(),
+        }
     }
 
     #[test]
