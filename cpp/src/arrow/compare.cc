@@ -787,7 +787,7 @@ namespace {
 
 template <typename LeftSparseIndexType, typename RightSparseIndexType>
 struct SparseTensorEqualsImpl {
-  static bool compare(const SparseTensor<LeftSparseIndexType>& left,
+  static bool Compare(const SparseTensor<LeftSparseIndexType>& left,
                       const SparseTensor<RightSparseIndexType>& right) {
     // TODO(mrkn): should we support the equality among different formats?
     return false;
@@ -796,7 +796,7 @@ struct SparseTensorEqualsImpl {
 
 template <typename SparseIndexType>
 struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
-  static bool compare(const SparseTensor<SparseIndexType>& left,
+  static bool Compare(const SparseTensor<SparseIndexType>& left,
                       const SparseTensor<SparseIndexType>& right) {
     DCHECK(left.type()->id() == right.type()->id());
     DCHECK(left.shape() == right.shape());
@@ -827,13 +827,13 @@ inline bool SparseTensorEqualsImplDispatch(const SparseTensor<SparseTensorType>&
   switch (right.sparse_tensor_format_id()) {
     case SparseTensorFormat::COO: {
       const auto& right_coo = checked_cast<const SparseTensor<SparseCOOIndex>&>(right);
-      return SparseTensorEqualsImpl<SparseTensorType, SparseCOOIndex>::compare(left,
+      return SparseTensorEqualsImpl<SparseTensorType, SparseCOOIndex>::Compare(left,
                                                                                right_coo);
     }
 
     case SparseTensorFormat::CSR: {
       const auto& right_csr = checked_cast<const SparseTensor<SparseCSRIndex>&>(right);
-      return SparseTensorEqualsImpl<SparseTensorType, SparseCSRIndex>::compare(left,
+      return SparseTensorEqualsImpl<SparseTensorType, SparseCSRIndex>::Compare(left,
                                                                                right_csr);
     }
 
