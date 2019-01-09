@@ -170,6 +170,10 @@ static|shared (default shared)")
     "If off, 'quiet' flags will be passed to linting tools"
     OFF)
 
+  option(ARROW_GGDB_DEBUG
+    "Pass -ggdb flag to debug builds"
+    ON)
+
   #----------------------------------------------------------------------
   # Project components to enable / disable building
 
@@ -248,6 +252,10 @@ Note that this requires linking Boost statically"
   option(ARROW_PROTOBUF_USE_SHARED
     "Rely on Protocol Buffers shared libraries where relevant"
     OFF)
+
+  option(ARROW_WITH_BACKTRACE
+    "Build with backtrace support"
+    ON)
 
   option(ARROW_USE_GLOG
     "Build libraries with glog support for pluggable logging"

@@ -257,7 +257,7 @@ find_package(Backtrace)
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
     PRIVATE ARROW_EXPORTING)
-  if (Backtrace_FOUND)
+  if (Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
     target_compile_definitions(${LIB_TARGET}
       PRIVATE ARROW_WITH_BACKTRACE)
   endif()

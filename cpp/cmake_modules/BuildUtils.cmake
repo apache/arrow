@@ -182,11 +182,14 @@ function(ADD_ARROW_LIB LIB_NAME)
         ${ARG_PRIVATE_INCLUDES})
     endif()
 
-    if(APPLE)
+    if(APPLE AND NOT DEFINED $ENV{EMSCRIPTEN})
       # On OS X, you can avoid linking at library load time and instead
       # expecting that the symbols have been loaded separately. This happens
       # with libpython* where there can be conflicts between system Python and
       # the Python from a thirdparty distribution
+      # 
+      # When running with the Emscripten Compiler, we need not worry about
+      # python, and the Emscripten Compiler does not support this option.
       set(ARG_SHARED_LINK_FLAGS
         "-undefined dynamic_lookup ${ARG_SHARED_LINK_FLAGS}")
     endif()
